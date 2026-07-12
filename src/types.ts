@@ -115,6 +115,8 @@ export interface ProviderSettings {
   temperature: number;
   proxyEndpoint?: string;
   apiKey?: string;
+  keyStorageMode?: 'server' | 'local';
+  batchSize?: number;
 }
 
 export interface PlaylistIdentity {

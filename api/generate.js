@@ -161,6 +161,44 @@ async function callAnthropic({ model, temperature, system, user, batchSize, user
   return safeParseBlueprint(text);
 }
 
+async function testOpenAI({ model, userApiKey }) {
+  const apiKey = userApiKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    const error = new Error('OPENAI_API_KEY is not configured.');
+    error.status = 401;
+    throw error;
+  }
+  const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model: model || 'gpt-4.1-mini', max_tokens: 8, messages: [{ role: 'user', content: 'Reply with OK.' }] })
+  }, REQUEST_TIMEOUT_MS);
+  if (!response.ok) {
+    const error = new Error('OpenAI connection test failed.');
+    error.status = response.status;
+    throw error;
+  }
+}
+
+async function testAnthropic({ model, userApiKey }) {
+  const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    const error = new Error('ANTHROPIC_API_KEY is not configured.');
+    error.status = 401;
+    throw error;
+  }
+  const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: model || 'claude-sonnet-4-5', max_tokens: 8, messages: [{ role: 'user', content: 'Reply with OK.' }] })
+  }, REQUEST_TIMEOUT_MS);
+  if (!response.ok) {
+    const error = new Error('Anthropic connection test failed.');
+    error.status = response.status;
+    throw error;
+  }
+}
+
 export default async function handler(req, res) {
   const origin = req.headers?.origin || '*';
   res.setHeader?.('Access-Control-Allow-Origin', origin);
@@ -187,6 +225,17 @@ export default async function handler(req, res) {
     const body = parseBody(req);
     const provider = body.provider;
     const userApiKey = req.headers?.['x-user-api-key'] || undefined;
+
+    if (body.testMode) {
+      if (provider === 'openai') await testOpenAI({ model: body.model, userApiKey });
+      else if (provider === 'anthropic') await testAnthropic({ model: body.model, userApiKey });
+      else {
+        sendError(res, 400, 'Unsupported provider.');
+        return;
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
 
     if (!body.system || !body.user) {
       sendError(res, 400, 'Missing system or user payload.');

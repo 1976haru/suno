@@ -14,7 +14,7 @@ import { scoreSongs } from '../core/quality';
 import { generateWithOpenAI } from './openai';
 import { generateWithAnthropic } from './anthropic';
 
-export const BATCH_SIZE = 6;
+export const DEFAULT_BATCH_SIZE = 6;
 
 function chunkRange(total: number, size: number): number[][] {
   const batches: number[][] = [];
@@ -62,7 +62,8 @@ export async function generateBlueprint(
     return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel) };
   }
 
-  const batches = chunkRange(opts.songCount, BATCH_SIZE);
+  const batchSize = Math.min(12, Math.max(1, Math.round(settings.batchSize || DEFAULT_BATCH_SIZE)));
+  const batches = chunkRange(opts.songCount, batchSize);
   let lockedIdentity: PlaylistIdentity | null = null;
   let base: Omit<PlaylistBlueprint, 'songs'> | null = null;
   const allSongs: PlaylistBlueprint['songs'] = [];

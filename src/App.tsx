@@ -5,7 +5,9 @@ import { isPlausibleChordProgression, moneyChordPresets } from './data/moneyChor
 import type { AgeGroup, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings, SavedPackMeta } from './types';
 import { generateBlueprint } from './providers';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from './utils/exporters';
-import { buildDefaultPackName, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, saveAutosave, savePack } from './core/library';
+import { buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, saveAutosave, savePack } from './core/library';
+import { clearAllSettings } from './core/settingsStore';
+import SettingsModal from './components/SettingsModal';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
 const defaultChannel = channelPresets[0];
@@ -163,6 +165,7 @@ export default function App() {
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState('');
   const [savedPacks, setSavedPacks] = useState<SavedPackMeta[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   async function refreshSavedPacks() {
     try {
@@ -344,6 +347,13 @@ export default function App() {
     await refreshSavedPacks();
   }
 
+  async function onDeleteAllData() {
+    if (!window.confirm('저장된 모든 팩과 로컬 API 키를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+    await deleteAllPacks();
+    await clearAllSettings();
+    await refreshSavedPacks();
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -429,6 +439,10 @@ export default function App() {
               불러오기
             </label>
           </div>
+          <button type="button" className="full-width" onClick={() => setSettingsOpen(true)}>
+            <Settings2 size={16} />
+            ⚙️ 설정
+          </button>
         </aside>
 
         <section className="panel profile-editor">
@@ -670,30 +684,16 @@ export default function App() {
         <aside className="panel">
           <div className="panel-title">
             <ShieldAlert size={18} />
-            <h2>AI Provider</h2>
+            <h2>AI Provider (AI 제공자)</h2>
           </div>
-          <label>Provider</label>
-          <select value={provider.provider} onChange={event => setProvider({ ...provider, provider: event.target.value as ProviderSettings['provider'] })}>
-            <option value="local">Local Template</option>
-            <option value="openai">OpenAI via proxy</option>
-            <option value="anthropic">Claude via proxy</option>
-          </select>
-          <label>Model</label>
-          <input
-            value={provider.model || ''}
-            onChange={event => setProvider({ ...provider, model: event.target.value })}
-            placeholder={provider.provider === 'anthropic' ? 'claude-3-5-sonnet-latest' : 'gpt-4.1-mini'}
-            disabled={provider.provider === 'local'}
-          />
-          <label>Proxy endpoint</label>
-          <input
-            value={provider.proxyEndpoint || '/api/generate'}
-            onChange={event => setProvider({ ...provider, proxyEndpoint: event.target.value })}
-            disabled={provider.provider === 'local'}
-          />
-          <label>Temperature {provider.temperature.toFixed(1)}</label>
-          <input type="range" min="0.2" max="1.2" step="0.1" value={provider.temperature} onChange={event => setProvider({ ...provider, temperature: Number(event.target.value) })} />
-          <p className="supporting">Browser API keys are disabled. The proxy reads server-side environment variables only.</p>
+          <p className="supporting">
+            현재: {provider.provider === 'local' ? '로컬 템플릿 (무료)' : provider.provider === 'anthropic' ? `Claude (${provider.model || 'claude-sonnet-4-5'})` : `ChatGPT (${provider.model || 'gpt-4.1-mini'})`}
+            {provider.provider !== 'local' && (provider.keyStorageMode === 'local' ? ' · 브라우저에 저장된 키 사용' : ' · 서버 환경변수 사용')}
+          </p>
+          <button type="button" onClick={() => setSettingsOpen(true)}>
+            <Settings2 size={16} />
+            제공자 / API 키 설정 열기
+          </button>
           <button type="button" className="primary full-width action-button" disabled={isGenerating} onClick={onGenerate}>
             <Wand2 size={18} />
             {isGenerating ? 'Generating...' : 'Generate pack'}
@@ -824,6 +824,16 @@ export default function App() {
           ))}
         </section>
       )}
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={provider}
+        onChange={setProvider}
+        onExportAll={onExportAllPacks}
+        onImportAll={file => void onImportPacks(file)}
+        onDeleteAll={() => void onDeleteAllData()}
+      />
     </main>
   );
 }
