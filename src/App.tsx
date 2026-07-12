@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, Download, Plus, Save, Settings2, ShieldAlert, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { BookOpen, Copy, Download, Plus, Save, Settings2, ShieldAlert, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { channelPresets, generationPacks, genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { isPlausibleChordProgression, moneyChordPresets } from './data/moneyChords';
-import type { AgeGroup, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings } from './types';
+import type { AgeGroup, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings, SavedPackMeta } from './types';
 import { generateBlueprint } from './providers';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from './utils/exporters';
+import { buildDefaultPackName, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, saveAutosave, savePack } from './core/library';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
 const defaultChannel = channelPresets[0];
@@ -161,6 +162,19 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState('');
+  const [savedPacks, setSavedPacks] = useState<SavedPackMeta[]>([]);
+
+  async function refreshSavedPacks() {
+    try {
+      setSavedPacks(await listPacks());
+    } catch {
+      // IndexedDB unavailable (private browsing, etc.) — saved-pack list just stays empty.
+    }
+  }
+
+  useEffect(() => {
+    void refreshSavedPacks();
+  }, []);
 
   const selectedGenres = useMemo(() => genrePacks.filter(genre => opts.genreIds.includes(genre.id)), [opts.genreIds]);
   const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
@@ -272,11 +286,62 @@ export default function App() {
       );
       setOpts(prev => ({ ...prev, songCount }));
       setBlueprint(next);
+      try {
+        await saveAutosave(next, { ...opts, channel: selectedChannel, songCount });
+        await refreshSavedPacks();
+      } catch {
+        // Autosave is a convenience feature; failures should not block the result from showing.
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  async function onSaveCurrentPack() {
+    if (!blueprint) return;
+    const defaultName = buildDefaultPackName(blueprint, { ...opts, channel: selectedChannel });
+    const name = window.prompt('저장할 이름을 입력하세요', defaultName);
+    if (!name) return;
+    await savePack({ blueprint, options: { ...opts, channel: selectedChannel }, name });
+    await refreshSavedPacks();
+  }
+
+  async function onLoadPack(id: string) {
+    const pack = await loadPack(id);
+    if (!pack) return;
+    setBlueprint(pack.blueprint);
+    setOpts(pack.options);
+    const channel = channels.find(item => item.id === pack.options.channel.id);
+    if (channel) setSelectedChannelId(channel.id);
+  }
+
+  async function onDeletePack(id: string) {
+    await deletePack(id);
+    await refreshSavedPacks();
+  }
+
+  async function onRenamePack(id: string, currentName: string) {
+    const name = window.prompt('새 이름을 입력하세요', currentName);
+    if (!name) return;
+    await renamePack(id, name);
+    await refreshSavedPacks();
+  }
+
+  async function onExportAllPacks() {
+    const blob = await exportAllPacks();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'suno-weaver-backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function onImportPacks(file: File) {
+    await importPacks(file);
+    await refreshSavedPacks();
   }
 
   return (
@@ -320,6 +385,49 @@ export default function App() {
           <div className="profile-summary">
             <b>{selectedChannel.englishName || selectedChannel.name}</b>
             <span>{selectedChannel.promise}</span>
+          </div>
+
+          <div className="panel-title">
+            <BookOpen size={18} />
+            <h2>저장된 팩</h2>
+          </div>
+          {savedPacks.length === 0 && <p className="supporting">아직 저장된 팩이 없어요.</p>}
+          <ul className="saved-pack-list">
+            {savedPacks.map(pack => (
+              <li key={pack.id}>
+                <button type="button" className="saved-pack-name" onClick={() => void onLoadPack(pack.id)}>
+                  {pack.isAutosave ? `🕓 ${pack.name}` : pack.name}
+                </button>
+                <span className="supporting">{pack.songCount}곡 · {pack.avgQualityScore}점</span>
+                <div className="button-row">
+                  <button type="button" className="icon-button" title="이름 변경" onClick={() => void onRenamePack(pack.id, pack.name)}>
+                    <Sparkles size={14} />
+                  </button>
+                  <button type="button" className="icon-button" title="삭제" onClick={() => void onDeletePack(pack.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="button-row">
+            <button type="button" onClick={onExportAllPacks}>
+              <Download size={14} />
+              전체 백업
+            </button>
+            <label className="import-button" title="백업 불러오기">
+              <input
+                type="file"
+                accept="application/json"
+                style={{ display: 'none' }}
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) void onImportPacks(file);
+                  event.target.value = '';
+                }}
+              />
+              불러오기
+            </label>
           </div>
         </aside>
 
@@ -602,6 +710,10 @@ export default function App() {
               <p className="supporting">{blueprint.oneLineConcept}</p>
             </div>
             <div className="button-row">
+              <button type="button" className="primary" onClick={() => void onSaveCurrentPack()}>
+                <Save size={16} />
+                💾 이 팩 저장하기
+              </button>
               <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint), 'text/markdown;charset=utf-8')}>
                 <Download size={16} />
                 MD
@@ -631,7 +743,21 @@ export default function App() {
                   <p>{song.listenerSituation} / {song.emotionArc}</p>
                   <span className="chip">{selectedMoneyChord.labelKo}</span>
                 </div>
-                <span className="score">{song.qualityScore}/100</span>
+                <div className="button-row">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    title="이 곡만 txt로 내보내기"
+                    onClick={() => downloadText(
+                      `${song.trackNo.toString().padStart(2, '0')}-${song.title}.txt`,
+                      `Style Prompt\n\n${song.stylePrompt}\n\nLyrics\n\n${song.lyrics}\n\nYouTube\n\n${JSON.stringify(song.youtube, null, 2)}`,
+                      'text/plain;charset=utf-8'
+                    )}
+                  >
+                    <Download size={14} />
+                  </button>
+                  <span className="score">{song.qualityScore}/100</span>
+                </div>
               </div>
 
               {song.warnings.length > 0 && (

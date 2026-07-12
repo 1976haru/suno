@@ -293,6 +293,58 @@ textarea {
   font-weight: 800;
 }
 
+.saved-pack-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saved-pack-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.saved-pack-name {
+  justify-content: flex-start;
+  min-height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--teal-dark);
+  font-size: 13px;
+  text-align: left;
+}
+
+.saved-pack-list .button-row {
+  justify-content: flex-start;
+}
+
+.import-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.import-button:hover {
+  border-color: #a7b7c8;
+  background: var(--panel-soft);
+}
+
 .results {
   margin-top: 16px;
 }

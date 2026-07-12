@@ -138,3 +138,50 @@ export interface GenerationProgress {
   done: number;
   total: number;
 }
+
+export interface SongEvaluation {
+  trackNo: number;
+  scores: {
+    hookStrength: number;
+    lyricOriginality: number;
+    promptFitness: number;
+    audienceFit: number;
+    seasonFit: number;
+    safety: number;
+  };
+  total: number;
+  verdict: 'pass' | 'revise' | 'reject';
+  issues: string[];
+  suggestions: string[];
+  rewrittenHook?: string;
+}
+
+export interface AgentEvaluation {
+  evaluatedAt: string;
+  model: string;
+  packLevel: {
+    diversityScore: number;
+    coherenceScore: number;
+    sequencingScore: number;
+    duplicateWarnings: string[];
+    summary: string;
+  };
+  songs: SongEvaluation[];
+}
+
+export interface SavedPack {
+  id: string;
+  name: string;
+  savedAt: string;
+  isAutosave: boolean;
+  channelId: string;
+  channelName: string;
+  projectTitle: string;
+  songCount: number;
+  avgQualityScore: number;
+  blueprint: PlaylistBlueprint;
+  options: GenerationOptions;
+  evaluation?: AgentEvaluation;
+}
+
+export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation'>;
