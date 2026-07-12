@@ -83,8 +83,27 @@ function collectSongText(song: SongIdea) {
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * Every style prompt we generate ends with our own safety instruction
+ * ("avoid famous artist imitation, ... soundalike vocals"). Scanning that
+ * boilerplate for risk terms flags the instruction itself as a violation
+ * (e.g. "soundalike vocals" matches the soundalike imitation pattern), so
+ * strip it before running the imitation/copyright/artist-name/cliche checks.
+ */
+function stripSafetyBoilerplate(text: string) {
+  return text.replace(/\bavoid\b[^\n]*/gi, ' ');
+}
+
 function pushUnique(warnings: string[], warning: string) {
   if (!warnings.includes(warning)) warnings.push(warning);
+}
+
+function nameMatchesText(name: string, text: string, textLower: string) {
+  if (/^[\x00-\x7f]+$/.test(name)) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+  }
+  return textLower.includes(name.toLowerCase());
 }
 
 export function scoreSong(song: SongIdea, channel?: ChannelProfile): SongIdea {
@@ -94,6 +113,8 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile): SongIdea {
   const textLower = text.toLowerCase();
   const prompt = song.stylePrompt.toLowerCase();
   const lyrics = song.lyrics.toLowerCase();
+  const riskScanText = stripSafetyBoilerplate(text);
+  const riskScanTextLower = riskScanText.toLowerCase();
 
   for (const term of requiredPromptTerms) {
     if (!prompt.includes(term.toLowerCase())) {
@@ -119,23 +140,23 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile): SongIdea {
     score -= 5;
   }
 
-  if (imitationPatterns.some(pattern => pattern.test(text))) {
+  if (imitationPatterns.some(pattern => pattern.test(riskScanText))) {
     pushUnique(warnings, 'Artist imitation risk: remove singer/style-copy wording.');
     score -= 22;
   }
 
-  if (copyrightPatterns.some(pattern => pattern.test(text))) {
+  if (copyrightPatterns.some(pattern => pattern.test(riskScanText))) {
     pushUnique(warnings, 'Copyright risk: remove existing-song, cover, melody, or lyric references.');
     score -= 22;
   }
 
-  if (famousArtistNames.some(name => textLower.includes(name.toLowerCase()))) {
+  if (famousArtistNames.some(name => nameMatchesText(name, riskScanText, riskScanTextLower))) {
     pushUnique(warnings, 'Famous artist reference risk: remove direct artist names.');
     score -= 20;
   }
 
   for (const cliche of channel?.forbiddenCliches || []) {
-    if (cliche && textLower.includes(cliche.toLowerCase())) {
+    if (cliche && riskScanTextLower.includes(cliche.toLowerCase())) {
       pushUnique(warnings, `Channel forbidden cliche detected: ${cliche}`);
       score -= 8;
     }

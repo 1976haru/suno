@@ -1,200 +1,35 @@
-import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Copy, Download, Plus, RefreshCw, Save, Settings2, ShieldAlert, Sparkles, Trash2, Wand2 } from 'lucide-react';
-import { channelPresets, generationPacks, genrePacks, moodPacks, seasonPacks } from './data/presets';
-import { isPlausibleChordProgression, moneyChordPresets } from './data/moneyChords';
-import type { AgeGroup, AgentEvaluation, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings, SavedPackMeta } from './types';
-import { generateBlueprint, regenerateSong } from './providers';
-import { downloadText, exportCsv, exportJson, exportMarkdown } from './utils/exporters';
-import { buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, saveAutosave, savePack } from './core/library';
-import { clearAllSettings } from './core/settingsStore';
-import { evaluatePack, isEvaluationAvailable } from './agents/evaluator';
+import { useMemo, useState } from 'react';
+import { Wand2 } from 'lucide-react';
+import { genrePacks, moodPacks, seasonPacks } from './data/presets';
+import { moneyChordPresets } from './data/moneyChords';
+import { saveAutosave } from './core/library';
+import { isEvaluationAvailable } from './agents/evaluator';
+import { useChannelManager } from './hooks/useChannelManager';
+import { usePackLibrary } from './hooks/usePackLibrary';
+import { useGenerationFlow } from './hooks/useGenerationFlow';
+import { useEvaluationFlow } from './hooks/useEvaluationFlow';
+import { createInitialOptions } from './utils/generation';
+import type { ChannelProfile, ProviderSettings } from './types';
 import SettingsModal from './components/SettingsModal';
+import Sidebar from './components/Sidebar';
+import StepIndicator, { type StepDef } from './components/StepIndicator';
+import Step1Channel from './components/steps/Step1Channel';
+import Step2Concept from './components/steps/Step2Concept';
+import Step3Generate from './components/steps/Step3Generate';
+import Step4Result from './components/steps/Step4Result';
+import WizardNav from './components/WizardNav';
 
-const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
-const defaultChannel = channelPresets[0];
-
-const marketOptions: { value: Market; label: string }[] = [
-  { value: 'korea', label: 'Korea' },
-  { value: 'japan', label: 'Japan' },
-  { value: 'global', label: 'Global' },
-  { value: 'custom', label: 'Custom' }
+const STEPS: StepDef[] = [
+  { id: 1, label: '① 채널' },
+  { id: 2, label: '② 컨셉' },
+  { id: 3, label: '③ 생성' },
+  { id: 4, label: '④ 결과' }
 ];
-
-const languageOptions: { value: LyricLanguage; label: string }[] = [
-  { value: 'english', label: 'English' },
-  { value: 'korean', label: 'Korean' },
-  { value: 'japanese', label: 'Japanese' },
-  { value: 'bilingual', label: 'Bilingual' }
-];
-
-function clampSongCount(value: number) {
-  if (!Number.isFinite(value)) return 12;
-  return Math.min(30, Math.max(1, Math.round(value)));
-}
-
-function parseList(value: string) {
-  return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
-}
-
-function formatList(value: string[]) {
-  return value.join(', ');
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 44) || `channel-${Date.now()}`;
-}
-
-function makeUniqueId(label: string, existingIds: Set<string>, currentId?: string) {
-  const root = slugify(label);
-  let candidate = root;
-  let suffix = 2;
-  while (existingIds.has(candidate) && candidate !== currentId) {
-    candidate = `${root}-${suffix}`;
-    suffix += 1;
-  }
-  return candidate;
-}
-
-function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile {
-  return {
-    id: input.id || `channel-${Date.now()}`,
-    name: input.name?.trim() || 'Untitled Channel',
-    englishName: input.englishName?.trim() || input.name?.trim() || 'Untitled Channel',
-    market: input.market || 'custom',
-    primaryLanguage: input.primaryLanguage || 'english',
-    audience: input.audience || 'allAges',
-    promise: input.promise?.trim() || 'custom playlist channel concept',
-    visualIdentity: input.visualIdentity?.trim() || 'consistent thumbnail layout, readable typography, recognizable channel colors',
-    defaultVocal: input.defaultVocal?.trim() || 'clear emotional vocal, polished playlist-friendly delivery',
-    preferredGenres: input.preferredGenres?.length ? input.preferredGenres : ['adult-contemporary', 'acoustic-pop'],
-    preferredMoods: input.preferredMoods?.length ? input.preferredMoods : ['warm', 'hopeful'],
-    forbiddenCliches: input.forbiddenCliches?.length ? input.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
-    seoKeywords: input.seoKeywords || []
-  };
-}
-
-function createDraftChannel(name = 'New Playlist Channel'): ChannelProfile {
-  return normalizeChannel({
-    id: slugify(name),
-    name,
-    englishName: name,
-    market: 'custom',
-    primaryLanguage: 'english',
-    audience: 'allAges',
-    promise: 'creator-defined playlist channel with a clear listener promise',
-    visualIdentity: 'consistent colors, readable thumbnail typography, clear seasonal object',
-    defaultVocal: 'clear emotional vocal, polished playlist-friendly delivery',
-    preferredGenres: ['adult-contemporary', 'acoustic-pop'],
-    preferredMoods: ['warm', 'hopeful'],
-    forbiddenCliches: ['famous artist imitation', 'copied song structure'],
-    seoKeywords: []
-  });
-}
-
-function readStoredChannels() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]');
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(item => normalizeChannel(item)).filter(channel => channel.id);
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredChannels(channels: ChannelProfile[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(channels));
-  } catch {
-    // Storage can be blocked in private or embedded browser contexts.
-  }
-}
-
-async function copyText(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', 'true');
-  textarea.style.position = 'fixed';
-  textarea.style.left = '-9999px';
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
-}
 
 export default function App() {
-  const [customChannels, setCustomChannels] = useState<ChannelProfile[]>(() => readStoredChannels());
-  const channels = useMemo(() => [...channelPresets, ...customChannels], [customChannels]);
-  const [selectedChannelId, setSelectedChannelId] = useState(defaultChannel.id);
-  const selectedChannel = channels.find(channel => channel.id === selectedChannelId) || defaultChannel;
-  const [editorChannel, setEditorChannel] = useState<ChannelProfile>(() => ({ ...defaultChannel }));
-  const [quickChannelName, setQuickChannelName] = useState('');
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
-  const [opts, setOpts] = useState<GenerationOptions>({
-    channel: selectedChannel,
-    projectTitle: 'Autumn to Christmas Playlist Pack',
-    songCount: 12,
-    lyricLanguage: 'english',
-    market: selectedChannel.market,
-    audience: selectedChannel.audience,
-    genreIds: selectedChannel.preferredGenres,
-    moodIds: selectedChannel.preferredMoods,
-    seasonId: 'christmas',
-    vocalTone: selectedChannel.defaultVocal,
-    perspective: 'firstPerson',
-    lyricDepth: 'commercial',
-    durationTarget: 'under3m30',
-    moneyChordMode: 'default',
-    customMoneyChord: '',
-    customConcept: '',
-    avoidWords: ''
-  });
-  const [blueprint, setBlueprint] = useState<PlaylistBlueprint | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [genProgress, setGenProgress] = useState({ done: 0, total: 0 });
-  const [error, setError] = useState('');
-  const [savedPacks, setSavedPacks] = useState<SavedPackMeta[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [evaluation, setEvaluation] = useState<AgentEvaluation | null>(null);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [evalProgress, setEvalProgress] = useState({ done: 0, total: 0 });
-  const [evalError, setEvalError] = useState('');
-  const [retryingTrack, setRetryingTrack] = useState<number | null>(null);
-
-  async function refreshSavedPacks() {
-    try {
-      setSavedPacks(await listPacks());
-    } catch {
-      // IndexedDB unavailable (private browsing, etc.) — saved-pack list just stays empty.
-    }
-  }
-
-  useEffect(() => {
-    void refreshSavedPacks();
-  }, []);
-
-  const selectedGenres = useMemo(() => genrePacks.filter(genre => opts.genreIds.includes(genre.id)), [opts.genreIds]);
-  const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
-  const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
-  const selectedGenerationPack = useMemo(() => generationPacks.find(pack => pack.id === opts.audience), [opts.audience]);
-  const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
-  const isSelectedCustom = customChannels.some(channel => channel.id === selectedChannelId);
-
-  useEffect(() => {
-    writeStoredChannels(customChannels);
-  }, [customChannels]);
+  const [currentStep, setCurrentStep] = useState(1);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -209,64 +44,24 @@ export default function App() {
     }));
   }
 
-  function selectChannel(id: string) {
-    const channel = channels.find(item => item.id === id) || defaultChannel;
-    setSelectedChannelId(channel.id);
-    setEditorChannel({ ...channel });
-    applyChannelToOptions(channel);
-  }
+  const cm = useChannelManager(applyChannelToOptions);
+  const gen = useGenerationFlow();
+  const evalFlow = useEvaluationFlow();
+  const library = usePackLibrary(pack => {
+    gen.setBlueprint(pack.blueprint);
+    setOpts(pack.options);
+    evalFlow.setEvaluation(pack.evaluation || null);
+    const channel = cm.channels.find(item => item.id === pack.options.channel.id);
+    if (channel) cm.setSelectedChannelId(channel.id);
+    setCurrentStep(4);
+  });
 
-  function addQuickChannel() {
-    const name = quickChannelName.trim();
-    if (!name) return;
-    const existingIds = new Set(channels.map(channel => channel.id));
-    const channel = normalizeChannel({ ...createDraftChannel(name), id: makeUniqueId(name, existingIds) });
-    setCustomChannels(prev => [...prev, channel]);
-    setQuickChannelName('');
-    setSelectedChannelId(channel.id);
-    setEditorChannel({ ...channel });
-    applyChannelToOptions(channel);
-  }
+  const [opts, setOpts] = useState(() => createInitialOptions(cm.selectedChannel));
 
-  function startNewProfile() {
-    const existingIds = new Set(channels.map(channel => channel.id));
-    const channel = normalizeChannel({ ...createDraftChannel(), id: makeUniqueId('new-playlist-channel', existingIds) });
-    setEditorChannel(channel);
-  }
-
-  function saveEditorProfile() {
-    const editingCustom = customChannels.some(channel => channel.id === editorChannel.id);
-    const existingIds = new Set(channels.map(channel => channel.id));
-    const id = editingCustom
-      ? editorChannel.id
-      : makeUniqueId(editorChannel.englishName || editorChannel.name, existingIds);
-    const channel = normalizeChannel({ ...editorChannel, id });
-
-    setCustomChannels(prev => (
-      editingCustom
-        ? prev.map(item => (item.id === channel.id ? channel : item))
-        : [...prev, channel]
-    ));
-    setSelectedChannelId(channel.id);
-    setEditorChannel({ ...channel });
-    applyChannelToOptions(channel);
-  }
-
-  function deleteSelectedCustomChannel() {
-    if (!isSelectedCustom) return;
-    setCustomChannels(prev => prev.filter(channel => channel.id !== selectedChannelId));
-    setSelectedChannelId(defaultChannel.id);
-    setEditorChannel({ ...defaultChannel });
-    applyChannelToOptions(defaultChannel);
-  }
-
-  function updateEditorField<K extends keyof ChannelProfile>(key: K, value: ChannelProfile[K]) {
-    setEditorChannel(prev => ({ ...prev, [key]: value }));
-  }
-
-  function updateEditorList(key: 'preferredGenres' | 'preferredMoods' | 'forbiddenCliches' | 'seoKeywords', value: string) {
-    setEditorChannel(prev => ({ ...prev, [key]: parseList(value) }));
-  }
+  const selectedGenres = useMemo(() => genrePacks.filter(genre => opts.genreIds.includes(genre.id)), [opts.genreIds]);
+  const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
+  const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
+  const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
 
   function toggleArray(key: 'genreIds' | 'moodIds', id: string) {
     setOpts(prev => {
@@ -277,661 +72,167 @@ export default function App() {
     });
   }
 
-  async function onGenerate() {
-    setIsGenerating(true);
-    setError('');
-    setEvaluation(null);
-    setEvalError('');
-    setGenProgress({ done: 0, total: clampSongCount(opts.songCount) });
-    try {
-      const songCount = clampSongCount(opts.songCount);
-      const genres = selectedGenres.length ? selectedGenres : [genrePacks[0]];
-      const moods = selectedMoods.length ? selectedMoods : [moodPacks[0]];
-      const next = await generateBlueprint(
-        { ...opts, channel: selectedChannel, songCount },
-        genres,
-        moods,
-        selectedSeason,
-        provider,
-        progress => setGenProgress(progress)
-      );
-      setOpts(prev => ({ ...prev, songCount }));
-      setBlueprint(next);
-      try {
-        await saveAutosave(next, { ...opts, channel: selectedChannel, songCount });
-        await refreshSavedPacks();
-      } catch {
-        // Autosave is a convenience feature; failures should not block the result from showing.
+  function fallbackGenres() {
+    return selectedGenres.length ? selectedGenres : [genrePacks[0]];
+  }
+
+  function fallbackMoods() {
+    return selectedMoods.length ? selectedMoods : [moodPacks[0]];
+  }
+
+  function onGenerate() {
+    evalFlow.setEvaluation(null);
+    setCurrentStep(4);
+    void gen.generate(
+      { ...opts, channel: cm.selectedChannel },
+      fallbackGenres(),
+      fallbackMoods(),
+      selectedSeason,
+      provider,
+      async (next, songCount) => {
+        setOpts(prev => ({ ...prev, songCount }));
+        try {
+          await saveAutosave(next, { ...opts, channel: cm.selectedChannel, songCount });
+          await library.refresh();
+        } catch {
+          // Autosave is a convenience feature; failures should not block the result from showing.
+        }
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setIsGenerating(false);
-    }
+    );
   }
 
-  async function onSaveCurrentPack() {
-    if (!blueprint) return;
-    const defaultName = buildDefaultPackName(blueprint, { ...opts, channel: selectedChannel });
-    const name = window.prompt('저장할 이름을 입력하세요', defaultName);
-    if (!name) return;
-    await savePack({ blueprint, options: { ...opts, channel: selectedChannel }, name });
-    await refreshSavedPacks();
+  function onEvaluate() {
+    if (!gen.blueprint) return;
+    void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider);
   }
 
-  async function onLoadPack(id: string) {
-    const pack = await loadPack(id);
-    if (!pack) return;
-    setBlueprint(pack.blueprint);
-    setOpts(pack.options);
-    const channel = channels.find(item => item.id === pack.options.channel.id);
-    if (channel) setSelectedChannelId(channel.id);
+  function onRetrySong(trackNo: number, issues: string[]) {
+    if (!gen.blueprint) return;
+    void evalFlow.retrySong(
+      gen.blueprint,
+      trackNo,
+      { ...opts, channel: cm.selectedChannel },
+      fallbackGenres(),
+      fallbackMoods(),
+      selectedSeason,
+      provider,
+      issues,
+      next => gen.setBlueprint(next),
+      message => gen.setError(message)
+    );
   }
 
-  async function onDeletePack(id: string) {
-    await deletePack(id);
-    await refreshSavedPacks();
-  }
-
-  async function onRenamePack(id: string, currentName: string) {
-    const name = window.prompt('새 이름을 입력하세요', currentName);
-    if (!name) return;
-    await renamePack(id, name);
-    await refreshSavedPacks();
-  }
-
-  async function onExportAllPacks() {
-    const blob = await exportAllPacks();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'suno-weaver-backup.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function onImportPacks(file: File) {
-    await importPacks(file);
-    await refreshSavedPacks();
-  }
-
-  async function onDeleteAllData() {
-    if (!window.confirm('저장된 모든 팩과 로컬 API 키를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
-    await deleteAllPacks();
-    await clearAllSettings();
-    await refreshSavedPacks();
-  }
-
-  async function onEvaluate() {
-    if (!blueprint) return;
-    setIsEvaluating(true);
-    setEvalError('');
-    setEvalProgress({ done: 0, total: blueprint.songs.length });
-    try {
-      const result = await evaluatePack(
-        blueprint,
-        { ...opts, channel: selectedChannel },
-        provider,
-        (done, total) => setEvalProgress({ done, total })
-      );
-      setEvaluation(result);
-    } catch (e) {
-      setEvalError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setIsEvaluating(false);
-    }
-  }
-
-  async function onRetrySong(trackNo: number, issues: string[]) {
-    if (!blueprint) return;
-    setRetryingTrack(trackNo);
-    try {
-      const genres = selectedGenres.length ? selectedGenres : [genrePacks[0]];
-      const moods = selectedMoods.length ? selectedMoods : [moodPacks[0]];
-      const next = await regenerateSong(
-        blueprint,
-        trackNo,
-        { ...opts, channel: selectedChannel },
-        genres,
-        moods,
-        selectedSeason,
-        provider,
-        issues
-      );
-      setBlueprint(next);
-      setEvaluation(prev => (prev ? { ...prev, songs: prev.songs.filter(song => song.trackNo !== trackNo) } : prev));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRetryingTrack(null);
-    }
-  }
+  const step2Blocked = opts.genreIds.length === 0 || opts.moodIds.length === 0;
+  const step3Blocked = !gen.blueprint;
+  const maxUnlocked = gen.blueprint ? 4 : step2Blocked ? 2 : 3;
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Suno Weaver Studio v2</p>
+          <p className="eyebrow">Suno Weaver Studio v3</p>
           <h1>Playlist prompt and lyrics workbench</h1>
         </div>
-        <button type="button" className="primary action-button" disabled={isGenerating} onClick={onGenerate}>
+        <button type="button" className="primary action-button" disabled={gen.isGenerating} onClick={onGenerate}>
           <Wand2 size={18} />
-          {isGenerating ? `생성 중... (${genProgress.done}/${genProgress.total})` : `${opts.songCount}곡 생성하기`}
+          {gen.isGenerating ? `생성 중... (${gen.genProgress.done}/${gen.genProgress.total})` : `${opts.songCount}곡 생성하기`}
         </button>
       </header>
 
-      <section className="workspace-grid">
-        <aside className="panel">
-          <div className="panel-title">
-            <Settings2 size={18} />
-            <h2>Channel</h2>
-          </div>
-          <label>Profile</label>
-          <select value={selectedChannelId} onChange={event => selectChannel(event.target.value)}>
-            {channels.map(channel => (
-              <option key={channel.id} value={channel.id}>{channel.name}</option>
-            ))}
-          </select>
+      <div className="wizard-layout">
+        <Sidebar
+          channels={cm.channels}
+          selectedChannelId={cm.selectedChannelId}
+          onSelectChannel={cm.selectChannel}
+          quickChannelName={cm.quickChannelName}
+          onQuickChannelNameChange={cm.setQuickChannelName}
+          onAddQuickChannel={cm.addQuickChannel}
+          selectedChannel={cm.selectedChannel}
+          savedPacks={library.savedPacks}
+          onLoadPack={id => void library.loadPackById(id)}
+          onRenamePack={(id, name) => void library.rename(id, name)}
+          onDeletePack={id => void library.remove(id)}
+          onExportAll={() => void library.exportAll()}
+          onImportAll={file => void library.importAll(file)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
 
-          <label>Quick add</label>
-          <div className="inline">
-            <input
-              value={quickChannelName}
-              onChange={event => setQuickChannelName(event.target.value)}
-              placeholder="New channel name"
+        <div className="wizard-main">
+          <StepIndicator steps={STEPS} current={currentStep} maxUnlocked={maxUnlocked} onSelect={setCurrentStep} />
+
+          {currentStep === 1 && (
+            <Step1Channel
+              editorChannel={cm.editorChannel}
+              isSelectedCustom={cm.isSelectedCustom}
+              onUpdateField={cm.updateEditorField}
+              onUpdateList={cm.updateEditorList}
+              onNew={cm.startNewProfile}
+              onSave={cm.saveEditorProfile}
+              onDelete={cm.deleteSelectedCustomChannel}
             />
-            <button type="button" className="icon-button" title="Add channel" onClick={addQuickChannel}>
-              <Plus size={18} />
-            </button>
-          </div>
-
-          <div className="profile-summary">
-            <b>{selectedChannel.englishName || selectedChannel.name}</b>
-            <span>{selectedChannel.promise}</span>
-          </div>
-
-          <div className="panel-title">
-            <BookOpen size={18} />
-            <h2>저장된 팩</h2>
-          </div>
-          {savedPacks.length === 0 && <p className="supporting">아직 저장된 팩이 없어요.</p>}
-          <ul className="saved-pack-list">
-            {savedPacks.map(pack => (
-              <li key={pack.id}>
-                <button type="button" className="saved-pack-name" onClick={() => void onLoadPack(pack.id)}>
-                  {pack.isAutosave ? `🕓 ${pack.name}` : pack.name}
-                </button>
-                <span className="supporting">{pack.songCount}곡 · {pack.avgQualityScore}점</span>
-                <div className="button-row">
-                  <button type="button" className="icon-button" title="이름 변경" onClick={() => void onRenamePack(pack.id, pack.name)}>
-                    <Sparkles size={14} />
-                  </button>
-                  <button type="button" className="icon-button" title="삭제" onClick={() => void onDeletePack(pack.id)}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <div className="button-row">
-            <button type="button" onClick={onExportAllPacks}>
-              <Download size={14} />
-              전체 백업
-            </button>
-            <label className="import-button" title="백업 불러오기">
-              <input
-                type="file"
-                accept="application/json"
-                style={{ display: 'none' }}
-                onChange={event => {
-                  const file = event.target.files?.[0];
-                  if (file) void onImportPacks(file);
-                  event.target.value = '';
-                }}
-              />
-              불러오기
-            </label>
-          </div>
-          <button type="button" className="full-width" onClick={() => setSettingsOpen(true)}>
-            <Settings2 size={16} />
-            ⚙️ 설정
-          </button>
-        </aside>
-
-        <section className="panel profile-editor">
-          <div className="panel-header">
-            <div className="panel-title">
-              <Sparkles size={18} />
-              <h2>Channel Profile Editor</h2>
-            </div>
-            <div className="button-row">
-              <button type="button" onClick={startNewProfile}>
-                <Plus size={16} />
-                New
-              </button>
-              <button type="button" onClick={saveEditorProfile}>
-                <Save size={16} />
-                Save
-              </button>
-              <button type="button" disabled={!isSelectedCustom} onClick={deleteSelectedCustomChannel}>
-                <Trash2 size={16} />
-                Delete
-              </button>
-            </div>
-          </div>
-
-          <div className="form-grid three">
-            <div>
-              <label>Name</label>
-              <input value={editorChannel.name} onChange={event => updateEditorField('name', event.target.value)} />
-            </div>
-            <div>
-              <label>English name</label>
-              <input value={editorChannel.englishName || ''} onChange={event => updateEditorField('englishName', event.target.value)} />
-            </div>
-            <div>
-              <label>Market</label>
-              <select value={editorChannel.market} onChange={event => updateEditorField('market', event.target.value as Market)}>
-                {marketOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Primary language</label>
-              <select value={editorChannel.primaryLanguage} onChange={event => updateEditorField('primaryLanguage', event.target.value as LyricLanguage)}>
-                {languageOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Generation pack</label>
-              <select value={editorChannel.audience} onChange={event => updateEditorField('audience', event.target.value as AgeGroup)}>
-                {generationPacks.map(pack => <option key={pack.id} value={pack.id}>{pack.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Default vocal</label>
-              <input value={editorChannel.defaultVocal} onChange={event => updateEditorField('defaultVocal', event.target.value)} />
-            </div>
-          </div>
-
-          <div className="form-grid two">
-            <div>
-              <label>Channel promise</label>
-              <textarea value={editorChannel.promise} onChange={event => updateEditorField('promise', event.target.value)} />
-            </div>
-            <div>
-              <label>Visual identity</label>
-              <textarea value={editorChannel.visualIdentity} onChange={event => updateEditorField('visualIdentity', event.target.value)} />
-            </div>
-          </div>
-
-          <div className="form-grid two">
-            <div>
-              <label>Preferred genre ids</label>
-              <textarea value={formatList(editorChannel.preferredGenres)} onChange={event => updateEditorList('preferredGenres', event.target.value)} />
-            </div>
-            <div>
-              <label>Preferred mood ids</label>
-              <textarea value={formatList(editorChannel.preferredMoods)} onChange={event => updateEditorList('preferredMoods', event.target.value)} />
-            </div>
-            <div>
-              <label>Forbidden cliches</label>
-              <textarea value={formatList(editorChannel.forbiddenCliches)} onChange={event => updateEditorList('forbiddenCliches', event.target.value)} />
-            </div>
-            <div>
-              <label>SEO keywords</label>
-              <textarea value={formatList(editorChannel.seoKeywords)} onChange={event => updateEditorList('seoKeywords', event.target.value)} />
-            </div>
-          </div>
-        </section>
-      </section>
-
-      <section className="workspace-grid lower">
-        <section className="panel">
-          <div className="panel-title">
-            <Wand2 size={18} />
-            <h2>Generation Setup</h2>
-          </div>
-          <div className="form-grid four">
-            <div>
-              <label>Project title</label>
-              <input value={opts.projectTitle} onChange={event => setOpts({ ...opts, projectTitle: event.target.value })} />
-            </div>
-            <div>
-              <label>Songs (곡 수)</label>
-              <div className="inline">
-                <input
-                  type="range"
-                  min={1}
-                  max={30}
-                  value={opts.songCount}
-                  onChange={event => setOpts({ ...opts, songCount: clampSongCount(Number(event.target.value)) })}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={opts.songCount}
-                  onChange={event => setOpts({ ...opts, songCount: clampSongCount(Number(event.target.value)) })}
-                />
-              </div>
-              <div className="chips">
-                {[1, 5, 10, 12, 20, 30].map(count => (
-                  <button
-                    type="button"
-                    key={count}
-                    className={opts.songCount === count ? 'chip active' : 'chip'}
-                    onClick={() => setOpts({ ...opts, songCount: clampSongCount(count) })}
-                  >
-                    {count === 1 ? '1곡 (테스트)' : `${count}곡`}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label>Lyrics language</label>
-              <select value={opts.lyricLanguage} onChange={event => setOpts({ ...opts, lyricLanguage: event.target.value as LyricLanguage })}>
-                {languageOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Season pack</label>
-              <select value={opts.seasonId} onChange={event => setOpts({ ...opts, seasonId: event.target.value })}>
-                {seasonPacks.map(season => <option key={season.id} value={season.id}>{season.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Generation pack</label>
-              <select value={opts.audience} onChange={event => setOpts({ ...opts, audience: event.target.value as AgeGroup })}>
-                {generationPacks.map(pack => <option key={pack.id} value={pack.id}>{pack.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Money chords (머니코드)</label>
-              <select value={opts.moneyChordMode} onChange={event => setOpts({ ...opts, moneyChordMode: event.target.value as GenerationOptions['moneyChordMode'] })}>
-                {Object.values(moneyChordPresets).map(preset => (
-                  <option key={preset.id} value={preset.id}>{preset.labelKo} · {preset.label}</option>
-                ))}
-              </select>
-              <p className="supporting">{selectedMoneyChord.description} ({selectedMoneyChord.progressions.join(' / ') || '직접 입력'})</p>
-              {opts.moneyChordMode === 'custom' && (
-                <input
-                  value={opts.customMoneyChord}
-                  onChange={event => setOpts({ ...opts, customMoneyChord: event.target.value })}
-                  placeholder="예: I-V-vi-IV / vi-IV-I-V / IVmaj7-iii7-vi7"
-                />
-              )}
-              {opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim() && !isPlausibleChordProgression(opts.customMoneyChord) && (
-                <p className="supporting">⚠ 로마숫자 코드 표기(I, ii, IV, vii°, maj7 등)로 입력하는 걸 권장하지만, 이대로도 생성은 진행돼요.</p>
-              )}
-            </div>
-            <div>
-              <label>Length control</label>
-              <select value={opts.durationTarget} onChange={event => setOpts({ ...opts, durationTarget: event.target.value as GenerationOptions['durationTarget'] })}>
-                <option value="under3m30">3:10-3:35</option>
-                <option value="under4m">Under 4:00</option>
-                <option value="playlistShort">2:50-3:20</option>
-              </select>
-            </div>
-            <div>
-              <label>Lyric depth</label>
-              <select value={opts.lyricDepth} onChange={event => setOpts({ ...opts, lyricDepth: event.target.value as GenerationOptions['lyricDepth'] })}>
-                <option value="commercial">Commercial</option>
-                <option value="simple">Simple</option>
-                <option value="literary">Literary</option>
-                <option value="poetic">Poetic</option>
-              </select>
-            </div>
-          </div>
-
-          {selectedGenerationPack && <p className="supporting">{selectedGenerationPack.audienceNote}</p>}
-
-          <div className="option-block">
-            <h3>Genre packs</h3>
-            <div className="chips">
-              {genrePacks.map(genre => (
-                <button
-                  type="button"
-                  key={genre.id}
-                  className={opts.genreIds.includes(genre.id) ? 'chip active' : 'chip'}
-                  onClick={() => toggleArray('genreIds', genre.id)}
-                >
-                  {genre.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="option-block">
-            <h3>Mood packs</h3>
-            <div className="chips">
-              {moodPacks.map(mood => (
-                <button
-                  type="button"
-                  key={mood.id}
-                  className={opts.moodIds.includes(mood.id) ? 'chip active' : 'chip'}
-                  onClick={() => toggleArray('moodIds', mood.id)}
-                >
-                  {mood.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-grid two">
-            <div>
-              <label>Vocal tone</label>
-              <input value={opts.vocalTone} onChange={event => setOpts({ ...opts, vocalTone: event.target.value })} />
-            </div>
-            <div>
-              <label>Avoid words / risk terms</label>
-              <input value={opts.avoidWords} onChange={event => setOpts({ ...opts, avoidWords: event.target.value })} placeholder="artist names, song titles, risky imitation phrases" />
-            </div>
-          </div>
-
-          <label>Custom concept</label>
-          <textarea value={opts.customConcept} onChange={event => setOpts({ ...opts, customConcept: event.target.value })} placeholder="Playlist angle, listener situation, upload theme, or thumbnail direction" />
-
-          {error && <p className="error">{error}</p>}
-        </section>
-
-        <aside className="panel">
-          <div className="panel-title">
-            <ShieldAlert size={18} />
-            <h2>AI Provider (AI 제공자)</h2>
-          </div>
-          <p className="supporting">
-            현재: {provider.provider === 'local' ? '로컬 템플릿 (무료)' : provider.provider === 'anthropic' ? `Claude (${provider.model || 'claude-sonnet-4-5'})` : `ChatGPT (${provider.model || 'gpt-4.1-mini'})`}
-            {provider.provider !== 'local' && (provider.keyStorageMode === 'local' ? ' · 브라우저에 저장된 키 사용' : ' · 서버 환경변수 사용')}
-          </p>
-          <button type="button" onClick={() => setSettingsOpen(true)}>
-            <Settings2 size={16} />
-            제공자 / API 키 설정 열기
-          </button>
-          <button type="button" className="primary full-width action-button" disabled={isGenerating} onClick={onGenerate}>
-            <Wand2 size={18} />
-            {isGenerating ? 'Generating...' : 'Generate pack'}
-          </button>
-        </aside>
-      </section>
-
-      {blueprint && (
-        <section className="panel results">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Generated Pack</p>
-              <h2>{blueprint.projectTitle}</h2>
-              <p className="supporting">{blueprint.oneLineConcept}</p>
-            </div>
-            <div className="button-row">
-              <button type="button" className="primary" onClick={() => void onSaveCurrentPack()}>
-                <Save size={16} />
-                💾 이 팩 저장하기
-              </button>
-              <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint), 'text/markdown;charset=utf-8')}>
-                <Download size={16} />
-                MD
-              </button>
-              <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint), 'application/json;charset=utf-8')}>
-                <Download size={16} />
-                JSON
-              </button>
-              <button type="button" onClick={() => downloadText('suno-pack.csv', exportCsv(blueprint), 'text/csv;charset=utf-8')}>
-                <Download size={16} />
-                CSV
-              </button>
-              <button type="button" disabled={isEvaluating || !isEvaluationAvailable(provider)} onClick={() => void onEvaluate()} title={!isEvaluationAvailable(provider) ? '평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다.' : undefined}>
-                <Sparkles size={16} />
-                {isEvaluating ? `AI 평가 중... (${evalProgress.done}/${evalProgress.total})` : '🧪 AI 평가하기'}
-              </button>
-            </div>
-          </div>
-
-          {!isEvaluationAvailable(provider) && (
-            <p className="supporting">평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다. (설정에서 제공자를 변경하세요)</p>
-          )}
-          {evalError && <p className="error">{evalError}</p>}
-
-          {evaluation && (
-            <div className="signature-grid">
-              <div><b>다양성</b><span>{evaluation.packLevel.diversityScore}/100</span></div>
-              <div><b>톤 일관성</b><span>{evaluation.packLevel.coherenceScore}/100</span></div>
-              <div><b>구성 순서</b><span>{evaluation.packLevel.sequencingScore}/100</span></div>
-              <div style={{ gridColumn: '1 / -1' }}><b>총평</b><span>{evaluation.packLevel.summary}</span></div>
-              {evaluation.packLevel.duplicateWarnings.length > 0 && (
-                <div style={{ gridColumn: '1 / -1' }}><b>중복 경고</b><span>{evaluation.packLevel.duplicateWarnings.join(' / ')}</span></div>
-              )}
-            </div>
           )}
 
-          <div className="signature-grid">
-            <div><b>Sonic</b><span>{blueprint.sonicSignature}</span></div>
-            <div><b>Vocal</b><span>{blueprint.vocalSignature}</span></div>
-            <div><b>Visual</b><span>{blueprint.visualRules.join(' / ')}</span></div>
-          </div>
+          {currentStep === 2 && (
+            <Step2Concept
+              opts={opts}
+              setOpts={setOpts}
+              selectedGenres={selectedGenres}
+              selectedMoods={selectedMoods}
+              selectedSeason={selectedSeason}
+              toggleArray={toggleArray}
+            />
+          )}
 
-          {blueprint.songs.map(song => (
-            <article className="song" key={song.trackNo}>
-              <div className="song-head">
-                <div>
-                  <h3>{song.trackNo}. {song.title}</h3>
-                  <p>{song.listenerSituation} / {song.emotionArc}</p>
-                  <span className="chip">{selectedMoneyChord.labelKo}</span>
-                </div>
-                <div className="button-row">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title="이 곡만 txt로 내보내기"
-                    onClick={() => downloadText(
-                      `${song.trackNo.toString().padStart(2, '0')}-${song.title}.txt`,
-                      `Style Prompt\n\n${song.stylePrompt}\n\nLyrics\n\n${song.lyrics}\n\nYouTube\n\n${JSON.stringify(song.youtube, null, 2)}`,
-                      'text/plain;charset=utf-8'
-                    )}
-                  >
-                    <Download size={14} />
-                  </button>
-                  <span className="score">{song.qualityScore}/100</span>
-                </div>
-              </div>
+          {currentStep === 3 && (
+            <Step3Generate
+              opts={opts}
+              setOpts={setOpts}
+              provider={provider}
+              onOpenSettings={() => setSettingsOpen(true)}
+              isGenerating={gen.isGenerating}
+              genProgress={gen.genProgress}
+              error={gen.error}
+              onGenerate={onGenerate}
+            />
+          )}
 
-              {evaluation && (() => {
-                const songEval = evaluation.songs.find(item => item.trackNo === song.trackNo);
-                if (!songEval) return null;
-                return (
-                  <div className="warning">
-                    <Sparkles size={16} />
-                    <span>
-                      AI 평가: {songEval.total}/100 ({songEval.verdict === 'pass' ? '통과' : songEval.verdict === 'revise' ? '수정 권장' : '재생성 권장'})
-                      {songEval.issues.length > 0 && ` — ${songEval.issues.join(' / ')}`}
-                      {songEval.verdict === 'reject' && (
-                        <button
-                          type="button"
-                          className="icon-button"
-                          title="이 곡만 다시 만들기"
-                          disabled={retryingTrack === song.trackNo}
-                          onClick={() => void onRetrySong(song.trackNo, songEval.issues)}
-                        >
-                          <RefreshCw size={14} />
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                );
-              })()}
+          {currentStep === 4 && (
+            <Step4Result
+              blueprint={gen.blueprint}
+              isGenerating={gen.isGenerating}
+              genProgress={gen.genProgress}
+              partialSongs={gen.partialSongs}
+              moneyChordLabel={selectedMoneyChord.labelKo}
+              evaluation={evalFlow.evaluation}
+              evalError={evalFlow.evalError}
+              isEvaluating={evalFlow.isEvaluating}
+              evalProgress={evalFlow.evalProgress}
+              evaluationAvailable={isEvaluationAvailable(provider)}
+              retryingTrack={evalFlow.retryingTrack}
+              onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel })}
+              onEvaluate={onEvaluate}
+              onRetrySong={onRetrySong}
+            />
+          )}
 
-              {song.warnings.length > 0 && (
-                <div className="warning">
-                  <ShieldAlert size={16} />
-                  <span>{song.warnings.join(' / ')}</span>
-                </div>
-              )}
-
-              <div className="result-grid">
-                <section className="copy-block">
-                  <div className="copy-head">
-                    <h4>Style Prompt</h4>
-                    <button type="button" onClick={() => void copyText(song.stylePrompt)}>
-                      <Copy size={15} />
-                      Copy
-                    </button>
-                  </div>
-                  <pre>{song.stylePrompt}</pre>
-                </section>
-
-                <section className="copy-block">
-                  <div className="copy-head">
-                    <h4>Lyrics</h4>
-                    <button type="button" onClick={() => void copyText(song.lyrics)}>
-                      <Copy size={15} />
-                      Copy
-                    </button>
-                  </div>
-                  <pre>{song.lyrics}</pre>
-                </section>
-
-                <section className="copy-block metadata">
-                  <div className="copy-head">
-                    <h4>YouTube</h4>
-                    <button type="button" onClick={() => void copyText(JSON.stringify(song.youtube, null, 2))}>
-                      <Copy size={15} />
-                      Copy all
-                    </button>
-                  </div>
-                  <div className="metadata-row">
-                    <b>Title</b>
-                    <button type="button" onClick={() => void copyText(song.youtube.title)}><Copy size={14} />Copy</button>
-                    <span>{song.youtube.title}</span>
-                  </div>
-                  <div className="metadata-row">
-                    <b>Description</b>
-                    <button type="button" onClick={() => void copyText(song.youtube.description)}><Copy size={14} />Copy</button>
-                    <span>{song.youtube.description}</span>
-                  </div>
-                  <div className="metadata-row">
-                    <b>Tags</b>
-                    <button type="button" onClick={() => void copyText(song.youtube.tags.join(', '))}><Copy size={14} />Copy</button>
-                    <span>{song.youtube.tags.join(', ')}</span>
-                  </div>
-                  <div className="metadata-row">
-                    <b>Thumbnail</b>
-                    <button type="button" onClick={() => void copyText(song.youtube.thumbnailText)}><Copy size={14} />Copy</button>
-                    <span>{song.youtube.thumbnailText}</span>
-                  </div>
-                </section>
-              </div>
-            </article>
-          ))}
-        </section>
-      )}
+          <WizardNav
+            currentStep={currentStep}
+            onPrev={() => setCurrentStep(step => Math.max(1, step - 1))}
+            onNext={() => setCurrentStep(step => Math.min(4, step + 1))}
+            nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 3 && step3Blocked)}
+            blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 3 ? '먼저 곡을 생성하세요.' : ''}
+          />
+        </div>
+      </div>
 
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         settings={provider}
         onChange={setProvider}
-        onExportAll={onExportAllPacks}
-        onImportAll={file => void onImportPacks(file)}
-        onDeleteAll={() => void onDeleteAllData()}
+        onExportAll={() => void library.exportAll()}
+        onImportAll={file => void library.importAll(file)}
+        onDeleteAll={() => void library.deleteAll()}
       />
     </main>
   );

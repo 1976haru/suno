@@ -58,8 +58,9 @@ export async function generateBlueprint(
 ): Promise<PlaylistBlueprint> {
   if (settings.provider === 'local') {
     const blueprint = generateLocalBlueprint(opts, genres, moods, season);
-    onProgress?.({ done: blueprint.songs.length, total: opts.songCount });
-    return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel) };
+    const songs = scoreSongs(blueprint.songs, opts.channel);
+    onProgress?.({ done: songs.length, total: opts.songCount, songs });
+    return { ...blueprint, songs };
   }
 
   const batchSize = Math.min(12, Math.max(1, Math.round(settings.batchSize || DEFAULT_BATCH_SIZE)));
@@ -95,7 +96,7 @@ export async function generateBlueprint(
     }
 
     allSongs.push(...(result.songs || []));
-    onProgress?.({ done: allSongs.length, total: opts.songCount });
+    onProgress?.({ done: allSongs.length, total: opts.songCount, songs: [...allSongs] });
   }
 
   const blueprint: PlaylistBlueprint = {

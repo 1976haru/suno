@@ -139,6 +139,7 @@ export interface BatchContext {
 export interface GenerationProgress {
   done: number;
   total: number;
+  songs: SongIdea[];
 }
 
 export interface SongEvaluation {

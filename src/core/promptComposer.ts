@@ -13,13 +13,17 @@ export function buildDurationControl(target: GenerationOptions['durationTarget']
   return 'playlist-friendly short song, quick intro, compact structure, no long instrumental break, complete song around 2 minutes 50 seconds to 3 minutes 20 seconds';
 }
 
+export function resolveMoneyChordText(opts: GenerationOptions) {
+  return opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()
+    ? `custom chord progression: ${opts.customMoneyChord.trim()}, with a clear emotional chorus lift`
+    : moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
+}
+
 export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack) {
   const genreText = genres.map(g => g.styleCore).join(', ');
   const instrumentText = Array.from(new Set(genres.flatMap(g => g.instruments))).join(', ');
   const moodText = moods.flatMap(m => m.emotionWords).join(', ');
-  const money = opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()
-    ? `custom chord progression: ${opts.customMoneyChord.trim()}, with a clear emotional chorus lift`
-    : moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
+  const money = resolveMoneyChordText(opts);
   const duration = buildDurationControl(opts.durationTarget);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const avoid = opts.avoidWords.trim()
