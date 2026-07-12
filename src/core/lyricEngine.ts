@@ -628,11 +628,11 @@ const enTimeWords = ['November', 'Winter Morning', 'Christmas Eve', 'Quiet Snow'
 const enObjectWords = ['Window', 'Letter', 'Coffee Cup', 'Radio', 'Street', 'Sweater', 'Candle', 'Photograph', 'Train', 'Doorway', 'Record', 'Umbrella', 'Lamp', 'Calendar'];
 const enEmotionWords = ['Memory', 'Warmth', 'Goodbye Song', 'Quiet Hour', 'Small Miracle', 'Gentle Return', 'Soft Promise', 'Old Friend', 'Second Chance', 'Home Again'];
 
-const koTimeWords = ['11월', '겨울 아침', '크리스마스 이브', '고요한 눈', '첫 빛', '오래된 아침의 정적', '늦가을', '느린 일요일', '한밤중', '금빛 저녁', '이른 봄', '비 오는 오후', '새해 새벽', '부드러운 12월'];
+const koTimeWords = ['11월', '겨울 아침', '크리스마스 이브', '고요한 눈', '첫 빛', '고요한 옛 아침', '늦가을', '느린 일요일', '한밤중', '금빛 저녁', '이른 봄', '비 오는 오후', '새해 새벽', '부드러운 12월'];
 const koObjectWords = ['창가', '편지', '커피잔', '라디오', '거리', '스웨터', '촛불', '사진', '기차', '문가', '레코드', '우산', '램프', '달력'];
 const koEmotionWords = ['기억', '온기', '작별 노래', '조용한 시간', '작은 기적', '다정한 귀환', '부드러운 약속', '오랜 친구', '두 번째 기회', '다시 집으로'];
 
-const jaTimeWords = ['十一月', '冬の朝', 'クリスマスイブ', '静かな雪', '最初の光', '古い朝の静寂', '晩秋', 'ゆっくりな日曜日', '真夜中', '金色の夕暮れ', '早春', '雨の午後', '新年の夜明け', 'やわらかな十二月'];
+const jaTimeWords = ['十一月', '冬の朝', 'クリスマスイブ', '静かな雪', '最初の光', '静かな古い朝', '晩秋', 'ゆっくりな日曜日', '真夜中', '金色の夕暮れ', '早春', '雨の午後', '新年の夜明け', 'やわらかな十二月'];
 const jaObjectWords = ['窓辺', '手紙', 'コーヒーカップ', 'ラジオ', '通り', 'セーター', 'キャンドル', '写真', '列車', '戸口', 'レコード', '傘', 'ランプ', 'カレンダー'];
 const jaEmotionWords = ['記憶', 'あたたかさ', '別れの歌', '静かな時間', '小さな奇跡', 'やさしい帰還', 'やわらかな約束', '古い友人', '二度目の機会', 'もう一度家へ'];
 

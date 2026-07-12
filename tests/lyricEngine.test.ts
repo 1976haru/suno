@@ -155,4 +155,18 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
       }
     }
   });
+
+  it('[manual read-through] no Korean/Japanese title chains two genitive particles around an abstract noun', () => {
+    // Regression for '오래된 아침의 정적' / '古い朝の静寂' as a time word: joinTitle() appends its own
+    // 의/の after the time phrase, so a time word that already ends in 의/の produced titles like
+    // "고요한 아침의 정적의 달력" ("the old morning's silence's calendar") - grammatical but reads as a
+    // stacked, awkward double-possession chain. Caught only by reading actual generated titles, not
+    // by any structural test (uniqueness/word-overlap checks don't see word order or particle chaining).
+    for (const language of ['korean', 'japanese'] as const) {
+      const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
+      for (const song of bp.songs) {
+        expect(song.title).not.toMatch(/정적의|静寂の/);
+      }
+    }
+  });
 });
