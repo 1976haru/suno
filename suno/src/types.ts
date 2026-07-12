@@ -44,15 +44,6 @@ export interface SeasonPack {
   visualDirection: string;
 }
 
-export interface GenerationPack {
-  id: AgeGroup;
-  label: string;
-  audienceNote: string;
-  lyricGuidance: string[];
-  tempoBias: string;
-  youtubeAngle: string;
-}
-
 export interface GenerationOptions {
   channel: ChannelProfile;
   projectTitle: string;
@@ -72,13 +63,6 @@ export interface GenerationOptions {
   avoidWords: string;
 }
 
-export interface YoutubeMetadata {
-  title: string;
-  description: string;
-  tags: string[];
-  thumbnailText: string;
-}
-
 export interface SongIdea {
   trackNo: number;
   title: string;
@@ -89,7 +73,6 @@ export interface SongIdea {
   stylePrompt: string;
   lyrics: string;
   thumbnailText: string;
-  youtube: YoutubeMetadata;
   youtubeTitleKo?: string;
   youtubeTitleJa?: string;
   qualityScore: number;
@@ -110,7 +93,7 @@ export interface PlaylistBlueprint {
 
 export interface ProviderSettings {
   provider: ProviderType;
+  apiKey?: string;
   model?: string;
   temperature: number;
-  proxyEndpoint?: string;
 }

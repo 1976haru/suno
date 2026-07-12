@@ -2,34 +2,29 @@
 
 ## v2.0
 
-- Vite + React + TypeScript scaffold
-- Custom channel profiles
-- 10–20 song batch generator
-- Local template mode
-- OpenAI and Claude provider adapters
-- Money chord presets
-- Export Markdown, JSON, CSV
+- Modular React/Vite app.
+- Custom channel profiles.
+- 10–20 song batch generation.
+- OpenAI and Claude provider adapters.
+- Export tools.
 
 ## v2.1
 
-- LocalStorage persistence for custom channels
-- Better channel profile editor
-- More presets: kids, study, sleep, lo-fi, travel, workout, romance, city-pop
-- Better Japanese and Korean lyric templates
-- Playlist calendar planning
+- Persistent browser storage for channel profiles.
+- Playlist calendar planner.
+- More genre packs: trot-pop, city-pop, lo-fi, kids, study, sleep, workout, worship, travel.
+- Better Japanese lyric modes.
 
 ## v2.2
 
-- Serverless proxy for OpenAI/Claude keys
-- Prompt version history
-- A/B title and thumbnail planner
-- Suno result score sheet
-- YouTube metadata generator
+- Serverless provider proxy.
+- Prompt version history.
+- A/B thumbnail/title planner.
+- Suno generation result scoring.
 
 ## v3.0
 
-- Multi-channel dashboard
-- Seasonal content calendar
-- Track library management
-- GitHub issue templates for Codex/Claude Code tasks
-- Optional deployment guide
+- Multi-channel content calendar.
+- YouTube metadata generator.
+- Full project dashboard.
+- GitHub issue templates for Codex/Claude Code tasks.

@@ -8,26 +8,24 @@ export async function generateWithOpenAI(
   season: SeasonPack,
   settings: ProviderSettings
 ): Promise<PlaylistBlueprint> {
-  if (!settings.apiKey) throw new Error('OpenAI API key is required.');
   const model = settings.model || 'gpt-4.1-mini';
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(settings.proxyEndpoint || '/api/generate', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.apiKey}`
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      provider: 'openai',
       model,
       temperature: settings.temperature,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: buildSystemInstruction(opts) },
-        { role: 'user', content: JSON.stringify(buildUserInstruction(opts, genres, moods, season), null, 2) }
-      ]
+      system: buildSystemInstruction(opts),
+      user: buildUserInstruction(opts, genres, moods, season)
     })
   });
 
-  if (!response.ok) throw new Error(`OpenAI request failed: ${response.status}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`OpenAI proxy request failed: ${response.status} ${detail}`);
+  }
+
   const data = await response.json();
-  return JSON.parse(data.choices?.[0]?.message?.content ?? '{}') as PlaylistBlueprint;
+  return (data.blueprint || data) as PlaylistBlueprint;
 }

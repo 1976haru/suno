@@ -16,5 +16,5 @@ export async function generateBlueprint(
   else if (settings.provider === 'anthropic') blueprint = await generateWithAnthropic(opts, genres, moods, season, settings);
   else blueprint = generateLocalBlueprint(opts, genres, moods, season);
 
-  return { ...blueprint, songs: scoreSongs(blueprint.songs || [], opts.channel) };
+  return { ...blueprint, songs: scoreSongs(blueprint.songs || []) };
 }

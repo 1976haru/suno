@@ -1,7 +1,51 @@
 import type { PlaylistBlueprint } from '../types';
 
 export function exportMarkdown(blueprint: PlaylistBlueprint) {
-  return `# ${blueprint.projectTitle}\n\nChannel: ${blueprint.channelName}\n\nConcept: ${blueprint.oneLineConcept}\n\nSonic Signature: ${blueprint.sonicSignature}\n\nVocal Signature: ${blueprint.vocalSignature}\n\n${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}\n\n### Style Prompt\n\n\`\`\`text\n${song.stylePrompt}\n\`\`\`\n\n### Lyrics\n\n\`\`\`text\n${song.lyrics}\n\`\`\`\n\nQuality: ${song.qualityScore}/100\nWarnings: ${song.warnings.join('; ') || 'None'}\n`).join('\n')}`;
+  return `# ${blueprint.projectTitle}
+
+Channel: ${blueprint.channelName}
+
+Concept: ${blueprint.oneLineConcept}
+
+Sonic Signature: ${blueprint.sonicSignature}
+
+Vocal Signature: ${blueprint.vocalSignature}
+
+${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
+
+Situation: ${song.listenerSituation}
+
+Emotion Arc: ${song.emotionArc}
+
+### Style Prompt
+
+\`\`\`text
+${song.stylePrompt}
+\`\`\`
+
+### Lyrics
+
+\`\`\`text
+${song.lyrics}
+\`\`\`
+
+### YouTube
+
+Title: ${song.youtube?.title || ''}
+
+Description:
+
+\`\`\`text
+${song.youtube?.description || ''}
+\`\`\`
+
+Tags: ${(song.youtube?.tags || []).join(', ')}
+
+Thumbnail: ${song.youtube?.thumbnailText || song.thumbnailText}
+
+Quality: ${song.qualityScore}/100
+Warnings: ${song.warnings.join('; ') || 'None'}
+`).join('\n')}`;
 }
 
 export function exportJson(blueprint: PlaylistBlueprint) {
@@ -10,14 +54,43 @@ export function exportJson(blueprint: PlaylistBlueprint) {
 
 export function exportCsv(blueprint: PlaylistBlueprint) {
   const rows = [
-    ['trackNo', 'title', 'seasonMoment', 'listenerSituation', 'emotionArc', 'hookPhrase', 'thumbnailText', 'qualityScore', 'stylePrompt', 'lyrics']
+    [
+      'trackNo',
+      'title',
+      'seasonMoment',
+      'listenerSituation',
+      'emotionArc',
+      'hookPhrase',
+      'youtubeTitle',
+      'youtubeDescription',
+      'youtubeTags',
+      'thumbnailText',
+      'qualityScore',
+      'warnings',
+      'stylePrompt',
+      'lyrics'
+    ]
   ];
+
   for (const song of blueprint.songs) {
     rows.push([
-      String(song.trackNo), song.title, song.seasonMoment, song.listenerSituation, song.emotionArc, song.hookPhrase,
-      song.thumbnailText, String(song.qualityScore), song.stylePrompt, song.lyrics
+      String(song.trackNo),
+      song.title,
+      song.seasonMoment,
+      song.listenerSituation,
+      song.emotionArc,
+      song.hookPhrase,
+      song.youtube?.title || '',
+      song.youtube?.description || '',
+      (song.youtube?.tags || []).join(', '),
+      song.youtube?.thumbnailText || song.thumbnailText,
+      String(song.qualityScore),
+      song.warnings.join('; '),
+      song.stylePrompt,
+      song.lyrics
     ]);
   }
+
   return rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
