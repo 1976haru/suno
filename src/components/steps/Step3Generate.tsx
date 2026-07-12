@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Coins, Info, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { Coins, Info, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
 import { clampSongCount } from '../../utils/generation';
 import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
-import type { GenerationOptions, ProviderSettings } from '../../types';
+import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
+import DryRunPreviewModal from '../DryRunPreviewModal';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, ProviderSettings, SeasonPack } from '../../types';
 
 const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30];
 
@@ -14,6 +16,9 @@ function formatRange(range: TokenRange) {
 interface Step3GenerateProps {
   opts: GenerationOptions;
   setOpts: (updater: (prev: GenerationOptions) => GenerationOptions) => void;
+  genres: GenrePack[];
+  moods: MoodPack[];
+  season: SeasonPack;
   provider: ProviderSettings;
   onOpenSettings: () => void;
   isGenerating: boolean;
@@ -24,7 +29,7 @@ interface Step3GenerateProps {
   onHybridModeChange: (value: boolean) => void;
 }
 
-export default function Step3Generate({ opts, setOpts, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate, hybridMode, onHybridModeChange }: Step3GenerateProps) {
+export default function Step3Generate({ opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate, hybridMode, onHybridModeChange }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
     : provider.provider === 'anthropic'
@@ -33,6 +38,7 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
 
   const [inputPrice, setInputPrice] = useState<number | null>(null);
   const [outputPrice, setOutputPrice] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value ? Number(value) : null));
@@ -40,6 +46,12 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
   }, []);
 
   const costEstimate = estimateCost(opts.songCount, provider, inputPrice, outputPrice);
+
+  // Representative preview of the first batch — later batches add accumulated
+  // usedTitles/usedHooks, called out in the modal's own copy.
+  const previewBatch: BatchContext = { trackNoOffset: 0, totalSongCount: opts.songCount, usedTitles: [], usedHooks: [], lockedIdentity: null };
+  const previewSystemPrompt = buildSystemInstruction(opts, previewBatch);
+  const previewUserPrompt = JSON.stringify(buildUserInstruction(opts, genres, moods, season, previewBatch), null, 2);
 
   return (
     <section className="panel">
@@ -151,6 +163,22 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
           💡 하이브리드 모드에서는 초안 생성이 무료입니다. 실제 API 비용은 결과 화면에서 다듬을 곡을 선택한 만큼만 발생해요.
         </p>
       )}
+
+      {provider.provider !== 'local' && (
+        <div className="button-row">
+          <button type="button" onClick={() => setPreviewOpen(true)}>
+            <Search size={16} />
+            API로 보낼 프롬프트 미리보기 (호출 없음)
+          </button>
+        </div>
+      )}
+
+      <DryRunPreviewModal
+        open={previewOpen}
+        systemPrompt={previewSystemPrompt}
+        userPrompt={previewUserPrompt}
+        onClose={() => setPreviewOpen(false)}
+      />
 
       <button type="button" className="primary full-width action-button" disabled={isGenerating} onClick={onGenerate}>
         <Wand2 size={18} />

@@ -249,6 +249,9 @@ export default function App() {
             <Step3Generate
               opts={opts}
               setOpts={setOpts}
+              genres={fallbackGenres()}
+              moods={fallbackMoods()}
+              season={selectedSeason}
               provider={provider}
               onOpenSettings={() => setSettingsOpen(true)}
               isGenerating={gen.isGenerating}
