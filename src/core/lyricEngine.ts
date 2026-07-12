@@ -464,13 +464,13 @@ export interface LyricBatchPools {
   verse2: UniquePool<LineTemplate>;
   closing: UniquePool<LineTemplate>;
   /**
-   * chorusFirst lines are now built from a short hook (a single object word,
-   * ~14 possible values) rather than the globally-unique title, so an
-   * independent template draw can coincidentally reproduce an exact line
-   * used by an earlier song in the same pack. Tracked here so composeLyrics
-   * can retry until it finds an unused line.
+   * Short hooks and generic motif fillers are drawn from small (~5-14 word)
+   * pools, so an independent template draw in one category can coincidentally
+   * reproduce an exact line already used by an earlier song in the same pack.
+   * Tracked across every category (not just chorusFirst) so composeLyrics can
+   * retry until it finds a line that hasn't been used yet in this blueprint.
    */
-  usedChorusFirstLines: Set<string>;
+  usedLines: Set<string>;
 }
 
 export function createLyricBatchPools(language: LyricLanguage, seedBase: string): LyricBatchPools {
@@ -484,7 +484,7 @@ export function createLyricBatchPools(language: LyricLanguage, seedBase: string)
     bridge: new UniquePool(pools.bridge, s + 5),
     verse2: new UniquePool(pools.verse2, s + 6),
     closing: new UniquePool(pools.closing, s + 7),
-    usedChorusFirstLines: new Set<string>()
+    usedLines: new Set<string>()
   };
 }
 
@@ -494,6 +494,42 @@ function extendedBridgeRoles(role: string) {
 
 function extendedFinalChorusRoles(role: string) {
   return role === 'comforting closer' || role === 'soft reset before the closing run';
+}
+
+// ---------------------------------------------------------------------------
+// Motif budget — a motif appearing in every one of opening/situation/
+// chorusDev/verse2/bridge (and doubled again in the final chorus repeat) is
+// how a single song ends up saying "evening train" six times. Rather than
+// writing a second motif-free variant of every one of ~220 templates, the
+// same template runs against a context whose `motif` field is swapped for a
+// neutral filler noun on non-budgeted slots — the likeMotif()/koParticle()
+// grammar helpers from TASK B already make either word safe to interpolate.
+// ---------------------------------------------------------------------------
+
+const MOTIF_SECONDARY_SLOTS = ['opening', 'verse2', 'situation', 'bridge'] as const;
+type MotifSecondarySlot = (typeof MOTIF_SECONDARY_SLOTS)[number];
+const MOTIF_SECONDARY_WEIGHTS = [0.4, 0.25, 0.2, 0.15];
+
+/** chorusDev always gets the real motif (it's the line the listener repeats); exactly one more slot is chosen per song, weighted toward opening. */
+function chooseSecondaryMotifSlot(rng: () => number): MotifSecondarySlot {
+  let r = rng();
+  for (let i = 0; i < MOTIF_SECONDARY_WEIGHTS.length - 1; i++) {
+    if (r < MOTIF_SECONDARY_WEIGHTS[i]) return MOTIF_SECONDARY_SLOTS[i];
+    r -= MOTIF_SECONDARY_WEIGHTS[i];
+  }
+  return MOTIF_SECONDARY_SLOTS[MOTIF_SECONDARY_SLOTS.length - 1];
+}
+
+const genericMotifFillers: Record<LyricLanguage, string[]> = {
+  english: ['morning', 'evening', 'quiet hour', 'soft light', 'gentle hour'],
+  korean: ['아침', '저녁', '고요한 시간', '부드러운 빛', '작은 순간'],
+  japanese: ['朝', '夕方', '静かな時間', '柔らかな光', '小さな瞬間'],
+  bilingual: ['morning', 'evening', 'quiet hour', 'soft light', 'gentle hour']
+};
+
+function pickMotifFiller(language: LyricLanguage, rng: () => number): string {
+  const fillers = genericMotifFillers[language];
+  return fillers[Math.floor(rng() * fillers.length)];
 }
 
 export interface LyricComposeInput {
@@ -512,28 +548,47 @@ export interface ComposedLyrics {
   hookPhrase: string;
 }
 
+function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used: Set<string>, maxAttempts = 12): string[] {
+  let lines = pool.take()(ctx);
+  for (let attempt = 0; lines.some(line => used.has(line)) && attempt < maxAttempts; attempt++) {
+    lines = pool.take()(ctx);
+  }
+  lines.forEach(line => used.add(line));
+  return lines;
+}
+
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const { language, season, title, hook, situation, motif, role, pools } = input;
   const t = tags[language];
-  const ctx: LyricLineCtx = { season: seasonWordFor(season, language), situation, motif, title, hook };
 
-  const opening = pools.opening.take()(ctx);
-  const situationLines = pools.situation.take()(ctx);
-  let chorusFirst = pools.chorusFirst.take()(ctx);
-  for (let attempt = 0; pools.usedChorusFirstLines.has(chorusFirst[0]) && attempt < 12; attempt++) {
-    chorusFirst = pools.chorusFirst.take()(ctx);
-  }
-  pools.usedChorusFirstLines.add(chorusFirst[0]);
-  const chorusDev = pools.chorusDev.take()(ctx);
+  const motifRng = mulberry32(hashSeed(`${title}::${hook}::motif-budget`));
+  const secondarySlot = chooseSecondaryMotifSlot(motifRng);
+  const seasonWord = seasonWordFor(season, language);
+  const ctxWith: LyricLineCtx = { season: seasonWord, situation, motif, title, hook };
+  // Each non-budgeted slot draws its own filler word rather than sharing one,
+  // so swapping out the real motif doesn't just replace one repeated word
+  // with a different repeated word.
+  const freshFillerCtx = (): LyricLineCtx => ({ season: seasonWord, situation, motif: pickMotifFiller(language, motifRng), title, hook });
+  const ctxFor = (slot: MotifSecondarySlot | 'chorusDev') => (slot === 'chorusDev' || slot === secondarySlot ? ctxWith : freshFillerCtx());
+
+  const opening = takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines);
+  const situationLines = takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines);
+  const chorusFirst = takeUniqueLines(pools.chorusFirst, ctxWith, pools.usedLines);
+  const chorusDev = takeUniqueLines(pools.chorusDev, ctxFor('chorusDev'), pools.usedLines);
   const chorusLines = [...chorusFirst, ...chorusDev];
-  const verse2 = pools.verse2.take()(ctx);
+  const verse2 = takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines);
 
+  // Even when 'bridge' is the budgeted secondary slot, an extended bridge draws
+  // the pool twice — only the first draw gets the real motif so bridge never
+  // contributes more than one real-motif occurrence on its own.
   const bridgeLines = extendedBridgeRoles(role)
-    ? [...pools.bridge.take()(ctx), ...pools.bridge.take()(ctx)]
-    : pools.bridge.take()(ctx);
+    ? [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines)]
+    : takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines);
 
+  // Closing is only used for a handful of roles and is never part of the
+  // motif budget, so it always renders with a filler noun.
   const finalChorusLines = extendedFinalChorusRoles(role)
-    ? [...chorusLines, ...pools.closing.take()(ctx)]
+    ? [...chorusLines, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
     : chorusLines;
 
   const lyrics = [
