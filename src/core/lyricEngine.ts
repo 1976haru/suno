@@ -563,18 +563,27 @@ export interface DiversityWarning {
   similarity: number;
 }
 
-export function assertLyricDiversity(songs: Pick<SongIdea, 'trackNo' | 'lyrics'>[], threshold = 0.4): DiversityWarning[] {
+function pairwiseSimilarities(songs: Pick<SongIdea, 'trackNo' | 'lyrics'>[]) {
   const lineSets = songs.map(song => normalizedLines(song.lyrics));
-  const warnings: DiversityWarning[] = [];
+  const pairs: { trackA: number; trackB: number; similarity: number }[] = [];
   for (let i = 0; i < songs.length; i++) {
     for (let j = i + 1; j < songs.length; j++) {
-      const similarity = jaccard(lineSets[i], lineSets[j]);
-      if (similarity > threshold) {
-        warnings.push({ trackA: songs[i].trackNo, trackB: songs[j].trackNo, similarity });
-      }
+      pairs.push({ trackA: songs[i].trackNo, trackB: songs[j].trackNo, similarity: jaccard(lineSets[i], lineSets[j]) });
     }
   }
-  return warnings;
+  return pairs;
+}
+
+export function assertLyricDiversity(songs: Pick<SongIdea, 'trackNo' | 'lyrics'>[], threshold = 0.4): DiversityWarning[] {
+  return pairwiseSimilarities(songs).filter(pair => pair.similarity > threshold);
+}
+
+/** 0-100: 100 means every pair of songs shares no lyric lines at all. */
+export function computeDiversityScore(songs: Pick<SongIdea, 'trackNo' | 'lyrics'>[]): number {
+  const pairs = pairwiseSimilarities(songs);
+  if (!pairs.length) return 100;
+  const avgSimilarity = pairs.reduce((sum, pair) => sum + pair.similarity, 0) / pairs.length;
+  return Math.round(Math.max(0, Math.min(1, 1 - avgSimilarity)) * 100);
 }
 
 export function seedForBlueprint(opts: Pick<GenerationOptions, 'channel' | 'projectTitle'>) {

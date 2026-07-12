@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Copy, Download, Plus, Save, Settings2, ShieldAlert, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { BookOpen, Copy, Download, Plus, RefreshCw, Save, Settings2, ShieldAlert, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { channelPresets, generationPacks, genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { isPlausibleChordProgression, moneyChordPresets } from './data/moneyChords';
-import type { AgeGroup, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings, SavedPackMeta } from './types';
-import { generateBlueprint } from './providers';
+import type { AgeGroup, AgentEvaluation, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings, SavedPackMeta } from './types';
+import { generateBlueprint, regenerateSong } from './providers';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from './utils/exporters';
 import { buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, saveAutosave, savePack } from './core/library';
 import { clearAllSettings } from './core/settingsStore';
+import { evaluatePack, isEvaluationAvailable } from './agents/evaluator';
 import SettingsModal from './components/SettingsModal';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
@@ -166,6 +167,11 @@ export default function App() {
   const [error, setError] = useState('');
   const [savedPacks, setSavedPacks] = useState<SavedPackMeta[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [evaluation, setEvaluation] = useState<AgentEvaluation | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evalProgress, setEvalProgress] = useState({ done: 0, total: 0 });
+  const [evalError, setEvalError] = useState('');
+  const [retryingTrack, setRetryingTrack] = useState<number | null>(null);
 
   async function refreshSavedPacks() {
     try {
@@ -274,6 +280,8 @@ export default function App() {
   async function onGenerate() {
     setIsGenerating(true);
     setError('');
+    setEvaluation(null);
+    setEvalError('');
     setGenProgress({ done: 0, total: clampSongCount(opts.songCount) });
     try {
       const songCount = clampSongCount(opts.songCount);
@@ -352,6 +360,51 @@ export default function App() {
     await deleteAllPacks();
     await clearAllSettings();
     await refreshSavedPacks();
+  }
+
+  async function onEvaluate() {
+    if (!blueprint) return;
+    setIsEvaluating(true);
+    setEvalError('');
+    setEvalProgress({ done: 0, total: blueprint.songs.length });
+    try {
+      const result = await evaluatePack(
+        blueprint,
+        { ...opts, channel: selectedChannel },
+        provider,
+        (done, total) => setEvalProgress({ done, total })
+      );
+      setEvaluation(result);
+    } catch (e) {
+      setEvalError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsEvaluating(false);
+    }
+  }
+
+  async function onRetrySong(trackNo: number, issues: string[]) {
+    if (!blueprint) return;
+    setRetryingTrack(trackNo);
+    try {
+      const genres = selectedGenres.length ? selectedGenres : [genrePacks[0]];
+      const moods = selectedMoods.length ? selectedMoods : [moodPacks[0]];
+      const next = await regenerateSong(
+        blueprint,
+        trackNo,
+        { ...opts, channel: selectedChannel },
+        genres,
+        moods,
+        selectedSeason,
+        provider,
+        issues
+      );
+      setBlueprint(next);
+      setEvaluation(prev => (prev ? { ...prev, songs: prev.songs.filter(song => song.trackNo !== trackNo) } : prev));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRetryingTrack(null);
+    }
   }
 
   return (
@@ -726,8 +779,29 @@ export default function App() {
                 <Download size={16} />
                 CSV
               </button>
+              <button type="button" disabled={isEvaluating || !isEvaluationAvailable(provider)} onClick={() => void onEvaluate()} title={!isEvaluationAvailable(provider) ? '평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다.' : undefined}>
+                <Sparkles size={16} />
+                {isEvaluating ? `AI 평가 중... (${evalProgress.done}/${evalProgress.total})` : '🧪 AI 평가하기'}
+              </button>
             </div>
           </div>
+
+          {!isEvaluationAvailable(provider) && (
+            <p className="supporting">평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다. (설정에서 제공자를 변경하세요)</p>
+          )}
+          {evalError && <p className="error">{evalError}</p>}
+
+          {evaluation && (
+            <div className="signature-grid">
+              <div><b>다양성</b><span>{evaluation.packLevel.diversityScore}/100</span></div>
+              <div><b>톤 일관성</b><span>{evaluation.packLevel.coherenceScore}/100</span></div>
+              <div><b>구성 순서</b><span>{evaluation.packLevel.sequencingScore}/100</span></div>
+              <div style={{ gridColumn: '1 / -1' }}><b>총평</b><span>{evaluation.packLevel.summary}</span></div>
+              {evaluation.packLevel.duplicateWarnings.length > 0 && (
+                <div style={{ gridColumn: '1 / -1' }}><b>중복 경고</b><span>{evaluation.packLevel.duplicateWarnings.join(' / ')}</span></div>
+              )}
+            </div>
+          )}
 
           <div className="signature-grid">
             <div><b>Sonic</b><span>{blueprint.sonicSignature}</span></div>
@@ -759,6 +833,31 @@ export default function App() {
                   <span className="score">{song.qualityScore}/100</span>
                 </div>
               </div>
+
+              {evaluation && (() => {
+                const songEval = evaluation.songs.find(item => item.trackNo === song.trackNo);
+                if (!songEval) return null;
+                return (
+                  <div className="warning">
+                    <Sparkles size={16} />
+                    <span>
+                      AI 평가: {songEval.total}/100 ({songEval.verdict === 'pass' ? '통과' : songEval.verdict === 'revise' ? '수정 권장' : '재생성 권장'})
+                      {songEval.issues.length > 0 && ` — ${songEval.issues.join(' / ')}`}
+                      {songEval.verdict === 'reject' && (
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="이 곡만 다시 만들기"
+                          disabled={retryingTrack === song.trackNo}
+                          onClick={() => void onRetrySong(song.trackNo, songEval.issues)}
+                        >
+                          <RefreshCw size={14} />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {song.warnings.length > 0 && (
                 <div className="warning">

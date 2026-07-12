@@ -25,7 +25,7 @@ function chunkRange(total: number, size: number): number[][] {
   return batches;
 }
 
-function extractIdentity(blueprint: PlaylistBlueprint): PlaylistIdentity {
+export function extractIdentity(blueprint: PlaylistBlueprint): PlaylistIdentity {
   return {
     oneLineConcept: blueprint.oneLineConcept,
     sonicSignature: blueprint.sonicSignature,
@@ -36,7 +36,7 @@ function extractIdentity(blueprint: PlaylistBlueprint): PlaylistIdentity {
   };
 }
 
-async function callProviderBatch(
+export async function callProviderBatch(
   settings: ProviderSettings,
   opts: GenerationOptions,
   genres: GenrePack[],
@@ -104,4 +104,43 @@ export async function generateBlueprint(
   };
 
   return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel) };
+}
+
+export async function regenerateSong(
+  blueprint: PlaylistBlueprint,
+  trackNo: number,
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  issues: string[]
+): Promise<PlaylistBlueprint> {
+  const others = blueprint.songs.filter(song => song.trackNo !== trackNo);
+  const avoidWords = [opts.avoidWords, ...issues].filter(Boolean).join('; ');
+
+  let replacement: PlaylistBlueprint['songs'][number];
+
+  if (settings.provider === 'local') {
+    const single = generateLocalBlueprint(
+      { ...opts, songCount: 1, avoidWords, projectTitle: `${opts.projectTitle}::retry-${trackNo}-${Date.now()}` },
+      genres,
+      moods,
+      season
+    );
+    replacement = { ...single.songs[0], trackNo };
+  } else {
+    const batchContext: BatchContext = {
+      trackNoOffset: trackNo - 1,
+      totalSongCount: blueprint.songs.length,
+      usedTitles: others.map(song => song.title),
+      usedHooks: others.map(song => song.hookPhrase),
+      lockedIdentity: extractIdentity(blueprint)
+    };
+    const result = await callProviderBatch(settings, { ...opts, songCount: 1, avoidWords }, genres, moods, season, batchContext);
+    replacement = { ...result.songs[0], trackNo };
+  }
+
+  const songs = blueprint.songs.map(song => (song.trackNo === trackNo ? replacement : song));
+  return { ...blueprint, songs: scoreSongs(songs, opts.channel) };
 }
