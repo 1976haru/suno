@@ -1,6 +1,6 @@
 import { Plus, Save, Sparkles, Trash2 } from 'lucide-react';
-import { generationPacks } from '../../data/presets';
-import { formatList } from '../../utils/channelProfile';
+import { generationPacks, genrePacks, moodPacks } from '../../data/presets';
+import TagChips from '../TagChips';
 import type { AgeGroup, ChannelProfile, LyricLanguage, Market } from '../../types';
 
 const marketOptions: { value: Market; label: string }[] = [
@@ -17,17 +17,25 @@ const languageOptions: { value: LyricLanguage; label: string }[] = [
   { value: 'bilingual', label: 'Bilingual' }
 ];
 
+const SEO_KEYWORD_SUGGESTIONS = ['감성 플레이리스트', '60대 음악', '계절 플레이리스트', '카페 음악', '드라이브 음악'];
+const CLICHE_SUGGESTIONS = ['famous artist imitation', 'copied song structure', 'childish lyrics', 'dramatic power ballad shouting'];
+
 interface Step1ChannelProps {
   editorChannel: ChannelProfile;
   isSelectedCustom: boolean;
   onUpdateField: <K extends keyof ChannelProfile>(key: K, value: ChannelProfile[K]) => void;
-  onUpdateList: (key: 'preferredGenres' | 'preferredMoods' | 'forbiddenCliches' | 'seoKeywords', value: string) => void;
   onNew: () => void;
   onSave: () => void;
   onDelete: () => void;
 }
 
-export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onUpdateList, onNew, onSave, onDelete }: Step1ChannelProps) {
+export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete }: Step1ChannelProps) {
+  function toggleId(key: 'preferredGenres' | 'preferredMoods', id: string) {
+    const current = editorChannel[key];
+    const next = current.includes(id) ? current.filter(v => v !== id) : [...current, id];
+    onUpdateField(key, next);
+  }
+
   return (
     <section className="panel profile-editor">
       <p className="step-hint">먼저 어떤 채널의 곡을 만들지 고르세요. 채널마다 목소리와 분위기가 저장됩니다.</p>
@@ -97,23 +105,53 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
         </div>
       </div>
 
+      <div className="option-block">
+        <h3>Preferred genres (선호 장르)</h3>
+        <div className="chips">
+          {genrePacks.map(genre => (
+            <button
+              type="button"
+              key={genre.id}
+              className={editorChannel.preferredGenres.includes(genre.id) ? 'chip active' : 'chip'}
+              onClick={() => toggleId('preferredGenres', genre.id)}
+            >
+              {genre.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="option-block">
+        <h3>Preferred moods (선호 무드)</h3>
+        <div className="chips">
+          {moodPacks.map(mood => (
+            <button
+              type="button"
+              key={mood.id}
+              className={editorChannel.preferredMoods.includes(mood.id) ? 'chip active' : 'chip'}
+              onClick={() => toggleId('preferredMoods', mood.id)}
+            >
+              {mood.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="form-grid two">
-        <div>
-          <label>Preferred genre ids</label>
-          <textarea value={formatList(editorChannel.preferredGenres)} onChange={event => onUpdateList('preferredGenres', event.target.value)} />
-        </div>
-        <div>
-          <label>Preferred mood ids</label>
-          <textarea value={formatList(editorChannel.preferredMoods)} onChange={event => onUpdateList('preferredMoods', event.target.value)} />
-        </div>
-        <div>
-          <label>Forbidden cliches (금지 클리셰)</label>
-          <textarea value={formatList(editorChannel.forbiddenCliches)} onChange={event => onUpdateList('forbiddenCliches', event.target.value)} />
-        </div>
-        <div>
-          <label>SEO keywords</label>
-          <textarea value={formatList(editorChannel.seoKeywords)} onChange={event => onUpdateList('seoKeywords', event.target.value)} />
-        </div>
+        <TagChips
+          label="Forbidden cliches (금지 클리셰)"
+          values={editorChannel.forbiddenCliches}
+          onChange={next => onUpdateField('forbiddenCliches', next)}
+          suggestions={CLICHE_SUGGESTIONS}
+          placeholder="직접 추가"
+        />
+        <TagChips
+          label="SEO keywords (SEO 키워드)"
+          values={editorChannel.seoKeywords}
+          onChange={next => onUpdateField('seoKeywords', next)}
+          suggestions={SEO_KEYWORD_SUGGESTIONS}
+          placeholder="직접 추가"
+        />
       </div>
     </section>
   );

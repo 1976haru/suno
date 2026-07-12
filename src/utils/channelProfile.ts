@@ -2,14 +2,6 @@ import type { ChannelProfile } from '../types';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
 
-export function parseList(value: string) {
-  return value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
-}
-
-export function formatList(value: string[]) {
-  return value.join(', ');
-}
-
 export function slugify(value: string) {
   return value
     .toLowerCase()

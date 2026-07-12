@@ -170,7 +170,6 @@ export default function App() {
               editorChannel={cm.editorChannel}
               isSelectedCustom={cm.isSelectedCustom}
               onUpdateField={cm.updateEditorField}
-              onUpdateList={cm.updateEditorList}
               onNew={cm.startNewProfile}
               onSave={cm.saveEditorProfile}
               onDelete={cm.deleteSelectedCustomChannel}

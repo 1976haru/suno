@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { channelPresets } from '../data/presets';
-import { createDraftChannel, makeUniqueId, normalizeChannel, parseList, readStoredChannels, writeStoredChannels } from '../utils/channelProfile';
+import { createDraftChannel, makeUniqueId, normalizeChannel, readStoredChannels, writeStoredChannels } from '../utils/channelProfile';
 import type { ChannelProfile } from '../types';
 
 const defaultChannel = channelPresets[0];
@@ -73,10 +73,6 @@ export function useChannelManager(onApply: (channel: ChannelProfile) => void) {
     setEditorChannel(prev => ({ ...prev, [key]: value }));
   }
 
-  function updateEditorList(key: 'preferredGenres' | 'preferredMoods' | 'forbiddenCliches' | 'seoKeywords', value: string) {
-    setEditorChannel(prev => ({ ...prev, [key]: parseList(value) }));
-  }
-
   return {
     channels,
     selectedChannelId,
@@ -91,7 +87,6 @@ export function useChannelManager(onApply: (channel: ChannelProfile) => void) {
     startNewProfile,
     saveEditorProfile,
     deleteSelectedCustomChannel,
-    updateEditorField,
-    updateEditorList
+    updateEditorField
   };
 }

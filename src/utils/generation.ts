@@ -1,4 +1,5 @@
 import type { ChannelProfile, GenerationOptions } from '../types';
+import { defaultAvoidWordsString } from '../data/avoidWordPresets';
 
 export function clampSongCount(value: number) {
   if (!Number.isFinite(value)) return 12;
@@ -23,6 +24,6 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     moneyChordMode: 'default',
     customMoneyChord: '',
     customConcept: '',
-    avoidWords: ''
+    avoidWords: defaultAvoidWordsString()
   };
 }
