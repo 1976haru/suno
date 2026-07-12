@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { assertLyricDiversity } from '../src/core/lyricEngine';
+import { generateLocalBlueprint, getRecurringMotifWords } from '../src/core/localGenerator';
+import { assertLyricDiversity, createTitleGenerator } from '../src/core/lyricEngine';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 
 describe('lyric engine', () => {
@@ -61,5 +61,98 @@ describe('lyric engine', () => {
     const openerBridgeLines = opener.lyrics.split('[short bridge]')[1].split('[final chorus]')[0].trim().split('\n').filter(Boolean);
     const centerBridgeLines = emotionalCenter!.lyrics.split('[short bridge]')[1].split('[final chorus]')[0].trim().split('\n').filter(Boolean);
     expect(centerBridgeLines.length).toBeGreaterThan(openerBridgeLines.length);
+  });
+});
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  return haystack.split(needle).length - 1;
+}
+
+function bodyLines(lyrics: string): string[] {
+  return lyrics
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('[') && !line.startsWith('Title:'));
+}
+
+const LANGUAGES = ['english', 'korean', 'japanese'] as const;
+
+describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () => {
+  it.each(LANGUAGES)('[R2] no recurring motif appears more than 3 times in any of 30 songs in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    const motifWords = getRecurringMotifWords(language);
+    for (const song of bp.songs) {
+      for (const motifWord of motifWords) {
+        const count = countOccurrences(song.lyrics, motifWord);
+        expect(count, `"${motifWord}" appeared ${count}x in "${song.title}"`).toBeLessThanOrEqual(3);
+      }
+    }
+  });
+
+  it('[R3] English lyrics never interpolate a bare "like <noun>" without an article', () => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
+    const fillables = [...getRecurringMotifWords('english'), 'morning', 'evening', 'quiet hour', 'soft light', 'gentle hour'];
+    for (const song of bp.songs) {
+      for (const word of fillables) {
+        // "like an evening train" / "like the evening train" must not also match a *bare* "like evening train".
+        expect(song.lyrics, `found bare "like ${word}" in "${song.title}"`).not.toContain(`like ${word}`);
+      }
+    }
+  });
+
+  it.each(LANGUAGES)('[R1] lyrics never contain the full title lowercased and stuffed into a line, in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    for (const song of bp.songs) {
+      const titleCore = song.title.split(/[,、]/)[0].trim();
+      if (titleCore.length < 4) continue;
+      const lowered = titleCore.toLowerCase();
+      for (const line of bodyLines(song.lyrics)) {
+        expect(line.toLowerCase()).not.toContain(lowered);
+      }
+    }
+  });
+
+  it.each(LANGUAGES)('[R1] the extracted hook is 4 words or fewer, in %s', language => {
+    const nextTitle = createTitleGenerator(language, `hook-length-${language}`);
+    for (let i = 0; i < 30; i++) {
+      const { hook } = nextTitle();
+      const wordCount = hook.split(/\s+/).filter(Boolean).length;
+      expect(wordCount, `hook "${hook}" has ${wordCount} words`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it.each(LANGUAGES)('[R1] song.hookPhrase matches the actual first chorus line, in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    for (const song of bp.songs) {
+      const chorusIdx = song.lyrics.indexOf('[chorus]');
+      const actualFirstChorusLine = song.lyrics.slice(chorusIdx).split('\n').filter(Boolean)[1];
+      expect(song.hookPhrase).toBe(actualFirstChorusLine);
+    }
+  });
+
+  it.each(['english', 'korean'] as const)('[R4] no title contains a repeated word, in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    for (const song of bp.songs) {
+      const core = song.title.split(/[,、]/)[0];
+      const words = core.toLowerCase().split(/\s+/).filter(Boolean);
+      expect(new Set(words).size, `"${song.title}" repeats a word`).toBe(words.length);
+    }
+  });
+
+  it('[R4] no duplicate titles across 30 songs (existing guarantee, re-checked here)', () => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30 }), testGenres, testMoods, testSeason);
+    expect(new Set(bp.songs.map(song => song.title)).size).toBe(30);
+  });
+
+  it.each(LANGUAGES)('no line repeats more than twice within a single song, in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    for (const song of bp.songs) {
+      const counts = new Map<string, number>();
+      for (const line of bodyLines(song.lyrics)) counts.set(line, (counts.get(line) || 0) + 1);
+      for (const [line, count] of counts) {
+        expect(count, `line "${line}" repeated ${count}x in "${song.title}"`).toBeLessThanOrEqual(2);
+      }
+    }
   });
 });

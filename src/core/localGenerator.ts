@@ -59,7 +59,7 @@ const recurringMotifs: LocalizedPhrase[] = [
   { english: 'wool sweater', korean: '털 스웨터', japanese: 'ウールのセーター' },
   { english: 'paper calendar', korean: '종이 달력', japanese: '紙のカレンダー' },
   { english: 'warm cafe window', korean: '카페의 창', japanese: 'カフェの窓' },
-  { english: 'candle flame', korean: '촛불', japanese: 'キャンドルの炎' },
+  { english: 'candle flame', korean: '촛불의 빛', japanese: 'キャンドルの炎' },
   { english: 'faded photograph', korean: '빛바랜 사진', japanese: '色あせた写真' },
   { english: 'train ticket', korean: '기차표', japanese: '電車の切符' },
   { english: 'quiet doorway', korean: '조용한 문', japanese: '静かな戸口' },
@@ -128,6 +128,11 @@ function buildYoutubeMetadata(
       : `${season.label}\n${song.title}`;
 
   return { title, description, tags, thumbnailText };
+}
+
+/** Exposed for tests that need to check how often the real recurring motif appears in generated lyrics. */
+export function getRecurringMotifWords(language: GenerationOptions['lyricLanguage']): string[] {
+  return recurringMotifs.map(phrase => phraseFor(phrase, language));
 }
 
 export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PlaylistBlueprint {
