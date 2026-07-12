@@ -1,15 +1,18 @@
 {
   "name": "suno-weaver-studio",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "type": "module",
   "description": "Extensible Suno prompt and lyric generator for playlist channels, with optional OpenAI/Claude provider adapters.",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
-    "dev:auto": "vite",
-    "dev:5175": "vite --host 127.0.0.1 --port 5175 --strictPort",
+    "dev": "vite --host 127.0.0.1 --port 5180",
+    "dev:auto": "vite --host 127.0.0.1",
+    "dev:5180": "vite --host 127.0.0.1 --port 5180",
+    "dev:5190": "vite --host 127.0.0.1 --port 5190",
+    "dev:5200": "vite --host 127.0.0.1 --port 5200",
+    "dev:5500": "vite --host 127.0.0.1 --port 5500",
     "build": "tsc && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4174 --strictPort",
+    "preview": "vite preview --host 127.0.0.1 --port 4180",
     "lint": "eslint . --ext ts,tsx --max-warnings 0"
   },
   "dependencies": {
