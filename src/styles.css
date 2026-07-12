@@ -721,6 +721,20 @@ textarea {
   font-size: 13px;
 }
 
+.song-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.song-select-row input {
+  width: 18px;
+  height: 18px;
+}
+
 .score {
   flex: 0 0 auto;
   border: 1px solid #bae6fd;

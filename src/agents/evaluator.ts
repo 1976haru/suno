@@ -68,8 +68,10 @@ function songEvalUserPayload(songs: PlaylistBlueprint['songs'], opts: Generation
       title: song.title,
       hookPhrase: song.hookPhrase,
       stylePrompt: song.stylePrompt,
-      lyrics: song.lyrics,
-      youtubeTitle: song.youtube.title
+      // Full lyrics are never sent to the evaluator — the hook + opening lines
+      // + style prompt are enough to judge hook strength, originality tone,
+      // and prompt fitness, at a fraction of the input token cost.
+      firstFourLines: firstLyricLines(song.lyrics, 4)
     }))
   };
 }
@@ -123,7 +125,8 @@ export async function evaluatePack(
   blueprint: PlaylistBlueprint,
   opts: GenerationOptions,
   settings: ProviderSettings,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  scopeTrackNos?: number[]
 ): Promise<AgentEvaluation> {
   if (!isEvaluationAvailable(settings)) {
     throw new Error('평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다.');
@@ -132,7 +135,15 @@ export async function evaluatePack(
   const diversityScore = computeDiversityScore(blueprint.songs);
   const similarPairs = assertLyricDiversity(blueprint.songs);
 
-  const batches = chunk(blueprint.songs, EVAL_BATCH_SIZE);
+  // Scope only trims the per-song evaluation (the expensive, one-call-per-song
+  // part). Pack-level scoring always looks at the whole pack — coherence and
+  // sequencing can't be judged from a subset — but it already only sends
+  // first-four-line excerpts, never full lyrics, so it stays cheap regardless.
+  const scopedSongs = scopeTrackNos && scopeTrackNos.length
+    ? blueprint.songs.filter(song => scopeTrackNos.includes(song.trackNo))
+    : blueprint.songs;
+
+  const batches = chunk(scopedSongs, EVAL_BATCH_SIZE);
   const songs: SongEvaluation[] = [];
   let done = 0;
   for (const batch of batches) {
@@ -143,7 +154,7 @@ export async function evaluatePack(
     });
     songs.push(...((result.songs as SongEvaluation[]) || []));
     done += batch.length;
-    onProgress?.(done, blueprint.songs.length);
+    onProgress?.(done, scopedSongs.length);
   }
 
   const packResult = await callJsonProxy(settings, {

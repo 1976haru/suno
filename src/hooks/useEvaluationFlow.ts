@@ -17,13 +17,21 @@ export function useEvaluationFlow() {
   const [retryWarning, setRetryWarning] = useState('');
   const [undoEntry, setUndoEntry] = useState<UndoEntry | null>(null);
 
-  async function evaluate(blueprint: PlaylistBlueprint, opts: GenerationOptions, provider: ProviderSettings) {
+  async function evaluate(blueprint: PlaylistBlueprint, opts: GenerationOptions, provider: ProviderSettings, scopeTrackNos?: number[]) {
     setIsEvaluating(true);
     setEvalError('');
-    setEvalProgress({ done: 0, total: blueprint.songs.length });
+    const scopedCount = scopeTrackNos && scopeTrackNos.length ? scopeTrackNos.length : blueprint.songs.length;
+    setEvalProgress({ done: 0, total: scopedCount });
     try {
-      const result = await evaluatePack(blueprint, opts, provider, (done, total) => setEvalProgress({ done, total }));
-      setEvaluation(result);
+      const result = await evaluatePack(blueprint, opts, provider, (done, total) => setEvalProgress({ done, total }), scopeTrackNos);
+      setEvaluation(prev => {
+        if (!prev || !scopeTrackNos || !scopeTrackNos.length) return result;
+        // Scoped re-evaluation only touched a subset — keep prior per-song
+        // results for tracks that weren't in scope instead of discarding them.
+        const merged = [...prev.songs.filter(song => !scopeTrackNos.includes(song.trackNo)), ...result.songs]
+          .sort((a, b) => a.trackNo - b.trackNo);
+        return { ...result, songs: merged };
+      });
     } catch (e) {
       setEvalError(e instanceof Error ? e.message : String(e));
     } finally {

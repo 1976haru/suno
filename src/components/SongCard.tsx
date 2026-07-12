@@ -11,6 +11,9 @@ interface SongCardProps {
   evaluation?: SongEvaluation;
   isRetrying: boolean;
   onRetry: (trackNo: number, issues: string[]) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (trackNo: number) => void;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -19,7 +22,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
 
@@ -27,6 +30,12 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
 
   return (
     <article className="song">
+      {selectable && (
+        <label className="song-select-row">
+          <input type="checkbox" checked={!!selected} onChange={() => onToggleSelect?.(song.trackNo)} />
+          이 곡을 평가 대상에 포함
+        </label>
+      )}
       <button type="button" className="song-head song-head-toggle" onClick={() => setExpanded(v => !v)}>
         <div>
           <h3>{song.trackNo}. {song.title}</h3>

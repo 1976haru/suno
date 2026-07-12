@@ -149,9 +149,9 @@ export default function App() {
     runGeneration(key);
   }
 
-  function onEvaluate() {
+  function onEvaluate(scopeTrackNos?: number[]) {
     if (!gen.blueprint) return;
-    void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider);
+    void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider, scopeTrackNos);
   }
 
   function onRetrySong(trackNo: number, issues: string[]) {

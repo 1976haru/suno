@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Download, RotateCcw, Save, Sparkles } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
@@ -19,7 +20,7 @@ interface Step4ResultProps {
   retryWarning: string;
   undoTrackNo: number | null;
   onSave: () => void;
-  onEvaluate: () => void;
+  onEvaluate: (scopeTrackNos?: number[]) => void;
   onRetrySong: (trackNo: number, issues: string[]) => void;
   onUndoRetry: () => void;
 }
@@ -44,6 +45,17 @@ export default function Step4Result({
   onRetrySong,
   onUndoRetry
 }: Step4ResultProps) {
+  const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
+  const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
+
+  function toggleTrackSelected(trackNo: number) {
+    setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
+  }
+
+  function handleEvaluateClick() {
+    onEvaluate(evalScope === 'selected' ? selectedTrackNos : undefined);
+  }
+
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
       <section className="panel">
@@ -93,12 +105,16 @@ export default function Step4Result({
             </button>
             <button
               type="button"
-              disabled={isEvaluating || !evaluationAvailable}
-              onClick={onEvaluate}
+              disabled={isEvaluating || !evaluationAvailable || (evalScope === 'selected' && selectedTrackNos.length === 0)}
+              onClick={handleEvaluateClick}
               title={!evaluationAvailable ? '평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다.' : undefined}
             >
               <Sparkles size={16} />
-              {isEvaluating ? `AI 평가 중... (${evalProgress.done}/${evalProgress.total})` : '🧪 AI 평가하기'}
+              {isEvaluating
+                ? `AI 평가 중... (${evalProgress.done}/${evalProgress.total})`
+                : evalScope === 'selected'
+                  ? `🧪 선택한 ${selectedTrackNos.length}곡만 평가하기`
+                  : '🧪 전체 AI 평가하기'}
             </button>
           </div>
         </div>
@@ -106,6 +122,25 @@ export default function Step4Result({
 
       {blueprint && !evaluationAvailable && (
         <p className="supporting">평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다. (설정에서 제공자를 변경하세요)</p>
+      )}
+
+      {blueprint && evaluationAvailable && (
+        <div className="provider-summary">
+          <p className="supporting">
+            평가 범위를 좁히면 API 호출 수가 줄어 비용이 절약됩니다. 곡이 많을수록 효과가 커요.
+          </p>
+          <div className="chips">
+            <button type="button" className={evalScope === 'all' ? 'chip active' : 'chip'} onClick={() => setEvalScope('all')}>
+              전체 {blueprint.songs.length}곡 평가
+            </button>
+            <button type="button" className={evalScope === 'selected' ? 'chip active' : 'chip'} onClick={() => setEvalScope('selected')}>
+              선택한 곡만 평가 ({selectedTrackNos.length}곡 선택됨)
+            </button>
+          </div>
+          {evalScope === 'selected' && (
+            <p className="supporting">아래 곡 목록에서 평가하고 싶은 곡의 체크박스를 선택하세요.</p>
+          )}
+        </div>
       )}
       {evalError && <p className="error">{evalError}</p>}
       {retryWarning && <p className="error">{retryWarning}</p>}
@@ -153,6 +188,9 @@ export default function Step4Result({
             evaluation={evaluation?.songs.find(item => item.trackNo === song.trackNo)}
             isRetrying={false}
             onRetry={onRetrySong}
+            selectable={evalScope === 'selected' && evaluationAvailable}
+            selected={selectedTrackNos.includes(song.trackNo)}
+            onToggleSelect={toggleTrackSelected}
           />
         )
       ))}
