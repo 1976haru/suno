@@ -1,6 +1,6 @@
 {
   "name": "suno-weaver-studio",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "description": "Extensible Suno prompt and lyric generator for playlist channels, with optional OpenAI/Claude provider adapters.",
@@ -8,19 +8,24 @@
     "dev": "vite --host 127.0.0.1 --port 5200",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:stress": "vitest run tests/stress.test.ts --reporter=verbose",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest"
+    "@vitejs/plugin-react": "6.0.3",
+    "vite": "8.1.4",
+    "typescript": "7.0.2",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "lucide-react": "1.24.0"
   },
   "devDependencies": {
-    "eslint": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "eslint": "10.7.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "vitest": "3.2.4"
   }
 }
