@@ -3,6 +3,7 @@ import { Eye, EyeOff, Trash2, X } from 'lucide-react';
 import type { ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
 import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
+import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
 
 const MODEL_OPTIONS: Record<'anthropic' | 'openai', string[]> = {
   anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5'],
@@ -37,6 +38,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [inputPrice, setInputPrice] = useState('');
   const [outputPrice, setOutputPrice] = useState('');
+  const [cache, setCache] = useState<CacheStats | null>(null);
 
   const isRemoteProvider = settings.provider === 'openai' || settings.provider === 'anthropic';
 
@@ -52,6 +54,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     void usageSummary().then(setUsage);
     void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value || ''));
     void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value || ''));
+    void cacheStats().then(setCache);
   }, [open]);
 
   if (!open) return null;
@@ -69,6 +72,11 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   async function handleClearUsage() {
     await clearUsage();
     setUsage(await usageSummary());
+  }
+
+  async function handleClearCache() {
+    await clearCache();
+    setCache(await cacheStats());
   }
 
   async function updateKeyStorageMode(mode: 'server' | 'local') {
@@ -266,6 +274,22 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             <label>출력 1M 토큰당 (원)</label>
             <input value={outputPrice} onChange={event => void updateOutputPrice(event.target.value)} placeholder="예: 22000" />
           </div>
+        </div>
+
+        <label>🗂️ 응답 캐시</label>
+        <p className="supporting">
+          동일한 조건으로 다시 생성할 때 API를 다시 호출하지 않고 재사용할 수 있도록 결과를 7일간 보관합니다.
+          재사용 여부는 매번 직접 선택하며, 자동으로 적용되지 않습니다.
+        </p>
+        {cache && (
+          <p className="supporting">
+            {cache.count > 0
+              ? `저장된 캐시 ${cache.count}건 (가장 오래된 항목: ${new Date(cache.oldestAt as string).toLocaleDateString()})`
+              : '저장된 캐시가 없습니다.'}
+          </p>
+        )}
+        <div className="button-row">
+          <button type="button" onClick={() => void handleClearCache()}>캐시 비우기</button>
         </div>
 
         <label>데이터</label>

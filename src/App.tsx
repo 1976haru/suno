@@ -4,6 +4,8 @@ import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { moneyChordPresets } from './data/moneyChords';
 import { saveAutosave } from './core/library';
 import { isEvaluationAvailable } from './agents/evaluator';
+import { computeCacheKey, getCached, setCached } from './core/apiCache';
+import { recordUsage } from './core/usageLedger';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow } from './hooks/useGenerationFlow';
@@ -11,6 +13,7 @@ import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { createInitialOptions } from './utils/generation';
 import type { ChannelProfile, ProviderSettings } from './types';
 import SettingsModal from './components/SettingsModal';
+import CachePromptModal from './components/CachePromptModal';
 import Sidebar from './components/Sidebar';
 import StepIndicator, { type StepDef } from './components/StepIndicator';
 import Step1Channel from './components/steps/Step1Channel';
@@ -30,6 +33,7 @@ export default function App() {
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -80,7 +84,7 @@ export default function App() {
     return selectedMoods.length ? selectedMoods : [moodPacks[0]];
   }
 
-  function onGenerate() {
+  function runGeneration(cacheKeyToStore?: string) {
     evalFlow.setEvaluation(null);
     setCurrentStep(4);
     void gen.generate(
@@ -91,6 +95,9 @@ export default function App() {
       provider,
       async (next, songCount) => {
         setOpts(prev => ({ ...prev, songCount }));
+        if (cacheKeyToStore) {
+          void setCached(cacheKeyToStore, next, { provider: provider.provider, model: provider.model || provider.provider, songCount });
+        }
         try {
           await saveAutosave(next, { ...opts, channel: cm.selectedChannel, songCount });
           await library.refresh();
@@ -99,6 +106,47 @@ export default function App() {
         }
       }
     );
+  }
+
+  async function onGenerate() {
+    if (provider.provider === 'local') {
+      runGeneration();
+      return;
+    }
+    const key = computeCacheKey({ ...opts, channel: cm.selectedChannel }, fallbackGenres(), fallbackMoods(), selectedSeason, provider);
+    const cached = await getCached(key);
+    if (cached) {
+      setCachePrompt({ key, cachedAt: cached.cachedAt });
+      return;
+    }
+    runGeneration(key);
+  }
+
+  function onUseCachedResult() {
+    if (!cachePrompt) return;
+    void (async () => {
+      const cached = await getCached(cachePrompt.key);
+      setCachePrompt(null);
+      if (!cached) {
+        // Expired or cleared between the prompt showing and the click — fall back to a fresh call.
+        runGeneration(cachePrompt.key);
+        return;
+      }
+      evalFlow.setEvaluation(null);
+      gen.setBlueprint(cached.blueprint);
+      setCurrentStep(4);
+      try {
+        await recordUsage({ provider: provider.provider, model: provider.model || provider.provider, purpose: 'generate', inputTokens: 0, outputTokens: 0, cacheHit: true });
+      } catch {
+        // Usage tracking is a convenience dashboard; never block showing the cached result.
+      }
+    })();
+  }
+
+  function onGenerateFreshFromPrompt() {
+    const key = cachePrompt?.key;
+    setCachePrompt(null);
+    runGeneration(key);
   }
 
   function onEvaluate() {
@@ -241,6 +289,14 @@ export default function App() {
         onExportAll={() => void library.exportAll()}
         onImportAll={file => void library.importAll(file)}
         onDeleteAll={() => void library.deleteAll()}
+      />
+
+      <CachePromptModal
+        open={!!cachePrompt}
+        cachedAt={cachePrompt?.cachedAt || ''}
+        onUseCache={onUseCachedResult}
+        onGenerateFresh={onGenerateFreshFromPrompt}
+        onCancel={() => setCachePrompt(null)}
       />
     </main>
   );
