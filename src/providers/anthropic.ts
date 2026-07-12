@@ -1,5 +1,6 @@
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
 import { buildSystemInstruction, buildUserInstruction } from '../core/promptComposer';
+import { callGenerateProxy } from './proxyFetch';
 
 export async function generateWithAnthropic(
   opts: GenerationOptions,
@@ -11,26 +12,16 @@ export async function generateWithAnthropic(
 ): Promise<PlaylistBlueprint> {
   const model = settings.model || 'claude-sonnet-4-5';
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
+  if (settings.keyStorageMode === 'local' && settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
 
-  const response = await fetch(settings.proxyEndpoint || '/api/generate', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      provider: 'anthropic',
-      model,
-      temperature: settings.temperature,
-      batchSize: opts.songCount,
-      system: buildSystemInstruction(opts, batch),
-      user: buildUserInstruction(opts, genres, moods, season, batch)
-    })
+  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', headers, {
+    provider: 'anthropic',
+    model,
+    temperature: settings.temperature,
+    batchSize: opts.songCount,
+    system: buildSystemInstruction(opts, batch),
+    user: buildUserInstruction(opts, genres, moods, season, batch)
   });
 
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Anthropic proxy request failed: ${response.status} ${detail}`);
-  }
-
-  const data = await response.json();
   return (data.blueprint || data) as PlaylistBlueprint;
 }

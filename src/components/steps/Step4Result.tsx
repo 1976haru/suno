@@ -8,6 +8,7 @@ interface Step4ResultProps {
   isGenerating: boolean;
   genProgress: { done: number; total: number };
   partialSongs: SongIdea[];
+  generationError: string;
   moneyChordLabel: string;
   evaluation: AgentEvaluation | null;
   evalError: string;
@@ -25,6 +26,7 @@ export default function Step4Result({
   isGenerating,
   genProgress,
   partialSongs,
+  generationError,
   moneyChordLabel,
   evaluation,
   evalError,
@@ -36,10 +38,11 @@ export default function Step4Result({
   onEvaluate,
   onRetrySong
 }: Step4ResultProps) {
-  if (!blueprint && !isGenerating) {
+  if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
       <section className="panel">
         <p className="step-hint">아직 생성된 결과가 없어요. 이전 단계에서 곡을 생성해 보세요.</p>
+        {generationError && <p className="error">{generationError}</p>}
       </section>
     );
   }
@@ -50,6 +53,13 @@ export default function Step4Result({
   return (
     <section className="panel results">
       <p className="step-hint">완성된 곡부터 순서대로 나타납니다. 카드를 클릭하면 스타일 프롬프트 / 가사 / YouTube 탭을 볼 수 있어요.</p>
+
+      {!isGenerating && generationError && (
+        <p className="error">
+          {generationError}
+          {partialSongs.length > 0 && !blueprint && ` (완료된 ${partialSongs.length}곡은 아래에 남아 있습니다. 다시 생성하면 처음부터 다시 만들어집니다.)`}
+        </p>
+      )}
 
       {blueprint && (
         <div className="panel-header">

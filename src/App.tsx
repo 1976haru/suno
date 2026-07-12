@@ -202,6 +202,7 @@ export default function App() {
               isGenerating={gen.isGenerating}
               genProgress={gen.genProgress}
               partialSongs={gen.partialSongs}
+              generationError={gen.error}
               moneyChordLabel={selectedMoneyChord.labelKo}
               evaluation={evalFlow.evaluation}
               evalError={evalFlow.evalError}

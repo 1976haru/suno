@@ -1,5 +1,6 @@
 import type { AgentEvaluation, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongEvaluation } from '../types';
 import { assertLyricDiversity, computeDiversityScore, type DiversityWarning } from '../core/lyricEngine';
+import { callGenerateProxy } from '../providers/proxyFetch';
 
 const EVAL_BATCH_SIZE = 6;
 
@@ -11,25 +12,15 @@ async function callJsonProxy(settings: ProviderSettings, payload: { system: stri
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (settings.keyStorageMode === 'local' && settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
 
-  const response = await fetch(settings.proxyEndpoint || '/api/generate', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      provider: settings.provider,
-      model: settings.model,
-      temperature: Math.min(settings.temperature, 0.6),
-      batchSize: payload.batchSize ?? EVAL_BATCH_SIZE,
-      system: payload.system,
-      user: payload.user
-    })
+  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', headers, {
+    provider: settings.provider,
+    model: settings.model,
+    temperature: Math.min(settings.temperature, 0.6),
+    batchSize: payload.batchSize ?? EVAL_BATCH_SIZE,
+    system: payload.system,
+    user: payload.user
   });
 
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}) as { error?: string });
-    throw new Error(detail.error || `평가 요청이 실패했습니다 (${response.status}).`);
-  }
-
-  const data = await response.json();
   return (data.blueprint ?? data) as Record<string, unknown>;
 }
 

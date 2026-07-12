@@ -40,7 +40,14 @@ const recurringMotifs = [
   'street lamp',
   'wool sweater',
   'paper calendar',
-  'warm cafe window'
+  'warm cafe window',
+  'candle flame',
+  'faded photograph',
+  'train ticket',
+  'quiet doorway',
+  'porcelain cup',
+  'evening train',
+  'small notebook'
 ];
 
 const songRoles = [

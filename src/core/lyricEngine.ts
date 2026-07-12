@@ -107,27 +107,27 @@ const enChorusFirst: LineTemplate[] = [
 ];
 
 const enChorusDev: LineTemplate[] = [
-  () => ['softly through the day', 'every lonely shadow', 'slowly fades away'],
-  () => ['gently one more time', 'every heavy morning', 'learns again to shine'],
-  () => ['steady as it grows', 'every quiet worry', 'settles and lets go'],
-  () => ['warm however far', 'every empty evening', 'finds a lower star'],
-  () => ['close in every way', 'every tired heartbeat', 'finds a softer day'],
-  () => ['brighter than before', 'every folded moment', 'opens like a door'],
-  () => ['calm no matter what', 'every scattered feeling', 'settles where it stopped'],
-  () => ['home no matter where', 'every quiet distance', 'turns to something near'],
-  () => ['kind through every hour', 'every fading color', 'finds a little power'],
-  () => ['soft and unafraid', 'every fragile silence', 'learns it is okay']
+  c => ['softly through the day', 'every lonely shadow', `like ${c.motif}, slowly fades away`],
+  c => ['gently one more time', 'every heavy morning', `like ${c.motif}, learns again to shine`],
+  c => ['steady as it grows', 'every quiet worry', `like ${c.motif}, settles and lets go`],
+  c => ['warm however far', 'every empty evening', `like ${c.motif}, finds a lower star`],
+  c => ['close in every way', 'every tired heartbeat', `like ${c.motif}, finds a softer day`],
+  c => ['brighter than before', 'every folded moment', `like ${c.motif}, opens like a door`],
+  c => ['calm no matter what', 'every scattered feeling', `like ${c.motif}, settles where it stopped`],
+  c => ['home no matter where', 'every quiet distance', `like ${c.motif}, turns to something near`],
+  c => ['kind through every hour', 'every fading color', `like ${c.motif}, finds a little power`],
+  c => ['soft and unafraid', 'every fragile silence', `like ${c.motif}, learns it is okay`]
 ];
 
 const enBridge: LineTemplate[] = [
-  () => ['Some dreams become silence', 'Some tears turn to light'],
-  () => ['Some roads lead to nowhere', 'Some lead straight back home'],
-  () => ['Some words never leave us', 'Some just fade to hum'],
-  () => ['Some winters feel endless', 'Some end overnight'],
-  () => ['Some faces stay distant', 'Some stay in the room'],
-  () => ['Some songs keep their color', 'Some quietly fade'],
-  () => ['Some mornings feel heavy', 'Some feel free and light'],
-  () => ['Some letters stay folded', 'Some finally get read']
+  c => ['Some dreams become silence', `Some tears turn to light, like ${c.motif}`],
+  c => ['Some roads lead to nowhere', `Some lead straight back home, like ${c.motif}`],
+  c => ['Some words never leave us', `Some just fade to hum, like ${c.motif}`],
+  c => ['Some winters feel endless', `Some end overnight, like ${c.motif}`],
+  c => ['Some faces stay distant', `Some stay in the room, like ${c.motif}`],
+  c => ['Some songs keep their color', `Some quietly fade, like ${c.motif}`],
+  c => ['Some mornings feel heavy', `Some feel free and light, like ${c.motif}`],
+  c => ['Some letters stay folded', `Some finally get read, like ${c.motif}`]
 ];
 
 const enVerse2: LineTemplate[] = [
@@ -146,14 +146,14 @@ const enVerse2: LineTemplate[] = [
 ];
 
 const enClosing: LineTemplate[] = [
-  () => ['and here I finally rest'],
-  () => ['and everything feels right'],
-  () => ['and morning finds me home'],
-  () => ['and quiet feels like grace'],
-  () => ['and I am not alone'],
-  () => ['and the light stays a while'],
-  () => ['and the season lets me breathe'],
-  () => ['and tomorrow feels kind']
+  c => [`and here I finally rest, beside the ${c.motif}`],
+  c => [`and everything feels right, like ${c.motif}`],
+  c => [`and morning finds me home, near the ${c.motif}`],
+  c => [`and quiet feels like grace, and the ${c.motif} stays`],
+  c => [`and I am not alone, with the ${c.motif} near`],
+  c => [`and the light stays a while, on the ${c.motif}`],
+  c => [`and the season lets me breathe, beside the ${c.motif}`],
+  c => [`and tomorrow feels kind, like the ${c.motif}`]
 ];
 
 // ---------------------------------------------------------------------------
@@ -204,27 +204,27 @@ const koChorusFirst: LineTemplate[] = [
 ];
 
 const koChorusDev: LineTemplate[] = [
-  () => ['오늘도 천천히 걸어요', '외로운 그림자도', '조금씩 옅어져요'],
-  () => ['다시 한번 부드럽게', '무거운 아침도', '다시 빛을 배워요'],
-  () => ['자라날수록 차분하게', '작은 걱정들도', '조용히 흘러가요'],
-  () => ['멀리 있어도 따뜻하게', '텅 빈 저녁도', '낮은 별을 찾아요'],
-  () => ['어느 쪽이든 가깝게', '지친 마음도', '더 부드러운 하루를 찾아요'],
-  () => ['전보다 더 밝게', '접혀 있던 순간도', '문처럼 열려요'],
-  () => ['어떤 상황이든 차분히', '흩어진 감정도', '멈췄던 자리로 돌아와요'],
-  () => ['어디에 있든 집처럼', '조용한 거리도', '가까움으로 바뀌어요'],
-  () => ['매 시간 다정하게', '바래가는 색도', '작은 힘을 찾아요'],
-  () => ['부드럽고 두렵지 않게', '연약한 고요도', '괜찮다는 걸 배워요']
+  c => ['오늘도 천천히 걸어요', '외로운 그림자도', `${c.motif}처럼, 조금씩 옅어져요`],
+  c => ['다시 한번 부드럽게', '무거운 아침도', `${c.motif}처럼, 다시 빛을 배워요`],
+  c => ['자라날수록 차분하게', '작은 걱정들도', `${c.motif}처럼, 조용히 흘러가요`],
+  c => ['멀리 있어도 따뜻하게', '텅 빈 저녁도', `${c.motif}처럼, 낮은 별을 찾아요`],
+  c => ['어느 쪽이든 가깝게', '지친 마음도', `${c.motif}처럼, 더 부드러운 하루를 찾아요`],
+  c => ['전보다 더 밝게', '접혀 있던 순간도', `${c.motif}처럼, 문처럼 열려요`],
+  c => ['어떤 상황이든 차분히', '흩어진 감정도', `${c.motif}처럼, 멈췄던 자리로 돌아와요`],
+  c => ['어디에 있든 집처럼', '조용한 거리도', `${c.motif}처럼, 가까움으로 바뀌어요`],
+  c => ['매 시간 다정하게', '바래가는 색도', `${c.motif}처럼, 작은 힘을 찾아요`],
+  c => ['부드럽고 두렵지 않게', '연약한 고요도', `${c.motif}처럼, 괜찮다는 걸 배워요`]
 ];
 
 const koBridge: LineTemplate[] = [
-  () => ['어떤 꿈은 조용해지고', '어떤 눈물은 빛이 되죠'],
-  () => ['어떤 길은 끝이 없고', '어떤 길은 집으로 이어져요'],
-  () => ['어떤 말은 남지 않고', '어떤 말은 낮은 노래가 돼요'],
-  () => ['어떤 겨울은 끝나지 않을 것 같고', '어떤 겨울은 하루밤에 끝나요'],
-  () => ['어떤 얼굴은 멀어지고', '어떤 얼굴은 방 안에 머물러요'],
-  () => ['어떤 노래는 색을 지키고', '어떤 노래는 조용히 바래요'],
-  () => ['어떤 아침은 무겁고', '어떤 아침은 가볍고 자유로워요'],
-  () => ['어떤 편지는 접힌 채로 남고', '어떤 편지는 결국 읽혀요']
+  c => ['어떤 꿈은 조용해지고', `어떤 눈물은 빛이 되죠, ${c.motif}처럼`],
+  c => ['어떤 길은 끝이 없고', `어떤 길은 집으로 이어져요, ${c.motif}처럼`],
+  c => ['어떤 말은 남지 않고', `어떤 말은 낮은 노래가 돼요, ${c.motif}처럼`],
+  c => ['어떤 겨울은 끝나지 않을 것 같고', `어떤 겨울은 하루밤에 끝나요, ${c.motif}처럼`],
+  c => ['어떤 얼굴은 멀어지고', `어떤 얼굴은 방 안에 머물러요, ${c.motif}처럼`],
+  c => ['어떤 노래는 색을 지키고', `어떤 노래는 조용히 바래요, ${c.motif}처럼`],
+  c => ['어떤 아침은 무겁고', `어떤 아침은 가볍고 자유로워요, ${c.motif}처럼`],
+  c => ['어떤 편지는 접힌 채로 남고', `어떤 편지는 결국 읽혀요, ${c.motif}처럼`]
 ];
 
 const koVerse2: LineTemplate[] = [
@@ -243,14 +243,14 @@ const koVerse2: LineTemplate[] = [
 ];
 
 const koClosing: LineTemplate[] = [
-  () => ['이제야 편히 쉬어요'],
-  () => ['모든 게 다 괜찮게 느껴져요'],
-  () => ['아침이 나를 집으로 데려가요'],
-  () => ['고요함이 은혜처럼 느껴져요'],
-  () => ['나는 더 이상 혼자가 아니에요'],
-  () => ['그 빛이 조금 더 머물러요'],
-  () => ['이 계절이 숨 쉴 틈을 줘요'],
-  () => ['내일이 다정하게 느껴져요']
+  c => [`이제야 편히 쉬어요, ${c.motif}와 함께`],
+  c => [`모든 게 다 괜찮게 느껴져요, ${c.motif}처럼`],
+  c => [`아침이 나를 집으로 데려가요, ${c.motif} 곁에서`],
+  c => [`고요함이 은혜처럼 느껴져요, ${c.motif}와 함께`],
+  c => [`나는 더 이상 혼자가 아니에요, ${c.motif}가 있어서`],
+  c => [`그 빛이 조금 더 머물러요, ${c.motif} 위에`],
+  c => [`이 계절이 숨 쉴 틈을 줘요, ${c.motif} 곁에서`],
+  c => [`내일이 다정하게 느껴져요, ${c.motif}처럼`]
 ];
 
 // ---------------------------------------------------------------------------
@@ -301,27 +301,27 @@ const jaChorusFirst: LineTemplate[] = [
 ];
 
 const jaChorusDev: LineTemplate[] = [
-  () => ['今日もゆっくり歩こう', 'さみしい影さえ', '少しずつほどけてく'],
-  () => ['もう一度やわらかく', '重い朝さえ', 'また輝きを覚える'],
-  () => ['育つほど落ち着いて', '小さな心配さえ', '静かに流れてゆく'],
-  () => ['遠くてもあたたかく', '空っぽの夜さえ', '低い星を見つける'],
-  () => ['どちらにいても近くに', '疲れた心さえ', 'やさしい一日を見つける'],
-  () => ['前よりも明るく', '折りたたまれた瞬間さえ', '扉のように開く'],
-  () => ['どんな時も落ち着いて', '散らばった気持ちさえ', '止まった場所へ戻る'],
-  () => ['どこにいても家のように', '静かな通りさえ', '近さに変わる'],
-  () => ['毎時間やさしく', '色あせてゆくものさえ', '小さな力を見つける'],
-  () => ['やわらかく恐れずに', 'もろい静けささえ', '大丈夫だと知る']
+  c => ['今日もゆっくり歩こう', 'さみしい影さえ', `${c.motif}のように、少しずつほどけてく`],
+  c => ['もう一度やわらかく', '重い朝さえ', `${c.motif}のように、また輝きを覚える`],
+  c => ['育つほど落ち着いて', '小さな心配さえ', `${c.motif}のように、静かに流れてゆく`],
+  c => ['遠くてもあたたかく', '空っぽの夜さえ', `${c.motif}のように、低い星を見つける`],
+  c => ['どちらにいても近くに', '疲れた心さえ', `${c.motif}のように、やさしい一日を見つける`],
+  c => ['前よりも明るく', '折りたたまれた瞬間さえ', `${c.motif}のように、扉のように開く`],
+  c => ['どんな時も落ち着いて', '散らばった気持ちさえ', `${c.motif}のように、止まった場所へ戻る`],
+  c => ['どこにいても家のように', '静かな通りさえ', `${c.motif}のように、近さに変わる`],
+  c => ['毎時間やさしく', '色あせてゆくものさえ', `${c.motif}のように、小さな力を見つける`],
+  c => ['やわらかく恐れずに', 'もろい静けささえ', `${c.motif}のように、大丈夫だと知る`]
 ];
 
 const jaBridge: LineTemplate[] = [
-  () => ['夢は静けさになり', '涙は光になる'],
-  () => ['ある道は終わりがなく', 'ある道は家へと続く'],
-  () => ['ある言葉は残らず', 'ある言葉は低い歌になる'],
-  () => ['ある冬は終わらないようで', 'ある冬は一晩で終わる'],
-  () => ['ある顔は遠ざかり', 'ある顔は部屋にとどまる'],
-  () => ['ある歌は色を守り', 'ある歌は静かに色あせる'],
-  () => ['ある朝は重く', 'ある朝は軽く自由になる'],
-  () => ['ある手紙は畳まれたままで', 'ある手紙はいつか読まれる']
+  c => ['夢は静けさになり', `涙は光になる、${c.motif}のように`],
+  c => ['ある道は終わりがなく', `ある道は家へと続く、${c.motif}のように`],
+  c => ['ある言葉は残らず', `ある言葉は低い歌になる、${c.motif}のように`],
+  c => ['ある冬は終わらないようで', `ある冬は一晩で終わる、${c.motif}のように`],
+  c => ['ある顔は遠ざかり', `ある顔は部屋にとどまる、${c.motif}のように`],
+  c => ['ある歌は色を守り', `ある歌は静かに色あせる、${c.motif}のように`],
+  c => ['ある朝は重く', `ある朝は軽く自由になる、${c.motif}のように`],
+  c => ['ある手紙は畳まれたままで', `ある手紙はいつか読まれる、${c.motif}のように`]
 ];
 
 const jaVerse2: LineTemplate[] = [
@@ -340,14 +340,14 @@ const jaVerse2: LineTemplate[] = [
 ];
 
 const jaClosing: LineTemplate[] = [
-  () => ['ようやく心が休まる'],
-  () => ['すべてが大丈夫に思える'],
-  () => ['朝が私を家へ連れてゆく'],
-  () => ['静けさが恵みのように感じる'],
-  () => ['もうひとりじゃない'],
-  () => ['その光がもう少しとどまる'],
-  () => ['この季節が息をつかせてくれる'],
-  () => ['明日がやさしく思える']
+  c => [`ようやく心が休まる、${c.motif}と共に`],
+  c => [`すべてが大丈夫に思える、${c.motif}のように`],
+  c => [`朝が私を家へ連れてゆく、${c.motif}のそばで`],
+  c => [`静けさが恵みのように感じる、${c.motif}と共に`],
+  c => [`もうひとりじゃない、${c.motif}がいるから`],
+  c => [`その光がもう少しとどまる、${c.motif}の上に`],
+  c => [`この季節が息をつかせてくれる、${c.motif}のそばで`],
+  c => [`明日がやさしく思える、${c.motif}のように`]
 ];
 
 interface LanguagePools {
