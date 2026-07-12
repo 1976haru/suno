@@ -1,4 +1,4 @@
-import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
 import { buildSystemInstruction, buildUserInstruction } from '../core/promptComposer';
 
 export async function generateWithAnthropic(
@@ -6,18 +6,23 @@ export async function generateWithAnthropic(
   genres: GenrePack[],
   moods: MoodPack[],
   season: SeasonPack,
-  settings: ProviderSettings
+  settings: ProviderSettings,
+  batch?: BatchContext
 ): Promise<PlaylistBlueprint> {
-  const model = settings.model || 'claude-3-5-sonnet-latest';
+  const model = settings.model || 'claude-sonnet-4-5';
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
+
   const response = await fetch(settings.proxyEndpoint || '/api/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       provider: 'anthropic',
       model,
       temperature: settings.temperature,
-      system: buildSystemInstruction(opts),
-      user: buildUserInstruction(opts, genres, moods, season)
+      batchSize: opts.songCount,
+      system: buildSystemInstruction(opts, batch),
+      user: buildUserInstruction(opts, genres, moods, season, batch)
     })
   });
 

@@ -1,4 +1,4 @@
-import type { GenerationOptions, GenrePack, MoodPack, SeasonPack } from '../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, SeasonPack } from '../types';
 import { generationPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
 
@@ -38,7 +38,11 @@ export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], m
   ].filter(Boolean).join(', ');
 }
 
-export function buildSystemInstruction(opts: GenerationOptions) {
+export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext) {
+  const batchNote = batch
+    ? `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.`
+    : '';
+
   return `You are Suno Weaver Studio, a commercial playlist song planner. Generate original Suno-ready style prompts, lyrics, and YouTube metadata.
 
 Rules:
@@ -51,10 +55,10 @@ Rules:
 - Lyrics must use Suno section tags and must be ready to paste separately from the style prompt.
 - Keep song length controlled for ${opts.durationTarget}.
 - Include YouTube title, description, tags, and thumbnail text for every song.
-- Return valid JSON only, matching the requested PlaylistBlueprint shape.`;
+- Return valid JSON only, matching the requested PlaylistBlueprint shape.${batchNote}`;
 }
 
-export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack) {
+export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext) {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
 
   return {
@@ -74,13 +78,19 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     moneyChordMode: opts.moneyChordMode,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
+    trackNoOffset: batch?.trackNoOffset ?? 0,
+    totalSongCount: batch?.totalSongCount ?? opts.songCount,
+    alreadyUsedTitles: batch?.usedTitles ?? [],
+    alreadyUsedHooks: batch?.usedHooks ?? [],
+    lockedIdentity: batch?.lockedIdentity ?? null,
     batchPlanning: [
       'Use one recurring visual motif across the pack, but do not repeat the same lyric line.',
       'Track 1 should introduce the playlist identity clearly.',
       'Tracks 2-5 should establish variety without breaking the channel promise.',
       'Middle tracks should add emotional depth and different listener situations.',
       'Final tracks should resolve warmly and feel like a natural closer.',
-      'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.'
+      'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.',
+      'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
     ],
     outputShape: {
       projectTitle: 'string',

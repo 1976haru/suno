@@ -113,4 +113,27 @@ export interface ProviderSettings {
   model?: string;
   temperature: number;
   proxyEndpoint?: string;
+  apiKey?: string;
+}
+
+export interface PlaylistIdentity {
+  oneLineConcept: string;
+  sonicSignature: string;
+  vocalSignature: string;
+  lyricRules: string[];
+  harmonyRules: string[];
+  visualRules: string[];
+}
+
+export interface BatchContext {
+  trackNoOffset: number;
+  totalSongCount: number;
+  usedTitles: string[];
+  usedHooks: string[];
+  lockedIdentity: PlaylistIdentity | null;
+}
+
+export interface GenerationProgress {
+  done: number;
+  total: number;
 }

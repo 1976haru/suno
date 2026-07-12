@@ -23,8 +23,8 @@ const languageOptions: { value: LyricLanguage; label: string }[] = [
 ];
 
 function clampSongCount(value: number) {
-  if (!Number.isFinite(value)) return 10;
-  return Math.min(20, Math.max(10, Math.round(value)));
+  if (!Number.isFinite(value)) return 12;
+  return Math.min(30, Math.max(1, Math.round(value)));
 }
 
 function parseList(value: string) {
@@ -157,6 +157,7 @@ export default function App() {
   });
   const [blueprint, setBlueprint] = useState<PlaylistBlueprint | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState('');
 
   const selectedGenres = useMemo(() => genrePacks.filter(genre => opts.genreIds.includes(genre.id)), [opts.genreIds]);
@@ -253,6 +254,7 @@ export default function App() {
   async function onGenerate() {
     setIsGenerating(true);
     setError('');
+    setGenProgress({ done: 0, total: clampSongCount(opts.songCount) });
     try {
       const songCount = clampSongCount(opts.songCount);
       const genres = selectedGenres.length ? selectedGenres : [genrePacks[0]];
@@ -262,7 +264,8 @@ export default function App() {
         genres,
         moods,
         selectedSeason,
-        provider
+        provider,
+        progress => setGenProgress(progress)
       );
       setOpts(prev => ({ ...prev, songCount }));
       setBlueprint(next);
@@ -282,7 +285,7 @@ export default function App() {
         </div>
         <button type="button" className="primary action-button" disabled={isGenerating} onClick={onGenerate}>
           <Wand2 size={18} />
-          {isGenerating ? 'Generating...' : 'Generate 10-20 songs'}
+          {isGenerating ? `생성 중... (${genProgress.done}/${genProgress.total})` : `${opts.songCount}곡 생성하기`}
         </button>
       </header>
 
@@ -416,8 +419,35 @@ export default function App() {
               <input value={opts.projectTitle} onChange={event => setOpts({ ...opts, projectTitle: event.target.value })} />
             </div>
             <div>
-              <label>Songs</label>
-              <input type="number" min={10} max={20} value={opts.songCount} onChange={event => setOpts({ ...opts, songCount: clampSongCount(Number(event.target.value)) })} />
+              <label>Songs (곡 수)</label>
+              <div className="inline">
+                <input
+                  type="range"
+                  min={1}
+                  max={30}
+                  value={opts.songCount}
+                  onChange={event => setOpts({ ...opts, songCount: clampSongCount(Number(event.target.value)) })}
+                />
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={opts.songCount}
+                  onChange={event => setOpts({ ...opts, songCount: clampSongCount(Number(event.target.value)) })}
+                />
+              </div>
+              <div className="chips">
+                {[1, 5, 10, 12, 20, 30].map(count => (
+                  <button
+                    type="button"
+                    key={count}
+                    className={opts.songCount === count ? 'chip active' : 'chip'}
+                    onClick={() => setOpts({ ...opts, songCount: clampSongCount(count) })}
+                  >
+                    {count === 1 ? '1곡 (테스트)' : `${count}곡`}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <label>Lyrics language</label>
