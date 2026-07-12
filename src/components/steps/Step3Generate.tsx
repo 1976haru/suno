@@ -1,8 +1,15 @@
-import { Info, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Coins, Info, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
 import { clampSongCount } from '../../utils/generation';
+import { estimateCost, type TokenRange } from '../../core/costEstimator';
+import { getSetting } from '../../core/settingsStore';
 import type { GenerationOptions, ProviderSettings } from '../../types';
 
 const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30];
+
+function formatRange(range: TokenRange) {
+  return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
+}
 
 interface Step3GenerateProps {
   opts: GenerationOptions;
@@ -21,6 +28,16 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
     : provider.provider === 'anthropic'
       ? `Claude (${provider.model || 'claude-sonnet-4-5'})`
       : `ChatGPT (${provider.model || 'gpt-4.1-mini'})`;
+
+  const [inputPrice, setInputPrice] = useState<number | null>(null);
+  const [outputPrice, setOutputPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value ? Number(value) : null));
+    void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value ? Number(value) : null));
+  }, []);
+
+  const costEstimate = estimateCost(opts.songCount, provider, inputPrice, outputPrice);
 
   return (
     <section className="panel">
@@ -82,6 +99,26 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
             <Settings2 size={14} />
             설정 열기
           </button>
+        </div>
+      )}
+
+      {provider.provider !== 'local' && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Coins size={18} />
+            <h2>예상 비용 (참고용 · 대략적인 범위)</h2>
+          </div>
+          <p className="supporting">
+            API 호출 약 {costEstimate.apiCalls}회 · 예상 입력 토큰 {formatRange(costEstimate.inputTokens)} · 예상 출력 토큰 {formatRange(costEstimate.outputTokens)}
+          </p>
+          {costEstimate.costKrw ? (
+            <p className="supporting">
+              예상 비용: 약 {Math.round(costEstimate.costKrw.low).toLocaleString()}원 ~ {Math.round(costEstimate.costKrw.high).toLocaleString()}원
+              (설정에 입력한 단가 기준의 대략적인 범위이며, 실제 청구 금액과 다를 수 있습니다. 정확한 사용량은 생성 후 설정의 "API 사용 기록"에서 확인하세요.)
+            </p>
+          ) : (
+            <p className="supporting">⚙️ 설정에서 토큰 단가를 입력하면 예상 비용 범위도 함께 볼 수 있어요. 실제 사용량은 생성 후 정확히 기록됩니다.</p>
+          )}
         </div>
       )}
 
