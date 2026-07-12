@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Download, RotateCcw, Save, Sparkles } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
+import HybridRefinePanel from '../HybridRefinePanel';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea } from '../../types';
 
@@ -19,10 +20,15 @@ interface Step4ResultProps {
   retryingTrack: number | null;
   retryWarning: string;
   undoTrackNo: number | null;
+  hybridRefineAvailable: boolean;
+  isRefining: boolean;
+  refineProgress: { done: number; total: number };
+  refineWarnings: string[];
   onSave: () => void;
   onEvaluate: (scopeTrackNos?: number[]) => void;
   onRetrySong: (trackNo: number, issues: string[]) => void;
   onUndoRetry: () => void;
+  onRefineSelected: (trackNos: number[]) => void;
 }
 
 export default function Step4Result({
@@ -40,20 +46,35 @@ export default function Step4Result({
   retryingTrack,
   retryWarning,
   undoTrackNo,
+  hybridRefineAvailable,
+  isRefining,
+  refineProgress,
+  refineWarnings,
   onSave,
   onEvaluate,
   onRetrySong,
-  onUndoRetry
+  onUndoRetry,
+  onRefineSelected
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
+  const [refineSelection, setRefineSelection] = useState<number[]>([]);
 
   function toggleTrackSelected(trackNo: number) {
     setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
   }
 
+  function toggleRefineSelected(trackNo: number) {
+    setRefineSelection(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
+  }
+
   function handleEvaluateClick() {
     onEvaluate(evalScope === 'selected' ? selectedTrackNos : undefined);
+  }
+
+  function handleRefineClick() {
+    onRefineSelected(refineSelection);
+    setRefineSelection([]);
   }
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
@@ -105,7 +126,7 @@ export default function Step4Result({
             </button>
             <button
               type="button"
-              disabled={isEvaluating || !evaluationAvailable || (evalScope === 'selected' && selectedTrackNos.length === 0)}
+              disabled={isEvaluating || isRefining || !evaluationAvailable || (evalScope === 'selected' && selectedTrackNos.length === 0)}
               onClick={handleEvaluateClick}
               title={!evaluationAvailable ? '평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다.' : undefined}
             >
@@ -118,6 +139,18 @@ export default function Step4Result({
             </button>
           </div>
         </div>
+      )}
+
+      {blueprint && hybridRefineAvailable && (
+        <HybridRefinePanel
+          songs={blueprint.songs}
+          selected={refineSelection}
+          onToggle={toggleRefineSelected}
+          onRefine={handleRefineClick}
+          isRefining={isRefining}
+          refineProgress={refineProgress}
+          refineWarnings={refineWarnings}
+        />
       )}
 
       {blueprint && !evaluationAvailable && (

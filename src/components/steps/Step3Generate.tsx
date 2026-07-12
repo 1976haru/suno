@@ -20,9 +20,11 @@ interface Step3GenerateProps {
   genProgress: { done: number; total: number };
   error: string;
   onGenerate: () => void;
+  hybridMode: boolean;
+  onHybridModeChange: (value: boolean) => void;
 }
 
-export default function Step3Generate({ opts, setOpts, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate }: Step3GenerateProps) {
+export default function Step3Generate({ opts, setOpts, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate, hybridMode, onHybridModeChange }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
     : provider.provider === 'anthropic'
@@ -105,6 +107,28 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
       {provider.provider !== 'local' && (
         <div className="provider-summary">
           <div className="panel-title">
+            <Wand2 size={18} />
+            <h2>생성 방식</h2>
+          </div>
+          <div className="chips">
+            <button type="button" className={!hybridMode ? 'chip active' : 'chip'} onClick={() => onHybridModeChange(false)}>
+              AI로 전체 생성
+            </button>
+            <button type="button" className={hybridMode ? 'chip active' : 'chip'} onClick={() => onHybridModeChange(true)}>
+              하이브리드: 로컬 초안 + 선택 보정 (비용 절약)
+            </button>
+          </div>
+          <p className="supporting">
+            {hybridMode
+              ? '먼저 무료 로컬 템플릿으로 전체 초안을 만들고, 결과 화면에서 마음에 드는 곡만 골라 AI로 다듬을 수 있어요. 선택하지 않은 곡은 API로 전송되지 않습니다.'
+              : `모든 곡을 ${providerLabel}로 바로 생성합니다.`}
+          </p>
+        </div>
+      )}
+
+      {provider.provider !== 'local' && !hybridMode && (
+        <div className="provider-summary">
+          <div className="panel-title">
             <Coins size={18} />
             <h2>예상 비용 (참고용 · 대략적인 범위)</h2>
           </div>
@@ -122,9 +146,19 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
         </div>
       )}
 
+      {provider.provider !== 'local' && hybridMode && (
+        <p className="supporting">
+          💡 하이브리드 모드에서는 초안 생성이 무료입니다. 실제 API 비용은 결과 화면에서 다듬을 곡을 선택한 만큼만 발생해요.
+        </p>
+      )}
+
       <button type="button" className="primary full-width action-button" disabled={isGenerating} onClick={onGenerate}>
         <Wand2 size={18} />
-        {isGenerating ? `생성 중... (${genProgress.done}/${genProgress.total})` : `${opts.songCount}곡 생성하기`}
+        {isGenerating
+          ? `생성 중... (${genProgress.done}/${genProgress.total})`
+          : hybridMode && provider.provider !== 'local'
+            ? `${opts.songCount}곡 무료 초안 만들기`
+            : `${opts.songCount}곡 생성하기`}
       </button>
 
       {error && <p className="error">{error}</p>}

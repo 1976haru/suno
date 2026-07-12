@@ -34,6 +34,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
+  const [hybridMode, setHybridMode] = useState(false);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -84,15 +85,18 @@ export default function App() {
     return selectedMoods.length ? selectedMoods : [moodPacks[0]];
   }
 
+  const isHybridActive = hybridMode && provider.provider !== 'local';
+
   function runGeneration(cacheKeyToStore?: string) {
     evalFlow.setEvaluation(null);
     setCurrentStep(4);
+    const generationProvider = isHybridActive ? { ...provider, provider: 'local' as const } : provider;
     void gen.generate(
       { ...opts, channel: cm.selectedChannel },
       fallbackGenres(),
       fallbackMoods(),
       selectedSeason,
-      provider,
+      generationProvider,
       async (next, songCount) => {
         setOpts(prev => ({ ...prev, songCount }));
         if (cacheKeyToStore) {
@@ -109,7 +113,8 @@ export default function App() {
   }
 
   async function onGenerate() {
-    if (provider.provider === 'local') {
+    // Hybrid drafts are always free/local and always fresh — no point checking the API cache.
+    if (provider.provider === 'local' || isHybridActive) {
       runGeneration();
       return;
     }
@@ -120,6 +125,11 @@ export default function App() {
       return;
     }
     runGeneration(key);
+  }
+
+  function onRefineSelected(trackNos: number[]) {
+    if (!gen.blueprint || !trackNos.length) return;
+    void gen.refineSelected(trackNos, { ...opts, channel: cm.selectedChannel }, fallbackGenres(), fallbackMoods(), selectedSeason, provider);
   }
 
   function onUseCachedResult() {
@@ -245,6 +255,8 @@ export default function App() {
               genProgress={gen.genProgress}
               error={gen.error}
               onGenerate={onGenerate}
+              hybridMode={hybridMode}
+              onHybridModeChange={setHybridMode}
             />
           )}
 
@@ -264,10 +276,15 @@ export default function App() {
               retryingTrack={evalFlow.retryingTrack}
               retryWarning={evalFlow.retryWarning}
               undoTrackNo={evalFlow.undoEntry?.trackNo ?? null}
+              hybridRefineAvailable={isHybridActive}
+              isRefining={gen.isRefining}
+              refineProgress={gen.refineProgress}
+              refineWarnings={gen.refineWarnings}
               onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel })}
               onEvaluate={onEvaluate}
               onRetrySong={onRetrySong}
               onUndoRetry={onUndoRetry}
+              onRefineSelected={onRefineSelected}
             />
           )}
 
