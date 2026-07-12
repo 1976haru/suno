@@ -7,10 +7,12 @@ import type {
   PlaylistBlueprint,
   PlaylistIdentity,
   ProviderSettings,
-  SeasonPack
+  SeasonPack,
+  SongIdea
 } from '../types';
 import { generateLocalBlueprint } from '../core/localGenerator';
 import { scoreSongs } from '../core/quality';
+import { assertLyricDiversity } from '../core/lyricEngine';
 import { generateWithOpenAI } from './openai';
 import { generateWithAnthropic } from './anthropic';
 
@@ -107,7 +109,35 @@ export async function generateBlueprint(
   return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel) };
 }
 
-export async function regenerateSong(
+const REGENERATE_MAX_ATTEMPTS = 3; // initial try + 2 retries
+const REGENERATE_QUALITY_BAR = 70;
+
+function collidesWithOthers(candidate: SongIdea, usedTitles: string[], usedHooks: string[]): boolean {
+  const title = candidate.title.toLowerCase();
+  const hook = candidate.hookPhrase.toLowerCase();
+  return usedTitles.some(t => t.toLowerCase() === title) || usedHooks.some(h => h.toLowerCase() === hook);
+}
+
+function tooSimilarToOthers(candidate: SongIdea, others: SongIdea[], trackNo: number): boolean {
+  return assertLyricDiversity([...others, candidate], 0.4).some(pair => pair.trackA === trackNo || pair.trackB === trackNo);
+}
+
+export interface RegenerateTrackResult {
+  blueprint: PlaylistBlueprint;
+  warning?: string;
+}
+
+/**
+ * Regenerates exactly one track instead of the whole pack — evaluator
+ * rejections are usually 1-3 songs out of up to 30, so re-running the full
+ * batch to fix them would waste most of the API cost on songs that were
+ * already fine. Retries up to REGENERATE_MAX_ATTEMPTS times (varying the
+ * seed/sampling each attempt) until the candidate clears the quality bar
+ * and doesn't collide or overlap with the rest of the pack; if every
+ * attempt falls short, the last candidate is still returned (with a
+ * warning) rather than leaving the track blank or looping forever.
+ */
+export async function regenerateTrack(
   blueprint: PlaylistBlueprint,
   trackNo: number,
   opts: GenerationOptions,
@@ -115,33 +145,58 @@ export async function regenerateSong(
   moods: MoodPack[],
   season: SeasonPack,
   settings: ProviderSettings,
-  issues: string[]
-): Promise<PlaylistBlueprint> {
+  feedback: string[] = []
+): Promise<RegenerateTrackResult> {
   const others = blueprint.songs.filter(song => song.trackNo !== trackNo);
-  const avoidWords = [opts.avoidWords, ...issues].filter(Boolean).join('; ');
+  const usedTitles = others.map(song => song.title);
+  const usedHooks = others.map(song => song.hookPhrase);
+  const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
+  const feedbackNote = feedback.length
+    ? `previous attempt was rejected for: ${feedback.join('; ')}. Rewrite to avoid these specific issues.`
+    : '';
+  const candidateOpts: GenerationOptions = { ...opts, songCount: 1, avoidWords, customConcept: [opts.customConcept, feedbackNote].filter(Boolean).join(' ') };
 
-  let replacement: PlaylistBlueprint['songs'][number];
+  let candidate: SongIdea | null = null;
+  let warning: string | undefined;
 
-  if (settings.provider === 'local') {
-    const single = generateLocalBlueprint(
-      { ...opts, songCount: 1, avoidWords, projectTitle: `${opts.projectTitle}::retry-${trackNo}-${Date.now()}` },
-      genres,
-      moods,
-      season
-    );
-    replacement = { ...single.songs[0], trackNo };
-  } else {
-    const batchContext: BatchContext = {
-      trackNoOffset: trackNo - 1,
-      totalSongCount: blueprint.songs.length,
-      usedTitles: others.map(song => song.title),
-      usedHooks: others.map(song => song.hookPhrase),
-      lockedIdentity: extractIdentity(blueprint)
-    };
-    const result = await callProviderBatch(settings, { ...opts, songCount: 1, avoidWords }, genres, moods, season, batchContext);
-    replacement = { ...result.songs[0], trackNo };
+  for (let attempt = 0; attempt < REGENERATE_MAX_ATTEMPTS; attempt++) {
+    let raw: SongIdea;
+    if (settings.provider === 'local') {
+      const single = generateLocalBlueprint(
+        { ...candidateOpts, projectTitle: `${opts.projectTitle}::retry-${trackNo}-${attempt}-${Date.now()}` },
+        genres,
+        moods,
+        season
+      );
+      raw = { ...single.songs[0], trackNo };
+    } else {
+      const batchContext: BatchContext = {
+        trackNoOffset: trackNo - 1,
+        totalSongCount: blueprint.songs.length,
+        usedTitles,
+        usedHooks,
+        lockedIdentity: extractIdentity(blueprint)
+      };
+      const result = await callProviderBatch(settings, candidateOpts, genres, moods, season, batchContext);
+      raw = { ...result.songs[0], trackNo };
+    }
+
+    candidate = scoreSongs([raw], opts.channel)[0];
+    const collides = collidesWithOthers(candidate, usedTitles, usedHooks);
+    const tooSimilar = tooSimilarToOthers(candidate, others, trackNo);
+    const meetsQualityBar = candidate.qualityScore >= REGENERATE_QUALITY_BAR;
+
+    if (meetsQualityBar && !collides && !tooSimilar) {
+      warning = undefined;
+      break;
+    }
+    warning = collides
+      ? '재생성된 곡이 팩 안의 다른 곡과 제목/후렴이 겹칩니다.'
+      : tooSimilar
+        ? '재생성된 곡이 팩 안의 다른 곡과 가사가 너무 비슷합니다.'
+        : `재생성된 곡의 품질 점수(${candidate.qualityScore}/100)가 기준(${REGENERATE_QUALITY_BAR})에 못 미칩니다.`;
   }
 
-  const songs = blueprint.songs.map(song => (song.trackNo === trackNo ? replacement : song));
-  return { ...blueprint, songs: scoreSongs(songs, opts.channel) };
+  const songs = blueprint.songs.map(song => (song.trackNo === trackNo ? (candidate as SongIdea) : song));
+  return { blueprint: { ...blueprint, songs }, warning: warning ? `${warning} (최대 ${REGENERATE_MAX_ATTEMPTS}회 시도 후 최선의 결과를 사용합니다.)` : undefined };
 }

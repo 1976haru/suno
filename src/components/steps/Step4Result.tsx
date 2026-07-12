@@ -1,4 +1,4 @@
-import { Download, Save, Sparkles } from 'lucide-react';
+import { Download, RotateCcw, Save, Sparkles } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea } from '../../types';
@@ -16,9 +16,12 @@ interface Step4ResultProps {
   evalProgress: { done: number; total: number };
   evaluationAvailable: boolean;
   retryingTrack: number | null;
+  retryWarning: string;
+  undoTrackNo: number | null;
   onSave: () => void;
   onEvaluate: () => void;
   onRetrySong: (trackNo: number, issues: string[]) => void;
+  onUndoRetry: () => void;
 }
 
 export default function Step4Result({
@@ -34,9 +37,12 @@ export default function Step4Result({
   evalProgress,
   evaluationAvailable,
   retryingTrack,
+  retryWarning,
+  undoTrackNo,
   onSave,
   onEvaluate,
-  onRetrySong
+  onRetrySong,
+  onUndoRetry
 }: Step4ResultProps) {
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -102,6 +108,19 @@ export default function Step4Result({
         <p className="supporting">평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다. (설정에서 제공자를 변경하세요)</p>
       )}
       {evalError && <p className="error">{evalError}</p>}
+      {retryWarning && <p className="error">{retryWarning}</p>}
+      {undoTrackNo !== null && (
+        <div className="warning">
+          <RotateCcw size={16} />
+          <span>
+            {undoTrackNo}번 곡을 다시 만들었어요.
+            <button type="button" className="icon-button" title="이전 곡으로 되돌리기" onClick={onUndoRetry}>
+              <RotateCcw size={14} />
+              되돌리기
+            </button>
+          </span>
+        </div>
+      )}
 
       {evaluation && (
         <div className="signature-grid">
@@ -124,14 +143,18 @@ export default function Step4Result({
       )}
 
       {songs.map(song => (
-        <SongCard
-          key={song.trackNo}
-          song={song}
-          moneyChordLabel={moneyChordLabel}
-          evaluation={evaluation?.songs.find(item => item.trackNo === song.trackNo)}
-          isRetrying={retryingTrack === song.trackNo}
-          onRetry={onRetrySong}
-        />
+        retryingTrack === song.trackNo ? (
+          <SongCardSkeleton key={song.trackNo} trackNo={song.trackNo} />
+        ) : (
+          <SongCard
+            key={song.trackNo}
+            song={song}
+            moneyChordLabel={moneyChordLabel}
+            evaluation={evaluation?.songs.find(item => item.trackNo === song.trackNo)}
+            isRetrying={false}
+            onRetry={onRetrySong}
+          />
+        )
       ))}
       {Array.from({ length: skeletonCount }, (_, i) => (
         <SongCardSkeleton key={`skeleton-${songs.length + i + 1}`} trackNo={songs.length + i + 1} />

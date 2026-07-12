@@ -46,15 +46,16 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           <span>
             AI 평가: {evaluation.total}/100 ({VERDICT_LABEL[evaluation.verdict]})
             {evaluation.issues.length > 0 && ` — ${evaluation.issues.join(' / ')}`}
-            {evaluation.verdict === 'reject' && (
+            {(evaluation.verdict === 'reject' || evaluation.verdict === 'revise') && (
               <button
                 type="button"
-                className="icon-button"
-                title="이 곡만 다시 만들기"
+                className={evaluation.verdict === 'reject' ? 'primary' : ''}
+                title={evaluation.issues.length ? `문제: ${evaluation.issues.join(' / ')}` : '이 곡만 다시 만들기'}
                 disabled={isRetrying}
                 onClick={() => onRetry(song.trackNo, evaluation.issues)}
               >
                 <RefreshCw size={14} />
+                🔄 이 곡만 다시 만들기
               </button>
             )}
           </span>

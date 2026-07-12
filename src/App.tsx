@@ -122,6 +122,11 @@ export default function App() {
     );
   }
 
+  function onUndoRetry() {
+    if (!gen.blueprint) return;
+    evalFlow.undoRetry(gen.blueprint, next => gen.setBlueprint(next));
+  }
+
   const step2Blocked = opts.genreIds.length === 0 || opts.moodIds.length === 0;
   const step3Blocked = !gen.blueprint;
   const maxUnlocked = gen.blueprint ? 4 : step2Blocked ? 2 : 3;
@@ -210,9 +215,12 @@ export default function App() {
               evalProgress={evalFlow.evalProgress}
               evaluationAvailable={isEvaluationAvailable(provider)}
               retryingTrack={evalFlow.retryingTrack}
+              retryWarning={evalFlow.retryWarning}
+              undoTrackNo={evalFlow.undoEntry?.trackNo ?? null}
               onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel })}
               onEvaluate={onEvaluate}
               onRetrySong={onRetrySong}
+              onUndoRetry={onUndoRetry}
             />
           )}
 
