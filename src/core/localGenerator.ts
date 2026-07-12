@@ -10,17 +10,35 @@ import {
   UniquePool
 } from './lyricEngine';
 
-const listenerSituations = [
-  'morning coffee before the day begins',
-  'quiet walk under seasonal trees',
-  'late cafe seat beside the window',
-  'small kitchen with the radio on',
-  'evening drive through familiar streets',
-  'writing a letter after dinner',
-  'standing near a warm shop window',
-  'slow train ride home',
-  'folding an old sweater in a quiet room',
-  'watching the first lights come on'
+/**
+ * Suno-facing text (style prompt, YouTube metadata) stays English regardless
+ * of lyricLanguage, but the same "situation" also gets interpolated straight
+ * into the lyrics themselves — so it needs a real Korean/Japanese phrase for
+ * those languages instead of the English string leaking into the lyrics.
+ */
+interface LocalizedPhrase {
+  english: string;
+  korean: string;
+  japanese: string;
+}
+
+function phraseFor(phrase: LocalizedPhrase, language: GenerationOptions['lyricLanguage']): string {
+  if (language === 'korean') return phrase.korean;
+  if (language === 'japanese') return phrase.japanese;
+  return phrase.english;
+}
+
+const listenerSituations: LocalizedPhrase[] = [
+  { english: 'morning coffee before the day begins', korean: '하루를 여는 아침 커피', japanese: '一日を開く朝のコーヒー' },
+  { english: 'quiet walk under seasonal trees', korean: '계절 나무 아래의 조용한 산책', japanese: '季節の木々の下の静かな散歩' },
+  { english: 'late cafe seat beside the window', korean: '창가 옆 늦은 카페 자리', japanese: '窓辺の遅い喫茶店の席' },
+  { english: 'small kitchen with the radio on', korean: '라디오가 흐르는 작은 부엌', japanese: 'ラジオが流れる小さな台所' },
+  { english: 'evening drive through familiar streets', korean: '익숙한 거리를 지나는 저녁 드라이브', japanese: '見慣れた通りを走る夕方のドライブ' },
+  { english: 'writing a letter after dinner', korean: '저녁 식사 후 편지 쓰는 시간', japanese: '夕食後に手紙を書く時間' },
+  { english: 'standing near a warm shop window', korean: '따뜻한 가게 창가', japanese: '暖かい店の窓辺' },
+  { english: 'slow train ride home', korean: '느린 기차를 타고 가는 귀갓길', japanese: 'ゆっくりな列車で帰る道' },
+  { english: 'folding an old sweater in a quiet room', korean: '조용한 방에서 개는 오래된 스웨터', japanese: '静かな部屋で畳む古いセーター' },
+  { english: 'watching the first lights come on', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
 ];
 
 const emotionArcs = [
@@ -32,22 +50,22 @@ const emotionArcs = [
   'old regret to peaceful closure'
 ];
 
-const recurringMotifs = [
-  'coffee steam',
-  'old radio light',
-  'window rain',
-  'folded letter',
-  'street lamp',
-  'wool sweater',
-  'paper calendar',
-  'warm cafe window',
-  'candle flame',
-  'faded photograph',
-  'train ticket',
-  'quiet doorway',
-  'porcelain cup',
-  'evening train',
-  'small notebook'
+const recurringMotifs: LocalizedPhrase[] = [
+  { english: 'coffee steam', korean: '커피 김', japanese: 'コーヒーの湯気' },
+  { english: 'old radio light', korean: '오래된 라디오 불빛', japanese: '古いラジオの灯り' },
+  { english: 'window rain', korean: '창가의 빗물', japanese: '窓辺の雨音' },
+  { english: 'folded letter', korean: '접힌 편지', japanese: '畳んだ手紙' },
+  { english: 'street lamp', korean: '가로등', japanese: '街灯' },
+  { english: 'wool sweater', korean: '털 스웨터', japanese: 'ウールのセーター' },
+  { english: 'paper calendar', korean: '종이 달력', japanese: '紙のカレンダー' },
+  { english: 'warm cafe window', korean: '카페의 창', japanese: 'カフェの窓' },
+  { english: 'candle flame', korean: '촛불', japanese: 'キャンドルの炎' },
+  { english: 'faded photograph', korean: '빛바랜 사진', japanese: '色あせた写真' },
+  { english: 'train ticket', korean: '기차표', japanese: '電車の切符' },
+  { english: 'quiet doorway', korean: '조용한 문', japanese: '静かな戸口' },
+  { english: 'porcelain cup', korean: '도자기 잔', japanese: '陶器のカップ' },
+  { english: 'evening train', korean: '저녁 기차', japanese: '夕方の電車' },
+  { english: 'small notebook', korean: '작은 수첩', japanese: '小さなノート' }
 ];
 
 const songRoles = [
@@ -129,18 +147,19 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
     const { title, hook } = nextTitle();
-    const situation = situationPool.take();
+    const situationOption = situationPool.take();
+    const situation = situationOption.english;
     const emotionArc = emotionArcPool.take();
     const tempo = averageTempo(genres, trackNo);
     const role = songRoles[Math.min(idx, songRoles.length - 1)];
-    const trackMotif = motifPool.take();
+    const trackMotifOption = motifPool.take();
     const { lyrics, hookPhrase } = composeLyrics({
       language: opts.lyricLanguage,
       season,
       title,
       hook,
-      situation,
-      motif: trackMotif,
+      situation: phraseFor(situationOption, opts.lyricLanguage),
+      motif: phraseFor(trackMotifOption, opts.lyricLanguage),
       role,
       pools: lyricPools
     });
@@ -150,7 +169,7 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
       `${tempo} BPM`,
       `distinct hook phrase: "${hookPhrase}"`,
       `listener scene: ${situation}`,
-      `use recurring playlist motif: ${packMotif}`,
+      `use recurring playlist motif: ${packMotif.english}`,
       generationPack?.tempoBias,
       'same channel vocal signature and mix balance across the full playlist set'
     ].filter(Boolean).join(', ');

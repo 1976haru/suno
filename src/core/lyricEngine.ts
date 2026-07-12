@@ -60,6 +60,43 @@ export class UniquePool<T> {
 }
 
 // ---------------------------------------------------------------------------
+// Motif grammar helpers — motifs are bare nouns ("evening train", "old radio
+// light"), so templates must never splice ${motif} directly into a slot that
+// needs an article. Comparison slots ("like X") route through likeMotif();
+// templates that already hardcode "the"/"a" in the surrounding text (e.g.
+// "I trace the ${motif} slowly") are left alone since they're already correct.
+// ---------------------------------------------------------------------------
+
+function startsWithVowelSound(word: string): boolean {
+  return /^[aeiou]/i.test(word.trim());
+}
+
+function aMotif(motif: string): string {
+  return `${startsWithVowelSound(motif) ? 'an' : 'a'} ${motif}`;
+}
+
+function likeMotif(motif: string): string {
+  return `like ${aMotif(motif)}`;
+}
+
+/**
+ * Korean topic/subject/object/with particles change form depending on whether
+ * the preceding syllable ends in a consonant (받침). Motif nouns vary per
+ * song, so templates must pick the particle at render time instead of
+ * hardcoding one form.
+ */
+function hasKoreanBatchim(word: string): boolean {
+  const lastChar = word.trim().slice(-1);
+  const code = lastChar.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+function koParticle(word: string, withBatchim: string, withoutBatchim: string): string {
+  return hasKoreanBatchim(word) ? withBatchim : withoutBatchim;
+}
+
+// ---------------------------------------------------------------------------
 // English pools
 // ---------------------------------------------------------------------------
 
@@ -109,47 +146,47 @@ const enChorusFirst: LineTemplate[] = [
 ];
 
 const enChorusDev: LineTemplate[] = [
-  c => ['softly through the day', 'every lonely shadow', `like ${c.motif}, slowly fades away`],
-  c => ['gently one more time', 'every heavy morning', `like ${c.motif}, learns again to shine`],
-  c => ['steady as it grows', 'every quiet worry', `like ${c.motif}, settles and lets go`],
-  c => ['warm however far', 'every empty evening', `like ${c.motif}, finds a lower star`],
-  c => ['close in every way', 'every tired heartbeat', `like ${c.motif}, finds a softer day`],
-  c => ['brighter than before', 'every folded moment', `like ${c.motif}, opens like a door`],
-  c => ['calm no matter what', 'every scattered feeling', `like ${c.motif}, settles where it stopped`],
-  c => ['home no matter where', 'every quiet distance', `like ${c.motif}, turns to something near`],
-  c => ['kind through every hour', 'every fading color', `like ${c.motif}, finds a little power`],
-  c => ['soft and unafraid', 'every fragile silence', `like ${c.motif}, learns it is okay`]
+  c => ['softly through the day', 'every lonely shadow', `${likeMotif(c.motif)}, slowly fades away`],
+  c => ['gently one more time', 'every heavy morning', `${likeMotif(c.motif)}, learns again to shine`],
+  c => ['steady as it grows', 'every quiet worry', `${likeMotif(c.motif)}, settles and lets go`],
+  c => ['warm however far', 'every empty evening', `${likeMotif(c.motif)}, finds a lower star`],
+  c => ['close in every way', 'every tired heartbeat', `${likeMotif(c.motif)}, finds a softer day`],
+  c => ['brighter than before', 'every folded moment', `${likeMotif(c.motif)}, opens like a door`],
+  c => ['calm no matter what', 'every scattered feeling', `${likeMotif(c.motif)}, settles where it stopped`],
+  c => ['home no matter where', 'every quiet distance', `${likeMotif(c.motif)}, turns to something near`],
+  c => ['kind through every hour', 'every fading color', `${likeMotif(c.motif)}, finds a little power`],
+  c => ['soft and unafraid', 'every fragile silence', `${likeMotif(c.motif)}, learns it is okay`]
 ];
 
 const enBridge: LineTemplate[] = [
-  c => ['Some dreams become silence', `Some tears turn to light, like ${c.motif}`],
-  c => ['Some roads lead to nowhere', `Some lead straight back home, like ${c.motif}`],
-  c => ['Some words never leave us', `Some just fade to hum, like ${c.motif}`],
-  c => ['Some winters feel endless', `Some end overnight, like ${c.motif}`],
-  c => ['Some faces stay distant', `Some stay in the room, like ${c.motif}`],
-  c => ['Some songs keep their color', `Some quietly fade, like ${c.motif}`],
-  c => ['Some mornings feel heavy', `Some feel free and light, like ${c.motif}`],
-  c => ['Some letters stay folded', `Some finally get read, like ${c.motif}`]
+  c => ['Some dreams become silence', `Some tears turn to light, ${likeMotif(c.motif)}`],
+  c => ['Some roads lead to nowhere', `Some lead straight back home, ${likeMotif(c.motif)}`],
+  c => ['Some words never leave us', `Some just fade to hum, ${likeMotif(c.motif)}`],
+  c => ['Some winters feel endless', `Some end overnight, ${likeMotif(c.motif)}`],
+  c => ['Some faces stay distant', `Some stay in the room, ${likeMotif(c.motif)}`],
+  c => ['Some songs keep their color', `Some quietly fade, ${likeMotif(c.motif)}`],
+  c => ['Some mornings feel heavy', `Some feel free and light, ${likeMotif(c.motif)}`],
+  c => ['Some letters stay folded', `Some finally get read, ${likeMotif(c.motif)}`]
 ];
 
 const enVerse2: LineTemplate[] = [
-  c => ['There were roads behind me', 'I could not understand', `Now they feel like ${c.motif}`, 'resting in my hand'],
-  c => ['I remember distances', 'that used to feel too wide', `Now they feel like ${c.motif}`, 'quietly by my side'],
-  c => ['I used to count the reasons', 'a slower day would fail', `Now they feel like ${c.motif}`, 'a soft familiar trail'],
-  c => ['The years I spent unsettled', 'still linger now and then', `But they feel like ${c.motif}`, 'that finally makes sense'],
-  c => ['I carried doubts for seasons', 'not knowing where they’d land', `Now they feel like ${c.motif}`, 'I finally understand'],
-  c => ['The nights I spent unanswered', 'come back a little clearer', `Now they feel like ${c.motif}`, 'that only brought me nearer'],
-  c => ['I kept a list of maybes', 'too tired to say them out', `Now they feel like ${c.motif}`, 'without a trace of doubt'],
-  c => ['I used to rush the mornings', 'afraid to miss the light', `Now they feel like ${c.motif}`, 'that stays no matter the night'],
-  c => ['I thought the quiet meant losing', 'a version of the plan', `Now it feels like ${c.motif}`, 'I finally understand'],
+  c => ['There were roads behind me', 'I could not understand', `Now they feel ${likeMotif(c.motif)}`, 'resting in my hand'],
+  c => ['I remember distances', 'that used to feel too wide', `Now they feel ${likeMotif(c.motif)}`, 'quietly by my side'],
+  c => ['I used to count the reasons', 'a slower day would fail', `Now they feel ${likeMotif(c.motif)}`, 'a soft familiar trail'],
+  c => ['The years I spent unsettled', 'still linger now and then', `But they feel ${likeMotif(c.motif)}`, 'that finally makes sense'],
+  c => ['I carried doubts for seasons', 'not knowing where they’d land', `Now they feel ${likeMotif(c.motif)}`, 'I finally understand'],
+  c => ['The nights I spent unanswered', 'come back a little clearer', `Now they feel ${likeMotif(c.motif)}`, 'that only brought me nearer'],
+  c => ['I kept a list of maybes', 'too tired to say them out', `Now they feel ${likeMotif(c.motif)}`, 'without a trace of doubt'],
+  c => ['I used to rush the mornings', 'afraid to miss the light', `Now they feel ${likeMotif(c.motif)}`, 'that stays no matter the night'],
+  c => ['I thought the quiet meant losing', 'a version of the plan', `Now it feels ${likeMotif(c.motif)}`, 'I finally understand'],
   c => ['Every simple morning', 'every cup of rain', `Turns the page so gently`, 'and calls me home again'],
-  c => ['I kept the small regrets', 'folded soft and low', `Now they feel like ${c.motif}`, 'ready to let go'],
-  c => ['The years moved like a river', 'too fast to hold at all', `Now they feel like ${c.motif}`, 'answering my call']
+  c => ['I kept the small regrets', 'folded soft and low', `Now they feel ${likeMotif(c.motif)}`, 'ready to let go'],
+  c => ['The years moved like a river', 'too fast to hold at all', `Now they feel ${likeMotif(c.motif)}`, 'answering my call']
 ];
 
 const enClosing: LineTemplate[] = [
   c => [`and here I finally rest, beside the ${c.motif}`],
-  c => [`and everything feels right, like ${c.motif}`],
+  c => [`and everything feels right, ${likeMotif(c.motif)}`],
   c => [`and morning finds me home, near the ${c.motif}`],
   c => [`and quiet feels like grace, and the ${c.motif} stays`],
   c => [`and I am not alone, with the ${c.motif} near`],
@@ -165,31 +202,31 @@ const enClosing: LineTemplate[] = [
 const koOpening: LineTemplate[] = [
   c => [`${c.season} 빛이 문가에 내려`, '오래된 잔 위에 머물고', '작은 라디오 소리 하나', '아침을 천천히 깨워요'],
   c => [`${c.season} 바람이 지나가며`, '하루의 페이지를 넘기고', `${c.motif} 하나가 곁에서`, '아무 말 없이 머물러요'],
-  c => [`${c.season} 거리 저편에서`, '작은 종소리가 울리고', `${c.motif}를 가만히 만지면`, '시간이 잠시 멈춰요'],
-  c => [`또 하루의 ${c.season} 아침이`, '벽 위로 부드럽게 내려와', `${c.motif}는 그 색을 지키며`, '모든 걸 다 품어줘요'],
-  c => [`커튼을 살짝 걷으면`, `${c.season}의 흐린 하늘이 보여요`, `${c.motif}는 조용히 기다리며`, '내 말을 듣고 있어요'],
+  c => [`${c.season} 거리 저편에서`, '작은 종소리가 울리고', `${c.motif}${koParticle(c.motif, '을', '를')} 가만히 만지면`, '시간이 잠시 멈춰요'],
+  c => [`또 하루의 ${c.season} 아침이`, '벽 위로 부드럽게 내려와', `${c.motif}${koParticle(c.motif, '은', '는')} 그 색을 지키며`, '모든 걸 다 품어줘요'],
+  c => [`커튼을 살짝 걷으면`, `${c.season}의 흐린 하늘이 보여요`, `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 기다리며`, '내 말을 듣고 있어요'],
   c => [`아침만 아는 ${c.season}의 고요가`, '가만히 내려앉고', `${c.motif} 곁에 서서 기다리면`, '시간이 천천히 자라요'],
-  c => [`${c.season} 공기가 내려앉아`, '지난 소식처럼 쌓이고', `${c.motif}를 더 꼭 안으면`, '우울함이 멀어져요'],
-  c => [`${c.season}의 침묵이 내려와`, '빈 의자마다 앉고', `${c.motif}는 여전히 기억해요`, '더 부드러운 공기를'],
-  c => [`${c.season} 색깔 아래에서`, '거리 전체가 깨어나고', `빛나는 ${c.motif}를 바라보면`, '마음 하나가 더 다가와요'],
-  c => [`${c.season}의 평온이 찾아와요`, '소음이 커지기 전에', `${c.motif}는 서두르지 않고`, '차분히 자리를 지켜요'],
-  c => [`이 ${c.season} 모퉁이에서`, '세상은 천천히 다정하게 움직이고', `${c.motif}는 리듬을 지키며`, '마음속에 오래 남아요'],
-  c => [`${c.season}의 음이 흘러와요`, '복도 저편 어디선가', `${c.motif}가 조금 더 가까이`, '내가 부를 때 대답해요']
+  c => [`${c.season} 공기가 내려앉아`, '지난 소식처럼 쌓이고', `${c.motif}${koParticle(c.motif, '을', '를')} 더 꼭 안으면`, '우울함이 멀어져요'],
+  c => [`${c.season}의 침묵이 내려와`, '빈 의자마다 앉고', `${c.motif}${koParticle(c.motif, '은', '는')} 여전히 기억해요`, '더 부드러운 공기를'],
+  c => [`${c.season} 색깔 아래에서`, '거리 전체가 깨어나고', `빛나는 ${c.motif}${koParticle(c.motif, '을', '를')} 바라보면`, '마음 하나가 더 다가와요'],
+  c => [`${c.season}의 평온이 찾아와요`, '소음이 커지기 전에', `${c.motif}${koParticle(c.motif, '은', '는')} 서두르지 않고`, '차분히 자리를 지켜요'],
+  c => [`이 ${c.season} 모퉁이에서`, '세상은 천천히 다정하게 움직이고', `${c.motif}${koParticle(c.motif, '은', '는')} 리듬을 지키며`, '마음속에 오래 남아요'],
+  c => [`${c.season}의 음이 흘러와요`, '복도 저편 어디선가', `${c.motif}${koParticle(c.motif, '이', '가')} 조금 더 가까이`, '내가 부를 때 대답해요']
 ];
 
 const koSituation: LineTemplate[] = [
   c => [`${c.situation} 속에서`, '나는 숨을 고르고', `${c.motif} 같은 기억 하나`, '조용히 다시 빛나요'],
-  c => [`${c.situation} 안에서`, '조금 더 천천히 걸어요', `${c.motif}는 곁에 있어요`, '익숙한 얼굴처럼요'],
-  c => [`바로 이 ${c.situation}에서`, '소음이 서서히 사라지고', `${c.motif}는 증명처럼 느껴져요`, '다정하게 지켜진 약속처럼'],
-  c => [`${c.situation}에 머물러`, '어깨의 힘을 풀어봐요', `${c.motif}는 나에게`, '최선을 요구하지 않아요'],
-  c => [`${c.situation} 어딘가에서`, '시간의 무게가 가벼워지고', `${c.motif}는 내 곁에서`, '기다림도 잊게 해요'],
-  c => [`${c.situation}이 나를 감싸고`, '조금은 용감해져요', `${c.motif}는 비밀 하나를 품고`, '고요함만이 아는 이야기를'],
-  c => [`여전히 이 ${c.situation} 안에서`, '세상이 작고 가깝게 느껴져요', `${c.motif}는 내 발걸음을 배우고`, '부를 때마다 대답해요'],
-  c => [`${c.situation}을 지나며`, '부드러운 목소리가 돌아와요', `${c.motif}는 구석마다 지켜줘요`, '혼자가 아니게'],
-  c => [`${c.situation}에 둘러싸여`, '걱정이 옅어지고 작아져요', `${c.motif}는 저녁을 품고 있어요`, '늘 그래왔던 것처럼'],
-  c => [`${c.situation} 속에 감싸여`, '내 이름을 또렷이 들어요', `${c.motif}는 조금 덜 멀게 느껴져요`, '여기 오래 머물수록'],
-  c => [`${c.situation} 안에 자리 잡아`, '하루가 서두르지 않아요', `${c.motif}는 부드럽게 대답해요`, '고요함 하나로'],
-  c => [`${c.situation} 안에서 차분히`, '이 순간을 붙잡아둬요', `${c.motif}는 다시 써 내려가요`, '조금 더 다정한 하루로']
+  c => [`${c.situation} 안에서`, '조금 더 천천히 걸어요', `${c.motif}${koParticle(c.motif, '은', '는')} 곁에 있어요`, '익숙한 얼굴처럼요'],
+  c => [`바로 이 ${c.situation}에서`, '소음이 서서히 사라지고', `${c.motif}${koParticle(c.motif, '은', '는')} 증명처럼 느껴져요`, '다정하게 지켜진 약속처럼'],
+  c => [`${c.situation}에 머물러`, '어깨의 힘을 풀어봐요', `${c.motif}${koParticle(c.motif, '은', '는')} 나에게`, '최선을 요구하지 않아요'],
+  c => [`${c.situation} 어딘가에서`, '시간의 무게가 가벼워지고', `${c.motif}${koParticle(c.motif, '은', '는')} 내 곁에서`, '기다림도 잊게 해요'],
+  c => [`${c.situation}${koParticle(c.situation, '이', '가')} 나를 감싸고`, '조금은 용감해져요', `${c.motif}${koParticle(c.motif, '은', '는')} 비밀 하나를 품고`, '고요함만이 아는 이야기를'],
+  c => [`여전히 이 ${c.situation} 안에서`, '세상이 작고 가깝게 느껴져요', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음을 배우고`, '부를 때마다 대답해요'],
+  c => [`${c.situation}${koParticle(c.situation, '을', '를')} 지나며`, '부드러운 목소리가 돌아와요', `${c.motif}${koParticle(c.motif, '은', '는')} 구석마다 지켜줘요`, '혼자가 아니게'],
+  c => [`${c.situation}에 둘러싸여`, '걱정이 옅어지고 작아져요', `${c.motif}${koParticle(c.motif, '은', '는')} 저녁을 품고 있어요`, '늘 그래왔던 것처럼'],
+  c => [`${c.situation} 속에 감싸여`, '내 이름을 또렷이 들어요', `${c.motif}${koParticle(c.motif, '은', '는')} 조금 덜 멀게 느껴져요`, '여기 오래 머물수록'],
+  c => [`${c.situation} 안에 자리 잡아`, '하루가 서두르지 않아요', `${c.motif}${koParticle(c.motif, '은', '는')} 부드럽게 대답해요`, '고요함 하나로'],
+  c => [`${c.situation} 안에서 차분히`, '이 순간을 붙잡아둬요', `${c.motif}${koParticle(c.motif, '은', '는')} 다시 써 내려가요`, '조금 더 다정한 하루로']
 ];
 
 const koChorusFirst: LineTemplate[] = [
@@ -245,11 +282,11 @@ const koVerse2: LineTemplate[] = [
 ];
 
 const koClosing: LineTemplate[] = [
-  c => [`이제야 편히 쉬어요, ${c.motif}와 함께`],
+  c => [`이제야 편히 쉬어요, ${c.motif}${koParticle(c.motif, '과', '와')} 함께`],
   c => [`모든 게 다 괜찮게 느껴져요, ${c.motif}처럼`],
   c => [`아침이 나를 집으로 데려가요, ${c.motif} 곁에서`],
-  c => [`고요함이 은혜처럼 느껴져요, ${c.motif}와 함께`],
-  c => [`나는 더 이상 혼자가 아니에요, ${c.motif}가 있어서`],
+  c => [`고요함이 은혜처럼 느껴져요, ${c.motif}${koParticle(c.motif, '과', '와')} 함께`],
+  c => [`나는 더 이상 혼자가 아니에요, ${c.motif}${koParticle(c.motif, '이', '가')} 있어서`],
   c => [`그 빛이 조금 더 머물러요, ${c.motif} 위에`],
   c => [`이 계절이 숨 쉴 틈을 줘요, ${c.motif} 곁에서`],
   c => [`내일이 다정하게 느껴져요, ${c.motif}처럼`]
@@ -386,6 +423,37 @@ const tags: Record<LyricLanguage, { intro: string; verse1: string; chorus: strin
   bilingual: { intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' }
 };
 
+/**
+ * SeasonPack.keywords is English-only by design (it also feeds the always-
+ * English Suno style prompt and YouTube tags), so it can't be localized
+ * globally without breaking those. This is a lyrics-only translation of the
+ * single season word interpolated into opening/situation lines.
+ */
+const seasonWordLocalization: Record<string, { korean: string; japanese: string }> = {
+  'new-year': { korean: '새해', japanese: '新年' },
+  'late-winter': { korean: '늦겨울', japanese: '晩冬' },
+  'spring-open': { korean: '봄', japanese: '春' },
+  'cherry-blossom': { korean: '벚꽃', japanese: '桜' },
+  'may-cafe': { korean: '5월', japanese: '五月' },
+  'rainy-season': { korean: '장마', japanese: '梅雨' },
+  'summer-night': { korean: '여름밤', japanese: '夏の夜' },
+  'late-summer-open': { korean: '늦여름', japanese: '晩夏' },
+  'early-autumn': { korean: '초가을', japanese: '初秋' },
+  'autumn-rain': { korean: '가을비', japanese: '秋雨' },
+  'maple-autumn': { korean: '단풍', japanese: '紅葉' },
+  'late-autumn': { korean: '늦가을', japanese: '晩秋' },
+  'early-winter': { korean: '초겨울', japanese: '初冬' },
+  'first-snow': { korean: '첫눈', japanese: '初雪' },
+  christmas: { korean: '크리스마스', japanese: 'クリスマス' },
+  'year-end': { korean: '연말', japanese: '年末' }
+};
+
+export function seasonWordFor(season: SeasonPack, language: LyricLanguage): string {
+  if (language === 'korean') return seasonWordLocalization[season.id]?.korean ?? season.label;
+  if (language === 'japanese') return seasonWordLocalization[season.id]?.japanese ?? season.label;
+  return season.keywords[0] ?? season.label;
+}
+
 /** Pools that must not repeat a picked line within a single blueprint. */
 export interface LyricBatchPools {
   opening: UniquePool<LineTemplate>;
@@ -447,7 +515,7 @@ export interface ComposedLyrics {
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const { language, season, title, hook, situation, motif, role, pools } = input;
   const t = tags[language];
-  const ctx: LyricLineCtx = { season: season.keywords[0] ?? season.label, situation, motif, title, hook };
+  const ctx: LyricLineCtx = { season: seasonWordFor(season, language), situation, motif, title, hook };
 
   const opening = pools.opening.take()(ctx);
   const situationLines = pools.situation.take()(ctx);
