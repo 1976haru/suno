@@ -6,6 +6,8 @@ export interface LyricLineCtx {
   situation: string;
   motif: string;
   title: string;
+  /** A short (1-2 word) hook derived from the title's object word, safe to sing as a repeated chorus line. */
+  hook: string;
 }
 
 type LineTemplate = (ctx: LyricLineCtx) => string[];
@@ -94,16 +96,16 @@ const enSituation: LineTemplate[] = [
 ];
 
 const enChorusFirst: LineTemplate[] = [
-  c => [`${c.title}, keep a little light for me`],
-  c => [`Hold on, ${c.title.toLowerCase()}`],
-  c => [`Stay a while, ${c.title.toLowerCase()}`],
-  c => [`This is for you, ${c.title.toLowerCase()}`],
-  c => [`Carry me home, ${c.title.toLowerCase()}`],
-  c => [`One more time, ${c.title.toLowerCase()}`],
-  c => [`Right here, ${c.title.toLowerCase()}`],
-  c => [`Keep the light on, ${c.title.toLowerCase()}`],
-  c => [`Say it slow, ${c.title.toLowerCase()}`],
-  c => [`Close your eyes, ${c.title.toLowerCase()}`]
+  c => [`${c.hook}, keep a little light for me`],
+  c => [`Hold on, ${c.hook}`],
+  c => [`Stay a while, ${c.hook}`],
+  c => [`This is for you, ${c.hook}`],
+  c => [`Carry me home, ${c.hook}`],
+  c => [`One more time, ${c.hook}`],
+  c => [`Right here, ${c.hook}`],
+  c => [`Keep the light on, ${c.hook}`],
+  c => [`Say it slow, ${c.hook}`],
+  c => [`Close your eyes, ${c.hook}`]
 ];
 
 const enChorusDev: LineTemplate[] = [
@@ -191,16 +193,16 @@ const koSituation: LineTemplate[] = [
 ];
 
 const koChorusFirst: LineTemplate[] = [
-  c => [`${c.title}, 다시 마음이 따뜻해져요`],
-  c => [`잠시 멈춰요, ${c.title}`],
-  c => [`여기 있어요, ${c.title}`],
-  c => [`이건 당신을 위한 노래, ${c.title}`],
-  c => [`나를 데려가요, ${c.title}`],
-  c => [`한 번 더, ${c.title}`],
-  c => [`바로 여기, ${c.title}`],
-  c => [`불을 켜둬요, ${c.title}`],
-  c => [`천천히 말해요, ${c.title}`],
-  c => [`눈을 감아요, ${c.title}`]
+  c => [`${c.hook}, 다시 마음이 따뜻해져요`],
+  c => [`잠시 멈춰요, ${c.hook}`],
+  c => [`여기 있어요, ${c.hook}`],
+  c => [`이건 당신을 위한 노래, ${c.hook}`],
+  c => [`나를 데려가요, ${c.hook}`],
+  c => [`한 번 더, ${c.hook}`],
+  c => [`바로 여기, ${c.hook}`],
+  c => [`불을 켜둬요, ${c.hook}`],
+  c => [`천천히 말해요, ${c.hook}`],
+  c => [`눈을 감아요, ${c.hook}`]
 ];
 
 const koChorusDev: LineTemplate[] = [
@@ -288,16 +290,16 @@ const jaSituation: LineTemplate[] = [
 ];
 
 const jaChorusFirst: LineTemplate[] = [
-  c => [`${c.title}、また心があたたまる`],
-  c => [`少し止まって、${c.title}`],
-  c => [`ここにいて、${c.title}`],
-  c => [`これはあなたへの歌、${c.title}`],
-  c => [`連れて帰って、${c.title}`],
-  c => [`もう一度、${c.title}`],
-  c => [`ここで、${c.title}`],
-  c => [`灯りをつけたまま、${c.title}`],
-  c => [`ゆっくり話して、${c.title}`],
-  c => [`目を閉じて、${c.title}`]
+  c => [`${c.hook}、また心があたたまる`],
+  c => [`少し止まって、${c.hook}`],
+  c => [`ここにいて、${c.hook}`],
+  c => [`これはあなたへの歌、${c.hook}`],
+  c => [`連れて帰って、${c.hook}`],
+  c => [`もう一度、${c.hook}`],
+  c => [`ここで、${c.hook}`],
+  c => [`灯りをつけたまま、${c.hook}`],
+  c => [`ゆっくり話して、${c.hook}`],
+  c => [`目を閉じて、${c.hook}`]
 ];
 
 const jaChorusDev: LineTemplate[] = [
@@ -393,6 +395,14 @@ export interface LyricBatchPools {
   bridge: UniquePool<LineTemplate>;
   verse2: UniquePool<LineTemplate>;
   closing: UniquePool<LineTemplate>;
+  /**
+   * chorusFirst lines are now built from a short hook (a single object word,
+   * ~14 possible values) rather than the globally-unique title, so an
+   * independent template draw can coincidentally reproduce an exact line
+   * used by an earlier song in the same pack. Tracked here so composeLyrics
+   * can retry until it finds an unused line.
+   */
+  usedChorusFirstLines: Set<string>;
 }
 
 export function createLyricBatchPools(language: LyricLanguage, seedBase: string): LyricBatchPools {
@@ -405,7 +415,8 @@ export function createLyricBatchPools(language: LyricLanguage, seedBase: string)
     chorusDev: new UniquePool(pools.chorusDev, s + 4),
     bridge: new UniquePool(pools.bridge, s + 5),
     verse2: new UniquePool(pools.verse2, s + 6),
-    closing: new UniquePool(pools.closing, s + 7)
+    closing: new UniquePool(pools.closing, s + 7),
+    usedChorusFirstLines: new Set<string>()
   };
 }
 
@@ -421,6 +432,7 @@ export interface LyricComposeInput {
   language: LyricLanguage;
   season: SeasonPack;
   title: string;
+  hook: string;
   situation: string;
   motif: string;
   role: string;
@@ -433,13 +445,17 @@ export interface ComposedLyrics {
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
-  const { language, season, title, situation, motif, role, pools } = input;
+  const { language, season, title, hook, situation, motif, role, pools } = input;
   const t = tags[language];
-  const ctx: LyricLineCtx = { season: season.keywords[0] ?? season.label, situation, motif, title };
+  const ctx: LyricLineCtx = { season: season.keywords[0] ?? season.label, situation, motif, title, hook };
 
   const opening = pools.opening.take()(ctx);
   const situationLines = pools.situation.take()(ctx);
-  const chorusFirst = pools.chorusFirst.take()(ctx);
+  let chorusFirst = pools.chorusFirst.take()(ctx);
+  for (let attempt = 0; pools.usedChorusFirstLines.has(chorusFirst[0]) && attempt < 12; attempt++) {
+    chorusFirst = pools.chorusFirst.take()(ctx);
+  }
+  pools.usedChorusFirstLines.add(chorusFirst[0]);
   const chorusDev = pools.chorusDev.take()(ctx);
   const chorusLines = [...chorusFirst, ...chorusDev];
   const verse2 = pools.verse2.take()(ctx);
@@ -485,28 +501,66 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
 // Title generation
 // ---------------------------------------------------------------------------
 
-const enTimeWords = ['November', 'Winter Morning', 'Christmas Eve', 'Quiet Snow', 'First Light', 'Old Radio Morning', 'Late Autumn', 'Slow Sunday', 'Midnight Hour', 'Golden Evening', 'Early Spring', 'Rainy Afternoon', 'New Year Dawn', 'Soft December'];
+const enTimeWords = ['November', 'Winter Morning', 'Christmas Eve', 'Quiet Snow', 'First Light', 'Old Morning Hush', 'Late Autumn', 'Slow Sunday', 'Midnight Hour', 'Golden Evening', 'Early Spring', 'Rainy Afternoon', 'New Year Dawn', 'Soft December'];
 const enObjectWords = ['Window', 'Letter', 'Coffee Cup', 'Radio', 'Street', 'Sweater', 'Candle', 'Photograph', 'Train', 'Doorway', 'Record', 'Umbrella', 'Lamp', 'Calendar'];
 const enEmotionWords = ['Memory', 'Warmth', 'Goodbye Song', 'Quiet Hour', 'Small Miracle', 'Gentle Return', 'Soft Promise', 'Old Friend', 'Second Chance', 'Home Again'];
 
-const koTimeWords = ['11월', '겨울 아침', '크리스마스 이브', '고요한 눈', '첫 빛', '오래된 라디오 아침', '늦가을', '느린 일요일', '한밤중', '금빛 저녁', '이른 봄', '비 오는 오후', '새해 새벽', '부드러운 12월'];
+const koTimeWords = ['11월', '겨울 아침', '크리스마스 이브', '고요한 눈', '첫 빛', '오래된 아침의 정적', '늦가을', '느린 일요일', '한밤중', '금빛 저녁', '이른 봄', '비 오는 오후', '새해 새벽', '부드러운 12월'];
 const koObjectWords = ['창가', '편지', '커피잔', '라디오', '거리', '스웨터', '촛불', '사진', '기차', '문가', '레코드', '우산', '램프', '달력'];
 const koEmotionWords = ['기억', '온기', '작별 노래', '조용한 시간', '작은 기적', '다정한 귀환', '부드러운 약속', '오랜 친구', '두 번째 기회', '다시 집으로'];
 
-const jaTimeWords = ['十一月', '冬の朝', 'クリスマスイブ', '静かな雪', '最初の光', '古いラジオの朝', '晩秋', 'ゆっくりな日曜日', '真夜中', '金色の夕暮れ', '早春', '雨の午後', '新年の夜明け', 'やわらかな十二月'];
+const jaTimeWords = ['十一月', '冬の朝', 'クリスマスイブ', '静かな雪', '最初の光', '古い朝の静寂', '晩秋', 'ゆっくりな日曜日', '真夜中', '金色の夕暮れ', '早春', '雨の午後', '新年の夜明け', 'やわらかな十二月'];
 const jaObjectWords = ['窓辺', '手紙', 'コーヒーカップ', 'ラジオ', '通り', 'セーター', 'キャンドル', '写真', '列車', '戸口', 'レコード', '傘', 'ランプ', 'カレンダー'];
 const jaEmotionWords = ['記憶', 'あたたかさ', '別れの歌', '静かな時間', '小さな奇跡', 'やさしい帰還', 'やわらかな約束', '古い友人', '二度目の機会', 'もう一度家へ'];
+
+function dedupeObjectWords(base: string[], extra: string[]): string[] {
+  const seen = new Set(base.map(word => word.toLowerCase()));
+  const merged = [...base];
+  for (const word of extra) {
+    const key = word.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(word);
+    }
+  }
+  return merged;
+}
 
 function bankFor(language: LyricLanguage) {
   if (language === 'korean') return { time: koTimeWords, object: koObjectWords, emotion: koEmotionWords };
   if (language === 'japanese') return { time: jaTimeWords, object: jaObjectWords, emotion: jaEmotionWords };
-  return { time: enTimeWords, object: [...enObjectWords, ...lyricImageBank.universal.map(word => word.replace(/\b\w/g, c => c.toUpperCase()))], emotion: enEmotionWords };
+  const titleCasedUniversal = lyricImageBank.universal.map(word => word.replace(/\b\w/g, c => c.toUpperCase()));
+  return { time: enTimeWords, object: dedupeObjectWords(enObjectWords, titleCasedUniversal), emotion: enEmotionWords };
 }
 
 function joinTitle(language: LyricLanguage, time: string, object: string, emotion: string | null) {
   if (language === 'korean') return emotion ? `${time}의 ${object}, ${emotion}` : `${time}의 ${object}`;
   if (language === 'japanese') return emotion ? `${time}の${object}、${emotion}` : `${time}の${object}`;
   return emotion ? `${time} ${object}, ${emotion}` : `${time} ${object}`;
+}
+
+function hookFromObject(language: LyricLanguage, object: string) {
+  return language === 'english' ? object.toLowerCase() : object;
+}
+
+function hasWordOverlap(language: LyricLanguage, ...parts: (string | null)[]): boolean {
+  const filtered = parts.filter((part): part is string => Boolean(part));
+  if (language === 'japanese') {
+    // Japanese has no whitespace word boundaries, so compare by substring containment instead.
+    for (let i = 0; i < filtered.length; i++) {
+      for (let j = 0; j < filtered.length; j++) {
+        if (i !== j && filtered[i].length >= 2 && filtered[j].includes(filtered[i])) return true;
+      }
+    }
+    return false;
+  }
+  const words = filtered.flatMap(part => part.toLowerCase().split(/\s+/).filter(Boolean));
+  return new Set(words).size !== words.length;
+}
+
+export interface TitleResult {
+  title: string;
+  hook: string;
 }
 
 export function createTitleGenerator(language: LyricLanguage, seedBase: string) {
@@ -518,20 +572,26 @@ export function createTitleGenerator(language: LyricLanguage, seedBase: string) 
   const rng = mulberry32(s + 14);
   const used = new Set<string>();
 
-  return function nextTitle(): string {
-    for (let attempt = 0; attempt < 8; attempt++) {
+  return function nextTitle(): TitleResult {
+    for (let attempt = 0; attempt < 20; attempt++) {
       const time = timePool.take();
       const object = objectPool.take();
-      const emotion = rng() < 0.35 ? emotionPool.take() : null;
+      const wantsEmotion = rng() < 0.35;
+      const emotion = wantsEmotion ? emotionPool.take() : null;
+      if (hasWordOverlap(language, time, object, emotion)) continue;
       const title = joinTitle(language, time, object, emotion);
       if (!used.has(title)) {
         used.add(title);
-        return title;
+        return { title, hook: hookFromObject(language, object) };
       }
     }
-    const fallback = `${joinTitle(language, timePool.take(), objectPool.take(), emotionPool.take())} #${used.size + 1}`;
-    used.add(fallback);
-    return fallback;
+    // Every retry produced either a word clash or an already-used title; drop the
+    // emotion suffix (the most likely source of overlap) and force a unique title.
+    const time = timePool.take();
+    const object = objectPool.take();
+    const title = `${joinTitle(language, time, object, null)} #${used.size + 1}`;
+    used.add(title);
+    return { title, hook: hookFromObject(language, object) };
   };
 }
 

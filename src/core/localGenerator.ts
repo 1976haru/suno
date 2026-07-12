@@ -128,7 +128,7 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const title = nextTitle();
+    const { title, hook } = nextTitle();
     const situation = situationPool.take();
     const emotionArc = emotionArcPool.take();
     const tempo = averageTempo(genres, trackNo);
@@ -138,6 +138,7 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
       language: opts.lyricLanguage,
       season,
       title,
+      hook,
       situation,
       motif: trackMotif,
       role,
