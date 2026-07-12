@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Trash2, X } from 'lucide-react';
 import type { ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
+import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
 
 const MODEL_OPTIONS: Record<'anthropic' | 'openai', string[]> = {
   anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5'],
@@ -33,6 +34,9 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [localKey, setLocalKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [inputPrice, setInputPrice] = useState('');
+  const [outputPrice, setOutputPrice] = useState('');
 
   const isRemoteProvider = settings.provider === 'openai' || settings.provider === 'anthropic';
 
@@ -43,7 +47,29 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     });
   }, [settings.provider, isRemoteProvider]);
 
+  useEffect(() => {
+    if (!open) return;
+    void usageSummary().then(setUsage);
+    void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value || ''));
+    void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value || ''));
+  }, [open]);
+
   if (!open) return null;
+
+  async function updateInputPrice(value: string) {
+    setInputPrice(value);
+    await setSetting('pricing:inputPerM', value);
+  }
+
+  async function updateOutputPrice(value: string) {
+    setOutputPrice(value);
+    await setSetting('pricing:outputPerM', value);
+  }
+
+  async function handleClearUsage() {
+    await clearUsage();
+    setUsage(await usageSummary());
+  }
 
   async function updateKeyStorageMode(mode: 'server' | 'local') {
     if (mode === 'server') {
@@ -200,6 +226,47 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           onChange={event => onChange({ ...settings, batchSize: Math.min(12, Math.max(1, Number(event.target.value) || 6)) })}
         />
         <p className="supporting">작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.</p>
+
+        <label>📊 API 사용 기록</label>
+        {usage && (
+          <div className="signature-grid">
+            <div><b>총 호출</b><span>{usage.totalCalls}회</span></div>
+            <div><b>입력 토큰</b><span>{usage.totalInput.toLocaleString()}</span></div>
+            <div><b>출력 토큰</b><span>{usage.totalOutput.toLocaleString()}</span></div>
+            <div><b>캐시로 절약</b><span>{usage.cacheHits}회 호출</span></div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <b>용도별</b>
+              <span>
+                생성 {usage.byPurpose.generate || 0} · 보정 {usage.byPurpose.refine || 0} · 평가 {usage.byPurpose.evaluate || 0}
+              </span>
+            </div>
+            {inputPrice && outputPrice && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <b>예상 비용</b>
+                <span>
+                  {Math.round((usage.totalInput / 1_000_000) * Number(inputPrice) + (usage.totalOutput / 1_000_000) * Number(outputPrice)).toLocaleString()}원
+                  (사용자가 입력한 단가 기준 — 실제 청구 금액과 다를 수 있습니다)
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="button-row">
+          <button type="button" onClick={() => void handleClearUsage()}>기록 초기화</button>
+        </div>
+
+        <label>단가 설정 (선택 사항 — 입력하면 예상 금액이 표시됩니다)</label>
+        <p className="supporting">모델 가격은 자주 바뀌고 여기서 최신값을 보증하지 않습니다. 정확한 금액은 사용 중인 제공자의 최신 요금표를 확인하세요.</p>
+        <div className="form-grid two">
+          <div>
+            <label>입력 1M 토큰당 (원)</label>
+            <input value={inputPrice} onChange={event => void updateInputPrice(event.target.value)} placeholder="예: 4500" />
+          </div>
+          <div>
+            <label>출력 1M 토큰당 (원)</label>
+            <input value={outputPrice} onChange={event => void updateOutputPrice(event.target.value)} placeholder="예: 22000" />
+          </div>
+        </div>
 
         <label>데이터</label>
         <div className="button-row">

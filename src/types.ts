@@ -142,6 +142,11 @@ export interface GenerationProgress {
   songs: SongIdea[];
 }
 
+export interface UsageInfo {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface SongEvaluation {
   trackNo: number;
   scores: {

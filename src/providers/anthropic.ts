@@ -1,6 +1,7 @@
-import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, UsageInfo } from '../types';
 import { buildSystemInstruction, buildUserInstruction } from '../core/promptComposer';
 import { callGenerateProxy } from './proxyFetch';
+import type { ProviderCallResult } from './openai';
 
 export async function generateWithAnthropic(
   opts: GenerationOptions,
@@ -9,7 +10,7 @@ export async function generateWithAnthropic(
   season: SeasonPack,
   settings: ProviderSettings,
   batch?: BatchContext
-): Promise<PlaylistBlueprint> {
+): Promise<ProviderCallResult> {
   const model = settings.model || 'claude-sonnet-4-5';
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (settings.keyStorageMode === 'local' && settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
@@ -23,5 +24,8 @@ export async function generateWithAnthropic(
     user: buildUserInstruction(opts, genres, moods, season, batch)
   });
 
-  return (data.blueprint || data) as PlaylistBlueprint;
+  return {
+    blueprint: (data.blueprint || data) as PlaylistBlueprint,
+    usage: (data.usage as UsageInfo) || null
+  };
 }

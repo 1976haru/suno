@@ -120,7 +120,11 @@ async function callOpenAI({ model, temperature, system, user, batchSize, userApi
   }
 
   const data = await response.json();
-  return safeParseBlueprint(data.choices?.[0]?.message?.content || '{}');
+  const blueprint = safeParseBlueprint(data.choices?.[0]?.message?.content || '{}');
+  const usage = data.usage
+    ? { inputTokens: data.usage.prompt_tokens || 0, outputTokens: data.usage.completion_tokens || 0 }
+    : null;
+  return { blueprint, usage };
 }
 
 async function callAnthropic({ model, temperature, system, user, batchSize, userApiKey }) {
@@ -158,7 +162,11 @@ async function callAnthropic({ model, temperature, system, user, batchSize, user
 
   const data = await response.json();
   const text = data.content?.map(part => part.text || '').join('\n') || '{}';
-  return safeParseBlueprint(text);
+  const blueprint = safeParseBlueprint(text);
+  const usage = data.usage
+    ? { inputTokens: data.usage.input_tokens || 0, outputTokens: data.usage.output_tokens || 0 }
+    : null;
+  return { blueprint, usage };
 }
 
 async function testOpenAI({ model, userApiKey }) {
@@ -242,18 +250,18 @@ export default async function handler(req, res) {
       return;
     }
 
-    const blueprint = provider === 'openai'
+    const result = provider === 'openai'
       ? await callOpenAI({ ...body, userApiKey })
       : provider === 'anthropic'
         ? await callAnthropic({ ...body, userApiKey })
         : null;
 
-    if (!blueprint) {
+    if (!result) {
       sendError(res, 400, 'Unsupported provider.');
       return;
     }
 
-    res.status(200).json({ blueprint });
+    res.status(200).json({ blueprint: result.blueprint, usage: result.usage });
   } catch (error) {
     const status = error?.status && Number.isInteger(error.status) ? error.status : 500;
     const message = status === 401

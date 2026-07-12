@@ -13,8 +13,25 @@ import type {
 import { generateLocalBlueprint } from '../core/localGenerator';
 import { scoreSongs } from '../core/quality';
 import { assertLyricDiversity } from '../core/lyricEngine';
-import { generateWithOpenAI } from './openai';
+import { recordUsage } from '../core/usageLedger';
+import { generateWithOpenAI, type ProviderCallResult } from './openai';
 import { generateWithAnthropic } from './anthropic';
+
+async function recordProviderUsage(settings: ProviderSettings, purpose: 'generate' | 'refine', usage: ProviderCallResult['usage']) {
+  if (!usage) return;
+  try {
+    await recordUsage({
+      provider: settings.provider,
+      model: settings.model || settings.provider,
+      purpose,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheHit: false
+    });
+  } catch {
+    // Usage tracking is a convenience dashboard, not critical path; never block generation on it.
+  }
+}
 
 export const DEFAULT_BATCH_SIZE = 6;
 
@@ -45,7 +62,7 @@ export async function callProviderBatch(
   moods: MoodPack[],
   season: SeasonPack,
   batch: BatchContext
-): Promise<PlaylistBlueprint> {
+): Promise<ProviderCallResult> {
   if (settings.provider === 'openai') return generateWithOpenAI(opts, genres, moods, season, settings, batch);
   return generateWithAnthropic(opts, genres, moods, season, settings, batch);
 }
@@ -81,7 +98,8 @@ export async function generateBlueprint(
       lockedIdentity
     };
 
-    const result = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
+    const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
+    void recordProviderUsage(settings, 'generate', usage);
 
     if (index === 0) {
       base = {
@@ -177,7 +195,8 @@ export async function regenerateTrack(
         usedHooks,
         lockedIdentity: extractIdentity(blueprint)
       };
-      const result = await callProviderBatch(settings, candidateOpts, genres, moods, season, batchContext);
+      const { blueprint: result, usage } = await callProviderBatch(settings, candidateOpts, genres, moods, season, batchContext);
+      void recordProviderUsage(settings, 'refine', usage);
       raw = { ...result.songs[0], trackNo };
     }
 

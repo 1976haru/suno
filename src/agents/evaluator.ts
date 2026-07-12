@@ -1,6 +1,7 @@
-import type { AgentEvaluation, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongEvaluation } from '../types';
+import type { AgentEvaluation, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongEvaluation, UsageInfo } from '../types';
 import { assertLyricDiversity, computeDiversityScore, type DiversityWarning } from '../core/lyricEngine';
 import { callGenerateProxy } from '../providers/proxyFetch';
+import { recordUsage } from '../core/usageLedger';
 
 const EVAL_BATCH_SIZE = 6;
 
@@ -20,6 +21,22 @@ async function callJsonProxy(settings: ProviderSettings, payload: { system: stri
     system: payload.system,
     user: payload.user
   });
+
+  const usage = data.usage as UsageInfo | undefined;
+  if (usage) {
+    try {
+      await recordUsage({
+        provider: settings.provider,
+        model: settings.model || settings.provider,
+        purpose: 'evaluate',
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cacheHit: false
+      });
+    } catch {
+      // Usage tracking is a convenience dashboard; never block evaluation on it.
+    }
+  }
 
   return (data.blueprint ?? data) as Record<string, unknown>;
 }
