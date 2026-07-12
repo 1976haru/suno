@@ -1,6 +1,7 @@
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, SeasonPack } from '../types';
 import { generationPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
+import { safeLyricRules } from '../data/lyrics';
 
 export function buildDurationControl(target: GenerationOptions['durationTarget']) {
   if (target === 'under3m30') {
@@ -9,14 +10,16 @@ export function buildDurationControl(target: GenerationOptions['durationTarget']
   if (target === 'under4m') {
     return 'short radio edit, short intro, short bridge, no long instrumental break, no extended outro, complete song under 4 minutes';
   }
-  return 'playlist-friendly short song, quick intro, compact structure, complete song around 2 minutes 50 seconds to 3 minutes 20 seconds';
+  return 'playlist-friendly short song, quick intro, compact structure, no long instrumental break, complete song around 2 minutes 50 seconds to 3 minutes 20 seconds';
 }
 
 export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack) {
   const genreText = genres.map(g => g.styleCore).join(', ');
   const instrumentText = Array.from(new Set(genres.flatMap(g => g.instruments))).join(', ');
   const moodText = moods.flatMap(m => m.emotionWords).join(', ');
-  const money = moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
+  const money = opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()
+    ? `custom chord progression: ${opts.customMoneyChord.trim()}, with a clear emotional chorus lift`
+    : moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
   const duration = buildDurationControl(opts.durationTarget);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const avoid = opts.avoidWords.trim()
@@ -55,7 +58,10 @@ Rules:
 - Lyrics must use Suno section tags and must be ready to paste separately from the style prompt.
 - Keep song length controlled for ${opts.durationTarget}.
 - Include YouTube title, description, tags, and thumbnail text for every song.
-- Return valid JSON only, matching the requested PlaylistBlueprint shape.${batchNote}`;
+- Return valid JSON only, matching the requested PlaylistBlueprint shape.
+
+Safety rules:
+${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${batchNote}`;
 }
 
 export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext) {
@@ -76,6 +82,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     perspective: opts.perspective,
     lyricDepth: opts.lyricDepth,
     moneyChordMode: opts.moneyChordMode,
+    customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
     trackNoOffset: batch?.trackNoOffset ?? 0,

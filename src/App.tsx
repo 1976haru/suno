@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, Download, Plus, Save, Settings2, ShieldAlert, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { channelPresets, generationPacks, genrePacks, moodPacks, seasonPacks } from './data/presets';
+import { isPlausibleChordProgression, moneyChordPresets } from './data/moneyChords';
 import type { AgeGroup, ChannelProfile, GenerationOptions, LyricLanguage, Market, PlaylistBlueprint, ProviderSettings } from './types';
 import { generateBlueprint } from './providers';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from './utils/exporters';
@@ -152,6 +153,7 @@ export default function App() {
     lyricDepth: 'commercial',
     durationTarget: 'under3m30',
     moneyChordMode: 'default',
+    customMoneyChord: '',
     customConcept: '',
     avoidWords: ''
   });
@@ -164,6 +166,7 @@ export default function App() {
   const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
   const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
   const selectedGenerationPack = useMemo(() => generationPacks.find(pack => pack.id === opts.audience), [opts.audience]);
+  const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
   const isSelectedCustom = customChannels.some(channel => channel.id === selectedChannelId);
 
   useEffect(() => {
@@ -468,14 +471,23 @@ export default function App() {
               </select>
             </div>
             <div>
-              <label>Money chords</label>
+              <label>Money chords (머니코드)</label>
               <select value={opts.moneyChordMode} onChange={event => setOpts({ ...opts, moneyChordMode: event.target.value as GenerationOptions['moneyChordMode'] })}>
-                <option value="default">Default I-V-vi-IV</option>
-                <option value="emotional">Emotional Lift</option>
-                <option value="jazzColor">Jazz Color</option>
-                <option value="cityPop">City Pop</option>
-                <option value="custom">Custom</option>
+                {Object.values(moneyChordPresets).map(preset => (
+                  <option key={preset.id} value={preset.id}>{preset.labelKo} · {preset.label}</option>
+                ))}
               </select>
+              <p className="supporting">{selectedMoneyChord.description} ({selectedMoneyChord.progressions.join(' / ') || '직접 입력'})</p>
+              {opts.moneyChordMode === 'custom' && (
+                <input
+                  value={opts.customMoneyChord}
+                  onChange={event => setOpts({ ...opts, customMoneyChord: event.target.value })}
+                  placeholder="예: I-V-vi-IV / vi-IV-I-V / IVmaj7-iii7-vi7"
+                />
+              )}
+              {opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim() && !isPlausibleChordProgression(opts.customMoneyChord) && (
+                <p className="supporting">⚠ 로마숫자 코드 표기(I, ii, IV, vii°, maj7 등)로 입력하는 걸 권장하지만, 이대로도 생성은 진행돼요.</p>
+              )}
             </div>
             <div>
               <label>Length control</label>
@@ -617,6 +629,7 @@ export default function App() {
                 <div>
                   <h3>{song.trackNo}. {song.title}</h3>
                   <p>{song.listenerSituation} / {song.emotionArc}</p>
+                  <span className="chip">{selectedMoneyChord.labelKo}</span>
                 </div>
                 <span className="score">{song.qualityScore}/100</span>
               </div>

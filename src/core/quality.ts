@@ -31,13 +31,13 @@ const copyrightPatterns = [
   /\bsample of\b/i,
   /\binterpolation of\b/i,
   /\bplagiar/i,
-  /저작권/,
+  /저작권\s*(침해|위반|문제)/,
   /표절/,
-  /원곡/,
+  /원곡\s*(그대로|그대로의|을\s*그대로|복제)/,
+  /기존곡\s*(그대로|복제|표절)/,
   /커버곡/,
-  /기존곡/,
-  /カバー/,
-  /原曲/
+  /カバー曲/,
+  /原曲(そのまま|の複製)/
 ];
 
 const famousArtistNames = [
@@ -53,7 +53,7 @@ const famousArtistNames = [
   'iu',
   'queen',
   'taylor swift',
-  'the weekend',
+  'the weeknd',
   'utada',
   'yumi matsutoya',
   'ado',

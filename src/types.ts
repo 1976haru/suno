@@ -67,7 +67,8 @@ export interface GenerationOptions {
   perspective: 'firstPerson' | 'secondPerson' | 'thirdPerson' | 'radioHost';
   lyricDepth: 'simple' | 'literary' | 'poetic' | 'commercial';
   durationTarget: 'under3m30' | 'under4m' | 'playlistShort';
-  moneyChordMode: 'default' | 'emotional' | 'jazzColor' | 'cityPop' | 'custom';
+  moneyChordMode: 'default' | 'emotional' | 'jazzColor' | 'cityPop' | 'canon' | 'showaModern' | 'winterBallad' | 'custom';
+  customMoneyChord: string;
   customConcept: string;
   avoidWords: string;
 }
