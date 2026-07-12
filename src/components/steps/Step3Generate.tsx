@@ -1,4 +1,4 @@
-import { Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { Info, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
 import { clampSongCount } from '../../utils/generation';
 import type { GenerationOptions, ProviderSettings } from '../../types';
 
@@ -70,6 +70,20 @@ export default function Step3Generate({ opts, setOpts, provider, onOpenSettings,
           제공자 / API 키 설정 열기
         </button>
       </div>
+
+      {provider.provider === 'local' && (
+        <div className="warning">
+          <Info size={16} />
+          <span>
+            ℹ️ 지금은 로컬 템플릿 모드입니다 (무료 · API 불필요). 곡 구조와 스타일 프롬프트는 바로 쓸 수 있지만, 가사는 조합형이라 다소 단조로울 수 있습니다.
+            더 자연스러운 가사를 원하시면 ⚙️ 설정에서 Claude 또는 ChatGPT를 연결하세요.
+          </span>
+          <button type="button" onClick={onOpenSettings}>
+            <Settings2 size={14} />
+            설정 열기
+          </button>
+        </div>
+      )}
 
       <button type="button" className="primary full-width action-button" disabled={isGenerating} onClick={onGenerate}>
         <Wand2 size={18} />

@@ -596,6 +596,16 @@ textarea {
   font-weight: 800;
 }
 
+.warning span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.warning button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .warning svg {
   flex: 0 0 auto;
   margin-top: 1px;
