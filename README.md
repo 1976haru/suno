@@ -1,17 +1,20 @@
-# Suno Weaver Studio v2
+# Suno Weaver Studio v3
 
-Suno Weaver Studio is an extensible prompt, lyrics, and YouTube metadata generator for playlist channels. It supports reusable channel profiles, 10-20 song batch generation, local template generation, and serverless-proxied OpenAI or Claude generation.
+Suno Weaver Studio is a prompt, lyrics, and YouTube metadata generator for playlist channels. It supports reusable channel profiles, 1-30 song batch generation, local template generation, an LLM evaluation agent, saved-pack storage, and serverless-proxied OpenAI or Claude generation.
+
+See [`docs/MIGRATION.md`](docs/MIGRATION.md) for what changed since v2, and [`docs/STRESS_TEST_REPORT.md`](docs/STRESS_TEST_REPORT.md) for the current automated stress-test results (regenerated on every `npm run test:stress` run).
 
 ## Current Features
 
+- 4-step guided workflow (채널 → 컨셉 → 생성 → 결과) with Korean UX copy throughout
 - Custom channel profiles saved to `localStorage`
-- Full channel profile editor for market, language, audience, voice, visual identity, SEO terms, and safety rules
-- Expanded genre packs, generation packs, mood packs, and season packs
-- Consistent 10-20 song batch generation with recurring motifs and per-track variation
-- Separate copy workflow for Suno `Style Prompt` and `Lyrics`
-- YouTube title, description, tags, and thumbnail text for each song
-- Automatic warnings for copyright-risk wording, famous artist references, and singer imitation prompts
-- Export to Markdown, JSON, and CSV
+- 1-30 song batch generation with a combinatorial, seeded lyric engine — no repeated titles or hooks within a pack, and cross-song lyric-line similarity is checked automatically
+- 8 money chord presets (including custom, canon, showaModern, winterBallad) with a live style-prompt preview
+- Saved-pack library backed by IndexedDB, with autosave, rename, delete, and full backup export/import
+- Optional LLM evaluation agent (song- and pack-level scoring, Korean output) with a one-click retry for rejected tracks
+- Export to Markdown, JSON, CSV, or a single song as `.txt`
+- Automatic rule-based warnings for copyright-risk wording, famous artist references, and singer imitation prompts
+- Local dev proxy for `/api/generate` (`vite.config.ts`), so OpenAI/Claude modes can be tested with `npm run dev` alone
 
 ## Install
 
@@ -26,34 +29,46 @@ If PowerShell blocks `npm.ps1`, use:
 npm.cmd run dev
 ```
 
-## API Provider Notes
+## API Key Setup
 
-Browser-direct API keys are disabled. OpenAI and Claude requests go through the serverless route at `api/generate.js`.
+Open the app and click **⚙️ 설정** (Settings). There are two ways to provide an API key:
 
-Set server-side environment variables in your hosting provider:
+| Mode | Where the key lives | When to use it |
+|---|---|---|
+| **서버 환경변수 사용 (기본값, 권장)** | Your hosting provider's environment variables | Deploying for yourself or sharing with others |
+| **이 브라우저에 저장 (로컬 전용)** | This browser's IndexedDB | Solo local use only |
+
+### Server mode (recommended)
+
+Set these on your hosting provider (Vercel, etc.) or in a local `.env` for `npm run dev`:
 
 ```bash
 OPENAI_API_KEY=...
 ANTHROPIC_API_KEY=...
 ```
 
-Supported modes:
+`api/generate.js` reads these server-side; the browser never sees them.
 
-1. `local` - no external API. Uses deterministic templates.
-2. `openai` - sends generation payload to `/api/generate`, which calls OpenAI server-side.
-3. `anthropic` - sends generation payload to `/api/generate`, which calls Anthropic server-side.
+### ⚠️ BYOK (로컬 저장) mode — security note
 
-For local-only Vite development, use `local` mode unless you run a compatible serverless dev environment for `/api/generate`.
+If you choose "이 브라우저에 저장" in Settings, the key is written to this browser's IndexedDB and sent with each request as an `X-User-Api-Key` header. **This means the key is retrievable by anything with access to that browser profile.**
+
+- **Do not use BYOK mode on a shared or public computer.**
+- The key is never logged to the console or embedded in error messages (verified by `tests/stress.test.ts`'s S14 case).
+- Use **모든 데이터 삭제** in Settings to wipe a stored key before handing off a machine.
+
+Supported provider modes:
+
+1. **local** — no external API, deterministic local templates.
+2. **openai** — sends the generation payload to `/api/generate`, which calls OpenAI server-side (or with your BYOK key).
+3. **anthropic** — same, for Claude.
 
 ## Main Workflow
 
-1. Build or select a channel profile.
-2. Save custom profiles to browser storage.
-3. Select audience, market, season, genre, and mood palette.
-4. Generate a 10-20 song blueprint.
-5. Copy Suno-ready `Style Prompt` and `Lyrics` separately.
-6. Copy YouTube metadata per song.
-7. Review safety warnings and export the pack.
+1. **① 채널** — build or select a channel profile.
+2. **② 컨셉** — pick genre, mood, season, money chords, and lyric depth.
+3. **③ 생성** — choose song count (1-30) and generate.
+4. **④ 결과** — review each song (style prompt / lyrics / YouTube tabs), run the AI evaluation agent, retry rejected tracks, and save or export the pack.
 
 ## Default Channels
 
@@ -61,3 +76,11 @@ For local-only Vite development, use `local` mode unless you run a compatible se
 - Japanese: 모닝 쇼와 카페 / Morning Showa Cafe
 
 These are presets only. Add, duplicate, or replace them for future channels.
+
+## Testing
+
+```bash
+npm run typecheck
+npm run test          # unit + stress tests
+npm run test:stress   # stress tests only, verbose, regenerates docs/STRESS_TEST_REPORT.md
+```
