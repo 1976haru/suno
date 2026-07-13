@@ -29,17 +29,33 @@ function phraseFor(phrase: LocalizedPhrase, language: GenerationOptions['lyricLa
   return phrase.english;
 }
 
+/**
+ * TASK X5-1 (v3.4) — every enSituation/enPreChorus template plugs this value
+ * into a noun slot ("In this X", "Caught up in this X", "Framed by this X",
+ * ...); most of those prepositions grammatically require a true noun
+ * phrase and can't be rescued by an alternate "while X-ing" wrapper (e.g.
+ * "Held here by this watching..." doesn't parse regardless of preposition).
+ * Four entries were originally gerund phrases ("writing a letter...",
+ * "standing near...", "folding...", "watching...") and broke every
+ * template they landed in ("Set inside this watching the first lights come
+ * on"). All entries are now noun phrases — the same fix shape as
+ * likeMotif()'s article handling: check the grammatical type a slot
+ * expects before a value gets plugged into it, and keep the pool
+ * type-consistent so it can't recur when new entries are added. Korean/
+ * Japanese translations were already independently nominalized and needed
+ * no change.
+ */
 const listenerSituations: LocalizedPhrase[] = [
   { english: 'morning coffee before the day begins', korean: '하루를 여는 아침 커피', japanese: '一日を開く朝のコーヒー' },
   { english: 'quiet walk under seasonal trees', korean: '계절 나무 아래의 조용한 산책', japanese: '季節の木々の下の静かな散歩' },
   { english: 'late cafe seat beside the window', korean: '창가 옆 늦은 카페 자리', japanese: '窓辺の遅い喫茶店の席' },
   { english: 'small kitchen with the radio on', korean: '라디오가 흐르는 작은 부엌', japanese: 'ラジオが流れる小さな台所' },
   { english: 'evening drive through familiar streets', korean: '익숙한 거리를 지나는 저녁 드라이브', japanese: '見慣れた通りを走る夕方のドライブ' },
-  { english: 'writing a letter after dinner', korean: '저녁 식사 후 편지 쓰는 시간', japanese: '夕食後に手紙を書く時間' },
-  { english: 'standing near a warm shop window', korean: '따뜻한 가게 창가', japanese: '暖かい店の窓辺' },
+  { english: 'a letter written after dinner', korean: '저녁 식사 후 편지 쓰는 시간', japanese: '夕食後に手紙を書く時間' },
+  { english: 'a warm shop window at dusk', korean: '따뜻한 가게 창가', japanese: '暖かい店の窓辺' },
   { english: 'slow train ride home', korean: '느린 기차를 타고 가는 귀갓길', japanese: 'ゆっくりな列車で帰る道' },
-  { english: 'folding an old sweater in a quiet room', korean: '조용한 방에서 개는 오래된 스웨터', japanese: '静かな部屋で畳む古いセーター' },
-  { english: 'watching the first lights come on', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
+  { english: 'an old sweater folded in a quiet room', korean: '조용한 방에서 개는 오래된 스웨터', japanese: '静かな部屋で畳む古いセーター' },
+  { english: 'the first lights of evening', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
 ];
 
 const emotionArcs = [

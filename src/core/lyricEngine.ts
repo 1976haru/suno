@@ -494,11 +494,6 @@ function extendedBridgeRoles(role: string) {
   return role === 'late-set emotional center' || role === 'romantic shade without melodrama';
 }
 
-/** 'comforting closer' fades out on a third hook repeat instead of the usual bookend pair. */
-function fadeRepeatHookRoles(role: string) {
-  return role === 'comforting closer';
-}
-
 /** 'soft reset before the closing run' keeps its old extra closing-pool texture line after the final chorus. */
 function extendedFinalChorusTextRoles(role: string) {
   return role === 'soft reset before the closing run';
@@ -629,14 +624,19 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     ? [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines)]
     : takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines);
 
+  // TASK X5-2 (v3.4): 'comforting closer' used to fade out on a 3rd hook
+  // repeat here, but a 30-song pack clamps every track past the 12th to
+  // this exact role (songRoles[Math.min(idx, songRoles.length-1)] has no
+  // wraparound), so 19/30 songs in a full pack hit that extra repeat —
+  // pushing well past the 4-7 target. Every role's final chorus now bookends
+  // with exactly 2 hooks, capping every song at 6 total regardless of role
+  // or pack size.
   const finalChorusBase = buildChorus(2);
-  const finalChorusLines = fadeRepeatHookRoles(role)
-    ? [...finalChorusBase, hook]
-    : extendedFinalChorusTextRoles(role)
-      // Closing is only used for this one role and is never part of the
-      // motif budget, so it always renders with a filler noun.
-      ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
-      : finalChorusBase;
+  const finalChorusLines = extendedFinalChorusTextRoles(role)
+    // Closing is only used for this one role and is never part of the
+    // motif budget, so it always renders with a filler noun.
+    ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
+    : finalChorusBase;
 
   const lyrics = [
     `Title: ${title}`,
