@@ -47,6 +47,41 @@ export function estimateTokenUsage(songCount: number, batchSize: number): {
   };
 }
 
+// Mirrors providers/index.ts's refineTracks batching thresholds exactly —
+// below 4 selected tracks each gets its own call (failure isolation), at or
+// above it they're grouped into batches of 6.
+const REFINE_BATCH_THRESHOLD = 4;
+const REFINE_BATCH_SIZE = 6;
+
+export function estimateRefineCalls(selectedCount: number): number {
+  if (selectedCount <= 0) return 0;
+  if (selectedCount < REFINE_BATCH_THRESHOLD) return selectedCount;
+  return Math.ceil(selectedCount / REFINE_BATCH_SIZE);
+}
+
+/** TASK C2 (v3.3): live estimate shown in HybridRefinePanel as the user checks tracks. */
+export function estimateRefineTokens(selectedCount: number): { apiCalls: number; inputTokens: TokenRange; outputTokens: TokenRange } {
+  const apiCalls = estimateRefineCalls(selectedCount);
+  const outputTokens: TokenRange = { low: selectedCount * PER_SONG_OUTPUT.low, high: selectedCount * PER_SONG_OUTPUT.high };
+  if (selectedCount < REFINE_BATCH_THRESHOLD) {
+    return {
+      apiCalls,
+      inputTokens: { low: apiCalls * PER_CALL_BASE_INPUT.low, high: apiCalls * PER_CALL_BASE_INPUT.high },
+      outputTokens
+    };
+  }
+  // Batched calls also carry the rest-of-pack usedTitles/usedHooks context, roughly proportional to pack size.
+  const perBatchGrowth: TokenRange = { low: 20 * PER_PRIOR_SONG_INPUT_GROWTH.low, high: 20 * PER_PRIOR_SONG_INPUT_GROWTH.high };
+  return {
+    apiCalls,
+    inputTokens: {
+      low: apiCalls * (PER_CALL_BASE_INPUT.low + perBatchGrowth.low),
+      high: apiCalls * (PER_CALL_BASE_INPUT.high + perBatchGrowth.high)
+    },
+    outputTokens
+  };
+}
+
 /**
  * inputPricePerM/outputPricePerM are 원(KRW) per 1M tokens, entered by the
  * user in Settings — never hardcoded here, since provider pricing changes

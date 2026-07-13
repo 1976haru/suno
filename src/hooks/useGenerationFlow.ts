@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateBlueprint, regenerateTrack } from '../providers';
+import { generateBlueprint, refineTracks } from '../providers';
 import { clampSongCount } from '../utils/generation';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
 
@@ -65,16 +65,19 @@ export function useGenerationFlow() {
     setIsRefining(true);
     setRefineWarnings([]);
     setRefineProgress({ done: 0, total: trackNos.length });
-    let current = blueprint;
-    const warnings: string[] = [];
     try {
-      for (const trackNo of trackNos) {
-        const { blueprint: next, warning } = await regenerateTrack(current, trackNo, opts, genres, moods, season, provider);
-        current = next;
-        if (warning) warnings.push(`${trackNo}번: ${warning}`);
-        setBlueprint(current);
-        setRefineProgress(prev => ({ done: prev.done + 1, total: prev.total }));
-      }
+      const { blueprint: next, warnings } = await refineTracks(
+        blueprint,
+        trackNos,
+        opts,
+        genres,
+        moods,
+        season,
+        provider,
+        [],
+        (done, total) => setRefineProgress({ done, total })
+      );
+      setBlueprint(next);
       setRefineWarnings(warnings);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

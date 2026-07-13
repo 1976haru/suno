@@ -220,3 +220,102 @@ export async function regenerateTrack(
   const songs = blueprint.songs.map(song => (song.trackNo === trackNo ? (candidate as SongIdea) : song));
   return { blueprint: { ...blueprint, songs }, warning: warning ? `${warning} (최대 ${REGENERATE_MAX_ATTEMPTS}회 시도 후 최선의 결과를 사용합니다.)` : undefined };
 }
+
+const REFINE_BATCH_THRESHOLD = 4; // below this, per-track calls are cheap enough that failure isolation matters more than token savings
+const REFINE_BATCH_SIZE = 6;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+export interface RefineTracksResult {
+  blueprint: PlaylistBlueprint;
+  warnings: string[];
+}
+
+/**
+ * TASK C1 (v3.3): regenerateTrack's per-song call re-sends the full system
+ * prompt + channel profile + accumulated usedTitles/usedHooks on every
+ * single call, so refining N selected tracks one-by-one costs roughly N
+ * times that overhead. Below REFINE_BATCH_THRESHOLD the per-track path
+ * stays (failure isolation and the collision/quality retry loop matter more
+ * than the token savings for 1-3 songs); at or above it, selected tracks
+ * are grouped into REFINE_BATCH_SIZE-sized batches and each batch is
+ * requested as a single multi-song API call, with the returned songs
+ * positionally remapped onto the actual (possibly non-contiguous) selected
+ * trackNos. A failed batch only drops that batch's tracks (with a warning)
+ * — it never discards results already applied from other batches.
+ */
+export async function refineTracks(
+  blueprint: PlaylistBlueprint,
+  trackNos: number[],
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  feedback: string[] = [],
+  onProgress?: (done: number, total: number) => void
+): Promise<RefineTracksResult> {
+  const total = trackNos.length;
+  if (settings.provider === 'local' || trackNos.length < REFINE_BATCH_THRESHOLD) {
+    let current = blueprint;
+    const warnings: string[] = [];
+    let done = 0;
+    for (const trackNo of trackNos) {
+      const { blueprint: next, warning } = await regenerateTrack(current, trackNo, opts, genres, moods, season, settings, feedback);
+      current = next;
+      if (warning) warnings.push(`${trackNo}번: ${warning}`);
+      done += 1;
+      onProgress?.(done, total);
+    }
+    return { blueprint: current, warnings };
+  }
+
+  let current = blueprint;
+  const warnings: string[] = [];
+  let done = 0;
+  const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
+  const feedbackNote = feedback.length
+    ? `previous attempt was rejected for: ${feedback.join('; ')}. Rewrite to avoid these specific issues.`
+    : '';
+
+  for (const chunk of chunkArray(trackNos, REFINE_BATCH_SIZE)) {
+    try {
+      const others = current.songs.filter(song => !chunk.includes(song.trackNo));
+      const usedTitles = others.map(song => song.title);
+      const usedHooks = others.map(song => song.hookPhrase);
+      const batchOpts: GenerationOptions = {
+        ...opts,
+        songCount: chunk.length,
+        avoidWords,
+        customConcept: [opts.customConcept, feedbackNote].filter(Boolean).join(' ')
+      };
+      const batchContext: BatchContext = {
+        trackNoOffset: 0,
+        totalSongCount: current.songs.length,
+        usedTitles,
+        usedHooks,
+        lockedIdentity: extractIdentity(current)
+      };
+
+      const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
+      void recordProviderUsage(settings, 'refine', usage);
+
+      const remapped = (result.songs || []).map((song, i) => ({ ...song, trackNo: chunk[i] }));
+      const scored = scoreSongs(remapped, opts.channel);
+      const byTrackNo = new Map(scored.map(song => [song.trackNo, song]));
+      const songs = current.songs.map(song => byTrackNo.get(song.trackNo) ?? song);
+      current = { ...current, songs };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      warnings.push(`${chunk.join(', ')}번 곡 배치 보정에 실패했습니다: ${message} (다른 배치의 결과는 정상 반영되었습니다.)`);
+    }
+    done += chunk.length;
+    onProgress?.(done, total);
+  }
+
+  return { blueprint: current, warnings };
+}
