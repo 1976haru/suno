@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scoreSong, scoreSongs } from '../src/core/quality';
+import { checkHookQuality, scoreSong, scoreSongs } from '../src/core/quality';
 import { buildDurationControl, buildStylePrompt } from '../src/core/promptComposer';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -69,5 +69,51 @@ describe('quality scorer', () => {
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
     const [song] = scoreSongs(bp.songs, opts.channel);
     expect(song.qualityScore).toBeGreaterThanOrEqual(85);
+  });
+});
+
+describe('checkHookQuality (TASK A5, v3.3)', () => {
+  it('penalizes -15 when the hook appears fewer than 3 times in the lyrics', () => {
+    const song = baseSong({ title: 'Hold On', hookPhrase: 'Hold On', lyrics: '[chorus]\nHold On\nsome other line' });
+    const result = checkHookQuality(song);
+    expect(result.penalty).toBeGreaterThanOrEqual(15);
+    expect(result.warnings.some(w => w.includes('appears only'))).toBe(true);
+  });
+
+  it('penalizes -10 when the hook does not appear in the title', () => {
+    const song = baseSong({
+      title: 'Some Other Title',
+      hookPhrase: 'Hold On',
+      lyrics: '[chorus]\nHold On\nline\nHold On\nline\nHold On'
+    });
+    const result = checkHookQuality(song);
+    expect(result.penalty).toBeGreaterThanOrEqual(10);
+    expect(result.warnings.some(w => w.includes('does not appear in the title'))).toBe(true);
+  });
+
+  it('applies zero penalty for a well-formed hook (short, repeats >=3x, in title, Title Case, no vocative-object pattern)', () => {
+    const song = baseSong({
+      title: 'Hold On',
+      hookPhrase: 'Hold On',
+      lyrics: '[chorus]\nHold On\nline one\nHold On\n\n[final chorus]\nHold On\nline two\nHold On'
+    });
+    const result = checkHookQuality(song);
+    expect(result.penalty).toBe(0);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('penalizes a hook over 6 words', () => {
+    const song = baseSong({ title: 'A Very Long Hook Phrase Right Here', hookPhrase: 'A Very Long Hook Phrase Right Here', lyrics: 'A Very Long Hook Phrase Right Here\nA Very Long Hook Phrase Right Here\nA Very Long Hook Phrase Right Here' });
+    expect(checkHookQuality(song).penalty).toBeGreaterThanOrEqual(10);
+  });
+
+  it('penalizes a lowercase-starting hook', () => {
+    const song = baseSong({ title: 'hold on', hookPhrase: 'hold on', lyrics: 'hold on\nhold on\nhold on' });
+    expect(checkHookQuality(song).penalty).toBeGreaterThanOrEqual(5);
+  });
+
+  it('penalizes the vocative-object pattern ("Hold on, coffee")', () => {
+    const song = baseSong({ title: 'Hold on, coffee', hookPhrase: 'Hold on, coffee', lyrics: 'Hold on, coffee\nHold on, coffee\nHold on, coffee' });
+    expect(checkHookQuality(song).penalty).toBeGreaterThanOrEqual(12);
   });
 });
