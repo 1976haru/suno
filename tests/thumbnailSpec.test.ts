@@ -78,14 +78,28 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
     expect(specA.colorScheme).not.toEqual(specB.colorScheme);
   });
 
-  it('imagePrompt always includes "no people", "no text", and "no logos"', () => {
+  it('[B2] imagePrompt keeps "no text" and "no logos", but no longer bans people outright', () => {
+    // TASK B2 (v3.4): a blanket "no people" was replaced with a narrower ban on
+    // identifiable individuals — distant silhouettes are now explicitly welcomed,
+    // since they raise emotional pull without any portrait/publicity-rights risk.
     for (const season of seasonPacks) {
       const opts = makeOptions({ songCount: 6, seasonId: season.id });
       const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
       const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
-      expect(spec.imagePrompt).toContain('no people');
       expect(spec.imagePrompt).toContain('no text');
       expect(spec.imagePrompt).toContain('no logos');
+      expect(spec.imagePrompt).not.toContain('no people');
+    }
+  });
+
+  it('[B2] imagePrompt bans close-up/identifiable faces and real public figures', () => {
+    for (const season of seasonPacks) {
+      const opts = makeOptions({ songCount: 6, seasonId: season.id });
+      const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+      const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
+      expect(spec.imagePrompt).toContain('no close-up faces');
+      expect(spec.imagePrompt).toContain('no identifiable person');
+      expect(spec.imagePrompt).toContain('no real celebrity or public figure');
     }
   });
 
