@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { moneyChordPresets } from './data/moneyChords';
@@ -10,8 +10,9 @@ import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { recordPackHooks } from './core/hookLedger';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
-import { useGenerationFlow } from './hooks/useGenerationFlow';
+import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
+import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { createInitialOptions } from './utils/generation';
 import type { ChannelProfile, ProviderSettings, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
@@ -58,6 +59,8 @@ export default function App() {
   const cm = useChannelManager(applyChannelToOptions);
   const gen = useGenerationFlow();
   const evalFlow = useEvaluationFlow();
+  const batchFlow = useBatchGenerationFlow();
+  const [batchMode, setBatchMode] = useState(false);
   const library = usePackLibrary(pack => {
     gen.setBlueprint(pack.blueprint);
     setOpts(pack.options);
@@ -82,6 +85,13 @@ export default function App() {
     [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, selectedThumbnailVariant]
   );
 
+  // TASK E2 (v3.5) — a Batch API job outlives a closed tab; resume polling
+  // any job still in flight for this channel as soon as it's known.
+  useEffect(() => {
+    void batchFlow.resumeActiveJobs(cm.selectedChannel.id, { ...opts, channel: cm.selectedChannel }, provider, onBatchJobComplete);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cm.selectedChannel.id]);
+
   function toggleArray(key: 'genreIds' | 'moodIds', id: string) {
     setOpts(prev => {
       const next = new Set(prev[key]);
@@ -101,6 +111,23 @@ export default function App() {
 
   const isHybridActive = hybridMode && provider.provider !== 'local';
 
+  /** Shared by both the synchronous generation path and the Batch API path (TASK E2, v3.5) — whichever produced the blueprint, the autosave/hook-ledger/library-refresh behavior afterward is identical. */
+  async function handleGenerationSuccess(next: import('./types').PlaylistBlueprint, songCount: number, cacheKeyToStore?: string) {
+    setOpts(prev => ({ ...prev, songCount }));
+    if (cacheKeyToStore) {
+      void setCached(cacheKeyToStore, next, { provider: provider.provider, model: provider.model || provider.provider, songCount });
+    }
+    try {
+      const nextOpts = { ...opts, channel: cm.selectedChannel, songCount };
+      const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel);
+      await saveAutosave(next, nextOpts, nextThumbnailSpec);
+      await recordPackHooks(AUTOSAVE_ID, cm.selectedChannel.id, next, opts.lyricLanguage);
+      await library.refresh();
+    } catch {
+      // Autosave is a convenience feature; failures should not block the result from showing.
+    }
+  }
+
   function runGeneration(cacheKeyToStore?: string) {
     evalFlow.setEvaluation(null);
     setThumbnailVariant(0);
@@ -113,28 +140,31 @@ export default function App() {
       fallbackMoods(),
       selectedSeason,
       generationProvider,
-      async (next, songCount) => {
-        setOpts(prev => ({ ...prev, songCount }));
-        if (cacheKeyToStore) {
-          void setCached(cacheKeyToStore, next, { provider: provider.provider, model: provider.model || provider.provider, songCount });
-        }
-        try {
-          const nextOpts = { ...opts, channel: cm.selectedChannel, songCount };
-          const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel);
-          await saveAutosave(next, nextOpts, nextThumbnailSpec);
-          await recordPackHooks(AUTOSAVE_ID, cm.selectedChannel.id, next, opts.lyricLanguage);
-          await library.refresh();
-        } catch {
-          // Autosave is a convenience feature; failures should not block the result from showing.
-        }
-      }
+      (next, songCount) => void handleGenerationSuccess(next, songCount, cacheKeyToStore)
     );
+  }
+
+  function onBatchJobComplete(next: import('./types').PlaylistBlueprint) {
+    evalFlow.setEvaluation(null);
+    gen.setBlueprint(next);
+    setCurrentStep(4);
+    void handleGenerationSuccess(next, next.songs.length);
   }
 
   async function onGenerate() {
     // Hybrid drafts are always free/local and always fresh — no point checking the API cache.
     if (provider.provider === 'local' || isHybridActive) {
       runGeneration();
+      return;
+    }
+    // TASK E2 (v3.5) — Batch API mode skips the cache-prompt/synchronous path
+    // entirely: it's a fresh submit-and-poll job, not a quick call worth
+    // reusing a cached response for.
+    if (batchMode && provider.provider === 'anthropic') {
+      evalFlow.setEvaluation(null);
+      const generationOpts = { ...opts, channel: cm.selectedChannel };
+      const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+      void batchFlow.submit(generationOpts, fallbackGenres(), fallbackMoods(), selectedSeason, provider, avoid, onBatchJobComplete);
       return;
     }
     const key = computeCacheKey({ ...opts, channel: cm.selectedChannel }, fallbackGenres(), fallbackMoods(), selectedSeason, provider);
@@ -144,6 +174,16 @@ export default function App() {
       return;
     }
     runGeneration(key);
+  }
+
+  function onCancelBatchJob() {
+    if (!batchFlow.activeJob) return;
+    void batchFlow.cancel(batchFlow.activeJob.id);
+  }
+
+  function onRetryFailedBatchJob() {
+    if (!batchFlow.activeJob) return;
+    void batchFlow.retryFailed(batchFlow.activeJob.id, provider, onBatchJobComplete);
   }
 
   function onRefineSelected(trackNos: number[]) {
@@ -293,6 +333,11 @@ export default function App() {
               hybridMode={hybridMode}
               onHybridModeChange={setHybridMode}
               onOpenHookHistory={() => setSettingsOpen(true)}
+              batchMode={batchMode}
+              onBatchModeChange={setBatchMode}
+              activeBatchJob={batchFlow.activeJob && batchFlow.activeJob.channelId === cm.selectedChannel.id ? batchFlow.activeJob : null}
+              onCancelBatchJob={onCancelBatchJob}
+              onRetryFailedBatchJob={onRetryFailedBatchJob}
             />
           )}
 

@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Copy, Download, RefreshCw, ShieldAlert, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Copy, Download, RefreshCw, RotateCcw, ShieldAlert, Sparkles } from 'lucide-react';
 import type { SongEvaluation, SongIdea } from '../types';
 import { copyText, downloadText } from '../utils/exporters';
+import { SUNO_STYLE_LIMIT } from '../core/promptComposer';
 
 type Tab = 'style' | 'lyrics' | 'youtube';
 
@@ -25,6 +26,11 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
 export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
+  const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
+
+  useEffect(() => {
+    setStyleDraft(song.stylePrompt);
+  }, [song.stylePrompt, song.trackNo]);
 
   const hasWarnings = song.warnings.length > 0 || Boolean(evaluation);
 
@@ -104,12 +110,30 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
             <section className="copy-block">
               <div className="copy-head">
                 <h4>Style Prompt</h4>
-                <button type="button" onClick={() => void copyText(song.stylePrompt)}>
+                <span className={styleDraft.length > SUNO_STYLE_LIMIT ? 'prompt-length-badge over-limit' : 'prompt-length-badge'}>
+                  {styleDraft.length} / {SUNO_STYLE_LIMIT}자 {styleDraft.length > SUNO_STYLE_LIMIT ? '⚠️' : '✅'}
+                </span>
+                <button type="button" title="원래 생성된 프롬프트로 되돌리기" onClick={() => setStyleDraft(song.stylePrompt)}>
+                  <RotateCcw size={14} />
+                  기본값으로
+                </button>
+                <button type="button" disabled={styleDraft.length > SUNO_STYLE_LIMIT} onClick={() => void copyText(styleDraft)}>
                   <Copy size={15} />
                   Copy
                 </button>
               </div>
-              <pre>{song.stylePrompt}</pre>
+              <textarea
+                className="style-prompt-editor"
+                value={styleDraft}
+                onChange={event => setStyleDraft(event.target.value)}
+                rows={8}
+              />
+              {styleDraft.length > SUNO_STYLE_LIMIT && (
+                <p className="error">⚠️ {SUNO_STYLE_LIMIT}자를 초과했습니다. 이대로 붙여넣으면 Suno가 뒷부분을 잘라냅니다 — 직접 줄이거나 설정에서 제외된 항목을 확인하세요.</p>
+              )}
+              {song.promptDroppedTerms && song.promptDroppedTerms.length > 0 && (
+                <p className="supporting">ℹ️ 길이 제한으로 제외된 항목: {song.promptDroppedTerms.join(', ')}</p>
+              )}
             </section>
           )}
 

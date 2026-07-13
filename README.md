@@ -72,8 +72,8 @@ Supported provider modes:
 
 ## Default Channels
 
-- Korean: 굿모닝 추억 라디오 / Good Morning Memory Radio
-- Japanese: 모닝 쇼와 카페 / Morning Showa Cafe
+- Korean: 굿모닝 추억라디오 / Good Morning Memory Radio
+- Japanese: 朝の昭和喫茶 / Morning Showa Café
 
 These are presets only. Add, duplicate, or replace them for future channels.
 

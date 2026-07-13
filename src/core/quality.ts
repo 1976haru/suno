@@ -1,5 +1,6 @@
 import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
+import { SAFE_TARGET, SUNO_STYLE_LIMIT } from './promptComposer';
 
 const requiredPromptTerms = ['money chord', 'no long instrumental break'];
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
@@ -69,6 +70,38 @@ export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'engl
   }
 
   return { warnings, penalty };
+}
+
+/**
+ * TASK A1/A5 (v3.5) safety net: core/localGenerator.ts already budgets local
+ * stylePrompts through composeStylePrompt(), so this should rarely trigger
+ * for local songs — but a remote LLM's freeform stylePrompt isn't guaranteed
+ * to respect the system-instruction length rule. Rather than slice(0, N)
+ * (which can cut a phrase mid-word), this drops whole comma-separated atoms
+ * from the end until the prompt fits, since remote prompts list their most
+ * important terms first by construction (see buildSystemInstruction).
+ */
+export function enforcePromptLengthBudget(
+  stylePrompt: string,
+  limit: number = SUNO_STYLE_LIMIT,
+  safeTarget: number = SAFE_TARGET
+): { prompt: string; droppedAtoms: string[] } {
+  if (stylePrompt.length <= limit) return { prompt: stylePrompt, droppedAtoms: [] };
+
+  const atoms = stylePrompt.split(',').map(atom => atom.trim()).filter(Boolean);
+  const kept: string[] = [];
+  const dropped: string[] = [];
+  let length = 0;
+  for (const atom of atoms) {
+    const projected = length + (length ? 2 : 0) + atom.length;
+    if (projected > safeTarget) {
+      dropped.push(atom);
+      continue;
+    }
+    kept.push(atom);
+    length = projected;
+  }
+  return { prompt: kept.join(', '), droppedAtoms: dropped };
 }
 
 const imitationPatterns = [
@@ -239,7 +272,29 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   for (const warning of hookCheck.warnings) pushUnique(warnings, warning);
   score -= hookCheck.penalty;
 
-  return { ...song, qualityScore: Math.max(0, score), warnings };
+  // TASK A1/A5 (v3.5): every song funnels through scoreSong regardless of
+  // provider, so this is the one place that guarantees promptLength/
+  // promptWithinLimit are always accurate and, for the rare remote-LLM
+  // overflow, that the pasted-into-Suno text is never silently truncated
+  // mid-phrase.
+  let stylePrompt = song.stylePrompt;
+  let promptDroppedTerms = song.promptDroppedTerms || [];
+  if (stylePrompt.length > SUNO_STYLE_LIMIT) {
+    const fitted = enforcePromptLengthBudget(stylePrompt);
+    stylePrompt = fitted.prompt;
+    promptDroppedTerms = [...promptDroppedTerms, ...fitted.droppedAtoms];
+    pushUnique(warnings, `Style prompt exceeded ${SUNO_STYLE_LIMIT} chars and was trimmed to fit Suno's style-field limit.`);
+  }
+
+  return {
+    ...song,
+    stylePrompt,
+    qualityScore: Math.max(0, score),
+    warnings,
+    promptLength: stylePrompt.length,
+    promptWithinLimit: stylePrompt.length <= SUNO_STYLE_LIMIT,
+    promptDroppedTerms
+  };
 }
 
 export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language: LyricLanguage = 'english') {

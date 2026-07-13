@@ -99,6 +99,10 @@ export interface SongIdea {
   youtubeTitleJa?: string;
   qualityScore: number;
   warnings: string[];
+  /** TASK A5 (v3.5) — length/budget of the final stylePrompt against Suno's style-field limit; always set by core/quality.ts's scoreSong. */
+  promptLength?: number;
+  promptWithinLimit?: boolean;
+  promptDroppedTerms?: string[];
 }
 
 export interface PlaylistBlueprint {
@@ -121,6 +125,10 @@ export interface ProviderSettings {
   apiKey?: string;
   keyStorageMode?: 'server' | 'local';
   batchSize?: number;
+  /** TASK A5 (v3.5) — Suno's style-field limit may change; configurable in Settings, defaults to SUNO_STYLE_LIMIT (1000) when unset. */
+  promptCharLimit?: number;
+  /** TASK D3 (v3.5) — optional per-stage model override (lyrics vs evaluation). Only applied when provider is 'anthropic'; unset means every stage just uses this ProviderSettings as-is (pre-v3.5 behavior). */
+  stageModels?: { lyrics: 'local' | 'sonnet' | 'haiku'; evaluation: 'local' | 'sonnet' | 'haiku' };
 }
 
 export interface PlaylistIdentity {
@@ -149,6 +157,9 @@ export interface GenerationProgress {
 export interface UsageInfo {
   inputTokens: number;
   outputTokens: number;
+  /** TASK E1 (v3.5) — Anthropic prompt-cache read/write token counts, when the provider reports them. A nonzero cacheReadInputTokens on batch 2+ is the only real confirmation the cache boundary was placed correctly. */
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
 }
 
 export interface SongEvaluation {
@@ -221,5 +232,12 @@ export interface ThumbnailSpec {
   objects: string[];
   composition: string;
   forbidden: string[];
+  /** Generic/natural-language version — same as imagePromptVariants.generic (TASK B4, v3.5). */
   imagePrompt: string;
+  /** TASK B4 (v3.5) — the same scene, phrased for each image tool's own prompt syntax. */
+  imagePromptVariants: {
+    generic: string;
+    midjourney: string;
+    stableDiffusion: string;
+  };
 }

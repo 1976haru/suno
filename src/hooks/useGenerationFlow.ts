@@ -2,9 +2,17 @@ import { useState } from 'react';
 import { generateBlueprint, refineTracks } from '../providers';
 import { clampSongCount } from '../utils/generation';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
+import { resolveStageSettings } from '../core/apiAdvisor';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
 
-async function safeAvoidSet(channelId: string, language: GenerationOptions['lyricLanguage']) {
+/** TASK D3 (v3.5) — applies the user's per-stage model choice (if any) on top of the base provider settings; unset stageModels leaves behavior exactly as before. */
+function forStage(stage: 'lyrics' | 'evaluation', provider: ProviderSettings): ProviderSettings {
+  const choice = provider.stageModels?.[stage];
+  if (!choice) return provider;
+  return resolveStageSettings(choice, provider);
+}
+
+export async function safeAvoidSet(channelId: string, language: GenerationOptions['lyricLanguage']) {
   try {
     const { titles, hooks } = await recentUsedTitlesAndHooks(channelId, language);
     return { usedTitles: titles, usedHooks: hooks };
@@ -44,7 +52,7 @@ export function useGenerationFlow() {
         genres,
         moods,
         season,
-        provider,
+        forStage('lyrics', provider),
         progress => {
           setGenProgress(progress);
           setPartialSongs(progress.songs);
@@ -87,7 +95,7 @@ export function useGenerationFlow() {
         genres,
         moods,
         season,
-        provider,
+        forStage('lyrics', provider),
         [],
         (done, total) => setRefineProgress({ done, total }),
         avoid

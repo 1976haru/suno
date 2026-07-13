@@ -4,6 +4,7 @@ import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea, ThumbnailVariantId } from '../../types';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 
@@ -185,6 +186,9 @@ export default function Step4Result({
 
       {resultTab === 'songs' && blueprint && evaluationAvailable && (
         <div className="provider-summary">
+          <p className="supporting api-advice-line">
+            {RECOMMENDATION_BADGE[STAGE_ADVICE.evaluation.recommendation].emoji} {RECOMMENDATION_BADGE[STAGE_ADVICE.evaluation.recommendation].labelKo} ({STAGE_ADVICE.evaluation.suggestedModelKo}): {STAGE_ADVICE.evaluation.reasonKo}
+          </p>
           <p className="supporting">
             평가 범위를 좁히면 API 호출 수가 줄어 비용이 절약됩니다. 곡이 많을수록 효과가 커요.
           </p>

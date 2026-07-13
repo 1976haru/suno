@@ -1,4 +1,30 @@
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta } from '../types';
+import { channelPresets } from '../data/presets';
+
+const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
+
+/**
+ * TASK C (v3.5) — a built-in preset's display name can be corrected after
+ * packs were already saved under it (e.g. the Japanese channel preset was
+ * originally named in Korean, then fixed to actual Japanese). Saved packs
+ * snapshot the channel at save time, so without this they'd keep showing
+ * the old name forever. Matched by id, so custom (non-preset) channels are
+ * never touched.
+ */
+export function migrateLegacyChannelNames(pack: SavedPack): SavedPack {
+  const current = CURRENT_PRESET_NAMES.get(pack.channelId);
+  if (!current) return pack;
+  const channelNameStale = pack.channelName !== current.name;
+  const channelObjStale = pack.options?.channel?.id === pack.channelId && pack.options.channel.name !== current.name;
+  if (!channelNameStale && !channelObjStale) return pack;
+  return {
+    ...pack,
+    channelName: current.name,
+    options: pack.options
+      ? { ...pack.options, channel: { ...pack.options.channel, name: current.name, englishName: current.englishName || pack.options.channel.englishName } }
+      : pack.options
+  };
+}
 
 const DB_NAME = 'suno-weaver-library';
 const DB_VERSION = 1;
@@ -89,12 +115,14 @@ export async function promoteAutosave(name: string): Promise<string | null> {
 export async function listPacks(): Promise<SavedPackMeta[]> {
   const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
   return all
+    .map(migrateLegacyChannelNames)
     .map(({ blueprint: _blueprint, options: _options, evaluation: _evaluation, ...meta }) => meta)
     .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
 }
 
 export async function loadPack(id: string): Promise<SavedPack | undefined> {
-  return withStore<SavedPack | undefined>('readonly', store => store.get(id));
+  const pack = await withStore<SavedPack | undefined>('readonly', store => store.get(id));
+  return pack ? migrateLegacyChannelNames(pack) : pack;
 }
 
 export async function deletePack(id: string): Promise<void> {

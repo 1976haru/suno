@@ -1,6 +1,6 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { buildStylePrompt, hookStyleDirectives } from './promptComposer';
+import { buildChannelPromptParts, composeStylePrompt, hookStyleDirectives, type PromptPart } from './promptComposer';
 import {
   composeLyrics,
   createLyricBatchPools,
@@ -17,10 +17,14 @@ import {
  * into the lyrics themselves — so it needs a real Korean/Japanese phrase for
  * those languages instead of the English string leaking into the lyrics.
  */
+export type SeasonFamily = 'spring' | 'summer' | 'autumn' | 'winter';
+
 export interface LocalizedPhrase {
   english: string;
   korean: string;
   japanese: string;
+  /** TASK B2 (v3.5) — which season families this image reads as natural in. Omitted = season-neutral (fine any time of year). Only used by thumbnailSpec.ts's object picker; lyric generation still draws from the full pool regardless of season. */
+  seasons?: SeasonFamily[];
 }
 
 function phraseFor(phrase: LocalizedPhrase, language: GenerationOptions['lyricLanguage']): string {
@@ -70,13 +74,13 @@ const emotionArcs = [
 const recurringMotifs: LocalizedPhrase[] = [
   { english: 'coffee steam', korean: '커피 김', japanese: 'コーヒーの湯気' },
   { english: 'old radio light', korean: '오래된 라디오 불빛', japanese: '古いラジオの灯り' },
-  { english: 'window rain', korean: '창가의 빗물', japanese: '窓辺の雨音' },
+  { english: 'window rain', korean: '창가의 빗물', japanese: '窓辺の雨音', seasons: ['summer', 'autumn'] },
   { english: 'folded letter', korean: '접힌 편지', japanese: '畳んだ手紙' },
   { english: 'street lamp', korean: '가로등', japanese: '街灯' },
-  { english: 'wool sweater', korean: '털 스웨터', japanese: 'ウールのセーター' },
+  { english: 'wool sweater', korean: '털 스웨터', japanese: 'ウールのセーター', seasons: ['autumn', 'winter'] },
   { english: 'paper calendar', korean: '종이 달력', japanese: '紙のカレンダー' },
   { english: 'warm cafe window', korean: '카페의 창', japanese: 'カフェの窓' },
-  { english: 'candle flame', korean: '촛불의 빛', japanese: 'キャンドルの炎' },
+  { english: 'candle flame', korean: '촛불의 빛', japanese: 'キャンドルの炎', seasons: ['autumn', 'winter'] },
   { english: 'faded photograph', korean: '빛바랜 사진', japanese: '色あせた写真' },
   { english: 'train ticket', korean: '기차표', japanese: '電車の切符' },
   { english: 'quiet doorway', korean: '조용한 문', japanese: '静かな戸口' },
@@ -162,9 +166,11 @@ export function generateLocalBlueprint(
   genres: GenrePack[],
   moods: MoodPack[],
   season: SeasonPack,
-  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] },
+  /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
+  styleLimit?: number
 ): PlaylistBlueprint {
-  const baseStyle = buildStylePrompt(opts, genres, moods, season);
+  const channelParts = buildChannelPromptParts(opts, genres, moods, season);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
 
@@ -196,17 +202,33 @@ export function generateLocalBlueprint(
       role,
       pools: lyricPools
     });
-    const stylePrompt = [
-      baseStyle,
-      `track ${trackNo} role: ${role}`,
-      `${tempo} BPM`,
-      hookStyleDirectives(hookPhrase, opts.lyricDepth),
-      `listener scene: ${situation}`,
-      `use recurring playlist motif: ${packMotif.english}`,
-      generationPack?.tempoBias,
-      wantsFinalChorusModulation(role) ? 'modulate up a half step for the final chorus' : null,
-      'same channel vocal signature and mix balance across the full playlist set'
-    ].filter(Boolean).join(', ');
+    // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
+    // handed to composeStylePrompt, which dedupes and — if the combined
+    // length would cross the Suno-safe budget — drops the lowest-priority
+    // ids first (never truncating mid-phrase). See promptComposer.ts.
+    const songParts: PromptPart[] = [
+      ...channelParts,
+      { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
+      { id: 'tempo', text: `${tempo} BPM` },
+      { id: 'songRole', text: `track ${trackNo} role: ${role}` },
+      { id: 'motif', text: `use recurring playlist motif: ${packMotif.english}` },
+      { id: 'listenerScene', text: `listener scene: ${situation}` },
+      {
+        id: 'mixNotes',
+        text: [
+          generationPack?.tempoBias,
+          wantsFinalChorusModulation(role) ? 'modulate up a half step for the final chorus' : null,
+          'same channel vocal signature and mix balance across the full playlist set'
+        ].filter(Boolean).join(', ')
+      }
+    ];
+    const styleLimitValue = styleLimit && styleLimit > 0 ? styleLimit : undefined;
+    const composed = composeStylePrompt(
+      songParts,
+      styleLimitValue,
+      styleLimitValue ? Math.round(styleLimitValue * 0.9) : undefined
+    );
+    const stylePrompt = composed.prompt;
     const partialSong = {
       trackNo,
       title,
@@ -226,7 +248,10 @@ export function generateLocalBlueprint(
       youtubeTitleKo: `${title} | ${season.label} ${opts.channel.name} 플레이리스트`,
       youtubeTitleJa: `${title} | ${season.label} ${opts.channel.name} プレイリスト`,
       qualityScore: 0,
-      warnings: []
+      warnings: [],
+      promptLength: composed.length,
+      promptWithinLimit: composed.withinLimit,
+      promptDroppedTerms: composed.droppedTerms
     };
   });
 

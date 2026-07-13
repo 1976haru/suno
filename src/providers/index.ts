@@ -26,7 +26,8 @@ async function recordProviderUsage(settings: ProviderSettings, purpose: 'generat
       purpose,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
-      cacheHit: false
+      cacheHit: false,
+      cacheReadTokens: usage.cacheReadInputTokens || 0
     });
   } catch {
     // Usage tracking is a convenience dashboard, not critical path; never block generation on it.
@@ -35,7 +36,7 @@ async function recordProviderUsage(settings: ProviderSettings, purpose: 'generat
 
 export const DEFAULT_BATCH_SIZE = 6;
 
-function chunkRange(total: number, size: number): number[][] {
+export function chunkRange(total: number, size: number): number[][] {
   const batches: number[][] = [];
   for (let start = 1; start <= total; start += size) {
     const end = Math.min(start + size - 1, total);
@@ -78,7 +79,7 @@ export async function generateBlueprint(
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): Promise<PlaylistBlueprint> {
   if (settings.provider === 'local') {
-    const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid);
+    const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid, settings.promptCharLimit);
     const songs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);
     onProgress?.({ done: songs.length, total: opts.songCount, songs });
     return { ...blueprint, songs };
@@ -189,7 +190,8 @@ export async function regenerateTrack(
         genres,
         moods,
         season,
-        { usedTitles, usedHooks }
+        { usedTitles, usedHooks },
+        settings.promptCharLimit
       );
       raw = { ...single.songs[0], trackNo };
     } else {

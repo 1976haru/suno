@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { evaluatePack } from '../agents/evaluator';
 import { regenerateTrack } from '../providers';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
+import { resolveStageSettings } from '../core/apiAdvisor';
 import type { AgentEvaluation, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
+
+/** TASK D3 (v3.5) — mirrors useGenerationFlow's forStage(): applies a per-stage model override when configured, otherwise leaves settings untouched. */
+function forStage(stage: 'lyrics' | 'evaluation', provider: ProviderSettings): ProviderSettings {
+  const choice = provider.stageModels?.[stage];
+  if (!choice) return provider;
+  return resolveStageSettings(choice, provider);
+}
 
 interface UndoEntry {
   trackNo: number;
@@ -24,7 +32,7 @@ export function useEvaluationFlow() {
     const scopedCount = scopeTrackNos && scopeTrackNos.length ? scopeTrackNos.length : blueprint.songs.length;
     setEvalProgress({ done: 0, total: scopedCount });
     try {
-      const result = await evaluatePack(blueprint, opts, provider, (done, total) => setEvalProgress({ done, total }), scopeTrackNos);
+      const result = await evaluatePack(blueprint, opts, forStage('evaluation', provider), (done, total) => setEvalProgress({ done, total }), scopeTrackNos);
       setEvaluation(prev => {
         if (!prev || !scopeTrackNos || !scopeTrackNos.length) return result;
         // Scoped re-evaluation only touched a subset — keep prior per-song

@@ -1,8 +1,17 @@
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, UsageInfo } from '../types';
-import { buildSystemInstruction, buildUserInstruction } from '../core/promptComposer';
+import { buildAnthropicUserPayload, buildBatchSystemNote, buildChannelSystemBlock, buildSystemInstruction } from '../core/promptComposer';
 import { callGenerateProxy } from './proxyFetch';
 import type { ProviderCallResult } from './openai';
 
+/**
+ * TASK E1 (v3.5) — split into two cacheable system blocks (stable rules,
+ * stable channel/genre/mood/season profile) plus one small uncached batch
+ * note, instead of one string that changes every batch call. See
+ * api/generate.js's callAnthropic for how these map onto Anthropic's
+ * `cache_control: { type: 'ephemeral' }` blocks, and core/promptComposer.ts
+ * for why alreadyUsedTitles/alreadyUsedHooks stay in the (uncached) user
+ * payload instead of a cached block.
+ */
 export async function generateWithAnthropic(
   opts: GenerationOptions,
   genres: GenrePack[],
@@ -20,8 +29,9 @@ export async function generateWithAnthropic(
     model,
     temperature: settings.temperature,
     batchSize: opts.songCount,
-    system: buildSystemInstruction(opts, batch),
-    user: buildUserInstruction(opts, genres, moods, season, batch)
+    cacheableSystemBlocks: [buildSystemInstruction(opts), buildChannelSystemBlock(opts, genres, moods, season)],
+    volatileSystemText: batch ? buildBatchSystemNote(opts, batch) : '',
+    user: buildAnthropicUserPayload(opts, batch)
   });
 
   return {

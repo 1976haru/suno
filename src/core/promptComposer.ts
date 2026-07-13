@@ -3,6 +3,214 @@ import { generationPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
 import { safeLyricRules } from '../data/lyrics';
 
+// TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
+// — a real measurement of 12 generated songs found 12/12 over that limit
+// (avg 1,764 chars), meaning the app's core output couldn't actually be
+// pasted into Suno. SAFE_TARGET leaves headroom under the hard limit since
+// Suno's own limit isn't guaranteed to stay exactly 1,000 forever.
+export const SUNO_STYLE_LIMIT = 1000;
+export const SAFE_TARGET = 900;
+
+/**
+ * Priority order for TASK A2 — filled from the top down; once the running
+ * length would cross the safe target, remaining non-essential ids are left
+ * out (and recorded in droppedTerms) rather than truncating text mid-phrase.
+ * The first six ids are essential and are never dropped, even if that pushes
+ * the final prompt over SAFE_TARGET (better an over-length prompt the user
+ * can see and trim than a silently incomplete one).
+ */
+export type PromptTermId =
+  | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
+  | 'mood' | 'instruments' | 'season' | 'safety'
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes';
+
+export const PROMPT_PRIORITY: PromptTermId[] = [
+  'genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo',
+  'mood', 'instruments', 'season', 'safety',
+  'songRole', 'motif', 'listenerScene', 'mixNotes'
+];
+
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo']);
+
+export const TERM_LABELS_KO: Record<PromptTermId, string> = {
+  genre: '장르',
+  vocal: '보컬',
+  hook: '훅 반복 지시',
+  moneyChord: '코드 진행',
+  duration: '곡 길이',
+  tempo: '템포',
+  mood: '무드',
+  instruments: '악기',
+  season: '시즌',
+  safety: '안전 문구',
+  songRole: '트랙 역할',
+  motif: '모티프',
+  listenerScene: '청자 장면',
+  mixNotes: '믹스 노트'
+};
+
+export interface PromptPart {
+  id: PromptTermId;
+  text: string | undefined | null;
+}
+
+export interface StylePromptResult {
+  prompt: string;
+  length: number;
+  withinLimit: boolean;
+  /** Korean labels of dropped term categories (TASK A5 UI shows this verbatim). */
+  droppedTerms: string[];
+}
+
+// TASK A3 — descriptor words that show up once per genre/mood/season pack
+// and pile up into visible padding once several packs are combined (e.g.
+// two "nostalgic ..." genre styleCores plus the "nostalgic" mood pack).
+// Only these two were confirmed repeating 3x+ in the actual measured output.
+const REPEATED_ADJECTIVES = ['warm', 'nostalgic'];
+const ADJECTIVE_CAP = 2;
+
+function splitAtoms(text: string | undefined | null): string[] {
+  if (!text) return [];
+  return text.split(',').map(part => part.trim()).filter(Boolean);
+}
+
+/** ids defaults to a same-length array of a placeholder id when called with plain strings (the public dedupeTerms() case, which doesn't need id tracking). */
+function capRepeatedAdjectives(atoms: string[], ids: PromptTermId[]): { id: PromptTermId; text: string }[] {
+  const counts = new Map<string, number>();
+  return atoms
+    .map((atom, i) => {
+      let text = atom;
+      for (const word of REPEATED_ADJECTIVES) {
+        const re = new RegExp(`\\b${word}\\b`, 'i');
+        if (!re.test(text)) continue;
+        const count = (counts.get(word) || 0) + 1;
+        counts.set(word, count);
+        if (count > ADJECTIVE_CAP) {
+          text = text.replace(re, '').replace(/\s{2,}/g, ' ').trim();
+        }
+      }
+      return { id: ids[i], text };
+    })
+    .filter(entry => Boolean(entry.text));
+}
+
+/**
+ * TASK A3 — three passes, in order: (1) exact case-insensitive duplicate
+ * removal, (2) containment removal (if atom A's text is fully contained in
+ * atom B's, drop A and keep the more specific B — "acoustic guitar" vs.
+ * "fingerpicked acoustic guitar"), (3) adjective-repeat suppression (see
+ * capRepeatedAdjectives). Exported for direct testing.
+ */
+export function dedupeTerms(atoms: string[]): string[] {
+  const seen = new Set<string>();
+  const exactDeduped = atoms.filter(atom => {
+    const key = atom.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const containmentDeduped = exactDeduped.filter((atom, i) => {
+    const lower = atom.toLowerCase();
+    return !exactDeduped.some((other, j) => {
+      if (i === j) return false;
+      const otherLower = other.toLowerCase();
+      if (otherLower.length <= lower.length) return false;
+      return otherLower.includes(lower);
+    });
+  });
+
+  const placeholderIds = containmentDeduped.map(() => 'mood' as PromptTermId);
+  return capRepeatedAdjectives(containmentDeduped, placeholderIds).map(entry => entry.text);
+}
+
+/**
+ * TASK A1/A2 — the single place that turns a bag of tagged phrase parts into
+ * one Suno-safe style prompt string. Callers (buildStylePrompt below, and
+ * localGenerator's per-song assembly) just tag every fragment with its
+ * PromptTermId; this function groups atoms by id, dedupes non-essential
+ * groups, then fills the prompt in priority order until the safe target is
+ * reached, dropping whatever's left (never mid-phrase — whole atoms only).
+ */
+export function composeStylePrompt(parts: PromptPart[], limit: number = SUNO_STYLE_LIMIT, safeTarget: number = SAFE_TARGET): StylePromptResult {
+  const atomsById = new Map<PromptTermId, string[]>();
+  for (const part of parts) {
+    const atoms = splitAtoms(part.text);
+    if (!atoms.length) continue;
+    atomsById.set(part.id, [...(atomsById.get(part.id) || []), ...atoms]);
+  }
+
+  // Global exact dedupe first — safe even for essential ids, since it only
+  // ever removes a literal repeat, never rewrites meaning-bearing content.
+  const seen = new Set<string>();
+  for (const id of PROMPT_PRIORITY) {
+    const atoms = atomsById.get(id);
+    if (!atoms) continue;
+    atomsById.set(id, atoms.filter(atom => {
+      const key = atom.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }));
+  }
+
+  // Containment removal + adjective capping only ever touch non-essential
+  // ids — essential ids are always included whole, never rewritten. This
+  // runs once, globally, across every non-essential atom together (not
+  // per-id) — otherwise a word like "warm" could independently hit its cap
+  // in the mood group, the season group, and the safety group and still
+  // show up 6+ times in the final prompt.
+  const nonEssentialIds = PROMPT_PRIORITY.filter(id => !ESSENTIAL_TERM_IDS.has(id));
+  const flatAtoms: string[] = [];
+  const flatIds: PromptTermId[] = [];
+  for (const id of nonEssentialIds) {
+    for (const atom of atomsById.get(id) || []) {
+      flatAtoms.push(atom);
+      flatIds.push(id);
+    }
+  }
+  const keepMask = flatAtoms.map((atom, i) => {
+    const lower = atom.toLowerCase();
+    return !flatAtoms.some((other, j) => {
+      if (i === j) return false;
+      const otherLower = other.toLowerCase();
+      if (otherLower.length <= lower.length) return false;
+      return otherLower.includes(lower);
+    });
+  });
+  const containedFilteredAtoms = flatAtoms.filter((_, i) => keepMask[i]);
+  const containedFilteredIds = flatIds.filter((_, i) => keepMask[i]);
+  const cappedAtoms = capRepeatedAdjectives(containedFilteredAtoms, containedFilteredIds);
+  for (const id of nonEssentialIds) atomsById.set(id, []);
+  cappedAtoms.forEach(({ id, text }) => atomsById.get(id)!.push(text));
+
+  const droppedTerms: string[] = [];
+  const keptChunks: string[] = [];
+  let currentLength = 0;
+
+  for (const id of PROMPT_PRIORITY) {
+    const atoms = atomsById.get(id);
+    if (!atoms || !atoms.length) continue;
+    const chunk = atoms.join(', ');
+    const essential = ESSENTIAL_TERM_IDS.has(id);
+    const projected = currentLength + (currentLength ? 2 : 0) + chunk.length;
+    if (!essential && projected > safeTarget) {
+      droppedTerms.push(TERM_LABELS_KO[id]);
+      continue;
+    }
+    keptChunks.push(chunk);
+    currentLength = projected;
+  }
+
+  const prompt = keptChunks.join(', ');
+  return {
+    prompt,
+    length: prompt.length,
+    withinLimit: prompt.length <= limit,
+    droppedTerms
+  };
+}
+
 export function buildDurationControl(target: GenerationOptions['durationTarget']) {
   if (target === 'under3m30') {
     return 'concise radio edit, very short intro, no long instrumental break, no extended outro, no unnecessary repetition, complete song around 3 minutes 10 seconds, never exceed 3 minutes 35 seconds';
@@ -19,30 +227,49 @@ export function resolveMoneyChordText(opts: GenerationOptions) {
     : moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
 }
 
-export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack) {
+/**
+ * Channel/pack-level prompt fragments, tagged with their TASK A2 priority id
+ * so a caller (buildStylePrompt below, or localGenerator's per-song
+ * assembly, which adds hook/tempo/songRole/motif/listenerScene/mixNotes on
+ * top) can hand the whole set to composeStylePrompt() and get one
+ * budgeted, deduped, Suno-safe string back. TASK A4: opts.channel.
+ * visualIdentity is deliberately absent — it's typography/art-direction
+ * language for the thumbnail spec, not a music-style term, and mixing it
+ * into the music prompt both wastes budget and confuses Suno.
+ */
+export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PromptPart[] {
   const genreText = genres.map(g => g.styleCore).join(', ');
   const instrumentText = Array.from(new Set(genres.flatMap(g => g.instruments))).join(', ');
-  const moodText = moods.flatMap(m => m.emotionWords).join(', ');
+  const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
   const money = resolveMoneyChordText(opts);
   const duration = buildDurationControl(opts.durationTarget);
-  const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const avoid = opts.avoidWords.trim()
     ? `avoid: ${opts.avoidWords}; avoid famous artist imitation, copied melodies, copyrighted song references, soundalike vocals`
     : 'avoid famous artist imitation, copied melodies, copyrighted song references, soundalike vocals';
 
   return [
-    genreText,
-    `${season.keywords.join(', ')} mood`,
-    opts.vocalTone || opts.channel.defaultVocal,
-    instrumentText,
-    moodText,
-    generationPack?.audienceNote,
-    opts.channel.visualIdentity,
-    `money chord foundation: ${money}`,
-    'clear pronunciation, emotionally warm but restrained, polished commercial playlist quality',
-    duration,
-    avoid
-  ].filter(Boolean).join(', ');
+    { id: 'genre', text: genreText },
+    { id: 'vocal', text: opts.vocalTone || opts.channel.defaultVocal },
+    { id: 'moneyChord', text: `money chord foundation: ${money}` },
+    { id: 'duration', text: [duration, 'clear pronunciation, emotionally warm but restrained, polished commercial playlist quality'].join(', ') },
+    { id: 'mood', text: moodText },
+    { id: 'instruments', text: instrumentText },
+    { id: 'season', text: `${season.keywords.join(', ')} mood` },
+    { id: 'safety', text: avoid }
+  ];
+}
+
+/**
+ * Backward-compatible plain-string entry point (channel-level only, no
+ * per-song hook/tempo/scene parts — see localGenerator.ts for the full,
+ * budget-enforced per-song prompt that actually gets pasted into Suno).
+ * Since this is only a partial building block, not the final pasted text,
+ * it dedupes (TASK A3) but never budget-drops a term — the 900-char safe
+ * target is enforced once, on the complete per-song prompt, not here.
+ */
+export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): string {
+  return composeStylePrompt(buildChannelPromptParts(opts, genres, moods, season), SUNO_STYLE_LIMIT, Number.MAX_SAFE_INTEGER).prompt;
 }
 
 /**
@@ -64,10 +291,20 @@ export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOp
   ].join(', ');
 }
 
+/**
+ * TASK E1 (v3.5): the batch note (track offset, total count) is the only
+ * part of the system instruction that changes from one batch call to the
+ * next within a single generation run. Keeping it out of buildSystemInstruction's
+ * cacheable text (see buildStableSystemText) is what lets Anthropic's prompt
+ * cache actually hit on batch 2+ — a single interpolated string that changes
+ * every call can never be a stable cache prefix.
+ */
+export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContext): string {
+  return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.`;
+}
+
 export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext) {
-  const batchNote = batch
-    ? `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.`
-    : '';
+  const batchNote = batch ? buildBatchSystemNote(opts, batch) : '';
 
   const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
 
@@ -84,6 +321,8 @@ Rules:
 - Keep song length controlled for ${opts.durationTarget}.
 - Include YouTube title, description, tags, and thumbnail text for every song.
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.
+- CRITICAL: "stylePrompt" is pasted directly into Suno's style field, which truncates past ${SUNO_STYLE_LIMIT} characters. Keep every stylePrompt at or under ${SAFE_TARGET} characters — pack it with genre, vocal, hook-repeat instruction, money chord, duration, and tempo first, and only add mood/instrument/season detail if there is room left. Never let it run long; a shorter, focused prompt beats a longer one that gets cut off mid-sentence.
+- Do not include typography, logo, or thumbnail art-direction language (e.g. font style) in "stylePrompt" — that belongs only in visual/thumbnail fields, never in the music style prompt.
 
 Hook rules (each song's hookPhrase):
 - The hook must be a short, singable phrase of 2-5 words, in Title Case, never starting with a lowercase letter.
@@ -163,5 +402,97 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
         }
       ]
     }
+  };
+}
+
+/**
+ * TASK E1 (v3.5) — everything from buildUserInstruction() that stays
+ * byte-identical across every batch of one generation run (channel profile,
+ * genre/mood/season packs, the output JSON schema, the static planning
+ * bullets). Sent once as a second cache_control block in Anthropic's
+ * `system` array (see providers/anthropic.ts) instead of being re-sent
+ * inside every batch's user message — that's most of the token bulk in a
+ * typical request, and it never changes within a run.
+ */
+export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): string {
+  const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const block = {
+    channel: opts.channel,
+    generationPack,
+    genrePacks: genres,
+    moodPacks: moods,
+    season,
+    batchPlanning: [
+      'Use one recurring visual motif across the pack, but do not repeat the same lyric line.',
+      'Track 1 should introduce the playlist identity clearly.',
+      'Tracks 2-5 should establish variety without breaking the channel promise.',
+      'Middle tracks should add emotional depth and different listener situations.',
+      'Final tracks should resolve warmly and feel like a natural closer.',
+      'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.',
+      'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
+    ],
+    outputShape: {
+      projectTitle: 'string',
+      channelName: 'string',
+      oneLineConcept: 'string',
+      sonicSignature: 'string',
+      vocalSignature: 'string',
+      lyricRules: ['string'],
+      harmonyRules: ['string'],
+      visualRules: ['string'],
+      songs: [
+        {
+          trackNo: 1,
+          title: 'string',
+          seasonMoment: 'string',
+          listenerSituation: 'string',
+          emotionArc: 'string',
+          hookPhrase: 'string',
+          stylePrompt: 'string',
+          lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
+          thumbnailText: 'string',
+          youtube: {
+            title: 'string',
+            description: 'string',
+            tags: ['string'],
+            thumbnailText: 'string'
+          },
+          youtubeTitleKo: 'string optional',
+          youtubeTitleJa: 'string optional',
+          qualityScore: 0,
+          warnings: []
+        }
+      ]
+    }
+  };
+  return `Channel profile and output schema for this generation run (stable across every batch):\n${JSON.stringify(block, null, 2)}`;
+}
+
+/**
+ * TASK E1 (v3.5) — the lean, per-batch-varying half of the user payload:
+ * everything buildChannelSystemBlock() doesn't already cover. Crucially,
+ * alreadyUsedTitles/alreadyUsedHooks (which grow every batch) live here,
+ * never in a cached block — caching a growing list would either invalidate
+ * the cache every batch or, worse, silently cache a stale (too-short) list.
+ */
+export function buildAnthropicUserPayload(opts: GenerationOptions, batch?: BatchContext) {
+  return {
+    projectTitle: opts.projectTitle,
+    songCount: opts.songCount,
+    lyricLanguage: opts.lyricLanguage,
+    market: opts.market,
+    audience: opts.audience,
+    vocalTone: opts.vocalTone || opts.channel.defaultVocal,
+    perspective: opts.perspective,
+    lyricDepth: opts.lyricDepth,
+    moneyChordMode: opts.moneyChordMode,
+    customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
+    customConcept: opts.customConcept,
+    avoidWords: opts.avoidWords,
+    trackNoOffset: batch?.trackNoOffset ?? 0,
+    totalSongCount: batch?.totalSongCount ?? opts.songCount,
+    alreadyUsedTitles: batch?.usedTitles ?? [],
+    alreadyUsedHooks: batch?.usedHooks ?? [],
+    lockedIdentity: batch?.lockedIdentity ?? null
   };
 }

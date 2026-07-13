@@ -5,7 +5,10 @@ import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
 import { channelExhaustionStats, type ExhaustionStats } from '../../core/hookLedger';
+import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import DryRunPreviewModal from '../DryRunPreviewModal';
+import BatchJobPanel from '../BatchJobPanel';
+import type { BatchJobRecord } from '../../core/batchJobs';
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, ProviderSettings, SeasonPack } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
@@ -31,9 +34,17 @@ interface Step3GenerateProps {
   hybridMode: boolean;
   onHybridModeChange: (value: boolean) => void;
   onOpenHookHistory: () => void;
+  batchMode: boolean;
+  onBatchModeChange: (value: boolean) => void;
+  activeBatchJob: BatchJobRecord | null;
+  onCancelBatchJob: () => void;
+  onRetryFailedBatchJob: () => void;
 }
 
-export default function Step3Generate({ opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate, hybridMode, onHybridModeChange, onOpenHookHistory }: Step3GenerateProps) {
+export default function Step3Generate({
+  opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
+  hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob
+}: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
     : provider.provider === 'anthropic'
@@ -176,6 +187,32 @@ export default function Step3Generate({ opts, setOpts, genres, moods, season, pr
         </div>
       )}
 
+      {provider.provider === 'anthropic' && !hybridMode && !isGenerating && !activeBatchJob && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Wand2 size={18} />
+            <h2>처리 속도</h2>
+          </div>
+          <div className="chips">
+            <button type="button" className={!batchMode ? 'chip active' : 'chip'} onClick={() => onBatchModeChange(false)}>
+              지금 바로 (몇 초~1분 · 표준 요금)
+            </button>
+            <button type="button" className={batchMode ? 'chip active' : 'chip'} onClick={() => onBatchModeChange(true)}>
+              여유 있게 — Batch API [추천 · 50% 저렴]
+            </button>
+          </div>
+          <p className="supporting">
+            {batchMode
+              ? '보통 몇 분 내에 끝나지만 최대 24시간까지 걸릴 수 있습니다. 주 1회 발행하는 워크플로우라면 이 시간차는 대체로 문제되지 않아요. 이 탭을 닫아도 진행 상황은 저장됩니다.'
+              : '30곡 기준 출력 약 25K 토큰입니다. 여유가 있다면 Batch API로 50% 저렴하게 생성할 수 있어요.'}
+          </p>
+        </div>
+      )}
+
+      {activeBatchJob && (
+        <BatchJobPanel job={activeBatchJob} onCancel={onCancelBatchJob} onRetryFailed={onRetryFailedBatchJob} />
+      )}
+
       {provider.provider !== 'local' && !hybridMode && (
         <div className="provider-summary">
           <div className="panel-title">
@@ -218,13 +255,26 @@ export default function Step3Generate({ opts, setOpts, genres, moods, season, pr
         onClose={() => setPreviewOpen(false)}
       />
 
-      <button type="button" className="primary full-width action-button" disabled={isGenerating} onClick={onGenerate}>
+      {provider.provider === 'local' && (
+        <p className="supporting api-advice-line">
+          {RECOMMENDATION_BADGE[STAGE_ADVICE.lyrics.recommendation].emoji} {RECOMMENDATION_BADGE[STAGE_ADVICE.lyrics.recommendation].labelKo} ({STAGE_ADVICE.lyrics.suggestedModelKo}): {STAGE_ADVICE.lyrics.reasonKo}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="primary full-width action-button"
+        disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting'}
+        onClick={onGenerate}
+      >
         <Wand2 size={18} />
         {isGenerating
           ? `생성 중... (${genProgress.done}/${genProgress.total})`
-          : hybridMode && provider.provider !== 'local'
-            ? `${opts.songCount}곡 무료 초안 만들기`
-            : `${opts.songCount}곡 생성하기`}
+          : batchMode && provider.provider === 'anthropic' && !hybridMode
+            ? `${opts.songCount}곡 Batch API로 제출하기`
+            : hybridMode && provider.provider !== 'local'
+              ? `${opts.songCount}곡 무료 초안 만들기`
+              : `${opts.songCount}곡 생성하기`}
       </button>
 
       {error && <p className="error">{error}</p>}

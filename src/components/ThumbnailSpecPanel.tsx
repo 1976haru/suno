@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Copy, RefreshCw } from 'lucide-react';
 import { copyText } from '../utils/exporters';
+import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
 import type { ThumbnailVariantId } from '../types';
 
@@ -10,9 +11,19 @@ interface ThumbnailSpecPanelProps {
   onSelectVariant: (id: ThumbnailVariantId) => void;
 }
 
+type ImageTool = 'generic' | 'midjourney' | 'stableDiffusion';
+
+const IMAGE_TOOL_LABELS: Record<ImageTool, string> = {
+  generic: '범용 (Canva / DALL-E / Firefly)',
+  midjourney: 'Midjourney',
+  stableDiffusion: 'Stable Diffusion'
+};
+
 export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelectVariant }: ThumbnailSpecPanelProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [imageTool, setImageTool] = useState<ImageTool>('generic');
   const selectedVariant = spec.variants.find(v => v.id === spec.selected) ?? spec.variants[0];
+  const activeImagePrompt = spec.imagePromptVariants[imageTool];
 
   async function handleCopy(field: string, text: string) {
     await copyText(text);
@@ -78,12 +89,24 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
       <div className="copy-block">
         <div className="copy-head">
           <h4>이미지 생성 프롬프트 (영어)</h4>
-          <button type="button" onClick={() => void handleCopy('imagePrompt', spec.imagePrompt)}>
+          <button type="button" onClick={() => void handleCopy('imagePrompt', activeImagePrompt)}>
             <Copy size={15} />
             {copiedField === 'imagePrompt' ? '복사됨' : '복사'}
           </button>
         </div>
-        <pre>{spec.imagePrompt}</pre>
+        <div className="tab-row">
+          {(Object.keys(IMAGE_TOOL_LABELS) as ImageTool[]).map(tool => (
+            <button
+              key={tool}
+              type="button"
+              className={imageTool === tool ? 'tab active' : 'tab'}
+              onClick={() => setImageTool(tool)}
+            >
+              📋 {IMAGE_TOOL_LABELS[tool]}
+            </button>
+          ))}
+        </div>
+        <pre>{activeImagePrompt}</pre>
       </div>
 
       <div className="button-row">
@@ -100,6 +123,9 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
           🔄 세 안 다른 문구로 다시 제안
         </button>
       </div>
+      <p className="supporting api-advice-line">
+        {RECOMMENDATION_BADGE[STAGE_ADVICE.thumbnailCopy.recommendation].emoji} {RECOMMENDATION_BADGE[STAGE_ADVICE.thumbnailCopy.recommendation].labelKo} ({STAGE_ADVICE.thumbnailCopy.suggestedModelKo}): {STAGE_ADVICE.thumbnailCopy.reasonKo}
+      </p>
     </section>
   );
 }

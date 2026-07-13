@@ -158,6 +158,84 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
   });
 });
 
+describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
+  it('[B2] objects never mix a wool sweater (autumn/winter) into a cherry-blossom (spring) thumbnail', () => {
+    for (let i = 0; i < 20; i++) {
+      const opts = makeOptions({ songCount: 6, seasonId: 'cherry-blossom', projectTitle: `Blossom Pack ${i}` });
+      const season = seasonPacks.find(s => s.id === 'cherry-blossom')!;
+      const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+      const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
+      expect(spec.objects.some(o => o.includes('sweater') || o.includes('스웨터') || o.includes('セーター'))).toBe(false);
+    }
+  });
+
+  it('[B3] imagePrompt never contains a hex color code', () => {
+    for (const season of seasonPacks) {
+      const opts = makeOptions({ songCount: 3, seasonId: season.id });
+      const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+      const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
+      expect(spec.imagePrompt).not.toMatch(/#[0-9A-Fa-f]{6}/);
+    }
+  });
+
+  it('[B3] imagePrompt uses the palette\'s plain-English color names', () => {
+    const season = seasonPacks.find(s => s.id === 'christmas')!;
+    const opts = makeOptions({ songCount: 3, seasonId: season.id });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
+    const palette = paletteForSeason(season.id);
+    expect(spec.imagePrompt).toContain(palette.backgroundNameEn);
+    expect(spec.imagePrompt).toContain(palette.accentNameEn);
+  });
+
+  it('[B1] imagePrompt reads as a scene (lighting/camera/composition language), not a bare object list', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.imagePrompt).toMatch(/light/i);
+    expect(spec.imagePrompt).toMatch(/lens|bokeh|depth of field/i);
+    expect(spec.imagePrompt).toMatch(/composition/i);
+  });
+
+  it('[B1] imagePrompt is specific enough to be at least 400 characters', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.imagePrompt.length).toBeGreaterThanOrEqual(400);
+  });
+
+  it('[B4] every tool variant is present and the Midjourney version carries --ar 16:9 and --no text', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.imagePromptVariants.generic).toBe(spec.imagePrompt);
+    expect(spec.imagePromptVariants.midjourney).toContain('--ar 16:9');
+    expect(spec.imagePromptVariants.midjourney).toContain('--no text');
+    expect(spec.imagePromptVariants.stableDiffusion).toContain('Positive:');
+    expect(spec.imagePromptVariants.stableDiffusion).toContain('Negative:');
+  });
+
+  it('negative/forbidden guardrails keep "no identifiable person" and a branded-IP ban across every variant', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.imagePrompt).toContain('no identifiable person');
+    expect(spec.imagePrompt).toContain('branded IP');
+    expect(spec.imagePromptVariants.midjourney).toContain('branded IP');
+    expect(spec.imagePromptVariants.stableDiffusion).toContain('branded IP');
+  });
+
+  it('object/text placement (composition) stays stable across headline regeneration but is a specific side, not vague "one side"', () => {
+    const opts = makeOptions({ songCount: 3, seasonId: 'christmas' });
+    const season = seasonPacks.find(s => s.id === 'christmas')!;
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+    const specA = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0);
+    const specB = buildThumbnailSpec(bp, opts, season, channelPresets[0], 5);
+    expect(specA.composition).toBe(specB.composition);
+    expect(specA.composition).toMatch(/좌측|우측/);
+  });
+});
+
 describe('paletteForSeason', () => {
   it('every season ID maps to a real palette entry', () => {
     for (const season of seasonPacks) {

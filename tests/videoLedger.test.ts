@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeInsights, exportVideosToCsv, parseYoutubeStudioCsv, type VideoRecord } from '../src/core/videoLedger';
+import { computeInsights, diagnoseCtrVsRetention, exportVideosToCsv, parseYoutubeStudioCsv, type VideoRecord } from '../src/core/videoLedger';
 
 function makeVideo(overrides: Partial<VideoRecord> = {}): VideoRecord {
   return {
@@ -100,6 +100,77 @@ describe('parseYoutubeStudioCsv (pure — TASK B3, v3.4)', () => {
     const csv = ['Video title,Views', '"Coffee, Letters, and Rain",100'].join('\n');
     const rows = parseYoutubeStudioCsv(csv);
     expect(rows[0].title).toBe('Coffee, Letters, and Rain');
+  });
+});
+
+describe('diagnoseCtrVsRetention (pure — TASK F, v3.5)', () => {
+  it('never diagnoses from fewer than 3 videos with both CTR and duration', () => {
+    const videos = [
+      makeVideo({ weekNo: 1, ctr: 5, avgViewDuration: 200 }),
+      makeVideo({ weekNo: 2, ctr: 5, avgViewDuration: 200 })
+    ];
+    expect(diagnoseCtrVsRetention(videos)).toBeNull();
+  });
+
+  it('[F] high CTR + low retention -> thumbnail is fine, the song itself is the mismatch', () => {
+    const videos = [
+      makeVideo({ weekNo: 1, ctr: 5, avgViewDuration: 200 }),
+      makeVideo({ weekNo: 2, ctr: 5, avgViewDuration: 200 }),
+      makeVideo({ weekNo: 3, ctr: 10, avgViewDuration: 100 }) // latest: high ctr, low duration
+    ];
+    const diagnosis = diagnoseCtrVsRetention(videos);
+    expect(diagnosis?.weekNo).toBe(3);
+    expect(diagnosis?.ctrLevel).toBe('high');
+    expect(diagnosis?.retentionLevel).toBe('low');
+    expect(diagnosis?.messageKo).toContain('곡이 안 맞습니다');
+  });
+
+  it('[F] low CTR + high retention -> the song is fine, thumbnail/title is weak', () => {
+    const videos = [
+      makeVideo({ weekNo: 1, ctr: 10, avgViewDuration: 100 }),
+      makeVideo({ weekNo: 2, ctr: 10, avgViewDuration: 100 }),
+      makeVideo({ weekNo: 3, ctr: 2, avgViewDuration: 250 }) // latest: low ctr, high duration
+    ];
+    const diagnosis = diagnoseCtrVsRetention(videos);
+    expect(diagnosis?.ctrLevel).toBe('low');
+    expect(diagnosis?.retentionLevel).toBe('high');
+    expect(diagnosis?.messageKo).toContain('썸네일·제목이 약합니다');
+  });
+
+  it('[F] low CTR + low retention -> concept-level review', () => {
+    const videos = [
+      makeVideo({ weekNo: 1, ctr: 10, avgViewDuration: 250 }),
+      makeVideo({ weekNo: 2, ctr: 10, avgViewDuration: 250 }),
+      makeVideo({ weekNo: 3, ctr: 2, avgViewDuration: 50 })
+    ];
+    const diagnosis = diagnoseCtrVsRetention(videos);
+    expect(diagnosis?.ctrLevel).toBe('low');
+    expect(diagnosis?.retentionLevel).toBe('low');
+    expect(diagnosis?.messageKo).toContain('컨셉 자체를 재검토');
+  });
+
+  it('[F] high CTR + high retention -> success pattern, repeat it', () => {
+    const videos = [
+      makeVideo({ weekNo: 1, ctr: 5, avgViewDuration: 150 }),
+      makeVideo({ weekNo: 2, ctr: 5, avgViewDuration: 150 }),
+      makeVideo({ weekNo: 3, ctr: 10, avgViewDuration: 250 })
+    ];
+    const diagnosis = diagnoseCtrVsRetention(videos);
+    expect(diagnosis?.ctrLevel).toBe('high');
+    expect(diagnosis?.retentionLevel).toBe('high');
+    expect(diagnosis?.messageKo).toContain('성공 패턴');
+  });
+
+  it('computeInsights folds ctrRetentionDiagnosis into VideoInsights, null while insufficient', () => {
+    const insufficientVideos = [makeVideo({ ctr: 5 }), makeVideo({ ctr: 6 })];
+    expect(computeInsights(insufficientVideos).ctrRetentionDiagnosis).toBeNull();
+
+    const sufficientVideos = [
+      makeVideo({ weekNo: 1, ctr: 5, avgViewDuration: 150 }),
+      makeVideo({ weekNo: 2, ctr: 5, avgViewDuration: 150 }),
+      makeVideo({ weekNo: 3, ctr: 10, avgViewDuration: 250 })
+    ];
+    expect(computeInsights(sufficientVideos).ctrRetentionDiagnosis).not.toBeNull();
   });
 });
 

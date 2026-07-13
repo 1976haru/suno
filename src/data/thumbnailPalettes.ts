@@ -4,6 +4,10 @@ export interface ThumbnailPalette {
   background: string;
   accent: string;
   text: string;
+  /** TASK B3 (v3.5) — most image-generation models don't parse hex codes; these plain-English names are what actually goes into the image prompt. Hex stays for the UI swatch and Canva spec only. */
+  backgroundNameEn: string;
+  accentNameEn: string;
+  moodEn: string;
 }
 
 /**
@@ -14,11 +18,26 @@ export interface ThumbnailPalette {
  * that grid consistency.
  */
 export const THUMBNAIL_PALETTES: Record<string, ThumbnailPalette> = {
-  earlyAutumn: { key: 'earlyAutumn', labelKo: '초가을', background: '#F5EFE6', accent: '#B8860B', text: '#3B2F2F' },
-  mapleAutumn: { key: 'mapleAutumn', labelKo: '단풍', background: '#F3E3D3', accent: '#A8631B', text: '#2E1F1A' },
-  earlyWinter: { key: 'earlyWinter', labelKo: '초겨울', background: '#E8EDF2', accent: '#22303F', text: '#1A2530' },
-  christmas: { key: 'christmas', labelKo: '크리스마스', background: '#F5EFE6', accent: '#8C2F2F', text: '#2E1F1A' },
-  yearEnd: { key: 'yearEnd', labelKo: '연말', background: '#EDE8E0', accent: '#6B5B3E', text: '#2A2520' }
+  earlyAutumn: {
+    key: 'earlyAutumn', labelKo: '초가을', background: '#F5EFE6', accent: '#B8860B', text: '#3B2F2F',
+    backgroundNameEn: 'soft ivory cream', accentNameEn: 'antique gold', moodEn: 'early autumn warmth'
+  },
+  mapleAutumn: {
+    key: 'mapleAutumn', labelKo: '단풍', background: '#F3E3D3', accent: '#A8631B', text: '#2E1F1A',
+    backgroundNameEn: 'muted warm beige', accentNameEn: 'burnt amber', moodEn: 'golden maple warmth'
+  },
+  earlyWinter: {
+    key: 'earlyWinter', labelKo: '초겨울', background: '#E8EDF2', accent: '#22303F', text: '#1A2530',
+    backgroundNameEn: 'pale blue-grey', accentNameEn: 'deep navy', moodEn: 'crisp early-winter calm'
+  },
+  christmas: {
+    key: 'christmas', labelKo: '크리스마스', background: '#F5EFE6', accent: '#8C2F2F', text: '#2E1F1A',
+    backgroundNameEn: 'soft ivory cream', accentNameEn: 'deep brick red', moodEn: 'cozy Christmas warmth'
+  },
+  yearEnd: {
+    key: 'yearEnd', labelKo: '연말', background: '#EDE8E0', accent: '#6B5B3E', text: '#2A2520',
+    backgroundNameEn: 'warm off-white', accentNameEn: 'warm taupe brown', moodEn: 'quiet year-end reflection'
+  }
 };
 
 /** Every season ID maps to one of the five fixed palettes above — never a bespoke color. */

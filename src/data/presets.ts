@@ -3,7 +3,7 @@ import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } 
 export const channelPresets: ChannelProfile[] = [
   {
     id: 'good-morning-memory-radio',
-    name: '굿모닝 추억 라디오',
+    name: '굿모닝 추억라디오',
     englishName: 'Good Morning Memory Radio',
     market: 'korea',
     primaryLanguage: 'english',
@@ -19,8 +19,8 @@ export const channelPresets: ChannelProfile[] = [
   },
   {
     id: 'morning-showa-cafe',
-    name: '모닝 쇼와 카페',
-    englishName: 'Morning Showa Cafe',
+    name: '朝の昭和喫茶',
+    englishName: 'Morning Showa Café',
     market: 'japan',
     primaryLanguage: 'english',
     audience: 'seniors',

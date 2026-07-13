@@ -928,6 +928,60 @@ pre {
   white-space: pre-wrap;
 }
 
+.prompt-length-badge {
+  margin-left: auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e6f4ea;
+  color: #1e7a34;
+  white-space: nowrap;
+}
+
+.prompt-length-badge.over-limit {
+  background: #fbe4e4;
+  color: #b3261e;
+}
+
+.api-advice-table {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 14px;
+}
+
+.api-advice-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.api-advice-line {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.style-prompt-editor {
+  width: 100%;
+  min-height: 220px;
+  max-height: 520px;
+  margin: 0;
+  padding: 14px;
+  border: none;
+  border-radius: 0 0 8px 8px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-size: 12px;
+  line-height: 1.55;
+  font-family: inherit;
+  resize: vertical;
+}
+
 .metadata {
   display: grid;
   align-content: start;

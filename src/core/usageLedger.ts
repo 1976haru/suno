@@ -9,7 +9,10 @@ export interface UsageRecord {
   purpose: 'generate' | 'refine' | 'evaluate';
   inputTokens: number;
   outputTokens: number;
+  /** Whole-response app-level cache reuse (core/apiCache.ts) — a full API call was skipped entirely. */
   cacheHit: boolean;
+  /** TASK E1 (v3.5) — Anthropic prompt-cache read tokens for this call (0 if not reported/not applicable). Distinct from cacheHit: this is a discount on part of a real call, not skipping the call. */
+  cacheReadTokens?: number;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -53,17 +56,20 @@ export interface UsageSummary {
   totalInput: number;
   totalOutput: number;
   cacheHits: number;
+  /** TASK E1 (v3.5) — sum of Anthropic prompt-cache read tokens across all calls; 0 means either no Anthropic calls yet or the cache boundary isn't actually hitting. */
+  totalCacheReadTokens: number;
   byPurpose: Record<string, number>;
 }
 
 /** Pure aggregation, kept separate from the IndexedDB read so it's testable without a browser. */
 export function summarizeUsage(records: UsageRecord[]): UsageSummary {
-  const summary: UsageSummary = { totalCalls: 0, totalInput: 0, totalOutput: 0, cacheHits: 0, byPurpose: {} };
+  const summary: UsageSummary = { totalCalls: 0, totalInput: 0, totalOutput: 0, cacheHits: 0, totalCacheReadTokens: 0, byPurpose: {} };
   for (const record of records) {
     summary.totalCalls += 1;
     summary.totalInput += record.inputTokens;
     summary.totalOutput += record.outputTokens;
     if (record.cacheHit) summary.cacheHits += 1;
+    summary.totalCacheReadTokens += record.cacheReadTokens || 0;
     summary.byPurpose[record.purpose] = (summary.byPurpose[record.purpose] || 0) + 1;
   }
   return summary;

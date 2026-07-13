@@ -5,6 +5,8 @@ import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
 import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
 import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
 import { clearChannelHistory, forgetUsage, listChannelUsage, type HookUsage } from '../core/hookLedger';
+import { SUNO_STYLE_LIMIT } from '../core/promptComposer';
+import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 
 const MODEL_OPTIONS: Record<'anthropic' | 'openai', string[]> = {
   anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5'],
@@ -165,6 +167,44 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           </button>
         </div>
 
+        <label>💡 단계별 API 추천</label>
+        <p className="supporting">
+          216곡(18주 x 12곡) 기준 총 출력은 약 0.15M~0.32M 토큰으로, Sonnet 기준 대략 몇 달러 수준입니다. API가 비싸서 피해야 할 이유는 없습니다 —
+          단계마다 어디에 API가 가장 도움이 되는지만 참고하세요. (정확한 단가는 계속 바뀌므로 여기서 고정하지 않습니다. 실제 사용량은 위 "API 사용 기록"에서 확인하세요.)
+        </p>
+        <div className="api-advice-table">
+          {Object.values(STAGE_ADVICE).map(advice => (
+            <div key={advice.stage} className="api-advice-row">
+              <span className="chip">{RECOMMENDATION_BADGE[advice.recommendation].emoji} {advice.labelKo}</span>
+              <span><b>{advice.suggestedModelKo}</b> — {advice.reasonKo}</span>
+            </div>
+          ))}
+        </div>
+
+        <label>🎛️ 단계별 모델 프리셋</label>
+        <p className="supporting">가사·훅 생성과 평가는 서로 다른 모델을 쓰는 게 유리합니다 (평가는 채점 작업이라 Haiku로 충분). 프리셋을 고르면 두 단계에 자동으로 적용됩니다.</p>
+        <div className="chips">
+          {Object.values(API_PRESETS).map(preset => {
+            const active = settings.stageModels?.lyrics === preset.stageModels.lyrics && settings.stageModels?.evaluation === preset.stageModels.evaluation;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={active ? 'chip active' : 'chip'}
+                title={preset.descriptionKo}
+                onClick={() => onChange({ ...settings, stageModels: preset.stageModels })}
+              >
+                {preset.labelKo}
+              </button>
+            );
+          })}
+        </div>
+        {settings.stageModels && (
+          <p className="supporting">
+            현재: 가사·훅 → {settings.stageModels.lyrics === 'local' ? '로컬' : settings.stageModels.lyrics} · 평가 → {settings.stageModels.evaluation === 'local' ? '로컬(평가 비활성)' : settings.stageModels.evaluation}
+          </p>
+        )}
+
         {isRemoteProvider && (
           <>
             <label>모델</label>
@@ -250,6 +290,16 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         />
         <p className="supporting">작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.</p>
 
+        <label>스타일 프롬프트 길이 상한 (자)</label>
+        <input
+          type="number"
+          min={300}
+          max={4000}
+          value={settings.promptCharLimit || SUNO_STYLE_LIMIT}
+          onChange={event => onChange({ ...settings, promptCharLimit: Math.max(300, Number(event.target.value) || SUNO_STYLE_LIMIT) })}
+        />
+        <p className="supporting">Suno 스타일 필드는 현재 {SUNO_STYLE_LIMIT}자에서 잘립니다. 이 값이 바뀌면 여기서 조절하세요.</p>
+
         <label>📊 API 사용 기록</label>
         {usage && (
           <div className="signature-grid">
@@ -257,6 +307,13 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             <div><b>입력 토큰</b><span>{usage.totalInput.toLocaleString()}</span></div>
             <div><b>출력 토큰</b><span>{usage.totalOutput.toLocaleString()}</span></div>
             <div><b>캐시로 절약</b><span>{usage.cacheHits}회 호출</span></div>
+            <div>
+              <b>프롬프트 캐시 읽기 토큰</b>
+              <span>
+                {usage.totalCacheReadTokens.toLocaleString()}
+                {usage.totalCacheReadTokens === 0 && ' (Claude로 2배치 이상 생성하면 0보다 커야 정상입니다)'}
+              </span>
+            </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <b>용도별</b>
               <span>

@@ -1,0 +1,306 @@
+// TASK E2 (v3.5) — Anthropic Message Batches API (50% cheaper than standard
+// calls). This is a *separate* serverless function from api/generate.js
+// (batch jobs take minutes-to-hours, not seconds, so they need their own
+// create/poll/cancel lifecycle instead of one request/response). Every
+// helper below is duplicated in miniature from generate.js rather than
+// imported, so each serverless function stays a fully independent unit —
+// consistent with how this project already treats api/*.js files.
+
+const MAX_BODY_BYTES = 1_000_000;
+const REQUEST_TIMEOUT_MS = 30_000;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 20;
+
+const rateLimitBuckets = new Map();
+
+function parseBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === 'string') {
+    if (Buffer.byteLength(req.body, 'utf8') > MAX_BODY_BYTES) {
+      throw new Error('Request body too large.');
+    }
+    return JSON.parse(req.body || '{}');
+  }
+  return req.body;
+}
+
+function sendError(res, status, message) {
+  res.status(status).json({ error: message });
+}
+
+function clientIp(req) {
+  const forwarded = req.headers?.['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length) return forwarded.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(key) {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(key) || [];
+  const recent = bucket.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
+    rateLimitBuckets.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  rateLimitBuckets.set(key, recent);
+  return true;
+}
+
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('요청이 시간 초과되었습니다. 잠시 후 다시 시도하세요.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function cleanJsonText(text) {
+  return String(text || '')
+    .replace(/^```json/i, '')
+    .replace(/^```/i, '')
+    .replace(/```$/i, '')
+    .trim();
+}
+
+function safeParseBlueprint(text) {
+  const cleaned = cleanJsonText(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const cut = cleaned.lastIndexOf('}');
+    if (cut > 0) {
+      try {
+        return JSON.parse(cleaned.slice(0, cut + 1));
+      } catch {
+        // fall through
+      }
+    }
+    return null;
+  }
+}
+
+function computeMaxTokens(batchSize) {
+  const size = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 ? Number(batchSize) : 6;
+  return Math.min(16000, size * 1200 + 2000);
+}
+
+/** Mirrors api/generate.js's buildAnthropicSystem (kept identical on purpose so cached system blocks match byte-for-byte and Anthropic's prompt cache still hits inside a batch job). */
+function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }) {
+  if (Array.isArray(cacheableSystemBlocks) && cacheableSystemBlocks.length) {
+    const blocks = cacheableSystemBlocks
+      .filter(text => typeof text === 'string' && text.length)
+      .map(text => ({ type: 'text', text, cache_control: { type: 'ephemeral' } }));
+    if (volatileSystemText) blocks.push({ type: 'text', text: volatileSystemText });
+    return blocks;
+  }
+  return system;
+}
+
+function anthropicHeaders(apiKey) {
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01'
+  };
+}
+
+async function createBatch({ requests, userApiKey }) {
+  const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
+  if (!Array.isArray(requests) || !requests.length) throw new Error('No requests provided for the batch job.');
+
+  const body = {
+    requests: requests.map(r => ({
+      custom_id: r.customId,
+      params: {
+        model: r.model || 'claude-sonnet-4-5',
+        max_tokens: computeMaxTokens(r.batchSize),
+        temperature: Number.isFinite(Number(r.temperature)) ? Number(r.temperature) : 0.8,
+        system: buildAnthropicSystem(r),
+        messages: [{ role: 'user', content: `Return JSON only.\n${JSON.stringify(r.user, null, 2)}` }]
+      }
+    }))
+  };
+
+  const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages/batches', {
+    method: 'POST',
+    headers: anthropicHeaders(apiKey),
+    body: JSON.stringify(body)
+  }, REQUEST_TIMEOUT_MS);
+
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(`Anthropic batch create failed: ${response.status}`);
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
+
+  const data = await response.json();
+  return { batchId: data.id, status: data.processing_status, requestCounts: data.request_counts || null };
+}
+
+async function getBatchStatus({ batchId, userApiKey }) {
+  const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
+  if (!batchId) throw new Error('Missing batchId.');
+
+  const response = await fetchWithTimeout(`https://api.anthropic.com/v1/messages/batches/${encodeURIComponent(batchId)}`, {
+    method: 'GET',
+    headers: anthropicHeaders(apiKey)
+  }, REQUEST_TIMEOUT_MS);
+
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(`Anthropic batch status check failed: ${response.status}`);
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
+
+  const data = await response.json();
+  return {
+    status: data.processing_status,
+    requestCounts: data.request_counts || null,
+    resultsUrl: data.results_url || null
+  };
+}
+
+function parseJsonl(text) {
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => JSON.parse(line));
+}
+
+async function getBatchResults({ batchId, userApiKey }) {
+  const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
+
+  const status = await getBatchStatus({ batchId, userApiKey });
+  if (status.status !== 'ended') {
+    return { done: false, status: status.status, results: [] };
+  }
+  if (!status.resultsUrl) {
+    return { done: true, status: status.status, results: [] };
+  }
+
+  const response = await fetchWithTimeout(status.resultsUrl, { method: 'GET', headers: anthropicHeaders(apiKey) }, REQUEST_TIMEOUT_MS);
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(`Anthropic batch results fetch failed: ${response.status}`);
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
+
+  const text = await response.text();
+  const lines = parseJsonl(text);
+  const results = lines.map(line => {
+    const customId = line.custom_id;
+    if (line.result?.type === 'succeeded') {
+      const message = line.result.message;
+      const content = message?.content?.map(part => part.text || '').join('\n') || '{}';
+      const blueprint = safeParseBlueprint(content);
+      const usage = message?.usage
+        ? {
+          inputTokens: message.usage.input_tokens || 0,
+          outputTokens: message.usage.output_tokens || 0,
+          cacheReadInputTokens: message.usage.cache_read_input_tokens || 0,
+          cacheCreationInputTokens: message.usage.cache_creation_input_tokens || 0
+        }
+        : null;
+      return { customId, blueprint, usage, error: blueprint ? null : 'LLM 응답을 해석하지 못했습니다.' };
+    }
+    const errorType = line.result?.type || 'errored';
+    return { customId, blueprint: null, usage: null, error: `배치 요청 실패 (${errorType})` };
+  });
+
+  return { done: true, status: status.status, results };
+}
+
+async function cancelBatch({ batchId, userApiKey }) {
+  const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
+  if (!batchId) throw new Error('Missing batchId.');
+
+  const response = await fetchWithTimeout(`https://api.anthropic.com/v1/messages/batches/${encodeURIComponent(batchId)}/cancel`, {
+    method: 'POST',
+    headers: anthropicHeaders(apiKey)
+  }, REQUEST_TIMEOUT_MS);
+
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(`Anthropic batch cancel failed: ${response.status}`);
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
+
+  const data = await response.json();
+  return { status: data.processing_status };
+}
+
+export default async function handler(req, res) {
+  const origin = req.headers?.origin || '*';
+  res.setHeader?.('Access-Control-Allow-Origin', origin);
+  res.setHeader?.('Vary', 'Origin');
+  res.setHeader?.('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  if (req.method !== 'POST') {
+    sendError(res, 405, 'Method not allowed.');
+    return;
+  }
+  if (!checkRateLimit(clientIp(req))) {
+    sendError(res, 429, '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.');
+    return;
+  }
+
+  try {
+    const body = parseBody(req);
+    const userApiKey = req.headers?.['x-user-api-key'] || undefined;
+
+    if (body.action === 'create') {
+      res.status(200).json(await createBatch({ requests: body.requests, userApiKey }));
+      return;
+    }
+    if (body.action === 'status') {
+      res.status(200).json(await getBatchStatus({ batchId: body.batchId, userApiKey }));
+      return;
+    }
+    if (body.action === 'results') {
+      res.status(200).json(await getBatchResults({ batchId: body.batchId, userApiKey }));
+      return;
+    }
+    if (body.action === 'cancel') {
+      res.status(200).json(await cancelBatch({ batchId: body.batchId, userApiKey }));
+      return;
+    }
+    sendError(res, 400, 'Unknown or missing action.');
+  } catch (error) {
+    const status = error?.status && Number.isInteger(error.status) ? error.status : 500;
+    const message = status === 401
+      ? 'API 키가 올바르지 않습니다.'
+      : status === 429
+        ? '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.'
+        : (error instanceof Error ? error.message : String(error));
+    sendError(res, status, message);
+  }
+}
+
+// exported for tests only
+export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl };

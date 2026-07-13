@@ -33,6 +33,11 @@ export interface VideoRecord {
 
   learnings?: string;
   nextAction?: string;
+
+  /** TASK F (v3.5) — additional manual/CSV-only metrics, same honesty rule as everything below the boundary comment above: never auto-populated. */
+  subscribersGained?: number;
+  likeRate?: number;
+  commentKeywords?: string[];
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -150,6 +155,15 @@ export async function forgetVideosForPack(packId: string): Promise<void> {
 // never fabricates a trend from too little data.
 // ---------------------------------------------------------------------------
 
+export type CtrRetentionLevel = 'high' | 'low' | 'normal';
+
+export interface CtrRetentionDiagnosis {
+  weekNo: number;
+  ctrLevel: CtrRetentionLevel;
+  retentionLevel: CtrRetentionLevel;
+  messageKo: string;
+}
+
 export interface VideoInsights {
   variantAverageCtr: Partial<Record<ThumbnailVariantId, number>>;
   bestVariant: ThumbnailVariantId | null;
@@ -157,9 +171,54 @@ export interface VideoInsights {
   belowAverageWeeks: number[];
   sampleSize: number;
   insufficientData: boolean;
+  /** TASK F (v3.5) — rule-based (no LLM) read on the most recent video's CTR vs. watch-retention combo, relative to this channel's own history. Null whenever fewer than MIN_SAMPLE_SIZE videos have both metrics — never guesses from a smaller sample. */
+  ctrRetentionDiagnosis: CtrRetentionDiagnosis | null;
 }
 
 const MIN_SAMPLE_SIZE = 3;
+// +/-15% band around the channel's own average — deliberately the same
+// tolerance computeInsights already uses for belowAverageWeeks, so "high"/
+// "low" reads consistently across every rule-based signal in this module.
+const LEVEL_BAND = 0.15;
+
+/**
+ * TASK F (v3.5) — compares the most recent video with both CTR and watch
+ * duration against this channel's own historical average (never a
+ * hardcoded global benchmark, since "good CTR" varies wildly by niche).
+ * Pure so it's testable without IndexedDB; never asserts anything from
+ * fewer than MIN_SAMPLE_SIZE videos.
+ */
+export function diagnoseCtrVsRetention(videos: VideoRecord[]): CtrRetentionDiagnosis | null {
+  const withBoth = videos.filter((v): v is VideoRecord & { ctr: number; avgViewDuration: number } =>
+    typeof v.ctr === 'number' && typeof v.avgViewDuration === 'number'
+  );
+  if (withBoth.length < MIN_SAMPLE_SIZE) return null;
+
+  const latest = [...withBoth].sort((a, b) => b.weekNo - a.weekNo)[0];
+  const avgCtr = withBoth.reduce((sum, v) => sum + v.ctr, 0) / withBoth.length;
+  const avgDuration = withBoth.reduce((sum, v) => sum + v.avgViewDuration, 0) / withBoth.length;
+
+  const levelOf = (value: number, average: number): CtrRetentionLevel => {
+    if (value >= average * (1 + LEVEL_BAND)) return 'high';
+    if (value <= average * (1 - LEVEL_BAND)) return 'low';
+    return 'normal';
+  };
+
+  const ctrLevel = levelOf(latest.ctr, avgCtr);
+  const retentionLevel = levelOf(latest.avgViewDuration, avgDuration);
+
+  const messageKo = ctrLevel === 'high' && retentionLevel === 'low'
+    ? '썸네일은 좋은데 곡이 안 맞습니다. 곡 선정을 점검하세요.'
+    : ctrLevel === 'low' && retentionLevel === 'high'
+      ? '곡은 좋은데 썸네일·제목이 약합니다. A/B안을 바꿔보세요.'
+      : ctrLevel === 'low' && retentionLevel === 'low'
+        ? '컨셉 자체를 재검토하세요.'
+        : ctrLevel === 'high' && retentionLevel === 'high'
+          ? '성공 패턴입니다. 이 조합을 반복하세요.'
+          : '평균 수준입니다. 특별한 조치가 필요하지 않습니다.';
+
+  return { weekNo: latest.weekNo, ctrLevel, retentionLevel, messageKo };
+}
 
 function extractWords(title: string): string[] {
   return title
@@ -180,7 +239,8 @@ export function computeInsights(videos: VideoRecord[]): VideoInsights {
       topKeywords: [],
       belowAverageWeeks: [],
       sampleSize: withCtr.length,
-      insufficientData: true
+      insufficientData: true,
+      ctrRetentionDiagnosis: null
     };
   }
 
@@ -221,7 +281,8 @@ export function computeInsights(videos: VideoRecord[]): VideoInsights {
     topKeywords,
     belowAverageWeeks,
     sampleSize: withCtr.length,
-    insufficientData: false
+    insufficientData: false,
+    ctrRetentionDiagnosis: diagnoseCtrVsRetention(videos)
   };
 }
 

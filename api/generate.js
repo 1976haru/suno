@@ -127,7 +127,28 @@ async function callOpenAI({ model, temperature, system, user, batchSize, userApi
   return { blueprint, usage };
 }
 
-async function callAnthropic({ model, temperature, system, user, batchSize, userApiKey }) {
+/**
+ * TASK E1 (v3.5) — cacheableSystemBlocks are the stable rules + channel/
+ * genre/mood/season profile, each marked cache_control: ephemeral so
+ * Anthropic reuses them (at ~10% of the input token cost) on every batch
+ * after the first. volatileSystemText (the batch-offset note) is appended
+ * uncached, since it changes every call and would otherwise break the
+ * cached prefix. Falls back to a plain string `system` for callers that
+ * don't split it (kept for forward/backward compatibility, unused by this
+ * app's own client code once TASK E1 shipped).
+ */
+function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }) {
+  if (Array.isArray(cacheableSystemBlocks) && cacheableSystemBlocks.length) {
+    const blocks = cacheableSystemBlocks
+      .filter(text => typeof text === 'string' && text.length)
+      .map(text => ({ type: 'text', text, cache_control: { type: 'ephemeral' } }));
+    if (volatileSystemText) blocks.push({ type: 'text', text: volatileSystemText });
+    return blocks;
+  }
+  return system;
+}
+
+async function callAnthropic({ model, temperature, system, cacheableSystemBlocks, volatileSystemText, user, batchSize, userApiKey }) {
   const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
 
@@ -142,7 +163,7 @@ async function callAnthropic({ model, temperature, system, user, batchSize, user
       model: model || 'claude-sonnet-4-5',
       max_tokens: computeMaxTokens(batchSize),
       temperature: Number.isFinite(Number(temperature)) ? Number(temperature) : 0.8,
-      system,
+      system: buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }),
       messages: [
         {
           role: 'user',
@@ -164,7 +185,12 @@ async function callAnthropic({ model, temperature, system, user, batchSize, user
   const text = data.content?.map(part => part.text || '').join('\n') || '{}';
   const blueprint = safeParseBlueprint(text);
   const usage = data.usage
-    ? { inputTokens: data.usage.input_tokens || 0, outputTokens: data.usage.output_tokens || 0 }
+    ? {
+      inputTokens: data.usage.input_tokens || 0,
+      outputTokens: data.usage.output_tokens || 0,
+      cacheReadInputTokens: data.usage.cache_read_input_tokens || 0,
+      cacheCreationInputTokens: data.usage.cache_creation_input_tokens || 0
+    }
     : null;
   return { blueprint, usage };
 }
@@ -245,7 +271,8 @@ export default async function handler(req, res) {
       return;
     }
 
-    if (!body.system || !body.user) {
+    const hasSystem = body.system || (Array.isArray(body.cacheableSystemBlocks) && body.cacheableSystemBlocks.length);
+    if (!hasSystem || !body.user) {
       sendError(res, 400, 'Missing system or user payload.');
       return;
     }
@@ -274,4 +301,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem };

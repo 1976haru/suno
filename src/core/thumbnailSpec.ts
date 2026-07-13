@@ -1,7 +1,7 @@
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { seasonWordFor } from './lyricEngine';
-import { getRecurringMotifPhrases } from './localGenerator';
+import { getRecurringMotifPhrases, type SeasonFamily } from './localGenerator';
 
 export type { ThumbnailSpec, ThumbnailVariant };
 
@@ -98,9 +98,44 @@ function buildSubline(songCount: number, language: DisplayLanguage): string {
   return raw.length > SUBLINE_MAX_CHARS ? raw.slice(0, SUBLINE_MAX_CHARS) : raw;
 }
 
-/** Objects that actually appear in this pack's generated lyrics (falls back to the first 3 motifs if none matched, e.g. for remotely-generated packs whose lyrics don't reuse the local motif bank). */
-function pickObjects(blueprint: PlaylistBlueprint, language: DisplayLanguage): { display: string[]; english: string[] } {
-  const motifs = getRecurringMotifPhrases();
+// TASK B2 (v3.5) — season id -> broad family, so the object picker can tell
+// "wool sweater" (autumn/winter) apart from "cherry blossom" season without
+// needing every motif tagged against all 16 individual season ids.
+const SEASON_FAMILY: Record<string, SeasonFamily> = {
+  'new-year': 'winter',
+  'late-winter': 'winter',
+  'spring-open': 'spring',
+  'cherry-blossom': 'spring',
+  'may-cafe': 'spring',
+  'rainy-season': 'summer',
+  'summer-night': 'summer',
+  'late-summer-open': 'summer',
+  'early-autumn': 'autumn',
+  'autumn-rain': 'autumn',
+  'maple-autumn': 'autumn',
+  'late-autumn': 'autumn',
+  'early-winter': 'winter',
+  'first-snow': 'winter',
+  christmas: 'winter',
+  'year-end': 'winter'
+};
+
+function seasonFamilyFor(seasonId: string): SeasonFamily {
+  return SEASON_FAMILY[seasonId] ?? 'winter';
+}
+
+/**
+ * Objects that actually appear in this pack's generated lyrics, restricted
+ * to ones that make sense for the current season (TASK B2, v3.5 — a fix
+ * report caught "pale blossom street" (spring) and "wool sweater" (winter)
+ * landing in the same thumbnail prompt, because the motif pool had no
+ * season awareness at all). Falls back to all season-compatible motifs if
+ * none matched, e.g. for remotely-generated packs whose lyrics don't reuse
+ * the local motif bank.
+ */
+function pickObjects(blueprint: PlaylistBlueprint, language: DisplayLanguage, seasonId: string): { display: string[]; english: string[] } {
+  const family = seasonFamilyFor(seasonId);
+  const motifs = getRecurringMotifPhrases().filter(motif => !motif.seasons || motif.seasons.includes(family));
   const matched = motifs.filter(motif => blueprint.songs.some(song => song.lyrics.includes(motif[language])));
   const chosen = (matched.length ? matched : motifs).slice(0, 3);
   return {
@@ -123,17 +158,64 @@ const FORBIDDEN_ELEMENTS = [
   '작은 글씨 (최소 폰트 크기 대비 확보)'
 ];
 
-function buildImagePrompt(season: SeasonPack, palette: ThumbnailPalette, objectsEnglish: string[]): string {
-  const objectPhrase = objectsEnglish.length ? objectsEnglish.join(', ') : 'a warm seasonal still life';
-  return [
-    `warm seasonal scene, ${objectPhrase}`,
-    season.visualDirection,
-    `color palette: background ${palette.background}, accent ${palette.accent}`,
-    'warm soft light, film grain, cozy nostalgic mood',
-    'no text, no logos, no close-up faces, no identifiable person, no real celebrity or public figure',
-    'distant elegant silhouettes are welcome (backs turned, soft focus, small in frame)',
-    '16:9 composition with empty space on one side for text overlay'
-  ].join(', ');
+export type ImageToolId = 'generic' | 'midjourney' | 'stableDiffusion';
+
+/**
+ * TASK B1 (v3.5) — a flat list of nouns ("window rain, wool sweater,
+ * porcelain cup") tells an image model *what* to include but not *how it
+ * looks*; models respond far more reliably to an actual scene description
+ * (placement, lighting, camera language) than to a comma-dumped object list.
+ * TASK B3: color names, never hex — most image models can't parse "#F3E3D3".
+ */
+function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, objectsEnglish: string[], textSide: 'left' | 'right') {
+  const [primary, secondary, tertiary] = objectsEnglish;
+  const objectSide = textSide === 'left' ? 'right' : 'left';
+
+  const sceneDescription = `A quiet cafe window on a ${season.label.toLowerCase()} day, seen from inside`;
+  const subject = [
+    primary ? `${primary} sits in the foreground on a worn wooden table, toward the ${objectSide} of frame` : 'a warm seasonal still life sits in the foreground',
+    secondary ? `${secondary} rests softly out of focus in the background` : null,
+    tertiary ? `${tertiary} sits nearby at the table's edge` : null
+  ].filter(Boolean).join('; ');
+  const lighting = `Soft warm morning light falls from the ${objectSide === 'left' ? 'right' : 'left'} through the window glass, catching gentle highlights`;
+  const cameraAndLens = 'Shot on a 50mm lens, shallow depth of field, eye-level framing, gentle bokeh';
+  const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, low saturation, ${palette.moodEn}`;
+  const textureAndFilm = 'Subtle film grain, analog warmth, slightly faded like an old photograph';
+  const composition = `16:9 landscape composition; the ${textSide} third of the frame is intentionally empty and softly lit, leaving clean space for a text overlay`;
+  const negatives = 'no text, no letters, no logos, no watermarks, no close-up faces, no identifiable person, no real celebrity or public figure, no cartoon characters, no branded IP — distant elegant silhouettes are welcome (backs turned, soft focus, small in frame)';
+
+  return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, negatives };
+}
+
+function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): string {
+  return [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, `Negative: ${parts.negatives}`]
+    .filter(Boolean)
+    .join('. ') + '.';
+}
+
+/** TASK B4 (v3.5) — Midjourney reads plain prose plus trailing `--` parameters; it does not use a separate negative-prompt field, so the ban list is folded into `--no`. */
+function buildMidjourneyPrompt(parts: ReturnType<typeof buildSceneParts>): string {
+  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm]
+    .filter(Boolean)
+    .join(', ');
+  return `${positive} --ar 16:9 --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP`;
+}
+
+/** TASK B4 (v3.5) — Stable Diffusion UIs (Automatic1111, ComfyUI, etc.) take separate positive/negative prompt fields. */
+function buildStableDiffusionPrompt(parts: ReturnType<typeof buildSceneParts>): string {
+  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition]
+    .filter(Boolean)
+    .join(', ');
+  return `Positive: ${positive}\nNegative: text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, low quality, blurry`;
+}
+
+function buildImagePromptVariants(season: SeasonPack, palette: ThumbnailPalette, objectsEnglish: string[], textSide: 'left' | 'right'): ThumbnailSpec['imagePromptVariants'] {
+  const parts = buildSceneParts(season, palette, objectsEnglish, textSide);
+  return {
+    generic: buildGenericImagePrompt(parts),
+    midjourney: buildMidjourneyPrompt(parts),
+    stableDiffusion: buildStableDiffusionPrompt(parts)
+  };
 }
 
 /**
@@ -158,7 +240,12 @@ export function buildThumbnailSpec(
   // spec on a text-only request would defeat the point of a stable,
   // channel-consistent visual template.
   const seedIndex = blueprint.songs.length + channel.name.length + variant;
-  const { display: objects, english: objectsEnglish } = pickObjects(blueprint, language);
+  // layoutSeed deliberately excludes `variant` — object/text placement must
+  // stay identical across headline regeneration, same as colors/objects.
+  const layoutSeed = blueprint.songs.length + channel.name.length;
+  const textSide: 'left' | 'right' = layoutSeed % 2 === 0 ? 'right' : 'left';
+  const objectSide = textSide === 'left' ? 'right' : 'left';
+  const { display: objects, english: objectsEnglish } = pickObjects(blueprint, language, season.id);
   const subline = buildSubline(blueprint.songs.length, language);
 
   const variants: ThumbnailVariant[] = [
@@ -166,6 +253,8 @@ export function buildThumbnailSpec(
     { id: 'B', headline: buildEmotionHeadline(language, seedIndex), subline, angle: '감정 강조' },
     { id: 'C', headline: buildAudienceHeadline(language), subline, angle: '타겟 명시' }
   ];
+
+  const imagePromptVariants = buildImagePromptVariants(season, palette, objectsEnglish, textSide);
 
   return {
     variants,
@@ -176,8 +265,9 @@ export function buildThumbnailSpec(
       text: palette.text
     },
     objects,
-    composition: '좌측 또는 우측에 오브제를 배치하고, 반대편에 문구를 위한 여백을 넉넉히 남기세요.',
+    composition: `${objectSide === 'left' ? '좌측' : '우측'}에 오브제를 배치하고, ${textSide === 'left' ? '좌측' : '우측'} 1/3 여백에 문구를 배치하세요.`,
     forbidden: [...FORBIDDEN_ELEMENTS],
-    imagePrompt: buildImagePrompt(season, palette, objectsEnglish)
+    imagePrompt: imagePromptVariants.generic,
+    imagePromptVariants
   };
 }

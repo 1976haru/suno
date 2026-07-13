@@ -128,6 +128,11 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
                   {insights.belowAverageWeeks.join(', ')}주차의 시청 지속시간이 평균보다 15% 이상 낮습니다 — 곡 순서나 훅을 점검해보세요.
                 </p>
               )}
+              {insights.ctrRetentionDiagnosis && (
+                <p className="supporting">
+                  {insights.ctrRetentionDiagnosis.weekNo}주차 진단 (CTR {insights.ctrRetentionDiagnosis.ctrLevel} · 시청지속 {insights.ctrRetentionDiagnosis.retentionLevel}): {insights.ctrRetentionDiagnosis.messageKo}
+                </p>
+              )}
             </>
           )}
         </div>
@@ -145,6 +150,9 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
               <th>CTR(%)</th>
               <th>시청지속(초)</th>
               <th>조회수</th>
+              <th>구독전환</th>
+              <th>좋아요율(%)</th>
+              <th>댓글 키워드</th>
               <th>회고 / 다음 액션</th>
               <th></th>
             </tr>
@@ -187,6 +195,28 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
                 </td>
                 <td>
                   <input
+                    type="number"
+                    value={video.subscribersGained ?? ''}
+                    onChange={event => void handleFieldChange(video.id, { subscribersGained: event.target.value ? Number(event.target.value) : undefined })}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={video.likeRate ?? ''}
+                    onChange={event => void handleFieldChange(video.id, { likeRate: event.target.value ? Number(event.target.value) : undefined })}
+                  />
+                </td>
+                <td>
+                  <input
+                    value={(video.commentKeywords || []).join(', ')}
+                    placeholder="예: 목소리, 감성"
+                    onChange={event => void handleFieldChange(video.id, { commentKeywords: event.target.value.split(',').map(w => w.trim()).filter(Boolean) })}
+                  />
+                </td>
+                <td>
+                  <input
                     value={video.learnings || ''}
                     placeholder="예: 빨간 배경이 CTR 높았음"
                     onChange={event => void handleFieldChange(video.id, { learnings: event.target.value })}
@@ -201,7 +231,7 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
             ))}
             {videos.length === 0 && (
               <tr>
-                <td colSpan={10} className="supporting">아직 저장된 팩이 없습니다. 곡을 생성하고 "이 팩 저장하기"를 누르면 여기 표시됩니다.</td>
+                <td colSpan={13} className="supporting">아직 저장된 팩이 없습니다. 곡을 생성하고 "이 팩 저장하기"를 누르면 여기 표시됩니다.</td>
               </tr>
             )}
           </tbody>
