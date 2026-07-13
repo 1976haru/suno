@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
 import { clearAllSettings } from '../core/settingsStore';
-import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta } from '../types';
+import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, ThumbnailSpec } from '../types';
 
 export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
   const [savedPacks, setSavedPacks] = useState<SavedPackMeta[]>([]);
@@ -18,12 +18,12 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     void refresh();
   }, []);
 
-  async function saveCurrentPack(blueprint: PlaylistBlueprint | null, options: GenerationOptions) {
+  async function saveCurrentPack(blueprint: PlaylistBlueprint | null, options: GenerationOptions, thumbnailSpec?: ThumbnailSpec | null) {
     if (!blueprint) return;
     const defaultName = buildDefaultPackName(blueprint, options);
     const name = window.prompt('저장할 이름을 입력하세요', defaultName);
     if (!name) return;
-    await savePack({ blueprint, options, name });
+    await savePack({ blueprint, options, name, thumbnailSpec: thumbnailSpec ?? undefined });
     await refresh();
   }
 

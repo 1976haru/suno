@@ -110,7 +110,9 @@ export default function App() {
           void setCached(cacheKeyToStore, next, { provider: provider.provider, model: provider.model || provider.provider, songCount });
         }
         try {
-          await saveAutosave(next, { ...opts, channel: cm.selectedChannel, songCount });
+          const nextOpts = { ...opts, channel: cm.selectedChannel, songCount };
+          const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel);
+          await saveAutosave(next, nextOpts, nextThumbnailSpec);
           await library.refresh();
         } catch {
           // Autosave is a convenience feature; failures should not block the result from showing.
@@ -295,7 +297,7 @@ export default function App() {
               refineProgress={gen.refineProgress}
               refineWarnings={gen.refineWarnings}
               thumbnailSpec={thumbnailSpec}
-              onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel })}
+              onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel }, thumbnailSpec)}
               onEvaluate={onEvaluate}
               onRetrySong={onRetrySong}
               onUndoRetry={onUndoRetry}

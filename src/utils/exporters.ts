@@ -1,6 +1,31 @@
-import type { PlaylistBlueprint } from '../types';
+import type { PlaylistBlueprint, ThumbnailSpec } from '../types';
 
-export function exportMarkdown(blueprint: PlaylistBlueprint) {
+function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
+  if (!spec) return '';
+  return `## Thumbnail Spec
+
+Headline: ${spec.headline.replace('\n', ' / ')}
+
+Subline: ${spec.subline}
+
+Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}
+
+Objects: ${spec.objects.join(', ')}
+
+Composition: ${spec.composition}
+
+Forbidden: ${spec.forbidden.join('; ')}
+
+Image Prompt:
+
+\`\`\`text
+${spec.imagePrompt}
+\`\`\`
+
+`;
+}
+
+export function exportMarkdown(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec) {
   return `# ${blueprint.projectTitle}
 
 Channel: ${blueprint.channelName}
@@ -11,7 +36,7 @@ Sonic Signature: ${blueprint.sonicSignature}
 
 Vocal Signature: ${blueprint.vocalSignature}
 
-${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
+${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
 
 Situation: ${song.listenerSituation}
 
@@ -48,8 +73,8 @@ Warnings: ${song.warnings.join('; ') || 'None'}
 `).join('\n')}`;
 }
 
-export function exportJson(blueprint: PlaylistBlueprint) {
-  return JSON.stringify(blueprint, null, 2);
+export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec) {
+  return JSON.stringify(thumbnailSpec ? { ...blueprint, thumbnailSpec } : blueprint, null, 2);
 }
 
 export function exportCsv(blueprint: PlaylistBlueprint) {

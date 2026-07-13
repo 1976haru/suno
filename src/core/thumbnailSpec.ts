@@ -1,21 +1,9 @@
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, SeasonPack } from '../types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { seasonWordFor } from './lyricEngine';
 import { getRecurringMotifPhrases } from './localGenerator';
 
-export interface ThumbnailSpec {
-  headline: string;
-  subline: string;
-  colorScheme: {
-    background: string;
-    accent: string;
-    text: string;
-  };
-  objects: string[];
-  composition: string;
-  forbidden: string[];
-  imagePrompt: string;
-}
+export type { ThumbnailSpec };
 
 type DisplayLanguage = 'english' | 'korean' | 'japanese';
 

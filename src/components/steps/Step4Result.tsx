@@ -119,11 +119,11 @@ export default function Step4Result({
               <Save size={16} />
               💾 이 팩 저장하기
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint), 'text/markdown;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined), 'text/markdown;charset=utf-8')}>
               <Download size={16} />
               MD
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint), 'application/json;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, thumbnailSpec ?? undefined), 'application/json;charset=utf-8')}>
               <Download size={16} />
               JSON
             </button>

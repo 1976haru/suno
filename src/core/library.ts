@@ -54,6 +54,7 @@ export async function savePack(input: {
   isAutosave?: boolean;
   id?: string;
   evaluation?: SavedPack['evaluation'];
+  thumbnailSpec?: SavedPack['thumbnailSpec'];
 }): Promise<string> {
   const id = input.id || (input.isAutosave ? AUTOSAVE_ID : randomId());
   const pack: SavedPack = {
@@ -68,20 +69,21 @@ export async function savePack(input: {
     avgQualityScore: averageQuality(input.blueprint),
     blueprint: input.blueprint,
     options: input.options,
-    evaluation: input.evaluation
+    evaluation: input.evaluation,
+    thumbnailSpec: input.thumbnailSpec
   };
   await withStore('readwrite', store => store.put(pack));
   return id;
 }
 
-export async function saveAutosave(blueprint: PlaylistBlueprint, options: GenerationOptions): Promise<void> {
-  await savePack({ blueprint, options, isAutosave: true, id: AUTOSAVE_ID, name: '임시저장' });
+export async function saveAutosave(blueprint: PlaylistBlueprint, options: GenerationOptions, thumbnailSpec?: SavedPack['thumbnailSpec']): Promise<void> {
+  await savePack({ blueprint, options, isAutosave: true, id: AUTOSAVE_ID, name: '임시저장', thumbnailSpec });
 }
 
 export async function promoteAutosave(name: string): Promise<string | null> {
   const autosave = await loadPack(AUTOSAVE_ID);
   if (!autosave) return null;
-  return savePack({ blueprint: autosave.blueprint, options: autosave.options, name, evaluation: autosave.evaluation });
+  return savePack({ blueprint: autosave.blueprint, options: autosave.options, name, evaluation: autosave.evaluation, thumbnailSpec: autosave.thumbnailSpec });
 }
 
 export async function listPacks(): Promise<SavedPackMeta[]> {

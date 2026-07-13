@@ -190,6 +190,21 @@ export interface SavedPack {
   blueprint: PlaylistBlueprint;
   options: GenerationOptions;
   evaluation?: AgentEvaluation;
+  thumbnailSpec?: ThumbnailSpec;
 }
 
-export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation'>;
+export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;
+
+export interface ThumbnailSpec {
+  headline: string;
+  subline: string;
+  colorScheme: {
+    background: string;
+    accent: string;
+    text: string;
+  };
+  objects: string[];
+  composition: string;
+  forbidden: string[];
+  imagePrompt: string;
+}
