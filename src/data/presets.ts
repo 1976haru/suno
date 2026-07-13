@@ -14,7 +14,8 @@ export const channelPresets: ChannelProfile[] = [
     preferredGenres: ['adult-contemporary', 'acoustic-pop', 'jazz-pop'],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],
     forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
-    seoKeywords: ['아침 음악', '커피 음악', '추억 팝송', '50대 음악', '60대 음악', '감성 팝', '계절 플레이리스트']
+    seoKeywords: ['아침 음악', '커피 음악', '추억 팝송', '50대 음악', '60대 음악', '감성 팝', '계절 플레이리스트'],
+    archetype: 'senior-morning'
   },
   {
     id: 'morning-showa-cafe',
@@ -29,9 +30,15 @@ export const channelPresets: ChannelProfile[] = [
     preferredGenres: ['showa-modern', 'jazz-pop', 'city-pop-soft'],
     preferredMoods: ['nostalgic', 'elegant', 'bittersweet'],
     forbiddenCliches: ['cheap retro props', 'enka-like melodrama', 'overly cute anime tone', 'famous artist imitation'],
-    seoKeywords: ['昭和カフェ', '朝の喫茶店', 'レトロBGM', '大人の音楽', '50代', '60代', '喫茶店BGM']
+    seoKeywords: ['昭和カフェ', '朝の喫茶店', 'レトロBGM', '大人の音楽', '50代', '60代', '喫茶店BGM'],
+    archetype: 'showa-cafe'
   }
 ];
+
+/** v3.4 — saved channels from before archetypes existed have no `archetype` field; they fall back to 'senior-morning' rather than an unscoped/empty hook bank. */
+export function migrateArchetype(channel: ChannelProfile): ChannelProfile {
+  return channel.archetype ? channel : { ...channel, archetype: 'senior-morning' };
+}
 
 export const generationPacks: GenerationPack[] = [
   {

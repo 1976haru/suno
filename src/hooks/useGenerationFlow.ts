@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { generateBlueprint, refineTracks } from '../providers';
 import { clampSongCount } from '../utils/generation';
+import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
+
+async function safeAvoidSet(channelId: string, language: GenerationOptions['lyricLanguage']) {
+  try {
+    const { titles, hooks } = await recentUsedTitlesAndHooks(channelId, language);
+    return { usedTitles: titles, usedHooks: hooks };
+  } catch {
+    // IndexedDB unavailable (private browsing, etc.) — generation still works, just without cross-pack dedup.
+    return { usedTitles: [], usedHooks: [] };
+  }
+}
 
 export function useGenerationFlow() {
   const [blueprint, setBlueprint] = useState<PlaylistBlueprint | null>(null);
@@ -27,6 +38,7 @@ export function useGenerationFlow() {
     const songCount = clampSongCount(opts.songCount);
     setGenProgress({ done: 0, total: songCount });
     try {
+      const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
       const next = await generateBlueprint(
         { ...opts, songCount },
         genres,
@@ -36,7 +48,8 @@ export function useGenerationFlow() {
         progress => {
           setGenProgress(progress);
           setPartialSongs(progress.songs);
-        }
+        },
+        avoid
       );
       setBlueprint(next);
       afterSuccess?.(next, songCount);
@@ -66,6 +79,7 @@ export function useGenerationFlow() {
     setRefineWarnings([]);
     setRefineProgress({ done: 0, total: trackNos.length });
     try {
+      const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
       const { blueprint: next, warnings } = await refineTracks(
         blueprint,
         trackNos,
@@ -75,7 +89,8 @@ export function useGenerationFlow() {
         season,
         provider,
         [],
-        (done, total) => setRefineProgress({ done, total })
+        (done, total) => setRefineProgress({ done, total }),
+        avoid
       );
       setBlueprint(next);
       setRefineWarnings(warnings);

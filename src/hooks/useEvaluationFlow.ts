@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { evaluatePack } from '../agents/evaluator';
 import { regenerateTrack } from '../providers';
+import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import type { AgentEvaluation, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
 
 interface UndoEntry {
@@ -55,7 +56,14 @@ export function useEvaluationFlow() {
     setRetryWarning('');
     const previousSong = blueprint.songs.find(song => song.trackNo === trackNo);
     try {
-      const { blueprint: next, warning } = await regenerateTrack(blueprint, trackNo, opts, genres, moods, season, provider, issues);
+      let avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined;
+      try {
+        const { titles, hooks } = await recentUsedTitlesAndHooks(opts.channel.id, opts.lyricLanguage);
+        avoid = { usedTitles: titles, usedHooks: hooks };
+      } catch {
+        // IndexedDB unavailable — retry still works, just without cross-pack dedup.
+      }
+      const { blueprint: next, warning } = await regenerateTrack(blueprint, trackNo, opts, genres, moods, season, provider, issues, avoid);
       onDone(next);
       if (previousSong) setUndoEntry({ trackNo, previousSong });
       if (warning) setRetryWarning(warning);

@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { moneyChordPresets } from './data/moneyChords';
-import { saveAutosave } from './core/library';
+import { AUTOSAVE_ID, saveAutosave } from './core/library';
 import { isEvaluationAvailable } from './agents/evaluator';
 import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
+import { recordPackHooks } from './core/hookLedger';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow } from './hooks/useGenerationFlow';
@@ -113,6 +114,7 @@ export default function App() {
           const nextOpts = { ...opts, channel: cm.selectedChannel, songCount };
           const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel);
           await saveAutosave(next, nextOpts, nextThumbnailSpec);
+          await recordPackHooks(AUTOSAVE_ID, cm.selectedChannel.id, next, opts.lyricLanguage);
           await library.refresh();
         } catch {
           // Autosave is a convenience feature; failures should not block the result from showing.
@@ -273,6 +275,7 @@ export default function App() {
               onGenerate={onGenerate}
               hybridMode={hybridMode}
               onHybridModeChange={setHybridMode}
+              onOpenHookHistory={() => setSettingsOpen(true)}
             />
           )}
 
@@ -324,6 +327,7 @@ export default function App() {
         onExportAll={() => void library.exportAll()}
         onImportAll={file => void library.importAll(file)}
         onDeleteAll={() => void library.deleteAll()}
+        channel={cm.selectedChannel}
       />
 
       <CachePromptModal

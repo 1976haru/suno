@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
+import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
 import { clearAllSettings } from '../core/settingsStore';
+import { forgetPack, recordPackHooks } from '../core/hookLedger';
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, ThumbnailSpec } from '../types';
 
 export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
@@ -23,7 +24,17 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     const defaultName = buildDefaultPackName(blueprint, options);
     const name = window.prompt('저장할 이름을 입력하세요', defaultName);
     if (!name) return;
-    await savePack({ blueprint, options, name, thumbnailSpec: thumbnailSpec ?? undefined });
+    const id = await savePack({ blueprint, options, name, thumbnailSpec: thumbnailSpec ?? undefined });
+    try {
+      // Promote: the hooks were already tracked under the ephemeral autosave
+      // slot at generation time — re-record them under this pack's real,
+      // permanent id and drop the autosave copy so exhaustionStats never
+      // double-counts the same songs under two ids.
+      await recordPackHooks(id, options.channel.id, blueprint, options.lyricLanguage);
+      await forgetPack(AUTOSAVE_ID);
+    } catch {
+      // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
     await refresh();
   }
 
@@ -34,6 +45,11 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
 
   async function remove(id: string) {
     await deletePack(id);
+    try {
+      await forgetPack(id);
+    } catch {
+      // Hook ledger tracking is best-effort; deletion should still succeed even if this fails.
+    }
     await refresh();
   }
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Trash2, X } from 'lucide-react';
-import type { ProviderSettings, ProviderType } from '../types';
+import type { ChannelProfile, ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
 import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
 import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
+import { clearChannelHistory, forgetUsage, listChannelUsage, type HookUsage } from '../core/hookLedger';
 
 const MODEL_OPTIONS: Record<'anthropic' | 'openai', string[]> = {
   anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5'],
@@ -23,6 +24,7 @@ interface SettingsModalProps {
   onExportAll: () => void;
   onImportAll: (file: File) => void;
   onDeleteAll: () => void;
+  channel: ChannelProfile;
 }
 
 type TestResult = { state: 'idle' } | { state: 'testing' } | { state: 'ok' } | { state: 'error'; message: string };
@@ -31,7 +33,7 @@ function byokKeyName(provider: ProviderType) {
   return `byok:${provider}`;
 }
 
-export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel }: SettingsModalProps) {
   const [localKey, setLocalKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
@@ -39,6 +41,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [inputPrice, setInputPrice] = useState('');
   const [outputPrice, setOutputPrice] = useState('');
   const [cache, setCache] = useState<CacheStats | null>(null);
+  const [hookUsage, setHookUsage] = useState<HookUsage[] | null>(null);
 
   const isRemoteProvider = settings.provider === 'openai' || settings.provider === 'anthropic';
 
@@ -55,7 +58,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value || ''));
     void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value || ''));
     void cacheStats().then(setCache);
-  }, [open]);
+    void listChannelUsage(channel.id).then(setHookUsage).catch(() => setHookUsage([]));
+  }, [open, channel.id]);
 
   if (!open) return null;
 
@@ -77,6 +81,17 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   async function handleClearCache() {
     await clearCache();
     setCache(await cacheStats());
+  }
+
+  async function handleForgetUsage(id: string) {
+    await forgetUsage(id);
+    setHookUsage(await listChannelUsage(channel.id));
+  }
+
+  async function handleClearChannelHistory() {
+    if (!window.confirm(`"${channel.name}" 채널의 훅 사용 이력을 모두 지울까요? 지운 훅은 다시 사용 가능해집니다.`)) return;
+    await clearChannelHistory(channel.id);
+    setHookUsage(await listChannelUsage(channel.id));
   }
 
   async function updateKeyStorageMode(mode: 'server' | 'local') {
@@ -290,6 +305,29 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         )}
         <div className="button-row">
           <button type="button" onClick={() => void handleClearCache()}>캐시 비우기</button>
+        </div>
+
+        <label>🎯 훅 이력 관리 — {channel.name}</label>
+        <p className="supporting">
+          이 채널에서 이미 사용한 훅/제목입니다. 새로 생성할 때 자동으로 제외되어 같은 제목의 영상이 중복 발행되지 않도록 막아줍니다.
+          잘못 지운 팩이 있거나 이력을 정리하고 싶다면 개별 삭제하거나 전체를 초기화하세요 (초기화하면 해당 훅들이 다시 사용 가능해집니다).
+        </p>
+        {hookUsage && hookUsage.length > 0 ? (
+          <div className="hook-history-list">
+            {hookUsage.map(item => (
+              <div key={item.id} className="hook-history-item">
+                <span>{item.trackNo}. {item.title}</span>
+                <button type="button" className="icon-button" title="이 기록만 삭제" onClick={() => void handleForgetUsage(item.id)}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="supporting">사용 기록이 없습니다.</p>
+        )}
+        <div className="button-row">
+          <button type="button" onClick={() => void handleClearChannelHistory()}>이 채널 이력 전체 초기화</button>
         </div>
 
         <label>데이터</label>

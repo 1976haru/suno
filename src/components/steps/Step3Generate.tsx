@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Coins, Info, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { AlertTriangle, Coins, Info, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
 import { clampSongCount } from '../../utils/generation';
 import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
+import { channelExhaustionStats, type ExhaustionStats } from '../../core/hookLedger';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, ProviderSettings, SeasonPack } from '../../types';
+
+const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 
 const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30];
 
@@ -27,9 +30,10 @@ interface Step3GenerateProps {
   onGenerate: () => void;
   hybridMode: boolean;
   onHybridModeChange: (value: boolean) => void;
+  onOpenHookHistory: () => void;
 }
 
-export default function Step3Generate({ opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate, hybridMode, onHybridModeChange }: Step3GenerateProps) {
+export default function Step3Generate({ opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate, hybridMode, onHybridModeChange, onOpenHookHistory }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
     : provider.provider === 'anthropic'
@@ -39,11 +43,26 @@ export default function Step3Generate({ opts, setOpts, genres, moods, season, pr
   const [inputPrice, setInputPrice] = useState<number | null>(null);
   const [outputPrice, setOutputPrice] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [hookStats, setHookStats] = useState<ExhaustionStats | null>(null);
 
   useEffect(() => {
     void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value ? Number(value) : null));
     void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value ? Number(value) : null));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void channelExhaustionStats(opts.channel.id, opts.lyricLanguage, opts.channel.archetype)
+      .then(stats => {
+        if (!cancelled) setHookStats(stats);
+      })
+      .catch(() => {
+        // IndexedDB unavailable — the warning is a convenience, not required to generate.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.channel.id, opts.lyricLanguage, opts.channel.archetype]);
 
   const costEstimate = estimateCost(opts.songCount, provider, inputPrice, outputPrice);
 
@@ -86,6 +105,25 @@ export default function Step3Generate({ opts, setOpts, genres, moods, season, pr
           </button>
         ))}
       </div>
+
+      {hookStats && hookStats.poolSize > 0 && (
+        <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
+          {hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? (
+            <>
+              <AlertTriangle size={16} />
+              <span>
+                🔴 이 채널에서 사용 가능한 훅이 얼마 남지 않았습니다. 사용: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+                남은 훅이 부족합니다. 훅 뱅크를 확장하거나, 오래된 팩을 삭제해 이력을 비우세요.
+                <button type="button" onClick={onOpenHookHistory}>훅 이력 관리</button>
+              </span>
+            </>
+          ) : (
+            <p className="supporting">
+              🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="provider-summary">
         <div className="panel-title">

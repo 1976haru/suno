@@ -73,10 +73,12 @@ export async function generateBlueprint(
   moods: MoodPack[],
   season: SeasonPack,
   settings: ProviderSettings,
-  onProgress?: (progress: GenerationProgress) => void
+  onProgress?: (progress: GenerationProgress) => void,
+  /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): Promise<PlaylistBlueprint> {
   if (settings.provider === 'local') {
-    const blueprint = generateLocalBlueprint(opts, genres, moods, season);
+    const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid);
     const songs = scoreSongs(blueprint.songs, opts.channel);
     onProgress?.({ done: songs.length, total: opts.songCount, songs });
     return { ...blueprint, songs };
@@ -93,8 +95,8 @@ export async function generateBlueprint(
     const batchContext: BatchContext = {
       trackNoOffset: trackNumbers[0] - 1,
       totalSongCount: opts.songCount,
-      usedTitles: allSongs.map(song => song.title),
-      usedHooks: allSongs.map(song => song.hookPhrase),
+      usedTitles: [...(avoid?.usedTitles ?? []), ...allSongs.map(song => song.title)],
+      usedHooks: [...(avoid?.usedHooks ?? []), ...allSongs.map(song => song.hookPhrase)],
       lockedIdentity
     };
 
@@ -163,11 +165,13 @@ export async function regenerateTrack(
   moods: MoodPack[],
   season: SeasonPack,
   settings: ProviderSettings,
-  feedback: string[] = []
+  feedback: string[] = [],
+  /** TASK X1 (v3.4) — cross-pack hook/title history, merged in alongside the rest of this pack so a regenerated track can't collide with a hook used in a *different* pack either. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): Promise<RegenerateTrackResult> {
   const others = blueprint.songs.filter(song => song.trackNo !== trackNo);
-  const usedTitles = others.map(song => song.title);
-  const usedHooks = others.map(song => song.hookPhrase);
+  const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => song.title)];
+  const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase)];
   const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
   const feedbackNote = feedback.length
     ? `previous attempt was rejected for: ${feedback.join('; ')}. Rewrite to avoid these specific issues.`
@@ -257,7 +261,9 @@ export async function refineTracks(
   season: SeasonPack,
   settings: ProviderSettings,
   feedback: string[] = [],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  /** TASK X1 (v3.4) — cross-pack hook/title history. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): Promise<RefineTracksResult> {
   const total = trackNos.length;
   if (settings.provider === 'local' || trackNos.length < REFINE_BATCH_THRESHOLD) {
@@ -265,7 +271,7 @@ export async function refineTracks(
     const warnings: string[] = [];
     let done = 0;
     for (const trackNo of trackNos) {
-      const { blueprint: next, warning } = await regenerateTrack(current, trackNo, opts, genres, moods, season, settings, feedback);
+      const { blueprint: next, warning } = await regenerateTrack(current, trackNo, opts, genres, moods, season, settings, feedback, avoid);
       current = next;
       if (warning) warnings.push(`${trackNo}번: ${warning}`);
       done += 1;
@@ -285,8 +291,8 @@ export async function refineTracks(
   for (const chunk of chunkArray(trackNos, REFINE_BATCH_SIZE)) {
     try {
       const others = current.songs.filter(song => !chunk.includes(song.trackNo));
-      const usedTitles = others.map(song => song.title);
-      const usedHooks = others.map(song => song.hookPhrase);
+      const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => song.title)];
+      const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase)];
       const batchOpts: GenerationOptions = {
         ...opts,
         songCount: chunk.length,

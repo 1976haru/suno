@@ -157,7 +157,7 @@ export function generateLocalBlueprint(
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const motifPool = new UniquePool(recurringMotifs, seed + 23);
-  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid);
+  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
   const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase);
   const packMotif = recurringMotifs[seed % recurringMotifs.length];
 

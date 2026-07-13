@@ -1,4 +1,6 @@
-import type { GenerationOptions, LyricLanguage, SeasonPack, SongIdea } from '../types';
+import type { ChannelArchetype, GenerationOptions, LyricLanguage, SeasonPack, SongIdea } from '../types';
+import { defaultHookParts, resolveHookParts, type HookPartBank } from '../data/hookParts';
+import { overrideForArchetype } from '../data/hookBanks';
 
 export interface LyricLineCtx {
   season: string;
@@ -694,6 +696,8 @@ export interface HookContext {
   language: LyricLanguage;
   shape: HookShape;
   usedHooks: Set<string>;
+  /** v3.4 — scopes both the premium tier (senior-morning only) and the combinatorial vocabulary. Undefined behaves like 'senior-morning'. */
+  archetype?: ChannelArchetype;
 }
 
 // Time words also serve as an optional one-word title prefix for English
@@ -762,7 +766,9 @@ const jaHookDeclarative = [
   'まだここにいる', 'また道を見つけた', '一緒に乗り越えた', 'あなたを信じている', 'そばにいるとわかる'
 ];
 
-function hookBankFor(language: LyricLanguage, shape: HookShape): string[] {
+/** Premium tier is senior-morning's own hand-written imagery (coffee, radio, letters) — only that archetype (and the two fallback archetypes with no vocabulary override) draw from it, so it never leaks into showa-cafe/kids and break the "hooks never overlap across archetypes" guarantee. */
+function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: ChannelArchetype): string[] {
+  if (archetype === 'showa-cafe' || archetype === 'kids') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },
@@ -790,6 +796,33 @@ export function estimateSyllables(phrase: string, language: LyricLanguage): numb
   }, 0);
 }
 
+/**
+ * TASK X4 (v3.4) — a single length metric that means something in every
+ * language: English hooks are judged by word count (2-5 words), but a
+ * word-count check on Korean/Japanese either always reads as short
+ * (Japanese has no whitespace word boundary) or miscounts (Korean spacing
+ * doesn't track singable units the way syllables do). Korean uses syllable
+ * count (Hangul blocks), Japanese uses mora/character count — both via the
+ * existing estimateSyllables().
+ */
+export function hookLength(phrase: string, language: LyricLanguage): number {
+  if (language === 'korean' || language === 'japanese') return estimateSyllables(phrase, language);
+  return hookWordCount(phrase);
+}
+
+const HOOK_LENGTH_BOUNDS: Record<'english' | 'korean' | 'japanese', { min: number; max: number }> = {
+  english: { min: 2, max: 5 },
+  korean: { min: 4, max: 12 },
+  japanese: { min: 5, max: 14 }
+};
+
+export function isWithinHookLengthBounds(phrase: string, language: LyricLanguage): boolean {
+  const resolved = language === 'bilingual' ? 'english' : language;
+  const bounds = HOOK_LENGTH_BOUNDS[resolved];
+  const length = hookLength(phrase, language);
+  return length >= bounds.min && length <= bounds.max;
+}
+
 /** Distributes shapes as evenly as possible across a pack so 30 songs never lean on one shape (each shape gets >=15% for songCount >= 4). */
 export function buildShapeSequence(songCount: number, seed: number): HookShape[] {
   const perShape = Math.floor(songCount / HOOK_SHAPES.length);
@@ -803,14 +836,93 @@ export function buildShapeSequence(songCount: number, seed: number): HookShape[]
   return shuffle(sequence, seed + 999);
 }
 
-export function composeHook(seed: number, ctx: HookContext): HookSpec {
-  const bank = hookBankFor(ctx.language, ctx.shape);
-  const shuffled = shuffle(bank, seed);
-  let phrase = shuffled.find(candidate => !ctx.usedHooks.has(candidate));
-  if (!phrase) {
-    const reshuffled = shuffle(bank, seed + 104729);
-    phrase = reshuffled.find(candidate => !ctx.usedHooks.has(candidate)) ?? `${shuffled[0]} ${ctx.usedHooks.size}`;
+// ---------------------------------------------------------------------------
+// TASK X2/X3 (v3.4) — combinatorial hook supply. The 42 premium hooks above
+// are exhausted first (highest hand-checked quality); once a channel has
+// used all of those for a shape, composeHook falls through to this
+// archetype-scoped combinatorial layer (500+/language), so an 18-week x
+// 12-song roadmap doesn't run out of unique titles by week 2.
+// ---------------------------------------------------------------------------
+
+function joinImperative(language: LyricLanguage, verb: string, object: string, tail: string): string {
+  if (language === 'korean') return `${tail} ${object} ${verb}`;
+  if (language === 'japanese') return `${object}${tail}${verb}`;
+  return `${verb} ${object} ${tail}`;
+}
+
+function joinVocativeParts(language: LyricLanguage, lead: string, addressee: string): string {
+  return language === 'japanese' ? `${lead}、${addressee}` : `${lead}, ${addressee}`;
+}
+
+function joinNounPhraseParts(language: LyricLanguage, modifier: string, object: string): string {
+  return language === 'japanese' ? `${modifier}${object}` : `${modifier} ${object}`;
+}
+
+function joinDeclarativeParts(language: LyricLanguage, stem: string, tail: string): string {
+  if (language === 'english') return `${stem} ${tail}`;
+  if (language === 'japanese') return `${tail}${stem}`;
+  return `${tail} ${stem}`;
+}
+
+/**
+ * Full combinatorial expansion for one shape (at most a few hundred short
+ * strings — cheap to generate fresh per call at this scale). Anything
+ * outside the language's singable length bounds is dropped rather than
+ * offered, since a bad verb/tail combination showing up as a hook is
+ * exactly the "Pour the Morning On" failure mode TASK X2 warns about.
+ */
+function combinatorialHookBank(shape: HookShape, parts: HookPartBank, language: LyricLanguage): string[] {
+  const out: string[] = [];
+  if (shape === 'imperative') {
+    for (const verb of parts.imperativeVerbs) {
+      for (const object of parts.imperativeObjects) {
+        for (const tail of parts.imperativeTails) out.push(joinImperative(language, verb, object, tail));
+      }
+    }
+  } else if (shape === 'vocative') {
+    for (const lead of parts.vocativeLeads) {
+      for (const addressee of parts.vocativeAddressees) out.push(joinVocativeParts(language, lead, addressee));
+    }
+  } else if (shape === 'nounPhrase') {
+    for (const modifier of parts.nounModifiers) {
+      for (const object of parts.nounObjects) out.push(joinNounPhraseParts(language, modifier, object));
+    }
+  } else {
+    for (const stem of parts.declarativeStems) {
+      for (const tail of parts.declarativeTails) out.push(joinDeclarativeParts(language, stem, tail));
+    }
   }
+  return out.filter(candidate => isWithinHookLengthBounds(candidate, language));
+}
+
+/**
+ * TASK X1 (v3.4) — ctx.usedHooks now carries cross-pack history (see
+ * core/hookLedger.ts), not just the current pack, so a channel can never
+ * silently reuse a hook/title across two different generated packs. Draws
+ * premium first, then the archetype-scoped combinatorial layer; if both
+ * pools are fully exhausted for this channel+language+shape (extremely
+ * unlikely at 500+ combinatorial entries, but possible after months of
+ * heavy use), this throws a clear error rather than looping forever or
+ * silently returning a duplicate.
+ */
+export function composeHook(seed: number, ctx: HookContext): HookSpec {
+  const premium = premiumBankFor(ctx.language, ctx.shape, ctx.archetype);
+  const shuffledPremium = shuffle(premium, seed);
+  let phrase = shuffledPremium.find(candidate => !ctx.usedHooks.has(candidate));
+
+  if (!phrase) {
+    const parts = resolveHookParts(ctx.language, overrideForArchetype(ctx.archetype, ctx.language));
+    const combinatorial = combinatorialHookBank(ctx.shape, parts, ctx.language);
+    const shuffledCombinatorial = shuffle(combinatorial, seed + 104729);
+    phrase = shuffledCombinatorial.find(candidate => !ctx.usedHooks.has(candidate));
+  }
+
+  if (!phrase) {
+    throw new Error(
+      `훅 풀이 소진되었습니다 (${ctx.language} / ${ctx.shape} / ${ctx.archetype ?? 'senior-morning'}). 설정에서 오래된 팩의 훅 이력을 정리하거나 훅 뱅크를 확장하세요.`
+    );
+  }
+
   return {
     phrase,
     syllables: estimateSyllables(phrase, ctx.language),
@@ -819,12 +931,31 @@ export function composeHook(seed: number, ctx: HookContext): HookSpec {
   };
 }
 
-/** True if `phrase` came from one of the curated hook banks for `shape`; used by tests to verify shape distribution on real generated output. */
+/** True if `phrase` came from the curated premium bank for `shape`; used by tests to verify shape distribution on real generated output. Combinatorial-origin hooks are matched separately (see matchesCombinatorialShape) since they aren't a fixed list. */
 export function matchHookShape(phrase: string, language: LyricLanguage): HookShape | null {
   for (const shape of HOOK_SHAPES) {
-    if (hookBankFor(language, shape).includes(phrase)) return shape;
+    if (premiumBankFor(language, shape).includes(phrase)) return shape;
   }
   return null;
+}
+
+/** Recomputes the full combinatorial pool for every shape and checks membership — used by tests to classify a hook that didn't come from the premium bank. */
+export function matchCombinatorialShape(phrase: string, language: LyricLanguage, archetype?: ChannelArchetype): HookShape | null {
+  const parts = resolveHookParts(language, overrideForArchetype(archetype, language));
+  for (const shape of HOOK_SHAPES) {
+    if (combinatorialHookBank(shape, parts, language).includes(phrase)) return shape;
+  }
+  return null;
+}
+
+/** Total premium + combinatorial pool size for a channel+language — used for exhaustion-warning UI (core/hookLedger.ts's exhaustionStats). */
+export function hookPoolSize(language: LyricLanguage, archetype?: ChannelArchetype): number {
+  const parts = resolveHookParts(language, overrideForArchetype(archetype, language));
+  return HOOK_SHAPES.reduce((total, shape) => {
+    const premium = premiumBankFor(language, shape, archetype).length;
+    const combinatorial = combinatorialHookBank(shape, parts, language).length;
+    return total + premium + combinatorial;
+  }, 0);
 }
 
 function hasWordOverlap(language: LyricLanguage, ...parts: (string | null)[]): boolean {
@@ -889,22 +1020,22 @@ export function createTitleGenerator(
   language: LyricLanguage,
   seedBase: string,
   songCount = 30,
-  avoid?: { usedTitles?: Iterable<string>; usedHooks?: Iterable<string> }
+  avoid?: { usedTitles?: Iterable<string>; usedHooks?: Iterable<string> },
+  archetype?: ChannelArchetype
 ) {
   const s = hashSeed(seedBase);
   const shapeSequence = buildShapeSequence(songCount, s + 31);
-  // Seeding with a caller-supplied avoid-set (e.g. the rest of the pack, for
-  // single-track regeneration) makes collisions structurally impossible
-  // instead of hoping an independently-seeded draw gets lucky — the curated
-  // hook banks are only ~10-12 entries per shape, far smaller than the old
-  // combinatorial word banks, so blind-luck collisions are a real risk here.
+  // Seeding with a caller-supplied avoid-set (e.g. the rest of the pack, or —
+  // as of TASK X1 — this channel's cross-pack hook history) makes collisions
+  // structurally impossible instead of hoping an independently-seeded draw
+  // gets lucky.
   const usedHooks = new Set<string>(avoid?.usedHooks ?? []);
   const usedTitles = new Set<string>(avoid?.usedTitles ?? []);
   let index = 0;
 
   return function nextTitle(): TitleResult {
     const shape = shapeSequence[index % shapeSequence.length] ?? HOOK_SHAPES[index % HOOK_SHAPES.length];
-    const hook = composeHook(s + 41 + index * 97, { language, shape, usedHooks });
+    const hook = composeHook(s + 41 + index * 97, { language, shape, usedHooks, archetype });
     usedHooks.add(hook.phrase);
     const title = titleFromHook(hook, s + 53 + index * 131, language, usedTitles);
     usedTitles.add(title);

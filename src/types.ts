@@ -4,6 +4,8 @@ export type Market = 'korea' | 'japan' | 'global' | 'custom';
 export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges';
 
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids';
+
 export interface ChannelProfile {
   id: string;
   name: string;
@@ -18,6 +20,8 @@ export interface ChannelProfile {
   preferredMoods: string[];
   forbiddenCliches: string[];
   seoKeywords: string[];
+  /** v3.4 — scopes which hook vocabulary bank this channel draws from. Missing/unrecognized values fall back to 'senior-morning' (see migrateArchetype in data/presets.ts). */
+  archetype?: ChannelArchetype;
 }
 
 export interface GenrePack {

@@ -37,7 +37,10 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
     preferredGenres: input.preferredGenres?.length ? input.preferredGenres : ['adult-contemporary', 'acoustic-pop'],
     preferredMoods: input.preferredMoods?.length ? input.preferredMoods : ['warm', 'hopeful'],
     forbiddenCliches: input.forbiddenCliches?.length ? input.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
-    seoKeywords: input.seoKeywords || []
+    seoKeywords: input.seoKeywords || [],
+    // v3.4 — channels saved before archetypes existed have no `archetype` field;
+    // they fall back to 'senior-morning' rather than an unscoped/empty hook bank.
+    archetype: input.archetype || 'senior-morning'
   };
 }
 
