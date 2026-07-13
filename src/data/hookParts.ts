@@ -38,8 +38,17 @@ export interface HookPartBank {
   declarativeTails: string[];
 }
 
-/** Vocabulary-only override — verbs/tails/leads/stems are inherited from the default bank. */
-export type HookVocabularyOverride = Partial<Pick<HookPartBank, 'imperativeObjects' | 'nounModifiers' | 'nounObjects' | 'vocativeAddressees'>>;
+/**
+ * Vocabulary-only override — verbs/tails/imperativeTails are always
+ * inherited from the default bank (they're broadly compatible with any
+ * object noun and don't carry archetype identity on their own). Overriding
+ * just ONE side of the vocative pair (lead or addressee) or the declarative
+ * stem is enough to guarantee full-string disjointness between archetypes,
+ * regardless of join order — see data/hookBanks/*.ts.
+ */
+export type HookVocabularyOverride = Partial<
+  Pick<HookPartBank, 'imperativeObjects' | 'nounModifiers' | 'nounObjects' | 'vocativeLeads' | 'vocativeAddressees' | 'declarativeStems'>
+>;
 
 const englishDefault: HookPartBank = {
   imperativeVerbs: ['Keep', 'Hold', 'Save', 'Carry'],
