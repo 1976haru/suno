@@ -45,7 +45,13 @@ function songEvalSystemPrompt() {
   return `당신은 상업 플레이리스트 채널을 위한 한국어 곡 평가 에이전트입니다. 아래 곡들을 평가하고 반드시 한국어로 결과를 작성하세요.
 
 평가 기준 (각 0-10점):
-- hookStrength: 후렴이 기억에 남는가
+- hookStrength: 아래 항목을 모두 살펴 훅(hook)의 강도를 평가하세요.
+  - 2~5단어인가, 한 번 듣고 따라 부를 수 있는가
+  - 곡 안에서 4회 이상 반복되는가 (제공된 lyrics 안에서 hookPhrase가 몇 번 등장하는지 직접 세어보세요)
+  - 제목(title)과 일치하거나 제목에 포함되는가
+  - 진부한 표현("forever love", "in my heart" 류)이 아닌가
+  - 추상어보다 구체적 이미지(사물/장면)를 담고 있는가
+  - 시니어 청자가 발음하기 쉬운가 (복잡한 자음 연쇄가 없는가)
 - lyricOriginality: 진부한 표현이 아닌 독창적인 가사인가
 - promptFitness: Suno가 의도대로 해석할 수 있는 프롬프트인가
 - audienceFit: 지정된 타겟 청중에게 맞는가

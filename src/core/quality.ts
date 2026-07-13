@@ -1,7 +1,69 @@
 import type { ChannelProfile, SongIdea } from '../types';
+import { hookWordCount } from './lyricEngine';
 
 const requiredPromptTerms = ['money chord', 'no long instrumental break'];
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
+
+// H3 (v3.3): a vocative-shaped hook ("Hold on, X") may only address a person
+// or an abstract/personified noun, never a physical object ("Hold on,
+// coffee"). Local generation makes this impossible by construction (TASK
+// A2's curated banks), but a remote LLM's hook isn't guaranteed to avoid it
+// — this scans the actual generated text as a content-based safety net.
+const vocativeObjectPatternsByLanguage: RegExp[] = [
+  /,\s*(the\s+)?(coffee|window|radio|letter|train|doorway|umbrella|lamp|calendar|record|photograph|photo|sweater|candle|street|cup|ticket|notebook|chair|table|door|phone|book|key|clock|mirror|rain|snow|sky)\b/i,
+  /,\s*(커피|창문|창가|라디오|편지|기차|문가|우산|램프|달력|레코드|사진|스웨터|촛불|거리|(찻)?잔|표|수첩|의자|탁자|문|전화|책|열쇠|시계|거울|비|눈|하늘)/,
+  /、\s*(コーヒー|窓|ラジオ|手紙|列車|電車|戸口|傘|ランプ|カレンダー|レコード|写真|セーター|キャンドル|通り|カップ|切符|ノート|椅子|机|ドア|電話|本|鍵|時計|鏡|雨|雪|空)/
+];
+
+function hasVocativeObjectPattern(hookPhrase: string): boolean {
+  return vocativeObjectPatternsByLanguage.some(pattern => pattern.test(hookPhrase));
+}
+
+function startsWithLowercase(text: string): boolean {
+  const first = [...text].find(ch => /\p{L}/u.test(ch));
+  return !!first && first === first.toLowerCase() && first !== first.toUpperCase();
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  return haystack.split(needle).length - 1;
+}
+
+/** TASK A5 (v3.3): rule-based hook checks, runs without any API call. */
+export function checkHookQuality(song: SongIdea): { warnings: string[]; penalty: number } {
+  const warnings: string[] = [];
+  let penalty = 0;
+  const hook = song.hookPhrase || '';
+  if (!hook) return { warnings, penalty };
+
+  if (hookWordCount(hook) > 6) {
+    warnings.push('Hook is longer than 6 words — not singable as a repeated line.');
+    penalty += 10;
+  }
+
+  const hookOccurrences = countOccurrences(song.lyrics, hook);
+  if (hookOccurrences < 3) {
+    warnings.push(`Hook appears only ${hookOccurrences}x in the lyrics — needs to repeat to be memorable.`);
+    penalty += 15;
+  }
+
+  if (!song.title.toLowerCase().includes(hook.toLowerCase())) {
+    warnings.push('Hook does not appear in the title — title and hook should match.');
+    penalty += 10;
+  }
+
+  if (startsWithLowercase(hook)) {
+    warnings.push('Hook starts with a lowercase letter.');
+    penalty += 5;
+  }
+
+  if (hasVocativeObjectPattern(hook)) {
+    warnings.push('Hook addresses an object as if it were a person (vocative-object pattern).');
+    penalty += 12;
+  }
+
+  return { warnings, penalty };
+}
 
 const imitationPatterns = [
   /\bin the style of\b/i,
@@ -166,6 +228,10 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile): SongIdea {
     pushUnique(warnings, 'YouTube metadata is incomplete.');
     score -= 8;
   }
+
+  const hookCheck = checkHookQuality(song);
+  for (const warning of hookCheck.warnings) pushUnique(warnings, warning);
+  score -= hookCheck.penalty;
 
   return { ...song, qualityScore: Math.max(0, score), warnings };
 }
