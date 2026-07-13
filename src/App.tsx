@@ -8,6 +8,7 @@ import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { recordPackHooks } from './core/hookLedger';
+import { normalizeGenreSelection, toggleGenreSelection } from './core/genreSelection';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
@@ -50,7 +51,7 @@ export default function App() {
       market: channel.market,
       audience: channel.audience,
       lyricLanguage: channel.primaryLanguage,
-      genreIds: channel.preferredGenres,
+      genreIds: normalizeGenreSelection(channel.preferredGenres),
       moodIds: channel.preferredMoods,
       vocalTone: channel.defaultVocal
     }));
@@ -94,6 +95,7 @@ export default function App() {
 
   function toggleArray(key: 'genreIds' | 'moodIds', id: string) {
     setOpts(prev => {
+      if (key === 'genreIds') return { ...prev, genreIds: toggleGenreSelection(prev.genreIds, id) };
       const next = new Set(prev[key]);
       if (next.has(id)) next.delete(id);
       else next.add(id);

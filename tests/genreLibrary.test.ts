@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest';
+import { generateLocalBlueprint } from '../src/core/localGenerator';
+import { hookStyleDirectives } from '../src/core/promptComposer';
+import { composeStylePrompt, SUNO_COPY_LIMIT } from '../src/core/promptBudget';
+import { MAX_SELECTED_GENRES, normalizeGenreSelection, toggleGenreSelection } from '../src/core/genreSelection';
+import { genreLibrary, importedGenreCount, totalGenreCount } from '../src/data/genreLibrary';
+import { genrePacks } from '../src/data/presets';
+import { makeOptions, testMoods, testSeason } from './fixtures';
+
+const LEGACY_IDS = [
+  'adult-contemporary',
+  'acoustic-pop',
+  'jazz-pop',
+  'showa-modern',
+  'city-pop-soft',
+  'lofi-cafe',
+  'christmas-soft-pop',
+  'healing-ballad',
+  'folk-pop',
+  'bossa-cafe',
+  'soft-rock',
+  'piano-ballad',
+  'retro-soul-pop',
+  'synthwave-mellow'
+];
+
+const forbiddenStyleTerms = /\b(visualIdentity|typography|thumbnail|font|logo|cover art|image prompt)\b/i;
+const forbiddenImitationTerms = /\b(in the style of|sounds like|as sung by|voice like|clone of|copy of|cover of|rewrite of|melody from|lyrics from)\b/i;
+const famousArtistNames = /\b(adele|beatles|beyonce|bts|bruno mars|celine dion|ed sheeran|iu|queen|taylor swift|the weeknd|yoasobi|utada)\b/i;
+
+function promptAtoms(prompt: string) {
+  return prompt.split(',').map(atom => atom.trim().toLowerCase()).filter(Boolean);
+}
+
+describe('structured genre library', () => {
+  it('adds 250 Notion-derived genres and keeps legacy genre ids available', () => {
+    expect(importedGenreCount).toBe(250);
+    expect(totalGenreCount).toBe(genreLibrary.length);
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount);
+
+    const presetIds = new Set(genrePacks.map(genre => genre.id));
+    for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
+  });
+
+  it('every structured genre has the supported v3 fields', () => {
+    for (const genre of genreLibrary) {
+      expect(genre.categoryId, genre.id).toBeTruthy();
+      expect(genre.rhythm.length, genre.id).toBeGreaterThan(0);
+      expect(genre.instruments.length, genre.id).toBeGreaterThan(0);
+      expect(genre.vocal.length, genre.id).toBeGreaterThan(0);
+      expect(genre.production.length, genre.id).toBeGreaterThan(0);
+      expect(genre.harmony.length, genre.id).toBeGreaterThan(0);
+      expect(genre.tempo).toHaveLength(2);
+      expect(genre.tempo[0], genre.id).toBeGreaterThan(0);
+      expect(genre.tempo[1], genre.id).toBeGreaterThanOrEqual(genre.tempo[0]);
+      expect(genre.moods.length, genre.id).toBeGreaterThan(0);
+      expect(genre.audiences.length, genre.id).toBeGreaterThan(0);
+      expect(genre.avoidTraits.length, genre.id).toBeGreaterThan(0);
+      expect(genre.shortPrompt.length, genre.id).toBeGreaterThan(20);
+      expect(genre.productionGuidance.length, genre.id).toBeGreaterThan(20);
+    }
+  });
+
+  it('keeps Suno-facing genre text free of visual, imitation, and famous-artist terms', () => {
+    for (const genre of genreLibrary) {
+      const sunoText = [genre.shortPrompt, genre.styleCore].join('\n');
+      expect(sunoText, genre.id).not.toMatch(forbiddenStyleTerms);
+      expect(sunoText, genre.id).not.toMatch(forbiddenImitationTerms);
+      expect(sunoText, genre.id).not.toMatch(famousArtistNames);
+    }
+  });
+
+  it('generates a <=900 character style prompt for every preset genre without exact duplicate clauses', () => {
+    for (const genre of genrePacks) {
+      const opts = makeOptions({ genreIds: [genre.id], songCount: 1 });
+      const blueprint = generateLocalBlueprint(opts, [genre], testMoods, testSeason);
+      const song = blueprint.songs[0];
+      expect(song.stylePrompt.length, genre.id).toBeLessThanOrEqual(SUNO_COPY_LIMIT);
+      expect(song.stylePrompt, genre.id).not.toMatch(forbiddenStyleTerms);
+      expect(song.stylePrompt, genre.id).not.toContain('undefined');
+
+      const atoms = promptAtoms(song.stylePrompt);
+      expect(new Set(atoms).size, genre.id).toBe(atoms.length);
+    }
+  });
+
+  it('uses the compressed hook instruction', () => {
+    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('hook "Hold On", short repeated chorus hook, identical melody, 3-4 clear returns');
+    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('hook "Hold On", short repeated chorus hook, identical melody, 3 clear returns');
+  });
+
+  it('compresses by individual clauses in priority order', () => {
+    const result = composeStylePrompt([
+      { id: 'genre', text: 'adult pop' },
+      { id: 'vocal', text: 'clear vocal' },
+      { id: 'hook', text: 'short repeated chorus hook' },
+      { id: 'moneyChord', text: 'money chord foundation: I-V-vi-IV' },
+      { id: 'duration', text: 'no long instrumental break' },
+      { id: 'tempo', text: '96 BPM' },
+      { id: 'mood', text: 'warm, nostalgic, hopeful, elegant, reflective' },
+      { id: 'mixNotes', text: 'same channel mix balance across the full playlist set' }
+    ], 150, 145);
+
+    expect(result.prompt).toContain('warm');
+    expect(result.prompt).not.toContain('same channel mix balance');
+    expect(result.droppedTerms).toContain('mix notes');
+    expect(result.length).toBeLessThanOrEqual(150);
+  });
+
+  it('limits concept-screen genre selection to one primary plus two secondary genres', () => {
+    expect(normalizeGenreSelection(['a', 'b', 'c', 'd'])).toEqual(['a', 'b', 'c']);
+    expect(toggleGenreSelection(['a', 'b', 'c'], 'd')).toEqual(['a', 'b', 'c']);
+    expect(toggleGenreSelection(['a', 'b'], 'c')).toEqual(['a', 'b', 'c']);
+    expect(toggleGenreSelection(['a', 'b', 'c'], 'b')).toEqual(['a', 'c']);
+    expect(MAX_SELECTED_GENRES).toBe(3);
+  });
+});

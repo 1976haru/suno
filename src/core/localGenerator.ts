@@ -1,6 +1,7 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { buildChannelPromptParts, composeStylePrompt, hookStyleDirectives, type PromptPart } from './promptComposer';
+import { buildChannelPromptParts, hookStyleDirectives } from './promptComposer';
+import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import {
   composeLyrics,
   createLyricBatchPools,
@@ -222,11 +223,11 @@ export function generateLocalBlueprint(
         ].filter(Boolean).join(', ')
       }
     ];
-    const styleLimitValue = styleLimit && styleLimit > 0 ? styleLimit : undefined;
+    const styleLimitValue = styleLimit && styleLimit > 0 ? Math.min(styleLimit, SUNO_COPY_LIMIT) : SUNO_COPY_LIMIT;
     const composed = composeStylePrompt(
       songParts,
       styleLimitValue,
-      styleLimitValue ? Math.round(styleLimitValue * 0.9) : undefined
+      styleLimitValue
     );
     const stylePrompt = composed.prompt;
     const partialSong = {

@@ -1,4 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
+import { notionDerivedGenrePacks } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -203,7 +204,8 @@ export const genrePacks: GenrePack[] = [
     instruments: ['soft analog synth pad', 'electric piano', 'clean guitar', 'warm electronic drums'],
     tempoRange: [92, 108],
     goodFor: ['night drive', 'retro channel', 'twenties']
-  }
+  },
+  ...notionDerivedGenrePacks
 ];
 
 export const moodPacks: MoodPack[] = [

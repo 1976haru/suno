@@ -31,6 +31,19 @@ export interface GenrePack {
   instruments: string[];
   tempoRange: [number, number];
   goodFor: string[];
+  categoryId?: string;
+  aliases?: string[];
+  rhythm?: string[];
+  vocal?: string[];
+  production?: string[];
+  harmony?: string[];
+  tempo?: [number, number];
+  moods?: string[];
+  audiences?: string[];
+  avoidTraits?: string[];
+  shortPrompt?: string;
+  productionGuidance?: string;
+  source?: 'legacy-preset' | 'notion-analysis';
 }
 
 export interface MoodPack {
@@ -125,7 +138,7 @@ export interface ProviderSettings {
   apiKey?: string;
   keyStorageMode?: 'server' | 'local';
   batchSize?: number;
-  /** TASK A5 (v3.5) — Suno's style-field limit may change; configurable in Settings, defaults to SUNO_STYLE_LIMIT (1000) when unset. */
+  /** Suno copy limit for Style Prompt, defaults to SUNO_COPY_LIMIT (900) when unset. */
   promptCharLimit?: number;
   /** TASK D3 (v3.5) — optional per-stage model override (lyrics vs evaluation). Only applied when provider is 'anthropic'; unset means every stage just uses this ProviderSettings as-is (pre-v3.5 behavior). */
   stageModels?: { lyrics: 'local' | 'sonnet' | 'haiku'; evaluation: 'local' | 'sonnet' | 'haiku' };

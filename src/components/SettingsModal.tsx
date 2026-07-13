@@ -5,7 +5,7 @@ import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
 import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
 import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
 import { clearChannelHistory, forgetUsage, listChannelUsage, type HookUsage } from '../core/hookLedger';
-import { SUNO_STYLE_LIMIT } from '../core/promptComposer';
+import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 
 const MODEL_OPTIONS: Record<'anthropic' | 'openai', string[]> = {
@@ -294,11 +294,11 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         <input
           type="number"
           min={300}
-          max={4000}
-          value={settings.promptCharLimit || SUNO_STYLE_LIMIT}
-          onChange={event => onChange({ ...settings, promptCharLimit: Math.max(300, Number(event.target.value) || SUNO_STYLE_LIMIT) })}
+          max={SUNO_COPY_LIMIT}
+          value={settings.promptCharLimit || SUNO_COPY_LIMIT}
+          onChange={event => onChange({ ...settings, promptCharLimit: Math.min(SUNO_COPY_LIMIT, Math.max(300, Number(event.target.value) || SUNO_COPY_LIMIT)) })}
         />
-        <p className="supporting">Suno 스타일 필드는 현재 {SUNO_STYLE_LIMIT}자에서 잘립니다. 이 값이 바뀌면 여기서 조절하세요.</p>
+        <p className="supporting">Suno 복사용 Style Prompt는 {SUNO_COPY_LIMIT}자 이하로 제한합니다.</p>
 
         <label>📊 API 사용 기록</label>
         {usage && (

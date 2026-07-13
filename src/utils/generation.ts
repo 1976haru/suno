@@ -1,5 +1,6 @@
 import type { ChannelProfile, GenerationOptions } from '../types';
 import { defaultAvoidWordsString } from '../data/avoidWordPresets';
+import { normalizeGenreSelection } from '../core/genreSelection';
 
 export function clampSongCount(value: number) {
   if (!Number.isFinite(value)) return 12;
@@ -14,7 +15,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     lyricLanguage: 'english',
     market: channel.market,
     audience: channel.audience,
-    genreIds: channel.preferredGenres,
+    genreIds: normalizeGenreSelection(channel.preferredGenres),
     moodIds: channel.preferredMoods,
     seasonId: 'christmas',
     vocalTone: channel.defaultVocal,

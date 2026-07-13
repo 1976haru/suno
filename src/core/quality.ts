@@ -1,6 +1,6 @@
 import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
-import { SAFE_TARGET, SUNO_STYLE_LIMIT } from './promptComposer';
+import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
 
 const requiredPromptTerms = ['money chord', 'no long instrumental break'];
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
@@ -83,7 +83,7 @@ export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'engl
  */
 export function enforcePromptLengthBudget(
   stylePrompt: string,
-  limit: number = SUNO_STYLE_LIMIT,
+  limit: number = SUNO_COPY_LIMIT,
   safeTarget: number = SAFE_TARGET
 ): { prompt: string; droppedAtoms: string[] } {
   if (stylePrompt.length <= limit) return { prompt: stylePrompt, droppedAtoms: [] };
@@ -279,11 +279,11 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   // mid-phrase.
   let stylePrompt = song.stylePrompt;
   let promptDroppedTerms = song.promptDroppedTerms || [];
-  if (stylePrompt.length > SUNO_STYLE_LIMIT) {
+  if (stylePrompt.length > SUNO_COPY_LIMIT) {
     const fitted = enforcePromptLengthBudget(stylePrompt);
     stylePrompt = fitted.prompt;
     promptDroppedTerms = [...promptDroppedTerms, ...fitted.droppedAtoms];
-    pushUnique(warnings, `Style prompt exceeded ${SUNO_STYLE_LIMIT} chars and was trimmed to fit Suno's style-field limit.`);
+    pushUnique(warnings, `Style prompt exceeded ${SUNO_COPY_LIMIT} chars and was trimmed to fit Suno's copy limit.`);
   }
 
   return {
@@ -292,7 +292,7 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     qualityScore: Math.max(0, score),
     warnings,
     promptLength: stylePrompt.length,
-    promptWithinLimit: stylePrompt.length <= SUNO_STYLE_LIMIT,
+    promptWithinLimit: stylePrompt.length <= SUNO_COPY_LIMIT,
     promptDroppedTerms
   };
 }

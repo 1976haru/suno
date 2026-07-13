@@ -124,19 +124,21 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
 
   it('[H5] style prompt tells Suno to bookend and repeat the hook', () => {
     const directive = hookStyleDirectives('Hold On', 'commercial');
-    expect(directive).toContain('must open and close every chorus');
-    expect(directive).toContain('repeat the hook line at least 4 times');
+    expect(directive).toContain('short repeated chorus hook');
+    expect(directive).toContain('identical melody');
+    expect(directive).toContain('3-4 clear returns');
   });
 
   it('[H5] poetic depth softens the repeat count to 3', () => {
     const directive = hookStyleDirectives('Hold On', 'poetic');
-    expect(directive).toContain('repeat the hook line at least 3 times');
+    expect(directive).toContain('3 clear returns');
   });
 
   it.each(LANGUAGES)('[H5] every generated song stylePrompt includes the hook bookend directive, in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 3, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
-      expect(song.stylePrompt).toContain('must open and close every chorus');
+      expect(song.stylePrompt).toContain('short repeated chorus hook');
+      expect(song.stylePrompt).toContain('identical melody');
     }
   });
 });

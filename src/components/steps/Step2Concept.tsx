@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Wand2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Search, Wand2 } from 'lucide-react';
 import { generationPacks, genrePacks, moodPacks, seasonPacks } from '../../data/presets';
+import { genreCategories, getGenreById } from '../../data/genreLibrary';
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
+import { MAX_SELECTED_GENRES } from '../../core/genreSelection';
 import { resolveMoneyChordText } from '../../core/promptComposer';
 import ChoiceGrid from '../ChoiceGrid';
 import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage } from '../../types';
@@ -52,12 +54,34 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
   const [avoidCustomDraft, setAvoidCustomDraft] = useState('');
+  const [genreQuery, setGenreQuery] = useState('');
+  const [genreCategoryId, setGenreCategoryId] = useState('all');
 
   const selectedGenerationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moneyPreview = resolveMoneyChordText(opts);
   const avoidList = parseAvoidWords(opts.avoidWords);
   const presetPhrases = new Set(avoidWordPresets.map(preset => preset.phrase));
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
+  const selectedGenreDetails = selectedGenres.map(genre => getGenreById(genre.id) || genre);
+  const filteredGenres = useMemo(() => {
+    const query = genreQuery.trim().toLowerCase();
+    return genrePacks.filter(genre => {
+      const detail = getGenreById(genre.id) || genre;
+      const categoryMatches = genreCategoryId === 'all' || detail.categoryId === genreCategoryId;
+      if (!categoryMatches) return false;
+      if (!query) return true;
+      const haystack = [
+        detail.label,
+        detail.styleCore,
+        detail.shortPrompt,
+        detail.productionGuidance,
+        ...(detail.aliases || []),
+        ...(detail.instruments || []),
+        ...(detail.moods || [])
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [genreCategoryId, genreQuery]);
 
   function toggleAvoidPreset(phrase: string) {
     const next = avoidList.includes(phrase) ? avoidList.filter(term => term !== phrase) : [...avoidList, phrase];
@@ -114,18 +138,66 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
 
       <div className="option-block">
         <h3>어떤 장르를 만들까요? (여러 개 선택 가능) *</h3>
-        <div className="chips">
-          {genrePacks.map(genre => (
-            <button
-              type="button"
-              key={genre.id}
-              className={opts.genreIds.includes(genre.id) ? 'chip active' : 'chip'}
-              onClick={() => toggleArray('genreIds', genre.id)}
-            >
-              {genreLabelsKo[genre.id] || genre.label}
-            </button>
-          ))}
+        <div className="genre-toolbar">
+          <div className="genre-search">
+            <Search size={16} />
+            <input value={genreQuery} onChange={event => setGenreQuery(event.target.value)} placeholder="Search genres, instruments, moods" />
+          </div>
+          <select value={genreCategoryId} onChange={event => setGenreCategoryId(event.target.value)}>
+            <option value="all">All categories</option>
+            {genreCategories.map(category => (
+              <option key={category.id} value={category.id}>{category.label}</option>
+            ))}
+          </select>
         </div>
+        <p className="supporting">Main genre: {selectedGenreDetails[0]?.label || 'none'} / Secondary: {selectedGenreDetails.slice(1).map(g => g.label).join(', ') || 'none'} ({opts.genreIds.length}/{MAX_SELECTED_GENRES})</p>
+        <div className="chips genre-chip-list">
+          {filteredGenres.map(genre => {
+            const selectedIndex = opts.genreIds.indexOf(genre.id);
+            const selected = selectedIndex >= 0;
+            const role = selected ? (selectedIndex === 0 ? 'Main' : `Sub ${selectedIndex}`) : '';
+            return (
+              <button
+                type="button"
+                key={genre.id}
+                className={selected ? 'chip active' : 'chip'}
+                disabled={!selected && opts.genreIds.length >= MAX_SELECTED_GENRES}
+                onClick={() => toggleArray('genreIds', genre.id)}
+                title={selected ? role : undefined}
+              >
+                {role && <span className="genre-role">{role}</span>}
+                {genreLabelsKo[genre.id] || genre.label}
+              </button>
+            );
+          })}
+        </div>
+        {filteredGenres.length === 0 && <p className="supporting">No matching genres.</p>}
+        {selectedGenreDetails.length > 0 && (
+          <div className="genre-preview-grid">
+            {selectedGenreDetails.map((genre, index) => (
+              <div key={genre.id} className="genre-preview-card">
+                <div className="genre-preview-head">
+                  <span className="genre-role">{index === 0 ? 'Main' : `Sub ${index}`}</span>
+                  <h4>{genre.label}</h4>
+                  {genre.categoryId && <span className="supporting">{genre.categoryId}</span>}
+                </div>
+                <p><b>Suno short prompt</b><span>{genre.shortPrompt || genre.styleCore}</span></p>
+                {genre.productionGuidance && <p><b>Detailed production</b><span>{genre.productionGuidance}</span></p>}
+                <div className="genre-detail-list">
+                  <span><b>Rhythm</b>{genre.rhythm?.join(', ') || '-'}</span>
+                  <span><b>Instruments</b>{genre.instruments.join(', ')}</span>
+                  <span><b>Vocal</b>{genre.vocal?.join(', ') || '-'}</span>
+                  <span><b>Production</b>{genre.production?.join(', ') || '-'}</span>
+                  <span><b>Harmony</b>{genre.harmony?.join(', ') || '-'}</span>
+                  <span><b>Tempo</b>{(genre.tempo || genre.tempoRange).join('-')} BPM</span>
+                  <span><b>Moods</b>{genre.moods?.join(', ') || '-'}</span>
+                  <span><b>Audience</b>{genre.audiences?.join(', ') || genre.goodFor.join(', ')}</span>
+                  <span><b>Avoid</b>{genre.avoidTraits?.join(', ') || '-'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="option-block">

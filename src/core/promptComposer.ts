@@ -2,6 +2,7 @@ import type { BatchContext, GenerationOptions, GenrePack, MoodPack, SeasonPack }
 import { generationPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
 import { safeLyricRules } from '../data/lyrics';
+import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -71,7 +72,7 @@ const ADJECTIVE_CAP = 2;
 
 function splitAtoms(text: string | undefined | null): string[] {
   if (!text) return [];
-  return text.split(',').map(part => part.trim()).filter(Boolean);
+  return text.split(/[;,]/).map(part => part.trim()).filter(Boolean);
 }
 
 /** ids defaults to a same-length array of a placeholder id when called with plain strings (the public dedupeTerms() case, which doesn't need id tracking). */
@@ -132,7 +133,7 @@ export function dedupeTerms(atoms: string[]): string[] {
  * groups, then fills the prompt in priority order until the safe target is
  * reached, dropping whatever's left (never mid-phrase — whole atoms only).
  */
-export function composeStylePrompt(parts: PromptPart[], limit: number = SUNO_STYLE_LIMIT, safeTarget: number = SAFE_TARGET): StylePromptResult {
+export function composeStylePrompt(parts: PromptPart[], limit: number = SAFE_TARGET, safeTarget: number = SAFE_TARGET): StylePromptResult {
   const atomsById = new Map<PromptTermId, string[]>();
   for (const part of parts) {
     const atoms = splitAtoms(part.text);
@@ -238,7 +239,7 @@ export function resolveMoneyChordText(opts: GenerationOptions) {
  * into the music prompt both wastes budget and confuses Suno.
  */
 export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PromptPart[] {
-  const genreText = genres.map(g => g.styleCore).join(', ');
+  const genreText = genres.map(g => g.shortPrompt || g.styleCore).join(', ');
   const instrumentText = Array.from(new Set(genres.flatMap(g => g.instruments))).join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
@@ -269,7 +270,7 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
  * target is enforced once, on the complete per-song prompt, not here.
  */
 export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): string {
-  return composeStylePrompt(buildChannelPromptParts(opts, genres, moods, season), SUNO_STYLE_LIMIT, Number.MAX_SAFE_INTEGER).prompt;
+  return composeBudgetedStylePrompt(buildChannelPromptParts(opts, genres, moods, season), SAFE_TARGET, Number.MAX_SAFE_INTEGER).prompt;
 }
 
 /**
@@ -281,14 +282,8 @@ export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], m
  * hook repetition doesn't fight a more literary lyric flow.
  */
 export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth']): string {
-  const minRepeats = lyricDepth === 'poetic' ? 3 : 4;
-  return [
-    `hook "${hookPhrase}" must open and close every chorus`,
-    `repeat the hook line at least ${minRepeats} times across the song`,
-    'land the hook on the strongest downbeat of the chorus',
-    'keep the hook melodically identical every time it returns',
-    'memorable, singable hook — the listener should be able to hum it after one listen'
-  ].join(', ');
+  const returns = lyricDepth === 'poetic' ? '3 clear returns' : '3-4 clear returns';
+  return `hook "${hookPhrase}", short repeated chorus hook, identical melody, ${returns}`;
 }
 
 /**
