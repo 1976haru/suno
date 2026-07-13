@@ -733,8 +733,11 @@ const koHookVocative = [
   '잠깐 쉬어요, 오랜 마음', '돌아와요, 내 사람', '가지 마요, 그대', '안아줘요, 겨울아',
   '기다려요, 내 친구', '쉬어가요, 그대여'
 ];
+// TASK X4 (v3.4): '기차를 잡아요' (catch the train) read as a practical, urging
+// instruction rather than a comforting invitation — replaced with '그 길을
+// 걸어요' (walk that path), which keeps a wistful, unhurried tone.
 const koHookImperative = [
-  '불을 켜둬요', '커피를 데워요', '편지를 써봐요', '라디오를 틀어요', '기차를 잡아요',
+  '불을 켜둬요', '커피를 데워요', '편지를 써봐요', '라디오를 틀어요', '그 길을 걸어요',
   '촛불을 다시 켜요', '창문을 열어둬요', '우산을 함께 써요', '사진을 꺼내봐요', '달력을 넘겨봐요',
   '스웨터를 껴입어요', '레코드를 틀어봐요'
 ];
@@ -752,8 +755,12 @@ const jaHookVocative = [
   '戻ってきて、友よ', '行かないで、あなたへ', '抱きしめて、冬よ', '待っていて、友よ',
   'そばにいて、愛しい人', '少し眠って、あなたへ'
 ];
+// TASK X4 (v3.4): '列車に間に合って' (make it in time for the train) read as a
+// practical, urging instruction rather than a comforting invitation —
+// replaced with 'あの駅で待って' (wait at that station), which keeps the
+// train/station imagery but reframes it as a gentle, unhurried wait.
 const jaHookImperative = [
-  '灯りをつけて', 'コーヒーを温めて', '手紙を書いて', 'ラジオをつけて', '列車に間に合って',
+  '灯りをつけて', 'コーヒーを温めて', '手紙を書いて', 'ラジオをつけて', 'あの駅で待って',
   'キャンドルをまた灯して', '窓を開けて', '傘を一緒にさして', '写真を取り出して', 'カレンダーをめくって',
   'セーターを着て', 'レコードをかけて'
 ];

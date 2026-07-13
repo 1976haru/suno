@@ -79,7 +79,7 @@ export async function generateBlueprint(
 ): Promise<PlaylistBlueprint> {
   if (settings.provider === 'local') {
     const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid);
-    const songs = scoreSongs(blueprint.songs, opts.channel);
+    const songs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);
     onProgress?.({ done: songs.length, total: opts.songCount, songs });
     return { ...blueprint, songs };
   }
@@ -126,7 +126,7 @@ export async function generateBlueprint(
     songs: allSongs
   };
 
-  return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel) };
+  return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage) };
 }
 
 const REGENERATE_MAX_ATTEMPTS = 3; // initial try + 2 retries
@@ -205,7 +205,7 @@ export async function regenerateTrack(
       raw = { ...result.songs[0], trackNo };
     }
 
-    candidate = scoreSongs([raw], opts.channel)[0];
+    candidate = scoreSongs([raw], opts.channel, opts.lyricLanguage)[0];
     const collides = collidesWithOthers(candidate, usedTitles, usedHooks);
     const tooSimilar = tooSimilarToOthers(candidate, others, trackNo);
     const meetsQualityBar = candidate.qualityScore >= REGENERATE_QUALITY_BAR;
@@ -311,7 +311,7 @@ export async function refineTracks(
       void recordProviderUsage(settings, 'refine', usage);
 
       const remapped = (result.songs || []).map((song, i) => ({ ...song, trackNo: chunk[i] }));
-      const scored = scoreSongs(remapped, opts.channel);
+      const scored = scoreSongs(remapped, opts.channel, opts.lyricLanguage);
       const byTrackNo = new Map(scored.map(song => [song.trackNo, song]));
       const songs = current.songs.map(song => byTrackNo.get(song.trackNo) ?? song);
       current = { ...current, songs };

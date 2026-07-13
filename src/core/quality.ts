@@ -1,5 +1,5 @@
-import type { ChannelProfile, SongIdea } from '../types';
-import { hookWordCount } from './lyricEngine';
+import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
+import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
 
 const requiredPromptTerms = ['money chord', 'no long instrumental break'];
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
@@ -29,15 +29,21 @@ function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
-/** TASK A5 (v3.3): rule-based hook checks, runs without any API call. */
-export function checkHookQuality(song: SongIdea): { warnings: string[]; penalty: number } {
+/**
+ * TASK A5 (v3.3) / TASK X4 (v3.4): rule-based hook checks, runs without any
+ * API call. Length is judged by hookLength(), which branches per language
+ * (English: word count; Korean: syllables; Japanese: mora) — a plain
+ * whitespace word count always reads Japanese hooks as "1 word" and never
+ * catches an oversized one.
+ */
+export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'english'): { warnings: string[]; penalty: number } {
   const warnings: string[] = [];
   let penalty = 0;
   const hook = song.hookPhrase || '';
   if (!hook) return { warnings, penalty };
 
-  if (hookWordCount(hook) > 6) {
-    warnings.push('Hook is longer than 6 words — not singable as a repeated line.');
+  if (!isWithinHookLengthBounds(hook, language)) {
+    warnings.push(`Hook length (${hookLength(hook, language)}) is outside the singable range for ${language}.`);
     penalty += 10;
   }
 
@@ -168,7 +174,7 @@ function nameMatchesText(name: string, text: string, textLower: string) {
   return textLower.includes(name.toLowerCase());
 }
 
-export function scoreSong(song: SongIdea, channel?: ChannelProfile): SongIdea {
+export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: LyricLanguage = 'english'): SongIdea {
   const warnings: string[] = [...(song.warnings || [])];
   let score = 100;
   const text = collectSongText(song);
@@ -229,13 +235,13 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile): SongIdea {
     score -= 8;
   }
 
-  const hookCheck = checkHookQuality(song);
+  const hookCheck = checkHookQuality(song, language);
   for (const warning of hookCheck.warnings) pushUnique(warnings, warning);
   score -= hookCheck.penalty;
 
   return { ...song, qualityScore: Math.max(0, score), warnings };
 }
 
-export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile) {
-  return songs.map(song => scoreSong(song, channel));
+export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language: LyricLanguage = 'english') {
+  return songs.map(song => scoreSong(song, channel, language));
 }
