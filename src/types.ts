@@ -2,6 +2,8 @@ export type ProviderType = 'local' | 'openai' | 'anthropic';
 
 export type Market = 'korea' | 'japan' | 'global' | 'custom';
 export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
+/** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
+export type DisplayLanguage = 'english' | 'korean' | 'japanese';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges';
 
 export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids';
@@ -88,6 +90,8 @@ export interface GenerationOptions {
   customMoneyChord: string;
   customConcept: string;
   avoidWords: string;
+  /** TASK D5 (v3.6) — thumbnail/title packaging language; defaults from `market` (see core/packagingLanguage.ts) but can be overridden independent of lyricLanguage. */
+  packagingLanguage?: DisplayLanguage;
 }
 
 export interface YoutubeMetadata {
@@ -137,6 +141,8 @@ export interface ProviderSettings {
   proxyEndpoint?: string;
   apiKey?: string;
   keyStorageMode?: 'server' | 'local';
+  /** TASK C2 (v3.6) — sent as X-Access-Token when a public deployment gates its server-side API key with ACCESS_TOKEN; irrelevant for BYOK (local key) mode. */
+  accessToken?: string;
   batchSize?: number;
   /** Suno copy limit for Style Prompt, defaults to SUNO_COPY_LIMIT (900) when unset. */
   promptCharLimit?: number;
@@ -153,12 +159,31 @@ export interface PlaylistIdentity {
   visualRules: string[];
 }
 
+/**
+ * TASK B2 (v3.6) — a trackNo/title/hookPhrase/songRole/tempo/emotionArc
+ * assignment decided locally (see core/batchPreallocation.ts) before a Batch
+ * API job is submitted. When a BatchContext carries these, the model is
+ * instructed to use them verbatim instead of inventing its own — parallel
+ * sub-batches can no longer collide on title/hook because none of them
+ * choose it independently.
+ */
+export interface PreassignedSongSlot {
+  trackNo: number;
+  title: string;
+  hookPhrase: string;
+  songRole: string;
+  tempo: number;
+  emotionArc: string;
+}
+
 export interface BatchContext {
   trackNoOffset: number;
   totalSongCount: number;
   usedTitles: string[];
   usedHooks: string[];
   lockedIdentity: PlaylistIdentity | null;
+  /** TASK B2 (v3.6) — only ever set for true parallel Batch API sub-requests, never the synchronous multi-batch path (which already avoids this collision by running batches sequentially). */
+  preassignedSongs?: PreassignedSongSlot[];
 }
 
 export interface GenerationProgress {

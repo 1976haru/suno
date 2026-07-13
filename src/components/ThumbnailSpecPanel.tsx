@@ -1,12 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Copy, RefreshCw } from 'lucide-react';
 import { copyText } from '../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
+import { composeThumbnailPromptSet } from '../core/thumbnailPromptComposer';
+import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
+import type {
+  ThumbnailArchetypeId,
+  ThumbnailPeopleMode,
+  ThumbnailTextSafeZone,
+  ThumbnailTimeOfDay
+} from '../data/thumbnailArchetypes';
+import { seasonPacks } from '../data/presets';
 import type { ThumbnailVariantId } from '../types';
 
 interface ThumbnailSpecPanelProps {
   spec: ThumbnailSpec;
+  defaultSeasonId: string;
   onRegenerateHeadline: () => void;
   onSelectVariant: (id: ThumbnailVariantId) => void;
 }
@@ -14,14 +24,66 @@ interface ThumbnailSpecPanelProps {
 type ImageTool = 'generic' | 'midjourney' | 'stableDiffusion';
 
 const IMAGE_TOOL_LABELS: Record<ImageTool, string> = {
-  generic: '범용 (Canva / DALL-E / Firefly)',
+  generic: 'Generic',
   midjourney: 'Midjourney',
   stableDiffusion: 'Stable Diffusion'
 };
 
-export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelectVariant }: ThumbnailSpecPanelProps) {
+const TIME_LABELS: Record<ThumbnailTimeOfDay, string> = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  'golden-hour': 'Golden hour',
+  evening: 'Evening',
+  night: 'Night'
+};
+
+const PEOPLE_LABELS: Record<ThumbnailPeopleMode, string> = {
+  none: 'No people',
+  'distant-silhouette': 'Distant silhouette'
+};
+
+const TEXT_ZONE_LABELS: Record<ThumbnailTextSafeZone, string> = {
+  left: 'Left',
+  right: 'Right',
+  top: 'Top'
+};
+
+const TIME_OPTIONS = Object.keys(TIME_LABELS) as ThumbnailTimeOfDay[];
+const PEOPLE_OPTIONS = Object.keys(PEOPLE_LABELS) as ThumbnailPeopleMode[];
+const TEXT_ZONE_OPTIONS = Object.keys(TEXT_ZONE_LABELS) as ThumbnailTextSafeZone[];
+
+export default function ThumbnailSpecPanel({
+  spec,
+  defaultSeasonId,
+  onRegenerateHeadline,
+  onSelectVariant
+}: ThumbnailSpecPanelProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [imageTool, setImageTool] = useState<ImageTool>('generic');
+  const [archetypeId, setArchetypeId] = useState<ThumbnailArchetypeId>('refined-cafe');
+  const [promptSeasonId, setPromptSeasonId] = useState(defaultSeasonId);
+  const [timeOfDay, setTimeOfDay] = useState<ThumbnailTimeOfDay>('morning');
+  const [peopleMode, setPeopleMode] = useState<ThumbnailPeopleMode>('none');
+  const [textSafeZone, setTextSafeZone] = useState<ThumbnailTextSafeZone>('left');
+  const [promptSeed, setPromptSeed] = useState(0);
+
+  useEffect(() => {
+    setPromptSeasonId(defaultSeasonId);
+  }, [defaultSeasonId]);
+
+  const promptSet = useMemo(
+    () => composeThumbnailPromptSet({
+      archetypeId,
+      seasonId: promptSeasonId,
+      timeOfDay,
+      peopleMode,
+      textSafeZone,
+      seed: promptSeed,
+      resolution: '1280x720'
+    }),
+    [archetypeId, peopleMode, promptSeasonId, promptSeed, textSafeZone, timeOfDay]
+  );
+
   const selectedVariant = spec.variants.find(v => v.id === spec.selected) ?? spec.variants[0];
   const activeImagePrompt = spec.imagePromptVariants[imageTool];
 
@@ -32,7 +94,7 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
   }
 
   const fullSpecText = [
-    ...spec.variants.map(v => `${v.id}안 (${v.angle})${v.id === spec.selected ? ' [선택됨]' : ''}: ${v.headline.replace('\n', ' / ')} / ${v.subline}`),
+    ...spec.variants.map(v => `${v.id} (${v.angle})${v.id === spec.selected ? ' [selected]' : ''}: ${v.headline.replace('\n', ' / ')} / ${v.subline}`),
     `Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}`,
     `Objects: ${spec.objects.join(', ')}`,
     `Composition: ${spec.composition}`,
@@ -40,11 +102,12 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
     `Image prompt: ${spec.imagePrompt}`
   ].join('\n');
 
+  const archetypePromptBundle = promptSet.variants.map(variant => `[${variant.id}] ${variant.prompt}`).join('\n\n');
+
   return (
     <section className="thumbnail-spec">
       <p className="step-hint">
-        이 앱은 이미지를 직접 만들지 않습니다. 대신 Canva 등에서 바로 쓸 수 있는 썸네일 사양(문구·색상·오브제·이미지 프롬프트)을 만들어 드려요.
-        3가지 문구 전략(A/B/C안)을 나란히 비교하고 마음에 드는 안을 고르세요 — 선택하지 않은 안도 함께 저장되니, 나중에 실제 CTR을 비교하는 데 쓸 수 있어요.
+        썸네일 문구 A/B/C와 별도로, 저작권 불확실한 참고 이미지는 표시하지 않고 추상화된 아키타입 프롬프트만 생성합니다.
       </p>
 
       <div className="thumbnail-variant-grid">
@@ -57,7 +120,7 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
                 checked={variant.id === spec.selected}
                 onChange={() => onSelectVariant(variant.id)}
               />
-              <span>{variant.id}안 · {variant.angle}</span>
+              <span>{variant.id} · {variant.angle}</span>
             </div>
             <div className="thumbnail-preview thumbnail-preview-small" style={{ background: spec.colorScheme.background, color: spec.colorScheme.text }}>
               <div className="thumbnail-preview-text">
@@ -73,7 +136,7 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
 
       <div className="signature-grid">
         <div>
-          <b>컬러</b>
+          <b>Colors</b>
           <span className="thumbnail-swatches">
             <span className="thumbnail-swatch" style={{ background: spec.colorScheme.background }} title={spec.colorScheme.background} />
             <span className="thumbnail-swatch" style={{ background: spec.colorScheme.accent }} title={spec.colorScheme.accent} />
@@ -81,17 +144,17 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
             {spec.colorScheme.background} · {spec.colorScheme.accent} · {spec.colorScheme.text}
           </span>
         </div>
-        <div><b>오브제</b><span>{spec.objects.join(' · ')}</span></div>
-        <div style={{ gridColumn: '1 / -1' }}><b>구도</b><span>{spec.composition}</span></div>
-        <div style={{ gridColumn: '1 / -1' }}><b>⛔ 금지 요소</b><span>{spec.forbidden.join(' · ')}</span></div>
+        <div><b>Objects</b><span>{spec.objects.join(' · ')}</span></div>
+        <div style={{ gridColumn: '1 / -1' }}><b>Composition</b><span>{spec.composition}</span></div>
+        <div style={{ gridColumn: '1 / -1' }}><b>Forbidden</b><span>{spec.forbidden.join(' · ')}</span></div>
       </div>
 
       <div className="copy-block">
         <div className="copy-head">
-          <h4>이미지 생성 프롬프트 (영어)</h4>
+          <h4>Legacy image prompt</h4>
           <button type="button" onClick={() => void handleCopy('imagePrompt', activeImagePrompt)}>
             <Copy size={15} />
-            {copiedField === 'imagePrompt' ? '복사됨' : '복사'}
+            {copiedField === 'imagePrompt' ? 'Copied' : 'Copy'}
           </button>
         </div>
         <div className="tab-row">
@@ -102,25 +165,101 @@ export default function ThumbnailSpecPanel({ spec, onRegenerateHeadline, onSelec
               className={imageTool === tool ? 'tab active' : 'tab'}
               onClick={() => setImageTool(tool)}
             >
-              📋 {IMAGE_TOOL_LABELS[tool]}
+              {IMAGE_TOOL_LABELS[tool]}
             </button>
           ))}
         </div>
         <pre>{activeImagePrompt}</pre>
       </div>
 
+      <div className="thumbnail-archetype-panel">
+        <div className="copy-head">
+          <h4>Thumbnail archetype prompt library</h4>
+          <div className="button-row">
+            <button type="button" onClick={() => setPromptSeed(seed => seed + 1)}>
+              <RefreshCw size={15} />
+              New A/B/C
+            </button>
+            <button type="button" onClick={() => void handleCopy('archetypeAll', archetypePromptBundle)}>
+              <Copy size={15} />
+              {copiedField === 'archetypeAll' ? 'Copied' : 'Copy all'}
+            </button>
+          </div>
+        </div>
+
+        <div className="thumbnail-control-grid">
+          <label>
+            Archetype
+            <select value={archetypeId} onChange={event => setArchetypeId(event.target.value as ThumbnailArchetypeId)}>
+              {thumbnailArchetypes.map(archetype => (
+                <option key={archetype.id} value={archetype.id}>{archetype.labelKo}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Season
+            <select value={promptSeasonId} onChange={event => setPromptSeasonId(event.target.value)}>
+              {seasonPacks.map(season => (
+                <option key={season.id} value={season.id}>{season.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Time
+            <select value={timeOfDay} onChange={event => setTimeOfDay(event.target.value as ThumbnailTimeOfDay)}>
+              {TIME_OPTIONS.map(option => <option key={option} value={option}>{TIME_LABELS[option]}</option>)}
+            </select>
+          </label>
+          <label>
+            People
+            <select value={peopleMode} onChange={event => setPeopleMode(event.target.value as ThumbnailPeopleMode)}>
+              {PEOPLE_OPTIONS.map(option => <option key={option} value={option}>{PEOPLE_LABELS[option]}</option>)}
+            </select>
+          </label>
+          <label>
+            Text safe zone
+            <select value={textSafeZone} onChange={event => setTextSafeZone(event.target.value as ThumbnailTextSafeZone)}>
+              {TEXT_ZONE_OPTIONS.map(option => <option key={option} value={option}>{TEXT_ZONE_LABELS[option]}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="thumbnail-prompt-grid">
+          {promptSet.variants.map(variant => (
+            <article key={variant.id} className="thumbnail-prompt-card">
+              <div className="copy-head">
+                <h4>{variant.id} composition</h4>
+                <button type="button" onClick={() => void handleCopy(`archetype-${variant.id}`, variant.prompt)}>
+                  <Copy size={15} />
+                  {copiedField === `archetype-${variant.id}` ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <div className="thumbnail-axis-list">
+                <span><b>Subject</b>{variant.subject}</span>
+                <span><b>Setting</b>{variant.setting}</span>
+                <span><b>Light</b>{variant.lighting}</span>
+                <span><b>Color</b>{variant.palette}</span>
+                <span><b>Camera</b>{variant.camera}</span>
+                <span><b>Zone</b>{variant.textSafeZone}</span>
+              </div>
+              <pre>{variant.prompt}</pre>
+            </article>
+          ))}
+        </div>
+      </div>
+
       <div className="button-row">
         <button type="button" onClick={() => void handleCopy('headline', `${selectedVariant.headline.replace('\n', ' ')} / ${selectedVariant.subline}`)}>
           <Copy size={16} />
-          {copiedField === 'headline' ? '복사됨' : `📋 선택한 ${spec.selected}안 문구 복사`}
+          {copiedField === 'headline' ? 'Copied' : `Copy selected ${spec.selected} text`}
         </button>
         <button type="button" onClick={() => void handleCopy('full', fullSpecText)}>
           <Copy size={16} />
-          {copiedField === 'full' ? '복사됨' : '전체 사양 복사 (A/B/C 전부)'}
+          {copiedField === 'full' ? 'Copied' : 'Copy full spec'}
         </button>
         <button type="button" onClick={onRegenerateHeadline}>
           <RefreshCw size={16} />
-          🔄 세 안 다른 문구로 다시 제안
+          Regenerate title copy
         </button>
       </div>
       <p className="supporting api-advice-line">

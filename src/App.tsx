@@ -9,12 +9,16 @@ import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { recordPackHooks } from './core/hookLedger';
 import { normalizeGenreSelection, toggleGenreSelection } from './core/genreSelection';
+import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
+import { updateBatchJob } from './core/batchJobs';
+import { regenerateTrack } from './providers';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { createInitialOptions } from './utils/generation';
+import { defaultPackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, ProviderSettings, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
 import CachePromptModal from './components/CachePromptModal';
@@ -43,6 +47,7 @@ export default function App() {
   const [thumbnailVariant, setThumbnailVariant] = useState(0);
   const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [loadWarning, setLoadWarning] = useState('');
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -53,7 +58,8 @@ export default function App() {
       lyricLanguage: channel.primaryLanguage,
       genreIds: normalizeGenreSelection(channel.preferredGenres),
       moodIds: channel.preferredMoods,
-      vocalTone: channel.defaultVocal
+      vocalTone: channel.defaultVocal,
+      packagingLanguage: defaultPackagingLanguage(channel.market)
     }));
   }
 
@@ -64,7 +70,13 @@ export default function App() {
   const [batchMode, setBatchMode] = useState(false);
   const library = usePackLibrary(pack => {
     gen.setBlueprint(pack.blueprint);
-    setOpts(pack.options);
+    const { clamped, truncatedFields } = clampOversizedFields(pack.options);
+    setOpts({ ...pack.options, ...clamped });
+    setLoadWarning(
+      truncatedFields.length
+        ? `⚠️ 이 팩의 일부 입력이 글자 수 제한(${truncatedFields.map(f => `${f} ${INPUT_LIMITS[f]}자`).join(', ')})을 넘어 잘렸습니다.`
+        : ''
+    );
     evalFlow.setEvaluation(pack.evaluation || null);
     const channel = cm.channels.find(item => item.id === pack.options.channel.id);
     if (channel) cm.setSelectedChannelId(channel.id);
@@ -89,7 +101,7 @@ export default function App() {
   // TASK E2 (v3.5) — a Batch API job outlives a closed tab; resume polling
   // any job still in flight for this channel as soon as it's known.
   useEffect(() => {
-    void batchFlow.resumeActiveJobs(cm.selectedChannel.id, { ...opts, channel: cm.selectedChannel }, provider, onBatchJobComplete);
+    void batchFlow.resumeActiveJobs(cm.selectedChannel.id, provider, onBatchJobComplete);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cm.selectedChannel.id]);
 
@@ -186,6 +198,27 @@ export default function App() {
   function onRetryFailedBatchJob() {
     if (!batchFlow.activeJob) return;
     void batchFlow.retryFailed(batchFlow.activeJob.id, provider, onBatchJobComplete);
+  }
+
+  /** TASK B3 (v3.6) — one-track-at-a-time regeneration for trackNos validateStitched() found missing from a batch job's stitched result. */
+  async function onRegenerateMissingBatchTracks() {
+    const job = batchFlow.activeJob;
+    const missing = job?.missingTrackNos;
+    if (!job || !missing?.length || !gen.blueprint) return;
+    const batchOpts = job.snapshot.options;
+    let current = gen.blueprint;
+    const stillMissing: number[] = [];
+    for (const trackNo of missing) {
+      try {
+        const { blueprint: next } = await regenerateTrack(current, trackNo, batchOpts, fallbackGenres(), fallbackMoods(), selectedSeason, provider, [], await safeAvoidSet(batchOpts.channel.id, batchOpts.lyricLanguage));
+        current = next;
+      } catch {
+        stillMissing.push(trackNo);
+      }
+    }
+    gen.setBlueprint(current);
+    const updated = await updateBatchJob(job.id, { resultBlueprint: current, missingTrackNos: stillMissing.length ? stillMissing : undefined });
+    if (updated) void handleGenerationSuccess(current, current.songs.length);
   }
 
   function onRefineSelected(trackNos: number[]) {
@@ -297,6 +330,12 @@ export default function App() {
             <>
           <StepIndicator steps={STEPS} current={currentStep} maxUnlocked={maxUnlocked} onSelect={setCurrentStep} />
 
+          {loadWarning && (
+            <p className="supporting load-warning" onClick={() => setLoadWarning('')}>
+              {loadWarning} (닫으려면 클릭)
+            </p>
+          )}
+
           {currentStep === 1 && (
             <Step1Channel
               editorChannel={cm.editorChannel}
@@ -340,6 +379,7 @@ export default function App() {
               activeBatchJob={batchFlow.activeJob && batchFlow.activeJob.channelId === cm.selectedChannel.id ? batchFlow.activeJob : null}
               onCancelBatchJob={onCancelBatchJob}
               onRetryFailedBatchJob={onRetryFailedBatchJob}
+              onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
             />
           )}
 
@@ -364,6 +404,7 @@ export default function App() {
               refineProgress={gen.refineProgress}
               refineWarnings={gen.refineWarnings}
               thumbnailSpec={thumbnailSpec}
+              thumbnailSeasonId={selectedSeason.id}
               onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel }, thumbnailSpec)}
               onEvaluate={onEvaluate}
               onRetrySong={onRetrySong}

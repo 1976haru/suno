@@ -2,6 +2,7 @@ import type { AgentEvaluation, GenerationOptions, PlaylistBlueprint, ProviderSet
 import { assertLyricDiversity, computeDiversityScore, type DiversityWarning } from '../core/lyricEngine';
 import { callGenerateProxy } from '../providers/proxyFetch';
 import { recordUsage } from '../core/usageLedger';
+import { defaultModelFor } from '../data/modelRegistry';
 
 const EVAL_BATCH_SIZE = 6;
 
@@ -171,7 +172,7 @@ export async function evaluatePack(
 
   return {
     evaluatedAt: new Date().toISOString(),
-    model: settings.model || (settings.provider === 'anthropic' ? 'claude-sonnet-4-5' : 'gpt-4.1-mini'),
+    model: settings.model || (settings.provider === 'anthropic' ? defaultModelFor('anthropic') : defaultModelFor('openai')),
     packLevel: {
       diversityScore,
       coherenceScore: Number(packResult.coherenceScore) || 0,

@@ -1,4 +1,5 @@
 import type { ProviderSettings } from '../types';
+import { DEFAULT_ANTHROPIC_MODEL, MODEL_REGISTRY } from '../data/modelRegistry';
 
 /**
  * TASK D (v3.5) — the user explicitly asked for the app to say, in-context,
@@ -89,9 +90,10 @@ export interface StageModelSettings {
   evaluation: ModelChoice;
 }
 
+// TASK F1 (v3.6) — read from the single model registry instead of a second hardcoded copy.
 const MODEL_ID: Record<'sonnet' | 'haiku', string> = {
-  sonnet: 'claude-sonnet-4-5',
-  haiku: 'claude-haiku-4-5'
+  sonnet: MODEL_REGISTRY.anthropic.find(m => m.tier === 'balanced')?.id ?? DEFAULT_ANTHROPIC_MODEL,
+  haiku: MODEL_REGISTRY.anthropic.find(m => m.tier === 'fast')?.id ?? DEFAULT_ANTHROPIC_MODEL
 };
 
 /** Applies a stage's ModelChoice onto a base ProviderSettings, producing the actual settings object to hand to a specific call site (generateBlueprint for 'lyrics', evaluatePack for 'evaluation'). */

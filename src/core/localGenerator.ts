@@ -2,12 +2,14 @@ import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonP
 import { generationPacks } from '../data/presets';
 import { buildChannelPromptParts, hookStyleDirectives } from './promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
+import { resolvePackagingLanguage } from './packagingLanguage';
 import {
   composeLyrics,
   createLyricBatchPools,
   createTitleGenerator,
   hashSeed,
   seedForBlueprint,
+  seasonWordFor,
   UniquePool,
   wantsFinalChorusModulation
 } from './lyricEngine';
@@ -63,7 +65,8 @@ const listenerSituations: LocalizedPhrase[] = [
   { english: 'the first lights of evening', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
 ];
 
-const emotionArcs = [
+/** Exported for batchPreallocation.ts (TASK B2, v3.6) — pre-allocating songRole/emotionArc/tempo locally, before a batch job is submitted, needs the exact same pools the local generator itself draws from. */
+export const emotionArcs = [
   'lonely memory to warm acceptance',
   'soft nostalgia to renewed hope',
   'quiet longing to calm gratitude',
@@ -90,7 +93,7 @@ const recurringMotifs: LocalizedPhrase[] = [
   { english: 'small notebook', korean: '작은 수첩', japanese: '小さなノート' }
 ];
 
-const songRoles = [
+export const songRoles = [
   'clear opener',
   'gentle early lift',
   'first nostalgic turn',
@@ -105,7 +108,7 @@ const songRoles = [
   'comforting closer'
 ];
 
-function averageTempo(genres: GenrePack[], trackNo: number) {
+export function averageTempo(genres: GenrePack[], trackNo: number) {
   const ranges = genres.length ? genres.map(genre => genre.tempoRange) : ([[92, 104]] as [number, number][]);
   const low = Math.round(ranges.reduce((sum, range) => sum + range[0], 0) / ranges.length);
   const high = Math.round(ranges.reduce((sum, range) => sum + range[1], 0) / ranges.length);
@@ -143,11 +146,14 @@ function buildYoutubeMetadata(
     `Suno style prompt and lyrics are generated as original material for ${opts.channel.name}.`,
     `Tags: ${tags.slice(0, 10).join(', ')}`
   ].join('\n');
-  const thumbnailText = opts.market === 'japan'
-    ? `${season.label}\n${song.title}`
-    : opts.market === 'korea'
-      ? `${season.label}\n${song.title}`
-      : `${season.label}\n${song.title}`;
+  // TASK D5 (v3.6) — packagingLanguage (market-derived, independently
+  // overridable from lyricLanguage) decides the thumbnail's own language;
+  // previously all three market branches here produced identical English
+  // text, so a Korean or Japanese channel got an English thumbnail whenever
+  // its lyrics happened to be in English.
+  const packagingLanguage = resolvePackagingLanguage(opts);
+  const localizedSeasonWord = packagingLanguage === 'english' ? season.label : seasonWordFor(season, packagingLanguage);
+  const thumbnailText = `${localizedSeasonWord}\n${song.title}`;
 
   return { title, description, tags, thumbnailText };
 }

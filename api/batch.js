@@ -34,6 +34,22 @@ function clientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+/** TASK C1 (v3.6) — mirrors api/generate.js's resolveCorsOrigin (kept identical on purpose, see that file's comment for the full rationale). */
+function resolveCorsOrigin(req) {
+  const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const origin = req.headers?.origin;
+  if (!allowed.length) return { origin: origin || '*', blocked: false };
+  if (origin && allowed.includes(origin)) return { origin, blocked: false };
+  return { origin: allowed[0], blocked: true };
+}
+
+/** TASK C2 (v3.6) — mirrors api/generate.js's checkAccessToken. */
+function checkAccessToken(req) {
+  const required = process.env.ACCESS_TOKEN;
+  if (!required) return true;
+  return req.headers?.['x-access-token'] === required;
+}
+
 function checkRateLimit(key) {
   const now = Date.now();
   const bucket = rateLimitBuckets.get(key) || [];
@@ -121,7 +137,7 @@ async function createBatch({ requests, userApiKey }) {
     requests: requests.map(r => ({
       custom_id: r.customId,
       params: {
-        model: r.model || 'claude-sonnet-4-5',
+        model: r.model || 'claude-sonnet-5',
         max_tokens: computeMaxTokens(r.batchSize),
         temperature: Number.isFinite(Number(r.temperature)) ? Number(r.temperature) : 0.8,
         system: buildAnthropicSystem(r),
@@ -251,11 +267,11 @@ async function cancelBatch({ batchId, userApiKey }) {
 }
 
 export default async function handler(req, res) {
-  const origin = req.headers?.origin || '*';
-  res.setHeader?.('Access-Control-Allow-Origin', origin);
+  const cors = resolveCorsOrigin(req);
+  res.setHeader?.('Access-Control-Allow-Origin', cors.origin);
   res.setHeader?.('Vary', 'Origin');
   res.setHeader?.('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key');
+  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key, X-Access-Token');
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -263,6 +279,10 @@ export default async function handler(req, res) {
   }
   if (req.method !== 'POST') {
     sendError(res, 405, 'Method not allowed.');
+    return;
+  }
+  if (cors.blocked) {
+    sendError(res, 403, 'Origin not allowed.');
     return;
   }
   if (!checkRateLimit(clientIp(req))) {
@@ -273,6 +293,11 @@ export default async function handler(req, res) {
   try {
     const body = parseBody(req);
     const userApiKey = req.headers?.['x-user-api-key'] || undefined;
+
+    if (!userApiKey && !checkAccessToken(req)) {
+      sendError(res, 401, '서버 API 키를 사용하려면 접근 토큰(X-Access-Token)이 필요합니다.');
+      return;
+    }
 
     if (body.action === 'create') {
       res.status(200).json(await createBatch({ requests: body.requests, userApiKey }));
@@ -303,4 +328,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only
-export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl };
+export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken };

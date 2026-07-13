@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { API_PRESETS, DEFAULT_STAGE_MODELS, RECOMMENDATION_BADGE, resolveStageSettings, STAGE_ADVICE } from '../src/core/apiAdvisor';
+import { MODEL_REGISTRY } from '../src/data/modelRegistry';
 import type { ProviderSettings } from '../src/types';
 
 describe('[D1] STAGE_ADVICE table', () => {
@@ -62,11 +63,11 @@ describe('[D3] resolveStageSettings', () => {
   it("'sonnet' and 'haiku' choices route to anthropic with the matching model, preserving the api key", () => {
     const sonnet = resolveStageSettings('sonnet', base);
     expect(sonnet.provider).toBe('anthropic');
-    expect(sonnet.model).toBe('claude-sonnet-4-5');
+    expect(sonnet.model).toBe(MODEL_REGISTRY.anthropic.find(m => m.tier === 'balanced')?.id);
     expect(sonnet.apiKey).toBe('sk-ant-test');
 
     const haiku = resolveStageSettings('haiku', base);
     expect(haiku.provider).toBe('anthropic');
-    expect(haiku.model).toBe('claude-haiku-4-5');
+    expect(haiku.model).toBe(MODEL_REGISTRY.anthropic.find(m => m.tier === 'fast')?.id);
   });
 });

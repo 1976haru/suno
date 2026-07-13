@@ -1,17 +1,10 @@
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
+import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { seasonWordFor } from './lyricEngine';
 import { getRecurringMotifPhrases, type SeasonFamily } from './localGenerator';
+import { resolvePackagingLanguage } from './packagingLanguage';
 
 export type { ThumbnailSpec, ThumbnailVariant };
-
-type DisplayLanguage = 'english' | 'korean' | 'japanese';
-
-function displayLanguageFor(lyricLanguage: GenerationOptions['lyricLanguage']): DisplayLanguage {
-  if (lyricLanguage === 'korean') return 'korean';
-  if (lyricLanguage === 'japanese') return 'japanese';
-  return 'english';
-}
 
 // TASK B1 (v3.4): three genuinely different strategies, not the same
 // headline reworded — A leads with the season, B leads with a feeling, C
@@ -193,9 +186,17 @@ function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): str
     .join('. ') + '.';
 }
 
-/** TASK B4 (v3.5) — Midjourney reads plain prose plus trailing `--` parameters; it does not use a separate negative-prompt field, so the ban list is folded into `--no`. */
+/**
+ * TASK B4 (v3.5) — Midjourney reads plain prose plus trailing `--`
+ * parameters; it does not use a separate negative-prompt field, so the ban
+ * list is folded into `--no`.
+ * TASK D4 (v3.6) — this was missing `parts.composition` (the "leave the
+ * right/left third empty for text" instruction), which every other variant
+ * includes. Without it, Midjourney had no reason not to center the subject,
+ * leaving no clean space for a title overlay.
+ */
 function buildMidjourneyPrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm]
+  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition]
     .filter(Boolean)
     .join(', ');
   return `${positive} --ar 16:9 --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP`;
@@ -233,7 +234,7 @@ export function buildThumbnailSpec(
   channel: ChannelProfile,
   variant = 0
 ): ThumbnailSpec {
-  const language = displayLanguageFor(opts.lyricLanguage);
+  const language = resolvePackagingLanguage(opts);
   const palette = paletteForSeason(season.id);
   // variant lets "다른 문구 제안" cycle to a different headline second-line
   // without touching colors/objects/composition — regenerating the whole

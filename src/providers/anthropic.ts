@@ -1,6 +1,7 @@
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, UsageInfo } from '../types';
 import { buildAnthropicUserPayload, buildBatchSystemNote, buildChannelSystemBlock, buildSystemInstruction } from '../core/promptComposer';
-import { callGenerateProxy } from './proxyFetch';
+import { buildProxyHeaders, callGenerateProxy } from './proxyFetch';
+import { defaultModelFor } from '../data/modelRegistry';
 import type { ProviderCallResult } from './openai';
 
 /**
@@ -20,11 +21,9 @@ export async function generateWithAnthropic(
   settings: ProviderSettings,
   batch?: BatchContext
 ): Promise<ProviderCallResult> {
-  const model = settings.model || 'claude-sonnet-4-5';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.keyStorageMode === 'local' && settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
+  const model = settings.model || defaultModelFor('anthropic');
 
-  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', headers, {
+  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', buildProxyHeaders(settings), {
     provider: 'anthropic',
     model,
     temperature: settings.temperature,

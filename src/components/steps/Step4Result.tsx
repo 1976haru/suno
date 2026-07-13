@@ -28,6 +28,7 @@ interface Step4ResultProps {
   refineProgress: { done: number; total: number };
   refineWarnings: string[];
   thumbnailSpec: ThumbnailSpec | null;
+  thumbnailSeasonId: string;
   onSave: () => void;
   onEvaluate: (scopeTrackNos?: number[]) => void;
   onRetrySong: (trackNo: number, issues: string[]) => void;
@@ -57,6 +58,7 @@ export default function Step4Result({
   refineProgress,
   refineWarnings,
   thumbnailSpec,
+  thumbnailSeasonId,
   onSave,
   onEvaluate,
   onRetrySong,
@@ -165,7 +167,12 @@ export default function Step4Result({
       )}
 
       {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
-        <ThumbnailSpecPanel spec={thumbnailSpec} onRegenerateHeadline={onRegenerateHeadline} onSelectVariant={onSelectThumbnailVariant} />
+        <ThumbnailSpecPanel
+          spec={thumbnailSpec}
+          defaultSeasonId={thumbnailSeasonId}
+          onRegenerateHeadline={onRegenerateHeadline}
+          onSelectVariant={onSelectThumbnailVariant}
+        />
       )}
 
       {resultTab === 'songs' && blueprint && hybridRefineAvailable && (

@@ -56,6 +56,37 @@ function clientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+/**
+ * TASK C1 (v3.6) — reflecting whatever Origin a request sends (the prior
+ * behavior) is effectively no CORS at all: anyone who knows the deployed URL
+ * can call this endpoint cross-origin and spend the server's API key.
+ * ALLOWED_ORIGINS unset means "local/dev — allow anything" (unchanged
+ * default), matching this project's local-first design; set it before a
+ * public deploy. See README for the deploy checklist.
+ */
+function resolveCorsOrigin(req) {
+  const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const origin = req.headers?.origin;
+  if (!allowed.length) return { origin: origin || '*', blocked: false };
+  if (origin && allowed.includes(origin)) return { origin, blocked: false };
+  return { origin: allowed[0], blocked: true };
+}
+
+/**
+ * TASK C2 (v3.6) — server-key mode (no X-User-Api-Key header, so the
+ * request would spend process.env.ANTHROPIC_API_KEY / OPENAI_API_KEY) has no
+ * authentication at all otherwise: anyone who finds the endpoint can call it
+ * and run up the deployer's bill. Only enforced when ACCESS_TOKEN is set —
+ * unset means "this deployment doesn't gate its server key" (the BYOK path
+ * remains unaffected either way, since a caller supplying their own key is
+ * only ever spending their own money).
+ */
+function checkAccessToken(req) {
+  const required = process.env.ACCESS_TOKEN;
+  if (!required) return true;
+  return req.headers?.['x-access-token'] === required;
+}
+
 function checkRateLimit(key) {
   const now = Date.now();
   const bucket = rateLimitBuckets.get(key) || [];
@@ -160,7 +191,7 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: model || 'claude-sonnet-4-5',
+      model: model || 'claude-sonnet-5',
       max_tokens: computeMaxTokens(batchSize),
       temperature: Number.isFinite(Number(temperature)) ? Number(temperature) : 0.8,
       system: buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }),
@@ -224,7 +255,7 @@ async function testAnthropic({ model, userApiKey }) {
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: model || 'claude-sonnet-4-5', max_tokens: 8, messages: [{ role: 'user', content: 'Reply with OK.' }] })
+    body: JSON.stringify({ model: model || 'claude-sonnet-5', max_tokens: 8, messages: [{ role: 'user', content: 'Reply with OK.' }] })
   }, REQUEST_TIMEOUT_MS);
   if (!response.ok) {
     const error = new Error('Anthropic connection test failed.');
@@ -234,11 +265,11 @@ async function testAnthropic({ model, userApiKey }) {
 }
 
 export default async function handler(req, res) {
-  const origin = req.headers?.origin || '*';
-  res.setHeader?.('Access-Control-Allow-Origin', origin);
+  const cors = resolveCorsOrigin(req);
+  res.setHeader?.('Access-Control-Allow-Origin', cors.origin);
   res.setHeader?.('Vary', 'Origin');
   res.setHeader?.('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key');
+  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key, X-Access-Token');
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -247,6 +278,11 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     sendError(res, 405, 'Method not allowed.');
+    return;
+  }
+
+  if (cors.blocked) {
+    sendError(res, 403, 'Origin not allowed.');
     return;
   }
 
@@ -259,6 +295,11 @@ export default async function handler(req, res) {
     const body = parseBody(req);
     const provider = body.provider;
     const userApiKey = req.headers?.['x-user-api-key'] || undefined;
+
+    if (!userApiKey && !checkAccessToken(req)) {
+      sendError(res, 401, '서버 API 키를 사용하려면 접근 토큰(X-Access-Token)이 필요합니다.');
+      return;
+    }
 
     if (body.testMode) {
       if (provider === 'openai') await testOpenAI({ model: body.model, userApiKey });
@@ -301,4 +342,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken };

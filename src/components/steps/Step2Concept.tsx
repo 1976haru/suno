@@ -8,14 +8,25 @@ import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/av
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { MAX_SELECTED_GENRES } from '../../core/genreSelection';
 import { resolveMoneyChordText } from '../../core/promptComposer';
+import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
+import { defaultPackagingLanguage } from '../../core/packagingLanguage';
 import ChoiceGrid from '../ChoiceGrid';
-import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage } from '../../types';
+import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage } from '../../types';
 
 const languageOptions: { value: LyricLanguage; label: string; sub: string }[] = [
   { value: 'english', label: '영어', sub: 'English' },
   { value: 'korean', label: '한국어', sub: 'Korean' },
   { value: 'japanese', label: '일본어', sub: 'Japanese' },
   { value: 'bilingual', label: '영어+한국어 혼합', sub: 'Bilingual' }
+];
+
+// TASK D5 (v3.6) — separate from lyricLanguage: a Korean channel commonly
+// runs English lyrics but Korean titles/thumbnails, so this needs its own
+// control rather than following whatever language the lyrics are in.
+const packagingLanguageOptions: { value: DisplayLanguage; label: string; sub: string }[] = [
+  { value: 'korean', label: '한국어', sub: 'Korean' },
+  { value: 'japanese', label: '일본어', sub: 'Japanese' },
+  { value: 'english', label: '영어', sub: 'English' }
 ];
 
 const CONCEPT_EXAMPLE_CHIPS = ['아침 커피 한 잔', '창밖의 첫눈', '오래된 라디오', '연말 편지', '산책길 낙엽', '크리스마스 이브', '옛 친구 생각'];
@@ -47,6 +58,14 @@ interface Step2ConceptProps {
   selectedMoods: MoodPack[];
   selectedSeason: SeasonPack;
   toggleArray: (key: 'genreIds' | 'moodIds', id: string) => void;
+}
+
+function CharCounter({ value, limit }: { value: string; limit: number }) {
+  return (
+    <p className={`char-counter${value.length > limit ? ' over-limit' : ''}`}>
+      {value.length} / {limit}{value.length > limit ? ' — 입력이 너무 길어 저장 시 잘립니다' : ''}
+    </p>
+  );
 }
 
 export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray }: Step2ConceptProps) {
@@ -91,7 +110,9 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   function addCustomAvoidTerm() {
     const term = avoidCustomDraft.trim();
     if (!term || avoidList.includes(term)) return;
-    setOpts(prev => ({ ...prev, avoidWords: joinAvoidWords([...avoidList, term]) }));
+    const next = joinAvoidWords([...avoidList, term]);
+    if (next.length > INPUT_LIMITS.avoidWords) return;
+    setOpts(prev => ({ ...prev, avoidWords: next }));
     setAvoidCustomDraft('');
   }
 
@@ -237,12 +258,16 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         </button>
       </div>
       {vocalCustomOpen && (
-        <input
-          value={opts.vocalTone}
-          onChange={event => setOpts(prev => ({ ...prev, vocalTone: event.target.value }))}
-          placeholder="예: mature soulful male tenor, soft slightly husky"
-          style={{ marginTop: 8 }}
-        />
+        <>
+          <input
+            value={opts.vocalTone}
+            onChange={event => setOpts(prev => ({ ...prev, vocalTone: clampToLimit('vocalTone', event.target.value) }))}
+            placeholder="예: mature soulful male tenor, soft slightly husky"
+            maxLength={INPUT_LIMITS.vocalTone}
+            style={{ marginTop: 8 }}
+          />
+          <CharCounter value={opts.vocalTone} limit={INPUT_LIMITS.vocalTone} />
+        </>
       )}
 
       <ChoiceGrid
@@ -294,10 +319,12 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         </div>
         <textarea
           value={opts.customConcept}
-          onChange={event => setOpts(prev => ({ ...prev, customConcept: event.target.value }))}
+          onChange={event => setOpts(prev => ({ ...prev, customConcept: clampToLimit('customConcept', event.target.value) }))}
           placeholder="칩을 누르면 여기 채워집니다"
+          maxLength={INPUT_LIMITS.customConcept}
           style={{ marginTop: 8 }}
         />
+        <CharCounter value={opts.customConcept} limit={INPUT_LIMITS.customConcept} />
       </div>
 
       <button type="button" className="full-width" onClick={() => setAdvancedOpen(v => !v)}>
@@ -320,6 +347,21 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
               </button>
             ))}
           </div>
+
+          <label>Title / thumbnail language (제목·썸네일 언어)</label>
+          <div className="chips">
+            {packagingLanguageOptions.map(option => (
+              <button
+                type="button"
+                key={option.value}
+                className={(opts.packagingLanguage ?? defaultPackagingLanguage(opts.channel.market)) === option.value ? 'chip active' : 'chip'}
+                onClick={() => setOpts(prev => ({ ...prev, packagingLanguage: option.value }))}
+              >
+                {option.label} <span className="supporting">({option.sub})</span>
+              </button>
+            ))}
+          </div>
+          <p className="supporting">가사 언어와 별개로, 제목·썸네일 문구에 쓸 언어예요. 채널 시장에 따라 자동으로 기본값이 정해집니다 (직접 바꿀 수 있어요).</p>
 
           <ChoiceGrid
             question="곡 길이"
@@ -354,10 +396,12 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
               <>
                 <input
                   value={opts.customMoneyChord}
-                  onChange={event => setOpts(prev => ({ ...prev, moneyChordMode: 'custom', customMoneyChord: event.target.value }))}
+                  onChange={event => setOpts(prev => ({ ...prev, moneyChordMode: 'custom', customMoneyChord: clampToLimit('customMoneyChord', event.target.value) }))}
                   placeholder="예: I-V-vi-IV / vi-IV-I-V / IVmaj7-iii7-vi7"
+                  maxLength={INPUT_LIMITS.customMoneyChord}
                   style={{ marginTop: 8 }}
                 />
+                <CharCounter value={opts.customMoneyChord} limit={INPUT_LIMITS.customMoneyChord} />
                 {opts.customMoneyChord.trim() && !isPlausibleChordProgression(opts.customMoneyChord) && (
                   <p className="supporting">⚠ 로마숫자 코드 표기(I, ii, IV, vii°, maj7 등)를 권장하지만, 이대로도 생성은 진행돼요.</p>
                 )}
@@ -379,8 +423,9 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
                   }
                 }}
               />
-              <button type="button" onClick={addCustomAvoidTerm}>추가</button>
+              <button type="button" onClick={addCustomAvoidTerm} disabled={joinAvoidWords([...avoidList, avoidCustomDraft.trim()]).length > INPUT_LIMITS.avoidWords}>추가</button>
             </div>
+            <CharCounter value={opts.avoidWords} limit={INPUT_LIMITS.avoidWords} />
           </div>
         </div>
       )}

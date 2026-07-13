@@ -1,5 +1,20 @@
+import type { ProviderSettings } from '../types';
+
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * TASK C2 (v3.6) — the one place every provider call builds its proxy
+ * headers, so X-Access-Token (needed only when a public deployment set
+ * ACCESS_TOKEN server-side, see api/generate.js) is never missed on one call
+ * site while present on another.
+ */
+export function buildProxyHeaders(settings: ProviderSettings): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.keyStorageMode === 'local' && settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
+  if (settings.accessToken) headers['X-Access-Token'] = settings.accessToken;
+  return headers;
 }
 
 async function parseErrorMessage(response: Response): Promise<string> {

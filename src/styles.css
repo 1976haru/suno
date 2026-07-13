@@ -600,6 +600,28 @@ textarea {
   margin-top: 18px;
 }
 
+.load-warning {
+  background: rgba(180, 60, 60, 0.1);
+  border: 1px solid rgba(180, 60, 60, 0.35);
+  color: #b43c3c;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.char-counter {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  margin-top: -4px;
+}
+
+.char-counter.over-limit {
+  color: #b43c3c;
+  font-weight: 600;
+}
+
 .option-block h3 {
   margin-bottom: 10px;
   font-size: 15px;
@@ -919,6 +941,70 @@ textarea {
   line-height: 1.45;
 }
 
+.thumbnail-archetype-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.thumbnail-control-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.thumbnail-control-grid label {
+  margin: 0;
+}
+
+.thumbnail-prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.thumbnail-prompt-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel-soft);
+}
+
+.thumbnail-prompt-card .copy-head {
+  background: #ffffff;
+}
+
+.thumbnail-prompt-card pre {
+  min-height: 180px;
+  max-height: 320px;
+  border-radius: 0;
+}
+
+.thumbnail-axis-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.thumbnail-axis-list span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.thumbnail-axis-list b {
+  color: var(--text);
+}
+
 .song {
   min-width: 0;
   margin-top: 18px;
@@ -1117,7 +1203,8 @@ pre {
   }
 
   .result-grid,
-  .signature-grid {
+  .signature-grid,
+  .thumbnail-prompt-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1155,7 +1242,9 @@ pre {
   }
 
   .genre-toolbar,
-  .genre-detail-list {
+  .genre-detail-list,
+  .thumbnail-control-grid,
+  .thumbnail-prompt-grid {
     grid-template-columns: 1fr;
   }
 }

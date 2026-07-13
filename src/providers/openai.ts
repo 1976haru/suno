@@ -1,6 +1,7 @@
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, UsageInfo } from '../types';
 import { buildSystemInstruction, buildUserInstruction } from '../core/promptComposer';
-import { callGenerateProxy } from './proxyFetch';
+import { buildProxyHeaders, callGenerateProxy } from './proxyFetch';
+import { defaultModelFor } from '../data/modelRegistry';
 
 export interface ProviderCallResult {
   blueprint: PlaylistBlueprint;
@@ -15,11 +16,9 @@ export async function generateWithOpenAI(
   settings: ProviderSettings,
   batch?: BatchContext
 ): Promise<ProviderCallResult> {
-  const model = settings.model || 'gpt-4.1-mini';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.keyStorageMode === 'local' && settings.apiKey) headers['X-User-Api-Key'] = settings.apiKey;
+  const model = settings.model || defaultModelFor('openai');
 
-  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', headers, {
+  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', buildProxyHeaders(settings), {
     provider: 'openai',
     model,
     temperature: settings.temperature,

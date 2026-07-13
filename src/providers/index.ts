@@ -223,7 +223,13 @@ export async function regenerateTrack(
         : `재생성된 곡의 품질 점수(${candidate.qualityScore}/100)가 기준(${REGENERATE_QUALITY_BAR})에 못 미칩니다.`;
   }
 
-  const songs = blueprint.songs.map(song => (song.trackNo === trackNo ? (candidate as SongIdea) : song));
+  // TASK B3 (v3.6) — a batch job's stitched result can be missing a trackNo
+  // entirely (not just low-quality), e.g. when recovering from a canceled
+  // job's partial results; insert rather than only ever replacing in place.
+  const exists = blueprint.songs.some(song => song.trackNo === trackNo);
+  const songs = exists
+    ? blueprint.songs.map(song => (song.trackNo === trackNo ? (candidate as SongIdea) : song))
+    : [...blueprint.songs, candidate as SongIdea].sort((a, b) => a.trackNo - b.trackNo);
   return { blueprint: { ...blueprint, songs }, warning: warning ? `${warning} (최대 ${REGENERATE_MAX_ATTEMPTS}회 시도 후 최선의 결과를 사용합니다.)` : undefined };
 }
 

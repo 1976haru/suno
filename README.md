@@ -63,6 +63,17 @@ Supported provider modes:
 2. **openai** — sends the generation payload to `/api/generate`, which calls OpenAI server-side (or with your BYOK key).
 3. **anthropic** — same, for Claude.
 
+### 🔴 Before deploying publicly (e.g. to Vercel)
+
+Running locally for yourself, none of this is urgent — skip it. **Before anyone else can reach the deployed URL, set these up first:**
+
+| Env var | Purpose | Default if unset |
+|---|---|---|
+| `ALLOWED_ORIGINS` | Comma-separated allowlist of origins allowed to call `/api/generate` and `/api/batch` (e.g. `https://your-app.vercel.app`). Requests from any other Origin get `403 Origin not allowed`. | Unset = allow any origin (assumes local/dev use — **do not leave unset on a public deploy**, or anyone who finds the URL can spend your server-side API key). |
+| `ACCESS_TOKEN` | A secret you choose. When set, server-key mode (no BYOK header) requires the request to carry a matching `X-Access-Token` header, or it gets `401`. Enter the same value in the app's Settings → "접근 토큰" field so your own client keeps working. BYOK requests are unaffected either way (they spend the caller's own key). | Unset = server-key mode has no access control beyond the IP rate limit below. |
+
+**Rate limiting is in-memory, not persistent.** `checkRateLimit()` in `api/generate.js` / `api/batch.js` keeps its counters in a plain `Map` in the function's memory — on Vercel (and most serverless platforms) that memory is per-instance and gets reset whenever the platform spins up a new instance, so the limit is a soft speed bump, not a hard guarantee. If you need a real limit under real traffic, put a persistent store (e.g. Upstash Redis) behind `checkRateLimit()` — this isn't wired up here, since adding a dependency wasn't in scope for this pass.
+
 ## Main Workflow
 
 1. **① 채널** — build or select a channel profile.

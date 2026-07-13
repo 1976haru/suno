@@ -7,15 +7,19 @@ import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
 import { clearChannelHistory, forgetUsage, listChannelUsage, type HookUsage } from '../core/hookLedger';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
+import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 
+// TASK F1 (v3.6) — read from the registry instead of a hardcoded list; a
+// model id typed into the free-text fallback (see the "직접 입력" input
+// below) always works even if it's not in this list yet.
 const MODEL_OPTIONS: Record<'anthropic' | 'openai', string[]> = {
-  anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5'],
-  openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o-mini']
+  anthropic: MODEL_REGISTRY.anthropic.map(m => m.id),
+  openai: MODEL_REGISTRY.openai.map(m => m.id)
 };
 
 const DEFAULT_MODEL: Record<'anthropic' | 'openai', string> = {
-  anthropic: 'claude-sonnet-4-5',
-  openai: 'gpt-4.1-mini'
+  anthropic: defaultModelFor('anthropic'),
+  openai: defaultModelFor('openai')
 };
 
 interface SettingsModalProps {
@@ -238,6 +242,21 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
                 이 브라우저에 저장 (로컬 전용)
               </button>
             </div>
+
+            {settings.keyStorageMode !== 'local' && (
+              <>
+                <label>접근 토큰 (선택 — 공개 배포 시)</label>
+                <input
+                  type="password"
+                  value={settings.accessToken || ''}
+                  onChange={event => onChange({ ...settings, accessToken: event.target.value })}
+                  placeholder="배포자가 ACCESS_TOKEN 환경변수를 설정했다면 여기에 입력하세요"
+                />
+                <p className="supporting">
+                  이 앱을 공개 배포하면서 서버 키를 ACCESS_TOKEN으로 보호한 경우에만 필요해요. 로컬에서만 쓴다면 비워두세요.
+                </p>
+              </>
+            )}
 
             {settings.keyStorageMode === 'local' && (
               <>

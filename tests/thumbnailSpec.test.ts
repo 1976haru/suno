@@ -236,6 +236,43 @@ describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
   });
 });
 
+describe('[D4] Midjourney prompt includes composition (text-safe-zone) instruction', () => {
+  it('the Midjourney variant carries the same "empty third for text overlay" clause the generic/SD variants do', () => {
+    const opts = makeOptions({ songCount: 3, seasonId: 'christmas' });
+    const season = seasonPacks.find(s => s.id === 'christmas')!;
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
+    expect(spec.imagePromptVariants.midjourney).toMatch(/composition|intentionally empty|text overlay/i);
+    expect(spec.imagePromptVariants.midjourney).toContain(spec.composition.includes('좌측') ? 'left' : 'right');
+  });
+});
+
+describe('[D5] thumbnail packaging language follows market, independent of lyricLanguage', () => {
+  it('market=korea + lyricLanguage=english produces Korean thumbnail headlines', () => {
+    const koreanChannel = channelPresets.find(c => c.market === 'korea')!;
+    const opts = makeOptions({ channel: koreanChannel, songCount: 3, lyricLanguage: 'english', market: 'korea' });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], koreanChannel);
+    expect(spec.variants.some(v => /[가-힣]/.test(v.headline))).toBe(true);
+  });
+
+  it('market=japan + lyricLanguage=english produces Japanese thumbnail headlines', () => {
+    const japanChannel = channelPresets.find(c => c.market === 'japan')!;
+    const opts = makeOptions({ channel: japanChannel, songCount: 3, lyricLanguage: 'english', market: 'japan' });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], japanChannel);
+    expect(spec.variants.some(v => /[぀-ヿ一-鿿]/.test(v.headline))).toBe(true);
+  });
+
+  it('an explicit packagingLanguage override wins over the market default', () => {
+    const koreanChannel = channelPresets.find(c => c.market === 'korea')!;
+    const opts = makeOptions({ channel: koreanChannel, songCount: 3, lyricLanguage: 'english', market: 'korea', packagingLanguage: 'english' });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], koreanChannel);
+    expect(spec.variants.every(v => !/[가-힣]/.test(v.headline))).toBe(true);
+  });
+});
+
 describe('paletteForSeason', () => {
   it('every season ID maps to a real palette entry', () => {
     for (const season of seasonPacks) {

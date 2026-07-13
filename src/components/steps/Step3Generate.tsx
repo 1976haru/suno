@@ -6,6 +6,7 @@ import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
 import { channelExhaustionStats, type ExhaustionStats } from '../../core/hookLedger';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
+import { defaultModelFor } from '../../data/modelRegistry';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
@@ -39,17 +40,18 @@ interface Step3GenerateProps {
   activeBatchJob: BatchJobRecord | null;
   onCancelBatchJob: () => void;
   onRetryFailedBatchJob: () => void;
+  onRegenerateMissingBatchTracks: () => void;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
-  hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob
+  hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
     : provider.provider === 'anthropic'
-      ? `Claude (${provider.model || 'claude-sonnet-4-5'})`
-      : `ChatGPT (${provider.model || 'gpt-4.1-mini'})`;
+      ? `Claude (${provider.model || defaultModelFor('anthropic')})`
+      : `ChatGPT (${provider.model || defaultModelFor('openai')})`;
 
   const [inputPrice, setInputPrice] = useState<number | null>(null);
   const [outputPrice, setOutputPrice] = useState<number | null>(null);
@@ -210,7 +212,13 @@ export default function Step3Generate({
       )}
 
       {activeBatchJob && (
-        <BatchJobPanel job={activeBatchJob} onCancel={onCancelBatchJob} onRetryFailed={onRetryFailedBatchJob} />
+        <BatchJobPanel
+          job={activeBatchJob}
+          currentOpts={opts}
+          onCancel={onCancelBatchJob}
+          onRetryFailed={onRetryFailedBatchJob}
+          onRegenerateMissing={onRegenerateMissingBatchTracks}
+        />
       )}
 
       {provider.provider !== 'local' && !hybridMode && (
@@ -264,7 +272,7 @@ export default function Step3Generate({
       <button
         type="button"
         className="primary full-width action-button"
-        disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting'}
+        disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling'}
         onClick={onGenerate}
       >
         <Wand2 size={18} />

@@ -295,7 +295,10 @@ export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOp
  * every call can never be a stable cache prefix.
  */
 export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContext): string {
-  return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.`;
+  const preassignedNote = batch.preassignedSongs?.length
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (lyrics, stylePrompt, seasonMoment, listenerSituation, thumbnailText, youtube) around them. This is what keeps parallel batches from colliding on title/hook.`
+    : '';
+  return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
 
 export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext) {
@@ -488,6 +491,7 @@ export function buildAnthropicUserPayload(opts: GenerationOptions, batch?: Batch
     totalSongCount: batch?.totalSongCount ?? opts.songCount,
     alreadyUsedTitles: batch?.usedTitles ?? [],
     alreadyUsedHooks: batch?.usedHooks ?? [],
-    lockedIdentity: batch?.lockedIdentity ?? null
+    lockedIdentity: batch?.lockedIdentity ?? null,
+    preassignedSongs: batch?.preassignedSongs ?? []
   };
 }
