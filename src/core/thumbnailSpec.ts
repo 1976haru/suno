@@ -1,9 +1,9 @@
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec } from '../types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { seasonWordFor } from './lyricEngine';
 import { getRecurringMotifPhrases } from './localGenerator';
 
-export type { ThumbnailSpec };
+export type { ThumbnailSpec, ThumbnailVariant };
 
 type DisplayLanguage = 'english' | 'korean' | 'japanese';
 
@@ -13,10 +13,33 @@ function displayLanguageFor(lyricLanguage: GenerationOptions['lyricLanguage']): 
   return 'english';
 }
 
-const headlineSecondLine: Record<DisplayLanguage, string[]> = {
+// TASK B1 (v3.4): three genuinely different strategies, not the same
+// headline reworded — A leads with the season, B leads with a feeling, C
+// names the audience outright (a common, effective convention on Korean/
+// Japanese senior-audience YouTube, softened to a lifestyle framing in
+// English since literal age callouts read oddly there).
+const seasonHeadlineSecondLine: Record<DisplayLanguage, string[]> = {
   english: ['Morning', 'Memories', 'Warmth', 'Quietly', 'Gently', 'Evening'],
   korean: ['그 노래', '그 하루', '그 시간', '작은 행복', '오늘의 위로', '우리 계절'],
   japanese: ['その歌', 'あの日々', '静かな朝', 'やさしい時間', '小さな幸せ', 'いつもの朝']
+};
+
+const emotionHeadlineFirstLine: Record<DisplayLanguage, string[]> = {
+  english: ['Warm', 'Quiet', 'Gentle', 'Soft'],
+  korean: ['따뜻한', '조용한', '포근한', '잔잔한'],
+  japanese: ['あたたかい', '静かな', 'やさしい', '穏やかな']
+};
+
+const emotionHeadlineSecondLine: Record<DisplayLanguage, string[]> = {
+  english: ['Memories', 'Comfort', 'Moments', 'Feelings'],
+  korean: ['기억', '위로', '하루', '시간'],
+  japanese: ['記憶', '時間', 'ひととき', '思い出']
+};
+
+const audienceHeadline: Record<DisplayLanguage, [string, string]> = {
+  english: ['For Slow', 'Mornings'],
+  korean: ['5060세대가', '듣는 팝송'],
+  japanese: ['50代60代が', '聴く歌']
 };
 
 // seasonWordFor()'s Korean/Japanese entries are already short (<=5 chars),
@@ -47,11 +70,21 @@ function shortSeasonWord(season: SeasonPack, language: DisplayLanguage): string 
   return seasonWordFor(season, language);
 }
 
-function pickHeadline(season: SeasonPack, language: DisplayLanguage, seedIndex: number): string {
+function buildSeasonHeadline(season: SeasonPack, language: DisplayLanguage, seedIndex: number): string {
   const seasonWord = shortSeasonWord(season, language);
-  const pool = headlineSecondLine[language];
-  const second = pool[seedIndex % pool.length];
-  return `${seasonWord}\n${second}`;
+  const pool = seasonHeadlineSecondLine[language];
+  return `${seasonWord}\n${pool[seedIndex % pool.length]}`;
+}
+
+function buildEmotionHeadline(language: DisplayLanguage, seedIndex: number): string {
+  const firstPool = emotionHeadlineFirstLine[language];
+  const secondPool = emotionHeadlineSecondLine[language];
+  return `${firstPool[seedIndex % firstPool.length]}\n${secondPool[(seedIndex + 1) % secondPool.length]}`;
+}
+
+function buildAudienceHeadline(language: DisplayLanguage): string {
+  const [line1, line2] = audienceHeadline[language];
+  return `${line1}\n${line2}`;
 }
 
 const SUBLINE_MAX_CHARS = 12;
@@ -126,10 +159,17 @@ export function buildThumbnailSpec(
   // channel-consistent visual template.
   const seedIndex = blueprint.songs.length + channel.name.length + variant;
   const { display: objects, english: objectsEnglish } = pickObjects(blueprint, language);
+  const subline = buildSubline(blueprint.songs.length, language);
+
+  const variants: ThumbnailVariant[] = [
+    { id: 'A', headline: buildSeasonHeadline(season, language, seedIndex), subline, angle: '계절 강조' },
+    { id: 'B', headline: buildEmotionHeadline(language, seedIndex), subline, angle: '감정 강조' },
+    { id: 'C', headline: buildAudienceHeadline(language), subline, angle: '타겟 명시' }
+  ];
 
   return {
-    headline: pickHeadline(season, language, seedIndex),
-    subline: buildSubline(blueprint.songs.length, language),
+    variants,
+    selected: 'A',
     colorScheme: {
       background: palette.background,
       accent: palette.accent,

@@ -199,9 +199,20 @@ export interface SavedPack {
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;
 
-export interface ThumbnailSpec {
+export type ThumbnailVariantId = 'A' | 'B' | 'C';
+
+export interface ThumbnailVariant {
+  id: ThumbnailVariantId;
   headline: string;
   subline: string;
+  /** Korean label describing this variant's strategy (e.g. '계절 강조'), shown in the UI so A/B/C read as genuinely different angles, not a reworded duplicate. */
+  angle: string;
+}
+
+export interface ThumbnailSpec {
+  /** Always exactly 3 — season emphasis, emotion emphasis, audience emphasis (TASK B1, v3.4). */
+  variants: ThumbnailVariant[];
+  selected: ThumbnailVariantId;
   colorScheme: {
     background: string;
     accent: string;

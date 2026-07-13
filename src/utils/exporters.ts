@@ -2,11 +2,12 @@ import type { PlaylistBlueprint, ThumbnailSpec } from '../types';
 
 function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
   if (!spec) return '';
+  const variantLines = spec.variants
+    .map(v => `- ${v.id}안 (${v.angle})${v.id === spec.selected ? ' — 선택됨' : ''}: ${v.headline.replace('\n', ' / ')} / ${v.subline}`)
+    .join('\n');
   return `## Thumbnail Spec
 
-Headline: ${spec.headline.replace('\n', ' / ')}
-
-Subline: ${spec.subline}
+${variantLines}
 
 Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}
 

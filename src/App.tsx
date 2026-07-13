@@ -13,7 +13,7 @@ import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow } from './hooks/useGenerationFlow';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { createInitialOptions } from './utils/generation';
-import type { ChannelProfile, ProviderSettings } from './types';
+import type { ChannelProfile, ProviderSettings, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
 import CachePromptModal from './components/CachePromptModal';
 import Sidebar from './components/Sidebar';
@@ -38,6 +38,7 @@ export default function App() {
   const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
   const [hybridMode, setHybridMode] = useState(false);
   const [thumbnailVariant, setThumbnailVariant] = useState(0);
+  const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -71,8 +72,12 @@ export default function App() {
   const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
   const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
   const thumbnailSpec = useMemo(
-    () => (gen.blueprint ? buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant) : null),
-    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant]
+    () => {
+      if (!gen.blueprint) return null;
+      const spec = buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant);
+      return { ...spec, selected: selectedThumbnailVariant };
+    },
+    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, selectedThumbnailVariant]
   );
 
   function toggleArray(key: 'genreIds' | 'moodIds', id: string) {
@@ -97,6 +102,7 @@ export default function App() {
   function runGeneration(cacheKeyToStore?: string) {
     evalFlow.setEvaluation(null);
     setThumbnailVariant(0);
+    setSelectedThumbnailVariant('A');
     setCurrentStep(4);
     const generationProvider = isHybridActive ? { ...provider, provider: 'local' as const } : provider;
     void gen.generate(
@@ -172,6 +178,10 @@ export default function App() {
 
   function onRegenerateHeadline() {
     setThumbnailVariant(v => v + 1);
+  }
+
+  function onSelectThumbnailVariant(id: ThumbnailVariantId) {
+    setSelectedThumbnailVariant(id);
   }
 
   function onEvaluate(scopeTrackNos?: number[]) {
@@ -306,6 +316,7 @@ export default function App() {
               onUndoRetry={onUndoRetry}
               onRefineSelected={onRefineSelected}
               onRegenerateHeadline={onRegenerateHeadline}
+              onSelectThumbnailVariant={onSelectThumbnailVariant}
             />
           )}
 

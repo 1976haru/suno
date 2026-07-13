@@ -27,25 +27,29 @@ function contrastRatio(hexA: string, hexB: string): number {
 }
 
 describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
-  it.each(LANGUAGES)('headline is 2 lines, each <=8 characters, in %s', language => {
+  it.each(LANGUAGES)('every variant headline is 2 lines, each <=8 characters, in %s', language => {
     for (const season of seasonPacks) {
       const opts = makeOptions({ songCount: 6, lyricLanguage: language, seasonId: season.id });
       const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
       const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
-      const lines = spec.headline.split('\n');
-      expect(lines.length, `headline "${spec.headline}" is not 2 lines`).toBe(2);
-      for (const line of lines) {
-        expect([...line].length, `headline line "${line}" exceeds 8 characters`).toBeLessThanOrEqual(8);
+      for (const variant of spec.variants) {
+        const lines = variant.headline.split('\n');
+        expect(lines.length, `${variant.id}안 headline "${variant.headline}" is not 2 lines`).toBe(2);
+        for (const line of lines) {
+          expect([...line].length, `${variant.id}안 headline line "${line}" exceeds 8 characters`).toBeLessThanOrEqual(8);
+        }
       }
     }
   });
 
-  it.each(LANGUAGES)('subline is <=12 characters, in %s', language => {
+  it.each(LANGUAGES)('every variant subline is <=12 characters, in %s', language => {
     for (const songCount of [1, 12, 30]) {
       const opts = makeOptions({ songCount, lyricLanguage: language });
       const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
       const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
-      expect([...spec.subline].length, `subline "${spec.subline}" exceeds 12 characters`).toBeLessThanOrEqual(12);
+      for (const variant of spec.variants) {
+        expect([...variant.subline].length, `${variant.id}안 subline "${variant.subline}" exceeds 12 characters`).toBeLessThanOrEqual(12);
+      }
     }
   });
 
@@ -111,7 +115,7 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
     expect(spec.forbidden.some(item => item.includes('캐릭터'))).toBe(true);
   });
 
-  it('variant changes only the headline second line, not colors/objects/composition', () => {
+  it('regenerate variant changes headline wording, not colors/objects/composition', () => {
     const opts = makeOptions({ songCount: 6, seasonId: 'christmas' });
     const season = seasonPacks.find(s => s.id === 'christmas')!;
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
@@ -120,9 +124,37 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
     expect(specA.colorScheme).toEqual(specB.colorScheme);
     expect(specA.objects).toEqual(specB.objects);
     expect(specA.composition).toBe(specB.composition);
-    const [firstLineA] = specA.headline.split('\n');
-    const [firstLineB] = specB.headline.split('\n');
+    // Variant A (season-led) keeps the same season word on line 1 regardless
+    // of the regenerate seed — only the second line cycles.
+    const [firstLineA] = specA.variants[0].headline.split('\n');
+    const [firstLineB] = specB.variants[0].headline.split('\n');
     expect(firstLineA).toBe(firstLineB);
+  });
+
+  it('[B1] always produces exactly 3 variants (A/B/C), each with a distinct angle and headline', () => {
+    const opts = makeOptions({ songCount: 6 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.variants.map(v => v.id)).toEqual(['A', 'B', 'C']);
+    expect(new Set(spec.variants.map(v => v.angle)).size).toBe(3);
+    expect(new Set(spec.variants.map(v => v.headline)).size).toBe(3);
+  });
+
+  it('[B1] defaults to variant A selected, and selected always matches one of the variants', () => {
+    const opts = makeOptions({ songCount: 6 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.selected).toBe('A');
+    expect(spec.variants.some(v => v.id === spec.selected)).toBe(true);
+  });
+
+  it.each(LANGUAGES)('[B1] variant C explicitly names the audience/lifestyle angle, in %s', language => {
+    const opts = makeOptions({ songCount: 6, lyricLanguage: language });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    const variantC = spec.variants.find(v => v.id === 'C')!;
+    expect(variantC.angle).toBe('타겟 명시');
+    expect(variantC.headline.length).toBeGreaterThan(0);
   });
 });
 

@@ -4,7 +4,7 @@ import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
-import type { AgentEvaluation, PlaylistBlueprint, SongIdea } from '../../types';
+import type { AgentEvaluation, PlaylistBlueprint, SongIdea, ThumbnailVariantId } from '../../types';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 
 interface Step4ResultProps {
@@ -33,6 +33,7 @@ interface Step4ResultProps {
   onUndoRetry: () => void;
   onRefineSelected: (trackNos: number[]) => void;
   onRegenerateHeadline: () => void;
+  onSelectThumbnailVariant: (id: ThumbnailVariantId) => void;
 }
 
 export default function Step4Result({
@@ -60,7 +61,8 @@ export default function Step4Result({
   onRetrySong,
   onUndoRetry,
   onRefineSelected,
-  onRegenerateHeadline
+  onRegenerateHeadline,
+  onSelectThumbnailVariant
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
@@ -162,7 +164,7 @@ export default function Step4Result({
       )}
 
       {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
-        <ThumbnailSpecPanel spec={thumbnailSpec} onRegenerateHeadline={onRegenerateHeadline} />
+        <ThumbnailSpecPanel spec={thumbnailSpec} onRegenerateHeadline={onRegenerateHeadline} onSelectVariant={onSelectThumbnailVariant} />
       )}
 
       {resultTab === 'songs' && blueprint && hybridRefineAvailable && (
