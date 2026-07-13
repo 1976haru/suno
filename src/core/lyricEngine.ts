@@ -1,5 +1,4 @@
 import type { GenerationOptions, LyricLanguage, SeasonPack, SongIdea } from '../types';
-import { lyricImageBank } from '../data/lyrics';
 
 export interface LyricLineCtx {
   season: string;
@@ -132,17 +131,20 @@ const enSituation: LineTemplate[] = [
   c => [`Steady in this ${c.situation}`, 'I let the moment stay', `The ${c.motif} keeps rewriting`, 'a gentler kind of day']
 ];
 
-const enChorusFirst: LineTemplate[] = [
-  c => [`${c.hook}, keep a little light for me`],
-  c => [`Hold on, ${c.hook}`],
-  c => [`Stay a while, ${c.hook}`],
-  c => [`This is for you, ${c.hook}`],
-  c => [`Carry me home, ${c.hook}`],
-  c => [`One more time, ${c.hook}`],
-  c => [`Right here, ${c.hook}`],
-  c => [`Keep the light on, ${c.hook}`],
-  c => [`Say it slow, ${c.hook}`],
-  c => [`Close your eyes, ${c.hook}`]
+// pre-chorus: a short, generic 2-line lead-in that builds toward the hook.
+// Deliberately hook-agnostic (the hook itself is interpolated as its own bare
+// line by composeLyrics, not embedded in these templates) so the same small
+// pool works before any hook phrase.
+const enPreChorus: LineTemplate[] = [
+  c => [`And when the ${c.season} light comes low`, 'I hear myself say'],
+  c => [`There is something in this ${c.situation}`, 'that makes me want to stay'],
+  c => ['The quiet builds a little more', 'and then I finally say'],
+  c => ['I feel it rising soft and slow', 'right before I say'],
+  c => [`Every ${c.season} evening calls me back`, 'to the words I always say'],
+  c => [`The ${c.motif} waits for just this moment`, 'and I quietly say'],
+  c => ['I have carried this a long, long while', 'and now I have to say'],
+  c => ['Something in the silence shifts', 'and I can finally say'],
+  c => [`Right here inside this ${c.situation}`, 'I stop and I say']
 ];
 
 const enChorusDev: LineTemplate[] = [
@@ -229,17 +231,16 @@ const koSituation: LineTemplate[] = [
   c => [`${c.situation} 안에서 차분히`, '이 순간을 붙잡아둬요', `${c.motif}${koParticle(c.motif, '은', '는')} 다시 써 내려가요`, '조금 더 다정한 하루로']
 ];
 
-const koChorusFirst: LineTemplate[] = [
-  c => [`${c.hook}, 다시 마음이 따뜻해져요`],
-  c => [`잠시 멈춰요, ${c.hook}`],
-  c => [`여기 있어요, ${c.hook}`],
-  c => [`이건 당신을 위한 노래, ${c.hook}`],
-  c => [`나를 데려가요, ${c.hook}`],
-  c => [`한 번 더, ${c.hook}`],
-  c => [`바로 여기, ${c.hook}`],
-  c => [`불을 켜둬요, ${c.hook}`],
-  c => [`천천히 말해요, ${c.hook}`],
-  c => [`눈을 감아요, ${c.hook}`]
+const koPreChorus: LineTemplate[] = [
+  c => [`${c.season}빛이 낮게 내려올 때`, '나는 조용히 말해요'],
+  c => [`이 ${c.situation} 속에서`, '문득 이렇게 불러봐요'],
+  c => ['고요함이 조금 더 짙어지면', '나는 결국 말해요'],
+  c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
+  c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 조용히 불러봐요'],
+  c => ['오래 품고 있던 마음을', '이제는 말해볼게요'],
+  c => ['고요 속에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
+  c => [`${c.season} 저녁이 나를 부를 때`, '나는 이렇게 대답해요'],
+  c => [`바로 이 ${c.situation}에서`, '나는 마음을 열어 말해요']
 ];
 
 const koChorusDev: LineTemplate[] = [
@@ -326,17 +327,16 @@ const jaSituation: LineTemplate[] = [
   c => [`${c.situation}の中で静かに`, 'この瞬間をつかまえておく', `${c.motif}はまた書き直す`, 'もう少しやさしい一日を']
 ];
 
-const jaChorusFirst: LineTemplate[] = [
-  c => [`${c.hook}、また心があたたまる`],
-  c => [`少し止まって、${c.hook}`],
-  c => [`ここにいて、${c.hook}`],
-  c => [`これはあなたへの歌、${c.hook}`],
-  c => [`連れて帰って、${c.hook}`],
-  c => [`もう一度、${c.hook}`],
-  c => [`ここで、${c.hook}`],
-  c => [`灯りをつけたまま、${c.hook}`],
-  c => [`ゆっくり話して、${c.hook}`],
-  c => [`目を閉じて、${c.hook}`]
+const jaPreChorus: LineTemplate[] = [
+  c => [`${c.season}の光が低くなる頃`, '私は静かに言う'],
+  c => [`この${c.situation}の中で`, 'ふとこう呼びかける'],
+  c => ['静けさがもう少し深まると', '私はついに言う'],
+  c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
+  c => [`${c.motif}がこの瞬間を待っていて`, '私は静かに呼びかける'],
+  c => ['長く抱えていた気持ちを', '今こそ伝えよう'],
+  c => ['静寂の中で何かが変わるなら', '私はついにこう言う'],
+  c => [`${c.season}の夕暮れが私を呼ぶとき`, '私はこう答える'],
+  c => [`まさにこの${c.situation}の中で`, '心を開いて言う']
 ];
 
 const jaChorusDev: LineTemplate[] = [
@@ -392,16 +392,16 @@ const jaClosing: LineTemplate[] = [
 interface LanguagePools {
   opening: LineTemplate[];
   situation: LineTemplate[];
-  chorusFirst: LineTemplate[];
+  preChorus: LineTemplate[];
   chorusDev: LineTemplate[];
   bridge: LineTemplate[];
   verse2: LineTemplate[];
   closing: LineTemplate[];
 }
 
-const enPools: LanguagePools = { opening: enOpening, situation: enSituation, chorusFirst: enChorusFirst, chorusDev: enChorusDev, bridge: enBridge, verse2: enVerse2, closing: enClosing };
-const koPools: LanguagePools = { opening: koOpening, situation: koSituation, chorusFirst: koChorusFirst, chorusDev: koChorusDev, bridge: koBridge, verse2: koVerse2, closing: koClosing };
-const jaPools: LanguagePools = { opening: jaOpening, situation: jaSituation, chorusFirst: jaChorusFirst, chorusDev: jaChorusDev, bridge: jaBridge, verse2: jaVerse2, closing: jaClosing };
+const enPools: LanguagePools = { opening: enOpening, situation: enSituation, preChorus: enPreChorus, chorusDev: enChorusDev, bridge: enBridge, verse2: enVerse2, closing: enClosing };
+const koPools: LanguagePools = { opening: koOpening, situation: koSituation, preChorus: koPreChorus, chorusDev: koChorusDev, bridge: koBridge, verse2: koVerse2, closing: koClosing };
+const jaPools: LanguagePools = { opening: jaOpening, situation: jaSituation, preChorus: jaPreChorus, chorusDev: jaChorusDev, bridge: jaBridge, verse2: jaVerse2, closing: jaClosing };
 
 function poolsFor(language: LyricLanguage): LanguagePools {
   if (language === 'korean') return koPools;
@@ -416,11 +416,11 @@ const introLine: Record<LyricLanguage, string> = {
   bilingual: 'Soft Rhodes, acoustic guitar, close warm vocal.'
 };
 
-const tags: Record<LyricLanguage, { intro: string; verse1: string; chorus: string; verse2: string; bridge: string; finalChorus: string; end: string }> = {
-  english: { intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
-  korean: { intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
-  japanese: { intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
-  bilingual: { intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' }
+const tags: Record<LyricLanguage, { intro: string; verse1: string; preChorus: string; chorus: string; verse2: string; bridge: string; finalChorus: string; end: string }> = {
+  english: { intro: '[short intro]', verse1: '[verse 1]', preChorus: '[pre-chorus]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
+  korean: { intro: '[short intro]', verse1: '[verse 1]', preChorus: '[pre-chorus]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
+  japanese: { intro: '[short intro]', verse1: '[verse 1]', preChorus: '[pre-chorus]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
+  bilingual: { intro: '[short intro]', verse1: '[verse 1]', preChorus: '[pre-chorus]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' }
 };
 
 /**
@@ -458,7 +458,7 @@ export function seasonWordFor(season: SeasonPack, language: LyricLanguage): stri
 export interface LyricBatchPools {
   opening: UniquePool<LineTemplate>;
   situation: UniquePool<LineTemplate>;
-  chorusFirst: UniquePool<LineTemplate>;
+  preChorus: UniquePool<LineTemplate>;
   chorusDev: UniquePool<LineTemplate>;
   bridge: UniquePool<LineTemplate>;
   verse2: UniquePool<LineTemplate>;
@@ -467,7 +467,7 @@ export interface LyricBatchPools {
    * Short hooks and generic motif fillers are drawn from small (~5-14 word)
    * pools, so an independent template draw in one category can coincidentally
    * reproduce an exact line already used by an earlier song in the same pack.
-   * Tracked across every category (not just chorusFirst) so composeLyrics can
+   * Tracked across every category (not just preChorus) so composeLyrics can
    * retry until it finds a line that hasn't been used yet in this blueprint.
    */
   usedLines: Set<string>;
@@ -479,7 +479,7 @@ export function createLyricBatchPools(language: LyricLanguage, seedBase: string)
   return {
     opening: new UniquePool(pools.opening, s + 1),
     situation: new UniquePool(pools.situation, s + 2),
-    chorusFirst: new UniquePool(pools.chorusFirst, s + 3),
+    preChorus: new UniquePool(pools.preChorus, s + 3),
     chorusDev: new UniquePool(pools.chorusDev, s + 4),
     bridge: new UniquePool(pools.bridge, s + 5),
     verse2: new UniquePool(pools.verse2, s + 6),
@@ -492,8 +492,24 @@ function extendedBridgeRoles(role: string) {
   return role === 'late-set emotional center' || role === 'romantic shade without melodrama';
 }
 
-function extendedFinalChorusRoles(role: string) {
-  return role === 'comforting closer' || role === 'soft reset before the closing run';
+/** 'comforting closer' fades out on a third hook repeat instead of the usual bookend pair. */
+function fadeRepeatHookRoles(role: string) {
+  return role === 'comforting closer';
+}
+
+/** 'soft reset before the closing run' keeps its old extra closing-pool texture line after the final chorus. */
+function extendedFinalChorusTextRoles(role: string) {
+  return role === 'soft reset before the closing run';
+}
+
+/** 'clear opener' should reach its first chorus (and first hook) sooner, so verse 1 is trimmed to 2 lines. */
+function shortOpenerRoles(role: string) {
+  return role === 'clear opener';
+}
+
+/** 'late-set emotional center' gets a style-prompt-only instruction (half-step modulation), applied in localGenerator.ts. */
+export function wantsFinalChorusModulation(role: string) {
+  return role === 'late-set emotional center';
 }
 
 // ---------------------------------------------------------------------------
@@ -510,7 +526,7 @@ const MOTIF_SECONDARY_SLOTS = ['opening', 'verse2', 'situation', 'bridge'] as co
 type MotifSecondarySlot = (typeof MOTIF_SECONDARY_SLOTS)[number];
 const MOTIF_SECONDARY_WEIGHTS = [0.4, 0.25, 0.2, 0.15];
 
-/** chorusDev always gets the real motif (it's the line the listener repeats); exactly one more slot is chosen per song, weighted toward opening. */
+/** Exactly one non-chorus slot is chosen per song, weighted toward opening. */
 function chooseSecondaryMotifSlot(rng: () => number): MotifSecondarySlot {
   let r = rng();
   for (let i = 0; i < MOTIF_SECONDARY_WEIGHTS.length - 1; i++) {
@@ -518,6 +534,19 @@ function chooseSecondaryMotifSlot(rng: () => number): MotifSecondarySlot {
     r -= MOTIF_SECONDARY_WEIGHTS[i];
   }
   return MOTIF_SECONDARY_SLOTS[MOTIF_SECONDARY_SLOTS.length - 1];
+}
+
+/**
+ * TASK A3 gives every song three chorus-type sections (chorus, chorus,
+ * final chorus), each drawing its own chorusDev line. If every draw used the
+ * real motif, that alone would put the pack-wide "no motif word >3x" (R2)
+ * regression right at its ceiling before the secondary slot even runs.
+ * Exactly one of the three chorusDev draws gets the real motif; the other
+ * two get an independent filler, keeping the total real-motif count at 2
+ * per song (1 chorus draw + 1 secondary slot) — unchanged from before A3.
+ */
+function chooseRealMotifChorusIndex(rng: () => number): 0 | 1 | 2 {
+  return Math.floor(rng() * 3) as 0 | 1 | 2;
 }
 
 const genericMotifFillers: Record<LyricLanguage, string[]> = {
@@ -563,20 +592,33 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
 
   const motifRng = mulberry32(hashSeed(`${title}::${hook}::motif-budget`));
   const secondarySlot = chooseSecondaryMotifSlot(motifRng);
+  const realMotifChorusIndex = chooseRealMotifChorusIndex(motifRng);
   const seasonWord = seasonWordFor(season, language);
   const ctxWith: LyricLineCtx = { season: seasonWord, situation, motif, title, hook };
   // Each non-budgeted slot draws its own filler word rather than sharing one,
   // so swapping out the real motif doesn't just replace one repeated word
   // with a different repeated word.
   const freshFillerCtx = (): LyricLineCtx => ({ season: seasonWord, situation, motif: pickMotifFiller(language, motifRng), title, hook });
-  const ctxFor = (slot: MotifSecondarySlot | 'chorusDev') => (slot === 'chorusDev' || slot === secondarySlot ? ctxWith : freshFillerCtx());
+  const ctxFor = (slot: MotifSecondarySlot) => (slot === secondarySlot ? ctxWith : freshFillerCtx());
+  const chorusDevCtx = (index: number) => (index === realMotifChorusIndex ? ctxWith : freshFillerCtx());
 
-  const opening = takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines);
+  const opening = shortOpenerRoles(role)
+    ? takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines).slice(0, 2)
+    : takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines);
   const situationLines = takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines);
-  const chorusFirst = takeUniqueLines(pools.chorusFirst, ctxWith, pools.usedLines);
-  const chorusDev = takeUniqueLines(pools.chorusDev, ctxFor('chorusDev'), pools.usedLines);
-  const chorusLines = [...chorusFirst, ...chorusDev];
+  const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines);
   const verse2 = takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines);
+
+  // The hook bookends every chorus-type section (open + close), so the
+  // listener always lands on it. Three chorus-type sections (chorus x2 +
+  // final chorus) give a baseline of 6 hook occurrences per song, +1 more
+  // for 'comforting closer' — within the 4-7 target range.
+  const buildChorus = (index: number) => {
+    const devLines = takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines);
+    return [hook, ...devLines, hook];
+  };
+  const chorus1 = buildChorus(0);
+  const chorus2 = buildChorus(1);
 
   // Even when 'bridge' is the budgeted secondary slot, an extended bridge draws
   // the pool twice — only the first draw gets the real motif so bridge never
@@ -585,11 +627,14 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     ? [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines)]
     : takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines);
 
-  // Closing is only used for a handful of roles and is never part of the
-  // motif budget, so it always renders with a filler noun.
-  const finalChorusLines = extendedFinalChorusRoles(role)
-    ? [...chorusLines, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
-    : chorusLines;
+  const finalChorusBase = buildChorus(2);
+  const finalChorusLines = fadeRepeatHookRoles(role)
+    ? [...finalChorusBase, hook]
+    : extendedFinalChorusTextRoles(role)
+      // Closing is only used for this one role and is never part of the
+      // motif budget, so it always renders with a filler noun.
+      ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
+      : finalChorusBase;
 
   const lyrics = [
     `Title: ${title}`,
@@ -599,14 +644,19 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     '',
     t.verse1,
     ...opening,
+    ...(shortOpenerRoles(role) ? [] : ['', ...situationLines]),
     '',
-    ...situationLines,
+    t.preChorus,
+    ...preChorusLines,
     '',
     t.chorus,
-    ...chorusLines,
+    ...chorus1,
     '',
     t.verse2,
     ...verse2,
+    '',
+    t.chorus,
+    ...chorus2,
     '',
     t.bridge,
     ...bridgeLines,
@@ -617,53 +667,164 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     t.end
   ].join('\n');
 
-  return { lyrics, hookPhrase: chorusFirst[0] };
+  return { lyrics, hookPhrase: hook };
 }
 
 // ---------------------------------------------------------------------------
-// Title generation
+// Hook engine (TASK A1/A2 v3.3) — the hook now IS the 2-4 word singable
+// phrase, generated first; the title is derived from it (never the other
+// way around), so title and hook can never drift apart (H2). Every phrase
+// is hand-curated per grammatical shape instead of composed at runtime from
+// arbitrary nouns, so a vocative slot can never end up addressing an object
+// noun (H3) — that class of bug is impossible by construction, not caught
+// by a runtime check.
 // ---------------------------------------------------------------------------
 
-const enTimeWords = ['November', 'Winter Morning', 'Christmas Eve', 'Quiet Snow', 'First Light', 'Old Morning Hush', 'Late Autumn', 'Slow Sunday', 'Midnight Hour', 'Golden Evening', 'Early Spring', 'Rainy Afternoon', 'New Year Dawn', 'Soft December'];
-const enObjectWords = ['Window', 'Letter', 'Coffee Cup', 'Radio', 'Street', 'Sweater', 'Candle', 'Photograph', 'Train', 'Doorway', 'Record', 'Umbrella', 'Lamp', 'Calendar'];
-const enEmotionWords = ['Memory', 'Warmth', 'Goodbye Song', 'Quiet Hour', 'Small Miracle', 'Gentle Return', 'Soft Promise', 'Old Friend', 'Second Chance', 'Home Again'];
+export type HookShape = 'vocative' | 'imperative' | 'nounPhrase' | 'declarative';
+export const HOOK_SHAPES: HookShape[] = ['vocative', 'imperative', 'nounPhrase', 'declarative'];
 
-const koTimeWords = ['11월', '겨울 아침', '크리스마스 이브', '고요한 눈', '첫 빛', '고요한 옛 아침', '늦가을', '느린 일요일', '한밤중', '금빛 저녁', '이른 봄', '비 오는 오후', '새해 새벽', '부드러운 12월'];
-const koObjectWords = ['창가', '편지', '커피잔', '라디오', '거리', '스웨터', '촛불', '사진', '기차', '문가', '레코드', '우산', '램프', '달력'];
-const koEmotionWords = ['기억', '온기', '작별 노래', '조용한 시간', '작은 기적', '다정한 귀환', '부드러운 약속', '오랜 친구', '두 번째 기회', '다시 집으로'];
+export interface HookSpec {
+  phrase: string;
+  syllables: number;
+  isTitle: boolean;
+  shape: HookShape;
+}
 
-const jaTimeWords = ['十一月', '冬の朝', 'クリスマスイブ', '静かな雪', '最初の光', '静かな古い朝', '晩秋', 'ゆっくりな日曜日', '真夜中', '金色の夕暮れ', '早春', '雨の午後', '新年の夜明け', 'やわらかな十二月'];
-const jaObjectWords = ['窓辺', '手紙', 'コーヒーカップ', 'ラジオ', '通り', 'セーター', 'キャンドル', '写真', '列車', '戸口', 'レコード', '傘', 'ランプ', 'カレンダー'];
-const jaEmotionWords = ['記憶', 'あたたかさ', '別れの歌', '静かな時間', '小さな奇跡', 'やさしい帰還', 'やわらかな約束', '古い友人', '二度目の機会', 'もう一度家へ'];
+export interface HookContext {
+  language: LyricLanguage;
+  shape: HookShape;
+  usedHooks: Set<string>;
+}
 
-function dedupeObjectWords(base: string[], extra: string[]): string[] {
-  const seen = new Set(base.map(word => word.toLowerCase()));
-  const merged = [...base];
-  for (const word of extra) {
-    const key = word.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      merged.push(word);
-    }
+// Time words also serve as an optional one-word title prefix for English
+// nounPhrase hooks (see titleFromHook) — kept here rather than duplicated.
+const enTimeWords = ['Winter', 'Golden', 'Quiet', 'Old December', 'First Snow', 'Slow Sunday', 'Midnight', 'Soft Christmas', 'Rainy Afternoon', 'New Year'];
+
+// Vocative hooks only ever address a person/abstract noun, never an object —
+// H3's entire bug class is prevented by simply never parameterizing this
+// bank with the object-word list used elsewhere.
+const enHookVocative = [
+  'Hold On, My Friend', 'Stay a While, Darling', 'Close Your Eyes, Winter', 'Rest Here, My Love',
+  'Wake Up, My Dear', 'Breathe with Me, Morning', 'Hold My Hand, Friend', 'Come Home Soon, Darling',
+  'Hush Now, My Love', "Don't Go, Old Heart"
+];
+const enHookImperative = [
+  'Keep the Light On', 'Pour the Coffee Warm', 'Write One More Letter', 'Play the Old Record',
+  'Catch the Morning Train', 'Light the Candle Again', 'Turn the Page Slowly', 'Share the Warm Umbrella',
+  'Keep the Radio Playing', 'Hold the Photo Close', 'Wrap the Old Sweater', 'Wait by the Window'
+];
+const enHookNounPhrase = [
+  'Winter Window Light', 'Golden Sunset Train', 'Quiet Morning Coffee', 'Old December Letter',
+  'First Snow Radio', 'Slow Sunday Sweater', 'Midnight Hour Candle', 'Soft Christmas Doorway',
+  'Rainy Afternoon Record', 'New Year Umbrella'
+];
+const enHookDeclarative = [
+  "I'll Wait for Morning", "We'll Be Alright", 'I Remember You', "I'm Coming Home",
+  "I Won't Forget", "You're Still Here", 'I Found My Way', 'We Made It Through',
+  'I Still Believe', "I Know You're Near"
+];
+
+const koHookVocative = [
+  '잠시 멈춰요, 내 친구', '눈을 감아요, 그대', '여기 있어요, 겨울아', '천천히 말해요, 내 사랑',
+  '잠깐 쉬어요, 오랜 마음', '돌아와요, 내 사람', '가지 마요, 그대', '안아줘요, 겨울아',
+  '기다려요, 내 친구', '쉬어가요, 그대여'
+];
+const koHookImperative = [
+  '불을 켜둬요', '커피를 데워요', '편지를 써봐요', '라디오를 틀어요', '기차를 잡아요',
+  '촛불을 다시 켜요', '창문을 열어둬요', '우산을 함께 써요', '사진을 꺼내봐요', '달력을 넘겨봐요',
+  '스웨터를 껴입어요', '레코드를 틀어봐요'
+];
+const koHookNounPhrase = [
+  '겨울 창가의 빛', '금빛 새벽 기차', '고요한 아침 커피', '12월의 오래된 편지', '첫눈 내리는 라디오',
+  '느린 일요일 스웨터', '한밤의 촛불', '부드러운 크리스마스 문가', '비 오는 오후의 레코드', '새해의 작은 우산'
+];
+const koHookDeclarative = [
+  '아침을 기다릴게요', '우리 함께 괜찮을 거예요', '너를 기억해요', '이제 집에 가요', '잊지 않을게요',
+  '아직 여기 있어요', '다시 길을 찾았어요', '우리 함께 견뎠어요', '아직 그댈 믿어요', '가까이 있다는 걸 알아요'
+];
+
+const jaHookVocative = [
+  '少し止まって、友よ', '目を閉じて、あなたへ', 'ここにいて、冬よ', 'ゆっくり休んで、愛しい人',
+  '戻ってきて、友よ', '行かないで、あなたへ', '抱きしめて、冬よ', '待っていて、友よ',
+  'そばにいて、愛しい人', '少し眠って、あなたへ'
+];
+const jaHookImperative = [
+  '灯りをつけて', 'コーヒーを温めて', '手紙を書いて', 'ラジオをつけて', '列車に間に合って',
+  'キャンドルをまた灯して', '窓を開けて', '傘を一緒にさして', '写真を取り出して', 'カレンダーをめくって',
+  'セーターを着て', 'レコードをかけて'
+];
+const jaHookNounPhrase = [
+  '冬の窓辺の光', '金色の夕暮れ列車', '静かな朝のコーヒー', '十二月の古い手紙', '初雪のラジオ',
+  'ゆっくりな日曜のセーター', '真夜中のキャンドル', 'やわらかなクリスマスの戸口', '雨の午後のレコード', '新年の小さな傘'
+];
+const jaHookDeclarative = [
+  '朝を待っている', 'きっと大丈夫', 'あなたを覚えている', 'もう家に着く', '忘れたりしない',
+  'まだここにいる', 'また道を見つけた', '一緒に乗り越えた', 'あなたを信じている', 'そばにいるとわかる'
+];
+
+function hookBankFor(language: LyricLanguage, shape: HookShape): string[] {
+  const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
+    english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
+    korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },
+    japanese: { vocative: jaHookVocative, imperative: jaHookImperative, nounPhrase: jaHookNounPhrase, declarative: jaHookDeclarative }
+  };
+  const resolved = language === 'bilingual' ? 'english' : language;
+  return banks[resolved][shape];
+}
+
+/** English: whitespace word count (matches how a singer would count it). CJK phrases carry no reliable whitespace word boundary, so they always read as short by this metric — syllable/character count is the real singability signal for those languages. */
+export function hookWordCount(phrase: string): number {
+  return phrase.split(/\s+/).filter(Boolean).length;
+}
+
+export function estimateSyllables(phrase: string, language: LyricLanguage): number {
+  if (language === 'korean') {
+    return [...phrase].filter(ch => { const code = ch.charCodeAt(0); return code >= 0xac00 && code <= 0xd7a3; }).length;
   }
-  return merged;
+  if (language === 'japanese') {
+    return [...phrase].filter(ch => /[぀-ヿ一-鿿]/.test(ch)).length;
+  }
+  return phrase.split(/\s+/).filter(Boolean).reduce((total, word) => {
+    const groups = word.toLowerCase().replace(/[^a-z']/g, '').match(/[aeiouy]+/g);
+    return total + Math.max(1, groups ? groups.length : 1);
+  }, 0);
 }
 
-function bankFor(language: LyricLanguage) {
-  if (language === 'korean') return { time: koTimeWords, object: koObjectWords, emotion: koEmotionWords };
-  if (language === 'japanese') return { time: jaTimeWords, object: jaObjectWords, emotion: jaEmotionWords };
-  const titleCasedUniversal = lyricImageBank.universal.map(word => word.replace(/\b\w/g, c => c.toUpperCase()));
-  return { time: enTimeWords, object: dedupeObjectWords(enObjectWords, titleCasedUniversal), emotion: enEmotionWords };
+/** Distributes shapes as evenly as possible across a pack so 30 songs never lean on one shape (each shape gets >=15% for songCount >= 4). */
+export function buildShapeSequence(songCount: number, seed: number): HookShape[] {
+  const perShape = Math.floor(songCount / HOOK_SHAPES.length);
+  const remainder = songCount % HOOK_SHAPES.length;
+  const remainderOrder = shuffle(HOOK_SHAPES, seed);
+  const sequence: HookShape[] = [];
+  HOOK_SHAPES.forEach(shape => {
+    const bonus = remainderOrder.indexOf(shape) < remainder ? 1 : 0;
+    for (let i = 0; i < perShape + bonus; i++) sequence.push(shape);
+  });
+  return shuffle(sequence, seed + 999);
 }
 
-function joinTitle(language: LyricLanguage, time: string, object: string, emotion: string | null) {
-  if (language === 'korean') return emotion ? `${time}의 ${object}, ${emotion}` : `${time}의 ${object}`;
-  if (language === 'japanese') return emotion ? `${time}の${object}、${emotion}` : `${time}の${object}`;
-  return emotion ? `${time} ${object}, ${emotion}` : `${time} ${object}`;
+export function composeHook(seed: number, ctx: HookContext): HookSpec {
+  const bank = hookBankFor(ctx.language, ctx.shape);
+  const shuffled = shuffle(bank, seed);
+  let phrase = shuffled.find(candidate => !ctx.usedHooks.has(candidate));
+  if (!phrase) {
+    const reshuffled = shuffle(bank, seed + 104729);
+    phrase = reshuffled.find(candidate => !ctx.usedHooks.has(candidate)) ?? `${shuffled[0]} ${ctx.usedHooks.size}`;
+  }
+  return {
+    phrase,
+    syllables: estimateSyllables(phrase, ctx.language),
+    isTitle: ctx.shape !== 'vocative',
+    shape: ctx.shape
+  };
 }
 
-function hookFromObject(language: LyricLanguage, object: string) {
-  return language === 'english' ? object.toLowerCase() : object;
+/** True if `phrase` came from one of the curated hook banks for `shape`; used by tests to verify shape distribution on real generated output. */
+export function matchHookShape(phrase: string, language: LyricLanguage): HookShape | null {
+  for (const shape of HOOK_SHAPES) {
+    if (hookBankFor(language, shape).includes(phrase)) return shape;
+  }
+  return null;
 }
 
 function hasWordOverlap(language: LyricLanguage, ...parts: (string | null)[]): boolean {
@@ -681,40 +842,74 @@ function hasWordOverlap(language: LyricLanguage, ...parts: (string | null)[]): b
   return new Set(words).size !== words.length;
 }
 
+function uniqueTitle(base: string, usedTitles: Set<string>): string {
+  if (!usedTitles.has(base)) return base;
+  let n = 2;
+  while (usedTitles.has(`${base} #${n}`)) n += 1;
+  return `${base} #${n}`;
+}
+
+/**
+ * The title always contains the hook verbatim (H2's completion condition):
+ * either the hook phrase IS the title, or — only for English nounPhrase
+ * hooks, which read naturally as "<word> <hook>" — a single non-overlapping
+ * time word is prefixed. Korean/Japanese skip prefixing entirely: the old
+ * joinTitle()'s automatic particle-appending was exactly what caused the
+ * double-genitive title bug fixed in v3.2, so this path never reintroduces
+ * particle composition.
+ */
+export function titleFromHook(hook: HookSpec, seed: number, language: LyricLanguage, usedTitles: Set<string>): string {
+  if (language === 'english' && hook.shape === 'nounPhrase') {
+    const rng = mulberry32(seed);
+    if (rng() >= 0.5) {
+      const prefixPool = shuffle(enTimeWords, seed + 777);
+      for (const prefix of prefixPool) {
+        if (hasWordOverlap('english', prefix, hook.phrase)) continue;
+        const candidate = `${prefix} ${hook.phrase}`;
+        if (!usedTitles.has(candidate)) return candidate;
+      }
+    }
+  }
+  return uniqueTitle(hook.phrase, usedTitles);
+}
+
 export interface TitleResult {
   title: string;
   hook: string;
 }
 
-export function createTitleGenerator(language: LyricLanguage, seedBase: string) {
-  const bank = bankFor(language);
+/**
+ * Compatibility wrapper over composeHook/titleFromHook/buildShapeSequence:
+ * keeps the {title, hook} shape the rest of the codebase (and existing
+ * tests) already depend on, while the hook is now the source of truth the
+ * title is derived from instead of the reverse. songCount defaults to 30 to
+ * match every existing caller's actual pack size.
+ */
+export function createTitleGenerator(
+  language: LyricLanguage,
+  seedBase: string,
+  songCount = 30,
+  avoid?: { usedTitles?: Iterable<string>; usedHooks?: Iterable<string> }
+) {
   const s = hashSeed(seedBase);
-  const timePool = new UniquePool(bank.time, s + 11);
-  const objectPool = new UniquePool(bank.object, s + 12);
-  const emotionPool = new UniquePool(bank.emotion, s + 13);
-  const rng = mulberry32(s + 14);
-  const used = new Set<string>();
+  const shapeSequence = buildShapeSequence(songCount, s + 31);
+  // Seeding with a caller-supplied avoid-set (e.g. the rest of the pack, for
+  // single-track regeneration) makes collisions structurally impossible
+  // instead of hoping an independently-seeded draw gets lucky — the curated
+  // hook banks are only ~10-12 entries per shape, far smaller than the old
+  // combinatorial word banks, so blind-luck collisions are a real risk here.
+  const usedHooks = new Set<string>(avoid?.usedHooks ?? []);
+  const usedTitles = new Set<string>(avoid?.usedTitles ?? []);
+  let index = 0;
 
   return function nextTitle(): TitleResult {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const time = timePool.take();
-      const object = objectPool.take();
-      const wantsEmotion = rng() < 0.35;
-      const emotion = wantsEmotion ? emotionPool.take() : null;
-      if (hasWordOverlap(language, time, object, emotion)) continue;
-      const title = joinTitle(language, time, object, emotion);
-      if (!used.has(title)) {
-        used.add(title);
-        return { title, hook: hookFromObject(language, object) };
-      }
-    }
-    // Every retry produced either a word clash or an already-used title; drop the
-    // emotion suffix (the most likely source of overlap) and force a unique title.
-    const time = timePool.take();
-    const object = objectPool.take();
-    const title = `${joinTitle(language, time, object, null)} #${used.size + 1}`;
-    used.add(title);
-    return { title, hook: hookFromObject(language, object) };
+    const shape = shapeSequence[index % shapeSequence.length] ?? HOOK_SHAPES[index % HOOK_SHAPES.length];
+    const hook = composeHook(s + 41 + index * 97, { language, shape, usedHooks });
+    usedHooks.add(hook.phrase);
+    const title = titleFromHook(hook, s + 53 + index * 131, language, usedTitles);
+    usedTitles.add(title);
+    index += 1;
+    return { title, hook: hook.phrase };
   };
 }
 

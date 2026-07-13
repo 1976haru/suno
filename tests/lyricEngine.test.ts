@@ -101,13 +101,18 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
     }
   });
 
-  it.each(LANGUAGES)('[R1] lyrics never contain the full title lowercased and stuffed into a line, in %s', language => {
+  it.each(LANGUAGES)('[R1] lyrics never contain the full title lowercased and stuffed into an unrelated line, in %s', language => {
+    // v3.3 (TASK A1/A3) made title===hook (or title containing hook) intentional: the hook now
+    // bookends every chorus verbatim, so the hook-bookend line is *expected* to match the title.
+    // This guard still catches the original v3.1 bug (title text smashed into some other,
+    // unrelated line) by exempting only the song's own hookPhrase line, not every line.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       const titleCore = song.title.split(/[,、]/)[0].trim();
       if (titleCore.length < 4) continue;
       const lowered = titleCore.toLowerCase();
       for (const line of bodyLines(song.lyrics)) {
+        if (line === song.hookPhrase) continue;
         expect(line.toLowerCase()).not.toContain(lowered);
       }
     }
@@ -145,11 +150,17 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
     expect(new Set(bp.songs.map(song => song.title)).size).toBe(30);
   });
 
-  it.each(LANGUAGES)('no line repeats more than twice within a single song, in %s', language => {
+  it.each(LANGUAGES)('no line repeats more than twice within a single song, except the intentionally-repeated hook bookend, in %s', language => {
+    // v3.3 (TASK A3) deliberately repeats the hook line 4-7 times to bookend every chorus-type
+    // section — that repetition is the whole point of the hook, not the bug this test originally
+    // guarded against (accidental duplicate filler lines). Exclude only the hook line itself.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       const counts = new Map<string, number>();
-      for (const line of bodyLines(song.lyrics)) counts.set(line, (counts.get(line) || 0) + 1);
+      for (const line of bodyLines(song.lyrics)) {
+        if (line === song.hookPhrase) continue;
+        counts.set(line, (counts.get(line) || 0) + 1);
+      }
       for (const [line, count] of counts) {
         expect(count, `line "${line}" repeated ${count}x in "${song.title}"`).toBeLessThanOrEqual(2);
       }

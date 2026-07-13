@@ -1,13 +1,14 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { buildStylePrompt } from './promptComposer';
+import { buildStylePrompt, hookStyleDirectives } from './promptComposer';
 import {
   composeLyrics,
   createLyricBatchPools,
   createTitleGenerator,
   hashSeed,
   seedForBlueprint,
-  UniquePool
+  UniquePool,
+  wantsFinalChorusModulation
 } from './lyricEngine';
 
 /**
@@ -135,7 +136,13 @@ export function getRecurringMotifWords(language: GenerationOptions['lyricLanguag
   return recurringMotifs.map(phrase => phraseFor(phrase, language));
 }
 
-export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PlaylistBlueprint {
+export function generateLocalBlueprint(
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
+): PlaylistBlueprint {
   const baseStyle = buildStylePrompt(opts, genres, moods, season);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
@@ -145,7 +152,7 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const motifPool = new UniquePool(recurringMotifs, seed + 23);
-  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase);
+  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid);
   const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase);
   const packMotif = recurringMotifs[seed % recurringMotifs.length];
 
@@ -172,10 +179,11 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
       baseStyle,
       `track ${trackNo} role: ${role}`,
       `${tempo} BPM`,
-      `distinct hook phrase: "${hookPhrase}"`,
+      hookStyleDirectives(hookPhrase, opts.lyricDepth),
       `listener scene: ${situation}`,
       `use recurring playlist motif: ${packMotif.english}`,
       generationPack?.tempoBias,
+      wantsFinalChorusModulation(role) ? 'modulate up a half step for the final chorus' : null,
       'same channel vocal signature and mix balance across the full playlist set'
     ].filter(Boolean).join(', ');
     const partialSong = {
@@ -209,7 +217,7 @@ export function generateLocalBlueprint(opts: GenerationOptions, genres: GenrePac
     vocalSignature: opts.vocalTone || opts.channel.defaultVocal,
     lyricRules: [
       'original lyrics only',
-      'simple memorable hook',
+      'short 2-5 word hook that bookends and repeats through every chorus',
       'consistent recurring motif without repeated lines',
       'Suno section tags included',
       generationPack?.audienceNote || 'audience-safe language'

@@ -184,7 +184,8 @@ export async function regenerateTrack(
         { ...candidateOpts, projectTitle: `${opts.projectTitle}::retry-${trackNo}-${attempt}-${Date.now()}` },
         genres,
         moods,
-        season
+        season,
+        { usedTitles, usedHooks }
       );
       raw = { ...single.songs[0], trackNo };
     } else {
