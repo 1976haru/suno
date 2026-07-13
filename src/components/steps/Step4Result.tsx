@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Download, RotateCcw, Save, Sparkles } from 'lucide-react';
+import { Download, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
+import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea } from '../../types';
+import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -24,11 +26,13 @@ interface Step4ResultProps {
   isRefining: boolean;
   refineProgress: { done: number; total: number };
   refineWarnings: string[];
+  thumbnailSpec: ThumbnailSpec | null;
   onSave: () => void;
   onEvaluate: (scopeTrackNos?: number[]) => void;
   onRetrySong: (trackNo: number, issues: string[]) => void;
   onUndoRetry: () => void;
   onRefineSelected: (trackNos: number[]) => void;
+  onRegenerateHeadline: () => void;
 }
 
 export default function Step4Result({
@@ -50,15 +54,18 @@ export default function Step4Result({
   isRefining,
   refineProgress,
   refineWarnings,
+  thumbnailSpec,
   onSave,
   onEvaluate,
   onRetrySong,
   onUndoRetry,
-  onRefineSelected
+  onRefineSelected,
+  onRegenerateHeadline
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
+  const [resultTab, setResultTab] = useState<'songs' | 'thumbnail'>('songs');
 
   function toggleTrackSelected(trackNo: number) {
     setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
@@ -141,7 +148,24 @@ export default function Step4Result({
         </div>
       )}
 
-      {blueprint && hybridRefineAvailable && (
+      {blueprint && (
+        <div className="tab-row">
+          <button type="button" className={resultTab === 'songs' ? 'tab active' : 'tab'} onClick={() => setResultTab('songs')}>
+            <ListMusic size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            곡 목록
+          </button>
+          <button type="button" className={resultTab === 'thumbnail' ? 'tab active' : 'tab'} onClick={() => setResultTab('thumbnail')}>
+            <ImageIcon size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            🖼 썸네일 사양
+          </button>
+        </div>
+      )}
+
+      {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
+        <ThumbnailSpecPanel spec={thumbnailSpec} onRegenerateHeadline={onRegenerateHeadline} />
+      )}
+
+      {resultTab === 'songs' && blueprint && hybridRefineAvailable && (
         <HybridRefinePanel
           songs={blueprint.songs}
           selected={refineSelection}
@@ -153,11 +177,11 @@ export default function Step4Result({
         />
       )}
 
-      {blueprint && !evaluationAvailable && (
+      {resultTab === 'songs' && blueprint && !evaluationAvailable && (
         <p className="supporting">평가 기능은 Claude 또는 ChatGPT API 설정이 필요합니다. (설정에서 제공자를 변경하세요)</p>
       )}
 
-      {blueprint && evaluationAvailable && (
+      {resultTab === 'songs' && blueprint && evaluationAvailable && (
         <div className="provider-summary">
           <p className="supporting">
             평가 범위를 좁히면 API 호출 수가 줄어 비용이 절약됩니다. 곡이 많을수록 효과가 커요.
@@ -175,9 +199,9 @@ export default function Step4Result({
           )}
         </div>
       )}
-      {evalError && <p className="error">{evalError}</p>}
-      {retryWarning && <p className="error">{retryWarning}</p>}
-      {undoTrackNo !== null && (
+      {resultTab === 'songs' && evalError && <p className="error">{evalError}</p>}
+      {resultTab === 'songs' && retryWarning && <p className="error">{retryWarning}</p>}
+      {resultTab === 'songs' && undoTrackNo !== null && (
         <div className="warning">
           <RotateCcw size={16} />
           <span>
@@ -190,7 +214,7 @@ export default function Step4Result({
         </div>
       )}
 
-      {evaluation && (
+      {resultTab === 'songs' && evaluation && (
         <div className="signature-grid">
           <div><b>다양성</b><span>{evaluation.packLevel.diversityScore}/100</span></div>
           <div><b>톤 일관성</b><span>{evaluation.packLevel.coherenceScore}/100</span></div>
@@ -202,7 +226,7 @@ export default function Step4Result({
         </div>
       )}
 
-      {blueprint && (
+      {resultTab === 'songs' && blueprint && (
         <div className="signature-grid">
           <div><b>Sonic</b><span>{blueprint.sonicSignature}</span></div>
           <div><b>Vocal</b><span>{blueprint.vocalSignature}</span></div>
@@ -210,7 +234,7 @@ export default function Step4Result({
         </div>
       )}
 
-      {songs.map(song => (
+      {resultTab === 'songs' && songs.map(song => (
         retryingTrack === song.trackNo ? (
           <SongCardSkeleton key={song.trackNo} trackNo={song.trackNo} />
         ) : (
@@ -227,7 +251,7 @@ export default function Step4Result({
           />
         )
       ))}
-      {Array.from({ length: skeletonCount }, (_, i) => (
+      {resultTab === 'songs' && Array.from({ length: skeletonCount }, (_, i) => (
         <SongCardSkeleton key={`skeleton-${songs.length + i + 1}`} trackNo={songs.length + i + 1} />
       ))}
     </section>

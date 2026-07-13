@@ -685,6 +685,55 @@ textarea {
   margin-top: 16px;
 }
 
+.thumbnail-spec {
+  display: grid;
+  gap: 14px;
+}
+
+.thumbnail-preview {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.thumbnail-preview-text {
+  display: grid;
+  gap: 6px;
+}
+
+.thumbnail-preview-headline {
+  font-size: clamp(20px, 6vw, 30px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.thumbnail-preview-subline {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.thumbnail-swatches {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.thumbnail-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
 .signature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

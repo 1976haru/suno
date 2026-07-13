@@ -6,6 +6,7 @@ import { saveAutosave } from './core/library';
 import { isEvaluationAvailable } from './agents/evaluator';
 import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { recordUsage } from './core/usageLedger';
+import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow } from './hooks/useGenerationFlow';
@@ -35,6 +36,7 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
   const [hybridMode, setHybridMode] = useState(false);
+  const [thumbnailVariant, setThumbnailVariant] = useState(0);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -67,6 +69,10 @@ export default function App() {
   const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
   const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
   const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
+  const thumbnailSpec = useMemo(
+    () => (gen.blueprint ? buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant) : null),
+    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant]
+  );
 
   function toggleArray(key: 'genreIds' | 'moodIds', id: string) {
     setOpts(prev => {
@@ -89,6 +95,7 @@ export default function App() {
 
   function runGeneration(cacheKeyToStore?: string) {
     evalFlow.setEvaluation(null);
+    setThumbnailVariant(0);
     setCurrentStep(4);
     const generationProvider = isHybridActive ? { ...provider, provider: 'local' as const } : provider;
     void gen.generate(
@@ -157,6 +164,10 @@ export default function App() {
     const key = cachePrompt?.key;
     setCachePrompt(null);
     runGeneration(key);
+  }
+
+  function onRegenerateHeadline() {
+    setThumbnailVariant(v => v + 1);
   }
 
   function onEvaluate(scopeTrackNos?: number[]) {
@@ -283,11 +294,13 @@ export default function App() {
               isRefining={gen.isRefining}
               refineProgress={gen.refineProgress}
               refineWarnings={gen.refineWarnings}
+              thumbnailSpec={thumbnailSpec}
               onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel })}
               onEvaluate={onEvaluate}
               onRetrySong={onRetrySong}
               onUndoRetry={onUndoRetry}
               onRefineSelected={onRefineSelected}
+              onRegenerateHeadline={onRegenerateHeadline}
             />
           )}
 

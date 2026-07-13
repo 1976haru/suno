@@ -17,7 +17,7 @@ import {
  * into the lyrics themselves — so it needs a real Korean/Japanese phrase for
  * those languages instead of the English string leaking into the lyrics.
  */
-interface LocalizedPhrase {
+export interface LocalizedPhrase {
   english: string;
   korean: string;
   japanese: string;
@@ -134,6 +134,11 @@ function buildYoutubeMetadata(
 /** Exposed for tests that need to check how often the real recurring motif appears in generated lyrics. */
 export function getRecurringMotifWords(language: GenerationOptions['lyricLanguage']): string[] {
   return recurringMotifs.map(phrase => phraseFor(phrase, language));
+}
+
+/** All three language forms of every motif, positionally aligned — used by thumbnailSpec.ts to derive display objects and their English equivalent in one pass. */
+export function getRecurringMotifPhrases(): LocalizedPhrase[] {
+  return recurringMotifs;
 }
 
 export function generateLocalBlueprint(
