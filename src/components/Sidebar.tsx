@@ -1,4 +1,4 @@
-import { BookOpen, Download, Plus, Settings2, Sparkles, Trash2 } from 'lucide-react';
+import { BookOpen, Download, Film, Plus, Settings2, Sparkles, Trash2 } from 'lucide-react';
 import type { ChannelProfile, SavedPackMeta } from '../types';
 
 interface SidebarProps {
@@ -16,6 +16,7 @@ interface SidebarProps {
   onExportAll: () => void;
   onImportAll: (file: File) => void;
   onOpenSettings: () => void;
+  onOpenDashboard: () => void;
 }
 
 export default function Sidebar({
@@ -32,7 +33,8 @@ export default function Sidebar({
   onDeletePack,
   onExportAll,
   onImportAll,
-  onOpenSettings
+  onOpenSettings,
+  onOpenDashboard
 }: SidebarProps) {
   return (
     <aside className="app-sidebar">
@@ -104,6 +106,11 @@ export default function Sidebar({
           불러오기
         </label>
       </div>
+
+      <button type="button" className="full-width" onClick={onOpenDashboard}>
+        <Film size={16} />
+        📺 영상 운영 대시보드
+      </button>
 
       <button type="button" className="full-width" onClick={onOpenSettings}>
         <Settings2 size={16} />

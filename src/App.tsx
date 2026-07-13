@@ -23,6 +23,7 @@ import Step2Concept from './components/steps/Step2Concept';
 import Step3Generate from './components/steps/Step3Generate';
 import Step4Result from './components/steps/Step4Result';
 import WizardNav from './components/WizardNav';
+import VideoDashboard from './components/VideoDashboard';
 
 const STEPS: StepDef[] = [
   { id: 1, label: '① 채널' },
@@ -39,6 +40,7 @@ export default function App() {
   const [hybridMode, setHybridMode] = useState(false);
   const [thumbnailVariant, setThumbnailVariant] = useState(0);
   const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
+  const [dashboardOpen, setDashboardOpen] = useState(false);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -243,9 +245,14 @@ export default function App() {
           onExportAll={() => void library.exportAll()}
           onImportAll={file => void library.importAll(file)}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenDashboard={() => setDashboardOpen(true)}
         />
 
         <div className="wizard-main">
+          {dashboardOpen ? (
+            <VideoDashboard channel={cm.selectedChannel} onClose={() => setDashboardOpen(false)} />
+          ) : (
+            <>
           <StepIndicator steps={STEPS} current={currentStep} maxUnlocked={maxUnlocked} onSelect={setCurrentStep} />
 
           {currentStep === 1 && (
@@ -327,6 +334,8 @@ export default function App() {
             nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 3 && step3Blocked)}
             blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 3 ? '먼저 곡을 생성하세요.' : ''}
           />
+            </>
+          )}
         </div>
       </div>
 

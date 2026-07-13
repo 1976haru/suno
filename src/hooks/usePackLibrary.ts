@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
 import { clearAllSettings } from '../core/settingsStore';
 import { forgetPack, recordPackHooks } from '../core/hookLedger';
+import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, ThumbnailSpec } from '../types';
 
 export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
@@ -35,6 +36,25 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
     }
+    try {
+      // TASK B3 (v3.4): a saved pack is the operational unit of "one video" —
+      // draft a video-dashboard entry from it so it shows up in the weekly
+      // roadmap table without extra manual entry.
+      await upsertVideoForPack({
+        channelId: options.channel.id,
+        packId: id,
+        videoTitle: blueprint.projectTitle,
+        thumbnailA: thumbnailSpec?.variants.find(v => v.id === 'A')?.headline.replace('\n', ' ') || '',
+        thumbnailB: thumbnailSpec?.variants.find(v => v.id === 'B')?.headline.replace('\n', ' ') || '',
+        thumbnailC: thumbnailSpec?.variants.find(v => v.id === 'C')?.headline.replace('\n', ' ') || '',
+        thumbnailUsed: thumbnailSpec?.selected ?? null,
+        imagePrompt: thumbnailSpec?.imagePrompt || '',
+        colors: thumbnailSpec ? [thumbnailSpec.colorScheme.background, thumbnailSpec.colorScheme.accent, thumbnailSpec.colorScheme.text] : [],
+        seoKeywords: options.channel.seoKeywords || []
+      });
+    } catch {
+      // Video ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
     await refresh();
   }
 
@@ -49,6 +69,11 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       await forgetPack(id);
     } catch {
       // Hook ledger tracking is best-effort; deletion should still succeed even if this fails.
+    }
+    try {
+      await forgetVideosForPack(id);
+    } catch {
+      // Video ledger tracking is best-effort; deletion should still succeed even if this fails.
     }
     await refresh();
   }

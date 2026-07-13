@@ -1001,3 +1001,46 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+.video-dashboard {
+  display: grid;
+  gap: 14px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.video-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.video-table th,
+.video-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.video-table th {
+  background: var(--panel-soft);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+}
+
+.video-table td input {
+  min-width: 90px;
+  padding: 5px 7px;
+  font-size: 13px;
+}
+
+.video-table td:nth-child(5) input,
+.video-table td:nth-child(9) input {
+  min-width: 160px;
+}
