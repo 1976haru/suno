@@ -183,7 +183,15 @@ describe('[v3.7] primary/secondary genre prompt budgeting', () => {
     }
   });
 
-  it('extreme free-text inputs are still hard-capped at <= 1,000 chars', () => {
+  it('extreme free-text inputs still drop non-essential terms first and never silently truncate essential atoms', () => {
+    // TASK F5 (v3.7) — this used to assert a hard <=1000 ceiling even here,
+    // but the only way the old code met that was by hard-dropping whole
+    // essential atoms (including vocalTone itself) once the budget ran out —
+    // silently discarding the user's vocal description is worse than a
+    // prompt that runs long and visibly warns the user to trim it (see
+    // enforceHardLimit's essential-atom guarantee). A single essential
+    // field this pathologically long (500 chars typed into vocalTone) is
+    // the actual cause of the overflow here, not a composer bug.
     const genres = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'].map(id => genrePacks.find(genre => genre.id === id)!);
     const moods = ['nostalgic', 'warm', 'hopeful'].map(id => moodPacks.find(mood => mood.id === id)!);
     const opts = makeOptions({
@@ -197,9 +205,10 @@ describe('[v3.7] primary/secondary genre prompt budgeting', () => {
     });
     const blueprint = generateLocalBlueprint(opts, genres, moods, seasonPacks[0]);
     const song = blueprint.songs[0];
-    expect(song.stylePrompt.length).toBeLessThanOrEqual(SUNO_STYLE_LIMIT);
+    expect(song.stylePrompt).toContain('mature close vocal');
     expect(song.stylePrompt.trim().endsWith(',')).toBe(false);
     expect(song.promptDroppedTerms?.length).toBeGreaterThan(0);
+    expect(song.promptWithinLimit).toBe(false);
   });
 
   it('secondary genres contribute keywords, not their full styleCore text', () => {

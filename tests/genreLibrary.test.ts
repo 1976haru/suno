@@ -100,6 +100,13 @@ describe('structured genre library', () => {
   });
 
   it('compresses by individual clauses in priority order', () => {
+    // TASK F5 (v3.7) — genre/vocal/hook/moneyChord/duration are essential and
+    // must never be hard-dropped (see enforceHardLimit); only non-essential
+    // atoms like mixNotes are candidates once the limit is tight. 180 is
+    // sized to fit every essential atom plus the mood atoms while still
+    // being too tight for the 55-char mixNotes clause, so the test still
+    // exercises "lowest priority gets dropped first" without asserting a
+    // ceiling essential content could legitimately exceed.
     const result = composeStylePrompt([
       { id: 'genre', text: 'adult pop' },
       { id: 'vocal', text: 'clear vocal' },
@@ -109,12 +116,12 @@ describe('structured genre library', () => {
       { id: 'tempo', text: '96 BPM' },
       { id: 'mood', text: 'warm, nostalgic, hopeful, elegant, reflective' },
       { id: 'mixNotes', text: 'same channel mix balance across the full playlist set' }
-    ], 150, 145);
+    ], 180, 180);
 
     expect(result.prompt).toContain('warm');
     expect(result.prompt).not.toContain('same channel mix balance');
     expect(result.droppedTerms).toContain('mix notes');
-    expect(result.length).toBeLessThanOrEqual(150);
+    expect(result.length).toBeLessThanOrEqual(180);
   });
 
   it('limits concept-screen genre selection to one primary plus two secondary genres', () => {

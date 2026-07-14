@@ -153,6 +153,19 @@ function addDroppedLabel(droppedTerms: string[], id: PromptTermId) {
   if (!droppedTerms.includes(label)) droppedTerms.push(label);
 }
 
+/**
+ * TASK F5 (v3.7) regression fix — this used to cut whatever came next once
+ * the running length crossed `limit`, with no idea which atoms were
+ * essential. That was "safe by accident" only because the old
+ * PROMPT_PRIORITY order happened to put every essential id first; reordering
+ * PROMPT_PRIORITY to genre -> mood -> vocal -> ... (TASK F2) exposed the
+ * latent bug immediately: at a tight limit (e.g. the 200-char legacy
+ * preset), genre+mood atoms alone can eat the whole budget, silently
+ * guillotining the hook/vocal/money-chord/duration atoms that show up
+ * later in iteration order even though they're essential. Essential atoms
+ * must never be hard-dropped here — only non-essential ones are candidates,
+ * same guarantee the SAFE_TARGET soft-check already makes upstream.
+ */
 export function enforceHardLimit(
   atoms: KeptPromptAtom[],
   limit: number = SUNO_STYLE_LIMIT
@@ -162,8 +175,9 @@ export function enforceHardLimit(
   let currentLength = 0;
 
   for (const atom of atoms) {
+    const essential = ESSENTIAL_TERM_IDS.has(atom.id);
     const projected = currentLength + (currentLength ? 2 : 0) + atom.text.length;
-    if (projected > limit) {
+    if (!essential && projected > limit) {
       dropped.push(atom);
       continue;
     }
