@@ -3,7 +3,10 @@ import { generateLocalBlueprint } from '../src/core/localGenerator';
 import {
   HOOK_SHAPES,
   buildShapeSequence,
+  hookEmotionalWeight,
+  hookRhythmLength,
   hookWordCount,
+  matchCombinatorialShape,
   matchHookShape
 } from '../src/core/lyricEngine';
 import { hookStyleDirectives } from '../src/core/promptComposer';
@@ -69,27 +72,47 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     }
   });
 
-  it('[H3] all 4 hook shapes appear at least 15% of the time across a 30-song pack', () => {
+  it('[H3] sung hooks use the 3 singable shapes and never nounPhrase', () => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
-    const counts: Record<string, number> = { vocative: 0, imperative: 0, nounPhrase: 0, declarative: 0 };
+    const counts: Record<string, number> = { vocative: 0, imperative: 0, declarative: 0 };
     for (const song of bp.songs) {
-      const shape = matchHookShape(song.hookPhrase, 'english');
-      if (shape) counts[shape] += 1;
+      const shape = matchHookShape(song.hookPhrase, 'english') || matchCombinatorialShape(song.hookPhrase, 'english', bp.channelName.includes('昭和') ? 'showa-cafe' : 'senior-morning');
+      expect(shape, `hook "${song.hookPhrase}" should match a known sung shape`).not.toBe('nounPhrase');
+      if (shape && shape !== 'nounPhrase') counts[shape] += 1;
     }
     const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-    expect(total, 'every hook should match some curated shape bank').toBe(30);
+    expect(total, 'every hook should match a sung shape bank').toBe(30);
     for (const shape of HOOK_SHAPES) {
       expect(counts[shape] / total, `shape "${shape}" only appeared ${counts[shape]}/${total} times`).toBeGreaterThanOrEqual(0.15);
     }
   });
 
-  it('buildShapeSequence distributes all 4 shapes for songCount=30, each >=15%', () => {
+  it('buildShapeSequence distributes the 3 sung shapes for songCount=30, each >=15%', () => {
     const sequence = buildShapeSequence(30, 12345);
     expect(sequence.length).toBe(30);
+    expect(sequence).not.toContain('nounPhrase');
     for (const shape of HOOK_SHAPES) {
       const count = sequence.filter(s => s === shape).length;
       expect(count / 30).toBeGreaterThanOrEqual(0.15);
     }
+  });
+
+  it.each(LANGUAGES)('keeps all hooks in one pack within a 1-syllable/mora rhythm window in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    const lengths = bp.songs.map(song => hookRhythmLength(song.hookPhrase, language));
+    expect(Math.max(...lengths) - Math.min(...lengths), `${language}: ${lengths.join(', ')}`).toBeLessThanOrEqual(2);
+  });
+
+  it.each(LANGUAGES)('places 2-3 high-emotion hooks in a 12 song pack in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    const highCount = bp.songs.filter(song => hookEmotionalWeight(song.hookPhrase) === 'high').length;
+    expect(highCount).toBeGreaterThanOrEqual(2);
+    expect(highCount).toBeLessThanOrEqual(3);
+  });
+
+  it.each(LANGUAGES)('uses a high-emotion hook for late-set emotional center in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    expect(hookEmotionalWeight(bp.songs[7].hookPhrase)).toBe('high');
   });
 
   it.each(LANGUAGES)('[pre-chorus] a [pre-chorus] section with exactly 2 lines exists before [chorus], in %s', language => {

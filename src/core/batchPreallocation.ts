@@ -28,12 +28,13 @@ export function preallocateSongSlots(
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const { title, hook } = nextTitle();
+    const songRole = songRoles[Math.min(idx, songRoles.length - 1)];
+    const { title, hook } = nextTitle(songRole);
     return {
       trackNo,
       title,
       hookPhrase: hook,
-      songRole: songRoles[Math.min(idx, songRoles.length - 1)],
+      songRole,
       tempo: averageTempo(genres, trackNo),
       emotionArc: emotionArcPool.take()
     };

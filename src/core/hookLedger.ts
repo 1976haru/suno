@@ -119,6 +119,10 @@ export function exhaustionStats(used: number, poolSize: number): ExhaustionStats
   return { used, poolSize, remaining, percentUsed };
 }
 
+export function hookPoolNeedsWarning(stats: ExhaustionStats): boolean {
+  return stats.percentUsed >= 80 && stats.remaining > 0;
+}
+
 export async function channelExhaustionStats(channelId: string, language: LyricLanguage, archetype?: ChannelArchetype): Promise<ExhaustionStats> {
   const used = (await usedHooks(channelId, language)).size;
   const poolSize = hookPoolSize(language, archetype);

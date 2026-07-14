@@ -1,23 +1,14 @@
-# 스트레스 테스트 결과 (STRESS_TEST_REPORT)
+# Production Stress Test Report
 
-자동 생성됨 — `npm run test:stress` 실행 시 `tests/stress.test.ts`가 매번 이 파일을 다시 씁니다.
-
-생성 시각: 2026-07-13T22:14:07.400Z
+Generated: 2026-07-14T21:59:43.800Z
 
 | 시나리오 | 결과 | 소요시간(ms) | 비고 |
-|---|---|---|---|
-| S1: 최소 부하 (1곡) | PASS | 8 | - |
-| S2: 표준 부하 (12곡 x 3언어 x 5장르조합) | PASS | 125 | - |
-| S3: 최대 부하 (30곡) | PASS | 20 | - |
-| S4: 연속 생성 (30곡 x 50회 반복) | PASS | 540 | - |
-| S5: 경계값 (songCount 0, -5, 31, 999, NaN, Infinity, "abc") | PASS | 35 | - |
-| S6: 극단 입력 (채널명 10000자 / 이모지 / 빈 문자열 / <script>) | PASS | 13 | - |
-| S7: 프리셋 전수 (장르 x 무드 x 시즌 x 머니코드, 각 단독 검증) | PASS | 46 | - |
-| S8: 저장소 부하 (30곡 팩 100개 IndexedDB 저장/로드) | MANUAL | 0 | Node에 IndexedDB 없음. Playwright로 단일 팩 자동저장/불러오기는 확인함. 100개 벌크 부하는 별도 측정 안 됨. |
-| S9: 응답 잘림 (서버 안전 파서 + 클라이언트 에러 노출) | PASS | 15 | - |
-| S10: 인증 실패 (401) | PASS | 0 | - |
-| S11: 레이트리밋 (429) 지수 백오프 재시도 후 성공 | PASS | 31 | - |
-| S11b: 레이트리밋 지속 시 최대 3회 재시도 후 안내 | PASS | 45 | - |
-| S12: 타임아웃 설정 확인 (서버 30초 AbortController) | PASS | 1 | - |
-| S13: 배치 부분 실패 (1,2번째 배치 결과는 진행률 콜백에 보존) | PASS | 3 | - |
-| S14: 키 누출 검사 (콘솔 로그 / 에러 메시지) | PASS | 3 | - |
+|---|---:|---:|---|
+| S1 long run: 18 weeks x 12 songs has no title/hook duplicates and stable memory | PASS | 387 | - |
+| S2 hook pool exhaustion gives warning at 80 percent and clear error at exhaustion | PASS | 30 | - |
+| S3 performance: 30 local songs stay fast with 0/200/500 history entries | PASS | 34 | - |
+| S4 prompt caps: all genres/languages/seasons fit, persona tracks fit, seed keeps essentials | PASS | 3541 | - |
+| S5 extreme inputs are clamped and never execute script text | PASS | 35 | - |
+| S6 storage load simulation: 100 packs serialize/restore and hook lookup over 5000 entries stays fast | PASS | 910 | - |
+| S7 batch stability: one failed batch preserves the rest and retry merges without duplicate trackNo | PASS | 1 | - |
+| S8 API failure modes are mocked, retried, recoverable, and key-safe | PASS | 30 | - |

@@ -683,19 +683,25 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
 // ---------------------------------------------------------------------------
 
 export type HookShape = 'vocative' | 'imperative' | 'nounPhrase' | 'declarative';
-export const HOOK_SHAPES: HookShape[] = ['vocative', 'imperative', 'nounPhrase', 'declarative'];
+export type SungHookShape = Exclude<HookShape, 'nounPhrase'>;
+export type HookEmotionalWeight = 'medium' | 'high';
+const ALL_HOOK_SHAPES: HookShape[] = ['vocative', 'imperative', 'nounPhrase', 'declarative'];
+export const HOOK_SHAPES: SungHookShape[] = ['vocative', 'imperative', 'declarative'];
 
 export interface HookSpec {
   phrase: string;
   syllables: number;
   isTitle: boolean;
   shape: HookShape;
+  emotionalWeight: HookEmotionalWeight;
 }
 
 export interface HookContext {
   language: LyricLanguage;
   shape: HookShape;
   usedHooks: Set<string>;
+  targetSyllables?: number;
+  emotionalWeight?: HookEmotionalWeight;
   /** v3.4 — scopes both the premium tier (senior-morning only) and the combinatorial vocabulary. Undefined behaves like 'senior-morning'. */
   archetype?: ChannelArchetype;
 }
@@ -710,12 +716,13 @@ const enTimeWords = ['Winter', 'Golden', 'Quiet', 'Old December', 'First Snow', 
 const enHookVocative = [
   'Hold On, My Friend', 'Stay a While, Darling', 'Close Your Eyes, Winter', 'Rest Here, My Love',
   'Wake Up, My Dear', 'Breathe with Me, Morning', 'Hold My Hand, Friend', 'Come Home Soon, Darling',
-  'Hush Now, My Love', "Don't Go, Old Heart"
+  'Hush Now, My Love', "Don't Go, Old Heart", "Don't Let Go of Me", 'Stay with Me Tonight'
 ];
 const enHookImperative = [
   'Keep the Light On', 'Pour the Coffee Warm', 'Write One More Letter', 'Play the Old Record',
   'Catch the Morning Train', 'Light the Candle Again', 'Turn the Page Slowly', 'Share the Warm Umbrella',
-  'Keep the Radio Playing', 'Hold the Photo Close', 'Wrap the Old Sweater', 'Wait by the Window'
+  'Keep the Radio Playing', 'Hold the Photo Close', 'Wrap the Old Sweater', 'Wait by the Window',
+  'Come Back to This Morning', 'Remember Me at Sunrise'
 ];
 const enHookNounPhrase = [
   'Winter Window Light', 'Golden Sunset Train', 'Quiet Morning Coffee', 'Old December Letter',
@@ -725,7 +732,7 @@ const enHookNounPhrase = [
 const enHookDeclarative = [
   "I'll Wait for Morning", "We'll Be Alright", 'I Remember You', "I'm Coming Home",
   "I Won't Forget", "You're Still Here", 'I Found My Way', 'We Made It Through',
-  'I Still Believe', "I Know You're Near"
+  'I Still Believe', "I Know You're Near", 'I Still Hear Your Song', 'I Still Wait for You'
 ];
 
 const koHookVocative = [
@@ -774,6 +781,24 @@ const jaHookDeclarative = [
 ];
 
 /** Premium tier is senior-morning's own hand-written imagery (coffee, radio, letters) — only that archetype (and the two fallback archetypes with no vocabulary override) draw from it, so it never leaks into showa-cafe/kids and break the "hooks never overlap across archetypes" guarantee. */
+const extraPremiumHooks: Record<Exclude<LyricLanguage, 'bilingual'>, Partial<Record<SungHookShape, string[]>>> = {
+  english: {
+    vocative: ["Don't Let Go of Me", 'Stay with Me Tonight'],
+    imperative: ['Come Back to This Morning', 'Remember Me at Sunrise'],
+    declarative: ['I Still Hear Your Song', 'I Still Wait for You']
+  },
+  korean: {
+    vocative: ['잠시 쉬어 가요', '여기 있어 줘요', '천천히 와 줘요'],
+    imperative: ['그날까지 기다려요', '다시 여기 와줘요', '이 아침을 안아줘요', '불을 조금 켜둬요', '커피를 따뜻이 둬요', '창문을 열어 둬요'],
+    declarative: ['그 노래가 들려요', '그대를 잊지 않아요', '이 아침이 고마워요', '아침을 기다려요', '오늘도 기억해요', '마음이 쉬어 가요']
+  },
+  japanese: {
+    vocative: ['少しここにいて', '朝までそばにいて', '静かに戻って', '戻ってきてほしい', '歌を聞いていて'],
+    imperative: ['また朝に帰って', 'ここで待っていて', 'その声を抱いて', '灯りをつけていて', '窓辺で待っていて', 'ゆっくり歩いて'],
+    declarative: ['あの歌が聞こえる', '忘れないでいる', 'また会えると信じる', 'あの歌を覚えてる', 'ここで息をして', '朝を待っている']
+  }
+};
+
 function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: ChannelArchetype): string[] {
   if (archetype === 'showa-cafe' || archetype === 'kids') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
@@ -782,7 +807,8 @@ function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: C
     japanese: { vocative: jaHookVocative, imperative: jaHookImperative, nounPhrase: jaHookNounPhrase, declarative: jaHookDeclarative }
   };
   const resolved = language === 'bilingual' ? 'english' : language;
-  return banks[resolved][shape];
+  const extra = shape === 'nounPhrase' ? [] : (extraPremiumHooks[resolved][shape] || []);
+  return [...extra, ...banks[resolved][shape]];
 }
 
 /** English: whitespace word count (matches how a singer would count it). CJK phrases carry no reliable whitespace word boundary, so they always read as short by this metric — syllable/character count is the real singability signal for those languages. */
@@ -795,6 +821,9 @@ export function estimateSyllables(phrase: string, language: LyricLanguage): numb
     return [...phrase].filter(ch => { const code = ch.charCodeAt(0); return code >= 0xac00 && code <= 0xd7a3; }).length;
   }
   if (language === 'japanese') {
+    return [...phrase].filter(ch => /[\u3040-\u309f\u30a0-\u30ff\u3400-\u9fff]/u.test(ch)).length;
+  }
+  if (false) {
     return [...phrase].filter(ch => /[぀-ヿ一-鿿]/.test(ch)).length;
   }
   return phrase.split(/\s+/).filter(Boolean).reduce((total, word) => {
@@ -828,6 +857,56 @@ export function isWithinHookLengthBounds(phrase: string, language: LyricLanguage
   const bounds = HOOK_LENGTH_BOUNDS[resolved];
   const length = hookLength(phrase, language);
   return length >= bounds.min && length <= bounds.max;
+}
+
+const HOOK_RHYTHM_BOUNDS: Record<'english' | 'korean' | 'japanese', { min: number; max: number }> = {
+  english: { min: 4, max: 7 },
+  korean: { min: 6, max: 10 },
+  japanese: { min: 7, max: 12 }
+};
+
+export function hookRhythmLength(phrase: string, language: LyricLanguage): number {
+  return estimateSyllables(phrase, language);
+}
+
+export function targetHookSyllables(language: LyricLanguage, seed: number): number {
+  const resolved = language === 'bilingual' ? 'english' : language;
+  void seed;
+  return { english: 5, korean: 8, japanese: 8 }[resolved];
+}
+
+function isWithinTargetRhythm(phrase: string, language: LyricLanguage, targetSyllables?: number): boolean {
+  if (!targetSyllables) return true;
+  return Math.abs(hookRhythmLength(phrase, language) - targetSyllables) <= 1;
+}
+
+export function hookEmotionalWeight(phrase: string): HookEmotionalWeight {
+  const normalized = phrase.toLowerCase();
+  const highMarkers = [
+    "don't let go",
+    "don't go",
+    'come back',
+    'remember me',
+    'still hear',
+    'still wait',
+    '그날까지',
+    '다시 여기',
+    '그 노래',
+    '그대를 잊지',
+    'また朝',
+    'ここで待って',
+    '戻ってきて',
+    '歌を聞いて',
+    'あの歌',
+    '忘れないで',
+    'また会える'
+  ];
+  return highMarkers.some(marker => normalized.includes(marker.toLowerCase())) ? 'high' : 'medium';
+}
+
+export function targetHookEmotionalWeight(role?: string): HookEmotionalWeight {
+  if (!role) return 'medium';
+  return /late-set emotional center|memory-focused late track|first nostalgic turn/i.test(role) ? 'high' : 'medium';
 }
 
 /** Distributes shapes as evenly as possible across a pack so 30 songs never lean on one shape (each shape gets >=15% for songCount >= 4). */
@@ -913,15 +992,32 @@ function combinatorialHookBank(shape: HookShape, parts: HookPartBank, language: 
  * silently returning a duplicate.
  */
 export function composeHook(seed: number, ctx: HookContext): HookSpec {
+  const pickUnused = (candidates: string[], shuffleSeed: number) => shuffle(candidates, shuffleSeed).find(candidate => !ctx.usedHooks.has(candidate));
   const premium = premiumBankFor(ctx.language, ctx.shape, ctx.archetype);
-  const shuffledPremium = shuffle(premium, seed);
-  let phrase = shuffledPremium.find(candidate => !ctx.usedHooks.has(candidate));
+  const weightedPremium = ctx.emotionalWeight
+    ? premium.filter(candidate => hookEmotionalWeight(candidate) === ctx.emotionalWeight)
+    : premium;
+  const rhythmPremium = weightedPremium.filter(candidate => isWithinTargetRhythm(candidate, ctx.language, ctx.targetSyllables));
+  const fallbackPremium = premium.filter(candidate => isWithinTargetRhythm(candidate, ctx.language, ctx.targetSyllables));
+  let phrase =
+    pickUnused(rhythmPremium, seed) ||
+    pickUnused(fallbackPremium, seed + 1) ||
+    pickUnused(weightedPremium, seed + 2) ||
+    pickUnused(premium, seed + 3);
 
   if (!phrase) {
     const parts = resolveHookParts(ctx.language, overrideForArchetype(ctx.archetype, ctx.language));
     const combinatorial = combinatorialHookBank(ctx.shape, parts, ctx.language);
-    const shuffledCombinatorial = shuffle(combinatorial, seed + 104729);
-    phrase = shuffledCombinatorial.find(candidate => !ctx.usedHooks.has(candidate));
+    const weightedCombinatorial = ctx.emotionalWeight
+      ? combinatorial.filter(candidate => hookEmotionalWeight(candidate) === ctx.emotionalWeight)
+      : combinatorial;
+    const rhythmCombinatorial = weightedCombinatorial.filter(candidate => isWithinTargetRhythm(candidate, ctx.language, ctx.targetSyllables));
+    const fallbackCombinatorial = combinatorial.filter(candidate => isWithinTargetRhythm(candidate, ctx.language, ctx.targetSyllables));
+    phrase =
+      pickUnused(rhythmCombinatorial, seed + 104729) ||
+      pickUnused(fallbackCombinatorial, seed + 104730) ||
+      pickUnused(weightedCombinatorial, seed + 104731) ||
+      pickUnused(combinatorial, seed + 104732);
   }
 
   if (!phrase) {
@@ -934,13 +1030,14 @@ export function composeHook(seed: number, ctx: HookContext): HookSpec {
     phrase,
     syllables: estimateSyllables(phrase, ctx.language),
     isTitle: ctx.shape !== 'vocative',
-    shape: ctx.shape
+    shape: ctx.shape,
+    emotionalWeight: hookEmotionalWeight(phrase)
   };
 }
 
 /** True if `phrase` came from the curated premium bank for `shape`; used by tests to verify shape distribution on real generated output. Combinatorial-origin hooks are matched separately (see matchesCombinatorialShape) since they aren't a fixed list. */
 export function matchHookShape(phrase: string, language: LyricLanguage): HookShape | null {
-  for (const shape of HOOK_SHAPES) {
+  for (const shape of ALL_HOOK_SHAPES) {
     if (premiumBankFor(language, shape).includes(phrase)) return shape;
   }
   return null;
@@ -949,7 +1046,7 @@ export function matchHookShape(phrase: string, language: LyricLanguage): HookSha
 /** Recomputes the full combinatorial pool for every shape and checks membership — used by tests to classify a hook that didn't come from the premium bank. */
 export function matchCombinatorialShape(phrase: string, language: LyricLanguage, archetype?: ChannelArchetype): HookShape | null {
   const parts = resolveHookParts(language, overrideForArchetype(archetype, language));
-  for (const shape of HOOK_SHAPES) {
+  for (const shape of ALL_HOOK_SHAPES) {
     if (combinatorialHookBank(shape, parts, language).includes(phrase)) return shape;
   }
   return null;
@@ -959,9 +1056,8 @@ export function matchCombinatorialShape(phrase: string, language: LyricLanguage,
 export function hookPoolSize(language: LyricLanguage, archetype?: ChannelArchetype): number {
   const parts = resolveHookParts(language, overrideForArchetype(archetype, language));
   return HOOK_SHAPES.reduce((total, shape) => {
-    const premium = premiumBankFor(language, shape, archetype).length;
-    const combinatorial = combinatorialHookBank(shape, parts, language).length;
-    return total + premium + combinatorial;
+    const pool = new Set([...premiumBankFor(language, shape, archetype), ...combinatorialHookBank(shape, parts, language)]);
+    return total + pool.size;
   }, 0);
 }
 
@@ -1032,6 +1128,7 @@ export function createTitleGenerator(
 ) {
   const s = hashSeed(seedBase);
   const shapeSequence = buildShapeSequence(songCount, s + 31);
+  const rhythmTarget = targetHookSyllables(language, s + 17);
   // Seeding with a caller-supplied avoid-set (e.g. the rest of the pack, or —
   // as of TASK X1 — this channel's cross-pack hook history) makes collisions
   // structurally impossible instead of hoping an independently-seeded draw
@@ -1040,9 +1137,16 @@ export function createTitleGenerator(
   const usedTitles = new Set<string>(avoid?.usedTitles ?? []);
   let index = 0;
 
-  return function nextTitle(): TitleResult {
+  return function nextTitle(role?: string): TitleResult {
     const shape = shapeSequence[index % shapeSequence.length] ?? HOOK_SHAPES[index % HOOK_SHAPES.length];
-    const hook = composeHook(s + 41 + index * 97, { language, shape, usedHooks, archetype });
+    const hook = composeHook(s + 41 + index * 97, {
+      language,
+      shape,
+      usedHooks,
+      archetype,
+      targetSyllables: rhythmTarget,
+      emotionalWeight: targetHookEmotionalWeight(role)
+    });
     usedHooks.add(hook.phrase);
     const title = titleFromHook(hook, s + 53 + index * 131, language, usedTitles);
     usedTitles.add(title);

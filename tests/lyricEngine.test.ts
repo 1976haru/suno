@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint, getRecurringMotifWords } from '../src/core/localGenerator';
-import { assertLyricDiversity, createTitleGenerator } from '../src/core/lyricEngine';
+import { assertLyricDiversity, createTitleGenerator, hookRhythmLength } from '../src/core/lyricEngine';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 
 describe('lyric engine', () => {
@@ -118,12 +118,21 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
     }
   });
 
-  it.each(LANGUAGES)('[R1] the extracted hook is 4 words or fewer, in %s', language => {
+  it.each(LANGUAGES)('[R1] the extracted hook stays inside the singable rhythm range in %s', language => {
     const nextTitle = createTitleGenerator(language, `hook-length-${language}`);
     for (let i = 0; i < 30; i++) {
       const { hook } = nextTitle();
-      const wordCount = hook.split(/\s+/).filter(Boolean).length;
-      expect(wordCount, `hook "${hook}" has ${wordCount} words`).toBeLessThanOrEqual(4);
+      const rhythmLength = hookRhythmLength(hook, language);
+      if (language === 'english') {
+        expect(rhythmLength, `hook "${hook}" has ${rhythmLength} syllables`).toBeGreaterThanOrEqual(4);
+        expect(rhythmLength, `hook "${hook}" has ${rhythmLength} syllables`).toBeLessThanOrEqual(7);
+      } else if (language === 'korean') {
+        expect(rhythmLength, `hook "${hook}" has ${rhythmLength} syllables`).toBeGreaterThanOrEqual(6);
+        expect(rhythmLength, `hook "${hook}" has ${rhythmLength} syllables`).toBeLessThanOrEqual(10);
+      } else {
+        expect(rhythmLength, `hook "${hook}" has ${rhythmLength} mora`).toBeGreaterThanOrEqual(7);
+        expect(rhythmLength, `hook "${hook}" has ${rhythmLength} mora`).toBeLessThanOrEqual(12);
+      }
     }
   });
 

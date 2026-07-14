@@ -302,12 +302,12 @@ export function generateLocalBlueprint(
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const { title, hook } = nextTitle();
+    const role = songRoles[Math.min(idx, songRoles.length - 1)];
+    const { title, hook } = nextTitle(role);
     const situationOption = situationPool.take();
     const situation = situationOption.english;
     const emotionArc = emotionArcPool.take();
     const tempo = averageTempo(genres, trackNo);
-    const role = songRoles[Math.min(idx, songRoles.length - 1)];
     const trackMotifOption = motifPool.take();
     const { lyrics, hookPhrase } = composeLyrics({
       language: opts.lyricLanguage,

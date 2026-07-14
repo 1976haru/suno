@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Download, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Download, FileText, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
-import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import { downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import { exportDocxBlob } from '../../utils/docxExporter';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
@@ -110,6 +111,12 @@ export default function Step4Result({
     setRefineSelection([]);
   }
 
+  async function handleWordExport() {
+    if (!blueprint) return;
+    const blob = await exportDocxBlob({ blueprint, thumbnailSpec: thumbnailSpec ?? undefined, soundSignature: soundSignature ?? undefined, personaMode });
+    downloadBlob('suno-pack.docx', blob);
+  }
+
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
       <section className="panel">
@@ -144,6 +151,10 @@ export default function Step4Result({
             <button type="button" className="primary" onClick={onSave}>
               <Save size={16} />
               💾 이 팩 저장하기
+            </button>
+            <button type="button" onClick={() => void handleWordExport()}>
+              <FileText size={16} />
+              📄 WORD
             </button>
             <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode), 'text/markdown;charset=utf-8')}>
               <Download size={16} />
