@@ -33,6 +33,8 @@ export interface GenrePack {
   instruments: string[];
   tempoRange: [number, number];
   goodFor: string[];
+  archetypes?: ChannelArchetype[];
+  tier?: 'core' | 'extended';
   categoryId?: string;
   aliases?: string[];
   rhythm?: string[];
@@ -90,6 +92,8 @@ export interface GenerationOptions {
   customMoneyChord: string;
   customConcept: string;
   avoidWords: string;
+  /** v3.8 — when true, per-song Style Prompts keep only song-specific differences because Suno Persona supplies the stable voice/style identity. */
+  personaMode: boolean;
   /** TASK D5 (v3.6) — thumbnail/title packaging language; defaults from `market` (see core/packagingLanguage.ts) but can be overridden independent of lyricLanguage. */
   packagingLanguage?: DisplayLanguage;
 }
@@ -134,6 +138,14 @@ export interface PlaylistBlueprint {
   songs: SongIdea[];
 }
 
+export interface SoundSignature {
+  short: string;
+  full: string;
+  personaName: string;
+  shortLength: number;
+  fullLength: number;
+}
+
 export interface ProviderSettings {
   provider: ProviderType;
   model?: string;
@@ -144,7 +156,7 @@ export interface ProviderSettings {
   /** TASK C2 (v3.6) — sent as X-Access-Token when a public deployment gates its server-side API key with ACCESS_TOKEN; irrelevant for BYOK (local key) mode. */
   accessToken?: string;
   batchSize?: number;
-  /** Suno copy limit for Style Prompt, defaults to SUNO_COPY_LIMIT (900) when unset. */
+  /** Suno copy limit for Style Prompt, defaults to SUNO_COPY_LIMIT (1000) when unset. */
   promptCharLimit?: number;
   /** TASK D3 (v3.5) — optional per-stage model override (lyrics vs evaluation). Only applied when provider is 'anthropic'; unset means every stage just uses this ProviderSettings as-is (pre-v3.5 behavior). */
   stageModels?: { lyrics: 'local' | 'sonnet' | 'haiku'; evaluation: 'local' | 'sonnet' | 'haiku' };
@@ -244,6 +256,8 @@ export interface SavedPack {
   options: GenerationOptions;
   evaluation?: AgentEvaluation;
   thumbnailSpec?: ThumbnailSpec;
+  soundSignature?: SoundSignature;
+  personaMode?: boolean;
 }
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;

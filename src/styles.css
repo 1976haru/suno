@@ -710,6 +710,88 @@ textarea {
   background: #ffffff;
 }
 
+.genre-section-card {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.genre-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.genre-section-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.genre-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.genre-card-choice {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 7px;
+  min-height: 106px;
+  height: auto;
+  padding: 12px;
+  text-align: left;
+  white-space: normal;
+  background: #ffffff;
+}
+
+.genre-card-choice.active {
+  border-color: var(--blue);
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.12);
+}
+
+.genre-card-choice span:not(.genre-card-title):not(.choice-badge):not(.genre-role),
+.genre-card-choice small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.genre-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.genre-search-toggle {
+  width: 100%;
+  margin-top: 12px;
+  justify-content: space-between;
+}
+
+.genre-preview-card details {
+  display: grid;
+  gap: 8px;
+}
+
+.genre-preview-card summary {
+  color: var(--teal-dark);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .genre-preview-head {
   display: flex;
   align-items: center;
@@ -1127,6 +1209,75 @@ pre {
 .prompt-length-badge.over-limit {
   background: #fbe4e4;
   color: #b3261e;
+}
+
+.persona-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.persona-copy pre {
+  margin: 0;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.persona-steps,
+.persona-saved,
+.persona-song-note {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.persona-steps > div,
+.persona-list-item,
+.persona-song-note {
+  display: grid;
+  gap: 6px;
+}
+
+.persona-steps span,
+.persona-list-item span,
+.persona-song-note span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.persona-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.persona-toggle input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+}
+
+.persona-toggle span {
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.persona-toggle small {
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.persona-list {
+  display: grid;
+  gap: 8px;
 }
 
 .api-advice-table {

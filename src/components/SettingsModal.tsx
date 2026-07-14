@@ -6,6 +6,7 @@ import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger
 import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
 import { clearChannelHistory, forgetUsage, listChannelUsage, type HookUsage } from '../core/hookLedger';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
+import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 
@@ -310,14 +311,22 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         <p className="supporting">작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.</p>
 
         <label>스타일 프롬프트 길이 상한 (자)</label>
+        <div className="chips">
+          <button type="button" className={(settings.promptCharLimit || SUNO_COPY_LIMIT) === SUNO_COPY_LIMIT ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, promptCharLimit: SUNO_COPY_LIMIT })}>
+            기본 {SUNO_COPY_LIMIT}자
+          </button>
+          <button type="button" className={(settings.promptCharLimit || SUNO_COPY_LIMIT) === PERSONA_STYLE_LIMIT ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, promptCharLimit: PERSONA_STYLE_LIMIT })}>
+            Persona 검증 {PERSONA_STYLE_LIMIT}자
+          </button>
+        </div>
         <input
           type="number"
-          min={300}
+          min={PERSONA_STYLE_LIMIT}
           max={SUNO_COPY_LIMIT}
           value={settings.promptCharLimit || SUNO_COPY_LIMIT}
-          onChange={event => onChange({ ...settings, promptCharLimit: Math.min(SUNO_COPY_LIMIT, Math.max(300, Number(event.target.value) || SUNO_COPY_LIMIT)) })}
+          onChange={event => onChange({ ...settings, promptCharLimit: Math.min(SUNO_COPY_LIMIT, Math.max(PERSONA_STYLE_LIMIT, Number(event.target.value) || SUNO_COPY_LIMIT)) })}
         />
-        <p className="supporting">Suno 복사용 Style Prompt는 {SUNO_COPY_LIMIT}자 이하로 제한합니다.</p>
+        <p className="supporting">기본 상한은 {SUNO_COPY_LIMIT}자입니다. Persona 검증은 {PERSONA_STYLE_LIMIT}자 프리셋으로 확인할 수 있습니다.</p>
 
         <label>📊 API 사용 기록</label>
         {usage && (

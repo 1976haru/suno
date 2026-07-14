@@ -27,6 +27,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     customMoneyChord: '',
     customConcept: '',
     avoidWords: defaultAvoidWordsString(),
+    personaMode: false,
     packagingLanguage: defaultPackagingLanguage(channel.market)
   };
 }

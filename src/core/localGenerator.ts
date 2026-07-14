@@ -3,6 +3,7 @@ import { generationPacks } from '../data/presets';
 import { buildChannelPromptParts, hookStyleDirectives } from './promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
+import { buildPersonaStylePrompt, buildSoundSignature, PERSONA_STYLE_LIMIT } from './soundSignature';
 import {
   composeLyrics,
   createLyricBatchPools,
@@ -117,6 +118,109 @@ export function averageTempo(genres: GenrePack[], trackNo: number) {
   return Math.min(high, Math.max(low, center + offset));
 }
 
+function resolveStyleLimit(styleLimit: number | undefined, personaMode: boolean) {
+  const base = styleLimit && styleLimit > 0 ? Math.min(styleLimit, SUNO_COPY_LIMIT) : SUNO_COPY_LIMIT;
+  return personaMode ? Math.min(base, PERSONA_STYLE_LIMIT) : base;
+}
+
+function buildSignatureBlueprint(
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  concept: string,
+  songs: SongIdea[] = []
+): PlaylistBlueprint {
+  return {
+    projectTitle: opts.projectTitle,
+    channelName: opts.channel.name,
+    oneLineConcept: concept,
+    sonicSignature: `${genres.map(g => g.label).join(' + ')} / ${moods.map(m => m.label).join(' + ')}`,
+    vocalSignature: opts.vocalTone || opts.channel.defaultVocal,
+    lyricRules: [],
+    harmonyRules: [],
+    visualRules: [season.visualDirection, opts.channel.visualIdentity],
+    songs
+  };
+}
+
+export function rebuildStylePromptsForPersonaMode(
+  blueprint: PlaylistBlueprint,
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  styleLimit?: number
+): PlaylistBlueprint {
+  const channelParts = buildChannelPromptParts(opts, genres, moods, season);
+  const styleLimitValue = resolveStyleLimit(styleLimit, Boolean(opts.personaMode));
+  const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, blueprint.oneLineConcept, blueprint.songs);
+  const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const songs = blueprint.songs.map((song, idx) => {
+    const trackNo = song.trackNo;
+    const tempo = averageTempo(genres, trackNo);
+    const role = songRoles[Math.min(idx, songRoles.length - 1)];
+    const composed = opts.personaMode
+      ? composePersonaSongStylePrompt({
+        blueprint: signatureBlueprint,
+        opts,
+        genres,
+        hookPhrase: song.hookPhrase,
+        trackNo,
+        role,
+        tempo,
+        styleLimitValue
+      })
+      : composeStylePrompt([
+        ...channelParts,
+        { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth) },
+        { id: 'tempo', text: `${tempo} BPM` },
+        { id: 'songRole', text: `track ${trackNo} role: ${role}` },
+        { id: 'listenerScene', text: `listener scene: ${song.listenerSituation}` },
+        {
+          id: 'mixNotes',
+          text: [
+            generationPack?.tempoBias,
+            wantsFinalChorusModulation(role) ? 'modulate up a half step for the final chorus' : null,
+            'same channel vocal signature and mix balance across the full playlist set'
+          ].filter(Boolean).join(', ')
+        }
+      ], styleLimitValue, styleLimitValue);
+    return {
+      ...song,
+      stylePrompt: composed.prompt,
+      promptLength: composed.length,
+      promptWithinLimit: composed.withinLimit,
+      promptDroppedTerms: composed.droppedTerms
+    };
+  });
+  return { ...blueprint, songs };
+}
+
+function composePersonaSongStylePrompt(input: {
+  blueprint: PlaylistBlueprint;
+  opts: GenerationOptions;
+  genres: GenrePack[];
+  hookPhrase: string;
+  trackNo: number;
+  role: string;
+  tempo: number;
+  styleLimitValue: number;
+}) {
+  const signature = buildSoundSignature(input.blueprint, input.opts, input.opts.channel);
+  return buildPersonaStylePrompt({
+    signature,
+    opts: input.opts,
+    genres: input.genres,
+    hookPhrase: input.hookPhrase,
+    trackNo: input.trackNo,
+    role: input.role,
+    tempo: input.tempo,
+    isSeed: input.trackNo === 1,
+    limit: input.styleLimitValue
+  });
+}
+
 function buildYoutubeMetadata(
   opts: GenerationOptions,
   song: Pick<SongIdea, 'trackNo' | 'title' | 'seasonMoment' | 'listenerSituation' | 'hookPhrase'>,
@@ -177,9 +281,11 @@ export function generateLocalBlueprint(
   /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
   styleLimit?: number
 ): PlaylistBlueprint {
-  const channelParts = buildChannelPromptParts(opts, genres, moods, season);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
+  const channelParts = buildChannelPromptParts(opts, genres, moods, season);
+  const styleLimitValue = resolveStyleLimit(styleLimit, Boolean(opts.personaMode));
+  const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, concept);
 
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
@@ -229,12 +335,22 @@ export function generateLocalBlueprint(
         ].filter(Boolean).join(', ')
       }
     ];
-    const styleLimitValue = styleLimit && styleLimit > 0 ? Math.min(styleLimit, SUNO_COPY_LIMIT) : SUNO_COPY_LIMIT;
-    const composed = composeStylePrompt(
-      songParts,
-      styleLimitValue,
-      styleLimitValue
-    );
+    const composed = opts.personaMode
+      ? composePersonaSongStylePrompt({
+        blueprint: signatureBlueprint,
+        opts,
+        genres,
+        hookPhrase,
+        trackNo,
+        role,
+        tempo,
+        styleLimitValue
+      })
+      : composeStylePrompt(
+        songParts,
+        styleLimitValue,
+        styleLimitValue
+      );
     const stylePrompt = composed.prompt;
     const partialSong = {
       trackNo,

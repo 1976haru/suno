@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Copy, Download, RefreshCw, RotateCcw, ShieldAle
 import type { SongEvaluation, SongIdea } from '../types';
 import { copyText, downloadText } from '../utils/exporters';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
+import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 
 type Tab = 'style' | 'lyrics' | 'youtube';
 
@@ -15,6 +16,8 @@ interface SongCardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (trackNo: number) => void;
+  personaMode?: boolean;
+  personaName?: string;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -23,7 +26,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
@@ -33,6 +36,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
   }, [song.stylePrompt, song.trackNo]);
 
   const hasWarnings = song.warnings.length > 0 || Boolean(evaluation);
+  const promptLimit = personaMode ? PERSONA_STYLE_LIMIT : SUNO_COPY_LIMIT;
+  const isSeedSong = personaMode && song.trackNo === 1;
 
   return (
     <article className="song">
@@ -47,6 +52,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           <h3>{song.trackNo}. {song.title}</h3>
           <p>{song.listenerSituation} / {song.emotionArc}</p>
           <span className="chip">{moneyChordLabel}</span>
+          {isSeedSong && <span className="chip">시드 곡</span>}
+          {personaMode && !isSeedSong && <span className="chip">Persona 모드</span>}
           {hasWarnings && <span className="chip warning-chip">⚠ 확인 필요</span>}
         </div>
         <div className="button-row">
@@ -108,16 +115,31 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
 
           {tab === 'style' && (
             <section className="copy-block">
+              {personaMode && (
+                <div className="persona-song-note">
+                  {isSeedSong ? (
+                    <>
+                      <b>시드 곡</b>
+                      <span>이 곡을 먼저 만들고 결과가 좋으면 Suno에서 Persona로 저장하세요. 이 프롬프트에는 사운드 시그니처가 포함되어 있습니다.</span>
+                    </>
+                  ) : (
+                    <>
+                      <b>Persona 모드</b>
+                      <span>Suno에서 "{personaName || '저장한 Persona'}"를 선택하세요. 이 프롬프트는 곡별 차이만 담습니다.</span>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="copy-head">
                 <h4>Style Prompt</h4>
-                <span className={styleDraft.length > SUNO_COPY_LIMIT ? 'prompt-length-badge over-limit' : 'prompt-length-badge'}>
-                  {styleDraft.length} / {SUNO_COPY_LIMIT}자 {styleDraft.length > SUNO_COPY_LIMIT ? '⚠️' : '✅'}
+                <span className={styleDraft.length > promptLimit ? 'prompt-length-badge over-limit' : 'prompt-length-badge'}>
+                  {styleDraft.length} / {promptLimit}자 {styleDraft.length > promptLimit ? '⚠️' : '✅'}
                 </span>
                 <button type="button" title="원래 생성된 프롬프트로 되돌리기" onClick={() => setStyleDraft(song.stylePrompt)}>
                   <RotateCcw size={14} />
                   기본값으로
                 </button>
-                <button type="button" disabled={styleDraft.length > SUNO_COPY_LIMIT} onClick={() => void copyText(styleDraft)}>
+                <button type="button" disabled={styleDraft.length > promptLimit} onClick={() => void copyText(styleDraft)}>
                   <Copy size={15} />
                   Copy
                 </button>
@@ -128,8 +150,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
                 onChange={event => setStyleDraft(event.target.value)}
                 rows={8}
               />
-              {styleDraft.length > SUNO_COPY_LIMIT && (
-                <p className="error">⚠️ {SUNO_COPY_LIMIT}자를 초과했습니다. 이대로 붙여넣으면 Suno가 뒷부분을 잘라냅니다 — 직접 줄이거나 설정에서 제외된 항목을 확인하세요.</p>
+              {styleDraft.length > promptLimit && (
+                <p className="error">⚠️ {promptLimit}자를 초과했습니다. 초과 상태에서는 복사를 막습니다.</p>
               )}
               {song.promptDroppedTerms && song.promptDroppedTerms.length > 0 && (
                 <p className="supporting">ℹ️ 길이 제한으로 제외된 항목: {song.promptDroppedTerms.join(', ')}</p>

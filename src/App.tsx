@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
+import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
+import type { ThumbnailArchetypeId } from './data/thumbnailArchetypes';
 import { moneyChordPresets } from './data/moneyChords';
-import { AUTOSAVE_ID, saveAutosave } from './core/library';
+import { AUTOSAVE_ID, listChannelPersonas, recordChannelPersonaUse, saveAutosave, saveChannelPersona, type ChannelPersonaRecord } from './core/library';
 import { isEvaluationAvailable } from './agents/evaluator';
 import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { recordUsage } from './core/usageLedger';
@@ -11,6 +13,8 @@ import { recordPackHooks } from './core/hookLedger';
 import { normalizeGenreSelection, toggleGenreSelection } from './core/genreSelection';
 import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
+import { rebuildStylePromptsForPersonaMode } from './core/localGenerator';
+import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
 import { regenerateTrack } from './providers';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
@@ -19,7 +23,7 @@ import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { createInitialOptions } from './utils/generation';
 import { defaultPackagingLanguage } from './core/packagingLanguage';
-import type { ChannelProfile, ProviderSettings, ThumbnailVariantId } from './types';
+import type { ChannelProfile, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
 import CachePromptModal from './components/CachePromptModal';
 import Sidebar from './components/Sidebar';
@@ -46,8 +50,10 @@ export default function App() {
   const [hybridMode, setHybridMode] = useState(false);
   const [thumbnailVariant, setThumbnailVariant] = useState(0);
   const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
+  const [thumbnailArchetypeId, setThumbnailArchetypeId] = useState<ThumbnailArchetypeId>('refined-cafe');
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
+  const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -71,7 +77,7 @@ export default function App() {
   const library = usePackLibrary(pack => {
     gen.setBlueprint(pack.blueprint);
     const { clamped, truncatedFields } = clampOversizedFields(pack.options);
-    setOpts({ ...pack.options, ...clamped });
+    setOpts({ ...pack.options, ...clamped, personaMode: pack.personaMode ?? pack.options.personaMode ?? false });
     setLoadWarning(
       truncatedFields.length
         ? `⚠️ 이 팩의 일부 입력이 글자 수 제한(${truncatedFields.map(f => `${f} ${INPUT_LIMITS[f]}자`).join(', ')})을 넘어 잘렸습니다.`
@@ -92,10 +98,10 @@ export default function App() {
   const thumbnailSpec = useMemo(
     () => {
       if (!gen.blueprint) return null;
-      const spec = buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant);
+      const spec = buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant, thumbnailArchetypeId);
       return { ...spec, selected: selectedThumbnailVariant };
     },
-    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, selectedThumbnailVariant]
+    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, thumbnailArchetypeId, selectedThumbnailVariant]
   );
 
   // TASK E2 (v3.5) — a Batch API job outlives a closed tab; resume polling
@@ -103,6 +109,12 @@ export default function App() {
   useEffect(() => {
     void batchFlow.resumeActiveJobs(cm.selectedChannel.id, provider, onBatchJobComplete);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cm.selectedChannel.id]);
+
+  useEffect(() => {
+    void listChannelPersonas(cm.selectedChannel.id)
+      .then(setSavedPersonas)
+      .catch(() => setSavedPersonas([]));
   }, [cm.selectedChannel.id]);
 
   function toggleArray(key: 'genreIds' | 'moodIds', id: string) {
@@ -116,12 +128,50 @@ export default function App() {
   }
 
   function fallbackGenres() {
-    return selectedGenres.length ? selectedGenres : [genrePacks[0]];
+    if (selectedGenres.length) return selectedGenres;
+    const fallbackIds = normalizeGenreSelection(cm.selectedChannel.preferredGenres.length
+      ? cm.selectedChannel.preferredGenres
+      : getDefaultGenreIdsForArchetype(cm.selectedChannel.archetype));
+    const fallback = genrePacks.filter(genre => fallbackIds.includes(genre.id));
+    return fallback.length ? fallback : [genrePacks[0]];
   }
 
   function fallbackMoods() {
     return selectedMoods.length ? selectedMoods : [moodPacks[0]];
   }
+
+  const activeOptions = { ...opts, channel: cm.selectedChannel };
+  const soundSignature: SoundSignature | null = gen.blueprint
+    ? buildSoundSignature(gen.blueprint, activeOptions, cm.selectedChannel)
+    : null;
+  const personaPromptStats = useMemo(() => {
+    if (!gen.blueprint) return null;
+    const normal = rebuildStylePromptsForPersonaMode(
+      gen.blueprint,
+      { ...activeOptions, personaMode: false },
+      fallbackGenres(),
+      fallbackMoods(),
+      selectedSeason,
+      provider.promptCharLimit
+    );
+    const persona = rebuildStylePromptsForPersonaMode(
+      gen.blueprint,
+      { ...activeOptions, personaMode: true },
+      fallbackGenres(),
+      fallbackMoods(),
+      selectedSeason,
+      PERSONA_STYLE_LIMIT
+    );
+    const normalLengths = normal.songs.map(song => song.stylePrompt.length);
+    const personaLengths = persona.songs.map(song => song.stylePrompt.length);
+    const avg = (values: number[]) => values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+    return {
+      beforeAvg: avg(normalLengths),
+      afterMin: personaLengths.length ? Math.min(...personaLengths) : 0,
+      afterMax: personaLengths.length ? Math.max(...personaLengths) : 0,
+      afterAvg: avg(personaLengths)
+    };
+  }, [gen.blueprint, opts, cm.selectedChannel, selectedSeason, selectedGenres, selectedMoods, provider.promptCharLimit]);
 
   const isHybridActive = hybridMode && provider.provider !== 'local';
 
@@ -133,8 +183,9 @@ export default function App() {
     }
     try {
       const nextOpts = { ...opts, channel: cm.selectedChannel, songCount };
-      const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel);
-      await saveAutosave(next, nextOpts, nextThumbnailSpec);
+      const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel, 0, thumbnailArchetypeId);
+      const nextSoundSignature = buildSoundSignature(next, nextOpts, cm.selectedChannel);
+      await saveAutosave(next, nextOpts, nextThumbnailSpec, nextSoundSignature);
       await recordPackHooks(AUTOSAVE_ID, cm.selectedChannel.id, next, opts.lyricLanguage);
       await library.refresh();
     } catch {
@@ -287,7 +338,44 @@ export default function App() {
     evalFlow.undoRetry(gen.blueprint, next => gen.setBlueprint(next));
   }
 
-  const step2Blocked = opts.genreIds.length === 0 || opts.moodIds.length === 0;
+  function onPersonaModeChange(enabled: boolean) {
+    const nextOpts = { ...opts, channel: cm.selectedChannel, personaMode: enabled };
+    setOpts(prev => ({ ...prev, personaMode: enabled }));
+    if (!gen.blueprint) return;
+    const nextBlueprint = rebuildStylePromptsForPersonaMode(
+      gen.blueprint,
+      nextOpts,
+      fallbackGenres(),
+      fallbackMoods(),
+      selectedSeason,
+      provider.promptCharLimit
+    );
+    gen.setBlueprint(nextBlueprint);
+  }
+
+  async function refreshSavedPersonas() {
+    try {
+      setSavedPersonas(await listChannelPersonas(cm.selectedChannel.id));
+    } catch {
+      setSavedPersonas([]);
+    }
+  }
+
+  async function onSavePersonaName() {
+    if (!soundSignature) return;
+    await saveChannelPersona(cm.selectedChannel.id, soundSignature.personaName, soundSignature);
+    await refreshSavedPersonas();
+  }
+
+  async function onSaveCurrentPack() {
+    await library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel }, thumbnailSpec, soundSignature ?? undefined);
+    if (soundSignature) {
+      await recordChannelPersonaUse(cm.selectedChannel.id, soundSignature.personaName, soundSignature);
+      await refreshSavedPersonas();
+    }
+  }
+
+  const step2Blocked = opts.moodIds.length === 0;
   const step3Blocked = !gen.blueprint;
   const maxUnlocked = gen.blueprint ? 4 : step2Blocked ? 2 : 3;
 
@@ -405,7 +493,15 @@ export default function App() {
               refineWarnings={gen.refineWarnings}
               thumbnailSpec={thumbnailSpec}
               thumbnailSeasonId={selectedSeason.id}
-              onSave={() => void library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel }, thumbnailSpec)}
+              thumbnailArchetypeId={thumbnailArchetypeId}
+              soundSignature={soundSignature}
+              personaMode={opts.personaMode ?? false}
+              personaPromptStats={personaPromptStats}
+              savedPersonas={savedPersonas}
+              onSelectThumbnailArchetype={setThumbnailArchetypeId}
+              onPersonaModeChange={onPersonaModeChange}
+              onSavePersonaName={() => void onSavePersonaName()}
+              onSave={() => void onSaveCurrentPack()}
               onEvaluate={onEvaluate}
               onRetrySong={onRetrySong}
               onUndoRetry={onUndoRetry}

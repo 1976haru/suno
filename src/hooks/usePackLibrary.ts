@@ -3,7 +3,7 @@ import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAl
 import { clearAllSettings } from '../core/settingsStore';
 import { forgetPack, recordPackHooks } from '../core/hookLedger';
 import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
-import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, ThumbnailSpec } from '../types';
+import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature, ThumbnailSpec } from '../types';
 
 export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
   const [savedPacks, setSavedPacks] = useState<SavedPackMeta[]>([]);
@@ -20,12 +20,12 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     void refresh();
   }, []);
 
-  async function saveCurrentPack(blueprint: PlaylistBlueprint | null, options: GenerationOptions, thumbnailSpec?: ThumbnailSpec | null) {
+  async function saveCurrentPack(blueprint: PlaylistBlueprint | null, options: GenerationOptions, thumbnailSpec?: ThumbnailSpec | null, soundSignature?: SoundSignature) {
     if (!blueprint) return;
     const defaultName = buildDefaultPackName(blueprint, options);
     const name = window.prompt('저장할 이름을 입력하세요', defaultName);
     if (!name) return;
-    const id = await savePack({ blueprint, options, name, thumbnailSpec: thumbnailSpec ?? undefined });
+    const id = await savePack({ blueprint, options, name, thumbnailSpec: thumbnailSpec ?? undefined, soundSignature, personaMode: options.personaMode ?? false });
     try {
       // Promote: the hooks were already tracked under the ephemeral autosave
       // slot at generation time — re-record them under this pack's real,

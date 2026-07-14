@@ -1,4 +1,4 @@
-import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta } from '../types';
+import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature } from '../types';
 import { channelPresets } from '../data/presets';
 
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
@@ -26,10 +26,38 @@ export function migrateLegacyChannelNames(pack: SavedPack): SavedPack {
   };
 }
 
+function normalizeSavedPack(pack: SavedPack): SavedPack {
+  const migrated = migrateLegacyChannelNames(pack);
+  const personaMode = migrated.personaMode ?? migrated.options?.personaMode ?? false;
+  return {
+    ...migrated,
+    personaMode,
+    options: migrated.options ? { ...migrated.options, personaMode } : migrated.options
+  };
+}
+
 const DB_NAME = 'suno-weaver-library';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'packs';
+const PERSONA_STORE = 'personas';
 export const AUTOSAVE_ID = 'autosave-temp';
+
+export interface ChannelPersonaRecord {
+  id: string;
+  channelId: string;
+  personaName: string;
+  createdAt: string;
+  lastUsedAt: string;
+  useCount: number;
+  soundSignature?: SoundSignature;
+}
+
+const memoryPacks = new Map<string, SavedPack>();
+const memoryPersonas = new Map<string, ChannelPersonaRecord>();
+
+function hasIndexedDb() {
+  return typeof indexedDB !== 'undefined';
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -39,17 +67,20 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(PERSONA_STORE)) {
+        db.createObjectStore(PERSONA_STORE, { keyPath: 'id' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error('IndexedDB open failed.'));
   });
 }
 
-async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>, storeName = STORE): Promise<T> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const store = tx.objectStore(STORE);
+    const tx = db.transaction(storeName, mode);
+    const store = tx.objectStore(storeName);
     const request = fn(store);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
@@ -81,8 +112,11 @@ export async function savePack(input: {
   id?: string;
   evaluation?: SavedPack['evaluation'];
   thumbnailSpec?: SavedPack['thumbnailSpec'];
+  soundSignature?: SavedPack['soundSignature'];
+  personaMode?: boolean;
 }): Promise<string> {
   const id = input.id || (input.isAutosave ? AUTOSAVE_ID : randomId());
+  const personaMode = input.personaMode ?? input.options.personaMode ?? false;
   const pack: SavedPack = {
     id,
     name: input.name || buildDefaultPackName(input.blueprint, input.options),
@@ -94,38 +128,71 @@ export async function savePack(input: {
     songCount: input.blueprint.songs.length,
     avgQualityScore: averageQuality(input.blueprint),
     blueprint: input.blueprint,
-    options: input.options,
+    options: { ...input.options, personaMode },
     evaluation: input.evaluation,
-    thumbnailSpec: input.thumbnailSpec
+    thumbnailSpec: input.thumbnailSpec,
+    soundSignature: input.soundSignature,
+    personaMode
   };
+  if (!hasIndexedDb()) {
+    memoryPacks.set(id, pack);
+    return id;
+  }
   await withStore('readwrite', store => store.put(pack));
   return id;
 }
 
-export async function saveAutosave(blueprint: PlaylistBlueprint, options: GenerationOptions, thumbnailSpec?: SavedPack['thumbnailSpec']): Promise<void> {
-  await savePack({ blueprint, options, isAutosave: true, id: AUTOSAVE_ID, name: '임시저장', thumbnailSpec });
+export async function saveAutosave(
+  blueprint: PlaylistBlueprint,
+  options: GenerationOptions,
+  thumbnailSpec?: SavedPack['thumbnailSpec'],
+  soundSignature?: SavedPack['soundSignature']
+): Promise<void> {
+  await savePack({ blueprint, options, isAutosave: true, id: AUTOSAVE_ID, name: 'Autosave', thumbnailSpec, soundSignature, personaMode: options.personaMode ?? false });
 }
 
 export async function promoteAutosave(name: string): Promise<string | null> {
   const autosave = await loadPack(AUTOSAVE_ID);
   if (!autosave) return null;
-  return savePack({ blueprint: autosave.blueprint, options: autosave.options, name, evaluation: autosave.evaluation, thumbnailSpec: autosave.thumbnailSpec });
+  return savePack({
+    blueprint: autosave.blueprint,
+    options: autosave.options,
+    name,
+    evaluation: autosave.evaluation,
+    thumbnailSpec: autosave.thumbnailSpec,
+    soundSignature: autosave.soundSignature,
+    personaMode: autosave.personaMode ?? autosave.options.personaMode ?? false
+  });
 }
 
 export async function listPacks(): Promise<SavedPackMeta[]> {
+  if (!hasIndexedDb()) {
+    return Array.from(memoryPacks.values())
+      .map(normalizeSavedPack)
+      .map(({ blueprint: _blueprint, options: _options, evaluation: _evaluation, ...meta }) => meta)
+      .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+  }
   const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
   return all
-    .map(migrateLegacyChannelNames)
+    .map(normalizeSavedPack)
     .map(({ blueprint: _blueprint, options: _options, evaluation: _evaluation, ...meta }) => meta)
     .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
 }
 
 export async function loadPack(id: string): Promise<SavedPack | undefined> {
+  if (!hasIndexedDb()) {
+    const pack = memoryPacks.get(id);
+    return pack ? normalizeSavedPack(pack) : undefined;
+  }
   const pack = await withStore<SavedPack | undefined>('readonly', store => store.get(id));
-  return pack ? migrateLegacyChannelNames(pack) : pack;
+  return pack ? normalizeSavedPack(pack) : pack;
 }
 
 export async function deletePack(id: string): Promise<void> {
+  if (!hasIndexedDb()) {
+    memoryPacks.delete(id);
+    return;
+  }
   await withStore('readwrite', store => store.delete(id));
 }
 
@@ -136,6 +203,9 @@ export async function renamePack(id: string, name: string): Promise<void> {
 }
 
 export async function exportAllPacks(): Promise<Blob> {
+  if (!hasIndexedDb()) {
+    return new Blob([JSON.stringify(Array.from(memoryPacks.values()).map(normalizeSavedPack), null, 2)], { type: 'application/json;charset=utf-8' });
+  }
   const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
   return new Blob([JSON.stringify(all, null, 2)], { type: 'application/json;charset=utf-8' });
 }
@@ -154,5 +224,72 @@ export async function importPacks(file: File): Promise<number> {
 }
 
 export async function deleteAllPacks(): Promise<void> {
+  if (!hasIndexedDb()) {
+    memoryPacks.clear();
+    memoryPersonas.clear();
+    return;
+  }
   await withStore('readwrite', store => store.clear());
+  await withStore('readwrite', store => store.clear(), PERSONA_STORE);
+}
+
+function personaRecordId(channelId: string, personaName: string) {
+  return `${channelId}::${personaName.trim().toLowerCase()}`;
+}
+
+export async function saveChannelPersona(channelId: string, personaName: string, soundSignature?: SoundSignature): Promise<ChannelPersonaRecord> {
+  const trimmed = personaName.trim();
+  const id = personaRecordId(channelId, trimmed);
+  const now = new Date().toISOString();
+  const existing = await loadChannelPersona(id);
+  const record: ChannelPersonaRecord = {
+    id,
+    channelId,
+    personaName: trimmed,
+    createdAt: existing?.createdAt || now,
+    lastUsedAt: existing?.lastUsedAt || now,
+    useCount: existing?.useCount || 0,
+    soundSignature: soundSignature || existing?.soundSignature
+  };
+  if (!hasIndexedDb()) {
+    memoryPersonas.set(id, record);
+    return record;
+  }
+  await withStore('readwrite', store => store.put(record), PERSONA_STORE);
+  return record;
+}
+
+async function loadChannelPersona(id: string): Promise<ChannelPersonaRecord | undefined> {
+  if (!hasIndexedDb()) return memoryPersonas.get(id);
+  return withStore<ChannelPersonaRecord | undefined>('readonly', store => store.get(id), PERSONA_STORE);
+}
+
+export async function recordChannelPersonaUse(channelId: string, personaName: string, soundSignature?: SoundSignature): Promise<ChannelPersonaRecord> {
+  const id = personaRecordId(channelId, personaName);
+  const now = new Date().toISOString();
+  const existing = await loadChannelPersona(id);
+  const record: ChannelPersonaRecord = {
+    id,
+    channelId,
+    personaName: personaName.trim(),
+    createdAt: existing?.createdAt || now,
+    lastUsedAt: now,
+    useCount: (existing?.useCount || 0) + 1,
+    soundSignature: soundSignature || existing?.soundSignature
+  };
+  if (!hasIndexedDb()) {
+    memoryPersonas.set(id, record);
+    return record;
+  }
+  await withStore('readwrite', store => store.put(record), PERSONA_STORE);
+  return record;
+}
+
+export async function listChannelPersonas(channelId: string): Promise<ChannelPersonaRecord[]> {
+  const records = hasIndexedDb()
+    ? await withStore<ChannelPersonaRecord[]>('readonly', store => store.getAll(), PERSONA_STORE)
+    : Array.from(memoryPersonas.values());
+  return records
+    .filter(record => record.channelId === channelId)
+    .sort((a, b) => (a.lastUsedAt < b.lastUsedAt ? 1 : -1));
 }

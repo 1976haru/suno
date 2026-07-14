@@ -23,6 +23,7 @@ export function makeOptions(overrides: Partial<GenerationOptions> = {}): Generat
     customMoneyChord: '',
     customConcept: '',
     avoidWords: '',
+    personaMode: false,
     ...overrides
   };
 }

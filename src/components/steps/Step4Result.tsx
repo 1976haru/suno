@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Download, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Download, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
+import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
-import type { AgentEvaluation, PlaylistBlueprint, SongIdea, ThumbnailVariantId } from '../../types';
+import type { AgentEvaluation, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
+import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
+import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -29,6 +32,14 @@ interface Step4ResultProps {
   refineWarnings: string[];
   thumbnailSpec: ThumbnailSpec | null;
   thumbnailSeasonId: string;
+  thumbnailArchetypeId: ThumbnailArchetypeId;
+  soundSignature: SoundSignature | null;
+  personaMode: boolean;
+  personaPromptStats: PersonaPromptStats | null;
+  savedPersonas: ChannelPersonaRecord[];
+  onSelectThumbnailArchetype: (id: ThumbnailArchetypeId) => void;
+  onPersonaModeChange: (enabled: boolean) => void;
+  onSavePersonaName: () => void;
   onSave: () => void;
   onEvaluate: (scopeTrackNos?: number[]) => void;
   onRetrySong: (trackNo: number, issues: string[]) => void;
@@ -59,6 +70,14 @@ export default function Step4Result({
   refineWarnings,
   thumbnailSpec,
   thumbnailSeasonId,
+  thumbnailArchetypeId,
+  soundSignature,
+  personaMode,
+  personaPromptStats,
+  savedPersonas,
+  onSelectThumbnailArchetype,
+  onPersonaModeChange,
+  onSavePersonaName,
   onSave,
   onEvaluate,
   onRetrySong,
@@ -70,7 +89,7 @@ export default function Step4Result({
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
-  const [resultTab, setResultTab] = useState<'songs' | 'thumbnail'>('songs');
+  const [resultTab, setResultTab] = useState<'songs' | 'thumbnail' | 'persona'>('songs');
 
   function toggleTrackSelected(trackNo: number) {
     setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
@@ -124,15 +143,15 @@ export default function Step4Result({
               <Save size={16} />
               💾 이 팩 저장하기
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined), 'text/markdown;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode), 'text/markdown;charset=utf-8')}>
               <Download size={16} />
               MD
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, thumbnailSpec ?? undefined), 'application/json;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode), 'application/json;charset=utf-8')}>
               <Download size={16} />
               JSON
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.csv', exportCsv(blueprint), 'text/csv;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.csv', exportCsv(blueprint, soundSignature ?? undefined, personaMode), 'text/csv;charset=utf-8')}>
               <Download size={16} />
               CSV
             </button>
@@ -163,6 +182,10 @@ export default function Step4Result({
             <ImageIcon size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             🖼 썸네일 사양
           </button>
+          <button type="button" className={resultTab === 'persona' ? 'tab active' : 'tab'} onClick={() => setResultTab('persona')}>
+            <Mic2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            Persona / Sound
+          </button>
         </div>
       )}
 
@@ -170,8 +193,22 @@ export default function Step4Result({
         <ThumbnailSpecPanel
           spec={thumbnailSpec}
           defaultSeasonId={thumbnailSeasonId}
+          selectedArchetypeId={thumbnailArchetypeId}
+          onSelectArchetype={onSelectThumbnailArchetype}
           onRegenerateHeadline={onRegenerateHeadline}
           onSelectVariant={onSelectThumbnailVariant}
+        />
+      )}
+
+      {blueprint && resultTab === 'persona' && soundSignature && personaPromptStats && (
+        <PersonaPanel
+          blueprint={blueprint}
+          soundSignature={soundSignature}
+          personaMode={personaMode}
+          promptStats={personaPromptStats}
+          savedPersonas={savedPersonas}
+          onPersonaModeChange={onPersonaModeChange}
+          onSavePersona={onSavePersonaName}
         />
       )}
 
@@ -261,6 +298,8 @@ export default function Step4Result({
             selectable={evalScope === 'selected' && evaluationAvailable}
             selected={selectedTrackNos.includes(song.trackNo)}
             onToggleSelect={toggleTrackSelected}
+            personaMode={personaMode}
+            personaName={soundSignature?.personaName}
           />
         )
       ))}

@@ -1,4 +1,4 @@
-import type { PlaylistBlueprint, ThumbnailSpec } from '../types';
+import type { PlaylistBlueprint, SoundSignature, ThumbnailSpec } from '../types';
 
 function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
   if (!spec) return '';
@@ -26,7 +26,28 @@ ${spec.imagePrompt}
 `;
 }
 
-export function exportMarkdown(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec) {
+function soundSignatureMarkdown(soundSignature?: SoundSignature, personaMode = false) {
+  if (!soundSignature) return '';
+  return `Persona Mode: ${personaMode ? 'on' : 'off'}
+
+Persona Name: ${soundSignature.personaName}
+
+Sound Signature Short (${soundSignature.shortLength} chars):
+
+\`\`\`text
+${soundSignature.short}
+\`\`\`
+
+Sound Signature Full (${soundSignature.fullLength} chars):
+
+\`\`\`text
+${soundSignature.full}
+\`\`\`
+
+`;
+}
+
+export function exportMarkdown(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false) {
   return `# ${blueprint.projectTitle}
 
 Channel: ${blueprint.channelName}
@@ -37,7 +58,7 @@ Sonic Signature: ${blueprint.sonicSignature}
 
 Vocal Signature: ${blueprint.vocalSignature}
 
-${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
+${soundSignatureMarkdown(soundSignature, personaMode)}${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
 
 Situation: ${song.listenerSituation}
 
@@ -74,13 +95,16 @@ Warnings: ${song.warnings.join('; ') || 'None'}
 `).join('\n')}`;
 }
 
-export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec) {
-  return JSON.stringify(thumbnailSpec ? { ...blueprint, thumbnailSpec } : blueprint, null, 2);
+export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false) {
+  return JSON.stringify({ ...blueprint, ...(thumbnailSpec ? { thumbnailSpec } : {}), ...(soundSignature ? { soundSignature } : {}), personaMode }, null, 2);
 }
 
-export function exportCsv(blueprint: PlaylistBlueprint) {
+export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSignature, personaMode = false) {
   const rows = [
     [
+      'personaMode',
+      'personaName',
+      'soundSignatureShort',
       'trackNo',
       'title',
       'seasonMoment',
@@ -100,6 +124,9 @@ export function exportCsv(blueprint: PlaylistBlueprint) {
 
   for (const song of blueprint.songs) {
     rows.push([
+      personaMode ? 'true' : 'false',
+      soundSignature?.personaName || '',
+      soundSignature?.short || '',
       String(song.trackNo),
       song.title,
       song.seasonMoment,
