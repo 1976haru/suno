@@ -313,10 +313,10 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         <label>스타일 프롬프트 길이 상한 (자)</label>
         <div className="chips">
           <button type="button" className={(settings.promptCharLimit || SUNO_COPY_LIMIT) === SUNO_COPY_LIMIT ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, promptCharLimit: SUNO_COPY_LIMIT })}>
-            기본 {SUNO_COPY_LIMIT}자
+            Suno v4.5/v5/v5.5 표준 {SUNO_COPY_LIMIT}자
           </button>
           <button type="button" className={(settings.promptCharLimit || SUNO_COPY_LIMIT) === PERSONA_STYLE_LIMIT ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, promptCharLimit: PERSONA_STYLE_LIMIT })}>
-            Persona 검증 {PERSONA_STYLE_LIMIT}자
+            Suno v4 이하 레거시 {PERSONA_STYLE_LIMIT}자
           </button>
         </div>
         <input
@@ -326,7 +326,9 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           value={settings.promptCharLimit || SUNO_COPY_LIMIT}
           onChange={event => onChange({ ...settings, promptCharLimit: Math.min(SUNO_COPY_LIMIT, Math.max(PERSONA_STYLE_LIMIT, Number(event.target.value) || SUNO_COPY_LIMIT)) })}
         />
-        <p className="supporting">기본 상한은 {SUNO_COPY_LIMIT}자입니다. Persona 검증은 {PERSONA_STYLE_LIMIT}자 프리셋으로 확인할 수 있습니다.</p>
+        <p className="supporting">
+          기본값 {SUNO_COPY_LIMIT}자는 Suno v4.5 이상(v5, v5.5 포함) 기준입니다. Suno에 붙여넣었을 때 Style 필드가 잘린다면 오래된 v4 이하 계정일 수 있으니 {PERSONA_STYLE_LIMIT}자로 낮추세요. Persona 모드의 곡별 프롬프트도 같은 {PERSONA_STYLE_LIMIT}자 상한을 씁니다.
+        </p>
 
         <label>📊 API 사용 기록</label>
         {usage && (

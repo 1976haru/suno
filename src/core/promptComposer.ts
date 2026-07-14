@@ -291,10 +291,12 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
   const money = resolveMoneyChordText(opts);
   const duration = buildDurationControl(opts.durationTarget);
-  const avoid = opts.avoidWords.trim()
-    ? `avoid: ${opts.avoidWords}; avoid famous artist imitation, copied melodies, copyrighted song references, soundalike vocals`
-    : 'avoid famous artist imitation, copied melodies, copyrighted song references, soundalike vocals';
 
+  // TASK F4 (v3.7) — avoid/copyright text used to live here as a 'safety'
+  // style-prompt atom, but a negative instruction ("avoid drums") inside
+  // Suno's Style field is unreliable — Suno's own Advanced Options has a
+  // dedicated Exclude field for exactly this. See buildExcludePrompt below;
+  // its output is meant for that separate field, never pasted into Style.
   return [
     { id: 'genre', text: genreText },
     { id: 'vocal', text: opts.vocalTone || opts.channel.defaultVocal },
@@ -302,9 +304,28 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
     { id: 'duration', text: [duration, 'clear pronunciation, emotionally warm but restrained, polished commercial playlist quality'].join(', ') },
     { id: 'mood', text: moodText },
     { id: 'instruments', text: instrumentText },
-    { id: 'season', text: `${season.keywords.join(', ')} mood` },
-    { id: 'safety', text: avoid }
+    { id: 'season', text: `${season.keywords.join(', ')} mood` }
   ];
+}
+
+/**
+ * TASK F4 (v3.7) — text for Suno's separate Advanced Options -> Exclude
+ * field, never for the Style field itself. Previously this text
+ * ("avoid: ...; avoid famous artist imitation, ...") was concatenated
+ * straight into the Style prompt, which (a) burned 100+ characters of a
+ * 1,000-character budget on every single song, and (b) put a negative
+ * instruction in the one field Suno is documented to handle negatives
+ * unreliably in.
+ */
+export function buildExcludePrompt(opts: GenerationOptions): string {
+  const atoms = [
+    ...(opts.avoidWords.trim() ? splitAtoms(opts.avoidWords) : []),
+    'famous artist imitation',
+    'copied melodies',
+    'copyrighted song references',
+    'soundalike vocals'
+  ];
+  return dedupeTerms(atoms).join(', ');
 }
 
 /**

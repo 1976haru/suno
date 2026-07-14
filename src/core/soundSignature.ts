@@ -7,7 +7,7 @@ import type {
 } from '../types';
 import { genrePacks, moodPacks, seasonPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
-import { SUNO_COPY_LIMIT } from './promptBudget';
+import { countWords, STYLE_WORD_SOFT_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 
 export interface SoundSignature extends SharedSoundSignature {}
 
@@ -365,11 +365,14 @@ function buildSeedPersonaStylePrompt(input: PersonaStylePromptInput, limit: numb
   }
 
   const prompt = joinSeedClauses(parts);
+  const wordCount = countWords(prompt);
   return {
     prompt,
     length: prompt.length,
     withinLimit: prompt.length <= limit,
-    droppedTerms
+    droppedTerms,
+    wordCount,
+    withinWordTarget: wordCount <= STYLE_WORD_SOFT_MAX
   };
 }
 
@@ -390,6 +393,8 @@ export interface PersonaStylePromptResult {
   length: number;
   withinLimit: boolean;
   droppedTerms: string[];
+  wordCount: number;
+  withinWordTarget: boolean;
 }
 
 export function buildPersonaStylePrompt(input: PersonaStylePromptInput): PersonaStylePromptResult {
@@ -421,11 +426,14 @@ export function buildPersonaStylePrompt(input: PersonaStylePromptInput): Persona
   }
 
   const finalPrompt = prompt.replace(/,\s*$/g, '');
+  const wordCount = countWords(finalPrompt);
   return {
     prompt: finalPrompt,
     length: finalPrompt.length,
     withinLimit: finalPrompt.length <= limit,
-    droppedTerms
+    droppedTerms,
+    wordCount,
+    withinWordTarget: wordCount <= STYLE_WORD_SOFT_MAX
   };
 }
 

@@ -113,6 +113,8 @@ export interface SongIdea {
   emotionArc: string;
   hookPhrase: string;
   stylePrompt: string;
+  /** Text meant for Suno's separate Advanced Options -> Exclude field, never pasted into the style prompt itself (avoidWords + copyright-avoidance terms). See core/promptComposer.ts's buildExcludePrompt. */
+  excludePrompt?: string;
   lyrics: string;
   thumbnailText: string;
   youtube: YoutubeMetadata;
@@ -124,6 +126,9 @@ export interface SongIdea {
   promptLength?: number;
   promptWithinLimit?: boolean;
   promptDroppedTerms?: string[];
+  /** Word count of the final stylePrompt — Suno responds best to 15-30 comma-separated descriptor words; above ~40 the model reportedly gets confused. */
+  promptWordCount?: number;
+  promptWithinWordTarget?: boolean;
 }
 
 export interface PlaylistBlueprint {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkHookQuality, scoreSong, scoreSongs } from '../src/core/quality';
-import { buildDurationControl, buildStylePrompt } from '../src/core/promptComposer';
+import { buildDurationControl, buildExcludePrompt, buildStylePrompt } from '../src/core/promptComposer';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { SongIdea } from '../src/types';
@@ -46,12 +46,16 @@ describe('quality scorer', () => {
     expect(song.warnings.some(w => w.startsWith('Famous artist reference risk'))).toBe(false);
   });
 
-  it('does not penalize its own generated "avoid ... soundalike vocals" safety instruction', () => {
+  it('keeps the avoid/copyright safety instruction out of the Style prompt and in a separate Exclude prompt (TASK F4, v3.7)', () => {
     const opts = makeOptions();
     const prompt = buildStylePrompt(opts, testGenres, testMoods, testSeason);
-    expect(prompt).toContain('soundalike vocals');
+    expect(prompt).not.toContain('soundalike vocals');
     const song = scoreSong(baseSong({ stylePrompt: prompt }));
     expect(song.warnings.some(w => w.startsWith('Artist imitation risk'))).toBe(false);
+
+    const excludePrompt = buildExcludePrompt(opts);
+    expect(excludePrompt).toContain('soundalike vocals');
+    expect(excludePrompt).toContain('famous artist imitation');
   });
 
   it('still detects a real imitation phrase like "in the style of Adele"', () => {

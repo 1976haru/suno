@@ -1,6 +1,6 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { buildChannelPromptParts, hookStyleDirectives } from './promptComposer';
+import { buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives } from './promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -160,6 +160,7 @@ export function rebuildStylePromptsForPersonaMode(
   const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, blueprint.oneLineConcept, blueprint.songs);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const excludePrompt = buildExcludePrompt(opts);
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const tempo = averageTempo(genres, trackNo);
@@ -193,9 +194,12 @@ export function rebuildStylePromptsForPersonaMode(
     return {
       ...song,
       stylePrompt: composed.prompt,
+      excludePrompt,
       promptLength: composed.length,
       promptWithinLimit: composed.withinLimit,
-      promptDroppedTerms: composed.droppedTerms
+      promptDroppedTerms: composed.droppedTerms,
+      promptWordCount: composed.wordCount,
+      promptWithinWordTarget: composed.withinWordTarget
     };
   });
   return { ...blueprint, songs };
@@ -290,6 +294,7 @@ export function generateLocalBlueprint(
   const channelParts = buildChannelPromptParts(opts, genres, moods, season);
   const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, concept);
+  const excludePrompt = buildExcludePrompt(opts);
 
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
@@ -369,6 +374,7 @@ export function generateLocalBlueprint(
     return {
       ...partialSong,
       stylePrompt,
+      excludePrompt,
       lyrics,
       thumbnailText: youtube.thumbnailText,
       youtube,
@@ -378,7 +384,9 @@ export function generateLocalBlueprint(
       warnings: [],
       promptLength: composed.length,
       promptWithinLimit: composed.withinLimit,
-      promptDroppedTerms: composed.droppedTerms
+      promptDroppedTerms: composed.droppedTerms,
+      promptWordCount: composed.wordCount,
+      promptWithinWordTarget: composed.withinWordTarget
     };
   });
 
