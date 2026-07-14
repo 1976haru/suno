@@ -18,6 +18,7 @@ interface SongCardProps {
   onToggleSelect?: (trackNo: number) => void;
   personaMode?: boolean;
   personaName?: string;
+  promptCharLimit?: number;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -26,7 +27,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
@@ -37,7 +38,9 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
 
   const hasWarnings = song.warnings.length > 0 || Boolean(evaluation);
   const isSeedSong = personaMode && song.trackNo === 1;
-  const promptLimit = personaMode && !isSeedSong ? PERSONA_STYLE_LIMIT : SUNO_COPY_LIMIT;
+  const configuredPromptLimit = Math.min(SUNO_COPY_LIMIT, Math.max(PERSONA_STYLE_LIMIT, promptCharLimit || SUNO_COPY_LIMIT));
+  const promptLimit = personaMode && !isSeedSong ? Math.min(configuredPromptLimit, PERSONA_STYLE_LIMIT) : configuredPromptLimit;
+  const isOverPromptLimit = styleDraft.length > promptLimit;
 
   return (
     <article className="song">
@@ -132,14 +135,14 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               )}
               <div className="copy-head">
                 <h4>Style Prompt</h4>
-                <span className={styleDraft.length > promptLimit ? 'prompt-length-badge over-limit' : 'prompt-length-badge'}>
-                  {styleDraft.length} / {promptLimit}자 {styleDraft.length > promptLimit ? '⚠️' : '✅'}
+                <span className={isOverPromptLimit ? 'prompt-length-badge over-limit' : 'prompt-length-badge'}>
+                  {styleDraft.length} / {promptLimit}자 {isOverPromptLimit ? '⚠️' : '✅'}
                 </span>
                 <button type="button" title="원래 생성된 프롬프트로 되돌리기" onClick={() => setStyleDraft(song.stylePrompt)}>
                   <RotateCcw size={14} />
                   기본값으로
                 </button>
-                <button type="button" disabled={styleDraft.length > promptLimit} onClick={() => void copyText(styleDraft)}>
+                <button type="button" disabled={isOverPromptLimit} onClick={() => void copyText(styleDraft)}>
                   <Copy size={15} />
                   Copy
                 </button>
@@ -150,7 +153,12 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
                 onChange={event => setStyleDraft(event.target.value)}
                 rows={8}
               />
-              {styleDraft.length > promptLimit && (
+              {isOverPromptLimit && isSeedSong && (
+                <p className="error">
+                  ⚠️ 시드 곡 프롬프트가 상한({promptLimit}자)을 초과합니다 (현재 {styleDraft.length}자). 보컬/훅/머니코드는 시드 곡에 필수라 제거할 수 없습니다. Suno에서 붙여넣을 때 잘릴 수 있으니 설정에서 Style 필드 상한을 1000자로 바꾸거나 Step1에서 보컬 설명을 줄이세요.
+                </p>
+              )}
+              {isOverPromptLimit && !isSeedSong && (
                 <p className="error">⚠️ {promptLimit}자를 초과했습니다. 초과 상태에서는 복사를 막습니다.</p>
               )}
               {song.promptDroppedTerms && song.promptDroppedTerms.length > 0 && (

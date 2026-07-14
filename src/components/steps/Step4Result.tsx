@@ -37,6 +37,7 @@ interface Step4ResultProps {
   personaMode: boolean;
   personaPromptStats: PersonaPromptStats | null;
   savedPersonas: ChannelPersonaRecord[];
+  promptCharLimit?: number;
   onSelectThumbnailArchetype: (id: ThumbnailArchetypeId) => void;
   onPersonaModeChange: (enabled: boolean) => void;
   onSavePersonaName: () => void;
@@ -75,6 +76,7 @@ export default function Step4Result({
   personaMode,
   personaPromptStats,
   savedPersonas,
+  promptCharLimit,
   onSelectThumbnailArchetype,
   onPersonaModeChange,
   onSavePersonaName,
@@ -300,6 +302,7 @@ export default function Step4Result({
             onToggleSelect={toggleTrackSelected}
             personaMode={personaMode}
             personaName={soundSignature?.personaName}
+            promptCharLimit={promptCharLimit}
           />
         )
       ))}

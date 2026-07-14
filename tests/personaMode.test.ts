@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { generateLocalBlueprint, rebuildStylePromptsForPersonaMode } from '../src/core/localGenerator';
-import { buildSoundSignature, PERSONA_STYLE_LIMIT } from '../src/core/soundSignature';
+import { buildPersonaStylePrompt, buildSoundSignature, PERSONA_STYLE_LIMIT, type SoundSignature } from '../src/core/soundSignature';
 import { SUNO_COPY_LIMIT } from '../src/core/promptBudget';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { LyricLanguage } from '../src/types';
@@ -108,8 +108,95 @@ describe('persona mode prompt compression', () => {
     const { blueprint } = personaBlueprint(language);
     const seedPrompt = blueprint.songs[0].stylePrompt;
     expect(seedPrompt).toContain('male soft husky tenor close-mic');
-    expect(seedPrompt).toContain('warm analog mix');
+    expect(seedPrompt).toMatch(/hook ".+" repeats chorus 4x/);
+    expect(seedPrompt).toContain('I-V-vi-IV progression');
+    expect(seedPrompt).toMatch(/\d{2,3} BPM/);
+    expect(seedPrompt).toContain('short intro, 3:10-3:35');
     expect(seedPrompt.length).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
+  });
+
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps seed essentials and records dropped terms at the 200 char limit (%s)', language => {
+    const { blueprint } = personaBlueprint(language);
+    const seedSong = blueprint.songs[0];
+    expect(seedSong.stylePrompt).toContain('male soft husky tenor close-mic');
+    expect(seedSong.stylePrompt).toMatch(/hook ".+" repeats chorus 4x/);
+    expect(seedSong.stylePrompt).toContain('I-V-vi-IV progression');
+    expect(seedSong.stylePrompt).toMatch(/\d{2,3} BPM/);
+    expect(seedSong.stylePrompt).toContain('short intro, 3:10-3:35');
+    expect(seedSong.stylePrompt).not.toContain('track 1:');
+    expect(seedSong.stylePrompt).not.toContain('nostalgic');
+    expect(seedSong.promptDroppedTerms?.[0]).toBe('track role');
+    expect(seedSong.promptDroppedTerms?.[1]).toBe('mood');
+    if (seedSong.promptDroppedTerms?.includes('mix note')) {
+      expect(seedSong.stylePrompt).not.toContain('warm analog mix');
+    }
+    for (const dropped of seedSong.promptDroppedTerms || []) {
+      if (dropped.startsWith('instrument: ')) {
+        expect(seedSong.stylePrompt).not.toContain(dropped.replace('instrument: ', ''));
+      }
+    }
+  });
+
+  it('trims seed terms in role, mood, mix, then instrument order', () => {
+    const opts = makeOptions({ personaMode: true, songCount: 3 });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason, undefined, SUNO_COPY_LIMIT);
+    const signature = buildSoundSignature(blueprint, opts, opts.channel);
+    const result = buildPersonaStylePrompt({
+      signature,
+      opts,
+      genres: testGenres,
+      hookPhrase: blueprint.songs[0].hookPhrase,
+      trackNo: 1,
+      role: 'clear opener',
+      tempo: 97,
+      isSeed: true,
+      limit: 170
+    });
+
+    expect(result.droppedTerms).toEqual([
+      'track role',
+      'mood',
+      'mix note',
+      'instrument: acoustic guitar',
+      'instrument: Rhodes piano'
+    ]);
+    expect(result.prompt).toContain('male soft husky tenor close-mic');
+    expect(result.prompt).toMatch(/hook ".+" repeats chorus 4x/);
+    expect(result.prompt).toContain('I-V-vi-IV progression');
+    expect(result.prompt).toContain('97 BPM');
+    expect(result.prompt).toContain('short intro, 3:10-3:35');
+  });
+
+  it('returns an over-limit seed prompt instead of trimming required clauses', () => {
+    const opts = makeOptions({ personaMode: true, songCount: 1 });
+    const signature: SoundSignature = {
+      short: 'very long warm adult contemporary pop identity, nostalgic, grand piano, male soft husky tenor close-mic, warm analog mix',
+      full: 'very long warm adult contemporary pop identity, nostalgic, grand piano, male soft husky tenor close-mic, warm analog mix',
+      personaName: 'Test · Winter · Male Tenor',
+      shortLength: 119,
+      fullLength: 119
+    };
+
+    const result = buildPersonaStylePrompt({
+      signature,
+      opts,
+      genres: testGenres,
+      hookPhrase: 'New Year Umbrella',
+      trackNo: 1,
+      role: 'clear opener',
+      tempo: 97,
+      isSeed: true,
+      limit: 120
+    });
+
+    expect(result.length).toBeGreaterThan(120);
+    expect(result.withinLimit).toBe(false);
+    expect(result.prompt).toContain('male soft husky tenor close-mic');
+    expect(result.prompt).toContain('hook "New Year Umbrella" repeats chorus 4x');
+    expect(result.prompt).toContain('I-V-vi-IV progression');
+    expect(result.prompt).toContain('97 BPM');
+    expect(result.prompt).toContain('short intro, 3:10-3:35');
+    expect(result.droppedTerms).toEqual(['track role', 'mood', 'mix note', 'instrument: grand piano']);
   });
 
   it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps vocal text on every track when persona mode is off (%s)', language => {

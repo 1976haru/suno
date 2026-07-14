@@ -165,7 +165,7 @@ function personaNameFor(blueprint: PlaylistBlueprint, opts: GenerationOptions, c
   const channelName = channel.name || blueprint.channelName;
   const season = seasonWordForPersona(opts, channel);
   const vocal = vocalWordForPersona(opts.vocalTone || blueprint.vocalSignature || channel.defaultVocal, channel);
-  return `${channelName}  ${season}  ${vocal}`;
+  return `${channelName} · ${season} · ${vocal}`;
 }
 
 export function buildSoundSignature(
@@ -257,6 +257,122 @@ function fillWithinLimit(clauses: string[], limit: number) {
     .join(', ');
 }
 
+function isVocalAtom(value: string) {
+  return /\b(vocal|male|female|tenor|baritone|close-mic|husky|breathy|soulful)\b/i.test(value);
+}
+
+function isMixAtom(value: string) {
+  return /\b(mix|polish|production|analog|master)\b/i.test(value);
+}
+
+interface SeedSignatureParts {
+  genre: string;
+  mood?: string;
+  instruments: string[];
+  vocal: string;
+  mix?: string;
+}
+
+function seedSignatureParts(signature: SoundSignature, opts: GenerationOptions, genres: GenrePack[]): SeedSignatureParts {
+  const atoms = splitAtoms(signature.short);
+  const genre = atoms[0] || compactGenreKeyword(genres);
+  const vocalIndex = atoms.findIndex((atom, index) => index > 0 && isVocalAtom(atom));
+  const vocal = vocalIndex >= 0 ? atoms[vocalIndex] : compactVocalAtom(opts.vocalTone);
+  const beforeVocal = vocalIndex >= 0 ? atoms.slice(1, vocalIndex) : atoms.slice(1);
+  const afterVocal = vocalIndex >= 0 ? atoms.slice(vocalIndex + 1) : [];
+  const mix = afterVocal.find(isMixAtom) || afterVocal[0];
+  const mood = beforeVocal[0];
+  const instruments = beforeVocal.slice(mood ? 1 : 0);
+
+  return {
+    genre,
+    mood,
+    instruments,
+    vocal,
+    mix
+  };
+}
+
+function joinSeedClauses(parts: {
+  genre: string;
+  mood?: string;
+  instruments: string[];
+  vocal: string;
+  mix?: string;
+  hook: string;
+  money: string;
+  tempo: string;
+  duration: string;
+  role?: string;
+}) {
+  return [
+    parts.genre,
+    parts.mood,
+    ...parts.instruments,
+    parts.vocal,
+    parts.mix,
+    parts.hook,
+    parts.money,
+    parts.tempo,
+    parts.duration,
+    parts.role
+  ].filter(Boolean).join(', ').replace(/,\s*$/g, '');
+}
+
+function buildSeedPersonaStylePrompt(input: PersonaStylePromptInput, limit: number): PersonaStylePromptResult {
+  const signatureParts = seedSignatureParts(input.signature, input.opts, input.genres);
+  const parts: SeedSignatureParts & {
+    hook: string;
+    money: string;
+    tempo: string;
+    duration: string;
+    role?: string;
+  } = {
+    ...signatureParts,
+    instruments: [...signatureParts.instruments],
+    hook: compactHook(input.hookPhrase, input.opts.lyricDepth, false),
+    money: compactMoneyChord(input.opts),
+    tempo: `${input.tempo} BPM`,
+    duration: compactDuration(input.opts.durationTarget, false),
+    role: `track ${input.trackNo}: ${clipClause(input.role, 22)}`
+  };
+  const droppedTerms: string[] = [];
+
+  const dropIfNeeded = (label: string, drop: () => boolean) => {
+    if (joinSeedClauses(parts).length <= limit) return;
+    if (drop()) droppedTerms.push(label);
+  };
+
+  dropIfNeeded('track role', () => {
+    if (!parts.role) return false;
+    parts.role = undefined;
+    return true;
+  });
+  dropIfNeeded('mood', () => {
+    if (!parts.mood) return false;
+    parts.mood = undefined;
+    return true;
+  });
+  dropIfNeeded('mix note', () => {
+    if (!parts.mix) return false;
+    parts.mix = undefined;
+    return true;
+  });
+
+  while (joinSeedClauses(parts).length > limit && parts.instruments.length > 0) {
+    const removed = parts.instruments.pop();
+    if (removed) droppedTerms.push(`instrument: ${removed}`);
+  }
+
+  const prompt = joinSeedClauses(parts);
+  return {
+    prompt,
+    length: prompt.length,
+    withinLimit: prompt.length <= limit,
+    droppedTerms
+  };
+}
+
 export interface PersonaStylePromptInput {
   signature: SoundSignature;
   opts: GenerationOptions;
@@ -280,15 +396,16 @@ export function buildPersonaStylePrompt(input: PersonaStylePromptInput): Persona
   const limit = input.isSeed
     ? Math.min(input.limit || SUNO_COPY_LIMIT, SUNO_COPY_LIMIT)
     : Math.min(input.limit || PERSONA_STYLE_LIMIT, PERSONA_STYLE_LIMIT);
-  const seedTerse = input.isSeed && limit <= PERSONA_STYLE_LIMIT;
-  const hook = compactHook(input.hookPhrase, input.opts.lyricDepth, seedTerse);
+  if (input.isSeed) return buildSeedPersonaStylePrompt(input, limit);
+
+  const hook = compactHook(input.hookPhrase, input.opts.lyricDepth, false);
   const money = compactMoneyChord(input.opts);
   const tempo = `${input.tempo} BPM`;
-  const duration = compactDuration(input.opts.durationTarget, seedTerse);
+  const duration = compactDuration(input.opts.durationTarget, false);
   const role = `track ${input.trackNo}: ${clipClause(input.role, 22)}`;
   const requiredSongClauses = [hook, money, tempo, duration];
 
-  const identity = input.isSeed ? input.signature.short : compactGenreKeyword(input.genres);
+  const identity = compactGenreKeyword(input.genres);
 
   const clauses = [identity, ...requiredSongClauses];
   const droppedTerms: string[] = [];

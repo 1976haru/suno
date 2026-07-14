@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildSoundSignature } from '../src/core/soundSignature';
-import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks, testGenres, testMoods, testSeason } from './fixtures';
 
 describe('sound signature', () => {
   const opts = makeOptions({ songCount: 30 });
@@ -52,8 +52,27 @@ describe('sound signature', () => {
     expect(signature.personaName).toContain(opts.channel.name);
   });
 
-  it('uses two double-space separators in personaName', () => {
-    expect(signature.personaName.match(/  /g) || []).toHaveLength(2);
+  it('uses two middle-dot separators in personaName', () => {
+    expect(signature.personaName.match(/ · /g) || []).toHaveLength(2);
+    expect(signature.personaName).not.toContain('  ');
+  });
+
+  it('builds localized Korean and Japanese persona names', () => {
+    const koreanSignature = signature;
+    const japanChannel = channelPresets.find(channel => channel.id === 'morning-showa-cafe')!;
+    const japaneseOpts = makeOptions({
+      channel: japanChannel,
+      genreIds: japanChannel.preferredGenres,
+      moodIds: japanChannel.preferredMoods
+    });
+    const japaneseGenres = genrePacks.filter(genre => japaneseOpts.genreIds.includes(genre.id));
+    const japaneseMoods = moodPacks.filter(mood => japaneseOpts.moodIds.includes(mood.id));
+    const season = seasonPacks.find(pack => pack.id === japaneseOpts.seasonId)!;
+    const japaneseBlueprint = generateLocalBlueprint(japaneseOpts, japaneseGenres, japaneseMoods, season);
+    const japaneseSignature = buildSoundSignature(japaneseBlueprint, japaneseOpts, japanChannel);
+
+    expect(koreanSignature.personaName).toBe('굿모닝 추억라디오 · 겨울 · 남성테너');
+    expect(japaneseSignature.personaName).toBe('朝の昭和喫茶 · 冬 · 男性テナー');
   });
 
   it('is identical across every song in the same pack', () => {

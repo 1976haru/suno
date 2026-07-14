@@ -498,6 +498,7 @@ export default function App() {
               personaMode={opts.personaMode ?? false}
               personaPromptStats={personaPromptStats}
               savedPersonas={savedPersonas}
+              promptCharLimit={provider.promptCharLimit}
               onSelectThumbnailArchetype={setThumbnailArchetypeId}
               onPersonaModeChange={onPersonaModeChange}
               onSavePersonaName={() => void onSavePersonaName()}
