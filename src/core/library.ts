@@ -37,10 +37,20 @@ function normalizeSavedPack(pack: SavedPack): SavedPack {
 }
 
 const DB_NAME = 'suno-weaver-library';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = 'packs';
 const PERSONA_STORE = 'personas';
+const PROGRESS_STORE = 'suno_progress';
 export const AUTOSAVE_ID = 'autosave-temp';
+
+/** TASK G3 (v3.7) — "곡을 Suno에 넣었음" checkboxes for Focus Mode, keyed by pack id, so the checklist survives a page reload. */
+export interface PackProgressRecord {
+  id: string;
+  doneTrackNos: number[];
+  updatedAt: string;
+}
+
+const memoryProgress = new Map<string, PackProgressRecord>();
 
 export interface ChannelPersonaRecord {
   id: string;
@@ -69,6 +79,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(PERSONA_STORE)) {
         db.createObjectStore(PERSONA_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(PROGRESS_STORE)) {
+        db.createObjectStore(PROGRESS_STORE, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -292,4 +305,25 @@ export async function listChannelPersonas(channelId: string): Promise<ChannelPer
   return records
     .filter(record => record.channelId === channelId)
     .sort((a, b) => (a.lastUsedAt < b.lastUsedAt ? 1 : -1));
+}
+
+export async function getPackProgress(packId: string): Promise<number[]> {
+  const record = hasIndexedDb()
+    ? await withStore<PackProgressRecord | undefined>('readonly', store => store.get(packId), PROGRESS_STORE)
+    : memoryProgress.get(packId);
+  return record?.doneTrackNos || [];
+}
+
+export async function setTrackProgress(packId: string, trackNo: number, done: boolean): Promise<number[]> {
+  const current = await getPackProgress(packId);
+  const next = done
+    ? Array.from(new Set([...current, trackNo])).sort((a, b) => a - b)
+    : current.filter(no => no !== trackNo);
+  const record: PackProgressRecord = { id: packId, doneTrackNos: next, updatedAt: new Date().toISOString() };
+  if (!hasIndexedDb()) {
+    memoryProgress.set(packId, record);
+    return next;
+  }
+  await withStore('readwrite', store => store.put(record), PROGRESS_STORE);
+  return next;
 }

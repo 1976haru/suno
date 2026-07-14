@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Download, FileText, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Download, FileText, Focus, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
-import { downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import FocusMode from '../FocusMode';
+import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
@@ -93,6 +95,7 @@ export default function Step4Result({
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
   const [resultTab, setResultTab] = useState<'songs' | 'thumbnail' | 'persona'>('songs');
+  const [focusModeOpen, setFocusModeOpen] = useState(false);
 
   function toggleTrackSelected(trackNo: number) {
     setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
@@ -116,6 +119,17 @@ export default function Step4Result({
     const blob = await exportDocxBlob({ blueprint, thumbnailSpec: thumbnailSpec ?? undefined, soundSignature: soundSignature ?? undefined, personaMode });
     downloadBlob('suno-pack.docx', blob);
   }
+
+  function handleTxtZipExport() {
+    if (!blueprint) return;
+    const zip = buildZip(blueprint.songs.map(song => ({
+      name: `${song.trackNo.toString().padStart(2, '0')}_${safeFileName(song.title)}.txt`,
+      content: buildSongTxt(song)
+    })));
+    downloadBlob('suno-pack-txt.zip', zip);
+  }
+
+  const packId = blueprint ? `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}` : '';
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -156,6 +170,10 @@ export default function Step4Result({
               <FileText size={16} />
               📄 WORD
             </button>
+            <button type="button" title="곡별로 나눈 .txt 30개를 zip으로 내보내기 — 모바일에서 한 곡씩 열어 복사하기 좋습니다" onClick={handleTxtZipExport}>
+              <Download size={16} />
+              📝 TXT (곡별)
+            </button>
             <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode), 'text/markdown;charset=utf-8')}>
               <Download size={16} />
               MD
@@ -181,8 +199,16 @@ export default function Step4Result({
                   ? `🧪 선택한 ${selectedTrackNos.length}곡만 평가하기`
                   : '🧪 전체 AI 평가하기'}
             </button>
+            <button type="button" className="primary" onClick={() => setFocusModeOpen(true)}>
+              <Focus size={16} />
+              📱 집중 모드
+            </button>
           </div>
         </div>
+      )}
+
+      {blueprint && focusModeOpen && (
+        <FocusMode songs={blueprint.songs} packId={packId} onClose={() => setFocusModeOpen(false)} />
       )}
 
       {blueprint && (

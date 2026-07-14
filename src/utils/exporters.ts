@@ -1,4 +1,28 @@
-import type { PlaylistBlueprint, SoundSignature, ThumbnailSpec } from '../types';
+import type { PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from '../types';
+
+/**
+ * TASK G2 (v3.7) — a single .txt per song, laid out so a phone user can open
+ * one file and copy each of the three Suno fields (Style / Lyrics / Exclude)
+ * without scrolling through a whole 30-song document. See zipExporter.ts for
+ * the "TXT (곡별)" bulk download that zips 30 of these together.
+ */
+export function buildSongTxt(song: SongIdea): string {
+  return [
+    `${song.trackNo.toString().padStart(2, '0')}. ${song.title}`,
+    '',
+    '===== STYLE (Suno Style 필드) =====',
+    song.stylePrompt,
+    '',
+    '===== LYRICS (Suno Lyrics 필드) =====',
+    song.lyrics,
+    '',
+    '===== EXCLUDE (Advanced Options -> Exclude Styles) =====',
+    song.excludePrompt || '',
+    '',
+    '===== YOUTUBE =====',
+    JSON.stringify(song.youtube, null, 2)
+  ].join('\n');
+}
 
 function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
   if (!spec) return '';
@@ -76,6 +100,12 @@ ${song.stylePrompt}
 ${song.lyrics}
 \`\`\`
 
+### Exclude (Advanced Options)
+
+\`\`\`text
+${song.excludePrompt || ''}
+\`\`\`
+
 ### YouTube
 
 Title: ${song.youtube?.title || ''}
@@ -118,6 +148,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       'qualityScore',
       'warnings',
       'stylePrompt',
+      'excludePrompt',
       'lyrics'
     ]
   ];
@@ -140,6 +171,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       String(song.qualityScore),
       song.warnings.join('; '),
       song.stylePrompt,
+      song.excludePrompt || '',
       song.lyrics
     ]);
   }

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, Download, RefreshCw, RotateCcw, ShieldAlert, Sparkles } from 'lucide-react';
 import type { SongEvaluation, SongIdea } from '../types';
-import { copyText, downloadText } from '../utils/exporters';
+import { buildSongTxt, copyText, downloadText } from '../utils/exporters';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 
-type Tab = 'style' | 'lyrics' | 'youtube';
+type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
 
 interface SongCardProps {
   song: SongIdea;
@@ -101,7 +101,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               type="button"
               onClick={() => downloadText(
                 `${song.trackNo.toString().padStart(2, '0')}-${song.title}.txt`,
-                `Style Prompt\n\n${song.stylePrompt}\n\nLyrics\n\n${song.lyrics}\n\nYouTube\n\n${JSON.stringify(song.youtube, null, 2)}`,
+                buildSongTxt(song),
                 'text/plain;charset=utf-8'
               )}
             >
@@ -113,6 +113,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           <div className="tab-row">
             <button type="button" className={tab === 'style' ? 'tab active' : 'tab'} onClick={() => setTab('style')}>스타일 프롬프트</button>
             <button type="button" className={tab === 'lyrics' ? 'tab active' : 'tab'} onClick={() => setTab('lyrics')}>가사</button>
+            <button type="button" className={tab === 'exclude' ? 'tab active' : 'tab'} onClick={() => setTab('exclude')}>Exclude</button>
             <button type="button" className={tab === 'youtube' ? 'tab active' : 'tab'} onClick={() => setTab('youtube')}>YouTube</button>
           </div>
 
@@ -177,6 +178,20 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
                 </button>
               </div>
               <pre>{song.lyrics}</pre>
+            </section>
+          )}
+
+          {tab === 'exclude' && (
+            <section className="copy-block">
+              <div className="copy-head">
+                <h4>Exclude (Advanced Options)</h4>
+                <button type="button" onClick={() => void copyText(song.excludePrompt || '')}>
+                  <Copy size={15} />
+                  Copy
+                </button>
+              </div>
+              <p className="supporting">Suno의 "Advanced Options → Exclude Styles" 필드에 붙여넣으세요. Style 프롬프트에는 부정 지시("no drums" 등)를 넣지 않는 것이 더 안정적입니다.</p>
+              <pre>{song.excludePrompt || '(제외할 항목 없음)'}</pre>
             </section>
           )}
 
