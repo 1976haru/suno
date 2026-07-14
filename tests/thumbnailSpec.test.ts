@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildThumbnailSpec } from '../src/core/thumbnailSpec';
 import { THUMBNAIL_PALETTES, paletteForSeason } from '../src/data/thumbnailPalettes';
+import { thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 import { makeOptions, testGenres, testMoods, channelPresets, seasonPacks } from './fixtures';
 
 const LANGUAGES = ['english', 'korean', 'japanese'] as const;
@@ -279,5 +280,35 @@ describe('paletteForSeason', () => {
       const palette = paletteForSeason(season.id);
       expect(Object.values(THUMBNAIL_PALETTES)).toContainEqual(palette);
     }
+  });
+});
+
+describe('[v3.7] thumbnail archetype image prompt wiring', () => {
+  it('does not contain the old hardcoded cafe scene sentence', () => {
+    const opts = makeOptions({ songCount: 3, seasonId: 'summer-night' });
+    const season = seasonPacks.find(s => s.id === 'summer-night')!;
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, 'summer-green');
+    expect(spec.imagePrompt).not.toContain('A quiet cafe window');
+  });
+
+  it('produces a different scene description for each archetype', () => {
+    const opts = makeOptions({ songCount: 3, seasonId: 'summer-night' });
+    const season = seasonPacks.find(s => s.id === 'summer-night')!;
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+    const sceneDescriptions = thumbnailArchetypes.map(archetype => {
+      const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, archetype.id);
+      return spec.imagePrompt.split('.')[0];
+    });
+    expect(new Set(sceneDescriptions).size).toBe(thumbnailArchetypes.length);
+  });
+
+  it('summer-green archetype does not generate a cafe scene', () => {
+    const opts = makeOptions({ songCount: 3, seasonId: 'summer-night' });
+    const season = seasonPacks.find(s => s.id === 'summer-night')!;
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
+    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, 'summer-green');
+    expect(spec.imagePrompt.toLowerCase()).not.toContain('cafe');
+    expect(spec.imagePrompt.toLowerCase()).toMatch(/green|leaves|garden|terrace|window/);
   });
 });

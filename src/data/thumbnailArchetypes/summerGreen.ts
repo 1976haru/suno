@@ -17,7 +17,7 @@ export const summerGreenArchetype: ThumbnailArchetype = {
     'small garden table beside a bright window',
     'quiet park edge with a bench in soft focus',
     'indoor room looking out to dense green trees',
-    'terrace cafe surrounded by potted plants',
+    'sunny terrace surrounded by potted plants',
     'sunny kitchen window with outdoor greenery beyond'
   ],
   compositionPool: [

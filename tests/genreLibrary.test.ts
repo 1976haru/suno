@@ -3,7 +3,15 @@ import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { hookStyleDirectives } from '../src/core/promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT } from '../src/core/promptBudget';
 import { MAX_SELECTED_GENRES, normalizeGenreSelection, toggleGenreSelection } from '../src/core/genreSelection';
-import { genreLibrary, importedGenreCount, totalGenreCount } from '../src/data/genreLibrary';
+import {
+  genreLibrary,
+  getCoreGenresForArchetype,
+  getVisibleGenresForArchetype,
+  importedGenreCount,
+  searchExtendedGenres,
+  searchHiddenGenresForArchetype,
+  totalGenreCount
+} from '../src/data/genreLibrary';
 import { genrePacks } from '../src/data/presets';
 import { makeOptions, testMoods, testSeason } from './fixtures';
 
@@ -45,6 +53,8 @@ describe('structured genre library', () => {
   it('every structured genre has the supported v3 fields', () => {
     for (const genre of genreLibrary) {
       expect(genre.categoryId, genre.id).toBeTruthy();
+      expect(Array.isArray(genre.archetypes), genre.id).toBe(true);
+      expect(['core', 'extended'], genre.id).toContain(genre.tier);
       expect(genre.rhythm.length, genre.id).toBeGreaterThan(0);
       expect(genre.instruments.length, genre.id).toBeGreaterThan(0);
       expect(genre.vocal.length, genre.id).toBeGreaterThan(0);
@@ -113,5 +123,50 @@ describe('structured genre library', () => {
     expect(toggleGenreSelection(['a', 'b'], 'c')).toEqual(['a', 'b', 'c']);
     expect(toggleGenreSelection(['a', 'b', 'c'], 'b')).toEqual(['a', 'c']);
     expect(MAX_SELECTED_GENRES).toBe(3);
+  });
+
+  it('keeps channel core genre counts at or below 12 and falls back for empty archetypes', () => {
+    expect(getCoreGenresForArchetype('senior-morning').map(genre => genre.id)).toEqual([
+      'adult-contemporary',
+      'acoustic-pop',
+      'jazz-pop',
+      'healing-ballad',
+      'piano-ballad',
+      'lofi-cafe',
+      'retro-soul-pop',
+      'bossa-cafe',
+      'christmas-soft-pop',
+      'folk-pop'
+    ]);
+    expect(getCoreGenresForArchetype('senior-morning').length).toBeLessThanOrEqual(12);
+    expect(getCoreGenresForArchetype('showa-cafe').length).toBeLessThanOrEqual(12);
+    expect(getCoreGenresForArchetype('christmas').map(genre => genre.id)).toEqual(getCoreGenresForArchetype('senior-morning').map(genre => genre.id));
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBeLessThanOrEqual(12);
+  });
+
+  it('does not promote Bebop, Big Band, Club Disco, or Jazz Rap variants into any core set', () => {
+    const coreIds = new Set([
+      ...getCoreGenresForArchetype('senior-morning').map(genre => genre.id),
+      ...getCoreGenresForArchetype('showa-cafe').map(genre => genre.id)
+    ]);
+    for (const forbidden of ['jazz-bebop-sax-drive', 'jazz-big-band-swing', 'city-pop-club-disco-pop', 'jazz-jazz-rap-late-night']) {
+      expect(coreIds.has(forbidden), forbidden).toBe(false);
+    }
+  });
+
+  it('keeps extended genres out of default visibility but searchable', () => {
+    const visibleIds = new Set(getVisibleGenresForArchetype('senior-morning').map(genre => genre.id));
+    expect(visibleIds.has('jazz-classic-vocal-lounge')).toBe(false);
+    expect(searchHiddenGenresForArchetype('senior-morning', 'Classic Vocal Jazz Lounge').map(genre => genre.id)).toContain('jazz-classic-vocal-lounge');
+    expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
+  });
+
+  it('preserves all 264 genre ids and keeps preset ids backward compatible', () => {
+    const libraryIds = new Set(genreLibrary.map(genre => genre.id));
+    const presetIds = new Set(genrePacks.map(genre => genre.id));
+    expect(libraryIds.size).toBe(264);
+    expect(presetIds.size).toBe(264);
+    for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
+    for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
   });
 });

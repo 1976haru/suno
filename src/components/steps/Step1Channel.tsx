@@ -1,7 +1,16 @@
-import { Plus, Save, Sparkles, Trash2 } from 'lucide-react';
-import { generationPacks, genrePacks, moodPacks } from '../../data/presets';
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, Save, Search, Sparkles, Trash2 } from 'lucide-react';
+import { generationPacks, moodPacks } from '../../data/presets';
+import {
+  compactGenreTechnicalLine,
+  describeGenreForUserKo,
+  genreCategories,
+  getCoreGenreIdsForArchetype,
+  getVisibleGenresForArchetype,
+  searchHiddenGenresForArchetype
+} from '../../data/genreLibrary';
 import TagChips from '../TagChips';
-import type { AgeGroup, ChannelProfile, LyricLanguage, Market } from '../../types';
+import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market } from '../../types';
 
 const marketOptions: { value: Market; label: string }[] = [
   { value: 'korea', label: 'Korea' },
@@ -20,6 +29,54 @@ const languageOptions: { value: LyricLanguage; label: string }[] = [
 const SEO_KEYWORD_SUGGESTIONS = ['감성 플레이리스트', '60대 음악', '계절 플레이리스트', '카페 음악', '드라이브 음악'];
 const CLICHE_SUGGESTIONS = ['famous artist imitation', 'copied song structure', 'childish lyrics', 'dramatic power ballad shouting'];
 
+const archetypeChoices: { id: ChannelArchetype; label: string; description: string; vocal: string; moods: string[]; market: Market; audience: AgeGroup }[] = [
+  {
+    id: 'senior-morning',
+    label: '시니어 아침 라디오',
+    description: '아침 커피, 추억, 계절감 중심의 따뜻한 채널',
+    vocal: 'mature soulful male tenor, soft slightly husky close-mic delivery, gentle and sincere',
+    moods: ['nostalgic', 'warm', 'hopeful'],
+    market: 'korea',
+    audience: 'seniors'
+  },
+  {
+    id: 'showa-cafe',
+    label: '쇼와 찻집',
+    description: '차분한 일본 찻집과 절제된 복고 감성',
+    vocal: 'mature soft male tenor, restrained emotional tone, warm close-mic delivery',
+    moods: ['nostalgic', 'elegant', 'bittersweet'],
+    market: 'japan',
+    audience: 'seniors'
+  },
+  {
+    id: 'christmas',
+    label: '크리스마스',
+    description: '겨울과 연말에 맞는 따뜻한 시즌 채널',
+    vocal: 'warm clear vocal, soft holiday phrasing, polished but not childish',
+    moods: ['christmas', 'warm', 'hopeful'],
+    market: 'global',
+    audience: 'allAges'
+  },
+  {
+    id: 'lofi-study',
+    label: '로파이 공부',
+    description: '공부와 작업 배경에 맞는 낮은 집중감',
+    vocal: 'optional soft close vocal, low-distraction delivery, calm and steady',
+    moods: ['calm-focus', 'rainy-comfort', 'warm'],
+    market: 'global',
+    audience: 'twenties'
+  },
+  {
+    id: 'kids',
+    label: '키즈',
+    description: '가족이 함께 듣기 좋은 밝고 안전한 채널',
+    vocal: 'bright friendly vocal, clear pronunciation, safe family tone',
+    moods: ['fresh-start', 'hopeful', 'warm'],
+    market: 'global',
+    audience: 'kids'
+  }
+];
+
 interface Step1ChannelProps {
   editorChannel: ChannelProfile;
   isSelectedCustom: boolean;
@@ -30,10 +87,31 @@ interface Step1ChannelProps {
 }
 
 export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete }: Step1ChannelProps) {
+  const [genreSearchOpen, setGenreSearchOpen] = useState(false);
+  const [genreQuery, setGenreQuery] = useState('');
+  const [genreCategoryId, setGenreCategoryId] = useState('all');
+  const archetype = editorChannel.archetype || 'senior-morning';
+  const visibleGenres = useMemo(
+    () => getVisibleGenresForArchetype(archetype, editorChannel.preferredGenres),
+    [archetype, editorChannel.preferredGenres]
+  );
+  const hiddenGenres = useMemo(() => searchHiddenGenresForArchetype(archetype, genreQuery, genreCategoryId), [archetype, genreCategoryId, genreQuery]);
+
   function toggleId(key: 'preferredGenres' | 'preferredMoods', id: string) {
     const current = editorChannel[key];
     const next = current.includes(id) ? current.filter(v => v !== id) : [...current, id];
     onUpdateField(key, next);
+  }
+
+  function applyArchetype(archetypeId: ChannelArchetype) {
+    const defaults = archetypeChoices.find(choice => choice.id === archetypeId) || archetypeChoices[0];
+    const genreIds = getCoreGenreIdsForArchetype(archetypeId).slice(0, 3);
+    onUpdateField('archetype', archetypeId);
+    onUpdateField('market', defaults.market);
+    onUpdateField('audience', defaults.audience);
+    onUpdateField('defaultVocal', defaults.vocal);
+    onUpdateField('preferredGenres', genreIds);
+    onUpdateField('preferredMoods', defaults.moods);
   }
 
   return (
@@ -58,6 +136,23 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
             <Trash2 size={16} />
             Delete
           </button>
+        </div>
+      </div>
+
+      <div className="option-block">
+        <h3>어떤 채널인가요?</h3>
+        <div className="genre-card-grid">
+          {archetypeChoices.map(choice => (
+            <button
+              type="button"
+              key={choice.id}
+              className={archetype === choice.id ? 'genre-card-choice active' : 'genre-card-choice'}
+              onClick={() => applyArchetype(choice.id)}
+            >
+              <span className="genre-card-title">{choice.label}</span>
+              <span>{choice.description}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -107,18 +202,55 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
 
       <div className="option-block">
         <h3>Preferred genres (선호 장르)</h3>
-        <div className="chips">
-          {genrePacks.map(genre => (
+        <p className="supporting">현재 아키타입에 맞는 core 장르만 먼저 보여줍니다. 나머지는 더 찾기에서 추가하세요.</p>
+        <div className="genre-card-grid">
+          {visibleGenres.map(genre => (
             <button
               type="button"
               key={genre.id}
-              className={editorChannel.preferredGenres.includes(genre.id) ? 'chip active' : 'chip'}
+              className={editorChannel.preferredGenres.includes(genre.id) ? 'genre-card-choice active' : 'genre-card-choice'}
               onClick={() => toggleId('preferredGenres', genre.id)}
             >
-              {genre.label}
+              <span className="genre-card-title">{genre.label}</span>
+              <span>{describeGenreForUserKo(genre)}</span>
+              <small>{compactGenreTechnicalLine(genre)}</small>
             </button>
           ))}
         </div>
+        <button type="button" className="genre-search-toggle" onClick={() => setGenreSearchOpen(open => !open)}>
+          <Search size={16} />
+          더 찾기 ({hiddenGenres.length}개)
+          {genreSearchOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        {genreSearchOpen && (
+          <>
+            <div className="genre-toolbar">
+              <div className="genre-search">
+                <Search size={16} />
+                <input value={genreQuery} onChange={event => setGenreQuery(event.target.value)} placeholder="Search hidden genres" />
+              </div>
+              <select value={genreCategoryId} onChange={event => setGenreCategoryId(event.target.value)}>
+                <option value="all">All hidden categories</option>
+                {genreCategories.map(category => (
+                  <option key={category.id} value={category.id}>{category.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="chips genre-chip-list">
+              {hiddenGenres.map(genre => (
+                <button
+                  type="button"
+                  key={genre.id}
+                  className={editorChannel.preferredGenres.includes(genre.id) ? 'chip active' : 'chip'}
+                  onClick={() => toggleId('preferredGenres', genre.id)}
+                  title={describeGenreForUserKo(genre)}
+                >
+                  {genre.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="option-block">

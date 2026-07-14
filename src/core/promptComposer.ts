@@ -27,7 +27,7 @@ export type PromptTermId =
 
 export const PROMPT_PRIORITY: PromptTermId[] = [
   'genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo',
-  'mood', 'instruments', 'season', 'safety',
+  'safety', 'mood', 'instruments', 'season',
   'songRole', 'motif', 'listenerScene', 'mixNotes'
 ];
 
@@ -228,6 +228,52 @@ export function resolveMoneyChordText(opts: GenerationOptions) {
     : moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
 }
 
+function shortPromptKeywords(genre: GenrePack): string[] {
+  const hasShortPrompt = Boolean(genre.shortPrompt);
+  const source = genre.shortPrompt || genre.styleCore;
+  const labelKey = genre.label.toLowerCase();
+  return source
+    .split(/[;,]/)
+    .map(atom => atom.trim())
+    .filter(Boolean)
+    .filter(atom => atom.toLowerCase() !== labelKey)
+    .filter(atom => !/\b\d{2,3}\s*-\s*\d{2,3}\s*bpm\b/i.test(atom))
+    .filter(atom => !atom.includes(' + '))
+    .slice(0, hasShortPrompt ? 3 : 2);
+}
+
+function uniqueInstrumentKey(value: string) {
+  return value.toLowerCase().replace(/^light\s+/, '').replace(/^soft\s+/, '').replace(/^warm\s+/, '').trim();
+}
+
+export function buildGenrePromptSummary(genres: GenrePack[]) {
+  const primary = genres[0];
+  const secondary = genres.slice(1, 3);
+  const genreAtoms = [
+    primary?.styleCore,
+    ...secondary.flatMap(genre => shortPromptKeywords(genre).slice(0, 3))
+  ].filter(Boolean) as string[];
+
+  const instruments: string[] = [];
+  const seenInstruments = new Set<string>();
+  const candidateInstruments = [
+    ...(primary?.instruments.slice(0, 4) || []),
+    ...secondary.flatMap(genre => genre.instruments)
+  ];
+  for (const instrument of candidateInstruments) {
+    const key = uniqueInstrumentKey(instrument);
+    if (seenInstruments.has(key)) continue;
+    seenInstruments.add(key);
+    instruments.push(instrument);
+    if (instruments.length >= 5) break;
+  }
+
+  return {
+    genreText: dedupeTerms(genreAtoms).join(', '),
+    instruments
+  };
+}
+
 /**
  * Channel/pack-level prompt fragments, tagged with their TASK A2 priority id
  * so a caller (buildStylePrompt below, or localGenerator's per-song
@@ -239,8 +285,8 @@ export function resolveMoneyChordText(opts: GenerationOptions) {
  * into the music prompt both wastes budget and confuses Suno.
  */
 export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PromptPart[] {
-  const genreText = genres.map(g => g.shortPrompt || g.styleCore).join(', ');
-  const instrumentText = Array.from(new Set(genres.flatMap(g => g.instruments))).join(', ');
+  const { genreText, instruments } = buildGenrePromptSummary(genres);
+  const instrumentText = instruments.join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
   const money = resolveMoneyChordText(opts);
@@ -270,7 +316,7 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
  * target is enforced once, on the complete per-song prompt, not here.
  */
 export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): string {
-  return composeBudgetedStylePrompt(buildChannelPromptParts(opts, genres, moods, season), SAFE_TARGET, Number.MAX_SAFE_INTEGER).prompt;
+  return composeBudgetedStylePrompt(buildChannelPromptParts(opts, genres, moods, season), SUNO_STYLE_LIMIT, Number.MAX_SAFE_INTEGER).prompt;
 }
 
 /**

@@ -1,4 +1,5 @@
-import type { GenrePack } from '../../types';
+import type { ChannelArchetype, GenrePack } from '../../types';
+import type { GenreTier } from './types';
 
 export interface GenreCategory {
   id: string;
@@ -8,6 +9,8 @@ export interface GenreCategory {
 
 export interface StructuredGenrePack extends GenrePack {
   categoryId: string;
+  archetypes: ChannelArchetype[];
+  tier: GenreTier;
   rhythm: string[];
   vocal: string[];
   production: string[];
@@ -60,6 +63,172 @@ export const genreCategories: GenreCategory[] = [
   { id: 'seasonal', label: 'Seasonal', description: 'Holiday and seasonal playlist presets.' },
   { id: 'electronic', label: 'Electronic', description: 'Soft synthwave and electronic retro-pop textures.' }
 ];
+
+export const SENIOR_MORNING_CORE_GENRE_IDS = [
+  'adult-contemporary',
+  'acoustic-pop',
+  'jazz-pop',
+  'healing-ballad',
+  'piano-ballad',
+  'lofi-cafe',
+  'retro-soul-pop',
+  'bossa-cafe',
+  'christmas-soft-pop',
+  'folk-pop'
+] as const;
+
+export const SHOWA_CAFE_CORE_GENRE_IDS = [
+  'showa-modern',
+  'city-pop-soft',
+  'jazz-pop',
+  'bossa-cafe',
+  'lofi-cafe',
+  'piano-ballad',
+  'christmas-soft-pop',
+  'jazz-classic-vocal-lounge',
+  'jazz-soft-vocal-trio',
+  'city-pop-rainy-window-pop'
+] as const;
+
+export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
+  'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
+  'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
+  christmas: [],
+  'lofi-study': [],
+  kids: []
+};
+
+const allCoreGenreIds = new Set<string>([
+  ...SENIOR_MORNING_CORE_GENRE_IDS,
+  ...SHOWA_CAFE_CORE_GENRE_IDS
+]);
+
+const quietCafeSignals = [
+  'acoustic',
+  'ballad',
+  'baritone',
+  'bossa',
+  'cafe',
+  'classic',
+  'comfort',
+  'dinner',
+  'healing',
+  'intimate',
+  'lounge',
+  'mellow',
+  'minimal',
+  'night',
+  'piano',
+  'rain',
+  'retro',
+  'slow',
+  'soft',
+  'trio',
+  'vocal',
+  'warm'
+];
+
+const aggressiveOrWrongChannelSignals = [
+  'acid',
+  'bebop',
+  'big band',
+  'boom bap',
+  'cabaret',
+  'club',
+  'disco',
+  'experimental',
+  'free',
+  'funky',
+  'hard bop',
+  'hiphop',
+  'new orleans',
+  'nu jazz',
+  'rap',
+  'scat',
+  'trap',
+  'uptempo'
+];
+
+function textForGenreSignals(input: {
+  id: string;
+  label: string;
+  categoryId?: string;
+  aliases?: string[];
+  goodFor?: string[];
+  moods?: string[];
+  audiences?: string[];
+}) {
+  return [
+    input.id,
+    input.label,
+    input.categoryId,
+    ...(input.aliases || []),
+    ...(input.goodFor || []),
+    ...(input.moods || []),
+    ...(input.audiences || [])
+  ].join(' ').toLowerCase();
+}
+
+function containsAny(haystack: string, needles: string[]) {
+  return needles.some(needle => haystack.includes(needle));
+}
+
+function inferArchetypes(input: {
+  id: string;
+  label: string;
+  categoryId?: string;
+  aliases?: string[];
+  goodFor?: string[];
+  moods?: string[];
+  audiences?: string[];
+}): ChannelArchetype[] {
+  const text = textForGenreSignals(input);
+  const archetypes = new Set<ChannelArchetype>();
+  for (const [archetype, ids] of Object.entries(CORE_GENRE_IDS_BY_ARCHETYPE) as [ChannelArchetype, readonly string[]][]) {
+    if (ids.includes(input.id)) archetypes.add(archetype);
+  }
+
+  const quietEnough = containsAny(text, quietCafeSignals) && !containsAny(text, aggressiveOrWrongChannelSignals);
+  if (quietEnough && ['pop', 'jazz', 'city-pop', 'lofi', 'ballad', 'seasonal'].includes(input.categoryId || '')) {
+    archetypes.add('senior-morning');
+  }
+  if (quietEnough && ['jazz', 'city-pop', 'lofi', 'seasonal'].includes(input.categoryId || '')) {
+    archetypes.add('showa-cafe');
+  }
+  if (text.includes('christmas') || text.includes('holiday') || text.includes('winter')) {
+    archetypes.add('christmas');
+  }
+  if ((input.categoryId === 'lofi' || text.includes('study') || text.includes('focus')) && !containsAny(text, ['rap', 'trap'])) {
+    archetypes.add('lofi-study');
+  }
+  if (input.categoryId === 'pop' && containsAny(text, ['family', 'folk', 'bright', 'upbeat'])) {
+    archetypes.add('kids');
+  }
+
+  return Array.from(archetypes);
+}
+
+export function genreTierForId(id: string): GenreTier {
+  return allCoreGenreIds.has(id) ? 'core' : 'extended';
+}
+
+export function withGenreVisibility<T extends GenrePack>(genre: T): T & { archetypes: ChannelArchetype[]; tier: GenreTier } {
+  return {
+    ...genre,
+    archetypes: genre.archetypes?.length
+      ? genre.archetypes
+      : inferArchetypes({
+        id: genre.id,
+        label: genre.label,
+        categoryId: genre.categoryId,
+        aliases: genre.aliases,
+        goodFor: genre.goodFor,
+        moods: genre.moods,
+        audiences: genre.audiences
+      }),
+    tier: genre.tier || genreTierForId(genre.id)
+  };
+}
 
 const categoryBases: Record<string, CategoryBase> = {
   jazz: {
@@ -232,11 +401,25 @@ function makeProfile(categoryId: keyof typeof categoryBases, variant: GenreVaria
   const tempo = variant.tempo || base.tempo;
   const id = `${categoryId}-${variant.slug}`;
   const shape = { label: variant.label, rhythm, instruments, vocal, production, harmony, tempo, moods, avoidTraits };
+  const visibility = withGenreVisibility({
+    id,
+    label: variant.label,
+    styleCore: '',
+    instruments,
+    tempoRange: tempo,
+    goodFor: audiences,
+    categoryId,
+    aliases: variant.tags,
+    moods,
+    audiences
+  });
 
   return {
     id,
     label: variant.label,
     categoryId,
+    archetypes: visibility.archetypes,
+    tier: visibility.tier,
     source: 'notion-analysis',
     aliases: variant.tags,
     rhythm,
@@ -274,9 +457,18 @@ function legacyGenrePack(
     avoidTraits: unique([...sharedAvoid, ...structured.avoidTraits])
   };
 
+  const visibility = withGenreVisibility({
+    ...pack,
+    categoryId,
+    moods: structured.moods,
+    audiences: structured.audiences
+  });
+
   return {
     ...pack,
     categoryId,
+    archetypes: visibility.archetypes,
+    tier: visibility.tier,
     source: 'legacy-preset',
     rhythm: structured.rhythm,
     vocal: structured.vocal,
@@ -592,4 +784,109 @@ export function getGenreById(id: string) {
 
 export function getGenresByCategory(categoryId: string) {
   return genreLibrary.filter(genre => genre.categoryId === categoryId);
+}
+
+export function getCoreGenreIdsForArchetype(archetype: ChannelArchetype = 'senior-morning') {
+  const ids = CORE_GENRE_IDS_BY_ARCHETYPE[archetype] || [];
+  return ids.length ? [...ids] : [...SENIOR_MORNING_CORE_GENRE_IDS];
+}
+
+export function getCoreGenresForArchetype(archetype: ChannelArchetype = 'senior-morning') {
+  const ids = getCoreGenreIdsForArchetype(archetype);
+  return ids.map(id => getGenreById(id)).filter(Boolean) as StructuredGenrePack[];
+}
+
+export function getDefaultGenreIdsForArchetype(archetype: ChannelArchetype = 'senior-morning') {
+  return getCoreGenreIdsForArchetype(archetype).slice(0, 3);
+}
+
+export function isCoreGenreForArchetype(genre: GenrePack, archetype: ChannelArchetype = 'senior-morning') {
+  return genre.tier === 'core' && getCoreGenreIdsForArchetype(archetype).includes(genre.id);
+}
+
+export function getVisibleGenresForArchetype(
+  archetype: ChannelArchetype = 'senior-morning',
+  selectedIds: string[] = [],
+  recentIds: string[] = []
+) {
+  const visibleIds = new Set([...getCoreGenreIdsForArchetype(archetype), ...selectedIds, ...recentIds]);
+  return genreLibrary.filter(genre => visibleIds.has(genre.id));
+}
+
+export function searchExtendedGenres(query: string, categoryId = 'all') {
+  const normalized = query.trim().toLowerCase();
+  return genreLibrary.filter(genre => {
+    if (genre.tier !== 'extended') return false;
+    if (categoryId !== 'all' && genre.categoryId !== categoryId) return false;
+    if (!normalized) return true;
+    const haystack = [
+      genre.label,
+      genre.styleCore,
+      genre.shortPrompt,
+      genre.productionGuidance,
+      ...(genre.aliases || []),
+      ...(genre.instruments || []),
+      ...(genre.moods || []),
+      ...(genre.audiences || [])
+    ].join(' ').toLowerCase();
+    return haystack.includes(normalized);
+  });
+}
+
+export function searchHiddenGenresForArchetype(
+  archetype: ChannelArchetype = 'senior-morning',
+  query: string,
+  categoryId = 'all'
+) {
+  const normalized = query.trim().toLowerCase();
+  const coreIds = new Set(getCoreGenreIdsForArchetype(archetype));
+  return genreLibrary.filter(genre => {
+    if (coreIds.has(genre.id)) return false;
+    if (categoryId !== 'all' && genre.categoryId !== categoryId) return false;
+    if (!normalized) return true;
+    const haystack = [
+      genre.label,
+      genre.styleCore,
+      genre.shortPrompt,
+      genre.productionGuidance,
+      ...(genre.aliases || []),
+      ...(genre.instruments || []),
+      ...(genre.moods || []),
+      ...(genre.audiences || [])
+    ].join(' ').toLowerCase();
+    return haystack.includes(normalized);
+  });
+}
+
+const genrePlainDescriptionsKo: Record<string, string> = {
+  'adult-contemporary': '따뜻한 성인 팝. 라디오에서 흘러나오는 편안한 느낌.',
+  'acoustic-pop': '기타와 피아노가 중심인 담백한 팝. 아침이나 산책에 잘 맞습니다.',
+  'jazz-pop': '카페에 어울리는 부드러운 재즈 감성의 팝.',
+  'showa-modern': '오래된 찻집처럼 차분하고 세련된 복고 감성.',
+  'city-pop-soft': '밤거리보다 조용한 실내에 가까운 부드러운 시티팝.',
+  'lofi-cafe': '편안한 카페 배경처럼 낮게 깔리는 포근한 질감.',
+  'christmas-soft-pop': '아이들 캐럴보다 성숙한 12월용 따뜻한 팝.',
+  'healing-ballad': '감정을 크게 터뜨리지 않고 위로해 주는 발라드.',
+  'folk-pop': '일상 이야기가 잘 들리는 소박하고 친근한 팝.',
+  'bossa-cafe': '여름 카페처럼 가볍고 우아한 휴식감.',
+  'soft-rock': '운전이나 추억 장면에 어울리는 부드러운 라디오 록.',
+  'piano-ballad': '피아노가 중심이 되는 조용하고 감정적인 팝 발라드.',
+  'retro-soul-pop': '손으로 연주한 듯한 따뜻한 리듬과 성숙한 온기.',
+  'synthwave-mellow': '강하지 않은 복고 신스 무드. 밤 드라이브에 가깝습니다.',
+  'jazz-classic-vocal-lounge': '조용한 라운지에서 들리는 성숙한 보컬 재즈.',
+  'jazz-soft-vocal-trio': '작은 연주 공간처럼 부드럽고 절제된 재즈.',
+  'city-pop-rainy-window-pop': '비 오는 창가에 어울리는 차분한 시티팝 색감.'
+};
+
+export function describeGenreForUserKo(genre: GenrePack) {
+  if (genrePlainDescriptionsKo[genre.id]) return genrePlainDescriptionsKo[genre.id];
+  const mood = genre.moods?.[0] || genre.goodFor?.[0] || '편안한 분위기';
+  const setting = genre.audiences?.[0] || genre.goodFor?.[1] || '플레이리스트';
+  return `${genre.label}의 색깔을 가볍게 더합니다. ${mood} 느낌의 ${setting}에 어울립니다.`;
+}
+
+export function compactGenreTechnicalLine(genre: GenrePack) {
+  const tempo = genre.tempo || genre.tempoRange;
+  const instruments = genre.instruments.slice(0, 2).join(', ');
+  return `${tempo[0]}-${tempo[1]} BPM · ${instruments} 중심`;
 }

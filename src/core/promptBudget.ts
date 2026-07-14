@@ -1,6 +1,6 @@
 export const SUNO_STYLE_LIMIT = 1000;
 export const SAFE_TARGET = 900;
-export const SUNO_COPY_LIMIT = SAFE_TARGET;
+export const SUNO_COPY_LIMIT = SUNO_STYLE_LIMIT;
 
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
@@ -9,7 +9,7 @@ export type PromptTermId =
 
 export const PROMPT_PRIORITY: PromptTermId[] = [
   'genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo',
-  'mood', 'instruments', 'season', 'safety',
+  'safety', 'mood', 'instruments', 'season',
   'songRole', 'motif', 'listenerScene', 'mixNotes'
 ];
 
@@ -42,6 +42,11 @@ export interface StylePromptResult {
   length: number;
   withinLimit: boolean;
   droppedTerms: string[];
+}
+
+interface KeptPromptAtom {
+  id: PromptTermId;
+  text: string;
 }
 
 const REPEATED_ADJECTIVES = ['warm', 'nostalgic', 'soft', 'gentle', 'polished', 'intimate'];
@@ -111,6 +116,27 @@ function addDroppedLabel(droppedTerms: string[], id: PromptTermId) {
   if (!droppedTerms.includes(label)) droppedTerms.push(label);
 }
 
+export function enforceHardLimit(
+  atoms: KeptPromptAtom[],
+  limit: number = SUNO_STYLE_LIMIT
+): { atoms: KeptPromptAtom[]; dropped: KeptPromptAtom[] } {
+  const kept: KeptPromptAtom[] = [];
+  const dropped: KeptPromptAtom[] = [];
+  let currentLength = 0;
+
+  for (const atom of atoms) {
+    const projected = currentLength + (currentLength ? 2 : 0) + atom.text.length;
+    if (projected > limit) {
+      dropped.push(atom);
+      continue;
+    }
+    kept.push(atom);
+    currentLength = projected;
+  }
+
+  return { atoms: kept, dropped };
+}
+
 export function composeStylePrompt(
   parts: PromptPart[],
   limit: number = SUNO_COPY_LIMIT,
@@ -160,7 +186,7 @@ export function composeStylePrompt(
   cappedAtoms.forEach(({ id, text }) => atomsById.get(id)!.push(text));
 
   const droppedTerms: string[] = [];
-  const keptAtoms: string[] = [];
+  const keptAtoms: KeptPromptAtom[] = [];
   let currentLength = 0;
 
   for (const id of PROMPT_PRIORITY) {
@@ -173,12 +199,15 @@ export function composeStylePrompt(
         addDroppedLabel(droppedTerms, id);
         continue;
       }
-      keptAtoms.push(atom);
+      keptAtoms.push({ id, text: atom });
       currentLength = projected;
     }
   }
 
-  const prompt = keptAtoms.join(', ');
+  const hardLimited = enforceHardLimit(keptAtoms, limit);
+  for (const dropped of hardLimited.dropped) addDroppedLabel(droppedTerms, dropped.id);
+
+  const prompt = hardLimited.atoms.map(atom => atom.text).join(', ');
   return {
     prompt,
     length: prompt.length,

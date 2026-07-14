@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { notionDerivedGenrePacks } from './genreLibrary';
+import { notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -92,7 +92,7 @@ export const generationPacks: GenerationPack[] = [
   }
 ];
 
-export const genrePacks: GenrePack[] = [
+const rawGenrePacks: GenrePack[] = [
   {
     id: 'adult-contemporary',
     label: 'Adult Contemporary Pop',
@@ -207,6 +207,8 @@ export const genrePacks: GenrePack[] = [
   },
   ...notionDerivedGenrePacks
 ];
+
+export const genrePacks: GenrePack[] = rawGenrePacks.map(genre => withGenreVisibility(genre));
 
 export const moodPacks: MoodPack[] = [
   { id: 'nostalgic', label: 'Nostalgic', emotionWords: ['nostalgic', 'familiar', 'old-radio warmth'], lyricImages: ['old radio', 'faded photograph', 'coffee steam', 'quiet street'] },

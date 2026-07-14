@@ -1,5 +1,6 @@
 import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
+import { thumbnailArchetypeById, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
 import { seasonWordFor } from './lyricEngine';
 import { getRecurringMotifPhrases, type SeasonFamily } from './localGenerator';
 import { resolvePackagingLanguage } from './packagingLanguage';
@@ -160,24 +161,40 @@ export type ImageToolId = 'generic' | 'midjourney' | 'stableDiffusion';
  * (placement, lighting, camera language) than to a comma-dumped object list.
  * TASK B3: color names, never hex — most image models can't parse "#F3E3D3".
  */
-function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, objectsEnglish: string[], textSide: 'left' | 'right') {
-  const [primary, secondary, tertiary] = objectsEnglish;
-  const objectSide = textSide === 'left' ? 'right' : 'left';
+function pickFromPool(pool: string[], seed: number) {
+  return pool[Math.abs(seed) % pool.length];
+}
 
-  const sceneDescription = `A quiet cafe window on a ${season.label.toLowerCase()} day, seen from inside`;
+function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, textSide: 'left' | 'right', archetypeId: ThumbnailArchetypeId, seed: number) {
+  const archetype = thumbnailArchetypeById[archetypeId] || thumbnailArchetypeById['refined-cafe'];
+  const objectSide = textSide === 'left' ? 'right' : 'left';
+  const subjectBase = pickFromPool(archetype.subjectPool, seed + 3);
+  const setting = pickFromPool(archetype.settingPool, seed + 5);
+  const propA = pickFromPool(archetype.propPool, seed + 7);
+  const propB = pickFromPool(archetype.propPool, seed + 11);
+  const lightingBase = pickFromPool(archetype.lightingPool, seed + 13);
+  const cameraBase = pickFromPool(archetype.cameraPool, seed + 17);
+  const compositionBase = pickFromPool(archetype.compositionPool, seed + 19);
+  const archetypePalette = pickFromPool(archetype.palettePool, seed + 23);
+
+  const sceneDescription = `${archetype.promptTemplate} for a ${season.label.toLowerCase()} playlist, set in ${setting}`;
   const subject = [
-    primary ? `${primary} sits in the foreground on a worn wooden table, toward the ${objectSide} of frame` : 'a warm seasonal still life sits in the foreground',
-    secondary ? `${secondary} rests softly out of focus in the background` : null,
-    tertiary ? `${tertiary} sits nearby at the table's edge` : null
-  ].filter(Boolean).join('; ');
-  const lighting = `Soft warm morning light falls from the ${objectSide === 'left' ? 'right' : 'left'} through the window glass, catching gentle highlights`;
-  const cameraAndLens = 'Shot on a 50mm lens, shallow depth of field, eye-level framing, gentle bokeh';
-  const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, low saturation, ${palette.moodEn}`;
+    `${subjectBase} toward the ${objectSide} of frame`,
+    `${propA} and ${propB} used as small unbranded supporting details`
+  ].join('; ');
+  const lighting = `${lightingBase}, shaped toward the ${objectSide === 'left' ? 'right' : 'left'} side of the frame`;
+  const cameraAndLens = `${cameraBase}, shallow depth of field, gentle bokeh`;
+  const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, ${archetypePalette}, low saturation, ${palette.moodEn}`;
   const textureAndFilm = 'Subtle film grain, analog warmth, slightly faded like an old photograph';
-  const composition = `16:9 landscape composition; the ${textSide} third of the frame is intentionally empty and softly lit, leaving clean space for a text overlay`;
+  const composition = `16:9 landscape composition; ${compositionBase}; the ${textSide} third of the frame is intentionally empty and softly lit, leaving clean space for a text overlay`;
+  const peopleLimit = archetype.category === 'cinematic-human-moment'
+    ? 'any human figure must stay distant, anonymous, face hidden, under 20% of the frame'
+    : 'distant elegant silhouettes are allowed only if small, face-hidden, soft focus, and secondary to the scene';
+  const safeNegatives = `no text, no letters, no logo, no logos, no watermark, no watermarks, no close-up faces, no identifiable person, no celebrity, no real celebrity or public figure, no film character, no cartoon characters, no branded IP, no copied pose, ${peopleLimit}`;
   const negatives = 'no text, no letters, no logos, no watermarks, no close-up faces, no identifiable person, no real celebrity or public figure, no cartoon characters, no branded IP — distant elegant silhouettes are welcome (backs turned, soft focus, small in frame)';
 
-  return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, negatives };
+  void negatives;
+  return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, negatives: safeNegatives };
 }
 
 function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): string {
@@ -210,8 +227,14 @@ function buildStableDiffusionPrompt(parts: ReturnType<typeof buildSceneParts>): 
   return `Positive: ${positive}\nNegative: text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, low quality, blurry`;
 }
 
-function buildImagePromptVariants(season: SeasonPack, palette: ThumbnailPalette, objectsEnglish: string[], textSide: 'left' | 'right'): ThumbnailSpec['imagePromptVariants'] {
-  const parts = buildSceneParts(season, palette, objectsEnglish, textSide);
+function buildImagePromptVariants(
+  season: SeasonPack,
+  palette: ThumbnailPalette,
+  textSide: 'left' | 'right',
+  archetypeId: ThumbnailArchetypeId,
+  seed: number
+): ThumbnailSpec['imagePromptVariants'] {
+  const parts = buildSceneParts(season, palette, textSide, archetypeId, seed);
   return {
     generic: buildGenericImagePrompt(parts),
     midjourney: buildMidjourneyPrompt(parts),
@@ -232,7 +255,8 @@ export function buildThumbnailSpec(
   opts: GenerationOptions,
   season: SeasonPack,
   channel: ChannelProfile,
-  variant = 0
+  variant = 0,
+  archetypeId: ThumbnailArchetypeId = 'refined-cafe'
 ): ThumbnailSpec {
   const language = resolvePackagingLanguage(opts);
   const palette = paletteForSeason(season.id);
@@ -246,7 +270,7 @@ export function buildThumbnailSpec(
   const layoutSeed = blueprint.songs.length + channel.name.length;
   const textSide: 'left' | 'right' = layoutSeed % 2 === 0 ? 'right' : 'left';
   const objectSide = textSide === 'left' ? 'right' : 'left';
-  const { display: objects, english: objectsEnglish } = pickObjects(blueprint, language, season.id);
+  const { display: objects } = pickObjects(blueprint, language, season.id);
   const subline = buildSubline(blueprint.songs.length, language);
 
   const variants: ThumbnailVariant[] = [
@@ -255,7 +279,7 @@ export function buildThumbnailSpec(
     { id: 'C', headline: buildAudienceHeadline(language), subline, angle: '타겟 명시' }
   ];
 
-  const imagePromptVariants = buildImagePromptVariants(season, palette, objectsEnglish, textSide);
+  const imagePromptVariants = buildImagePromptVariants(season, palette, textSide, archetypeId, seedIndex);
 
   return {
     variants,

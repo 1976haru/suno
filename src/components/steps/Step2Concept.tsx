@@ -1,15 +1,23 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Search, Wand2 } from 'lucide-react';
-import { generationPacks, genrePacks, moodPacks, seasonPacks } from '../../data/presets';
-import { genreCategories, getGenreById } from '../../data/genreLibrary';
+import { generationPacks, moodPacks, seasonPacks } from '../../data/presets';
+import {
+  compactGenreTechnicalLine,
+  describeGenreForUserKo,
+  genreCategories,
+  getGenreById,
+  getVisibleGenresForArchetype,
+  searchHiddenGenresForArchetype
+} from '../../data/genreLibrary';
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
-import { MAX_SELECTED_GENRES } from '../../core/genreSelection';
+import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
 import { resolveMoneyChordText } from '../../core/promptComposer';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
 import { defaultPackagingLanguage } from '../../core/packagingLanguage';
+import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import ChoiceGrid from '../ChoiceGrid';
 import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage } from '../../types';
 
@@ -75,6 +83,8 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const [avoidCustomDraft, setAvoidCustomDraft] = useState('');
   const [genreQuery, setGenreQuery] = useState('');
   const [genreCategoryId, setGenreCategoryId] = useState('all');
+  const [genreSearchOpen, setGenreSearchOpen] = useState(false);
+  const [recentGenreIds, setRecentGenreIds] = useState(() => readRecentGenreIds(opts.channel.id));
 
   const selectedGenerationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moneyPreview = resolveMoneyChordText(opts);
@@ -82,25 +92,49 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const presetPhrases = new Set(avoidWordPresets.map(preset => preset.phrase));
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
   const selectedGenreDetails = selectedGenres.map(genre => getGenreById(genre.id) || genre);
+  const channelArchetype = opts.channel.archetype || 'senior-morning';
+  const visibleGenres = useMemo(
+    () => getVisibleGenresForArchetype(channelArchetype, opts.genreIds, recentGenreIds),
+    [channelArchetype, opts.genreIds, recentGenreIds]
+  );
+  const primaryGenreId = opts.genreIds[0] || '';
+  const primaryGenre = selectedGenreDetails[0];
+  const secondaryGenreIds = opts.genreIds.slice(1);
   const filteredGenres = useMemo(() => {
-    const query = genreQuery.trim().toLowerCase();
-    return genrePacks.filter(genre => {
-      const detail = getGenreById(genre.id) || genre;
-      const categoryMatches = genreCategoryId === 'all' || detail.categoryId === genreCategoryId;
-      if (!categoryMatches) return false;
-      if (!query) return true;
-      const haystack = [
-        detail.label,
-        detail.styleCore,
-        detail.shortPrompt,
-        detail.productionGuidance,
-        ...(detail.aliases || []),
-        ...(detail.instruments || []),
-        ...(detail.moods || [])
-      ].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(query);
+    return searchHiddenGenresForArchetype(channelArchetype, genreQuery, genreCategoryId);
+  }, [channelArchetype, genreCategoryId, genreQuery]);
+
+  function rememberGenreForChannel(genreId: string) {
+    rememberRecentGenreId(opts.channel.id, genreId);
+    setRecentGenreIds(readRecentGenreIds(opts.channel.id));
+  }
+
+  function selectPrimaryGenre(id: string) {
+    setOpts(prev => ({ ...prev, genreIds: normalizeGenreSelection([id, ...prev.genreIds.filter(item => item !== id)]) }));
+    const genre = getGenreById(id);
+    if (genre?.tier === 'extended') rememberGenreForChannel(id);
+  }
+
+  function toggleSecondaryGenre(id: string) {
+    if (id === primaryGenreId) return;
+    setOpts(prev => {
+      const currentPrimary = prev.genreIds[0] || id;
+      const currentSecondary = prev.genreIds.slice(1);
+      const nextSecondary = currentSecondary.includes(id)
+        ? currentSecondary.filter(item => item !== id)
+        : currentSecondary.length >= 2
+          ? currentSecondary
+          : [...currentSecondary, id];
+      return { ...prev, genreIds: normalizeGenreSelection([currentPrimary, ...nextSecondary]) };
     });
-  }, [genreCategoryId, genreQuery]);
+    const genre = getGenreById(id);
+    if (genre?.tier === 'extended') rememberGenreForChannel(id);
+  }
+
+  function chooseGenreFromSearch(id: string) {
+    if (!primaryGenreId) selectPrimaryGenre(id);
+    else toggleSecondaryGenre(id);
+  }
 
   function toggleAvoidPreset(phrase: string) {
     const next = avoidList.includes(phrase) ? avoidList.filter(term => term !== phrase) : [...avoidList, phrase];
@@ -158,41 +192,105 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
       </div>
 
       <div className="option-block">
-        <h3>어떤 장르를 만들까요? (여러 개 선택 가능) *</h3>
-        <div className="genre-toolbar">
-          <div className="genre-search">
-            <Search size={16} />
-            <input value={genreQuery} onChange={event => setGenreQuery(event.target.value)} placeholder="Search genres, instruments, moods" />
+        <h3>어떤 장르로 만들까요?</h3>
+        <p className="supporting">이 채널에 어울리는 장르만 먼저 보여드립니다. 잘 모르겠으면 추천된 것을 그대로 두세요.</p>
+        <p className="supporting">Main genre: {primaryGenre?.label || 'none'} / Secondary: {selectedGenreDetails.slice(1).map(g => g.label).join(', ') || 'none'} ({opts.genreIds.length}/{MAX_SELECTED_GENRES})</p>
+
+        <div className="genre-section-card">
+          <div className="genre-section-head">
+            <h4>주 장르 (1개)</h4>
+            <span>곡의 중심이 됩니다</span>
           </div>
-          <select value={genreCategoryId} onChange={event => setGenreCategoryId(event.target.value)}>
-            <option value="all">All categories</option>
-            {genreCategories.map(category => (
-              <option key={category.id} value={category.id}>{category.label}</option>
-            ))}
-          </select>
+          <div className="genre-card-grid">
+            {visibleGenres.map(genre => {
+              const selected = primaryGenreId === genre.id;
+              const recommended = opts.channel.preferredGenres[0] === genre.id;
+              return (
+                <button
+                  type="button"
+                  key={genre.id}
+                  className={selected ? 'genre-card-choice active' : 'genre-card-choice'}
+                  onClick={() => selectPrimaryGenre(genre.id)}
+                >
+                  <span className="genre-card-title">
+                    {genre.label}
+                    {recommended && <span className="choice-badge">추천</span>}
+                    {genre.tier === 'extended' && <span className="genre-role">최근</span>}
+                  </span>
+                  <span>{describeGenreForUserKo(genre)}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <p className="supporting">Main genre: {selectedGenreDetails[0]?.label || 'none'} / Secondary: {selectedGenreDetails.slice(1).map(g => g.label).join(', ') || 'none'} ({opts.genreIds.length}/{MAX_SELECTED_GENRES})</p>
-        <div className="chips genre-chip-list">
-          {filteredGenres.map(genre => {
-            const selectedIndex = opts.genreIds.indexOf(genre.id);
-            const selected = selectedIndex >= 0;
-            const role = selected ? (selectedIndex === 0 ? 'Main' : `Sub ${selectedIndex}`) : '';
-            return (
-              <button
-                type="button"
-                key={genre.id}
-                className={selected ? 'chip active' : 'chip'}
-                disabled={!selected && opts.genreIds.length >= MAX_SELECTED_GENRES}
-                onClick={() => toggleArray('genreIds', genre.id)}
-                title={selected ? role : undefined}
-              >
-                {role && <span className="genre-role">{role}</span>}
-                {genreLabelsKo[genre.id] || genre.label}
-              </button>
-            );
-          })}
+
+        <div className="genre-section-card">
+          <div className="genre-section-head">
+            <h4>보조 장르 (최대 2개, 선택 사항)</h4>
+            <span>색깔을 더합니다</span>
+          </div>
+          <div className="chips">
+            {visibleGenres.filter(genre => genre.id !== primaryGenreId).map(genre => {
+              const selected = secondaryGenreIds.includes(genre.id);
+              return (
+                <button
+                  type="button"
+                  key={genre.id}
+                  className={selected ? 'chip active' : 'chip'}
+                  disabled={!selected && secondaryGenreIds.length >= 2}
+                  onClick={() => toggleSecondaryGenre(genre.id)}
+                >
+                  {genre.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        {filteredGenres.length === 0 && <p className="supporting">No matching genres.</p>}
+
+        <button type="button" className="genre-search-toggle" onClick={() => setGenreSearchOpen(open => !open)}>
+          <Search size={16} />
+          다른 장르 더 찾기 ({filteredGenres.length}개)
+          {genreSearchOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+
+        {genreSearchOpen && (
+          <>
+            <div className="genre-toolbar">
+              <div className="genre-search">
+                <Search size={16} />
+                <input value={genreQuery} onChange={event => setGenreQuery(event.target.value)} placeholder="Search hidden genres, moods, instruments" />
+              </div>
+              <select value={genreCategoryId} onChange={event => setGenreCategoryId(event.target.value)}>
+                <option value="all">All hidden categories</option>
+                {genreCategories.map(category => (
+                  <option key={category.id} value={category.id}>{category.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="chips genre-chip-list">
+              {filteredGenres.map(genre => {
+                const selectedIndex = opts.genreIds.indexOf(genre.id);
+                const selected = selectedIndex >= 0;
+                const role = selected ? (selectedIndex === 0 ? 'Main' : `Sub ${selectedIndex}`) : '';
+                return (
+                  <button
+                    type="button"
+                    key={genre.id}
+                    className={selected ? 'chip active' : 'chip'}
+                    disabled={!selected && opts.genreIds.length >= MAX_SELECTED_GENRES}
+                    onClick={() => chooseGenreFromSearch(genre.id)}
+                    title={selected ? role : describeGenreForUserKo(genre)}
+                  >
+                    {role && <span className="genre-role">{role}</span>}
+                    {genre.label}
+                  </button>
+                );
+              })}
+            </div>
+            {filteredGenres.length === 0 && <p className="supporting">No matching hidden genres.</p>}
+          </>
+        )}
+
         {selectedGenreDetails.length > 0 && (
           <div className="genre-preview-grid">
             {selectedGenreDetails.map((genre, index) => (
@@ -202,19 +300,24 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
                   <h4>{genre.label}</h4>
                   {genre.categoryId && <span className="supporting">{genre.categoryId}</span>}
                 </div>
-                <p><b>Suno short prompt</b><span>{genre.shortPrompt || genre.styleCore}</span></p>
-                {genre.productionGuidance && <p><b>Detailed production</b><span>{genre.productionGuidance}</span></p>}
-                <div className="genre-detail-list">
-                  <span><b>Rhythm</b>{genre.rhythm?.join(', ') || '-'}</span>
-                  <span><b>Instruments</b>{genre.instruments.join(', ')}</span>
-                  <span><b>Vocal</b>{genre.vocal?.join(', ') || '-'}</span>
-                  <span><b>Production</b>{genre.production?.join(', ') || '-'}</span>
-                  <span><b>Harmony</b>{genre.harmony?.join(', ') || '-'}</span>
-                  <span><b>Tempo</b>{(genre.tempo || genre.tempoRange).join('-')} BPM</span>
-                  <span><b>Moods</b>{genre.moods?.join(', ') || '-'}</span>
-                  <span><b>Audience</b>{genre.audiences?.join(', ') || genre.goodFor.join(', ')}</span>
-                  <span><b>Avoid</b>{genre.avoidTraits?.join(', ') || '-'}</span>
-                </div>
+                <p><span>{describeGenreForUserKo(genre)}</span></p>
+                <p><span>{compactGenreTechnicalLine(genre)}</span></p>
+                <details>
+                  <summary>자세히 보기</summary>
+                  <p><b>Suno short prompt</b><span>{genre.shortPrompt || genre.styleCore}</span></p>
+                  {genre.productionGuidance && <p><b>Detailed production</b><span>{genre.productionGuidance}</span></p>}
+                  <div className="genre-detail-list">
+                    <span><b>Rhythm</b>{genre.rhythm?.join(', ') || '-'}</span>
+                    <span><b>Instruments</b>{genre.instruments.join(', ')}</span>
+                    <span><b>Vocal</b>{genre.vocal?.join(', ') || '-'}</span>
+                    <span><b>Production</b>{genre.production?.join(', ') || '-'}</span>
+                    <span><b>Harmony</b>{genre.harmony?.join(', ') || '-'}</span>
+                    <span><b>Tempo</b>{(genre.tempo || genre.tempoRange).join('-')} BPM</span>
+                    <span><b>Moods</b>{genre.moods?.join(', ') || '-'}</span>
+                    <span><b>Audience</b>{genre.audiences?.join(', ') || genre.goodFor.join(', ')}</span>
+                    <span><b>Avoid</b>{genre.avoidTraits?.join(', ') || '-'}</span>
+                  </div>
+                </details>
               </div>
             ))}
           </div>

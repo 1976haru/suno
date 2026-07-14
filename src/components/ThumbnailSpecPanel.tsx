@@ -17,6 +17,8 @@ import type { ThumbnailVariantId } from '../types';
 interface ThumbnailSpecPanelProps {
   spec: ThumbnailSpec;
   defaultSeasonId: string;
+  selectedArchetypeId: ThumbnailArchetypeId;
+  onSelectArchetype: (id: ThumbnailArchetypeId) => void;
   onRegenerateHeadline: () => void;
   onSelectVariant: (id: ThumbnailVariantId) => void;
 }
@@ -55,12 +57,13 @@ const TEXT_ZONE_OPTIONS = Object.keys(TEXT_ZONE_LABELS) as ThumbnailTextSafeZone
 export default function ThumbnailSpecPanel({
   spec,
   defaultSeasonId,
+  selectedArchetypeId,
+  onSelectArchetype,
   onRegenerateHeadline,
   onSelectVariant
 }: ThumbnailSpecPanelProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [imageTool, setImageTool] = useState<ImageTool>('generic');
-  const [archetypeId, setArchetypeId] = useState<ThumbnailArchetypeId>('refined-cafe');
   const [promptSeasonId, setPromptSeasonId] = useState(defaultSeasonId);
   const [timeOfDay, setTimeOfDay] = useState<ThumbnailTimeOfDay>('morning');
   const [peopleMode, setPeopleMode] = useState<ThumbnailPeopleMode>('none');
@@ -73,7 +76,7 @@ export default function ThumbnailSpecPanel({
 
   const promptSet = useMemo(
     () => composeThumbnailPromptSet({
-      archetypeId,
+      archetypeId: selectedArchetypeId,
       seasonId: promptSeasonId,
       timeOfDay,
       peopleMode,
@@ -81,7 +84,7 @@ export default function ThumbnailSpecPanel({
       seed: promptSeed,
       resolution: '1280x720'
     }),
-    [archetypeId, peopleMode, promptSeasonId, promptSeed, textSafeZone, timeOfDay]
+    [selectedArchetypeId, peopleMode, promptSeasonId, promptSeed, textSafeZone, timeOfDay]
   );
 
   const selectedVariant = spec.variants.find(v => v.id === spec.selected) ?? spec.variants[0];
@@ -190,7 +193,7 @@ export default function ThumbnailSpecPanel({
         <div className="thumbnail-control-grid">
           <label>
             Archetype
-            <select value={archetypeId} onChange={event => setArchetypeId(event.target.value as ThumbnailArchetypeId)}>
+            <select value={selectedArchetypeId} onChange={event => onSelectArchetype(event.target.value as ThumbnailArchetypeId)}>
               {thumbnailArchetypes.map(archetype => (
                 <option key={archetype.id} value={archetype.id}>{archetype.labelKo}</option>
               ))}

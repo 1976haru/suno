@@ -9,7 +9,8 @@ import {
   TERM_LABELS_KO
 } from '../src/core/promptComposer';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { scoreSongs } from '../src/core/quality';
+import { enforcePromptLengthBudget, scoreSongs } from '../src/core/quality';
+import { buildGenrePromptSummary } from '../src/core/promptComposer';
 import { channelPresets, genrePacks, moodPacks, seasonPacks } from '../src/data/presets';
 import { makeOptions } from './fixtures';
 import type { LyricLanguage } from '../src/types';
@@ -167,5 +168,59 @@ describe('[A4] channel visualIdentity never leaks into the music stylePrompt', (
 describe('SAFE_TARGET / SUNO_STYLE_LIMIT invariants', () => {
   it('SAFE_TARGET stays comfortably under SUNO_STYLE_LIMIT', () => {
     expect(SAFE_TARGET).toBeLessThan(SUNO_STYLE_LIMIT);
+  });
+});
+
+describe('[v3.7] primary/secondary genre prompt budgeting', () => {
+  it('primary + two secondary genres + three moods stays <= 1,000 chars', () => {
+    const genres = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'].map(id => genrePacks.find(genre => genre.id === id)!);
+    const moods = ['nostalgic', 'warm', 'hopeful'].map(id => moodPacks.find(mood => mood.id === id)!);
+    const opts = makeOptions({ genreIds: genres.map(genre => genre.id), moodIds: moods.map(mood => mood.id), songCount: 3 });
+    const blueprint = generateLocalBlueprint(opts, genres, moods, seasonPacks[0]);
+    for (const song of blueprint.songs) {
+      expect(song.stylePrompt.length).toBeLessThanOrEqual(SUNO_STYLE_LIMIT);
+      expect(song.stylePrompt.trim().endsWith(',')).toBe(false);
+    }
+  });
+
+  it('extreme free-text inputs are still hard-capped at <= 1,000 chars', () => {
+    const genres = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'].map(id => genrePacks.find(genre => genre.id === id)!);
+    const moods = ['nostalgic', 'warm', 'hopeful'].map(id => moodPacks.find(mood => mood.id === id)!);
+    const opts = makeOptions({
+      genreIds: genres.map(genre => genre.id),
+      moodIds: moods.map(mood => mood.id),
+      songCount: 1,
+      vocalTone: 'mature close vocal '.repeat(30).slice(0, 500),
+      moneyChordMode: 'custom',
+      customMoneyChord: 'I-V-vi-IV emotional chorus lift '.repeat(12).slice(0, 300),
+      avoidWords: 'avoid harsh belting and copied artist references '.repeat(10).slice(0, 300)
+    });
+    const blueprint = generateLocalBlueprint(opts, genres, moods, seasonPacks[0]);
+    const song = blueprint.songs[0];
+    expect(song.stylePrompt.length).toBeLessThanOrEqual(SUNO_STYLE_LIMIT);
+    expect(song.stylePrompt.trim().endsWith(',')).toBe(false);
+    expect(song.promptDroppedTerms?.length).toBeGreaterThan(0);
+  });
+
+  it('secondary genres contribute keywords, not their full styleCore text', () => {
+    const genres = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'].map(id => genrePacks.find(genre => genre.id === id)!);
+    const summary = buildGenrePromptSummary(genres);
+    expect(summary.genreText).toContain(genres[0].styleCore);
+    expect(summary.genreText).not.toContain(genres[1].styleCore);
+    expect(summary.genreText).not.toContain(genres[2].styleCore);
+    expect(summary.genreText.split(',').map(atom => atom.trim()).filter(Boolean).length).toBeLessThanOrEqual(7);
+  });
+
+  it('limits combined instruments to five unique entries', () => {
+    const genres = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'].map(id => genrePacks.find(genre => genre.id === id)!);
+    const summary = buildGenrePromptSummary(genres);
+    expect(summary.instruments.length).toBeLessThanOrEqual(5);
+    expect(new Set(summary.instruments.map(instrument => instrument.toLowerCase())).size).toBe(summary.instruments.length);
+  });
+
+  it('hard-limit trimming never leaves a dangling comma', () => {
+    const fitted = enforcePromptLengthBudget(Array.from({ length: 60 }, (_, i) => `clause ${i} with some useful prompt detail`).join(', '), 1000, 900);
+    expect(fitted.prompt.length).toBeLessThanOrEqual(1000);
+    expect(fitted.prompt.trim().endsWith(',')).toBe(false);
   });
 });
