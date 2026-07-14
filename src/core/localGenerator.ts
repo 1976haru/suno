@@ -118,9 +118,13 @@ export function averageTempo(genres: GenrePack[], trackNo: number) {
   return Math.min(high, Math.max(low, center + offset));
 }
 
-function resolveStyleLimit(styleLimit: number | undefined, personaMode: boolean) {
-  const base = styleLimit && styleLimit > 0 ? Math.min(styleLimit, SUNO_COPY_LIMIT) : SUNO_COPY_LIMIT;
-  return personaMode ? Math.min(base, PERSONA_STYLE_LIMIT) : base;
+function resolveSunoStyleLimit(styleLimit: number | undefined) {
+  return styleLimit && styleLimit > 0 ? Math.min(styleLimit, SUNO_COPY_LIMIT) : SUNO_COPY_LIMIT;
+}
+
+function resolvePersonaTrackLimit(styleLimit: number | undefined, trackNo: number) {
+  const base = resolveSunoStyleLimit(styleLimit);
+  return trackNo === 1 ? base : Math.min(base, PERSONA_STYLE_LIMIT);
 }
 
 function buildSignatureBlueprint(
@@ -153,7 +157,7 @@ export function rebuildStylePromptsForPersonaMode(
   styleLimit?: number
 ): PlaylistBlueprint {
   const channelParts = buildChannelPromptParts(opts, genres, moods, season);
-  const styleLimitValue = resolveStyleLimit(styleLimit, Boolean(opts.personaMode));
+  const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, blueprint.oneLineConcept, blueprint.songs);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const songs = blueprint.songs.map((song, idx) => {
@@ -169,7 +173,7 @@ export function rebuildStylePromptsForPersonaMode(
         trackNo,
         role,
         tempo,
-        styleLimitValue
+        styleLimitValue: resolvePersonaTrackLimit(styleLimit, trackNo)
       })
       : composeStylePrompt([
         ...channelParts,
@@ -284,7 +288,7 @@ export function generateLocalBlueprint(
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
   const channelParts = buildChannelPromptParts(opts, genres, moods, season);
-  const styleLimitValue = resolveStyleLimit(styleLimit, Boolean(opts.personaMode));
+  const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, concept);
 
   const seedBase = seedForBlueprint(opts);
@@ -344,7 +348,7 @@ export function generateLocalBlueprint(
         trackNo,
         role,
         tempo,
-        styleLimitValue
+        styleLimitValue: resolvePersonaTrackLimit(styleLimit, trackNo)
       })
       : composeStylePrompt(
         songParts,

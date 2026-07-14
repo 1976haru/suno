@@ -36,8 +36,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
   }, [song.stylePrompt, song.trackNo]);
 
   const hasWarnings = song.warnings.length > 0 || Boolean(evaluation);
-  const promptLimit = personaMode ? PERSONA_STYLE_LIMIT : SUNO_COPY_LIMIT;
   const isSeedSong = personaMode && song.trackNo === 1;
+  const promptLimit = personaMode && !isSeedSong ? PERSONA_STYLE_LIMIT : SUNO_COPY_LIMIT;
 
   return (
     <article className="song">

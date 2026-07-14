@@ -7,6 +7,7 @@ import type {
 } from '../types';
 import { genrePacks, moodPacks, seasonPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
+import { SUNO_COPY_LIMIT } from './promptBudget';
 
 export interface SoundSignature extends SharedSoundSignature {}
 
@@ -164,7 +165,7 @@ function personaNameFor(blueprint: PlaylistBlueprint, opts: GenerationOptions, c
   const channelName = channel.name || blueprint.channelName;
   const season = seasonWordForPersona(opts, channel);
   const vocal = vocalWordForPersona(opts.vocalTone || blueprint.vocalSignature || channel.defaultVocal, channel);
-  return `${channelName} ${season} ${vocal}`;
+  return `${channelName}  ${season}  ${vocal}`;
 }
 
 export function buildSoundSignature(
@@ -222,7 +223,12 @@ export function compactMoneyChord(opts: GenerationOptions) {
   return 'money chord progression';
 }
 
-export function compactDuration(target: GenerationOptions['durationTarget']) {
+export function compactDuration(target: GenerationOptions['durationTarget'], terse = false) {
+  if (terse) {
+    if (target === 'under4m') return 'under 4:00';
+    if (target === 'playlistShort') return '2:50-3:20';
+    return '3:10-3:35';
+  }
   if (target === 'under4m') return 'short intro, under 4:00';
   if (target === 'playlistShort') return 'quick intro, 2:50-3:20';
   return 'short intro, 3:10-3:35';
@@ -234,13 +240,21 @@ function clipClause(value: string, limit: number) {
   return clean.slice(0, Math.max(0, limit - 1)).replace(/\s+\S*$/, '').trim();
 }
 
-function compactHook(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth']) {
+function compactHook(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth'], terse = false) {
   const returns = lyricDepth === 'poetic' ? '3x' : '4x';
+  if (terse) return `hook "${clipClause(hookPhrase, 32)}" ${returns}`;
   return `hook "${clipClause(hookPhrase, 32)}" repeats chorus ${returns}`;
 }
 
-function fitSignatureForSeed(signature: string, budget: number) {
-  return joinWithin(splitAtoms(signature), Math.max(48, budget));
+function fillWithinLimit(clauses: string[], limit: number) {
+  return clauses
+    .map(clause => clause.trim())
+    .filter(Boolean)
+    .reduce<string[]>((kept, clause) => {
+      const candidate = [...kept, clause].join(', ');
+      return candidate.length <= limit ? [...kept, clause] : kept;
+    }, [])
+    .join(', ');
 }
 
 export interface PersonaStylePromptInput {
@@ -263,19 +277,18 @@ export interface PersonaStylePromptResult {
 }
 
 export function buildPersonaStylePrompt(input: PersonaStylePromptInput): PersonaStylePromptResult {
-  const limit = Math.min(input.limit || PERSONA_STYLE_LIMIT, PERSONA_STYLE_LIMIT);
-  const hook = compactHook(input.hookPhrase, input.opts.lyricDepth);
+  const limit = input.isSeed
+    ? Math.min(input.limit || SUNO_COPY_LIMIT, SUNO_COPY_LIMIT)
+    : Math.min(input.limit || PERSONA_STYLE_LIMIT, PERSONA_STYLE_LIMIT);
+  const seedTerse = input.isSeed && limit <= PERSONA_STYLE_LIMIT;
+  const hook = compactHook(input.hookPhrase, input.opts.lyricDepth, seedTerse);
   const money = compactMoneyChord(input.opts);
   const tempo = `${input.tempo} BPM`;
-  const duration = compactDuration(input.opts.durationTarget);
+  const duration = compactDuration(input.opts.durationTarget, seedTerse);
   const role = `track ${input.trackNo}: ${clipClause(input.role, 22)}`;
   const requiredSongClauses = [hook, money, tempo, duration];
 
-  let identity = input.isSeed ? input.signature.short : compactGenreKeyword(input.genres);
-  if (input.isSeed) {
-    const reserved = [...requiredSongClauses, role].join(', ').length + 2;
-    identity = fitSignatureForSeed(input.signature.short, Math.max(40, limit - reserved));
-  }
+  const identity = input.isSeed ? input.signature.short : compactGenreKeyword(input.genres);
 
   const clauses = [identity, ...requiredSongClauses];
   const droppedTerms: string[] = [];
@@ -283,21 +296,10 @@ export function buildPersonaStylePrompt(input: PersonaStylePromptInput): Persona
   let prompt = withRole.length <= limit ? withRole : clauses.join(', ');
   if (withRole.length > limit) droppedTerms.push('track role');
 
-  if (prompt.length > limit && input.isSeed) {
-    const reserved = requiredSongClauses.join(', ').length + 2;
-    const shorterIdentity = fitSignatureForSeed(input.signature.short, Math.max(32, limit - reserved));
-    prompt = [shorterIdentity, ...requiredSongClauses].join(', ');
-  }
   if (prompt.length > limit) {
-    prompt = prompt
-      .split(',')
-      .map(part => part.trim())
-      .filter(Boolean)
-      .reduce<string[]>((kept, clause) => {
-        const candidate = [...kept, clause].join(', ');
-        return candidate.length <= limit ? [...kept, clause] : kept;
-      }, [])
-      .join(', ');
+    prompt = input.isSeed
+      ? fillWithinLimit([identity, hook, money, tempo, duration, role], limit)
+      : fillWithinLimit(prompt.split(','), limit);
     droppedTerms.push('length compression');
   }
 

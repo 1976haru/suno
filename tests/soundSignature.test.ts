@@ -52,6 +52,10 @@ describe('sound signature', () => {
     expect(signature.personaName).toContain(opts.channel.name);
   });
 
+  it('uses two double-space separators in personaName', () => {
+    expect(signature.personaName.match(/  /g) || []).toHaveLength(2);
+  });
+
   it('is identical across every song in the same pack', () => {
     const unique = new Set(blueprint.songs.map(() => buildSoundSignature(blueprint, opts, opts.channel).short));
     expect(unique.size).toBe(1);

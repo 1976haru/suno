@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { generateLocalBlueprint, rebuildStylePromptsForPersonaMode } from '../src/core/localGenerator';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from '../src/core/soundSignature';
+import { SUNO_COPY_LIMIT } from '../src/core/promptBudget';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { LyricLanguage } from '../src/types';
 
@@ -83,5 +84,39 @@ describe('persona mode prompt compression', () => {
     const firstSignatureAtom = signature.short.split(',')[0];
     expect(blueprint.songs[0].stylePrompt).toContain(firstSignatureAtom);
     expect(blueprint.songs[0].stylePrompt.length).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
+  });
+
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps seed vocal and mix when persona mode uses the default Suno limit (%s)', language => {
+    const opts = makeOptions({ personaMode: true, songCount: 30, lyricLanguage: language });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const seedPrompt = blueprint.songs[0].stylePrompt;
+    expect(seedPrompt).toContain('male soft husky tenor close-mic');
+    expect(seedPrompt).toContain('warm analog mix');
+    expect(seedPrompt.length).toBeLessThanOrEqual(SUNO_COPY_LIMIT);
+  });
+
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('removes vocal and mix from tracks 2-30 under persona mode (%s)', language => {
+    const { blueprint } = personaBlueprint(language);
+    for (const song of blueprint.songs.slice(1)) {
+      expect(song.stylePrompt).not.toContain('male soft husky tenor close-mic');
+      expect(song.stylePrompt).not.toContain('warm analog mix');
+      expect(song.stylePrompt.length).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
+    }
+  });
+
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps seed vocal even when the configured Suno limit is 200 (%s)', language => {
+    const { blueprint } = personaBlueprint(language);
+    const seedPrompt = blueprint.songs[0].stylePrompt;
+    expect(seedPrompt).toContain('male soft husky tenor close-mic');
+    expect(seedPrompt).toContain('warm analog mix');
+    expect(seedPrompt.length).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
+  });
+
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps vocal text on every track when persona mode is off (%s)', language => {
+    const opts = makeOptions({ personaMode: false, songCount: 12, lyricLanguage: language });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    for (const song of blueprint.songs) {
+      expect(song.stylePrompt).toContain(opts.vocalTone);
+    }
   });
 });
