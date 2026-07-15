@@ -1,16 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { buildStylePrompt } from '../src/core/promptComposer';
+import { compactMoneyChord } from '../src/core/soundSignature';
 import { isPlausibleChordProgression, moneyChordPresets } from '../src/data/moneyChords';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { GenerationOptions } from '../src/types';
 
 describe('money chord presets', () => {
-  it('every non-custom preset is reflected verbatim in buildStylePrompt()', () => {
+  // TASK G1 (v3.10) — buildStylePrompt now carries the compact
+  // ('I-V-vi-IV progression') form of each preset, not the full long-form
+  // preset.prompt text — that full text alone cost ~15-20 words for no
+  // benefit the compact roman-numeral tag didn't already give. Each
+  // preset's own progression, as compactMoneyChord would render it, must
+  // still show up somewhere in the composed prompt.
+  it('every non-custom preset\'s compact progression is reflected in buildStylePrompt()', () => {
     for (const preset of Object.values(moneyChordPresets)) {
       if (preset.id === 'custom') continue;
       const opts = makeOptions({ moneyChordMode: preset.id as GenerationOptions['moneyChordMode'] });
       const prompt = buildStylePrompt(opts, testGenres, testMoods, testSeason);
-      expect(prompt).toContain(preset.prompt);
+      expect(prompt).toContain(compactMoneyChord(opts));
     }
   });
 
@@ -23,7 +30,10 @@ describe('money chord presets', () => {
   it('custom mode without input falls back to the generic custom preset prompt', () => {
     const opts = makeOptions({ moneyChordMode: 'custom', customMoneyChord: '' });
     const prompt = buildStylePrompt(opts, testGenres, testMoods, testSeason);
-    expect(prompt).toContain(moneyChordPresets.custom.prompt);
+    // moneyChordPresets.custom.prompt has no roman-numeral pattern for
+    // compactMoneyChord to extract, so it falls back to the generic
+    // 'money chord progression' tag rather than the full preset sentence.
+    expect(prompt).toContain('money chord progression');
   });
 
   it('accepts well-formed Roman numeral progressions', () => {

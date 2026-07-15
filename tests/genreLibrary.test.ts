@@ -95,8 +95,11 @@ describe('structured genre library', () => {
   });
 
   it('uses the compressed hook instruction', () => {
-    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('hook "Hold On", short repeated chorus hook, identical melody, 3-4 clear returns');
-    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('hook "Hold On", short repeated chorus hook, identical melody, 3 clear returns');
+    // TASK G1 (v3.10) — further compressed to reuse Persona mode's terse
+    // compactHook ('hook "X" repeats chorus 4x') in place of the old
+    // 4-clause sentence.
+    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('hook "Hold On" repeats chorus 4x');
+    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('hook "Hold On" repeats chorus 3x');
   });
 
   it('compresses by individual clauses in priority order', () => {

@@ -15,15 +15,17 @@ export const SUNO_STYLE_LIMIT_PRESETS = [
   { id: 'v4-legacy', label: 'Suno v4 이하 (레거시, 200자)', value: 200 }
 ] as const;
 
-// TASK F3 (v3.7) — multiple 2026 Suno prompt guides converge on the same
-// finding: the Style field responds best to roughly 15-30 comma-separated
-// descriptor words; beyond ~40 words the model reportedly starts ignoring or
-// blending tags rather than following them. This is independent of the
+// TASK F3 (v3.7) / TASK G1 (v3.10) — multiple 2026 Suno prompt guides
+// converge on the same finding: the Style field responds best to roughly
+// 15-30 comma-separated descriptor words. This is independent of the
 // character budget above — a prompt can be well under 1,000 characters and
-// still be too wordy.
+// still be too wordy. STYLE_WORD_TARGET_MAX is the real trim threshold
+// composeStylePrompt enforces below. TASK G1 fix: v3.7 defined this
+// constant but the trimming loop actually checked against a separate,
+// never-surfaced 40-word ceiling instead — real output stayed at 100+
+// words despite STYLE_WORD_TARGET_MAX existing in the file.
 export const STYLE_WORD_TARGET_MIN = 15;
 export const STYLE_WORD_TARGET_MAX = 30;
-export const STYLE_WORD_SOFT_MAX = 40;
 
 export function countWords(text: string): number {
   const trimmed = text.trim();
@@ -76,7 +78,7 @@ export interface StylePromptResult {
   length: number;
   withinLimit: boolean;
   droppedTerms: string[];
-  /** TASK F3 (v3.7) — comma/whitespace word count of the final prompt; see STYLE_WORD_SOFT_MAX. */
+  /** TASK F3 (v3.7) — comma/whitespace word count of the final prompt; see STYLE_WORD_TARGET_MAX. */
   wordCount: number;
   withinWordTarget: boolean;
 }
@@ -262,11 +264,11 @@ export function composeStylePrompt(
   // count; a prompt can sit comfortably under 1,000 characters and still be
   // 100+ words. Once under the char limit, drop non-essential atoms lowest
   // priority first (reverse PROMPT_PRIORITY order) until the word count is
-  // back at or under STYLE_WORD_SOFT_MAX, or nothing non-essential is left.
+  // back at or under STYLE_WORD_TARGET_MAX, or nothing non-essential is left.
   let finalAtoms = [...hardLimited.atoms];
   const wordCountOf = (atoms: KeptPromptAtom[]) => countWords(atoms.map(atom => atom.text).join(', '));
-  if (wordCountOf(finalAtoms) > STYLE_WORD_SOFT_MAX) {
-    for (let i = PROMPT_PRIORITY.length - 1; i >= 0 && wordCountOf(finalAtoms) > STYLE_WORD_SOFT_MAX; i -= 1) {
+  if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+    for (let i = PROMPT_PRIORITY.length - 1; i >= 0 && wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX; i -= 1) {
       const id = PROMPT_PRIORITY[i];
       if (ESSENTIAL_TERM_IDS.has(id)) continue;
       const remaining: KeptPromptAtom[] = [];
@@ -292,7 +294,7 @@ export function composeStylePrompt(
     length: prompt.length,
     withinLimit: prompt.length <= limit,
     wordCount,
-    withinWordTarget: wordCount <= STYLE_WORD_SOFT_MAX,
+    withinWordTarget: wordCount <= STYLE_WORD_TARGET_MAX,
     droppedTerms
   };
 }

@@ -14,7 +14,7 @@ import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
-import { resolveMoneyChordText } from '../../core/promptComposer';
+import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
 import { defaultPackagingLanguage } from '../../core/packagingLanguage';
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
@@ -87,7 +87,7 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const [recentGenreIds, setRecentGenreIds] = useState(() => readRecentGenreIds(opts.channel.id));
 
   const selectedGenerationPack = generationPacks.find(pack => pack.id === opts.audience);
-  const moneyPreview = resolveMoneyChordText(opts);
+  const moneyPreview = compactMoneyChord(opts);
   const avoidList = parseAvoidWords(opts.avoidWords);
   const presetPhrases = new Set(avoidWordPresets.map(preset => preset.phrase));
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
@@ -381,7 +381,7 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         onChange={value => setOpts(prev => ({ ...prev, moneyChordMode: value as GenerationOptions['moneyChordMode'] }))}
         columns={3}
       />
-      <p className="supporting">스타일 프롬프트 미리보기: <em>money chord foundation: {moneyPreview}</em></p>
+      <p className="supporting">스타일 프롬프트 미리보기: <em>{moneyPreview}</em></p>
 
       <div className="option-block">
         <h3>가사에서 피할 것들 (기본값 권장)</h3>

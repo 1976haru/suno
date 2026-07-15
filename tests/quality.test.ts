@@ -13,7 +13,7 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
     listenerSituation: 'morning coffee before the day begins',
     emotionArc: 'lonely memory to warm acceptance',
     hookPhrase: 'Test Song, keep a little light for me',
-    stylePrompt: 'warm adult contemporary pop, money chord foundation: I-V-vi-IV, no long instrumental break',
+    stylePrompt: 'warm adult contemporary pop, hook "test" repeats chorus 4x, I-V-vi-IV progression',
     lyrics: '[short intro]\nSoft Rhodes.\n\n[verse 1]\nline one\nline two\n\n[chorus]\nline three\nline four\n\n[verse 2]\nline five\n\n[short bridge]\nline six\n\n[final chorus]\nline seven\n\n[end]',
     thumbnailText: 'Christmas Cafe',
     youtube: { title: 'YT title', description: 'YT description', tags: ['tag'], thumbnailText: 'th' },
@@ -29,9 +29,13 @@ describe('quality scorer', () => {
   });
 
   it('does not penalize playlistShort-generated songs for a missing prompt term (Q1 regression)', () => {
+    // TASK G1 (v3.10) — the duration atom is now the compact
+    // compactDuration() form ('quick intro, 2:50-3:20') rather than the old
+    // long-form buildDurationControl() sentence; requiredPromptTerms was
+    // updated to match (see quality.ts).
     const opts = makeOptions({ durationTarget: 'playlistShort' });
     const prompt = buildStylePrompt(opts, testGenres, testMoods, testSeason);
-    expect(prompt).toContain('no long instrumental break');
+    expect(prompt).toContain('2:50-3:20');
     const song = scoreSong(baseSong({ stylePrompt: prompt }));
     expect(song.warnings.some(w => w.startsWith('Missing prompt term'))).toBe(false);
   });

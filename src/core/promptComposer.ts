@@ -3,6 +3,7 @@ import { generationPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
 import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
+import { compactDuration, compactHook, compactMoneyChord } from './soundSignature';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -289,8 +290,18 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   const instrumentText = instruments.join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
-  const money = resolveMoneyChordText(opts);
-  const duration = buildDurationControl(opts.durationTarget);
+
+  // TASK G1 (v3.10) — moneyChord/duration used to carry the full long-form
+  // preset text ("money chord foundation: major-key money chord progression
+  // with I-V-vi-IV and vi-IV-I-V movement, ...", "concise radio edit, very
+  // short intro, no long instrumental break, ..."), which alone was ~35-45
+  // words and the main reason non-persona prompts landed at 100+ words even
+  // after every non-essential atom was trimmed (see STYLE_WORD_TARGET_MAX).
+  // Reusing the same terse builders Persona mode already proved out
+  // (compactMoneyChord/compactDuration) converges both modes on the same
+  // short-tag style Suno actually responds best to.
+  const money = compactMoneyChord(opts);
+  const duration = compactDuration(opts.durationTarget, false);
 
   // TASK F4 (v3.7) — avoid/copyright text used to live here as a 'safety'
   // style-prompt atom, but a negative instruction ("avoid drums") inside
@@ -300,8 +311,8 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   return [
     { id: 'genre', text: genreText },
     { id: 'vocal', text: opts.vocalTone || opts.channel.defaultVocal },
-    { id: 'moneyChord', text: `money chord foundation: ${money}` },
-    { id: 'duration', text: [duration, 'clear pronunciation, emotionally warm but restrained, polished commercial playlist quality'].join(', ') },
+    { id: 'moneyChord', text: money },
+    { id: 'duration', text: duration },
     { id: 'mood', text: moodText },
     { id: 'instruments', text: instrumentText },
     { id: 'season', text: `${season.keywords.join(', ')} mood` }
@@ -347,10 +358,15 @@ export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], m
  * reliably), regardless of lyricLanguage — only the hook phrase itself is
  * in the song's own language. 'poetic' depth softens the repeat count so
  * hook repetition doesn't fight a more literary lyric flow.
+ *
+ * TASK G1 (v3.10) — reuses the same terse compactHook builder Persona mode
+ * already proved out ('hook "X" repeats chorus 4x'), replacing the old
+ * 4-clause form ('hook "X", short repeated chorus hook, identical melody,
+ * 3-4 clear returns') that alone cost ~11 words of every non-persona
+ * prompt's word budget.
  */
 export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth']): string {
-  const returns = lyricDepth === 'poetic' ? '3 clear returns' : '3-4 clear returns';
-  return `hook "${hookPhrase}", short repeated chorus hook, identical melody, ${returns}`;
+  return compactHook(hookPhrase, lyricDepth, false);
 }
 
 /**

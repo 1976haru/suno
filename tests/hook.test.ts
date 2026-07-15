@@ -145,23 +145,28 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     }
   });
 
+  // TASK G1 (v3.10) — hookStyleDirectives now reuses Persona mode's terse
+  // compactHook ('hook "X" repeats chorus 4x') instead of the old 4-clause
+  // form ('hook "X", short repeated chorus hook, identical melody, 3-4
+  // clear returns'), which alone cost ~11 words of a non-persona prompt's
+  // budget for no benefit Persona mode's shorter form didn't already give.
   it('[H5] style prompt tells Suno to bookend and repeat the hook', () => {
     const directive = hookStyleDirectives('Hold On', 'commercial');
-    expect(directive).toContain('short repeated chorus hook');
-    expect(directive).toContain('identical melody');
-    expect(directive).toContain('3-4 clear returns');
+    expect(directive).toContain('"Hold On"');
+    expect(directive).toContain('repeats chorus');
+    expect(directive).toContain('4x');
   });
 
   it('[H5] poetic depth softens the repeat count to 3', () => {
     const directive = hookStyleDirectives('Hold On', 'poetic');
-    expect(directive).toContain('3 clear returns');
+    expect(directive).toContain('3x');
   });
 
   it.each(LANGUAGES)('[H5] every generated song stylePrompt includes the hook bookend directive, in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 3, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
-      expect(song.stylePrompt).toContain('short repeated chorus hook');
-      expect(song.stylePrompt).toContain('identical melody');
+      expect(song.stylePrompt).toContain('repeats chorus');
+      expect(song.stylePrompt).toContain(`"${song.hookPhrase}"`);
     }
   });
 });

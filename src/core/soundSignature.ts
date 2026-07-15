@@ -7,7 +7,7 @@ import type {
 } from '../types';
 import { genrePacks, moodPacks, seasonPacks } from '../data/presets';
 import { moneyChordPresets } from '../data/moneyChords';
-import { countWords, STYLE_WORD_SOFT_MAX, SUNO_COPY_LIMIT } from './promptBudget';
+import { countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 
 export interface SoundSignature extends SharedSoundSignature {}
 
@@ -240,7 +240,7 @@ function clipClause(value: string, limit: number) {
   return clean.slice(0, Math.max(0, limit - 1)).replace(/\s+\S*$/, '').trim();
 }
 
-function compactHook(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth'], terse = false) {
+export function compactHook(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth'], terse = false) {
   const returns = lyricDepth === 'poetic' ? '3x' : '4x';
   if (terse) return `hook "${clipClause(hookPhrase, 32)}" ${returns}`;
   return `hook "${clipClause(hookPhrase, 32)}" repeats chorus ${returns}`;
@@ -372,7 +372,7 @@ function buildSeedPersonaStylePrompt(input: PersonaStylePromptInput, limit: numb
     withinLimit: prompt.length <= limit,
     droppedTerms,
     wordCount,
-    withinWordTarget: wordCount <= STYLE_WORD_SOFT_MAX
+    withinWordTarget: wordCount <= STYLE_WORD_TARGET_MAX
   };
 }
 
@@ -433,7 +433,7 @@ export function buildPersonaStylePrompt(input: PersonaStylePromptInput): Persona
     withinLimit: finalPrompt.length <= limit,
     droppedTerms,
     wordCount,
-    withinWordTarget: wordCount <= STYLE_WORD_SOFT_MAX
+    withinWordTarget: wordCount <= STYLE_WORD_TARGET_MAX
   };
 }
 

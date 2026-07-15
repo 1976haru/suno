@@ -71,7 +71,7 @@ describe('hybrid mode selective refine', () => {
           listenerSituation: 'x',
           emotionArc: 'x',
           hookPhrase: `Refined hook ${body.user.trackNoOffset + 1}`,
-          stylePrompt: 'warm pop, money chord foundation: I-V-vi-IV, no long instrumental break',
+          stylePrompt: 'warm pop, hook "test" repeats chorus 4x, I-V-vi-IV progression',
           lyrics: `[verse 1]\n${LYRIC_VARIANTS[body.user.trackNoOffset % LYRIC_VARIANTS.length]}\n[chorus]\nhold on till the morning light\nwe'll be alright, we'll be alright\n[end]`,
           thumbnailText: 'x',
           youtube: { title: 'yt', description: 'desc', tags: ['tag'], thumbnailText: 'th' },

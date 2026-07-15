@@ -2,7 +2,12 @@ import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
 import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
 
-const requiredPromptTerms = ['money chord', 'no long instrumental break'];
+// TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
+// wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
+// old long-form 'money chord foundation: ...' / 'no long instrumental
+// break' clauses; those literal phrases no longer appear in generated
+// output at all, so checking for them here would falsely flag every song.
+const requiredPromptTerms = ['progression', 'chorus'];
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
 
 // H3 (v3.3): a vocative-shaped hook ("Hold on, X") may only address a person
