@@ -20,12 +20,36 @@ export const SUNO_STYLE_LIMIT_PRESETS = [
 // 15-30 comma-separated descriptor words. This is independent of the
 // character budget above — a prompt can be well under 1,000 characters and
 // still be too wordy. STYLE_WORD_TARGET_MAX is the real trim threshold
-// composeStylePrompt enforces below. TASK G1 fix: v3.7 defined this
-// constant but the trimming loop actually checked against a separate,
-// never-surfaced 40-word ceiling instead — real output stayed at 100+
-// words despite STYLE_WORD_TARGET_MAX existing in the file.
+// composeStylePrompt enforces below.
+//
+// TASK H1 (v3.13) — 30 was never actually reachable: the five ESSENTIAL_TERM_IDS
+// alone (genre/vocal/hook/moneyChord/duration) measured 32-40 words across
+// every archetype/language/genre combination (avg 36.25), meaning the old
+// 30-word target was already blown before a single mood/instrument word was
+// added. Since the trim loop below drops entire non-essential categories
+// until it's back under target, and instruments/mood are non-essential, this
+// silently deleted them 100% of the time regardless of which genre was
+// selected — the actual bug behind "every genre sounds the same". Re-measured
+// with the genre-differentiation floor this version guarantees (mood: 1 atom,
+// instruments: 2 atoms — see GUARANTEED_MINIMUM_TERM_IDS) added on top of that
+// 32-40 essential range: 50 leaves every measured combination comfortable
+// room. The 1,000-char SUNO_STYLE_LIMIT hard limit is untouched by this —
+// this constant only ever governs the soft, best-practice word trim.
 export const STYLE_WORD_TARGET_MIN = 15;
-export const STYLE_WORD_TARGET_MAX = 30;
+export const STYLE_WORD_TARGET_MAX = 50;
+
+/**
+ * TASK H1 (v3.13) — mood/instruments are the only atoms that actually vary
+ * per genre selection (the rest of the style prompt is archetype/channel-
+ * level and identical regardless of genre), so they must never hit zero even
+ * under a tight word budget. Not promoted to full ESSENTIAL status (that
+ * would let them re-blow the budget the way the old 30-word target did) —
+ * instead the trim loop below reduces them to a guaranteed-minimum atom count
+ * rather than dropping the whole category.
+ */
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['mood', 'instruments']);
+export const MOOD_FLOOR_ATOMS = 1;
+export const INSTRUMENTS_FLOOR_ATOMS = 2;
 
 export function countWords(text: string): number {
   const trimmed = text.trim();
@@ -265,12 +289,31 @@ export function composeStylePrompt(
   // 100+ words. Once under the char limit, drop non-essential atoms lowest
   // priority first (reverse PROMPT_PRIORITY order) until the word count is
   // back at or under STYLE_WORD_TARGET_MAX, or nothing non-essential is left.
+  //
+  // TASK H1 (v3.13) — mood/instruments (GUARANTEED_MINIMUM_TERM_IDS) are
+  // exempted from this full-category drop: they're reduced to a floor atom
+  // count instead, only after every other non-essential/non-guaranteed
+  // category has already been dropped entirely. This is what makes genre
+  // selection actually audible — before this, mood/instruments were dropped
+  // to zero every time the (unreachable) 30-word target was in effect.
   let finalAtoms = [...hardLimited.atoms];
   const wordCountOf = (atoms: KeptPromptAtom[]) => countWords(atoms.map(atom => atom.text).join(', '));
+
+  function reduceToFloor(atoms: KeptPromptAtom[], id: PromptTermId, floor: number): KeptPromptAtom[] {
+    let kept = 0;
+    return atoms.filter(atom => {
+      if (atom.id !== id) return true;
+      kept += 1;
+      return kept <= floor;
+    });
+  }
+
   if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+    // Step 1: fully drop non-essential, non-guaranteed-minimum categories,
+    // lowest priority first.
     for (let i = PROMPT_PRIORITY.length - 1; i >= 0 && wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX; i -= 1) {
       const id = PROMPT_PRIORITY[i];
-      if (ESSENTIAL_TERM_IDS.has(id)) continue;
+      if (ESSENTIAL_TERM_IDS.has(id) || GUARANTEED_MINIMUM_TERM_IDS.has(id)) continue;
       const remaining: KeptPromptAtom[] = [];
       let droppedAny = false;
       for (const atom of finalAtoms) {
@@ -285,6 +328,23 @@ export function composeStylePrompt(
         addDroppedLabel(droppedTerms, id);
       }
     }
+
+    // Step 2: still over budget — reduce instruments down to its floor (never to zero).
+    if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+      finalAtoms = reduceToFloor(finalAtoms, 'instruments', INSTRUMENTS_FLOOR_ATOMS);
+    }
+    // Step 3: still over budget — reduce mood down to its floor (never to zero).
+    if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+      finalAtoms = reduceToFloor(finalAtoms, 'mood', MOOD_FLOOR_ATOMS);
+    }
+    // Step 4 (v3.13 measurement found this essentially never triggers at
+    // STYLE_WORD_TARGET_MAX=50 — essential-only word counts topped out at 40
+    // across every measured archetype/language/genre, plus the ~7-word floor
+    // above lands at ~47): if still over budget here, the remaining excess is
+    // inside the essential atoms themselves. Left as a soft overage rather
+    // than truncating essential text — hook/vocal/moneyChord/genre must never
+    // be cut, and the real hard limit (SUNO_STYLE_LIMIT, enforced above by
+    // enforceHardLimit) is character-based and already protected regardless.
   }
 
   const prompt = finalAtoms.map(atom => atom.text).join(', ');
