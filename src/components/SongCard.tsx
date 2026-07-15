@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Copy, Download, RefreshCw, RotateCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Download, RefreshCw, RotateCcw, ShieldAlert, Sparkles, Star } from 'lucide-react';
 import type { SongEvaluation, SongIdea } from '../types';
-import { buildSongTxt, copyText, downloadText } from '../utils/exporters';
+import { buildSongTxt, copyText, downloadText, extractChorusText, isShortsClipCandidate } from '../utils/exporters';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 
 type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
+
+const SONG_ROLE_LABEL_KO: Record<string, string> = {
+  'cold-open': '🎬 콜드오픈 (1번)',
+  flagship: '⭐ 대표곡'
+};
 
 interface SongCardProps {
   song: SongIdea;
@@ -19,6 +24,8 @@ interface SongCardProps {
   personaMode?: boolean;
   personaName?: string;
   promptCharLimit?: number;
+  /** TASK I3 (v3.11, PART D-4) — optional so existing callers/tests without promotion support keep working unchanged. */
+  onPromote?: (trackNo: number, role: 'cold-open' | 'flagship') => void;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -27,7 +34,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
@@ -41,6 +48,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
   const configuredPromptLimit = Math.min(SUNO_COPY_LIMIT, Math.max(PERSONA_STYLE_LIMIT, promptCharLimit || SUNO_COPY_LIMIT));
   const promptLimit = personaMode && !isSeedSong ? Math.min(configuredPromptLimit, PERSONA_STYLE_LIMIT) : configuredPromptLimit;
   const isOverPromptLimit = styleDraft.length > promptLimit;
+  const isShortsCandidate = isShortsClipCandidate(song);
+  const chorusCaption = isShortsCandidate ? extractChorusText(song.lyrics) : '';
 
   return (
     <article className="song">
@@ -55,6 +64,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           <h3>{song.trackNo}. {song.title}</h3>
           <p>{song.listenerSituation} / {song.emotionArc}</p>
           <span className="chip">{moneyChordLabel}</span>
+          {song.songRole && SONG_ROLE_LABEL_KO[song.songRole] && <span className="chip">{SONG_ROLE_LABEL_KO[song.songRole]}</span>}
+          {isShortsCandidate && <span className="chip">🎬 쇼츠 클립 우선 후보</span>}
           {isSeedSong && <span className="chip">시드 곡</span>}
           {personaMode && !isSeedSong && <span className="chip">Persona 모드</span>}
           {hasWarnings && <span className="chip warning-chip">⚠ 확인 필요</span>}
@@ -108,6 +119,24 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               <Download size={14} />
               이 곡만 txt로 내보내기
             </button>
+            {isShortsCandidate && chorusCaption && (
+              <button type="button" title="후렴 구간을 쇼츠 캡션 초안으로 복사" onClick={() => void copyText(chorusCaption)}>
+                <Copy size={14} />
+                🎬 쇼츠 캡션 복사
+              </button>
+            )}
+            {onPromote && song.songRole !== 'cold-open' && (
+              <button type="button" title="이 곡을 1번(콜드오픈)으로 승격 — 트랙 순서는 바뀌지 않습니다" onClick={() => onPromote(song.trackNo, 'cold-open')}>
+                <Star size={14} />
+                이 곡을 1번(콜드오픈)으로 승격
+              </button>
+            )}
+            {onPromote && song.songRole !== 'flagship' && (
+              <button type="button" title="이 곡을 대표곡(2~3번)으로 승격 — 트랙 순서는 바뀌지 않습니다" onClick={() => onPromote(song.trackNo, 'flagship')}>
+                <Star size={14} />
+                이 곡을 대표곡으로 승격
+              </button>
+            )}
           </div>
 
           <div className="tab-row">

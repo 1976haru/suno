@@ -28,7 +28,13 @@ function contrastRatio(hexA: string, hexB: string): number {
 }
 
 describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
-  it.each(LANGUAGES)('every variant headline is 2 lines, each <=8 characters, in %s', language => {
+  // TASK I4 (v3.11) — variant A's second line now prefers track 1's actual
+  // hook (see buildSeasonHeadline's leadHook param) instead of a short
+  // generic pool word, so it can legitimately run longer than 8 characters
+  // (a 2-5 word English hook, or the wider HOOK_LENGTH_BOUNDS for KO/JA).
+  // B and C are untouched (still short, pool-based) and keep the original
+  // strict bound.
+  it.each(LANGUAGES)('every variant headline is 2 lines; B/C stay <=8 characters, A allows a full hook, in %s', language => {
     for (const season of seasonPacks) {
       const opts = makeOptions({ songCount: 6, lyricLanguage: language, seasonId: season.id });
       const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
@@ -36,11 +42,20 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
       for (const variant of spec.variants) {
         const lines = variant.headline.split('\n');
         expect(lines.length, `${variant.id}안 headline "${variant.headline}" is not 2 lines`).toBe(2);
+        if (variant.id === 'A') continue;
         for (const line of lines) {
           expect([...line].length, `${variant.id}안 headline line "${line}" exceeds 8 characters`).toBeLessThanOrEqual(8);
         }
       }
     }
+  });
+
+  it.each(LANGUAGES)('variant A\'s second headline line is track 1\'s actual hook, in %s', language => {
+    const opts = makeOptions({ songCount: 6, lyricLanguage: language });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    const [, secondLine] = spec.variants[0].headline.split('\n');
+    expect(secondLine).toBe(bp.songs[0].hookPhrase.trim());
   });
 
   it.each(LANGUAGES)('every variant subline is <=12 characters, in %s', language => {

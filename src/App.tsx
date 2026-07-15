@@ -15,6 +15,7 @@ import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
 import { rebuildStylePromptsForPersonaMode } from './core/localGenerator';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
+import { promoteTrackToOpeningRole } from './core/openingOverride';
 import { regenerateTrack } from './providers';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
@@ -326,6 +327,17 @@ export default function App() {
     setSelectedThumbnailVariant(id);
   }
 
+  /** TASK I3 (v3.11, PART D-4) — swaps songRole (+ style prompt opening directive) between trackNo and whoever currently holds that role; never touches trackNo order, lyrics, or hookPhrase. */
+  function onPromoteTrack(trackNo: number, role: 'cold-open' | 'flagship') {
+    if (!gen.blueprint) return;
+    const result = promoteTrackToOpeningRole(gen.blueprint, { ...opts, channel: cm.selectedChannel }, trackNo, role);
+    gen.setBlueprint(result.blueprint);
+    if (result.warning) {
+      // eslint-disable-next-line no-console
+      console.warn(result.warning);
+    }
+  }
+
   function onEvaluate(scopeTrackNos?: number[]) {
     if (!gen.blueprint) return;
     void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider, scopeTrackNos);
@@ -526,6 +538,7 @@ export default function App() {
               onRegenerateHeadline={onRegenerateHeadline}
               onSelectThumbnailVariant={onSelectThumbnailVariant}
               onApplyThumbnailFreeText={onApplyThumbnailFreeText}
+              onPromoteTrack={onPromoteTrack}
             />
           )}
 

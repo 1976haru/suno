@@ -1,5 +1,29 @@
 import type { PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from '../types';
 
+/** TASK I5 (v3.11, PART D-2) — tracks 1-3 (cold-open + flagship) are the shorts-clip priority candidates, per the brief's "1~3번 곡이 제일 중요하다". */
+export function isShortsClipCandidate(song: Pick<SongIdea, 'trackNo'>): boolean {
+  return song.trackNo <= 3;
+}
+
+/**
+ * TASK I5 (v3.11) — pulls the first [chorus] section's text out of a
+ * generated lyrics block, for a ready-to-use shorts caption draft. Sections
+ * are blank-line separated (see lyricEngine.ts's composeLyrics), so
+ * splitting on a blank line and matching the tag line is enough; no audio
+ * editing happens here or anywhere else in this app.
+ */
+export function extractChorusText(lyrics: string): string {
+  const blocks = lyrics.split(/\n\s*\n/);
+  const chorusBlock = blocks.find(block => block.trim().startsWith('[chorus]'));
+  if (!chorusBlock) return '';
+  return chorusBlock
+    .split('\n')
+    .slice(1)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
 /**
  * TASK G2 (v3.7) — a single .txt per song, laid out so a phone user can open
  * one file and copy each of the three Suno fields (Style / Lyrics / Exclude)
@@ -7,6 +31,7 @@ import type { PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from 
  * the "TXT (곡별)" bulk download that zips 30 of these together.
  */
 export function buildSongTxt(song: SongIdea): string {
+  const chorus = extractChorusText(song.lyrics);
   return [
     `${song.trackNo.toString().padStart(2, '0')}. ${song.title}`,
     '',
@@ -20,7 +45,16 @@ export function buildSongTxt(song: SongIdea): string {
     song.excludePrompt || '',
     '',
     '===== YOUTUBE =====',
-    JSON.stringify(song.youtube, null, 2)
+    JSON.stringify(song.youtube, null, 2),
+    ...(isShortsClipCandidate(song) && chorus
+      ? [
+        '',
+        '===== 🎬 쇼츠 클립 우선 후보 =====',
+        '이 곡의 후렴을 15~20초로 잘라 쇼츠로 올려보세요. 아래는 후렴 구간 캡션 초안입니다.',
+        '',
+        chorus
+      ]
+      : [])
   ].join('\n');
 }
 

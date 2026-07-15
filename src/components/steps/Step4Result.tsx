@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, FileText, Focus, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
@@ -53,6 +53,8 @@ interface Step4ResultProps {
   onRegenerateHeadline: () => void;
   onSelectThumbnailVariant: (id: ThumbnailVariantId) => void;
   onApplyThumbnailFreeText: (suggestions: { headline: string; angle: string }[]) => void;
+  /** TASK I3 (v3.11, PART D-4) — manual override for the automatic cold-open/flagship pick. */
+  onPromoteTrack: (trackNo: number, role: 'cold-open' | 'flagship') => void;
 }
 
 export default function Step4Result({
@@ -93,13 +95,23 @@ export default function Step4Result({
   onRefineSelected,
   onRegenerateHeadline,
   onSelectThumbnailVariant,
-  onApplyThumbnailFreeText
+  onApplyThumbnailFreeText,
+  onPromoteTrack
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
   const [resultTab, setResultTab] = useState<'songs' | 'thumbnail' | 'persona'>('songs');
   const [focusModeOpen, setFocusModeOpen] = useState(false);
+
+  // TASK I6 (v3.11, PART D-3) — tracks 1-3 decide the video's first
+  // impression, so they're pre-checked for hybrid refinement by default;
+  // the user can still uncheck them (this only sets a default, it never
+  // calls the API on its own — see v3.2's "묻고 실행" principle).
+  useEffect(() => {
+    if (!blueprint) return;
+    setRefineSelection([1, 2, 3].filter(trackNo => trackNo <= blueprint.songs.length));
+  }, [blueprint]);
 
   function toggleTrackSelected(trackNo: number) {
     setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
@@ -258,15 +270,20 @@ export default function Step4Result({
       )}
 
       {resultTab === 'songs' && blueprint && hybridRefineAvailable && (
-        <HybridRefinePanel
-          songs={blueprint.songs}
-          selected={refineSelection}
-          onToggle={toggleRefineSelected}
-          onRefine={handleRefineClick}
-          isRefining={isRefining}
-          refineProgress={refineProgress}
-          refineWarnings={refineWarnings}
-        />
+        <>
+          <p className="supporting">
+            💡 1~3번 곡은 영상의 첫인상을 좌우합니다. API로 다듬는 걸 권장해서 기본으로 선택해뒀어요. (원치 않으면 체크 해제하세요)
+          </p>
+          <HybridRefinePanel
+            songs={blueprint.songs}
+            selected={refineSelection}
+            onToggle={toggleRefineSelected}
+            onRefine={handleRefineClick}
+            isRefining={isRefining}
+            refineProgress={refineProgress}
+            refineWarnings={refineWarnings}
+          />
+        </>
       )}
 
       {resultTab === 'songs' && blueprint && !evaluationAvailable && (
@@ -346,6 +363,7 @@ export default function Step4Result({
             personaMode={personaMode}
             personaName={soundSignature?.personaName}
             promptCharLimit={promptCharLimit}
+            onPromote={onPromoteTrack}
           />
         )
       ))}

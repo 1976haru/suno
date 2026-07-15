@@ -64,8 +64,19 @@ function shortSeasonWord(season: SeasonPack, language: DisplayLanguage): string 
   return seasonWordFor(season, language);
 }
 
-function buildSeasonHeadline(season: SeasonPack, language: DisplayLanguage, seedIndex: number): string {
+/**
+ * TASK I4 (v3.11, PART D-1) — variant A (the default-selected recommendation)
+ * now prefers track 1's own hook as its second line instead of a generic
+ * pool pick, so the thumbnail's headline actually matches what a viewer
+ * hears in the first few seconds of the video (track 1 is always the
+ * cold-open song — see resolveSongRole). Falls back to the old pool-based
+ * pick when no lead hook is available (e.g. an empty pack).
+ */
+function buildSeasonHeadline(season: SeasonPack, language: DisplayLanguage, seedIndex: number, leadHook?: string): string {
   const seasonWord = shortSeasonWord(season, language);
+  if (leadHook?.trim()) {
+    return `${seasonWord}\n${leadHook.trim().replace(/,\s*$/, '')}`;
+  }
   const pool = seasonHeadlineSecondLine[language];
   return `${seasonWord}\n${pool[seedIndex % pool.length]}`;
 }
@@ -272,9 +283,13 @@ export function buildThumbnailSpec(
   const objectSide = textSide === 'left' ? 'right' : 'left';
   const { display: objects } = pickObjects(blueprint, language, season.id);
   const subline = buildSubline(blueprint.songs.length, language);
+  // TASK I4 (v3.11) — the cold-open song is track 1 by default, but a manual
+  // promotion (core/openingOverride.ts) can move that role elsewhere without
+  // changing trackNo, so this looks up the role rather than assuming trackNo 1.
+  const coldOpenSong = blueprint.songs.find(song => song.songRole === 'cold-open') || blueprint.songs[0];
 
   const variants: ThumbnailVariant[] = [
-    { id: 'A', headline: buildSeasonHeadline(season, language, seedIndex), subline, angle: '계절 강조' },
+    { id: 'A', headline: buildSeasonHeadline(season, language, seedIndex, coldOpenSong?.hookPhrase), subline, angle: '계절 강조' },
     { id: 'B', headline: buildEmotionHeadline(language, seedIndex), subline, angle: '감정 강조' },
     { id: 'C', headline: buildAudienceHeadline(language), subline, angle: '타겟 명시' }
   ];
