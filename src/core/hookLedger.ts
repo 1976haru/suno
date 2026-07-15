@@ -1,5 +1,6 @@
 import type { ChannelArchetype, LyricLanguage, PlaylistBlueprint } from '../types';
 import { hookPoolSize } from './lyricEngine';
+import { forecastCapacity } from './capacityPlanner';
 
 const DB_NAME = 'suno-weaver-hooks';
 const DB_VERSION = 1;
@@ -121,6 +122,64 @@ export function exhaustionStats(used: number, poolSize: number): ExhaustionStats
 
 export function hookPoolNeedsWarning(stats: ExhaustionStats): boolean {
   return stats.percentUsed >= 80 && stats.remaining > 0;
+}
+
+/**
+ * v3.12 PART C-3 — a graduated screen shown at 90%+ usage, before the hard
+ * exhaustion error (composeHook's "훅 풀이 소진되었습니다" throw, unchanged and
+ * still correct at 100%). Deliberately a separate, higher threshold from
+ * hookPoolNeedsWarning's existing 80% (that one was never wired to any UI;
+ * this one gates a blocking screen, so it needs a tighter margin).
+ */
+export function hookPoolGraduatedWarning(stats: ExhaustionStats): boolean {
+  return stats.percentUsed >= 90 && stats.remaining > 0;
+}
+
+export interface ChannelCapacityForecast extends ExhaustionStats {
+  /** null when there's not enough usage history yet (fewer than 2 recorded packs) to estimate a real pace. */
+  weeksUntilExhaustion: number | null;
+  /** Actual historical pace (songs/week), derived from real pack-generation date intervals — not a fixed assumption. */
+  estimatedSongsPerWeek: number | null;
+}
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * v3.12 PART C-1 — "weeks until exhaustion" computed from this channel's own
+ * real usage history (recordPackHooks' usedAt timestamps), not a generic
+ * fixed-pace guess. Reuses forecastCapacity's per-HookShape bottleneck logic
+ * (see capacityPlanner.ts) rather than a flat poolSize/pace division, since
+ * that flat math is exactly what made the v3.11 showa-cafe finding look
+ * inconsistent (see hookPoolSizeByShape's doc comment).
+ *
+ * Pure — kept separate from the IndexedDB read (same pattern as
+ * exhaustionStats/usageLedger's summarizeUsage) so it's testable in Node
+ * without a browser IndexedDB polyfill.
+ */
+export function computeCapacityForecast(records: Pick<HookUsage, 'usedAt'>[], language: LyricLanguage, archetype: ChannelArchetype | undefined, poolSize: number): ChannelCapacityForecast {
+  const stats = exhaustionStats(records.length, poolSize);
+
+  if (records.length < 2) {
+    return { ...stats, weeksUntilExhaustion: null, estimatedSongsPerWeek: null };
+  }
+
+  const sortedTimes = records.map(u => new Date(u.usedAt).getTime()).sort((a, b) => a - b);
+  const spanMs = sortedTimes[sortedTimes.length - 1] - sortedTimes[0];
+  const weeksSpan = Math.max(spanMs / MS_PER_WEEK, 1 / 7); // guard against same-day packs (avoid divide-by-near-zero)
+  const estimatedSongsPerWeek = records.length / weeksSpan;
+  const forecast = forecastCapacity(archetype ?? 'senior-morning', language, estimatedSongsPerWeek);
+
+  return {
+    ...stats,
+    estimatedSongsPerWeek,
+    weeksUntilExhaustion: Number.isFinite(forecast.weeksAtCurrentPace) ? forecast.weeksAtCurrentPace : null
+  };
+}
+
+export async function channelCapacityForecast(channelId: string, language: LyricLanguage, archetype?: ChannelArchetype): Promise<ChannelCapacityForecast> {
+  const all = await allRecords();
+  const scoped = all.filter(u => u.channelId === channelId && u.language === language);
+  return computeCapacityForecast(scoped, language, archetype, hookPoolSize(language, archetype));
 }
 
 export async function channelExhaustionStats(channelId: string, language: LyricLanguage, archetype?: ChannelArchetype): Promise<ExhaustionStats> {

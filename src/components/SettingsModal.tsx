@@ -4,7 +4,7 @@ import type { ChannelProfile, ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
 import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
 import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
-import { clearChannelHistory, forgetUsage, listChannelUsage, type HookUsage } from '../core/hookLedger';
+import { channelCapacityForecast, clearChannelHistory, forgetUsage, listChannelUsage, type ChannelCapacityForecast, type HookUsage } from '../core/hookLedger';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
@@ -32,6 +32,7 @@ interface SettingsModalProps {
   onImportAll: (file: File) => void;
   onDeleteAll: () => void;
   channel: ChannelProfile;
+  channels: ChannelProfile[];
 }
 
 type TestResult = { state: 'idle' } | { state: 'testing' } | { state: 'ok' } | { state: 'error'; message: string };
@@ -40,7 +41,7 @@ function byokKeyName(provider: ProviderType) {
   return `byok:${provider}`;
 }
 
-export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel, channels }: SettingsModalProps) {
   const [localKey, setLocalKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
@@ -49,6 +50,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [outputPrice, setOutputPrice] = useState('');
   const [cache, setCache] = useState<CacheStats | null>(null);
   const [hookUsage, setHookUsage] = useState<HookUsage[] | null>(null);
+  const [capacityForecasts, setCapacityForecasts] = useState<{ channel: ChannelProfile; forecast: ChannelCapacityForecast }[] | null>(null);
 
   const isRemoteProvider = settings.provider === 'openai' || settings.provider === 'anthropic';
 
@@ -67,6 +69,19 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     void cacheStats().then(setCache);
     void listChannelUsage(channel.id).then(setHookUsage).catch(() => setHookUsage([]));
   }, [open, channel.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void Promise.all(
+      channels.map(async c => ({ channel: c, forecast: await channelCapacityForecast(c.id, c.primaryLanguage, c.archetype) }))
+    ).then(results => {
+      if (!cancelled) setCapacityForecasts(results);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, channels]);
 
   if (!open) return null;
 
@@ -393,6 +408,38 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         <div className="button-row">
           <button type="button" onClick={() => void handleClearCache()}>캐시 비우기</button>
         </div>
+
+        <label>📊 채널별 훅 풀 상태</label>
+        <p className="supporting">
+          채널마다 훅 풀은 완전히 독립적으로 관리됩니다 — 한 채널에서 훅을 많이 써도 다른 채널의 훅 풀에는 전혀 영향이 없습니다.
+          아래 "주당 예상 페이스"는 이 채널의 실제 팩 생성 이력(생성 날짜 간격)에서 계산한 값이며, 고정된 추정치가 아닙니다.
+        </p>
+        {capacityForecasts && capacityForecasts.length > 0 ? (
+          <div className="hook-capacity-dashboard">
+            {capacityForecasts.map(({ channel: c, forecast }) => {
+              const barWidth = Math.min(100, forecast.percentUsed);
+              return (
+                <div key={c.id} className="hook-capacity-row">
+                  <div className="hook-capacity-row-title">
+                    <b>{c.name}</b>
+                    <span className="supporting"> ({c.archetype ?? 'senior-morning'} · {c.primaryLanguage})</span>
+                  </div>
+                  <div className="hook-capacity-bar-track">
+                    <div className="hook-capacity-bar-fill" style={{ width: `${barWidth}%` }} />
+                  </div>
+                  <p className="supporting">
+                    {forecast.percentUsed}% 사용 ({forecast.used} / {forecast.poolSize})
+                    {forecast.weeksUntilExhaustion !== null
+                      ? ` — 현재 속도라면 약 ${forecast.weeksUntilExhaustion}주 후 소진 예상`
+                      : ' — 아직 페이스를 추정할 이력이 부족합니다 (팩 2개 이상 생성 후 표시됩니다)'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="supporting">채널이 없습니다.</p>
+        )}
 
         <label>🎯 훅 이력 관리 — {channel.name}</label>
         <p className="supporting">

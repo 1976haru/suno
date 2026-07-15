@@ -9,7 +9,8 @@ import { isEvaluationAvailable } from './agents/evaluator';
 import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
-import { recordPackHooks } from './core/hookLedger';
+import { channelExhaustionStats, clearChannelHistory, hookPoolGraduatedWarning, recordPackHooks, type ExhaustionStats } from './core/hookLedger';
+import { copyText } from './utils/exporters';
 import { normalizeGenreSelection, toggleGenreSelection } from './core/genreSelection';
 import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
@@ -26,6 +27,7 @@ import { createInitialOptions } from './utils/generation';
 import { defaultPackagingLanguage, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
+import HookExhaustionWarningModal from './components/HookExhaustionWarningModal';
 import CachePromptModal from './components/CachePromptModal';
 import Sidebar from './components/Sidebar';
 import StepIndicator, { type StepDef } from './components/StepIndicator';
@@ -57,6 +59,7 @@ export default function App() {
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
   const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
+  const [hookExhaustionWarning, setHookExhaustionWarning] = useState<ExhaustionStats | null>(null);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -227,6 +230,19 @@ export default function App() {
   }
 
   async function onGenerate() {
+    // v3.12 PART C-3 — hook pool capacity is a local-engine concern shared by
+    // every provider path (batch/local/hybrid all pre-allocate hooks
+    // locally), so this gate runs before any of the branches below rather
+    // than being duplicated in each one.
+    const stats = await channelExhaustionStats(cm.selectedChannel.id, opts.lyricLanguage, cm.selectedChannel.archetype);
+    if (hookPoolGraduatedWarning(stats)) {
+      setHookExhaustionWarning(stats);
+      return;
+    }
+    await proceedWithGeneration();
+  }
+
+  async function proceedWithGeneration() {
     // Hybrid drafts are always free/local and always fresh — no point checking the API cache.
     if (provider.provider === 'local' || isHybridActive) {
       runGeneration();
@@ -249,6 +265,30 @@ export default function App() {
       return;
     }
     runGeneration(key);
+  }
+
+  async function onHookWarningCleanUpHistory() {
+    if (window.confirm(`"${cm.selectedChannel.name}" 채널의 훅 사용 이력을 모두 지울까요? 지운 훅은 다시 사용 가능해집니다.`)) {
+      await clearChannelHistory(cm.selectedChannel.id);
+    }
+    setHookExhaustionWarning(null);
+  }
+
+  async function onHookWarningCopyExpansionInfo() {
+    if (!hookExhaustionWarning) return;
+    const info = [
+      `channel: ${cm.selectedChannel.name} (${cm.selectedChannel.id})`,
+      `archetype: ${cm.selectedChannel.archetype ?? 'senior-morning'}`,
+      `lyricLanguage: ${opts.lyricLanguage}`,
+      `pool usage: ${hookExhaustionWarning.used} / ${hookExhaustionWarning.poolSize} (${hookExhaustionWarning.percentUsed}%)`,
+      `remaining: ${hookExhaustionWarning.remaining}`
+    ].join('\n');
+    await copyText(info);
+  }
+
+  function onHookWarningContinueAnyway() {
+    setHookExhaustionWarning(null);
+    void proceedWithGeneration();
   }
 
   function onCancelBatchJob() {
@@ -563,7 +603,19 @@ export default function App() {
         onImportAll={file => void library.importAll(file)}
         onDeleteAll={() => void library.deleteAll()}
         channel={cm.selectedChannel}
+        channels={cm.channels}
       />
+
+      {hookExhaustionWarning && (
+        <HookExhaustionWarningModal
+          channelName={cm.selectedChannel.name}
+          stats={hookExhaustionWarning}
+          onCleanUpHistory={() => void onHookWarningCleanUpHistory()}
+          onCopyExpansionInfo={() => void onHookWarningCopyExpansionInfo()}
+          onContinueAnyway={onHookWarningContinueAnyway}
+          onClose={() => setHookExhaustionWarning(null)}
+        />
+      )}
 
       <CachePromptModal
         open={!!cachePrompt}
