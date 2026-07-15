@@ -1521,3 +1521,56 @@ pre {
   min-height: 44px;
   justify-content: center;
 }
+
+/* TASK H8 (v3.10) — concept agent panel: free-text input -> 1-2 recommendation cards */
+.concept-agent-panel {
+  background: var(--panel-soft);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+
+.concept-agent-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.concept-agent-input-row input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.concept-recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.concept-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.concept-card.applied {
+  border-color: var(--teal);
+  background: rgba(46, 143, 143, 0.08);
+}
+
+.concept-card-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.concept-preview {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 13px;
+}

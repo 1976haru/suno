@@ -9,7 +9,7 @@ import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, export
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
-import type { AgentEvaluation, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
+import type { AgentEvaluation, DisplayLanguage, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
@@ -36,6 +36,7 @@ interface Step4ResultProps {
   thumbnailSpec: ThumbnailSpec | null;
   thumbnailSeasonId: string;
   thumbnailArchetypeId: ThumbnailArchetypeId;
+  thumbnailPackagingLanguage: DisplayLanguage;
   soundSignature: SoundSignature | null;
   personaMode: boolean;
   personaPromptStats: PersonaPromptStats | null;
@@ -51,6 +52,7 @@ interface Step4ResultProps {
   onRefineSelected: (trackNos: number[]) => void;
   onRegenerateHeadline: () => void;
   onSelectThumbnailVariant: (id: ThumbnailVariantId) => void;
+  onApplyThumbnailFreeText: (suggestions: { headline: string; angle: string }[]) => void;
 }
 
 export default function Step4Result({
@@ -75,6 +77,7 @@ export default function Step4Result({
   thumbnailSpec,
   thumbnailSeasonId,
   thumbnailArchetypeId,
+  thumbnailPackagingLanguage,
   soundSignature,
   personaMode,
   personaPromptStats,
@@ -89,7 +92,8 @@ export default function Step4Result({
   onUndoRetry,
   onRefineSelected,
   onRegenerateHeadline,
-  onSelectThumbnailVariant
+  onSelectThumbnailVariant,
+  onApplyThumbnailFreeText
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
@@ -233,9 +237,11 @@ export default function Step4Result({
           spec={thumbnailSpec}
           defaultSeasonId={thumbnailSeasonId}
           selectedArchetypeId={thumbnailArchetypeId}
+          packagingLanguage={thumbnailPackagingLanguage}
           onSelectArchetype={onSelectThumbnailArchetype}
           onRegenerateHeadline={onRegenerateHeadline}
           onSelectVariant={onSelectThumbnailVariant}
+          onApplyFreeTextHeadlines={onApplyThumbnailFreeText}
         />
       )}
 

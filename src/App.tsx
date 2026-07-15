@@ -22,7 +22,7 @@ import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { createInitialOptions } from './utils/generation';
-import { defaultPackagingLanguage } from './core/packagingLanguage';
+import { defaultPackagingLanguage, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
 import CachePromptModal from './components/CachePromptModal';
@@ -51,6 +51,8 @@ export default function App() {
   const [thumbnailVariant, setThumbnailVariant] = useState(0);
   const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
   const [thumbnailArchetypeId, setThumbnailArchetypeId] = useState<ThumbnailArchetypeId>('refined-cafe');
+  /** TASK H6 (v3.10) — set only when the user asks the concept agent for thumbnail copy; coexists with (never replaces) v3.6's season/emotion/audience A/B/C strategy. */
+  const [thumbnailFreeTextHeadlines, setThumbnailFreeTextHeadlines] = useState<{ headline: string; angle: string }[] | null>(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
   const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
@@ -99,9 +101,16 @@ export default function App() {
     () => {
       if (!gen.blueprint) return null;
       const spec = buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant, thumbnailArchetypeId);
-      return { ...spec, selected: selectedThumbnailVariant };
+      const variants = thumbnailFreeTextHeadlines
+        ? spec.variants.map((variant, index) => (
+          thumbnailFreeTextHeadlines[index]
+            ? { ...variant, headline: thumbnailFreeTextHeadlines[index].headline, angle: thumbnailFreeTextHeadlines[index].angle }
+            : variant
+        ))
+        : spec.variants;
+      return { ...spec, variants, selected: selectedThumbnailVariant };
     },
-    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, thumbnailArchetypeId, selectedThumbnailVariant]
+    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, thumbnailArchetypeId, selectedThumbnailVariant, thumbnailFreeTextHeadlines]
   );
 
   // TASK E2 (v3.5) — a Batch API job outlives a closed tab; resume polling
@@ -305,7 +314,12 @@ export default function App() {
   }
 
   function onRegenerateHeadline() {
+    setThumbnailFreeTextHeadlines(null);
     setThumbnailVariant(v => v + 1);
+  }
+
+  function onApplyThumbnailFreeText(suggestions: { headline: string; angle: string }[]) {
+    setThumbnailFreeTextHeadlines(suggestions);
   }
 
   function onSelectThumbnailVariant(id: ThumbnailVariantId) {
@@ -443,6 +457,7 @@ export default function App() {
               selectedMoods={selectedMoods}
               selectedSeason={selectedSeason}
               toggleArray={toggleArray}
+              provider={provider}
             />
           )}
 
@@ -494,6 +509,7 @@ export default function App() {
               thumbnailSpec={thumbnailSpec}
               thumbnailSeasonId={selectedSeason.id}
               thumbnailArchetypeId={thumbnailArchetypeId}
+              thumbnailPackagingLanguage={resolvePackagingLanguage(opts)}
               soundSignature={soundSignature}
               personaMode={opts.personaMode ?? false}
               personaPromptStats={personaPromptStats}
@@ -509,6 +525,7 @@ export default function App() {
               onRefineSelected={onRefineSelected}
               onRegenerateHeadline={onRegenerateHeadline}
               onSelectThumbnailVariant={onSelectThumbnailVariant}
+              onApplyThumbnailFreeText={onApplyThumbnailFreeText}
             />
           )}
 

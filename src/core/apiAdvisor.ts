@@ -15,7 +15,7 @@ import { DEFAULT_ANTHROPIC_MODEL, MODEL_REGISTRY } from '../data/modelRegistry';
  */
 export type ApiRecommendation = 'essential' | 'valuable' | 'optional' | 'unnecessary';
 
-export type StageId = 'lyrics' | 'evaluation' | 'thumbnailCopy' | 'stylePrompt' | 'songStructure' | 'thumbnailImage';
+export type StageId = 'lyrics' | 'evaluation' | 'thumbnailCopy' | 'stylePrompt' | 'songStructure' | 'thumbnailImage' | 'conceptAgent';
 
 export interface StageAdvice {
   stage: StageId;
@@ -75,6 +75,17 @@ export const STAGE_ADVICE: Record<StageId, StageAdvice> = {
     recommendation: 'unnecessary',
     suggestedModelKo: '외부 (Canva 등)',
     reasonKo: '이 앱은 이미지를 직접 만들지 않습니다. 이미지 생성 프롬프트만 제공합니다.'
+  },
+  // TASK H5 (v3.10) — concept agent's local keyword match always runs first
+  // and free for every user (including the '무료로만' preset); the API path
+  // only ever refines that same guess, with output capped at ~80 tokens on
+  // Haiku, so it stays effectively free even for a channel opening 216 songs.
+  conceptAgent: {
+    stage: 'conceptAgent',
+    labelKo: '컨셉 추천 에이전트',
+    recommendation: 'valuable',
+    suggestedModelKo: 'Haiku (로컬 키워드 매칭이 기본, API는 선택 보강)',
+    reasonKo: '자연어 한 줄을 장르/무드/시즌 조합으로 번역해주는 보조 기능입니다. 출력이 짧아 Haiku로도 충분하고, 로컬 매칭만으로도 항상 결과가 나옵니다.'
   }
 };
 

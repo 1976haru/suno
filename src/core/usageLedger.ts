@@ -6,7 +6,7 @@ export interface UsageRecord {
   at: string;
   provider: string;
   model: string;
-  purpose: 'generate' | 'refine' | 'evaluate';
+  purpose: 'generate' | 'refine' | 'evaluate' | 'concept';
   inputTokens: number;
   outputTokens: number;
   /** Whole-response app-level cache reuse (core/apiCache.ts) — a full API call was skipped entirely. */

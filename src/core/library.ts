@@ -37,11 +37,32 @@ function normalizeSavedPack(pack: SavedPack): SavedPack {
 }
 
 const DB_NAME = 'suno-weaver-library';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE = 'packs';
 const PERSONA_STORE = 'personas';
 const PROGRESS_STORE = 'suno_progress';
+const CONCEPT_CACHE_STORE = 'concept_cache';
+const CONCEPT_HISTORY_STORE = 'concept_history';
 export const AUTOSAVE_ID = 'autosave-temp';
+
+/** TASK H4 (v3.10) — caches a concept agent API recommendation by channel + normalized free-text input, so re-submitting the same phrase never re-calls the API. */
+export interface ConceptCacheRecord {
+  id: string;
+  resultJson: string;
+  cachedAt: string;
+}
+
+/** TASK H7 (v3.10) — last few free-text inputs per channel, shown as quick-pick chips so the user doesn't retype a phrase they already used for this channel. */
+export interface ConceptHistoryRecord {
+  id: string;
+  channelId: string;
+  inputs: string[];
+  updatedAt: string;
+}
+
+const memoryConceptCache = new Map<string, ConceptCacheRecord>();
+const memoryConceptHistory = new Map<string, ConceptHistoryRecord>();
+const CONCEPT_HISTORY_MAX = 5;
 
 /** TASK G3 (v3.7) — "곡을 Suno에 넣었음" checkboxes for Focus Mode, keyed by pack id, so the checklist survives a page reload. */
 export interface PackProgressRecord {
@@ -82,6 +103,12 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(PROGRESS_STORE)) {
         db.createObjectStore(PROGRESS_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(CONCEPT_CACHE_STORE)) {
+        db.createObjectStore(CONCEPT_CACHE_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(CONCEPT_HISTORY_STORE)) {
+        db.createObjectStore(CONCEPT_HISTORY_STORE, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -325,5 +352,42 @@ export async function setTrackProgress(packId: string, trackNo: number, done: bo
     return next;
   }
   await withStore('readwrite', store => store.put(record), PROGRESS_STORE);
+  return next;
+}
+
+export async function getConceptCache(cacheKey: string): Promise<string | undefined> {
+  const record = hasIndexedDb()
+    ? await withStore<ConceptCacheRecord | undefined>('readonly', store => store.get(cacheKey), CONCEPT_CACHE_STORE)
+    : memoryConceptCache.get(cacheKey);
+  return record?.resultJson;
+}
+
+export async function setConceptCache(cacheKey: string, resultJson: string): Promise<void> {
+  const record: ConceptCacheRecord = { id: cacheKey, resultJson, cachedAt: new Date().toISOString() };
+  if (!hasIndexedDb()) {
+    memoryConceptCache.set(cacheKey, record);
+    return;
+  }
+  await withStore('readwrite', store => store.put(record), CONCEPT_CACHE_STORE);
+}
+
+export async function getConceptHistory(channelId: string): Promise<string[]> {
+  const record = hasIndexedDb()
+    ? await withStore<ConceptHistoryRecord | undefined>('readonly', store => store.get(channelId), CONCEPT_HISTORY_STORE)
+    : memoryConceptHistory.get(channelId);
+  return record?.inputs || [];
+}
+
+export async function addConceptHistory(channelId: string, input: string): Promise<string[]> {
+  const trimmed = input.trim();
+  if (!trimmed) return getConceptHistory(channelId);
+  const current = await getConceptHistory(channelId);
+  const next = [trimmed, ...current.filter(item => item !== trimmed)].slice(0, CONCEPT_HISTORY_MAX);
+  const record: ConceptHistoryRecord = { id: channelId, channelId, inputs: next, updatedAt: new Date().toISOString() };
+  if (!hasIndexedDb()) {
+    memoryConceptHistory.set(channelId, record);
+    return next;
+  }
+  await withStore('readwrite', store => store.put(record), CONCEPT_HISTORY_STORE);
   return next;
 }

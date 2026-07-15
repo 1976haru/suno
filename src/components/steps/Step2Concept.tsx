@@ -19,7 +19,9 @@ import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
 import { defaultPackagingLanguage } from '../../core/packagingLanguage';
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import ChoiceGrid from '../ChoiceGrid';
-import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage } from '../../types';
+import ConceptAgentPanel from '../ConceptAgentPanel';
+import type { ConceptRecommendation } from '../../core/conceptAgent';
+import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
 
 const languageOptions: { value: LyricLanguage; label: string; sub: string }[] = [
   { value: 'english', label: '영어', sub: 'English' },
@@ -66,6 +68,7 @@ interface Step2ConceptProps {
   selectedMoods: MoodPack[];
   selectedSeason: SeasonPack;
   toggleArray: (key: 'genreIds' | 'moodIds', id: string) => void;
+  provider: ProviderSettings;
 }
 
 function CharCounter({ value, limit }: { value: string; limit: number }) {
@@ -76,7 +79,7 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
   );
 }
 
-export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray }: Step2ConceptProps) {
+export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider }: Step2ConceptProps) {
   const [vocalCustomOpen, setVocalCustomOpen] = useState(() => !matchVocalPreset(opts.vocalTone));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
@@ -93,6 +96,23 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
   const selectedGenreDetails = selectedGenres.map(genre => getGenreById(genre.id) || genre);
   const channelArchetype = opts.channel.archetype || 'senior-morning';
+
+  // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
+  // the same fields the existing chip grids below already control; it's a
+  // shortcut into the existing selection path, never a separate one.
+  function handleApplyConceptRecommendation(rec: ConceptRecommendation, inputText: string) {
+    const vocalPreset = vocalPresets.find(preset => preset.id === rec.vocalPresetId);
+    setOpts(prev => ({
+      ...prev,
+      genreIds: normalizeGenreSelection([rec.genreId]),
+      moodIds: rec.moodIds,
+      seasonId: rec.seasonId,
+      vocalTone: vocalPreset?.prompt || prev.vocalTone,
+      customConcept: inputText
+    }));
+    rememberRecentGenreId(opts.channel.id, rec.genreId);
+  }
+
   const visibleGenres = useMemo(
     () => getVisibleGenresForArchetype(channelArchetype, opts.genreIds, recentGenreIds),
     [channelArchetype, opts.genreIds, recentGenreIds]
@@ -170,6 +190,16 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   return (
     <section className="panel">
       <p className="step-hint">이 채널의 곡이 어떤 느낌이면 좋을지 정하세요. 아무것도 모르셔도 괜찮아요 — 카드를 눌러보고 마음에 드는 걸 고르시면 됩니다.</p>
+
+      <ConceptAgentPanel
+        channelId={opts.channel.id}
+        archetype={channelArchetype}
+        currentGenreId={opts.genreIds[0]}
+        currentMoodId={opts.moodIds[0]}
+        currentSeasonId={opts.seasonId}
+        provider={provider}
+        onApply={handleApplyConceptRecommendation}
+      />
 
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />

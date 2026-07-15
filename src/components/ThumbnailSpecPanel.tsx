@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, RefreshCw } from 'lucide-react';
+import { Copy, RefreshCw, Sparkles } from 'lucide-react';
 import { copyText } from '../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
+import { recommendThumbnailCopyLocal } from '../core/conceptAgent';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
 import { composeThumbnailPromptSet } from '../core/thumbnailPromptComposer';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
@@ -12,15 +13,17 @@ import type {
   ThumbnailTimeOfDay
 } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
-import type { ThumbnailVariantId } from '../types';
+import type { DisplayLanguage, ThumbnailVariantId } from '../types';
 
 interface ThumbnailSpecPanelProps {
   spec: ThumbnailSpec;
   defaultSeasonId: string;
   selectedArchetypeId: ThumbnailArchetypeId;
+  packagingLanguage: DisplayLanguage;
   onSelectArchetype: (id: ThumbnailArchetypeId) => void;
   onRegenerateHeadline: () => void;
   onSelectVariant: (id: ThumbnailVariantId) => void;
+  onApplyFreeTextHeadlines: (suggestions: { headline: string; angle: string }[]) => void;
 }
 
 type ImageTool = 'generic' | 'midjourney' | 'stableDiffusion';
@@ -58,9 +61,11 @@ export default function ThumbnailSpecPanel({
   spec,
   defaultSeasonId,
   selectedArchetypeId,
+  packagingLanguage,
   onSelectArchetype,
   onRegenerateHeadline,
-  onSelectVariant
+  onSelectVariant,
+  onApplyFreeTextHeadlines
 }: ThumbnailSpecPanelProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [imageTool, setImageTool] = useState<ImageTool>('generic');
@@ -69,6 +74,7 @@ export default function ThumbnailSpecPanel({
   const [peopleMode, setPeopleMode] = useState<ThumbnailPeopleMode>('none');
   const [textSafeZone, setTextSafeZone] = useState<ThumbnailTextSafeZone>('left');
   const [promptSeed, setPromptSeed] = useState(0);
+  const [copyFreeText, setCopyFreeText] = useState('');
 
   useEffect(() => {
     setPromptSeasonId(defaultSeasonId);
@@ -96,6 +102,16 @@ export default function ThumbnailSpecPanel({
     setTimeout(() => setCopiedField(prev => (prev === field ? null : prev)), 1500);
   }
 
+  // TASK H6 (v3.10) — free-text seed for headline copy; coexists with (never
+  // replaces) the season/emotion/audience A/B/C strategy above. Applying a
+  // suggestion just overwrites variants[].headline/angle, same shape as the
+  // default strategy, so everything else (colors/objects/composition) is untouched.
+  function handleApplyCopyFreeText() {
+    if (!copyFreeText.trim()) return;
+    const suggestions = recommendThumbnailCopyLocal(copyFreeText, packagingLanguage);
+    onApplyFreeTextHeadlines(suggestions);
+  }
+
   const fullSpecText = [
     ...spec.variants.map(v => `${v.id} (${v.angle})${v.id === spec.selected ? ' [selected]' : ''}: ${v.headline.replace('\n', ' / ')} / ${v.subline}`),
     `Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}`,
@@ -112,6 +128,25 @@ export default function ThumbnailSpecPanel({
       <p className="step-hint">
         썸네일 문구 A/B/C와 별도로, 저작권 불확실한 참고 이미지는 표시하지 않고 추상화된 아키타입 프롬프트만 생성합니다.
       </p>
+
+      <div className="option-block concept-agent-panel">
+        <h3>💬 썸네일에 어떤 말을 담고 싶으세요?</h3>
+        <p className="supporting">&ldquo;어디선가 들어본 적 있는 노래&rdquo;처럼 적어보세요. (선택 사항 — 비워두면 아래 기본 A/B/C를 그대로 씁니다)</p>
+        <div className="concept-agent-input-row">
+          <input
+            value={copyFreeText}
+            onChange={event => setCopyFreeText(event.target.value)}
+            placeholder="예: 그 노래 어디선가 들어본 적 있다"
+            onKeyDown={event => {
+              if (event.key === 'Enter') handleApplyCopyFreeText();
+            }}
+          />
+          <button type="button" className="primary" disabled={!copyFreeText.trim()} onClick={handleApplyCopyFreeText}>
+            <Sparkles size={16} />
+            문구 추천받기
+          </button>
+        </div>
+      </div>
 
       <div className="thumbnail-variant-grid">
         {spec.variants.map(variant => (
