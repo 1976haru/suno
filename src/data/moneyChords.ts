@@ -5,6 +5,19 @@ export interface MoneyChordPreset {
   description: string;
   progressions: string[];
   prompt: string;
+  /**
+   * TASK H3 (v3.14) — hand-written, not derived from `prompt` by regex. The
+   * old compactMoneyChord() extracted the first Roman-numeral run out of
+   * `prompt` via `/[ivIV]+(?:-[ivIV]+){2,}/`: 'emotional' shares its literal
+   * "I-V-vi-IV" substring with 'default' (matching the same numerals but
+   * meaning something different — verse vs. chorus emphasis), so both
+   * compacted identically; 'showaModern's "IVmaj7-iii7-vi7" contains digits
+   * ("7") and "maj7" the regex's roman-numeral-only character class doesn't
+   * accept, so it matched nothing and fell through to the content-free
+   * "money chord progression" fallback — silently erasing this channel's one
+   * real harmonic identity. Every preset gets one of these, curated by hand.
+   */
+  compactProgression: string;
   bestFor: string[];
 }
 
@@ -16,6 +29,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '가장 익숙하고 안전한 진행. 처음이라면 이걸 고르세요.',
     progressions: ['I-V-vi-IV', 'vi-IV-I-V'],
     prompt: 'major-key money chord progression with I-V-vi-IV and vi-IV-I-V movement, warm nostalgic pop harmony, emotional chorus lift, familiar radio-friendly melody, easy sing-along hook',
+    compactProgression: 'I-V-vi-IV progression',
     bestFor: ['처음 만드는 곡', '대부분의 플레이리스트 트랙']
   },
   emotional: {
@@ -25,6 +39,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '후렴에서 감정이 확 올라오는 느낌을 원할 때.',
     progressions: ['I-V-vi-IV', 'vi-IV-I-V'],
     prompt: 'emotional major-key pop progression, I-V-vi-IV in verses and vi-IV-I-V in chorus, strong but gentle lift into the hook',
+    compactProgression: 'I-V-vi-IV verses, vi-IV-I-V chorus lift',
     bestFor: ['감정 절정 트랙', '늦은 밤 감성 곡']
   },
   jazzColor: {
@@ -34,6 +49,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '재즈 카페 느낌의 세련된 색채가 필요할 때.',
     progressions: ['Imaj7-V-vi7-IVadd9', 'ii-V-I turnaround'],
     prompt: 'major-key money chord progression with gentle maj7 and add9 color chords, occasional ii-V-I cafe jazz turnaround, warm adult contemporary harmony',
+    compactProgression: 'ii-V-I turnaround, maj7 add9 color',
     bestFor: ['재즈 카페 채널', '어른스러운 무드']
   },
   cityPop: {
@@ -43,6 +59,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '깔끔하고 세련된 도시적인 밤 분위기.',
     progressions: ['vi-IV-I-V', 'IVmaj7-iii7-vi7-ii7-V'],
     prompt: 'smooth city-pop friendly harmony, vi-IV-I-V movement, maj7 chords, gentle pre-chorus lift, nostalgic radio-friendly chorus',
+    compactProgression: 'vi-IV-I-V movement, maj7 color',
     bestFor: ['일본 채널', '나이트 드라이브 무드']
   },
   canon: {
@@ -52,6 +69,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '감정이 최고조로 차오르는 캐논 진행. 연말·크리스마스 이브 곡에 잘 어울립니다.',
     progressions: ['I-V-vi-iii-IV-I-IV-V'],
     prompt: 'classic canon progression I-V-vi-iii-IV-I-IV-V, cinematic emotional build, orchestral-pop warmth, climactic chorus lift',
+    compactProgression: 'I-V-vi-iii-IV-I-IV-V progression',
     bestFor: ['연말/크리스마스 이브 곡', '감정 최고조 트랙']
   },
   showaModern: {
@@ -61,6 +79,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '일본 쇼와 모던 찻집(喫茶店) 분위기의 진행. 일본 채널 전용.',
     progressions: ['IVmaj7-iii7-vi7'],
     prompt: 'showa-modern kissaten harmony centered on IVmaj7-iii7-vi7 movement, warm mellow jazz-pop color, refined nostalgic Japanese cafe mood',
+    compactProgression: 'IVmaj7-iii7-vi7 movement',
     bestFor: ['일본 채널', '쇼와 모던 카페 컨셉']
   },
   winterBallad: {
@@ -70,6 +89,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '벌스는 차분하게, 후렴은 밝게, 마지막 후렴에서 반음 상승으로 마무리.',
     progressions: ['vi-IV-I-V (verse)', 'I-V-vi-IV (chorus)'],
     prompt: 'winter ballad harmony, vi-IV-I-V in verses building to I-V-vi-IV in chorus, gentle key-up half-step modulation on the final chorus only',
+    compactProgression: 'vi-IV-I-V to I-V-vi-IV, final chorus key-up',
     bestFor: ['겨울 발라드', '마지막 트랙(클로저)']
   },
   custom: {
@@ -79,6 +99,9 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     description: '직접 코드 진행을 입력합니다.',
     progressions: [],
     prompt: 'use a familiar radio-friendly chord progression with a clear emotional chorus lift',
+    // Never actually read — compactMoneyChord() special-cases 'custom' before
+    // reaching this field (see below), using opts.customMoneyChord verbatim.
+    compactProgression: 'familiar chord progression',
     bestFor: ['직접 코드 진행을 지정하고 싶을 때']
   }
 };

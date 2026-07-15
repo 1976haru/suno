@@ -27,13 +27,14 @@ describe('money chord presets', () => {
     expect(prompt).toContain('I-V-vi-IV / vi-IV-I-V');
   });
 
-  it('custom mode without input falls back to the generic custom preset prompt', () => {
+  it('custom mode without input falls back to the custom preset\'s own compactProgression (TASK H3, v3.14)', () => {
     const opts = makeOptions({ moneyChordMode: 'custom', customMoneyChord: '' });
     const prompt = buildStylePrompt(opts, testGenres, testMoods, testSeason);
-    // moneyChordPresets.custom.prompt has no roman-numeral pattern for
-    // compactMoneyChord to extract, so it falls back to the generic
-    // 'money chord progression' tag rather than the full preset sentence.
-    expect(prompt).toContain('money chord progression');
+    // Pre-v3.14, compactMoneyChord regex-extracted a roman-numeral run out of
+    // moneyChordPresets.custom.prompt, found none, and fell back to the
+    // content-free 'money chord progression' string. It now reads
+    // compactProgression directly instead of parsing free text.
+    expect(prompt).toContain(moneyChordPresets.custom.compactProgression);
   });
 
   it('accepts well-formed Roman numeral progressions', () => {

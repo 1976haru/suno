@@ -58,6 +58,25 @@ function sanitizeAtom(value: string): string {
     .trim();
 }
 
+/**
+ * TASK H4 (v3.14) — genre atoms are deliberately NOT run through
+ * sanitizeAtom's season-word stripping. That stripping exists so a reusable
+ * Persona signature doesn't get accidentally locked to whichever mood/season
+ * pack happened to be selected on the pack that first built it (mood and
+ * season selections vary independently pack-to-pack even when the same
+ * Persona/genre is reused). A genre itself is different: 'Soft Christmas
+ * Pop' being Christmas-themed is its actual, stable identity, not an
+ * incidental leak — and diversityLinter's genre check caught exactly the
+ * failure mode this produced: stripping "Christmas" from
+ * christmas-soft-pop's first styleCore atom left "nostalgic acoustic pop",
+ * byte-identical to the real acoustic-pop genre's own atom.
+ */
+function sanitizeGenreAtom(value: string): string {
+  return compactWhitespace(value)
+    .replace(/^[,.\-\s]+|[,.\-\s]+$/g, '')
+    .trim();
+}
+
 function isAllowedSignatureAtom(value: string): boolean {
   const atom = sanitizeAtom(value);
   return atom.length > 1 && !SIGNATURE_FORBIDDEN.some(pattern => pattern.test(atom));
@@ -96,7 +115,7 @@ function resolveGenre(id: string | undefined): GenrePack | undefined {
 function primaryGenreAtom(genre: GenrePack | undefined) {
   if (!genre) return 'warm original pop';
   const first = splitAtoms(genre.shortPrompt || genre.styleCore)[0] || genre.label;
-  return sanitizeAtom(first) || 'warm original pop';
+  return sanitizeGenreAtom(first) || 'warm original pop';
 }
 
 function moodAtoms(opts: GenerationOptions) {
@@ -107,7 +126,7 @@ function moodAtoms(opts: GenerationOptions) {
     .filter(isAllowedSignatureAtom);
 }
 
-function compactVocalAtom(value: string) {
+export function compactVocalAtom(value: string) {
   const lower = value.toLowerCase();
   const gender = lower.includes('female') || lower.includes('woman')
     ? 'female'
@@ -131,7 +150,7 @@ function seasonWordForPersona(opts: GenerationOptions, channel: ChannelProfile) 
     /spring|cherry|may/.test(id) ? 'spring' :
       /summer|rain/.test(id) ? 'summer' :
         /autumn|fall|thanksgiving|halloween/.test(id) ? 'autumn' :
-          /winter|christmas|new-year|year/.test(id) ? 'winter' :
+          /winter|christmas|new-year|year|first-snow/.test(id) ? 'winter' :
             'season';
   if (channel.market === 'japan') {
     return { spring: '\u6625', summer: '\u590F', autumn: '\u79CB', winter: '\u51AC', season: '\u5B63\u7BC0' }[family];
@@ -213,14 +232,23 @@ export function compactGenreKeyword(genres: GenrePack[]) {
   return primaryGenreAtom(genres[0]);
 }
 
+/**
+ * TASK H3 (v3.14) — reads MoneyChordPreset.compactProgression directly
+ * instead of regex-extracting a Roman-numeral run out of `prompt`. That
+ * regex made 'emotional' collapse to the exact same output as 'default'
+ * (both happen to contain the literal substring "I-V-vi-IV" despite meaning
+ * different things), and made 'showaModern' match nothing at all — its
+ * "IVmaj7-iii7-vi7" notation has digits and "maj7" the roman-numeral-only
+ * character class rejected — silently falling back to the content-free
+ * 'money chord progression' string. See diversityLinter.ts for the
+ * regression guard against this ever recurring silently.
+ */
 export function compactMoneyChord(opts: GenerationOptions) {
   if (opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     return `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
   }
   const preset = moneyChordPresets[opts.moneyChordMode] || moneyChordPresets.default;
-  const match = preset.prompt.match(/[ivIV]+(?:-[ivIV]+){2,}/);
-  if (match) return `${match[0]} progression`;
-  return 'money chord progression';
+  return preset.compactProgression;
 }
 
 export function compactDuration(target: GenerationOptions['durationTarget'], terse = false) {
