@@ -382,6 +382,11 @@ export function generateLocalBlueprint(
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const motifPool = new UniquePool(recurringMotifs, seed + 23);
+  // TASK H2 (v3.13) — the primary selected genre's own lyric imagery (see
+  // GenrePack.lyricFlavorImages), resolved to this pack's lyricLanguage once
+  // up front. Undefined for genres without an entry — composeLyrics falls
+  // back to the generic filler pool in that case, unchanged from before v3.13.
+  const genreFlavorImages = genres[0]?.lyricFlavorImages?.map(image => phraseFor(image, opts.lyricLanguage));
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
   const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase);
   const packMotif = recurringMotifs[seed % recurringMotifs.length];
@@ -416,7 +421,8 @@ export function generateLocalBlueprint(
       motif: phraseFor(trackMotifOption, opts.lyricLanguage),
       role,
       pools: lyricPools,
-      openingStyle
+      openingStyle,
+      genreFlavorImages
     });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
     // handed to composeStylePrompt, which dedupes and — if the combined

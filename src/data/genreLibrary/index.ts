@@ -1,5 +1,96 @@
-import type { ChannelArchetype, GenrePack } from '../../types';
+import type { ChannelArchetype, GenreLyricFlavorImage, GenrePack } from '../../types';
 import type { GenreTier } from './types';
+
+/**
+ * TASK H2 (v3.13) — 3-5 short, genre-authentic images per core-tier genre id,
+ * covering senior-morning's and showa-cafe's core genre lists (the two real
+ * production archetypes). composeLyrics uses exactly one of these per song,
+ * in the 'situation' slot only, so genre selection is audible in the lyrics
+ * themselves rather than only in the style prompt. Deliberately archetype-
+ * neutral (no modern IT vocabulary, nothing that reads as breakup/alcohol
+ * imagery) so the handful of genres shared between both archetypes' core
+ * lists (jazz-pop, bossa-cafe, lofi-cafe, piano-ballad, christmas-soft-pop)
+ * stay safe for either one. Extended-tier genres without an entry here fall
+ * back to the pre-v3.13 generic filler pool — this is additive, not a
+ * requirement every genre must satisfy.
+ */
+export const CORE_LYRIC_FLAVOR_IMAGES: Partial<Record<string, GenreLyricFlavorImage[]>> = {
+  'adult-contemporary': [
+    { english: 'soft radio dial', korean: '부드러운 라디오 다이얼', japanese: 'やわらかなラジオのダイヤル' },
+    { english: 'warm coffee cup', korean: '따뜻한 커피잔', japanese: 'あたたかいコーヒーカップ' },
+    { english: 'quiet window seat', korean: '조용한 창가 자리', japanese: '静かな窓辺の席' }
+  ],
+  'acoustic-pop': [
+    { english: 'worn guitar strings', korean: '낡은 기타 줄', japanese: '使い込んだギターの弦' },
+    { english: 'porch step', korean: '현관 계단', japanese: '玄関の段差' },
+    { english: 'quiet strum', korean: '조용한 기타 스트럼', japanese: '静かなストローク' }
+  ],
+  'jazz-pop': [
+    { english: 'candlelight', korean: '촛불빛', japanese: 'キャンドルの灯り' },
+    { english: 'brass hush', korean: '금관악기의 낮은 울림', japanese: '金管の静かな響き' },
+    { english: 'velvet quiet', korean: '벨벳 같은 고요함', japanese: 'ビロードのような静けさ' }
+  ],
+  'lofi-cafe': [
+    { english: 'rain on the glass', korean: '유리창에 내리는 비', japanese: 'ガラスに降る雨' },
+    { english: 'vinyl crackle', korean: '레코드판의 잡음', japanese: 'レコードのノイズ' },
+    { english: 'soft headphones', korean: '부드러운 헤드폰', japanese: 'やわらかなヘッドホン' }
+  ],
+  'healing-ballad': [
+    { english: 'soft piano keys', korean: '부드러운 피아노 건반', japanese: 'やわらかなピアノの鍵盤' },
+    { english: 'quiet tears drying', korean: '조용히 마르는 눈물', japanese: '静かに乾く涙' },
+    { english: 'gentle held breath', korean: '가만히 참은 숨', japanese: 'そっと止めた息' }
+  ],
+  'piano-ballad': [
+    { english: 'ivory keys', korean: '하얀 건반', japanese: '白い鍵盤' },
+    { english: 'slow pedal hum', korean: '느린 페달의 울림', japanese: 'ゆっくりとしたペダルの響き' },
+    { english: 'single spotlight', korean: '하나의 조명', japanese: '一筋のスポットライト' }
+  ],
+  'retro-soul-pop': [
+    { english: 'warm vinyl groove', korean: '따뜻한 레코드의 홈', japanese: 'あたたかいレコードの溝' },
+    { english: 'tape hiss', korean: '테이프의 잡음', japanese: 'テープのヒスノイズ' },
+    { english: 'velvet stage light', korean: '벨벳 같은 무대 조명', japanese: 'ビロードのような舞台照明' }
+  ],
+  'bossa-cafe': [
+    { english: 'sunlit patio', korean: '햇살 드는 테라스', japanese: '陽だまりのテラス' },
+    { english: 'soft nylon strings', korean: '부드러운 나일론 줄', japanese: 'やわらかなナイロン弦' },
+    { english: 'iced glass condensation', korean: '유리잔에 맺힌 물방울', japanese: 'グラスに浮かぶ水滴' }
+  ],
+  'christmas-soft-pop': [
+    { english: 'string of warm lights', korean: '따뜻한 조명 줄', japanese: 'あたたかな灯りの連なり' },
+    { english: 'wrapped paper', korean: '포장지', japanese: '包装紙' },
+    { english: 'frosted window pane', korean: '서리 낀 창유리', japanese: '霜のついた窓ガラス' }
+  ],
+  'folk-pop': [
+    { english: 'worn wooden bench', korean: '낡은 나무 벤치', japanese: '使い古した木のベンチ' },
+    { english: 'open field breeze', korean: '들판의 바람', japanese: '野原を渡る風' },
+    { english: 'hand-me-down scarf', korean: '물려받은 목도리', japanese: 'お下がりのマフラー' }
+  ],
+  'showa-modern': [
+    { english: 'rotary phone', korean: '다이얼 전화기', japanese: 'ダイヤル電話' },
+    { english: 'neon sign glow', korean: '네온사인 불빛', japanese: 'ネオンサインの灯り' },
+    { english: 'jazz record spinning', korean: '돌아가는 재즈 레코드', japanese: '回るジャズレコード' }
+  ],
+  'city-pop-soft': [
+    { english: 'wet city pavement', korean: '젖은 도시 보도', japanese: '濡れた街の舗道' },
+    { english: 'neon reflection', korean: '네온 불빛의 반사', japanese: 'ネオンの反射' },
+    { english: 'late train window', korean: '늦은 기차 창문', japanese: '終電の窓' }
+  ],
+  'jazz-classic-vocal-lounge': [
+    { english: 'dim lounge light', korean: '어스름한 라운지 조명', japanese: '薄暗いラウンジの灯り' },
+    { english: 'brass mute', korean: '약음기를 낀 금관악기', japanese: 'ミュートをつけた金管' },
+    { english: 'velvet curtain', korean: '벨벳 커튼', japanese: 'ビロードのカーテン' }
+  ],
+  'jazz-soft-vocal-trio': [
+    { english: 'upright bass hum', korean: '콘트라베이스의 울림', japanese: 'アップライトベースの響き' },
+    { english: 'small stage light', korean: '작은 무대 조명', japanese: '小さな舞台照明' },
+    { english: 'quiet applause', korean: '조용한 박수', japanese: '静かな拍手' }
+  ],
+  'city-pop-rainy-window-pop': [
+    { english: 'rain-streaked window', korean: '빗물 흐르는 창문', japanese: '雨の伝う窓' },
+    { english: 'city lights blur', korean: '흐려진 도시 불빛', japanese: 'にじむ街の灯り' },
+    { english: 'wet umbrella', korean: '젖은 우산', japanese: '濡れた傘' }
+  ]
+};
 
 export interface GenreCategory {
   id: string;
@@ -773,7 +864,9 @@ export const notionDerivedGenrePacks: StructuredGenrePack[] = [
   ...balladVariants.map(variant => makeProfile('ballad', variant))
 ];
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...notionDerivedGenrePacks];
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...notionDerivedGenrePacks].map(genre =>
+  CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...genre, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : genre
+);
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;
 export const totalGenreCount = genreLibrary.length;

@@ -576,6 +576,14 @@ export interface LyricComposeInput {
   pools: LyricBatchPools;
   /** TASK I1 (v3.11) — only meaningful when role === 'cold-open'; resolved concrete value ('auto' is resolved by the caller before this point). */
   openingStyle?: 'hook-forward' | 'hum-intro';
+  /**
+   * TASK H2 (v3.13) — already language-resolved genre-flavor images (see
+   * GenrePack.lyricFlavorImages), used in exactly the 'situation' slot only,
+   * so a genre change is audible in the lyrics without redesigning the
+   * shared template pools. Absent/empty falls back to the pre-v3.13 generic
+   * filler behavior.
+   */
+  genreFlavorImages?: string[];
 }
 
 export interface ComposedLyrics {
@@ -593,7 +601,7 @@ function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
-  const { language, season, title, hook, situation, motif, role, pools, openingStyle } = input;
+  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages } = input;
   const t = tags[language];
   const isColdOpen = role === 'cold-open';
 
@@ -601,11 +609,32 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const secondarySlot = chooseSecondaryMotifSlot(motifRng);
   const realMotifChorusIndex = chooseRealMotifChorusIndex(motifRng);
   const seasonWord = seasonWordFor(season, language);
-  const ctxWith: LyricLineCtx = { season: seasonWord, situation, motif, title, hook };
-  // Each non-budgeted slot draws its own filler word rather than sharing one,
-  // so swapping out the real motif doesn't just replace one repeated word
-  // with a different repeated word.
-  const freshFillerCtx = (): LyricLineCtx => ({ season: seasonWord, situation, motif: pickMotifFiller(language, motifRng), title, hook });
+  // TASK H2 (v3.13) — every motif-bearing slot (both the one guaranteed
+  // "real motif" occurrence and every filler occurrence) prefers the
+  // selected genre's own imagery over the per-song recurringMotifs pick when
+  // available. Measured: gating this to a single filler slot only changed
+  // ~1 line per song (~3-4% of pack-wide line overlap); even gating it to
+  // fillers only (leaving the one true-motif slot alone) landed at ~15-20%
+  // (~80-85% overlap) — genre-bearing lines are a firm minority of a song's
+  // ~24 content lines (hook repeats/prechorus/tags carry no motif variable
+  // at all), so this is the full set of slots that can carry genre color at
+  // all. recurringMotifs itself isn't archetype identity (it's a shared,
+  // genre-agnostic image pool — archetype identity lives in the vocabulary
+  // rules, channel vocal/promise, and the hook engine's archetype-scoped
+  // banks), so replacing it with a more specific genre image for genres that
+  // have one is a strict quality improvement, not a loss.
+  const pickMotifOrFlavor = () => (
+    genreFlavorImages && genreFlavorImages.length
+      ? genreFlavorImages[Math.floor(motifRng() * genreFlavorImages.length)]
+      : motif
+  );
+  const ctxWith: LyricLineCtx = { season: seasonWord, situation, motif: pickMotifOrFlavor(), title, hook };
+  const pickFiller = () => (
+    genreFlavorImages && genreFlavorImages.length
+      ? genreFlavorImages[Math.floor(motifRng() * genreFlavorImages.length)]
+      : pickMotifFiller(language, motifRng)
+  );
+  const freshFillerCtx = (): LyricLineCtx => ({ season: seasonWord, situation, motif: pickFiller(), title, hook });
   const ctxFor = (slot: MotifSecondarySlot) => (slot === secondarySlot ? ctxWith : freshFillerCtx());
   const chorusDevCtx = (index: number) => (index === realMotifChorusIndex ? ctxWith : freshFillerCtx());
 

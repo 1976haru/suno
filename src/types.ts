@@ -38,6 +38,13 @@ export interface ChannelProfile {
   archetype?: ChannelArchetype;
 }
 
+/** TASK H2 (v3.13) — same {english, korean, japanese} shape as localGenerator's LocalizedPhrase, duplicated here (not imported) since types.ts must stay free of core/* imports; keeps genre-flavor lyric images correctly localized instead of leaking raw English nouns into Korean/Japanese lyrics. */
+export interface GenreLyricFlavorImage {
+  english: string;
+  korean: string;
+  japanese: string;
+}
+
 export interface GenrePack {
   id: string;
   label: string;
@@ -48,6 +55,8 @@ export interface GenrePack {
   archetypes?: ChannelArchetype[];
   tier?: 'core' | 'extended';
   categoryId?: string;
+  /** TASK H2 (v3.13) — 3-5 short lyric images distinctive to this genre (e.g. jazz-pop: candlelight/brass hush), used for exactly one lyric slot so genre selection is audible in the words, not just the style prompt. Absent for extended-tier genres — composeLyrics falls back to the shared generic filler pool when this is missing, same as before v3.13. */
+  lyricFlavorImages?: GenreLyricFlavorImage[];
   aliases?: string[];
   rhythm?: string[];
   vocal?: string[];

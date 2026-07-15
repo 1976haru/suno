@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -208,7 +208,17 @@ const rawGenrePacks: GenrePack[] = [
   ...notionDerivedGenrePacks
 ];
 
-export const genrePacks: GenrePack[] = rawGenrePacks.map(genre => withGenreVisibility(genre));
+// TASK H2 (v3.13) — rawGenrePacks above duplicates genreLibrary/index.ts's
+// legacyGenreProfiles as plain objects rather than importing them (a
+// pre-existing split, not something this fix restructures), so
+// CORE_LYRIC_FLAVOR_IMAGES has to be re-applied here too — this is the array
+// generateLocalBlueprint actually receives genres from, not genreLibrary's
+// own genrePacks export.
+export const genrePacks: GenrePack[] = rawGenrePacks.map(genre => {
+  const withVisibility = withGenreVisibility(genre);
+  const flavorImages = CORE_LYRIC_FLAVOR_IMAGES[withVisibility.id];
+  return flavorImages ? { ...withVisibility, lyricFlavorImages: flavorImages } : withVisibility;
+});
 
 export const moodPacks: MoodPack[] = [
   { id: 'nostalgic', label: 'Nostalgic', emotionWords: ['nostalgic', 'familiar', 'old-radio warmth'], lyricImages: ['old radio', 'faded photograph', 'coffee steam', 'quiet street'] },
