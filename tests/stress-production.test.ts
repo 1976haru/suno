@@ -268,9 +268,18 @@ afterAll(() => {
     '|---|---:|---:|---|',
     ...rows.map(row => `| ${row.scenario} | ${row.result} | ${row.durationMs} | ${row.notes.replace(/\|/g, '\\|')} |`)
   ].join('\n');
+  // TASK I-stress (v3.11) — this file's afterAll and stress-opening.test.ts's
+  // afterAll both write into the same report; whichever runs second must not
+  // blindly overwrite the other's section (vitest doesn't guarantee file
+  // execution order). Preserve anything after the v3.11 marker, if present.
+  const reportPath = join(repoRoot, 'docs', 'STRESS_TEST_REPORT.md');
+  const marker = '## Opening Sequence Stress Tests (v3.11)';
+  const existing = fs.existsSync(reportPath) ? fs.readFileSync(reportPath, 'utf8') : '';
+  const markerIndex = existing.indexOf(marker);
+  const otherSection = markerIndex >= 0 ? `\n\n${existing.slice(markerIndex).trimEnd()}\n` : '';
   fs.writeFileSync(
-    join(repoRoot, 'docs', 'STRESS_TEST_REPORT.md'),
-    `# Production Stress Test Report\n\nGenerated: ${new Date().toISOString()}\n\n${table}\n`,
+    reportPath,
+    `# Production Stress Test Report\n\nGenerated: ${new Date().toISOString()}\n\n${table}\n${otherSection}`,
     'utf8'
   );
 });
