@@ -109,7 +109,7 @@ const enOpening: LineTemplate[] = [
   c => [`I open up the curtain`, `to a ${c.season} kind of gray`, `The ${c.motif} waits in silence`, 'for whatever I might say'],
   c => [`There is a ${c.season} quiet`, 'that only mornings know', `Beside the ${c.motif}, waiting`, 'I feel the hours grow slow'],
   c => [`The ${c.season} air is settling`, 'like dust on old good news', `I hold the ${c.motif} closer`, 'to keep away the blues'],
-  c => [`A ${c.season} hush is falling`, 'on every empty chair', `The ${c.motif} still remembers`, 'a softer kind of air'],
+  c => [`A ${c.season} hush is falling`, 'on every empty chair', `The ${c.motif} still carries`, 'a softer kind of air'],
   c => [`Under ${c.season} colors`, 'the whole street starts to wake', `I watch the ${c.motif} glowing`, 'for one more heart to take'],
   c => [`The ${c.season} calm arrives here`, 'before the noise gets loud', `The ${c.motif} sits unhurried`, 'above the passing crowd'],
   c => [`On this ${c.season} corner`, 'the world moves slow and kind', `The ${c.motif} keeps a rhythm`, 'that lingers in my mind'],
@@ -125,7 +125,7 @@ const enSituation: LineTemplate[] = [
   c => [`Caught up in this ${c.situation}`, 'I let my shoulders rest', `The ${c.motif} does not ask me`, 'to be my very best'],
   c => [`Somewhere in this ${c.situation}`, 'the hours lose their weight', `The ${c.motif} waits beside me`, 'and never makes me wait'],
   c => [`Held here by this ${c.situation}`, 'I feel a little brave', `The ${c.motif} keeps a secret`, 'that only quiet gave'],
-  c => [`Still inside this ${c.situation}`, 'the world feels close and small', `The ${c.motif} learns my footsteps`, 'and answers when I call'],
+  c => [`Still inside this ${c.situation}`, 'the world feels close and small', `The ${c.motif} echoes my footsteps`, 'and answers when I call'],
   c => [`Through this ${c.situation}`, 'a softer voice comes home', `The ${c.motif} keeps the corners`, 'so I don’t feel alone'],
   c => [`Framed by this ${c.situation}`, 'my worries drift and thin', `The ${c.motif} holds the evening`, 'like it was always in'],
   c => [`Wrapped inside this ${c.situation}`, 'I hear my own name clear', `The ${c.motif} feels less distant`, 'the longer I stay here'],
@@ -139,19 +139,19 @@ const enSituation: LineTemplate[] = [
 // pool works before any hook phrase.
 const enPreChorus: LineTemplate[] = [
   c => [`And when the ${c.season} light comes low`, 'I hear myself say'],
-  c => [`There is something in this ${c.situation}`, 'that makes me want to stay'],
+  c => ['There is something in this quiet', 'that makes me want to stay'],
   c => ['The quiet builds a little more', 'and then I finally say'],
   c => ['I feel it rising soft and slow', 'right before I say'],
   c => [`Every ${c.season} evening calls me back`, 'to the words I always say'],
   c => [`The ${c.motif} waits for just this moment`, 'and I quietly say'],
   c => ['I have carried this a long, long while', 'and now I have to say'],
   c => ['Something in the silence shifts', 'and I can finally say'],
-  c => [`Right here inside this ${c.situation}`, 'I stop and I say']
+  c => ['Right here in this moment', 'I stop and I say']
 ];
 
 const enChorusDev: LineTemplate[] = [
   c => ['softly through the day', 'every lonely shadow', `${likeMotif(c.motif)}, slowly fades away`],
-  c => ['gently one more time', 'every heavy morning', `${likeMotif(c.motif)}, learns again to shine`],
+  c => ['gently one more time', 'every heavy morning', `${likeMotif(c.motif)}, glows a little brighter`],
   c => ['steady as it grows', 'every quiet worry', `${likeMotif(c.motif)}, settles and lets go`],
   c => ['warm however far', 'every empty evening', `${likeMotif(c.motif)}, finds a lower star`],
   c => ['close in every way', 'every tired heartbeat', `${likeMotif(c.motif)}, finds a softer day`],
@@ -159,7 +159,7 @@ const enChorusDev: LineTemplate[] = [
   c => ['calm no matter what', 'every scattered feeling', `${likeMotif(c.motif)}, settles where it stopped`],
   c => ['home no matter where', 'every quiet distance', `${likeMotif(c.motif)}, turns to something near`],
   c => ['kind through every hour', 'every fading color', `${likeMotif(c.motif)}, finds a little power`],
-  c => ['soft and unafraid', 'every fragile silence', `${likeMotif(c.motif)}, learns it is okay`]
+  c => ['soft and unafraid', 'every fragile silence', `${likeMotif(c.motif)}, settles into okay`]
 ];
 
 const enBridge: LineTemplate[] = [
@@ -211,7 +211,7 @@ const koOpening: LineTemplate[] = [
   c => [`커튼을 살짝 걷으면`, `${c.season}의 흐린 하늘이 보여요`, `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 기다리며`, '내 말을 듣고 있어요'],
   c => [`아침만 아는 ${c.season}의 고요가`, '가만히 내려앉고', `${c.motif} 곁에 서서 기다리면`, '시간이 천천히 자라요'],
   c => [`${c.season} 공기가 내려앉아`, '지난 소식처럼 쌓이고', `${c.motif}${koParticle(c.motif, '을', '를')} 더 꼭 안으면`, '우울함이 멀어져요'],
-  c => [`${c.season}의 침묵이 내려와`, '빈 의자마다 앉고', `${c.motif}${koParticle(c.motif, '은', '는')} 여전히 기억해요`, '더 부드러운 공기를'],
+  c => [`${c.season}의 침묵이 내려와`, '빈 의자마다 앉고', `${c.motif}${koParticle(c.motif, '은', '는')} 여전히 머금고 있어요`, '더 부드러운 공기를'],
   c => [`${c.season} 색깔 아래에서`, '거리 전체가 깨어나고', `빛나는 ${c.motif}${koParticle(c.motif, '을', '를')} 바라보면`, '마음 하나가 더 다가와요'],
   c => [`${c.season}의 평온이 찾아와요`, '소음이 커지기 전에', `${c.motif}${koParticle(c.motif, '은', '는')} 서두르지 않고`, '차분히 자리를 지켜요'],
   c => [`이 ${c.season} 모퉁이에서`, '세상은 천천히 다정하게 움직이고', `${c.motif}${koParticle(c.motif, '은', '는')} 리듬을 지키며`, '마음속에 오래 남아요'],
@@ -225,7 +225,7 @@ const koSituation: LineTemplate[] = [
   c => [`${c.situation}에 머물러`, '어깨의 힘을 풀어봐요', `${c.motif}${koParticle(c.motif, '은', '는')} 나에게`, '최선을 요구하지 않아요'],
   c => [`${c.situation} 어딘가에서`, '시간의 무게가 가벼워지고', `${c.motif}${koParticle(c.motif, '은', '는')} 내 곁에서`, '기다림도 잊게 해요'],
   c => [`${c.situation}${koParticle(c.situation, '이', '가')} 나를 감싸고`, '조금은 용감해져요', `${c.motif}${koParticle(c.motif, '은', '는')} 비밀 하나를 품고`, '고요함만이 아는 이야기를'],
-  c => [`여전히 이 ${c.situation} 안에서`, '세상이 작고 가깝게 느껴져요', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음을 배우고`, '부를 때마다 대답해요'],
+  c => [`여전히 이 ${c.situation} 안에서`, '세상이 작고 가깝게 느껴져요', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음을 따라오고`, '부를 때마다 대답해요'],
   c => [`${c.situation}${koParticle(c.situation, '을', '를')} 지나며`, '부드러운 목소리가 돌아와요', `${c.motif}${koParticle(c.motif, '은', '는')} 구석마다 지켜줘요`, '혼자가 아니게'],
   c => [`${c.situation}에 둘러싸여`, '걱정이 옅어지고 작아져요', `${c.motif}${koParticle(c.motif, '은', '는')} 저녁을 품고 있어요`, '늘 그래왔던 것처럼'],
   c => [`${c.situation} 속에 감싸여`, '내 이름을 또렷이 들어요', `${c.motif}${koParticle(c.motif, '은', '는')} 조금 덜 멀게 느껴져요`, '여기 오래 머물수록'],
@@ -235,19 +235,19 @@ const koSituation: LineTemplate[] = [
 
 const koPreChorus: LineTemplate[] = [
   c => [`${c.season}빛이 낮게 내려올 때`, '나는 조용히 말해요'],
-  c => [`이 ${c.situation} 속에서`, '문득 이렇게 불러봐요'],
+  c => ['이 순간 속에서', '문득 이렇게 불러봐요'],
   c => ['고요함이 조금 더 짙어지면', '나는 결국 말해요'],
   c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
   c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 조용히 불러봐요'],
   c => ['오래 품고 있던 마음을', '이제는 말해볼게요'],
   c => ['고요 속에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
   c => [`${c.season} 저녁이 나를 부를 때`, '나는 이렇게 대답해요'],
-  c => [`바로 이 ${c.situation}에서`, '나는 마음을 열어 말해요']
+  c => ['바로 이 순간에서', '나는 마음을 열어 말해요']
 ];
 
 const koChorusDev: LineTemplate[] = [
   c => ['오늘도 천천히 걸어요', '외로운 그림자도', `${c.motif}처럼, 조금씩 옅어져요`],
-  c => ['다시 한번 부드럽게', '무거운 아침도', `${c.motif}처럼, 다시 빛을 배워요`],
+  c => ['다시 한번 부드럽게', '무거운 아침도', `${c.motif}처럼, 다시 빛을 내요`],
   c => ['자라날수록 차분하게', '작은 걱정들도', `${c.motif}처럼, 조용히 흘러가요`],
   c => ['멀리 있어도 따뜻하게', '텅 빈 저녁도', `${c.motif}처럼, 낮은 별을 찾아요`],
   c => ['어느 쪽이든 가깝게', '지친 마음도', `${c.motif}처럼, 더 부드러운 하루를 찾아요`],
@@ -255,7 +255,7 @@ const koChorusDev: LineTemplate[] = [
   c => ['어떤 상황이든 차분히', '흩어진 감정도', `${c.motif}처럼, 멈췄던 자리로 돌아와요`],
   c => ['어디에 있든 집처럼', '조용한 거리도', `${c.motif}처럼, 가까움으로 바뀌어요`],
   c => ['매 시간 다정하게', '바래가는 색도', `${c.motif}처럼, 작은 힘을 찾아요`],
-  c => ['부드럽고 두렵지 않게', '연약한 고요도', `${c.motif}처럼, 괜찮다는 걸 배워요`]
+  c => ['부드럽고 두렵지 않게', '연약한 고요도', `${c.motif}처럼, 괜찮아져요`]
 ];
 
 const koBridge: LineTemplate[] = [
@@ -307,7 +307,7 @@ const jaOpening: LineTemplate[] = [
   c => [`カーテンをそっと開けると`, `${c.season}の曇り空が見える`, `${c.motif}は静かに待ちながら`, '私の声を聞いている'],
   c => [`朝だけが知る${c.season}の静けさが`, 'そっと降りてきて', `${c.motif}のそばで待てば`, '時間がゆっくり育つ'],
   c => [`${c.season}の空気が降り積もり`, '古い便りのように重なる', `${c.motif}をもっと抱きしめれば`, '憂鬱が遠ざかる'],
-  c => [`${c.season}の沈黙が降りて`, '空いた椅子に座る', `${c.motif}はまだ覚えている`, 'やわらかな空気を'],
+  c => [`${c.season}の沈黙が降りて`, '空いた椅子に座る', `${c.motif}はまだ含んでいる`, 'やわらかな空気を'],
   c => [`${c.season}色の下で`, '街全体が目を覚まし', `輝く${c.motif}を見つめれば`, '心がもう少し近づく'],
   c => [`${c.season}の静けさが訪れる`, '騒がしさが増える前に', `${c.motif}は急がず`, '静かにそこにいる'],
   c => [`この${c.season}の角で`, '世界はゆっくりやさしく動き', `${c.motif}はリズムを守り`, '心の中に長く残る'],
@@ -321,7 +321,7 @@ const jaSituation: LineTemplate[] = [
   c => [`${c.situation}にとどまり`, '肩の力をそっと抜く', `${c.motif}は私に`, '何も求めない'],
   c => [`${c.situation}のどこかで`, '時間の重さが軽くなり', `${c.motif}は私のそばで`, '待つことさえ忘れさせる'],
   c => [`${c.situation}に包まれて`, '少しだけ勇気が出る', `${c.motif}は秘密をひとつ抱え`, '静けさだけが知る物語を'],
-  c => [`まだこの${c.situation}の中で`, '世界が小さく近く感じる', `${c.motif}は私の足音を覚え`, '呼べば応えてくれる'],
+  c => [`まだこの${c.situation}の中で`, '世界が小さく近く感じる', `${c.motif}は私の足音を響かせ`, '呼べば応えてくれる'],
   c => [`${c.situation}を通り過ぎて`, 'やわらかな声が帰ってくる', `${c.motif}は隅々を守ってくれる`, 'ひとりじゃないように'],
   c => [`${c.situation}に囲まれて`, '心配が薄く小さくなる', `${c.motif}は夕暮れを抱えている`, 'いつもそうだったように'],
   c => [`${c.situation}の中に包まれて`, '自分の名前をはっきり聞く', `${c.motif}は少し遠くなくなる`, 'ここに長くいるほど'],
@@ -331,19 +331,19 @@ const jaSituation: LineTemplate[] = [
 
 const jaPreChorus: LineTemplate[] = [
   c => [`${c.season}の光が低くなる頃`, '私は静かに言う'],
-  c => [`この${c.situation}の中で`, 'ふとこう呼びかける'],
+  c => ['この瞬間の中で', 'ふとこう呼びかける'],
   c => ['静けさがもう少し深まると', '私はついに言う'],
   c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
   c => [`${c.motif}がこの瞬間を待っていて`, '私は静かに呼びかける'],
   c => ['長く抱えていた気持ちを', '今こそ伝えよう'],
   c => ['静寂の中で何かが変わるなら', '私はついにこう言う'],
   c => [`${c.season}の夕暮れが私を呼ぶとき`, '私はこう答える'],
-  c => [`まさにこの${c.situation}の中で`, '心を開いて言う']
+  c => ['まさにこの瞬間の中で', '心を開いて言う']
 ];
 
 const jaChorusDev: LineTemplate[] = [
   c => ['今日もゆっくり歩こう', 'さみしい影さえ', `${c.motif}のように、少しずつほどけてく`],
-  c => ['もう一度やわらかく', '重い朝さえ', `${c.motif}のように、また輝きを覚える`],
+  c => ['もう一度やわらかく', '重い朝さえ', `${c.motif}のように、また輝きを取り戻す`],
   c => ['育つほど落ち着いて', '小さな心配さえ', `${c.motif}のように、静かに流れてゆく`],
   c => ['遠くてもあたたかく', '空っぽの夜さえ', `${c.motif}のように、低い星を見つける`],
   c => ['どちらにいても近くに', '疲れた心さえ', `${c.motif}のように、やさしい一日を見つける`],
@@ -351,7 +351,7 @@ const jaChorusDev: LineTemplate[] = [
   c => ['どんな時も落ち着いて', '散らばった気持ちさえ', `${c.motif}のように、止まった場所へ戻る`],
   c => ['どこにいても家のように', '静かな通りさえ', `${c.motif}のように、近さに変わる`],
   c => ['毎時間やさしく', '色あせてゆくものさえ', `${c.motif}のように、小さな力を見つける`],
-  c => ['やわらかく恐れずに', 'もろい静けささえ', `${c.motif}のように、大丈夫だと知る`]
+  c => ['やわらかく恐れずに', 'もろい静けささえ', `${c.motif}のように、大丈夫になる`]
 ];
 
 const jaBridge: LineTemplate[] = [

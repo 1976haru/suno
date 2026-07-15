@@ -63,7 +63,7 @@ const listenerSituations: LocalizedPhrase[] = [
   { english: 'a warm shop window at dusk', korean: '따뜻한 가게 창가', japanese: '暖かい店の窓辺' },
   { english: 'slow train ride home', korean: '느린 기차를 타고 가는 귀갓길', japanese: 'ゆっくりな列車で帰る道' },
   { english: 'an old sweater folded in a quiet room', korean: '조용한 방에서 개는 오래된 스웨터', japanese: '静かな部屋で畳む古いセーター' },
-  { english: 'the first lights of evening', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
+  { english: 'first light of evening', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
 ];
 
 /** Exported for batchPreallocation.ts (TASK B2, v3.6) — pre-allocating songRole/emotionArc/tempo locally, before a batch job is submitted, needs the exact same pools the local generator itself draws from. */
