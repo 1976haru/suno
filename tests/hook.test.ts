@@ -103,11 +103,17 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     expect(Math.max(...lengths) - Math.min(...lengths), `${language}: ${lengths.join(', ')}`).toBeLessThanOrEqual(2);
   });
 
-  it.each(LANGUAGES)('places 2-3 high-emotion hooks in a 12 song pack in %s', language => {
+  // TASK I1 (v3.11) — track 3 used to be 'first nostalgic turn', one of the
+  // three high-emotion-weighted roles; it's now always 'flagship' (low-medium
+  // emotional intensity by design, see resolveSongRole), leaving only 2
+  // structurally high-emotion slots ('late-set emotional center',
+  // 'memory-focused late track') in a 12-song pack instead of 3. The range
+  // shifts down by one accordingly.
+  it.each(LANGUAGES)('places 1-2 high-emotion hooks in a 12 song pack in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
     const highCount = bp.songs.filter(song => hookEmotionalWeight(song.hookPhrase) === 'high').length;
-    expect(highCount).toBeGreaterThanOrEqual(2);
-    expect(highCount).toBeLessThanOrEqual(3);
+    expect(highCount).toBeGreaterThanOrEqual(1);
+    expect(highCount).toBeLessThanOrEqual(2);
   });
 
   it.each(LANGUAGES)('uses a high-emotion hook for late-set emotional center in %s', language => {

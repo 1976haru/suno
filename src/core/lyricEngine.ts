@@ -499,9 +499,9 @@ function extendedFinalChorusTextRoles(role: string) {
   return role === 'soft reset before the closing run';
 }
 
-/** 'clear opener' should reach its first chorus (and first hook) sooner, so verse 1 is trimmed to 2 lines. */
+/** 'clear opener' (legacy) and 'cold-open' (TASK I1, v3.11 — replaces it for track 1) should reach their first chorus (and first hook) sooner, so verse 1 is trimmed to 2 lines. */
 function shortOpenerRoles(role: string) {
-  return role === 'clear opener';
+  return role === 'clear opener' || role === 'cold-open';
 }
 
 /** 'late-set emotional center' gets a style-prompt-only instruction (half-step modulation), applied in localGenerator.ts. */
@@ -558,6 +558,13 @@ function pickMotifFiller(language: LyricLanguage, rng: () => number): string {
   return fillers[Math.floor(rng() * fillers.length)];
 }
 
+/**
+ * TASK I1 (v3.11) — a wordless vocal direction, not sung lyric text, so (like
+ * the [tag] section markers themselves) it stays in English regardless of
+ * lyricLanguage rather than being translated per language.
+ */
+const WORDLESS_HUM_LINE = '(soft wordless hum of the hook melody, no lyrics, 2 bars)';
+
 export interface LyricComposeInput {
   language: LyricLanguage;
   season: SeasonPack;
@@ -567,6 +574,8 @@ export interface LyricComposeInput {
   motif: string;
   role: string;
   pools: LyricBatchPools;
+  /** TASK I1 (v3.11) — only meaningful when role === 'cold-open'; resolved concrete value ('auto' is resolved by the caller before this point). */
+  openingStyle?: 'hook-forward' | 'hum-intro';
 }
 
 export interface ComposedLyrics {
@@ -584,8 +593,9 @@ function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
-  const { language, season, title, hook, situation, motif, role, pools } = input;
+  const { language, season, title, hook, situation, motif, role, pools, openingStyle } = input;
   const t = tags[language];
+  const isColdOpen = role === 'cold-open';
 
   const motifRng = mulberry32(hashSeed(`${title}::${hook}::motif-budget`));
   const secondarySlot = chooseSecondaryMotifSlot(motifRng);
@@ -638,11 +648,24 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
     : finalChorusBase;
 
+  // TASK I1 (v3.11) — track 1 (cold-open) skips the standard instrumental
+  // intro entirely. 'hook-forward' puts the hook itself, bare, in its own
+  // [cold open] section right before verse 1 (the safe, proven technique —
+  // see openingDurationText in localGenerator.ts for the matching style
+  // prompt instruction). 'hum-intro' keeps the [intro] tag but replaces the
+  // fixed instrumental description with a wordless-hum vocal direction; this
+  // is the more experimental of the two (Suno isn't guaranteed to honor a
+  // text meta-tag literally), which is why it's never the 'auto' default.
+  const openingLines = isColdOpen && openingStyle === 'hook-forward'
+    ? ['[cold open]', hook]
+    : isColdOpen && openingStyle === 'hum-intro'
+      ? [t.intro, WORDLESS_HUM_LINE]
+      : [t.intro, introLine[language]];
+
   const lyrics = [
     `Title: ${title}`,
     '',
-    t.intro,
-    introLine[language],
+    ...openingLines,
     '',
     t.verse1,
     ...opening,
@@ -1113,6 +1136,28 @@ export interface TitleResult {
 }
 
 /**
+ * TASK I2 (v3.11) — the callable signature every existing caller already
+ * uses (`nextTitle(role)`), plus the generator's internal seed/shape/used-set
+ * state exposed as properties on the function object. core/openingContest.ts
+ * needs this shared mutable state to run a local multi-candidate contest for
+ * tracks 1-3 using the exact same composeHook/titleFromHook/shape-sequence
+ * machinery nextTitle() itself uses — without it, a contest-picked hook for
+ * track 1 wouldn't be visible to nextTitle()'s own usedHooks set, risking a
+ * collision on track 4+. `index` is a mutable property (not a plain closure
+ * variable) for the same reason: a caller who bypasses nextTitle() for a
+ * contested slot must still advance it, so the shape sequence stays aligned.
+ */
+export interface TitleGenerator {
+  (role?: string): TitleResult;
+  usedHooks: Set<string>;
+  usedTitles: Set<string>;
+  shapeSequence: HookShape[];
+  rhythmTarget: number;
+  seed: number;
+  index: number;
+}
+
+/**
  * Compatibility wrapper over composeHook/titleFromHook/buildShapeSequence:
  * keeps the {title, hook} shape the rest of the codebase (and existing
  * tests) already depend on, while the hook is now the source of truth the
@@ -1125,7 +1170,7 @@ export function createTitleGenerator(
   songCount = 30,
   avoid?: { usedTitles?: Iterable<string>; usedHooks?: Iterable<string> },
   archetype?: ChannelArchetype
-) {
+): TitleGenerator {
   const s = hashSeed(seedBase);
   const shapeSequence = buildShapeSequence(songCount, s + 31);
   const rhythmTarget = targetHookSyllables(language, s + 17);
@@ -1135,24 +1180,29 @@ export function createTitleGenerator(
   // gets lucky.
   const usedHooks = new Set<string>(avoid?.usedHooks ?? []);
   const usedTitles = new Set<string>(avoid?.usedTitles ?? []);
-  let index = 0;
 
-  return function nextTitle(role?: string): TitleResult {
-    const shape = shapeSequence[index % shapeSequence.length] ?? HOOK_SHAPES[index % HOOK_SHAPES.length];
-    const hook = composeHook(s + 41 + index * 97, {
-      language,
-      shape,
-      usedHooks,
-      archetype,
-      targetSyllables: rhythmTarget,
-      emotionalWeight: targetHookEmotionalWeight(role)
-    });
-    usedHooks.add(hook.phrase);
-    const title = titleFromHook(hook, s + 53 + index * 131, language, usedTitles);
-    usedTitles.add(title);
-    index += 1;
-    return { title, hook: hook.phrase };
-  };
+  const nextTitle: TitleGenerator = Object.assign(
+    (role?: string): TitleResult => {
+      const idx = nextTitle.index;
+      const shape = nextTitle.shapeSequence[idx % nextTitle.shapeSequence.length] ?? HOOK_SHAPES[idx % HOOK_SHAPES.length];
+      const hook = composeHook(nextTitle.seed + 41 + idx * 97, {
+        language,
+        shape,
+        usedHooks: nextTitle.usedHooks,
+        archetype,
+        targetSyllables: nextTitle.rhythmTarget,
+        emotionalWeight: targetHookEmotionalWeight(role)
+      });
+      nextTitle.usedHooks.add(hook.phrase);
+      const title = titleFromHook(hook, nextTitle.seed + 53 + idx * 131, language, nextTitle.usedTitles);
+      nextTitle.usedTitles.add(title);
+      nextTitle.index += 1;
+      return { title, hook: hook.phrase };
+    },
+    { usedHooks, usedTitles, shapeSequence, rhythmTarget, seed: s, index: 0 }
+  );
+
+  return nextTitle;
 }
 
 // ---------------------------------------------------------------------------

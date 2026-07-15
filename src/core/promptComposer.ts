@@ -378,8 +378,17 @@ export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOp
  * every call can never be a stable cache prefix.
  */
 export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContext): string {
+  const hasOpeningRoleSlot = batch.preassignedSongs?.some(slot => slot.songRole === 'cold-open' || slot.songRole === 'flagship');
+  // TASK I1 (v3.11) — the preassigned songRole string alone ('cold-open',
+  // 'flagship') doesn't tell a remote model what those roles mean; this is
+  // the same "no instrumental intro" / "representative, not heavy" guidance
+  // the local generator already bakes into its own style-prompt duration
+  // atom and songRole distribution (see core/localGenerator.ts).
+  const openingRoleNote = hasOpeningRoleSlot
+    ? `\n- A song whose preassigned songRole is "cold-open": open with the hook itself, no instrumental intro — lyrics and stylePrompt should reflect "hook heard immediately". A song whose songRole is "flagship": keep it representative and catchy but only light-to-medium emotional weight, never as heavy as a late-pack emotional peak.`
+    : '';
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (lyrics, stylePrompt, seasonMoment, listenerSituation, thumbnailText, youtube) around them. This is what keeps parallel batches from colliding on title/hook.`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (lyrics, stylePrompt, seasonMoment, listenerSituation, thumbnailText, youtube) around them. This is what keeps parallel batches from colliding on title/hook.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

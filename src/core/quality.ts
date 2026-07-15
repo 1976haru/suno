@@ -21,11 +21,13 @@ const vocativeObjectPatternsByLanguage: RegExp[] = [
   /、\s*(コーヒー|窓|ラジオ|手紙|列車|電車|戸口|傘|ランプ|カレンダー|レコード|写真|セーター|キャンドル|通り|カップ|切符|ノート|椅子|机|ドア|電話|本|鍵|時計|鏡|雨|雪|空)/
 ];
 
-function hasVocativeObjectPattern(hookPhrase: string): boolean {
+/** Exported for core/openingContest.ts (TASK I2, v3.11) — the local cold-open/flagship contest scores candidate hooks before any lyrics/title exist, reusing this same rule rather than duplicating it. */
+export function hasVocativeObjectPattern(hookPhrase: string): boolean {
   return vocativeObjectPatternsByLanguage.some(pattern => pattern.test(hookPhrase));
 }
 
-function startsWithLowercase(text: string): boolean {
+/** Exported for core/openingContest.ts (TASK I2, v3.11) — same reuse reason as hasVocativeObjectPattern above. */
+export function startsWithLowercase(text: string): boolean {
   const first = [...text].find(ch => /\p{L}/u.test(ch));
   return !!first && first === first.toLowerCase() && first !== first.toUpperCase();
 }

@@ -1,6 +1,7 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot } from '../types';
 import { createTitleGenerator, hashSeed, seedForBlueprint, UniquePool } from './lyricEngine';
-import { averageTempo, emotionArcs, songRoles } from './localGenerator';
+import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
+import type { OpeningPackContext } from './openingContest';
 
 export type { PreassignedSongSlot };
 
@@ -17,7 +18,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -25,11 +26,17 @@ export function preallocateSongSlots(
   const seed = hashSeed(seedBase);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
+  // TASK I2 (v3.11) — the Batch API path is local-then-submit (this whole
+  // function's point per its own docstring), so tracks 1-3 get the same
+  // local k=3 contest the synchronous path uses, not a plain single-hook pick.
+  const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const songRole = songRoles[Math.min(idx, songRoles.length - 1)];
-    const { title, hook } = nextTitle(songRole);
+    const songRole = resolveSongRole(trackNo, idx);
+    const { title, hook } = trackNo <= 3
+      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext)
+      : nextTitle(songRole);
     return {
       trackNo,
       title,

@@ -1,18 +1,25 @@
-import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
+import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
 import { buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives } from './promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
-import { buildPersonaStylePrompt, buildSoundSignature, PERSONA_STYLE_LIMIT } from './soundSignature';
+import { buildPersonaStylePrompt, buildSoundSignature, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
+import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
   composeLyrics,
   createLyricBatchPools,
   createTitleGenerator,
   hashSeed,
+  HOOK_SHAPES,
   seedForBlueprint,
   seasonWordFor,
+  targetHookEmotionalWeight,
+  titleFromHook,
   UniquePool,
-  wantsFinalChorusModulation
+  wantsFinalChorusModulation,
+  type HookContext,
+  type TitleGenerator,
+  type TitleResult
 } from './lyricEngine';
 
 /**
@@ -109,6 +116,69 @@ export const songRoles = [
   'comforting closer'
 ];
 
+/**
+ * TASK I1 (v3.11) — track 1 is always 'cold-open' and tracks 2-3 are always
+ * 'flagship', replacing whatever songRoles[idx] would otherwise have said
+ * ('clear opener' / 'gentle early lift' / 'first nostalgic turn'). The
+ * songRoles array itself is untouched — every other position still reads
+ * from it exactly as before — so the existing emotional-curve design for
+ * tracks 4+ is unaffected.
+ */
+export function resolveSongRole(trackNo: number, idx: number): string {
+  if (trackNo === 1) return 'cold-open';
+  if (trackNo === 2 || trackNo === 3) return 'flagship';
+  return songRoles[Math.min(idx, songRoles.length - 1)];
+}
+
+/** TASK I1 (v3.11) — per-archetype recommendation table from the brief; every archetype resolves to a concrete choice, 'lofi-study' being the only one whose recommendation is 'hum-intro'. */
+export function defaultOpeningStyleForArchetype(archetype?: ChannelArchetype): 'hook-forward' | 'hum-intro' {
+  return archetype === 'lofi-study' ? 'hum-intro' : 'hook-forward';
+}
+
+/** 'auto' (or unset) resolves per-archetype; an explicit user choice always wins. */
+export function resolveOpeningStyle(requested: OpeningStyle | undefined, archetype?: ChannelArchetype): 'hook-forward' | 'hum-intro' {
+  if (requested === 'hook-forward' || requested === 'hum-intro') return requested;
+  return defaultOpeningStyleForArchetype(archetype);
+}
+
+/** Re-exported for existing callers/tests that import this from localGenerator.ts (TASK I1, v3.11) — the real definition lives in soundSignature.ts so both the plain and Persona-mode style builders share one implementation. */
+export { openingDurationText } from './soundSignature';
+
+/**
+ * TASK I2 (v3.11) — the cold-open (track 1) / flagship (tracks 2-3) path
+ * through the same `gen` (createTitleGenerator's TitleGenerator) state
+ * nextTitle() itself uses, except the single composeHook() call is replaced
+ * with a k=3 local contest (see core/openingContest.ts). Mutates gen's
+ * usedHooks/usedTitles/index exactly like calling gen(role) would — callers
+ * must use this *instead of* calling gen(role) for the same slot, never both.
+ */
+export function nextContestedTitle(
+  gen: TitleGenerator,
+  language: LyricLanguage,
+  archetype: ChannelArchetype | undefined,
+  role: string,
+  openingRole: OpeningRole,
+  packContext: OpeningPackContext,
+  k = 3
+): TitleResult {
+  const idx = gen.index;
+  const shape = gen.shapeSequence[idx % gen.shapeSequence.length] ?? HOOK_SHAPES[idx % HOOK_SHAPES.length];
+  const ctx: HookContext = {
+    language,
+    shape,
+    usedHooks: gen.usedHooks,
+    archetype,
+    targetSyllables: gen.rhythmTarget,
+    emotionalWeight: targetHookEmotionalWeight(role)
+  };
+  const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k);
+  gen.usedHooks.add(winner.hook.phrase);
+  const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles);
+  gen.usedTitles.add(title);
+  gen.index += 1;
+  return { title, hook: winner.hook.phrase };
+}
+
 export function averageTempo(genres: GenrePack[], trackNo: number) {
   const ranges = genres.length ? genres.map(genre => genre.tempoRange) : ([[92, 104]] as [number, number][]);
   const low = Math.round(ranges.reduce((sum, range) => sum + range[0], 0) / ranges.length);
@@ -164,7 +234,12 @@ export function rebuildStylePromptsForPersonaMode(
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const tempo = averageTempo(genres, trackNo);
-    const role = songRoles[Math.min(idx, songRoles.length - 1)];
+    // TASK I1 (v3.11) — prefer the role actually assigned at generation time
+    // (including any manual promotion via core/openingOverride.ts) over
+    // recomputing from idx; only legacy packs saved before songRole existed
+    // fall back to the idx-based lookup.
+    const role = song.songRole || resolveSongRole(trackNo, idx);
+    const openingStyle = role === 'cold-open' ? (song.openingStyle || resolveOpeningStyle(opts.openingStyle, opts.channel.archetype)) : undefined;
     const composed = opts.personaMode
       ? composePersonaSongStylePrompt({
         blueprint: signatureBlueprint,
@@ -174,10 +249,12 @@ export function rebuildStylePromptsForPersonaMode(
         trackNo,
         role,
         tempo,
+        openingStyle,
         styleLimitValue: resolvePersonaTrackLimit(styleLimit, trackNo)
       })
       : composeStylePrompt([
-        ...channelParts,
+        ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration')),
+        ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
         { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth) },
         { id: 'tempo', text: `${tempo} BPM` },
         { id: 'songRole', text: `track ${trackNo} role: ${role}` },
@@ -195,6 +272,8 @@ export function rebuildStylePromptsForPersonaMode(
       ...song,
       stylePrompt: composed.prompt,
       excludePrompt,
+      songRole: role,
+      openingStyle,
       promptLength: composed.length,
       promptWithinLimit: composed.withinLimit,
       promptDroppedTerms: composed.droppedTerms,
@@ -214,6 +293,7 @@ function composePersonaSongStylePrompt(input: {
   role: string;
   tempo: number;
   styleLimitValue: number;
+  openingStyle?: 'hook-forward' | 'hum-intro';
 }) {
   const signature = buildSoundSignature(input.blueprint, input.opts, input.opts.channel);
   return buildPersonaStylePrompt({
@@ -225,7 +305,8 @@ function composePersonaSongStylePrompt(input: {
     role: input.role,
     tempo: input.tempo,
     isSeed: input.trackNo === 1,
-    limit: input.styleLimitValue
+    limit: input.styleLimitValue,
+    openingStyle: input.openingStyle
   });
 }
 
@@ -304,11 +385,23 @@ export function generateLocalBlueprint(
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
   const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase);
   const packMotif = recurringMotifs[seed % recurringMotifs.length];
+  // TASK I2 (v3.11) — "팩에서 고른 moodIds/genreIds" per the brief: the plain
+  // set of ids the user selected for the whole pack, not a derived/weighted
+  // statistic.
+  const openingPackContext: OpeningPackContext = { dominantGenreIds: opts.genreIds, dominantMoodIds: opts.moodIds };
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const role = songRoles[Math.min(idx, songRoles.length - 1)];
-    const { title, hook } = nextTitle(role);
+    const role = resolveSongRole(trackNo, idx);
+    // TASK I1/I2 (v3.11) — tracks 1-3 run a local k=3 hook contest instead of
+    // taking the first composeHook() candidate; every other track is
+    // unchanged. nextContestedTitle mutates the exact same nextTitle
+    // state (usedHooks/usedTitles/index) nextTitle(role) would have, so
+    // later tracks can never collide with a contest-picked hook.
+    const { title, hook } = trackNo <= 3
+      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, role, role === 'cold-open' ? 'cold-open' : 'flagship', openingPackContext)
+      : nextTitle(role);
+    const openingStyle = role === 'cold-open' ? resolveOpeningStyle(opts.openingStyle, opts.channel.archetype) : undefined;
     const situationOption = situationPool.take();
     const situation = situationOption.english;
     const emotionArc = emotionArcPool.take();
@@ -322,14 +415,16 @@ export function generateLocalBlueprint(
       situation: phraseFor(situationOption, opts.lyricLanguage),
       motif: phraseFor(trackMotifOption, opts.lyricLanguage),
       role,
-      pools: lyricPools
+      pools: lyricPools,
+      openingStyle
     });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
     // handed to composeStylePrompt, which dedupes and — if the combined
     // length would cross the Suno-safe budget — drops the lowest-priority
     // ids first (never truncating mid-phrase). See promptComposer.ts.
     const songParts: PromptPart[] = [
-      ...channelParts,
+      ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration')),
+      ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },
@@ -353,6 +448,7 @@ export function generateLocalBlueprint(
         trackNo,
         role,
         tempo,
+        openingStyle,
         styleLimitValue: resolvePersonaTrackLimit(styleLimit, trackNo)
       })
       : composeStylePrompt(
@@ -375,6 +471,8 @@ export function generateLocalBlueprint(
       ...partialSong,
       stylePrompt,
       excludePrompt,
+      songRole: role,
+      openingStyle,
       lyrics,
       thumbnailText: youtube.thumbnailText,
       youtube,

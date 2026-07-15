@@ -73,7 +73,12 @@ export function stitchBatchResults(
     }
     for (const song of result.blueprint.songs || []) {
       const slot = slotByTrackNo.get(song.trackNo);
-      const reconciled = slot ? { ...song, title: slot.title, hookPhrase: slot.hookPhrase, emotionArc: slot.emotionArc } : song;
+      // TASK I1 (v3.11) — songRole (cold-open/flagship/curve role) is
+      // decided locally in preallocateSongSlots same as title/hookPhrase/
+      // emotionArc, and re-applied here for the same reason: a batch
+      // sub-request's own JSON output has no reason to be trusted over the
+      // locally-decided assignment.
+      const reconciled = slot ? { ...song, title: slot.title, hookPhrase: slot.hookPhrase, emotionArc: slot.emotionArc, songRole: slot.songRole } : song;
       songMap.set(song.trackNo, reconciled);
     }
   }

@@ -234,6 +234,30 @@ export function compactDuration(target: GenerationOptions['durationTarget'], ter
   return 'short intro, 3:10-3:35';
 }
 
+/**
+ * TASK I1 (v3.11) — shared by both the plain and Persona-mode style-prompt
+ * builders (core/localGenerator.ts) so there's exactly one definition of what
+ * a cold-open's duration atom says. Every non-cold-open role is untouched
+ * (exactly compactDuration's normal output). 'hook-forward' drops the
+ * "short/quick intro," prefix entirely — keeping it would read as
+ * self-contradictory next to "no instrumental intro". 'hum-intro' keeps the
+ * prefix (a 2-bar hum still is a short intro) and prepends the wordless-hum
+ * direction.
+ */
+export function openingDurationText(
+  role: string,
+  openingStyle: 'hook-forward' | 'hum-intro' | undefined,
+  durationTarget: GenerationOptions['durationTarget']
+): string {
+  const standard = compactDuration(durationTarget, false);
+  if (role !== 'cold-open') return standard;
+  if (openingStyle === 'hum-intro') {
+    return `cold open, wordless hum motif before vocal enters, ${standard}`;
+  }
+  const timeOnly = standard.replace(/^(short|quick) intro,\s*/, '');
+  return `no instrumental intro, hook heard immediately, ${timeOnly}`;
+}
+
 function clipClause(value: string, limit: number) {
   const clean = compactWhitespace(value).replace(/[,;]+$/g, '');
   if (clean.length <= limit) return clean;
@@ -333,7 +357,7 @@ function buildSeedPersonaStylePrompt(input: PersonaStylePromptInput, limit: numb
     hook: compactHook(input.hookPhrase, input.opts.lyricDepth, false),
     money: compactMoneyChord(input.opts),
     tempo: `${input.tempo} BPM`,
-    duration: compactDuration(input.opts.durationTarget, false),
+    duration: openingDurationText(input.role, input.openingStyle, input.opts.durationTarget),
     role: `track ${input.trackNo}: ${clipClause(input.role, 22)}`
   };
   const droppedTerms: string[] = [];
@@ -386,6 +410,8 @@ export interface PersonaStylePromptInput {
   tempo: number;
   isSeed: boolean;
   limit?: number;
+  /** TASK I1 (v3.11) — only meaningful when role === 'cold-open' (always the seed track, trackNo 1). */
+  openingStyle?: 'hook-forward' | 'hum-intro';
 }
 
 export interface PersonaStylePromptResult {

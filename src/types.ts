@@ -8,6 +8,18 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 
 export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids';
 
+/**
+ * TASK I1 (v3.11) — how track 1 (the 'cold-open' role) opens.
+ * 'hook-forward': no/minimal instrumental intro, hook heard immediately — the
+ * safe, already-proven-in-this-pipeline technique (see promptComposer's
+ * duration-control atoms). 'hum-intro': a short wordless hum of the hook
+ * melody before vocals enter — an experimental technique, since a Suno text
+ * meta-tag isn't guaranteed to produce a literal wordless hum. 'auto' resolves
+ * per-archetype (see core/localGenerator.ts's resolveOpeningStyle), defaulting
+ * to 'hook-forward' unless the archetype's own recommendation is 'hum-intro'.
+ */
+export type OpeningStyle = 'hook-forward' | 'hum-intro' | 'auto';
+
 export interface ChannelProfile {
   id: string;
   name: string;
@@ -96,6 +108,8 @@ export interface GenerationOptions {
   personaMode: boolean;
   /** TASK D5 (v3.6) — thumbnail/title packaging language; defaults from `market` (see core/packagingLanguage.ts) but can be overridden independent of lyricLanguage. */
   packagingLanguage?: DisplayLanguage;
+  /** TASK I1 (v3.11) — track 1's opening technique; defaults to 'auto' (archetype-resolved, see resolveOpeningStyle) when unset. */
+  openingStyle?: OpeningStyle;
 }
 
 export interface YoutubeMetadata {
@@ -129,6 +143,15 @@ export interface SongIdea {
   /** Word count of the final stylePrompt — Suno responds best to 15-30 comma-separated descriptor words; above ~40 the model reportedly gets confused. */
   promptWordCount?: number;
   promptWithinWordTarget?: boolean;
+  /**
+   * TASK I1 (v3.11) — resolved opening/positioning role: 'cold-open' (track 1
+   * only), 'flagship' (tracks 2-3), or one of localGenerator.ts's songRoles
+   * strings for every other track. Optional so legacy saved packs (no field
+   * at all) and hand-built test fixtures keep working without it.
+   */
+  songRole?: string;
+  /** TASK I1 (v3.11) — only meaningful when songRole === 'cold-open'; records which opening technique this song's style prompt/lyrics were built with, so a later manual promotion (core/openingOverride.ts) knows what to swap out. */
+  openingStyle?: 'hook-forward' | 'hum-intro';
 }
 
 export interface PlaylistBlueprint {
