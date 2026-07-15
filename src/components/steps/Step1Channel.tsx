@@ -9,6 +9,7 @@ import {
   getVisibleGenresForArchetype,
   searchHiddenGenresForArchetype
 } from '../../data/genreLibrary';
+import { forecastCapacity } from '../../core/capacityPlanner';
 import TagChips from '../TagChips';
 import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market } from '../../types';
 
@@ -90,7 +91,12 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
   const [genreSearchOpen, setGenreSearchOpen] = useState(false);
   const [genreQuery, setGenreQuery] = useState('');
   const [genreCategoryId, setGenreCategoryId] = useState('all');
+  const [songsPerWeek, setSongsPerWeek] = useState(12);
   const archetype = editorChannel.archetype || 'senior-morning';
+  const capacityForecast = useMemo(
+    () => forecastCapacity(archetype, editorChannel.primaryLanguage, songsPerWeek),
+    [archetype, editorChannel.primaryLanguage, songsPerWeek]
+  );
   const visibleGenres = useMemo(
     () => getVisibleGenresForArchetype(archetype, editorChannel.preferredGenres),
     [archetype, editorChannel.preferredGenres]
@@ -154,6 +160,27 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="option-block capacity-forecast">
+        <h3>이 채널, 얼마나 오래 로컬 모드만으로 버틸까요?</h3>
+        <div className="form-grid two">
+          <div>
+            <label>주당 생성 곡 수 (songs/week)</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={songsPerWeek}
+              onChange={event => setSongsPerWeek(Math.max(1, Number(event.target.value) || 1))}
+            />
+          </div>
+        </div>
+        <p className="supporting">
+          {Number.isFinite(capacityForecast.weeksAtCurrentPace)
+            ? `이 채널을 주 ${songsPerWeek}곡씩 운영하면 로컬 모드만으로 약 ${capacityForecast.weeksAtCurrentPace}주(${Math.round(capacityForecast.weeksAtCurrentPace / 4.3)}개월) 동안 훅이 겹치지 않습니다. 그 이후엔 풀을 늘리거나 API 연결을 고려하세요.`
+            : '주당 곡 수를 입력하면 예상 소진 시점을 계산합니다.'}
+        </p>
       </div>
 
       <div className="form-grid three">
