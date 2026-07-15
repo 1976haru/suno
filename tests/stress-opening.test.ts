@@ -50,21 +50,25 @@ const ARCHETYPES: ChannelArchetype[] = ['senior-morning', 'showa-cafe', 'christm
 const LANGUAGES: LyricLanguage[] = ['english', 'korean', 'japanese'];
 
 describe('opening sequence stress tests (v3.11)', () => {
-  // TASK I-stress (v3.11) — real finding, not caused by cold-open/flagship:
-  // 'showa-cafe' and 'kids' archetypes exclude the hand-curated premium hook
-  // bank entirely (see lyricEngine.ts's premiumBankFor — combinatorial-only
-  // for those two), leaving ~350-370 hooks per language versus ~400-410 for
-  // 'senior-morning'/'christmas'/'lofi-study'. At 18 weeks x 12 songs
-  // (216 songs, cross-week history carried forward like a real channel),
-  // that's not enough headroom and both archetypes hit hookPoolSize's
-  // documented "훅 풀이 소진되었습니다" error around week 16-17 — a clear,
-  // graceful failure (not a hang or crash), but a real capacity ceiling this
-  // stress test surfaced. Expanding the hook bank is a content task outside
-  // this feature's scope, so this test documents the boundary rather than
-  // asserting a guarantee the hook bank can't currently back up: every
-  // combo must either complete all 18 weeks with correct cold-open/flagship
-  // assignment, or fail with that exact, already-user-facing error message
-  // (never crash some other way, never hang).
+  // TASK I-stress (v3.11) found 'showa-cafe'/'kids' hitting hookPoolSize's
+  // "훅 풀이 소진되었습니다" error around week 16-17 of this 18-week sweep.
+  // v3.12 PART A diagnosed the real cause: not overall pool size (368 total
+  // sounds like ~30 weeks of runway at 12 songs/week), but a per-shape skew —
+  // buildShapeSequence splits demand evenly across vocative/imperative/
+  // declarative (~4/week each), while the combinatorial grammar itself gives
+  // imperative a 3-slot cross (verb x object x tail = 240) versus vocative
+  // and declarative's 2-slot crosses (lead x addressee / stem x tail = 64
+  // each). 'senior-morning' survives 18 weeks only because its premium
+  // hand-curated tier pads vocative/declarative with extra headroom;
+  // 'showa-cafe'/'kids' have no premium tier at all, so their 64-deep
+  // vocative/declarative pools were the true bottleneck. Fixed in
+  // data/hookBanks/showaCafe.ts and kids.ts by doubling just the deficient
+  // sides (vocativeLeads/declarativeStems for showa-cafe; vocativeAddressees/
+  // declarativeStems for kids) with archetype-appropriate vocabulary — not by
+  // inflating the already-abundant imperative slot or touching the premium
+  // banks. This sweep no longer hits exhaustion within 18 weeks for any
+  // archetype/language combo (verified out to 30+ weeks); the graceful
+  // failure path is kept below only as a safety net, not an expected outcome.
   osCase('OS1 long simulation: 18 weeks x 12 songs, every combo either succeeds with correct cold-open/flagship or fails gracefully with the known pool-exhaustion message', () => {
     const exhausted: string[] = [];
     for (const archetype of ARCHETYPES) {

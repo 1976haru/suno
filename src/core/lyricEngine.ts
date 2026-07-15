@@ -980,7 +980,7 @@ function joinDeclarativeParts(language: LyricLanguage, stem: string, tail: strin
  * offered, since a bad verb/tail combination showing up as a hook is
  * exactly the "Pour the Morning On" failure mode TASK X2 warns about.
  */
-function combinatorialHookBank(shape: HookShape, parts: HookPartBank, language: LyricLanguage): string[] {
+export function combinatorialHookBank(shape: HookShape, parts: HookPartBank, language: LyricLanguage): string[] {
   const out: string[] = [];
   if (shape === 'imperative') {
     for (const verb of parts.imperativeVerbs) {
@@ -1082,6 +1082,26 @@ export function hookPoolSize(language: LyricLanguage, archetype?: ChannelArchety
     const pool = new Set([...premiumBankFor(language, shape, archetype), ...combinatorialHookBank(shape, parts, language)]);
     return total + pool.size;
   }, 0);
+}
+
+/**
+ * Per-shape breakdown of hookPoolSize — v3.12's capacityPlanner needs this
+ * rather than the flat total, because composeHook draws each shape from its
+ * own independent pool (buildShapeSequence splits demand evenly across
+ * HOOK_SHAPES, with no cross-shape fallback). A channel's real
+ * weeks-to-exhaustion is bounded by its smallest per-shape pool, not by
+ * poolSize / songsPerWeek — that naive division is exactly the mistake that
+ * made v3.11's showa-cafe finding look inconsistent (368 total hooks read
+ * like ~30 weeks of runway, but the 64-deep vocative/declarative pools ran
+ * out at week 17 while imperative's 240-deep pool was barely touched).
+ */
+export function hookPoolSizeByShape(language: LyricLanguage, archetype?: ChannelArchetype): Record<HookShape, number> {
+  const parts = resolveHookParts(language, overrideForArchetype(archetype, language));
+  const out = { vocative: 0, imperative: 0, nounPhrase: 0, declarative: 0 } as Record<HookShape, number>;
+  for (const shape of HOOK_SHAPES) {
+    out[shape] = new Set([...premiumBankFor(language, shape, archetype), ...combinatorialHookBank(shape, parts, language)]).size;
+  }
+  return out;
 }
 
 function hasWordOverlap(language: LyricLanguage, ...parts: (string | null)[]): boolean {
