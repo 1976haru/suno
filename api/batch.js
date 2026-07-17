@@ -78,12 +78,26 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   }
 }
 
+/**
+ * TASK v3.22 — mirrors api/generate.js's cleanJsonText: strip a ```json ...
+ * ``` fence wherever it appears, not just anchored to the exact start/end
+ * of the string, since Claude sometimes prefixes the fence with a sentence
+ * of prose. See that file's comment for the real [GEN DIAG] evidence
+ * (stop_reason: 'end_turn' on every chunk of a request the app still
+ * reported as truncated) that found this.
+ */
 function cleanJsonText(text) {
-  return String(text || '')
-    .replace(/^```json/i, '')
-    .replace(/^```/i, '')
-    .replace(/```$/i, '')
-    .trim();
+  const raw = String(text || '').trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  return (fenced ? fenced[1] : raw).trim();
+}
+
+/** TASK v3.22 — mirrors api/generate.js's extractJsonObject: recovery pass for unfenced prose around the JSON ("Sure, here's the playlist: {...} Hope that helps!"). */
+function extractJsonObject(text) {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return text;
+  return text.slice(start, end + 1);
 }
 
 function safeParseBlueprint(text) {
@@ -91,13 +105,15 @@ function safeParseBlueprint(text) {
   try {
     return JSON.parse(cleaned);
   } catch {
-    const cut = cleaned.lastIndexOf('}');
-    if (cut > 0) {
-      try {
-        return JSON.parse(cleaned.slice(0, cut + 1));
-      } catch {
-        // fall through
-      }
+    // fall through to the extraction pass below
+  }
+  try {
+    return JSON.parse(extractJsonObject(cleaned));
+  } catch {
+    if (process.env.DEBUG_ANTHROPIC === '1') {
+      const raw = String(text || '');
+      console.error('[PARSE FAIL] len=', raw.length, 'head=', raw.slice(0, 2000));
+      console.error('[PARSE FAIL] tail=', raw.slice(-2000));
     }
     return null;
   }
@@ -419,4 +435,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only
-export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED, maxOutputTokensFor };
+export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED, maxOutputTokensFor, cleanJsonText, extractJsonObject };

@@ -16,12 +16,36 @@ function parseBody(req) {
   return req.body;
 }
 
+/**
+ * TASK v3.22 — real [GEN DIAG] logs showed stop_reason: 'end_turn' (a
+ * complete, non-truncated response) on every chunk of a "잘렸습니다"-
+ * reporting request. The old cleanJsonText only stripped a fence anchored
+ * to the exact start/end of the string, so a response like "Here's the
+ * JSON:\n```json\n{...}\n```\nLet me know if you'd like changes." never
+ * matched and fell straight through to a parse failure that got mislabeled
+ * as truncation. Strip a fence wherever it appears instead of requiring it
+ * to bookend the whole string.
+ */
 function cleanJsonText(text) {
-  return String(text || '')
-    .replace(/^```json/i, '')
-    .replace(/^```/i, '')
-    .replace(/```$/i, '')
-    .trim();
+  const raw = String(text || '').trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  return (fenced ? fenced[1] : raw).trim();
+}
+
+/**
+ * TASK v3.22 — a second recovery pass for prose that isn't fenced at all
+ * ("Sure, here is the playlist: {...} Hope that helps!"): take everything
+ * from the first { to the last }. Deliberately not attempting anything
+ * fancier (unescaped control characters, stray quotes) — over-eager repair
+ * of the raw text risks silently corrupting lyrics content; see the
+ * [PARSE FAIL] log in safeParseBlueprint for what actually needs fixing
+ * before reaching for a more aggressive repair.
+ */
+function extractJsonObject(text) {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return text;
+  return text.slice(start, end + 1);
 }
 
 /**
@@ -36,21 +60,40 @@ function truncatedError() {
   return error;
 }
 
+/**
+ * TASK v3.22 — distinct from truncatedError(): the response was complete
+ * (stop_reason/finish_reason was NOT the truncation value — that case is
+ * checked and thrown separately by the caller *before* safeParseBlueprint
+ * ever runs), but the text still isn't valid JSON after both recovery
+ * passes. Splitting into smaller chunks can't fix a formatting problem, so
+ * generateChunkWithSplitRetry deliberately does not treat this like
+ * TRUNCATED — it has no dedicated handling for this code, which means it
+ * propagates immediately instead of being retried with a smaller chunk.
+ */
+function parseFailedError() {
+  const error = new Error('응답 형식을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  error.code = 'PARSE_FAILED';
+  return error;
+}
+
 function safeParseBlueprint(text) {
   const cleaned = cleanJsonText(text);
   try {
     return JSON.parse(cleaned);
   } catch {
-    const cut = cleaned.lastIndexOf('}');
-    if (cut > 0) {
-      try {
-        return JSON.parse(cleaned.slice(0, cut + 1));
-      } catch {
-        // fall through to the error below
-      }
-    }
-    throw truncatedError();
+    // fall through to the extraction pass below
   }
+  try {
+    return JSON.parse(extractJsonObject(cleaned));
+  } catch {
+    // fall through to the diagnostic log + error below
+  }
+  if (process.env.DEBUG_ANTHROPIC === '1') {
+    const raw = String(text || '');
+    console.error('[PARSE FAIL] len=', raw.length, 'head=', raw.slice(0, 2000));
+    console.error('[PARSE FAIL] tail=', raw.slice(-2000));
+  }
+  throw parseFailedError();
 }
 
 function sendError(res, status, message, code) {
@@ -200,6 +243,14 @@ async function callOpenAI({ model, temperature, system, user, batchSize, userApi
   }
 
   const data = await response.json();
+  // TASK v3.22 — mirrors callAnthropic's stop_reason gate: OpenAI's
+  // equivalent truncation signal is finish_reason: 'length'. Checking it
+  // before safeParseBlueprint keeps a genuine truncation labeled TRUNCATED
+  // (split-retry helps) instead of PARSE_FAILED (split-retry can't help a
+  // formatting problem) — same reasoning as the Anthropic path.
+  if (data.choices?.[0]?.finish_reason === 'length') {
+    throw truncatedError();
+  }
   const blueprint = safeParseBlueprint(data.choices?.[0]?.message?.content || '{}');
   const usage = data.usage
     ? { inputTokens: data.usage.prompt_tokens || 0, outputTokens: data.usage.completion_tokens || 0 }
@@ -498,4 +549,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout, maxOutputTokensFor, resolveTokenBudgetSize, rateLimitBuckets };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout, maxOutputTokensFor, resolveTokenBudgetSize, rateLimitBuckets, cleanJsonText, extractJsonObject };

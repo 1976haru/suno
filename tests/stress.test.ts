@@ -195,8 +195,12 @@ describe('stress: local provider', () => {
 // ---------------------------------------------------------------------------
 
 describe('stress: API provider (mocked)', () => {
-  stressCase('S9', '응답 잘림 (서버 안전 파서 + 클라이언트 에러 노출)', async () => {
-    expect(() => apiInternal.safeParseBlueprint('not json at all')).toThrow(/LLM 응답이 잘렸습니다/);
+  stressCase('S9', '응답 파싱 실패 vs 잘림 구분 (서버 안전 파서 + 클라이언트 에러 노출)', async () => {
+    // TASK v3.22 — real [GEN DIAG] logs showed stop_reason: 'end_turn' (not
+    // truncated) on every chunk of a request the app still reported as
+    // "잘렸습니다". Unrecoverable JSON is now PARSE_FAILED, not TRUNCATED —
+    // TRUNCATED is reserved for when stop_reason/finish_reason itself says so.
+    expect(() => apiInternal.safeParseBlueprint('not json at all')).toThrow(/응답 형식을 해석하지 못했습니다/);
 
     const recoverable = '{"songs":[{"trackNo":1}]} trailing garbage that should be ignored';
     expect(apiInternal.safeParseBlueprint(recoverable)).toEqual({ songs: [{ trackNo: 1 }] });

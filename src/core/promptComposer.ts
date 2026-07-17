@@ -463,6 +463,8 @@ Rules:
 - Keep song length controlled for ${opts.durationTarget}.
 - Include YouTube title, description, tags, and thumbnail text for every song.
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.
+- CRITICAL: Return ONLY the JSON object. No markdown, no code fences (no \`\`\`), no prose, no explanation, and no closing remarks before or after it. The response must start with { and end with } — nothing else outside those two characters.
+- CRITICAL: Every string value must itself be valid JSON. Encode every line break inside "lyrics" (or any other field) as the two characters \\n, never a literal newline — a raw newline inside a JSON string makes the whole response unparseable. Escape any literal double-quote character inside a string as \\".
 - CRITICAL: "stylePrompt" is pasted directly into Suno's style field, which truncates past ${SUNO_STYLE_LIMIT} characters. Keep every stylePrompt at or under ${SAFE_TARGET} characters — pack it with genre, vocal, hook-repeat instruction, money chord, duration, and tempo first, and only add mood/instrument/season detail if there is room left. Never let it run long; a shorter, focused prompt beats a longer one that gets cut off mid-sentence.
 - Do not include typography, logo, or thumbnail art-direction language (e.g. font style) in "stylePrompt" — that belongs only in visual/thumbnail fields, never in the music style prompt.
 

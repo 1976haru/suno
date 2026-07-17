@@ -469,7 +469,7 @@ describe('[v3.20] callAnthropic detects stop_reason:"max_tokens" and throws a di
     expect(jsonBody.status).toBe(200);
   });
 
-  it('an unparseable, non-max_tokens response also carries the TRUNCATED code (safe default: retry smaller)', async () => {
+  it('[v3.22] an unparseable, non-max_tokens response carries PARSE_FAILED, not TRUNCATED (real [GEN DIAG] data showed stop_reason=end_turn misreported as truncation)', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
     global.fetch = vi.fn(async () => new Response(
       JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json at all {{{' }] }),
@@ -479,7 +479,9 @@ describe('[v3.20] callAnthropic detects stop_reason:"max_tokens" and throws a di
 
     await generateHandler(req as never, res as never);
 
-    expect(jsonBody.payload?.code).toBe('TRUNCATED');
+    expect(jsonBody.payload?.code).toBe('PARSE_FAILED');
+    expect(jsonBody.payload?.error).toContain('응답 형식을 해석하지 못했습니다');
+    expect(jsonBody.payload?.error).not.toContain('곡 수를 줄이');
   });
 });
 
@@ -570,6 +572,157 @@ describe('[v3.21] GEN DIAG / GEN USAGE logging (gated behind DEBUG_ANTHROPIC, sa
     // batchSize=1 alone -> min(cap, 1*2400+3000)=5400; boosted to songs=4 -> min(cap, 4*2400+3000)=12600
     expect(sentBody.max_tokens).toBe(apiInternal.computeMaxTokens(4, 'claude-sonnet-5'));
     expect(sentBody.max_tokens).toBeGreaterThan(apiInternal.computeMaxTokens(1, 'claude-sonnet-5'));
+  });
+});
+
+describe('[v3.22] cleanJsonText / extractJsonObject — recovery from real Claude response shapes', () => {
+  it('strips a fence anchored to the start/end (the old, still-common case)', () => {
+    expect(apiInternal.cleanJsonText('```json\n{"a":1}\n```')).toBe('{"a":1}');
+    expect(apiInternal.cleanJsonText('```\n{"a":1}\n```')).toBe('{"a":1}');
+  });
+
+  it('[v3.22] strips a fence preceded by leading prose — the actual shape that caused the false "truncated" report', () => {
+    const withPreamble = 'Here is the playlist JSON:\n```json\n{"a":1}\n```';
+    expect(apiInternal.cleanJsonText(withPreamble)).toBe('{"a":1}');
+  });
+
+  it('[v3.22] strips a fence followed by trailing prose', () => {
+    const withTrailer = '```json\n{"a":1}\n```\nLet me know if you would like any changes!';
+    expect(apiInternal.cleanJsonText(withTrailer)).toBe('{"a":1}');
+  });
+
+  it('passes plain unfenced JSON through unchanged', () => {
+    expect(apiInternal.cleanJsonText('{"a":1}')).toBe('{"a":1}');
+  });
+
+  it('extractJsonObject recovers JSON surrounded by unfenced prose on both sides', () => {
+    const text = 'Sure, here is the playlist: {"a":1} Hope that helps!';
+    // the function takes first { to last } — with only one brace pair, that's exactly the object
+    expect(apiInternal.extractJsonObject(text)).toBe('{"a":1}');
+    expect(JSON.parse(apiInternal.extractJsonObject(text))).toEqual({ a: 1 });
+  });
+
+  it('safeParseBlueprint recovers real-shaped responses end to end (fence + prose combined)', () => {
+    const messy = 'Sure! Here is the JSON output:\n```json\n{"songs":[{"trackNo":1,"title":"x"}]}\n```\nLet me know if you would like any adjustments.';
+    expect(apiInternal.safeParseBlueprint(messy)).toEqual({ songs: [{ trackNo: 1, title: 'x' }] });
+  });
+});
+
+describe('[v3.22] safeParseBlueprint distinguishes PARSE_FAILED from TRUNCATED, and logs [PARSE FAIL] with real response text', () => {
+  const originalDebugFlag = process.env.DEBUG_ANTHROPIC;
+  afterEach(() => {
+    if (originalDebugFlag === undefined) delete process.env.DEBUG_ANTHROPIC;
+    else process.env.DEBUG_ANTHROPIC = originalDebugFlag;
+    vi.restoreAllMocks();
+  });
+
+  it('an unrecoverable non-JSON response throws PARSE_FAILED, not TRUNCATED, with a format-focused (not "reduce song count") message', () => {
+    delete process.env.DEBUG_ANTHROPIC;
+    try {
+      apiInternal.safeParseBlueprint('this is not JSON and has no braces at all');
+      expect.unreachable();
+    } catch (error) {
+      expect((error as { code?: string }).code).toBe('PARSE_FAILED');
+      expect((error as Error).message).toContain('응답 형식을 해석하지 못했습니다');
+      expect((error as Error).message).not.toContain('곡 수를 줄이');
+    }
+  });
+
+  it('DEBUG_ANTHROPIC unset (default): no [PARSE FAIL] console noise', () => {
+    delete process.env.DEBUG_ANTHROPIC;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      apiInternal.safeParseBlueprint('garbage');
+    } catch {
+      // expected
+    }
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
+
+  it('DEBUG_ANTHROPIC=1: logs [PARSE FAIL] with the real response text (head/tail), not the cleaned/extracted version', () => {
+    process.env.DEBUG_ANTHROPIC = '1';
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const rawResponse = 'Sorry, I cannot produce that JSON right now due to an internal issue.';
+    try {
+      apiInternal.safeParseBlueprint(rawResponse);
+    } catch {
+      // expected
+    }
+    const diagCalls = consoleSpy.mock.calls.map(call => call.join(' '));
+    expect(diagCalls.some(line => line.startsWith('[PARSE FAIL] len=') && line.includes(String(rawResponse.length)))).toBe(true);
+    expect(diagCalls.some(line => line.includes('head=') && line.includes('internal issue'))).toBe(true);
+    expect(diagCalls.some(line => line.startsWith('[PARSE FAIL] tail='))).toBe(true);
+  });
+});
+
+describe('[v3.22] TRUNCATED is reserved for a real stop_reason/finish_reason signal, never inferred from a parse failure', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('Anthropic: stop_reason="max_tokens" is TRUNCATED even with a technically-parseable body', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"songs":[]}' }] }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const res = { setHeader: () => {}, status() { return this; }, json(payload: { code?: string }) { (this as { _payload?: unknown })._payload = payload; }, end: () => {} } as { _payload?: { code?: string } };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({ provider: 'anthropic', model: 'claude-sonnet-5', batchSize: 2, system: 'x', user: {} })
+    };
+
+    await generateHandler(req as never, res as never);
+
+    expect(res._payload?.code).toBe('TRUNCATED');
+  });
+
+  it('OpenAI: finish_reason="length" is TRUNCATED, not PARSE_FAILED, even if the (incomplete) JSON also fails to parse', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key'; // unused by this request but keeps env tidy
+    process.env.OPENAI_API_KEY = 'sk-test-openai-key';
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '{"songs":[{"trackNo":1,"title":"incomple' } }] }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const jsonBody: { payload?: { code?: string; error?: string } } = {};
+    const res = { setHeader: () => {}, status() { return this; }, json(payload: { code?: string; error?: string }) { jsonBody.payload = payload; }, end: () => {} };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({ provider: 'openai', model: 'gpt-4.1-mini', batchSize: 2, system: 'x', user: {} })
+    };
+
+    await generateHandler(req as never, res as never);
+
+    expect(jsonBody.payload?.code).toBe('TRUNCATED');
+    delete process.env.OPENAI_API_KEY;
+  });
+
+  it('OpenAI: finish_reason="stop" with unparseable content is PARSE_FAILED, not TRUNCATED', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-openai-key';
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: 'Sorry, something went wrong and I could not produce valid output.' } }] }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const jsonBody: { payload?: { code?: string; error?: string } } = {};
+    const res = { setHeader: () => {}, status() { return this; }, json(payload: { code?: string; error?: string }) { jsonBody.payload = payload; }, end: () => {} };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({ provider: 'openai', model: 'gpt-4.1-mini', batchSize: 2, system: 'x', user: {} })
+    };
+
+    await generateHandler(req as never, res as never);
+
+    expect(jsonBody.payload?.code).toBe('PARSE_FAILED');
+    delete process.env.OPENAI_API_KEY;
   });
 });
 

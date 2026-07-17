@@ -146,6 +146,21 @@ describe('[v3.20] generateChunkWithSplitRetry', () => {
     // exactly one call — no split-retry attempted for a non-TRUNCATED error
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it('[v3.22] a PARSE_FAILED response (real stop_reason=end_turn, just unparseable JSON) is not split-retried either — wasting calls splitting can\'t fix a format problem', async () => {
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ error: '응답 형식을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.', code: 'PARSE_FAILED' }),
+      { status: 500 }
+    )) as unknown as typeof fetch;
+    const opts = makeOptions({ songCount: 4 });
+    const identity: GenerateChunkIdentity = { base: null, locked: null };
+
+    await expect(
+      generateChunkWithSplitRetry([1, 2, 3, 4], opts, testGenres, testMoods, testSeason, settings, { usedTitles: [], usedHooks: [] }, identity)
+    ).rejects.toThrow('응답 형식을 해석하지 못했습니다');
+    // exactly one call — PARSE_FAILED doesn't match the TRUNCATED check, so no split-retry and no budget-boost retry either
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('[v3.20/v3.21] generateBlueprint end-to-end with a truncating Anthropic call', () => {
