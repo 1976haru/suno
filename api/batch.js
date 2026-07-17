@@ -128,22 +128,33 @@ function anthropicHeaders(apiKey) {
   };
 }
 
+/**
+ * TASK v3.18 — mirrors api/generate.js's TEMPERATURE_SUPPORTED: Anthropic
+ * deprecated temperature/top_p/top_k on claude-sonnet-5 and the opus-4-7+
+ * family (400 invalid_request_error), so it's omitted from batch params
+ * unless the resolved model is explicitly whitelisted here.
+ */
+const TEMPERATURE_SUPPORTED = new Set([]);
+
 async function createBatch({ requests, userApiKey }) {
   const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
   if (!Array.isArray(requests) || !requests.length) throw new Error('No requests provided for the batch job.');
 
   const body = {
-    requests: requests.map(r => ({
-      custom_id: r.customId,
-      params: {
-        model: r.model || 'claude-sonnet-5',
+    requests: requests.map(r => {
+      const model = (typeof r.model === 'string' && r.model.trim()) || 'claude-sonnet-5';
+      const params = {
+        model,
         max_tokens: computeMaxTokens(r.batchSize),
-        temperature: Number.isFinite(Number(r.temperature)) ? Number(r.temperature) : 0.8,
         system: buildAnthropicSystem(r),
         messages: [{ role: 'user', content: `Return JSON only.\n${JSON.stringify(r.user, null, 2)}` }]
+      };
+      if (TEMPERATURE_SUPPORTED.has(model)) {
+        params.temperature = Number.isFinite(Number(r.temperature)) ? Number(r.temperature) : 0.8;
       }
-    }))
+      return { custom_id: r.customId, params };
+    })
   };
 
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages/batches', {

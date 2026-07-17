@@ -305,15 +305,21 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           </>
         )}
 
-        <label>온도 (창의성) {settings.temperature.toFixed(1)}</label>
-        <input
-          type="range"
-          min="0.2"
-          max="1.2"
-          step="0.1"
-          value={settings.temperature}
-          onChange={event => onChange({ ...settings, temperature: Number(event.target.value) })}
-        />
+        {settings.provider === 'anthropic' ? (
+          <p className="supporting">이 모델은 온도(창의성) 조절을 지원하지 않습니다.</p>
+        ) : (
+          <>
+            <label>온도 (창의성) {settings.temperature.toFixed(1)}</label>
+            <input
+              type="range"
+              min="0.2"
+              max="1.2"
+              step="0.1"
+              value={settings.temperature}
+              onChange={event => onChange({ ...settings, temperature: Number(event.target.value) })}
+            />
+          </>
+        )}
 
         <label>배치 크기 (곡)</label>
         <input

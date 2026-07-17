@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { batchIndexFromCustomId, stitchBatchResults, type BatchRequestResult } from '../src/core/batchStitcher';
 import { buildBatchRequestSpecs } from '../src/providers/batchAnthropic';
-import { __internal as batchApiInternal } from '../api/batch.js';
+import batchHandler, { __internal as batchApiInternal } from '../api/batch.js';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { PlaylistBlueprint, ProviderSettings } from '../src/types';
 
@@ -138,5 +138,42 @@ describe('[E2] api/batch.js internals', () => {
 
   it('safeParseBlueprint returns null (not a throw) on unrecoverable garbage — batch mode has no client to surface a thrown error to', () => {
     expect(batchApiInternal.safeParseBlueprint('not json at all')).toBeNull();
+  });
+});
+
+describe('[v3.18] api/batch.js omits temperature (deprecated on claude-sonnet-5 and opus-4-7+)', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('createBatch (action: create) sends per-request params with no temperature key for the default model', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ id: 'batch_1', processing_status: 'in_progress', request_counts: null }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+
+    const res = { setHeader: () => {}, status() { return this; }, json() {}, end: () => {} };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({
+        action: 'create',
+        requests: [
+          { customId: 'b0', model: 'claude-sonnet-5', temperature: 0.8, batchSize: 6, system: 'stable system', user: { hello: 'world' } }
+        ]
+      })
+    };
+
+    await batchHandler(req as never, res as never);
+
+    const sentBody = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    expect(sentBody.requests[0].params).not.toHaveProperty('temperature');
   });
 });
