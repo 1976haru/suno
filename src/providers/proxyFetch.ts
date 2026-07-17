@@ -17,17 +17,31 @@ export function buildProxyHeaders(settings: ProviderSettings): Record<string, st
   return headers;
 }
 
-async function parseErrorMessage(response: Response): Promise<string> {
+/**
+ * TASK v3.20 — carries api/generate.js's error.code (e.g. 'TRUNCATED') so
+ * callers like generateBlueprint's split-retry can branch on a stable code
+ * instead of string-matching the Korean error message.
+ */
+export class ProxyError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = 'ProxyError';
+    this.code = code;
+  }
+}
+
+async function parseError(response: Response): Promise<{ message: string; code?: string }> {
   try {
     const data = await response.clone().json();
-    if (data && typeof data.error === 'string') return data.error;
+    if (data && typeof data.error === 'string') return { message: data.error, code: typeof data.code === 'string' ? data.code : undefined };
   } catch {
     // response body wasn't JSON; fall through to a generic status message
   }
-  if (response.status === 401) return 'API 키가 올바르지 않습니다.';
-  if (response.status === 429) return '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.';
-  if (response.status >= 500) return '서버 오류입니다. 곡 수를 줄여보세요.';
-  return `요청이 실패했습니다 (${response.status}).`;
+  if (response.status === 401) return { message: 'API 키가 올바르지 않습니다.' };
+  if (response.status === 429) return { message: '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.' };
+  if (response.status >= 500) return { message: '서버 오류입니다. 곡 수를 줄여보세요.' };
+  return { message: `요청이 실패했습니다 (${response.status}).` };
 }
 
 export interface CallGenerateProxyOptions {
@@ -63,7 +77,8 @@ export async function callGenerateProxy(
       continue;
     }
 
-    throw new Error(await parseErrorMessage(response));
+    const { message, code } = await parseError(response);
+    throw new ProxyError(message, code);
   }
 
   throw new Error('요청이 실패했습니다.');

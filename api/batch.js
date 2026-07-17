@@ -103,9 +103,27 @@ function safeParseBlueprint(text) {
   }
 }
 
-function computeMaxTokens(batchSize) {
+/**
+ * TASK v3.20 — mirrors api/generate.js's raised budget: real Claude output
+ * per song runs well past the old 1200-token/song estimate, truncating mid-
+ * response (stop_reason: 'max_tokens') on modest batch sizes. See that
+ * file's computeMaxTokens comment for the full rationale.
+ */
+const MODEL_MAX_OUTPUT_TOKENS = {
+  'claude-sonnet-5': 128_000,
+  'claude-opus-4-8': 128_000,
+  'claude-haiku-4-5': 64_000,
+  'claude-haiku-4-5-20251001': 64_000
+};
+const DEFAULT_MAX_OUTPUT_TOKENS = 32_000;
+
+function maxOutputTokensFor(model) {
+  return MODEL_MAX_OUTPUT_TOKENS[model] || DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+function computeMaxTokens(batchSize, model) {
   const size = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 ? Number(batchSize) : 6;
-  return Math.min(16000, size * 1200 + 2000);
+  return Math.min(maxOutputTokensFor(model), size * 2400 + 3000);
 }
 
 /**
@@ -179,7 +197,7 @@ async function createBatch({ requests, userApiKey }) {
       const model = (typeof r.model === 'string' && r.model.trim()) || 'claude-sonnet-5';
       const params = {
         model,
-        max_tokens: computeMaxTokens(r.batchSize),
+        max_tokens: computeMaxTokens(r.batchSize, model),
         system: buildAnthropicSystem({ ...r, disableCache: promptCacheDisabled }),
         messages: [{ role: 'user', content: `Return JSON only.\n${JSON.stringify(r.user, null, 2)}` }]
       };
@@ -272,8 +290,6 @@ async function getBatchResults({ batchId, userApiKey }) {
     const customId = line.custom_id;
     if (line.result?.type === 'succeeded') {
       const message = line.result.message;
-      const content = message?.content?.map(part => part.text || '').join('\n') || '{}';
-      const blueprint = safeParseBlueprint(content);
       const usage = message?.usage
         ? {
           inputTokens: message.usage.input_tokens || 0,
@@ -282,6 +298,16 @@ async function getBatchResults({ batchId, userApiKey }) {
           cacheCreationInputTokens: message.usage.cache_creation_input_tokens || 0
         }
         : null;
+      // TASK v3.20 — a batch request can succeed at the HTTP/job level while
+      // its own generation hit max_tokens. Check stop_reason before trusting
+      // safeParseBlueprint's lenient salvage parse: a cutoff landing right
+      // after a complete song object would otherwise parse "successfully"
+      // with fewer songs than requested and no error at all.
+      if (message?.stop_reason === 'max_tokens') {
+        return { customId, blueprint: null, usage, error: 'LLM 응답이 잘렸습니다 (배치, max_tokens).' };
+      }
+      const content = message?.content?.map(part => part.text || '').join('\n') || '{}';
+      const blueprint = safeParseBlueprint(content);
       return { customId, blueprint, usage, error: blueprint ? null : 'LLM 응답을 해석하지 못했습니다.' };
     }
     const errorType = line.result?.type || 'errored';
@@ -377,4 +403,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only
-export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED };
+export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED, maxOutputTokensFor };

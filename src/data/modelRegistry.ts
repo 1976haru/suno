@@ -11,14 +11,22 @@ export interface ModelRegistryEntry {
   id: string;
   label: string;
   tier: 'fast' | 'balanced' | 'max';
+  /**
+   * TASK v3.20 — the model's real output token ceiling, for documentation/
+   * future UI use (e.g. a capacity warning). api/generate.js and
+   * api/batch.js keep their own duplicate of this map (same "independent
+   * serverless function" reasoning as batch.js's header comment) since
+   * they can't import from src/ — update both when this changes.
+   */
+  maxOutputTokens?: number;
 }
 
 export const MODEL_REGISTRY: { lastChecked: string; anthropic: ModelRegistryEntry[]; openai: ModelRegistryEntry[]; note: string } = {
   lastChecked: '2026-07-14',
   anthropic: [
-    { id: 'claude-sonnet-5', label: 'Sonnet 5 (권장)', tier: 'balanced' },
-    { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5 (저렴)', tier: 'fast' },
-    { id: 'claude-opus-4-8', label: 'Opus 4.8 (최고품질)', tier: 'max' }
+    { id: 'claude-sonnet-5', label: 'Sonnet 5 (권장)', tier: 'balanced', maxOutputTokens: 128_000 },
+    { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5 (저렴)', tier: 'fast', maxOutputTokens: 64_000 },
+    { id: 'claude-opus-4-8', label: 'Opus 4.8 (최고품질)', tier: 'max', maxOutputTokens: 128_000 }
   ],
   openai: [
     { id: 'gpt-4.1', label: 'GPT-4.1', tier: 'max' },

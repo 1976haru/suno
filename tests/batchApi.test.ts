@@ -322,3 +322,91 @@ describe('[v3.19] api/batch.js DISABLE_PROMPT_CACHE escape hatch (diagnostic onl
     expect(sentBody.requests[0].params.system).toContain('STABLE RULES TEXT');
   });
 });
+
+describe('[v3.20] api/batch.js computeMaxTokens raised budget + model-aware cap', () => {
+  it('uses 2400/song + 3000 overhead, capped at the registered model ceiling', () => {
+    expect(batchApiInternal.computeMaxTokens(6)).toBe(17_400);
+    expect(batchApiInternal.computeMaxTokens(12)).toBe(31_800);
+    expect(batchApiInternal.maxOutputTokensFor('claude-sonnet-5')).toBe(128_000);
+    expect(batchApiInternal.maxOutputTokensFor('claude-haiku-4-5-20251001')).toBe(64_000);
+    expect(batchApiInternal.maxOutputTokensFor('unknown-model')).toBe(32_000);
+  });
+});
+
+describe('[v3.20] getBatchResults (action: results) rejects a stop_reason:"max_tokens" success as an error, never a silent partial parse', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockStatusThenResults(resultLine: Record<string, unknown>) {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/results')) {
+        return new Response(JSON.stringify(resultLine), { status: 200 });
+      }
+      if (String(url).includes('/messages/batches/')) {
+        return new Response(JSON.stringify({
+          processing_status: 'ended',
+          request_counts: null,
+          results_url: 'https://api.anthropic.com/v1/messages/batches/batch_1/results'
+        }), { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    }) as unknown as typeof fetch;
+  }
+
+  function mockResultsRequest() {
+    const jsonBody: { status?: number; payload?: { done?: boolean; results?: unknown[] } } = {};
+    const res = {
+      setHeader: () => {},
+      status(code: number) { jsonBody.status = code; return this; },
+      json(payload: { done?: boolean; results?: unknown[] }) { jsonBody.payload = payload; },
+      end: () => {}
+    };
+    const req = { method: 'POST', headers: {}, body: JSON.stringify({ action: 'results', batchId: 'batch_1' }) };
+    return { req, res, jsonBody };
+  }
+
+  it('a succeeded result with stop_reason "max_tokens" is surfaced as an error, even though the JSON would otherwise parse', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    const parseableButTruncated = JSON.stringify({ songs: [{ trackNo: 1, title: 'Complete Song' }] });
+    mockStatusThenResults({
+      custom_id: 'b0',
+      result: {
+        type: 'succeeded',
+        message: { stop_reason: 'max_tokens', content: [{ type: 'text', text: parseableButTruncated }], usage: {} }
+      }
+    });
+    const { req, res, jsonBody } = mockResultsRequest();
+
+    await batchHandler(req as never, res as never);
+
+    const result = (jsonBody.payload?.results as Array<{ blueprint: unknown; error: string | null }>)[0];
+    expect(result.blueprint).toBeNull();
+    expect(result.error).toContain('잘렸습니다');
+  });
+
+  it('a succeeded result with a normal stop_reason parses normally', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    const validJson = JSON.stringify({ songs: [{ trackNo: 1, title: 'Complete Song' }] });
+    mockStatusThenResults({
+      custom_id: 'b0',
+      result: {
+        type: 'succeeded',
+        message: { stop_reason: 'end_turn', content: [{ type: 'text', text: validJson }], usage: {} }
+      }
+    });
+    const { req, res, jsonBody } = mockResultsRequest();
+
+    await batchHandler(req as never, res as never);
+
+    const result = (jsonBody.payload?.results as Array<{ blueprint: unknown; error: string | null }>)[0];
+    expect(result.error).toBeNull();
+    expect(result.blueprint).not.toBeNull();
+  });
+});

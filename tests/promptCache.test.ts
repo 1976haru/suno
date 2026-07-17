@@ -351,3 +351,123 @@ describe('[v3.19] callAnthropic wires computeTimeoutMs(batchSize) + the improved
   });
 });
 
+describe('[v3.20] computeMaxTokens raised budget + model-aware cap (real Claude output truncated the old 1200/song estimate)', () => {
+  it('uses 2400/song + 3000 overhead for the default/unknown model, capped at 32000', () => {
+    expect(apiInternal.computeMaxTokens(1)).toBe(5_400);
+    expect(apiInternal.computeMaxTokens(5)).toBe(15_000);
+    expect(apiInternal.computeMaxTokens(6)).toBe(17_400);
+    // 12*2400+3000 = 31800, under the 32000 default cap
+    expect(apiInternal.computeMaxTokens(12)).toBe(31_800);
+  });
+
+  it('clamps to the real model output ceiling when one is registered (claude-sonnet-5 / opus-4-8: 128000, haiku-4-5: 64000)', () => {
+    expect(apiInternal.maxOutputTokensFor('claude-sonnet-5')).toBe(128_000);
+    expect(apiInternal.maxOutputTokensFor('claude-opus-4-8')).toBe(128_000);
+    expect(apiInternal.maxOutputTokensFor('claude-haiku-4-5-20251001')).toBe(64_000);
+    expect(apiInternal.maxOutputTokensFor('some-unknown-model-id')).toBe(32_000);
+    // still well under any of these ceilings at realistic batch sizes (app caps batchSize at 12)
+    expect(apiInternal.computeMaxTokens(12, 'claude-sonnet-5')).toBe(31_800);
+  });
+
+  it('falls back to the batchSize=6 default for missing/invalid input', () => {
+    expect(apiInternal.computeMaxTokens(undefined)).toBe(17_400);
+    expect(apiInternal.computeMaxTokens(0)).toBe(17_400);
+    expect(apiInternal.computeMaxTokens(-3)).toBe(17_400);
+  });
+});
+
+describe('[v3.20] callAnthropic detects stop_reason:"max_tokens" and throws a distinguishable TRUNCATED error', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockRequest(body: Record<string, unknown> = {}) {
+    const jsonBody: { status?: number; payload?: { error?: string; code?: string } } = {};
+    const res = {
+      setHeader: () => {},
+      status(code: number) {
+        jsonBody.status = code;
+        return this;
+      },
+      json(payload: { error?: string; code?: string }) {
+        jsonBody.payload = payload;
+      },
+      end: () => {}
+    };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({
+        provider: 'anthropic',
+        model: 'claude-sonnet-5',
+        batchSize: 6,
+        system: 'stable system text',
+        user: { hello: 'world' },
+        ...body
+      })
+    };
+    return { req, res, jsonBody };
+  }
+
+  it('a 200 response with stop_reason "max_tokens" still fails with a TRUNCATED code (does not silently return a partial parse)', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    // Body would actually parse as valid JSON if salvage-attempted (cut lands after a complete song) —
+    // the stop_reason check must reject it before safeParseBlueprint ever runs.
+    const truncatedButParseable = JSON.stringify({ songs: [{ trackNo: 1, title: 'Complete Song' }] });
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ stop_reason: 'max_tokens', content: [{ type: 'text', text: truncatedButParseable }] }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const { req, res, jsonBody } = mockRequest();
+
+    await generateHandler(req as never, res as never);
+
+    expect(jsonBody.status).toBe(500);
+    expect(jsonBody.payload?.code).toBe('TRUNCATED');
+    expect(jsonBody.payload?.error).toContain('잘렸습니다');
+  });
+
+  it('a normal stop_reason ("end_turn") with valid JSON succeeds with no code', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '{"songs":[]}' }] }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const jsonBody: { status?: number; payload?: unknown } = {};
+    const res = {
+      setHeader: () => {},
+      status(code: number) { jsonBody.status = code; return this; },
+      json(payload: unknown) { jsonBody.payload = payload; },
+      end: () => {}
+    };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({ provider: 'anthropic', model: 'claude-sonnet-5', batchSize: 6, system: 'x', user: {} })
+    };
+
+    await generateHandler(req as never, res as never);
+
+    expect(jsonBody.status).toBe(200);
+  });
+
+  it('an unparseable, non-max_tokens response also carries the TRUNCATED code (safe default: retry smaller)', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json at all {{{' }] }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const { req, res, jsonBody } = mockRequest();
+
+    await generateHandler(req as never, res as never);
+
+    expect(jsonBody.payload?.code).toBe('TRUNCATED');
+  });
+});
+

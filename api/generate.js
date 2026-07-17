@@ -24,6 +24,18 @@ function cleanJsonText(text) {
     .trim();
 }
 
+/**
+ * TASK v3.20 — code='TRUNCATED' lets the client (src/providers/index.ts's
+ * generateBlueprint) distinguish "the model ran out of max_tokens, split
+ * this batch and retry" from any other failure, instead of string-matching
+ * the Korean error message.
+ */
+function truncatedError() {
+  const error = new Error('LLM 응답이 잘렸습니다. 곡 수를 줄이거나 배치 크기를 낮추세요.');
+  error.code = 'TRUNCATED';
+  return error;
+}
+
 function safeParseBlueprint(text) {
   const cleaned = cleanJsonText(text);
   try {
@@ -37,12 +49,12 @@ function safeParseBlueprint(text) {
         // fall through to the error below
       }
     }
-    throw new Error('LLM 응답이 잘렸습니다. 곡 수를 줄이거나 배치 크기를 낮추세요.');
+    throw truncatedError();
   }
 }
 
-function sendError(res, status, message) {
-  res.status(status).json({ error: message });
+function sendError(res, status, message, code) {
+  res.status(status).json(code ? { error: message, code } : { error: message });
 }
 
 function maskKey(key) {
@@ -100,9 +112,32 @@ function checkRateLimit(key) {
   return true;
 }
 
-function computeMaxTokens(batchSize) {
+/**
+ * TASK v3.20 — real Claude output per song runs well past the local
+ * generator's ~710-token template (richer lyrics, more structure), so the
+ * old budget (1200/song + 2000, capped at 16000) truncated mid-response on
+ * as few as 5 songs — stop_reason: 'max_tokens', then a JSON parse failure
+ * or (worse) a silently-incomplete song list. Raised to 2400/song + 3000,
+ * capped at the resolved model's actual max output tokens (falls back to
+ * DEFAULT_MAX_OUTPUT_TOKENS for an unrecognized/omitted model, e.g. OpenAI
+ * callers who don't pass one) so a future model swap adjusts automatically
+ * instead of silently under- or over-shooting a hardcoded number.
+ */
+const MODEL_MAX_OUTPUT_TOKENS = {
+  'claude-sonnet-5': 128_000,
+  'claude-opus-4-8': 128_000,
+  'claude-haiku-4-5': 64_000,
+  'claude-haiku-4-5-20251001': 64_000
+};
+const DEFAULT_MAX_OUTPUT_TOKENS = 32_000;
+
+function maxOutputTokensFor(model) {
+  return MODEL_MAX_OUTPUT_TOKENS[model] || DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+function computeMaxTokens(batchSize, model) {
   const size = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 ? Number(batchSize) : 6;
-  return Math.min(16000, size * 1200 + 2000);
+  return Math.min(maxOutputTokensFor(model), size * 2400 + 3000);
 }
 
 async function fetchWithTimeout(url, init, timeoutMs, timeoutMessage = '요청이 시간 초과되었습니다. 곡 수를 줄이고 다시 시도하세요.') {
@@ -237,7 +272,7 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
   const requestSystem = buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText });
   const requestBody = {
     model: resolvedModel,
-    max_tokens: computeMaxTokens(batchSize),
+    max_tokens: computeMaxTokens(batchSize, resolvedModel),
     system: requestSystem,
     messages: [
       {
@@ -265,7 +300,7 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
     if (process.env.DEBUG_ANTHROPIC === '1') {
       console.error('[ANTHROPIC 400 DIAG] status=', response.status);
       console.error('[ANTHROPIC 400 DIAG] model=', resolvedModel);
-      console.error('[ANTHROPIC 400 DIAG] max_tokens=', computeMaxTokens(batchSize));
+      console.error('[ANTHROPIC 400 DIAG] max_tokens=', computeMaxTokens(batchSize, resolvedModel));
       console.error('[ANTHROPIC 400 DIAG] temperatureSent=', Object.prototype.hasOwnProperty.call(requestBody, 'temperature'));
       console.error('[ANTHROPIC 400 DIAG] systemBlocks=', Array.isArray(requestSystem) ? requestSystem.length : 'string');
       console.error('[ANTHROPIC 400 DIAG] upstream response=', detail);
@@ -277,6 +312,14 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
   }
 
   const data = await response.json();
+  if (data.stop_reason === 'max_tokens') {
+    // TASK v3.20 — don't attempt safeParseBlueprint's lenient "cut at the
+    // last }" salvage here: a max_tokens cutoff can land right after a
+    // complete song object, so the salvage would silently parse and return
+    // fewer songs than requested with no error at all. A known truncation
+    // must always fail loudly so the caller can split-and-retry.
+    throw truncatedError();
+  }
   const text = data.content?.map(part => part.text || '').join('\n') || '{}';
   const blueprint = safeParseBlueprint(text);
   const usage = data.usage
@@ -403,9 +446,9 @@ export default async function handler(req, res) {
         : (error instanceof Error ? error.message : String(error));
     // 진단용: 업스트림이 준 실제 detail을 함께 노출 (키 등 민감정보는 detail에 포함되지 않음 — 요청 형식 오류 설명임)
     const message = error?.detail ? `${baseMessage} :: ${String(error.detail).slice(0, 500)}` : baseMessage;
-    sendError(res, status, message);
+    sendError(res, status, message, error?.code);
   }
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout, maxOutputTokensFor };

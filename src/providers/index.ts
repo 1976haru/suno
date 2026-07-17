@@ -16,6 +16,7 @@ import { assertLyricDiversity } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { generateWithOpenAI, type ProviderCallResult } from './openai';
 import { generateWithAnthropic } from './anthropic';
+import { ProxyError } from './proxyFetch';
 
 async function recordProviderUsage(settings: ProviderSettings, purpose: 'generate' | 'refine', usage: ProviderCallResult['usage']) {
   if (!usage) return;
@@ -68,6 +69,82 @@ export async function callProviderBatch(
   return generateWithAnthropic(opts, genres, moods, season, settings, batch);
 }
 
+export interface GenerateChunkIdentity {
+  base: Omit<PlaylistBlueprint, 'songs'> | null;
+  locked: PlaylistIdentity | null;
+}
+
+const MIN_SPLIT_RETRY_SIZE = 1;
+
+/**
+ * TASK v3.20 — real Claude output per song runs well past the local
+ * generator's template, so a batch that would have fit comfortably can
+ * still hit stop_reason: 'max_tokens' on the actual API. api/generate.js
+ * signals this distinctly via error.code === 'TRUNCATED' (ProxyError)
+ * instead of a generic failure, so instead of failing the whole request,
+ * split the chunk in half and retry each half — recursively, if a half
+ * still truncates — merging results back in trackNo order. Only gives up
+ * (surfacing a "reduce the song count" error) once a single song alone
+ * still truncates, since there's nothing smaller left to try.
+ */
+export async function generateChunkWithSplitRetry(
+  trackNumbers: number[],
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  avoid: { usedTitles: string[]; usedHooks: string[] },
+  identity: GenerateChunkIdentity
+): Promise<PlaylistBlueprint['songs']> {
+  const batchOpts: GenerationOptions = { ...opts, songCount: trackNumbers.length };
+  const batchContext: BatchContext = {
+    trackNoOffset: trackNumbers[0] - 1,
+    totalSongCount: opts.songCount,
+    usedTitles: avoid.usedTitles,
+    usedHooks: avoid.usedHooks,
+    lockedIdentity: identity.locked
+  };
+
+  try {
+    const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
+    void recordProviderUsage(settings, 'generate', usage);
+
+    if (!identity.base) {
+      identity.base = {
+        projectTitle: result.projectTitle || opts.projectTitle,
+        channelName: result.channelName || opts.channel.name,
+        oneLineConcept: result.oneLineConcept,
+        sonicSignature: result.sonicSignature,
+        vocalSignature: result.vocalSignature,
+        lyricRules: result.lyricRules,
+        harmonyRules: result.harmonyRules,
+        visualRules: result.visualRules
+      };
+      identity.locked = extractIdentity(result);
+    }
+    return result.songs || [];
+  } catch (error) {
+    const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
+    if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {
+      const mid = Math.ceil(trackNumbers.length / 2);
+      const firstHalf = trackNumbers.slice(0, mid);
+      const secondHalf = trackNumbers.slice(mid);
+      const firstSongs = await generateChunkWithSplitRetry(firstHalf, opts, genres, moods, season, settings, avoid, identity);
+      const combinedAvoid = {
+        usedTitles: [...avoid.usedTitles, ...firstSongs.map(song => song.title)],
+        usedHooks: [...avoid.usedHooks, ...firstSongs.map(song => song.hookPhrase)]
+      };
+      const secondSongs = await generateChunkWithSplitRetry(secondHalf, opts, genres, moods, season, settings, combinedAvoid, identity);
+      return [...firstSongs, ...secondSongs];
+    }
+    if (isTruncated) {
+      throw new Error('응답이 계속 잘립니다. 곡 수를 줄여보세요.');
+    }
+    throw error;
+  }
+}
+
 export async function generateBlueprint(
   opts: GenerationOptions,
   genres: GenrePack[],
@@ -87,43 +164,21 @@ export async function generateBlueprint(
 
   const batchSize = Math.min(12, Math.max(1, Math.round(settings.batchSize || DEFAULT_BATCH_SIZE)));
   const batches = chunkRange(opts.songCount, batchSize);
-  let lockedIdentity: PlaylistIdentity | null = null;
-  let base: Omit<PlaylistBlueprint, 'songs'> | null = null;
+  const identity: GenerateChunkIdentity = { base: null, locked: null };
   const allSongs: PlaylistBlueprint['songs'] = [];
 
-  for (const [index, trackNumbers] of batches.entries()) {
-    const batchOpts: GenerationOptions = { ...opts, songCount: trackNumbers.length };
-    const batchContext: BatchContext = {
-      trackNoOffset: trackNumbers[0] - 1,
-      totalSongCount: opts.songCount,
+  for (const trackNumbers of batches) {
+    const chunkAvoid = {
       usedTitles: [...(avoid?.usedTitles ?? []), ...allSongs.map(song => song.title)],
-      usedHooks: [...(avoid?.usedHooks ?? []), ...allSongs.map(song => song.hookPhrase)],
-      lockedIdentity
+      usedHooks: [...(avoid?.usedHooks ?? []), ...allSongs.map(song => song.hookPhrase)]
     };
-
-    const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
-    void recordProviderUsage(settings, 'generate', usage);
-
-    if (index === 0) {
-      base = {
-        projectTitle: result.projectTitle || opts.projectTitle,
-        channelName: result.channelName || opts.channel.name,
-        oneLineConcept: result.oneLineConcept,
-        sonicSignature: result.sonicSignature,
-        vocalSignature: result.vocalSignature,
-        lyricRules: result.lyricRules,
-        harmonyRules: result.harmonyRules,
-        visualRules: result.visualRules
-      };
-      lockedIdentity = extractIdentity(result);
-    }
-
-    allSongs.push(...(result.songs || []));
+    const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, chunkAvoid, identity);
+    allSongs.push(...songs);
     onProgress?.({ done: allSongs.length, total: opts.songCount, songs: [...allSongs] });
   }
 
   const blueprint: PlaylistBlueprint = {
-    ...(base as Omit<PlaylistBlueprint, 'songs'>),
+    ...(identity.base as Omit<PlaylistBlueprint, 'songs'>),
     songs: allSongs
   };
 
