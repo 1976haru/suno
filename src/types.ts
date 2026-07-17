@@ -119,6 +119,17 @@ export interface GenerationOptions {
   packagingLanguage?: DisplayLanguage;
   /** TASK I1 (v3.11) — track 1's opening technique; defaults to 'auto' (archetype-resolved, see resolveOpeningStyle) when unset. */
   openingStyle?: OpeningStyle;
+  /**
+   * v3.15 — "누구나 익숙하게 느끼는" mode: prefers cold-open/flagship hook
+   * candidates that score high on core/openingContest.ts's familiarity
+   * dimension (short, easy to hum, repeats its own rhythm), nudges the money
+   * chord toward the most common progressions (see
+   * data/moneyChords.ts's resolveEarwormMoneyChordMode), and appends a few
+   * safe, generic songwriting-technique descriptors to the style prompt. This
+   * raises the odds of a familiar-feeling result — it never guarantees one,
+   * since Suno's actual melody isn't controlled precisely by text.
+   */
+  earwormMode?: boolean;
 }
 
 export interface YoutubeMetadata {

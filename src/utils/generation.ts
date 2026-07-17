@@ -28,6 +28,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     customConcept: '',
     avoidWords: defaultAvoidWordsString(),
     personaMode: false,
-    packagingLanguage: defaultPackagingLanguage(channel.market)
+    packagingLanguage: defaultPackagingLanguage(channel.market),
+    earwormMode: false
   };
 }

@@ -47,9 +47,18 @@ export const STYLE_WORD_TARGET_MAX = 50;
  * instead the trim loop below reduces them to a guaranteed-minimum atom count
  * rather than dropping the whole category.
  */
-export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['mood', 'instruments']);
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['mood', 'instruments', 'earworm']);
 export const MOOD_FLOOR_ATOMS = 1;
 export const INSTRUMENTS_FLOOR_ATOMS = 2;
+/**
+ * v3.15 — earwormMode is a deliberate user opt-in (see types.ts's
+ * GenerationOptions.earwormMode); the whole point of the toggle is defeated
+ * if its style-prompt atom silently drops to zero every time a channel's own
+ * mood/instrument packs are already wordy (measured: that's the common case,
+ * not an edge case — see promptComposer.ts's EARWORM_STYLE_ATOMS comment).
+ * Same guaranteed-minimum treatment as mood/instruments, at a 1-atom floor.
+ */
+export const EARWORM_FLOOR_ATOMS = 1;
 
 export function countWords(text: string): number {
   const trimmed = text.trim();
@@ -58,7 +67,7 @@ export function countWords(text: string): number {
 
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
-  | 'mood' | 'instruments' | 'season' | 'safety'
+  | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
   | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
@@ -68,8 +77,16 @@ export type PromptTermId =
 // ("tempo") moved to the very end and out of ESSENTIAL_TERM_IDS: multiple
 // 2026 Suno guides treat BPM as an approximate guide, not a locked
 // instruction, so it's the safest thing to drop first once budget is tight.
+//
+// v3.15 — 'earworm' (earwormMode's style-prompt atom, see promptComposer.ts's
+// EARWORM_STYLE_ATOMS) sits right after 'moneyChord': high enough that it
+// survives the word-count trim ahead of season/songRole/motif/listenerScene/
+// mixNotes/safety/tempo (a deliberate user opt-in should outlive those before
+// it gets dropped), but still non-essential — the toggle's own UI copy is
+// explicit that this raises the odds of a familiar result, never guarantees
+// one, so losing this atom under a tight budget is an acceptable trade-off.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'genre', 'mood', 'vocal', 'instruments', 'hook', 'moneyChord', 'duration',
+  'genre', 'mood', 'vocal', 'instruments', 'hook', 'moneyChord', 'earworm', 'duration',
   'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety', 'tempo'
 ];
 
@@ -86,6 +103,7 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   instruments: 'instruments',
   season: 'season',
   safety: 'avoid rules',
+  earworm: 'earworm hook style',
   songRole: 'song role',
   motif: 'motif',
   listenerScene: 'listener scene',
@@ -329,6 +347,13 @@ export function composeStylePrompt(
       }
     }
 
+    // Step 1.5 (v3.15) — still over budget: reduce earworm down to its floor
+    // first, ahead of instruments/mood. It's a preference nudge, not core
+    // channel identity, so it gives up its slack before either of those do —
+    // but (like them) never drops to zero once earwormMode added it at all.
+    if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+      finalAtoms = reduceToFloor(finalAtoms, 'earworm', EARWORM_FLOOR_ATOMS);
+    }
     // Step 2: still over budget — reduce instruments down to its floor (never to zero).
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
       finalAtoms = reduceToFloor(finalAtoms, 'instruments', INSTRUMENTS_FLOOR_ATOMS);

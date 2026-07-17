@@ -115,3 +115,21 @@ export function isPlausibleChordProgression(input: string): boolean {
   if (!tokens.length) return false;
   return tokens.every(token => ROMAN_CHORD_TOKEN.test(token));
 }
+
+export type MoneyChordMode = keyof typeof moneyChordPresets;
+
+/**
+ * v3.15 — "earworm" mode nudges the money chord toward whichever preset is
+ * built on the most widely-shared pop progressions ('default': I-V-vi-IV /
+ * vi-IV-I-V, or 'canon': the canon progression) — these are the least
+ * preset-specific, most broadly-used progressions in the whole list, which is
+ * exactly why they read as "familiar" rather than distinctive. A 'custom'
+ * progression the user typed by hand, or an already-default/canon choice, is
+ * left untouched — this only ever redirects an *unrelated* preset (e.g.
+ * showaModern) when the mode is on, never overrides an explicit user choice
+ * of their own custom text.
+ */
+export function resolveEarwormMoneyChordMode(mode: MoneyChordMode, earwormMode: boolean | undefined): MoneyChordMode {
+  if (!earwormMode || mode === 'custom' || mode === 'default' || mode === 'canon') return mode;
+  return 'default';
+}

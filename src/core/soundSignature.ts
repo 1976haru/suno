@@ -6,7 +6,7 @@ import type {
   SoundSignature as SharedSoundSignature
 } from '../types';
 import { genrePacks, moodPacks, seasonPacks } from '../data/presets';
-import { moneyChordPresets } from '../data/moneyChords';
+import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
 import { countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 
 export interface SoundSignature extends SharedSoundSignature {}
@@ -247,7 +247,8 @@ export function compactMoneyChord(opts: GenerationOptions) {
   if (opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     return `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
   }
-  const preset = moneyChordPresets[opts.moneyChordMode] || moneyChordPresets.default;
+  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
+  const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
   return preset.compactProgression;
 }
 

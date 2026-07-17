@@ -159,7 +159,9 @@ export function nextContestedTitle(
   role: string,
   openingRole: OpeningRole,
   packContext: OpeningPackContext,
-  k = 3
+  k = 3,
+  /** v3.15 — see types.ts's GenerationOptions.earwormMode; threaded straight into runOpeningContest's scoring weight. */
+  earwormMode = false
 ): TitleResult {
   const idx = gen.index;
   const shape = gen.shapeSequence[idx % gen.shapeSequence.length] ?? HOOK_SHAPES[idx % HOOK_SHAPES.length];
@@ -171,7 +173,7 @@ export function nextContestedTitle(
     targetSyllables: gen.rhythmTarget,
     emotionalWeight: targetHookEmotionalWeight(role)
   };
-  const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k);
+  const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k, earwormMode);
   gen.usedHooks.add(winner.hook.phrase);
   const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles);
   gen.usedTitles.add(title);
@@ -404,7 +406,7 @@ export function generateLocalBlueprint(
     // state (usedHooks/usedTitles/index) nextTitle(role) would have, so
     // later tracks can never collide with a contest-picked hook.
     const { title, hook } = trackNo <= 3
-      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, role, role === 'cold-open' ? 'cold-open' : 'flagship', openingPackContext)
+      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, role, role === 'cold-open' ? 'cold-open' : 'flagship', openingPackContext, 3, opts.earwormMode)
       : nextTitle(role);
     const openingStyle = role === 'cold-open' ? resolveOpeningStyle(opts.openingStyle, opts.channel.archetype) : undefined;
     const situationOption = situationPool.take();

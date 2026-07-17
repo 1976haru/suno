@@ -414,6 +414,24 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
       <p className="supporting">스타일 프롬프트 미리보기: <em>{moneyPreview}</em></p>
 
       <div className="option-block">
+        <label className="avoid-word-item">
+          <input
+            type="checkbox"
+            checked={Boolean(opts.earwormMode)}
+            onChange={event => setOpts(prev => ({ ...prev, earwormMode: event.target.checked }))}
+          />
+          🎧 누구나 익숙하게 느끼는 멜로디로 (선택)
+        </label>
+        <p className="supporting">
+          이 모드는 발음하기 쉽고, 짧고, 반복되는 훅을 우선 선택하고 가장 흔한 코드 진행을 사용해요.
+          "어디서 들어본 것 같다"는 느낌을 자연스럽게 만들어줘요.
+        </p>
+        <p className="supporting">
+          ⚠️ 다만 이건 확률을 높이는 것이지 보장은 아니에요. Suno의 실제 멜로디는 텍스트로 정밀하게 제어할 수 없어서, 결과는 매번 조금씩 달라질 수 있어요.
+        </p>
+      </div>
+
+      <div className="option-block">
         <h3>가사에서 피할 것들 (기본값 권장)</h3>
         <div className="avoid-word-list">
           {avoidWordPresets.map(preset => (

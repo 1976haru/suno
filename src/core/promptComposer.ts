@@ -1,6 +1,6 @@
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, SeasonPack } from '../types';
 import { generationPacks } from '../data/presets';
-import { moneyChordPresets } from '../data/moneyChords';
+import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
 import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
 import { compactDuration, compactHook, compactMoneyChord } from './soundSignature';
@@ -23,12 +23,12 @@ export const SAFE_TARGET = 900;
  */
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
-  | 'mood' | 'instruments' | 'season' | 'safety'
+  | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
   | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes';
 
 export const PROMPT_PRIORITY: PromptTermId[] = [
   'genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo',
-  'safety', 'mood', 'instruments', 'season',
+  'safety', 'earworm', 'mood', 'instruments', 'season',
   'songRole', 'motif', 'listenerScene', 'mixNotes'
 ];
 
@@ -45,11 +45,31 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   instruments: '악기',
   season: '시즌',
   safety: '안전 문구',
+  earworm: '이지 리스닝 훅',
   songRole: '트랙 역할',
   motif: '모티프',
   listenerScene: '청자 장면',
   mixNotes: '믹스 노트'
 };
+
+/**
+ * v3.15 — earwormMode style-prompt atom (PART B of the brief): purely generic
+ * composing-technique language (stepwise melody, phrase symmetry, diatonic
+ * simplicity) — describes a technique, never a specific song or artist. Kept
+ * out of ESSENTIAL_TERM_IDS since this is a preference nudge, not a
+ * requirement — it's fine for composeStylePrompt to drop it under budget
+ * pressure like any other non-essential atom.
+ *
+ * Deliberately compact (4 short atoms, ~13 words) rather than the brief's
+ * full 6-phrase example text: composeStylePrompt's real per-song budget is a
+ * soft 50-word cap (see promptBudget.ts's STYLE_WORD_TARGET_MAX), and a
+ * measured mood/instrument-heavy channel was already floor-reducing those
+ * categories before this atom was ever added — the full 6-phrase form would
+ * simply never survive real generation, defeating the whole feature. Same
+ * "verbose preset text -> terse tag" compaction this file already applies to
+ * money chords/hooks/duration (see soundSignature.ts's compact* builders).
+ */
+export const EARWORM_STYLE_ATOMS = 'simple stepwise melody, easy to hum, singalong-friendly pop hook, predictable diatonic phrase structure';
 
 export interface PromptPart {
   id: PromptTermId;
@@ -224,9 +244,11 @@ export function buildDurationControl(target: GenerationOptions['durationTarget']
 }
 
 export function resolveMoneyChordText(opts: GenerationOptions) {
-  return opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()
-    ? `custom chord progression: ${opts.customMoneyChord.trim()}, with a clear emotional chorus lift`
-    : moneyChordPresets[opts.moneyChordMode]?.prompt ?? moneyChordPresets.default.prompt;
+  if (opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
+    return `custom chord progression: ${opts.customMoneyChord.trim()}, with a clear emotional chorus lift`;
+  }
+  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
+  return moneyChordPresets[effectiveMode]?.prompt ?? moneyChordPresets.default.prompt;
 }
 
 function shortPromptKeywords(genre: GenrePack): string[] {
@@ -315,7 +337,8 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
     { id: 'duration', text: duration },
     { id: 'mood', text: moodText },
     { id: 'instruments', text: instrumentText },
-    { id: 'season', text: `${season.keywords.join(', ')} mood` }
+    { id: 'season', text: `${season.keywords.join(', ')} mood` },
+    ...(opts.earwormMode ? [{ id: 'earworm' as const, text: EARWORM_STYLE_ATOMS }] : [])
   ];
 }
 
@@ -393,8 +416,18 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
 
+/**
+ * v3.15 — earwormMode's remote-provider counterpart to the local hook
+ * contest's familiarity weighting (see core/openingContest.ts). Describes
+ * generic, decades-old songwriting techniques only (short repeatable hooks,
+ * common progressions, stepwise melody) — never a specific song or artist,
+ * same boundary as EARWORM_STYLE_ATOMS and the money-chord nudge.
+ */
+const EARWORM_SYSTEM_NOTE = '\n\nEarworm mode is on for this request:\n- Prefer a hook phrase that is short, easy to hum on first listen, and repeats its own rhythmic shape.\n- Prefer the most common, widely-shared pop chord progression available (e.g. I-V-vi-IV or the canon progression) over a more distinctive one.\n- In "stylePrompt", include generic technique language such as "simple stepwise melody" and "singalong-friendly hook" where it fits within the character budget.\n- This only raises the odds of a familiar-feeling result; it is not a guarantee, and it never means referencing or imitating any specific existing song or artist.';
+
 export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext) {
   const batchNote = batch ? buildBatchSystemNote(opts, batch) : '';
+  const earwormNote = opts.earwormMode ? EARWORM_SYSTEM_NOTE : '';
 
   const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
 
@@ -421,7 +454,7 @@ Hook rules (each song's hookPhrase):
 - Never address an inanimate object as if it were a person (e.g. "Hold on, coffee" or "Close your eyes, doorway") — vocative phrasing may only address a person or an abstract/personified noun (a friend, a season, "my love"), never a physical object.
 
 Safety rules:
-${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${batchNote}`;
+${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${earwormNote}${batchNote}`;
 }
 
 export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext) {
@@ -445,6 +478,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
+    earwormMode: opts.earwormMode ?? false,
     trackNoOffset: batch?.trackNoOffset ?? 0,
     totalSongCount: batch?.totalSongCount ?? opts.songCount,
     alreadyUsedTitles: batch?.usedTitles ?? [],
@@ -579,6 +613,7 @@ export function buildAnthropicUserPayload(opts: GenerationOptions, batch?: Batch
     customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
+    earwormMode: opts.earwormMode ?? false,
     trackNoOffset: batch?.trackNoOffset ?? 0,
     totalSongCount: batch?.totalSongCount ?? opts.songCount,
     alreadyUsedTitles: batch?.usedTitles ?? [],
