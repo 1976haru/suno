@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
@@ -14,6 +14,8 @@ import { copyText } from './utils/exporters';
 import { normalizeGenreSelection, toggleGenreSelection } from './core/genreSelection';
 import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
+import { getSetting, setSetting } from './core/settingsStore';
+import { mergeRestoredProviderSettings, sanitizeProviderSettingsForPersistence } from './core/providerSettingsPersistence';
 import { rebuildStylePromptsForPersonaMode } from './core/localGenerator';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
 import { promoteTrackToOpeningRole } from './core/openingOverride';
@@ -45,6 +47,16 @@ const STEPS: StepDef[] = [
   { id: 4, label: '④ 결과' }
 ];
 
+/**
+ * TASK v3.17 — provider was useState-only with no persistence, so every
+ * page refresh or dev-server restart silently reset it to 'local' even
+ * after the user picked Anthropic in settings. apiKey/accessToken are
+ * excluded from what gets stored: the key already lives at byok:{provider}
+ * (see SettingsModal) and re-storing it here would duplicate a secret;
+ * accessToken is likewise sensitive and not worth persisting.
+ */
+const PROVIDER_SETTINGS_KEY = 'providerSettings';
+
 export default function App() {
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -60,6 +72,17 @@ export default function App() {
   const [loadWarning, setLoadWarning] = useState('');
   const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
   const [hookExhaustionWarning, setHookExhaustionWarning] = useState<ExhaustionStats | null>(null);
+
+  useEffect(() => {
+    void getSetting<ProviderSettings>(PROVIDER_SETTINGS_KEY).then(saved => {
+      setProvider(prev => mergeRestoredProviderSettings(prev, saved));
+    });
+  }, []);
+
+  const persistProvider = useCallback((next: ProviderSettings) => {
+    setProvider(next);
+    void setSetting(PROVIDER_SETTINGS_KEY, sanitizeProviderSettingsForPersistence(next));
+  }, []);
 
   function applyChannelToOptions(channel: ChannelProfile) {
     setOpts(prev => ({
@@ -598,7 +621,7 @@ export default function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         settings={provider}
-        onChange={setProvider}
+        onChange={persistProvider}
         onExportAll={() => void library.exportAll()}
         onImportAll={file => void library.importAll(file)}
         onDeleteAll={() => void library.deleteAll()}
