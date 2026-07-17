@@ -58,6 +58,12 @@ export function buildSongTxt(song: SongIdea): string {
   ].join('\n');
 }
 
+/** TASK v3.23 — the API no longer generates this (user makes thumbnails externally); shown only for old saved packs/songs that still have it, omitted entirely otherwise rather than printing an empty "Thumbnail:" line. */
+function songThumbnailMarkdown(song: SongIdea): string {
+  const text = song.youtube?.thumbnailText || song.thumbnailText;
+  return text ? `Thumbnail: ${text}\n\n` : '';
+}
+
 function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
   if (!spec) return '';
   const variantLines = spec.variants
@@ -152,9 +158,7 @@ ${song.youtube?.description || ''}
 
 Tags: ${(song.youtube?.tags || []).join(', ')}
 
-Thumbnail: ${song.youtube?.thumbnailText || song.thumbnailText}
-
-Quality: ${song.qualityScore}/100
+${songThumbnailMarkdown(song)}Quality: ${song.qualityScore}/100
 Warnings: ${song.warnings.join('; ') || 'None'}
 `).join('\n')}`;
 }
@@ -201,7 +205,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       song.youtube?.title || '',
       song.youtube?.description || '',
       (song.youtube?.tags || []).join(', '),
-      song.youtube?.thumbnailText || song.thumbnailText,
+      song.youtube?.thumbnailText || song.thumbnailText || '',
       String(song.qualityScore),
       song.warnings.join('; '),
       song.stylePrompt,

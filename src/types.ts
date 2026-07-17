@@ -136,7 +136,8 @@ export interface YoutubeMetadata {
   title: string;
   description: string;
   tags: string[];
-  thumbnailText: string;
+  /** TASK v3.23 — the app no longer asks the API for this (user makes thumbnails externally); optional so old saved packs that still have it keep rendering/exporting fine. */
+  thumbnailText?: string;
 }
 
 export interface SongIdea {
@@ -150,7 +151,8 @@ export interface SongIdea {
   /** Text meant for Suno's separate Advanced Options -> Exclude field, never pasted into the style prompt itself (avoidWords + copyright-avoidance terms). See core/promptComposer.ts's buildExcludePrompt. */
   excludePrompt?: string;
   lyrics: string;
-  thumbnailText: string;
+  /** TASK v3.23 — the app no longer asks the API for this (user makes thumbnails externally); optional so old saved packs that still have it keep rendering/exporting fine. */
+  thumbnailText?: string;
   youtube: YoutubeMetadata;
   youtubeTitleKo?: string;
   youtubeTitleJa?: string;

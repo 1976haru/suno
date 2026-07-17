@@ -248,11 +248,14 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
                 <button type="button" onClick={() => void copyText(song.youtube.tags.join(', '))}><Copy size={14} />Copy</button>
                 <span>{song.youtube.tags.join(', ')}</span>
               </div>
-              <div className="metadata-row">
-                <b>Thumbnail</b>
-                <button type="button" onClick={() => void copyText(song.youtube.thumbnailText)}><Copy size={14} />Copy</button>
-                <span>{song.youtube.thumbnailText}</span>
-              </div>
+              {/* TASK v3.23 — the API no longer generates this (user makes thumbnails externally); only shown for old saved packs that still have it. */}
+              {song.youtube.thumbnailText && (
+                <div className="metadata-row">
+                  <b>Thumbnail</b>
+                  <button type="button" onClick={() => void copyText(song.youtube.thumbnailText as string)}><Copy size={14} />Copy</button>
+                  <span>{song.youtube.thumbnailText}</span>
+                </div>
+              )}
             </section>
           )}
         </>

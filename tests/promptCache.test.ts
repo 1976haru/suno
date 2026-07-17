@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import generateHandler, { __internal as apiInternal } from '../api/generate.js';
-import { buildAnthropicUserPayload, buildChannelSystemBlock, buildSystemInstruction } from '../src/core/promptComposer';
+import { buildAnthropicUserPayload, buildBatchSystemNote, buildChannelSystemBlock, buildSystemInstruction, buildUserInstruction } from '../src/core/promptComposer';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
-import type { BatchContext, PlaylistIdentity } from '../src/types';
+import type { BatchContext, PlaylistIdentity, PreassignedSongSlot } from '../src/types';
 
 // TASK v3.21 — api/generate.js's rateLimitBuckets is module-level state that
 // persists across every test in this file (same module instance, same
@@ -723,6 +723,56 @@ describe('[v3.22] TRUNCATED is reserved for a real stop_reason/finish_reason sig
 
     expect(jsonBody.payload?.code).toBe('PARSE_FAILED');
     delete process.env.OPENAI_API_KEY;
+  });
+});
+
+describe('[v3.23] thumbnailText removed from the API schema/prompt (user makes thumbnails externally)', () => {
+  it('neither outputShape (Anthropic cacheable block or OpenAI user instruction) asks for a per-song thumbnailText, top-level or nested in youtube', () => {
+    const opts = makeOptions();
+    const channelBlock = buildChannelSystemBlock(opts, testGenres, testMoods, testSeason);
+    const userInstruction = buildUserInstruction(opts, testGenres, testMoods, testSeason);
+
+    expect(channelBlock).not.toContain('thumbnailText');
+    expect(JSON.stringify(userInstruction)).not.toContain('thumbnailText');
+  });
+
+  it('the stable system instruction no longer asks the model to write thumbnail text', () => {
+    const opts = makeOptions();
+    const system = buildSystemInstruction(opts);
+
+    expect(system).toContain('Include YouTube title, description, and tags for every song.');
+    expect(system).not.toContain('thumbnail text for every song');
+    // the stylePrompt-pollution guard is unrelated to per-song thumbnail *generation* and must stay
+    expect(system).toContain('thumbnail art-direction language');
+  });
+
+  it('batchPlanning no longer tells the model to avoid repeating a "thumbnail phrase" (nothing generates one anymore)', () => {
+    const opts = makeOptions();
+    const channelBlock = buildChannelSystemBlock(opts, testGenres, testMoods, testSeason);
+    const userInstruction = buildUserInstruction(opts, testGenres, testMoods, testSeason);
+
+    expect(channelBlock).not.toContain('thumbnail phrase');
+    expect(JSON.stringify(userInstruction)).not.toContain('thumbnail phrase');
+    expect(channelBlock).toContain('Avoid repeating the same opening image or chorus first line.');
+  });
+
+  it('the preassignedSongs batch note no longer lists thumbnailText among the fields the model still writes freely', () => {
+    const opts = makeOptions();
+    const slots: PreassignedSongSlot[] = [
+      { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
+    ];
+    const batch: BatchContext = {
+      trackNoOffset: 0,
+      totalSongCount: 1,
+      usedTitles: [],
+      usedHooks: [],
+      lockedIdentity: null,
+      preassignedSongs: slots
+    };
+    const note = buildBatchSystemNote(opts, batch);
+
+    expect(note).toContain('preassignedSongs');
+    expect(note).not.toContain('thumbnailText');
   });
 });
 

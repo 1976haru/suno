@@ -411,7 +411,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ? `\n- A song whose preassigned songRole is "cold-open": open with the hook itself, no instrumental intro — lyrics and stylePrompt should reflect "hook heard immediately". A song whose songRole is "flagship": keep it representative and catchy but only light-to-medium emotional weight, never as heavy as a late-pack emotional peak.`
     : '';
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (lyrics, stylePrompt, seasonMoment, listenerSituation, thumbnailText, youtube) around them. This is what keeps parallel batches from colliding on title/hook.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (lyrics, stylePrompt, seasonMoment, listenerSituation, youtube) around them. This is what keeps parallel batches from colliding on title/hook.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -461,7 +461,7 @@ Rules:
 - Sequence the songs naturally: opener, early lift, middle depth, late-set highlight, warm closer.
 - Lyrics must use Suno section tags and must be ready to paste separately from the style prompt.
 - Keep song length controlled for ${opts.durationTarget}.
-- Include YouTube title, description, tags, and thumbnail text for every song.
+- Include YouTube title, description, and tags for every song.
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.
 - CRITICAL: Return ONLY the JSON object. No markdown, no code fences (no \`\`\`), no prose, no explanation, and no closing remarks before or after it. The response must start with { and end with } — nothing else outside those two characters.
 - CRITICAL: Every string value must itself be valid JSON. Encode every line break inside "lyrics" (or any other field) as the two characters \\n, never a literal newline — a raw newline inside a JSON string makes the whole response unparseable. Escape any literal double-quote character inside a string as \\".
@@ -511,7 +511,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
       'Tracks 2-5 should establish variety without breaking the channel promise.',
       'Middle tracks should add emotional depth and different listener situations.',
       'Final tracks should resolve warmly and feel like a natural closer.',
-      'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.',
+      'Avoid repeating the same opening image or chorus first line.',
       'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
     ],
     outputShape: {
@@ -533,12 +533,10 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
           hookPhrase: 'string',
           stylePrompt: 'string',
           lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
-          thumbnailText: 'string',
           youtube: {
             title: 'string',
             description: 'string',
-            tags: ['string'],
-            thumbnailText: 'string'
+            tags: ['string']
           },
           youtubeTitleKo: 'string optional',
           youtubeTitleJa: 'string optional',
@@ -573,7 +571,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
       'Tracks 2-5 should establish variety without breaking the channel promise.',
       'Middle tracks should add emotional depth and different listener situations.',
       'Final tracks should resolve warmly and feel like a natural closer.',
-      'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.',
+      'Avoid repeating the same opening image or chorus first line.',
       'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
     ],
     outputShape: {
@@ -595,12 +593,10 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
           hookPhrase: 'string',
           stylePrompt: 'string',
           lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
-          thumbnailText: 'string',
           youtube: {
             title: 'string',
             description: 'string',
-            tags: ['string'],
-            thumbnailText: 'string'
+            tags: ['string']
           },
           youtubeTitleKo: 'string optional',
           youtubeTitleJa: 'string optional',
