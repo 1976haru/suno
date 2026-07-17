@@ -1,8 +1,20 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import generateHandler, { __internal as apiInternal } from '../api/generate.js';
 import { buildAnthropicUserPayload, buildChannelSystemBlock, buildSystemInstruction } from '../src/core/promptComposer';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { BatchContext, PlaylistIdentity } from '../src/types';
+
+// TASK v3.21 — api/generate.js's rateLimitBuckets is module-level state that
+// persists across every test in this file (same module instance, same
+// 'unknown' clientIp bucket for any request that omits x-forwarded-for).
+// This file alone now makes more than RATE_LIMIT_MAX_REQUESTS (10)
+// generateHandler calls; without clearing between tests, late tests get
+// silently 429'd (discovered the hard way — see the v3.21 GEN DIAG tests'
+// x-forwarded-for header, which this beforeEach makes unnecessary going
+// forward for any *new* test, though existing ones keep their header too).
+beforeEach(() => {
+  apiInternal.rateLimitBuckets.clear();
+});
 
 describe('[E1] Anthropic prompt caching — cache boundary placement', () => {
   it("usedTitles/usedHooks never appear inside a cached system block — only in the (uncached) user payload", () => {
@@ -468,6 +480,96 @@ describe('[v3.20] callAnthropic detects stop_reason:"max_tokens" and throws a di
     await generateHandler(req as never, res as never);
 
     expect(jsonBody.payload?.code).toBe('TRUNCATED');
+  });
+});
+
+describe('[v3.21] resolveTokenBudgetSize / maxTokensBudgetSongs (single-song truncation budget boost)', () => {
+  it('falls back to the real batchSize when maxTokensBudgetSongs is omitted/invalid', () => {
+    expect(apiInternal.resolveTokenBudgetSize(1, undefined)).toBe(1);
+    expect(apiInternal.resolveTokenBudgetSize(1, 0)).toBe(1);
+    expect(apiInternal.resolveTokenBudgetSize(1, -3)).toBe(1);
+    expect(apiInternal.resolveTokenBudgetSize(6, NaN)).toBe(6);
+  });
+
+  it('uses maxTokensBudgetSongs instead of batchSize when it is a positive number', () => {
+    expect(apiInternal.resolveTokenBudgetSize(1, 4)).toBe(4);
+  });
+});
+
+describe('[v3.21] GEN DIAG / GEN USAGE logging (gated behind DEBUG_ANTHROPIC, same as prior diagnostics)', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalDebugFlag = process.env.DEBUG_ANTHROPIC;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    if (originalDebugFlag === undefined) delete process.env.DEBUG_ANTHROPIC;
+    else process.env.DEBUG_ANTHROPIC = originalDebugFlag;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockSuccessRequest(body: Record<string, unknown> = {}) {
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: '{"songs":[]}' }],
+        usage: { input_tokens: 500, output_tokens: 1200, cache_read_input_tokens: 400, cache_creation_input_tokens: 0 }
+      }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const res = { setHeader: () => {}, status() { return this; }, json() {}, end: () => {} };
+    const req = {
+      method: 'POST',
+      // TASK v3.21 — checkRateLimit keys off clientIp, and every other test
+      // in this file that omits x-forwarded-for shares the same 'unknown'
+      // bucket (module-level rateLimitBuckets persists across tests in one
+      // file). This file has more than RATE_LIMIT_MAX_REQUESTS (10) generate
+      // Handler calls total, so a bare {} here gets silently 429'd once
+      // enough earlier tests have run — a unique IP isolates this block.
+      headers: { 'x-forwarded-for': 'test-client-v3.21-gen-diag' },
+      body: JSON.stringify({ provider: 'anthropic', model: 'claude-sonnet-5', batchSize: 2, system: 'x', user: {}, ...body })
+    };
+    return { req, res };
+  }
+
+  it('DEBUG_ANTHROPIC unset (default): no [GEN DIAG] / [GEN USAGE] console noise on a successful call', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    delete process.env.DEBUG_ANTHROPIC;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = mockSuccessRequest();
+
+    await generateHandler(req as never, res as never);
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
+
+  it('DEBUG_ANTHROPIC=1: logs model/batchSize/maxTokens before the request, then stop_reason/output_tokens and real per-song usage after', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    process.env.DEBUG_ANTHROPIC = '1';
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = mockSuccessRequest();
+
+    await generateHandler(req as never, res as never);
+
+    const diagCalls = consoleSpy.mock.calls.map(call => call.join(' '));
+    expect(diagCalls.some(line => line.includes('[GEN DIAG] model=') && line.includes('claude-sonnet-5') && line.includes('batchSize= 2'))).toBe(true);
+    expect(diagCalls.some(line => line.includes('[GEN DIAG] stop_reason= end_turn'))).toBe(true);
+    expect(diagCalls.some(line => line.includes('[GEN USAGE] chunk= 2') && line.includes('output= 1200') && line.includes('perSong= 600'))).toBe(true);
+    expect(diagCalls.some(line => line.includes('cacheReadInputTokens= 400'))).toBe(true);
+  });
+
+  it('maxTokensBudgetSongs changes the actual max_tokens sent to Anthropic without changing the real requested song count', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    const { req, res } = mockSuccessRequest({ batchSize: 1, maxTokensBudgetSongs: 4 });
+
+    await generateHandler(req as never, res as never);
+
+    const sentBody = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    // batchSize=1 alone -> min(cap, 1*2400+3000)=5400; boosted to songs=4 -> min(cap, 4*2400+3000)=12600
+    expect(sentBody.max_tokens).toBe(apiInternal.computeMaxTokens(4, 'claude-sonnet-5'));
+    expect(sentBody.max_tokens).toBeGreaterThan(apiInternal.computeMaxTokens(1, 'claude-sonnet-5'));
   });
 });
 

@@ -304,10 +304,26 @@ async function getBatchResults({ batchId, userApiKey }) {
       // after a complete song object would otherwise parse "successfully"
       // with fewer songs than requested and no error at all.
       if (message?.stop_reason === 'max_tokens') {
+        if (process.env.DEBUG_ANTHROPIC === '1') {
+          console.error('[BATCH DIAG] customId=', customId, 'stop_reason=max_tokens', 'output_tokens=', message.usage?.output_tokens);
+        }
         return { customId, blueprint: null, usage, error: 'LLM 응답이 잘렸습니다 (배치, max_tokens).' };
       }
       const content = message?.content?.map(part => part.text || '').join('\n') || '{}';
       const blueprint = safeParseBlueprint(content);
+      // TASK v3.21 — same real usage measurement as api/generate.js's [GEN
+      // USAGE], so a 30-song Batch job's real per-song cost can be measured
+      // before committing to it as the default path for large packs.
+      if (usage && process.env.DEBUG_ANTHROPIC === '1') {
+        const songCount = Array.isArray(blueprint?.songs) && blueprint.songs.length ? blueprint.songs.length : 1;
+        console.error(
+          '[GEN USAGE] customId=', customId,
+          'chunk=', songCount,
+          'output=', usage.outputTokens,
+          'perSong=', usage.outputTokens / songCount,
+          'cacheReadInputTokens=', usage.cacheReadInputTokens
+        );
+      }
       return { customId, blueprint, usage, error: blueprint ? null : 'LLM 응답을 해석하지 못했습니다.' };
     }
     const errorType = line.result?.type || 'errored';

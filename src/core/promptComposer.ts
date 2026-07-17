@@ -425,9 +425,28 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
  */
 const EARWORM_SYSTEM_NOTE = '\n\nEarworm mode is on for this request:\n- Prefer a hook phrase that is short, easy to hum on first listen, and repeats its own rhythmic shape.\n- Prefer the most common, widely-shared pop chord progression available (e.g. I-V-vi-IV or the canon progression) over a more distinctive one.\n- In "stylePrompt", include generic technique language such as "simple stepwise melody" and "singalong-friendly hook" where it fits within the character budget.\n- This only raises the odds of a familiar-feeling result; it is not a guarantee, and it never means referencing or imitating any specific existing song or artist.';
 
-export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext) {
+/**
+ * TASK v3.21 — totalSongCountOverride decouples "how many songs does the
+ * cacheable stable text say this pack has" from "does this call also append
+ * the volatile batch note". Without it, the stable text embedded
+ * opts.songCount directly — which is the *per-chunk* count at every real
+ * Anthropic call site (see providers/anthropic.ts's generateWithAnthropic),
+ * not the pack total. That was invisible while real-time chunks were
+ * uniform (e.g. 6 or 12 songs each), but v3.21's small (1-3 song) chunks
+ * make a differently-sized tail chunk routine (e.g. 7 songs -> 3+3+1),
+ * silently changing "Generate exactly N songs" text between chunks and
+ * breaking the cache_control:ephemeral prefix match on every size change —
+ * a correctness-invisible, cost-only bug (paying the ~1.25x cache-write
+ * price repeatedly instead of the ~0.1x cache-read price from chunk 2 on).
+ * providers/anthropic.ts's cacheable-block call site passes this explicitly
+ * (batch.totalSongCount) while passing no `batch`, so the stable text stays
+ * byte-identical across every chunk of the same pack without also inlining
+ * the (correctly volatile) batch note a second time.
+ */
+export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext, totalSongCountOverride?: number) {
   const batchNote = batch ? buildBatchSystemNote(opts, batch) : '';
   const earwormNote = opts.earwormMode ? EARWORM_SYSTEM_NOTE : '';
+  const totalSongCount = totalSongCountOverride ?? batch?.totalSongCount ?? opts.songCount;
 
   const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
 
@@ -437,7 +456,7 @@ Rules:
 - Never imitate a specific artist, singer, band, producer, existing song, melody, lyric, hook, or copyrighted work.
 - Do not use "in the style of", "sounds like", "as sung by", or similar imitation language.
 - Money chords are mandatory, but the output must still feel original.
-- Generate exactly ${opts.songCount} songs as one coherent playlist set.
+- This playlist pack has ${totalSongCount} songs total, generated as one coherent set — a single request may cover only part of the pack at a time (see the batch note below for this request's exact scope, if present).
 - Keep a stable sonic/vocal identity across all tracks while varying situations, hooks, titles, and lyrical images.
 - Sequence the songs naturally: opener, early lift, middle depth, late-set highlight, warm closer.
 - Lyrics must use Suno section tags and must be ready to paste separately from the style prompt.

@@ -329,7 +329,11 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           value={settings.batchSize || 6}
           onChange={event => onChange({ ...settings, batchSize: Math.min(12, Math.max(1, Number(event.target.value) || 6)) })}
         />
-        <p className="supporting">작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.</p>
+        <p className="supporting">
+          {settings.provider === 'anthropic'
+            ? 'Anthropic 실시간 생성은 안정성을 위해 1~3곡 단위로 나눠 병렬 처리하므로 이 값은 3을 넘겨도 3으로 적용됩니다 (Batch 모드는 이 값과 무관하게 자체 크기로 처리됩니다).'
+            : '작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.'}
+        </p>
 
         <label>스타일 프롬프트 길이 상한 (자)</label>
         <div className="chips">

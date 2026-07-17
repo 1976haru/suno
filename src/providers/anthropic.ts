@@ -28,7 +28,14 @@ export async function generateWithAnthropic(
     model,
     temperature: settings.temperature,
     batchSize: opts.songCount,
-    cacheableSystemBlocks: [buildSystemInstruction(opts), buildChannelSystemBlock(opts, genres, moods, season)],
+    // TASK v3.21 — see BatchContext.maxTokensBudgetSongs: only ever set by
+    // generateChunkWithSplitRetry's single-song truncation retry.
+    maxTokensBudgetSongs: batch?.maxTokensBudgetSongs,
+    // TASK v3.21 — pass the pack's real total (not opts.songCount, which is
+    // this specific chunk's size) so the cacheable "Generate N songs" line
+    // stays byte-identical across differently-sized chunks of the same
+    // pack; see buildSystemInstruction's totalSongCountOverride comment.
+    cacheableSystemBlocks: [buildSystemInstruction(opts, undefined, batch?.totalSongCount ?? opts.songCount), buildChannelSystemBlock(opts, genres, moods, season)],
     volatileSystemText: batch ? buildBatchSystemNote(opts, batch) : '',
     user: buildAnthropicUserPayload(opts, batch)
   });

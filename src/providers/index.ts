@@ -6,11 +6,13 @@ import type {
   MoodPack,
   PlaylistBlueprint,
   PlaylistIdentity,
+  PreassignedSongSlot,
   ProviderSettings,
   SeasonPack,
   SongIdea
 } from '../types';
 import { generateLocalBlueprint } from '../core/localGenerator';
+import { preallocateSongSlots, slotsForRange } from '../core/batchPreallocation';
 import { scoreSongs } from '../core/quality';
 import { assertLyricDiversity } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
@@ -77,6 +79,15 @@ export interface GenerateChunkIdentity {
 const MIN_SPLIT_RETRY_SIZE = 1;
 
 /**
+ * TASK v3.21 — when even a single song truncates at the normal per-song
+ * max_tokens budget, retry it exactly once pretending the request was for
+ * this many songs (purely for the max_tokens formula — trackNumbers/opts
+ * still only ask for the real 1 song). See BatchContext.maxTokensBudgetSongs
+ * and api/generate.js's resolveTokenBudgetSize.
+ */
+const SINGLE_SONG_BUDGET_BOOST_SONGS = 4;
+
+/**
  * TASK v3.20 — real Claude output per song runs well past the local
  * generator's template, so a batch that would have fit comfortably can
  * still hit stop_reason: 'max_tokens' on the actual API. api/generate.js
@@ -85,7 +96,15 @@ const MIN_SPLIT_RETRY_SIZE = 1;
  * split the chunk in half and retry each half — recursively, if a half
  * still truncates — merging results back in trackNo order. Only gives up
  * (surfacing a "reduce the song count" error) once a single song alone
- * still truncates, since there's nothing smaller left to try.
+ * still truncates at a boosted budget too, since there's nothing smaller
+ * left to try (TASK v3.21: the boosted-budget retry below).
+ *
+ * preassignedSongs (TASK v3.21), if given, is filtered to this call's own
+ * trackNumbers and threaded into the request — see generateBlueprint's
+ * Anthropic branch for why: parallel sibling chunks can't see each other's
+ * real output, so titles/hooks are decided locally up front instead of
+ * left for the model to invent (same mechanism the Batch API already used
+ * for parallel sub-batches).
  */
 export async function generateChunkWithSplitRetry(
   trackNumbers: number[],
@@ -95,7 +114,10 @@ export async function generateChunkWithSplitRetry(
   season: SeasonPack,
   settings: ProviderSettings,
   avoid: { usedTitles: string[]; usedHooks: string[] },
-  identity: GenerateChunkIdentity
+  identity: GenerateChunkIdentity,
+  preassignedSongs?: PreassignedSongSlot[],
+  /** internal only — set true for the one-shot budget-boost retry so it can't recurse into itself. */
+  boosted = false
 ): Promise<PlaylistBlueprint['songs']> {
   const batchOpts: GenerationOptions = { ...opts, songCount: trackNumbers.length };
   const batchContext: BatchContext = {
@@ -103,7 +125,9 @@ export async function generateChunkWithSplitRetry(
     totalSongCount: opts.songCount,
     usedTitles: avoid.usedTitles,
     usedHooks: avoid.usedHooks,
-    lockedIdentity: identity.locked
+    lockedIdentity: identity.locked,
+    preassignedSongs: preassignedSongs ? slotsForRange(preassignedSongs, trackNumbers) : undefined,
+    maxTokensBudgetSongs: boosted ? SINGLE_SONG_BUDGET_BOOST_SONGS : undefined
   };
 
   try {
@@ -130,13 +154,16 @@ export async function generateChunkWithSplitRetry(
       const mid = Math.ceil(trackNumbers.length / 2);
       const firstHalf = trackNumbers.slice(0, mid);
       const secondHalf = trackNumbers.slice(mid);
-      const firstSongs = await generateChunkWithSplitRetry(firstHalf, opts, genres, moods, season, settings, avoid, identity);
+      const firstSongs = await generateChunkWithSplitRetry(firstHalf, opts, genres, moods, season, settings, avoid, identity, preassignedSongs);
       const combinedAvoid = {
         usedTitles: [...avoid.usedTitles, ...firstSongs.map(song => song.title)],
         usedHooks: [...avoid.usedHooks, ...firstSongs.map(song => song.hookPhrase)]
       };
-      const secondSongs = await generateChunkWithSplitRetry(secondHalf, opts, genres, moods, season, settings, combinedAvoid, identity);
+      const secondSongs = await generateChunkWithSplitRetry(secondHalf, opts, genres, moods, season, settings, combinedAvoid, identity, preassignedSongs);
       return [...firstSongs, ...secondSongs];
+    }
+    if (isTruncated && !boosted) {
+      return generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, avoid, identity, preassignedSongs, true);
     }
     if (isTruncated) {
       throw new Error('응답이 계속 잘립니다. 곡 수를 줄여보세요.');
@@ -144,6 +171,45 @@ export async function generateChunkWithSplitRetry(
     throw error;
   }
 }
+
+/**
+ * TASK v3.21 — runs `worker` over `items` with at most `limit` concurrent
+ * calls in flight. Unlike Promise.all(items.map(worker)), a rejection
+ * doesn't abort in-flight siblings or lose their results — every item gets
+ * a chance to finish (worker is expected to record its own success as a
+ * side effect, e.g. into a shared map, before this function ever looks at
+ * outcomes), and only after all settle does this throw one aggregated error
+ * naming every item that failed. This is what keeps a single failing chunk
+ * from discarding chunks that already succeeded.
+ */
+export async function runWithConcurrencyLimit<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  const failures: { item: T; error: unknown }[] = [];
+  let nextIndex = 0;
+
+  async function runNext(): Promise<void> {
+    const current = nextIndex++;
+    if (current >= items.length) return;
+    try {
+      await worker(items[current]);
+    } catch (error) {
+      failures.push({ item: items[current], error });
+    }
+    await runNext();
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => runNext()));
+
+  if (failures.length) {
+    const firstMessage = failures[0].error instanceof Error ? failures[0].error.message : String(failures[0].error);
+    throw new Error(`${failures.length}개 청크 생성에 실패했습니다: ${firstMessage}`);
+  }
+}
+
+/** TASK v3.21 — real-time Anthropic chunk size: small on purpose (see generateBlueprint's Anthropic branch), configurable via settings.batchSize but clamped much tighter than the old 1-12 range. */
+const REALTIME_CHUNK_SIZE_DEFAULT = 2;
+const REALTIME_CHUNK_SIZE_MAX = 3;
+/** Anthropic's per-account rate limits vary; 3 concurrent requests is fast without courting 429s on a typical tier. */
+const REALTIME_CONCURRENCY = 3;
 
 export async function generateBlueprint(
   opts: GenerationOptions,
@@ -162,21 +228,68 @@ export async function generateBlueprint(
     return { ...blueprint, songs };
   }
 
-  const batchSize = Math.min(12, Math.max(1, Math.round(settings.batchSize || DEFAULT_BATCH_SIZE)));
-  const batches = chunkRange(opts.songCount, batchSize);
   const identity: GenerateChunkIdentity = { base: null, locked: null };
-  const allSongs: PlaylistBlueprint['songs'] = [];
+  const songsByTrackNo = new Map<number, PlaylistBlueprint['songs'][number]>();
+  const reportProgress = () => {
+    const songs = [...songsByTrackNo.values()].sort((a, b) => a.trackNo - b.trackNo);
+    onProgress?.({ done: songs.length, total: opts.songCount, songs });
+  };
 
-  for (const trackNumbers of batches) {
-    const chunkAvoid = {
-      usedTitles: [...(avoid?.usedTitles ?? []), ...allSongs.map(song => song.title)],
-      usedHooks: [...(avoid?.usedHooks ?? []), ...allSongs.map(song => song.hookPhrase)]
-    };
-    const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, chunkAvoid, identity);
-    allSongs.push(...songs);
-    onProgress?.({ done: allSongs.length, total: opts.songCount, songs: [...allSongs] });
+  if (settings.provider === 'anthropic') {
+    // TASK v3.21 — real Claude output is rich enough that even the raised
+    // v3.20 max_tokens budget kept truncating at the old up-to-12-song
+    // chunk size. Small fixed chunks (default 2, 1-3 range) never come
+    // close to any max_tokens budget, and running them with bounded
+    // concurrency instead of one at a time keeps this from being 6x slower.
+    // The first chunk still runs alone — it's what locks sonicSignature/
+    // vocalSignature/etc — then the rest run in parallel against that
+    // locked identity. Titles/hooks are pre-decided locally (preallocateSongSlots,
+    // the same mechanism the Batch API already used for parallel sub-batches)
+    // instead of left for the model to invent, since concurrent siblings
+    // can't see each other's real output to avoid colliding on their own.
+    const chunkSize = Math.min(REALTIME_CHUNK_SIZE_MAX, Math.max(1, Math.round(settings.batchSize || REALTIME_CHUNK_SIZE_DEFAULT)));
+    const batches = chunkRange(opts.songCount, chunkSize);
+    const preassignedSongs = preallocateSongSlots(opts, genres, avoid);
+    const baseAvoid = { usedTitles: avoid?.usedTitles ?? [], usedHooks: avoid?.usedHooks ?? [] };
+
+    const [firstChunk, ...restChunks] = batches;
+    if (firstChunk) {
+      const songs = await generateChunkWithSplitRetry(firstChunk, opts, genres, moods, season, settings, baseAvoid, identity, preassignedSongs);
+      for (const song of songs) songsByTrackNo.set(song.trackNo, song);
+      reportProgress();
+    }
+
+    if (restChunks.length) {
+      await runWithConcurrencyLimit(restChunks, REALTIME_CONCURRENCY, async trackNumbers => {
+        const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, baseAvoid, identity, preassignedSongs);
+        for (const song of songs) songsByTrackNo.set(song.trackNo, song);
+        reportProgress();
+      });
+    }
+  } else {
+    // OpenAI: unchanged from v3.20 — sequential, larger chunks. Kept
+    // separate from the Anthropic branch above because OpenAI's own prompt
+    // builder (buildUserInstruction) doesn't forward preassignedSongs, so
+    // parallelizing it today would reopen the title/hook collision risk
+    // preallocation exists to prevent. Nothing has reported OpenAI hitting
+    // the truncation problem this task fixes, so its proven sequential path
+    // is left as-is rather than risking a new bug to fix one that doesn't
+    // exist yet.
+    const batchSize = Math.min(12, Math.max(1, Math.round(settings.batchSize || DEFAULT_BATCH_SIZE)));
+    const batches = chunkRange(opts.songCount, batchSize);
+    for (const trackNumbers of batches) {
+      const priorSongs = [...songsByTrackNo.values()];
+      const chunkAvoid = {
+        usedTitles: [...(avoid?.usedTitles ?? []), ...priorSongs.map(song => song.title)],
+        usedHooks: [...(avoid?.usedHooks ?? []), ...priorSongs.map(song => song.hookPhrase)]
+      };
+      const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, chunkAvoid, identity);
+      for (const song of songs) songsByTrackNo.set(song.trackNo, song);
+      reportProgress();
+    }
   }
 
+  const allSongs = [...songsByTrackNo.values()].sort((a, b) => a.trackNo - b.trackNo);
   const blueprint: PlaylistBlueprint = {
     ...(identity.base as Omit<PlaylistBlueprint, 'songs'>),
     songs: allSongs

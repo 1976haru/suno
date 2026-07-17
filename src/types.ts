@@ -242,8 +242,24 @@ export interface BatchContext {
   usedTitles: string[];
   usedHooks: string[];
   lockedIdentity: PlaylistIdentity | null;
-  /** TASK B2 (v3.6) — only ever set for true parallel Batch API sub-requests, never the synchronous multi-batch path (which already avoids this collision by running batches sequentially). */
+  /**
+   * TASK B2 (v3.6) — originally only set for true parallel Batch API sub-
+   * requests, since the synchronous multi-batch path ran fully sequentially
+   * and could always see the real titles/hooks of every prior chunk. TASK
+   * v3.21 made the synchronous (real-time) path parallel too, past the
+   * first chunk — it now sets this too, for the same reason: parallel
+   * sibling requests can't see each other's real output, so title/hook are
+   * decided locally up front instead of left for the model to invent.
+   */
   preassignedSongs?: PreassignedSongSlot[];
+  /**
+   * TASK v3.21 — when set, computeMaxTokens uses this instead of the real
+   * requested song count for its max_tokens formula only (a "budget boost"
+   * for the one-time retry generateChunkWithSplitRetry does when even a
+   * single song still truncates at the normal per-song budget). Everything
+   * else about the request — songCount, trackNoOffset, etc. — is unchanged.
+   */
+  maxTokensBudgetSongs?: number;
 }
 
 export interface GenerationProgress {

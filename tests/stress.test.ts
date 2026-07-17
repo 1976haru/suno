@@ -243,15 +243,21 @@ describe('stress: API provider (mocked)', () => {
     expect(source).toMatch(/AbortController/);
   });
 
-  stressCase('S13', '배치 부분 실패 (1,2번째 배치 결과는 진행률 콜백에 보존)', async () => {
-    const settings: ProviderSettings = { provider: 'anthropic', temperature: 0.7, proxyEndpoint: '/api/generate', batchSize: 6 };
-    let call = 0;
+  stressCase('S13', '배치 부분 실패 (v3.21: 소단위 병렬 청크 — 성공한 청크는 진행률 콜백에 보존, 실패한 청크만 에러)', async () => {
+    // TASK v3.21 — real-time Anthropic generation now runs small (<=3-song)
+    // chunks with bounded concurrency instead of one sequential loop over
+    // up to 12-song chunks, so success/failure must be decided by *which*
+    // trackNo range a request covers (not by a shared call counter, which
+    // would race under concurrency and make this test flaky).
+    const settings: ProviderSettings = { provider: 'anthropic', temperature: 0.7, proxyEndpoint: '/api/generate', batchSize: 3 };
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => {
-        call += 1;
-        if (call <= 2) {
-          const songs = Array.from({ length: 6 }, (_, i) => stubSong((call - 1) * 6 + i + 1));
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string);
+        const offset = body.user.trackNoOffset as number;
+        const count = body.user.songCount as number;
+        if (offset < 12) {
+          const songs = Array.from({ length: count }, (_, i) => stubSong(offset + i + 1));
           const blueprint = {
             projectTitle: 'P',
             channelName: 'C',
@@ -276,7 +282,10 @@ describe('stress: API provider (mocked)', () => {
       )
     ).rejects.toThrow();
 
-    expect(progressSnapshots).toContain(12);
+    // tracks 1-12 (4 chunks of 3) succeed; tracks 13-18 (2 chunks) 500 —
+    // concurrency means exact interleaving isn't guaranteed, but every
+    // successful chunk must still be reflected before the aggregated error.
+    expect(Math.max(...progressSnapshots)).toBe(12);
     vi.unstubAllGlobals();
   });
 

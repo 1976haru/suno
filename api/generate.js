@@ -264,15 +264,34 @@ function resolveAnthropicModel(model) {
   return (typeof model === 'string' && model.trim()) || 'claude-sonnet-5';
 }
 
-async function callAnthropic({ model, temperature, system, cacheableSystemBlocks, volatileSystemText, user, batchSize, userApiKey }) {
+/**
+ * TASK v3.21 — generateChunkWithSplitRetry (src/providers/index.ts) gives
+ * up once a single song still truncates at the normal per-song budget
+ * (2400 + 3000 overhead = 5400 tokens for batchSize=1). Before failing for
+ * good, it retries exactly once with maxTokensBudgetSongs set higher than
+ * the real requested song count, so max_tokens is computed as if for a
+ * bigger batch without changing what's actually being asked for (no new
+ * request field semantics to invent — just a bigger number fed to the same
+ * formula). Omitted/invalid falls back to the real batchSize, unchanged
+ * from before this task.
+ */
+function resolveTokenBudgetSize(batchSize, maxTokensBudgetSongs) {
+  return Number.isFinite(Number(maxTokensBudgetSongs)) && Number(maxTokensBudgetSongs) > 0
+    ? Number(maxTokensBudgetSongs)
+    : batchSize;
+}
+
+async function callAnthropic({ model, temperature, system, cacheableSystemBlocks, volatileSystemText, user, batchSize, maxTokensBudgetSongs, userApiKey }) {
   const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
 
   const resolvedModel = resolveAnthropicModel(model);
+  const tokenBudgetSize = resolveTokenBudgetSize(batchSize, maxTokensBudgetSongs);
+  const maxTokens = computeMaxTokens(tokenBudgetSize, resolvedModel);
   const requestSystem = buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText });
   const requestBody = {
     model: resolvedModel,
-    max_tokens: computeMaxTokens(batchSize, resolvedModel),
+    max_tokens: maxTokens,
     system: requestSystem,
     messages: [
       {
@@ -283,6 +302,13 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
   };
   if (TEMPERATURE_SUPPORTED.has(resolvedModel)) {
     requestBody.temperature = clampAnthropicTemperature(temperature);
+  }
+
+  // TASK v3.21 — logged before the request so model/max_tokens are known
+  // even if the request itself times out or throws before a response body
+  // exists. See the [GEN DIAG]/[GEN USAGE] pair below for the response side.
+  if (process.env.DEBUG_ANTHROPIC === '1') {
+    console.error('[GEN DIAG] model=', resolvedModel, 'batchSize=', batchSize, 'tokenBudgetSize=', tokenBudgetSize, 'maxTokens=', maxTokens);
   }
 
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
@@ -300,7 +326,7 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
     if (process.env.DEBUG_ANTHROPIC === '1') {
       console.error('[ANTHROPIC 400 DIAG] status=', response.status);
       console.error('[ANTHROPIC 400 DIAG] model=', resolvedModel);
-      console.error('[ANTHROPIC 400 DIAG] max_tokens=', computeMaxTokens(batchSize, resolvedModel));
+      console.error('[ANTHROPIC 400 DIAG] max_tokens=', maxTokens);
       console.error('[ANTHROPIC 400 DIAG] temperatureSent=', Object.prototype.hasOwnProperty.call(requestBody, 'temperature'));
       console.error('[ANTHROPIC 400 DIAG] systemBlocks=', Array.isArray(requestSystem) ? requestSystem.length : 'string');
       console.error('[ANTHROPIC 400 DIAG] upstream response=', detail);
@@ -312,6 +338,13 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
   }
 
   const data = await response.json();
+  // TASK v3.21 — logs stop_reason/output_tokens for every response (not just
+  // failures) so a repeated "still truncating" report can be confirmed from
+  // real data: was max_tokens actually reached, and does the model resolve
+  // to what the client thinks it sent?
+  if (process.env.DEBUG_ANTHROPIC === '1') {
+    console.error('[GEN DIAG] stop_reason=', data.stop_reason, 'output_tokens=', data.usage?.output_tokens);
+  }
   if (data.stop_reason === 'max_tokens') {
     // TASK v3.20 — don't attempt safeParseBlueprint's lenient "cut at the
     // last }" salvage here: a max_tokens cutoff can land right after a
@@ -330,6 +363,20 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
       cacheCreationInputTokens: data.usage.cache_creation_input_tokens || 0
     }
     : null;
+  // TASK v3.21 — real per-song output tokens, measured, not estimated. Also
+  // confirms prompt caching is actually hitting on chunk 2+ of a pack
+  // (cacheReadInputTokens should be > 0 there; 0 across every chunk means
+  // the cache boundary broke, not that caching itself is unsupported).
+  if (usage && process.env.DEBUG_ANTHROPIC === '1') {
+    const realSongCount = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 ? Number(batchSize) : 1;
+    console.error(
+      '[GEN USAGE] chunk=', realSongCount,
+      'output=', usage.outputTokens,
+      'perSong=', usage.outputTokens / realSongCount,
+      'cacheReadInputTokens=', usage.cacheReadInputTokens,
+      'cacheCreationInputTokens=', usage.cacheCreationInputTokens
+    );
+  }
   return { blueprint, usage };
 }
 
@@ -451,4 +498,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout, maxOutputTokensFor };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout, maxOutputTokensFor, resolveTokenBudgetSize, rateLimitBuckets };
