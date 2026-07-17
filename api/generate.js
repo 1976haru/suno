@@ -167,9 +167,20 @@ async function callOpenAI({ model, temperature, system, user, batchSize, userApi
  * cached prefix. Falls back to a plain string `system` for callers that
  * don't split it (kept for forward/backward compatibility, unused by this
  * app's own client code once TASK E1 shipped).
+ *
+ * TASK v3.16-diag2 — disableCache is a diagnostic escape hatch (env var
+ * DISABLE_PROMPT_CACHE=1) for isolating whether cache_control:ephemeral is
+ * the cause of an Anthropic 400 on a given account/API version: it sends
+ * the same text as one plain string with no cache_control blocks at all.
+ * If that alone turns a 400 into a 200, caching was the cause.
  */
-function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }) {
+function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText, disableCache }) {
   if (Array.isArray(cacheableSystemBlocks) && cacheableSystemBlocks.length) {
+    if (disableCache) {
+      const parts = cacheableSystemBlocks.filter(text => typeof text === 'string' && text.length);
+      if (volatileSystemText) parts.push(volatileSystemText);
+      return parts.join('\n\n');
+    }
     const blocks = cacheableSystemBlocks
       .filter(text => typeof text === 'string' && text.length)
       .map(text => ({ type: 'text', text, cache_control: { type: 'ephemeral' } }));
@@ -179,10 +190,34 @@ function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemTex
   return system;
 }
 
+/**
+ * Anthropic rejects temperature > 1.0 with a 400 (`invalid_request_error`),
+ * but the shared SettingsModal slider goes up to 1.2 for OpenAI's wider
+ * (0-2) range — a user on the Anthropic provider who drags past 1.0 gets a
+ * 400 with no 401, since the key itself is fine. Clamp at this boundary
+ * rather than trusting the client-supplied value.
+ */
+function clampAnthropicTemperature(temperature) {
+  const value = Number.isFinite(Number(temperature)) ? Number(temperature) : 0.8;
+  return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * TASK v3.16-diag2 — a whitespace-only model string (' ') is truthy and
+ * passes `model || 'claude-sonnet-5'` unchanged, reaching Anthropic as an
+ * invalid model id. Trim before falling back.
+ */
+function resolveAnthropicModel(model) {
+  return (typeof model === 'string' && model.trim()) || 'claude-sonnet-5';
+}
+
 async function callAnthropic({ model, temperature, system, cacheableSystemBlocks, volatileSystemText, user, batchSize, userApiKey }) {
   const apiKey = userApiKey || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
 
+  const resolvedModel = resolveAnthropicModel(model);
+  const promptCacheDisabled = process.env.DISABLE_PROMPT_CACHE === '1';
+  const requestSystem = buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText, disableCache: promptCacheDisabled });
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -191,10 +226,10 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: model || 'claude-sonnet-5',
+      model: resolvedModel,
       max_tokens: computeMaxTokens(batchSize),
-      temperature: Number.isFinite(Number(temperature)) ? Number(temperature) : 0.8,
-      system: buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }),
+      temperature: clampAnthropicTemperature(temperature),
+      system: requestSystem,
       messages: [
         {
           role: 'user',
@@ -206,6 +241,13 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
 
   if (!response.ok) {
     const detail = await response.text();
+    console.error('[ANTHROPIC 400 DIAG] status=', response.status);
+    console.error('[ANTHROPIC 400 DIAG] model=', resolvedModel);
+    console.error('[ANTHROPIC 400 DIAG] promptCacheDisabled=', promptCacheDisabled);
+    console.error('[ANTHROPIC 400 DIAG] max_tokens=', computeMaxTokens(batchSize));
+    console.error('[ANTHROPIC 400 DIAG] temperature=', clampAnthropicTemperature(temperature));
+    console.error('[ANTHROPIC 400 DIAG] systemBlocks=', Array.isArray(requestSystem) ? requestSystem.length : 'string');
+    console.error('[ANTHROPIC 400 DIAG] upstream response=', detail);
     const error = new Error(`Anthropic upstream failed: ${response.status}`);
     error.status = response.status;
     error.detail = detail;
@@ -332,14 +374,16 @@ export default async function handler(req, res) {
     res.status(200).json({ blueprint: result.blueprint, usage: result.usage });
   } catch (error) {
     const status = error?.status && Number.isInteger(error.status) ? error.status : 500;
-    const message = status === 401
+    const baseMessage = status === 401
       ? 'API 키가 올바르지 않습니다.'
       : status === 429
         ? '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.'
         : (error instanceof Error ? error.message : String(error));
+    // 진단용: 업스트림이 준 실제 detail을 함께 노출 (키 등 민감정보는 detail에 포함되지 않음 — 요청 형식 오류 설명임)
+    const message = error?.detail ? `${baseMessage} :: ${String(error.detail).slice(0, 500)}` : baseMessage;
     sendError(res, status, message);
   }
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel };
