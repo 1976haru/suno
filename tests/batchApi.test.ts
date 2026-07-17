@@ -177,3 +177,148 @@ describe('[v3.18] api/batch.js omits temperature (deprecated on claude-sonnet-5 
     expect(sentBody.requests[0].params).not.toHaveProperty('temperature');
   });
 });
+
+describe('[v3.19] api/batch.js surfaces failure detail (was silent: "요청에 실패" with no cause)', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalDebugFlag = process.env.DEBUG_ANTHROPIC;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    if (originalDebugFlag === undefined) delete process.env.DEBUG_ANTHROPIC;
+    else process.env.DEBUG_ANTHROPIC = originalDebugFlag;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockCreateRequest() {
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'custom_id: duplicate value' } }),
+      { status: 400 }
+    )) as unknown as typeof fetch;
+
+    const jsonBody: { status?: number; payload?: { error?: string } } = {};
+    const res = {
+      setHeader: () => {},
+      status(code: number) {
+        jsonBody.status = code;
+        return this;
+      },
+      json(payload: { error?: string }) {
+        jsonBody.payload = payload;
+      },
+      end: () => {}
+    };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({
+        action: 'create',
+        requests: [
+          { customId: 'b0', model: 'claude-sonnet-5', batchSize: 6, system: 'stable system', user: { hello: 'world' } }
+        ]
+      })
+    };
+    return { req, res, jsonBody };
+  }
+
+  it('appends the upstream detail to the response error message', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    const { req, res, jsonBody } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    expect(jsonBody.status).toBe(400);
+    expect(jsonBody.payload?.error).toContain('Anthropic batch create failed: 400');
+    expect(jsonBody.payload?.error).toContain('custom_id: duplicate value');
+  });
+
+  it('DEBUG_ANTHROPIC unset (default): no [BATCH DIAG] console noise', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    delete process.env.DEBUG_ANTHROPIC;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
+
+  it('DEBUG_ANTHROPIC=1: logs [BATCH DIAG] with the operation and upstream response', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    process.env.DEBUG_ANTHROPIC = '1';
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    const diagCalls = consoleSpy.mock.calls.map(call => call.join(' '));
+    expect(diagCalls.some(line => line.includes('[BATCH DIAG] operation=') && line.includes('create'))).toBe(true);
+    expect(diagCalls.some(line => line.includes('upstream response') && line.includes('duplicate value'))).toBe(true);
+  });
+});
+
+describe('[v3.19] api/batch.js DISABLE_PROMPT_CACHE escape hatch (diagnostic only, not carried to api/generate.js)', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFlag = process.env.DISABLE_PROMPT_CACHE;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    if (originalFlag === undefined) delete process.env.DISABLE_PROMPT_CACHE;
+    else process.env.DISABLE_PROMPT_CACHE = originalFlag;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockCreateRequest() {
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ id: 'batch_1', processing_status: 'in_progress', request_counts: null }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const res = { setHeader: () => {}, status() { return this; }, json() {}, end: () => {} };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({
+        action: 'create',
+        requests: [{
+          customId: 'b0',
+          model: 'claude-sonnet-5',
+          batchSize: 6,
+          cacheableSystemBlocks: ['STABLE RULES TEXT', 'STABLE CHANNEL BLOCK'],
+          volatileSystemText: 'Batch mode: tracks 1-6 of 12',
+          user: { hello: 'world' }
+        }]
+      })
+    };
+    return { req, res };
+  }
+
+  it('default (unset): each request still carries cache_control ephemeral blocks', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    delete process.env.DISABLE_PROMPT_CACHE;
+    const { req, res } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    const sentBody = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    expect(Array.isArray(sentBody.requests[0].params.system)).toBe(true);
+    expect(sentBody.requests[0].params.system[0].cache_control).toEqual({ type: 'ephemeral' });
+  });
+
+  it('DISABLE_PROMPT_CACHE=1: system is sent as one plain string with no cache_control', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    process.env.DISABLE_PROMPT_CACHE = '1';
+    const { req, res } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    const sentBody = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    expect(typeof sentBody.requests[0].params.system).toBe('string');
+    expect(sentBody.requests[0].params.system).not.toContain('ephemeral');
+    expect(sentBody.requests[0].params.system).toContain('STABLE RULES TEXT');
+  });
+});

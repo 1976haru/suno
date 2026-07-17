@@ -269,3 +269,85 @@ describe('[v3.16-diag2] resolveAnthropicModel', () => {
   });
 });
 
+describe('[v3.19] computeTimeoutMs scales the deadline with batchSize instead of a flat 30s', () => {
+  it('matches the documented formula: 60s + 15s/song, capped at 5 minutes', () => {
+    expect(apiInternal.computeTimeoutMs(1)).toBe(75_000);
+    expect(apiInternal.computeTimeoutMs(6)).toBe(150_000);
+    expect(apiInternal.computeTimeoutMs(10)).toBe(210_000);
+    expect(apiInternal.computeTimeoutMs(12)).toBe(240_000);
+    // 60_000 + 20*15_000 = 360_000, but capped at 300_000
+    expect(apiInternal.computeTimeoutMs(20)).toBe(300_000);
+  });
+
+  it('falls back to the batchSize=6 default for missing/invalid input', () => {
+    expect(apiInternal.computeTimeoutMs(undefined)).toBe(150_000);
+    expect(apiInternal.computeTimeoutMs(0)).toBe(150_000);
+    expect(apiInternal.computeTimeoutMs(-3)).toBe(150_000);
+    expect(apiInternal.computeTimeoutMs(NaN)).toBe(150_000);
+  });
+});
+
+describe('[v3.19] fetchWithTimeout supports a custom timeout message', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('rejects with the caller-supplied message on abort instead of the generic default', async () => {
+    global.fetch = vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => {
+        const err = new Error('aborted');
+        err.name = 'AbortError';
+        reject(err);
+      });
+    })) as unknown as typeof fetch;
+
+    await expect(
+      apiInternal.fetchWithTimeout('https://example.test', {}, 5, '응답이 오래 걸립니다. 곡 수를 줄이거나 Batch 모드를 사용하세요.')
+    ).rejects.toThrow('응답이 오래 걸립니다. 곡 수를 줄이거나 Batch 모드를 사용하세요.');
+  });
+
+  it('falls back to the generic message when no override is given', async () => {
+    global.fetch = vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => {
+        const err = new Error('aborted');
+        err.name = 'AbortError';
+        reject(err);
+      });
+    })) as unknown as typeof fetch;
+
+    await expect(apiInternal.fetchWithTimeout('https://example.test', {}, 5)).rejects.toThrow('요청이 시간 초과되었습니다.');
+  });
+});
+
+describe('[v3.19] callAnthropic wires computeTimeoutMs(batchSize) + the improved timeout message into the real request', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('the setTimeout backing the abort controller uses computeTimeoutMs(batchSize), not a flat 30s', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    global.fetch = vi.fn(async () => new Response('{"content":[{"type":"text","text":"{}"}]}', { status: 200 })) as unknown as typeof fetch;
+    const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+
+    const res = { setHeader: () => {}, status() { return this; }, json() {}, end: () => {} };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({ provider: 'anthropic', model: 'claude-sonnet-5', batchSize: 10, system: 'x', user: {} })
+    };
+
+    await generateHandler(req as never, res as never);
+
+    const timeoutValues = setTimeoutSpy.mock.calls.map(call => call[1]);
+    expect(timeoutValues).toContain(apiInternal.computeTimeoutMs(10));
+    expect(timeoutValues).not.toContain(30_000);
+  });
+});
+

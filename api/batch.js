@@ -108,9 +108,26 @@ function computeMaxTokens(batchSize) {
   return Math.min(16000, size * 1200 + 2000);
 }
 
-/** Mirrors api/generate.js's buildAnthropicSystem (kept identical on purpose so cached system blocks match byte-for-byte and Anthropic's prompt cache still hits inside a batch job). */
-function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText }) {
+/**
+ * Mirrors api/generate.js's buildAnthropicSystem (kept identical on purpose
+ * so cached system blocks match byte-for-byte and Anthropic's prompt cache
+ * still hits inside a batch job).
+ *
+ * TASK v3.19 — disableCache is a diagnostic escape hatch (env var
+ * DISABLE_PROMPT_CACHE=1) for isolating whether cache_control:ephemeral is
+ * involved in an otherwise-undiagnosed Batch API failure: it sends the same
+ * text as one plain string with no cache_control blocks at all. Not carried
+ * over to api/generate.js — the real-time path is confirmed working without
+ * it; this exists only to rule caching in/out for the still-undiagnosed
+ * batch failure.
+ */
+function buildAnthropicSystem({ system, cacheableSystemBlocks, volatileSystemText, disableCache }) {
   if (Array.isArray(cacheableSystemBlocks) && cacheableSystemBlocks.length) {
+    if (disableCache) {
+      const parts = cacheableSystemBlocks.filter(text => typeof text === 'string' && text.length);
+      if (volatileSystemText) parts.push(volatileSystemText);
+      return parts.join('\n\n');
+    }
     const blocks = cacheableSystemBlocks
       .filter(text => typeof text === 'string' && text.length)
       .map(text => ({ type: 'text', text, cache_control: { type: 'ephemeral' } }));
@@ -129,6 +146,21 @@ function anthropicHeaders(apiKey) {
 }
 
 /**
+ * TASK v3.19 — createBatch/getBatchStatus/getBatchResults/cancelBatch all
+ * built an Error with .detail on a non-2xx response but never surfaced it
+ * anywhere, so a failed batch job showed only "요청에 실패" with no way to
+ * find the actual Anthropic error. Mirrors api/generate.js's
+ * [ANTHROPIC 400 DIAG] pattern (same DEBUG_ANTHROPIC=1 gate, same
+ * error.detail -> response message plumbing in the handler catch below).
+ */
+function logBatchDiag(operation, response, detail) {
+  if (process.env.DEBUG_ANTHROPIC !== '1') return;
+  console.error('[BATCH DIAG] operation=', operation);
+  console.error('[BATCH DIAG] status=', response.status);
+  console.error('[BATCH DIAG] upstream response=', detail);
+}
+
+/**
  * TASK v3.18 — mirrors api/generate.js's TEMPERATURE_SUPPORTED: Anthropic
  * deprecated temperature/top_p/top_k on claude-sonnet-5 and the opus-4-7+
  * family (400 invalid_request_error), so it's omitted from batch params
@@ -141,13 +173,14 @@ async function createBatch({ requests, userApiKey }) {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
   if (!Array.isArray(requests) || !requests.length) throw new Error('No requests provided for the batch job.');
 
+  const promptCacheDisabled = process.env.DISABLE_PROMPT_CACHE === '1';
   const body = {
     requests: requests.map(r => {
       const model = (typeof r.model === 'string' && r.model.trim()) || 'claude-sonnet-5';
       const params = {
         model,
         max_tokens: computeMaxTokens(r.batchSize),
-        system: buildAnthropicSystem(r),
+        system: buildAnthropicSystem({ ...r, disableCache: promptCacheDisabled }),
         messages: [{ role: 'user', content: `Return JSON only.\n${JSON.stringify(r.user, null, 2)}` }]
       };
       if (TEMPERATURE_SUPPORTED.has(model)) {
@@ -165,6 +198,7 @@ async function createBatch({ requests, userApiKey }) {
 
   if (!response.ok) {
     const detail = await response.text();
+    logBatchDiag('create', response, detail);
     const error = new Error(`Anthropic batch create failed: ${response.status}`);
     error.status = response.status;
     error.detail = detail;
@@ -187,6 +221,7 @@ async function getBatchStatus({ batchId, userApiKey }) {
 
   if (!response.ok) {
     const detail = await response.text();
+    logBatchDiag('status', response, detail);
     const error = new Error(`Anthropic batch status check failed: ${response.status}`);
     error.status = response.status;
     error.detail = detail;
@@ -224,6 +259,7 @@ async function getBatchResults({ batchId, userApiKey }) {
   const response = await fetchWithTimeout(status.resultsUrl, { method: 'GET', headers: anthropicHeaders(apiKey) }, REQUEST_TIMEOUT_MS);
   if (!response.ok) {
     const detail = await response.text();
+    logBatchDiag('results', response, detail);
     const error = new Error(`Anthropic batch results fetch failed: ${response.status}`);
     error.status = response.status;
     error.detail = detail;
@@ -267,6 +303,7 @@ async function cancelBatch({ batchId, userApiKey }) {
 
   if (!response.ok) {
     const detail = await response.text();
+    logBatchDiag('cancel', response, detail);
     const error = new Error(`Anthropic batch cancel failed: ${response.status}`);
     error.status = response.status;
     error.detail = detail;
@@ -329,14 +366,15 @@ export default async function handler(req, res) {
     sendError(res, 400, 'Unknown or missing action.');
   } catch (error) {
     const status = error?.status && Number.isInteger(error.status) ? error.status : 500;
-    const message = status === 401
+    const baseMessage = status === 401
       ? 'API 키가 올바르지 않습니다.'
       : status === 429
         ? '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.'
         : (error instanceof Error ? error.message : String(error));
+    const message = error?.detail ? `${baseMessage} :: ${String(error.detail).slice(0, 500)}` : baseMessage;
     sendError(res, status, message);
   }
 }
 
 // exported for tests only
-export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken };
+export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED };

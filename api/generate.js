@@ -105,19 +105,33 @@ function computeMaxTokens(batchSize) {
   return Math.min(16000, size * 1200 + 2000);
 }
 
-async function fetchWithTimeout(url, init, timeoutMs) {
+async function fetchWithTimeout(url, init, timeoutMs, timeoutMessage = '요청이 시간 초과되었습니다. 곡 수를 줄이고 다시 시도하세요.') {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error('요청이 시간 초과되었습니다. 곡 수를 줄이고 다시 시도하세요.');
+      throw new Error(timeoutMessage);
     }
     throw error;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * TASK v3.19 — REQUEST_TIMEOUT_MS was a flat 30s, so a real-time (non-batch)
+ * request for more than a couple of songs aborted before Anthropic finished
+ * generating the larger output — the previous timeout error blamed "too many
+ * songs" but the real fix is scaling the deadline with the actual output
+ * size (computeMaxTokens already scales the same way). Capped at 5 minutes;
+ * a deployment on a shorter serverless function limit (Vercel Hobby: 10s)
+ * should push large jobs through /api/batch instead of raising this further.
+ */
+function computeTimeoutMs(batchSize) {
+  const size = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 ? Number(batchSize) : 6;
+  return Math.min(300_000, 60_000 + size * 15_000);
 }
 
 async function callOpenAI({ model, temperature, system, user, batchSize, userApiKey }) {
@@ -244,7 +258,7 @@ async function callAnthropic({ model, temperature, system, cacheableSystemBlocks
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify(requestBody)
-  }, REQUEST_TIMEOUT_MS);
+  }, computeTimeoutMs(batchSize), '응답이 오래 걸립니다. 곡 수를 줄이거나 Batch 모드를 사용하세요.');
 
   if (!response.ok) {
     const detail = await response.text();
@@ -394,4 +408,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only; never logs key material
-export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED };
+export const __internal = { maskKey, computeMaxTokens, safeParseBlueprint, buildAnthropicSystem, resolveCorsOrigin, checkAccessToken, clampAnthropicTemperature, resolveAnthropicModel, TEMPERATURE_SUPPORTED, computeTimeoutMs, fetchWithTimeout };
