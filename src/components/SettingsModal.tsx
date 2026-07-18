@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Trash2, X } from 'lucide-react';
 import type { ChannelProfile, ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
-import { clearUsage, usageSummary, type UsageSummary } from '../core/usageLedger';
+import { clearUsage, estimateCacheSavingsKrw, usageSummary, type UsageSummary } from '../core/usageLedger';
 import { cacheStats, clearCache, type CacheStats } from '../core/apiCache';
 import { channelCapacityForecast, clearChannelHistory, forgetUsage, listChannelUsage, type ChannelCapacityForecast, type HookUsage } from '../core/hookLedger';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
@@ -335,6 +335,18 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             : '작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.'}
         </p>
 
+        <label className="persona-toggle">
+          <input
+            type="checkbox"
+            checked={Boolean(settings.generateThumbnailText)}
+            onChange={event => onChange({ ...settings, generateThumbnailText: event.target.checked })}
+          />
+          <span>
+            썸네일 문구 생성
+            <small>썸네일을 직접 제작하는 경우 꺼두세요. 기본값은 꺼짐이며, 켜면 API가 곡마다 썸네일 문구도 함께 생성합니다.</small>
+          </span>
+        </label>
+
         <label>스타일 프롬프트 길이 상한 (자)</label>
         <div className="chips">
           <button type="button" className={(settings.promptCharLimit || SUNO_COPY_LIMIT) === SUNO_COPY_LIMIT ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, promptCharLimit: SUNO_COPY_LIMIT })}>
@@ -361,7 +373,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             <div><b>총 호출</b><span>{usage.totalCalls}회</span></div>
             <div><b>입력 토큰</b><span>{usage.totalInput.toLocaleString()}</span></div>
             <div><b>출력 토큰</b><span>{usage.totalOutput.toLocaleString()}</span></div>
-            <div><b>캐시로 절약</b><span>{usage.cacheHits}회 호출</span></div>
+            <div><b>동일 요청 재사용</b><span>{usage.cacheHits}회 호출</span></div>
             <div>
               <b>프롬프트 캐시 읽기 토큰</b>
               <span>
@@ -369,6 +381,16 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
                 {usage.totalCacheReadTokens === 0 && ' (Claude로 2배치 이상 생성하면 0보다 커야 정상입니다)'}
               </span>
             </div>
+            {usage.totalCacheReadTokens > 0 && (
+              <div>
+                <b>프롬프트 캐시로 절약</b>
+                <span>
+                  {inputPrice != null
+                    ? `약 ${Math.round(estimateCacheSavingsKrw(usage.totalCacheReadTokens, Number(inputPrice)) || 0).toLocaleString()}원`
+                    : '입력 단가를 등록하면 절약액을 계산합니다'}
+                </span>
+              </div>
+            )}
             <div style={{ gridColumn: '1 / -1' }}>
               <b>용도별</b>
               <span>

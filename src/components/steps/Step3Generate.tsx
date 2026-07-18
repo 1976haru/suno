@@ -82,8 +82,8 @@ export default function Step3Generate({
   // Representative preview of the first batch — later batches add accumulated
   // usedTitles/usedHooks, called out in the modal's own copy.
   const previewBatch: BatchContext = { trackNoOffset: 0, totalSongCount: opts.songCount, usedTitles: [], usedHooks: [], lockedIdentity: null };
-  const previewSystemPrompt = buildSystemInstruction(opts, previewBatch);
-  const previewUserPrompt = JSON.stringify(buildUserInstruction(opts, genres, moods, season, previewBatch), null, 2);
+  const previewSystemPrompt = buildSystemInstruction(opts, previewBatch, undefined, provider.generateThumbnailText ?? false);
+  const previewUserPrompt = JSON.stringify(buildUserInstruction(opts, genres, moods, season, previewBatch, provider.generateThumbnailText ?? false), null, 2);
 
   return (
     <section className="panel">

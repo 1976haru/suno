@@ -224,6 +224,28 @@ async function createBatch({ requests, userApiKey }) {
     })
   };
 
+  // TASK v3.23 — before submitting, log a summary of what's actually being
+  // sent: item count, whether every custom_id is present and unique, and
+  // per-item model/max_tokens/temperature-presence, so a batch create
+  // failure (or a suspiciously-small cache hit once results come back) can
+  // be cross-checked against the exact request shape without re-running the
+  // job. Gated behind DEBUG_ANTHROPIC=1 like every other [BATCH DIAG] line.
+  if (process.env.DEBUG_ANTHROPIC === '1') {
+    const customIds = body.requests.map(r => r.custom_id);
+    const uniqueCustomIds = new Set(customIds.filter(Boolean));
+    console.error(
+      '[BATCH DIAG] request summary: itemCount=', body.requests.length,
+      'allHaveCustomId=', customIds.every(Boolean),
+      'duplicateCustomIds=', customIds.length !== uniqueCustomIds.size,
+      'items=', JSON.stringify(body.requests.map(r => ({
+        customId: r.custom_id,
+        model: r.params.model,
+        maxTokens: r.params.max_tokens,
+        hasTemperature: 'temperature' in r.params
+      })))
+    );
+  }
+
   const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages/batches', {
     method: 'POST',
     headers: anthropicHeaders(apiKey),

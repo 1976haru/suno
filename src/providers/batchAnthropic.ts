@@ -69,8 +69,9 @@ export function buildBatchRequestSpecs(
 ): BatchRequestSpec[] {
   const size = Math.min(12, Math.max(1, Math.round(batchSize || DEFAULT_BATCH_SIZE)));
   const batches = chunkRange(opts.songCount, size);
-  const stableSystem = buildSystemInstruction(opts);
-  const channelBlock = buildChannelSystemBlock(opts, genres, moods, season);
+  const generateThumbnailText = settings.generateThumbnailText ?? false;
+  const stableSystem = buildSystemInstruction(opts, undefined, undefined, generateThumbnailText);
+  const channelBlock = buildChannelSystemBlock(opts, genres, moods, season, generateThumbnailText);
   const model = settings.model || defaultModelFor('anthropic');
 
   return batches.map((trackNumbers, index) => {
@@ -91,7 +92,7 @@ export function buildBatchRequestSpecs(
       model,
       temperature: settings.temperature,
       cacheableSystemBlocks: [stableSystem, channelBlock],
-      volatileSystemText: buildBatchSystemNote(batchOpts, batchContext),
+      volatileSystemText: buildBatchSystemNote(batchOpts, batchContext, generateThumbnailText),
       user: buildAnthropicUserPayload(batchOpts, batchContext)
     };
   });

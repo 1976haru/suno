@@ -98,6 +98,24 @@ describe('[E1] usage ledger tracks cache-read tokens', () => {
   });
 });
 
+describe('[v3.23] estimateCacheSavingsKrw turns raw cache-read tokens into a concrete KRW figure', () => {
+  it('applies a 90% discount vs. the input price (cache reads bill at 10% of input price)', async () => {
+    const { estimateCacheSavingsKrw } = await import('../src/core/usageLedger');
+    // 8,210 tokens at 3,000 KRW/1M input price: (8210/1_000_000) * 3000 * 0.9
+    expect(estimateCacheSavingsKrw(8210, 3000)).toBeCloseTo(8210 / 1_000_000 * 3000 * 0.9, 6);
+  });
+
+  it('returns null when no input price is registered, so the UI can prompt for one instead of showing "0원"', async () => {
+    const { estimateCacheSavingsKrw } = await import('../src/core/usageLedger');
+    expect(estimateCacheSavingsKrw(8210, null)).toBeNull();
+  });
+
+  it('returns null for 0 (or negative) cache-read tokens, not a spurious "0원"', async () => {
+    const { estimateCacheSavingsKrw } = await import('../src/core/usageLedger');
+    expect(estimateCacheSavingsKrw(0, 3000)).toBeNull();
+  });
+});
+
 describe('[v3.16-diag] Anthropic temperature clamp', () => {
   it("clampAnthropicTemperature caps the SettingsModal's 0.2-1.2 slider range to Anthropic's accepted 0-1", () => {
     // SettingsModal.tsx's shared slider allows up to 1.2 (tuned for OpenAI's
@@ -726,8 +744,8 @@ describe('[v3.22] TRUNCATED is reserved for a real stop_reason/finish_reason sig
   });
 });
 
-describe('[v3.23] thumbnailText removed from the API schema/prompt (user makes thumbnails externally)', () => {
-  it('neither outputShape (Anthropic cacheable block or OpenAI user instruction) asks for a per-song thumbnailText, top-level or nested in youtube', () => {
+describe('[v3.23] thumbnailText generation is an off-by-default toggle (generateThumbnailText), not a permanent removal', () => {
+  it('default (generateThumbnailText omitted/false): neither outputShape (Anthropic cacheable block or OpenAI user instruction) asks for a per-song thumbnailText, top-level or nested in youtube', () => {
     const opts = makeOptions();
     const channelBlock = buildChannelSystemBlock(opts, testGenres, testMoods, testSeason);
     const userInstruction = buildUserInstruction(opts, testGenres, testMoods, testSeason);
@@ -736,17 +754,34 @@ describe('[v3.23] thumbnailText removed from the API schema/prompt (user makes t
     expect(JSON.stringify(userInstruction)).not.toContain('thumbnailText');
   });
 
-  it('the stable system instruction no longer asks the model to write thumbnail text', () => {
+  it('generateThumbnailText=true: outputShape asks for a per-song thumbnailText again, both top-level and nested in youtube', () => {
+    const opts = makeOptions();
+    const channelBlock = buildChannelSystemBlock(opts, testGenres, testMoods, testSeason, true);
+    const userInstruction = buildUserInstruction(opts, testGenres, testMoods, testSeason, undefined, true);
+
+    expect(channelBlock).toContain('thumbnailText');
+    expect(JSON.stringify(userInstruction)).toContain('thumbnailText');
+  });
+
+  it('default (false): the stable system instruction does not ask the model to write thumbnail text', () => {
     const opts = makeOptions();
     const system = buildSystemInstruction(opts);
 
     expect(system).toContain('Include YouTube title, description, and tags for every song.');
     expect(system).not.toContain('thumbnail text for every song');
-    // the stylePrompt-pollution guard is unrelated to per-song thumbnail *generation* and must stay
+    // the stylePrompt-pollution guard is unrelated to per-song thumbnail *generation* and must always stay, flag or no flag
     expect(system).toContain('thumbnail art-direction language');
   });
 
-  it('batchPlanning no longer tells the model to avoid repeating a "thumbnail phrase" (nothing generates one anymore)', () => {
+  it('generateThumbnailText=true: the stable system instruction asks the model to write thumbnail text, and the guard still stays', () => {
+    const opts = makeOptions();
+    const system = buildSystemInstruction(opts, undefined, undefined, true);
+
+    expect(system).toContain('Include YouTube title, description, tags, and thumbnail text for every song.');
+    expect(system).toContain('thumbnail art-direction language');
+  });
+
+  it('default (false): batchPlanning does not tell the model to avoid repeating a "thumbnail phrase" (nothing generates one)', () => {
     const opts = makeOptions();
     const channelBlock = buildChannelSystemBlock(opts, testGenres, testMoods, testSeason);
     const userInstruction = buildUserInstruction(opts, testGenres, testMoods, testSeason);
@@ -756,7 +791,14 @@ describe('[v3.23] thumbnailText removed from the API schema/prompt (user makes t
     expect(channelBlock).toContain('Avoid repeating the same opening image or chorus first line.');
   });
 
-  it('the preassignedSongs batch note no longer lists thumbnailText among the fields the model still writes freely', () => {
+  it('generateThumbnailText=true: batchPlanning tells the model to avoid repeating a "thumbnail phrase"', () => {
+    const opts = makeOptions();
+    const channelBlock = buildChannelSystemBlock(opts, testGenres, testMoods, testSeason, true);
+
+    expect(channelBlock).toContain('thumbnail phrase');
+  });
+
+  it('default (false): the preassignedSongs batch note does not list thumbnailText among the fields the model still writes freely', () => {
     const opts = makeOptions();
     const slots: PreassignedSongSlot[] = [
       { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
@@ -773,6 +815,24 @@ describe('[v3.23] thumbnailText removed from the API schema/prompt (user makes t
 
     expect(note).toContain('preassignedSongs');
     expect(note).not.toContain('thumbnailText');
+  });
+
+  it('generateThumbnailText=true: the preassignedSongs batch note lists thumbnailText among the fields the model still writes freely', () => {
+    const opts = makeOptions();
+    const slots: PreassignedSongSlot[] = [
+      { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
+    ];
+    const batch: BatchContext = {
+      trackNoOffset: 0,
+      totalSongCount: 1,
+      usedTitles: [],
+      usedHooks: [],
+      lockedIdentity: null,
+      preassignedSongs: slots
+    };
+    const note = buildBatchSystemNote(opts, batch, true);
+
+    expect(note).toContain('thumbnailText');
   });
 });
 

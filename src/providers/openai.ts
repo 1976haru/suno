@@ -23,8 +23,8 @@ export async function generateWithOpenAI(
     model,
     temperature: settings.temperature,
     batchSize: opts.songCount,
-    system: buildSystemInstruction(opts, batch),
-    user: buildUserInstruction(opts, genres, moods, season, batch)
+    system: buildSystemInstruction(opts, batch, undefined, settings.generateThumbnailText ?? false),
+    user: buildUserInstruction(opts, genres, moods, season, batch, settings.generateThumbnailText ?? false)
   });
 
   return {

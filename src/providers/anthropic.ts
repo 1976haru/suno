@@ -35,8 +35,8 @@ export async function generateWithAnthropic(
     // this specific chunk's size) so the cacheable "Generate N songs" line
     // stays byte-identical across differently-sized chunks of the same
     // pack; see buildSystemInstruction's totalSongCountOverride comment.
-    cacheableSystemBlocks: [buildSystemInstruction(opts, undefined, batch?.totalSongCount ?? opts.songCount), buildChannelSystemBlock(opts, genres, moods, season)],
-    volatileSystemText: batch ? buildBatchSystemNote(opts, batch) : '',
+    cacheableSystemBlocks: [buildSystemInstruction(opts, undefined, batch?.totalSongCount ?? opts.songCount, settings.generateThumbnailText ?? false), buildChannelSystemBlock(opts, genres, moods, season, settings.generateThumbnailText ?? false)],
+    volatileSystemText: batch ? buildBatchSystemNote(opts, batch, settings.generateThumbnailText ?? false) : '',
     user: buildAnthropicUserPayload(opts, batch)
   });
 

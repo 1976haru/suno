@@ -400,7 +400,7 @@ export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOp
  * cache actually hit on batch 2+ — a single interpolated string that changes
  * every call can never be a stable cache prefix.
  */
-export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContext): string {
+export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContext, generateThumbnailText = false): string {
   const hasOpeningRoleSlot = batch.preassignedSongs?.some(slot => slot.songRole === 'cold-open' || slot.songRole === 'flagship');
   // TASK I1 (v3.11) — the preassigned songRole string alone ('cold-open',
   // 'flagship') doesn't tell a remote model what those roles mean; this is
@@ -410,8 +410,16 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const openingRoleNote = hasOpeningRoleSlot
     ? `\n- A song whose preassigned songRole is "cold-open": open with the hook itself, no instrumental intro — lyrics and stylePrompt should reflect "hook heard immediately". A song whose songRole is "flagship": keep it representative and catchy but only light-to-medium emotional weight, never as heavy as a late-pack emotional peak.`
     : '';
+  // TASK v3.23 — branch, don't delete: generateThumbnailText (default off —
+  // the user makes thumbnails externally) toggles whether thumbnailText is
+  // still one of the fields the model writes freely around the fixed
+  // preassigned ones, so it can be switched back on later without
+  // reintroducing this whole note from scratch.
+  const preassignedFreeFields = generateThumbnailText
+    ? 'lyrics, stylePrompt, seasonMoment, listenerSituation, thumbnailText, youtube'
+    : 'lyrics, stylePrompt, seasonMoment, listenerSituation, youtube';
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (lyrics, stylePrompt, seasonMoment, listenerSituation, youtube) around them. This is what keeps parallel batches from colliding on title/hook.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (${preassignedFreeFields}) around them. This is what keeps parallel batches from colliding on title/hook.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -443,12 +451,17 @@ const EARWORM_SYSTEM_NOTE = '\n\nEarworm mode is on for this request:\n- Prefer 
  * byte-identical across every chunk of the same pack without also inlining
  * the (correctly volatile) batch note a second time.
  */
-export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext, totalSongCountOverride?: number) {
-  const batchNote = batch ? buildBatchSystemNote(opts, batch) : '';
+export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext, totalSongCountOverride?: number, generateThumbnailText = false) {
+  const batchNote = batch ? buildBatchSystemNote(opts, batch, generateThumbnailText) : '';
   const earwormNote = opts.earwormMode ? EARWORM_SYSTEM_NOTE : '';
   const totalSongCount = totalSongCountOverride ?? batch?.totalSongCount ?? opts.songCount;
 
   const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
+  // TASK v3.23 — branch, don't delete: default off (user makes thumbnails
+  // externally) drops the ask and the schema field; on restores both.
+  const youtubeMetadataLine = generateThumbnailText
+    ? '- Include YouTube title, description, tags, and thumbnail text for every song.'
+    : '- Include YouTube title, description, and tags for every song.';
 
   return `You are Suno Weaver Studio, a commercial playlist song planner. Generate original Suno-ready style prompts, lyrics, and YouTube metadata.
 
@@ -461,7 +474,7 @@ Rules:
 - Sequence the songs naturally: opener, early lift, middle depth, late-set highlight, warm closer.
 - Lyrics must use Suno section tags and must be ready to paste separately from the style prompt.
 - Keep song length controlled for ${opts.durationTarget}.
-- Include YouTube title, description, and tags for every song.
+${youtubeMetadataLine}
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.
 - CRITICAL: Return ONLY the JSON object. No markdown, no code fences (no \`\`\`), no prose, no explanation, and no closing remarks before or after it. The response must start with { and end with } — nothing else outside those two characters.
 - CRITICAL: Every string value must itself be valid JSON. Encode every line break inside "lyrics" (or any other field) as the two characters \\n, never a literal newline — a raw newline inside a JSON string makes the whole response unparseable. Escape any literal double-quote character inside a string as \\".
@@ -478,7 +491,55 @@ Safety rules:
 ${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${earwormNote}${batchNote}`;
 }
 
-export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext) {
+/**
+ * TASK v3.23 — shared by buildUserInstruction (OpenAI) and
+ * buildChannelSystemBlock (Anthropic's cacheable block), which otherwise
+ * duplicate this exact array/schema. Keeping one shared source instead of
+ * two hand-copies is what stops them drifting out of sync — see TASK
+ * v3.21's comment on buildSystemInstruction for the caching bug that exact
+ * kind of drift caused once before (a schema value that silently varied
+ * between what should have been byte-identical cached blocks).
+ */
+function batchPlanningBullets(generateThumbnailText: boolean): string[] {
+  return [
+    'Use one recurring visual motif across the pack, but do not repeat the same lyric line.',
+    'Track 1 should introduce the playlist identity clearly.',
+    'Tracks 2-5 should establish variety without breaking the channel promise.',
+    'Middle tracks should add emotional depth and different listener situations.',
+    'Final tracks should resolve warmly and feel like a natural closer.',
+    generateThumbnailText
+      ? 'Avoid repeating the same opening image, chorus first line, or thumbnail phrase.'
+      : 'Avoid repeating the same opening image or chorus first line.',
+    'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
+  ];
+}
+
+/** TASK v3.23 — see batchPlanningBullets' comment; the per-song output schema shared by both outputShape blocks. */
+function songOutputShape(generateThumbnailText: boolean) {
+  return {
+    trackNo: 1,
+    title: 'string',
+    seasonMoment: 'string',
+    listenerSituation: 'string',
+    emotionArc: 'string',
+    hookPhrase: 'string',
+    stylePrompt: 'string',
+    lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
+    ...(generateThumbnailText ? { thumbnailText: 'string' } : {}),
+    youtube: {
+      title: 'string',
+      description: 'string',
+      tags: ['string'],
+      ...(generateThumbnailText ? { thumbnailText: 'string' } : {})
+    },
+    youtubeTitleKo: 'string optional',
+    youtubeTitleJa: 'string optional',
+    qualityScore: 0,
+    warnings: []
+  };
+}
+
+export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext, generateThumbnailText = false) {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
 
   return {
@@ -505,15 +566,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     alreadyUsedTitles: batch?.usedTitles ?? [],
     alreadyUsedHooks: batch?.usedHooks ?? [],
     lockedIdentity: batch?.lockedIdentity ?? null,
-    batchPlanning: [
-      'Use one recurring visual motif across the pack, but do not repeat the same lyric line.',
-      'Track 1 should introduce the playlist identity clearly.',
-      'Tracks 2-5 should establish variety without breaking the channel promise.',
-      'Middle tracks should add emotional depth and different listener situations.',
-      'Final tracks should resolve warmly and feel like a natural closer.',
-      'Avoid repeating the same opening image or chorus first line.',
-      'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
-    ],
+    batchPlanning: batchPlanningBullets(generateThumbnailText),
     outputShape: {
       projectTitle: 'string',
       channelName: 'string',
@@ -523,27 +576,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
       lyricRules: ['string'],
       harmonyRules: ['string'],
       visualRules: ['string'],
-      songs: [
-        {
-          trackNo: 1,
-          title: 'string',
-          seasonMoment: 'string',
-          listenerSituation: 'string',
-          emotionArc: 'string',
-          hookPhrase: 'string',
-          stylePrompt: 'string',
-          lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
-          youtube: {
-            title: 'string',
-            description: 'string',
-            tags: ['string']
-          },
-          youtubeTitleKo: 'string optional',
-          youtubeTitleJa: 'string optional',
-          qualityScore: 0,
-          warnings: []
-        }
-      ]
+      songs: [songOutputShape(generateThumbnailText)]
     }
   };
 }
@@ -557,7 +590,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
  * inside every batch's user message — that's most of the token bulk in a
  * typical request, and it never changes within a run.
  */
-export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): string {
+export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, generateThumbnailText = false): string {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const block = {
     channel: opts.channel,
@@ -565,15 +598,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
     genrePacks: genres,
     moodPacks: moods,
     season,
-    batchPlanning: [
-      'Use one recurring visual motif across the pack, but do not repeat the same lyric line.',
-      'Track 1 should introduce the playlist identity clearly.',
-      'Tracks 2-5 should establish variety without breaking the channel promise.',
-      'Middle tracks should add emotional depth and different listener situations.',
-      'Final tracks should resolve warmly and feel like a natural closer.',
-      'Avoid repeating the same opening image or chorus first line.',
-      'Never repeat any title or hook phrase from alreadyUsedTitles / alreadyUsedHooks.'
-    ],
+    batchPlanning: batchPlanningBullets(generateThumbnailText),
     outputShape: {
       projectTitle: 'string',
       channelName: 'string',
@@ -583,27 +608,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
       lyricRules: ['string'],
       harmonyRules: ['string'],
       visualRules: ['string'],
-      songs: [
-        {
-          trackNo: 1,
-          title: 'string',
-          seasonMoment: 'string',
-          listenerSituation: 'string',
-          emotionArc: 'string',
-          hookPhrase: 'string',
-          stylePrompt: 'string',
-          lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
-          youtube: {
-            title: 'string',
-            description: 'string',
-            tags: ['string']
-          },
-          youtubeTitleKo: 'string optional',
-          youtubeTitleJa: 'string optional',
-          qualityScore: 0,
-          warnings: []
-        }
-      ]
+      songs: [songOutputShape(generateThumbnailText)]
     }
   };
   return `Channel profile and output schema for this generation run (stable across every batch):\n${JSON.stringify(block, null, 2)}`;

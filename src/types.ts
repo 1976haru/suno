@@ -210,6 +210,8 @@ export interface ProviderSettings {
   promptCharLimit?: number;
   /** TASK D3 (v3.5) — optional per-stage model override (lyrics vs evaluation). Only applied when provider is 'anthropic'; unset means every stage just uses this ProviderSettings as-is (pre-v3.5 behavior). */
   stageModels?: { lyrics: 'local' | 'sonnet' | 'haiku'; evaluation: 'local' | 'sonnet' | 'haiku' };
+  /** TASK v3.23 — off by default; most users make thumbnails externally. When true, the API is asked to generate thumbnailText again (song.thumbnailText / song.youtube.thumbnailText). */
+  generateThumbnailText?: boolean;
 }
 
 export interface PlaylistIdentity {

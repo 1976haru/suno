@@ -259,6 +259,71 @@ describe('[v3.19] api/batch.js surfaces failure detail (was silent: "요청에 �
   });
 });
 
+describe('[v3.23] api/batch.js logs a request body summary on create when DEBUG_ANTHROPIC=1', () => {
+  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalFlag = process.env.DEBUG_ANTHROPIC;
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = originalKey;
+    if (originalFlag === undefined) delete process.env.DEBUG_ANTHROPIC;
+    else process.env.DEBUG_ANTHROPIC = originalFlag;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockCreateRequest() {
+    global.fetch = vi.fn(async () => new Response(
+      JSON.stringify({ id: 'batch_1', processing_status: 'in_progress', request_counts: null }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+    const res = { setHeader: () => {}, status() { return this; }, json() {}, end: () => {} };
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({
+        action: 'create',
+        requests: [
+          { customId: 'b0', model: 'claude-sonnet-5', batchSize: 6, system: 'stable system', user: { hello: 'world' } },
+          { customId: 'b1', model: 'claude-sonnet-5', batchSize: 6, system: 'stable system', user: { hello: 'world2' } }
+        ]
+      })
+    };
+    return { req, res };
+  }
+
+  it('DEBUG_ANTHROPIC unset (default): no request-summary log', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    delete process.env.DEBUG_ANTHROPIC;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+  });
+
+  it('DEBUG_ANTHROPIC=1: logs item count, custom_id uniqueness, and per-item model/max_tokens/temperature presence', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+    process.env.DEBUG_ANTHROPIC = '1';
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { req, res } = mockCreateRequest();
+
+    await batchHandler(req as never, res as never);
+
+    const diagCalls = consoleSpy.mock.calls.map(call => call.join(' '));
+    const summaryLine = diagCalls.find(line => line.includes('[BATCH DIAG] request summary'));
+    expect(summaryLine).toBeDefined();
+    expect(summaryLine).toContain('itemCount= 2');
+    expect(summaryLine).toContain('allHaveCustomId= true');
+    expect(summaryLine).toContain('duplicateCustomIds= false');
+    expect(summaryLine).toContain('claude-sonnet-5');
+    // temperature is excluded on claude-sonnet-5 (TEMPERATURE_SUPPORTED), so hasTemperature must be false
+    expect(summaryLine).toContain('"hasTemperature":false');
+  });
+});
+
 describe('[v3.19] api/batch.js DISABLE_PROMPT_CACHE escape hatch (diagnostic only, not carried to api/generate.js)', () => {
   const originalKey = process.env.ANTHROPIC_API_KEY;
   const originalFlag = process.env.DISABLE_PROMPT_CACHE;

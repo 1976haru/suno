@@ -89,3 +89,19 @@ export async function listUsage(since?: string): Promise<UsageRecord[]> {
 export async function clearUsage(): Promise<void> {
   await withStore('readwrite', store => store.clear());
 }
+
+/**
+ * TASK v3.23 — a real 40-song run showed totalCacheReadTokens=8,210 (prompt
+ * caching genuinely hitting) right next to a "캐시로 절약: 0회 호출" row, which
+ * measures a completely different thing (core/apiCache.ts whole-response
+ * skip count — always 0 for real, non-identical generations). That reads as
+ * "caching isn't working" even though it is; this turns the raw cache-read
+ * token count into a concrete KRW figure so the savings are visible as a
+ * number instead of implied by a token count next to an unrelated zero.
+ * Anthropic bills a prompt-cache read at 10% of the normal input-token price
+ * (a 90% discount vs. paying full price for the same tokens again).
+ */
+export function estimateCacheSavingsKrw(totalCacheReadTokens: number, inputPricePerM: number | null): number | null {
+  if (inputPricePerM == null || Number.isNaN(inputPricePerM) || totalCacheReadTokens <= 0) return null;
+  return (totalCacheReadTokens / 1_000_000) * inputPricePerM * 0.9;
+}
