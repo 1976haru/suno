@@ -23,6 +23,8 @@ import { regenerateTrack } from './providers';
 import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
+import { preallocateSongSlots } from './core/batchPreallocation';
+import { importSongsJson, type ImportSongsReport } from './core/claudeCodeBridge';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { createInitialOptions } from './utils/generation';
@@ -250,6 +252,28 @@ export default function App() {
     gen.setBlueprint(next);
     setCurrentStep(4);
     void handleGenerationSuccess(next, next.songs.length);
+  }
+
+  /**
+   * TASK v3.24 — the Claude Code bridge's "곡 JSON 가져오기" path: an imported
+   * blueprint goes through the exact same success handler (autosave,
+   * hookLedger registration, library refresh) the realtime and Batch API
+   * paths already share above, so a song's origin never changes what
+   * happens to it once it's in the app.
+   */
+  async function onImportSongsJson(file: File): Promise<ImportSongsReport> {
+    const text = await file.text();
+    const importOpts = { ...opts, channel: cm.selectedChannel };
+    const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+    const preassignedSongs = preallocateSongSlots(importOpts, fallbackGenres(), avoid);
+    const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs);
+    if (report.blueprint) {
+      evalFlow.setEvaluation(null);
+      gen.setBlueprint(report.blueprint);
+      setCurrentStep(4);
+      await handleGenerationSuccess(report.blueprint, report.blueprint.songs.length);
+    }
+    return report;
   }
 
   async function onGenerate() {
@@ -558,6 +582,7 @@ export default function App() {
               onCancelBatchJob={onCancelBatchJob}
               onRetryFailedBatchJob={onRetryFailedBatchJob}
               onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
+              onImportSongsJson={onImportSongsJson}
             />
           )}
 

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Coins, Info, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Coins, Copy, Download, FileJson, Info, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
 import { clampSongCount } from '../../utils/generation';
 import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
@@ -7,6 +7,10 @@ import { buildSystemInstruction, buildUserInstruction } from '../../core/promptC
 import { channelExhaustionStats, type ExhaustionStats } from '../../core/hookLedger';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
+import { safeAvoidSet } from '../../hooks/useGenerationFlow';
+import { preallocateSongSlots } from '../../core/batchPreallocation';
+import { buildClaudeCodeInstruction, type ImportSongsReport } from '../../core/claudeCodeBridge';
+import { copyText, downloadText } from '../../utils/exporters';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
@@ -41,11 +45,14 @@ interface Step3GenerateProps {
   onCancelBatchJob: () => void;
   onRetryFailedBatchJob: () => void;
   onRegenerateMissingBatchTracks: () => void;
+  /** TASK v3.24 — Claude Code bridge: reads a coding agent's songs-output.json back in, runs it through the same quality/safety pipeline as any API-generated pack, and returns a report of what was imported vs. skipped. */
+  onImportSongsJson: (file: File) => Promise<ImportSongsReport>;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
-  hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks
+  hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
+  onImportSongsJson
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -57,11 +64,29 @@ export default function Step3Generate({
   const [outputPrice, setOutputPrice] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [hookStats, setHookStats] = useState<ExhaustionStats | null>(null);
+  const [bridgeAvoid, setBridgeAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });
+  const [bridgeCopied, setBridgeCopied] = useState(false);
+  const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value ? Number(value) : null));
     void getSetting<string>('pricing:outputPerM').then(value => setOutputPrice(value ? Number(value) : null));
   }, []);
+
+  // TASK v3.24 — the Claude Code bridge instruction needs the same
+  // cross-pack usedTitles/usedHooks avoid-list as a real generation call
+  // (see hooks/useGenerationFlow.ts's safeAvoidSet), so a coding agent's
+  // output doesn't collide with a channel's prior packs either.
+  useEffect(() => {
+    let cancelled = false;
+    void safeAvoidSet(opts.channel.id, opts.lyricLanguage).then(avoid => {
+      if (!cancelled) setBridgeAvoid({ usedTitles: avoid.usedTitles ?? [], usedHooks: avoid.usedHooks ?? [] });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.channel.id, opts.lyricLanguage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +109,39 @@ export default function Step3Generate({
   const previewBatch: BatchContext = { trackNoOffset: 0, totalSongCount: opts.songCount, usedTitles: [], usedHooks: [], lockedIdentity: null };
   const previewSystemPrompt = buildSystemInstruction(opts, previewBatch, undefined, provider.generateThumbnailText ?? false);
   const previewUserPrompt = JSON.stringify(buildUserInstruction(opts, genres, moods, season, previewBatch, provider.generateThumbnailText ?? false), null, 2);
+
+  // TASK v3.24 — same locally pre-decided title/hook assignment the Batch
+  // API path already uses (preallocateSongSlots), so a coding agent's
+  // free-form generation can't collide with itself across tracks, and the
+  // import step below can reconcile against the same slots.
+  const bridgePreassignedSongs = useMemo(
+    () => preallocateSongSlots(opts, genres, bridgeAvoid),
+    [opts, genres, bridgeAvoid]
+  );
+  const claudeCodeInstruction = useMemo(
+    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false),
+    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText]
+  );
+
+  async function handleCopyClaudeCodeInstruction() {
+    await copyText(claudeCodeInstruction);
+    setBridgeCopied(true);
+    setTimeout(() => setBridgeCopied(false), 2000);
+  }
+
+  function handleDownloadClaudeCodeInstruction() {
+    downloadText('claude-code-instruction.txt', claudeCodeInstruction, 'text/plain;charset=utf-8');
+  }
+
+  async function handleImportSongsFile(file: File) {
+    setIsImporting(true);
+    try {
+      const report = await onImportSongsJson(file);
+      setImportReport(report);
+    } finally {
+      setIsImporting(false);
+    }
+  }
 
   return (
     <section className="panel">
@@ -255,6 +313,53 @@ export default function Step3Generate({
           </button>
         </div>
       )}
+
+      <div className="provider-summary">
+        <div className="panel-title">
+          <FileJson size={18} />
+          <h2>Claude Code 브릿지 (API 비용 0)</h2>
+        </div>
+        <p className="supporting">
+          정액제 코딩 에이전트(Claude Code, Codex 등)로 곡을 만들어 API 비용을 0으로 만드는 경로입니다.
+          아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
+          그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
+          정액제 서비스의 대량 사용은 해당 서비스 약관을 직접 확인하세요.
+        </p>
+        <div className="button-row">
+          <button type="button" onClick={() => void handleCopyClaudeCodeInstruction()}>
+            <Copy size={16} />
+            {bridgeCopied ? '복사됨 ✅' : 'Claude Code용 지시문 복사'}
+          </button>
+          <button type="button" onClick={handleDownloadClaudeCodeInstruction}>
+            <Download size={16} />
+            .txt로 다운로드
+          </button>
+          <label className="import-button" title="Claude Code가 만든 songs-output.json 가져오기">
+            <input
+              type="file"
+              accept="application/json"
+              style={{ display: 'none' }}
+              onChange={event => {
+                const file = event.target.files?.[0];
+                if (file) void handleImportSongsFile(file);
+                event.target.value = '';
+              }}
+            />
+            <FileJson size={16} />
+            {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
+          </label>
+        </div>
+        {importReport && (
+          <p className={importReport.blueprint ? 'supporting' : 'error'}>
+            {importReport.blueprint
+              ? `✅ ${importReport.importedCount + importReport.skippedCount}곡 중 ${importReport.importedCount}곡 가져옴${importReport.skippedCount ? `, ${importReport.skippedCount}곡 실패` : ''}`
+              : `❌ 가져오지 못했습니다: ${importReport.skippedReasons.join(' / ') || '알 수 없는 오류'}`}
+            {importReport.skippedReasons.length > 0 && importReport.blueprint && (
+              <> — 실패 사유: {importReport.skippedReasons.join(' / ')}</>
+            )}
+          </p>
+        )}
+      </div>
 
       <DryRunPreviewModal
         open={previewOpen}

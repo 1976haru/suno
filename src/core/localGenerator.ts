@@ -199,7 +199,8 @@ function resolvePersonaTrackLimit(styleLimit: number | undefined, trackNo: numbe
   return trackNo === 1 ? base : Math.min(base, PERSONA_STYLE_LIMIT);
 }
 
-function buildSignatureBlueprint(
+/** TASK v3.24 — exported for claudeCodeBridge.ts's importSongsJson: an imported song list still needs the same pack-level identity (oneLineConcept/sonicSignature/vocalSignature/lyricRules/harmonyRules/visualRules) any other blueprint has, computed the same deterministic (no-API-call) way local generation already does. */
+export function buildSignatureBlueprint(
   opts: GenerationOptions,
   genres: GenrePack[],
   moods: MoodPack[],

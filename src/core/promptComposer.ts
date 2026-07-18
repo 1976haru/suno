@@ -514,8 +514,8 @@ function batchPlanningBullets(generateThumbnailText: boolean): string[] {
   ];
 }
 
-/** TASK v3.23 — see batchPlanningBullets' comment; the per-song output schema shared by both outputShape blocks. */
-function songOutputShape(generateThumbnailText: boolean) {
+/** TASK v3.23 — see batchPlanningBullets' comment; the per-song output schema shared by both outputShape blocks. Exported for TASK v3.24's claudeCodeBridge.ts, which reuses this same schema for its own (narrower, songs-only) outputShape instead of re-authoring a third copy. */
+export function songOutputShape(generateThumbnailText: boolean) {
   return {
     trackNo: 1,
     title: 'string',
