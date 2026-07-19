@@ -868,3 +868,25 @@ describe('[v3.27] titleMode branches buildBatchSystemNote\'s preassignedSongs gu
   });
 });
 
+describe('[v3.29] buildSystemInstruction gives a concrete lyric word-count floor, not just a duration-target label', () => {
+  it('includes the 200-260 word target explicitly', () => {
+    const opts = makeOptions();
+    const system = buildSystemInstruction(opts);
+
+    expect(system).toContain('200-260 words');
+  });
+
+  it('no longer interpolates the raw durationTarget enum value with no concrete time range', () => {
+    const opts = makeOptions({ durationTarget: 'under3m30' });
+    const system = buildSystemInstruction(opts);
+
+    expect(system).not.toContain('Keep song length controlled for under3m30');
+  });
+
+  it('includes a concrete time range for each durationTarget value', () => {
+    expect(buildSystemInstruction(makeOptions({ durationTarget: 'playlistShort' }))).toContain('2:50-3:20');
+    expect(buildSystemInstruction(makeOptions({ durationTarget: 'under4m' }))).toContain('under 4:00');
+    expect(buildSystemInstruction(makeOptions({ durationTarget: 'under3m30' }))).toContain('3:10-3:35');
+  });
+});
+

@@ -23,6 +23,26 @@ describe('lyric engine', () => {
     expect(warnings).toEqual([]);
   });
 
+  // TASK v3.29 (Part 3) — a real generated pack averaged ~143 words/song
+  // (remote) / ~190 words/song (local) and rendered at ~2:00-2:20 in Suno
+  // despite targeting 2:50-3:20. The extra verse2 draw added to
+  // composeLyrics (lyricEngine.ts) closes most of that gap for local
+  // generation; this is a floor, not an exact-range assertion, since word
+  // count still varies by role/language.
+  it('local generation averages at least 200 words/song across a 12-song English pack', () => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
+    const avgWords = bp.songs.reduce((sum, song) => sum + song.lyrics.split(/\s+/).filter(Boolean).length, 0) / bp.songs.length;
+    expect(avgWords).toBeGreaterThanOrEqual(200);
+  });
+
+  it('no local song comes back under 150 words even for the shortest role (cold-open)', () => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
+    for (const song of bp.songs) {
+      const wordCount = song.lyrics.split(/\s+/).filter(Boolean).length;
+      expect(wordCount, `track ${song.trackNo} (${song.songRole}) has only ${wordCount} words`).toBeGreaterThanOrEqual(150);
+    }
+  });
+
   it('produces 0 duplicate chorus first lines across 30 songs', () => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 30 }), testGenres, testMoods, testSeason);
     const chorusFirstLines = bp.songs.map(song => {

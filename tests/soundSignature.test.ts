@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { buildSoundSignature } from '../src/core/soundSignature';
+import { buildSoundSignature, compactDuration } from '../src/core/soundSignature';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks, testGenres, testMoods, testSeason } from './fixtures';
 
 describe('sound signature', () => {
@@ -78,5 +78,23 @@ describe('sound signature', () => {
   it('is identical across every song in the same pack', () => {
     const unique = new Set(blueprint.songs.map(() => buildSoundSignature(blueprint, opts, opts.channel).short));
     expect(unique.size).toBe(1);
+  });
+});
+
+describe('[v3.29] compactDuration includeMinimumFloor', () => {
+  it('defaults to the original short text (no floor) — Persona mode and other tight-budget callers are unaffected', () => {
+    expect(compactDuration('playlistShort', false)).toBe('quick intro, 2:50-3:20');
+    expect(compactDuration('under4m', false)).toBe('short intro, under 4:00');
+    expect(compactDuration('under3m30', false)).toBe('short intro, 3:10-3:35');
+  });
+
+  it('terse stays unaffected regardless of includeMinimumFloor', () => {
+    expect(compactDuration('playlistShort', true, true)).toBe('2:50-3:20');
+  });
+
+  it('includeMinimumFloor=true appends an explicit lower-bound phrase for each target', () => {
+    expect(compactDuration('playlistShort', false, true)).toContain('not a short 2-minute cut');
+    expect(compactDuration('under4m', false, true)).toContain('not a short cut');
+    expect(compactDuration('under3m30', false, true)).toContain('not a short cut');
   });
 });

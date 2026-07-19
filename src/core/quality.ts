@@ -7,7 +7,26 @@ import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
 // old long-form 'money chord foundation: ...' / 'no long instrumental
 // break' clauses; those literal phrases no longer appear in generated
 // output at all, so checking for them here would falsely flag every song.
-const requiredPromptTerms = ['progression', 'chorus'];
+//
+// TASK v3.29 — a real 20-song Codex-bridge pack showed this false-positive
+// again, for a different reason: every stylePrompt correctly disclosed its
+// chord progression as "I-V-vi-IV money chords" (real information, matching
+// the system instruction), but the literal word "progression" never
+// appeared, so every single well-formed song got flagged. A remote model
+// isn't guaranteed to use this app's own compactMoneyChord() wording, so the
+// check now also accepts the progression itself: roman-numeral notation
+// (I-V-vi-IV, ii-V-I, or with jazz/pop chord-quality suffixes like
+// "IVmaj7-iii7-vi7"), "money chord(s)", or "chords in <key>".
+const progressionPatterns: RegExp[] = [
+  /progression/i,
+  /\b[ivx]{1,4}[a-z0-9]{0,4}(?:\s*[-–]\s*[ivx]{1,4}[a-z0-9]{0,4}){1,}/i,
+  /money chords?/i,
+  /\bchords? in [A-G][#b]?\b/i
+];
+
+function hasProgressionDisclosure(stylePrompt: string): boolean {
+  return progressionPatterns.some(pattern => pattern.test(stylePrompt));
+}
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
 
 // H3 (v3.3): a vocative-shaped hook ("Hold on, X") may only address a person
@@ -226,11 +245,16 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   const riskScanText = stripSafetyBoilerplate(text);
   const riskScanTextLower = riskScanText.toLowerCase();
 
-  for (const term of requiredPromptTerms) {
-    if (!prompt.includes(term.toLowerCase())) {
-      pushUnique(warnings, `Missing prompt term: ${term}`);
-      score -= 8;
-    }
+  // TASK v3.29 — 'progression' now accepts an actual chord-progression
+  // disclosure (roman numerals, "money chord(s)", "chords in <key>"), not
+  // just the literal word — see hasProgressionDisclosure's comment above.
+  if (!hasProgressionDisclosure(song.stylePrompt)) {
+    pushUnique(warnings, 'Missing prompt term: progression');
+    score -= 8;
+  }
+  if (!prompt.includes('chorus')) {
+    pushUnique(warnings, 'Missing prompt term: chorus');
+    score -= 8;
   }
 
   for (const tag of requiredLyricTags) {

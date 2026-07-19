@@ -643,7 +643,15 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     : takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines);
   const situationLines = takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines);
   const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines);
-  const verse2 = takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines);
+  // TASK v3.29 — a real 20-song sample (both local and remote-generated)
+  // came back short enough to render at ~2:00-2:20 in Suno despite every
+  // song targeting 2:50-3:20; local generation measured ~190 words/song on
+  // average, still under the app's new 200-260 word target (see
+  // promptComposer.ts's MIN_LYRIC_WORDS). One extra verse2 draw (same
+  // "draw the pool twice, second draw gets a fresh filler context" pattern
+  // extendedBridgeRoles already uses below) is enough to close that gap
+  // without restructuring the whole template system.
+  const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines)];
 
   // The hook bookends every chorus-type section (open + close), so the
   // listener always lands on it. Three chorus-type sections (chorus x2 +

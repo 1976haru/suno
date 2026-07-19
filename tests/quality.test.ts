@@ -40,6 +40,37 @@ describe('quality scorer', () => {
     expect(song.warnings.some(w => w.startsWith('Missing prompt term'))).toBe(false);
   });
 
+  // TASK v3.29 — a real 20-song Codex-bridge pack wrote its chord
+  // progression as "I-V-vi-IV money chords" (never the literal word
+  // "progression"), so the old exact-substring check flagged all 20 songs
+  // as "Missing prompt term: progression" even though the progression was
+  // genuinely disclosed. These confirm the fix accepts real disclosure
+  // forms, not just the literal word.
+  it('does not flag "Missing prompt term: progression" for real chord-progression disclosure without the literal word "progression"', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm adult contemporary pop, hook repeats chorus 4x, I-V-vi-IV money chords' }));
+    expect(song.warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
+  });
+
+  it('recognizes "money chord(s)" wording alone as progression disclosure', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm pop, hook repeats chorus 4x, classic money chords' }));
+    expect(song.warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
+  });
+
+  it('recognizes a jazz/pop chord-quality progression like "IVmaj7-iii7-vi7"', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'jazz pop, hook repeats chorus 4x, IVmaj7-iii7-vi7 movement' }));
+    expect(song.warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
+  });
+
+  it('recognizes "chords in <key>" wording as progression disclosure', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm pop, hook repeats chorus 4x, chords in C' }));
+    expect(song.warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
+  });
+
+  it('still flags a stylePrompt with no progression disclosure at all', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm pop, hook repeats chorus 4x, soft vocal, mid tempo' }));
+    expect(song.warnings.some(w => w === 'Missing prompt term: progression')).toBe(true);
+  });
+
   it('does not penalize "저작권 안전" as a copyright risk (Q2 regression)', () => {
     const song = scoreSong(baseSong({ stylePrompt: `${baseSong().stylePrompt}, 저작권 안전` }));
     expect(song.warnings.some(w => w.startsWith('Copyright risk'))).toBe(false);

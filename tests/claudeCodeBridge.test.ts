@@ -257,4 +257,20 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     expect(report.skippedCount).toBe(1);
     expect(report.skippedReasons[0]).toContain('No Lyrics Here');
   });
+
+  // TASK v3.29 — a real 20-song Codex-bridge pack wrote "I-V-vi-IV money
+  // chords" (real progression disclosure, no literal word "progression"),
+  // and every one of those 20 songs got a false "Missing prompt term:
+  // progression" warning on import. Re-importing that same real wording
+  // must no longer produce the warning.
+  it('re-importing a pack whose stylePrompt says "I-V-vi-IV money chords" (no literal "progression") does not warn "Missing prompt term: progression"', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const raw = JSON.stringify({
+      songs: [songJson({ stylePrompt: 'warm acoustic pop, I-V-vi-IV money chords, repeats chorus 4x, soft vocal, mid tempo' })]
+    });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    expect(report.blueprint!.songs[0].warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
+  });
 });

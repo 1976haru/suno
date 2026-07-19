@@ -252,15 +252,38 @@ export function compactMoneyChord(opts: GenerationOptions) {
   return preset.compactProgression;
 }
 
-export function compactDuration(target: GenerationOptions['durationTarget'], terse = false) {
+/**
+ * TASK v3.29 — "under X:XX" / "around X:XX" alone reads as an upper bound
+ * only, so a short lyric (see promptComposer.ts's MIN_LYRIC_WORDS) can still
+ * produce a short song without technically violating this text — a real
+ * 20-song sample rendered at ~2:00-2:20 despite a 2:50-3:20 target. The
+ * optional `includeMinimumFloor` appends an explicit lower-bound phrase
+ * ("full ~N minute arrangement, not a short cut") — opt-in (default off) so
+ * it only costs budget where there's room for it (the main, non-persona
+ * style prompt has ~900 chars of headroom); Persona mode's ~200-char budget
+ * (buildPersonaStylePrompt) and any other terse/tight caller keep the
+ * original short text by leaving this at its default. terse itself is
+ * unaffected either way (character-budget-critical callers only need the
+ * bare time range).
+ */
+export function compactDuration(target: GenerationOptions['durationTarget'], terse = false, includeMinimumFloor = false) {
   if (terse) {
     if (target === 'under4m') return 'under 4:00';
     if (target === 'playlistShort') return '2:50-3:20';
     return '3:10-3:35';
   }
-  if (target === 'under4m') return 'short intro, under 4:00';
-  if (target === 'playlistShort') return 'quick intro, 2:50-3:20';
-  return 'short intro, 3:10-3:35';
+  const base = target === 'under4m'
+    ? 'short intro, under 4:00'
+    : target === 'playlistShort'
+      ? 'quick intro, 2:50-3:20'
+      : 'short intro, 3:10-3:35';
+  if (!includeMinimumFloor) return base;
+  const floor = target === 'under4m'
+    ? 'full ~3:30-4:00 arrangement, not a short cut'
+    : target === 'playlistShort'
+      ? 'full ~3 minute arrangement, not a short 2-minute cut'
+      : 'full ~3:10-3:35 arrangement, not a short cut';
+  return `${base}, ${floor}`;
 }
 
 /**

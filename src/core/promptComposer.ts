@@ -14,6 +14,19 @@ export const SUNO_STYLE_LIMIT = 1000;
 export const SAFE_TARGET = 900;
 
 /**
+ * TASK v3.29 — a real 20-song remote-generated pack averaged 143 words/song
+ * (20 lines each) and rendered at ~2:00-2:20 in Suno despite every song
+ * targeting a 2:50-3:20 duration — the old "Keep song length controlled for
+ * ${opts.durationTarget}" instruction only named the enum value itself, with
+ * no concrete time range or word-count floor, so a short lyric was never
+ * actually a rule violation. Suno's rendered length tracks lyric word count
+ * far more directly than any duration-target label; 200-260 total words is
+ * what actually produces a genuine ~2:50-3:20 song.
+ */
+export const MIN_LYRIC_WORDS = 200;
+export const MAX_LYRIC_WORDS = 260;
+
+/**
  * Priority order for TASK A2 — filled from the top down; once the running
  * length would cross the safe target, remaining non-essential ids are left
  * out (and recorded in droppedTerms) rather than truncating text mid-phrase.
@@ -323,7 +336,13 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   // (compactMoneyChord/compactDuration) converges both modes on the same
   // short-tag style Suno actually responds best to.
   const money = compactMoneyChord(opts);
-  const duration = compactDuration(opts.durationTarget, false);
+  // TASK v3.29 — includeMinimumFloor=true only here: this is the main
+  // (non-persona) style prompt, which has ~900 chars of budget headroom
+  // (SAFE_TARGET) to spare for the "not a short cut" reinforcement. Persona
+  // mode's own duration text (soundSignature.ts's buildPersonaStylePrompt/
+  // openingDurationText) stays on the default (false) — its ~200-char
+  // budget has no room for it.
+  const duration = compactDuration(opts.durationTarget, false, true);
 
   // TASK F4 (v3.7) — avoid/copyright text used to live here as a 'safety'
   // style-prompt atom, but a negative instruction ("avoid drums") inside
@@ -503,7 +522,7 @@ Rules:
 - Keep a stable sonic/vocal identity across all tracks while varying situations, hooks, titles, and lyrical images.
 - Sequence the songs naturally: opener, early lift, middle depth, late-set highlight, warm closer.
 - Lyrics must use Suno section tags and must be ready to paste separately from the style prompt.
-- Keep song length controlled for ${opts.durationTarget}.
+- Each song's "lyrics" must total ${MIN_LYRIC_WORDS}-${MAX_LYRIC_WORDS} words (not counting section tags like [chorus]) — this is what actually determines Suno's rendered length; a short ~100-150 word lyric renders as a short ~2:00-2:20 song regardless of any target duration. Target render length for this pack: ${compactDuration(opts.durationTarget, true)}.
 ${youtubeMetadataLine}
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.
 - CRITICAL: Return ONLY the JSON object. No markdown, no code fences (no \`\`\`), no prose, no explanation, and no closing remarks before or after it. The response must start with { and end with } — nothing else outside those two characters.
