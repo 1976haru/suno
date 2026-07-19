@@ -43,6 +43,13 @@ function countOccurrences(haystack: string, needle: string): number {
  * (English: word count; Korean: syllables; Japanese: mora) — a plain
  * whitespace word count always reads Japanese hooks as "1 word" and never
  * catches an oversized one.
+ *
+ * TASK v3.28 — this used to also penalize a title that didn't contain the
+ * hookPhrase verbatim ("Hook does not appear in the title"). That's now the
+ * intended, desired behavior (see GenerationOptions.titleMode and
+ * promptComposer.ts's Hook rules) — titles are deliberately independent of
+ * the hook for real Billboard-style variety, so the check was removed
+ * rather than left to wrongly flag every good, diverse title.
  */
 export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'english'): { warnings: string[]; penalty: number } {
   const warnings: string[] = [];
@@ -59,11 +66,6 @@ export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'engl
   if (hookOccurrences < 3) {
     warnings.push(`Hook appears only ${hookOccurrences}x in the lyrics — needs to repeat to be memorable.`);
     penalty += 15;
-  }
-
-  if (!song.title.toLowerCase().includes(hook.toLowerCase())) {
-    warnings.push('Hook does not appear in the title — title and hook should match.');
-    penalty += 10;
   }
 
   if (startsWithLowercase(hook)) {

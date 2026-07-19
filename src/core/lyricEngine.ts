@@ -1170,18 +1170,79 @@ function uniqueTitle(base: string, usedTitles: Set<string>): string {
 }
 
 /**
- * The title always contains the hook verbatim (H2's completion condition):
- * either the hook phrase IS the title, or — only for English nounPhrase
- * hooks, which read naturally as "<word> <hook>" — a single non-overlapping
- * time word is prefixed. Korean/Japanese skip prefixing entirely: the old
- * joinTitle()'s automatic particle-appending was exactly what caused the
- * double-genitive title bug fixed in v3.2, so this path never reintroduces
- * particle composition.
+ * TASK v3.28 (Part 3) — a flat word-level heuristic, not real NLP: strips
+ * common function words/pronouns/generic verbs from an English hook phrase,
+ * leaving (usually) just its core noun/image, so titleFromHook can offer a
+ * genuinely independent, billboard-style title instead of the hook verbatim.
+ * Deliberately conservative — if stripping removes nothing (the hook was
+ * already all "content" words, e.g. a nounPhrase-shape hook like "Golden
+ * Window Light") or removes everything (nothing left to make a title from),
+ * this returns null so the caller falls back to another shape.
+ */
+const enHookStopwords = new Set([
+  'i', "i'll", "i'm", 'we', "we'll", "won't", "don't", "you're", 'you', 'still',
+  'the', 'a', 'an', 'to', 'for', 'of', 'with', 'on', 'in', 'at', 'by', 'me', 'my', 'your', 'it',
+  'let', 'go', 'keep', 'hold', 'wait', 'come', 'back', 'stay', 'wrap', 'pour', 'be',
+  'hush', 'rest', 'breathe', 'take', 'carry', 'save', 'remember', 'will', 'not',
+  'know', 'found', 'way', 'made', 'through', 'believe', 'this', 'here', 'now',
+  'again', 'close', 'near', 'tonight', 'softly', 'us'
+]);
+
+function compressHookToImage(phrase: string): string | null {
+  const words = phrase.replace(/[,.]/g, '').split(/\s+/).filter(Boolean);
+  const kept = words.filter(word => !enHookStopwords.has(word.toLowerCase()));
+  if (!kept.length || kept.length === words.length) return null;
+  return kept.slice(0, 2).join(' ');
+}
+
+/** TASK v3.28 — paired with a compressed image for the "<Image> & <Word>" contrast shape; deliberately distinct from enTimeWords/enContrastWords so this shape doesn't just read as a relabel of those. */
+const enImagePairWords = ['Frost', 'Ember', 'Static', 'Velvet', 'Hollow', 'Glow', 'Echo', 'Dust'];
+
+/**
+ * TASK v3.28 — the title used to always contain the hook verbatim (H2's
+ * completion condition, and previously also enforced as a quality-score
+ * penalty in core/quality.ts's checkHookQuality). Real measurement showed
+ * that constraint left almost no room to actually diverge even with v3.27's
+ * shape rotation: 12 real titles came back 100% identical to their hooks.
+ * The title is now free to be fully independent — for English hooks,
+ * compressHookToImage's extracted core noun/image (alone, or paired with an
+ * evocative contrast word) is now the majority outcome for ANY hook shape,
+ * since compression only ever drops words already present (grammatically
+ * safe regardless of shape) — verbatim, and the old nounPhrase-only time-
+ * prefix/contrast-suffix shapes, remain as fallbacks when compression
+ * doesn't yield anything usable. Korean/Japanese are untouched: word-level
+ * stopword-stripping isn't reliable without whitespace-delimited words, and
+ * the old joinTitle() particle-appending was exactly what caused the
+ * double-genitive title bug fixed in v3.2 — this function never reintroduces
+ * that class of composition for those languages.
  */
 export function titleFromHook(hook: HookSpec, seed: number, language: LyricLanguage, usedTitles: Set<string>): string {
-  if (language === 'english' && hook.shape === 'nounPhrase') {
-    const rng = mulberry32(seed);
-    const roll = rng();
+  if (language !== 'english') {
+    return uniqueTitle(hook.phrase, usedTitles);
+  }
+
+  const rng = mulberry32(seed);
+  const roll = rng();
+  const image = compressHookToImage(hook.phrase);
+
+  if (image) {
+    if (roll < 0.45) {
+      const pairPool = shuffle(enImagePairWords, seed + 1313);
+      for (const pair of pairPool) {
+        if (hasWordOverlap('english', image, pair)) continue;
+        const candidate = `${image} & ${pair}`;
+        if (!usedTitles.has(candidate)) return candidate;
+      }
+    }
+    if (roll < 0.8 && !usedTitles.has(image)) return image;
+  }
+
+  if (hook.shape === 'nounPhrase') {
+    // Unchanged from v3.27: a genuine verbatim zone (roll < 0.33) stays
+    // alongside the time-prefix/contrast-suffix shapes — nounPhrase hooks
+    // (e.g. "Golden Window Light") rarely compress at all (they're already
+    // all "content" words), so this is the shape rotation that actually
+    // applies to most of them.
     if (roll >= 0.66) {
       const prefixPool = shuffle(enTimeWords, seed + 777);
       for (const prefix of prefixPool) {
@@ -1198,6 +1259,7 @@ export function titleFromHook(hook: HookSpec, seed: number, language: LyricLangu
       }
     }
   }
+
   return uniqueTitle(hook.phrase, usedTitles);
 }
 

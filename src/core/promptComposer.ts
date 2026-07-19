@@ -418,18 +418,25 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const preassignedFreeFields = generateThumbnailText
     ? 'lyrics, stylePrompt, seasonMoment, listenerSituation, thumbnailText, youtube'
     : 'lyrics, stylePrompt, seasonMoment, listenerSituation, youtube';
-  // TASK v3.27 (Part A) — 'ai-creative' (default) is the fix for titles
-  // reading as structurally uniform across a pack: they were never actually
-  // written by the model, just copied verbatim from core/lyricEngine.ts's
-  // titleFromHook (hook phrase as-is, or "<time word> <hook>" — a narrow,
-  // mechanical derivation). hookPhrase/songRole/emotionArc/trackNo still stay
-  // locked either way (title-only collision risk is handled after the fact —
-  // see core/lyricEngine.ts's dedupeTitlesAcrossPack — since parallel
-  // batches/chunks still can't see each other's real title pick).
+  // TASK v3.27/v3.28 (Part A) — 'ai-creative' (default) is the fix for
+  // titles reading as structurally uniform across a pack: they were never
+  // actually written by the model, just copied verbatim from
+  // core/lyricEngine.ts's titleFromHook (hook phrase as-is, or "<time word>
+  // <hook>" — a narrow, mechanical derivation). v3.28 removed the "title
+  // must equal/contain the hook" constraint entirely for this mode (real
+  // measurement: 12 titles all identical to their hooks even with v3.27's
+  // shape rotation, because that constraint left almost no room to actually
+  // diverge) — the hookPhrase itself still repeats verbatim in the lyrics/
+  // chorus per the Hook rules above, but the title is now a fully
+  // independent creative choice. hookPhrase/songRole/emotionArc/trackNo
+  // still stay locked either way (title-only collision risk is handled
+  // after the fact — see core/lyricEngine.ts's dedupeTitlesAcrossPack —
+  // since parallel batches/chunks still can't see each other's real title
+  // pick).
   const titleMode = opts.titleMode ?? 'ai-creative';
   const preassignedTitleNote = titleMode === 'local'
     ? `Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (${preassignedFreeFields}) around them.`
-    : `Do NOT invent a different hookPhrase, trackNo, or emotionArc — copy those verbatim. The "title" field there is only a fallback placeholder: write your OWN original title for each song instead. The title must still equal the hookPhrase or contain it verbatim (per the Hook rules above), but vary the sentence structure across the pack — mix short noun-phrase titles, hook-plus-contrast framing (e.g. "<hook>, Still"), direct address, and plain declarative forms; never default to the same shape for every song, and never just prepend a generic time word to every title. Keep the channel's tone (e.g. nostalgic, elegant) while varying the grammatical shape. Also write the remaining content (${preassignedFreeFields}) around these fields.`;
+    : `Do NOT invent a different hookPhrase, trackNo, or emotionArc — copy those verbatim. The "title" field there is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase (see the Hook rules above — the title no longer needs to equal or contain the hook). Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images — never a restatement of the hook, and never the same shape for every song in the pack. Keep the channel's tone (e.g. nostalgic, elegant) while varying the structure freely. Also write the remaining content (${preassignedFreeFields}) around these fields.`;
   const preassignedNote = batch.preassignedSongs?.length
     ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. ${preassignedTitleNote} This is what keeps parallel batches from colliding on hook/identity.${openingRoleNote}`
     : '';
@@ -474,6 +481,17 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
   const youtubeMetadataLine = generateThumbnailText
     ? '- Include YouTube title, description, tags, and thumbnail text for every song.'
     : '- Include YouTube title, description, and tags for every song.';
+  // TASK v3.28 — real measurement showed 'ai-creative' titles still all
+  // matched their hooks verbatim, because this rule left the model no real
+  // room to diverge even with v3.27's shape-rotation guidance. 'local' keeps
+  // the old rule (irrelevant either way — reconcileWithPreassignedSlot
+  // discards the model's own title in that mode), 'ai-creative' drops the
+  // hook-binding constraint entirely: the hookPhrase still repeats verbatim
+  // in the lyrics/chorus per the rule below, but the title is now free.
+  const titleModeForHookRule = opts.titleMode ?? 'ai-creative';
+  const titleHookRuleLine = titleModeForHookRule === 'local'
+    ? '- The song\'s title must equal the hook phrase, or contain it verbatim (never a different phrase from the hook).'
+    : '- The song\'s title is INDEPENDENT from the hookPhrase — do not just reuse or lightly reword the hook as the title. Write a genuinely different, evocative title the way real Billboard Hot 100 song titles work: a single striking word, an unexpected concrete noun, a short metaphor, or an image, not a restatement of the hook.';
 
   return `You are Suno Weaver Studio, a commercial playlist song planner. Generate original Suno-ready style prompts, lyrics, and YouTube metadata.
 
@@ -495,7 +513,7 @@ ${youtubeMetadataLine}
 
 Hook rules (each song's hookPhrase):
 - The hook must be a short, singable phrase of 2-5 words, in Title Case, never starting with a lowercase letter.
-- The song's title must equal the hook phrase, or contain it verbatim (never a different phrase from the hook).
+${titleHookRuleLine}
 - The hook line must open and close every chorus section (bookend), repeating at least ${minHookRepeats} times across the whole song.
 - Never address an inanimate object as if it were a person (e.g. "Hold on, coffee" or "Close your eyes, doorway") — vocative phrasing may only address a person or an abstract/personified noun (a friend, a season, "my love"), never a physical object.
 

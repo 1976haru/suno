@@ -70,14 +70,18 @@ export function buildClaudeCodeInstruction(
     outputShape: { songs: [songOutputShape(generateThumbnailText)] }
   };
 
-  // TASK v3.27 (Part A2/B2) — same titleMode branch as promptComposer.ts's
-  // buildBatchSystemNote, kept in sync here rather than left to drift: an
-  // agent run through this bridge should get identical title guidance to a
-  // real Batch API sub-request, not a weaker or stronger version of it.
+  // TASK v3.27/v3.28 (Part A2/B2) — same titleMode branch as
+  // promptComposer.ts's buildBatchSystemNote, kept in sync here rather than
+  // left to drift: an agent run through this bridge should get identical
+  // title guidance to a real Batch API sub-request, not a weaker or
+  // stronger version of it. v3.28 dropped the "title must equal/contain the
+  // hook" constraint for ai-creative entirely — real measurement showed
+  // titles still came back 100% identical to their hooks with that
+  // constraint in place, even with v3.27's shape-rotation guidance.
   const titleMode = opts.titleMode ?? 'ai-creative';
   const titleInstructionLine = titleMode === 'local'
     ? '- Every entry in "preassignedSongs" above MUST be copied verbatim for that trackNo\'s title and hookPhrase — never invent a different title or hook for those track numbers.'
-    : '- Every entry in "preassignedSongs" above gives each song\'s fixed hookPhrase (and songRole/tempo/emotionArc) — copy those verbatim, never invent different ones. Its "title" field is only a fallback placeholder: write your OWN original title for each song instead. The title must still equal the hookPhrase or contain it verbatim, but vary the sentence structure across the pack — mix short noun-phrase titles, hook-plus-contrast framing (e.g. "<hook>, Still"), direct address, and plain declarative forms; never default to the same shape for every song, and never just prepend a generic time word to every title. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the grammatical shape.';
+    : '- Every entry in "preassignedSongs" above gives each song\'s fixed hookPhrase (and songRole/tempo/emotionArc) — copy those verbatim, never invent different ones. Its "title" field is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase — it no longer needs to equal or contain the hook. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the structure freely.';
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',

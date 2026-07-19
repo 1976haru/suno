@@ -102,11 +102,19 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
     }
   });
 
-  it.each(LANGUAGES)('[R1] lyrics never contain the full title lowercased and stuffed into an unrelated line, in %s', language => {
+  it.each(['korean', 'japanese'] as const)('[R1] lyrics never contain the full title lowercased and stuffed into an unrelated line, in %s', language => {
     // v3.3 (TASK A1/A3) made title===hook (or title containing hook) intentional: the hook now
     // bookends every chorus verbatim, so the hook-bookend line is *expected* to match the title.
     // This guard still catches the original v3.1 bug (title text smashed into some other,
     // unrelated line) by exempting only the song's own hookPhrase line, not every line.
+    //
+    // TASK v3.28 — English is no longer covered here: titleFromHook now
+    // deliberately decouples the title from the hook (compressed to a short,
+    // often generic noun/image, e.g. "Window Light"), so that same word is
+    // expected to coincidentally recur elsewhere in the song's own imagery
+    // vocabulary without indicating any text-stuffing bug. Korean/Japanese
+    // titles are untouched by that change (still hook-derived verbatim), so
+    // the original regression guard still applies to them as-is.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       const titleCore = song.title.split(/[,、]/)[0].trim();
@@ -192,18 +200,25 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
   });
 });
 
-// TASK v3.27 (Part A4, low priority) — titleFromHook's local/offline fallback
-// now rotates between 3 shapes for an English nounPhrase hook (verbatim,
-// time-word prefix, hook+contrast suffix) instead of the old binary choice,
-// while always keeping the hook phrase verbatim inside the title and never
-// touching Korean/Japanese or non-nounPhrase shapes (see the function's own
-// docstring for why those stay out of scope).
-describe('[v3.27] titleFromHook shape diversity (Part A4)', () => {
+// TASK v3.27/v3.28 — titleFromHook's local/offline fallback. v3.27 added a
+// nounPhrase-only 3-shape rotation (verbatim, time-word prefix, hook+
+// contrast suffix), all of which still contained the hook verbatim. Real
+// measurement showed titles still came back 100% identical to their hooks
+// even with that rotation, so v3.28 removed the hook-containment guarantee
+// for English entirely: compressHookToImage now extracts a hook's core
+// noun/image (dropping function words/pronouns/generic verbs) and offers it
+// alone, or paired with a contrast word, as a genuinely independent title —
+// for ANY hook shape, not just nounPhrase (compression only ever drops
+// words already present, so it's grammatically safe regardless of shape).
+// The old v3.27 rotation remains as the fallback specifically for hooks that
+// don't compress (nounPhrase hooks like "Golden Window Light" rarely do,
+// since they're already all "content" words with no function words to strip).
+describe('[v3.28] titleFromHook: title-hook independence', () => {
   function makeHook(overrides: Partial<HookSpec> = {}): HookSpec {
     return { phrase: 'Morning Light', shape: 'nounPhrase', ...overrides };
   }
 
-  it('every produced title still contains the hook phrase verbatim', () => {
+  it('a nounPhrase hook with no compressible words (e.g. "Morning Light") still always contains the hook verbatim, via the v3.27 rotation fallback', () => {
     const usedTitles = new Set<string>();
     for (let seed = 0; seed < 60; seed++) {
       const title = titleFromHook(makeHook(), seed, 'english', usedTitles);
@@ -211,7 +226,7 @@ describe('[v3.27] titleFromHook shape diversity (Part A4)', () => {
     }
   });
 
-  it('across many seeds, produces more than 2 distinct structural shapes for an English nounPhrase hook (verbatim / time-prefix / contrast-suffix)', () => {
+  it('across many seeds, that same hook produces more than 2 distinct structural shapes (verbatim / time-prefix / contrast-suffix)', () => {
     const shapes = new Set<string>();
     for (let seed = 0; seed < 300; seed++) {
       const usedTitles = new Set<string>();
@@ -223,15 +238,35 @@ describe('[v3.27] titleFromHook shape diversity (Part A4)', () => {
     expect(shapes.size).toBeGreaterThan(2);
   });
 
-  it('non-nounPhrase shapes (e.g. imperative) always stay verbatim, unaffected by the new contrast-suffix path', () => {
-    const usedTitles = new Set<string>();
-    for (let seed = 0; seed < 30; seed++) {
-      const title = titleFromHook(makeHook({ shape: 'imperative', phrase: 'Hold On Tight' }), seed, 'english', usedTitles);
-      expect(title).toBe('Hold On Tight');
+  it('TASK v3.28: a compressible hook (any shape, e.g. imperative) now produces titles that are frequently independent of the hook, not always verbatim', () => {
+    const titles: string[] = [];
+    for (let seed = 0; seed < 60; seed++) {
+      const usedTitles = new Set<string>();
+      titles.push(titleFromHook(makeHook({ shape: 'imperative', phrase: 'Hold the Photo Close' }), seed, 'english', usedTitles));
     }
+    const independentCount = titles.filter(title => !title.toLowerCase().includes('hold the photo close')).length;
+    expect(independentCount).toBeGreaterThan(0);
   });
 
-  it('Korean/Japanese hooks stay verbatim regardless of shape (no particle-chaining risk reintroduced)', () => {
+  it('TASK v3.28: a compressible declarative hook can produce a single-word title (e.g. "Morning" from "I\'ll Wait for Morning")', () => {
+    const titles: string[] = [];
+    for (let seed = 0; seed < 60; seed++) {
+      const usedTitles = new Set<string>();
+      titles.push(titleFromHook(makeHook({ shape: 'declarative', phrase: "I'll Wait for Morning" }), seed, 'english', usedTitles));
+    }
+    expect(titles).toContain('Morning');
+  });
+
+  it('TASK v3.28: the compressed-and-paired shape produces an "<Image> & <Word>" title', () => {
+    const titles: string[] = [];
+    for (let seed = 0; seed < 60; seed++) {
+      const usedTitles = new Set<string>();
+      titles.push(titleFromHook(makeHook({ shape: 'imperative', phrase: 'Pour the Coffee Warm' }), seed, 'english', usedTitles));
+    }
+    expect(titles.some(title => /^Coffee( Warm)? & /.test(title))).toBe(true);
+  });
+
+  it('Korean/Japanese hooks stay verbatim regardless of shape (no particle-chaining risk reintroduced — title-hook independence is English-only)', () => {
     const usedTitles = new Set<string>();
     for (const language of ['korean', 'japanese'] as const) {
       for (let seed = 0; seed < 20; seed++) {

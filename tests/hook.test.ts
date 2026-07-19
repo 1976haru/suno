@@ -44,11 +44,24 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     }
   });
 
-  it.each(LANGUAGES)('[H2] every title contains the hook phrase verbatim, in %s', language => {
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
-    for (const song of bp.songs) {
-      expect(song.title.toLowerCase().includes(song.hookPhrase.toLowerCase()), `title "${song.title}" does not contain hook "${song.hookPhrase}"`).toBe(true);
+  it('[v3.28] Korean/Japanese titles still contain the hook phrase verbatim (title-hook independence is English-only — see titleFromHook)', () => {
+    for (const language of ['korean', 'japanese'] as const) {
+      const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: language }), testGenres, testMoods, testSeason);
+      for (const song of bp.songs) {
+        expect(song.title.toLowerCase().includes(song.hookPhrase.toLowerCase()), `title "${song.title}" does not contain hook "${song.hookPhrase}"`).toBe(true);
+      }
     }
+  });
+
+  it('[v3.28] English titles are no longer required to contain the hook phrase — at least some genuinely diverge from it', () => {
+    // Replaces the old H2 ("every title contains the hook phrase verbatim")
+    // guarantee: the user explicitly asked for titles independent of the
+    // hook (real Billboard-style variety), so this now asserts the opposite
+    // direction — that titleFromHook's compression actually produces titles
+    // that do NOT just restate the hook, across a large enough sample.
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 30, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
+    const independentTitles = bp.songs.filter(song => !song.title.toLowerCase().includes(song.hookPhrase.toLowerCase()));
+    expect(independentTitles.length).toBeGreaterThan(0);
   });
 
   it.each(LANGUAGES)('[H1] the hook appears as its own line 4-7 times in the song body, in %s', language => {

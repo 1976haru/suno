@@ -109,15 +109,15 @@ describe('checkHookQuality (TASK A5, v3.3)', () => {
     expect(result.warnings.some(w => w.includes('appears only'))).toBe(true);
   });
 
-  it('penalizes -10 when the hook does not appear in the title', () => {
+  it('TASK v3.28: applies no penalty when the title is completely independent of the hook (the intended, desired behavior now)', () => {
     const song = baseSong({
-      title: 'Some Other Title',
+      title: 'Coffee & Frost',
       hookPhrase: 'Hold On',
       lyrics: '[chorus]\nHold On\nline\nHold On\nline\nHold On'
     });
     const result = checkHookQuality(song);
-    expect(result.penalty).toBeGreaterThanOrEqual(10);
-    expect(result.warnings.some(w => w.includes('does not appear in the title'))).toBe(true);
+    expect(result.warnings.some(w => w.includes('does not appear in the title'))).toBe(false);
+    expect(result.penalty).toBe(0);
   });
 
   it('applies zero penalty for a well-formed hook (short, repeats >=3x, in title, Title Case, no vocative-object pattern)', () => {
