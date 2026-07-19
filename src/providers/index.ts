@@ -12,9 +12,9 @@ import type {
   SongIdea
 } from '../types';
 import { generateLocalBlueprint } from '../core/localGenerator';
-import { preallocateSongSlots, slotsForRange } from '../core/batchPreallocation';
+import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
 import { scoreSongs } from '../core/quality';
-import { assertLyricDiversity } from '../core/lyricEngine';
+import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { generateWithOpenAI, type ProviderCallResult } from './openai';
 import { generateWithAnthropic } from './anthropic';
@@ -147,7 +147,17 @@ export async function generateChunkWithSplitRetry(
       };
       identity.locked = extractIdentity(result);
     }
-    return result.songs || [];
+    // TASK v3.27 (Part A3) — the same reconciliation stitchBatchResults
+    // already applies to Batch API sub-results: hookPhrase/emotionArc/
+    // songRole always win from the locally pre-decided slot (hook-collision-
+    // zero is unconditional), while "title" only does in 'local' titleMode —
+    // by default ('ai-creative') the model's own title for this chunk is
+    // trusted. Cross-chunk title collisions (parallel siblings can't see
+    // each other's pick any more than they could before) are handled once
+    // the whole pack is merged — see generateBlueprint's dedupeTitlesAcrossPack call.
+    const titleMode = opts.titleMode ?? 'ai-creative';
+    const slotByTrackNo = new Map((batchContext.preassignedSongs ?? []).map(slot => [slot.trackNo, slot]));
+    return (result.songs || []).map(song => reconcileWithPreassignedSlot(song, slotByTrackNo.get(song.trackNo), titleMode));
   } catch (error) {
     const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
     if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {
@@ -289,7 +299,13 @@ export async function generateBlueprint(
     }
   }
 
-  const allSongs = [...songsByTrackNo.values()].sort((a, b) => a.trackNo - b.trackNo);
+  const mergedSongs = [...songsByTrackNo.values()].sort((a, b) => a.trackNo - b.trackNo);
+  // TASK v3.27 (Part A3) — parallel chunks (Anthropic branch) or independent
+  // sequential batches (OpenAI branch) can each land on the same AI-creative
+  // title with no visibility into each other's pick; catch and auto-uniquify
+  // it here against both the rest of this pack and the channel's cross-pack
+  // history, same as the Batch API / Claude Code bridge paths.
+  const { songs: allSongs } = dedupeTitlesAcrossPack(mergedSongs, avoid?.usedTitles ?? []);
   const blueprint: PlaylistBlueprint = {
     ...(identity.base as Omit<PlaylistBlueprint, 'songs'>),
     songs: allSongs

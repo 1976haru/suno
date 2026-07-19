@@ -18,6 +18,7 @@ import {
 import { preallocateSongSlots } from '../core/batchPreallocation';
 import { stitchBatchResults, validateStitched } from '../core/batchStitcher';
 import { scoreSongs } from '../core/quality';
+import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, PlaylistIdentity, ProviderSettings, SeasonPack } from '../types';
 
 // Anthropic gives no hard SLA under 24h, even though most batches finish in
@@ -98,7 +99,13 @@ export function useBatchGenerationFlow() {
         schedulePoll(jobId);
         return;
       }
-      const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots);
+      // TASK v3.27 (Part A3) — an AI-creative title isn't locally pre-decided
+      // like hookPhrase is, so cross-pack title collisions are possible;
+      // fetch the channel's title history fresh here (poll can resume after
+      // a browser restart, with no in-memory avoid-set left from submit
+      // time) so stitchBatchResults' dedup pass can catch them.
+      const avoidTitles = await recentUsedTitlesAndHooks(job.channelId, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
+      const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots, avoidTitles);
       if (!stitched.blueprint) {
         const updated = await updateBatchJob(jobId, { status: 'failed', errorMessage: '모든 배치 요청이 실패했습니다.', failedBatchIndexes: stitched.failedBatchIndexes });
         if (updated) setActiveJob(updated);
@@ -145,7 +152,8 @@ export function useBatchGenerationFlow() {
       }
 
       const results = await fetchBatchJobResults(job.anthropicBatchId, settings);
-      const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots);
+      const avoidTitles = await recentUsedTitlesAndHooks(job.channelId, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
+      const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots, avoidTitles);
       const scored = stitched.blueprint ? { ...stitched.blueprint, songs: scoreSongs(stitched.blueprint.songs, opts.channel, opts.lyricLanguage) } : undefined;
       const finalStatus: BatchJobRecord['status'] = scored && scored.songs.length ? 'canceled_with_partial_results' : 'canceled';
       const updated = await updateBatchJob(jobId, {

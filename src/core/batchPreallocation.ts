@@ -1,4 +1,4 @@
-import type { GenerationOptions, GenrePack, PreassignedSongSlot } from '../types';
+import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { createTitleGenerator, hashSeed, seedForBlueprint, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
 import type { OpeningPackContext } from './openingContest';
@@ -52,4 +52,37 @@ export function preallocateSongSlots(
 export function slotsForRange(slots: PreassignedSongSlot[], trackNumbers: number[]): PreassignedSongSlot[] {
   const range = new Set(trackNumbers);
   return slots.filter(slot => range.has(slot.trackNo));
+}
+
+/**
+ * TASK v3.27 — the single place every generation path (realtime, Batch API,
+ * Claude Code bridge import) reconciles a model/agent's raw song output
+ * against the locally pre-decided slot for its trackNo, so the three paths
+ * can't drift out of sync on what "verbatim" means (same drift risk v3.21's
+ * batchPlanningBullets/songOutputShape extraction already guards against
+ * elsewhere in this codebase).
+ *
+ * hookPhrase/emotionArc/songRole are ALWAYS forced to the slot's value when a
+ * slot exists — hook-collision-zero is a hard guarantee this app makes
+ * regardless of titleMode (see GenerationOptions.titleMode's comment).
+ * "title" is the one field titleMode governs: 'local' forces it to the
+ * slot's mechanically-derived title (old behavior, unchanged); 'ai-creative'
+ * (default) trusts whatever original title the model/agent actually wrote,
+ * falling back to the slot's title only if that's missing/blank (e.g. the
+ * model ignored the instruction entirely) so a song is never left titleless.
+ */
+export function reconcileWithPreassignedSlot(
+  song: SongIdea,
+  slot: PreassignedSongSlot | undefined,
+  titleMode: 'local' | 'ai-creative' = 'ai-creative'
+): SongIdea {
+  if (!slot) return song;
+  const title = titleMode === 'local' ? slot.title : song.title?.trim() ? song.title : slot.title;
+  return {
+    ...song,
+    title,
+    hookPhrase: slot.hookPhrase,
+    emotionArc: slot.emotionArc,
+    songRole: slot.songRole
+  };
 }

@@ -12,6 +12,8 @@ import type {
 import { buildSystemInstruction, buildUserInstruction, songOutputShape } from './promptComposer';
 import { buildSignatureBlueprint } from './localGenerator';
 import { scoreSongs } from './quality';
+import { reconcileWithPreassignedSlot } from './batchPreallocation';
+import { dedupeTitlesAcrossPack } from './lyricEngine';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -68,6 +70,15 @@ export function buildClaudeCodeInstruction(
     outputShape: { songs: [songOutputShape(generateThumbnailText)] }
   };
 
+  // TASK v3.27 (Part A2/B2) — same titleMode branch as promptComposer.ts's
+  // buildBatchSystemNote, kept in sync here rather than left to drift: an
+  // agent run through this bridge should get identical title guidance to a
+  // real Batch API sub-request, not a weaker or stronger version of it.
+  const titleMode = opts.titleMode ?? 'ai-creative';
+  const titleInstructionLine = titleMode === 'local'
+    ? '- Every entry in "preassignedSongs" above MUST be copied verbatim for that trackNo\'s title and hookPhrase — never invent a different title or hook for those track numbers.'
+    : '- Every entry in "preassignedSongs" above gives each song\'s fixed hookPhrase (and songRole/tempo/emotionArc) — copy those verbatim, never invent different ones. Its "title" field is only a fallback placeholder: write your OWN original title for each song instead. The title must still equal the hookPhrase or contain it verbatim, but vary the sentence structure across the pack — mix short noun-phrase titles, hook-plus-contrast framing (e.g. "<hook>, Still"), direct address, and plain declarative forms; never default to the same shape for every song, and never just prepend a generic time word to every title. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the grammatical shape.';
+
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
     '',
@@ -81,7 +92,7 @@ export function buildClaudeCodeInstruction(
     'Output requirement:',
     `- Write a new file named "${CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME}" in the current directory.`,
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
-    '- Every entry in "preassignedSongs" above MUST be copied verbatim for that trackNo\'s title and hookPhrase — never invent a different title or hook for those track numbers.',
+    titleInstructionLine,
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the file — the app supplies those separately from local context.',
     '- Never reuse a title or hook already listed in "alreadyUsedTitles" / "alreadyUsedHooks" above.',
     '- The file itself must be raw JSON — no markdown fences, no surrounding prose, inside the file.',
@@ -151,14 +162,20 @@ interface NormalizeFailure {
 }
 
 /**
- * TASK A2/B1 — reconciles against the same preassigned title/hook/emotionArc/
- * songRole the instruction told the agent to copy verbatim, the same
- * defense-in-depth core/batchStitcher.ts's stitchBatchResults already applies
- * to Batch API sub-results: trust the locally-decided assignment over
- * whatever the model actually wrote, so hookLedger dedup never depends on
- * the agent having followed instructions perfectly.
+ * TASK A2/A3/B1 — builds the song from the agent's raw JSON, then hands it to
+ * the same reconcileWithPreassignedSlot() every other path uses: hookPhrase/
+ * emotionArc/songRole always win from the locally pre-decided slot regardless
+ * of titleMode (hook-collision-zero is unconditional), while "title" is only
+ * forced to the slot's value in 'local' mode — in the default 'ai-creative'
+ * mode the agent's own title is trusted (falling back to the slot's title
+ * only if the agent left it blank).
  */
-function normalizeImportedSong(raw: unknown, index: number, slotByTrackNo: Map<number, PreassignedSongSlot>): NormalizeSuccess | NormalizeFailure {
+function normalizeImportedSong(
+  raw: unknown,
+  index: number,
+  slotByTrackNo: Map<number, PreassignedSongSlot>,
+  titleMode: 'local' | 'ai-creative'
+): NormalizeSuccess | NormalizeFailure {
   if (!raw || typeof raw !== 'object') {
     return { error: `#${index + 1}: JSON 객체가 아닙니다.` };
   }
@@ -180,13 +197,13 @@ function normalizeImportedSong(raw: unknown, index: number, slotByTrackNo: Map<n
     ...(isNonEmptyString(youtubeRaw.thumbnailText) ? { thumbnailText: youtubeRaw.thumbnailText } : {})
   };
 
-  const song: SongIdea = {
+  const rawSong: SongIdea = {
     trackNo: claimedTrackNo,
-    title: slot?.title || String(obj.title),
+    title: String(obj.title),
     seasonMoment: isNonEmptyString(obj.seasonMoment) ? obj.seasonMoment : '',
     listenerSituation: isNonEmptyString(obj.listenerSituation) ? obj.listenerSituation : '',
-    emotionArc: slot?.emotionArc || (isNonEmptyString(obj.emotionArc) ? obj.emotionArc : ''),
-    hookPhrase: slot?.hookPhrase || String(obj.hookPhrase),
+    emotionArc: isNonEmptyString(obj.emotionArc) ? obj.emotionArc : '',
+    hookPhrase: String(obj.hookPhrase),
     stylePrompt: String(obj.stylePrompt),
     lyrics: String(obj.lyrics),
     ...(isNonEmptyString(obj.thumbnailText) ? { thumbnailText: obj.thumbnailText } : {}),
@@ -194,10 +211,9 @@ function normalizeImportedSong(raw: unknown, index: number, slotByTrackNo: Map<n
     ...(isNonEmptyString(obj.youtubeTitleKo) ? { youtubeTitleKo: obj.youtubeTitleKo } : {}),
     ...(isNonEmptyString(obj.youtubeTitleJa) ? { youtubeTitleJa: obj.youtubeTitleJa } : {}),
     qualityScore: 0,
-    warnings: [],
-    ...(slot ? { songRole: slot.songRole } : {})
+    warnings: []
   };
-  return { song };
+  return { song: reconcileWithPreassignedSlot(rawSong, slot, titleMode) };
 }
 
 export interface ImportSongsReport {
@@ -221,8 +237,20 @@ export function importSongsJson(
   genres: GenrePack[],
   moods: MoodPack[],
   season: SeasonPack,
-  preassignedSongs: PreassignedSongSlot[] = []
+  preassignedSongs: PreassignedSongSlot[] = [],
+  /** TASK v3.27 (Part A3) — the channel's cross-pack title history (same avoid.usedTitles the caller already fetched via hookLedger's safeAvoidSet for preallocateSongSlots), so an AI-creative title that happens to match an older pack's title still gets caught and uniquified. */
+  avoidTitles: string[] = []
 ): ImportSongsReport {
+  // TASK v3.27 (Part B1) — reproduced crash: importSongsJson accessed
+  // season.label (and iterated genres/moods) unconditionally, so calling it
+  // before a channel/season is actually selected threw instead of reporting
+  // a clear reason. opts/genres/moods/season are typed as required, but a
+  // real call site can still hand this an undefined/partial value at
+  // runtime — guard defensively rather than trust the type alone.
+  if (!season?.label || !opts?.channel || !Array.isArray(genres) || !Array.isArray(moods)) {
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['채널·시즌 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'] };
+  }
+
   let parsed: unknown;
   try {
     parsed = parseLeniently(rawText);
@@ -235,12 +263,13 @@ export function importSongsJson(
     return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['"songs" 배열을 찾지 못했습니다.'] };
   }
 
+  const titleMode = opts.titleMode ?? 'ai-creative';
   const slotByTrackNo = new Map(preassignedSongs.map(slot => [slot.trackNo, slot]));
   const validSongs: SongIdea[] = [];
   const skippedReasons: string[] = [];
 
   rawSongs.forEach((raw, index) => {
-    const result = normalizeImportedSong(raw, index, slotByTrackNo);
+    const result = normalizeImportedSong(raw, index, slotByTrackNo, titleMode);
     if ('error' in result) {
       skippedReasons.push(result.error);
       return;
@@ -259,13 +288,18 @@ export function importSongsJson(
   const renumbered = validSongs.map((song, idx) => ({ ...song, trackNo: idx + 1 }));
 
   const scored = scoreSongs(renumbered, opts.channel, opts.lyricLanguage);
+  // TASK v3.27 (Part A3) — an AI-creative title wasn't locally pre-decided
+  // (unlike hookPhrase), so two songs in this import — or this import
+  // against an older pack's title history — can still collide; catch and
+  // auto-uniquify it here, the same pass every generation path now runs.
+  const { songs: deduped } = dedupeTitlesAcrossPack(scored, avoidTitles);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
-  const blueprint = buildSignatureBlueprint(opts, genres, moods, season, concept, scored);
+  const blueprint = buildSignatureBlueprint(opts, genres, moods, season, concept, deduped);
 
   return {
     blueprint,
-    importedCount: scored.length,
-    skippedCount: rawSongs.length - scored.length,
+    importedCount: deduped.length,
+    skippedCount: rawSongs.length - deduped.length,
     skippedReasons
   };
 }

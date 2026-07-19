@@ -370,6 +370,61 @@ describe('[v3.21] preassignment prevents title/hook collisions between parallel 
   });
 });
 
+describe('[v3.27] titleMode governs whether the realtime path trusts the model\'s title or forces the preassigned one (Part A1-A3)', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockEchoModelWrittenTitle() {
+    global.fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      const slots = body.user.preassignedSongs as Array<{ trackNo: number; title: string; hookPhrase: string }>;
+      // the model writes its OWN title but a DIFFERENT hook than preassigned —
+      // hookPhrase must still be forced back regardless of titleMode.
+      const songs = slots.map(slot => ({
+        ...stubSong(slot.trackNo),
+        title: `AI Written Title ${slot.trackNo}`,
+        hookPhrase: `Model Invented Hook ${slot.trackNo}`
+      }));
+      return new Response(JSON.stringify({ blueprint: stubBlueprint(songs), usage: { inputTokens: 10, outputTokens: 10 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+  }
+
+  it('default (titleMode omitted -> ai-creative): trusts the model\'s own title, but hookPhrase is still forced back to the preassigned slot', async () => {
+    mockEchoModelWrittenTitle();
+    const opts = makeOptions({ songCount: 2 });
+    const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
+
+    expect(blueprint.songs.every(s => s.title.startsWith('AI Written Title'))).toBe(true);
+    expect(blueprint.songs.every(s => !s.hookPhrase.startsWith('Model Invented Hook'))).toBe(true);
+  });
+
+  it('titleMode="local": forces the title back to the preassigned slot too (old behavior, unchanged)', async () => {
+    mockEchoModelWrittenTitle();
+    const opts = makeOptions({ songCount: 2, titleMode: 'local' });
+    const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
+
+    expect(blueprint.songs.every(s => !s.title.startsWith('AI Written Title'))).toBe(true);
+  });
+
+  it('two parallel chunks independently landing on the same AI-creative title get auto-uniquified in the final merged blueprint', async () => {
+    global.fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      const slots = body.user.preassignedSongs as Array<{ trackNo: number; hookPhrase: string }>;
+      const songs = slots.map(slot => ({ ...stubSong(slot.trackNo), title: 'Collision Title', hookPhrase: slot.hookPhrase }));
+      return new Response(JSON.stringify({ blueprint: stubBlueprint(songs), usage: { inputTokens: 10, outputTokens: 10 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const opts = makeOptions({ songCount: 4 });
+    const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
+
+    const titles = blueprint.songs.map(s => s.title.trim().toLowerCase());
+    expect(new Set(titles).size).toBe(blueprint.songs.length);
+  });
+});
+
 describe('[v3.21] prompt cache boundary stays byte-identical across chunk 1 and later parallel chunks', () => {
   const originalFetch = global.fetch;
   afterEach(() => {

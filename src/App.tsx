@@ -266,7 +266,7 @@ export default function App() {
     const importOpts = { ...opts, channel: cm.selectedChannel };
     const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
     const preassignedSongs = preallocateSongSlots(importOpts, fallbackGenres(), avoid);
-    const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs);
+    const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, avoid.usedTitles ?? []);
     if (report.blueprint) {
       evalFlow.setEvaluation(null);
       gen.setBlueprint(report.blueprint);

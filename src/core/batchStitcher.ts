@@ -1,4 +1,6 @@
 import type { GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, SongIdea, UsageInfo } from '../types';
+import { reconcileWithPreassignedSlot } from './batchPreallocation';
+import { dedupeTitlesAcrossPack } from './lyricEngine';
 
 /**
  * TASK E2 (v3.5) — reconstructs one PlaylistBlueprint from the (possibly
@@ -29,15 +31,20 @@ export function batchIndexFromCustomId(customId: string): number {
  * TASK B3 (v3.6) — keyed by trackNo instead of a naive push, so a retried
  * sub-batch's songs (see useBatchGenerationFlow.ts's retryFailed) overwrite
  * the original trackNo instead of appending a duplicate. Also the point
- * where TASK B2's preassigned identity is defensively re-applied: even if
- * the model didn't follow the "copy this verbatim" instruction, the
- * trackNo/title/hookPhrase/emotionArc the pack actually ships with is always
- * the one decided locally before submission, not whatever a sub-batch wrote.
+ * where TASK B2's preassigned identity is defensively re-applied via
+ * core/batchPreallocation.ts's reconcileWithPreassignedSlot: even if the
+ * model didn't follow the "copy this verbatim" instruction, the
+ * trackNo/hookPhrase/emotionArc/songRole the pack actually ships with is
+ * always the one decided locally before submission — title only follows
+ * that same rule in 'local' titleMode (TASK v3.27); by default
+ * ('ai-creative') each sub-batch's own title is trusted instead.
  */
 export function stitchBatchResults(
   opts: GenerationOptions,
   results: BatchRequestResult[],
-  preassignedSlots?: PreassignedSongSlot[]
+  preassignedSlots?: PreassignedSongSlot[],
+  /** TASK v3.27 (Part A3) — the channel's cross-pack title history, so an AI-creative title from one sub-batch that happens to match an older pack's title still gets caught by dedupeTitlesAcrossPack below. */
+  avoidTitles: string[] = []
 ): StitchResult {
   const sorted = [...results].sort((a, b) => batchIndexFromCustomId(a.customId) - batchIndexFromCustomId(b.customId));
   const failedBatchIndexes: number[] = [];
@@ -48,6 +55,7 @@ export function stitchBatchResults(
   let cacheReadInputTokens = 0;
 
   const slotByTrackNo = new Map((preassignedSlots ?? []).map(slot => [slot.trackNo, slot]));
+  const titleMode = opts.titleMode ?? 'ai-creative';
 
   for (const result of sorted) {
     if (result.usage) {
@@ -73,20 +81,19 @@ export function stitchBatchResults(
     }
     for (const song of result.blueprint.songs || []) {
       const slot = slotByTrackNo.get(song.trackNo);
-      // TASK I1 (v3.11) — songRole (cold-open/flagship/curve role) is
-      // decided locally in preallocateSongSlots same as title/hookPhrase/
-      // emotionArc, and re-applied here for the same reason: a batch
-      // sub-request's own JSON output has no reason to be trusted over the
-      // locally-decided assignment.
-      const reconciled = slot ? { ...song, title: slot.title, hookPhrase: slot.hookPhrase, emotionArc: slot.emotionArc, songRole: slot.songRole } : song;
-      songMap.set(song.trackNo, reconciled);
+      songMap.set(song.trackNo, reconcileWithPreassignedSlot(song, slot, titleMode));
     }
   }
 
   const allSongs = Array.from(songMap.values()).sort((a, b) => a.trackNo - b.trackNo);
+  // TASK v3.27 (Part A3) — parallel sub-batches can't see each other's real
+  // title pick any more than parallel realtime chunks can; catch and
+  // auto-uniquify any collision here, the same pass every generation path
+  // now runs (see core/lyricEngine.ts's dedupeTitlesAcrossPack).
+  const { songs: dedupedSongs } = dedupeTitlesAcrossPack(allSongs, avoidTitles);
 
   return {
-    blueprint: base ? { ...base, songs: allSongs } : null,
+    blueprint: base ? { ...base, songs: dedupedSongs } : null,
     failedBatchIndexes,
     totalUsage: { inputTokens, outputTokens, cacheReadInputTokens }
   };

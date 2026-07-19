@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint, getRecurringMotifWords } from '../src/core/localGenerator';
-import { assertLyricDiversity, createTitleGenerator, hookRhythmLength } from '../src/core/lyricEngine';
+import { assertLyricDiversity, createTitleGenerator, dedupeTitlesAcrossPack, hookRhythmLength, titleFromHook, type HookSpec } from '../src/core/lyricEngine';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import type { SongIdea } from '../src/types';
 
 describe('lyric engine', () => {
   it('generates 1 song without error', () => {
@@ -188,5 +189,117 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
         expect(song.title).not.toMatch(/정적의|静寂の/);
       }
     }
+  });
+});
+
+// TASK v3.27 (Part A4, low priority) — titleFromHook's local/offline fallback
+// now rotates between 3 shapes for an English nounPhrase hook (verbatim,
+// time-word prefix, hook+contrast suffix) instead of the old binary choice,
+// while always keeping the hook phrase verbatim inside the title and never
+// touching Korean/Japanese or non-nounPhrase shapes (see the function's own
+// docstring for why those stay out of scope).
+describe('[v3.27] titleFromHook shape diversity (Part A4)', () => {
+  function makeHook(overrides: Partial<HookSpec> = {}): HookSpec {
+    return { phrase: 'Morning Light', shape: 'nounPhrase', ...overrides };
+  }
+
+  it('every produced title still contains the hook phrase verbatim', () => {
+    const usedTitles = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const title = titleFromHook(makeHook(), seed, 'english', usedTitles);
+      expect(title).toContain('Morning Light');
+    }
+  });
+
+  it('across many seeds, produces more than 2 distinct structural shapes for an English nounPhrase hook (verbatim / time-prefix / contrast-suffix)', () => {
+    const shapes = new Set<string>();
+    for (let seed = 0; seed < 300; seed++) {
+      const usedTitles = new Set<string>();
+      const title = titleFromHook(makeHook(), seed, 'english', usedTitles);
+      if (title === 'Morning Light') shapes.add('verbatim');
+      else if (title.startsWith('Morning Light,')) shapes.add('contrast-suffix');
+      else shapes.add('time-prefix');
+    }
+    expect(shapes.size).toBeGreaterThan(2);
+  });
+
+  it('non-nounPhrase shapes (e.g. imperative) always stay verbatim, unaffected by the new contrast-suffix path', () => {
+    const usedTitles = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const title = titleFromHook(makeHook({ shape: 'imperative', phrase: 'Hold On Tight' }), seed, 'english', usedTitles);
+      expect(title).toBe('Hold On Tight');
+    }
+  });
+
+  it('Korean/Japanese hooks stay verbatim regardless of shape (no particle-chaining risk reintroduced)', () => {
+    const usedTitles = new Set<string>();
+    for (const language of ['korean', 'japanese'] as const) {
+      for (let seed = 0; seed < 20; seed++) {
+        const title = titleFromHook(makeHook({ phrase: '고요한 아침' }), seed, language, usedTitles);
+        expect(title === '고요한 아침' || title.startsWith('고요한 아침 #')).toBe(true);
+      }
+    }
+  });
+});
+
+// TASK v3.27 (Part A3) — letting a remote model/coding agent write its own
+// title reopens a title-only collision risk preallocateSongSlots existed to
+// close (hookPhrase never has this problem — see reconcileWithPreassignedSlot
+// in batchPreallocation.ts). dedupeTitlesAcrossPack is the shared post-hoc
+// catch, run identically by the realtime, Batch API, and Claude Code bridge
+// paths after their songs are merged/stitched/imported.
+describe('[v3.27] dedupeTitlesAcrossPack', () => {
+  function makeSong(trackNo: number, title: string): SongIdea {
+    return {
+      trackNo,
+      title,
+      seasonMoment: 'x',
+      listenerSituation: 'x',
+      emotionArc: 'x',
+      hookPhrase: `Hook ${trackNo}`,
+      stylePrompt: 'style',
+      lyrics: '[chorus]\nline\n[end]',
+      youtube: { title, description: 'd', tags: [] },
+      qualityScore: 90,
+      warnings: []
+    };
+  }
+
+  it('leaves titles untouched when none collide', () => {
+    const songs = [makeSong(1, 'First Light'), makeSong(2, 'Second Light')];
+    const { songs: result, changedTrackNos } = dedupeTitlesAcrossPack(songs);
+    expect(result.map(s => s.title)).toEqual(['First Light', 'Second Light']);
+    expect(changedTrackNos).toEqual([]);
+  });
+
+  it('uniquifies a within-pack duplicate title and records a warning', () => {
+    const songs = [makeSong(1, 'Same Title'), makeSong(2, 'Same Title')];
+    const { songs: result, changedTrackNos } = dedupeTitlesAcrossPack(songs);
+    const titles = result.map(s => s.title);
+    expect(new Set(titles.map(t => t.trim().toLowerCase())).size).toBe(2);
+    expect(titles[0]).toBe('Same Title');
+    expect(titles[1]).not.toBe('Same Title');
+    expect(changedTrackNos).toEqual([2]);
+    expect(result[1].warnings.some(w => w.includes('auto-uniquified'))).toBe(true);
+  });
+
+  it('is case/whitespace-insensitive when detecting a duplicate', () => {
+    const songs = [makeSong(1, 'Same Title'), makeSong(2, '  same title  ')];
+    const { songs: result } = dedupeTitlesAcrossPack(songs);
+    expect(result[1].title).not.toBe('  same title  ');
+  });
+
+  it('also catches a collision against the channel\'s cross-pack title history (avoidTitles)', () => {
+    const songs = [makeSong(1, 'Old Favorite')];
+    const { songs: result, changedTrackNos } = dedupeTitlesAcrossPack(songs, ['Old Favorite']);
+    expect(result[0].title).not.toBe('Old Favorite');
+    expect(changedTrackNos).toEqual([1]);
+  });
+
+  it('handles more collisions than the curated suffix pool by falling back to a numeric suffix', () => {
+    const songs = Array.from({ length: 8 }, (_, i) => makeSong(i + 1, 'Repeat Title'));
+    const { songs: result } = dedupeTitlesAcrossPack(songs);
+    const titles = result.map(s => s.title.trim().toLowerCase());
+    expect(new Set(titles).size).toBe(8);
   });
 });

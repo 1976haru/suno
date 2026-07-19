@@ -836,3 +836,35 @@ describe('[v3.23] thumbnailText generation is an off-by-default toggle (generate
   });
 });
 
+describe('[v3.27] titleMode branches buildBatchSystemNote\'s preassignedSongs guidance (Part A2)', () => {
+  function makeBatch(): BatchContext {
+    const slots: PreassignedSongSlot[] = [
+      { trackNo: 1, title: 'Placeholder Title', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
+    ];
+    return { trackNoOffset: 0, totalSongCount: 1, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
+  }
+
+  it('default (titleMode omitted) resolves to ai-creative: tells the model its own title is expected, the preassigned title is only a fallback', () => {
+    const opts = makeOptions();
+    const note = buildBatchSystemNote(opts, makeBatch());
+
+    expect(note).toContain('fallback placeholder');
+    expect(note).toContain('write your OWN original title');
+    expect(note).not.toContain('Do NOT invent a different title');
+  });
+
+  it('titleMode="local": tells the model to copy the preassigned title verbatim (old behavior, unchanged)', () => {
+    const opts = makeOptions({ titleMode: 'local' });
+    const note = buildBatchSystemNote(opts, makeBatch());
+
+    expect(note).toContain('Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim');
+  });
+
+  it('titleMode="ai-creative" (explicit) still forbids inventing a different hookPhrase/trackNo/emotionArc', () => {
+    const opts = makeOptions({ titleMode: 'ai-creative' });
+    const note = buildBatchSystemNote(opts, makeBatch());
+
+    expect(note).toContain('Do NOT invent a different hookPhrase, trackNo, or emotionArc');
+  });
+});
+

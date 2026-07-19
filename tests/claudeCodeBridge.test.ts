@@ -17,8 +17,19 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toContain('alreadyUsedHooks');
   });
 
-  it('includes the preassigned title/hook per track and instructs the agent to copy them verbatim', () => {
+  it('includes the preassigned hook per track and, by default (titleMode="ai-creative"), tells the agent to write its own title instead of copying the placeholder', () => {
     const opts = makeOptions({ songCount: 3 });
+    const slots = preallocateSongSlots(opts, testGenres, avoid);
+    const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
+
+    expect(instruction).toContain('preassignedSongs');
+    expect(instruction).toContain(slots[0].hookPhrase);
+    expect(instruction).toContain('fallback placeholder');
+    expect(instruction).toContain('write your OWN original title');
+  });
+
+  it('titleMode="local" instructs the agent to copy the preassigned title verbatim (old behavior, unchanged)', () => {
+    const opts = makeOptions({ songCount: 3, titleMode: 'local' });
     const slots = preallocateSongSlots(opts, testGenres, avoid);
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
 
@@ -154,7 +165,7 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     expect(report.blueprint!.songs.map(s => s.trackNo)).toEqual([1, 2]);
   });
 
-  it('reconciles against preassignedSongs: the locally pre-decided title/hookPhrase wins even if the agent wrote something else', () => {
+  it('reconciles against preassignedSongs: hookPhrase/songRole always win, regardless of titleMode', () => {
     const opts = makeOptions({ songCount: 1 });
     const slots: PreassignedSongSlot[] = [
       { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
@@ -163,9 +174,57 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
 
     const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, slots);
 
-    expect(report.blueprint!.songs[0].title).toBe('Preassigned Title');
     expect(report.blueprint!.songs[0].hookPhrase).toBe('Preassigned Hook');
     expect(report.blueprint!.songs[0].songRole).toBe('cold-open');
+  });
+
+  it('TASK v3.27: default titleMode (ai-creative) trusts the agent\'s own title over the preassigned placeholder', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const slots: PreassignedSongSlot[] = [
+      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
+    ];
+    const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Agent Written Title', hookPhrase: 'Something Else' })] });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, slots);
+
+    expect(report.blueprint!.songs[0].title).toBe('Agent Written Title');
+  });
+
+  it('TASK v3.27: titleMode="local" still forces the title back to the preassigned slot (old behavior, unchanged)', () => {
+    const opts = makeOptions({ songCount: 1, titleMode: 'local' });
+    const slots: PreassignedSongSlot[] = [
+      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
+    ];
+    const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Something Else', hookPhrase: 'Something Else' })] });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, slots);
+
+    expect(report.blueprint!.songs[0].title).toBe('Preassigned Title');
+  });
+
+  it('TASK v3.27: two imported songs landing on the same AI-creative title get auto-uniquified, not silently duplicated', () => {
+    const opts = makeOptions({ songCount: 2 });
+    const raw = JSON.stringify({
+      songs: [
+        songJson({ trackNo: 1, title: 'Same Title', hookPhrase: 'Hook One' }),
+        songJson({ trackNo: 2, title: 'Same Title', hookPhrase: 'Hook Two' })
+      ]
+    });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    const titles = report.blueprint!.songs.map(s => s.title.trim().toLowerCase());
+    expect(new Set(titles).size).toBe(2);
+  });
+
+  it('TASK v3.27 (B1): a missing season/channel context returns a clear report instead of crashing on season.label', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const raw = JSON.stringify({ songs: [songJson()] });
+
+    expect(() => importSongsJson(raw, opts, testGenres, testMoods, undefined as unknown as typeof testSeason)).not.toThrow();
+    const report = importSongsJson(raw, opts, testGenres, testMoods, undefined as unknown as typeof testSeason);
+    expect(report.blueprint).toBeNull();
+    expect(report.skippedReasons[0]).toContain('채널·시즌');
   });
 
   it('B3: copyright/imitation-risk content is flagged by the same scoreSong safety net every API-generated song passes through, no exceptions', () => {

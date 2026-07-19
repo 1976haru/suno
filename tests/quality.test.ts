@@ -78,6 +78,27 @@ describe('quality scorer', () => {
     const [song] = scoreSongs(bp.songs, opts.channel);
     expect(song.qualityScore).toBeGreaterThanOrEqual(85);
   });
+
+  // TASK v3.27 (Part A3) — an AI-creative title is no longer locked to a
+  // mechanically-derived local string, so the title field itself needs the
+  // same copyright/imitation/famous-artist scan every other field already
+  // gets. collectSongText (quality.ts) already includes song.title alongside
+  // stylePrompt/lyrics/youtube fields — these confirm that scan actually
+  // fires when the risky text lives ONLY in the title, not elsewhere.
+  it('flags artist-imitation language when it appears only in the title, not the style prompt or lyrics', () => {
+    const song = scoreSong(baseSong({ title: 'In the Style of Adele' }));
+    expect(song.warnings.some(w => w.startsWith('Artist imitation risk'))).toBe(true);
+  });
+
+  it('flags a real famous-artist name when it appears only in the title', () => {
+    const song = scoreSong(baseSong({ title: 'Singing Like Adele Tonight' }));
+    expect(song.warnings.some(w => w.startsWith('Famous artist reference risk'))).toBe(true);
+  });
+
+  it('flags copyright-risk language ("cover of") when it appears only in the title', () => {
+    const song = scoreSong(baseSong({ title: 'Cover Of An Old Classic' }));
+    expect(song.warnings.some(w => w.startsWith('Copyright risk'))).toBe(true);
+  });
 });
 
 describe('checkHookQuality (TASK A5, v3.3)', () => {

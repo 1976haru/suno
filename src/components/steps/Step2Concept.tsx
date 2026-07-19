@@ -431,6 +431,32 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         </p>
       </div>
 
+      {provider.provider !== 'local' && (
+        <div className="option-block">
+          <h3>제목 생성 방식</h3>
+          <div className="chips">
+            <button
+              type="button"
+              className={(opts.titleMode ?? 'ai-creative') === 'ai-creative' ? 'chip active' : 'chip'}
+              onClick={() => setOpts(prev => ({ ...prev, titleMode: 'ai-creative' }))}
+            >
+              AI가 제목 창작 (기본 · 추천)
+            </button>
+            <button
+              type="button"
+              className={opts.titleMode === 'local' ? 'chip active' : 'chip'}
+              onClick={() => setOpts(prev => ({ ...prev, titleMode: 'local' }))}
+            >
+              로컬 고정 제목 (오프라인 폴백과 동일)
+            </button>
+          </div>
+          <p className="supporting">
+            "AI가 제목 창작"은 훅 문구(가사 반복구)는 그대로 유지한 채, 제목의 문장 구조를 Claude/ChatGPT가 다양하게 지어요.
+            "로컬 고정 제목"은 이전 방식대로 훅 문구를 거의 그대로 제목화합니다 — 제목이 다 비슷하게 느껴지면 이 옵션을 꺼두세요.
+          </p>
+        </div>
+      )}
+
       <div className="option-block">
         <h3>가사에서 피할 것들 (기본값 권장)</h3>
         <div className="avoid-word-list">

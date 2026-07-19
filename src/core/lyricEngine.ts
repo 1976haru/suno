@@ -762,6 +762,20 @@ export interface HookContext {
 // nounPhrase hooks (see titleFromHook) — kept here rather than duplicated.
 const enTimeWords = ['Winter', 'Golden', 'Quiet', 'Old December', 'First Snow', 'Slow Sunday', 'Midnight', 'Soft Christmas', 'Rainy Afternoon', 'New Year'];
 
+/**
+ * TASK v3.27 (Part A4, low priority) — a second title shape for English
+ * nounPhrase hooks: a contrast/concession suffix ("<hook>, Still" / "<hook>,
+ * After All") instead of only a leading word. Purely additive scope: still
+ * English + nounPhrase only, still always keeps the hook phrase verbatim (a
+ * comma-appended qualifier, unlike a leading adjective, reads naturally after
+ * any noun phrase without needing real NLP). The real, general fix for
+ * pack-wide title monotony is GenerationOptions.titleMode='ai-creative'
+ * (default) — this local/offline fallback path stays deliberately narrow
+ * rather than risk the double-genitive class of bug the docstring on
+ * titleFromHook below already warns about for Korean/Japanese.
+ */
+const enContrastWords = ['Still', 'After All', 'Even Now', 'Anyway', 'Somehow'];
+
 // Vocative hooks only ever address a person/abstract noun, never an object —
 // H3's entire bug class is prevented by simply never parameterizing this
 // bank with the object-word list used elsewhere.
@@ -1167,11 +1181,19 @@ function uniqueTitle(base: string, usedTitles: Set<string>): string {
 export function titleFromHook(hook: HookSpec, seed: number, language: LyricLanguage, usedTitles: Set<string>): string {
   if (language === 'english' && hook.shape === 'nounPhrase') {
     const rng = mulberry32(seed);
-    if (rng() >= 0.5) {
+    const roll = rng();
+    if (roll >= 0.66) {
       const prefixPool = shuffle(enTimeWords, seed + 777);
       for (const prefix of prefixPool) {
         if (hasWordOverlap('english', prefix, hook.phrase)) continue;
         const candidate = `${prefix} ${hook.phrase}`;
+        if (!usedTitles.has(candidate)) return candidate;
+      }
+    } else if (roll >= 0.33) {
+      const framePool = shuffle(enContrastWords, seed + 991);
+      for (const frame of framePool) {
+        if (hasWordOverlap('english', frame, hook.phrase)) continue;
+        const candidate = `${hook.phrase}, ${frame}`;
         if (!usedTitles.has(candidate)) return candidate;
       }
     }
@@ -1307,4 +1329,61 @@ export function computeDiversityScore(songs: Pick<SongIdea, 'trackNo' | 'lyrics'
 
 export function seedForBlueprint(opts: Pick<GenerationOptions, 'channel' | 'projectTitle'>) {
   return `${opts.channel.id}:${opts.projectTitle}`;
+}
+
+/**
+ * TASK v3.27 (Part A3) — letting a remote model/coding agent write its own
+ * title (see GenerationOptions.titleMode) reopens a collision risk
+ * preallocateSongSlots existed specifically to close for titles: two
+ * parallel chunks (or a Batch API sub-batch, or a Claude Code run) can't see
+ * each other's real output, so nothing stops both from independently landing
+ * on the same title. hookPhrase never has this problem (still always
+ * locally pre-decided, see reconcileWithPreassignedSlot) — this is title-only,
+ * run once against the whole assembled pack (plus the channel's cross-pack
+ * title history) after every chunk/sub-batch/import has already landed.
+ * Suffix-style disambiguation ("Reprise", "Part II", ...) mirrors real album
+ * conventions rather than reading like an error message pasted into a title.
+ */
+const TITLE_DEDUP_SUFFIXES = ['Reprise', 'Again', 'Part II', 'Revisited', 'Once More'];
+
+export interface TitleDedupResult {
+  songs: SongIdea[];
+  changedTrackNos: number[];
+}
+
+export function dedupeTitlesAcrossPack(songs: SongIdea[], avoidTitles: string[] = []): TitleDedupResult {
+  const seen = new Set(avoidTitles.map(title => title.trim().toLowerCase()));
+  const changedTrackNos: number[] = [];
+
+  const result = songs.map(song => {
+    const key = song.title.trim().toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      return song;
+    }
+
+    let candidate = song.title;
+    let candidateKey = key;
+    for (const suffix of TITLE_DEDUP_SUFFIXES) {
+      candidate = `${song.title} (${suffix})`;
+      candidateKey = candidate.trim().toLowerCase();
+      if (!seen.has(candidateKey)) break;
+    }
+    let n = 2;
+    while (seen.has(candidateKey)) {
+      candidate = `${song.title} (${n})`;
+      candidateKey = candidate.trim().toLowerCase();
+      n += 1;
+    }
+
+    seen.add(candidateKey);
+    changedTrackNos.push(song.trackNo);
+    return {
+      ...song,
+      title: candidate,
+      warnings: [...song.warnings, 'Title duplicated another title in this pack or the channel\'s history — auto-uniquified.']
+    };
+  });
+
+  return { songs: result, changedTrackNos };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { preallocateSongSlots, slotsForRange } from '../src/core/batchPreallocation';
+import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../src/core/batchPreallocation';
 import { buildBatchRequestSpecs, type PreallocatedBatchIdentity } from '../src/providers/batchAnthropic';
 import { stitchBatchResults, validateStitched, type BatchRequestResult } from '../src/core/batchStitcher';
 import { describeSnapshotMismatch, type BatchJobSnapshot } from '../src/core/batchJobs';
@@ -67,6 +67,55 @@ describe('[B2] preallocateSongSlots', () => {
   });
 });
 
+describe('[v3.27] reconcileWithPreassignedSlot', () => {
+  function makeSong(overrides: Partial<SongIdea> = {}): SongIdea {
+    return {
+      trackNo: 1,
+      title: 'Model Title',
+      seasonMoment: 'x',
+      listenerSituation: 'x',
+      emotionArc: 'Model Arc',
+      hookPhrase: 'Model Hook',
+      stylePrompt: 'style',
+      lyrics: '[chorus]\nline\n[end]',
+      youtube: { title: 'x', description: 'x', tags: [] },
+      qualityScore: 0,
+      warnings: [],
+      ...overrides
+    };
+  }
+  const slot = { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 100, emotionArc: 'Slot Arc' };
+
+  it('returns the song unchanged when no slot matches', () => {
+    const song = makeSong();
+    expect(reconcileWithPreassignedSlot(song, undefined, 'ai-creative')).toBe(song);
+  });
+
+  it('hookPhrase/emotionArc/songRole always come from the slot, regardless of titleMode', () => {
+    for (const titleMode of ['local', 'ai-creative'] as const) {
+      const reconciled = reconcileWithPreassignedSlot(makeSong(), slot, titleMode);
+      expect(reconciled.hookPhrase).toBe('Slot Hook');
+      expect(reconciled.emotionArc).toBe('Slot Arc');
+      expect(reconciled.songRole).toBe('flagship');
+    }
+  });
+
+  it('titleMode="local" forces title to the slot\'s value', () => {
+    const reconciled = reconcileWithPreassignedSlot(makeSong(), slot, 'local');
+    expect(reconciled.title).toBe('Slot Title');
+  });
+
+  it('titleMode="ai-creative" (default) trusts the model\'s own non-blank title', () => {
+    const reconciled = reconcileWithPreassignedSlot(makeSong(), slot);
+    expect(reconciled.title).toBe('Model Title');
+  });
+
+  it('titleMode="ai-creative" still falls back to the slot\'s title if the model left it blank', () => {
+    const reconciled = reconcileWithPreassignedSlot(makeSong({ title: '   ' }), slot, 'ai-creative');
+    expect(reconciled.title).toBe('Slot Title');
+  });
+});
+
 describe('[B2] buildBatchRequestSpecs with preallocated identity', () => {
   const settings: ProviderSettings = { provider: 'anthropic', model: 'claude-sonnet-4-5', temperature: 0.8 };
 
@@ -125,15 +174,43 @@ describe('[B3] stitchBatchResults — trackNo-keyed merge', () => {
     expect(stitched.blueprint?.songs.find(s => s.trackNo === 2)?.title).toBe('Retried Song 2');
   });
 
-  it('defensively reconciles title/hookPhrase/emotionArc back to the preassigned slot, even if the model returned something else', () => {
+  it('defensively reconciles hookPhrase/emotionArc back to the preassigned slot, even if the model returned something else — unconditional regardless of titleMode', () => {
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
     ];
     const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
     const stitched = stitchBatchResults(opts, results, preassignedSlots);
-    expect(stitched.blueprint?.songs[0].title).toBe('Locked Title');
     expect(stitched.blueprint?.songs[0].hookPhrase).toBe('Locked Hook');
     expect(stitched.blueprint?.songs[0].emotionArc).toBe('locked arc');
+  });
+
+  it('TASK v3.27: default titleMode (ai-creative) trusts the model\'s own title instead of overwriting it with the preassigned slot\'s', () => {
+    const results: BatchRequestResult[] = [
+      { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
+    ];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const stitched = stitchBatchResults(opts, results, preassignedSlots);
+    expect(stitched.blueprint?.songs[0].title).toBe('Model Invented Title');
+  });
+
+  it('TASK v3.27: titleMode="local" still forces the title back to the preassigned slot (old behavior, unchanged)', () => {
+    const localOpts = makeOptions({ titleMode: 'local' });
+    const results: BatchRequestResult[] = [
+      { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
+    ];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const stitched = stitchBatchResults(localOpts, results, preassignedSlots);
+    expect(stitched.blueprint?.songs[0].title).toBe('Locked Title');
+  });
+
+  it('TASK v3.27: two sub-batches independently landing on the same AI-creative title get auto-uniquified, not silently duplicated', () => {
+    const results: BatchRequestResult[] = [
+      { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Same Title' })]), usage: null, error: null },
+      { customId: 'b1', blueprint: makeBlueprint([makeSong(2, { title: 'Same Title' })]), usage: null, error: null }
+    ];
+    const stitched = stitchBatchResults(opts, results);
+    const titles = stitched.blueprint?.songs.map(s => s.title.trim().toLowerCase());
+    expect(new Set(titles).size).toBe(2);
   });
 });
 

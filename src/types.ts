@@ -130,6 +130,18 @@ export interface GenerationOptions {
    * since Suno's actual melody isn't controlled precisely by text.
    */
   earwormMode?: boolean;
+  /**
+   * TASK v3.27 — 'ai-creative' (default) lets the remote model/coding agent
+   * write its own title for each preassigned hookPhrase instead of copying
+   * core/lyricEngine.ts's titleFromHook output verbatim — that mechanical
+   * derivation (hook phrase as-is, or "<time word> <hook>") is what made a
+   * whole pack's titles read as structurally uniform even though the hooks
+   * themselves varied. 'local' keeps the old fully-deterministic behavior
+   * (offline-safe fallback, and for users who prefer the old titles).
+   * hookPhrase/emotionArc/songRole stay locally pre-decided either way — see
+   * core/batchPreallocation.ts's reconcileWithPreassignedSlot.
+   */
+  titleMode?: 'local' | 'ai-creative';
 }
 
 export interface YoutubeMetadata {
