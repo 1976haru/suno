@@ -1,0 +1,25 @@
+{
+  "_comment": "TASK v3.31 (Part 2) — best-effort selectors for suno.com's create-song page, written from general knowledge of the current UI (labeled textareas for lyrics/style, a title input, and an 'Exclude styles' advanced-options field). NOT verified against the live site by this tool — Suno's UI can also change without notice. Each field lists candidate CSS selectors tried in order; the first one that becomes visible within a couple seconds wins. If ALL candidates fail for a field, helper.mjs copies that value to the clipboard and asks you to paste it manually instead of failing the whole run. Update this file (no code changes needed) whenever Suno's markup changes — open the create page, right-click the field, 'Inspect', and copy a stable selector (an id, a stable class, or a placeholder/aria-label attribute) into the matching array below.",
+  "createPageUrl": "https://suno.com/create",
+  "title": [
+    "input[placeholder=\"Enter song title\" i]",
+    "input[aria-label=\"Song title\" i]",
+    "input[placeholder*=\"title\" i]"
+  ],
+  "stylePrompt": [
+    "textarea[placeholder=\"Enter style description\" i]",
+    "textarea[aria-label=\"Style of music\" i]",
+    "textarea[placeholder*=\"style\" i]"
+  ],
+  "lyrics": [
+    "textarea[placeholder=\"Write your own lyrics\" i]",
+    "textarea[aria-label=\"Lyrics\" i]",
+    "textarea[placeholder*=\"lyrics\" i]"
+  ],
+  "excludePrompt": [
+    "textarea[placeholder=\"Enter styles to exclude\" i]",
+    "textarea[aria-label=\"Exclude styles\" i]",
+    "input[placeholder*=\"exclude\" i]",
+    "textarea[placeholder*=\"exclude\" i]"
+  ]
+}

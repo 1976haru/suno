@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteAllPacks, listChannelPersonas, loadPack, recordChannelPersonaUse, saveChannelPersona, savePack } from '../src/core/library';
+import {
+  deleteAllPacks,
+  getPackPastedAt,
+  getPackProgress,
+  listChannelPersonas,
+  loadPack,
+  markTrackPasted,
+  recordChannelPersonaUse,
+  saveChannelPersona,
+  savePack,
+  setTrackProgress
+} from '../src/core/library';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildSoundSignature } from '../src/core/soundSignature';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -41,5 +52,50 @@ describe('library persona persistence', () => {
     personas = await listChannelPersonas(opts.channel.id);
     expect(personas[0].useCount).toBe(1);
     expect(personas[0].soundSignature?.short).toBe(soundSignature.short);
+  });
+});
+
+// TASK v3.31 — SunoProgressMode's persistence layer: getPackProgress/
+// setTrackProgress already existed for FocusMode (TASK G3, v3.7); markTrackPasted/
+// getPackPastedAt are new. Both sets share one underlying record per packId,
+// so the critical regression to guard is that writing one never silently
+// wipes out the other (setTrackProgress must preserve pastedAt, and vice versa).
+describe('[v3.31] pack progress + pasted-at persistence (shared record, no test previously existed for this)', () => {
+  const packId = 'test-pack-progress';
+
+  it('getPackProgress/getPackPastedAt return empty defaults for an unknown pack', async () => {
+    expect(await getPackProgress('never-seen-pack')).toEqual([]);
+    expect(await getPackPastedAt('never-seen-pack')).toEqual({});
+  });
+
+  it('setTrackProgress adds and removes a trackNo from the done list', async () => {
+    let done = await setTrackProgress(packId, 3, true);
+    expect(done).toEqual([3]);
+    done = await setTrackProgress(packId, 1, true);
+    expect(done).toEqual([1, 3]);
+    done = await setTrackProgress(packId, 3, false);
+    expect(done).toEqual([1]);
+  });
+
+  it('markTrackPasted records a timestamp without needing setTrackProgress first', async () => {
+    const pastedAt = await markTrackPasted(packId, 5);
+    expect(typeof pastedAt[5]).toBe('string');
+    expect(new Date(pastedAt[5]).toString()).not.toBe('Invalid Date');
+  });
+
+  it('setTrackProgress does not wipe out pastedAt written earlier for the same pack', async () => {
+    await markTrackPasted(packId, 7);
+    await setTrackProgress(packId, 7, true);
+    const pastedAt = await getPackPastedAt(packId);
+    expect(typeof pastedAt[7]).toBe('string');
+    const done = await getPackProgress(packId);
+    expect(done).toContain(7);
+  });
+
+  it('markTrackPasted does not wipe out doneTrackNos written earlier for the same pack', async () => {
+    await setTrackProgress(packId, 9, true);
+    await markTrackPasted(packId, 9);
+    const done = await getPackProgress(packId);
+    expect(done).toContain(9);
   });
 });

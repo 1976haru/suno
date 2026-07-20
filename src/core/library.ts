@@ -69,6 +69,8 @@ export interface PackProgressRecord {
   id: string;
   doneTrackNos: number[];
   updatedAt: string;
+  /** TASK v3.31 — per-track "last copied all fields in Suno Progress Mode" timestamp, so reopening a pack later shows what was already pasted. Optional/absent for records written before this field existed. */
+  pastedAt?: Record<number, string>;
 }
 
 const memoryProgress = new Map<string, PackProgressRecord>();
@@ -334,25 +336,58 @@ export async function listChannelPersonas(channelId: string): Promise<ChannelPer
     .sort((a, b) => (a.lastUsedAt < b.lastUsedAt ? 1 : -1));
 }
 
-export async function getPackProgress(packId: string): Promise<number[]> {
-  const record = hasIndexedDb()
-    ? await withStore<PackProgressRecord | undefined>('readonly', store => store.get(packId), PROGRESS_STORE)
+async function getProgressRecord(packId: string): Promise<PackProgressRecord | undefined> {
+  return hasIndexedDb()
+    ? withStore<PackProgressRecord | undefined>('readonly', store => store.get(packId), PROGRESS_STORE)
     : memoryProgress.get(packId);
+}
+
+export async function getPackProgress(packId: string): Promise<number[]> {
+  const record = await getProgressRecord(packId);
   return record?.doneTrackNos || [];
 }
 
+/** TASK v3.31 — companion to getPackProgress: the per-track "last pasted" timestamps set by markTrackPasted below. */
+export async function getPackPastedAt(packId: string): Promise<Record<number, string>> {
+  const record = await getProgressRecord(packId);
+  return record?.pastedAt || {};
+}
+
 export async function setTrackProgress(packId: string, trackNo: number, done: boolean): Promise<number[]> {
-  const current = await getPackProgress(packId);
+  const existing = await getProgressRecord(packId);
+  const current = existing?.doneTrackNos || [];
   const next = done
     ? Array.from(new Set([...current, trackNo])).sort((a, b) => a - b)
     : current.filter(no => no !== trackNo);
-  const record: PackProgressRecord = { id: packId, doneTrackNos: next, updatedAt: new Date().toISOString() };
+  // Preserve pastedAt — this record is put() wholesale, so a naive
+  // {id, doneTrackNos, updatedAt} write here would silently wipe out
+  // markTrackPasted's history the next time either function runs.
+  const record: PackProgressRecord = { id: packId, doneTrackNos: next, updatedAt: new Date().toISOString(), pastedAt: existing?.pastedAt };
   if (!hasIndexedDb()) {
     memoryProgress.set(packId, record);
     return next;
   }
   await withStore('readwrite', store => store.put(record), PROGRESS_STORE);
   return next;
+}
+
+/**
+ * TASK v3.31 — records when Progress Mode finished copying every field for a
+ * track (not necessarily marked "done" — that's still a separate, manual
+ * toggle). Lightweight by design: this only ever touches the existing
+ * suno_progress record, never a full savePack() round trip, so it's cheap
+ * enough to call after every song's last copy.
+ */
+export async function markTrackPasted(packId: string, trackNo: number): Promise<Record<number, string>> {
+  const existing = await getProgressRecord(packId);
+  const pastedAt = { ...(existing?.pastedAt || {}), [trackNo]: new Date().toISOString() };
+  const record: PackProgressRecord = { id: packId, doneTrackNos: existing?.doneTrackNos || [], updatedAt: new Date().toISOString(), pastedAt };
+  if (!hasIndexedDb()) {
+    memoryProgress.set(packId, record);
+    return pastedAt;
+  }
+  await withStore('readwrite', store => store.put(record), PROGRESS_STORE);
+  return pastedAt;
 }
 
 export async function getConceptCache(cacheKey: string): Promise<string | undefined> {

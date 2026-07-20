@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Download, FileText, Focus, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import FocusMode from '../FocusMode';
+import SunoProgressMode from '../SunoProgressMode';
 import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
@@ -103,6 +104,7 @@ export default function Step4Result({
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
   const [resultTab, setResultTab] = useState<'songs' | 'thumbnail' | 'persona'>('songs');
   const [focusModeOpen, setFocusModeOpen] = useState(false);
+  const [progressModeOpen, setProgressModeOpen] = useState(false);
 
   // TASK I6 (v3.11, PART D-3) — tracks 1-3 decide the video's first
   // impression, so they're pre-checked for hybrid refinement by default;
@@ -219,12 +221,26 @@ export default function Step4Result({
               <Focus size={16} />
               📱 집중 모드
             </button>
+            <button type="button" className="primary" onClick={() => setProgressModeOpen(true)}>
+              <Headphones size={16} />
+              🎧 수노 진행 모드
+            </button>
           </div>
         </div>
       )}
 
       {blueprint && focusModeOpen && (
         <FocusMode songs={blueprint.songs} packId={packId} onClose={() => setFocusModeOpen(false)} />
+      )}
+
+      {blueprint && progressModeOpen && (
+        <SunoProgressMode
+          songs={blueprint.songs}
+          packId={packId}
+          personaMode={personaMode}
+          promptCharLimit={promptCharLimit}
+          onClose={() => setProgressModeOpen(false)}
+        />
       )}
 
       {blueprint && (

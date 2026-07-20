@@ -1560,6 +1560,83 @@ pre {
   justify-content: center;
 }
 
+/* TASK v3.31 — Suno Progress Mode: reuses .focus-mode/.focus-mode-overlay/
+   .focus-nav-button/.chip/.button-row/.full-width wholesale (same overlay
+   shell as Focus Mode above), only adding the pieces unique to this view:
+   the all-tracks strip and the stacked numbered copy buttons. */
+.progress-track-strip {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.progress-track-chip {
+  flex: 0 0 auto;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-track-chip.active {
+  background: var(--accent, #2563eb);
+  color: #fff;
+  font-weight: 600;
+}
+
+.progress-track-chip.done {
+  opacity: 0.45;
+}
+
+.suno-progress-title {
+  flex: 1;
+  text-align: center;
+}
+
+.suno-progress-title h3 {
+  margin: 0 0 2px;
+  font-size: 18px;
+}
+
+.suno-progress-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suno-progress-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  font-size: 16px;
+  justify-content: flex-start;
+  padding-left: 16px;
+}
+
+.suno-progress-field.copied {
+  background: var(--accent-soft, #dcfce7);
+  border-color: var(--accent, #22c55e);
+}
+
+.suno-progress-field-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 6px;
+  background: var(--panel-soft);
+  font-weight: 700;
+  font-size: 13px;
+}
+
 /* TASK H8 (v3.10) — concept agent panel: free-text input -> 1-2 recommendation cards */
 .concept-agent-panel {
   background: var(--panel-soft);
