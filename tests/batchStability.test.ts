@@ -100,6 +100,13 @@ describe('[v3.27] reconcileWithPreassignedSlot', () => {
     }
   });
 
+  it('can preserve an imported hook/lyrics pair when the bridge opts into keepHook', () => {
+    const reconciled = reconcileWithPreassignedSlot(makeSong(), slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(reconciled.hookPhrase).toBe('Model Hook');
+    expect(reconciled.emotionArc).toBe('Model Arc');
+    expect(reconciled.songRole).toBe('flagship');
+  });
+
   it('titleMode="local" forces title to the slot\'s value', () => {
     const reconciled = reconcileWithPreassignedSlot(makeSong(), slot, 'local');
     expect(reconciled.title).toBe('Slot Title');

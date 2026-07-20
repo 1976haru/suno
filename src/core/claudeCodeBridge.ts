@@ -62,7 +62,8 @@ export function buildClaudeCodeInstruction(
     lockedIdentity: null,
     preassignedSongs
   };
-  const rules = buildSystemInstruction(opts, batch, undefined, generateThumbnailText);
+  const bridgeRulesBatch: BatchContext = { ...batch, preassignedSongs: [] };
+  const rules = buildSystemInstruction(opts, bridgeRulesBatch, undefined, generateThumbnailText);
   const basePayload = buildUserInstruction(opts, genres, moods, season, batch, generateThumbnailText);
   const payload = {
     ...basePayload,
@@ -80,8 +81,8 @@ export function buildClaudeCodeInstruction(
   // constraint in place, even with v3.27's shape-rotation guidance.
   const titleMode = opts.titleMode ?? 'ai-creative';
   const titleInstructionLine = titleMode === 'local'
-    ? '- Every entry in "preassignedSongs" above MUST be copied verbatim for that trackNo\'s title and hookPhrase — never invent a different title or hook for those track numbers.'
-    : '- Every entry in "preassignedSongs" above gives each song\'s fixed hookPhrase (and songRole/tempo/emotionArc) — copy those verbatim, never invent different ones. Its "title" field is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase — it no longer needs to equal or contain the hook. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the structure freely.';
+    ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
+    : '- "preassignedSongs" gives local planning slots and fallback placeholders. Write your OWN original title for each song, independent of the hookPhrase. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel tone while varying the structure freely.';
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -97,8 +98,20 @@ export function buildClaudeCodeInstruction(
     `- Write a new file named "${CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME}" in the current directory.`,
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
     titleInstructionLine,
+    // TASK v3.30 — real Codex-bridge output showed 20/20 titles and 19/20
+    // hookPhrases copied verbatim from "alreadyUsedTitles"/"alreadyUsedHooks"
+    // (just reshuffled to different track numbers) — the agent apparently
+    // read those arrays as source material rather than a blocklist. The old
+    // one-line "Never reuse..." bullet, buried 5th of 7 with no self-check
+    // step, wasn't forceful enough. This is now a CRITICAL bullet stating
+    // the exact forbidden count and an explicit before-writing verification
+    // step. The app's import-time safety net (title dedup + hook-collision
+    // warnings) still catches this if it happens again — see
+    // dedupeTitlesAcrossPack/flagHookCollisions — but this is the first line
+    // of defense.
+    `- CRITICAL: Every one of the ${avoid?.usedTitles?.length ?? 0} titles in "alreadyUsedTitles" and every one of the ${avoid?.usedHooks?.length ?? 0} hooks in "alreadyUsedHooks" above is FORBIDDEN for this pack — they were already used by a previous pack, not source material to draw from. Before writing the file, check every song's "title" and "hookPhrase" against both lists; if any match (even reordered onto a different track), rewrite that title/hook to something new.`,
+    '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the file — the app supplies those separately from local context.',
-    '- Never reuse a title or hook already listed in "alreadyUsedTitles" / "alreadyUsedHooks" above.',
     '- The file itself must be raw JSON — no markdown fences, no surrounding prose, inside the file.',
     '- When done, tell me the file\'s path so I can import it back into Suno Weaver Studio.'
   ].join('\n');
@@ -165,14 +178,59 @@ interface NormalizeFailure {
   error: string;
 }
 
+function normalizedHookKey(hook: string): string {
+  return hook.trim().toLowerCase();
+}
+
+function appendWarning(song: SongIdea, warning: string): SongIdea {
+  return song.warnings.includes(warning)
+    ? song
+    : { ...song, warnings: [...song.warnings, warning] };
+}
+
+function flagHookCollisions(songs: SongIdea[], avoidHooks: string[] = []): { songs: SongIdea[]; warnings: string[] } {
+  const warnings: string[] = [];
+  let nextSongs = songs;
+  const historicalHooks = new Set(avoidHooks.map(normalizedHookKey).filter(Boolean));
+  const byHook = new Map<string, SongIdea[]>();
+
+  for (const song of songs) {
+    const key = normalizedHookKey(song.hookPhrase);
+    if (!key) continue;
+    byHook.set(key, [...(byHook.get(key) ?? []), song]);
+  }
+
+  function warnTrack(trackNo: number, warning: string) {
+    nextSongs = nextSongs.map(song => song.trackNo === trackNo ? appendWarning(song, warning) : song);
+    warnings.push(warning);
+  }
+
+  for (const [key, matches] of byHook) {
+    if (historicalHooks.has(key)) {
+      for (const song of matches) {
+        warnTrack(song.trackNo, `Track ${song.trackNo}: hookPhrase "${song.hookPhrase}" duplicates a hook already used by this channel. Regenerate this song; import does not auto-rewrite hooks because that would desync lyrics.`);
+      }
+    }
+    if (matches.length > 1) {
+      const trackNos = matches.map(song => song.trackNo).join(', ');
+      const warning = `Tracks ${trackNos}: hookPhrase "${matches[0].hookPhrase}" is duplicated within this import. Regenerate one of these songs; import does not auto-rewrite hooks because that would desync lyrics.`;
+      for (const song of matches) {
+        nextSongs = nextSongs.map(candidate => candidate.trackNo === song.trackNo ? appendWarning(candidate, warning) : candidate);
+      }
+      warnings.push(warning);
+    }
+  }
+
+  return { songs: nextSongs, warnings };
+}
+
 /**
- * TASK A2/A3/B1 — builds the song from the agent's raw JSON, then hands it to
- * the same reconcileWithPreassignedSlot() every other path uses: hookPhrase/
- * emotionArc/songRole always win from the locally pre-decided slot regardless
- * of titleMode (hook-collision-zero is unconditional), while "title" is only
- * forced to the slot's value in 'local' mode — in the default 'ai-creative'
- * mode the agent's own title is trusted (falling back to the slot's title
- * only if the agent left it blank).
+ * Builds the song from the bridge agent's raw JSON, then reconciles only the
+ * slot-owned planning fields. Bridge import preserves the agent's hookPhrase
+ * and emotionArc so the stored hook stays aligned with the generated lyrics;
+ * songRole remains slot-owned because it controls playlist/opening structure.
+ * Title behavior still follows titleMode: local mode forces the slot title,
+ * while ai-creative mode trusts the imported title unless it is blank.
  */
 function normalizeImportedSong(
   raw: unknown,
@@ -217,7 +275,7 @@ function normalizeImportedSong(
     qualityScore: 0,
     warnings: []
   };
-  return { song: reconcileWithPreassignedSlot(rawSong, slot, titleMode) };
+  return { song: reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true }) };
 }
 
 export interface ImportSongsReport {
@@ -225,6 +283,7 @@ export interface ImportSongsReport {
   importedCount: number;
   skippedCount: number;
   skippedReasons: string[];
+  warnings: string[];
 }
 
 /**
@@ -243,7 +302,9 @@ export function importSongsJson(
   season: SeasonPack,
   preassignedSongs: PreassignedSongSlot[] = [],
   /** TASK v3.27 (Part A3) — the channel's cross-pack title history (same avoid.usedTitles the caller already fetched via hookLedger's safeAvoidSet for preallocateSongSlots), so an AI-creative title that happens to match an older pack's title still gets caught and uniquified. */
-  avoidTitles: string[] = []
+  avoidTitles: string[] = [],
+  /** Channel hook history from hookLedger. Bridge imports warn on collisions but never rewrite hooks, because rewriting only hookPhrase would desync the lyrics. */
+  avoidHooks: string[] = []
 ): ImportSongsReport {
   // TASK v3.27 (Part B1) — reproduced crash: importSongsJson accessed
   // season.label (and iterated genres/moods) unconditionally, so calling it
@@ -252,19 +313,19 @@ export function importSongsJson(
   // real call site can still hand this an undefined/partial value at
   // runtime — guard defensively rather than trust the type alone.
   if (!season?.label || !opts?.channel || !Array.isArray(genres) || !Array.isArray(moods)) {
-    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['채널·시즌 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'] };
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['채널·시즌 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'], warnings: [] };
   }
 
   let parsed: unknown;
   try {
     parsed = parseLeniently(rawText);
   } catch {
-    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['JSON을 해석하지 못했습니다 — 파일 내용이 올바른 JSON인지 확인하세요.'] };
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['JSON을 해석하지 못했습니다 — 파일 내용이 올바른 JSON인지 확인하세요.'], warnings: [] };
   }
 
   const rawSongs = extractSongsArray(parsed);
   if (!rawSongs.length) {
-    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['"songs" 배열을 찾지 못했습니다.'] };
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['"songs" 배열을 찾지 못했습니다.'], warnings: [] };
   }
 
   const titleMode = opts.titleMode ?? 'ai-creative';
@@ -282,7 +343,7 @@ export function importSongsJson(
   });
 
   if (!validSongs.length) {
-    return { blueprint: null, importedCount: 0, skippedCount: rawSongs.length, skippedReasons };
+    return { blueprint: null, importedCount: 0, skippedCount: rawSongs.length, skippedReasons, warnings: [] };
   }
 
   // TASK B1 — "trackNo 재정렬(1..N 연속)": sort by each song's claimed
@@ -291,7 +352,8 @@ export function importSongsJson(
   validSongs.sort((a, b) => a.trackNo - b.trackNo);
   const renumbered = validSongs.map((song, idx) => ({ ...song, trackNo: idx + 1 }));
 
-  const scored = scoreSongs(renumbered, opts.channel, opts.lyricLanguage);
+  const hookCollisionResult = flagHookCollisions(renumbered, avoidHooks);
+  const scored = scoreSongs(hookCollisionResult.songs, opts.channel, opts.lyricLanguage);
   // TASK v3.27 (Part A3) — an AI-creative title wasn't locally pre-decided
   // (unlike hookPhrase), so two songs in this import — or this import
   // against an older pack's title history — can still collide; catch and
@@ -304,6 +366,7 @@ export function importSongsJson(
     blueprint,
     importedCount: deduped.length,
     skippedCount: rawSongs.length - deduped.length,
-    skippedReasons
+    skippedReasons,
+    warnings: hookCollisionResult.warnings
   };
 }

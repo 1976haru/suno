@@ -359,6 +359,11 @@ export default function Step3Generate({
             )}
           </p>
         )}
+        {importReport?.warnings.length ? (
+          <p className="warning">
+            Import warnings: {importReport.warnings.join(' / ')}
+          </p>
+        ) : null}
       </div>
 
       <DryRunPreviewModal

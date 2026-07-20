@@ -15,6 +15,30 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toContain('Old Hook Phrase');
     expect(instruction).toContain('alreadyUsedTitles');
     expect(instruction).toContain('alreadyUsedHooks');
+    // TASK v3.30 — real Codex-bridge output showed 20/20 titles and 19/20
+    // hooks copied verbatim from these "avoid" lists (reshuffled to
+    // different tracks); the instruction now states the exact forbidden
+    // count and an explicit before-writing self-check instead of one buried
+    // "never reuse" line.
+    expect(instruction).toContain('is FORBIDDEN for this pack');
+    expect(instruction).toContain('Before writing the file, check every song\'s "title" and "hookPhrase" against both lists');
+
+    const payloadMatch = instruction.match(/```json\n([\s\S]*?)\n```/);
+    expect(payloadMatch).not.toBeNull();
+    const payload = JSON.parse(payloadMatch![1]);
+    expect(payload.alreadyUsedHooks).toEqual(['Old Hook Phrase']);
+  });
+
+  it('TASK v3.30: states the exact forbidden title/hook counts so a coding agent can self-check its own output', () => {
+    const opts = makeOptions({ songCount: 20 });
+    const wideAvoid = {
+      usedTitles: Array.from({ length: 20 }, (_, i) => `Title ${i + 1}`),
+      usedHooks: Array.from({ length: 20 }, (_, i) => `Hook ${i + 1}`)
+    };
+    const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, wideAvoid, [], false);
+
+    expect(instruction).toContain('Every one of the 20 titles in "alreadyUsedTitles"');
+    expect(instruction).toContain('every one of the 20 hooks in "alreadyUsedHooks"');
   });
 
   it('includes the preassigned hook per track and, by default (titleMode="ai-creative"), tells the agent to write its own title instead of copying the placeholder', () => {
@@ -25,7 +49,7 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toContain('preassignedSongs');
     expect(instruction).toContain(slots[0].hookPhrase);
     expect(instruction).toContain('fallback placeholder');
-    expect(instruction).toContain('write your OWN original title');
+    expect(instruction).toContain('Write your OWN original title');
   });
 
   it('titleMode="local" instructs the agent to copy the preassigned title verbatim (old behavior, unchanged)', () => {
@@ -36,7 +60,20 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toContain('preassignedSongs');
     expect(instruction).toContain(slots[0].title);
     expect(instruction).toContain(slots[0].hookPhrase);
-    expect(instruction).toContain('copied verbatim');
+    expect(instruction).toContain('Copy the preassigned title');
+    expect(instruction).toContain('JSON hook and chorus hook diverge');
+  });
+
+  it('tells the bridge agent that hookPhrase and lyrics must stay matched because import preserves that pair', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const slots = preallocateSongSlots(opts, testGenres, avoid);
+    const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
+
+    expect(instruction).toContain('hookPhrase');
+    expect(instruction).toContain('lyrics');
+    expect(instruction).toContain('matched pair');
+    expect(instruction).toContain('will not rewrite hooks to match preassignedSongs');
+    expect(instruction).not.toContain('Do NOT invent a different hookPhrase');
   });
 
   it('tells the agent to write output to songs-output.json, as raw JSON with no markdown fences inside the file', () => {
@@ -72,13 +109,18 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
   });
 });
 
+function lyricsWithHook(hookPhrase: string) {
+  return `[verse 1]\nSome line\n[chorus]\n${hookPhrase}\nSome other line\n${hookPhrase}\n[verse 2]\nAnother line\n[chorus]\n${hookPhrase}\nSome other line\n${hookPhrase}\n[end]`;
+}
+
 function songJson(overrides: Record<string, unknown> = {}) {
+  const hookPhrase = typeof overrides.hookPhrase === 'string' ? overrides.hookPhrase : 'Morning Light';
   return {
     trackNo: 1,
     title: 'Morning Light',
-    hookPhrase: 'Morning Light',
+    hookPhrase,
     stylePrompt: 'warm acoustic pop, I-V-vi-IV progression, repeats chorus 4x, soft vocal, mid tempo',
-    lyrics: '[verse 1]\nSome line\n[chorus]\nMorning Light\nSome other line\nMorning Light\n[verse 2]\nAnother line\n[chorus]\nMorning Light\nSome other line\nMorning Light\n[end]',
+    lyrics: lyricsWithHook(hookPhrase),
     seasonMoment: 'a quiet morning',
     listenerSituation: 'waking up slowly',
     emotionArc: 'calm to hopeful',
@@ -165,7 +207,7 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     expect(report.blueprint!.songs.map(s => s.trackNo)).toEqual([1, 2]);
   });
 
-  it('reconciles against preassignedSongs: hookPhrase/songRole always win, regardless of titleMode', () => {
+  it('bridge import preserves the agent hook/lyrics pair instead of overwriting hookPhrase from preassignedSongs', () => {
     const opts = makeOptions({ songCount: 1 });
     const slots: PreassignedSongSlot[] = [
       { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
@@ -174,8 +216,25 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
 
     const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, slots);
 
-    expect(report.blueprint!.songs[0].hookPhrase).toBe('Preassigned Hook');
+    expect(report.blueprint!.songs[0].hookPhrase).toBe('Something Else');
     expect(report.blueprint!.songs[0].songRole).toBe('cold-open');
+  });
+
+  it('does not create a false hook-0x warning when the bridge file hook differs from the preassigned slot hook', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const agentHook = 'Soft Window Light';
+    const slots: PreassignedSongSlot[] = [
+      { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 98, emotionArc: 'slot arc' }
+    ];
+    const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Lantern Hour', hookPhrase: agentHook })] });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, slots);
+    const imported = report.blueprint!.songs[0];
+    const hookCount = imported.lyrics.split(agentHook).length - 1;
+
+    expect(imported.hookPhrase).toBe(agentHook);
+    expect(hookCount).toBe(4);
+    expect(imported.warnings.some(w => w.includes('Hook appears only 0x'))).toBe(false);
   });
 
   it('TASK v3.27: default titleMode (ai-creative) trusts the agent\'s own title over the preassigned placeholder', () => {
@@ -200,6 +259,31 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, slots);
 
     expect(report.blueprint!.songs[0].title).toBe('Preassigned Title');
+  });
+
+  it('warns but does not auto-rewrite bridge hooks that duplicate within the imported pack', () => {
+    const opts = makeOptions({ songCount: 2 });
+    const raw = JSON.stringify({
+      songs: [
+        songJson({ trackNo: 1, title: 'First Song', hookPhrase: 'Shared Hook', lyrics: '[verse 1]\nLine\n[chorus]\nShared Hook\nLine\nShared Hook\n[verse 2]\nLine\n[chorus]\nShared Hook\nLine\nShared Hook\n[end]' }),
+        songJson({ trackNo: 2, title: 'Second Song', hookPhrase: 'Shared Hook', lyrics: '[verse 1]\nLine\n[chorus]\nShared Hook\nLine\nShared Hook\n[verse 2]\nLine\n[chorus]\nShared Hook\nLine\nShared Hook\n[end]' })
+      ]
+    });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    expect(report.warnings.some(w => w.includes('duplicated within this import'))).toBe(true);
+    expect(report.blueprint!.songs.map(song => song.hookPhrase)).toEqual(['Shared Hook', 'Shared Hook']);
+  });
+
+  it('warns but does not auto-rewrite bridge hooks that collide with channel hook history', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const raw = JSON.stringify({ songs: [songJson({ hookPhrase: 'Old Hook Phrase', lyrics: '[verse 1]\nLine\n[chorus]\nOld Hook Phrase\nLine\nOld Hook Phrase\n[verse 2]\nLine\n[chorus]\nOld Hook Phrase\nLine\nOld Hook Phrase\n[end]' })] });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason, [], [], ['Old Hook Phrase']);
+
+    expect(report.warnings.some(w => w.includes('already used by this channel'))).toBe(true);
+    expect(report.blueprint!.songs[0].hookPhrase).toBe('Old Hook Phrase');
   });
 
   it('TASK v3.27: two imported songs landing on the same AI-creative title get auto-uniquified, not silently duplicated', () => {

@@ -71,18 +71,35 @@ export function slotsForRange(slots: PreassignedSongSlot[], trackNumbers: number
  * falling back to the slot's title only if that's missing/blank (e.g. the
  * model ignored the instruction entirely) so a song is never left titleless.
  */
+export interface ReconcilePreassignedOptions {
+  /**
+   * Bridge imports must preserve the imported hook/lyrics pair. Realtime and
+   * Batch paths leave this off so their locally preallocated hook guarantee
+   * remains unchanged.
+   */
+  keepHook?: boolean;
+  /**
+   * Metadata-only field. Bridge imports may keep the agent's arc because it
+   * can describe the imported lyric tone more accurately than the planning
+   * slot. Song role stays slot-owned because it drives opener/flagship
+   * structure.
+   */
+  keepEmotionArc?: boolean;
+}
+
 export function reconcileWithPreassignedSlot(
   song: SongIdea,
   slot: PreassignedSongSlot | undefined,
-  titleMode: 'local' | 'ai-creative' = 'ai-creative'
+  titleMode: 'local' | 'ai-creative' = 'ai-creative',
+  options: ReconcilePreassignedOptions = {}
 ): SongIdea {
   if (!slot) return song;
   const title = titleMode === 'local' ? slot.title : song.title?.trim() ? song.title : slot.title;
   return {
     ...song,
     title,
-    hookPhrase: slot.hookPhrase,
-    emotionArc: slot.emotionArc,
+    hookPhrase: options.keepHook && song.hookPhrase?.trim() ? song.hookPhrase : slot.hookPhrase,
+    emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole
   };
 }
