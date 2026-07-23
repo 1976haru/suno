@@ -277,6 +277,19 @@ export interface PreassignedSongSlot {
   songRole: string;
   tempo: number;
   emotionArc: string;
+  /**
+   * TASK v3.33 Part C — this trackNo's resolved money-chord progression
+   * text (compact tag + feel-reinforcement, see
+   * core/soundSignature.ts's compactMoneyChord/MONEY_CHORD_FEEL_SUFFIX).
+   * Unlike hookPhrase/emotionArc, this isn't its own SongIdea output field
+   * to reconcile post-hoc — it's instruction-only guidance the model is
+   * told to weave verbatim into the stylePrompt it writes (same trust
+   * model the flat, pre-v3.33 moneyChordMode instruction already used; no
+   * new post-hoc verification is added here). Computed once locally so
+   * realtime/Batch/bridge all reference the identical text for the same
+   * trackNo (see core/batchPreallocation.ts's preallocateSongSlots).
+   */
+  moneyChordText: string;
 }
 
 export interface BatchContext {

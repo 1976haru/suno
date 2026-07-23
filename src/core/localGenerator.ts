@@ -3,7 +3,8 @@ import { generationPacks } from '../data/presets';
 import { buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives } from './promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
-import { buildPersonaStylePrompt, buildSoundSignature, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
+import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
+import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
   composeLyrics,
@@ -398,9 +399,18 @@ export function generateLocalBlueprint(
   // statistic.
   const openingPackContext: OpeningPackContext = { dominantGenreIds: opts.genreIds, dominantMoodIds: opts.moodIds };
 
+  // TASK v3.33 Part C — per-song money-chord progression quota (opt-in via
+  // usesMoneyChordQuota: only when the channel hasn't picked a specific
+  // moneyChordMode, and only for archetypes with a real signature
+  // progression). roles is computed as its own pre-pass since
+  // buildProgressionPlan needs every trackNo's role before the main loop
+  // below assigns anything else.
+  const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
+  const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
+
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const role = resolveSongRole(trackNo, idx);
+    const role = songRoles[idx];
     // TASK I1/I2 (v3.11) — tracks 1-3 run a local k=3 hook contest instead of
     // taking the first composeHook() candidate; every other track is
     // unchanged. nextContestedTitle mutates the exact same nextTitle
@@ -432,8 +442,14 @@ export function generateLocalBlueprint(
     // length would cross the Suno-safe budget — drops the lowest-priority
     // ids first (never truncating mid-phrase). See promptComposer.ts.
     const songParts: PromptPart[] = [
-      ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration')),
+      ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration') && !(progressionPlan && part.id === 'moneyChord')),
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
+      // TASK v3.33 Part C — per-song progression override when the quota plan
+      // is active; channelParts' flat whole-pack moneyChord atom is filtered
+      // out above for exactly this case, so there's never a duplicate.
+      ...(progressionPlan
+        ? [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan[idx], includeFeelReinforcement: true }) }]
+        : []),
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },

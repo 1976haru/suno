@@ -131,6 +131,14 @@ export function buildClaudeCodeInstruction(
     // of defense.
     `- CRITICAL: Every one of the ${avoid?.usedTitles?.length ?? 0} titles in "alreadyUsedTitles" and every one of the ${avoid?.usedHooks?.length ?? 0} hooks in "alreadyUsedHooks" above is FORBIDDEN for this pack — they were already used by a previous pack, not source material to draw from. Before writing the file, check every song's "title" and "hookPhrase" against both lists; if any match (even reordered onto a different track), rewrite that title/hook to something new.`,
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
+    // TASK v3.33 Part C — same "moneyChordText" field/instruction
+    // promptComposer.ts's buildBatchSystemNote already gives real API
+    // requests (kept in sync here rather than shared code, per this file's
+    // existing convention — see the titleInstructionLine comment above):
+    // a bare "money chords are mandatory" line reads as vague to Suno per
+    // real listening feedback, so each preassignedSongs entry carries its
+    // own ready-to-use progression + reinforcement text instead.
+    '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
     // the locally trusted trackNo (see core/multiSetGeneration.ts's

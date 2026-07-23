@@ -84,7 +84,7 @@ describe('[v3.27] reconcileWithPreassignedSlot', () => {
       ...overrides
     };
   }
-  const slot = { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 100, emotionArc: 'Slot Arc' };
+  const slot = { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 100, emotionArc: 'Slot Arc', moneyChordText: 'I-V-vi-IV progression' };
 
   it('returns the song unchanged when no slot matches', () => {
     const song = makeSong();
@@ -227,7 +227,7 @@ describe('[B3] stitchBatchResults — trackNo-keyed merge', () => {
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
     ];
-    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc', moneyChordText: 'I-V-vi-IV progression' }];
     const stitched = stitchBatchResults(opts, results, preassignedSlots);
     expect(stitched.blueprint?.songs[0].emotionArc).toBe('locked arc');
   });
@@ -236,7 +236,7 @@ describe('[B3] stitchBatchResults — trackNo-keyed merge', () => {
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
     ];
-    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc', moneyChordText: 'I-V-vi-IV progression' }];
     const stitched = stitchBatchResults(makeOptions({ hookMode: 'pool' }), results, preassignedSlots);
     expect(stitched.blueprint?.songs[0].hookPhrase).toBe('Locked Hook');
   });
@@ -245,7 +245,7 @@ describe('[B3] stitchBatchResults — trackNo-keyed merge', () => {
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
     ];
-    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc', moneyChordText: 'I-V-vi-IV progression' }];
     const stitched = stitchBatchResults(opts, results, preassignedSlots);
     expect(stitched.blueprint?.songs[0].hookPhrase).toBe('Model Hook');
   });
@@ -254,7 +254,7 @@ describe('[B3] stitchBatchResults — trackNo-keyed merge', () => {
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
     ];
-    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc', moneyChordText: 'I-V-vi-IV progression' }];
     const stitched = stitchBatchResults(opts, results, preassignedSlots);
     expect(stitched.blueprint?.songs[0].title).toBe('Model Invented Title');
   });
@@ -264,7 +264,7 @@ describe('[B3] stitchBatchResults — trackNo-keyed merge', () => {
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1, { title: 'Model Invented Title', hookPhrase: 'Model Hook' })]), usage: null, error: null }
     ];
-    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc' }];
+    const preassignedSlots = [{ trackNo: 1, title: 'Locked Title', hookPhrase: 'Locked Hook', songRole: 'opener', tempo: 96, emotionArc: 'locked arc', moneyChordText: 'I-V-vi-IV progression' }];
     const stitched = stitchBatchResults(localOpts, results, preassignedSlots);
     expect(stitched.blueprint?.songs[0].title).toBe('Locked Title');
   });

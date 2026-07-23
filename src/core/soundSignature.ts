@@ -6,7 +6,7 @@ import type {
   SoundSignature as SharedSoundSignature
 } from '../types';
 import { genrePacks, moodPacks, seasonPacks } from '../data/presets';
-import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
+import { MONEY_CHORD_FEEL_SUFFIX, moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
 import { countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 
 export interface SoundSignature extends SharedSoundSignature {}
@@ -243,13 +243,31 @@ export function compactGenreKeyword(genres: GenrePack[]) {
  * 'money chord progression' string. See diversityLinter.ts for the
  * regression guard against this ever recurring silently.
  */
-export function compactMoneyChord(opts: GenerationOptions) {
-  if (opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
-    return `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
+export interface CompactMoneyChordOptions {
+  /** TASK v3.33 Part C — per-song progression quota override (see core/moneyChordPlan.ts's buildProgressionPlan): a specific preset id for this trackNo, bypassing opts.moneyChordMode/earworm resolution entirely. Only ever set when core/moneyChordPlan.ts's usesMoneyChordQuota(opts) is true. */
+  moneyChordIdOverride?: string;
+  /**
+   * TASK v3.33 Part C — real listening feedback: the bare progression name
+   * alone reads as vague to Suno. Appends MONEY_CHORD_FEEL_SUFFIX when true.
+   * Default off so persona mode's tight PERSONA_STYLE_LIMIT (~200 chars)
+   * call sites are unaffected — persona mode already trades per-song
+   * richness for a stable, minimal identity by design (see v3.8's original
+   * personaMode doc comment), and the "feels weak" complaint is about the
+   * main non-persona path where the full style prompt actually carries the
+   * chord description each time.
+   */
+  includeFeelReinforcement?: boolean;
+}
+
+export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode' | 'customMoneyChord' | 'earwormMode'>, options: CompactMoneyChordOptions = {}) {
+  const { moneyChordIdOverride, includeFeelReinforcement = false } = options;
+  if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
+    const base = `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
+    return includeFeelReinforcement ? `${base}, ${MONEY_CHORD_FEEL_SUFFIX}` : base;
   }
-  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
+  const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
   const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
-  return preset.compactProgression;
+  return includeFeelReinforcement ? `${preset.compactProgression}, ${MONEY_CHORD_FEEL_SUFFIX}` : preset.compactProgression;
 }
 
 /**

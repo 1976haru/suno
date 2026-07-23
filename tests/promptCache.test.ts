@@ -801,7 +801,7 @@ describe('[v3.23] thumbnailText generation is an off-by-default toggle (generate
   it('default (false): the preassignedSongs batch note does not list thumbnailText among the fields the model still writes freely', () => {
     const opts = makeOptions();
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
+      { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x', moneyChordText: 'I-V-vi-IV progression' }
     ];
     const batch: BatchContext = {
       trackNoOffset: 0,
@@ -820,7 +820,7 @@ describe('[v3.23] thumbnailText generation is an off-by-default toggle (generate
   it('generateThumbnailText=true: the preassignedSongs batch note lists thumbnailText among the fields the model still writes freely', () => {
     const opts = makeOptions();
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
+      { trackNo: 1, title: 'T', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x', moneyChordText: 'I-V-vi-IV progression' }
     ];
     const batch: BatchContext = {
       trackNoOffset: 0,
@@ -839,14 +839,20 @@ describe('[v3.23] thumbnailText generation is an off-by-default toggle (generate
 describe('[v3.27/v3.33] titleMode/hookMode branch buildBatchSystemNote\'s preassignedSongs guidance (Part A2)', () => {
   function makeBatch(): BatchContext {
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'Placeholder Title', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
+      { trackNo: 1, title: 'Placeholder Title', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x', moneyChordText: 'I-V-vi-IV progression' }
     ];
     return { trackNoOffset: 0, totalSongCount: 1, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
   }
 
-  it('trackNo/emotionArc always stay forced verbatim regardless of titleMode/hookMode', () => {
+  it('trackNo/emotionArc/moneyChordText always stay forced verbatim regardless of titleMode/hookMode', () => {
     const note = buildBatchSystemNote(makeOptions(), makeBatch());
-    expect(note).toContain('Do NOT invent a different trackNo or emotionArc — copy those verbatim');
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, or moneyChordText — copy those verbatim');
+  });
+
+  it('[v3.33 Part C] includes the moneyChordText usage instruction', () => {
+    const note = buildBatchSystemNote(makeOptions(), makeBatch());
+    expect(note).toContain('"moneyChordText"');
+    expect(note).toContain('money-chord portion');
   });
 
   it('default (titleMode/hookMode both omitted) resolves to ai-creative for both: own title AND own hook expected, both preassigned values are only fallbacks', () => {

@@ -14,8 +14,21 @@ const season = seasonPacks[0];
 const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
 
 describe('v3.14 stress — DV1 preset cross-product', () => {
-  it('moneyChord (8) x vocal (5) x core genre (all senior-morning core-tier) produces 0 exact stylePrompt duplicates', () => {
-    const moneyChordModes = Object.keys(moneyChordPresets) as GenerationOptions['moneyChordMode'][];
+  // TASK v3.33 Part C — 'default' is deliberately excluded from this
+  // cross-product: for senior-morning/showa-cafe it now drives
+  // core/moneyChordPlan.ts's per-song rotation quota instead of a single
+  // fixed preset, so it legitimately produces the *same* stylePrompt as
+  // whichever explicit preset a given track's rotation happens to land on
+  // (e.g. track 4 of a 'default' pack can coincidentally match 'canon'
+  // mode's flat output if the rotation draws 'canon' for that position) —
+  // that's the quota system working as designed, not a duplicate-preset
+  // regression. Every *other* (non-default) mode is still a single fixed
+  // preset applied uniformly to the whole pack, unchanged from before, so
+  // pairwise distinctness among those 12 remains a real invariant worth
+  // checking. 'default'-specific behavior is covered separately below and
+  // by tests/moneyChordPlan.test.ts.
+  it('moneyChord (12, excluding "default") x vocal (5) x core genre (all senior-morning core-tier) produces 0 exact stylePrompt duplicates', () => {
+    const moneyChordModes = (Object.keys(moneyChordPresets) as GenerationOptions['moneyChordMode'][]).filter(mode => mode !== 'default');
     const genreIds = getCoreGenreIdsForArchetype('senior-morning');
     const prompts = new Map<string, string[]>();
 
@@ -47,6 +60,15 @@ describe('v3.14 stress — DV1 preset cross-product', () => {
     const duplicateGroups = [...prompts.values()].filter(group => group.length > 1);
     expect(duplicateGroups, `duplicate stylePrompt groups: ${JSON.stringify(duplicateGroups).slice(0, 2000)}`).toEqual([]);
   }, 60000);
+
+  it('on the cold-open track, "default" and the channel\'s own signature preset intentionally produce the identical stylePrompt (the quota pin working as designed)', () => {
+    const genre = genrePacks.find(g => g.id === getCoreGenreIdsForArchetype('senior-morning')[0])!;
+    const defaultOpts = makeOptions({ channel, songCount: 1, genreIds: [genre.id], moodIds: moods.map(m => m.id), seasonId: season.id, moneyChordMode: 'default' });
+    const doowopOpts = makeOptions({ channel, songCount: 1, genreIds: [genre.id], moodIds: moods.map(m => m.id), seasonId: season.id, moneyChordMode: 'doowop' });
+    const defaultBp = generateLocalBlueprint(defaultOpts, [genre], moods, season);
+    const doowopBp = generateLocalBlueprint(doowopOpts, [genre], moods, season);
+    expect(defaultBp.songs[0].stylePrompt).toBe(doowopBp.songs[0].stylePrompt);
+  });
 });
 
 describe('v3.14 stress — DV2 extreme customMoneyChord inputs', () => {

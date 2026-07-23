@@ -211,7 +211,7 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
   it('bridge import preserves the agent hook/lyrics pair instead of overwriting hookPhrase from preassignedSongs', () => {
     const opts = makeOptions({ songCount: 1 });
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
+      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm', moneyChordText: 'I-V-vi-IV progression' }
     ];
     const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Something Else', hookPhrase: 'Something Else' })] });
 
@@ -225,7 +225,7 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     const opts = makeOptions({ songCount: 1 });
     const agentHook = 'Soft Window Light';
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 98, emotionArc: 'slot arc' }
+      { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 98, emotionArc: 'slot arc', moneyChordText: 'I-V-vi-IV progression' }
     ];
     const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Lantern Hour', hookPhrase: agentHook })] });
 
@@ -241,7 +241,7 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
   it('TASK v3.27: default titleMode (ai-creative) trusts the agent\'s own title over the preassigned placeholder', () => {
     const opts = makeOptions({ songCount: 1 });
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
+      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm', moneyChordText: 'I-V-vi-IV progression' }
     ];
     const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Agent Written Title', hookPhrase: 'Something Else' })] });
 
@@ -253,7 +253,7 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
   it('TASK v3.27: titleMode="local" still forces the title back to the preassigned slot (old behavior, unchanged)', () => {
     const opts = makeOptions({ songCount: 1, titleMode: 'local' });
     const slots: PreassignedSongSlot[] = [
-      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm' }
+      { trackNo: 1, title: 'Preassigned Title', hookPhrase: 'Preassigned Hook', songRole: 'cold-open', tempo: 100, emotionArc: 'steady calm', moneyChordText: 'I-V-vi-IV progression' }
     ];
     const raw = JSON.stringify({ songs: [songJson({ trackNo: 1, title: 'Something Else', hookPhrase: 'Something Else' })] });
 

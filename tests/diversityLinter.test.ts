@@ -20,10 +20,10 @@ describe('v3.14 diversity linter — moneyChord', () => {
     expect(report.genericFallbackCount).toBe(0);
   });
 
-  it('reports passed=true and covers all 8 known presets', () => {
+  it('reports passed=true and covers all 13 known presets (8 original + 5 v3.33 Part C channel-signature presets)', () => {
     const report = lintPresetDiversity('moneyChord');
     expect(report.passed).toBe(true);
-    expect(report.totalPresets).toBeGreaterThanOrEqual(8);
+    expect(report.totalPresets).toBeGreaterThanOrEqual(13);
   });
 });
 

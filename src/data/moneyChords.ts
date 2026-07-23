@@ -103,8 +103,108 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     // reaching this field (see below), using opts.customMoneyChord verbatim.
     compactProgression: 'familiar chord progression',
     bestFor: ['직접 코드 진행을 지정하고 싶을 때']
+  },
+  // TASK v3.33 Part C — channel-signature progressions, added after real
+  // listening feedback that money chords "felt weak" and that the Japanese
+  // (showa-cafe) channel lacked a distinct harmonic identity. doowop/
+  // royalRoad are each archetype's anchor progression (see
+  // core/moneyChordPlan.ts's signatureMoneyChordId — pinned to cold-open/
+  // flagship tracks); the rest widen the rotation pool non-opener tracks
+  // draw from.
+  doowop: {
+    id: 'doowop',
+    label: 'Doo-Wop 50s',
+    labelKo: '두왑 진행',
+    description: '50~60대 세대에게 깊이 각인된 두왑 진행. 시니어 채널의 시그니처로 적합합니다.',
+    progressions: ['I-vi-IV-V'],
+    prompt: '1950s doo-wop chord progression I-vi-IV-V, deeply familiar nostalgic feel for older listeners, warm vintage pop harmony, gentle emotional lift into the chorus',
+    compactProgression: 'I-vi-IV-V doo-wop progression',
+    bestFor: ['시니어 채널 시그니처', '아침 라디오 오프닝']
+  },
+  warmCycle: {
+    id: 'warmCycle',
+    label: 'Warm Cycle',
+    labelKo: '따뜻한 순환 진행',
+    description: '포근하게 순환하는 코드 진행. 시니어 채널의 편안한 트랙에 잘 어울립니다.',
+    progressions: ['IV-I-V-vi'],
+    prompt: 'warm cyclical progression IV-I-V-vi, comforting circular movement, gentle unresolved lift each time it loops back',
+    compactProgression: 'IV-I-V-vi warm cycle progression',
+    bestFor: ['편안한 트랙', '오후 무드']
+  },
+  royalRoad: {
+    id: 'royalRoad',
+    label: 'Royal Road (王道進行)',
+    labelKo: '왕도진행',
+    description: 'J-pop의 표준 진행이자 쇼와 감성의 핵심. 일본 채널의 시그니처로 적합합니다.',
+    progressions: ['IV-V-iii-vi'],
+    prompt: 'royal road progression IV-V-iii-vi, the standard J-pop chorus movement, bittersweet nostalgic lift, instantly familiar to Japanese listeners',
+    compactProgression: 'IV-V-iii-vi royal road progression',
+    bestFor: ['일본 채널 시그니처', 'J-pop 정체성']
+  },
+  marusa: {
+    id: 'marusa',
+    label: 'Marusa (丸サ進行)',
+    labelKo: '마루사 진행',
+    description: '시티팝의 시그니처 진행. 세련되고 도시적인 밤 분위기.',
+    progressions: ['IVM7-III7-vi-I7'],
+    prompt: 'marusa progression IVM7-III7-vi-I7, city-pop signature harmony, sophisticated jazzy night-drive color, smooth secondary-dominant lift',
+    compactProgression: 'IVM7-III7-vi-I7 marusa progression',
+    bestFor: ['시티팝 트랙', '나이트 드라이브 무드']
+  },
+  komuro: {
+    id: 'komuro',
+    label: 'Komuro Cycle (小室進行)',
+    labelKo: '고무로 진행',
+    description: '일본 90년대 팝 프로덕션의 시그니처 순환 진행. 업템포 트랙에 힘을 더합니다.',
+    progressions: ['vi-IV-V-I'],
+    prompt: 'komuro-cycle progression vi-IV-V-I, driving 90s J-pop production movement, confident forward momentum, punchy chorus arrival',
+    compactProgression: 'vi-IV-V-I komuro-cycle progression',
+    bestFor: ['업템포 트랙', '일본 채널 변주']
   }
 };
+
+/**
+ * TASK v3.33 Part C — real listening feedback: the progression name alone
+ * ("I-V-vi-IV progression") reaches Suno as a bare label, which the model
+ * renders vaguely. Always paired with the compact progression tag (see
+ * core/soundSignature.ts's compactMoneyChord), never trimmed away (the
+ * moneyChord atom is ESSENTIAL — see core/promptComposer.ts/promptBudget.ts —
+ * so appending it here inherits that never-dropped guarantee for free
+ * instead of needing a new atom/priority-list entry). Deliberately compact
+ * (~14 words) — the brief's longer example sentence was compressed the same
+ * way v3.15's EARWORM_STYLE_ATOMS was: composeStylePrompt's real budget is a
+ * soft 50-word cap across every essential atom combined, and the full
+ * verbose form would eat into that on every single song.
+ */
+export const MONEY_CHORD_FEEL_SUFFIX = 'hook lands on the downbeat, clear on-beat chord changes, bass on the root, strong chorus lift';
+
+/**
+ * TASK v3.33 Part C — each archetype's anchor progression: pinned to that
+ * pack/set's cold-open + flagship tracks (core/moneyChordPlan.ts's
+ * buildProgressionPlan) so the channel's harmonic identity is always
+ * present on the tracks most likely to be heard first. 'default' for any
+ * archetype without a dedicated signature (christmas/lofi-study/kids, or no
+ * archetype at all) — unchanged behavior for those channels.
+ */
+export function signatureMoneyChordId(archetype: string | undefined): string {
+  if (archetype === 'senior-morning') return 'doowop';
+  if (archetype === 'showa-cafe') return 'royalRoad';
+  return 'default';
+}
+
+/**
+ * TASK v3.33 Part C — the pool non-opener tracks rotate through (see
+ * core/moneyChordPlan.ts's buildProgressionPlan), always including the
+ * archetype's own signature so it isn't exclusively confined to the opener.
+ * Archetypes without a dedicated signature don't get quota rotation at all
+ * (see moneyChordPlan.ts's usesMoneyChordQuota) — this pool is only ever
+ * consulted for senior-morning/showa-cafe.
+ */
+export function moneyChordRotationPool(archetype: string | undefined): string[] {
+  if (archetype === 'senior-morning') return ['doowop', 'warmCycle', 'emotional', 'default', 'canon'];
+  if (archetype === 'showa-cafe') return ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'];
+  return ['default'];
+}
 
 const ROMAN_CHORD_TOKEN = /^(b|#)?(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)(°|\+)?(maj7|add9|sus2|sus4|dim7|dim|aug|m7|7|6|9)?$/;
 

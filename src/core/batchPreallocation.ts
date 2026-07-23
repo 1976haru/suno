@@ -1,6 +1,8 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { createTitleGenerator, hashSeed, seedForBlueprint, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
+import { compactMoneyChord } from './soundSignature';
+import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import type { OpeningPackContext } from './openingContest';
 
 export type { PreassignedSongSlot };
@@ -18,7 +20,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -31,9 +33,15 @@ export function preallocateSongSlots(
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
   const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
 
+  // TASK v3.33 Part C — mirrors localGenerator.ts's own pre-pass exactly
+  // (same roles, same seed) so the realtime/Batch/bridge paths that call
+  // this function agree with the local path on every trackNo's progression.
+  const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
+  const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
+
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
-    const songRole = resolveSongRole(trackNo, idx);
+    const songRole = songRoles[idx];
     const { title, hook } = trackNo <= 3
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext)
       : nextTitle(songRole);
@@ -43,7 +51,8 @@ export function preallocateSongSlots(
       hookPhrase: hook,
       songRole,
       tempo: averageTempo(genres, trackNo),
-      emotionArc: emotionArcPool.take()
+      emotionArc: emotionArcPool.take(),
+      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true })
     };
   });
 }

@@ -335,7 +335,15 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   // Reusing the same terse builders Persona mode already proved out
   // (compactMoneyChord/compactDuration) converges both modes on the same
   // short-tag style Suno actually responds best to.
-  const money = compactMoneyChord(opts);
+  // TASK v3.33 Part C — includeFeelReinforcement:true always here: real
+  // listening feedback found the bare progression name alone ("I-V-vi-IV
+  // progression") reads as vague to Suno. See soundSignature.ts's
+  // compactMoneyChord/MONEY_CHORD_FEEL_SUFFIX for why this stays essential
+  // (never trimmed) automatically. When a per-song progression quota is
+  // active (senior-morning/showa-cafe, see core/moneyChordPlan.ts), this
+  // atom is overridden per-song in localGenerator.ts's own loop — this call
+  // only ever supplies the flat, whole-pack fallback.
+  const money = compactMoneyChord(opts, { includeFeelReinforcement: true });
   // TASK v3.29 — includeMinimumFloor=true only here: this is the main
   // (non-persona) style prompt, which has ~900 chars of budget headroom
   // (SAFE_TARGET) to spare for the "not a short cut" reinforcement. Persona
@@ -468,8 +476,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const hookInstruction = hookMode === 'pool'
     ? 'Do NOT invent a different hookPhrase — copy it verbatim into your output for the matching trackNo.'
     : 'The "hookPhrase" field there is only a fallback suggestion: write your OWN original hook for each song instead — 2-5 words, Title Case, singable (see the Hook rules above) — matching this channel\'s tone. Never reuse a hook already listed in "alreadyUsedHooks" in the user payload. The hook you write must bookend every chorus in the lyrics you write for that song.';
+  // TASK v3.33 Part C — moneyChordText is per-trackNo (core/moneyChordPlan.ts
+  // may assign a different progression to different tracks within the same
+  // pack, pinning cold-open/flagship to the channel's signature — see
+  // core/batchPreallocation.ts's preallocateSongSlots), so it must be copied
+  // verbatim per song rather than left to the model's own "money chords are
+  // mandatory" judgment, which real listening feedback found reads as vague.
+  const moneyChordInstruction = 'Each entry also includes "moneyChordText" — weave that exact phrase (progression tag plus its reinforcement/downbeat language) into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.';
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different trackNo or emotionArc — copy those verbatim. ${titleInstruction} ${hookInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText} for every song in this request. Do NOT invent a different trackNo, emotionArc, or moneyChordText — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -529,7 +544,7 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
 Rules:
 - Never imitate a specific artist, singer, band, producer, existing song, melody, lyric, hook, or copyrighted work.
 - Do not use "in the style of", "sounds like", "as sung by", or similar imitation language.
-- Money chords are mandatory, but the output must still feel original.
+- Money chords are mandatory, but the output must still feel original. If "preassignedSongs" is present below, use each song's own "moneyChordText" verbatim (see the batch note) — it already names the exact progression plus how to make it audible (chord changes locked to the beat, bass on the root, a real cadence lift into the chorus), not just the bare progression name.
 - This playlist pack has ${totalSongCount} songs total, generated as one coherent set — a single request may cover only part of the pack at a time (see the batch note below for this request's exact scope, if present).
 - Keep a stable sonic/vocal identity across all tracks while varying situations, hooks, titles, and lyrical images.
 - Sequence the songs naturally: opener, early lift, middle depth, late-set highlight, warm closer.
