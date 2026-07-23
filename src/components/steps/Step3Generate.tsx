@@ -262,6 +262,14 @@ export default function Step3Generate({
             총 {multiSetTotalSongs}곡 ({multiSetClamped.setCount}세트 x {multiSetClamped.songsPerSet}곡) — 합계 상한 {MULTI_SET_TOTAL_CAP}곡.
             {multiSetTotalSongs !== multiSet.setCount * multiSet.songsPerSet && ' 입력값이 상한을 넘어 자동으로 줄었습니다.'}
           </p>
+          <label className="avoid-word-item">
+            <input
+              type="checkbox"
+              checked={opts.setNumberPrefix ?? true}
+              onChange={event => setOpts(prev => ({ ...prev, setNumberPrefix: event.target.checked }))}
+            />
+            제목에 세트 연번 포함 (예: "01. Winterglass", 세트마다 01부터 다시 시작)
+          </label>
           {provider.provider !== 'local' && (
             <>
               <p className="supporting">

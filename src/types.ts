@@ -158,6 +158,17 @@ export interface GenerationOptions {
    * behavior is unaffected by this field — see titleMode above for title.
    */
   hookMode?: 'pool' | 'ai-creative';
+  /**
+   * TASK v3.35 — multi-set generation only (core/multiSetGeneration.ts):
+   * when on (default), each set's songs get their set-local trackNo (1..N,
+   * reset per set) prefixed onto the display title as "01. ", "02. ", etc,
+   * applied *after* that set's own title/hook dedup finishes — so
+   * duplicate/collision checks always compare the bare creative title, never
+   * the prefixed one (see utils/generation.ts's stripSetTitlePrefix). No
+   * effect on single-pack generation. Off reverts to the plain creative
+   * title, unchanged from pre-v3.35 behavior.
+   */
+  setNumberPrefix?: boolean;
 }
 
 export interface YoutubeMetadata {

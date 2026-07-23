@@ -34,6 +34,26 @@ export function clampMultiSetTotal(setCount: number, songsPerSet: number): { set
   return { setCount: clampedSetCount, songsPerSet: Math.min(clampedSongsPerSet, maxSongsPerSet) };
 }
 
+/**
+ * TASK v3.35 — a leading "NN. " that core/multiSetGeneration.ts's
+ * applySetTitlePrefix adds when GenerationOptions.setNumberPrefix is on
+ * (default). A real creative Billboard-style title (see v3.28's titleMode)
+ * essentially never starts with this exact shape on its own, so stripping
+ * it unconditionally — even for packs where the prefix was never applied —
+ * is safe and requires no "was this prefixed?" flag threading.
+ */
+const SET_TITLE_PREFIX_RE = /^\d{2}\.\s+/;
+
+/** The creative/core title with any set-number prefix removed — this is what dedup/ledger comparisons must always use (see stripSetTitlePrefix's callers: hookLedger.ts's recordPackHooks, core/multiSetGeneration.ts's cross-set avoid-list accumulation), never the prefixed display title, or "01. Winterglass" (set 1) and "05. Winterglass" (set 5) would wrongly read as different titles. */
+export function stripSetTitlePrefix(title: string): string {
+  return title.replace(SET_TITLE_PREFIX_RE, '');
+}
+
+/** trackNo padded to 2 digits + ". " — trackNo is already the set-local 1..songsPerSet number by construction (each set is its own generateBlueprint call, see multiSetGeneration.ts), so no separate "position within set" bookkeeping is needed. */
+export function applySetTitlePrefix(trackNo: number, title: string): string {
+  return `${String(trackNo).padStart(2, '0')}. ${title}`;
+}
+
 export function createInitialOptions(channel: ChannelProfile): GenerationOptions {
   return {
     channel,

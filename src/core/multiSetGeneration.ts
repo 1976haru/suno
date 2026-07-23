@@ -1,6 +1,7 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
 import { generateBlueprint } from '../providers/index';
 import { resolveHookCollisions } from './hookDedup';
+import { applySetTitlePrefix, stripSetTitlePrefix } from '../utils/generation';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -70,6 +71,41 @@ export function needsHookDedupPass(opts: GenerationOptions, settings: ProviderSe
   return settings.provider !== 'local' && (opts.hookMode ?? 'ai-creative') === 'ai-creative';
 }
 
+/**
+ * TASK v3.35 — the per-set finishing step shared by both multi-set
+ * orchestrators (this file's local/realtime loop and
+ * hooks/useMultiSetGenerationFlow.ts's Batch-API loop, which can't share the
+ * loop itself since submit()/poll() is React-hook-managed): resolve any
+ * hook collisions first (needsHookDedupPass), *then* apply the set-number
+ * title prefix — in that order, so dedup/collision-retry logic never has to
+ * deal with the prefix at all (regenerateTrack etc. only ever see/produce
+ * bare creative titles).
+ */
+export async function finalizeSetBlueprint(
+  blueprint: PlaylistBlueprint,
+  setOpts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  settings: ProviderSettings,
+  avoid: { usedTitles?: string[]; usedHooks?: string[] }
+): Promise<{ blueprint: PlaylistBlueprint; warnings: string[] }> {
+  let finalBlueprint = blueprint;
+  let warnings: string[] = [];
+  if (needsHookDedupPass(setOpts, settings)) {
+    const resolved = await resolveHookCollisions(blueprint, setOpts, genres, moods, season, settings, avoid);
+    finalBlueprint = resolved.blueprint;
+    warnings = resolved.warnings;
+  }
+  if (setOpts.setNumberPrefix ?? true) {
+    finalBlueprint = {
+      ...finalBlueprint,
+      songs: finalBlueprint.songs.map(song => ({ ...song, title: applySetTitlePrefix(song.trackNo, song.title) }))
+    };
+  }
+  return { blueprint: finalBlueprint, warnings };
+}
+
 /** Local/realtime multi-set path — Batch API multi-set is orchestrated separately (see hooks/useMultiSetGenerationFlow.ts), since submit()/poll() is a React-hook-managed async lifecycle this pure function can't drive. */
 export async function runMultiSetGeneration(
   baseOpts: GenerationOptions,
@@ -102,17 +138,12 @@ export async function runMultiSetGeneration(
       avoid
     );
 
-    let finalBlueprint = blueprint;
-    let warnings: string[] = [];
-    if (needsHookDedupPass(setOpts, settings)) {
-      const resolved = await resolveHookCollisions(blueprint, setOpts, genres, moods, season, settings, avoid);
-      finalBlueprint = resolved.blueprint;
-      warnings = resolved.warnings;
-    }
+    const { blueprint: finalBlueprint, warnings } = await finalizeSetBlueprint(blueprint, setOpts, genres, moods, season, settings, avoid);
 
     const result: SetResult = { index, opts: setOpts, blueprint: finalBlueprint, warnings };
     results.push(result);
-    usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => song.title)];
+    // stripSetTitlePrefix: the accumulator must carry bare creative titles — see finalizeSetBlueprint's doc comment.
+    usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))];
     usedHooks = [...usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)];
 
     await onSetComplete?.(result);

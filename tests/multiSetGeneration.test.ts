@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildSetOptions, needsHookDedupPass, runMultiSetGeneration } from '../src/core/multiSetGeneration';
+import { stripSetTitlePrefix } from '../src/utils/generation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { ProviderSettings } from '../src/types';
 
@@ -107,5 +108,63 @@ describe('[v3.33] runMultiSetGeneration (local provider)', () => {
       completedIndexes.push(result.index);
     });
     expect(completedIndexes).toEqual([0, 1, 2]);
+  });
+});
+
+describe('[v3.35] set-number title prefix (default on)', () => {
+  const settings: ProviderSettings = { provider: 'local', temperature: 0.8 };
+
+  it('prefixes every set\'s titles 01. through 18., resetting to 01. at the start of each set', async () => {
+    const baseOpts = makeOptions({ projectTitle: 'Weekly Pack', songCount: 18 });
+    const results = await runMultiSetGeneration(baseOpts, 5, 18, testGenres, testMoods, testSeason, settings, undefined);
+
+    for (const result of results) {
+      const prefixes = result.blueprint.songs.map(song => song.title.slice(0, 4));
+      expect(prefixes).toEqual(Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}. `));
+    }
+  });
+
+  it('toggle off (setNumberPrefix: false) leaves titles as the plain creative title, unchanged from pre-v3.35 behavior', async () => {
+    const baseOpts = makeOptions({ projectTitle: 'Weekly Pack', songCount: 6, setNumberPrefix: false });
+    const results = await runMultiSetGeneration(baseOpts, 2, 6, testGenres, testMoods, testSeason, settings, undefined);
+
+    for (const result of results) {
+      for (const song of result.blueprint.songs) {
+        expect(song.title).toBe(stripSetTitlePrefix(song.title)); // no-op strip proves there was nothing to strip
+        expect(/^\d{2}\.\s/.test(song.title)).toBe(false);
+      }
+    }
+  });
+
+  it('cross-set core-title dedup ignores the prefix: an initial avoid list built from a bare creative title still blocks reuse across a prefixed run', async () => {
+    const baseOpts = makeOptions({ projectTitle: 'Weekly Pack', songCount: 6 });
+    const firstRun = await runMultiSetGeneration(baseOpts, 1, 6, testGenres, testMoods, testSeason, settings, undefined);
+    const firstCoreTitles = firstRun[0].blueprint.songs.map(song => stripSetTitlePrefix(song.title));
+    // Confirm the real output actually was prefixed (otherwise this test would pass trivially).
+    expect(firstRun[0].blueprint.songs[0].title).not.toBe(firstCoreTitles[0]);
+
+    const secondRun = await runMultiSetGeneration(
+      { ...baseOpts, projectTitle: 'Weekly Pack 2' },
+      1,
+      6,
+      testGenres,
+      testMoods,
+      testSeason,
+      settings,
+      { usedTitles: firstCoreTitles, usedHooks: [] }
+    );
+    const secondCoreTitles = secondRun[0].blueprint.songs.map(song => stripSetTitlePrefix(song.title).toLowerCase());
+    expect(firstCoreTitles.map(t => t.toLowerCase()).some(t => secondCoreTitles.includes(t))).toBe(false);
+  });
+
+  it('the ledger-facing accumulator across sets carries stripped titles, so "01. X" (set 1) and a hypothetical bare "X" avoid entry are recognized as the same core title', async () => {
+    const baseOpts = makeOptions({ projectTitle: 'Weekly Pack', songCount: 4 });
+    const results = await runMultiSetGeneration(baseOpts, 2, 4, testGenres, testMoods, testSeason, settings, undefined);
+    const set1CoreTitles = results[0].blueprint.songs.map(s => stripSetTitlePrefix(s.title).toLowerCase());
+    const set2CoreTitles = results[1].blueprint.songs.map(s => stripSetTitlePrefix(s.title).toLowerCase());
+    // set 2 was generated with set 1's real (prefixed) titles folded into its avoid list
+    // internally — if stripping ever broke, set 2 could collide on set 1's *display*
+    // string instead of being blocked from reusing its *core* title.
+    expect(set1CoreTitles.some(t => set2CoreTitles.includes(t))).toBe(false);
   });
 });

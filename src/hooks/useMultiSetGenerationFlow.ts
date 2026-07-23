@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { buildSetOptions, needsHookDedupPass, runMultiSetGeneration, type SetResult } from '../core/multiSetGeneration';
-import { resolveHookCollisions } from '../core/hookDedup';
+import { buildSetOptions, finalizeSetBlueprint, runMultiSetGeneration, type SetResult } from '../core/multiSetGeneration';
+import { stripSetTitlePrefix } from '../utils/generation';
 import type { useBatchGenerationFlow } from './useBatchGenerationFlow';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
 
@@ -73,17 +73,10 @@ export function useMultiSetGenerationFlow(batchFlow: ReturnType<typeof useBatchG
       const avoid = { usedTitles, usedHooks };
 
       const blueprint = await submitSetAndWait(setOpts, genres, moods, season, settings, avoid);
-
-      let finalBlueprint = blueprint;
-      let warnings: string[] = [];
-      if (needsHookDedupPass(setOpts, settings)) {
-        const resolved = await resolveHookCollisions(blueprint, setOpts, genres, moods, season, settings, avoid);
-        finalBlueprint = resolved.blueprint;
-        warnings = resolved.warnings;
-      }
+      const { blueprint: finalBlueprint, warnings } = await finalizeSetBlueprint(blueprint, setOpts, genres, moods, season, settings, avoid);
 
       const result: SetResult = { index, opts: setOpts, blueprint: finalBlueprint, warnings };
-      usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => song.title)];
+      usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))];
       usedHooks = [...usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)];
       setState(prev => ({ ...prev, setProgress: { done: songsPerSet, total: songsPerSet } }));
       await onSetComplete(result);

@@ -111,6 +111,14 @@ export function buildClaudeCodeInstruction(
     // of defense.
     `- CRITICAL: Every one of the ${avoid?.usedTitles?.length ?? 0} titles in "alreadyUsedTitles" and every one of the ${avoid?.usedHooks?.length ?? 0} hooks in "alreadyUsedHooks" above is FORBIDDEN for this pack — they were already used by a previous pack, not source material to draw from. Before writing the file, check every song's "title" and "hookPhrase" against both lists; if any match (even reordered onto a different track), rewrite that title/hook to something new.`,
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
+    // TASK v3.35 — multi-set generation can prefix each song's title with
+    // its set-local track number ("01. ", "02. ", ...) after import, using
+    // the locally trusted trackNo (see core/multiSetGeneration.ts's
+    // applySetTitlePrefix) — never the agent's own counting, which can be
+    // wrong or inconsistent across a long output. Telling the agent not to
+    // add its own numbering avoids a double/mismatched prefix if the app
+    // applies one afterward.
+    '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself — write only the creative title. If this pack needs numbered titles, the app adds that afterward from the trusted trackNo.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the file — the app supplies those separately from local context.',
     '- The file itself must be raw JSON — no markdown fences, no surrounding prose, inside the file.',
     '- When done, tell me the file\'s path so I can import it back into Suno Weaver Studio.'

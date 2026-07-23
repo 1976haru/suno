@@ -1,6 +1,7 @@
 import type { ChannelArchetype, LyricLanguage, PlaylistBlueprint } from '../types';
 import { hookPoolSize } from './lyricEngine';
 import { forecastCapacity } from './capacityPlanner';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 const DB_NAME = 'suno-weaver-hooks';
 const DB_VERSION = 1;
@@ -96,6 +97,13 @@ export async function recentUsedTitlesAndHooks(
  * same packId first clears its old entries, so calling this again for an
  * updated version of the same pack (e.g. the autosave slot being
  * overwritten by the next generation) replaces rather than duplicates.
+ *
+ * TASK v3.35 — title is always recorded with any set-number prefix
+ * stripped (see utils/generation.ts's stripSetTitlePrefix): this ledger
+ * feeds recentUsedTitlesAndHooks, which becomes every future pack's
+ * (single- or multi-set) avoid-list — recording "01. Winterglass" verbatim
+ * would let a later pack's plain "Winterglass" (or a different set's
+ * "05. Winterglass") slip past dedup as a false non-match.
  */
 export async function recordPackHooks(packId: string, channelId: string, blueprint: PlaylistBlueprint, language: LyricLanguage): Promise<void> {
   await forgetPack(packId);
@@ -104,7 +112,7 @@ export async function recordPackHooks(packId: string, channelId: string, bluepri
     const record: HookUsage = {
       id: `${packId}:${song.trackNo}`,
       hook: song.hookPhrase,
-      title: song.title,
+      title: stripSetTitlePrefix(song.title),
       channelId,
       language,
       usedAt: now,
