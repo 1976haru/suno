@@ -81,6 +81,25 @@ Running locally for yourself, none of this is urgent — skip it. **Before anyon
 3. **③ 생성** — choose song count (1-30) and generate.
 4. **④ 결과** — review each song (style prompt / lyrics / YouTube tabs), run the AI evaluation agent, retry rejected tracks, and save or export the pack.
 
+## 경로별 적정 규모 (실측 기반)
+
+주 180곡(2채널 x 5세트 x 18곡) 규모를 어떤 경로로 만들지 고를 때 참고하세요. 실측: 곡당 출력
+약 625토큰 — 180곡을 한 번에 요청하면 약 112,600 토큰으로 어떤 LLM의 단일 응답 출력 상한
+(32K~64K)도 넘어서 응답이 중간에 끊깁니다(Claude Code 브릿지로 180곡 요청 시 실제로 12곡에서
+끊긴 사례 확인). 12~18곡이 한 번의 안전한 요청 분량입니다.
+
+| 경로 | 1회 요청 규모 | 180곡 진행 방식 | 비용 |
+|---|---|---|---|
+| Claude Code 브릿지 (복붙) | 12~18곡 (권장 세트당 18곡) | 세트별 지시문 10개를 순서대로 복사·실행·가져오기 | API 비용 $0 (정액제 코딩 에이전트 사용) |
+| Batch API | 180곡 한 번에 가능 (서버가 자동으로 청크 분할) | 멀티세트 모드에서 1회 제출 | 약 $3 (4,200원) |
+| 실시간 API | 180곡 가능하나 청크 수가 많아짐 | 멀티세트 모드에서 1회 제출 | Batch 대비 약 2배, 시간도 더 걸림 |
+
+**추천**: 주 180곡을 정기적으로 만든다면 Batch API(멀티세트 모드에서 한 번에 제출, 서버가
+자동으로 세트/청크를 나눔)를 쓰세요. API 비용을 0으로 만들고 싶다면 Claude Code 브릿지를
+세트당 하나씩(180곡 기준 10회) 반복하세요 — Step3의 "멀티 세트" 모드를 켜면 브릿지 지시문이
+세트별로 자동 분리되어 리스트로 표시되고, 세트마다 [복사]/완료 체크로 진행 상황을 추적할 수
+있습니다.
+
 ## Default Channels
 
 - Korean: 굿모닝 추억라디오 / Good Morning Memory Radio

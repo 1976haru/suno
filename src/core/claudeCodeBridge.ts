@@ -12,8 +12,10 @@ import type {
 import { buildSystemInstruction, buildUserInstruction, songOutputShape } from './promptComposer';
 import { buildSignatureBlueprint } from './localGenerator';
 import { scoreSongs } from './quality';
-import { reconcileWithPreassignedSlot } from './batchPreallocation';
+import { preallocateSongSlots, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
+import { buildSetOptions } from './multiSetGeneration';
+import { buildSetConceptLine } from './setConcept';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -31,6 +33,21 @@ import { dedupeTitlesAcrossPack } from './lyricEngine';
 export const CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME = 'songs-output.json';
 
 const REQUIRED_SONG_FIELDS = ['title', 'hookPhrase', 'stylePrompt', 'lyrics'] as const;
+
+/**
+ * TASK v3.35 (bridge split) — real measurement: a single coding-agent
+ * response tops out well under what a 180-song ask needs (~625 output
+ * tokens/song measured x 180 songs =~112,600 tokens, past every current
+ * model's single-response output cap of 32K-64K) — Codex silently stopped
+ * at 12/180 songs. 12-18 songs is the safe one-shot size, matching the
+ * multi-set default of 18 songs/set (see core/multiSetGeneration.ts).
+ */
+export interface ClaudeCodeInstructionOptions {
+  /** Defaults to CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME; multi-set instructions use "songs-output-setNN.json" instead so N files can be produced/imported without overwriting each other. */
+  outputFilename?: string;
+  /** One-line per-set flavor hint (see core/setConcept.ts), included in the instruction when building a multi-set batch of instructions; omitted for a plain single-pack instruction. */
+  conceptLine?: string;
+}
 
 /**
  * Builds one self-contained instruction a coding agent can run without any
@@ -52,8 +69,10 @@ export function buildClaudeCodeInstruction(
   season: SeasonPack,
   avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
   preassignedSongs: PreassignedSongSlot[],
-  generateThumbnailText = false
+  generateThumbnailText = false,
+  instructionOptions: ClaudeCodeInstructionOptions = {}
 ): string {
+  const outputFilename = instructionOptions.outputFilename ?? CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME;
   const batch: BatchContext = {
     trackNoOffset: 0,
     totalSongCount: opts.songCount,
@@ -86,6 +105,7 @@ export function buildClaudeCodeInstruction(
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
+    instructionOptions.conceptLine ? `\nThis set's flavor: ${instructionOptions.conceptLine} — lean into this lead genre/season for the pack's overall tone, without abandoning the channel's core style.` : '',
     '',
     rules,
     '',
@@ -95,7 +115,7 @@ export function buildClaudeCodeInstruction(
     '```',
     '',
     'Output requirement:',
-    `- Write a new file named "${CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME}" in the current directory.`,
+    `- Write a new file named "${outputFilename}" in the current directory.`,
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
     titleInstructionLine,
     // TASK v3.30 — real Codex-bridge output showed 20/20 titles and 19/20
@@ -123,6 +143,65 @@ export function buildClaudeCodeInstruction(
     '- The file itself must be raw JSON — no markdown fences, no surrounding prose, inside the file.',
     '- When done, tell me the file\'s path so I can import it back into Suno Weaver Studio.'
   ].join('\n');
+}
+
+export interface MultiSetBridgeInstruction {
+  /** 0-based */
+  setIndex: number;
+  setOpts: GenerationOptions;
+  outputFilename: string;
+  instruction: string;
+  preassignedSongs: PreassignedSongSlot[];
+}
+
+/**
+ * TASK v3.35 (bridge split) — splits a multi-set bridge export into one
+ * self-contained instruction per set (default 18 songs/set — see the
+ * ClaudeCodeInstructionOptions doc comment for the real output-token
+ * measurement behind that number), instead of one instruction asking for
+ * every song in the whole run. Each set's instruction gets its own
+ * "songs-output-setNN.json" filename and a cumulative avoid-list built the
+ * same way core/multiSetGeneration.ts's runMultiSetGeneration threads
+ * cross-set history — except here, since there's no real agent output yet
+ * at the time all N instructions are built, the avoid-list is seeded from
+ * each prior set's *preallocated* (deterministic, locally-decided)
+ * titles/hooks rather than real agent output. This is the same fallback
+ * every other generation path already leans on for parallel/unseen siblings
+ * (preassignedSongs is deliberately labeled "fallback" in the instruction
+ * text, not "must use") — callers that re-run this after real sets get
+ * imported (see hooks/useMultiSetGenerationFlow.ts's sibling UI logic)
+ * should pass the real imported titles/hooks in `initialAvoid` instead, so
+ * later not-yet-copied instructions reflect what's actually been produced
+ * so far.
+ */
+export function buildMultiSetClaudeCodeInstructions(
+  baseOpts: GenerationOptions,
+  setCount: number,
+  songsPerSet: number,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  initialAvoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
+  generateThumbnailText = false
+): MultiSetBridgeInstruction[] {
+  const results: MultiSetBridgeInstruction[] = [];
+  let usedTitles = [...(initialAvoid?.usedTitles ?? [])];
+  let usedHooks = [...(initialAvoid?.usedHooks ?? [])];
+
+  for (let index = 0; index < setCount; index++) {
+    const setOpts = buildSetOptions(baseOpts, index, setCount, songsPerSet);
+    const avoid = { usedTitles, usedHooks };
+    const preassignedSongs = preallocateSongSlots(setOpts, genres, avoid);
+    const conceptLine = buildSetConceptLine(setOpts.channel, season.label, index, setCount);
+    const outputFilename = `songs-output-set${String(index + 1).padStart(2, '0')}.json`;
+    const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine });
+
+    results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs });
+    usedTitles = [...usedTitles, ...preassignedSongs.map(slot => slot.title)];
+    usedHooks = [...usedHooks, ...preassignedSongs.map(slot => slot.hookPhrase)];
+  }
+
+  return results;
 }
 
 /**

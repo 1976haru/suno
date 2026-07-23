@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildClaudeCodeInstruction, importSongsJson } from '../src/core/claudeCodeBridge';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, importSongsJson } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
+import { stripSetTitlePrefix } from '../src/utils/generation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { PreassignedSongSlot } from '../src/types';
 
@@ -356,5 +357,86 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
 
     expect(report.blueprint!.songs[0].warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
+  });
+});
+
+describe('[v3.35] buildMultiSetClaudeCodeInstructions — one instruction per set instead of one for the whole run', () => {
+  it('produces exactly setCount instructions, each requesting only its own songsPerSet', () => {
+    const baseOpts = makeOptions({ projectTitle: 'Weekly Pack', songCount: 12 });
+    const results = buildMultiSetClaudeCodeInstructions(baseOpts, 5, 18, testGenres, testMoods, testSeason, undefined, false);
+
+    expect(results).toHaveLength(5);
+    results.forEach((item, i) => {
+      expect(item.setIndex).toBe(i);
+      expect(item.setOpts.songCount).toBe(18);
+      expect(item.preassignedSongs).toHaveLength(18);
+      expect(item.instruction).toContain('"songCount": 18');
+    });
+  });
+
+  it('names each set\'s output file "songs-output-setNN.json", zero-padded and sequential', () => {
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions(), 10, 18, testGenres, testMoods, testSeason, undefined, false);
+    expect(results[0].outputFilename).toBe('songs-output-set01.json');
+    expect(results[8].outputFilename).toBe('songs-output-set09.json');
+    expect(results[9].outputFilename).toBe('songs-output-set10.json');
+    results.forEach(item => {
+      expect(item.instruction).toContain(`Write a new file named "${item.outputFilename}"`);
+    });
+  });
+
+  it('folds each prior set\'s preallocated titles/hooks into the next set\'s alreadyUsedTitles/alreadyUsedHooks (cumulative avoid)', () => {
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 6 }), 3, 6, testGenres, testMoods, testSeason, undefined, false);
+
+    const set1Titles = results[0].preassignedSongs.map(s => s.title);
+    const set1Hooks = results[0].preassignedSongs.map(s => s.hookPhrase);
+    for (const title of set1Titles) expect(results[1].instruction).toContain(title);
+    for (const hook of set1Hooks) expect(results[1].instruction).toContain(hook);
+
+    const set2Titles = results[1].preassignedSongs.map(s => s.title);
+    for (const title of set2Titles) expect(results[2].instruction).toContain(title);
+
+    // set 1 itself carries no prior-set history, only whatever initialAvoid supplied (none here).
+    expect(results[0].instruction).not.toContain(set1Titles.join(''));
+  });
+
+  it('an initial cross-pack avoid list is threaded into every set\'s instruction, not just the first', () => {
+    const initialAvoid = { usedTitles: ['Ledger Title'], usedHooks: ['Ledger Hook'] };
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 4 }), 3, 4, testGenres, testMoods, testSeason, initialAvoid, false);
+    for (const item of results) {
+      expect(item.instruction).toContain('Ledger Title');
+      expect(item.instruction).toContain('Ledger Hook');
+    }
+  });
+
+  it('every set\'s preallocated titles/hooks are globally unique across the whole multi-set instruction batch', () => {
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 18 }), 5, 18, testGenres, testMoods, testSeason, undefined, false);
+    const allTitles = results.flatMap(item => item.preassignedSongs.map(s => s.title.toLowerCase()));
+    const allHooks = results.flatMap(item => item.preassignedSongs.map(s => s.hookPhrase.toLowerCase()));
+    expect(new Set(allTitles).size).toBe(90);
+    expect(new Set(allHooks).size).toBe(90);
+  });
+
+  it('includes a per-set concept/flavor line that differs across sets', () => {
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 6 }), 3, 6, testGenres, testMoods, testSeason, undefined, false);
+    expect(results[0].instruction).toContain('flavor');
+    expect(results[0].instruction).toContain('Set 1/3');
+    expect(results[1].instruction).toContain('Set 2/3');
+    expect(results[2].instruction).toContain('Set 3/3');
+  });
+
+  it('still tells the agent not to add its own numbering to titles (v3.35 Part A defensive instruction, unaffected by the split)', () => {
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions(), 2, 6, testGenres, testMoods, testSeason, undefined, false);
+    for (const item of results) {
+      expect(item.instruction).toContain('Do NOT prefix "title" with a track number');
+    }
+  });
+
+  it('preassigned titles round-trip through stripSetTitlePrefix unchanged (the bridge never adds a prefix itself — only the app does, after import)', () => {
+    const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 4 }), 2, 4, testGenres, testMoods, testSeason, undefined, false);
+    for (const item of results) {
+      for (const slot of item.preassignedSongs) {
+        expect(stripSetTitlePrefix(slot.title)).toBe(slot.title);
+      }
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Coins, Copy, Download, FileJson, Info, Layers, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { AlertTriangle, Check, Coins, Copy, Download, FileJson, Info, Layers, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
 import { clampMultiSetTotal, clampSongCount, MULTI_SET_TOTAL_CAP } from '../../utils/generation';
 import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
@@ -9,7 +9,7 @@ import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
-import { buildClaudeCodeInstruction, type ImportSongsReport } from '../../core/claudeCodeBridge';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
 import { copyText, downloadText } from '../../utils/exporters';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
@@ -68,13 +68,17 @@ interface Step3GenerateProps {
   onRegenerateMissingBatchTracks: () => void;
   /** TASK v3.24 — Claude Code bridge: reads a coding agent's songs-output.json back in, runs it through the same quality/safety pipeline as any API-generated pack, and returns a report of what was imported vs. skipped. */
   onImportSongsJson: (file: File) => Promise<ImportSongsReport>;
+  /** TASK v3.35 (bridge split) — multi-set bridge import: one file per set, selected together. */
+  onImportMultiSetSongsJson: (files: File[]) => Promise<ImportSongsReport[]>;
+  /** TASK v3.35 (bridge split) — grows as bridge-imported sets actually land, so not-yet-copied instructions in the list below reflect real titles/hooks instead of only the deterministic preallocated fallback. */
+  bridgeImportedSetAvoid: { usedTitles: string[]; usedHooks: string[] };
   multiSet: MultiSetControls;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, multiSet
+  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -90,6 +94,11 @@ export default function Step3Generate({
   const [bridgeCopied, setBridgeCopied] = useState(false);
   const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  // TASK v3.35 (bridge split) — per-set copy/completion tracking for the multi-set instruction list; session-only (not persisted), reset implicitly whenever the instruction list itself is recomputed (channel/set-count/set-size change) since those are different sets entirely.
+  const [copiedSetIndexes, setCopiedSetIndexes] = useState<Set<number>>(new Set());
+  const [completedSetIndexes, setCompletedSetIndexes] = useState<Set<number>>(new Set());
+  const [multiImportReports, setMultiImportReports] = useState<ImportSongsReport[] | null>(null);
+  const [isMultiImporting, setIsMultiImporting] = useState(false);
 
   useEffect(() => {
     void getSetting<string>('pricing:inputPerM').then(value => setInputPrice(value ? Number(value) : null));
@@ -169,6 +178,62 @@ export default function Step3Generate({
       setImportReport(report);
     } finally {
       setIsImporting(false);
+    }
+  }
+
+  // TASK v3.35 (bridge split) — real measurement: a single coding-agent
+  // response can't safely produce more than ~18-20 songs' worth of output
+  // (see claudeCodeBridge.ts's ClaudeCodeInstructionOptions doc comment for
+  // the token math), so a multi-set bridge export is one instruction per
+  // set instead of one instruction for the whole run. Folds in
+  // bridgeImportedSetAvoid so a not-yet-copied set's instruction reflects
+  // real titles/hooks from sets already imported in this session, on top of
+  // the channel's own cross-pack ledger history.
+  const combinedBridgeAvoid = useMemo(
+    () => ({
+      usedTitles: [...bridgeAvoid.usedTitles, ...bridgeImportedSetAvoid.usedTitles],
+      usedHooks: [...bridgeAvoid.usedHooks, ...bridgeImportedSetAvoid.usedHooks]
+    }),
+    [bridgeAvoid, bridgeImportedSetAvoid]
+  );
+  const multiSetBridgeInstructions = useMemo<MultiSetBridgeInstruction[]>(
+    () => multiSet.mode
+      ? buildMultiSetClaudeCodeInstructions(
+        opts,
+        multiSetClamped.setCount,
+        multiSetClamped.songsPerSet,
+        genres,
+        moods,
+        season,
+        combinedBridgeAvoid,
+        provider.generateThumbnailText ?? false
+      )
+      : [],
+    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText]
+  );
+
+  async function handleCopySetInstruction(item: MultiSetBridgeInstruction) {
+    await copyText(item.instruction);
+    setCopiedSetIndexes(prev => new Set(prev).add(item.setIndex));
+    setCompletedSetIndexes(prev => new Set(prev).add(item.setIndex));
+  }
+
+  function handleToggleSetCompleted(setIndex: number) {
+    setCompletedSetIndexes(prev => {
+      const next = new Set(prev);
+      if (next.has(setIndex)) next.delete(setIndex);
+      else next.add(setIndex);
+      return next;
+    });
+  }
+
+  async function handleMultiImportFiles(fileList: FileList) {
+    setIsMultiImporting(true);
+    try {
+      const reports = await onImportMultiSetSongsJson(Array.from(fileList));
+      setMultiImportReports(reports);
+    } finally {
+      setIsMultiImporting(false);
     }
   }
 
@@ -478,49 +543,117 @@ export default function Step3Generate({
         </div>
         <p className="supporting">
           정액제 코딩 에이전트(Claude Code, Codex 등)로 곡을 만들어 API 비용을 0으로 만드는 경로입니다.
-          아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
-          그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
           정액제 서비스의 대량 사용은 해당 서비스 약관을 직접 확인하세요.
         </p>
-        <div className="button-row">
-          <button type="button" onClick={() => void handleCopyClaudeCodeInstruction()}>
-            <Copy size={16} />
-            {bridgeCopied ? '복사됨 ✅' : 'Claude Code용 지시문 복사'}
-          </button>
-          <button type="button" onClick={handleDownloadClaudeCodeInstruction}>
-            <Download size={16} />
-            .txt로 다운로드
-          </button>
-          <label className="import-button" title="Claude Code가 만든 songs-output.json 가져오기">
-            <input
-              type="file"
-              accept="application/json"
-              style={{ display: 'none' }}
-              onChange={event => {
-                const file = event.target.files?.[0];
-                if (file) void handleImportSongsFile(file);
-                event.target.value = '';
-              }}
-            />
-            <FileJson size={16} />
-            {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
-          </label>
-        </div>
-        {importReport && (
-          <p className={importReport.blueprint ? 'supporting' : 'error'}>
-            {importReport.blueprint
-              ? `✅ ${importReport.importedCount + importReport.skippedCount}곡 중 ${importReport.importedCount}곡 가져옴${importReport.skippedCount ? `, ${importReport.skippedCount}곡 실패` : ''}`
-              : `❌ 가져오지 못했습니다: ${importReport.skippedReasons.join(' / ') || '알 수 없는 오류'}`}
-            {importReport.skippedReasons.length > 0 && importReport.blueprint && (
-              <> — 실패 사유: {importReport.skippedReasons.join(' / ')}</>
+        <p className="supporting">
+          브릿지는 한 번에 최대 18곡까지 안정적입니다. 180곡은 세트 10개로 나눠 순서대로 진행하세요.
+          한 번에 대량이 필요하면 Batch API를 쓰세요 (서버가 자동 분할하므로 180곡도 한 번에 가능).
+        </p>
+
+        {!multiSet.mode ? (
+          <>
+            <p className="supporting">
+              아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
+              그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
+            </p>
+            <div className="button-row">
+              <button type="button" onClick={() => void handleCopyClaudeCodeInstruction()}>
+                <Copy size={16} />
+                {bridgeCopied ? '복사됨 ✅' : 'Claude Code용 지시문 복사'}
+              </button>
+              <button type="button" onClick={handleDownloadClaudeCodeInstruction}>
+                <Download size={16} />
+                .txt로 다운로드
+              </button>
+              <label className="import-button" title="Claude Code가 만든 songs-output.json 가져오기">
+                <input
+                  type="file"
+                  accept="application/json"
+                  style={{ display: 'none' }}
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleImportSongsFile(file);
+                    event.target.value = '';
+                  }}
+                />
+                <FileJson size={16} />
+                {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
+              </label>
+            </div>
+            {importReport && (
+              <p className={importReport.blueprint ? 'supporting' : 'error'}>
+                {importReport.blueprint
+                  ? `✅ ${importReport.importedCount + importReport.skippedCount}곡 중 ${importReport.importedCount}곡 가져옴${importReport.skippedCount ? `, ${importReport.skippedCount}곡 실패` : ''}`
+                  : `❌ 가져오지 못했습니다: ${importReport.skippedReasons.join(' / ') || '알 수 없는 오류'}`}
+                {importReport.skippedReasons.length > 0 && importReport.blueprint && (
+                  <> — 실패 사유: {importReport.skippedReasons.join(' / ')}</>
+                )}
+              </p>
             )}
-          </p>
+            {importReport?.warnings.length ? (
+              <p className="warning">
+                Import warnings: {importReport.warnings.join(' / ')}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <p className="supporting">
+              세트별로 지시문이 분리되어 있어 각 지시문은 그 세트({multiSetClamped.songsPerSet}곡)만 요청합니다 — LLM 응답이 잘리지 않아요.
+              Set 01부터 순서대로 복사해 코딩 에이전트에 붙여넣고 결과 파일을 받은 뒤, 완료 체크하고 다음 세트로 넘어가세요.
+              세트2 이후 지시문에는 앞선 세트들의 제목/훅이 회피 목록으로 자동 반영됩니다(가져오기를 마칠 때마다 갱신).
+            </p>
+            <p className="supporting">
+              진행 상황: 복사 {copiedSetIndexes.size}/{multiSetBridgeInstructions.length} · 완료 체크 {completedSetIndexes.size}/{multiSetBridgeInstructions.length}
+            </p>
+            <div className="bridge-set-list">
+              {multiSetBridgeInstructions.map(item => (
+                <div key={item.setIndex} className="bridge-set-row">
+                  <label className="avoid-word-item">
+                    <input
+                      type="checkbox"
+                      checked={completedSetIndexes.has(item.setIndex)}
+                      onChange={() => handleToggleSetCompleted(item.setIndex)}
+                    />
+                    Set {String(item.setIndex + 1).padStart(2, '0')} ({multiSetClamped.songsPerSet}곡) — {item.outputFilename}
+                  </label>
+                  <button type="button" onClick={() => void handleCopySetInstruction(item)}>
+                    {copiedSetIndexes.has(item.setIndex) ? <Check size={16} /> : <Copy size={16} />}
+                    {copiedSetIndexes.has(item.setIndex) ? '복사됨' : '복사'}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="button-row">
+              <label className="import-button" title="songs-output-set01.json ~ setNN.json 파일을 한 번에 선택">
+                <input
+                  type="file"
+                  accept="application/json"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={event => {
+                    const files = event.target.files;
+                    if (files && files.length) void handleMultiImportFiles(files);
+                    event.target.value = '';
+                  }}
+                />
+                <FileJson size={16} />
+                {isMultiImporting ? '가져오는 중...' : '세트 파일 일괄 가져오기 (여러 개 선택)'}
+              </label>
+            </div>
+            {multiImportReports && (
+              <p className="supporting">
+                {multiImportReports.filter(report => report.blueprint).length}/{multiImportReports.length}개 세트 파일을 가져왔습니다
+                {multiImportReports.some(report => !report.blueprint) ? ` — 실패 ${multiImportReports.filter(report => !report.blueprint).length}개: ${multiImportReports.filter(report => !report.blueprint).flatMap(report => report.skippedReasons).join(' / ')}` : ''}
+              </p>
+            )}
+            {multiImportReports?.some(report => report.warnings.length) ? (
+              <p className="warning">
+                {multiImportReports.flatMap(report => report.warnings).join(' / ')}
+              </p>
+            ) : null}
+          </>
         )}
-        {importReport?.warnings.length ? (
-          <p className="warning">
-            Import warnings: {importReport.warnings.join(' / ')}
-          </p>
-        ) : null}
       </div>
 
       <DryRunPreviewModal

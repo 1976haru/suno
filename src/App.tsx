@@ -28,8 +28,8 @@ import { importSongsJson, type ImportSongsReport } from './core/claudeCodeBridge
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
-import type { SetResult } from './core/multiSetGeneration';
-import { createInitialOptions, clampMultiSetTotal } from './utils/generation';
+import { buildSetOptions, type SetResult } from './core/multiSetGeneration';
+import { applySetTitlePrefix, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
 import { defaultPackagingLanguage, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
@@ -82,6 +82,8 @@ export default function App() {
   const [multiSetCount, setMultiSetCount] = useState(5);
   const [multiSetSongsPerSet, setMultiSetSongsPerSet] = useState(18);
   const [multiSetWarnings, setMultiSetWarnings] = useState<string[]>([]);
+  /** TASK v3.35 (bridge split) — grows as each bridge-imported set actually lands, so Step3Generate's not-yet-copied instruction previews (buildMultiSetClaudeCodeInstructions) reflect real titles/hooks instead of only the deterministic preallocated fallback. Reset whenever the user starts a fresh multi-set bridge batch (see onImportMultiSetSongsJson). */
+  const [bridgeImportedSetAvoid, setBridgeImportedSetAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });
 
   useEffect(() => {
     void getSetting<ProviderSettings>(PROVIDER_SETTINGS_KEY).then(saved => {
@@ -157,6 +159,14 @@ export default function App() {
     void batchFlow.resumeActiveJobs(cm.selectedChannel.id, provider, onBatchJobComplete);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cm.selectedChannel.id]);
+
+  // TASK v3.35 (bridge split) — a fresh multi-set bridge batch (new channel,
+  // or the set count/size changed, meaning the whole instruction list is
+  // being recomputed from scratch anyway) should not carry over avoid-list
+  // entries from a previous, unrelated batch.
+  useEffect(() => {
+    setBridgeImportedSetAvoid({ usedTitles: [], usedHooks: [] });
+  }, [cm.selectedChannel.id, multiSetCount, multiSetSongsPerSet]);
 
   useEffect(() => {
     void listChannelPersonas(cm.selectedChannel.id)
@@ -283,6 +293,67 @@ export default function App() {
       await handleGenerationSuccess(report.blueprint, report.blueprint.songs.length);
     }
     return report;
+  }
+
+  /** TASK v3.35 (bridge split) — "songs-output-setNN.json" -> 0-based set index; falls back to upload order for a file that doesn't follow the convention (e.g. renamed by the user). */
+  function parseSetIndexFromFilename(name: string, fallbackIndex: number): number {
+    const match = /set(\d+)/i.exec(name);
+    return match ? Math.max(0, Number(match[1]) - 1) : fallbackIndex;
+  }
+
+  /**
+   * TASK v3.35 (bridge split) — imports one file per multi-set bridge
+   * instruction (see Step3Generate's "세트별 지시문" list). Each file becomes
+   * its own SavedPack (usePackLibrary.saveGeneratedSet, same as the
+   * AI-generated multi-set path — see onMultiSetComplete), gets the same
+   * v3.35 Part A set-number title prefix applied (bridge import itself
+   * doesn't run finalizeSetBlueprint's hook-dedup pass — that needs a real
+   * API call this bridge path doesn't have; bridge collision defense stays
+   * flagHookCollisions' warn-only check), and folds its real titles/hooks
+   * into bridgeImportedSetAvoid so any not-yet-copied instruction still
+   * shown in the UI reflects what's actually been produced so far.
+   */
+  async function onImportMultiSetSongsJson(files: File[]): Promise<ImportSongsReport[]> {
+    const reports: ImportSongsReport[] = [];
+    const groupId = `bridge-multiset-${cm.selectedChannel.id}-${Date.now()}`;
+    const baseAvoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+    let usedTitles = [...(baseAvoid.usedTitles ?? [])];
+    let usedHooks = [...(baseAvoid.usedHooks ?? [])];
+
+    const ordered = files
+      .map((file, uploadOrder) => ({ file, setIndex: parseSetIndexFromFilename(file.name, uploadOrder) }))
+      .sort((a, b) => a.setIndex - b.setIndex);
+
+    let lastBlueprint: import('./types').PlaylistBlueprint | null = null;
+
+    for (const { file, setIndex } of ordered) {
+      const setOpts = buildSetOptions({ ...opts, channel: cm.selectedChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
+      const text = await file.text();
+      const currentAvoid = { usedTitles, usedHooks };
+      const preassignedSongs = preallocateSongSlots(setOpts, fallbackGenres(), currentAvoid);
+      const report = importSongsJson(text, setOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
+
+      if (report.blueprint) {
+        const finalBlueprint = (setOpts.setNumberPrefix ?? true)
+          ? { ...report.blueprint, songs: report.blueprint.songs.map(song => ({ ...song, title: applySetTitlePrefix(song.trackNo, song.title) })) }
+          : report.blueprint;
+        await library.saveGeneratedSet(finalBlueprint, setOpts, setOpts.projectTitle, { setGroupId: groupId, setIndex, setTotal: multiSetCount });
+        usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))];
+        usedHooks = [...usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)];
+        setBridgeImportedSetAvoid({ usedTitles, usedHooks });
+        lastBlueprint = finalBlueprint;
+        reports.push({ ...report, blueprint: finalBlueprint });
+      } else {
+        reports.push(report);
+      }
+    }
+
+    if (lastBlueprint) {
+      evalFlow.setEvaluation(null);
+      gen.setBlueprint(lastBlueprint);
+      setCurrentStep(4);
+    }
+    return reports;
   }
 
   async function onGenerate() {
@@ -663,6 +734,8 @@ export default function App() {
               onRetryFailedBatchJob={onRetryFailedBatchJob}
               onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
               onImportSongsJson={onImportSongsJson}
+              onImportMultiSetSongsJson={onImportMultiSetSongsJson}
+              bridgeImportedSetAvoid={bridgeImportedSetAvoid}
               multiSet={{
                 mode: multiSetMode,
                 onModeChange: setMultiSetMode,
