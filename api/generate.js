@@ -1,5 +1,20 @@
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 10;
+/**
+ * TASK v3.32 — 10/min was sized for the old 1-30 song cap (a handful of
+ * chunks). An 80-song real-time pack now runs up to ~40 chunks at
+ * REALTIME_CONCURRENCY=3 (see src/providers/index.ts), which this local
+ * proxy's own limiter — not Anthropic's real rate limit, which still applies
+ * upstream and is handled by callGenerateProxy's backoff retry — would
+ * otherwise 429 before a single pack finishes. Raised with headroom for
+ * retries, but still capped (not unlimited) so this stays a runaway-loop
+ * guard rather than no limit at all.
+ *
+ * TASK v3.33 — 60 -> 90: multi-set generation (src/core/multiSetGeneration.ts)
+ * can request up to 200 songs total across a run (10 sets x 20 songs), which
+ * at the same ~2-song realtime chunk size is ~100 chunks — comfortably under
+ * 90/min only because REALTIME_CONCURRENCY batches them into waves of 3.
+ */
+const RATE_LIMIT_MAX_REQUESTS = 90;
 const MAX_BODY_BYTES = 1_000_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 

@@ -59,18 +59,36 @@ export async function usedTitles(channelId: string, language: LyricLanguage): Pr
   return new Set(all.filter(u => u.channelId === channelId && u.language === language).map(u => u.title));
 }
 
-/** Most-recent-first, capped — used to keep the "don't reuse these" list sent to a remote LLM prompt from growing unbounded (token cost). */
+/**
+ * Most-recent-first, capped — used to keep the "don't reuse these" list sent
+ * to a remote LLM prompt from growing unbounded (token cost).
+ *
+ * TASK v3.33 — titles and hooks now have independent caps (titleLimit=100,
+ * unchanged; hookLimit=500). Before this task both shared one `limit`
+ * because hookMode='pool' made a hook's real collision-avoidance guarantee
+ * come from the pool being pre-decided locally, not from this avoid-list —
+ * the list was prompt-guidance only. hookMode='ai-creative' (new default,
+ * see GenerationOptions.hookMode) makes this list hooks' *only* real
+ * collision defense (besides the post-generation regenerate-on-collision
+ * retry, see core/hookDedup.ts), so it needs deeper history than titles
+ * ever did — 500 covers ~2.7 weeks at the 180-songs/week multi-set pace,
+ * matched to a real cost/coverage tradeoff the user confirmed rather than
+ * literally sending the channel's entire hook history on every request.
+ */
 export async function recentUsedTitlesAndHooks(
   channelId: string,
   language: LyricLanguage,
-  limit = 100
+  options: { titleLimit?: number; hookLimit?: number } = {}
 ): Promise<{ titles: string[]; hooks: string[] }> {
+  const { titleLimit = 100, hookLimit = 500 } = options;
   const all = await allRecords();
   const scoped = all
     .filter(u => u.channelId === channelId && u.language === language)
-    .sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1))
-    .slice(0, limit);
-  return { titles: scoped.map(u => u.title), hooks: scoped.map(u => u.hook) };
+    .sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1));
+  return {
+    titles: scoped.slice(0, titleLimit).map(u => u.title),
+    hooks: scoped.slice(0, hookLimit).map(u => u.hook)
+  };
 }
 
 /**
@@ -133,6 +151,40 @@ export function hookPoolNeedsWarning(stats: ExhaustionStats): boolean {
  */
 export function hookPoolGraduatedWarning(stats: ExhaustionStats): boolean {
   return stats.percentUsed >= 90 && stats.remaining > 0;
+}
+
+export interface PackCapacityWarning {
+  level: 'none' | 'yellow' | 'red';
+  remainingBeforePack: number;
+  remainingAfterPack: number;
+  /** null when songCount <= 0 — no meaningful "packs worth" to project. */
+  packsWorthAfter: number | null;
+}
+
+/**
+ * v3.32 — per-pack-size warning for the songCount the user actually has
+ * selected, shown in Step3 before generating. Distinct from
+ * hookPoolGraduatedWarning's 90%-of-total-pool threshold (percent-based,
+ * blind to how big *this* pack is): a large pack (e.g. 80 songs) can run out
+ * of remaining hooks well before the channel's overall pool crosses 90%, so
+ * this checks the pack size against the pool directly. red means this pack
+ * alone would need more hooks than remain (some songs would fail to get a
+ * hook); yellow means it would leave less than one more pack's worth of
+ * headroom.
+ */
+export function packCapacityWarning(stats: ExhaustionStats, songCount: number): PackCapacityWarning {
+  const remainingAfterPack = Math.max(0, stats.remaining - songCount);
+  const level: PackCapacityWarning['level'] = stats.remaining < songCount
+    ? 'red'
+    : stats.remaining < songCount * 2
+      ? 'yellow'
+      : 'none';
+  return {
+    level,
+    remainingBeforePack: stats.remaining,
+    remainingAfterPack,
+    packsWorthAfter: songCount > 0 ? Math.floor(remainingAfterPack / songCount) : null
+  };
 }
 
 export interface ChannelCapacityForecast extends ExhaustionStats {

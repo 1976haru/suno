@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Coins, Copy, Download, FileJson, Info, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
-import { clampSongCount } from '../../utils/generation';
+import { AlertTriangle, Coins, Copy, Download, FileJson, Info, Layers, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { clampMultiSetTotal, clampSongCount, MULTI_SET_TOTAL_CAP } from '../../utils/generation';
 import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
-import { channelExhaustionStats, type ExhaustionStats } from '../../core/hookLedger';
+import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
@@ -17,11 +17,32 @@ import type { BatchJobRecord } from '../../core/batchJobs';
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, ProviderSettings, SeasonPack } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
+/** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
+const BULK_BATCH_ADVICE_THRESHOLD = 40;
 
-const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30];
+const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
 
 function formatRange(range: TokenRange) {
   return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
+}
+
+/** TASK v3.33 — multi-set generation controls/state, all owned by App.tsx (mirrors batchMode's ownership pattern) so a run survives a step navigation away and back. */
+interface MultiSetControls {
+  mode: boolean;
+  onModeChange: (value: boolean) => void;
+  setCount: number;
+  onSetCountChange: (value: number) => void;
+  songsPerSet: number;
+  onSongsPerSetChange: (value: number) => void;
+  isRunning: boolean;
+  /** 1-based, 0 before the first set starts. */
+  currentSet: number;
+  totalSets: number;
+  setProgress: { done: number; total: number };
+  error: string;
+  warnings: string[];
+  onGenerate: () => void;
+  onCancel: () => void;
 }
 
 interface Step3GenerateProps {
@@ -47,12 +68,13 @@ interface Step3GenerateProps {
   onRegenerateMissingBatchTracks: () => void;
   /** TASK v3.24 — Claude Code bridge: reads a coding agent's songs-output.json back in, runs it through the same quality/safety pipeline as any API-generated pack, and returns a report of what was imported vs. skipped. */
   onImportSongsJson: (file: File) => Promise<ImportSongsReport>;
+  multiSet: MultiSetControls;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson
+  onImportSongsJson, multiSet
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -103,6 +125,13 @@ export default function Step3Generate({
   }, [opts.channel.id, opts.lyricLanguage, opts.channel.archetype]);
 
   const costEstimate = estimateCost(opts.songCount, provider, inputPrice, outputPrice);
+  // TASK v3.33 — multi-set mode's real cost/pool projection uses the whole
+  // run's total songCount (setCount x songsPerSet), not opts.songCount.
+  const multiSetClamped = clampMultiSetTotal(multiSet.setCount, multiSet.songsPerSet);
+  const multiSetTotalSongs = multiSetClamped.setCount * multiSetClamped.songsPerSet;
+  const multiSetCostEstimate = estimateCost(multiSetClamped.songsPerSet, provider, inputPrice, outputPrice);
+  const effectiveSongCount = multiSet.mode ? multiSetTotalSongs : opts.songCount;
+  const packWarning = hookStats && hookStats.poolSize > 0 ? packCapacityWarning(hookStats, effectiveSongCount) : null;
 
   // Representative preview of the first batch — later batches add accumulated
   // usedTitles/usedHooks, called out in the modal's own copy.
@@ -147,35 +176,124 @@ export default function Step3Generate({
     <section className="panel">
       <p className="step-hint">몇 곡을 만들지 정하고 생성 버튼을 누르세요. 생성 중에도 화면을 벗어나지 않아도 됩니다.</p>
 
-      <label>Songs (곡 수)</label>
-      <div className="inline">
-        <input
-          type="range"
-          min={1}
-          max={30}
-          value={opts.songCount}
-          onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)) }))}
-        />
-        <input
-          type="number"
-          min={1}
-          max={30}
-          value={opts.songCount}
-          onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)) }))}
-        />
-      </div>
-      <div className="chips">
-        {SONG_COUNT_CHIPS.map(count => (
-          <button
-            type="button"
-            key={count}
-            className={opts.songCount === count ? 'chip active' : 'chip'}
-            onClick={() => setOpts(prev => ({ ...prev, songCount: clampSongCount(count) }))}
-          >
-            {count === 1 ? '1곡 (테스트)' : `${count}곡`}
+      <div className="provider-summary">
+        <div className="panel-title">
+          <Layers size={18} />
+          <h2>생성 모드</h2>
+        </div>
+        <div className="chips">
+          <button type="button" className={!multiSet.mode ? 'chip active' : 'chip'} onClick={() => multiSet.onModeChange(false)}>
+            단일 팩
           </button>
-        ))}
+          <button type="button" className={multiSet.mode ? 'chip active' : 'chip'} onClick={() => multiSet.onModeChange(true)}>
+            멀티 세트 (세트별 영상 여러 개를 한 번에)
+          </button>
+        </div>
+        <p className="supporting">
+          {multiSet.mode
+            ? '세트 수 x 세트당 곡수만큼 생성해, 세트마다 독립된 콜드오픈/플래그십을 갖는 별도 팩으로 저장합니다 (예: 5세트 x 18곡 = 90곡, "{프로젝트명} Set 01" ~ "Set 05").'
+            : '한 번에 팩 하나(최대 80곡)를 만듭니다. 주 여러 세트를 몰아서 만들려면 "멀티 세트"를 선택하세요.'}
+        </p>
       </div>
+
+      {!multiSet.mode && (
+        <>
+          <label>Songs (곡 수)</label>
+          <div className="inline">
+            <input
+              type="range"
+              min={1}
+              max={80}
+              value={opts.songCount}
+              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)) }))}
+            />
+            <input
+              type="number"
+              min={1}
+              max={80}
+              value={opts.songCount}
+              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)) }))}
+            />
+          </div>
+          <div className="chips">
+            {SONG_COUNT_CHIPS.map(count => (
+              <button
+                type="button"
+                key={count}
+                className={opts.songCount === count ? 'chip active' : 'chip'}
+                onClick={() => setOpts(prev => ({ ...prev, songCount: clampSongCount(count) }))}
+              >
+                {count === 1 ? '1곡 (테스트)' : `${count}곡`}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {multiSet.mode && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <Layers size={18} />
+            <h2>세트 설정</h2>
+          </div>
+          <div className="form-grid two">
+            <div>
+              <label>세트 수 (1~10)</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={multiSet.setCount}
+                onChange={event => multiSet.onSetCountChange(Number(event.target.value))}
+              />
+            </div>
+            <div>
+              <label>세트당 곡수 (6~20)</label>
+              <input
+                type="number"
+                min={6}
+                max={20}
+                value={multiSet.songsPerSet}
+                onChange={event => multiSet.onSongsPerSetChange(Number(event.target.value))}
+              />
+            </div>
+          </div>
+          <p className="supporting">
+            총 {multiSetTotalSongs}곡 ({multiSetClamped.setCount}세트 x {multiSetClamped.songsPerSet}곡) — 합계 상한 {MULTI_SET_TOTAL_CAP}곡.
+            {multiSetTotalSongs !== multiSet.setCount * multiSet.songsPerSet && ' 입력값이 상한을 넘어 자동으로 줄었습니다.'}
+          </p>
+          {provider.provider !== 'local' && (
+            <>
+              <p className="supporting">
+                예상 비용(세트당 약 {multiSetCostEstimate.costKrw ? `${Math.round(multiSetCostEstimate.costKrw.low).toLocaleString()}~${Math.round(multiSetCostEstimate.costKrw.high).toLocaleString()}원` : '단가 미입력'}) x {multiSetClamped.setCount}세트.
+                실시간보다 최대 24시간 걸릴 수 있는 Batch API가 이 규모에서는 50% 저렴하고 안정적입니다 — 위 "처리 속도"에서 Batch를 선택하세요.
+              </p>
+              {!batchMode && (
+                <div className="warning">
+                  <AlertTriangle size={16} />
+                  <span>💡 멀티 세트({multiSetTotalSongs}곡)는 Batch API를 강력히 권장합니다. 위에서 "여유 있게 — Batch API"를 선택하세요.</span>
+                </div>
+              )}
+            </>
+          )}
+          {multiSet.isRunning && (
+            <p className="supporting">
+              진행 중: Set {multiSet.currentSet}/{multiSet.totalSets} — {multiSet.setProgress.done}/{multiSet.setProgress.total}곡
+            </p>
+          )}
+          {multiSet.warnings.length > 0 && (
+            <p className="warning">
+              {multiSet.warnings.join(' / ')}
+            </p>
+          )}
+          {multiSet.error && <p className="error">{multiSet.error}</p>}
+          {multiSet.isRunning && (
+            <div className="button-row">
+              <button type="button" onClick={multiSet.onCancel}>남은 세트 취소 (진행 중인 세트는 완료)</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {hookStats && hookStats.poolSize > 0 && (
         <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
@@ -192,6 +310,31 @@ export default function Step3Generate({
             <p className="supporting">
               🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
             </p>
+          )}
+        </div>
+      )}
+
+      {packWarning && (
+        <div className={packWarning.level === 'none' ? 'provider-summary' : 'warning'}>
+          {packWarning.level === 'none' ? (
+            <p className="supporting">
+              이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+              {packWarning.remainingAfterPack.toLocaleString()}개
+              {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+            </p>
+          ) : (
+            <>
+              <AlertTriangle size={16} />
+              <span>
+                {packWarning.level === 'red' ? '🔴 ' : '🟡 '}
+                이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+                {packWarning.remainingAfterPack.toLocaleString()}개
+                {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+                {packWarning.level === 'red'
+                  ? ' — 훅 풀이 부족해 일부 곡이 생성 실패할 수 있습니다.'
+                  : ' — 다음 팩부터는 부족해질 수 있으니 미리 훅 이력을 정리하세요.'}
+              </span>
+            </>
           )}
         </div>
       )}
@@ -264,8 +407,14 @@ export default function Step3Generate({
           <p className="supporting">
             {batchMode
               ? '보통 몇 분 내에 끝나지만 최대 24시간까지 걸릴 수 있습니다. 주 1회 발행하는 워크플로우라면 이 시간차는 대체로 문제되지 않아요. 이 탭을 닫아도 진행 상황은 저장됩니다.'
-              : '30곡 기준 출력 약 25K 토큰입니다. 여유가 있다면 Batch API로 50% 저렴하게 생성할 수 있어요.'}
+              : '80곡 기준 출력 약 65~70K 토큰입니다 (실시간 약 $2.6 · Batch 약 $1.3). 여유가 있다면 Batch API로 50% 저렴하게 생성할 수 있어요.'}
           </p>
+          {!multiSet.mode && !batchMode && opts.songCount >= BULK_BATCH_ADVICE_THRESHOLD && (
+            <div className="warning">
+              <AlertTriangle size={16} />
+              <span>💡 대량 생성({opts.songCount}곡)은 Batch API가 50% 저렴하고 안정적입니다. 위에서 "여유 있게 — Batch API"를 선택하세요.</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -379,21 +528,37 @@ export default function Step3Generate({
         </p>
       )}
 
-      <button
-        type="button"
-        className="primary full-width action-button"
-        disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling'}
-        onClick={onGenerate}
-      >
-        <Wand2 size={18} />
-        {isGenerating
-          ? `생성 중... (${genProgress.done}/${genProgress.total})`
-          : batchMode && provider.provider === 'anthropic' && !hybridMode
-            ? `${opts.songCount}곡 Batch API로 제출하기`
-            : hybridMode && provider.provider !== 'local'
-              ? `${opts.songCount}곡 무료 초안 만들기`
-              : `${opts.songCount}곡 생성하기`}
-      </button>
+      {multiSet.mode ? (
+        <button
+          type="button"
+          className="primary full-width action-button"
+          disabled={multiSet.isRunning}
+          onClick={multiSet.onGenerate}
+        >
+          <Layers size={18} />
+          {multiSet.isRunning
+            ? `생성 중... Set ${multiSet.currentSet}/${multiSet.totalSets} (${multiSet.setProgress.done}/${multiSet.setProgress.total}곡)`
+            : batchMode && provider.provider === 'anthropic'
+              ? `${multiSetTotalSongs}곡 (${multiSetClamped.setCount}세트) Batch API로 제출하기`
+              : `${multiSetTotalSongs}곡 (${multiSetClamped.setCount}세트) 생성하기`}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="primary full-width action-button"
+          disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling'}
+          onClick={onGenerate}
+        >
+          <Wand2 size={18} />
+          {isGenerating
+            ? `생성 중... (${genProgress.done}/${genProgress.total})`
+            : batchMode && provider.provider === 'anthropic' && !hybridMode
+              ? `${opts.songCount}곡 Batch API로 제출하기`
+              : hybridMode && provider.provider !== 'local'
+                ? `${opts.songCount}곡 무료 초안 만들기`
+                : `${opts.songCount}곡 생성하기`}
+        </button>
+      )}
 
       {error && <p className="error">{error}</p>}
     </section>

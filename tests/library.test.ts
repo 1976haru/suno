@@ -38,6 +38,33 @@ describe('library persona persistence', () => {
     expect(loaded?.soundSignature?.short).toBe(soundSignature.short);
   });
 
+  it('[v3.33] saves and restores multi-set grouping metadata (setGroupId/setIndex/setTotal)', async () => {
+    const opts = makeOptions({ songCount: 18, projectTitle: 'Weekly Pack Set 02' });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const id = await savePack({
+      blueprint,
+      options: opts,
+      name: 'Weekly Pack Set 02',
+      setGroupId: 'multiset-abc',
+      setIndex: 1,
+      setTotal: 5
+    });
+    const loaded = await loadPack(id);
+    expect(loaded?.setGroupId).toBe('multiset-abc');
+    expect(loaded?.setIndex).toBe(1);
+    expect(loaded?.setTotal).toBe(5);
+  });
+
+  it('[v3.33] a single-pack (non-multi-set) save leaves setGroupId/setIndex/setTotal undefined', async () => {
+    const opts = makeOptions({ songCount: 3 });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const id = await savePack({ blueprint, options: opts, name: 'Single Pack' });
+    const loaded = await loadPack(id);
+    expect(loaded?.setGroupId).toBeUndefined();
+    expect(loaded?.setIndex).toBeUndefined();
+    expect(loaded?.setTotal).toBeUndefined();
+  });
+
   it('stores and reuses channel persona names', async () => {
     const opts = makeOptions({ personaMode: true, songCount: 2 });
     const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);

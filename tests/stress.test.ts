@@ -126,12 +126,12 @@ describe('stress: local provider', () => {
     expect(deltaMB).toBeLessThan(300);
   });
 
-  stressCase('S5', '경계값 (songCount 0, -5, 31, 999, NaN, Infinity, "abc")', () => {
-    const cases = [0, -5, 31, 999, NaN, Infinity, Number('abc')];
+  stressCase('S5', '경계값 (songCount 0, -5, 81, 999, NaN, Infinity, "abc")', () => {
+    const cases = [0, -5, 81, 999, NaN, Infinity, Number('abc')];
     for (const value of cases) {
       const clamped = clampSongCount(value);
       expect(clamped).toBeGreaterThanOrEqual(1);
-      expect(clamped).toBeLessThanOrEqual(30);
+      expect(clamped).toBeLessThanOrEqual(80);
       expect(Number.isFinite(clamped)).toBe(true);
       expect(() => generateLocalBlueprint(makeOptions({ songCount: clamped }), testGenres, testMoods, testSeason)).not.toThrow();
     }

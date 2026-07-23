@@ -146,7 +146,7 @@ describe('opening sequence stress tests (v3.11)', () => {
   });
 
   osCase('OS3 extreme songCount inputs are clamped and never crash cold-open/flagship assignment', () => {
-    for (const value of [0, 1, 2, 3, 31, NaN, -5, Infinity]) {
+    for (const value of [0, 1, 2, 3, 81, NaN, -5, Infinity]) {
       const songCount = clampSongCount(value);
       expect(() => generateLocalBlueprint(makeOptions({ songCount }), testGenres, testMoods, testSeason)).not.toThrow();
       const bp = generateLocalBlueprint(makeOptions({ songCount }), testGenres, testMoods, testSeason);

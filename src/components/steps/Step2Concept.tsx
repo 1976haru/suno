@@ -457,6 +457,32 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         </div>
       )}
 
+      {provider.provider !== 'local' && (
+        <div className="option-block">
+          <h3>훅(가사 반복구) 생성 방식</h3>
+          <div className="chips">
+            <button
+              type="button"
+              className={(opts.hookMode ?? 'ai-creative') === 'ai-creative' ? 'chip active' : 'chip'}
+              onClick={() => setOpts(prev => ({ ...prev, hookMode: 'ai-creative' }))}
+            >
+              AI가 훅 창작 (기본 · 추천)
+            </button>
+            <button
+              type="button"
+              className={opts.hookMode === 'pool' ? 'chip active' : 'chip'}
+              onClick={() => setOpts(prev => ({ ...prev, hookMode: 'pool' }))}
+            >
+              로컬 훅 뱅크 사용 (풀 소진 가능)
+            </button>
+          </div>
+          <p className="supporting">
+            "AI가 훅 창작"은 채널의 훅 이력(최근 500개)만 피해가며 Claude/ChatGPT가 매번 새 훅을 지어요 — 훅 뱅크가 소진될 일이 없어 대량 생성(주 100곡 이상)에 적합합니다.
+            "로컬 훅 뱅크 사용"은 이전 방식대로 채널당 약 400개인 조합형 훅 뱅크에서 골라 씁니다 — 소량 생성이거나 완전히 예측 가능한 훅을 원할 때만 선택하세요.
+          </p>
+        </div>
+      )}
+
       <div className="option-block">
         <h3>가사에서 피할 것들 (기본값 권장)</h3>
         <div className="avoid-word-list">

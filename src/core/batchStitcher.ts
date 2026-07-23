@@ -56,6 +56,7 @@ export function stitchBatchResults(
 
   const slotByTrackNo = new Map((preassignedSlots ?? []).map(slot => [slot.trackNo, slot]));
   const titleMode = opts.titleMode ?? 'ai-creative';
+  const hookMode = opts.hookMode ?? 'ai-creative';
 
   for (const result of sorted) {
     if (result.usage) {
@@ -81,7 +82,7 @@ export function stitchBatchResults(
     }
     for (const song of result.blueprint.songs || []) {
       const slot = slotByTrackNo.get(song.trackNo);
-      songMap.set(song.trackNo, reconcileWithPreassignedSlot(song, slot, titleMode));
+      songMap.set(song.trackNo, reconcileWithPreassignedSlot(song, slot, titleMode, {}, hookMode));
     }
   }
 

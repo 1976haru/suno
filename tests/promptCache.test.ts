@@ -836,7 +836,7 @@ describe('[v3.23] thumbnailText generation is an off-by-default toggle (generate
   });
 });
 
-describe('[v3.27] titleMode branches buildBatchSystemNote\'s preassignedSongs guidance (Part A2)', () => {
+describe('[v3.27/v3.33] titleMode/hookMode branch buildBatchSystemNote\'s preassignedSongs guidance (Part A2)', () => {
   function makeBatch(): BatchContext {
     const slots: PreassignedSongSlot[] = [
       { trackNo: 1, title: 'Placeholder Title', hookPhrase: 'H', songRole: 'flagship', tempo: 100, emotionArc: 'x' }
@@ -844,27 +844,53 @@ describe('[v3.27] titleMode branches buildBatchSystemNote\'s preassignedSongs gu
     return { trackNoOffset: 0, totalSongCount: 1, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
   }
 
-  it('default (titleMode omitted) resolves to ai-creative: tells the model its own title is expected, the preassigned title is only a fallback', () => {
+  it('trackNo/emotionArc always stay forced verbatim regardless of titleMode/hookMode', () => {
+    const note = buildBatchSystemNote(makeOptions(), makeBatch());
+    expect(note).toContain('Do NOT invent a different trackNo or emotionArc — copy those verbatim');
+  });
+
+  it('default (titleMode/hookMode both omitted) resolves to ai-creative for both: own title AND own hook expected, both preassigned values are only fallbacks', () => {
     const opts = makeOptions();
     const note = buildBatchSystemNote(opts, makeBatch());
 
     expect(note).toContain('fallback placeholder');
     expect(note).toContain('write your OWN original title');
     expect(note).not.toContain('Do NOT invent a different title');
+    expect(note).toContain('fallback suggestion');
+    expect(note).toContain('write your OWN original hook');
+    expect(note).not.toContain('Do NOT invent a different hookPhrase');
   });
 
-  it('titleMode="local": tells the model to copy the preassigned title verbatim (old behavior, unchanged)', () => {
+  it('titleMode="local": tells the model to copy the preassigned title verbatim (old behavior, unchanged); hookMode still defaults to ai-creative independently', () => {
     const opts = makeOptions({ titleMode: 'local' });
     const note = buildBatchSystemNote(opts, makeBatch());
 
-    expect(note).toContain('Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim');
+    expect(note).toContain('Do NOT invent a different title — copy it verbatim');
+    expect(note).toContain('write your OWN original hook');
   });
 
-  it('titleMode="ai-creative" (explicit) still forbids inventing a different hookPhrase/trackNo/emotionArc', () => {
-    const opts = makeOptions({ titleMode: 'ai-creative' });
+  it('hookMode="pool": tells the model to copy the preassigned hookPhrase verbatim; titleMode still defaults to ai-creative independently', () => {
+    const opts = makeOptions({ hookMode: 'pool' });
     const note = buildBatchSystemNote(opts, makeBatch());
 
-    expect(note).toContain('Do NOT invent a different hookPhrase, trackNo, or emotionArc');
+    expect(note).toContain('Do NOT invent a different hookPhrase — copy it verbatim');
+    expect(note).toContain('write your OWN original title');
+  });
+
+  it('titleMode="local" + hookMode="pool": both fields forced verbatim (full old pre-v3.33 behavior)', () => {
+    const opts = makeOptions({ titleMode: 'local', hookMode: 'pool' });
+    const note = buildBatchSystemNote(opts, makeBatch());
+
+    expect(note).toContain('Do NOT invent a different title — copy it verbatim');
+    expect(note).toContain('Do NOT invent a different hookPhrase — copy it verbatim');
+  });
+
+  it('hookMode="ai-creative": tells the model never to reuse a hook from alreadyUsedHooks and to keep it bookending the chorus', () => {
+    const opts = makeOptions({ hookMode: 'ai-creative' });
+    const note = buildBatchSystemNote(opts, makeBatch());
+
+    expect(note).toContain('Never reuse a hook already listed in "alreadyUsedHooks"');
+    expect(note).toContain('bookend every chorus');
   });
 });
 

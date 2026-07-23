@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCapacityForecast, exhaustionStats, hookPoolGraduatedWarning, hookPoolNeedsWarning } from '../src/core/hookLedger';
+import { computeCapacityForecast, exhaustionStats, hookPoolGraduatedWarning, hookPoolNeedsWarning, packCapacityWarning } from '../src/core/hookLedger';
 import { hookPoolSize } from '../src/core/lyricEngine';
 
 /**
@@ -70,5 +70,45 @@ describe('v3.12 hook pool dashboard — exhaustionStats / computeCapacityForecas
     expect(hookPoolNeedsWarning(exhaustionStats(Math.round(poolSize * 0.85), poolSize))).toBe(true);
     expect(hookPoolGraduatedWarning(exhaustionStats(Math.round(poolSize * 0.9), poolSize))).toBe(true);
     expect(hookPoolGraduatedWarning(exhaustionStats(poolSize, poolSize))).toBe(false); // fully exhausted — hard error path takes over, not this graduated screen
+  });
+
+  describe('[v3.32] packCapacityWarning — per-pack-size warning for an 80-song pack', () => {
+    it('numbers always agree with the exhaustionStats they were derived from', () => {
+      const stats = exhaustionStats(320, 400); // remaining = 80
+      const warning = packCapacityWarning(stats, 80);
+      expect(warning.remainingBeforePack).toBe(stats.remaining);
+      expect(warning.remainingAfterPack).toBe(Math.max(0, stats.remaining - 80));
+    });
+
+    it('level is "none" when remaining is at least double the selected pack size', () => {
+      const stats = exhaustionStats(40, 400); // remaining = 360
+      const warning = packCapacityWarning(stats, 80);
+      expect(warning.level).toBe('none');
+      expect(warning.remainingAfterPack).toBe(280);
+      expect(warning.packsWorthAfter).toBe(3);
+    });
+
+    it('level is "yellow" when remaining is less than double the pack size but still covers it', () => {
+      const stats = exhaustionStats(280, 400); // remaining = 120, songCount*2 = 160
+      const warning = packCapacityWarning(stats, 80);
+      expect(warning.level).toBe('yellow');
+      expect(warning.remainingAfterPack).toBe(40);
+      expect(warning.packsWorthAfter).toBe(0);
+    });
+
+    it('level is "red" when remaining is less than the pack size itself — this pack could fail some songs', () => {
+      const stats = exhaustionStats(360, 400); // remaining = 40, songCount = 80
+      const warning = packCapacityWarning(stats, 80);
+      expect(warning.level).toBe('red');
+      expect(warning.remainingAfterPack).toBe(0); // clamped, never negative
+      expect(warning.packsWorthAfter).toBe(0);
+    });
+
+    it('boundary: remaining exactly equal to songCount is not red (still just enough), remaining one below is red', () => {
+      const exact = packCapacityWarning(exhaustionStats(320, 400), 80); // remaining = 80
+      expect(exact.level).not.toBe('red');
+      const oneShort = packCapacityWarning(exhaustionStats(321, 400), 80); // remaining = 79
+      expect(oneShort.level).toBe('red');
+    });
   });
 });

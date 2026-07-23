@@ -156,8 +156,9 @@ export async function generateChunkWithSplitRetry(
     // each other's pick any more than they could before) are handled once
     // the whole pack is merged — see generateBlueprint's dedupeTitlesAcrossPack call.
     const titleMode = opts.titleMode ?? 'ai-creative';
+    const hookMode = opts.hookMode ?? 'ai-creative';
     const slotByTrackNo = new Map((batchContext.preassignedSongs ?? []).map(slot => [slot.trackNo, slot]));
-    return (result.songs || []).map(song => reconcileWithPreassignedSlot(song, slotByTrackNo.get(song.trackNo), titleMode));
+    return (result.songs || []).map(song => reconcileWithPreassignedSlot(song, slotByTrackNo.get(song.trackNo), titleMode, {}, hookMode));
   } catch (error) {
     const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
     if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {

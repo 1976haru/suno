@@ -170,7 +170,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
             <input
               type="number"
               min={1}
-              max={50}
+              max={400}
               value={songsPerWeek}
               onChange={event => setSongsPerWeek(Math.max(1, Number(event.target.value) || 1))}
             />

@@ -156,6 +156,9 @@ export async function savePack(input: {
   thumbnailSpec?: SavedPack['thumbnailSpec'];
   soundSignature?: SavedPack['soundSignature'];
   personaMode?: boolean;
+  setGroupId?: string;
+  setIndex?: number;
+  setTotal?: number;
 }): Promise<string> {
   const id = input.id || (input.isAutosave ? AUTOSAVE_ID : randomId());
   const personaMode = input.personaMode ?? input.options.personaMode ?? false;
@@ -174,7 +177,10 @@ export async function savePack(input: {
     evaluation: input.evaluation,
     thumbnailSpec: input.thumbnailSpec,
     soundSignature: input.soundSignature,
-    personaMode
+    personaMode,
+    setGroupId: input.setGroupId,
+    setIndex: input.setIndex,
+    setTotal: input.setTotal
   };
   if (!hasIndexedDb()) {
     memoryPacks.set(id, pack);

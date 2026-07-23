@@ -197,10 +197,10 @@ describe('production stress tests', () => {
   });
 
   productionCase('S5 extreme inputs are clamped and never execute script text', () => {
-    for (const value of [0, -5, 31, 999, NaN, Infinity, Number('abc')]) {
+    for (const value of [0, -5, 81, 999, NaN, Infinity, Number('abc')]) {
       const songCount = clampSongCount(value);
       expect(songCount).toBeGreaterThanOrEqual(1);
-      expect(songCount).toBeLessThanOrEqual(30);
+      expect(songCount).toBeLessThanOrEqual(80);
       expect(() => generateLocalBlueprint(makeOptions({ songCount }), testGenres, testMoods, testSeason)).not.toThrow();
     }
 
@@ -242,6 +242,19 @@ describe('production stress tests', () => {
     expect(new Set(mergedSongs.map(song => song.trackNo)).size).toBe(mergedSongs.length);
     expect(validateStitched(mergedSongs, 6).ok).toBe(true);
   });
+
+  productionCase('S9 (v3.32) single pack of 80 songs: zero hook/title duplicates, trackNo 1..80 continuous', () => {
+    const bp = generateLocalBlueprint(
+      makeOptions({ songCount: 80, projectTitle: 'v3.32 80-song pack' }),
+      testGenres,
+      testMoods,
+      testSeason
+    );
+    expect(bp.songs).toHaveLength(80);
+    expect(bp.songs.map(song => song.trackNo)).toEqual(Array.from({ length: 80 }, (_, i) => i + 1));
+    expect(new Set(bp.songs.map(song => song.title.toLowerCase())).size).toBe(80);
+    expect(new Set(bp.songs.map(song => song.hookPhrase.toLowerCase())).size).toBe(80);
+  }, 15_000);
 
   productionCase('S8 API failure modes are mocked, retried, recoverable, and key-safe', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'API 키가 올바르지 않습니다' }), { status: 401 })));

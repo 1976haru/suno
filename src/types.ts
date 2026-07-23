@@ -142,6 +142,22 @@ export interface GenerationOptions {
    * core/batchPreallocation.ts's reconcileWithPreassignedSlot.
    */
   titleMode?: 'local' | 'ai-creative';
+  /**
+   * TASK v3.33 — mirrors titleMode's pattern exactly, one axis over: 'pool'
+   * (old behavior) forces every song's hookPhrase to core/lyricEngine.ts's
+   * composeHook()-drawn slot value, hard-capping how many songs a channel can
+   * generate before its ~400-hook combinatorial pool exhausts (~4.4 weeks at
+   * 90 songs/week). 'ai-creative' (default) lets the model write its own
+   * hook per song instead — no pool draw, no exhaustion — checked against
+   * the channel's hook ledger (core/hookLedger.ts) for collisions instead of
+   * pre-decided. Applies to every track including cold-open/flagship: the
+   * k=3 opening contest (core/openingContest.ts) is a pool-only mechanism
+   * (it scores composeHook candidates), so those tracks skip the contest in
+   * this mode and get extra prompt emphasis instead (see
+   * promptComposer.ts's buildBatchSystemNote). title/emotionArc/songRole
+   * behavior is unaffected by this field — see titleMode above for title.
+   */
+  hookMode?: 'pool' | 'ai-creative';
 }
 
 export interface YoutubeMetadata {
@@ -338,6 +354,17 @@ export interface SavedPack {
   thumbnailSpec?: ThumbnailSpec;
   soundSignature?: SoundSignature;
   personaMode?: boolean;
+  /**
+   * TASK v3.33 — multi-set generation (core/multiSetGeneration.ts) produces
+   * N independent SavedPacks per run (one per set), not one merged
+   * blueprint — see the projectTitle "Set 0N" naming convention. These three
+   * fields are UI-grouping metadata only (sidebar badge, "N/total" display);
+   * `undefined` for every single-pack-mode pack, before and after this task,
+   * so no migration is needed.
+   */
+  setGroupId?: string;
+  setIndex?: number;
+  setTotal?: number;
 }
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;

@@ -58,6 +58,47 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     await refresh();
   }
 
+  /**
+   * TASK v3.33 — multi-set generation saves each set as its own SavedPack
+   * automatically (no window.prompt per set — the user already named the
+   * whole run once, and each set gets "{name} Set 0N"). Mirrors
+   * saveCurrentPack's hookLedger/videoLedger side effects, minus the
+   * AUTOSAVE_ID promotion step: multi-set sets are never written to the
+   * ephemeral autosave slot in the first place, so there's nothing to
+   * promote/forget.
+   */
+  async function saveGeneratedSet(
+    blueprint: PlaylistBlueprint,
+    options: GenerationOptions,
+    name: string,
+    setMeta: { setGroupId: string; setIndex: number; setTotal: number }
+  ) {
+    const id = await savePack({ blueprint, options, name, personaMode: options.personaMode ?? false, ...setMeta });
+    try {
+      await recordPackHooks(id, options.channel.id, blueprint, options.lyricLanguage);
+    } catch {
+      // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
+    try {
+      await upsertVideoForPack({
+        channelId: options.channel.id,
+        packId: id,
+        videoTitle: blueprint.projectTitle,
+        thumbnailA: '',
+        thumbnailB: '',
+        thumbnailC: '',
+        thumbnailUsed: null,
+        imagePrompt: '',
+        colors: [],
+        seoKeywords: options.channel.seoKeywords || []
+      });
+    } catch {
+      // Video ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
+    await refresh();
+    return id;
+  }
+
   async function loadPackById(id: string) {
     const pack = await loadPack(id);
     if (pack) onRestore(pack);
@@ -107,5 +148,5 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     await refresh();
   }
 
-  return { savedPacks, refresh, saveCurrentPack, loadPackById, remove, rename, exportAll, importAll, deleteAll };
+  return { savedPacks, refresh, saveCurrentPack, saveGeneratedSet, loadPackById, remove, rename, exportAll, importAll, deleteAll };
 }

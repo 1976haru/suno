@@ -62,20 +62,21 @@ export function slotsForRange(slots: PreassignedSongSlot[], trackNumbers: number
  * batchPlanningBullets/songOutputShape extraction already guards against
  * elsewhere in this codebase).
  *
- * hookPhrase/emotionArc/songRole are ALWAYS forced to the slot's value when a
- * slot exists — hook-collision-zero is a hard guarantee this app makes
- * regardless of titleMode (see GenerationOptions.titleMode's comment).
- * "title" is the one field titleMode governs: 'local' forces it to the
- * slot's mechanically-derived title (old behavior, unchanged); 'ai-creative'
- * (default) trusts whatever original title the model/agent actually wrote,
- * falling back to the slot's title only if that's missing/blank (e.g. the
- * model ignored the instruction entirely) so a song is never left titleless.
+ * emotionArc/songRole are ALWAYS forced to the slot's value when a slot
+ * exists. "title" and "hookPhrase" are the two fields governed by their own
+ * mode: titleMode 'local' forces title to the slot's mechanically-derived
+ * value (old behavior, unchanged); 'ai-creative' (default) trusts the
+ * model/agent's own title, falling back to the slot's only if blank.
+ * hookMode (TASK v3.33) works the same way one field over: 'pool' forces
+ * hookPhrase to the slot's composeHook()-drawn value (old behavior,
+ * hook-collision-zero via the pool — unconditional before this task);
+ * 'ai-creative' (default) trusts the model's own hook, falling back to the
+ * slot's only if blank. See GenerationOptions.titleMode/hookMode's comments.
  */
 export interface ReconcilePreassignedOptions {
   /**
    * Bridge imports must preserve the imported hook/lyrics pair. Realtime and
-   * Batch paths leave this off so their locally preallocated hook guarantee
-   * remains unchanged.
+   * Batch paths leave this off so hookMode governs hookPhrase normally.
    */
   keepHook?: boolean;
   /**
@@ -91,14 +92,21 @@ export function reconcileWithPreassignedSlot(
   song: SongIdea,
   slot: PreassignedSongSlot | undefined,
   titleMode: 'local' | 'ai-creative' = 'ai-creative',
-  options: ReconcilePreassignedOptions = {}
+  options: ReconcilePreassignedOptions = {},
+  /** TASK v3.33 — see GenerationOptions.hookMode. Kept as its own trailing param (not folded into ReconcilePreassignedOptions) since every non-bridge caller passes it explicitly, the same way titleMode is its own positional param rather than an option. */
+  hookMode: 'pool' | 'ai-creative' = 'ai-creative'
 ): SongIdea {
   if (!slot) return song;
   const title = titleMode === 'local' ? slot.title : song.title?.trim() ? song.title : slot.title;
+  const hookPhrase = options.keepHook && song.hookPhrase?.trim()
+    ? song.hookPhrase
+    : hookMode === 'ai-creative' && song.hookPhrase?.trim()
+      ? song.hookPhrase
+      : slot.hookPhrase;
   return {
     ...song,
     title,
-    hookPhrase: options.keepHook && song.hookPhrase?.trim() ? song.hookPhrase : slot.hookPhrase,
+    hookPhrase,
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole
   };

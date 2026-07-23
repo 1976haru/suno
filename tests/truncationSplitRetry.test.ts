@@ -392,13 +392,13 @@ describe('[v3.27] titleMode governs whether the realtime path trusts the model\'
     }) as unknown as typeof fetch;
   }
 
-  it('default (titleMode omitted -> ai-creative): trusts the model\'s own title, but hookPhrase is still forced back to the preassigned slot', async () => {
+  it('default (titleMode/hookMode both omitted -> ai-creative): trusts the model\'s own title AND its own hook', async () => {
     mockEchoModelWrittenTitle();
     const opts = makeOptions({ songCount: 2 });
     const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
 
     expect(blueprint.songs.every(s => s.title.startsWith('AI Written Title'))).toBe(true);
-    expect(blueprint.songs.every(s => !s.hookPhrase.startsWith('Model Invented Hook'))).toBe(true);
+    expect(blueprint.songs.every(s => s.hookPhrase.startsWith('Model Invented Hook'))).toBe(true);
   });
 
   it('titleMode="local": forces the title back to the preassigned slot too (old behavior, unchanged)', async () => {
@@ -407,6 +407,15 @@ describe('[v3.27] titleMode governs whether the realtime path trusts the model\'
     const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
 
     expect(blueprint.songs.every(s => !s.title.startsWith('AI Written Title'))).toBe(true);
+  });
+
+  it('[v3.33] hookMode="pool": forces the hookPhrase back to the preassigned slot regardless of titleMode', async () => {
+    mockEchoModelWrittenTitle();
+    const opts = makeOptions({ songCount: 2, hookMode: 'pool' });
+    const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
+
+    expect(blueprint.songs.every(s => s.title.startsWith('AI Written Title'))).toBe(true);
+    expect(blueprint.songs.every(s => !s.hookPhrase.startsWith('Model Invented Hook'))).toBe(true);
   });
 
   it('two parallel chunks independently landing on the same AI-creative title get auto-uniquified in the final merged blueprint', async () => {

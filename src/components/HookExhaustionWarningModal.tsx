@@ -7,6 +7,8 @@ interface HookExhaustionWarningModalProps {
   onCopyExpansionInfo: () => void;
   onContinueAnyway: () => void;
   onClose: () => void;
+  /** v3.32 — the pack size the user is about to generate. When it exceeds remaining hooks, an extra line warns that some songs in *this specific pack* may fail, not just that the pool is generally low. */
+  packSongCount?: number;
 }
 
 /**
@@ -20,8 +22,10 @@ export default function HookExhaustionWarningModal({
   onCleanUpHistory,
   onCopyExpansionInfo,
   onContinueAnyway,
-  onClose
+  onClose,
+  packSongCount
 }: HookExhaustionWarningModalProps) {
+  const packInsufficient = typeof packSongCount === 'number' && stats.remaining < packSongCount;
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
       <div className="modal-panel hook-exhaustion-modal">
@@ -32,6 +36,11 @@ export default function HookExhaustionWarningModal({
           "{channelName}" 채널은 현재 훅 풀의 {stats.percentUsed}%를 사용했습니다 ({stats.used} / {stats.poolSize}, 남은 훅 {stats.remaining}개).
           곧 새 훅을 만들 수 없게 될 수 있습니다. 계속 진행하기 전에 아래 중 하나를 선택하세요.
         </p>
+        {packInsufficient && (
+          <p className="error">
+            선택한 {packSongCount}곡보다 남은 훅({stats.remaining}개)이 적습니다. 훅 풀이 부족하면 일부 곡이 생성 실패할 수 있습니다.
+          </p>
+        )}
         <div className="button-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem' }}>
           <button type="button" onClick={onCleanUpHistory}>🧹 훅 이력 정리 (오래된 팩 정리하여 풀 회수)</button>
           <button type="button" onClick={onCopyExpansionInfo}>📋 풀 확장 안내 (개발자에게 전달할 진단 정보 복사)</button>

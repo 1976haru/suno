@@ -447,17 +447,29 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // shape rotation, because that constraint left almost no room to actually
   // diverge) — the hookPhrase itself still repeats verbatim in the lyrics/
   // chorus per the Hook rules above, but the title is now a fully
-  // independent creative choice. hookPhrase/songRole/emotionArc/trackNo
-  // still stay locked either way (title-only collision risk is handled
-  // after the fact — see core/lyricEngine.ts's dedupeTitlesAcrossPack —
-  // since parallel batches/chunks still can't see each other's real title
-  // pick).
+  // independent creative choice. songRole/trackNo always stay locked;
+  // emotionArc always stays locked too (metadata-only, no reason for the
+  // model to invent it). title-only collision risk is handled after the
+  // fact — see core/lyricEngine.ts's dedupeTitlesAcrossPack — since parallel
+  // batches/chunks still can't see each other's real title pick.
   const titleMode = opts.titleMode ?? 'ai-creative';
-  const preassignedTitleNote = titleMode === 'local'
-    ? `Do NOT invent a different title, hookPhrase, trackNo, or emotionArc — copy these fields verbatim into your output for the matching trackNo, and only write the remaining content (${preassignedFreeFields}) around them.`
-    : `Do NOT invent a different hookPhrase, trackNo, or emotionArc — copy those verbatim. The "title" field there is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase (see the Hook rules above — the title no longer needs to equal or contain the hook). Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images — never a restatement of the hook, and never the same shape for every song in the pack. Keep the channel's tone (e.g. nostalgic, elegant) while varying the structure freely. Also write the remaining content (${preassignedFreeFields}) around these fields.`;
+  const titleInstruction = titleMode === 'local'
+    ? 'Do NOT invent a different title — copy it verbatim into your output for the matching trackNo.'
+    : 'The "title" field there is only a fallback placeholder: write your OWN original title for each song instead, independent of the hookPhrase (see the Hook rules above — the title no longer needs to equal or contain the hook). Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images — never a restatement of the hook, and never the same shape for every song in the pack. Keep the channel\'s tone (e.g. nostalgic, elegant) while varying the structure freely.';
+  // TASK v3.33 — hookMode's own axis, independent of titleMode (see
+  // GenerationOptions.hookMode's comment for why: a hook pool of ~400
+  // combinatorial phrases per channel can't sustain 90+ songs/week, so
+  // 'ai-creative' (default) lets the model write its own hook per song
+  // instead of copying the pool-drawn slot value verbatim — checked for
+  // collisions against the channel's hook ledger afterward
+  // (core/hookDedup.ts) rather than pre-decided. 'pool' keeps the old
+  // unconditional verbatim-copy behavior.
+  const hookMode = opts.hookMode ?? 'ai-creative';
+  const hookInstruction = hookMode === 'pool'
+    ? 'Do NOT invent a different hookPhrase — copy it verbatim into your output for the matching trackNo.'
+    : 'The "hookPhrase" field there is only a fallback suggestion: write your OWN original hook for each song instead — 2-5 words, Title Case, singable (see the Hook rules above) — matching this channel\'s tone. Never reuse a hook already listed in "alreadyUsedHooks" in the user payload. The hook you write must bookend every chorus in the lyrics you write for that song.';
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. ${preassignedTitleNote} This is what keeps parallel batches from colliding on hook/identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc} for every song in this request. Do NOT invent a different trackNo or emotionArc — copy those verbatim. ${titleInstruction} ${hookInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

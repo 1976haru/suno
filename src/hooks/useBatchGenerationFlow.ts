@@ -49,6 +49,8 @@ export function useBatchGenerationFlow() {
   const optsRef = useRef<Map<string, GenerationOptions>>(new Map());
   const settingsRef = useRef<Map<string, ProviderSettings>>(new Map());
   const onCompleteRef = useRef<Map<string, (blueprint: PlaylistBlueprint, opts: GenerationOptions) => void>>(new Map());
+  /** TASK v3.33 — optional per-job failure callback, so a caller that needs to await a specific job's outcome as a Promise (e.g. hooks/useMultiSetGenerationFlow.ts's sequential per-set batch submission) can reject instead of hanging forever when a job ends in a terminal failure state. Single-pack callers (App.tsx) don't pass one — they already show failure via activeJob.status/error in the existing BatchJobPanel UI, unchanged. */
+  const onErrorRef = useRef<Map<string, (message: string) => void>>(new Map());
 
   function stopPolling(jobId: string) {
     const timer = pollTimers.current.get(jobId);
@@ -89,8 +91,10 @@ export function useBatchGenerationFlow() {
       }
 
       if (status.status === 'canceled' || status.status === 'expired') {
-        const updated = await updateBatchJob(jobId, { status: status.status === 'canceled' ? 'canceled' : 'failed', errorMessage: status.status === 'expired' ? '배치 작업이 24시간 내에 끝나지 않았습니다.' : undefined });
+        const errorMessage = status.status === 'expired' ? '배치 작업이 24시간 내에 끝나지 않았습니다.' : '배치 작업이 취소되었습니다.';
+        const updated = await updateBatchJob(jobId, { status: status.status === 'canceled' ? 'canceled' : 'failed', errorMessage: status.status === 'expired' ? errorMessage : undefined });
         if (updated) setActiveJob(updated);
+        onErrorRef.current.get(jobId)?.(errorMessage);
         return;
       }
 
@@ -107,8 +111,10 @@ export function useBatchGenerationFlow() {
       const avoidTitles = await recentUsedTitlesAndHooks(job.channelId, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
       const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots, avoidTitles);
       if (!stitched.blueprint) {
-        const updated = await updateBatchJob(jobId, { status: 'failed', errorMessage: '모든 배치 요청이 실패했습니다.', failedBatchIndexes: stitched.failedBatchIndexes });
+        const errorMessage = '모든 배치 요청이 실패했습니다.';
+        const updated = await updateBatchJob(jobId, { status: 'failed', errorMessage, failedBatchIndexes: stitched.failedBatchIndexes });
         if (updated) setActiveJob(updated);
+        onErrorRef.current.get(jobId)?.(errorMessage);
         return;
       }
       const scored = { ...stitched.blueprint, songs: scoreSongs(stitched.blueprint.songs, opts.channel, opts.lyricLanguage) };
@@ -175,7 +181,9 @@ export function useBatchGenerationFlow() {
     season: SeasonPack,
     settings: ProviderSettings,
     avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
-    onComplete: (blueprint: PlaylistBlueprint, opts: GenerationOptions) => void
+    onComplete: (blueprint: PlaylistBlueprint, opts: GenerationOptions) => void,
+    /** TASK v3.33 — see onErrorRef's comment. Optional; single-pack callers omit it. */
+    onError?: (message: string) => void
   ) => {
     setError('');
 
@@ -219,6 +227,7 @@ export function useBatchGenerationFlow() {
     optsRef.current.set(job.id, snapshot.options);
     settingsRef.current.set(job.id, settings);
     onCompleteRef.current.set(job.id, onComplete);
+    if (onError) onErrorRef.current.set(job.id, onError);
 
     try {
       const { anthropicBatchId } = await submitBatchJob(specs, settings);
@@ -230,6 +239,7 @@ export function useBatchGenerationFlow() {
       const updated = await updateBatchJob(job.id, { status: 'failed', errorMessage: message });
       if (updated) setActiveJob(updated);
       setError(message);
+      onError?.(message);
     }
   }, [schedulePoll]);
 

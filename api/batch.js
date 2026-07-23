@@ -9,7 +9,8 @@
 const MAX_BODY_BYTES = 1_000_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 20;
+/** TASK v3.32/v3.33 — raised alongside api/generate.js's identical limiter (now 90) so a multi-set Batch run's several create/poll/results calls (one BatchJobRecord per set, see src/core/multiSetGeneration.ts) have the same local headroom; still capped, see that file's comment for the full rationale. */
+const RATE_LIMIT_MAX_REQUESTS = 90;
 
 const rateLimitBuckets = new Map();
 
@@ -457,4 +458,4 @@ export default async function handler(req, res) {
 }
 
 // exported for tests only
-export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED, maxOutputTokensFor, cleanJsonText, extractJsonObject };
+export const __internal = { safeParseBlueprint, buildAnthropicSystem, computeMaxTokens, parseJsonl, resolveCorsOrigin, checkAccessToken, TEMPERATURE_SUPPORTED, maxOutputTokensFor, cleanJsonText, extractJsonObject, rateLimitBuckets };

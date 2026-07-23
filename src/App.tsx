@@ -27,7 +27,9 @@ import { preallocateSongSlots } from './core/batchPreallocation';
 import { importSongsJson, type ImportSongsReport } from './core/claudeCodeBridge';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
-import { createInitialOptions } from './utils/generation';
+import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
+import type { SetResult } from './core/multiSetGeneration';
+import { createInitialOptions, clampMultiSetTotal } from './utils/generation';
 import { defaultPackagingLanguage, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
@@ -74,6 +76,12 @@ export default function App() {
   const [loadWarning, setLoadWarning] = useState('');
   const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
   const [hookExhaustionWarning, setHookExhaustionWarning] = useState<ExhaustionStats | null>(null);
+  /** TASK v3.33 — which pack size triggered hookExhaustionWarning: opts.songCount for the single-pack path, the multi-set total for the multi-set path. Tracked separately since the modal's "will this pack fit in what's left" message needs the real requested count, not always opts.songCount. */
+  const [hookExhaustionPackSongCount, setHookExhaustionPackSongCount] = useState(0);
+  const [multiSetMode, setMultiSetMode] = useState(false);
+  const [multiSetCount, setMultiSetCount] = useState(5);
+  const [multiSetSongsPerSet, setMultiSetSongsPerSet] = useState(18);
+  const [multiSetWarnings, setMultiSetWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     void getSetting<ProviderSettings>(PROVIDER_SETTINGS_KEY).then(saved => {
@@ -105,6 +113,7 @@ export default function App() {
   const evalFlow = useEvaluationFlow();
   const batchFlow = useBatchGenerationFlow();
   const [batchMode, setBatchMode] = useState(false);
+  const multiSetFlow = useMultiSetGenerationFlow(batchFlow);
   const library = usePackLibrary(pack => {
     gen.setBlueprint(pack.blueprint);
     const { clamped, truncatedFields } = clampOversizedFields(pack.options);
@@ -281,12 +290,83 @@ export default function App() {
     // every provider path (batch/local/hybrid all pre-allocate hooks
     // locally), so this gate runs before any of the branches below rather
     // than being duplicated in each one.
-    const stats = await channelExhaustionStats(cm.selectedChannel.id, opts.lyricLanguage, cm.selectedChannel.archetype);
-    if (hookPoolGraduatedWarning(stats)) {
-      setHookExhaustionWarning(stats);
-      return;
+    //
+    // v3.33 — this gate only makes sense under hookMode='pool': the
+    // finite ~400-hook combinatorial pool it measures against
+    // (hookLedger.ts's hookPoolSize) is never what hookMode='ai-creative'
+    // (the new default) actually draws hooks from — those are free-text,
+    // model-written, and only checked against the channel's ledger for
+    // collisions (core/hookDedup.ts), not against this pool. Running the
+    // check anyway would eventually fire a spurious "pool nearly exhausted"
+    // warning purely because the ledger's real (ai-creative) hook count
+    // crossed hookPoolSize's fixed ~400 threshold — well within a couple of
+    // weeks at multi-set volume — even though there's no actual exhaustion
+    // risk in that mode.
+    if ((opts.hookMode ?? 'ai-creative') === 'pool') {
+      const stats = await channelExhaustionStats(cm.selectedChannel.id, opts.lyricLanguage, cm.selectedChannel.archetype);
+      // v3.32 — a large pack (up to 80 songs) can exceed remaining hooks well
+      // before the pool's overall usage crosses hookPoolGraduatedWarning's 90%
+      // threshold, so this pack-size-aware check gates generation too.
+      if (hookPoolGraduatedWarning(stats) || stats.remaining < opts.songCount) {
+        setHookExhaustionPackSongCount(opts.songCount);
+        setHookExhaustionWarning(stats);
+        return;
+      }
     }
     await proceedWithGeneration();
+  }
+
+  async function onGenerateMultiSet() {
+    const { setCount, songsPerSet } = clampMultiSetTotal(multiSetCount, multiSetSongsPerSet);
+    const totalSongs = setCount * songsPerSet;
+
+    // Same reasoning as onGenerate above: only meaningful under hookMode='pool'.
+    if ((opts.hookMode ?? 'ai-creative') === 'pool') {
+      const stats = await channelExhaustionStats(cm.selectedChannel.id, opts.lyricLanguage, cm.selectedChannel.archetype);
+      if (hookPoolGraduatedWarning(stats) || stats.remaining < totalSongs) {
+        setHookExhaustionPackSongCount(totalSongs);
+        setHookExhaustionWarning(stats);
+        return;
+      }
+    }
+
+    setMultiSetWarnings([]);
+    evalFlow.setEvaluation(null);
+    const generationOpts = { ...opts, channel: cm.selectedChannel };
+    const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+    const groupId = `multiset-${cm.selectedChannel.id}-${Date.now()}`;
+
+    try {
+      await multiSetFlow.run(
+        generationOpts,
+        setCount,
+        songsPerSet,
+        fallbackGenres(),
+        fallbackMoods(),
+        selectedSeason,
+        provider,
+        batchMode && provider.provider === 'anthropic',
+        avoid,
+        (result: SetResult) => void onMultiSetComplete(result, groupId, setCount)
+      );
+    } catch {
+      // multiSetFlow.error already captures the message for the UI; nothing further to do here.
+    }
+  }
+
+  /** Each completed set is its own SavedPack (never the shared autosave slot — see usePackLibrary.saveGeneratedSet's comment), shown as the live result the same way a single-pack generation would, so the user sees each set land as it finishes. */
+  async function onMultiSetComplete(result: SetResult, groupId: string, setTotal: number) {
+    const setName = `${result.opts.projectTitle}`;
+    await library.saveGeneratedSet(result.blueprint, result.opts, setName, {
+      setGroupId: groupId,
+      setIndex: result.index,
+      setTotal
+    });
+    if (result.warnings.length) {
+      setMultiSetWarnings(prev => [...prev, ...result.warnings.map(warning => `Set ${result.index + 1}: ${warning}`)]);
+    }
+    gen.setBlueprint(result.blueprint);
+    setCurrentStep(4);
   }
 
   async function proceedWithGeneration() {
@@ -583,6 +663,22 @@ export default function App() {
               onRetryFailedBatchJob={onRetryFailedBatchJob}
               onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
               onImportSongsJson={onImportSongsJson}
+              multiSet={{
+                mode: multiSetMode,
+                onModeChange: setMultiSetMode,
+                setCount: multiSetCount,
+                onSetCountChange: setMultiSetCount,
+                songsPerSet: multiSetSongsPerSet,
+                onSongsPerSetChange: setMultiSetSongsPerSet,
+                isRunning: multiSetFlow.isRunning,
+                currentSet: multiSetFlow.currentSet,
+                totalSets: multiSetFlow.totalSets,
+                setProgress: multiSetFlow.setProgress,
+                error: multiSetFlow.error,
+                warnings: multiSetWarnings,
+                onGenerate: () => void onGenerateMultiSet(),
+                onCancel: multiSetFlow.cancel
+              }}
             />
           )}
 
@@ -662,6 +758,7 @@ export default function App() {
           onCopyExpansionInfo={() => void onHookWarningCopyExpansionInfo()}
           onContinueAnyway={onHookWarningContinueAnyway}
           onClose={() => setHookExhaustionWarning(null)}
+          packSongCount={hookExhaustionPackSongCount}
         />
       )}
 
