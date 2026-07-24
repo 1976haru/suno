@@ -314,7 +314,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             Model
             <select value={qwenSettings.model} onChange={event => void updateQwenImageSettings({ model: event.target.value as QwenImageModel })}>
               {QWEN_IMAGE_MODELS.map(model => (
-                <option key={model.id} value={model.id}>{model.label} - {model.priceCny === 0 ? 'limited-time free' : `${model.priceCny.toFixed(6)} CNY/image`}</option>
+                <option key={model.id} value={model.id}>{model.label} - {model.priceCny[qwenSettings.region] === 0 ? 'limited-time free' : `${model.priceCny[qwenSettings.region].toFixed(6)} CNY/image`}</option>
               ))}
             </select>
           </label>

@@ -28,12 +28,12 @@ export interface QwenImageSettings {
   sessionLimit: number;
 }
 
-export const QWEN_IMAGE_MODELS: { id: QwenImageModel; label: string; async: boolean; priceCny: number }[] = [
-  { id: 'qwen-image-3.0-pro', label: 'Qwen-Image 3.0 Pro', async: false, priceCny: 0 },
-  { id: 'qwen-image-2.0', label: 'Qwen-Image 2.0', async: false, priceCny: 0.256873 },
-  { id: 'qwen-image-2.0-pro', label: 'Qwen-Image 2.0 Pro', async: false, priceCny: 0.550443 },
-  { id: 'qwen-image-plus', label: 'Qwen-Image Plus', async: true, priceCny: 0.220177 },
-  { id: 'qwen-image', label: 'Qwen-Image', async: true, priceCny: 0.256873 }
+export const QWEN_IMAGE_MODELS: { id: QwenImageModel; label: string; async: boolean; priceCny: Record<QwenImageRegion, number> }[] = [
+  { id: 'qwen-image-3.0-pro', label: 'Qwen-Image 3.0 Pro', async: false, priceCny: { singapore: 0, beijing: 0 } },
+  { id: 'qwen-image-2.0', label: 'Qwen-Image 2.0', async: false, priceCny: { singapore: 0.256873, beijing: 0.2 } },
+  { id: 'qwen-image-2.0-pro', label: 'Qwen-Image 2.0 Pro', async: false, priceCny: { singapore: 0.550443, beijing: 0.5 } },
+  { id: 'qwen-image-plus', label: 'Qwen-Image Plus', async: true, priceCny: { singapore: 0.220177, beijing: 0.2 } },
+  { id: 'qwen-image', label: 'Qwen-Image', async: true, priceCny: { singapore: 0.256873, beijing: 0.25 } }
 ];
 
 export const QWEN_IMAGE_RESOLUTIONS: { value: QwenImageResolution; label: string; models: 'v2' | 'legacy' }[] = [
@@ -72,12 +72,13 @@ export function qwenImageModelSupportsAsync(model: QwenImageModel): boolean {
   return model === 'qwen-image-plus' || model === 'qwen-image';
 }
 
-export function qwenImageModelPriceCny(model: QwenImageModel): number {
-  return QWEN_IMAGE_MODELS.find(item => item.id === model)?.priceCny ?? 0.256873;
+export function qwenImageModelPriceCny(model: QwenImageModel, region: QwenImageRegion = 'singapore'): number {
+  const resolvedRegion = region === 'beijing' ? 'beijing' : 'singapore';
+  return QWEN_IMAGE_MODELS.find(item => item.id === model)?.priceCny[resolvedRegion] ?? 0.256873;
 }
 
-export function estimateQwenImageCostCny(model: QwenImageModel, imageCount: number): number {
-  return qwenImageModelPriceCny(model) * Math.max(0, imageCount);
+export function estimateQwenImageCostCny(model: QwenImageModel, imageCount: number, region: QwenImageRegion = 'singapore'): number {
+  return qwenImageModelPriceCny(model, region) * Math.max(0, imageCount);
 }
 
 export function qwenResolutionFamily(model: QwenImageModel): 'v2' | 'legacy' {

@@ -32,8 +32,9 @@ describe('[v3.41] Qwen image settings', () => {
   });
 
   it('estimates image cost from the documented unit prices', () => {
-    expect(estimateQwenImageCostCny('qwen-image-2.0', 10)).toBeCloseTo(2.56873, 6);
-    expect(estimateQwenImageCostCny('qwen-image-2.0-pro', 2)).toBeCloseTo(1.100886, 6);
+    expect(estimateQwenImageCostCny('qwen-image-2.0', 10, 'singapore')).toBeCloseTo(2.56873, 6);
+    expect(estimateQwenImageCostCny('qwen-image-2.0', 10, 'beijing')).toBeCloseTo(2, 6);
+    expect(estimateQwenImageCostCny('qwen-image-2.0-pro', 2, 'singapore')).toBeCloseTo(1.100886, 6);
     expect(estimateQwenImageCostCny('qwen-image-3.0-pro', 5)).toBe(0);
   });
 

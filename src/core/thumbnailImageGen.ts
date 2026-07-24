@@ -109,7 +109,7 @@ export async function generateQwenImage(options: GenerateQwenImageOptions): Prom
     mimeType: typeof data.mimeType === 'string' ? data.mimeType : 'image/png',
     model: typeof data.model === 'string' ? data.model : settings.model,
     imageCount,
-    estimatedCostCny: estimateQwenImageCostCny(settings.model, imageCount),
+    estimatedCostCny: estimateQwenImageCostCny(settings.model, imageCount, settings.region),
     taskId: typeof data.taskId === 'string' ? data.taskId : undefined
   };
 }

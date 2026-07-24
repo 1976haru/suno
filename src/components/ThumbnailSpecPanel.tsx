@@ -496,7 +496,7 @@ export default function ThumbnailSpecPanel({
               Refresh Qwen settings
             </button>
             <span className="supporting">
-              {qwenSettings.model} / {qwenSettings.resolution} / est. {estimateQwenImageCostCny(qwenSettings.model, 1).toFixed(6)} CNY
+              {qwenSettings.model} / {qwenSettings.resolution} / est. {estimateQwenImageCostCny(qwenSettings.model, 1, qwenSettings.region).toFixed(6)} CNY
             </span>
           </div>
           {!qwenApiKey && (
