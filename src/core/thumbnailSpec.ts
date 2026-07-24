@@ -2,107 +2,72 @@ import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBluepr
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { thumbnailArchetypeById, type ThumbnailArchetype, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
-import { seasonWordFor } from './lyricEngine';
 import { getRecurringMotifPhrases, type SeasonFamily } from './localGenerator';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS } from './thumbnailSafety';
 
 export type { ThumbnailSpec, ThumbnailVariant };
 
-// TASK B1 (v3.4): three genuinely different strategies, not the same
-// headline reworded — A leads with the season, B leads with a feeling, C
-// names the audience outright (a common, effective convention on Korean/
-// Japanese senior-audience YouTube, softened to a lifestyle framing in
-// English since literal age callouts read oddly there).
-const seasonHeadlineSecondLine: Record<DisplayLanguage, string[]> = {
-  english: ['Morning', 'Memories', 'Warmth', 'Quietly', 'Gently', 'Evening'],
-  korean: ['그 노래', '그 하루', '그 시간', '작은 행복', '오늘의 위로', '우리 계절'],
-  japanese: ['その歌', 'あの日々', '静かな朝', 'やさしい時間', '小さな幸せ', 'いつもの朝']
+/**
+ * TASK v3.38 Part A6 — full replacement of the prior v3.38-draft English
+ * minimal-editorial strategy. User-approved direction: three Korean-first
+ * angles — A: 질문형 (curiosity/question, e.g. "그날, 기억나?"), B: 감성형
+ * (emotional scene/season, e.g. "늦가을, 창가에서"), C: 공감형 (empathy/
+ * situational, e.g. "혼자여도 괜찮은 밤") — each 6-10 characters including
+ * punctuation, up to 2 lines. packagingLanguage can still route a channel to
+ * English/Japanese (TASK D5, unchanged mechanism); those pools follow the
+ * same three angles with a looser length bound since the 6-10 character rule
+ * doesn't translate 1:1 across languages.
+ */
+const questionHeadlinePool: Record<DisplayLanguage, string[]> = {
+  korean: ['그날, 기억나?', '이 노래, 알아?', '오늘 기분 어때?', '이 멜로디 기억나?', '왜 자꾸 생각나지?', '이 계절, 낯익지?'],
+  english: ['Remember That Day?', 'Sounds Familiar?', 'Know This One?', 'Feel It Too?', 'Heard This Before?', 'Familiar Season?'],
+  japanese: ['あの日、覚えてる?', 'この曲、知ってる?', '懐かしくない?', '聴いたことある?', 'この季節、懐かしい?', '覚えてますか?']
 };
 
-const emotionHeadlineFirstLine: Record<DisplayLanguage, string[]> = {
-  english: ['Warm', 'Quiet', 'Gentle', 'Soft'],
-  korean: ['따뜻한', '조용한', '포근한', '잔잔한'],
-  japanese: ['あたたかい', '静かな', 'やさしい', '穏やかな']
+const emotionalHeadlinePool: Record<DisplayLanguage, string[]> = {
+  korean: ['늦가을, 창가에서', '조용한 겨울 아침', '빗소리, 창밖에서', '노을 지는 창가에서', '첫눈 내리는 오후', '벚꽃 지는 계절에'],
+  english: ['Late Autumn Window', 'Quiet Winter Morning', 'Rain on the Window', 'Golden Hour Glow', 'First Snow Falling', 'Cherry Blossom Season'],
+  japanese: ['晩秋の窓辺で', '静かな冬の朝', '窓を打つ雨音', '黄昏どきの窓辺', '初雪の午後', '桜が舞う頃']
 };
 
-const emotionHeadlineSecondLine: Record<DisplayLanguage, string[]> = {
-  english: ['Memories', 'Comfort', 'Moments', 'Feelings'],
-  korean: ['기억', '위로', '하루', '시간'],
-  japanese: ['記憶', '時間', 'ひととき', '思い出']
+const empathyHeadlinePool: Record<DisplayLanguage, string[]> = {
+  korean: ['혼자여도 괜찮은 밤', '지친 하루 끝에서', '다들 그런 하루죠', '오늘도 수고했어요', '괜찮아, 오늘도', '너도 그랬을까'],
+  english: ['Okay to Be Alone', 'End of a Long Day', 'We All Have Days', 'Rest a While', "You're Doing Fine", 'A Quiet Night In'],
+  japanese: ['一人でもいい夜', '長い一日の終わりに', '今日もお疲れ様', 'そんな日もあるよね', 'ゆっくり休んでね', '静かな夜に']
 };
 
-const audienceHeadline: Record<DisplayLanguage, [string, string]> = {
-  english: ['For Slow', 'Mornings'],
-  korean: ['5060세대가', '듣는 팝송'],
-  japanese: ['50代60代が', '聴く歌']
-};
+function buildQuestionHeadline(language: DisplayLanguage, seedIndex: number): string {
+  const pool = questionHeadlinePool[language];
+  return pool[Math.abs(seedIndex) % pool.length];
+}
 
-// seasonWordFor()'s Korean/Japanese entries are already short (<=5 chars),
-// but its English branch falls back to season.keywords[0], which can be a
-// multi-word phrase well over the 8-char headline budget ("late winter",
-// "cherry blossom"). Headline line 1 needs a guaranteed-short word instead.
-const shortSeasonWordEnglish: Record<string, string> = {
-  'new-year': 'New Year',
-  'late-winter': 'Winter',
-  'spring-open': 'Spring',
-  'cherry-blossom': 'Blossom',
-  'may-cafe': 'May Cafe',
-  'rainy-season': 'Rainy',
-  'summer-night': 'Summer',
-  'late-summer-open': 'Summer',
-  'early-autumn': 'Autumn',
-  'autumn-rain': 'Autumn',
-  'maple-autumn': 'Maple',
-  'late-autumn': 'Autumn',
-  'early-winter': 'Winter',
-  'first-snow': 'Snow Day',
-  christmas: 'Holiday',
-  'year-end': 'Year End'
-};
+function buildEmotionalHeadline(language: DisplayLanguage, seedIndex: number): string {
+  const pool = emotionalHeadlinePool[language];
+  return pool[Math.abs(seedIndex) % pool.length];
+}
 
-function shortSeasonWord(season: SeasonPack, language: DisplayLanguage): string {
-  if (language === 'english') return shortSeasonWordEnglish[season.id] ?? 'Season';
-  return seasonWordFor(season, language);
+function buildEmpathyHeadline(language: DisplayLanguage, seedIndex: number): string {
+  const pool = empathyHeadlinePool[language];
+  return pool[Math.abs(seedIndex) % pool.length];
 }
 
 /**
- * TASK I4 (v3.11, PART D-1) — variant A (the default-selected recommendation)
- * now prefers track 1's own hook as its second line instead of a generic
- * pool pick, so the thumbnail's headline actually matches what a viewer
- * hears in the first few seconds of the video (track 1 is always the
- * cold-open song — see resolveSongRole). Falls back to the old pool-based
- * pick when no lead hook is available (e.g. an empty pack).
+ * TASK v3.38 Part A1/A6 — the small subtitle line beneath the divider
+ * (e.g. "추억 감성 플레이리스트"), 8-14 characters for Korean. Replaces the
+ * old songCount-derived subline ("12곡 플레이리스트") with content-relevant
+ * copy; a shared pool (not per-angle) rotated with an offset so a spec's
+ * three variants never repeat the same subtitle.
  */
-function buildSeasonHeadline(season: SeasonPack, language: DisplayLanguage, seedIndex: number, leadHook?: string): string {
-  const seasonWord = shortSeasonWord(season, language);
-  if (leadHook?.trim()) {
-    return `${seasonWord}\n${leadHook.trim().replace(/,\s*$/, '')}`;
-  }
-  const pool = seasonHeadlineSecondLine[language];
-  return `${seasonWord}\n${pool[seedIndex % pool.length]}`;
-}
+const subtitlePool: Record<DisplayLanguage, string[]> = {
+  korean: ['추억 감성 플레이리스트', '잔잔한 감성 플레이리스트', '혼자 듣기 좋은 노래', '계절 감성 플레이리스트', '마음이 편안해지는 노래', '조용히 듣기 좋은 밤'],
+  english: ['A Nostalgic Playlist', 'Songs for Slow Days', 'Quiet Seasonal Mix', 'Music to Unwind To', 'A Gentle Playlist', 'For Quiet Moments'],
+  japanese: ['懐かしい感性プレイリスト', '静かな季節の音楽', 'ゆったり聴ける選曲', '心が落ち着く音楽', 'そっと寄り添う音楽', '静かな夜の音楽']
+};
 
-function buildEmotionHeadline(language: DisplayLanguage, seedIndex: number): string {
-  const firstPool = emotionHeadlineFirstLine[language];
-  const secondPool = emotionHeadlineSecondLine[language];
-  return `${firstPool[seedIndex % firstPool.length]}\n${secondPool[(seedIndex + 1) % secondPool.length]}`;
-}
-
-function buildAudienceHeadline(language: DisplayLanguage): string {
-  const [line1, line2] = audienceHeadline[language];
-  return `${line1}\n${line2}`;
-}
-
-const SUBLINE_MAX_CHARS = 12;
-
-function buildSubline(songCount: number, language: DisplayLanguage): string {
-  const raw = language === 'korean'
-    ? `${songCount}곡 플레이리스트`
-    : language === 'japanese'
-      ? `${songCount}曲プレイリスト`
-      : `${songCount} Songs`;
-  return raw.length > SUBLINE_MAX_CHARS ? raw.slice(0, SUBLINE_MAX_CHARS) : raw;
+function buildSubtitle(language: DisplayLanguage, seedIndex: number): string {
+  const pool = subtitlePool[language];
+  return pool[Math.abs(seedIndex) % pool.length];
 }
 
 // TASK B2 (v3.5) — season id -> broad family, so the object picker can tell
@@ -170,13 +135,13 @@ export type ImageToolId = 'generic' | 'midjourney' | 'stableDiffusion';
 export type ImagePromptMode = 'thumbnail' | 'cover';
 
 /**
- * TASK v3.37-b (work item 3) — appended to the end of all three prompt
+ * TASK v3.38 (work item 2) — appended to the end of all three prompt
  * formats' positive text so an external tool (ChatGPT, Midjourney, Stable
- * Diffusion) defaults to a photographic look instead of an AI-plastic one.
- * Kept as a single literal string (not derived) so the exact wording the
- * user approved never drifts.
+ * Diffusion) defaults to the minimal-editorial photographic look instead of
+ * an AI-plastic one. Kept as a single literal string (not derived) so the
+ * exact wording the user approved never drifts.
  */
-const QUALITY_BOOSTER = 'professional photography, photorealistic, cinematic lighting, natural color grading, soft depth of field, crisp detail, no oversaturation, no plastic CGI';
+const QUALITY_BOOSTER = 'editorial photography, photorealistic, natural available light, soft shadows, shallow depth of field, muted warm color grading, film-like texture, generous negative space on the left third, clean composition';
 
 /** TASK v3.37-b (work item 2) — cover-mode-only style directive; empty/unused in thumbnail mode. */
 const COVER_STYLE_DIRECTIVE = 'album cover aesthetic, iconic and simple, centered subject, readable at small size';
@@ -233,14 +198,18 @@ function archetypeHeaderFor(archetype: ThumbnailArchetype, mode: ImagePromptMode
 function buildSceneParts(
   season: SeasonPack,
   palette: ThumbnailPalette,
-  textSide: 'left' | 'right',
   archetypeId: ThumbnailArchetypeId,
   seed: number,
   mode: ImagePromptMode = 'thumbnail',
   concept?: string
 ) {
-  const archetype = thumbnailArchetypeById[archetypeId] || thumbnailArchetypeById['refined-cafe'];
-  const objectSide = textSide === 'left' ? 'right' : 'left';
+  const archetype = thumbnailArchetypeById[archetypeId] || thumbnailArchetypeById['autumn-window-golden'];
+  // TASK v3.38 Part A1 — the left-third-for-text layout is now fixed for
+  // every seasonal archetype (no more left/right alternation by seed). The 3
+  // kids archetypes (Part B5) use their own centered/open-space composition
+  // instead — detected via recommendedTypography.divider, which is only
+  // true for the Korean-serif grammar.
+  const isKidsGrammar = !archetype.recommendedTypography.divider;
   const subjectBase = pickFromPool(archetype.subjectPool, seed + 3);
   const setting = pickFromPool(archetype.settingPool, seed + 5);
   const propA = pickFromPool(archetype.propPool, seed + 7);
@@ -253,28 +222,32 @@ function buildSceneParts(
 
   const sceneDescription = `${archetypeHeaderFor(archetype, mode)} for a ${season.label.toLowerCase()} playlist, set in ${setting}${conceptClause(concept)}`;
   const subject = [
-    `${subjectBase} toward the ${objectSide} of frame`,
+    `${subjectBase} toward the right of frame`,
     `${propA} and ${propB} used as small unbranded supporting details`
   ].join('; ');
-  const lighting = `${lightingBase}, shaped toward the ${objectSide === 'left' ? 'right' : 'left'} side of the frame`;
+  const lighting = `${lightingBase}, shaped toward the right side of the frame`;
   const cameraAndLens = `${cameraBase}, shallow depth of field, gentle bokeh`;
-  const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, ${archetypePalette}, low saturation, ${palette.moodEn}`;
-  const textureAndFilm = 'Subtle film grain, analog warmth, slightly faded like an old photograph';
-  // TASK v3.37-b (work item 2) — cover's safe margin is centered/bottom
-  // (album-art convention), not the left/right third the 16:9 thumbnail
-  // reserves for a title overlay.
-  const composition = isCover
-    ? `1:1 square composition; ${compositionBase}; the subject stays centered with the bottom third softly lit and left uncluttered for a text overlay`
-    : `16:9 landscape composition; ${compositionBase}; the ${textSide} third of the frame is intentionally empty and softly lit, leaving clean space for a text overlay`;
+  const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, ${archetypePalette}, ${isKidsGrammar ? 'bright saturated color' : 'low saturation'}, ${palette.moodEn}`;
+  const textureAndFilm = isKidsGrammar
+    ? 'Clean crisp detail, bright natural color, no film grain'
+    : 'Subtle film grain, analog warmth, slightly faded like an old photograph';
+  // TASK v3.38 Part A1 — seasonal archetypes always reserve the left third
+  // for the headline/divider/subtitle block; kids archetypes (B5) use their
+  // own open-space composition instead (no divider/subtitle grammar there).
+  const composition = isKidsGrammar
+    ? `${isCover ? '1:1 square' : '16:9 landscape'} composition; ${compositionBase}`
+    : isCover
+      ? `1:1 square composition; ${compositionBase}; the subject stays centered with the left third softly lit and left uncluttered for a text overlay`
+      : `16:9 landscape composition; ${compositionBase}; the left third of the frame is intentionally empty and softly lit, leaving clean space for a headline, divider, and subtitle`;
   const styleDirective = isCover ? COVER_STYLE_DIRECTIVE : '';
   const aspectRatio = isCover ? '1:1' : '16:9';
-  const peopleLimit = archetype.category === 'cinematic-human-moment'
-    ? 'any human figure must stay distant, anonymous, face hidden, under 20% of the frame'
-    : 'distant elegant silhouettes are allowed only if small, face-hidden, soft focus, and secondary to the scene';
-  const safeNegatives = `no text, no letters, no logo, no logos, no watermark, no watermarks, no close-up faces, no identifiable person, no celebrity, no real celebrity or public figure, no film character, no cartoon characters, no branded IP, no copied pose, ${peopleLimit}`;
-  const negatives = 'no text, no letters, no logos, no watermarks, no close-up faces, no identifiable person, no real celebrity or public figure, no cartoon characters, no branded IP — distant elegant silhouettes are welcome (backs turned, soft focus, small in frame)';
+  // TASK v3.38 Part A5 — every seasonal archetype applies the same
+  // backs/silhouette-only people rule (no more per-archetype special case).
+  const peopleLimit = 'any human figure must stay small, distant, anonymous, seen from behind or in silhouette only, face never shown';
+  // TASK v3.38 Part A5 — Korean-serif grammar negative additions (glow/HDR/
+  // oversaturation/CGI/illustration), on top of the pre-existing base list.
+  const safeNegatives = `no text, no letters, no logo, no logos, no watermark, no watermarks, no close-up faces, no identifiable person, no celebrity, no real celebrity or public figure, no film character, no cartoon characters, no cartoon, no branded IP, no copied pose, no glowing bokeh sparkles, no excessive glow, no oversaturation, no HDR look, no plastic CGI render, no illustration, no famous painting, ${peopleLimit}`;
 
-  void negatives;
   return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, styleDirective, aspectRatio, negatives: safeNegatives };
 }
 
@@ -300,7 +273,7 @@ function buildMidjourneyPrompt(parts: ReturnType<typeof buildSceneParts>): strin
   const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
     .filter(Boolean)
     .join(', ');
-  return `${positive} --ar ${parts.aspectRatio} --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP`;
+  return `${positive} --ar ${parts.aspectRatio} --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP, illustration, oversaturation`;
 }
 
 /** TASK B4 (v3.5) — Stable Diffusion UIs (Automatic1111, ComfyUI, etc.) take separate positive/negative prompt fields. */
@@ -308,19 +281,18 @@ function buildStableDiffusionPrompt(parts: ReturnType<typeof buildSceneParts>): 
   const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
     .filter(Boolean)
     .join(', ');
-  return `Positive: ${positive}\nNegative: text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, low quality, blurry`;
+  return `Positive: ${positive}\nNegative: text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, illustration, oversaturation, HDR look, plastic CGI render, low quality, blurry`;
 }
 
 function buildImagePromptVariants(
   season: SeasonPack,
   palette: ThumbnailPalette,
-  textSide: 'left' | 'right',
   archetypeId: ThumbnailArchetypeId,
   seed: number,
   mode: ImagePromptMode = 'thumbnail',
   concept?: string
 ): ThumbnailSpec['imagePromptVariants'] {
-  const parts = buildSceneParts(season, palette, textSide, archetypeId, seed, mode, concept);
+  const parts = buildSceneParts(season, palette, archetypeId, seed, mode, concept);
   return {
     generic: buildGenericImagePrompt(parts),
     midjourney: buildMidjourneyPrompt(parts),
@@ -343,7 +315,7 @@ export function buildCoverImagePromptVariants(
 ): ThumbnailSpec['imagePromptVariants'] {
   const season = seasonPacks.find(s => s.id === seasonId) ?? seasonPacks[0];
   const palette = paletteForSeason(season.id);
-  return buildImagePromptVariants(season, palette, 'left', archetypeId, seed, 'cover', concept);
+  return buildImagePromptVariants(season, palette, archetypeId, seed, 'cover', concept);
 }
 
 /**
@@ -360,34 +332,29 @@ export function buildThumbnailSpec(
   season: SeasonPack,
   channel: ChannelProfile,
   variant = 0,
-  archetypeId: ThumbnailArchetypeId = 'refined-cafe'
+  archetypeId: ThumbnailArchetypeId = 'autumn-window-golden'
 ): ThumbnailSpec {
   const language = resolvePackagingLanguage(opts);
   const palette = paletteForSeason(season.id);
-  // variant lets "다른 문구 제안" cycle to a different headline second-line
+  // variant lets "다른 문구 제안" cycle to a different headline
   // without touching colors/objects/composition — regenerating the whole
   // spec on a text-only request would defeat the point of a stable,
   // channel-consistent visual template.
   const seedIndex = blueprint.songs.length + channel.name.length + variant;
-  // layoutSeed deliberately excludes `variant` — object/text placement must
-  // stay identical across headline regeneration, same as colors/objects.
-  const layoutSeed = blueprint.songs.length + channel.name.length;
-  const textSide: 'left' | 'right' = layoutSeed % 2 === 0 ? 'right' : 'left';
-  const objectSide = textSide === 'left' ? 'right' : 'left';
   const { display: objects } = pickObjects(blueprint, language, season.id);
-  const subline = buildSubline(blueprint.songs.length, language);
-  // TASK I4 (v3.11) — the cold-open song is track 1 by default, but a manual
-  // promotion (core/openingOverride.ts) can move that role elsewhere without
-  // changing trackNo, so this looks up the role rather than assuming trackNo 1.
-  const coldOpenSong = blueprint.songs.find(song => song.songRole === 'cold-open') || blueprint.songs[0];
+  const archetype = thumbnailArchetypeById[archetypeId] || thumbnailArchetypeById['autumn-window-golden'];
+  const isKidsGrammar = !archetype.recommendedTypography.divider;
 
+  // TASK v3.38 Part A6 — A: 질문형(호기심), B: 감성형, C: 공감형. Subtitle
+  // offsets by +1/+2 so a spec's three variants never repeat the same
+  // subtitle pool entry.
   const variants: ThumbnailVariant[] = [
-    { id: 'A', headline: buildSeasonHeadline(season, language, seedIndex, coldOpenSong?.hookPhrase), subline, angle: '계절 강조' },
-    { id: 'B', headline: buildEmotionHeadline(language, seedIndex), subline, angle: '감정 강조' },
-    { id: 'C', headline: buildAudienceHeadline(language), subline, angle: '타겟 명시' }
+    { id: 'A', headline: buildQuestionHeadline(language, seedIndex), subline: buildSubtitle(language, seedIndex), angle: '질문형' },
+    { id: 'B', headline: buildEmotionalHeadline(language, seedIndex), subline: buildSubtitle(language, seedIndex + 1), angle: '감성형' },
+    { id: 'C', headline: buildEmpathyHeadline(language, seedIndex), subline: buildSubtitle(language, seedIndex + 2), angle: '공감형' }
   ];
 
-  const imagePromptVariants = buildImagePromptVariants(season, palette, textSide, archetypeId, seedIndex, 'thumbnail', opts.customConcept);
+  const imagePromptVariants = buildImagePromptVariants(season, palette, archetypeId, seedIndex, 'thumbnail', opts.customConcept);
 
   return {
     variants,
@@ -398,9 +365,15 @@ export function buildThumbnailSpec(
       text: palette.text
     },
     objects,
-    composition: `${objectSide === 'left' ? '좌측' : '우측'}에 오브제를 배치하고, ${textSide === 'left' ? '좌측' : '우측'} 1/3 여백에 문구를 배치하세요.`,
+    // TASK v3.38 Part A1 — the left-third text zone is now fixed for every
+    // seasonal archetype, so this description no longer varies by seed; the
+    // 3 kids archetypes (Part B5) use their own open/centered composition.
+    composition: isKidsGrammar
+      ? '중앙에 피사체를 배치하고, 문구를 얹을 여백을 주변에 확보하세요.'
+      : '왼쪽 1/3에 문구·구분선·부제를 배치하고, 오른쪽 2/3에 장면을 배치하세요.',
     forbidden: [...FORBIDDEN_ELEMENTS],
     imagePrompt: imagePromptVariants.generic,
-    imagePromptVariants
+    imagePromptVariants,
+    typography: archetype.recommendedTypography
   };
 }

@@ -28,34 +28,30 @@ function contrastRatio(hexA: string, hexB: string): number {
 }
 
 describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
-  // TASK I4 (v3.11) — variant A's second line now prefers track 1's actual
-  // hook (see buildSeasonHeadline's leadHook param) instead of a short
-  // generic pool word, so it can legitimately run longer than 8 characters
-  // (a 2-5 word English hook, or the wider HOOK_LENGTH_BOUNDS for KO/JA).
-  // B and C are untouched (still short, pool-based) and keep the original
-  // strict bound.
-  it.each(LANGUAGES)('every variant headline is 2 lines; B/C stay <=8 characters, A allows a full hook, in %s', language => {
+  // TASK v3.38 Part A6 — full A/B/C redesign for the Korean-serif grammar:
+  // A (질문형/question), B (감성형/emotional), C (공감형/empathy) are all
+  // Korean-first, up to 2 lines, 6-10 characters total (including
+  // punctuation) when packagingLanguage is Korean. English/Japanese pools
+  // (routed via packagingLanguage — TASK D5, unchanged mechanism) use a
+  // looser bound since the exact Korean character-count rule doesn't
+  // translate 1:1 across languages.
+  it.each(LANGUAGES)('every headline stays within its language\'s length budget, up to 2 lines, in %s', language => {
     for (const season of seasonPacks) {
       const opts = makeOptions({ songCount: 6, lyricLanguage: language, seasonId: season.id });
       const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
       const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
       for (const variant of spec.variants) {
         const lines = variant.headline.split('\n');
-        expect(lines.length, `${variant.id}안 headline "${variant.headline}" is not 2 lines`).toBe(2);
-        if (variant.id === 'A') continue;
-        for (const line of lines) {
-          expect([...line].length, `${variant.id}안 headline line "${line}" exceeds 8 characters`).toBeLessThanOrEqual(8);
+        expect(lines.length, `${variant.id} headline "${variant.headline}" exceeds 2 lines`).toBeLessThanOrEqual(2);
+        const totalChars = [...variant.headline.replace('\n', '')].length;
+        if (language === 'korean') {
+          expect(totalChars, `${variant.id} Korean headline "${variant.headline}" outside the 6-10 character budget`).toBeGreaterThanOrEqual(6);
+          expect(totalChars, `${variant.id} Korean headline "${variant.headline}" outside the 6-10 character budget`).toBeLessThanOrEqual(10);
+        } else {
+          expect(totalChars, `${variant.id} ${language} headline "${variant.headline}" unreasonably long`).toBeLessThanOrEqual(24);
         }
       }
     }
-  });
-
-  it.each(LANGUAGES)('variant A\'s second headline line is track 1\'s actual hook, in %s', language => {
-    const opts = makeOptions({ songCount: 6, lyricLanguage: language });
-    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
-    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
-    const [, secondLine] = spec.variants[0].headline.split('\n');
-    expect(secondLine).toBe(bp.songs[0].hookPhrase.trim());
   });
 
   it.each(LANGUAGES)('every variant subline is <=12 characters, in %s', language => {
@@ -131,6 +127,11 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
     expect(spec.forbidden.some(item => item.includes('캐릭터'))).toBe(true);
   });
 
+  // TASK v3.38 Part A6 — the new headline pools rotate the *whole* headline
+  // per regenerate seed (no more fixed-first-line/rotating-second-line
+  // split), so "stability across regenerate" now only claims colors/
+  // objects/composition — headline text is expected to (and, over a big
+  // enough pool, generally does) change; that's the point of "다른 문구 제안".
   it('regenerate variant changes headline wording, not colors/objects/composition', () => {
     const opts = makeOptions({ songCount: 6, seasonId: 'christmas' });
     const season = seasonPacks.find(s => s.id === 'christmas')!;
@@ -140,11 +141,7 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
     expect(specA.colorScheme).toEqual(specB.colorScheme);
     expect(specA.objects).toEqual(specB.objects);
     expect(specA.composition).toBe(specB.composition);
-    // Variant A (season-led) keeps the same season word on line 1 regardless
-    // of the regenerate seed — only the second line cycles.
-    const [firstLineA] = specA.variants[0].headline.split('\n');
-    const [firstLineB] = specB.variants[0].headline.split('\n');
-    expect(firstLineA).toBe(firstLineB);
+    expect(specA.typography).toEqual(specB.typography);
   });
 
   it('[B1] always produces exactly 3 variants (A/B/C), each with a distinct angle and headline', () => {
@@ -164,12 +161,17 @@ describe('buildThumbnailSpec (TASK B1, v3.3)', () => {
     expect(spec.variants.some(v => v.id === spec.selected)).toBe(true);
   });
 
-  it.each(LANGUAGES)('[B1] variant C explicitly names the audience/lifestyle angle, in %s', language => {
+  // TASK v3.38 Part A6 — replaces the old "타겟 명시" (audience-named) C
+  // strategy: A is 질문형 (question), B is 감성형 (emotional), C is 공감형
+  // (empathy). Angles are fixed regardless of packagingLanguage.
+  it.each(LANGUAGES)('[B1] variants use the question/emotional/empathy angle set, in %s', language => {
     const opts = makeOptions({ songCount: 6, lyricLanguage: language });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
     const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+    expect(spec.variants.find(v => v.id === 'A')!.angle).toBe('질문형');
+    expect(spec.variants.find(v => v.id === 'B')!.angle).toBe('감성형');
     const variantC = spec.variants.find(v => v.id === 'C')!;
-    expect(variantC.angle).toBe('타겟 명시');
+    expect(variantC.angle).toBe('공감형');
     expect(variantC.headline.length).toBeGreaterThan(0);
   });
 });
@@ -241,25 +243,27 @@ describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
     expect(spec.imagePromptVariants.stableDiffusion).toContain('branded IP');
   });
 
-  it('object/text placement (composition) stays stable across headline regeneration but is a specific side, not vague "one side"', () => {
+  // TASK v3.38 Part A1 — object/text placement is now a fixed structural
+  // rule (always left-third for text), not a per-pack seed-derived side.
+  it('object/text placement (composition) is the fixed left-third layout, stable across headline regeneration', () => {
     const opts = makeOptions({ songCount: 3, seasonId: 'christmas' });
     const season = seasonPacks.find(s => s.id === 'christmas')!;
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
     const specA = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0);
     const specB = buildThumbnailSpec(bp, opts, season, channelPresets[0], 5);
     expect(specA.composition).toBe(specB.composition);
-    expect(specA.composition).toMatch(/좌측|우측/);
+    expect(specA.composition).toMatch(/왼쪽 1\/3/);
   });
 });
 
 describe('[D4] Midjourney prompt includes composition (text-safe-zone) instruction', () => {
-  it('the Midjourney variant carries the same "empty third for text overlay" clause the generic/SD variants do', () => {
+  it('the Midjourney variant carries the same "left third reserved for text" clause the generic/SD variants do', () => {
     const opts = makeOptions({ songCount: 3, seasonId: 'christmas' });
     const season = seasonPacks.find(s => s.id === 'christmas')!;
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
     const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0]);
     expect(spec.imagePromptVariants.midjourney).toMatch(/composition|intentionally empty|text overlay/i);
-    expect(spec.imagePromptVariants.midjourney).toContain(spec.composition.includes('좌측') ? 'left' : 'right');
+    expect(spec.imagePromptVariants.midjourney.toLowerCase()).toContain('left third');
   });
 });
 
@@ -303,7 +307,7 @@ describe('[v3.7] thumbnail archetype image prompt wiring', () => {
     const opts = makeOptions({ songCount: 3, seasonId: 'summer-night' });
     const season = seasonPacks.find(s => s.id === 'summer-night')!;
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
-    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, 'summer-green');
+    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, 'summer-sea-morning');
     expect(spec.imagePrompt).not.toContain('A quiet cafe window');
   });
 
@@ -318,12 +322,14 @@ describe('[v3.7] thumbnail archetype image prompt wiring', () => {
     expect(new Set(sceneDescriptions).size).toBe(thumbnailArchetypes.length);
   });
 
-  it('summer-green archetype does not generate a cafe scene', () => {
+  // TASK v3.38 Part A — 'summer-green' no longer exists; the coastal
+  // seasonal archetype replacing it is 'summer-sea-morning'.
+  it('summer-sea-morning archetype does not generate a cafe scene', () => {
     const opts = makeOptions({ songCount: 3, seasonId: 'summer-night' });
     const season = seasonPacks.find(s => s.id === 'summer-night')!;
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, season);
-    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, 'summer-green');
+    const spec = buildThumbnailSpec(bp, opts, season, channelPresets[0], 0, 'summer-sea-morning');
     expect(spec.imagePrompt.toLowerCase()).not.toContain('cafe');
-    expect(spec.imagePrompt.toLowerCase()).toMatch(/green|leaves|garden|terrace|window/);
+    expect(spec.imagePrompt.toLowerCase()).toMatch(/sea|sand|ocean|coastal|water|sky/);
   });
 });

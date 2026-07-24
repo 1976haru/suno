@@ -5,6 +5,8 @@ import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBu
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { buildVocalPlan, DEFAULT_KIDS_VOCAL_QUOTA, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { composeKidsLyrics } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
   composeLyrics,
@@ -407,6 +409,11 @@ export function generateLocalBlueprint(
   // below assigns anything else.
   const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
   const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
+  // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota, active
+  // only for the 'kids' channel archetype. Mirrors progressionPlan's
+  // pre-pass shape; vocalQuota falls back to the 6/6/6 default when the
+  // channel/opts didn't set one explicitly.
+  const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -425,24 +432,37 @@ export function generateLocalBlueprint(
     const emotionArc = emotionArcPool.take();
     const tempo = averageTempo(genres, trackNo);
     const trackMotifOption = motifPool.take();
-    const { lyrics, hookPhrase } = composeLyrics({
-      language: opts.lyricLanguage,
-      season,
-      title,
-      hook,
-      situation: phraseFor(situationOption, opts.lyricLanguage),
-      motif: phraseFor(trackMotifOption, opts.lyricLanguage),
-      role,
-      pools: lyricPools,
-      openingStyle,
-      genreFlavorImages
-    });
+    // TASK v3.38 Part B3 — the 'kids' channel archetype uses a dedicated,
+    // self-contained lyric body composer instead of the adult engine's
+    // situation/motif pools (coffee, commute, quiet longing — unsafe for
+    // children's content). Title/hook (above) are unaffected: they already
+    // come from the kid-safe hookBanks/kids.ts vocabulary via
+    // opts.channel.archetype, independent of this branch.
+    const { lyrics, hookPhrase } = opts.channel.archetype === 'kids'
+      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13 })
+      : composeLyrics({
+        language: opts.lyricLanguage,
+        season,
+        title,
+        hook,
+        situation: phraseFor(situationOption, opts.lyricLanguage),
+        motif: phraseFor(trackMotifOption, opts.lyricLanguage),
+        role,
+        pools: lyricPools,
+        openingStyle,
+        genreFlavorImages
+      });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
     // handed to composeStylePrompt, which dedupes and — if the combined
     // length would cross the Suno-safe budget — drops the lowest-priority
     // ids first (never truncating mid-phrase). See promptComposer.ts.
+    const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const songParts: PromptPart[] = [
-      ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration') && !(progressionPlan && part.id === 'moneyChord')),
+      ...channelParts.filter(part =>
+        !(role === 'cold-open' && part.id === 'duration')
+        && !(progressionPlan && part.id === 'moneyChord')
+        && !(vocalType && part.id === 'vocal')
+      ),
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
       // TASK v3.33 Part C — per-song progression override when the quota plan
       // is active; channelParts' flat whole-pack moneyChord atom is filtered
@@ -450,6 +470,11 @@ export function generateLocalBlueprint(
       ...(progressionPlan
         ? [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan[idx], includeFeelReinforcement: true }) }]
         : []),
+      // TASK v3.38 Part B2 — per-song vocal-type override when the kids
+      // quota plan is active; this 'vocal' id is in promptBudget.ts's
+      // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack
+      // vocal atom it replaces.
+      ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionFor(vocalType) }] : []),
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },
@@ -509,7 +534,8 @@ export function generateLocalBlueprint(
       promptWithinLimit: composed.withinLimit,
       promptDroppedTerms: composed.droppedTerms,
       promptWordCount: composed.wordCount,
-      promptWithinWordTarget: composed.withinWordTarget
+      promptWithinWordTarget: composed.withinWordTarget,
+      vocalType
     };
   });
 

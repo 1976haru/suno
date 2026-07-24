@@ -69,7 +69,7 @@ export default function App() {
   const [hybridMode, setHybridMode] = useState(false);
   const [thumbnailVariant, setThumbnailVariant] = useState(0);
   const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
-  const [thumbnailArchetypeId, setThumbnailArchetypeId] = useState<ThumbnailArchetypeId>('refined-cafe');
+  const [thumbnailArchetypeId, setThumbnailArchetypeId] = useState<ThumbnailArchetypeId>('autumn-window-golden');
   /** TASK H6 (v3.10) — set only when the user asks the concept agent for thumbnail copy; coexists with (never replaces) v3.6's season/emotion/audience A/B/C strategy. */
   const [thumbnailFreeTextHeadlines, setThumbnailFreeTextHeadlines] = useState<{ headline: string; angle: string }[] | null>(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);

@@ -33,6 +33,34 @@ export const channelPresets: ChannelProfile[] = [
     forbiddenCliches: ['cheap retro props', 'enka-like melodrama', 'overly cute anime tone', 'famous artist imitation'],
     seoKeywords: ['昭和カフェ', '朝の喫茶店', 'レトロBGM', '大人の音楽', '50代', '60代', '喫茶店BGM'],
     archetype: 'showa-cafe'
+  },
+  // TASK v3.38 Part B1 — kids/children's song channel. primaryLanguage is
+  // 'korean' (unlike the two adult channels above, which are 'english') so
+  // createInitialOptions derives lyricLanguage: 'korean' by default for this
+  // channel — see utils/generation.ts.
+  {
+    id: 'little-singalong-radio',
+    name: '꼬마 노래방송',
+    englishName: 'Little Singalong Radio',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'kids',
+    promise: '유아~초등 저학년과 보호자가 함께 듣는 밝고 안전한 창작 동요 플레이리스트',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: "bright cheerful children's choir with a warm adult lead, call-and-response, singalong",
+    preferredGenres: ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-march'],
+    preferredMoods: ['bright-playful', 'warm', 'fresh-start'],
+    forbiddenCliches: [
+      'scary or frightening themes',
+      'excessive sadness or crying',
+      'difficult Sino-Korean vocabulary',
+      'trendy slang or internet memes',
+      'violence or death themes',
+      'adult romantic heartbreak themes',
+      'reusing an existing nursery rhyme melody or lyrics'
+    ],
+    seoKeywords: ['동요', '어린이 노래', '창작동요', '유아 음악', '어린이 플레이리스트', '신나는 동요'],
+    archetype: 'kids'
   }
 ];
 
@@ -205,6 +233,36 @@ const rawGenrePacks: GenrePack[] = [
     tempoRange: [92, 108],
     goodFor: ['night drive', 'retro channel', 'twenties']
   },
+  // TASK v3.38 Part B1 — kids-channel genres, explicitly tagged archetypes:
+  // ['kids'] so withGenreVisibility (below) uses this directly instead of
+  // its heuristic inferArchetypes() classifier.
+  {
+    id: 'kids-bright-pop',
+    label: 'Bright Kids Pop',
+    styleCore: 'bright cheerful children\'s pop, simple catchy melody, clean upbeat production',
+    instruments: ['ukulele', 'glockenspiel', 'clean acoustic guitar', 'light hand percussion'],
+    tempoRange: [104, 120],
+    goodFor: ['kids playlist', 'daytime play', 'singalong'],
+    archetypes: ['kids']
+  },
+  {
+    id: 'kids-acoustic-singalong',
+    label: 'Kids Acoustic Singalong',
+    styleCore: 'warm acoustic singalong for children, gentle strum, easy call-and-response chorus',
+    instruments: ['acoustic guitar', 'soft hand claps', 'light shaker', 'warm ukulele'],
+    tempoRange: [92, 108],
+    goodFor: ['kids playlist', 'calm play', 'family singalong'],
+    archetypes: ['kids']
+  },
+  {
+    id: 'kids-march',
+    label: 'Kids Marching Pop',
+    styleCore: 'simple marching pop for children, bouncy skip-along rhythm, bright brass-toy color',
+    instruments: ['toy piano', 'snare-like light percussion', 'glockenspiel', 'clean bass'],
+    tempoRange: [108, 126],
+    goodFor: ['kids playlist', 'movement and dance', 'group activity'],
+    archetypes: ['kids']
+  },
   ...notionDerivedGenrePacks
 ];
 
@@ -230,7 +288,9 @@ export const moodPacks: MoodPack[] = [
   { id: 'calm-focus', label: 'Calm Focus', emotionWords: ['calm', 'steady', 'light concentration'], lyricImages: ['open notebook', 'quiet desk', 'window light', 'slow clock'] },
   { id: 'fresh-start', label: 'Fresh Start', emotionWords: ['fresh', 'clean', 'new beginning'], lyricImages: ['washed sky', 'new shoes', 'morning train', 'open calendar'] },
   { id: 'rainy-comfort', label: 'Rainy Comfort', emotionWords: ['rainy', 'safe inside', 'softly reflective'], lyricImages: ['rain on glass', 'umbrella stand', 'warm lamp', 'wet street'] },
-  { id: 'elegant', label: 'Elegant', emotionWords: ['elegant', 'reserved', 'polished'], lyricImages: ['porcelain cup', 'old record', 'tailored coat', 'quiet lobby'] }
+  { id: 'elegant', label: 'Elegant', emotionWords: ['elegant', 'reserved', 'polished'], lyricImages: ['porcelain cup', 'old record', 'tailored coat', 'quiet lobby'] },
+  // TASK v3.38 Part B1 — kids-channel mood.
+  { id: 'bright-playful', label: 'Bright & Playful', emotionWords: ['bright', 'playful', 'curious', 'cheerful'], lyricImages: ['sunny playground', 'bouncing ball', 'giggling laughter', 'colorful balloons'] }
 ];
 
 export const seasonPacks: SeasonPack[] = [

@@ -160,6 +160,43 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'komuro-cycle progression vi-IV-V-I, driving 90s J-pop production movement, confident forward momentum, punchy chorus arrival',
     compactProgression: 'vi-IV-V-I komuro-cycle progression',
     bestFor: ['업템포 트랙', '일본 채널 변주']
+  },
+  // TASK v3.38 Part B4 — kids-channel progressions. kidsSimple is pinned to
+  // cold-open/flagship (see signatureMoneyChordId below); the other two
+  // rotate through the rest of the pack (moneyChordRotationPool).
+  kidsSimple: {
+    id: 'kidsSimple',
+    label: 'Kids Simple',
+    labelKo: '동요 기본 진행',
+    description: '가장 단순하고 따라 부르기 쉬운 진행. 동요 채널의 시그니처로 적합합니다.',
+    progressions: ['I-IV-V-I'],
+    prompt: 'simplest children\'s song progression I-IV-V-I, easy to sing along, bright and predictable, clear resolution every phrase',
+    compactProgression: 'I-IV-V-I progression',
+    bestFor: ['동요 채널 시그니처', '따라 부르기 쉬운 트랙']
+  },
+  kidsBright: {
+    id: 'kidsBright',
+    label: 'Kids Bright',
+    labelKo: '동요 밝은 진행',
+    description: '밝고 친숙한 동요용 진행.',
+    progressions: ['I-V-vi-IV'],
+    prompt: 'bright familiar children\'s pop progression I-V-vi-IV, cheerful and warm, easy sing-along hook',
+    // TASK v3.38 Part B4 — distinct from 'default's identical-progression
+    // text ('I-V-vi-IV progression'); tests/diversityLinter.test.ts requires
+    // every preset's compactProgression to be mutually distinct even when
+    // two presets share the same underlying Roman-numeral progression.
+    compactProgression: 'I-V-vi-IV bright kids progression',
+    bestFor: ['밝은 동요 트랙', '놀이 활동곡']
+  },
+  kidsMarch: {
+    id: 'kidsMarch',
+    label: 'Kids March',
+    labelKo: '동요 행진곡풍 진행',
+    description: '행진곡풍 율동 동요에 어울리는 진행.',
+    progressions: ['I-IV-I-V'],
+    prompt: 'bouncy marching children\'s song progression I-IV-I-V, skip-along rhythm feel, simple and confident',
+    compactProgression: 'I-IV-I-V progression',
+    bestFor: ['행진곡풍 동요', '율동·놀이 동작곡']
   }
 };
 
@@ -189,6 +226,7 @@ export const MONEY_CHORD_FEEL_SUFFIX = 'hook lands on the downbeat, clear on-bea
 export function signatureMoneyChordId(archetype: string | undefined): string {
   if (archetype === 'senior-morning') return 'doowop';
   if (archetype === 'showa-cafe') return 'royalRoad';
+  if (archetype === 'kids') return 'kidsSimple';
   return 'default';
 }
 
@@ -203,6 +241,7 @@ export function signatureMoneyChordId(archetype: string | undefined): string {
 export function moneyChordRotationPool(archetype: string | undefined): string[] {
   if (archetype === 'senior-morning') return ['doowop', 'warmCycle', 'emotional', 'default', 'canon'];
   if (archetype === 'showa-cafe') return ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'];
+  if (archetype === 'kids') return ['kidsSimple', 'kidsBright', 'kidsMarch'];
   return ['default'];
 }
 

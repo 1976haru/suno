@@ -40,14 +40,28 @@ export function uniqueThumbnailClauses(clauses: string[]): string[] {
   return result;
 }
 
+/**
+ * TASK v3.38 Part B5 — a brand/studio name appearing *inside* a "Negative: ...
+ * no Disney-style character ..." clause is the safe direction (explicitly
+ * banning it, as the kids archetypes' forbiddenElements now do), not the
+ * unsafe one FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS exists to catch (a
+ * *positive* reference like "in the style of Disney"). Strips the Negative
+ * clause's own extent (up to its terminating period, or end of string if
+ * none) before running that scan, so a legitimate ban never self-flags.
+ */
+function stripNegativeClause(prompt: string): string {
+  return prompt.replace(/Negative:[^.]*\.?/gi, '');
+}
+
 export function thumbnailPromptSafetyIssues(prompt: string): string[] {
   const issues: string[] = [];
   const lower = prompt.toLowerCase();
   for (const required of REQUIRED_THUMBNAIL_NEGATIVE_TERMS) {
     if (!lower.includes(required)) issues.push(`missing required negative term: ${required}`);
   }
+  const promptWithoutNegativeClause = stripNegativeClause(prompt);
   for (const pattern of FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS) {
-    if (pattern.test(prompt)) issues.push(`forbidden direct-reference pattern: ${pattern.source}`);
+    if (pattern.test(promptWithoutNegativeClause)) issues.push(`forbidden direct-reference pattern: ${pattern.source}`);
   }
   return issues;
 }

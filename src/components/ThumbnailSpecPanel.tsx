@@ -50,10 +50,11 @@ const PEOPLE_LABELS: Record<ThumbnailPeopleMode, string> = {
   'distant-silhouette': 'Distant silhouette'
 };
 
+// TASK v3.38 Part A1 — the left-third-for-text layout is now fixed for
+// every seasonal archetype, so this is a single-entry display label rather
+// than a user choice.
 const TEXT_ZONE_LABELS: Record<ThumbnailTextSafeZone, string> = {
-  left: 'Left',
-  right: 'Right',
-  top: 'Top'
+  'left-third': 'Left third (fixed)'
 };
 
 const TIME_OPTIONS = Object.keys(TIME_LABELS) as ThumbnailTimeOfDay[];
@@ -76,7 +77,7 @@ export default function ThumbnailSpecPanel({
   const [promptSeasonId, setPromptSeasonId] = useState(defaultSeasonId);
   const [timeOfDay, setTimeOfDay] = useState<ThumbnailTimeOfDay>('morning');
   const [peopleMode, setPeopleMode] = useState<ThumbnailPeopleMode>('none');
-  const [textSafeZone, setTextSafeZone] = useState<ThumbnailTextSafeZone>('left');
+  const [textSafeZone, setTextSafeZone] = useState<ThumbnailTextSafeZone>('left-third');
   const [promptSeed, setPromptSeed] = useState(0);
   const [promptMode, setPromptMode] = useState<ThumbnailPromptMode>('thumbnail');
   const [coverSeed, setCoverSeed] = useState(0);
@@ -245,17 +246,21 @@ export default function ThumbnailSpecPanel({
               />
               <span>{variant.id} · {variant.angle}</span>
             </div>
-            <div className="thumbnail-preview thumbnail-preview-small" style={{ background: spec.colorScheme.background, color: spec.colorScheme.text }}>
-              <div className="thumbnail-preview-text">
+            <div className="thumbnail-preview thumbnail-preview-small thumbnail-preview-left-third" style={{ background: spec.colorScheme.background, color: spec.colorScheme.text }}>
+              <div className="thumbnail-preview-text thumbnail-preview-serif">
                 {variant.headline.split('\n').map((line, i) => (
                   <div key={i} className="thumbnail-preview-headline">{line}</div>
                 ))}
-                <div className="thumbnail-preview-subline" style={{ color: spec.colorScheme.accent }}>{variant.subline}</div>
+                {spec.typography.divider && <div className="thumbnail-preview-divider" style={{ background: spec.colorScheme.text }} />}
+                {spec.typography.subtitle && <div className="thumbnail-preview-subline">{variant.subline}</div>}
               </div>
             </div>
           </label>
         ))}
       </div>
+      <p className="step-hint">
+        왼쪽 1/3은 문구·구분선·부제 자리, 오른쪽 2/3은 장면입니다. 텍스트는 얇은 세리프, 아웃라인 없이, 밝은 배경엔 다크브라운·어두운 배경엔 흰색을 사용하세요. 커버(1:1)에는 부제·구분선을 생략하고 메인 문구 한 줄만 정중앙에 두는 것을 기본으로 합니다.
+      </p>
 
       <div className="signature-grid">
         <div>
@@ -268,6 +273,10 @@ export default function ThumbnailSpecPanel({
           </span>
         </div>
         <div><b>Objects</b><span>{spec.objects.join(' · ')}</span></div>
+        <div>
+          <b>Typography</b>
+          <span>{spec.typography.font} · {spec.typography.color} · outline: {spec.typography.outline} · shadow: {spec.typography.shadow}</span>
+        </div>
         <div style={{ gridColumn: '1 / -1' }}><b>Composition</b><span>{spec.composition}</span></div>
         <div style={{ gridColumn: '1 / -1' }}><b>Forbidden</b><span>{spec.forbidden.join(' · ')}</span></div>
       </div>

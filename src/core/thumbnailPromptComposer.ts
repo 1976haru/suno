@@ -6,7 +6,13 @@ import type {
   ThumbnailTextSafeZone,
   ThumbnailTimeOfDay
 } from '../data/thumbnailArchetypes';
+import type { ThumbnailTypographyGuide } from '../types';
 import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS, thumbnailPromptSafetyIssues, uniqueThumbnailClauses } from './thumbnailSafety';
+
+// TASK v3.38 Part A5 — always appended, last, to every generated prompt so
+// an external tool (ChatGPT, Midjourney, Stable Diffusion) defaults to the
+// Korean-serif grammar's photographic look rather than an AI-plastic render.
+const QUALITY_BOOSTER = 'editorial photography, photorealistic, natural available light, soft shadows, shallow depth of field, muted warm color grading, film-like texture, generous negative space on the left third, clean composition';
 
 export type ThumbnailPromptVariantId = 'A' | 'B' | 'C';
 
@@ -38,6 +44,8 @@ export interface ThumbnailPromptVariant {
   camera: string;
   textSafeZone: ThumbnailTextSafeZone;
   peoplePolicy: string;
+  /** TASK v3.38 — fixed per archetype (channel-brand consistency, not scene variety); never interpolated into `prompt`. */
+  typography: ThumbnailTypographyGuide;
   prompt: string;
   safetyIssues: string[];
 }
@@ -76,11 +84,16 @@ const TIME_DESCRIPTORS: Record<ThumbnailTimeOfDay, string> = {
   night: 'night'
 };
 
+// TASK v3.38 Part A1 — the left-third-for-text layout is the fixed
+// structural rule for the 6 seasonal (Korean-serif) archetypes, not a
+// per-variant rotation. TASK v3.38 Part B5 — the 3 kids archetypes use a
+// different, open/centered layout instead (see buildPrompt's isKidsGrammar
+// branch below), so this copy is only ever used for seasonal archetypes.
 const TEXT_SAFE_ZONE_COPY: Record<ThumbnailTextSafeZone, string> = {
-  left: 'left text safe zone with uncluttered negative space',
-  right: 'right text safe zone with uncluttered negative space',
-  top: 'top text safe zone with uncluttered negative space'
+  'left-third': 'left third of the frame reserved for a thin Korean serif headline, a thin divider line, and a small subtitle — keep this area calm, low-detail, and softly lit'
 };
+
+const KIDS_TEXT_ZONE_COPY = 'generous open, low-clutter space around the subject reserved for a bold rounded headline — keep this area bright and simple';
 
 function hashString(value: string): number {
   let hash = 2166136261;
@@ -100,12 +113,13 @@ function pickZone(archetype: ThumbnailArchetype, requested: ThumbnailTextSafeZon
   return archetype.textSafeZone[(seed + variantIndex) % archetype.textSafeZone.length];
 }
 
-function peopleInstruction(archetype: ThumbnailArchetype, peopleMode: ThumbnailPeopleMode): string {
+// TASK v3.38 Part A5 — every archetype in the new grammar applies the same
+// people rule (backs/silhouette only, face never shown), so this no longer
+// branches per archetype category the way the old golden-hour-backs special
+// case did.
+function peopleInstruction(peopleMode: ThumbnailPeopleMode): string {
   if (peopleMode === 'none') return 'People: no people; keep the image led by place, objects, light, and atmosphere.';
-  if (archetype.category === 'cinematic-human-moment') {
-    return 'People: a single distant anonymous silhouette is allowed, under 20% of the frame, face hidden, no copied pose.';
-  }
-  return 'People: a distant faceless silhouette may appear only in the background, small in frame, no recognizable features.';
+  return 'People: a single distant figure seen from behind or in silhouette only, small in frame, face never shown, no recognizable features.';
 }
 
 function normalizeConceptForPrompt(concept: string | undefined): string {
@@ -130,15 +144,26 @@ function conceptClause(concept: string | undefined): string {
 function forbiddenClause(archetype: ThumbnailArchetype): string {
   const base = [
     'no text',
+    'no letters',
     'no logo',
     'no watermark',
     'no identifiable person',
     'no celebrity',
     'no film character',
     'no face close-up',
+    'no close-up faces',
     'no copied pose',
     'no creator-style imitation',
     'no branded IP',
+    // TASK v3.38 Part A5 — Korean-serif grammar negative additions.
+    'no glowing bokeh sparkles',
+    'no excessive glow',
+    'no oversaturation',
+    'no HDR look',
+    'no plastic CGI render',
+    'no illustration',
+    'no cartoon',
+    'no famous painting',
     ...archetype.forbiddenElements.map(item => `no ${item}`)
   ];
   return `Negative: ${uniqueThumbnailClauses(base).join(', ')}.`;
@@ -159,6 +184,11 @@ function buildPrompt(
 ): string {
   const season = SEASON_DESCRIPTORS[seasonId] ?? 'seasonal visual details';
   const isCover = mode === 'cover';
+  // TASK v3.38 Part B5 — kids archetypes (recommendedTypography.divider is
+  // only true for the Korean-serif grammar) get their own open/centered
+  // zone description instead of the "divider + subtitle" phrasing, which
+  // would otherwise contradict their actual bold/bright typography.
+  const isKidsGrammar = !archetype.recommendedTypography.divider;
   // Deliberately avoids the literal phrase "YouTube channel" — it collides
   // with FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS' /\byoutube channel\b/i guard
   // (meant to block "in the style of [some] youtube channel"-type prompts),
@@ -174,14 +204,15 @@ function buildPrompt(
     `Subject: ${variant.subject}.`,
     `Setting: ${variant.setting}.`,
     conceptClause(concept),
-    `Composition: ${variant.composition}; ${TEXT_SAFE_ZONE_COPY[variant.textSafeZone]}.`,
+    `Composition: ${variant.composition}; ${isKidsGrammar ? KIDS_TEXT_ZONE_COPY : TEXT_SAFE_ZONE_COPY[variant.textSafeZone]}.`,
     `Lighting: ${variant.lighting}.`,
     `Color palette: ${variant.palette}.`,
     `Camera: ${variant.camera}.`,
     `Props: ${variant.props.join(', ')}.`,
     variant.peoplePolicy,
     isCover ? 'Album cover aesthetic: iconic, simple, and readable at a small thumbnail size.' : '',
-    forbiddenClause(archetype)
+    forbiddenClause(archetype),
+    QUALITY_BOOSTER
   ];
   return uniqueThumbnailClauses(clauses).join(' ');
 }
@@ -202,7 +233,12 @@ export function countThumbnailAxisDifferences(a: ThumbnailPromptVariant, b: Thum
 }
 
 export function composeThumbnailPromptSet(options: ThumbnailPromptComposerOptions): ThumbnailPromptSet {
-  const archetype = thumbnailArchetypeById[options.archetypeId];
+  // TASK v3.38 — defensive fallback matching thumbnailSpec.ts's pattern: a
+  // SavedPack persisted before this archetype-id migration (or any other
+  // stale/unrecognized id) must degrade to a valid default archetype
+  // instead of crashing the whole panel with "Cannot read properties of
+  // undefined".
+  const archetype = thumbnailArchetypeById[options.archetypeId] || thumbnailArchetypeById['autumn-window-golden'];
   const seasonId = options.seasonId ?? 'may-cafe';
   const timeOfDay = options.timeOfDay ?? 'morning';
   const peopleMode = options.peopleMode ?? 'none';
@@ -216,6 +252,11 @@ export function composeThumbnailPromptSet(options: ThumbnailPromptComposerOption
       pick(archetype.propPool, axisSeed + 31),
       pick(archetype.propPool, axisSeed + 44)
     ]);
+    // TASK v3.38 Part A1 — every archetype's textSafeZone pool now contains
+    // only 'left-third', so thumbnail and cover modes both resolve to the
+    // same fixed zone; kept via pickZone rather than hardcoded so an explicit
+    // caller override (there is currently only one valid value, but this
+    // stays forward-compatible) still works.
     const textSafeZone = pickZone(archetype, options.textSafeZone, variantIndex, baseSeed);
     const draft: Omit<ThumbnailPromptVariant, 'prompt' | 'safetyIssues'> = {
       id,
@@ -228,7 +269,8 @@ export function composeThumbnailPromptSet(options: ThumbnailPromptComposerOption
       props,
       camera: pick(archetype.cameraPool, axisSeed + 19),
       textSafeZone,
-      peoplePolicy: peopleInstruction(archetype, peopleMode)
+      peoplePolicy: peopleInstruction(peopleMode),
+      typography: archetype.recommendedTypography
     };
     const prompt = buildPrompt(archetype, draft, seasonId, timeOfDay, resolution, mode, options.concept);
     return {

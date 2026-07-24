@@ -12,7 +12,7 @@ import { makeOptions, testGenres, testMoods, channelPresets, testSeason } from '
  * axis-based archetype composer (src/core/thumbnailPromptComposer.ts).
  */
 
-const QUALITY_BOOSTER_SNIPPET = 'professional photography, photorealistic';
+const QUALITY_BOOSTER_SNIPPET = 'editorial photography, photorealistic';
 
 function specFor(customConcept: string, archetypeId?: Parameters<typeof buildThumbnailSpec>[5]) {
   const opts = makeOptions({ customConcept, songCount: 6 });
@@ -77,7 +77,7 @@ describe('[v3.37-b] buildThumbnailSpec — concept binding (work item 1)', () =>
 describe('[v3.37-b] buildThumbnailSpec — quality booster (work item 3)', () => {
   it('every format ends with the quality booster, after the existing negative text', () => {
     const spec = specFor('');
-    expect(spec.imagePromptVariants.generic.endsWith(`${QUALITY_BOOSTER_SNIPPET}, cinematic lighting, natural color grading, soft depth of field, crisp detail, no oversaturation, no plastic CGI.`)).toBe(true);
+    expect(spec.imagePromptVariants.generic.endsWith(`${QUALITY_BOOSTER_SNIPPET}, natural available light, soft shadows, shallow depth of field, muted warm color grading, film-like texture, generous negative space on the left third, clean composition.`)).toBe(true);
     expect(spec.imagePromptVariants.generic.indexOf('Negative:')).toBeLessThan(spec.imagePromptVariants.generic.indexOf(QUALITY_BOOSTER_SNIPPET));
   });
 
@@ -97,12 +97,12 @@ describe('[v3.37-b] buildThumbnailSpec — quality booster (work item 3)', () =>
     const sd = spec.imagePromptVariants.stableDiffusion;
     const [positive, negative] = sd.split('\nNegative: ');
     expect(positive).toContain(QUALITY_BOOSTER_SNIPPET);
-    expect(negative).toBe('text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, low quality, blurry');
+    expect(negative).toBe('text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, illustration, oversaturation, HDR look, plastic CGI render, low quality, blurry');
   });
 });
 
 describe('[v3.37-b] buildCoverImagePromptVariants — cover (1:1) mode (work item 2)', () => {
-  for (const archetype of ['refined-cafe', 'summer-green', 'daily-happiness'] as const) {
+  for (const archetype of ['minimal-shelf-still', 'rain-window-frame', 'golden-hour-backs'] as const) {
     it(`${archetype}: cover mode is 1:1 with the album-cover directive, thumbnail mode stays 16:9`, () => {
       const cover = buildCoverImagePromptVariants(testSeason.id, archetype, 0, '');
       expect(cover.generic).toContain('1:1');
@@ -114,7 +114,7 @@ describe('[v3.37-b] buildCoverImagePromptVariants — cover (1:1) mode (work ite
   }
 
   it('required negative terms survive into the final cover prompt', () => {
-    const cover = buildCoverImagePromptVariants(testSeason.id, 'refined-cafe', 0, '');
+    const cover = buildCoverImagePromptVariants(testSeason.id, 'minimal-shelf-still', 0, '');
     const lower = cover.generic.toLowerCase();
     for (const required of REQUIRED_THUMBNAIL_NEGATIVE_TERMS) {
       expect(lower).toContain(required);
@@ -122,8 +122,8 @@ describe('[v3.37-b] buildCoverImagePromptVariants — cover (1:1) mode (work ite
   });
 
   it('cover mode also reflects a concept and stays a no-op when concept is empty', () => {
-    const withConcept = buildCoverImagePromptVariants(testSeason.id, 'refined-cafe', 3, '여름 바닷가 아침');
-    const withoutConcept = buildCoverImagePromptVariants(testSeason.id, 'refined-cafe', 3, '');
+    const withConcept = buildCoverImagePromptVariants(testSeason.id, 'minimal-shelf-still', 3, '여름 바닷가 아침');
+    const withoutConcept = buildCoverImagePromptVariants(testSeason.id, 'minimal-shelf-still', 3, '');
     expect(withConcept.generic).toContain('여름 바닷가 아침');
     expect(withoutConcept.generic).not.toContain('evoking');
   });
@@ -131,12 +131,12 @@ describe('[v3.37-b] buildCoverImagePromptVariants — cover (1:1) mode (work ite
   it('cover and thumbnail modes produce different prompts even with matching internal seeds', () => {
     const opts = makeOptions({ songCount: 6 });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
-    const spec = buildThumbnailSpec(bp, opts, testSeason, channelPresets[0], 0, 'refined-cafe');
+    const spec = buildThumbnailSpec(bp, opts, testSeason, channelPresets[0], 0, 'minimal-shelf-still');
     // buildThumbnailSpec derives its internal seedIndex from
     // songs.length + channel.name.length + variant (0 here) — replicate it
     // so this is a genuine same-seed comparison, not just "any two calls differ".
     const seedIndex = bp.songs.length + channelPresets[0].name.length;
-    const cover = buildCoverImagePromptVariants(testSeason.id, 'refined-cafe', seedIndex, '');
+    const cover = buildCoverImagePromptVariants(testSeason.id, 'minimal-shelf-still', seedIndex, '');
     expect(cover.generic).not.toBe(spec.imagePromptVariants.generic);
   });
 });

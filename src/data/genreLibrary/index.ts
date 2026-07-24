@@ -181,12 +181,22 @@ export const SHOWA_CAFE_CORE_GENRE_IDS = [
   'city-pop-rainy-window-pop'
 ] as const;
 
+// TASK v3.38 Part B1/B6 — real kids genre ids (defined in data/presets.ts's
+// rawGenrePacks, not this file's own legacyGenreProfiles/genreLibrary array
+// — see the TASK H2 comment in presets.ts on that pre-existing split).
+// getCoreGenreIdsForArchetype only needs the id *strings* (Step1Channel.tsx's
+// applyArchetype assigns them straight to preferredGenres without resolving
+// through getGenreById), so this is correct even though getVisibleGenresFor
+// Archetype's chip picker (which does filter genreLibrary's own array) won't
+// display these 3 as chips — a known, disclosed gap, not a silent one.
+export const KIDS_CORE_GENRE_IDS = ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-march'] as const;
+
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
   'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
   christmas: [],
   'lofi-study': [],
-  kids: []
+  kids: KIDS_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([

@@ -30,7 +30,7 @@ const languageOptions: { value: LyricLanguage; label: string }[] = [
 const SEO_KEYWORD_SUGGESTIONS = ['감성 플레이리스트', '60대 음악', '계절 플레이리스트', '카페 음악', '드라이브 음악'];
 const CLICHE_SUGGESTIONS = ['famous artist imitation', 'copied song structure', 'childish lyrics', 'dramatic power ballad shouting'];
 
-const archetypeChoices: { id: ChannelArchetype; label: string; description: string; vocal: string; moods: string[]; market: Market; audience: AgeGroup }[] = [
+const archetypeChoices: { id: ChannelArchetype; label: string; description: string; vocal: string; moods: string[]; market: Market; audience: AgeGroup; primaryLanguage: LyricLanguage }[] = [
   {
     id: 'senior-morning',
     label: '시니어 아침 라디오',
@@ -38,7 +38,8 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     vocal: 'mature soulful male tenor, soft slightly husky close-mic delivery, gentle and sincere',
     moods: ['nostalgic', 'warm', 'hopeful'],
     market: 'korea',
-    audience: 'seniors'
+    audience: 'seniors',
+    primaryLanguage: 'english'
   },
   {
     id: 'showa-cafe',
@@ -47,7 +48,8 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     vocal: 'mature soft male tenor, restrained emotional tone, warm close-mic delivery',
     moods: ['nostalgic', 'elegant', 'bittersweet'],
     market: 'japan',
-    audience: 'seniors'
+    audience: 'seniors',
+    primaryLanguage: 'english'
   },
   {
     id: 'christmas',
@@ -56,7 +58,8 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     vocal: 'warm clear vocal, soft holiday phrasing, polished but not childish',
     moods: ['christmas', 'warm', 'hopeful'],
     market: 'global',
-    audience: 'allAges'
+    audience: 'allAges',
+    primaryLanguage: 'english'
   },
   {
     id: 'lofi-study',
@@ -65,16 +68,19 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     vocal: 'optional soft close vocal, low-distraction delivery, calm and steady',
     moods: ['calm-focus', 'rainy-comfort', 'warm'],
     market: 'global',
-    audience: 'twenties'
+    audience: 'twenties',
+    primaryLanguage: 'english'
   },
   {
     id: 'kids',
     label: '키즈',
-    description: '가족이 함께 듣기 좋은 밝고 안전한 채널',
-    vocal: 'bright friendly vocal, clear pronunciation, safe family tone',
-    moods: ['fresh-start', 'hopeful', 'warm'],
-    market: 'global',
-    audience: 'kids'
+    description: '가족이 함께 듣기 좋은 밝고 안전한 창작 동요 채널',
+    // TASK v3.38 Part B1/B6 — matches the full 'little-singalong-radio' preset in data/presets.ts.
+    vocal: "bright cheerful children's choir with a warm adult lead, call-and-response, singalong",
+    moods: ['bright-playful', 'warm', 'fresh-start'],
+    market: 'korea',
+    audience: 'kids',
+    primaryLanguage: 'korean'
   }
 ];
 
@@ -87,12 +93,32 @@ interface Step1ChannelProps {
   onDelete: () => void;
 }
 
+// TASK v3.38 Part B6 — shown once (persisted in localStorage, not per-session
+// state) the first time a user selects the kids channel archetype.
+const KIDS_BANNER_DISMISSED_KEY = 'kidsChannelBannerDismissed';
+
 export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete }: Step1ChannelProps) {
   const [genreSearchOpen, setGenreSearchOpen] = useState(false);
   const [genreQuery, setGenreQuery] = useState('');
   const [genreCategoryId, setGenreCategoryId] = useState('all');
   const [songsPerWeek, setSongsPerWeek] = useState(12);
+  const [kidsBannerDismissed, setKidsBannerDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(KIDS_BANNER_DISMISSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const archetype = editorChannel.archetype || 'senior-morning';
+
+  function dismissKidsBanner() {
+    setKidsBannerDismissed(true);
+    try {
+      localStorage.setItem(KIDS_BANNER_DISMISSED_KEY, 'true');
+    } catch {
+      // localStorage unavailable (private browsing, etc.) — banner just reappears next session, harmless.
+    }
+  }
   const capacityForecast = useMemo(
     () => forecastCapacity(archetype, editorChannel.primaryLanguage, songsPerWeek),
     [archetype, editorChannel.primaryLanguage, songsPerWeek]
@@ -118,6 +144,12 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     onUpdateField('defaultVocal', defaults.vocal);
     onUpdateField('preferredGenres', genreIds);
     onUpdateField('preferredMoods', defaults.moods);
+    // TASK v3.38 Part B1 — previously never set here, so a quick-template
+    // switch to 'kids' left whatever primaryLanguage the channel already
+    // had (often 'english' from a prior senior-morning edit); createInitial
+    // Options now derives lyricLanguage from primaryLanguage, so this needs
+    // to actually change for the kids-song grammar (Korean) to take effect.
+    onUpdateField('primaryLanguage', defaults.primaryLanguage);
   }
 
   return (
@@ -144,6 +176,17 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
           </button>
         </div>
       </div>
+
+      {archetype === 'kids' && !kidsBannerDismissed && (
+        <div className="notice-banner">
+          <p>
+            <strong>동요 채널 안내</strong> — 유튜브에서 아동용(Made for Kids) 설정이 필요합니다. 맞춤 광고가 제한되어
+            수익 구조가 일반 채널과 다르며, 댓글·저장 기능이 비활성화됩니다. 기존 동요를 재현하지 말고 창작곡으로
+            제작하세요.
+          </p>
+          <button type="button" onClick={dismissKidsBanner}>확인했어요</button>
+        </div>
+      )}
 
       <div className="option-block">
         <h3>어떤 채널인가요?</h3>

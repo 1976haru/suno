@@ -89,16 +89,21 @@ describe('[v3.33 Part C] signatureMoneyChordId / moneyChordRotationPool', () => 
     expect(signatureMoneyChordId('showa-cafe')).toBe('royalRoad');
   });
 
-  it('any other archetype (or none) falls back to default, unchanged from pre-v3.33', () => {
+  it('christmas/lofi-study/undefined still fall back to default, unchanged from pre-v3.33', () => {
     expect(signatureMoneyChordId('christmas')).toBe('default');
     expect(signatureMoneyChordId('lofi-study')).toBe('default');
-    expect(signatureMoneyChordId('kids')).toBe('default');
     expect(signatureMoneyChordId(undefined)).toBe('default');
+  });
+
+  // TASK v3.38 Part B4 — 'kids' now has a real signature progression too.
+  it('kids\'s signature is kidsSimple', () => {
+    expect(signatureMoneyChordId('kids')).toBe('kidsSimple');
   });
 
   it('each archetype\'s rotation pool includes its own signature', () => {
     expect(moneyChordRotationPool('senior-morning')).toContain('doowop');
     expect(moneyChordRotationPool('showa-cafe')).toContain('royalRoad');
+    expect(moneyChordRotationPool('kids')).toContain('kidsSimple');
   });
 
   it('showa-cafe\'s rotation pool includes marusa and komuro', () => {

@@ -113,6 +113,16 @@ export interface GenerationOptions {
   customMoneyChord: string;
   customConcept: string;
   avoidWords: string;
+  /**
+   * TASK v3.38 Part B — per-song male/female/mixed vocal distribution for
+   * the 'kids' channel archetype (see core/vocalPlan.ts). Only consulted
+   * when the channel archetype is 'kids' (usesVocalQuota); undefined for
+   * every other channel, unchanged from pre-v3.38 behavior. Counts are
+   * proportions, not a hard songCount-must-equal-sum requirement — scaled
+   * to the actual songCount by scaleVocalQuota so the 6/6/6 default still
+   * applies its ratio at any song count.
+   */
+  vocalQuota?: { male: number; female: number; mixed: number };
   /** v3.8 — when true, per-song Style Prompts keep only song-specific differences because Suno Persona supplies the stable voice/style identity. */
   personaMode: boolean;
   /** TASK D5 (v3.6) — thumbnail/title packaging language; defaults from `market` (see core/packagingLanguage.ts) but can be overridden independent of lyricLanguage. */
@@ -213,6 +223,8 @@ export interface SongIdea {
   songRole?: string;
   /** TASK I1 (v3.11) — only meaningful when songRole === 'cold-open'; records which opening technique this song's style prompt/lyrics were built with, so a later manual promotion (core/openingOverride.ts) knows what to swap out. */
   openingStyle?: 'hook-forward' | 'hum-intro';
+  /** TASK v3.38 Part B — which vocal type this song was assigned by core/vocalPlan.ts's per-song quota plan; only set for the 'kids' channel archetype. */
+  vocalType?: 'male' | 'female' | 'mixed';
 }
 
 export interface PlaylistBlueprint {
@@ -398,13 +410,33 @@ export type ThumbnailVariantId = 'A' | 'B' | 'C';
 export interface ThumbnailVariant {
   id: ThumbnailVariantId;
   headline: string;
+  /** TASK v3.38 Part A — the small subtitle line beneath the divider (e.g. "추억 감성 플레이리스트"), 8-14 characters for Korean. Supersedes the old songCount-derived subline. */
   subline: string;
-  /** Korean label describing this variant's strategy (e.g. '계절 강조'), shown in the UI so A/B/C read as genuinely different angles, not a reworded duplicate. */
+  /** Korean label describing this variant's strategy — A: 질문형(호기심), B: 감성형, C: 공감형 (TASK v3.38 Part A). */
   angle: string;
 }
 
+/**
+ * TASK v3.38 Part A — the Korean-serif grammar's fixed typography
+ * recommendation (thin serif, dark-brown-or-white depending on background,
+ * no outline, thin divider, small subtitle). Deliberately kept as its own
+ * struct, never interpolated into an image-generation prompt string — see
+ * thumbnailSpec.ts/thumbnailPromptComposer.ts's tests asserting the two stay
+ * separated.
+ */
+export interface ThumbnailTypographyGuide {
+  font: string;
+  color: string;
+  outline: string;
+  shadow: string;
+  /** Thin horizontal divider line beneath the main headline. */
+  divider: boolean;
+  /** Small subtitle line beneath the divider, ~25-30% of the headline's size. */
+  subtitle: boolean;
+}
+
 export interface ThumbnailSpec {
-  /** Always exactly 3 — season emphasis, emotion emphasis, audience emphasis (TASK B1, v3.4). */
+  /** Always exactly 3 — A: 질문형(호기심), B: 감성형, C: 공감형 (TASK v3.38 Part A). */
   variants: ThumbnailVariant[];
   selected: ThumbnailVariantId;
   colorScheme: {
@@ -423,6 +455,8 @@ export interface ThumbnailSpec {
     midjourney: string;
     stableDiffusion: string;
   };
+  /** TASK v3.38 — the archetype's recommended on-image typography, kept separate from imagePromptVariants. */
+  typography: ThumbnailTypographyGuide;
 }
 
 /**

@@ -44,7 +44,12 @@ describe('structured genre library', () => {
   it('adds 250 Notion-derived genres and keeps legacy genre ids available', () => {
     expect(importedGenreCount).toBe(250);
     expect(totalGenreCount).toBe(genreLibrary.length);
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount);
+    // TASK v3.38 Part B1 — +3 for kids-bright-pop/kids-acoustic-singalong/
+    // kids-march, added directly to presets.ts's rawGenrePacks (not to
+    // genreLibrary's own array — see that file's TASK H2 comment on the
+    // pre-existing split), so genrePacks (presets.ts) is a strict superset
+    // of genreLibrary from here on.
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 3);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -175,8 +180,10 @@ describe('structured genre library', () => {
     const libraryIds = new Set(genreLibrary.map(genre => genre.id));
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     expect(libraryIds.size).toBe(264);
-    expect(presetIds.size).toBe(264);
+    // TASK v3.38 Part B1 — presetIds now also includes the 3 kids-only genre ids (see above).
+    expect(presetIds.size).toBe(267);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
+    for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-march']) expect(presetIds.has(id), id).toBe(true);
   });
 });

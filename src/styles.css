@@ -87,6 +87,30 @@ button.primary:hover:not(:disabled) {
   gap: 16px;
 }
 
+/* TASK v3.38 Part B6 — kids-channel one-time info banner. */
+.notice-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid #f5c518;
+  background: #fffbea;
+  border-radius: 8px;
+}
+
+.notice-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.notice-banner button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .topbar {
   align-items: center;
   padding: 4px 0 18px;
@@ -1006,6 +1030,24 @@ textarea {
 .thumbnail-preview-subline {
   font-size: 15px;
   font-weight: 600;
+}
+
+/* TASK v3.38 Part A1 — left-third text zone: headline block anchored to the left, thin serif, no bold weight. */
+.thumbnail-preview-left-third {
+  justify-content: flex-start;
+}
+
+.thumbnail-preview-serif .thumbnail-preview-headline {
+  font-family: Georgia, 'Noto Serif KR', serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.thumbnail-preview-divider {
+  width: 40%;
+  height: 1px;
+  opacity: 0.6;
+  margin: 4px 0;
 }
 
 .thumbnail-swatches {

@@ -45,7 +45,7 @@ const PEOPLE_LABELS: Record<ThumbnailPeopleMode, string> = {
   none: 'No people',
   'distant-silhouette': 'Distant silhouette'
 };
-const TEXT_ZONE_LABELS: Record<ThumbnailTextSafeZone, string> = { left: 'Left', right: 'Right', top: 'Top' };
+const TEXT_ZONE_LABELS: Record<ThumbnailTextSafeZone, string> = { 'left-third': 'Left third (fixed)' };
 const BADGE_POSITIONS: { id: ThumbnailBadgePosition; label: string }[] = [
   { id: 'top-left', label: '좌상단' },
   { id: 'top-right', label: '우상단' },
@@ -81,7 +81,7 @@ function createTargetState(key: ImageTargetKey, spec: ThumbnailSpec, defaultSeas
     seasonId: defaultSeasonId,
     timeOfDay: 'morning',
     peopleMode: 'none',
-    textSafeZone: 'left',
+    textSafeZone: 'left-third',
     seed: 0,
     activeVariantId: 'A',
     copyText: key === 'cover' ? headline.split('\n')[0] : headline,

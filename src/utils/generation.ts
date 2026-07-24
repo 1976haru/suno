@@ -59,7 +59,12 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     channel,
     projectTitle: 'Autumn to Christmas Playlist Pack',
     songCount: 12,
-    lyricLanguage: 'english',
+    // TASK v3.38 Part B1 — was hardcoded 'english' for every channel; both
+    // pre-existing presets have primaryLanguage 'english' so this is a
+    // behavior-preserving change for them, but the new kids channel preset
+    // (primaryLanguage 'korean') now correctly starts in Korean instead of
+    // needing a manual language switch every time.
+    lyricLanguage: channel.primaryLanguage,
     market: channel.market,
     audience: channel.audience,
     genreIds: normalizeGenreSelection(channel.preferredGenres),

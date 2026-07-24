@@ -20,7 +20,8 @@ export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMod
   const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
   if (effectiveMode !== 'default') return false;
   const archetype = opts.channel.archetype;
-  return archetype === 'senior-morning' || archetype === 'showa-cafe';
+  // TASK v3.38 Part B4 — 'kids' now has a real signature progression too (kidsSimple).
+  return archetype === 'senior-morning' || archetype === 'showa-cafe' || archetype === 'kids';
 }
 
 const OPENER_ROLES = new Set(['cold-open', 'flagship']);
