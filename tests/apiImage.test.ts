@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import imageHandler, { __internal } from '../api/image.js';
 
 /**
@@ -160,5 +160,134 @@ describe('[v3.37] api/image.js __internal pure helpers', () => {
     process.env.ALLOWED_ORIGINS = 'https://example.com';
     expect(__internal.resolveCorsOrigin({ headers: { origin: 'https://evil.example' } }).blocked).toBe(true);
     expect(__internal.resolveCorsOrigin({ headers: { origin: 'https://example.com' } }).blocked).toBe(false);
+  });
+});
+
+describe('[v3.41] api/image.js Qwen provider', () => {
+  const originalEnv = { ...process.env };
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    __internal.rateLimitBuckets.clear();
+    delete process.env.DASHSCOPE_API_KEY;
+    delete process.env.ACCESS_TOKEN;
+    global.fetch = originalFetch;
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('builds documented Qwen sync and async endpoints, including optional WorkspaceId', () => {
+    expect(__internal.buildQwenEndpoint({ region: 'singapore', workspaceId: '', mode: 'sync' }))
+      .toBe('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation');
+    expect(__internal.buildQwenEndpoint({ region: 'singapore', workspaceId: 'ws123', mode: 'async' }))
+      .toBe('https://ws123.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis');
+    expect(__internal.buildQwenEndpoint({ region: 'beijing', workspaceId: 'ws123', mode: 'task', taskId: 'task-1' }))
+      .toBe('https://ws123.cn-beijing.maas.aliyuncs.com/api/v1/tasks/task-1');
+    expect(__internal.resolveQwenModel('qwen-image-3.0-pro')).toBe('qwen-image-3.0-pro');
+  });
+
+  it('builds Qwen sync request bodies with one user message and a separate negative prompt', () => {
+    const body = __internal.buildQwenRequestBody({
+      model: 'qwen-image-2.0',
+      prompt: 'textless cafe background',
+      negativePrompt: 'no text',
+      size: '2688*1536',
+      n: 1,
+      asyncMode: false
+    });
+    expect(body.input.messages).toHaveLength(1);
+    expect(body.input.messages[0].content[0].text).toBe('textless cafe background');
+    expect(body.parameters.negative_prompt).toBe('no text');
+    expect(body.parameters.watermark).toBe(false);
+    expect(body.parameters.prompt_extend).toBe(false);
+  });
+
+  it('extracts Qwen image URLs from both sync and async response shapes', () => {
+    expect(__internal.extractQwenImageUrls({
+      output: { choices: [{ message: { content: [{ image: 'https://img.example/sync.png' }] } }] }
+    })).toEqual(['https://img.example/sync.png']);
+    expect(__internal.extractQwenImageUrls({
+      output: { results: [{ url: 'https://img.example/async.png' }] }
+    })).toEqual(['https://img.example/async.png']);
+  });
+
+  it('sanitizes Qwen sk-style keys out of upstream errors', () => {
+    const key = 'sk-abcdefghijklmnopqrstuvwxyz1234567890';
+    const masked = __internal.sanitizeErrorMessage(`bad key ${key}`, [key]);
+    expect(masked).not.toContain('abcdefghijklmnopqrstuvwxyz');
+    expect(masked).toContain('sk-abc');
+  });
+
+  it('Qwen requests require a DashScope key from BYOK or DASHSCOPE_API_KEY', async () => {
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', prompt: 'textless background' }) as never, res as never);
+    expect(calls[0].status).toBe(500);
+    expect(String((calls[0].payload as { error: string }).error)).toContain('DASHSCOPE_API_KEY');
+  });
+
+  it('Qwen BYOK requests bypass ACCESS_TOKEN and return image URLs plus downloaded data URLs', async () => {
+    process.env.ACCESS_TOKEN = 'server-token';
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/multimodal-generation/generation')) {
+        expect(init?.headers).toMatchObject({ Authorization: 'Bearer sk-user-qwen-key' });
+        return new Response(JSON.stringify({
+          output: { choices: [{ message: { content: [{ image: 'https://img.example/generated.png' }] } }] },
+          usage: { image_count: 1 }
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/png' } });
+    });
+    global.fetch = fetchMock as never;
+
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', model: 'qwen-image-2.0', size: '2688*1536' }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(200);
+    expect((calls[0].payload as { imageUrls: string[] }).imageUrls).toEqual(['https://img.example/generated.png']);
+    expect((calls[0].payload as { dataUrls: string[] }).dataUrls[0]).toContain('data:image/png;base64,');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('Qwen server-key mode uses DASHSCOPE_API_KEY when no BYOK header is present', async () => {
+    process.env.DASHSCOPE_API_KEY = 'sk-server-qwen-key';
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/multimodal-generation/generation')) {
+        expect(init?.headers).toMatchObject({ Authorization: 'Bearer sk-server-qwen-key' });
+        return new Response(JSON.stringify({
+          output: { choices: [{ message: { content: [{ image: 'https://img.example/server.png' }] } }] },
+          usage: { image_count: 1 }
+        }), { status: 200 });
+      }
+      return new Response(new Uint8Array([7, 8, 9]), { status: 200, headers: { 'content-type': 'image/png' } });
+    });
+    global.fetch = fetchMock as never;
+
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', model: 'qwen-image-2.0' }) as never, res as never);
+    expect(calls[0].status).toBe(200);
+    expect((calls[0].payload as { imageUrls: string[] }).imageUrls).toEqual(['https://img.example/server.png']);
+  });
+
+  it('Qwen async models submit a task with X-DashScope-Async and poll until success', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/image-synthesis')) {
+        expect(init?.headers).toMatchObject({ 'X-DashScope-Async': 'enable' });
+        return new Response(JSON.stringify({ output: { task_id: 'task-42' } }), { status: 200 });
+      }
+      if (url.includes('/tasks/task-42')) {
+        return new Response(JSON.stringify({ output: { task_status: 'SUCCEEDED', results: [{ url: 'https://img.example/async.png' }] } }), { status: 200 });
+      }
+      return new Response(new Uint8Array([4, 5, 6]), { status: 200, headers: { 'content-type': 'image/png' } });
+    });
+    global.fetch = fetchMock as never;
+
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', model: 'qwen-image-plus', size: '1664*928' }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(200);
+    expect((calls[0].payload as { taskId: string }).taskId).toBe('task-42');
+    expect((calls[0].payload as { imageUrls: string[] }).imageUrls).toEqual(['https://img.example/async.png']);
   });
 });

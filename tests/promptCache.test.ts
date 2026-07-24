@@ -96,6 +96,19 @@ describe('[E1] usage ledger tracks cache-read tokens', () => {
     ]);
     expect(summary.totalCacheReadTokens).toBe(1650);
   });
+
+  it('summarizeUsage keeps image usage and cost separate from token totals', async () => {
+    const { summarizeUsage } = await import('../src/core/usageLedger');
+    const summary = summarizeUsage([
+      { at: '1', provider: 'qwen', model: 'qwen-image-2.0', purpose: 'image', inputTokens: 0, outputTokens: 0, cacheHit: false, imageCount: 2, imageCostCny: 0.513746 },
+      { at: '2', provider: 'openai', model: 'gpt', purpose: 'generate', inputTokens: 100, outputTokens: 50, cacheHit: false }
+    ]);
+    expect(summary.totalInput).toBe(100);
+    expect(summary.totalOutput).toBe(50);
+    expect(summary.totalImages).toBe(2);
+    expect(summary.totalImageCostCny).toBeCloseTo(0.513746, 6);
+    expect(summary.byPurpose.image).toBe(1);
+  });
 });
 
 describe('[v3.23] estimateCacheSavingsKrw turns raw cache-read tokens into a concrete KRW figure', () => {
@@ -921,4 +934,3 @@ describe('[v3.29] buildSystemInstruction gives a concrete lyric word-count floor
     expect(buildSystemInstruction(makeOptions({ durationTarget: 'under3m30' }))).toContain('3:10-3:35');
   });
 });
-

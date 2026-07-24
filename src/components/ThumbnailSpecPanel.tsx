@@ -3,10 +3,14 @@ import { Copy, Download, RefreshCw, Sparkles } from 'lucide-react';
 import { copyText, downloadText } from '../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { recommendThumbnailCopyLocal } from '../core/conceptAgent';
+import { COMMON_NEGATIVE_BLOCK } from '../core/thumbnailPromptBlocks';
+import { generateQwenImage, getQwenApiKey, getQwenImageSettings, type GeneratedQwenImage } from '../core/thumbnailImageGen';
 import { buildCoverImagePromptVariants, buildPortraitImagePromptVariants, buildThumbnailSpec, type ThumbnailSpec } from '../core/thumbnailSpec';
 import { buildThumbnailWorksetMarkdown, thumbnailMotionGuideText } from '../core/thumbnailWorksetExport';
 import { composeThumbnailPromptSet, type ThumbnailPromptMode } from '../core/thumbnailPromptComposer';
 import { listSetGroups, loadPack, type SetGroupSummary } from '../core/library';
+import { recordUsage } from '../core/usageLedger';
+import { DEFAULT_QWEN_IMAGE_SETTINGS, estimateQwenImageCostCny, type QwenImageSettings } from '../core/qwenImageSettings';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
 import type {
   ThumbnailArchetypeId,
@@ -96,6 +100,10 @@ function promptBlocks(title: string, prompts: ThumbnailSpec['imagePromptVariants
   ]);
 }
 
+function primaryGeneratedImage(result: GeneratedQwenImage | null): string {
+  return result?.dataUrls[0] || result?.imageUrls[0] || '';
+}
+
 export default function ThumbnailSpecPanel({
   spec,
   defaultSeasonId,
@@ -120,6 +128,14 @@ export default function ThumbnailSpecPanel({
   const [setGroups, setSetGroups] = useState<SetGroupSummary[]>([]);
   const [selectedExportGroupId, setSelectedExportGroupId] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [qwenApiKey, setQwenApiKey] = useState('');
+  const [qwenSettings, setQwenSettings] = useState<QwenImageSettings>(DEFAULT_QWEN_IMAGE_SETTINGS);
+  const [qwenSessionCount, setQwenSessionCount] = useState(0);
+  const [qwenGenerating, setQwenGenerating] = useState(false);
+  const [qwenBatchGenerating, setQwenBatchGenerating] = useState(false);
+  const [qwenError, setQwenError] = useState('');
+  const [qwenResult, setQwenResult] = useState<GeneratedQwenImage | null>(null);
+  const [qwenBatchResults, setQwenBatchResults] = useState<{ label: string; href: string }[]>([]);
 
   useEffect(() => {
     setPromptSeasonId(defaultSeasonId);
@@ -130,6 +146,18 @@ export default function ThumbnailSpecPanel({
       setSetGroups(groups);
       setSelectedExportGroupId(prev => prev || groups[0]?.groupId || '');
     });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([getQwenApiKey(), getQwenImageSettings()]).then(([key, settings]) => {
+      if (cancelled) return;
+      setQwenApiKey(key || '');
+      setQwenSettings(settings);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const promptSet = useMemo(
@@ -174,6 +202,100 @@ export default function ThumbnailSpecPanel({
     if (!copyFreeText.trim()) return;
     const suggestions = recommendThumbnailCopyLocal(copyFreeText, packagingLanguage);
     onApplyFreeTextHeadlines(suggestions);
+  }
+
+  async function refreshQwenConfig() {
+    const [key, settings] = await Promise.all([getQwenApiKey(), getQwenImageSettings()]);
+    setQwenApiKey(key || '');
+    setQwenSettings(settings);
+    return { key: key || '', settings };
+  }
+
+  function confirmQwenSessionLimit(count: number, settings: QwenImageSettings) {
+    if (qwenSessionCount + count <= settings.sessionLimit) return true;
+    return window.confirm(`This will bring the current session to ${qwenSessionCount + count} Qwen images, above the configured limit of ${settings.sessionLimit}. Continue?`);
+  }
+
+  async function recordQwenImageUsage(result: GeneratedQwenImage) {
+    await recordUsage({
+      provider: 'qwen',
+      model: result.model,
+      purpose: 'image',
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheHit: false,
+      imageCount: result.imageCount,
+      imageCostCny: result.estimatedCostCny
+    });
+  }
+
+  async function handleGenerateQwenBackground() {
+    const { key, settings } = await refreshQwenConfig();
+    setQwenError('');
+    if (!key) {
+      setQwenError('Set a Qwen API key in Settings, or keep using prompt copy with an external image tool.');
+      return;
+    }
+    if (!confirmQwenSessionLimit(1, settings)) return;
+
+    setQwenGenerating(true);
+    try {
+      const result = await generateQwenImage({
+        prompt: spec.imagePromptVariants.qwenImage ?? spec.imagePromptVariants.generic,
+        negativePrompt: COMMON_NEGATIVE_BLOCK,
+        settings,
+        count: 1
+      });
+      setQwenResult(result);
+      setQwenSessionCount(count => count + result.imageCount);
+      await recordQwenImageUsage(result);
+    } catch (error) {
+      setQwenError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setQwenGenerating(false);
+    }
+  }
+
+  async function generateSetGroupBackgrounds(groupId: string) {
+    const group = setGroups.find(g => g.groupId === groupId);
+    if (!group || !group.packs.length) return;
+    const { key, settings } = await refreshQwenConfig();
+    setQwenError('');
+    if (!key) {
+      setQwenError('Set a Qwen API key in Settings before generating set backgrounds.');
+      return;
+    }
+    if (!confirmQwenSessionLimit(group.packs.length, settings)) return;
+
+    setQwenBatchGenerating(true);
+    setQwenBatchResults([]);
+    try {
+      const nextResults: { label: string; href: string }[] = [];
+      for (const meta of group.packs) {
+        const pack = await loadPack(meta.id);
+        if (!pack) continue;
+        const season = seasonPacks.find(s => s.id === pack.options.seasonId) ?? seasonPacks[0];
+        const packSpec = buildThumbnailSpec(pack.blueprint, pack.options, season, pack.options.channel, 0, selectedArchetypeId);
+        const result = await generateQwenImage({
+          prompt: packSpec.imagePromptVariants.qwenImage ?? packSpec.imagePromptVariants.generic,
+          negativePrompt: COMMON_NEGATIVE_BLOCK,
+          settings,
+          count: 1
+        });
+        await recordQwenImageUsage(result);
+        setQwenSessionCount(count => count + result.imageCount);
+        const href = primaryGeneratedImage(result);
+        nextResults.push({
+          label: `${meta.setIndex != null ? `Set ${meta.setIndex}` : pack.projectTitle} - ${pack.projectTitle}`,
+          href
+        });
+        setQwenBatchResults([...nextResults]);
+      }
+    } catch (error) {
+      setQwenError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setQwenBatchGenerating(false);
+    }
   }
 
   /**
@@ -358,6 +480,47 @@ export default function ThumbnailSpecPanel({
           ))}
         </div>
         <pre>{activeImagePrompt}</pre>
+        <div className="thumbnail-image-studio">
+          <div className="button-row">
+            <button
+              type="button"
+              className="primary"
+              disabled={qwenGenerating || !qwenApiKey}
+              onClick={() => void handleGenerateQwenBackground()}
+            >
+              <Sparkles size={15} />
+              {qwenGenerating ? 'Generating...' : 'Generate with Qwen'}
+            </button>
+            <button type="button" onClick={() => void refreshQwenConfig()}>
+              <RefreshCw size={15} />
+              Refresh Qwen settings
+            </button>
+            <span className="supporting">
+              {qwenSettings.model} / {qwenSettings.resolution} / est. {estimateQwenImageCostCny(qwenSettings.model, 1).toFixed(6)} CNY
+            </span>
+          </div>
+          {!qwenApiKey && (
+            <p className="supporting">Qwen key is not set. Copy the prompt above for external tools, or add byok:qwen in Settings to enable in-app generation.</p>
+          )}
+          {qwenError && <p className="error">{qwenError}</p>}
+          {primaryGeneratedImage(qwenResult) && (
+            <div className="thumbnail-image-target">
+              <img className="thumbnail-bg-preview" src={primaryGeneratedImage(qwenResult)} alt="Generated Qwen background preview" />
+              <div className="button-row">
+                <a className="button-like" href={primaryGeneratedImage(qwenResult)} download={`qwen-background-${Date.now()}.png`}>
+                  <Download size={15} />
+                  Download
+                </a>
+                {qwenResult?.imageUrls[0] && (
+                  <button type="button" onClick={() => void handleCopy('qwenImageUrl', qwenResult.imageUrls[0])}>
+                    <Copy size={15} />
+                    {copiedField === 'qwenImageUrl' ? 'Copied' : 'Copy URL'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="copy-block">
@@ -482,6 +645,14 @@ export default function ThumbnailSpecPanel({
           </select>
           <button
             type="button"
+            disabled={!selectedExportGroupId || qwenBatchGenerating || !qwenApiKey}
+            onClick={() => void generateSetGroupBackgrounds(selectedExportGroupId)}
+          >
+            <Sparkles size={15} />
+            {qwenBatchGenerating ? 'Generating set...' : `Generate Qwen backgrounds (${setGroups.find(group => group.groupId === selectedExportGroupId)?.packs.length || 0})`}
+          </button>
+          <button
+            type="button"
             className="primary"
             disabled={!selectedExportGroupId || exporting}
             onClick={() => void exportSetGroupPrompts(selectedExportGroupId)}
@@ -491,6 +662,17 @@ export default function ThumbnailSpecPanel({
           </button>
         </div>
       </div>
+
+      {!qwenApiKey && <p className="supporting">Qwen set generation is disabled until byok:qwen is saved in Settings; prompt export remains available.</p>}
+      {qwenBatchResults.length > 0 && (
+        <div className="thumbnail-preview-row">
+          {qwenBatchResults.map(result => (
+            <a key={result.label} href={result.href} download={`${result.label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-qwen.png`}>
+              {result.label}
+            </a>
+          ))}
+        </div>
+      )}
 
       <div className="button-row">
         <button type="button" onClick={() => void handleCopy('headline', `${selectedVariant.headline.replace('\n', ' ')} / ${selectedVariant.subline}`)}>

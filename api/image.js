@@ -27,6 +27,14 @@ const rateLimitBuckets = new Map();
 const DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image-preview';
 const DEFAULT_IMAGE_SIZE = '2K';
 
+const QWEN_DEFAULT_MODEL = 'qwen-image-2.0';
+const QWEN_DEFAULT_SIZE = '2688*1536';
+const QWEN_SYNC_MODELS = new Set(['qwen-image-3.0-pro', 'qwen-image-2.0', 'qwen-image-2.0-pro']);
+const QWEN_ASYNC_MODELS = new Set(['qwen-image-plus', 'qwen-image']);
+const QWEN_V2_SIZES = new Set(['2688*1536', '2048*2048', '1536*2688', '2368*1728', '1728*2368']);
+const QWEN_LEGACY_SIZES = new Set(['1664*928', '1328*1328', '928*1664']);
+const QWEN_POLL_INTERVAL_MS = 3_000;
+
 // TASK v3.37 (spec item A/B) — always appended server-side so a user who
 // forgets to add photographic quality language still gets a professional
 // result, not an AI-plastic one.
@@ -51,6 +59,14 @@ function sendError(res, status, message, code) {
 function maskKey(key) {
   if (!key) return '';
   return `${key.slice(0, 6)}...${key.slice(-2)}`;
+}
+
+function sanitizeErrorMessage(message, keys = []) {
+  let text = String(message || '');
+  for (const key of keys.filter(Boolean)) {
+    text = text.split(String(key)).join(maskKey(String(key)));
+  }
+  return text.replace(/sk-[A-Za-z0-9_-]{8,}/g, value => maskKey(value));
 }
 
 function clientIp(req) {
@@ -101,6 +117,14 @@ async function fetchWithTimeout(url, init, timeoutMs, timeoutMessage = '요청�
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function resolveImageProvider(provider) {
+  return provider === 'qwen' ? 'qwen' : 'gemini';
+}
+
 function resolveImageModel(model) {
   return (typeof model === 'string' && model.trim()) || process.env.GEMINI_IMAGE_MODEL || DEFAULT_IMAGE_MODEL;
 }
@@ -126,6 +150,185 @@ function extractInlineImage(data) {
 function isImageSizeRejection(error) {
   const message = String(error?.detail || error?.message || '');
   return /image[_ ]?size|invalid.*size|unsupported.*size/i.test(message);
+}
+
+function resolveQwenModel(model) {
+  const requested = typeof model === 'string' ? model.trim() : '';
+  return QWEN_SYNC_MODELS.has(requested) || QWEN_ASYNC_MODELS.has(requested) ? requested : QWEN_DEFAULT_MODEL;
+}
+
+function resolveQwenRegion(region) {
+  return region === 'beijing' ? 'beijing' : 'singapore';
+}
+
+function resolveQwenSize(size, model) {
+  const requested = typeof size === 'string' ? size.trim() : '';
+  if (QWEN_SYNC_MODELS.has(model)) {
+    return QWEN_V2_SIZES.has(requested) ? requested : QWEN_DEFAULT_SIZE;
+  }
+  return QWEN_LEGACY_SIZES.has(requested) ? requested : '1664*928';
+}
+
+function clampQwenImageCount(n) {
+  const count = Number(n);
+  if (!Number.isFinite(count)) return 1;
+  return Math.max(1, Math.min(6, Math.floor(count)));
+}
+
+function buildQwenBaseUrl(region, workspaceId) {
+  const resolvedRegion = resolveQwenRegion(region);
+  const workspace = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+  if (workspace) {
+    const zone = resolvedRegion === 'beijing' ? 'cn-beijing' : 'ap-southeast-1';
+    return `https://${encodeURIComponent(workspace)}.${zone}.maas.aliyuncs.com/api/v1`;
+  }
+  return resolvedRegion === 'beijing'
+    ? 'https://dashscope.aliyuncs.com/api/v1'
+    : 'https://dashscope-intl.aliyuncs.com/api/v1';
+}
+
+function buildQwenEndpoint({ region, workspaceId, mode, taskId }) {
+  const base = buildQwenBaseUrl(region, workspaceId);
+  if (mode === 'task') return `${base}/tasks/${encodeURIComponent(taskId)}`;
+  if (mode === 'async') return `${base}/services/aigc/text2image/image-synthesis`;
+  return `${base}/services/aigc/multimodal-generation/generation`;
+}
+
+function buildQwenRequestBody({ model, prompt, negativePrompt, size, n, asyncMode }) {
+  const parameters = {
+    negative_prompt: String(negativePrompt || ' ').slice(0, 500),
+    prompt_extend: false,
+    watermark: false,
+    size,
+    n
+  };
+
+  if (asyncMode) {
+    return {
+      model,
+      input: { prompt },
+      parameters
+    };
+  }
+
+  return {
+    model,
+    input: {
+      messages: [
+        {
+          role: 'user',
+          content: [{ text: prompt }]
+        }
+      ]
+    },
+    parameters
+  };
+}
+
+function extractQwenImageUrls(data) {
+  const syncUrls = (data?.output?.choices || [])
+    .flatMap(choice => choice?.message?.content || [])
+    .map(part => part?.image)
+    .filter(url => typeof url === 'string' && url);
+  const asyncUrls = (data?.output?.results || [])
+    .map(result => result?.url || result?.image)
+    .filter(url => typeof url === 'string' && url);
+  return [...syncUrls, ...asyncUrls];
+}
+
+function qwenUsageImageCount(data, fallback) {
+  const count = Number(data?.usage?.image_count || data?.output?.usage?.image_count);
+  return Number.isFinite(count) && count > 0 ? count : fallback;
+}
+
+async function imageUrlToDataUrl(url) {
+  const response = await fetchWithTimeout(url, { method: 'GET' }, 30_000, 'Generated image download timed out.');
+  if (!response.ok) throw new Error(`Generated image download failed: ${response.status}`);
+  const mimeType = response.headers?.get?.('content-type') || 'image/png';
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return { dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`, mimeType };
+}
+
+async function tryDownloadQwenImages(imageUrls) {
+  const dataUrls = [];
+  let mimeType = 'image/png';
+  for (const url of imageUrls) {
+    try {
+      const downloaded = await imageUrlToDataUrl(url);
+      dataUrls.push(downloaded.dataUrl);
+      mimeType = downloaded.mimeType || mimeType;
+    } catch {
+      // Keep temporary upstream URLs available even when the object host blocks
+      // server-side download; the browser can still use the returned URL.
+    }
+  }
+  return { dataUrls, mimeType };
+}
+
+async function requestQwenImage({ apiKey, url, body, asyncMode }) {
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      ...(asyncMode ? { 'X-DashScope-Async': 'enable' } : {})
+    },
+    body: JSON.stringify(body)
+  }, REQUEST_TIMEOUT_MS, 'Qwen image generation timed out. Please try again.');
+
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(`Qwen upstream failed: ${response.status}`);
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
+  }
+  const data = await response.json();
+  if (data?.code && data?.message) {
+    const error = new Error(`Qwen upstream failed: ${data.code}`);
+    error.status = 400;
+    error.detail = data.message;
+    error.code = data.code;
+    throw error;
+  }
+  return data;
+}
+
+async function pollQwenTask({ apiKey, region, workspaceId, taskId, timeoutMs = REQUEST_TIMEOUT_MS, intervalMs = QWEN_POLL_INTERVAL_MS }) {
+  const deadline = Date.now() + timeoutMs;
+  let lastData = null;
+  while (Date.now() < deadline) {
+    const response = await fetchWithTimeout(buildQwenEndpoint({ region, workspaceId, mode: 'task', taskId }), {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    }, 30_000, 'Qwen task polling timed out.');
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    lastData = data;
+    if (!response.ok || data?.code) {
+      const error = new Error(`Qwen task polling failed: ${response.status}`);
+      error.status = response.status || 400;
+      error.detail = data?.message || text;
+      error.code = data?.code;
+      throw error;
+    }
+
+    const status = data?.output?.task_status;
+    if (status === 'SUCCEEDED') return data;
+    if (status === 'FAILED' || status === 'CANCELED' || status === 'UNKNOWN') {
+      const error = new Error(`Qwen task ${status.toLowerCase()}.`);
+      error.status = 400;
+      error.detail = data?.output?.message || data?.message || JSON.stringify(data?.output || {});
+      error.code = data?.output?.code || data?.code;
+      throw error;
+    }
+    await sleep(intervalMs);
+  }
+  const error = new Error('Qwen image task did not finish before the timeout.');
+  error.status = 504;
+  error.detail = lastData ? JSON.stringify(lastData).slice(0, 500) : '';
+  throw error;
 }
 
 async function requestGeminiImage({ apiKey, model, prompt, aspectRatio, imageSize }) {
@@ -185,12 +388,65 @@ async function callGemini({ model, prompt, aspectRatio, imageSize, userApiKey })
   return { dataUrl: `data:${image.mimeType || 'image/png'};base64,${image.data}`, mimeType: image.mimeType || 'image/png' };
 }
 
+async function callQwen({ model, prompt, negativePrompt, size, n, region, workspaceId, userApiKey }) {
+  const apiKey = userApiKey || process.env.DASHSCOPE_API_KEY;
+  if (!apiKey) throw new Error('DASHSCOPE_API_KEY is not configured on the server.');
+
+  const resolvedModel = resolveQwenModel(model);
+  const resolvedRegion = resolveQwenRegion(region);
+  const resolvedSize = resolveQwenSize(size, resolvedModel);
+  const resolvedCount = clampQwenImageCount(n);
+  const asyncMode = QWEN_ASYNC_MODELS.has(resolvedModel);
+  const body = buildQwenRequestBody({
+    model: resolvedModel,
+    prompt: String(prompt || '').trim(),
+    negativePrompt,
+    size: resolvedSize,
+    n: resolvedCount,
+    asyncMode
+  });
+
+  let data;
+  let taskId;
+  if (asyncMode) {
+    const created = await requestQwenImage({
+      apiKey,
+      url: buildQwenEndpoint({ region: resolvedRegion, workspaceId, mode: 'async' }),
+      body,
+      asyncMode: true
+    });
+    taskId = created?.output?.task_id;
+    if (!taskId) throw new Error('Qwen async task response did not include task_id.');
+    data = await pollQwenTask({ apiKey, region: resolvedRegion, workspaceId, taskId });
+  } else {
+    data = await requestQwenImage({
+      apiKey,
+      url: buildQwenEndpoint({ region: resolvedRegion, workspaceId, mode: 'sync' }),
+      body,
+      asyncMode: false
+    });
+  }
+
+  const imageUrls = extractQwenImageUrls(data);
+  if (!imageUrls.length) throw new Error('Qwen image response did not include an image URL.');
+  const downloaded = await tryDownloadQwenImages(imageUrls);
+  return {
+    provider: 'qwen',
+    model: resolvedModel,
+    imageUrls,
+    dataUrls: downloaded.dataUrls,
+    mimeType: downloaded.mimeType,
+    imageCount: qwenUsageImageCount(data, imageUrls.length),
+    taskId
+  };
+}
+
 export default async function handler(req, res) {
   const cors = resolveCorsOrigin(req);
   res.setHeader?.('Access-Control-Allow-Origin', cors.origin);
   res.setHeader?.('Vary', 'Origin');
   res.setHeader?.('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key, X-Access-Token');
+  res.setHeader?.('Access-Control-Allow-Headers', 'Content-Type, X-User-Api-Key, X-Qwen-Api-Key, X-Access-Token');
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -212,9 +468,15 @@ export default async function handler(req, res) {
     return;
   }
 
+  let body = {};
+  let userApiKey;
+
   try {
-    const body = parseBody(req);
-    const userApiKey = req.headers?.['x-user-api-key'] || undefined;
+    body = parseBody(req);
+    const provider = resolveImageProvider(body.provider);
+    userApiKey = provider === 'qwen'
+      ? (req.headers?.['x-qwen-api-key'] || req.headers?.['x-user-api-key'] || undefined)
+      : (req.headers?.['x-user-api-key'] || undefined);
 
     if (!userApiKey && !checkAccessToken(req)) {
       sendError(res, 401, '서버 API 키를 사용하려면 접근 토큰(X-Access-Token)이 필요합니다.');
@@ -223,6 +485,22 @@ export default async function handler(req, res) {
 
     if (!String(body.prompt || '').trim()) {
       sendError(res, 400, '이미지 생성 프롬프트가 없습니다.');
+      return;
+    }
+
+    if (provider === 'qwen') {
+      const result = await callQwen({
+        model: body.model,
+        prompt: body.prompt,
+        negativePrompt: body.negativePrompt,
+        size: body.size,
+        n: body.n,
+        region: body.region,
+        workspaceId: body.workspaceId,
+        userApiKey
+      });
+
+      res.status(200).json({ ok: true, ...result });
       return;
     }
 
@@ -243,23 +521,41 @@ export default async function handler(req, res) {
         ? '요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.'
         : (error instanceof Error ? error.message : String(error));
     const message = error?.detail ? `${baseMessage} :: ${String(error.detail).slice(0, 500)}` : baseMessage;
-    sendError(res, status, message, error?.code);
+    sendError(res, status, sanitizeErrorMessage(message, [
+      userApiKey,
+      process.env.GEMINI_API_KEY,
+      process.env.DASHSCOPE_API_KEY
+    ]), error?.code);
   }
 }
 
 // exported for tests only; never logs key material
 export const __internal = {
   maskKey,
+  sanitizeErrorMessage,
   resolveCorsOrigin,
   checkAccessToken,
+  resolveImageProvider,
   resolveImageModel,
   resolveAspectRatio,
   buildFinalPrompt,
   extractInlineImage,
   isImageSizeRejection,
+  resolveQwenModel,
+  resolveQwenRegion,
+  resolveQwenSize,
+  clampQwenImageCount,
+  buildQwenBaseUrl,
+  buildQwenEndpoint,
+  buildQwenRequestBody,
+  extractQwenImageUrls,
+  qwenUsageImageCount,
+  pollQwenTask,
   fetchWithTimeout,
   rateLimitBuckets,
   QUALITY_BOOSTER,
   DEFAULT_IMAGE_MODEL,
-  DEFAULT_IMAGE_SIZE
+  DEFAULT_IMAGE_SIZE,
+  QWEN_DEFAULT_MODEL,
+  QWEN_DEFAULT_SIZE
 };

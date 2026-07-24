@@ -10,6 +10,19 @@ import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 import { GEMINI_BYOK_KEY } from '../core/thumbnailImageGen';
+import {
+  DEFAULT_QWEN_IMAGE_SETTINGS,
+  QWEN_BYOK_KEY,
+  QWEN_IMAGE_MODELS,
+  QWEN_IMAGE_RESOLUTIONS,
+  QWEN_IMAGE_SETTINGS_KEY,
+  normalizeQwenImageSettings,
+  qwenResolutionAllowed,
+  qwenResolutionFamily,
+  type QwenImageModel,
+  type QwenImageResolution,
+  type QwenImageSettings
+} from '../core/qwenImageSettings';
 
 // TASK F1 (v3.6) — read from the registry instead of a hardcoded list; a
 // model id typed into the free-text fallback (see the "직접 입력" input
@@ -48,6 +61,9 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
   const [geminiKey, setGeminiKey] = useState('');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [qwenKey, setQwenKey] = useState('');
+  const [showQwenKey, setShowQwenKey] = useState(false);
+  const [qwenSettings, setQwenSettings] = useState<QwenImageSettings>(DEFAULT_QWEN_IMAGE_SETTINGS);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [inputPrice, setInputPrice] = useState('');
   const [outputPrice, setOutputPrice] = useState('');
@@ -67,6 +83,13 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   useEffect(() => {
     if (!open) return;
     void getSetting<string>(GEMINI_BYOK_KEY).then(stored => setGeminiKey(stored || ''));
+    void Promise.all([
+      getSetting<string>(QWEN_BYOK_KEY),
+      getSetting<Partial<QwenImageSettings>>(QWEN_IMAGE_SETTINGS_KEY)
+    ]).then(([storedKey, storedSettings]) => {
+      setQwenKey(storedKey || '');
+      setQwenSettings(normalizeQwenImageSettings(storedSettings));
+    });
   }, [open]);
 
   useEffect(() => {
@@ -155,6 +178,27 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     setGeminiKey('');
   }
 
+  async function saveQwenKey(value: string) {
+    setQwenKey(value);
+    await setSetting(QWEN_BYOK_KEY, value);
+  }
+
+  async function clearQwenKey() {
+    await deleteSetting(QWEN_BYOK_KEY);
+    setQwenKey('');
+  }
+
+  async function updateQwenImageSettings(patch: Partial<QwenImageSettings>) {
+    let next = normalizeQwenImageSettings({ ...qwenSettings, ...patch });
+    if (!qwenResolutionAllowed(next.model, next.resolution)) {
+      const family = qwenResolutionFamily(next.model);
+      const fallback = QWEN_IMAGE_RESOLUTIONS.find(resolution => resolution.models === family)?.value || DEFAULT_QWEN_IMAGE_SETTINGS.resolution;
+      next = normalizeQwenImageSettings({ ...next, resolution: fallback });
+    }
+    setQwenSettings(next);
+    await setSetting(QWEN_IMAGE_SETTINGS_KEY, next);
+  }
+
   async function testConnection() {
     setTestResult({ state: 'testing' });
     try {
@@ -231,6 +275,72 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           216곡(18주 x 12곡) 기준 총 출력은 약 0.15M~0.32M 토큰으로, Sonnet 기준 대략 몇 달러 수준입니다. API가 비싸서 피해야 할 이유는 없습니다 —
           단계마다 어디에 API가 가장 도움이 되는지만 참고하세요. (정확한 단가는 계속 바뀌므로 여기서 고정하지 않습니다. 실제 사용량은 위 "API 사용 기록"에서 확인하세요.)
         </p>
+        <label>Image generation - Qwen (Model Studio)</label>
+        <p className="supporting">
+          Uses Alibaba Cloud Model Studio through /api/image. Stored locally as byok:qwen. Confirmed docs list qwen-image-3.0-pro, Qwen-Image 2.0/2.0 Pro, and Plus/Image models.
+        </p>
+        <div className="inline">
+          <input
+            type={showQwenKey ? 'text' : 'password'}
+            value={qwenKey}
+            onChange={event => void saveQwenKey(event.target.value)}
+            placeholder="sk-..."
+          />
+          <button type="button" className="icon-button" title={showQwenKey ? 'Hide' : 'Show'} onClick={() => setShowQwenKey(v => !v)}>
+            {showQwenKey ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+          <button type="button" className="icon-button" title="Clear" onClick={() => void clearQwenKey()}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+        {qwenKey && <p className="error">This key is stored in this browser only. Do not use it on a shared computer.</p>}
+        <div className="form-grid two">
+          <label>
+            Region
+            <select value={qwenSettings.region} onChange={event => void updateQwenImageSettings({ region: event.target.value === 'beijing' ? 'beijing' : 'singapore' })}>
+              <option value="singapore">Singapore / international</option>
+              <option value="beijing">China (Beijing)</option>
+            </select>
+          </label>
+          <label>
+            WorkspaceId (optional)
+            <input
+              value={qwenSettings.workspaceId}
+              onChange={event => void updateQwenImageSettings({ workspaceId: event.target.value })}
+              placeholder="Leave blank for default DashScope base URL"
+            />
+          </label>
+          <label>
+            Model
+            <select value={qwenSettings.model} onChange={event => void updateQwenImageSettings({ model: event.target.value as QwenImageModel })}>
+              {QWEN_IMAGE_MODELS.map(model => (
+                <option key={model.id} value={model.id}>{model.label} - {model.priceCny === 0 ? 'limited-time free' : `${model.priceCny.toFixed(6)} CNY/image`}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Resolution
+            <select value={qwenSettings.resolution} onChange={event => void updateQwenImageSettings({ resolution: event.target.value as QwenImageResolution })}>
+              {QWEN_IMAGE_RESOLUTIONS
+                .filter(resolution => resolution.models === qwenResolutionFamily(qwenSettings.model))
+                .map(resolution => (
+                  <option key={resolution.value} value={resolution.value}>{resolution.label}</option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Session limit
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={qwenSettings.sessionLimit}
+              onChange={event => void updateQwenImageSettings({ sessionLimit: Number(event.target.value) || DEFAULT_QWEN_IMAGE_SETTINGS.sessionLimit })}
+            />
+          </label>
+        </div>
+        <p className="supporting">If the key is not set, the thumbnail panel keeps the prompt-copy workflow available and disables in-app Qwen generation.</p>
+
         <div className="api-advice-table">
           {Object.values(STAGE_ADVICE).map(advice => (
             <div key={advice.stage} className="api-advice-row">
@@ -409,6 +519,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         <label>📊 API 사용 기록</label>
         {usage && (
           <div className="signature-grid">
+            <div><b>Image generations</b><span>{usage.totalImages.toLocaleString()} images</span></div>
+            <div><b>Image cost estimate</b><span>{usage.totalImageCostCny.toFixed(6)} CNY</span></div>
             <div><b>총 호출</b><span>{usage.totalCalls}회</span></div>
             <div><b>입력 토큰</b><span>{usage.totalInput.toLocaleString()}</span></div>
             <div><b>출력 토큰</b><span>{usage.totalOutput.toLocaleString()}</span></div>

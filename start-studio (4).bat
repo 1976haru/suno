@@ -6,6 +6,7 @@ cd /d "%~dp0"
 set "BRANCH=feat/notion-genre-library"
 set "KEYFILE=%~dp0.anthropic_key"
 set "GEMINIKEYFILE=%~dp0.gemini_key"
+set "QWENKEYFILE=%~dp0.qwen_key"
 
 REM Turn on Anthropic debug logging so [GEN DIAG] / [GEN USAGE] lines print
 REM in this window. Remove this line later once generation is stable.
@@ -64,6 +65,28 @@ if exist "%GEMINIKEYFILE%" (
         >"%GEMINIKEYFILE%" echo !NEWGEMINIKEY!
         set "GEMINI_API_KEY=!NEWGEMINIKEY!"
         echo  Gemini key saved. It will be used automatically next time.
+    )
+)
+echo.
+
+if exist "%QWENKEYFILE%" (
+    set /p DASHSCOPE_API_KEY=<"%QWENKEYFILE%"
+    echo [KEY] Using saved Qwen Model Studio API key ^(image generation^).
+) else (
+    echo [KEY] No saved Qwen Model Studio API key found.
+    echo       This key is only needed for Qwen image generation.
+    echo       Paste your Model Studio key and press Enter, or press Enter to skip.
+    echo.
+    set /p "NEWQWENKEY=Qwen Key (optional): "
+    if "!NEWQWENKEY!"=="" (
+        echo.
+        echo  No Qwen key entered. Qwen image generation will need a key added
+        echo  later in Settings, or you can rerun this script.
+        echo.
+    ) else (
+        >"%QWENKEYFILE%" echo !NEWQWENKEY!
+        set "DASHSCOPE_API_KEY=!NEWQWENKEY!"
+        echo  Qwen key saved. It will be used automatically next time.
     )
 )
 echo.

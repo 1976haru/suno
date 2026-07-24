@@ -15,3 +15,4 @@ suno-helper/.profile/
 # (Claude + Gemini). Never commit these; each is a plaintext key on disk.
 .anthropic_key
 .gemini_key
+.qwen_key
