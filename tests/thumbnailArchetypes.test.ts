@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { thumbnailArchetypes, thumbnailArchetypeCount } from '../src/data/thumbnailArchetypes';
+import { kidsThumbnailArchetypes, placeThumbnailArchetypes, seasonalThumbnailArchetypes, thumbnailArchetypes, thumbnailArchetypeCount } from '../src/data/thumbnailArchetypes';
 import type { ThumbnailArchetype } from '../src/data/thumbnailArchetypes';
 
 // TASK v3.38 Part A/B — 6 seasonal Korean-serif archetypes + 3 kids-bright archetypes.
@@ -12,12 +12,19 @@ const EXPECTED_CATEGORIES = [
   'summer-sea-morning',
   'rain-window-quiet',
   'night-city-warm',
+  'city-roma',
+  'city-paris',
+  'city-barcelona',
+  'city-prague',
+  'city-kyoto',
+  'village-provence',
   'kids-animal-meadow',
   'kids-playground-sky',
   'kids-cozy-room'
 ];
 const SEASONAL_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(0, 6));
-const KIDS_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(6));
+const PLACE_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(6, 12));
+const KIDS_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(12));
 
 const directReferenceTerms = /\b(in the style of|same composition as|movie scene from|film still from|screenshot from|as seen in|disney|pixar|marvel|netflix|ghibli|miyazaki|nolan|spielberg|tarantino|kubrick|wes anderson|tom hanks|leonardo dicaprio)\b|시소웨이브|GOMCAM/i;
 
@@ -46,8 +53,11 @@ function allText(archetype: ThumbnailArchetype): string {
 
 describe('thumbnail archetype library', () => {
   it('defines the 6 seasonal Korean-serif + 3 kids-bright categories', () => {
-    expect(thumbnailArchetypeCount).toBe(9);
+    expect(thumbnailArchetypeCount).toBe(15);
     expect(thumbnailArchetypes.map(archetype => archetype.category)).toEqual(EXPECTED_CATEGORIES);
+    expect(seasonalThumbnailArchetypes).toHaveLength(6);
+    expect(placeThumbnailArchetypes).toHaveLength(6);
+    expect(kidsThumbnailArchetypes).toHaveLength(3);
   });
 
   it('fills every required field with reusable prompt material', () => {
@@ -68,7 +78,7 @@ describe('thumbnail archetype library', () => {
       // TASK v3.38 Part A — seasonal archetypes use the Korean-serif grammar
       // (thin serif, no outline, divider+subtitle); Part B5's 3 kids
       // archetypes use a deliberately different bold/bright grammar.
-      if (SEASONAL_CATEGORIES.has(archetype.category)) {
+      if (SEASONAL_CATEGORIES.has(archetype.category) || PLACE_CATEGORIES.has(archetype.category)) {
         expect(archetype.recommendedTypography.outline, archetype.id).toBe('none');
         expect(archetype.recommendedTypography.font.toLowerCase(), archetype.id).toContain('serif');
         expect(archetype.recommendedTypography.divider, archetype.id).toBe(true);
@@ -90,6 +100,22 @@ describe('thumbnail archetype library', () => {
   // TASK v3.38 Part B5 — the 3 kids archetypes must explicitly ban character/
   // mascot/brand-IP terms in their forbiddenElements (this is where those
   // brand names are *supposed* to appear — see allText()'s exclusion above).
+  it('place-series archetypes carry compact city/village fields for small thumbnails', () => {
+    for (const archetype of placeThumbnailArchetypes) {
+      expect(archetype.sceneCore?.length, archetype.id).toBeGreaterThanOrEqual(4);
+      expect(archetype.sceneCore?.length, archetype.id).toBeLessThanOrEqual(6);
+      expect(archetype.signatureObjects?.length, archetype.id).toBeGreaterThan(0);
+      expect(archetype.signatureObjects?.length, archetype.id).toBeLessThanOrEqual(3);
+      expect(archetype.lighting, archetype.id).toBeTruthy();
+      expect(archetype.palette, archetype.id).toBeTruthy();
+      expect(archetype.cameraFeel, archetype.id).toBeTruthy();
+      expect(archetype.textSafeZone, archetype.id).toEqual(['left-third']);
+      expect(archetype.negatives?.join(' ').toLowerCase(), archetype.id).toContain('shared');
+      expect(archetype.placeSeries?.bottomBrandLine, archetype.id).toMatch(/^[A-Z ]+PLAYLIST$/);
+      expect(archetype.placeSeries?.bindSeriesTone, archetype.id).toBe(true);
+    }
+  });
+
   it('kids archetypes ban cartoon/mascot/branded-character terms and never show a child\'s face', () => {
     for (const archetype of thumbnailArchetypes) {
       if (!KIDS_CATEGORIES.has(archetype.category)) continue;

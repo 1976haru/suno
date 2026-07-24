@@ -8,16 +8,17 @@ import type {
 } from '../data/thumbnailArchetypes';
 import type { ThumbnailTypographyGuide } from '../types';
 import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS, thumbnailPromptSafetyIssues, uniqueThumbnailClauses } from './thumbnailSafety';
+import { BACK_VIEW_PEOPLE_ONLY, COMMON_NEGATIVE_TERMS, FILM_PHOTO_SPEC, TEXTLESS_BACKGROUND_ONLY } from './thumbnailPromptBlocks';
 
 // TASK v3.38 Part A5 — always appended, last, to every generated prompt so
 // an external tool (ChatGPT, Midjourney, Stable Diffusion) defaults to the
 // Korean-serif grammar's photographic look rather than an AI-plastic render.
-const QUALITY_BOOSTER = 'editorial photography, photorealistic, natural available light, soft shadows, shallow depth of field, muted warm color grading, film-like texture, generous negative space on the left third, clean composition';
+const QUALITY_BOOSTER = FILM_PHOTO_SPEC;
 
 export type ThumbnailPromptVariantId = 'A' | 'B' | 'C';
 
 /** TASK v3.37 (spec item D) — 'cover' is the 1:1 channel/album cover mode; 'thumbnail' (default) is the existing 16:9 mode. */
-export type ThumbnailPromptMode = 'thumbnail' | 'cover';
+export type ThumbnailPromptMode = 'thumbnail' | 'portrait' | 'cover';
 
 export interface ThumbnailPromptComposerOptions {
   archetypeId: ThumbnailArchetypeId;
@@ -26,7 +27,7 @@ export interface ThumbnailPromptComposerOptions {
   peopleMode?: ThumbnailPeopleMode;
   textSafeZone?: ThumbnailTextSafeZone;
   seed?: number;
-  resolution?: '1280x720' | '1920x1080' | '3000x3000';
+  resolution?: '1280x720' | '1920x1080' | '2400x3000' | '3000x3000';
   mode?: ThumbnailPromptMode;
   /** TASK v3.37-b (work item 1) — a free-text scene detail (GenerationOptions.customConcept or a multi-set's own concept); never alters which archetype pool items get picked (seed/axis logic is unaffected), only adds one extra descriptive clause. Empty/undefined is a full no-op. */
   concept?: string;
@@ -95,6 +96,12 @@ const TEXT_SAFE_ZONE_COPY: Record<ThumbnailTextSafeZone, string> = {
 
 const KIDS_TEXT_ZONE_COPY = 'generous open, low-clutter space around the subject reserved for a bold rounded headline — keep this area bright and simple';
 
+const TEXT_SAFE_ZONE_BACKGROUND_COPY: Record<ThumbnailTextSafeZone, string> = {
+  'left-third': 'left third of the frame reserved as blank, calm, low-detail space for later text overlay; do not render any text in the image'
+};
+
+const KIDS_TEXT_ZONE_BACKGROUND_COPY = 'generous open, low-clutter space around the subject reserved for later text overlay; do not render any text in the image';
+
 function hashString(value: string): number {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i++) {
@@ -119,7 +126,7 @@ function pickZone(archetype: ThumbnailArchetype, requested: ThumbnailTextSafeZon
 // case did.
 function peopleInstruction(peopleMode: ThumbnailPeopleMode): string {
   if (peopleMode === 'none') return 'People: no people; keep the image led by place, objects, light, and atmosphere.';
-  return 'People: a single distant figure seen from behind or in silhouette only, small in frame, face never shown, no recognizable features.';
+  return `People: ${BACK_VIEW_PEOPLE_ONLY}.`;
 }
 
 function normalizeConceptForPrompt(concept: string | undefined): string {
@@ -143,6 +150,7 @@ function conceptClause(concept: string | undefined): string {
 
 function forbiddenClause(archetype: ThumbnailArchetype): string {
   const base = [
+    ...COMMON_NEGATIVE_TERMS,
     'no text',
     'no letters',
     'no logo',
@@ -178,12 +186,13 @@ function buildPrompt(
   variant: Omit<ThumbnailPromptVariant, 'prompt' | 'safetyIssues'>,
   seasonId: string,
   timeOfDay: ThumbnailTimeOfDay,
-  resolution: '1280x720' | '1920x1080' | '3000x3000',
+  resolution: '1280x720' | '1920x1080' | '2400x3000' | '3000x3000',
   mode: ThumbnailPromptMode,
   concept?: string
 ): string {
   const season = SEASON_DESCRIPTORS[seasonId] ?? 'seasonal visual details';
   const isCover = mode === 'cover';
+  const isPortrait = mode === 'portrait';
   // TASK v3.38 Part B5 — kids archetypes (recommendedTypography.divider is
   // only true for the Korean-serif grammar) get their own open/centered
   // zone description instead of the "divider + subtitle" phrasing, which
@@ -196,15 +205,18 @@ function buildPrompt(
   // structural clause. See tests/thumbnailPromptSafety.test.ts.
   const frameClause = isCover
     ? `Original 1:1 square album cover art prompt, ${resolution}.`
-    : `Original YouTube playlist thumbnail prompt, 16:9 landscape, ${resolution}.`;
+    : isPortrait
+      ? `Original 4:5 portrait playlist background prompt, ${resolution}.`
+      : `Original YouTube playlist thumbnail prompt, 16:9 landscape, ${resolution}.`;
   const clauses = [
     frameClause,
+    TEXTLESS_BACKGROUND_ONLY,
     `Use an independent ${archetype.category} arrangement; do not recreate any single reference image.`,
     `Season and time: ${season}, ${TIME_DESCRIPTORS[timeOfDay]}.`,
     `Subject: ${variant.subject}.`,
     `Setting: ${variant.setting}.`,
     conceptClause(concept),
-    `Composition: ${variant.composition}; ${isKidsGrammar ? KIDS_TEXT_ZONE_COPY : TEXT_SAFE_ZONE_COPY[variant.textSafeZone]}.`,
+    `Composition: ${variant.composition}; ${isKidsGrammar ? KIDS_TEXT_ZONE_BACKGROUND_COPY : TEXT_SAFE_ZONE_BACKGROUND_COPY[variant.textSafeZone]}.`,
     `Lighting: ${variant.lighting}.`,
     `Color palette: ${variant.palette}.`,
     `Camera: ${variant.camera}.`,
@@ -243,7 +255,7 @@ export function composeThumbnailPromptSet(options: ThumbnailPromptComposerOption
   const timeOfDay = options.timeOfDay ?? 'morning';
   const peopleMode = options.peopleMode ?? 'none';
   const mode = options.mode ?? 'thumbnail';
-  const resolution = options.resolution ?? (mode === 'cover' ? '3000x3000' : '1280x720');
+  const resolution = options.resolution ?? (mode === 'cover' ? '3000x3000' : mode === 'portrait' ? '2400x3000' : '1280x720');
   const baseSeed = hashString(`${archetype.id}:${seasonId}:${timeOfDay}:${mode}:${options.seed ?? 0}`);
 
   const variants = VARIANT_IDS.map((id, variantIndex) => {

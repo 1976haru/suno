@@ -436,6 +436,16 @@ export interface ThumbnailTypographyGuide {
   subtitle: boolean;
 }
 
+export interface ThumbnailCompositionGuide {
+  topSubcaption: string;
+  mainPhrase: string;
+  subtitle: string;
+  bottomBrandLine: string;
+  textColor: string;
+  shadowColor: string;
+  playerOverlay: boolean;
+}
+
 export interface ThumbnailSpec {
   /** Always exactly 3 — A: 질문형(호기심), B: 감성형, C: 공감형 (TASK v3.38 Part A). */
   variants: ThumbnailVariant[];
@@ -454,8 +464,11 @@ export interface ThumbnailSpec {
   imagePromptVariants: {
     generic: string;
     midjourney: string;
+    qwenImage: string;
     stableDiffusion: string;
   };
+  /** TASK v3.40 Part D4 — text/canvas guidance kept separate from every image prompt. */
+  compositionGuide?: ThumbnailCompositionGuide;
   /** TASK v3.38 — the archetype's recommended on-image typography, kept separate from imagePromptVariants. */
   typography: ThumbnailTypographyGuide;
 }

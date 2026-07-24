@@ -66,6 +66,16 @@ function songThumbnailMarkdown(song: SongIdea): string {
 
 function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
   if (!spec) return '';
+  const selected = spec.variants.find(variant => variant.id === spec.selected) ?? spec.variants[0];
+  const guide = spec.compositionGuide ?? {
+    topSubcaption: '감성으로 듣는',
+    mainPhrase: selected?.headline.replace('\n', ' ') || 'Playlist',
+    subtitle: '감성 플레이리스트',
+    bottomBrandLine: 'PLAYLIST',
+    textColor: spec.colorScheme.text,
+    shadowColor: 'rgba(0,0,0,0.45)',
+    playerOverlay: false
+  };
   const variantLines = spec.variants
     .map(v => `- ${v.id}안 (${v.angle})${v.id === spec.selected ? ' — 선택됨' : ''}: ${v.headline.replace('\n', ' / ')} / ${v.subline}`)
     .join('\n');
@@ -77,6 +87,16 @@ Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.acc
 
 Objects: ${spec.objects.join(', ')}
 
+Composition Guide:
+
+- Top subcaption: ${guide.topSubcaption}
+- Main phrase: ${guide.mainPhrase}
+- Subtitle: ${guide.subtitle}
+- Bottom brand line: ${guide.bottomBrandLine}
+- Text color: ${guide.textColor}
+- Shadow color: ${guide.shadowColor}
+- Player UI overlay: ${guide.playerOverlay ? 'yes' : 'no'}
+
 Composition: ${spec.composition}
 
 Forbidden: ${spec.forbidden.join('; ')}
@@ -85,6 +105,24 @@ Image Prompt:
 
 \`\`\`text
 ${spec.imagePrompt}
+\`\`\`
+
+Midjourney Prompt:
+
+\`\`\`text
+${spec.imagePromptVariants.midjourney}
+\`\`\`
+
+Qwen Image Prompt:
+
+\`\`\`text
+${spec.imagePromptVariants.qwenImage ?? spec.imagePromptVariants.generic}
+\`\`\`
+
+Stable Diffusion Prompt:
+
+\`\`\`text
+${spec.imagePromptVariants.stableDiffusion}
 \`\`\`
 
 `;

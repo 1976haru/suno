@@ -4,7 +4,7 @@ import {
   countThumbnailAxisDifferences
 } from '../src/core/thumbnailPromptComposer';
 import { REQUIRED_THUMBNAIL_NEGATIVE_TERMS, thumbnailPromptSafetyIssues } from '../src/core/thumbnailSafety';
-import { thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
+import { kidsThumbnailArchetypes, seasonalThumbnailArchetypes, thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 
 const directNames = /\b(disney|pixar|marvel|netflix|ghibli|miyazaki|nolan|spielberg|tarantino|kubrick|wes anderson|tom hanks|leonardo dicaprio|scarlett johansson|meryl streep|youtube channel|pinkfong|cocomelon)\b|시소웨이브|GOMCAM/i;
 
@@ -32,8 +32,10 @@ describe('thumbnail prompt composer safety', () => {
       for (const variant of set.variants) {
         const lower = variant.prompt.toLowerCase();
         for (const required of REQUIRED_THUMBNAIL_NEGATIVE_TERMS) {
-          expect(lower, `${archetype.id} ${variant.id}`).toContain(required);
+          expect(lower, `${archetype.id} ${variant.id}`).toContain(required.toLowerCase());
         }
+        expect(variant.prompt, `${archetype.id} ${variant.id}`).toContain('Kodak Portra 400');
+        expect(lower, `${archetype.id} ${variant.id}`).toContain('textless background only');
         expect(variant.prompt, `${archetype.id} ${variant.id}`).toContain('16:9');
         expect(variant.prompt, `${archetype.id} ${variant.id}`).toMatch(/1280x720|1920x1080/);
         expect(promptWithoutNegativeClause(variant.prompt), `${archetype.id} ${variant.id}`).not.toMatch(directNames);
@@ -80,7 +82,7 @@ describe('thumbnail prompt composer safety', () => {
       for (const variant of set.variants) {
         const lower = variant.prompt.toLowerCase();
         for (const required of REQUIRED_THUMBNAIL_NEGATIVE_TERMS) {
-          expect(lower, `${archetype.id} ${variant.id}`).toContain(required);
+          expect(lower, `${archetype.id} ${variant.id}`).toContain(required.toLowerCase());
         }
         expect(variant.prompt, `${archetype.id} ${variant.id}`).toContain('1:1');
         expect(variant.prompt, `${archetype.id} ${variant.id}`).toContain('3000x3000');
@@ -102,11 +104,11 @@ describe('thumbnail prompt composer safety', () => {
   // TASK v3.38 Part A1 — every seasonal archetype's textSafeZone pool now
   // contains only 'left-third'; every generated variant must resolve to it.
   it('every seasonal-archetype variant resolves to the fixed left-third text zone', () => {
-    for (const archetype of thumbnailArchetypes.slice(0, 6)) {
+    for (const archetype of seasonalThumbnailArchetypes) {
       const set = composeThumbnailPromptSet({ archetypeId: archetype.id, seasonId: 'may-cafe', seed: 9 });
       for (const variant of set.variants) {
         expect(variant.textSafeZone, `${archetype.id} ${variant.id}`).toBe('left-third');
-        expect(variant.prompt.toLowerCase(), `${archetype.id} ${variant.id}`).toContain('left third of the frame reserved for a thin korean serif headline');
+        expect(variant.prompt.toLowerCase(), `${archetype.id} ${variant.id}`).toContain('left third of the frame reserved as blank');
       }
     }
   });
@@ -176,7 +178,7 @@ describe('thumbnail prompt composer safety', () => {
   // TASK v3.38 Part A5 — every seasonal archetype applies the same
   // backs/silhouette-only people rule now (no more per-archetype special case).
   it('keeps people small, anonymous, and seen from behind or in silhouette only, across every seasonal archetype', () => {
-    for (const archetype of thumbnailArchetypes.slice(0, 6)) {
+    for (const archetype of seasonalThumbnailArchetypes) {
       const set = composeThumbnailPromptSet({
         archetypeId: archetype.id,
         peopleMode: 'distant-silhouette',
@@ -199,7 +201,7 @@ describe('thumbnail prompt composer safety', () => {
   // grammar (bright/saturated, no film grain, centered/open composition
   // instead of the fixed left-third) and explicitly ban character/mascot IP.
   describe('kids archetypes (Part B5)', () => {
-    const kidsArchetypes = thumbnailArchetypes.slice(6);
+    const kidsArchetypes = kidsThumbnailArchetypes;
 
     it('produce bright, non-photographic-grain prompts with character/mascot bans, no undefined text-zone leakage', () => {
       for (const archetype of kidsArchetypes) {

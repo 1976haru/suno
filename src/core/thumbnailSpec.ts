@@ -1,10 +1,11 @@
-import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
+import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailCompositionGuide, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { thumbnailArchetypeById, type ThumbnailArchetype, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
 import { getRecurringMotifPhrases, type SeasonFamily } from './localGenerator';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS } from './thumbnailSafety';
+import { BACK_VIEW_PEOPLE_ONLY, COMMON_NEGATIVE_BLOCK, FILM_PHOTO_SPEC, TEXTLESS_BACKGROUND_ONLY, midjourneyNoTerms } from './thumbnailPromptBlocks';
 
 export type { ThumbnailSpec, ThumbnailVariant };
 
@@ -130,9 +131,9 @@ const FORBIDDEN_ELEMENTS = [
   '작은 글씨 (최소 폰트 크기 대비 확보)'
 ];
 
-export type ImageToolId = 'generic' | 'midjourney' | 'stableDiffusion';
+export type ImageToolId = 'generic' | 'midjourney' | 'qwenImage' | 'stableDiffusion';
 
-export type ImagePromptMode = 'thumbnail' | 'cover';
+export type ImagePromptMode = 'thumbnail' | 'portrait' | 'cover';
 
 /**
  * TASK v3.38 (work item 2) — appended to the end of all three prompt
@@ -141,7 +142,7 @@ export type ImagePromptMode = 'thumbnail' | 'cover';
  * an AI-plastic one. Kept as a single literal string (not derived) so the
  * exact wording the user approved never drifts.
  */
-const QUALITY_BOOSTER = 'editorial photography, photorealistic, natural available light, soft shadows, shallow depth of field, muted warm color grading, film-like texture, generous negative space on the left third, clean composition';
+const QUALITY_BOOSTER = FILM_PHOTO_SPEC;
 
 /** TASK v3.37-b (work item 2) — cover-mode-only style directive; empty/unused in thumbnail mode. */
 const COVER_STYLE_DIRECTIVE = 'album cover aesthetic, iconic and simple, centered subject, readable at small size';
@@ -189,7 +190,12 @@ function pickFromPool(pool: string[], seed: number) {
  * pools) are untouched.
  */
 function archetypeHeaderFor(archetype: ThumbnailArchetype, mode: ImagePromptMode): string {
-  if (mode !== 'cover') return archetype.promptTemplate;
+  if (mode === 'thumbnail') return archetype.promptTemplate;
+  if (mode === 'portrait') {
+    return archetype.promptTemplate
+      .replace(/\b16:9\s+/i, '')
+      .replace(/\bthumbnail\b/i, 'portrait background');
+  }
   return archetype.promptTemplate
     .replace(/\b16:9\s+/i, '')
     .replace(/\bthumbnail\b/i, 'cover art');
@@ -219,6 +225,7 @@ function buildSceneParts(
   const compositionBase = pickFromPool(archetype.compositionPool, seed + 19);
   const archetypePalette = pickFromPool(archetype.palettePool, seed + 23);
   const isCover = mode === 'cover';
+  const isPortrait = mode === 'portrait';
 
   const sceneDescription = `${archetypeHeaderFor(archetype, mode)} for a ${season.label.toLowerCase()} playlist, set in ${setting}${conceptClause(concept)}`;
   const subject = [
@@ -229,30 +236,33 @@ function buildSceneParts(
   const cameraAndLens = `${cameraBase}, shallow depth of field, gentle bokeh`;
   const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, ${archetypePalette}, ${isKidsGrammar ? 'bright saturated color' : 'low saturation'}, ${palette.moodEn}`;
   const textureAndFilm = isKidsGrammar
-    ? 'Clean crisp detail, bright natural color, no film grain'
+    ? 'Clean crisp detail, bright natural color, gentle photographic texture'
     : 'Subtle film grain, analog warmth, slightly faded like an old photograph';
   // TASK v3.38 Part A1 — seasonal archetypes always reserve the left third
   // for the headline/divider/subtitle block; kids archetypes (B5) use their
   // own open-space composition instead (no divider/subtitle grammar there).
+  const frameShape = isCover ? '1:1 square' : isPortrait ? '4:5 portrait' : '16:9 landscape';
   const composition = isKidsGrammar
-    ? `${isCover ? '1:1 square' : '16:9 landscape'} composition; ${compositionBase}`
+    ? `${frameShape} composition; ${compositionBase}`
     : isCover
       ? `1:1 square composition; ${compositionBase}; the subject stays centered with the left third softly lit and left uncluttered for a text overlay`
-      : `16:9 landscape composition; ${compositionBase}; the left third of the frame is intentionally empty and softly lit, leaving clean space for a headline, divider, and subtitle`;
+      : isPortrait
+        ? `4:5 portrait composition; ${compositionBase}; the upper-left third is intentionally calm and low-detail for a later text overlay`
+      : `16:9 landscape composition; ${compositionBase}; the left third of the frame is intentionally empty and softly lit, leaving clean blank space for later text overlay; do not render any text`;
   const styleDirective = isCover ? COVER_STYLE_DIRECTIVE : '';
-  const aspectRatio = isCover ? '1:1' : '16:9';
+  const aspectRatio = isCover ? '1:1' : isPortrait ? '4:5' : '16:9';
   // TASK v3.38 Part A5 — every seasonal archetype applies the same
   // backs/silhouette-only people rule (no more per-archetype special case).
-  const peopleLimit = 'any human figure must stay small, distant, anonymous, seen from behind or in silhouette only, face never shown';
+  const peopleLimit = BACK_VIEW_PEOPLE_ONLY;
   // TASK v3.38 Part A5 — Korean-serif grammar negative additions (glow/HDR/
   // oversaturation/CGI/illustration), on top of the pre-existing base list.
-  const safeNegatives = `no text, no letters, no logo, no logos, no watermark, no watermarks, no close-up faces, no identifiable person, no celebrity, no real celebrity or public figure, no film character, no cartoon characters, no cartoon, no branded IP, no copied pose, no glowing bokeh sparkles, no excessive glow, no oversaturation, no HDR look, no plastic CGI render, no illustration, no famous painting, ${peopleLimit}`;
+  const safeNegatives = `${COMMON_NEGATIVE_BLOCK}, no logos, no watermarks, no close-up faces, no real celebrity or public figure, no film character, no cartoon characters, no copied pose, ${peopleLimit}`;
 
   return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, styleDirective, aspectRatio, negatives: safeNegatives };
 }
 
 function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  return [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, `Negative: ${parts.negatives}`, QUALITY_BOOSTER]
+  return [parts.sceneDescription, TEXTLESS_BACKGROUND_ONLY, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, `Negative: ${parts.negatives}`, QUALITY_BOOSTER]
     .filter(Boolean)
     .join('. ') + '.';
 }
@@ -270,18 +280,36 @@ function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): str
  * prose as more `--no` terms; `--ar` now reflects thumbnail vs cover mode.
  */
 function buildMidjourneyPrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
+  const positive = [parts.sceneDescription, TEXTLESS_BACKGROUND_ONLY, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, `Negative: ${parts.negatives}`, QUALITY_BOOSTER]
     .filter(Boolean)
     .join(', ');
-  return `${positive} --ar ${parts.aspectRatio} --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP, illustration, oversaturation`;
+  return `${positive} --ar ${parts.aspectRatio} --style raw --no ${midjourneyNoTerms()}, logos, watermarks, close-up faces, identifiable people, cartoon characters, copied pose`;
+}
+
+function buildQwenImagePrompt(parts: ReturnType<typeof buildSceneParts>): string {
+  return [
+    'Create a detailed textless background for a playlist thumbnail or cover',
+    TEXTLESS_BACKGROUND_ONLY,
+    FILM_PHOTO_SPEC,
+    parts.sceneDescription,
+    `Subject placement: ${parts.subject}`,
+    `Lighting: ${parts.lighting}`,
+    `Camera and lens: ${parts.cameraAndLens}`,
+    `Color mood: ${parts.colorMood}`,
+    `Texture: ${parts.textureAndFilm}`,
+    `Composition: ${parts.composition}`,
+    parts.styleDirective,
+    `Negative: ${parts.negatives}`,
+    'Leave clean space for typography that will be added later outside the image generator'
+  ].filter(Boolean).join('. ') + '.';
 }
 
 /** TASK B4 (v3.5) — Stable Diffusion UIs (Automatic1111, ComfyUI, etc.) take separate positive/negative prompt fields. */
 function buildStableDiffusionPrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
+  const positive = [parts.sceneDescription, TEXTLESS_BACKGROUND_ONLY, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
     .filter(Boolean)
     .join(', ');
-  return `Positive: ${positive}\nNegative: text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, illustration, oversaturation, HDR look, plastic CGI render, low quality, blurry`;
+  return `Positive: ${positive}\nNegative: ${parts.negatives}, low quality, blurry`;
 }
 
 function buildImagePromptVariants(
@@ -296,6 +324,7 @@ function buildImagePromptVariants(
   return {
     generic: buildGenericImagePrompt(parts),
     midjourney: buildMidjourneyPrompt(parts),
+    qwenImage: buildQwenImagePrompt(parts),
     stableDiffusion: buildStableDiffusionPrompt(parts)
   };
 }
@@ -316,6 +345,67 @@ export function buildCoverImagePromptVariants(
   const season = seasonPacks.find(s => s.id === seasonId) ?? seasonPacks[0];
   const palette = paletteForSeason(season.id);
   return buildImagePromptVariants(season, palette, archetypeId, seed, 'cover', concept);
+}
+
+export function buildPortraitImagePromptVariants(
+  seasonId: string,
+  archetypeId: ThumbnailArchetypeId,
+  seed: number,
+  concept?: string
+): ThumbnailSpec['imagePromptVariants'] {
+  const season = seasonPacks.find(s => s.id === seasonId) ?? seasonPacks[0];
+  const palette = paletteForSeason(season.id);
+  return buildImagePromptVariants(season, palette, archetypeId, seed, 'portrait', concept);
+}
+
+function firstLine(value: string): string {
+  return value.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function defaultTopSubcaption(language: DisplayLanguage, season: SeasonPack): string {
+  if (language === 'english') return `${season.label} listening`;
+  if (language === 'japanese') return `${season.label}に聴く`;
+  return `${season.label}에 듣는`;
+}
+
+function defaultSubtitle(language: DisplayLanguage): string {
+  if (language === 'english') return 'Emotional Playlist';
+  if (language === 'japanese') return '感性プレイリスト';
+  return '감성 플레이리스트';
+}
+
+function defaultBrandLine(channel: ChannelProfile): string {
+  const raw = channel.englishName || channel.name || 'PLAYLIST';
+  const clean = raw
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+  return `${clean || 'PLAYLIST'} PLAYLIST`;
+}
+
+function shadowForText(textColor: string): string {
+  return textColor.toLowerCase() === '#ffffff' ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.35)';
+}
+
+function buildCompositionGuide(
+  archetype: ThumbnailArchetype,
+  selectedVariant: ThumbnailVariant,
+  palette: ThumbnailPalette,
+  channel: ChannelProfile,
+  season: SeasonPack,
+  language: DisplayLanguage
+): ThumbnailCompositionGuide {
+  return {
+    topSubcaption: archetype.placeSeries?.topSubcaption ?? defaultTopSubcaption(language, season),
+    mainPhrase: archetype.placeSeries?.mainPhrase ?? firstLine(selectedVariant.headline),
+    subtitle: defaultSubtitle(language),
+    bottomBrandLine: archetype.placeSeries?.bottomBrandLine ?? defaultBrandLine(channel),
+    textColor: palette.text,
+    shadowColor: shadowForText(palette.text),
+    playerOverlay: false
+  };
 }
 
 /**
@@ -355,6 +445,8 @@ export function buildThumbnailSpec(
   ];
 
   const imagePromptVariants = buildImagePromptVariants(season, palette, archetypeId, seedIndex, 'thumbnail', opts.customConcept);
+  const selectedVariant = variants[0];
+  const compositionGuide = buildCompositionGuide(archetype, selectedVariant, palette, channel, season, language);
 
   return {
     variants,
@@ -374,6 +466,7 @@ export function buildThumbnailSpec(
     forbidden: [...FORBIDDEN_ELEMENTS],
     imagePrompt: imagePromptVariants.generic,
     imagePromptVariants,
+    compositionGuide,
     typography: archetype.recommendedTypography
   };
 }

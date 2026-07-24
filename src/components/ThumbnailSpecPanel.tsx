@@ -3,7 +3,7 @@ import { Copy, Download, RefreshCw, Sparkles } from 'lucide-react';
 import { copyText, downloadText } from '../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { recommendThumbnailCopyLocal } from '../core/conceptAgent';
-import { buildCoverImagePromptVariants, buildThumbnailSpec, type ThumbnailSpec } from '../core/thumbnailSpec';
+import { buildCoverImagePromptVariants, buildPortraitImagePromptVariants, buildThumbnailSpec, type ThumbnailSpec } from '../core/thumbnailSpec';
 import { composeThumbnailPromptSet, type ThumbnailPromptMode } from '../core/thumbnailPromptComposer';
 import { listSetGroups, loadPack, type SetGroupSummary } from '../core/library';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
@@ -29,11 +29,12 @@ interface ThumbnailSpecPanelProps {
   onApplyFreeTextHeadlines: (suggestions: { headline: string; angle: string }[]) => void;
 }
 
-type ImageTool = 'generic' | 'midjourney' | 'stableDiffusion';
+type ImageTool = 'generic' | 'midjourney' | 'qwenImage' | 'stableDiffusion';
 
 const IMAGE_TOOL_LABELS: Record<ImageTool, string> = {
-  generic: 'Generic',
+  generic: 'Generic (ChatGPT/DALL-E)',
   midjourney: 'Midjourney',
+  qwenImage: 'Qwen Image',
   stableDiffusion: 'Stable Diffusion'
 };
 
@@ -60,6 +61,39 @@ const TEXT_ZONE_LABELS: Record<ThumbnailTextSafeZone, string> = {
 const TIME_OPTIONS = Object.keys(TIME_LABELS) as ThumbnailTimeOfDay[];
 const PEOPLE_OPTIONS = Object.keys(PEOPLE_LABELS) as ThumbnailPeopleMode[];
 const TEXT_ZONE_OPTIONS = Object.keys(TEXT_ZONE_LABELS) as ThumbnailTextSafeZone[];
+const IMAGE_TOOLS = Object.keys(IMAGE_TOOL_LABELS) as ImageTool[];
+
+function compositionGuideText(spec: ThumbnailSpec): string {
+  const selected = spec.variants.find(variant => variant.id === spec.selected) ?? spec.variants[0];
+  const guide = spec.compositionGuide ?? {
+    topSubcaption: '감성으로 듣는',
+    mainPhrase: selected?.headline.replace('\n', ' ') || 'Playlist',
+    subtitle: '감성 플레이리스트',
+    bottomBrandLine: 'PLAYLIST',
+    textColor: spec.colorScheme.text,
+    shadowColor: 'rgba(0,0,0,0.45)',
+    playerOverlay: false
+  };
+  return [
+    `Top subcaption: ${guide.topSubcaption}`,
+    `Main phrase: ${guide.mainPhrase}`,
+    `Subtitle: ${guide.subtitle}`,
+    `Bottom brand line: ${guide.bottomBrandLine}`,
+    `Text color: ${guide.textColor}`,
+    `Shadow color: ${guide.shadowColor}`,
+    `Player UI overlay: ${guide.playerOverlay ? 'yes' : 'no'}`
+  ].join('\n');
+}
+
+function promptBlocks(title: string, prompts: ThumbnailSpec['imagePromptVariants']): string[] {
+  return IMAGE_TOOLS.flatMap(tool => [
+    `**${title} - ${IMAGE_TOOL_LABELS[tool]}**`,
+    '```',
+    prompts[tool],
+    '```',
+    ''
+  ]);
+}
 
 export default function ThumbnailSpecPanel({
   spec,
@@ -106,7 +140,7 @@ export default function ThumbnailSpecPanel({
       textSafeZone,
       seed: promptSeed,
       mode: promptMode,
-      resolution: promptMode === 'cover' ? '3000x3000' : '1280x720',
+      resolution: promptMode === 'cover' ? '3000x3000' : promptMode === 'portrait' ? '2400x3000' : '1280x720',
       concept: customConcept
     }),
     [selectedArchetypeId, peopleMode, promptSeasonId, promptSeed, promptMode, textSafeZone, timeOfDay, customConcept]
@@ -122,8 +156,8 @@ export default function ThumbnailSpecPanel({
   );
 
   const selectedVariant = spec.variants.find(v => v.id === spec.selected) ?? spec.variants[0];
-  const activeImagePrompt = spec.imagePromptVariants[imageTool];
-  const activeCoverPrompt = coverImagePromptVariants[imageTool];
+  const activeImagePrompt = spec.imagePromptVariants[imageTool] ?? spec.imagePromptVariants.generic;
+  const activeCoverPrompt = coverImagePromptVariants[imageTool] ?? coverImagePromptVariants.generic;
 
   async function handleCopy(field: string, text: string) {
     await copyText(text);
@@ -159,6 +193,7 @@ export default function ThumbnailSpecPanel({
         if (!pack) continue;
         const season = seasonPacks.find(s => s.id === pack.options.seasonId) ?? seasonPacks[0];
         const packSpec = buildThumbnailSpec(pack.blueprint, pack.options, season, pack.options.channel, 0, selectedArchetypeId);
+        const portrait = buildPortraitImagePromptVariants(season.id, selectedArchetypeId, meta.setIndex ?? 0, pack.options.customConcept);
         const cover = buildCoverImagePromptVariants(season.id, selectedArchetypeId, meta.setIndex ?? 0, pack.options.customConcept);
         const selected = packSpec.variants.find(v => v.id === packSpec.selected) ?? packSpec.variants[0];
         sections.push([
@@ -167,6 +202,14 @@ export default function ThumbnailSpecPanel({
           `**선택 문구 (${selected.id} · ${selected.angle})**`,
           `${selected.headline.replace('\n', ' / ')} / ${selected.subline}`,
           '',
+          '**Composition guide**',
+          '```',
+          compositionGuideText(packSpec),
+          '```',
+          '',
+          ...promptBlocks('Thumbnail 16:9 prompt', packSpec.imagePromptVariants),
+          ...promptBlocks('Portrait 4:5 prompt', portrait),
+          ...promptBlocks('Cover 1:1 prompt', cover),
           '**썸네일(16:9) 프롬프트 — Generic**',
           '```',
           packSpec.imagePromptVariants.generic,
@@ -200,8 +243,11 @@ export default function ThumbnailSpecPanel({
     `Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}`,
     `Objects: ${spec.objects.join(', ')}`,
     `Composition: ${spec.composition}`,
+    `Composition guide:\n${compositionGuideText(spec)}`,
     `Forbidden: ${spec.forbidden.join(' / ')}`,
-    `Image prompt: ${spec.imagePrompt}`
+    `Image prompt: ${spec.imagePrompt}`,
+    `Qwen image prompt: ${spec.imagePromptVariants.qwenImage ?? spec.imagePromptVariants.generic}`,
+    `Stable Diffusion prompt: ${spec.imagePromptVariants.stableDiffusion}`
   ].join('\n');
 
   const archetypePromptBundle = promptSet.variants.map(variant => `[${variant.id}] ${variant.prompt}`).join('\n\n');
@@ -277,6 +323,7 @@ export default function ThumbnailSpecPanel({
           <b>Typography</b>
           <span>{spec.typography.font} · {spec.typography.color} · outline: {spec.typography.outline} · shadow: {spec.typography.shadow}</span>
         </div>
+        <div style={{ gridColumn: '1 / -1' }}><b>Composition guide</b><span>{compositionGuideText(spec).replace(/\n/g, ' 쨌 ')}</span></div>
         <div style={{ gridColumn: '1 / -1' }}><b>Composition</b><span>{spec.composition}</span></div>
         <div style={{ gridColumn: '1 / -1' }}><b>Forbidden</b><span>{spec.forbidden.join(' · ')}</span></div>
       </div>
@@ -290,7 +337,7 @@ export default function ThumbnailSpecPanel({
           </button>
         </div>
         <div className="tab-row">
-          {(Object.keys(IMAGE_TOOL_LABELS) as ImageTool[]).map(tool => (
+          {IMAGE_TOOLS.map(tool => (
             <button
               key={tool}
               type="button"
@@ -320,7 +367,7 @@ export default function ThumbnailSpecPanel({
         </div>
         <p className="supporting">썸네일(16:9)과 독립적으로 생성·복사됩니다. 같은 아키타입/시즌을 쓰지만 여백은 중앙·하단 기준입니다.</p>
         <div className="tab-row">
-          {(Object.keys(IMAGE_TOOL_LABELS) as ImageTool[]).map(tool => (
+          {IMAGE_TOOLS.map(tool => (
             <button
               key={tool}
               type="button"
@@ -339,6 +386,7 @@ export default function ThumbnailSpecPanel({
           <h4>Thumbnail archetype prompt library</h4>
           <div className="button-row">
             <button type="button" className={promptMode === 'thumbnail' ? 'tab active' : 'tab'} onClick={() => setPromptMode('thumbnail')}>16:9</button>
+            <button type="button" className={promptMode === 'portrait' ? 'tab active' : 'tab'} onClick={() => setPromptMode('portrait')}>4:5</button>
             <button type="button" className={promptMode === 'cover' ? 'tab active' : 'tab'} onClick={() => setPromptMode('cover')}>1:1</button>
             <button type="button" onClick={() => setPromptSeed(seed => seed + 1)}>
               <RefreshCw size={15} />

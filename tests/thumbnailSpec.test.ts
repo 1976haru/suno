@@ -228,7 +228,10 @@ describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
     const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
     expect(spec.imagePromptVariants.generic).toBe(spec.imagePrompt);
     expect(spec.imagePromptVariants.midjourney).toContain('--ar 16:9');
+    expect(spec.imagePromptVariants.midjourney).toContain('--style raw');
     expect(spec.imagePromptVariants.midjourney).toContain('--no text');
+    expect(spec.imagePromptVariants.qwenImage).toContain('textless background');
+    expect(spec.imagePromptVariants.qwenImage).toContain('Kodak Portra 400');
     expect(spec.imagePromptVariants.stableDiffusion).toContain('Positive:');
     expect(spec.imagePromptVariants.stableDiffusion).toContain('Negative:');
   });
@@ -240,7 +243,21 @@ describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
     expect(spec.imagePrompt).toContain('no identifiable person');
     expect(spec.imagePrompt).toContain('branded IP');
     expect(spec.imagePromptVariants.midjourney).toContain('branded IP');
+    expect(spec.imagePromptVariants.qwenImage).toContain('branded IP');
     expect(spec.imagePromptVariants.stableDiffusion).toContain('branded IP');
+  });
+
+  it('separates image prompts from text composition guidance', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0], 0, 'city-roma');
+    expect(spec.compositionGuide.topSubcaption).toBe('로마의 햇살과 함께 듣는');
+    expect(spec.compositionGuide.bottomBrandLine).toBe('ROMA PLAYLIST');
+    expect(spec.compositionGuide.playerOverlay).toBe(false);
+    for (const prompt of Object.values(spec.imagePromptVariants)) {
+      expect(prompt).not.toContain('로마의 햇살과 함께 듣는');
+      expect(prompt).not.toContain('ROMA PLAYLIST');
+    }
   });
 
   // TASK v3.38 Part A1 — object/text placement is now a fixed structural

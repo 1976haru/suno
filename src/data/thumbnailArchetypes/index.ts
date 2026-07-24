@@ -4,6 +4,12 @@ import { springBlossomWindowArchetype } from './springBlossomWindow';
 import { summerSeaMorningArchetype } from './summerSeaMorning';
 import { rainWindowQuietArchetype } from './rainWindowQuiet';
 import { nightCityWarmArchetype } from './nightCityWarm';
+import { cityRomaArchetype } from './cityRoma';
+import { cityParisArchetype } from './cityParis';
+import { cityBarcelonaArchetype } from './cityBarcelona';
+import { cityPragueArchetype } from './cityPrague';
+import { cityKyotoArchetype } from './cityKyoto';
+import { villageProvenceArchetype } from './villageProvence';
 import { kidsAnimalMeadowArchetype } from './kidsAnimalMeadow';
 import { kidsPlaygroundSkyArchetype } from './kidsPlaygroundSky';
 import { kidsCozyRoomArchetype } from './kidsCozyRoom';
@@ -20,25 +26,35 @@ export type {
 } from './types';
 export { KOREAN_SERIF_TYPOGRAPHY, KIDS_BRIGHT_TYPOGRAPHY } from './types';
 
-// TASK v3.38 — 6 seasonal Korean-serif archetypes (Part A) followed by 3
-// kids-bright archetypes (Part B5).
-export const thumbnailArchetypes: ThumbnailArchetype[] = [
+export const seasonalThumbnailArchetypes: ThumbnailArchetype[] = [
   autumnWindowGoldenArchetype,
   winterWindowSnowArchetype,
   springBlossomWindowArchetype,
   summerSeaMorningArchetype,
   rainWindowQuietArchetype,
-  nightCityWarmArchetype,
+  nightCityWarmArchetype
+];
+
+export const placeThumbnailArchetypes: ThumbnailArchetype[] = [
+  cityRomaArchetype,
+  cityParisArchetype,
+  cityBarcelonaArchetype,
+  cityPragueArchetype,
+  cityKyotoArchetype,
+  villageProvenceArchetype
+];
+
+export const kidsThumbnailArchetypes: ThumbnailArchetype[] = [
   kidsAnimalMeadowArchetype,
   kidsPlaygroundSkyArchetype,
   kidsCozyRoomArchetype
 ];
 
-/** TASK v3.38 Part A — the 6 seasonal archetype ids only, for UI pickers that shouldn't offer kids-grammar archetypes to a non-kids channel. */
-export const seasonalThumbnailArchetypes: ThumbnailArchetype[] = thumbnailArchetypes.slice(0, 6);
-
-/** TASK v3.38 Part B5 — the 3 kids archetype ids only. */
-export const kidsThumbnailArchetypes: ThumbnailArchetype[] = thumbnailArchetypes.slice(6);
+export const thumbnailArchetypes: ThumbnailArchetype[] = [
+  ...seasonalThumbnailArchetypes,
+  ...placeThumbnailArchetypes,
+  ...kidsThumbnailArchetypes
+];
 
 export const thumbnailArchetypeById = Object.fromEntries(
   thumbnailArchetypes.map(archetype => [archetype.id, archetype])

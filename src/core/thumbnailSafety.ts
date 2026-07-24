@@ -1,11 +1,6 @@
-export const REQUIRED_THUMBNAIL_NEGATIVE_TERMS = [
-  'no text',
-  'no logo',
-  'no watermark',
-  'no identifiable person',
-  'no celebrity',
-  'no film character'
-] as const;
+import { COMMON_NEGATIVE_TERMS } from './thumbnailPromptBlocks';
+
+export const REQUIRED_THUMBNAIL_NEGATIVE_TERMS = COMMON_NEGATIVE_TERMS;
 
 export const FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS: RegExp[] = [
   /\bin the style of\b/i,
@@ -57,7 +52,7 @@ export function thumbnailPromptSafetyIssues(prompt: string): string[] {
   const issues: string[] = [];
   const lower = prompt.toLowerCase();
   for (const required of REQUIRED_THUMBNAIL_NEGATIVE_TERMS) {
-    if (!lower.includes(required)) issues.push(`missing required negative term: ${required}`);
+    if (!lower.includes(required.toLowerCase())) issues.push(`missing required negative term: ${required}`);
   }
   const promptWithoutNegativeClause = stripNegativeClause(prompt);
   for (const pattern of FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS) {

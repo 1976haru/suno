@@ -21,7 +21,7 @@ export const winterWindowSnowArchetype: ThumbnailArchetype = {
     'a windowsill with snow gathering quietly outside'
   ],
   compositionPool: [
-    'the scene fills the right two-thirds; the left third stays calm and low-detail for a headline, divider, and subtitle',
+    'the scene fills the right two-thirds; the left third stays blank, calm, and low-detail for later text overlay',
     'a clean left-third column of soft winter light left empty for text; the subject sits in the right two-thirds',
     'the right two-thirds hold the window and subject; the left third is a quiet gradient reserved for the title block',
     'subject and window anchor the right side; the left third of the frame is deliberately uncluttered for text'

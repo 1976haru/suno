@@ -22,6 +22,8 @@ const BULK_BATCH_ADVICE_THRESHOLD = 40;
 
 const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
 
+type BridgeInstructionMode = 'master' | 'perSet';
+
 function formatRange(range: TokenRange) {
   return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
 }
@@ -95,6 +97,7 @@ export default function Step3Generate({
   const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [masterBridgeCopied, setMasterBridgeCopied] = useState(false);
+  const [bridgeInstructionMode, setBridgeInstructionMode] = useState<BridgeInstructionMode>('master');
   // TASK v3.35 (bridge split) — per-set copy/completion tracking for the multi-set instruction list; session-only (not persisted), reset implicitly whenever the instruction list itself is recomputed (channel/set-count/set-size change) since those are different sets entirely.
   const [copiedSetIndexes, setCopiedSetIndexes] = useState<Set<number>>(new Set());
   const [completedSetIndexes, setCompletedSetIndexes] = useState<Set<number>>(new Set());
@@ -624,6 +627,14 @@ export default function Step3Generate({
           </>
         ) : (
           <>
+            <div className="chips">
+              <button type="button" className={bridgeInstructionMode === 'master' ? 'chip active' : 'chip'} onClick={() => setBridgeInstructionMode('master')}>
+                마스터 지시문 1개
+              </button>
+              <button type="button" className={bridgeInstructionMode === 'perSet' ? 'chip active' : 'chip'} onClick={() => setBridgeInstructionMode('perSet')}>
+                세트별 개별 지시문
+              </button>
+            </div>
             <p className="supporting">
               세트별로 지시문이 분리되어 있어 각 지시문은 그 세트({multiSetClamped.songsPerSet}곡)만 요청합니다 — LLM 응답이 잘리지 않아요.
               Set 01부터 순서대로 복사해 코딩 에이전트에 붙여넣고 결과 파일을 받은 뒤, 완료 체크하고 다음 세트로 넘어가세요.
@@ -632,17 +643,20 @@ export default function Step3Generate({
             <p className="supporting">
               진행 상황: 복사 {copiedSetIndexes.size}/{multiSetBridgeInstructions.length} · 완료 체크 {completedSetIndexes.size}/{multiSetBridgeInstructions.length}
             </p>
-            <div className="button-row">
-              <button type="button" onClick={() => void handleCopyMasterInstruction()}>
-                <Copy size={16} />
-                {masterBridgeCopied ? 'Master copied' : 'Copy master instruction'}
-              </button>
-              <button type="button" onClick={handleDownloadMasterInstruction}>
-                <Download size={16} />
-                Download master .txt
-              </button>
-            </div>
-            <div className="bridge-set-list">
+            {bridgeInstructionMode === 'master' && (
+              <div className="button-row">
+                <button type="button" onClick={() => void handleCopyMasterInstruction()}>
+                  <Copy size={16} />
+                  {masterBridgeCopied ? 'Master copied' : 'Copy master instruction'}
+                </button>
+                <button type="button" onClick={handleDownloadMasterInstruction}>
+                  <Download size={16} />
+                  Download master .txt
+                </button>
+              </div>
+            )}
+            {bridgeInstructionMode === 'perSet' && (
+              <div className="bridge-set-list">
               {multiSetBridgeInstructions.map(item => (
                 <div key={item.setIndex} className="bridge-set-row">
                   <label className="avoid-word-item">
@@ -659,7 +673,8 @@ export default function Step3Generate({
                   </button>
                 </div>
               ))}
-            </div>
+              </div>
+            )}
             <div className="button-row">
               <label className="import-button" title="songs-output-set01.json ~ setNN.json 파일을 한 번에 선택">
                 <input

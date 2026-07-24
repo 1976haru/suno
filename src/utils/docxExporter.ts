@@ -59,6 +59,16 @@ function codeBox(label: string, text: string, charCount = text.length): (Paragra
 
 function thumbnailText(spec?: ThumbnailSpec) {
   if (!spec) return 'No thumbnail spec.';
+  const selected = spec.variants.find(variant => variant.id === spec.selected) ?? spec.variants[0];
+  const guide = spec.compositionGuide ?? {
+    topSubcaption: '감성으로 듣는',
+    mainPhrase: selected?.headline.replace('\n', ' ') || 'Playlist',
+    subtitle: '감성 플레이리스트',
+    bottomBrandLine: 'PLAYLIST',
+    textColor: spec.colorScheme.text,
+    shadowColor: 'rgba(0,0,0,0.45)',
+    playerOverlay: false
+  };
   const variants = spec.variants.map(variant =>
     `${variant.id} (${variant.angle})${variant.id === spec.selected ? ' [selected]' : ''}: ${variant.headline.replace('\n', ' / ')} / ${variant.subline}`
   );
@@ -67,8 +77,10 @@ function thumbnailText(spec?: ThumbnailSpec) {
     `Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}`,
     `Objects: ${spec.objects.join(', ')}`,
     `Composition: ${spec.composition}`,
+    `Composition guide: top ${guide.topSubcaption}; main ${guide.mainPhrase}; subtitle ${guide.subtitle}; bottom ${guide.bottomBrandLine}; text ${guide.textColor}; shadow ${guide.shadowColor}; player overlay ${guide.playerOverlay ? 'yes' : 'no'}`,
     `Generic image prompt: ${spec.imagePromptVariants.generic}`,
     `Midjourney prompt: ${spec.imagePromptVariants.midjourney}`,
+    `Qwen Image prompt: ${spec.imagePromptVariants.qwenImage ?? spec.imagePromptVariants.generic}`,
     `Stable Diffusion prompt: ${spec.imagePromptVariants.stableDiffusion}`
   ].join('\n');
 }

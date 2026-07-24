@@ -118,6 +118,8 @@ describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can
     expect(result.songsPerSet).toBe(6);
     expect(result.outputFilenames).toEqual(['songs-output-set01.json', 'songs-output-set02.json', 'songs-output-set03.json']);
     expect(result.instruction).toContain('MASTER MODE');
+    expect(result.instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
+    expect(result.instruction).toContain('single vocal identity');
     expect(result.instruction).toContain('Do not stop after the first file');
     for (const filename of result.outputFilenames) expect(result.instruction).toContain(filename);
 
@@ -451,6 +453,8 @@ describe('[v3.35] buildMultiSetClaudeCodeInstructions — one instruction per se
   it('includes a per-set concept/flavor line that differs across sets', () => {
     const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 6 }), 3, 6, testGenres, testMoods, testSeason, undefined, false);
     expect(results[0].instruction).toContain('flavor');
+    expect(results[0].instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
+    expect(results[0].instruction).toContain('single vocal identity');
     expect(results[0].instruction).toContain('Set 1/3');
     expect(results[1].instruction).toContain('Set 2/3');
     expect(results[2].instruction).toContain('Set 3/3');

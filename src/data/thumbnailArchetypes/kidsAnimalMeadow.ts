@@ -26,7 +26,7 @@ export const kidsAnimalMeadowArchetype: ThumbnailArchetype = {
   ],
   compositionPool: [
     'simple centered composition with generous open sky for text',
-    'the subject sits low in frame with a large clean sky area above for a headline',
+    'the subject sits low in frame with a large clean sky area above reserved for later text overlay',
     'a clean wide shot with soft blurred grass framing the subject',
     'a simple friendly composition with plenty of open space around the subject'
   ],

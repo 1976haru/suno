@@ -21,6 +21,12 @@ export type ThumbnailArchetypeCategory =
   | 'summer-sea-morning'
   | 'rain-window-quiet'
   | 'night-city-warm'
+  | 'city-roma'
+  | 'city-paris'
+  | 'city-barcelona'
+  | 'city-prague'
+  | 'city-kyoto'
+  | 'village-provence'
   | 'kids-animal-meadow'
   | 'kids-playground-sky'
   | 'kids-cozy-room';
@@ -45,6 +51,23 @@ export interface ThumbnailArchetype {
   id: ThumbnailArchetypeId;
   category: ThumbnailArchetypeCategory;
   labelKo: string;
+  /** Place-series scene variants, used by city/village archetypes. */
+  sceneCore?: string[];
+  /** Small-screen-safe recurring objects for city/village archetypes; max 3. */
+  signatureObjects?: string[];
+  /** Place-series summary fields for prompt/export readability. */
+  lighting?: string;
+  palette?: string;
+  cameraFeel?: string;
+  /** Marker for inheriting the shared app-level negative block. */
+  negatives?: string[];
+  /** Text-composition defaults, never interpolated into image prompts. */
+  placeSeries?: {
+    topSubcaption: string;
+    mainPhrase: string;
+    bottomBrandLine: string;
+    bindSeriesTone: boolean;
+  };
   subjectPool: string[];
   settingPool: string[];
   compositionPool: string[];

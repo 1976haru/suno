@@ -16,6 +16,8 @@ import { preallocateSongSlots, reconcileWithPreassignedSlot } from './batchPreal
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
+import { moneyChordPresets } from '../data/moneyChords';
+import { DEFAULT_KIDS_VOCAL_QUOTA, scaleVocalQuota, usesVocalQuota } from './vocalPlan';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -47,6 +49,8 @@ export interface ClaudeCodeInstructionOptions {
   outputFilename?: string;
   /** One-line per-set flavor hint (see core/setConcept.ts), included in the instruction when building a multi-set batch of instructions; omitted for a plain single-pack instruction. */
   conceptLine?: string;
+  /** Markdown table summarizing set-level concept/season/money-chord/vocal quotas for bridge copy. */
+  setPlanningTable?: string;
 }
 
 function buildBridgePayload(
@@ -82,6 +86,54 @@ function titleInstructionLineFor(opts: GenerationOptions): string {
   return titleMode === 'local'
     ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
     : '- "preassignedSongs" gives local planning slots and fallback placeholders. Write your OWN original title for each song, independent of the hookPhrase. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel tone while varying the structure freely.';
+}
+
+function markdownCell(value: string): string {
+  return value.replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
+}
+
+function summarizeMoneyChord(opts: GenerationOptions, preassignedSongs: PreassignedSongSlot[]): string {
+  const fromSlots = Array.from(new Set(
+    preassignedSongs
+      .map(slot => slot.moneyChordText.replace(/,\s*hook lands on the downbeat.*$/i, '').trim())
+      .filter(Boolean)
+  ));
+  if (fromSlots.length > 0) {
+    return fromSlots.length > 3 ? `${fromSlots.slice(0, 3).join(' / ')} / ...` : fromSlots.join(' / ');
+  }
+  if ((opts.moneyChordMode ?? 'default') === 'custom' && opts.customMoneyChord.trim()) return opts.customMoneyChord.trim();
+  return moneyChordPresets[opts.moneyChordMode ?? 'default']?.compactProgression ?? 'default money chord progression';
+}
+
+function summarizeVocalQuota(opts: GenerationOptions): string {
+  if (!usesVocalQuota(opts)) return 'single vocal identity';
+  const quota = scaleVocalQuota(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount);
+  return `male ${quota.male}, female ${quota.female}, mixed ${quota.mixed}`;
+}
+
+interface BridgeSetPlanningRow {
+  setIndex: number;
+  setCount: number;
+  conceptLine: string;
+  seasonLabel: string;
+  setOpts: GenerationOptions;
+  preassignedSongs: PreassignedSongSlot[];
+  outputFilename: string;
+}
+
+function buildSetPlanningTable(rows: BridgeSetPlanningRow[]): string {
+  return [
+    '| Set | Concept | Season | Money chord | Vocal quota | Output file |',
+    '| --- | --- | --- | --- | --- | --- |',
+    ...rows.map(row => [
+      `Set ${String(row.setIndex + 1).padStart(2, '0')}/${row.setCount}`,
+      markdownCell(row.conceptLine),
+      markdownCell(row.seasonLabel),
+      markdownCell(summarizeMoneyChord(row.setOpts, row.preassignedSongs)),
+      markdownCell(summarizeVocalQuota(row.setOpts)),
+      row.outputFilename
+    ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'))
+  ].join('\n');
 }
 
 /**
@@ -125,6 +177,8 @@ export function buildClaudeCodeInstruction(
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
     instructionOptions.conceptLine ? `\nThis set's flavor: ${instructionOptions.conceptLine} — lean into this lead genre/season for the pack's overall tone, without abandoning the channel's core style.` : '',
+    '',
+    instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
     rules,
     '',
@@ -231,7 +285,16 @@ export function buildMultiSetClaudeCodeInstructions(
     const preassignedSongs = preallocateSongSlots(setOpts, genres, avoid);
     const conceptLine = buildSetConceptLine(setOpts.channel, season.label, index, setCount);
     const outputFilename = `songs-output-set${String(index + 1).padStart(2, '0')}.json`;
-    const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine });
+    const setPlanningTable = buildSetPlanningTable([{
+      setIndex: index,
+      setCount,
+      conceptLine,
+      seasonLabel: season.label,
+      setOpts,
+      preassignedSongs,
+      outputFilename
+    }]);
+    const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine, setPlanningTable });
 
     results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs, conceptLine, avoid });
     usedTitles = [...usedTitles, ...preassignedSongs.map(slot => slot.title)];
@@ -262,6 +325,15 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const totalSongs = setCount * songsPerSet;
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
   const titleInstructionLine = titleInstructionLineFor(baseOpts);
+  const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
+    setIndex: item.setIndex,
+    setCount,
+    conceptLine: item.conceptLine,
+    seasonLabel: season.label,
+    setOpts: item.setOpts,
+    preassignedSongs: item.preassignedSongs,
+    outputFilename: item.outputFilename
+  })));
   const sets = setInstructions.map(item => {
     const { payload } = buildBridgePayload(item.setOpts, genres, moods, season, item.avoid, item.preassignedSongs, generateThumbnailText);
     return {
@@ -290,6 +362,9 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '- For each set, use that set\'s requestPayload exactly as if it were a normal one-pack Claude Code bridge request.',
     '- After writing a set, add the actual generated titles and hookPhrases from that file to your avoid list before composing the next set. Later sets must not reuse earlier-set titles or hooks.',
     '- If any title or hook collides with alreadyUsedTitles/alreadyUsedHooks or a prior set in this master run, rewrite it before writing the file.',
+    '',
+    'Set planning table:',
+    setPlanningTable,
     '',
     rules,
     '',
