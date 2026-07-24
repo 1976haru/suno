@@ -107,28 +107,143 @@ const koreanChorusSupport: Record<KidsLyricTheme, string> = {
   hangul: '한글 노래 즐거워요'
 };
 
-// TASK v3.38 Part B3 — lighter fallback for lyricLanguage overridden to
-// English/Japanese on a kids channel (Korean is the default and primary use
-// case per B0 — this is a smaller, single-theme pool, a disclosed scope
-// decision, not a stub: it's real, safe, functional content).
-const englishFallback = {
-  versePairs: [
-    ['The sun says hello, a bright new day', "Let's smile and sing and go out to play"],
-    ['A little bird sings up in the tree', 'Clap your hands and sing with me'],
-    ['We count our steps, one two three', 'Come along and sing with me']
-  ] as [string, string][],
-  bridge: ['All together now,', "let's sing out loud"],
-  chorusSupport: "Sing along, it's a happy day"
+// TASK v3.38 Part B (language follow-up) — full per-theme Japanese content,
+// same 9-section structure and safety bar as the Korean pools above.
+// ひらがな中心・難しい漢字は使わない・わらべうた風のやさしいトーン
+// (hiragana-only, no difficult kanji, gentle warabe-uta-style tone); the
+// 'hangul' theme id is reused here as a general "letters" theme (あいうえお
+// practice) rather than being Korean-specific — see KidsLyricTheme.
+const japaneseVersePairs: Record<KidsLyricTheme, [string, string][]> = {
+  animal: [
+    ['わんわん しっぽを ふりふりね', 'にゃんにゃん のびを しているよ'],
+    ['うさぎは ぴょんぴょん はねてゆく', 'あひるは よちよち あるいてく'],
+    ['ひよこが ぴよぴよ うたってる', 'みんなで てをつなぎ あるこうよ']
+  ],
+  season: [
+    ['はるは おはなが さきますよ', 'ちょうちょが ひらひら とんでくる'],
+    ['なつは すずしい かぜがふく', 'せみが みんみん ないている'],
+    ['あきは はっぱが ひらひらり', 'ふゆは しろゆき ふってくる']
+  ],
+  family: [
+    ['おかあさん おとうさん だいすきだよ', 'かぞくみんなが さいこうだよ'],
+    ['おばあちゃん おじいちゃん こんにちは', 'てをつないで あるいていこう'],
+    ['いもうとと なかよく すごすよ', 'いっしょにいると しあわせだね']
+  ],
+  friend: [
+    ['ともだちと いっしょに あそぼうよ', 'てをつないで はしっていこう'],
+    ['わらって わけあって すごそうよ', 'なかよく あそんで みようよ'],
+    ['ころんでも だいじょうぶ ともだちよ', 'またおきれば だいじょうぶ']
+  ],
+  play: [
+    ['ボールを ころころ あそぼうね', 'ブランコに のって あそぼうね'],
+    ['つみきを たかく つみあげよう', 'かくれんぼ してみようよ'],
+    ['しゃぼんだま ふわふわ とばそうよ', 'ふうせんを ふくらませてみよう']
+  ],
+  school: [
+    ['がっこうへ いくみち たのしいな', 'ともだちと あいさつ しようね'],
+    ['せんせいが にこにこ むかえてくれる', 'あたらしいこと ならっていくよ'],
+    ['もじも かこう えも かこう', 'うたも みんなで うたおうよ']
+  ],
+  counting: [
+    ['いち に さん し かぞえよう', 'ご ろく しち はち かぞえよう'],
+    ['ゆびを ひとつずつ かぞえてみよう', 'あしゆびも かぞえてみよう'],
+    ['かずあそび とても たのしいな', 'みんなで いっしょに かぞえよう']
+  ],
+  hangul: [
+    ['あいうえお おぼえてみよう', 'かきくけこ よんでみよう'],
+    ['もじたちが あつまってくる', 'すてきなことばに なっていくよ'],
+    ['ひらがなの うたを うたおうよ', 'みんなで よんで みようよ']
+  ]
 };
 
-const japaneseFallback = {
-  versePairs: [
-    ['おひさま にっこり あさが きた', 'わらって うたって あそぼうよ'],
-    ['ことりが きの うえ うたってる', 'てを たたいて いっしょに うたおう'],
-    ['いち に さん と かぞえよう', 'みんなで いっしょに うたおう']
-  ] as [string, string][],
-  bridge: ['みんなで いっしょに', 'うたおうよ'],
-  chorusSupport: 'たのしいな みんなで うたおう'
+const japaneseBridge: Record<KidsLyricTheme, string[]> = {
+  animal: ['どうぶつたちが あつまって', 'たのしく うたおうよ'],
+  season: ['はる なつ あき ふゆ', 'きせつが かわってく'],
+  family: ['かぞくみんなが あつまって', 'えがおが さいていくよ'],
+  friend: ['ともだちと いっしょなら', 'なんでも たのしいね'],
+  play: ['げんきに あそぼうよ', 'きょうも たのしい いちにち'],
+  school: ['きょうも まなぶ いちにち', 'たのしい がっこうせいかつ'],
+  counting: ['いちから じゅうまで', 'みんなで かぞえよう'],
+  hangul: ['あいうえお かきくけこ', 'もじは とても たのしいな']
+};
+
+const japaneseChorusSupport: Record<KidsLyricTheme, string> = {
+  animal: 'みんなで げんきに あそぼうね',
+  season: 'たのしい きせつ うたおうね',
+  family: 'だいすきだよ みんなのかぞく',
+  friend: 'ともだち さいこう だいすきだよ',
+  play: 'げんきに あそんでみようね',
+  school: 'まいにち たのしいね',
+  counting: 'かずあそび たのしいね',
+  hangul: 'もじのうた たのしいね'
+};
+
+// TASK v3.38 Part B (language follow-up) — full per-theme English content:
+// short words, rhyme and repetition, toddler-learning tone. The 'hangul'
+// theme id is reused here as a general "alphabet" theme (ABC practice).
+const englishVersePairs: Record<KidsLyricTheme, [string, string][]> = {
+  animal: [
+    ['The puppy wags his happy tail', 'The kitten stretches, soft and small'],
+    ['The bunny hops so quick and light', 'The duckling waddles left and right'],
+    ['The chicky sings a happy tune', 'We hold our hands and skip along']
+  ],
+  season: [
+    ['Spring flowers bloom so bright and new', 'Butterflies float the whole day through'],
+    ['Summer breeze feels cool and free', 'Cicadas sing up in the tree'],
+    ['Autumn leaves fall soft and slow', 'Winter brings the pretty snow']
+  ],
+  family: [
+    ['Mommy Daddy, I love you so', 'Our happy family, on we go'],
+    ['Grandma Grandpa, say hello', 'Holding hands we walk so slow'],
+    ['Baby brother, baby sister too', 'Being together makes us happy through']
+  ],
+  friend: [
+    ["Come on friend, let's play today", 'Hand in hand we run and play'],
+    ['We laugh and share and skip along', 'Being kind is never wrong'],
+    ["If you fall down, it's okay", "Stand back up and we'll play"]
+  ],
+  play: [
+    ['Roll the ball and let it go', 'Swing up high then swing back low'],
+    ['Stack the blocks up nice and tall', "Hide and seek, let's play it all"],
+    ['Blow the bubbles up so high', 'Watch balloons float in the sky']
+  ],
+  school: [
+    ['Walking to school, what a happy day', 'Say hello along the way'],
+    ['Teacher greets us with a smile', "Learning something new's worthwhile"],
+    ['We write and draw and sing a song', 'Singing all the day along']
+  ],
+  counting: [
+    ['One two three, come count with me', 'Four five six, easy as can be'],
+    ["Let's count fingers one by one", 'Count our toes till we are done'],
+    ['Counting games are so much fun', "Count along till we're all done"]
+  ],
+  hangul: [
+    ['A B C, come sing with me', 'D E F, as easy as can be'],
+    ['Letters come together, fun', 'Making words for everyone'],
+    ["Let's sing the letters, one by one", 'Learning letters is such fun']
+  ]
+};
+
+const englishBridge: Record<KidsLyricTheme, string[]> = {
+  animal: ['All the animals gather round,', 'singing out a happy sound'],
+  season: ['Spring, summer, autumn, snow,', 'watch the seasons come and go'],
+  family: ['All our family gathers near,', 'smiles and laughter, so much cheer'],
+  friend: ['With my friends by my side,', "every day's a happy ride"],
+  play: ["Let's go play, hooray hooray,", 'having fun this happy day'],
+  school: ['Every day we learn something new,', 'school is fun, me and you'],
+  counting: ['From one to ten we count along,', 'singing out our counting song'],
+  hangul: ['A to Z we sing along,', 'letters make a happy song']
+};
+
+const englishChorusSupport: Record<KidsLyricTheme, string> = {
+  animal: 'Come along and play with me',
+  season: "Sing along, the season's here",
+  family: "Sing along, we're family",
+  friend: 'Sing along, my happy friend',
+  play: "Sing along, let's play today",
+  school: 'Sing along, we learn today',
+  counting: "Sing along, let's count today",
+  hangul: 'Sing along the letters song'
 };
 
 function tags() {
@@ -156,33 +271,22 @@ export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
       ? `${title} の うたを はじめよう`
       : `Let's sing "${title}" together`;
 
-  if (language === 'korean') {
-    const theme = themeForSeed(seed);
-    const [verse1, verse2] = pick(koreanVersePairs[theme], seed + 3);
-    const [verse1b, verse2b] = pick(koreanVersePairs[theme], seed + 7);
-    const [bridgeLine1, bridgeLine2] = koreanBridge[theme];
-    const support = koreanChorusSupport[theme];
-    const chorusBlock = buildChorusBlock(t.chorus, hookPhrase, support);
-    const finalChorusBlock = buildChorusBlock(t.finalChorus, hookPhrase, support);
-    const lyrics = [
-      `${t.intro}\n${introLine}`,
-      `${t.verse1}\n${verse1}\n${verse2}`,
-      chorusBlock,
-      `${t.verse2}\n${verse1b}\n${verse2b}`,
-      chorusBlock,
-      chorusBlock,
-      `${t.bridge}\n${bridgeLine1}\n${bridgeLine2}`,
-      finalChorusBlock,
-      t.end
-    ].join('\n\n');
-    return { lyrics, hookPhrase };
-  }
+  // TASK v3.38 Part B (language follow-up) — korean/japanese/english now
+  // share the same per-theme pool structure (any other LyricLanguage value,
+  // e.g. 'bilingual' — which the kids channel UI doesn't offer — falls back
+  // to the korean pools below, matching vocalPlan.ts's vocalDictionLanguage
+  // fallback).
+  const versePairsByTheme = language === 'japanese' ? japaneseVersePairs : language === 'english' ? englishVersePairs : koreanVersePairs;
+  const bridgeByTheme = language === 'japanese' ? japaneseBridge : language === 'english' ? englishBridge : koreanBridge;
+  const chorusSupportByTheme = language === 'japanese' ? japaneseChorusSupport : language === 'english' ? englishChorusSupport : koreanChorusSupport;
 
-  const fallback = language === 'japanese' ? japaneseFallback : englishFallback;
-  const [verse1, verse2] = pick(fallback.versePairs, seed + 3);
-  const [verse1b, verse2b] = pick(fallback.versePairs, seed + 7);
-  const chorusBlock = buildChorusBlock(t.chorus, hookPhrase, fallback.chorusSupport);
-  const finalChorusBlock = buildChorusBlock(t.finalChorus, hookPhrase, fallback.chorusSupport);
+  const theme = themeForSeed(seed);
+  const [verse1, verse2] = pick(versePairsByTheme[theme], seed + 3);
+  const [verse1b, verse2b] = pick(versePairsByTheme[theme], seed + 7);
+  const [bridgeLine1, bridgeLine2] = bridgeByTheme[theme];
+  const support = chorusSupportByTheme[theme];
+  const chorusBlock = buildChorusBlock(t.chorus, hookPhrase, support);
+  const finalChorusBlock = buildChorusBlock(t.finalChorus, hookPhrase, support);
   const lyrics = [
     `${t.intro}\n${introLine}`,
     `${t.verse1}\n${verse1}\n${verse2}`,
@@ -190,7 +294,7 @@ export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
     `${t.verse2}\n${verse1b}\n${verse2b}`,
     chorusBlock,
     chorusBlock,
-    `${t.bridge}\n${fallback.bridge[0]}\n${fallback.bridge[1]}`,
+    `${t.bridge}\n${bridgeLine1}\n${bridgeLine2}`,
     finalChorusBlock,
     t.end
   ].join('\n\n');

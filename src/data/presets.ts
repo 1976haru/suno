@@ -48,7 +48,11 @@ export const channelPresets: ChannelProfile[] = [
     promise: '유아~초등 저학년과 보호자가 함께 듣는 밝고 안전한 창작 동요 플레이리스트',
     visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
     defaultVocal: "bright cheerful children's choir with a warm adult lead, call-and-response, singalong",
-    preferredGenres: ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-march'],
+    // TASK v3.38 Part B0 (correction) — kids songs are pop-style, not
+    // traditional-nursery-rhyme-style; the 3 primary genres are all pop
+    // variants, and kids-march (traditional/marching-song flavor) is kept
+    // only as a secondary/auxiliary pack — see rawGenrePacks below.
+    preferredGenres: ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop'],
     preferredMoods: ['bright-playful', 'warm', 'fresh-start'],
     forbiddenCliches: [
       'scary or frightening themes',
@@ -233,9 +237,13 @@ const rawGenrePacks: GenrePack[] = [
     tempoRange: [92, 108],
     goodFor: ['night drive', 'retro channel', 'twenties']
   },
-  // TASK v3.38 Part B1 — kids-channel genres, explicitly tagged archetypes:
-  // ['kids'] so withGenreVisibility (below) uses this directly instead of
-  // its heuristic inferArchetypes() classifier.
+  // TASK v3.38 Part B1/B0 — kids-channel genres, explicitly tagged
+  // archetypes: ['kids'] so withGenreVisibility (below) uses this directly
+  // instead of its heuristic inferArchetypes() classifier. B0 (correction):
+  // kids songs are pop-style, not traditional-nursery-rhyme-style — the 3
+  // pop packs below are primary (see KIDS_CORE_GENRE_IDS in
+  // genreLibrary/index.ts); kids-march stays available as a secondary/
+  // auxiliary pack only, not one of the 3 auto-applied core genres.
   {
     id: 'kids-bright-pop',
     label: 'Bright Kids Pop',
@@ -247,13 +255,23 @@ const rawGenrePacks: GenrePack[] = [
   },
   {
     id: 'kids-acoustic-singalong',
-    label: 'Kids Acoustic Singalong',
-    styleCore: 'warm acoustic singalong for children, gentle strum, easy call-and-response chorus',
+    label: 'Kids Acoustic Singalong Pop',
+    styleCore: 'warm acoustic singalong pop for children, gentle strum, easy call-and-response chorus',
     instruments: ['acoustic guitar', 'soft hand claps', 'light shaker', 'warm ukulele'],
     tempoRange: [92, 108],
     goodFor: ['kids playlist', 'calm play', 'family singalong'],
     archetypes: ['kids']
   },
+  {
+    id: 'kids-upbeat-pop',
+    label: 'Upbeat Kids Pop',
+    styleCore: 'high-energy upbeat children\'s pop, driving clean beat, bright synth-pop hooks, dance-along energy',
+    instruments: ['clean synth lead', 'punchy clean bass', 'bright pop drums', 'glockenspiel'],
+    tempoRange: [112, 128],
+    goodFor: ['kids playlist', 'dance-along', 'high-energy play'],
+    archetypes: ['kids']
+  },
+  // Secondary/auxiliary only — not one of the 3 primary kids genres (B0 correction).
   {
     id: 'kids-march',
     label: 'Kids Marching Pop',

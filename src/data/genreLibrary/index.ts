@@ -189,7 +189,12 @@ export const SHOWA_CAFE_CORE_GENRE_IDS = [
 // through getGenreById), so this is correct even though getVisibleGenresFor
 // Archetype's chip picker (which does filter genreLibrary's own array) won't
 // display these 3 as chips — a known, disclosed gap, not a silent one.
-export const KIDS_CORE_GENRE_IDS = ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-march'] as const;
+// TASK v3.38 Part B0 (correction) — kids songs are pop-style, not
+// traditional-nursery-rhyme-style; kids-march (traditional/marching-song
+// flavor) is intentionally excluded from the 3 primary/auto-applied ids —
+// it remains a real, selectable genre pack (see presets.ts's rawGenrePacks),
+// just a secondary/auxiliary one, not a default.
+export const KIDS_CORE_GENRE_IDS = ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop'] as const;
 
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,

@@ -32,20 +32,41 @@ describe('composeKidsLyrics', () => {
     expect(a).toEqual(b);
   });
 
-  it('produces safe, non-empty fallback content for english and japanese lyricLanguage overrides', () => {
+  it('produces safe, non-empty full-structure content for english and japanese lyricLanguage overrides', () => {
     const en = composeKidsLyrics({ language: 'english', title: 'Sunny Day', hook: "Let's play all day", seed: 3 });
     const ja = composeKidsLyrics({ language: 'japanese', title: 'たのしいうた', hook: 'たのしいな', seed: 5 });
     expect(isKidsLyricSafe(en.lyrics)).toBe(true);
     expect(isKidsLyricSafe(ja.lyrics)).toBe(true);
     expect(en.lyrics.length).toBeGreaterThan(20);
     expect(ja.lyrics.length).toBeGreaterThan(20);
+    for (const tag of ['[short intro]', '[verse 1]', '[chorus]', '[verse 2]', '[short bridge]', '[final chorus]', '[end]']) {
+      expect(en.lyrics, `english missing ${tag}`).toContain(tag);
+      expect(ja.lyrics, `japanese missing ${tag}`).toContain(tag);
+    }
   });
 
-  it('generates safe content across every theme and a spread of seeds, with no forbidden topics', () => {
-    for (let seed = 0; seed < KIDS_LYRIC_THEMES.length * 3; seed++) {
-      const { lyrics } = composeKidsLyrics({ language: 'korean', title: '노래', hook: '노래해요', seed });
-      expect(kidsLyricSafetyIssues(lyrics), `seed=${seed} theme=${themeForSeed(seed)}`).toEqual([]);
-      expect(referencesExistingKidsSong(lyrics), `seed=${seed} theme=${themeForSeed(seed)}`).toBe(false);
+  // TASK v3.38 Part B (language follow-up) — english/japanese now use the
+  // same full per-theme pool structure as korean (previously a single
+  // flat fallback pool regardless of theme); confirm the body text actually
+  // varies by theme instead of being the same regardless of seed's theme.
+  it('varies verse content by theme for english and japanese, not just korean', () => {
+    for (const language of ['english', 'japanese'] as const) {
+      const bodies = KIDS_LYRIC_THEMES.map((_, i) => {
+        // seeds chosen to land on each theme in turn (themeForSeed cycles the 8 themes).
+        const { lyrics } = composeKidsLyrics({ language, title: 'T', hook: 'Hook', seed: i });
+        return lyrics.split('[verse 1]')[1]?.split('[chorus]')[0]?.trim();
+      });
+      expect(new Set(bodies).size, language).toBeGreaterThan(1);
+    }
+  });
+
+  it('generates safe content across every theme, language, and a spread of seeds, with no forbidden topics', () => {
+    for (const language of ['korean', 'japanese', 'english'] as const) {
+      for (let seed = 0; seed < KIDS_LYRIC_THEMES.length * 3; seed++) {
+        const { lyrics } = composeKidsLyrics({ language, title: '노래', hook: 'Hook', seed });
+        expect(kidsLyricSafetyIssues(lyrics), `language=${language} seed=${seed} theme=${themeForSeed(seed)}`).toEqual([]);
+        expect(referencesExistingKidsSong(lyrics), `language=${language} seed=${seed} theme=${themeForSeed(seed)}`).toBe(false);
+      }
     }
   });
 });

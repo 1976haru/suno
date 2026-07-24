@@ -5,6 +5,7 @@ import {
   scaleVocalQuota,
   usesVocalQuota,
   vocalDescriptionFor,
+  vocalDictionLanguage,
   type VocalType
 } from '../src/core/vocalPlan';
 
@@ -87,14 +88,29 @@ describe('buildVocalPlan', () => {
 });
 
 describe('vocalDescriptionFor', () => {
-  it('returns the exact spec-mandated description text for each vocal type', () => {
-    const expected: Record<VocalType, string> = {
-      male: 'bright friendly young male voice, clear diction, warm and playful',
-      female: 'bright cheerful female voice, gentle and clear, nursery-friendly',
-      mixed: "children's choir with a warm adult lead, call-and-response, singalong"
+  it('defaults to Korean diction when no language is given', () => {
+    expect(vocalDescriptionFor('male')).toBe('bright friendly young male voice, warm and playful, clear Korean diction, bright and friendly');
+    expect(vocalDescriptionFor('female')).toBe('bright cheerful female voice, gentle and clear, nursery-friendly, clear Korean diction, bright and friendly');
+    expect(vocalDescriptionFor('mixed')).toBe("children's choir with a warm adult lead, call-and-response, singalong, clear Korean diction, bright and friendly");
+  });
+
+  it('adjusts the diction clause per language (korean/japanese/english)', () => {
+    const expectedDiction: Record<'korean' | 'japanese' | 'english', string> = {
+      korean: 'clear Korean diction, bright and friendly',
+      japanese: 'clear Japanese diction, bright and friendly',
+      english: 'clear English diction, bright and friendly'
     };
-    for (const type of Object.keys(expected) as VocalType[]) {
-      expect(vocalDescriptionFor(type)).toBe(expected[type]);
+    const types: VocalType[] = ['male', 'female', 'mixed'];
+    for (const language of Object.keys(expectedDiction) as (keyof typeof expectedDiction)[]) {
+      for (const type of types) {
+        expect(vocalDescriptionFor(type, language), `${type}/${language}`).toContain(expectedDiction[language]);
+        expect(vocalDescriptionFor(type, language), `${type}/${language}`).toMatch(new RegExp(`, ${expectedDiction[language]}$`));
+      }
     }
+  });
+
+  it('falls back to Korean diction for a language the kids channel does not offer (e.g. bilingual)', () => {
+    expect(vocalDictionLanguage('bilingual')).toBe('korean');
+    expect(vocalDescriptionFor('male', 'bilingual')).toBe(vocalDescriptionFor('male', 'korean'));
   });
 });

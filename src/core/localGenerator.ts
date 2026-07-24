@@ -474,7 +474,7 @@ export function generateLocalBlueprint(
       // quota plan is active; this 'vocal' id is in promptBudget.ts's
       // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack
       // vocal atom it replaces.
-      ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionFor(vocalType) }] : []),
+      ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionFor(vocalType, opts.lyricLanguage) }] : []),
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },

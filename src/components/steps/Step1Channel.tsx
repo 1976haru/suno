@@ -180,9 +180,9 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
       {archetype === 'kids' && !kidsBannerDismissed && (
         <div className="notice-banner">
           <p>
-            <strong>동요 채널 안내</strong> — 유튜브에서 아동용(Made for Kids) 설정이 필요합니다. 맞춤 광고가 제한되어
-            수익 구조가 일반 채널과 다르며, 댓글·저장 기능이 비활성화됩니다. 기존 동요를 재현하지 말고 창작곡으로
-            제작하세요.
+            {/* TASK v3.38 Part B6 (correction) — exact replacement wording: clarifies the Made-for-Kids requirement is about content, not language, to avoid the earlier phrasing being misread as a language restriction. */}
+            <strong>동요 채널 안내</strong> — 유튜브 아동용(Made for Kids) 설정이 필요합니다. 이는 콘텐츠 성격에 따른
+            것이며 언어와 무관합니다. 맞춤 광고가 제한되어 CPM이 낮아지고, 댓글·저장 기능이 비활성화됩니다.
           </p>
           <button type="button" onClick={dismissKidsBanner}>확인했어요</button>
         </div>
@@ -244,7 +244,10 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
         <div>
           <label>Primary language (기본 언어)</label>
           <select value={editorChannel.primaryLanguage} onChange={event => onUpdateField('primaryLanguage', event.target.value as LyricLanguage)}>
-            {languageOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            {/* TASK v3.38 Part B1 (language follow-up) — the kids channel only supports korean/japanese/english (default korean); bilingual is not offered for it. */}
+            {(archetype === 'kids' ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
         <div>

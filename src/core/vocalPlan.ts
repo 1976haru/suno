@@ -1,4 +1,4 @@
-import type { GenerationOptions } from '../types';
+import type { GenerationOptions, LyricLanguage } from '../types';
 import { shuffle } from './lyricEngine';
 
 /**
@@ -23,14 +23,29 @@ export interface VocalQuota {
 /** TASK v3.38 Part B2 — the 6/6/6-of-18 default; scaleVocalQuota below applies this as a ratio at any songCount, not a literal must-equal-18 requirement. */
 export const DEFAULT_KIDS_VOCAL_QUOTA: VocalQuota = { male: 6, female: 6, mixed: 6 };
 
+/** TASK v3.38 Part B (language follow-up) — the 3 lyricLanguages the kids channel supports. Any other LyricLanguage value (e.g. 'bilingual', which the kids channel UI doesn't offer) falls back to 'korean' via vocalDictionLanguage below. */
+export type KidsVocalLanguage = 'korean' | 'japanese' | 'english';
+
 const VOCAL_DESCRIPTIONS: Record<VocalType, string> = {
-  male: 'bright friendly young male voice, clear diction, warm and playful',
+  male: 'bright friendly young male voice, warm and playful',
   female: 'bright cheerful female voice, gentle and clear, nursery-friendly',
   mixed: "children's choir with a warm adult lead, call-and-response, singalong"
 };
 
-export function vocalDescriptionFor(type: VocalType): string {
-  return VOCAL_DESCRIPTIONS[type];
+/** TASK v3.38 Part B (language follow-up) — "언어별 보컬 묘사도 해당 언어 발음에 맞게 조정 (예: japanese -> clear Japanese diction, bright and friendly)"; appended to every vocal type's base description below. */
+const VOCAL_DICTION_CLAUSE: Record<KidsVocalLanguage, string> = {
+  korean: 'clear Korean diction, bright and friendly',
+  japanese: 'clear Japanese diction, bright and friendly',
+  english: 'clear English diction, bright and friendly'
+};
+
+export function vocalDictionLanguage(language: LyricLanguage): KidsVocalLanguage {
+  if (language === 'japanese' || language === 'english') return language;
+  return 'korean';
+}
+
+export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean'): string {
+  return `${VOCAL_DESCRIPTIONS[type]}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
 }
 
 const VOCAL_TYPES: VocalType[] = ['male', 'female', 'mixed'];

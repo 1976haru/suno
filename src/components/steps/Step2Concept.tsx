@@ -539,7 +539,8 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         <div className="advanced-settings">
           <label>Lyrics language (가사 언어)</label>
           <div className="chips">
-            {languageOptions.map(option => (
+            {/* TASK v3.38 Part B1 (language follow-up) — the kids channel only supports korean/japanese/english (selectable per set, default korean); bilingual is not offered for it. */}
+            {(channelArchetype === 'kids' ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
               <button
                 type="button"
                 key={option.value}
