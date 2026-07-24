@@ -10,3 +10,8 @@ yarn-error.log*
 private_import/
 pirvate_import/
 suno-helper/.profile/
+
+# TASK v3.37 — local API key files written by start-studio*.bat launchers
+# (Claude + Gemini). Never commit these; each is a plaintext key on disk.
+.anthropic_key
+.gemini_key

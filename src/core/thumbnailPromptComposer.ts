@@ -6,9 +6,12 @@ import type {
   ThumbnailTextSafeZone,
   ThumbnailTimeOfDay
 } from '../data/thumbnailArchetypes';
-import { thumbnailPromptSafetyIssues, uniqueThumbnailClauses } from './thumbnailSafety';
+import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS, thumbnailPromptSafetyIssues, uniqueThumbnailClauses } from './thumbnailSafety';
 
 export type ThumbnailPromptVariantId = 'A' | 'B' | 'C';
+
+/** TASK v3.37 (spec item D) — 'cover' is the 1:1 channel/album cover mode; 'thumbnail' (default) is the existing 16:9 mode. */
+export type ThumbnailPromptMode = 'thumbnail' | 'cover';
 
 export interface ThumbnailPromptComposerOptions {
   archetypeId: ThumbnailArchetypeId;
@@ -17,7 +20,10 @@ export interface ThumbnailPromptComposerOptions {
   peopleMode?: ThumbnailPeopleMode;
   textSafeZone?: ThumbnailTextSafeZone;
   seed?: number;
-  resolution?: '1280x720' | '1920x1080';
+  resolution?: '1280x720' | '1920x1080' | '3000x3000';
+  mode?: ThumbnailPromptMode;
+  /** TASK v3.37-b (work item 1) — a free-text scene detail (GenerationOptions.customConcept or a multi-set's own concept); never alters which archetype pool items get picked (seed/axis logic is unaffected), only adds one extra descriptive clause. Empty/undefined is a full no-op. */
+  concept?: string;
 }
 
 export interface ThumbnailPromptVariant {
@@ -102,6 +108,25 @@ function peopleInstruction(archetype: ThumbnailArchetype, peopleMode: ThumbnailP
   return 'People: a distant faceless silhouette may appear only in the background, small in frame, no recognizable features.';
 }
 
+function normalizeConceptForPrompt(concept: string | undefined): string {
+  return (concept || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+/**
+ * TASK v3.37-b (work item 1) — a distinct "Concept detail:" clause rather
+ * than blending into Subject/Setting, so it never overwrites an
+ * archetype-pool pick; empty input drops out entirely via
+ * uniqueThumbnailClauses' filter(Boolean). Reuses the composer's own
+ * existing forbidden-reference guard so a concept can't smuggle in a
+ * style-imitation phrase the rest of this file already blocks.
+ */
+function conceptClause(concept: string | undefined): string {
+  const trimmed = normalizeConceptForPrompt(concept);
+  if (!trimmed) return '';
+  if (FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS.some(pattern => pattern.test(trimmed))) return '';
+  return `Concept detail: ${trimmed}.`;
+}
+
 function forbiddenClause(archetype: ThumbnailArchetype): string {
   const base = [
     'no text',
@@ -119,20 +144,43 @@ function forbiddenClause(archetype: ThumbnailArchetype): string {
   return `Negative: ${uniqueThumbnailClauses(base).join(', ')}.`;
 }
 
-function buildPrompt(archetype: ThumbnailArchetype, variant: Omit<ThumbnailPromptVariant, 'prompt' | 'safetyIssues'>, seasonId: string, timeOfDay: ThumbnailTimeOfDay, resolution: '1280x720' | '1920x1080'): string {
+// TASK v3.37 (spec item D) — cover mode swaps the frame/aspect clause and
+// appends an album-cover style directive; everything else (subject/setting/
+// lighting/forbidden clause) is identical to the thumbnail path so the same
+// archetype reads consistently across both output sizes.
+function buildPrompt(
+  archetype: ThumbnailArchetype,
+  variant: Omit<ThumbnailPromptVariant, 'prompt' | 'safetyIssues'>,
+  seasonId: string,
+  timeOfDay: ThumbnailTimeOfDay,
+  resolution: '1280x720' | '1920x1080' | '3000x3000',
+  mode: ThumbnailPromptMode,
+  concept?: string
+): string {
   const season = SEASON_DESCRIPTORS[seasonId] ?? 'seasonal visual details';
+  const isCover = mode === 'cover';
+  // Deliberately avoids the literal phrase "YouTube channel" — it collides
+  // with FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS' /\byoutube channel\b/i guard
+  // (meant to block "in the style of [some] youtube channel"-type prompts),
+  // which would flag every cover-mode prompt as unsafe purely from this
+  // structural clause. See tests/thumbnailPromptSafety.test.ts.
+  const frameClause = isCover
+    ? `Original 1:1 square album cover art prompt, ${resolution}.`
+    : `Original YouTube playlist thumbnail prompt, 16:9 landscape, ${resolution}.`;
   const clauses = [
-    `Original YouTube playlist thumbnail prompt, 16:9 landscape, ${resolution}.`,
+    frameClause,
     `Use an independent ${archetype.category} arrangement; do not recreate any single reference image.`,
     `Season and time: ${season}, ${TIME_DESCRIPTORS[timeOfDay]}.`,
     `Subject: ${variant.subject}.`,
     `Setting: ${variant.setting}.`,
+    conceptClause(concept),
     `Composition: ${variant.composition}; ${TEXT_SAFE_ZONE_COPY[variant.textSafeZone]}.`,
     `Lighting: ${variant.lighting}.`,
     `Color palette: ${variant.palette}.`,
     `Camera: ${variant.camera}.`,
     `Props: ${variant.props.join(', ')}.`,
     variant.peoplePolicy,
+    isCover ? 'Album cover aesthetic: iconic, simple, and readable at a small thumbnail size.' : '',
     forbiddenClause(archetype)
   ];
   return uniqueThumbnailClauses(clauses).join(' ');
@@ -158,8 +206,9 @@ export function composeThumbnailPromptSet(options: ThumbnailPromptComposerOption
   const seasonId = options.seasonId ?? 'may-cafe';
   const timeOfDay = options.timeOfDay ?? 'morning';
   const peopleMode = options.peopleMode ?? 'none';
-  const resolution = options.resolution ?? '1280x720';
-  const baseSeed = hashString(`${archetype.id}:${seasonId}:${timeOfDay}:${options.seed ?? 0}`);
+  const mode = options.mode ?? 'thumbnail';
+  const resolution = options.resolution ?? (mode === 'cover' ? '3000x3000' : '1280x720');
+  const baseSeed = hashString(`${archetype.id}:${seasonId}:${timeOfDay}:${mode}:${options.seed ?? 0}`);
 
   const variants = VARIANT_IDS.map((id, variantIndex) => {
     const axisSeed = baseSeed + variantIndex;
@@ -181,7 +230,7 @@ export function composeThumbnailPromptSet(options: ThumbnailPromptComposerOption
       textSafeZone,
       peoplePolicy: peopleInstruction(archetype, peopleMode)
     };
-    const prompt = buildPrompt(archetype, draft, seasonId, timeOfDay, resolution);
+    const prompt = buildPrompt(archetype, draft, seasonId, timeOfDay, resolution, mode, options.concept);
     return {
       ...draft,
       prompt,

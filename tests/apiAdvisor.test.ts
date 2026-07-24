@@ -19,9 +19,14 @@ describe('[D1] STAGE_ADVICE table', () => {
     expect(STAGE_ADVICE.thumbnailCopy.suggestedModelKo).toContain('Haiku');
   });
 
-  it('thumbnailImage never claims this app generates images', () => {
-    expect(STAGE_ADVICE.thumbnailImage.recommendation).toBe('unnecessary');
-    expect(STAGE_ADVICE.thumbnailImage.reasonKo).toContain('이미지를 직접 만들지 않습니다');
+  // TASK v3.37 — Gemini image generation was ported in from creator-studio
+  // (ThumbnailImageStudioPanel.tsx / api/image.js), so this stage is no
+  // longer "unnecessary" — it now names the real capability instead of
+  // disclaiming it.
+  it('thumbnailImage names Gemini as the real in-app image-generation path', () => {
+    expect(STAGE_ADVICE.thumbnailImage.recommendation).toBe('optional');
+    expect(STAGE_ADVICE.thumbnailImage.suggestedModelKo).toContain('Gemini');
+    expect(STAGE_ADVICE.thumbnailImage.reasonKo).toContain('이미지를 생성');
   });
 
   it('every stage has a badge entry for its recommendation level', () => {

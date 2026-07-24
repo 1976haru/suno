@@ -72,9 +72,15 @@ export const STAGE_ADVICE: Record<StageId, StageAdvice> = {
   thumbnailImage: {
     stage: 'thumbnailImage',
     labelKo: '썸네일 이미지',
-    recommendation: 'unnecessary',
-    suggestedModelKo: '외부 (Canva 등)',
-    reasonKo: '이 앱은 이미지를 직접 만들지 않습니다. 이미지 생성 프롬프트만 제공합니다.'
+    // TASK v3.37 — Gemini image generation was ported in from creator-studio
+    // (see ThumbnailImageStudioPanel.tsx / api/image.js). 'optional' rather
+    // than 'valuable'/'essential' because the aspect-based prompt library
+    // above still works fully without it (copy/paste into any external
+    // tool) — this only removes a manual step for users who'd rather stay
+    // in-app.
+    recommendation: 'optional',
+    suggestedModelKo: 'Gemini (이미지 생성 모델)',
+    reasonKo: '이제 이 앱에서 바로 이미지를 생성할 수 있습니다(설정의 "썸네일·커버 이미지 생성" 키 필요). 원치 않으면 기존처럼 프롬프트만 복사해 Canva 등 외부 툴에 붙여넣어도 됩니다.'
   },
   // TASK H5 (v3.10) — concept agent's local keyword match always runs first
   // and free for every user (including the '무료로만' preset); the API path

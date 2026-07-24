@@ -1,9 +1,11 @@
 import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
-import { thumbnailArchetypeById, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
+import { thumbnailArchetypeById, type ThumbnailArchetype, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
+import { seasonPacks } from '../data/presets';
 import { seasonWordFor } from './lyricEngine';
 import { getRecurringMotifPhrases, type SeasonFamily } from './localGenerator';
 import { resolvePackagingLanguage } from './packagingLanguage';
+import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS } from './thumbnailSafety';
 
 export type { ThumbnailSpec, ThumbnailVariant };
 
@@ -165,6 +167,42 @@ const FORBIDDEN_ELEMENTS = [
 
 export type ImageToolId = 'generic' | 'midjourney' | 'stableDiffusion';
 
+export type ImagePromptMode = 'thumbnail' | 'cover';
+
+/**
+ * TASK v3.37-b (work item 3) — appended to the end of all three prompt
+ * formats' positive text so an external tool (ChatGPT, Midjourney, Stable
+ * Diffusion) defaults to a photographic look instead of an AI-plastic one.
+ * Kept as a single literal string (not derived) so the exact wording the
+ * user approved never drifts.
+ */
+const QUALITY_BOOSTER = 'professional photography, photorealistic, cinematic lighting, natural color grading, soft depth of field, crisp detail, no oversaturation, no plastic CGI';
+
+/** TASK v3.37-b (work item 2) — cover-mode-only style directive; empty/unused in thumbnail mode. */
+const COVER_STYLE_DIRECTIVE = 'album cover aesthetic, iconic and simple, centered subject, readable at small size';
+
+function normalizeConceptForPrompt(concept: string | undefined): string {
+  return (concept || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+/**
+ * TASK v3.37-b (work item 1) — only ever adds one concrete scene detail to
+ * `sceneDescription`; composition/lighting/camera/color stay entirely
+ * archetype-driven (drawn from the archetype's own pools), so a channel's
+ * established visual identity never shifts pack to pack just because the
+ * user typed a concept. Empty/whitespace-only input is a full no-op — see
+ * tests/thumbnailSpecConcept.test.ts's byte-for-byte regression check.
+ * Reuses thumbnailSafety.ts's existing style-imitation guard (rather than a
+ * new pattern list) so a concept like "in the style of Ghibli" never reaches
+ * the prompt.
+ */
+function conceptClause(concept: string | undefined): string {
+  const trimmed = normalizeConceptForPrompt(concept);
+  if (!trimmed) return '';
+  if (FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS.some(pattern => pattern.test(trimmed))) return '';
+  return `, with a specific scene detail evoking: ${trimmed}`;
+}
+
 /**
  * TASK B1 (v3.5) — a flat list of nouns ("window rain, wool sweater,
  * porcelain cup") tells an image model *what* to include but not *how it
@@ -176,7 +214,31 @@ function pickFromPool(pool: string[], seed: number) {
   return pool[Math.abs(seed) % pool.length];
 }
 
-function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, textSide: 'left' | 'right', archetypeId: ThumbnailArchetypeId, seed: number) {
+/**
+ * TASK v3.37-b (work item 2) — every archetype's `promptTemplate` (e.g.
+ * refinedCafe.ts: "original 16:9 cafe thumbnail using abstracted still-life
+ * traits") hardcodes "16:9 ... thumbnail" as descriptive flavor text, not
+ * just a resolution hint — used verbatim, a cover-mode prompt would flatly
+ * contradict its own "1:1 square" framing stated a few words later. This is
+ * a code-side text transform only; the archetype data files (and their
+ * pools) are untouched.
+ */
+function archetypeHeaderFor(archetype: ThumbnailArchetype, mode: ImagePromptMode): string {
+  if (mode !== 'cover') return archetype.promptTemplate;
+  return archetype.promptTemplate
+    .replace(/\b16:9\s+/i, '')
+    .replace(/\bthumbnail\b/i, 'cover art');
+}
+
+function buildSceneParts(
+  season: SeasonPack,
+  palette: ThumbnailPalette,
+  textSide: 'left' | 'right',
+  archetypeId: ThumbnailArchetypeId,
+  seed: number,
+  mode: ImagePromptMode = 'thumbnail',
+  concept?: string
+) {
   const archetype = thumbnailArchetypeById[archetypeId] || thumbnailArchetypeById['refined-cafe'];
   const objectSide = textSide === 'left' ? 'right' : 'left';
   const subjectBase = pickFromPool(archetype.subjectPool, seed + 3);
@@ -187,8 +249,9 @@ function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, textSide
   const cameraBase = pickFromPool(archetype.cameraPool, seed + 17);
   const compositionBase = pickFromPool(archetype.compositionPool, seed + 19);
   const archetypePalette = pickFromPool(archetype.palettePool, seed + 23);
+  const isCover = mode === 'cover';
 
-  const sceneDescription = `${archetype.promptTemplate} for a ${season.label.toLowerCase()} playlist, set in ${setting}`;
+  const sceneDescription = `${archetypeHeaderFor(archetype, mode)} for a ${season.label.toLowerCase()} playlist, set in ${setting}${conceptClause(concept)}`;
   const subject = [
     `${subjectBase} toward the ${objectSide} of frame`,
     `${propA} and ${propB} used as small unbranded supporting details`
@@ -197,7 +260,14 @@ function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, textSide
   const cameraAndLens = `${cameraBase}, shallow depth of field, gentle bokeh`;
   const colorMood = `${palette.backgroundNameEn} background with ${palette.accentNameEn} accents, ${archetypePalette}, low saturation, ${palette.moodEn}`;
   const textureAndFilm = 'Subtle film grain, analog warmth, slightly faded like an old photograph';
-  const composition = `16:9 landscape composition; ${compositionBase}; the ${textSide} third of the frame is intentionally empty and softly lit, leaving clean space for a text overlay`;
+  // TASK v3.37-b (work item 2) — cover's safe margin is centered/bottom
+  // (album-art convention), not the left/right third the 16:9 thumbnail
+  // reserves for a title overlay.
+  const composition = isCover
+    ? `1:1 square composition; ${compositionBase}; the subject stays centered with the bottom third softly lit and left uncluttered for a text overlay`
+    : `16:9 landscape composition; ${compositionBase}; the ${textSide} third of the frame is intentionally empty and softly lit, leaving clean space for a text overlay`;
+  const styleDirective = isCover ? COVER_STYLE_DIRECTIVE : '';
+  const aspectRatio = isCover ? '1:1' : '16:9';
   const peopleLimit = archetype.category === 'cinematic-human-moment'
     ? 'any human figure must stay distant, anonymous, face hidden, under 20% of the frame'
     : 'distant elegant silhouettes are allowed only if small, face-hidden, soft focus, and secondary to the scene';
@@ -205,11 +275,11 @@ function buildSceneParts(season: SeasonPack, palette: ThumbnailPalette, textSide
   const negatives = 'no text, no letters, no logos, no watermarks, no close-up faces, no identifiable person, no real celebrity or public figure, no cartoon characters, no branded IP — distant elegant silhouettes are welcome (backs turned, soft focus, small in frame)';
 
   void negatives;
-  return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, negatives: safeNegatives };
+  return { sceneDescription, subject, lighting, cameraAndLens, colorMood, textureAndFilm, composition, styleDirective, aspectRatio, negatives: safeNegatives };
 }
 
 function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  return [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, `Negative: ${parts.negatives}`]
+  return [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, `Negative: ${parts.negatives}`, QUALITY_BOOSTER]
     .filter(Boolean)
     .join('. ') + '.';
 }
@@ -222,17 +292,20 @@ function buildGenericImagePrompt(parts: ReturnType<typeof buildSceneParts>): str
  * right/left third empty for text" instruction), which every other variant
  * includes. Without it, Midjourney had no reason not to center the subject,
  * leaving no clean space for a title overlay.
+ * TASK v3.37-b — the quality booster is appended to the *positive* text
+ * (not after `--no ...`), since Midjourney would otherwise parse trailing
+ * prose as more `--no` terms; `--ar` now reflects thumbnail vs cover mode.
  */
 function buildMidjourneyPrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition]
+  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
     .filter(Boolean)
     .join(', ');
-  return `${positive} --ar 16:9 --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP`;
+  return `${positive} --ar ${parts.aspectRatio} --style raw --no text, logos, watermarks, close-up faces, identifiable people, cartoon characters, branded IP`;
 }
 
 /** TASK B4 (v3.5) — Stable Diffusion UIs (Automatic1111, ComfyUI, etc.) take separate positive/negative prompt fields. */
 function buildStableDiffusionPrompt(parts: ReturnType<typeof buildSceneParts>): string {
-  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition]
+  const positive = [parts.sceneDescription, parts.subject, parts.lighting, parts.cameraAndLens, parts.colorMood, parts.textureAndFilm, parts.composition, parts.styleDirective, QUALITY_BOOSTER]
     .filter(Boolean)
     .join(', ');
   return `Positive: ${positive}\nNegative: text, letters, logo, watermark, close-up face, identifiable person, celebrity, cartoon character, branded IP, low quality, blurry`;
@@ -243,14 +316,34 @@ function buildImagePromptVariants(
   palette: ThumbnailPalette,
   textSide: 'left' | 'right',
   archetypeId: ThumbnailArchetypeId,
-  seed: number
+  seed: number,
+  mode: ImagePromptMode = 'thumbnail',
+  concept?: string
 ): ThumbnailSpec['imagePromptVariants'] {
-  const parts = buildSceneParts(season, palette, textSide, archetypeId, seed);
+  const parts = buildSceneParts(season, palette, textSide, archetypeId, seed, mode, concept);
   return {
     generic: buildGenericImagePrompt(parts),
     midjourney: buildMidjourneyPrompt(parts),
     stableDiffusion: buildStableDiffusionPrompt(parts)
   };
+}
+
+/**
+ * TASK v3.37-b (work item 2) — standalone cover (1:1) prompt builder, usable
+ * independently of a full blueprint/channel (unlike buildThumbnailSpec) so
+ * the panel can regenerate a cover with its own seed without touching the
+ * pack-bound 16:9 thumbnail prompts. Season/archetype/concept mirror
+ * whatever the thumbnail side is currently using.
+ */
+export function buildCoverImagePromptVariants(
+  seasonId: string,
+  archetypeId: ThumbnailArchetypeId,
+  seed: number,
+  concept?: string
+): ThumbnailSpec['imagePromptVariants'] {
+  const season = seasonPacks.find(s => s.id === seasonId) ?? seasonPacks[0];
+  const palette = paletteForSeason(season.id);
+  return buildImagePromptVariants(season, palette, 'left', archetypeId, seed, 'cover', concept);
 }
 
 /**
@@ -294,7 +387,7 @@ export function buildThumbnailSpec(
     { id: 'C', headline: buildAudienceHeadline(language), subline, angle: '타겟 명시' }
   ];
 
-  const imagePromptVariants = buildImagePromptVariants(season, palette, textSide, archetypeId, seedIndex);
+  const imagePromptVariants = buildImagePromptVariants(season, palette, textSide, archetypeId, seedIndex, 'thumbnail', opts.customConcept);
 
   return {
     variants,

@@ -227,6 +227,35 @@ export async function listPacks(): Promise<SavedPackMeta[]> {
     .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
 }
 
+export interface SetGroupSummary {
+  groupId: string;
+  label: string;
+  packs: SavedPackMeta[];
+}
+
+/**
+ * TASK v3.37-b — groups saved packs that share a multi-set run's
+ * `setGroupId` (see SavedPack's TASK v3.33 comment), for any UI that needs
+ * to act on a whole set-group at once (batch thumbnail/cover export,
+ * batch image generation). Packs outside a multi-set run (`setGroupId`
+ * undefined) are excluded — there's no group to act on.
+ */
+export async function listSetGroups(): Promise<SetGroupSummary[]> {
+  const all = await listPacks();
+  const groups = new Map<string, SavedPackMeta[]>();
+  for (const pack of all) {
+    if (!pack.setGroupId) continue;
+    const list = groups.get(pack.setGroupId) ?? [];
+    list.push(pack);
+    groups.set(pack.setGroupId, list);
+  }
+  return Array.from(groups.entries()).map(([groupId, packs]) => ({
+    groupId,
+    label: `${(packs[0]?.projectTitle ?? groupId).replace(/ Set \d+$/, '')} (${packs.length}세트)`,
+    packs: packs.slice().sort((a, b) => (a.setIndex ?? 0) - (b.setIndex ?? 0))
+  }));
+}
+
 export async function loadPack(id: string): Promise<SavedPack | undefined> {
   if (!hasIndexedDb()) {
     const pack = memoryPacks.get(id);

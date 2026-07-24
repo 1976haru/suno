@@ -26,7 +26,7 @@ export const dailyHappinessArchetype: ThumbnailArchetype = {
     'soft diagonal sunlight guides attention to the subject',
     'main subject sits on a third with uncluttered background',
     'layered home objects remain sparse and readable',
-    'wide 16:9 room crop with generous breathing room'
+    'wide room crop with generous breathing room'
   ],
   lightingPool: [
     'gentle morning sun across a clean floor',

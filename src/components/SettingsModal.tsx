@@ -9,6 +9,7 @@ import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
+import { GEMINI_BYOK_KEY } from '../core/thumbnailImageGen';
 
 // TASK F1 (v3.6) — read from the registry instead of a hardcoded list; a
 // model id typed into the free-text fallback (see the "직접 입력" input
@@ -45,6 +46,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [localKey, setLocalKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
+  const [geminiKey, setGeminiKey] = useState('');
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [inputPrice, setInputPrice] = useState('');
   const [outputPrice, setOutputPrice] = useState('');
@@ -60,6 +63,11 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
       if (stored) setLocalKey(stored);
     });
   }, [settings.provider, isRemoteProvider]);
+
+  useEffect(() => {
+    if (!open) return;
+    void getSetting<string>(GEMINI_BYOK_KEY).then(stored => setGeminiKey(stored || ''));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -137,6 +145,16 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     onChange({ ...settings, apiKey: '' });
   }
 
+  async function saveGeminiKey(value: string) {
+    setGeminiKey(value);
+    await setSetting(GEMINI_BYOK_KEY, value);
+  }
+
+  async function clearGeminiKey() {
+    await deleteSetting(GEMINI_BYOK_KEY);
+    setGeminiKey('');
+  }
+
   async function testConnection() {
     setTestResult({ state: 'testing' });
     try {
@@ -186,6 +204,27 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             ChatGPT (OpenAI)
           </button>
         </div>
+
+        <label>🖼 썸네일·커버 이미지 생성 (Gemini)</label>
+        <p className="supporting">
+          위 AI 제공자 선택과는 별개입니다. 서버에 GEMINI_API_KEY 환경변수가 설정되어 있다면 비워둬도 되고,
+          이 브라우저에서 개인 키로 호출하고 싶다면 여기에 붙여넣으세요.
+        </p>
+        <div className="inline">
+          <input
+            type={showGeminiKey ? 'text' : 'password'}
+            value={geminiKey}
+            onChange={event => void saveGeminiKey(event.target.value)}
+            placeholder="AIza..."
+          />
+          <button type="button" className="icon-button" title={showGeminiKey ? '숨기기' : '표시'} onClick={() => setShowGeminiKey(v => !v)}>
+            {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+          <button type="button" className="icon-button" title="삭제" onClick={() => void clearGeminiKey()}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+        {geminiKey && <p className="error">⚠️ 키가 이 브라우저에 저장됩니다. 공용 PC에서는 사용하지 마세요.</p>}
 
         <label>💡 단계별 API 추천</label>
         <p className="supporting">

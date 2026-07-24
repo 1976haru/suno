@@ -424,3 +424,36 @@ export interface ThumbnailSpec {
     stableDiffusion: string;
   };
 }
+
+/**
+ * TASK v3.37 — channel brand template for the image-generation/canvas-compose
+ * pipeline (ported from creator-studio's tools/thumbnail studio). Set once
+ * per channel and locked so every future thumbnail/cover only changes the
+ * background and copy text, never the font/color/badge look.
+ */
+export type ThumbnailFontId = 'blackHanSans' | 'doHyeon' | 'jua' | 'gowunDodum' | 'yeonSung' | 'nanumPenScript';
+
+export type ThumbnailTextPosition =
+  | 'top-center' | 'center' | 'bottom-center'
+  | 'top-left' | 'bottom-left' | 'top-right' | 'bottom-right';
+
+export type ThumbnailBadgePosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export interface ThumbnailBrandBadge {
+  icon: string;
+  tag: string;
+  position: ThumbnailBadgePosition;
+}
+
+export interface ThumbnailBrandTemplate {
+  channelName: string;
+  fontId: ThumbnailFontId;
+  textColor: string;
+  shadowColor: string;
+  shadowWidth: number;
+  strokeOn: boolean;
+  position: ThumbnailTextPosition;
+  badge: ThumbnailBrandBadge;
+  locked: boolean;
+  updatedAt: string;
+}

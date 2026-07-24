@@ -779,6 +779,7 @@ export default function App() {
               thumbnailSeasonId={selectedSeason.id}
               thumbnailArchetypeId={thumbnailArchetypeId}
               thumbnailPackagingLanguage={resolvePackagingLanguage(opts)}
+              thumbnailCustomConcept={opts.customConcept}
               soundSignature={soundSignature}
               personaMode={opts.personaMode ?? false}
               personaPromptStats={personaPromptStats}

@@ -3,6 +3,7 @@ import { Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, Spar
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
+import ThumbnailImageStudioPanel from '../ThumbnailImageStudioPanel';
 import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
@@ -38,6 +39,8 @@ interface Step4ResultProps {
   thumbnailSeasonId: string;
   thumbnailArchetypeId: ThumbnailArchetypeId;
   thumbnailPackagingLanguage: DisplayLanguage;
+  /** TASK v3.37-b — GenerationOptions.customConcept for the pack currently in the editor. */
+  thumbnailCustomConcept: string;
   soundSignature: SoundSignature | null;
   personaMode: boolean;
   personaPromptStats: PersonaPromptStats | null;
@@ -81,6 +84,7 @@ export default function Step4Result({
   thumbnailSeasonId,
   thumbnailArchetypeId,
   thumbnailPackagingLanguage,
+  thumbnailCustomConcept,
   soundSignature,
   personaMode,
   personaPromptStats,
@@ -266,10 +270,19 @@ export default function Step4Result({
           defaultSeasonId={thumbnailSeasonId}
           selectedArchetypeId={thumbnailArchetypeId}
           packagingLanguage={thumbnailPackagingLanguage}
+          customConcept={thumbnailCustomConcept}
           onSelectArchetype={onSelectThumbnailArchetype}
           onRegenerateHeadline={onRegenerateHeadline}
           onSelectVariant={onSelectThumbnailVariant}
           onApplyFreeTextHeadlines={onApplyThumbnailFreeText}
+        />
+      )}
+
+      {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
+        <ThumbnailImageStudioPanel
+          spec={thumbnailSpec}
+          defaultSeasonId={thumbnailSeasonId}
+          defaultArchetypeId={thumbnailArchetypeId}
         />
       )}
 
