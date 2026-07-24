@@ -142,6 +142,23 @@ describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can
 
     for (const title of set1Titles) expect(set2AvoidTitles).toContain(title);
   });
+
+  it('supports a 5-set one-paste master run with sequential save files and duplicate-avoid instructions', () => {
+    const result = buildMultiSetClaudeCodeMasterInstruction(makeOptions({ songCount: 6 }), 5, 6, testGenres, testMoods, testSeason, undefined, false);
+
+    expect(result.outputFilenames).toEqual([
+      'songs-output-set01.json',
+      'songs-output-set02.json',
+      'songs-output-set03.json',
+      'songs-output-set04.json',
+      'songs-output-set05.json'
+    ]);
+    expect(result.instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
+    expect(result.instruction).toContain('Do not stop after the first file');
+    expect(result.instruction).toContain('After writing a set, add the actual generated titles and hookPhrases');
+    expect(result.instruction).toContain('songs-output-set05.json');
+    expect(result.instruction.match(/Set 0[1-5]\/5/g)).toHaveLength(5);
+  });
 });
 
 function lyricsWithHook(hookPhrase: string) {

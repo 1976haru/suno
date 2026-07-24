@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { applySetTitlePrefix, applySetTitlePrefixesToBlueprint, stripSetTitlePrefix } from '../src/utils/generation';
 import type { PlaylistBlueprint } from '../src/types';
+import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 
 describe('[v3.35] applySetTitlePrefix / stripSetTitlePrefix', () => {
   it('prefixes with the 2-digit trackNo and a ". " separator', () => {
@@ -68,6 +70,19 @@ describe('[v3.35] applySetTitlePrefix / stripSetTitlePrefix', () => {
     expect(prefixed.songs.map(song => song.title)).toEqual(
       Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}. Song ${i + 1}`)
     );
+  });
+
+  it('TASK v3.40: actual single-pack local generation output receives 01 through 18 display prefixes after dedup', () => {
+    const opts = makeOptions({ songCount: 18, setNumberPrefix: true });
+    const generated = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const prefixed = applySetTitlePrefixesToBlueprint(generated, opts.setNumberPrefix ?? true);
+
+    expect(prefixed.songs).toHaveLength(18);
+    expect(prefixed.songs.map(song => song.title.match(/^\d{2}\. /)?.[0])).toEqual(
+      Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}. `)
+    );
+    const strippedTitles = prefixed.songs.map(song => stripSetTitlePrefix(song.title).toLowerCase());
+    expect(new Set(strippedTitles).size).toBe(18);
   });
 
   it('TASK v3.40: disabling the option strips any existing display prefix instead of preserving stale numbering', () => {

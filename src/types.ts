@@ -446,6 +446,17 @@ export interface ThumbnailCompositionGuide {
   playerOverlay: boolean;
 }
 
+export interface ThumbnailMotionGuide {
+  kenBurns: {
+    direction: string;
+    speed: string;
+    startFrame: string;
+    endFrame: string;
+  };
+  aiVideoPrompt: string;
+  loopAdvice: string;
+}
+
 export interface ThumbnailSpec {
   /** Always exactly 3 — A: 질문형(호기심), B: 감성형, C: 공감형 (TASK v3.38 Part A). */
   variants: ThumbnailVariant[];
@@ -469,6 +480,8 @@ export interface ThumbnailSpec {
   };
   /** TASK v3.40 Part D4 — text/canvas guidance kept separate from every image prompt. */
   compositionGuide?: ThumbnailCompositionGuide;
+  /** TASK v3.40 Part D6 - video background motion guidance, separate from image prompts. */
+  motionGuide?: ThumbnailMotionGuide;
   /** TASK v3.38 — the archetype's recommended on-image typography, kept separate from imagePromptVariants. */
   typography: ThumbnailTypographyGuide;
 }

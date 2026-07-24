@@ -64,6 +64,27 @@ function songThumbnailMarkdown(song: SongIdea): string {
   return text ? `Thumbnail: ${text}\n\n` : '';
 }
 
+function thumbnailMotionGuideMarkdown(spec: ThumbnailSpec): string {
+  const guide = spec.motionGuide ?? {
+    kenBurns: {
+      direction: 'slow push-in',
+      speed: '5-10 second loop source, or 105% zoom over 3 hours for a full playlist background',
+      startFrame: 'wide frame with clean text-safe space',
+      endFrame: 'slightly closer frame with text-safe space unchanged'
+    },
+    aiVideoPrompt: 'slow camera push-in, everything else static, seamless loop',
+    loopAdvice: '5~10초 루프 클립을 만들어 반복하면 용량 부담 없이 자연스럽습니다. 가장 간단한 방법은 캡컷의 느린 줌(켄 번스)입니다.'
+  };
+  return `Motion Guide:
+
+- Ken Burns direction: ${guide.kenBurns.direction}
+- Ken Burns speed: ${guide.kenBurns.speed}
+- Start frame: ${guide.kenBurns.startFrame}
+- End frame: ${guide.kenBurns.endFrame}
+- AI video prompt: ${guide.aiVideoPrompt}
+- Loop advice: ${guide.loopAdvice}`;
+}
+
 function thumbnailSpecMarkdown(spec?: ThumbnailSpec) {
   if (!spec) return '';
   const selected = spec.variants.find(variant => variant.id === spec.selected) ?? spec.variants[0];
@@ -96,6 +117,8 @@ Composition Guide:
 - Text color: ${guide.textColor}
 - Shadow color: ${guide.shadowColor}
 - Player UI overlay: ${guide.playerOverlay ? 'yes' : 'no'}
+
+${thumbnailMotionGuideMarkdown(spec)}
 
 Composition: ${spec.composition}
 

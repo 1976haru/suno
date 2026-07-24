@@ -1,4 +1,4 @@
-import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailCompositionGuide, ThumbnailSpec, ThumbnailVariant } from '../types';
+import type { ChannelProfile, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SeasonPack, ThumbnailCompositionGuide, ThumbnailMotionGuide, ThumbnailSpec, ThumbnailVariant } from '../types';
 import { paletteForSeason, type ThumbnailPalette } from '../data/thumbnailPalettes';
 import { thumbnailArchetypeById, type ThumbnailArchetype, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
@@ -300,7 +300,7 @@ function buildQwenImagePrompt(parts: ReturnType<typeof buildSceneParts>): string
     `Composition: ${parts.composition}`,
     parts.styleDirective,
     `Negative: ${parts.negatives}`,
-    'Leave clean space for typography that will be added later outside the image generator'
+    'Leave clean blank areas for separate external layout work outside the image generator'
   ].filter(Boolean).join('. ') + '.';
 }
 
@@ -408,6 +408,94 @@ function buildCompositionGuide(
   };
 }
 
+const MOTION_LOOP_ADVICE = '5~10초 루프 클립을 만들어 반복하면 용량 부담 없이 자연스럽습니다. 가장 간단한 방법은 캡컷의 느린 줌(켄 번스)입니다.';
+
+function motionDetailFor(archetype: ThumbnailArchetype): { direction: string; prompt: string } {
+  switch (archetype.category) {
+    case 'winter-window-snow':
+      return {
+        direction: 'slow push-in with a slight upward drift',
+        prompt: 'subtle falling snow outside the window, gentle steam rising from the cup, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'rain-window-quiet':
+      return {
+        direction: 'slow left-to-right drift across the window',
+        prompt: 'soft rain moving down the glass, faint reflection shimmer, slow lateral camera drift, everything else static, seamless loop'
+      };
+    case 'night-city-warm':
+      return {
+        direction: 'very slow rightward pan with a small push-in',
+        prompt: 'soft city light reflections, tiny bokeh shimmer, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'summer-sea-morning':
+      return {
+        direction: 'slow right-to-left drift toward the open sky',
+        prompt: 'gentle sea haze, slow moving morning light, soft curtain movement, everything else static, seamless loop'
+      };
+    case 'spring-blossom-window':
+      return {
+        direction: 'slow push-in toward the right-side blossom detail',
+        prompt: 'subtle spring breeze moving blossoms, slow camera push-in, quiet dust in sunlight, everything else static, seamless loop'
+      };
+    case 'city-roma':
+      return {
+        direction: 'slow push-in from terrace wide frame to table detail',
+        prompt: 'subtle drifting clouds, gentle steam rising from the cup, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'city-paris':
+      return {
+        direction: 'slow left-to-right window drift',
+        prompt: 'soft curtain movement, gentle coffee steam, faint street reflection, slow lateral camera drift, everything else static, seamless loop'
+      };
+    case 'city-barcelona':
+      return {
+        direction: 'slow rightward drift with mild zoom-in',
+        prompt: 'sunlit patio air, gentle fabric movement, slight glass condensation shimmer, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'city-prague':
+      return {
+        direction: 'slow push-in through morning mist',
+        prompt: 'thin morning mist, subtle river reflection shimmer, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'city-kyoto':
+      return {
+        direction: 'slow vertical lift with a tiny push-in',
+        prompt: 'soft garden light movement, faint steam rising from tea, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'village-provence':
+      return {
+        direction: 'slow right-to-left drift across the terrace',
+        prompt: 'soft breeze moving linen, warm sunlight drift, gentle steam rising from the cup, everything else static, seamless loop'
+      };
+    case 'kids-animal-meadow':
+    case 'kids-playground-sky':
+    case 'kids-cozy-room':
+      return {
+        direction: 'slow push-in with minimal parallax',
+        prompt: 'gentle light movement, very subtle background parallax, slow camera push-in, everything else static, seamless loop'
+      };
+    default:
+      return {
+        direction: 'slow push-in from wide calm frame to right-side subject',
+        prompt: 'gentle steam rising from the cup, slow camera push-in, soft light movement, everything else static, seamless loop'
+      };
+  }
+}
+
+function buildMotionGuide(archetype: ThumbnailArchetype): ThumbnailMotionGuide {
+  const motion = motionDetailFor(archetype);
+  return {
+    kenBurns: {
+      direction: motion.direction,
+      speed: '5-10 second loop source, or 105% zoom over 3 hours for a full playlist background',
+      startFrame: 'wide frame with the left third clean and stable for text overlay',
+      endFrame: 'slightly closer frame, text-safe area still clean, no new objects entering the edge'
+    },
+    aiVideoPrompt: motion.prompt,
+    loopAdvice: MOTION_LOOP_ADVICE
+  };
+}
+
 /**
  * TASK B1 (v3.3): this app deliberately does NOT call an image-generation
  * API — a weekly-upload senior channel needs maybe 18 thumbnails across a
@@ -447,6 +535,7 @@ export function buildThumbnailSpec(
   const imagePromptVariants = buildImagePromptVariants(season, palette, archetypeId, seedIndex, 'thumbnail', opts.customConcept);
   const selectedVariant = variants[0];
   const compositionGuide = buildCompositionGuide(archetype, selectedVariant, palette, channel, season, language);
+  const motionGuide = buildMotionGuide(archetype);
 
   return {
     variants,
@@ -467,6 +556,7 @@ export function buildThumbnailSpec(
     imagePrompt: imagePromptVariants.generic,
     imagePromptVariants,
     compositionGuide,
+    motionGuide,
     typography: archetype.recommendedTypography
   };
 }

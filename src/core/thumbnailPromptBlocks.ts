@@ -27,7 +27,7 @@ export const BACK_VIEW_PEOPLE_ONLY =
   'any human figure must be a small distant figure seen from behind or in silhouette only, face never shown, no recognizable features';
 
 export const TEXTLESS_BACKGROUND_ONLY =
-  'textless background only; add captions, typography, and any player UI later in a separate composition step';
+  'textless background only; leave clean blank areas for separate external layout work';
 
 export function midjourneyNoTerms(): string {
   return COMMON_NEGATIVE_TERMS

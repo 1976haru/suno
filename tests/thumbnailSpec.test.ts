@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildThumbnailSpec } from '../src/core/thumbnailSpec';
+import { COMMON_NEGATIVE_TERMS, FILM_PHOTO_SPEC } from '../src/core/thumbnailPromptBlocks';
 import { THUMBNAIL_PALETTES, paletteForSeason } from '../src/data/thumbnailPalettes';
 import { thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 import { makeOptions, testGenres, testMoods, channelPresets, seasonPacks } from './fixtures';
@@ -236,6 +237,31 @@ describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
     expect(spec.imagePromptVariants.stableDiffusion).toContain('Negative:');
   });
 
+  it('[v3.40 D] includes the film spec and shared negative block across all four image-tool tabs', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0]);
+
+    for (const prompt of Object.values(spec.imagePromptVariants)) {
+      expect(prompt).toContain(FILM_PHOTO_SPEC);
+      const lower = prompt.toLowerCase();
+      for (const term of COMMON_NEGATIVE_TERMS) {
+        expect(lower, `missing ${term}`).toContain(term.toLowerCase());
+      }
+    }
+  });
+
+  it('[v3.40 D] keeps the Qwen prompt as a detailed textless-background description', () => {
+    const opts = makeOptions({ songCount: 3, customConcept: 'Roman holiday morning cafe terrace' });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0], 0, 'city-roma');
+
+    expect(spec.imagePromptVariants.qwenImage.length).toBeGreaterThan(900);
+    expect(spec.imagePromptVariants.qwenImage).toContain('Create a detailed textless background');
+    expect(spec.imagePromptVariants.qwenImage).toContain('Leave clean blank areas for separate external layout work');
+    expect(spec.imagePromptVariants.qwenImage).not.toContain('ROMA PLAYLIST');
+  });
+
   it('negative/forbidden guardrails keep "no identifiable person" and a branded-IP ban across every variant', () => {
     const opts = makeOptions({ songCount: 3 });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
@@ -262,6 +288,20 @@ describe('buildThumbnailSpec — v3.5 image-prompt rewrite', () => {
 
   // TASK v3.38 Part A1 — object/text placement is now a fixed structural
   // rule (always left-third for text), not a per-pack seed-derived side.
+  it('[v3.40 D6] attaches motion guidance separately from image prompts', () => {
+    const opts = makeOptions({ songCount: 3 });
+    const bp = generateLocalBlueprint(opts, testGenres, testMoods, seasonPacks[0]);
+    const spec = buildThumbnailSpec(bp, opts, seasonPacks[0], channelPresets[0], 0, 'city-roma');
+
+    expect(spec.motionGuide?.kenBurns.speed).toContain('105% zoom over 3 hours');
+    expect(spec.motionGuide?.aiVideoPrompt).toContain('seamless loop');
+    expect(spec.motionGuide?.loopAdvice).toContain('5~10초 루프 클립');
+    for (const prompt of Object.values(spec.imagePromptVariants)) {
+      expect(prompt).not.toContain('5~10초 루프 클립');
+      expect(prompt).not.toContain(spec.motionGuide!.aiVideoPrompt);
+    }
+  });
+
   it('object/text placement (composition) is the fixed left-third layout, stable across headline regeneration', () => {
     const opts = makeOptions({ songCount: 3, seasonId: 'christmas' });
     const season = seasonPacks.find(s => s.id === 'christmas')!;

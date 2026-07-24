@@ -72,12 +72,23 @@ function thumbnailText(spec?: ThumbnailSpec) {
   const variants = spec.variants.map(variant =>
     `${variant.id} (${variant.angle})${variant.id === spec.selected ? ' [selected]' : ''}: ${variant.headline.replace('\n', ' / ')} / ${variant.subline}`
   );
+  const motionGuide = spec.motionGuide ?? {
+    kenBurns: {
+      direction: 'slow push-in',
+      speed: '5-10 second loop source, or 105% zoom over 3 hours for a full playlist background',
+      startFrame: 'wide frame with clean text-safe space',
+      endFrame: 'slightly closer frame with text-safe space unchanged'
+    },
+    aiVideoPrompt: 'slow camera push-in, everything else static, seamless loop',
+    loopAdvice: '5~10초 루프 클립을 만들어 반복하면 용량 부담 없이 자연스럽습니다. 가장 간단한 방법은 캡컷의 느린 줌(켄 번스)입니다.'
+  };
   return [
     ...variants,
     `Colors: background ${spec.colorScheme.background}, accent ${spec.colorScheme.accent}, text ${spec.colorScheme.text}`,
     `Objects: ${spec.objects.join(', ')}`,
     `Composition: ${spec.composition}`,
     `Composition guide: top ${guide.topSubcaption}; main ${guide.mainPhrase}; subtitle ${guide.subtitle}; bottom ${guide.bottomBrandLine}; text ${guide.textColor}; shadow ${guide.shadowColor}; player overlay ${guide.playerOverlay ? 'yes' : 'no'}`,
+    `Motion guide: Ken Burns ${motionGuide.kenBurns.direction}; speed ${motionGuide.kenBurns.speed}; start ${motionGuide.kenBurns.startFrame}; end ${motionGuide.kenBurns.endFrame}; AI video prompt ${motionGuide.aiVideoPrompt}; loop advice ${motionGuide.loopAdvice}`,
     `Generic image prompt: ${spec.imagePromptVariants.generic}`,
     `Midjourney prompt: ${spec.imagePromptVariants.midjourney}`,
     `Qwen Image prompt: ${spec.imagePromptVariants.qwenImage ?? spec.imagePromptVariants.generic}`,

@@ -4,6 +4,7 @@ import { copyText, downloadText } from '../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { recommendThumbnailCopyLocal } from '../core/conceptAgent';
 import { buildCoverImagePromptVariants, buildPortraitImagePromptVariants, buildThumbnailSpec, type ThumbnailSpec } from '../core/thumbnailSpec';
+import { buildThumbnailWorksetMarkdown, thumbnailMotionGuideText } from '../core/thumbnailWorksetExport';
 import { composeThumbnailPromptSet, type ThumbnailPromptMode } from '../core/thumbnailPromptComposer';
 import { listSetGroups, loadPack, type SetGroupSummary } from '../core/library';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
@@ -14,7 +15,7 @@ import type {
   ThumbnailTimeOfDay
 } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
-import type { DisplayLanguage, ThumbnailVariantId } from '../types';
+import type { DisplayLanguage, SavedPack, ThumbnailVariantId } from '../types';
 
 interface ThumbnailSpecPanelProps {
   spec: ThumbnailSpec;
@@ -188,9 +189,11 @@ export default function ThumbnailSpecPanel({
     setExporting(true);
     try {
       const sections: string[] = [];
+      const packs: SavedPack[] = [];
       for (const meta of group.packs) {
         const pack = await loadPack(meta.id);
         if (!pack) continue;
+        packs.push(pack);
         const season = seasonPacks.find(s => s.id === pack.options.seasonId) ?? seasonPacks[0];
         const packSpec = buildThumbnailSpec(pack.blueprint, pack.options, season, pack.options.channel, 0, selectedArchetypeId);
         const portrait = buildPortraitImagePromptVariants(season.id, selectedArchetypeId, meta.setIndex ?? 0, pack.options.customConcept);
@@ -231,7 +234,11 @@ export default function ThumbnailSpecPanel({
           '```'
         ].join('\n'));
       }
-      const content = `# ${group.label}\n\n${sections.join('\n\n---\n\n')}\n`;
+      const content = buildThumbnailWorksetMarkdown({
+        groupLabel: group.label,
+        packs,
+        archetypeId: selectedArchetypeId
+      });
       downloadText(`${group.groupId}-thumbnail-prompts.md`, content, 'text/markdown;charset=utf-8');
     } finally {
       setExporting(false);
@@ -244,6 +251,7 @@ export default function ThumbnailSpecPanel({
     `Objects: ${spec.objects.join(', ')}`,
     `Composition: ${spec.composition}`,
     `Composition guide:\n${compositionGuideText(spec)}`,
+    `Motion guide:\n${thumbnailMotionGuideText(spec)}`,
     `Forbidden: ${spec.forbidden.join(' / ')}`,
     `Image prompt: ${spec.imagePrompt}`,
     `Qwen image prompt: ${spec.imagePromptVariants.qwenImage ?? spec.imagePromptVariants.generic}`,
@@ -324,6 +332,7 @@ export default function ThumbnailSpecPanel({
           <span>{spec.typography.font} · {spec.typography.color} · outline: {spec.typography.outline} · shadow: {spec.typography.shadow}</span>
         </div>
         <div style={{ gridColumn: '1 / -1' }}><b>Composition guide</b><span>{compositionGuideText(spec).replace(/\n/g, ' 쨌 ')}</span></div>
+        <div style={{ gridColumn: '1 / -1' }}><b>Motion guide</b><span>{thumbnailMotionGuideText(spec).replace(/\n/g, ' | ')}</span></div>
         <div style={{ gridColumn: '1 / -1' }}><b>Composition</b><span>{spec.composition}</span></div>
         <div style={{ gridColumn: '1 / -1' }}><b>Forbidden</b><span>{spec.forbidden.join(' · ')}</span></div>
       </div>
