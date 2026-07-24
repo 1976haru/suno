@@ -16,6 +16,7 @@ import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } fro
 import { scoreSongs } from '../core/quality';
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
+import { stripSetTitlePrefix } from '../utils/generation';
 import { generateWithOpenAI, type ProviderCallResult } from './openai';
 import { generateWithAnthropic } from './anthropic';
 import { ProxyError } from './proxyFetch';
@@ -167,7 +168,7 @@ export async function generateChunkWithSplitRetry(
       const secondHalf = trackNumbers.slice(mid);
       const firstSongs = await generateChunkWithSplitRetry(firstHalf, opts, genres, moods, season, settings, avoid, identity, preassignedSongs);
       const combinedAvoid = {
-        usedTitles: [...avoid.usedTitles, ...firstSongs.map(song => song.title)],
+        usedTitles: [...avoid.usedTitles, ...firstSongs.map(song => stripSetTitlePrefix(song.title))],
         usedHooks: [...avoid.usedHooks, ...firstSongs.map(song => song.hookPhrase)]
       };
       const secondSongs = await generateChunkWithSplitRetry(secondHalf, opts, genres, moods, season, settings, combinedAvoid, identity, preassignedSongs);
@@ -291,7 +292,7 @@ export async function generateBlueprint(
     for (const trackNumbers of batches) {
       const priorSongs = [...songsByTrackNo.values()];
       const chunkAvoid = {
-        usedTitles: [...(avoid?.usedTitles ?? []), ...priorSongs.map(song => song.title)],
+        usedTitles: [...(avoid?.usedTitles ?? []), ...priorSongs.map(song => stripSetTitlePrefix(song.title))],
         usedHooks: [...(avoid?.usedHooks ?? []), ...priorSongs.map(song => song.hookPhrase)]
       };
       const songs = await generateChunkWithSplitRetry(trackNumbers, opts, genres, moods, season, settings, chunkAvoid, identity);
@@ -319,9 +320,9 @@ const REGENERATE_MAX_ATTEMPTS = 3; // initial try + 2 retries
 const REGENERATE_QUALITY_BAR = 70;
 
 function collidesWithOthers(candidate: SongIdea, usedTitles: string[], usedHooks: string[]): boolean {
-  const title = candidate.title.toLowerCase();
+  const title = stripSetTitlePrefix(candidate.title).toLowerCase();
   const hook = candidate.hookPhrase.toLowerCase();
-  return usedTitles.some(t => t.toLowerCase() === title) || usedHooks.some(h => h.toLowerCase() === hook);
+  return usedTitles.some(t => stripSetTitlePrefix(t).toLowerCase() === title) || usedHooks.some(h => h.toLowerCase() === hook);
 }
 
 function tooSimilarToOthers(candidate: SongIdea, others: SongIdea[], trackNo: number): boolean {
@@ -356,7 +357,7 @@ export async function regenerateTrack(
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): Promise<RegenerateTrackResult> {
   const others = blueprint.songs.filter(song => song.trackNo !== trackNo);
-  const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => song.title)];
+  const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => stripSetTitlePrefix(song.title))];
   const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase)];
   const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
   const feedbackNote = feedback.length
@@ -484,7 +485,7 @@ export async function refineTracks(
   for (const chunk of chunkArray(trackNos, REFINE_BATCH_SIZE)) {
     try {
       const others = current.songs.filter(song => !chunk.includes(song.trackNo));
-      const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => song.title)];
+      const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => stripSetTitlePrefix(song.title))];
       const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase)];
       const batchOpts: GenerationOptions = {
         ...opts,

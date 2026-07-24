@@ -170,13 +170,14 @@ export interface GenerationOptions {
   hookMode?: 'pool' | 'ai-creative';
   /**
    * TASK v3.35 — multi-set generation only (core/multiSetGeneration.ts):
+   * TASK v3.40 extends the same display prefix to single-pack generation.
    * when on (default), each set's songs get their set-local trackNo (1..N,
    * reset per set) prefixed onto the display title as "01. ", "02. ", etc,
    * applied *after* that set's own title/hook dedup finishes — so
    * duplicate/collision checks always compare the bare creative title, never
-   * the prefixed one (see utils/generation.ts's stripSetTitlePrefix). No
-   * effect on single-pack generation. Off reverts to the plain creative
-   * title, unchanged from pre-v3.35 behavior.
+   * the prefixed one (see utils/generation.ts's stripSetTitlePrefix). It
+   * now applies to single-pack generation too. Off reverts to the plain
+   * creative title by stripping any existing display prefix.
    */
   setNumberPrefix?: boolean;
 }

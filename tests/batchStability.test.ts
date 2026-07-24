@@ -318,6 +318,12 @@ describe('[B3] validateStitched', () => {
     const result = validateStitched(songs, 2);
     expect(result.duplicateTitleOrHookTrackNos).toEqual([1, 2]);
   });
+
+  it('TASK v3.40: duplicate-title validation strips display numbering before comparing', () => {
+    const songs = [makeSong(1, { title: '01. Same Title' }), makeSong(2, { title: '02. Same Title' })];
+    const result = validateStitched(songs, 2);
+    expect(result.duplicateTitleOrHookTrackNos).toEqual([1, 2]);
+  });
 });
 
 describe('[B1] describeSnapshotMismatch', () => {

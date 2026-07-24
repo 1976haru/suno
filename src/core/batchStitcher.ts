@@ -1,6 +1,7 @@
 import type { GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, SongIdea, UsageInfo } from '../types';
 import { reconcileWithPreassignedSlot } from './batchPreallocation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 /**
  * TASK E2 (v3.5) — reconstructs one PlaylistBlueprint from the (possibly
@@ -138,7 +139,7 @@ export function validateStitched(songs: SongIdea[], expectedCount: number): Stit
   const titleSeen = new Map<string, number[]>();
   const hookSeen = new Map<string, number[]>();
   for (const song of songs) {
-    const titleKey = song.title.trim().toLowerCase();
+    const titleKey = stripSetTitlePrefix(song.title).trim().toLowerCase();
     const hookKey = song.hookPhrase.trim().toLowerCase();
     titleSeen.set(titleKey, [...(titleSeen.get(titleKey) || []), song.trackNo]);
     hookSeen.set(hookKey, [...(hookSeen.get(hookKey) || []), song.trackNo]);

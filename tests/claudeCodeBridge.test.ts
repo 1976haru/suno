@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, importSongsJson } from '../src/core/claudeCodeBridge';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, importSongsJson } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { stripSetTitlePrefix } from '../src/utils/generation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -107,6 +107,38 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     const opts = makeOptions({ songCount: 1 });
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, [], true);
     expect(instruction).toContain('thumbnailText');
+  });
+});
+
+describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can drive all sets', () => {
+  it('packs all set specs and output filenames into one master instruction', () => {
+    const result = buildMultiSetClaudeCodeMasterInstruction(makeOptions({ songCount: 6 }), 3, 6, testGenres, testMoods, testSeason, undefined, false);
+
+    expect(result.setCount).toBe(3);
+    expect(result.songsPerSet).toBe(6);
+    expect(result.outputFilenames).toEqual(['songs-output-set01.json', 'songs-output-set02.json', 'songs-output-set03.json']);
+    expect(result.instruction).toContain('MASTER MODE');
+    expect(result.instruction).toContain('Do not stop after the first file');
+    for (const filename of result.outputFilenames) expect(result.instruction).toContain(filename);
+
+    const payloadMatch = result.instruction.match(/```json\n([\s\S]*?)\n```/);
+    expect(payloadMatch).not.toBeNull();
+    const payload = JSON.parse(payloadMatch![1]);
+    expect(payload.masterMode).toBe(true);
+    expect(payload.sets).toHaveLength(3);
+    expect(payload.sets[0].requestPayload.songCount).toBe(6);
+    expect(payload.sets[0].requestPayload.preassignedSongs).toHaveLength(6);
+  });
+
+  it('threads cumulative avoid lists through later set payloads, same as the per-set bridge builder', () => {
+    const result = buildMultiSetClaudeCodeMasterInstruction(makeOptions({ songCount: 4 }), 2, 4, testGenres, testMoods, testSeason, undefined, false);
+    const payloadMatch = result.instruction.match(/```json\n([\s\S]*?)\n```/);
+    expect(payloadMatch).not.toBeNull();
+    const payload = JSON.parse(payloadMatch![1]);
+    const set1Titles = payload.sets[0].requestPayload.preassignedSongs.map((slot: PreassignedSongSlot) => slot.title);
+    const set2AvoidTitles = payload.sets[1].requestPayload.alreadyUsedTitles;
+
+    for (const title of set1Titles) expect(set2AvoidTitles).toContain(title);
   });
 });
 

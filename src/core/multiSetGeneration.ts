@@ -1,7 +1,7 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
 import { generateBlueprint } from '../providers/index';
 import { resolveHookCollisions } from './hookDedup';
-import { applySetTitlePrefix, stripSetTitlePrefix } from '../utils/generation';
+import { applySetTitlePrefixesToBlueprint, stripSetTitlePrefix } from '../utils/generation';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -98,10 +98,7 @@ export async function finalizeSetBlueprint(
     warnings = resolved.warnings;
   }
   if (setOpts.setNumberPrefix ?? true) {
-    finalBlueprint = {
-      ...finalBlueprint,
-      songs: finalBlueprint.songs.map(song => ({ ...song, title: applySetTitlePrefix(song.trackNo, song.title) }))
-    };
+    finalBlueprint = applySetTitlePrefixesToBlueprint(finalBlueprint, true);
   }
   return { blueprint: finalBlueprint, warnings };
 }

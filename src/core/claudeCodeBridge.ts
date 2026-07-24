@@ -49,6 +49,41 @@ export interface ClaudeCodeInstructionOptions {
   conceptLine?: string;
 }
 
+function buildBridgePayload(
+  opts: GenerationOptions,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
+  preassignedSongs: PreassignedSongSlot[],
+  generateThumbnailText: boolean
+) {
+  const batch: BatchContext = {
+    trackNoOffset: 0,
+    totalSongCount: opts.songCount,
+    usedTitles: avoid?.usedTitles ?? [],
+    usedHooks: avoid?.usedHooks ?? [],
+    lockedIdentity: null,
+    preassignedSongs
+  };
+  const basePayload = buildUserInstruction(opts, genres, moods, season, batch, generateThumbnailText);
+  return {
+    batch,
+    payload: {
+      ...basePayload,
+      preassignedSongs,
+      outputShape: { songs: [songOutputShape(generateThumbnailText)] }
+    }
+  };
+}
+
+function titleInstructionLineFor(opts: GenerationOptions): string {
+  const titleMode = opts.titleMode ?? 'ai-creative';
+  return titleMode === 'local'
+    ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
+    : '- "preassignedSongs" gives local planning slots and fallback placeholders. Write your OWN original title for each song, independent of the hookPhrase. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel tone while varying the structure freely.';
+}
+
 /**
  * Builds one self-contained instruction a coding agent can run without any
  * further back-and-forth: the same content rules generateBlueprint's remote
@@ -73,22 +108,9 @@ export function buildClaudeCodeInstruction(
   instructionOptions: ClaudeCodeInstructionOptions = {}
 ): string {
   const outputFilename = instructionOptions.outputFilename ?? CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME;
-  const batch: BatchContext = {
-    trackNoOffset: 0,
-    totalSongCount: opts.songCount,
-    usedTitles: avoid?.usedTitles ?? [],
-    usedHooks: avoid?.usedHooks ?? [],
-    lockedIdentity: null,
-    preassignedSongs
-  };
+  const { batch, payload } = buildBridgePayload(opts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText);
   const bridgeRulesBatch: BatchContext = { ...batch, preassignedSongs: [] };
   const rules = buildSystemInstruction(opts, bridgeRulesBatch, undefined, generateThumbnailText);
-  const basePayload = buildUserInstruction(opts, genres, moods, season, batch, generateThumbnailText);
-  const payload = {
-    ...basePayload,
-    preassignedSongs,
-    outputShape: { songs: [songOutputShape(generateThumbnailText)] }
-  };
 
   // TASK v3.27/v3.28 (Part A2/B2) — same titleMode branch as
   // promptComposer.ts's buildBatchSystemNote, kept in sync here rather than
@@ -98,10 +120,7 @@ export function buildClaudeCodeInstruction(
   // hook" constraint for ai-creative entirely — real measurement showed
   // titles still came back 100% identical to their hooks with that
   // constraint in place, even with v3.27's shape-rotation guidance.
-  const titleMode = opts.titleMode ?? 'ai-creative';
-  const titleInstructionLine = titleMode === 'local'
-    ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
-    : '- "preassignedSongs" gives local planning slots and fallback placeholders. Write your OWN original title for each song, independent of the hookPhrase. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel tone while varying the structure freely.';
+  const titleInstructionLine = titleInstructionLineFor(opts);
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -160,6 +179,16 @@ export interface MultiSetBridgeInstruction {
   outputFilename: string;
   instruction: string;
   preassignedSongs: PreassignedSongSlot[];
+  conceptLine: string;
+  avoid: { usedTitles: string[]; usedHooks: string[] };
+}
+
+export interface MultiSetBridgeMasterInstruction {
+  setCount: number;
+  songsPerSet: number;
+  outputFilenames: string[];
+  instruction: string;
+  setInstructions: MultiSetBridgeInstruction[];
 }
 
 /**
@@ -204,12 +233,90 @@ export function buildMultiSetClaudeCodeInstructions(
     const outputFilename = `songs-output-set${String(index + 1).padStart(2, '0')}.json`;
     const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine });
 
-    results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs });
+    results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs, conceptLine, avoid });
     usedTitles = [...usedTitles, ...preassignedSongs.map(slot => slot.title)];
     usedHooks = [...usedHooks, ...preassignedSongs.map(slot => slot.hookPhrase)];
   }
 
   return results;
+}
+
+/**
+ * TASK v3.40 (bridge master mode): Codex/Claude Code can perform a loop in
+ * one session, so users should not have to paste N separate prompts for N
+ * sets. This keeps the existing per-set instruction builder as the source of
+ * truth, then packs those same set specs into one master instruction that
+ * tells the coding agent to generate and save each set sequentially.
+ */
+export function buildMultiSetClaudeCodeMasterInstruction(
+  baseOpts: GenerationOptions,
+  setCount: number,
+  songsPerSet: number,
+  genres: GenrePack[],
+  moods: MoodPack[],
+  season: SeasonPack,
+  initialAvoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
+  generateThumbnailText = false
+): MultiSetBridgeMasterInstruction {
+  const setInstructions = buildMultiSetClaudeCodeInstructions(baseOpts, setCount, songsPerSet, genres, moods, season, initialAvoid, generateThumbnailText);
+  const totalSongs = setCount * songsPerSet;
+  const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
+  const titleInstructionLine = titleInstructionLineFor(baseOpts);
+  const sets = setInstructions.map(item => {
+    const { payload } = buildBridgePayload(item.setOpts, genres, moods, season, item.avoid, item.preassignedSongs, generateThumbnailText);
+    return {
+      setNo: item.setIndex + 1,
+      setTotal: setCount,
+      outputFilename: item.outputFilename,
+      conceptLine: item.conceptLine,
+      requestPayload: payload
+    };
+  });
+  const masterPayload = {
+    masterMode: true,
+    setCount,
+    songsPerSet,
+    totalSongCount: totalSongs,
+    outputFilenames: setInstructions.map(item => item.outputFilename),
+    sets
+  };
+
+  const instruction = [
+    'You are generating multiple Suno playlist sets in one coding-agent session - no Anthropic/OpenAI API call, write every result straight to files.',
+    '',
+    'MASTER MODE:',
+    `- Generate ${setCount} sets sequentially, Set 01 through Set ${String(setCount).padStart(2, '0')}, ${songsPerSet} songs per set.`,
+    '- Do not stop after the first file. Finish every set and write every requested output file.',
+    '- For each set, use that set\'s requestPayload exactly as if it were a normal one-pack Claude Code bridge request.',
+    '- After writing a set, add the actual generated titles and hookPhrases from that file to your avoid list before composing the next set. Later sets must not reuse earlier-set titles or hooks.',
+    '- If any title or hook collides with alreadyUsedTitles/alreadyUsedHooks or a prior set in this master run, rewrite it before writing the file.',
+    '',
+    rules,
+    '',
+    'Master request payload:',
+    '```json',
+    JSON.stringify(masterPayload, null, 2),
+    '```',
+    '',
+    'Output requirement for every set:',
+    '- Write exactly one raw JSON file per set, named by that set\'s "outputFilename".',
+    '- Each file content must be exactly { "songs": [ ... ] }, with no markdown fences and no surrounding prose inside the file.',
+    `- Each set file must contain exactly ${songsPerSet} song objects matching requestPayload.outputShape.songs[0].`,
+    titleInstructionLine,
+    '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
+    '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
+    '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
+    '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
+    '- When done, tell me the paths of all files so I can import them back into Suno Weaver Studio.'
+  ].join('\n');
+
+  return {
+    setCount,
+    songsPerSet,
+    outputFilenames: setInstructions.map(item => item.outputFilename),
+    instruction,
+    setInstructions
+  };
 }
 
 /**

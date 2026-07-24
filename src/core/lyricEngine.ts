@@ -1,6 +1,7 @@
 import type { ChannelArchetype, GenerationOptions, LyricLanguage, SeasonPack, SongIdea } from '../types';
 import { defaultHookParts, resolveHookParts, type HookPartBank } from '../data/hookParts';
 import { overrideForArchetype } from '../data/hookBanks';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 export interface LyricLineCtx {
   season: string;
@@ -1422,11 +1423,11 @@ export interface TitleDedupResult {
 }
 
 export function dedupeTitlesAcrossPack(songs: SongIdea[], avoidTitles: string[] = []): TitleDedupResult {
-  const seen = new Set(avoidTitles.map(title => title.trim().toLowerCase()));
+  const seen = new Set(avoidTitles.map(title => stripSetTitlePrefix(title).trim().toLowerCase()));
   const changedTrackNos: number[] = [];
 
   const result = songs.map(song => {
-    const key = song.title.trim().toLowerCase();
+    const key = stripSetTitlePrefix(song.title).trim().toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
       return song;
@@ -1436,13 +1437,13 @@ export function dedupeTitlesAcrossPack(songs: SongIdea[], avoidTitles: string[] 
     let candidateKey = key;
     for (const suffix of TITLE_DEDUP_SUFFIXES) {
       candidate = `${song.title} (${suffix})`;
-      candidateKey = candidate.trim().toLowerCase();
+      candidateKey = stripSetTitlePrefix(candidate).trim().toLowerCase();
       if (!seen.has(candidateKey)) break;
     }
     let n = 2;
     while (seen.has(candidateKey)) {
       candidate = `${song.title} (${n})`;
-      candidateKey = candidate.trim().toLowerCase();
+      candidateKey = stripSetTitlePrefix(candidate).trim().toLowerCase();
       n += 1;
     }
 

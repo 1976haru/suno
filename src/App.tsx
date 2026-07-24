@@ -29,9 +29,9 @@ import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, type SetResult } from './core/multiSetGeneration';
-import { applySetTitlePrefix, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
+import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
 import { defaultPackagingLanguage, resolvePackagingLanguage } from './core/packagingLanguage';
-import type { ChannelProfile, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
 import HookExhaustionWarningModal from './components/HookExhaustionWarningModal';
 import CachePromptModal from './components/CachePromptModal';
@@ -232,18 +232,23 @@ export default function App() {
 
   const isHybridActive = hybridMode && provider.provider !== 'local';
 
+  function finalizeSinglePackBlueprint(next: PlaylistBlueprint, generationOpts: GenerationOptions = { ...opts, channel: cm.selectedChannel }) {
+    return applySetTitlePrefixesToBlueprint(next, generationOpts.setNumberPrefix ?? true);
+  }
+
   /** Shared by both the synchronous generation path and the Batch API path (TASK E2, v3.5) — whichever produced the blueprint, the autosave/hook-ledger/library-refresh behavior afterward is identical. */
-  async function handleGenerationSuccess(next: import('./types').PlaylistBlueprint, songCount: number, cacheKeyToStore?: string) {
+  async function handleGenerationSuccess(next: PlaylistBlueprint, songCount: number, cacheKeyToStore?: string, sourceOpts: GenerationOptions = { ...opts, channel: cm.selectedChannel }) {
+    const finalBlueprint = finalizeSinglePackBlueprint(next, sourceOpts);
     setOpts(prev => ({ ...prev, songCount }));
     if (cacheKeyToStore) {
-      void setCached(cacheKeyToStore, next, { provider: provider.provider, model: provider.model || provider.provider, songCount });
+      void setCached(cacheKeyToStore, finalBlueprint, { provider: provider.provider, model: provider.model || provider.provider, songCount });
     }
     try {
-      const nextOpts = { ...opts, channel: cm.selectedChannel, songCount };
-      const nextThumbnailSpec = buildThumbnailSpec(next, nextOpts, selectedSeason, cm.selectedChannel, 0, thumbnailArchetypeId);
-      const nextSoundSignature = buildSoundSignature(next, nextOpts, cm.selectedChannel);
-      await saveAutosave(next, nextOpts, nextThumbnailSpec, nextSoundSignature);
-      await recordPackHooks(AUTOSAVE_ID, cm.selectedChannel.id, next, opts.lyricLanguage);
+      const nextOpts = { ...sourceOpts, songCount };
+      const nextThumbnailSpec = buildThumbnailSpec(finalBlueprint, nextOpts, selectedSeason, sourceOpts.channel, 0, thumbnailArchetypeId);
+      const nextSoundSignature = buildSoundSignature(finalBlueprint, nextOpts, sourceOpts.channel);
+      await saveAutosave(finalBlueprint, nextOpts, nextThumbnailSpec, nextSoundSignature);
+      await recordPackHooks(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
       await library.refresh();
     } catch {
       // Autosave is a convenience feature; failures should not block the result from showing.
@@ -262,15 +267,16 @@ export default function App() {
       fallbackMoods(),
       selectedSeason,
       generationProvider,
-      (next, songCount) => void handleGenerationSuccess(next, songCount, cacheKeyToStore)
+      (next, songCount) => void handleGenerationSuccess(next, songCount, cacheKeyToStore, { ...opts, channel: cm.selectedChannel, songCount })
     );
   }
 
-  function onBatchJobComplete(next: import('./types').PlaylistBlueprint) {
+  function onBatchJobComplete(next: PlaylistBlueprint, batchOpts: GenerationOptions = { ...opts, channel: cm.selectedChannel }) {
+    const finalBlueprint = finalizeSinglePackBlueprint(next, batchOpts);
     evalFlow.setEvaluation(null);
-    gen.setBlueprint(next);
+    gen.setBlueprint(finalBlueprint);
     setCurrentStep(4);
-    void handleGenerationSuccess(next, next.songs.length);
+    void handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, batchOpts);
   }
 
   /**
@@ -287,10 +293,12 @@ export default function App() {
     const preassignedSongs = preallocateSongSlots(importOpts, fallbackGenres(), avoid);
     const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
     if (report.blueprint) {
+      const finalBlueprint = finalizeSinglePackBlueprint(report.blueprint, importOpts);
+      report.blueprint = finalBlueprint;
       evalFlow.setEvaluation(null);
-      gen.setBlueprint(report.blueprint);
+      gen.setBlueprint(finalBlueprint);
       setCurrentStep(4);
-      await handleGenerationSuccess(report.blueprint, report.blueprint.songs.length);
+      await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
     }
     return report;
   }
@@ -324,7 +332,7 @@ export default function App() {
       .map((file, uploadOrder) => ({ file, setIndex: parseSetIndexFromFilename(file.name, uploadOrder) }))
       .sort((a, b) => a.setIndex - b.setIndex);
 
-    let lastBlueprint: import('./types').PlaylistBlueprint | null = null;
+    let lastBlueprint: PlaylistBlueprint | null = null;
 
     for (const { file, setIndex } of ordered) {
       const setOpts = buildSetOptions({ ...opts, channel: cm.selectedChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
@@ -334,9 +342,7 @@ export default function App() {
       const report = importSongsJson(text, setOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
 
       if (report.blueprint) {
-        const finalBlueprint = (setOpts.setNumberPrefix ?? true)
-          ? { ...report.blueprint, songs: report.blueprint.songs.map(song => ({ ...song, title: applySetTitlePrefix(song.trackNo, song.title) })) }
-          : report.blueprint;
+        const finalBlueprint = applySetTitlePrefixesToBlueprint(report.blueprint, setOpts.setNumberPrefix ?? true);
         await library.saveGeneratedSet(finalBlueprint, setOpts, setOpts.projectTitle, { setGroupId: groupId, setIndex, setTotal: multiSetCount });
         usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))];
         usedHooks = [...usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)];
@@ -515,9 +521,10 @@ export default function App() {
         stillMissing.push(trackNo);
       }
     }
-    gen.setBlueprint(current);
-    const updated = await updateBatchJob(job.id, { resultBlueprint: current, missingTrackNos: stillMissing.length ? stillMissing : undefined });
-    if (updated) void handleGenerationSuccess(current, current.songs.length);
+    const finalBlueprint = finalizeSinglePackBlueprint(current, batchOpts);
+    gen.setBlueprint(finalBlueprint);
+    const updated = await updateBatchJob(job.id, { resultBlueprint: finalBlueprint, missingTrackNos: stillMissing.length ? stillMissing : undefined });
+    if (updated) void handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, batchOpts);
   }
 
   function onRefineSelected(trackNos: number[]) {
@@ -536,7 +543,8 @@ export default function App() {
         return;
       }
       evalFlow.setEvaluation(null);
-      gen.setBlueprint(cached.blueprint);
+      const finalBlueprint = finalizeSinglePackBlueprint(cached.blueprint);
+      gen.setBlueprint(finalBlueprint);
       setCurrentStep(4);
       try {
         await recordUsage({ provider: provider.provider, model: provider.model || provider.provider, purpose: 'generate', inputTokens: 0, outputTokens: 0, cacheHit: true });
@@ -592,7 +600,7 @@ export default function App() {
       selectedSeason,
       provider,
       issues,
-      next => gen.setBlueprint(next),
+      next => gen.setBlueprint(finalizeSinglePackBlueprint(next, { ...opts, channel: cm.selectedChannel })),
       message => gen.setError(message)
     );
   }

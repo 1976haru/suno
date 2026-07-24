@@ -9,7 +9,7 @@ import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
-import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
 import { copyText, downloadText } from '../../utils/exporters';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
@@ -94,6 +94,7 @@ export default function Step3Generate({
   const [bridgeCopied, setBridgeCopied] = useState(false);
   const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [masterBridgeCopied, setMasterBridgeCopied] = useState(false);
   // TASK v3.35 (bridge split) — per-set copy/completion tracking for the multi-set instruction list; session-only (not persisted), reset implicitly whenever the instruction list itself is recomputed (channel/set-count/set-size change) since those are different sets entirely.
   const [copiedSetIndexes, setCopiedSetIndexes] = useState<Set<number>>(new Set());
   const [completedSetIndexes, setCompletedSetIndexes] = useState<Set<number>>(new Set());
@@ -211,6 +212,31 @@ export default function Step3Generate({
       : [],
     [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText]
   );
+  const multiSetMasterInstruction = useMemo(
+    () => multiSet.mode
+      ? buildMultiSetClaudeCodeMasterInstruction(
+        opts,
+        multiSetClamped.setCount,
+        multiSetClamped.songsPerSet,
+        genres,
+        moods,
+        season,
+        combinedBridgeAvoid,
+        provider.generateThumbnailText ?? false
+      ).instruction
+      : '',
+    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText]
+  );
+
+  async function handleCopyMasterInstruction() {
+    await copyText(multiSetMasterInstruction);
+    setMasterBridgeCopied(true);
+    setTimeout(() => setMasterBridgeCopied(false), 2000);
+  }
+
+  function handleDownloadMasterInstruction() {
+    downloadText('claude-code-master-instruction.txt', multiSetMasterInstruction, 'text/plain;charset=utf-8');
+  }
 
   async function handleCopySetInstruction(item: MultiSetBridgeInstruction) {
     await copyText(item.instruction);
@@ -606,6 +632,16 @@ export default function Step3Generate({
             <p className="supporting">
               진행 상황: 복사 {copiedSetIndexes.size}/{multiSetBridgeInstructions.length} · 완료 체크 {completedSetIndexes.size}/{multiSetBridgeInstructions.length}
             </p>
+            <div className="button-row">
+              <button type="button" onClick={() => void handleCopyMasterInstruction()}>
+                <Copy size={16} />
+                {masterBridgeCopied ? 'Master copied' : 'Copy master instruction'}
+              </button>
+              <button type="button" onClick={handleDownloadMasterInstruction}>
+                <Download size={16} />
+                Download master .txt
+              </button>
+            </div>
             <div className="bridge-set-list">
               {multiSetBridgeInstructions.map(item => (
                 <div key={item.setIndex} className="bridge-set-row">

@@ -1,4 +1,4 @@
-import type { ChannelProfile, GenerationOptions } from '../types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint } from '../types';
 import { defaultAvoidWordsString } from '../data/avoidWordPresets';
 import { normalizeGenreSelection } from '../core/genreSelection';
 import { defaultPackagingLanguage } from '../core/packagingLanguage';
@@ -51,7 +51,18 @@ export function stripSetTitlePrefix(title: string): string {
 
 /** trackNo padded to 2 digits + ". " — trackNo is already the set-local 1..songsPerSet number by construction (each set is its own generateBlueprint call, see multiSetGeneration.ts), so no separate "position within set" bookkeeping is needed. */
 export function applySetTitlePrefix(trackNo: number, title: string): string {
-  return `${String(trackNo).padStart(2, '0')}. ${title}`;
+  return `${String(trackNo).padStart(2, '0')}. ${stripSetTitlePrefix(title)}`;
+}
+
+/** Applies the trusted trackNo display prefix to every song title, or strips any existing prefix when the option is disabled. */
+export function applySetTitlePrefixesToBlueprint(blueprint: PlaylistBlueprint, enabled = true): PlaylistBlueprint {
+  return {
+    ...blueprint,
+    songs: blueprint.songs.map(song => ({
+      ...song,
+      title: enabled ? applySetTitlePrefix(song.trackNo, song.title) : stripSetTitlePrefix(song.title)
+    }))
+  };
 }
 
 export function createInitialOptions(channel: ChannelProfile): GenerationOptions {

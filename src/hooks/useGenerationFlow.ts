@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { generateBlueprint, refineTracks } from '../providers';
-import { clampSongCount } from '../utils/generation';
+import { applySetTitlePrefixesToBlueprint, clampSongCount } from '../utils/generation';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import { resolveStageSettings } from '../core/apiAdvisor';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
@@ -47,7 +47,7 @@ export function useGenerationFlow() {
     setGenProgress({ done: 0, total: songCount });
     try {
       const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
-      const next = await generateBlueprint(
+      const generated = await generateBlueprint(
         { ...opts, songCount },
         genres,
         moods,
@@ -59,6 +59,7 @@ export function useGenerationFlow() {
         },
         avoid
       );
+      const next = applySetTitlePrefixesToBlueprint(generated, opts.setNumberPrefix ?? true);
       setBlueprint(next);
       afterSuccess?.(next, songCount);
     } catch (e) {
@@ -88,7 +89,7 @@ export function useGenerationFlow() {
     setRefineProgress({ done: 0, total: trackNos.length });
     try {
       const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
-      const { blueprint: next, warnings } = await refineTracks(
+      const { blueprint: refinedBlueprint, warnings } = await refineTracks(
         blueprint,
         trackNos,
         opts,
@@ -100,6 +101,7 @@ export function useGenerationFlow() {
         (done, total) => setRefineProgress({ done, total }),
         avoid
       );
+      const next = applySetTitlePrefixesToBlueprint(refinedBlueprint, opts.setNumberPrefix ?? true);
       setBlueprint(next);
       setRefineWarnings(warnings);
     } catch (e) {

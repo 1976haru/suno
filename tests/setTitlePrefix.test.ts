@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applySetTitlePrefix, stripSetTitlePrefix } from '../src/utils/generation';
+import { applySetTitlePrefix, applySetTitlePrefixesToBlueprint, stripSetTitlePrefix } from '../src/utils/generation';
+import type { PlaylistBlueprint } from '../src/types';
 
 describe('[v3.35] applySetTitlePrefix / stripSetTitlePrefix', () => {
   it('prefixes with the 2-digit trackNo and a ". " separator', () => {
@@ -35,5 +36,67 @@ describe('[v3.35] applySetTitlePrefix / stripSetTitlePrefix', () => {
   it('never strips a number that is not immediately followed by ". " (a legitimate title starting with digits is left alone)', () => {
     expect(stripSetTitlePrefix('24 Hours of Rain')).toBe('24 Hours of Rain');
     expect(stripSetTitlePrefix('1989 Was A Good Year')).toBe('1989 Was A Good Year');
+  });
+
+  it('TASK v3.40: prefixes every song in a single-pack blueprint, 01 through 18', () => {
+    const blueprint: PlaylistBlueprint = {
+      projectTitle: 'Single Pack',
+      channelName: 'Test Channel',
+      oneLineConcept: 'x',
+      sonicSignature: 'x',
+      vocalSignature: 'x',
+      lyricRules: [],
+      harmonyRules: [],
+      visualRules: [],
+      songs: Array.from({ length: 18 }, (_, i) => ({
+        trackNo: i + 1,
+        title: `Song ${i + 1}`,
+        seasonMoment: 'x',
+        listenerSituation: 'x',
+        emotionArc: 'x',
+        hookPhrase: `Hook ${i + 1}`,
+        stylePrompt: 'warm pop, I-V-vi-IV progression',
+        lyrics: '[verse 1]\nline\n[chorus]\nhook\nhook\n[end]',
+        youtube: { title: 'x', description: 'x', tags: ['x'] },
+        qualityScore: 0,
+        warnings: []
+      }))
+    };
+
+    const prefixed = applySetTitlePrefixesToBlueprint(blueprint, true);
+
+    expect(prefixed.songs.map(song => song.title)).toEqual(
+      Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}. Song ${i + 1}`)
+    );
+  });
+
+  it('TASK v3.40: disabling the option strips any existing display prefix instead of preserving stale numbering', () => {
+    const blueprint: PlaylistBlueprint = {
+      projectTitle: 'Single Pack',
+      channelName: 'Test Channel',
+      oneLineConcept: 'x',
+      sonicSignature: 'x',
+      vocalSignature: 'x',
+      lyricRules: [],
+      harmonyRules: [],
+      visualRules: [],
+      songs: [
+        {
+          trackNo: 1,
+          title: '01. Winterglass',
+          seasonMoment: 'x',
+          listenerSituation: 'x',
+          emotionArc: 'x',
+          hookPhrase: 'Hook One',
+          stylePrompt: 'warm pop, I-V-vi-IV progression',
+          lyrics: '[verse 1]\nline\n[chorus]\nhook\nhook\n[end]',
+          youtube: { title: 'x', description: 'x', tags: ['x'] },
+          qualityScore: 0,
+          warnings: []
+        }
+      ]
+    };
+
+    expect(applySetTitlePrefixesToBlueprint(blueprint, false).songs[0].title).toBe('Winterglass');
   });
 });
