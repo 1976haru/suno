@@ -303,6 +303,18 @@ export interface PreassignedSongSlot {
    * trackNo (see core/batchPreallocation.ts's preallocateSongSlots).
    */
   moneyChordText: string;
+  /**
+   * TASK v3.39 — mirrors moneyChordText's per-trackNo verbatim-instruction
+   * pattern for the kids channel's male/female/mixed vocal quota (see
+   * core/vocalPlan.ts's buildVocalPlan/usesVocalQuota). Undefined whenever
+   * usesVocalQuota(opts) is false (every non-kids archetype), so no other
+   * channel's slot shape changes. vocalType is the raw pick; vocalText is
+   * its resolved, ready-to-weave description (vocalDescriptionFor) so
+   * realtime/Batch/bridge can all instruct "use this verbatim" the same way
+   * they already do for moneyChordText.
+   */
+  vocalType?: 'male' | 'female' | 'mixed';
+  vocalText?: string;
 }
 
 export interface BatchContext {

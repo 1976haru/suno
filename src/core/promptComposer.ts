@@ -483,8 +483,22 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // verbatim per song rather than left to the model's own "money chords are
   // mandatory" judgment, which real listening feedback found reads as vague.
   const moneyChordInstruction = 'Each entry also includes "moneyChordText" — weave that exact phrase (progression tag plus its reinforcement/downbeat language) into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.';
+  // TASK v3.39 — mirrors moneyChordInstruction's verbatim-weave pattern for
+  // the kids channel's per-song male/female/mixed vocal quota (see
+  // core/vocalPlan.ts/core/batchPreallocation.ts's preallocateSongSlots).
+  // Only ever present when this request's slots actually carry vocalText
+  // (i.e. usesVocalQuota(opts) was true when the slots were built), so every
+  // non-kids batch note is byte-identical to before this task.
+  const hasVocalText = batch.preassignedSongs?.some(slot => slot.vocalText);
+  const vocalInstruction = hasVocalText
+    ? ' Each entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal type (e.g. an adult voice) or paraphrase it away.'
+    : '';
+  const preassignedFieldList = hasVocalText
+    ? '{trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText, vocalText}'
+    : '{trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText}';
+  const forcedFieldsList = hasVocalText ? 'trackNo, emotionArc, moneyChordText, or vocalText' : 'trackNo, emotionArc, or moneyChordText';
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText} for every song in this request. Do NOT invent a different trackNo, emotionArc, or moneyChordText — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of ${preassignedFieldList} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

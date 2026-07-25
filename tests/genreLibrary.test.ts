@@ -176,11 +176,13 @@ describe('structured genre library', () => {
     expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
   });
 
-  it('preserves all 264 genre ids and keeps preset ids backward compatible', () => {
+  it('preserves all 268 genre ids and keeps preset ids backward compatible', () => {
     const libraryIds = new Set(genreLibrary.map(genre => genre.id));
     const presetIds = new Set(genrePacks.map(genre => genre.id));
-    expect(libraryIds.size).toBe(264);
-    // TASK v3.38 Part B1/B0 — presetIds now also includes the 4 kids-only genre ids (see above).
+    // TASK v3.39 — the 4 kids-* ids are now registered directly into
+    // genreLibrary too (previously only in presets.ts's rawGenrePacks), so
+    // getGenreById/getVisibleGenresForArchetype('kids') can resolve them.
+    expect(libraryIds.size).toBe(268);
     expect(presetIds.size).toBe(268);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);

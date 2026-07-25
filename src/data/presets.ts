@@ -47,7 +47,9 @@ export const channelPresets: ChannelProfile[] = [
     audience: 'kids',
     promise: '유아~초등 저학년과 보호자가 함께 듣는 밝고 안전한 창작 동요 플레이리스트',
     visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
-    defaultVocal: "bright cheerful children's choir with a warm adult lead, call-and-response, singalong",
+    // TASK v3.39 — matches core/vocalPlan.ts's VOCAL_DESCRIPTIONS rewrite:
+    // childlike/youthful tone throughout, no adult-coded wording.
+    defaultVocal: "bright cheerful children's choir singalong, youthful childlike voices, call-and-response group singing",
     // TASK v3.38 Part B0 (correction) — kids songs are pop-style, not
     // traditional-nursery-rhyme-style; the 3 primary genres are all pop
     // variants, and kids-march (traditional/marching-song flavor) is kept

@@ -17,7 +17,7 @@ import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
 import { moneyChordPresets } from '../data/moneyChords';
-import { DEFAULT_KIDS_VOCAL_QUOTA, scaleVocalQuota, usesVocalQuota } from './vocalPlan';
+import { usesVocalQuota } from './vocalPlan';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -105,10 +105,19 @@ function summarizeMoneyChord(opts: GenerationOptions, preassignedSongs: Preassig
   return moneyChordPresets[opts.moneyChordMode ?? 'default']?.compactProgression ?? 'default money chord progression';
 }
 
-function summarizeVocalQuota(opts: GenerationOptions): string {
+/**
+ * TASK v3.39 — counts the slots' own resolved vocalType rather than
+ * recomputing scaleVocalQuota independently, so the set-planning table's
+ * summary can never drift from what preassignedSongs (and therefore the
+ * per-song "vocalText" instruction below) actually assigned.
+ */
+function summarizeVocalQuota(opts: GenerationOptions, preassignedSongs: PreassignedSongSlot[]): string {
   if (!usesVocalQuota(opts)) return 'single vocal identity';
-  const quota = scaleVocalQuota(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount);
-  return `male ${quota.male}, female ${quota.female}, mixed ${quota.mixed}`;
+  const counts = { male: 0, female: 0, mixed: 0 };
+  for (const slot of preassignedSongs) {
+    if (slot.vocalType) counts[slot.vocalType] += 1;
+  }
+  return `male ${counts.male}, female ${counts.female}, mixed ${counts.mixed}`;
 }
 
 interface BridgeSetPlanningRow {
@@ -130,7 +139,7 @@ function buildSetPlanningTable(rows: BridgeSetPlanningRow[]): string {
       markdownCell(row.conceptLine),
       markdownCell(row.seasonLabel),
       markdownCell(summarizeMoneyChord(row.setOpts, row.preassignedSongs)),
-      markdownCell(summarizeVocalQuota(row.setOpts)),
+      markdownCell(summarizeVocalQuota(row.setOpts, row.preassignedSongs)),
       row.outputFilename
     ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'))
   ].join('\n');
@@ -173,6 +182,14 @@ export function buildClaudeCodeInstruction(
   // titles still came back 100% identical to their hooks with that
   // constraint in place, even with v3.27's shape-rotation guidance.
   const titleInstructionLine = titleInstructionLineFor(opts);
+  // TASK v3.39 — same verbatim-weave rule promptComposer.ts's
+  // buildBatchSystemNote gives real API requests, kept in sync here per this
+  // file's existing convention (see the titleInstructionLine/moneyChordText
+  // comments above). Only present when this pack's slots actually carry
+  // vocalText (kids channel with the per-song quota active).
+  const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
+    ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal type (e.g. an adult voice) or paraphrase it away.'
+    : '';
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -212,6 +229,7 @@ export function buildClaudeCodeInstruction(
     // real listening feedback, so each preassignedSongs entry carries its
     // own ready-to-use progression + reinforcement text instead.
     '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
+    vocalInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
     // the locally trusted trackNo (see core/multiSetGeneration.ts's
@@ -325,6 +343,9 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const totalSongs = setCount * songsPerSet;
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
   const titleInstructionLine = titleInstructionLineFor(baseOpts);
+  const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
+    ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal type (e.g. an adult voice) or paraphrase it away.'
+    : '';
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -380,6 +401,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     titleInstructionLine,
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
+    vocalInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
     '- When done, tell me the paths of all files so I can import them back into Suno Weaver Studio.'

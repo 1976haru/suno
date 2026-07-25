@@ -26,10 +26,19 @@ export const DEFAULT_KIDS_VOCAL_QUOTA: VocalQuota = { male: 6, female: 6, mixed:
 /** TASK v3.38 Part B (language follow-up) — the 3 lyricLanguages the kids channel supports. Any other LyricLanguage value (e.g. 'bilingual', which the kids channel UI doesn't offer) falls back to 'korean' via vocalDictionLanguage below. */
 export type KidsVocalLanguage = 'korean' | 'japanese' | 'english';
 
+/**
+ * TASK v3.39 — real listening feedback: the pre-v3.39 wording ("young male
+ * voice", "adult lead") consistently rendered as adult-sounding vocals, not
+ * a children's channel identity. Suno tends to avoid literal "child singer"
+ * requests, so these lean on childlike/youthful/kindergarten-age descriptors
+ * instead of naming an age directly. Phrased positively (no "not an adult"
+ * style negation, and no literal "adult" wording at all) since a generative
+ * model is more reliable steered by what a voice IS than by what it isn't.
+ */
 const VOCAL_DESCRIPTIONS: Record<VocalType, string> = {
-  male: 'bright friendly young male voice, warm and playful',
-  female: 'bright cheerful female voice, gentle and clear, nursery-friendly',
-  mixed: "children's choir with a warm adult lead, call-and-response, singalong"
+  male: 'bright childlike boy voice, playful and youthful, kindergarten-age tone',
+  female: 'bright childlike girl voice, sweet and clear, kindergarten-age tone',
+  mixed: "children's choir of childlike, youthful voices singing together, cheerful call-and-response group singalong"
 };
 
 /** TASK v3.38 Part B (language follow-up) — "언어별 보컬 묘사도 해당 언어 발음에 맞게 조정 (예: japanese -> clear Japanese diction, bright and friendly)"; appended to every vocal type's base description below. */

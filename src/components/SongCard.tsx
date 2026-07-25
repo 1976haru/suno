@@ -12,6 +12,15 @@ const SONG_ROLE_LABEL_KO: Record<string, string> = {
   flagship: '⭐ 대표곡'
 };
 
+// TASK v3.39 Part D — kids-channel per-song vocal quota badge (see
+// core/vocalPlan.ts's VocalType), shown only when the song actually carries
+// a vocalType (kids archetype only — see core/batchPreallocation.ts).
+const VOCAL_TYPE_LABEL_KO: Record<string, string> = {
+  male: '👦 남자아이',
+  female: '👧 여자아이',
+  mixed: '🎤 혼성 합창'
+};
+
 interface SongCardProps {
   song: SongIdea;
   moneyChordLabel: string;
@@ -65,6 +74,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           <p>{song.listenerSituation} / {song.emotionArc}</p>
           <span className="chip">{moneyChordLabel}</span>
           {song.songRole && SONG_ROLE_LABEL_KO[song.songRole] && <span className="chip">{SONG_ROLE_LABEL_KO[song.songRole]}</span>}
+          {song.vocalType && VOCAL_TYPE_LABEL_KO[song.vocalType] && <span className="chip">{VOCAL_TYPE_LABEL_KO[song.vocalType]}</span>}
           {isShortsCandidate && <span className="chip">🎬 쇼츠 클립 우선 후보</span>}
           {isSeedSong && <span className="chip">시드 곡</span>}
           {personaMode && !isSeedSong && <span className="chip">Persona 모드</span>}

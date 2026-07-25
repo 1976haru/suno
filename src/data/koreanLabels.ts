@@ -16,7 +16,11 @@ export const genreLabelsKo: Record<string, string> = {
   'soft-rock': '소프트 락',
   'piano-ballad': '피아노 발라드',
   'retro-soul-pop': '레트로 소울 팝',
-  'synthwave-mellow': '멜로우 신스웨이브'
+  'synthwave-mellow': '멜로우 신스웨이브',
+  'kids-bright-pop': '밝은 동요팝',
+  'kids-acoustic-singalong': '따라부르기 동요',
+  'kids-upbeat-pop': '신나는 동요팝',
+  'kids-march': '행진곡풍 동요'
 };
 
 export const moodLabelsKo: Record<string, string> = {
@@ -29,7 +33,8 @@ export const moodLabelsKo: Record<string, string> = {
   'calm-focus': '차분한',
   'fresh-start': '산뜻한',
   'rainy-comfort': '비 오는 날의 위로',
-  elegant: '우아한'
+  elegant: '우아한',
+  'bright-playful': '밝고 활기찬'
 };
 
 export const seasonLabelsKo: Record<string, string> = {

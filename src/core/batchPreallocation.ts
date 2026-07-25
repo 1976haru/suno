@@ -3,6 +3,7 @@ import { createTitleGenerator, hashSeed, seedForBlueprint, UniquePool } from './
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { buildVocalPlan, DEFAULT_KIDS_VOCAL_QUOTA, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import type { OpeningPackContext } from './openingContest';
 
 export type { PreassignedSongSlot };
@@ -20,7 +21,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -38,6 +39,11 @@ export function preallocateSongSlots(
   // this function agree with the local path on every trackNo's progression.
   const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
   const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
+  // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
+  // shape, same seed, so this path (realtime/Batch/bridge) agrees with
+  // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
+  // type for the same opts.
+  const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -45,6 +51,7 @@ export function preallocateSongSlots(
     const { title, hook } = trackNo <= 3
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext)
       : nextTitle(songRole);
+    const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     return {
       trackNo,
       title,
@@ -52,7 +59,8 @@ export function preallocateSongSlots(
       songRole,
       tempo: averageTempo(genres, trackNo),
       emotionArc: emotionArcPool.take(),
-      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true })
+      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
+      ...(vocalType ? { vocalType, vocalText: vocalDescriptionFor(vocalType, opts.lyricLanguage) } : {})
     };
   });
 }
@@ -117,6 +125,11 @@ export function reconcileWithPreassignedSlot(
     title,
     hookPhrase,
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
-    songRole: slot.songRole
+    songRole: slot.songRole,
+    // TASK v3.39 — vocalType is slot-owned like songRole/emotionArc: it
+    // drives the per-song male/female/mixed quota, so a realtime/Batch/
+    // bridge response can never silently drift from the locally-decided
+    // plan. Non-kids slots never set this field, so this is a no-op there.
+    ...(slot.vocalType ? { vocalType: slot.vocalType } : {})
   };
 }

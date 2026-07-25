@@ -152,7 +152,10 @@ export const genreCategories: GenreCategory[] = [
   { id: 'lofi', label: 'Lo-fi and Study', description: 'Dusty drums, tape grain, warm keys, jazzhop, and focus-friendly cafe textures.' },
   { id: 'ballad', label: 'Ballad', description: 'Piano-led pop ballads, healing ballads, duet ballads, and cinematic emotional builds.' },
   { id: 'seasonal', label: 'Seasonal', description: 'Holiday and seasonal playlist presets.' },
-  { id: 'electronic', label: 'Electronic', description: 'Soft synthwave and electronic retro-pop textures.' }
+  { id: 'electronic', label: 'Electronic', description: 'Soft synthwave and electronic retro-pop textures.' },
+  // TASK v3.39 — kids channel category, exposed so Step1's genre chip picker
+  // can group/label the kids-* packs registered below (see KIDS_CORE_GENRE_IDS).
+  { id: 'kids', label: 'Kids and Family', description: 'Bright, safe children\'s pop and singalong presets for the kids channel.' }
 ];
 
 export const SENIOR_MORNING_CORE_GENRE_IDS = [
@@ -606,6 +609,29 @@ const legacyGenreProfiles: StructuredGenrePack[] = [
   legacyGenrePack({ id: 'synthwave-mellow', label: 'Mellow Synthwave Pop', styleCore: 'mellow synthwave pop, nostalgic neon pads, clean modern mix, not aggressive', instruments: ['soft analog synth pad', 'electric piano', 'clean guitar', 'warm electronic drums'], tempoRange: [92, 108], goodFor: ['night drive', 'retro channel', 'twenties'] }, 'electronic', { rhythm: ['mellow electronic pulse'], vocal: ['clean pop vocal'], production: ['nostalgic neon pads', 'modern mix control'], harmony: ['minor-to-major synth-pop lift'], moods: ['night drive', 'retro'], audiences: ['twenties', 'retro channel'], avoidTraits: ['aggressive synthwave edge'] })
 ];
 
+/**
+ * TASK v3.39 — kids channel genres, registered directly into this file's own
+ * genreLibrary array (previously only in data/presets.ts's rawGenrePacks —
+ * see the TASK H2 comment above on that pre-existing legacy/genreLibrary
+ * split). Without an entry here, getVisibleGenresForArchetype('kids')'s chip
+ * picker and getGenreById always came back empty/undefined for these 3 ids
+ * even though real generation (which reads presets.ts's genrePacks, not this
+ * file's) worked correctly — a known, disclosed UI-only gap this closes.
+ * `tier: 'core'` is set explicitly (these ids aren't in allCoreGenreIds,
+ * which only tracks the senior-morning/showa-cafe lists) so
+ * isCoreGenreForArchetype treats them as core for the kids archetype, same
+ * as KIDS_CORE_GENRE_IDS already intends.
+ */
+const kidsGenreProfiles: StructuredGenrePack[] = [
+  legacyGenrePack({ id: 'kids-bright-pop', label: 'Bright Kids Pop', styleCore: 'bright cheerful children\'s pop, simple catchy melody, clean upbeat production', instruments: ['ukulele', 'glockenspiel', 'clean acoustic guitar', 'light hand percussion'], tempoRange: [104, 120], goodFor: ['kids playlist', 'daytime play', 'singalong'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['bouncy pop pulse'], vocal: ['bright childlike vocal'], production: ['clean upbeat mix'], harmony: ['simple major-key pop lift'], moods: ['bright', 'playful'], audiences: ['kids playlist', 'daytime play'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
+  legacyGenrePack({ id: 'kids-acoustic-singalong', label: 'Kids Acoustic Singalong Pop', styleCore: 'warm acoustic singalong pop for children, gentle strum, easy call-and-response chorus', instruments: ['acoustic guitar', 'soft hand claps', 'light shaker', 'warm ukulele'], tempoRange: [92, 108], goodFor: ['kids playlist', 'calm play', 'family singalong'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['gentle acoustic strum pulse'], vocal: ['warm childlike singalong vocal'], production: ['natural acoustic warmth'], harmony: ['easy sing-along chorus lift'], moods: ['warm', 'friendly'], audiences: ['kids playlist', 'family singalong'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
+  legacyGenrePack({ id: 'kids-upbeat-pop', label: 'Upbeat Kids Pop', styleCore: 'high-energy upbeat children\'s pop, driving clean beat, bright synth-pop hooks, dance-along energy', instruments: ['clean synth lead', 'punchy clean bass', 'bright pop drums', 'glockenspiel'], tempoRange: [112, 128], goodFor: ['kids playlist', 'dance-along', 'high-energy play'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['driving dance-along pulse'], vocal: ['energetic childlike vocal'], production: ['bright clean pop mix'], harmony: ['upbeat major-key hook'], moods: ['energetic', 'playful'], audiences: ['kids playlist', 'dance-along'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
+  // Secondary/auxiliary only — matches presets.ts's rawGenrePacks: not one of
+  // the 3 primary kids ids (KIDS_CORE_GENRE_IDS), so it stays selectable but
+  // isn't auto-applied/shown as a default core chip.
+  legacyGenrePack({ id: 'kids-march', label: 'Kids Marching Pop', styleCore: 'simple marching pop for children, bouncy skip-along rhythm, bright brass-toy color', instruments: ['toy piano', 'snare-like light percussion', 'glockenspiel', 'clean bass'], tempoRange: [108, 126], goodFor: ['kids playlist', 'movement and dance', 'group activity'], archetypes: ['kids'] }, 'kids', { rhythm: ['bouncy marching skip'], vocal: ['bright childlike vocal'], production: ['clean toy-bright mix'], harmony: ['simple major-key march lift'], moods: ['playful', 'energetic'], audiences: ['kids playlist', 'group activity'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] })
+];
+
 const jazzVariants = [
   seed('bass-feature-trio', 'Bass Feature Jazz Trio', 'bass trio swing intimate'),
   seed('classic-vocal-lounge', 'Classic Vocal Jazz Lounge', 'male crooner swing retro lounge'),
@@ -879,7 +905,7 @@ export const notionDerivedGenrePacks: StructuredGenrePack[] = [
   ...balladVariants.map(variant => makeProfile('ballad', variant))
 ];
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...notionDerivedGenrePacks].map(genre =>
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...notionDerivedGenrePacks].map(genre =>
   CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...genre, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : genre
 );
 export const genrePacks: GenrePack[] = genreLibrary;

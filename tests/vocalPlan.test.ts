@@ -89,9 +89,18 @@ describe('buildVocalPlan', () => {
 
 describe('vocalDescriptionFor', () => {
   it('defaults to Korean diction when no language is given', () => {
-    expect(vocalDescriptionFor('male')).toBe('bright friendly young male voice, warm and playful, clear Korean diction, bright and friendly');
-    expect(vocalDescriptionFor('female')).toBe('bright cheerful female voice, gentle and clear, nursery-friendly, clear Korean diction, bright and friendly');
-    expect(vocalDescriptionFor('mixed')).toBe("children's choir with a warm adult lead, call-and-response, singalong, clear Korean diction, bright and friendly");
+    expect(vocalDescriptionFor('male')).toBe('bright childlike boy voice, playful and youthful, kindergarten-age tone, clear Korean diction, bright and friendly');
+    expect(vocalDescriptionFor('female')).toBe('bright childlike girl voice, sweet and clear, kindergarten-age tone, clear Korean diction, bright and friendly');
+    expect(vocalDescriptionFor('mixed')).toBe("children's choir of childlike, youthful voices singing together, cheerful call-and-response group singalong, clear Korean diction, bright and friendly");
+  });
+
+  it('never describes any vocal type as an adult voice', () => {
+    const types: VocalType[] = ['male', 'female', 'mixed'];
+    for (const type of types) {
+      expect(vocalDescriptionFor(type, 'korean').toLowerCase()).not.toContain('adult');
+      expect(vocalDescriptionFor(type, 'japanese').toLowerCase()).not.toContain('adult');
+      expect(vocalDescriptionFor(type, 'english').toLowerCase()).not.toContain('adult');
+    }
   });
 
   it('adjusts the diction clause per language (korean/japanese/english)', () => {
