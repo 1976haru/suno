@@ -92,6 +92,47 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * TASK v3.44 Step A — the studio previously could only ever fill
+ * backgroundDataUrl from generateThumbnailImage()'s AI output; a user with
+ * their own textless cover photo had no way in. This is the file-input
+ * counterpart: reads the file, and — memory guard, not a quality feature —
+ * downscales anything whose long edge exceeds MAX_UPLOAD_LONG_EDGE before
+ * it ever lands in React state or gets drawn repeatedly by drawBackgroundCover.
+ * EXIF orientation is deliberately not hand-corrected here: every current
+ * evergreen browser already auto-rotates a decoded <img> per its EXIF tag
+ * (the `image-orientation: from-image` UA default), and drawImage draws
+ * that already-corrected orientation — a second manual correction on top
+ * would double-rotate, not fix, an already-correct image.
+ */
+const MAX_UPLOAD_LONG_EDGE = 4000;
+
+export async function loadUserBackgroundDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있습니다 (PNG/JPEG/WEBP).');
+  const rawDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(rawDataUrl);
+  const longEdge = Math.max(image.width, image.height);
+  if (longEdge <= MAX_UPLOAD_LONG_EDGE) return rawDataUrl;
+
+  const scale = MAX_UPLOAD_LONG_EDGE / longEdge;
+  const canvas = createCanvas(Math.round(image.width * scale), Math.round(image.height * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return rawDataUrl;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
+}
+
 export function drawBackgroundCover(ctx: CanvasRenderingContext2D, image: HTMLImageElement | null, width: number, height: number, fillColor = '#111622'): void {
   ctx.fillStyle = fillColor;
   ctx.fillRect(0, 0, width, height);

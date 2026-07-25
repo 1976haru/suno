@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download, RefreshCw, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { Download, RefreshCw, Sparkles, Upload } from 'lucide-react';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
 import { composeThumbnailPromptSet, type ThumbnailPromptVariantId } from '../core/thumbnailPromptComposer';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
@@ -8,7 +8,7 @@ import { seasonPacks } from '../data/presets';
 import { generateThumbnailImage } from '../core/thumbnailImageGen';
 import {
   BASE_STYLE_PRESETS, FONT_OPTIONS, SHADOW_COLORS, TEXT_COLORS, TEXT_POSITIONS,
-  composeImage, downloadCanvas, loadImage
+  composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl
 } from '../core/thumbnailCanvas';
 import type { ThumbnailTextStyle } from '../core/thumbnailCanvas';
 import { defaultBrandTemplate, getBrandTemplate, listBrandChannelNames, saveBrandTemplate } from '../core/thumbnailBrandStore';
@@ -65,6 +65,8 @@ interface ImageTargetState {
   activeVariantId: ThumbnailPromptVariantId;
   copyText: string;
   backgroundDataUrl: string | null;
+  /** TASK v3.44 Step A — which path filled backgroundDataUrl, so the UI can badge it ("AI 생성" vs "업로드") instead of leaving the source ambiguous. */
+  backgroundSource: 'ai' | 'upload' | null;
   loading: boolean;
   error: string;
   composedCanvas: HTMLCanvasElement | null;
@@ -86,6 +88,7 @@ function createTargetState(key: ImageTargetKey, spec: ThumbnailSpec, defaultSeas
     activeVariantId: 'A',
     copyText: key === 'cover' ? headline.split('\n')[0] : headline,
     backgroundDataUrl: null,
+    backgroundSource: null,
     loading: false,
     error: '',
     composedCanvas: null
@@ -231,10 +234,32 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     setTargetState(key, { loading: true, error: '' });
     try {
       const image = await generateThumbnailImage({ prompt: variant.prompt, aspectRatio: key === 'thumb' ? '16:9' : '1:1' });
-      setTargetState(key, { backgroundDataUrl: image.dataUrl, loading: false });
+      setTargetState(key, { backgroundDataUrl: image.dataUrl, backgroundSource: 'ai', loading: false });
     } catch (error) {
       setTargetState(key, { loading: false, error: error instanceof Error ? error.message : String(error) });
     }
+  }
+
+  /**
+   * TASK v3.44 Step A — the file-upload counterpart to generateBackground:
+   * fills the exact same backgroundDataUrl, so every downstream step
+   * (preview, text compositing, PNG export) works unchanged regardless of
+   * where the background came from.
+   */
+  async function loadUserBackground(key: ImageTargetKey, file: File | null | undefined) {
+    if (!file) return;
+    setTargetState(key, { loading: true, error: '' });
+    try {
+      const dataUrl = await loadUserBackgroundDataUrl(file);
+      setTargetState(key, { backgroundDataUrl: dataUrl, backgroundSource: 'upload', loading: false });
+    } catch (error) {
+      setTargetState(key, { loading: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  function handleBackgroundDrop(key: ImageTargetKey, event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    void loadUserBackground(key, event.dataTransfer.files?.[0]);
   }
 
   async function renderComposite(key: ImageTargetKey): Promise<HTMLCanvasElement | null> {
@@ -392,11 +417,34 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
             <Sparkles size={14} />
             {state.loading ? '생성 중...' : 'Gemini로 배경 생성'}
           </button>
+          <label className="chip" style={{ cursor: 'pointer' }}>
+            <Upload size={14} />
+            내 이미지 올리기
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={{ display: 'none' }}
+              onChange={event => {
+                void loadUserBackground(key, event.target.files?.[0]);
+                event.target.value = '';
+              }}
+            />
+          </label>
         </div>
+        <p className="supporting">글자가 없는 배경 이미지를 올리면 제목을 몇 번이든 다시 바꿀 수 있어요. 글자가 이미 있는 이미지는 새 텍스트가 그 위에 겹쳐 보입니다.</p>
         {state.error && <p className="error">❌ {state.error}</p>}
 
-        <div className="thumbnail-preview-row">
-          {state.backgroundDataUrl && <img className="thumbnail-bg-preview" src={state.backgroundDataUrl} alt="생성된 배경" />}
+        <div
+          className="thumbnail-preview-row"
+          onDragOver={event => event.preventDefault()}
+          onDrop={event => handleBackgroundDrop(key, event)}
+        >
+          {state.backgroundDataUrl && (
+            <div>
+              <span className="chip">{state.backgroundSource === 'upload' ? '📤 업로드한 배경' : '✨ AI 생성 배경'}</span>
+              <img className="thumbnail-bg-preview" src={state.backgroundDataUrl} alt="배경 미리보기" />
+            </div>
+          )}
           {state.composedCanvas && <img className="thumbnail-bg-preview" src={state.composedCanvas.toDataURL('image/png')} alt="합성 결과" />}
         </div>
 
