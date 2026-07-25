@@ -100,7 +100,9 @@ describe('[v3.39 Part C] promptComposer weaves vocalText into the batch instruct
     // TASK v3.42 Part B2 — hookDeviceText is now always present too (every
     // channel, not gated behind the kids vocal quota), so it's forced
     // alongside moneyChordText/vocalText in this list.
-    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, hookDeviceText, or vocalText');
+    // TASK v3.43 Part A2/A3 — tempo/instrumentText/arrangementDensityText
+    // joined the same always-present, always-forced set.
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, tempo, hookDeviceText, instrumentText, arrangementDensityText, or vocalText');
   });
 
   it('buildBatchSystemNote also instructs verbatim vocalText use for a non-kids channel (Part H)', () => {

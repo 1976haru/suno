@@ -565,18 +565,50 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const hookDeviceInstruction = hasHookDeviceText
     ? ' Each entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this request.'
     : '';
+  // TASK v3.43 Part A2 — "tempo" was already listed in preassignedFieldList
+  // below but never forced or given its own instruction, unlike title/hook/
+  // moneyChordText: a Batch/bridge stylePrompt could carry any BPM figure (or
+  // none) with nothing telling the model this trackNo has a specific planned
+  // tempo. Forced like moneyChordText/hookDeviceText below.
+  const tempoInstruction = ' Each entry also includes "tempo" — use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
+  // TASK v3.43 Part A3 — mirrors hookDeviceInstruction's verbatim-weave
+  // pattern for the per-song instrument rotation/arrangement-density rotation
+  // (see core/localGenerator.ts's rotatingInstrumentText/arrangementDensityText),
+  // newly promoted to slot fields so Batch/bridge songs get the same per-song
+  // variety the local path already has.
+  const hasInstrumentText = batch.preassignedSongs?.some(slot => slot.instrumentText);
+  const instrumentInstruction = hasInstrumentText
+    ? ' Each entry also includes "instrumentText" — weave that exact phrase into that song\'s stylePrompt as the instrument detail, verbatim. Do not substitute different instruments or paraphrase it away.'
+    : '';
+  const hasArrangementDensityText = batch.preassignedSongs?.some(slot => slot.arrangementDensityText);
+  const arrangementDensityInstruction = hasArrangementDensityText
+    ? ' Each entry also includes "arrangementDensityText" — weave that exact phrase into that song\'s stylePrompt as the arrangement-density detail, verbatim. Do not substitute a different density or paraphrase it away.'
+    : '';
+  // TASK v3.43 Part A3 — guideline only (see types.ts's structureNote
+  // comment): shapes that trackNo's lyric section order, not a stylePrompt
+  // phrase, so it's deliberately excluded from forcedFieldsList/verbatim
+  // enforcement below.
+  const hasStructureNote = batch.preassignedSongs?.some(slot => slot.structureNote);
+  const structureNoteInstruction = hasStructureNote
+    ? ' Each entry also includes "structureNote" — use it as a guideline for that song\'s lyric section order (intro/verse/chorus/bridge tags); it is a structural suggestion, not a phrase to paste into stylePrompt.'
+    : '';
   const preassignedFieldList = [
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasInstrumentText ? ['instrumentText'] : []),
+    ...(hasArrangementDensityText ? ['arrangementDensityText'] : []),
+    ...(hasStructureNote ? ['structureNote'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ');
   const forcedFieldsList = [
-    'trackNo', 'emotionArc', 'moneyChordText',
+    'trackNo', 'emotionArc', 'moneyChordText', 'tempo',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasInstrumentText ? ['instrumentText'] : []),
+    ...(hasArrangementDensityText ? ['arrangementDensityText'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureNoteInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

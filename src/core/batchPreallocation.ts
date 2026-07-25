@@ -1,6 +1,7 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
-import { createTitleGenerator, hashSeed, seedForBlueprint, UniquePool } from './lyricEngine';
+import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_SECTION_NOTES, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
+import { arrangementDensityText, rotatingInstrumentText } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
@@ -79,6 +80,11 @@ export function preallocateSongSlots(
   // old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement boilerplate with a
   // per-song rotating arrangement-contrast device.
   const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  // TASK v3.43 Part A3 — mirrors localGenerator.ts's own structureTemplatePlan
+  // pre-pass (same seed), applied unconditionally like hookDevicePlan above,
+  // so realtime/Batch/bridge songs get a per-song section-order guideline
+  // instead of only the local path varying its lyric shape.
+  const structureTemplatePlan = buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype);
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -101,6 +107,12 @@ export function preallocateSongSlots(
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
       ...(hookDeviceText ? { hookDeviceText } : {}),
+      // TASK v3.43 Part A3 — mirrors localGenerator.ts's own per-song
+      // rotatingInstrumentText/arrangementDensityText calls (same genres/
+      // seed/idx), promoted to a slot field for realtime/Batch/bridge parity.
+      instrumentText: rotatingInstrumentText(genres, seed, idx),
+      arrangementDensityText: arrangementDensityText(seed, idx),
+      structureNote: STRUCTURE_TEMPLATE_SECTION_NOTES[structureTemplatePlan[idx]],
       vocalText,
       ...(vocalGender ? { vocalGender } : {}),
       ...(vocalType ? { vocalType } : {})
@@ -148,6 +160,41 @@ export interface ReconcilePreassignedOptions {
   keepEmotionArc?: boolean;
 }
 
+/**
+ * TASK v3.43 Part A1/A3 — appends `verbatim` to `stylePrompt` if it isn't
+ * already present (case-insensitive), the same "trust but verify" pattern
+ * enforceVocalTextInStylePrompt already uses for vocalText: the bridge/Batch
+ * instructions ask the model to weave moneyChordText/hookDeviceText/
+ * instrumentText/arrangementDensityText in verbatim, but real output can
+ * still drop or paraphrase it away. No-op when `verbatim` is falsy (e.g. a
+ * slot with no hookDeviceText) or already present anywhere in the prompt.
+ */
+function appendVerbatimIfMissing(stylePrompt: string, verbatim: string | undefined): string {
+  if (!verbatim) return stylePrompt;
+  if (stylePrompt.toLowerCase().includes(verbatim.trim().toLowerCase())) return stylePrompt;
+  const trimmed = stylePrompt.trim().replace(/,\s*$/, '');
+  return trimmed ? `${trimmed}, ${verbatim}` : verbatim;
+}
+
+const BPM_PATTERN = /\b(\d{2,3})\s*bpm\b/i;
+
+/**
+ * TASK v3.43 Part A2 — tempo/BPM never had any post-hoc enforcement: the
+ * model was only ever handed the slot's tempo as one of several "fallback
+ * suggestion" fields (same tier as title/hookPhrase, both of which DO get
+ * reconciled below), so a Batch/bridge stylePrompt could carry a BPM figure
+ * that silently didn't match the tempo actually planned for that trackNo (or
+ * carry none at all). Mirrors enforceVocalTextInStylePrompt's shape: replace
+ * a wrong BPM figure in place if one is present, otherwise append the
+ * correct one.
+ */
+function enforceTempoInStylePrompt(stylePrompt: string, tempo: number): string {
+  const match = stylePrompt.match(BPM_PATTERN);
+  if (!match) return appendVerbatimIfMissing(stylePrompt, `${tempo} BPM`);
+  if (Number(match[1]) === tempo) return stylePrompt;
+  return stylePrompt.slice(0, match.index) + `${tempo} BPM` + stylePrompt.slice((match.index ?? 0) + match[0].length);
+}
+
 export function reconcileWithPreassignedSlot(
   song: SongIdea,
   slot: PreassignedSongSlot | undefined,
@@ -173,12 +220,23 @@ export function reconcileWithPreassignedSlot(
   // vocalText has no detectable gender (e.g. a children's choir) or when the
   // stylePrompt already matches.
   const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalText, slot.vocalGender);
+  // TASK v3.43 Part A1/A2/A3 — same "don't just trust the instruction"
+  // principle applied to every other verbatim-weave slot field: moneyChordText
+  // and hookDeviceText previously had no post-hoc check at all (unlike
+  // vocalText above), and tempo/instrumentText/arrangementDensityText are new
+  // fields this task adds to the same pattern.
+  let stylePrompt = vocalFix.text;
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.instrumentText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.arrangementDensityText);
+  stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
   const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText);
   return {
     ...song,
     title,
     hookPhrase,
-    stylePrompt: vocalFix.text,
+    stylePrompt,
     lyrics: ensureVocalMetaTag(song.lyrics, vocalTag),
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole,

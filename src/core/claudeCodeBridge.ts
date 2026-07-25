@@ -18,6 +18,7 @@ import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
 import { moneyChordPresets } from '../data/moneyChords';
 import { usesVocalQuota } from './vocalPlan';
+import { lintInPackStyleSimilarity } from './diversityLinter';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -86,6 +87,37 @@ function titleInstructionLineFor(opts: GenerationOptions): string {
   return titleMode === 'local'
     ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
     : '- "preassignedSongs" gives local planning slots and fallback placeholders. Write your OWN original title for each song, independent of the hookPhrase. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel tone while varying the structure freely.';
+}
+
+// TASK v3.43 Part A2 — same forced-verbatim BPM instruction promptComposer.ts's
+// buildBatchSystemNote now gives real API requests (kept in sync here per this
+// file's existing convention — see titleInstructionLineFor's comment above):
+// "tempo" was previously only a fallback-suggestion field, never enforced.
+function tempoInstructionLine(): string {
+  return '- Each "preassignedSongs" entry also includes "tempo" — use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
+}
+
+// TASK v3.43 Part A3 — mirrors hookDeviceInstructionLine's verbatim-weave
+// pattern for the newly-promoted instrumentText/arrangementDensityText slot
+// fields (see core/batchPreallocation.ts's preallocateSongSlots).
+function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.instrumentText)
+    ? '- Each "preassignedSongs" entry also includes "instrumentText" — weave that exact phrase into that song\'s stylePrompt as the instrument detail, verbatim. Do not substitute different instruments or paraphrase it away.'
+    : '';
+}
+
+function arrangementDensityInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.arrangementDensityText)
+    ? '- Each "preassignedSongs" entry also includes "arrangementDensityText" — weave that exact phrase into that song\'s stylePrompt as the arrangement-density detail, verbatim. Do not substitute a different density or paraphrase it away.'
+    : '';
+}
+
+// TASK v3.43 Part A3 — guideline only, not a verbatim stylePrompt phrase (see
+// types.ts's PreassignedSongSlot.structureNote comment).
+function structureNoteInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.structureNote)
+    ? '- Each "preassignedSongs" entry also includes "structureNote" — use it as a guideline for that song\'s lyric section order (intro/verse/chorus/bridge tags); it is a structural suggestion, not a phrase to paste into stylePrompt.'
+    : '';
 }
 
 function markdownCell(value: string): string {
@@ -203,6 +235,9 @@ export function buildClaudeCodeInstruction(
   const hookDeviceInstructionLine = preassignedSongs.some(slot => slot.hookDeviceText)
     ? '- Each "preassignedSongs" entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this pack.'
     : '';
+  const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
+  const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
+  const structureNoteInstructionLine = structureNoteInstructionLineFor(preassignedSongs);
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -242,7 +277,11 @@ export function buildClaudeCodeInstruction(
     // real listening feedback, so each preassignedSongs entry carries its
     // own ready-to-use progression + reinforcement text instead.
     '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
+    tempoInstructionLine(),
     hookDeviceInstructionLine,
+    instrumentInstructionLine,
+    arrangementDensityInstructionLine,
+    structureNoteInstructionLine,
     vocalInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
@@ -363,6 +402,10 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const hookDeviceInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.hookDeviceText))
     ? '- Each "preassignedSongs" entry also includes "hookDeviceText" - weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device; do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs.'
     : '';
+  const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
+  const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
+  const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
+  const structureNoteInstructionLine = structureNoteInstructionLineFor(allSlots);
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -418,7 +461,11 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     titleInstructionLine,
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
+    tempoInstructionLine(),
     hookDeviceInstructionLine,
+    instrumentInstructionLine,
+    arrangementDensityInstructionLine,
+    structureNoteInstructionLine,
     vocalInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
@@ -679,11 +726,22 @@ export function importSongsJson(
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
   const blueprint = buildSignatureBlueprint(opts, genres, moods, season, concept, deduped);
 
+  // TASK v3.43 Part A4 — a bridge/coding-agent pack skips every real API
+  // call's own per-request variation, so it's exactly the path most exposed
+  // to a coding agent falling back to one template stylePrompt reused across
+  // every track (see core/diversityLinter.ts's lintInPackStyleSimilarity —
+  // the real bug it guards against measured a 90.3% average / 100% max
+  // pairwise similarity). Previously this check only ran at display time in
+  // Step4Result.tsx, after the import had already succeeded; running it here
+  // surfaces the same warning in the import report itself, before the user
+  // ever navigates away.
+  const similarityReport = lintInPackStyleSimilarity(deduped.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
+
   return {
     blueprint,
     importedCount: deduped.length,
     skippedCount: rawSongs.length - deduped.length,
     skippedReasons,
-    warnings: hookCollisionResult.warnings
+    warnings: [...hookCollisionResult.warnings, ...similarityReport.warnings, ...similarityReport.errors]
   };
 }

@@ -36,7 +36,16 @@ describe('quality scorer', () => {
     const opts = makeOptions({ durationTarget: 'playlistShort' });
     const prompt = buildStylePrompt(opts, testGenres, testMoods, testSeason);
     expect(prompt).toContain('2:50-3:20');
-    const song = scoreSong(baseSong({ stylePrompt: prompt }));
+    // TASK v3.43 Part A5 — buildStylePrompt is the channel-level-only partial
+    // builder (no per-song hook/tempo/scene parts, see its own doc comment);
+    // the real per-song builders (localGenerator.ts's loop, or Batch/bridge's
+    // reconciled output) always add a BPM figure and a hook-device phrase, so
+    // this test appends the same to keep testing its original Q1 concern
+    // (the duration atom) without tripping the newer, unrelated device/BPM
+    // safety-net checks this synthetic partial prompt was never meant to
+    // exercise.
+    const fullPrompt = `${prompt}, breakdown section, 96 BPM`;
+    const song = scoreSong(baseSong({ stylePrompt: fullPrompt }));
     expect(song.warnings.some(w => w.startsWith('Missing prompt term'))).toBe(false);
   });
 

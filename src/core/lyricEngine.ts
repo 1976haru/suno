@@ -582,6 +582,21 @@ const WORDLESS_HUM_LINE = '(soft wordless hum of the hook melody, no lyrics, 2 b
  */
 export type StructureTemplateId = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
 
+/**
+ * TASK v3.43 Part A3 — plain-language description of each template's section
+ * order, for handing to a remote agent (Batch API/Claude Code bridge) that
+ * writes its own lyrics and so never runs through this file's own
+ * composeLyrics/pool machinery. Guidance only, not a verbatim phrase — see
+ * PreassignedSongSlot.structureNote's comment in types.ts.
+ */
+export const STRUCTURE_TEMPLATE_SECTION_NOTES: Record<StructureTemplateId, string> = {
+  T1: 'intro, verse 1, pre-chorus, chorus, verse 2, pre-chorus, chorus, bridge, final chorus, outro',
+  T2: 'cold hook intro (hook line first, no instrumental lead-in), verse 1, chorus, verse 2, chorus, breakdown section, final chorus, outro',
+  T3: 'intro, verse 1, pre-chorus, chorus, verse 2, pre-chorus, chorus, key-lift final chorus, outro',
+  T4: 'instrumental hook intro (short instrumental restatement of the melody, no lyrics), verse 1, chorus, verse 2, chorus, chorus repeated again as the final chorus (no bridge), outro',
+  T5: 'a cappella hook intro, verse 1, chorus, verse 2, bridge, chorus, tagged final chorus, outro'
+};
+
 const ADULT_STRUCTURE_TEMPLATES: StructureTemplateId[] = ['T1', 'T2', 'T3', 'T4', 'T5'];
 /** Kids stays simpler per the spec's own caveat ("반복이 장르 특성이라 과도한 변주는 역효과") — no instrumental-hook/breakdown shapes, just enough rotation to clear the "min 3" bar. */
 const KIDS_STRUCTURE_TEMPLATES: StructureTemplateId[] = ['T1', 'T3', 'T5'];

@@ -346,6 +346,31 @@ export interface PreassignedSongSlot {
    * boilerplate it replaces was never archetype-specific either.
    */
   hookDeviceText?: string;
+  /**
+   * TASK v3.43 Part A3 — mirrors hookDeviceText's per-trackNo verbatim-weave
+   * pattern for the rotating instrument anchor+combination text (see
+   * core/promptComposer.ts's rotatingInstrumentText). Local generation
+   * already computes this per song directly; this promotes the same value
+   * to realtime/Batch/bridge so those paths get the same per-song
+   * instrument variety instead of a flat whole-pack instrument list.
+   */
+  instrumentText?: string;
+  /**
+   * TASK v3.43 Part A3 — mirrors instrumentText for the sparse/medium/full
+   * arrangement-density rotation (see core/promptComposer.ts's
+   * arrangementDensityText).
+   */
+  arrangementDensityText?: string;
+  /**
+   * TASK v3.43 Part A3 — plain-language section-order guideline describing
+   * this trackNo's structure-template pick (see core/lyricEngine.ts's
+   * StructureTemplateId / buildStructureTemplatePlan). Unlike moneyChordText/
+   * hookDeviceText/instrumentText/arrangementDensityText, this is guidance
+   * for shaping the lyric's own section tags, not a verbatim stylePrompt
+   * phrase — a remote agent writes its own lyrics, so there is nothing to
+   * force-check post-hoc the way stylePrompt atoms are.
+   */
+  structureNote?: string;
 }
 
 export interface BatchContext {

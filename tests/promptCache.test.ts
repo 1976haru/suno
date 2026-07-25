@@ -857,9 +857,12 @@ describe('[v3.27/v3.33] titleMode/hookMode branch buildBatchSystemNote\'s preass
     return { trackNoOffset: 0, totalSongCount: 1, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
   }
 
-  it('trackNo/emotionArc/moneyChordText always stay forced verbatim regardless of titleMode/hookMode', () => {
+  it('trackNo/emotionArc/moneyChordText/tempo always stay forced verbatim regardless of titleMode/hookMode', () => {
+    // TASK v3.43 Part A2 — "tempo" is now forced verbatim alongside
+    // trackNo/emotionArc/moneyChordText (previously only a fallback-
+    // suggestion field, unlike those three).
     const note = buildBatchSystemNote(makeOptions(), makeBatch());
-    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, or moneyChordText — copy those verbatim');
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, or tempo — copy those verbatim');
   });
 
   it('[v3.33 Part C] includes the moneyChordText usage instruction', () => {

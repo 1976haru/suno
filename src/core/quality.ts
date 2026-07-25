@@ -30,6 +30,23 @@ const progressionPatterns: RegExp[] = [
 function hasProgressionDisclosure(stylePrompt: string): boolean {
   return progressionPatterns.some(pattern => pattern.test(stylePrompt));
 }
+
+// TASK v3.43 Part A5 — the fixed vocabulary data/hookDevices.ts's per-song
+// arrangement-contrast prompts actually use (stop-time, key/octave lift,
+// breakdown, drop-out, half-time, instrumental hook, a cappella tag, double-
+// tracked harmony, call-and-response answer riff), checked as a keyword set
+// rather than requiring the exact device prompt string verbatim — a remote
+// model that lightly rewords a device it was still instructed to use
+// shouldn't false-positive as missing it entirely the way a fully dropped
+// device should.
+const hookDeviceDisclosurePattern = /stop-time|key change|modulat|breakdown|drops? out|half-time|half time|instrumental hook|a cappella|double-track|octave|call and response|answer riff|chorus tag/i;
+
+// TASK v3.43 Part A5 — mirrors core/batchPreallocation.ts's own BPM_PATTERN
+// (kept as its own regex here rather than shared, per this codebase's
+// existing convention of duplicating small check patterns across files
+// instead of coupling modules for them — see e.g. hookDeviceInstructionLine's
+// duplication between promptComposer.ts/claudeCodeBridge.ts).
+const BPM_DISCLOSURE_PATTERN = /\b\d{2,3}\s*bpm\b/i;
 const requiredLyricTags = ['[verse', '[chorus', '[end]'];
 
 // H3 (v3.3): a vocative-shaped hook ("Hold on, X") may only address a person
@@ -258,6 +275,24 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   if (!prompt.includes('chorus')) {
     pushUnique(warnings, 'Missing prompt term: chorus');
     score -= 8;
+  }
+
+  // TASK v3.43 Part A5 — safety net for the other two per-song verbatim-weave
+  // atoms (see moneyChordText's hasProgressionDisclosure check above for the
+  // established pattern this mirrors). core/batchPreallocation.ts's
+  // reconcileWithPreassignedSlot now forcibly repairs hookDeviceText/tempo
+  // before a realtime/Batch/bridge song ever reaches here, so this mostly
+  // won't fire on those paths — same "mostly redundant but still a visible
+  // audit warning" positioning as the vocal-gender check below (a hand-edited
+  // saved pack, or a song whose trackNo had no matching slot, has no such
+  // repair pass to rely on).
+  if (!hookDeviceDisclosurePattern.test(song.stylePrompt)) {
+    pushUnique(warnings, 'Missing prompt term: hook device (arrangement-contrast detail)');
+    score -= 6;
+  }
+  if (!BPM_DISCLOSURE_PATTERN.test(song.stylePrompt)) {
+    pushUnique(warnings, 'Missing prompt term: tempo (BPM)');
+    score -= 6;
   }
 
   for (const tag of requiredLyricTags) {

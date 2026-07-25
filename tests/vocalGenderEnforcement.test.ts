@@ -134,9 +134,14 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
   it('is a no-op on an already-correct stylePrompt/lyrics pair', () => {
     const opts = makeOptions({ channel: showaCafe, vocalTone: showaCafe.defaultVocal });
     const [slot] = preallocateSongSlots(opts, []);
+    // TASK v3.43 Part A1/A2/A3 — reconcileWithPreassignedSlot now also
+    // verbatim-enforces moneyChordText/hookDeviceText/instrumentText/
+    // arrangementDensityText/tempo (previously only vocalText was checked),
+    // so a true "already correct" fixture must include all of them verbatim,
+    // not just the bare progression tag, for this to stay a real no-op.
     const correctSong = baseSong({
       trackNo: slot.trackNo,
-      stylePrompt: `showa-modern cafe mood, ${showaCafe.defaultVocal}, I-V-vi-IV progression`,
+      stylePrompt: `showa-modern cafe mood, ${showaCafe.defaultVocal}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${slot.instrumentText}, ${slot.arrangementDensityText}, ${slot.tempo} BPM`,
       lyrics: '[male vocal]\nHold On\nsome lyrics\nHold On'
     });
     const result = reconcileWithPreassignedSlot(correctSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
