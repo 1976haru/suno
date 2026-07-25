@@ -586,8 +586,10 @@ export type StructureTemplateId = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
  * TASK v3.43 Part A3 — plain-language description of each template's section
  * order, for handing to a remote agent (Batch API/Claude Code bridge) that
  * writes its own lyrics and so never runs through this file's own
- * composeLyrics/pool machinery. Guidance only, not a verbatim phrase — see
- * PreassignedSongSlot.structureNote's comment in types.ts.
+ * composeLyrics/pool machinery. Directive guidance, not a stylePrompt
+ * phrase — see PreassignedSongSlot.structureTemplate's comment in types.ts
+ * and core/promptComposer.ts's structureTemplateLegend (the one-time legend
+ * built from this map).
  */
 export const STRUCTURE_TEMPLATE_SECTION_NOTES: Record<StructureTemplateId, string> = {
   T1: 'intro, verse 1, pre-chorus, chorus, verse 2, pre-chorus, chorus, bridge, final chorus, outro',
@@ -595,6 +597,23 @@ export const STRUCTURE_TEMPLATE_SECTION_NOTES: Record<StructureTemplateId, strin
   T3: 'intro, verse 1, pre-chorus, chorus, verse 2, pre-chorus, chorus, key-lift final chorus, outro',
   T4: 'instrumental hook intro (short instrumental restatement of the melody, no lyrics), verse 1, chorus, verse 2, chorus, chorus repeated again as the final chorus (no bridge), outro',
   T5: 'a cappella hook intro, verse 1, chorus, verse 2, bridge, chorus, tagged final chorus, outro'
+};
+
+/**
+ * TASK v3.43 Step 2 (Part A3) — the one literal, language-independent
+ * bracket tag each non-default template (T2-T5) always renders somewhere in
+ * its lyrics (see composeLyrics below — every other tag either comes from
+ * the per-language `tags` table or is shared with T1). Used only to check a
+ * Batch/bridge-imported song's lyrics actually followed its assigned
+ * structureTemplate (core/batchPreallocation.ts's reconcileWithPreassignedSlot)
+ * — T1 has no entry since it's the unmarked default/fallback shape, nothing
+ * distinctive to check for.
+ */
+export const STRUCTURE_TEMPLATE_MARKER_TAG: Partial<Record<StructureTemplateId, string>> = {
+  T2: '[hook intro]',
+  T3: '[key-lift final chorus]',
+  T4: '[instrumental hook]',
+  T5: '[a cappella hook]'
 };
 
 const ADULT_STRUCTURE_TEMPLATES: StructureTemplateId[] = ['T1', 'T2', 'T3', 'T4', 'T5'];

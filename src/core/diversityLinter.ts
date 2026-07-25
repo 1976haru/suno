@@ -237,6 +237,15 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
 
 /** A pack-wide average above this reads as "every song sounds the same" to a listener — real measurement of the reported bug was 90.3%. */
 const IN_PACK_AVG_SIMILARITY_WARN = 0.75;
+/**
+ * TASK v3.43 Step 2 (Part A4) — the average metric had a warn tier but no
+ * error tier of its own (only the per-pair max did); a pack whose average
+ * climbs past "reads as near-duplicates" (the warn threshold above) into
+ * "every song is basically the same pack-wide" deserves a hard error, not
+ * just a warning, independent of whether any single pair also crosses the
+ * max-pair threshold below.
+ */
+const IN_PACK_AVG_SIMILARITY_ERROR = 0.90;
 /** Any single pair above this is effectively the same style prompt — real measurement had a pair at 100%. */
 const IN_PACK_MAX_SIMILARITY_ERROR = 0.95;
 
@@ -286,7 +295,14 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
 
   const warnings: string[] = [];
   const errors: string[] = [];
-  if (averageSimilarity > IN_PACK_AVG_SIMILARITY_WARN) {
+  // TASK v3.43 Step 2 (Part A4) — error and warn are mutually exclusive on
+  // the average metric (an average past the error threshold is necessarily
+  // also past the warn one, so only the more severe message is shown).
+  if (averageSimilarity > IN_PACK_AVG_SIMILARITY_ERROR) {
+    errors.push(
+      `Average pairwise style-prompt similarity is ${Math.round(averageSimilarity * 100)}% (threshold ${Math.round(IN_PACK_AVG_SIMILARITY_ERROR * 100)}%) — this pack's songs are essentially indistinguishable from each other.`
+    );
+  } else if (averageSimilarity > IN_PACK_AVG_SIMILARITY_WARN) {
     warnings.push(
       `Average pairwise style-prompt similarity is ${Math.round(averageSimilarity * 100)}% (threshold ${Math.round(IN_PACK_AVG_SIMILARITY_WARN * 100)}%) — this pack's songs read as near-duplicates of each other.`
     );

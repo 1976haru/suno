@@ -9,7 +9,7 @@ import type {
   SongIdea,
   YoutubeMetadata
 } from '../types';
-import { buildSystemInstruction, buildUserInstruction, songOutputShape } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildSystemInstruction, buildUserInstruction, songOutputShape, structureTemplateLegend } from './promptComposer';
 import { buildSignatureBlueprint } from './localGenerator';
 import { scoreSongs } from './quality';
 import { preallocateSongSlots, reconcileWithPreassignedSlot } from './batchPreallocation';
@@ -97,26 +97,31 @@ function tempoInstructionLine(): string {
   return '- Each "preassignedSongs" entry also includes "tempo" — use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
 }
 
-// TASK v3.43 Part A3 — mirrors hookDeviceInstructionLine's verbatim-weave
-// pattern for the newly-promoted instrumentText/arrangementDensityText slot
-// fields (see core/batchPreallocation.ts's preallocateSongSlots).
+// TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstructionLine's
+// verbatim-weave pattern for the newly-promoted instrumentSet slot field
+// (see core/batchPreallocation.ts's preallocateSongSlots). instrumentSet is
+// an array (2-3 names), so the agent weaves each one, not one ready phrase.
 function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.instrumentText)
-    ? '- Each "preassignedSongs" entry also includes "instrumentText" — weave that exact phrase into that song\'s stylePrompt as the instrument detail, verbatim. Do not substitute different instruments or paraphrase it away.'
+  return preassignedSongs.some(slot => slot.instrumentSet?.length)
+    ? '- Each "preassignedSongs" entry also includes "instrumentSet" — an array of 2-3 instrument names; weave ALL of them into that song\'s stylePrompt as the instrument detail, verbatim (comma-separated is fine). Do not substitute different instruments, drop any of them, or paraphrase them away.'
     : '';
 }
 
+// TASK v3.43 Step 2 (Part A3) — arrangementDensity is a bare
+// 'sparse'|'medium'|'full' tag, not pre-composed text, so this spells out
+// each level's meaning once (mirrors promptComposer.ts's buildBatchSystemNote).
 function arrangementDensityInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.arrangementDensityText)
-    ? '- Each "preassignedSongs" entry also includes "arrangementDensityText" — weave that exact phrase into that song\'s stylePrompt as the arrangement-density detail, verbatim. Do not substitute a different density or paraphrase it away.'
+  return preassignedSongs.some(slot => slot.arrangementDensity)
+    ? `- Each "preassignedSongs" entry also includes "arrangementDensity" (one of sparse/medium/full) — weave a phrase describing that density into the stylePrompt: sparse = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.sparse}"; medium = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.medium}"; full = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.full}". Use the matching phrase (or a close paraphrase) verbatim; do not substitute a different density level.`
     : '';
 }
 
-// TASK v3.43 Part A3 — guideline only, not a verbatim stylePrompt phrase (see
-// types.ts's PreassignedSongSlot.structureNote comment).
-function structureNoteInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.structureNote)
-    ? '- Each "preassignedSongs" entry also includes "structureNote" — use it as a guideline for that song\'s lyric section order (intro/verse/chorus/bridge tags); it is a structural suggestion, not a phrase to paste into stylePrompt.'
+// TASK v3.43 Step 2 (Part A3) — structureTemplate is a directive for that
+// song's own lyric section order (see types.ts's field comment), not a
+// stylePrompt phrase; the legend is sent once here rather than per-entry.
+function structureTemplateInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.structureTemplate)
+    ? `- Each "preassignedSongs" entry also includes "structureTemplate" (one of T1-T5). Structure templates, each a different lyric section order: ${structureTemplateLegend()}. Write THIS song's lyrics — actual section content, not the letter code — following its assigned template's section order exactly; do not default back to T1's shape for a track assigned a different template, and do not invent a different template than the one assigned.`
     : '';
 }
 
@@ -237,7 +242,7 @@ export function buildClaudeCodeInstruction(
     : '';
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
-  const structureNoteInstructionLine = structureNoteInstructionLineFor(preassignedSongs);
+  const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -281,7 +286,7 @@ export function buildClaudeCodeInstruction(
     hookDeviceInstructionLine,
     instrumentInstructionLine,
     arrangementDensityInstructionLine,
-    structureNoteInstructionLine,
+    structureTemplateInstructionLine,
     vocalInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
@@ -405,7 +410,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
-  const structureNoteInstructionLine = structureNoteInstructionLineFor(allSlots);
+  const structureTemplateInstructionLine = structureTemplateInstructionLineFor(allSlots);
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -465,7 +470,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     hookDeviceInstructionLine,
     instrumentInstructionLine,
     arrangementDensityInstructionLine,
-    structureNoteInstructionLine,
+    structureTemplateInstructionLine,
     vocalInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
@@ -736,12 +741,19 @@ export function importSongsJson(
   // surfaces the same warning in the import report itself, before the user
   // ever navigates away.
   const similarityReport = lintInPackStyleSimilarity(deduped.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
+  // TASK v3.43 Step 2 (Part A4) — "무엇이 고정돼 있는지 보이게": whenever the
+  // linter actually has something to say, also surface exactly which
+  // clauses are common to every song, so the warning isn't just "the pack
+  // is too similar" with no lead on what to change.
+  const commonClausesNote = (similarityReport.warnings.length || similarityReport.errors.length) && similarityReport.commonClauses.length
+    ? [`Clauses common to every song in this pack: ${similarityReport.commonClauses.join(', ')}`]
+    : [];
 
   return {
     blueprint,
     importedCount: deduped.length,
     skippedCount: rawSongs.length - deduped.length,
     skippedReasons,
-    warnings: [...hookCollisionResult.warnings, ...similarityReport.warnings, ...similarityReport.errors]
+    warnings: [...hookCollisionResult.warnings, ...similarityReport.warnings, ...similarityReport.errors, ...commonClausesNote]
   };
 }

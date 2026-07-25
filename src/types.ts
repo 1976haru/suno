@@ -347,30 +347,41 @@ export interface PreassignedSongSlot {
    */
   hookDeviceText?: string;
   /**
-   * TASK v3.43 Part A3 — mirrors hookDeviceText's per-trackNo verbatim-weave
-   * pattern for the rotating instrument anchor+combination text (see
-   * core/promptComposer.ts's rotatingInstrumentText). Local generation
-   * already computes this per song directly; this promotes the same value
-   * to realtime/Batch/bridge so those paths get the same per-song
-   * instrument variety instead of a flat whole-pack instrument list.
+   * TASK v3.43 Step 2 (Part A3) — this trackNo's rotating instrument
+   * selection: the channel's identity-anchor instrument plus 1-2 more
+   * seed-shuffled from the rest of the genre pack's pool (see
+   * core/promptComposer.ts's rotatingInstrumentSet — the array form
+   * rotatingInstrumentText's comma-joined string is built from). Local
+   * generation already computes this per song directly; this promotes the
+   * same value to realtime/Batch/bridge so those paths get the same
+   * per-song instrument variety instead of a flat whole-pack instrument
+   * list. An array (not pre-joined text) so the agent instruction/import
+   * repair can check/weave each instrument name individually.
    */
-  instrumentText?: string;
+  instrumentSet?: string[];
   /**
-   * TASK v3.43 Part A3 — mirrors instrumentText for the sparse/medium/full
-   * arrangement-density rotation (see core/promptComposer.ts's
-   * arrangementDensityText).
+   * TASK v3.43 Step 2 (Part A3) — this trackNo's arrangement-weight level
+   * (see core/promptComposer.ts's arrangementDensityLevel /
+   * ARRANGEMENT_DENSITY_TEXT_BY_LEVEL for the level->descriptive-text
+   * lookup used to weave/verify this in a stylePrompt). Kept as the bare
+   * enum tag (not pre-composed text) to match moneyChordPlan-style rotation
+   * fields the model receives alongside a one-time legend in the
+   * instructions, rather than duplicating the description on every entry.
    */
-  arrangementDensityText?: string;
+  arrangementDensity?: 'sparse' | 'medium' | 'full';
   /**
-   * TASK v3.43 Part A3 — plain-language section-order guideline describing
-   * this trackNo's structure-template pick (see core/lyricEngine.ts's
-   * StructureTemplateId / buildStructureTemplatePlan). Unlike moneyChordText/
-   * hookDeviceText/instrumentText/arrangementDensityText, this is guidance
-   * for shaping the lyric's own section tags, not a verbatim stylePrompt
-   * phrase — a remote agent writes its own lyrics, so there is nothing to
-   * force-check post-hoc the way stylePrompt atoms are.
+   * TASK v3.43 Step 2 (Part A3) — this trackNo's lyric section-order
+   * template id (see core/lyricEngine.ts's StructureTemplateId /
+   * buildStructureTemplatePlan). Unlike moneyChordText/hookDeviceText/
+   * instrumentSet/arrangementDensity, this shapes the lyric's own section
+   * tags, not a stylePrompt phrase — a remote agent writes its own lyrics
+   * from a one-time template legend in the instructions (see
+   * core/lyricEngine.ts's STRUCTURE_TEMPLATE_SECTION_NOTES), so there is
+   * nothing to inject post-hoc the way stylePrompt atoms are; import
+   * checks for a template's distinctive section tag instead and warns
+   * (never errors) if it's missing.
    */
-  structureNote?: string;
+  structureTemplate?: 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
 }
 
 export interface BatchContext {

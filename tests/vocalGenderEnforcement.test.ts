@@ -7,6 +7,7 @@ import {
   resolveVocalMetaTag
 } from '../src/core/vocalPlan';
 import { scoreSong } from '../src/core/quality';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from '../src/core/promptComposer';
 import { vocalPresets } from '../src/data/vocalPresets';
 import { channelPresets, makeOptions } from './fixtures';
 import type { SongIdea } from '../src/types';
@@ -134,14 +135,14 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
   it('is a no-op on an already-correct stylePrompt/lyrics pair', () => {
     const opts = makeOptions({ channel: showaCafe, vocalTone: showaCafe.defaultVocal });
     const [slot] = preallocateSongSlots(opts, []);
-    // TASK v3.43 Part A1/A2/A3 — reconcileWithPreassignedSlot now also
-    // verbatim-enforces moneyChordText/hookDeviceText/instrumentText/
-    // arrangementDensityText/tempo (previously only vocalText was checked),
-    // so a true "already correct" fixture must include all of them verbatim,
-    // not just the bare progression tag, for this to stay a real no-op.
+    // TASK v3.43 Part A1/A2, Step 2 Part A3 — reconcileWithPreassignedSlot
+    // now also verbatim-enforces moneyChordText/hookDeviceText/instrumentSet/
+    // arrangementDensity/tempo (previously only vocalText was checked), so a
+    // true "already correct" fixture must include all of them verbatim, not
+    // just the bare progression tag, for this to stay a real no-op.
     const correctSong = baseSong({
       trackNo: slot.trackNo,
-      stylePrompt: `showa-modern cafe mood, ${showaCafe.defaultVocal}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${slot.instrumentText}, ${slot.arrangementDensityText}, ${slot.tempo} BPM`,
+      stylePrompt: `showa-modern cafe mood, ${showaCafe.defaultVocal}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${(slot.instrumentSet ?? []).join(', ')}, ${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[slot.arrangementDensity!]}, ${slot.tempo} BPM`,
       lyrics: '[male vocal]\nHold On\nsome lyrics\nHold On'
     });
     const result = reconcileWithPreassignedSlot(correctSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });

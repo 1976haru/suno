@@ -4,7 +4,7 @@ import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyCh
 import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
 import { compactDuration, compactHook, compactMoneyChord } from './soundSignature';
-import { shuffle } from './lyricEngine';
+import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -323,13 +323,26 @@ export function buildGenrePromptSummary(genres: GenrePack[]) {
  * same pack land on different combinations while the anchor still holds the
  * channel's sonic identity together.
  */
-export function rotatingInstrumentText(genres: GenrePack[], seed: number, index: number): string {
+/**
+ * TASK v3.43 Step 2 (Part A3) — the array form of rotatingInstrumentText's
+ * anchor+rotate selection, extracted so a caller that needs the individual
+ * instrument names (core/batchPreallocation.ts's PreassignedSongSlot.
+ * instrumentSet, for per-name verbatim weave/repair) doesn't have to
+ * re-split a comma-joined string back apart. rotatingInstrumentText itself
+ * is unchanged (still the comma-joined string the local per-song prompt
+ * assembly uses directly).
+ */
+export function rotatingInstrumentSet(genres: GenrePack[], seed: number, index: number): string[] {
   const { instruments } = buildGenrePromptSummary(genres);
-  if (instruments.length <= 1) return instruments.join(', ');
+  if (instruments.length <= 1) return instruments;
   const [anchor, ...rest] = instruments;
   const shuffled = shuffle(rest, seed + index * 151);
   const extraCount = rest.length >= 2 ? 1 + (index % 2) : Math.min(1, rest.length);
-  return [anchor, ...shuffled.slice(0, extraCount)].join(', ');
+  return [anchor, ...shuffled.slice(0, extraCount)];
+}
+
+export function rotatingInstrumentText(genres: GenrePack[], seed: number, index: number): string {
+  return rotatingInstrumentSet(genres, seed, index).join(', ');
 }
 
 /**
@@ -360,15 +373,52 @@ export function rotatingGenreText(genres: GenrePack[], seed: number, index: numb
  * position roughly evenly across a pack; `seed` only offsets which level a
  * given pack starts on, so two different packs/sets don't all open sparse.
  */
-const ARRANGEMENT_DENSITY_TEXTS = [
-  'spare arrangement, voice and one or two instruments, lots of space',
-  'balanced small-combo arrangement',
-  'fuller arrangement with strings pad and layered backing'
-];
+export type ArrangementDensityLevel = 'sparse' | 'medium' | 'full';
+
+const ARRANGEMENT_DENSITY_LEVELS: ArrangementDensityLevel[] = ['sparse', 'medium', 'full'];
+
+/**
+ * TASK v3.43 Step 2 (Part A3) — the descriptive stylePrompt phrase for each
+ * level, keyed by name rather than array position so a caller (the batch/
+ * bridge instruction legend, or core/batchPreallocation.ts's import repair)
+ * can look one up from the bare 'sparse'|'medium'|'full' tag a
+ * PreassignedSongSlot.arrangementDensity carries, without needing to know
+ * this array's internal ordering.
+ */
+export const ARRANGEMENT_DENSITY_TEXT_BY_LEVEL: Record<ArrangementDensityLevel, string> = {
+  sparse: 'spare arrangement, voice and one or two instruments, lots of space',
+  medium: 'balanced small-combo arrangement',
+  full: 'fuller arrangement with strings pad and layered backing'
+};
+
+/**
+ * TASK v3.43 Step 2 (Part A3) — extracted so a caller that needs the bare
+ * level tag (PreassignedSongSlot.arrangementDensity) doesn't have to
+ * reverse-look-up arrangementDensityText's output. Same index math as
+ * before (unchanged), so arrangementDensityText's own output is unaffected.
+ */
+export function arrangementDensityLevel(seed: number, index: number): ArrangementDensityLevel {
+  const offset = Math.abs(seed) % ARRANGEMENT_DENSITY_LEVELS.length;
+  return ARRANGEMENT_DENSITY_LEVELS[(index + offset) % ARRANGEMENT_DENSITY_LEVELS.length];
+}
 
 export function arrangementDensityText(seed: number, index: number): string {
-  const offset = Math.abs(seed) % ARRANGEMENT_DENSITY_TEXTS.length;
-  return ARRANGEMENT_DENSITY_TEXTS[(index + offset) % ARRANGEMENT_DENSITY_TEXTS.length];
+  return ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[arrangementDensityLevel(seed, index)];
+}
+
+/**
+ * TASK v3.43 Step 2 (Part A3) — one-time legend mapping each structure-
+ * template id to its section-order description (see core/lyricEngine.ts's
+ * STRUCTURE_TEMPLATE_SECTION_NOTES), sent once in the batch/bridge
+ * instructions rather than repeating the full description on every
+ * "preassignedSongs" entry — each entry only carries the compact id
+ * (PreassignedSongSlot.structureTemplate), the same discrete-id-plus-shared-
+ * lookup-table pattern data/hookDevices.ts's getHookDeviceById already uses.
+ */
+export function structureTemplateLegend(): string {
+  return (Object.keys(STRUCTURE_TEMPLATE_SECTION_NOTES) as StructureTemplateId[])
+    .map(id => `${id}: ${STRUCTURE_TEMPLATE_SECTION_NOTES[id]}`)
+    .join('; ');
 }
 
 /**
@@ -571,44 +621,55 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // none) with nothing telling the model this trackNo has a specific planned
   // tempo. Forced like moneyChordText/hookDeviceText below.
   const tempoInstruction = ' Each entry also includes "tempo" — use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
-  // TASK v3.43 Part A3 — mirrors hookDeviceInstruction's verbatim-weave
-  // pattern for the per-song instrument rotation/arrangement-density rotation
-  // (see core/localGenerator.ts's rotatingInstrumentText/arrangementDensityText),
-  // newly promoted to slot fields so Batch/bridge songs get the same per-song
-  // variety the local path already has.
-  const hasInstrumentText = batch.preassignedSongs?.some(slot => slot.instrumentText);
-  const instrumentInstruction = hasInstrumentText
-    ? ' Each entry also includes "instrumentText" — weave that exact phrase into that song\'s stylePrompt as the instrument detail, verbatim. Do not substitute different instruments or paraphrase it away.'
+  // TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstruction's verbatim-
+  // weave pattern for the per-song instrument rotation (see
+  // core/promptComposer.ts's rotatingInstrumentSet), newly promoted to a
+  // slot field so Batch/bridge songs get the same per-song variety the
+  // local path already has. instrumentSet is an array (2-3 names), so the
+  // agent weaves each one rather than a single ready-made phrase.
+  const hasInstrumentSet = batch.preassignedSongs?.some(slot => slot.instrumentSet?.length);
+  const instrumentInstruction = hasInstrumentSet
+    ? ' Each entry also includes "instrumentSet" — an array of 2-3 instrument names; weave ALL of them into that song\'s stylePrompt as the instrument detail, verbatim (comma-separated is fine). Do not substitute different instruments, drop any of them, or paraphrase them away.'
     : '';
-  const hasArrangementDensityText = batch.preassignedSongs?.some(slot => slot.arrangementDensityText);
-  const arrangementDensityInstruction = hasArrangementDensityText
-    ? ' Each entry also includes "arrangementDensityText" — weave that exact phrase into that song\'s stylePrompt as the arrangement-density detail, verbatim. Do not substitute a different density or paraphrase it away.'
+  // TASK v3.43 Step 2 (Part A3) — arrangementDensity is a bare
+  // 'sparse'|'medium'|'full' tag (see core/promptComposer.ts's
+  // arrangementDensityLevel), not pre-composed text, so the instruction
+  // spells out each level's meaning once here rather than repeating a full
+  // phrase on every entry.
+  const hasArrangementDensity = batch.preassignedSongs?.some(slot => slot.arrangementDensity);
+  const arrangementDensityInstruction = hasArrangementDensity
+    ? ` Each entry also includes "arrangementDensity" (one of sparse/medium/full) — weave a phrase describing that density into the stylePrompt: sparse = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.sparse}"; medium = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.medium}"; full = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.full}". Use the matching phrase (or a close paraphrase of it) verbatim; do not substitute a different density level.`
     : '';
-  // TASK v3.43 Part A3 — guideline only (see types.ts's structureNote
-  // comment): shapes that trackNo's lyric section order, not a stylePrompt
-  // phrase, so it's deliberately excluded from forcedFieldsList/verbatim
-  // enforcement below.
-  const hasStructureNote = batch.preassignedSongs?.some(slot => slot.structureNote);
-  const structureNoteInstruction = hasStructureNote
-    ? ' Each entry also includes "structureNote" — use it as a guideline for that song\'s lyric section order (intro/verse/chorus/bridge tags); it is a structural suggestion, not a phrase to paste into stylePrompt.'
+  // TASK v3.43 Step 2 (Part A3) — structureTemplate shapes that trackNo's
+  // lyric section order rather than naming a stylePrompt phrase to copy (see
+  // types.ts's field comment), but "don't invent a different X" still
+  // applies in spirit — the agent shouldn't ignore its assigned template and
+  // default back to T1's shape. The legend is sent once (not per-entry) —
+  // see core/promptComposer.ts's structureTemplateLegend. There is no
+  // post-hoc stylePrompt injection for this one (see reconcileWithPreassignedSlot);
+  // import only warns if the template's marker never shows up in the lyrics.
+  const hasStructureTemplate = batch.preassignedSongs?.some(slot => slot.structureTemplate);
+  const structureTemplateInstruction = hasStructureTemplate
+    ? ` Each entry also includes "structureTemplate" (one of T1-T5). Structure templates, each a different lyric section order: ${structureTemplateLegend()}. Write THIS song's lyrics — actual section content, not the letter code — following its assigned template's section order exactly; do not default back to T1's shape for a track assigned a different template, and do not invent a different template than the one assigned.`
     : '';
   const preassignedFieldList = [
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
-    ...(hasInstrumentText ? ['instrumentText'] : []),
-    ...(hasArrangementDensityText ? ['arrangementDensityText'] : []),
-    ...(hasStructureNote ? ['structureNote'] : []),
+    ...(hasInstrumentSet ? ['instrumentSet'] : []),
+    ...(hasArrangementDensity ? ['arrangementDensity'] : []),
+    ...(hasStructureTemplate ? ['structureTemplate'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ');
   const forcedFieldsList = [
     'trackNo', 'emotionArc', 'moneyChordText', 'tempo',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
-    ...(hasInstrumentText ? ['instrumentText'] : []),
-    ...(hasArrangementDensityText ? ['arrangementDensityText'] : []),
+    ...(hasInstrumentSet ? ['instrumentSet'] : []),
+    ...(hasArrangementDensity ? ['arrangementDensity'] : []),
+    ...(hasStructureTemplate ? ['structureTemplate'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureNoteInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
