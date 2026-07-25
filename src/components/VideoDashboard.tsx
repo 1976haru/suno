@@ -10,6 +10,8 @@ import {
   type VideoInsights,
   type VideoRecord
 } from '../core/videoLedger';
+import { channelDiversityReport, topPerformerAttributes, type TopPerformerAttributes } from '../core/library';
+import type { ChannelDiversityReport } from '../core/diversityLinter';
 import { downloadText } from '../utils/exporters';
 import type { ChannelProfile } from '../types';
 
@@ -25,12 +27,16 @@ function statusLabel(video: VideoRecord): string {
 export default function VideoDashboard({ channel, onClose }: VideoDashboardProps) {
   const [videos, setVideos] = useState<VideoRecord[]>([]);
   const [insights, setInsights] = useState<VideoInsights | null>(null);
+  const [diversity, setDiversity] = useState<ChannelDiversityReport | null>(null);
+  const [topPerformers, setTopPerformers] = useState<TopPerformerAttributes | null>(null);
   const [importMessage, setImportMessage] = useState('');
 
   async function refresh() {
     const list = await listVideos(channel.id);
     setVideos(list);
     setInsights(await channelInsights(channel.id));
+    setDiversity(await channelDiversityReport(channel.id));
+    setTopPerformers(await topPerformerAttributes(channel.id));
   }
 
   useEffect(() => {
@@ -134,6 +140,40 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
                 </p>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* TASK v3.39.1 Part B2 — warns when a channel's own saved-pack history
+          (thumbnail color/composition, concept line, title shape) repeats
+          past a threshold, the exact "same template every time" pattern the
+          2026 "inauthentic content" enforcement wave targets. */}
+      {diversity && diversity.warnings.length > 0 && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <h2>⚠️ 채널 다양성 경고</h2>
+          </div>
+          <p className="supporting">최근 저장된 {diversity.packsChecked}개 팩 기준 — 아래 항목이 반복되면 검토자에게 "같은 템플릿"으로 보일 수 있습니다.</p>
+          {diversity.warnings.map((warning, idx) => (
+            <p className="supporting" key={idx}>{warning}</p>
+          ))}
+        </div>
+      )}
+
+      {/* TASK v3.39.1 Part D1 (minimal scope — report only, no auto-reweighting yet) */}
+      {topPerformers && !topPerformers.insufficientData && (
+        <div className="provider-summary">
+          <div className="panel-title">
+            <h2>📈 상위 성과 곡 속성 (CTR 평균 이상)</h2>
+          </div>
+          {topPerformers.topGenreIds.length > 0 && (
+            <p className="supporting">장르: {topPerformers.topGenreIds.map(a => `${a.value} (${a.count})`).join(', ')}</p>
+          )}
+          {topPerformers.topMoneyChordModes.length > 0 && (
+            <p className="supporting">머니코드: {topPerformers.topMoneyChordModes.map(a => `${a.value} (${a.count})`).join(', ')}</p>
+          )}
+          {topPerformers.topVocalTones.length > 0 && (
+            <p className="supporting">보컬: {topPerformers.topVocalTones.map(a => `${a.value} (${a.count})`).join(', ')}</p>
           )}
         </div>
       )}

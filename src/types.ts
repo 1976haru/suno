@@ -226,6 +226,15 @@ export interface SongIdea {
   openingStyle?: 'hook-forward' | 'hum-intro';
   /** TASK v3.38 Part B — which vocal type this song was assigned by core/vocalPlan.ts's per-song quota plan; only set for the 'kids' channel archetype. */
   vocalType?: 'male' | 'female' | 'mixed';
+  /**
+   * TASK v3.39.1 Part B3 — free-text record of what a human actually chose/
+   * changed for this song (which take was kept, a manual title/lyric edit,
+   * why this thumbnail was picked, etc). YouTube's "inauthentic content"
+   * enforcement explicitly weighs human editorial judgment — this is the
+   * evidence trail for an appeal, not a feature the app reads back anywhere
+   * else. Always user-entered; never auto-populated.
+   */
+  humanEdits?: string;
 }
 
 export interface PlaylistBlueprint {
@@ -414,6 +423,10 @@ export interface SavedPack {
   setGroupId?: string;
   setIndex?: number;
   setTotal?: number;
+  /** TASK v3.39.1 Part B4 — always set at save time (see core/library.ts's savePack); optional only so packs saved before this task keep loading. true for every pack this app produces (see core/exportCompliance.ts's AI_DISCLOSURE_LINE) — there is no non-AI generation path. */
+  aiDisclosure?: boolean;
+  /** TASK v3.39.1 Part B4 — derived from channel.archetype === 'kids' at save time (core/exportCompliance.ts's isMadeForKidsChannel), stored so a saved pack's COPPA status is visible without re-deriving it from the channel record, which may since have changed. */
+  madeForKids?: boolean;
 }
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;

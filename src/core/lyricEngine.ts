@@ -1208,6 +1208,19 @@ function compressHookToImage(phrase: string): string | null {
 const enImagePairWords = ['Frost', 'Ember', 'Static', 'Velvet', 'Hollow', 'Glow', 'Echo', 'Dust'];
 
 /**
+ * TASK v3.39.1 Part C1 — this pool was global regardless of archetype, so a
+ * kids-channel title could pair a child-safe compressed hook image with an
+ * adult-mood word from the list above (real measurement: "Dear Playmate &
+ * Dust", "Toy Box & Hollow", "Crayon & Static"). Kids gets its own
+ * bright/playful pair-word pool instead.
+ */
+const kidsImagePairWords = ['Sunshine', 'Rainbow', 'Bubble', 'Giggle', 'Sparkle', 'Puddle', 'Kite', 'Cupcake'];
+
+function imagePairWordsForArchetype(archetype?: ChannelArchetype): string[] {
+  return archetype === 'kids' ? kidsImagePairWords : enImagePairWords;
+}
+
+/**
  * TASK v3.28 — the title used to always contain the hook verbatim (H2's
  * completion condition, and previously also enforced as a quality-score
  * penalty in core/quality.ts's checkHookQuality). Real measurement showed
@@ -1225,7 +1238,7 @@ const enImagePairWords = ['Frost', 'Ember', 'Static', 'Velvet', 'Hollow', 'Glow'
  * double-genitive title bug fixed in v3.2 — this function never reintroduces
  * that class of composition for those languages.
  */
-export function titleFromHook(hook: HookSpec, seed: number, language: LyricLanguage, usedTitles: Set<string>): string {
+export function titleFromHook(hook: HookSpec, seed: number, language: LyricLanguage, usedTitles: Set<string>, archetype?: ChannelArchetype): string {
   if (language !== 'english') {
     return uniqueTitle(hook.phrase, usedTitles);
   }
@@ -1236,7 +1249,7 @@ export function titleFromHook(hook: HookSpec, seed: number, language: LyricLangu
 
   if (image) {
     if (roll < 0.45) {
-      const pairPool = shuffle(enImagePairWords, seed + 1313);
+      const pairPool = shuffle(imagePairWordsForArchetype(archetype), seed + 1313);
       for (const pair of pairPool) {
         if (hasWordOverlap('english', image, pair)) continue;
         const candidate = `${image} & ${pair}`;
@@ -1336,7 +1349,7 @@ export function createTitleGenerator(
         emotionalWeight: targetHookEmotionalWeight(role)
       });
       nextTitle.usedHooks.add(hook.phrase);
-      const title = titleFromHook(hook, nextTitle.seed + 53 + idx * 131, language, nextTitle.usedTitles);
+      const title = titleFromHook(hook, nextTitle.seed + 53 + idx * 131, language, nextTitle.usedTitles, archetype);
       nextTitle.usedTitles.add(title);
       nextTitle.index += 1;
       return { title, hook: hook.phrase };

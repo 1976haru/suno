@@ -5,7 +5,9 @@ import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBu
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { buildVocalPlan, DEFAULT_KIDS_VOCAL_QUOTA, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { buildVocalPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { scoreSongs } from './quality';
+import { AI_DISCLOSURE_LINE } from './exportCompliance';
 import { composeKidsLyrics } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
@@ -178,7 +180,7 @@ export function nextContestedTitle(
   };
   const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k, earwormMode);
   gen.usedHooks.add(winner.hook.phrase);
-  const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles);
+  const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles, archetype);
   gen.usedTitles.add(title);
   gen.index += 1;
   return { title, hook: winner.hook.phrase };
@@ -338,11 +340,19 @@ function buildYoutubeMetadata(
   ];
   const tags = Array.from(new Set(baseTags.map(tag => tag.trim()).filter(Boolean))).slice(0, 18);
   const title = `${song.title} - ${season.label} ${channelName} Playlist`;
+  // TASK v3.39.1 Part C2 — real exported output showed
+  // "Suno style prompt and lyrics are generated as original material for
+  // <channel name>" going straight into the public description field: an
+  // internal/dev-facing sentence, not copy meant to be posted. Replaced with
+  // AI_DISCLOSURE_LINE (core/exportCompliance.ts) — the actual policy-facing
+  // disclosure YouTube's Studio "Altered or synthetic content" flow expects
+  // creators to also state in their own words, not an internal note about
+  // how this app works.
   const description = [
     `${song.title} is track ${song.trackNo} from ${opts.projectTitle}.`,
     `Concept: ${opts.customConcept || opts.channel.promise}`,
     `Mood: ${song.listenerSituation}, ${song.seasonMoment}.`,
-    `Suno style prompt and lyrics are generated as original material for ${opts.channel.name}.`,
+    AI_DISCLOSURE_LINE,
     `Tags: ${tags.slice(0, 10).join(', ')}`
   ].join('\n');
   // TASK D5 (v3.6) — packagingLanguage (market-derived, independently
@@ -414,6 +424,10 @@ export function generateLocalBlueprint(
   // pre-pass shape; vocalQuota falls back to the 6/6/6 default when the
   // channel/opts didn't set one explicitly.
   const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  // TASK v3.39.1 Part H4 — matches batchPreallocation.ts's own fallback so
+  // the local path's lyric meta tag agrees with what the realtime/Batch/
+  // bridge paths would tag the same opts with.
+  const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -438,7 +452,7 @@ export function generateLocalBlueprint(
     // children's content). Title/hook (above) are unaffected: they already
     // come from the kid-safe hookBanks/kids.ts vocabulary via
     // opts.channel.archetype, independent of this branch.
-    const { lyrics, hookPhrase } = opts.channel.archetype === 'kids'
+    const { lyrics: composedLyrics, hookPhrase } = opts.channel.archetype === 'kids'
       ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13 })
       : composeLyrics({
         language: opts.lyricLanguage,
@@ -457,6 +471,14 @@ export function generateLocalBlueprint(
     // length would cross the Suno-safe budget — drops the lowest-priority
     // ids first (never truncating mid-phrase). See promptComposer.ts.
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
+    // TASK v3.39.1 Part H4 — realtime/Batch/bridge output all get a
+    // [male vocal]/[female vocal]/[children's choir] lyric meta tag via
+    // batchPreallocation.ts's reconcileWithPreassignedSlot, but a local-only
+    // generated pack never passes through that function, so its lyrics
+    // always started with the section tag ([short intro], etc.) and no
+    // vocal tag at all. Same tag resolution, applied directly here instead.
+    const vocalTextForTag = vocalType ? vocalDescriptionFor(vocalType, opts.lyricLanguage) : fallbackVocalText;
+    const lyrics = ensureVocalMetaTag(composedLyrics, resolveVocalMetaTag(vocalType, vocalTextForTag));
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
@@ -564,6 +586,12 @@ export function generateLocalBlueprint(
       generationPack?.youtubeAngle || 'playlist-friendly thumbnail angle',
       'large readable title typography'
     ],
-    songs
+    // TASK v3.39.1 Part H5 — scoreSongs previously only ran on the
+    // realtime/Batch API/bridge paths (each wired it in separately at their
+    // own call sites), so a purely local-generation pack always shipped with
+    // qualityScore: 0 and warnings: [] — not because it was flawless, but
+    // because nothing had actually checked it. Same gate every other path
+    // already runs through.
+    songs: scoreSongs(songs, opts.channel, opts.lyricLanguage)
   };
 }

@@ -1,4 +1,5 @@
-import type { PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from '../types';
+import type { ChannelProfile, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from '../types';
+import { AI_DISCLOSURE_LINE, buildUploadChecklist, extractContentIdFlags, isMadeForKidsChannel } from '../core/exportCompliance';
 
 /** TASK I5 (v3.11, PART D-2) — tracks 1-3 (cold-open + flagship) are the shorts-clip priority candidates, per the brief's "1~3번 곡이 제일 중요하다". */
 export function isShortsClipCandidate(song: Pick<SongIdea, 'trackNo'>): boolean {
@@ -46,6 +47,7 @@ export function buildSongTxt(song: SongIdea): string {
     '',
     '===== YOUTUBE =====',
     JSON.stringify(song.youtube, null, 2),
+    ...(song.humanEdits ? ['', '===== HUMAN CURATION NOTE =====', song.humanEdits] : []),
     ...(isShortsClipCandidate(song) && chorus
       ? [
         '',
@@ -172,7 +174,30 @@ ${soundSignature.full}
 `;
 }
 
-export function exportMarkdown(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false) {
+/**
+ * TASK v3.39.1 Part B4/D2 — an explicit pre-upload compliance section: AI
+ * disclosure line + Made-for-Kids/COPPA/Suno-licensing checklist
+ * (core/exportCompliance.ts), plus any Content ID (copyright/imitation/
+ * famous-artist/blocked-token) flags scoreSong already raised, pulled out of
+ * each song's mixed warnings list into their own explicit review item so
+ * they can't be missed before publishing.
+ */
+function uploadComplianceMarkdown(blueprint: PlaylistBlueprint, channel?: ChannelProfile): string {
+  if (!channel) return '';
+  const contentIdFlags = blueprint.songs.flatMap(song => extractContentIdFlags(song).map(flag => `Track ${song.trackNo} (${song.title}): ${flag}`));
+  const checklist = buildUploadChecklist(channel, contentIdFlags);
+  return `## Upload Checklist
+
+AI disclosure: ${AI_DISCLOSURE_LINE}
+
+Made for Kids: ${isMadeForKidsChannel(channel) ? 'YES' : 'NO'}
+
+${checklist.map(item => `- [ ] ${item}`).join('\n')}
+
+`;
+}
+
+export function exportMarkdown(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false, channel?: ChannelProfile) {
   return `# ${blueprint.projectTitle}
 
 Channel: ${blueprint.channelName}
@@ -183,7 +208,7 @@ Sonic Signature: ${blueprint.sonicSignature}
 
 Vocal Signature: ${blueprint.vocalSignature}
 
-${soundSignatureMarkdown(soundSignature, personaMode)}${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
+${uploadComplianceMarkdown(blueprint, channel)}${soundSignatureMarkdown(soundSignature, personaMode)}${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
 
 Situation: ${song.listenerSituation}
 
@@ -221,11 +246,24 @@ Tags: ${(song.youtube?.tags || []).join(', ')}
 
 ${songThumbnailMarkdown(song)}Quality: ${song.qualityScore}/100
 Warnings: ${song.warnings.join('; ') || 'None'}
-`).join('\n')}`;
+${song.humanEdits ? `Human curation note: ${song.humanEdits}\n` : ''}`).join('\n')}`;
 }
 
-export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false) {
-  return JSON.stringify({ ...blueprint, ...(thumbnailSpec ? { thumbnailSpec } : {}), ...(soundSignature ? { soundSignature } : {}), personaMode }, null, 2);
+export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false, channel?: ChannelProfile) {
+  const uploadCompliance = channel
+    ? {
+      aiDisclosure: AI_DISCLOSURE_LINE,
+      madeForKids: isMadeForKidsChannel(channel),
+      checklist: buildUploadChecklist(channel, blueprint.songs.flatMap(song => extractContentIdFlags(song).map(flag => `Track ${song.trackNo} (${song.title}): ${flag}`)))
+    }
+    : undefined;
+  return JSON.stringify({
+    ...blueprint,
+    ...(thumbnailSpec ? { thumbnailSpec } : {}),
+    ...(soundSignature ? { soundSignature } : {}),
+    personaMode,
+    ...(uploadCompliance ? { uploadCompliance } : {})
+  }, null, 2);
 }
 
 export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSignature, personaMode = false) {
@@ -246,6 +284,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       'thumbnailText',
       'qualityScore',
       'warnings',
+      'humanEdits',
       'stylePrompt',
       'excludePrompt',
       'lyrics'
@@ -269,6 +308,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       song.youtube?.thumbnailText || song.thumbnailText || '',
       String(song.qualityScore),
       song.warnings.join('; '),
+      song.humanEdits || '',
       song.stylePrompt,
       song.excludePrompt || '',
       song.lyrics

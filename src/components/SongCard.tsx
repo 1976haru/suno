@@ -35,6 +35,8 @@ interface SongCardProps {
   promptCharLimit?: number;
   /** TASK I3 (v3.11, PART D-4) — optional so existing callers/tests without promotion support keep working unchanged. */
   onPromote?: (trackNo: number, role: 'cold-open' | 'flagship') => void;
+  /** TASK v3.39.1 Part B3 — optional so existing callers/tests without curation-record support keep working unchanged. */
+  onUpdateHumanEdits?: (trackNo: number, text: string) => void;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -43,7 +45,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
@@ -148,6 +150,20 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               </button>
             )}
           </div>
+
+          {onUpdateHumanEdits && (
+            <div className="option-block">
+              <label>사람 큐레이션 메모 (원본성 증빙용)</label>
+              <p className="supporting">이 곡에서 직접 고르거나 바꾼 부분을 적어두세요 (예: "가사 2절 직접 수정", "3개 테이크 중 이 버전 선택"). 유튜브 "비진정성 콘텐츠" 정책 이의신청 시 사람의 편집적 판단을 보여주는 증빙으로 쓸 수 있습니다.</p>
+              <textarea
+                className="human-edits-note"
+                value={song.humanEdits || ''}
+                onChange={event => onUpdateHumanEdits(song.trackNo, event.target.value)}
+                rows={2}
+                placeholder="예: 가사 2절을 직접 다시 썼고, 썸네일은 B안을 선택했습니다."
+              />
+            </div>
+          )}
 
           <div className="tab-row">
             <button type="button" className={tab === 'style' ? 'tab active' : 'tab'} onClick={() => setTab('style')}>스타일 프롬프트</button>

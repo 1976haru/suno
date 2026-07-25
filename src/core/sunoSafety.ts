@@ -23,8 +23,22 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * TASK v3.39.1 Part H3 — real attack testing found `containsBlockedStyleToken`
+ * only caught the token written with no gaps at all: 'wa yo' (a single
+ * inserted space) sailed straight through the old \b-anchored exact-word
+ * regex. This allows any run of non-alphanumeric characters (spaces,
+ * punctuation) between each letter of the token, while still requiring true
+ * word-boundary-equivalent edges via lookaround (not \b, which can't sit
+ * correctly next to an optional gap) — so a legitimate word that merely
+ * *contains* the token's letters in sequence across a real word break (e.g.
+ * "way older") still won't match, because the letter immediately before/
+ * after the matched span must itself be non-alphanumeric. This also
+ * subsumes the old exact-match case (zero gaps between letters).
+ */
 function blockedTokenPattern(token: string): RegExp {
-  return new RegExp(`\\b${escapeRegExp(token)}\\b`, 'gi');
+  const spaced = token.split('').map(escapeRegExp).join('[^a-z0-9]*');
+  return new RegExp(`(?<![a-z0-9])${spaced}(?![a-z0-9])`, 'gi');
 }
 
 /** True if any known-blocked token appears (case-insensitive, whole-token) in the given text. */

@@ -30,7 +30,7 @@ import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
-import { defaultPackagingLanguage, resolvePackagingLanguage } from './core/packagingLanguage';
+import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
 import SettingsModal from './components/SettingsModal';
 import HookExhaustionWarningModal from './components/HookExhaustionWarningModal';
@@ -106,7 +106,7 @@ export default function App() {
       genreIds: normalizeGenreSelection(channel.preferredGenres),
       moodIds: channel.preferredMoods,
       vocalTone: channel.defaultVocal,
-      packagingLanguage: defaultPackagingLanguage(channel.market)
+      packagingLanguage: defaultPackagingLanguageForChannel(channel)
     }));
   }
 
@@ -584,6 +584,15 @@ export default function App() {
     }
   }
 
+  /** TASK v3.39.1 Part B3 — free-text curation record per song; never touches any other field. */
+  function onUpdateHumanEdits(trackNo: number, text: string) {
+    if (!gen.blueprint) return;
+    gen.setBlueprint({
+      ...gen.blueprint,
+      songs: gen.blueprint.songs.map(song => song.trackNo === trackNo ? { ...song, humanEdits: text } : song)
+    });
+  }
+
   function onEvaluate(scopeTrackNos?: number[]) {
     if (!gen.blueprint) return;
     void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider, scopeTrackNos);
@@ -789,6 +798,7 @@ export default function App() {
               thumbnailPackagingLanguage={resolvePackagingLanguage(opts)}
               thumbnailCustomConcept={opts.customConcept}
               soundSignature={soundSignature}
+              opts={opts}
               personaMode={opts.personaMode ?? false}
               personaPromptStats={personaPromptStats}
               savedPersonas={savedPersonas}
@@ -805,6 +815,7 @@ export default function App() {
               onSelectThumbnailVariant={onSelectThumbnailVariant}
               onApplyThumbnailFreeText={onApplyThumbnailFreeText}
               onPromoteTrack={onPromoteTrack}
+              onUpdateHumanEdits={onUpdateHumanEdits}
             />
           )}
 

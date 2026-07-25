@@ -17,7 +17,7 @@ import { DEFAULT_KIDS_VOCAL_QUOTA, scaleVocalQuota } from '../../core/vocalPlan'
 import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
 import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
-import { defaultPackagingLanguage } from '../../core/packagingLanguage';
+import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage';
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
@@ -608,7 +608,7 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
               <button
                 type="button"
                 key={option.value}
-                className={(opts.packagingLanguage ?? defaultPackagingLanguage(opts.channel.market)) === option.value ? 'chip active' : 'chip'}
+                className={(opts.packagingLanguage ?? defaultPackagingLanguageForChannel(opts.channel)) === option.value ? 'chip active' : 'chip'}
                 onClick={() => setOpts(prev => ({ ...prev, packagingLanguage: option.value }))}
               >
                 {option.label} <span className="supporting">({option.sub})</span>

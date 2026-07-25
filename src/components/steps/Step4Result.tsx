@@ -10,8 +10,9 @@ import SunoProgressMode from '../SunoProgressMode';
 import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
+import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
-import type { AgentEvaluation, DisplayLanguage, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
+import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
@@ -42,6 +43,8 @@ interface Step4ResultProps {
   /** TASK v3.37-b — GenerationOptions.customConcept for the pack currently in the editor. */
   thumbnailCustomConcept: string;
   soundSignature: SoundSignature | null;
+  /** TASK v3.39.1 Part B1/C2 — needed to build the compiled-video tracklist description and ffmpeg script exports below. */
+  opts: GenerationOptions;
   personaMode: boolean;
   personaPromptStats: PersonaPromptStats | null;
   savedPersonas: ChannelPersonaRecord[];
@@ -59,6 +62,8 @@ interface Step4ResultProps {
   onApplyThumbnailFreeText: (suggestions: { headline: string; angle: string }[]) => void;
   /** TASK I3 (v3.11, PART D-4) — manual override for the automatic cold-open/flagship pick. */
   onPromoteTrack: (trackNo: number, role: 'cold-open' | 'flagship') => void;
+  /** TASK v3.39.1 Part B3 — records what a human actually chose/changed for a song (originality evidence for an "inauthentic content" appeal). */
+  onUpdateHumanEdits: (trackNo: number, text: string) => void;
 }
 
 export default function Step4Result({
@@ -86,6 +91,7 @@ export default function Step4Result({
   thumbnailPackagingLanguage,
   thumbnailCustomConcept,
   soundSignature,
+  opts,
   personaMode,
   personaPromptStats,
   savedPersonas,
@@ -101,7 +107,8 @@ export default function Step4Result({
   onRegenerateHeadline,
   onSelectThumbnailVariant,
   onApplyThumbnailFreeText,
-  onPromoteTrack
+  onPromoteTrack,
+  onUpdateHumanEdits
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
@@ -196,17 +203,33 @@ export default function Step4Result({
               <Download size={16} />
               📝 TXT (곡별)
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode), 'text/markdown;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode, opts.channel), 'text/markdown;charset=utf-8')}>
               <Download size={16} />
               MD
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode), 'application/json;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode, opts.channel), 'application/json;charset=utf-8')}>
               <Download size={16} />
               JSON
             </button>
             <button type="button" onClick={() => downloadText('suno-pack.csv', exportCsv(blueprint, soundSignature ?? undefined, personaMode), 'text/csv;charset=utf-8')}>
               <Download size={16} />
               CSV
+            </button>
+            <button
+              type="button"
+              title="전 곡을 한 영상으로 합칠 때 쓸 설명(타임스탬프 트랙리스트 포함)"
+              onClick={() => downloadText('suno-pack-video-description.txt', buildPackVideoDescription(blueprint, opts))}
+            >
+              <Download size={16} />
+              🎬 영상 설명(타임스탬프)
+            </button>
+            <button
+              type="button"
+              title="audio/NN.mp3 + images/NN.png 준비 후 실행하는 ffmpeg 합본 영상 스크립트 (정적 이미지 1장 금지 대응)"
+              onClick={() => downloadText('render-pack-video.sh', buildFfmpegPackVideoScript(blueprint, opts))}
+            >
+              <Download size={16} />
+              🎞️ ffmpeg 스크립트
             </button>
             <button
               type="button"
@@ -393,6 +416,7 @@ export default function Step4Result({
             personaName={soundSignature?.personaName}
             promptCharLimit={promptCharLimit}
             onPromote={onPromoteTrack}
+            onUpdateHumanEdits={onUpdateHumanEdits}
           />
         )
       ))}

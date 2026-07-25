@@ -1,5 +1,8 @@
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature } from '../types';
 import { channelPresets } from '../data/presets';
+import { isMadeForKidsChannel } from './exportCompliance';
+import { lintChannelDiversity, sampleFromSavedPack, type ChannelDiversityReport } from './diversityLinter';
+import { listVideos } from './videoLedger';
 
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
 
@@ -177,6 +180,12 @@ export async function savePack(input: {
     evaluation: input.evaluation,
     thumbnailSpec: input.thumbnailSpec,
     soundSignature: input.soundSignature,
+    // TASK v3.39.1 Part B4 — always true (every pack this app produces is
+    // AI-generated; see core/exportCompliance.ts's AI_DISCLOSURE_LINE) /
+    // derived from the channel at save time so it's visible without
+    // re-deriving it later from a channel record that may have changed.
+    aiDisclosure: true,
+    madeForKids: isMadeForKidsChannel(input.options.channel),
     personaMode,
     setGroupId: input.setGroupId,
     setIndex: input.setIndex,
@@ -263,6 +272,81 @@ export async function loadPack(id: string): Promise<SavedPack | undefined> {
   }
   const pack = await withStore<SavedPack | undefined>('readonly', store => store.get(id));
   return pack ? normalizeSavedPack(pack) : pack;
+}
+
+/**
+ * TASK v3.39.1 Part B2 — loads every saved pack for a channel and runs
+ * core/diversityLinter.ts's lintChannelDiversity over them. Kept as its own
+ * IndexedDB-touching wrapper (not inside diversityLinter.ts itself) so the
+ * linter's actual scoring logic stays a pure, synchronously-testable
+ * function — same split this file already uses for videoLedger.ts's
+ * computeInsights vs channelInsights.
+ */
+export async function channelDiversityReport(channelId: string): Promise<ChannelDiversityReport> {
+  const metas = await listPacks();
+  const channelMetas = metas.filter(meta => meta.channelId === channelId);
+  const packs = await Promise.all(channelMetas.map(meta => loadPack(meta.id)));
+  const samples = packs.filter((pack): pack is SavedPack => Boolean(pack)).map(sampleFromSavedPack);
+  return lintChannelDiversity(samples);
+}
+
+export interface AttributeCount {
+  value: string;
+  count: number;
+}
+
+export interface TopPerformerAttributes {
+  sampleSize: number;
+  insufficientData: boolean;
+  topGenreIds: AttributeCount[];
+  topMoneyChordModes: AttributeCount[];
+  topVocalTones: AttributeCount[];
+}
+
+const MIN_PERFORMER_SAMPLE = 3;
+
+function topAttributeCounts(values: string[], limit = 5): AttributeCount[] {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    if (!value) continue;
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([value, count]) => ({ value, count }));
+}
+
+/**
+ * TASK v3.39.1 Part D1 (minimal scope, per explicit product decision — data
+ * + report only, not wired back into generation weighting yet) — views/CTR/
+ * avgViewDuration already exist on VideoRecord (manual or CSV-import only,
+ * see videoLedger.ts's own honesty-boundary comment) and already power a
+ * thumbnail-variant/keyword report via channelInsights. What was missing:
+ * a video record has no visibility into the *song-level* choices (genre,
+ * money chord, vocal) that actually went into its pack. This joins a
+ * channel's above-average-CTR videos back to their SavedPack.options to
+ * report which attributes keep showing up among the channel's own top
+ * performers — "make more of what already works," read-only.
+ */
+export async function topPerformerAttributes(channelId: string): Promise<TopPerformerAttributes> {
+  const videos = await listVideos(channelId);
+  const withCtr = videos.filter((v): v is typeof v & { ctr: number } => typeof v.ctr === 'number' && Boolean(v.packId));
+  if (withCtr.length < MIN_PERFORMER_SAMPLE) {
+    return { sampleSize: withCtr.length, insufficientData: true, topGenreIds: [], topMoneyChordModes: [], topVocalTones: [] };
+  }
+
+  const avgCtr = withCtr.reduce((sum, v) => sum + v.ctr, 0) / withCtr.length;
+  const topVideos = withCtr.filter(v => v.ctr >= avgCtr);
+  const topPacks = (await Promise.all(topVideos.map(v => loadPack(v.packId)))).filter((pack): pack is SavedPack => Boolean(pack));
+
+  return {
+    sampleSize: withCtr.length,
+    insufficientData: false,
+    topGenreIds: topAttributeCounts(topPacks.flatMap(pack => pack.options.genreIds)),
+    topMoneyChordModes: topAttributeCounts(topPacks.map(pack => pack.options.moneyChordMode)),
+    topVocalTones: topAttributeCounts(topPacks.map(pack => pack.options.vocalTone))
+  };
 }
 
 export async function deletePack(id: string): Promise<void> {

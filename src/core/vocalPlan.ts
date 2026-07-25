@@ -62,16 +62,51 @@ export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = '
  * but a Codex-bridge-generated song came back with a female vocal because
  * nothing in the pipeline actually enforced the choice (see
  * batchPreallocation.ts's reconcileWithPreassignedSlot for where this is
- * used). Word-boundary-only so "female" never false-positives as containing
- * "male", and "woman"/"women" are matched as their own words rather than via
- * a "man" substring for the same reason.
+ * used).
+ *
+ * TASK v3.39.1 Part H1 — real attack testing found the original word list
+ * (female/girl/woman/women, male/boy/man/men) missed the voice-range and
+ * pronoun words a stylePrompt actually uses (alto, soprano, tenor, she/he,
+ * ...): a "warm alto voice" survived untouched next to an injected "male
+ * tenor" description, reintroducing the original bug through a gap in the
+ * word list rather than a logic error. "alto" also names instruments (alto
+ * sax, alto flute) — excluded via a negative lookahead — and "bass" is
+ * deliberately never treated as a gender signal (bass guitar/bassline are
+ * instruments, and a "bass" vocal range isn't reliably one gender).
+ * Word-boundary-only so "female" never false-positives as containing "male".
  */
+const FEMALE_VOICE_TERMS = 'female|girl|woman|women|she|her|soprano|mezzo(?:-soprano)?|contralto|chanteuse|diva|alto(?!\\s*(?:sax|flute))';
+const MALE_VOICE_TERMS = 'male|boy|man|men|he|his|tenor|baritone';
+
+function genderTermsPattern(terms: string, flags: string): RegExp {
+  return new RegExp(`\\b(?:${terms})\\b`, flags);
+}
+
 export function detectVocalGender(text: string): 'male' | 'female' | null {
-  const hasFemale = /\b(female|girl|woman|women)\b/i.test(text);
-  const hasMale = /\b(male|boy|man|men)\b/i.test(text);
+  const hasFemale = genderTermsPattern(FEMALE_VOICE_TERMS, 'i').test(text);
+  const hasMale = genderTermsPattern(MALE_VOICE_TERMS, 'i').test(text);
   if (hasFemale && !hasMale) return 'female';
   if (hasMale && !hasFemale) return 'male';
   return null;
+}
+
+/** Strips every word of `gender` out of `text` and tidies up the punctuation/whitespace left behind. */
+function stripGenderTerms(text: string, gender: 'male' | 'female'): string {
+  const pattern = genderTermsPattern(gender === 'male' ? MALE_VOICE_TERMS : FEMALE_VOICE_TERMS, 'gi');
+  return text
+    .replace(pattern, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .replace(/^[,\s]+/, '')
+    .replace(/,\s*$/, '')
+    .trim();
+}
+
+function prependVocalText(stylePrompt: string, vocalText: string, strippedGender: 'male' | 'female'): { text: string; changed: boolean } {
+  const cleaned = stripGenderTerms(stylePrompt, strippedGender);
+  const text = cleaned ? `${vocalText}, ${cleaned}` : vocalText;
+  return { text, changed: true };
 }
 
 /**
@@ -80,26 +115,28 @@ export function detectVocalGender(text: string): 'male' | 'female' | null {
  * verbatim instruction in claudeCodeBridge.ts/promptComposer.ts still asks
  * for that, but agent compliance isn't guaranteed), this forcibly corrects
  * the gender of the final stylePrompt whenever it's detectably wrong or
- * missing. A no-op when vocalText has no detectable gender (e.g. a children's
- * choir/mixed description) — there's nothing to enforce in that case.
+ * missing.
+ *
+ * TASK v3.39.1 Part H2 — a mixed/choir vocalText (no single detectable
+ * gender) previously made this a full no-op, even when the stylePrompt
+ * itself still carried a single-gender word (real testing: Codex wrote "deep
+ * male baritone lead" for a kids choir slot and it sailed straight through).
+ * When vocalText reads as a group/choir voice, any single-gender word found
+ * in the stylePrompt is itself the bug — strip it and inject the choir text.
  */
 export function enforceVocalTextInStylePrompt(stylePrompt: string, vocalText: string | undefined): { text: string; changed: boolean } {
   if (!vocalText) return { text: stylePrompt, changed: false };
   const target = detectVocalGender(vocalText);
-  if (!target) return { text: stylePrompt, changed: false };
-  if (detectVocalGender(stylePrompt) === target) return { text: stylePrompt, changed: false };
-
-  const opposite = target === 'male' ? '(?:female|girl|woman|women)' : '(?:male|boy|man|men)';
-  const cleaned = stylePrompt
-    .replace(new RegExp(`\\b${opposite}\\b`, 'gi'), '')
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\s+,/g, ',')
-    .replace(/,\s*,/g, ',')
-    .replace(/^[,\s]+/, '')
-    .replace(/,\s*$/, '')
-    .trim();
-  const text = cleaned ? `${vocalText}, ${cleaned}` : vocalText;
-  return { text, changed: true };
+  if (target) {
+    if (detectVocalGender(stylePrompt) === target) return { text: stylePrompt, changed: false };
+    return prependVocalText(stylePrompt, vocalText, target === 'male' ? 'female' : 'male');
+  }
+  if (/\bchoir\b/i.test(vocalText)) {
+    const strayGender = detectVocalGender(stylePrompt);
+    if (!strayGender) return { text: stylePrompt, changed: false };
+    return prependVocalText(stylePrompt, vocalText, strayGender);
+  }
+  return { text: stylePrompt, changed: false };
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint } from '../types';
 import { defaultAvoidWordsString } from '../data/avoidWordPresets';
 import { normalizeGenreSelection } from '../core/genreSelection';
-import { defaultPackagingLanguage } from '../core/packagingLanguage';
+import { defaultPackagingLanguageForChannel } from '../core/packagingLanguage';
 
 export function clampSongCount(value: number) {
   if (!Number.isFinite(value)) return 12;
@@ -80,7 +80,13 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     audience: channel.audience,
     genreIds: normalizeGenreSelection(channel.preferredGenres),
     moodIds: channel.preferredMoods,
-    seasonId: 'christmas',
+    // TASK v3.39.1 Part C4 — 'christmas' was the hardcoded default for every
+    // archetype, including kids: the season pack's own label ("Christmas
+    // Cafe") then leaked a "Cafe" branding word straight into kids titles
+    // ("... - Christmas Cafe Little Singalong Radio Playlist"). 'spring-open'
+    // is the least adult-coded season pack (no cafe/coffee/tea keywords) and
+    // becomes the kids-only default; every other archetype is unchanged.
+    seasonId: channel.archetype === 'kids' ? 'spring-open' : 'christmas',
     vocalTone: channel.defaultVocal,
     perspective: 'firstPerson',
     lyricDepth: 'commercial',
@@ -90,7 +96,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     customConcept: '',
     avoidWords: defaultAvoidWordsString(),
     personaMode: false,
-    packagingLanguage: defaultPackagingLanguage(channel.market),
+    packagingLanguage: defaultPackagingLanguageForChannel(channel),
     earwormMode: false
   };
 }
