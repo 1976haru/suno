@@ -199,3 +199,103 @@ export function lintChannelDiversity(samples: ChannelDiversitySample[]): Channel
 
   return { packsChecked, findings, warnings, passed: findings.length === 0 };
 }
+
+// ---------------------------------------------------------------------------
+// TASK v3.42 Part D — in-pack pairwise style-prompt similarity linter.
+//
+// Part B2 (v3.40) checks a channel's *cross-pack* history (thumbnail color,
+// concept line, title shape) for repeated templates. This checks the
+// opposite scope — every song's stylePrompt *within one pack* — for the
+// specific failure a real measurement caught: 15 songs in one showa-cafe
+// pack averaged 90.3% pairwise style-prompt similarity (one pair hit 100%),
+// because only the money-chord roman-numeral tag actually varied between
+// songs; genre/mood/instruments/vocal/hook/duration were byte-identical
+// across the whole pack. Parts A-C of this same task (instrument/BPM/
+// arrangement-density/hook-device/lyric-structure rotation) are the fix;
+// this is the regression guard, mirroring the existing preset-diversity
+// linter's own "catch it automatically so it never ships silently again"
+// purpose (see TASK H4/v3.14's comment above).
+// ---------------------------------------------------------------------------
+
+/** Comma-separated clause set, case-insensitive — same atom granularity core/promptBudget.ts's composeStylePrompt itself operates on. */
+function stylePromptClauseSet(stylePrompt: string): Set<string> {
+  return new Set(
+    stylePrompt
+      .split(',')
+      .map(clause => clause.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (!a.size && !b.size) return 1;
+  let intersection = 0;
+  for (const clause of a) if (b.has(clause)) intersection += 1;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/** A pack-wide average above this reads as "every song sounds the same" to a listener — real measurement of the reported bug was 90.3%. */
+const IN_PACK_AVG_SIMILARITY_WARN = 0.75;
+/** Any single pair above this is effectively the same style prompt — real measurement had a pair at 100%. */
+const IN_PACK_MAX_SIMILARITY_ERROR = 0.95;
+
+export interface InPackSimilarityPair {
+  trackNoA: number;
+  trackNoB: number;
+  similarity: number;
+}
+
+export interface InPackSimilarityReport {
+  songCount: number;
+  averageSimilarity: number;
+  maxSimilarity: number;
+  worstPair: InPackSimilarityPair | null;
+  /** Clauses present in every single song's stylePrompt — "what's actually fixed across the whole pack", surfaced so a reviewer can see exactly what to vary. */
+  commonClauses: string[];
+  warnings: string[];
+  errors: string[];
+  /** No errors (an average above the warn threshold alone doesn't fail — same warn-vs-error split the spec calls for). */
+  passed: boolean;
+}
+
+export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt: string }[]): InPackSimilarityReport {
+  if (songs.length < 2) {
+    return { songCount: songs.length, averageSimilarity: 0, maxSimilarity: 0, worstPair: null, commonClauses: [], warnings: [], errors: [], passed: true };
+  }
+
+  const entries = songs.map(song => ({ trackNo: song.trackNo, clauses: stylePromptClauseSet(song.stylePrompt) }));
+  let total = 0;
+  let pairCount = 0;
+  let worstPair: InPackSimilarityPair | null = null;
+
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const similarity = jaccardSimilarity(entries[i].clauses, entries[j].clauses);
+      total += similarity;
+      pairCount += 1;
+      if (!worstPair || similarity > worstPair.similarity) {
+        worstPair = { trackNoA: entries[i].trackNo, trackNoB: entries[j].trackNo, similarity };
+      }
+    }
+  }
+
+  const averageSimilarity = pairCount ? total / pairCount : 0;
+  const maxSimilarity = worstPair?.similarity ?? 0;
+  const commonClauses = [...entries[0].clauses].filter(clause => entries.every(entry => entry.clauses.has(clause)));
+
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  if (averageSimilarity > IN_PACK_AVG_SIMILARITY_WARN) {
+    warnings.push(
+      `Average pairwise style-prompt similarity is ${Math.round(averageSimilarity * 100)}% (threshold ${Math.round(IN_PACK_AVG_SIMILARITY_WARN * 100)}%) — this pack's songs read as near-duplicates of each other.`
+    );
+  }
+  if (worstPair && worstPair.similarity > IN_PACK_MAX_SIMILARITY_ERROR) {
+    errors.push(
+      `Tracks ${worstPair.trackNoA} and ${worstPair.trackNoB} are ${Math.round(worstPair.similarity * 100)}% similar (threshold ${Math.round(IN_PACK_MAX_SIMILARITY_ERROR * 100)}%) — effectively the same style prompt.`
+    );
+  }
+
+  return { songCount: songs.length, averageSimilarity, maxSimilarity, worstPair, commonClauses, warnings, errors, passed: errors.length === 0 };
+}

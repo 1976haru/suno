@@ -1,6 +1,6 @@
 import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives } from './promptComposer';
+import { arrangementDensityText, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -9,9 +9,12 @@ import { buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensure
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { buildHookDevicePlan } from './hookDevicePlan';
+import { getHookDeviceById } from '../data/hookDevices';
 import { composeKidsLyrics } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
+  buildStructureTemplatePlan,
   composeLyrics,
   createLyricBatchPools,
   createTitleGenerator,
@@ -435,6 +438,13 @@ export function generateLocalBlueprint(
   const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
   // TASK v3.41 Part A1 — mirrors batchPreallocation.ts's fallbackVocalGender.
   const fallbackVocalGender = matchVocalPreset(fallbackVocalText)?.gender;
+  // TASK v3.42 Part B2 — mirrors batchPreallocation.ts's own hookDevicePlan
+  // (same seed), applied unconditionally (every archetype).
+  const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  // TASK v3.42 Part C — per-song lyric section-tag shape (see
+  // lyricEngine.ts's buildStructureTemplatePlan); track 1 always resolves to
+  // 'T1' inside composeLyrics regardless of what this plan assigns it.
+  const structureTemplatePlan = buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype);
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -471,7 +481,8 @@ export function generateLocalBlueprint(
         role,
         pools: lyricPools,
         openingStyle,
-        genreFlavorImages
+        genreFlavorImages,
+        structureTemplate: structureTemplatePlan[idx]
       });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
     // handed to composeStylePrompt, which dedupes and — if the combined
@@ -496,12 +507,23 @@ export function generateLocalBlueprint(
     // always started with the section tag ([short intro], etc.) and no
     // vocal tag at all. Same tag resolution, applied directly here instead.
     const lyrics = ensureVocalMetaTag(composedLyrics, resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
+    // TASK v3.42 Part B2 — replaces the old fixed MONEY_CHORD_FEEL_SUFFIX
+    // reinforcement boilerplate (identical across every song) with a
+    // per-song rotating arrangement-contrast device; 'hookDevice' is in
+    // promptBudget.ts's ESSENTIAL_TERM_IDS so it's never trimmed away.
+    const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
         && !(progressionPlan && part.id === 'moneyChord')
         && !(vocalType && part.id === 'vocal')
+        && part.id !== 'instruments'
+        && part.id !== 'genre'
       ),
+      // TASK v3.42 Part D follow-up — always overrides channelParts' flat
+      // whole-pack genre atom with a per-song rotated anchor+2-3 combination;
+      // see promptComposer.ts's rotatingGenreText.
+      { id: 'genre' as const, text: rotatingGenreText(genres, seed, idx) },
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
       // TASK v3.33 Part C — per-song progression override when the quota plan
       // is active; channelParts' flat whole-pack moneyChord atom is filtered
@@ -514,6 +536,13 @@ export function generateLocalBlueprint(
       // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack
       // vocal atom it replaces.
       ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionText }] : []),
+      ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
+      // TASK v3.42 Part A1 — always overrides channelParts' flat whole-pack
+      // instruments atom (filtered out above) with a per-song rotated
+      // anchor+1-2 combination; see promptComposer.ts's rotatingInstrumentText.
+      { id: 'instruments' as const, text: rotatingInstrumentText(genres, seed, idx) },
+      // TASK v3.42 Part A3 — sparse/medium/full rotation.
+      { id: 'arrangementDensity' as const, text: arrangementDensityText(seed, idx) },
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },

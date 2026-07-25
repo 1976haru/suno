@@ -68,7 +68,7 @@ export function countWords(text: string): number {
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'hookDevice' | 'arrangementDensity';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -93,12 +93,24 @@ export type PromptTermId =
 // just one) — a weak signal even though 'vocal' was always essential/never
 // dropped. Suno weighs earlier tags more heavily, so the fix is position, not
 // just presence.
+//
+// TASK v3.42 Part B2 — 'hookDevice' sits right after 'moneyChord': this is
+// the per-song arrangement-contrast atom that replaces the old fixed
+// MONEY_CHORD_FEEL_SUFFIX boilerplate, and real measurement found zero uses
+// of any arrangement-contrast word (key change/drop/build/breakdown/
+// stop-time/half-time) across a whole 15-song pack — this needs to survive
+// trimming as reliably as the progression it sits next to. 'tempo' promoted
+// into ESSENTIAL_TERM_IDS below (TASK v3.42 Part A2): averageTempo was
+// already computed per song and then silently discarded under budget
+// pressure every time (0/15 measured prompts actually carried a BPM figure)
+// — superseding the old TASK F2 "BPM is the safest thing to drop" call now
+// that BPM presence is itself part of the anti-template-repetition fix.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'genre', 'vocal', 'mood', 'instruments', 'hook', 'moneyChord', 'earworm', 'duration',
-  'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety', 'tempo'
+  'genre', 'vocal', 'mood', 'instruments', 'hook', 'moneyChord', 'hookDevice', 'earworm', 'duration',
+  'tempo', 'arrangementDensity', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'hookDevice', 'tempo']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: 'genre',
@@ -115,7 +127,9 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   songRole: 'song role',
   motif: 'motif',
   listenerScene: 'listener scene',
-  mixNotes: 'mix notes'
+  mixNotes: 'mix notes',
+  hookDevice: 'hook device',
+  arrangementDensity: 'arrangement density'
 };
 
 export interface PromptPart {

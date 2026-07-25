@@ -566,6 +566,64 @@ function pickMotifFiller(language: LyricLanguage, rng: () => number): string {
  */
 const WORDLESS_HUM_LINE = '(soft wordless hum of the hook melody, no lyrics, 2 bars)';
 
+/**
+ * TASK v3.42 Part C — real measurement: a 15-song pack rendered only 2
+ * distinct section-tag shapes (the cold-open variant for track 1, and one
+ * fixed shape — intro/verse1/pre-chorus/chorus/verse2/chorus/bridge/final-
+ * chorus/end — for every other track). These 4 additional shapes reorder/
+ * relabel the SAME already-varied content blocks composeLyrics already
+ * computes (opening/situation/preChorus/chorusDev/verse2/bridge/closing draw
+ * from per-song UniquePools same as before) — this only changes which
+ * sections appear, in what order, under what tag, never the deep motif-
+ * budget/pool-uniqueness machinery above. T1 is the original/default shape,
+ * used unconditionally for track 1 (cold-open) regardless of which template
+ * the plan assigns it, since track 1's opening technique (hook-forward/
+ * hum-intro, see openingStyle) is its own well-tested feature.
+ */
+export type StructureTemplateId = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
+
+const ADULT_STRUCTURE_TEMPLATES: StructureTemplateId[] = ['T1', 'T2', 'T3', 'T4', 'T5'];
+/** Kids stays simpler per the spec's own caveat ("반복이 장르 특성이라 과도한 변주는 역효과") — no instrumental-hook/breakdown shapes, just enough rotation to clear the "min 3" bar. */
+const KIDS_STRUCTURE_TEMPLATES: StructureTemplateId[] = ['T1', 'T3', 'T5'];
+
+/**
+ * Deterministic (seeded) per-trackNo structure-template plan, same shuffle-
+ * then-repair shape as buildVocalPlan/buildHookDevicePlan: track 1 is always
+ * pinned to 'T1' (cold-open keeps its own dedicated opening logic), every
+ * other track rotates through the archetype-appropriate template list with
+ * no two adjacent tracks sharing the same template.
+ */
+export function buildStructureTemplatePlan(songCount: number, seed: number, archetype?: ChannelArchetype): StructureTemplateId[] {
+  if (songCount <= 0) return [];
+  const pool = archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATES : ADULT_STRUCTURE_TEMPLATES;
+  const plan: StructureTemplateId[] = ['T1'];
+  let lap = 0;
+  while (plan.length < songCount) {
+    plan.push(...shuffle(pool, seed + lap * 601));
+    lap += 1;
+  }
+  plan.length = songCount;
+
+  for (let i = 1; i < plan.length; i++) {
+    if (plan[i] !== plan[i - 1]) continue;
+    let swapIndex = -1;
+    for (let j = i + 1; j < plan.length; j++) {
+      if (plan[j] !== plan[i]) { swapIndex = j; break; }
+    }
+    if (swapIndex === -1) {
+      for (let j = 1; j < i - 1; j++) {
+        if (plan[j] !== plan[i]) { swapIndex = j; break; }
+      }
+    }
+    if (swapIndex !== -1) {
+      const tmp = plan[i];
+      plan[i] = plan[swapIndex];
+      plan[swapIndex] = tmp;
+    }
+  }
+  return plan;
+}
+
 export interface LyricComposeInput {
   language: LyricLanguage;
   season: SeasonPack;
@@ -585,6 +643,8 @@ export interface LyricComposeInput {
    * filler behavior.
    */
   genreFlavorImages?: string[];
+  /** TASK v3.42 Part C — which section-tag shape to assemble into; defaults to 'T1' (the original/only pre-v3.42 shape) when omitted, so every existing caller/test keeps working unchanged. */
+  structureTemplate?: StructureTemplateId;
 }
 
 export interface ComposedLyrics {
@@ -602,7 +662,7 @@ function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
-  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages } = input;
+  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages, structureTemplate = 'T1' } = input;
   const t = tags[language];
   const isColdOpen = role === 'cold-open';
 
@@ -700,37 +760,85 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
       ? [t.intro, WORDLESS_HUM_LINE]
       : [t.intro, introLine[language]];
 
-  const lyrics = [
-    `Title: ${title}`,
-    '',
-    ...openingLines,
-    '',
-    t.verse1,
-    ...opening,
-    ...(shortOpenerRoles(role) ? [] : ['', ...situationLines]),
-    '',
-    t.preChorus,
-    ...preChorusLines,
-    '',
-    t.chorus,
-    ...chorus1,
-    '',
-    t.verse2,
-    ...verse2,
-    '',
-    t.chorus,
-    ...chorus2,
-    '',
-    t.bridge,
-    ...bridgeLines,
-    '',
-    t.finalChorus,
-    ...finalChorusLines,
-    '',
-    t.end
-  ].join('\n');
+  // TASK v3.42 Part C — track 1 (cold-open) always keeps the original T1
+  // shape regardless of what the pack's structure-template plan assigned it:
+  // its own opening-technique logic (openingLines above) is a separate,
+  // well-tested feature (TASK I1) this task doesn't touch.
+  const effectiveTemplate: StructureTemplateId = isColdOpen ? 'T1' : structureTemplate;
+  const verse1Block = [t.verse1, ...opening, ...(shortOpenerRoles(role) ? [] : ['', ...situationLines])];
 
-  return { lyrics, hookPhrase: hook };
+  const lines: string[] =
+    effectiveTemplate === 'T2'
+      ? [
+        `Title: ${title}`, '',
+        '[hook intro]', hook, '',
+        ...verse1Block, '',
+        t.chorus, ...chorus1, '',
+        t.verse2, ...verse2, '',
+        t.chorus, ...chorus2, '',
+        '[breakdown]', ...bridgeLines, '',
+        t.finalChorus, ...finalChorusLines, '',
+        t.end
+      ]
+      : effectiveTemplate === 'T3'
+        ? [
+          `Title: ${title}`, '',
+          ...openingLines, '',
+          ...verse1Block, '',
+          t.preChorus, ...preChorusLines, '',
+          t.chorus, ...chorus1, '',
+          t.verse2, ...verse2, '',
+          t.preChorus, ...preChorusLines, '',
+          t.chorus, ...chorus2, '',
+          '[key-lift final chorus]', ...finalChorusLines, '',
+          t.end
+        ]
+        : effectiveTemplate === 'T4'
+          ? [
+            // TASK v3.42 Part C — verse2 kept at full length (not literally
+            // shortened): an earlier version trimmed it to ~half, which
+            // dropped this template's word count enough to pull the whole
+            // pack's average under promptComposer.ts's MIN_LYRIC_WORDS floor
+            // (TASK v3.29 — a real rendering-length regression). The "short"
+            // shape instead comes from omitting pre-chorus/bridge entirely
+            // and using [instrumental hook] + a 3rd [chorus] repeat in place
+            // of a tagged final chorus.
+            `Title: ${title}`, '',
+            '[instrumental hook]', '(instrumental hook, band plays the melody, no lyrics, 2 bars)', '',
+            ...verse1Block, '',
+            t.chorus, ...chorus1, '',
+            t.verse2, ...verse2, '',
+            t.chorus, ...chorus2, '',
+            t.chorus, ...finalChorusLines, '',
+            t.end
+          ]
+          : effectiveTemplate === 'T5'
+            ? [
+              `Title: ${title}`, '',
+              '[a cappella hook]', hook, '',
+              ...verse1Block, '',
+              t.chorus, ...chorus1, '',
+              t.verse2, ...verse2, '',
+              t.bridge, ...bridgeLines, '',
+              t.chorus, ...chorus2, '',
+              '[chorus tag]', ...finalChorusLines, '',
+              t.end
+            ]
+            // T1 — original/default shape.
+            : [
+              `Title: ${title}`, '',
+              ...openingLines, '',
+              ...verse1Block, '',
+              t.preChorus, ...preChorusLines, '',
+              t.chorus, ...chorus1, '',
+              t.verse2, ...verse2, '',
+              t.chorus, ...chorus2, '',
+              t.bridge, ...bridgeLines, '',
+              t.finalChorus, ...finalChorusLines, '',
+              t.end
+            ];
+
+  return { lyrics: lines.join('\n'), hookPhrase: hook };
 }
 
 // ---------------------------------------------------------------------------

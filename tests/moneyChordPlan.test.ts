@@ -147,10 +147,14 @@ describe('[v3.33 Part C] end-to-end: an 18-song set actually carries the quota i
     for (const song of bp.songs.slice(0, 3)) {
       expect(song.stylePrompt).toContain(moneyChordPresets.doowop.compactProgression);
     }
-    for (const song of bp.songs) {
-      expect(song.stylePrompt).toContain('bass on the root'); // MONEY_CHORD_FEEL_SUFFIX fragment
-    }
     const assignedIds = bp.songs.map(song => progressionTagsPresentIn(song.stylePrompt)[0]);
+    // TASK v3.42 Part B3 — reinforcement text is now that song's own assigned
+    // preset's audibleEffect (was a fixed MONEY_CHORD_FEEL_SUFFIX fragment
+    // identical across every preset/song before this task).
+    bp.songs.forEach((song, idx) => {
+      const preset = moneyChordPresets[assignedIds[idx]];
+      expect(song.stylePrompt, `track ${idx + 1}`).toContain(preset.audibleEffect);
+    });
     for (let i = 5; i < assignedIds.length; i++) {
       const threeInARow = assignedIds[i] === assignedIds[i - 1] && assignedIds[i] === assignedIds[i - 2];
       expect(threeInARow, `3-in-a-row at track ${i + 1}: ${JSON.stringify(assignedIds)}`).toBe(false);

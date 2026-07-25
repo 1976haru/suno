@@ -4,6 +4,7 @@ import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyCh
 import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
 import { compactDuration, compactHook, compactMoneyChord } from './soundSignature';
+import { shuffle } from './lyricEngine';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -311,6 +312,66 @@ export function buildGenrePromptSummary(genres: GenrePack[]) {
 }
 
 /**
+ * TASK v3.42 Part A1 — real measurement: 3 selected genre packs offered 9
+ * unique instruments between them, but every song in a 15-song pack used
+ * only the same first 2 (an anchor instrument plus whatever the word-budget
+ * trim left standing, always in the same list order — see
+ * promptBudget.ts's INSTRUMENTS_FLOOR_ATOMS). This rotates per song instead:
+ * the first instrument (the channel's identity anchor, e.g. showa-cafe's
+ * Rhodes) is always kept, and 1-2 more are seed-shuffled per trackNo from
+ * the rest of buildGenrePromptSummary's pool — so different songs in the
+ * same pack land on different combinations while the anchor still holds the
+ * channel's sonic identity together.
+ */
+export function rotatingInstrumentText(genres: GenrePack[], seed: number, index: number): string {
+  const { instruments } = buildGenrePromptSummary(genres);
+  if (instruments.length <= 1) return instruments.join(', ');
+  const [anchor, ...rest] = instruments;
+  const shuffled = shuffle(rest, seed + index * 151);
+  const extraCount = rest.length >= 2 ? 1 + (index % 2) : Math.min(1, rest.length);
+  return [anchor, ...shuffled.slice(0, extraCount)].join(', ');
+}
+
+/**
+ * TASK v3.42 Part D follow-up — real measurement found genre atoms alone
+ * accounted for 7 of the 15 clauses still common to every song after Parts
+ * A-C's fixes (the 3 selected genre packs' styleCore/keyword text, always
+ * concatenated identically every song since genre selection is a whole-pack
+ * setting). Same anchor+rotate principle as rotatingInstrumentText: the
+ * primary genre's first atom is the channel's core identity and always
+ * stays first, but which of the remaining atoms (secondary-genre keywords,
+ * and the rest of the primary genre's own styleCore) appear rotates per
+ * song.
+ */
+export function rotatingGenreText(genres: GenrePack[], seed: number, index: number): string {
+  const { genreText } = buildGenrePromptSummary(genres);
+  const atoms = genreText.split(',').map(atom => atom.trim()).filter(Boolean);
+  if (atoms.length <= 2) return genreText;
+  const [anchor, ...rest] = atoms;
+  const shuffled = shuffle(rest, seed + index * 337);
+  const extraCount = Math.min(rest.length, 2 + (index % 2));
+  return [anchor, ...shuffled.slice(0, extraCount)].join(', ');
+}
+
+/**
+ * TASK v3.42 Part A3 — rotates a song's arrangement weight through 3 levels
+ * so the same genre doesn't render at identical density every time. Plain
+ * index-modulo rotation (not shuffled) so the 3 levels visit every song
+ * position roughly evenly across a pack; `seed` only offsets which level a
+ * given pack starts on, so two different packs/sets don't all open sparse.
+ */
+const ARRANGEMENT_DENSITY_TEXTS = [
+  'spare arrangement, voice and one or two instruments, lots of space',
+  'balanced small-combo arrangement',
+  'fuller arrangement with strings pad and layered backing'
+];
+
+export function arrangementDensityText(seed: number, index: number): string {
+  const offset = Math.abs(seed) % ARRANGEMENT_DENSITY_TEXTS.length;
+  return ARRANGEMENT_DENSITY_TEXTS[(index + offset) % ARRANGEMENT_DENSITY_TEXTS.length];
+}
+
+/**
  * Channel/pack-level prompt fragments, tagged with their TASK A2 priority id
  * so a caller (buildStylePrompt below, or localGenerator's per-song
  * assembly, which adds hook/tempo/songRole/motif/listenerScene/mixNotes on
@@ -338,8 +399,8 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   // TASK v3.33 Part C — includeFeelReinforcement:true always here: real
   // listening feedback found the bare progression name alone ("I-V-vi-IV
   // progression") reads as vague to Suno. See soundSignature.ts's
-  // compactMoneyChord/MONEY_CHORD_FEEL_SUFFIX for why this stays essential
-  // (never trimmed) automatically. When a per-song progression quota is
+  // compactMoneyChord for why this stays essential (never trimmed)
+  // automatically. When a per-song progression quota is
   // active (senior-morning/showa-cafe, see core/moneyChordPlan.ts), this
   // atom is overridden per-song in localGenerator.ts's own loop — this call
   // only ever supplies the flat, whole-pack fallback.
@@ -494,12 +555,28 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const vocalInstruction = hasVocalText
     ? ' Each entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
-  const preassignedFieldList = hasVocalText
-    ? '{trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText, vocalText}'
-    : '{trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText}';
-  const forcedFieldsList = hasVocalText ? 'trackNo, emotionArc, moneyChordText, or vocalText' : 'trackNo, emotionArc, or moneyChordText';
+  // TASK v3.42 Part B2 — mirrors moneyChordInstruction/vocalInstruction's
+  // verbatim-weave pattern. Real measurement found the fixed reinforcement
+  // text every song used to get ("hook lands on the downbeat, ...") was
+  // byte-identical across all 15 songs in a pack — this per-song device is
+  // what replaces it, and needs the same "don't paraphrase it away"
+  // enforcement or a model will happily substitute its own generic phrasing.
+  const hasHookDeviceText = batch.preassignedSongs?.some(slot => slot.hookDeviceText);
+  const hookDeviceInstruction = hasHookDeviceText
+    ? ' Each entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this request.'
+    : '';
+  const preassignedFieldList = [
+    'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
+    ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasVocalText ? ['vocalText'] : [])
+  ].join(', ');
+  const forcedFieldsList = [
+    'trackNo', 'emotionArc', 'moneyChordText',
+    ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasVocalText ? ['vocalText'] : [])
+  ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of ${preassignedFieldList} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

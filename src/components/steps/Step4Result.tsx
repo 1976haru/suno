@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -11,6 +11,7 @@ import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, export
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
 import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
+import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
@@ -159,6 +160,14 @@ export default function Step4Result({
   }
 
   const packId = blueprint ? `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}` : '';
+
+  // TASK v3.42 Part D — in-pack pairwise style-prompt similarity, the
+  // regression guard for the real 90.3%-average/100%-max measured bug (see
+  // core/diversityLinter.ts's lintInPackStyleSimilarity).
+  const similarityReport = useMemo(
+    () => (blueprint ? lintInPackStyleSimilarity(blueprint.songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt }))) : null),
+    [blueprint]
+  );
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -361,6 +370,15 @@ export default function Step4Result({
           {evalScope === 'selected' && (
             <p className="supporting">아래 곡 목록에서 평가하고 싶은 곡의 체크박스를 선택하세요.</p>
           )}
+        </div>
+      )}
+      {resultTab === 'songs' && similarityReport && (similarityReport.warnings.length > 0 || similarityReport.errors.length > 0) && (
+        <div className={similarityReport.errors.length > 0 ? 'warning error' : 'warning'}>
+          <ShieldAlert size={16} />
+          <span>
+            {[...similarityReport.errors, ...similarityReport.warnings].join(' / ')}
+            {similarityReport.commonClauses.length > 0 && ` 전 곡 공통 절: ${similarityReport.commonClauses.slice(0, 8).join(', ')}`}
+          </span>
         </div>
       )}
       {resultTab === 'songs' && evalError && <p className="error">{evalError}</p>}

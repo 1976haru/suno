@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildStylePrompt } from '../src/core/promptComposer';
 import { compactMoneyChord } from '../src/core/soundSignature';
-import { isPlausibleChordProgression, moneyChordPresets, moneyChordRotationPool, MONEY_CHORD_FEEL_SUFFIX, signatureMoneyChordId } from '../src/data/moneyChords';
+import { isPlausibleChordProgression, moneyChordPresets, moneyChordRotationPool, signatureMoneyChordId } from '../src/data/moneyChords';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { GenerationOptions } from '../src/types';
 
@@ -78,6 +78,12 @@ describe('money chord presets', () => {
       expect(preset.description.length).toBeGreaterThan(0);
     }
   });
+
+  it('[v3.42 Part B3] every preset has a non-empty, mutually distinct audibleEffect', () => {
+    const effects = Object.values(moneyChordPresets).map(p => p.audibleEffect);
+    for (const effect of effects) expect(effect.length).toBeGreaterThan(0);
+    expect(new Set(effects).size).toBe(effects.length);
+  });
 });
 
 describe('[v3.33 Part C] signatureMoneyChordId / moneyChordRotationPool', () => {
@@ -122,13 +128,21 @@ describe('[v3.33 Part C] signatureMoneyChordId / moneyChordRotationPool', () => 
 });
 
 describe('[v3.33 Part C] compactMoneyChord — override + feel reinforcement', () => {
-  it('includeFeelReinforcement appends MONEY_CHORD_FEEL_SUFFIX', () => {
+  it('[v3.42 Part B3] includeFeelReinforcement appends that preset\'s own audibleEffect, not a fixed boilerplate suffix', () => {
     const opts = makeOptions({ moneyChordMode: 'default' });
     const withReinforcement = compactMoneyChord(opts, { includeFeelReinforcement: true });
     const without = compactMoneyChord(opts);
-    expect(withReinforcement).toContain(MONEY_CHORD_FEEL_SUFFIX);
-    expect(without).not.toContain(MONEY_CHORD_FEEL_SUFFIX);
+    expect(withReinforcement).toContain(moneyChordPresets.default.audibleEffect);
+    expect(without).not.toContain(moneyChordPresets.default.audibleEffect);
     expect(withReinforcement).toContain(without); // base text preserved as a prefix
+  });
+
+  it('[v3.42 Part B3] different presets get different audibleEffect reinforcement text (no shared boilerplate)', () => {
+    const jazz = compactMoneyChord(makeOptions({ moneyChordMode: 'default' }), { moneyChordIdOverride: 'jazzColor', includeFeelReinforcement: true });
+    const komuro = compactMoneyChord(makeOptions({ moneyChordMode: 'default' }), { moneyChordIdOverride: 'komuro', includeFeelReinforcement: true });
+    expect(jazz).not.toBe(komuro);
+    expect(jazz).toContain(moneyChordPresets.jazzColor.audibleEffect);
+    expect(komuro).toContain(moneyChordPresets.komuro.audibleEffect);
   });
 
   it('moneyChordIdOverride bypasses opts.moneyChordMode entirely', () => {
@@ -140,7 +154,7 @@ describe('[v3.33 Part C] compactMoneyChord — override + feel reinforcement', (
     const opts = makeOptions({ moneyChordMode: 'default' });
     const result = compactMoneyChord(opts, { moneyChordIdOverride: 'marusa', includeFeelReinforcement: true });
     expect(result).toContain(moneyChordPresets.marusa.compactProgression);
-    expect(result).toContain(MONEY_CHORD_FEEL_SUFFIX);
+    expect(result).toContain(moneyChordPresets.marusa.audibleEffect);
   });
 
   it('an unrecognized override id falls back to the default preset rather than crashing', () => {

@@ -6,7 +6,7 @@ import type {
   SoundSignature as SharedSoundSignature
 } from '../types';
 import { genrePacks, moodPacks, seasonPacks } from '../data/presets';
-import { MONEY_CHORD_FEEL_SUFFIX, moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
+import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
 import { countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 
 export interface SoundSignature extends SharedSoundSignature {}
@@ -302,13 +302,15 @@ export interface CompactMoneyChordOptions {
   moneyChordIdOverride?: string;
   /**
    * TASK v3.33 Part C — real listening feedback: the bare progression name
-   * alone reads as vague to Suno. Appends MONEY_CHORD_FEEL_SUFFIX when true.
-   * Default off so persona mode's tight PERSONA_STYLE_LIMIT (~200 chars)
-   * call sites are unaffected — persona mode already trades per-song
-   * richness for a stable, minimal identity by design (see v3.8's original
-   * personaMode doc comment), and the "feels weak" complaint is about the
-   * main non-persona path where the full style prompt actually carries the
-   * chord description each time.
+   * alone reads as vague to Suno.
+   *
+   * TASK v3.42 Part B3 — previously appended the fixed MONEY_CHORD_FEEL_SUFFIX
+   * ("hook lands on the downbeat, clear on-beat chord changes, bass on the
+   * root, strong chorus lift") — identical across every preset and every
+   * song, measured as 1 of the 20 clauses common to all 15 songs in a real
+   * pack. Now appends that preset's own `audibleEffect` instead, so the
+   * reinforcement text itself varies with the chosen progression instead of
+   * being boilerplate.
    */
   includeFeelReinforcement?: boolean;
 }
@@ -317,11 +319,11 @@ export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode'
   const { moneyChordIdOverride, includeFeelReinforcement = false } = options;
   if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     const base = `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
-    return includeFeelReinforcement ? `${base}, ${MONEY_CHORD_FEEL_SUFFIX}` : base;
+    return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffect}` : base;
   }
   const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
   const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
-  return includeFeelReinforcement ? `${preset.compactProgression}, ${MONEY_CHORD_FEEL_SUFFIX}` : preset.compactProgression;
+  return includeFeelReinforcement ? `${preset.compactProgression} — ${preset.audibleEffect}` : preset.compactProgression;
 }
 
 /**

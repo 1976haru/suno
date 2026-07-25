@@ -301,8 +301,8 @@ export interface PreassignedSongSlot {
   emotionArc: string;
   /**
    * TASK v3.33 Part C — this trackNo's resolved money-chord progression
-   * text (compact tag + feel-reinforcement, see
-   * core/soundSignature.ts's compactMoneyChord/MONEY_CHORD_FEEL_SUFFIX).
+   * text (compact tag + that preset's own audibleEffect, see
+   * core/soundSignature.ts's compactMoneyChord).
    * Unlike hookPhrase/emotionArc, this isn't its own SongIdea output field
    * to reconcile post-hoc — it's instruction-only guidance the model is
    * told to weave verbatim into the stylePrompt it writes (same trust
@@ -335,6 +335,17 @@ export interface PreassignedSongSlot {
    * preset's own gender (or undefined for custom free-text vocalTone).
    */
   vocalGender?: 'male' | 'female' | 'mixed' | 'duet';
+  /**
+   * TASK v3.42 Part B2 — this trackNo's resolved hook-device text (see
+   * data/hookDevices.ts / core/hookDevicePlan.ts's buildHookDevicePlan),
+   * same instruction-only verbatim-weave trust model moneyChordText already
+   * uses. Replaces the old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement
+   * boilerplate — measured identical across every song in a real 15-song
+   * pack — with a per-song rotating arrangement-contrast device instead.
+   * Always set (every archetype, not gated behind a quota), since the
+   * boilerplate it replaces was never archetype-specific either.
+   */
+  hookDeviceText?: string;
 }
 
 export interface BatchContext {

@@ -19,6 +19,16 @@ export interface MoneyChordPreset {
    */
   compactProgression: string;
   bestFor: string[];
+  /**
+   * TASK v3.42 Part B3 — real measurement: 15 songs generated with 15
+   * different `compactProgression` roman-numeral tags still averaged 90.3%
+   * pairwise style-prompt similarity, because Suno responds to *description*,
+   * not chord notation — the roman numerals are largely decorative to the
+   * model. Paired with compactProgression as "<progression> — <effect>" (see
+   * core/soundSignature.ts's compactMoneyChord) so the same harmonic choice
+   * also reads as an audible, distinguishing description.
+   */
+  audibleEffect: string;
 }
 
 export const moneyChordPresets: Record<string, MoneyChordPreset> = {
@@ -30,6 +40,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['I-V-vi-IV', 'vi-IV-I-V'],
     prompt: 'major-key money chord progression with I-V-vi-IV and vi-IV-I-V movement, warm nostalgic pop harmony, emotional chorus lift, familiar radio-friendly melody, easy sing-along hook',
     compactProgression: 'I-V-vi-IV progression',
+    audibleEffect: 'chorus opens up warmly and resolves home, instantly familiar',
     bestFor: ['처음 만드는 곡', '대부분의 플레이리스트 트랙']
   },
   emotional: {
@@ -40,6 +51,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['I-V-vi-IV', 'vi-IV-I-V'],
     prompt: 'emotional major-key pop progression, I-V-vi-IV in verses and vi-IV-I-V in chorus, strong but gentle lift into the hook',
     compactProgression: 'I-V-vi-IV verses, vi-IV-I-V chorus lift',
+    audibleEffect: 'chorus lifts noticeably higher than the verse and lands with a soft ache',
     bestFor: ['감정 절정 트랙', '늦은 밤 감성 곡']
   },
   jazzColor: {
@@ -50,6 +62,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['Imaj7-V-vi7-IVadd9', 'ii-V-I turnaround'],
     prompt: 'major-key money chord progression with gentle maj7 and add9 color chords, occasional ii-V-I cafe jazz turnaround, warm adult contemporary harmony',
     compactProgression: 'ii-V-I turnaround, maj7 add9 color',
+    audibleEffect: 'smoky turnaround that lands softly on the resolution',
     bestFor: ['재즈 카페 채널', '어른스러운 무드']
   },
   cityPop: {
@@ -60,6 +73,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['vi-IV-I-V', 'IVmaj7-iii7-vi7-ii7-V'],
     prompt: 'smooth city-pop friendly harmony, vi-IV-I-V movement, maj7 chords, gentle pre-chorus lift, nostalgic radio-friendly chorus',
     compactProgression: 'vi-IV-I-V movement, maj7 color',
+    audibleEffect: 'glides forward smoothly then settles into a cool, polished landing',
     bestFor: ['일본 채널', '나이트 드라이브 무드']
   },
   canon: {
@@ -70,6 +84,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['I-V-vi-iii-IV-I-IV-V'],
     prompt: 'classic canon progression I-V-vi-iii-IV-I-IV-V, cinematic emotional build, orchestral-pop warmth, climactic chorus lift',
     compactProgression: 'I-V-vi-iii-IV-I-IV-V progression',
+    audibleEffect: 'steadily rising, cinematic swell that keeps building toward the peak',
     bestFor: ['연말/크리스마스 이브 곡', '감정 최고조 트랙']
   },
   showaModern: {
@@ -80,6 +95,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['IVmaj7-iii7-vi7'],
     prompt: 'showa-modern kissaten harmony centered on IVmaj7-iii7-vi7 movement, warm mellow jazz-pop color, refined nostalgic Japanese cafe mood',
     compactProgression: 'IVmaj7-iii7-vi7 movement',
+    audibleEffect: 'warm, wistful drift that never quite resolves until the very end',
     bestFor: ['일본 채널', '쇼와 모던 카페 컨셉']
   },
   winterBallad: {
@@ -90,6 +106,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['vi-IV-I-V (verse)', 'I-V-vi-IV (chorus)'],
     prompt: 'winter ballad harmony, vi-IV-I-V in verses building to I-V-vi-IV in chorus, gentle key-up half-step modulation on the final chorus only',
     compactProgression: 'vi-IV-I-V to I-V-vi-IV, final chorus key-up',
+    audibleEffect: 'stays hushed through the verse then opens into a brighter, lifted chorus',
     bestFor: ['겨울 발라드', '마지막 트랙(클로저)']
   },
   custom: {
@@ -102,6 +119,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     // Never actually read — compactMoneyChord() special-cases 'custom' before
     // reaching this field (see below), using opts.customMoneyChord verbatim.
     compactProgression: 'familiar chord progression',
+    audibleEffect: 'familiar chorus lift that resolves cleanly',
     bestFor: ['직접 코드 진행을 지정하고 싶을 때']
   },
   // TASK v3.33 Part C — channel-signature progressions, added after real
@@ -119,6 +137,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['I-vi-IV-V'],
     prompt: '1950s doo-wop chord progression I-vi-IV-V, deeply familiar nostalgic feel for older listeners, warm vintage pop harmony, gentle emotional lift into the chorus',
     compactProgression: 'I-vi-IV-V doo-wop progression',
+    audibleEffect: 'gentle rocking sway, deeply nostalgic and easy to hum along',
     bestFor: ['시니어 채널 시그니처', '아침 라디오 오프닝']
   },
   warmCycle: {
@@ -129,6 +148,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['IV-I-V-vi'],
     prompt: 'warm cyclical progression IV-I-V-vi, comforting circular movement, gentle unresolved lift each time it loops back',
     compactProgression: 'IV-I-V-vi warm cycle progression',
+    audibleEffect: 'soft circular pull that never fully lands, comforting and unresolved',
     bestFor: ['편안한 트랙', '오후 무드']
   },
   royalRoad: {
@@ -139,6 +159,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['IV-V-iii-vi'],
     prompt: 'royal road progression IV-V-iii-vi, the standard J-pop chorus movement, bittersweet nostalgic lift, instantly familiar to Japanese listeners',
     compactProgression: 'IV-V-iii-vi royal road progression',
+    audibleEffect: 'bittersweet lift that leans forward then settles, classic J-pop ache',
     bestFor: ['일본 채널 시그니처', 'J-pop 정체성']
   },
   marusa: {
@@ -149,6 +170,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['IVM7-III7-vi-I7'],
     prompt: 'marusa progression IVM7-III7-vi-I7, city-pop signature harmony, sophisticated jazzy night-drive color, smooth secondary-dominant lift',
     compactProgression: 'IVM7-III7-vi-I7 marusa progression',
+    audibleEffect: 'slick, late-night glide with a smooth jazzy turn',
     bestFor: ['시티팝 트랙', '나이트 드라이브 무드']
   },
   komuro: {
@@ -159,6 +181,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['vi-IV-V-I'],
     prompt: 'komuro-cycle progression vi-IV-V-I, driving 90s J-pop production movement, confident forward momentum, punchy chorus arrival',
     compactProgression: 'vi-IV-V-I komuro-cycle progression',
+    audibleEffect: 'driving cyclic climb that keeps pulling to the next bar',
     bestFor: ['업템포 트랙', '일본 채널 변주']
   },
   // TASK v3.38 Part B4 — kids-channel progressions. kidsSimple is pinned to
@@ -172,6 +195,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['I-IV-V-I'],
     prompt: 'simplest children\'s song progression I-IV-V-I, easy to sing along, bright and predictable, clear resolution every phrase',
     compactProgression: 'I-IV-V-I progression',
+    audibleEffect: 'clear, predictable resolution every phrase, easy for little voices to follow',
     bestFor: ['동요 채널 시그니처', '따라 부르기 쉬운 트랙']
   },
   kidsBright: {
@@ -186,6 +210,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     // every preset's compactProgression to be mutually distinct even when
     // two presets share the same underlying Roman-numeral progression.
     compactProgression: 'I-V-vi-IV bright kids progression',
+    audibleEffect: 'bouncy and cheerful, lands happily on every downbeat',
     bestFor: ['밝은 동요 트랙', '놀이 활동곡']
   },
   kidsMarch: {
@@ -196,24 +221,10 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     progressions: ['I-IV-I-V'],
     prompt: 'bouncy marching children\'s song progression I-IV-I-V, skip-along rhythm feel, simple and confident',
     compactProgression: 'I-IV-I-V progression',
+    audibleEffect: 'skips forward playfully like a marching game',
     bestFor: ['행진곡풍 동요', '율동·놀이 동작곡']
   }
 };
-
-/**
- * TASK v3.33 Part C — real listening feedback: the progression name alone
- * ("I-V-vi-IV progression") reaches Suno as a bare label, which the model
- * renders vaguely. Always paired with the compact progression tag (see
- * core/soundSignature.ts's compactMoneyChord), never trimmed away (the
- * moneyChord atom is ESSENTIAL — see core/promptComposer.ts/promptBudget.ts —
- * so appending it here inherits that never-dropped guarantee for free
- * instead of needing a new atom/priority-list entry). Deliberately compact
- * (~14 words) — the brief's longer example sentence was compressed the same
- * way v3.15's EARWORM_STYLE_ATOMS was: composeStylePrompt's real budget is a
- * soft 50-word cap across every essential atom combined, and the full
- * verbose form would eat into that on every single song.
- */
-export const MONEY_CHORD_FEEL_SUFFIX = 'hook lands on the downbeat, clear on-beat chord changes, bass on the root, strong chorus lift';
 
 /**
  * TASK v3.33 Part C — each archetype's anchor progression: pinned to that

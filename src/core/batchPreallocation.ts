@@ -15,6 +15,8 @@ import {
   type VocalGender
 } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { buildHookDevicePlan } from './hookDevicePlan';
+import { getHookDeviceById } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
 
 export type { PreassignedSongSlot };
@@ -72,6 +74,11 @@ export function preallocateSongSlots(
   // undefined (prose detection) when vocalTone/defaultVocal doesn't match
   // any known preset (custom free-text).
   const fallbackVocalGender: VocalGender | undefined = matchVocalPreset(fallbackVocalText)?.gender;
+  // TASK v3.42 Part B2 — same pre-pass shape/seed as progressionPlan/
+  // vocalPlan above, applied unconditionally (every archetype): replaces the
+  // old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement boilerplate with a
+  // per-song rotating arrangement-contrast device.
+  const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -84,6 +91,7 @@ export function preallocateSongSlots(
       ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
       : fallbackVocalText;
     const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
+    const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
     return {
       trackNo,
       title,
@@ -92,6 +100,7 @@ export function preallocateSongSlots(
       tempo: averageTempo(genres, trackNo),
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
+      ...(hookDeviceText ? { hookDeviceText } : {}),
       vocalText,
       ...(vocalGender ? { vocalGender } : {}),
       ...(vocalType ? { vocalType } : {})

@@ -194,6 +194,15 @@ export function buildClaudeCodeInstruction(
   const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
     ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
+  // TASK v3.42 Part B2 — same verbatim-weave rule promptComposer.ts's
+  // buildBatchSystemNote gives real API requests. Real measurement of a
+  // generated 15-song pack found the reinforcement text every song got was
+  // byte-identical ("hook lands on the downbeat, clear on-beat chord
+  // changes, bass on the root, strong chorus lift") — this per-song
+  // arrangement-contrast device is what replaces it.
+  const hookDeviceInstructionLine = preassignedSongs.some(slot => slot.hookDeviceText)
+    ? '- Each "preassignedSongs" entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this pack.'
+    : '';
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -233,6 +242,7 @@ export function buildClaudeCodeInstruction(
     // real listening feedback, so each preassignedSongs entry carries its
     // own ready-to-use progression + reinforcement text instead.
     '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
+    hookDeviceInstructionLine,
     vocalInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
@@ -350,6 +360,9 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
     ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
+  const hookDeviceInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.hookDeviceText))
+    ? '- Each "preassignedSongs" entry also includes "hookDeviceText" - weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device; do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs.'
+    : '';
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -405,6 +418,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     titleInstructionLine,
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
+    hookDeviceInstructionLine,
     vocalInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',

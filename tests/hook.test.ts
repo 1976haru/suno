@@ -134,32 +134,49 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     expect(hookEmotionalWeight(bp.songs[7].hookPhrase)).toBe('high');
   });
 
-  it.each(LANGUAGES)('[pre-chorus] a [pre-chorus] section with exactly 2 lines exists before [chorus], in %s', language => {
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 5, lyricLanguage: language }), testGenres, testMoods, testSeason);
-    for (const song of bp.songs) {
-      expect(song.lyrics).toContain('[pre-chorus]');
-      const section = song.lyrics.split('[pre-chorus]')[1].split('[chorus]')[0];
-      const lines = section.split('\n').map(l => l.trim()).filter(Boolean);
-      expect(lines.length, `pre-chorus for "${song.title}" has ${lines.length} lines`).toBe(2);
+  // TASK v3.42 Part C — a pack's songs now rotate through 5 different
+  // section-tag shapes (lyricEngine.ts's StructureTemplateId), not one fixed
+  // shape, so per-song structural assertions below use a tag-boundary-agnostic
+  // parser (splits on ANY "[...]" line) instead of hardcoding one template's
+  // tag vocabulary.
+  function extractTaggedSections(lyrics: string): { tag: string; lines: string[] }[] {
+    const sections: { tag: string; lines: string[] }[] = [];
+    let current: { tag: string; lines: string[] } | null = null;
+    for (const rawLine of lyrics.split('\n')) {
+      const trimmed = rawLine.trim();
+      if (/^\[.+\]$/.test(trimmed)) {
+        if (current) sections.push(current);
+        current = { tag: trimmed, lines: [] };
+      } else if (current && trimmed) {
+        current.lines.push(trimmed);
+      }
     }
+    if (current) sections.push(current);
+    return sections;
+  }
+
+  it.each(LANGUAGES)('[pre-chorus] a [pre-chorus] section, when present, has exactly 2 lines, in %s', language => {
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 5, lyricLanguage: language }), testGenres, testMoods, testSeason);
+    let sawPreChorus = false;
+    for (const song of bp.songs) {
+      for (const section of extractTaggedSections(song.lyrics)) {
+        if (section.tag !== '[pre-chorus]') continue;
+        sawPreChorus = true;
+        expect(section.lines.length, `pre-chorus for "${song.title}" has ${section.lines.length} lines`).toBe(2);
+      }
+    }
+    // T1/T3 (still in rotation for a 5-song pack) always include pre-chorus, so this never silently stops checking anything.
+    expect(sawPreChorus).toBe(true);
   });
 
-  it.each(LANGUAGES)('[bookend] every [chorus]/[final chorus] section opens and closes with the hook, in %s', language => {
+  it.each(LANGUAGES)('[bookend] every chorus-type section opens and closes with the hook, in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 5, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
-      const sections = song.lyrics.split(/\[chorus\]|\[final chorus\]/).slice(1);
-      // Last split segment includes [verse 2]/[short bridge]/[end] tags after the first chorus,
-      // so only check up to the next recognized tag boundary for each chorus-type section.
-      const boundaries = ['[verse 2]', '[short bridge]', '[end]'];
-      for (const raw of sections) {
-        let section = raw;
-        for (const boundary of boundaries) {
-          const idx = section.indexOf(boundary);
-          if (idx !== -1) section = section.slice(0, idx);
-        }
-        const lines = section.split('\n').map(l => l.trim()).filter(Boolean);
-        expect(lines[0], `chorus section for "${song.title}" doesn't open with the hook`).toBe(song.hookPhrase);
-        expect(lines[lines.length - 1], `chorus section for "${song.title}" doesn't close with the hook`).toBe(song.hookPhrase);
+      const chorusSections = extractTaggedSections(song.lyrics).filter(section => /chorus/i.test(section.tag) && !/pre-chorus/i.test(section.tag));
+      expect(chorusSections.length, `no chorus-type section found for "${song.title}"`).toBeGreaterThan(0);
+      for (const section of chorusSections) {
+        expect(section.lines[0], `${section.tag} for "${song.title}" doesn't open with the hook`).toBe(song.hookPhrase);
+        expect(section.lines[section.lines.length - 1], `${section.tag} for "${song.title}" doesn't close with the hook`).toBe(song.hookPhrase);
       }
     }
   });
