@@ -34,7 +34,14 @@ export function extractChorusText(lyrics: string): string {
 export function buildSongTxt(song: SongIdea): string {
   const chorus = extractChorusText(song.lyrics);
   return [
-    `${song.trackNo.toString().padStart(2, '0')}. ${song.title}`,
+    // TASK v3.43 Step 3 (Part B2) — song.title already carries the "NN. "
+    // display prefix by the time it reaches export (see utils/generation.ts's
+    // applySetTitlePrefixesToBlueprint, applied earlier in the pipeline);
+    // prepending trackNo again here doubled it to "01. 01. Creative Title".
+    // Trust song.title as-is — including when the option was disabled and it
+    // has no prefix at all, rather than inventing one this function never
+    // controlled.
+    song.title,
     '',
     '===== STYLE (Suno Style 필드) =====',
     song.stylePrompt,

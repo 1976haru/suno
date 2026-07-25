@@ -54,13 +54,49 @@ export function applySetTitlePrefix(trackNo: number, title: string): string {
   return `${String(trackNo).padStart(2, '0')}. ${stripSetTitlePrefix(title)}`;
 }
 
-/** Applies the trusted trackNo display prefix to every song title, or strips any existing prefix when the option is disabled. */
+/**
+ * TASK v3.43 Step 3 (Part B1) — real measurement: the prefix only ever
+ * reached `song.title`. `youtube.title` and the lyrics' own "Title: X" line
+ * (see core/lyricEngine.ts's composeLyrics — always its first line, unless a
+ * vocal meta tag was prepended ahead of it, see ensureVocalMetaTag) shipped
+ * unnumbered, and utils/exporters.ts's buildSongTxt then added its own
+ * second "NN. " on top of the (correctly) already-prefixed song.title,
+ * producing "01. 01. Creative Title". Matches the same first-"Title:"-line
+ * anywhere in the lyrics, not just index 0, since a vocal meta tag can sit
+ * ahead of it. Not present at all for kids-channel lyrics (composeKidsLyrics
+ * never writes one) — a no-op in that case, same as any AI-generated lyrics
+ * that never included the line either.
+ */
+const LYRICS_TITLE_LINE_RE = /^Title:\s*(.*)$/;
+
+function applyOrStripLyricsTitleLine(lyrics: string, trackNo: number, enabled: boolean): string {
+  const lines = lyrics.split('\n');
+  const index = lines.findIndex(line => LYRICS_TITLE_LINE_RE.test(line));
+  if (index === -1) return lyrics;
+  const [, rawTitle] = lines[index].match(LYRICS_TITLE_LINE_RE)!;
+  lines[index] = `Title: ${enabled ? applySetTitlePrefix(trackNo, rawTitle) : stripSetTitlePrefix(rawTitle)}`;
+  return lines.join('\n');
+}
+
+/**
+ * Applies the trusted trackNo display prefix to every title surface a song
+ * has (song.title, youtube.title, and the lyrics' own "Title:" line), or
+ * strips any existing prefix from all three when the option is disabled.
+ * applySetTitlePrefix/stripSetTitlePrefix are each idempotent on their own
+ * (applySetTitlePrefix always strips before re-adding), so calling this
+ * twice in a row never produces "01. 01." on any of the three surfaces.
+ */
 export function applySetTitlePrefixesToBlueprint(blueprint: PlaylistBlueprint, enabled = true): PlaylistBlueprint {
   return {
     ...blueprint,
     songs: blueprint.songs.map(song => ({
       ...song,
-      title: enabled ? applySetTitlePrefix(song.trackNo, song.title) : stripSetTitlePrefix(song.title)
+      title: enabled ? applySetTitlePrefix(song.trackNo, song.title) : stripSetTitlePrefix(song.title),
+      youtube: {
+        ...song.youtube,
+        title: enabled ? applySetTitlePrefix(song.trackNo, song.youtube.title) : stripSetTitlePrefix(song.youtube.title)
+      },
+      lyrics: applyOrStripLyricsTitleLine(song.lyrics, song.trackNo, enabled)
     }))
   };
 }
