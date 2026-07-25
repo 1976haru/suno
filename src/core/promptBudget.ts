@@ -85,8 +85,16 @@ export type PromptTermId =
 // it gets dropped), but still non-essential — the toggle's own UI copy is
 // explicit that this raises the odds of a familiar result, never guarantees
 // one, so losing this atom under a tight budget is an acceptable trade-off.
+//
+// TASK v3.39 Part H — 'vocal' moved from 3rd (behind 'genre' and 'mood') to
+// 2nd, directly after 'genre': real measured output showed a song's vocal
+// gender landing 37% of the way into a 531-char prompt, behind the genre and
+// mood atom groups (each of which can expand into several comma atoms, not
+// just one) — a weak signal even though 'vocal' was always essential/never
+// dropped. Suno weighs earlier tags more heavily, so the fix is position, not
+// just presence.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'genre', 'mood', 'vocal', 'instruments', 'hook', 'moneyChord', 'earworm', 'duration',
+  'genre', 'vocal', 'mood', 'instruments', 'hook', 'moneyChord', 'earworm', 'duration',
   'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety', 'tempo'
 ];
 

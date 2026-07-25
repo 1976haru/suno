@@ -484,14 +484,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // mandatory" judgment, which real listening feedback found reads as vague.
   const moneyChordInstruction = 'Each entry also includes "moneyChordText" — weave that exact phrase (progression tag plus its reinforcement/downbeat language) into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.';
   // TASK v3.39 — mirrors moneyChordInstruction's verbatim-weave pattern for
-  // the kids channel's per-song male/female/mixed vocal quota (see
-  // core/vocalPlan.ts/core/batchPreallocation.ts's preallocateSongSlots).
-  // Only ever present when this request's slots actually carry vocalText
-  // (i.e. usesVocalQuota(opts) was true when the slots were built), so every
-  // non-kids batch note is byte-identical to before this task.
+  // the per-song vocal description (see core/vocalPlan.ts/
+  // core/batchPreallocation.ts's preallocateSongSlots). TASK v3.39 Part H
+  // extended vocalText to every channel, not just the kids per-song quota —
+  // a real showa-cafe pack showed a selected male vocal preset silently
+  // coming back female with nothing in the instructions telling the model to
+  // respect the selection.
   const hasVocalText = batch.preassignedSongs?.some(slot => slot.vocalText);
   const vocalInstruction = hasVocalText
-    ? ' Each entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal type (e.g. an adult voice) or paraphrase it away.'
+    ? ' Each entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
   const preassignedFieldList = hasVocalText
     ? '{trackNo, title, hookPhrase, songRole, tempo, emotionArc, moneyChordText, vocalText}'

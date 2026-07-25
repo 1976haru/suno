@@ -97,6 +97,9 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
   const selectedGenreDetails = selectedGenres.map(genre => getGenreById(genre.id) || genre);
   const channelArchetype = opts.channel.archetype || 'senior-morning';
+  // TASK v3.39 Part D — kids channels see only the childlike presets; every
+  // other channel keeps the plain adult presets, unchanged from before.
+  const relevantVocalPresets = vocalPresets.filter(preset => Boolean(preset.forKids) === (channelArchetype === 'kids'));
 
   // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
   // the same fields the existing chip grids below already control; it's a
@@ -373,9 +376,15 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
 
       {selectedGenerationPack && <p className="supporting">{selectedGenerationPack.audienceNote}</p>}
 
+      {/* TASK v3.39 Part D — a kids channel only ever showed the 5 adult
+          voice presets here (no childlike option existed at all), so the
+          picker itself read as if the channel had no kids voices. Filtered
+          to the childlike presets for 'kids', and to the plain adult
+          presets otherwise — matchVocalPreset above still searches the full
+          list either way, so a saved pack's vocalTone always resolves. */}
       <ChoiceGrid
         question="어떤 목소리로 부를까요?"
-        choices={vocalPresets.map(preset => ({ id: preset.id, label: preset.label, sublabel: preset.sublabel, description: preset.description, icon: '🎙' }))}
+        choices={relevantVocalPresets.map(preset => ({ id: preset.id, label: preset.label, sublabel: preset.sublabel, description: preset.description, icon: '🎙' }))}
         value={vocalCustomOpen ? '' : (matchVocalPreset(opts.vocalTone)?.id ?? '')}
         onChange={value => {
           const preset = vocalPresets.find(p => p.id === value);
@@ -386,6 +395,11 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         }}
         columns={3}
       />
+      {channelArchetype === 'kids' && (
+        <p className="supporting">
+          여기서 고른 목소리는 기본값이에요 — 실제로는 아래 &quot;보컬 비율&quot;에서 정한 남자아이/여자아이/혼성 합창 비율대로 곡마다 다르게 배정됩니다.
+        </p>
+      )}
       <div className="button-row" style={{ marginTop: 8 }}>
         <button type="button" className={vocalCustomOpen ? 'chip active' : 'chip'} onClick={() => setVocalCustomOpen(v => !v)}>
           ✏️ 직접 입력하기

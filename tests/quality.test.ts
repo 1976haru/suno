@@ -177,3 +177,31 @@ describe('checkHookQuality (TASK A5, v3.3)', () => {
     expect(checkHookQuality(song).penalty).toBeGreaterThanOrEqual(12);
   });
 });
+
+// TASK v3.39 Part F — scoreSong is the single choke point every generation
+// path (local, realtime, Batch API, Claude Code bridge import) funnels
+// through, so the Suno artist-filter sanitizer/hook check is wired in here
+// rather than duplicated per-path (see core/sunoSafety.ts).
+describe('Suno artist-filter safety (v3.39 Part F)', () => {
+  it('masks a known blocked token out of the final stylePrompt and warns', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm pop, wayo, I-V-vi-IV progression, chorus repeats' }));
+    expect(song.stylePrompt.toLowerCase()).not.toContain('wayo');
+    expect(song.warnings.some(w => w.includes('artist filter'))).toBe(true);
+  });
+
+  it('leaves a clean stylePrompt untouched and does not warn', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm adult contemporary pop, strong repeated chorus hook, repeats chorus 4x, I-V-vi-IV progression' }));
+    expect(song.warnings.some(w => w.includes('artist filter'))).toBe(false);
+  });
+
+  it('warns (without crashing or auto-rewriting) when hookPhrase itself contains a blocked token', () => {
+    const song = scoreSong(baseSong({ hookPhrase: 'Wayo Forever', lyrics: 'Wayo Forever\nWayo Forever\nWayo Forever\nWayo Forever' }));
+    expect(song.hookPhrase).toBe('Wayo Forever');
+    expect(song.warnings.some(w => w.toLowerCase().includes('hook') && w.toLowerCase().includes('artist filter'))).toBe(true);
+  });
+
+  it('compactHook no longer embeds the literal hook lyric, so a hook fragment can never reach the style prompt through it', () => {
+    const song = scoreSong(baseSong({ hookPhrase: 'Wayo Forever', stylePrompt: 'warm pop, strong repeated chorus hook, repeats chorus 4x, I-V-vi-IV progression' }));
+    expect(song.stylePrompt.toLowerCase()).not.toContain('wayo');
+  });
+});

@@ -81,7 +81,10 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     moods: ['bright-playful', 'warm', 'fresh-start'],
     market: 'korea',
     audience: 'kids',
-    primaryLanguage: 'korean'
+    // TASK v3.39 Part G — matches data/presets.ts's little-singalong-radio
+    // default (english, not korean); see applyArchetype below for why a
+    // user's own language choice now survives re-selecting this card.
+    primaryLanguage: 'english'
   }
 ];
 
@@ -138,6 +141,9 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
 
   function applyArchetype(archetypeId: ChannelArchetype) {
     const defaults = archetypeChoices.find(choice => choice.id === archetypeId) || archetypeChoices[0];
+    // TASK v3.39 Part G — previous archetype's own default, looked up before
+    // any field is updated below.
+    const previousDefaults = archetypeChoices.find(choice => choice.id === archetype);
     const genreIds = getCoreGenreIdsForArchetype(archetypeId).slice(0, 3);
     onUpdateField('archetype', archetypeId);
     onUpdateField('market', defaults.market);
@@ -149,8 +155,19 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     // switch to 'kids' left whatever primaryLanguage the channel already
     // had (often 'english' from a prior senior-morning edit); createInitial
     // Options now derives lyricLanguage from primaryLanguage, so this needs
-    // to actually change for the kids-song grammar (Korean) to take effect.
-    onUpdateField('primaryLanguage', defaults.primaryLanguage);
+    // to actually change for the kids-song grammar to take effect.
+    // TASK v3.39 Part G — real complaint: re-selecting (or re-clicking) an
+    // archetype card unconditionally reset primaryLanguage every time, so a
+    // user who picked 'japanese' for the kids channel saw it silently
+    // flip back to the default on the next template click, making the
+    // language select look broken. Only reset when the current value still
+    // equals the *previous* archetype's own default — i.e. it was never
+    // actually chosen by the user, just inherited from the last template
+    // apply — so an explicit user choice is never clobbered.
+    const languageWasUntouched = !previousDefaults || editorChannel.primaryLanguage === previousDefaults.primaryLanguage;
+    if (languageWasUntouched) {
+      onUpdateField('primaryLanguage', defaults.primaryLanguage);
+    }
   }
 
   return (

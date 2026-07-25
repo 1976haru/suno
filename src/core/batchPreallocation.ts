@@ -3,7 +3,15 @@ import { createTitleGenerator, hashSeed, seedForBlueprint, UniquePool } from './
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { buildVocalPlan, DEFAULT_KIDS_VOCAL_QUOTA, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import {
+  buildVocalPlan,
+  DEFAULT_KIDS_VOCAL_QUOTA,
+  ensureVocalMetaTag,
+  enforceVocalTextInStylePrompt,
+  resolveVocalMetaTag,
+  usesVocalQuota,
+  vocalDescriptionFor
+} from './vocalPlan';
 import type { OpeningPackContext } from './openingContest';
 
 export type { PreassignedSongSlot };
@@ -21,7 +29,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -44,6 +52,12 @@ export function preallocateSongSlots(
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
   // type for the same opts.
   const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  // TASK v3.39 Part H — every channel (not just kids) now carries a per-song
+  // vocalText, so reconcileWithPreassignedSlot below can enforce the
+  // selected vocal across realtime/Batch/bridge the same way moneyChordText
+  // already enforces the progression. Falls back to the channel's own
+  // defaultVocal if this particular request never set vocalTone.
+  const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -52,6 +66,7 @@ export function preallocateSongSlots(
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext)
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
+    const vocalText = vocalType ? vocalDescriptionFor(vocalType, opts.lyricLanguage) : fallbackVocalText;
     return {
       trackNo,
       title,
@@ -60,7 +75,8 @@ export function preallocateSongSlots(
       tempo: averageTempo(genres, trackNo),
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
-      ...(vocalType ? { vocalType, vocalText: vocalDescriptionFor(vocalType, opts.lyricLanguage) } : {})
+      vocalText,
+      ...(vocalType ? { vocalType } : {})
     };
   });
 }
@@ -120,10 +136,23 @@ export function reconcileWithPreassignedSlot(
     : hookMode === 'ai-creative' && song.hookPhrase?.trim()
       ? song.hookPhrase
       : slot.hookPhrase;
+  // TASK v3.39 Part H — a real showa-cafe channel selected a male vocal
+  // preset but a Codex-bridge-generated stylePrompt came back female,
+  // because nothing forced the agent's free-form text to actually match the
+  // selection. Rather than trust the verbatim-weave instruction alone (see
+  // claudeCodeBridge.ts/promptComposer.ts), this deterministically corrects
+  // the gender here — the one place realtime/Batch/bridge output all funnel
+  // through — regardless of whether the agent complied. No-op when
+  // vocalText has no detectable gender (e.g. a children's choir) or when the
+  // stylePrompt already matches.
+  const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalText);
+  const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalText);
   return {
     ...song,
     title,
     hookPhrase,
+    stylePrompt: vocalFix.text,
+    lyrics: ensureVocalMetaTag(song.lyrics, vocalTag),
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole,
     // TASK v3.39 — vocalType is slot-owned like songRole/emotionArc: it

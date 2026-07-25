@@ -99,12 +99,15 @@ describe('structured genre library', () => {
     }
   });
 
-  it('uses the compressed hook instruction', () => {
-    // TASK G1 (v3.10) — further compressed to reuse Persona mode's terse
-    // compactHook ('hook "X" repeats chorus 4x') in place of the old
-    // 4-clause sentence.
-    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('hook "Hold On" repeats chorus 4x');
-    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('hook "Hold On" repeats chorus 3x');
+  it('uses the compressed hook instruction, with no literal hook lyric text', () => {
+    // TASK v3.39 Part F — compactHook no longer embeds the literal hook
+    // lyric in quotes (a real production Suno artist-name filter false
+    // positive traced to a hook fragment landing in the style prompt); the
+    // style prompt only needs to say the chorus hook repeats, not which
+    // words it is.
+    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('strong repeated chorus hook, repeats chorus 4x');
+    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('strong repeated chorus hook, repeats chorus 3x');
+    expect(hookStyleDirectives('Hold On', 'commercial')).not.toContain('Hold On');
   });
 
   it('compresses by individual clauses in priority order', () => {

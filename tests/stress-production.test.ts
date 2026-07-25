@@ -192,7 +192,7 @@ describe('production stress tests', () => {
     expect(signature.shortLength).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
     for (const song of personaBp.songs.slice(1)) expect(song.stylePrompt.length).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
     expect(personaBp.songs[0].stylePrompt).toContain('male soft husky tenor close-mic');
-    expect(personaBp.songs[0].stylePrompt).toContain('hook "');
+    expect(personaBp.songs[0].stylePrompt).toContain('repeated chorus hook');
     expect(personaBp.songs[0].stylePrompt).toContain('I-V-vi-IV progression');
   });
 

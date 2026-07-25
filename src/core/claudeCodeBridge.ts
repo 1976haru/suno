@@ -185,10 +185,14 @@ export function buildClaudeCodeInstruction(
   // TASK v3.39 — same verbatim-weave rule promptComposer.ts's
   // buildBatchSystemNote gives real API requests, kept in sync here per this
   // file's existing convention (see the titleInstructionLine/moneyChordText
-  // comments above). Only present when this pack's slots actually carry
-  // vocalText (kids channel with the per-song quota active).
+  // comments above). Present for every channel now (TASK v3.39 Part H —
+  // batchPreallocation.ts's preallocateSongSlots sets vocalText from
+  // opts.vocalTone/channel.defaultVocal for non-kids channels too, not just
+  // the kids per-song quota), since a real showa-cafe pack showed a selected
+  // male vocal preset silently coming back female with no instruction at all
+  // telling the agent to respect it.
   const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
-    ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal type (e.g. an adult voice) or paraphrase it away.'
+    ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
 
   return [
@@ -344,7 +348,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
   const titleInstructionLine = titleInstructionLineFor(baseOpts);
   const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
-    ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal type (e.g. an adult voice) or paraphrase it away.'
+    ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,

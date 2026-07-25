@@ -165,13 +165,18 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
   });
 
   // TASK G1 (v3.10) — hookStyleDirectives now reuses Persona mode's terse
-  // compactHook ('hook "X" repeats chorus 4x') instead of the old 4-clause
-  // form ('hook "X", short repeated chorus hook, identical melody, 3-4
-  // clear returns'), which alone cost ~11 words of a non-persona prompt's
-  // budget for no benefit Persona mode's shorter form didn't already give.
-  it('[H5] style prompt tells Suno to bookend and repeat the hook', () => {
+  // compactHook instead of the old 4-clause form ('hook "X", short repeated
+  // chorus hook, identical melody, 3-4 clear returns'), which alone cost
+  // ~11 words of a non-persona prompt's budget for no benefit Persona mode's
+  // shorter form didn't already give.
+  // TASK v3.39 Part F — compactHook no longer quotes the literal hook lyric
+  // in the style prompt (a real production Suno artist-name filter false
+  // positive traced to a hook fragment reaching that field) — verified here
+  // by asserting the hook text is now absent from the directive/stylePrompt,
+  // not present.
+  it('[H5] style prompt tells Suno to bookend and repeat the hook, without quoting the hook lyric itself', () => {
     const directive = hookStyleDirectives('Hold On', 'commercial');
-    expect(directive).toContain('"Hold On"');
+    expect(directive).not.toContain('Hold On');
     expect(directive).toContain('repeats chorus');
     expect(directive).toContain('4x');
   });
@@ -181,11 +186,11 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     expect(directive).toContain('3x');
   });
 
-  it.each(LANGUAGES)('[H5] every generated song stylePrompt includes the hook bookend directive, in %s', language => {
+  it.each(LANGUAGES)('[H5] every generated song stylePrompt includes the hook bookend directive (without the literal hook lyric), in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 3, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       expect(song.stylePrompt).toContain('repeats chorus');
-      expect(song.stylePrompt).toContain(`"${song.hookPhrase}"`);
+      expect(song.stylePrompt).not.toContain(`"${song.hookPhrase}"`);
     }
   });
 });

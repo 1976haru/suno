@@ -1,6 +1,8 @@
 import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
 import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
+import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
+import { detectVocalGender, vocalDescriptionFor } from './vocalPlan';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -289,6 +291,36 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     score -= 20;
   }
 
+  // TASK v3.39 Part H — real production output showed a channel's selected
+  // vocal gender (e.g. a showa-cafe male preset) silently coming back
+  // female in a Codex-bridge-generated stylePrompt.
+  // core/batchPreallocation.ts's reconcileWithPreassignedSlot now forcibly
+  // corrects this for realtime/Batch/bridge output before it ever reaches
+  // here, so this mostly won't fire on those paths anymore — but it's still
+  // a visible safety-net warning for anyone auditing a pack (a hand-edited
+  // saved pack, or a channel whose defaultVocal genuinely doesn't match this
+  // song's own vocalType). No-op when there's no detectable target gender
+  // (e.g. a kids mixed/choir vocalType, or a defaultVocal like "children's
+  // choir" with no single gender to enforce).
+  const vocalTarget = song.vocalType ? vocalDescriptionFor(song.vocalType, language) : channel?.defaultVocal;
+  const targetGender = vocalTarget ? detectVocalGender(vocalTarget) : null;
+  if (targetGender && detectVocalGender(song.stylePrompt) !== targetGender) {
+    pushUnique(warnings, `Style prompt vocal gender may not match the selected ${targetGender} vocal — review before pasting into Suno.`);
+    score -= 5;
+  }
+
+  // TASK v3.39 Part F — an AI-creative hook is free-form text (see
+  // GenerationOptions.hookMode), so it can coincidentally contain a token
+  // Suno's artist filter blocks. The style prompt itself is sanitized further
+  // below regardless, but hookPhrase also appears verbatim in the lyrics
+  // (the chorus bookend) where sanitizing isn't safe to do automatically —
+  // same reasoning flagHookCollisions already uses for not auto-rewriting a
+  // colliding hook. Warn instead, so the song can be reviewed/regenerated.
+  if (containsBlockedStyleToken(song.hookPhrase)) {
+    pushUnique(warnings, 'Hook may contain a token Suno\'s artist filter blocks — review and regenerate this song if Suno rejects it.');
+    score -= 10;
+  }
+
   for (const cliche of channel?.forbiddenCliches || []) {
     if (cliche && riskScanTextLower.includes(cliche.toLowerCase())) {
       pushUnique(warnings, `Channel forbidden cliche detected: ${cliche}`);
@@ -312,6 +344,15 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   // mid-phrase.
   let stylePrompt = song.stylePrompt;
   let promptDroppedTerms = song.promptDroppedTerms || [];
+  // TASK v3.39 Part F — last-line net: mask any known Suno artist-filter
+  // token out of the final style prompt regardless of which generation path
+  // produced it (see core/sunoSafety.ts). Runs before the length trim below
+  // so the trim operates on the already-cleaned text.
+  const sanitizedStylePrompt = sanitizeSunoStyleText(stylePrompt);
+  if (sanitizedStylePrompt !== stylePrompt) {
+    stylePrompt = sanitizedStylePrompt;
+    pushUnique(warnings, 'Style prompt contained a token Suno\'s artist filter blocks and was removed.');
+  }
   if (stylePrompt.length > SUNO_COPY_LIMIT) {
     const fitted = enforcePromptLengthBudget(stylePrompt);
     stylePrompt = fitted.prompt;

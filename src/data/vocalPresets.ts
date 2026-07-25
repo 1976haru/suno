@@ -4,9 +4,40 @@ export interface VocalPreset {
   sublabel: string;
   description: string;
   prompt: string;
+  /** TASK v3.39 Part D — true for the kids-channel childlike presets below; Step2Concept.tsx shows only these for a 'kids' archetype channel (and only the plain adult presets otherwise), instead of mixing an adult voice picker into a children's channel. */
+  forKids?: boolean;
 }
 
 export const vocalPresets: VocalPreset[] = [
+  // TASK v3.39 Part D — kids-channel presets, wording matches
+  // core/vocalPlan.ts's VOCAL_DESCRIPTIONS exactly (childlike/youthful,
+  // never "adult", per that module's own real-listening-feedback rewrite).
+  // Kept first in the array so a kids channel's ChoiceGrid (filtered to
+  // forKids in Step2Concept.tsx) always lists boy/girl/choir in this order.
+  {
+    id: 'kid-boy',
+    label: '남자아이',
+    sublabel: 'Young boy',
+    description: '밝고 씩씩한 아이 목소리예요.',
+    prompt: 'bright childlike boy voice, playful and youthful, kindergarten-age tone',
+    forKids: true
+  },
+  {
+    id: 'kid-girl',
+    label: '여자아이',
+    sublabel: 'Young girl',
+    description: '맑고 다정한 아이 목소리예요.',
+    prompt: 'bright childlike girl voice, sweet and clear, kindergarten-age tone',
+    forKids: true
+  },
+  {
+    id: 'kid-choir',
+    label: '아이 합창',
+    sublabel: 'Kids choir',
+    description: '다 함께 부르는 동요 합창이에요.',
+    prompt: "children's choir of childlike, youthful voices singing together, cheerful call-and-response group singalong",
+    forKids: true
+  },
   {
     id: 'warm-mature-male',
     label: '따뜻한 중년 남성',

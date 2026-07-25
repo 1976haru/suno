@@ -57,6 +57,74 @@ export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = '
   return `${VOCAL_DESCRIPTIONS[type]}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
 }
 
+/**
+ * TASK v3.39 Part H — a real showa-cafe channel selected a male vocal preset
+ * but a Codex-bridge-generated song came back with a female vocal because
+ * nothing in the pipeline actually enforced the choice (see
+ * batchPreallocation.ts's reconcileWithPreassignedSlot for where this is
+ * used). Word-boundary-only so "female" never false-positives as containing
+ * "male", and "woman"/"women" are matched as their own words rather than via
+ * a "man" substring for the same reason.
+ */
+export function detectVocalGender(text: string): 'male' | 'female' | null {
+  const hasFemale = /\b(female|girl|woman|women)\b/i.test(text);
+  const hasMale = /\b(male|boy|man|men)\b/i.test(text);
+  if (hasFemale && !hasMale) return 'female';
+  if (hasMale && !hasFemale) return 'male';
+  return null;
+}
+
+/**
+ * TASK v3.39 Part H — the decisive fix: rather than trust a remote model/
+ * coding agent to weave "vocalText" into its stylePrompt correctly (the
+ * verbatim instruction in claudeCodeBridge.ts/promptComposer.ts still asks
+ * for that, but agent compliance isn't guaranteed), this forcibly corrects
+ * the gender of the final stylePrompt whenever it's detectably wrong or
+ * missing. A no-op when vocalText has no detectable gender (e.g. a children's
+ * choir/mixed description) — there's nothing to enforce in that case.
+ */
+export function enforceVocalTextInStylePrompt(stylePrompt: string, vocalText: string | undefined): { text: string; changed: boolean } {
+  if (!vocalText) return { text: stylePrompt, changed: false };
+  const target = detectVocalGender(vocalText);
+  if (!target) return { text: stylePrompt, changed: false };
+  if (detectVocalGender(stylePrompt) === target) return { text: stylePrompt, changed: false };
+
+  const opposite = target === 'male' ? '(?:female|girl|woman|women)' : '(?:male|boy|man|men)';
+  const cleaned = stylePrompt
+    .replace(new RegExp(`\\b${opposite}\\b`, 'gi'), '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .replace(/^[,\s]+/, '')
+    .replace(/,\s*$/, '')
+    .trim();
+  const text = cleaned ? `${vocalText}, ${cleaned}` : vocalText;
+  return { text, changed: true };
+}
+
+/**
+ * TASK v3.39 Part H — the strongest lever Suno actually reads for vocal
+ * gender is a lyric meta tag, not prose in the style field (see the H spec's
+ * "가사 메타 태그 부재" finding: 0 uses of [male vocal]-style tags in real
+ * output). Returns null when there's nothing enforceable to tag (mixed/
+ * unspecified gender outside the kids choir case).
+ */
+export function resolveVocalMetaTag(vocalType: VocalType | undefined, vocalText: string | undefined): string | null {
+  if (vocalType === 'mixed') return "[children's choir]";
+  if (vocalType === 'male') return '[male vocal]';
+  if (vocalType === 'female') return '[female vocal]';
+  const gender = vocalText ? detectVocalGender(vocalText) : null;
+  return gender === 'male' ? '[male vocal]' : gender === 'female' ? '[female vocal]' : null;
+}
+
+const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|children'?s choir)\]/i;
+
+/** Prepends `tag` to `lyrics` unless a vocal meta tag is already present at the top (never double-tags). */
+export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {
+  if (!tag || VOCAL_META_TAG_PATTERN.test(lyrics)) return lyrics;
+  return `${tag}\n${lyrics}`;
+}
+
 const VOCAL_TYPES: VocalType[] = ['male', 'female', 'mixed'];
 
 /**

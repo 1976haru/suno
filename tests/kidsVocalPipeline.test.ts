@@ -43,13 +43,13 @@ describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () 
     }
   });
 
-  it('non-kids channels never get vocalType/vocalText on any slot (no leakage)', () => {
+  it('non-kids channels never get vocalType, but do get vocalText from opts.vocalTone/defaultVocal (Part H)', () => {
     const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
     const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id });
     const slots = preallocateSongSlots(opts, seniorGenres);
     for (const slot of slots) {
       expect(slot.vocalType).toBeUndefined();
-      expect(slot.vocalText).toBeUndefined();
+      expect(slot.vocalText).toBe(opts.vocalTone?.trim() || seniorMorning.defaultVocal);
     }
   });
 
@@ -95,13 +95,13 @@ describe('[v3.39 Part C] promptComposer weaves vocalText into the batch instruct
     expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, or vocalText');
   });
 
-  it('buildBatchSystemNote never mentions vocalText for a non-kids channel', () => {
+  it('buildBatchSystemNote also instructs verbatim vocalText use for a non-kids channel (Part H)', () => {
     const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
     const opts = makeOptions({ channel: seniorMorning, songCount: 12, seasonId: season.id });
     const slots = preallocateSongSlots(opts, seniorGenres);
     const batch: BatchContext = { trackNoOffset: 0, totalSongCount: 12, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
     const note = buildBatchSystemNote(opts, batch);
-    expect(note).not.toContain('vocalText');
+    expect(note).toContain('"vocalText"');
   });
 
   it('buildAnthropicUserPayload forwards the full slot (including vocalText) to the real API payload', () => {
@@ -126,13 +126,14 @@ describe('[v3.39 Part C] Claude Code bridge carries per-song vocal instructions'
     }
   });
 
-  it('does not emit a vocalText instruction for a non-kids channel bridge instruction', () => {
+  it('also emits a vocalText instruction for a non-kids channel bridge instruction (Part H)', () => {
     const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
     const seniorMoods = moodPacks.filter(m => seniorMorning.preferredMoods.includes(m.id));
     const opts = makeOptions({ channel: seniorMorning, songCount: 12, seasonId: season.id });
     const slots = preallocateSongSlots(opts, seniorGenres);
     const instruction = buildClaudeCodeInstruction(opts, seniorGenres, seniorMoods, season, undefined, slots);
-    expect(instruction).not.toContain('vocalText');
+    expect(instruction).toContain('"vocalText"');
+    expect(instruction).toContain(seniorMorning.defaultVocal);
   });
 
   it('the set-planning table\'s vocal quota summary always matches the real per-slot vocalType counts', () => {

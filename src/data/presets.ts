@@ -34,16 +34,19 @@ export const channelPresets: ChannelProfile[] = [
     seoKeywords: ['昭和カフェ', '朝の喫茶店', 'レトロBGM', '大人の音楽', '50代', '60代', '喫茶店BGM'],
     archetype: 'showa-cafe'
   },
-  // TASK v3.38 Part B1 — kids/children's song channel. primaryLanguage is
-  // 'korean' (unlike the two adult channels above, which are 'english') so
-  // createInitialOptions derives lyricLanguage: 'korean' by default for this
-  // channel — see utils/generation.ts.
+  // TASK v3.38 Part B1 — kids/children's song channel.
+  // TASK v3.39 Part G — primaryLanguage defaults to 'english' like the two
+  // adult channels above (was 'korean'): the kids lyric engine already has
+  // full korean/japanese/english pools (kidsLyricEngine.ts), so there was no
+  // functional reason to default away from the channel's own market-neutral
+  // baseline. Korean/Japanese stay one select away — see Step1Channel.tsx's
+  // language select and applyArchetype's no-clobber fix.
   {
     id: 'little-singalong-radio',
     name: '꼬마 노래방송',
     englishName: 'Little Singalong Radio',
     market: 'korea',
-    primaryLanguage: 'korean',
+    primaryLanguage: 'english',
     audience: 'kids',
     promise: '유아~초등 저학년과 보호자가 함께 듣는 밝고 안전한 창작 동요 플레이리스트',
     visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',

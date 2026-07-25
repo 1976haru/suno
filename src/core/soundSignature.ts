@@ -128,15 +128,25 @@ function moodAtoms(opts: GenerationOptions) {
 
 export function compactVocalAtom(value: string) {
   const lower = value.toLowerCase();
-  const gender = lower.includes('female') || lower.includes('woman')
+  // TASK v3.39 Part D/H — the kids channel's kid-boy/kid-girl/kid-choir
+  // presets (data/vocalPresets.ts) contain none of the adult-only markers
+  // below ("female"/"male"/"tenor"/"baritone"), so all three previously
+  // compacted to the same "soft close-mic vocal" fallback — a real
+  // diversity-linter regression (tests/diversityLinter.test.ts). "childlike"
+  // and "choir"/"boy"/"girl" give each preset its own distinct compact text.
+  if (lower.includes('choir')) {
+    return lower.includes('childlike') || lower.includes('kindergarten') ? 'childlike choir' : 'choir';
+  }
+  const childlike = lower.includes('childlike') || lower.includes('kindergarten');
+  const gender = lower.includes('female') || lower.includes('woman') || lower.includes('girl')
     ? 'female'
-    : lower.includes('male') || lower.includes('tenor') || lower.includes('baritone')
+    : lower.includes('male') || lower.includes('tenor') || lower.includes('baritone') || lower.includes('boy')
       ? 'male'
       : '';
   const range = lower.includes('tenor') ? 'tenor' : lower.includes('baritone') ? 'baritone' : '';
   const tone = lower.includes('husky') ? 'soft husky' : lower.includes('soulful') ? 'soulful' : lower.includes('breathy') ? 'breathy' : 'soft';
   const delivery = lower.includes('close') ? 'close-mic' : lower.includes('restrained') ? 'restrained' : '';
-  return [gender, tone, range, delivery].filter(Boolean).join(' ') || 'soft close-mic vocal';
+  return [childlike ? 'childlike' : '', gender, tone, range, delivery].filter(Boolean).join(' ') || 'soft close-mic vocal';
 }
 
 function productionAtoms(genre: GenrePack | undefined) {
@@ -334,10 +344,23 @@ function clipClause(value: string, limit: number) {
   return clean.slice(0, Math.max(0, limit - 1)).replace(/\s+\S*$/, '').trim();
 }
 
-export function compactHook(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth'], terse = false) {
+/**
+ * TASK v3.39 Part F — previously embedded the literal hook lyric text in
+ * quotes (hook "<lyric>" repeats chorus 4x). That text lands verbatim in
+ * Suno's style/description field, and real production output showed an
+ * AI-creative hook fragment coincidentally matching a substring Suno's
+ * artist-name filter blocks (e.g. a fragment reading as "wayo"), silently
+ * getting the whole style prompt rejected. The hook line already repeats in
+ * "lyrics" itself (see core/hookStyleDirectives's caller and quality.ts's own
+ * verbatim-bookend checks) — the style prompt only ever needed to tell Suno
+ * *that* the chorus hook repeats, never *which words* it is, so hookPhrase is
+ * intentionally unused here now. Kept as a parameter (not removed) so this
+ * signature doesn't ripple through every caller for a purely internal change.
+ */
+export function compactHook(_hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth'], terse = false) {
   const returns = lyricDepth === 'poetic' ? '3x' : '4x';
-  if (terse) return `hook "${clipClause(hookPhrase, 32)}" ${returns}`;
-  return `hook "${clipClause(hookPhrase, 32)}" repeats chorus ${returns}`;
+  if (terse) return `repeated chorus hook, ${returns}`;
+  return `strong repeated chorus hook, repeats chorus ${returns}`;
 }
 
 function fillWithinLimit(clauses: string[], limit: number) {
@@ -504,11 +527,18 @@ export function buildPersonaStylePrompt(input: PersonaStylePromptInput): Persona
   const tempo = `${input.tempo} BPM`;
   const duration = compactDuration(input.opts.durationTarget, false);
   const role = `track ${input.trackNo}: ${clipClause(input.role, 22)}`;
+  // TASK v3.39 Part H — real production output showed vocal gender vanishing
+  // completely from every non-seed track in persona mode (track 1 carried it
+  // via the seed signature; tracks 2+ built this clause list with no vocal
+  // atom at all). Placed right after `identity` — the same "protected by
+  // position" pattern the seed branch already relies on — so it's never the
+  // first thing length-compression below drops.
+  const vocal = compactVocalAtom(input.opts.vocalTone || input.opts.channel.defaultVocal);
   const requiredSongClauses = [hook, money, tempo, duration];
 
   const identity = compactGenreKeyword(input.genres);
 
-  const clauses = [identity, ...requiredSongClauses];
+  const clauses = [identity, vocal, ...requiredSongClauses];
   const droppedTerms: string[] = [];
   const withRole = [...clauses, role].join(', ');
   let prompt = withRole.length <= limit ? withRole : clauses.join(', ');

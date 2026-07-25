@@ -33,7 +33,7 @@ describe('persona mode prompt compression', () => {
   it('keeps hook, money chord, BPM, and duration controls', () => {
     const { blueprint } = personaBlueprint();
     for (const song of blueprint.songs) {
-      expect(song.stylePrompt).toMatch(/hook "/);
+      expect(song.stylePrompt).toMatch(/repeated chorus hook/);
       expect(song.stylePrompt).toMatch(/progression/);
       expect(song.stylePrompt).toMatch(/\d{2,3} BPM/);
       expect(song.stylePrompt).toMatch(/3:10-3:35|under 4:00|2:50-3:20/);
@@ -105,10 +105,17 @@ describe('persona mode prompt compression', () => {
     expect(seedPrompt.length).toBeLessThanOrEqual(SUNO_COPY_LIMIT);
   });
 
-  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('removes vocal and mix from tracks 2-30 under persona mode (%s)', language => {
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps vocal but removes mix from tracks 2-30 under persona mode (%s)', language => {
+    // TASK v3.39 Part H — real production output showed vocal gender
+    // completely missing from every non-seed persona track (only track 1
+    // carried it, via the seed signature); buildPersonaStylePrompt's
+    // non-seed clause list now always includes the channel's vocal atom (see
+    // soundSignature.ts), so this asserts the fixed behavior instead of the
+    // old bug. 'mix' was never part of the non-seed clause list either
+    // before or after this fix.
     const { blueprint } = personaBlueprint(language);
     for (const song of blueprint.songs.slice(1)) {
-      expect(song.stylePrompt).not.toContain('male soft husky tenor close-mic');
+      expect(song.stylePrompt).toContain('male soft husky tenor close-mic');
       expect(song.stylePrompt).not.toContain('warm analog mix');
       expect(song.stylePrompt.length).toBeLessThanOrEqual(PERSONA_STYLE_LIMIT);
     }
@@ -118,7 +125,7 @@ describe('persona mode prompt compression', () => {
     const { blueprint } = personaBlueprint(language);
     const seedPrompt = blueprint.songs[0].stylePrompt;
     expect(seedPrompt).toContain('male soft husky tenor close-mic');
-    expect(seedPrompt).toMatch(/hook ".+" repeats chorus 4x/);
+    expect(seedPrompt).toMatch(/strong repeated chorus hook, repeats chorus 4x/);
     expect(seedPrompt).toContain('I-V-vi-IV progression');
     expect(seedPrompt).toMatch(/\d{2,3} BPM/);
     // TASK I1 (v3.11) — track 1 is always 'cold-open' now; the fixture
@@ -132,7 +139,7 @@ describe('persona mode prompt compression', () => {
     const { blueprint } = personaBlueprint(language);
     const seedSong = blueprint.songs[0];
     expect(seedSong.stylePrompt).toContain('male soft husky tenor close-mic');
-    expect(seedSong.stylePrompt).toMatch(/hook ".+" repeats chorus 4x/);
+    expect(seedSong.stylePrompt).toMatch(/strong repeated chorus hook, repeats chorus 4x/);
     expect(seedSong.stylePrompt).toContain('I-V-vi-IV progression');
     expect(seedSong.stylePrompt).toMatch(/\d{2,3} BPM/);
     expect(seedSong.stylePrompt).toContain('no instrumental intro, hook heard immediately, 3:10-3:35');
@@ -176,7 +183,7 @@ describe('persona mode prompt compression', () => {
       expect(result.prompt).not.toContain('Rhodes piano');
     }
     expect(result.prompt).toContain('male soft husky tenor close-mic');
-    expect(result.prompt).toMatch(/hook ".+" repeats chorus 4x/);
+    expect(result.prompt).toMatch(/strong repeated chorus hook, repeats chorus 4x/);
     expect(result.prompt).toContain('I-V-vi-IV progression');
     expect(result.prompt).toContain('97 BPM');
     expect(result.prompt).toContain('short intro, 3:10-3:35');
@@ -207,7 +214,8 @@ describe('persona mode prompt compression', () => {
     expect(result.length).toBeGreaterThan(120);
     expect(result.withinLimit).toBe(false);
     expect(result.prompt).toContain('male soft husky tenor close-mic');
-    expect(result.prompt).toContain('hook "New Year Umbrella" repeats chorus 4x');
+    expect(result.prompt).toContain('strong repeated chorus hook, repeats chorus 4x');
+    expect(result.prompt).not.toContain('New Year Umbrella');
     expect(result.prompt).toContain('I-V-vi-IV progression');
     expect(result.prompt).toContain('97 BPM');
     expect(result.prompt).toContain('short intro, 3:10-3:35');
