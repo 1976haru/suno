@@ -60,6 +60,14 @@ export interface GenerateQwenImageOptions {
   negativePrompt?: string;
   settings?: Partial<QwenImageSettings>;
   count?: number;
+  /**
+   * TASK v3.45 (Part 2) — 1-3 reference images (base64 data URLs) for img2img
+   * editing on the existing sync multimodal-generation endpoint. Editing
+   * doesn't support the async task endpoint at all, so the proxy forces sync
+   * mode and substitutes a sync model automatically when needed — see
+   * GeneratedQwenImage.modelSubstituted.
+   */
+  inputImages?: string[];
 }
 
 export interface GeneratedQwenImage {
@@ -70,6 +78,8 @@ export interface GeneratedQwenImage {
   imageCount: number;
   estimatedCostCny: number;
   taskId?: string;
+  /** TASK v3.45 (Part 2) — true when an async-only model was swapped for the sync default because inputImages were present (editing never supports async). */
+  modelSubstituted?: boolean;
 }
 
 export async function getQwenImageSettings(): Promise<QwenImageSettings> {
@@ -92,7 +102,8 @@ export async function generateQwenImage(options: GenerateQwenImageOptions): Prom
     region: settings.region,
     workspaceId: settings.workspaceId,
     size: settings.resolution,
-    n: count
+    n: count,
+    inputImages: options.inputImages
   }, { retries: 2 });
 
   const imageUrls = Array.isArray(data.imageUrls) ? data.imageUrls.filter((url): url is string => typeof url === 'string') : [];
@@ -103,13 +114,20 @@ export async function generateQwenImage(options: GenerateQwenImageOptions): Prom
     throw new Error('Qwen image response did not include an image URL.');
   }
 
+  // TASK v3.45 (Part 2) — the proxy can substitute a sync model for an
+  // async-only one when inputImages are present (see modelSubstituted); the
+  // actually-used model (data.model) can have different pricing than the
+  // one this client originally requested, so cost estimation must use it.
+  const resolvedModel = typeof data.model === 'string' ? (data.model as QwenImageSettings['model']) : settings.model;
+
   return {
     imageUrls,
     dataUrls,
     mimeType: typeof data.mimeType === 'string' ? data.mimeType : 'image/png',
-    model: typeof data.model === 'string' ? data.model : settings.model,
+    model: resolvedModel,
     imageCount,
-    estimatedCostCny: estimateQwenImageCostCny(settings.model, imageCount, settings.region),
-    taskId: typeof data.taskId === 'string' ? data.taskId : undefined
+    estimatedCostCny: estimateQwenImageCostCny(resolvedModel, imageCount, settings.region),
+    taskId: typeof data.taskId === 'string' ? data.taskId : undefined,
+    modelSubstituted: data.modelSubstituted === true
   };
 }

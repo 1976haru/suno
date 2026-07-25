@@ -116,21 +116,44 @@ function readFileAsDataUrl(file: File): Promise<string> {
  */
 const MAX_UPLOAD_LONG_EDGE = 4000;
 
+function downscaleImageToDataUrl(image: HTMLImageElement, maxLongEdge: number, mimeType: string, quality: number): string {
+  const scale = maxLongEdge / Math.max(image.width, image.height);
+  const canvas = createCanvas(Math.round(image.width * scale), Math.round(image.height * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return image.src;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL(mimeType, quality);
+}
+
 export async function loadUserBackgroundDataUrl(file: File): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있습니다 (PNG/JPEG/WEBP).');
   const rawDataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(rawDataUrl);
-  const longEdge = Math.max(image.width, image.height);
-  if (longEdge <= MAX_UPLOAD_LONG_EDGE) return rawDataUrl;
+  if (Math.max(image.width, image.height) <= MAX_UPLOAD_LONG_EDGE) return rawDataUrl;
+  return downscaleImageToDataUrl(image, MAX_UPLOAD_LONG_EDGE, file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
+}
 
-  const scale = MAX_UPLOAD_LONG_EDGE / longEdge;
-  const canvas = createCanvas(Math.round(image.width * scale), Math.round(image.height * scale));
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return rawDataUrl;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
+/**
+ * TASK v3.45 (Part 2) — Qwen's own docs say anything over 2048px on the long
+ * edge is auto-downscaled server-side (with a quality hit) before editing;
+ * this resizes client-side first so the app controls the downscale (higher-
+ * quality resample than whatever DashScope does) and so the request body is
+ * smaller — img2img editing sends the reference image itself, unlike plain
+ * text-to-image generation. Always re-encodes as JPEG regardless of the
+ * source format: the input is a photographic background at this point (any
+ * text layer is composited separately on the client, never baked in before
+ * an edit round-trip), so there's no transparency/flat-color content that
+ * would benefit from PNG, and JPEG keeps the base64 payload well under the
+ * proxy's per-request size cap.
+ */
+const EDIT_INPUT_MAX_LONG_EDGE = 1536;
+
+export async function resizeDataUrlForEdit(dataUrl: string, maxLongEdge = EDIT_INPUT_MAX_LONG_EDGE): Promise<string> {
+  const image = await loadImage(dataUrl);
+  if (Math.max(image.width, image.height) <= maxLongEdge) return dataUrl;
+  return downscaleImageToDataUrl(image, maxLongEdge, 'image/jpeg', 0.9);
 }
 
 export function drawBackgroundCover(ctx: CanvasRenderingContext2D, image: HTMLImageElement | null, width: number, height: number, fillColor = '#111622'): void {

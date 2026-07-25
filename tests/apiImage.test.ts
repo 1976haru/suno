@@ -187,7 +187,12 @@ describe('[v3.41] api/image.js Qwen provider', () => {
       .toBe('https://ws123.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis');
     expect(__internal.buildQwenEndpoint({ region: 'beijing', workspaceId: 'ws123', mode: 'task', taskId: 'task-1' }))
       .toBe('https://ws123.cn-beijing.maas.aliyuncs.com/api/v1/tasks/task-1');
-    expect(__internal.resolveQwenModel('qwen-image-3.0-pro')).toBe('qwen-image-3.0-pro');
+    // TASK v3.45 — qwen-image-3.0-pro doesn't exist in Alibaba's model
+    // catalog; qwen-image-max is the real sync-only model resolveQwenModel
+    // should now accept, and a genuinely nonexistent id must still fall
+    // back to the sync default rather than pass through unchanged.
+    expect(__internal.resolveQwenModel('qwen-image-max')).toBe('qwen-image-max');
+    expect(__internal.resolveQwenModel('qwen-image-3.0-pro')).toBe(__internal.QWEN_DEFAULT_MODEL);
   });
 
   it('builds Qwen sync request bodies with one user message and a separate negative prompt', () => {
@@ -289,5 +294,137 @@ describe('[v3.41] api/image.js Qwen provider', () => {
     expect(calls[0].status).toBe(200);
     expect((calls[0].payload as { taskId: string }).taskId).toBe('task-42');
     expect((calls[0].payload as { imageUrls: string[] }).imageUrls).toEqual(['https://img.example/async.png']);
+  });
+});
+
+describe('[v3.45] api/image.js Qwen image editing (img2img)', () => {
+  const originalEnv = { ...process.env };
+  const originalFetch = global.fetch;
+  const smallImage = 'data:image/jpeg;base64,AAAA';
+
+  beforeEach(() => {
+    __internal.rateLimitBuckets.clear();
+    delete process.env.DASHSCOPE_API_KEY;
+    delete process.env.ACCESS_TOKEN;
+    global.fetch = originalFetch;
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('buildQwenRequestBody puts reference images first, then the text instruction, in the sync content array', () => {
+    const body = __internal.buildQwenRequestBody({
+      model: 'qwen-image-2.0',
+      prompt: 'make the sky more purple',
+      negativePrompt: 'no text',
+      size: '2688*1536',
+      n: 1,
+      asyncMode: false,
+      inputImages: ['data:image/jpeg;base64,AAA', 'data:image/jpeg;base64,BBB']
+    });
+    expect(body.input.messages[0].content).toEqual([
+      { image: 'data:image/jpeg;base64,AAA' },
+      { image: 'data:image/jpeg;base64,BBB' },
+      { text: 'make the sky more purple' }
+    ]);
+  });
+
+  it('parseQwenErrorBody/formatQwenErrorDetail extract code/message/request_id from a DashScope JSON error body', () => {
+    const parsed = __internal.parseQwenErrorBody(JSON.stringify({ code: 'InvalidApiKey', message: 'The API key is invalid.', request_id: 'req-1' }));
+    expect(parsed).toEqual({ code: 'InvalidApiKey', message: 'The API key is invalid.', requestId: 'req-1' });
+    expect(__internal.formatQwenErrorDetail(parsed, 'raw fallback')).toBe('InvalidApiKey: The API key is invalid. (request_id: req-1)');
+    expect(__internal.parseQwenErrorBody('not json')).toEqual({});
+    expect(__internal.formatQwenErrorDetail({}, 'raw fallback')).toBe('raw fallback');
+  });
+
+  it('isQwenAuthError recognizes 401/403 status and DashScope auth-related codes', () => {
+    expect(__internal.isQwenAuthError({ status: 401 })).toBe(true);
+    expect(__internal.isQwenAuthError({ status: 403 })).toBe(true);
+    expect(__internal.isQwenAuthError({ status: 400, code: 'InvalidApiKey' })).toBe(true);
+    expect(__internal.isQwenAuthError({ status: 400, code: 'InvalidParameter' })).toBe(false);
+  });
+
+  it('rejects more than the supported number of reference images before calling upstream', async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as never;
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', inputImages: [smallImage, smallImage, smallImage, smallImage] }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(400);
+    expect(String((calls[0].payload as { error: string }).error)).toContain('3장');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized combined reference-image payload before calling upstream', async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as never;
+    const oversized = 'A'.repeat(__internal.MAX_INPUT_IMAGES_BYTES + 1);
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', inputImages: [oversized] }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('forces sync mode and substitutes the sync default model when an async-only model is requested with reference images', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/multimodal-generation/generation')) {
+        // async-only header must never be sent for an editing request
+        expect(init?.headers).not.toHaveProperty('X-DashScope-Async');
+        const body = JSON.parse(String(init?.body));
+        expect(body.model).toBe(__internal.QWEN_DEFAULT_MODEL);
+        expect(body.input.messages[0].content[0]).toEqual({ image: smallImage });
+        return new Response(JSON.stringify({
+          output: { choices: [{ message: { content: [{ image: 'https://img.example/edited.png' }] } }] },
+          usage: { image_count: 1 }
+        }), { status: 200 });
+      }
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/png' } });
+    });
+    global.fetch = fetchMock as never;
+
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', model: 'qwen-image-plus', inputImages: [smallImage] }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(200);
+    const payload = calls[0].payload as { model: string; modelSubstituted: boolean };
+    expect(payload.model).toBe(__internal.QWEN_DEFAULT_MODEL);
+    expect(payload.modelSubstituted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not substitute the model when the requested one is already sync-capable', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/multimodal-generation/generation')) {
+        return new Response(JSON.stringify({
+          output: { choices: [{ message: { content: [{ image: 'https://img.example/edited.png' }] } }] },
+          usage: { image_count: 1 }
+        }), { status: 200 });
+      }
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/png' } });
+    });
+    global.fetch = fetchMock as never;
+
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', model: 'qwen-image-max', inputImages: [smallImage] }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(200);
+    const payload = calls[0].payload as { model: string; modelSubstituted: boolean };
+    expect(payload.model).toBe('qwen-image-max');
+    expect(payload.modelSubstituted).toBe(false);
+  });
+
+  it('appends a region-mismatch hint to the error message on an auth failure', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ code: 'InvalidApiKey', message: 'The API key is invalid.', request_id: 'req-9' }),
+      { status: 401 }
+    ));
+    global.fetch = fetchMock as never;
+
+    const { res, calls } = mockRes();
+    await imageHandler(mockReq({ provider: 'qwen', region: 'beijing' }, { 'x-qwen-api-key': 'sk-user-qwen-key' }) as never, res as never);
+    expect(calls[0].status).toBe(401);
+    const message = String((calls[0].payload as { error: string }).error);
+    expect(message).toContain('리전 불일치');
+    expect(message).toContain('베이징');
   });
 });

@@ -17,7 +17,13 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 // far below api/generate.js's 90/min — still generous for a real session of
 // generating several thumbnail/cover variants.
 const RATE_LIMIT_MAX_REQUESTS = 20;
-const MAX_BODY_BYTES = 200_000;
+// TASK v3.45 (Part 2) — raised from 200_000 (text-only prompts never
+// approached that): image-editing requests now carry 1-3 base64 reference
+// images. Kept just under Vercel's ~4.5MB serverless function body ceiling,
+// so an oversized request fails here with our own message rather than an
+// opaque platform-level 413. The more specific, image-focused size/count
+// checks (MAX_INPUT_IMAGES / MAX_INPUT_IMAGES_BYTES below) run after parsing.
+const MAX_BODY_BYTES = 4_500_000;
 // Image generation commonly runs slower than a short text completion; capped
 // well under Vercel's typical function ceiling.
 const REQUEST_TIMEOUT_MS = 90_000;
@@ -29,11 +35,21 @@ const DEFAULT_IMAGE_SIZE = '2K';
 
 const QWEN_DEFAULT_MODEL = 'qwen-image-2.0';
 const QWEN_DEFAULT_SIZE = '2688*1536';
-const QWEN_SYNC_MODELS = new Set(['qwen-image-3.0-pro', 'qwen-image-2.0', 'qwen-image-2.0-pro']);
+// TASK v3.45 — qwen-image-3.0-pro does not exist in Alibaba's model catalog
+// (verified against the official Qwen-Image API reference docs, 2026-07);
+// qwen-image-max is confirmed real and sync-only, same tier as 2.0/2.0-pro.
+const QWEN_SYNC_MODELS = new Set(['qwen-image-2.0', 'qwen-image-2.0-pro', 'qwen-image-max']);
 const QWEN_ASYNC_MODELS = new Set(['qwen-image-plus', 'qwen-image']);
 const QWEN_V2_SIZES = new Set(['2688*1536', '2048*2048', '1536*2688', '2368*1728', '1728*2368']);
 const QWEN_LEGACY_SIZES = new Set(['1664*928', '1328*1328', '928*1664']);
 const QWEN_POLL_INTERVAL_MS = 3_000;
+// TASK v3.45 (Part 2) — image editing (reference images in the request) only
+// works on the synchronous multimodal-generation endpoint and materially
+// increases request body size (base64 images vs. text-only prompts before
+// this task), unlike the plain-text 200KB cap above. Kept well under
+// Vercel's ~4.5MB serverless function body ceiling.
+const MAX_INPUT_IMAGES = 3;
+const MAX_INPUT_IMAGES_BYTES = 4_000_000;
 
 // TASK v3.37 (spec item A/B) — always appended server-side so a user who
 // forgets to add photographic quality language still gets a professional
@@ -194,7 +210,7 @@ function buildQwenEndpoint({ region, workspaceId, mode, taskId }) {
   return `${base}/services/aigc/multimodal-generation/generation`;
 }
 
-function buildQwenRequestBody({ model, prompt, negativePrompt, size, n, asyncMode }) {
+function buildQwenRequestBody({ model, prompt, negativePrompt, size, n, asyncMode, inputImages }) {
   const parameters = {
     negative_prompt: String(negativePrompt || ' ').slice(0, 500),
     prompt_extend: false,
@@ -211,18 +227,49 @@ function buildQwenRequestBody({ model, prompt, negativePrompt, size, n, asyncMod
     };
   }
 
+  // TASK v3.45 (Part 2) — img2img editing: 1-3 reference images go in the
+  // same "content" array the plain sync request already used for just
+  // { text: prompt }, per the official multimodal-generation request shape.
+  // Image entries first, text instruction last (documented order).
+  const content = [
+    ...(inputImages || []).map(image => ({ image })),
+    { text: prompt }
+  ];
+
   return {
     model,
     input: {
       messages: [
         {
           role: 'user',
-          content: [{ text: prompt }]
+          content
         }
       ]
     },
     parameters
   };
+}
+
+/** TASK v3.45 (Part 1) — DashScope error bodies are JSON ({code, message, request_id}) even on non-2xx responses; parsing them lets callers surface the real cause instead of a raw truncated JSON blob. */
+function parseQwenErrorBody(text) {
+  try {
+    const data = JSON.parse(text);
+    return { code: data?.code, message: data?.message, requestId: data?.request_id };
+  } catch {
+    return {};
+  }
+}
+
+function formatQwenErrorDetail({ code, message, requestId }, fallback) {
+  if (!message) return fallback;
+  return `${code ? `${code}: ` : ''}${message}${requestId ? ` (request_id: ${requestId})` : ''}`;
+}
+
+/** TASK v3.45 (Part 1) — status-based auth failures plus DashScope's own auth-related error codes; used to attach the region-mismatch hint (Beijing/Singapore keys are not interchangeable) rather than leaving a bare "API key invalid" message. */
+function isQwenAuthError(error) {
+  const status = error?.status;
+  const code = String(error?.code || '').toLowerCase();
+  return status === 401 || status === 403 || /invalidapikey|unauthorized|accessdenied|forbidden/i.test(code);
 }
 
 function extractQwenImageUrls(data) {
@@ -277,17 +324,19 @@ async function requestQwenImage({ apiKey, url, body, asyncMode }) {
   }, REQUEST_TIMEOUT_MS, 'Qwen image generation timed out. Please try again.');
 
   if (!response.ok) {
-    const detail = await response.text();
+    const rawText = await response.text();
+    const parsed = parseQwenErrorBody(rawText);
     const error = new Error(`Qwen upstream failed: ${response.status}`);
     error.status = response.status;
-    error.detail = detail;
+    error.code = parsed.code;
+    error.detail = formatQwenErrorDetail(parsed, rawText);
     throw error;
   }
   const data = await response.json();
   if (data?.code && data?.message) {
     const error = new Error(`Qwen upstream failed: ${data.code}`);
     error.status = 400;
-    error.detail = data.message;
+    error.detail = formatQwenErrorDetail({ code: data.code, message: data.message, requestId: data.request_id }, data.message);
     error.code = data.code;
     throw error;
   }
@@ -309,8 +358,8 @@ async function pollQwenTask({ apiKey, region, workspaceId, taskId, timeoutMs = R
     if (!response.ok || data?.code) {
       const error = new Error(`Qwen task polling failed: ${response.status}`);
       error.status = response.status || 400;
-      error.detail = data?.message || text;
       error.code = data?.code;
+      error.detail = formatQwenErrorDetail({ code: data?.code, message: data?.message, requestId: data?.request_id }, text);
       throw error;
     }
 
@@ -319,8 +368,11 @@ async function pollQwenTask({ apiKey, region, workspaceId, taskId, timeoutMs = R
     if (status === 'FAILED' || status === 'CANCELED' || status === 'UNKNOWN') {
       const error = new Error(`Qwen task ${status.toLowerCase()}.`);
       error.status = 400;
-      error.detail = data?.output?.message || data?.message || JSON.stringify(data?.output || {});
       error.code = data?.output?.code || data?.code;
+      error.detail = formatQwenErrorDetail(
+        { code: error.code, message: data?.output?.message || data?.message, requestId: data?.request_id },
+        JSON.stringify(data?.output || {})
+      );
       throw error;
     }
     await sleep(intervalMs);
@@ -388,43 +440,69 @@ async function callGemini({ model, prompt, aspectRatio, imageSize, userApiKey })
   return { dataUrl: `data:${image.mimeType || 'image/png'};base64,${image.data}`, mimeType: image.mimeType || 'image/png' };
 }
 
-async function callQwen({ model, prompt, negativePrompt, size, n, region, workspaceId, userApiKey }) {
+async function callQwen({ model, prompt, negativePrompt, size, n, region, workspaceId, userApiKey, inputImages }) {
   const apiKey = userApiKey || process.env.DASHSCOPE_API_KEY;
   if (!apiKey) throw new Error('DASHSCOPE_API_KEY is not configured on the server.');
 
-  const resolvedModel = resolveQwenModel(model);
+  const hasInputImages = Array.isArray(inputImages) && inputImages.length > 0;
+  let resolvedModel = resolveQwenModel(model);
+  // TASK v3.45 (Part 2) — editing (reference images present) does not
+  // support the async task endpoint at all; if the caller's configured
+  // model is one of the async-only ones, fall back to the sync default
+  // instead of failing, and report the substitution so the UI can tell the
+  // user why a different model produced the result.
+  let modelSubstituted = false;
+  if (hasInputImages && QWEN_ASYNC_MODELS.has(resolvedModel)) {
+    resolvedModel = QWEN_DEFAULT_MODEL;
+    modelSubstituted = true;
+  }
   const resolvedRegion = resolveQwenRegion(region);
   const resolvedSize = resolveQwenSize(size, resolvedModel);
   const resolvedCount = clampQwenImageCount(n);
-  const asyncMode = QWEN_ASYNC_MODELS.has(resolvedModel);
+  const asyncMode = !hasInputImages && QWEN_ASYNC_MODELS.has(resolvedModel);
   const body = buildQwenRequestBody({
     model: resolvedModel,
     prompt: String(prompt || '').trim(),
     negativePrompt,
     size: resolvedSize,
     n: resolvedCount,
-    asyncMode
+    asyncMode,
+    inputImages: hasInputImages ? inputImages : undefined
   });
 
   let data;
   let taskId;
-  if (asyncMode) {
-    const created = await requestQwenImage({
-      apiKey,
-      url: buildQwenEndpoint({ region: resolvedRegion, workspaceId, mode: 'async' }),
-      body,
-      asyncMode: true
-    });
-    taskId = created?.output?.task_id;
-    if (!taskId) throw new Error('Qwen async task response did not include task_id.');
-    data = await pollQwenTask({ apiKey, region: resolvedRegion, workspaceId, taskId });
-  } else {
-    data = await requestQwenImage({
-      apiKey,
-      url: buildQwenEndpoint({ region: resolvedRegion, workspaceId, mode: 'sync' }),
-      body,
-      asyncMode: false
-    });
+  try {
+    if (asyncMode) {
+      const created = await requestQwenImage({
+        apiKey,
+        url: buildQwenEndpoint({ region: resolvedRegion, workspaceId, mode: 'async' }),
+        body,
+        asyncMode: true
+      });
+      taskId = created?.output?.task_id;
+      if (!taskId) throw new Error('Qwen async task response did not include task_id.');
+      data = await pollQwenTask({ apiKey, region: resolvedRegion, workspaceId, taskId });
+    } else {
+      data = await requestQwenImage({
+        apiKey,
+        url: buildQwenEndpoint({ region: resolvedRegion, workspaceId, mode: 'sync' }),
+        body,
+        asyncMode: false
+      });
+    }
+  } catch (error) {
+    // TASK v3.45 (Part 1) — the app defaults to region: 'singapore', so a
+    // Beijing-console API key used as-is authenticates against the wrong
+    // endpoint; DashScope's own docs warn the two regions' keys/endpoints
+    // are not interchangeable. An auth failure is otherwise indistinguishable
+    // from a genuinely wrong key, so name the likely cause explicitly.
+    if (isQwenAuthError(error)) {
+      const regionLabel = resolvedRegion === 'beijing' ? '베이징' : '싱가포르';
+      const hint = `리전 불일치 가능성: 이 요청은 '${regionLabel}' 리전으로 전송되었습니다. API 키를 발급받은 리전과 일치하는지 확인하세요 — 베이징 키와 싱가포르 키는 서로 호환되지 않습니다.`;
+      error.detail = error.detail ? `${error.detail} (${hint})` : hint;
+    }
+    throw error;
   }
 
   const imageUrls = extractQwenImageUrls(data);
@@ -433,6 +511,7 @@ async function callQwen({ model, prompt, negativePrompt, size, n, region, worksp
   return {
     provider: 'qwen',
     model: resolvedModel,
+    modelSubstituted,
     imageUrls,
     dataUrls: downloaded.dataUrls,
     mimeType: downloaded.mimeType,
@@ -489,6 +568,22 @@ export default async function handler(req, res) {
     }
 
     if (provider === 'qwen') {
+      const inputImages = Array.isArray(body.inputImages)
+        ? body.inputImages.filter(image => typeof image === 'string' && image)
+        : undefined;
+
+      if (inputImages?.length) {
+        if (inputImages.length > MAX_INPUT_IMAGES) {
+          sendError(res, 400, `참고 이미지는 최대 ${MAX_INPUT_IMAGES}장까지 지원됩니다.`);
+          return;
+        }
+        const totalBytes = inputImages.reduce((sum, image) => sum + image.length, 0);
+        if (totalBytes > MAX_INPUT_IMAGES_BYTES) {
+          sendError(res, 413, '참고 이미지 용량이 너무 큽니다. 이미지 크기를 줄여 다시 시도하세요.');
+          return;
+        }
+      }
+
       const result = await callQwen({
         model: body.model,
         prompt: body.prompt,
@@ -497,7 +592,8 @@ export default async function handler(req, res) {
         n: body.n,
         region: body.region,
         workspaceId: body.workspaceId,
-        userApiKey
+        userApiKey,
+        inputImages
       });
 
       res.status(200).json({ ok: true, ...result });
@@ -551,11 +647,16 @@ export const __internal = {
   extractQwenImageUrls,
   qwenUsageImageCount,
   pollQwenTask,
+  parseQwenErrorBody,
+  formatQwenErrorDetail,
+  isQwenAuthError,
   fetchWithTimeout,
   rateLimitBuckets,
   QUALITY_BOOSTER,
   DEFAULT_IMAGE_MODEL,
   DEFAULT_IMAGE_SIZE,
   QWEN_DEFAULT_MODEL,
-  QWEN_DEFAULT_SIZE
+  QWEN_DEFAULT_SIZE,
+  MAX_INPUT_IMAGES,
+  MAX_INPUT_IMAGES_BYTES
 };

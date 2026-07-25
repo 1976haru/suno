@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import { Download, RefreshCw, Sparkles, Upload } from 'lucide-react';
+import { Download, RefreshCw, Sparkles, Undo2, Upload, Wand2 } from 'lucide-react';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
 import { composeThumbnailPromptSet, type ThumbnailPromptVariantId } from '../core/thumbnailPromptComposer';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
 import type { ThumbnailArchetypeId, ThumbnailPeopleMode, ThumbnailTextSafeZone, ThumbnailTimeOfDay } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
-import { generateThumbnailImage } from '../core/thumbnailImageGen';
+import { generateQwenImage, generateThumbnailImage, getQwenApiKey, getQwenImageSettings } from '../core/thumbnailImageGen';
 import {
   BASE_STYLE_PRESETS, FONT_OPTIONS, SHADOW_COLORS, TEXT_COLORS, TEXT_POSITIONS,
-  composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl
+  composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl, resizeDataUrlForEdit
 } from '../core/thumbnailCanvas';
 import type { ThumbnailTextStyle } from '../core/thumbnailCanvas';
 import { defaultBrandTemplate, getBrandTemplate, listBrandChannelNames, saveBrandTemplate } from '../core/thumbnailBrandStore';
 import type { ThumbnailBadgePosition, ThumbnailBrandTemplate } from '../types';
 import { listSetGroups, loadPack } from '../core/library';
 import type { SetGroupSummary } from '../core/library';
+import { recordUsage } from '../core/usageLedger';
 
 /**
  * TASK v3.37 — image-generation + canvas-compositing studio, ported from
@@ -67,6 +68,18 @@ interface ImageTargetState {
   backgroundDataUrl: string | null;
   /** TASK v3.44 Step A — which path filled backgroundDataUrl, so the UI can badge it ("AI 생성" vs "업로드") instead of leaving the source ambiguous. */
   backgroundSource: 'ai' | 'upload' | null;
+  /**
+   * TASK v3.45 (Part 2) — oldest-first stack of every backgroundDataUrl this
+   * target has had: index 0 is always the original (upload or AI-generated),
+   * every entry after it is one img2img edit. Capped (see capBackgroundHistory)
+   * but always keeps the original reachable, since repeated edits compound
+   * quality loss and the user should be able to restart from it, not just
+   * step back one undo at a time.
+   */
+  backgroundHistory: string[];
+  /** TASK v3.45 (Part 2) — the instruction prompt for "이 이미지 수정하기" (img2img editing), independent of copyText (the canvas-text headline). */
+  editPrompt: string;
+  editing: boolean;
   loading: boolean;
   error: string;
   composedCanvas: HTMLCanvasElement | null;
@@ -89,10 +102,20 @@ function createTargetState(key: ImageTargetKey, spec: ThumbnailSpec, defaultSeas
     copyText: key === 'cover' ? headline.split('\n')[0] : headline,
     backgroundDataUrl: null,
     backgroundSource: null,
+    backgroundHistory: [],
+    editPrompt: '',
+    editing: false,
     loading: false,
     error: '',
     composedCanvas: null
   };
+}
+
+/** TASK v3.45 (Part 2) — keeps history bounded while always keeping the very first (original, pre-edit) entry reachable, not just the most recent steps. */
+const BACKGROUND_HISTORY_LIMIT = 3;
+function capBackgroundHistory(history: string[]): string[] {
+  if (history.length <= BACKGROUND_HISTORY_LIMIT) return history;
+  return [history[0], ...history.slice(-(BACKGROUND_HISTORY_LIMIT - 1))];
 }
 
 export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defaultArchetypeId }: ThumbnailImageStudioPanelProps) {
@@ -110,6 +133,11 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchLog, setBatchLog] = useState('');
+
+  // TASK v3.45 (Part 2) — mirrors ThumbnailSpecPanel's own per-session Qwen
+  // image counter (each panel instance tracks its own; not shared across
+  // panels, same as that existing component).
+  const [qwenSessionCount, setQwenSessionCount] = useState(0);
 
   const effectiveLocked = template.locked && !overrideOnce;
 
@@ -234,7 +262,10 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     setTargetState(key, { loading: true, error: '' });
     try {
       const image = await generateThumbnailImage({ prompt: variant.prompt, aspectRatio: key === 'thumb' ? '16:9' : '1:1' });
-      setTargetState(key, { backgroundDataUrl: image.dataUrl, backgroundSource: 'ai', loading: false });
+      // TASK v3.45 (Part 2) — a fresh background (AI or upload) restarts the
+      // edit history rather than appending to whatever the previous
+      // background's history was.
+      setTargetState(key, { backgroundDataUrl: image.dataUrl, backgroundSource: 'ai', backgroundHistory: [image.dataUrl], loading: false });
     } catch (error) {
       setTargetState(key, { loading: false, error: error instanceof Error ? error.message : String(error) });
     }
@@ -251,7 +282,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     setTargetState(key, { loading: true, error: '' });
     try {
       const dataUrl = await loadUserBackgroundDataUrl(file);
-      setTargetState(key, { backgroundDataUrl: dataUrl, backgroundSource: 'upload', loading: false });
+      setTargetState(key, { backgroundDataUrl: dataUrl, backgroundSource: 'upload', backgroundHistory: [dataUrl], loading: false });
     } catch (error) {
       setTargetState(key, { loading: false, error: error instanceof Error ? error.message : String(error) });
     }
@@ -260,6 +291,68 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   function handleBackgroundDrop(key: ImageTargetKey, event: DragEvent<HTMLElement>) {
     event.preventDefault();
     void loadUserBackground(key, event.dataTransfer.files?.[0]);
+  }
+
+  /**
+   * TASK v3.45 (Part 2) — img2img editing: sends the current background as a
+   * reference image alongside an instruction prompt to Qwen's sync
+   * multimodal-generation endpoint (editing never supports async, so the
+   * proxy forces/substitutes sync automatically — see api/image.js). Never
+   * destructive: the previous backgroundDataUrl stays in backgroundHistory,
+   * reachable via undoBackgroundEdit.
+   */
+  async function editBackground(key: ImageTargetKey) {
+    const state = targetState(key);
+    const prompt = state.editPrompt.trim();
+    if (!state.backgroundDataUrl || !prompt) return;
+
+    const apiKey = await getQwenApiKey();
+    if (!apiKey) {
+      setTargetState(key, { error: 'Settings에서 Qwen API 키를 먼저 등록하세요.' });
+      return;
+    }
+    const settings = await getQwenImageSettings();
+    if (qwenSessionCount + 1 > settings.sessionLimit && !window.confirm(`이번 세션의 Qwen 이미지 사용량이 ${qwenSessionCount + 1}장으로, 설정된 한도 ${settings.sessionLimit}장을 넘습니다. 계속할까요?`)) {
+      return;
+    }
+
+    setTargetState(key, { editing: true, error: '' });
+    try {
+      const resized = await resizeDataUrlForEdit(state.backgroundDataUrl);
+      const result = await generateQwenImage({ prompt, settings, count: 1, inputImages: [resized] });
+      const edited = result.dataUrls[0] || result.imageUrls[0];
+      if (!edited) throw new Error('편집 결과 이미지를 받지 못했습니다.');
+      setQwenSessionCount(count => count + result.imageCount);
+      await recordUsage({
+        provider: 'qwen',
+        model: result.model,
+        purpose: 'image',
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheHit: false,
+        imageCount: result.imageCount,
+        imageCostCny: result.estimatedCostCny
+      });
+      setTargetState(key, {
+        backgroundDataUrl: edited,
+        backgroundHistory: capBackgroundHistory([...state.backgroundHistory, edited]),
+        editing: false,
+        error: result.modelSubstituted ? `참고: 선택된 모델은 편집(동기 전용)을 지원하지 않아 ${result.model}로 자동 대체되었습니다.` : ''
+      });
+    } catch (error) {
+      setTargetState(key, { editing: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  function undoBackgroundEdit(key: ImageTargetKey) {
+    const state = targetState(key);
+    if (state.backgroundHistory.length <= 1) return;
+    const nextHistory = state.backgroundHistory.slice(0, -1);
+    setTargetState(key, {
+      backgroundDataUrl: nextHistory[nextHistory.length - 1],
+      backgroundHistory: nextHistory,
+      error: ''
+    });
   }
 
   async function renderComposite(key: ImageTargetKey): Promise<HTMLCanvasElement | null> {
@@ -447,6 +540,34 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
           )}
           {state.composedCanvas && <img className="thumbnail-bg-preview" src={state.composedCanvas.toDataURL('image/png')} alt="합성 결과" />}
         </div>
+
+        {state.backgroundDataUrl && (
+          <div className="option-block">
+            <label>🪄 이 이미지 수정하기 (Qwen, img2img)</label>
+            <p className="supporting">
+              업로드하거나 생성한 배경을 프롬프트로 고쳐보세요 (예: "하늘을 더 보랏빛으로"). 편집은 항상 동기 방식으로만 동작하며, 비동기 전용 모델이 선택돼 있어도 자동으로 대체됩니다.
+              글자가 이미 구워진 이미지라면 먼저 <b>"제목 글자를 지우고 자연스럽게 채워주세요"</b>처럼 지시해 글자 없는 배경을 만든 뒤, 아래 "문구" 캔버스 텍스트로 제목을 얹으세요 — 그래야 제목을 몇 번이든 다시 바꿀 수 있고 한글 서체도 정확합니다.
+            </p>
+            <div className="inline">
+              <input
+                value={state.editPrompt}
+                placeholder="예: 하늘을 더 보랏빛으로, 글자는 그대로 두세요"
+                onChange={event => setTargetState(key, { editPrompt: event.target.value })}
+              />
+              <button type="button" className="primary" disabled={state.editing || !state.editPrompt.trim()} onClick={() => void editBackground(key)}>
+                <Wand2 size={14} />
+                {state.editing ? '수정 중...' : '이 이미지 수정하기'}
+              </button>
+              <button type="button" disabled={state.backgroundHistory.length <= 1} onClick={() => undoBackgroundEdit(key)}>
+                <Undo2 size={14} />
+                되돌리기
+              </button>
+            </div>
+            {state.backgroundHistory.length > 1 && (
+              <p className="supporting">편집 {state.backgroundHistory.length - 1}단계 적용됨 (원본까지 되돌리기 가능)</p>
+            )}
+          </div>
+        )}
 
         <label>문구</label>
         <div className="inline">

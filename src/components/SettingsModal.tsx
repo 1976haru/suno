@@ -277,7 +277,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         </p>
         <label>Image generation - Qwen (Model Studio)</label>
         <p className="supporting">
-          Uses Alibaba Cloud Model Studio through /api/image. Stored locally as byok:qwen. Confirmed docs list qwen-image-3.0-pro, Qwen-Image 2.0/2.0 Pro, and Plus/Image models.
+          Uses Alibaba Cloud Model Studio through /api/image. Stored locally as byok:qwen. Verified against Alibaba's official Qwen-Image API reference (2026-07): Qwen-Image 2.0 / 2.0 Pro / Max (sync only), and Plus/Image (async, cheaper).
         </p>
         <div className="inline">
           <input
@@ -301,6 +301,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
               <option value="singapore">Singapore / international</option>
               <option value="beijing">China (Beijing)</option>
             </select>
+            {/* TASK v3.45 (Part 1) — DashScope's own docs warn Beijing and Singapore keys/endpoints are not interchangeable; an auth failure from picking the wrong region here is otherwise indistinguishable from a genuinely wrong key. */}
+            <span className="error">API 키는 발급받은 리전에서만 동작합니다. 베이징 키와 싱가포르 키는 호환되지 않습니다.</span>
           </label>
           <label>
             WorkspaceId (optional)
