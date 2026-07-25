@@ -88,10 +88,11 @@ describe('buildVocalPlan', () => {
 });
 
 describe('vocalDescriptionFor', () => {
-  it('defaults to Korean diction when no language is given', () => {
+  it('defaults to Korean diction and variant 0 when no language/variantIndex is given', () => {
     expect(vocalDescriptionFor('male')).toBe('bright childlike boy voice, playful and youthful, kindergarten-age tone, clear Korean diction, bright and friendly');
     expect(vocalDescriptionFor('female')).toBe('bright childlike girl voice, sweet and clear, kindergarten-age tone, clear Korean diction, bright and friendly');
-    expect(vocalDescriptionFor('mixed')).toBe("children's choir of childlike, youthful voices singing together, cheerful call-and-response group singalong, clear Korean diction, bright and friendly");
+    // TASK v3.41 Part A2/D — mixed is now a 5-variant array; variant 0 is this string.
+    expect(vocalDescriptionFor('mixed')).toBe("children's choir singing together, cheerful call-and-response singalong, clear Korean diction, bright and friendly");
   });
 
   it('never describes any vocal type as an adult voice', () => {

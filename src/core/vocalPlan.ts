@@ -2,6 +2,18 @@ import type { GenerationOptions, LyricLanguage } from '../types';
 import { shuffle } from './lyricEngine';
 
 /**
+ * TASK v3.41 Part A1 — the explicit gender axis a VocalPreset now carries
+ * (data/vocalPresets.ts). Kept as its own type here (not re-exported from
+ * vocalPresets.ts) since core/* modules that need it (batchPreallocation.ts,
+ * quality.ts) shouldn't have to import the data layer just for a type.
+ * 'duet' is new: prose detection (detectVocalGender below) can never
+ * recognize it reliably, since a duet's own text legitimately contains both
+ * a male and a female word — the explicit field is what makes duet
+ * enforcement possible at all.
+ */
+export type VocalGender = 'male' | 'female' | 'mixed' | 'duet';
+
+/**
  * TASK v3.38 Part B2 — per-song vocal-type quota for the 'kids' channel
  * archetype, mirroring core/moneyChordPlan.ts's activation pattern: only
  * ever engages for the 'kids' archetype (no other channel has a vocalQuota
@@ -34,11 +46,37 @@ export type KidsVocalLanguage = 'korean' | 'japanese' | 'english';
  * instead of naming an age directly. Phrased positively (no "not an adult"
  * style negation, and no literal "adult" wording at all) since a generative
  * model is more reliable steered by what a voice IS than by what it isn't.
+ *
+ * TASK v3.41 Part A2/D — each type is now 5 variants instead of one fixed
+ * string. Real measurement: a 15-song 5/5/5 kids pack previously produced
+ * only 3 distinct vocalText values total (one per type, reused verbatim by
+ * every song of that type) — directly the "inauthentic/template content"
+ * risk the v3.40 strategy review flagged. buildVocalVariantPlan below
+ * rotates through these per song so the same pack instead reaches up to 15
+ * distinct values.
  */
-const VOCAL_DESCRIPTIONS: Record<VocalType, string> = {
-  male: 'bright childlike boy voice, playful and youthful, kindergarten-age tone',
-  female: 'bright childlike girl voice, sweet and clear, kindergarten-age tone',
-  mixed: "children's choir of childlike, youthful voices singing together, cheerful call-and-response group singalong"
+const VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
+  male: [
+    'bright childlike boy voice, playful and youthful, kindergarten-age tone',
+    'cheerful young boy voice, bouncy energetic phrasing, childlike tone',
+    'sweet childlike boy voice, gentle and warm, kindergarten-age tone',
+    'clear childlike boy voice, confident singalong delivery, young elementary-age tone',
+    'lively young boy voice, skipping playful rhythm, bright childlike tone'
+  ],
+  female: [
+    'bright childlike girl voice, sweet and clear, kindergarten-age tone',
+    'cheerful young girl voice, light bouncy phrasing, childlike tone',
+    'gentle childlike girl voice, soft and warm, kindergarten-age tone',
+    'clear childlike girl voice, confident singalong delivery, young elementary-age tone',
+    'sparkling young girl voice, bright airy tone, playful childlike delivery'
+  ],
+  mixed: [
+    "children's choir singing together, cheerful call-and-response singalong",
+    "children's choir in simple unison, bright easy group singalong",
+    'childlike boy and girl voices trading lines, playful call-and-response',
+    "children's choir with clapping-game rhythm, chant-like group singing",
+    "children's choir in a simple round, overlapping cheerful entries"
+  ]
 };
 
 /** TASK v3.38 Part B (language follow-up) — "언어별 보컬 묘사도 해당 언어 발음에 맞게 조정 (예: japanese -> clear Japanese diction, bright and friendly)"; appended to every vocal type's base description below. */
@@ -53,8 +91,56 @@ export function vocalDictionLanguage(language: LyricLanguage): KidsVocalLanguage
   return 'korean';
 }
 
-export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean'): string {
-  return `${VOCAL_DESCRIPTIONS[type]}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
+/**
+ * TASK v3.41 Part A2/D — `variantIndex` selects which of this type's 5
+ * wordings to use (see VOCAL_DESCRIPTIONS above); out-of-range/negative
+ * values wrap via modulo so a caller can pass any deterministic integer
+ * (typically buildVocalVariantPlan's output for that trackNo) without
+ * bounds-checking first. Omitting it keeps the pre-v3.41 default (variant 0)
+ * for any caller that doesn't need rotation.
+ */
+export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean', variantIndex = 0): string {
+  const variants = VOCAL_DESCRIPTIONS[type];
+  const safeIndex = ((variantIndex % variants.length) + variants.length) % variants.length;
+  return `${variants[safeIndex]}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
+}
+
+/**
+ * TASK v3.41 Part A2/D — for each vocal type, builds a shuffled cycle of
+ * variant indices covering exactly as many songs as that type occurs in
+ * `plan` (reshuffling with a different seed offset for another lap around
+ * the pool if a type occurs more times than it has variants — e.g. a 7/7/6
+ * split at songCount=20 needs 7 male indices out of a 5-variant pool).
+ * Mirrors buildVocalPlan's own "no immediate repeat" spirit: consecutive
+ * occurrences of the same type never land on the same variant index, since
+ * each lap is an independent shuffle of the full 0..poolSize-1 range (a
+ * repeat can only occur at a lap boundary, and only when poolSize is 1).
+ */
+export function buildVocalVariantPlan(plan: VocalType[], seed: number): number[] {
+  const TYPE_SEED_OFFSET: Record<VocalType, number> = { male: 0, female: 4001, mixed: 8009 };
+  const sequenceByType: Partial<Record<VocalType, number[]>> = {};
+  const cursorByType: Partial<Record<VocalType, number>> = {};
+
+  for (const type of VOCAL_TYPES) {
+    const occurrences = plan.filter(entry => entry === type).length;
+    if (!occurrences) continue;
+    const poolSize = VOCAL_DESCRIPTIONS[type].length;
+    const sequence: number[] = [];
+    let lap = 0;
+    while (sequence.length < occurrences) {
+      const lapIndices = shuffle(Array.from({ length: poolSize }, (_, i) => i), seed + TYPE_SEED_OFFSET[type] + lap * 293);
+      sequence.push(...lapIndices);
+      lap += 1;
+    }
+    sequenceByType[type] = sequence;
+    cursorByType[type] = 0;
+  }
+
+  return plan.map(type => {
+    const cursor = cursorByType[type] ?? 0;
+    cursorByType[type] = cursor + 1;
+    return sequenceByType[type]?.[cursor] ?? 0;
+  });
 }
 
 /**
@@ -82,12 +168,25 @@ function genderTermsPattern(terms: string, flags: string): RegExp {
   return new RegExp(`\\b(?:${terms})\\b`, flags);
 }
 
+function hasFemaleVoiceWord(text: string): boolean {
+  return genderTermsPattern(FEMALE_VOICE_TERMS, 'i').test(text);
+}
+
+function hasMaleVoiceWord(text: string): boolean {
+  return genderTermsPattern(MALE_VOICE_TERMS, 'i').test(text);
+}
+
 export function detectVocalGender(text: string): 'male' | 'female' | null {
-  const hasFemale = genderTermsPattern(FEMALE_VOICE_TERMS, 'i').test(text);
-  const hasMale = genderTermsPattern(MALE_VOICE_TERMS, 'i').test(text);
+  const hasFemale = hasFemaleVoiceWord(text);
+  const hasMale = hasMaleVoiceWord(text);
   if (hasFemale && !hasMale) return 'female';
   if (hasMale && !hasFemale) return 'male';
   return null;
+}
+
+/** Exposes the two independent presence checks (unlike detectVocalGender, doesn't collapse to null when both are present) — needed to check a duet actually has both genders represented. */
+export function detectVocalGenderPresence(text: string): { male: boolean; female: boolean } {
+  return { male: hasMaleVoiceWord(text), female: hasFemaleVoiceWord(text) };
 }
 
 /** Strips every word of `gender` out of `text` and tidies up the punctuation/whitespace left behind. */
@@ -123,38 +222,75 @@ function prependVocalText(stylePrompt: string, vocalText: string, strippedGender
  * male baritone lead" for a kids choir slot and it sailed straight through).
  * When vocalText reads as a group/choir voice, any single-gender word found
  * in the stylePrompt is itself the bug — strip it and inject the choir text.
+ *
+ * TASK v3.41 Part A1 — `gender`, when the caller has it (VocalPreset.gender
+ * or a kids-quota VocalType), is now trusted over sniffing `vocalText`'s own
+ * prose. This is what makes a duet enforceable at all: prose detection on
+ * "male and female duet, ..." always returns null (both words legitimately
+ * present), which previously meant duet selections got zero enforcement.
+ * Falls back to prose detection only when no explicit gender is supplied
+ * (free-text vocalTone that doesn't match a known preset).
  */
-export function enforceVocalTextInStylePrompt(stylePrompt: string, vocalText: string | undefined): { text: string; changed: boolean } {
+export function enforceVocalTextInStylePrompt(
+  stylePrompt: string,
+  vocalText: string | undefined,
+  gender?: VocalGender
+): { text: string; changed: boolean } {
   if (!vocalText) return { text: stylePrompt, changed: false };
-  const target = detectVocalGender(vocalText);
-  if (target) {
-    if (detectVocalGender(stylePrompt) === target) return { text: stylePrompt, changed: false };
-    return prependVocalText(stylePrompt, vocalText, target === 'male' ? 'female' : 'male');
+  // TASK v3.41 — falls back to prose detection when no explicit gender is
+  // supplied; detectVocalGender itself never returns 'mixed' (it only knows
+  // male/female/null), so a choir-worded vocalText with no explicit gender
+  // still needs the same `/\bchoir\b/` fallback the pre-v3.41 H2 fix used,
+  // preserved here for any caller that hasn't been updated to pass gender.
+  const resolved: VocalGender | null = gender ?? detectVocalGender(vocalText) ?? (/\bchoir\b/i.test(vocalText) ? 'mixed' : null);
+  if (!resolved) return { text: stylePrompt, changed: false };
+
+  if (resolved === 'male' || resolved === 'female') {
+    if (detectVocalGender(stylePrompt) === resolved) return { text: stylePrompt, changed: false };
+    return prependVocalText(stylePrompt, vocalText, resolved === 'male' ? 'female' : 'male');
   }
-  if (/\bchoir\b/i.test(vocalText)) {
-    const strayGender = detectVocalGender(stylePrompt);
-    if (!strayGender) return { text: stylePrompt, changed: false };
-    return prependVocalText(stylePrompt, vocalText, strayGender);
+
+  if (resolved === 'duet') {
+    // TASK v3.41 — a duet needs BOTH genders represented; a lone existing
+    // gender word isn't wrong, just incomplete, so this injects rather than
+    // strips (stripping would fight the very thing a duet is supposed to
+    // have).
+    if (hasMaleVoiceWord(stylePrompt) && hasFemaleVoiceWord(stylePrompt)) return { text: stylePrompt, changed: false };
+    const text = `${vocalText}, ${stylePrompt}`.replace(/^,\s*/, '').replace(/,\s*$/, '');
+    return { text, changed: true };
   }
-  return { text: stylePrompt, changed: false };
+
+  // resolved === 'mixed'
+  const strayGender = detectVocalGender(stylePrompt);
+  if (!strayGender) return { text: stylePrompt, changed: false };
+  return prependVocalText(stylePrompt, vocalText, strayGender);
 }
 
 /**
  * TASK v3.39 Part H — the strongest lever Suno actually reads for vocal
  * gender is a lyric meta tag, not prose in the style field (see the H spec's
  * "가사 메타 태그 부재" finding: 0 uses of [male vocal]-style tags in real
- * output). Returns null when there's nothing enforceable to tag (mixed/
- * unspecified gender outside the kids choir case).
+ * output). Returns null when there's nothing enforceable to tag.
+ *
+ * TASK v3.41 Part A1 — accepts the explicit `gender` axis alongside the
+ * kids-quota `vocalType`; a non-kids 'mixed' selection (mixed-harmony-group)
+ * tags as "[group vocal]" rather than "[children's choir]" — distinguished
+ * by whether vocalText itself mentions "choir" (kids' mixed presets all do),
+ * not by archetype, so this stays a pure function.
  */
-export function resolveVocalMetaTag(vocalType: VocalType | undefined, vocalText: string | undefined): string | null {
+export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: VocalGender | undefined, vocalText: string | undefined): string | null {
   if (vocalType === 'mixed') return "[children's choir]";
   if (vocalType === 'male') return '[male vocal]';
   if (vocalType === 'female') return '[female vocal]';
-  const gender = vocalText ? detectVocalGender(vocalText) : null;
-  return gender === 'male' ? '[male vocal]' : gender === 'female' ? '[female vocal]' : null;
+  if (gender === 'duet') return '[duet vocal]';
+  if (gender === 'mixed') return vocalText && /\bchoir\b/i.test(vocalText) ? "[children's choir]" : '[group vocal]';
+  if (gender === 'male') return '[male vocal]';
+  if (gender === 'female') return '[female vocal]';
+  const detected = vocalText ? detectVocalGender(vocalText) : null;
+  return detected === 'male' ? '[male vocal]' : detected === 'female' ? '[female vocal]' : null;
 }
 
-const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|children'?s choir)\]/i;
+const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]/i;
 
 /** Prepends `tag` to `lyrics` unless a vocal meta tag is already present at the top (never double-tags). */
 export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {

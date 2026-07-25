@@ -5,9 +5,10 @@ import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBu
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { buildVocalPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE } from './exportCompliance';
+import { matchVocalPreset } from '../data/vocalPresets';
 import { composeKidsLyrics } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
@@ -424,10 +425,16 @@ export function generateLocalBlueprint(
   // pre-pass shape; vocalQuota falls back to the 6/6/6 default when the
   // channel/opts didn't set one explicitly.
   const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
+  // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
+  // bridge paths rotate through the same per-song wording for the same opts.
+  const vocalVariantPlan = vocalPlan ? buildVocalVariantPlan(vocalPlan, seed) : null;
   // TASK v3.39.1 Part H4 — matches batchPreallocation.ts's own fallback so
   // the local path's lyric meta tag agrees with what the realtime/Batch/
   // bridge paths would tag the same opts with.
   const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
+  // TASK v3.41 Part A1 — mirrors batchPreallocation.ts's fallbackVocalGender.
+  const fallbackVocalGender = matchVocalPreset(fallbackVocalText)?.gender;
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -471,14 +478,24 @@ export function generateLocalBlueprint(
     // length would cross the Suno-safe budget — drops the lowest-priority
     // ids first (never truncating mid-phrase). See promptComposer.ts.
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
+    // TASK v3.41 Part A2/D — same rotation index batchPreallocation.ts's
+    // preallocateSongSlots uses for the same opts/trackNo.
+    const vocalDescriptionText = vocalType
+      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
+      : fallbackVocalText;
+    // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
+    // kids-quota song; otherwise falls back to the matched preset's own
+    // gender (mirrors batchPreallocation.ts's fallbackVocalGender) so a
+    // locally generated non-kids pack also gets a correct duet/group tag
+    // instead of relying on prose sniffing alone.
+    const vocalGender = vocalType ?? fallbackVocalGender;
     // TASK v3.39.1 Part H4 — realtime/Batch/bridge output all get a
     // [male vocal]/[female vocal]/[children's choir] lyric meta tag via
     // batchPreallocation.ts's reconcileWithPreassignedSlot, but a local-only
     // generated pack never passes through that function, so its lyrics
     // always started with the section tag ([short intro], etc.) and no
     // vocal tag at all. Same tag resolution, applied directly here instead.
-    const vocalTextForTag = vocalType ? vocalDescriptionFor(vocalType, opts.lyricLanguage) : fallbackVocalText;
-    const lyrics = ensureVocalMetaTag(composedLyrics, resolveVocalMetaTag(vocalType, vocalTextForTag));
+    const lyrics = ensureVocalMetaTag(composedLyrics, resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
@@ -496,7 +513,7 @@ export function generateLocalBlueprint(
       // quota plan is active; this 'vocal' id is in promptBudget.ts's
       // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack
       // vocal atom it replaces.
-      ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionFor(vocalType, opts.lyricLanguage) }] : []),
+      ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionText }] : []),
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },

@@ -2,7 +2,8 @@ import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
 import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
-import { detectVocalGender, vocalDescriptionFor } from './vocalPlan';
+import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
+import { matchVocalPreset } from '../data/vocalPresets';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -299,14 +300,30 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   // here, so this mostly won't fire on those paths anymore — but it's still
   // a visible safety-net warning for anyone auditing a pack (a hand-edited
   // saved pack, or a channel whose defaultVocal genuinely doesn't match this
-  // song's own vocalType). No-op when there's no detectable target gender
-  // (e.g. a kids mixed/choir vocalType, or a defaultVocal like "children's
-  // choir" with no single gender to enforce).
-  const vocalTarget = song.vocalType ? vocalDescriptionFor(song.vocalType, language) : channel?.defaultVocal;
-  const targetGender = vocalTarget ? detectVocalGender(vocalTarget) : null;
-  if (targetGender && detectVocalGender(song.stylePrompt) !== targetGender) {
-    pushUnique(warnings, `Style prompt vocal gender may not match the selected ${targetGender} vocal — review before pasting into Suno.`);
-    score -= 5;
+  // song's own vocalType).
+  //
+  // TASK v3.41 Part A1 — prefers the explicit gender axis (song.vocalType
+  // for a kids-quota song, or the matched VocalPreset's own `gender`
+  // otherwise) over sniffing channel.defaultVocal's prose, the same
+  // decisive-field-over-prose fix applied to enforceVocalTextInStylePrompt.
+  // 'duet' gets its own check (both genders must be present, since a lone
+  // gender word is incomplete rather than wrong); 'mixed' still has no
+  // reliable single check and is skipped, unchanged from before.
+  const targetGender = song.vocalType
+    ?? matchVocalPreset(channel?.defaultVocal || '')?.gender
+    ?? detectVocalGender(channel?.defaultVocal || '')
+    ?? null;
+  if (targetGender === 'male' || targetGender === 'female') {
+    if (detectVocalGender(song.stylePrompt) !== targetGender) {
+      pushUnique(warnings, `Style prompt vocal gender may not match the selected ${targetGender} vocal — review before pasting into Suno.`);
+      score -= 5;
+    }
+  } else if (targetGender === 'duet') {
+    const presence = detectVocalGenderPresence(song.stylePrompt);
+    if (!presence.male || !presence.female) {
+      pushUnique(warnings, 'Style prompt may be missing one side of the selected duet vocal — review before pasting into Suno.');
+      score -= 5;
+    }
   }
 
   // TASK v3.39 Part F — an AI-creative hook is free-form text (see

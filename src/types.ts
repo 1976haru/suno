@@ -324,6 +324,17 @@ export interface PreassignedSongSlot {
    */
   vocalType?: 'male' | 'female' | 'mixed';
   vocalText?: string;
+  /**
+   * TASK v3.41 Part A1 — the explicit gender axis (see
+   * core/vocalPlan.ts's VocalGender / data/vocalPresets.ts's VocalPreset.gender)
+   * backing vocalText, so enforcement/meta-tag resolution can trust this
+   * instead of sniffing vocalText's own prose — the only way a 'duet'
+   * selection is enforceable at all, since a duet's text legitimately
+   * contains both a male and a female word. For a kids-quota slot this is
+   * always equal to vocalType; for every other channel it's the matched
+   * preset's own gender (or undefined for custom free-text vocalTone).
+   */
+  vocalGender?: 'male' | 'female' | 'mixed' | 'duet';
 }
 
 export interface BatchContext {

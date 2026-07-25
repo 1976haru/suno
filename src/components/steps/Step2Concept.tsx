@@ -99,7 +99,22 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const channelArchetype = opts.channel.archetype || 'senior-morning';
   // TASK v3.39 Part D — kids channels see only the childlike presets; every
   // other channel keeps the plain adult presets, unchanged from before.
-  const relevantVocalPresets = vocalPresets.filter(preset => Boolean(preset.forKids) === (channelArchetype === 'kids'));
+  // TASK v3.41 — the pool grew 5->16 (adult) / 3->10 (kids), so a flat
+  // unordered grid got a lot longer. Presets tagged suitedArchetypes for
+  // this channel float to the top (reusing ChoiceGrid's existing
+  // "recommended" badge — no new UI component needed), then a light
+  // male/female/duet-mixed grouping keeps the rest visually clustered
+  // instead of interleaved.
+  const VOCAL_GENDER_SORT_ORDER: Record<string, number> = { male: 0, female: 1, duet: 2, mixed: 3 };
+  const relevantVocalPresets = vocalPresets
+    .filter(preset => Boolean(preset.forKids) === (channelArchetype === 'kids'))
+    .slice()
+    .sort((a, b) => {
+      const aSuited = a.suitedArchetypes?.includes(channelArchetype) ? 0 : 1;
+      const bSuited = b.suitedArchetypes?.includes(channelArchetype) ? 0 : 1;
+      if (aSuited !== bSuited) return aSuited - bSuited;
+      return VOCAL_GENDER_SORT_ORDER[a.gender] - VOCAL_GENDER_SORT_ORDER[b.gender];
+    });
 
   // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
   // the same fields the existing chip grids below already control; it's a
@@ -384,7 +399,14 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
           list either way, so a saved pack's vocalTone always resolves. */}
       <ChoiceGrid
         question="어떤 목소리로 부를까요?"
-        choices={relevantVocalPresets.map(preset => ({ id: preset.id, label: preset.label, sublabel: preset.sublabel, description: preset.description, icon: '🎙' }))}
+        choices={relevantVocalPresets.map(preset => ({
+          id: preset.id,
+          label: preset.label,
+          sublabel: preset.sublabel,
+          description: preset.description,
+          icon: '🎙',
+          recommended: preset.suitedArchetypes?.includes(channelArchetype)
+        }))}
         value={vocalCustomOpen ? '' : (matchVocalPreset(opts.vocalTone)?.id ?? '')}
         onChange={value => {
           const preset = vocalPresets.find(p => p.id === value);

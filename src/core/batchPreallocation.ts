@@ -5,13 +5,16 @@ import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
   buildVocalPlan,
+  buildVocalVariantPlan,
   DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
   enforceVocalTextInStylePrompt,
   resolveVocalMetaTag,
   usesVocalQuota,
-  vocalDescriptionFor
+  vocalDescriptionFor,
+  type VocalGender
 } from './vocalPlan';
+import { matchVocalPreset } from '../data/vocalPresets';
 import type { OpeningPackContext } from './openingContest';
 
 export type { PreassignedSongSlot };
@@ -52,12 +55,23 @@ export function preallocateSongSlots(
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
   // type for the same opts.
   const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
+  // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
+  // 5/5/5 kids pack no longer reuses one fixed string per type across
+  // realtime/Batch/bridge (see vocalPlan.ts's buildVocalVariantPlan).
+  const vocalVariantPlan = vocalPlan ? buildVocalVariantPlan(vocalPlan, seed) : null;
   // TASK v3.39 Part H — every channel (not just kids) now carries a per-song
   // vocalText, so reconcileWithPreassignedSlot below can enforce the
   // selected vocal across realtime/Batch/bridge the same way moneyChordText
   // already enforces the progression. Falls back to the channel's own
   // defaultVocal if this particular request never set vocalTone.
   const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
+  // TASK v3.41 Part A1 — resolves the explicit gender axis for the non-kids-
+  // quota case (a known preset's own `gender`, e.g. 'duet'), computed once
+  // since fallbackVocalText is constant across the whole pack. Falls back to
+  // undefined (prose detection) when vocalTone/defaultVocal doesn't match
+  // any known preset (custom free-text).
+  const fallbackVocalGender: VocalGender | undefined = matchVocalPreset(fallbackVocalText)?.gender;
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -66,7 +80,10 @@ export function preallocateSongSlots(
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext)
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
-    const vocalText = vocalType ? vocalDescriptionFor(vocalType, opts.lyricLanguage) : fallbackVocalText;
+    const vocalText = vocalType
+      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
+      : fallbackVocalText;
+    const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
     return {
       trackNo,
       title,
@@ -76,6 +93,7 @@ export function preallocateSongSlots(
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
       vocalText,
+      ...(vocalGender ? { vocalGender } : {}),
       ...(vocalType ? { vocalType } : {})
     };
   });
@@ -145,8 +163,8 @@ export function reconcileWithPreassignedSlot(
   // through — regardless of whether the agent complied. No-op when
   // vocalText has no detectable gender (e.g. a children's choir) or when the
   // stylePrompt already matches.
-  const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalText);
-  const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalText);
+  const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalText, slot.vocalGender);
+  const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText);
   return {
     ...song,
     title,

@@ -126,26 +126,70 @@ function moodAtoms(opts: GenerationOptions) {
     .filter(isAllowedSignatureAtom);
 }
 
+/**
+ * TASK v3.39 Part D/H — the kids channel's kid-boy/kid-girl/kid-choir
+ * presets (data/vocalPresets.ts) contained none of the adult-only markers
+ * below ("female"/"male"/"tenor"/"baritone"), so all three previously
+ * compacted to the same "soft close-mic vocal" fallback — a real
+ * diversity-linter regression (tests/diversityLinter.test.ts). "childlike"
+ * and "choir"/"boy"/"girl" give each preset its own distinct compact text.
+ *
+ * TASK v3.41 — the preset pool grew 5->16 (adult) and 3->10 (kids), and the
+ * same regression showed up again at the new scale (e.g. airy-falsetto-male
+ * and bright-young-male both compacted to "male soft"). Added: a dedicated
+ * branch for duet/chant/group presets (none of which have a single gender to
+ * report), and more tone/range/delivery keywords pulled from the new
+ * presets' own wording. The husky/soulful/breathy/default tone outputs and
+ * the tenor/baritone range outputs are byte-identical to before this task —
+ * several tests assert the literal string "male soft husky tenor close-mic"
+ * for the default channel's vocal preset.
+ */
 export function compactVocalAtom(value: string) {
   const lower = value.toLowerCase();
-  // TASK v3.39 Part D/H — the kids channel's kid-boy/kid-girl/kid-choir
-  // presets (data/vocalPresets.ts) contain none of the adult-only markers
-  // below ("female"/"male"/"tenor"/"baritone"), so all three previously
-  // compacted to the same "soft close-mic vocal" fallback — a real
-  // diversity-linter regression (tests/diversityLinter.test.ts). "childlike"
-  // and "choir"/"boy"/"girl" give each preset its own distinct compact text.
-  if (lower.includes('choir')) {
-    return lower.includes('childlike') || lower.includes('kindergarten') ? 'childlike choir' : 'choir';
+  if (lower.includes('duet')) {
+    return lower.includes('childlike') ? 'childlike duet' : 'duet';
   }
+  if (lower.includes('choir')) {
+    const age = lower.includes('childlike') || lower.includes('kindergarten')
+      ? 'childlike '
+      : lower.includes('children') ? 'kids ' : '';
+    const style = lower.includes('unison') ? ' unison'
+      : lower.includes('round') ? ' round'
+      : lower.includes('solo') || lower.includes('lead') ? ' solo-lead'
+      : lower.includes('call-and-response') || lower.includes('call and response') ? ' call-response'
+      : '';
+    return `${age}choir${style}`.trim();
+  }
+  if (lower.includes('chant')) return 'chant group';
+  if (lower.includes('group')) return 'group harmony';
+
   const childlike = lower.includes('childlike') || lower.includes('kindergarten');
   const gender = lower.includes('female') || lower.includes('woman') || lower.includes('girl')
     ? 'female'
     : lower.includes('male') || lower.includes('tenor') || lower.includes('baritone') || lower.includes('boy')
       ? 'male'
       : '';
-  const range = lower.includes('tenor') ? 'tenor' : lower.includes('baritone') ? 'baritone' : '';
-  const tone = lower.includes('husky') ? 'soft husky' : lower.includes('soulful') ? 'soulful' : lower.includes('breathy') ? 'breathy' : 'soft';
-  const delivery = lower.includes('close') ? 'close-mic' : lower.includes('restrained') ? 'restrained' : '';
+  const range = lower.includes('falsetto') ? 'falsetto'
+    : lower.includes('soprano') ? 'soprano'
+    : lower.includes('tenor') ? 'tenor'
+    : lower.includes('baritone') ? 'baritone'
+    : lower.includes('alto') ? 'alto'
+    : lower.includes('mezzo') ? 'mezzo'
+    : '';
+  const tone = lower.includes('husky') ? 'soft husky'
+    : lower.includes('soulful') ? 'soulful'
+    : lower.includes('breathy') ? 'breathy'
+    : lower.includes('smoky') ? 'smoky'
+    : lower.includes('airy') ? 'airy'
+    : lower.includes('whisper') ? 'whisper'
+    : lower.includes('bright') ? 'bright'
+    : lower.includes('confident') ? 'confident'
+    : lower.includes('elegant') ? 'elegant'
+    : 'soft';
+  const delivery = lower.includes('close') ? 'close-mic'
+    : lower.includes('restrained') ? 'restrained'
+    : /\byoung\b/.test(lower) ? 'young'
+    : '';
   return [childlike ? 'childlike' : '', gender, tone, range, delivery].filter(Boolean).join(' ') || 'soft close-mic vocal';
 }
 

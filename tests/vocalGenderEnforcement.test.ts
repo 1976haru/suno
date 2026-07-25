@@ -101,10 +101,16 @@ describe('[Part H] enforceVocalTextInStylePrompt — deterministic correction', 
 
 describe('[Part H] resolveVocalMetaTag / ensureVocalMetaTag', () => {
   it('resolves [male vocal] / [female vocal] / [children\'s choir] correctly', () => {
-    expect(resolveVocalMetaTag(undefined, 'mature soft male tenor')).toBe('[male vocal]');
-    expect(resolveVocalMetaTag(undefined, 'soft warm female alto')).toBe('[female vocal]');
-    expect(resolveVocalMetaTag('mixed', undefined)).toBe("[children's choir]");
-    expect(resolveVocalMetaTag('male', undefined)).toBe('[male vocal]');
+    expect(resolveVocalMetaTag(undefined, undefined, 'mature soft male tenor')).toBe('[male vocal]');
+    expect(resolveVocalMetaTag(undefined, undefined, 'soft warm female alto')).toBe('[female vocal]');
+    expect(resolveVocalMetaTag('mixed', undefined, undefined)).toBe("[children's choir]");
+    expect(resolveVocalMetaTag('male', undefined, undefined)).toBe('[male vocal]');
+  });
+
+  it('[Part v3.41] resolves the explicit gender axis, including duet and adult mixed/group', () => {
+    expect(resolveVocalMetaTag(undefined, 'duet', 'male and female duet, alternating verses')).toBe('[duet vocal]');
+    expect(resolveVocalMetaTag(undefined, 'mixed', 'small mixed vocal group, close three-part harmony')).toBe('[group vocal]');
+    expect(resolveVocalMetaTag(undefined, 'mixed', "children's choir singing in simple unison")).toBe("[children's choir]");
   });
 
   it('prepends the tag once and never double-tags', () => {
@@ -170,7 +176,11 @@ describe('[Part D] kid vocal presets are registered and mutually distinct', () =
     }
   });
 
-  it('adult presets are not flagged forKids', () => {
-    expect(vocalPresets.filter(p => p.forKids).length).toBe(3);
+  it('[Part v3.41 C] exactly 10 presets are flagged forKids', () => {
+    expect(vocalPresets.filter(p => p.forKids).length).toBe(10);
+  });
+
+  it('[Part v3.41 B] exactly 16 presets are not flagged forKids', () => {
+    expect(vocalPresets.filter(p => !p.forKids).length).toBe(16);
   });
 });

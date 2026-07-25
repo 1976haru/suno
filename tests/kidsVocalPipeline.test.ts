@@ -35,11 +35,16 @@ describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () 
     expect(counts).toEqual({ male: 5, female: 5, mixed: 5 });
   });
 
-  it('every kids slot carries vocalText matching vocalDescriptionFor(vocalType, lyricLanguage)', () => {
+  it('every kids slot carries vocalText matching one of vocalDescriptionFor(vocalType, lyricLanguage)\'s rotating variants', () => {
+    // TASK v3.41 Part A2/D — vocalText now rotates through 5 variants per
+    // type (see vocalPlan.ts's buildVocalVariantPlan), so it's no longer
+    // always variant 0; membership in the possible-variants set is the
+    // correct check now (exact-value coverage lives in tests/v341.test.ts).
     const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
     const slots = preallocateSongSlots(opts, kidsGenres);
     for (const slot of slots) {
-      expect(slot.vocalText).toBe(vocalDescriptionFor(slot.vocalType!, 'korean'));
+      const possibleVariants = new Set(Array.from({ length: 5 }, (_, i) => vocalDescriptionFor(slot.vocalType!, 'korean', i)));
+      expect(possibleVariants.has(slot.vocalText!), `trackNo ${slot.trackNo}: ${slot.vocalText}`).toBe(true);
     }
   });
 
