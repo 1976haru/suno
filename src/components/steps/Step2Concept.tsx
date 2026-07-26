@@ -14,7 +14,6 @@ import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
-import { DEFAULT_KIDS_VOCAL_QUOTA, scaleVocalQuota } from '../../core/vocalPlan';
 import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
 import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
@@ -22,6 +21,7 @@ import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
+import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
 import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
 
@@ -437,11 +437,6 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         }}
         columns={3}
       />
-      {channelArchetype === 'kids' && (
-        <p className="supporting">
-          여기서 고른 목소리는 기본값이에요 — 실제로는 아래 &quot;보컬 비율&quot;에서 정한 남자아이/여자아이/혼성 합창 비율대로 곡마다 다르게 배정됩니다.
-        </p>
-      )}
       <div className="button-row" style={{ marginTop: 8 }}>
         <button type="button" className={vocalCustomOpen ? 'chip active' : 'chip'} onClick={() => setVocalCustomOpen(v => !v)}>
           ✏️ 직접 입력하기
@@ -469,41 +464,6 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         columns={3}
       />
       <p className="supporting">스타일 프롬프트 미리보기: <em>{moneyPreview}</em></p>
-
-      {channelArchetype === 'kids' && (
-        <div className="option-block">
-          <h3>보컬 비율 (남자아이 / 여자아이 / 혼성 합창)</h3>
-          <p className="supporting">전체 곡을 이 비율대로 나눠서 배정해요. 예: 5/5/5로 두면 15곡 중 남자아이 목소리 5곡, 여자아이 목소리 5곡, 혼성 합창 5곡이 실제로 배정됩니다.</p>
-          <div className="inline">
-            {(['male', 'female', 'mixed'] as const).map(type => (
-              <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {type === 'male' ? '남자아이' : type === 'female' ? '여자아이' : '혼성 합창'}
-                <input
-                  type="number"
-                  min={0}
-                  value={(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA)[type]}
-                  onChange={event => {
-                    const nextValue = Math.max(0, Math.round(Number(event.target.value) || 0));
-                    setOpts(prev => ({
-                      ...prev,
-                      vocalQuota: { ...(prev.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA), [type]: nextValue }
-                    }));
-                  }}
-                  style={{ width: 64 }}
-                />
-              </label>
-            ))}
-          </div>
-          {(() => {
-            const scaled = scaleVocalQuota(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount);
-            return (
-              <p className="supporting">
-                이 비율로 {opts.songCount}곡을 만들면: 남자아이 {scaled.male}곡 · 여자아이 {scaled.female}곡 · 혼성 합창 {scaled.mixed}곡
-              </p>
-            );
-          })()}
-        </div>
-      )}
 
       <div className="option-block">
         <label className="avoid-word-item">
@@ -768,6 +728,8 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
             </div>
             <CharCounter value={opts.avoidWords} limit={INPUT_LIMITS.avoidWords} />
           </div>
+
+          <DiversityAllocationPanel opts={opts} setOpts={setOpts} genres={selectedGenres} />
         </div>
       )}
 

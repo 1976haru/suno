@@ -137,6 +137,18 @@ function structureTemplateInstructionLineFor(preassignedSongs: PreassignedSongSl
     : '';
 }
 
+function lyricThemeInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.lyricTheme)
+    ? '- Each "preassignedSongs" entry also includes "lyricTheme" - use it as that song\'s central lyric image/theme. Do not replace it with a different recurring image.'
+    : '';
+}
+
+function povInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.pov)
+    ? '- Each "preassignedSongs" entry also includes "pov" - write that song\'s lyrics from that exact point of view; do not substitute a different narrator perspective.'
+    : '';
+}
+
 function markdownCell(value: string): string {
   return value.replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
 }
@@ -257,6 +269,8 @@ export function buildClaudeCodeInstruction(
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
   const introTextureInstructionLine = introTextureInstructionLineFor(preassignedSongs);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
+  const lyricThemeInstructionLine = lyricThemeInstructionLineFor(preassignedSongs);
+  const povInstructionLine = povInstructionLineFor(preassignedSongs);
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -303,6 +317,8 @@ export function buildClaudeCodeInstruction(
     instrumentInstructionLine,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
+    lyricThemeInstructionLine,
+    povInstructionLine,
     vocalInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
@@ -429,6 +445,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(allSlots);
   const introTextureInstructionLine = introTextureInstructionLineFor(allSlots);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(allSlots);
+  const lyricThemeInstructionLine = lyricThemeInstructionLineFor(allSlots);
+  const povInstructionLine = povInstructionLineFor(allSlots);
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -491,6 +509,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     instrumentInstructionLine,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
+    lyricThemeInstructionLine,
+    povInstructionLine,
     vocalInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',

@@ -2,11 +2,22 @@ export type ProviderType = 'local' | 'openai' | 'anthropic';
 
 export type Market = 'korea' | 'japan' | 'global' | 'custom';
 export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
+export type LyricPerspective = 'firstPerson' | 'secondPerson' | 'thirdPerson' | 'radioHost';
 /** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges';
 
 export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids';
+
+export type DiversityAxisId =
+  | 'vocalType' | 'introTexture' | 'hookDevice'
+  | 'arrangementDensity' | 'structureTemplate' | 'lyricTheme' | 'pov';
+
+export interface AxisAllocation {
+  axis: DiversityAxisId;
+  mode: 'auto' | 'manual';
+  counts: Record<string, number>;
+}
 
 /**
  * TASK I1 (v3.11) — how track 1 (the 'cold-open' role) opens.
@@ -108,7 +119,7 @@ export interface GenerationOptions {
   moodIds: string[];
   seasonId: string;
   vocalTone: string;
-  perspective: 'firstPerson' | 'secondPerson' | 'thirdPerson' | 'radioHost';
+  perspective: LyricPerspective;
   lyricDepth: 'simple' | 'literary' | 'poetic' | 'commercial';
   durationTarget: 'under3m30' | 'under4m' | 'playlistShort';
   moneyChordMode: 'default' | 'emotional' | 'jazzColor' | 'cityPop' | 'canon' | 'showaModern' | 'winterBallad' | 'custom';
@@ -119,6 +130,12 @@ export interface GenerationOptions {
   negativeStyle?: string;
   /** How aggressively intro textures should vary across a pack. Defaults to 50 for balanced rotation. */
   introUniqueness?: 0 | 50 | 100;
+  /**
+   * v3.47 Step 3: per-axis count controls. Missing or mode:'auto' preserves
+   * the existing stride/quota rotations exactly; manual counts only override
+   * the named axis and any shortfall is filled by that axis's auto plan.
+   */
+  diversityAllocations?: AxisAllocation[];
   /**
    * TASK v3.38 Part B — per-song male/female/mixed vocal distribution for
    * the 'kids' channel archetype (see core/vocalPlan.ts). Only consulted
@@ -232,6 +249,10 @@ export interface SongIdea {
   openingStyle?: 'hook-forward' | 'hum-intro';
   /** TASK v3.38 Part B — which vocal type this song was assigned by core/vocalPlan.ts's per-song quota plan; only set for the 'kids' channel archetype. */
   vocalType?: 'male' | 'female' | 'mixed';
+  /** v3.47 Step 3: planned lyric theme id, mainly for allocation preview/auditing. */
+  lyricTheme?: string;
+  /** v3.47 Step 3: planned lyric point of view, mainly for allocation preview/auditing. */
+  pov?: LyricPerspective;
   /**
    * TASK v3.39.1 Part B3 — free-text record of what a human actually chose/
    * changed for this song (which take was kept, a manual title/lyric edit,
@@ -392,6 +413,14 @@ export interface PreassignedSongSlot {
    * (never errors) if it's missing.
    */
   structureTemplate?: 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
+  /** v3.47 Step 3: planned lyric theme id for UI/bridge inspection and optional manual allocation. */
+  lyricTheme?: string;
+  /** v3.47 Step 3: planned lyric point of view for UI/bridge inspection and optional manual allocation. */
+  pov?: LyricPerspective;
+  /** Optional ids carried for pre-generation preview labels; text fields remain the authoritative prompt instructions. */
+  moneyChordId?: string;
+  hookDeviceId?: string;
+  introTextureId?: string;
 }
 
 export interface BatchContext {

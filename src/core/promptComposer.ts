@@ -671,6 +671,14 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const structureTemplateInstruction = hasStructureTemplate
     ? ` Each entry also includes "structureTemplate" (one of T1-T5). Structure templates, each a different lyric section order: ${structureTemplateLegend()}. Write THIS song's lyrics — actual section content, not the letter code — following its assigned template's section order exactly; do not default back to T1's shape for a track assigned a different template, and do not invent a different template than the one assigned.`
     : '';
+  const hasLyricTheme = batch.preassignedSongs?.some(slot => slot.lyricTheme);
+  const lyricThemeInstruction = hasLyricTheme
+    ? ' Each entry also includes "lyricTheme" - use it as that song\'s central lyric image/theme. Do not replace it with a different recurring image.'
+    : '';
+  const hasPov = batch.preassignedSongs?.some(slot => slot.pov);
+  const povInstruction = hasPov
+    ? ' Each entry also includes "pov" - write that song\'s lyrics from that exact point of view; do not substitute a different narrator perspective.'
+    : '';
   const preassignedFieldList = [
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
@@ -679,6 +687,8 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
+    ...(hasLyricTheme ? ['lyricTheme'] : []),
+    ...(hasPov ? ['pov'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ');
   const forcedFieldsList = [
@@ -692,7 +702,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -820,6 +830,8 @@ export function songOutputShape(generateThumbnailText: boolean) {
     },
     youtubeTitleKo: 'string optional',
     youtubeTitleJa: 'string optional',
+    lyricTheme: 'string optional; copy from preassignedSongs if present',
+    pov: 'string optional; copy from preassignedSongs if present',
     qualityScore: 0,
     warnings: []
   };
@@ -848,6 +860,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     avoidWords: opts.avoidWords,
     negativeStyle: resolveNegativeStyleText(opts),
     introUniqueness: opts.introUniqueness ?? 50,
+    diversityAllocations: opts.diversityAllocations ?? [],
     earwormMode: opts.earwormMode ?? false,
     trackNoOffset: batch?.trackNoOffset ?? 0,
     totalSongCount: batch?.totalSongCount ?? opts.songCount,
@@ -925,6 +938,7 @@ export function buildAnthropicUserPayload(opts: GenerationOptions, batch?: Batch
     avoidWords: opts.avoidWords,
     negativeStyle: resolveNegativeStyleText(opts),
     introUniqueness: opts.introUniqueness ?? 50,
+    diversityAllocations: opts.diversityAllocations ?? [],
     earwormMode: opts.earwormMode ?? false,
     trackNoOffset: batch?.trackNoOffset ?? 0,
     totalSongCount: batch?.totalSongCount ?? opts.songCount,

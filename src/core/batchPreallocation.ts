@@ -17,13 +17,38 @@ import {
 } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { buildHookDevicePlan } from './hookDevicePlan';
-import { getHookDeviceById } from '../data/hookDevices';
+import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
+import { introTexturesForArchetype } from '../data/introTextures';
+import { lyricThemesForArchetype } from '../data/lyricThemes';
+import {
+  ADULT_STRUCTURE_TEMPLATE_IDS,
+  applyAxisAllocation,
+  ARRANGEMENT_DENSITY_IDS,
+  isManualAllocation,
+  KIDS_STRUCTURE_TEMPLATE_IDS,
+  POV_IDS,
+  VOCAL_TYPE_IDS
+} from './diversityAllocation';
+import { buildStridePlan } from './stridePlan';
 
 export type { PreassignedSongSlot };
+
+function buildLyricThemeSlotPlan(opts: Pick<GenerationOptions, 'channel' | 'songCount' | 'diversityAllocations'>, seed: number): string[] {
+  const pool = lyricThemesForArchetype(opts.channel.archetype).map(theme => theme.id);
+  if (!pool.length || opts.songCount <= 0) return [];
+  const offset = Math.abs(seed + 907) % pool.length;
+  const autoPlan = buildStridePlan(pool, opts.songCount, offset);
+  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool);
+}
+
+function buildPovSlotPlan(opts: Pick<GenerationOptions, 'songCount' | 'perspective' | 'diversityAllocations'>): GenerationOptions['perspective'][] {
+  const autoPlan = Array.from({ length: opts.songCount }, () => opts.perspective);
+  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'pov', POV_IDS);
+}
 
 /**
  * TASK B2 (v3.6) — parallel Anthropic Message Batch requests run with no
@@ -38,7 +63,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -60,7 +85,10 @@ export function preallocateSongSlots(
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
   // type for the same opts.
-  const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  const autoVocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  const vocalPlan = autoVocalPlan
+    ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS)
+    : null;
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
   // 5/5/5 kids pack no longer reuses one fixed string per type across
@@ -83,15 +111,37 @@ export function preallocateSongSlots(
   // old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement boilerplate with a
   // per-song rotating arrangement-contrast device.
   const narrativeGenre = hasArrangementNarrativeGenre(genres);
-  const hookDevicePlan = narrativeGenre ? [] : buildHookDevicePlan(opts.songCount, seed);
-  const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness);
+  const hookDeviceManual = isManualAllocation(opts.diversityAllocations, 'hookDevice');
+  const hookDevicePlan = narrativeGenre && !hookDeviceManual
+    ? []
+    : applyAxisAllocation(buildHookDevicePlan(opts.songCount, seed), opts.diversityAllocations, 'hookDevice', hookDevices.map(device => device.id));
+  const introTexturePlan = applyAxisAllocation(
+    buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
+    opts.diversityAllocations,
+    'introTexture',
+    introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id)
+  );
   const negativeStyleText = buildExcludePrompt(opts);
   // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
   // structureTemplatePlan pre-pass (same seed), applied unconditionally like
   // hookDevicePlan above, so realtime/Batch/bridge songs get a per-song
   // structure-template id instead of only the local path varying its lyric
   // shape.
-  const structureTemplatePlan = buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype);
+  const structureTemplatePlan = applyAxisAllocation(
+    buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype),
+    opts.diversityAllocations,
+    'structureTemplate',
+    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS
+  );
+  if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  const arrangementDensityPlan = applyAxisAllocation(
+    Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+    opts.diversityAllocations,
+    'arrangementDensity',
+    ARRANGEMENT_DENSITY_IDS
+  );
+  const lyricThemePlan = buildLyricThemeSlotPlan(opts, seed);
+  const povPlan = buildPovSlotPlan(opts);
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -104,8 +154,11 @@ export function preallocateSongSlots(
       ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
       : fallbackVocalText;
     const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
-    const hookDeviceText = narrativeGenre ? undefined : getHookDeviceById(hookDevicePlan[idx])?.prompt;
-    const introTextureText = introTextureTagForId(introTexturePlan[idx]);
+    const hookDeviceId = hookDevicePlan[idx];
+    const introTextureId = introTexturePlan[idx];
+    const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;
+    const hookDeviceText = narrativeGenre && !hookDeviceManual ? undefined : getHookDeviceById(hookDeviceId)?.prompt;
+    const introTextureText = introTextureTagForId(introTextureId);
     return {
       trackNo,
       title,
@@ -113,10 +166,13 @@ export function preallocateSongSlots(
       songRole,
       tempo: averageTempo(genres, trackNo),
       emotionArc: emotionArcPool.take(),
-      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
+      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
       negativeStyleText,
       ...(introTextureText ? { introTextureText } : {}),
+      ...(introTextureId ? { introTextureId } : {}),
       ...(hookDeviceText ? { hookDeviceText } : {}),
+      ...(hookDeviceId ? { hookDeviceId } : {}),
+      ...(moneyChordId ? { moneyChordId } : {}),
       // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
       // per-song rotatingInstrumentText/arrangementDensityText calls (same
       // genres/seed/idx), promoted to slot fields for realtime/Batch/bridge
@@ -124,8 +180,10 @@ export function preallocateSongSlots(
       // the agent instruction/import repair can check and weave each part
       // individually — see types.ts's field comments.
       instrumentSet: rotatingInstrumentSet(genres, seed, idx),
-      arrangementDensity: arrangementDensityLevel(seed, idx),
+      arrangementDensity: arrangementDensityPlan[idx],
       structureTemplate: structureTemplatePlan[idx],
+      lyricTheme: lyricThemePlan[idx],
+      pov: povPlan[idx],
       vocalText,
       ...(vocalGender ? { vocalGender } : {}),
       ...(vocalType ? { vocalType } : {})
@@ -296,6 +354,8 @@ export function reconcileWithPreassignedSlot(
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole,
     warnings,
+    ...(slot.lyricTheme ? { lyricTheme: slot.lyricTheme } : {}),
+    ...(slot.pov ? { pov: slot.pov } : {}),
     // TASK v3.39 — vocalType is slot-owned like songRole/emotionArc: it
     // drives the per-song male/female/mixed quota, so a realtime/Batch/
     // bridge response can never silently drift from the locally-decided

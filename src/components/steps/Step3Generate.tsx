@@ -11,10 +11,13 @@ import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
 import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
 import { copyText, downloadText } from '../../utils/exporters';
+import { getHookDeviceById } from '../../data/hookDevices';
+import { getIntroTextureById } from '../../data/introTextures';
+import { getLyricThemeLabel } from '../../data/lyricThemes';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
-import type { BatchContext, GenerationOptions, GenrePack, MoodPack, ProviderSettings, SeasonPack } from '../../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, SeasonPack } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
@@ -23,6 +26,79 @@ const BULK_BATCH_ADVICE_THRESHOLD = 40;
 const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
 
 type BridgeInstructionMode = 'master' | 'perSet';
+
+const POV_LABELS: Record<string, string> = {
+  firstPerson: '1인칭',
+  secondPerson: '2인칭',
+  thirdPerson: '3인칭',
+  radioHost: '라디오 DJ'
+};
+
+const VOCAL_LABELS: Record<string, string> = {
+  male: '남자아이',
+  female: '여자아이',
+  mixed: '혼성 합창',
+  duet: '듀엣'
+};
+
+function compactCell(value: string | undefined, fallback = '-'): string {
+  if (!value) return fallback;
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > 44 ? `${normalized.slice(0, 41)}...` : normalized;
+}
+
+function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlot[]; opts: GenerationOptions }) {
+  return (
+    <div className="provider-summary">
+      <div className="panel-title">
+        <Layers size={18} />
+        <h2>생성 전 배정 미리보기</h2>
+      </div>
+      <p className="supporting">실제 브릿지/Batch에 전달될 곡별 다양성 축입니다. auto 상태도 여기서 최종 배정을 확인할 수 있습니다.</p>
+      <div className="table-scroll">
+        <table className="video-table diversity-preview-table">
+          <thead>
+            <tr>
+              <th>트랙</th>
+              <th>제목(미정)</th>
+              <th>보컬</th>
+              <th>인트로</th>
+              <th>훅 장치</th>
+              <th>머니코드</th>
+              <th>BPM</th>
+              <th>구조</th>
+              <th>테마</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slots.map(slot => {
+              const intro = getIntroTextureById(slot.introTextureId);
+              const hook = slot.hookDeviceId ? getHookDeviceById(slot.hookDeviceId) : undefined;
+              const vocal = slot.vocalType
+                ? VOCAL_LABELS[slot.vocalType]
+                : slot.vocalGender
+                  ? VOCAL_LABELS[slot.vocalGender] || slot.vocalGender
+                  : '단일 보컬';
+              return (
+                <tr key={slot.trackNo}>
+                  <td>{slot.trackNo}</td>
+                  <td>{slot.title || '미정'}</td>
+                  <td>{vocal}</td>
+                  <td>{intro?.labelEn || compactCell(slot.introTextureText)}</td>
+                  <td>{hook?.label || compactCell(slot.hookDeviceText, '서사/auto')}</td>
+                  <td>{slot.moneyChordId || compactCell(slot.moneyChordText)}</td>
+                  <td>{slot.tempo} BPM</td>
+                  <td>{slot.structureTemplate || '-'}</td>
+                  <td>{getLyricThemeLabel(slot.lyricTheme, opts.channel.archetype)} / {POV_LABELS[slot.pov || opts.perspective] || slot.pov || opts.perspective}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function formatRange(range: TokenRange) {
   return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
@@ -439,6 +515,10 @@ export default function Step3Generate({
             </>
           )}
         </div>
+      )}
+
+      {!multiSet.mode && (
+        <DiversityAssignmentPreview slots={bridgePreassignedSongs} opts={opts} />
       )}
 
       <div className="provider-summary">

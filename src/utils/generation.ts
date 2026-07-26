@@ -134,6 +134,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     avoidWords: defaultAvoidWordsString(),
     negativeStyle: buildDefaultNegativeStyle(channel),
     introUniqueness: 50,
+    diversityAllocations: [],
     personaMode: false,
     packagingLanguage: defaultPackagingLanguageForChannel(channel),
     earwormMode: false

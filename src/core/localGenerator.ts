@@ -1,6 +1,9 @@
 import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { arrangementDensityText, buildChannelPromptParts, buildExcludePrompt, hasArrangementNarrativeGenre, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { hookDevices } from '../data/hookDevices';
+import { introTexturesForArchetype } from '../data/introTextures';
+import { lyricThemesForArchetype } from '../data/lyricThemes';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildChannelPromptParts, buildExcludePrompt, hasArrangementNarrativeGenre, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -13,8 +16,18 @@ import { buildHookDevicePlan } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
-import { composeKidsLyrics } from './kidsLyricEngine';
+import { composeKidsLyrics, KIDS_LYRIC_THEMES, type KidsLyricTheme } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
+import {
+  ADULT_STRUCTURE_TEMPLATE_IDS,
+  applyAxisAllocation,
+  ARRANGEMENT_DENSITY_IDS,
+  isManualAllocation,
+  KIDS_STRUCTURE_TEMPLATE_IDS,
+  POV_IDS,
+  VOCAL_TYPE_IDS
+} from './diversityAllocation';
+import { buildStridePlan } from './stridePlan';
 import {
   buildStructureTemplatePlan,
   composeLyrics,
@@ -94,7 +107,7 @@ export const emotionArcs = [
   'old regret to peaceful closure'
 ];
 
-const recurringMotifs: LocalizedPhrase[] = [
+export const recurringMotifs: LocalizedPhrase[] = [
   { english: 'coffee steam', korean: '커피 김', japanese: 'コーヒーの湯気' },
   { english: 'old radio light', korean: '오래된 라디오 불빛', japanese: '古いラジオの灯り' },
   { english: 'window rain', korean: '창가의 빗물', japanese: '窓辺の雨音', seasons: ['summer', 'autumn'] },
@@ -201,6 +214,19 @@ export function averageTempo(genres: GenrePack[], trackNo: number) {
   return Math.min(high, Math.max(low, center + offset));
 }
 
+function buildLyricThemePlan(opts: Pick<GenerationOptions, 'channel' | 'songCount' | 'diversityAllocations'>, seed: number): string[] {
+  const pool = lyricThemesForArchetype(opts.channel.archetype).map(theme => theme.id);
+  if (!pool.length || opts.songCount <= 0) return [];
+  const offset = Math.abs(seed + 907) % pool.length;
+  const autoPlan = buildStridePlan(pool, opts.songCount, offset);
+  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool);
+}
+
+function buildPovPlan(opts: Pick<GenerationOptions, 'songCount' | 'perspective' | 'diversityAllocations'>): GenerationOptions['perspective'][] {
+  const autoPlan = Array.from({ length: opts.songCount }, () => opts.perspective);
+  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'pov', POV_IDS);
+}
+
 function resolveSunoStyleLimit(styleLimit: number | undefined) {
   return styleLimit && styleLimit > 0 ? Math.min(styleLimit, SUNO_COPY_LIMIT) : SUNO_COPY_LIMIT;
 }
@@ -246,7 +272,9 @@ export function rebuildStylePromptsForPersonaMode(
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const excludePrompt = buildExcludePrompt(opts);
   const seed = hashSeed(seedForBlueprint(opts));
-  const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
+  const autoIntroTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
+  const introTexturePool = introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id);
+  const introTexturePlan = applyAxisAllocation(autoIntroTexturePlan, opts.diversityAllocations, 'introTexture', introTexturePool);
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const tempo = averageTempo(genres, trackNo);
@@ -434,7 +462,10 @@ export function generateLocalBlueprint(
   // only for the 'kids' channel archetype. Mirrors progressionPlan's
   // pre-pass shape; vocalQuota falls back to the 6/6/6 default when the
   // channel/opts didn't set one explicitly.
-  const vocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  const autoVocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  const vocalPlan = autoVocalPlan
+    ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS)
+    : null;
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
   // bridge paths rotate through the same per-song wording for the same opts.
@@ -447,13 +478,39 @@ export function generateLocalBlueprint(
   const fallbackVocalGender = matchVocalPreset(fallbackVocalText)?.gender;
   // TASK v3.42 Part B2 — mirrors batchPreallocation.ts's own hookDevicePlan
   // (same seed), applied unconditionally (every archetype).
-  const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  const hookDevicePlan = applyAxisAllocation(
+    buildHookDevicePlan(opts.songCount, seed),
+    opts.diversityAllocations,
+    'hookDevice',
+    hookDevices.map(device => device.id)
+  );
   const narrativeGenre = hasArrangementNarrativeGenre(genres);
-  const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness);
+  const introTexturePlan = applyAxisAllocation(
+    buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
+    opts.diversityAllocations,
+    'introTexture',
+    introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id)
+  );
   // TASK v3.42 Part C — per-song lyric section-tag shape (see
   // lyricEngine.ts's buildStructureTemplatePlan); track 1 always resolves to
   // 'T1' inside composeLyrics regardless of what this plan assigns it.
-  const structureTemplatePlan = buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype);
+  const structureTemplatePlan = applyAxisAllocation(
+    buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype),
+    opts.diversityAllocations,
+    'structureTemplate',
+    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS
+  );
+  if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  const arrangementDensityPlan = applyAxisAllocation(
+    Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+    opts.diversityAllocations,
+    'arrangementDensity',
+    ARRANGEMENT_DENSITY_IDS
+  );
+  const lyricThemePlan = buildLyricThemePlan(opts, seed);
+  const lyricThemeManual = isManualAllocation(opts.diversityAllocations, 'lyricTheme');
+  const hookDeviceManual = isManualAllocation(opts.diversityAllocations, 'hookDevice');
+  const povPlan = buildPovPlan(opts);
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -471,7 +528,14 @@ export function generateLocalBlueprint(
     const situation = situationOption.english;
     const emotionArc = emotionArcPool.take();
     const tempo = averageTempo(genres, trackNo);
-    const trackMotifOption = motifPool.take();
+    const lyricThemeId = lyricThemePlan[idx];
+    const manualMotifOption = lyricThemeManual
+      ? recurringMotifs.find(motif => motif.english === lyricThemeId)
+      : undefined;
+    const trackMotifOption = manualMotifOption ?? motifPool.take();
+    const manualKidsTheme = lyricThemeManual && KIDS_LYRIC_THEMES.includes(lyricThemeId as KidsLyricTheme)
+      ? lyricThemeId as KidsLyricTheme
+      : undefined;
     // TASK v3.38 Part B3 — the 'kids' channel archetype uses a dedicated,
     // self-contained lyric body composer instead of the adult engine's
     // situation/motif pools (coffee, commute, quiet longing — unsafe for
@@ -479,7 +543,7 @@ export function generateLocalBlueprint(
     // come from the kid-safe hookBanks/kids.ts vocabulary via
     // opts.channel.archetype, independent of this branch.
     const { lyrics: composedLyrics, hookPhrase } = opts.channel.archetype === 'kids'
-      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13 })
+      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme })
       : composeLyrics({
         language: opts.lyricLanguage,
         season,
@@ -520,7 +584,7 @@ export function generateLocalBlueprint(
     // reinforcement boilerplate (identical across every song) with a
     // per-song rotating arrangement-contrast device; 'hookDevice' is in
     // promptBudget.ts's ESSENTIAL_TERM_IDS so it's never trimmed away.
-    const hookDeviceText = narrativeGenre ? undefined : getHookDeviceById(hookDevicePlan[idx])?.prompt;
+    const hookDeviceText = narrativeGenre && !hookDeviceManual ? undefined : getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
@@ -553,11 +617,11 @@ export function generateLocalBlueprint(
       // anchor+1-2 combination; see promptComposer.ts's rotatingInstrumentText.
       { id: 'instruments' as const, text: rotatingInstrumentText(genres, seed, idx) },
       // TASK v3.42 Part A3 — sparse/medium/full rotation.
-      { id: 'arrangementDensity' as const, text: arrangementDensityText(seed, idx) },
+      { id: 'arrangementDensity' as const, text: ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[arrangementDensityPlan[idx]] },
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },
-      { id: 'motif', text: `use recurring playlist motif: ${packMotif.english}` },
+      { id: 'motif', text: `use recurring playlist motif: ${lyricThemeManual ? trackMotifOption.english : packMotif.english}` },
       { id: 'listenerScene', text: `listener scene: ${situation}` },
       {
         id: 'mixNotes',
@@ -614,6 +678,8 @@ export function generateLocalBlueprint(
       promptDroppedTerms: composed.droppedTerms,
       promptWordCount: countWords(stylePrompt),
       promptWithinWordTarget: countWords(stylePrompt) <= STYLE_WORD_TARGET_MAX,
+      lyricTheme: lyricThemeId,
+      pov: povPlan[idx],
       vocalType
     };
   });

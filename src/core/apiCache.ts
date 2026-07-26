@@ -1,4 +1,5 @@
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
+import { normalizeDiversityAllocations } from './diversityAllocation';
 
 const DB_NAME = 'suno-weaver-cache';
 const STORE_NAME = 'responses';
@@ -78,6 +79,7 @@ export function computeCacheKey(
     customMoneyChord: opts.customMoneyChord,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
+    diversityAllocations: normalizeDiversityAllocations(opts.diversityAllocations),
     channelId: opts.channel.id,
     genres: genres.map(genre => genre.id).sort(),
     moods: moods.map(mood => mood.id).sort(),

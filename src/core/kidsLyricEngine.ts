@@ -24,6 +24,7 @@ export interface KidsLyricInput {
   title: string;
   hook: string;
   seed: number;
+  theme?: KidsLyricTheme;
 }
 
 export interface ComposedKidsLyrics {
@@ -280,7 +281,7 @@ export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
   const bridgeByTheme = language === 'japanese' ? japaneseBridge : language === 'english' ? englishBridge : koreanBridge;
   const chorusSupportByTheme = language === 'japanese' ? japaneseChorusSupport : language === 'english' ? englishChorusSupport : koreanChorusSupport;
 
-  const theme = themeForSeed(seed);
+  const theme = input.theme ?? themeForSeed(seed);
   const [verse1, verse2] = pick(versePairsByTheme[theme], seed + 3);
   const [verse1b, verse2b] = pick(versePairsByTheme[theme], seed + 7);
   const [bridgeLine1, bridgeLine2] = bridgeByTheme[theme];
