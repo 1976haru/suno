@@ -131,6 +131,8 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     moneyChordMode: 'default',
     customMoneyChord: '',
     customConcept: '',
+    referenceMood: '',
+    genreBlendWeights: {},
     customLyricThemeScene: '',
     avoidWords: defaultAvoidWordsString(),
     negativeStyle: buildDefaultNegativeStyle(channel),

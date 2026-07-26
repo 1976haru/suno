@@ -1,4 +1,4 @@
-import type { ChannelProfile, GenerationOptions } from '../types';
+import type { ChannelProfile, GenerationOptions, GenrePack } from '../types';
 
 export const GLOBAL_NEGATIVE_STYLE_TERMS = [
   'flat chorus with no lift',
@@ -60,10 +60,15 @@ export function joinNegativeStyleTerms(terms: readonly string[]): string {
   return result.join(', ');
 }
 
-export function buildDefaultNegativeStyle(channel: ChannelProfile): string {
+export function buildGenreNegativeStyle(genres: readonly GenrePack[] | undefined): string {
+  return joinNegativeStyleTerms((genres || []).flatMap(genre => genre.avoidTraits || []));
+}
+
+export function buildDefaultNegativeStyle(channel: ChannelProfile, genres?: readonly GenrePack[]): string {
   return joinNegativeStyleTerms([
     ...GLOBAL_NEGATIVE_STYLE_TERMS,
-    ...(channel.forbiddenCliches ?? [])
+    ...(channel.forbiddenCliches ?? []),
+    ...parseNegativeStyleTerms(buildGenreNegativeStyle(genres))
   ]);
 }
 
@@ -71,9 +76,14 @@ export function mergeNegativeStyleText(...texts: Array<string | undefined | null
   return joinNegativeStyleTerms(texts.flatMap(parseNegativeStyleTerms));
 }
 
-export function resolveNegativeStyleText(opts: Pick<GenerationOptions, 'channel' | 'negativeStyle'>): string {
-  if (opts.negativeStyle !== undefined) return joinNegativeStyleTerms(parseNegativeStyleTerms(opts.negativeStyle));
-  return buildDefaultNegativeStyle(opts.channel);
+export function resolveNegativeStyleText(opts: Pick<GenerationOptions, 'channel' | 'negativeStyle'>, genres?: readonly GenrePack[]): string {
+  const baseTerms = opts.negativeStyle !== undefined
+    ? parseNegativeStyleTerms(opts.negativeStyle)
+    : parseNegativeStyleTerms(buildDefaultNegativeStyle(opts.channel));
+  return joinNegativeStyleTerms([
+    ...baseTerms,
+    ...parseNegativeStyleTerms(buildGenreNegativeStyle(genres))
+  ]);
 }
 
 export function withoutNegativeStyleTerm(current: string, term: string): string {

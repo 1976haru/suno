@@ -477,6 +477,16 @@ function motionDetailFor(archetype: ThumbnailArchetype): { direction: string; pr
         direction: 'slow lateral drift across glossy station light',
         prompt: 'soft rain reflection shimmer, clean digital light flicker, slow lateral camera drift, everything else static, seamless loop'
       };
+    case 'modern-chill-neon-room':
+      return {
+        direction: 'slow push-in across the rainy listening desk',
+        prompt: 'soft rain reflection shimmer, muted screen glow breathing subtly, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'city-night-drive-neon':
+      return {
+        direction: 'slow forward drift through windshield reflections',
+        prompt: 'wet-road neon reflections shimmer gently, tiny dashboard glow pulse, slow forward camera drift, everything else static, seamless loop'
+      };
     case 'kids-animal-meadow':
     case 'kids-playground-sky':
     case 'kids-cozy-room':

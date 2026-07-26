@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, modernGenrePacks, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -79,6 +79,50 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['2000年代 J-POP', '平成 JPOP', 'ミレニアム J-POP', '懐かしい平成曲', '日本語ポップ', '青春プレイリスト'],
     archetype: 'j2000s'
+  },
+  {
+    id: 'chill-hours',
+    name: 'Chill Hours',
+    englishName: 'Chill Hours',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Modern late-night playlists built around alternative R&B, chill rap, lo-fi hip-hop, and soft neo-soul textures',
+    visualIdentity: 'rainy window, muted neon, headphones, laptop glow, restrained modern typography, no artist likeness',
+    defaultVocal: 'soft female voice just above a whisper, airy breath tone, slow intimate delivery',
+    preferredGenres: ['alt-rnb', 'chill-rap', 'lofi-hiphop-study'],
+    preferredMoods: ['rainy-comfort', 'calm-focus', 'warm'],
+    forbiddenCliches: [
+      'bright EDM supersaw',
+      'festival drop',
+      'aggressive battle-rap delivery',
+      'hard autotune lead',
+      'famous artist imitation'
+    ],
+    seoKeywords: ['chill R&B playlist', 'chill rap', 'lofi hip hop', 'late night playlist', 'rainy night music', 'study rap'],
+    archetype: 'modern-chill'
+  },
+  {
+    id: 'city-night-drive',
+    name: 'City Night Drive',
+    englishName: 'City Night Drive',
+    market: 'korea',
+    primaryLanguage: 'english',
+    audience: 'thirtiesForties',
+    promise: 'Korean and English night-drive playlists with modern city-pop, future funk, disco pop, and polished urban groove',
+    visualIdentity: 'night drive dashboard, wet asphalt neon, saturated city reflections, clean modern title layout, no brand logos',
+    defaultVocal: 'bright young female voice, clean modern pop delivery, fresh and open tone',
+    preferredGenres: ['city-pop-modern', 'future-funk', 'disco-pop-2020s'],
+    preferredMoods: ['fresh-start', 'romantic', 'rainy-comfort'],
+    forbiddenCliches: [
+      'cheap retro parody',
+      'muddy lofi haze',
+      'hard trap drums',
+      'famous artist imitation',
+      'soundalike vocal'
+    ],
+    seoKeywords: ['city pop playlist', 'night drive music', 'future funk', 'disco pop', 'Korean city pop', 'drive playlist'],
+    archetype: 'city-night'
   },
   // TASK v3.38 Part B1 — kids/children's song channel.
   // TASK v3.39 Part G — primaryLanguage defaults to 'english' like the two
@@ -346,6 +390,7 @@ const rawGenrePacks: GenrePack[] = [
     goodFor: ['kids playlist', 'movement and dance', 'group activity'],
     archetypes: ['kids']
   },
+  ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks
 ];

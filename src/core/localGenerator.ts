@@ -25,6 +25,7 @@ import {
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
+import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import {
   buildStructureTemplatePlan,
   composeLyrics,
@@ -254,14 +255,18 @@ export function rebuildStylePromptsForPersonaMode(
   const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, blueprint.oneLineConcept, blueprint.songs);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
-  const excludePrompt = buildExcludePrompt(opts);
   const seed = hashSeed(seedForBlueprint(opts));
+  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
+  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
   const autoIntroTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
   const introTexturePool = introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id);
   const introTexturePlan = applyAxisAllocation(autoIntroTexturePlan, opts.diversityAllocations, 'introTexture', introTexturePool);
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
-    const tempo = averageTempo(genres, trackNo);
+    const genreId = genrePlan[idx];
+    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const tempo = averageTempo(trackGenres, trackNo);
     // TASK I1 (v3.11) — prefer the role actually assigned at generation time
     // (including any manual promotion via core/openingOverride.ts) over
     // recomputing from idx; only legacy packs saved before songRole existed
@@ -269,6 +274,8 @@ export function rebuildStylePromptsForPersonaMode(
     const role = song.songRole || resolveSongRole(trackNo, idx);
     const openingStyle = role === 'cold-open' ? (song.openingStyle || resolveOpeningStyle(opts.openingStyle, opts.channel.archetype)) : undefined;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
+    const trackNarrativeText = arrangementNarrativeForGenres(trackGenres);
+    const excludePrompt = buildExcludePrompt(opts, trackGenres);
     const composed = opts.personaMode
       ? composePersonaSongStylePrompt({
         blueprint: signatureBlueprint,
@@ -282,9 +289,17 @@ export function rebuildStylePromptsForPersonaMode(
         styleLimitValue: resolvePersonaTrackLimit(styleLimit, trackNo)
       })
       : composeStylePrompt([
-        ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration')),
+        ...channelParts.filter(part =>
+          !(role === 'cold-open' && part.id === 'duration')
+          && part.id !== 'genre'
+          && part.id !== 'genreNarrative'
+          && part.id !== 'instruments'
+        ),
+        { id: 'genre' as const, text: rotatingGenreText(trackGenres, seed, idx) },
+        ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
         ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
         ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
+        { id: 'instruments' as const, text: rotatingInstrumentText(trackGenres, seed, idx) },
         { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth) },
         { id: 'tempo', text: `${tempo} BPM` },
         { id: 'songRole', text: `track ${trackNo} role: ${role}` },
@@ -303,6 +318,8 @@ export function rebuildStylePromptsForPersonaMode(
       ...song,
       stylePrompt,
       excludePrompt,
+      ...(genreId ? { genreId } : {}),
+      genreText: rotatingGenreText(trackGenres, seed, idx),
       songRole: role,
       openingStyle,
       promptLength: stylePrompt.length,
@@ -414,10 +431,12 @@ export function generateLocalBlueprint(
   const channelParts = buildChannelPromptParts(opts, genres, moods, season);
   const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, concept);
-  const excludePrompt = buildExcludePrompt(opts);
 
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
+  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
+  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const motifPool = new UniquePool(recurringMotifs, seed + 23);
@@ -510,7 +529,9 @@ export function generateLocalBlueprint(
     const situationOption = situationPool.take();
     const situation = situationOption.english;
     const emotionArc = emotionArcPool.take();
-    const tempo = averageTempo(genres, trackNo);
+    const genreId = genrePlan[idx];
+    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const tempo = averageTempo(trackGenres, trackNo);
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const lyricThemeText = lyricTheme?.scene;
@@ -568,18 +589,23 @@ export function generateLocalBlueprint(
     // arrangement narrative so the two cues do not fight each other.
     const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
+    const trackNarrativeText = arrangementNarrativeForGenres(trackGenres);
+    const genreText = rotatingGenreText(trackGenres, seed, idx);
+    const excludePrompt = buildExcludePrompt(opts, trackGenres);
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
         && !(progressionPlan && part.id === 'moneyChord')
         && !(vocalType && part.id === 'vocal')
+        && part.id !== 'genreNarrative'
         && part.id !== 'instruments'
         && part.id !== 'genre'
       ),
       // TASK v3.42 Part D follow-up — always overrides channelParts' flat
       // whole-pack genre atom with a per-song rotated anchor+2-3 combination;
       // see promptComposer.ts's rotatingGenreText.
-      { id: 'genre' as const, text: rotatingGenreText(genres, seed, idx) },
+      { id: 'genre' as const, text: genreText },
+      ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
       // TASK v3.33 Part C — per-song progression override when the quota plan
       // is active; channelParts' flat whole-pack moneyChord atom is filtered
@@ -597,7 +623,7 @@ export function generateLocalBlueprint(
       // TASK v3.42 Part A1 — always overrides channelParts' flat whole-pack
       // instruments atom (filtered out above) with a per-song rotated
       // anchor+1-2 combination; see promptComposer.ts's rotatingInstrumentText.
-      { id: 'instruments' as const, text: rotatingInstrumentText(genres, seed, idx) },
+      { id: 'instruments' as const, text: rotatingInstrumentText(trackGenres, seed, idx) },
       // TASK v3.42 Part A3 — sparse/medium/full rotation.
       { id: 'arrangementDensity' as const, text: ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[arrangementDensityPlan[idx]] },
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
@@ -662,6 +688,8 @@ export function generateLocalBlueprint(
       promptWordCount: countWords(stylePrompt),
       promptWithinWordTarget: countWords(stylePrompt) <= STYLE_WORD_TARGET_MAX,
       lyricTheme: lyricThemeId,
+      ...(genreId ? { genreId } : {}),
+      ...(genreText ? { genreText } : {}),
       ...(lyricThemeText ? { lyricThemeText } : {}),
       ...(lyricThemeArc ? { lyricThemeArc } : {}),
       pov: povPlan[idx],

@@ -75,6 +75,19 @@ function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefi
   const narrativeGenre = genres.some(genre => Boolean(genre.arrangementNarrative));
   return [
     {
+      axis: 'genre',
+      label: 'Genre',
+      help: 'Assign the selected main/sub genres per track. Auto keeps the existing selected-genre stride rotation.',
+      options: opts.genreIds.map(id => {
+        const genre = genres.find(item => item.id === id);
+        return {
+          id,
+          label: genre?.label || id,
+          detail: genre?.shortPrompt || genre?.styleCore
+        };
+      })
+    },
+    {
       axis: 'vocalType',
       label: '보컬 쿼터',
       help: archetype === 'kids'
@@ -150,7 +163,7 @@ function statusClass(status: ReturnType<typeof allocationStatus>): string {
 export default function DiversityAllocationPanel({ opts, setOpts, genres }: DiversityAllocationPanelProps) {
   const definitions = useMemo(
     () => axisDefinitions(opts, genres),
-    [opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage, genres]
+    [opts.channel.archetype, opts.customLyricThemeScene, opts.genreIds, opts.lyricLanguage, genres]
   );
   const [openAxes, setOpenAxes] = useState<Set<DiversityAxisId>>(() => new Set());
   const [hasSavedPreset, setHasSavedPreset] = useState(false);

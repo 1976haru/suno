@@ -21,7 +21,13 @@ export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMod
   if (effectiveMode !== 'default') return false;
   const archetype = opts.channel.archetype;
   // TASK v3.38 Part B4 — 'kids' now has a real signature progression too (kidsSimple).
-  return archetype === 'senior-morning' || archetype === 'showa-cafe' || archetype === 'kids' || archetype === 'showa-70s' || archetype === 'j2000s';
+  return archetype === 'senior-morning'
+    || archetype === 'showa-cafe'
+    || archetype === 'kids'
+    || archetype === 'showa-70s'
+    || archetype === 'j2000s'
+    || archetype === 'modern-chill'
+    || archetype === 'city-night';
 }
 
 /**

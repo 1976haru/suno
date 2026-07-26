@@ -12,6 +12,8 @@ import { cityKyotoArchetype } from './cityKyoto';
 import { villageProvenceArchetype } from './villageProvence';
 import { showa70sKissatenFilmArchetype } from './showa70sKissatenFilm';
 import { j2000sDigitalStationArchetype } from './j2000sDigitalStation';
+import { modernChillNeonRoomArchetype } from './modernChillNeonRoom';
+import { cityNightDriveNeonArchetype } from './cityNightDriveNeon';
 import { kidsAnimalMeadowArchetype } from './kidsAnimalMeadow';
 import { kidsPlaygroundSkyArchetype } from './kidsPlaygroundSky';
 import { kidsCozyRoomArchetype } from './kidsCozyRoom';
@@ -45,7 +47,9 @@ export const placeThumbnailArchetypes: ThumbnailArchetype[] = [
   cityKyotoArchetype,
   villageProvenceArchetype,
   showa70sKissatenFilmArchetype,
-  j2000sDigitalStationArchetype
+  j2000sDigitalStationArchetype,
+  modernChillNeonRoomArchetype,
+  cityNightDriveNeonArchetype
 ];
 
 export const kidsThumbnailArchetypes: ThumbnailArchetype[] = [

@@ -109,6 +109,12 @@ function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]
     : '';
 }
 
+function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.genreText)
+    ? '- Each "preassignedSongs" entry also includes "genreText" - weave that exact per-song lead/blended genre phrase into that song\'s stylePrompt, verbatim. Do not replace it with the pack-level genre list.'
+    : '';
+}
+
 // TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstructionLine's
 // verbatim-weave pattern for the newly-promoted instrumentSet slot field
 // (see core/batchPreallocation.ts's preallocateSongSlots). instrumentSet is
@@ -275,6 +281,7 @@ export function buildClaudeCodeInstruction(
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
   const introTextureInstructionLine = introTextureInstructionLineFor(preassignedSongs);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
+  const genreInstructionLine = genreInstructionLineFor(preassignedSongs);
   const lyricThemeInstructionLine = lyricThemeInstructionLineFor(preassignedSongs);
   const povInstructionLine = povInstructionLineFor(preassignedSongs);
   const sectionStyleInstructionLine = sectionStyleInstructionLineFor(preassignedSongs);
@@ -317,6 +324,7 @@ export function buildClaudeCodeInstruction(
     // real listening feedback, so each preassignedSongs entry carries its
     // own ready-to-use progression + reinforcement text instead.
     '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
+    genreInstructionLine,
     tempoInstructionLine(),
     hookDeviceInstructionLine,
     introTextureInstructionLine,
@@ -448,6 +456,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     ? '- Each "preassignedSongs" entry also includes "hookDeviceText" - weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device; do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs.'
     : '';
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
+  const genreInstructionLine = genreInstructionLineFor(allSlots);
   const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(allSlots);
@@ -511,6 +520,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     titleInstructionLine,
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
+    genreInstructionLine,
     tempoInstructionLine(),
     hookDeviceInstructionLine,
     introTextureInstructionLine,
@@ -692,6 +702,8 @@ function normalizeImportedSong(
     youtube,
     ...(isNonEmptyString(obj.youtubeTitleKo) ? { youtubeTitleKo: obj.youtubeTitleKo } : {}),
     ...(isNonEmptyString(obj.youtubeTitleJa) ? { youtubeTitleJa: obj.youtubeTitleJa } : {}),
+    ...(isNonEmptyString(obj.genreId) ? { genreId: obj.genreId } : {}),
+    ...(isNonEmptyString(obj.genreText) ? { genreText: obj.genreText } : {}),
     ...(isNonEmptyString(obj.lyricTheme) ? { lyricTheme: obj.lyricTheme } : {}),
     ...(isNonEmptyString(obj.lyricThemeText) ? { lyricThemeText: obj.lyricThemeText } : {}),
     ...(isNonEmptyString(obj.lyricThemeArc) ? { lyricThemeArc: obj.lyricThemeArc } : {}),

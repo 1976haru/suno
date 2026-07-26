@@ -92,6 +92,26 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     primaryLanguage: 'english'
   },
   {
+    id: 'modern-chill',
+    label: 'Chill Hours',
+    description: 'Alternative R&B, chill rap, and lo-fi hip-hop for modern late-night playlists',
+    vocal: 'soft female voice just above a whisper, airy breath tone, slow intimate delivery',
+    moods: ['rainy-comfort', 'calm-focus', 'warm'],
+    market: 'global',
+    audience: 'twenties',
+    primaryLanguage: 'english'
+  },
+  {
+    id: 'city-night',
+    label: 'City Night Drive',
+    description: 'Modern city-pop, future funk, and disco-pop for Korean/English night-drive playlists',
+    vocal: 'bright young female voice, clean modern pop delivery, fresh and open tone',
+    moods: ['fresh-start', 'romantic', 'rainy-comfort'],
+    market: 'korea',
+    audience: 'thirtiesForties',
+    primaryLanguage: 'english'
+  },
+  {
     id: 'kids',
     label: '키즈',
     description: '가족이 함께 듣기 좋은 밝고 안전한 창작 동요 채널',

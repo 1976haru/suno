@@ -39,13 +39,14 @@ describe('[P0-1] every generated stylePrompt fits Suno\'s 1,000-char style field
     expect(checked).toBeGreaterThan(0);
   });
 
-  it('[A2] essential terms (genre/vocal/hook/moneyChord/duration/tempo) are never excluded, even under a tiny budget', () => {
+  it('[A2] essential terms are never excluded, even under a tiny budget', () => {
     const parts = [
       { id: 'genre' as const, text: 'warm adult contemporary pop' },
       { id: 'vocal' as const, text: 'mature soulful male tenor' },
       { id: 'hook' as const, text: 'hook "Hold On" must open and close every chorus' },
       { id: 'moneyChord' as const, text: 'money chord foundation: I-V-vi-IV' },
       { id: 'duration' as const, text: 'complete song around 3 minutes 10 seconds' },
+      { id: 'introTexture' as const, text: 'Rhodes intro texture, INTRO ONLY' },
       { id: 'tempo' as const, text: '98 BPM' },
       { id: 'mood' as const, text: 'nostalgic, warm, hopeful' },
       { id: 'instruments' as const, text: 'Rhodes piano, acoustic guitar' },

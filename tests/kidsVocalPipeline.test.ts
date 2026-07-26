@@ -103,7 +103,7 @@ describe('[v3.39 Part C] promptComposer weaves vocalText into the batch instruct
     // TASK v3.43 Part A2, Step 2 Part A3 — tempo/instrumentSet/
     // arrangementDensity/structureTemplate joined the same always-present,
     // always-forced set.
-    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, tempo, hookDeviceText, introTextureText, negativeStyleText, instrumentSet, arrangementDensity, structureTemplate, or vocalText');
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, tempo, genreText, hookDeviceText, introTextureText, negativeStyleText, instrumentSet, arrangementDensity, structureTemplate, or vocalText');
   });
 
   it('buildBatchSystemNote also instructs verbatim vocalText use for a non-kids channel (Part H)', () => {

@@ -6,7 +6,7 @@ import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
 import { MONEY_CHORD_ADHERENCE_TEXT } from '../src/core/soundSignature';
 import { buildExcludePrompt } from '../src/core/promptComposer';
 import { introTextures } from '../src/data/introTextures';
-import { buildDefaultNegativeStyle } from '../src/data/negativeStyles';
+import { buildDefaultNegativeStyle, parseNegativeStyleTerms } from '../src/data/negativeStyles';
 import { createInitialOptions } from '../src/utils/generation';
 import { buildSongTxt } from '../src/utils/exporters';
 import { channelPresets, genrePacks, moodPacks, makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -77,14 +77,18 @@ describe('[v3.47 Step 1] negative styles stay in Suno Exclude styles', () => {
     expect(defaultText).toContain('enka-like melodrama');
   });
 
-  it('carries the complete exclude prompt on every preassigned slot', () => {
+  it('carries at least the complete base exclude prompt on every preassigned slot', () => {
     const opts = makeOptions({ songCount: 3, avoidWords: 'no spoken intro' });
     const expected = buildExcludePrompt(opts);
     const slots = preallocateSongSlots(opts, testGenres);
     expect(expected).toContain('no spoken intro');
     expect(expected).toContain('soundalike vocals');
     expect(expected).toContain('flat chorus with no lift');
-    expect(slots.every(slot => slot.negativeStyleText === expected)).toBe(true);
+    for (const slot of slots) {
+      for (const term of parseNegativeStyleTerms(expected)) {
+        expect(slot.negativeStyleText).toContain(term);
+      }
+    }
   });
 
   it('repairs an import that omitted intro and negative fields without mixing negative text into stylePrompt', () => {

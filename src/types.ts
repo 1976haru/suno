@@ -8,10 +8,10 @@ export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepe
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges' | 'general';
 
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s';
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night';
 
 export type DiversityAxisId =
-  | 'vocalType' | 'introTexture' | 'hookDevice'
+  | 'genre' | 'vocalType' | 'introTexture' | 'hookDevice'
   | 'arrangementDensity' | 'structureTemplate' | 'lyricTheme' | 'pov';
 
 export interface AxisAllocation {
@@ -126,6 +126,10 @@ export interface GenerationOptions {
   moneyChordMode: 'default' | 'emotional' | 'jazzColor' | 'cityPop' | 'canon' | 'showaModern' | 'winterBallad' | 'custom';
   customMoneyChord: string;
   customConcept: string;
+  /** v3.49A: user-written vibe reference converted to safe English style clauses; artist/song names are blocked before use. */
+  referenceMood?: string;
+  /** v3.49A: optional selected-genre weights for blend/rotation previews. Keys are GenrePack ids, values are 0-100. */
+  genreBlendWeights?: Record<string, number>;
   /** Optional user-written concrete lyric scene added to the lyric-theme allocation pool. */
   customLyricThemeScene?: string;
   avoidWords: string;
@@ -271,6 +275,10 @@ export interface SongIdea {
   vocalType?: 'male' | 'female' | 'mixed';
   /** v3.47 Step 3: planned lyric theme id, mainly for allocation preview/auditing. */
   lyricTheme?: string;
+  /** v3.49A: planned lead genre id for this track. */
+  genreId?: string;
+  /** v3.49A: prompt-facing lead/blended genre text assigned to this track. */
+  genreText?: string;
   /** v3.47 Step 2: concrete scene text assigned per song; this is the lyric theme's prompt-facing value. */
   lyricThemeText?: string;
   /** v3.47 Step 2: emotional turn paired with lyricThemeText. */
@@ -373,6 +381,10 @@ export interface PreassignedSongSlot {
    * trackNo (see core/batchPreallocation.ts's preallocateSongSlots).
    */
   moneyChordText: string;
+  /** v3.49A: per-song lead genre id chosen by the genre diversity axis. */
+  genreId?: string;
+  /** v3.49A: prompt-facing genre text for the selected/blended per-song genre plan. */
+  genreText?: string;
   /** Music-side exclude text kept out of stylePrompt and exported to Suno Exclude styles. */
   negativeStyleText?: string;
   /** Per-song intro-only texture phrase to weave into stylePrompt, never as whole-song instrumentation. */

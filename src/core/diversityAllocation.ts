@@ -1,6 +1,7 @@
 import type { AxisAllocation, DiversityAxisId, LyricPerspective } from '../types';
 
 export const DIVERSITY_AXIS_IDS: DiversityAxisId[] = [
+  'genre',
   'vocalType',
   'introTexture',
   'hookDevice',
@@ -11,6 +12,7 @@ export const DIVERSITY_AXIS_IDS: DiversityAxisId[] = [
 ];
 
 export const DIVERSITY_AXIS_LABELS: Record<DiversityAxisId, string> = {
+  genre: 'Genre',
   vocalType: 'Vocal',
   introTexture: 'Intro texture',
   hookDevice: 'Hook device',

@@ -19,6 +19,7 @@ import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
 import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage';
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
+import { buildReferenceMoodStyleClause, referenceMoodSafetyIssues } from '../../core/referenceMood';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
@@ -100,6 +101,9 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const presetPhrases = new Set(avoidWordPresets.map(preset => preset.phrase));
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
   const selectedGenreDetails = selectedGenres.map(genre => getGenreById(genre.id) || genre);
+  const referenceMoodValue = opts.referenceMood || '';
+  const referenceMoodIssues = referenceMoodSafetyIssues(referenceMoodValue);
+  const referenceMoodClause = buildReferenceMoodStyleClause(referenceMoodValue);
   const channelArchetype = opts.channel.archetype || 'senior-morning';
   // TASK v3.39 Part D — kids channels see only the childlike presets; every
   // other channel keeps the plain adult presets, unchanged from before.
@@ -172,6 +176,16 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
     });
     const genre = getGenreById(id);
     if (genre?.tier === 'extended') rememberGenreForChannel(id);
+  }
+
+  function setGenreBlendWeight(id: string, value: number) {
+    setOpts(prev => ({
+      ...prev,
+      genreBlendWeights: {
+        ...(prev.genreBlendWeights || {}),
+        [id]: Math.max(0, Math.min(100, Math.round(value) || 0))
+      }
+    }));
   }
 
   function chooseGenreFromSearch(id: string) {
@@ -407,6 +421,55 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
             </button>
           ))}
         </div>
+      </div>
+
+      {selectedGenreDetails.length > 1 && (
+        <div className="option-block">
+          <h3>Genre blend</h3>
+          <p className="supporting">Optional weights for the selected genres. Empty weights keep the current main/sub blend.</p>
+          <div className="allocation-row-list">
+            {selectedGenreDetails.map((genre, index) => {
+              const value = opts.genreBlendWeights?.[genre.id] ?? (index === 0 ? 70 : 30);
+              return (
+                <div key={genre.id} className="allocation-row">
+                  <div className="allocation-label">
+                    <b>{genre.label}</b>
+                    <span>{index === 0 ? 'Main genre' : `Sub ${index}`}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={value}
+                    onChange={event => setGenreBlendWeight(genre.id, Number(event.target.value))}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={value}
+                    onChange={event => setGenreBlendWeight(genre.id, Number(event.target.value))}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="option-block">
+        <h3>Reference mood</h3>
+        <p className="supporting">Write a vibe in Korean or English. Artist names and soundalike requests are blocked before they enter the style prompt.</p>
+        <textarea
+          value={referenceMoodValue}
+          onChange={event => setOpts(prev => ({ ...prev, referenceMood: clampToLimit('referenceMood', event.target.value) }))}
+          placeholder="비 오는 새벽 드라이브, 나른한 여성 보컬"
+          maxLength={INPUT_LIMITS.referenceMood}
+          style={{ marginTop: 8 }}
+        />
+        <CharCounter value={referenceMoodValue} limit={INPUT_LIMITS.referenceMood} />
+        {referenceMoodIssues.map(issue => <p key={issue} className="error">{issue}</p>)}
+        {!referenceMoodIssues.length && referenceMoodClause && <p className="supporting">{referenceMoodClause}</p>}
       </div>
 
       {selectedGenerationPack && <p className="supporting">{selectedGenerationPack.audienceNote}</p>}

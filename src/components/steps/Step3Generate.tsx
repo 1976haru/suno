@@ -14,6 +14,7 @@ import { copyText, downloadText } from '../../utils/exporters';
 import { getHookDeviceById } from '../../data/hookDevices';
 import { getIntroTextureById } from '../../data/introTextures';
 import { getLyricThemeLabel } from '../../data/lyricThemes';
+import { getGenreById } from '../../data/genreLibrary';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
@@ -66,6 +67,7 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
               <th>훅 장치</th>
               <th>머니코드</th>
               <th>BPM</th>
+              <th>Genre</th>
               <th>구조</th>
               <th>테마</th>
             </tr>
@@ -74,6 +76,7 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
             {slots.map(slot => {
               const intro = getIntroTextureById(slot.introTextureId);
               const hook = slot.hookDeviceId ? getHookDeviceById(slot.hookDeviceId) : undefined;
+              const genre = slot.genreId ? getGenreById(slot.genreId) : undefined;
               const vocal = slot.vocalType
                 ? VOCAL_LABELS[slot.vocalType]
                 : slot.vocalGender
@@ -88,6 +91,7 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
                   <td>{hook?.label || compactCell(slot.hookDeviceText, '서사/auto')}</td>
                   <td>{slot.moneyChordId || compactCell(slot.moneyChordText)}</td>
                   <td>{slot.tempo} BPM</td>
+                  <td>{genre?.label || compactCell(slot.genreText)}</td>
                   <td>{slot.structureTemplate || '-'}</td>
                   <td>
                     {getLyricThemeLabel(slot.lyricTheme, opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage)}

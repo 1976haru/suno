@@ -18,8 +18,9 @@ function channelGenres(channelId: string) {
 }
 
 describe('[v3.47 Step 3] diversity allocation core', () => {
-  it('defines the seven user-visible diversity axes', () => {
+  it('defines the eight user-visible diversity axes including genre rotation', () => {
     expect(DIVERSITY_AXIS_IDS).toEqual([
+      'genre',
       'vocalType',
       'introTexture',
       'hookDevice',

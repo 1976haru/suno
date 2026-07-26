@@ -29,6 +29,8 @@ export type ThumbnailArchetypeCategory =
   | 'village-provence'
   | 'showa-70s-kissaten-film'
   | 'j2000s-digital-station'
+  | 'modern-chill-neon-room'
+  | 'city-night-drive-neon'
   | 'kids-animal-meadow'
   | 'kids-playground-sky'
   | 'kids-cozy-room';

@@ -8,6 +8,7 @@ import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } f
 import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
 import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
+import { buildReferenceMoodStyleClause } from './referenceMood';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -41,15 +42,14 @@ export const MAX_LYRIC_WORDS = 260;
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
 
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreNarrative', 'genre', 'hook', 'moneyChord', 'duration', 'tempo',
-  'safety', 'earworm', 'mood', 'instruments', 'season',
-  'songRole', 'motif', 'listenerScene', 'mixNotes'
+  'vocal', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
+  'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: '장르',
@@ -67,7 +67,10 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   motif: '모티프',
   listenerScene: '청자 장면',
   mixNotes: '믹스 노트',
-  genreNarrative: 'genre arrangement narrative'
+  genreNarrative: 'genre arrangement narrative',
+  hookDevice: 'hook device',
+  introTexture: 'intro texture',
+  arrangementDensity: 'arrangement density'
 };
 
 /**
@@ -449,7 +452,8 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   const { genreText, genreNarrative, instruments } = buildGenrePromptSummary(genres);
   const instrumentText = instruments.join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
-  const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
+  const referenceMoodClause = buildReferenceMoodStyleClause(opts.referenceMood);
+  const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote, referenceMoodClause].filter(Boolean).join(', ');
 
   // TASK G1 (v3.10) — moneyChord/duration used to carry the full long-form
   // preset text ("money chord foundation: major-key money chord progression
@@ -504,10 +508,10 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
  * instruction in the one field Suno is documented to handle negatives
  * unreliably in.
  */
-export function buildExcludePrompt(opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>): string {
+export function buildExcludePrompt(opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>, genres: GenrePack[] = []): string {
   return mergeNegativeStyleText(
     opts.avoidWords,
-    resolveNegativeStyleText(opts),
+    resolveNegativeStyleText(opts, genres),
     'famous artist imitation, copied melodies, copyrighted song references, soundalike vocals'
   );
 }
@@ -640,6 +644,10 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const negativeStyleInstruction = hasNegativeStyleText
     ? ' Each entry also includes "negativeStyleText"; keep it separate from stylePrompt. Do not put negativeStyleText into stylePrompt; the app exports it to Suno Exclude styles.'
     : '';
+  const hasGenreText = batch.preassignedSongs?.some(slot => slot.genreText);
+  const genreInstruction = hasGenreText
+    ? ' Each entry also includes "genreText" - weave that exact per-song lead/blended genre phrase into stylePrompt; do not replace it with the pack-level genre list.'
+    : '';
   const tempoInstruction = ' Each entry also includes "tempo" - use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
   // TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstruction's verbatim-
   // weave pattern for the per-song instrument rotation (see
@@ -686,6 +694,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     : '';
   const preassignedFieldList = [
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
+    ...(hasGenreText ? ['genreId', 'genreText'] : []),
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
     ...(hasIntroTextureText ? ['introTextureText'] : []),
     ...(hasNegativeStyleText ? ['negativeStyleText'] : []),
@@ -699,6 +708,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   ].join(', ');
   const forcedFieldsList = [
     'trackNo', 'emotionArc', 'moneyChordText', 'tempo',
+    ...(hasGenreText ? ['genreText'] : []),
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
     ...(hasIntroTextureText ? ['introTextureText'] : []),
     ...(hasNegativeStyleText ? ['negativeStyleText'] : []),
@@ -708,7 +718,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -837,6 +847,8 @@ export function songOutputShape(generateThumbnailText: boolean) {
     },
     youtubeTitleKo: 'string optional',
     youtubeTitleJa: 'string optional',
+    genreId: 'string optional; copy from preassignedSongs if present',
+    genreText: 'string optional; copy from preassignedSongs if present',
     lyricTheme: 'string optional; copy from preassignedSongs if present',
     lyricThemeText: 'string optional; copy from preassignedSongs if present',
     lyricThemeArc: 'string optional; copy from preassignedSongs if present',

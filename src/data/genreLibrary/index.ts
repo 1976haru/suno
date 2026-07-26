@@ -149,6 +149,7 @@ export const genreCategories: GenreCategory[] = [
   { id: 'jazz', label: 'Jazz', description: 'Swing, trio, vocal jazz, lounge, fusion, bossa, and modern jazz-derived prompts.' },
   { id: 'city-pop', label: 'City Pop', description: 'Retro-modern urban pop, polished bass grooves, clean guitars, synth color, and night-drive moods.' },
   { id: 'rnb', label: 'R&B and Soul', description: 'Modern R&B, neo-soul, quiet storm, slow jam, and bass-forward vocal textures.' },
+  { id: 'hiphop', label: 'Hip-Hop and Rap', description: 'Chill rap, mellow boom-bap, jazz-rap, and sample-textured modern rap presets.' },
   { id: 'lofi', label: 'Lo-fi and Study', description: 'Dusty drums, tape grain, warm keys, jazzhop, and focus-friendly cafe textures.' },
   { id: 'ballad', label: 'Ballad', description: 'Piano-led pop ballads, healing ballads, duet ballads, and cinematic emotional builds.' },
   { id: 'seasonal', label: 'Seasonal', description: 'Holiday and seasonal playlist presets.' },
@@ -214,6 +215,26 @@ export const J2000S_CORE_GENRE_IDS = [
   'jpop-2000s-dance'
 ] as const;
 
+export const MODERN_CHILL_CORE_GENRE_IDS = [
+  'alt-rnb',
+  'neo-soul',
+  'trap-soul',
+  'rnb-ballad-2020s',
+  'chill-rap',
+  'lofi-hiphop-study',
+  'boom-bap-mellow',
+  'jazz-rap'
+] as const;
+
+export const CITY_NIGHT_CORE_GENRE_IDS = [
+  'city-pop-modern',
+  'future-funk',
+  'disco-pop-2020s',
+  'bedroom-pop',
+  'alt-rnb',
+  'chill-rap'
+] as const;
+
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
   'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
@@ -221,14 +242,18 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'lofi-study': [],
   kids: KIDS_CORE_GENRE_IDS,
   'showa-70s': SHOWA_70S_CORE_GENRE_IDS,
-  j2000s: J2000S_CORE_GENRE_IDS
+  j2000s: J2000S_CORE_GENRE_IDS,
+  'modern-chill': MODERN_CHILL_CORE_GENRE_IDS,
+  'city-night': CITY_NIGHT_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
   ...SENIOR_MORNING_CORE_GENRE_IDS,
   ...SHOWA_CAFE_CORE_GENRE_IDS,
   ...SHOWA_70S_CORE_GENRE_IDS,
-  ...J2000S_CORE_GENRE_IDS
+  ...J2000S_CORE_GENRE_IDS,
+  ...MODERN_CHILL_CORE_GENRE_IDS,
+  ...CITY_NIGHT_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -331,6 +356,18 @@ function inferArchetypes(input: {
   }
   if (input.categoryId === 'pop' && containsAny(text, ['family', 'folk', 'bright', 'upbeat'])) {
     archetypes.add('kids');
+  }
+  if (
+    ['rnb', 'lofi', 'hiphop'].includes(input.categoryId || '') ||
+    containsAny(text, ['r&b', 'rnb', 'neo soul', 'neo-soul', 'trap soul', 'trap-soul', 'chill rap', 'jazz rap', 'boom bap', 'hiphop', 'hip-hop'])
+  ) {
+    archetypes.add('modern-chill');
+  }
+  if (
+    input.categoryId === 'city-pop' ||
+    containsAny(text, ['city pop', 'city-pop', 'future funk', 'future-funk', 'disco pop', 'disco-pop', 'bedroom pop', 'bedroom-pop', 'night drive'])
+  ) {
+    archetypes.add('city-night');
   }
 
   return Array.from(archetypes);
@@ -620,7 +657,13 @@ export const LEAD_ARRANGEMENT_NARRATIVES = {
   'kids-bright-pop': 'BPM 104-120; Verse starts simple and bouncy with ukulele claps and childlike call lines, pre-chorus briefly thins the backing so the children can breathe before the hook, chorus opens with one clear handclap on the first beat and bright group singing with answer-back space, hook entry adds a tiny stop-and-go clap pickup, final chorus lets a few children echo the hook one octave higher, mix is clean sunny and never noisy',
   'kayokyoku-70s': 'BPM 78-94; Verse begins with close Japanese vocal over brushed kit and electric piano, pre-chorus opens live strings and a brass answer phrase, chorus lifts with a graceful kayokyoku cadence, hook entry uses a short drum-bass dropout before the downbeat, mix keeps analog tape saturation, spring reverb, and narrow stereo warmth',
   'new-music-70s': 'BPM 86-102; Verse stays plainspoken with acoustic guitar and piano, pre-chorus adds band drums and a bass climb, chorus turns wider with refined add9 color without modern gloss, hook entry uses an upward guitar strum into a one-beat breath, mix feels live, close-mic, and lightly tape-worn',
-  'jpop-2000s-ballad': 'BPM 72-88; Verse opens with piano and intimate Japanese vocal, pre-chorus adds string lift and stacked harmony shadows, chorus expands into a big early-2000s pop-ballad refrain, hook entry uses a cymbal swell and brief vocal breath, mix is bright digital polish with firm compression and clean high-end detail'
+  'jpop-2000s-ballad': 'BPM 72-88; Verse opens with piano and intimate Japanese vocal, pre-chorus adds string lift and stacked harmony shadows, chorus expands into a big early-2000s pop-ballad refrain, hook entry uses a cymbal swell and brief vocal breath, mix is bright digital polish with firm compression and clean high-end detail',
+  'alt-rnb': 'BPM 68-86; Verse stays close and weightless over a slow 16th-note pocket, filtered pads, and dry whispered ad-libs, pre-chorus widens the reverb tail and lets the sub bass answer the vocal, chorus lands with doubled harmonies but keeps space between hits, hook entry uses a filter sweep into a half-beat drum dropout, mix is deep, glossy, and nocturnal',
+  'neo-soul': 'BPM 78-96; Verse sits in a live pocket with Rhodes voicings, brushed ghost notes, and bass slides around the vocal, pre-chorus opens stacked background answers and suspended chords, chorus warms into richer harmony without shouting, hook entry uses a short drum fill and bass walk-up, mix feels close-mic, hand-played, and low-end rounded',
+  'trap-soul': 'BPM 62-82; Verse is sparse with dark pads, 808 slides, and clipped hi-hat rolls under doubled vocal shadows, pre-chorus cuts the kick for two bars while the pad rises, chorus drops into a heavier sub-bass hook with tight ad-lib echoes, hook entry uses a breathy vocal gap before the 808 returns, mix is dark, modern, and bass-forward',
+  'chill-rap': 'BPM 70-85; Verse keeps an unhurried conversational flow over lofi drums and a soft sample-texture loop, pre-chorus lets a sung response or humming pad widen the space, chorus stays melodic and easy rather than aggressive, hook entry uses a one-bar drum mute with a vinyl-stop feel, mix is relaxed, dusty, and vocal-forward',
+  'city-pop-modern': 'BPM 105-118; Verse rides clean chorus guitar, slap bass, and electric-piano sparkle with restrained vocal motion, pre-chorus opens analog synth lead and a rising bass push, chorus turns bright and wider with stacked pop harmonies, hook entry uses a glossy riser into a tight drum pickup, mix is clear night-drive polish with retro color kept modern',
+  'disco-pop-2020s': 'BPM 112-124; Verse locks to a dry four-on-the-floor kick and muted guitar chop, pre-chorus filters the strings and synth bass upward, chorus pops open with bright stacked vocals and tight string stabs, hook entry uses a short kick dropout before the first chorus word, mix is crisp, wide, compressed, and dance-floor clean'
 } as const satisfies Partial<Record<string, string>>;
 
 const legacyGenreProfiles: StructuredGenrePack[] = [
@@ -747,6 +790,135 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     archetypes: ['j2000s'],
     tier: 'core'
   }, 'japanese-era', { rhythm: ['clean 4/4 dance-pop pulse'], vocal: ['bright Japanese pop vocal with chorus stacks'], production: ['wide polished digital mix', 'strong compression', 'clear high-frequency detail'], harmony: ['uplifting pop chorus movement'], moods: ['bright', 'energetic'], audiences: ['early-2000s dance-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern EDM drop', 'trap hi-hats', 'lo-fi vintage haze'] })
+];
+
+export const modernGenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'alt-rnb',
+    label: 'Alternative R&B',
+    styleCore: 'alternative R&B, slow 16th-note pocket, filtered synth pads, spacious reverb, whispered ad-libs, deep sub bass, nocturnal modern mix',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['alt-rnb'],
+    instruments: ['filtered synth pad', 'minimal R&B drums', 'deep sub bass', 'electric piano', 'vocal ad-lib layers'],
+    tempoRange: [68, 86],
+    goodFor: ['Chill Hours', 'late-night R&B', 'rainy city playlist'],
+    archetypes: ['modern-chill', 'city-night'],
+    tier: 'core'
+  }, 'rnb', { rhythm: ['slow 16th-note R&B pocket', 'laid-back half-time sway'], vocal: ['soft close R&B vocal with whispered ad-libs'], production: ['spacious reverb', 'filtered synth pad haze', 'deep sub-bass focus'], harmony: ['dark seventh chords', 'minor add9 color'], moods: ['nocturnal', 'intimate', 'rainy'], audiences: ['20s chill playlists', 'late-night R&B listeners'], avoidTraits: ['bright EDM supersaw', 'hard autotune lead', 'busy acoustic cafe strumming'] }),
+  legacyGenrePack({
+    id: 'neo-soul',
+    label: 'Neo-Soul',
+    styleCore: 'neo-soul, live drum groove, Rhodes electric piano extended chords, bass slides, hand-played pocket, close stacked harmonies',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['neo-soul'],
+    instruments: ['Rhodes electric piano', 'live drums', 'sliding electric bass', 'clean rhythm guitar', 'stacked background vocals'],
+    tempoRange: [78, 96],
+    goodFor: ['Chill Hours', 'soulful evening', 'warm studio playlist'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'rnb', { rhythm: ['hand-played neo-soul pocket', 'laid-back live drum groove'], vocal: ['soulful controlled R&B vocal'], production: ['close-mic studio warmth', 'rounded low end', 'natural live-room detail'], harmony: ['extended seventh and ninth chords', 'Rhodes voicing movement'], moods: ['soulful', 'warm', 'late-evening'], audiences: ['neo-soul listeners', 'adult modern R&B playlists'], avoidTraits: ['excess hard-tuned autotune', 'trap hi-hat clutter', 'karaoke soul backing'] }),
+  legacyGenrePack({
+    id: 'trap-soul',
+    label: 'Trap-Soul',
+    styleCore: 'trap-soul, 808 slides, tight hi-hat rolls, dark synth pad, doubled vocal shadows, sparse nocturnal drums',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['trap-soul'],
+    instruments: ['808 slide bass', 'tight hi-hat rolls', 'dark synth pad', 'minimal snare', 'doubled vocal ad-libs'],
+    tempoRange: [62, 82],
+    goodFor: ['Chill Hours', 'late-night drive', 'dark R&B playlist'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'rnb', { rhythm: ['sparse trap-soul pulse', 'slow rolling hi-hat grid'], vocal: ['doubled intimate vocal with ad-lib shadows'], production: ['dark pad ambience', 'clean 808 low end', 'wide vocal delay throws'], harmony: ['minor-key R&B movement', 'suspended dark pad harmony'], moods: ['dark', 'late-night', 'brooding'], audiences: ['modern R&B listeners', 'night-drive playlists'], avoidTraits: ['aggressive drill energy', 'festival EDM drop', 'overly bright pop-rock guitars'] }),
+  legacyGenrePack({
+    id: 'rnb-ballad-2020s',
+    label: '2020s R&B Ballad',
+    styleCore: 'modern R&B ballad, piano and sub bass, large dynamic contrast, close lead vocal, airy backing stack, cinematic chorus space',
+    instruments: ['felt piano', 'sub bass', 'minimal electronic drums', 'airy backing vocals', 'soft string pad'],
+    tempoRange: [64, 78],
+    goodFor: ['Chill Hours', 'emotional R&B', 'late-night ballad'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'rnb', { rhythm: ['slow modern R&B ballad pulse', 'minimal kick-and-snap support'], vocal: ['emotional close R&B vocal'], production: ['wide dynamic contrast', 'piano plus sub-bass space', 'airy chorus stacks'], harmony: ['minor-to-major emotional lift', 'suspended piano chords'], moods: ['tender', 'nocturnal', 'cinematic'], audiences: ['modern ballad listeners', 'late-night vocal playlists'], avoidTraits: ['power ballad shouting', 'cheap karaoke strings', 'overly wet reverb wash'] }),
+  legacyGenrePack({
+    id: 'chill-rap',
+    label: 'Chill Rap',
+    styleCore: 'chill rap, relaxed conversational flow, lofi drums, jazz sample texture, mellow sub bass, soft melodic hook',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['chill-rap'],
+    instruments: ['lofi drum kit', 'jazz sample texture', 'mellow sub bass', 'soft electric piano loop', 'melodic hook vocal'],
+    tempoRange: [70, 85],
+    goodFor: ['Chill Hours', 'study rap', 'rainy commute playlist'],
+    archetypes: ['modern-chill', 'city-night'],
+    tier: 'core'
+  }, 'hiphop', { rhythm: ['relaxed rap pocket', 'loose lofi drum swing'], vocal: ['calm conversational rap flow with melodic hook'], production: ['dusty sample texture', 'soft vinyl grain', 'vocal-forward low volume mix'], harmony: ['simple jazzy loop harmony', 'warm minor seventh color'], moods: ['relaxed', 'focused', 'rainy'], audiences: ['chill rap listeners', 'study and commute playlists'], avoidTraits: ['aggressive battle-rap delivery', 'bright EDM synths', 'heavy club trap drop'] }),
+  legacyGenrePack({
+    id: 'lofi-hiphop-study',
+    label: 'Lo-fi Hip-Hop Study',
+    styleCore: 'lo-fi hip-hop study beat, vinyl noise, loose swing, short dusty loop, mellow keys, low-distraction vocal optional',
+    instruments: ['dusty piano loop', 'vinyl crackle', 'loose swing drums', 'warm bass', 'soft Rhodes'],
+    tempoRange: [72, 88],
+    goodFor: ['Chill Hours', 'study playlist', 'focus background'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'lofi', { rhythm: ['loose head-nod swing', 'short loop-based beat'], vocal: ['optional soft hook vocal kept low'], production: ['vinyl noise', 'tape-soft transients', 'dusty loop texture'], harmony: ['short jazzy two-chord loop', 'warm key color'], moods: ['focused', 'cozy', 'rainy'], audiences: ['study playlists', 'lo-fi hip-hop listeners'], avoidTraits: ['busy rap verses', 'loud vinyl crackle', 'bright EDM synths'] }),
+  legacyGenrePack({
+    id: 'boom-bap-mellow',
+    label: 'Mellow Boom-Bap',
+    styleCore: 'mellow boom-bap, dusty drums, filtered bass, soul sample color, relaxed pocket, warm hook vocal',
+    instruments: ['dusty boom-bap drums', 'filtered bass', 'soul sample texture', 'Rhodes chop', 'warm hook vocal'],
+    tempoRange: [78, 92],
+    goodFor: ['Chill Hours', 'mellow rap set', 'evening walk playlist'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'hiphop', { rhythm: ['mellow boom-bap backbeat', 'lazy head-nod pocket'], vocal: ['relaxed low-pressure rap or sung hook'], production: ['dusty drum breaks', 'filtered bass warmth', 'sample-like soul color'], harmony: ['minor soul loop harmony', 'warm dominant chord touch'], moods: ['mellow', 'nostalgic', 'streetlight'], audiences: ['mellow rap listeners', 'night walk playlists'], avoidTraits: ['hard battle-rap tone', 'glossy EDM drums', 'overcrowded percussion'] }),
+  legacyGenrePack({
+    id: 'jazz-rap',
+    label: 'Jazz Rap',
+    styleCore: 'jazz rap, walking bass, brush drums, horn stabs, relaxed spoken flow, smoky room texture',
+    instruments: ['walking upright bass', 'brush drums', 'muted horn stabs', 'jazz piano loop', 'spoken rap vocal'],
+    tempoRange: [82, 98],
+    goodFor: ['Chill Hours', 'late jazz rap', 'study and night cafe'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'hiphop', { rhythm: ['laid-back jazz-rap swing', 'brush-drum hip-hop pocket'], vocal: ['relaxed articulate rap flow'], production: ['smoky room texture', 'sample-like jazz warmth', 'rounded low end'], harmony: ['jazz turnaround loops', 'minor seventh horn color'], moods: ['smoky', 'thoughtful', 'late-night'], audiences: ['jazz rap listeners', 'night study playlists'], avoidTraits: ['fast technical rap display', 'busy bebop solo clutter', 'trap hi-hat rolls'] }),
+  legacyGenrePack({
+    id: 'city-pop-modern',
+    label: 'Modern City Pop',
+    styleCore: 'modern city pop, bright chorus guitar, slap bass, analog synth lead, polished night-drive groove, glossy chorus lift',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['city-pop-modern'],
+    instruments: ['bright chorus guitar', 'slap bass', 'analog synth lead', 'electric piano', 'tight pop drums'],
+    tempoRange: [105, 118],
+    goodFor: ['City Night Drive', 'urban night playlist', 'modern city-pop set'],
+    archetypes: ['city-night', 'modern-chill'],
+    tier: 'core'
+  }, 'city-pop', { rhythm: ['tight modern city-pop groove', 'syncopated bass-forward pulse'], vocal: ['clean modern pop vocal with airy backing'], production: ['glossy night-drive polish', 'analog synth color', 'bright stereo guitars'], harmony: ['maj7 city-pop lift', 'smooth pre-chorus climb'], moods: ['urban', 'bright', 'night-drive'], audiences: ['city-pop listeners', 'drive playlists'], avoidTraits: ['cheap retro parody', 'overly vintage tape wobble', 'festival EDM drop'] }),
+  legacyGenrePack({
+    id: 'future-funk',
+    label: 'Future Funk',
+    styleCore: 'future funk, filter-house cuts, sample-treated disco color, fast groove, sidechain bounce, bright bass movement',
+    instruments: ['filtered disco guitar chop', 'sidechain synth pad', 'bright slap bass', 'house kick', 'sample-treated vocal chop'],
+    tempoRange: [118, 128],
+    goodFor: ['City Night Drive', 'upbeat city playlist', 'retro-modern dance set'],
+    archetypes: ['city-night'],
+    tier: 'core'
+  }, 'city-pop', { rhythm: ['fast filter-house groove', 'bouncy four-on-the-floor pulse'], vocal: ['short hook vocal chops or bright pop refrain'], production: ['filter sweeps', 'sidechain bounce', 'sample-treated disco color'], harmony: ['uplifting disco loop harmony', 'bright major-seventh shimmer'], moods: ['energetic', 'neon', 'weekend'], audiences: ['future funk listeners', 'city drive playlists'], avoidTraits: ['muddy lofi haze', 'hard trap drums', 'overlong club intro'] }),
+  legacyGenrePack({
+    id: 'bedroom-pop',
+    label: 'Bedroom Pop',
+    styleCore: 'bedroom pop, lo-fi guitar, soft vocal, tape wobble, intimate room tone, small synth pad, understated hook',
+    instruments: ['lo-fi electric guitar', 'small synth pad', 'soft drum machine', 'warm bass', 'tape wobble texture'],
+    tempoRange: [78, 98],
+    goodFor: ['City Night Drive', 'late room playlist', 'soft modern pop'],
+    archetypes: ['city-night', 'modern-chill'],
+    tier: 'extended'
+  }, 'lofi', { rhythm: ['understated bedroom-pop pulse', 'soft drum-machine groove'], vocal: ['soft intimate vocal, close and unforced'], production: ['tape wobble', 'small room tone', 'lo-fi guitar softness'], harmony: ['plain minor-major pop chords', 'gentle synth-pad support'], moods: ['intimate', 'hazy', 'late-room'], audiences: ['bedroom-pop listeners', 'quiet night playlists'], avoidTraits: ['overpolished arena pop', 'trap hi-hat clutter', 'wide EDM synths'] }),
+  legacyGenrePack({
+    id: 'disco-pop-2020s',
+    label: '2020s Disco Pop',
+    styleCore: '2020s disco pop, four-on-the-floor kick, string stabs, bright chorus, tight funk guitar, crisp compressed dance-pop mix',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['disco-pop-2020s'],
+    instruments: ['four-on-the-floor kick', 'string stabs', 'tight funk guitar', 'synth bass', 'stacked pop vocals'],
+    tempoRange: [112, 124],
+    goodFor: ['City Night Drive', 'bright commute', 'upbeat modern pop'],
+    archetypes: ['city-night'],
+    tier: 'core'
+  }, 'city-pop', { rhythm: ['clean four-on-the-floor disco-pop pulse', 'tight funk guitar chop'], vocal: ['bright modern pop vocal with stacked chorus'], production: ['crisp compression', 'wide dance-pop stereo', 'clear hi-hat sparkle'], harmony: ['major-key disco lift', 'bright pre-chorus climb'], moods: ['bright', 'confident', 'city-night'], audiences: ['modern pop listeners', 'drive and workout-light playlists'], avoidTraits: ['dark trap mood', 'muddy vintage mix', 'overlong instrumental disco break'] })
 ];
 
 const jazzVariants = [
@@ -1022,7 +1194,7 @@ export const notionDerivedGenrePacks: StructuredGenrePack[] = [
   ...balladVariants.map(variant => makeProfile('ballad', variant))
 ];
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...eraGenrePacks, ...notionDerivedGenrePacks].map(genre =>
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre =>
   CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...genre, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : genre
 );
 export const genrePacks: GenrePack[] = genreLibrary;

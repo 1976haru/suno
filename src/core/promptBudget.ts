@@ -348,6 +348,28 @@ export function composeStylePrompt(
     });
   }
 
+  function reduceGenreNarrativeToFloor(atoms: KeptPromptAtom[], floor: number): KeptPromptAtom[] {
+    const narrativeAtoms = atoms.filter(atom => atom.id === 'genreNarrative');
+    if (narrativeAtoms.length <= floor) return atoms;
+    const keep = new Set<KeptPromptAtom>();
+    const patterns = [
+      /\bverse\b/i,
+      /\bpre-chorus\b/i,
+      /^chorus\b/i,
+      /hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go|drum mute|filter sweep|riser|vocal gap/i,
+      /\bmix\b/i
+    ];
+    for (const pattern of patterns) {
+      const match = narrativeAtoms.find(atom => pattern.test(atom.text.trim()) && !keep.has(atom));
+      if (match) keep.add(match);
+    }
+    for (const atom of narrativeAtoms) {
+      if (keep.size >= floor) break;
+      keep.add(atom);
+    }
+    return atoms.filter(atom => atom.id !== 'genreNarrative' || keep.has(atom));
+  }
+
   if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
     // Step 1: fully drop non-essential, non-guaranteed-minimum categories,
     // lowest priority first.
@@ -372,7 +394,7 @@ export function composeStylePrompt(
     // Step 1.5 (v3.47 Step 4): keep the lead-genre narrative's core clauses
     // before trimming older soft-target preference details.
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
-      finalAtoms = reduceToFloor(finalAtoms, 'genreNarrative', GENRE_NARRATIVE_FLOOR_ATOMS);
+      finalAtoms = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS);
     }
     // Step 1.6 (v3.15): still over budget, reduce earworm down to its floor
     // ahead of instruments/mood.

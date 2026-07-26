@@ -172,7 +172,8 @@ export const vocalPresets: VocalPreset[] = [
     sublabel: 'Bright young male',
     description: '산뜻하고 젊은 느낌의 목소리예요.',
     prompt: 'bright young male voice, clean modern pop delivery, fresh and open tone',
-    gender: 'male'
+    gender: 'male',
+    suitedArchetypes: ['city-night']
   },
   {
     id: 'whisper-male',
@@ -224,7 +225,7 @@ export const vocalPresets: VocalPreset[] = [
     description: '수면·휴식 콘텐츠용 에어리한 목소리예요.',
     prompt: 'soft female voice just above a whisper, airy breath tone, slow intimate delivery',
     gender: 'female',
-    suitedArchetypes: ['lofi-study']
+    suitedArchetypes: ['lofi-study', 'modern-chill']
   },
   {
     id: 'bright-young-female',
@@ -232,7 +233,8 @@ export const vocalPresets: VocalPreset[] = [
     sublabel: 'Bright young female',
     description: '산뜻하고 젊은 느낌의 목소리예요.',
     prompt: 'bright young female voice, clean modern pop delivery, fresh and open tone',
-    gender: 'female'
+    gender: 'female',
+    suitedArchetypes: ['city-night', 'modern-chill']
   },
   {
     id: 'soulful-female',

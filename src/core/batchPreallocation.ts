@@ -1,7 +1,7 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingInstrumentSet } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
@@ -31,6 +31,7 @@ import {
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
+import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 
 export type { PreassignedSongSlot };
 
@@ -47,7 +48,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'genreBlendWeights'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -59,6 +60,9 @@ export function preallocateSongSlots(
   // function's point per its own docstring), so tracks 1-3 get the same
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
   const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
+  const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+  const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
+  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
 
   // TASK v3.33 Part C — mirrors localGenerator.ts's own pre-pass exactly
   // (same roles, same seed) so the realtime/Batch/bridge paths that call
@@ -107,7 +111,6 @@ export function preallocateSongSlots(
     'introTexture',
     introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id)
   );
-  const negativeStyleText = buildExcludePrompt(opts);
   // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
   // structureTemplatePlan pre-pass (same seed), applied unconditionally like
   // hookDevicePlan above, so realtime/Batch/bridge songs get a per-song
@@ -149,14 +152,20 @@ export function preallocateSongSlots(
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const sectionStyle = sectionStylePlan[idx];
+    const genreId = genrePlan[idx];
+    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const genreText = rotatingGenreText(trackGenres, seed, idx);
+    const negativeStyleText = buildExcludePrompt(opts, trackGenres);
     return {
       trackNo,
       title,
       hookPhrase: hook,
       songRole,
-      tempo: averageTempo(genres, trackNo),
+      tempo: averageTempo(trackGenres, trackNo),
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
+      ...(genreId ? { genreId } : {}),
+      ...(genreText ? { genreText } : {}),
       negativeStyleText,
       ...(introTextureText ? { introTextureText } : {}),
       ...(introTextureId ? { introTextureId } : {}),
@@ -169,7 +178,7 @@ export function preallocateSongSlots(
       // parity. Structured (array/enum/id) rather than pre-composed text so
       // the agent instruction/import repair can check and weave each part
       // individually — see types.ts's field comments.
-      instrumentSet: rotatingInstrumentSet(genres, seed, idx),
+      instrumentSet: rotatingInstrumentSet(trackGenres, seed, idx),
       arrangementDensity: arrangementDensityPlan[idx],
       structureTemplate: structureTemplatePlan[idx],
       lyricTheme: lyricThemeId,
@@ -313,6 +322,7 @@ export function reconcileWithPreassignedSlot(
   // are new fields this task adds to the same pattern.
   let stylePrompt = vocalFix.text;
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.genreText);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
   stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
@@ -350,6 +360,8 @@ export function reconcileWithPreassignedSlot(
     songRole: slot.songRole,
     warnings,
     ...(slot.lyricTheme ? { lyricTheme: slot.lyricTheme } : {}),
+    ...(slot.genreId ? { genreId: slot.genreId } : {}),
+    ...(slot.genreText ? { genreText: slot.genreText } : {}),
     ...(slot.lyricThemeText ? { lyricThemeText: slot.lyricThemeText } : {}),
     ...(slot.lyricThemeArc ? { lyricThemeArc: slot.lyricThemeArc } : {}),
     ...(slot.pov ? { pov: slot.pov } : {}),

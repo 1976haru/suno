@@ -13,6 +13,7 @@ export const INPUT_LIMITS = {
   avoidWords: 150,
   negativeStyle: 600,
   customConcept: 300,
+  referenceMood: 220,
   customLyricThemeScene: 240
 } as const;
 

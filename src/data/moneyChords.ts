@@ -239,6 +239,8 @@ export function signatureMoneyChordId(archetype: string | undefined): string {
   if (archetype === 'showa-cafe') return 'royalRoad';
   if (archetype === 'showa-70s') return 'showaModern';
   if (archetype === 'j2000s') return 'komuro';
+  if (archetype === 'modern-chill') return 'jazzColor';
+  if (archetype === 'city-night') return 'cityPop';
   if (archetype === 'kids') return 'kidsSimple';
   return 'default';
 }
@@ -256,6 +258,8 @@ export function moneyChordRotationPool(archetype: string | undefined): string[] 
   if (archetype === 'showa-cafe') return ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'];
   if (archetype === 'showa-70s') return ['showaModern', 'royalRoad', 'marusa', 'doowop', 'emotional'];
   if (archetype === 'j2000s') return ['komuro', 'cityPop', 'default', 'canon', 'emotional'];
+  if (archetype === 'modern-chill') return ['jazzColor', 'emotional', 'cityPop', 'default', 'canon'];
+  if (archetype === 'city-night') return ['cityPop', 'marusa', 'jazzColor', 'komuro', 'default'];
   if (archetype === 'kids') return ['kidsSimple', 'kidsBright', 'kidsMarch'];
   return ['default'];
 }
