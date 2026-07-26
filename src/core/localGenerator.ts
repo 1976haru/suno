@@ -2,7 +2,6 @@ import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, Moo
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { lyricThemesForArchetype } from '../data/lyricThemes';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildChannelPromptParts, buildExcludePrompt, hasArrangementNarrativeGenre, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
@@ -16,7 +15,7 @@ import { buildHookDevicePlan } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
-import { composeKidsLyrics, KIDS_LYRIC_THEMES, type KidsLyricTheme } from './kidsLyricEngine';
+import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -24,10 +23,9 @@ import {
   ARRANGEMENT_DENSITY_IDS,
   isManualAllocation,
   KIDS_STRUCTURE_TEMPLATE_IDS,
-  POV_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
-import { buildStridePlan } from './stridePlan';
+import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
 import {
   buildStructureTemplatePlan,
   composeLyrics,
@@ -212,19 +210,6 @@ export function averageTempo(genres: GenrePack[], trackNo: number) {
   const center = Math.round((low + high) / 2);
   const offset = [-4, -2, 0, 2, 3, 1, -1, 4, 2, 0][trackNo % 10];
   return Math.min(high, Math.max(low, center + offset));
-}
-
-function buildLyricThemePlan(opts: Pick<GenerationOptions, 'channel' | 'songCount' | 'diversityAllocations'>, seed: number): string[] {
-  const pool = lyricThemesForArchetype(opts.channel.archetype).map(theme => theme.id);
-  if (!pool.length || opts.songCount <= 0) return [];
-  const offset = Math.abs(seed + 907) % pool.length;
-  const autoPlan = buildStridePlan(pool, opts.songCount, offset);
-  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool);
-}
-
-function buildPovPlan(opts: Pick<GenerationOptions, 'songCount' | 'perspective' | 'diversityAllocations'>): GenerationOptions['perspective'][] {
-  const autoPlan = Array.from({ length: opts.songCount }, () => opts.perspective);
-  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'pov', POV_IDS);
 }
 
 function resolveSunoStyleLimit(styleLimit: number | undefined) {
@@ -508,9 +493,9 @@ export function generateLocalBlueprint(
     ARRANGEMENT_DENSITY_IDS
   );
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
-  const lyricThemeManual = isManualAllocation(opts.diversityAllocations, 'lyricTheme');
   const hookDeviceManual = isManualAllocation(opts.diversityAllocations, 'hookDevice');
-  const povPlan = buildPovPlan(opts);
+  const povPlan = buildPovPlan(opts, seed);
+  const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -529,13 +514,13 @@ export function generateLocalBlueprint(
     const emotionArc = emotionArcPool.take();
     const tempo = averageTempo(genres, trackNo);
     const lyricThemeId = lyricThemePlan[idx];
-    const manualMotifOption = lyricThemeManual
-      ? recurringMotifs.find(motif => motif.english === lyricThemeId)
-      : undefined;
-    const trackMotifOption = manualMotifOption ?? motifPool.take();
-    const manualKidsTheme = lyricThemeManual && KIDS_LYRIC_THEMES.includes(lyricThemeId as KidsLyricTheme)
-      ? lyricThemeId as KidsLyricTheme
-      : undefined;
+    const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
+    const lyricThemeText = lyricTheme?.scene;
+    const lyricThemeArc = lyricTheme?.emotionalArc;
+    const listenerScene = lyricThemeText || situation;
+    const trackMotifOption = motifPool.take();
+    const manualKidsTheme = kidsEngineThemeForLyricSlot(lyricThemeId) as KidsLyricTheme | undefined;
+    const sectionStyle = sectionStylePlan[idx];
     // TASK v3.38 Part B3 — the 'kids' channel archetype uses a dedicated,
     // self-contained lyric body composer instead of the adult engine's
     // situation/motif pools (coffee, commute, quiet longing — unsafe for
@@ -621,12 +606,13 @@ export function generateLocalBlueprint(
       { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },
-      { id: 'motif', text: `use recurring playlist motif: ${lyricThemeManual ? trackMotifOption.english : packMotif.english}` },
-      { id: 'listenerScene', text: `listener scene: ${situation}` },
+      { id: 'motif', text: lyricThemeText ? `lyric scene: ${lyricThemeText}` : `use recurring playlist motif: ${packMotif.english}` },
+      { id: 'listenerScene', text: lyricThemeText ? `listener scene: ${lyricThemeText}; supporting detail: ${situation}` : `listener scene: ${situation}` },
       {
         id: 'mixNotes',
         text: [
           generationPack?.tempoBias,
+          sectionStyle ? `verse style: ${sectionStyle.verseStyleText}; chorus style: ${sectionStyle.chorusStyleText}` : null,
           wantsFinalChorusModulation(role) ? 'modulate up a half step for the final chorus' : null,
           'same channel vocal signature and mix balance across the full playlist set'
         ].filter(Boolean).join(', ')
@@ -654,8 +640,8 @@ export function generateLocalBlueprint(
       trackNo,
       title,
       seasonMoment: season.label,
-      listenerSituation: situation,
-      emotionArc,
+      listenerSituation: listenerScene,
+      emotionArc: lyricThemeArc || emotionArc,
       hookPhrase
     };
     const youtube = buildYoutubeMetadata(opts, partialSong, genres, moods, season);
@@ -679,7 +665,10 @@ export function generateLocalBlueprint(
       promptWordCount: countWords(stylePrompt),
       promptWithinWordTarget: countWords(stylePrompt) <= STYLE_WORD_TARGET_MAX,
       lyricTheme: lyricThemeId,
+      ...(lyricThemeText ? { lyricThemeText } : {}),
+      ...(lyricThemeArc ? { lyricThemeArc } : {}),
       pov: povPlan[idx],
+      ...(sectionStyle ? sectionStyle : {}),
       vocalType
     };
   });

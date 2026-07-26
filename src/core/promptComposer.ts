@@ -671,13 +671,17 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const structureTemplateInstruction = hasStructureTemplate
     ? ` Each entry also includes "structureTemplate" (one of T1-T5). Structure templates, each a different lyric section order: ${structureTemplateLegend()}. Write THIS song's lyrics — actual section content, not the letter code — following its assigned template's section order exactly; do not default back to T1's shape for a track assigned a different template, and do not invent a different template than the one assigned.`
     : '';
-  const hasLyricTheme = batch.preassignedSongs?.some(slot => slot.lyricTheme);
+  const hasLyricTheme = batch.preassignedSongs?.some(slot => slot.lyricTheme || slot.lyricThemeText);
   const lyricThemeInstruction = hasLyricTheme
-    ? ' Each entry also includes "lyricTheme" - use it as that song\'s central lyric image/theme. Do not replace it with a different recurring image.'
+    ? ' Each entry also includes "lyricTheme" and "lyricThemeText" - treat lyricThemeText as that song\'s primary lyric scene, copy it into output.lyricThemeText if you include the field, and make listenerSituation support that scene rather than replacing it with a generic situation or seasonMoment. Use lyricThemeArc as the emotional turn when present.'
     : '';
   const hasPov = batch.preassignedSongs?.some(slot => slot.pov);
   const povInstruction = hasPov
     ? ' Each entry also includes "pov" - write that song\'s lyrics from that exact point of view; do not substitute a different narrator perspective.'
+    : '';
+  const hasSectionStyles = batch.preassignedSongs?.some(slot => slot.verseStyle || slot.chorusStyle || slot.verseStyleText || slot.chorusStyleText);
+  const sectionStyleInstruction = hasSectionStyles
+    ? ' Each entry also includes "verseStyleText" and "chorusStyleText" - write the verse sections and chorus sections with those different lyric-writing approaches; do not let every section use the same sentence pattern.'
     : '';
   const preassignedFieldList = [
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
@@ -687,8 +691,9 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
-    ...(hasLyricTheme ? ['lyricTheme'] : []),
+    ...(hasLyricTheme ? ['lyricTheme', 'lyricThemeText', 'lyricThemeArc'] : []),
     ...(hasPov ? ['pov'] : []),
+    ...(hasSectionStyles ? ['verseStyle', 'verseStyleText', 'chorusStyle', 'chorusStyleText'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ');
   const forcedFieldsList = [
@@ -702,7 +707,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -831,7 +836,13 @@ export function songOutputShape(generateThumbnailText: boolean) {
     youtubeTitleKo: 'string optional',
     youtubeTitleJa: 'string optional',
     lyricTheme: 'string optional; copy from preassignedSongs if present',
+    lyricThemeText: 'string optional; copy from preassignedSongs if present',
+    lyricThemeArc: 'string optional; copy from preassignedSongs if present',
     pov: 'string optional; copy from preassignedSongs if present',
+    verseStyle: 'string optional; copy from preassignedSongs if present',
+    verseStyleText: 'string optional; copy from preassignedSongs if present',
+    chorusStyle: 'string optional; copy from preassignedSongs if present',
+    chorusStyleText: 'string optional; copy from preassignedSongs if present',
     qualityScore: 0,
     warnings: []
   };
@@ -857,6 +868,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     moneyChordMode: opts.moneyChordMode,
     customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
+    customLyricThemeScene: opts.customLyricThemeScene,
     avoidWords: opts.avoidWords,
     negativeStyle: resolveNegativeStyleText(opts),
     introUniqueness: opts.introUniqueness ?? 50,
@@ -935,6 +947,7 @@ export function buildAnthropicUserPayload(opts: GenerationOptions, batch?: Batch
     moneyChordMode: opts.moneyChordMode,
     customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
+    customLyricThemeScene: opts.customLyricThemeScene,
     avoidWords: opts.avoidWords,
     negativeStyle: resolveNegativeStyleText(opts),
     introUniqueness: opts.introUniqueness ?? 50,

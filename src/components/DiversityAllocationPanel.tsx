@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Minus, Plus, RotateCcw, Save, Upload } from 'lucide-react';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { lyricThemesForArchetype } from '../data/lyricThemes';
+import { lyricThemesForOptions } from '../data/lyricThemes';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   allocationForAxis,
@@ -18,6 +18,7 @@ import {
 } from '../core/diversityAllocation';
 import { getDiversityAllocationTemplate, saveDiversityAllocationTemplate } from '../core/diversityAllocationStore';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from '../core/promptComposer';
+import { clampToLimit, INPUT_LIMITS } from '../core/inputLimits';
 import type { AxisAllocation, DiversityAxisId, GenerationOptions, GenrePack } from '../types';
 
 interface AxisOption {
@@ -119,10 +120,10 @@ function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefi
       axis: 'lyricTheme',
       label: '가사 테마',
       help: '곡마다 중심 이미지나 키즈 테마를 배정합니다.',
-      options: lyricThemesForArchetype(archetype).map(theme => ({
+      options: lyricThemesForOptions(opts).map(theme => ({
         id: theme.id,
         label: theme.labelKo,
-        detail: theme.labelEn
+        detail: theme.scene
       }))
     },
     {
@@ -147,7 +148,10 @@ function statusClass(status: ReturnType<typeof allocationStatus>): string {
 }
 
 export default function DiversityAllocationPanel({ opts, setOpts, genres }: DiversityAllocationPanelProps) {
-  const definitions = useMemo(() => axisDefinitions(opts, genres), [opts.channel.archetype, genres]);
+  const definitions = useMemo(
+    () => axisDefinitions(opts, genres),
+    [opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage, genres]
+  );
   const [openAxes, setOpenAxes] = useState<Set<DiversityAxisId>>(() => new Set());
   const [hasSavedPreset, setHasSavedPreset] = useState(false);
   const [message, setMessage] = useState('');
@@ -244,6 +248,17 @@ export default function DiversityAllocationPanel({ opts, setOpts, genres }: Dive
       </div>
       {overflow && <p className="error">초과 배정이 있는 축은 저장할 수 없습니다.</p>}
       {message && <p className="supporting">{message}</p>}
+
+      <div className="option-block compact">
+        <label>직접 주제/상황</label>
+        <textarea
+          value={opts.customLyricThemeScene || ''}
+          onChange={event => setOpts(prev => ({ ...prev, customLyricThemeScene: clampToLimit('customLyricThemeScene', event.target.value) }))}
+          placeholder="Example: opening a faded photo envelope at a rainy cafe table before the last train"
+          maxLength={INPUT_LIMITS.customLyricThemeScene}
+        />
+        <p className="supporting">{(opts.customLyricThemeScene || '').length} / {INPUT_LIMITS.customLyricThemeScene}</p>
+      </div>
 
       <div className="diversity-axis-list">
         {definitions.map(def => {

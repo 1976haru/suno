@@ -12,7 +12,8 @@ export const INPUT_LIMITS = {
   customMoneyChord: 100,
   avoidWords: 150,
   negativeStyle: 600,
-  customConcept: 300
+  customConcept: 300,
+  customLyricThemeScene: 240
 } as const;
 
 export type InputLimitField = keyof typeof INPUT_LIMITS;

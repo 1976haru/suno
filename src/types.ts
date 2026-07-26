@@ -3,6 +3,7 @@ export type ProviderType = 'local' | 'openai' | 'anthropic';
 export type Market = 'korea' | 'japan' | 'global' | 'custom';
 export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
 export type LyricPerspective = 'firstPerson' | 'secondPerson' | 'thirdPerson' | 'radioHost';
+export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepeat';
 /** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges';
@@ -125,6 +126,8 @@ export interface GenerationOptions {
   moneyChordMode: 'default' | 'emotional' | 'jazzColor' | 'cityPop' | 'canon' | 'showaModern' | 'winterBallad' | 'custom';
   customMoneyChord: string;
   customConcept: string;
+  /** Optional user-written concrete lyric scene added to the lyric-theme allocation pool. */
+  customLyricThemeScene?: string;
   avoidWords: string;
   /** Music-side negative style text for Suno's separate Exclude styles field. Undefined means use the channel/global default. */
   negativeStyle?: string;
@@ -251,8 +254,18 @@ export interface SongIdea {
   vocalType?: 'male' | 'female' | 'mixed';
   /** v3.47 Step 3: planned lyric theme id, mainly for allocation preview/auditing. */
   lyricTheme?: string;
+  /** v3.47 Step 2: concrete scene text assigned per song; this is the lyric theme's prompt-facing value. */
+  lyricThemeText?: string;
+  /** v3.47 Step 2: emotional turn paired with lyricThemeText. */
+  lyricThemeArc?: string;
   /** v3.47 Step 3: planned lyric point of view, mainly for allocation preview/auditing. */
   pov?: LyricPerspective;
+  /** v3.47 Step 2: verse writing approach assigned per song. */
+  verseStyle?: LyricSectionStyleId;
+  verseStyleText?: string;
+  /** v3.47 Step 2: chorus writing approach assigned per song. */
+  chorusStyle?: LyricSectionStyleId;
+  chorusStyleText?: string;
   /**
    * TASK v3.39.1 Part B3 — free-text record of what a human actually chose/
    * changed for this song (which take was kept, a manual title/lyric edit,
@@ -415,8 +428,18 @@ export interface PreassignedSongSlot {
   structureTemplate?: 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
   /** v3.47 Step 3: planned lyric theme id for UI/bridge inspection and optional manual allocation. */
   lyricTheme?: string;
+  /** v3.47 Step 2: concrete lyric scene copied from data/lyricThemes.ts, not generated here. */
+  lyricThemeText?: string;
+  /** v3.47 Step 2: emotional arc paired with lyricThemeText. */
+  lyricThemeArc?: string;
   /** v3.47 Step 3: planned lyric point of view for UI/bridge inspection and optional manual allocation. */
   pov?: LyricPerspective;
+  /** v3.47 Step 2: section-level lyric-writing approach for the verse. */
+  verseStyle?: LyricSectionStyleId;
+  verseStyleText?: string;
+  /** v3.47 Step 2: section-level lyric-writing approach for the chorus. */
+  chorusStyle?: LyricSectionStyleId;
+  chorusStyleText?: string;
   /** Optional ids carried for pre-generation preview labels; text fields remain the authoritative prompt instructions. */
   moneyChordId?: string;
   hookDeviceId?: string;

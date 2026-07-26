@@ -315,3 +315,156 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
 
   return { songCount: songs.length, averageSimilarity, maxSimilarity, worstPair, commonClauses, warnings, errors, passed: errors.length === 0 };
 }
+
+// ---------------------------------------------------------------------------
+// v3.47 Step 2: lyric-side in-pack diversity linter.
+// ---------------------------------------------------------------------------
+
+export interface RepeatedLyricPattern {
+  pattern: string;
+  count: number;
+  trackNos: number[];
+}
+
+export interface InPackLyricDiversityReport {
+  songCount: number;
+  averageVocabularyOverlap: number;
+  maxVocabularyOverlap: number;
+  worstPair: InPackSimilarityPair | null;
+  repeatedFirstLinePatterns: RepeatedLyricPattern[];
+  repeatedChorusStructures: RepeatedLyricPattern[];
+  warnings: string[];
+  errors: string[];
+  passed: boolean;
+}
+
+const LYRIC_VOCAB_OVERLAP_WARN = 0.68;
+const LYRIC_VOCAB_OVERLAP_ERROR = 0.86;
+const LYRIC_PATTERN_REPEAT_WARN_RATIO = 0.45;
+
+const LYRIC_STOPWORDS = new Set([
+  'the', 'and', 'you', 'your', 'with', 'that', 'this', 'from', 'into', 'for',
+  'are', 'was', 'were', 'have', 'has', 'had', 'but', 'not', 'all', 'our',
+  'my', 'me', 'we', 'us', 'it', 'in', 'on', 'to', 'of', 'a', 'an', 'i'
+]);
+
+function lyricContentLines(lyrics: string): string[] {
+  return String(lyrics || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && !/^\[[^\]]+\]$/.test(line));
+}
+
+function lyricTokenSet(lyrics: string): Set<string> {
+  const tokens = String(lyrics || '')
+    .toLowerCase()
+    .replace(/\[[^\]]+\]/g, ' ')
+    .match(/[\p{L}\p{N}']+/gu) || [];
+  return new Set(tokens.filter(token => token.length > 2 && !LYRIC_STOPWORDS.has(token)));
+}
+
+function lineShape(line: string): string {
+  const tokens = line.toLowerCase().match(/[\p{L}\p{N}']+/gu) || [];
+  const bucket = tokens.length <= 4 ? 'short' : tokens.length <= 8 ? 'mid' : 'long';
+  const endings = /[?!]$/.test(line.trim()) ? 'marked' : 'plain';
+  const sizes = tokens.slice(0, 4).map(token => token.length <= 3 ? 's' : token.length <= 6 ? 'm' : 'l').join('-');
+  return `${bucket}:${endings}:${sizes}`;
+}
+
+function firstLyricLinePattern(lyrics: string): string {
+  const first = lyricContentLines(lyrics)[0];
+  return first ? lineShape(first) : '';
+}
+
+function firstChorusStructure(lyrics: string): string {
+  const lines = String(lyrics || '').split(/\r?\n/);
+  const start = lines.findIndex(line => /^\[(?:final\s+)?chorus[^\]]*\]/i.test(line.trim()));
+  if (start < 0) return '';
+  const chorusLines: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (/^\[[^\]]+\]$/.test(line)) break;
+    if (line) chorusLines.push(line);
+    if (chorusLines.length >= 3) break;
+  }
+  return chorusLines.map(lineShape).join('|');
+}
+
+function repeatedPatterns(entries: { trackNo: number; pattern: string }[], songCount: number): RepeatedLyricPattern[] {
+  const byPattern = new Map<string, number[]>();
+  for (const entry of entries) {
+    if (!entry.pattern) continue;
+    byPattern.set(entry.pattern, [...(byPattern.get(entry.pattern) || []), entry.trackNo]);
+  }
+  return [...byPattern.entries()]
+    .filter(([, trackNos]) => trackNos.length > 1 && trackNos.length / Math.max(1, songCount) >= LYRIC_PATTERN_REPEAT_WARN_RATIO)
+    .map(([pattern, trackNos]) => ({ pattern, count: trackNos.length, trackNos }));
+}
+
+export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: string }[]): InPackLyricDiversityReport {
+  if (songs.length < 2) {
+    return {
+      songCount: songs.length,
+      averageVocabularyOverlap: 0,
+      maxVocabularyOverlap: 0,
+      worstPair: null,
+      repeatedFirstLinePatterns: [],
+      repeatedChorusStructures: [],
+      warnings: [],
+      errors: [],
+      passed: true
+    };
+  }
+
+  const entries = songs.map(song => ({
+    trackNo: song.trackNo,
+    vocabulary: lyricTokenSet(song.lyrics),
+    firstLinePattern: firstLyricLinePattern(song.lyrics),
+    chorusStructure: firstChorusStructure(song.lyrics)
+  }));
+
+  let total = 0;
+  let pairCount = 0;
+  let worstPair: InPackSimilarityPair | null = null;
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const similarity = jaccardSimilarity(entries[i].vocabulary, entries[j].vocabulary);
+      total += similarity;
+      pairCount += 1;
+      if (!worstPair || similarity > worstPair.similarity) {
+        worstPair = { trackNoA: entries[i].trackNo, trackNoB: entries[j].trackNo, similarity };
+      }
+    }
+  }
+
+  const averageVocabularyOverlap = pairCount ? total / pairCount : 0;
+  const maxVocabularyOverlap = worstPair?.similarity ?? 0;
+  const repeatedFirstLinePatterns = repeatedPatterns(entries.map(entry => ({ trackNo: entry.trackNo, pattern: entry.firstLinePattern })), songs.length);
+  const repeatedChorusStructures = repeatedPatterns(entries.map(entry => ({ trackNo: entry.trackNo, pattern: entry.chorusStructure })), songs.length);
+
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  if (averageVocabularyOverlap > LYRIC_VOCAB_OVERLAP_ERROR) {
+    errors.push(`Average pairwise lyric vocabulary overlap is ${Math.round(averageVocabularyOverlap * 100)}% (threshold ${Math.round(LYRIC_VOCAB_OVERLAP_ERROR * 100)}%) - this pack's lyrics are essentially repeating one vocabulary set.`);
+  } else if (averageVocabularyOverlap > LYRIC_VOCAB_OVERLAP_WARN) {
+    warnings.push(`Average pairwise lyric vocabulary overlap is ${Math.round(averageVocabularyOverlap * 100)}% (threshold ${Math.round(LYRIC_VOCAB_OVERLAP_WARN * 100)}%) - vary scenes, objects, and verbs more.`);
+  }
+  if (repeatedFirstLinePatterns.length) {
+    warnings.push(`First-line lyric patterns repeat across ${repeatedFirstLinePatterns[0].count}/${songs.length} songs (tracks ${repeatedFirstLinePatterns[0].trackNos.join(', ')}) - vary the opening sentence shape.`);
+  }
+  if (repeatedChorusStructures.length) {
+    warnings.push(`Chorus sentence structures repeat across ${repeatedChorusStructures[0].count}/${songs.length} songs (tracks ${repeatedChorusStructures[0].trackNos.join(', ')}) - vary the chorus support lines around the hook.`);
+  }
+
+  return {
+    songCount: songs.length,
+    averageVocabularyOverlap,
+    maxVocabularyOverlap,
+    worstPair,
+    repeatedFirstLinePatterns,
+    repeatedChorusStructures,
+    warnings,
+    errors,
+    passed: errors.length === 0
+  };
+}

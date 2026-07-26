@@ -23,32 +23,17 @@ import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../da
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { lyricThemesForArchetype } from '../data/lyricThemes';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   applyAxisAllocation,
   ARRANGEMENT_DENSITY_IDS,
   isManualAllocation,
   KIDS_STRUCTURE_TEMPLATE_IDS,
-  POV_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
-import { buildStridePlan } from './stridePlan';
+import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
 
 export type { PreassignedSongSlot };
-
-function buildLyricThemeSlotPlan(opts: Pick<GenerationOptions, 'channel' | 'songCount' | 'diversityAllocations'>, seed: number): string[] {
-  const pool = lyricThemesForArchetype(opts.channel.archetype).map(theme => theme.id);
-  if (!pool.length || opts.songCount <= 0) return [];
-  const offset = Math.abs(seed + 907) % pool.length;
-  const autoPlan = buildStridePlan(pool, opts.songCount, offset);
-  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool);
-}
-
-function buildPovSlotPlan(opts: Pick<GenerationOptions, 'songCount' | 'perspective' | 'diversityAllocations'>): GenerationOptions['perspective'][] {
-  const autoPlan = Array.from({ length: opts.songCount }, () => opts.perspective);
-  return applyAxisAllocation(autoPlan, opts.diversityAllocations, 'pov', POV_IDS);
-}
 
 /**
  * TASK B2 (v3.6) — parallel Anthropic Message Batch requests run with no
@@ -63,7 +48,7 @@ function buildPovSlotPlan(opts: Pick<GenerationOptions, 'songCount' | 'perspecti
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -140,8 +125,9 @@ export function preallocateSongSlots(
     'arrangementDensity',
     ARRANGEMENT_DENSITY_IDS
   );
-  const lyricThemePlan = buildLyricThemeSlotPlan(opts, seed);
-  const povPlan = buildPovSlotPlan(opts);
+  const lyricThemePlan = buildLyricThemePlan(opts, seed);
+  const povPlan = buildPovPlan(opts, seed);
+  const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
   return Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -159,6 +145,9 @@ export function preallocateSongSlots(
     const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;
     const hookDeviceText = narrativeGenre && !hookDeviceManual ? undefined : getHookDeviceById(hookDeviceId)?.prompt;
     const introTextureText = introTextureTagForId(introTextureId);
+    const lyricThemeId = lyricThemePlan[idx];
+    const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
+    const sectionStyle = sectionStylePlan[idx];
     return {
       trackNo,
       title,
@@ -182,8 +171,11 @@ export function preallocateSongSlots(
       instrumentSet: rotatingInstrumentSet(genres, seed, idx),
       arrangementDensity: arrangementDensityPlan[idx],
       structureTemplate: structureTemplatePlan[idx],
-      lyricTheme: lyricThemePlan[idx],
+      lyricTheme: lyricThemeId,
+      ...(lyricTheme?.scene ? { lyricThemeText: lyricTheme.scene } : {}),
+      ...(lyricTheme?.emotionalArc ? { lyricThemeArc: lyricTheme.emotionalArc } : {}),
       pov: povPlan[idx],
+      ...(sectionStyle ? sectionStyle : {}),
       vocalText,
       ...(vocalGender ? { vocalGender } : {}),
       ...(vocalType ? { vocalType } : {})
@@ -344,6 +336,7 @@ export function reconcileWithPreassignedSlot(
   const warnings = structureWarning && !song.warnings.includes(structureWarning)
     ? [...song.warnings, structureWarning]
     : song.warnings;
+  const listenerSituation = slot.lyricThemeText || song.listenerSituation;
   return {
     ...song,
     title,
@@ -351,11 +344,18 @@ export function reconcileWithPreassignedSlot(
     stylePrompt,
     excludePrompt,
     lyrics: ensureVocalMetaTag(song.lyrics, vocalTag),
+    listenerSituation,
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole,
     warnings,
     ...(slot.lyricTheme ? { lyricTheme: slot.lyricTheme } : {}),
+    ...(slot.lyricThemeText ? { lyricThemeText: slot.lyricThemeText } : {}),
+    ...(slot.lyricThemeArc ? { lyricThemeArc: slot.lyricThemeArc } : {}),
     ...(slot.pov ? { pov: slot.pov } : {}),
+    ...(slot.verseStyle ? { verseStyle: slot.verseStyle } : {}),
+    ...(slot.verseStyleText ? { verseStyleText: slot.verseStyleText } : {}),
+    ...(slot.chorusStyle ? { chorusStyle: slot.chorusStyle } : {}),
+    ...(slot.chorusStyleText ? { chorusStyleText: slot.chorusStyleText } : {}),
     // TASK v3.39 — vocalType is slot-owned like songRole/emotionArc: it
     // drives the per-song male/female/mixed quota, so a realtime/Batch/
     // bridge response can never silently drift from the locally-decided

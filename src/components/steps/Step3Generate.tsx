@@ -89,7 +89,13 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
                   <td>{slot.moneyChordId || compactCell(slot.moneyChordText)}</td>
                   <td>{slot.tempo} BPM</td>
                   <td>{slot.structureTemplate || '-'}</td>
-                  <td>{getLyricThemeLabel(slot.lyricTheme, opts.channel.archetype)} / {POV_LABELS[slot.pov || opts.perspective] || slot.pov || opts.perspective}</td>
+                  <td>
+                    {getLyricThemeLabel(slot.lyricTheme, opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage)}
+                    {' / '}
+                    {POV_LABELS[slot.pov || opts.perspective] || slot.pov || opts.perspective}
+                    <br />
+                    <span className="supporting">{compactCell(slot.lyricThemeText)} / {slot.verseStyle || '-'}-&gt;{slot.chorusStyle || '-'}</span>
+                  </td>
                 </tr>
               );
             })}

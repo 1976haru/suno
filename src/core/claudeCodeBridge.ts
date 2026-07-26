@@ -18,7 +18,7 @@ import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
 import { moneyChordPresets } from '../data/moneyChords';
 import { usesVocalQuota } from './vocalPlan';
-import { lintInPackStyleSimilarity } from './diversityLinter';
+import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -138,14 +138,20 @@ function structureTemplateInstructionLineFor(preassignedSongs: PreassignedSongSl
 }
 
 function lyricThemeInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.lyricTheme)
-    ? '- Each "preassignedSongs" entry also includes "lyricTheme" - use it as that song\'s central lyric image/theme. Do not replace it with a different recurring image.'
+  return preassignedSongs.some(slot => slot.lyricTheme || slot.lyricThemeText)
+    ? '- Each "preassignedSongs" entry also includes "lyricThemeText" - use that exact scene verbatim as the song\'s primary lyric situation, keep it out of stylePrompt unless it naturally fits as a listener-scene note, and do not replace it with a generic listenerSituation or seasonMoment. If "lyricThemeArc" is present, use it as the lyric emotional turn.'
     : '';
 }
 
 function povInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.pov)
     ? '- Each "preassignedSongs" entry also includes "pov" - write that song\'s lyrics from that exact point of view; do not substitute a different narrator perspective.'
+    : '';
+}
+
+function sectionStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.verseStyleText || slot.chorusStyleText)
+    ? '- Each "preassignedSongs" entry also includes "verseStyleText" and "chorusStyleText" - write verse sections and chorus sections with those distinct approaches, verbatim as guidance. Do not let every song start with the same first-line shape or every chorus use the same sentence structure.'
     : '';
 }
 
@@ -271,6 +277,7 @@ export function buildClaudeCodeInstruction(
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
   const lyricThemeInstructionLine = lyricThemeInstructionLineFor(preassignedSongs);
   const povInstructionLine = povInstructionLineFor(preassignedSongs);
+  const sectionStyleInstructionLine = sectionStyleInstructionLineFor(preassignedSongs);
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -319,6 +326,7 @@ export function buildClaudeCodeInstruction(
     structureTemplateInstructionLine,
     lyricThemeInstructionLine,
     povInstructionLine,
+    sectionStyleInstructionLine,
     vocalInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
@@ -447,6 +455,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(allSlots);
   const lyricThemeInstructionLine = lyricThemeInstructionLineFor(allSlots);
   const povInstructionLine = povInstructionLineFor(allSlots);
+  const sectionStyleInstructionLine = sectionStyleInstructionLineFor(allSlots);
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -511,6 +520,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     structureTemplateInstructionLine,
     lyricThemeInstructionLine,
     povInstructionLine,
+    sectionStyleInstructionLine,
     vocalInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
@@ -682,6 +692,14 @@ function normalizeImportedSong(
     youtube,
     ...(isNonEmptyString(obj.youtubeTitleKo) ? { youtubeTitleKo: obj.youtubeTitleKo } : {}),
     ...(isNonEmptyString(obj.youtubeTitleJa) ? { youtubeTitleJa: obj.youtubeTitleJa } : {}),
+    ...(isNonEmptyString(obj.lyricTheme) ? { lyricTheme: obj.lyricTheme } : {}),
+    ...(isNonEmptyString(obj.lyricThemeText) ? { lyricThemeText: obj.lyricThemeText } : {}),
+    ...(isNonEmptyString(obj.lyricThemeArc) ? { lyricThemeArc: obj.lyricThemeArc } : {}),
+    ...(isNonEmptyString(obj.pov) ? { pov: obj.pov as SongIdea['pov'] } : {}),
+    ...(isNonEmptyString(obj.verseStyle) ? { verseStyle: obj.verseStyle as SongIdea['verseStyle'] } : {}),
+    ...(isNonEmptyString(obj.verseStyleText) ? { verseStyleText: obj.verseStyleText } : {}),
+    ...(isNonEmptyString(obj.chorusStyle) ? { chorusStyle: obj.chorusStyle as SongIdea['chorusStyle'] } : {}),
+    ...(isNonEmptyString(obj.chorusStyleText) ? { chorusStyleText: obj.chorusStyleText } : {}),
     qualityScore: 0,
     warnings: []
   };
@@ -782,6 +800,7 @@ export function importSongsJson(
   // surfaces the same warning in the import report itself, before the user
   // ever navigates away.
   const similarityReport = lintInPackStyleSimilarity(deduped.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
+  const lyricDiversityReport = lintInPackLyricDiversity(deduped.map(song => ({ trackNo: song.trackNo, lyrics: song.lyrics })));
   // TASK v3.43 Step 2 (Part A4) — "무엇이 고정돼 있는지 보이게": whenever the
   // linter actually has something to say, also surface exactly which
   // clauses are common to every song, so the warning isn't just "the pack
@@ -795,6 +814,13 @@ export function importSongsJson(
     importedCount: deduped.length,
     skippedCount: rawSongs.length - deduped.length,
     skippedReasons,
-    warnings: [...hookCollisionResult.warnings, ...similarityReport.warnings, ...similarityReport.errors, ...commonClausesNote]
+    warnings: [
+      ...hookCollisionResult.warnings,
+      ...similarityReport.warnings,
+      ...similarityReport.errors,
+      ...commonClausesNote,
+      ...lyricDiversityReport.warnings,
+      ...lyricDiversityReport.errors
+    ]
   };
 }
