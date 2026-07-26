@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Download, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Download, ListMusic, RotateCcw, Save, Sparkles, Image as ImageIcon, Video } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
+import MediaPipelinePanel from '../MediaPipelinePanel';
 import { downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { AgentEvaluation, PlaylistBlueprint, SongIdea, ThumbnailVariantId } from '../../types';
@@ -70,7 +71,7 @@ export default function Step4Result({
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
-  const [resultTab, setResultTab] = useState<'songs' | 'thumbnail'>('songs');
+  const [resultTab, setResultTab] = useState<'songs' | 'thumbnail' | 'media'>('songs');
 
   function toggleTrackSelected(trackNo: number) {
     setSelectedTrackNos(prev => (prev.includes(trackNo) ? prev.filter(no => no !== trackNo) : [...prev, trackNo]));
@@ -163,6 +164,10 @@ export default function Step4Result({
             <ImageIcon size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             🖼 썸네일 사양
           </button>
+          <button type="button" className={resultTab === 'media' ? 'tab active' : 'tab'} onClick={() => setResultTab('media')}>
+            <Video size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            🎬 음원·영상 제작
+          </button>
         </div>
       )}
 
@@ -174,6 +179,8 @@ export default function Step4Result({
           onSelectVariant={onSelectThumbnailVariant}
         />
       )}
+
+      {blueprint && resultTab === 'media' && <MediaPipelinePanel blueprint={blueprint} />}
 
       {resultTab === 'songs' && blueprint && hybridRefineAvailable && (
         <HybridRefinePanel
