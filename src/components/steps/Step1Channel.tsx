@@ -135,13 +135,14 @@ interface Step1ChannelProps {
   onNew: () => void;
   onSave: () => void;
   onDelete: () => void;
+  basicMode?: boolean;
 }
 
 // TASK v3.38 Part B6 — shown once (persisted in localStorage, not per-session
 // state) the first time a user selects the kids channel archetype.
 const KIDS_BANNER_DISMISSED_KEY = 'kidsChannelBannerDismissed';
 
-export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete }: Step1ChannelProps) {
+export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete, basicMode = false }: Step1ChannelProps) {
   const [genreSearchOpen, setGenreSearchOpen] = useState(false);
   const [genreQuery, setGenreQuery] = useState('');
   const [genreCategoryId, setGenreCategoryId] = useState('all');
@@ -208,6 +209,23 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     if (languageWasUntouched) {
       onUpdateField('primaryLanguage', defaults.primaryLanguage);
     }
+  }
+
+  if (basicMode) {
+    return (
+      <section className="panel basic-workflow-panel">
+        <h2>Choose a channel</h2>
+        <p className="supporting">Choose a channel profile. Its language, mood, and vocal defaults will be applied automatically.</p>
+        <div className="genre-card-grid">
+          {archetypeChoices.map(choice => (
+            <button key={choice.id} type="button" className={archetype === choice.id ? 'genre-card-choice active' : 'genre-card-choice'} onClick={() => applyArchetype(choice.id)}>
+              <b>{choice.label}</b>
+              <span>{choice.description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    );
   }
 
   return (

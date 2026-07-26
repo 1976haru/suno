@@ -106,7 +106,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
   return {
     channel,
     projectTitle: 'Autumn to Christmas Playlist Pack',
-    songCount: 12,
+    songCount: 18,
     // TASK v3.38 Part B1 — was hardcoded 'english' for every channel; both
     // pre-existing presets have primaryLanguage 'english' so this is a
     // behavior-preserving change for them, but the new kids channel preset

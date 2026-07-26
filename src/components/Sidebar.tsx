@@ -17,6 +17,8 @@ interface SidebarProps {
   onImportAll: (file: File) => void;
   onOpenSettings: () => void;
   onOpenDashboard: () => void;
+  onOpenThumbnail: () => void;
+  onOpenPersona: () => void;
 }
 
 export default function Sidebar({
@@ -34,7 +36,7 @@ export default function Sidebar({
   onExportAll,
   onImportAll,
   onOpenSettings,
-  onOpenDashboard
+  onOpenDashboard, onOpenThumbnail, onOpenPersona
 }: SidebarProps) {
   return (
     <aside className="app-sidebar">
@@ -111,6 +113,11 @@ export default function Sidebar({
         <Film size={16} />
         📺 영상 운영 대시보드
       </button>
+
+      <div className="button-row">
+        <button type="button" onClick={onOpenThumbnail}>Thumbnail studio</button>
+        <button type="button" onClick={onOpenPersona}>Persona</button>
+      </div>
 
       <button type="button" className="full-width" onClick={onOpenSettings}>
         <Settings2 size={16} />

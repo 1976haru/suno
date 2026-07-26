@@ -1368,6 +1368,28 @@ textarea {
   margin: 4px 0 0;
 }
 
+.basic-workflow-panel {
+  gap: 16px;
+}
+
+.basic-import-drop {
+  border: 1px dashed var(--line-strong, var(--line));
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.roadmap-note {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  color: var(--muted);
+}
+
+.roadmap-note p {
+  margin: 4px 0;
+}
+
 .thumbnail-image-target {
   display: grid;
   gap: 10px;

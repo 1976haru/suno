@@ -5,6 +5,7 @@ import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
 import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
+import { forecastCapacity } from '../../core/capacityPlanner';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
@@ -161,12 +162,14 @@ interface Step3GenerateProps {
   /** TASK v3.35 (bridge split) — grows as bridge-imported sets actually land, so not-yet-copied instructions in the list below reflect real titles/hooks instead of only the deterministic preallocated fallback. */
   bridgeImportedSetAvoid: { usedTitles: string[]; usedHooks: string[] };
   multiSet: MultiSetControls;
+  basicMode?: boolean;
+  onInstructionReady?: (instruction: string) => void;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet
+  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, basicMode = false, onInstructionReady
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -317,6 +320,10 @@ export default function Step3Generate({
     [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText]
   );
 
+  useEffect(() => {
+    onInstructionReady?.(multiSet.mode ? multiSetMasterInstruction : claudeCodeInstruction);
+  }, [claudeCodeInstruction, multiSet.mode, multiSetMasterInstruction, onInstructionReady]);
+
   async function handleCopyMasterInstruction() {
     await copyText(multiSetMasterInstruction);
     setMasterBridgeCopied(true);
@@ -350,6 +357,52 @@ export default function Step3Generate({
     } finally {
       setIsMultiImporting(false);
     }
+  }
+
+  if (basicMode) {
+    const choosePackCount = (count: number) => {
+      if (count === 1) {
+        multiSet.onModeChange(false);
+        setOpts(prev => ({ ...prev, songCount: 18 }));
+      } else {
+        multiSet.onModeChange(true);
+        multiSet.onSetCountChange(count);
+        multiSet.onSongsPerSetChange(18);
+      }
+    };
+    const selectedPackCount = multiSet.mode ? multiSet.setCount : 1;
+    const capacityForecast = forecastCapacity(opts.channel.archetype || 'senior-morning', opts.lyricLanguage, selectedPackCount * 18);
+    return (
+      <section className="panel basic-workflow-panel">
+        <h2>Set pack size</h2>
+        <p className="supporting">One pack contains 18 songs. Choose up to five packs for a 90-song run.</p>
+        <div className="chips">
+          {[1, 2, 3, 4, 5].map(count => (
+            <button key={count} type="button" className={(multiSet.mode ? multiSet.setCount : 1) === count ? 'chip active' : 'chip'} onClick={() => choosePackCount(count)}>
+              {count} pack{count === 1 ? '' : 's'} ({count * 18})
+            </button>
+          ))}
+        </div>
+        {selectedPackCount === 5 && <p className="warning">Hook capacity forecast: 5 packs request 90 songs at once ({capacityForecast.weeksAtCurrentPace} weeks of runway at this pace). Review hook history before committing.</p>}
+        <div className="basic-import-drop" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const file = event.dataTransfer.files?.[0]; if (file) void handleImportSongsFile(file); }}>
+          <p>After Codex finishes, drop the JSON result here or choose a file.</p>
+          <label className="import-button">
+            <input type="file" accept="application/json" style={{ display: 'none' }} onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportSongsFile(file); event.target.value = ''; }} />
+            Choose result JSON
+          </label>
+          {importReport && <p className={importReport.blueprint ? 'supporting' : 'error'}>{importReport.blueprint ? `${importReport.importedCount} songs imported` : 'Import failed'}</p>}
+        </div>
+        <div className="roadmap-note">
+          <b>Roadmap</b>
+          <p>1. Drop audio files and calculate timestamps from actual duration.</p>
+          <p>2. Run the existing render-script guide.</p>
+          <p>3. Optional Electron shell for local rendering. Browser apps cannot run ffmpeg directly.</p>
+        </div>
+        <button type="button" className="primary full-width action-button" disabled={isGenerating || multiSet.isRunning} onClick={multiSet.mode ? multiSet.onGenerate : onGenerate}>
+          {multiSet.mode ? `Create ${multiSet.setCount * 18} songs in ${multiSet.setCount} packs` : 'Create 18-song pack'}
+        </button>
+      </section>
+    );
   }
 
   return (
@@ -698,6 +751,9 @@ export default function Step3Generate({
                 <FileJson size={16} />
                 {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
               </label>
+            </div>
+            <div className="basic-import-drop" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const file = event.dataTransfer.files?.[0]; if (file) void handleImportSongsFile(file); }}>
+              Drop songs-output.json here to import, or use the file picker above.
             </div>
             {importReport && (
               <p className={importReport.blueprint ? 'supporting' : 'error'}>

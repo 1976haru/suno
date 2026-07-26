@@ -72,6 +72,7 @@ interface Step2ConceptProps {
   selectedSeason: SeasonPack;
   toggleArray: (key: 'genreIds' | 'moodIds', id: string) => void;
   provider: ProviderSettings;
+  basicMode?: boolean;
 }
 
 function CharCounter({ value, limit }: { value: string; limit: number }) {
@@ -82,7 +83,7 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
   );
 }
 
-export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider }: Step2ConceptProps) {
+export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false }: Step2ConceptProps) {
   const [vocalCustomOpen, setVocalCustomOpen] = useState(() => !matchVocalPreset(opts.vocalTone));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
@@ -239,6 +240,24 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
       recommended: preset.id === 'default',
       detail: preset.progressions.length ? `코드: ${preset.progressions.join(' / ')}` : undefined
     }));
+
+  if (basicMode) {
+    return (
+      <section className="panel basic-workflow-panel">
+        <h2>Choose a genre</h2>
+        <p className="supporting">Three channel recommendations are ready. Pick one to set the pack direction.</p>
+        <div className="genre-card-grid">
+          {visibleGenres.slice(0, 3).map(genre => (
+            <button key={genre.id} type="button" className={primaryGenreId === genre.id ? 'genre-card-choice active' : 'genre-card-choice'} onClick={() => selectPrimaryGenre(genre.id)}>
+              <b>{genre.label}</b>
+              <span>{describeGenreForUserKo(genre)}</span>
+            </button>
+          ))}
+        </div>
+        <p className="supporting">Advanced settings remain available in Expert mode.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">

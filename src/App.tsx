@@ -41,7 +41,7 @@ import StepIndicator, { type StepDef } from './components/StepIndicator';
 import Step1Channel from './components/steps/Step1Channel';
 import Step2Concept from './components/steps/Step2Concept';
 import Step3Generate from './components/steps/Step3Generate';
-import Step4Result from './components/steps/Step4Result';
+import Step4Result, { type ResultTab } from './components/steps/Step4Result';
 import WizardNav from './components/WizardNav';
 import VideoDashboard from './components/VideoDashboard';
 
@@ -61,10 +61,14 @@ const STEPS: StepDef[] = [
  * accessToken is likewise sensitive and not worth persisting.
  */
 const PROVIDER_SETTINGS_KEY = 'providerSettings';
+const UI_MODE_KEY = 'ui:mode';
 
 export default function App() {
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [expertMode, setExpertMode] = useState(false);
+  const [topBridgeInstruction, setTopBridgeInstruction] = useState('');
+  const [workspaceFocus, setWorkspaceFocus] = useState<ResultTab | undefined>();
   const [currentStep, setCurrentStep] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
   const [hybridMode, setHybridMode] = useState(false);
@@ -91,6 +95,19 @@ export default function App() {
       setProvider(prev => mergeRestoredProviderSettings(prev, saved));
     });
   }, []);
+
+  useEffect(() => {
+    void getSetting<'basic' | 'expert'>(UI_MODE_KEY).then(saved => setExpertMode(saved === 'expert'));
+  }, []);
+
+  function toggleExpertMode() {
+    setExpertMode(previous => {
+      const next = !previous;
+      if (!next) setOpts(previousOptions => ({ ...previousOptions, diversityAllocations: [] }));
+      void setSetting(UI_MODE_KEY, next ? 'expert' : 'basic');
+      return next;
+    });
+  }
 
   const persistProvider = useCallback((next: ProviderSettings) => {
     setProvider(next);
@@ -692,10 +709,16 @@ export default function App() {
           <p className="eyebrow">Suno Weaver Studio v3</p>
           <h1>Playlist prompt and lyrics workbench</h1>
         </div>
-        <button type="button" className="primary action-button" disabled={gen.isGenerating} onClick={onGenerate}>
+        <div className="button-row">
+          {topBridgeInstruction && <button type="button" onClick={() => void copyText(topBridgeInstruction)}>전체 복사</button>}
+          <button type="button" className={expertMode ? 'chip active' : 'chip'} onClick={toggleExpertMode}>
+            {expertMode ? '전문가 모드' : '기본 모드'}
+          </button>
+        <button type="button" className="primary action-button" disabled={gen.isGenerating} onClick={() => void (multiSetMode ? onGenerateMultiSet() : onGenerate())}>
           <Wand2 size={18} />
           {gen.isGenerating ? `생성 중... (${gen.genProgress.done}/${gen.genProgress.total})` : `${opts.songCount}곡 생성하기`}
         </button>
+        </div>
       </header>
 
       <div className="wizard-layout">
@@ -715,6 +738,8 @@ export default function App() {
           onImportAll={file => void library.importAll(file)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenDashboard={() => setDashboardOpen(true)}
+          onOpenThumbnail={() => { setWorkspaceFocus('thumbnail'); setCurrentStep(4); }}
+          onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(4); }}
         />
 
         <div className="wizard-main">
@@ -738,6 +763,7 @@ export default function App() {
               onNew={cm.startNewProfile}
               onSave={cm.saveEditorProfile}
               onDelete={cm.deleteSelectedCustomChannel}
+              basicMode={!expertMode}
             />
           )}
 
@@ -750,6 +776,7 @@ export default function App() {
               selectedSeason={selectedSeason}
               toggleArray={toggleArray}
               provider={provider}
+              basicMode={!expertMode}
             />
           )}
 
@@ -777,6 +804,8 @@ export default function App() {
               onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
               onImportSongsJson={onImportSongsJson}
               onImportMultiSetSongsJson={onImportMultiSetSongsJson}
+              basicMode={!expertMode}
+              onInstructionReady={setTopBridgeInstruction}
               bridgeImportedSetAvoid={bridgeImportedSetAvoid}
               multiSet={{
                 mode: multiSetMode,
@@ -845,6 +874,7 @@ export default function App() {
               onUpdateLyrics={onUpdateLyrics}
               onRegenerateLyricLine={onRegenerateLyricLine}
               onUpdatePronunciationHints={onUpdatePronunciationHints}
+              focusTab={workspaceFocus}
             />
           )}
 

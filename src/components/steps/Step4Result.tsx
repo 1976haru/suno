@@ -18,6 +18,8 @@ import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
+export type ResultTab = 'songs' | 'thumbnail' | 'persona';
+
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
   isGenerating: boolean;
@@ -69,6 +71,7 @@ interface Step4ResultProps {
   onUpdateLyrics: (trackNo: number, lyrics: string) => void;
   onRegenerateLyricLine: (trackNo: number, zeroBasedLineIndex: number) => void;
   onUpdatePronunciationHints: (trackNo: number, text: string) => void;
+  focusTab?: ResultTab;
 }
 
 export default function Step4Result({
@@ -117,14 +120,19 @@ export default function Step4Result({
   onUpdateHumanEdits,
   onUpdateLyrics,
   onRegenerateLyricLine,
-  onUpdatePronunciationHints
+  onUpdatePronunciationHints,
+  focusTab
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
-  const [resultTab, setResultTab] = useState<'songs' | 'thumbnail' | 'persona'>('songs');
+  const [resultTab, setResultTab] = useState<ResultTab>('songs');
   const [focusModeOpen, setFocusModeOpen] = useState(false);
   const [progressModeOpen, setProgressModeOpen] = useState(false);
+
+  useEffect(() => {
+    if (focusTab) setResultTab(focusTab);
+  }, [focusTab]);
 
   // TASK I6 (v3.11, PART D-3) — tracks 1-3 decide the video's first
   // impression, so they're pre-checked for hybrid refinement by default;
