@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import { Download, RefreshCw, Sparkles, Undo2, Upload, Wand2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Download, Eye, EyeOff, Layers3, Plus, RefreshCw, Sparkles, Trash2, Undo2, Upload, Wand2 } from 'lucide-react';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
 import { composeThumbnailPromptSet, type ThumbnailPromptVariantId } from '../core/thumbnailPromptComposer';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
@@ -10,7 +10,16 @@ import {
   BASE_STYLE_PRESETS, FONT_OPTIONS, SHADOW_COLORS, TEXT_COLORS, TEXT_POSITIONS,
   composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl, resizeDataUrlForEdit
 } from '../core/thumbnailCanvas';
-import type { ThumbnailTextStyle } from '../core/thumbnailCanvas';
+import type { ThumbnailDividerPreset, ThumbnailTextLayer } from '../core/thumbnailCanvas';
+import {
+  THUMBNAIL_LAYER_ROLE_LABELS,
+  buildThumbnailTextLayersFromSpec,
+  cloneThumbnailTextLayer,
+  injectSpecTextIntoLayers,
+  selectedThumbnailHeadline,
+  stackThumbnailCoreLayers,
+  templateStyle
+} from '../core/thumbnailTextLayers';
 import { defaultBrandTemplate, getBrandTemplate, listBrandChannelNames, saveBrandTemplate } from '../core/thumbnailBrandStore';
 import type { ThumbnailBadgePosition, ThumbnailBrandTemplate } from '../types';
 import { listSetGroups, loadPack } from '../core/library';
@@ -65,6 +74,8 @@ interface ImageTargetState {
   seed: number;
   activeVariantId: ThumbnailPromptVariantId;
   copyText: string;
+  layers: ThumbnailTextLayer[];
+  selectedLayerId: string;
   backgroundDataUrl: string | null;
   /** TASK v3.44 Step A — which path filled backgroundDataUrl, so the UI can badge it ("AI 생성" vs "업로드") instead of leaving the source ambiguous. */
   backgroundSource: 'ai' | 'upload' | null;
@@ -86,11 +97,12 @@ interface ImageTargetState {
 }
 
 function selectedHeadline(spec: ThumbnailSpec): string {
-  return spec.variants.find(v => v.id === spec.selected)?.headline ?? spec.variants[0]?.headline ?? '';
+  return selectedThumbnailHeadline(spec);
 }
 
 function createTargetState(key: ImageTargetKey, spec: ThumbnailSpec, defaultSeasonId: string, defaultArchetypeId: ThumbnailArchetypeId): ImageTargetState {
   const headline = selectedHeadline(spec);
+  const layers = buildThumbnailTextLayersFromSpec(spec, defaultArchetypeId);
   return {
     archetypeId: defaultArchetypeId,
     seasonId: defaultSeasonId,
@@ -100,6 +112,8 @@ function createTargetState(key: ImageTargetKey, spec: ThumbnailSpec, defaultSeas
     seed: 0,
     activeVariantId: 'A',
     copyText: key === 'cover' ? headline.split('\n')[0] : headline,
+    layers,
+    selectedLayerId: layers.find(layer => layer.role === 'title')?.id ?? layers[0]?.id ?? '',
     backgroundDataUrl: null,
     backgroundSource: null,
     backgroundHistory: [],
@@ -148,18 +162,12 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const style: ThumbnailTextStyle = {
-        fontId: template.fontId,
-        textColor: template.textColor,
-        shadowColor: template.shadowColor,
-        shadowWidth: template.shadowWidth,
-        strokeOn: template.strokeOn,
-        position: template.position
-      };
+      const style = templateStyle(template);
       const canvas = await composeImage({
         width: THUMB_SIZE.width,
         height: THUMB_SIZE.height,
         backgroundImage: null,
+        layers: template.layers,
         copyText: SAMPLE_COPY,
         textStyle: style,
         badge: template.badge,
@@ -221,10 +229,80 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     return key === 'thumb' ? thumbPromptSet : coverPromptSet;
   }
 
+  function resetLayersFromSpec(key: ImageTargetKey, archetypeId = targetState(key).archetypeId) {
+    const layers = buildThumbnailTextLayersFromSpec(spec, archetypeId);
+    setTargetState(key, {
+      layers,
+      selectedLayerId: layers.find(layer => layer.role === 'title')?.id ?? layers[0]?.id ?? ''
+    });
+  }
+
+  function changeTargetArchetype(key: ImageTargetKey, archetypeId: ThumbnailArchetypeId) {
+    const layers = buildThumbnailTextLayersFromSpec(spec, archetypeId);
+    setTargetState(key, {
+      archetypeId,
+      layers,
+      selectedLayerId: layers.find(layer => layer.role === 'title')?.id ?? layers[0]?.id ?? ''
+    });
+  }
+
+  function updateTargetLayers(key: ImageTargetKey, updater: (layers: ThumbnailTextLayer[]) => ThumbnailTextLayer[], selectedLayerId?: string) {
+    const setState = key === 'thumb' ? setThumb : setCover;
+    setState(prev => {
+      const layers = updater(prev.layers);
+      const fallbackSelected = layers.some(layer => layer.id === prev.selectedLayerId) ? prev.selectedLayerId : layers[0]?.id ?? '';
+      return { ...prev, layers, selectedLayerId: selectedLayerId ?? fallbackSelected };
+    });
+  }
+
+  function updateLayer(key: ImageTargetKey, layerId: string, patch: Partial<ThumbnailTextLayer>) {
+    updateTargetLayers(key, layers => layers.map(layer => layer.id === layerId ? { ...layer, ...patch } : layer));
+  }
+
+  function moveLayer(key: ImageTargetKey, layerId: string, direction: -1 | 1) {
+    updateTargetLayers(key, layers => {
+      const index = layers.findIndex(layer => layer.id === layerId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= layers.length) return layers;
+      const next = [...layers];
+      const [layer] = next.splice(index, 1);
+      next.splice(nextIndex, 0, layer);
+      return next;
+    });
+  }
+
+  function addLayer(key: ImageTargetKey) {
+    const state = targetState(key);
+    const source = state.layers.find(layer => layer.id === state.selectedLayerId) ?? state.layers.find(layer => layer.role === 'title');
+    if (!source) {
+      resetLayersFromSpec(key);
+      return;
+    }
+    const layer = cloneThumbnailTextLayer(source);
+    updateTargetLayers(key, layers => [...layers, layer], layer.id);
+  }
+
+  function deleteLayer(key: ImageTargetKey, layerId: string) {
+    updateTargetLayers(key, layers => layers.filter(layer => layer.id !== layerId));
+  }
+
+  function stackLayers(key: ImageTargetKey) {
+    updateTargetLayers(key, layers => stackThumbnailCoreLayers(layers));
+  }
+
   async function loadChannel() {
     if (!channelName.trim()) return;
     const saved = await getBrandTemplate(channelName.trim());
-    setTemplate(saved || defaultBrandTemplate(channelName.trim()));
+    const next = saved || defaultBrandTemplate(channelName.trim());
+    setTemplate(next);
+    if (saved?.layers?.length) {
+      const restoredLayers = saved.layers.map(layer => ({ ...layer }));
+      setThumb(prev => ({ ...prev, layers: restoredLayers.map(layer => ({ ...layer })), selectedLayerId: restoredLayers.find(layer => layer.role === 'title')?.id ?? restoredLayers[0]?.id ?? '' }));
+      setCover(prev => ({ ...prev, layers: restoredLayers.map(layer => ({ ...layer })), selectedLayerId: restoredLayers.find(layer => layer.role === 'title')?.id ?? restoredLayers[0]?.id ?? '' }));
+    } else if (saved) {
+      setThumb(prev => ({ ...prev, layers: [], selectedLayerId: '' }));
+      setCover(prev => ({ ...prev, layers: [], selectedLayerId: '' }));
+    }
     setOverrideOnce(false);
   }
 
@@ -237,7 +315,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   async function saveAndLock() {
     const name = channelName.trim();
     if (!name) return;
-    const next = { ...template, channelName: name, locked: true, updatedAt: new Date().toISOString() };
+    const next = { ...template, channelName: name, layers: thumb.layers.length ? thumb.layers : undefined, locked: true, updatedAt: new Date().toISOString() };
     setTemplate(next);
     setOverrideOnce(false);
     await saveBrandTemplate(next);
@@ -253,6 +331,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   function applySpecCopyText(key: ImageTargetKey) {
     const headline = selectedHeadline(spec);
     setTargetState(key, { copyText: key === 'cover' ? headline.split('\n')[0] : headline });
+    updateTargetLayers(key, layers => layers.map(layer => layer.role === 'title' ? { ...layer, text: headline } : layer));
   }
 
   async function generateBackground(key: ImageTargetKey) {
@@ -366,18 +445,12 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
         // fall back to a solid background fill
       }
     }
-    const style: ThumbnailTextStyle = {
-      fontId: template.fontId,
-      textColor: template.textColor,
-      shadowColor: template.shadowColor,
-      shadowWidth: template.shadowWidth,
-      strokeOn: template.strokeOn,
-      position: template.position
-    };
+    const style = templateStyle(template);
     const canvas = await composeImage({
       width: size.width,
       height: size.height,
       backgroundImage,
+      layers: state.layers.length ? state.layers : undefined,
       copyText: state.copyText,
       textStyle: style,
       badge: template.badge,
@@ -399,14 +472,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     if (!group) return;
     setBatchRunning(true);
     setBatchLog('');
-    const style: ThumbnailTextStyle = {
-      fontId: template.fontId,
-      textColor: template.textColor,
-      shadowColor: template.shadowColor,
-      shadowWidth: template.shadowWidth,
-      strokeOn: template.strokeOn,
-      position: template.position
-    };
+    const style = templateStyle(template);
     let done = 0;
     for (const meta of group.packs) {
       const pack = await loadPack(meta.id);
@@ -430,6 +496,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
           width: THUMB_SIZE.width,
           height: THUMB_SIZE.height,
           backgroundImage,
+          layers: thumb.layers.length && pack.thumbnailSpec ? injectSpecTextIntoLayers(thumb.layers, pack.thumbnailSpec, thumb.archetypeId) : undefined,
           copyText: headline,
           textStyle: style,
           badge: template.badge,
@@ -446,6 +513,204 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     setBatchLog(prev => `${prev}총 ${done}/${group.packs.length}개 완료`);
   }
 
+  function renderLayerEditor(key: ImageTargetKey) {
+    const state = targetState(key);
+    const selectedLayer = state.layers.find(layer => layer.id === state.selectedLayerId) ?? state.layers[0];
+
+    if (!state.layers.length) {
+      return (
+        <div className="thumbnail-layer-panel">
+          <div className="thumbnail-layer-head">
+            <h4>Text layers</h4>
+            <button type="button" onClick={() => resetLayersFromSpec(key)}>
+              <Layers3 size={14} />
+              Use spec layers
+            </button>
+          </div>
+          <p className="supporting">Legacy single-text mode is active for this target.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="thumbnail-layer-panel">
+        <div className="thumbnail-layer-head">
+          <h4>Text layers</h4>
+          <div className="button-row">
+            <button type="button" disabled={effectiveLocked} onClick={() => stackLayers(key)}>
+              <Layers3 size={14} />
+              Stack
+            </button>
+            <button type="button" onClick={() => resetLayersFromSpec(key)}>Reset to spec</button>
+            <button type="button" disabled={effectiveLocked} onClick={() => addLayer(key)}>
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="thumbnail-layer-list">
+          {state.layers.map((layer, index) => (
+            <div key={layer.id} className={layer.id === selectedLayer?.id ? 'thumbnail-layer-row active' : 'thumbnail-layer-row'}>
+              <button
+                type="button"
+                className="icon-button"
+                title={layer.enabled ? 'Hide layer' : 'Show layer'}
+                disabled={effectiveLocked}
+                onClick={() => updateLayer(key, layer.id, { enabled: !layer.enabled })}
+              >
+                {layer.enabled ? <Eye size={14} /> : <EyeOff size={14} />}
+              </button>
+              <button type="button" className="chip" onClick={() => setTargetState(key, { selectedLayerId: layer.id })}>
+                {THUMBNAIL_LAYER_ROLE_LABELS[layer.role]}
+              </button>
+              <input
+                value={layer.text}
+                placeholder={layer.role === 'divider' ? 'Divider text (text preset only)' : 'Layer text'}
+                onFocus={() => setTargetState(key, { selectedLayerId: layer.id })}
+                onChange={event => updateLayer(key, layer.id, { text: event.target.value })}
+              />
+              <button type="button" className="icon-button" title="Move up" disabled={effectiveLocked || index === 0} onClick={() => moveLayer(key, layer.id, -1)}>
+                <ArrowUp size={14} />
+              </button>
+              <button type="button" className="icon-button" title="Move down" disabled={effectiveLocked || index === state.layers.length - 1} onClick={() => moveLayer(key, layer.id, 1)}>
+                <ArrowDown size={14} />
+              </button>
+              <button type="button" className="icon-button" title="Duplicate" disabled={effectiveLocked} onClick={() => {
+                const clone = cloneThumbnailTextLayer(layer);
+                updateTargetLayers(key, layers => [...layers.slice(0, index + 1), clone, ...layers.slice(index + 1)], clone.id);
+              }}>
+                <Copy size={14} />
+              </button>
+              <button type="button" className="icon-button" title="Delete" disabled={effectiveLocked || state.layers.length <= 1} onClick={() => deleteLayer(key, layer.id)}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {selectedLayer && (
+          <div className="thumbnail-layer-detail">
+            <div className="thumbnail-control-grid">
+              <label>
+                Font
+                <select value={selectedLayer.fontId} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { fontId: event.target.value as ThumbnailTextLayer['fontId'] })}>
+                  {FONT_OPTIONS.map(font => <option key={font.id} value={font.id}>{font.family}</option>)}
+                </select>
+              </label>
+              <label>
+                Anchor
+                <select value={selectedLayer.position} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { position: event.target.value as ThumbnailTextLayer['position'] })}>
+                  {TEXT_POSITIONS.map(position => <option key={position.id} value={position.id}>{position.label}</option>)}
+                </select>
+              </label>
+              <label>
+                Max lines
+                <select value={selectedLayer.maxLines} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { maxLines: Number(event.target.value) })}>
+                  {[1, 2, 3, 4].map(value => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                Shadow
+                <select value={selectedLayer.shadowWidth} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { shadowWidth: Number(event.target.value) })}>
+                  {[0, 1, 2, 3, 4, 5, 6].map(value => <option key={value} value={value}>{value}px</option>)}
+                </select>
+              </label>
+              <label>
+                Stroke
+                <select value={selectedLayer.strokeOn ? 'on' : 'off'} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { strokeOn: event.target.value === 'on' })}>
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="thumbnail-slider-grid">
+              <label>
+                Size {selectedLayer.sizeRatio.toFixed(3)}
+                <input type="range" min="0.02" max="0.22" step="0.002" value={selectedLayer.sizeRatio} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { sizeRatio: Number(event.target.value) })} />
+              </label>
+              <label>
+                X {selectedLayer.offsetXRatio.toFixed(3)}
+                <input type="range" min="-0.5" max="0.5" step="0.005" value={selectedLayer.offsetXRatio} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { offsetXRatio: Number(event.target.value) })} />
+              </label>
+              <label>
+                Y {selectedLayer.offsetYRatio.toFixed(3)}
+                <input type="range" min="-0.5" max="0.5" step="0.005" value={selectedLayer.offsetYRatio} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { offsetYRatio: Number(event.target.value) })} />
+              </label>
+              <label>
+                Line height {selectedLayer.lineHeightRatio.toFixed(2)}
+                <input type="range" min="0.75" max="2.4" step="0.01" value={selectedLayer.lineHeightRatio} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { lineHeightRatio: Number(event.target.value) })} />
+              </label>
+              <label>
+                Letter spacing {selectedLayer.letterSpacingRatio.toFixed(3)}
+                <input type="range" min="-0.02" max="0.08" step="0.001" value={selectedLayer.letterSpacingRatio} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { letterSpacingRatio: Number(event.target.value) })} />
+              </label>
+              <label>
+                Opacity {selectedLayer.opacity.toFixed(2)}
+                <input type="range" min="0" max="1" step="0.01" value={selectedLayer.opacity} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { opacity: Number(event.target.value) })} />
+              </label>
+            </div>
+
+            <label>Text color</label>
+            <div className="thumbnail-swatches">
+              {TEXT_COLORS.map(color => (
+                <span
+                  key={color}
+                  className="thumbnail-swatch"
+                  style={{
+                    background: color,
+                    boxShadow: selectedLayer.textColor === color ? '0 0 0 2px var(--blue)' : 'none',
+                    cursor: effectiveLocked ? 'not-allowed' : 'pointer',
+                    opacity: effectiveLocked ? 0.5 : 1
+                  }}
+                  onClick={() => !effectiveLocked && updateLayer(key, selectedLayer.id, { textColor: color })}
+                />
+              ))}
+            </div>
+            <label>Shadow color</label>
+            <div className="thumbnail-swatches">
+              {SHADOW_COLORS.map(color => (
+                <span
+                  key={color}
+                  className="thumbnail-swatch"
+                  style={{
+                    background: color,
+                    boxShadow: selectedLayer.shadowColor === color ? '0 0 0 2px var(--blue)' : 'none',
+                    cursor: effectiveLocked ? 'not-allowed' : 'pointer',
+                    opacity: effectiveLocked ? 0.5 : 1
+                  }}
+                  onClick={() => !effectiveLocked && updateLayer(key, selectedLayer.id, { shadowColor: color })}
+                />
+              ))}
+            </div>
+
+            {selectedLayer.role === 'divider' && (
+              <div className="thumbnail-control-grid">
+                <label>
+                  Divider preset
+                  <select value={selectedLayer.dividerPreset ?? 'line-ornament'} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { dividerPreset: event.target.value as ThumbnailDividerPreset })}>
+                    <option value="line">Line</option>
+                    <option value="line-ornament">Line + ornament</option>
+                    <option value="text">Text</option>
+                  </select>
+                </label>
+                <label>
+                  Width {(selectedLayer.dividerWidthRatio ?? 0.24).toFixed(2)}
+                  <input type="range" min="0.02" max="0.95" step="0.01" value={selectedLayer.dividerWidthRatio ?? 0.24} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { dividerWidthRatio: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Thickness {(selectedLayer.dividerThicknessRatio ?? 0.0025).toFixed(4)}
+                  <input type="range" min="0.0005" max="0.03" step="0.0005" value={selectedLayer.dividerThicknessRatio ?? 0.0025} disabled={effectiveLocked} onChange={event => updateLayer(key, selectedLayer.id, { dividerThicknessRatio: Number(event.target.value) })} />
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderTargetControls(key: ImageTargetKey) {
     const state = targetState(key);
     const promptSet = promptSetFor(key);
@@ -459,7 +724,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
         <div className="thumbnail-control-grid">
           <label>
             Archetype
-            <select value={state.archetypeId} onChange={event => setTargetState(key, { archetypeId: event.target.value as ThumbnailArchetypeId })}>
+            <select value={state.archetypeId} onChange={event => changeTargetArchetype(key, event.target.value as ThumbnailArchetypeId)}>
               {thumbnailArchetypes.map(a => <option key={a.id} value={a.id}>{a.labelKo}</option>)}
             </select>
           </label>
@@ -569,7 +834,9 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
           </div>
         )}
 
-        <label>문구</label>
+        {renderLayerEditor(key)}
+
+        <label>Legacy copy text</label>
         <div className="inline">
           <input value={state.copyText} onChange={event => setTargetState(key, { copyText: event.target.value })} />
           <button type="button" onClick={() => applySpecCopyText(key)}>선택한 A/B/C 문구 적용</button>

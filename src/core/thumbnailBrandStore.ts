@@ -1,13 +1,6 @@
 import { getSetting, setSetting } from './settingsStore';
-import type { ThumbnailBrandTemplate } from '../types';
-
-/**
- * TASK v3.37 (spec item C) — channel brand templates, stored the same way as
- * BYOK provider keys (see SettingsModal's byokKeyName / settingsStore.ts):
- * flat opaque keys in the shared IndexedDB 'kv' store, not a new versioned
- * object store. A small index array tracks which channel names exist, since
- * the flat KV store has no "list keys by prefix" primitive of its own.
- */
+import type { ThumbnailBrandTemplate, ThumbnailTextLayer } from '../types';
+import { normalizeThumbnailTextLayer } from './thumbnailTextLayers';
 
 const CHANNEL_INDEX_KEY = 'thumbnailBrandChannels';
 
@@ -26,14 +19,37 @@ async function addToChannelIndex(channelName: string): Promise<void> {
   await setSetting(CHANNEL_INDEX_KEY, [...current, channelName]);
 }
 
+function isLayerLike(value: unknown): value is Partial<ThumbnailTextLayer> & Pick<ThumbnailTextLayer, 'id' | 'role'> {
+  if (!value || typeof value !== 'object') return false;
+  const layer = value as Partial<ThumbnailTextLayer>;
+  return typeof layer.id === 'string' && typeof layer.role === 'string';
+}
+
+export function normalizeBrandTemplate(saved: ThumbnailBrandTemplate | undefined, fallbackChannelName = ''): ThumbnailBrandTemplate | undefined {
+  if (!saved) return undefined;
+  const fallback = defaultBrandTemplate(saved.channelName || fallbackChannelName);
+  const layers = Array.isArray(saved.layers)
+    ? saved.layers.filter(isLayerLike).map(layer => normalizeThumbnailTextLayer(layer))
+    : undefined;
+
+  return {
+    ...fallback,
+    ...saved,
+    channelName: saved.channelName || fallbackChannelName,
+    badge: { ...fallback.badge, ...(saved.badge || {}) },
+    layers
+  };
+}
+
 export async function getBrandTemplate(channelName: string): Promise<ThumbnailBrandTemplate | undefined> {
   if (!channelName) return undefined;
-  return getSetting<ThumbnailBrandTemplate>(templateKey(channelName));
+  const saved = await getSetting<ThumbnailBrandTemplate>(templateKey(channelName));
+  return normalizeBrandTemplate(saved, channelName);
 }
 
 export async function saveBrandTemplate(template: ThumbnailBrandTemplate): Promise<void> {
-  if (!template.channelName.trim()) throw new Error('채널 이름이 필요합니다.');
-  await setSetting(templateKey(template.channelName), template);
+  if (!template.channelName.trim()) throw new Error('Channel name is required.');
+  await setSetting(templateKey(template.channelName), normalizeBrandTemplate(template, template.channelName) ?? template);
   await addToChannelIndex(template.channelName);
 }
 
@@ -46,7 +62,7 @@ export function defaultBrandTemplate(channelName: string): ThumbnailBrandTemplat
     shadowWidth: 2,
     strokeOn: true,
     position: 'bottom-center',
-    badge: { icon: '🎵', tag: '', position: 'bottom-right' },
+    badge: { icon: 'SW', tag: '', position: 'bottom-right' },
     locked: false,
     updatedAt: new Date().toISOString()
   };

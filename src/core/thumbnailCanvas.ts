@@ -1,13 +1,14 @@
-import type { ThumbnailBadgePosition, ThumbnailBrandBadge, ThumbnailFontId, ThumbnailTextPosition } from '../types';
+import type {
+  ThumbnailBadgePosition,
+  ThumbnailBrandBadge,
+  ThumbnailDividerPreset,
+  ThumbnailFontId,
+  ThumbnailTextLayer,
+  ThumbnailTextPosition,
+  ThumbnailTextStyle
+} from '../types';
 
-/**
- * TASK v3.37 (spec item B) — canvas compositing ported from creator-studio's
- * tools/thumbnail/canvas.js. Pure geometry (wrapAlign/anchorPoint) is kept
- * free of DOM APIs and exported separately so it can be unit tested in this
- * repo's vitest setup, which deliberately has no jsdom/canvas polyfill (see
- * providerSettingsPersistence.ts) — everything else here only runs in a real
- * browser.
- */
+export type { ThumbnailDividerPreset, ThumbnailLayerRole, ThumbnailTextLayer, ThumbnailTextStyle } from '../types';
 
 export interface ThumbnailFontOption {
   id: ThumbnailFontId;
@@ -38,37 +39,38 @@ export interface ThumbnailStylePreset {
 }
 
 export const BASE_STYLE_PRESETS: ThumbnailStylePreset[] = [
-  { id: 'preset1', label: 'Black Han Sans · 흰색 · 검은그림자', fontId: 'blackHanSans', textColor: '#FFFFFF', shadowColor: '#000000', shadowWidth: 2, strokeOn: true },
-  { id: 'preset2', label: 'Do Hyeon · 노랑 · 검은그림자', fontId: 'doHyeon', textColor: '#FFFF00', shadowColor: '#000000', shadowWidth: 2, strokeOn: true },
-  { id: 'preset3', label: 'Jua · 흰색 · 빨강그림자', fontId: 'jua', textColor: '#FFFFFF', shadowColor: '#D30000', shadowWidth: 2, strokeOn: true },
-  { id: 'preset4', label: 'Gowun Dodum · 노랑 · 파랑그림자', fontId: 'gowunDodum', textColor: '#FFFF00', shadowColor: '#0000FF', shadowWidth: 2, strokeOn: true }
+  { id: 'preset1', label: 'Black Han Sans / white / black shadow', fontId: 'blackHanSans', textColor: '#FFFFFF', shadowColor: '#000000', shadowWidth: 2, strokeOn: true },
+  { id: 'preset2', label: 'Do Hyeon / yellow / black shadow', fontId: 'doHyeon', textColor: '#FFFF00', shadowColor: '#000000', shadowWidth: 2, strokeOn: true },
+  { id: 'preset3', label: 'Jua / white / red shadow', fontId: 'jua', textColor: '#FFFFFF', shadowColor: '#D30000', shadowWidth: 2, strokeOn: true },
+  { id: 'preset4', label: 'Gowun Dodum / yellow / blue shadow', fontId: 'gowunDodum', textColor: '#FFFF00', shadowColor: '#0000FF', shadowWidth: 2, strokeOn: true }
 ];
 
 export const TEXT_POSITIONS: { id: ThumbnailTextPosition; label: string }[] = [
-  { id: 'top-center', label: '상단 중앙' },
-  { id: 'center', label: '중앙' },
-  { id: 'bottom-center', label: '하단 중앙' },
-  { id: 'top-left', label: '좌상단' },
-  { id: 'bottom-left', label: '좌하단' },
-  { id: 'top-right', label: '우상단' },
-  { id: 'bottom-right', label: '우하단' }
+  { id: 'top-left', label: 'Top left' },
+  { id: 'top-center', label: 'Top center' },
+  { id: 'top-right', label: 'Top right' },
+  { id: 'center-left', label: 'Center left' },
+  { id: 'center', label: 'Center' },
+  { id: 'center-right', label: 'Center right' },
+  { id: 'bottom-left', label: 'Bottom left' },
+  { id: 'bottom-center', label: 'Bottom center' },
+  { id: 'bottom-right', label: 'Bottom right' }
 ];
+
+export const DEFAULT_TEXT_PADDING_RATIO = 0.07;
+export const DEFAULT_TEXT_LINE_HEIGHT_RATIO = 1.28;
+export const DEFAULT_TEXT_MAX_LINES = 2;
+export const DEFAULT_DIVIDER_PRESET: ThumbnailDividerPreset = 'line-ornament';
+export const DEFAULT_DIVIDER_WIDTH_RATIO = 0.24;
+export const DEFAULT_DIVIDER_THICKNESS_RATIO = 0.0025;
 
 export function fontFamilyById(id: ThumbnailFontId): ThumbnailFontOption {
   return FONT_OPTIONS.find(f => f.id === id) ?? FONT_OPTIONS[0];
 }
 
-export interface ThumbnailTextStyle {
-  fontId: ThumbnailFontId;
-  textColor: string;
-  shadowColor: string;
-  shadowWidth: number;
-  strokeOn: boolean;
-  position: ThumbnailTextPosition;
-}
-
 export async function ensureFontsLoaded(fontIds: ThumbnailFontId[] = FONT_OPTIONS.map(f => f.id)): Promise<void> {
-  const jobs = fontIds.map(id => {
+  if (!('fonts' in document)) return;
+  const jobs = [...new Set(fontIds)].map(id => {
     const font = fontFamilyById(id);
     return document.fonts.load(`48px "${font.family}"`).catch(() => undefined);
   });
@@ -87,7 +89,7 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+    img.onerror = () => reject(new Error('Failed to load image.'));
     img.src = src;
   });
 }
@@ -96,24 +98,11 @@ function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'));
+    reader.onerror = () => reject(new Error('Failed to read file.'));
     reader.readAsDataURL(file);
   });
 }
 
-/**
- * TASK v3.44 Step A — the studio previously could only ever fill
- * backgroundDataUrl from generateThumbnailImage()'s AI output; a user with
- * their own textless cover photo had no way in. This is the file-input
- * counterpart: reads the file, and — memory guard, not a quality feature —
- * downscales anything whose long edge exceeds MAX_UPLOAD_LONG_EDGE before
- * it ever lands in React state or gets drawn repeatedly by drawBackgroundCover.
- * EXIF orientation is deliberately not hand-corrected here: every current
- * evergreen browser already auto-rotates a decoded <img> per its EXIF tag
- * (the `image-orientation: from-image` UA default), and drawImage draws
- * that already-corrected orientation — a second manual correction on top
- * would double-rotate, not fix, an already-correct image.
- */
 const MAX_UPLOAD_LONG_EDGE = 4000;
 
 function downscaleImageToDataUrl(image: HTMLImageElement, maxLongEdge: number, mimeType: string, quality: number): string {
@@ -128,26 +117,13 @@ function downscaleImageToDataUrl(image: HTMLImageElement, maxLongEdge: number, m
 }
 
 export async function loadUserBackgroundDataUrl(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있습니다 (PNG/JPEG/WEBP).');
+  if (!file.type.startsWith('image/')) throw new Error('Only image files can be uploaded (PNG/JPEG/WEBP).');
   const rawDataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(rawDataUrl);
   if (Math.max(image.width, image.height) <= MAX_UPLOAD_LONG_EDGE) return rawDataUrl;
   return downscaleImageToDataUrl(image, MAX_UPLOAD_LONG_EDGE, file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
 }
 
-/**
- * TASK v3.45 (Part 2) — Qwen's own docs say anything over 2048px on the long
- * edge is auto-downscaled server-side (with a quality hit) before editing;
- * this resizes client-side first so the app controls the downscale (higher-
- * quality resample than whatever DashScope does) and so the request body is
- * smaller — img2img editing sends the reference image itself, unlike plain
- * text-to-image generation. Always re-encodes as JPEG regardless of the
- * source format: the input is a photographic background at this point (any
- * text layer is composited separately on the client, never baked in before
- * an edit round-trip), so there's no transparency/flat-color content that
- * would benefit from PNG, and JPEG keeps the base64 payload well under the
- * proxy's per-request size cap.
- */
 const EDIT_INPUT_MAX_LONG_EDGE = 1536;
 
 export async function resizeDataUrlForEdit(dataUrl: string, maxLongEdge = EDIT_INPUT_MAX_LONG_EDGE): Promise<string> {
@@ -172,7 +148,6 @@ export function drawBackgroundCover(ctx: CanvasRenderingContext2D, image: HTMLIm
 
 export type TextAlign = 'left' | 'right' | 'center';
 
-/** Pure — no DOM dependency, safe to unit test directly. */
 export function wrapAlign(position: ThumbnailTextPosition | ThumbnailBadgePosition): TextAlign {
   if (position.includes('left')) return 'left';
   if (position.includes('right')) return 'right';
@@ -185,7 +160,6 @@ export interface AnchorPoint {
   align: TextAlign;
 }
 
-/** Pure — no DOM dependency, safe to unit test directly. */
 export function anchorPoint(position: ThumbnailTextPosition, width: number, height: number, padding: number): AnchorPoint {
   const align = wrapAlign(position);
   const x = align === 'left' ? padding : align === 'right' ? width - padding : width / 2;
@@ -196,7 +170,92 @@ export function anchorPoint(position: ThumbnailTextPosition, width: number, heig
   return { x, y, align };
 }
 
-function drawStyledLine(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, style: ThumbnailTextStyle & { align: TextAlign }, fontSize: number): void {
+function clampNumber(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function textLines(text: string, maxLines: number): string[] {
+  return String(text || '').split('\n').map(line => line.trim()).filter(Boolean).slice(0, maxLines);
+}
+
+function legacyTitleSizeRatio(lineCount: number): number {
+  return lineCount > 1 ? 0.11 : 0.13;
+}
+
+type RuntimeTextStyle = ThumbnailTextStyle & Partial<ThumbnailTextLayer>;
+
+function resolveRuntimeTextStyle(style: ThumbnailTextStyle): RuntimeTextStyle {
+  return style as RuntimeTextStyle;
+}
+
+type LetterSpacingContext = CanvasRenderingContext2D & { letterSpacing: string };
+
+function hasNativeLetterSpacing(ctx: CanvasRenderingContext2D): ctx is LetterSpacingContext {
+  return 'letterSpacing' in ctx;
+}
+
+function drawUnspacedText(ctx: CanvasRenderingContext2D, stroke: boolean, text: string, x: number, y: number): void {
+  if (stroke) ctx.strokeText(text, x, y);
+  else ctx.fillText(text, x, y);
+}
+
+function drawManualLetterSpacing(ctx: CanvasRenderingContext2D, stroke: boolean, text: string, x: number, y: number, letterSpacing: number): void {
+  const chars = Array.from(text);
+  if (chars.length <= 1 || letterSpacing === 0) {
+    drawUnspacedText(ctx, stroke, text, x, y);
+    return;
+  }
+
+  const widths = chars.map(char => ctx.measureText(char).width);
+  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + letterSpacing * (chars.length - 1);
+  const originalAlign = ctx.textAlign;
+  let cursor = x;
+  if (originalAlign === 'center') cursor -= totalWidth / 2;
+  else if (originalAlign === 'right' || originalAlign === 'end') cursor -= totalWidth;
+
+  ctx.textAlign = 'left';
+  chars.forEach((char, index) => {
+    drawUnspacedText(ctx, stroke, char, cursor, y);
+    cursor += widths[index] + letterSpacing;
+  });
+  ctx.textAlign = originalAlign;
+}
+
+function drawTextWithLetterSpacing(ctx: CanvasRenderingContext2D, stroke: boolean, text: string, x: number, y: number, letterSpacing: number): void {
+  if (letterSpacing === 0) {
+    drawUnspacedText(ctx, stroke, text, x, y);
+    return;
+  }
+
+  if (hasNativeLetterSpacing(ctx)) {
+    const previous = ctx.letterSpacing;
+    ctx.letterSpacing = `${letterSpacing}px`;
+    try {
+      drawUnspacedText(ctx, stroke, text, x, y);
+    } finally {
+      ctx.letterSpacing = previous;
+    }
+    return;
+  }
+
+  drawManualLetterSpacing(ctx, stroke, text, x, y, letterSpacing);
+}
+
+function drawStyledLine(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  style: ThumbnailTextStyle & { align: TextAlign },
+  fontSize: number,
+  letterSpacing = 0
+): void {
   const font = fontFamilyById(style.fontId);
   ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
   ctx.textAlign = style.align;
@@ -205,35 +264,130 @@ function drawStyledLine(ctx: CanvasRenderingContext2D, text: string, x: number, 
 
   if (style.shadowWidth > 0) {
     ctx.fillStyle = style.shadowColor;
-    ctx.fillText(text, x + style.shadowWidth, y + style.shadowWidth);
+    drawTextWithLetterSpacing(ctx, false, text, x + style.shadowWidth, y + style.shadowWidth, letterSpacing);
   }
   if (style.strokeOn) {
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.09));
-    ctx.strokeText(text, x, y);
+    drawTextWithLetterSpacing(ctx, true, text, x, y, letterSpacing);
   }
   ctx.fillStyle = style.textColor;
-  ctx.fillText(text, x, y);
+  drawTextWithLetterSpacing(ctx, false, text, x, y, letterSpacing);
 }
 
 export function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, canvasWidth: number, canvasHeight: number, style: ThumbnailTextStyle): void {
-  const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean).slice(0, 2);
+  const runtimeStyle = resolveRuntimeTextStyle(style);
+  const maxLines = clampInt(runtimeStyle.maxLines, DEFAULT_TEXT_MAX_LINES, 1, 4);
+  const lines = textLines(text, maxLines);
   if (!lines.length) return;
-  const fontSize = Math.round(canvasHeight * (lines.length > 1 ? 0.11 : 0.13));
-  const lineHeight = fontSize * 1.28;
-  const padding = Math.round(canvasHeight * 0.07);
+
+  const fontSize = Math.round(canvasHeight * clampNumber(runtimeStyle.sizeRatio, legacyTitleSizeRatio(lines.length), 0.02, 0.22));
+  const lineHeight = fontSize * clampNumber(runtimeStyle.lineHeightRatio, DEFAULT_TEXT_LINE_HEIGHT_RATIO, 0.75, 2.4);
+  const padding = Math.round(canvasHeight * clampNumber(runtimeStyle.paddingRatio, DEFAULT_TEXT_PADDING_RATIO, 0, 0.3));
+  const offsetX = canvasWidth * clampNumber(runtimeStyle.offsetXRatio, 0, -0.5, 0.5);
+  const offsetY = canvasHeight * clampNumber(runtimeStyle.offsetYRatio, 0, -0.5, 0.5);
+  const letterSpacing = canvasHeight * clampNumber(runtimeStyle.letterSpacingRatio, 0, -0.05, 0.12);
+  const opacity = clampNumber(runtimeStyle.opacity, 1, 0, 1);
+
   const anchor = anchorPoint(style.position, canvasWidth, canvasHeight, padding);
   const lineStyle = { ...style, align: anchor.align };
-
   const totalHeight = lineHeight * lines.length;
   let startY: number;
   if (style.position.startsWith('top')) startY = anchor.y + fontSize / 2;
   else if (style.position.startsWith('bottom')) startY = anchor.y - totalHeight + lineHeight / 2;
   else startY = anchor.y - totalHeight / 2 + lineHeight / 2;
 
+  if (opacity < 1) {
+    ctx.save();
+    ctx.globalAlpha *= opacity;
+  }
+
   lines.forEach((line, i) => {
-    drawStyledLine(ctx, line, anchor.x, startY + i * lineHeight, lineStyle, fontSize);
+    drawStyledLine(ctx, line, anchor.x + offsetX, startY + i * lineHeight + offsetY, lineStyle, fontSize, letterSpacing);
   });
+
+  if (opacity < 1) ctx.restore();
+}
+
+function dividerGeometry(layer: ThumbnailTextLayer, canvasWidth: number, canvasHeight: number) {
+  const padding = Math.round(canvasHeight * clampNumber(layer.paddingRatio, DEFAULT_TEXT_PADDING_RATIO, 0, 0.3));
+  const anchor = anchorPoint(layer.position, canvasWidth, canvasHeight, padding);
+  const offsetX = canvasWidth * clampNumber(layer.offsetXRatio, 0, -0.5, 0.5);
+  const offsetY = canvasHeight * clampNumber(layer.offsetYRatio, 0, -0.5, 0.5);
+  const width = canvasWidth * clampNumber(layer.dividerWidthRatio, DEFAULT_DIVIDER_WIDTH_RATIO, 0.02, 0.95);
+  const y = anchor.y + offsetY;
+  let startX: number;
+  if (anchor.align === 'left') startX = anchor.x + offsetX;
+  else if (anchor.align === 'right') startX = anchor.x + offsetX - width;
+  else startX = anchor.x + offsetX - width / 2;
+  return { anchor, startX, endX: startX + width, centerX: startX + width / 2, y, width };
+}
+
+export function drawDivider(ctx: CanvasRenderingContext2D, layer: ThumbnailTextLayer, canvasWidth: number, canvasHeight: number): void {
+  if (!layer.enabled) return;
+  const preset = layer.dividerPreset ?? DEFAULT_DIVIDER_PRESET;
+  const opacity = clampNumber(layer.opacity, 1, 0, 1);
+  const geometry = dividerGeometry(layer, canvasWidth, canvasHeight);
+
+  ctx.save();
+  ctx.globalAlpha *= opacity;
+
+  if (preset === 'text') {
+    const fontSize = Math.round(canvasHeight * clampNumber(layer.sizeRatio, 0.045, 0.02, 0.22));
+    const letterSpacing = canvasHeight * clampNumber(layer.letterSpacingRatio, 0, -0.05, 0.12);
+    drawStyledLine(ctx, layer.text, geometry.anchor.x + canvasWidth * clampNumber(layer.offsetXRatio, 0, -0.5, 0.5), geometry.y, { ...layer, align: geometry.anchor.align }, fontSize, letterSpacing);
+    ctx.restore();
+    return;
+  }
+
+  const thickness = Math.max(1, Math.round(canvasHeight * clampNumber(layer.dividerThicknessRatio, DEFAULT_DIVIDER_THICKNESS_RATIO, 0.0005, 0.03)));
+  ctx.strokeStyle = layer.textColor;
+  ctx.fillStyle = layer.textColor;
+  ctx.lineWidth = thickness;
+  ctx.lineCap = 'round';
+
+  if (preset === 'line') {
+    ctx.beginPath();
+    ctx.moveTo(geometry.startX, geometry.y);
+    ctx.lineTo(geometry.endX, geometry.y);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  const ornamentGap = Math.max(thickness * 8, canvasWidth * 0.018);
+  ctx.beginPath();
+  ctx.moveTo(geometry.startX, geometry.y);
+  ctx.lineTo(geometry.centerX - ornamentGap, geometry.y);
+  ctx.moveTo(geometry.centerX + ornamentGap, geometry.y);
+  ctx.lineTo(geometry.endX, geometry.y);
+  ctx.stroke();
+
+  const diamond = Math.max(thickness * 2.5, canvasHeight * 0.006);
+  ctx.beginPath();
+  ctx.moveTo(geometry.centerX, geometry.y - diamond);
+  ctx.lineTo(geometry.centerX + diamond, geometry.y);
+  ctx.lineTo(geometry.centerX, geometry.y + diamond);
+  ctx.lineTo(geometry.centerX - diamond, geometry.y);
+  ctx.closePath();
+  ctx.fill();
+
+  const dotRadius = Math.max(1, diamond * 0.35);
+  for (const x of [geometry.centerX - ornamentGap * 0.55, geometry.centerX + ornamentGap * 0.55]) {
+    ctx.beginPath();
+    ctx.arc(x, geometry.y, dotRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+export function drawThumbnailLayer(ctx: CanvasRenderingContext2D, layer: ThumbnailTextLayer, canvasWidth: number, canvasHeight: number): void {
+  if (!layer.enabled) return;
+  if (layer.role === 'divider') {
+    drawDivider(ctx, layer, canvasWidth, canvasHeight);
+    return;
+  }
+  drawTextBlock(ctx, layer.text, canvasWidth, canvasHeight, layer);
 }
 
 export function drawBrandBadge(ctx: CanvasRenderingContext2D, badge: ThumbnailBrandBadge | undefined, canvasWidth: number, canvasHeight: number): void {
@@ -271,7 +425,7 @@ export function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png'): Pro
   return new Promise((resolve, reject) => {
     canvas.toBlob(blob => {
       if (blob) resolve(blob);
-      else reject(new Error('이미지 변환에 실패했습니다.'));
+      else reject(new Error('Failed to encode image.'));
     }, type);
   });
 }
@@ -290,20 +444,33 @@ export interface ComposeImageOptions {
   width: number;
   height: number;
   backgroundImage: HTMLImageElement | null;
-  copyText: string;
-  textStyle: ThumbnailTextStyle;
+  layers?: ThumbnailTextLayer[];
+  copyText?: string;
+  textStyle?: ThumbnailTextStyle;
   badge?: ThumbnailBrandBadge;
   showBadge?: boolean;
 }
 
 export async function composeImage(opts: ComposeImageOptions): Promise<HTMLCanvasElement> {
-  const { width, height, backgroundImage, copyText, textStyle, badge, showBadge = true } = opts;
-  await ensureFontsLoaded([textStyle.fontId]);
+  const { width, height, backgroundImage, copyText, textStyle, layers, badge, showBadge = true } = opts;
+  const layerMode = Array.isArray(layers);
+  const fontIds = layerMode
+    ? layers.filter(layer => layer.enabled && (layer.role !== 'divider' || (layer.dividerPreset ?? DEFAULT_DIVIDER_PRESET) === 'text')).map(layer => layer.fontId)
+    : copyText && textStyle
+      ? [textStyle.fontId]
+      : [];
+  if (fontIds.length > 0) await ensureFontsLoaded(fontIds);
+
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('캔버스를 초기화하지 못했습니다.');
+  if (!ctx) throw new Error('Failed to initialize canvas.');
+
   drawBackgroundCover(ctx, backgroundImage, width, height);
-  if (copyText) drawTextBlock(ctx, copyText, width, height, textStyle);
+  if (layerMode) {
+    layers.forEach(layer => drawThumbnailLayer(ctx, layer, width, height));
+  } else if (copyText && textStyle) {
+    drawTextBlock(ctx, copyText, width, height, textStyle);
+  }
   if (showBadge && badge) drawBrandBadge(ctx, badge, width, height);
   return canvas;
 }

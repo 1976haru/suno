@@ -578,8 +578,9 @@ export interface ThumbnailSpec {
 export type ThumbnailFontId = 'blackHanSans' | 'doHyeon' | 'jua' | 'gowunDodum' | 'yeonSung' | 'nanumPenScript';
 
 export type ThumbnailTextPosition =
-  | 'top-center' | 'center' | 'bottom-center'
-  | 'top-left' | 'bottom-left' | 'top-right' | 'bottom-right';
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'center-left' | 'center' | 'center-right'
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
 
 export type ThumbnailBadgePosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -587,6 +588,40 @@ export interface ThumbnailBrandBadge {
   icon: string;
   tag: string;
   position: ThumbnailBadgePosition;
+}
+
+export interface ThumbnailTextStyle {
+  fontId: ThumbnailFontId;
+  textColor: string;
+  shadowColor: string;
+  shadowWidth: number;
+  strokeOn: boolean;
+  position: ThumbnailTextPosition;
+}
+
+export type ThumbnailLayerRole = 'topSubcaption' | 'title' | 'divider' | 'subtitle' | 'brandLine';
+
+export type ThumbnailDividerPreset = 'line' | 'line-ornament' | 'text';
+
+export interface ThumbnailTextLayer extends ThumbnailTextStyle {
+  id: string;
+  role: ThumbnailLayerRole;
+  text: string;
+  enabled: boolean;
+  /** Canvas-height relative font size. Legacy title default is 0.13 for one line and 0.11 for two lines. */
+  sizeRatio: number;
+  /** Anchor-relative fine movement stored as canvas-size ratios so layouts survive resolution changes. */
+  offsetXRatio: number;
+  offsetYRatio: number;
+  lineHeightRatio: number;
+  letterSpacingRatio: number;
+  opacity: number;
+  maxLines: number;
+  /** Optional anchor padding override. Missing preserves the legacy 0.07 canvas-height padding. */
+  paddingRatio?: number;
+  dividerPreset?: ThumbnailDividerPreset;
+  dividerThicknessRatio?: number;
+  dividerWidthRatio?: number;
 }
 
 export interface ThumbnailBrandTemplate {
@@ -598,6 +633,7 @@ export interface ThumbnailBrandTemplate {
   strokeOn: boolean;
   position: ThumbnailTextPosition;
   badge: ThumbnailBrandBadge;
+  layers?: ThumbnailTextLayer[];
   locked: boolean;
   updatedAt: string;
 }
