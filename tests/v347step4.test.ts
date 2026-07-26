@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { countBpmTextMentions } from '../src/core/bpmDedupe';
+import { hookDeviceIdsForNarrative } from '../src/core/hookDevicePlan';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { composeStylePrompt, SUNO_COPY_LIMIT, TERM_LABELS_KO } from '../src/core/promptBudget';
 import { arrangementNarrativeForGenres } from '../src/core/promptComposer';
@@ -77,7 +78,7 @@ describe('[v3.47 Step 4] lead genre arrangement narratives', () => {
     }
   });
 
-  it('omits per-song hookDeviceText for narrative genres but keeps it for flat tag genres', () => {
+  it('keeps auxiliary hookDeviceText for narrative genres, filtered away from the narrative cue', () => {
     const narrativeChannel = channelPresets.find(channel => channel.id === 'morning-showa-cafe')!;
     const narrativeGenres = narrativeChannel.preferredGenres.map(genreById);
     const narrativeOpts = makeOptions({
@@ -87,7 +88,9 @@ describe('[v3.47 Step 4] lead genre arrangement narratives', () => {
       songCount: 5
     });
     const narrativeSlots = preallocateSongSlots(narrativeOpts, narrativeGenres);
-    expect(narrativeSlots.every(slot => !slot.hookDeviceText)).toBe(true);
+    const allowedIds = new Set(hookDeviceIdsForNarrative(arrangementNarrativeForGenres(narrativeGenres)));
+    expect(narrativeSlots.every(slot => slot.hookDeviceText)).toBe(true);
+    expect(narrativeSlots.every(slot => allowedIds.has(slot.hookDeviceId!))).toBe(true);
 
     const flatGenre = genreById('lofi-cafe');
     const flatOpts = makeOptions({ genreIds: [flatGenre.id], songCount: 5 });

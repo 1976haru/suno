@@ -47,7 +47,7 @@ export const STYLE_WORD_TARGET_MAX = 50;
  * instead the trim loop below reduces them to a guaranteed-minimum atom count
  * rather than dropping the whole category.
  */
-export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'mood', 'instruments', 'earworm']);
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice']);
 export const GENRE_NARRATIVE_FLOOR_ATOMS = 5;
 export const MOOD_FLOOR_ATOMS = 1;
 export const INSTRUMENTS_FLOOR_ATOMS = 2;
@@ -95,23 +95,20 @@ export type PromptTermId =
 // dropped. Suno weighs earlier tags more heavily, so the fix is position, not
 // just presence.
 //
-// TASK v3.42 Part B2 — 'hookDevice' sits right after 'moneyChord': this is
-// the per-song arrangement-contrast atom that replaces the old fixed
-// MONEY_CHORD_FEEL_SUFFIX boilerplate, and real measurement found zero uses
-// of any arrangement-contrast word (key change/drop/build/breakdown/
-// stop-time/half-time) across a whole 15-song pack — this needs to survive
-// trimming as reliably as the progression it sits next to. 'tempo' promoted
-// into ESSENTIAL_TERM_IDS below (TASK v3.42 Part A2): averageTempo was
-// already computed per song and then silently discarded under budget
-// pressure every time (0/15 measured prompts actually carried a BPM figure)
-// — superseding the old TASK F2 "BPM is the safest thing to drop" call now
-// that BPM presence is itself part of the anti-template-repetition fix.
+// TASK v3.48.1 — budget pressure now follows the measured music-side order:
+// vocal > arrangement narrative > money chord > intro texture > BPM >
+// arrangement density > per-song hook device > additive tags. Instrument
+// rotation is kept just before hookDevice because it is a structural
+// diversity axis, not disposable visual copy. hookDevice is deliberately
+// non-essential so very long custom style text can cut it before the higher
+// priority atoms, but it is still protected from the word-count trim in
+// normal prompts.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreNarrative', 'moneyChord', 'introTexture', 'hookDevice', 'earworm', 'genre', 'hook', 'duration', 'tempo',
-  'mood', 'instruments', 'arrangementDensity', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
+  'vocal', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
+  'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'hookDevice', 'introTexture', 'tempo']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: 'genre',

@@ -24,14 +24,11 @@ export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMod
   return archetype === 'senior-morning' || archetype === 'showa-cafe' || archetype === 'kids' || archetype === 'showa-70s' || archetype === 'j2000s';
 }
 
-const OPENER_ROLES = new Set(['cold-open', 'flagship']);
-
 /**
- * Cold-open + flagship (see core/localGenerator.ts's resolveSongRole —
- * trackNo 1-3 within whatever pack/set this plan covers) are pinned to the
- * archetype's signature progression; every other track rotates through the
- * archetype's expanded pool with no three consecutive tracks sharing the
- * same progression. `roles` is passed in (rather than recomputed here) so
+ * Track 1 is pinned to the archetype's signature progression; every other
+ * track rotates through the archetype's expanded pool with no adjacent
+ * duplicate when the pool has alternatives. `roles` is passed in (rather
+ * than recomputed here) so
  * this module never needs to import core/localGenerator.ts — both real
  * callers (localGenerator.ts's own per-song loop and
  * batchPreallocation.ts's preallocateSongSlots) already compute roles via
@@ -55,17 +52,16 @@ export function buildProgressionPlan(archetype: ChannelArchetype | undefined, se
 
   const plan: string[] = [];
   let rotationIndex = 0;
-  for (const role of roles) {
-    if (OPENER_ROLES.has(role)) {
+  for (let index = 0; index < roles.length; index += 1) {
+    if (index === 0) {
       plan.push(signature);
       continue;
     }
     let candidate = stridePick(pool, rotationIndex, offset) ?? signature;
     let guard = 0;
     while (
-      plan.length >= 2 &&
+      plan.length >= 1 &&
       plan[plan.length - 1] === candidate &&
-      plan[plan.length - 2] === candidate &&
       guard < pool.length
     ) {
       rotationIndex += 1;

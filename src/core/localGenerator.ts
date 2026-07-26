@@ -2,7 +2,7 @@ import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, Moo
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildChannelPromptParts, buildExcludePrompt, hasArrangementNarrativeGenre, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -11,7 +11,7 @@ import { buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensure
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
-import { buildHookDevicePlan } from './hookDevicePlan';
+import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
@@ -21,7 +21,6 @@ import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   applyAxisAllocation,
   ARRANGEMENT_DENSITY_IDS,
-  isManualAllocation,
   KIDS_STRUCTURE_TEMPLATE_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
@@ -463,13 +462,13 @@ export function generateLocalBlueprint(
   const fallbackVocalGender = matchVocalPreset(fallbackVocalText)?.gender;
   // TASK v3.42 Part B2 — mirrors batchPreallocation.ts's own hookDevicePlan
   // (same seed), applied unconditionally (every archetype).
+  const narrativeText = arrangementNarrativeForGenres(genres);
   const hookDevicePlan = applyAxisAllocation(
-    buildHookDevicePlan(opts.songCount, seed),
+    buildHookDevicePlan(opts.songCount, seed, hookDeviceIdsForNarrative(narrativeText)),
     opts.diversityAllocations,
     'hookDevice',
     hookDevices.map(device => device.id)
   );
-  const narrativeGenre = hasArrangementNarrativeGenre(genres);
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
@@ -493,7 +492,6 @@ export function generateLocalBlueprint(
     ARRANGEMENT_DENSITY_IDS
   );
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
-  const hookDeviceManual = isManualAllocation(opts.diversityAllocations, 'hookDevice');
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
@@ -565,11 +563,10 @@ export function generateLocalBlueprint(
     // always started with the section tag ([short intro], etc.) and no
     // vocal tag at all. Same tag resolution, applied directly here instead.
     const lyrics = ensureVocalMetaTag(composedLyrics, resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
-    // TASK v3.42 Part B2 — replaces the old fixed MONEY_CHORD_FEEL_SUFFIX
-    // reinforcement boilerplate (identical across every song) with a
-    // per-song rotating arrangement-contrast device; 'hookDevice' is in
-    // promptBudget.ts's ESSENTIAL_TERM_IDS so it's never trimmed away.
-    const hookDeviceText = narrativeGenre && !hookDeviceManual ? undefined : getHookDeviceById(hookDevicePlan[idx])?.prompt;
+    // TASK v3.48.1 — narrative genres still get one auxiliary hook device,
+    // but the auto plan filters out devices already described by the
+    // arrangement narrative so the two cues do not fight each other.
+    const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>

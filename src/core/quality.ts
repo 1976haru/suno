@@ -129,27 +129,41 @@ export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'engl
  * (which can cut a phrase mid-word), this drops whole comma-separated atoms
  * from the end until the prompt fits, since remote prompts list their most
  * important terms first by construction (see buildSystemInstruction).
+ * v3.48.1 keeps the exact BPM atom protected and trims only as far as the
+ * hard Suno limit; the softer 900-char target can otherwise erase genre
+ * instrument atoms after BPM is appended.
  */
 export function enforcePromptLengthBudget(
   stylePrompt: string,
   limit: number = SUNO_COPY_LIMIT,
-  safeTarget: number = SAFE_TARGET
+  _safeTarget: number = SAFE_TARGET
 ): { prompt: string; droppedAtoms: string[] } {
   if (stylePrompt.length <= limit) return { prompt: stylePrompt, droppedAtoms: [] };
 
   const atoms = stylePrompt.split(',').map(atom => atom.trim()).filter(Boolean);
+  let bpmIndex = -1;
+  for (let index = atoms.length - 1; index >= 0; index -= 1) {
+    if (/^\d{2,3}\s*bpm$/i.test(atoms[index])) {
+      bpmIndex = index;
+      break;
+    }
+  }
+  const bpmAtom = bpmIndex >= 0 ? atoms[bpmIndex] : undefined;
+  const trimAtoms = bpmIndex >= 0 ? atoms.filter((_, index) => index !== bpmIndex) : atoms;
+  const target = bpmAtom ? Math.max(0, limit - bpmAtom.length - 2) : limit;
   const kept: string[] = [];
   const dropped: string[] = [];
   let length = 0;
-  for (const atom of atoms) {
+  for (const atom of trimAtoms) {
     const projected = length + (length ? 2 : 0) + atom.length;
-    if (projected > safeTarget) {
+    if (projected > target) {
       dropped.push(atom);
       continue;
     }
     kept.push(atom);
     length = projected;
   }
+  if (bpmAtom) kept.push(bpmAtom);
   return { prompt: kept.join(', '), droppedAtoms: dropped };
 }
 

@@ -1,7 +1,7 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildExcludePrompt, hasArrangementNarrativeGenre, rotatingInstrumentSet } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
@@ -16,7 +16,7 @@ import {
   type VocalGender
 } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
-import { buildHookDevicePlan } from './hookDevicePlan';
+import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../data/negativeStyles';
@@ -27,7 +27,6 @@ import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   applyAxisAllocation,
   ARRANGEMENT_DENSITY_IDS,
-  isManualAllocation,
   KIDS_STRUCTURE_TEMPLATE_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
@@ -95,11 +94,13 @@ export function preallocateSongSlots(
   // vocalPlan above, applied unconditionally (every archetype): replaces the
   // old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement boilerplate with a
   // per-song rotating arrangement-contrast device.
-  const narrativeGenre = hasArrangementNarrativeGenre(genres);
-  const hookDeviceManual = isManualAllocation(opts.diversityAllocations, 'hookDevice');
-  const hookDevicePlan = narrativeGenre && !hookDeviceManual
-    ? []
-    : applyAxisAllocation(buildHookDevicePlan(opts.songCount, seed), opts.diversityAllocations, 'hookDevice', hookDevices.map(device => device.id));
+  const narrativeText = arrangementNarrativeForGenres(genres);
+  const hookDevicePlan = applyAxisAllocation(
+    buildHookDevicePlan(opts.songCount, seed, hookDeviceIdsForNarrative(narrativeText)),
+    opts.diversityAllocations,
+    'hookDevice',
+    hookDevices.map(device => device.id)
+  );
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
@@ -143,7 +144,7 @@ export function preallocateSongSlots(
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];
     const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;
-    const hookDeviceText = narrativeGenre && !hookDeviceManual ? undefined : getHookDeviceById(hookDeviceId)?.prompt;
+    const hookDeviceText = getHookDeviceById(hookDeviceId)?.prompt;
     const introTextureText = introTextureTagForId(introTextureId);
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);

@@ -97,14 +97,13 @@ describe('[v3.39 Part C] promptComposer weaves vocalText into the batch instruct
     const batch: BatchContext = { trackNoOffset: 0, totalSongCount: 15, usedTitles: [], usedHooks: [], lockedIdentity: null, preassignedSongs: slots };
     const note = buildBatchSystemNote(opts, batch);
     expect(note).toContain('"vocalText"');
-    expect(slots.every(slot => !slot.hookDeviceText)).toBe(true);
-    // TASK v3.47 Step 4 — kids-bright-pop is a narrative genre, so
-    // hookDeviceText is intentionally omitted to avoid a second hook-entry
-    // instruction fighting the genre narrative.
+    expect(slots.every(slot => slot.hookDeviceText)).toBe(true);
+    // TASK v3.48.1 — kids-bright-pop is a narrative genre, but it still
+    // carries an auxiliary non-overlapping hook device for a real hook moment.
     // TASK v3.43 Part A2, Step 2 Part A3 — tempo/instrumentSet/
     // arrangementDensity/structureTemplate joined the same always-present,
     // always-forced set.
-    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, tempo, introTextureText, negativeStyleText, instrumentSet, arrangementDensity, structureTemplate, or vocalText');
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, tempo, hookDeviceText, introTextureText, negativeStyleText, instrumentSet, arrangementDensity, structureTemplate, or vocalText');
   });
 
   it('buildBatchSystemNote also instructs verbatim vocalText use for a non-kids channel (Part H)', () => {
