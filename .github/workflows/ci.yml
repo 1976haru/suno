@@ -16,4 +16,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+      - run: node --test desktop/tests/mediaCore.test.cjs
       - run: npm run build
