@@ -1,6 +1,6 @@
 import type { ChannelArchetype, GenerationOptions } from '../types';
 import { moneyChordRotationPool, resolveEarwormMoneyChordMode, signatureMoneyChordId } from '../data/moneyChords';
-import { shuffle } from './lyricEngine';
+import { stridePick } from './stridePlan';
 
 /**
  * TASK v3.33 Part C — per-song progression quota activates only when the
@@ -51,29 +51,29 @@ const OPENER_ROLES = new Set(['cold-open', 'flagship']);
 export function buildProgressionPlan(archetype: ChannelArchetype | undefined, seed: number, roles: string[]): string[] {
   const signature = signatureMoneyChordId(archetype);
   const pool = moneyChordRotationPool(archetype);
-  const shuffledPool = shuffle(pool, seed);
+  const offset = Math.abs(seed) % pool.length;
 
   const plan: string[] = [];
-  let cursor = 0;
+  let rotationIndex = 0;
   for (const role of roles) {
     if (OPENER_ROLES.has(role)) {
       plan.push(signature);
       continue;
     }
-    let candidate = shuffledPool[cursor % shuffledPool.length];
+    let candidate = stridePick(pool, rotationIndex, offset) ?? signature;
     let guard = 0;
     while (
       plan.length >= 2 &&
       plan[plan.length - 1] === candidate &&
       plan[plan.length - 2] === candidate &&
-      guard < shuffledPool.length
+      guard < pool.length
     ) {
-      cursor += 1;
-      candidate = shuffledPool[cursor % shuffledPool.length];
+      rotationIndex += 1;
+      candidate = stridePick(pool, rotationIndex, offset) ?? signature;
       guard += 1;
     }
     plan.push(candidate);
-    cursor += 1;
+    rotationIndex += 1;
   }
   return plan;
 }

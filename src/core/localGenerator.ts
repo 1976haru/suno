@@ -1,7 +1,7 @@
 import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
 import { arrangementDensityText, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
-import { composeStylePrompt, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
+import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
@@ -11,6 +11,8 @@ import { AI_DISCLOSURE_LINE } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { buildHookDevicePlan } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
+import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
+import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
@@ -243,6 +245,8 @@ export function rebuildStylePromptsForPersonaMode(
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, blueprint.oneLineConcept, blueprint.songs);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const excludePrompt = buildExcludePrompt(opts);
+  const seed = hashSeed(seedForBlueprint(opts));
+  const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const tempo = averageTempo(genres, trackNo);
@@ -252,6 +256,7 @@ export function rebuildStylePromptsForPersonaMode(
     // fall back to the idx-based lookup.
     const role = song.songRole || resolveSongRole(trackNo, idx);
     const openingStyle = role === 'cold-open' ? (song.openingStyle || resolveOpeningStyle(opts.openingStyle, opts.channel.archetype)) : undefined;
+    const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const composed = opts.personaMode
       ? composePersonaSongStylePrompt({
         blueprint: signatureBlueprint,
@@ -267,6 +272,7 @@ export function rebuildStylePromptsForPersonaMode(
       : composeStylePrompt([
         ...channelParts.filter(part => !(role === 'cold-open' && part.id === 'duration')),
         ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
+        ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
         { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth) },
         { id: 'tempo', text: `${tempo} BPM` },
         { id: 'songRole', text: `track ${trackNo} role: ${role}` },
@@ -280,17 +286,18 @@ export function rebuildStylePromptsForPersonaMode(
           ].filter(Boolean).join(', ')
         }
       ], styleLimitValue, styleLimitValue);
+    const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     return {
       ...song,
-      stylePrompt: composed.prompt,
+      stylePrompt,
       excludePrompt,
       songRole: role,
       openingStyle,
-      promptLength: composed.length,
-      promptWithinLimit: composed.withinLimit,
+      promptLength: stylePrompt.length,
+      promptWithinLimit: stylePrompt.length <= styleLimitValue,
       promptDroppedTerms: composed.droppedTerms,
-      promptWordCount: composed.wordCount,
-      promptWithinWordTarget: composed.withinWordTarget
+      promptWordCount: countWords(stylePrompt),
+      promptWithinWordTarget: countWords(stylePrompt) <= STYLE_WORD_TARGET_MAX
     };
   });
   return { ...blueprint, songs };
@@ -441,6 +448,7 @@ export function generateLocalBlueprint(
   // TASK v3.42 Part B2 — mirrors batchPreallocation.ts's own hookDevicePlan
   // (same seed), applied unconditionally (every archetype).
   const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness);
   // TASK v3.42 Part C — per-song lyric section-tag shape (see
   // lyricEngine.ts's buildStructureTemplatePlan); track 1 always resolves to
   // 'T1' inside composeLyrics regardless of what this plan assigns it.
@@ -512,6 +520,7 @@ export function generateLocalBlueprint(
     // per-song rotating arrangement-contrast device; 'hookDevice' is in
     // promptBudget.ts's ESSENTIAL_TERM_IDS so it's never trimmed away.
     const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
+    const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
@@ -537,6 +546,7 @@ export function generateLocalBlueprint(
       // vocal atom it replaces.
       ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionText }] : []),
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
+      ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
       // TASK v3.42 Part A1 — always overrides channelParts' flat whole-pack
       // instruments atom (filtered out above) with a per-song rotated
       // anchor+1-2 combination; see promptComposer.ts's rotatingInstrumentText.
@@ -574,7 +584,7 @@ export function generateLocalBlueprint(
         styleLimitValue,
         styleLimitValue
       );
-    const stylePrompt = composed.prompt;
+    const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const partialSong = {
       trackNo,
       title,
@@ -598,11 +608,11 @@ export function generateLocalBlueprint(
       youtubeTitleJa: `${title} | ${season.label} ${opts.channel.name} プレイリスト`,
       qualityScore: 0,
       warnings: [],
-      promptLength: composed.length,
-      promptWithinLimit: composed.withinLimit,
+      promptLength: stylePrompt.length,
+      promptWithinLimit: stylePrompt.length <= styleLimitValue,
       promptDroppedTerms: composed.droppedTerms,
-      promptWordCount: composed.wordCount,
-      promptWithinWordTarget: composed.withinWordTarget,
+      promptWordCount: countWords(stylePrompt),
+      promptWithinWordTarget: countWords(stylePrompt) <= STYLE_WORD_TARGET_MAX,
       vocalType
     };
   });

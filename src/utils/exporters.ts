@@ -49,7 +49,7 @@ export function buildSongTxt(song: SongIdea): string {
     '===== LYRICS (Suno Lyrics 필드) =====',
     song.lyrics,
     '',
-    '===== EXCLUDE (Advanced Options -> Exclude Styles) =====',
+    '===== EXCLUDE (Suno Exclude styles) =====',
     song.excludePrompt || '',
     '',
     '===== YOUTUBE =====',
@@ -233,7 +233,7 @@ ${song.stylePrompt}
 ${song.lyrics}
 \`\`\`
 
-### Exclude (Advanced Options)
+### Exclude (Suno Exclude styles)
 
 \`\`\`text
 ${song.excludePrompt || ''}

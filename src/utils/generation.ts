@@ -1,5 +1,6 @@
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint } from '../types';
 import { defaultAvoidWordsString } from '../data/avoidWordPresets';
+import { buildDefaultNegativeStyle } from '../data/negativeStyles';
 import { normalizeGenreSelection } from '../core/genreSelection';
 import { defaultPackagingLanguageForChannel } from '../core/packagingLanguage';
 
@@ -131,6 +132,8 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     customMoneyChord: '',
     customConcept: '',
     avoidWords: defaultAvoidWordsString(),
+    negativeStyle: buildDefaultNegativeStyle(channel),
+    introUniqueness: 50,
     personaMode: false,
     packagingLanguage: defaultPackagingLanguageForChannel(channel),
     earwormMode: false

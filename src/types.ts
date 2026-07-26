@@ -113,6 +113,10 @@ export interface GenerationOptions {
   customMoneyChord: string;
   customConcept: string;
   avoidWords: string;
+  /** Music-side negative style text for Suno's separate Exclude styles field. Undefined means use the channel/global default. */
+  negativeStyle?: string;
+  /** How aggressively intro textures should vary across a pack. Defaults to 50 for balanced rotation. */
+  introUniqueness?: 0 | 50 | 100;
   /**
    * TASK v3.38 Part B — per-song male/female/mixed vocal distribution for
    * the 'kids' channel archetype (see core/vocalPlan.ts). Only consulted
@@ -312,6 +316,10 @@ export interface PreassignedSongSlot {
    * trackNo (see core/batchPreallocation.ts's preallocateSongSlots).
    */
   moneyChordText: string;
+  /** Music-side exclude text kept out of stylePrompt and exported to Suno Exclude styles. */
+  negativeStyleText?: string;
+  /** Per-song intro-only texture phrase to weave into stylePrompt, never as whole-song instrumentation. */
+  introTextureText?: string;
   /**
    * TASK v3.39 — mirrors moneyChordText's per-trackNo verbatim-instruction
    * pattern for the kids channel's male/female/mixed vocal quota (see

@@ -140,9 +140,19 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
     // arrangementDensity/tempo (previously only vocalText was checked), so a
     // true "already correct" fixture must include all of them verbatim, not
     // just the bare progression tag, for this to stay a real no-op.
+    const correctPrompt = [
+      'showa-modern cafe mood',
+      showaCafe.defaultVocal,
+      slot.moneyChordText,
+      slot.hookDeviceText,
+      ...(slot.instrumentSet ?? []),
+      ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[slot.arrangementDensity!],
+      slot.introTextureText,
+      `${slot.tempo} BPM`
+    ].filter(Boolean).join(', ');
     const correctSong = baseSong({
       trackNo: slot.trackNo,
-      stylePrompt: `showa-modern cafe mood, ${showaCafe.defaultVocal}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${(slot.instrumentSet ?? []).join(', ')}, ${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[slot.arrangementDensity!]}, ${slot.tempo} BPM`,
+      stylePrompt: correctPrompt,
       lyrics: '[male vocal]\nHold On\nsome lyrics\nHold On'
     });
     const result = reconcileWithPreassignedSlot(correctSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });

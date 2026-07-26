@@ -5,6 +5,8 @@ import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
 import { compactDuration, compactHook, compactMoneyChord } from './soundSignature';
 import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
+import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
+import { stripBpmText } from './bpmDedupe';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -271,10 +273,9 @@ function shortPromptKeywords(genre: GenrePack): string[] {
   const labelKey = genre.label.toLowerCase();
   return source
     .split(/[;,]/)
-    .map(atom => atom.trim())
+    .map(atom => stripBpmText(atom).trim())
     .filter(Boolean)
     .filter(atom => atom.toLowerCase() !== labelKey)
-    .filter(atom => !/\b\d{2,3}\s*-\s*\d{2,3}\s*bpm\b/i.test(atom))
     .filter(atom => !atom.includes(' + '))
     .slice(0, hasShortPrompt ? 3 : 2);
 }
@@ -287,7 +288,7 @@ export function buildGenrePromptSummary(genres: GenrePack[]) {
   const primary = genres[0];
   const secondary = genres.slice(1, 3);
   const genreAtoms = [
-    primary?.styleCore,
+    primary ? stripBpmText(primary.styleCore) : undefined,
     ...secondary.flatMap(genre => shortPromptKeywords(genre).slice(0, 3))
   ].filter(Boolean) as string[];
 
@@ -489,15 +490,12 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
  * instruction in the one field Suno is documented to handle negatives
  * unreliably in.
  */
-export function buildExcludePrompt(opts: GenerationOptions): string {
-  const atoms = [
-    ...(opts.avoidWords.trim() ? splitAtoms(opts.avoidWords) : []),
-    'famous artist imitation',
-    'copied melodies',
-    'copyrighted song references',
-    'soundalike vocals'
-  ];
-  return dedupeTerms(atoms).join(', ');
+export function buildExcludePrompt(opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>): string {
+  return mergeNegativeStyleText(
+    opts.avoidWords,
+    resolveNegativeStyleText(opts),
+    'famous artist imitation, copied melodies, copyrighted song references, soundalike vocals'
+  );
 }
 
 /**
@@ -620,7 +618,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // moneyChordText: a Batch/bridge stylePrompt could carry any BPM figure (or
   // none) with nothing telling the model this trackNo has a specific planned
   // tempo. Forced like moneyChordText/hookDeviceText below.
-  const tempoInstruction = ' Each entry also includes "tempo" — use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
+  const hasIntroTextureText = batch.preassignedSongs?.some(slot => slot.introTextureText);
+  const introTextureInstruction = hasIntroTextureText
+    ? ' Each entry also includes "introTextureText" - weave that exact phrase into that song\'s stylePrompt, verbatim. It is an intro-only first-5-seconds texture; do not turn that instrument into the whole-song arrangement.'
+    : '';
+  const hasNegativeStyleText = batch.preassignedSongs?.some(slot => slot.negativeStyleText);
+  const negativeStyleInstruction = hasNegativeStyleText
+    ? ' Each entry also includes "negativeStyleText"; keep it separate from stylePrompt. Do not put negativeStyleText into stylePrompt; the app exports it to Suno Exclude styles.'
+    : '';
+  const tempoInstruction = ' Each entry also includes "tempo" - use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
   // TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstruction's verbatim-
   // weave pattern for the per-song instrument rotation (see
   // core/promptComposer.ts's rotatingInstrumentSet), newly promoted to a
@@ -655,6 +661,8 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const preassignedFieldList = [
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasIntroTextureText ? ['introTextureText'] : []),
+    ...(hasNegativeStyleText ? ['negativeStyleText'] : []),
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
@@ -663,13 +671,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const forcedFieldsList = [
     'trackNo', 'emotionArc', 'moneyChordText', 'tempo',
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasIntroTextureText ? ['introTextureText'] : []),
+    ...(hasNegativeStyleText ? ['negativeStyleText'] : []),
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
     ...(hasVocalText ? ['vocalText'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} — copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -740,6 +750,7 @@ ${youtubeMetadataLine}
 - CRITICAL: Return ONLY the JSON object. No markdown, no code fences (no \`\`\`), no prose, no explanation, and no closing remarks before or after it. The response must start with { and end with } — nothing else outside those two characters.
 - CRITICAL: Every string value must itself be valid JSON. Encode every line break inside "lyrics" (or any other field) as the two characters \\n, never a literal newline — a raw newline inside a JSON string makes the whole response unparseable. Escape any literal double-quote character inside a string as \\".
 - CRITICAL: "stylePrompt" is pasted directly into Suno's style field, which truncates past ${SUNO_STYLE_LIMIT} characters. Keep every stylePrompt at or under ${SAFE_TARGET} characters — pack it with genre, vocal, hook-repeat instruction, money chord, duration, and tempo first, and only add mood/instrument/season detail if there is room left. Never let it run long; a shorter, focused prompt beats a longer one that gets cut off mid-sentence.
+- Keep negativeStyleText out of stylePrompt. It belongs only in the separate Suno Exclude styles field.
 - Do not include typography, logo, or thumbnail art-direction language (e.g. font style) in "stylePrompt" — that belongs only in visual/thumbnail fields, never in the music style prompt.
 
 Hook rules (each song's hookPhrase):
@@ -785,6 +796,7 @@ export function songOutputShape(generateThumbnailText: boolean) {
     emotionArc: 'string',
     hookPhrase: 'string',
     stylePrompt: 'string',
+    excludePrompt: 'string optional; Suno Exclude styles text, never mixed into stylePrompt',
     lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
     ...(generateThumbnailText ? { thumbnailText: 'string' } : {}),
     youtube: {
@@ -821,6 +833,8 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
+    negativeStyle: resolveNegativeStyleText(opts),
+    introUniqueness: opts.introUniqueness ?? 50,
     earwormMode: opts.earwormMode ?? false,
     trackNoOffset: batch?.trackNoOffset ?? 0,
     totalSongCount: batch?.totalSongCount ?? opts.songCount,
@@ -896,6 +910,8 @@ export function buildAnthropicUserPayload(opts: GenerationOptions, batch?: Batch
     customMoneyChord: opts.moneyChordMode === 'custom' ? opts.customMoneyChord : undefined,
     customConcept: opts.customConcept,
     avoidWords: opts.avoidWords,
+    negativeStyle: resolveNegativeStyleText(opts),
+    introUniqueness: opts.introUniqueness ?? 50,
     earwormMode: opts.earwormMode ?? false,
     trackNoOffset: batch?.trackNoOffset ?? 0,
     totalSongCount: batch?.totalSongCount ?? opts.songCount,

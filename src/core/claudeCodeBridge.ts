@@ -94,7 +94,19 @@ function titleInstructionLineFor(opts: GenerationOptions): string {
 // file's existing convention — see titleInstructionLineFor's comment above):
 // "tempo" was previously only a fallback-suggestion field, never enforced.
 function tempoInstructionLine(): string {
-  return '- Each "preassignedSongs" entry also includes "tempo" — use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
+  return '- Each "preassignedSongs" entry also includes "tempo" - use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
+}
+
+function introTextureInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.introTextureText)
+    ? '- Each "preassignedSongs" entry also includes "introTextureText" - weave that exact phrase into that song\'s stylePrompt, verbatim. It is an intro-only first-5-seconds texture; do not turn that instrument into the whole-song arrangement.'
+    : '';
+}
+
+function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.negativeStyleText)
+    ? '- Keep "negativeStyleText" separate: do not put it in stylePrompt; the app exports it to Suno Exclude styles.'
+    : '';
 }
 
 // TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstructionLine's
@@ -243,6 +255,8 @@ export function buildClaudeCodeInstruction(
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
+  const introTextureInstructionLine = introTextureInstructionLineFor(preassignedSongs);
+  const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
 
   return [
     'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
@@ -284,6 +298,8 @@ export function buildClaudeCodeInstruction(
     '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
     tempoInstructionLine(),
     hookDeviceInstructionLine,
+    introTextureInstructionLine,
+    negativeStyleInstructionLine,
     instrumentInstructionLine,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
@@ -411,6 +427,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(allSlots);
+  const introTextureInstructionLine = introTextureInstructionLineFor(allSlots);
+  const negativeStyleInstructionLine = negativeStyleInstructionLineFor(allSlots);
   const setPlanningTable = buildSetPlanningTable(setInstructions.map(item => ({
     setIndex: item.setIndex,
     setCount,
@@ -468,6 +486,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
     tempoInstructionLine(),
     hookDeviceInstructionLine,
+    introTextureInstructionLine,
+    negativeStyleInstructionLine,
     instrumentInstructionLine,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
@@ -636,6 +656,7 @@ function normalizeImportedSong(
     emotionArc: isNonEmptyString(obj.emotionArc) ? obj.emotionArc : '',
     hookPhrase: String(obj.hookPhrase),
     stylePrompt: String(obj.stylePrompt),
+    ...(isNonEmptyString(obj.excludePrompt) ? { excludePrompt: obj.excludePrompt } : {}),
     lyrics: String(obj.lyrics),
     ...(isNonEmptyString(obj.thumbnailText) ? { thumbnailText: obj.thumbnailText } : {}),
     youtube,

@@ -12,6 +12,7 @@ import {
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
+import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { DEFAULT_KIDS_VOCAL_QUOTA, scaleVocalQuota } from '../../core/vocalPlan';
 import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
@@ -93,6 +94,9 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
   const selectedGenerationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moneyPreview = compactMoneyChord(opts);
   const avoidList = parseAvoidWords(opts.avoidWords);
+  const negativeStyleText = opts.negativeStyle ?? buildDefaultNegativeStyle(opts.channel);
+  const negativeStyleTerms = parseNegativeStyleTerms(negativeStyleText);
+  const negativeStyleTermKeys = new Set(negativeStyleTerms.map(term => term.toLowerCase().replace(/\s+/g, ' ').trim()));
   const presetPhrases = new Set(avoidWordPresets.map(preset => preset.phrase));
   const customAvoidTerms = avoidList.filter(term => !presetPhrases.has(term));
   const selectedGenreDetails = selectedGenres.map(genre => getGenreById(genre.id) || genre);
@@ -191,6 +195,22 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
 
   function removeAvoidTerm(term: string) {
     setOpts(prev => ({ ...prev, avoidWords: joinAvoidWords(avoidList.filter(item => item !== term)) }));
+  }
+
+  function toggleNegativeStylePreset(phrase: string) {
+    setOpts(prev => {
+      const current = prev.negativeStyle ?? buildDefaultNegativeStyle(prev.channel);
+      const key = phrase.toLowerCase().replace(/\s+/g, ' ').trim();
+      const currentKeys = new Set(parseNegativeStyleTerms(current).map(term => term.toLowerCase().replace(/\s+/g, ' ').trim()));
+      const next = currentKeys.has(key)
+        ? withoutNegativeStyleTerm(current, phrase)
+        : withNegativeStyleTerm(current, phrase);
+      return { ...prev, negativeStyle: clampToLimit('negativeStyle', next) };
+    });
+  }
+
+  function resetNegativeStyle() {
+    setOpts(prev => ({ ...prev, negativeStyle: buildDefaultNegativeStyle(prev.channel) }));
   }
 
   const moneyChordChoices = Object.values(moneyChordPresets)
@@ -501,6 +521,51 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
         <p className="supporting">
           ⚠️ 다만 이건 확률을 높이는 것이지 보장은 아니에요. Suno의 실제 멜로디는 텍스트로 정밀하게 제어할 수 없어서, 결과는 매번 조금씩 달라질 수 있어요.
         </p>
+      </div>
+
+      <div className="option-block">
+        <h3>Music Exclude styles (Suno)</h3>
+        <p className="supporting">Style Prompt에 섞지 않고 Suno Exclude styles 칸에 따로 붙일 음악용 네거티브입니다.</p>
+        <div className="chips">
+          {NEGATIVE_STYLE_TOGGLES.map(toggle => {
+            const active = negativeStyleTermKeys.has(toggle.phrase.toLowerCase().replace(/\s+/g, ' ').trim());
+            return (
+              <button
+                type="button"
+                key={toggle.id}
+                className={active ? 'chip active' : 'chip'}
+                onClick={() => toggleNegativeStylePreset(toggle.phrase)}
+              >
+                {toggle.labelKo}
+              </button>
+            );
+          })}
+          <button type="button" className="chip" onClick={resetNegativeStyle}>스펙 기본값</button>
+        </div>
+        <textarea
+          value={negativeStyleText}
+          onChange={event => setOpts(prev => ({ ...prev, negativeStyle: clampToLimit('negativeStyle', event.target.value) }))}
+          maxLength={INPUT_LIMITS.negativeStyle}
+          style={{ marginTop: 8 }}
+        />
+        <CharCounter value={negativeStyleText} limit={INPUT_LIMITS.negativeStyle} />
+      </div>
+
+      <div className="option-block">
+        <h3>Intro texture uniqueness</h3>
+        <div className="chips">
+          {([0, 50, 100] as const).map(value => (
+            <button
+              type="button"
+              key={value}
+              className={(opts.introUniqueness ?? 50) === value ? 'chip active' : 'chip'}
+              onClick={() => setOpts(prev => ({ ...prev, introUniqueness: value }))}
+            >
+              {value}%
+            </button>
+          ))}
+        </div>
+        <p className="supporting">50%는 반복 안정감과 첫 5초 차이를 함께 두는 기본값입니다.</p>
       </div>
 
       {provider.provider !== 'local' && (

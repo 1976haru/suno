@@ -68,7 +68,7 @@ export function countWords(text: string): number {
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'hookDevice' | 'arrangementDensity';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -106,11 +106,11 @@ export type PromptTermId =
 // — superseding the old TASK F2 "BPM is the safest thing to drop" call now
 // that BPM presence is itself part of the anti-template-repetition fix.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'genre', 'vocal', 'mood', 'instruments', 'hook', 'moneyChord', 'hookDevice', 'earworm', 'duration',
+  'genre', 'vocal', 'mood', 'instruments', 'hook', 'moneyChord', 'hookDevice', 'introTexture', 'earworm', 'duration',
   'tempo', 'arrangementDensity', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'hookDevice', 'tempo']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'hookDevice', 'introTexture', 'tempo']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: 'genre',
@@ -129,6 +129,7 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   listenerScene: 'listener scene',
   mixNotes: 'mix notes',
   hookDevice: 'hook device',
+  introTexture: 'intro texture',
   arrangementDensity: 'arrangement density'
 };
 

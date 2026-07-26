@@ -11,6 +11,7 @@ export const INPUT_LIMITS = {
   vocalTone: 160,
   customMoneyChord: 100,
   avoidWords: 150,
+  negativeStyle: 600,
   customConcept: 300
 } as const;
 

@@ -140,7 +140,7 @@ describe('[Part A1/A2, Step 2 A3] reconcileWithPreassignedSlot repairs verbatim-
   it('leaves an already-correct stylePrompt (every field verbatim, including BPM) fully untouched', () => {
     const opts = makeOptions({ songCount: 4 });
     const [slot] = preallocateSongSlots(opts, testGenres);
-    const correctPrompt = `warm pop, ${slot.vocalText}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${slot.instrumentSet!.join(', ')}, ${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[slot.arrangementDensity!]}, ${slot.tempo} BPM`;
+    const correctPrompt = `warm pop, ${slot.vocalText}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${slot.introTextureText}, ${slot.instrumentSet!.join(', ')}, ${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[slot.arrangementDensity!]}, ${slot.tempo} BPM`;
     const correctSong = baseSong({ trackNo: slot.trackNo, stylePrompt: correctPrompt });
     const fixed = reconcileWithPreassignedSlot(correctSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
     expect(fixed.stylePrompt).toBe(correctPrompt);

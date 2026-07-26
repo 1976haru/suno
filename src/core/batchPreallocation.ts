@@ -1,7 +1,7 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, rotatingInstrumentSet } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildExcludePrompt, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
@@ -19,6 +19,9 @@ import { matchVocalPreset } from '../data/vocalPresets';
 import { buildHookDevicePlan } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
+import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../data/negativeStyles';
+import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
+import { enforceSingleBpmText } from './bpmDedupe';
 
 export type { PreassignedSongSlot };
 
@@ -35,7 +38,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -80,6 +83,8 @@ export function preallocateSongSlots(
   // old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement boilerplate with a
   // per-song rotating arrangement-contrast device.
   const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness);
+  const negativeStyleText = buildExcludePrompt(opts);
   // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
   // structureTemplatePlan pre-pass (same seed), applied unconditionally like
   // hookDevicePlan above, so realtime/Batch/bridge songs get a per-song
@@ -99,6 +104,7 @@ export function preallocateSongSlots(
       : fallbackVocalText;
     const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
     const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
+    const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     return {
       trackNo,
       title,
@@ -107,6 +113,8 @@ export function preallocateSongSlots(
       tempo: averageTempo(genres, trackNo),
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan ? progressionPlan[idx] : undefined, includeFeelReinforcement: true }),
+      negativeStyleText,
+      ...(introTextureText ? { introTextureText } : {}),
       ...(hookDeviceText ? { hookDeviceText } : {}),
       // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
       // per-song rotatingInstrumentText/arrangementDensityText calls (same
@@ -207,8 +215,6 @@ function enforceArrangementDensityInStylePrompt(stylePrompt: string, density: Pr
   return appendVerbatimIfMissing(stylePrompt, ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[density]);
 }
 
-const BPM_PATTERN = /\b(\d{2,3})\s*bpm\b/i;
-
 /**
  * TASK v3.43 Part A2 — tempo/BPM never had any post-hoc enforcement: the
  * model was only ever handed the slot's tempo as one of several "fallback
@@ -220,10 +226,7 @@ const BPM_PATTERN = /\b(\d{2,3})\s*bpm\b/i;
  * correct one.
  */
 function enforceTempoInStylePrompt(stylePrompt: string, tempo: number): string {
-  const match = stylePrompt.match(BPM_PATTERN);
-  if (!match) return appendVerbatimIfMissing(stylePrompt, `${tempo} BPM`);
-  if (Number(match[1]) === tempo) return stylePrompt;
-  return stylePrompt.slice(0, match.index) + `${tempo} BPM` + stylePrompt.slice((match.index ?? 0) + match[0].length);
+  return enforceSingleBpmText(stylePrompt, tempo);
 }
 
 export function reconcileWithPreassignedSlot(
@@ -259,9 +262,14 @@ export function reconcileWithPreassignedSlot(
   let stylePrompt = vocalFix.text;
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
   stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
   stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
+  stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);
   stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
+  const excludePrompt = slot.negativeStyleText
+    ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
+    : song.excludePrompt;
   const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText);
   // TASK v3.43 Step 2 (Part A3) — structureTemplate shapes the lyric's own
   // section tags, not stylePrompt, so unlike every field above there's
@@ -282,6 +290,7 @@ export function reconcileWithPreassignedSlot(
     title,
     hookPhrase,
     stylePrompt,
+    excludePrompt,
     lyrics: ensureVocalMetaTag(song.lyrics, vocalTag),
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole,

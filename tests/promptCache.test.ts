@@ -862,7 +862,7 @@ describe('[v3.27/v3.33] titleMode/hookMode branch buildBatchSystemNote\'s preass
     // trackNo/emotionArc/moneyChordText (previously only a fallback-
     // suggestion field, unlike those three).
     const note = buildBatchSystemNote(makeOptions(), makeBatch());
-    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, or tempo — copy those verbatim');
+    expect(note).toContain('Do NOT invent a different trackNo, emotionArc, moneyChordText, or tempo - copy those verbatim');
   });
 
   it('[v3.33 Part C] includes the moneyChordText usage instruction', () => {
