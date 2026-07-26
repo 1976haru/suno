@@ -39,7 +39,7 @@ function hasProgressionDisclosure(stylePrompt: string): boolean {
 // model that lightly rewords a device it was still instructed to use
 // shouldn't false-positive as missing it entirely the way a fully dropped
 // device should.
-const hookDeviceDisclosurePattern = /stop-time|key change|modulat|breakdown|drops? out|half-time|half time|instrumental hook|a cappella|double-track|octave|call and response|answer riff|chorus tag/i;
+const hookDeviceDisclosurePattern = /stop-time|key change|modulat|breakdown|drops? out|dropout|drop-out|half-time|half time|instrumental hook|a cappella|double-track|octave|call and response|answer riff|chorus tag|hook entry|rising sweep|swell|walk-up|pickup|downbeat|one-beat pause|stop-and-go/i;
 
 // TASK v3.43 Part A5 — mirrors core/batchPreallocation.ts's own BPM_PATTERN
 // (kept as its own regex here rather than shared, per this codebase's

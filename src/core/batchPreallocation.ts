@@ -1,7 +1,7 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildExcludePrompt, rotatingInstrumentSet } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, buildExcludePrompt, hasArrangementNarrativeGenre, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
@@ -82,7 +82,8 @@ export function preallocateSongSlots(
   // vocalPlan above, applied unconditionally (every archetype): replaces the
   // old fixed MONEY_CHORD_FEEL_SUFFIX reinforcement boilerplate with a
   // per-song rotating arrangement-contrast device.
-  const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  const narrativeGenre = hasArrangementNarrativeGenre(genres);
+  const hookDevicePlan = narrativeGenre ? [] : buildHookDevicePlan(opts.songCount, seed);
   const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness);
   const negativeStyleText = buildExcludePrompt(opts);
   // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
@@ -103,7 +104,7 @@ export function preallocateSongSlots(
       ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
       : fallbackVocalText;
     const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
-    const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
+    const hookDeviceText = narrativeGenre ? undefined : getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     return {
       trackNo,

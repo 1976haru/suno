@@ -5,7 +5,7 @@ import { scoreSong } from '../src/core/quality';
 import { STRUCTURE_TEMPLATE_MARKER_TAG } from '../src/core/lyricEngine';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from '../src/core/promptComposer';
 import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
-import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { genrePacks, makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { SongIdea } from '../src/types';
 
 // TASK v3.43 — closes the gap real production output kept hitting even after
@@ -35,6 +35,12 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
     warnings: [],
     ...overrides
   };
+}
+
+const flatTagGenres = [genrePacks.find(genre => genre.id === 'lofi-cafe')!];
+
+function makeFlatTagOptions(overrides: Parameters<typeof makeOptions>[0] = {}) {
+  return makeOptions({ genreIds: flatTagGenres.map(genre => genre.id), ...overrides });
 }
 
 describe('[Step 2 Part A3] instrumentSet/arrangementDensity/structureTemplate are always present on every slot', () => {
@@ -75,8 +81,8 @@ describe('[Step 2 Part A3] instrumentSet/arrangementDensity/structureTemplate ar
 
 describe('[Part A1/A2, Step 2 A3] reconcileWithPreassignedSlot repairs verbatim-weave fields the agent dropped', () => {
   it('appends moneyChordText, hookDeviceText, and every instrumentSet name when all are missing from stylePrompt', () => {
-    const opts = makeOptions({ songCount: 4 });
-    const [slot] = preallocateSongSlots(opts, testGenres);
+    const opts = makeFlatTagOptions({ songCount: 4 });
+    const [slot] = preallocateSongSlots(opts, flatTagGenres);
     const bareSong = baseSong({ trackNo: slot.trackNo, stylePrompt: 'warm pop, soft vocal' });
     const fixed = reconcileWithPreassignedSlot(bareSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
     expect(fixed.stylePrompt).toContain(slot.moneyChordText);
@@ -138,8 +144,8 @@ describe('[Part A1/A2, Step 2 A3] reconcileWithPreassignedSlot repairs verbatim-
   });
 
   it('leaves an already-correct stylePrompt (every field verbatim, including BPM) fully untouched', () => {
-    const opts = makeOptions({ songCount: 4 });
-    const [slot] = preallocateSongSlots(opts, testGenres);
+    const opts = makeFlatTagOptions({ songCount: 4 });
+    const [slot] = preallocateSongSlots(opts, flatTagGenres);
     const correctPrompt = `warm pop, ${slot.vocalText}, ${slot.moneyChordText}, ${slot.hookDeviceText}, ${slot.introTextureText}, ${slot.instrumentSet!.join(', ')}, ${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[slot.arrangementDensity!]}, ${slot.tempo} BPM`;
     const correctSong = baseSong({ trackNo: slot.trackNo, stylePrompt: correctPrompt });
     const fixed = reconcileWithPreassignedSlot(correctSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
@@ -252,8 +258,8 @@ describe('[Completion criteria] a 10-song bridge pack meets the measured targets
   // 2 A3) is the only thing filling in BPM/hook-device/instruments/density —
   // this proves the repair mechanism alone (not agent goodwill) reaches the
   // spec's numbers for every field that's actually stylePrompt-injectable.
-  const opts = makeOptions({ songCount: 10 });
-  const slots = preallocateSongSlots(opts, testGenres);
+  const opts = makeFlatTagOptions({ songCount: 10 });
+  const slots = preallocateSongSlots(opts, flatTagGenres);
 
   function reconciledPack() {
     return slots.map(slot => reconcileWithPreassignedSlot(

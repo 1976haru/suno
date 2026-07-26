@@ -1,6 +1,6 @@
 import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
-import { arrangementDensityText, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { arrangementDensityText, buildChannelPromptParts, buildExcludePrompt, hasArrangementNarrativeGenre, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -448,6 +448,7 @@ export function generateLocalBlueprint(
   // TASK v3.42 Part B2 — mirrors batchPreallocation.ts's own hookDevicePlan
   // (same seed), applied unconditionally (every archetype).
   const hookDevicePlan = buildHookDevicePlan(opts.songCount, seed);
+  const narrativeGenre = hasArrangementNarrativeGenre(genres);
   const introTexturePlan = buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness);
   // TASK v3.42 Part C — per-song lyric section-tag shape (see
   // lyricEngine.ts's buildStructureTemplatePlan); track 1 always resolves to
@@ -519,7 +520,7 @@ export function generateLocalBlueprint(
     // reinforcement boilerplate (identical across every song) with a
     // per-song rotating arrangement-contrast device; 'hookDevice' is in
     // promptBudget.ts's ESSENTIAL_TERM_IDS so it's never trimmed away.
-    const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
+    const hookDeviceText = narrativeGenre ? undefined : getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>

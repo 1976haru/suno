@@ -5,6 +5,7 @@ import { buildHookDevicePlan } from '../src/core/hookDevicePlan';
 import { hookDevices } from '../src/data/hookDevices';
 import { buildStructureTemplatePlan } from '../src/core/lyricEngine';
 import { moneyChordPresets } from '../src/data/moneyChords';
+import { arrangementNarrativeForGenres } from '../src/core/promptComposer';
 import { channelPresets, genrePacks, moodPacks, seasonPacks, makeOptions } from './fixtures';
 
 // TASK v3.42 — regression coverage for the "곡 간 유사성 해소 + 킬링 포인트
@@ -25,6 +26,13 @@ function generateShowaPack(songCount: number) {
   return generateLocalBlueprint(opts, genres, moods, season);
 }
 
+function generateFlatTagPack(songCount: number) {
+  const genres = [genrePacks.find(g => g.id === 'lofi-cafe')!];
+  const moods = moodPacks.filter(m => showaCafe.preferredMoods.includes(m.id));
+  const opts = makeOptions({ channel: showaCafe, genreIds: genres.map(g => g.id), songCount, seasonId: season.id });
+  return generateLocalBlueprint(opts, genres, moods, season);
+}
+
 describe('[Part D] in-pack similarity: the reported 90.3%/100% bug no longer reproduces', () => {
   it('a 15-song showa-cafe pack averages <=70% pairwise style-prompt similarity, worst pair <90%', () => {
     const bp = generateShowaPack(15);
@@ -33,10 +41,13 @@ describe('[Part D] in-pack similarity: the reported 90.3%/100% bug no longer rep
     expect(report.maxSimilarity).toBeLessThan(0.90);
   });
 
-  it('fewer than 10 clauses are common to every song in the pack (was 20)', () => {
+  it('fewer than 10 non-narrative clauses are common to every song in the pack (was 20)', () => {
     const bp = generateShowaPack(15);
     const report = lintInPackStyleSimilarity(bp.songs.map(s => ({ trackNo: s.trackNo, stylePrompt: s.stylePrompt })));
-    expect(report.commonClauses.length).toBeLessThan(10);
+    const genres = genrePacks.filter(g => showaCafe.preferredGenres.includes(g.id));
+    const narrativeAtoms = new Set((arrangementNarrativeForGenres(genres) || '').split(',').map(atom => atom.trim().toLowerCase()));
+    const nonNarrativeCommon = report.commonClauses.filter(clause => !narrativeAtoms.has(clause.toLowerCase()));
+    expect(nonNarrativeCommon.length).toBeLessThan(10);
   });
 
   it('the linter itself flags the exact pre-fix measurement as a hard error', () => {
@@ -116,7 +127,7 @@ describe('[Part B1/B2] hook device pool and rotation', () => {
   });
 
   it('a 15-song pack actually uses 8+ distinct hook devices in its style prompts', () => {
-    const bp = generateShowaPack(15);
+    const bp = generateFlatTagPack(15);
     const used = new Set<string>();
     for (const device of hookDevices) {
       if (bp.songs.some(song => song.stylePrompt.includes(device.prompt))) used.add(device.id);

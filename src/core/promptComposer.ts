@@ -40,10 +40,10 @@ export const MAX_LYRIC_WORDS = 260;
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative';
 
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'genre', 'vocal', 'hook', 'moneyChord', 'duration', 'tempo',
+  'vocal', 'genreNarrative', 'genre', 'hook', 'moneyChord', 'duration', 'tempo',
   'safety', 'earworm', 'mood', 'instruments', 'season',
   'songRole', 'motif', 'listenerScene', 'mixNotes'
 ];
@@ -65,7 +65,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   songRole: '트랙 역할',
   motif: '모티프',
   listenerScene: '청자 장면',
-  mixNotes: '믹스 노트'
+  mixNotes: '믹스 노트',
+  genreNarrative: 'genre arrangement narrative'
 };
 
 /**
@@ -284,9 +285,19 @@ function uniqueInstrumentKey(value: string) {
   return value.toLowerCase().replace(/^light\s+/, '').replace(/^soft\s+/, '').replace(/^warm\s+/, '').trim();
 }
 
+export function arrangementNarrativeForGenres(genres: GenrePack[]): string | undefined {
+  const narrative = genres[0]?.arrangementNarrative;
+  return narrative ? stripBpmText(narrative) : undefined;
+}
+
+export function hasArrangementNarrativeGenre(genres: GenrePack[]): boolean {
+  return Boolean(arrangementNarrativeForGenres(genres));
+}
+
 export function buildGenrePromptSummary(genres: GenrePack[]) {
   const primary = genres[0];
   const secondary = genres.slice(1, 3);
+  const genreNarrative = arrangementNarrativeForGenres(genres);
   const genreAtoms = [
     primary ? stripBpmText(primary.styleCore) : undefined,
     ...secondary.flatMap(genre => shortPromptKeywords(genre).slice(0, 3))
@@ -308,6 +319,7 @@ export function buildGenrePromptSummary(genres: GenrePack[]) {
 
   return {
     genreText: dedupeTerms(genreAtoms).join(', '),
+    genreNarrative,
     instruments
   };
 }
@@ -433,7 +445,7 @@ export function structureTemplateLegend(): string {
  * into the music prompt both wastes budget and confuses Suno.
  */
 export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PromptPart[] {
-  const { genreText, instruments } = buildGenrePromptSummary(genres);
+  const { genreText, genreNarrative, instruments } = buildGenrePromptSummary(genres);
   const instrumentText = instruments.join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote].filter(Boolean).join(', ');
@@ -472,6 +484,7 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   return [
     { id: 'genre', text: genreText },
     { id: 'vocal', text: opts.vocalTone || opts.channel.defaultVocal },
+    { id: 'genreNarrative', text: genreNarrative },
     { id: 'moneyChord', text: money },
     { id: 'duration', text: duration },
     { id: 'mood', text: moodText },

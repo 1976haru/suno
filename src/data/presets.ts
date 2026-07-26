@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -134,6 +134,7 @@ const rawGenrePacks: GenrePack[] = [
     id: 'adult-contemporary',
     label: 'Adult Contemporary Pop',
     styleCore: 'warm adult contemporary pop, radio-friendly, gentle emotional chorus lift',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['adult-contemporary'],
     instruments: ['Rhodes piano', 'acoustic guitar', 'light brushed drums', 'smooth bass'],
     tempoRange: [96, 106],
     goodFor: ['senior playlist', 'morning coffee', 'year-end']
@@ -142,6 +143,7 @@ const rawGenrePacks: GenrePack[] = [
     id: 'acoustic-pop',
     label: 'Acoustic Pop',
     styleCore: 'nostalgic acoustic pop, clear vocal, intimate warm arrangement',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['acoustic-pop'],
     instruments: ['fingerpicked acoustic guitar', 'soft piano', 'light percussion'],
     tempoRange: [92, 104],
     goodFor: ['home listening', 'walks', 'coffee']
@@ -150,6 +152,7 @@ const rawGenrePacks: GenrePack[] = [
     id: 'jazz-pop',
     label: 'Acoustic Jazz Pop',
     styleCore: 'nostalgic acoustic jazz-pop, elegant cafe mood, gentle maj7 and add9 colors',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jazz-pop'],
     instruments: ['Rhodes', 'upright bass', 'brushed drums', 'mellow jazz guitar'],
     tempoRange: [90, 104],
     goodFor: ['kissaten', 'night cafe', 'winter']
@@ -158,6 +161,7 @@ const rawGenrePacks: GenrePack[] = [
     id: 'showa-modern',
     label: 'Showa Modern Cafe',
     styleCore: 'showa-modern cafe mood, nostalgic but refined, subtle retro Japanese kissaten warmth',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['showa-modern'],
     instruments: ['Rhodes', 'mellow jazz guitar', 'upright bass', 'soft strings'],
     tempoRange: [92, 104],
     goodFor: ['Japan channel', 'retro cafe', 'autumn']
@@ -166,6 +170,7 @@ const rawGenrePacks: GenrePack[] = [
     id: 'city-pop-soft',
     label: 'Soft City Pop',
     styleCore: 'soft city-pop inspired adult pop, smooth groove, clean late-night city mood',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['city-pop-soft'],
     instruments: ['electric piano', 'clean guitar', 'soft synth pad', 'smooth bass'],
     tempoRange: [98, 114],
     goodFor: ['Japan', 'night city', 'stylish senior']
@@ -253,6 +258,7 @@ const rawGenrePacks: GenrePack[] = [
     id: 'kids-bright-pop',
     label: 'Bright Kids Pop',
     styleCore: 'bright cheerful children\'s pop, simple catchy melody, clean upbeat production',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['kids-bright-pop'],
     instruments: ['ukulele', 'glockenspiel', 'clean acoustic guitar', 'light hand percussion'],
     tempoRange: [104, 120],
     goodFor: ['kids playlist', 'daytime play', 'singalong'],

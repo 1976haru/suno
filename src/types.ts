@@ -49,6 +49,8 @@ export interface GenrePack {
   id: string;
   label: string;
   styleCore: string;
+  /** Optional section-by-section arrangement narrative for lead genres only. Flat tag fields stay as the backward-compatible baseline. */
+  arrangementNarrative?: string;
   instruments: string[];
   tempoRange: [number, number];
   goodFor: string[];

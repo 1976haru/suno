@@ -47,7 +47,8 @@ export const STYLE_WORD_TARGET_MAX = 50;
  * instead the trim loop below reduces them to a guaranteed-minimum atom count
  * rather than dropping the whole category.
  */
-export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['mood', 'instruments', 'earworm']);
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'mood', 'instruments', 'earworm']);
+export const GENRE_NARRATIVE_FLOOR_ATOMS = 5;
 export const MOOD_FLOOR_ATOMS = 1;
 export const INSTRUMENTS_FLOOR_ATOMS = 2;
 /**
@@ -68,7 +69,7 @@ export function countWords(text: string): number {
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -106,8 +107,8 @@ export type PromptTermId =
 // — superseding the old TASK F2 "BPM is the safest thing to drop" call now
 // that BPM presence is itself part of the anti-template-repetition fix.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'genre', 'vocal', 'mood', 'instruments', 'hook', 'moneyChord', 'hookDevice', 'introTexture', 'earworm', 'duration',
-  'tempo', 'arrangementDensity', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
+  'vocal', 'genreNarrative', 'moneyChord', 'introTexture', 'hookDevice', 'earworm', 'genre', 'hook', 'duration', 'tempo',
+  'mood', 'instruments', 'arrangementDensity', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
 export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'hookDevice', 'introTexture', 'tempo']);
@@ -128,6 +129,7 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   motif: 'motif',
   listenerScene: 'listener scene',
   mixNotes: 'mix notes',
+  genreNarrative: 'genre arrangement narrative',
   hookDevice: 'hook device',
   introTexture: 'intro texture',
   arrangementDensity: 'arrangement density'
@@ -370,10 +372,13 @@ export function composeStylePrompt(
       }
     }
 
-    // Step 1.5 (v3.15) — still over budget: reduce earworm down to its floor
-    // first, ahead of instruments/mood. It's a preference nudge, not core
-    // channel identity, so it gives up its slack before either of those do —
-    // but (like them) never drops to zero once earwormMode added it at all.
+    // Step 1.5 (v3.47 Step 4): keep the lead-genre narrative's core clauses
+    // before trimming older soft-target preference details.
+    if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+      finalAtoms = reduceToFloor(finalAtoms, 'genreNarrative', GENRE_NARRATIVE_FLOOR_ATOMS);
+    }
+    // Step 1.6 (v3.15): still over budget, reduce earworm down to its floor
+    // ahead of instruments/mood.
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
       finalAtoms = reduceToFloor(finalAtoms, 'earworm', EARWORM_FLOOR_ATOMS);
     }
