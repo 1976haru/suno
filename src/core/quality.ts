@@ -4,6 +4,7 @@ import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
 import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { eraLyricSafetyIssues } from '../data/japaneseEraGuidance';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -378,6 +379,11 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
       pushUnique(warnings, `Channel forbidden cliche detected: ${cliche}`);
       score -= 8;
     }
+  }
+
+  for (const issue of eraLyricSafetyIssues(song.lyrics, channel?.archetype)) {
+    pushUnique(warnings, issue);
+    score -= 8;
   }
 
   if (!song.youtube?.title || !song.youtube?.description || !song.youtube?.tags?.length) {

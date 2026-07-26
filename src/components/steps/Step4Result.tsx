@@ -65,6 +65,9 @@ interface Step4ResultProps {
   onPromoteTrack: (trackNo: number, role: 'cold-open' | 'flagship') => void;
   /** TASK v3.39.1 Part B3 — records what a human actually chose/changed for a song (originality evidence for an "inauthentic content" appeal). */
   onUpdateHumanEdits: (trackNo: number, text: string) => void;
+  onUpdateLyrics: (trackNo: number, lyrics: string) => void;
+  onRegenerateLyricLine: (trackNo: number, zeroBasedLineIndex: number) => void;
+  onUpdatePronunciationHints: (trackNo: number, text: string) => void;
 }
 
 export default function Step4Result({
@@ -109,7 +112,10 @@ export default function Step4Result({
   onSelectThumbnailVariant,
   onApplyThumbnailFreeText,
   onPromoteTrack,
-  onUpdateHumanEdits
+  onUpdateHumanEdits,
+  onUpdateLyrics,
+  onRegenerateLyricLine,
+  onUpdatePronunciationHints
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
@@ -435,6 +441,9 @@ export default function Step4Result({
             promptCharLimit={promptCharLimit}
             onPromote={onPromoteTrack}
             onUpdateHumanEdits={onUpdateHumanEdits}
+            onUpdateLyrics={onUpdateLyrics}
+            onRegenerateLyricLine={onRegenerateLyricLine}
+            onUpdatePronunciationHints={onUpdatePronunciationHints}
           />
         )
       ))}

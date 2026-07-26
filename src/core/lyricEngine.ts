@@ -1017,7 +1017,7 @@ const extraPremiumHooks: Record<Exclude<LyricLanguage, 'bilingual'>, Partial<Rec
 };
 
 function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: ChannelArchetype): string[] {
-  if (archetype === 'showa-cafe' || archetype === 'kids') return [];
+  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || archetype === 'kids') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },

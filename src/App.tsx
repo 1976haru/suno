@@ -17,6 +17,7 @@ import { updateBatchJob } from './core/batchJobs';
 import { getSetting, setSetting } from './core/settingsStore';
 import { mergeRestoredProviderSettings, sanitizeProviderSettingsForPersistence } from './core/providerSettingsPersistence';
 import { rebuildStylePromptsForPersonaMode } from './core/localGenerator';
+import { applyLyricWorkspaceEdit, applyPronunciationHints, regenerateSingleLyricLine } from './core/lyricAuthorship';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
 import { promoteTrackToOpeningRole } from './core/openingOverride';
 import { regenerateTrack } from './providers';
@@ -593,6 +594,30 @@ export default function App() {
     });
   }
 
+  function onUpdateLyrics(trackNo: number, lyrics: string) {
+    if (!gen.blueprint) return;
+    gen.setBlueprint({
+      ...gen.blueprint,
+      songs: gen.blueprint.songs.map(song => song.trackNo === trackNo ? applyLyricWorkspaceEdit(song, lyrics) : song)
+    });
+  }
+
+  function onRegenerateLyricLine(trackNo: number, zeroBasedLineIndex: number) {
+    if (!gen.blueprint) return;
+    gen.setBlueprint({
+      ...gen.blueprint,
+      songs: gen.blueprint.songs.map(song => song.trackNo === trackNo ? regenerateSingleLyricLine(song, zeroBasedLineIndex) : song)
+    });
+  }
+
+  function onUpdatePronunciationHints(trackNo: number, text: string) {
+    if (!gen.blueprint) return;
+    gen.setBlueprint({
+      ...gen.blueprint,
+      songs: gen.blueprint.songs.map(song => song.trackNo === trackNo ? applyPronunciationHints(song, text) : song)
+    });
+  }
+
   function onEvaluate(scopeTrackNos?: number[]) {
     if (!gen.blueprint) return;
     void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider, scopeTrackNos);
@@ -816,6 +841,9 @@ export default function App() {
               onApplyThumbnailFreeText={onApplyThumbnailFreeText}
               onPromoteTrack={onPromoteTrack}
               onUpdateHumanEdits={onUpdateHumanEdits}
+              onUpdateLyrics={onUpdateLyrics}
+              onRegenerateLyricLine={onRegenerateLyricLine}
+              onUpdatePronunciationHints={onUpdatePronunciationHints}
             />
           )}
 

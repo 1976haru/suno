@@ -10,6 +10,8 @@ import { cityBarcelonaArchetype } from './cityBarcelona';
 import { cityPragueArchetype } from './cityPrague';
 import { cityKyotoArchetype } from './cityKyoto';
 import { villageProvenceArchetype } from './villageProvence';
+import { showa70sKissatenFilmArchetype } from './showa70sKissatenFilm';
+import { j2000sDigitalStationArchetype } from './j2000sDigitalStation';
 import { kidsAnimalMeadowArchetype } from './kidsAnimalMeadow';
 import { kidsPlaygroundSkyArchetype } from './kidsPlaygroundSky';
 import { kidsCozyRoomArchetype } from './kidsCozyRoom';
@@ -41,7 +43,9 @@ export const placeThumbnailArchetypes: ThumbnailArchetype[] = [
   cityBarcelonaArchetype,
   cityPragueArchetype,
   cityKyotoArchetype,
-  villageProvenceArchetype
+  villageProvenceArchetype,
+  showa70sKissatenFilmArchetype,
+  j2000sDigitalStationArchetype
 ];
 
 export const kidsThumbnailArchetypes: ThumbnailArchetype[] = [

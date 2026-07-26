@@ -37,6 +37,9 @@ interface SongCardProps {
   onPromote?: (trackNo: number, role: 'cold-open' | 'flagship') => void;
   /** TASK v3.39.1 Part B3 — optional so existing callers/tests without curation-record support keep working unchanged. */
   onUpdateHumanEdits?: (trackNo: number, text: string) => void;
+  onUpdateLyrics?: (trackNo: number, lyrics: string) => void;
+  onRegenerateLyricLine?: (trackNo: number, zeroBasedLineIndex: number) => void;
+  onUpdatePronunciationHints?: (trackNo: number, text: string) => void;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -45,14 +48,23 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
+  const [lyricsDraft, setLyricsDraft] = useState(song.lyrics);
+  const [pronunciationDraft, setPronunciationDraft] = useState(song.japanesePronunciationHints || '');
+  const [regenerateLineNo, setRegenerateLineNo] = useState(1);
 
   useEffect(() => {
     setStyleDraft(song.stylePrompt);
   }, [song.stylePrompt, song.trackNo]);
+
+  useEffect(() => {
+    setLyricsDraft(song.lyrics);
+    setPronunciationDraft(song.japanesePronunciationHints || '');
+    setRegenerateLineNo(1);
+  }, [song.lyrics, song.japanesePronunciationHints, song.trackNo]);
 
   const hasWarnings = song.warnings.length > 0 || Boolean(evaluation);
   const isSeedSong = personaMode && song.trackNo === 1;
@@ -61,6 +73,9 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
   const isOverPromptLimit = styleDraft.length > promptLimit;
   const isShortsCandidate = isShortsClipCandidate(song);
   const chorusCaption = isShortsCandidate ? extractChorusText(song.lyrics) : '';
+  const aiDraftLyrics = song.aiDraftLyrics || song.lyrics;
+  const contribution = song.humanContribution;
+  const lyricLineCount = lyricsDraft.replace(/\r\n/g, '\n').split('\n').length;
 
   return (
     <article className="song">
@@ -227,12 +242,70 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
             <section className="copy-block">
               <div className="copy-head">
                 <h4>Lyrics</h4>
+                {contribution && (
+                  <span className="prompt-length-badge">
+                    {contribution.editedLineCount}/{contribution.totalLineCount} lines edited
+                  </span>
+                )}
                 <button type="button" onClick={() => void copyText(song.lyrics)}>
                   <Copy size={15} />
                   Copy
                 </button>
               </div>
-              <pre>{song.lyrics}</pre>
+              <div className="lyric-workspace-grid">
+                <div className="lyric-workspace-pane">
+                  <div className="lyric-workspace-title">AI draft</div>
+                  <pre className="lyric-workspace-pre">{aiDraftLyrics}</pre>
+                </div>
+                <div className="lyric-workspace-pane">
+                  <div className="lyric-workspace-title">User rewrite</div>
+                  <textarea
+                    className="lyric-workspace-editor"
+                    value={lyricsDraft}
+                    onChange={event => setLyricsDraft(event.target.value)}
+                    rows={14}
+                  />
+                </div>
+              </div>
+              <div className="button-row lyric-workspace-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!onUpdateLyrics || lyricsDraft === song.lyrics}
+                  onClick={() => onUpdateLyrics?.(song.trackNo, lyricsDraft)}
+                >
+                  Save rewrite
+                </button>
+                <label className="inline-number-control">
+                  Line
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.max(1, lyricLineCount)}
+                    value={regenerateLineNo}
+                    onChange={event => setRegenerateLineNo(Math.max(1, Math.min(lyricLineCount, Number(event.target.value) || 1)))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={!onRegenerateLyricLine}
+                  onClick={() => onRegenerateLyricLine?.(song.trackNo, regenerateLineNo - 1)}
+                >
+                  <RefreshCw size={14} />
+                  Regenerate line
+                </button>
+                {contribution && <span className="supporting">{contribution.summary}</span>}
+              </div>
+              <div className="lyric-pronunciation-row">
+                <label>Japanese singing-pronunciation hints</label>
+                <textarea
+                  value={pronunciationDraft}
+                  onChange={event => setPronunciationDraft(event.target.value)}
+                  onBlur={() => onUpdatePronunciationHints?.(song.trackNo, pronunciationDraft)}
+                  rows={2}
+                  placeholder="例: 今日は=きょうは / を=お / 伸ばす母音だけ記録"
+                />
+              </div>
             </section>
           )}
 

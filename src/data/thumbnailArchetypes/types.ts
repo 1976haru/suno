@@ -27,6 +27,8 @@ export type ThumbnailArchetypeCategory =
   | 'city-prague'
   | 'city-kyoto'
   | 'village-provence'
+  | 'showa-70s-kissaten-film'
+  | 'j2000s-digital-station'
   | 'kids-animal-meadow'
   | 'kids-playground-sky'
   | 'kids-cozy-room';

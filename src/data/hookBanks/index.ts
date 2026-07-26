@@ -9,7 +9,10 @@ import { kidsOverride } from './kids';
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
     case 'showa-cafe':
+    case 'showa-70s':
       return showaCafeOverride(language);
+    case 'j2000s':
+      return seniorMorningOverride;
     case 'kids':
       return kidsOverride(language);
     case 'christmas':

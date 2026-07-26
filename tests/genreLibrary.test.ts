@@ -49,7 +49,7 @@ describe('structured genre library', () => {
     // rawGenrePacks (not to genreLibrary's own array — see that file's
     // TASK H2 comment on the pre-existing split), so genrePacks (presets.ts)
     // is a strict superset of genreLibrary from here on.
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 4);
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 12);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -179,16 +179,17 @@ describe('structured genre library', () => {
     expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
   });
 
-  it('preserves all 268 genre ids and keeps preset ids backward compatible', () => {
+  it('preserves all 276 genre ids and keeps preset ids backward compatible', () => {
     const libraryIds = new Set(genreLibrary.map(genre => genre.id));
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     // TASK v3.39 — the 4 kids-* ids are now registered directly into
     // genreLibrary too (previously only in presets.ts's rawGenrePacks), so
     // getGenreById/getVisibleGenresForArchetype('kids') can resolve them.
-    expect(libraryIds.size).toBe(268);
-    expect(presetIds.size).toBe(268);
+    expect(libraryIds.size).toBe(276);
+    expect(presetIds.size).toBe(276);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);
+    for (const id of ['kayokyoku-70s', 'japanese-folk-70s', 'new-music-70s', 'showa-groove-70s', 'jpop-2000s-ballad', 'jpop-2000s-rnb', 'jpop-2000s-band', 'jpop-2000s-dance']) expect(presetIds.has(id), id).toBe(true);
   });
 });

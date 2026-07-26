@@ -1666,6 +1666,80 @@ pre {
   resize: vertical;
 }
 
+.lyric-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+}
+
+.lyric-workspace-pane {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.lyric-workspace-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.lyric-workspace-pre,
+.lyric-workspace-editor {
+  min-height: 260px;
+  max-height: 520px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.lyric-workspace-editor {
+  width: 100%;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.lyric-workspace-actions,
+.lyric-pronunciation-row {
+  padding: 0 12px 12px;
+}
+
+.inline-number-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.inline-number-control input {
+  width: 72px;
+  min-height: 30px;
+}
+
+.lyric-pronunciation-row {
+  display: grid;
+  gap: 6px;
+}
+
+.lyric-pronunciation-row textarea {
+  min-height: 64px;
+}
+
+@media (max-width: 760px) {
+  .lyric-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .metadata {
   display: grid;
   align-content: start;

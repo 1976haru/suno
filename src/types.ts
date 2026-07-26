@@ -6,9 +6,9 @@ export type LyricPerspective = 'firstPerson' | 'secondPerson' | 'thirdPerson' | 
 export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepeat';
 /** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
-export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges';
+export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges' | 'general';
 
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids';
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s';
 
 export type DiversityAxisId =
   | 'vocalType' | 'introTexture' | 'hookDevice'
@@ -216,6 +216,19 @@ export interface YoutubeMetadata {
   thumbnailText?: string;
 }
 
+export interface HumanContributionRecord {
+  aiDraftLyrics: string;
+  editedLyrics: string;
+  totalLineCount: number;
+  editedLineCount: number;
+  editedLineRatio: number;
+  editedLineNumbers: number[];
+  summary: string;
+  pronunciationHints?: string;
+  arrangementNotes?: string;
+  updatedAt: string;
+}
+
 export interface SongIdea {
   trackNo: number;
   title: string;
@@ -227,6 +240,10 @@ export interface SongIdea {
   /** Text meant for Suno's separate Advanced Options -> Exclude field, never pasted into the style prompt itself (avoidWords + copyright-avoidance terms). See core/promptComposer.ts's buildExcludePrompt. */
   excludePrompt?: string;
   lyrics: string;
+  /** v3.48: original AI lyric draft kept when the user rewrites lyrics in the authorship workspace. */
+  aiDraftLyrics?: string;
+  /** v3.48: optional manual singing-pronunciation notes, especially for Japanese lines. */
+  japanesePronunciationHints?: string;
   /** TASK v3.23 — the app no longer asks the API for this (user makes thumbnails externally); optional so old saved packs that still have it keep rendering/exporting fine. */
   thumbnailText?: string;
   youtube: YoutubeMetadata;
@@ -275,6 +292,10 @@ export interface SongIdea {
    * else. Always user-entered; never auto-populated.
    */
   humanEdits?: string;
+  /** v3.48: factual AI-assistance flag for export/audit records; never a legal registration decision. */
+  aiAssisted?: boolean;
+  /** v3.48: factual line-edit contribution record produced by the lyric workspace. */
+  humanContribution?: HumanContributionRecord;
 }
 
 export interface PlaylistBlueprint {

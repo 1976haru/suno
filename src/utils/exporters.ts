@@ -25,6 +25,22 @@ export function extractChorusText(lyrics: string): string {
     .join('\n');
 }
 
+function authorshipRecordLines(song: SongIdea): string[] {
+  const contribution = song.humanContribution;
+  const lines = [
+    `AI assisted: ${song.aiAssisted ? 'true' : 'false'}`
+  ];
+  if (contribution) {
+    lines.push(`Human contribution: ${contribution.summary}`);
+    lines.push(`Edited line numbers: ${contribution.editedLineNumbers.join(', ') || 'none'}`);
+    if (contribution.pronunciationHints) lines.push(`Pronunciation hints: ${contribution.pronunciationHints}`);
+    if (contribution.arrangementNotes) lines.push(`Arrangement notes: ${contribution.arrangementNotes}`);
+  } else if (song.humanEdits) {
+    lines.push(`Human curation note: ${song.humanEdits}`);
+  }
+  return lines;
+}
+
 /**
  * TASK G2 (v3.7) — a single .txt per song, laid out so a phone user can open
  * one file and copy each of the three Suno fields (Style / Lyrics / Exclude)
@@ -54,7 +70,8 @@ export function buildSongTxt(song: SongIdea): string {
     '',
     '===== YOUTUBE =====',
     JSON.stringify(song.youtube, null, 2),
-    ...(song.humanEdits ? ['', '===== HUMAN CURATION NOTE =====', song.humanEdits] : []),
+    ...(song.aiAssisted || song.humanContribution ? ['', '===== AUTHORSHIP RECORD =====', ...authorshipRecordLines(song)] : []),
+    ...(song.humanEdits && !song.humanContribution ? ['', '===== HUMAN CURATION NOTE =====', song.humanEdits] : []),
     ...(isShortsClipCandidate(song) && chorus
       ? [
         '',
@@ -253,7 +270,8 @@ Tags: ${(song.youtube?.tags || []).join(', ')}
 
 ${songThumbnailMarkdown(song)}Quality: ${song.qualityScore}/100
 Warnings: ${song.warnings.join('; ') || 'None'}
-${song.humanEdits ? `Human curation note: ${song.humanEdits}\n` : ''}`).join('\n')}`;
+${song.aiAssisted || song.humanContribution ? `Authorship record:\n${authorshipRecordLines(song).map(line => `- ${line}`).join('\n')}\n` : ''}
+${song.humanEdits && !song.humanContribution ? `Human curation note: ${song.humanEdits}\n` : ''}`).join('\n')}`;
 }
 
 export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: ThumbnailSpec, soundSignature?: SoundSignature, personaMode = false, channel?: ChannelProfile) {
@@ -292,6 +310,9 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       'qualityScore',
       'warnings',
       'humanEdits',
+      'aiAssisted',
+      'humanContribution',
+      'pronunciationHints',
       'stylePrompt',
       'excludePrompt',
       'lyrics'
@@ -316,6 +337,9 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       String(song.qualityScore),
       song.warnings.join('; '),
       song.humanEdits || '',
+      song.aiAssisted ? 'true' : 'false',
+      song.humanContribution?.summary || '',
+      song.japanesePronunciationHints || song.humanContribution?.pronunciationHints || '',
       song.stylePrompt,
       song.excludePrompt || '',
       song.lyrics

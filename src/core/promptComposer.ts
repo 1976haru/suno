@@ -7,6 +7,7 @@ import { compactDuration, compactHook, compactMoneyChord } from './soundSignatur
 import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
 import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
 import { stripBpmText } from './bpmDedupe';
+import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -742,6 +743,7 @@ const EARWORM_SYSTEM_NOTE = '\n\nEarworm mode is on for this request:\n- Prefer 
 export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext, totalSongCountOverride?: number, generateThumbnailText = false) {
   const batchNote = batch ? buildBatchSystemNote(opts, batch, generateThumbnailText) : '';
   const earwormNote = opts.earwormMode ? EARWORM_SYSTEM_NOTE : '';
+  const eraLyricGuidance = eraLyricGuidanceForArchetype(opts.channel.archetype);
   const totalSongCount = totalSongCountOverride ?? batch?.totalSongCount ?? opts.songCount;
 
   const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
@@ -788,7 +790,7 @@ ${titleHookRuleLine}
 - Never address an inanimate object as if it were a person (e.g. "Hold on, coffee" or "Close your eyes, doorway") — vocative phrasing may only address a person or an abstract/personified noun (a friend, a season, "my love"), never a physical object.
 
 Safety rules:
-${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${earwormNote}${batchNote}`;
+${safeLyricRules.map(rule => `- ${rule}`).join('\n')}${eraLyricGuidance ? `\n- ${eraLyricGuidance}\n- Record factual human lyric edits when provided; never claim that a song is eligible for collecting-society registration.` : ''}${earwormNote}${batchNote}`;
 }
 
 /**
@@ -871,6 +873,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
     customLyricThemeScene: opts.customLyricThemeScene,
     avoidWords: opts.avoidWords,
     negativeStyle: resolveNegativeStyleText(opts),
+    japaneseEraLyricGuidance: eraLyricGuidanceForArchetype(opts.channel.archetype),
     introUniqueness: opts.introUniqueness ?? 50,
     diversityAllocations: opts.diversityAllocations ?? [],
     earwormMode: opts.earwormMode ?? false,
@@ -911,6 +914,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
     genrePacks: genres,
     moodPacks: moods,
     season,
+    japaneseEraLyricGuidance: eraLyricGuidanceForArchetype(opts.channel.archetype),
     batchPlanning: batchPlanningBullets(generateThumbnailText),
     outputShape: {
       projectTitle: 'string',

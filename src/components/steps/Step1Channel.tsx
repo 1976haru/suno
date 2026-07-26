@@ -52,6 +52,26 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     primaryLanguage: 'english'
   },
   {
+    id: 'showa-70s',
+    label: '昭和セブンティーズ',
+    description: '1970年代の日本歌謡・フォーク・ニューミュージック',
+    vocal: 'mature Japanese male tenor, intimate close-mic delivery, restrained vibrato, warm analog presence',
+    moods: ['nostalgic', 'elegant', 'bittersweet'],
+    market: 'japan',
+    audience: 'seniors',
+    primaryLanguage: 'japanese'
+  },
+  {
+    id: 'j2000s',
+    label: 'ミレニアムJ-POP',
+    description: '2000年代初頭のJ-POPとR&B影響期サウンド',
+    vocal: 'clear Japanese pop vocal, polished emotional delivery, layered chorus harmonies, early-2000s digital presence',
+    moods: ['hopeful', 'romantic', 'fresh-start'],
+    market: 'japan',
+    audience: 'general',
+    primaryLanguage: 'japanese'
+  },
+  {
     id: 'christmas',
     label: '크리스마스',
     description: '겨울과 연말에 맞는 따뜻한 시즌 채널',

@@ -153,6 +153,7 @@ export const genreCategories: GenreCategory[] = [
   { id: 'ballad', label: 'Ballad', description: 'Piano-led pop ballads, healing ballads, duet ballads, and cinematic emotional builds.' },
   { id: 'seasonal', label: 'Seasonal', description: 'Holiday and seasonal playlist presets.' },
   { id: 'electronic', label: 'Electronic', description: 'Soft synthwave and electronic retro-pop textures.' },
+  { id: 'japanese-era', label: 'Japanese Era Pop', description: 'Japanese 1970s kayokyoku/folk/new-music and early-2000s J-pop/R&B/band/dance presets.' },
   // TASK v3.39 — kids channel category, exposed so Step1's genre chip picker
   // can group/label the kids-* packs registered below (see KIDS_CORE_GENRE_IDS).
   { id: 'kids', label: 'Kids and Family', description: 'Bright, safe children\'s pop and singalong presets for the kids channel.' }
@@ -199,17 +200,35 @@ export const SHOWA_CAFE_CORE_GENRE_IDS = [
 // just a secondary/auxiliary one, not a default.
 export const KIDS_CORE_GENRE_IDS = ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop'] as const;
 
+export const SHOWA_70S_CORE_GENRE_IDS = [
+  'kayokyoku-70s',
+  'japanese-folk-70s',
+  'new-music-70s',
+  'showa-groove-70s'
+] as const;
+
+export const J2000S_CORE_GENRE_IDS = [
+  'jpop-2000s-ballad',
+  'jpop-2000s-rnb',
+  'jpop-2000s-band',
+  'jpop-2000s-dance'
+] as const;
+
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
   'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
   christmas: [],
   'lofi-study': [],
-  kids: KIDS_CORE_GENRE_IDS
+  kids: KIDS_CORE_GENRE_IDS,
+  'showa-70s': SHOWA_70S_CORE_GENRE_IDS,
+  j2000s: J2000S_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
   ...SENIOR_MORNING_CORE_GENRE_IDS,
-  ...SHOWA_CAFE_CORE_GENRE_IDS
+  ...SHOWA_CAFE_CORE_GENRE_IDS,
+  ...SHOWA_70S_CORE_GENRE_IDS,
+  ...J2000S_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -598,7 +617,10 @@ export const LEAD_ARRANGEMENT_NARRATIVES = {
   'jazz-pop': 'BPM 90-104; Verse moves like a small cafe trio with brushed drums and upright bass under the vocal, pre-chorus lets Rhodes chords brighten from maj7 into add9 color, chorus opens ride cymbal and guitar comping for a velvet lift, hook entry uses a tiny bass walk-up and cymbal swell, mix is elegant small-room warmth',
   'showa-modern': 'BPM 92-104; Verse sits in restrained kissaten swing with Rhodes and mellow guitar answering the vocal, pre-chorus opens soft strings and a rising bass step, chorus lands bittersweet but refined with brighter chord color, hook entry uses a two-bar dropout into the chorus downbeat, mix has analog tape warmth and close male-vocal presence',
   'city-pop-soft': 'BPM 98-114; Verse rides a smooth electric-piano groove with clean guitar flickers, pre-chorus filters the synth pad open and nudges the bass upward, chorus becomes wider and silkier without turning flashy, hook entry uses a glossy rising sweep into a tight drum pickup, mix is clean late-night polish with soft analog edges',
-  'kids-bright-pop': 'BPM 104-120; Verse starts simple and bouncy with ukulele claps and childlike call lines, pre-chorus adds glockenspiel steps and an easy upward melody, chorus opens into bright group singing with room for children to answer back, hook entry uses a cheerful stop-and-go clap pickup, mix is clean sunny and never noisy'
+  'kids-bright-pop': 'BPM 104-120; Verse starts simple and bouncy with ukulele claps and childlike call lines, pre-chorus adds glockenspiel steps and an easy upward melody, chorus opens into bright group singing with room for children to answer back, hook entry uses a cheerful stop-and-go clap pickup, mix is clean sunny and never noisy',
+  'kayokyoku-70s': 'BPM 78-94; Verse begins with close Japanese vocal over brushed kit and electric piano, pre-chorus opens live strings and a brass answer phrase, chorus lifts with a graceful kayokyoku cadence, hook entry uses a short drum-bass dropout before the downbeat, mix keeps analog tape saturation, spring reverb, and narrow stereo warmth',
+  'new-music-70s': 'BPM 86-102; Verse stays plainspoken with acoustic guitar and piano, pre-chorus adds band drums and a bass climb, chorus turns wider with refined add9 color without modern gloss, hook entry uses an upward guitar strum into a one-beat breath, mix feels live, close-mic, and lightly tape-worn',
+  'jpop-2000s-ballad': 'BPM 72-88; Verse opens with piano and intimate Japanese vocal, pre-chorus adds string lift and stacked harmony shadows, chorus expands into a big early-2000s pop-ballad refrain, hook entry uses a cymbal swell and brief vocal breath, mix is bright digital polish with firm compression and clean high-end detail'
 } as const satisfies Partial<Record<string, string>>;
 
 const legacyGenreProfiles: StructuredGenrePack[] = [
@@ -639,6 +661,92 @@ const kidsGenreProfiles: StructuredGenrePack[] = [
   // the 3 primary kids ids (KIDS_CORE_GENRE_IDS), so it stays selectable but
   // isn't auto-applied/shown as a default core chip.
   legacyGenrePack({ id: 'kids-march', label: 'Kids Marching Pop', styleCore: 'simple marching pop for children, bouncy skip-along rhythm, bright brass-toy color', instruments: ['toy piano', 'snare-like light percussion', 'glockenspiel', 'clean bass'], tempoRange: [108, 126], goodFor: ['kids playlist', 'movement and dance', 'group activity'], archetypes: ['kids'] }, 'kids', { rhythm: ['bouncy marching skip'], vocal: ['bright childlike vocal'], production: ['clean toy-bright mix'], harmony: ['simple major-key march lift'], moods: ['playful', 'energetic'], audiences: ['kids playlist', 'group activity'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] })
+];
+
+export const eraGenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'kayokyoku-70s',
+    label: '1970s Kayokyoku',
+    styleCore: '1970s Japanese kayokyoku, live brass section, sweeping strings, wet spring and plate reverb, analog tape saturation, narrow stereo image, soft top-end rolloff',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['kayokyoku-70s'],
+    instruments: ['electric piano', 'live brass section', 'live strings', 'brushed drums', 'round electric bass'],
+    tempoRange: [78, 94],
+    goodFor: ['Showa seventies channel', 'Japanese senior playlist', 'station farewell scenes'],
+    archetypes: ['showa-70s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['restrained kayokyoku ballad pulse'], vocal: ['mature Japanese lead vocal'], production: ['analog tape saturation', 'spring and plate reverb', 'narrow stereo image'], harmony: ['graceful minor-to-major chorus cadence'], moods: ['nostalgic', 'cinematic'], audiences: ['Japanese seniors', 'Showa playlist listeners'], avoidTraits: ['modern EDM synths', 'trap hi-hats', 'hard autotune'] }),
+  legacyGenrePack({
+    id: 'japanese-folk-70s',
+    label: '1970s Japanese Folk',
+    styleCore: '1970s Japanese folk, acoustic guitar centered, modest live ensemble, close-mic vocal, dry room intimacy, analog tape softness, no modern polish',
+    instruments: ['fingerpicked acoustic guitar', 'light upright piano', 'soft hand percussion', 'simple bass'],
+    tempoRange: [82, 100],
+    goodFor: ['Showa seventies channel', 'handwritten letter scenes', 'night train scenes'],
+    archetypes: ['showa-70s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['plain acoustic folk pulse'], vocal: ['unforced close Japanese vocal'], production: ['close-mic intimacy', 'soft analog tape hiss', 'small room realism'], harmony: ['simple folk-pop movement'], moods: ['plainspoken', 'wistful'], audiences: ['Japanese folk listeners', 'Showa playlist listeners'], avoidTraits: ['stadium folk-rock excess', 'modern bedroom-pop haze', 'hard autotune'] }),
+  legacyGenrePack({
+    id: 'new-music-70s',
+    label: '1970s New Music',
+    styleCore: '1970s Japanese new music, acoustic guitar plus live band, sophisticated chords, lyrical adult pop, analog tape warmth, live rhythm section, soft top-end rolloff',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['new-music-70s'],
+    instruments: ['acoustic guitar', 'upright piano', 'clean electric guitar', 'live drums', 'warm bass'],
+    tempoRange: [86, 102],
+    goodFor: ['Showa seventies channel', 'window seasons', 'radio memory scenes'],
+    archetypes: ['showa-70s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['hand-played singer-songwriter band pulse'], vocal: ['lyrical adult Japanese vocal'], production: ['live band warmth', 'analog tape color', 'restrained stereo width'], harmony: ['sophisticated add9 and maj7 colors'], moods: ['lyrical', 'refined'], audiences: ['Japanese new-music listeners', 'Showa playlist listeners'], avoidTraits: ['ultra-wide modern mix', 'sidechain pumping', 'trap hi-hats'] }),
+  legacyGenrePack({
+    id: 'showa-groove-70s',
+    label: '1970s Showa Groove',
+    styleCore: '1970s funk and soul influenced Japanese kayokyoku, clavinet, wah guitar, brass stabs, live bass pocket, tape saturation, spring reverb, narrow stereo',
+    instruments: ['clavinet', 'wah electric guitar', 'brass stabs', 'live bass', 'tight drum kit'],
+    tempoRange: [96, 114],
+    goodFor: ['Showa seventies channel', 'neon alley scenes', 'danceable retro sets'],
+    archetypes: ['showa-70s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['syncopated live funk-soul pocket'], vocal: ['confident Japanese pop vocal'], production: ['tape-saturated live groove', 'spring reverb', 'narrow vintage stereo'], harmony: ['soul-colored dominant and minor seventh chords'], moods: ['groovy', 'retro-cinematic'], audiences: ['Showa groove listeners', 'retro Japanese playlists'], avoidTraits: ['modern EDM synths', 'trap hi-hats', 'sidechain pumping'] }),
+  legacyGenrePack({
+    id: 'jpop-2000s-ballad',
+    label: 'Early 2000s J-Pop Ballad',
+    styleCore: 'early-2000s Japanese pop ballad, piano and strings, big chorus, stacked harmonies, bright wide digital mix, strong compression, crisp high-end',
+    arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jpop-2000s-ballad'],
+    instruments: ['bright piano', 'large string pad', 'clean electric guitar', 'compressed pop drums', 'layered backing vocals'],
+    tempoRange: [72, 88],
+    goodFor: ['Millennium J-pop channel', 'graduation scenes', 'first train scenes'],
+    archetypes: ['j2000s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['slow pop-ballad build'], vocal: ['clear emotive Japanese lead vocal with harmonies'], production: ['bright wide digital mix', 'firm compression', 'stacked chorus vocals'], harmony: ['big pop-ballad chorus lift'], moods: ['emotional', 'anthemic'], audiences: ['early-2000s J-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['lo-fi vintage haze', 'trap hi-hats', 'modern bedroom-pop texture'] }),
+  legacyGenrePack({
+    id: 'jpop-2000s-rnb',
+    label: 'Early 2000s J-Pop R&B',
+    styleCore: 'early-2000s Japanese pop R&B, 16th-note groove, synth bass, melismatic vocal lines, stacked chorus, bright digital sheen, crisp hi-hats',
+    instruments: ['synth bass', 'electric piano', 'crisp hi-hats', 'digital drum kit', 'silky synth pad'],
+    tempoRange: [86, 104],
+    goodFor: ['Millennium J-pop channel', 'late-night call scenes', 'station waiting scenes'],
+    archetypes: ['j2000s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['16th-note R&B pocket'], vocal: ['smooth Japanese vocal with tasteful melisma'], production: ['bright digital sheen', 'compressed low end', 'stacked chorus layers'], harmony: ['R&B seventh-chord movement'], moods: ['sleek', 'yearning'], audiences: ['early-2000s J-pop R&B listeners', 'night playlist listeners'], avoidTraits: ['trap hi-hats', 'lo-fi vintage texture', 'modern bedroom-pop haze'] }),
+  legacyGenrePack({
+    id: 'jpop-2000s-band',
+    label: 'Early 2000s J-Pop Band',
+    styleCore: 'early-2000s Japanese band pop, distortion guitars, straight 8th-note drive, big melodic chorus, bright digital mix, compressed drums',
+    instruments: ['distortion electric guitar', 'clean arpeggio guitar', 'electric bass', 'compressed rock drums', 'synth pad layer'],
+    tempoRange: [118, 138],
+    goodFor: ['Millennium J-pop channel', 'bicycle school route scenes', 'graduation energy'],
+    archetypes: ['j2000s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['straight 8th-note band drive'], vocal: ['open Japanese pop-rock vocal'], production: ['bright compressed band mix', 'wide rhythm guitars', 'clear hi-hat detail'], harmony: ['major-key chorus lift'], moods: ['youthful', 'forward'], audiences: ['early-2000s band-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern trap elements', 'lo-fi demo texture', 'screamo aggression'] }),
+  legacyGenrePack({
+    id: 'jpop-2000s-dance',
+    label: 'Early 2000s J-Pop Dance',
+    styleCore: 'early-2000s Japanese dance-pop, four-on-the-floor pulse, bright digital synth layers, clean chorus stacks, crisp hi-hats, wide polished mix',
+    instruments: ['digital synth lead', 'four-on-the-floor kick', 'synth pad layer', 'crisp hi-hats', 'stacked backing vocals'],
+    tempoRange: [120, 132],
+    goodFor: ['Millennium J-pop channel', 'summer festival scenes', 'bright early-2000s sets'],
+    archetypes: ['j2000s'],
+    tier: 'core'
+  }, 'japanese-era', { rhythm: ['clean 4/4 dance-pop pulse'], vocal: ['bright Japanese pop vocal with chorus stacks'], production: ['wide polished digital mix', 'strong compression', 'clear high-frequency detail'], harmony: ['uplifting pop chorus movement'], moods: ['bright', 'energetic'], audiences: ['early-2000s dance-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern EDM drop', 'trap hi-hats', 'lo-fi vintage haze'] })
 ];
 
 const jazzVariants = [
@@ -914,7 +1022,7 @@ export const notionDerivedGenrePacks: StructuredGenrePack[] = [
   ...balladVariants.map(variant => makeProfile('ballad', variant))
 ];
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...notionDerivedGenrePacks].map(genre =>
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...eraGenrePacks, ...notionDerivedGenrePacks].map(genre =>
   CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...genre, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : genre
 );
 export const genrePacks: GenrePack[] = genreLibrary;

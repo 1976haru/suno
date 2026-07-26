@@ -18,13 +18,15 @@ const EXPECTED_CATEGORIES = [
   'city-prague',
   'city-kyoto',
   'village-provence',
+  'showa-70s-kissaten-film',
+  'j2000s-digital-station',
   'kids-animal-meadow',
   'kids-playground-sky',
   'kids-cozy-room'
 ];
 const SEASONAL_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(0, 6));
-const PLACE_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(6, 12));
-const KIDS_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(12));
+const PLACE_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(6, 14));
+const KIDS_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(14));
 
 const directReferenceTerms = /\b(in the style of|same composition as|movie scene from|film still from|screenshot from|as seen in|disney|pixar|marvel|netflix|ghibli|miyazaki|nolan|spielberg|tarantino|kubrick|wes anderson|tom hanks|leonardo dicaprio)\b|시소웨이브|GOMCAM/i;
 
@@ -53,10 +55,10 @@ function allText(archetype: ThumbnailArchetype): string {
 
 describe('thumbnail archetype library', () => {
   it('defines the 6 seasonal Korean-serif + 3 kids-bright categories', () => {
-    expect(thumbnailArchetypeCount).toBe(15);
+    expect(thumbnailArchetypeCount).toBe(17);
     expect(thumbnailArchetypes.map(archetype => archetype.category)).toEqual(EXPECTED_CATEGORIES);
     expect(seasonalThumbnailArchetypes).toHaveLength(6);
-    expect(placeThumbnailArchetypes).toHaveLength(6);
+    expect(placeThumbnailArchetypes).toHaveLength(8);
     expect(kidsThumbnailArchetypes).toHaveLength(3);
   });
 

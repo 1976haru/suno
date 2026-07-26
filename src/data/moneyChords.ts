@@ -237,6 +237,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
 export function signatureMoneyChordId(archetype: string | undefined): string {
   if (archetype === 'senior-morning') return 'doowop';
   if (archetype === 'showa-cafe') return 'royalRoad';
+  if (archetype === 'showa-70s') return 'showaModern';
+  if (archetype === 'j2000s') return 'komuro';
   if (archetype === 'kids') return 'kidsSimple';
   return 'default';
 }
@@ -252,6 +254,8 @@ export function signatureMoneyChordId(archetype: string | undefined): string {
 export function moneyChordRotationPool(archetype: string | undefined): string[] {
   if (archetype === 'senior-morning') return ['doowop', 'warmCycle', 'emotional', 'default', 'canon'];
   if (archetype === 'showa-cafe') return ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'];
+  if (archetype === 'showa-70s') return ['showaModern', 'royalRoad', 'marusa', 'doowop', 'emotional'];
+  if (archetype === 'j2000s') return ['komuro', 'cityPop', 'default', 'canon', 'emotional'];
   if (archetype === 'kids') return ['kidsSimple', 'kidsBright', 'kidsMarch'];
   return ['default'];
 }

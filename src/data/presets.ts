@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -33,6 +33,52 @@ export const channelPresets: ChannelProfile[] = [
     forbiddenCliches: ['cheap retro props', 'enka-like melodrama', 'overly cute anime tone', 'famous artist imitation'],
     seoKeywords: ['昭和カフェ', '朝の喫茶店', 'レトロBGM', '大人の音楽', '50代', '60代', '喫茶店BGM'],
     archetype: 'showa-cafe'
+  },
+  {
+    id: 'showa-seventies',
+    name: '昭和セブンティーズ',
+    englishName: 'Showa Seventies',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'seniors',
+    promise: '1970年代の日本歌謡、フォーク、ニューミュージック感性を軸にした日本語プレイリスト',
+    visualIdentity: '1970s Showa film grain, warm color temperature, kissaten paper textures, station lights, restrained Japanese retro typography',
+    defaultVocal: 'mature Japanese male tenor, intimate close-mic delivery, restrained vibrato, warm analog presence',
+    preferredGenres: ['kayokyoku-70s', 'japanese-folk-70s', 'new-music-70s'],
+    preferredMoods: ['nostalgic', 'elegant', 'bittersweet'],
+    forbiddenCliches: [
+      'modern EDM synths',
+      'trap hi-hats',
+      'hard autotune',
+      'sidechain pumping',
+      'ultra-wide modern mix',
+      'famous artist imitation',
+      'enka-like melodrama'
+    ],
+    seoKeywords: ['昭和歌謡', '70年代 日本の歌', '昭和 フォーク', 'ニューミュージック', '懐かしい日本語曲', '昭和プレイリスト'],
+    archetype: 'showa-70s'
+  },
+  {
+    id: 'millennium-jpop',
+    name: 'ミレニアムJ-POP',
+    englishName: 'Millennium J-POP',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'general',
+    promise: '2000年代初頭のJ-POPとR&B影響期の明るいデジタル感を軸にした日本語プレイリスト',
+    visualIdentity: 'early-2000s Japanese digital brightness, saturated clean color, station gates, flip-phone mail, CD-shop gloss',
+    defaultVocal: 'clear Japanese pop vocal, polished emotional delivery, layered chorus harmonies, early-2000s digital presence',
+    preferredGenres: ['jpop-2000s-ballad', 'jpop-2000s-rnb', 'jpop-2000s-band'],
+    preferredMoods: ['hopeful', 'romantic', 'fresh-start'],
+    forbiddenCliches: [
+      'lo-fi vintage texture',
+      'trap elements',
+      'modern bedroom-pop texture',
+      'smartphone-era slang',
+      'famous artist imitation'
+    ],
+    seoKeywords: ['2000年代 J-POP', '平成 JPOP', 'ミレニアム J-POP', '懐かしい平成曲', '日本語ポップ', '青春プレイリスト'],
+    archetype: 'j2000s'
   },
   // TASK v3.38 Part B1 — kids/children's song channel.
   // TASK v3.39 Part G — primaryLanguage defaults to 'english' like the two
@@ -126,6 +172,14 @@ export const generationPacks: GenerationPack[] = [
     lyricGuidance: ['broad emotional images', 'no niche slang', 'clear hook', 'gentle positive finish'],
     tempoBias: 'playlist-safe medium tempo with clean arrangement',
     youtubeAngle: 'seasonal background music, cafe, walk, and daily comfort angles'
+  },
+  {
+    id: 'general',
+    label: 'General',
+    audienceNote: 'broad Japanese pop audience, emotionally direct but not age-locked',
+    lyricGuidance: ['concrete everyday scenes', 'clean conversational wording', 'strong chorus image', 'no famous-artist imitation'],
+    tempoBias: 'polished medium tempo or clean upbeat pop depending on genre',
+    youtubeAngle: 'nostalgic J-pop, commute, school-days, night-call, and seasonal playlist angles'
   }
 ];
 
@@ -292,6 +346,7 @@ const rawGenrePacks: GenrePack[] = [
     goodFor: ['kids playlist', 'movement and dance', 'group activity'],
     archetypes: ['kids']
   },
+  ...eraGenrePacks,
   ...notionDerivedGenrePacks
 ];
 

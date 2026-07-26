@@ -467,6 +467,16 @@ function motionDetailFor(archetype: ThumbnailArchetype): { direction: string; pr
         direction: 'slow right-to-left drift across the terrace',
         prompt: 'soft breeze moving linen, warm sunlight drift, gentle steam rising from the cup, everything else static, seamless loop'
       };
+    case 'showa-70s-kissaten-film':
+      return {
+        direction: 'slow push-in across the warm kissaten table',
+        prompt: 'subtle film-grain shimmer, gentle lamp glow, slow camera push-in, everything else static, seamless loop'
+      };
+    case 'j2000s-digital-station':
+      return {
+        direction: 'slow lateral drift across glossy station light',
+        prompt: 'soft rain reflection shimmer, clean digital light flicker, slow lateral camera drift, everything else static, seamless loop'
+      };
     case 'kids-animal-meadow':
     case 'kids-playground-sky':
     case 'kids-cozy-room':

@@ -235,6 +235,198 @@ export const adultLyricThemes: LyricTheme[] = [
     scene: 'washing the last cup behind the cafe counter while streetlights flicker outside',
     emotionalArc: 'routine ending with a small spark of longing',
     suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa70s-night-train-ticket',
+    labelKo: '70년대 야간열차 표',
+    scene: 'boarding a night train with a paper ticket in the coat pocket while station lamps blur through the window',
+    emotionalArc: 'quiet departure turning into a brave private promise',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-port-umbrella',
+    labelKo: '항구와 우산',
+    scene: 'standing by a harbor warehouse under a dark umbrella while a ferry horn fades into the rain',
+    emotionalArc: 'lonely waiting becoming calm resolve',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-kissaten-letter',
+    labelKo: '다방의 손편지',
+    scene: 'folding a handwritten letter at a small kissaten table while the last cup cools beside it',
+    emotionalArc: 'held-back words opening into honest tenderness',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-station-farewell',
+    labelKo: '역의 이별',
+    scene: 'saying goodbye at a tiled station platform with a shared umbrella dripping near the shoes',
+    emotionalArc: 'farewell ache turning into a graceful chorus lift',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-faded-photo-drawer',
+    labelKo: '서랍 속 사진',
+    scene: 'finding a faded photograph in a wooden drawer on an evening when the season changes at the window',
+    emotionalArc: 'sudden memory softening into gratitude',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-alley-streetlamp',
+    labelKo: '골목의 가로등',
+    scene: 'walking under an alley streetlamp after the shops close while rain gathers along the curb',
+    emotionalArc: 'urban solitude becoming a steady forward step',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-record-shop',
+    labelKo: '작은 레코드 가게',
+    scene: 'turning through record sleeves in a narrow shop while afternoon dust shines in the light',
+    emotionalArc: 'playful searching becoming a precise remembered face',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-phone-booth-rain',
+    labelKo: '비 오는 공중전화',
+    scene: 'holding a public phone receiver after rain without dialing the final number',
+    emotionalArc: 'hesitation rising into a confession',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-ferry-terminal',
+    labelKo: '새벽 페리 터미널',
+    scene: 'waiting at a ferry terminal before dawn with salt wind on the sleeves and a small bag at the feet',
+    emotionalArc: 'nightlong ache resolving into a clean horizon',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-department-rooftop',
+    labelKo: '백화점 옥상',
+    scene: 'watching the sunset from a department store rooftop while coin rides sit silent behind the railing',
+    emotionalArc: 'ordinary city fatigue turning into a warm refrain',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-curtain-season',
+    labelKo: '창가의 계절',
+    scene: 'noticing the season change through thin curtains while a paper calendar bends on the wall',
+    emotionalArc: 'time passing into a gentle decision to keep going',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-coffee-counter',
+    labelKo: '카운터의 마지막 잔',
+    scene: 'washing the final cup behind a quiet coffee counter while streetlights flicker outside',
+    emotionalArc: 'routine ending with a small spark of longing',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-keitai-mail-platform',
+    labelKo: '역 앞 폴더폰 메일',
+    scene: 'waiting by the station ticket gates with a flip phone open to an unsent keitai mail',
+    emotionalArc: 'nervous hesitation becoming a clear chorus confession',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-bicycle-school-road',
+    labelKo: '자전거 등굣길',
+    scene: 'riding a bicycle to morning class while a uniform tie flutters and the city is still half asleep',
+    emotionalArc: 'sleepy routine lifting into bright momentum',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-summer-festival-mail',
+    labelKo: '여름 축제 문자',
+    scene: 'checking a flip phone message under summer festival lanterns while geta footsteps pass nearby',
+    emotionalArc: 'crowded excitement narrowing into one brave reply',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-graduation-classroom',
+    labelKo: '졸업 교실',
+    scene: 'standing in an empty graduation classroom after the last homeroom with chalk dust in the sunlight',
+    emotionalArc: 'farewell sadness opening into a hopeful future',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-first-train-call',
+    labelKo: '첫차와 밤샘 통화',
+    scene: 'catching the first train after talking all night on a flip phone until the battery warning flashes',
+    emotionalArc: 'tired secret joy turning into a wide chorus',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-cd-shop-listening',
+    labelKo: 'CD숍 청음기',
+    scene: 'sharing a listening booth at a CD shop and pretending not to notice the same favorite chorus',
+    emotionalArc: 'shy coincidence becoming mutual certainty',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-rain-bus-stop',
+    labelKo: '비 오는 버스정류장',
+    scene: 'waiting at a rainy bus stop with wired earphones tucked under a school blazer',
+    emotionalArc: 'damp silence becoming a small shared warmth',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-rooftop-club',
+    labelKo: '부활동 뒤 옥상',
+    scene: 'standing on the school rooftop after club practice while the evening broadcast echoes below',
+    emotionalArc: 'restless youth settling into a direct promise',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-purikura-sticker',
+    labelKo: '프리쿠라 스티커',
+    scene: 'finding a purikura sticker inside a notebook and smiling at the oversized handwritten date',
+    emotionalArc: 'embarrassed memory becoming bright affection',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-convenience-umbrella',
+    labelKo: '편의점 우산',
+    scene: 'buying one clear convenience-store umbrella and walking slowly so two shoulders can fit beneath it',
+    emotionalArc: 'awkward closeness becoming quiet courage',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-exam-night-desk',
+    labelKo: '시험 전날 책상',
+    scene: 'studying beside a desk lamp the night before exams while a flip phone mail waits unread',
+    emotionalArc: 'pressure turning into a small message of support',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-station-front-wait',
+    labelKo: '역 앞 기다림',
+    scene: 'waiting under the station clock after school while the same melody leaks from wired earphones',
+    emotionalArc: 'impatience turning into a sparkling arrival',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
   }
 ];
 
