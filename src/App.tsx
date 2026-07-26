@@ -824,6 +824,7 @@ export default function App() {
               thumbnailCustomConcept={opts.customConcept}
               soundSignature={soundSignature}
               opts={opts}
+              textModelSettings={provider}
               personaMode={opts.personaMode ?? false}
               personaPromptStats={personaPromptStats}
               savedPersonas={savedPersonas}

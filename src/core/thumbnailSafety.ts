@@ -19,6 +19,16 @@ export const FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS: RegExp[] = [
   /시소웨이브/i
 ];
 
+export const ARTIST_REFERENCE_PATTERNS: RegExp[] = [
+  /\b(taylor swift|bts|blackpink|the beatles|billie eilish|bruno mars|adele|drake)\b/i,
+  /(아이유|지드래곤|뉴진스|방탄소년단|블랙핑크|아티스트|가수).{0,12}(처럼|스타일|목소리|느낌)/u,
+  /(처럼|스타일로|모사|닮은).{0,12}(가수|아티스트|배우|인물)/u
+];
+
+export function thumbnailArtistReferenceIssues(input: string): string[] {
+  return ARTIST_REFERENCE_PATTERNS.filter(pattern => pattern.test(input)).map(pattern => `artist or real-person reference is not allowed: ${pattern.source}`);
+}
+
 export function normalizeThumbnailClause(clause: string): string {
   return clause.trim().replace(/\s+/g, ' ');
 }

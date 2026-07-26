@@ -8,7 +8,7 @@ import { seasonPacks } from '../data/presets';
 import { generateQwenImage, generateThumbnailImage, getQwenApiKey, getQwenImageSettings } from '../core/thumbnailImageGen';
 import {
   BASE_STYLE_PRESETS, FONT_OPTIONS, SHADOW_COLORS, TEXT_COLORS, TEXT_POSITIONS,
-  composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl, resizeDataUrlForEdit
+  canvasToBlob, composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl, resizeDataUrlForEdit
 } from '../core/thumbnailCanvas';
 import type { ThumbnailDividerPreset, ThumbnailTextLayer } from '../core/thumbnailCanvas';
 import {
@@ -21,10 +21,13 @@ import {
   templateStyle
 } from '../core/thumbnailTextLayers';
 import { defaultBrandTemplate, getBrandTemplate, listBrandChannelNames, saveBrandTemplate } from '../core/thumbnailBrandStore';
-import type { ThumbnailBadgePosition, ThumbnailBrandTemplate } from '../types';
+import type { ProviderSettings, ThumbnailBadgePosition, ThumbnailBrandTemplate } from '../types';
 import { listSetGroups, loadPack } from '../core/library';
 import type { SetGroupSummary } from '../core/library';
 import { recordUsage } from '../core/usageLedger';
+import { analyzeThumbnailCaptions } from '../core/thumbnailCaptionQuality';
+import { koreanThumbnailPromptIssues, translateKoreanThumbnailDescription, translateKoreanThumbnailDescriptionViaTextModel } from '../core/thumbnailKoreanPrompt';
+import { thumbnailArtistReferenceIssues } from '../core/thumbnailSafety';
 
 /**
  * TASK v3.37 — image-generation + canvas-compositing studio, ported from
@@ -38,9 +41,10 @@ interface ThumbnailImageStudioPanelProps {
   spec: ThumbnailSpec;
   defaultSeasonId: string;
   defaultArchetypeId: ThumbnailArchetypeId;
+  textModelSettings?: ProviderSettings;
 }
 
-const THUMB_SIZE = { width: 1920, height: 1080 };
+const THUMB_SIZE = { width: 1280, height: 720 };
 const COVER_SIZE = { width: 3000, height: 3000 };
 const SAMPLE_COPY = '그시절 그노래\n올드팝송';
 
@@ -64,6 +68,7 @@ const BADGE_POSITIONS: { id: ThumbnailBadgePosition; label: string }[] = [
 ];
 
 type ImageTargetKey = 'thumb' | 'cover';
+type ThumbnailInputMode = 'photo' | 'korean' | 'english';
 
 interface ImageTargetState {
   archetypeId: ThumbnailArchetypeId;
@@ -73,6 +78,9 @@ interface ImageTargetState {
   textSafeZone: ThumbnailTextSafeZone;
   seed: number;
   activeVariantId: ThumbnailPromptVariantId;
+  inputMode: ThumbnailInputMode;
+  koreanDescription: string;
+  englishPrompt: string;
   copyText: string;
   layers: ThumbnailTextLayer[];
   selectedLayerId: string;
@@ -111,6 +119,9 @@ function createTargetState(key: ImageTargetKey, spec: ThumbnailSpec, defaultSeas
     textSafeZone: 'left-third',
     seed: 0,
     activeVariantId: 'A',
+    inputMode: 'photo',
+    koreanDescription: '',
+    englishPrompt: '',
     copyText: key === 'cover' ? headline.split('\n')[0] : headline,
     layers,
     selectedLayerId: layers.find(layer => layer.role === 'title')?.id ?? layers[0]?.id ?? '',
@@ -132,7 +143,7 @@ function capBackgroundHistory(history: string[]): string[] {
   return [history[0], ...history.slice(-(BACKGROUND_HISTORY_LIMIT - 1))];
 }
 
-export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defaultArchetypeId }: ThumbnailImageStudioPanelProps) {
+export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defaultArchetypeId, textModelSettings }: ThumbnailImageStudioPanelProps) {
   const [channelName, setChannelName] = useState('');
   const [channels, setChannels] = useState<string[]>([]);
   const [template, setTemplate] = useState<ThumbnailBrandTemplate>(() => defaultBrandTemplate(''));
@@ -147,6 +158,8 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchLog, setBatchLog] = useState('');
+  const [exportScale, setExportScale] = useState<1 | 1.5 | 2>(1);
+  const [translating, setTranslating] = useState(false);
 
   // TASK v3.45 (Part 2) — mirrors ThumbnailSpecPanel's own per-session Qwen
   // image counter (each panel instance tracks its own; not shared across
@@ -200,9 +213,10 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
       textSafeZone: thumb.textSafeZone,
       seed: thumb.seed,
       mode: 'thumbnail',
-      resolution: '1920x1080'
+      resolution: '1920x1080',
+      concept: thumb.englishPrompt
     }),
-    [thumb.archetypeId, thumb.seasonId, thumb.timeOfDay, thumb.peopleMode, thumb.textSafeZone, thumb.seed]
+    [thumb.archetypeId, thumb.seasonId, thumb.timeOfDay, thumb.peopleMode, thumb.textSafeZone, thumb.seed, thumb.englishPrompt]
   );
 
   const coverPromptSet = useMemo(
@@ -214,9 +228,10 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
       textSafeZone: cover.textSafeZone,
       seed: cover.seed,
       mode: 'cover',
-      resolution: '3000x3000'
+      resolution: '3000x3000',
+      concept: cover.englishPrompt
     }),
-    [cover.archetypeId, cover.seasonId, cover.timeOfDay, cover.peopleMode, cover.textSafeZone, cover.seed]
+    [cover.archetypeId, cover.seasonId, cover.timeOfDay, cover.peopleMode, cover.textSafeZone, cover.seed, cover.englishPrompt]
   );
 
   function targetState(key: ImageTargetKey) {
@@ -227,6 +242,24 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   }
   function promptSetFor(key: ImageTargetKey) {
     return key === 'thumb' ? thumbPromptSet : coverPromptSet;
+  }
+
+  function updateKoreanDescription(key: ImageTargetKey, value: string) {
+    setTargetState(key, { koreanDescription: value, englishPrompt: translateKoreanThumbnailDescription(value) });
+  }
+
+  async function translateWithTextModel(key: ImageTargetKey) {
+    const state = targetState(key);
+    if (!textModelSettings || textModelSettings.provider === 'local' || !state.koreanDescription.trim()) return;
+    setTranslating(true);
+    try {
+      const translated = await translateKoreanThumbnailDescriptionViaTextModel(state.koreanDescription, textModelSettings);
+      if (translated) setTargetState(key, { englishPrompt: translated });
+    } catch {
+      // Keep the visible local draft when the optional text model is unavailable.
+    } finally {
+      setTranslating(false);
+    }
   }
 
   function resetLayersFromSpec(key: ImageTargetKey, archetypeId = targetState(key).archetypeId) {
@@ -288,6 +321,16 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
 
   function stackLayers(key: ImageTargetKey) {
     updateTargetLayers(key, layers => stackThumbnailCoreLayers(layers));
+  }
+
+  function applyCaptionPreset(key: ImageTargetKey, background: 'light' | 'dark') {
+    updateTargetLayers(key, layers => layers.map(layer => ({
+      ...layer,
+      textColor: background === 'light' ? '#202020' : '#FFFFFF',
+      shadowColor: background === 'light' ? '#FFFFFF' : '#000000',
+      shadowWidth: 2,
+      strokeOn: true
+    })));
   }
 
   async function loadChannel() {
@@ -447,8 +490,8 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     }
     const style = templateStyle(template);
     const canvas = await composeImage({
-      width: size.width,
-      height: size.height,
+      width: Math.round(size.width * exportScale),
+      height: Math.round(size.height * exportScale),
       backgroundImage,
       layers: state.layers.length ? state.layers : undefined,
       copyText: state.copyText,
@@ -463,8 +506,12 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
   async function downloadComposite(key: ImageTargetKey) {
     const canvas = await renderComposite(key);
     if (!canvas) return;
-    const filename = `${channelName || 'thumbnail'}-${key}-${Date.now()}.png`;
-    await downloadCanvas(canvas, filename);
+    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
+    if (blob.size > 2 * 1024 * 1024) {
+      setTargetState(key, { error: `Export is ${(blob.size / 1024 / 1024).toFixed(1)} MB. YouTube thumbnail limit is 2 MB; lower JPEG quality if needed.` });
+    }
+    const filename = `${channelName || 'thumbnail'}-${key}-${exportScale}x-${Date.now()}.jpg`;
+    await downloadCanvas(canvas, filename, { type: 'image/jpeg', quality: 0.9 });
   }
 
   async function runBatch() {
@@ -591,6 +638,10 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
 
         {selectedLayer && (
           <div className="thumbnail-layer-detail">
+            <div className="button-row">
+              <button type="button" disabled={effectiveLocked} onClick={() => applyCaptionPreset(key, 'light')}>Readable on light background</button>
+              <button type="button" disabled={effectiveLocked} onClick={() => applyCaptionPreset(key, 'dark')}>Readable on dark background</button>
+            </div>
             <div className="thumbnail-control-grid">
               <label>
                 Font
@@ -716,10 +767,46 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
     const promptSet = promptSetFor(key);
     const activeVariant = promptSet.variants.find(v => v.id === state.activeVariantId) ?? promptSet.variants[0];
     const size = key === 'thumb' ? THUMB_SIZE : COVER_SIZE;
+    const captionIssues = (() => {
+      if (typeof document === 'undefined') return [];
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      return ctx ? analyzeThumbnailCaptions(ctx, state.layers, size.width, size.height).issues : [];
+    })();
 
     return (
       <div className="thumbnail-image-target">
         <h4>{key === 'thumb' ? `썸네일 (16:9 · ${size.width}×${size.height})` : `커버 (1:1 · ${size.width}×${size.height})`}</h4>
+
+        <div className="thumbnail-input-tabs" role="tablist" aria-label="Background input">
+          {(['photo', 'korean', 'english'] as ThumbnailInputMode[]).map(mode => (
+            <button key={mode} type="button" className={state.inputMode === mode ? 'chip active' : 'chip'} onClick={() => setTargetState(key, { inputMode: mode })}>
+              {mode === 'photo' ? 'Photo upload' : mode === 'korean' ? 'Describe in Korean' : 'English prompt'}
+            </button>
+          ))}
+        </div>
+        {state.inputMode === 'korean' && (
+          <div className="option-block">
+            <label>Korean scene description
+              <textarea value={state.koreanDescription} onChange={event => updateKoreanDescription(key, event.target.value)} placeholder="비 오는 도쿄 밤거리, 네온 반사, 우산 든 뒷모습" />
+            </label>
+            {koreanThumbnailPromptIssues(state.koreanDescription).map(issue => <p key={issue} className="error">{issue}. Use an original scene description without names.</p>)}
+            <label>Review and edit English image prompt
+              <textarea value={state.englishPrompt} onChange={event => setTargetState(key, { englishPrompt: event.target.value })} />
+            </label>
+            {textModelSettings && textModelSettings.provider !== 'local' && <button type="button" disabled={translating} onClick={() => void translateWithTextModel(key)}>{translating ? 'Translating...' : 'Refine with connected text model'}</button>}
+            <p className="supporting">The background is generated without text. Korean captions are rendered on the canvas so they stay crisp and editable.</p>
+          </div>
+        )}
+        {state.inputMode === 'english' && (
+          <div className="option-block">
+            <label>English image prompt
+              <textarea value={state.englishPrompt} onChange={event => setTargetState(key, { englishPrompt: event.target.value })} placeholder="Rainy Tokyo night street, neon reflections, distant figure from behind" />
+            </label>
+            {thumbnailArtistReferenceIssues(state.englishPrompt).map(issue => <p key={issue} className="error">{issue}. Use an original scene description without names.</p>)}
+            <p className="supporting">Keep this as a textless background prompt; captions are added separately on the canvas.</p>
+          </div>
+        )}
 
         <div className="thumbnail-control-grid">
           <label>
@@ -792,6 +879,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
         <p className="supporting">글자가 없는 배경 이미지를 올리면 제목을 몇 번이든 다시 바꿀 수 있어요. 글자가 이미 있는 이미지는 새 텍스트가 그 위에 겹쳐 보입니다.</p>
         {state.error && <p className="error">❌ {state.error}</p>}
 
+        {captionIssues.length > 0 && <div className="thumbnail-quality-warning"><strong>Caption quality check</strong>{captionIssues.map(issue => <p key={`${issue.layerId}-${issue.kind}`}>{issue.message}</p>)}<p>Try a readable preset or adjust the selected layer.</p></div>}
         <div
           className="thumbnail-preview-row"
           onDragOver={event => event.preventDefault()}
@@ -850,11 +938,19 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
 
         <div className="button-row">
           <button type="button" onClick={() => void renderComposite(key)}>미리보기 갱신</button>
+          <label>Export scale
+            <select value={exportScale} onChange={event => setExportScale(Number(event.target.value) as 1 | 1.5 | 2)}>
+              <option value="1">1x (1280x720 base)</option>
+              <option value="1.5">1.5x (1920x1080 base)</option>
+              <option value="2">2x (2560x1440 base)</option>
+            </select>
+          </label>
           <button type="button" className="primary" onClick={() => void downloadComposite(key)}>
             <Download size={14} />
             PNG 다운로드
           </button>
         </div>
+        <p className="supporting">2x redraws all text at export resolution. Source photos cannot gain detail beyond their original resolution. JPEG exports over 2 MB may need lower quality.</p>
       </div>
     );
   }

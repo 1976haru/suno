@@ -13,7 +13,7 @@ import { exportDocxBlob } from '../../utils/docxExporter';
 import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
 import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
-import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
+import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
@@ -46,6 +46,7 @@ interface Step4ResultProps {
   soundSignature: SoundSignature | null;
   /** TASK v3.39.1 Part B1/C2 — needed to build the compiled-video tracklist description and ffmpeg script exports below. */
   opts: GenerationOptions;
+  textModelSettings?: ProviderSettings;
   personaMode: boolean;
   personaPromptStats: PersonaPromptStats | null;
   savedPersonas: ChannelPersonaRecord[];
@@ -96,6 +97,7 @@ export default function Step4Result({
   thumbnailCustomConcept,
   soundSignature,
   opts,
+  textModelSettings,
   personaMode,
   personaPromptStats,
   savedPersonas,
@@ -321,6 +323,7 @@ export default function Step4Result({
           spec={thumbnailSpec}
           defaultSeasonId={thumbnailSeasonId}
           defaultArchetypeId={thumbnailArchetypeId}
+          textModelSettings={textModelSettings}
         />
       )}
 

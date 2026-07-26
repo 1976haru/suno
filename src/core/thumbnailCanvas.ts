@@ -14,15 +14,16 @@ export interface ThumbnailFontOption {
   id: ThumbnailFontId;
   family: string;
   weight: string;
+  hangulCapable: boolean;
 }
 
 export const FONT_OPTIONS: ThumbnailFontOption[] = [
-  { id: 'blackHanSans', family: 'Black Han Sans', weight: '400' },
-  { id: 'doHyeon', family: 'Do Hyeon', weight: '400' },
-  { id: 'jua', family: 'Jua', weight: '400' },
-  { id: 'gowunDodum', family: 'Gowun Dodum', weight: '400' },
-  { id: 'yeonSung', family: 'Yeon Sung', weight: '400' },
-  { id: 'nanumPenScript', family: 'Nanum Pen Script', weight: '400' }
+  { id: 'blackHanSans', family: 'Black Han Sans', weight: '400', hangulCapable: true },
+  { id: 'doHyeon', family: 'Do Hyeon', weight: '400', hangulCapable: true },
+  { id: 'jua', family: 'Jua', weight: '400', hangulCapable: true },
+  { id: 'gowunDodum', family: 'Gowun Dodum', weight: '400', hangulCapable: true },
+  { id: 'yeonSung', family: 'Yeon Sung', weight: '400', hangulCapable: true },
+  { id: 'nanumPenScript', family: 'Nanum Pen Script', weight: '400', hangulCapable: true }
 ];
 
 export const TEXT_COLORS = ['#FFFFFF', '#FFFF00', '#00FFFF', '#FF69B4', '#7CFC00', '#FFA500'];
@@ -66,6 +67,14 @@ export const DEFAULT_DIVIDER_THICKNESS_RATIO = 0.0025;
 
 export function fontFamilyById(id: ThumbnailFontId): ThumbnailFontOption {
   return FONT_OPTIONS.find(f => f.id === id) ?? FONT_OPTIONS[0];
+}
+
+export function isHangulText(text: string): boolean {
+  return /[\uac00-\ud7af]/u.test(text);
+}
+
+export function hangulFontOptions(): ThumbnailFontOption[] {
+  return FONT_OPTIONS.filter(font => font.hangulCapable);
 }
 
 export async function ensureFontsLoaded(fontIds: ThumbnailFontId[] = FONT_OPTIONS.map(f => f.id)): Promise<void> {
@@ -184,6 +193,31 @@ function textLines(text: string, maxLines: number): string[] {
   return String(text || '').split('\n').map(line => line.trim()).filter(Boolean).slice(0, maxLines);
 }
 
+function wrapCanvasLines(ctx: CanvasRenderingContext2D, lines: string[], maxLines: number, maxWidth: number): string[] {
+  const wrapped: string[] = [];
+  for (const line of lines) {
+    if (ctx.measureText(line).width <= maxWidth) {
+      wrapped.push(line);
+      continue;
+    }
+    const words = line.includes(' ') ? line.split(/\s+/u) : Array.from(line);
+    let current = '';
+    for (const word of words) {
+      const candidate = current ? `${current}${line.includes(' ') ? ' ' : ''}${word}` : word;
+      if (current && ctx.measureText(candidate).width > maxWidth) {
+        wrapped.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+      if (wrapped.length >= maxLines) break;
+    }
+    if (wrapped.length < maxLines && current) wrapped.push(current);
+    if (wrapped.length >= maxLines) break;
+  }
+  return wrapped.slice(0, maxLines);
+}
+
 function legacyTitleSizeRatio(lineCount: number): number {
   return lineCount > 1 ? 0.11 : 0.13;
 }
@@ -282,6 +316,9 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, canva
   if (!lines.length) return;
 
   const fontSize = Math.round(canvasHeight * clampNumber(runtimeStyle.sizeRatio, legacyTitleSizeRatio(lines.length), 0.02, 0.22));
+  const font = fontFamilyById(style.fontId);
+  ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+  const fittedLines = wrapCanvasLines(ctx, lines, maxLines, canvasWidth * 0.9);
   const lineHeight = fontSize * clampNumber(runtimeStyle.lineHeightRatio, DEFAULT_TEXT_LINE_HEIGHT_RATIO, 0.75, 2.4);
   const padding = Math.round(canvasHeight * clampNumber(runtimeStyle.paddingRatio, DEFAULT_TEXT_PADDING_RATIO, 0, 0.3));
   const offsetX = canvasWidth * clampNumber(runtimeStyle.offsetXRatio, 0, -0.5, 0.5);
@@ -291,7 +328,7 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, canva
 
   const anchor = anchorPoint(style.position, canvasWidth, canvasHeight, padding);
   const lineStyle = { ...style, align: anchor.align };
-  const totalHeight = lineHeight * lines.length;
+  const totalHeight = lineHeight * fittedLines.length;
   let startY: number;
   if (style.position.startsWith('top')) startY = anchor.y + fontSize / 2;
   else if (style.position.startsWith('bottom')) startY = anchor.y - totalHeight + lineHeight / 2;
@@ -302,7 +339,7 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, canva
     ctx.globalAlpha *= opacity;
   }
 
-  lines.forEach((line, i) => {
+  fittedLines.forEach((line, i) => {
     drawStyledLine(ctx, line, anchor.x + offsetX, startY + i * lineHeight + offsetY, lineStyle, fontSize, letterSpacing);
   });
 
@@ -421,17 +458,17 @@ export function drawBrandBadge(ctx: CanvasRenderingContext2D, badge: ThumbnailBr
   ctx.fillText(label, x + boxWidth / 2, y + boxHeight / 2 + 1);
 }
 
-export function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png'): Promise<Blob> {
+export function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png', quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(blob => {
       if (blob) resolve(blob);
       else reject(new Error('Failed to encode image.'));
-    }, type);
+    }, type, quality);
   });
 }
 
-export async function downloadCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
-  const blob = await canvasToBlob(canvas);
+export async function downloadCanvas(canvas: HTMLCanvasElement, filename: string, options: { type?: string; quality?: number } = {}): Promise<void> {
+  const blob = await canvasToBlob(canvas, options.type ?? 'image/png', options.quality);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

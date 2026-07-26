@@ -7,7 +7,7 @@ import type {
   ThumbnailTimeOfDay
 } from '../data/thumbnailArchetypes';
 import type { ThumbnailTypographyGuide } from '../types';
-import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS, thumbnailPromptSafetyIssues, uniqueThumbnailClauses } from './thumbnailSafety';
+import { FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS, thumbnailArtistReferenceIssues, thumbnailPromptSafetyIssues, uniqueThumbnailClauses } from './thumbnailSafety';
 import { BACK_VIEW_PEOPLE_ONLY, COMMON_NEGATIVE_TERMS, FILM_PHOTO_SPEC, TEXTLESS_BACKGROUND_ONLY } from './thumbnailPromptBlocks';
 
 // TASK v3.38 Part A5 — always appended, last, to every generated prompt so
@@ -144,7 +144,7 @@ function normalizeConceptForPrompt(concept: string | undefined): string {
 function conceptClause(concept: string | undefined): string {
   const trimmed = normalizeConceptForPrompt(concept);
   if (!trimmed) return '';
-  if (FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS.some(pattern => pattern.test(trimmed))) return '';
+  if (FORBIDDEN_THUMBNAIL_REFERENCE_PATTERNS.some(pattern => pattern.test(trimmed)) || thumbnailArtistReferenceIssues(trimmed).length) return '';
   return `Concept detail: ${trimmed}.`;
 }
 

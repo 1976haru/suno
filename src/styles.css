@@ -1351,6 +1351,23 @@ textarea {
   gap: 16px;
 }
 
+.thumbnail-input-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.thumbnail-quality-warning {
+  border-left: 3px solid var(--orange, #d97706);
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--orange, #d97706) 10%, transparent);
+}
+
+.thumbnail-quality-warning p {
+  margin: 4px 0 0;
+}
+
 .thumbnail-image-target {
   display: grid;
   gap: 10px;
