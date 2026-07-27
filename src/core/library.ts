@@ -4,12 +4,8 @@ import { channelPresets } from '../data/presets';
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
 
 /**
- * TASK C (v3.5) — a built-in preset's display name can be corrected after
- * packs were already saved under it (e.g. the Japanese channel preset was
- * originally named in Korean, then fixed to actual Japanese). Saved packs
- * snapshot the channel at save time, so without this they'd keep showing
- * the old name forever. Matched by id, so custom (non-preset) channels are
- * never touched.
+ * A built-in preset's display name can be corrected after packs were saved.
+ * Saved custom channels are never changed because only known preset ids match.
  */
 export function migrateLegacyChannelNames(pack: SavedPack): SavedPack {
   const current = CURRENT_PRESET_NAMES.get(pack.channelId);
@@ -26,34 +22,126 @@ export function migrateLegacyChannelNames(pack: SavedPack): SavedPack {
   };
 }
 
+function migrateLegacyPackMeta(meta: SavedPackMeta): SavedPackMeta {
+  const current = CURRENT_PRESET_NAMES.get(meta.channelId);
+  return current && meta.channelName !== current.name ? { ...meta, channelName: current.name } : meta;
+}
+
+export function toSavedPackMeta(pack: SavedPack): SavedPackMeta {
+  return {
+    id: pack.id,
+    name: pack.name,
+    savedAt: pack.savedAt,
+    isAutosave: pack.isAutosave,
+    channelId: pack.channelId,
+    channelName: pack.channelName,
+    projectTitle: pack.projectTitle,
+    songCount: pack.songCount,
+    avgQualityScore: pack.avgQualityScore
+  };
+}
+
 const DB_NAME = 'suno-weaver-library';
-const DB_VERSION = 1;
-const STORE = 'packs';
+const DB_VERSION = 2;
+const PACK_STORE = 'packs';
+const META_STORE = 'pack-meta';
 export const AUTOSAVE_ID = 'autosave-temp';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = event => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'id' });
+      const tx = request.transaction as IDBTransaction;
+      const packStore = db.objectStoreNames.contains(PACK_STORE)
+        ? tx.objectStore(PACK_STORE)
+        : db.createObjectStore(PACK_STORE, { keyPath: 'id' });
+      const metaStore = db.objectStoreNames.contains(META_STORE)
+        ? tx.objectStore(META_STORE)
+        : db.createObjectStore(META_STORE, { keyPath: 'id' });
+
+      // v1 stored full lyrics/blueprints in the only object store. Populate a
+      // compact metadata store once so the sidebar never clones every lyric
+      // merely to display pack names and dates.
+      if ((event.oldVersion || 0) < 2) {
+        const cursorRequest = packStore.openCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          const pack = migrateLegacyChannelNames(cursor.value as SavedPack);
+          metaStore.put(toSavedPackMeta(pack));
+          cursor.continue();
+        };
       }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error('IndexedDB open failed.'));
+    request.onblocked = () => reject(new Error('IndexedDB upgrade is blocked by another open tab. Close other Suno Weaver tabs and try again.'));
   });
 }
 
-async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+function transactionError(tx: IDBTransaction, fallback: string) {
+  return tx.error || new Error(fallback);
+}
+
+async function readStore<T>(storeName: string, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const store = tx.objectStore(STORE);
-    const request = fn(store);
+    const tx = db.transaction(storeName, 'readonly');
+    const request = fn(tx.objectStore(storeName));
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
     tx.oncomplete = () => db.close();
+    tx.onerror = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction failed.'));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction was aborted.'));
+    };
+  });
+}
+
+async function writePackAndMeta(pack: SavedPack): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PACK_STORE, META_STORE], 'readwrite');
+    tx.objectStore(PACK_STORE).put(pack);
+    tx.objectStore(META_STORE).put(toSavedPackMeta(pack));
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction failed.'));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction was aborted.'));
+    };
+  });
+}
+
+async function deleteFromBothStores(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PACK_STORE, META_STORE], 'readwrite');
+    tx.objectStore(PACK_STORE).delete(id);
+    tx.objectStore(META_STORE).delete(id);
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction failed.'));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction was aborted.'));
+    };
   });
 }
 
@@ -98,7 +186,7 @@ export async function savePack(input: {
     evaluation: input.evaluation,
     thumbnailSpec: input.thumbnailSpec
   };
-  await withStore('readwrite', store => store.put(pack));
+  await writePackAndMeta(pack);
   return id;
 }
 
@@ -113,46 +201,171 @@ export async function promoteAutosave(name: string): Promise<string | null> {
 }
 
 export async function listPacks(): Promise<SavedPackMeta[]> {
-  const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
+  const all = await readStore<SavedPackMeta[]>(META_STORE, store => store.getAll());
   return all
-    .map(migrateLegacyChannelNames)
-    .map(({ blueprint: _blueprint, options: _options, evaluation: _evaluation, ...meta }) => meta)
+    .map(migrateLegacyPackMeta)
     .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
 }
 
 export async function loadPack(id: string): Promise<SavedPack | undefined> {
-  const pack = await withStore<SavedPack | undefined>('readonly', store => store.get(id));
+  const pack = await readStore<SavedPack | undefined>(PACK_STORE, store => store.get(id));
   return pack ? migrateLegacyChannelNames(pack) : pack;
 }
 
 export async function deletePack(id: string): Promise<void> {
-  await withStore('readwrite', store => store.delete(id));
+  await deleteFromBothStores(id);
 }
 
 export async function renamePack(id: string, name: string): Promise<void> {
   const pack = await loadPack(id);
   if (!pack) return;
-  await savePack({ ...pack, id, name });
+  await savePack({
+    blueprint: pack.blueprint,
+    options: pack.options,
+    id,
+    name,
+    isAutosave: pack.isAutosave,
+    evaluation: pack.evaluation,
+    thumbnailSpec: pack.thumbnailSpec
+  });
 }
 
 export async function exportAllPacks(): Promise<Blob> {
-  const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
+  const all = await readStore<SavedPack[]>(PACK_STORE, store => store.getAll());
   return new Blob([JSON.stringify(all, null, 2)], { type: 'application/json;charset=utf-8' });
 }
 
-export async function importPacks(file: File): Promise<number> {
-  const text = await file.text();
-  const parsed = JSON.parse(text);
-  const packs: SavedPack[] = Array.isArray(parsed) ? parsed : [parsed];
+function isImportablePack(value: unknown): value is SavedPack {
+  if (!value || typeof value !== 'object') return false;
+  const pack = value as Partial<SavedPack>;
+  return Boolean(pack.blueprint && pack.options);
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+async function saveImportedPack(value: unknown): Promise<boolean> {
+  if (!isImportablePack(value)) return false;
+  await savePack({
+    blueprint: value.blueprint,
+    options: value.options,
+    name: typeof value.name === 'string' && value.name ? value.name : undefined,
+    isAutosave: Boolean(value.isAutosave),
+    id: typeof value.id === 'string' && value.id ? value.id : randomId(),
+    evaluation: value.evaluation,
+    thumbnailSpec: value.thumbnailSpec
+  });
+  return true;
+}
+
+async function importParsedFallback(text: string): Promise<number> {
+  await yieldToBrowser();
+  const parsed: unknown = JSON.parse(text);
+  const packs = Array.isArray(parsed) ? parsed : [parsed];
   let count = 0;
   for (const pack of packs) {
-    if (!pack || typeof pack !== 'object' || !pack.blueprint || !pack.options) continue;
-    await savePack({ ...pack, id: pack.id || randomId() });
-    count += 1;
+    if (await saveImportedPack(pack)) count += 1;
+    await yieldToBrowser();
   }
   return count;
 }
 
+async function importParsedInWorker(text: string): Promise<number> {
+  const workerSource = `
+    let packs = [];
+    let index = 0;
+    function sendNext() {
+      if (index >= packs.length) {
+        self.postMessage({ type: 'done' });
+        packs = [];
+        return;
+      }
+      self.postMessage({ type: 'pack', value: packs[index] });
+      index += 1;
+    }
+    self.onmessage = event => {
+      const data = event.data || {};
+      if (data.type === 'start') {
+        try {
+          const parsed = JSON.parse(data.text);
+          packs = Array.isArray(parsed) ? parsed : [parsed];
+          index = 0;
+          self.postMessage({ type: 'ready', total: packs.length });
+          sendNext();
+        } catch (error) {
+          self.postMessage({ type: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
+      } else if (data.type === 'next') {
+        sendNext();
+      }
+    };
+  `;
+  const url = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
+  const worker = new Worker(url);
+
+  return new Promise((resolve, reject) => {
+    let count = 0;
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      if (error) reject(error);
+      else resolve(count);
+    };
+
+    worker.onmessage = async event => {
+      const data = event.data as { type?: string; value?: unknown; message?: string };
+      if (data.type === 'ready') return;
+      if (data.type === 'error') {
+        finish(new Error(data.message || '백업 파일을 읽지 못했습니다.'));
+        return;
+      }
+      if (data.type === 'done') {
+        finish();
+        return;
+      }
+      if (data.type !== 'pack') return;
+      try {
+        if (await saveImportedPack(data.value)) count += 1;
+        await yieldToBrowser();
+        worker.postMessage({ type: 'next' });
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+    worker.onerror = event => finish(new Error(event.message || '백업 파일 처리 Worker가 중단되었습니다.'));
+    worker.postMessage({ type: 'start', text });
+  });
+}
+
+export async function importPacks(file: File): Promise<number> {
+  const text = await file.text();
+  if (typeof Worker === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') {
+    return importParsedFallback(text);
+  }
+  return importParsedInWorker(text);
+}
+
 export async function deleteAllPacks(): Promise<void> {
-  await withStore('readwrite', store => store.clear());
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PACK_STORE, META_STORE], 'readwrite');
+    tx.objectStore(PACK_STORE).clear();
+    tx.objectStore(META_STORE).clear();
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction failed.'));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(transactionError(tx, 'IndexedDB transaction was aborted.'));
+    };
+  });
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { generateBlueprint, refineTracks } from '../providers';
+import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
 import { clampSongCount } from '../utils/generation';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import { resolveStageSettings } from '../core/apiAdvisor';
@@ -47,18 +48,39 @@ export function useGenerationFlow() {
     setGenProgress({ done: 0, total: songCount });
     try {
       const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
-      const next = await generateBlueprint(
-        { ...opts, songCount },
-        genres,
-        moods,
-        season,
-        forStage('lyrics', provider),
-        progress => {
-          setGenProgress(progress);
-          setPartialSongs(progress.songs);
-        },
-        avoid
-      );
+      const stageProvider = forStage('lyrics', provider);
+      let next: PlaylistBlueprint;
+
+      if (stageProvider.provider === 'local') {
+        // Yield once so React can paint the progress state, then keep the heavy
+        // local title/lyric/prompt pipeline inside a module Worker.
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        next = await generateLocalBlueprintResponsive(
+          { ...opts, songCount },
+          genres,
+          moods,
+          season,
+          avoid,
+          stageProvider.promptCharLimit
+        );
+        const progress = { done: next.songs.length, total: songCount, songs: next.songs };
+        setGenProgress(progress);
+        setPartialSongs(progress.songs);
+      } else {
+        next = await generateBlueprint(
+          { ...opts, songCount },
+          genres,
+          moods,
+          season,
+          stageProvider,
+          progress => {
+            setGenProgress(progress);
+            setPartialSongs(progress.songs);
+          },
+          avoid
+        );
+      }
+
       setBlueprint(next);
       afterSuccess?.(next, songCount);
     } catch (e) {

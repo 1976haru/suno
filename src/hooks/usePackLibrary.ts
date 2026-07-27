@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
 import { clearAllSettings } from '../core/settingsStore';
-import { forgetPack, recordPackHooks } from '../core/hookLedger';
+import { clearAllHookHistory, forgetPack, recordPackHooks } from '../core/hookLedger';
 import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, ThumbnailSpec } from '../types';
 
@@ -37,9 +37,8 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
     }
     try {
-      // TASK B3 (v3.4): a saved pack is the operational unit of "one video" —
-      // draft a video-dashboard entry from it so it shows up in the weekly
-      // roadmap table without extra manual entry.
+      // A saved pack is the operational unit of one video — draft a dashboard
+      // entry from it so it appears in the weekly roadmap automatically.
       await upsertVideoForPack({
         channelId: options.channel.id,
         packId: id,
@@ -101,8 +100,9 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
   }
 
   async function deleteAll() {
-    if (!window.confirm('저장된 모든 팩과 로컬 API 키를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+    if (!window.confirm('저장된 모든 팩, 훅 이력, 로컬 API 키를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
     await deleteAllPacks();
+    await clearAllHookHistory();
     await clearAllSettings();
     await refresh();
   }
