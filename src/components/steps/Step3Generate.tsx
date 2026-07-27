@@ -10,6 +10,15 @@ import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
 import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
+import {
+  bridgeImportBlockMessage,
+  bridgeImportStatusText,
+  bridgeImportTotals,
+  countBridgeImportReasons,
+  makeBridgeImportFailureReport,
+  runBridgeImportAction,
+  type BridgeImportPrerequisites
+} from '../../core/bridgeImportUi';
 import { copyText, downloadText } from '../../utils/exporters';
 import { getHookDeviceById } from '../../data/hookDevices';
 import { getIntroTextureById } from '../../data/introTextures';
@@ -114,6 +123,52 @@ function formatRange(range: TokenRange) {
   return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
 }
 
+function BridgeImportReasonList({ report }: { report: ImportSongsReport | ImportSongsReport[] }) {
+  const reasonCounts = countBridgeImportReasons(report);
+  if (!reasonCounts.length) return null;
+  return (
+    <ul className="import-reason-list">
+      {reasonCounts.map(item => (
+        <li key={item.reason}>
+          {item.reason}
+          {item.count > 1 ? ` (${item.count}건)` : ''}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function BridgeImportReportSummary({ report }: { report: ImportSongsReport }) {
+  const totals = bridgeImportTotals(report);
+  const ok = Boolean(report.blueprint) && report.importedCount > 0;
+  return (
+    <div className={ok ? 'provider-summary bridge-import-report' : 'error bridge-import-report'}>
+      <b>{ok ? '가져오기 완료' : '가져오기 실패'}</b>
+      <p>
+        {totals.attemptedCount > 0
+          ? `${totals.attemptedCount}곡 중 ${totals.importedCount}곡 성공, ${totals.skippedCount}곡 실패`
+          : `${totals.importedCount}곡 성공`}
+      </p>
+      <BridgeImportReasonList report={report} />
+    </div>
+  );
+}
+
+function BridgeMultiImportReportSummary({ reports }: { reports: ImportSongsReport[] }) {
+  const totals = bridgeImportTotals(reports);
+  const ok = totals.failedReportCount === 0 && totals.importedCount > 0;
+  return (
+    <div className={ok ? 'provider-summary bridge-import-report' : 'warning bridge-import-report'}>
+      <b>세트 가져오기 결과</b>
+      <p>
+        파일 {totals.successfulReportCount}/{reports.length}개 성공 · 곡 {totals.importedCount}곡 성공
+        {totals.skippedCount ? `, ${totals.skippedCount}곡 실패` : ''}
+      </p>
+      <BridgeImportReasonList report={reports} />
+    </div>
+  );
+}
+
 /** TASK v3.33 — multi-set generation controls/state, all owned by App.tsx (mirrors batchMode's ownership pattern) so a run survives a step navigation away and back. */
 interface MultiSetControls {
   mode: boolean;
@@ -161,6 +216,10 @@ interface Step3GenerateProps {
   /** TASK v3.35 (bridge split) — grows as bridge-imported sets actually land, so not-yet-copied instructions in the list below reflect real titles/hooks instead of only the deterministic preallocated fallback. */
   bridgeImportedSetAvoid: { usedTitles: string[]; usedHooks: string[] };
   multiSet: MultiSetControls;
+  hasSelectedChannel: boolean;
+  hasSelectedSeason: boolean;
+  onGoToChannelStep: () => void;
+  onGoToSeasonStep: () => void;
   basicMode?: boolean;
   expertMode: boolean;
   onToggleExpertMode: () => void;
@@ -170,7 +229,7 @@ interface Step3GenerateProps {
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady
+  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -235,6 +294,9 @@ export default function Step3Generate({
   const multiSetCostEstimate = estimateCost(multiSetClamped.songsPerSet, provider, inputPrice, outputPrice);
   const effectiveSongCount = multiSet.mode ? multiSetTotalSongs : opts.songCount;
   const packWarning = hookStats && hookStats.poolSize > 0 ? packCapacityWarning(hookStats, effectiveSongCount) : null;
+  const bridgePrerequisites: BridgeImportPrerequisites = { hasSelectedChannel, hasSelectedSeason };
+  const bridgeBlockMessage = bridgeImportBlockMessage(bridgePrerequisites);
+  const canImportBridge = !bridgeBlockMessage;
 
   // Representative preview of the first batch — later batches add accumulated
   // usedTitles/usedHooks, called out in the modal's own copy.
@@ -266,13 +328,14 @@ export default function Step3Generate({
   }
 
   async function handleImportSongsFile(file: File) {
-    setIsImporting(true);
-    try {
-      const report = await onImportSongsJson(file);
-      setImportReport(report);
-    } finally {
-      setIsImporting(false);
-    }
+    await runBridgeImportAction({
+      prerequisites: bridgePrerequisites,
+      run: () => onImportSongsJson(file),
+      makeBlockedReport: makeBridgeImportFailureReport,
+      makeErrorReport: makeBridgeImportFailureReport,
+      setLoading: setIsImporting,
+      setReport: setImportReport
+    });
   }
 
   // TASK v3.35 (bridge split) — real measurement: a single coding-agent
@@ -351,13 +414,14 @@ export default function Step3Generate({
   }
 
   async function handleMultiImportFiles(fileList: FileList) {
-    setIsMultiImporting(true);
-    try {
-      const reports = await onImportMultiSetSongsJson(Array.from(fileList));
-      setMultiImportReports(reports);
-    } finally {
-      setIsMultiImporting(false);
-    }
+    await runBridgeImportAction({
+      prerequisites: bridgePrerequisites,
+      run: () => onImportMultiSetSongsJson(Array.from(fileList)),
+      makeBlockedReport: reason => [makeBridgeImportFailureReport(reason)],
+      makeErrorReport: reason => [makeBridgeImportFailureReport(reason)],
+      setLoading: setIsMultiImporting,
+      setReport: setMultiImportReports
+    });
   }
 
   return (
@@ -685,6 +749,20 @@ export default function Step3Generate({
           브릿지는 한 번에 최대 18곡까지 안정적입니다. 180곡은 세트 10개로 나눠 순서대로 진행하세요.
           한 번에 대량이 필요하면 Batch API를 쓰세요 (서버가 자동 분할하므로 180곡도 한 번에 가능).
         </p>
+        <div className={canImportBridge ? 'provider-summary bridge-import-status' : 'warning bridge-import-status'}>
+          <div>
+            <b>{bridgeImportStatusText(bridgePrerequisites)}</b>
+            <p className="supporting">
+              {canImportBridge ? 'songs-output.json을 가져올 준비가 되었습니다.' : bridgeBlockMessage}
+            </p>
+          </div>
+          {!canImportBridge && (
+            <div className="button-row">
+              {!hasSelectedChannel && <button type="button" onClick={onGoToChannelStep}>채널 선택으로 이동</button>}
+              {!hasSelectedSeason && <button type="button" onClick={onGoToSeasonStep}>시즌 선택으로 이동</button>}
+            </div>
+          )}
+        </div>
 
         {!multiSet.mode ? (
           <>
@@ -701,10 +779,11 @@ export default function Step3Generate({
                 <Download size={16} />
                 .txt로 다운로드
               </button>
-              <label className="import-button" title="Claude Code가 만든 songs-output.json 가져오기">
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'Claude Code가 만든 songs-output.json 가져오기' : '채널과 시즌을 먼저 선택하세요'}>
                 <input
                   type="file"
                   accept="application/json"
+                  disabled={!canImportBridge || isImporting}
                   style={{ display: 'none' }}
                   onChange={event => {
                     const file = event.target.files?.[0];
@@ -716,19 +795,18 @@ export default function Step3Generate({
                 {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
               </label>
             </div>
-            <div className="basic-import-drop" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const file = event.dataTransfer.files?.[0]; if (file) void handleImportSongsFile(file); }}>
-              Drop songs-output.json here to import, or use the file picker above.
+            <div
+              className={canImportBridge ? 'basic-import-drop' : 'basic-import-drop disabled'}
+              onDragOver={event => event.preventDefault()}
+              onDrop={event => {
+                event.preventDefault();
+                const file = event.dataTransfer.files?.[0];
+                if (file) void handleImportSongsFile(file);
+              }}
+            >
+              {canImportBridge ? 'Drop songs-output.json here to import, or use the file picker above.' : '채널과 시즌을 먼저 선택해야 JSON을 가져올 수 있습니다.'}
             </div>
-            {importReport && (
-              <p className={importReport.blueprint ? 'supporting' : 'error'}>
-                {importReport.blueprint
-                  ? `✅ ${importReport.importedCount + importReport.skippedCount}곡 중 ${importReport.importedCount}곡 가져옴${importReport.skippedCount ? `, ${importReport.skippedCount}곡 실패` : ''}`
-                  : `❌ 가져오지 못했습니다: ${importReport.skippedReasons.join(' / ') || '알 수 없는 오류'}`}
-                {importReport.skippedReasons.length > 0 && importReport.blueprint && (
-                  <> — 실패 사유: {importReport.skippedReasons.join(' / ')}</>
-                )}
-              </p>
-            )}
+            {importReport && <BridgeImportReportSummary report={importReport} />}
             {importReport?.warnings.length ? (
               <p className="warning">
                 Import warnings: {importReport.warnings.join(' / ')}
@@ -786,11 +864,12 @@ export default function Step3Generate({
               </div>
             )}
             <div className="button-row">
-              <label className="import-button" title="songs-output-set01.json ~ setNN.json 파일을 한 번에 선택">
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'songs-output-set01.json ~ setNN.json 파일을 한 번에 선택' : '채널과 시즌을 먼저 선택하세요'}>
                 <input
                   type="file"
                   accept="application/json"
                   multiple
+                  disabled={!canImportBridge || isMultiImporting}
                   style={{ display: 'none' }}
                   onChange={event => {
                     const files = event.target.files;
@@ -802,12 +881,7 @@ export default function Step3Generate({
                 {isMultiImporting ? '가져오는 중...' : '세트 파일 일괄 가져오기 (여러 개 선택)'}
               </label>
             </div>
-            {multiImportReports && (
-              <p className="supporting">
-                {multiImportReports.filter(report => report.blueprint).length}/{multiImportReports.length}개 세트 파일을 가져왔습니다
-                {multiImportReports.some(report => !report.blueprint) ? ` — 실패 ${multiImportReports.filter(report => !report.blueprint).length}개: ${multiImportReports.filter(report => !report.blueprint).flatMap(report => report.skippedReasons).join(' / ')}` : ''}
-              </p>
-            )}
+            {multiImportReports && <BridgeMultiImportReportSummary reports={multiImportReports} />}
             {multiImportReports?.some(report => report.warnings.length) ? (
               <p className="warning">
                 {multiImportReports.flatMap(report => report.warnings).join(' / ')}

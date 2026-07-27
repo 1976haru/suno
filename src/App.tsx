@@ -26,6 +26,7 @@ import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
 import { importSongsJson, type ImportSongsReport } from './core/claudeCodeBridge';
+import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
@@ -157,6 +158,8 @@ export default function App() {
 
   const selectedGenres = useMemo(() => genrePacks.filter(genre => opts.genreIds.includes(genre.id)), [opts.genreIds]);
   const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
+  const hasSelectedChannel = Boolean(cm.selectedChannel?.id);
+  const hasSelectedSeason = useMemo(() => seasonPacks.some(season => season.id === opts.seasonId), [opts.seasonId]);
   const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
   const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
   const thumbnailSpec = useMemo(
@@ -324,6 +327,9 @@ export default function App() {
    * happens to it once it's in the app.
    */
   async function onImportSongsJson(file: File): Promise<ImportSongsReport> {
+    if (!hasSelectedChannel || !hasSelectedSeason) {
+      return makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON);
+    }
     const text = await file.text();
     const importOpts = { ...opts, channel: cm.selectedChannel };
     const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
@@ -359,6 +365,9 @@ export default function App() {
    * shown in the UI reflects what's actually been produced so far.
    */
   async function onImportMultiSetSongsJson(files: File[]): Promise<ImportSongsReport[]> {
+    if (!hasSelectedChannel || !hasSelectedSeason) {
+      return [makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON)];
+    }
     const reports: ImportSongsReport[] = [];
     const groupId = `bridge-multiset-${cm.selectedChannel.id}-${Date.now()}`;
     const baseAvoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
@@ -840,6 +849,10 @@ export default function App() {
               onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
               onImportSongsJson={onImportSongsJson}
               onImportMultiSetSongsJson={onImportMultiSetSongsJson}
+              hasSelectedChannel={hasSelectedChannel}
+              hasSelectedSeason={hasSelectedSeason}
+              onGoToChannelStep={() => setCurrentStep(1)}
+              onGoToSeasonStep={() => setCurrentStep(2)}
               basicMode={!expertMode}
               expertMode={expertMode}
               onToggleExpertMode={toggleExpertMode}

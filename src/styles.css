@@ -1125,6 +1125,38 @@ textarea {
   background: var(--panel-soft);
 }
 
+.import-button.disabled,
+.import-button.disabled:hover {
+  border-color: var(--line);
+  background: #f1f5f9;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.bridge-import-status {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.bridge-import-report {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.bridge-import-report p {
+  margin: 0;
+}
+
+.import-reason-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.import-reason-list li + li {
+  margin-top: 4px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1431,6 +1463,11 @@ textarea {
   padding: 16px;
   text-align: center;
   color: var(--muted);
+}
+
+.basic-import-drop.disabled {
+  background: #f8fafc;
+  cursor: not-allowed;
 }
 
 .roadmap-note {
