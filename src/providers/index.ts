@@ -357,8 +357,9 @@ export async function regenerateTrack(
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): Promise<RegenerateTrackResult> {
   const others = blueprint.songs.filter(song => song.trackNo !== trackNo);
-  const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => stripSetTitlePrefix(song.title))];
-  const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase)];
+  const original = blueprint.songs.find(song => song.trackNo === trackNo);
+  const usedTitles = [...(avoid?.usedTitles ?? []), ...others.map(song => stripSetTitlePrefix(song.title)), ...(original ? [stripSetTitlePrefix(original.title)] : [])];
+  const usedHooks = [...(avoid?.usedHooks ?? []), ...others.map(song => song.hookPhrase), ...(original ? [original.hookPhrase] : [])];
   const avoidWords = [opts.avoidWords, ...feedback].filter(Boolean).join('; ');
   const feedbackNote = feedback.length
     ? `previous attempt was rejected for: ${feedback.join('; ')}. Rewrite to avoid these specific issues.`

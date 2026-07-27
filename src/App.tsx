@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Wand2 } from 'lucide-react';
+import { ImagePlus, Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
 import type { ThumbnailArchetypeId } from './data/thumbnailArchetypes';
@@ -44,6 +44,7 @@ import Step3Generate from './components/steps/Step3Generate';
 import Step4Result, { type ResultTab } from './components/steps/Step4Result';
 import WizardNav from './components/WizardNav';
 import VideoDashboard from './components/VideoDashboard';
+import ThumbnailImageStudioPanel from './components/ThumbnailImageStudioPanel';
 
 const STEPS: StepDef[] = [
   { id: 1, label: '① 채널' },
@@ -66,9 +67,12 @@ const UI_MODE_KEY = 'ui:mode';
 export default function App() {
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [expertMode, setExpertMode] = useState(false);
+  const [settingsFocus, setSettingsFocus] = useState<'qwen' | undefined>();
+  const [expertMode, setExpertMode] = useState(true);
   const [topBridgeInstruction, setTopBridgeInstruction] = useState('');
   const [workspaceFocus, setWorkspaceFocus] = useState<ResultTab | undefined>();
+  const [thumbnailStandaloneOpen, setThumbnailStandaloneOpen] = useState(false);
+  const [thumbnailStandaloneSeasonId, setThumbnailStandaloneSeasonId] = useState('christmas');
   const [currentStep, setCurrentStep] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
   const [hybridMode, setHybridMode] = useState(false);
@@ -97,7 +101,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void getSetting<'basic' | 'expert'>(UI_MODE_KEY).then(saved => setExpertMode(saved === 'expert'));
+    void getSetting<'basic' | 'expert'>(UI_MODE_KEY).then(saved => setExpertMode(saved !== 'basic'));
   }, []);
 
   function toggleExpertMode() {
@@ -170,6 +174,21 @@ export default function App() {
     },
     [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, thumbnailArchetypeId, selectedThumbnailVariant, thumbnailFreeTextHeadlines]
   );
+  const standaloneThumbnailSpec = useMemo(() => {
+    const blueprint = {
+      projectTitle: 'Standalone Thumbnail',
+      channelName: cm.selectedChannel.name,
+      oneLineConcept: '',
+      sonicSignature: '',
+      vocalSignature: '',
+      lyricRules: [],
+      harmonyRules: [],
+      visualRules: [],
+      songs: []
+    } as PlaylistBlueprint;
+    const season = seasonPacks.find(item => item.id === thumbnailStandaloneSeasonId) || selectedSeason;
+    return buildThumbnailSpec(blueprint, { ...opts, channel: cm.selectedChannel }, season, cm.selectedChannel, 0, thumbnailArchetypeId);
+  }, [cm.selectedChannel, opts, selectedSeason, thumbnailStandaloneSeasonId, thumbnailArchetypeId]);
 
   // TASK E2 (v3.5) — a Batch API job outlives a closed tab; resume polling
   // any job still in flight for this channel as soon as it's known.
@@ -711,8 +730,11 @@ export default function App() {
         </div>
         <div className="button-row">
           {topBridgeInstruction && <button type="button" onClick={() => void copyText(topBridgeInstruction)}>전체 복사</button>}
+          <button type="button" className="primary thumbnail-entry-button" onClick={() => setThumbnailStandaloneOpen(true)}>
+            <ImagePlus size={17} /> 썸네일 만들기
+          </button>
           <button type="button" className={expertMode ? 'chip active' : 'chip'} onClick={toggleExpertMode}>
-            {expertMode ? '전문가 모드' : '기본 모드'}
+            {expertMode ? '자세히 모드' : '간단히 모드'}
           </button>
         <button type="button" className="primary action-button" disabled={gen.isGenerating} onClick={() => void (multiSetMode ? onGenerateMultiSet() : onGenerate())}>
           <Wand2 size={18} />
@@ -738,13 +760,25 @@ export default function App() {
           onImportAll={file => void library.importAll(file)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenDashboard={() => setDashboardOpen(true)}
-          onOpenThumbnail={() => { setWorkspaceFocus('thumbnail'); setCurrentStep(4); }}
+          onOpenThumbnail={() => setThumbnailStandaloneOpen(true)}
           onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(4); }}
         />
 
         <div className="wizard-main">
           {dashboardOpen ? (
             <VideoDashboard channel={cm.selectedChannel} onClose={() => setDashboardOpen(false)} />
+          ) : thumbnailStandaloneOpen ? (
+            <ThumbnailImageStudioPanel
+              spec={standaloneThumbnailSpec}
+              defaultSeasonId={thumbnailStandaloneSeasonId}
+              defaultArchetypeId={thumbnailArchetypeId}
+              standalone
+              standaloneChannelName={cm.selectedChannel.name}
+              standaloneSeasonId={thumbnailStandaloneSeasonId}
+              onStandaloneSeasonChange={setThumbnailStandaloneSeasonId}
+              onStandaloneClose={() => setThumbnailStandaloneOpen(false)}
+              onOpenSettings={() => { setSettingsFocus('qwen'); setSettingsOpen(true); }}
+            />
           ) : (
             <>
           <StepIndicator steps={STEPS} current={currentStep} maxUnlocked={maxUnlocked} onSelect={setCurrentStep} />
@@ -777,6 +811,8 @@ export default function App() {
               toggleArray={toggleArray}
               provider={provider}
               basicMode={!expertMode}
+              expertMode={expertMode}
+              onToggleExpertMode={toggleExpertMode}
             />
           )}
 
@@ -805,6 +841,8 @@ export default function App() {
               onImportSongsJson={onImportSongsJson}
               onImportMultiSetSongsJson={onImportMultiSetSongsJson}
               basicMode={!expertMode}
+              expertMode={expertMode}
+              onToggleExpertMode={toggleExpertMode}
               onInstructionReady={setTopBridgeInstruction}
               bridgeImportedSetAvoid={bridgeImportedSetAvoid}
               multiSet={{
@@ -892,7 +930,8 @@ export default function App() {
 
       <SettingsModal
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => { setSettingsOpen(false); setSettingsFocus(undefined); }}
+        focusSection={settingsFocus}
         settings={provider}
         onChange={persistProvider}
         onExportAll={() => void library.exportAll()}

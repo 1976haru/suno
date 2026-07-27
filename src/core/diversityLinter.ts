@@ -223,6 +223,15 @@ function stylePromptClauseSet(stylePrompt: string): Set<string> {
     stylePrompt
       .split(',')
       .map(clause => clause.trim().toLowerCase())
+      // Required identity/control atoms are checked separately. Counting them
+      // as musical similarity made every senior-morning song look alike even
+      // when genre, arrangement, concept, and delivery cues differed.
+      .filter(clause => !/^\d{2,3} bpm$/.test(clause))
+      .filter(clause => !/repeats chorus|repeated chorus hook|same channel vocal signature/.test(clause))
+      .filter(clause => !/\b(vocal|voice|tenor|alto|soprano|choir|singer)\b/.test(clause))
+      .filter(clause => !/progression|3:10-3:35|short intro|radio edit|complete song/.test(clause))
+      .filter(clause => !/^concept (cue|emphasis):/.test(clause))
+      .filter(clause => !/hook heard immediately|intro only|arrangement with strings pad|nostalgic$/.test(clause))
       .filter(Boolean)
   );
 }
@@ -262,6 +271,8 @@ export interface InPackSimilarityReport {
   worstPair: InPackSimilarityPair | null;
   /** Clauses present in every single song's stylePrompt — "what's actually fixed across the whole pack", surfaced so a reviewer can see exactly what to vary. */
   commonClauses: string[];
+  /** Vocal-description openings repeated three or more times in one pack. */
+  repeatedVocalStarts: { start: string; count: number; trackNos: number[] }[];
   warnings: string[];
   errors: string[];
   /** No errors (an average above the warn threshold alone doesn't fail — same warn-vs-error split the spec calls for). */
@@ -270,10 +281,19 @@ export interface InPackSimilarityReport {
 
 export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt: string }[]): InPackSimilarityReport {
   if (songs.length < 2) {
-    return { songCount: songs.length, averageSimilarity: 0, maxSimilarity: 0, worstPair: null, commonClauses: [], warnings: [], errors: [], passed: true };
+    return { songCount: songs.length, averageSimilarity: 0, maxSimilarity: 0, worstPair: null, commonClauses: [], repeatedVocalStarts: [], warnings: [], errors: [], passed: true };
   }
 
-  const entries = songs.map(song => ({ trackNo: song.trackNo, clauses: stylePromptClauseSet(song.stylePrompt) }));
+  const rawEntries = songs.map(song => ({ trackNo: song.trackNo, clauses: stylePromptClauseSet(song.stylePrompt) }));
+  const commonClauses = [...rawEntries[0].clauses].filter(clause => rawEntries.every(entry => entry.clauses.has(clause)));
+  // A pack-level genre signature is intentionally shared identity, not
+  // evidence that two individual arrangements are the same. Remove clauses
+  // common to every track before measuring the varying musical material.
+  const commonSet = new Set(commonClauses);
+  const entries = rawEntries.map(entry => ({
+    trackNo: entry.trackNo,
+    clauses: new Set([...entry.clauses].filter(clause => !commonSet.has(clause)))
+  }));
   let total = 0;
   let pairCount = 0;
   let worstPair: InPackSimilarityPair | null = null;
@@ -291,7 +311,16 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
 
   const averageSimilarity = pairCount ? total / pairCount : 0;
   const maxSimilarity = worstPair?.similarity ?? 0;
-  const commonClauses = [...entries[0].clauses].filter(clause => entries.every(entry => entry.clauses.has(clause)));
+  const vocalStartBuckets = new Map<string, number[]>();
+  songs.forEach(song => {
+    const start = song.stylePrompt.split(',').slice(0, 3).map(clause => clause.trim()).find(clause => /\b(vocal|voice|tenor|alto|soprano|choir|singer)\b/i.test(clause));
+    if (!start) return;
+    const key = start.toLowerCase().replace(/\s+/g, ' ').trim();
+    vocalStartBuckets.set(key, [...(vocalStartBuckets.get(key) || []), song.trackNo]);
+  });
+  const repeatedVocalStarts = [...vocalStartBuckets.entries()]
+    .filter(([, trackNos]) => trackNos.length >= 3)
+    .map(([start, trackNos]) => ({ start, count: trackNos.length, trackNos }));
 
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -312,8 +341,11 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
       `Tracks ${worstPair.trackNoA} and ${worstPair.trackNoB} are ${Math.round(worstPair.similarity * 100)}% similar (threshold ${Math.round(IN_PACK_MAX_SIMILARITY_ERROR * 100)}%) — effectively the same style prompt.`
     );
   }
+  repeatedVocalStarts.forEach(entry => {
+    warnings.push(`Vocal description starts with "${entry.start}" on ${entry.count} tracks (${entry.trackNos.join(', ')}); vary delivery wording while keeping the channel identity.`);
+  });
 
-  return { songCount: songs.length, averageSimilarity, maxSimilarity, worstPair, commonClauses, warnings, errors, passed: errors.length === 0 };
+  return { songCount: songs.length, averageSimilarity, maxSimilarity, worstPair, commonClauses, repeatedVocalStarts, warnings, errors, passed: errors.length === 0 };
 }
 
 // ---------------------------------------------------------------------------

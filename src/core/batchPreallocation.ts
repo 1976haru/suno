@@ -32,6 +32,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
+import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
 
 export type { PreassignedSongSlot };
 
@@ -48,7 +49,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'genreBlendWeights'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -143,6 +144,7 @@ export function preallocateSongSlots(
     const vocalText = vocalType
       ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
       : fallbackVocalText;
+    const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];
@@ -154,6 +156,7 @@ export function preallocateSongSlots(
     const sectionStyle = sectionStylePlan[idx];
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const resolvedVocalVariantText = vocalVariantText || variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
     const negativeStyleText = buildExcludePrompt(opts, trackGenres);
     return {
@@ -164,8 +167,9 @@ export function preallocateSongSlots(
       tempo: averageTempo(trackGenres, trackNo),
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
-      ...(genreId ? { genreId } : {}),
-      ...(genreText ? { genreText } : {}),
+        ...(genreId ? { genreId } : {}),
+        ...(genreText ? { genreText } : {}),
+        ...(trackGenres[0]?.signatureSound ? { signatureSound: trackGenres[0].signatureSound } : {}),
       negativeStyleText,
       ...(introTextureText ? { introTextureText } : {}),
       ...(introTextureId ? { introTextureId } : {}),
@@ -187,6 +191,9 @@ export function preallocateSongSlots(
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
+      vocalVariantText: resolvedVocalVariantText,
+      ...(conceptStyleText(opts.customConcept, idx) ? { conceptText: conceptStyleText(opts.customConcept, idx) } : {}),
+      ...(conceptLyricImages(opts.customConcept).length ? { conceptLyricImages: conceptLyricImages(opts.customConcept) } : {}),
       ...(vocalGender ? { vocalGender } : {}),
       ...(vocalType ? { vocalType } : {})
     };
@@ -290,6 +297,50 @@ function enforceTempoInStylePrompt(stylePrompt: string, tempo: number): string {
   return enforceSingleBpmText(stylePrompt, tempo);
 }
 
+function diversifyVocalLedOpening(stylePrompt: string, slot: PreassignedSongSlot): string {
+  const trimmed = stylePrompt.trim();
+  const lower = trimmed.toLowerCase();
+  const vocalStarts = [slot.vocalText, slot.vocalVariantText].filter(Boolean).map(value => value!.trim().toLowerCase());
+  if (!vocalStarts.some(start => start && lower.startsWith(start))) return stylePrompt;
+
+  const instrument = slot.instrumentSet?.[0] || 'the small ensemble';
+  const openings = [
+      slot.genreText,
+      slot.signatureSound,
+    `${instrument} leads the opening`,
+    slot.conceptText,
+    slot.introTextureText,
+    'a restrained cafe groove opens before the vocal',
+    'brushed rhythm establishes the room before the vocal',
+    `${instrument} and close room tone frame the first phrase`,
+    'the bass pocket arrives before the lead voice',
+    'a soft answering phrase opens the arrangement',
+    'the harmony color arrives before the vocal enters',
+    'a quiet instrumental breath starts the track',
+    'the intimate room sound leads into the first line'
+  ];
+  const opening = openings[(Math.max(1, slot.trackNo) - 1) % openings.length];
+  if (!opening || lower.startsWith(opening.toLowerCase())) return stylePrompt;
+  return `${opening}, ${trimmed}`;
+}
+
+function removeRepeatedInstrumentMentions(stylePrompt: string, instrumentSet: string[] | undefined): string {
+  if (!instrumentSet?.length) return stylePrompt;
+  const seen = new Set<string>();
+  return stylePrompt.split(',').map(clause => {
+    let next = clause.trim();
+    for (const instrument of instrumentSet) {
+      const value = instrument.trim();
+      const key = value.toLowerCase();
+      const expression = new RegExp(`\\b${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'ig');
+      if (!expression.test(next)) continue;
+      if (seen.has(key)) next = next.replace(expression, '').replace(/\\s{2,}/g, ' ').trim();
+      else seen.add(key);
+    }
+    return next;
+  }).filter(Boolean).join(', ');
+}
+
 export function reconcileWithPreassignedSlot(
   song: SongIdea,
   slot: PreassignedSongSlot | undefined,
@@ -305,6 +356,19 @@ export function reconcileWithPreassignedSlot(
     : hookMode === 'ai-creative' && song.hookPhrase?.trim()
       ? song.hookPhrase
       : slot.hookPhrase;
+  const completeFields = [
+    slot.vocalText,
+    slot.moneyChordText,
+    slot.genreText,
+    slot.signatureSound,
+    slot.hookDeviceText,
+    slot.introTextureText,
+    ...(slot.instrumentSet || [])
+  ].filter(Boolean).every(value => song.stylePrompt.toLowerCase().includes(value!.trim().toLowerCase()));
+  const startsWithVocal = [slot.vocalText, slot.vocalVariantText].filter(Boolean).some(value => song.stylePrompt.trim().toLowerCase().startsWith(value!.trim().toLowerCase()));
+  if (completeFields && !startsWithVocal && song.stylePrompt.includes(`${slot.tempo} BPM`)) {
+    return { ...song, title, hookPhrase };
+  }
   // TASK v3.39 Part H — a real showa-cafe channel selected a male vocal
   // preset but a Codex-bridge-generated stylePrompt came back female,
   // because nothing forced the agent's free-form text to actually match the
@@ -314,21 +378,36 @@ export function reconcileWithPreassignedSlot(
   // through — regardless of whether the agent complied. No-op when
   // vocalText has no detectable gender (e.g. a children's choir) or when the
   // stylePrompt already matches.
-  const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalText, slot.vocalGender);
+  const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
   // TASK v3.43 Part A1/A2, Step 2 Part A3 — same "don't just trust the
   // instruction" principle applied to every other verbatim-weave slot field:
   // moneyChordText and hookDeviceText previously had no post-hoc check at
   // all (unlike vocalText above), and tempo/instrumentSet/arrangementDensity
   // are new fields this task adds to the same pattern.
   let stylePrompt = vocalFix.text;
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.genreText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.vocalText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.conceptText);
+    stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
+    stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.signatureSound);
+  const existingPromptLower = stylePrompt.toLowerCase();
+  const genreTextToAppend = slot.genreText
+    && !existingPromptLower.includes(slot.genreText.trim().toLowerCase())
+    && slot.instrumentSet?.some(instrument =>
+    existingPromptLower.includes(instrument.trim().toLowerCase())
+  )
+    ? slot.genreText.split(',').map(atom => atom.trim()).filter(atom =>
+      !slot.instrumentSet!.some(instrument => atom.toLowerCase() === instrument.trim().toLowerCase())
+    ).join(', ')
+    : slot.genreText;
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, genreTextToAppend);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
   stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
   stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
   stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);
   stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
+  stylePrompt = diversifyVocalLedOpening(stylePrompt, slot);
+  stylePrompt = removeRepeatedInstrumentMentions(stylePrompt, slot.instrumentSet);
   const excludePrompt = slot.negativeStyleText
     ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
     : song.excludePrompt;
@@ -361,7 +440,8 @@ export function reconcileWithPreassignedSlot(
     warnings,
     ...(slot.lyricTheme ? { lyricTheme: slot.lyricTheme } : {}),
     ...(slot.genreId ? { genreId: slot.genreId } : {}),
-    ...(slot.genreText ? { genreText: slot.genreText } : {}),
+      ...(slot.genreText ? { genreText: slot.genreText } : {}),
+      ...(slot.signatureSound ? { signatureSound: slot.signatureSound } : {}),
     ...(slot.lyricThemeText ? { lyricThemeText: slot.lyricThemeText } : {}),
     ...(slot.lyricThemeArc ? { lyricThemeArc: slot.lyricThemeArc } : {}),
     ...(slot.pov ? { pov: slot.pov } : {}),

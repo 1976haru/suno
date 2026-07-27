@@ -5,7 +5,6 @@ import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
 import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
-import { forecastCapacity } from '../../core/capacityPlanner';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
@@ -163,13 +162,15 @@ interface Step3GenerateProps {
   bridgeImportedSetAvoid: { usedTitles: string[]; usedHooks: string[] };
   multiSet: MultiSetControls;
   basicMode?: boolean;
+  expertMode: boolean;
+  onToggleExpertMode: () => void;
   onInstructionReady?: (instruction: string) => void;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, basicMode = false, onInstructionReady
+  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -359,54 +360,17 @@ export default function Step3Generate({
     }
   }
 
-  if (basicMode) {
-    const choosePackCount = (count: number) => {
-      if (count === 1) {
-        multiSet.onModeChange(false);
-        setOpts(prev => ({ ...prev, songCount: 18 }));
-      } else {
-        multiSet.onModeChange(true);
-        multiSet.onSetCountChange(count);
-        multiSet.onSongsPerSetChange(18);
-      }
-    };
-    const selectedPackCount = multiSet.mode ? multiSet.setCount : 1;
-    const capacityForecast = forecastCapacity(opts.channel.archetype || 'senior-morning', opts.lyricLanguage, selectedPackCount * 18);
-    return (
-      <section className="panel basic-workflow-panel">
-        <h2>Set pack size</h2>
-        <p className="supporting">One pack contains 18 songs. Choose up to five packs for a 90-song run.</p>
-        <div className="chips">
-          {[1, 2, 3, 4, 5].map(count => (
-            <button key={count} type="button" className={(multiSet.mode ? multiSet.setCount : 1) === count ? 'chip active' : 'chip'} onClick={() => choosePackCount(count)}>
-              {count} pack{count === 1 ? '' : 's'} ({count * 18})
-            </button>
-          ))}
-        </div>
-        {selectedPackCount === 5 && <p className="warning">Hook capacity forecast: 5 packs request 90 songs at once ({capacityForecast.weeksAtCurrentPace} weeks of runway at this pace). Review hook history before committing.</p>}
-        <div className="basic-import-drop" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const file = event.dataTransfer.files?.[0]; if (file) void handleImportSongsFile(file); }}>
-          <p>After Codex finishes, drop the JSON result here or choose a file.</p>
-          <label className="import-button">
-            <input type="file" accept="application/json" style={{ display: 'none' }} onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportSongsFile(file); event.target.value = ''; }} />
-            Choose result JSON
-          </label>
-          {importReport && <p className={importReport.blueprint ? 'supporting' : 'error'}>{importReport.blueprint ? `${importReport.importedCount} songs imported` : 'Import failed'}</p>}
-        </div>
-        <div className="roadmap-note">
-          <b>Roadmap</b>
-          <p>1. Drop audio files and calculate timestamps from actual duration.</p>
-          <p>2. Run the existing render-script guide.</p>
-          <p>3. Optional Electron shell for local rendering. Browser apps cannot run ffmpeg directly.</p>
-        </div>
-        <button type="button" className="primary full-width action-button" disabled={isGenerating || multiSet.isRunning} onClick={multiSet.mode ? multiSet.onGenerate : onGenerate}>
-          {multiSet.mode ? `Create ${multiSet.setCount * 18} songs in ${multiSet.setCount} packs` : 'Create 18-song pack'}
-        </button>
-      </section>
-    );
-  }
-
   return (
     <section className="panel">
+      <div className="ui-mode-banner">
+        <div>
+          <b>현재 모드: {expertMode ? '자세히' : '간단히'}</b>
+          <span>{expertMode ? '생성 경로와 검토 정보를 모두 표시합니다.' : '브릿지 지시문과 가져오기는 계속 표시합니다.'}</span>
+        </div>
+        <button type="button" className="mode-toggle-button" onClick={onToggleExpertMode}>
+          {expertMode ? '간단히' : '자세히'}
+        </button>
+      </div>
       <p className="step-hint">몇 곡을 만들지 정하고 생성 버튼을 누르세요. 생성 중에도 화면을 벗어나지 않아도 됩니다.</p>
 
       <div className="provider-summary">
@@ -580,7 +544,7 @@ export default function Step3Generate({
         </div>
       )}
 
-      {!multiSet.mode && (
+      {!basicMode && !multiSet.mode && (
         <DiversityAssignmentPreview slots={bridgePreassignedSongs} opts={opts} />
       )}
 

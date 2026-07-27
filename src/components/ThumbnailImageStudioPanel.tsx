@@ -28,6 +28,7 @@ import { recordUsage } from '../core/usageLedger';
 import { analyzeThumbnailCaptions } from '../core/thumbnailCaptionQuality';
 import { koreanThumbnailPromptIssues, translateKoreanThumbnailDescription, translateKoreanThumbnailDescriptionViaTextModel } from '../core/thumbnailKoreanPrompt';
 import { thumbnailArtistReferenceIssues } from '../core/thumbnailSafety';
+import StandaloneThumbnailStudio from './StandaloneThumbnailStudio';
 
 /**
  * TASK v3.37 — image-generation + canvas-compositing studio, ported from
@@ -42,6 +43,12 @@ interface ThumbnailImageStudioPanelProps {
   defaultSeasonId: string;
   defaultArchetypeId: ThumbnailArchetypeId;
   textModelSettings?: ProviderSettings;
+  standalone?: boolean;
+  standaloneChannelName?: string;
+  standaloneSeasonId?: string;
+  onStandaloneSeasonChange?: (seasonId: string) => void;
+  onStandaloneClose?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const THUMB_SIZE = { width: 1280, height: 720 };
@@ -143,7 +150,25 @@ function capBackgroundHistory(history: string[]): string[] {
   return [history[0], ...history.slice(-(BACKGROUND_HISTORY_LIMIT - 1))];
 }
 
-export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defaultArchetypeId, textModelSettings }: ThumbnailImageStudioPanelProps) {
+export default function ThumbnailImageStudioPanel(props: ThumbnailImageStudioPanelProps) {
+  if (props.standalone) {
+    return (
+      <StandaloneThumbnailStudio
+        spec={props.spec}
+        channelName={props.standaloneChannelName || ''}
+        seasonId={props.standaloneSeasonId || props.defaultSeasonId}
+        onSeasonChange={props.onStandaloneSeasonChange || (() => undefined)}
+        defaultArchetypeId={props.defaultArchetypeId}
+        onClose={props.onStandaloneClose || (() => undefined)}
+        onOpenSettings={props.onOpenSettings}
+      />
+    );
+  }
+
+  return <ThumbnailImageStudioPanelAdvanced {...props} />;
+}
+
+function ThumbnailImageStudioPanelAdvanced({ spec, defaultSeasonId, defaultArchetypeId, textModelSettings, onOpenSettings }: ThumbnailImageStudioPanelProps) {
   const [channelName, setChannelName] = useState('');
   const [channels, setChannels] = useState<string[]>([]);
   const [template, setTemplate] = useState<ThumbnailBrandTemplate>(() => defaultBrandTemplate(''));
@@ -877,7 +902,7 @@ export default function ThumbnailImageStudioPanel({ spec, defaultSeasonId, defau
           </label>
         </div>
         <p className="supporting">글자가 없는 배경 이미지를 올리면 제목을 몇 번이든 다시 바꿀 수 있어요. 글자가 이미 있는 이미지는 새 텍스트가 그 위에 겹쳐 보입니다.</p>
-        {state.error && <p className="error">❌ {state.error}</p>}
+        {state.error && <div className="error thumbnail-settings-warning"><span>❌ {state.error}</span>{onOpenSettings && state.error.toLowerCase().includes('qwen') && <button type="button" className="secondary" onClick={onOpenSettings}>Qwen 설정 열기</button>}</div>}
 
         {captionIssues.length > 0 && <div className="thumbnail-quality-warning"><strong>Caption quality check</strong>{captionIssues.map(issue => <p key={`${issue.layerId}-${issue.kind}`}>{issue.message}</p>)}<p>Try a readable preset or adjust the selected layer.</p></div>}
         <div

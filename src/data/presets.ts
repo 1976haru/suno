@@ -233,7 +233,7 @@ const rawGenrePacks: GenrePack[] = [
     label: 'Adult Contemporary Pop',
     styleCore: 'warm adult contemporary pop, radio-friendly, gentle emotional chorus lift',
     arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['adult-contemporary'],
-    instruments: ['Rhodes piano', 'acoustic guitar', 'light brushed drums', 'smooth bass'],
+    instruments: ['sustained piano pads', 'clean strummed acoustic guitar', 'straight-pop drum kit', 'rounded electric bass'],
     tempoRange: [96, 106],
     goodFor: ['senior playlist', 'morning coffee', 'year-end']
   },
@@ -251,8 +251,8 @@ const rawGenrePacks: GenrePack[] = [
     label: 'Acoustic Jazz Pop',
     styleCore: 'nostalgic acoustic jazz-pop, elegant cafe mood, gentle maj7 and add9 colors',
     arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jazz-pop'],
-    instruments: ['Rhodes', 'upright bass', 'brushed drums', 'mellow jazz guitar'],
-    tempoRange: [90, 104],
+    instruments: ['Rhodes comping piano', 'walking upright bass', 'brushed snare with ride comping', 'mellow jazz guitar'],
+    tempoRange: [82, 96],
     goodFor: ['kissaten', 'night cafe', 'winter']
   },
   {
@@ -404,7 +404,29 @@ const rawGenrePacks: GenrePack[] = [
 export const genrePacks: GenrePack[] = rawGenrePacks.map(genre => {
   const withVisibility = withGenreVisibility(genre);
   const flavorImages = CORE_LYRIC_FLAVOR_IMAGES[withVisibility.id];
-  return flavorImages ? { ...withVisibility, lyricFlavorImages: flavorImages } : withVisibility;
+  const signatureOverrides: Record<string, string> = {
+    'adult-contemporary': 'straight 4/4 pop feel, sustained piano pads, clean strummed acoustic, simple diatonic harmony, no swing, no solo',
+    'acoustic-pop': 'fingerpicked acoustic guitar, soft piano answers, light hand percussion, natural close room, simple singalong harmony',
+    'jazz-pop': 'light swing feel, walking upright bass, ii-V-I turnarounds, maj7/9/13 extended voicings, brushed snare with ride cymbal comping, short improvised piano or saxophone solo in the bridge, warm analog room tone',
+    'bossa-cafe': 'bossa nova clave, nylon-string guitar comping on offbeats, soft surdo-less percussion, gentle syncopation, Portuguese-jazz harmony',
+    'retro-soul-pop': 'sixteenth-note hi-hat groove, tight horn section stabs, electric bass with ghost notes, gospel-tinged backing vocals, tape saturation',
+    'city-pop-soft': 'slap/round electric bass, electric piano and clean chorus guitar, syncopated 16th groove, bright polished chorus, gated reverb touches',
+    'showa-modern': 'restrained kissaten swing, Rhodes comping, walking upright bass, muted jazz guitar fills, IVmaj7-iii7 color, tape-warm close-room mix',
+    'lofi-cafe': 'lazy behind-the-beat lo-fi pocket, dusty electric piano, soft muted drums, rounded bass loop, restrained vinyl room texture',
+    'christmas-soft-pop': 'straight seasonal pop pulse, acoustic guitar and Rhodes pads, restrained sleigh bells only in chorus, warm choral lift, clean radio mix',
+    'healing-ballad': 'slow 4/4 pulse, felt piano arpeggios, suspended add9 harmony, soft string swells, intimate dry verse, no rhythmic drive',
+    'folk-pop': 'steady strummed folk pulse, fingerpicked acoustic answers, light mandolin texture, plainspoken harmony, natural room recording',
+    'soft-rock': 'straight eighth-note rock pulse, clean electric guitar layers, live snare backbeat, rounded bass, wide radio guitars, restrained solo',
+    'piano-ballad': 'slow rubato-to-4/4 piano pulse, suspended piano voicings, soft string counterlines, minimal drums, cinematic room bloom',
+    'synthwave-mellow': 'steady electronic four-on-the-floor pulse, analog pad arpeggios, chorus guitar, gated drum ambience, neon stereo width',
+    'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
+  };
+  const signatureSound = signatureOverrides[withVisibility.id] || withVisibility.signatureSound || (
+    withVisibility.id === 'showa-modern'
+      ? 'gentle IVmaj7-iii7 color, Rhodes, mellow jazz guitar, tape-warm production'
+    : `${withVisibility.instruments.slice(0, 3).join(', ')}, ${withVisibility.arrangementNarrative?.split(',')[0] || withVisibility.styleCore.split(',')[0]}`);
+  const enriched = { ...withVisibility, signatureSound };
+  return flavorImages ? { ...enriched, lyricFlavorImages: flavorImages } : enriched;
 });
 
 export const moodPacks: MoodPack[] = [

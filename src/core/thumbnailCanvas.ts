@@ -315,10 +315,16 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, canva
   const lines = textLines(text, maxLines);
   if (!lines.length) return;
 
-  const fontSize = Math.round(canvasHeight * clampNumber(runtimeStyle.sizeRatio, legacyTitleSizeRatio(lines.length), 0.02, 0.22));
+  let fontSize = Math.round(canvasHeight * clampNumber(runtimeStyle.sizeRatio, legacyTitleSizeRatio(lines.length), 0.02, 0.22));
   const font = fontFamilyById(style.fontId);
   ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
-  const fittedLines = wrapCanvasLines(ctx, lines, maxLines, canvasWidth * 0.9);
+  let fittedLines = wrapCanvasLines(ctx, lines, maxLines, canvasWidth * 0.9);
+  const maxWidth = canvasWidth * 0.9;
+  for (let attempt = 0; attempt < 5 && fittedLines.some(line => ctx.measureText(line).width > maxWidth); attempt += 1) {
+    fontSize = Math.max(Math.round(canvasHeight * 0.045), Math.floor(fontSize * 0.86));
+    ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+    fittedLines = wrapCanvasLines(ctx, lines, maxLines, maxWidth);
+  }
   const lineHeight = fontSize * clampNumber(runtimeStyle.lineHeightRatio, DEFAULT_TEXT_LINE_HEIGHT_RATIO, 0.75, 2.4);
   const padding = Math.round(canvasHeight * clampNumber(runtimeStyle.paddingRatio, DEFAULT_TEXT_PADDING_RATIO, 0, 0.3));
   const offsetX = canvasWidth * clampNumber(runtimeStyle.offsetXRatio, 0, -0.5, 0.5);
@@ -333,6 +339,19 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, text: string, canva
   if (style.position.startsWith('top')) startY = anchor.y + fontSize / 2;
   else if (style.position.startsWith('bottom')) startY = anchor.y - totalHeight + lineHeight / 2;
   else startY = anchor.y - totalHeight / 2 + lineHeight / 2;
+
+  if (runtimeStyle.scrimEnabled !== false) {
+    const maxLineWidth = fittedLines.reduce((width, line) => Math.max(width, ctx.measureText(line).width), 0);
+    const scrimWidth = Math.min(canvasWidth * 0.94, maxLineWidth + padding * 1.8);
+    const scrimHeight = totalHeight + padding * 1.25;
+    const scrimX = anchor.align === 'left' ? anchor.x - padding * 0.35 : anchor.align === 'right' ? anchor.x - scrimWidth + padding * 0.35 : anchor.x - scrimWidth / 2;
+    const scrimY = startY - lineHeight / 2 - padding * 0.55;
+    ctx.save();
+    ctx.fillStyle = runtimeStyle.scrimColor || '#000000';
+    ctx.globalAlpha = clampNumber(runtimeStyle.scrimOpacity, 0.42, 0, 0.85);
+    ctx.fillRect(scrimX, scrimY, scrimWidth, scrimHeight);
+    ctx.restore();
+  }
 
   if (opacity < 1) {
     ctx.save();

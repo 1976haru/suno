@@ -73,6 +73,8 @@ interface Step2ConceptProps {
   toggleArray: (key: 'genreIds' | 'moodIds', id: string) => void;
   provider: ProviderSettings;
   basicMode?: boolean;
+  expertMode: boolean;
+  onToggleExpertMode: () => void;
 }
 
 function CharCounter({ value, limit }: { value: string; limit: number }) {
@@ -83,7 +85,9 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
   );
 }
 
-export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false }: Step2ConceptProps) {
+export default function Step2Concept({
+  opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode
+}: Step2ConceptProps) {
   const [vocalCustomOpen, setVocalCustomOpen] = useState(() => !matchVocalPreset(opts.vocalTone));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
@@ -241,37 +245,46 @@ export default function Step2Concept({ opts, setOpts, selectedGenres, selectedMo
       detail: preset.progressions.length ? `코드: ${preset.progressions.join(' / ')}` : undefined
     }));
 
-  if (basicMode) {
-    return (
-      <section className="panel basic-workflow-panel">
-        <h2>Choose a genre</h2>
-        <p className="supporting">Three channel recommendations are ready. Pick one to set the pack direction.</p>
-        <div className="genre-card-grid">
-          {visibleGenres.slice(0, 3).map(genre => (
-            <button key={genre.id} type="button" className={primaryGenreId === genre.id ? 'genre-card-choice active' : 'genre-card-choice'} onClick={() => selectPrimaryGenre(genre.id)}>
-              <b>{genre.label}</b>
-              <span>{describeGenreForUserKo(genre)}</span>
-            </button>
-          ))}
-        </div>
-        <p className="supporting">Advanced settings remain available in Expert mode.</p>
-      </section>
-    );
-  }
-
   return (
     <section className="panel">
+      <div className="ui-mode-banner">
+        <div>
+          <b>현재 모드: {expertMode ? '자세히' : '간단히'}</b>
+          <span>{expertMode ? '컨셉 설계 도구를 모두 표시합니다.' : '핵심 컨셉 입력은 유지하고 추천 도구만 접어둡니다.'}</span>
+        </div>
+        <button type="button" className="mode-toggle-button" onClick={onToggleExpertMode}>
+          {expertMode ? '간단히' : '자세히'}
+        </button>
+      </div>
       <p className="step-hint">이 채널의 곡이 어떤 느낌이면 좋을지 정하세요. 아무것도 모르셔도 괜찮아요 — 카드를 눌러보고 마음에 드는 걸 고르시면 됩니다.</p>
 
-      <ConceptAgentPanel
-        channelId={opts.channel.id}
-        archetype={channelArchetype}
-        currentGenreId={opts.genreIds[0]}
-        currentMoodId={opts.moodIds[0]}
-        currentSeasonId={opts.seasonId}
-        provider={provider}
-        onApply={handleApplyConceptRecommendation}
-      />
+      {basicMode ? (
+        <details className="mode-more-panel">
+          <summary>
+            <Wand2 size={16} />
+            컨셉 에이전트 더보기
+          </summary>
+          <ConceptAgentPanel
+            channelId={opts.channel.id}
+            archetype={channelArchetype}
+            currentGenreId={opts.genreIds[0]}
+            currentMoodId={opts.moodIds[0]}
+            currentSeasonId={opts.seasonId}
+            provider={provider}
+            onApply={handleApplyConceptRecommendation}
+          />
+        </details>
+      ) : (
+        <ConceptAgentPanel
+          channelId={opts.channel.id}
+          archetype={channelArchetype}
+          currentGenreId={opts.genreIds[0]}
+          currentMoodId={opts.moodIds[0]}
+          currentSeasonId={opts.seasonId}
+          provider={provider}
+          onApply={handleApplyConceptRecommendation}
+        />
+      )}
 
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />

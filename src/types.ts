@@ -61,6 +61,8 @@ export interface GenrePack {
   id: string;
   label: string;
   styleCore: string;
+  /** Compact genre fingerprint: rhythm, signature instruments, and production color. */
+  signatureSound?: string;
   /** Optional section-by-section arrangement narrative for lead genres only. Flat tag fields stay as the backward-compatible baseline. */
   arrangementNarrative?: string;
   instruments: string[];
@@ -385,6 +387,8 @@ export interface PreassignedSongSlot {
   genreId?: string;
   /** v3.49A: prompt-facing genre text for the selected/blended per-song genre plan. */
   genreText?: string;
+  /** v3.54: essential, genre-defining sound identity carried through remote reconciliation. */
+  signatureSound?: string;
   /** Music-side exclude text kept out of stylePrompt and exported to Suno Exclude styles. */
   negativeStyleText?: string;
   /** Per-song intro-only texture phrase to weave into stylePrompt, never as whole-song instrumentation. */
@@ -401,6 +405,11 @@ export interface PreassignedSongSlot {
    */
   vocalType?: 'male' | 'female' | 'mixed';
   vocalText?: string;
+  /** v3.52: resolved concept direction carried into remote/batch reconciliation. */
+  conceptText?: string;
+  conceptLyricImages?: string[];
+  /** v3.52: same channel vocal identity, expressed with track-level phrasing. */
+  vocalVariantText?: string;
   /**
    * TASK v3.41 Part A1 — the explicit gender axis (see
    * core/vocalPlan.ts's VocalGender / data/vocalPresets.ts's VocalPreset.gender)
@@ -717,6 +726,10 @@ export interface ThumbnailTextLayer extends ThumbnailTextStyle {
   dividerPreset?: ThumbnailDividerPreset;
   dividerThicknessRatio?: number;
   dividerWidthRatio?: number;
+  /** Default-on readability plate behind editable text in the composed image. */
+  scrimEnabled?: boolean;
+  scrimColor?: string;
+  scrimOpacity?: number;
 }
 
 export interface ThumbnailBrandTemplate {

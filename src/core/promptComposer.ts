@@ -42,14 +42,14 @@ export const MAX_LYRIC_WORDS = 260;
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
 
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
+  'vocal', 'genreSignature', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'genreSignature', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: '장르',
@@ -68,6 +68,7 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   listenerScene: '청자 장면',
   mixNotes: '믹스 노트',
   genreNarrative: 'genre arrangement narrative',
+  genreSignature: 'genre signature',
   hookDevice: 'hook device',
   introTexture: 'intro texture',
   arrangementDensity: 'arrangement density'
@@ -294,6 +295,28 @@ export function arrangementNarrativeForGenres(genres: GenrePack[]): string | und
   return narrative ? stripBpmText(narrative) : undefined;
 }
 
+/** v3.52: preserve the genre's production vocabulary while rotating which
+ * section/mix clauses lead each track, so a pack does not repeat one long
+ * arrangement sentence verbatim on every song. */
+export function rotatingArrangementNarrativeForGenres(genres: GenrePack[], index: number): string | undefined {
+  const narrative = arrangementNarrativeForGenres(genres);
+  if (!narrative) return undefined;
+  const atoms = narrative.split(',').map(atom => atom.trim()).filter(Boolean);
+  if (atoms.length <= 3) return narrative;
+  const count = Math.min(5, atoms.length);
+  const requiredIndexes = [
+    atoms.findIndex(atom => /pre-chorus/i.test(atom)),
+    atoms.findIndex(atom => /hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go/i.test(atom)),
+    atoms.findIndex(atom => /chorus/i.test(atom))
+  ].filter(index => index >= 0);
+  const selectedIndexes = new Set<number>(requiredIndexes);
+  for (let offset = 0; selectedIndexes.size < count; offset++) {
+    selectedIndexes.add((Math.abs(index) * 2 + offset * 2) % atoms.length);
+  }
+  const selected = Array.from(selectedIndexes).sort((a, b) => a - b).map(atomIndex => atoms[atomIndex]);
+  return selected.join(', ');
+}
+
 export function hasArrangementNarrativeGenre(genres: GenrePack[]): boolean {
   return Boolean(arrangementNarrativeForGenres(genres));
 }
@@ -302,6 +325,7 @@ export function buildGenrePromptSummary(genres: GenrePack[]) {
   const primary = genres[0];
   const secondary = genres.slice(1, 3);
   const genreNarrative = arrangementNarrativeForGenres(genres);
+  const genreSignature = primary?.signatureSound || secondary.find(genre => genre.signatureSound)?.signatureSound;
   const genreAtoms = [
     primary ? stripBpmText(primary.styleCore) : undefined,
     ...secondary.flatMap(genre => shortPromptKeywords(genre).slice(0, 3))
@@ -324,6 +348,7 @@ export function buildGenrePromptSummary(genres: GenrePack[]) {
   return {
     genreText: dedupeTerms(genreAtoms).join(', '),
     genreNarrative,
+    genreSignature,
     instruments
   };
 }
@@ -380,7 +405,10 @@ export function rotatingGenreText(genres: GenrePack[], seed: number, index: numb
   const [anchor, ...rest] = atoms;
   const shuffled = shuffle(rest, seed + index * 337);
   const extraCount = Math.min(rest.length, 2 + (index % 2));
-  return [anchor, ...shuffled.slice(0, extraCount)].join(', ');
+  const signature = genres[0]?.signatureSound;
+  const signatureAtoms = signature ? signature.split(',').map(atom => atom.trim()).filter(Boolean).slice(0, 2) : [];
+  const remainingCount = Math.max(0, extraCount - signatureAtoms.length);
+  return [anchor, ...signatureAtoms, ...shuffled.slice(0, remainingCount)].join(', ');
 }
 
 /**
@@ -449,7 +477,7 @@ export function structureTemplateLegend(): string {
  * into the music prompt both wastes budget and confuses Suno.
  */
 export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack): PromptPart[] {
-  const { genreText, genreNarrative, instruments } = buildGenrePromptSummary(genres);
+  const { genreText, genreNarrative, genreSignature, instruments } = buildGenrePromptSummary(genres);
   const instrumentText = instruments.join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const referenceMoodClause = buildReferenceMoodStyleClause(opts.referenceMood);
@@ -488,6 +516,7 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   // its output is meant for that separate field, never pasted into Style.
   return [
     { id: 'genre', text: genreText },
+    { id: 'genreSignature', text: genreSignature },
     { id: 'vocal', text: opts.vocalTone || opts.channel.defaultVocal },
     { id: 'genreNarrative', text: genreNarrative },
     { id: 'moneyChord', text: money },
@@ -618,6 +647,11 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // coming back female with nothing in the instructions telling the model to
   // respect the selection.
   const hasVocalText = batch.preassignedSongs?.some(slot => slot.vocalText);
+  const hasVocalVariant = batch.preassignedSongs?.some(slot => slot.vocalVariantText && slot.vocalVariantText !== slot.vocalText);
+  const hasConceptText = batch.preassignedSongs?.some(slot => slot.conceptText);
+  const conceptInstruction = hasConceptText
+    ? ' Each entry also includes "conceptText" and optional "conceptLyricImages" — weave conceptText into the genre/sound description and use conceptLyricImages as concrete lyric imagery. Do not replace the concept with a generic pack description.'
+    : '';
   const vocalInstruction = hasVocalText
     ? ' Each entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
@@ -704,7 +738,8 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasLyricTheme ? ['lyricTheme', 'lyricThemeText', 'lyricThemeArc'] : []),
     ...(hasPov ? ['pov'] : []),
     ...(hasSectionStyles ? ['verseStyle', 'verseStyleText', 'chorusStyle', 'chorusStyleText'] : []),
-    ...(hasVocalText ? ['vocalText'] : [])
+    ...(hasVocalText ? ['vocalText', ...(hasVocalVariant ? ['vocalVariantText'] : [])] : []),
+    ...(hasConceptText ? ['conceptText', 'conceptLyricImages'] : [])
   ].join(', ');
   const forcedFieldsList = [
     'trackNo', 'emotionArc', 'moneyChordText', 'tempo',
@@ -715,10 +750,11 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
-    ...(hasVocalText ? ['vocalText'] : [])
+    ...(hasVocalText ? ['vocalText', ...(hasVocalVariant ? ['vocalVariantText'] : [])] : []),
+    ...(hasConceptText ? ['conceptText', 'conceptLyricImages'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

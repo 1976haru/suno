@@ -267,6 +267,9 @@ export function buildClaudeCodeInstruction(
   const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
     ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
+  const conceptInstructionLine = preassignedSongs.some(slot => slot.conceptText)
+    ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
+    : '';
   // TASK v3.42 Part B2 — same verbatim-weave rule promptComposer.ts's
   // buildBatchSystemNote gives real API requests. Real measurement of a
   // generated 15-song pack found the reinforcement text every song got was
@@ -336,6 +339,7 @@ export function buildClaudeCodeInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
+    conceptInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
     // the locally trusted trackNo (see core/multiSetGeneration.ts's
@@ -452,6 +456,9 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
     ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
+  const conceptInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.conceptText))
+    ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
+    : '';
   const hookDeviceInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.hookDeviceText))
     ? '- Each "preassignedSongs" entry also includes "hookDeviceText" - weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device; do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs.'
     : '';
@@ -532,6 +539,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
+    conceptInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
     '- When done, tell me the paths of all files so I can import them back into Suno Weaver Studio.'

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Trash2, X } from 'lucide-react';
 import type { ChannelProfile, ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
@@ -47,6 +47,7 @@ interface SettingsModalProps {
   onDeleteAll: () => void;
   channel: ChannelProfile;
   channels: ChannelProfile[];
+  focusSection?: 'qwen';
 }
 
 type TestResult = { state: 'idle' } | { state: 'testing' } | { state: 'ok' } | { state: 'error'; message: string };
@@ -55,7 +56,7 @@ function byokKeyName(provider: ProviderType) {
   return `byok:${provider}`;
 }
 
-export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel, channels }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel, channels, focusSection }: SettingsModalProps) {
   const [localKey, setLocalKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
@@ -70,6 +71,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
   const [cache, setCache] = useState<CacheStats | null>(null);
   const [hookUsage, setHookUsage] = useState<HookUsage[] | null>(null);
   const [capacityForecasts, setCapacityForecasts] = useState<{ channel: ChannelProfile; forecast: ChannelCapacityForecast }[] | null>(null);
+  const qwenSectionRef = useRef<HTMLDivElement>(null);
 
   const isRemoteProvider = settings.provider === 'openai' || settings.provider === 'anthropic';
 
@@ -91,6 +93,11 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
       setQwenSettings(normalizeQwenImageSettings(storedSettings));
     });
   }, [open]);
+
+  useEffect(() => {
+    if (!open || focusSection !== 'qwen') return;
+    requestAnimationFrame(() => qwenSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [open, focusSection]);
 
   useEffect(() => {
     if (!open) return;
@@ -275,16 +282,17 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           216곡(18주 x 12곡) 기준 총 출력은 약 0.15M~0.32M 토큰으로, Sonnet 기준 대략 몇 달러 수준입니다. API가 비싸서 피해야 할 이유는 없습니다 —
           단계마다 어디에 API가 가장 도움이 되는지만 참고하세요. (정확한 단가는 계속 바뀌므로 여기서 고정하지 않습니다. 실제 사용량은 위 "API 사용 기록"에서 확인하세요.)
         </p>
-        <label>Image generation - Qwen (Model Studio)</label>
+        <div ref={qwenSectionRef} id="qwen-image-settings">
+        <label>🖼 이미지 생성 - Qwen (Model Studio)</label>
         <p className="supporting">
-          Uses Alibaba Cloud Model Studio through /api/image. Stored locally as byok:qwen. Verified against Alibaba's official Qwen-Image API reference (2026-07): Qwen-Image 2.0 / 2.0 Pro / Max (sync only), and Plus/Image (async, cheaper).
+          Alibaba Cloud Model Studio(Qwen-Image) 이미지 생성 설정입니다. 키는 이 브라우저에만 저장됩니다.
         </p>
         <div className="inline">
           <input
             type={showQwenKey ? 'text' : 'password'}
             value={qwenKey}
             onChange={event => void saveQwenKey(event.target.value)}
-            placeholder="sk-..."
+            placeholder="sk-로 시작하는 키"
           />
           <button type="button" className="icon-button" title={showQwenKey ? 'Hide' : 'Show'} onClick={() => setShowQwenKey(v => !v)}>
             {showQwenKey ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -293,27 +301,28 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             <Trash2 size={16} />
           </button>
         </div>
-        {qwenKey && <p className="error">This key is stored in this browser only. Do not use it on a shared computer.</p>}
+        {qwenKey && <p className="error">이 키는 현재 브라우저에만 저장됩니다. 공용 PC에서는 사용하지 마세요.</p>}
+        <p className="supporting">발급처: <a href="https://bailian.console.aliyun.com/" target="_blank" rel="noreferrer">Alibaba Cloud Model Studio / DashScope</a></p>
         <div className="form-grid two">
           <label>
-            Region
+            리전
             <select value={qwenSettings.region} onChange={event => void updateQwenImageSettings({ region: event.target.value === 'beijing' ? 'beijing' : 'singapore' })}>
-              <option value="singapore">Singapore / international</option>
-              <option value="beijing">China (Beijing)</option>
+              <option value="singapore">싱가포르 / 국제</option>
+              <option value="beijing">중국(베이징)</option>
             </select>
             {/* TASK v3.45 (Part 1) — DashScope's own docs warn Beijing and Singapore keys/endpoints are not interchangeable; an auth failure from picking the wrong region here is otherwise indistinguishable from a genuinely wrong key. */}
             <span className="error">API 키는 발급받은 리전에서만 동작합니다. 베이징 키와 싱가포르 키는 호환되지 않습니다.</span>
           </label>
           <label>
-            WorkspaceId (optional)
+            워크스페이스 ID (선택)
             <input
               value={qwenSettings.workspaceId}
               onChange={event => void updateQwenImageSettings({ workspaceId: event.target.value })}
-              placeholder="Leave blank for default DashScope base URL"
+              placeholder="기본 DashScope 주소를 사용하려면 비워 두세요"
             />
           </label>
           <label>
-            Model
+            모델
             <select value={qwenSettings.model} onChange={event => void updateQwenImageSettings({ model: event.target.value as QwenImageModel })}>
               {QWEN_IMAGE_MODELS.map(model => (
                 <option key={model.id} value={model.id}>{model.label} - {model.priceCny[qwenSettings.region] === 0 ? 'limited-time free' : `${model.priceCny[qwenSettings.region].toFixed(6)} CNY/image`}</option>
@@ -321,7 +330,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             </select>
           </label>
           <label>
-            Resolution
+            해상도
             <select value={qwenSettings.resolution} onChange={event => void updateQwenImageSettings({ resolution: event.target.value as QwenImageResolution })}>
               {QWEN_IMAGE_RESOLUTIONS
                 .filter(resolution => resolution.models === qwenResolutionFamily(qwenSettings.model))
@@ -331,7 +340,7 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             </select>
           </label>
           <label>
-            Session limit
+            세션 이미지 한도
             <input
               type="number"
               min={1}
@@ -341,7 +350,8 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             />
           </label>
         </div>
-        <p className="supporting">If the key is not set, the thumbnail panel keeps the prompt-copy workflow available and disables in-app Qwen generation.</p>
+        <p className="supporting">키가 없으면 썸네일 화면에서 프롬프트 복사는 계속 사용할 수 있지만 Qwen 생성은 비활성화됩니다.</p>
+        </div>
 
         <div className="api-advice-table">
           {Object.values(STAGE_ADVICE).map(advice => (

@@ -677,6 +677,8 @@ export interface LyricComposeInput {
    * filler behavior.
    */
   genreFlavorImages?: string[];
+  /** Concrete lyric images resolved from GenerationOptions.customConcept. */
+  conceptImages?: string[];
   /** TASK v3.42 Part C — which section-tag shape to assemble into; defaults to 'T1' (the original/only pre-v3.42 shape) when omitted, so every existing caller/test keeps working unchanged. */
   structureTemplate?: StructureTemplateId;
 }
@@ -696,7 +698,7 @@ function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
-  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages, structureTemplate = 'T1' } = input;
+  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages, conceptImages, structureTemplate = 'T1' } = input;
   const t = tags[language];
   const isColdOpen = role === 'cold-open';
 
@@ -718,17 +720,25 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // rules, channel vocal/promise, and the hook engine's archetype-scoped
   // banks), so replacing it with a more specific genre image for genres that
   // have one is a strict quality improvement, not a loss.
-  const pickMotifOrFlavor = () => (
-    genreFlavorImages && genreFlavorImages.length
-      ? genreFlavorImages[Math.floor(motifRng() * genreFlavorImages.length)]
-      : motif
-  );
+  const flavorImages = [...(genreFlavorImages || []), ...(conceptImages || [])];
+  let flavorPick = 0;
+  const pickFlavor = () => {
+    // Keep the selected concept audible while allowing genre imagery to carry
+    // its own identity across otherwise similar lyric templates.
+    if (conceptImages && conceptImages.length && flavorPick++ % 3 === 1) {
+      return conceptImages[Math.floor(motifRng() * conceptImages.length)];
+    }
+    return flavorImages.length
+      ? flavorImages[Math.floor(motifRng() * flavorImages.length)]
+      : motif;
+  };
+  const pickMotifOrFlavor = () => conceptImages && conceptImages.length
+    ? conceptImages[Math.floor(motifRng() * conceptImages.length)]
+    : pickFlavor();
   const ctxWith: LyricLineCtx = { season: seasonWord, situation, motif: pickMotifOrFlavor(), title, hook };
-  const pickFiller = () => (
-    genreFlavorImages && genreFlavorImages.length
-      ? genreFlavorImages[Math.floor(motifRng() * genreFlavorImages.length)]
-      : pickMotifFiller(language, motifRng)
-  );
+  const pickFiller = () => flavorImages.length
+    ? pickFlavor()
+    : pickMotifFiller(language, motifRng);
   const freshFillerCtx = (): LyricLineCtx => ({ season: seasonWord, situation, motif: pickFiller(), title, hook });
   const ctxFor = (slot: MotifSecondarySlot) => (slot === secondarySlot ? ctxWith : freshFillerCtx());
   const chorusDevCtx = (index: number) => (index === realMotifChorusIndex ? ctxWith : freshFillerCtx());

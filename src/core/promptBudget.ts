@@ -69,7 +69,7 @@ export function countWords(text: string): number {
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'concept' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -104,11 +104,11 @@ export type PromptTermId =
 // priority atoms, but it is still protected from the word-count trim in
 // normal prompts.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
+  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
+  export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'genreSignature', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo', 'concept']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: 'genre',
@@ -127,6 +127,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   listenerScene: 'listener scene',
   mixNotes: 'mix notes',
   genreNarrative: 'genre arrangement narrative',
+  genreSignature: 'genre signature',
+  concept: 'concept direction',
   hookDevice: 'hook device',
   introTexture: 'intro texture',
   arrangementDensity: 'arrangement density'
@@ -257,8 +259,10 @@ export function enforceHardLimit(
 export function composeStylePrompt(
   parts: PromptPart[],
   limit: number = SUNO_COPY_LIMIT,
-  safeTarget: number = SUNO_COPY_LIMIT
+  safeTarget: number = SUNO_COPY_LIMIT,
+  priorityOrder: PromptTermId[] = PROMPT_PRIORITY
 ): StylePromptResult {
+  const order = [...new Set([...priorityOrder, ...PROMPT_PRIORITY])];
   const atomsById = new Map<PromptTermId, string[]>();
   for (const part of parts) {
     const atoms = splitAtoms(part.text);
@@ -267,7 +271,7 @@ export function composeStylePrompt(
   }
 
   const seen = new Set<string>();
-  for (const id of PROMPT_PRIORITY) {
+  for (const id of order) {
     const atoms = atomsById.get(id);
     if (!atoms) continue;
     atomsById.set(id, atoms.filter(atom => {
@@ -278,7 +282,7 @@ export function composeStylePrompt(
     }));
   }
 
-  const nonEssentialIds = PROMPT_PRIORITY.filter(id => !ESSENTIAL_TERM_IDS.has(id));
+  const nonEssentialIds = order.filter(id => !ESSENTIAL_TERM_IDS.has(id));
   const flatAtoms: string[] = [];
   const flatIds: PromptTermId[] = [];
   for (const id of nonEssentialIds) {
@@ -306,7 +310,7 @@ export function composeStylePrompt(
   const keptAtoms: KeptPromptAtom[] = [];
   let currentLength = 0;
 
-  for (const id of PROMPT_PRIORITY) {
+  for (const id of order) {
     const atoms = atomsById.get(id);
     if (!atoms || !atoms.length) continue;
     const essential = ESSENTIAL_TERM_IDS.has(id);
@@ -373,8 +377,8 @@ export function composeStylePrompt(
   if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
     // Step 1: fully drop non-essential, non-guaranteed-minimum categories,
     // lowest priority first.
-    for (let i = PROMPT_PRIORITY.length - 1; i >= 0 && wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX; i -= 1) {
-      const id = PROMPT_PRIORITY[i];
+    for (let i = order.length - 1; i >= 0 && wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX; i -= 1) {
+      const id = order[i];
       if (ESSENTIAL_TERM_IDS.has(id) || GUARANTEED_MINIMUM_TERM_IDS.has(id)) continue;
       const remaining: KeptPromptAtom[] = [];
       let droppedAny = false;

@@ -2,7 +2,7 @@ import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, Moo
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -26,6 +26,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
+import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, variedVocalText } from './conceptDiversity';
 import {
   buildStructureTemplatePlan,
   composeLyrics,
@@ -274,7 +275,7 @@ export function rebuildStylePromptsForPersonaMode(
     const role = song.songRole || resolveSongRole(trackNo, idx);
     const openingStyle = role === 'cold-open' ? (song.openingStyle || resolveOpeningStyle(opts.openingStyle, opts.channel.archetype)) : undefined;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
-    const trackNarrativeText = arrangementNarrativeForGenres(trackGenres);
+    const trackNarrativeText = rotatingArrangementNarrativeForGenres(trackGenres, idx);
     const excludePrompt = buildExcludePrompt(opts, trackGenres);
     const composed = opts.personaMode
       ? composePersonaSongStylePrompt({
@@ -293,9 +294,11 @@ export function rebuildStylePromptsForPersonaMode(
           !(role === 'cold-open' && part.id === 'duration')
           && part.id !== 'genre'
           && part.id !== 'genreNarrative'
+          && part.id !== 'genreSignature'
           && part.id !== 'instruments'
         ),
         { id: 'genre' as const, text: rotatingGenreText(trackGenres, seed, idx) },
+        ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: trackGenres[0].signatureSound }] : []),
         ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
         ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
         ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
@@ -428,6 +431,8 @@ export function generateLocalBlueprint(
 ): PlaylistBlueprint {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
+  const conceptInfluence = resolveConceptInfluence(opts.customConcept);
+  const conceptImages = conceptLyricImages(opts.customConcept);
   const channelParts = buildChannelPromptParts(opts, genres, moods, season);
   const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, concept);
@@ -559,6 +564,7 @@ export function generateLocalBlueprint(
         pools: lyricPools,
         openingStyle,
         genreFlavorImages,
+        conceptImages,
         structureTemplate: structureTemplatePlan[idx]
       });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
@@ -570,7 +576,7 @@ export function generateLocalBlueprint(
     // preallocateSongSlots uses for the same opts/trackNo.
     const vocalDescriptionText = vocalType
       ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
-      : fallbackVocalText;
+      : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
     // kids-quota song; otherwise falls back to the matched preset's own
     // gender (mirrors batchPreallocation.ts's fallbackVocalGender) so a
@@ -589,15 +595,16 @@ export function generateLocalBlueprint(
     // arrangement narrative so the two cues do not fight each other.
     const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
-    const trackNarrativeText = arrangementNarrativeForGenres(trackGenres);
+    const trackNarrativeText = rotatingArrangementNarrativeForGenres(trackGenres, idx);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
     const excludePrompt = buildExcludePrompt(opts, trackGenres);
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
         && !(progressionPlan && part.id === 'moneyChord')
-        && !(vocalType && part.id === 'vocal')
+        && part.id !== 'vocal'
         && part.id !== 'genreNarrative'
+        && part.id !== 'genreSignature'
         && part.id !== 'instruments'
         && part.id !== 'genre'
       ),
@@ -605,19 +612,23 @@ export function generateLocalBlueprint(
       // whole-pack genre atom with a per-song rotated anchor+2-3 combination;
       // see promptComposer.ts's rotatingGenreText.
       { id: 'genre' as const, text: genreText },
+      ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: trackGenres[0].signatureSound }] : []),
       ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
+      ...(conceptInfluence ? [{ id: 'concept' as const, text: conceptStyleText(opts.customConcept, idx) }] : []),
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
       // TASK v3.33 Part C — per-song progression override when the quota plan
       // is active; channelParts' flat whole-pack moneyChord atom is filtered
       // out above for exactly this case, so there's never a duplicate.
       ...(progressionPlan
         ? [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan[idx], includeFeelReinforcement: true }) }]
-        : []),
+        : channelParts.some(part => part.id === 'moneyChord')
+          ? []
+          : [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { includeFeelReinforcement: true }) }]),
       // TASK v3.38 Part B2 — per-song vocal-type override when the kids
       // quota plan is active; this 'vocal' id is in promptBudget.ts's
       // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack
       // vocal atom it replaces.
-      ...(vocalType ? [{ id: 'vocal' as const, text: vocalDescriptionText }] : []),
+      { id: 'vocal' as const, text: vocalDescriptionText },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
       ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
       // TASK v3.42 Part A1 — always overrides channelParts' flat whole-pack
@@ -656,7 +667,8 @@ export function generateLocalBlueprint(
       : composeStylePrompt(
         songParts,
         styleLimitValue,
-        styleLimitValue
+        styleLimitValue,
+        promptPriorityForTrack(idx)
       );
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const partialSong = {

@@ -600,6 +600,7 @@ function makeProfile(categoryId: keyof typeof categoryBases, variant: GenreVaria
     goodFor: audiences,
     shortPrompt: makeShortPrompt(shape),
     styleCore: `${variant.label}, ${rhythm.slice(0, 2).join(', ')}, ${harmony[0]}, ${production[0]}`,
+    signatureSound: `${rhythm[0]}, ${instruments.slice(0, 3).join(', ')}, ${production[0]}, ${harmony[0]}`,
     productionGuidance: makeProductionGuidance(shape)
   };
 }
@@ -616,6 +617,7 @@ function legacyGenrePack(
     instruments: pack.instruments,
     vocal: structured.vocal,
     production: structured.production,
+    signatureSound: `${structured.rhythm[0]}, ${pack.instruments.slice(0, 3).join(', ')}, ${structured.production[0]}, ${structured.harmony[0]}`,
     harmony: structured.harmony,
     tempo,
     moods: structured.moods,
@@ -649,9 +651,9 @@ function legacyGenrePack(
 }
 
 export const LEAD_ARRANGEMENT_NARRATIVES = {
-  'adult-contemporary': 'BPM 96-106; Verse stays close-mic and conversational over Rhodes with a brushed pulse, pre-chorus opens wider piano voicings and a small bass rise, chorus blooms into smooth adult-pop harmony without belting, hook entry uses a brief drum-bass breath before the downbeat, mix is warm radio polish with intimate vocal grain',
+  'adult-contemporary': 'BPM 96-106; straight 4/4 pop feel with sustained piano pads and clean strummed acoustic, simple diatonic harmony with no swing and no solo, chorus uses a smooth radio lift, mix is warm and direct',
   'acoustic-pop': 'BPM 92-104; Verse begins with fingerpicked guitar and dry room vocal, pre-chorus adds soft piano answers and a gentle upper-harmony lift, chorus widens into hand-played acoustic strums with a clear singalong center, hook entry uses a rising strum into a one-beat pause, mix feels natural close and unforced',
-  'jazz-pop': 'BPM 90-104; Verse moves like a small cafe trio with brushed drums and upright bass under the vocal, pre-chorus lets Rhodes chords brighten from maj7 into add9 color, chorus opens ride cymbal and guitar comping for a velvet lift, hook entry uses a tiny bass walk-up and cymbal swell, mix is elegant small-room warmth',
+  'jazz-pop': 'BPM 82-96; light swing feel with walking upright bass and ii-V-I turnarounds, maj7/9/13 extended voicings, brushed snare with ride cymbal comping, chorus opens with a small jazz lift, bridge includes a short improvised piano or saxophone solo, warm analog room tone',
   'showa-modern': 'BPM 92-104; Verse sits in restrained kissaten swing with Rhodes and mellow guitar answering the vocal, pre-chorus opens soft strings and a rising bass step, chorus lands bittersweet but refined with brighter chord color, hook entry uses a two-bar dropout into the chorus downbeat, mix has analog tape warmth and close male-vocal presence',
   'city-pop-soft': 'BPM 98-114; Verse rides a smooth electric-piano groove with clean guitar flickers, pre-chorus filters the synth pad open and nudges the bass upward, chorus becomes wider and silkier without turning flashy, hook entry uses a glossy rising sweep into a tight drum pickup, mix is clean late-night polish with soft analog edges',
   'kids-bright-pop': 'BPM 104-120; Verse starts simple and bouncy with ukulele claps and childlike call lines, pre-chorus briefly thins the backing so the children can breathe before the hook, chorus opens with one clear handclap on the first beat and bright group singing with answer-back space, hook entry adds a tiny stop-and-go clap pickup, final chorus lets a few children echo the hook one octave higher, mix is clean sunny and never noisy',
@@ -667,9 +669,9 @@ export const LEAD_ARRANGEMENT_NARRATIVES = {
 } as const satisfies Partial<Record<string, string>>;
 
 const legacyGenreProfiles: StructuredGenrePack[] = [
-  legacyGenrePack({ id: 'adult-contemporary', label: 'Adult Contemporary Pop', styleCore: 'warm adult contemporary pop, radio-friendly, gentle emotional chorus lift', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['adult-contemporary'], instruments: ['Rhodes piano', 'acoustic guitar', 'light brushed drums', 'smooth bass'], tempoRange: [96, 106], goodFor: ['senior playlist', 'morning coffee', 'year-end'] }, 'pop', { rhythm: ['steady adult pop groove'], vocal: ['mature clear vocal'], production: ['radio-friendly polish'], harmony: ['emotional chorus lift'], moods: ['warm', 'familiar'], audiences: ['senior playlist', 'morning coffee'], avoidTraits: ['power ballad shouting'] }),
+  legacyGenrePack({ id: 'adult-contemporary', label: 'Adult Contemporary Pop', styleCore: 'warm adult contemporary pop, radio-friendly, gentle emotional chorus lift', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['adult-contemporary'], instruments: ['sustained piano pads', 'clean strummed acoustic guitar', 'straight-pop drum kit', 'rounded electric bass'], tempoRange: [96, 106], goodFor: ['senior playlist', 'morning coffee', 'year-end'] }, 'pop', { rhythm: ['straight 4/4 pop feel'], vocal: ['mature clear vocal'], production: ['radio-friendly polish'], harmony: ['simple diatonic harmony'], moods: ['warm', 'familiar'], audiences: ['senior playlist', 'morning coffee'], avoidTraits: ['swing', 'solo'] }),
   legacyGenrePack({ id: 'acoustic-pop', label: 'Acoustic Pop', styleCore: 'nostalgic acoustic pop, clear vocal, intimate warm arrangement', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['acoustic-pop'], instruments: ['fingerpicked acoustic guitar', 'soft piano', 'light percussion'], tempoRange: [92, 104], goodFor: ['home listening', 'walks', 'coffee'] }, 'pop', { rhythm: ['light acoustic pulse'], vocal: ['clear intimate vocal'], production: ['natural acoustic room'], harmony: ['simple pop lift'], moods: ['nostalgic', 'gentle'], audiences: ['home listening', 'walking playlists'], avoidTraits: ['campfire cliche'] }),
-  legacyGenrePack({ id: 'jazz-pop', label: 'Acoustic Jazz Pop', styleCore: 'nostalgic acoustic jazz-pop, elegant cafe mood, gentle maj7 and add9 colors', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jazz-pop'], instruments: ['Rhodes', 'upright bass', 'brushed drums', 'mellow jazz guitar'], tempoRange: [90, 104], goodFor: ['kissaten', 'night cafe', 'winter'] }, 'jazz', { rhythm: ['soft jazz-pop swing'], vocal: ['warm cafe vocal'], production: ['elegant small-room mix'], harmony: ['maj7 and add9 color'], moods: ['elegant', 'nostalgic'], audiences: ['cafe playlists', 'winter listening'], avoidTraits: ['busy bebop lines'] }),
+  legacyGenrePack({ id: 'jazz-pop', label: 'Acoustic Jazz Pop', styleCore: 'nostalgic acoustic jazz-pop, elegant cafe mood, gentle maj7 and add9 colors', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jazz-pop'], instruments: ['Rhodes comping piano', 'walking upright bass', 'brushed snare with ride comping', 'mellow jazz guitar'], tempoRange: [82, 96], goodFor: ['kissaten', 'night cafe', 'winter'] }, 'jazz', { rhythm: ['light swing feel', 'walking bass'], vocal: ['warm cafe vocal'], production: ['warm analog room tone'], harmony: ['ii-V-I turnarounds', 'maj7/9/13 extended voicings'], moods: ['elegant', 'nostalgic'], audiences: ['cafe playlists', 'winter listening'], avoidTraits: ['flat straight pop', 'showy solo clutter'] }),
   legacyGenrePack({ id: 'showa-modern', label: 'Showa Modern Cafe', styleCore: 'showa-modern cafe mood, nostalgic but refined, subtle retro Japanese kissaten warmth', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['showa-modern'], instruments: ['Rhodes', 'mellow jazz guitar', 'upright bass', 'soft strings'], tempoRange: [92, 104], goodFor: ['Japan channel', 'retro cafe', 'autumn'] }, 'jazz', { rhythm: ['restrained cafe swing'], vocal: ['mature soft tenor'], production: ['subtle retro warmth'], harmony: ['jazz-colored cafe chords'], moods: ['refined', 'bittersweet'], audiences: ['Japan channel', 'retro cafe'], avoidTraits: ['cheap retro props'] }),
   legacyGenrePack({ id: 'city-pop-soft', label: 'Soft City Pop', styleCore: 'soft city-pop inspired adult pop, smooth groove, clean late-night city mood', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['city-pop-soft'], instruments: ['electric piano', 'clean guitar', 'soft synth pad', 'smooth bass'], tempoRange: [98, 114], goodFor: ['Japan', 'night city', 'stylish senior'] }, 'city-pop', { rhythm: ['smooth city-pop groove'], vocal: ['silky adult pop vocal'], production: ['clean late-night polish'], harmony: ['jazzy pop chords'], moods: ['urban', 'nostalgic'], audiences: ['night city playlists', 'Japan channel'], avoidTraits: ['overbright synth brass'] }),
   legacyGenrePack({ id: 'lofi-cafe', label: 'Lo-fi Cafe Pop', styleCore: 'warm lo-fi cafe pop, relaxed groove, soft vinyl texture', instruments: ['lo-fi drums', 'electric piano', 'warm bass', 'soft guitar'], tempoRange: [82, 96], goodFor: ['study', 'coffee', 'background'] }, 'lofi', { rhythm: ['relaxed lo-fi groove'], vocal: ['optional soft vocal'], production: ['soft vinyl texture'], harmony: ['simple jazzy loop'], moods: ['cozy', 'focused'], audiences: ['study', 'coffee'], avoidTraits: ['loud crackle'] }),
@@ -1194,9 +1196,28 @@ export const notionDerivedGenrePacks: StructuredGenrePack[] = [
   ...balladVariants.map(variant => makeProfile('ballad', variant))
 ];
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre =>
-  CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...genre, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : genre
-);
+const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
+  'adult-contemporary': 'straight 4/4 pop feel, sustained piano pads, clean strummed acoustic, simple diatonic harmony, no swing, no solo',
+  'acoustic-pop': 'fingerpicked acoustic guitar, soft piano answers, light hand percussion, natural close room, simple singalong harmony',
+  'jazz-pop': 'light swing feel, walking upright bass, ii-V-I turnarounds, maj7/9/13 extended voicings, brushed snare with ride cymbal comping, short improvised piano or saxophone solo in the bridge, warm analog room tone',
+  'bossa-cafe': 'bossa nova clave, nylon-string guitar comping on offbeats, soft surdo-less percussion, gentle syncopation, Portuguese-jazz harmony',
+  'retro-soul-pop': 'sixteenth-note hi-hat groove, tight horn section stabs, electric bass with ghost notes, gospel-tinged backing vocals, tape saturation',
+  'city-pop-soft': 'slap/round electric bass, electric piano and clean chorus guitar, syncopated 16th groove, bright polished chorus, gated reverb touches',
+  'showa-modern': 'restrained kissaten swing, Rhodes comping, walking upright bass, muted jazz guitar fills, IVmaj7-iii7 color, tape-warm close-room mix',
+  'lofi-cafe': 'lazy behind-the-beat lo-fi pocket, dusty electric piano, soft muted drums, rounded bass loop, restrained vinyl room texture',
+  'christmas-soft-pop': 'straight seasonal pop pulse, acoustic guitar and Rhodes pads, restrained sleigh bells only in chorus, warm choral lift, clean radio mix',
+  'healing-ballad': 'slow 4/4 pulse, felt piano arpeggios, suspended add9 harmony, soft string swells, intimate dry verse, no rhythmic drive',
+  'folk-pop': 'steady strummed folk pulse, fingerpicked acoustic answers, light mandolin texture, plainspoken harmony, natural room recording',
+  'soft-rock': 'straight eighth-note rock pulse, clean electric guitar layers, live snare backbeat, rounded bass, wide radio guitars, restrained solo',
+  'piano-ballad': 'slow rubato-to-4/4 piano pulse, suspended piano voicings, soft string counterlines, minimal drums, cinematic room bloom',
+  'synthwave-mellow': 'steady electronic four-on-the-floor pulse, analog pad arpeggios, chorus guitar, gated drum ambience, neon stereo width',
+  'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
+};
+
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+  const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...genre, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : genre;
+  return CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...enriched, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : enriched;
+});
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;
 export const totalGenreCount = genreLibrary.length;
