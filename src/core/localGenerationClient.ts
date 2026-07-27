@@ -1,3 +1,4 @@
+import LocalGenerationWorker from '../workers/localGenerationWorker?worker';
 import { generateLocalBlueprint } from './localGenerator';
 import { scoreSongs } from './quality';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, SeasonPack } from '../types';
@@ -22,11 +23,13 @@ function generateSynchronously(
 }
 
 /**
- * Browser UI path for local generation. The old implementation ran the full
- * lyric/title/prompt pipeline synchronously inside the React click handler,
- * so a large hook history or pack could trigger Chrome's "page unresponsive"
- * dialog. Vite bundles this module worker separately; Node/tests keep the pure
- * synchronous fallback because Worker is unavailable there.
+ * Browser UI path for local generation.
+ *
+ * The browser must never fall back to the synchronous generator: that fallback
+ * was effectively the old freeze bug whenever module-worker construction was
+ * blocked by a stale dev bundle, extension, or browser policy. Vite's ?worker
+ * constructor makes the worker bundle explicit and reliable. The synchronous
+ * path remains only for Node/Vitest, where Worker is unavailable by design.
  */
 export async function generateLocalBlueprintResponsive(
   opts: GenerationOptions,
@@ -42,15 +45,16 @@ export async function generateLocalBlueprintResponsive(
 
   let worker: Worker;
   try {
-    worker = new Worker(new URL('../workers/localGenerationWorker.ts', import.meta.url), { type: 'module' });
-  } catch {
-    return generateSynchronously(opts, genres, moods, season, avoid, promptCharLimit);
+    worker = new LocalGenerationWorker();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`로컬 생성 Worker를 시작하지 못했습니다: ${detail}. 브라우저 탭을 모두 닫고 개발 서버를 다시 시작하세요.`);
   }
 
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       worker.terminate();
-      reject(new Error('로컬 생성 시간이 너무 오래 걸려 중단했습니다. 다른 탭을 닫고 다시 시도하세요.'));
+      reject(new Error('로컬 생성 시간이 120초를 넘겨 중단했습니다. 브라우저의 사이트 데이터를 초기화한 뒤 다시 시도하세요.'));
     }, 120_000);
 
     const finish = () => {
@@ -71,6 +75,16 @@ export async function generateLocalBlueprintResponsive(
       finish();
       reject(new Error(event.message || '로컬 생성 Worker가 중단되었습니다.'));
     };
-    worker.postMessage({ opts, genres, moods, season, avoid, promptCharLimit });
+    worker.onmessageerror = () => {
+      finish();
+      reject(new Error('로컬 생성 Worker 결과를 브라우저가 읽지 못했습니다.'));
+    };
+
+    try {
+      worker.postMessage({ opts, genres, moods, season, avoid, promptCharLimit });
+    } catch (error) {
+      finish();
+      reject(new Error(`로컬 생성 데이터를 Worker로 전달하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`));
+    }
   });
 }
