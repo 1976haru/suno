@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, importPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
+import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAllPacks, listPacks, loadPack, renamePack, savePack } from '../core/library';
+import { importPacksResponsive } from '../core/backupImportClient';
 import { clearAllSettings } from '../core/settingsStore';
 import { clearAllHookHistory, forgetPack, recordPackHooks } from '../core/hookLedger';
 import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
@@ -95,7 +96,7 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
   }
 
   async function importAll(file: File) {
-    await importPacks(file);
+    await importPacksResponsive(file);
     await refresh();
   }
 
