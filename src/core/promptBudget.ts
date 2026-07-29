@@ -8,6 +8,7 @@
 export const SUNO_STYLE_LIMIT = 1000;
 export const SAFE_TARGET = 900;
 export const SUNO_COPY_LIMIT = SUNO_STYLE_LIMIT;
+export const STYLE_PROMPT_OVER_LIMIT_WARNING = '스타일 프롬프트가 1000자를 초과합니다 - 수동 확인 필요';
 
 /** TASK F1 (v3.7) — selectable in Settings; see SettingsModal.tsx. */
 export const SUNO_STYLE_LIMIT_PRESETS = [
@@ -47,8 +48,9 @@ export const STYLE_WORD_TARGET_MAX = 50;
  * instead the trim loop below reduces them to a guaranteed-minimum atom count
  * rather than dropping the whole category.
  */
-export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice']);
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice']);
 export const GENRE_NARRATIVE_FLOOR_ATOMS = 5;
+export const CONCEPT_FLOOR_ATOMS = 2;
 export const MOOD_FLOOR_ATOMS = 1;
 export const INSTRUMENTS_FLOOR_ATOMS = 2;
 /**
@@ -108,7 +110,7 @@ export const PROMPT_PRIORITY: PromptTermId[] = [
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-  export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'genreSignature', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo', 'concept']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'genreSignature', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: 'genre',
@@ -137,6 +139,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
 export interface PromptPart {
   id: PromptTermId;
   text: string | undefined | null;
+  /** Optional compressed replacement for an essential atom group under hard character-budget pressure. */
+  shortForm?: string | undefined | null;
 }
 
 export interface StylePromptResult {
@@ -147,6 +151,7 @@ export interface StylePromptResult {
   /** TASK F3 (v3.7) — comma/whitespace word count of the final prompt; see STYLE_WORD_TARGET_MAX. */
   wordCount: number;
   withinWordTarget: boolean;
+  warnings: string[];
 }
 
 interface KeptPromptAtom {
@@ -221,6 +226,86 @@ function addDroppedLabel(droppedTerms: string[], id: PromptTermId) {
   if (!droppedTerms.includes(label)) droppedTerms.push(label);
 }
 
+function addWarning(warnings: string[], warning: string) {
+  if (!warnings.includes(warning)) warnings.push(warning);
+}
+
+function promptText(atoms: KeptPromptAtom[]): string {
+  return atoms.map(atom => atom.text).join(', ');
+}
+
+function promptLength(atoms: KeptPromptAtom[]): number {
+  return promptText(atoms).length;
+}
+
+function shortFormAtomsFor(part: PromptPart, atoms: string[]): string[] {
+  const explicitShortForm = splitAtoms(part.shortForm);
+  if (explicitShortForm.length) return explicitShortForm.slice(0, 3);
+  if (part.id !== 'genreSignature') return [];
+  return atoms.slice(0, 3);
+}
+
+function replaceTermWithShortForm(
+  atoms: KeptPromptAtom[],
+  id: PromptTermId,
+  shortAtomsById: Map<PromptTermId, string[]>
+): KeptPromptAtom[] | null {
+  const shortAtoms = shortAtomsById.get(id);
+  if (!shortAtoms?.length || !atoms.some(atom => atom.id === id)) return null;
+  const replaced = atoms.filter(atom => atom.id !== id);
+  const firstIndex = atoms.findIndex(atom => atom.id === id);
+  const insertAt = firstIndex < 0 ? replaced.length : replaced.filter((_, index) => index < firstIndex).length;
+  replaced.splice(insertAt, 0, ...shortAtoms.map(text => ({ id, text })));
+  return promptLength(replaced) < promptLength(atoms) ? replaced : null;
+}
+
+function lowestPriorityDroppableId(atoms: KeptPromptAtom[], order: PromptTermId[]): PromptTermId | null {
+  for (let i = order.length - 1; i >= 0; i -= 1) {
+    const id = order[i];
+    if (ESSENTIAL_TERM_IDS.has(id)) continue;
+    if (atoms.some(atom => atom.id === id)) return id;
+  }
+  return null;
+}
+
+function compressHardLimitWithGuard(
+  atoms: KeptPromptAtom[],
+  limit: number,
+  order: PromptTermId[],
+  shortAtomsById: Map<PromptTermId, string[]>,
+  droppedTerms: string[]
+): KeptPromptAtom[] {
+  let finalAtoms = [...atoms];
+  const maxIterations = Math.max(1, finalAtoms.length * 2);
+  let usedGenreSignatureShortForm = false;
+
+  for (let iteration = 0; iteration < maxIterations && promptLength(finalAtoms) > limit; iteration += 1) {
+    const beforeLength = promptLength(finalAtoms);
+    let nextAtoms: KeptPromptAtom[] | null = null;
+
+    if (!usedGenreSignatureShortForm) {
+      nextAtoms = replaceTermWithShortForm(finalAtoms, 'genreSignature', shortAtomsById);
+      usedGenreSignatureShortForm = true;
+    }
+
+    if (!nextAtoms) {
+      const id = lowestPriorityDroppableId(finalAtoms, order);
+      if (id) {
+        nextAtoms = finalAtoms.filter(atom => atom.id !== id);
+        addDroppedLabel(droppedTerms, id);
+      }
+    }
+
+    if (!nextAtoms) break;
+
+    const afterLength = promptLength(nextAtoms);
+    if (afterLength >= beforeLength) break;
+    finalAtoms = nextAtoms;
+  }
+
+  return finalAtoms;
+}
+
 /**
  * TASK F5 (v3.7) regression fix — this used to cut whatever came next once
  * the running length crossed `limit`, with no idea which atoms were
@@ -264,10 +349,15 @@ export function composeStylePrompt(
 ): StylePromptResult {
   const order = [...new Set([...priorityOrder, ...PROMPT_PRIORITY])];
   const atomsById = new Map<PromptTermId, string[]>();
+  const shortAtomsById = new Map<PromptTermId, string[]>();
   for (const part of parts) {
     const atoms = splitAtoms(part.text);
     if (!atoms.length) continue;
     atomsById.set(part.id, [...(atomsById.get(part.id) || []), ...atoms]);
+    const shortAtoms = shortFormAtomsFor(part, atoms);
+    if (shortAtoms.length) {
+      shortAtomsById.set(part.id, [...(shortAtomsById.get(part.id) || []), ...shortAtoms]);
+    }
   }
 
   const seen = new Set<string>();
@@ -280,6 +370,17 @@ export function composeStylePrompt(
       seen.add(key);
       return true;
     }));
+  }
+  for (const id of order) {
+    const atoms = shortAtomsById.get(id);
+    if (!atoms) continue;
+    const seenShortAtoms = new Set<string>();
+    shortAtomsById.set(id, atoms.filter(atom => {
+      const key = normalizeAtomKey(atom);
+      if (seenShortAtoms.has(key)) return false;
+      seenShortAtoms.add(key);
+      return true;
+    }).slice(0, 3));
   }
 
   const nonEssentialIds = order.filter(id => !ESSENTIAL_TERM_IDS.has(id));
@@ -307,6 +408,7 @@ export function composeStylePrompt(
   cappedAtoms.forEach(({ id, text }) => atomsById.get(id)!.push(text));
 
   const droppedTerms: string[] = [];
+  const warnings: string[] = [];
   const keptAtoms: KeptPromptAtom[] = [];
   let currentLength = 0;
 
@@ -340,7 +442,7 @@ export function composeStylePrompt(
   // category has already been dropped entirely. This is what makes genre
   // selection actually audible — before this, mood/instruments were dropped
   // to zero every time the (unreachable) 30-word target was in effect.
-  let finalAtoms = [...hardLimited.atoms];
+  let finalAtoms = compressHardLimitWithGuard(hardLimited.atoms, limit, order, shortAtomsById, droppedTerms);
   const wordCountOf = (atoms: KeptPromptAtom[]) => countWords(atoms.map(atom => atom.text).join(', '));
 
   function reduceToFloor(atoms: KeptPromptAtom[], id: PromptTermId, floor: number): KeptPromptAtom[] {
@@ -400,6 +502,12 @@ export function composeStylePrompt(
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
       finalAtoms = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS);
     }
+    // Keep custom concept influence audible in normal prompts, but only as
+    // compact cues under the soft word budget. It remains non-essential
+    // for the hard 1,000-character budget.
+    if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+      finalAtoms = reduceToFloor(finalAtoms, 'concept', CONCEPT_FLOOR_ATOMS);
+    }
     // Step 1.6 (v3.15): still over budget, reduce earworm down to its floor
     // ahead of instruments/mood.
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
@@ -425,12 +533,18 @@ export function composeStylePrompt(
 
   const prompt = finalAtoms.map(atom => atom.text).join(', ');
   const wordCount = countWords(prompt);
+  if (prompt.length > limit) {
+    addWarning(warnings, limit === SUNO_COPY_LIMIT
+      ? STYLE_PROMPT_OVER_LIMIT_WARNING
+      : `스타일 프롬프트가 ${limit}자를 초과합니다 - 수동 확인 필요`);
+  }
   return {
     prompt,
     length: prompt.length,
     withinLimit: prompt.length <= limit,
     wordCount,
     withinWordTarget: wordCount <= STYLE_WORD_TARGET_MAX,
-    droppedTerms
+    droppedTerms,
+    warnings
   };
 }

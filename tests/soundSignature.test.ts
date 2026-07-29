@@ -31,7 +31,7 @@ describe('sound signature', () => {
     const text = signature.full.toLowerCase();
     const genreIndex = text.indexOf('warm adult contemporary pop');
     const moodIndex = text.indexOf('nostalgic');
-    const instrumentIndex = text.indexOf('rhodes piano');
+    const instrumentIndex = text.indexOf(testGenres[0].instruments[0].toLowerCase());
     const vocalIndex = text.indexOf('male');
     const productionIndex = text.indexOf('analog mix');
     expect(genreIndex).toBeGreaterThanOrEqual(0);

@@ -42,6 +42,7 @@ describe('[P0-1] every generated stylePrompt fits Suno\'s 1,000-char style field
   it('[A2] essential terms are never excluded, even under a tiny budget', () => {
     const parts = [
       { id: 'genre' as const, text: 'warm adult contemporary pop' },
+      { id: 'genreSignature' as const, text: 'straight 4/4 pop feel' },
       { id: 'vocal' as const, text: 'mature soulful male tenor' },
       { id: 'hook' as const, text: 'hook "Hold On" must open and close every chorus' },
       { id: 'moneyChord' as const, text: 'money chord foundation: I-V-vi-IV' },

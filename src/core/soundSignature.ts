@@ -107,9 +107,49 @@ function joinWithin(atoms: string[], limit: number): string {
   return first.length <= limit ? first : first.slice(0, Math.max(0, limit - 1)).trim();
 }
 
+function joinShortSignature(input: {
+  genreAtom: string;
+  moods: string[];
+  instruments: string[];
+  vocal: string;
+  production: string[];
+}): string {
+  const production = input.production.map(sanitizeAtom).find(Boolean);
+  const prefix = dedupeAtoms([
+    input.genreAtom,
+    ...input.moods.slice(0, 1),
+    ...input.instruments.slice(0, 2)
+  ]).filter(isAllowedSignatureAtom);
+  const vocal = sanitizeAtom(input.vocal);
+  const requiredTail = [vocal, production].filter(Boolean);
+  while (prefix.length && [...prefix, ...requiredTail].join(', ').length > SHORT_SIGNATURE_TARGET) {
+    prefix.pop();
+  }
+  const kept = [...prefix, vocal].filter(Boolean);
+  if (production) {
+    const candidate = [...kept, production].join(', ');
+    if (candidate.length <= SHORT_SIGNATURE_TARGET) kept.push(production);
+  }
+  return kept.join(', ');
+}
+
 function resolveGenre(id: string | undefined): GenrePack | undefined {
   if (!id) return undefined;
   return genrePacks.find(genre => genre.id === id);
+}
+
+function compactSignatureInstrument(value: string): string {
+  return sanitizeAtom(value)
+    .replace(/^clean strummed acoustic guitar$/i, 'acoustic guitar')
+    .replace(/^fingerpicked acoustic guitar$/i, 'acoustic guitar')
+    .replace(/^straight-pop drum kit$/i, 'soft drum kit');
+}
+
+function shortSignatureInstruments(instruments: string[]): string[] {
+  const compacted = dedupeAtoms(instruments.map(compactSignatureInstrument));
+  const guitar = compacted.find(instrument => /\bguitar\b/i.test(instrument));
+  if (!guitar) return compacted;
+  return [guitar, ...compacted.filter(instrument => instrument !== guitar)];
 }
 
 function primaryGenreAtom(genre: GenrePack | undefined) {
@@ -250,16 +290,9 @@ export function buildSoundSignature(
   const genreAtom = primaryGenreAtom(primaryGenre);
   const moods = dedupeAtoms(moodAtoms(opts)).slice(0, 2);
   const instruments = dedupeAtoms((primaryGenre?.instruments || []).filter(isAllowedSignatureAtom)).slice(0, 3);
+  const shortInstruments = shortSignatureInstruments(primaryGenre?.instruments || []).slice(0, 3);
   const vocal = compactVocalAtom(opts.vocalTone || blueprint.vocalSignature || channel.defaultVocal);
   const production = productionAtoms(primaryGenre);
-
-  const shortAtoms = dedupeAtoms([
-    genreAtom,
-    ...moods.slice(0, 1),
-    ...instruments.slice(0, 2),
-    vocal,
-    ...production.slice(0, 1)
-  ]).filter(isAllowedSignatureAtom);
 
   const fullAtoms = dedupeAtoms([
     genreAtom,
@@ -271,7 +304,7 @@ export function buildSoundSignature(
     ...(primaryGenre?.rhythm || []).slice(0, 2)
   ]).filter(isAllowedSignatureAtom);
 
-  const short = joinWithin(shortAtoms, SHORT_SIGNATURE_TARGET);
+  const short = joinShortSignature({ genreAtom, moods, instruments: shortInstruments, vocal, production });
   const full = joinWithin(fullAtoms, FULL_SIGNATURE_LIMIT);
   return {
     short,

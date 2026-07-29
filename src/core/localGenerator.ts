@@ -3,7 +3,7 @@ import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
-import { composeStylePrompt, countWords, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
+import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
@@ -222,6 +222,28 @@ function resolvePersonaTrackLimit(styleLimit: number | undefined, trackNo: numbe
   return trackNo === 1 ? base : Math.min(base, PERSONA_STYLE_LIMIT);
 }
 
+function stylePromptOverLimitWarning(limit: number) {
+  return limit === SUNO_COPY_LIMIT
+    ? STYLE_PROMPT_OVER_LIMIT_WARNING
+    : `스타일 프롬프트가 ${limit}자를 초과합니다 - 수동 확인 필요`;
+}
+
+function mergeWarnings(...groups: Array<readonly string[] | undefined>): string[] {
+  const warnings: string[] = [];
+  for (const group of groups) {
+    for (const warning of group || []) {
+      if (!warnings.includes(warning)) warnings.push(warning);
+    }
+  }
+  return warnings;
+}
+
+function warningsForComposedPrompt(composed: { withinLimit: boolean; warnings?: string[] }, limit: number) {
+  return composed.withinLimit
+    ? mergeWarnings(composed.warnings)
+    : mergeWarnings(composed.warnings, [stylePromptOverLimitWarning(limit)]);
+}
+
 /** TASK v3.24 — exported for claudeCodeBridge.ts's importSongsJson: an imported song list still needs the same pack-level identity (oneLineConcept/sonicSignature/vocalSignature/lyricRules/harmonyRules/visualRules) any other blueprint has, computed the same deterministic (no-API-call) way local generation already does. */
 export function buildSignatureBlueprint(
   opts: GenerationOptions,
@@ -317,6 +339,7 @@ export function rebuildStylePromptsForPersonaMode(
         }
       ], styleLimitValue, styleLimitValue);
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
+    const promptWarnings = warningsForComposedPrompt(composed, styleLimitValue);
     return {
       ...song,
       stylePrompt,
@@ -325,6 +348,7 @@ export function rebuildStylePromptsForPersonaMode(
       genreText: rotatingGenreText(trackGenres, seed, idx),
       songRole: role,
       openingStyle,
+      warnings: mergeWarnings(song.warnings, promptWarnings),
       promptLength: stylePrompt.length,
       promptWithinLimit: stylePrompt.length <= styleLimitValue,
       promptDroppedTerms: composed.droppedTerms,
@@ -671,6 +695,7 @@ export function generateLocalBlueprint(
         promptPriorityForTrack(idx)
       );
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
+    const promptWarnings = warningsForComposedPrompt(composed, opts.personaMode ? resolvePersonaTrackLimit(styleLimit, trackNo) : styleLimitValue);
     const partialSong = {
       trackNo,
       title,
@@ -693,7 +718,7 @@ export function generateLocalBlueprint(
       youtubeTitleKo: `${title} | ${season.label} ${opts.channel.name} 플레이리스트`,
       youtubeTitleJa: `${title} | ${season.label} ${opts.channel.name} プレイリスト`,
       qualityScore: 0,
-      warnings: [],
+      warnings: promptWarnings,
       promptLength: stylePrompt.length,
       promptWithinLimit: stylePrompt.length <= styleLimitValue,
       promptDroppedTerms: composed.droppedTerms,

@@ -110,11 +110,11 @@ export function variedVocalText(base: string, index: number, genre?: GenrePack, 
 
 export function promptPriorityForTrack(index: number): PromptTermId[] {
   const rotations: PromptTermId[][] = [
-    ['vocal', 'genreSignature', 'genreNarrative', 'moneyChord', 'duration', 'hook', 'hookDevice', 'genre', 'concept', 'instruments'],
-    ['genreSignature', 'genreNarrative', 'concept', 'genre', 'duration', 'hook', 'hookDevice', 'vocal', 'instruments'],
-    ['instruments', 'genreSignature', 'genre', 'concept', 'duration', 'hook', 'hookDevice', 'genreNarrative', 'vocal'],
-    ['vocal', 'genreSignature', 'genre', 'genreNarrative', 'duration', 'hook', 'hookDevice', 'concept', 'instruments'],
-    ['moneyChord', 'genreSignature', 'genre', 'concept', 'duration', 'hook', 'hookDevice', 'instruments', 'vocal']
+    ['vocal', 'genreSignature', 'concept', 'genreNarrative', 'moneyChord', 'duration', 'hook', 'hookDevice', 'genre', 'instruments'],
+    ['genreSignature', 'concept', 'genreNarrative', 'genre', 'duration', 'hook', 'hookDevice', 'vocal', 'instruments'],
+    ['instruments', 'genreSignature', 'concept', 'genre', 'duration', 'hook', 'hookDevice', 'genreNarrative', 'vocal'],
+    ['vocal', 'genreSignature', 'concept', 'genre', 'genreNarrative', 'duration', 'hook', 'hookDevice', 'instruments'],
+    ['moneyChord', 'genreSignature', 'concept', 'genre', 'duration', 'hook', 'hookDevice', 'instruments', 'vocal']
   ];
   return rotations[Math.abs(index) % rotations.length];
 }

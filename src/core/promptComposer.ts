@@ -310,8 +310,11 @@ export function rotatingArrangementNarrativeForGenres(genres: GenrePack[], index
     atoms.findIndex(atom => /chorus/i.test(atom))
   ].filter(index => index >= 0);
   const selectedIndexes = new Set<number>(requiredIndexes);
-  for (let offset = 0; selectedIndexes.size < count; offset++) {
+  for (let offset = 0; selectedIndexes.size < count && offset < atoms.length; offset++) {
     selectedIndexes.add((Math.abs(index) * 2 + offset * 2) % atoms.length);
+  }
+  for (let offset = 0; selectedIndexes.size < count && offset < atoms.length; offset++) {
+    selectedIndexes.add((Math.abs(index) + offset) % atoms.length);
   }
   const selected = Array.from(selectedIndexes).sort((a, b) => a - b).map(atomIndex => atoms[atomIndex]);
   return selected.join(', ');
