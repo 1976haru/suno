@@ -254,6 +254,20 @@ export interface SongIdea {
   aiDraftLyrics?: string;
   /** v3.48: optional manual singing-pronunciation notes, especially for Japanese lines. */
   japanesePronunciationHints?: string;
+  /**
+   * v3.57: Korean/Japanese lyric-line translations for CapCut SRT subtitle
+   * export (see core/srtExport.ts). Each array is line-aligned with
+   * core/srtExport.ts's extractLyricLines(lyrics) output — same length and
+   * order, one translated line per sung lyric line (section tags, the
+   * vocal-meta-tag line, and the "Title:" line are never part of this list).
+   * Not auto-invalidated if lyrics are edited afterward (same as this app's
+   * other derived/optional fields, e.g. promptLength) — a stale translation
+   * just means re-generating it before the next SRT export.
+   */
+  lyricTranslations?: {
+    ko?: string[];
+    ja?: string[];
+  };
   /** TASK v3.23 — the app no longer asks the API for this (user makes thumbnails externally); optional so old saved packs that still have it keep rendering/exporting fine. */
   thumbnailText?: string;
   youtube: YoutubeMetadata;

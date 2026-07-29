@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
 import ThumbnailImageStudioPanel from '../ThumbnailImageStudioPanel';
 import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
+import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
 import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
@@ -13,12 +14,13 @@ import { exportDocxBlob } from '../../utils/docxExporter';
 import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
 import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
+import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
-export type ResultTab = 'songs' | 'thumbnail' | 'persona';
+export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -71,6 +73,8 @@ interface Step4ResultProps {
   onUpdateLyrics: (trackNo: number, lyrics: string) => void;
   onRegenerateLyricLine: (trackNo: number, zeroBasedLineIndex: number) => void;
   onUpdatePronunciationHints: (trackNo: number, text: string) => void;
+  /** v3.57 — applies a batch of trackNo -> {ko?, ja?} lyric-line translations onto the current blueprint (see core/lyricsTranslation.ts), for the SRT export panel's CapCut subtitle workflow. */
+  onUpdateLyricTranslations: (translations: Map<number, LyricTranslationResult>) => void;
   focusTab?: ResultTab;
 }
 
@@ -121,6 +125,7 @@ export default function Step4Result({
   onUpdateLyrics,
   onRegenerateLyricLine,
   onUpdatePronunciationHints,
+  onUpdateLyricTranslations,
   focusTab
 }: Step4ResultProps) {
   const [evalScope, setEvalScope] = useState<'all' | 'selected'>('all');
@@ -309,6 +314,10 @@ export default function Step4Result({
             <Mic2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             Persona / Sound
           </button>
+          <button type="button" className={resultTab === 'srt' ? 'tab active' : 'tab'} onClick={() => setResultTab('srt')}>
+            <Captions size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            🎬 자막(SRT)
+          </button>
         </div>
       )}
 
@@ -332,6 +341,14 @@ export default function Step4Result({
           defaultSeasonId={thumbnailSeasonId}
           defaultArchetypeId={thumbnailArchetypeId}
           textModelSettings={textModelSettings}
+        />
+      )}
+
+      {blueprint && resultTab === 'srt' && (
+        <SrtExportPanel
+          blueprint={blueprint}
+          textModelSettings={textModelSettings}
+          onUpdateLyricTranslations={onUpdateLyricTranslations}
         />
       )}
 

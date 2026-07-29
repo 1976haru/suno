@@ -18,6 +18,7 @@ import { getSetting, setSetting } from './core/settingsStore';
 import { mergeRestoredProviderSettings, sanitizeProviderSettingsForPersistence } from './core/providerSettingsPersistence';
 import { rebuildStylePromptsForPersonaMode } from './core/localGenerator';
 import { applyLyricWorkspaceEdit, applyPronunciationHints, regenerateSingleLyricLine } from './core/lyricAuthorship';
+import type { LyricTranslationResult } from './core/lyricsTranslation';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
 import { promoteTrackToOpeningRole } from './core/openingOverride';
 import { regenerateTrack } from './providers';
@@ -663,6 +664,25 @@ export default function App() {
     });
   }
 
+  /** v3.57 — merges a batch of trackNo -> {ko?, ja?} lyric-line translations (core/lyricsTranslation.ts) into the current blueprint; only touches lyricTranslations, never the lyrics text itself. A song not present in the map is left unchanged. */
+  function onUpdateLyricTranslations(translations: Map<number, LyricTranslationResult>) {
+    if (!gen.blueprint) return;
+    gen.setBlueprint({
+      ...gen.blueprint,
+      songs: gen.blueprint.songs.map(song => {
+        const update = translations.get(song.trackNo);
+        if (!update) return song;
+        return {
+          ...song,
+          lyricTranslations: {
+            ko: update.ko ?? song.lyricTranslations?.ko,
+            ja: update.ja ?? song.lyricTranslations?.ja
+          }
+        };
+      })
+    });
+  }
+
   function onEvaluate(scopeTrackNos?: number[]) {
     if (!gen.blueprint) return;
     void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider, scopeTrackNos);
@@ -925,6 +945,7 @@ export default function App() {
               onUpdateLyrics={onUpdateLyrics}
               onRegenerateLyricLine={onRegenerateLyricLine}
               onUpdatePronunciationHints={onUpdatePronunciationHints}
+              onUpdateLyricTranslations={onUpdateLyricTranslations}
               focusTab={workspaceFocus}
             />
           )}
