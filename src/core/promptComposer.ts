@@ -415,6 +415,31 @@ export function rotatingGenreText(genres: GenrePack[], seed: number, index: numb
 }
 
 /**
+ * TASK v3.56 Part 2 — genreSignature was always attached verbatim (see
+ * localGenerator.ts), so any song whose per-track PROMPT_PRIORITY rotation
+ * (conceptDiversity.ts's promptPriorityForTrack) put genreSignature first in
+ * the style prompt opened on the exact same literal clause every time (the
+ * primary genre never changes within a pack, and its signatureSound text is
+ * static) — a real measured cause of low opening-clause diversity across an
+ * 18-song set. Same anchor+rotate principle as rotatingInstrumentText/
+ * rotatingGenreText: the first atom (the genre's core identity, e.g. jazz-pop's
+ * "light swing feel") stays the anchor so the essential identity is never
+ * lost, but which of the remaining atoms lead varies per song, so a
+ * genreSignature-first opening reads differently track to track instead of
+ * repeating byte-for-byte.
+ */
+export function rotatingGenreSignatureText(genres: GenrePack[], seed: number, index: number): string {
+  const signature = genres[0]?.signatureSound;
+  if (!signature) return '';
+  const atoms = signature.split(',').map(atom => atom.trim()).filter(Boolean);
+  if (atoms.length <= 2) return signature;
+  const [anchor, ...rest] = atoms;
+  const shuffled = shuffle(rest, seed + index * 211);
+  const extraCount = Math.min(rest.length, 2 + (index % 3));
+  return [anchor, ...shuffled.slice(0, extraCount)].join(', ');
+}
+
+/**
  * TASK v3.42 Part A3 — rotates a song's arrangement weight through 3 levels
  * so the same genre doesn't render at identical density every time. Plain
  * index-modulo rotation (not shuffled) so the 3 levels visit every song

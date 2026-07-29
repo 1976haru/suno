@@ -63,6 +63,10 @@ export interface GenrePack {
   styleCore: string;
   /** Compact genre fingerprint: rhythm, signature instruments, and production color. */
   signatureSound?: string;
+  /** v3.56: compressed replacement for signatureSound under hard character-budget pressure (stage 2 of the full/short/minimal abbreviation ladder — see core/promptBudget.ts). */
+  shortSignatureSound?: string;
+  /** v3.56: further-compressed replacement for signatureSound, used only when short form still doesn't fit (stage 3 of the abbreviation ladder). */
+  minimalSignatureSound?: string;
   /** Optional section-by-section arrangement narrative for lead genres only. Flat tag fields stay as the backward-compatible baseline. */
   arrangementNarrative?: string;
   instruments: string[];

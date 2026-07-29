@@ -170,7 +170,12 @@ export const SENIOR_MORNING_CORE_GENRE_IDS = [
   'retro-soul-pop',
   'bossa-cafe',
   'christmas-soft-pop',
-  'folk-pop'
+  'folk-pop',
+  // TASK v3.56 Part 3 — chanson/smooth-jazz-lounge added as senior/cafe
+  // channel genres (see presets.ts's rawGenrePacks for the pack definitions
+  // and signatureOverrides for their full/short/minimal genre signatures).
+  'chanson',
+  'smooth-jazz-lounge'
 ] as const;
 
 export const SHOWA_CAFE_CORE_GENRE_IDS = [
@@ -183,7 +188,9 @@ export const SHOWA_CAFE_CORE_GENRE_IDS = [
   'christmas-soft-pop',
   'jazz-classic-vocal-lounge',
   'jazz-soft-vocal-trio',
-  'city-pop-rainy-window-pop'
+  'city-pop-rainy-window-pop',
+  'chanson',
+  'smooth-jazz-lounge'
 ] as const;
 
 // TASK v3.38 Part B1/B6 — real kids genre ids (defined in data/presets.ts's
@@ -223,7 +230,11 @@ export const MODERN_CHILL_CORE_GENRE_IDS = [
   'chill-rap',
   'lofi-hiphop-study',
   'boom-bap-mellow',
-  'jazz-rap'
+  'jazz-rap',
+  // TASK v3.56 Part 3 — 2030-channel genre additions (see genreLibrary's
+  // modernGenrePacks for the pack definitions).
+  'contemporary-rnb',
+  'lofi-soul'
 ] as const;
 
 export const CITY_NIGHT_CORE_GENRE_IDS = [
@@ -232,7 +243,8 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
   'disco-pop-2020s',
   'bedroom-pop',
   'alt-rnb',
-  'chill-rap'
+  'chill-rap',
+  'city-pop-night'
 ] as const;
 
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
@@ -920,7 +932,53 @@ export const modernGenrePacks: StructuredGenrePack[] = [
     goodFor: ['City Night Drive', 'bright commute', 'upbeat modern pop'],
     archetypes: ['city-night'],
     tier: 'core'
-  }, 'city-pop', { rhythm: ['clean four-on-the-floor disco-pop pulse', 'tight funk guitar chop'], vocal: ['bright modern pop vocal with stacked chorus'], production: ['crisp compression', 'wide dance-pop stereo', 'clear hi-hat sparkle'], harmony: ['major-key disco lift', 'bright pre-chorus climb'], moods: ['bright', 'confident', 'city-night'], audiences: ['modern pop listeners', 'drive and workout-light playlists'], avoidTraits: ['dark trap mood', 'muddy vintage mix', 'overlong instrumental disco break'] })
+  }, 'city-pop', { rhythm: ['clean four-on-the-floor disco-pop pulse', 'tight funk guitar chop'], vocal: ['bright modern pop vocal with stacked chorus'], production: ['crisp compression', 'wide dance-pop stereo', 'clear hi-hat sparkle'], harmony: ['major-key disco lift', 'bright pre-chorus climb'], moods: ['bright', 'confident', 'city-night'], audiences: ['modern pop listeners', 'drive and workout-light playlists'], avoidTraits: ['dark trap mood', 'muddy vintage mix', 'overlong instrumental disco break'] }),
+  // TASK v3.56 Part 3 — popular-genre additions for the 2030 channels
+  // (Chill Hours / City Night Drive). signatureSound/shortSignatureSound/
+  // minimalSignatureSound are set directly on the pack literal (legacyGenrePack
+  // spreads `...pack` into its return value) so these three genres get
+  // authored full/short/minimal genre-signature text instead of the
+  // auto-derived fallback formula presets.ts's genrePacks mapper uses for
+  // packs that don't set signatureSound themselves.
+  legacyGenrePack({
+    id: 'contemporary-rnb',
+    label: 'Contemporary R&B',
+    styleCore: 'contemporary R&B, swung 16th-note groove, extended modern chords, layered vocal runs, sub-bass warmth',
+    signatureSound: 'laid-back swung 16th-note groove, extended 9th and 11th chord color, electric piano and muted rhythm guitar, deep sub bass, layered vocal runs with call-and-response ad-libs, tight pocket drums',
+    shortSignatureSound: 'swung 16th-note groove, extended 9th/11th chords, layered vocal runs with ad-libs',
+    minimalSignatureSound: 'swung 16th-note groove, layered vocal runs',
+    instruments: ['electric piano', 'muted rhythm guitar', 'sub bass', 'tight pocket drums'],
+    tempoRange: [78, 96],
+    goodFor: ['Chill Hours', 'contemporary R&B set', 'late-night vocal playlist'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'rnb', { rhythm: ['swung 16th-note R&B pocket', 'tight pocket groove'], vocal: ['layered R&B vocal with runs and call-and-response ad-libs'], production: ['warm sub-bass focus', 'intimate modern studio space'], harmony: ['extended 9th and 11th chord color', 'stacked modern seventh-chord movement'], moods: ['smooth', 'contemporary', 'intimate'], audiences: ['contemporary R&B listeners', 'late-night vocal playlists'], avoidTraits: ['aggressive trap density', 'explicit sensuality', 'thin drum-machine tone'] }),
+  legacyGenrePack({
+    id: 'city-pop-night',
+    label: 'City Pop Night Drive',
+    styleCore: 'city pop night drive, fretless-style bass glides, FM synth bell stabs, gated snare pop, cassette-warm groove',
+    signatureSound: 'fretless-style bass glides, gated snare pop hits, FM synth bell stabs, wide chorus-drenched rhythm guitar, cassette-warm night-drive mix, no vocal solo break',
+    shortSignatureSound: 'fretless bass glides, FM synth bell stabs, gated snare pop hits',
+    minimalSignatureSound: 'fretless bass glides, FM synth bells',
+    instruments: ['fretless-style bass', 'FM synth bell lead', 'chorus rhythm guitar', 'gated snare drums'],
+    tempoRange: [100, 116],
+    goodFor: ['City Night Drive', 'late-night urban set', 'nostalgic-modern city pop'],
+    archetypes: ['city-night'],
+    tier: 'core'
+  }, 'city-pop', { rhythm: ['fretless bass glide groove', 'syncopated night-drive pulse'], vocal: ['bright modern pop vocal, airy backing'], production: ['cassette-warm night-drive mix', 'gated snare pop punch', 'FM bell shimmer'], harmony: ['maj7 city-pop lift', 'glossy pre-chorus climb'], moods: ['nostalgic-modern', 'night-drive', 'glossy'], audiences: ['city pop listeners', 'night drive playlists'], avoidTraits: ['cheap retro parody', 'muddy vintage tape wobble', 'festival EDM drop'] }),
+  legacyGenrePack({
+    id: 'lofi-soul',
+    label: 'Lo-fi Soul',
+    styleCore: 'lo-fi soul, boom-bap drums, vinyl crackle, filtered Rhodes, warm sub bass, tape wobble',
+    signatureSound: 'boom-bap drums, vinyl crackle, filtered Rhodes chords, warm sub bass, vocal phrasing laid behind the beat, tape wobble',
+    shortSignatureSound: 'boom-bap drums, filtered Rhodes chords, vocal laid behind the beat',
+    minimalSignatureSound: 'boom-bap drums, vinyl crackle',
+    instruments: ['boom-bap drums', 'filtered Rhodes', 'warm sub bass', 'tape wobble texture'],
+    tempoRange: [78, 92],
+    goodFor: ['Chill Hours', 'lo-fi soul set', 'late-night study soul'],
+    archetypes: ['modern-chill'],
+    tier: 'core'
+  }, 'lofi', { rhythm: ['boom-bap soul pocket', 'behind-the-beat phrasing'], vocal: ['soulful vocal laid behind the beat'], production: ['vinyl crackle texture', 'tape wobble softness', 'warm sub-bass rounding'], harmony: ['soulful minor seventh loop', 'warm Rhodes voicing movement'], moods: ['dusty', 'soulful', 'nostalgic'], audiences: ['lo-fi soul listeners', 'study and focus playlists'], avoidTraits: ['bright EDM synths', 'aggressive trap hi-hats', 'clean digital polish'] })
 ];
 
 const jazzVariants = [
@@ -1094,7 +1152,9 @@ const lofiVariants = [
   seed('warm-guitar-loop', 'Warm Guitar Loop Lo-fi', 'instrumental guitar tape'),
   seed('study-beats-piano', 'Piano Study Beats', 'instrumental piano focus'),
   seed('rain-vocal-lofi', 'Rain Vocal Lo-fi', 'female rain rhodes'),
-  seed('lofi-soul', 'Lo-fi Soul', 'male soul electric tape'),
+  // TASK v3.56 Part 3 — 'lofi-soul' promoted to a fully authored genre pack
+  // in modernGenrePacks below (with real signatureSound/short/minimal
+  // forms), replacing this auto-generated seed to avoid a duplicate id.
   seed('cassette-pop-lofi', 'Cassette Pop Lo-fi', 'female guitar tape'),
   seed('jazz-piano-lofi', 'Jazz Piano Lo-fi', 'instrumental piano swing'),
   seed('dreamy-pop-lofi', 'Dreamy Pop Lo-fi', 'female dreamy synth'),

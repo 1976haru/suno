@@ -313,6 +313,27 @@ const rawGenrePacks: GenrePack[] = [
     tempoRange: [88, 102],
     goodFor: ['summer cafe', 'morning', 'Japan and Korea']
   },
+  // TASK v3.56 Part 3 — chanson/smooth-jazz-lounge added for the senior/cafe
+  // channels (see genreLibrary/index.ts's SENIOR_MORNING_CORE_GENRE_IDS and
+  // SHOWA_CAFE_CORE_GENRE_IDS). Full/short/minimal genre-signature text lives
+  // in this file's own signatureOverrides/shortSignatureOverrides/
+  // minimalSignatureOverrides dicts below, mirroring bossa-cafe/jazz-pop.
+  {
+    id: 'chanson',
+    label: 'Chanson Cafe',
+    styleCore: 'French chanson cafe pop, musette accordion tremolo, intimate close-mic vocal, minor-key melancholy',
+    instruments: ['musette accordion', 'nylon guitar', 'upright bass', 'brushed drums'],
+    tempoRange: [84, 100],
+    goodFor: ['Parisian cafe', 'evening listening', 'Europe-inspired senior playlist']
+  },
+  {
+    id: 'smooth-jazz-lounge',
+    label: 'Smooth Jazz Lounge',
+    styleCore: 'smooth jazz lounge, cocktail-lounge shuffle swing, vibraphone comping, saxophone bridge solo',
+    instruments: ['vibraphone', 'walking upright bass', 'brushed ride cymbal', 'mellow saxophone'],
+    tempoRange: [86, 104],
+    goodFor: ['evening lounge', 'dinner cafe', 'refined senior playlist']
+  },
   {
     id: 'soft-rock',
     label: 'Soft Rock Radio',
@@ -408,7 +429,9 @@ export const genrePacks: GenrePack[] = rawGenrePacks.map(genre => {
     'adult-contemporary': 'straight 4/4 pop feel, sustained piano pads, clean strummed acoustic, simple diatonic harmony, no swing, no solo',
     'acoustic-pop': 'fingerpicked acoustic guitar, soft piano answers, light hand percussion, natural close room, simple singalong harmony',
     'jazz-pop': 'light swing feel, walking upright bass, ii-V-I turnarounds, maj7/9/13 extended voicings, brushed snare with ride cymbal comping, short improvised piano or saxophone solo in the bridge, warm analog room tone',
-    'bossa-cafe': 'bossa nova clave, nylon-string guitar comping on offbeats, soft surdo-less percussion, gentle syncopation, Portuguese-jazz harmony',
+    'bossa-cafe': 'bossa nova clave, nylon-string guitar comping on offbeats, soft surdo-less percussion, gentle syncopation, whispered syncopated vocal phrasing, Portuguese-jazz harmony',
+    'chanson': 'waltz or slow 4/4 cafe pulse, musette tremolo accordion, nylon-string guitar, upright bass, intimate close-mic vocal, minor-key melancholy, Parisian cafe room tone',
+    'smooth-jazz-lounge': 'cocktail-lounge shuffle swing, walking upright bass, ii-V-I turnarounds, vibraphone comping, saxophone solo across the bridge, brushed ride cymbal, dim analog lounge room tone',
     'retro-soul-pop': 'sixteenth-note hi-hat groove, tight horn section stabs, electric bass with ghost notes, gospel-tinged backing vocals, tape saturation',
     'city-pop-soft': 'slap/round electric bass, electric piano and clean chorus guitar, syncopated 16th groove, bright polished chorus, gated reverb touches',
     'showa-modern': 'restrained kissaten swing, Rhodes comping, walking upright bass, muted jazz guitar fills, IVmaj7-iii7 color, tape-warm close-room mix',
@@ -425,7 +448,34 @@ export const genrePacks: GenrePack[] = rawGenrePacks.map(genre => {
     withVisibility.id === 'showa-modern'
       ? 'gentle IVmaj7-iii7 color, Rhodes, mellow jazz guitar, tape-warm production'
     : `${withVisibility.instruments.slice(0, 3).join(', ')}, ${withVisibility.arrangementNarrative?.split(',')[0] || withVisibility.styleCore.split(',')[0]}`);
-  const enriched = { ...withVisibility, signatureSound };
+  // TASK v3.56 Part 1-2 — stage-2/3 abbreviated forms of signatureSound, used
+  // by promptBudget.ts's composeStylePrompt only once dropping non-essential
+  // atoms alone isn't enough to fit the hard character budget. Genres not
+  // listed here (or without their own shortSignatureSound/minimalSignatureSound
+  // set directly on the pack, e.g. the modernGenrePacks additions) fall back
+  // to composeStylePrompt's own auto-slice of the full signatureSound.
+  const shortSignatureOverrides: Record<string, string> = {
+    'adult-contemporary': 'straight 4/4 pop feel, sustained piano pads, clean strummed acoustic',
+    'jazz-pop': 'swing feel, walking upright bass, ii-V-I turnarounds',
+    'bossa-cafe': 'bossa clave, offbeat nylon guitar comping, whispered syncopated vocal',
+    'chanson': 'musette accordion, nylon guitar, intimate close-mic vocal',
+    'smooth-jazz-lounge': 'lounge shuffle swing, vibraphone comping, saxophone bridge solo'
+  };
+  const minimalSignatureOverrides: Record<string, string> = {
+    'adult-contemporary': 'straight 4/4 pop feel',
+    'jazz-pop': 'swing feel, walking bass',
+    'bossa-cafe': 'bossa clave, nylon guitar',
+    'chanson': 'musette accordion, minor-key melancholy',
+    'smooth-jazz-lounge': 'lounge swing, vibraphone'
+  };
+  const shortSignatureSound = shortSignatureOverrides[withVisibility.id] || withVisibility.shortSignatureSound;
+  const minimalSignatureSound = minimalSignatureOverrides[withVisibility.id] || withVisibility.minimalSignatureSound;
+  const enriched = {
+    ...withVisibility,
+    signatureSound,
+    ...(shortSignatureSound ? { shortSignatureSound } : {}),
+    ...(minimalSignatureSound ? { minimalSignatureSound } : {})
+  };
   return flavorImages ? { ...enriched, lyricFlavorImages: flavorImages } : enriched;
 });
 

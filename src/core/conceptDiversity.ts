@@ -108,13 +108,30 @@ export function variedVocalText(base: string, index: number, genre?: GenrePack, 
   return [descriptor, genreCue, base].filter(Boolean).join(', ');
 }
 
+/**
+ * TASK v3.56 Part 2 — real measurement: with 5 rotations split 2-vocal-first/
+ * 3-non-vocal-first, an 18-song set opened on only 9-11 distinct clauses.
+ * 'vocal' is the only category guaranteed unique per song (variedVocalText's
+ * 18-entry VOCAL_VARIANTS pool, one per index) — genreSignature/instruments
+ * openings repeat whenever the same primary genre/anchor instrument leads
+ * (now mitigated by rotatingGenreSignatureText/rotatingInstrumentText's own
+ * anchor+shuffle, but the anchor atom itself is still constant), and
+ * moneyChord's opening is always byte-identical across a whole pack (the
+ * chosen progression is a pack-level setting, not per-song) so it's dropped
+ * as a leading category entirely rather than chasing a rotation that can
+ * never vary. 6 rotations, 4 of which lead with 'vocal' (~67%), keep the
+ * spec's "some songs open on instruments/rhythm instead of vocal" requirement
+ * satisfied by the other 2 while pushing measured opening-clause variety back
+ * over the 12/18 target.
+ */
 export function promptPriorityForTrack(index: number): PromptTermId[] {
   const rotations: PromptTermId[][] = [
     ['vocal', 'genreSignature', 'concept', 'genreNarrative', 'moneyChord', 'duration', 'hook', 'hookDevice', 'genre', 'instruments'],
-    ['genreSignature', 'concept', 'genreNarrative', 'genre', 'duration', 'hook', 'hookDevice', 'vocal', 'instruments'],
-    ['instruments', 'genreSignature', 'concept', 'genre', 'duration', 'hook', 'hookDevice', 'genreNarrative', 'vocal'],
-    ['vocal', 'genreSignature', 'concept', 'genre', 'genreNarrative', 'duration', 'hook', 'hookDevice', 'instruments'],
-    ['moneyChord', 'genreSignature', 'concept', 'genre', 'duration', 'hook', 'hookDevice', 'instruments', 'vocal']
+    ['genreSignature', 'concept', 'genreNarrative', 'genre', 'duration', 'hook', 'hookDevice', 'vocal', 'instruments', 'moneyChord'],
+    ['instruments', 'genreSignature', 'concept', 'genre', 'duration', 'hook', 'hookDevice', 'genreNarrative', 'vocal', 'moneyChord'],
+    ['vocal', 'instruments', 'genreSignature', 'concept', 'genre', 'genreNarrative', 'duration', 'hook', 'hookDevice', 'moneyChord'],
+    ['vocal', 'genreNarrative', 'genreSignature', 'concept', 'moneyChord', 'duration', 'hook', 'hookDevice', 'genre', 'instruments'],
+    ['vocal', 'concept', 'genreSignature', 'genreNarrative', 'moneyChord', 'duration', 'hook', 'hookDevice', 'genre', 'instruments']
   ];
   return rotations[Math.abs(index) % rotations.length];
 }

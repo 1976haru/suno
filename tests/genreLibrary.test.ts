@@ -29,7 +29,12 @@ const LEGACY_IDS = [
   'soft-rock',
   'piano-ballad',
   'retro-soul-pop',
-  'synthwave-mellow'
+  'synthwave-mellow',
+  // TASK v3.56 Part 3 — senior/cafe channel additions, registered directly
+  // in presets.ts's rawGenrePacks only (not in genreLibrary's own array —
+  // same pre-existing split as the rest of LEGACY_IDS).
+  'chanson',
+  'smooth-jazz-lounge'
 ];
 
 const MODERN_IDS = [
@@ -44,7 +49,12 @@ const MODERN_IDS = [
   'city-pop-modern',
   'future-funk',
   'bedroom-pop',
-  'disco-pop-2020s'
+  'disco-pop-2020s',
+  // TASK v3.56 Part 3 — 2030-channel additions, registered in genreLibrary's
+  // modernGenrePacks (so both genreLibrary and presets.ts's genrePacks see them).
+  'contemporary-rnb',
+  'city-pop-night',
+  'lofi-soul'
 ];
 
 const forbiddenStyleTerms = /\b(visualIdentity|typography|thumbnail|font|logo|cover art|image prompt)\b/i;
@@ -56,15 +66,25 @@ function promptAtoms(prompt: string) {
 }
 
 describe('structured genre library', () => {
-  it('adds 250 Notion-derived genres and keeps legacy genre ids available', () => {
-    expect(importedGenreCount).toBe(250);
+  it('adds 249 Notion-derived genres and keeps legacy genre ids available', () => {
+    // TASK v3.56 Part 3 — was 250; 'lofi-soul' was promoted out of this
+    // auto-generated seed pool into a fully authored modernGenrePacks entry
+    // (real signatureSound/short/minimal forms instead of the generic
+    // tag-formula text), so the seed pool is -1 while modernGenrePacks
+    // (counted separately below) is +3 (contemporary-rnb, city-pop-night,
+    // and the promoted lofi-soul).
+    expect(importedGenreCount).toBe(249);
     expect(totalGenreCount).toBe(genreLibrary.length);
     // TASK v3.38 Part B1/B0 — +4 for kids-bright-pop/kids-acoustic-singalong/
     // kids-upbeat-pop/kids-march, added directly to presets.ts's
     // rawGenrePacks (not to genreLibrary's own array — see that file's
     // TASK H2 comment on the pre-existing split), so genrePacks (presets.ts)
     // is a strict superset of genreLibrary from here on.
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 24);
+    // TASK v3.56 Part 3 — fixed count grew 24 -> 27 (modernGenrePacks grew
+    // 12 -> 15 with contemporary-rnb/city-pop-night/lofi-soul; kids(4) and
+    // eraGenrePacks(8) are unchanged), and LEGACY_IDS grew by 2
+    // (chanson/smooth-jazz-lounge).
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -194,14 +214,18 @@ describe('structured genre library', () => {
     expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
   });
 
-  it('preserves all 288 genre ids and keeps preset ids backward compatible', () => {
+  it('preserves all genre ids and keeps preset ids backward compatible', () => {
     const libraryIds = new Set(genreLibrary.map(genre => genre.id));
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     // TASK v3.39 — the 4 kids-* ids are now registered directly into
     // genreLibrary too (previously only in presets.ts's rawGenrePacks), so
     // getGenreById/getVisibleGenresForArchetype('kids') can resolve them.
-    expect(libraryIds.size).toBe(288);
-    expect(presetIds.size).toBe(288);
+    // TASK v3.56 Part 3 — was 288/288 (libraryIds === presetIds exactly);
+    // chanson/smooth-jazz-lounge are registered only in presets.ts's
+    // rawGenrePacks (same split as the kids-* ids used to be), so presetIds
+    // is now a strict superset of libraryIds by exactly those 2 ids.
+    expect(libraryIds.size).toBe(290);
+    expect(presetIds.size).toBe(292);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

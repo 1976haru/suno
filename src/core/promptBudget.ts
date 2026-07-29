@@ -139,8 +139,10 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
 export interface PromptPart {
   id: PromptTermId;
   text: string | undefined | null;
-  /** Optional compressed replacement for an essential atom group under hard character-budget pressure. */
+  /** Optional compressed replacement for an essential atom group under hard character-budget pressure (stage 2 of the full/short/minimal abbreviation ladder). */
   shortForm?: string | undefined | null;
+  /** Optional further-compressed replacement, used only once shortForm still doesn't fit (stage 3 of the ladder). See v3.56's redesign of compressHardLimitWithGuard below. */
+  minimalForm?: string | undefined | null;
 }
 
 export interface StylePromptResult {
@@ -245,27 +247,165 @@ function shortFormAtomsFor(part: PromptPart, atoms: string[]): string[] {
   return atoms.slice(0, 3);
 }
 
-function replaceTermWithShortForm(
+function minimalFormAtomsFor(part: PromptPart, atoms: string[]): string[] {
+  const explicitMinimalForm = splitAtoms(part.minimalForm);
+  if (explicitMinimalForm.length) return explicitMinimalForm.slice(0, 2);
+  if (part.id !== 'genreSignature') return [];
+  return atoms.slice(0, 1);
+}
+
+/**
+ * v3.56 — a short/minimal form is authored independently of whatever other
+ * atoms happen to already be in the prompt (e.g. rotatingGenreText mixes a
+ * couple of the same genre's own signatureSound atoms into the 'genre' id),
+ * so splicing it in can reintroduce a literal duplicate that the earlier
+ * exact-dedupe pass (composeStylePrompt's `seen` set, which only ever saw
+ * the pre-substitution atoms) never had a chance to catch. Re-dedupe here,
+ * every time a form is substituted, rather than relying on substitutions
+ * never colliding.
+ */
+function replaceTermWithForm(
   atoms: KeptPromptAtom[],
   id: PromptTermId,
-  shortAtomsById: Map<PromptTermId, string[]>
+  formAtomsById: Map<PromptTermId, string[]>
 ): KeptPromptAtom[] | null {
-  const shortAtoms = shortAtomsById.get(id);
-  if (!shortAtoms?.length || !atoms.some(atom => atom.id === id)) return null;
+  const formAtoms = formAtomsById.get(id);
+  if (!formAtoms?.length || !atoms.some(atom => atom.id === id)) return null;
   const replaced = atoms.filter(atom => atom.id !== id);
   const firstIndex = atoms.findIndex(atom => atom.id === id);
   const insertAt = firstIndex < 0 ? replaced.length : replaced.filter((_, index) => index < firstIndex).length;
-  replaced.splice(insertAt, 0, ...shortAtoms.map(text => ({ id, text })));
-  return promptLength(replaced) < promptLength(atoms) ? replaced : null;
+  const newAtoms = formAtoms.map(text => ({ id, text }));
+  const newKeys = new Set(newAtoms.map(atom => normalizeAtomKey(atom.text)));
+  const deduped = replaced.filter(atom => !newKeys.has(normalizeAtomKey(atom.text)));
+  deduped.splice(Math.min(insertAt, deduped.length), 0, ...newAtoms);
+  return promptLength(deduped) < promptLength(atoms) ? deduped : null;
 }
 
-function lowestPriorityDroppableId(atoms: KeptPromptAtom[], order: PromptTermId[]): PromptTermId | null {
+/**
+ * TASK v3.47 Step 4 / v3.56 — genreNarrative is non-essential (so it's a
+ * candidate for stage-1 dropping like any other filler atom), but its
+ * verse/pre-chorus/chorus/hook-entry/mix clauses are exactly what makes a
+ * lead genre's arrangement audible rather than generic, so a full drop is a
+ * worse outcome than abbreviating it down to its floor-count core clauses
+ * first. Shared by compressHardLimitWithGuard's stage 1 (hard character
+ * budget) and composeStylePrompt's own soft word-budget pass below, so
+ * genreNarrative gets this same "abbreviate before delete" treatment at
+ * both stages instead of only the word-budget one.
+ */
+function reduceGenreNarrativeToFloor(atoms: KeptPromptAtom[], floor: number): KeptPromptAtom[] {
+  const narrativeAtoms = atoms.filter(atom => atom.id === 'genreNarrative');
+  if (narrativeAtoms.length <= floor) return atoms;
+  const keep = new Set<KeptPromptAtom>();
+  const patterns = [
+    /\bverse\b/i,
+    /\bpre-chorus\b/i,
+    /^chorus\b/i,
+    /hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go|drum mute|filter sweep|riser|vocal gap/i,
+    /\bmix\b/i
+  ];
+  for (const pattern of patterns) {
+    const match = narrativeAtoms.find(atom => pattern.test(atom.text.trim()) && !keep.has(atom));
+    if (match) keep.add(match);
+  }
+  for (const atom of narrativeAtoms) {
+    if (keep.size >= floor) break;
+    keep.add(atom);
+  }
+  return atoms.filter(atom => atom.id !== 'genreNarrative' || keep.has(atom));
+}
+
+function lowestPriorityDroppableIdExcluding(
+  atoms: KeptPromptAtom[],
+  order: PromptTermId[],
+  protectedIds: Set<PromptTermId>
+): PromptTermId | null {
   for (let i = order.length - 1; i >= 0; i -= 1) {
     const id = order[i];
-    if (ESSENTIAL_TERM_IDS.has(id)) continue;
+    if (ESSENTIAL_TERM_IDS.has(id) || protectedIds.has(id)) continue;
     if (atoms.some(atom => atom.id === id)) return id;
   }
   return null;
+}
+
+function dropNonEssentialLowestFirst(
+  atoms: KeptPromptAtom[],
+  limit: number,
+  order: PromptTermId[],
+  droppedTerms: string[],
+  protectedIds: Set<PromptTermId>
+): KeptPromptAtom[] {
+  let finalAtoms = atoms;
+  const maxIterations = Math.max(1, finalAtoms.length);
+  for (let iteration = 0; iteration < maxIterations && promptLength(finalAtoms) > limit; iteration += 1) {
+    const id = lowestPriorityDroppableIdExcluding(finalAtoms, order, protectedIds);
+    if (!id) break;
+    const next = finalAtoms.filter(atom => atom.id !== id);
+    if (promptLength(next) >= promptLength(finalAtoms)) break;
+    finalAtoms = next;
+    addDroppedLabel(droppedTerms, id);
+  }
+  return finalAtoms;
+}
+
+/**
+ * v3.56 — redesigned as explicit, individually-bounded stages instead of one
+ * loop that interleaved dropping and short-forming (the v3.55 shape). That
+ * interleaving was itself already loop-guarded (maxIterations + a "no
+ * progress -> break" escape), but only ever had one compressed replacement
+ * available (genreSignature's auto-sliced short form) — once every
+ * non-essential atom was gone and that single substitution was spent, a
+ * prompt whose essential atoms alone exceeded the limit (a real case: a long
+ * genre + long concept + persona combination) had no further path down and
+ * relied entirely on the escape guard.
+ *
+ * Stage 1 (short): replace essential atoms with their authored `shortForm`
+ * (or, for genreSignature specifically, an auto-sliced fallback), lowest
+ * priority essential first. Tried before any dropping: shrinking a long
+ * essential atom (genreSignature's descriptive text is the actual reason a
+ * prompt blows the budget in real cases) loses less real content than fully
+ * dropping a short non-essential atom like genreNarrative or concept — see
+ * TASK v3.47 Step 4's and v3.52's regression tests, both of which expect
+ * genreNarrative/concept to survive ordinary budget pressure that a single
+ * genreSignature shortening already resolves.
+ * Stage 2 (drop filler): still over budget — remove non-essential,
+ * non-identity atoms (i.e. everything except GUARANTEED_MINIMUM_TERM_IDS —
+ * genreNarrative/concept/mood/instruments/earworm/arrangementDensity/
+ * hookDevice), lowest priority first.
+ * Stage 2.5 (guaranteed-minimum floor): still over — each
+ * GUARANTEED_MINIMUM_TERM_IDS category is genre-differentiation content
+ * (see that constant's own comment), not filler, so it's abbreviated to its
+ * floor atom count rather than dropped outright, same "shrink before
+ * delete" treatment stage 1 gives essential atoms via shortForm. Mirrors the
+ * soft word-budget pass's own floor treatment further below, applied here
+ * too so a tight *character* budget doesn't zero out earworm/mood/
+ * instruments before the word-budget pass ever gets a chance to protect them
+ * (they'd already be gone).
+ * Stage 3 (minimal): still over — essential atoms -> `minimalForm` (or an
+ * even shorter auto-sliced fallback for genreSignature), same lowest-
+ * priority-essential-first order as stage 1. Tried before stage 4's full
+ * drop for the same reason stage 1 runs before stage 2: shrinking an
+ * essential atom further loses less real content than fully deleting a
+ * guaranteed-minimum category's last floor atom (e.g. earworm's v3.15
+ * single-atom floor).
+ * Stage 4 (drop remaining, last resort): still over budget even at minimal
+ * essential forms — now everything (including guaranteed-minimum floor
+ * remnants) is droppable, same as any other non-essential atom.
+ * Stage 5 (escape): handled by the caller — composeStylePrompt surfaces
+ * STYLE_PROMPT_OVER_LIMIT_WARNING when the result is still over limit here
+ * rather than throwing or looping further. Generation always completes.
+ *
+ * Every stage is bounded by a finite, input-derived count (the atom list
+ * length for the drop stages, the essential-id count for stages 1 and 3), so
+ * this function returns in O(atoms + essentialIds) regardless of what the
+ * caller's genre/concept/persona combination looks like.
+ */
+function reduceToFloorCount(atoms: KeptPromptAtom[], id: PromptTermId, floor: number): KeptPromptAtom[] {
+  let kept = 0;
+  return atoms.filter(atom => {
+    if (atom.id !== id) return true;
+    kept += 1;
+    return kept <= floor;
+  });
 }
 
 function compressHardLimitWithGuard(
@@ -273,36 +413,64 @@ function compressHardLimitWithGuard(
   limit: number,
   order: PromptTermId[],
   shortAtomsById: Map<PromptTermId, string[]>,
+  minimalAtomsById: Map<PromptTermId, string[]>,
   droppedTerms: string[]
 ): KeptPromptAtom[] {
   let finalAtoms = [...atoms];
-  const maxIterations = Math.max(1, finalAtoms.length * 2);
-  let usedGenreSignatureShortForm = false;
+  const essentialLowToHigh = [...order].reverse().filter(id => ESSENTIAL_TERM_IDS.has(id));
 
-  for (let iteration = 0; iteration < maxIterations && promptLength(finalAtoms) > limit; iteration += 1) {
-    const beforeLength = promptLength(finalAtoms);
-    let nextAtoms: KeptPromptAtom[] | null = null;
-
-    if (!usedGenreSignatureShortForm) {
-      nextAtoms = replaceTermWithShortForm(finalAtoms, 'genreSignature', shortAtomsById);
-      usedGenreSignatureShortForm = true;
+  // Stage 1: essential atoms -> short form, lowest priority essential first.
+  if (promptLength(finalAtoms) > limit) {
+    for (const id of essentialLowToHigh) {
+      if (promptLength(finalAtoms) <= limit) break;
+      const next = replaceTermWithForm(finalAtoms, id, shortAtomsById);
+      if (next) finalAtoms = next;
     }
-
-    if (!nextAtoms) {
-      const id = lowestPriorityDroppableId(finalAtoms, order);
-      if (id) {
-        nextAtoms = finalAtoms.filter(atom => atom.id !== id);
-        addDroppedLabel(droppedTerms, id);
-      }
-    }
-
-    if (!nextAtoms) break;
-
-    const afterLength = promptLength(nextAtoms);
-    if (afterLength >= beforeLength) break;
-    finalAtoms = nextAtoms;
   }
 
+  // Stage 2: drop non-essential filler, lowest priority first — guaranteed-minimum categories excluded (see stage 2.5).
+  if (promptLength(finalAtoms) > limit) {
+    finalAtoms = dropNonEssentialLowestFirst(finalAtoms, limit, order, droppedTerms, GUARANTEED_MINIMUM_TERM_IDS);
+  }
+
+  // Stage 2.5: guaranteed-minimum categories -> floor atom counts, not a full drop.
+  if (promptLength(finalAtoms) > limit) {
+    const reducedNarrative = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS);
+    if (promptLength(reducedNarrative) < promptLength(finalAtoms)) finalAtoms = reducedNarrative;
+  }
+  const floorSteps: [PromptTermId, number][] = [
+    ['concept', CONCEPT_FLOOR_ATOMS],
+    ['earworm', EARWORM_FLOOR_ATOMS],
+    ['instruments', INSTRUMENTS_FLOOR_ATOMS],
+    ['mood', MOOD_FLOOR_ATOMS]
+  ];
+  for (const [id, floor] of floorSteps) {
+    if (promptLength(finalAtoms) <= limit) break;
+    const reduced = reduceToFloorCount(finalAtoms, id, floor);
+    if (promptLength(reduced) < promptLength(finalAtoms)) finalAtoms = reduced;
+  }
+
+  // Stage 3: still over budget — essential atoms -> minimal form. Tried
+  // before the last-resort drop below for the same reason stage 1 runs
+  // before stage 2: shrinking an essential atom further loses less real
+  // content than fully deleting a guaranteed-minimum category's last
+  // remaining floor atom (e.g. earworm's single-atom floor, v3.15).
+  if (promptLength(finalAtoms) > limit) {
+    for (const id of essentialLowToHigh) {
+      if (promptLength(finalAtoms) <= limit) break;
+      const next = replaceTermWithForm(finalAtoms, id, minimalAtomsById);
+      if (next) finalAtoms = next;
+    }
+  }
+
+  // Stage 4 (last resort): still over budget even at minimal essential
+  // forms — guaranteed-minimum remnants become droppable like anything else.
+  if (promptLength(finalAtoms) > limit) {
+    finalAtoms = dropNonEssentialLowestFirst(finalAtoms, limit, order, droppedTerms, new Set());
+  }
+
+  // Stage 5 (escape): caller adds STYLE_PROMPT_OVER_LIMIT_WARNING if still
+  // over limit; never throws, never loops further.
   return finalAtoms;
 }
 
@@ -319,6 +487,26 @@ function compressHardLimitWithGuard(
  * must never be hard-dropped here — only non-essential ones are candidates,
  * same guarantee the SAFE_TARGET soft-check already makes upstream.
  */
+/**
+ * v3.56 — a narrow, earworm-only exemption at this early stage (and the
+ * matching one in composeStylePrompt's own safeTarget greedy fill below),
+ * NOT the full GUARANTEED_MINIMUM_TERM_IDS set. earworm sits at the lowest
+ * priority position among that set (TASK v3.48.1 moved introTexture/tempo/
+ * arrangementDensity/instruments/hookDevice ahead of it), so it's the one
+ * category that can be excluded here — before compressHardLimitWithGuard's
+ * own floor-protection (stage 2.5) ever gets a chance to run on it — purely
+ * because cumulative length already passed budget by the time its low
+ * priority position comes up, not because anything chose to drop it.
+ * concept/mood/instruments/genreNarrative all sit at higher priority
+ * positions and already survive this stage naturally; giving them the same
+ * early exemption over-protects them at very tight budgets (a real
+ * regression: TASK v3.55's own test expects 'concept' fully droppable
+ * before genreSignature's short form is even needed).
+ */
+const GUARANTEED_FLOOR_BY_ID: Partial<Record<PromptTermId, number>> = {
+  earworm: EARWORM_FLOOR_ATOMS
+};
+
 export function enforceHardLimit(
   atoms: KeptPromptAtom[],
   limit: number = SUNO_STYLE_LIMIT
@@ -326,16 +514,20 @@ export function enforceHardLimit(
   const kept: KeptPromptAtom[] = [];
   const dropped: KeptPromptAtom[] = [];
   let currentLength = 0;
+  const guaranteedKeptCount = new Map<PromptTermId, number>();
 
   for (const atom of atoms) {
     const essential = ESSENTIAL_TERM_IDS.has(atom.id);
+    const floor = GUARANTEED_FLOOR_BY_ID[atom.id];
+    const withinGuaranteedFloor = floor !== undefined && (guaranteedKeptCount.get(atom.id) ?? 0) < floor;
     const projected = currentLength + (currentLength ? 2 : 0) + atom.text.length;
-    if (!essential && projected > limit) {
+    if (!essential && !withinGuaranteedFloor && projected > limit) {
       dropped.push(atom);
       continue;
     }
     kept.push(atom);
     currentLength = projected;
+    if (withinGuaranteedFloor) guaranteedKeptCount.set(atom.id, (guaranteedKeptCount.get(atom.id) ?? 0) + 1);
   }
 
   return { atoms: kept, dropped };
@@ -350,6 +542,7 @@ export function composeStylePrompt(
   const order = [...new Set([...priorityOrder, ...PROMPT_PRIORITY])];
   const atomsById = new Map<PromptTermId, string[]>();
   const shortAtomsById = new Map<PromptTermId, string[]>();
+  const minimalAtomsById = new Map<PromptTermId, string[]>();
   for (const part of parts) {
     const atoms = splitAtoms(part.text);
     if (!atoms.length) continue;
@@ -357,6 +550,10 @@ export function composeStylePrompt(
     const shortAtoms = shortFormAtomsFor(part, atoms);
     if (shortAtoms.length) {
       shortAtomsById.set(part.id, [...(shortAtomsById.get(part.id) || []), ...shortAtoms]);
+    }
+    const minimalAtoms = minimalFormAtomsFor(part, atoms);
+    if (minimalAtoms.length) {
+      minimalAtomsById.set(part.id, [...(minimalAtomsById.get(part.id) || []), ...minimalAtoms]);
     }
   }
 
@@ -381,6 +578,17 @@ export function composeStylePrompt(
       seenShortAtoms.add(key);
       return true;
     }).slice(0, 3));
+  }
+  for (const id of order) {
+    const atoms = minimalAtomsById.get(id);
+    if (!atoms) continue;
+    const seenMinimalAtoms = new Set<string>();
+    minimalAtomsById.set(id, atoms.filter(atom => {
+      const key = normalizeAtomKey(atom);
+      if (seenMinimalAtoms.has(key)) return false;
+      seenMinimalAtoms.add(key);
+      return true;
+    }).slice(0, 2));
   }
 
   const nonEssentialIds = order.filter(id => !ESSENTIAL_TERM_IDS.has(id));
@@ -411,19 +619,34 @@ export function composeStylePrompt(
   const warnings: string[] = [];
   const keptAtoms: KeptPromptAtom[] = [];
   let currentLength = 0;
+  // v3.56 — GUARANTEED_MINIMUM_TERM_IDS's whole point is that a category
+  // (earworm, mood, instruments, ...) never hits zero, but this greedy
+  // safeTarget-ordered fill ran before that guarantee existed and can still
+  // exclude a category's atoms entirely if cumulative length already passed
+  // safeTarget by the time its turn comes up — the actual mechanism this
+  // caused: earworm (priority position 10, behind introTexture/tempo/
+  // arrangementDensity/instruments/hookDevice per TASK v3.48.1's reordering)
+  // never even reached compressHardLimitWithGuard's own floor-protection
+  // because it was already gone here. Let each guaranteed-minimum category's
+  // first `floor` atoms through regardless of safeTarget, same as essential
+  // atoms, so the floor guarantee is real from this first pass onward.
+  const guaranteedKeptCount = new Map<PromptTermId, number>();
 
   for (const id of order) {
     const atoms = atomsById.get(id);
     if (!atoms || !atoms.length) continue;
     const essential = ESSENTIAL_TERM_IDS.has(id);
+    const floor = GUARANTEED_FLOOR_BY_ID[id];
     for (const atom of atoms) {
       const projected = currentLength + (currentLength ? 2 : 0) + atom.length;
-      if (!essential && projected > safeTarget) {
+      const withinGuaranteedFloor = floor !== undefined && (guaranteedKeptCount.get(id) ?? 0) < floor;
+      if (!essential && !withinGuaranteedFloor && projected > safeTarget) {
         addDroppedLabel(droppedTerms, id);
         continue;
       }
       keptAtoms.push({ id, text: atom });
       currentLength = projected;
+      if (withinGuaranteedFloor) guaranteedKeptCount.set(id, (guaranteedKeptCount.get(id) ?? 0) + 1);
     }
   }
 
@@ -442,7 +665,7 @@ export function composeStylePrompt(
   // category has already been dropped entirely. This is what makes genre
   // selection actually audible — before this, mood/instruments were dropped
   // to zero every time the (unreachable) 30-word target was in effect.
-  let finalAtoms = compressHardLimitWithGuard(hardLimited.atoms, limit, order, shortAtomsById, droppedTerms);
+  let finalAtoms = compressHardLimitWithGuard(hardLimited.atoms, limit, order, shortAtomsById, minimalAtomsById, droppedTerms);
   const wordCountOf = (atoms: KeptPromptAtom[]) => countWords(atoms.map(atom => atom.text).join(', '));
 
   function reduceToFloor(atoms: KeptPromptAtom[], id: PromptTermId, floor: number): KeptPromptAtom[] {
@@ -452,28 +675,6 @@ export function composeStylePrompt(
       kept += 1;
       return kept <= floor;
     });
-  }
-
-  function reduceGenreNarrativeToFloor(atoms: KeptPromptAtom[], floor: number): KeptPromptAtom[] {
-    const narrativeAtoms = atoms.filter(atom => atom.id === 'genreNarrative');
-    if (narrativeAtoms.length <= floor) return atoms;
-    const keep = new Set<KeptPromptAtom>();
-    const patterns = [
-      /\bverse\b/i,
-      /\bpre-chorus\b/i,
-      /^chorus\b/i,
-      /hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go|drum mute|filter sweep|riser|vocal gap/i,
-      /\bmix\b/i
-    ];
-    for (const pattern of patterns) {
-      const match = narrativeAtoms.find(atom => pattern.test(atom.text.trim()) && !keep.has(atom));
-      if (match) keep.add(match);
-    }
-    for (const atom of narrativeAtoms) {
-      if (keep.size >= floor) break;
-      keep.add(atom);
-    }
-    return atoms.filter(atom => atom.id !== 'genreNarrative' || keep.has(atom));
   }
 
   if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
