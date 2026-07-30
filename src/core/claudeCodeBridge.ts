@@ -19,6 +19,7 @@ import { buildSetConceptLine } from './setConcept';
 import { moneyChordPresets } from '../data/moneyChords';
 import { usesVocalQuota } from './vocalPlan';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
+import { sanitizePublicYoutubeTags } from './exportCompliance';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -692,7 +693,12 @@ function normalizeImportedSong(
   const youtube: YoutubeMetadata = {
     title: isNonEmptyString(youtubeRaw.title) ? youtubeRaw.title : String(obj.title),
     description: isNonEmptyString(youtubeRaw.description) ? youtubeRaw.description : '',
-    tags: Array.isArray(youtubeRaw.tags) ? youtubeRaw.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    // TASK v3.58 (TASK 5-5) — a remote model's tags array is otherwise
+    // completely unfiltered; sanitizePublicYoutubeTags strips Suno/AI/model
+    // keyword-stuffing before it can reach public YouTube metadata (see
+    // exportCompliance.ts — the required disclosure sentence lives only in
+    // `description`, never in these discrete discoverability tags).
+    tags: sanitizePublicYoutubeTags(Array.isArray(youtubeRaw.tags) ? youtubeRaw.tags.filter((tag): tag is string => typeof tag === 'string') : []),
     ...(isNonEmptyString(youtubeRaw.thumbnailText) ? { thumbnailText: youtubeRaw.thumbnailText } : {})
   };
 

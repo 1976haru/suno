@@ -11,6 +11,27 @@ import type { ChannelProfile, SongIdea } from '../types';
  */
 export const AI_DISCLOSURE_LINE = 'This video uses AI-assisted, synthetic music generated with Suno.';
 
+/**
+ * TASK v3.58 (TASK 5-5) — YoutubeMetadata.description is required to state
+ * AI_DISCLOSURE_LINE (a deliberate, single, policy-facing sentence that
+ * legitimately contains "AI" and "Suno"), but the discrete tags field is
+ * public discoverability metadata, not disclosure copy — a tag like "suno
+ * ai music" or "ai generated song" is keyword-stuffing that invites the
+ * exact "inauthentic/synthetic content" scrutiny a channel doesn't want to
+ * flag itself for, and gains nothing the description's own disclosure
+ * doesn't already cover. core/localGenerator.ts's own seoKeywords/genre/mood
+ * tag sources never contained these, but core/claudeCodeBridge.ts accepts a
+ * remote model's tags array completely unfiltered — this is the actual
+ * leak this task's own report measured. Only ever applied to `tags`, never
+ * to `description` or `title`, which must keep the disclosure sentence
+ * intact.
+ */
+const PUBLIC_TAG_BLOCKLIST_PATTERN = /\b(suno|udio|ai[- ]?generated|ai[- ]?music|ai[- ]?song|ai[- ]?cover|artificial intelligence|chatgpt|openai|claude|gpt|synthetic music|synthetic vocal|generative music)\b/i;
+
+export function sanitizePublicYoutubeTags(tags: string[]): string[] {
+  return tags.filter(tag => tag.trim() && !PUBLIC_TAG_BLOCKLIST_PATTERN.test(tag));
+}
+
 export function isMadeForKidsChannel(channel: Pick<ChannelProfile, 'archetype'>): boolean {
   return channel.archetype === 'kids';
 }

@@ -9,7 +9,7 @@ import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openin
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import { scoreSongs } from './quality';
-import { AI_DISCLOSURE_LINE } from './exportCompliance';
+import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
@@ -433,7 +433,7 @@ function buildYoutubeMetadata(
     ...moodTags,
     ...opts.channel.seoKeywords
   ];
-  const tags = Array.from(new Set(baseTags.map(tag => tag.trim()).filter(Boolean))).slice(0, 18);
+  const tags = sanitizePublicYoutubeTags(Array.from(new Set(baseTags.map(tag => tag.trim()).filter(Boolean)))).slice(0, 18);
   const title = `${song.title} - ${season.label} ${channelName} Playlist`;
   // TASK v3.39.1 Part C2 — real exported output showed
   // "Suno style prompt and lyrics are generated as original material for
