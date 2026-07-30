@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, modernGenrePacks, notionDerivedGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -12,7 +12,25 @@ export const channelPresets: ChannelProfile[] = [
     promise: '50~60대를 위한 아침 커피, 계절감, 편안한 회상 중심의 성인 팝 플레이리스트',
     visualIdentity: 'warm morning cafe, radio, coffee steam, refined serif typography, autumn and winter objects',
     defaultVocal: 'mature soulful male tenor, soft slightly husky close-mic delivery, gentle and sincere',
-    preferredGenres: ['adult-contemporary', 'acoustic-pop', 'jazz-pop'],
+    // TASK v3.61 (TASK B) — this pool was only 3 ids (adult-contemporary,
+    // acoustic-pop, jazz-pop), which cannot satisfy the "same genre max 5
+    // songs" diversity rule across an 18-song pack and forced every real
+    // pack toward the same 3-4 genres regardless of what the user asked
+    // for. Expanded to 15: the original 3, the 5 senior-core genres already
+    // registered in SENIOR_MORNING_CORE_GENRE_IDS but never actually routed
+    // here (chanson, bossa-cafe, smooth-jazz-lounge, retro-soul-pop,
+    // folk-pop), and 7 of the new oldpop-* family spanning every era
+    // (1-A through 1-D) rather than clustering in one decade. Deliberately
+    // NOT all 28 oldpop-* ids — see this task's own "preferredGenres를
+    // 20종 이상으로 늘리지 말 것" constraint; this is the candidate POOL a
+    // given pack draws a subset from, not every pack's actual genre list.
+    preferredGenres: [
+      'adult-contemporary', 'acoustic-pop', 'jazz-pop',
+      'chanson', 'bossa-cafe', 'smooth-jazz-lounge', 'retro-soul-pop', 'folk-pop',
+      'oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul',
+      'oldpop-piano-ballad-70s', 'oldpop-adult-contemporary-80s', 'oldpop-close-harmony-duo',
+      'oldpop-hearth-acoustic'
+    ],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],
     forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
     seoKeywords: ['아침 음악', '커피 음악', '추억 팝송', '50대 음악', '60대 음악', '감성 팝', '계절 플레이리스트'],
@@ -411,6 +429,7 @@ const rawGenrePacks: GenrePack[] = [
     goodFor: ['kids playlist', 'movement and dance', 'group activity'],
     archetypes: ['kids']
   },
+  ...oldpopGenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks

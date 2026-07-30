@@ -44,7 +44,12 @@ describe('v3.52 concept and vocal diversity', () => {
       return blueprint.songs[0].stylePrompt;
     });
     const report = lintInPackStyleSimilarity(prompts.map((stylePrompt, index) => ({ trackNo: index + 1, stylePrompt })));
-    expect(new Set(prompts).size).toBe(3);
+    // TASK v3.61 — testGenres now tracks channelPresets[0].preferredGenres,
+    // which grew from 3 to 15 ids (see presets.ts's own comment on that
+    // expansion); the actual invariant this test cares about is "every
+    // genre in the pool produces a genuinely distinct style prompt", not a
+    // specific hardcoded pool size.
+    expect(new Set(prompts).size).toBe(testGenres.length);
     expect(report.averageSimilarity).toBeLessThan(0.35);
   });
 

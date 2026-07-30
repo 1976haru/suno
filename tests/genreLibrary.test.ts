@@ -30,9 +30,11 @@ const LEGACY_IDS = [
   'piano-ballad',
   'retro-soul-pop',
   'synthwave-mellow',
-  // TASK v3.56 Part 3 — senior/cafe channel additions, registered directly
-  // in presets.ts's rawGenrePacks only (not in genreLibrary's own array —
-  // same pre-existing split as the rest of LEGACY_IDS).
+  // TASK v3.56 Part 3 — senior/cafe channel additions. Originally registered
+  // only in presets.ts's rawGenrePacks (not genreLibrary's own array); TASK
+  // v3.61 additionally registered them into genreLibrary's legacyGenreProfiles
+  // too, since conceptAgent.ts's getCoreGenresForArchetype reads genreLibrary,
+  // not presets.ts, so the split silently broke Korean-keyword genre routing.
   'chanson',
   'smooth-jazz-lounge'
 ];
@@ -84,7 +86,10 @@ describe('structured genre library', () => {
     // 12 -> 15 with contemporary-rnb/city-pop-night/lofi-soul; kids(4) and
     // eraGenrePacks(8) are unchanged), and LEGACY_IDS grew by 2
     // (chanson/smooth-jazz-lounge).
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27);
+    // TASK v3.61 — +28 for oldpopGenrePacks (registered in both genreLibrary
+    // and presets.ts's rawGenrePacks, so this fixed count grows by the same
+    // 28 the LEGACY_IDS-based total already accounts for on the other side).
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 28);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -184,23 +189,35 @@ describe('structured genre library', () => {
     expect(MAX_SELECTED_GENRES).toBe(5);
   });
 
-  it('keeps channel core genre counts at or below 12 and falls back for empty archetypes', () => {
-    expect(getCoreGenresForArchetype('senior-morning').map(genre => genre.id)).toEqual([
-      'adult-contemporary',
-      'acoustic-pop',
-      'jazz-pop',
-      'healing-ballad',
-      'piano-ballad',
-      'lofi-cafe',
-      'retro-soul-pop',
-      'bossa-cafe',
-      'christmas-soft-pop',
-      'folk-pop'
-    ]);
-    expect(getCoreGenresForArchetype('senior-morning').length).toBeLessThanOrEqual(12);
+  it('keeps showa-cafe core genre count at or below 12 and falls back for empty archetypes', () => {
     expect(getCoreGenresForArchetype('showa-cafe').length).toBeLessThanOrEqual(12);
     expect(getCoreGenresForArchetype('christmas').map(genre => genre.id)).toEqual(getCoreGenresForArchetype('senior-morning').map(genre => genre.id));
-    expect(getVisibleGenresForArchetype('senior-morning').length).toBeLessThanOrEqual(12);
+  });
+
+  // TASK v3.61 — senior-morning's own core pool was deliberately expanded
+  // past the old 10/12 cap: a real 18-song pack kept landing on the same
+  // 3-4 genres because the pre-v3.61 pool only had 10 genres that actually
+  // resolve via getCoreGenresForArchetype (chanson/smooth-jazz-lounge are
+  // registered only in presets.ts's rawGenrePacks, a pre-existing gap this
+  // task didn't touch — see LEGACY_IDS's own comment above), none of them
+  // in a genuinely different warmth/era bracket from adult-contemporary.
+  // The 28 new oldpop-* ids (oldpopGenrePacks) are registered directly in
+  // genreLibrary's own array, so they DO resolve here.
+  it('adds the 28 oldpop-* genres to senior-morning\'s core pool without touching showa-cafe', () => {
+    const seniorIds = getCoreGenresForArchetype('senior-morning').map(genre => genre.id);
+    const oldpopIds = seniorIds.filter(id => id.startsWith('oldpop-'));
+    expect(oldpopIds).toHaveLength(28);
+    // 10 ids that already resolved before this task + 28 new oldpop-* + 2
+    // (chanson/smooth-jazz-lounge) whose own pre-existing genreLibrary/
+    // presets.ts split this task closed (see legacyGenreProfiles's own
+    // comment) so conceptAgent.ts's keyword routing can reach them too.
+    expect(seniorIds).toHaveLength(40);
+    // The ids that resolved before this task must still be present, unchanged.
+    for (const id of ['adult-contemporary', 'acoustic-pop', 'jazz-pop', 'healing-ballad', 'piano-ballad', 'lofi-cafe', 'retro-soul-pop', 'bossa-cafe', 'christmas-soft-pop', 'folk-pop', 'chanson', 'smooth-jazz-lounge']) {
+      expect(seniorIds, id).toContain(id);
+    }
+    expect(getCoreGenresForArchetype('showa-cafe').length).toBeLessThanOrEqual(12);
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(40);
   });
 
   it('does not promote Bebop, Big Band, Club Disco, or Jazz Rap variants into any core set', () => {
@@ -227,11 +244,18 @@ describe('structured genre library', () => {
     // genreLibrary too (previously only in presets.ts's rawGenrePacks), so
     // getGenreById/getVisibleGenresForArchetype('kids') can resolve them.
     // TASK v3.56 Part 3 — was 288/288 (libraryIds === presetIds exactly);
-    // chanson/smooth-jazz-lounge are registered only in presets.ts's
-    // rawGenrePacks (same split as the kids-* ids used to be), so presetIds
-    // is now a strict superset of libraryIds by exactly those 2 ids.
-    expect(libraryIds.size).toBe(290);
-    expect(presetIds.size).toBe(292);
+    // chanson/smooth-jazz-lounge were registered only in presets.ts's
+    // rawGenrePacks (same split as the kids-* ids used to be), making
+    // presetIds a strict superset of libraryIds by exactly those 2 ids.
+    // TASK v3.61 — +28 oldpop-* ids added to BOTH genreLibrary's own array
+    // and presets.ts's rawGenrePacks (290->318, 292->320), AND
+    // chanson/smooth-jazz-lounge were additionally registered into
+    // genreLibrary's own legacyGenreProfiles (closing the v3.56 gap above —
+    // it turned out to silently break conceptAgent.ts's keyword routing,
+    // not just the UI chip picker), so libraryIds gains those same 2 ids
+    // and the two counts converge back to equal: 318+2=320, 320 unchanged.
+    expect(libraryIds.size).toBe(320);
+    expect(presetIds.size).toBe(320);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);
