@@ -40,6 +40,8 @@ interface SongCardProps {
   onUpdateLyrics?: (trackNo: number, lyrics: string) => void;
   onRegenerateLyricLine?: (trackNo: number, zeroBasedLineIndex: number) => void;
   onUpdatePronunciationHints?: (trackNo: number, text: string) => void;
+  /** TASK v3.58 (TASK 6) — true when core/albumAudit.ts's auditAlbum() found a pack-wide blocking failure (duplicate title/hook, artist-name leak, over-limit prompt, etc.); disables the Style Prompt copy button the same way isOverPromptLimit already does, until the pack is fixed or regenerated. */
+  albumAuditBlocked?: boolean;
 }
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
@@ -48,7 +50,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
@@ -213,7 +215,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
                   <RotateCcw size={14} />
                   기본값으로
                 </button>
-                <button type="button" disabled={isOverPromptLimit} onClick={() => void copyText(styleDraft)}>
+                <button type="button" disabled={isOverPromptLimit || albumAuditBlocked} onClick={() => void copyText(styleDraft)}>
                   <Copy size={15} />
                   Copy
                 </button>
@@ -231,6 +233,9 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               )}
               {isOverPromptLimit && !isSeedSong && (
                 <p className="error">⚠️ {promptLimit}자를 초과했습니다. 초과 상태에서는 복사를 막습니다.</p>
+              )}
+              {!isOverPromptLimit && albumAuditBlocked && (
+                <p className="error">⚠️ 앨범 전체 검사에서 문제가 발견되어 복사를 막았습니다. 위 배너의 문제를 해결한 뒤 다시 시도하세요.</p>
               )}
               {song.promptDroppedTerms && song.promptDroppedTerms.length > 0 && (
                 <p className="supporting">ℹ️ 길이 제한으로 제외된 항목: {song.promptDroppedTerms.join(', ')}</p>

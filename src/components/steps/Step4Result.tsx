@@ -13,6 +13,7 @@ import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
 import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
 import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
+import { auditAlbum } from '../../core/albumAudit';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
@@ -189,6 +190,15 @@ export default function Step4Result({
     () => (blueprint ? lintInPackStyleSimilarity(blueprint.songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt }))) : null),
     [blueprint]
   );
+
+  // TASK v3.58 (TASK 6) — whole-pack audit (core/albumAudit.ts) on top of
+  // every song's own scoreSong() warnings: duplicate titles/hooks, artist-
+  // name leaks, over-limit style prompts, and re-checks of TASK 1-5's own
+  // fixes. `errors` block the per-song Suno-bound copy actions below
+  // (mirrors this file's own isOverPromptLimit precedent in SongCard);
+  // `warnings` are informational only and never block anything.
+  const albumAuditReport = useMemo(() => (blueprint ? auditAlbum(blueprint.songs, opts) : null), [blueprint, opts]);
+  const albumAuditBlocked = Boolean(albumAuditReport && !albumAuditReport.passed);
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -415,6 +425,16 @@ export default function Step4Result({
           </span>
         </div>
       )}
+      {resultTab === 'songs' && albumAuditReport && (albumAuditReport.errors.length > 0 || albumAuditReport.warnings.length > 0) && (
+        <div className={albumAuditReport.errors.length > 0 ? 'warning error' : 'warning'}>
+          <ShieldAlert size={16} />
+          <span>
+            {albumAuditReport.errors.length > 0 && `문제가 있어 Suno로 복사하는 것을 막았습니다: ${albumAuditReport.errors.join(' / ')}`}
+            {albumAuditReport.errors.length > 0 && albumAuditReport.warnings.length > 0 && ' — '}
+            {albumAuditReport.warnings.length > 0 && albumAuditReport.warnings.join(' / ')}
+          </span>
+        </div>
+      )}
       {resultTab === 'songs' && evalError && <p className="error">{evalError}</p>}
       {resultTab === 'songs' && retryWarning && <p className="error">{retryWarning}</p>}
       {resultTab === 'songs' && undoTrackNo !== null && (
@@ -472,6 +492,7 @@ export default function Step4Result({
             onUpdateLyrics={onUpdateLyrics}
             onRegenerateLyricLine={onRegenerateLyricLine}
             onUpdatePronunciationHints={onUpdatePronunciationHints}
+            albumAuditBlocked={albumAuditBlocked}
           />
         )
       ))}
