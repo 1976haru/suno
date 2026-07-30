@@ -12,6 +12,10 @@ export interface AlbumAuditReport {
   errors: string[];
   /** Non-blocking, worth-a-look issues — surfaced but never gate a copy/export action. */
   warnings: string[];
+  /** TASK v3.59 (TASK C-9) — songs[].qualityScore average across the pack, when present. */
+  avgQualityScore?: number;
+  /** TASK v3.59 (TASK C-9) — songs[].qualityScore minimum across the pack, when present. */
+  minQualityScore?: number;
   passed: boolean;
 }
 
@@ -50,6 +54,37 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
   const warnings: string[] = [];
 
   if (!songs.length) return { songCount: 0, errors, warnings, passed: true };
+
+  // TASK v3.59 (TASK C-9) — auditAlbum previously only ever computed its
+  // own pack-level checks; a real pack measured every song's own
+  // scoreSong() warnings (quality.ts) at 4 each and qualityScore in the
+  // 52-58 range while this function still reported passed:true/warnings:0,
+  // because it never looked at song.warnings/song.qualityScore at all.
+  // Aggregated as warnings only — never errors (a verbose style prompt
+  // shouldn't block the Suno copy button; see TASK 7-7's own per-song
+  // scoring for where the real penalty already lives).
+  const perSongWarningTrackNos = new Map<string, number[]>();
+  for (const song of songs) {
+    for (const warning of song.warnings || []) {
+      const trackNos = perSongWarningTrackNos.get(warning) || [];
+      trackNos.push(song.trackNo);
+      perSongWarningTrackNos.set(warning, trackNos);
+    }
+  }
+  for (const [warning, trackNos] of perSongWarningTrackNos) {
+    warnings.push(`${trackNos.length}곡에 "${warning}" — 트랙 ${trackNos.join(', ')}`);
+  }
+
+  const qualityScores = songs.map(song => song.qualityScore).filter((score): score is number => typeof score === 'number');
+  let avgQualityScore: number | undefined;
+  let minQualityScore: number | undefined;
+  if (qualityScores.length) {
+    avgQualityScore = qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length;
+    minQualityScore = Math.min(...qualityScores);
+    if (avgQualityScore < 80) {
+      warnings.push(`평균 qualityScore ${avgQualityScore.toFixed(1)}점 (최저 ${minQualityScore}점) — 80점 미만`);
+    }
+  }
 
   for (const title of duplicateValues(songs.map(song => song.title))) {
     errors.push(`Duplicate title across the pack: "${title}"`);
@@ -131,5 +166,5 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
     }
   }
 
-  return { songCount: songs.length, errors, warnings, passed: errors.length === 0 };
+  return { songCount: songs.length, errors, warnings, avgQualityScore, minQualityScore, passed: errors.length === 0 };
 }

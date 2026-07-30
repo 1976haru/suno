@@ -591,6 +591,17 @@ export function composeStylePrompt(
   const atomsById = new Map<PromptTermId, string[]>();
   const shortAtomsById = new Map<PromptTermId, string[]>();
   const minimalAtomsById = new Map<PromptTermId, string[]>();
+  // TASK v3.59 (TASK C-8) — atom *count* was never the real problem (15
+  // essential/guaranteed-minimum categories is a reasonable number); atom
+  // *length* is — e.g. "Verse stays in a straight 4/4 pop feel with
+  // sustained piano pads and clean strummed acoustic" is one atom at 15
+  // words. Purely diagnostic (never drops or rewrites content, never blocks
+  // generation): flags any atom over ATOM_WORD_CAP words that has no
+  // authored shortForm to fall back to, so the actual fix (shortening that
+  // atom's own source text, or authoring a shortForm for it) is visible and
+  // attributable instead of silently contributing to prompt bloat.
+  const ATOM_WORD_CAP = 8;
+  const longAtomWarnings: string[] = [];
   for (const part of parts) {
     const atoms = splitAtoms(part.text);
     if (!atoms.length) continue;
@@ -602,6 +613,15 @@ export function composeStylePrompt(
     const minimalAtoms = minimalFormAtomsFor(part, atoms);
     if (minimalAtoms.length) {
       minimalAtomsById.set(part.id, [...(minimalAtomsById.get(part.id) || []), ...minimalAtoms]);
+    }
+    if (!shortAtoms.length) {
+      for (const atom of atoms) {
+        const wordCount = countWords(atom);
+        if (wordCount > ATOM_WORD_CAP) {
+          const preview = atom.length > 40 ? `${atom.slice(0, 40)}...` : atom;
+          longAtomWarnings.push(`원자 '${preview}' 가 ${wordCount}단어 (id: ${part.id}) — shortForm 미작성`);
+        }
+      }
     }
   }
 
@@ -664,7 +684,7 @@ export function composeStylePrompt(
   cappedAtoms.forEach(({ id, text }) => atomsById.get(id)!.push(text));
 
   const droppedTerms: string[] = [];
-  const warnings: string[] = [];
+  const warnings: string[] = [...longAtomWarnings];
   const keptAtoms: KeptPromptAtom[] = [];
   let currentLength = 0;
   // v3.56 — GUARANTEED_MINIMUM_TERM_IDS's whole point is that a category
