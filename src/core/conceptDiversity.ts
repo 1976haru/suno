@@ -112,6 +112,28 @@ export function resolveConceptInfluence(customConcept?: string): ConceptInfluenc
   return match ? { key: match.key, styleText: match.styleText, lyricImages: match.lyricImages } : fallbackConcept(customConcept || '');
 }
 
+/**
+ * TASK v3.59 (TASK B-1) — a raw customConcept ("비틀즈 스타일로, 아침에
+ * 커피와 함께...") used to be echoed verbatim into public YouTube
+ * description text (localGenerator.ts's buildYoutubeMetadata) and the
+ * thumbnail workset export markdown (thumbnailWorksetExport.ts) — both
+ * "Concept: ${opts.customConcept || ...oneLineConcept}", where
+ * oneLineConcept is itself just customConcept again in the common case, so
+ * the "||" fallback never actually helped. This is the shared safety check:
+ * same criteria as fallbackConcept's own artist-reference/style-framing
+ * guard, applied here to any place that displays the concept text rather
+ * than weaving it into a lyric image. A *safe* customConcept still shows
+ * the user's own words (no value lost for the common case); only a
+ * detected artist reference or style-reference framing substitutes the
+ * caller's safe fallback.
+ */
+export function safeConceptSummaryForDisplay(customConcept: string | undefined, fallback: string): string {
+  const clean = (customConcept || '').trim();
+  if (!clean) return fallback;
+  if (findArtistReferenceLeaks(clean).length > 0 || STYLE_REFERENCE_FRAMING_PATTERN.test(clean)) return fallback;
+  return clean;
+}
+
 export function conceptStyleText(customConcept?: string, index = 0): string | undefined {
   const influence = resolveConceptInfluence(customConcept);
   // TASK v3.59 (TASK A-2) — fallbackConcept can now return an influence with

@@ -2,6 +2,7 @@ import type { SavedPack, ThumbnailCompositionGuide, ThumbnailMotionGuide, Thumbn
 import type { ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
 import { buildCoverImagePromptVariants, buildPortraitImagePromptVariants, buildThumbnailSpec } from './thumbnailSpec';
+import { safeConceptSummaryForDisplay } from './conceptDiversity';
 
 const IMAGE_TOOLS = [
   ['generic', 'Generic (ChatGPT/DALL-E)'],
@@ -101,7 +102,7 @@ export function buildThumbnailWorksetMarkdown(input: ThumbnailWorksetMarkdownInp
       `## Set ${String(setNo).padStart(2, '0')} of ${total}: ${pack.projectTitle}`,
       '',
       `Season: ${season.label} (${season.id})`,
-      `Concept: ${pack.options.customConcept || pack.blueprint.oneLineConcept}`,
+      `Concept: ${safeConceptSummaryForDisplay(pack.options.customConcept, pack.blueprint.oneLineConcept)}`,
       `Channel: ${pack.channelName}`,
       `Selected copy: ${selected.id} - ${selected.headline.replace('\n', ' / ')} / ${selected.subline}`,
       '',

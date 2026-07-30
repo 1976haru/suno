@@ -1,5 +1,6 @@
 import type { GenerationOptions, PlaylistBlueprint, SongIdea } from '../types';
 import { AI_DISCLOSURE_LINE } from './exportCompliance';
+import { safeConceptSummaryForDisplay } from './conceptDiversity';
 
 /**
  * TASK v3.39.1 Part B1/C2 — same estimate for both the tracklist timestamps
@@ -61,7 +62,10 @@ export function buildPackTracklist(
  */
 export function buildPackVideoDescription(blueprint: PlaylistBlueprint, opts: GenerationOptions): string {
   const tracklist = buildPackTracklist(blueprint.songs, opts.durationTarget);
-  const intro = opts.customConcept || opts.channel.promise;
+  // TASK v3.59 (TASK B-1) — same raw-customConcept-echo issue as
+  // localGenerator.ts's buildYoutubeMetadata; this is a genuinely public
+  // description field (the compiled whole-pack video's YouTube copy).
+  const intro = safeConceptSummaryForDisplay(opts.customConcept, opts.channel.promise);
   return [
     `${blueprint.projectTitle} — ${opts.channel.name}`,
     '',

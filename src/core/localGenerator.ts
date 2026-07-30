@@ -28,7 +28,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
-import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, variedVocalText } from './conceptDiversity';
+import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
   buildStructureTemplatePlan,
   composeLyrics,
@@ -445,7 +445,7 @@ function buildYoutubeMetadata(
   // how this app works.
   const description = [
     `${song.title} is track ${song.trackNo} from ${opts.projectTitle}.`,
-    `Concept: ${opts.customConcept || opts.channel.promise}`,
+    `Concept: ${safeConceptSummaryForDisplay(opts.customConcept, opts.channel.promise)}`,
     `Mood: ${song.listenerSituation}, ${song.seasonMoment}.`,
     AI_DISCLOSURE_LINE,
     `Tags: ${tags.slice(0, 10).join(', ')}`
