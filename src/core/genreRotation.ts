@@ -32,6 +32,6 @@ export function genresForTrack(
   const rest = explicitWeighted.length ? explicitWeighted : fallbackRest;
   const ordered = lead.id === primary.id
     ? [primary, ...rest]
-    : [primary, lead, ...rest];
+    : [lead, primary, ...rest];
   return ordered.slice(0, 3);
 }

@@ -20,12 +20,21 @@ describe('flagship (TASK I1, v3.11)', () => {
     }
   });
 
-  it('flagship tracks share the pack\'s selected genre content in their style prompt', () => {
+  // TASK v3.58 — previously required BOTH flagship tracks to contain
+  // testGenres[0]'s specific keyword, which only ever passed because
+  // genresForTrack (core/genreRotation.ts) forced the channel's primary
+  // genre into every song regardless of its actual assigned genreId (see
+  // tests/genreRotationIdentity.test.ts). Flagship tracks 2-3 can now
+  // legitimately be assigned any genre from the pool — the real invariant
+  // is that each one carries real genre content from the pool, not
+  // specifically the first genre in testGenres.
+  it('flagship tracks carry real genre content from the selected pool in their style prompt', () => {
     const opts = makeOptions({ songCount: 12, genreIds: testGenres.map(g => g.id) });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
-    const primaryGenreWord = testGenres[0].styleCore.split(',')[0].trim();
-    expect(bp.songs[1].stylePrompt).toContain(primaryGenreWord);
-    expect(bp.songs[2].stylePrompt).toContain(primaryGenreWord);
+    const poolKeywords = testGenres.map(genre => genre.styleCore.split(',')[0].trim());
+    for (const song of [bp.songs[1], bp.songs[2]]) {
+      expect(poolKeywords.some(keyword => song.stylePrompt.includes(keyword)), song.stylePrompt).toBe(true);
+    }
   });
 
   it('songCount=1 never assigns a flagship slot, and does not crash', () => {

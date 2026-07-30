@@ -88,11 +88,30 @@ describe('[Part A2] BPM appears in every prompt with real variety', () => {
 });
 
 describe('[Part D follow-up] genre-atom rotation keeps only the anchor common', () => {
-  it('the primary genre keyword is common to every song, but not the full genre text', () => {
+  // TASK v3.58 — this test originally asserted that a single genre's keyword
+  // ("nostalgic acoustic jazz-pop") was common to EVERY song regardless of
+  // which genre that song was actually assigned, because genresForTrack
+  // (core/genreRotation.ts) always kept the channel's primary genre in
+  // position 0 no matter which genre was the track's real lead. That was
+  // exactly the "every song sounds like one genre" bug TASK 1 fixes — see
+  // tests/genreRotationIdentity.test.ts. The correct invariant is per-song:
+  // each song's genre anchor keyword matches ITS OWN assigned genreId, not
+  // one shared channel-wide anchor.
+  it('each song\'s genre anchor keyword matches its own assigned genreId', () => {
     const bp = generateShowaPack(15);
+    const genres = genrePacks.filter(g => showaCafe.preferredGenres.includes(g.id));
+    const anchorKeywordByGenreId = new Map(genres.map(genre => [genre.id, genre.styleCore.split(',')[0].trim().toLowerCase()]));
+
     for (const song of bp.songs) {
-      expect(song.stylePrompt.toLowerCase()).toContain('nostalgic acoustic jazz-pop');
+      const genreId = song.genreId;
+      expect(genreId, `track ${song.trackNo} missing genreId`).toBeTruthy();
+      const anchorKeyword = genreId ? anchorKeywordByGenreId.get(genreId) : undefined;
+      expect(anchorKeyword, `unknown genreId ${genreId}`).toBeTruthy();
+      if (anchorKeyword) {
+        expect(song.stylePrompt.toLowerCase(), `track ${song.trackNo} (genreId=${genreId})`).toContain(anchorKeyword);
+      }
     }
+
     const distinctPrompts = new Set(bp.songs.map(s => s.stylePrompt));
     expect(distinctPrompts.size).toBe(15);
   });
