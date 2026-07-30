@@ -1,6 +1,6 @@
 import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
-import { SAFE_TARGET, SUNO_COPY_LIMIT } from './promptBudget';
+import { countWords, SAFE_TARGET, STYLE_CHAR_TARGET, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
 import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -471,6 +471,36 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     stylePrompt = fitted.prompt;
     promptDroppedTerms = [...promptDroppedTerms, ...fitted.droppedAtoms];
     pushUnique(warnings, `Style prompt exceeded ${SUNO_COPY_LIMIT} chars and was trimmed to fit Suno's copy limit.`);
+  }
+
+  // TASK v3.58 (TASK 7-7) — composeStylePrompt's own promptWordCount/
+  // promptWithinWordTarget (localGenerator.ts) were computed at generation
+  // time but nothing ever read them back here: quality.ts's own word-count
+  // check only ever covered *lyrics* (see the wordCount check earlier in
+  // this function), so a 140-word style prompt scored the same as a
+  // 30-word one — a real 18-song pack averaged 94-95/100 with zero
+  // warnings despite every prompt being 4x Suno's own documented 15-30
+  // word sweet spot. Cascading tiers (only the highest one that applies
+  // fires, so one overage doesn't stack three penalties) computed on the
+  // final, already-trimmed stylePrompt rather than the possibly-stale
+  // song.promptWordCount snapshot from before this function's own
+  // sanitize/trim steps above.
+  const finalWordCount = countWords(stylePrompt);
+  if (finalWordCount > 70) {
+    pushUnique(warnings, `Style prompt is ${finalWordCount} words (target ${STYLE_WORD_TARGET_MAX}) — far more than Suno's own 15-30 word sweet spot.`);
+    score -= 15;
+  } else if (finalWordCount > 50) {
+    pushUnique(warnings, `Style prompt is ${finalWordCount} words (target ${STYLE_WORD_TARGET_MAX}) — well past Suno's own 15-30 word sweet spot.`);
+    score -= 5;
+  } else if (finalWordCount > STYLE_WORD_TARGET_MAX) {
+    pushUnique(warnings, `Style prompt is ${finalWordCount} words (target ${STYLE_WORD_TARGET_MAX}).`);
+  }
+  if (stylePrompt.length > SUNO_COPY_LIMIT) {
+    pushUnique(warnings, `Style prompt is ${stylePrompt.length} chars, over Suno's ${SUNO_COPY_LIMIT}-char hard limit.`);
+    score -= 25;
+  } else if (stylePrompt.length > 600) {
+    pushUnique(warnings, `Style prompt is ${stylePrompt.length} chars (target ${STYLE_CHAR_TARGET}).`);
+    score -= 5;
   }
 
   return {

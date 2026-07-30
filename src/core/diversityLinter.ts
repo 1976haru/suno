@@ -244,8 +244,17 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-/** A pack-wide average above this reads as "every song sounds the same" to a listener — real measurement of the reported bug was 90.3%. */
-const IN_PACK_AVG_SIMILARITY_WARN = 0.75;
+/**
+ * TASK v3.58 (TASK 7-6) — lowered 0.75 -> 0.35. The original 0.75/0.90 pair
+ * was calibrated against the reported 90.3%-average bug and never fired
+ * again once that bug was fixed, even while a real measured 37-53% shared-
+ * atom ratio (see sharedAtomRatio below) sat comfortably under both
+ * thresholds with zero warnings. A pack-level genre signature/audience
+ * identity being shared is expected (see commonClauses' own comment above),
+ * but the remaining, non-common musical material still reading 35%+ similar
+ * pairwise is worth a warning, not silence.
+ */
+const IN_PACK_AVG_SIMILARITY_WARN = 0.35;
 /**
  * TASK v3.43 Step 2 (Part A4) — the average metric had a warn tier but no
  * error tier of its own (only the per-pair max did); a pack whose average
@@ -254,9 +263,24 @@ const IN_PACK_AVG_SIMILARITY_WARN = 0.75;
  * just a warning, independent of whether any single pair also crosses the
  * max-pair threshold below.
  */
-const IN_PACK_AVG_SIMILARITY_ERROR = 0.90;
+// TASK v3.58 (TASK 7-6) — lowered 0.90 -> 0.50, same reasoning as the warn
+// threshold above.
+const IN_PACK_AVG_SIMILARITY_ERROR = 0.50;
 /** Any single pair above this is effectively the same style prompt — real measurement had a pair at 100%. */
 const IN_PACK_MAX_SIMILARITY_ERROR = 0.95;
+
+/**
+ * TASK v3.58 (TASK 7-6) — commonClauses (the pack-wide shared-identity
+ * boilerplate excluded before measuring per-song similarity) used to be
+ * returned with no threshold of its own: the more boilerplate a pack had,
+ * the more got excluded from the similarity measurement, and the *better*
+ * the reported similarity score looked — a real measured 37-53% shared-atom
+ * ratio produced zero warnings under the old thresholds. sharedAtomRatio
+ * makes the exclusion itself an inspectable, threshold-checked number
+ * instead of a silent side effect.
+ */
+const SHARED_ATOM_RATIO_WARN = 0.30;
+const SHARED_ATOM_RATIO_ERROR = 0.45;
 
 export interface InPackSimilarityPair {
   trackNoA: number;
@@ -271,6 +295,12 @@ export interface InPackSimilarityReport {
   worstPair: InPackSimilarityPair | null;
   /** Clauses present in every single song's stylePrompt — "what's actually fixed across the whole pack", surfaced so a reviewer can see exactly what to vary. */
   commonClauses: string[];
+  /** TASK v3.58 (TASK 7-6) — commonClauses.length. */
+  sharedAtomCount: number;
+  /** TASK v3.58 (TASK 7-6) — total character length of commonClauses (comma-joined). */
+  sharedAtomChars: number;
+  /** TASK v3.58 (TASK 7-6) — sharedAtomChars / average stylePrompt length across the pack; the fraction of an average song's prompt that's pack-wide boilerplate rather than per-song musical material. */
+  sharedAtomRatio: number;
   /** Vocal-description openings repeated three or more times in one pack. */
   repeatedVocalStarts: { start: string; count: number; trackNos: number[] }[];
   warnings: string[];
@@ -281,7 +311,7 @@ export interface InPackSimilarityReport {
 
 export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt: string }[]): InPackSimilarityReport {
   if (songs.length < 2) {
-    return { songCount: songs.length, averageSimilarity: 0, maxSimilarity: 0, worstPair: null, commonClauses: [], repeatedVocalStarts: [], warnings: [], errors: [], passed: true };
+    return { songCount: songs.length, averageSimilarity: 0, maxSimilarity: 0, worstPair: null, commonClauses: [], sharedAtomCount: 0, sharedAtomChars: 0, sharedAtomRatio: 0, repeatedVocalStarts: [], warnings: [], errors: [], passed: true };
   }
 
   const rawEntries = songs.map(song => ({ trackNo: song.trackNo, clauses: stylePromptClauseSet(song.stylePrompt) }));
@@ -311,6 +341,16 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
 
   const averageSimilarity = pairCount ? total / pairCount : 0;
   const maxSimilarity = worstPair?.similarity ?? 0;
+
+  // TASK v3.58 (TASK 7-6) — the exclusion above (commonSet) is itself now a
+  // measured, threshold-checked quantity: the more pack-wide boilerplate a
+  // song's stylePrompt carries, the less of it is actually per-song musical
+  // material, regardless of how similar that remaining material measures.
+  const sharedAtomCount = commonClauses.length;
+  const sharedAtomChars = commonClauses.join(', ').length;
+  const avgPromptLength = songs.reduce((sum, song) => sum + song.stylePrompt.length, 0) / songs.length;
+  const sharedAtomRatio = avgPromptLength > 0 ? sharedAtomChars / avgPromptLength : 0;
+
   const vocalStartBuckets = new Map<string, number[]>();
   songs.forEach(song => {
     const start = song.stylePrompt.split(',').slice(0, 3).map(clause => clause.trim()).find(clause => /\b(vocal|voice|tenor|alto|soprano|choir|singer)\b/i.test(clause));
@@ -345,7 +385,36 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
     warnings.push(`Vocal description starts with "${entry.start}" on ${entry.count} tracks (${entry.trackNos.join(', ')}); vary delivery wording while keeping the channel identity.`);
   });
 
-  return { songCount: songs.length, averageSimilarity, maxSimilarity, worstPair, commonClauses, repeatedVocalStarts, warnings, errors, passed: errors.length === 0 };
+  // TASK v3.58 (TASK 7-6) — same warn/error split as the average-similarity
+  // metric above, plus the 5 longest shared clauses so a reviewer sees
+  // exactly what to vary without having to dig through commonClauses itself.
+  if (sharedAtomRatio > SHARED_ATOM_RATIO_WARN || sharedAtomRatio > SHARED_ATOM_RATIO_ERROR) {
+    const longestShared = [...commonClauses].sort((a, b) => b.length - a.length).slice(0, 5);
+    const detail = longestShared.length
+      ? ` Longest shared clauses: ${longestShared.map(clause => `"${clause}" (${clause.length} chars)`).join(', ')}.`
+      : '';
+    const message = `Shared (pack-wide, non-varying) prompt content is ${Math.round(sharedAtomRatio * 100)}% of an average song's style prompt.${detail}`;
+    if (sharedAtomRatio > SHARED_ATOM_RATIO_ERROR) {
+      errors.push(`${message} (error threshold ${Math.round(SHARED_ATOM_RATIO_ERROR * 100)}%)`);
+    } else {
+      warnings.push(`${message} (warn threshold ${Math.round(SHARED_ATOM_RATIO_WARN * 100)}%)`);
+    }
+  }
+
+  return {
+    songCount: songs.length,
+    averageSimilarity,
+    maxSimilarity,
+    worstPair,
+    commonClauses,
+    sharedAtomCount,
+    sharedAtomChars,
+    sharedAtomRatio,
+    repeatedVocalStarts,
+    warnings,
+    errors,
+    passed: errors.length === 0
+  };
 }
 
 // ---------------------------------------------------------------------------

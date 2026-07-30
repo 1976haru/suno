@@ -365,7 +365,7 @@ export function rebuildStylePromptsForPersonaMode(
             'same channel vocal signature and mix balance across the full playlist set'
           ].filter(Boolean).join(', ')
         }
-      ], styleLimitValue, styleLimitValue);
+      ], styleLimitValue, styleLimitValue, undefined, idx);
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const promptWarnings = warningsForComposedPrompt(composed, styleLimitValue);
     return {
@@ -783,7 +783,8 @@ export function generateLocalBlueprint(
         songParts,
         styleLimitValue,
         styleLimitValue,
-        promptPriorityForTrack(idx)
+        promptPriorityForTrack(idx),
+        idx
       );
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const promptWarnings = warningsForComposedPrompt(composed, opts.personaMode ? resolvePersonaTrackLimit(styleLimit, trackNo) : styleLimitValue);

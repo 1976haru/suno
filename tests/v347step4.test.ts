@@ -71,10 +71,17 @@ describe('[v3.47 Step 4] lead genre arrangement narratives', () => {
       expect(stylePrompt.length, id).toBeLessThanOrEqual(SUNO_COPY_LIMIT);
       expect(countBpmTextMentions(stylePrompt), `${id}: ${stylePrompt}`).toBe(1);
       expect(stylePrompt, id).not.toMatch(bpmRangeOrApproxTerms);
+      // TASK v3.58 (TASK 7-2/7-4) — GENRE_NARRATIVE_FLOOR_ATOMS dropped
+      // 5 -> 2 (previously a no-op: 5 equaled the narrative block's own full
+      // clause count), so a real pack now genuinely compresses genreNarrative
+      // to 2 of its 5 verse/pre-chorus/chorus/hook-entry/mix clauses under
+      // the (now tighter, TASK 7-2) word budget — which 2 survive rotates by
+      // track index (songCount:1 here means idx=0 for every genre, so the
+      // unrotated verse+pre-chorus pair always wins). Asserting every genre's
+      // marker still matches "hook entry|downbeat|..." is exactly the
+      // "always 5 of 5" assumption this task's own fix removes.
       expect(stylePrompt, id).toMatch(/\bverse\b/i);
       expect(stylePrompt, id).toMatch(/\bpre-chorus\b/i);
-      expect(stylePrompt, id).toMatch(/\bchorus\b/i);
-      expect(stylePrompt, id).toMatch(/hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go/i);
     }
   });
 
@@ -117,8 +124,15 @@ describe('[v3.47 Step 4] lead genre arrangement narratives', () => {
     ], 240, 200);
 
     expect(result.length).toBeLessThanOrEqual(240);
+    // TASK v3.58 (TASK 7-2/7-4) — GENRE_NARRATIVE_FLOOR_ATOMS is now 2, not
+    // 5 (see reduceGenreNarrativeToFloor); with the default rotationSeed=0
+    // used here, the unrotated pattern order keeps the verse + pre-chorus
+    // clauses specifically, not "hook entry" — asserting the narrative
+    // survives AT ALL (not a specific clause) is what this test is actually
+    // about; TERM_LABELS_KO.genreNarrative staying out of droppedTerms
+    // already covers "abbreviated, not fully deleted".
     expect(result.prompt).toContain('Verse begins close');
-    expect(result.prompt).toContain('hook entry uses');
+    expect(result.prompt).toContain('pre-chorus widens harmony');
     expect(result.prompt).toContain('I-V-vi-IV progression');
     expect(result.droppedTerms).toContain(TERM_LABELS_KO.mixNotes);
     expect(result.droppedTerms).not.toContain(TERM_LABELS_KO.genreNarrative);

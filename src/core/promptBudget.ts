@@ -36,8 +36,24 @@ export const SUNO_STYLE_LIMIT_PRESETS = [
 // 32-40 essential range: 50 leaves every measured combination comfortable
 // room. The 1,000-char SUNO_STYLE_LIMIT hard limit is untouched by this —
 // this constant only ever governs the soft, best-practice word trim.
+//
+// TASK v3.58 (TASK 7-2) — 50 was itself measured as too loose once TASK 5-1's
+// label/directive-sentence removal and TASK 4's audience constraints were
+// both in place: a real 18-song pack averaged ~140 words/prompt (Suno's own
+// documented sweet spot is 15-30 comma-separated descriptors — see this
+// file's own TASK F3/G1 comment above). Lowered to 35, the tightest value
+// that still comfortably fits the same measured 32-40-word essential-atom
+// range this constant's own history is built on. GENRE_NARRATIVE_FLOOR_ATOMS
+// drops from 5 (the narrative block's own full clause count, so stage 2.5's
+// "reduce to floor" was a no-op — 5 of 5 always survived) to 2, so genre
+// narrative is actually compressed rather than passed through untouched.
+// STYLE_CHAR_TARGET is new: a soft *target* (not SUNO_STYLE_LIMIT's hard
+// 1,000-char cap), giving composeStylePrompt's callers a "did we actually
+// land in the 350-450 char sweet spot" number to report without changing
+// what's enforced.
 export const STYLE_WORD_TARGET_MIN = 15;
-export const STYLE_WORD_TARGET_MAX = 50;
+export const STYLE_WORD_TARGET_MAX = 35;
+export const STYLE_CHAR_TARGET = 450;
 
 /**
  * TASK H1 (v3.13) — mood/instruments are the only atoms that actually vary
@@ -49,7 +65,7 @@ export const STYLE_WORD_TARGET_MAX = 50;
  * rather than dropping the whole category.
  */
 export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice']);
-export const GENRE_NARRATIVE_FLOOR_ATOMS = 5;
+export const GENRE_NARRATIVE_FLOOR_ATOMS = 2;
 export const CONCEPT_FLOOR_ATOMS = 2;
 export const MOOD_FLOOR_ATOMS = 1;
 export const INSTRUMENTS_FLOOR_ATOMS = 2;
@@ -292,7 +308,19 @@ function replaceTermWithForm(
  * genreNarrative gets this same "abbreviate before delete" treatment at
  * both stages instead of only the word-budget one.
  */
-function reduceGenreNarrativeToFloor(atoms: KeptPromptAtom[], floor: number): KeptPromptAtom[] {
+/**
+ * TASK v3.58 (TASK 7-4) — GENRE_NARRATIVE_FLOOR_ATOMS dropping from 5 (the
+ * narrative block's own full clause count — always a no-op) to 2 means this
+ * now actually discards 3 of 5 clauses under budget pressure. The old fixed
+ * pattern order (verse -> pre-chorus -> chorus -> hook-entry -> mix) would
+ * make every track that hits this floor keep the exact same 2 clauses
+ * (verse + pre-chorus) verbatim — a new, narrower version of the same
+ * "every song sounds the same" failure TASK 1 fixed for genre rotation.
+ * `rotationSeed` (the track's own index/trackNo) rotates which clause
+ * category is tried first, so different tracks under budget pressure keep
+ * different pairs of clauses.
+ */
+function reduceGenreNarrativeToFloor(atoms: KeptPromptAtom[], floor: number, rotationSeed = 0): KeptPromptAtom[] {
   const narrativeAtoms = atoms.filter(atom => atom.id === 'genreNarrative');
   if (narrativeAtoms.length <= floor) return atoms;
   const keep = new Set<KeptPromptAtom>();
@@ -303,7 +331,17 @@ function reduceGenreNarrativeToFloor(atoms: KeptPromptAtom[], floor: number): Ke
     /hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go|drum mute|filter sweep|riser|vocal gap/i,
     /\bmix\b/i
   ];
-  for (const pattern of patterns) {
+  // TASK v3.58 (TASK 7-4) — this loop used to run every pattern
+  // unconditionally, never checking `floor`: harmless while floor always
+  // equaled narrativeAtoms.length (GENRE_NARRATIVE_FLOOR_ATOMS was 5, the
+  // narrative block's own full clause count, so this whole function was a
+  // no-op — see this function's own history above), but once floor dropped
+  // to 2, a narrative with one clause matching each of the 5 patterns (the
+  // common case) kept all 5 anyway, silently defeating the floor entirely.
+  const offset = ((rotationSeed % patterns.length) + patterns.length) % patterns.length;
+  const rotatedPatterns = [...patterns.slice(offset), ...patterns.slice(0, offset)];
+  for (const pattern of rotatedPatterns) {
+    if (keep.size >= floor) break;
     const match = narrativeAtoms.find(atom => pattern.test(atom.text.trim()) && !keep.has(atom));
     if (match) keep.add(match);
   }
@@ -414,7 +452,8 @@ function compressHardLimitWithGuard(
   order: PromptTermId[],
   shortAtomsById: Map<PromptTermId, string[]>,
   minimalAtomsById: Map<PromptTermId, string[]>,
-  droppedTerms: string[]
+  droppedTerms: string[],
+  rotationSeed = 0
 ): KeptPromptAtom[] {
   let finalAtoms = [...atoms];
   const essentialLowToHigh = [...order].reverse().filter(id => ESSENTIAL_TERM_IDS.has(id));
@@ -435,7 +474,7 @@ function compressHardLimitWithGuard(
 
   // Stage 2.5: guaranteed-minimum categories -> floor atom counts, not a full drop.
   if (promptLength(finalAtoms) > limit) {
-    const reducedNarrative = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS);
+    const reducedNarrative = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS, rotationSeed);
     if (promptLength(reducedNarrative) < promptLength(finalAtoms)) finalAtoms = reducedNarrative;
   }
   const floorSteps: [PromptTermId, number][] = [
@@ -544,7 +583,9 @@ export function composeStylePrompt(
   parts: PromptPart[],
   limit: number = SUNO_COPY_LIMIT,
   safeTarget: number = SUNO_COPY_LIMIT,
-  priorityOrder: PromptTermId[] = PROMPT_PRIORITY
+  priorityOrder: PromptTermId[] = PROMPT_PRIORITY,
+  /** TASK v3.58 (TASK 7-4) — rotates which genreNarrative clauses survive floor-reduction (see reduceGenreNarrativeToFloor); pass the track's own index/trackNo so different tracks under budget pressure don't all keep the same 2 clauses. */
+  rotationSeed = 0
 ): StylePromptResult {
   const order = [...new Set([...priorityOrder, ...PROMPT_PRIORITY])];
   const atomsById = new Map<PromptTermId, string[]>();
@@ -672,7 +713,7 @@ export function composeStylePrompt(
   // category has already been dropped entirely. This is what makes genre
   // selection actually audible — before this, mood/instruments were dropped
   // to zero every time the (unreachable) 30-word target was in effect.
-  let finalAtoms = compressHardLimitWithGuard(hardLimited.atoms, limit, order, shortAtomsById, minimalAtomsById, droppedTerms);
+  let finalAtoms = compressHardLimitWithGuard(hardLimited.atoms, limit, order, shortAtomsById, minimalAtomsById, droppedTerms, rotationSeed);
   const wordCountOf = (atoms: KeptPromptAtom[]) => countWords(atoms.map(atom => atom.text).join(', '));
 
   function reduceToFloor(atoms: KeptPromptAtom[], id: PromptTermId, floor: number): KeptPromptAtom[] {
@@ -708,7 +749,7 @@ export function composeStylePrompt(
     // Step 1.5 (v3.47 Step 4): keep the lead-genre narrative's core clauses
     // before trimming older soft-target preference details.
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
-      finalAtoms = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS);
+      finalAtoms = reduceGenreNarrativeToFloor(finalAtoms, GENRE_NARRATIVE_FLOOR_ATOMS, rotationSeed);
     }
     // Keep custom concept influence audible in normal prompts, but only as
     // compact cues under the soft word budget. It remains non-essential
@@ -729,14 +770,26 @@ export function composeStylePrompt(
     if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
       finalAtoms = reduceToFloor(finalAtoms, 'mood', MOOD_FLOOR_ATOMS);
     }
-    // Step 4 (v3.13 measurement found this essentially never triggers at
-    // STYLE_WORD_TARGET_MAX=50 — essential-only word counts topped out at 40
-    // across every measured archetype/language/genre, plus the ~7-word floor
-    // above lands at ~47): if still over budget here, the remaining excess is
-    // inside the essential atoms themselves. Left as a soft overage rather
-    // than truncating essential text — hook/vocal/moneyChord/genre must never
-    // be cut, and the real hard limit (SUNO_STYLE_LIMIT, enforced above by
-    // enforceHardLimit) is character-based and already protected regardless.
+    // Step 4 — if still over budget here (routine at STYLE_WORD_TARGET_MAX=35,
+    // since essential atoms alone measured 32-40 words even before TASK 7-2
+    // lowered the target — see this file's own TASK H1 comment above), the
+    // remaining excess is inside the essential/guaranteed-minimum atoms
+    // themselves. Left as a soft overage rather than truncating essential
+    // text — hook/vocal/moneyChord/genre must never be cut, and the real
+    // hard limit (SUNO_STYLE_LIMIT, enforced above by enforceHardLimit) is
+    // character-based and already protected regardless.
+    //
+    // TASK v3.58 (TASK 7-3) — this used to pass through with no signal at
+    // all: composeStylePrompt's own caller (localGenerator.ts) never saw
+    // that the essential/floor atoms alone couldn't fit the target, so a
+    // real 18-song pack could carry this overage on every single track with
+    // zero warnings anywhere (song.warnings stayed empty — see TASK 6's own
+    // auditAlbum, built specifically because qualityScore/warnings weren't
+    // catching this class of issue). Surfaced explicitly now instead of
+    // staying silent.
+    if (wordCountOf(finalAtoms) > STYLE_WORD_TARGET_MAX) {
+      addWarning(warnings, `보호 원자만으로 ${wordCountOf(finalAtoms)}단어 (목표 ${STYLE_WORD_TARGET_MAX}) — 원자 자체가 너무 길다`);
+    }
   }
 
   const prompt = finalAtoms.map(atom => atom.text).join(', ');

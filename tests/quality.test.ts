@@ -112,11 +112,20 @@ describe('quality scorer', () => {
     expect(song.warnings.some(w => w.startsWith('Famous artist reference risk'))).toBe(true);
   });
 
-  it('scores a well-formed locally generated song >= 85', () => {
+  // TASK v3.58 (TASK 7-7) — floor lowered 85 -> 75. quality.ts now scores a
+  // style prompt's own word count (previously unchecked here — only lyrics
+  // had a word-count check), and a real locally generated prompt still
+  // averages well over Suno's 15-30 word sweet spot (see promptBudget.ts's
+  // TASK 7-2 comment on why fully closing that gap needs a deeper,
+  // deliberately-deferred rewrite of LEAD_ARRANGEMENT_NARRATIVES, not just
+  // budget-target tuning). This is the intended, disclosed consequence of
+  // TASK 7-7, not a false-positive regression: a verbose prompt is meant to
+  // score lower now, exactly as this task's own completion criteria call for.
+  it('scores a well-formed locally generated song >= 75', () => {
     const opts = makeOptions({ songCount: 1 });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
     const [song] = scoreSongs(bp.songs, opts.channel);
-    expect(song.qualityScore).toBeGreaterThanOrEqual(85);
+    expect(song.qualityScore).toBeGreaterThanOrEqual(75);
   });
 
   // TASK v3.27 (Part A3) — an AI-creative title is no longer locked to a
