@@ -140,7 +140,11 @@ function BridgeImportReasonList({ report }: { report: ImportSongsReport | Import
 
 function BridgeImportReportSummary({ report }: { report: ImportSongsReport }) {
   const totals = bridgeImportTotals(report);
-  const ok = Boolean(report.blueprint) && report.importedCount > 0;
+  // TASK v3.60 (TASK F-1) — importing everything the agent wrote is not
+  // "success" if that's fewer songs than were actually requested; a real
+  // run showed a green "가져오기 완료" banner for 17/18 delivered.
+  const countMismatch = report.requestedCount > 0 && report.importedCount !== report.requestedCount;
+  const ok = Boolean(report.blueprint) && report.importedCount > 0 && !countMismatch;
   return (
     <div className={ok ? 'provider-summary bridge-import-report' : 'error bridge-import-report'}>
       <b>{ok ? '가져오기 완료' : '가져오기 실패'}</b>
@@ -149,6 +153,9 @@ function BridgeImportReportSummary({ report }: { report: ImportSongsReport }) {
           ? `${totals.attemptedCount}곡 중 ${totals.importedCount}곡 성공, ${totals.skippedCount}곡 실패`
           : `${totals.importedCount}곡 성공`}
       </p>
+      {countMismatch && (
+        <p>요청한 {report.requestedCount}곡 중 {report.importedCount}곡만 가져왔습니다 — songs-output.json을 확인하십시오.</p>
+      )}
       <BridgeImportReasonList report={report} />
     </div>
   );
@@ -156,7 +163,8 @@ function BridgeImportReportSummary({ report }: { report: ImportSongsReport }) {
 
 function BridgeMultiImportReportSummary({ reports }: { reports: ImportSongsReport[] }) {
   const totals = bridgeImportTotals(reports);
-  const ok = totals.failedReportCount === 0 && totals.importedCount > 0;
+  const countMismatch = totals.requestedCount > 0 && totals.importedCount !== totals.requestedCount;
+  const ok = totals.failedReportCount === 0 && totals.importedCount > 0 && !countMismatch;
   return (
     <div className={ok ? 'provider-summary bridge-import-report' : 'warning bridge-import-report'}>
       <b>세트 가져오기 결과</b>
@@ -164,6 +172,9 @@ function BridgeMultiImportReportSummary({ reports }: { reports: ImportSongsRepor
         파일 {totals.successfulReportCount}/{reports.length}개 성공 · 곡 {totals.importedCount}곡 성공
         {totals.skippedCount ? `, ${totals.skippedCount}곡 실패` : ''}
       </p>
+      {countMismatch && (
+        <p>요청한 {totals.requestedCount}곡 중 {totals.importedCount}곡만 가져왔습니다 — songs-output.json을 확인하십시오.</p>
+      )}
       <BridgeImportReasonList report={reports} />
     </div>
   );

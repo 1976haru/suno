@@ -836,9 +836,14 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
   const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
   // TASK v3.23 — branch, don't delete: default off (user makes thumbnails
   // externally) drops the ask and the schema field; on restores both.
+  // TASK v3.60 (TASK F-2) — the app already strips any Suno/AI-generation
+  // keyword from public tags at import time (exportCompliance.ts's
+  // sanitizePublicYoutubeTags), so an agent that spends effort adding one
+  // anyway is effort wasted, not a real risk; stated so the agent doesn't
+  // bother in the first place.
   const youtubeMetadataLine = generateThumbnailText
-    ? '- Include YouTube title, description, tags, and thumbnail text for every song.'
-    : '- Include YouTube title, description, and tags for every song.';
+    ? '- Include YouTube title, description, tags, and thumbnail text for every song. Do not include "Suno", "AI-generated", or similar generation-tool keywords in "tags" — those are filtered out before anything goes public, so there is no benefit to adding them.'
+    : '- Include YouTube title, description, and tags for every song. Do not include "Suno", "AI-generated", or similar generation-tool keywords in "tags" — those are filtered out before anything goes public, so there is no benefit to adding them.';
   // TASK v3.28 — real measurement showed 'ai-creative' titles still all
   // matched their hooks verbatim, because this rule left the model no real
   // room to diverge even with v3.27's shape-rotation guidance. 'local' keeps

@@ -739,6 +739,8 @@ export interface ImportSongsReport {
   skippedCount: number;
   skippedReasons: string[];
   warnings: string[];
+  /** TASK v3.60 (TASK F-1) — the pack size actually requested (opts.songCount), so a caller can compare against importedCount without re-deriving it; 0 when the request never got far enough to know (precondition/parse failure). */
+  requestedCount: number;
 }
 
 /**
@@ -768,19 +770,19 @@ export function importSongsJson(
   // real call site can still hand this an undefined/partial value at
   // runtime — guard defensively rather than trust the type alone.
   if (!season?.label || !opts?.channel || !Array.isArray(genres) || !Array.isArray(moods)) {
-    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['채널·시즌 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'], warnings: [] };
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['채널·시즌 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'], warnings: [], requestedCount: opts?.songCount ?? 0 };
   }
 
   let parsed: unknown;
   try {
     parsed = parseLeniently(rawText);
   } catch {
-    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['JSON을 해석하지 못했습니다 — 파일 내용이 올바른 JSON인지 확인하세요.'], warnings: [] };
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['JSON을 해석하지 못했습니다 — 파일 내용이 올바른 JSON인지 확인하세요.'], warnings: [], requestedCount: opts.songCount };
   }
 
   const rawSongs = extractSongsArray(parsed);
   if (!rawSongs.length) {
-    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['"songs" 배열을 찾지 못했습니다.'], warnings: [] };
+    return { blueprint: null, importedCount: 0, skippedCount: 0, skippedReasons: ['"songs" 배열을 찾지 못했습니다.'], warnings: [], requestedCount: opts.songCount };
   }
 
   const titleMode = opts.titleMode ?? 'ai-creative';
@@ -798,7 +800,7 @@ export function importSongsJson(
   });
 
   if (!validSongs.length) {
-    return { blueprint: null, importedCount: 0, skippedCount: rawSongs.length, skippedReasons, warnings: [] };
+    return { blueprint: null, importedCount: 0, skippedCount: rawSongs.length, skippedReasons, warnings: [], requestedCount: opts.songCount };
   }
 
   // TASK B1 — "trackNo 재정렬(1..N 연속)": sort by each song's claimed
@@ -845,18 +847,31 @@ export function importSongsJson(
     ? [`Clauses common to every song in this pack: ${similarityReport.commonClauses.join(', ')}`]
     : [];
 
+  // TASK v3.60 (TASK F-1) — a real bridge run delivered 17 songs when 18
+  // were requested, and importSongsJson reported it as a plain, unremarkable
+  // "17/17 imported successfully" (skippedCount only counts songs that
+  // failed validation, not songs the agent simply never wrote) — the
+  // shortfall itself was invisible anywhere in the report. Explicit and
+  // unambiguous rather than folded into skippedReasons, since no single
+  // song actually failed here.
+  const countMismatchWarning = deduped.length !== opts.songCount
+    ? [`요청한 곡 수(${opts.songCount})와 실제로 가져온 곡 수(${deduped.length})가 다릅니다 — 에이전트가 ${opts.songCount}곡을 모두 생성하지 않았을 수 있습니다. songs-output.json을 확인하거나 다시 생성하십시오.`]
+    : [];
+
   return {
     blueprint,
     importedCount: deduped.length,
     skippedCount: rawSongs.length - deduped.length,
     skippedReasons,
     warnings: [
+      ...countMismatchWarning,
       ...hookCollisionResult.warnings,
       ...similarityReport.warnings,
       ...similarityReport.errors,
       ...commonClausesNote,
       ...lyricDiversityReport.warnings,
       ...lyricDiversityReport.errors
-    ]
+    ],
+    requestedCount: opts.songCount
   };
 }

@@ -25,7 +25,12 @@ function report(importedCount: number, skippedReasons: string[] = [], skippedCou
     importedCount,
     skippedCount,
     skippedReasons,
-    warnings: []
+    warnings: [],
+    // TASK v3.60 (TASK F-1) — this fixture's scenario is "some songs failed
+    // validation (skippedReasons)", not "the agent delivered fewer songs
+    // than requested"; requestedCount matches importedCount so this test
+    // stays about the pre-existing per-song-failure semantics.
+    requestedCount: importedCount
   };
 }
 

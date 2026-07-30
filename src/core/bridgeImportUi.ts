@@ -16,6 +16,8 @@ export interface BridgeImportTotals {
   attemptedCount: number;
   importedCount: number;
   skippedCount: number;
+  /** TASK v3.60 (TASK F-1) — sum of every report's requestedCount, so a caller can tell "imported everything asked for" from "imported everything the agent happened to write". */
+  requestedCount: number;
   successfulReportCount: number;
   failedReportCount: number;
 }
@@ -37,7 +39,8 @@ export function makeBridgeImportFailureReport(reasons: string | string[]): Impor
     importedCount: 0,
     skippedCount: 0,
     skippedReasons: Array.isArray(reasons) ? reasons : [reasons],
-    warnings: []
+    warnings: [],
+    requestedCount: 0
   };
 }
 
@@ -59,15 +62,19 @@ export function countBridgeImportReasons(reports: ImportSongsReport | ImportSong
 export function bridgeImportTotals(reports: ImportSongsReport | ImportSongsReport[]): BridgeImportTotals {
   const items = Array.isArray(reports) ? reports : [reports];
   return items.reduce<BridgeImportTotals>((totals, report) => {
-    const successful = Boolean(report.blueprint) && report.importedCount > 0;
+    // TASK v3.60 (TASK F-1) — a report that imported everything the agent
+    // wrote is only "successful" if that also matches what was actually
+    // requested; a real run silently imported 17/17 when 18 were asked for.
+    const successful = Boolean(report.blueprint) && report.importedCount > 0 && report.importedCount === report.requestedCount;
     return {
       attemptedCount: totals.attemptedCount + report.importedCount + report.skippedCount,
       importedCount: totals.importedCount + report.importedCount,
       skippedCount: totals.skippedCount + report.skippedCount,
+      requestedCount: totals.requestedCount + report.requestedCount,
       successfulReportCount: totals.successfulReportCount + (successful ? 1 : 0),
       failedReportCount: totals.failedReportCount + (successful ? 0 : 1)
     };
-  }, { attemptedCount: 0, importedCount: 0, skippedCount: 0, successfulReportCount: 0, failedReportCount: 0 });
+  }, { attemptedCount: 0, importedCount: 0, skippedCount: 0, requestedCount: 0, successfulReportCount: 0, failedReportCount: 0 });
 }
 
 export async function runBridgeImportAction<TReport>({
