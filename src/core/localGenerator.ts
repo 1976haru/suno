@@ -307,6 +307,13 @@ export function rebuildStylePromptsForPersonaMode(
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, blueprint.oneLineConcept, blueprint.songs);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const seed = hashSeed(seedForBlueprint(opts));
+  // TASK v3.60 (TASK C) — this rebuild path (persona-mode toggle in App.tsx)
+  // was still calling averageTempo() with only 2 args, so it never reached
+  // the v3.58 TASK 4 tempo-band system either, same bug class as the bridge
+  // path's batchPreallocation.ts.
+  const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  const tempoBands = tempoBandsForProfile(audienceProfile);
+  const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, blueprint.songs.length, seed) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
@@ -317,7 +324,7 @@ export function rebuildStylePromptsForPersonaMode(
     const trackNo = song.trackNo;
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
-    const tempo = averageTempo(trackGenres, trackNo);
+    const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
     // TASK I1 (v3.11) — prefer the role actually assigned at generation time
     // (including any manual promotion via core/openingOverride.ts) over
     // recomputing from idx; only legacy packs saved before songRole existed

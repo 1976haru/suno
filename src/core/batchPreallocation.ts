@@ -1,6 +1,8 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG, UniquePool } from './lyricEngine';
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
+import { buildTempoBandPlan } from './tempoPlan';
+import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
@@ -49,7 +51,7 @@ export type { PreassignedSongSlot };
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
@@ -57,6 +59,17 @@ export function preallocateSongSlots(
   const seed = hashSeed(seedBase);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
+  // TASK v3.60 (TASK C) — this pre-pass feeds the realtime/Batch/bridge
+  // paths (this whole function's own docstring), which measured BPM 96-104
+  // (stddev ~2.2) on a real bridge pack because averageTempo() was still
+  // called with only 2 args here, skipping the v3.58 TASK 4 tempo-band
+  // system entirely (see averageTempo's own `if (!band) return
+  // fallbackCenter` short-circuit in localGenerator.ts). Mirrors
+  // localGenerator.ts's own generateLocalBlueprint pre-pass exactly (same
+  // seed) so the bridge/Batch path's BPM spread matches the local path's.
+  const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  const tempoBands = tempoBandsForProfile(audienceProfile);
+  const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, opts.songCount, seed) : [];
   // TASK I2 (v3.11) — the Batch API path is local-then-submit (this whole
   // function's point per its own docstring), so tracks 1-3 get the same
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
@@ -164,7 +177,7 @@ export function preallocateSongSlots(
       title,
       hookPhrase: hook,
       songRole,
-      tempo: averageTempo(trackGenres, trackNo),
+      tempo: averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling),
       emotionArc: emotionArcPool.take(),
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
         ...(genreId ? { genreId } : {}),
