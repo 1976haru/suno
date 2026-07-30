@@ -1,5 +1,6 @@
 import type { ChannelArchetype, GenrePack } from '../types';
 import type { PromptTermId } from './promptBudget';
+import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 
 export interface ConceptInfluence {
   key: string;
@@ -16,33 +17,63 @@ interface ConceptPreset {
 
 // Keep this table deliberately small and concrete: these atoms are music and
 // lyric direction, not a raw translation of the user's UI text.
+//
+// TASK v3.58 — every lyricImages entry here is spliced into lyricEngine.ts's
+// templates as a bare noun (either "The ${motif}" or via likeMotif(), which
+// prepends its own "a"/"an"). Roughly half these entries used to carry their
+// own leading article/"the" ('a quiet cafe table', 'an open road', 'the
+// first snow', ...), producing a visible double-article bug in real output
+// ("The a quiet cafe table...", "like an an open road..."). Every entry
+// below is a bare noun phrase for the same reason fallbackConcept's own
+// fallback phrases were fixed (see below).
 const CONCEPT_PRESETS: ConceptPreset[] = [
-  { key: 'morning-cafe', aliases: ['아침 카페', 'morning cafe', 'coffee morning', '아침 커피'], styleText: 'morning light, coffee aroma, gentle wake, soft acoustic opening', lyricImages: ['coffee steam', 'pale morning light', 'a quiet cafe table'] },
-  { key: 'rainy-night', aliases: ['비 오는 밤', 'rainy night', 'rain on window', '비 오는'], styleText: 'rain on window, late-night solitude, mellow reverb, minor-key hush', lyricImages: ['rain on the window', 'a late-night lamp', 'wet pavement reflections'] },
-  { key: 'city-lights', aliases: ['도시의 불빛', 'city lights', 'neon city', '도시 불빛'], styleText: 'city neon, evening drive, smooth groove, clean electric textures', lyricImages: ['city neon', 'a windshield at dusk', 'lights crossing the avenue'] },
-  { key: 'youth-dreams', aliases: ['청춘과 꿈', 'youth and dreams', 'young dreams', '청춘 꿈'], styleText: 'youthful energy, open road, uplifting build, bright forward rhythm', lyricImages: ['an open road', 'a pocket full of plans', 'sunrise beyond the hill'] },
-  { key: 'old-radio', aliases: ['추억의 라디오', 'old radio', 'memory radio', '오래된 라디오'], styleText: 'old-radio warmth, tape softness, familiar melody turns, intimate room tone', lyricImages: ['a softly glowing radio', 'a faded photograph', 'a familiar voice through static'] },
-  { key: 'season-change', aliases: ['계절의 변화', 'season change', 'changing seasons', '계절 변화'], styleText: 'shifting seasonal colors, changing light, gradual arrangement bloom', lyricImages: ['leaves changing color', 'a coat by the door', 'the first breath of cold air'] },
-  { key: 'old-friendship', aliases: ['오래된 우정', 'old friendship', 'lifelong friends', '오랜 우정'], styleText: 'trusted warmth, conversational verses, hand-played ensemble, shared chorus', lyricImages: ['two cups on a table', 'a well-worn address book', 'laughter after many years'] },
-  { key: 'seaside-memory', aliases: ['바다의 추억', 'seaside memory', 'ocean memory', '바다 추억'], styleText: 'open coastal air, rolling rhythm, salt-bright guitar, spacious horizon', lyricImages: ['salt air', 'a small harbor', 'blue light on the water'] },
-  { key: 'garden-walk', aliases: ['정원 산책', 'garden walk', 'quiet garden', '정원'], styleText: 'dew-covered garden, unhurried walking pulse, natural acoustic detail', lyricImages: ['dew on leaves', 'a stone garden path', 'green shade after rain'] },
-  { key: 'long-drive', aliases: ['긴 드라이브', 'long drive', 'road trip', '드라이브'], styleText: 'long-road momentum, steady cruising beat, wide stereo guitars, open-window lift', lyricImages: ['road lines at noon', 'an open car window', 'towns passing slowly'] },
-  { key: 'christmas-cafe', aliases: ['크리스마스 카페', 'christmas cafe', 'holiday cafe', '성탄 카페'], styleText: 'warm holiday cafe, subtle bells, candlelit harmony, restrained seasonal glow', lyricImages: ['candlelight', 'a handwritten card', 'bells beyond the cafe door'] },
-  { key: 'first-snow', aliases: ['첫눈', 'first snow', 'winter snow', '첫 눈'], styleText: 'first-snow stillness, soft piano air, clear high register, tender lift', lyricImages: ['the first snow', 'a scarf on a chair', 'footprints in quiet white'] }
+  { key: 'morning-cafe', aliases: ['아침 카페', 'morning cafe', 'coffee morning', '아침 커피'], styleText: 'morning light, coffee aroma, gentle wake, soft acoustic opening', lyricImages: ['coffee steam', 'pale morning light', 'quiet cafe table'] },
+  { key: 'rainy-night', aliases: ['비 오는 밤', 'rainy night', 'rain on window', '비 오는'], styleText: 'rain on window, late-night solitude, mellow reverb, minor-key hush', lyricImages: ['rain on the window', 'late-night lamp', 'wet pavement reflections'] },
+  { key: 'city-lights', aliases: ['도시의 불빛', 'city lights', 'neon city', '도시 불빛'], styleText: 'city neon, evening drive, smooth groove, clean electric textures', lyricImages: ['city neon', 'windshield at dusk', 'lights crossing the avenue'] },
+  { key: 'youth-dreams', aliases: ['청춘과 꿈', 'youth and dreams', 'young dreams', '청춘 꿈'], styleText: 'youthful energy, open road, uplifting build, bright forward rhythm', lyricImages: ['open road', 'pocket full of plans', 'sunrise beyond the hill'] },
+  { key: 'old-radio', aliases: ['추억의 라디오', 'old radio', 'memory radio', '오래된 라디오'], styleText: 'old-radio warmth, tape softness, familiar melody turns, intimate room tone', lyricImages: ['softly glowing radio', 'faded photograph', 'familiar voice through static'] },
+  { key: 'season-change', aliases: ['계절의 변화', 'season change', 'changing seasons', '계절 변화'], styleText: 'shifting seasonal colors, changing light, gradual arrangement bloom', lyricImages: ['leaves changing color', 'coat by the door', 'first breath of cold air'] },
+  { key: 'old-friendship', aliases: ['오래된 우정', 'old friendship', 'lifelong friends', '오랜 우정'], styleText: 'trusted warmth, conversational verses, hand-played ensemble, shared chorus', lyricImages: ['two cups on a table', 'well-worn address book', 'laughter after many years'] },
+  { key: 'seaside-memory', aliases: ['바다의 추억', 'seaside memory', 'ocean memory', '바다 추억'], styleText: 'open coastal air, rolling rhythm, salt-bright guitar, spacious horizon', lyricImages: ['salt air', 'small harbor', 'blue light on the water'] },
+  { key: 'garden-walk', aliases: ['정원 산책', 'garden walk', 'quiet garden', '정원'], styleText: 'dew-covered garden, unhurried walking pulse, natural acoustic detail', lyricImages: ['dew on leaves', 'stone garden path', 'green shade after rain'] },
+  { key: 'long-drive', aliases: ['긴 드라이브', 'long drive', 'road trip', '드라이브'], styleText: 'long-road momentum, steady cruising beat, wide stereo guitars, open-window lift', lyricImages: ['road lines at noon', 'open car window', 'towns passing slowly'] },
+  { key: 'christmas-cafe', aliases: ['크리스마스 카페', 'christmas cafe', 'holiday cafe', '성탄 카페'], styleText: 'warm holiday cafe, subtle bells, candlelit harmony, restrained seasonal glow', lyricImages: ['candlelight', 'handwritten card', 'bells beyond the cafe door'] },
+  { key: 'first-snow', aliases: ['첫눈', 'first snow', 'winter snow', '첫 눈'], styleText: 'first-snow stillness, soft piano air, clear high register, tender lift', lyricImages: ['first snow', 'scarf on a chair', 'footprints in quiet white'] }
 ];
 
 function normalized(value: string): string {
   return value.toLowerCase().replace(/\s+/gu, ' ').trim();
 }
 
+// TASK v3.58 — a free-text customConcept like "비틀즈 스타일로, 아침에 커피와
+// 함께..." (an artist-reference-carrying INSTRUCTION to this app) so far
+// only had its style-prompt use guarded (see TASK 3's
+// artistReferenceDecomposer.ts/artistReferenceStyleAtoms). This is the
+// separate, older path: `clean` (the raw customConcept text) was used
+// directly as a lyricImage, so a real generated pack literally sang the
+// whole input sentence, artist name included, as a chorus/verse line (see
+// core/lyricEngine.ts's pickFlavor()). Any text carrying a detected artist
+// reference, or plain style-reference framing words that so often
+// accompany one (Korean/Japanese/English), falls back to a generic,
+// always-safe image instead of a partial in-place redaction — fixing up
+// word boundaries/particles around a stripped span isn't reliable,
+// especially for Korean.
+const STYLE_REFERENCE_FRAMING_PATTERN = /스타일로|스타일의|처럼\s|같이\s|in the style of|sounds? like|っぽく|風に/iu;
+
 function fallbackConcept(text: string): ConceptInfluence {
   const clean = text.replace(/[\n,;]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 120);
   const englishWords = clean.match(/[a-z][a-z'-]{2,}/giu)?.slice(0, 5) ?? [];
   const musicAtoms = englishWords.length ? englishWords.join(' ') : 'personal scene details';
+  const rawImageIsSafe = Boolean(clean) && findArtistReferenceLeaks(clean).length === 0 && !STYLE_REFERENCE_FRAMING_PATTERN.test(clean);
   return {
     key: 'custom',
     styleText: `custom concept focus, ${musicAtoms}, scene-specific arrangement detail`,
-    lyricImages: [clean || 'a private memory', englishWords.join(' ') || 'a small meaningful detail']
+    // TASK v3.58 — bare nouns (no leading article): every caller of
+    // lyricImages routes them through lyricEngine.ts's aMotif()/likeMotif(),
+    // which always prepends its own "a"/"an" — a fallback phrase that
+    // already started with "a" produced a visible "an a small meaningful
+    // detail" double-article bug in real output.
+    lyricImages: [rawImageIsSafe ? clean : 'private memory', englishWords.join(' ') || 'small meaningful detail']
   };
 }
 

@@ -63,6 +63,15 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
     if (leaks.length) {
       errors.push(`Track ${song.trackNo}: style prompt contains an artist-name leak (${leaks.map(leak => leak.surface).join(', ')}).`);
     }
+    // TASK v3.58 — a real generated pack was found singing the user's raw
+    // customConcept free text verbatim (artist name included) as a chorus/
+    // verse line, entirely outside the style prompt (see
+    // conceptDiversity.ts's fallbackConcept fix); the lyrics themselves need
+    // the same leak scan, not just the style prompt.
+    const lyricLeaks = findArtistReferenceLeaks(song.lyrics);
+    if (lyricLeaks.length) {
+      errors.push(`Track ${song.trackNo}: lyrics contain an artist-name leak (${lyricLeaks.map(leak => leak.surface).join(', ')}).`);
+    }
     if (song.stylePrompt.length > SUNO_COPY_LIMIT) {
       errors.push(`Track ${song.trackNo}: style prompt (${song.stylePrompt.length} chars) exceeds Suno's ${SUNO_COPY_LIMIT}-char copy limit.`);
     }
