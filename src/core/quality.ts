@@ -77,6 +77,44 @@ function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
+const TITLE_HOOK_OVERLAP_STOPWORDS = new Set([
+  'i', 'me', 'my', 'we', 'you', 'your', 'it', 'its', 'a', 'an', 'the', 'to', 'for', 'of', 'with',
+  'on', 'in', 'at', 'by', 'and', 'or', 'but', 'is', 'be', 'this', 'that', 'still', 'now', 'here'
+]);
+
+/**
+ * TASK v3.58 (TASK 5-6) — weak, warning-only signal, NOT the pre-v3.28
+ * "hook must appear in title verbatim" rule that checkHookQuality's own
+ * comment above explains was removed for wrongly flagging good, diverse
+ * titles. This only fires on the much rarer, genuinely worth-flagging case:
+ * title and hook share not one single content word, so a listener has no
+ * way to connect what's sung to what the video is titled. Local generation
+ * (lyricEngine.ts's titleFromHook) is built so this practically never
+ * fires — its English compression always keeps at least one real hook word,
+ * and Korean/Japanese titles are the hook itself — so this exists mainly to
+ * catch a remote/bridge-generated title (titleMode="ai-creative" gives the
+ * agent a fully independent title) that drifted completely free of its own
+ * hook. Deliberately no specific overlap percentage is enforced (see this
+ * task's own "제목=훅 일치율 강제 금지" constraint) — zero-overlap is the
+ * only condition checked, and it costs no score penalty, just a warning.
+ */
+function contentWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(word => word.length >= 2 && !TITLE_HOOK_OVERLAP_STOPWORDS.has(word));
+}
+
+export function titleHookOverlapWarning(title: string, hookPhrase: string): string | null {
+  const titleWords = contentWords(title || '');
+  const hookWords = contentWords(hookPhrase || '');
+  if (!titleWords.length || !hookWords.length) return null;
+  const titleWordSet = new Set(titleWords);
+  if (hookWords.some(word => titleWordSet.has(word))) return null;
+  return `Title "${title}" shares no word with the hook "${hookPhrase}" — a listener may not connect the title to what's actually sung.`;
+}
+
 /**
  * TASK A5 (v3.3) / TASK X4 (v3.4): rule-based hook checks, runs without any
  * API call. Length is judged by hookLength(), which branches per language
@@ -117,6 +155,9 @@ export function checkHookQuality(song: SongIdea, language: LyricLanguage = 'engl
     warnings.push('Hook addresses an object as if it were a person (vocative-object pattern).');
     penalty += 12;
   }
+
+  const overlapWarning = titleHookOverlapWarning(song.title, hook);
+  if (overlapWarning) warnings.push(overlapWarning);
 
   return { warnings, penalty };
 }
