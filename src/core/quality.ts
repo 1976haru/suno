@@ -116,6 +116,68 @@ export function titleHookOverlapWarning(title: string, hookPhrase: string): stri
 }
 
 /**
+ * TASK v3.60 (TASK E-1) — a real bridge-path pack had a listener scene
+ * ("sitting with morning coffee before the day begins") paired with a hook
+ * that reads as the opposite time of day ("Stay with Me Tonight"); a second
+ * real track paired "sunset" with "Catch the Morning Train". The scene and
+ * preassignedSongs.hookPhrase are decided independently (see
+ * batchPreallocation.ts's own separate listenerSituations/hook pools), so
+ * nothing ever compared them against each other before this. Deliberately
+ * the same weak, warning-only signal as titleHookOverlapWarning just above —
+ * only the two explicit time-of-day families fire, and only when a phrase
+ * unambiguously belongs to just one of them, never a broader "any night/day
+ * word" heuristic that would flag ordinary, non-contradictory lyric imagery.
+ */
+const MORNING_TIME_WORDS = ['morning', 'dawn', 'sunrise', 'daybreak'];
+const NIGHT_TIME_WORDS = ['tonight', 'night', 'midnight', 'evening', 'dusk', 'sunset'];
+
+function timeOfDayFamily(text: string): 'morning' | 'night' | null {
+  const lower = (text || '').toLowerCase();
+  const hasMorning = MORNING_TIME_WORDS.some(word => new RegExp(`\\b${word}\\b`).test(lower));
+  const hasNight = NIGHT_TIME_WORDS.some(word => new RegExp(`\\b${word}\\b`).test(lower));
+  if (hasMorning && !hasNight) return 'morning';
+  if (hasNight && !hasMorning) return 'night';
+  return null;
+}
+
+export function hookSceneTimeOfDayWarning(hookPhrase: string, listenerSituation: string): string | null {
+  const hookFamily = timeOfDayFamily(hookPhrase);
+  const sceneFamily = timeOfDayFamily(listenerSituation);
+  if (!hookFamily || !sceneFamily || hookFamily === sceneFamily) return null;
+  return `Hook "${hookPhrase}" reads as ${hookFamily}, but the listener scene ("${listenerSituation}") reads as ${sceneFamily} — a time-of-day mismatch.`;
+}
+
+/**
+ * TASK v3.60 (TASK E-2) — deliberately narrow: fires only when the scene
+ * names exactly one side of a conflicting prop pair and the lyrics assert
+ * only the other side (never both, and never when the scene names neither).
+ * The real 17-song measured pack happened not to reproduce this exact
+ * pattern (coffee/tea always matched between scene and lyrics), but the
+ * task explicitly asked for the same class of check as the hook/scene
+ * time-of-day one above, so a future scene/lyric drift doesn't go
+ * unnoticed the way the time-of-day one did.
+ */
+const CONFLICTING_PROP_PAIRS: [string, string][] = [['coffee', 'tea']];
+
+export function scenePropContradictionWarning(listenerSituation: string, lyrics: string): string | null {
+  const scene = (listenerSituation || '').toLowerCase();
+  const body = (lyrics || '').toLowerCase();
+  for (const [a, b] of CONFLICTING_PROP_PAIRS) {
+    const sceneHasA = new RegExp(`\\b${a}\\b`).test(scene);
+    const sceneHasB = new RegExp(`\\b${b}\\b`).test(scene);
+    const bodyHasA = new RegExp(`\\b${a}\\b`).test(body);
+    const bodyHasB = new RegExp(`\\b${b}\\b`).test(body);
+    if (sceneHasA && !sceneHasB && bodyHasB && !bodyHasA) {
+      return `Listener scene establishes "${a}", but the lyrics instead sing about "${b}" — a prop mismatch.`;
+    }
+    if (sceneHasB && !sceneHasA && bodyHasA && !bodyHasB) {
+      return `Listener scene establishes "${b}", but the lyrics instead sing about "${a}" — a prop mismatch.`;
+    }
+  }
+  return null;
+}
+
+/**
  * TASK A5 (v3.3) / TASK X4 (v3.4): rule-based hook checks, runs without any
  * API call. Length is judged by hookLength(), which branches per language
  * (English: word count; Korean: syllables; Japanese: mora) — a plain

@@ -2,7 +2,7 @@ import type { GenerationOptions, SongIdea } from '../types';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { SUNO_COPY_LIMIT } from './promptBudget';
 import { MAX_GENRE_SHARE } from './conceptAgent';
-import { titleHookOverlapWarning } from './quality';
+import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOverlapWarning } from './quality';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
 import { affectedTrackRatio, ARRANGEMENT_VOCABULARY_SET_ERROR_RATIO, findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
@@ -170,6 +170,17 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
   for (const song of songs) {
     const overlapWarning = titleHookOverlapWarning(song.title, song.hookPhrase);
     if (overlapWarning) warnings.push(`Track ${song.trackNo}: ${overlapWarning}`);
+
+    // TASK v3.60 (TASK E) — a real bridge-imported pack paired a morning
+    // listener scene with a "Tonight" hook (and, on another track, a sunset
+    // scene with a "Morning Train" hook). listenerSituation and hookPhrase
+    // are chosen independently (see batchPreallocation.ts), so nothing
+    // compared them before this.
+    const timeOfDayWarning = hookSceneTimeOfDayWarning(song.hookPhrase, song.listenerSituation);
+    if (timeOfDayWarning) warnings.push(`Track ${song.trackNo}: ${timeOfDayWarning}`);
+
+    const propWarning = scenePropContradictionWarning(song.listenerSituation, song.lyrics);
+    if (propWarning) warnings.push(`Track ${song.trackNo}: ${propWarning}`);
 
     const chorusStyleMatch = song.stylePrompt.match(/chorus style: ([^;,]+)/i);
     if (chorusStyleMatch && /\bverse\b/i.test(chorusStyleMatch[1])) {
