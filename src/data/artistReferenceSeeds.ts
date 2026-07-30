@@ -56,7 +56,13 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['unhurried mid-tempo ballad pulse', 'no syncopation, straight quarter-note feel'],
     productionTraits: ['warm close-mic vocal-forward mix', 'smooth analog tape warmth', 'gentle string swell under the chorus'],
     vocalTraits: ['low warm contralto female lead', 'soft breath control', 'close vocal stacked harmonies'],
-    suggestedGenreIds: ['adult-contemporary', 'piano-ballad'],
+    // TASK v3.61 (TASK C) — was ['adult-contemporary', 'piano-ballad'], both
+    // real but generic (they existed before oldpop-* did); oldpop-baroque-pop's
+    // string-quartet/oboe-obbligato chamber texture and oldpop-soft-rock-am's
+    // warm AM pulse are much closer real matches to the traits already
+    // described above, and oldpop-close-harmony-duo covers the stacked
+    // close-harmony vocal trait.
+    suggestedGenreIds: ['oldpop-baroque-pop', 'oldpop-soft-rock-am', 'oldpop-close-harmony-duo'],
     excludeAdditions: ['famous duo imitation', 'soundalike vocals']
   },
   {
@@ -67,7 +73,16 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['steady four-on-the-floor disco pulse', 'syncopated bass movement'],
     productionTraits: ['bright polished stereo-wide mix', 'layered vocal doubling'],
     vocalTraits: ['male and female vocals in close harmony', 'bright open female lead', 'stacked chorus harmony'],
-    suggestedGenreIds: ['disco-pop-2020s'],
+    // TASK v3.61 (TASK C) — was ['disco-pop-2020s'], a modern-chill/city-night
+    // genre never in senior-morning's core tier, so this suggestion was
+    // silently discarded every time (recommendConceptLocal filters
+    // suggestedGenreIds through coreGenreIds.has(id)) and every "아바 같은"
+    // request fell back to a generic adult-contemporary recommendation.
+    // oldpop-europop-glow (layered female harmony, bright unison chorus
+    // lift) is the direct real match for the traits already described
+    // above; oldpop-close-harmony-duo and oldpop-orchestral-easy cover the
+    // harmony/string-arrangement side.
+    suggestedGenreIds: ['oldpop-europop-glow', 'oldpop-close-harmony-duo', 'oldpop-orchestral-easy'],
     excludeAdditions: ['famous group imitation', 'soundalike vocals']
   },
   {
@@ -78,7 +93,11 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['gentle unhurried folk strum', 'minimal percussion'],
     productionTraits: ['intimate close-mic acoustic mix', 'natural room ambience'],
     vocalTraits: ['two-part male close vocal harmony', 'soft breathy delivery'],
-    suggestedGenreIds: ['folk-pop', 'acoustic-pop'],
+    // TASK v3.61 (TASK C) — oldpop-folk-rock-70s (12-string acoustic,
+    // mandolin/harmonica, unhurried walking tempo) and oldpop-close-harmony-duo
+    // are closer real matches to the fingerpicked-acoustic/two-part-harmony
+    // traits above than the pre-existing generic folk-pop/acoustic-pop.
+    suggestedGenreIds: ['oldpop-folk-rock-70s', 'oldpop-close-harmony-duo'],
     excludeAdditions: ['famous duo imitation', 'soundalike vocals']
   },
   {
@@ -133,7 +152,10 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['four-on-the-floor disco pulse', 'syncopated funk guitar chop'],
     productionTraits: ['bright polished disco-era mix'],
     vocalTraits: ['high falsetto male lead', 'close brotherly harmony stacks'],
-    suggestedGenreIds: ['disco-pop-2020s'],
+    // TASK v3.61 (TASK C) — was ['disco-pop-2020s'], same non-senior-core
+    // gap as the abba seed above; oldpop-europop-glow and
+    // oldpop-philly-soul-sweet are real senior-morning-core matches.
+    suggestedGenreIds: ['oldpop-europop-glow', 'oldpop-philly-soul-sweet'],
     excludeAdditions: ['famous group imitation', 'soundalike vocals', 'falsetto imitation of a specific singer']
   },
   {
@@ -144,7 +166,10 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['syncopated funk pocket'],
     productionTraits: ['warm analog soul-era mix'],
     vocalTraits: ['soulful expressive male lead with melisma'],
-    suggestedGenreIds: ['retro-soul-pop'],
+    // TASK v3.61 (TASK C) — oldpop-motown-pop-soul (driving four-beat
+    // tambourine, melodic bassline, gospel-toned backing) is a closer real
+    // match to the funk/soul traits above than retro-soul-pop alone.
+    suggestedGenreIds: ['oldpop-motown-pop-soul', 'retro-soul-pop'],
     excludeAdditions: ['famous artist imitation', 'soundalike vocals']
   },
   {
@@ -166,7 +191,10 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['building mid-tempo piano-rock pulse'],
     productionTraits: ['warm 1970s orchestral-rock mix'],
     vocalTraits: ['expressive theatrical male lead'],
-    suggestedGenreIds: ['piano-ballad', 'soft-rock'],
+    // TASK v3.61 (TASK C) — oldpop-piano-ballad-70s (grand piano lead,
+    // rubato verse opening into an orchestral chorus) is the direct real
+    // match for the piano-driven traits already described above.
+    suggestedGenreIds: ['oldpop-piano-ballad-70s', 'piano-ballad'],
     excludeAdditions: ['famous artist imitation', 'soundalike vocals']
   },
   {
@@ -177,7 +205,11 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['bright surf-adjacent mid-tempo pulse'],
     productionTraits: ['warm layered 1960s studio mix'],
     vocalTraits: ['dense multi-part male vocal harmony stack'],
-    suggestedGenreIds: ['folk-pop'],
+    // TASK v3.61 (TASK C) — oldpop-sunshine-pop (bright parallel-thirds/
+    // sixths harmony, harpsichord/glockenspiel/woodwind color) is a much
+    // closer real match to the dense stacked-harmony traits above than
+    // folk-pop.
+    suggestedGenreIds: ['oldpop-sunshine-pop', 'folk-pop'],
     excludeAdditions: ['famous group imitation', 'soundalike vocals']
   },
   {
@@ -300,5 +332,42 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     vocalTraits: ['conversational intimate male lead'],
     suggestedGenreIds: ['acoustic-pop', 'folk-pop'],
     excludeAdditions: ['famous artist imitation', 'soundalike vocals']
+  },
+  // TASK v3.61 (TASK C) — 3 explicitly-requested additions for the
+  // senior/oldpop channel: a piano-ballad singer-songwriter, a jazz-standard
+  // crooner, and an orchestral-easy-listening vocalist, each routed to the
+  // new oldpop-* genres that now actually fit them.
+  {
+    aliasPattern: 'billy joel|빌리 조엘|ビリー・ジョエル',
+    eraTag: 'mid-1970s piano-driven singer-songwriter pop',
+    instrumentation: ['grand piano lead', 'restrained rock rhythm section', 'occasional string counterline'],
+    harmonyTraits: ['storytelling major-key piano chord movement'],
+    rhythmTraits: ['mid-tempo piano-pop pulse'],
+    productionTraits: ['warm 1970s piano-forward studio mix'],
+    vocalTraits: ['conversational expressive male lead'],
+    suggestedGenreIds: ['oldpop-piano-ballad-70s', 'oldpop-standards-torch'],
+    excludeAdditions: ['famous artist imitation', 'soundalike vocals']
+  },
+  {
+    aliasPattern: 'nat king cole|냇 킹 콜|냇킹콜|ナット・キング・コール',
+    eraTag: 'mid-20th-century vocal jazz standards',
+    instrumentation: ['piano trio', 'muted trumpet', 'brushed drums', 'double bass'],
+    harmonyTraits: ['jazz-standard extended chord changes'],
+    rhythmTraits: ['relaxed jazz-standard swing'],
+    productionTraits: ['dim intimate lounge room tone'],
+    vocalTraits: ['warm smooth male crooner lead'],
+    suggestedGenreIds: ['oldpop-standards-torch'],
+    excludeAdditions: ['famous crooner imitation', 'soundalike vocals']
+  },
+  {
+    aliasPattern: 'patti page|패티 페이지|パティ・ペイジ',
+    eraTag: '1950s orchestral easy-listening pop',
+    instrumentation: ['string section', 'soft vibraphone', 'light rhythm section'],
+    harmonyTraits: ['lush orchestral resolution'],
+    rhythmTraits: ['slow rubato easing into a gentle 4/4'],
+    productionTraits: ['polished middle-of-the-road easy-listening mix'],
+    vocalTraits: ['warm orchestral-backed female lead'],
+    suggestedGenreIds: ['oldpop-orchestral-easy'],
+    excludeAdditions: ['famous vocalist imitation', 'soundalike vocals']
   }
 ];
