@@ -876,6 +876,7 @@ Hook rules (each song's hookPhrase):
 - The hook must be a short, singable phrase of 2-5 words, in Title Case, never starting with a lowercase letter.
 ${titleHookRuleLine}
 - The hook line must open and close every chorus section (bookend), repeating at least ${minHookRepeats} times across the whole song.
+- Vary how many times the hook repeats inside each chorus and where, from song to song — a real previous pack had every single chorus in the whole set repeat the hook in the exact same position (open, one line, hook again, three lines, hook again), every song. Some choruses can repeat the hook only twice (open/close), others three or four times with different line counts between repeats.
 - Never address an inanimate object as if it were a person (e.g. "Hold on, coffee" or "Close your eyes, doorway") — vocative phrasing may only address a person or an abstract/personified noun (a friend, a season, "my love"), never a physical object.
 
 Safety rules:

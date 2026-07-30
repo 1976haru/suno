@@ -836,7 +836,7 @@ export function importSongsJson(
   // surfaces the same warning in the import report itself, before the user
   // ever navigates away.
   const similarityReport = lintInPackStyleSimilarity(deduped.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
-  const lyricDiversityReport = lintInPackLyricDiversity(deduped.map(song => ({ trackNo: song.trackNo, lyrics: song.lyrics })));
+  const lyricDiversityReport = lintInPackLyricDiversity(deduped.map(song => ({ trackNo: song.trackNo, lyrics: song.lyrics, hookPhrase: song.hookPhrase, title: song.title })));
   // TASK v3.43 Step 2 (Part A4) — "무엇이 고정돼 있는지 보이게": whenever the
   // linter actually has something to say, also surface exactly which
   // clauses are common to every song, so the warning isn't just "the pack

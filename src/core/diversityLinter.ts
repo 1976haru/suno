@@ -156,8 +156,10 @@ function mostCommon(values: string[]): { value: string; count: number } | null {
  * notice it.
  */
 function titleShape(title: string): string {
-  const hasAmpersand = title.includes(' & ') ? 'amp' : 'plain';
-  const wordCount = title.trim().split(/\s+/).filter(Boolean).length;
+  const trimmed = (title || '').trim();
+  if (!trimmed) return '';
+  const hasAmpersand = trimmed.includes(' & ') ? 'amp' : 'plain';
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
   const bucket = wordCount <= 2 ? 'short' : wordCount <= 4 ? 'mid' : 'long';
   return `${hasAmpersand}-${bucket}`;
 }
@@ -434,6 +436,10 @@ export interface InPackLyricDiversityReport {
   worstPair: InPackSimilarityPair | null;
   repeatedFirstLinePatterns: RepeatedLyricPattern[];
   repeatedChorusStructures: RepeatedLyricPattern[];
+  /** TASK v3.60 (TASK D-1) — which chorus lines are the hookPhrase (H) vs not (x), e.g. "HxHxxxH", repeated across the pack. */
+  repeatedChorusHookPatterns: RepeatedLyricPattern[];
+  /** TASK v3.60 (TASK D-2) — lintChannelDiversity's own titleShape fingerprint, repeated within this one pack. */
+  repeatedTitleShapes: RepeatedLyricPattern[];
   warnings: string[];
   errors: string[];
   passed: boolean;
@@ -491,6 +497,40 @@ function firstChorusStructure(lyrics: string): string {
   return chorusLines.map(lineShape).join('|');
 }
 
+/**
+ * TASK v3.60 (TASK D-1) — firstChorusStructure above buckets chorus lines by
+ * a coarse length/punctuation/word-size fingerprint; a real 17-song bridge
+ * pack measured 0 repeats under that metric even though every single chorus
+ * actually shared the identical hook-repetition shape (hook/line/hook/line/
+ * line/line/hook, i.e. "HxHxxxH") — T1-T5's structure templates only fix
+ * section ORDER, never how many times the hook repeats within a chorus or
+ * where. This is a different, more specific signal: which chorus lines
+ * literally are the hookPhrase versus not, symbolized H/x per line.
+ */
+function chorusHookPattern(lyrics: string, hookPhrase: string | undefined): string {
+  if (!hookPhrase) return '';
+  const lines = String(lyrics || '').split(/\r?\n/);
+  const start = lines.findIndex(line => /^\[(?:final\s+)?chorus[^\]]*\]/i.test(line.trim()));
+  if (start < 0) return '';
+  const hook = hookPhrase.trim().toLowerCase();
+  const chorusLines: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (/^\[[^\]]+\]$/.test(line)) break;
+    if (line) chorusLines.push(line);
+  }
+  if (!chorusLines.length) return '';
+  return chorusLines.map(line => (line.toLowerCase() === hook ? 'H' : 'x')).join('');
+}
+
+/**
+ * TASK v3.60 (TASK D-2) — reuses lintChannelDiversity's own titleShape
+ * fingerprint (word-count bucket + ampersand-contrast shape) at in-pack
+ * scope instead of only cross-pack scope: a real 17-song bridge pack had
+ * every single title land in the same "plain-short" bucket (bare 1-2 word
+ * noun pairs — "Tableglow", "Steam Radio", "Porch Ember", ...) despite the
+ * bridge instruction already saying "never the same shape for every song".
+ */
 function repeatedPatterns(entries: { trackNo: number; pattern: string }[], songCount: number): RepeatedLyricPattern[] {
   const byPattern = new Map<string, number[]>();
   for (const entry of entries) {
@@ -502,7 +542,7 @@ function repeatedPatterns(entries: { trackNo: number; pattern: string }[], songC
     .map(([pattern, trackNos]) => ({ pattern, count: trackNos.length, trackNos }));
 }
 
-export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: string }[]): InPackLyricDiversityReport {
+export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: string; hookPhrase?: string; title?: string }[]): InPackLyricDiversityReport {
   if (songs.length < 2) {
     return {
       songCount: songs.length,
@@ -511,6 +551,8 @@ export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: strin
       worstPair: null,
       repeatedFirstLinePatterns: [],
       repeatedChorusStructures: [],
+      repeatedChorusHookPatterns: [],
+      repeatedTitleShapes: [],
       warnings: [],
       errors: [],
       passed: true
@@ -521,7 +563,9 @@ export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: strin
     trackNo: song.trackNo,
     vocabulary: lyricTokenSet(song.lyrics),
     firstLinePattern: firstLyricLinePattern(song.lyrics),
-    chorusStructure: firstChorusStructure(song.lyrics)
+    chorusStructure: firstChorusStructure(song.lyrics),
+    chorusHookPattern: chorusHookPattern(song.lyrics, song.hookPhrase),
+    titleShapePattern: titleShape(song.title || '')
   }));
 
   let total = 0;
@@ -542,6 +586,8 @@ export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: strin
   const maxVocabularyOverlap = worstPair?.similarity ?? 0;
   const repeatedFirstLinePatterns = repeatedPatterns(entries.map(entry => ({ trackNo: entry.trackNo, pattern: entry.firstLinePattern })), songs.length);
   const repeatedChorusStructures = repeatedPatterns(entries.map(entry => ({ trackNo: entry.trackNo, pattern: entry.chorusStructure })), songs.length);
+  const repeatedChorusHookPatterns = repeatedPatterns(entries.map(entry => ({ trackNo: entry.trackNo, pattern: entry.chorusHookPattern })), songs.length);
+  const repeatedTitleShapes = repeatedPatterns(entries.map(entry => ({ trackNo: entry.trackNo, pattern: entry.titleShapePattern })), songs.length);
 
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -556,6 +602,19 @@ export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: strin
   if (repeatedChorusStructures.length) {
     warnings.push(`Chorus sentence structures repeat across ${repeatedChorusStructures[0].count}/${songs.length} songs (tracks ${repeatedChorusStructures[0].trackNos.join(', ')}) - vary the chorus support lines around the hook.`);
   }
+  // TASK v3.60 (TASK D-1) — same class of check as repeatedChorusStructures
+  // just above, but on the hook-repetition shape (which chorus lines are the
+  // hookPhrase itself) rather than a generic line-length fingerprint; a real
+  // pack shared the identical "HxHxxxH" shape on every single track.
+  if (repeatedChorusHookPatterns.length) {
+    warnings.push(`Chorus hook-repetition shape "${repeatedChorusHookPatterns[0].pattern}" (H = hook line, x = other line) repeats across ${repeatedChorusHookPatterns[0].count}/${songs.length} songs (tracks ${repeatedChorusHookPatterns[0].trackNos.join(', ')}) - vary how many times and where the hook repeats within the chorus.`);
+  }
+  // TASK v3.60 (TASK D-2) — a real pack's titles were all "Tableglow"/"Steam
+  // Radio"-style bare 1-2 word noun pairs, despite the bridge instruction
+  // already saying titles must "never [be] the same shape for every song".
+  if (repeatedTitleShapes.length) {
+    warnings.push(`Title shape repeats across ${repeatedTitleShapes[0].count}/${songs.length} songs (tracks ${repeatedTitleShapes[0].trackNos.join(', ')}) - vary title length/structure, not just the words.`);
+  }
 
   return {
     songCount: songs.length,
@@ -564,6 +623,8 @@ export function lintInPackLyricDiversity(songs: { trackNo: number; lyrics: strin
     worstPair,
     repeatedFirstLinePatterns,
     repeatedChorusStructures,
+    repeatedChorusHookPatterns,
+    repeatedTitleShapes,
     warnings,
     errors,
     passed: errors.length === 0
