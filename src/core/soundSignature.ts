@@ -397,11 +397,18 @@ export function compactDuration(target: GenerationOptions['durationTarget'], ter
       ? 'quick intro, 2:50-3:20'
       : 'short intro, 3:10-3:35';
   if (!includeMinimumFloor) return base;
+  // TASK v3.59 (TASK D-2) — the default target's floor phrase used to
+  // restate the exact same "3:10-3:35" range `base` already states,
+  // producing "short intro, 3:10-3:35, full ~3:10-3:35 arrangement, not a
+  // short cut" — the identical time range appearing twice in one atom. The
+  // other two targets aren't exact repeats (under4m's base is only an upper
+  // bound, "under 4:00"; playlistShort's floor uses different phrasing,
+  // "~3 minute") so they're left as distinct, non-duplicated information.
   const floor = target === 'under4m'
     ? 'full ~3:30-4:00 arrangement, not a short cut'
     : target === 'playlistShort'
       ? 'full ~3 minute arrangement, not a short 2-minute cut'
-      : 'full ~3:10-3:35 arrangement, not a short cut';
+      : 'full arrangement, not a short cut';
   return `${base}, ${floor}`;
 }
 
@@ -427,6 +434,21 @@ export function openingDurationText(
   }
   const timeOnly = standard.replace(/^(short|quick) intro,\s*/, '');
   return `no instrumental intro, hook heard immediately, ${timeOnly}`;
+}
+
+/**
+ * TASK v3.59 (TASK D-1) — the exact same condition openingDurationText's
+ * own 'hook-forward' cold-open branch above uses to say "no instrumental
+ * intro, hook heard immediately". A real generated pack still added an
+ * unrelated introTexture atom ("light pizzicato strings intro texture
+ * (INTRO ONLY)") to that same track regardless — the two atoms directly
+ * contradict each other in the same style prompt. 'hum-intro' cold-opens
+ * are excluded here (return false): they keep the "short/quick intro"
+ * duration wording (a hummed intro is still a short intro, just wordless),
+ * so an intro-texture atom coexists fine there.
+ */
+export function coldOpenHasNoInstrumentalIntro(role: string, openingStyle: 'hook-forward' | 'hum-intro' | undefined): boolean {
+  return role === 'cold-open' && openingStyle !== 'hum-intro';
 }
 
 function clipClause(value: string, limit: number) {

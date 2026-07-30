@@ -5,7 +5,7 @@ import { introTexturesForArchetype } from '../data/introTextures';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
-import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
+import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import { scoreSongs } from './quality';
@@ -351,7 +351,12 @@ export function rebuildStylePromptsForPersonaMode(
         ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: rotatingGenreSignatureText(trackGenres, seed, idx), shortForm: trackGenres[0].shortSignatureSound, minimalForm: trackGenres[0].minimalSignatureSound }] : []),
         ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
         ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
-        ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
+        // TASK v3.59 (TASK D-1) — a cold-open track whose opening style
+        // already says "no instrumental intro, hook heard immediately"
+        // (openingDurationText above) must not also carry an introTexture
+        // atom describing an instrumental intro texture — the two
+        // contradicted each other in the same style prompt in real output.
+        ...(introTextureText && !coldOpenHasNoInstrumentalIntro(role, openingStyle) ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
         { id: 'instruments' as const, text: rotatingInstrumentText(trackGenres, seed, idx) },
         { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth) },
         { id: 'tempo', text: `${tempo} BPM` },
@@ -745,7 +750,10 @@ export function generateLocalBlueprint(
       // extra atom.
       { id: 'vocal' as const, text: [vocalDescriptionText, audienceProfile.constraints[0]].filter(Boolean).join(', ') },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
-      ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
+      // TASK v3.59 (TASK D-1) — see the other composeStylePrompt call's own
+      // comment above; same "no instrumental intro" vs. introTexture
+      // contradiction, same fix.
+      ...(introTextureText && !coldOpenHasNoInstrumentalIntro(role, openingStyle) ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
       // TASK v3.42 Part A1 — always overrides channelParts' flat whole-pack
       // instruments atom (filtered out above) with a per-song rotated
       // anchor+1-2 combination; see promptComposer.ts's rotatingInstrumentText.

@@ -155,7 +155,11 @@ export function conceptStyleText(customConcept?: string, index = 0): string | un
     'pulsing eighth notes beneath the scene', 'brief suspended chord before resolution'
   ];
   const arrangement = arrangementVariants[Math.abs(index) % arrangementVariants.length];
-  return [...new Set([...selected.map(atom => `concept cue: ${atom}`), `concept emphasis: ${image}`, `arrangement focus: ${arrangement}`])].join(', ');
+  // TASK v3.59 (TASK D-3) — 'concept cue:'/'concept emphasis:'/'arrangement
+  // focus:' labels aren't read by Suno's Style field (same "labels are
+  // pure overhead" principle as TASK 5-1's Money chords:/Instruments:
+  // removal) — bare comma-separated descriptors only.
+  return [...new Set([...selected, image, arrangement])].join(', ');
 }
 
 export function conceptLyricImages(customConcept?: string): string[] {
