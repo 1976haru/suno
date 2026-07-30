@@ -21,6 +21,8 @@ import { usesVocalQuota } from './vocalPlan';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { normalizeSongOutput } from './songPostProcess';
+import { decomposeArtistReferences, decomposedReferenceDescriptors, isSafeDecomposedReference } from './artistReferenceDecomposer';
+import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -99,9 +101,20 @@ function tempoInstructionLine(): string {
   return '- Each "preassignedSongs" entry also includes "tempo" - use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
 }
 
+// TASK v3.62 (TASK 1-1) — was "weave that exact phrase into that song's
+// stylePrompt, verbatim." A real 1960s-flavored bridge pack got "warm
+// string pad swell" and "layered backing" — production textures that
+// didn't exist in that era — because the agent obeyed this line literally
+// instead of using its own musical knowledge. introTextureText/
+// instrumentSet/arrangementDensity/hookDeviceText/genreText are now
+// reference information ("this channel usually sounds like...") instead
+// of a verbatim requirement; the agent composes, it doesn't transcribe.
+// tempo/structureTemplate/lyricThemeText/pov (below) are UNCHANGED and stay
+// verbatim-required — those are app-planned structural determinism (this
+// task's own "유지할 결정론" list), not stylistic wording.
 function introTextureInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.introTextureText)
-    ? '- Each "preassignedSongs" entry also includes "introTextureText" - weave that exact phrase into that song\'s stylePrompt, verbatim. It is an intro-only first-5-seconds texture; do not turn that instrument into the whole-song arrangement.'
+    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement.'
     : '';
 }
 
@@ -113,26 +126,23 @@ function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]
 
 function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.genreText)
-    ? '- Each "preassignedSongs" entry also includes "genreText" - weave that exact per-song lead/blended genre phrase into that song\'s stylePrompt, verbatim. Do not replace it with the pack-level genre list.'
+    ? '- Each "preassignedSongs" entry also includes "genreText" - the genre/sub-style identity this track must stay recognizably within (do not substitute a different genre or the pack-level genre list). The exact wording is a reference, not a script: compose your own stylePrompt description of this genre rather than copying the phrase verbatim.'
     : '';
 }
 
-// TASK v3.43 Step 2 (Part A3) — mirrors hookDeviceInstructionLine's
-// verbatim-weave pattern for the newly-promoted instrumentSet slot field
-// (see core/batchPreallocation.ts's preallocateSongSlots). instrumentSet is
-// an array (2-3 names), so the agent weaves each one, not one ready phrase.
+// TASK v3.62 (TASK 1-1) — instrumentSet/arrangementDensity are now the
+// channel's typical instrumentation/density as reference, not a checklist
+// every song must weave in verbatim (see introTextureInstructionLineFor's
+// comment for why).
 function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.instrumentSet?.length)
-    ? '- Each "preassignedSongs" entry also includes "instrumentSet" — an array of 2-3 instrument names; weave ALL of them into that song\'s stylePrompt as the instrument detail, verbatim (comma-separated is fine). Do not substitute different instruments, drop any of them, or paraphrase them away.'
+    ? '- Each "preassignedSongs" entry may include "instrumentSet" — 2-3 instruments typical for this channel/genre, as REFERENCE, not a checklist to weave in verbatim. Use them if they suit this song\'s era and genre; substitute an era-appropriate equivalent if they don\'t (e.g. don\'t put a Rhodes electric piano in a 1962 doo-wop track just because instrumentSet suggested one for a different, later-era genre). Compose the instrumentation your own musical knowledge says is right for this song.'
     : '';
 }
 
-// TASK v3.43 Step 2 (Part A3) — arrangementDensity is a bare
-// 'sparse'|'medium'|'full' tag, not pre-composed text, so this spells out
-// each level's meaning once (mirrors promptComposer.ts's buildBatchSystemNote).
 function arrangementDensityInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.arrangementDensity)
-    ? `- Each "preassignedSongs" entry also includes "arrangementDensity" (one of sparse/medium/full) — weave a phrase describing that density into the stylePrompt: sparse = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.sparse}"; medium = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.medium}"; full = "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.full}". Use the matching phrase (or a close paraphrase) verbatim; do not substitute a different density level.`
+    ? `- Each "preassignedSongs" entry may include "arrangementDensity" (one of sparse/medium/full) — a REFERENCE point for how full this song's arrangement should feel (sparse ~ "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.sparse}"; medium ~ "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.medium}"; full ~ "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.full}"). Aim for that general density in your own words; you do not need to use this phrasing.`
     : '';
 }
 
@@ -161,6 +171,119 @@ function sectionStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[])
   return preassignedSongs.some(slot => slot.verseStyleText || slot.chorusStyleText)
     ? '- Each "preassignedSongs" entry also includes "verseStyleText" and "chorusStyleText" - write verse sections and chorus sections with those distinct approaches, verbatim as guidance. Do not let every song start with the same first-line shape or every chorus use the same sentence structure.'
     : '';
+}
+
+// TASK v3.62 (TASK 1-1) — moneyChordText is "<progression name> - <reinforcement
+// phrase>" (core/soundSignature.ts's compactMoneyChord). The progression
+// ITSELF (e.g. "I-V-vi-IV") is app-planned harmonic determinism and stays
+// required; the reinforcement phrase after " - " ("gentle rocking sway,
+// deeply nostalgic...") is stylistic wording, now reference-only like the
+// other fields above.
+function progressionNameOnly(moneyChordText: string): string {
+  return moneyChordText.split(' - ')[0].trim();
+}
+
+function moneyChordInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  const example = preassignedSongs.find(slot => slot.moneyChordText)?.moneyChordText;
+  if (!example) return '';
+  const progression = progressionNameOnly(example);
+  return `- Each "preassignedSongs" entry also includes "moneyChordText" ("<progression> - <descriptive phrase>", e.g. "${example}"). Use the exact chord progression before the " - " in that song's stylePrompt (e.g. track's progression here would be "${progression}") — that harmonic choice is fixed by the app. The descriptive phrase after " - " is reference flavor, not required wording; describe the chorus lift/feel in your own words if you have a better one for this song's era and genre.`;
+}
+
+// TASK v3.62 (TASK 1-1) — was "weave that exact phrase... verbatim... never
+// reuse the same device text word-for-word across two songs." Now a
+// concept reference (the KIND of arrangement-contrast moment, e.g.
+// stop-time/key-change/breakdown) rather than required wording — the
+// "never reuse the same text" rule is now moot by construction, since nothing
+// forces every song toward the same fixed phrase pool anymore.
+function hookDeviceInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.hookDeviceText)
+    ? '- Each "preassignedSongs" entry may include "hookDeviceText" — a REFERENCE arrangement-contrast idea for this song (stop-time, key change, breakdown, etc), not required wording. Use it, an era-appropriate variant of it, or a different device entirely if you have a better one for this specific song — just make sure the chorus doesn\'t feel static.'
+    : '';
+}
+
+/**
+ * TASK v3.62 (TASK 1-2) — anachronism guardrail. Consolidated into one
+ * bullet (grouped by era, listing affected track numbers) rather than
+ * repeated per-song, to keep the instruction's overall length reasonable.
+ * Reads from src/data/eraExclusions.ts, the same table
+ * core/compositionScorer.ts's blocking check reads — the two stay in sync
+ * by construction (this is prevention; the scorer is detection).
+ */
+function eraGuardrailLines(preassignedSongs: PreassignedSongSlot[]): string[] {
+  const byBucket = new Map<EraBucket, number[]>();
+  for (const slot of preassignedSongs) {
+    const bucket = eraBucketForGenreId(slot.genreId);
+    if (!bucket || bucket === 'timeless') continue;
+    byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), slot.trackNo]);
+  }
+  if (!byBucket.size) return [];
+  const rows = [...byBucket.entries()].map(([bucket, trackNos]) => {
+    const forbidden = ERA_FORBIDDEN_DESCRIPTORS[bucket];
+    return `  Tracks ${trackNos.join(', ')} (${ERA_LABEL[bucket]}): do not use ${forbidden.map(term => `"${term}"`).join(', ')} — anachronistic for this era.`;
+  });
+  return [
+    '- CRITICAL — era authenticity: some tracks in this pack are era-specific old-pop genres. A song\'s stylePrompt must never describe production/instrumentation that did not exist yet (or was long obsolete) in that track\'s era. Specifically:',
+    ...rows,
+    '  If you are unsure whether something fits an era, choose the more conservative, clearly-period-appropriate option.'
+  ];
+}
+
+/** TASK v3.62 (TASK 1-2/2-2) — Suno reads stylePrompt as a descriptor list, not prose; a real pack measured 106 comma-separated descriptors in one stylePrompt because the old approach had to fill every protected/essential atom regardless of whether the song needed it. */
+function descriptorCountInstructionLine(): string {
+  return '- stylePrompt must be a comma-separated list of roughly 25-35 short descriptors (genre, era, instruments, rhythm feel, harmony color, vocal description, tempo, structure/production notes) — not full sentences and not padded to hit a fixed checklist. Write only what is musically true and useful for THIS song; stop once you have described it well, even if that is fewer than 35 descriptors.';
+}
+
+/**
+ * TASK v3.62 (TASK 1-3) — a per-song slot only sees itself; without whole-
+ * pack context, 18 independently-composed songs can converge on the same
+ * couple of "safe" instrument choices (the exact complaint TASK 1's own
+ * diagnosis makes about template dictation, just relocated to the LLM
+ * instead of fixed). One consolidated table, built from the same
+ * preassignedSongs already in the JSON payload, so the agent can see its
+ * neighbors before composing any one track.
+ */
+function perTrackPlanTable(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
+  const genreLabel = (genreId: string | undefined) => genres.find(g => g.id === genreId)?.label ?? genreId ?? '-';
+  const rows = preassignedSongs.map(slot => [
+    String(slot.trackNo),
+    markdownCell(genreLabel(slot.genreId)),
+    `${slot.tempo} BPM`,
+    markdownCell(slot.vocalText ?? slot.vocalType ?? '-'),
+    markdownCell(slot.songRole)
+  ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'));
+  return [
+    '| Track | Genre | BPM | Vocal | Role |',
+    '| --- | --- | --- | --- | --- |',
+    ...rows
+  ].join('\n');
+}
+
+/**
+ * TASK v3.62 (TASK 1) — the concept agent already decomposes an artist
+ * reference in customConcept into generic era/instrumentation/harmony/
+ * rhythm/production/vocal descriptors for genre RECOMMENDATION
+ * (conceptAgent.ts) and for the local generation path's stylePrompt atom
+ * pool (localGenerator.ts's artistStyleAtomPool) — but never for the
+ * bridge instruction, so a bridge user's "비틀즈 스타일로" never reached the
+ * agent as anything but the customConcept free text itself. Same
+ * decomposition, same never-the-artist's-name safety rule
+ * (isSafeDecomposedReference / decomposedReferenceDescriptors never include
+ * matchedSurface), framed explicitly as "interpret, don't quote."
+ */
+function artistReferenceInstructionLines(opts: GenerationOptions): string[] {
+  const references = decomposeArtistReferences(opts.customConcept || '').filter(isSafeDecomposedReference);
+  if (!references.length) return [];
+  const lines = references.flatMap(ref => [
+    `  ${ref.eraTag}:`,
+    `    ${decomposedReferenceDescriptors(ref).filter(d => d !== ref.eraTag).join(' / ')}`
+  ]);
+  return [
+    '',
+    '[Reference interpretation] — the user mentioned an artist/sound reference. Below is what that reference sounds like, described generically:',
+    ...lines,
+    '  Do NOT use these exact words as a checklist and do NOT name the artist anywhere in stylePrompt/lyrics/youtube fields. Understand what this sound IS, then compose this song with your own musical knowledge so it authentically fits that sound and this song\'s own genre/era.'
+  ];
 }
 
 function markdownCell(value: string): string {
@@ -272,15 +395,7 @@ export function buildClaudeCodeInstruction(
   const conceptInstructionLine = preassignedSongs.some(slot => slot.conceptText)
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
-  // TASK v3.42 Part B2 — same verbatim-weave rule promptComposer.ts's
-  // buildBatchSystemNote gives real API requests. Real measurement of a
-  // generated 15-song pack found the reinforcement text every song got was
-  // byte-identical ("hook lands on the downbeat, clear on-beat chord
-  // changes, bass on the root, strong chorus lift") — this per-song
-  // arrangement-contrast device is what replaces it.
-  const hookDeviceInstructionLine = preassignedSongs.some(slot => slot.hookDeviceText)
-    ? '- Each "preassignedSongs" entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this pack.'
-    : '';
+  const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
@@ -292,10 +407,24 @@ export function buildClaudeCodeInstruction(
   const sectionStyleInstructionLine = sectionStyleInstructionLineFor(preassignedSongs);
 
   return [
-    'You are generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file.',
+    // TASK v3.62 — C안's core reframing: composer, not scribe. Everything
+    // below "preassignedSongs" plans (track order, BPM, genre, structure,
+    // hook uniqueness) is still fixed by the app; everything about HOW a
+    // song sounds (instrumentation choice, arrangement wording, density
+    // phrasing) is now this agent's own musical judgment to exercise within
+    // the constraints and era below — not a template to fill in.
+    'You are an experienced music composer/producer generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file. Compose each song using your own musical knowledge within the plan and constraints below; do not treat reference fields as scripts to transcribe verbatim.',
     instructionOptions.conceptLine ? `\nThis set's flavor: ${instructionOptions.conceptLine} — lean into this lead genre/season for the pack's overall tone, without abandoning the channel's core style.` : '',
     '',
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
+    '',
+    // TASK v3.62 (TASK 1-3) — per-track plan table so all N songs in this
+    // one instruction are visible to each other before any one is composed
+    // (prevents independently-composed songs from converging on the same
+    // couple of "safe" instrument/vocal choices).
+    `This pack's ${preassignedSongs.length} tracks (plan fixed by the app — compose within each row, do not renumber or reorder):`,
+    perTrackPlanTable(preassignedSongs, genres),
+    ...artistReferenceInstructionLines(opts),
     '',
     rules,
     '',
@@ -321,16 +450,11 @@ export function buildClaudeCodeInstruction(
     // of defense.
     `- CRITICAL: Every one of the ${avoid?.usedTitles?.length ?? 0} titles in "alreadyUsedTitles" and every one of the ${avoid?.usedHooks?.length ?? 0} hooks in "alreadyUsedHooks" above is FORBIDDEN for this pack — they were already used by a previous pack, not source material to draw from. Before writing the file, check every song's "title" and "hookPhrase" against both lists; if any match (even reordered onto a different track), rewrite that title/hook to something new.`,
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
-    // TASK v3.33 Part C — same "moneyChordText" field/instruction
-    // promptComposer.ts's buildBatchSystemNote already gives real API
-    // requests (kept in sync here rather than shared code, per this file's
-    // existing convention — see the titleInstructionLine comment above):
-    // a bare "money chords are mandatory" line reads as vague to Suno per
-    // real listening feedback, so each preassignedSongs entry carries its
-    // own ready-to-use progression + reinforcement text instead.
-    '- Each "preassignedSongs" entry also includes "moneyChordText" — weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim. Do not substitute a different progression or paraphrase it away.',
+    moneyChordInstructionLineFor(preassignedSongs),
     genreInstructionLine,
     tempoInstructionLine(),
+    descriptorCountInstructionLine(),
+    ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
     introTextureInstructionLine,
     negativeStyleInstructionLine,
@@ -461,10 +585,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const conceptInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.conceptText))
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
-  const hookDeviceInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.hookDeviceText))
-    ? '- Each "preassignedSongs" entry also includes "hookDeviceText" - weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device; do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs.'
-    : '';
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
+  const hookDeviceInstructionLine = hookDeviceInstructionLineFor(allSlots);
   const genreInstructionLine = genreInstructionLineFor(allSlots);
   const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
@@ -503,7 +625,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   };
 
   const instruction = [
-    'You are generating multiple Suno playlist sets in one coding-agent session - no Anthropic/OpenAI API call, write every result straight to files.',
+    'You are an experienced music composer/producer generating multiple Suno playlist sets in one coding-agent session - no Anthropic/OpenAI API call, write every result straight to files. Compose each song using your own musical knowledge within the plan and constraints below; do not treat reference fields as scripts to transcribe verbatim.',
     '',
     'MASTER MODE:',
     `- Generate ${setCount} sets sequentially, Set 01 through Set ${String(setCount).padStart(2, '0')}, ${songsPerSet} songs per set.`,
@@ -514,6 +636,10 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '',
     'Set planning table:',
     setPlanningTable,
+    '',
+    `All ${allSlots.length} tracks across every set (plan fixed by the app — compose within each row, do not renumber or reorder):`,
+    perTrackPlanTable(allSlots, genres),
+    ...artistReferenceInstructionLines(baseOpts),
     '',
     rules,
     '',
@@ -528,9 +654,11 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     `- Each set file must contain exactly ${songsPerSet} song objects matching requestPayload.outputShape.songs[0].`,
     titleInstructionLine,
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
-    '- Each "preassignedSongs" entry includes "moneyChordText" - weave that exact phrase into that song\'s stylePrompt as the money-chord portion, verbatim.',
+    moneyChordInstructionLineFor(allSlots),
     genreInstructionLine,
     tempoInstructionLine(),
+    descriptorCountInstructionLine(),
+    ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,
     introTextureInstructionLine,
     negativeStyleInstructionLine,

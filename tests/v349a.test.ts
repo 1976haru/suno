@@ -153,7 +153,10 @@ describe('[v3.49A] genre rotation, negatives, bridge repair, and reference mood'
     const [slot] = preallocateSongSlots(opts, genres);
     const instruction = buildClaudeCodeInstruction(opts, genres, channelMoods(channel), seasonPacks[0], undefined, [slot]);
     expect(instruction).toContain('genreText');
-    expect(instruction).toContain('weave that exact per-song lead/blended genre phrase');
+    // TASK v3.62 (TASK 1-1) — genreText is now reference framing ("compose
+    // your own... rather than copying verbatim"), not a verbatim-weave
+    // requirement; see claudeCodeBridge.ts's genreInstructionLineFor.
+    expect(instruction).toContain('the genre/sub-style identity this track must stay recognizably within');
 
     const raw = JSON.stringify({
       songs: [{
