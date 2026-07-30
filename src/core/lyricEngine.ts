@@ -412,13 +412,6 @@ function poolsFor(language: LyricLanguage): LanguagePools {
   return enPools;
 }
 
-const introLine: Record<LyricLanguage, string> = {
-  english: 'Soft Rhodes, acoustic guitar, close warm vocal.',
-  korean: '따뜻한 로즈 피아노, 어쿠스틱 기타, 가까운 목소리.',
-  japanese: 'やわらかなローズピアノ、アコースティックギター、近い歌声。',
-  bilingual: 'Soft Rhodes, acoustic guitar, close warm vocal.'
-};
-
 const tags: Record<LyricLanguage, { intro: string; verse1: string; preChorus: string; chorus: string; verse2: string; bridge: string; finalChorus: string; end: string }> = {
   english: { intro: '[short intro]', verse1: '[verse 1]', preChorus: '[pre-chorus]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
   korean: { intro: '[short intro]', verse1: '[verse 1]', preChorus: '[pre-chorus]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' },
@@ -798,11 +791,20 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // fixed instrumental description with a wordless-hum vocal direction; this
   // is the more experimental of the two (Suno isn't guaranteed to honor a
   // text meta-tag literally), which is why it's never the 'auto' default.
+  //
+  // TASK v3.58 (TASK 5-3) — the default (non-cold-open) branch used to be
+  // [t.intro, introLine[language]], putting a plain descriptive sentence
+  // ("Soft Rhodes, acoustic guitar, close warm vocal.") directly under the
+  // instrumental-intro tag with no vocal-suppression marker, so Suno could
+  // (and measurably did, 9/18 in a real pack) sing it as if it were a lyric
+  // line. The tag now stands alone; the same instrumentation description is
+  // already carried non-singably by the style prompt's own introTexture atom
+  // (see introTexturePlan.ts / localGenerator.ts), so nothing is lost.
   const openingLines = isColdOpen && openingStyle === 'hook-forward'
     ? ['[cold open]', hook]
     : isColdOpen && openingStyle === 'hum-intro'
       ? [t.intro, WORDLESS_HUM_LINE]
-      : [t.intro, introLine[language]];
+      : [t.intro];
 
   // TASK v3.42 Part C — track 1 (cold-open) always keeps the original T1
   // shape regardless of what the pack's structure-template plan assigned it:

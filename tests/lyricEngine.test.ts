@@ -29,17 +29,29 @@ describe('lyric engine', () => {
   // composeLyrics (lyricEngine.ts) closes most of that gap for local
   // generation; this is a floor, not an exact-range assertion, since word
   // count still varies by role/language.
-  it('local generation averages at least 200 words/song across a 12-song English pack', () => {
+  //
+  // TASK v3.58 (TASK 5-3) — floor lowered 200->195. The non-cold-open
+  // [short intro] tag used to be followed by an unlabeled instrumental
+  // descriptor line ("Soft Rhodes, acoustic guitar, close warm vocal.")
+  // that Suno could misread as an actual sung lyric (see lyricEngine.ts's
+  // openingLines default branch); removing it is TASK 5-3's own fix and
+  // drops this raw whitespace-token count by ~7 words/song on every
+  // non-cold-open track. This floor concerns render duration, not a
+  // deliberate word-count target (that generation logic — verse pools,
+  // the extra verse2 draw, etc. — is untouched), so the floor moves down
+  // to match the corrected, no-longer-buggy baseline instead of
+  // re-adding lyric content to chase the old number.
+  it('local generation averages at least 195 words/song across a 12-song English pack', () => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
     const avgWords = bp.songs.reduce((sum, song) => sum + song.lyrics.split(/\s+/).filter(Boolean).length, 0) / bp.songs.length;
-    expect(avgWords).toBeGreaterThanOrEqual(200);
+    expect(avgWords).toBeGreaterThanOrEqual(195);
   });
 
-  it('no local song comes back under 150 words even for the shortest role (cold-open)', () => {
+  it('no local song comes back under 145 words even for the shortest role (cold-open)', () => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       const wordCount = song.lyrics.split(/\s+/).filter(Boolean).length;
-      expect(wordCount, `track ${song.trackNo} (${song.songRole}) has only ${wordCount} words`).toBeGreaterThanOrEqual(150);
+      expect(wordCount, `track ${song.trackNo} (${song.songRole}) has only ${wordCount} words`).toBeGreaterThanOrEqual(145);
     }
   });
 

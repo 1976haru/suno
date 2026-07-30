@@ -298,6 +298,36 @@ export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {
   return `${tag}\n${lyrics}`;
 }
 
+/**
+ * TASK v3.58 (TASK 5-3) — a 'duet' selection (adult 'male-female-duet',
+ * kids 'kid-duet') already promises "alternating verses, close harmony on
+ * the chorus" / "trading lines back and forth" in its own vocalPresets.ts
+ * prompt text, but the only enforcement was ONE blanket [duet vocal] tag at
+ * the very top of the lyrics (resolveVocalMetaTag/ensureVocalMetaTag) —
+ * nothing told Suno which section is which singer, so the alternation the
+ * prompt describes had no lyric-side signal at all. This retags each
+ * section on the local generator's own fixed, known-literal tag set
+ * ('[verse 1]' etc. — see lyricEngine.ts/kidsLyricEngine.ts's `tags`)
+ * verse 1 -> male lead, verse 2 -> female lead, every chorus-type section ->
+ * the duet/harmony moment, matching the preset text's own verse/chorus
+ * split. Only ever called when gender === 'duet'; every other gender keeps
+ * the single top-level tag unchanged.
+ */
+export function applyDuetSectionVocalTags(lyrics: string, gender: VocalGender | undefined): string {
+  if (gender !== 'duet') return lyrics;
+  return lyrics
+    .split('\n')
+    .map(line => {
+      const trimmed = line.trim();
+      if (/^\[verse 1\]$/i.test(trimmed)) return line.replace('[verse 1]', '[verse 1: male vocal]');
+      if (/^\[verse 2\]$/i.test(trimmed)) return line.replace('[verse 2]', '[verse 2: female vocal]');
+      if (/^\[chorus\]$/i.test(trimmed)) return line.replace('[chorus]', '[chorus: male and female duet]');
+      if (/^\[final chorus\]$/i.test(trimmed)) return line.replace('[final chorus]', '[final chorus: male and female duet]');
+      return line;
+    })
+    .join('\n');
+}
+
 const VOCAL_TYPES: VocalType[] = ['male', 'female', 'mixed'];
 
 /**

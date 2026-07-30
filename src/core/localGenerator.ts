@@ -7,7 +7,7 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { applyDuetSectionVocalTags, buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -670,7 +670,7 @@ export function generateLocalBlueprint(
     // generated pack never passes through that function, so its lyrics
     // always started with the section tag ([short intro], etc.) and no
     // vocal tag at all. Same tag resolution, applied directly here instead.
-    const lyrics = ensureVocalMetaTag(composedLyrics, resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
+    const lyrics = ensureVocalMetaTag(applyDuetSectionVocalTags(composedLyrics, vocalGender), resolveVocalMetaTag(vocalType, vocalGender, vocalDescriptionText));
     // TASK v3.48.1 — narrative genres still get one auxiliary hook device,
     // but the auto plan filters out devices already described by the
     // arrangement narrative so the two cues do not fight each other.

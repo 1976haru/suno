@@ -21,6 +21,23 @@ export const LYRIC_SECTION_STYLE_TEXT_BY_ID: Record<LyricSectionStyleId, string>
   hookRepeat: 'chorus lines use compact repeated hook callbacks and simple answer phrases'
 };
 
+/**
+ * TASK v3.58 (TASK 5-4) — buildSectionStylePlan's chorusPool can select
+ * 'narrative' or 'image' (not just 'hookRepeat'), but chorusStyleText was
+ * built from the same LYRIC_SECTION_STYLE_TEXT_BY_ID table above, whose
+ * 'narrative'/'image' wording is hardcoded to say "verse lines..." — so any
+ * song whose chorus style resolved to 'narrative' or 'image' got a
+ * mixNotes atom reading "chorus style: verse lines unfold as..." (measured
+ * 11/18 in a real pack). This is the chorus-context wording for the same
+ * 4 style ids, used only for chorusStyleText.
+ */
+export const CHORUS_SECTION_STYLE_TEXT_BY_ID: Record<LyricSectionStyleId, string> = {
+  narrative: 'chorus lines unfold as plain scene narration with concrete actions and time movement',
+  image: 'chorus lines focus on sensory images, objects, light, weather, and small gestures',
+  dialogue: 'chorus lines use direct address or short conversational fragments without becoming spoken-word',
+  hookRepeat: 'chorus lines use compact repeated hook callbacks and simple answer phrases'
+};
+
 type LyricPlanOptions = Pick<GenerationOptions,
   'channel' | 'songCount' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'lyricLanguage'
 >;
@@ -119,7 +136,7 @@ export function buildSectionStylePlan(songCount: number, seed: number, structure
       verseStyle,
       verseStyleText: LYRIC_SECTION_STYLE_TEXT_BY_ID[verseStyle],
       chorusStyle,
-      chorusStyleText: LYRIC_SECTION_STYLE_TEXT_BY_ID[chorusStyle]
+      chorusStyleText: CHORUS_SECTION_STYLE_TEXT_BY_ID[chorusStyle]
     };
   });
 }
