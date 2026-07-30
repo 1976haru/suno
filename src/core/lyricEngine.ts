@@ -73,7 +73,44 @@ function startsWithVowelSound(word: string): boolean {
   return /^[aeiou]/i.test(word.trim());
 }
 
+/**
+ * TASK v3.59 (TASK A-3) — aMotif() only ever checked the leading sound for
+ * "a" vs "an", never whether the motif needs an indefinite article at all.
+ * A plural motif ("worn guitar strings" — genreLibrary.ts's own lyric-image
+ * data, bare-noun by convention) or an uncountable one ("rain", "silence")
+ * produced real, visible grammar errors in generated lyrics ("like a worn
+ * guitar strings", "like a rain"). Per this task's own "판정이 애매하면
+ * 관사를 붙이지 않는다" — when the plural check itself is ambiguous, this
+ * only ever suppresses the article (never guesses a wrong one); a bare
+ * motif with no article reads awkward at worst, never ungrammatical.
+ */
+const UNCOUNTABLE_MOTIF_NOUNS = new Set([
+  'rain', 'light', 'dust', 'air', 'steam', 'silence', 'music', 'warmth', 'weather',
+  'snow', 'frost', 'static', 'distance', 'time', 'coffee', 'traffic', 'laughter',
+  'sunshine', 'moonlight', 'daylight', 'twilight', 'thunder', 'lightning', 'fog',
+  'smoke', 'ash', 'sand', 'wind', 'ice', 'gravity', 'space', 'darkness', 'stillness'
+]);
+
+function lastWord(phrase: string): string {
+  const words = phrase.trim().split(/\s+/).filter(Boolean);
+  return words[words.length - 1] || '';
+}
+
+/** Plural-shaped (ends in -s, excluding -ss/-us/-is words like "glass"/"focus"/"crisis" which are singular). */
+function looksPlural(word: string): boolean {
+  const clean = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!clean) return false;
+  if (/(ss|us|is)$/.test(clean)) return false;
+  return /s$/.test(clean);
+}
+
+function needsNoArticle(motif: string): boolean {
+  const head = lastWord(motif).toLowerCase().replace(/[^a-z]/g, '');
+  return UNCOUNTABLE_MOTIF_NOUNS.has(head) || looksPlural(lastWord(motif));
+}
+
 function aMotif(motif: string): string {
+  if (needsNoArticle(motif)) return motif;
   return `${startsWithVowelSound(motif) ? 'an' : 'a'} ${motif}`;
 }
 
@@ -816,7 +853,6 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const lines: string[] =
     effectiveTemplate === 'T2'
       ? [
-        `Title: ${title}`, '',
         '[hook intro]', hook, '',
         ...verse1Block, '',
         t.chorus, ...chorus1, '',
@@ -828,7 +864,6 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
       ]
       : effectiveTemplate === 'T3'
         ? [
-          `Title: ${title}`, '',
           ...openingLines, '',
           ...verse1Block, '',
           t.preChorus, ...preChorusLines, '',
@@ -849,7 +884,6 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
             // shape instead comes from omitting pre-chorus/bridge entirely
             // and using [instrumental hook] + a 3rd [chorus] repeat in place
             // of a tagged final chorus.
-            `Title: ${title}`, '',
             '[instrumental hook]', '(instrumental hook, band plays the melody, no lyrics, 2 bars)', '',
             ...verse1Block, '',
             t.chorus, ...chorus1, '',
@@ -860,7 +894,6 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
           ]
           : effectiveTemplate === 'T5'
             ? [
-              `Title: ${title}`, '',
               '[a cappella hook]', hook, '',
               ...verse1Block, '',
               t.chorus, ...chorus1, '',
@@ -872,7 +905,6 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
             ]
             // T1 — original/default shape.
             : [
-              `Title: ${title}`, '',
               ...openingLines, '',
               ...verse1Block, '',
               t.preChorus, ...preChorusLines, '',

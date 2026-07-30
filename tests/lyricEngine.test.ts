@@ -41,10 +41,20 @@ describe('lyric engine', () => {
   // the extra verse2 draw, etc. — is untouched), so the floor moves down
   // to match the corrected, no-longer-buggy baseline instead of
   // re-adding lyric content to chase the old number.
-  it('local generation averages at least 195 words/song across a 12-song English pack', () => {
+  //
+  // TASK v3.59 (TASK A-1) — floor lowered again, 195->190. Every song's
+  // lyrics used to open with a literal "Title: <title>" line (all 5
+  // structure templates, lyricEngine.ts) that Suno's lyrics field would
+  // sing as-is — the title already has its own dedicated Suno field
+  // (song.title), so this was pure duplication and, worse, an actually
+  // sung "Title" announcement. Removing it drops the raw whitespace-token
+  // count by 2-4 words on every one of the 12 songs (100%, not just the
+  // 17/18 the 5-3 fix touched), same "measurement artifact from removing
+  // never-meant-to-be-sung text" reasoning as the 200->195 change above.
+  it('local generation averages at least 190 words/song across a 12-song English pack', () => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
     const avgWords = bp.songs.reduce((sum, song) => sum + song.lyrics.split(/\s+/).filter(Boolean).length, 0) / bp.songs.length;
-    expect(avgWords).toBeGreaterThanOrEqual(195);
+    expect(avgWords).toBeGreaterThanOrEqual(190);
   });
 
   it('no local song comes back under 145 words even for the shortest role (cold-open)', () => {

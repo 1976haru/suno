@@ -60,20 +60,48 @@ function normalized(value: string): string {
 // especially for Korean.
 const STYLE_REFERENCE_FRAMING_PATTERN = /스타일로|스타일의|처럼\s|같이\s|in the style of|sounds? like|っぽく|風に/iu;
 
+/** A ConceptInfluence with no real content — same as "no concept" to every caller (conceptLyricImages's `?? []`, conceptStyleText's own empty-styleText check below). */
+const EMPTY_CONCEPT_INFLUENCE: ConceptInfluence = { key: 'custom', styleText: '', lyricImages: [] };
+
+/**
+ * TASK v3.59 (TASK A-2) — this used to substitute meta-description
+ * placeholder phrases ('private memory', 'small meaningful detail',
+ * 'personal scene details', 'custom concept focus') whenever it couldn't
+ * safely use the raw text, and those placeholders got woven straight into
+ * sung lyrics via lyricEngine.ts's pickFlavor() — a real generated pack sang
+ * "The small meaningful detail leans in closer" and "like a private
+ * memory" as if they were genuine scene imagery. A wrong/absent concept
+ * image is strictly better than a wrong one: when no safe image can be
+ * extracted, this now returns no concept influence at all, and every
+ * caller already has a clean fallback for that (the channel/genre/season
+ * image banks lyricEngine.ts's pickFlavor() draws from when conceptImages
+ * is empty).
+ *
+ * Also folds in TASK v3.58's own leak guard: any detected artist reference
+ * OR style-reference framing word (Korean/Japanese/English) anywhere in
+ * the text now skips englishWords extraction entirely, rather than only
+ * gating the raw-text image — extracting the first 5 English words from
+ * "give me something in the style of the Beatles" happened to miss
+ * "Beatles" only because of where it fell in word order, not by any real
+ * guarantee.
+ */
 function fallbackConcept(text: string): ConceptInfluence {
   const clean = text.replace(/[\n,;]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 120);
+  if (!clean) return EMPTY_CONCEPT_INFLUENCE;
+  if (findArtistReferenceLeaks(clean).length > 0 || STYLE_REFERENCE_FRAMING_PATTERN.test(clean)) return EMPTY_CONCEPT_INFLUENCE;
+
+  // TASK v3.59 — no Korean/Japanese noun extraction (deliberately out of
+  // scope); a customConcept written entirely in a non-Latin script has
+  // nothing this regex can safely pull out, so it falls back to no concept
+  // influence rather than a wrong or placeholder one.
   const englishWords = clean.match(/[a-z][a-z'-]{2,}/giu)?.slice(0, 5) ?? [];
-  const musicAtoms = englishWords.length ? englishWords.join(' ') : 'personal scene details';
-  const rawImageIsSafe = Boolean(clean) && findArtistReferenceLeaks(clean).length === 0 && !STYLE_REFERENCE_FRAMING_PATTERN.test(clean);
+  if (!englishWords.length) return EMPTY_CONCEPT_INFLUENCE;
+
+  const musicAtoms = englishWords.join(' ');
   return {
     key: 'custom',
     styleText: `custom concept focus, ${musicAtoms}, scene-specific arrangement detail`,
-    // TASK v3.58 — bare nouns (no leading article): every caller of
-    // lyricImages routes them through lyricEngine.ts's aMotif()/likeMotif(),
-    // which always prepends its own "a"/"an" — a fallback phrase that
-    // already started with "a" produced a visible "an a small meaningful
-    // detail" double-article bug in real output.
-    lyricImages: [rawImageIsSafe ? clean : 'private memory', englishWords.join(' ') || 'small meaningful detail']
+    lyricImages: [clean, musicAtoms]
   };
 }
 
@@ -86,7 +114,11 @@ export function resolveConceptInfluence(customConcept?: string): ConceptInfluenc
 
 export function conceptStyleText(customConcept?: string, index = 0): string | undefined {
   const influence = resolveConceptInfluence(customConcept);
-  if (!influence) return undefined;
+  // TASK v3.59 (TASK A-2) — fallbackConcept can now return an influence with
+  // no real content (EMPTY_CONCEPT_INFLUENCE) when no safe image/style text
+  // could be extracted; treated the same as no influence at all, rather
+  // than building "concept emphasis: undefined" from empty atoms/images.
+  if (!influence || (!influence.styleText.trim() && !influence.lyricImages.length)) return undefined;
   const atoms = influence.styleText.split(',').map(atom => atom.trim()).filter(Boolean);
   const image = influence.lyricImages[Math.abs(index) % influence.lyricImages.length];
   const selected = atoms.length > 2

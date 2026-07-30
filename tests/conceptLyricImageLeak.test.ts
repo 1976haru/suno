@@ -18,19 +18,28 @@ import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
  * carried its own article produced a visible "an a small meaningful
  * detail" double-article bug once lyricEngine.ts's aMotif() added its own.
  */
-describe('[v3.58] raw customConcept text never becomes a sung lyric image when it carries an artist reference', () => {
-  it('resolveConceptInfluence never returns the raw artist-carrying sentence as a lyricImage', () => {
+describe('[v3.58/v3.59] raw customConcept text never becomes a sung lyric image when it carries an artist reference', () => {
+  // TASK v3.59 (TASK A-2) — v3.58's own fix (redact to a generic 'private
+  // memory'/'small meaningful detail' placeholder) turned out to be its own
+  // bug: those placeholder phrases got sung verbatim in real output ("The
+  // small meaningful detail leans in closer"). The real fix is no concept
+  // influence at all when no safe image can be extracted — a wrong/absent
+  // image beats a wrong one that reads as genuine content.
+  it('resolveConceptInfluence returns no concept influence at all for an artist-carrying sentence (no placeholder image either)', () => {
     const influence = resolveConceptInfluence('비틀즈 스타일로, 아침에 커피와 함께 듣고 싶은 올드팝');
     expect(influence).not.toBeNull();
+    expect(influence!.lyricImages).toEqual([]);
+    expect(influence!.styleText).toBe('');
     for (const image of influence!.lyricImages) {
       expect(findArtistReferenceLeaks(image)).toEqual([]);
       expect(image).not.toContain('비틀즈');
     }
   });
 
-  it('an English "in the style of X" concept also never becomes a raw lyricImage', () => {
+  it('an English "in the style of X" concept also returns no concept influence (not a raw lyricImage, not a placeholder)', () => {
     const influence = resolveConceptInfluence('give me something in the style of the Beatles for a rainy afternoon');
     expect(influence).not.toBeNull();
+    expect(influence!.lyricImages).toEqual([]);
     for (const image of influence!.lyricImages) {
       expect(image.toLowerCase()).not.toContain('beatles');
       expect(image.toLowerCase()).not.toContain('style of');
@@ -43,12 +52,13 @@ describe('[v3.58] raw customConcept text never becomes a sung lyric image when i
     expect(influence!.lyricImages[0]).toContain('quiet train ride home');
   });
 
-  it('none of the fallback bare-noun images carry their own leading article (avoids aMotif() double-articling)', () => {
+  it('a Korean artist-reference sentence with no English words gets no concept influence (no CJK noun extraction, per this task\'s own scope)', () => {
     // Deliberately avoids any of the 11 hardcoded CONCEPT_PRESETS aliases
     // (morning cafe, city lights, etc.) so this isolates fallbackConcept's
-    // own bare-noun fix rather than the preset table (covered separately
-    // below).
+    // own behavior rather than the preset table (covered separately below).
     const influence = resolveConceptInfluence('비틀즈 스타일로 부르는 노래');
+    expect(influence).not.toBeNull();
+    expect(influence!.lyricImages).toEqual([]);
     for (const image of influence!.lyricImages) {
       expect(image.toLowerCase()).not.toMatch(/^(a|an|the)\s/);
     }
