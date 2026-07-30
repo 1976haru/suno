@@ -5,6 +5,7 @@ import { MAX_GENRE_SHARE } from './conceptAgent';
 import { titleHookOverlapWarning } from './quality';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
+import { affectedTrackRatio, ARRANGEMENT_VOCABULARY_SET_ERROR_RATIO, findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 
 export interface AlbumAuditReport {
   songCount: number;
@@ -91,6 +92,37 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
   }
   for (const hook of duplicateValues(songs.map(song => song.hookPhrase))) {
     errors.push(`Duplicate hook phrase across the pack: "${hook}"`);
+  }
+
+  // TASK v3.60 (TASK A-3) — a real bridge-imported pack sang its own
+  // arrangement/production instructions as if they were lyrics ("The
+  // straight-pop drums move softly") in 15/17 songs (88%): the bridge
+  // instruction told the agent to weave these terms into the *style
+  // prompt* verbatim, but nothing said they must never also appear as the
+  // subject of a *lyric* line (see lyricVocabularyGuard.ts). At that
+  // affected rate the instruction was systematically ignored, not
+  // incidentally slipped once or twice, so this escalates to a blocking
+  // error past ARRANGEMENT_VOCABULARY_SET_ERROR_RATIO (30%) — below that,
+  // individual songs are still usable and this stays informational.
+  const vocabFindings = findArrangementVocabularyInLyrics(songs);
+  if (vocabFindings.length) {
+    const linesByTrack = new Map<number, string[]>();
+    for (const finding of vocabFindings) {
+      const lines = linesByTrack.get(finding.trackNo) || [];
+      lines.push(finding.line);
+      linesByTrack.set(finding.trackNo, lines);
+    }
+    const affectedTracks = linesByTrack.size;
+    const ratio = affectedTrackRatio(vocabFindings, songs.length);
+    const detail = [...linesByTrack.entries()]
+      .map(([trackNo, lines]) => `트랙 ${trackNo}: "${lines[0]}"${lines.length > 1 ? ` 외 ${lines.length - 1}줄` : ''}`)
+      .join(' / ');
+    const message = `${affectedTracks}/${songs.length}곡(${Math.round(ratio * 100)}%)의 가사에 편곡/악기 어휘가 문장의 주어로 등장합니다 — ${detail}`;
+    if (ratio > ARRANGEMENT_VOCABULARY_SET_ERROR_RATIO) {
+      errors.push(message);
+    } else {
+      warnings.push(message);
+    }
   }
 
   for (const song of songs) {
