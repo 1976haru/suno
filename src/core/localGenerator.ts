@@ -36,6 +36,7 @@ import {
   HOOK_SHAPES,
   seedForBlueprint,
   seasonWordFor,
+  shuffle,
   targetHookEmotionalWeight,
   titleFromHook,
   UniquePool,
@@ -44,6 +45,7 @@ import {
   type TitleGenerator,
   type TitleResult
 } from './lyricEngine';
+import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 
 /**
  * Suno-facing text (style prompt, YouTube metadata) stays English regardless
@@ -444,6 +446,21 @@ export function getRecurringMotifPhrases(): LocalizedPhrase[] {
   return recurringMotifs;
 }
 
+/**
+ * TASK v3.58 TASK 3 — picks a small, per-song-varying subset of an
+ * artist-reference-derived descriptor pool (era tag always first/anchored,
+ * then 2 shuffled traits), mirroring promptComposer.ts's rotatingInstrumentText/
+ * rotatingGenreSignatureText anchor+shuffle pattern so this new atom source
+ * doesn't become yet another clause identical across every song in the pack.
+ */
+function rotatingArtistStyleAtoms(pool: string[], seed: number, index: number): string[] {
+  if (!pool.length) return [];
+  const [anchor, ...rest] = pool;
+  if (!rest.length) return [anchor];
+  const shuffled = shuffle(rest, seed + index * 173);
+  return [anchor, ...shuffled.slice(0, 2)];
+}
+
 export function generateLocalBlueprint(
   opts: GenerationOptions,
   genres: GenrePack[],
@@ -457,6 +474,13 @@ export function generateLocalBlueprint(
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
   const conceptInfluence = resolveConceptInfluence(opts.customConcept);
   const conceptImages = conceptLyricImages(opts.customConcept);
+  // TASK v3.58 TASK 3 — every atom here is already name-free (built by
+  // core/artistReferenceDecomposer.ts and re-checked here as defense in
+  // depth — see findArtistReferenceLeaks), but they're still just one flat
+  // list shared by the whole pack; rotatingArtistStyleAtoms below picks a
+  // different small subset per song so 18 songs don't all carry the exact
+  // same extra clause.
+  const artistStyleAtomPool = (opts.artistReferenceStyleAtoms || []).filter(atom => findArtistReferenceLeaks(atom).length === 0);
   const channelParts = buildChannelPromptParts(opts, genres, moods, season);
   const styleLimitValue = resolveSunoStyleLimit(styleLimit);
   const signatureBlueprint = buildSignatureBlueprint(opts, genres, moods, season, concept);
@@ -638,7 +662,20 @@ export function generateLocalBlueprint(
       { id: 'genre' as const, text: genreText },
       ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: rotatingGenreSignatureText(trackGenres, seed, idx), shortForm: trackGenres[0].shortSignatureSound, minimalForm: trackGenres[0].minimalSignatureSound }] : []),
       ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
-      ...(conceptInfluence ? [{ id: 'concept' as const, text: conceptStyleText(opts.customConcept, idx) }] : []),
+      ...(conceptInfluence
+        ? [{
+          id: 'concept' as const,
+          // TASK v3.58 TASK 3 — artist-derived descriptors listed first: the
+          // soft word-budget stage's concept floor-reduction (see
+          // promptBudget.ts's CONCEPT_FLOOR_ATOMS) keeps only the first N
+          // atoms of this joined group, and a concrete, authentic descriptor
+          // ("jangly 12-string electric guitar") is worth protecting ahead
+          // of conceptStyleText's own generic fallback filler ("concept cue:
+          // custom concept focus") when a long customConcept forces a choice
+          // between them.
+          text: [...rotatingArtistStyleAtoms(artistStyleAtomPool, seed, idx), conceptStyleText(opts.customConcept, idx)].filter(Boolean).join(', ')
+        }]
+        : []),
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
       // TASK v3.33 Part C — per-song progression override when the quota plan
       // is active; channelParts' flat whole-pack moneyChord atom is filtered

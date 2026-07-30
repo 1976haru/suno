@@ -71,6 +71,22 @@ export function allocationForAxis(values: AxisAllocation[] | undefined, axis: Di
   return normalizeDiversityAllocations(values).find(value => value.axis === axis);
 }
 
+/**
+ * TASK v3.58 — replaces (or removes, if `next` is undefined) exactly one
+ * axis's allocation, leaving every other axis's allocation untouched. The
+ * one place a system-computed allocation (e.g. core/conceptAgent.ts's
+ * genreAllocation, applied from Step2Concept.tsx) should write into
+ * GenerationOptions.diversityAllocations, so a concept recommendation's
+ * genre distribution doesn't clobber a vocalType/introTexture/... manual
+ * allocation the user already set up on a different axis.
+ */
+export function replaceAxisAllocation(values: AxisAllocation[] | undefined, next: AxisAllocation | undefined): AxisAllocation[] {
+  const withoutAxis = next
+    ? normalizeDiversityAllocations(values).filter(item => item.axis !== next.axis)
+    : normalizeDiversityAllocations(values);
+  return next ? [...withoutAxis, next] : withoutAxis;
+}
+
 export function isManualAllocation(values: AxisAllocation[] | undefined, axis: DiversityAxisId): boolean {
   return allocationForAxis(values, axis)?.mode === 'manual';
 }

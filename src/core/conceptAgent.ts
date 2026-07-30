@@ -8,16 +8,39 @@ import { buildProxyHeaders } from '../providers/proxyFetch';
 import { MODEL_REGISTRY, defaultModelFor } from '../data/modelRegistry';
 import { getConceptCache, setConceptCache } from './library';
 import { recordUsage } from './usageLedger';
+import { decomposeArtistReferences, isSafeDecomposedReference, type DecomposedReference } from './artistReferenceDecomposer';
+
+/**
+ * TASK v3.58 (지시문 v3.58 TASK 2) — applying a natural-language concept used
+ * to collapse the whole pack onto ONE genreId (ConceptRecommendation only
+ * ever carried a single `genreId`), so every downstream rotation had
+ * nothing to rotate across — the actual root cause behind "18 songs, one
+ * genre" once a concept was applied (see core/genreRotation.ts's own fix
+ * for the second half of that bug, and tests/genreRotationIdentity.test.ts).
+ * genreAllocation is the fix: a real multi-genre distribution sized to the
+ * pack, capped so no single genre dominates.
+ */
+export interface GenreAllocationSlot {
+  genreId: string;
+  songCount: number;
+  /** Korean, user-facing role label ("채널 대표 사운드" / "보조 변주" / "변주용"). */
+  roleKo: string;
+}
 
 export interface ConceptRecommendation {
   id: string;
+  /** = genreAllocation[0].genreId. Kept for backward compatibility with callers that only ever read a single genre. */
   genreId: string;
+  /** Real per-track genre distribution — always >= 1 entry, summing to the songCount this recommendation was built for. See buildGenreAllocation. */
+  genreAllocation: GenreAllocationSlot[];
   moodIds: string[];
   seasonId: string;
   vocalPresetId: string;
   reasonKo: string;
   previewLine: string;
   confidence: 'high' | 'medium';
+  /** Artist/band references detected in the free-text input (see core/artistReferenceDecomposer.ts) — UI display only ("이렇게 해석했습니다"). Every field except matchedSurface on each entry is already name-free and safe to weave into a style prompt; matchedSurface itself must never be. */
+  decomposedReferences?: DecomposedReference[];
 }
 
 export interface ConceptAgentResult {
@@ -53,7 +76,126 @@ export function validateRecommendation(rec: ConceptRecommendation, whitelist: Co
   if (!rec.moodIds.length || !rec.moodIds.every(id => whitelist.moodIds.includes(id))) return false;
   if (!whitelist.seasonIds.includes(rec.seasonId)) return false;
   if (rec.vocalPresetId && !whitelist.vocalPresetIds.includes(rec.vocalPresetId)) return false;
+  if (!rec.genreAllocation.length || rec.genreAllocation.some(slot => !whitelist.genreIds.includes(slot.genreId))) return false;
   return true;
+}
+
+/**
+ * TASK v3.58 — no single genre may dominate a pack (0.28 ≈ 5/18, the ratio
+ * measured against the real 18-song default). Exported (not just a local
+ * const) so tests/core/albumAudit.ts can check a real generated pack
+ * against the exact same threshold this allocator targets, rather than a
+ * second hand-copied number that could drift out of sync.
+ */
+export const MAX_GENRE_SHARE = 0.28;
+
+function genreAllocationCap(songCount: number): number {
+  return Math.max(1, Math.floor(songCount * MAX_GENRE_SHARE));
+}
+
+/** The smallest genre-pool size that can actually respect genreAllocationCap for this songCount (e.g. 18 songs / cap 5 -> needs >= 4 genres) — never fewer than 3 regardless, per the brief's "장르 풀 크기 >= 3". */
+function minimumGenrePoolSize(songCount: number): number {
+  const cap = genreAllocationCap(songCount);
+  return Math.max(3, Math.ceil(songCount / cap));
+}
+
+/**
+ * Builds a genre pool of at least minimumGenrePoolSize, preferring
+ * rankedIds (already coreGenreIds-filtered, highest-signal first) and
+ * padding from the channel's own core genre order when the input didn't
+ * suggest enough distinct genres to fill it.
+ */
+function buildGenrePool(rankedIds: string[], coreGenreOrder: string[], targetSize: number): string[] {
+  const seen = new Set<string>();
+  const pool: string[] = [];
+  for (const id of rankedIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pool.push(id);
+    if (pool.length >= targetSize) return pool;
+  }
+  for (const id of coreGenreOrder) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pool.push(id);
+    if (pool.length >= targetSize) return pool;
+  }
+  return pool;
+}
+
+const GENRE_ROLE_KO = ['채널 대표 사운드', '보조 변주', '변주용'];
+
+function genreRoleKo(index: number): string {
+  return GENRE_ROLE_KO[Math.min(index, GENRE_ROLE_KO.length - 1)];
+}
+
+/**
+ * Distributes songCount across genreIds (highest-ranked first, descending
+ * weight) capped at genreAllocationCap(songCount) each. Deterministic: the
+ * remainder from integer division always fills the highest-ranked slots
+ * first, and any cap overflow is redistributed round-robin to slots still
+ * under cap — so the returned counts always sum to exactly songCount
+ * (never silently drop songs) as long as poolSize * cap >= songCount,
+ * which buildGenrePool's caller (minimumGenrePoolSize) guarantees.
+ */
+export function allocateGenreCounts(genreIds: string[], songCount: number): GenreAllocationSlot[] {
+  if (!genreIds.length || songCount <= 0) return [];
+  const cap = genreAllocationCap(songCount);
+  const poolSize = genreIds.length;
+  const weights = genreIds.map((_, index) => poolSize - index);
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const counts = weights.map(weight => Math.floor((weight / totalWeight) * songCount));
+
+  let remainder = songCount - counts.reduce((sum, count) => sum + count, 0);
+  for (let i = 0; remainder > 0; i = (i + 1) % poolSize) {
+    counts[i] += 1;
+    remainder -= 1;
+  }
+
+  let overflow = 0;
+  for (let i = 0; i < counts.length; i++) {
+    if (counts[i] > cap) {
+      overflow += counts[i] - cap;
+      counts[i] = cap;
+    }
+  }
+  let guard = 0;
+  const maxGuard = poolSize * songCount + 1;
+  while (overflow > 0 && guard < maxGuard) {
+    for (let i = 0; i < poolSize && overflow > 0; i++) {
+      if (counts[i] < cap) {
+        counts[i] += 1;
+        overflow -= 1;
+      }
+    }
+    guard += 1;
+  }
+  // A pool too small to honor the cap at all (cap * poolSize < songCount —
+  // buildGenreAllocation's minimumGenrePoolSize never lets this happen, but
+  // this function is exported standalone and must never silently drop
+  // songs) falls back to plain round-robin, ignoring the cap as a last
+  // resort — an over-cap allocation is still strictly better than an
+  // allocation that doesn't sum to songCount.
+  for (let i = 0; overflow > 0; i = (i + 1) % poolSize) {
+    counts[i] += 1;
+    overflow -= 1;
+  }
+
+  return genreIds
+    .map((id, index) => ({ genreId: id, songCount: counts[index], roleKo: genreRoleKo(index) }))
+    .filter(slot => slot.songCount > 0);
+}
+
+/**
+ * The one place both recommendConceptLocal and recommendConceptViaApi build
+ * genreAllocation from — always at least minimumGenrePoolSize(songCount)
+ * distinct genres (never the single-genre collapse the pre-fix
+ * ConceptRecommendation.genreId-only shape caused).
+ */
+function buildGenreAllocation(rankedGenreIds: string[], coreGenreOrder: string[], songCount: number): GenreAllocationSlot[] {
+  const targetSize = minimumGenrePoolSize(songCount);
+  const pool = buildGenrePool(rankedGenreIds, coreGenreOrder, targetSize);
+  return allocateGenreCounts(pool, songCount);
 }
 
 function normalizeInput(freeText: string): string {
@@ -116,25 +258,44 @@ function rankFromRules(freeText: string, coreGenreIds: Set<string>): RankedScore
   return { genres: rank(genreScore), moods: rank(moodScore), seasons: rank(seasonScore) };
 }
 
+/**
+ * TASK v3.58 — was hardcoded to vocalPresets[0].id, which is 'kid-boy' (the
+ * first entry in data/vocalPresets.ts's array, kept first there so a kids
+ * channel's own picker lists boy/girl/choir in order) regardless of the
+ * requesting channel's archetype. A senior/general-channel concept
+ * recommendation silently carried a children's-choir vocal preset id — see
+ * VocalPreset.forKids. Picks the first preset matching this archetype's own
+ * forKids-ness instead, same filter Step2Concept.tsx's own picker applies.
+ */
+function defaultVocalPresetIdFor(archetype: ChannelArchetype): string {
+  const wantsKids = archetype === 'kids';
+  return vocalPresets.find(preset => Boolean(preset.forKids) === wantsKids)?.id || vocalPresets[0].id;
+}
+
 function buildRecommendation(input: {
   id: string;
-  genreId: string;
+  archetype: ChannelArchetype;
+  genreAllocation: GenreAllocationSlot[];
   moodIds: string[];
   seasonId: string;
   reasonKo: string;
   confidence: 'high' | 'medium';
+  decomposedReferences?: DecomposedReference[];
 }): ConceptRecommendation {
   const primaryMood = input.moodIds[0] || 'warm';
-  const seed = hashSeed(`${input.genreId}::${primaryMood}::${input.seasonId}`);
+  const primaryGenreId = input.genreAllocation[0]?.genreId || 'adult-contemporary';
+  const seed = hashSeed(`${primaryGenreId}::${primaryMood}::${input.seasonId}`);
   return {
     id: input.id,
-    genreId: input.genreId,
+    genreId: primaryGenreId,
+    genreAllocation: input.genreAllocation,
     moodIds: input.moodIds,
     seasonId: input.seasonId,
-    vocalPresetId: vocalPresets[0].id,
+    vocalPresetId: defaultVocalPresetIdFor(input.archetype),
     reasonKo: input.reasonKo,
     previewLine: pickPreviewLine(primaryMood, seed),
-    confidence: input.confidence
+    confidence: input.confidence,
+    decomposedReferences: input.decomposedReferences?.length ? input.decomposedReferences : undefined
   };
 }
 
@@ -159,16 +320,31 @@ function rotate<T>(items: T[], offset: number): T[] {
   return [...items.slice(n), ...items.slice(0, n)];
 }
 
+/** Default assumed when a caller doesn't yet know the real pack size (e.g. an old call site not yet updated) — matches this app's own default GenerationOptions.songCount. */
+const DEFAULT_CONCEPT_SONG_COUNT = 18;
+
 export function recommendConceptLocal(
   freeText: string,
   archetype: ChannelArchetype,
   defaults?: { genreId?: string; moodId?: string; seasonId?: string },
   /** TASK H7 (v3.10) — "다른 추천 보기": rotates through the next-ranked candidates instead of dead-ending on the same top-2 every click. */
-  variantOffset = 0
+  variantOffset = 0,
+  /** TASK v3.58 — how many songs this recommendation's genreAllocation should sum to; the actual pack size the wizard currently has selected. */
+  songCount = DEFAULT_CONCEPT_SONG_COUNT
 ): ConceptAgentResult {
   const coreGenres = getCoreGenresForArchetype(archetype);
   const coreGenreIds = new Set(coreGenres.map(genre => genre.id));
+  const coreGenreOrder = coreGenres.map(genre => genre.id);
   const ranked = rankFromRules(freeText, coreGenreIds);
+
+  // TASK v3.58 TASK 3 — an artist/band reference ("비틀즈 스타일로") suggests
+  // real genres too; blend its suggestions in ahead of keyword-rule matches
+  // so "비틀즈 스타일, 아침에 커피와 함께" still lands on 1960s-beat-pop-adjacent
+  // genres even though the keyword rules alone only recognize the "morning
+  // coffee" half of that sentence. Only ids actually in this archetype's
+  // core tier are used — never widens the whitelist.
+  const decomposedReferences = decomposeArtistReferences(freeText).filter(isSafeDecomposedReference);
+  const artistGenreIds = decomposedReferences.flatMap(ref => ref.suggestedGenreIds).filter(id => coreGenreIds.has(id));
 
   const fallbackGenreId = defaults?.genreId && coreGenreIds.has(defaults.genreId) ? defaults.genreId : coreGenres[0]?.id || 'adult-contemporary';
   const fallbackMoodId = defaults?.moodId && moodPacks.some(m => m.id === defaults.moodId) ? defaults.moodId : 'nostalgic';
@@ -179,47 +355,58 @@ export function recommendConceptLocal(
   // fixed pack if the caller genuinely has no current selection.
   const fallbackSeasonId = defaults?.seasonId && seasonPacks.some(s => s.id === defaults.seasonId) ? defaults.seasonId : (seasonPacks[0]?.id || 'early-autumn');
 
-  const genreCandidates = rotate(ranked.genres.length ? ranked.genres : [fallbackGenreId], variantOffset);
+  const rankedGenres = [...new Set([...artistGenreIds, ...ranked.genres])];
+  const genreCandidates = rotate(rankedGenres.length ? rankedGenres : [fallbackGenreId], variantOffset);
   const moodCandidates = rotate(ranked.moods.length ? ranked.moods : [fallbackMoodId], variantOffset);
   const seasonId = ranked.seasons[0] || fallbackSeasonId;
 
   const recommendations: ConceptRecommendation[] = [];
-  const primaryGenreId = genreCandidates[0];
   const primaryMoodIds = moodCandidates.slice(0, 2);
-  const hasSignal = ranked.genres.length > 0 || ranked.moods.length > 0 || ranked.seasons.length > 0;
+  const hasSignal = rankedGenres.length > 0 || ranked.moods.length > 0 || ranked.seasons.length > 0;
+  const eraNote = decomposedReferences[0] ? ` (${decomposedReferences[0].eraTag} 해석)` : '';
 
+  const primaryAllocation = buildGenreAllocation(genreCandidates, coreGenreOrder, songCount);
   recommendations.push(buildRecommendation({
     id: 'primary',
-    genreId: primaryGenreId,
+    archetype,
+    genreAllocation: primaryAllocation,
     moodIds: primaryMoodIds,
     seasonId,
     reasonKo: hasSignal
-      ? `${seasonLabelKo(seasonId)} 분위기의 ${genreLabelKo(primaryGenreId)} 느낌이에요.`
-      : `이 채널에서 가장 무난하게 어울리는 조합이에요.`,
-    confidence: hasSignal ? 'high' : 'medium'
+      ? `${seasonLabelKo(seasonId)} 분위기의 ${genreLabelKo(primaryAllocation[0]?.genreId || fallbackGenreId)} 계열 조합이에요${eraNote}. ${primaryAllocation.length}개 장르로 곡마다 다르게 배분됩니다.`
+      : `이 채널에서 가장 무난하게 어울리는 조합이에요. ${primaryAllocation.length}개 장르로 배분됩니다.`,
+    confidence: hasSignal ? 'high' : 'medium',
+    decomposedReferences
   }));
 
-  // Second angle: a distinct genre candidate, or (if the input only really
-  // suggested one direction) a mood-shifted variation of the same genre so
-  // the user still gets a real choice between two options.
-  const secondaryGenreId = genreCandidates.find(id => id !== primaryGenreId);
-  if (secondaryGenreId) {
+  // Second angle: reorder the same pool around a different lead genre (or,
+  // if the pool only ever resolved to one real candidate, a mood-shifted
+  // variation) so the user still gets a real choice between two options —
+  // both are always real multi-genre allocations, never a single genreId.
+  const secondaryLeadId = genreCandidates.find(id => id !== primaryAllocation[0]?.genreId);
+  if (secondaryLeadId) {
+    const reordered = [secondaryLeadId, ...genreCandidates.filter(id => id !== secondaryLeadId)];
+    const secondaryAllocation = buildGenreAllocation(reordered, coreGenreOrder, songCount);
     recommendations.push(buildRecommendation({
       id: 'secondary',
-      genreId: secondaryGenreId,
+      archetype,
+      genreAllocation: secondaryAllocation,
       moodIds: moodCandidates.slice(0, 2),
       seasonId,
-      reasonKo: `${genreLabelKo(secondaryGenreId)} 쪽으로 더 어울릴 수도 있어요.`,
-      confidence: 'medium'
+      reasonKo: `${genreLabelKo(secondaryLeadId)} 쪽을 대표 사운드로 두는 버전이에요.`,
+      confidence: 'medium',
+      decomposedReferences
     }));
   } else if (moodCandidates.length > 1) {
     recommendations.push(buildRecommendation({
       id: 'secondary',
-      genreId: primaryGenreId,
+      archetype,
+      genreAllocation: primaryAllocation,
       moodIds: [moodCandidates[1]],
       seasonId,
-      reasonKo: `같은 장르에 조금 더 ${moodPacks.find(m => m.id === moodCandidates[1])?.label || ''} 느낌을 더한 버전이에요.`,
-      confidence: 'medium'
+      reasonKo: `같은 장르 배분에 조금 더 ${moodPacks.find(m => m.id === moodCandidates[1])?.label || ''} 느낌을 더한 버전이에요.`,
+      confidence: 'medium',
+      decomposedReferences
     }));
   }
 
@@ -241,22 +428,40 @@ function conceptSystemPrompt(): string {
 export async function recommendConceptViaApi(
   freeText: string,
   archetype: ChannelArchetype,
-  settings: ProviderSettings
+  settings: ProviderSettings,
+  /** TASK v3.58 — see recommendConceptLocal's own songCount param. */
+  songCount = DEFAULT_CONCEPT_SONG_COUNT
 ): Promise<ConceptAgentResult> {
   const whitelist = buildConceptWhitelist(archetype);
-  const cacheKey = `${archetype}::${normalizeInput(freeText)}`;
+  const cacheKey = `${archetype}::${normalizeInput(freeText)}::${songCount}`;
 
   const cached = await getConceptCache(cacheKey).catch(() => undefined);
   if (cached) {
     try {
       const parsed = JSON.parse(cached) as ConceptAgentResult;
-      if (parsed.recommendations?.length && parsed.recommendations.every(rec => validateRecommendation(rec, whitelist))) {
+      if (
+        parsed.recommendations?.length
+        && parsed.recommendations.every(rec => rec.genreAllocation?.length && validateRecommendation(rec, whitelist))
+      ) {
         return { ...parsed, method: 'api' };
       }
     } catch {
       // stale/corrupt cache entry — fall through to a fresh call
     }
   }
+
+  const coreGenres = getCoreGenresForArchetype(archetype);
+  const coreGenreIds = new Set(coreGenres.map(genre => genre.id));
+  const coreGenreOrder = coreGenres.map(genre => genre.id);
+  // TASK v3.58 TASK 3 — the API call itself stays small/cheap (one
+  // whitelist-validated primary genreId per TASK H4's design), but the rest
+  // of the genre pool around that validated primary is still built the same
+  // way the local path does: keyword-ranked candidates plus any artist
+  // reference detected in the free text, both restricted to this
+  // archetype's core tier.
+  const decomposedReferences = decomposeArtistReferences(freeText).filter(isSafeDecomposedReference);
+  const artistGenreIds = decomposedReferences.flatMap(ref => ref.suggestedGenreIds).filter(id => coreGenreIds.has(id));
+  const ranked = rankFromRules(freeText, coreGenreIds);
 
   try {
     const model = MODEL_REGISTRY.anthropic.find(m => m.tier === 'fast')?.id || defaultModelFor('anthropic');
@@ -280,26 +485,33 @@ export async function recommendConceptViaApi(
 
     const raw = (data.blueprint ?? data) as { recommendations?: unknown[] };
     const candidates = (raw.recommendations || []) as Array<Record<string, unknown>>;
-    const recommendations: ConceptRecommendation[] = candidates.slice(0, 2).map((candidate, index) => ({
-      id: `api-${index}`,
-      genreId: String(candidate.genreId || ''),
-      moodIds: Array.isArray(candidate.moodIds) ? candidate.moodIds.map(String) : [],
-      seasonId: String(candidate.seasonId || ''),
-      vocalPresetId: String(candidate.vocalPresetId || vocalPresets[0].id),
-      reasonKo: String(candidate.reasonKo || ''),
-      previewLine: String(candidate.previewLine || ''),
-      confidence: candidate.confidence === 'high' ? 'high' : 'medium'
-    }));
+    const recommendations: ConceptRecommendation[] = candidates.slice(0, 2).map((candidate, index) => {
+      const apiGenreId = String(candidate.genreId || '');
+      const rankedGenres = [...new Set([apiGenreId, ...artistGenreIds, ...ranked.genres].filter(Boolean))];
+      const genreAllocation = buildGenreAllocation(rankedGenres, coreGenreOrder, songCount);
+      return {
+        id: `api-${index}`,
+        genreId: genreAllocation[0]?.genreId || apiGenreId,
+        genreAllocation,
+        moodIds: Array.isArray(candidate.moodIds) ? candidate.moodIds.map(String) : [],
+        seasonId: String(candidate.seasonId || ''),
+        vocalPresetId: String(candidate.vocalPresetId || defaultVocalPresetIdFor(archetype)),
+        reasonKo: String(candidate.reasonKo || ''),
+        previewLine: String(candidate.previewLine || ''),
+        confidence: candidate.confidence === 'high' ? 'high' : 'medium',
+        decomposedReferences: decomposedReferences.length ? decomposedReferences : undefined
+      };
+    });
 
     if (!recommendations.length || !recommendations.every(rec => validateRecommendation(rec, whitelist))) {
-      return recommendConceptLocal(freeText, archetype);
+      return recommendConceptLocal(freeText, archetype, undefined, 0, songCount);
     }
 
     const result: ConceptAgentResult = { input: freeText, recommendations, method: 'api' };
     void setConceptCache(cacheKey, JSON.stringify(result));
     return result;
   } catch {
-    return recommendConceptLocal(freeText, archetype);
+    return recommendConceptLocal(freeText, archetype, undefined, 0, songCount);
   }
 }
 

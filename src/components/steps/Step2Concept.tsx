@@ -12,9 +12,10 @@ import {
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
-import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
+import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
+import { replaceAxisAllocation } from '../../core/diversityAllocation';
 import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
 import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage';
@@ -132,17 +133,56 @@ export default function Step2Concept({
   // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
   // the same fields the existing chip grids below already control; it's a
   // shortcut into the existing selection path, never a separate one.
+  //
+  // TASK v3.58 — previously collapsed to genreIds: normalizeGenreSelection
+  // ([rec.genreId]), a single genre. That was the actual root cause behind
+  // "apply a concept, get 18 identical-genre songs": with only 1 genre in
+  // the pool, no downstream per-track rotation had anything to rotate
+  // across (see core/conceptAgent.ts's genreAllocation and
+  // core/genreRotation.ts's own fix for the matching bug on the generation
+  // side). Now wires the recommendation's full multi-genre allocation into
+  // the existing 8-axis diversity-allocation system (core/
+  // diversityAllocation.ts) instead of a new mechanism — genreIds gets
+  // every allocated genre (for the chip picker/selection UI), and the
+  // per-song rotation is pinned to the recommended per-genre song counts via
+  // a manual 'genre' axis allocation.
   function handleApplyConceptRecommendation(rec: ConceptRecommendation, inputText: string) {
     const vocalPreset = vocalPresets.find(preset => preset.id === rec.vocalPresetId);
+    const excludeAdditions = rec.decomposedReferences?.flatMap(ref => ref.excludeAdditions) ?? [];
+    // TASK v3.58 TASK 3 — every field here except matchedSurface is already
+    // name-free (see core/artistReferenceDecomposer.ts); woven into the
+    // style prompt's 'concept' atom group in core/localGenerator.ts.
+    const artistReferenceStyleAtoms = rec.decomposedReferences?.flatMap(ref => [
+      ref.eraTag,
+      ...ref.instrumentation,
+      ...ref.harmonyTraits,
+      ...ref.rhythmTraits,
+      ...ref.productionTraits,
+      ...ref.vocalTraits
+    ]) ?? [];
     setOpts(prev => ({
       ...prev,
-      genreIds: normalizeGenreSelection([rec.genreId]),
+      genreIds: normalizeGenreSelection(rec.genreAllocation.map(slot => slot.genreId)),
+      diversityAllocations: replaceAxisAllocation(prev.diversityAllocations, {
+        axis: 'genre',
+        mode: 'manual',
+        counts: Object.fromEntries(rec.genreAllocation.map(slot => [slot.genreId, slot.songCount]))
+      }),
       moodIds: rec.moodIds,
       seasonId: rec.seasonId,
       vocalTone: vocalPreset?.prompt || prev.vocalTone,
-      customConcept: inputText
+      customConcept: inputText,
+      // TASK v3.58 TASK 3 — a detected artist/band reference never puts the
+      // name in the style prompt (see core/artistReferenceDecomposer.ts);
+      // instead its "famous artist imitation"/"soundalike vocals"-style
+      // phrases are added to the exclude list, same as this app's existing
+      // forbidden-cliche handling.
+      negativeStyle: excludeAdditions.length
+        ? mergeNegativeStyleText(prev.negativeStyle ?? buildDefaultNegativeStyle(prev.channel), ...excludeAdditions)
+        : prev.negativeStyle,
+      artistReferenceStyleAtoms: artistReferenceStyleAtoms.length ? artistReferenceStyleAtoms : prev.artistReferenceStyleAtoms
     }));
-    rememberRecentGenreId(opts.channel.id, rec.genreId);
+    for (const slot of rec.genreAllocation) rememberRecentGenreId(opts.channel.id, slot.genreId);
   }
 
   const visibleGenres = useMemo(
@@ -270,6 +310,7 @@ export default function Step2Concept({
             currentGenreId={opts.genreIds[0]}
             currentMoodId={opts.moodIds[0]}
             currentSeasonId={opts.seasonId}
+            songCount={opts.songCount}
             provider={provider}
             onApply={handleApplyConceptRecommendation}
           />
@@ -281,6 +322,7 @@ export default function Step2Concept({
           currentGenreId={opts.genreIds[0]}
           currentMoodId={opts.moodIds[0]}
           currentSeasonId={opts.seasonId}
+          songCount={opts.songCount}
           provider={provider}
           onApply={handleApplyConceptRecommendation}
         />

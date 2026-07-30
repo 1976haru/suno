@@ -170,12 +170,18 @@ describe('structured genre library', () => {
     expect(result.length).toBeLessThanOrEqual(180);
   });
 
-  it('limits concept-screen genre selection to one primary plus two secondary genres', () => {
-    expect(normalizeGenreSelection(['a', 'b', 'c', 'd'])).toEqual(['a', 'b', 'c']);
-    expect(toggleGenreSelection(['a', 'b', 'c'], 'd')).toEqual(['a', 'b', 'c']);
+  it('limits concept-screen genre selection to one primary plus four secondary genres', () => {
+    // TASK v3.58 — raised 3 -> 5 total: a concept recommendation's
+    // genreAllocation needs a pool of >= ceil(songCount / floor(songCount *
+    // 0.28)) genres to keep any one genre under its 28% cap (4 for an
+    // 18-song pack); the old cap of 3 made that mathematically impossible
+    // and silently truncated the 4th+ genre right back off. See
+    // core/genreSelection.ts and tests/conceptGenreAllocation.test.ts.
+    expect(normalizeGenreSelection(['a', 'b', 'c', 'd', 'e', 'f'])).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(toggleGenreSelection(['a', 'b', 'c', 'd', 'e'], 'f')).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(toggleGenreSelection(['a', 'b'], 'c')).toEqual(['a', 'b', 'c']);
     expect(toggleGenreSelection(['a', 'b', 'c'], 'b')).toEqual(['a', 'c']);
-    expect(MAX_SELECTED_GENRES).toBe(3);
+    expect(MAX_SELECTED_GENRES).toBe(5);
   });
 
   it('keeps channel core genre counts at or below 12 and falls back for empty archetypes', () => {

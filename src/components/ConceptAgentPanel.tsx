@@ -11,6 +11,8 @@ interface ConceptAgentPanelProps {
   currentGenreId?: string;
   currentMoodId?: string;
   currentSeasonId?: string;
+  /** TASK v3.58 — how many songs this recommendation's genre distribution should sum to. */
+  songCount: number;
   provider: ProviderSettings;
   onApply: (rec: ConceptRecommendation, inputText: string) => void;
 }
@@ -23,7 +25,7 @@ interface ConceptAgentPanelProps {
  * 하면 된다. 선택 사항이며 필수 관문이 아니다 — "아니요, 직접 고를게요"에 해당하는
  * 동작은 그냥 이 패널을 무시하고 아래 카드 그리드를 계속 쓰는 것이다.
  */
-export default function ConceptAgentPanel({ channelId, archetype, currentGenreId, currentMoodId, currentSeasonId, provider, onApply }: ConceptAgentPanelProps) {
+export default function ConceptAgentPanel({ channelId, archetype, currentGenreId, currentMoodId, currentSeasonId, songCount, provider, onApply }: ConceptAgentPanelProps) {
   const [input, setInput] = useState('');
   const [result, setResult] = useState<ConceptAgentResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,8 +50,8 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
     try {
       const defaults = { genreId: currentGenreId, moodId: currentMoodId, seasonId: currentSeasonId };
       const next = provider.provider === 'local'
-        ? recommendConceptLocal(text, archetype, defaults, offset)
-        : await recommendConceptViaApi(text, archetype, provider);
+        ? recommendConceptLocal(text, archetype, defaults, offset, songCount)
+        : await recommendConceptViaApi(text, archetype, provider, songCount);
       setResult(next);
       const nextHistory = await addConceptHistory(channelId, text);
       setHistory(nextHistory);
@@ -121,6 +123,18 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
                   {genreLabelsKo[rec.genreId] || rec.genreId} · {seasonLabelsKo[rec.seasonId] || rec.seasonId}
                 </p>
                 <p className="supporting">{rec.reasonKo}</p>
+                {rec.genreAllocation.length > 1 && (
+                  <p className="supporting concept-genre-allocation">
+                    장르 배분: {rec.genreAllocation.map(slot => `${genreLabelsKo[slot.genreId] || slot.genreId} ${slot.songCount}곡`).join(' · ')}
+                  </p>
+                )}
+                {rec.decomposedReferences?.map(ref => (
+                  <p key={ref.matchedSurface} className="supporting concept-artist-interpretation">
+                    해석: &ldquo;{ref.matchedSurface}&rdquo; → {ref.eraTag} — {[...ref.instrumentation.slice(0, 2), ...ref.harmonyTraits.slice(0, 1), ...ref.productionTraits.slice(0, 1)].join(', ')}
+                    <br />
+                    ※ 아티스트명은 프롬프트에 포함되지 않습니다 (수노가 무시하며 배포 시 위험합니다).
+                  </p>
+                ))}
                 <p className="concept-preview">미리보기 훅: &ldquo;{rec.previewLine}&rdquo;</p>
                 <button type="button" className="primary" onClick={() => handleApply(rec)}>
                   {appliedId === rec.id ? '✓ 적용됨' : '이걸로 할게요'}

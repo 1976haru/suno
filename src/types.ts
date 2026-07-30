@@ -134,6 +134,16 @@ export interface GenerationOptions {
   customConcept: string;
   /** v3.49A: user-written vibe reference converted to safe English style clauses; artist/song names are blocked before use. */
   referenceMood?: string;
+  /**
+   * v3.58 (TASK 2/3) — musical descriptor atoms from an artist/band
+   * reference detected in a concept-agent free-text input (e.g. "비틀즈
+   * 스타일로"), already decomposed into generic era/instrumentation/
+   * harmony/production language with the artist's own name stripped out
+   * (see core/artistReferenceDecomposer.ts). Woven into the style prompt's
+   * non-essential 'concept' atom group alongside customConcept's own
+   * keyword-matched style text — never a replacement for it.
+   */
+  artistReferenceStyleAtoms?: string[];
   /** v3.49A: optional selected-genre weights for blend/rotation previews. Keys are GenrePack ids, values are 0-100. */
   genreBlendWeights?: Record<string, number>;
   /** Optional user-written concrete lyric scene added to the lyric-theme allocation pool. */

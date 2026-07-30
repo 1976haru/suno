@@ -124,6 +124,56 @@ export const adultLyricThemes: LyricTheme[] = [
     emotionalArc: 'small surprise turning into renewed hope',
     suitedArchetypes: ['senior-morning']
   },
+  // TASK v3.58 — the senior-morning-suited pool above topped out at 16
+  // themes, one short of covering an 18-song set without at least one
+  // forced repeat (buildStridePlan in core/lyricDiversityPlan.ts can only
+  // spread repeats out, not eliminate them, once songCount exceeds the
+  // pool). Real measurement found exactly 2 duplicate pairs in an 18-song
+  // pack for this reason. These 6 additions give real headroom above 18,
+  // not just the bare minimum, so a slightly larger set (or a manual
+  // allocation override) still gets zero repeats too.
+  {
+    id: 'senior-post-office-parcel',
+    labelKo: '우체국에서 부치는 소포',
+    scene: 'wrapping a small parcel with brown paper and string before walking it to the post office counter',
+    emotionalArc: 'quiet effort turning into a warm sense of reaching someone far away',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-evening-newspaper-lamp',
+    labelKo: '저녁 신문과 스탠드 불빛',
+    scene: 'reading the evening newspaper under a warm desk lamp while the house settles into quiet',
+    emotionalArc: 'the day\'s noise fading into an unhurried, contented stillness',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-shoe-repair-corner',
+    labelKo: '골목 구두 수선집',
+    scene: 'waiting at a small corner shoe-repair stall while an old pair gets a new heel',
+    emotionalArc: 'a small practical wait becoming an unexpected moment of patience and care',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-winter-scarf-knitting',
+    labelKo: '겨울 목도리 뜨개질',
+    scene: 'knitting a scarf by the window as the first cold wind rattles the glass',
+    emotionalArc: 'repetitive quiet work settling restless hands into calm',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-alley-cat-feeding',
+    labelKo: '골목 고양이 밥 주기',
+    scene: 'setting out a small bowl for the neighborhood cat in the early alley light',
+    emotionalArc: 'a small daily kindness turning into unexpected companionship',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-clock-tower-evening-walk',
+    labelKo: '저녁 종탑 아래 산책',
+    scene: 'walking past the old neighborhood clock tower as its evening chime rolls over the rooftops',
+    emotionalArc: 'the day\'s weight easing with each familiar, unhurried step',
+    suitedArchetypes: ['senior-morning']
+  },
   {
     id: 'showa-late-night-drive',
     labelKo: '늦은 밤 드라이브',

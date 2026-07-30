@@ -96,6 +96,7 @@ describe('concept agent whitelist validation', () => {
     const good: ConceptRecommendation = {
       id: 'x',
       genreId: whitelist.genreIds[0],
+      genreAllocation: [{ genreId: whitelist.genreIds[0], songCount: 18, roleKo: '채널 대표 사운드' }],
       moodIds: [whitelist.moodIds[0]],
       seasonId: whitelist.seasonIds[0],
       vocalPresetId: whitelist.vocalPresetIds[0],
