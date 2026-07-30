@@ -6,6 +6,23 @@ import type { AgeGroup, AudienceProfile } from '../types';
  * core/localGenerator.ts) so they're adjustable without touching the
  * generation pipeline itself, per the brief's "데이터로 분리해 조정 가능하게".
  */
+/**
+ * TASK v3.61 (TASK D) — "따뜻한 멜로디, 잔잔한 멜로디" (warm, gentle melody) is a
+ * sound-quality request, not a genre. Before this task it lived nowhere as
+ * explicit, adjustable data — a doo-wop track and a quiet-storm track would
+ * only both read as "warm" by coincidence of whichever descriptive text
+ * each genre pack happened to be given. This profile is the single place
+ * that quality is now stated explicitly, so it applies uniformly across
+ * every genre a senior-morning pack draws from (including all 28 oldpop-*
+ * genres) instead of needing to be re-described inside each one. The 3 new
+ * constraints/2 new exclusions below are additive documentation of intent
+ * consolidated here per this task's own "코드 곳곳에 흩어져 있는 기준을 이 파일에
+ * 모으십시오" instruction — deliberately NOT wired into new runtime
+ * enforcement (localGenerator.ts's only actual usage is
+ * `audienceProfile.constraints[0]`, unchanged by this addition), since that
+ * would be new generation-pipeline behavior outside this task's stated P2
+ * scope of documenting the policy, not changing what's already enforced.
+ */
 export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'senior',
   labelKo: '시니어',
@@ -14,7 +31,10 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     'lead vocal sits forward in the mix',
     'warm midrange-centred mix',
     'comfortable mid vocal register',
-    'acoustic instruments carry the arrangement'
+    'acoustic instruments carry the arrangement',
+    'melody moves in singable stepwise motion',
+    'chorus sits in a comfortable singalong range',
+    'arrangement leaves space between phrases'
   ],
   exclusions: [
     'shouted or belted high notes',
@@ -22,7 +42,9 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     'heavy sub bass',
     'rapid syllable-dense phrasing',
     'harsh bright top end',
-    'excessive reverb washing out the vocal'
+    'excessive reverb washing out the vocal',
+    'dense syncopation that obscures the melody',
+    'abrupt dynamic jumps'
   ],
   tempoFloor: 62,
   tempoCeiling: 112,
