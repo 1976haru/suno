@@ -48,6 +48,7 @@ import {
   type TitleResult
 } from './lyricEngine';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
+import { normalizeSongOutput } from './songPostProcess';
 
 /**
  * Suno-facing text (style prompt, YouTube metadata) stays English regardless
@@ -881,6 +882,10 @@ export function generateLocalBlueprint(
     // qualityScore: 0 and warnings: [] — not because it was flawless, but
     // because nothing had actually checked it. Same gate every other path
     // already runs through.
-    songs: scoreSongs(songs, opts.channel, opts.lyricLanguage)
+    // TASK v3.60 (TASK B) — normalizeSongOutput (songPostProcess.ts) is a
+    // no-op here in practice (this path never produces the labels/leaks it
+    // guards against) but runs unconditionally so the local and bridge paths
+    // share one normalization pass instead of only the bridge having it.
+    songs: scoreSongs(songs.map(normalizeSongOutput), opts.channel, opts.lyricLanguage)
   };
 }

@@ -20,6 +20,7 @@ import { moneyChordPresets } from '../data/moneyChords';
 import { usesVocalQuota } from './vocalPlan';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
+import { normalizeSongOutput } from './songPostProcess';
 
 /**
  * TASK v3.24 — a flat-rate coding agent (Claude Code, Codex, ...) can
@@ -807,7 +808,16 @@ export function importSongsJson(
   const renumbered = validSongs.map((song, idx) => ({ ...song, trackNo: idx + 1 }));
 
   const hookCollisionResult = flagHookCollisions(renumbered, avoidHooks);
-  const scored = scoreSongs(hookCollisionResult.songs, opts.channel, opts.lyricLanguage);
+  // TASK v3.60 (TASK B) — the bridge agent's raw stylePrompt/lyrics strings
+  // get zero content normalization anywhere else in this function (see this
+  // module's own top-of-file note on normalizeImportedSong); a real pack
+  // still carried template-header labels ("Money chords:", "Instruments:")
+  // and 8/17 songs sang a leaked arrangement-description line under an
+  // [intro] tag. normalizeSongOutput (core/songPostProcess.ts) is the same
+  // shared, mechanical-only pass core/localGenerator.ts's own
+  // generateLocalBlueprint now runs too, so the two paths agree instead of
+  // the bridge growing a second copy of local-only logic.
+  const scored = scoreSongs(hookCollisionResult.songs.map(normalizeSongOutput), opts.channel, opts.lyricLanguage);
   // TASK v3.27 (Part A3) — an AI-creative title wasn't locally pre-decided
   // (unlike hookPhrase), so two songs in this import — or this import
   // against an older pack's title history — can still collide; catch and

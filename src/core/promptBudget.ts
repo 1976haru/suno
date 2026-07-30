@@ -54,6 +54,8 @@ export const SUNO_STYLE_LIMIT_PRESETS = [
 export const STYLE_WORD_TARGET_MIN = 15;
 export const STYLE_WORD_TARGET_MAX = 35;
 export const STYLE_CHAR_TARGET = 450;
+/** TASK v3.59 (TASK C-8) — exported so core/songPostProcess.ts (TASK v3.60 TASK B-4) can run the same long-clause diagnostic on a bridge song's raw, unstructured stylePrompt instead of re-deriving its own threshold. */
+export const ATOM_WORD_CAP = 8;
 
 /**
  * TASK H1 (v3.13) — mood/instruments are the only atoms that actually vary
@@ -180,7 +182,7 @@ interface KeptPromptAtom {
 const REPEATED_ADJECTIVES = ['warm', 'nostalgic', 'soft', 'gentle', 'polished', 'intimate'];
 const ADJECTIVE_CAP = 2;
 
-function splitAtoms(text: string | undefined | null): string[] {
+export function splitAtoms(text: string | undefined | null): string[] {
   if (!text) return [];
   return text
     .split(/[;,]/)
@@ -600,7 +602,6 @@ export function composeStylePrompt(
   // authored shortForm to fall back to, so the actual fix (shortening that
   // atom's own source text, or authoring a shortForm for it) is visible and
   // attributable instead of silently contributing to prompt bloat.
-  const ATOM_WORD_CAP = 8;
   const longAtomWarnings: string[] = [];
   for (const part of parts) {
     const atoms = splitAtoms(part.text);
