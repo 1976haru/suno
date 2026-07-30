@@ -9,6 +9,7 @@ import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negati
 import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
+import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -509,6 +510,13 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   const instrumentText = instruments.join(', ');
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const referenceMoodClause = buildReferenceMoodStyleClause(opts.referenceMood);
+  // TASK v3.58 (TASK 4) — audience-level constraints (vocal register,
+  // diction clarity, mix character; see types.ts's AudienceProfile) used to
+  // be appended here, but 'mood' is non-essential and low-priority enough
+  // that real measurement found them surviving in as few as 6/18 songs
+  // under normal budget pressure. They're now woven into the per-song
+  // 'vocal' atom instead (core/localGenerator.ts, essential/never dropped)
+  // — see that call site's own comment.
   const moodText = [moods.flatMap(m => m.emotionWords).join(', '), generationPack?.audienceNote, referenceMoodClause].filter(Boolean).join(', ');
 
   // TASK G1 (v3.10) — moneyChord/duration used to carry the full long-form
@@ -569,7 +577,12 @@ export function buildExcludePrompt(opts: Pick<GenerationOptions, 'avoidWords' | 
   return mergeNegativeStyleText(
     opts.avoidWords,
     resolveNegativeStyleText(opts, genres),
-    'famous artist imitation, copied melodies, copyrighted song references, soundalike vocals'
+    'famous artist imitation, copied melodies, copyrighted song references, soundalike vocals',
+    // TASK v3.58 (TASK 4) — audience-level exclusions apply regardless of
+    // genre (see types.ts's AudienceProfile) — e.g. a senior channel never
+    // wants "shouted or belted high notes" whether the song is jazz-pop or
+    // acoustic-pop this track.
+    audienceProfileForAgeGroup(opts.channel.audience).exclusions.join(', ')
   );
 }
 

@@ -1,30 +1,30 @@
 # Production Stress Test Report
 
-Generated: 2026-07-30T04:00:22.255Z
+Generated: 2026-07-30T04:24:13.687Z
 
 | 시나리오 | 결과 | 소요시간(ms) | 비고 |
 |---|---:|---:|---|
-| S1 long run: 18 weeks x 12 songs has no title/hook duplicates and stable memory | PASS | 1460 | - |
-| S2 hook pool exhaustion gives warning at 80 percent and clear error at exhaustion | PASS | 114 | - |
-| S3 performance: 30 local songs stay fast with 0/200/500 history entries | PASS | 295 | - |
-| S4 prompt caps: all genres/languages/seasons fit, persona tracks fit, seed keeps essentials | PASS | 13509 | - |
-| S5 extreme inputs are clamped and never execute script text | PASS | 207 | - |
-| S6 storage load simulation: 100 packs serialize/restore and hook lookup over 5000 entries stays fast | PASS | 2701 | - |
+| S1 long run: 18 weeks x 12 songs has no title/hook duplicates and stable memory | PASS | 1433 | - |
+| S2 hook pool exhaustion gives warning at 80 percent and clear error at exhaustion | PASS | 77 | - |
+| S3 performance: 30 local songs stay fast with 0/200/500 history entries | PASS | 307 | - |
+| S4 prompt caps: all genres/languages/seasons fit, persona tracks fit, seed keeps essentials | PASS | 13582 | - |
+| S5 extreme inputs are clamped and never execute script text | PASS | 205 | - |
+| S6 storage load simulation: 100 packs serialize/restore and hook lookup over 5000 entries stays fast | PASS | 2656 | - |
 | S7 batch stability: one failed batch preserves the rest and retry merges without duplicate trackNo | PASS | 1 | - |
 | S9 (v3.32) single pack of 80 songs: zero hook/title duplicates, trackNo 1..80 continuous | PASS | 94 | - |
-| S8 API failure modes are mocked, retried, recoverable, and key-safe | PASS | 38 | - |
+| S8 API failure modes are mocked, retried, recoverable, and key-safe | PASS | 39 | - |
 
 
 ## Opening Sequence Stress Tests (v3.11)
 
-Generated: 2026-07-30T04:00:12.950Z
+Generated: 2026-07-30T04:24:04.329Z
 
 | 시나리오 | 결과 | 소요시간(ms) | 비고 |
 |---|---:|---:|---|
-| OS1 long simulation: 18 weeks x 12 songs, every combo either succeeds with correct cold-open/flagship or fails gracefully with the known pool-exhaustion message | PASS | 8073 | - |
-| OS2 contest load: k=3 contest runs 500x without crashing, average under 50ms | PASS | 216 | - |
-| OS2 contest near pool exhaustion still returns a clear result, no infinite loop | PASS | 22 | - |
-| OS3 extreme songCount inputs are clamped and never crash cold-open/flagship assignment | PASS | 239 | - |
+| OS1 long simulation: 18 weeks x 12 songs, every combo either succeeds with correct cold-open/flagship or fails gracefully with the known pool-exhaustion message | PASS | 8012 | - |
+| OS2 contest load: k=3 contest runs 500x without crashing, average under 50ms | PASS | 211 | - |
+| OS2 contest near pool exhaustion still returns a clear result, no infinite loop | PASS | 18 | - |
+| OS3 extreme songCount inputs are clamped and never crash cold-open/flagship assignment | PASS | 235 | - |
 | OS3 invalid openingStyle values safely fall back to a concrete resolution | PASS | 1 | - |
 | OS3 a channel with no genres/moods selected does not crash dominant-context scoring | PASS | 7 | - |
 | OS4 chained promotions (1 -> 2 -> 3, repeated 5x) keep state consistent | PASS | 13 | - |
@@ -32,4 +32,4 @@ Generated: 2026-07-30T04:00:12.950Z
 | OS5 persona mode + cold-open seed stays within 1000 chars | PASS | 3 | - |
 | OS5 batch preallocation assigns cold-open to track 1 and flagship to tracks 2-3 | PASS | 2 | - |
 | OS5 batch chunking always puts track 1 (cold-open) in the first sub-batch | PASS | 1 | - |
-| OS6 full regression: no crash across every archetype/language combination at pack scale | PASS | 462 | - |
+| OS6 full regression: no crash across every archetype/language combination at pack scale | PASS | 473 | - |

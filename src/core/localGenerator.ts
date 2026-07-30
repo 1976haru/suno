@@ -14,6 +14,8 @@ import { matchVocalPreset } from '../data/vocalPresets';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
+import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
+import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
@@ -206,13 +208,37 @@ export function nextContestedTitle(
   return { title, hook: winner.hook.phrase };
 }
 
-export function averageTempo(genres: GenrePack[], trackNo: number) {
+/**
+ * TASK v3.58 (TASK 4) — `band`, when given, pulls the result toward a
+ * genre-independent tempo-band target (core/tempoPlan.ts) instead of the
+ * fixed [-4,-2,0,2,3,1,-1,4,2,0] offset cycle, clamped to the audience
+ * profile's absolute floor/ceiling — see resolveTempoWithBand. Optional and
+ * appended last so every existing caller (e.g. core/batchPreallocation.ts's
+ * realtime/Batch/bridge preallocation path) keeps its exact current
+ * behavior unless it opts in.
+ *
+ * The band path maps into genres[0]'s own individual tempoRange (the
+ * track's actual lead genre, post core/genreRotation.ts's TASK 1 fix) —
+ * NOT the multi-genre blended low/high the no-band fallback below still
+ * uses. Measured: blending up to 3 genres' ranges together (this
+ * function's original behavior) narrows the effective range every time
+ * (e.g. 3 senior genres spanning 82-106 individually blend down to a
+ * ~90-102 average), which flattened BPM variety regardless of how wide a
+ * spread the band plan asked for — real measurement found stddev stuck at
+ * ~3 even with a 4-band plan feeding it. Using the lead genre's own full
+ * range instead lets each track's authentic genre range absorb the band
+ * spread that genre can actually support.
+ */
+export function averageTempo(genres: GenrePack[], trackNo: number, band?: { low: number; high: number }, audienceFloor?: number, audienceCeiling?: number) {
   const ranges = genres.length ? genres.map(genre => genre.tempoRange) : ([[92, 104]] as [number, number][]);
   const low = Math.round(ranges.reduce((sum, range) => sum + range[0], 0) / ranges.length);
   const high = Math.round(ranges.reduce((sum, range) => sum + range[1], 0) / ranges.length);
   const center = Math.round((low + high) / 2);
   const offset = [-4, -2, 0, 2, 3, 1, -1, 4, 2, 0][trackNo % 10];
-  return Math.min(high, Math.max(low, center + offset));
+  const fallbackCenter = Math.min(high, Math.max(low, center + offset));
+  if (!band) return fallbackCenter;
+  const [leadLow, leadHigh] = genres[0]?.tempoRange ?? [low, high];
+  return resolveTempoWithBand(leadLow, leadHigh, band, audienceFloor ?? leadLow, audienceCeiling ?? leadHigh, fallbackCenter);
 }
 
 function resolveSunoStyleLimit(styleLimit: number | undefined) {
@@ -487,6 +513,13 @@ export function generateLocalBlueprint(
 
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
+  // TASK v3.58 (TASK 4) — genre-independent tempo-band distribution (see
+  // core/tempoPlan.ts), so BPM variety comes from a deliberate, data-driven
+  // spread across the audience profile's own tempo range instead of only
+  // from which genre happened to be assigned per track.
+  const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  const tempoBands = tempoBandsForProfile(audienceProfile);
+  const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, opts.songCount, seed) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
@@ -584,7 +617,7 @@ export function generateLocalBlueprint(
     const emotionArc = emotionArcPool.take();
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
-    const tempo = averageTempo(trackGenres, trackNo);
+    const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const lyricThemeText = lyricTheme?.scene;
@@ -689,7 +722,28 @@ export function generateLocalBlueprint(
       // quota plan is active; this 'vocal' id is in promptBudget.ts's
       // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack
       // vocal atom it replaces.
-      { id: 'vocal' as const, text: vocalDescriptionText },
+      //
+      // TASK v3.58 (TASK 4) — a single audience-profile constraint (vocal
+      // register/diction/mix character, see types.ts's AudienceProfile) is
+      // appended here rather than left in the non-essential 'mood' atom it
+      // was first tried in: 'mood' sits at a low priority position and
+      // measured as low as 6/18 songs actually keeping it under real budget
+      // pressure — the exact opposite of "applies unconditionally to every
+      // song" this profile exists to guarantee. 'vocal' is essential and
+      // never dropped, so this is a reliable home. Only the single most
+      // load-bearing constraint (constraints[0]) is added here, not the
+      // whole list — appending all of them measurably raised cross-genre
+      // style similarity (shared essential text is identical regardless of
+      // genre) past this app's own 0.35 jazz-vs-adult-contemporary
+      // regression threshold, and squeezed out earwormMode's/genreNarrative's
+      // own budget. The rest of the profile's constraints still apply via
+      // excludePrompt's exclusions (see promptComposer.ts's
+      // buildExcludePrompt) even though only one constraint phrase makes it
+      // into the Style field itself. vocalDescriptionText itself
+      // (unmodified) still drives the lyrics' vocal-meta-tag/gender
+      // resolution above — only this style-prompt-facing copy gets the
+      // extra atom.
+      { id: 'vocal' as const, text: [vocalDescriptionText, audienceProfile.constraints[0]].filter(Boolean).join(', ') },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
       ...(introTextureText ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
       // TASK v3.42 Part A1 — always overrides channelParts' flat whole-pack

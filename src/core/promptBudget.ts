@@ -488,20 +488,27 @@ function compressHardLimitWithGuard(
  * same guarantee the SAFE_TARGET soft-check already makes upstream.
  */
 /**
- * v3.56 — a narrow, earworm-only exemption at this early stage (and the
- * matching one in composeStylePrompt's own safeTarget greedy fill below),
- * NOT the full GUARANTEED_MINIMUM_TERM_IDS set. earworm sits at the lowest
- * priority position among that set (TASK v3.48.1 moved introTexture/tempo/
- * arrangementDensity/instruments/hookDevice ahead of it), so it's the one
- * category that can be excluded here — before compressHardLimitWithGuard's
- * own floor-protection (stage 2.5) ever gets a chance to run on it — purely
- * because cumulative length already passed budget by the time its low
- * priority position comes up, not because anything chose to drop it.
- * concept/mood/instruments/genreNarrative all sit at higher priority
- * positions and already survive this stage naturally; giving them the same
- * early exemption over-protects them at very tight budgets (a real
- * regression: TASK v3.55's own test expects 'concept' fully droppable
- * before genreSignature's short form is even needed).
+ * v3.56 — a narrow earworm-only exemption at this early stage originally
+ * (and the matching one in composeStylePrompt's own safeTarget greedy fill
+ * below), NOT the full GUARANTEED_MINIMUM_TERM_IDS set: concept/instruments/
+ * genreNarrative sit at higher priority positions and already survive this
+ * stage naturally, and giving them the same early exemption over-protects
+ * them at very tight budgets (a real regression: TASK v3.55's own test
+ * expects 'concept' fully droppable before genreSignature's short form is
+ * even needed).
+ *
+ * v3.58 — 'mood' added: it sits at priority position 14, AFTER earworm(10)
+ * (TASK v3.48.1 moved introTexture/tempo/arrangementDensity/instruments/
+ * hookDevice ahead of both), so it's just as exposed to being excluded here
+ * before compressHardLimitWithGuard's own floor-protection (stage 2.5) ever
+ * runs — purely because cumulative length already passed budget by the
+ * time its low priority position comes up. This went unnoticed while
+ * 'mood' only ever carried a couple of short genre-flavor words, but TASK
+ * 4's audience-profile constraints (types.ts's AudienceProfile,
+ * data/audienceProfiles.ts) made it long enough to actually get excluded
+ * here in practice — measured as 'mood' appearing in promptDroppedTerms for
+ * every song in a real senior-channel pack, silently dropping the audience
+ * constraints this task exists to guarantee.
  */
 const GUARANTEED_FLOOR_BY_ID: Partial<Record<PromptTermId, number>> = {
   earworm: EARWORM_FLOOR_ATOMS

@@ -143,7 +143,7 @@ describe('[v3.47 Step 1] BPM de-duplication and prompt repair', () => {
     expect(fixed.stylePrompt).not.toMatch(/BPM 70-80|around 100 bpm|mid-tempo/i);
   });
 
-  it('worst-case repaired bridge pack has varied style prompts and money-chord adherence text', () => {
+  it('worst-case repaired bridge pack has varied style prompts and audible-effect reinforcement text', () => {
     const opts = makeOptions({ songCount: 15 });
     const slots = preallocateSongSlots(opts, testGenres);
     const songs = slots.map(slot => reconcileWithPreassignedSlot(
@@ -157,7 +157,14 @@ describe('[v3.47 Step 1] BPM de-duplication and prompt repair', () => {
       'ai-creative',
       { keepHook: true, keepEmotionArc: true }
     ));
-    expect(slots.every(slot => slot.moneyChordText.includes(MONEY_CHORD_ADHERENCE_TEXT))).toBe(true);
+    // TASK v3.58 (TASK 5-1) — MONEY_CHORD_ADHERENCE_TEXT ("Keep this
+    // progression as the harmonic spine...") is no longer appended at all
+    // (a 76-char imperative sentence Suno's Style field doesn't read as an
+    // instruction, pure overhead) — every slot's moneyChordText should
+    // still carry a real reinforcement clause (the preset's own
+    // audibleEffect), just never that specific sentence.
+    expect(slots.every(slot => !slot.moneyChordText.includes(MONEY_CHORD_ADHERENCE_TEXT))).toBe(true);
+    expect(slots.every(slot => slot.moneyChordText.includes(' - '))).toBe(true);
     const report = lintInPackStyleSimilarity(songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
     expect(report.averageSimilarity).toBeLessThan(0.70);
     expect(report.maxSimilarity).toBeLessThan(1);

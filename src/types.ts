@@ -51,6 +51,31 @@ export interface ChannelProfile {
 }
 
 /** TASK H2 (v3.13) — same {english, korean, japanese} shape as localGenerator's LocalizedPhrase, duplicated here (not imported) since types.ts must stay free of core/* imports; keeps genre-flavor lyric images correctly localized instead of leaking raw English nouns into Korean/Japanese lyrics. */
+/**
+ * TASK v3.58 (지시문 v3.58 TASK 4) — separates "who this channel is for"
+ * (vocal register, diction clarity, tempo range, mix character, hard
+ * exclusions) from "what genre this song is" (instrumentation, rhythm
+ * feel, harmony, era). Before this, ChannelProfile's own preferredGenres[0]
+ * carried both roles at once — the channel's overall identity AND the
+ * literal genre of whichever song happened to render it — so genuinely
+ * diversifying genre per song necessarily diluted the channel's identity,
+ * and protecting the channel's identity necessarily flattened every song
+ * onto one genre (see core/genreRotation.ts's TASK 1 fix, which resolved
+ * the mechanical half of this; AudienceProfile resolves the other half by
+ * giving channel identity its own always-on, genre-independent home).
+ */
+export interface AudienceProfile {
+  id: 'senior' | 'general' | 'kids';
+  labelKo: string;
+  /** Woven into every song's style prompt regardless of genre (non-essential/droppable under hard budget pressure, same as any other style atom — never a new promptBudget.ts "never drop" category). */
+  constraints: string[];
+  /** Merged into every song's excludePrompt regardless of genre. */
+  exclusions: string[];
+  tempoFloor: number;
+  tempoCeiling: number;
+  lyricWordRange: [number, number];
+}
+
 export interface GenreLyricFlavorImage {
   english: string;
   korean: string;

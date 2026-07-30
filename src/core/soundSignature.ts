@@ -348,17 +348,27 @@ export interface CompactMoneyChordOptions {
   includeFeelReinforcement?: boolean;
 }
 
+/**
+ * TASK v3.58 (TASK 5-1) — was appended to every money-chord atom
+ * ("... Keep this progression as the harmonic spine from verse through
+ * final chorus."). Measured 18/18 in a real pack: a 76-character
+ * imperative sentence, not a comma-separated descriptor, in a Style field
+ * Suno reads as a bag of tags rather than instructions to follow — pure
+ * overhead that also diluted the descriptors around it. Kept as an export
+ * (rather than deleted outright) only so nothing importing it breaks the
+ * build; no code appends it anymore.
+ */
 export const MONEY_CHORD_ADHERENCE_TEXT = 'Keep this progression as the harmonic spine from verse through final chorus.';
 
 export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode' | 'customMoneyChord' | 'earwormMode'>, options: CompactMoneyChordOptions = {}) {
   const { moneyChordIdOverride, includeFeelReinforcement = false } = options;
   if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     const base = `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
-    return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffect}. ${MONEY_CHORD_ADHERENCE_TEXT}` : base;
+    return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffect}` : base;
   }
   const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
   const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
-  return includeFeelReinforcement ? `${preset.compactProgression} - ${preset.audibleEffect}. ${MONEY_CHORD_ADHERENCE_TEXT}` : preset.compactProgression;
+  return includeFeelReinforcement ? `${preset.compactProgression} - ${preset.audibleEffect}` : preset.compactProgression;
 }
 
 /**
