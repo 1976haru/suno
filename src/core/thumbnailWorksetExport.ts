@@ -99,7 +99,7 @@ export function buildThumbnailWorksetMarkdown(input: ThumbnailWorksetMarkdownInp
     const selected = spec.variants.find(variant => variant.id === spec.selected) ?? spec.variants[0];
 
     return [
-      `## Set ${String(setNo).padStart(2, '0')} of ${total}: ${pack.projectTitle}`,
+      `## Set ${String(setNo).padStart(2, '0')} of ${total}: ${safeConceptSummaryForDisplay(pack.projectTitle, pack.channelName)}`,
       '',
       `Season: ${season.label} (${season.id})`,
       `Concept: ${safeConceptSummaryForDisplay(pack.options.customConcept, pack.blueprint.oneLineConcept)}`,

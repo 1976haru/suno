@@ -66,8 +66,10 @@ export function buildPackVideoDescription(blueprint: PlaylistBlueprint, opts: Ge
   // localGenerator.ts's buildYoutubeMetadata; this is a genuinely public
   // description field (the compiled whole-pack video's YouTube copy).
   const intro = safeConceptSummaryForDisplay(opts.customConcept, opts.channel.promise);
+  // TASK v3.59 — projectTitle is just as much a free-text field as
+  // customConcept (Step2Concept.tsx's plain <input>); same guard.
   return [
-    `${blueprint.projectTitle} — ${opts.channel.name}`,
+    `${safeConceptSummaryForDisplay(blueprint.projectTitle, opts.channel.name)} — ${opts.channel.name}`,
     '',
     intro,
     '',

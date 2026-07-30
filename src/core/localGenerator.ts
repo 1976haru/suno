@@ -448,8 +448,16 @@ function buildYoutubeMetadata(
   // disclosure YouTube's Studio "Altered or synthetic content" flow expects
   // creators to also state in their own words, not an internal note about
   // how this app works.
+  // TASK v3.59 — found while assembling this task's own final report:
+  // opts.projectTitle is just as much a free-text, user-authorable field as
+  // customConcept (Step2Concept.tsx's plain <input>), and it flowed
+  // straight into this public description line unguarded — a project name
+  // that naturally echoes an artist-style concept (e.g. one built from the
+  // same free-text concept this whole task series is about) got "Famous
+  // artist reference risk" flagged on every song in the pack, the same
+  // self-penalty class of bug B-1 fixed for customConcept.
   const description = [
-    `${song.title} is track ${song.trackNo} from ${opts.projectTitle}.`,
+    `${song.title} is track ${song.trackNo} from ${safeConceptSummaryForDisplay(opts.projectTitle, channelName)}.`,
     `Concept: ${safeConceptSummaryForDisplay(opts.customConcept, opts.channel.promise)}`,
     `Mood: ${song.listenerSituation}, ${song.seasonMoment}.`,
     AI_DISCLOSURE_LINE,
