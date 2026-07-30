@@ -1,6 +1,5 @@
 import type { SongIdea } from '../types';
 import { ATOM_WORD_CAP, countWords, splitAtoms } from './promptBudget';
-import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 
 /**
  * TASK v3.60 (TASK B) — a real bridge-path pack (an external coding agent
@@ -65,27 +64,55 @@ function dedupeDurationMentions(stylePrompt: string): { text: string; changed: b
 }
 
 /**
- * TASK B-3 — a real pack put a full arrangement-description sentence (e.g.
- * "Spiccato strings flicker over quiet water") directly under a bare
- * `[intro]`-family tag, where Suno sings it as the opening lyric line
- * instead of treating it as an instrumental cue (8/17 tracks). Reuses TASK
- * A's own arrangement-vocab-as-subject detector line-by-line rather than
- * inventing a second, looser heuristic — a line in this exact position only
- * gets removed when the same false-positive-tested check that already
- * guards the whole lyric body also flags it.
+ * TASK B-3 (v3.60) — a real pack put a full arrangement-description
+ * sentence (e.g. "Spiccato strings flicker over quiet water") directly
+ * under a bare `[intro]`-family tag, where Suno sings it as the opening
+ * lyric line instead of treating it as an instrumental cue (8/17 tracks).
+ * Originally reused TASK A's arrangement-vocab-as-subject detector
+ * line-by-line — but a real pack showed "Morning opens on the table"
+ * (not arrangement vocabulary at all) surviving under the same tag while
+ * the stylePrompt declared "(INTRO ONLY)", a direct contradiction the
+ * old rule never caught (7/16).
+ *
+ * TASK v3.62 (TASK 2-4) — corrected rule: whether stylePrompt itself
+ * declares an instrument-only intro is the actual signal, not whether the
+ * specific line happens to be arrangement-vocab-as-subject. If it does,
+ * every line under the intro tag is dropped unconditionally (an
+ * instrument-only intro cannot have ANY sung line under it, regardless of
+ * content) and the tag is relabeled `[Instrumental Intro]`; if it doesn't,
+ * the line is real lyric content and is kept as-is. The old detector
+ * (findArrangementVocabularyInLyrics) still runs — just at the whole-lyric-
+ * body level via TASK A/compositionScorer.ts, not as this function's own
+ * strip criterion.
  */
-const INTRO_TAG_PATTERN = /^\[[^\]]*intro[^\]]*\]$/i;
+const INTRO_TAG_PATTERN = /^\[([^\]]*intro[^\]]*)\]$/i;
+const ANY_SECTION_TAG_PATTERN = /^\[[^\]]+\]$/;
+/** A line entirely wrapped in parentheses is a deliberate non-lyric stage direction (e.g. lyricEngine.ts's WORDLESS_HUM_LINE, "(soft wordless hum of the hook melody, no lyrics, 2 bars)"), never leaked prose — must never be stripped as if it were sung content. */
+const PARENTHETICAL_DIRECTION_PATTERN = /^\(.*\)$/;
+const INSTRUMENT_ONLY_INTRO_PATTERN = /\(intro only\)/i;
 
-function stripLeakedIntroDescriptionLines(lyrics: string): { text: string; changed: boolean; strippedLines: string[] } {
+function stripLeakedIntroDescriptionLines(lyrics: string, stylePrompt: string): { text: string; changed: boolean; strippedLines: string[] } {
+  const declaresInstrumentOnlyIntro = INSTRUMENT_ONLY_INTRO_PATTERN.test(stylePrompt);
   const lines = lyrics.split('\n');
   const kept: string[] = [];
   const strippedLines: string[] = [];
   for (const rawLine of lines) {
-    const prevKept = kept[kept.length - 1]?.trim() ?? '';
-    if (INTRO_TAG_PATTERN.test(prevKept)) {
+    const prevKeptTrimmed = kept[kept.length - 1]?.trim() ?? '';
+    const introTagMatch = INTRO_TAG_PATTERN.exec(prevKeptTrimmed);
+    if (introTagMatch && declaresInstrumentOnlyIntro) {
       const trimmed = rawLine.trim();
-      if (trimmed && findArrangementVocabularyInLyrics([{ trackNo: 0, lyrics: trimmed }]).length) {
+      // Only strip an actual content line — a line that's itself a bracket
+      // section tag (e.g. [verse 1] immediately following [instrumental
+      // hook intro], with no lyric line in between) or a parenthetical
+      // stage direction (wordless-hum cold opens) must never be treated
+      // as leaked content.
+      if (trimmed && !ANY_SECTION_TAG_PATTERN.test(trimmed) && !PARENTHETICAL_DIRECTION_PATTERN.test(trimmed)) {
         strippedLines.push(trimmed);
+        // Relabel the tag itself, once, the first time we act on it.
+        const keptTagIndex = kept.length - 1;
+        if (!/^\[Instrumental Intro\]$/i.test(kept[keptTagIndex].trim())) {
+          kept[keptTagIndex] = '[Instrumental Intro]';
+        }
         continue;
       }
     }
@@ -128,10 +155,10 @@ export function normalizeSongOutput(song: SongIdea): SongIdea {
     warnings.push(`Track ${song.trackNo}: removed a duplicate duration mention from the style prompt.`);
   }
 
-  const introResult = stripLeakedIntroDescriptionLines(song.lyrics);
+  const introResult = stripLeakedIntroDescriptionLines(song.lyrics, stylePrompt);
   const lyrics = introResult.text;
   if (introResult.changed) {
-    warnings.push(`Track ${song.trackNo}: removed an arrangement-description line under an intro tag from the lyrics — "${introResult.strippedLines[0]}"`);
+    warnings.push(`Track ${song.trackNo}: stylePrompt declares an instrument-only intro (INTRO ONLY) — removed the sung line(s) under [intro] and relabeled it [Instrumental Intro] — "${introResult.strippedLines[0]}"`);
   }
 
   warnings.push(...longStylePromptClauseWarnings(song.trackNo, stylePrompt));

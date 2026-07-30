@@ -136,24 +136,30 @@ describe('[v3.60 TASK D-1] bridge instruction encourages varying chorus hook-rep
 const realPackPath = path.resolve(__dirname, '..', 'songs-output.json');
 const describeRealPack = existsSync(realPackPath) ? describe : describe.skip;
 
+// NOTE — songs-output.json is untracked, real bridge output regenerated
+// between sessions (a v3.62 run replaced the v3.60-era 17-song file with a
+// fresh 16-song one exercising the new oldpop-british-beat genre); these
+// checks are written against data.songs.length rather than a hardcoded
+// count so they keep working across such regenerations instead of pinning
+// to one snapshot's exact size.
 describeRealPack('[v3.60 TASK D] against the real bridge-path pack', () => {
   const data = existsSync(realPackPath) ? JSON.parse(readFileSync(realPackPath, 'utf-8')) : { songs: [] };
 
-  it('flags the real HxHxxxH chorus hook-repetition shape shared by all 17 songs', () => {
+  it('flags the real HxHxxxH chorus hook-repetition shape shared by every song', () => {
     const report = lintInPackLyricDiversity(data.songs.map((s: any) => ({ trackNo: s.trackNo, lyrics: s.lyrics, hookPhrase: s.hookPhrase })));
     expect(report.repeatedChorusHookPatterns.length).toBeGreaterThan(0);
     expect(report.repeatedChorusHookPatterns[0].pattern).toBe('HxHxxxH');
-    expect(report.repeatedChorusHookPatterns[0].count).toBe(17);
+    expect(report.repeatedChorusHookPatterns[0].count).toBe(data.songs.length);
   });
 
-  it('flags the real title-shape monotony shared by all 17 songs', () => {
+  it('flags the real title-shape monotony shared by every song', () => {
     const report = lintInPackLyricDiversity(data.songs.map((s: any) => ({ trackNo: s.trackNo, lyrics: s.lyrics, title: s.title })));
     expect(report.repeatedTitleShapes.length).toBeGreaterThan(0);
-    expect(report.repeatedTitleShapes[0].count).toBe(17);
+    expect(report.repeatedTitleShapes[0].count).toBe(data.songs.length);
   });
 
-  it('flags all 17 real title/hook pairs as zero-overlap via the pre-existing check', () => {
+  it('flags every real title/hook pair as zero-overlap via the pre-existing check', () => {
     const flagged = data.songs.filter((s: any) => titleHookOverlapWarning(s.title, s.hookPhrase));
-    expect(flagged.length).toBe(17);
+    expect(flagged.length).toBe(data.songs.length);
   });
 });

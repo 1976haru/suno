@@ -76,46 +76,78 @@ describe('[v3.60 TASK B-1/B-2] normalizeSongOutput strips leaked labels and dupl
 });
 
 /**
- * TASK v3.60 (TASK B-3) — 8/17 real songs sang a leaked arrangement
- * description as the very first lyric line under a bare [intro]-family
- * tag ("Spiccato strings flicker over quiet water"). Reuses TASK A's own
- * arrangement-vocab-as-subject detector, so only lines that detector
- * already, independently flags get removed — never a blanket "first line
- * after intro" rule.
+ * TASK v3.60 (TASK B-3), corrected by TASK v3.62 (TASK 2-4) — 8/17 real
+ * songs sang a leaked arrangement description as the first lyric line
+ * under a bare [intro]-family tag. The original rule reused TASK A's
+ * arrangement-vocab-as-subject detector as the strip criterion, but a real
+ * pack showed "Morning opens on the table" (not arrangement vocabulary at
+ * all) surviving under the same tag while stylePrompt still declared
+ * "(INTRO ONLY)" — a direct contradiction the old rule never caught
+ * (7/16). Corrected criterion: whether stylePrompt itself declares an
+ * instrument-only intro is the actual signal. If it does, EVERY line under
+ * the tag is dropped (unconditionally — an instrument-only intro cannot
+ * have any sung line under it) and the tag is relabeled
+ * `[Instrumental Intro]`; if it doesn't, the line is real lyric content
+ * and stays untouched regardless of its wording.
  */
-describe('[v3.60 TASK B-3] normalizeSongOutput strips a leaked arrangement line under an intro tag', () => {
-  it('strips a flagged line directly under a bare [intro] tag', () => {
-    const song = songWith({ lyrics: '[intro]\nSpiccato strings flicker over quiet water\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1' });
+describe('[v3.62 TASK 2-4] normalizeSongOutput strips intro-tag lines only when stylePrompt declares an instrument-only intro', () => {
+  it('strips a line under a bare [intro] tag when stylePrompt declares "(INTRO ONLY)"', () => {
+    const song = songWith({
+      stylePrompt: 'warm acoustic pop, 92 BPM, warm string pad swell intro texture (INTRO ONLY).',
+      lyrics: '[intro]\nSpiccato strings flicker over quiet water\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
+    });
     const result = normalizeSongOutput(song);
     expect(result.lyrics).not.toContain('Spiccato strings flicker');
-    expect(result.lyrics).toContain('[intro]');
+    expect(result.lyrics).toContain('[Instrumental Intro]');
     expect(result.lyrics).toContain('I hold my father\'s guitar');
-    expect(result.warnings.some(w => w.includes('intro tag'))).toBe(true);
+    expect(result.warnings.some(w => w.includes('instrument-only intro'))).toBe(true);
   });
 
-  it('strips a flagged line under other intro-family tags ([cold hook intro], [a cappella hook intro])', () => {
+  it('strips a real, non-arrangement-vocabulary line too, once "(INTRO ONLY)" is declared — this is the actual bug fix', () => {
+    const song = songWith({
+      stylePrompt: 'warm acoustic pop, 92 BPM, soft acoustic guitar harmonics intro texture (INTRO ONLY).',
+      lyrics: '[intro]\nMorning opens on the table\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
+    });
+    const result = normalizeSongOutput(song);
+    expect(result.lyrics).not.toContain('Morning opens on the table');
+    expect(result.lyrics).toContain('[Instrumental Intro]');
+  });
+
+  it('strips under other intro-family tags ([cold hook intro], [a cappella hook intro]) when "(INTRO ONLY)" is declared', () => {
     for (const tag of ['[cold hook intro]', '[a cappella hook intro]']) {
-      const song = songWith({ lyrics: `${tag}\nThe straight-pop drums move softly\n\n[chorus]\nHook 1\nHook 1\nHook 1` });
+      const song = songWith({
+        stylePrompt: 'warm acoustic pop, 92 BPM, clean electric guitar arpeggio intro texture (INTRO ONLY).',
+        lyrics: `${tag}\nThe straight-pop drums move softly\n\n[chorus]\nHook 1\nHook 1\nHook 1`
+      });
       const result = normalizeSongOutput(song);
       expect(result.lyrics, tag).not.toContain('drums move softly');
     }
   });
 
-  it('does NOT strip a real opening lyric line under [intro] that the arrangement-vocab guard never flags', () => {
-    const song = songWith({ lyrics: '[intro]\nPlay the Old Record\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1' });
+  it('does NOT strip an intro-tag line when stylePrompt never declares "(INTRO ONLY)" — even if the line matches the old arrangement-vocab criterion', () => {
+    const song = songWith({
+      stylePrompt: 'warm acoustic pop, 92 BPM.',
+      lyrics: '[intro]\nSpiccato strings flicker over quiet water\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
+    });
     const result = normalizeSongOutput(song);
-    expect(result.lyrics).toContain('Play the Old Record');
-    expect(result.warnings.some(w => w.includes('intro tag'))).toBe(false);
+    expect(result.lyrics).toContain('Spiccato strings flicker over quiet water');
+    expect(result.warnings.some(w => w.includes('instrument-only intro'))).toBe(false);
   });
 
-  it('does not touch a line elsewhere in the lyrics that happens to match the guard but isn\'t under an intro tag', () => {
-    const song = songWith({ lyrics: '[verse 1]\nThe straight-pop drums move softly\n\n[chorus]\nHook 1\nHook 1\nHook 1' });
+  it('does not touch a line elsewhere in the lyrics that isn\'t under an intro tag, even with "(INTRO ONLY)" declared', () => {
+    const song = songWith({
+      stylePrompt: 'warm acoustic pop, 92 BPM, clean electric guitar arpeggio intro texture (INTRO ONLY).',
+      lyrics: '[verse 1]\nThe straight-pop drums move softly\n\n[chorus]\nHook 1\nHook 1\nHook 1'
+    });
     const result = normalizeSongOutput(song);
     expect(result.lyrics).toContain('The straight-pop drums move softly');
   });
 
   it('leaves an [instrumental hook intro] tag followed immediately by a section tag untouched', () => {
-    const song = songWith({ lyrics: '[instrumental hook intro]\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1' });
+    const song = songWith({
+      stylePrompt: 'warm acoustic pop, 92 BPM, clean electric guitar arpeggio intro texture (INTRO ONLY).',
+      lyrics: '[instrumental hook intro]\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
+    });
     const result = normalizeSongOutput(song);
     expect(result.lyrics).toBe(song.lyrics);
   });
