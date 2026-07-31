@@ -609,7 +609,24 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
  * instruction in the one field Suno is documented to handle negatives
  * unreliably in.
  */
-export function buildExcludePrompt(opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>, genres: GenrePack[] = []): string {
+export function buildExcludePrompt(
+  opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>,
+  genres: GenrePack[] = [],
+  /**
+   * v3.67 (TASK B) — this track's own killing point may relax specific
+   * audience-profile exclusions (see data/killingPoints.ts's
+   * KillingPoint.relaxes / data/audienceProfiles.ts's relaxableAtPeak).
+   * Only entries that are actually in relaxableAtPeak are ever dropped —
+   * anything in hardExclusions (or simply not in relaxableAtPeak) always
+   * stays in the exclude text regardless of what this list contains.
+   * Undefined/empty behaves exactly as before this task.
+   */
+  relaxedExclusions: readonly string[] = []
+): string {
+  const audienceProfile = audienceProfileForAgeGroup(opts.channel.audience);
+  const relaxable = new Set(audienceProfile.relaxableAtPeak);
+  const relaxedNow = new Set(relaxedExclusions.filter(item => relaxable.has(item)));
+  const exclusionsForThisSong = audienceProfile.exclusions.filter(item => !relaxedNow.has(item));
   return mergeNegativeStyleText(
     opts.avoidWords,
     resolveNegativeStyleText(opts, genres),
@@ -618,7 +635,7 @@ export function buildExcludePrompt(opts: Pick<GenerationOptions, 'avoidWords' | 
     // genre (see types.ts's AudienceProfile) — e.g. a senior channel never
     // wants "shouted or belted high notes" whether the song is jazz-pop or
     // acoustic-pop this track.
-    audienceProfileForAgeGroup(opts.channel.audience).exclusions.join(', ')
+    exclusionsForThisSong.join(', ')
   );
 }
 
@@ -791,6 +808,17 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const structureTemplateInstruction = hasStructureTemplate
     ? ` Each entry also includes "structureTemplate" (one of T1-T5). Structure templates, each a different lyric section order: ${structureTemplateLegend()}. Write THIS song's lyrics — actual section content, not the letter code — following its assigned template's section order exactly; do not default back to T1's shape for a track assigned a different template, and do not invent a different template than the one assigned.`
     : '';
+  // TASK v3.67 (TASK A) — killingPointText is conveyed as INTENT, never a
+  // verbatim phrase to force-copy (unlike hookDeviceText/moneyChordText
+  // above) — the whole point is that the composer decides the concrete
+  // wording; this only tells them WHERE this track's one designed peak
+  // moment belongs and that it should read as the song's standout moment.
+  // Absent entirely for a track with no killing point (arc peakStrength
+  // 'none') — that silence is deliberate, not a gap to fill in.
+  const hasKillingPoint = batch.preassignedSongs?.some(slot => slot.killingPointText);
+  const killingPointInstruction = hasKillingPoint
+    ? ' Each entry may also include "killingPointText" and "killingPointPlacement" — a one-line description of that song\'s single designed peak moment and where it falls (final-chorus/bridge/mid-instrumental/pre-chorus/outro). Understand the musical idea and make that moment the song\'s most memorable one, in your own words — do not quote killingPointText verbatim, and do not add a second comparable peak moment elsewhere in the same song. A track with no killingPointText should stay comfortably at its usual level throughout, with no invented peak of its own.'
+    : '';
   const hasLyricTheme = batch.preassignedSongs?.some(slot => slot.lyricTheme || slot.lyricThemeText);
   const lyricThemeInstruction = hasLyricTheme
     ? ' Each entry also includes "lyricTheme" and "lyricThemeText" - treat lyricThemeText as that song\'s primary lyric scene, copy it into output.lyricThemeText if you include the field, and make listenerSituation support that scene rather than replacing it with a generic situation or seasonMoment. Use lyricThemeArc as the emotional turn when present.'
@@ -812,6 +840,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
+    ...(hasKillingPoint ? ['killingPointText', 'killingPointPlacement'] : []),
     ...(hasLyricTheme ? ['lyricTheme', 'lyricThemeText', 'lyricThemeArc'] : []),
     ...(hasPov ? ['pov'] : []),
     ...(hasSectionStyles ? ['verseStyle', 'verseStyleText', 'chorusStyle', 'chorusStyleText'] : []),
@@ -831,7 +860,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasConceptText ? ['conceptText', 'conceptLyricImages'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

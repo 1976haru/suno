@@ -78,6 +78,49 @@ function extractSongsArray(parsed: unknown): unknown[] {
   return [];
 }
 
+export interface BridgeImportMeta {
+  setName?: string;
+  generatedAt?: string;
+  channelId?: string;
+  channelLabel?: string;
+  conceptLabel?: string;
+  songCount?: number;
+  lyricLanguage?: string;
+}
+
+/**
+ * TASK v3.69 (TASK D) — reads a bridge output file's optional top-level
+ * "meta" block, added purely so an import can auto-select the channel it was
+ * actually generated for (via channelId/channelLabel) and stamp the
+ * blueprint's generatedAt with the real generation time instead of the
+ * import-moment "now" — see buildSignatureBlueprint's own generatedAt
+ * parameter. A file written before this task existed has no "meta" key at
+ * all; this returns null for that case (and for anything unparseable)
+ * rather than throwing, so callers can fall back to their pre-v3.69
+ * behavior unconditionally.
+ */
+export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | null {
+  let parsed: unknown;
+  try {
+    parsed = parseLeniently(rawText);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const meta = (parsed as { meta?: unknown }).meta;
+  if (!meta || typeof meta !== 'object') return null;
+  const obj = meta as Record<string, unknown>;
+  return {
+    ...(isNonEmptyString(obj.setName) ? { setName: obj.setName } : {}),
+    ...(isNonEmptyString(obj.generatedAt) ? { generatedAt: obj.generatedAt } : {}),
+    ...(isNonEmptyString(obj.channelId) ? { channelId: obj.channelId } : {}),
+    ...(isNonEmptyString(obj.channelLabel) ? { channelLabel: obj.channelLabel } : {}),
+    ...(isNonEmptyString(obj.conceptLabel) ? { conceptLabel: obj.conceptLabel } : {}),
+    ...(typeof obj.songCount === 'number' ? { songCount: obj.songCount } : {}),
+    ...(isNonEmptyString(obj.lyricLanguage) ? { lyricLanguage: obj.lyricLanguage } : {})
+  };
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -305,8 +348,20 @@ export function importSongsJson(
   // against an older pack's title history — can still collide; catch and
   // auto-uniquify it here, the same pass every generation path now runs.
   const { songs: deduped } = dedupeTitlesAcrossPack(scored, avoidTitles);
-  const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
-  const blueprint = buildSignatureBlueprint(opts, genres, moods, season, concept, deduped);
+  // TASK v3.69 (TASK D) — meta.conceptLabel (when present) is the concept the
+  // file was actually generated under, a more specific label than the
+  // channel+season+genre fallback string below — prefer it the same way
+  // opts.customConcept is already preferred, so an SRT zip named from this
+  // blueprint's oneLineConcept (see SrtExportPanel.tsx) matches the set it
+  // came from.
+  const meta = extractBridgeImportMeta(rawText);
+  const concept = opts.customConcept || meta?.conceptLabel || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
+  // meta.generatedAt (when present) is the real time the coding agent wrote
+  // this file; falling back to buildSignatureBlueprint's own "now" default
+  // (import time) for meta-less files keeps this fully backward compatible.
+  const blueprint = meta?.generatedAt
+    ? buildSignatureBlueprint(opts, genres, moods, season, concept, deduped, meta.generatedAt)
+    : buildSignatureBlueprint(opts, genres, moods, season, concept, deduped);
 
   // TASK v3.43 Part A4 — a bridge/coding-agent pack skips every real API
   // call's own per-request variation, so it's exactly the path most exposed

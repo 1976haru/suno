@@ -1,4 +1,4 @@
-import { BookOpen, Download, Film, Plus, Settings2, Sparkles, Trash2 } from 'lucide-react';
+import { BookOpen, Download, Film, Headphones, Plus, Settings2, Sparkles, Trash2 } from 'lucide-react';
 import type { ChannelProfile, SavedPackMeta } from '../types';
 
 interface SidebarProps {
@@ -17,6 +17,8 @@ interface SidebarProps {
   onImportAll: (file: File) => void;
   onOpenSettings: () => void;
   onOpenDashboard: () => void;
+  /** TASK v3.68 (TASK F) — "무엇이 잘 먹히나" 청취 평가 인사이트 화면. */
+  onOpenInsights: () => void;
   onOpenThumbnail: () => void;
   onOpenPersona: () => void;
 }
@@ -36,7 +38,7 @@ export default function Sidebar({
   onExportAll,
   onImportAll,
   onOpenSettings,
-  onOpenDashboard, onOpenThumbnail, onOpenPersona
+  onOpenDashboard, onOpenInsights, onOpenThumbnail, onOpenPersona
 }: SidebarProps) {
   return (
     <aside className="app-sidebar">
@@ -112,6 +114,11 @@ export default function Sidebar({
       <button type="button" className="full-width" onClick={onOpenDashboard}>
         <Film size={16} />
         📺 영상 운영 대시보드
+      </button>
+
+      <button type="button" className="full-width" onClick={onOpenInsights}>
+        <Headphones size={16} />
+        🎧 청취 평가 인사이트
       </button>
 
       <div className="button-row">

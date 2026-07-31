@@ -61,11 +61,20 @@ describe('[Step 2 Part A3] instrumentSet/arrangementDensity/structureTemplate ar
     expect(firstSlot.structureTemplate).toBe('T1');
   });
 
-  it('never repeats the same arrangementDensity on adjacent tracks (period-3 rotation)', () => {
+  it('never runs the same arrangementDensity more than 2 tracks in a row', () => {
+    // TASK v3.67 (TASK C) — arrangementDensity is now reordered to follow
+    // the pack's arc (peak tracks skew 'full', closing skews 'sparse', see
+    // core/arcPlan.ts's reorderByArcIntensity), which can legitimately put
+    // two same-intensity tracks' identical value back to back — the old
+    // strict "never any two adjacent" guarantee from this rotation's period-3
+    // cycle no longer holds unconditionally, but breakLongRuns still caps
+    // any run at 2, so the pack never flatlines on one density value.
     const opts = makeOptions({ songCount: 9 });
     const slots = preallocateSongSlots(opts, testGenres);
+    let run = 1;
     for (let i = 1; i < slots.length; i++) {
-      expect(slots[i].arrangementDensity).not.toBe(slots[i - 1].arrangementDensity);
+      run = slots[i].arrangementDensity === slots[i - 1].arrangementDensity ? run + 1 : 1;
+      expect(run).toBeLessThanOrEqual(2);
     }
   });
 

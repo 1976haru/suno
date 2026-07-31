@@ -49,6 +49,8 @@ import {
 } from './lyricEngine';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
+import { buildArcPlan, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
+import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
 
 /**
  * Suno-facing text (style prompt, YouTube metadata) stays English regardless
@@ -110,6 +112,74 @@ export const emotionArcs = [
   'small sadness to steady comfort',
   'old regret to peaceful closure'
 ];
+
+/**
+ * TASK v3.67 (TASK D) — every one of the 6 shapes above is the same curve
+ * (dark opening -> bright low-intensity ending): fine for one song, flat
+ * across an 18-song set with no other song starting bright, hitting a
+ * strong lift, staying calm throughout, or landing anywhere other than
+ * "gentle". These 4 new shapes exist to be picked by arc PHASE (see
+ * emotionArcPoolForPhase below), never mixed in unconditionally — the
+ * original 6 stay the only shapes a caller gets if it never asks for a
+ * phase.
+ */
+export const emotionArcsBrightOpening = [
+  'joyful memory blooming into bigger joy',
+  'warm reunion feeling lifting into brighter delight'
+];
+export const emotionArcsStrongLift = [
+  'quiet longing swelling into overwhelming feeling',
+  'held-back yearning bursting into radiant relief'
+];
+export const emotionArcsCalmThroughout = [
+  'steady peace held gently, start to end',
+  'quiet contentment resting undisturbed throughout'
+];
+/**
+ * The one shape that doesn't end fully bright (a lingering, wistful close
+ * rather than a sad one) — deliberately used at most once per pack (see
+ * emotionArcPlanForArc's own cap), per this task's "슬프게 끝나는 곡은
+ * 1~2곡으로 제한" instruction.
+ */
+export const emotionArcsBrightToWistful = [
+  'joyful moment fading into tender wistfulness',
+  'bright laughter softening into a quiet farewell'
+];
+
+/** TASK v3.67 (TASK D) — which pool(s) an arc phase draws its emotionArc from, per this task's own phase table (5-3). */
+export function emotionArcPoolForPhase(phase: ArcPhase): string[] {
+  switch (phase) {
+    case 'opening':
+      return [...emotionArcsCalmThroughout, ...emotionArcs];
+    case 'rising':
+      return [...emotionArcs, ...emotionArcsBrightOpening];
+    case 'peak':
+      return [...emotionArcsStrongLift, ...emotionArcsBrightOpening];
+    case 'easing':
+      return [...emotionArcsBrightToWistful, ...emotionArcs];
+    case 'closing':
+    default:
+      return [...emotionArcsCalmThroughout, ...emotionArcs];
+  }
+}
+
+/**
+ * TASK v3.67 (TASK D) — one emotionArc per track, phase-aware (replacing a
+ * flat UniquePool(emotionArcs, seed) draw with the same seeded-shuffle
+ * discipline per phase, see lyricEngine.ts's shuffle), with
+ * emotionArcsBrightToWistful capped at exactly one track pack-wide — the
+ * last 'easing' track (the natural hinge into 'closing'), so the pack still
+ * settles down without more than one song reading as a sad ending.
+ */
+export function emotionArcPlanForArc(arc: SlotArcPosition[], seed: number): string[] {
+  const lastEasingIdx = arc.reduce((found, pos, idx) => (pos.phase === 'easing' ? idx : found), -1);
+  const pools = new Map<ArcPhase, UniquePool<string>>();
+  return arc.map((pos, idx) => {
+    if (idx === lastEasingIdx) return emotionArcsBrightToWistful[Math.abs(seed) % emotionArcsBrightToWistful.length];
+    if (!pools.has(pos.phase)) pools.set(pos.phase, new UniquePool(emotionArcPoolForPhase(pos.phase), seed + pos.phase.length * 733));
+    return pools.get(pos.phase)!.take();
+  });
+}
 
 export const recurringMotifs: LocalizedPhrase[] = [
   { english: 'coffee steam', korean: '커피 김', japanese: 'コーヒーの湯気' },
@@ -280,7 +350,16 @@ export function buildSignatureBlueprint(
   moods: MoodPack[],
   season: SeasonPack,
   concept: string,
-  songs: SongIdea[] = []
+  songs: SongIdea[] = [],
+  /**
+   * v3.69 (TASK B/D) — defaults to "now" (correct for local generation,
+   * which really is happening now), but bridgeImport.ts passes the
+   * imported file's own "meta.generatedAt" when present, so a Codex/Claude
+   * Code bridge file's set name is dated by when it was actually written,
+   * not whenever the user later imports it (see this task's own "생성
+   * 시각 기준, import 시각이 아니라" requirement).
+   */
+  generatedAt: string = new Date().toISOString()
 ): PlaylistBlueprint {
   return {
     projectTitle: opts.projectTitle,
@@ -291,7 +370,8 @@ export function buildSignatureBlueprint(
     lyricRules: [],
     harmonyRules: [],
     visualRules: [season.visualDirection, opts.channel.visualIdentity],
-    songs
+    songs,
+    generatedAt
   };
 }
 
@@ -314,18 +394,35 @@ export function rebuildStylePromptsForPersonaMode(
   // path's batchPreallocation.ts.
   const audienceProfile = audienceProfileForAgeGroup(opts.audience);
   const tempoBands = tempoBandsForProfile(audienceProfile);
-  const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, blueprint.songs.length, seed) : [];
+  // TASK v3.67 (TASK C) — same arc-intensity reorder as generateLocalBlueprint
+  // (see arcPlan.ts); this rebuild keeps every song's existing emotionArc
+  // (song spread below), so only tempo/killing-point/exclude are arc-aware
+  // here, not emotionArc itself.
+  const arcPlan = buildArcPlan(blueprint.songs.length);
+  const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, blueprint.songs.length, seed), arcPlan, band => band.low) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
   const autoIntroTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
   const introTexturePool = introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id);
   const introTexturePlan = applyAxisAllocation(autoIntroTexturePlan, opts.diversityAllocations, 'introTexture', introTexturePool, seed);
+  // TASK v3.67 (TASK A) — same seed as generateLocalBlueprint's own
+  // killingPointPlan pre-pass, so toggling persona mode on/off reproduces
+  // the identical killing-point assignment rather than re-rolling it.
+  const killingPointPlan = assignKillingPoints(
+    arcPlan.map((pos, idx) => ({
+      peakStrength: pos.peakStrength,
+      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
+    })),
+    seed + 67,
+    killingPointBoostFromInsights(opts.ratingInsights)
+  );
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
     const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+    const killingPoint = killingPointPlan[idx];
     // TASK I1 (v3.11) — prefer the role actually assigned at generation time
     // (including any manual promotion via core/openingOverride.ts) over
     // recomputing from idx; only legacy packs saved before songRole existed
@@ -334,7 +431,13 @@ export function rebuildStylePromptsForPersonaMode(
     const openingStyle = role === 'cold-open' ? (song.openingStyle || resolveOpeningStyle(opts.openingStyle, opts.channel.archetype)) : undefined;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const trackNarrativeText = rotatingArrangementNarrativeForGenres(trackGenres, idx);
-    const excludePrompt = buildExcludePrompt(opts, trackGenres);
+    const excludePrompt = buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+    const earwormTextForTrack = (() => {
+      if (!opts.earwormMode) return undefined;
+      const text = rotatingEarwormText(seed, idx);
+      const relaxesDiatonic = killingPoint?.relaxes.includes('predictable diatonic phrase structure');
+      return relaxesDiatonic && /predictable cadence/i.test(text) ? rotatingEarwormText(seed, idx + 1) : text;
+    })();
     const composed = opts.personaMode
       ? composePersonaSongStylePrompt({
         blueprint: signatureBlueprint,
@@ -361,7 +464,10 @@ export function rebuildStylePromptsForPersonaMode(
         // TASK v3.64-B — per-song rotating melodic-design phrase, replacing
         // the old flat whole-pack EARWORM_STYLE_ATOMS this channelParts
         // entry used to carry (see promptComposer.ts's rotatingEarwormText).
-        ...(opts.earwormMode ? [{ id: 'earworm' as const, text: rotatingEarwormText(seed, idx) }] : []),
+        ...(earwormTextForTrack ? [{ id: 'earworm' as const, text: earwormTextForTrack }] : []),
+        // TASK v3.67 (TASK A) — mirrors generateLocalBlueprint's own single
+        // killing-point atom.
+        ...(killingPoint ? [{ id: 'killingPoint' as const, text: killingPoint.descriptor }] : []),
         ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
         // TASK v3.59 (TASK D-1) — a cold-open track whose opening style
         // already says "no instrumental intro, hook heard immediately"
@@ -512,6 +618,18 @@ function rotatingArtistStyleAtoms(pool: string[], seed: number, index: number): 
   return [anchor, ...shuffled.slice(0, 2)];
 }
 
+/**
+ * TASK v3.68 (TASK A) — generation-time songId, unique to this trackNo in
+ * this generation run and stable thereafter (nothing later ever regenerates
+ * it — see core/batchPreallocation.ts's reconcileWithPreassignedSlot and
+ * core/library.ts's migratePackSongIds, both of which only ever fill this
+ * in when it's missing, never overwrite an existing one).
+ */
+function generateSongId(seedBase: string, trackNo: number): string {
+  const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
+  return `${seedBase}-${trackNo}-${suffix}`;
+}
+
 export function generateLocalBlueprint(
   opts: GenerationOptions,
   genres: GenrePack[],
@@ -544,13 +662,36 @@ export function generateLocalBlueprint(
   // from which genre happened to be assigned per track.
   const audienceProfile = audienceProfileForAgeGroup(opts.audience);
   const tempoBands = tempoBandsForProfile(audienceProfile);
-  const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, opts.songCount, seed) : [];
+  // TASK v3.67 (TASK C) — an 18-song curve instead of flat intensity: the
+  // arc's own intensity ranking reorders (never recomputes — see
+  // arcPlan.ts's own doc comment) the tempo-band plan buildTempoBandPlan
+  // already produces, so peak tracks land in the highest bands and closing
+  // tracks land in the lowest, instead of wherever buildTempoBandPlan's own
+  // seeded shuffle happened to put them.
+  const arcPlan = buildArcPlan(opts.songCount);
+  const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
   const situationPool = new UniquePool(listenerSituations, seed + 21);
-  const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
+  // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, replacing
+  // the flat UniquePool(emotionArcs, seed) draw (every shape used to be the
+  // same dark-to-light curve regardless of position in the pack).
+  const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
   const motifPool = new UniquePool(recurringMotifs, seed + 23);
+  // TASK v3.67 (TASK A) — one killing point per track (undefined for
+  // peakStrength 'none'), matched against that track's own lead genre's
+  // eraTag (see data/killingPoints.ts's own "세그먼트가 없으면 eraTag로
+  // 매칭" fallback — segment identity itself doesn't survive past
+  // setDirector.ts into this pipeline, see docs/v367-report.md).
+  const killingPointPlan = assignKillingPoints(
+    arcPlan.map((pos, idx) => ({
+      peakStrength: pos.peakStrength,
+      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
+    })),
+    seed + 67,
+    killingPointBoostFromInsights(opts.ratingInsights)
+  );
   // TASK H2 (v3.13) — the primary selected genre's own lyric imagery (see
   // GenrePack.lyricFlavorImages), resolved to this pack's lyricLanguage once
   // up front. Undefined for genres without an entry — composeLyrics falls
@@ -618,8 +759,20 @@ export function generateLocalBlueprint(
     seed
   );
   if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  // TASK v3.67 (TASK C) — same reorder-not-recompute treatment as
+  // tempoBandPlan above: arrangementDensityLevel's own round-robin values
+  // are unchanged, only WHICH track gets which of sparse/medium/full is
+  // realigned to the arc (peak tracks skew toward 'full', closing toward
+  // 'sparse'). Only takes effect when arrangementDensity isn't manually
+  // overridden — applyAxisAllocation returns the manual plan untouched
+  // otherwise, same as for any other caller.
+  const arrangementDensityRank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
   const arrangementDensityPlan = applyAxisAllocation(
-    Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+    reorderByArcIntensity(
+      Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+      arcPlan,
+      level => arrangementDensityRank[level]
+    ),
     opts.diversityAllocations,
     'arrangementDensity',
     ARRANGEMENT_DENSITY_IDS,
@@ -643,10 +796,11 @@ export function generateLocalBlueprint(
     const openingStyle = role === 'cold-open' ? resolveOpeningStyle(opts.openingStyle, opts.channel.archetype) : undefined;
     const situationOption = situationPool.take();
     const situation = situationOption.english;
-    const emotionArc = emotionArcPool.take();
+    const emotionArc = emotionArcPlan[idx];
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
     const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+    const killingPoint = killingPointPlan[idx];
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const lyricThemeText = lyricTheme?.scene;
@@ -709,7 +863,23 @@ export function generateLocalBlueprint(
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const trackNarrativeText = rotatingArrangementNarrativeForGenres(trackGenres, idx);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
-    const excludePrompt = buildExcludePrompt(opts, trackGenres);
+    // TASK v3.67 (TASK B) — this track's own killing point may relax
+    // specific audience exclusions, only for this one song (see
+    // data/killingPoints.ts's KillingPoint.relaxes / promptComposer.ts's
+    // buildExcludePrompt, which itself only ever drops entries that are
+    // actually in the profile's relaxableAtPeak — hardExclusions never move).
+    const excludePrompt = buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+    // TASK v3.67 (TASK D follow-up) — a killing point relaxing "predictable
+    // diatonic phrase structure" should not sit next to an earworm variant
+    // that IS a predictable-cadence phrase; nudge to the adjacent rotation
+    // slot instead of turning earworm mode off (still a real, still-varied
+    // melodic-design phrase, just not this one for this one song).
+    const earwormTextForTrack = (() => {
+      if (!opts.earwormMode) return undefined;
+      const text = rotatingEarwormText(seed, idx);
+      const relaxesDiatonic = killingPoint?.relaxes.includes('predictable diatonic phrase structure');
+      return relaxesDiatonic && /predictable cadence/i.test(text) ? rotatingEarwormText(seed, idx + 1) : text;
+    })();
     const songParts: PromptPart[] = [
       ...channelParts.filter(part =>
         !(role === 'cold-open' && part.id === 'duration')
@@ -729,7 +899,12 @@ export function generateLocalBlueprint(
       // TASK v3.64-B — per-song rotating melodic-design phrase, replacing
       // the old flat whole-pack EARWORM_STYLE_ATOMS this channelParts entry
       // used to carry (see promptComposer.ts's rotatingEarwormText).
-      ...(opts.earwormMode ? [{ id: 'earworm' as const, text: rotatingEarwormText(seed, idx) }] : []),
+      ...(earwormTextForTrack ? [{ id: 'earworm' as const, text: earwormTextForTrack }] : []),
+      // TASK v3.67 (TASK A) — this track's one designed peak moment, a
+      // single style-prompt atom conveyed as intent (see
+      // data/killingPoints.ts) — never present for a peakStrength 'none'
+      // track (killingPoint is undefined in that case).
+      ...(killingPoint ? [{ id: 'killingPoint' as const, text: killingPoint.descriptor }] : []),
       ...(conceptInfluence
         ? [{
           id: 'concept' as const,
@@ -861,7 +1036,20 @@ export function generateLocalBlueprint(
       ...(lyricThemeArc ? { lyricThemeArc } : {}),
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
-      vocalType
+      vocalType,
+      // TASK v3.68 (TASK A) — assigned once, here, at generation time.
+      songId: generateSongId(seedBase, trackNo),
+      // TASK v3.68 (TASK B) — snapshot fields for rating analysis
+      // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.
+      ...(trackGenres[0]?.eraTag ? { eraTag: trackGenres[0].eraTag } : {}),
+      ...(killingPoint ? { killingPointId: killingPoint.id } : {}),
+      arcPhase: arcPlan[idx].phase,
+      intensity: arcPlan[idx].intensity,
+      bpm: tempo,
+      ...(structureTemplatePlan[idx] ? { structureTemplate: structureTemplatePlan[idx] } : {}),
+      ...(progressionPlan?.[idx] ? { moneyChordId: progressionPlan[idx] } : {}),
+      ...(earwormTextForTrack ? { earwormText: earwormTextForTrack } : {}),
+      ...(lyricThemeId ? { lyricFrameId: lyricTheme?.frameId ?? 'solitary-object' } : {})
     };
   });
 
@@ -900,6 +1088,7 @@ export function generateLocalBlueprint(
     // no-op here in practice (this path never produces the labels/leaks it
     // guards against) but runs unconditionally so the local and bridge paths
     // share one normalization pass instead of only the bridge having it.
-    songs: scoreSongs(songs.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage)
+    songs: scoreSongs(songs.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage),
+    generatedAt: new Date().toISOString()
   };
 }

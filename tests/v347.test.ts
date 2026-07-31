@@ -7,6 +7,8 @@ import { MONEY_CHORD_ADHERENCE_TEXT } from '../src/core/soundSignature';
 import { buildExcludePrompt } from '../src/core/promptComposer';
 import { introTextures } from '../src/data/introTextures';
 import { buildDefaultNegativeStyle, parseNegativeStyleTerms } from '../src/data/negativeStyles';
+import { audienceProfileForAgeGroup } from '../src/data/audienceProfiles';
+import { KILLING_POINTS } from '../src/data/killingPoints';
 import { createInitialOptions } from '../src/utils/generation';
 import { buildSongTxt } from '../src/utils/exporters';
 import { channelPresets, genrePacks, moodPacks, makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -84,9 +86,20 @@ describe('[v3.47 Step 1] negative styles stay in Suno Exclude styles', () => {
     expect(expected).toContain('no spoken intro');
     expect(expected).toContain('soundalike vocals');
     expect(expected).toContain('flat chorus with no lift');
+    // TASK v3.67 (TASK B) — a slot with a killing point may legitimately
+    // drop one of the audience profile's relaxableAtPeak exclusions from
+    // its own negativeStyleText (only the exact terms that killing point's
+    // own `relaxes` names), only for that one song — intentional, not a
+    // completeness regression. hardExclusions (and every term outside the
+    // audience profile's exclusions, e.g. avoidWords/forbiddenCliches) are
+    // never relaxed and must still appear on every slot unconditionally.
+    const audienceProfile = audienceProfileForAgeGroup(opts.audience);
     for (const slot of slots) {
+      const killingPoint = slot.killingPointText ? KILLING_POINTS.find(kp => kp.descriptor === slot.killingPointText) : undefined;
+      const relaxedNow = new Set((killingPoint?.relaxes ?? []).filter(item => audienceProfile.relaxableAtPeak.includes(item)));
       for (const term of parseNegativeStyleTerms(expected)) {
-        expect(slot.negativeStyleText).toContain(term);
+        if (slot.negativeStyleText?.includes(term)) continue;
+        expect(relaxedNow.has(term)).toBe(true);
       }
     }
   });

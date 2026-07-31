@@ -39,6 +39,30 @@ function normalizeSavedPack(pack: SavedPack): SavedPack {
   };
 }
 
+function randomSongId(packId: string, trackNo: number): string {
+  const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
+  return `${packId}-${trackNo}-${suffix}`;
+}
+
+/**
+ * v3.68 (TASK A) — every pack saved before this task has songs with no
+ * songId (core/ratingLedger.ts's rating records key off it). Pure so it's
+ * testable without IndexedDB; loadPack (below) persists the result back to
+ * storage the one time this actually assigns anything, so a later reload
+ * never generates a *different* id for the same song — that would silently
+ * detach any rating already recorded against the id assigned on first load.
+ */
+export function migratePackSongIds(pack: SavedPack): { pack: SavedPack; migrated: boolean } {
+  let migrated = false;
+  const songs = pack.blueprint.songs.map(song => {
+    if (song.songId) return song;
+    migrated = true;
+    return { ...song, songId: randomSongId(pack.id, song.trackNo) };
+  });
+  if (!migrated) return { pack, migrated: false };
+  return { pack: { ...pack, blueprint: { ...pack.blueprint, songs } }, migrated: true };
+}
+
 const DB_NAME = 'suno-weaver-library';
 const DB_VERSION = 4;
 const STORE = 'packs';
@@ -268,10 +292,16 @@ export async function listSetGroups(): Promise<SetGroupSummary[]> {
 export async function loadPack(id: string): Promise<SavedPack | undefined> {
   if (!hasIndexedDb()) {
     const pack = memoryPacks.get(id);
-    return pack ? normalizeSavedPack(pack) : undefined;
+    if (!pack) return undefined;
+    const { pack: migratedPack, migrated } = migratePackSongIds(normalizeSavedPack(pack));
+    if (migrated) memoryPacks.set(id, migratedPack);
+    return migratedPack;
   }
   const pack = await withStore<SavedPack | undefined>('readonly', store => store.get(id));
-  return pack ? normalizeSavedPack(pack) : pack;
+  if (!pack) return pack;
+  const { pack: migratedPack, migrated } = migratePackSongIds(normalizeSavedPack(pack));
+  if (migrated) await withStore('readwrite', store => store.put(migratedPack));
+  return migratedPack;
 }
 
 /**

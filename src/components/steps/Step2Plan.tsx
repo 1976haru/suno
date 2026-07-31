@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { getGenreById } from '../../data/genreLibrary';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
-import { directSetLocal, type SetPlan } from '../../core/setDirector';
+import { directSetLocal, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
+import { getRatings } from '../../core/ratingLedger';
+import { analyzeRatings } from '../../core/ratingAnalysis';
 import type { AxisAllocation, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
 import type { SetSegment } from '../../core/setDirector';
 
@@ -64,13 +66,18 @@ export function reorderSlotsBySegment(slots: PreassignedSongSlot[], segments: Se
   return grouped.map((slot, index) => ({ ...slot, trackNo: index + 1 }));
 }
 
-function applyPlanToOptions(plan: SetPlan, setOpts: Step2PlanProps['setOpts']) {
+function applyPlanToOptions(plan: SetPlan, setOpts: Step2PlanProps['setOpts'], ratingInsights: RatingInsightLike[] | undefined) {
   const genreAllocation = plan.allocations.find(allocation => allocation.axis === 'genre');
   const genreIds = genreAllocation ? Object.keys(genreAllocation.counts) : [];
   setOpts(prev => ({
     ...prev,
     genreIds: genreIds.length ? genreIds : prev.genreIds,
-    diversityAllocations: normalizeDiversityAllocations(plan.allocations)
+    diversityAllocations: normalizeDiversityAllocations(plan.allocations),
+    // TASK v3.68 (TASK E) — carries the same "지난 평가 반영" toggle state
+    // this screen previewed with into actual generation (see
+    // core/batchPreallocation.ts/localGenerator.ts's killingPointBoostFromInsights
+    // call sites). undefined when the toggle is off — zero influence.
+    ratingInsights
   }));
 }
 
@@ -79,16 +86,36 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
   const [editingAxis, setEditingAxis] = useState<DiversityAxisId | null>(null);
   const [draftAllocations, setDraftAllocations] = useState<AxisAllocation[] | null>(null);
   const [segmentPlacement, setSegmentPlacement] = useState<'interleave' | 'blocked'>('interleave');
+  // TASK v3.68 (TASK E) — "지난 평가 반영" toggle; on by default, but only
+  // ever has an effect once real ratings exist (strongInsights stays empty
+  // otherwise, and killingPointBoostFromInsights is a no-op on an empty list).
+  const [insightsEnabled, setInsightsEnabled] = useState(true);
+  const [strongInsights, setStrongInsights] = useState<RatingInsightLike[]>([]);
   const freeText = opts.customConcept.trim() || opts.projectTitle;
   // TASK v3.63 (TASK B) — family ids checked on Step2 (Step2Concept.tsx);
   // directSetLocal uses these to choose the genre axis directly when present.
   const familyIds = opts.selectedGenreFamilyIds ?? [];
+
+  useEffect(() => {
+    let cancelled = false;
+    getRatings({ channelId: opts.channel.id })
+      .then(ratings => {
+        if (cancelled) return;
+        const insights = analyzeRatings(ratings, { channelId: opts.channel.id }).filter(insight => insight.confidence === 'strong');
+        setStrongInsights(insights);
+      })
+      .catch(() => { if (!cancelled) setStrongInsights([]); });
+    return () => { cancelled = true; };
+  }, [opts.channel.id]);
+
+  const appliedInsights = insightsEnabled ? strongInsights : undefined;
   const plan = useMemo(
     () => directSetLocal(freeText, opts.channel, opts.songCount, {
       recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid],
-      recentHooks: []
+      recentHooks: [],
+      insights: appliedInsights
     }, familyIds),
-    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds]
+    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights]
   );
   const allocations = draftAllocations ?? plan.allocations;
   const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
@@ -117,7 +144,7 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
 
   function applyDraft() {
     const nextPlan = { ...plan, allocations };
-    applyPlanToOptions(nextPlan, setOpts);
+    applyPlanToOptions(nextPlan, setOpts, appliedInsights);
     setEditingAxis(null);
   }
 
@@ -140,11 +167,26 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
               <RefreshCw size={15} />
               다시 설계
             </button>
-            <button type="button" className="primary" onClick={() => applyPlanToOptions({ ...plan, allocations }, setOpts)}>
+            <button type="button" className="primary" onClick={() => applyPlanToOptions({ ...plan, allocations }, setOpts, appliedInsights)}>
               설계 적용
             </button>
           </div>
         </div>
+        {plan.appliedInsightsKo.length > 0 && (
+          <div className="option-block compact">
+            <div className="section-head">
+              <h4>지난 평가 반영</h4>
+              <button type="button" onClick={() => setInsightsEnabled(false)}>반영 끄기</button>
+            </div>
+            {plan.appliedInsightsKo.map(line => <p key={line} className="supporting">{line}</p>)}
+          </div>
+        )}
+        {!insightsEnabled && strongInsights.length > 0 && (
+          <p className="supporting">
+            지난 평가 반영을 껐습니다.
+            <button type="button" className="chip" onClick={() => setInsightsEnabled(true)}>다시 켜기</button>
+          </p>
+        )}
         <p>{plan.interpretation.intentKo}</p>
         <div className="chips">
           {plan.interpretation.familyIds.map(id => <span key={id} className="chip active">{familyLabel(id)}</span>)}

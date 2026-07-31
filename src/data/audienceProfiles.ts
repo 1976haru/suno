@@ -48,7 +48,47 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   ],
   tempoFloor: 62,
   tempoCeiling: 112,
-  lyricWordRange: [200, 250]
+  lyricWordRange: [200, 250],
+  /**
+   * v3.67 (TASK B) — real killing points need permission to bend exactly
+   * these, and only at their own song's own killing-point location: a
+   * semitone final-chorus lift needs 'predictable diatonic phrase
+   * structure' relaxed, a harmony swell or unison re-entry needs 'abrupt
+   * dynamic jumps' relaxed, a long low/high vocal landing needs 'comfortable
+   * mid vocal register' relaxed. 'abrupt dynamic jumps' is the one
+   * `exclusions` entry in this list — buildExcludePrompt actually drops it
+   * from that one song's Suno Exclude text when relaxed (see
+   * core/promptComposer.ts); the rest were never mechanically enforced
+   * outside documentation/the earworm atom, so "relaxing" them just means
+   * the killing-point instruction is allowed to contradict them for that
+   * one song, not that anything gets removed from an exclude field.
+   */
+  relaxableAtPeak: [
+    'comfortable mid vocal register',
+    'melody moves in singable stepwise motion',
+    'chorus sits in a comfortable singalong range',
+    'arrangement leaves space between phrases',
+    'abrupt dynamic jumps',
+    'predictable diatonic phrase structure'
+  ],
+  /**
+   * v3.67 (TASK B) — never relaxed regardless of any killing point. Six of
+   * these are this task's own explicit hardExclusions list; 'dense
+   * syncopation that obscures the melody' is an `exclusions` entry the task
+   * spec never assigned to either list — since nothing may silently drop
+   * off this profile's real exclusion set, it stays hard rather than
+   * becoming relaxable by omission (see docs/v367-report.md for this
+   * reconciliation).
+   */
+  hardExclusions: [
+    'shouted or belted high notes',
+    'aggressive distorted percussion',
+    'heavy sub bass',
+    'rapid syllable-dense phrasing',
+    'harsh bright top end',
+    'excessive reverb washing out the vocal',
+    'dense syncopation that obscures the melody'
+  ]
 };
 
 /**
@@ -68,7 +108,9 @@ export const GENERAL_AUDIENCE_PROFILE: AudienceProfile = {
   exclusions: [],
   tempoFloor: 60,
   tempoCeiling: 132,
-  lyricWordRange: [180, 260]
+  lyricWordRange: [180, 260],
+  relaxableAtPeak: [],
+  hardExclusions: []
 };
 
 export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
@@ -78,7 +120,9 @@ export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
   exclusions: [],
   tempoFloor: 92,
   tempoCeiling: 128,
-  lyricWordRange: [120, 220]
+  lyricWordRange: [120, 220],
+  relaxableAtPeak: [],
+  hardExclusions: []
 };
 
 const AUDIENCE_PROFILE_BY_AGE_GROUP: Record<AgeGroup, AudienceProfile> = {

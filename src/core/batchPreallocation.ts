@@ -1,6 +1,6 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
-import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG, UniquePool } from './lyricEngine';
-import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
+import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
+import { averageTempo, emotionArcPlanForArc, nextContestedTitle, resolveSongRole } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
@@ -37,6 +37,8 @@ import {
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
 import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
+import { buildArcPlan, reorderByArcIntensity } from './arcPlan';
+import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 
 export type { PreassignedSongSlot };
 
@@ -68,13 +70,19 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience' | 'ratingInsights'>,
   genres: GenrePack[],
   avoid?: { usedTitles?: string[]; usedHooks?: string[] }
 ): PreassignedSongSlot[] {
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
-  const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
+  // TASK v3.67 (TASK C) — same arc-intensity reorder as localGenerator.ts's
+  // generateLocalBlueprint (see arcPlan.ts's own doc comment: reorders,
+  // never recomputes, buildTempoBandPlan's own output).
+  const arcPlan = buildArcPlan(opts.songCount);
+  // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, mirroring
+  // localGenerator.ts's own emotionArcPlanForArc call (same seed).
+  const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
   // TASK v3.60 (TASK C) — this pre-pass feeds the realtime/Batch/bridge
   // paths (this whole function's own docstring), which measured BPM 96-104
@@ -86,7 +94,7 @@ export function preallocateSongSlots(
   // seed) so the bridge/Batch path's BPM spread matches the local path's.
   const audienceProfile = audienceProfileForAgeGroup(opts.audience);
   const tempoBands = tempoBandsForProfile(audienceProfile);
-  const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, opts.songCount, seed) : [];
+  const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
   // TASK I2 (v3.11) — the Batch API path is local-then-submit (this whole
   // function's point per its own docstring), so tracks 1-3 get the same
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
@@ -100,6 +108,18 @@ export function preallocateSongSlots(
   const genrePlan = manualGenrePlan.length
     ? appendGenreAutoRemainder(manualGenrePlan, autoGenrePlan, opts.songCount)
     : autoGenrePlan;
+  // TASK v3.67 (TASK A) — one killing point per track (undefined for
+  // peakStrength 'none'), matched against this track's own lead genre's
+  // eraTag — mirrors localGenerator.ts's own killingPointPlan pre-pass
+  // (same seed offset).
+  const killingPointPlan = assignKillingPoints(
+    arcPlan.map((pos, idx) => ({
+      peakStrength: pos.peakStrength,
+      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
+    })),
+    seed + 67,
+    killingPointBoostFromInsights(opts.ratingInsights)
+  );
 
   // TASK v3.33 Part C — mirrors localGenerator.ts's own pre-pass exactly
   // (same roles, same seed) so the realtime/Batch/bridge paths that call
@@ -164,8 +184,18 @@ export function preallocateSongSlots(
     seed
   );
   if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  // TASK v3.67 (TASK C) — same reorder-not-recompute treatment as
+  // localGenerator.ts's own arrangementDensityPlan (peak tracks skew toward
+  // 'full', closing toward 'sparse'); no-op when arrangementDensity is
+  // manually overridden (applyAxisAllocation returns the manual plan
+  // untouched, same as always).
+  const arrangementDensityRank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
   const arrangementDensityPlan = applyAxisAllocation(
-    Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+    reorderByArcIntensity(
+      Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+      arcPlan,
+      level => arrangementDensityRank[level]
+    ),
     opts.diversityAllocations,
     'arrangementDensity',
     ARRANGEMENT_DENSITY_IDS,
@@ -201,14 +231,28 @@ export function preallocateSongSlots(
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
     const resolvedVocalVariantText = vocalVariantText || variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
-    const negativeStyleText = buildExcludePrompt(opts, trackGenres);
+    const killingPoint = killingPointPlan[idx];
+    // TASK v3.67 (TASK B) — this track's own killing point may relax
+    // specific audience exclusions for this one song only (see
+    // data/killingPoints.ts / promptComposer.ts's buildExcludePrompt, which
+    // only ever drops entries actually in the profile's relaxableAtPeak).
+    const negativeStyleText = buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+    // TASK v3.67 (TASK D follow-up) — mirrors localGenerator.ts's own
+    // predictable-cadence nudge: don't hand a relaxed track an earworm
+    // phrase that IS the thing it was just given permission to break.
+    const earwormTextForTrack = (() => {
+      if (!opts.earwormMode) return undefined;
+      const text = rotatingEarwormText(seed, idx);
+      const relaxesDiatonic = killingPoint?.relaxes.includes('predictable diatonic phrase structure');
+      return relaxesDiatonic && /predictable cadence/i.test(text) ? rotatingEarwormText(seed, idx + 1) : text;
+    })();
     return {
       trackNo,
       title,
       hookPhrase: hook,
       songRole,
       tempo: averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling),
-      emotionArc: emotionArcPool.take(),
+      emotionArc: emotionArcPlan[idx],
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
         ...(genreId ? { genreId } : {}),
         ...(genreText ? { genreText } : {}),
@@ -223,7 +267,19 @@ export function preallocateSongSlots(
       // so realtime/Batch/bridge songs get the same per-song melodic-design
       // variety the local path now does, instead of one flat whole-pack
       // phrase (see promptComposer.ts's earwormSystemNote).
-      ...(opts.earwormMode ? { earwormText: rotatingEarwormText(seed, idx) } : {}),
+      ...(earwormTextForTrack ? { earwormText: earwormTextForTrack } : {}),
+      // TASK v3.67 (TASK A) — this track's one designed peak moment,
+      // conveyed as intent (see data/killingPoints.ts and
+      // core/promptComposer.ts's buildBatchSystemNote /
+      // core/bridgeInstruction.ts, both of which treat this as a
+      // reference-not-verbatim instruction, never force-injected into
+      // stylePrompt). Undefined for a peakStrength 'none' track.
+      ...(killingPoint ? { killingPointText: killingPoint.descriptor, killingPointPlacement: killingPoint.placement, killingPointId: killingPoint.id } : {}),
+      // TASK v3.68 (TASK B) — snapshot fields for rating analysis
+      // (core/ratingLedger.ts).
+      ...(trackGenres[0]?.eraTag ? { eraTag: trackGenres[0].eraTag } : {}),
+      arcPhase: arcPlan[idx].phase,
+      intensity: arcPlan[idx].intensity,
       ...(moneyChordId ? { moneyChordId } : {}),
       // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
       // per-song rotatingInstrumentText/arrangementDensityText calls (same
@@ -401,6 +457,14 @@ export function reconcileWithPreassignedSlot(
   hookMode: 'pool' | 'ai-creative' = 'ai-creative'
 ): SongIdea {
   if (!slot) return song;
+  // TASK v3.68 (TASK A) — this is the one place every generation path
+  // (realtime, Batch API, Claude Code bridge import) already reconciles a
+  // model/agent's raw output (see this function's own docstring above), so
+  // it's also the one place that reliably assigns a songId regardless of
+  // which path produced the song — a remote model has no reason to invent
+  // one itself. Never overwrites an existing songId (bridge re-imports of
+  // an already-migrated pack, or a retried/edited song, keep their id).
+  const songId = song.songId || `song-${slot.trackNo}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const title = titleMode === 'local' ? slot.title : song.title?.trim() ? song.title : slot.title;
   const hookPhrase = options.keepHook && song.hookPhrase?.trim()
     ? song.hookPhrase
@@ -480,6 +544,7 @@ export function reconcileWithPreassignedSlot(
   const listenerSituation = slot.lyricThemeText || song.listenerSituation;
   return {
     ...song,
+    songId,
     title,
     hookPhrase,
     stylePrompt,
@@ -504,6 +569,17 @@ export function reconcileWithPreassignedSlot(
     // drives the per-song male/female/mixed quota, so a realtime/Batch/
     // bridge response can never silently drift from the locally-decided
     // plan. Non-kids slots never set this field, so this is a no-op there.
-    ...(slot.vocalType ? { vocalType: slot.vocalType } : {})
+    ...(slot.vocalType ? { vocalType: slot.vocalType } : {}),
+    // TASK v3.68 (TASK B) — snapshot fields for rating analysis
+    // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.
+    ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
+    ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
+    ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
+    ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
+    bpm: slot.tempo,
+    ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
+    ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
+    ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
+    ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {})
   };
 }

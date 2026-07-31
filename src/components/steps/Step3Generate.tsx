@@ -222,6 +222,8 @@ interface Step3GenerateProps {
   onRegenerateMissingBatchTracks: () => void;
   /** TASK v3.24 — Claude Code bridge: reads a coding agent's songs-output.json back in, runs it through the same quality/safety pipeline as any API-generated pack, and returns a report of what was imported vs. skipped. */
   onImportSongsJson: (file: File) => Promise<ImportSongsReport>;
+  /** TASK v3.69 (TASK D) — same import, but lands directly on the SRT tab instead of the songs tab: picking an existing lyrics/*.json file jumps straight to SRT generation without regenerating the pack. */
+  onImportSongsJsonForSrt: (file: File) => Promise<ImportSongsReport>;
   /** TASK v3.35 (bridge split) — multi-set bridge import: one file per set, selected together. */
   onImportMultiSetSongsJson: (files: File[]) => Promise<ImportSongsReport[]>;
   /** TASK v3.35 (bridge split) — grows as bridge-imported sets actually land, so not-yet-copied instructions in the list below reflect real titles/hooks instead of only the deterministic preallocated fallback. */
@@ -240,7 +242,7 @@ interface Step3GenerateProps {
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady
+  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -342,6 +344,20 @@ export default function Step3Generate({
     await runBridgeImportAction({
       prerequisites: bridgePrerequisites,
       run: () => onImportSongsJson(file),
+      makeBlockedReport: makeBridgeImportFailureReport,
+      makeErrorReport: makeBridgeImportFailureReport,
+      setLoading: setIsImporting,
+      setReport: setImportReport
+    });
+  }
+
+  // TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: same import
+  // pipeline as handleImportSongsFile above, just landing on the SRT tab
+  // instead of the songs tab (see onImportSongsJsonForSrt in App.tsx).
+  async function handleImportSongsFileForSrt(file: File) {
+    await runBridgeImportAction({
+      prerequisites: bridgePrerequisites,
+      run: () => onImportSongsJsonForSrt(file),
       makeBlockedReport: makeBridgeImportFailureReport,
       makeErrorReport: makeBridgeImportFailureReport,
       setLoading: setIsImporting,
@@ -804,6 +820,21 @@ export default function Step3Generate({
                 />
                 <FileJson size={16} />
                 {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
+              </label>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? '기존 lyrics/*.json 파일로 팩 재생성 없이 바로 SRT 자막 만들기' : '채널과 시즌을 먼저 선택하세요'}>
+                <input
+                  type="file"
+                  accept="application/json"
+                  disabled={!canImportBridge || isImporting}
+                  style={{ display: 'none' }}
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleImportSongsFileForSrt(file);
+                    event.target.value = '';
+                  }}
+                />
+                <FileJson size={16} />
+                {isImporting ? '가져오는 중...' : '가사 파일 → 바로 SRT 만들기'}
               </label>
             </div>
             <div

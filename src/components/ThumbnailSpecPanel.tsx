@@ -9,6 +9,7 @@ import { buildCoverImagePromptVariants, buildPortraitImagePromptVariants, buildT
 import { buildThumbnailWorksetMarkdown, thumbnailMotionGuideText } from '../core/thumbnailWorksetExport';
 import { composeThumbnailPromptSet, type ThumbnailPromptMode } from '../core/thumbnailPromptComposer';
 import { listSetGroups, loadPack, type SetGroupSummary } from '../core/library';
+import { buildSetName } from '../utils/setNaming';
 import { recordUsage } from '../core/usageLedger';
 import { DEFAULT_QWEN_IMAGE_SETTINGS, estimateQwenImageCostCny, type QwenImageSettings } from '../core/qwenImageSettings';
 import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
@@ -361,7 +362,19 @@ export default function ThumbnailSpecPanel({
         packs,
         archetypeId: selectedArchetypeId
       });
-      downloadText(`${group.groupId}-thumbnail-prompts.md`, content, 'text/markdown;charset=utf-8');
+      // TASK v3.69 (TASK B) — same shared filename scheme (utils/setNaming.ts)
+      // as every other set-level export, instead of this panel's own raw
+      // groupId, so a thumbnail workset can be traced back to the same set
+      // as its lyrics file/standalone export/SRT zip.
+      const firstPack = group.packs[0];
+      const setName = firstPack
+        ? buildSetName({
+            date: new Date(firstPack.savedAt),
+            channelLabel: firstPack.channelName,
+            conceptLabel: firstPack.projectTitle.replace(/ Set \d+$/, '')
+          })
+        : group.groupId;
+      downloadText(`${setName}_썸네일.md`, content, 'text/markdown;charset=utf-8');
     } finally {
       setExporting(false);
     }

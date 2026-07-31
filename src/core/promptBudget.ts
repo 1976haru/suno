@@ -71,7 +71,7 @@ export const ATOM_WORD_CAP = 8;
  * instead the trim loop below reduces them to a guaranteed-minimum atom count
  * rather than dropping the whole category.
  */
-export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice']);
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice', 'killingPoint']);
 export const GENRE_NARRATIVE_FLOOR_ATOMS = 2;
 export const CONCEPT_FLOOR_ATOMS = 2;
 export const MOOD_FLOOR_ATOMS = 1;
@@ -85,6 +85,16 @@ export const INSTRUMENTS_FLOOR_ATOMS = 2;
  * Same guaranteed-minimum treatment as mood/instruments, at a 1-atom floor.
  */
 export const EARWORM_FLOOR_ATOMS = 1;
+/**
+ * v3.67 (TASK A) — same guaranteed-minimum treatment as earworm above: a
+ * peak track's whole point is its one designed killing-point moment, so it
+ * must not silently vanish just because that track's other atoms (vocal,
+ * genreNarrative, moneyChord, ...) happened to fill the safeTarget budget
+ * before 'killingPoint' came up in priority order — real measurement found
+ * exactly that on peak-phase tracks (the busiest ones) before this floor
+ * was added.
+ */
+export const KILLING_POINT_FLOOR_ATOMS = 1;
 
 export function countWords(text: string): number {
   const trimmed = text.trim();
@@ -94,7 +104,8 @@ export function countWords(text: string): number {
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'concept' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'concept' | 'hookDevice' | 'introTexture' | 'arrangementDensity'
+  | 'killingPoint';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -128,8 +139,15 @@ export type PromptTermId =
 // non-essential so very long custom style text can cut it before the higher
 // priority atoms, but it is still protected from the word-count trim in
 // normal prompts.
+// TASK v3.67 (TASK A) — 'killingPoint' (this track's one designed peak
+// moment, see data/killingPoints.ts) sits right after 'hookDevice': high
+// enough to reliably survive normal budget pressure — the whole point of
+// this task is a real, present peak moment, not one that silently loses
+// its only style-prompt atom under a moderately long custom concept — but
+// still non-essential, since plenty of tracks (arc peakStrength 'none')
+// have no killing point at all and that is by design, not a bug.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
+  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice', 'killingPoint',
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
@@ -156,7 +174,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   concept: 'concept direction',
   hookDevice: 'hook device',
   introTexture: 'intro texture',
-  arrangementDensity: 'arrangement density'
+  arrangementDensity: 'arrangement density',
+  killingPoint: 'killing point'
 };
 
 export interface PromptPart {
@@ -557,7 +576,8 @@ function compressHardLimitWithGuard(
  * constraints this task exists to guarantee.
  */
 const GUARANTEED_FLOOR_BY_ID: Partial<Record<PromptTermId, number>> = {
-  earworm: EARWORM_FLOOR_ATOMS
+  earworm: EARWORM_FLOOR_ATOMS,
+  killingPoint: KILLING_POINT_FLOOR_ATOMS
 };
 
 export function enforceHardLimit(

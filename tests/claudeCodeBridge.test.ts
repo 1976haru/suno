@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, importSongsJson } from '../src/core/claudeCodeBridge';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, extractBridgeImportMeta, importSongsJson } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { stripSetTitlePrefix } from '../src/utils/generation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -77,13 +77,34 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).not.toContain('Do NOT invent a different hookPhrase');
   });
 
-  it('tells the agent to write output to songs-output.json, as raw JSON with no markdown fences inside the file', () => {
+  it('tells the agent to write output to a lyrics/<setName>.json path, as raw JSON with no markdown fences inside the file', () => {
+    // TASK v3.69 (TASK C) — replaces the old flat "songs-output.json" (every
+    // run overwrote the last one, no history — see docs/v369-report.md §0)
+    // with a dated, channel/concept-named path under lyrics/.
     const opts = makeOptions({ songCount: 2 });
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, [], false);
 
-    expect(instruction).toContain('songs-output.json');
+    expect(instruction).toMatch(/lyrics\/\d{8}_.+\.json/);
     expect(instruction).toContain('{ "songs": [ ... ] }');
     expect(instruction).toContain('no markdown fences');
+  });
+
+  it('TASK v3.69 (TASK D): includes an optional top-level "meta" object in the request payload, and tells the agent to copy it verbatim', () => {
+    const opts = makeOptions({ songCount: 2 });
+    const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, [], false);
+
+    expect(instruction).toContain('Optional (recommended): also add a top-level "meta" field');
+    expect(instruction).toContain('Do not invent or recompute any of its values yourself.');
+
+    const payloadMatch = instruction.match(/```json\n([\s\S]*?)\n```/);
+    expect(payloadMatch).not.toBeNull();
+    const payload = JSON.parse(payloadMatch![1]);
+    expect(payload.meta.channelId).toBe(opts.channel.id);
+    expect(payload.meta.channelLabel).toBe(opts.channel.name);
+    expect(payload.meta.songCount).toBe(2);
+    expect(payload.meta.lyricLanguage).toBe(opts.lyricLanguage);
+    expect(payload.meta.setName).toMatch(/^\d{8}_.+$/);
+    expect(() => new Date(payload.meta.generatedAt).toISOString()).not.toThrow();
   });
 
   it('narrows outputShape to songs only — the agent is told not to invent pack-level identity fields', () => {
@@ -116,7 +137,9 @@ describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can
 
     expect(result.setCount).toBe(3);
     expect(result.songsPerSet).toBe(6);
-    expect(result.outputFilenames).toEqual(['songs-output-set01.json', 'songs-output-set02.json', 'songs-output-set03.json']);
+    // TASK v3.69 (TASK B) — "lyrics/<setName>_setNN.json", not the old flat
+    // "songs-output-setNN.json" (see docs/v369-report.md §0).
+    expect(result.outputFilenames.every((name: string) => /^lyrics\/\d{8}_.+_set0[123]\.json$/.test(name))).toBe(true);
     expect(result.instruction).toContain('MASTER MODE');
     expect(result.instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
     expect(result.instruction).toContain('single vocal identity');
@@ -146,17 +169,11 @@ describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can
   it('supports a 5-set one-paste master run with sequential save files and duplicate-avoid instructions', () => {
     const result = buildMultiSetClaudeCodeMasterInstruction(makeOptions({ songCount: 6 }), 5, 6, testGenres, testMoods, testSeason, undefined, false);
 
-    expect(result.outputFilenames).toEqual([
-      'songs-output-set01.json',
-      'songs-output-set02.json',
-      'songs-output-set03.json',
-      'songs-output-set04.json',
-      'songs-output-set05.json'
-    ]);
+    expect(result.outputFilenames.map((name: string) => name.match(/_set(\d{2})\.json$/)?.[1])).toEqual(['01', '02', '03', '04', '05']);
     expect(result.instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
     expect(result.instruction).toContain('Do not stop after the first file');
     expect(result.instruction).toContain('After writing a set, add the actual generated titles and hookPhrases');
-    expect(result.instruction).toContain('songs-output-set05.json');
+    expect(result.instruction).toMatch(/lyrics\/\d{8}_.+_set05\.json/);
     expect(result.instruction.match(/Set 0[1-5]\/5/g)).toHaveLength(5);
   });
 });
@@ -409,6 +426,70 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
 
     expect(report.blueprint!.songs[0].warnings.some(w => w === 'Missing prompt term: progression')).toBe(false);
   });
+
+  // TASK v3.69 (TASK D) — meta is a purely additive, optional top-level
+  // block; a file written before this task existed has no "meta" key, and
+  // import must behave exactly as before for it (no crash, no behavior
+  // change) — this is the backward-compatibility half of TASK D.
+  it('TASK v3.69 (TASK D): imports a pre-v3.69 file with no "meta" block exactly as before (backward compatible)', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const raw = JSON.stringify({ songs: [songJson()] });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    expect(report.blueprint).not.toBeNull();
+    expect(report.importedCount).toBe(1);
+    expect(typeof report.blueprint!.generatedAt).toBe('string');
+  });
+
+  it('TASK v3.69 (TASK D): a "meta.generatedAt" present in the file stamps the blueprint with that real generation time, not import time', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const generatedAt = '2026-01-15T09:00:00.000Z';
+    const raw = JSON.stringify({
+      meta: { setName: '20260115_channel_concept', generatedAt, channelId: opts.channel.id, channelLabel: opts.channel.name, songCount: 1, lyricLanguage: opts.lyricLanguage },
+      songs: [songJson()]
+    });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    expect(report.blueprint).not.toBeNull();
+    expect(report.blueprint!.generatedAt).toBe(generatedAt);
+  });
+});
+
+describe('[v3.69] TASK D: extractBridgeImportMeta reads the optional top-level "meta" block', () => {
+  it('returns null for a file with no "meta" key at all (pre-v3.69 file)', () => {
+    expect(extractBridgeImportMeta(JSON.stringify({ songs: [] }))).toBeNull();
+  });
+
+  it('returns null for unparseable text instead of throwing', () => {
+    expect(extractBridgeImportMeta('not json {{{')).toBeNull();
+  });
+
+  it('reads every documented field when present', () => {
+    const meta = extractBridgeImportMeta(JSON.stringify({
+      meta: {
+        setName: '20260731_굿모닝추억라디오_비오는날의올드팝',
+        generatedAt: '2026-07-31T09:00:00+09:00',
+        channelId: 'morning-memory-radio',
+        channelLabel: '굿모닝 추억라디오',
+        conceptLabel: '비 오는 날의 올드팝',
+        songCount: 18,
+        lyricLanguage: 'english'
+      },
+      songs: []
+    }));
+
+    expect(meta).toEqual({
+      setName: '20260731_굿모닝추억라디오_비오는날의올드팝',
+      generatedAt: '2026-07-31T09:00:00+09:00',
+      channelId: 'morning-memory-radio',
+      channelLabel: '굿모닝 추억라디오',
+      conceptLabel: '비 오는 날의 올드팝',
+      songCount: 18,
+      lyricLanguage: 'english'
+    });
+  });
 });
 
 describe('[v3.35] buildMultiSetClaudeCodeInstructions — one instruction per set instead of one for the whole run', () => {
@@ -425,11 +506,12 @@ describe('[v3.35] buildMultiSetClaudeCodeInstructions — one instruction per se
     });
   });
 
-  it('names each set\'s output file "songs-output-setNN.json", zero-padded and sequential', () => {
+  it('names each set\'s output file "lyrics/<setName>_setNN.json", zero-padded and sequential', () => {
+    // TASK v3.69 (TASK B) — replaces the old flat "songs-output-setNN.json".
     const results = buildMultiSetClaudeCodeInstructions(makeOptions(), 10, 18, testGenres, testMoods, testSeason, undefined, false);
-    expect(results[0].outputFilename).toBe('songs-output-set01.json');
-    expect(results[8].outputFilename).toBe('songs-output-set09.json');
-    expect(results[9].outputFilename).toBe('songs-output-set10.json');
+    expect(results[0].outputFilename).toMatch(/^lyrics\/\d{8}_.+_set01\.json$/);
+    expect(results[8].outputFilename).toMatch(/^lyrics\/\d{8}_.+_set09\.json$/);
+    expect(results[9].outputFilename).toMatch(/^lyrics\/\d{8}_.+_set10\.json$/);
     results.forEach(item => {
       expect(item.instruction).toContain(`Write a new file named "${item.outputFilename}"`);
     });

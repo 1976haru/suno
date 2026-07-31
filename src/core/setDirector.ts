@@ -28,6 +28,7 @@ import {
   type DecomposedReference
 } from './artistReferenceDecomposer';
 import { preallocateSongSlots } from './batchPreallocation';
+import { killingPointById } from '../data/killingPoints';
 import { GENRE_FAMILIES, membersPerFamilyForSelection, type GenreFamily } from '../data/genreFamilies';
 import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
@@ -97,7 +98,20 @@ export interface SetPlan {
     alternatives: { id: string; labelKo: string; whyKo: string }[];
   }[];
   warnings: string[];
+  /**
+   * v3.68 (TASK E) — Korean summary lines of any 'strong'-confidence rating
+   * insight actually applied to this plan's killing-point assignment (see
+   * data/killingPoints.ts's killingPointBoostFromInsights), for Step2Plan.tsx's
+   * "지난 평가 반영" banner. Empty whenever history.insights was empty/
+   * undefined — including when the user has turned the banner's own "반영
+   * 끄기" toggle off, since that toggle works by simply not passing
+   * insights into history at all.
+   */
+  appliedInsightsKo: string[];
 }
+
+/** Reuses GenerationOptions.ratingInsights' element shape rather than redeclaring it — see that field's own doc comment in types.ts. */
+export type RatingInsightLike = NonNullable<GenerationOptions['ratingInsights']>[number];
 
 interface RankedGenre {
   genre: GenrePack;
@@ -710,7 +724,7 @@ function buildBlendSegment(
 export function buildSetPlanFromIntent(
   intent: InterpretedIntent,
   channel: ChannelProfile,
-  history: { recentGenreIds: string[]; recentHooks: string[] }
+  history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] }
 ): SetPlan {
   const safeSongCount = clamp(intent.segments.reduce((sum, segment) => sum + segment.songCount, 0) || 18, 1, 80);
   const blendWarnings: string[] = [];
@@ -774,7 +788,12 @@ export function buildSetPlanFromIntent(
   const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
   if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: genreCounts };
 
-  const opts = buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations);
+  // TASK v3.68 (TASK E) — only ever set when the caller (Step2Plan.tsx's
+  // "지난 평가 반영" toggle) explicitly passes insights; undefined here
+  // means preallocateSongSlots' own killingPointBoostFromInsights call
+  // computes an empty boost map, i.e. zero influence — exactly what the
+  // toggle turning "off" needs.
+  const opts = { ...buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations), ratingInsights: history.insights };
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
@@ -786,6 +805,20 @@ export function buildSetPlanFromIntent(
     ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : []),
     ...blendWarnings
   ];
+  // TASK v3.68 (TASK E) — Step2.5's "지난 평가 반영" banner text: only
+  // 'strong'-confidence killingPointId insights ever produce a line here
+  // (mirrors killingPointBoostFromInsights' own filter exactly), counted
+  // against how many of this plan's own slots actually landed on that
+  // killing point — a real number, not the insight's own historical count.
+  const appliedInsightsKo = (history.insights ?? [])
+    .filter(insight => insight.attribute === 'killingPointId' && insight.confidence === 'strong')
+    .map(insight => {
+      const count = slots.filter(slot => slot.killingPointId === insight.value).length;
+      const labelKo = killingPointById(insight.value)?.labelKo ?? insight.value;
+      return insight.lift >= 0
+        ? `${labelKo} 킬링포인트가 반응이 좋아 ${count}곡에 배정했습니다.`
+        : `${labelKo} 킬링포인트는 반응이 약해 ${count}곡으로 줄였습니다.`;
+    });
 
   return {
     interpretation: {
@@ -802,7 +835,8 @@ export function buildSetPlanFromIntent(
     allocations,
     slots,
     adjustables: makeAdjustables(allocations, []),
-    warnings
+    warnings,
+    appliedInsightsKo
   };
 }
 
@@ -810,7 +844,7 @@ export function directSetLocal(
   freeText: string,
   channel: ChannelProfile,
   songCount: number,
-  history: { recentGenreIds: string[]; recentHooks: string[] },
+  history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] },
   /** v3.63 (TASK B) — GenreFamily ids from Step2Concept's family picker. When non-empty, these choose the genre axis directly (see chooseGenreIdsFromFamilies); free text still drives era/mood/season/artist-reference interpretation either way. */
   familyIds: string[] = []
 ): SetPlan {
@@ -875,7 +909,7 @@ export function directSetLocal(
   // genre pool instead of only being echoed back in the interpretation.
   const selectedIds = applyListeningContextFilter(familySelectedIds.length ? familySelectedIds : keywordSelectedIds, listeningContext);
   const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds);
-  const opts = buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations);
+  const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations), ratingInsights: history.insights };
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
@@ -885,6 +919,17 @@ export function directSetLocal(
     ...(selectedIds.length < 4 ? ['장르 후보가 4종 미만입니다. 채널 필터 또는 입력 키워드를 확인하십시오.'] : []),
     ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : [])
   ];
+  // TASK v3.68 (TASK E) — mirrors buildSetPlanFromIntent's own banner-text
+  // computation exactly (same filter, same per-slot recount).
+  const appliedInsightsKo = (history.insights ?? [])
+    .filter(insight => insight.attribute === 'killingPointId' && insight.confidence === 'strong')
+    .map(insight => {
+      const count = slots.filter(slot => slot.killingPointId === insight.value).length;
+      const labelKo = killingPointById(insight.value)?.labelKo ?? insight.value;
+      return insight.lift >= 0
+        ? `${labelKo} 킬링포인트가 반응이 좋아 ${count}곡에 배정했습니다.`
+        : `${labelKo} 킬링포인트는 반응이 약해 ${count}곡으로 줄였습니다.`;
+    });
   return {
     interpretation: {
       intentKo: intentSummaryKo(freeText, eraFocus, selectedIds, families),
@@ -913,7 +958,8 @@ export function directSetLocal(
     allocations,
     slots,
     adjustables: makeAdjustables(allocations, ranked),
-    warnings
+    warnings,
+    appliedInsightsKo
   };
 }
 
@@ -1078,7 +1124,7 @@ export async function directSet(
   freeText: string,
   channel: ChannelProfile,
   songCount: number,
-  history: { recentGenreIds: string[]; recentHooks: string[] },
+  history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] },
   settings: ProviderSettings,
   familyIds: string[] = []
 ): Promise<SetPlan> {

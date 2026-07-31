@@ -14,6 +14,7 @@ import { moneyChordPresets } from '../data/moneyChords';
 import { usesVocalQuota } from './vocalPlan';
 import { decomposeArtistReferences, decomposedReferenceDescriptors, isSafeDecomposedReference } from './artistReferenceDecomposer';
 import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
+import { buildSetName } from '../utils/setNaming';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -28,6 +29,47 @@ import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBuck
  */
 
 export const CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME = 'songs-output.json';
+
+/**
+ * TASK v3.69 (TASK B/C) — every bridge output used to be named exactly this,
+ * every time — no history, and a re-run silently overwrote the previous
+ * set's lyrics (see this task's own §0 problem statement). Defaults every
+ * new instruction to a dated, channel/concept-named path under `lyrics/`
+ * instead (utils/setNaming.ts's buildSetName), while
+ * CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME above stays exported unchanged for any
+ * caller that still wants the old flat name (bridgeRecompose.ts's "same
+ * shape as songs-output.json" phrasing doesn't depend on the literal
+ * filename, so it's untouched).
+ */
+export function defaultBridgeOutputPath(opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle'>): string {
+  const conceptLabel = opts.customConcept?.trim() || opts.projectTitle;
+  return `lyrics/${buildSetName({ date: new Date(), channelLabel: opts.channel.name, conceptLabel })}.json`;
+}
+
+/**
+ * TASK v3.69 (TASK D) — an optional top-level "meta" object for the bridge
+ * output JSON. Every value here is already fixed by the app before the
+ * agent ever runs, so the instruction just tells the agent to copy this
+ * verbatim rather than compute anything — bridgeImport.ts reads it back
+ * (when present) to auto-fill setName/channel/generatedAt on import, but a
+ * file with no "meta" at all still imports exactly as before (this task
+ * must not make meta required — see its own prohibitions section).
+ */
+function buildBridgeMeta(
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle' | 'songCount' | 'lyricLanguage'>,
+  outputFilename: string
+) {
+  const setName = outputFilename.replace(/^lyrics\//, '').replace(/\.json$/, '');
+  return {
+    setName,
+    generatedAt: new Date().toISOString(),
+    channelId: opts.channel.id,
+    channelLabel: opts.channel.name,
+    conceptLabel: opts.customConcept?.trim() || opts.projectTitle,
+    songCount: opts.songCount,
+    lyricLanguage: opts.lyricLanguage
+  };
+}
 
 /**
  * TASK v3.64 (TASK C) — real measurement showed a 3rd recurrence of a BPM-
@@ -135,7 +177,8 @@ function buildBridgePayload(
   season: SeasonPack,
   avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
   preassignedSongs: PreassignedSongSlot[],
-  generateThumbnailText: boolean
+  generateThumbnailText: boolean,
+  outputFilename?: string
 ) {
   const batch: BatchContext = {
     trackNoOffset: 0,
@@ -151,7 +194,8 @@ function buildBridgePayload(
     payload: {
       ...basePayload,
       preassignedSongs,
-      outputShape: { songs: [songOutputShape(generateThumbnailText)] }
+      outputShape: { songs: [songOutputShape(generateThumbnailText)] },
+      ...(outputFilename ? { meta: buildBridgeMeta(opts, outputFilename) } : {})
     }
   };
 }
@@ -446,6 +490,24 @@ function groupedBySlotValue(
   return splitTrackGroups([...byValue.entries()], maxSize, labels).join('  ');
 }
 
+/**
+ * TASK v3.67 (TASK A) — one line per track that has a killing point,
+ * conveyed as intent (see data/killingPoints.ts / types.ts's
+ * PreassignedSongSlot.killingPointText field comment): the composer decides
+ * the exact wording, never a phrase to quote. Omitted entirely when no
+ * track in this request has one (e.g. every track this batch owns happens
+ * to be an arc peakStrength 'none' track).
+ */
+function killingPointSection(preassignedSongs: PreassignedSongSlot[]): string[] {
+  const withKillingPoint = preassignedSongs.filter(slot => slot.killingPointText);
+  if (!withKillingPoint.length) return [];
+  return [
+    '',
+    '[Killing points] - each track\'s one designed peak moment, an idea to realize in your own words, never a phrase to quote verbatim. A track not listed here has no designed peak moment — keep it comfortably at its usual level throughout, do not invent one.',
+    ...withKillingPoint.map(slot => `  Track ${slot.trackNo} (${slot.killingPointPlacement}): ${slot.killingPointText}`)
+  ];
+}
+
 export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
   if (!preassignedSongs.length) return '';
   const densityLabels: Record<string, string> = { sparse: 'sparse', medium: 'medium', full: 'full', auto: 'auto' };
@@ -462,7 +524,8 @@ export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot
     `introTexture ${groupedBySlotValue(preassignedSongs, slot => slot.introTextureId, 4)}`,
     `hookDevice ${groupedBySlotValue(preassignedSongs, slot => slot.hookDeviceId, 4)}`,
     `arrangementDensity ${groupedBySlotValue(preassignedSongs, slot => slot.arrangementDensity, 5, densityLabels)}`,
-    'Tracks in the same group may share a similar approach; tracks in different groups must feel clearly different. Choose the concrete musical wording yourself.'
+    'Tracks in the same group may share a similar approach; tracks in different groups must feel clearly different. Choose the concrete musical wording yourself.',
+    ...killingPointSection(preassignedSongs)
   ].join('\n');
 }
 
@@ -573,8 +636,8 @@ export function buildClaudeCodeInstruction(
   generateThumbnailText = false,
   instructionOptions: ClaudeCodeInstructionOptions = {}
 ): string {
-  const outputFilename = instructionOptions.outputFilename ?? CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME;
-  const { batch, payload } = buildBridgePayload(opts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText);
+  const outputFilename = instructionOptions.outputFilename ?? defaultBridgeOutputPath(opts);
+  const { batch, payload } = buildBridgePayload(opts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, outputFilename);
   const bridgeRulesBatch: BatchContext = { ...batch, preassignedSongs: [] };
   const rules = buildSystemInstruction(opts, bridgeRulesBatch, undefined, generateThumbnailText);
 
@@ -661,7 +724,10 @@ export function buildClaudeCodeInstruction(
     '',
     'Output requirement:',
     `- Write a new file named "${outputFilename}" in the current directory.`,
+    `- If the "lyrics" folder doesn't exist yet, create it first.`,
+    `- Never overwrite an existing file. If "${outputFilename}" already exists, append "_02" (then "_03", etc.) before the .json extension and write there instead.`,
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
+    '- Optional (recommended): also add a top-level "meta" field alongside "songs" — { "meta": { ... }, "songs": [ ... ] } — copying "meta" from the request payload above verbatim. Do not invent or recompute any of its values yourself.',
     titleInstructionLine,
     // TASK v3.30 — real Codex-bridge output showed 20/20 titles and 19/20
     // hookPhrases copied verbatim from "alreadyUsedTitles"/"alreadyUsedHooks"
@@ -765,7 +831,12 @@ export function buildMultiSetClaudeCodeInstructions(
     const avoid = { usedTitles, usedHooks };
     const preassignedSongs = preallocateSongSlots(setOpts, genres, avoid);
     const conceptLine = buildSetConceptLine(setOpts.channel, season.label, index, setCount);
-    const outputFilename = `songs-output-set${String(index + 1).padStart(2, '0')}.json`;
+    // TASK v3.69 (TASK B) — "lyrics/<setName>_setNN.json", not
+    // buildSetName's own collision-suffix scheme (bare "_02") — a multi-set
+    // run's set index is a different concept (this is set N of M in one
+    // run) from two unrelated same-day sets colliding on the same name.
+    const setConceptLabel = setOpts.customConcept?.trim() || setOpts.projectTitle;
+    const outputFilename = `lyrics/${buildSetName({ date: new Date(), channelLabel: setOpts.channel.name, conceptLabel: setConceptLabel })}_set${String(index + 1).padStart(2, '0')}.json`;
     const setPlanningTable = buildSetPlanningTable([{
       setIndex: index,
       setCount,
@@ -834,7 +905,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     outputFilename: item.outputFilename
   })));
   const sets = setInstructions.map(item => {
-    const { payload } = buildBridgePayload(item.setOpts, genres, moods, season, item.avoid, item.preassignedSongs, generateThumbnailText);
+    const { payload } = buildBridgePayload(item.setOpts, genres, moods, season, item.avoid, item.preassignedSongs, generateThumbnailText, item.outputFilename);
     return {
       setNo: item.setIndex + 1,
       setTotal: setCount,
@@ -885,8 +956,11 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '',
     'Output requirement for every set:',
     '- Write exactly one raw JSON file per set, named by that set\'s "outputFilename".',
+    '- If the "lyrics" folder doesn\'t exist yet, create it first.',
+    '- Never overwrite an existing file. If a set\'s "outputFilename" already exists, append "_02" (then "_03", etc.) before the .json extension and write there instead.',
     '- Each file content must be exactly { "songs": [ ... ] }, with no markdown fences and no surrounding prose inside the file.',
     `- Each set file must contain exactly ${songsPerSet} song objects matching requestPayload.outputShape.songs[0].`,
+    '- Optional (recommended): also add a top-level "meta" field alongside "songs" in each set file — { "meta": { ... }, "songs": [ ... ] } — copying that set\'s "requestPayload.meta" verbatim. Do not invent or recompute any of its values yourself.',
     titleInstructionLine,
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     moneyChordInstructionLineFor(allSlots),

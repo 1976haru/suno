@@ -77,6 +77,27 @@ export interface AudienceProfile {
   tempoFloor: number;
   tempoCeiling: number;
   lyricWordRange: [number, number];
+  /**
+   * v3.67 (TASK B) — the subset of `exclusions` a track's own killing point
+   * (see data/killingPoints.ts) may relax, once per song, only at that
+   * song's own killing-point location — never pack-wide, and never for a
+   * song with no killing point (arc peakStrength 'none', see
+   * core/arcPlan.ts). A memorable reference song's most striking moment —
+   * a harmony swell, a final-chorus key change — is exactly the kind of
+   * thing a flat, always-on exclusion list bans everywhere; this lets
+   * "comfortable" mean "comfortable by default", not "never varies at all".
+   * Empty for profiles with no killing-point concept (general/kids).
+   */
+  relaxableAtPeak: string[];
+  /**
+   * v3.67 (TASK B) — never relaxed regardless of any killing point (belted
+   * vocals, distorted/aggressive percussion, sub bass, harsh top end,
+   * excessive reverb, dense syncopated phrasing — see this task's own
+   * "하드 익스클루전을 완화하지 말 것"). For a profile with no
+   * relaxableAtPeak split, this should equal `exclusions` verbatim so
+   * nothing becomes relaxable merely by omission.
+   */
+  hardExclusions: string[];
 }
 
 export interface GenreLyricFlavorImage {
@@ -297,6 +318,26 @@ export interface GenerationOptions {
    * creative title by stripping any existing display prefix.
    */
   setNumberPrefix?: boolean;
+  /**
+   * v3.68 (TASK E) — 'strong'-confidence rating insights (core/ratingAnalysis.ts's
+   * analyzeRatings) the user has chosen to apply to this generation. Only
+   * ever computed/attached by the UI (Step2Plan.tsx's "지난 평가 반영"
+   * toggle) — undefined (the default) means no influence at all, which is
+   * exactly what turning that toggle off restores. Structurally mirrors
+   * AttributeInsight rather than importing it, keeping this foundational
+   * file free of any core/ dependency (see its own zero-import convention).
+   */
+  ratingInsights?: {
+    attribute: string;
+    value: string;
+    labelKo: string;
+    good: number;
+    ok: number;
+    bad: number;
+    sampleSize: number;
+    lift: number;
+    confidence: 'insufficient' | 'weak' | 'moderate' | 'strong';
+  }[];
 }
 
 export interface YoutubeMetadata {
@@ -405,6 +446,34 @@ export interface SongIdea {
   aiAssisted?: boolean;
   /** v3.48: factual line-edit contribution record produced by the lyric workspace. */
   humanContribution?: HumanContributionRecord;
+  /**
+   * v3.68 (TASK A) — assigned once at generation time (local generation or
+   * bridge import), never reused across sets the way trackNo is. This is
+   * the only thing that lets a rating (core/ratingLedger.ts) survive past
+   * the set it was made in — trackNo alone can't, since it resets to 1 in
+   * every new pack. Optional so existing saved packs (generated before this
+   * task) load fine; core/library.ts backfills it on load for any pack that
+   * doesn't have one yet (see migratePackSongIds).
+   */
+  songId?: string;
+  /** v3.68 (TASK B) — this track's own lead genre's broad era bucket (see data/genreLibrary's GenrePack.eraTag), snapshotted at rating time since genreId alone loses era context once a pack is deleted. */
+  eraTag?: string;
+  /** v3.68 (TASK B) — this track's killing point id (see data/killingPoints.ts), when the arc gave it one (peakStrength other than 'none' — see core/arcPlan.ts). */
+  killingPointId?: string;
+  /** v3.68 (TASK B) — this track's arc phase (see core/arcPlan.ts). */
+  arcPhase?: string;
+  /** v3.68 (TASK B) — this track's arc intensity, 1-5 (see core/arcPlan.ts). */
+  intensity?: number;
+  /** v3.68 (TASK B) — resolved BPM actually planned for this track. The stylePrompt already carries this as text ("96 BPM"); this is the same number as a queryable field, since rating analysis needs to bucket by tempo without re-parsing prose. */
+  bpm?: number;
+  /** v3.68 (TASK B) — this track's lyric section-order template id, snapshotted for rating analysis (PreassignedSongSlot already carried this; SongIdea didn't until now). */
+  structureTemplate?: 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
+  /** v3.68 (TASK B) — this track's resolved money-chord preset id, when the per-song quota plan (core/moneyChordPlan.ts) assigned one. */
+  moneyChordId?: string;
+  /** v3.68 (TASK B) — this track's rotating earworm melodic-design phrase, when earwormMode was on (see core/promptComposer.ts's EARWORM_STYLE_VARIANTS). */
+  earwormText?: string;
+  /** v3.68 (TASK B) — which lyric scene frame this track's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId; PreassignedSongSlot already carried this — see v3.64 TASK A — SongIdea didn't until now), snapshotted for rating analysis. */
+  lyricFrameId?: string;
 }
 
 export interface PlaylistBlueprint {
@@ -428,6 +497,18 @@ export interface PlaylistBlueprint {
    * existing saved packs never retroactively show a preview banner.
    */
   isLocalPreview?: boolean;
+  /**
+   * v3.69 (TASK B) — ISO timestamp captured once, at generation time (never
+   * recomputed later), so every set-level export (Claude Code bridge output
+   * path, standalone Suno Progress Mode file, SRT zip) can name itself after
+   * when the set was actually generated rather than whenever it happens to
+   * be exported/imported — see utils/setNaming.ts's buildSetName, whose
+   * whole point is a stable name that doesn't drift with later actions.
+   * Optional so blueprints from before this field existed (and any
+   * construction site this task didn't reach) degrade gracefully to "now"
+   * at the point of use, never a hard requirement.
+   */
+  generatedAt?: string;
 }
 
 export interface SoundSignature {
@@ -624,6 +705,27 @@ export interface PreassignedSongSlot {
   moneyChordId?: string;
   hookDeviceId?: string;
   introTextureId?: string;
+  /**
+   * v3.67 (TASK A) — this trackNo's one designed peak moment (see
+   * data/killingPoints.ts), a single short style-prompt atom. Undefined for
+   * a track with no killing point (arc peakStrength 'none' — see
+   * core/arcPlan.ts, roughly 4 of 18 tracks by design). Unlike
+   * moneyChordText/hookDeviceText, this is never force-injected into
+   * stylePrompt verbatim (see core/batchPreallocation.ts's
+   * reconcileWithPreassignedSlot, which does not enforce this field) — it's
+   * conveyed as intent, the composer chooses its own exact wording.
+   */
+  killingPointText?: string;
+  /** v3.67 (TASK A) — where in the song killingPointText's moment lands. */
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro';
+  /** v3.68 (TASK B) — this trackNo's killing point id (data/killingPoints.ts KillingPoint.id), snapshotted for rating analysis alongside killingPointText/killingPointPlacement above. */
+  killingPointId?: string;
+  /** v3.68 (TASK B) — this trackNo's own lead genre's broad era bucket (see data/genreLibrary's GenrePack.eraTag), for rating analysis. */
+  eraTag?: string;
+  /** v3.68 (TASK B) — this trackNo's arc phase (see core/arcPlan.ts), for rating analysis. */
+  arcPhase?: string;
+  /** v3.68 (TASK B) — this trackNo's arc intensity, 1-5 (see core/arcPlan.ts), for rating analysis. */
+  intensity?: number;
 }
 
 export interface BatchContext {

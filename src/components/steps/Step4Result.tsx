@@ -8,6 +8,7 @@ import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
+import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
 import { buildSongTxt, copyText, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
@@ -18,6 +19,7 @@ import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { scoreComposition } from '../../core/compositionScorer';
 import { buildRecomposeInstruction } from '../../core/claudeCodeBridge';
 import { recentUsedTitlesAndHooks } from '../../core/hookLedger';
+import { getRatingForSong } from '../../core/ratingLedger';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
@@ -170,6 +172,28 @@ export default function Step4Result({
     setRefineSelection([]);
   }
 
+  /**
+   * TASK v3.69 (TASK A) — "독립 실행 수노모드": a standalone, offline HTML
+   * file with the same 1/2/3/4 copy workflow as SunoProgressMode below, so
+   * the user can work through a pack's 18 songs without keeping this app
+   * open (and can freely restart/rebuild it mid-pack — see this task's own
+   * §0 problem statement).
+   */
+  function handleExportStandaloneProgress() {
+    if (!blueprint) return;
+    const meta = {
+      packId,
+      channelId: opts.channel.id,
+      channelLabel: blueprint.channelName,
+      conceptLabel: blueprint.oneLineConcept || blueprint.projectTitle,
+      generatedAt: blueprint.generatedAt || new Date().toISOString(),
+      personaMode,
+      promptCharLimit
+    };
+    const html = buildStandaloneProgressHtml(blueprint.songs, meta);
+    downloadBlob(standaloneProgressFileName(meta), new Blob([html], { type: 'text/html;charset=utf-8' }));
+  }
+
   async function handleWordExport() {
     if (!blueprint) return;
     const blob = await exportDocxBlob({ blueprint, thumbnailSpec: thumbnailSpec ?? undefined, soundSignature: soundSignature ?? undefined, personaMode });
@@ -186,6 +210,19 @@ export default function Step4Result({
   }
 
   const packId = blueprint ? `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}` : '';
+
+  // TASK v3.68 (TASK C) — set-wide "N/전체 평가됨" progress, so a user who
+  // skips SunoProgressMode and rates from the plain song list here still
+  // sees how much of the pack is covered.
+  const [ratedCount, setRatedCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    if (!blueprint) { setRatedCount(0); return; }
+    Promise.all(blueprint.songs.map(song => (song.songId ? getRatingForSong(song.songId) : Promise.resolve(null))))
+      .then(records => { if (!cancelled) setRatedCount(records.filter(Boolean).length); })
+      .catch(() => { if (!cancelled) setRatedCount(0); });
+    return () => { cancelled = true; };
+  }, [blueprint]);
 
   // TASK v3.42 Part D — in-pack pairwise style-prompt similarity, the
   // regression guard for the real 90.3%-average/100%-max measured bug (see
@@ -337,6 +374,10 @@ export default function Step4Result({
               <Headphones size={16} />
               🎧 수노 진행 모드
             </button>
+            <button type="button" onClick={handleExportStandaloneProgress}>
+              <Download size={16} />
+              [독립 파일로 내보내기]
+            </button>
           </div>
         </div>
       )}
@@ -349,6 +390,7 @@ export default function Step4Result({
         <SunoProgressMode
           songs={blueprint.songs}
           packId={packId}
+          channelId={opts.channel.id}
           personaMode={personaMode}
           promptCharLimit={promptCharLimit}
           onClose={() => setProgressModeOpen(false)}
@@ -434,6 +476,10 @@ export default function Step4Result({
             refineWarnings={refineWarnings}
           />
         </>
+      )}
+
+      {resultTab === 'songs' && blueprint && (
+        <p className="supporting">🎧 청취 평가 {ratedCount}/{blueprint.songs.length}곡 평가됨 — 각 곡 카드에서 👍/🤷/👎로 평가할 수 있어요 (선택 사항).</p>
       )}
 
       {resultTab === 'songs' && blueprint && !evaluationAvailable && (
@@ -551,6 +597,8 @@ export default function Step4Result({
             onRegenerateLyricLine={onRegenerateLyricLine}
             onUpdatePronunciationHints={onUpdatePronunciationHints}
             albumAuditBlocked={albumAuditBlocked}
+            channelId={opts.channel.id}
+            packId={packId}
           />
         )
       ))}

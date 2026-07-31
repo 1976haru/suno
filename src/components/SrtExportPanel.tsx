@@ -17,8 +17,9 @@ import {
   translateSongLyricsBatch,
   type LyricTranslationResult
 } from '../core/lyricsTranslation';
-import { buildZip, safeFileName } from '../utils/zipExporter';
+import { buildZip } from '../utils/zipExporter';
 import { downloadBlob, downloadText } from '../utils/exporters';
+import { buildSetName } from '../utils/setNaming';
 import type { PlaylistBlueprint, ProviderSettings, SongIdea } from '../types';
 
 interface SrtExportPanelProps {
@@ -117,7 +118,14 @@ export default function SrtExportPanel({ blueprint, textModelSettings, onUpdateL
 
   function handleBulkZipExport() {
     const files: { name: string; content: string }[] = [];
-    const setName = safeFileName(blueprint.projectTitle || 'suno-pack');
+    // TASK v3.69 (TASK B) — one shared filename scheme (utils/setNaming.ts)
+    // instead of this panel's own projectTitle-only name, so an SRT zip can
+    // be traced back to the same set as its lyrics file/standalone export.
+    const setName = buildSetName({
+      date: blueprint.generatedAt ? new Date(blueprint.generatedAt) : new Date(),
+      channelLabel: blueprint.channelName,
+      conceptLabel: blueprint.oneLineConcept || blueprint.projectTitle
+    });
     for (const song of songs) {
       for (const mode of selectedModes) {
         if (mode !== 'en' && !hasTranslation(song, mode)) continue;
@@ -130,7 +138,7 @@ export default function SrtExportPanel({ blueprint, textModelSettings, onUpdateL
       }
     }
     if (!files.length) return;
-    downloadBlob(`${setName}-srt.zip`, buildZip(files));
+    downloadBlob(`${setName}_srt.zip`, buildZip(files));
   }
 
   const readyCount = songs.filter(song => parseDurationToSeconds(durations[song.trackNo] || '')).length;

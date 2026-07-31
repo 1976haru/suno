@@ -26,8 +26,9 @@ import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
-import { importSongsJson, type ImportSongsReport } from './core/claudeCodeBridge';
+import { importSongsJson, extractBridgeImportMeta, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
+import { parseSetName, sanitizeLabel } from './utils/setNaming';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
@@ -47,6 +48,7 @@ import Step3Generate from './components/steps/Step3Generate';
 import Step4Result, { type ResultTab } from './components/steps/Step4Result';
 import WizardNav from './components/WizardNav';
 import VideoDashboard from './components/VideoDashboard';
+import RatingInsightsPanel from './components/RatingInsightsPanel';
 import ThumbnailImageStudioPanel from './components/ThumbnailImageStudioPanel';
 
 const STEPS: StepDef[] = [
@@ -86,6 +88,7 @@ export default function App() {
   /** TASK H6 (v3.10) — set only when the user asks the concept agent for thumbnail copy; coexists with (never replaces) v3.6's season/emotion/audience A/B/C strategy. */
   const [thumbnailFreeTextHeadlines, setThumbnailFreeTextHeadlines] = useState<{ headline: string; angle: string }[] | null>(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
   const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
   const [hookExhaustionWarning, setHookExhaustionWarning] = useState<ExhaustionStats | null>(null);
@@ -323,19 +326,62 @@ export default function App() {
   }
 
   /**
+   * TASK v3.69 (TASK C) — bridge output files are named
+   * "<date>_<channelLabel>_<concept>[.json]" (utils/setNaming.ts). Matching
+   * that label back to a known channel lets an import target the channel it
+   * was actually generated for, rather than whatever channel the wizard
+   * happens to have selected at the moment of import.
+   */
+  function channelFromFilename(name: string): ChannelProfile | undefined {
+    const parsed = parseSetName(name);
+    if (!parsed) return undefined;
+    return cm.channels.find(channel => sanitizeLabel(channel.name) === parsed.channelLabel);
+  }
+
+  /**
+   * TASK v3.69 (TASK D) — a file's own "meta" block (channelId/channelLabel,
+   * when the bridge agent included it) is a stronger signal than the
+   * filename alone — it survives a user renaming the file and matches by
+   * exact id first. Falls back to the filename-based match above when the
+   * file has no meta block at all (older, pre-TASK-D files), so this never
+   * regresses the TASK C behavior.
+   */
+  function channelFromBridgeFile(name: string, rawText: string): ChannelProfile | undefined {
+    const meta = extractBridgeImportMeta(rawText);
+    if (meta?.channelId) {
+      const byId = cm.channels.find(channel => channel.id === meta.channelId);
+      if (byId) return byId;
+    }
+    if (meta?.channelLabel) {
+      const byLabel = cm.channels.find(channel => sanitizeLabel(channel.name) === sanitizeLabel(meta.channelLabel!));
+      if (byLabel) return byLabel;
+    }
+    return channelFromFilename(name);
+  }
+
+  /**
    * TASK v3.24 — the Claude Code bridge's "곡 JSON 가져오기" path: an imported
    * blueprint goes through the exact same success handler (autosave,
    * hookLedger registration, library refresh) the realtime and Batch API
    * paths already share above, so a song's origin never changes what
    * happens to it once it's in the app.
    */
-  async function onImportSongsJson(file: File): Promise<ImportSongsReport> {
+  async function onImportSongsJson(file: File, focusTab: ResultTab = 'songs'): Promise<ImportSongsReport> {
     if (!hasSelectedChannel || !hasSelectedSeason) {
       return makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON);
     }
     const text = await file.text();
-    const importOpts = { ...opts, channel: cm.selectedChannel };
-    const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+    // TASK v3.69 (TASK C/D) — the file (its meta block, or failing that its
+    // name) carries a channel label, so a matching import no longer depends
+    // on whichever channel happens to be selected right now — it switches to
+    // (and imports under) the channel the file was actually generated for.
+    const matchedChannel = channelFromBridgeFile(file.name, text);
+    if (matchedChannel && matchedChannel.id !== cm.selectedChannel.id) {
+      cm.selectChannel(matchedChannel.id);
+    }
+    const importChannel = matchedChannel ?? cm.selectedChannel;
+    const importOpts = { ...opts, channel: importChannel };
+    const avoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
     const preassignedSongs = preallocateSongSlots(importOpts, fallbackGenres(), avoid);
     const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
     if (report.blueprint) {
@@ -343,6 +389,14 @@ export default function App() {
       report.blueprint = finalBlueprint;
       evalFlow.setEvaluation(null);
       gen.setBlueprint(finalBlueprint);
+      // TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: picking a
+      // lyrics/*.json file straight from the SRT-focused import (see
+      // onImportSongsJsonForSrt below) lands directly on the SRT tab instead
+      // of the default songs tab, without regenerating anything — this
+      // import already IS the whole pack, nothing to regenerate. Only acts
+      // when a non-default tab is requested, so the normal import path's
+      // tab behavior is unchanged from before this task.
+      if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
       setCurrentStep(5);
       await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
       // TASK v3.62 (TASK 4) — handleGenerationSuccess only records this
@@ -362,6 +416,17 @@ export default function App() {
       }
     }
     return report;
+  }
+
+  /**
+   * TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: picking an
+   * already-generated lyrics/*.json file jumps straight to the SRT tab
+   * instead of regenerating the whole pack — the file already has every
+   * song's lyrics; SRT export only ever needed those plus per-song
+   * durations, never a fresh generation.
+   */
+  function onImportSongsJsonForSrt(file: File): Promise<ImportSongsReport> {
+    return onImportSongsJson(file, 'srt');
   }
 
   /** TASK v3.35 (bridge split) — "songs-output-setNN.json" -> 0-based set index; falls back to upload order for a file that doesn't follow the convention (e.g. renamed by the user). */
@@ -386,9 +451,17 @@ export default function App() {
     if (!hasSelectedChannel || !hasSelectedSeason) {
       return [makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON)];
     }
+    // TASK v3.69 (TASK C/D) — every file in one multi-set batch shares the
+    // same channel, so the first file's meta/name is enough to resolve (and
+    // switch to) the channel the whole run was generated for.
+    const matchedChannel = files[0] ? channelFromBridgeFile(files[0].name, await files[0].text()) : undefined;
+    if (matchedChannel && matchedChannel.id !== cm.selectedChannel.id) {
+      cm.selectChannel(matchedChannel.id);
+    }
+    const importChannel = matchedChannel ?? cm.selectedChannel;
     const reports: ImportSongsReport[] = [];
-    const groupId = `bridge-multiset-${cm.selectedChannel.id}-${Date.now()}`;
-    const baseAvoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+    const groupId = `bridge-multiset-${importChannel.id}-${Date.now()}`;
+    const baseAvoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
     let usedTitles = [...(baseAvoid.usedTitles ?? [])];
     let usedHooks = [...(baseAvoid.usedHooks ?? [])];
 
@@ -399,7 +472,7 @@ export default function App() {
     let lastBlueprint: PlaylistBlueprint | null = null;
 
     for (const { file, setIndex } of ordered) {
-      const setOpts = buildSetOptions({ ...opts, channel: cm.selectedChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
+      const setOpts = buildSetOptions({ ...opts, channel: importChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
       const text = await file.text();
       const currentAvoid = { usedTitles, usedHooks };
       const preassignedSongs = preallocateSongSlots(setOpts, fallbackGenres(), currentAvoid);
@@ -806,6 +879,7 @@ export default function App() {
           onImportAll={file => void library.importAll(file)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenDashboard={() => setDashboardOpen(true)}
+          onOpenInsights={() => setInsightsOpen(true)}
           onOpenThumbnail={() => setThumbnailStandaloneOpen(true)}
           onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(5); }}
         />
@@ -813,6 +887,8 @@ export default function App() {
         <div className="wizard-main">
           {dashboardOpen ? (
             <VideoDashboard channel={cm.selectedChannel} onClose={() => setDashboardOpen(false)} />
+          ) : insightsOpen ? (
+            <RatingInsightsPanel channel={cm.selectedChannel} channels={cm.channels} onClose={() => setInsightsOpen(false)} />
           ) : thumbnailStandaloneOpen ? (
             <ThumbnailImageStudioPanel
               spec={standaloneThumbnailSpec}
@@ -892,6 +968,7 @@ export default function App() {
               onRetryFailedBatchJob={onRetryFailedBatchJob}
               onRegenerateMissingBatchTracks={() => void onRegenerateMissingBatchTracks()}
               onImportSongsJson={onImportSongsJson}
+              onImportSongsJsonForSrt={onImportSongsJsonForSrt}
               onImportMultiSetSongsJson={onImportMultiSetSongsJson}
               hasSelectedChannel={hasSelectedChannel}
               hasSelectedSeason={hasSelectedSeason}

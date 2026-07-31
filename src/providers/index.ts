@@ -145,7 +145,9 @@ export async function generateChunkWithSplitRetry(
         vocalSignature: result.vocalSignature,
         lyricRules: result.lyricRules,
         harmonyRules: result.harmonyRules,
-        visualRules: result.visualRules
+        visualRules: result.visualRules,
+        // TASK v3.69 (TASK B) — realtime generation genuinely happens now.
+        generatedAt: new Date().toISOString()
       };
       identity.locked = extractIdentity(result);
     }

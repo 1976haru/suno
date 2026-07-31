@@ -4,6 +4,7 @@ import type { SongEvaluation, SongIdea } from '../types';
 import { buildSongTxt, copyText, downloadText, extractChorusText, isShortsClipCandidate } from '../utils/exporters';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
+import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
 
 type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
 
@@ -42,7 +43,13 @@ interface SongCardProps {
   onUpdatePronunciationHints?: (trackNo: number, text: string) => void;
   /** TASK v3.58 (TASK 6) — true when core/albumAudit.ts's auditAlbum() found a pack-wide blocking failure (duplicate title/hook, artist-name leak, over-limit prompt, etc.); disables the Style Prompt copy button the same way isOverPromptLimit already does, until the pack is fixed or regenerated. */
   albumAuditBlocked?: boolean;
+  /** TASK v3.68 (TASK C) — needed to snapshot/scope this song's rating (see core/ratingLedger.ts's attributesFromSong). Optional so existing callers/tests without a channel in scope keep working — the rating row simply doesn't render without it. */
+  channelId?: string;
+  /** TASK v3.68 (TASK C) — same packId string Step4Result/SunoProgressMode already compute, carried onto the rating record for reference. */
+  packId?: string;
 }
+
+const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
 
 const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   pass: '통과',
@@ -50,9 +57,33 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false, channelId, packId }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
+  // TASK v3.68 (TASK C) — this song's own rating, loaded once per song
+  // (see core/ratingLedger.ts). undefined until loaded/rated — never
+  // forced, and re-rating simply overwrites (recordRating puts by songId).
+  const [rating, setRating] = useState<SongRating | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    if (!song.songId) return;
+    getRatingForSong(song.songId)
+      .then(record => { if (!cancelled) setRating(record?.rating); })
+      .catch(() => { if (!cancelled) setRating(undefined); });
+    return () => { cancelled = true; };
+  }, [song.songId]);
+
+  async function rate(next: SongRating) {
+    if (!song.songId || !channelId) return;
+    await recordRating({
+      songId: song.songId,
+      packId: packId ?? '',
+      rating: next,
+      ratedAt: new Date().toISOString(),
+      attributes: attributesFromSong(song, channelId)
+    });
+    setRating(next);
+  }
   const [styleDraft, setStyleDraft] = useState(song.stylePrompt);
   const [lyricsDraft, setLyricsDraft] = useState(song.lyrics);
   const [pronunciationDraft, setPronunciationDraft] = useState(song.japanesePronunciationHints || '');
@@ -104,6 +135,15 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>
+
+      {channelId && song.songId && (
+        <div className="button-row song-rating-row">
+          <button type="button" className={rating === 'good' ? 'chip active' : 'chip'} onClick={() => void rate('good')}>👍 좋음</button>
+          <button type="button" className={rating === 'ok' ? 'chip active' : 'chip'} onClick={() => void rate('ok')}>🤷 보통</button>
+          <button type="button" className={rating === 'bad' ? 'chip active' : 'chip'} onClick={() => void rate('bad')}>👎 별로</button>
+          {rating && <span className="supporting">{RATING_LABELS_KO[rating]}으로 평가됨</span>}
+        </div>
+      )}
 
       {evaluation && (
         <div className="warning">
