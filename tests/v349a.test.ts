@@ -138,7 +138,9 @@ describe('[v3.49A] genre rotation, negatives, bridge repair, and reference mood'
         { axis: 'genre', mode: 'manual', counts: { 'alt-rnb': 2, 'chill-rap': 1 } }
       ]
     }, genresByIds(channel.preferredGenres));
-    expect(manual.slice(0, 3).map(slot => slot.genreId)).toEqual(['alt-rnb', 'alt-rnb', 'chill-rap']);
+    expect(manual.slice(0, 3).map(slot => slot.genreId)).toEqual(['alt-rnb', 'chill-rap', 'alt-rnb']);
+    expect(adjacentRepeatCount(manual.map(slot => slot.genreId))).toBe(0);
+    expect(manual).toHaveLength(5);
   });
 
   it('exposes genreText through the bridge and repairs imports that omit it', () => {

@@ -42,6 +42,7 @@ import Sidebar from './components/Sidebar';
 import StepIndicator, { type StepDef } from './components/StepIndicator';
 import Step1Channel from './components/steps/Step1Channel';
 import Step2Concept from './components/steps/Step2Concept';
+import Step2Plan from './components/steps/Step2Plan';
 import Step3Generate from './components/steps/Step3Generate';
 import Step4Result, { type ResultTab } from './components/steps/Step4Result';
 import WizardNav from './components/WizardNav';
@@ -49,10 +50,11 @@ import VideoDashboard from './components/VideoDashboard';
 import ThumbnailImageStudioPanel from './components/ThumbnailImageStudioPanel';
 
 const STEPS: StepDef[] = [
-  { id: 1, label: '① 채널' },
-  { id: 2, label: '② 컨셉' },
-  { id: 3, label: '③ 생성' },
-  { id: 4, label: '④ 결과' }
+  { id: 1, label: '채널' },
+  { id: 2, label: '컨셉' },
+  { id: 3, label: '설계안' },
+  { id: 4, label: '생성' },
+  { id: 5, label: '결과' }
 ];
 
 /**
@@ -152,7 +154,7 @@ export default function App() {
     evalFlow.setEvaluation(pack.evaluation || null);
     const channel = cm.channels.find(item => item.id === pack.options.channel.id);
     if (channel) cm.setSelectedChannelId(channel.id);
-    setCurrentStep(4);
+    setCurrentStep(5);
   });
 
   const [opts, setOpts] = useState(() => createInitialOptions(cm.selectedChannel));
@@ -300,7 +302,7 @@ export default function App() {
     evalFlow.setEvaluation(null);
     setThumbnailVariant(0);
     setSelectedThumbnailVariant('A');
-    setCurrentStep(4);
+    setCurrentStep(5);
     const generationProvider = isHybridActive ? { ...provider, provider: 'local' as const } : provider;
     void gen.generate(
       { ...opts, channel: cm.selectedChannel },
@@ -316,7 +318,7 @@ export default function App() {
     const finalBlueprint = finalizeSinglePackBlueprint(next, batchOpts);
     evalFlow.setEvaluation(null);
     gen.setBlueprint(finalBlueprint);
-    setCurrentStep(4);
+    setCurrentStep(5);
     void handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, batchOpts);
   }
 
@@ -341,7 +343,7 @@ export default function App() {
       report.blueprint = finalBlueprint;
       evalFlow.setEvaluation(null);
       gen.setBlueprint(finalBlueprint);
-      setCurrentStep(4);
+      setCurrentStep(5);
       await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
       // TASK v3.62 (TASK 4) — handleGenerationSuccess only records this
       // pack's hooks under the ephemeral AUTOSAVE_ID slot, which the very
@@ -419,7 +421,7 @@ export default function App() {
     if (lastBlueprint) {
       evalFlow.setEvaluation(null);
       gen.setBlueprint(lastBlueprint);
-      setCurrentStep(4);
+      setCurrentStep(5);
     }
     return reports;
   }
@@ -505,7 +507,7 @@ export default function App() {
       setMultiSetWarnings(prev => [...prev, ...result.warnings.map(warning => `Set ${result.index + 1}: ${warning}`)]);
     }
     gen.setBlueprint(result.blueprint);
-    setCurrentStep(4);
+    setCurrentStep(5);
   }
 
   async function proceedWithGeneration() {
@@ -607,7 +609,7 @@ export default function App() {
       evalFlow.setEvaluation(null);
       const finalBlueprint = finalizeSinglePackBlueprint(cached.blueprint);
       gen.setBlueprint(finalBlueprint);
-      setCurrentStep(4);
+      setCurrentStep(5);
       try {
         await recordUsage({ provider: provider.provider, model: provider.model || provider.provider, purpose: 'generate', inputTokens: 0, outputTokens: 0, cacheHit: true });
       } catch {
@@ -762,8 +764,8 @@ export default function App() {
   }
 
   const step2Blocked = opts.moodIds.length === 0;
-  const step3Blocked = !gen.blueprint;
-  const maxUnlocked = gen.blueprint ? 4 : step2Blocked ? 2 : 3;
+  const resultStepBlocked = !gen.blueprint;
+  const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
 
   return (
     <main className="app-shell">
@@ -805,7 +807,7 @@ export default function App() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenDashboard={() => setDashboardOpen(true)}
           onOpenThumbnail={() => setThumbnailStandaloneOpen(true)}
-          onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(4); }}
+          onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(5); }}
         />
 
         <div className="wizard-main">
@@ -861,6 +863,13 @@ export default function App() {
           )}
 
           {currentStep === 3 && (
+            <Step2Plan
+              opts={opts}
+              setOpts={setOpts}
+            />
+          )}
+
+          {currentStep === 4 && (
             <Step3Generate
               opts={opts}
               setOpts={setOpts}
@@ -912,7 +921,7 @@ export default function App() {
             />
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <Step4Result
               blueprint={gen.blueprint}
               isGenerating={gen.isGenerating}
@@ -968,9 +977,10 @@ export default function App() {
           <WizardNav
             currentStep={currentStep}
             onPrev={() => setCurrentStep(step => Math.max(1, step - 1))}
-            onNext={() => setCurrentStep(step => Math.min(4, step + 1))}
-            nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 3 && step3Blocked)}
-            blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 3 ? '먼저 곡을 생성하세요.' : ''}
+            onNext={() => setCurrentStep(step => Math.min(5, step + 1))}
+            nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 4 && resultStepBlocked)}
+            blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
+            maxStep={5}
           />
             </>
           )}

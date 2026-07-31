@@ -1,5 +1,6 @@
 import type { ChannelArchetype, GenreLyricFlavorImage, GenrePack } from '../../types';
 import type { GenreTier } from './types';
+import { ERA_BUCKET_BY_GENRE_ID } from '../eraExclusions';
 
 /**
  * TASK H2 (v3.13) — 3-5 short, genre-authentic images per core-tier genre id,
@@ -114,6 +115,23 @@ export interface StructuredGenrePack extends GenrePack {
   productionGuidance: string;
   source: 'legacy-preset' | 'notion-analysis';
 }
+
+const GENRE_ERA_TAG_OVERRIDES: Record<string, string> = {
+  'adult-contemporary': '1980s-present adult contemporary',
+  'acoustic-pop': 'timeless acoustic pop',
+  'jazz-pop': 'mid-century-to-modern jazz pop',
+  'healing-ballad': 'timeless pop ballad',
+  'piano-ballad': '1970s-present piano pop ballad',
+  'lofi-cafe': 'modern lo-fi cafe pop',
+  'retro-soul-pop': '1960s-70s soul pop',
+  'bossa-cafe': '1960s-present bossa cafe pop',
+  'christmas-soft-pop': 'timeless seasonal soft pop',
+  'folk-pop': '1960s-present folk pop',
+  chanson: 'mid-century French chanson',
+  'smooth-jazz-lounge': '1980s-present smooth jazz lounge',
+  'showa-modern': 'late-1970s to 1980s Showa cafe pop',
+  'city-pop-soft': 'late-1970s to 1980s city pop'
+};
 
 interface GenreVariantSeed {
   slug: string;
@@ -286,6 +304,69 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
   'city-pop-night'
 ] as const;
 
+/**
+ * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
+ * found almost none of the 320-genre library reachable, because every
+ * archetype's core-genre list (this Record) is what getVisibleGenresFor
+ * Archetype actually filters against — a genre existing in genreLibrary
+ * means nothing to a channel whose archetype doesn't list it here. Only
+ * 'senior-morning' had ever been given the 28 oldpop-* ids (v3.61 TASK B);
+ * a channel built with any other archetype (including no explicit pick,
+ * which defaults through Step1Channel's card grid) saw zero of them.
+ *
+ * This list is 60s-80s Western old-pop broadened past the pure oldpop-*
+ * family: the 5 general pop/chanson genres, the senior-appropriate slice of
+ * the (much larger, mostly 2020s-production) rnb category, and the vocal/
+ * standards/bossa/lounge slice of the jazz category — deliberately
+ * excluding trap-soul/alt-R&B/bedroom-pop/city-night/bebop/fusion/acid-jazz
+ * flavored ids, which read as modern production choices this channel's
+ * "warm 60s-80s" identity shouldn't blend into. See
+ * getVisibleGenresForArchetype('oldpop-lounge').length >= 60 in
+ * tests/genreLibrary.test.ts.
+ */
+export const OLDPOP_LOUNGE_CORE_GENRE_IDS = [
+  ...SENIOR_MORNING_CORE_GENRE_IDS.filter(id => id.startsWith('oldpop-')),
+  // General 60s-80s-adjacent pop/chanson (genreLibrary's 'pop' category).
+  'adult-contemporary',
+  'acoustic-pop',
+  'folk-pop',
+  'soft-rock',
+  'chanson',
+  // Timeless ballad/jazz-lounge genres already in senior-morning's core tier.
+  'healing-ballad',
+  'piano-ballad',
+  'jazz-pop',
+  'bossa-cafe',
+  'smooth-jazz-lounge',
+  // Senior-appropriate R&B/soul — warm, vocal-led, pre-2020s-production flavored.
+  'retro-soul-pop',
+  'neo-soul',
+  'alt-rnb',
+  'contemporary-rnb',
+  'rnb-old-school-romance-rnb',
+  'rnb-soulful-gospel-warmth',
+  'rnb-gospel-soul-lift',
+  'rnb-quiet-storm-baritone',
+  'rnb-velvet-baritone-rnb',
+  'rnb-silky-studio-rnb',
+  'rnb-soulful-male-rnb',
+  'rnb-soul-infused-female',
+  'rnb-romantic-rnb',
+  'rnb-emotional-female-rnb',
+  'rnb-smooth-clean-rnb',
+  // Vocal jazz / standards / bossa / lounge — not bebop/fusion/acid-jazz/jazz-rap.
+  'jazz-classic-vocal-lounge',
+  'jazz-soft-vocal-trio',
+  'jazz-jazz-ballad-vocal',
+  'jazz-smooth-sax-vocal',
+  'jazz-bossa-vocal-jazz',
+  'jazz-torch-vocal-jazz',
+  'jazz-swing-crooner-ballroom',
+  'jazz-cabaret-jazz',
+  'jazz-hotel-lounge-jazz',
+  'jazz-contemporary-vocal-jazz'
+] as const;
+
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
   'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
@@ -295,7 +376,8 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'showa-70s': SHOWA_70S_CORE_GENRE_IDS,
   j2000s: J2000S_CORE_GENRE_IDS,
   'modern-chill': MODERN_CHILL_CORE_GENRE_IDS,
-  'city-night': CITY_NIGHT_CORE_GENRE_IDS
+  'city-night': CITY_NIGHT_CORE_GENRE_IDS,
+  'oldpop-lounge': OLDPOP_LOUNGE_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -429,8 +511,10 @@ export function genreTierForId(id: string): GenreTier {
 }
 
 export function withGenreVisibility<T extends GenrePack>(genre: T): T & { archetypes: ChannelArchetype[]; tier: GenreTier } {
+  const eraTag = genre.eraTag ?? GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   return {
     ...genre,
+    ...(eraTag ? { eraTag } : {}),
     archetypes: genre.archetypes?.length
       ? genre.archetypes
       : inferArchetypes({
@@ -1378,7 +1462,9 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
 };
 
 export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
-  const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...genre, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : genre;
+  const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
+  const withEra = eraTag ? { ...genre, eraTag } : genre;
+  const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;
   return CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...enriched, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : enriched;
 });
 export const genrePacks: GenrePack[] = genreLibrary;

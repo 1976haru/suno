@@ -28,15 +28,31 @@ import { introTexturesForArchetype } from '../data/introTextures';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   applyAxisAllocation,
+  allocationForAxis,
   ARRANGEMENT_DENSITY_IDS,
   KIDS_STRUCTURE_TEMPLATE_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
-import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
+import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
 
 export type { PreassignedSongSlot };
+
+function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], songCount: number): string[] {
+  const plan = [...manualPlan];
+  const autoPoolSize = new Set(autoPlan).size;
+  let cursor = 0;
+  while (plan.length < songCount && cursor < autoPlan.length * 2) {
+    const candidate = autoPlan[cursor % autoPlan.length];
+    cursor += 1;
+    if (autoPoolSize > 1 && candidate === plan[plan.length - 1]) continue;
+    plan.push(candidate);
+  }
+  return plan.length < songCount
+    ? [...plan, ...autoPlan.slice(0, songCount - plan.length)]
+    : plan;
+}
 
 /**
  * TASK B2 (v3.6) — parallel Anthropic Message Batch requests run with no
@@ -76,7 +92,13 @@ export function preallocateSongSlots(
   const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
-  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
+  const genreAllocation = allocationForAxis(opts.diversityAllocations, 'genre');
+  const manualGenrePlan = genreAllocation?.mode === 'manual'
+    ? buildGenreCountRotationPlan(genreAllocation.counts, genrePool, opts.songCount, seed)
+    : [];
+  const genrePlan = manualGenrePlan.length
+    ? appendGenreAutoRemainder(manualGenrePlan, autoGenrePlan, opts.songCount)
+    : autoGenrePlan;
 
   // TASK v3.33 Part C — mirrors localGenerator.ts's own pre-pass exactly
   // (same roles, same seed) so the realtime/Batch/bridge paths that call
@@ -155,10 +177,12 @@ export function preallocateSongSlots(
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalText = vocalType
-      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
+      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
       : fallbackVocalText;
     const vocalVariantText = vocalType ? vocalText : undefined;
-    const vocalGender: VocalGender | undefined = vocalType ?? fallbackVocalGender;
+    const vocalGender: VocalGender | undefined = vocalType
+      ? (opts.channel.archetype === 'kids' ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
+      : fallbackVocalGender;
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];
     const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;

@@ -7,7 +7,7 @@ import {
   genreCategories,
   getGenreById,
   getVisibleGenresForArchetype,
-  searchHiddenGenresForArchetype
+  searchExtendedGenres
 } from '../../data/genreLibrary';
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
@@ -21,6 +21,7 @@ import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
 import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage';
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import { buildReferenceMoodStyleClause, referenceMoodSafetyIssues } from '../../core/referenceMood';
+import { GENRE_FAMILIES, familiesBlendWell } from '../../data/genreFamilies';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
@@ -193,12 +194,27 @@ export default function Step2Concept({
   const primaryGenre = selectedGenreDetails[0];
   const secondaryGenreIds = opts.genreIds.slice(1);
   const filteredGenres = useMemo(() => {
-    return searchHiddenGenresForArchetype(channelArchetype, genreQuery, genreCategoryId);
-  }, [channelArchetype, genreCategoryId, genreQuery]);
+    return searchExtendedGenres(genreQuery, genreCategoryId);
+  }, [genreCategoryId, genreQuery]);
 
   function rememberGenreForChannel(genreId: string) {
     rememberRecentGenreId(opts.channel.id, genreId);
     setRecentGenreIds(readRecentGenreIds(opts.channel.id));
+  }
+
+  // TASK v3.63 (TASK B-2) — checking a family box doesn't touch opts.genreIds
+  // directly; core/setDirector.ts's directSetLocal reads
+  // opts.selectedGenreFamilyIds on the next (Step2.5) screen and turns it
+  // into an actual genre allocation there. Individual genre chips below
+  // remain a separate, still-fully-available path (spec's own "개별 장르
+  // 직접 고르기" — TASK D's "기존 Step2 상세 설정을 삭제하지 마십시오").
+  const selectedGenreFamilyIds = opts.selectedGenreFamilyIds ?? [];
+  function toggleGenreFamily(familyId: string) {
+    setOpts(prev => {
+      const current = prev.selectedGenreFamilyIds ?? [];
+      const next = current.includes(familyId) ? current.filter(id => id !== familyId) : [...current, familyId];
+      return { ...prev, selectedGenreFamilyIds: next };
+    });
   }
 
   function selectPrimaryGenre(id: string) {
@@ -737,6 +753,38 @@ export default function Step2Concept({
             ))}
           </div>
         )}
+      </div>
+
+      <div className="option-block">
+        <h3>어떤 계열로 만들까요? (복수 선택, 선택 사항)</h3>
+        <p className="supporting">비슷한 장르끼리 묶은 패밀리입니다. 아래에서 고르면 다음 화면(설계안)에서 장르 배분에 바로 반영됩니다.</p>
+        <div className="chips">
+          {GENRE_FAMILIES.map(family => {
+            const active = selectedGenreFamilyIds.includes(family.id);
+            const blendsWithSelected = selectedGenreFamilyIds.some(id => id !== family.id && familiesBlendWell(id, family.id));
+            const warnsAboutBlend = selectedGenreFamilyIds.length > 0 && !active && !blendsWithSelected
+              && !selectedGenreFamilyIds.some(id => familiesBlendWell(id, family.id));
+            return (
+              <button
+                type="button"
+                key={family.id}
+                className={active ? 'chip active' : 'chip'}
+                onClick={() => toggleGenreFamily(family.id)}
+                title={`${family.descriptionKo} — ${family.commonTraitKo}`}
+              >
+                {family.labelKo}
+                {warnsAboutBlend && ' ⚠'}
+              </button>
+            );
+          })}
+        </div>
+        {selectedGenreFamilyIds.length > 0 && (
+          <p className="supporting">
+            선택: {selectedGenreFamilyIds.map(id => GENRE_FAMILIES.find(family => family.id === id)?.labelKo ?? id).join(', ')}
+            {' — '}⚠ 표시는 서로 잘 안 어울릴 수 있다는 참고일 뿐, 선택을 막지는 않습니다.
+          </p>
+        )}
+        <p className="supporting">개별 장르를 직접 고르고 싶다면 아래 "장르" 섹션의 칩을 그대로 사용하세요 — 패밀리 선택과 함께 조정할 수 있습니다.</p>
       </div>
 
       <div className="option-block">

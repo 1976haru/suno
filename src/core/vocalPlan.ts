@@ -1,4 +1,5 @@
 import type { GenerationOptions, LyricLanguage } from '../types';
+import { isManualAllocation } from './diversityAllocation';
 import { shuffle } from './lyricEngine';
 
 /**
@@ -20,8 +21,8 @@ export type VocalGender = 'male' | 'female' | 'mixed' | 'duet';
  * concept), so every other channel's per-song vocal atom is completely
  * unaffected — see localGenerator.ts's wiring.
  */
-export function usesVocalQuota(opts: Pick<GenerationOptions, 'channel'>): boolean {
-  return opts.channel.archetype === 'kids';
+export function usesVocalQuota(opts: Pick<GenerationOptions, 'channel' | 'diversityAllocations'>): boolean {
+  return opts.channel.archetype === 'kids' || isManualAllocation(opts.diversityAllocations, 'vocalType');
 }
 
 export type VocalType = 'male' | 'female' | 'mixed';
@@ -79,6 +80,30 @@ const VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
   ]
 };
 
+const ADULT_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
+  male: [
+    'mature warm male lead vocal, clear close-mic delivery, gentle and sincere',
+    'soft husky male tenor lead, relaxed phrasing, warm adult tone',
+    'rounded male baritone-tenor vocal, intimate diction, calm emotional lift',
+    'clear mature male lead, steady center pitch, conversational warmth',
+    'warm male solo vocal, understated soulfulness, smooth unforced dynamics'
+  ],
+  female: [
+    'mature warm female lead vocal, clear close-mic delivery, gentle and sincere',
+    'soft alto female lead, relaxed phrasing, warm adult tone',
+    'clear female mezzo lead, intimate diction, calm emotional lift',
+    'warm female solo vocal, steady center pitch, conversational tenderness',
+    'mature female lead, smooth unforced dynamics, soft emotional glow'
+  ],
+  mixed: [
+    'male and female duet, alternating verses, close harmony on the chorus, warm blended tone',
+    'mature duet with male and female leads trading lines, gentle chorus harmony',
+    'adult male-female duet, intimate call and answer, soft blended refrain',
+    'warm mixed duet, conversational verse handoff, close harmony hook',
+    'male and female harmony pair, restrained lead trading, sincere blended chorus'
+  ]
+};
+
 /** TASK v3.38 Part B (language follow-up) — "언어별 보컬 묘사도 해당 언어 발음에 맞게 조정 (예: japanese -> clear Japanese diction, bright and friendly)"; appended to every vocal type's base description below. */
 const VOCAL_DICTION_CLAUSE: Record<KidsVocalLanguage, string> = {
   korean: 'clear Korean diction, bright and friendly',
@@ -99,9 +124,11 @@ export function vocalDictionLanguage(language: LyricLanguage): KidsVocalLanguage
  * bounds-checking first. Omitting it keeps the pre-v3.41 default (variant 0)
  * for any caller that doesn't need rotation.
  */
-export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean', variantIndex = 0): string {
-  const variants = VOCAL_DESCRIPTIONS[type];
+export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean', variantIndex = 0, archetype?: GenerationOptions['channel']['archetype']): string {
+  const useAdultDescription = Boolean(archetype && archetype !== 'kids');
+  const variants = useAdultDescription ? ADULT_VOCAL_DESCRIPTIONS[type] : VOCAL_DESCRIPTIONS[type];
   const safeIndex = ((variantIndex % variants.length) + variants.length) % variants.length;
+  if (useAdultDescription) return variants[safeIndex];
   return `${variants[safeIndex]}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
 }
 

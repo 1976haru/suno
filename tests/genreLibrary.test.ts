@@ -6,6 +6,7 @@ import { MAX_SELECTED_GENRES, normalizeGenreSelection, toggleGenreSelection } fr
 import {
   genreLibrary,
   getCoreGenresForArchetype,
+  getGenreById,
   getVisibleGenresForArchetype,
   importedGenreCount,
   searchExtendedGenres,
@@ -218,6 +219,42 @@ describe('structured genre library', () => {
     }
     expect(getCoreGenresForArchetype('showa-cafe').length).toBeLessThanOrEqual(12);
     expect(getVisibleGenresForArchetype('senior-morning').length).toBe(40);
+  });
+
+  it('[v3.63] keeps senior-morning genre access broad and all oldpop core genres era-tagged', () => {
+    const seniorGenres = getVisibleGenresForArchetype('senior-morning');
+    expect(seniorGenres.length).toBeGreaterThanOrEqual(30);
+    const oldpopGenres = seniorGenres.filter(genre => genre.id.startsWith('oldpop-'));
+    expect(oldpopGenres).toHaveLength(28);
+    expect(oldpopGenres.every(genre => Boolean(genre.eraTag))).toBe(true);
+    for (const id of ['adult-contemporary', 'acoustic-pop', 'folk-pop', 'retro-soul-pop', 'chanson', 'smooth-jazz-lounge']) {
+      expect(getGenreById(id)?.eraTag, id).toBeTruthy();
+    }
+  });
+
+  it('[v3.63 TASK A] oldpop-lounge archetype exposes 60+ genres spanning old-pop, chanson, senior R&B, and vocal jazz', () => {
+    const loungeGenres = getVisibleGenresForArchetype('oldpop-lounge');
+    expect(loungeGenres.length).toBeGreaterThanOrEqual(60);
+    const ids = new Set(loungeGenres.map(genre => genre.id));
+    expect([...ids].filter(id => id.startsWith('oldpop-'))).toHaveLength(28);
+    for (const id of ['chanson', 'smooth-jazz-lounge', 'bossa-cafe', 'jazz-pop', 'retro-soul-pop', 'soft-rock', 'adult-contemporary', 'acoustic-pop', 'folk-pop', 'piano-ballad', 'neo-soul', 'alt-rnb', 'contemporary-rnb']) {
+      expect(ids.has(id), id).toBe(true);
+    }
+    // Deliberately excluded — modern-production-flavored, not this channel's identity.
+    for (const excluded of ['trap-soul', 'bedroom-pop', 'city-pop-modern', 'jazz-bebop-sax-drive', 'jazz-electric-fusion', 'jazz-acid-jazz-groove']) {
+      expect(ids.has(excluded), excluded).toBe(false);
+    }
+  });
+
+  it('[v3.63 TASK A] senior-morning\'s own 40-genre exposure is unaffected by adding oldpop-lounge', () => {
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(40);
+  });
+
+  it('[v3.63] exposes the extended catalog through direct search, independent of archetype chips', () => {
+    const extendedResults = searchExtendedGenres('');
+    expect(extendedResults.length).toBeGreaterThanOrEqual(250);
+    expect(extendedResults.some(genre => genre.id === 'jazz-bebop-sax-drive')).toBe(true);
+    expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
   });
 
   it('does not promote Bebop, Big Band, Club Disco, or Jazz Rap variants into any core set', () => {

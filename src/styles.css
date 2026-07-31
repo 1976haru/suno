@@ -973,6 +973,59 @@ textarea {
   font-size: 13px;
 }
 
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.stat-card {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  min-height: 74px;
+  padding: 12px;
+  text-align: left;
+  white-space: normal;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(760px, 92vh);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+}
+
 .genre-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));

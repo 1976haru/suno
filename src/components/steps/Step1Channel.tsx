@@ -42,6 +42,22 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     primaryLanguage: 'english'
   },
   {
+    // TASK v3.63 (TASK A) — senior-morning's 40-genre exposure (v3.61 TASK B)
+    // was never mirrored to any other archetype, so a channel built for
+    // "60s-80s Western old-pop" specifically (as opposed to senior-morning's
+    // broader "warm senior radio" framing) had no card of its own and no
+    // way to reach the oldpop-* family unless it happened to land on
+    // senior-morning. See data/genreLibrary/index.ts's OLDPOP_LOUNGE_CORE_GENRE_IDS.
+    id: 'oldpop-lounge',
+    label: '올드팝 라운지',
+    description: '60~80년대 서구 올드팝. 팝·소울·R&B·샹송·재즈를 폭넓게 조합',
+    vocal: 'warm mid-range vocal, male or female lead, gentle and sincere, close-mic intimacy',
+    moods: ['warm', 'nostalgic', 'elegant'],
+    market: 'global',
+    audience: 'seniors',
+    primaryLanguage: 'english'
+  },
+  {
     id: 'showa-cafe',
     label: '쇼와 찻집',
     description: '차분한 일본 찻집과 절제된 복고 감성',
@@ -181,16 +197,28 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
   }
 
   function applyArchetype(archetypeId: ChannelArchetype) {
+    // Re-clicking the already-active card is a no-op — nothing to confirm, nothing to change.
+    if (archetypeId === archetype) return;
     const defaults = archetypeChoices.find(choice => choice.id === archetypeId) || archetypeChoices[0];
     // TASK v3.39 Part G — previous archetype's own default, looked up before
     // any field is updated below.
     const previousDefaults = archetypeChoices.find(choice => choice.id === archetype);
     const genreIds = getCoreGenreIdsForArchetype(archetypeId).slice(0, 3);
+    // TASK v3.63 (TASK A-3) — switching an existing custom channel's
+    // archetype used to silently overwrite preferredGenres with the new
+    // archetype's default 3 ids. A real user's already-saved custom channel
+    // (e.g. an oldpop-lounge channel they'd already hand-picked genres for)
+    // would lose that selection with no warning. Only ask when there's
+    // something to actually lose — a fresh/never-customized channel just
+    // gets the new defaults the same as before.
+    const hasExistingGenreChoice = isSelectedCustom && editorChannel.preferredGenres.length > 0;
+    const shouldResetGenres = !hasExistingGenreChoice
+      || window.confirm('장르 선택을 새 채널 유형의 기본값으로 바꿀까요? 취소하면 지금 고른 장르를 그대로 유지합니다.');
     onUpdateField('archetype', archetypeId);
     onUpdateField('market', defaults.market);
     onUpdateField('audience', defaults.audience);
     onUpdateField('defaultVocal', defaults.vocal);
-    onUpdateField('preferredGenres', genreIds);
+    if (shouldResetGenres) onUpdateField('preferredGenres', genreIds);
     onUpdateField('preferredMoods', defaults.moods);
     // TASK v3.38 Part B1 — previously never set here, so a quick-template
     // switch to 'kids' left whatever primaryLanguage the channel already

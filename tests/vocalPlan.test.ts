@@ -14,10 +14,14 @@ import {
 // verify this module during development).
 
 describe('usesVocalQuota', () => {
-  it('only activates for the kids channel archetype', () => {
+  it('activates for kids by default, or for an explicit manual vocalType allocation', () => {
     expect(usesVocalQuota({ channel: { archetype: 'kids' } as any })).toBe(true);
     expect(usesVocalQuota({ channel: { archetype: 'senior-morning' } as any })).toBe(false);
     expect(usesVocalQuota({ channel: { archetype: 'showa-cafe' } as any })).toBe(false);
+    expect(usesVocalQuota({
+      channel: { archetype: 'senior-morning' } as any,
+      diversityAllocations: [{ axis: 'vocalType', mode: 'manual', counts: { male: 6, female: 6, mixed: 6 } }]
+    })).toBe(true);
   });
 });
 
@@ -122,5 +126,11 @@ describe('vocalDescriptionFor', () => {
   it('falls back to Korean diction for a language the kids channel does not offer (e.g. bilingual)', () => {
     expect(vocalDictionLanguage('bilingual')).toBe('korean');
     expect(vocalDescriptionFor('male', 'bilingual')).toBe(vocalDescriptionFor('male', 'korean'));
+  });
+
+  it('[v3.63] uses mature adult descriptions when non-kids SetDirector asks for vocalType variation', () => {
+    expect(vocalDescriptionFor('mixed', 'english', 0, 'senior-morning')).toContain('male and female duet');
+    expect(vocalDescriptionFor('mixed', 'english', 0, 'senior-morning')).not.toContain("children's choir");
+    expect(vocalDescriptionFor('male', 'english', 0, 'senior-morning')).toContain('mature warm male');
   });
 });

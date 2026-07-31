@@ -8,7 +8,7 @@ export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepe
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges' | 'general';
 
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night';
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge';
 
 export type DiversityAxisId =
   | 'genre' | 'vocalType' | 'introTexture' | 'hookDevice'
@@ -100,6 +100,8 @@ export interface GenrePack {
   archetypes?: ChannelArchetype[];
   tier?: 'core' | 'extended';
   categoryId?: string;
+  /** Optional broad era bucket used by set planning and era-authenticity guardrails. */
+  eraTag?: string;
   /** TASK H2 (v3.13) — 3-5 short lyric images distinctive to this genre (e.g. jazz-pop: candlelight/brass hush), used for exactly one lyric slot so genre selection is audible in the words, not just the style prompt. Absent for extended-tier genres — composeLyrics falls back to the shared generic filler pool when this is missing, same as before v3.13. */
   lyricFlavorImages?: GenreLyricFlavorImage[];
   aliases?: string[];
@@ -169,6 +171,8 @@ export interface GenerationOptions {
    * keyword-matched style text — never a replacement for it.
    */
   artistReferenceStyleAtoms?: string[];
+  /** v3.63 (TASK B) — GenreFamily ids the user checked in Step2Concept's family picker (see data/genreFamilies.ts). When non-empty, setDirector.ts's directSetLocal uses these to choose the genre axis instead of free-text keyword scoring alone. */
+  selectedGenreFamilyIds?: string[];
   /** v3.49A: optional selected-genre weights for blend/rotation previews. Keys are GenrePack ids, values are 0-100. */
   genreBlendWeights?: Record<string, number>;
   /** Optional user-written concrete lyric scene added to the lyric-theme allocation pool. */
@@ -187,8 +191,8 @@ export interface GenerationOptions {
   /**
    * TASK v3.38 Part B — per-song male/female/mixed vocal distribution for
    * the 'kids' channel archetype (see core/vocalPlan.ts). Only consulted
-   * when the channel archetype is 'kids' (usesVocalQuota); undefined for
-   * every other channel, unchanged from pre-v3.38 behavior. Counts are
+   * when the channel archetype is 'kids' or a manual vocalType diversity
+   * allocation is present (usesVocalQuota); undefined otherwise. Counts are
    * proportions, not a hard songCount-must-equal-sum requirement — scaled
    * to the actual songCount by scaleVocalQuota so the 6/6/6 default still
    * applies its ratio at any song count.

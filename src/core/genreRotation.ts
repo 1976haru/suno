@@ -15,6 +15,39 @@ export function buildGenreRotationPlan(genreIds: readonly string[], songCount: n
   return repairAdjacentRepeats(buildStridePlan(pool, songCount, offset));
 }
 
+export function buildGenreCountRotationPlan(
+  counts: Record<string, number>,
+  allowedOrder: readonly string[],
+  songCount: number,
+  seed: number
+): string[] {
+  if (songCount <= 0) return [];
+  const uniqueOrder = Array.from(new Set(allowedOrder.filter(id => (counts[id] || 0) > 0)));
+  if (!uniqueOrder.length) return [];
+  const offset = Math.abs(seed + 1601) % uniqueOrder.length;
+  const order = [...uniqueOrder.slice(offset), ...uniqueOrder.slice(0, offset)];
+  const orderIndex = new Map(order.map((id, index) => [id, index]));
+  const remaining = new Map(order.map(id => [id, Math.max(0, Math.round(counts[id] || 0))]));
+  const plan: string[] = [];
+  let last = '';
+
+  while (plan.length < songCount) {
+    const available = order.filter(id => (remaining.get(id) || 0) > 0);
+    if (!available.length) break;
+    const candidates = available.filter(id => id !== last);
+    const pool = candidates.length ? candidates : available;
+    const next = pool.slice().sort((a, b) =>
+      (remaining.get(b) || 0) - (remaining.get(a) || 0)
+      || (orderIndex.get(a) || 0) - (orderIndex.get(b) || 0)
+    )[0];
+    plan.push(next);
+    remaining.set(next, (remaining.get(next) || 0) - 1);
+    last = next;
+  }
+
+  return plan;
+}
+
 export function genresForTrack(
   genres: readonly GenrePack[],
   leadGenreId: string | undefined,

@@ -259,6 +259,80 @@ function perTrackPlanTable(preassignedSongs: PreassignedSongSlot[], genres: Genr
   ].join('\n');
 }
 
+function eraLabelForSlot(slot: PreassignedSongSlot, genres: GenrePack[]): string {
+  const genre = genres.find(g => g.id === slot.genreId);
+  if (genre?.eraTag) return genre.eraTag;
+  const bucket = eraBucketForGenreId(slot.genreId);
+  return bucket ? ERA_LABEL[bucket] : '-';
+}
+
+function setPlanTrackTable(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
+  const genreLabel = (genreId: string | undefined) => genres.find(g => g.id === genreId)?.label ?? genreId ?? '-';
+  const rows = preassignedSongs.map(slot => [
+    String(slot.trackNo),
+    markdownCell(genreLabel(slot.genreId)),
+    markdownCell(eraLabelForSlot(slot, genres)),
+    `${slot.tempo} BPM`,
+    markdownCell(slot.vocalType ?? slot.vocalGender ?? slot.vocalText ?? '-'),
+    markdownCell(slot.structureTemplate ?? '-'),
+    markdownCell(slot.songRole)
+  ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'));
+  return [
+    '| Track | Genre | Era | BPM | Vocal | Structure | Role |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...rows
+  ].join('\n');
+}
+
+function groupLetters(index: number): string {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return letters[index] || `G${index + 1}`;
+}
+
+function splitTrackGroups(entries: [string, number[]][], maxSize: number, labels?: Record<string, string>): string[] {
+  const rows: string[] = [];
+  let groupIndex = 0;
+  for (const [id, trackNos] of entries) {
+    for (let cursor = 0; cursor < trackNos.length; cursor += maxSize) {
+      const slice = trackNos.slice(cursor, cursor + maxSize);
+      const prefix = labels?.[id] ? `${labels[id]} ${groupLetters(groupIndex)}` : groupLetters(groupIndex);
+      rows.push(`${prefix}:${slice.join(',')}`);
+      groupIndex += 1;
+    }
+  }
+  return rows;
+}
+
+function groupedBySlotValue(
+  preassignedSongs: PreassignedSongSlot[],
+  valueFor: (slot: PreassignedSongSlot) => string | undefined,
+  maxSize: number,
+  labels?: Record<string, string>
+) {
+  const byValue = new Map<string, number[]>();
+  for (const slot of preassignedSongs) {
+    const value = valueFor(slot) || 'auto';
+    byValue.set(value, [...(byValue.get(value) ?? []), slot.trackNo]);
+  }
+  return splitTrackGroups([...byValue.entries()], maxSize, labels).join('  ');
+}
+
+export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
+  if (!preassignedSongs.length) return '';
+  const densityLabels: Record<string, string> = { sparse: 'sparse', medium: 'medium', full: 'full', auto: 'auto' };
+  return [
+    '[SetPlan handoff]',
+    `[This pack's ${preassignedSongs.length}-track plan]`,
+    setPlanTrackTable(preassignedSongs, genres),
+    '',
+    '[Diversity groups] - constraints, not wording to copy:',
+    `introTexture ${groupedBySlotValue(preassignedSongs, slot => slot.introTextureId, 4)}`,
+    `hookDevice ${groupedBySlotValue(preassignedSongs, slot => slot.hookDeviceId, 4)}`,
+    `arrangementDensity ${groupedBySlotValue(preassignedSongs, slot => slot.arrangementDensity, 5, densityLabels)}`,
+    'Tracks in the same group may share a similar approach; tracks in different groups must feel clearly different. Choose the concrete musical wording yourself.'
+  ].join('\n');
+}
+
 /**
  * TASK v3.62 (TASK 1) — the concept agent already decomposes an artist
  * reference in customConcept into generic era/instrumentation/harmony/
@@ -417,6 +491,8 @@ export function buildClaudeCodeInstruction(
     instructionOptions.conceptLine ? `\nThis set's flavor: ${instructionOptions.conceptLine} — lean into this lead genre/season for the pack's overall tone, without abandoning the channel's core style.` : '',
     '',
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
+    '',
+    buildSetPlanHandoffSection(preassignedSongs, genres),
     '',
     // TASK v3.62 (TASK 1-3) — per-track plan table so all N songs in this
     // one instruction are visible to each other before any one is composed
@@ -638,6 +714,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     setPlanningTable,
     '',
     `All ${allSlots.length} tracks across every set (plan fixed by the app — compose within each row, do not renumber or reorder):`,
+    buildSetPlanHandoffSection(allSlots, genres),
+    '',
     perTrackPlanTable(allSlots, genres),
     ...artistReferenceInstructionLines(baseOpts),
     '',

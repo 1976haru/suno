@@ -677,14 +677,16 @@ export function generateLocalBlueprint(
     // TASK v3.41 Part A2/D — same rotation index batchPreallocation.ts's
     // preallocateSongSlots uses for the same opts/trackNo.
     const vocalDescriptionText = vocalType
-      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0)
+      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
     // kids-quota song; otherwise falls back to the matched preset's own
     // gender (mirrors batchPreallocation.ts's fallbackVocalGender) so a
     // locally generated non-kids pack also gets a correct duet/group tag
     // instead of relying on prose sniffing alone.
-    const vocalGender = vocalType ?? fallbackVocalGender;
+    const vocalGender = vocalType
+      ? (opts.channel.archetype === 'kids' ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
+      : fallbackVocalGender;
     // TASK v3.39.1 Part H4 — realtime/Batch/bridge output all get a
     // [male vocal]/[female vocal]/[children's choir] lyric meta tag via
     // batchPreallocation.ts's reconcileWithPreassignedSlot, but a local-only
