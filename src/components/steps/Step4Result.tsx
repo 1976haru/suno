@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, Copy, Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -8,13 +8,15 @@ import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
-import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import { buildSongTxt, copyText, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
 import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
 import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
 import { auditAlbum } from '../../core/albumAudit';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
+import { scoreComposition } from '../../core/compositionScorer';
+import { buildRecomposeInstruction } from '../../core/claudeCodeBridge';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
@@ -135,6 +137,7 @@ export default function Step4Result({
   const [resultTab, setResultTab] = useState<ResultTab>('songs');
   const [focusModeOpen, setFocusModeOpen] = useState(false);
   const [progressModeOpen, setProgressModeOpen] = useState(false);
+  const [recomposeCopied, setRecomposeCopied] = useState(false);
 
   useEffect(() => {
     if (focusTab) setResultTab(focusTab);
@@ -199,6 +202,27 @@ export default function Step4Result({
   // `warnings` are informational only and never block anything.
   const albumAuditReport = useMemo(() => (blueprint ? auditAlbum(blueprint.songs, opts) : null), [blueprint, opts]);
   const albumAuditBlocked = Boolean(albumAuditReport && !albumAuditReport.passed);
+
+  // TASK v3.62 (TASK 3) — the bridge (manual copy-paste) import path has no
+  // API call to auto-retry through (unlike providers/index.ts's automatic
+  // recomposeBlockingTracks for the real-API path), so this surfaces
+  // core/compositionScorer.ts's blocking findings on whatever is currently
+  // loaded and offers a scoped-down recomposition instruction for just
+  // those tracks.
+  const blockingSongs = useMemo(() => {
+    if (!blueprint) return [];
+    const scores = scoreComposition(blueprint.songs);
+    return scores
+      .filter(score => !score.passed)
+      .map(score => ({ song: blueprint.songs.find(song => song.trackNo === score.trackNo)!, blocking: score.blocking }))
+      .filter(entry => entry.song);
+  }, [blueprint]);
+
+  async function handleCopyRecomposeInstruction() {
+    await copyText(buildRecomposeInstruction(blockingSongs));
+    setRecomposeCopied(true);
+    setTimeout(() => setRecomposeCopied(false), 2000);
+  }
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -432,6 +456,19 @@ export default function Step4Result({
             {albumAuditReport.errors.length > 0 && `문제가 있어 Suno로 복사하는 것을 막았습니다: ${albumAuditReport.errors.join(' / ')}`}
             {albumAuditReport.errors.length > 0 && albumAuditReport.warnings.length > 0 && ' — '}
             {albumAuditReport.warnings.length > 0 && albumAuditReport.warnings.join(' / ')}
+          </span>
+        </div>
+      )}
+      {resultTab === 'songs' && blockingSongs.length > 0 && (
+        <div className="warning error">
+          <ShieldAlert size={16} />
+          <span>
+            {blockingSongs.length}곡이 작곡 품질 검사(compositionScorer)를 통과하지 못했습니다: {blockingSongs.map(entry => entry.song.trackNo).join(', ')}번.
+            브릿지(코딩 에이전트 복사/붙여넣기)로 만든 곡이라면 재작곡 지시문을 복사해 해당 곡만 다시 만들게 하세요.
+            <button type="button" className="icon-button" title="문제가 있는 곡만 다시 작곡시킬 지시문 복사" onClick={() => void handleCopyRecomposeInstruction()}>
+              <Copy size={14} />
+              {recomposeCopied ? '복사됨 ✅' : '재작곡 지시문 복사'}
+            </button>
           </span>
         </div>
       )}

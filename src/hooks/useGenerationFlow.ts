@@ -57,7 +57,11 @@ export function useGenerationFlow() {
           setGenProgress(progress);
           setPartialSongs(progress.songs);
         },
-        avoid
+        avoid,
+        // TASK v3.62 (TASK 3) — always on for this real generation entry
+        // point; a no-op when provider is 'local'. See providers/index.ts's
+        // generateBlueprint doc comment for why this isn't user-configurable.
+        true
       );
       const next = applySetTitlePrefixesToBlueprint(generated, opts.setNumberPrefix ?? true);
       setBlueprint(next);

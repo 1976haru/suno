@@ -14,6 +14,7 @@ import type {
 import { generateLocalBlueprint } from '../core/localGenerator';
 import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
 import { scoreSongs } from '../core/quality';
+import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/compositionRecompose';
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { stripSetTitlePrefix } from '../utils/generation';
@@ -231,7 +232,19 @@ export async function generateBlueprint(
   settings: ProviderSettings,
   onProgress?: (progress: GenerationProgress) => void,
   /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. */
-  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] },
+  /**
+   * TASK v3.62 (TASK 3) — C안's automatic recomposition gate. Defaults to
+   * false so every existing direct unit test of this function (which builds
+   * short synthetic stub songs that would otherwise trip
+   * compositionScorer.ts's descriptor-count check on every track) keeps its
+   * exact call-count assumptions. The app's own real generation entry
+   * points (hooks/useGenerationFlow.ts, core/multiSetGeneration.ts) always
+   * pass true — end users never see a toggle for this. A no-op for
+   * settings.provider === 'local' regardless, since that branch returns
+   * before this flag is ever read.
+   */
+  enableRecompose = false
 ): Promise<PlaylistBlueprint> {
   if (settings.provider === 'local') {
     const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid, settings.promptCharLimit);
@@ -313,7 +326,23 @@ export async function generateBlueprint(
     songs: allSongs
   };
 
-  return { ...blueprint, songs: scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage) };
+  const scoredSongs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);
+  if (!enableRecompose) {
+    return { ...blueprint, songs: scoredSongs };
+  }
+
+  // TASK v3.62 (TASK 3) — reuses regenerateTrack (the same primitive the
+  // manual AI-evaluation "재시도" button already drives, see
+  // hooks/useEvaluationFlow.ts's retrySong) per blocking track it finds,
+  // feeding compositionScorer.ts's own blocking reasons back in as
+  // feedback. See compositionRecompose.ts for the retry-cap/abort logic.
+  const recomposeAvoid = { usedTitles: avoid?.usedTitles ?? [], usedHooks: avoid?.usedHooks ?? [] };
+  const { songs: recomposedSongs } = await recomposeBlockingTracks(scoredSongs, async (currentSongs, trackNo, feedback) => {
+    const { blueprint: next } = await regenerateTrack({ ...blueprint, songs: currentSongs }, trackNo, opts, genres, moods, season, settings, feedback, recomposeAvoid);
+    return next.songs;
+  });
+
+  return { ...blueprint, songs: scoreSongs(recomposedSongs, opts.channel, opts.lyricLanguage) };
 }
 
 const REGENERATE_MAX_ATTEMPTS = 3; // initial try + 2 retries

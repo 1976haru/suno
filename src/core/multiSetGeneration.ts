@@ -132,7 +132,10 @@ export async function runMultiSetGeneration(
       season,
       settings,
       progress => onProgress?.({ currentSet: index + 1, totalSets: setCount, setDone: progress.done, setTotal: progress.total }),
-      avoid
+      avoid,
+      // TASK v3.62 (TASK 3) — always on for this real generation entry
+      // point; a no-op when provider is 'local'.
+      true
     );
 
     const { blueprint: finalBlueprint, warnings } = await finalizeSetBlueprint(blueprint, setOpts, genres, moods, season, settings, avoid);
