@@ -110,3 +110,27 @@ describe('[v3.62 TASK 3] recomposeBlockingTracks', () => {
     expect(track2Log.resolved).toBe(true);
   });
 });
+
+describe('[v3.64 TASK D] recomposeBlockingTracks retries a song whose hook duplicates channel history', () => {
+  it('retries and resolves once the regenerated hook is genuinely new', async () => {
+    const songs = [songWith({ trackNo: 1, hookPhrase: 'I Won\'t Forget' })];
+    const result = await recomposeBlockingTracks(
+      songs,
+      async (current, trackNo) => current.map(song => (song.trackNo === trackNo ? { ...song, hookPhrase: 'A Brand New Hook' } : song)),
+      ['I Won\'t Forget']
+    );
+    expect(result.log[0].resolved).toBe(true);
+    expect(result.songs[0].hookPhrase).toBe('A Brand New Hook');
+  });
+
+  it('without historicalHooks passed in, a duplicate-with-history hook is never even flagged (matches scoreComposition\'s own opt-in default)', async () => {
+    const songs = [songWith({ trackNo: 1, hookPhrase: 'I Won\'t Forget' })];
+    let calls = 0;
+    const result = await recomposeBlockingTracks(songs, async current => {
+      calls += 1;
+      return current;
+    });
+    expect(calls).toBe(0);
+    expect(result.log).toEqual([]);
+  });
+});

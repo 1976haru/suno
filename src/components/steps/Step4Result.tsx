@@ -17,6 +17,7 @@ import { auditAlbum } from '../../core/albumAudit';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { scoreComposition } from '../../core/compositionScorer';
 import { buildRecomposeInstruction } from '../../core/claudeCodeBridge';
+import { recentUsedTitlesAndHooks } from '../../core/hookLedger';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
@@ -209,14 +210,28 @@ export default function Step4Result({
   // core/compositionScorer.ts's blocking findings on whatever is currently
   // loaded and offers a scoped-down recomposition instruction for just
   // those tracks.
+  // TASK v3.64 (TASK D) — the channel's real cross-pack hook history, so the
+  // previously warning-only "duplicates a hook already used" check actually
+  // blocks here too (feeding both the recompose loop's own gate and this
+  // screen's "재작곡 지시문 복사" button), not just claudeCodeBridge.ts's
+  // unchanged import-time warning.
+  const [historicalHooks, setHistoricalHooks] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    recentUsedTitlesAndHooks(opts.channel.id, opts.lyricLanguage)
+      .then(result => { if (!cancelled) setHistoricalHooks(result.hooks); })
+      .catch(() => { if (!cancelled) setHistoricalHooks([]); });
+    return () => { cancelled = true; };
+  }, [opts.channel.id, opts.lyricLanguage]);
+
   const blockingSongs = useMemo(() => {
     if (!blueprint) return [];
-    const scores = scoreComposition(blueprint.songs);
+    const scores = scoreComposition(blueprint.songs, { historicalHooks });
     return scores
       .filter(score => !score.passed)
       .map(score => ({ song: blueprint.songs.find(song => song.trackNo === score.trackNo)!, blocking: score.blocking }))
       .filter(entry => entry.song);
-  }, [blueprint]);
+  }, [blueprint, historicalHooks]);
 
   async function handleCopyRecomposeInstruction() {
     await copyText(buildRecomposeInstruction(blockingSongs));

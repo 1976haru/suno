@@ -1,10 +1,11 @@
-import type { GenerationOptions, SongIdea } from '../types';
+import type { SongIdea } from '../types';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOverlapWarning } from './quality';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { findExcessiveVocabularyRepetition } from './lyricVocabularyRepetition';
+import { findNearDuplicateHook } from './hookSimilarity';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -37,8 +38,27 @@ function descriptorCount(stylePrompt: string): number {
 /** TASK v3.58 (TASK 1) threshold, reused here as the blocking bar for cross-song style-prompt similarity. */
 const STYLE_SIMILARITY_BLOCK_THRESHOLD = 0.28;
 
-export function scoreComposition(songs: SongIdea[], _opts?: Pick<GenerationOptions, 'audience'>): CompositionScore[] {
+export interface ScoreCompositionOptions {
+  /**
+   * TASK v3.64 (TASK A) — the channel's real cross-pack hook history (see
+   * core/hookLedger.ts's recentUsedTitlesAndHooks). Wiring this in turns
+   * the previously-warning-only "duplicates a hook already used by this
+   * channel" check (claudeCodeBridge.ts's flagHookCollisions, still
+   * running unchanged at import time) into an actual blocking gate here —
+   * so the recompose loop (TASK 3) and the bridge's "재작곡 지시문 복사" button
+   * (Step4Result.tsx) both act on it instead of it only ever showing as a
+   * soft warning nobody had to act on. Optional — omitting it (e.g. a
+   * caller with no channel/IndexedDB context) just skips this specific
+   * check, same as any other omitted context.
+   */
+  historicalHooks?: string[];
+}
+
+export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptions): CompositionScore[] {
   if (!songs.length) return [];
+
+  const historicalHooks = opts?.historicalHooks ?? [];
+  const historicalHookKeys = new Set(historicalHooks.map(hook => hook.trim().toLowerCase()));
 
   const vocabFindings = findArrangementVocabularyInLyrics(songs);
   const vocabByTrack = new Map<number, string[]>();
@@ -82,6 +102,18 @@ export function scoreComposition(songs: SongIdea[], _opts?: Pick<GenerationOptio
     if (lyricLeaks.length) blocking.push(`가사에 아티스트/밴드명 누출 (${lyricLeaks.map(l => l.surface).join(', ')})`);
     const youtubeLeaks = findArtistReferenceLeaks(`${song.youtube?.title ?? ''} ${song.youtube?.description ?? ''}`);
     if (youtubeLeaks.length) blocking.push(`youtube 메타데이터에 아티스트/밴드명 누출 (${youtubeLeaks.map(l => l.surface).join(', ')})`);
+
+    // NEW (TASK v3.64 TASK D) — was a warning-only check (claudeCodeBridge.ts's
+    // flagHookCollisions, unchanged, still runs at import time too); this is
+    // the same real-history data now also gating recompose/the copy-instruction button.
+    if (song.hookPhrase && historicalHookKeys.has(song.hookPhrase.trim().toLowerCase())) {
+      blocking.push(`훅 "${song.hookPhrase}"가 이 채널의 이전 세트에서 이미 사용됐습니다`);
+    } else if (song.hookPhrase) {
+      const nearDuplicate = findNearDuplicateHook(song.hookPhrase, historicalHooks);
+      if (nearDuplicate) {
+        blocking.push(`훅 "${song.hookPhrase}"가 이전 세트의 훅 "${nearDuplicate.matchedAgainst}"과 사실상 같은 훅입니다 (단어 일치율 ${Math.round(nearDuplicate.similarity * 100)}%)`);
+      }
+    }
 
     // Reused: TASK v3.58 TASK 1 — cross-song style-prompt similarity, only the pair(s) this track is actually part of.
     if (similarityReport.worstPair && similarityReport.worstPair.similarity > STYLE_SIMILARITY_BLOCK_THRESHOLD

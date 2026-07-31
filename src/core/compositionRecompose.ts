@@ -39,14 +39,17 @@ export interface RecomposeResult {
  */
 export async function recomposeBlockingTracks(
   songs: SongIdea[],
-  regenerateOne: (currentSongs: SongIdea[], trackNo: number, feedback: string[]) => Promise<SongIdea[]>
+  regenerateOne: (currentSongs: SongIdea[], trackNo: number, feedback: string[]) => Promise<SongIdea[]>,
+  /** TASK v3.64 (TASK D) — the channel's real cross-pack hook history, so a song that duplicates (or near-duplicates) a previously-used hook gets caught and retried here too, not only via the bridge path's manual "재작곡 지시문 복사" button. */
+  historicalHooks: string[] = []
 ): Promise<RecomposeResult> {
   let current = songs;
   const log: RecomposeLogEntry[] = [];
-  const blockingTrackNos = scoreComposition(current).filter(score => !score.passed).map(score => score.trackNo);
+  const scoreOpts = { historicalHooks };
+  const blockingTrackNos = scoreComposition(current, scoreOpts).filter(score => !score.passed).map(score => score.trackNo);
 
   for (const trackNo of blockingTrackNos) {
-    let score = scoreComposition(current).find(item => item.trackNo === trackNo)!;
+    let score = scoreComposition(current, scoreOpts).find(item => item.trackNo === trackNo)!;
     const initialBlockingCount = score.blocking.length;
     let attempts = 0;
     let abortedEarly = false;
@@ -55,7 +58,7 @@ export async function recomposeBlockingTracks(
       const feedback = score.blocking;
       current = await regenerateOne(current, trackNo, feedback);
       attempts += 1;
-      const nextScore = scoreComposition(current).find(item => item.trackNo === trackNo)!;
+      const nextScore = scoreComposition(current, scoreOpts).find(item => item.trackNo === trackNo)!;
       if (nextScore.blocking.length >= score.blocking.length) {
         score = nextScore;
         abortedEarly = attempts < RECOMPOSE_MAX_RETRIES;

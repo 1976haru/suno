@@ -162,6 +162,32 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
     expect(score.blocking).toEqual([]);
   });
 
+  it('TASK v3.64 (TASK D) — blocks a hook that exactly duplicates a hook from this channel\'s history', () => {
+    const song = songWith({ hookPhrase: 'I Won\'t Forget' });
+    const score = scoreComposition([song], { historicalHooks: ['I Won\'t Forget', 'Some Other Hook'] })[0];
+    expect(score.passed).toBe(false);
+    expect(score.blocking.some(b => b.includes('이전 세트에서 이미 사용됐습니다'))).toBe(true);
+  });
+
+  it('TASK v3.64 (TASK D) — blocks a near-duplicate hook (the spec\'s own real example: "I Won\'t Forget" vs "I Can\'t Forget")', () => {
+    const song = songWith({ hookPhrase: "I Won't Forget" });
+    const score = scoreComposition([song], { historicalHooks: ["I Can't Forget"] })[0];
+    expect(score.passed).toBe(false);
+    expect(score.blocking.some(b => b.includes('사실상 같은 훅'))).toBe(true);
+  });
+
+  it('TASK v3.64 (TASK D) — does not block a genuinely new hook against real channel history', () => {
+    const song = songWith({ hookPhrase: 'Wait by the Window' });
+    const score = scoreComposition([song], { historicalHooks: ['Catch the Morning Train', 'Hold the Photo Close'] })[0];
+    expect(score.passed).toBe(true);
+  });
+
+  it('TASK v3.64 (TASK D) — omitting historicalHooks entirely is a safe no-op (does not block anything)', () => {
+    const song = songWith({ hookPhrase: 'I Won\'t Forget' });
+    const score = scoreComposition([song])[0];
+    expect(score.passed).toBe(true);
+  });
+
   it('TASK v3.64 (TASK A-4) — adds a pack-wide advisory (never blocking) when a word repeats past its cap across the pack', () => {
     const repeatedLyrics = Array.from({ length: 13 }, () => 'window').join('\n');
     const song1 = songWith({ trackNo: 1, lyrics: repeatedLyrics });
