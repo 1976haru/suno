@@ -343,6 +343,21 @@ export default function App() {
       gen.setBlueprint(finalBlueprint);
       setCurrentStep(4);
       await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
+      // TASK v3.62 (TASK 4) — handleGenerationSuccess only records this
+      // pack's hooks under the ephemeral AUTOSAVE_ID slot, which the very
+      // next generation (autosave or otherwise) overwrites. Without an
+      // explicit "save to library" click, a bridge import's hooks never
+      // survived to the next day's avoidHooks list — a real channel
+      // measured 50% (8/16) hook duplication across sets from exactly this
+      // gap. Auto-saves under a real, permanent id (no name prompt — a
+      // daily-cadence bridge workflow can't stop for one), mirroring how
+      // multi-set bridge imports (saveGeneratedSet) already did this
+      // correctly.
+      try {
+        await library.saveImportedPack(finalBlueprint, importOpts);
+      } catch {
+        // Best-effort — the import itself already succeeded and is shown to the user regardless.
+      }
     }
     return report;
   }

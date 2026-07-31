@@ -99,6 +99,36 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     return id;
   }
 
+  /**
+   * TASK v3.62 (TASK 4) — a real channel measured 8/16 hooks (50%) repeated
+   * from a previous set. Root cause: a single-set bridge import
+   * (App.tsx's onImportSongsJson) only ever went through
+   * handleGenerationSuccess, which records hooks under the ephemeral
+   * AUTOSAVE_ID slot — recordPackHooks forgets that same id's OWN previous
+   * contents before writing, so the very next generation (autosave or
+   * otherwise) wipes it. Unless a user explicitly clicked "save to library"
+   * (saveCurrentPack, which promotes AUTOSAVE_ID to a real id), a bridge
+   * import's hooks never survived past that session — so the next day's
+   * bridge instruction's avoidHooks list never saw them.
+   * buildMultiSetClaudeCodeMasterInstruction/onImportMultiSetSongsJson
+   * already avoided this (saveGeneratedSet always uses a real id); this is
+   * the same fix for the single-set bridge import path, auto-saving under
+   * a generated name (no window.prompt — a daily-cadence workflow can't
+   * stop for one) so hook history persists without requiring a manual save.
+   */
+  async function saveImportedPack(blueprint: PlaylistBlueprint, options: GenerationOptions, thumbnailSpec?: ThumbnailSpec | null, soundSignature?: SoundSignature) {
+    const name = buildDefaultPackName(blueprint, options);
+    const id = await savePack({ blueprint, options, name, thumbnailSpec: thumbnailSpec ?? undefined, soundSignature, personaMode: options.personaMode ?? false });
+    try {
+      await recordPackHooks(id, options.channel.id, blueprint, options.lyricLanguage);
+      await forgetPack(AUTOSAVE_ID);
+    } catch {
+      // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
+    await refresh();
+    return id;
+  }
+
   async function loadPackById(id: string) {
     const pack = await loadPack(id);
     if (pack) onRestore(pack);
@@ -148,5 +178,5 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     await refresh();
   }
 
-  return { savedPacks, refresh, saveCurrentPack, saveGeneratedSet, loadPackById, remove, rename, exportAll, importAll, deleteAll };
+  return { savedPacks, refresh, saveCurrentPack, saveGeneratedSet, saveImportedPack, loadPackById, remove, rename, exportAll, importAll, deleteAll };
 }
