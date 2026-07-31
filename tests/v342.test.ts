@@ -273,7 +273,12 @@ describe('[Regression] kids channel is unaffected by the structural changes', ()
     for (const song of bp.songs) {
       expect(song.vocalType).toBeDefined();
       counts[song.vocalType!] += 1;
-      expect(song.lyrics.trim().endsWith('[end]')).toBe(true);
+      // TASK v3.71 (TASK C) — kidsLyricEngine.ts's own composer still emits a
+      // trailing "[end]" tag (untouched, out of this task's scope), but
+      // core/songPostProcess.ts's shared normalizeSongOutput pass (which
+      // every generated song, kids included, runs through) now strips it —
+      // the tag does nothing in Suno regardless of channel archetype.
+      expect(song.lyrics.trim().endsWith('[end]')).toBe(false);
     }
     expect(counts).toEqual({ male: 5, female: 5, mixed: 5 });
   });

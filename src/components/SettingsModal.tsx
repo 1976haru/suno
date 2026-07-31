@@ -8,6 +8,7 @@ import { channelCapacityForecast, clearChannelHistory, forgetUsage, listChannelU
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
+import { IS_SINGLE_FILE_BUILD, SINGLE_FILE_API_DISABLED_MESSAGE } from '../core/buildFlags';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 import { GEMINI_BYOK_KEY } from '../core/thumbnailImageGen';
 import {
@@ -244,14 +245,38 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
         </div>
 
         <label>AI 제공자</label>
+        {/* TASK v3.71 (TASK A) — this single-file build has no /api/* server
+            behind it (vite.config.ts's dev-only proxy doesn't exist once this
+            leaves the build machine). Disabling provider selection here is
+            the one choke point that cascades correctly: every downstream
+            API-dependent feature (concept 추천, AI 평가, SRT AI 번역, etc.)
+            already checks `provider !== 'local'` before offering itself, so
+            keeping provider forced to 'local' hides all of them without
+            touching each one individually. Never deletes the feature — the
+            normal npm run dev/build config leaves this untouched. */}
+        {IS_SINGLE_FILE_BUILD && (
+          <p className="warning">{SINGLE_FILE_API_DISABLED_MESSAGE}</p>
+        )}
         <div className="chips">
           <button type="button" className={settings.provider === 'local' ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, provider: 'local' })}>
             로컬 템플릿 (무료, API 불필요)
           </button>
-          <button type="button" className={settings.provider === 'anthropic' ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, provider: 'anthropic', model: settings.model || DEFAULT_MODEL.anthropic })}>
+          <button
+            type="button"
+            className={settings.provider === 'anthropic' ? 'chip active' : 'chip'}
+            disabled={IS_SINGLE_FILE_BUILD}
+            title={IS_SINGLE_FILE_BUILD ? SINGLE_FILE_API_DISABLED_MESSAGE : undefined}
+            onClick={() => onChange({ ...settings, provider: 'anthropic', model: settings.model || DEFAULT_MODEL.anthropic })}
+          >
             Claude (Anthropic)
           </button>
-          <button type="button" className={settings.provider === 'openai' ? 'chip active' : 'chip'} onClick={() => onChange({ ...settings, provider: 'openai', model: settings.model || DEFAULT_MODEL.openai })}>
+          <button
+            type="button"
+            className={settings.provider === 'openai' ? 'chip active' : 'chip'}
+            disabled={IS_SINGLE_FILE_BUILD}
+            title={IS_SINGLE_FILE_BUILD ? SINGLE_FILE_API_DISABLED_MESSAGE : undefined}
+            onClick={() => onChange({ ...settings, provider: 'openai', model: settings.model || DEFAULT_MODEL.openai })}
+          >
             ChatGPT (OpenAI)
           </button>
         </div>

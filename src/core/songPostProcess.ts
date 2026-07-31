@@ -128,6 +128,33 @@ function stripLeakedIntroDescriptionLines(lyrics: string, introMode: IntroMode |
   return { text: kept.join('\n'), changed: strippedLines.length > 0, strippedLines };
 }
 
+/**
+ * TASK v3.71 (TASK C) — v3.70 already removed "[end]" from local generation,
+ * the remote schema hint, and the structure-template legend text — but real
+ * Codex output still carried a trailing "[end]" tag in 18/18 songs. The tag
+ * does nothing in Suno and only adds a section that inflates render length;
+ * buildSystemInstruction now also states this explicitly and unconditionally
+ * (promptComposer.ts), but this strip is the defense-in-depth backstop for
+ * any agent (or old, already-saved pack) that still adds one — "[outro]"
+ * covered too, since some agents invent that instead of "[end]". Only the
+ * very last non-blank line is ever touched; a legitimate "[outro]"-tagged
+ * section with real content isn't this pattern (the tag must be alone, with
+ * nothing sung under it, to match).
+ */
+const TRAILING_END_OUTRO_TAG_PATTERN = /^\[(end|outro)\]$/i;
+
+function stripTrailingEndOutroTag(lyrics: string): { text: string; changed: boolean } {
+  const lines = lyrics.split('\n');
+  let end = lines.length;
+  while (end > 0 && lines[end - 1].trim() === '') end--;
+  if (end === 0 || !TRAILING_END_OUTRO_TAG_PATTERN.test(lines[end - 1].trim())) {
+    return { text: lyrics, changed: false };
+  }
+  let newEnd = end - 1;
+  while (newEnd > 0 && lines[newEnd - 1].trim() === '') newEnd--;
+  return { text: lines.slice(0, newEnd).join('\n'), changed: true };
+}
+
 /** TASK B-4 — diagnostic only, never rewrites: flags long comma/semicolon-separated clauses in a bridge song's raw stylePrompt the same way composeStylePrompt's own TASK C-8 diagnostic flags long structured atoms. */
 function longStylePromptClauseWarnings(trackNo: number, stylePrompt: string): string[] {
   const warnings: string[] = [];
@@ -163,9 +190,13 @@ export function normalizeSongOutput(song: SongIdea, introMode?: IntroMode): Song
   }
 
   const introResult = stripLeakedIntroDescriptionLines(song.lyrics, introMode);
-  const lyrics = introResult.text;
+  const endTagResult = stripTrailingEndOutroTag(introResult.text);
+  const lyrics = endTagResult.text;
   if (introResult.changed) {
     warnings.push(`Track ${song.trackNo}: planned as an instrumental intro (introMode) — removed the sung line(s) under [intro] and relabeled it [Instrumental Intro] — "${introResult.strippedLines[0]}"`);
+  }
+  if (endTagResult.changed) {
+    warnings.push(`Track ${song.trackNo}: removed a trailing [end]/[outro] tag from the lyrics — it does nothing in Suno and only inflates render length.`);
   }
 
   warnings.push(...longStylePromptClauseWarnings(song.trackNo, stylePrompt));

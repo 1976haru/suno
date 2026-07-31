@@ -90,25 +90,35 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toContain('no markdown fences');
   });
 
-  it('TASK v3.70 (TASK A): tells the agent to mark who sings each section when a track is a male-female duet', () => {
+  it('TASK v3.71 (TASK B): includes an always-present per-track vocal composition table, and duet section-tag rules when a track is a male-female duet', () => {
+    // TASK v3.71 — real measurement found a generated instruction with ZERO
+    // "duet"/"Male Vocal"/"vocalType" mentions, despite v3.70's fix existing
+    // in code: v3.70's instruction line was gated behind
+    // slot.vocalGender === 'duet' alone, which can silently miss a real duet
+    // vocalText that doesn't exactly match vocalPresets.ts's canonical
+    // string. The table below is unconditional so it never goes missing.
     const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
     const opts = makeOptions({ songCount: 2, vocalTone: duetPreset.prompt });
     const slots = preallocateSongSlots(opts, testGenres, avoid);
     expect(slots.some(slot => slot.vocalGender === 'duet')).toBe(true);
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
 
-    expect(instruction).toContain('[This song\'s vocal composition]');
+    expect(instruction).toContain('[This set\'s vocal composition]');
+    expect(instruction).toMatch(/Track 1: Male-Female Duet/);
+    expect(instruction).toContain('[Duet track rule');
     expect(instruction).toContain('[Verse 1: Male Vocal]');
     expect(instruction).toContain('[Chorus: Male and Female Duet]');
   });
 
-  it('TASK v3.70 (TASK A): omits the duet vocal-composition line when no track in the pack is a duet', () => {
+  it('TASK v3.71 (TASK B): always renders the vocal composition table, but omits duet-specific rules when no track in the pack is a duet', () => {
     const opts = makeOptions({ songCount: 2 });
     const slots = preallocateSongSlots(opts, testGenres, avoid);
     expect(slots.some(slot => slot.vocalGender === 'duet')).toBe(false);
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
 
-    expect(instruction).not.toContain('[This song\'s vocal composition]');
+    expect(instruction).toContain('[This set\'s vocal composition]');
+    expect(instruction).not.toContain('[Duet track rule');
+    expect(instruction).toContain('[Solo/group tracks]');
   });
 
   it('TASK v3.69 (TASK D): includes an optional top-level "meta" object in the request payload, and tells the agent to copy it verbatim', () => {
@@ -175,6 +185,13 @@ describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can
     expect(payload.sets).toHaveLength(3);
     expect(payload.sets[0].requestPayload.songCount).toBe(6);
     expect(payload.sets[0].requestPayload.preassignedSongs).toHaveLength(6);
+  });
+
+  it('TASK v3.71 (TASK B): includes the always-present per-track vocal composition table for a master-mode run too', () => {
+    const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
+    const result = buildMultiSetClaudeCodeMasterInstruction(makeOptions({ songCount: 6, vocalTone: duetPreset.prompt }), 2, 6, testGenres, testMoods, testSeason, undefined, false);
+    expect(result.instruction).toContain('[This set\'s vocal composition]');
+    expect(result.instruction).toContain('[Duet track rule');
   });
 
   it('threads cumulative avoid lists through later set payloads, same as the per-set bridge builder', () => {

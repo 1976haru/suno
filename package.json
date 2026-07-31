@@ -11,6 +11,7 @@
     "dev:5500": "vite --host 127.0.0.1 --port 5500",
     "dev:5600": "vite --host 127.0.0.1 --port 5600",
     "build": "tsc && vite build",
+    "build:single": "tsc && vite build --config vite.config.single.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4200",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "test": "vitest run",
@@ -32,6 +33,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "eslint": "10.7.0",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "4.1.10"
   }
 }

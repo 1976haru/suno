@@ -363,6 +363,63 @@ function descriptorCountInstructionLine(): string {
 }
 
 /**
+ * TASK v3.71 (TASK B) — real measurement: a generated bridge instruction
+ * (97,378 chars) had ZERO mentions of "Male Vocal"/"duet"/"vocalType",
+ * despite v3.70 adding a conditional instruction line for exactly this.
+ * That line only fired when `preassignedSongs.some(slot => slot.vocalGender
+ * === 'duet')` — a narrower check than it looks: vocalGender is only ever
+ * set to 'duet' when either the manual per-track vocalType quota assigns
+ * 'mixed', or matchVocalPreset(vocalText) finds an EXACT string match
+ * against one of vocalPresets.ts's two hard-coded duet prompts — a real
+ * duet vocalText can easily be one of ADULT_VOCAL_DESCRIPTIONS.mixed's 4
+ * OTHER rotating wordings and silently fail that exact-match check, leaving
+ * vocalGender undefined even though the song is unmistakably a duet.
+ *
+ * Rather than keep chasing every way vocalGender inference can miss, this
+ * renders an explicit, always-present per-track vocal composition table
+ * (never gated behind a single fragile boolean), with detection that
+ * accepts either the inferred vocalGender OR the literal word "duet"
+ * appearing anywhere in vocalText as a directly-visible fallback signal.
+ */
+function isDuetSlot(slot: PreassignedSongSlot): boolean {
+  return slot.vocalGender === 'duet' || /\bduet\b/i.test(slot.vocalText ?? '');
+}
+
+function vocalCompositionLabel(slot: PreassignedSongSlot): string {
+  if (isDuetSlot(slot)) return 'Male-Female Duet';
+  if (slot.vocalGender === 'male' || slot.vocalType === 'male') return 'Male Solo';
+  if (slot.vocalGender === 'female' || slot.vocalType === 'female') return 'Female Solo';
+  if (slot.vocalGender === 'mixed' || slot.vocalType === 'mixed') return 'Mixed Group/Choir';
+  return 'Solo (see this track\'s own vocalText)';
+}
+
+function vocalCompositionSection(preassignedSongs: PreassignedSongSlot[]): string {
+  const rows = preassignedSongs.map(slot => `  Track ${slot.trackNo}: ${vocalCompositionLabel(slot)}`);
+  const hasDuet = preassignedSongs.some(isDuetSlot);
+  const lines = ['[This set\'s vocal composition]', ...rows];
+  if (hasDuet) {
+    lines.push(
+      '',
+      '[Duet track rule — REQUIRED for every track marked "Male-Female Duet" above]',
+      'Mark who sings each section directly in that song\'s own lyrics section tags — e.g.:',
+      '  [Verse 1: Male Vocal]',
+      '  [Verse 2: Female Vocal]',
+      '  [Pre-Chorus: Female Vocal]',
+      '  [Chorus: Male and Female Duet]',
+      '  [Bridge: Male and Female Call and Response]',
+      '  [Final Chorus: Male and Female Duet Harmony]',
+      'Without this per-section tag, Suno renders the whole song in a single voice regardless of what the style prompt says. Verses must alternate between the two singers.'
+    );
+  }
+  lines.push(
+    '',
+    '[Solo/group tracks]',
+    'Do NOT add any per-section vocal-assignment tag (e.g. ": Male Vocal", ": Female Vocal") to a track NOT marked "Male-Female Duet" above — only duet tracks get them. Adding one to a solo/group track confuses Suno.'
+  );
+  return lines.join('\n');
+}
+
+/**
  * TASK v3.62 (TASK 1-3) — a per-song slot only sees itself; without whole-
  * pack context, 18 independently-composed songs can converge on the same
  * couple of "safe" instrument choices (the exact complaint TASK 1's own
@@ -662,14 +719,6 @@ export function buildClaudeCodeInstruction(
   const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
     ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
-  // TASK v3.70 (TASK A) — real listening feedback: a track prompted as a
-  // duet ("warm mixed duet, conversational verse handoff, close harmony
-  // hook") still rendered as one voice, because nothing told Suno WHICH
-  // section is which singer — Suno reads lyric section tags to split
-  // vocals, not style-prompt prose.
-  const duetVocalInstructionLine = preassignedSongs.some(slot => slot.vocalGender === 'duet')
-    ? '- [This song\'s vocal composition] For any song whose "vocalText"/"vocalGender" is a male-female duet: verses alternate between the two singers, and the chorus/bridge is where they meet. Mark who sings each section directly in that song\'s own lyrics section tags — e.g. "[Verse 1: Male Vocal]", "[Verse 2: Female Vocal]", "[Chorus: Male and Female Duet]", "[Bridge: Male and Female Call and Response]". Without this per-section tag, Suno renders the whole song in a single voice regardless of what the style prompt says.'
-    : '';
   const conceptInstructionLine = preassignedSongs.some(slot => slot.conceptText)
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
@@ -721,6 +770,8 @@ export function buildClaudeCodeInstruction(
     // couple of "safe" instrument/vocal choices).
     `This pack's ${preassignedSongs.length} tracks (plan fixed by the app — compose within each row, do not renumber or reorder):`,
     perTrackPlanTable(preassignedSongs, genres),
+    '',
+    vocalCompositionSection(preassignedSongs),
     ...artistReferenceInstructionLines(opts),
     '',
     rules,
@@ -766,7 +817,6 @@ export function buildClaudeCodeInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
-    duetVocalInstructionLine,
     conceptInstructionLine,
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
@@ -889,10 +939,6 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
     ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
     : '';
-  // TASK v3.70 (TASK A) — see the single-pack instruction's own duetVocalInstructionLine comment.
-  const duetVocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalGender === 'duet'))
-    ? '- [This song\'s vocal composition] For any song whose "vocalText"/"vocalGender" is a male-female duet: verses alternate between the two singers, and the chorus/bridge is where they meet. Mark who sings each section directly in that song\'s own lyrics section tags — e.g. "[Verse 1: Male Vocal]", "[Verse 2: Female Vocal]", "[Chorus: Male and Female Duet]", "[Bridge: Male and Female Call and Response]". Without this per-section tag, Suno renders the whole song in a single voice regardless of what the style prompt says.'
-    : '';
   const conceptInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.conceptText))
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
@@ -958,6 +1004,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     'CRITICAL — tempo: use each track\'s own "BPM" value from the table above exactly, in every song\'s stylePrompt. Do not average, round toward a comfortable middle, or otherwise smooth tempos across tracks — the spread between tracks is intentional.',
     '',
     perTrackPlanTable(allSlots, genres),
+    '',
+    vocalCompositionSection(allSlots),
     ...artistReferenceInstructionLines(baseOpts),
     '',
     rules,
@@ -992,7 +1040,6 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
-    duetVocalInstructionLine,
     conceptInstructionLine,
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',

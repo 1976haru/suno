@@ -173,6 +173,49 @@ describe('[v3.60 TASK B-4] normalizeSongOutput flags long style-prompt clauses a
 });
 
 /**
+ * TASK v3.71 (TASK C) — v3.70 already removed "[end]" from local generation
+ * and the remote schema/instruction text, but real Codex output still
+ * carried a trailing "[end]" tag in 18/18 songs. This is the defense-in-depth
+ * backstop: strip it (and the "[outro]" variant some agents invent instead)
+ * whenever it's the very last thing in the lyrics, whether from a fresh
+ * import or an old already-saved pack.
+ */
+describe('[v3.71 TASK C] normalizeSongOutput strips a trailing [end]/[outro] tag', () => {
+  it('removes a trailing [end] tag and the blank line before it', () => {
+    const song = songWith({ lyrics: '[verse 1]\nline one\n\n[chorus]\nHook 1\n\n[end]' });
+    const result = normalizeSongOutput(song);
+    expect(result.lyrics).toBe('[verse 1]\nline one\n\n[chorus]\nHook 1');
+    expect(result.lyrics.trim().endsWith('[end]')).toBe(false);
+    expect(result.warnings.some(w => w.includes('trailing [end]/[outro] tag'))).toBe(true);
+  });
+
+  it('removes a trailing [outro] tag the same way', () => {
+    const song = songWith({ lyrics: '[verse 1]\nline one\n\n[chorus]\nHook 1\n\n[outro]' });
+    const result = normalizeSongOutput(song);
+    expect(result.lyrics.trim().endsWith('[outro]')).toBe(false);
+  });
+
+  it('is case-insensitive and tolerates trailing whitespace/newlines', () => {
+    const song = songWith({ lyrics: '[verse 1]\nline one\n\n[Chorus]\nHook 1\n\n[END]\n\n' });
+    const result = normalizeSongOutput(song);
+    expect(result.lyrics.trim().toLowerCase().endsWith('[end]')).toBe(false);
+  });
+
+  it('does not touch a real [outro] section that has actual sung content under it', () => {
+    const song = songWith({ lyrics: '[verse 1]\nline one\n\n[chorus]\nHook 1\n\n[outro]\nfading now, goodbye' });
+    const result = normalizeSongOutput(song);
+    expect(result.lyrics).toBe(song.lyrics);
+  });
+
+  it('is a no-op when the lyrics do not end with [end]/[outro]', () => {
+    const song = songWith({ lyrics: '[verse 1]\nline one\n\n[chorus]\nHook 1' });
+    const result = normalizeSongOutput(song);
+    expect(result.lyrics).toBe(song.lyrics);
+    expect(result.warnings.some(w => w.includes('trailing [end]/[outro] tag'))).toBe(false);
+  });
+});
+
+/**
  * TASK v3.60 (TASK B) — verifies against a real bridge-path pack. Frozen as
  * tests/fixtures/realBridgePack.json (see compositionScorer.test.ts's own
  * comment on why) rather than the live root songs-output.json, which is now

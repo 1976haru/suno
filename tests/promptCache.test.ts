@@ -950,4 +950,15 @@ describe('[v3.29] buildSystemInstruction gives a concrete lyric word-count floor
     expect(system).toContain('short intro, 3:10-3:35, full arrangement, not a short cut');
     expect(system).toContain('not a "shared/redundant atom"');
   });
+
+  it('TASK v3.71 (TASK C): explicitly forbids a trailing [end]/[outro] tag after the final chorus', () => {
+    // Real measurement: 18/18 songs in a real Codex-generated pack still
+    // ended with "[end]" despite v3.70 already removing it from local
+    // generation, the remote schema hint, and the structure-template legend
+    // text — none of that amounted to an explicit, unconditional
+    // prohibition an agent could not miss.
+    const system = buildSystemInstruction(makeOptions());
+    expect(system).toContain('do NOT add an "[end]" or "[outro]" tag');
+    expect(system.toLowerCase()).toContain('neither does anything in suno');
+  });
 });
