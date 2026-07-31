@@ -1,3 +1,8 @@
+// v3.66 (TASK B) — this module is the local-preview path only. The real
+// production path (Claude Code bridge, claudeCodeBridge.ts) sends plan/
+// constraint data to a remote LLM, which writes the stylePrompt itself and
+// never calls anything in this file. See docs/v366-report.md.
+//
 // TASK F1 (v3.7) — verified against Suno's own v5.5 documentation and
 // multiple independent 2026 prompt guides: the Style field is ~1,000
 // characters on v4.5/v5/v5.5; ~200 characters only applied to v4 and older.

@@ -262,6 +262,12 @@ export default function Step4Result({
         </p>
       )}
 
+      {blueprint?.isLocalPreview && (
+        <p className="warning" role="note">
+          이것은 미리보기입니다. 실제 산출물은 브릿지(Claude Code) 생성 결과와 다를 수 있습니다.
+        </p>
+      )}
+
       {blueprint && (
         <div className="panel-header">
           <div>

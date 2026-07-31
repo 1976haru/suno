@@ -250,7 +250,9 @@ export async function generateBlueprint(
     const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid, settings.promptCharLimit);
     const songs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);
     onProgress?.({ done: songs.length, total: opts.songCount, songs });
-    return { ...blueprint, songs };
+    // v3.66 (TASK B) — marks this blueprint as the local-preview path so the
+    // UI can disclose that real output may differ (see Step4Result.tsx).
+    return { ...blueprint, songs, isLocalPreview: true };
   }
 
   const identity: GenerateChunkIdentity = { base: null, locked: null };

@@ -378,6 +378,17 @@ export interface PlaylistBlueprint {
   harmonyRules: string[];
   visualRules: string[];
   songs: SongIdea[];
+  /**
+   * v3.66 (TASK B) — set only by providers/index.ts's generateBlueprint when
+   * settings.provider === 'local' (the app-assembled preview path,
+   * localGenerator.ts + promptComposer.ts/promptBudget.ts). Never set by the
+   * Claude Code bridge import path (claudeCodeBridge.ts's importSongsJson)
+   * or the remote anthropic/openai branches, which are the pipeline this
+   * app's real generation checks/measurements are based on. Undefined
+   * everywhere else, including on blueprints loaded from the library, so
+   * existing saved packs never retroactively show a preview banner.
+   */
+  isLocalPreview?: boolean;
 }
 
 export interface SoundSignature {

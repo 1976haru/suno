@@ -1,3 +1,12 @@
+/**
+ * v3.66 (TASK B) — this module is the local-preview path only.
+ * The real production path (Claude Code bridge, claudeCodeBridge.ts) sends
+ * plan/constraint data to a remote LLM, which writes the stylePrompt itself
+ * and never calls anything in this file. This module exists so the app can
+ * produce a full pack with no API call for preview purposes; do not treat
+ * changes here as touching the pipeline users actually run in production.
+ * See docs/v366-report.md for the full pipeline-role writeup.
+ */
 import type { BatchContext, GenerationOptions, GenrePack, MoodPack, SeasonPack } from '../types';
 import { generationPacks } from '../data/presets';
 import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
