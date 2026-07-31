@@ -1,4 +1,5 @@
 import type { AxisAllocation, DiversityAxisId, LyricPerspective } from '../types';
+import { shuffle } from './lyricEngine';
 
 export const DIVERSITY_AXIS_IDS: DiversityAxisId[] = [
   'genre',
@@ -110,7 +111,57 @@ export function hasAllocationOverflow(values: AxisAllocation[] | undefined, song
   return normalizeDiversityAllocations(values).some(allocation => allocationStatus(allocation, songCount).state === 'over');
 }
 
-function manualPlan<T extends string>(allocation: AxisAllocation | undefined, allowedOrder: readonly T[], songCount: number): T[] {
+/**
+ * TASK v3.64-B — real measurement: a user-set manual allocation of 6/6/6
+ * (male/female/mixed) across 18 songs came back as 6 male songs in a row,
+ * then 6 female, then 6 mixed ("남 남 남 남 남 남 여 여 여 여 여 여 듀 듀 듀
+ * 듀 듀 듀") — the exact counts were right, but stacking each value
+ * contiguously in allowedOrder made the whole first third of the playlist
+ * sound like one repeated male voice. Reused verbatim from
+ * lyricDiversityPlan.ts's own `spreadPlanByCounts` (was private there,
+ * used to spread lyricTheme/pov after their own applyAxisAllocation calls
+ * for the same reason) rather than reimplementing the same greedy
+ * highest-remaining-count/tie-break algorithm a second time; moved here
+ * (the lower-level module) since lyricDiversityPlan.ts already depends on
+ * this file, and is now imported back from there instead of duplicated.
+ */
+export function spreadPlanByCounts<T extends string>(plan: readonly T[], allowedOrder: readonly T[], maxConsecutive: number): T[] {
+  if (plan.length <= 1) return [...plan];
+  const counts = new Map<T, number>();
+  for (const item of plan) counts.set(item, (counts.get(item) || 0) + 1);
+  if (counts.size <= 1) return [...plan];
+
+  const result: T[] = [];
+  const orderIndex = new Map<T, number>();
+  allowedOrder.forEach((item, index) => orderIndex.set(item, index));
+
+  function wouldExceed(candidate: T): boolean {
+    if (maxConsecutive <= 0) return false;
+    if (result.length < maxConsecutive) return false;
+    for (let i = 1; i <= maxConsecutive; i++) {
+      if (result[result.length - i] !== candidate) return false;
+    }
+    return true;
+  }
+
+  while (result.length < plan.length) {
+    const candidates = [...counts.entries()]
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return (orderIndex.get(a[0]) ?? 999) - (orderIndex.get(b[0]) ?? 999);
+      });
+    const picked = candidates.find(([candidate]) => !wouldExceed(candidate)) ?? candidates[0];
+    if (!picked) break;
+    const [value, count] = picked;
+    result.push(value);
+    counts.set(value, count - 1);
+  }
+
+  return result;
+}
+
+function manualPlan<T extends string>(allocation: AxisAllocation | undefined, allowedOrder: readonly T[], songCount: number, seed = 0): T[] {
   if (!allocation || allocation.mode !== 'manual' || songCount <= 0) return [];
   const allowed = new Set<string>(allowedOrder);
   const plan: T[] = [];
@@ -118,18 +169,25 @@ function manualPlan<T extends string>(allocation: AxisAllocation | undefined, al
     const count = allowed.has(id) ? safeCount(allocation.counts[id]) : 0;
     for (let i = 0; i < count && plan.length < songCount; i++) plan.push(id);
   }
-  return plan;
+  // TASK v3.64-B — plan above is still built in allowedOrder's contiguous
+  // block shape (preserves each value's exact count); spread it so equal
+  // runs don't land back-to-back. maxConsecutive=2 allows up to 2 in a row
+  // (never 3+), matching this task's own requirement. The tie-break order
+  // is seed-shuffled rather than always allowedOrder itself, so two axes
+  // with tied counts don't always resolve the same way regardless of seed.
+  return spreadPlanByCounts(plan, shuffle([...allowedOrder], seed), 2);
 }
 
 export function applyAxisAllocation<T extends string>(
   autoPlan: readonly T[],
   values: AxisAllocation[] | undefined,
   axis: DiversityAxisId,
-  allowedOrder: readonly T[]
+  allowedOrder: readonly T[],
+  seed = 0
 ): T[] {
   const allocation = allocationForAxis(values, axis);
   if (!allocation || allocation.mode !== 'manual') return [...autoPlan];
-  const manual = manualPlan(allocation, allowedOrder, autoPlan.length);
+  const manual = manualPlan(allocation, allowedOrder, autoPlan.length, seed);
   if (!manual.length) return [...autoPlan];
   if (manual.length >= autoPlan.length) return manual.slice(0, autoPlan.length);
   return [...manual, ...autoPlan.slice(0, autoPlan.length - manual.length)];

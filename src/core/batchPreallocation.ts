@@ -113,7 +113,7 @@ export function preallocateSongSlots(
   // type for the same opts.
   const autoVocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
   const vocalPlan = autoVocalPlan
-    ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS)
+    ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
@@ -141,13 +141,15 @@ export function preallocateSongSlots(
     buildHookDevicePlan(opts.songCount, seed, hookDeviceIdsForNarrative(narrativeText)),
     opts.diversityAllocations,
     'hookDevice',
-    hookDevices.map(device => device.id)
+    hookDevices.map(device => device.id),
+    seed
   );
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
     'introTexture',
-    introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id)
+    introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id),
+    seed
   );
   // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
   // structureTemplatePlan pre-pass (same seed), applied unconditionally like
@@ -158,14 +160,16 @@ export function preallocateSongSlots(
     buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype),
     opts.diversityAllocations,
     'structureTemplate',
-    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS
+    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
+    seed
   );
   if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
   const arrangementDensityPlan = applyAxisAllocation(
     Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
     opts.diversityAllocations,
     'arrangementDensity',
-    ARRANGEMENT_DENSITY_IDS
+    ARRANGEMENT_DENSITY_IDS,
+    seed
   );
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
   const povPlan = buildPovPlan(opts, seed);

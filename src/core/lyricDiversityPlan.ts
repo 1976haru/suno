@@ -1,6 +1,6 @@
 import { getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, type LyricTheme } from '../data/lyricThemes';
 import type { GenerationOptions, LyricPerspective, LyricSectionStyleId } from '../types';
-import { applyAxisAllocation, POV_IDS } from './diversityAllocation';
+import { applyAxisAllocation, POV_IDS, spreadPlanByCounts } from './diversityAllocation';
 import { buildStridePlan } from './stridePlan';
 import type { KidsLyricTheme } from './kidsLyricEngine';
 import type { StructureTemplateId } from './lyricEngine';
@@ -44,42 +44,6 @@ type LyricPlanOptions = Pick<GenerationOptions,
 
 function positiveModulo(value: number, length: number): number {
   return ((value % length) + length) % length;
-}
-
-function spreadPlanByCounts<T extends string>(plan: readonly T[], allowedOrder: readonly T[], maxConsecutive: number): T[] {
-  if (plan.length <= 1) return [...plan];
-  const counts = new Map<T, number>();
-  for (const item of plan) counts.set(item, (counts.get(item) || 0) + 1);
-  if (counts.size <= 1) return [...plan];
-
-  const result: T[] = [];
-  const orderIndex = new Map<T, number>();
-  allowedOrder.forEach((item, index) => orderIndex.set(item, index));
-
-  function wouldExceed(candidate: T): boolean {
-    if (maxConsecutive <= 0) return false;
-    if (result.length < maxConsecutive) return false;
-    for (let i = 1; i <= maxConsecutive; i++) {
-      if (result[result.length - i] !== candidate) return false;
-    }
-    return true;
-  }
-
-  while (result.length < plan.length) {
-    const candidates = [...counts.entries()]
-      .filter(([, count]) => count > 0)
-      .sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1];
-        return (orderIndex.get(a[0]) ?? 999) - (orderIndex.get(b[0]) ?? 999);
-      });
-    const picked = candidates.find(([candidate]) => !wouldExceed(candidate)) ?? candidates[0];
-    if (!picked) break;
-    const [value, count] = picked;
-    result.push(value);
-    counts.set(value, count - 1);
-  }
-
-  return result;
 }
 
 const SOLITARY_OBJECT_FRAME_ID = 'solitary-object';
@@ -168,7 +132,7 @@ export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): strin
   const autoPlan = poolHasExplicitFrames(themes)
     ? allocateThemesByFrame(themes, opts.songCount, seed)
     : buildStridePlan(pool, opts.songCount, Math.abs(seed + 907) % pool.length);
-  const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool);
+  const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool, seed);
   return spreadPlanByCounts(allocated, pool, 1);
 }
 
@@ -188,7 +152,7 @@ export function buildPovPlan(opts: LyricPlanOptions, seed: number): LyricPerspec
   const pattern = defaultPovPattern(opts);
   const offset = positiveModulo(seed + 1103, pattern.length);
   const autoPlan = Array.from({ length: opts.songCount }, (_, index) => pattern[(index + offset) % pattern.length]);
-  const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'pov', POV_IDS);
+  const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'pov', POV_IDS, seed);
   return spreadPlanByCounts(allocated, POV_IDS, 2);
 }
 

@@ -317,10 +317,10 @@ export function rebuildStylePromptsForPersonaMode(
   const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, blueprint.songs.length, seed) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
-  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
+  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
   const autoIntroTexturePlan = buildIntroTexturePlan(opts.channel.archetype, blueprint.songs.length, seed, opts.introUniqueness);
   const introTexturePool = introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id);
-  const introTexturePlan = applyAxisAllocation(autoIntroTexturePlan, opts.diversityAllocations, 'introTexture', introTexturePool);
+  const introTexturePlan = applyAxisAllocation(autoIntroTexturePlan, opts.diversityAllocations, 'introTexture', introTexturePool, seed);
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const genreId = genrePlan[idx];
@@ -543,7 +543,7 @@ export function generateLocalBlueprint(
   const tempoBandPlan = tempoBands ? buildTempoBandPlan(tempoBands, opts.songCount, seed) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
-  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool);
+  const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   const emotionArcPool = new UniquePool(emotionArcs, seed + 22);
   const motifPool = new UniquePool(recurringMotifs, seed + 23);
@@ -574,7 +574,7 @@ export function generateLocalBlueprint(
   // channel/opts didn't set one explicitly.
   const autoVocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
   const vocalPlan = autoVocalPlan
-    ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS)
+    ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
@@ -593,13 +593,15 @@ export function generateLocalBlueprint(
     buildHookDevicePlan(opts.songCount, seed, hookDeviceIdsForNarrative(narrativeText)),
     opts.diversityAllocations,
     'hookDevice',
-    hookDevices.map(device => device.id)
+    hookDevices.map(device => device.id),
+    seed
   );
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
     'introTexture',
-    introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id)
+    introTexturesForArchetype(opts.channel.archetype).map(texture => texture.id),
+    seed
   );
   // TASK v3.42 Part C — per-song lyric section-tag shape (see
   // lyricEngine.ts's buildStructureTemplatePlan); track 1 always resolves to
@@ -608,14 +610,16 @@ export function generateLocalBlueprint(
     buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype),
     opts.diversityAllocations,
     'structureTemplate',
-    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS
+    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
+    seed
   );
   if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
   const arrangementDensityPlan = applyAxisAllocation(
     Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
     opts.diversityAllocations,
     'arrangementDensity',
-    ARRANGEMENT_DENSITY_IDS
+    ARRANGEMENT_DENSITY_IDS,
+    seed
   );
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
   const povPlan = buildPovPlan(opts, seed);
