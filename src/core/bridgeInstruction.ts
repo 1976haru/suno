@@ -208,6 +208,20 @@ function hookDeviceInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): 
 }
 
 /**
+ * TASK v3.64-B — same reference-not-verbatim pattern as
+ * hookDeviceInstructionLineFor above. Real measurement: earworm mode's old
+ * flat instruction ("include 'simple stepwise melody' and 'singalong-
+ * friendly hook'") put that literal phrase pair in 18/18 songs' style
+ * prompts in a real pack. Each song now gets its own assigned melodic-design
+ * reference instead.
+ */
+function earwormInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.earwormText)
+    ? '- Each "preassignedSongs" entry may include "earwormText" — a REFERENCE melodic-design idea for this song (not required wording, not a specific song/artist). Reflect that design in your own words rather than copying the phrase, and make sure no two songs in this set read as the same melodic-construction technique.'
+    : '';
+}
+
+/**
  * TASK v3.62 (TASK 1-2) — anachronism guardrail. Consolidated into one
  * bullet (grouped by era, listing affected track numbers) rather than
  * repeated per-song, to keep the instruction's overall length reasonable.
@@ -524,6 +538,7 @@ export function buildClaudeCodeInstruction(
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
+  const earwormInstructionLine = earwormInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
@@ -598,6 +613,7 @@ export function buildClaudeCodeInstruction(
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
+    earwormInstructionLine,
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
@@ -729,6 +745,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     : '';
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(allSlots);
+  const earwormInstructionLine = earwormInstructionLineFor(allSlots);
   const genreInstructionLine = genreInstructionLineFor(allSlots);
   const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
@@ -809,6 +826,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,
+    earwormInstructionLine,
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,

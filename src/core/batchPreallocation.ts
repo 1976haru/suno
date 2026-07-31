@@ -3,7 +3,7 @@ import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlue
 import { averageTempo, emotionArcs, nextContestedTitle, resolveSongRole } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
@@ -218,6 +218,12 @@ export function preallocateSongSlots(
       ...(introTextureId ? { introTextureId } : {}),
       ...(hookDeviceText ? { hookDeviceText } : {}),
       ...(hookDeviceId ? { hookDeviceId } : {}),
+      // TASK v3.64-B — mirrors localGenerator.ts's own per-song
+      // rotatingEarwormText call (same seed/idx), promoted to a slot field
+      // so realtime/Batch/bridge songs get the same per-song melodic-design
+      // variety the local path now does, instead of one flat whole-pack
+      // phrase (see promptComposer.ts's earwormSystemNote).
+      ...(opts.earwormMode ? { earwormText: rotatingEarwormText(seed, idx) } : {}),
       ...(moneyChordId ? { moneyChordId } : {}),
       // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
       // per-song rotatingInstrumentText/arrangementDensityText calls (same

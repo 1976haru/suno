@@ -2,7 +2,7 @@ import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, Moo
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
@@ -358,6 +358,10 @@ export function rebuildStylePromptsForPersonaMode(
         { id: 'genre' as const, text: rotatingGenreText(trackGenres, seed, idx) },
         ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: rotatingGenreSignatureText(trackGenres, seed, idx), shortForm: trackGenres[0].shortSignatureSound, minimalForm: trackGenres[0].minimalSignatureSound }] : []),
         ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
+        // TASK v3.64-B — per-song rotating melodic-design phrase, replacing
+        // the old flat whole-pack EARWORM_STYLE_ATOMS this channelParts
+        // entry used to carry (see promptComposer.ts's rotatingEarwormText).
+        ...(opts.earwormMode ? [{ id: 'earworm' as const, text: rotatingEarwormText(seed, idx) }] : []),
         ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),
         // TASK v3.59 (TASK D-1) — a cold-open track whose opening style
         // already says "no instrumental intro, hook heard immediately"
@@ -722,6 +726,10 @@ export function generateLocalBlueprint(
       { id: 'genre' as const, text: genreText },
       ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: rotatingGenreSignatureText(trackGenres, seed, idx), shortForm: trackGenres[0].shortSignatureSound, minimalForm: trackGenres[0].minimalSignatureSound }] : []),
       ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
+      // TASK v3.64-B — per-song rotating melodic-design phrase, replacing
+      // the old flat whole-pack EARWORM_STYLE_ATOMS this channelParts entry
+      // used to carry (see promptComposer.ts's rotatingEarwormText).
+      ...(opts.earwormMode ? [{ id: 'earworm' as const, text: rotatingEarwormText(seed, idx) }] : []),
       ...(conceptInfluence
         ? [{
           id: 'concept' as const,

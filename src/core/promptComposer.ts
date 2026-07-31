@@ -86,22 +86,46 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
 
 /**
  * v3.15 — earwormMode style-prompt atom (PART B of the brief): purely generic
- * composing-technique language (stepwise melody, phrase symmetry, diatonic
- * simplicity) — describes a technique, never a specific song or artist. Kept
- * out of ESSENTIAL_TERM_IDS since this is a preference nudge, not a
- * requirement — it's fine for composeStylePrompt to drop it under budget
- * pressure like any other non-essential atom.
+ * composing-technique language — describes a technique, never a specific
+ * song or artist. Kept out of ESSENTIAL_TERM_IDS since this is a preference
+ * nudge, not a requirement — it's fine for composeStylePrompt to drop it
+ * under budget pressure like any other non-essential atom.
  *
- * Deliberately compact (4 short atoms, ~13 words) rather than the brief's
- * full 6-phrase example text: composeStylePrompt's real per-song budget is a
- * soft 50-word cap (see promptBudget.ts's STYLE_WORD_TARGET_MAX), and a
- * measured mood/instrument-heavy channel was already floor-reducing those
- * categories before this atom was ever added — the full 6-phrase form would
- * simply never survive real generation, defeating the whole feature. Same
- * "verbose preset text -> terse tag" compaction this file already applies to
- * money chords/hooks/duration (see soundSignature.ts's compact* builders).
+ * TASK v3.64-B — real measurement: a real 18-song pack carried the exact
+ * same single fixed string ("simple stepwise melody, easy to hum,
+ * singalong-friendly pop hook, predictable diatonic phrase structure") in
+ * 18/18 songs (21% of the whole stylePrompt). Different instrumentation per
+ * genre still read as "the same song" because the melodic-CONSTRUCTION
+ * technique itself never varied — a listener remembers melody, not
+ * instrumentation. Replaced the single string with this pool of 10
+ * different (but equally generic, equally song/artist-free) melodic-design
+ * descriptions; rotatingEarwormText below picks one per song so a set uses
+ * several different designs instead of one repeated everywhere.
  */
-export const EARWORM_STYLE_ATOMS = 'simple stepwise melody, easy to hum, singalong-friendly pop hook, predictable diatonic phrase structure';
+export const EARWORM_STYLE_VARIANTS: string[] = [
+  'simple stepwise melody, easy to hum',
+  'narrow melodic range, repeated rhythmic figure',
+  'symmetric four-bar phrases, predictable cadence',
+  'call-and-response hook shape',
+  'rising melodic sequence into the chorus',
+  'two-note pickup leading every phrase',
+  'hook built on the top three scale degrees',
+  'descending resolution on the final hook line',
+  'paired antecedent-consequent phrasing',
+  "sustained note landing the hook's first word"
+];
+
+/**
+ * TASK v3.64-B — same offset+modulo rotation pattern as
+ * arrangementDensityLevel above: `index` cycles through the whole variant
+ * pool so a set of up to ~20-40 songs never repeats one design more than a
+ * handful of times, and `seed` only shifts which variant a given pack starts
+ * on (so two different packs don't all open on variant 0).
+ */
+export function rotatingEarwormText(seed: number, index: number): string {
+  const offset = Math.abs(seed) % EARWORM_STYLE_VARIANTS.length;
+  return EARWORM_STYLE_VARIANTS[(index + offset) % EARWORM_STYLE_VARIANTS.length];
+}
 
 export interface PromptPart {
   id: PromptTermId;
@@ -568,8 +592,11 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
     { id: 'duration', text: duration },
     { id: 'mood', text: moodText },
     { id: 'instruments', text: instrumentText },
-    { id: 'season', text: `${season.keywords.join(', ')} mood` },
-    ...(opts.earwormMode ? [{ id: 'earworm' as const, text: EARWORM_STYLE_ATOMS }] : [])
+    { id: 'season', text: `${season.keywords.join(', ')} mood` }
+    // TASK v3.64-B — earworm's atom moved out of this whole-pack part list:
+    // it's now a per-song rotation (rotatingEarwormText), added directly in
+    // each caller's per-song loop instead of here, since this function has
+    // no per-song index to rotate on.
   ];
 }
 
@@ -812,11 +839,27 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
 /**
  * v3.15 — earwormMode's remote-provider counterpart to the local hook
  * contest's familiarity weighting (see core/openingContest.ts). Describes
- * generic, decades-old songwriting techniques only (short repeatable hooks,
- * common progressions, stepwise melody) — never a specific song or artist,
- * same boundary as EARWORM_STYLE_ATOMS and the money-chord nudge.
+ * generic, decades-old songwriting techniques only — never a specific song
+ * or artist, same boundary as EARWORM_STYLE_VARIANTS and the money-chord
+ * nudge.
+ *
+ * TASK v3.64-B — was "include generic technique language such as 'simple
+ * stepwise melody' and 'singalong-friendly hook'" verbatim, every request,
+ * every song — a real 18-song pack measured that literal phrase pair in
+ * 18/18 stylePrompts. Now points at each song's own preassignedSongs entry
+ * (see hookDeviceInstructionLineFor's identical reference-not-verbatim
+ * pattern in claudeCodeBridge.ts) when one is available, so each song gets
+ * a different assigned melodic-design direction instead of the whole pack
+ * reaching for the same two phrases. Falls back to a still-varied general
+ * instruction when no preassignedSongs plan exists (e.g. the OpenAI batch
+ * branch, which doesn't forward preassignedSongs).
  */
-const EARWORM_SYSTEM_NOTE = '\n\nEarworm mode is on for this request:\n- Prefer a hook phrase that is short, easy to hum on first listen, and repeats its own rhythmic shape.\n- Prefer the most common, widely-shared pop chord progression available (e.g. I-V-vi-IV or the canon progression) over a more distinctive one.\n- In "stylePrompt", include generic technique language such as "simple stepwise melody" and "singalong-friendly hook" where it fits within the character budget.\n- This only raises the odds of a familiar-feeling result; it is not a guarantee, and it never means referencing or imitating any specific existing song or artist.';
+function earwormSystemNote(hasPreassignedEarworm: boolean): string {
+  const styleLine = hasPreassignedEarworm
+    ? '- Each song\'s own "preassignedSongs" entry includes "earwormText" - a REFERENCE melodic-design idea for that song (not required wording, not a specific song/artist). Reflect that design in your own words rather than copying the phrase, and make sure no two songs in this set read as the same melodic-construction technique.'
+    : '- In "stylePrompt", describe the melody using varied, generic construction language (phrase shape, range, cadence, repetition) - pick a different melodic-design description for each song rather than reusing the same phrase across the set.';
+  return `\n\nEarworm mode is on for this request:\n- Prefer a hook phrase that is short, easy to hum on first listen, and repeats its own rhythmic shape.\n- Prefer the most common, widely-shared pop chord progression available (e.g. I-V-vi-IV or the canon progression) over a more distinctive one.\n${styleLine}\n- This only raises the odds of a familiar-feeling result; it is not a guarantee, and it never means referencing or imitating any specific existing song or artist.`;
+}
 
 /**
  * TASK v3.21 — totalSongCountOverride decouples "how many songs does the
@@ -838,7 +881,7 @@ const EARWORM_SYSTEM_NOTE = '\n\nEarworm mode is on for this request:\n- Prefer 
  */
 export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchContext, totalSongCountOverride?: number, generateThumbnailText = false) {
   const batchNote = batch ? buildBatchSystemNote(opts, batch, generateThumbnailText) : '';
-  const earwormNote = opts.earwormMode ? EARWORM_SYSTEM_NOTE : '';
+  const earwormNote = opts.earwormMode ? earwormSystemNote(Boolean(batch?.preassignedSongs?.some(slot => slot.earwormText))) : '';
   const eraLyricGuidance = eraLyricGuidanceForArchetype(opts.channel.archetype);
   const totalSongCount = totalSongCountOverride ?? batch?.totalSongCount ?? opts.songCount;
 

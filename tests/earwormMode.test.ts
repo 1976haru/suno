@@ -6,7 +6,7 @@ import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { runOpeningContest, scoreFamiliarity, type OpeningPackContext } from '../src/core/openingContest';
 import { hookRhythmLength, targetHookSyllables, type HookContext, type HookSpec } from '../src/core/lyricEngine';
 import { resolveEarwormMoneyChordMode } from '../src/data/moneyChords';
-import { EARWORM_STYLE_ATOMS } from '../src/core/promptComposer';
+import { EARWORM_STYLE_VARIANTS } from '../src/core/promptComposer';
 import { scoreSong } from '../src/core/quality';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { LyricLanguage } from '../src/types';
@@ -114,10 +114,17 @@ describe('earwormMode (v3.15)', () => {
       }
     });
 
-    it('earwormMode=true appends only safe, generic technique language to the style prompt (no imitation phrasing)', () => {
-      const bp = generateLocalBlueprint(makeOptions({ songCount: 3, earwormMode: true }), testGenres, testMoods, testSeason);
-      expect(bp.songs.some(song => song.stylePrompt.includes('stepwise melody') || song.stylePrompt.includes('singalong-friendly'))).toBe(true);
-      expect(EARWORM_STYLE_ATOMS).not.toMatch(/\bin the style of\b|\bsounds like\b|\bas sung by\b/i);
+    it('earwormMode=true appends one of the rotating generic technique variants to every song\'s style prompt (no imitation phrasing)', () => {
+      // TASK v3.64-B — a real 18-song pack carried the same single fixed
+      // earworm phrase in 18/18 songs; now each song gets one of a pool of
+      // 10 different melodic-design variants (see rotatingEarwormText).
+      const bp = generateLocalBlueprint(makeOptions({ songCount: 6, earwormMode: true }), testGenres, testMoods, testSeason);
+      for (const song of bp.songs) {
+        expect(EARWORM_STYLE_VARIANTS.some(variant => song.stylePrompt.includes(variant)), song.stylePrompt).toBe(true);
+      }
+      for (const variant of EARWORM_STYLE_VARIANTS) {
+        expect(variant).not.toMatch(/\bin the style of\b|\bsounds like\b|\bas sung by\b/i);
+      }
     });
   });
 

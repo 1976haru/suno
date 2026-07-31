@@ -504,6 +504,19 @@ export interface PreassignedSongSlot {
    */
   hookDeviceText?: string;
   /**
+   * TASK v3.64-B — this trackNo's rotating melodic-design/earworm phrase
+   * (see core/promptComposer.ts's EARWORM_STYLE_VARIANTS /
+   * rotatingEarwormText). Only set when opts.earwormMode is on. Replaces
+   * the old fixed EARWORM_STYLE_ATOMS string, which every song in a real
+   * 18-song pack carried identically ("simple stepwise melody, easy to
+   * hum, singalong-friendly pop hook, predictable diatonic phrase
+   * structure", 18/18) — different instrumentation per genre still read as
+   * "the same song" because the melodic-construction technique itself
+   * never varied. Same instruction-only, reference-not-verbatim trust
+   * model as hookDeviceText above.
+   */
+  earwormText?: string;
+  /**
    * TASK v3.43 Step 2 (Part A3) — this trackNo's rotating instrument
    * selection: the channel's identity-anchor instrument plus 1-2 more
    * seed-shuffled from the rest of the genre pack's pool (see
