@@ -61,6 +61,71 @@ export interface ClaudeCodeInstructionOptions {
   conceptLine?: string;
   /** Markdown table summarizing set-level concept/season/money-chord/vocal quotas for bridge copy. */
   setPlanningTable?: string;
+  /**
+   * v3.63 재작성 (TASK D) — SetDirector's own segment/listening-context
+   * interpretation (see core/setDirector.ts's SetPlan), included as a
+   * "[세그먼트 해석]"/"[청취 상황]" section when present. Optional and
+   * additive: every existing caller that doesn't go through SetDirector
+   * (multiSetGeneration.ts, Step3Generate.tsx, most tests) omits this and
+   * gets the exact same instruction text as before.
+   */
+  setDirectorInterpretation?: {
+    segments: SetDirectorSegmentLike[];
+    listeningContext: SetDirectorListeningContextLike;
+  };
+}
+
+/**
+ * v3.63 재작성 (TASK D) — a structural (not imported-type) mirror of
+ * core/setDirector.ts's SetSegment/ListeningContext. Kept as a local
+ * interface rather than `import type { SetSegment } from './setDirector'`
+ * so this module's own dependency graph doesn't gain a new edge toward
+ * setDirector.ts (which itself depends on a long chain of core/* modules);
+ * TypeScript's structural typing means any real SetSegment/ListeningContext
+ * value already satisfies this shape with no adapter needed.
+ */
+interface SetDirectorSegmentLike {
+  label: string;
+  songCount: number;
+  genreIds: string[];
+  eraTag: string;
+  descriptors: string[];
+}
+
+interface SetDirectorListeningContextLike {
+  settingKo: string;
+  dynamicCeiling: 'low' | 'medium' | 'wide';
+  tempoHint?: [number, number];
+  extraExclusions: string[];
+}
+
+/**
+ * TASK D (5-2) — one segment per line, its own descriptors (already
+ * safety-checked artist-name-free by setDirector.ts's own decomposition/
+ * blending — never the segment label alone, which could theoretically be
+ * "카펜터스풍" for display purposes only). The "그대로 쓸 필요 없습니다"
+ * reminder matches this file's existing reference-not-verbatim convention
+ * (see hookDeviceInstructionLineFor et al.).
+ */
+function buildSetDirectorInterpretationSection(segments: SetDirectorSegmentLike[], listeningContext: SetDirectorListeningContextLike): string {
+  const segmentLines = segments.map(segment => `  ${segment.label} (${segment.songCount}곡): ${segment.descriptors.length ? segment.descriptors.join(', ') : segment.eraTag}`);
+  const lines = [
+    '[세그먼트 해석]',
+    ...segmentLines,
+    '  ※ 이 서술어를 그대로 쓸 필요 없습니다. 이 사운드를 이해하고 작곡하십시오.'
+  ];
+  const hasListeningContext = listeningContext.settingKo && listeningContext.settingKo !== '특별한 청취 상황 지정 없음';
+  if (hasListeningContext) {
+    const ceilingKo = { low: '낮게', medium: '보통으로', wide: '넓게' }[listeningContext.dynamicCeiling];
+    const tempoNote = listeningContext.tempoHint ? ` 템포는 ${listeningContext.tempoHint[0]}-${listeningContext.tempoHint[1]} BPM 대역을 우선하십시오.` : '';
+    const exclusionNote = listeningContext.extraExclusions.length ? ` ${listeningContext.extraExclusions.join(', ')}은(는) 피하십시오.` : '';
+    lines.push(
+      '',
+      '[청취 상황]',
+      `  ${listeningContext.settingKo} — 다이내믹을 ${ceilingKo} 유지하십시오.${tempoNote}${exclusionNote}`
+    );
+  }
+  return lines.join('\n');
 }
 
 function buildBridgePayload(
@@ -564,6 +629,10 @@ export function buildClaudeCodeInstruction(
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
     buildSetPlanHandoffSection(preassignedSongs, genres),
+    '',
+    instructionOptions.setDirectorInterpretation
+      ? buildSetDirectorInterpretationSection(instructionOptions.setDirectorInterpretation.segments, instructionOptions.setDirectorInterpretation.listeningContext)
+      : '',
     '',
     // TASK v3.64 (TASK C) — the "use exactly that BPM, verbatim" rule
     // already existed but was buried after the full per-song JSON payload

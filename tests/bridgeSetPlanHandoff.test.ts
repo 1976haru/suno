@@ -106,4 +106,67 @@ describe('[v3.63] SetPlan bridge handoff', () => {
     expect(instruction.indexOf('[SetPlan handoff]')).toBeGreaterThan(-1);
     expect(instruction.indexOf('[SetPlan handoff]')).toBeLessThan(instruction.indexOf('Request payload for this pack'));
   });
+
+  it('[v3.63 재작성 TASK D] carries SetDirector\'s segment interpretation + listening context when passed via instructionOptions', () => {
+    const plan = directSetLocal('카펜터스와 아바 느낌나는 노래 9곡씩 총 18곡 만들어줘', seniorChannel, 18, { recentGenreIds: [], recentHooks: [] });
+    const genreIds = new Set(Object.keys(plan.allocations.find(item => item.axis === 'genre')!.counts));
+    const genres = genreLibrary.filter(genre => genreIds.has(genre.id));
+    const opts = {
+      channel: seniorChannel,
+      projectTitle: 'Segment Test Pack',
+      songCount: 18,
+      lyricLanguage: 'english' as const,
+      market: seniorChannel.market,
+      audience: seniorChannel.audience,
+      genreIds: genres.map(genre => genre.id),
+      moodIds: seniorChannel.preferredMoods,
+      seasonId: 'spring-open',
+      vocalTone: seniorChannel.defaultVocal,
+      perspective: 'firstPerson' as const,
+      lyricDepth: 'commercial' as const,
+      durationTarget: 'under3m30' as const,
+      moneyChordMode: 'default' as const,
+      customMoneyChord: '',
+      customConcept: '카펜터스와 아바 느낌나는 노래 9곡씩 총 18곡 만들어줘',
+      avoidWords: '',
+      personaMode: false,
+      diversityAllocations: plan.allocations
+    };
+    const instruction = buildClaudeCodeInstruction(opts, genres, testMoods, testSeason, { usedTitles: [], usedHooks: [] }, plan.slots, false, {
+      setDirectorInterpretation: { segments: plan.segments, listeningContext: plan.interpretation.listeningContext }
+    });
+    expect(instruction).toContain('[세그먼트 해석]');
+    expect(instruction).toContain(plan.segments[0].label);
+    expect(instruction).toContain(plan.segments[1].label);
+    expect(instruction).toContain('그대로 쓸 필요 없습니다');
+    // No artist name leaks into the instruction text via the segment section.
+    expect(instruction.toLowerCase()).not.toMatch(/carpenter|abba/);
+  });
+
+  it('[v3.63 재작성 TASK D] omits the segment section entirely when setDirectorInterpretation is not passed (every pre-existing caller)', () => {
+    const { plan, genres } = planFixture();
+    const opts = {
+      channel: seniorChannel,
+      projectTitle: 'Test Pack',
+      songCount: 18,
+      lyricLanguage: 'english' as const,
+      market: seniorChannel.market,
+      audience: seniorChannel.audience,
+      genreIds: genres.map(genre => genre.id),
+      moodIds: seniorChannel.preferredMoods,
+      seasonId: 'spring-open',
+      vocalTone: seniorChannel.defaultVocal,
+      perspective: 'firstPerson' as const,
+      lyricDepth: 'commercial' as const,
+      durationTarget: 'under3m30' as const,
+      moneyChordMode: 'default' as const,
+      customMoneyChord: '',
+      customConcept: '비틀즈 느낌으로, 아침에 커피와 함께 듣고 싶은 올드팝',
+      avoidWords: '',
+      personaMode: false,
+      diversityAllocations: plan.allocations
+    };
+    const instruction = buildClaudeCodeInstruction(opts, genres, testMoods, testSeason, { usedTitles: [], usedHooks: [] }, plan.slots, false);
+    expect(instruction).not.toContain('[세그먼트 해석]');
+  });
 });

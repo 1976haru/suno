@@ -4,7 +4,9 @@ import type {
   DiversityAxisId,
   GenerationOptions,
   GenrePack,
-  PreassignedSongSlot
+  GenreTraits,
+  PreassignedSongSlot,
+  ProviderSettings
 } from '../types';
 import { genreLibrary, getCoreGenreIdsForArchetype, getGenreById, totalGenreCount } from '../data/genreLibrary';
 import { moodPacks, seasonPacks } from '../data/presets';
@@ -21,11 +23,54 @@ import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { allocateGenreCounts } from './conceptAgent';
 import {
   decomposeArtistReferences,
+  findArtistReferenceLeaks,
   isSafeDecomposedReference,
   type DecomposedReference
 } from './artistReferenceDecomposer';
 import { preallocateSongSlots } from './batchPreallocation';
 import { GENRE_FAMILIES, membersPerFamilyForSelection, type GenreFamily } from '../data/genreFamilies';
+import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
+import { blendGenreTraits, eraDriftWarning } from './genreBlend';
+import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
+import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
+
+/**
+ * v3.63 재작성 (TASK B) — 2단계 해석의 산출 타입. 1단계(자연어 → 이 타입)는
+ * LLM(interpretFreeTextRemote, directSet 경로) 또는 규칙 기반 근사
+ * (interpretFreeTextLocal, directSetLocal 폴백 경로)가 채운다. 2단계
+ * (이 타입 → SetPlan)는 buildSetPlanFromIntent 하나로 통일 — 어느 경로로
+ * 해석됐든 이후 로직은 동일하다.
+ */
+export interface ListeningContext {
+  settingKo: string;
+  dynamicCeiling: 'low' | 'medium' | 'wide';
+  tempoHint?: [number, number];
+  extraExclusions: string[];
+}
+
+export interface IntentSegment {
+  label: string;
+  songCount: number;
+  profile: TraitProfile;
+  blendHint?: { anchorHintKo: string; flavorHintKo: string; strength: 'light' | 'medium' | 'strong' };
+}
+
+export interface InterpretedIntent {
+  intentKo: string;
+  segments: IntentSegment[];
+  listeningContext: ListeningContext;
+  reasoningKo: string[];
+  unknownTermsKo: string[];
+}
+
+export interface SetSegment {
+  label: string;
+  songCount: number;
+  genreIds: string[];
+  blendedTraits?: GenreTraits;
+  eraTag: string;
+  descriptors: string[];
+}
 
 export interface SetPlan {
   interpretation: {
@@ -36,7 +81,13 @@ export interface SetPlan {
     artistReferences: DecomposedReference[];
     audienceProfileId: string;
     reasoningKo: string[];
+    /** v3.63 재작성 (TASK B) — terms the interpreter (LLM or local) could not confidently interpret (e.g. "오늘 같은 날씨" — the app has no weather data). Never silently dropped; surfaced here so the UI can tell the user why. */
+    unknownTermsKo: string[];
+    /** v3.63 재작성 (TASK B) — listening-context constraints derived from the free text (e.g. "커피숍에서" -> low dynamic ceiling). */
+    listeningContext: ListeningContext;
   };
+  /** v3.63 재작성 (TASK B) — one entry per interpreted segment (an artist reference, a blend request, or the whole request when there's only one). Empty only never happens — a plan always has at least one segment covering the whole songCount. */
+  segments: SetSegment[];
   allocations: AxisAllocation[];
   slots: PreassignedSongSlot[];
   adjustables: {
@@ -443,6 +494,318 @@ function intentSummaryKo(freeText: string, eraFocus: string[], genreIds: string[
   return `"${freeText.trim() || '무지정'}" 입력을 ${eraText} 중심의 ${genreLabels} 세트로 해석했습니다.`;
 }
 
+// ============================================================
+// v3.63 재작성 (TASK B) — segments, blending, and listening-context
+// detection. Everything below is NEW and additive: it only activates for
+// inputs the OLD single-pass keyword logic above genuinely couldn't handle
+// (2+ known artist references, an explicit "X 느낌이 나는 Y" blend pattern).
+// A plain single-reference/no-reference/family-picker input never reaches
+// this code — it keeps using the exact logic above, unchanged, so every
+// pre-existing directSetLocal test keeps passing byte-for-byte.
+// ============================================================
+
+const NO_LISTENING_CONTEXT_KO = '특별한 청취 상황 지정 없음';
+
+function evenSplit(segmentCount: number, songCount: number): number[] {
+  const base = Math.floor(songCount / segmentCount);
+  const remainder = songCount - base * segmentCount;
+  return Array.from({ length: segmentCount }, (_, i) => base + (i < remainder ? 1 : 0));
+}
+
+/**
+ * TASK B (1-3) — "9곡씩" / "각각 10곡" / "반반" quantity-phrase parsing.
+ * Anything else (including no quantity phrase at all) falls back to an even
+ * split — never throws, never leaves a segment at 0.
+ */
+export function parseQuantityPhrase(freeText: string, segmentCount: number, songCount: number): number[] {
+  if (segmentCount <= 1) return [songCount];
+  const text = normalizeText(freeText);
+  const eachMatch = text.match(/(\d+)\s*곡\s*씩/) || text.match(/각각\s*(\d+)\s*곡/);
+  if (eachMatch) {
+    const each = clamp(parseInt(eachMatch[1], 10) || 0, 1, songCount);
+    const counts = Array(segmentCount).fill(each);
+    const total = each * segmentCount;
+    if (total !== songCount) counts[counts.length - 1] = Math.max(1, counts[counts.length - 1] + (songCount - total));
+    return counts;
+  }
+  return evenSplit(segmentCount, songCount);
+}
+
+/**
+ * TASK B (1-3) — "샹송 느낌이 나는 올드팝" style genre-blend requests. The
+ * capture groups are deliberately a single unbroken token (`[\p{L}0-9]+`)
+ * right before the trigger phrase, not `.+?`, so noise earlier in the
+ * sentence ("7080 올드팝 채널에 샹송 느낌이 나는 올드팝") doesn't get pulled
+ * into the flavor hint — only the word immediately before "느낌이 나는" does.
+ */
+function detectBlendHint(freeText: string): { flavorKo: string; anchorKo: string } | undefined {
+  const match = freeText.match(/([\p{L}0-9]+)\s*(?:느낌이?\s*나는|느낌의|풍의|스타일의)\s*(.+)/u);
+  if (!match) return undefined;
+  const flavorKo = match[1].trim();
+  const anchorKo = match[2].trim();
+  if (!flavorKo || !anchorKo || flavorKo === anchorKo) return undefined;
+  return { flavorKo, anchorKo };
+}
+
+/**
+ * TASK B (1-3) — resolves a short Korean/English hint phrase ("샹송",
+ * "올드팝") to a single concrete genre id by reusing the same keyword-scoring
+ * chooseGenreIds already uses for the whole free-text input — proven
+ * accurate for exactly this kind of Korean genre-name text (see
+ * scoreGenre's own 샹송/재즈/올드팝/카펜/아바 regex cases).
+ */
+function resolveHintToGenreId(hintText: string, channel: ChannelProfile, history: { recentGenreIds: string[] }): string | undefined {
+  const { ranked } = chooseGenreIds(hintText, channel, 1, [], [], history);
+  return ranked[0]?.genre.id;
+}
+
+/**
+ * TASK B (1-3) — listening-context keyword detection ("커피숍에서" ->
+ * low dynamic ceiling + no-conversation-disruption exclusion; "잔잔한" ->
+ * low ceiling + a slower tempo hint; "비 오는 날" -> low ceiling). Multiple
+ * cues combine (dynamicCeiling only ever tightens, never loosens); an input
+ * with none of these just returns the neutral default.
+ */
+function detectListeningContext(freeText: string): ListeningContext {
+  const text = normalizeText(freeText);
+  const settingParts: string[] = [];
+  const extraExclusions: string[] = [];
+  let dynamicCeiling: ListeningContext['dynamicCeiling'] = 'wide';
+  let tempoHint: [number, number] | undefined;
+  const tighten = (next: ListeningContext['dynamicCeiling']) => {
+    const order = { low: 0, medium: 1, wide: 2 };
+    if (order[next] < order[dynamicCeiling]) dynamicCeiling = next;
+  };
+
+  if (/(커피숍|카페|coffee shop|cafe)/i.test(text)) {
+    settingParts.push('커피숍 배경음');
+    tighten('low');
+    extraExclusions.push('대화를 방해하는 큰 다이내믹');
+  }
+  if (/(잔잔|조용|차분|calm|quiet|mellow)/i.test(text)) {
+    settingParts.push('잔잔한 배경음');
+    tighten('low');
+    tempoHint = tempoHint || [62, 92];
+  }
+  if (/(비\s*오는|rainy|장마)/i.test(text)) {
+    settingParts.push('비 오는 날 분위기');
+    tighten('medium');
+    extraExclusions.push('밝고 들뜬 장조 위주 진행');
+  }
+
+  return {
+    settingKo: settingParts.length ? [...new Set(settingParts)].join(', ') : NO_LISTENING_CONTEXT_KO,
+    dynamicCeiling,
+    tempoHint,
+    extraExclusions
+  };
+}
+
+/**
+ * TASK B (1-3) — things the app genuinely cannot interpret (real-time
+ * weather, "today's mood" without any further description) get flagged
+ * here instead of silently ignored, per this task's own explicit "조용히
+ * 무시하는 것이 가장 나쁩니다" instruction. No weather API is added — the
+ * note tells the user to describe it in words instead.
+ */
+const UNKNOWABLE_PATTERNS: { pattern: RegExp; noteKo: string }[] = [
+  { pattern: /오늘\s*(같은\s*)?날씨|이런\s*날씨|날씨에/, noteKo: '"날씨" — 앱은 실시간 날씨를 알 수 없습니다. "비 오는", "맑은"처럼 직접 적어주시면 반영됩니다.' },
+  { pattern: /오늘\s*기분|지금\s*기분/, noteKo: '"오늘/지금 기분" — "차분한", "들뜬"처럼 구체적으로 적어주시면 반영됩니다.' },
+  { pattern: /요즘\s*(인기|유행)|최근\s*(인기|유행)/, noteKo: '"요즘 인기/유행" — 앱은 실시간 인기 순위를 알 수 없습니다. 원하는 장르나 분위기를 직접 적어주시면 반영됩니다.' }
+];
+
+function detectUnknownTerms(freeText: string): string[] {
+  return UNKNOWABLE_PATTERNS.filter(({ pattern }) => pattern.test(freeText)).map(({ noteKo }) => noteKo);
+}
+
+function profileFromDecomposedReference(ref: DecomposedReference): TraitProfile {
+  return {
+    eraTag: ref.eraTag,
+    instrumentation: ref.instrumentation,
+    rhythmFeel: ref.rhythmTraits,
+    harmonyTraits: ref.harmonyTraits,
+    productionTraits: ref.productionTraits,
+    vocalTraits: ref.vocalTraits
+  };
+}
+
+function candidatesForChannel(channel: ChannelProfile): GenrePack[] {
+  return genreLibrary.filter(genre => genreMatchesChannel(genre, channel));
+}
+
+/**
+ * TASK B (1-4) — dynamicCeiling only ever narrows the candidate list, and
+ * only when doing so still leaves >= 4 genres (never lets a listening-
+ * context constraint alone collapse a segment down to nothing). Genres with
+ * no `.traits` (dynamicRange unknown) are never penalized for it.
+ */
+function applyListeningContextFilter(ids: string[], listeningContext: ListeningContext): string[] {
+  if (listeningContext.dynamicCeiling === 'wide') return ids;
+  const order = { low: 0, medium: 1, wide: 2 };
+  const ceilingRank = order[listeningContext.dynamicCeiling];
+  const filtered = ids.filter(id => {
+    const dynamicRange = getGenreById(id)?.traits?.dynamicRange;
+    return !dynamicRange || order[dynamicRange] <= ceilingRank;
+  });
+  return filtered.length >= 4 ? filtered : ids;
+}
+
+function segmentGenreIdsFromProfile(profile: TraitProfile, channel: ChannelProfile, limit: number): string[] {
+  if (!Object.keys(profile).length) return [];
+  return matchGenresByTraits(profile, candidatesForChannel(channel), limit)
+    .filter(match => match.score > 0)
+    .map(match => match.genreId);
+}
+
+interface BuiltBlendSegment {
+  genreIds: string[];
+  blendedTraits: GenreTraits;
+  eraTag: string;
+  descriptors: string[];
+  warnings: string[];
+}
+
+/**
+ * TASK B (1-4) — resolves both hint phrases to concrete genres (reusing the
+ * proven keyword scorer, not trait-matching, since these are short Korean
+ * genre-name fragments, not full musical descriptions), blends them
+ * (v3.65's blendGenreTraits — anchor keeps structure/rhythm/era, flavor
+ * gives instrumentation/harmony), then re-matches the BLENDED traits
+ * against the whole library to add 2-4 genuinely adjacent genres, per this
+ * task's own "합성 traits로 다시 매칭해 인접 장르 2~4종 추가" instruction.
+ */
+function buildBlendSegment(
+  flavorHintKo: string,
+  anchorHintKo: string,
+  channel: ChannelProfile,
+  history: { recentGenreIds: string[] }
+): BuiltBlendSegment | undefined {
+  const anchorGenre = getGenreById(resolveHintToGenreId(anchorHintKo, channel, history) || '');
+  const flavorGenre = getGenreById(resolveHintToGenreId(flavorHintKo, channel, history) || '');
+  if (!anchorGenre?.traits || !flavorGenre?.traits || anchorGenre.id === flavorGenre.id) return undefined;
+
+  const blended = blendGenreTraits(anchorGenre, flavorGenre, 'medium');
+  const adjacent = segmentGenreIdsFromProfile(blended, channel, 6).filter(id => id !== anchorGenre.id && id !== flavorGenre.id);
+  const genreIds = [...new Set([anchorGenre.id, flavorGenre.id, ...adjacent])].slice(0, 6);
+  const warning = eraDriftWarning(anchorGenre.traits.eraTag, flavorGenre.traits.eraTag);
+
+  return {
+    genreIds,
+    blendedTraits: blended,
+    eraTag: blended.eraTag,
+    descriptors: [...blended.instrumentation.slice(0, 2), ...blended.harmonyTraits.slice(0, 2)],
+    warnings: warning ? [warning] : []
+  };
+}
+
+/**
+ * TASK B (2단계) — the single stage-2 function shared by every 1단계
+ * interpretation path (directSetLocal's new segment/blend branches, and
+ * directSet's LLM-derived intent below): turns an already-interpreted
+ * InterpretedIntent into a full SetPlan by reusing the exact same
+ * 8-axis/slot machinery (makeAllocations/preallocateSongSlots/
+ * makeAdjustables) the original single-segment path already used — no new
+ * data structures, per this task's own "새 데이터 구조를 만들지 마십시오".
+ */
+export function buildSetPlanFromIntent(
+  intent: InterpretedIntent,
+  channel: ChannelProfile,
+  history: { recentGenreIds: string[]; recentHooks: string[] }
+): SetPlan {
+  const safeSongCount = clamp(intent.segments.reduce((sum, segment) => sum + segment.songCount, 0) || 18, 1, 80);
+  const blendWarnings: string[] = [];
+
+  const resolvedSegments: SetSegment[] = intent.segments.map(segment => {
+    if (segment.blendHint) {
+      const built = buildBlendSegment(segment.blendHint.flavorHintKo, segment.blendHint.anchorHintKo, channel, history);
+      if (built) {
+        blendWarnings.push(...built.warnings);
+        return {
+          label: segment.label,
+          songCount: segment.songCount,
+          genreIds: applyListeningContextFilter(built.genreIds, intent.listeningContext),
+          blendedTraits: built.blendedTraits,
+          eraTag: built.eraTag,
+          descriptors: built.descriptors
+        };
+      }
+    }
+    const matchedIds = applyListeningContextFilter(segmentGenreIdsFromProfile(segment.profile, channel, 4), intent.listeningContext);
+    const fallbackIds = getCoreGenreIdsForArchetype(channel.archetype || 'senior-morning').slice(0, 4);
+    return {
+      label: segment.label,
+      songCount: segment.songCount,
+      genreIds: matchedIds.length ? matchedIds : fallbackIds,
+      eraTag: segment.profile.eraTag || 'mixed',
+      descriptors: [...(segment.profile.instrumentation ?? []).slice(0, 2), ...(segment.profile.harmonyTraits ?? []).slice(0, 2)]
+    };
+  });
+
+  // Merge every segment's genre selection into one manual count map, each
+  // segment's own ids capped at 5 songs (same per-genre cap the old path
+  // enforces) and totaling exactly that segment's own songCount — this is
+  // what keeps a "9곡씩" request honestly at 9+9 rather than an
+  // approximation.
+  //
+  // Insertion order matters here, not just the counts: buildGenreCountRotationPlan
+  // (genreRotation.ts, reused as-is) only refuses to repeat the single
+  // immediately-previous genre id — it has no notion of "segment", so when
+  // two ids tie on remaining count it breaks the tie by this map's key
+  // order. Inserting segment 1's ids fully before segment 2's let it
+  // exhaust one segment's 4 genres before touching the other's, producing
+  // runs of ~4 same-segment tracks in a row even though no single genre
+  // ever repeated back-to-back — exactly the block-clumping this task
+  // exists to avoid. Round-robining one genre id from each segment at a
+  // time keeps every segment's ids threaded through the map's order, so
+  // the existing tie-break naturally alternates segments too.
+  const perSegmentCounts = resolvedSegments.map(segment => Object.entries(countsFromSlots(segment.genreIds, segment.songCount, 5)));
+  const genreCounts: Record<string, number> = {};
+  const maxEntries = Math.max(0, ...perSegmentCounts.map(entries => entries.length));
+  for (let i = 0; i < maxEntries; i++) {
+    for (const entries of perSegmentCounts) {
+      if (i >= entries.length) continue;
+      const [id, count] = entries[i];
+      genreCounts[id] = (genreCounts[id] ?? 0) + count;
+    }
+  }
+  const selectedIds = Object.keys(genreCounts);
+
+  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds);
+  const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
+  if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: genreCounts };
+
+  const opts = buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations);
+  const selectedIdSet = new Set(selectedIds);
+  const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
+  const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
+
+  const densityAllocation = allocations.find(allocation => allocation.axis === 'arrangementDensity');
+  const densityMax = densityAllocation ? Math.max(...Object.values(densityAllocation.counts)) : 0;
+  const warnings = [
+    ...(selectedIds.length < 4 ? ['장르 후보가 4종 미만입니다. 채널 필터 또는 입력 키워드를 확인하십시오.'] : []),
+    ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : []),
+    ...blendWarnings
+  ];
+
+  return {
+    interpretation: {
+      intentKo: intent.intentKo,
+      eraFocus: [...new Set(resolvedSegments.map(segment => segment.eraTag).filter(Boolean))],
+      familyIds: [],
+      artistReferences: [],
+      audienceProfileId: channel.archetype || channel.audience,
+      reasoningKo: intent.reasoningKo,
+      unknownTermsKo: intent.unknownTermsKo,
+      listeningContext: intent.listeningContext
+    },
+    segments: resolvedSegments,
+    allocations,
+    slots,
+    adjustables: makeAdjustables(allocations, []),
+    warnings
+  };
+}
+
 export function directSetLocal(
   freeText: string,
   channel: ChannelProfile,
@@ -452,11 +815,65 @@ export function directSetLocal(
   familyIds: string[] = []
 ): SetPlan {
   const safeSongCount = clamp(Math.round(songCount) || 18, 1, 80);
+  const listeningContext = detectListeningContext(freeText);
+  const unknownTermsKo = detectUnknownTerms(freeText);
   const artistReferences = decomposeArtistReferences(freeText).filter(isSafeDecomposedReference);
+
+  // v3.63 재작성 (TASK B) — 2+ known-artist segments ("카펜터스와 아바 9곡씩").
+  // Only when there's no family selection active (a family pick already
+  // means "장르로 직접 선택했다" — segments would fight it).
+  if (!familyIds.length && artistReferences.length >= 2) {
+    const labels = artistReferences.map(ref => `${ref.matchedSurface}풍`);
+    const counts = parseQuantityPhrase(freeText, artistReferences.length, safeSongCount);
+    return buildSetPlanFromIntent({
+      intentKo: `${labels.join(' + ')} ${safeSongCount}곡 세트로 해석했습니다.`,
+      segments: artistReferences.map((ref, idx) => ({ label: labels[idx], songCount: counts[idx], profile: profileFromDecomposedReference(ref) })),
+      listeningContext,
+      reasoningKo: [
+        `자유 입력에서 서로 다른 참조 ${artistReferences.length}개(${artistReferences.map(ref => ref.matchedSurface).join(', ')})를 감지해 세그먼트로 분리했습니다.`,
+        `곡 수는 ${counts.join('+')}로 배분했습니다(입력에 곡 수 표현이 없으면 균등 분배).`,
+        listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO ? `청취 상황(${listeningContext.settingKo})을 반영했습니다.` : '별도 청취 상황 지정은 없었습니다.',
+        '아티스트명은 프롬프트에 넣지 않고 음악 특성으로만 분해했습니다.'
+      ],
+      unknownTermsKo
+    }, channel, history);
+  }
+
+  // v3.63 재작성 (TASK B) — explicit "X 느낌이 나는 Y" genre-blend request.
+  if (!familyIds.length) {
+    const blendHint = detectBlendHint(freeText);
+    if (blendHint) {
+      const anchorGenre = getGenreById(resolveHintToGenreId(blendHint.anchorKo, channel, history) || '');
+      const flavorGenre = getGenreById(resolveHintToGenreId(blendHint.flavorKo, channel, history) || '');
+      if (anchorGenre?.traits && flavorGenre?.traits && anchorGenre.id !== flavorGenre.id) {
+        return buildSetPlanFromIntent({
+          intentKo: `"${blendHint.flavorKo} 느낌이 나는 ${blendHint.anchorKo}" 장르 합성으로 해석했습니다.`,
+          segments: [{
+            label: `${anchorGenre.label} × ${flavorGenre.label}`,
+            songCount: safeSongCount,
+            profile: {},
+            blendHint: { anchorHintKo: blendHint.anchorKo, flavorHintKo: blendHint.flavorKo, strength: 'medium' }
+          }],
+          listeningContext,
+          reasoningKo: [
+            `"${blendHint.flavorKo} 느낌이 나는 ${blendHint.anchorKo}" 패턴을 장르 합성 요청으로 해석해 ${anchorGenre.label}을(를) 뼈대(구조/리듬/시대), ${flavorGenre.label}을(를) 색(악기/화성)으로 사용했습니다.`,
+            listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO ? `청취 상황(${listeningContext.settingKo})을 반영했습니다.` : '별도 청취 상황 지정은 없었습니다.'
+          ],
+          unknownTermsKo
+        }, channel, history);
+      }
+    }
+  }
+
   const eraFocus = deriveEraFocus(freeText, artistReferences);
   const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history);
   const { selectedIds: familySelectedIds, families } = chooseGenreIdsFromFamilies(familyIds, channel);
-  const selectedIds = familySelectedIds.length ? familySelectedIds : keywordSelectedIds;
+  // v3.63 재작성 (TASK B, 1-4) — listening-context is detected above
+  // regardless of which genre-selection path ran; apply it as a light
+  // post-filter here too (family/keyword path), not just inside
+  // buildSetPlanFromIntent, so "커피숍에서"/"잔잔한" actually narrows the
+  // genre pool instead of only being echoed back in the interpretation.
+  const selectedIds = applyListeningContextFilter(familySelectedIds.length ? familySelectedIds : keywordSelectedIds, listeningContext);
   const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds);
   const opts = buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations);
   const selectedIdSet = new Set(selectedIds);
@@ -482,11 +899,193 @@ export function directSetLocal(
           : `${selectedIds.length}개 장르를 골랐고 같은 장르는 최대 5곡 이하가 되도록 배분했습니다.`,
         '보컬은 남성/여성/듀엣 축을 균등 배분하고, 구조 템플릿은 5종을 순환시켰습니다.',
         '인트로/훅 장치/밀도는 문구가 아니라 그룹 제약으로 브릿지에 전달합니다.'
-      ]
+      ],
+      unknownTermsKo,
+      listeningContext
     },
+    segments: [{
+      label: families.length ? families.map(family => family.labelKo).join(' + ') : '전체',
+      songCount: safeSongCount,
+      genreIds: selectedIds,
+      eraTag: eraFocus[0] || 'mixed',
+      descriptors: []
+    }],
     allocations,
     slots,
     adjustables: makeAdjustables(allocations, ranked),
     warnings
   };
+}
+
+// ============================================================
+// v3.63 재작성 (TASK B) — directSet, the "본 경로": an LLM does 1단계
+// (freeText -> InterpretedIntent), buildSetPlanFromIntent (already used by
+// directSetLocal's new segment/blend branches above) does 2단계. Reuses the
+// exact same remote-call pattern already proven by conceptAgent.ts's
+// recommendConceptViaApi (callGenerateProxy against the existing
+// /api/generate proxy, cacheableSystemBlocks for the stable prompt,
+// data.blueprint for the parsed response) — no new serverless endpoint.
+// ============================================================
+
+function directSetSystemPrompt(): string {
+  return [
+    '너는 음악 플레이리스트 자연어 요청을 "음악 특성 프로파일"로 해석하는 도우미다.',
+    '장르 이름이나 장르 ID를 절대 고르지 마라 — 악기/리듬/화성/보컬/프로덕션/시대만 서술하라. 앱이 그 서술을 자체 데이터베이스와 매칭한다.',
+    '',
+    '절대 규칙:',
+    '- 아티스트/밴드/가수 이름을 출력의 어떤 필드에도 절대 넣지 마라. 이름이 언급되면 그 이름이 만드는 "소리"만 음악 서술어로 변환하라 (예: "사이먼과 가펑클" -> instrumentation:["12-string acoustic guitar","upright bass"], vocalTraits:["two-part male close harmony"], rhythmFeel:["gentle walking tempo"], harmonyTraits:["modal folk harmony"] — "Simon", "Garfunkel", 원어/한글 표기 어떤 것도 출력에 포함하지 마라).',
+    '- 곡 수 표현("9곡씩", "각각 10곡", "반반")을 파싱해 각 세그먼트 songCount에 반영하라. 표현이 없으면 균등 분배하라. 세그먼트가 1개면 songCount는 전체 곡 수와 같다.',
+    '- "OO 느낌이 나는 XX" 같은 장르 합성 요청이면 segments[0].blendHint에 anchorHintKo(뼈대), flavorHintKo(색), strength를 채워라. profile은 비워둬도 된다 — 앱이 blendHint로 직접 합성한다.',
+    '- 앱이 알 수 없는 정보(실시간 날씨, "오늘 기분" 등 구체적 서술이 없는 표현)는 무시하지 말고 unknownTermsKo 배열에 한국어 문장으로 적어라.',
+    '- 반드시 JSON만 반환하라. 다른 텍스트를 붙이지 마라. 스키마:',
+    '{"intentKo":"","segments":[{"label":"","songCount":0,"profile":{"eraTag":"","instrumentation":[],"rhythmFeel":[],"harmonyTraits":[],"productionTraits":[],"vocalTraits":[],"dynamicRange":"low|medium|wide"},"blendHint":{"anchorHintKo":"","flavorHintKo":"","strength":"light|medium|strong"}}],"listeningContext":{"settingKo":"","dynamicCeiling":"low|medium|wide","tempoHint":[0,0],"extraExclusions":[]},"reasoningKo":[],"unknownTermsKo":[]}'
+  ].join('\n');
+}
+
+function sanitizeProfile(raw: Record<string, unknown> | undefined): TraitProfile {
+  if (!raw || typeof raw !== 'object') return {};
+  const arr = (value: unknown): string[] | undefined => Array.isArray(value) ? value.map(String).filter(Boolean) : undefined;
+  const dynamicRangeRaw = String((raw as Record<string, unknown>).dynamicRange || '');
+  const dynamicRange = (['low', 'medium', 'wide'] as const).includes(dynamicRangeRaw as 'low' | 'medium' | 'wide') ? (dynamicRangeRaw as TraitProfile['dynamicRange']) : undefined;
+  const instrumentation = arr(raw.instrumentation);
+  const rhythmFeel = arr(raw.rhythmFeel);
+  const harmonyTraits = arr(raw.harmonyTraits);
+  const productionTraits = arr(raw.productionTraits);
+  const vocalTraits = arr(raw.vocalTraits);
+  return {
+    ...(raw.eraTag ? { eraTag: String(raw.eraTag) } : {}),
+    ...(instrumentation ? { instrumentation } : {}),
+    ...(rhythmFeel ? { rhythmFeel } : {}),
+    ...(harmonyTraits ? { harmonyTraits } : {}),
+    ...(productionTraits ? { productionTraits } : {}),
+    ...(vocalTraits ? { vocalTraits } : {}),
+    ...(dynamicRange ? { dynamicRange } : {})
+  };
+}
+
+function profileTextFields(profile: TraitProfile): string[] {
+  return [
+    profile.eraTag,
+    ...(profile.instrumentation ?? []),
+    ...(profile.rhythmFeel ?? []),
+    ...(profile.harmonyTraits ?? []),
+    ...(profile.productionTraits ?? []),
+    ...(profile.vocalTraits ?? [])
+  ].filter((value): value is string => Boolean(value));
+}
+
+/**
+ * TASK B — turns the model's raw JSON into a trusted InterpretedIntent.
+ * Every field is defensively coerced (never trusts the shape blindly), and
+ * the whole thing is scanned for a leaked artist/band name before being
+ * trusted — an LLM ignoring the "never include a name" instruction is a
+ * real failure mode, not a hypothetical one (see v3.58's own artist-leak
+ * guard rationale), so this throws (caught by directSet's fallback) rather
+ * than silently passing a name through to a style prompt.
+ */
+function validateInterpretedIntent(raw: unknown, songCount: number): InterpretedIntent {
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  const segmentsRaw = Array.isArray(obj.segments) ? obj.segments : [];
+  if (!segmentsRaw.length) throw new Error('directSet: response had no segments');
+
+  const segments: IntentSegment[] = segmentsRaw
+    .map((rawSegment): IntentSegment | undefined => {
+      const segment = (rawSegment ?? {}) as Record<string, unknown>;
+      const label = String(segment.label || '').trim();
+      if (!label) return undefined;
+      const profile = sanitizeProfile(segment.profile as Record<string, unknown> | undefined);
+      const blendHintRaw = segment.blendHint as Record<string, unknown> | undefined;
+      const blendHint = blendHintRaw && (blendHintRaw.anchorHintKo || blendHintRaw.flavorHintKo)
+        ? {
+          anchorHintKo: String(blendHintRaw.anchorHintKo || ''),
+          flavorHintKo: String(blendHintRaw.flavorHintKo || ''),
+          strength: ((['light', 'medium', 'strong'] as const).includes(blendHintRaw.strength as 'light' | 'medium' | 'strong') ? blendHintRaw.strength : 'medium') as 'light' | 'medium' | 'strong'
+        }
+        : undefined;
+      if (!Object.keys(profile).length && !blendHint) return undefined;
+      const songCountRaw = Math.round(Number(segment.songCount));
+      return { label, songCount: Number.isFinite(songCountRaw) && songCountRaw > 0 ? songCountRaw : 0, profile, blendHint };
+    })
+    .filter((segment): segment is IntentSegment => Boolean(segment));
+  if (!segments.length) throw new Error('directSet: no usable segments after validation');
+
+  // Normalize songCounts to sum exactly to songCount (LLM arithmetic isn't trusted).
+  const totalRequested = segments.reduce((sum, segment) => sum + segment.songCount, 0);
+  if (totalRequested <= 0) {
+    const even = evenSplit(segments.length, songCount);
+    segments.forEach((segment, idx) => { segment.songCount = even[idx]; });
+  } else if (totalRequested !== songCount) {
+    const scale = songCount / totalRequested;
+    let running = 0;
+    segments.forEach((segment, idx) => {
+      const isLast = idx === segments.length - 1;
+      segment.songCount = isLast ? Math.max(1, songCount - running) : Math.max(1, Math.round(segment.songCount * scale));
+      running += segment.songCount;
+    });
+  }
+
+  const listeningContextRaw = (obj.listeningContext ?? {}) as Record<string, unknown>;
+  const dynamicCeilingRaw = String(listeningContextRaw.dynamicCeiling || 'wide');
+  const tempoHintRaw = listeningContextRaw.tempoHint;
+  const listeningContext: ListeningContext = {
+    settingKo: String(listeningContextRaw.settingKo || NO_LISTENING_CONTEXT_KO),
+    dynamicCeiling: ((['low', 'medium', 'wide'] as const).includes(dynamicCeilingRaw as 'low' | 'medium' | 'wide') ? dynamicCeilingRaw : 'wide') as ListeningContext['dynamicCeiling'],
+    tempoHint: Array.isArray(tempoHintRaw) && tempoHintRaw.length === 2 && tempoHintRaw.every(value => Number.isFinite(Number(value)))
+      ? [Number(tempoHintRaw[0]), Number(tempoHintRaw[1])]
+      : undefined,
+    extraExclusions: Array.isArray(listeningContextRaw.extraExclusions) ? listeningContextRaw.extraExclusions.map(String) : []
+  };
+
+  const intentKo = String(obj.intentKo || '해석된 세트 계획');
+  const reasoningKo = Array.isArray(obj.reasoningKo) && obj.reasoningKo.length ? obj.reasoningKo.map(String) : ['LLM이 자유 입력을 음악 특성으로 해석했습니다.'];
+  const unknownTermsKo = Array.isArray(obj.unknownTermsKo) ? obj.unknownTermsKo.map(String) : [];
+
+  const allText = [
+    intentKo,
+    ...reasoningKo,
+    ...unknownTermsKo,
+    listeningContext.settingKo,
+    ...segments.flatMap(segment => [segment.label, ...profileTextFields(segment.profile), segment.blendHint?.anchorHintKo, segment.blendHint?.flavorHintKo].filter((value): value is string => Boolean(value)))
+  ].join(' ');
+  if (findArtistReferenceLeaks(allText).length) {
+    throw new Error('directSet: response leaked an artist/band reference — discarding');
+  }
+
+  return { intentKo, segments, listeningContext, reasoningKo, unknownTermsKo };
+}
+
+async function interpretFreeTextRemote(freeText: string, songCount: number, settings: ProviderSettings): Promise<InterpretedIntent> {
+  const model = MODEL_REGISTRY.anthropic.find(entry => entry.tier === 'fast')?.id || defaultModelFor('anthropic');
+  const data = await callGenerateProxy(settings.proxyEndpoint || '/api/generate', buildProxyHeaders(settings), {
+    provider: 'anthropic',
+    model,
+    temperature: 0.5,
+    batchSize: 1,
+    cacheableSystemBlocks: [directSetSystemPrompt()],
+    user: { freeText, songCount }
+  });
+  const raw = (data.blueprint ?? data) as Record<string, unknown>;
+  return validateInterpretedIntent(raw, songCount);
+}
+
+/**
+ * TASK B (본 경로) — 자유 입력을 실제 LLM에게 해석시킨다(1단계), 그 결과를
+ * buildSetPlanFromIntent(2단계)로 SetPlan을 만든다. 네트워크 오류, 파싱 실패,
+ * 검증 실패(아티스트명 누출 포함) 어느 것이든 조용히 directSetLocal로
+ * 폴백한다 — "API 실패 시 화면이 비면 안 된다"는 이 작업의 명시적 요구사항.
+ */
+export async function directSet(
+  freeText: string,
+  channel: ChannelProfile,
+  songCount: number,
+  history: { recentGenreIds: string[]; recentHooks: string[] },
+  settings: ProviderSettings,
+  familyIds: string[] = []
+): Promise<SetPlan> {
+  try {
+    const intent = await interpretFreeTextRemote(freeText, songCount, settings);
+    return buildSetPlanFromIntent(intent, channel, history);
+  } catch {
+    return directSetLocal(freeText, channel, songCount, history, familyIds);
+  }
 }

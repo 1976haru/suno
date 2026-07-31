@@ -5,7 +5,8 @@ import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
 import { directSetLocal, type SetPlan } from '../../core/setDirector';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
-import type { AxisAllocation, DiversityAxisId, GenerationOptions } from '../../types';
+import type { AxisAllocation, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
+import type { SetSegment } from '../../core/setDirector';
 
 interface Step2PlanProps {
   opts: GenerationOptions;
@@ -36,6 +37,33 @@ function familyLabel(id: string) {
   return getGenreFamilyById(id)?.labelKo || id;
 }
 
+/**
+ * TASK v3.63 (재작성 TASK C) — preview-only reordering for the "18곡 계획"
+ * table. Groups each segment's tracks together (in segment order) instead of
+ * the engine's actual interleaved order. This never touches plan.slots or
+ * diversityAllocations — generation itself always keeps preallocateSongSlots'
+ * interleave (see setDirector.ts's segment-fatigue rationale); this toggle
+ * only changes what the confirmation screen previews.
+ */
+export function reorderSlotsBySegment(slots: PreassignedSongSlot[], segments: SetSegment[]): PreassignedSongSlot[] {
+  const used = new Set<number>();
+  const grouped: PreassignedSongSlot[] = [];
+  for (const segment of segments) {
+    const genreIds = new Set(segment.genreIds);
+    for (const slot of slots) {
+      if (used.has(slot.trackNo)) continue;
+      if (slot.genreId && genreIds.has(slot.genreId)) {
+        used.add(slot.trackNo);
+        grouped.push(slot);
+      }
+    }
+  }
+  for (const slot of slots) {
+    if (!used.has(slot.trackNo)) grouped.push(slot);
+  }
+  return grouped.map((slot, index) => ({ ...slot, trackNo: index + 1 }));
+}
+
 function applyPlanToOptions(plan: SetPlan, setOpts: Step2PlanProps['setOpts']) {
   const genreAllocation = plan.allocations.find(allocation => allocation.axis === 'genre');
   const genreIds = genreAllocation ? Object.keys(genreAllocation.counts) : [];
@@ -50,6 +78,7 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
   const [recentAvoid, setRecentAvoid] = useState<string[]>([]);
   const [editingAxis, setEditingAxis] = useState<DiversityAxisId | null>(null);
   const [draftAllocations, setDraftAllocations] = useState<AxisAllocation[] | null>(null);
+  const [segmentPlacement, setSegmentPlacement] = useState<'interleave' | 'blocked'>('interleave');
   const freeText = opts.customConcept.trim() || opts.projectTitle;
   // TASK v3.63 (TASK B) — family ids checked on Step2 (Step2Concept.tsx);
   // directSetLocal uses these to choose the genre axis directly when present.
@@ -66,6 +95,10 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
   const vocalAllocation = allocations.find(allocation => allocation.axis === 'vocalType');
   const structureAllocation = allocations.find(allocation => allocation.axis === 'structureTemplate');
   const editing = editingAxis ? allocations.find(allocation => allocation.axis === editingAxis) : undefined;
+  const hasMultipleSegments = plan.segments.length > 1;
+  const displaySlots = hasMultipleSegments && segmentPlacement === 'blocked'
+    ? reorderSlotsBySegment(plan.slots, plan.segments)
+    : plan.slots;
 
   function updateCount(axis: DiversityAxisId, id: string, value: number) {
     setDraftAllocations(current => {
@@ -119,8 +152,21 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
           <span className="chip">audience: {plan.interpretation.audienceProfileId}</span>
           <span className="chip">artist refs: {plan.interpretation.artistReferences.length}</span>
         </div>
+        {hasMultipleSegments && (
+          <div className="chips">
+            {plan.segments.map(segment => (
+              <span key={segment.label} className="chip active">{segment.label} {segment.songCount}곡</span>
+            ))}
+          </div>
+        )}
         {plan.interpretation.reasoningKo.map(line => <p key={line} className="supporting">{line}</p>)}
         {plan.warnings.map(warning => <p key={warning} className="error">{warning}</p>)}
+        {plan.interpretation.unknownTermsKo.length > 0 && (
+          <div className="option-block compact">
+            <h4>이해하지 못한 표현</h4>
+            {plan.interpretation.unknownTermsKo.map(note => <p key={note} className="error">{note}</p>)}
+          </div>
+        )}
       </div>
 
       <div className="option-block">
@@ -160,6 +206,28 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
 
       <details className="option-block">
         <summary>18곡 계획 펼치기</summary>
+        {hasMultipleSegments && (
+          <div className="button-row segment-placement-row">
+            <label>
+              <input
+                type="radio"
+                name="segmentPlacement"
+                checked={segmentPlacement === 'interleave'}
+                onChange={() => setSegmentPlacement('interleave')}
+              />
+              섞기 (권장)
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="segmentPlacement"
+                checked={segmentPlacement === 'blocked'}
+                onChange={() => setSegmentPlacement('blocked')}
+              />
+              전반부·후반부로 나누기
+            </label>
+          </div>
+        )}
         <div className="table-scroll">
           <table>
             <thead>
@@ -173,7 +241,7 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
               </tr>
             </thead>
             <tbody>
-              {plan.slots.map(slot => (
+              {displaySlots.map(slot => (
                 <tr key={slot.trackNo}>
                   <td>{slot.trackNo}</td>
                   <td>{genreLabel(slot.genreId || '')}</td>
