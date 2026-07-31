@@ -547,6 +547,8 @@ export interface PreassignedSongSlot {
   lyricThemeText?: string;
   /** v3.47 Step 2: emotional arc paired with lyricThemeText. */
   lyricThemeArc?: string;
+  /** v3.64 (TASK A) — which scene frame this trackNo's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId); 'solitary-object' for every theme that predates this field. Surfaced in the bridge instruction so the agent understands what kind of scene it's writing, not just its concrete details. */
+  lyricFrameId?: string;
   /** v3.47 Step 3: planned lyric point of view for UI/bridge inspection and optional manual allocation. */
   pov?: LyricPerspective;
   /** v3.47 Step 2: section-level lyric-writing approach for the verse. */

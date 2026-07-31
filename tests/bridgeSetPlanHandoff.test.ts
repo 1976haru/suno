@@ -30,7 +30,7 @@ describe('[v3.63] SetPlan bridge handoff', () => {
 
     expect(section).toContain('[SetPlan handoff]');
     expect(section).toContain("[This pack's 18-track plan]");
-    expect(section).toContain('| Track | Genre | Era | BPM | Vocal | Structure | Intro | Role |');
+    expect(section).toContain('| Track | Genre | Era | BPM | Vocal | Structure | Intro | Scene frame | Role |');
     expect(section).toContain('[Diversity groups] - constraints, not wording to copy:');
     expect(section).toContain('introTexture ');
     expect(section).toContain('hookDevice ');
@@ -66,6 +66,17 @@ describe('[v3.63] SetPlan bridge handoff', () => {
     // Track 1 (cold-open) is always vocal-immediate.
     const track1Row = section.split('\n').find(line => line.startsWith('| 1 |'))!;
     expect(track1Row).toContain('no [intro] tag at all');
+  });
+
+  it('[v3.64 TASK A] carries each track\'s scene frame plus a whole-pack distribution line', () => {
+    const { plan, genres } = planFixture();
+    const section = buildSetPlanHandoffSection(plan.slots, genres);
+
+    expect(section).toContain('Scene frames used in this pack:');
+    const frameLabelsInDistribution = section.split('Scene frames used in this pack:')[1].split('\n')[0];
+    const distinctFrameCount = frameLabelsInDistribution.split(';').length;
+    expect(distinctFrameCount).toBeGreaterThanOrEqual(6);
+    expect(section).not.toContain('Scene frames used in this pack: solitary reflection with an object (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18)');
   });
 
   it('is included in the one-shot Claude Code instruction before the JSON payload', () => {

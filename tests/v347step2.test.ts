@@ -64,7 +64,7 @@ function rawSongForSlot(slot: PreassignedSongSlot, index: number) {
 }
 
 describe('[v3.47 Step 2] lyric theme data and slot plans', () => {
-  it('keeps each channel on 12-30 concrete scene-level lyric themes', () => {
+  it('keeps each channel on 12-50 concrete scene-level lyric themes', () => {
     // TASK v3.58 — ceiling raised 20 -> 30 (this app's real max single-pack
     // songCount, see scripts/sample.ts's cap): a pool of exactly 16 themes
     // for senior-morning was one short of covering a real 18-song pack
@@ -73,10 +73,15 @@ describe('[v3.47 Step 2] lyric theme data and slot plans', () => {
     // as 2 duplicate lyricTheme pairs in a real pack. The pool must have
     // real headroom above the largest songCount a single pack can request,
     // not just squeak past whatever songCount happened to be tested.
+    // TASK v3.64 (TASK A) — ceiling raised 30 -> 50: senior-morning's pool
+    // grew from 22 to 40 with 9 new scene frames (young-first-love,
+    // summer-night, dance-saturday, ...) added deliberately to fix a real
+    // 18/18-songs-one-frame homogeneity bug — a real, intentional expansion,
+    // not accidental bloat. 50 still catches a runaway pool.
     for (const channel of [showaChannel, seniorChannel, kidsChannel]) {
       const themes = lyricThemesForArchetype(channel.archetype);
       expect(themes.length).toBeGreaterThanOrEqual(12);
-      expect(themes.length).toBeLessThanOrEqual(30);
+      expect(themes.length).toBeLessThanOrEqual(50);
       expect(themes.every(theme => theme.scene.split(/\s+/).length >= 8)).toBe(true);
       expect(themes.every(theme => theme.scene.toLowerCase() !== theme.labelKo.toLowerCase())).toBe(true);
     }

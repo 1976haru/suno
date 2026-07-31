@@ -11,12 +11,13 @@ import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { lyricThemesForOptions } from '../data/lyricThemes';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   ARRANGEMENT_DENSITY_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
+import { buildLyricThemePlan } from './lyricDiversityPlan';
+import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { allocateGenreCounts } from './conceptAgent';
 import {
   decomposeArtistReferences,
@@ -371,7 +372,21 @@ function buildBaseOptions(
 
 function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[]): AxisAllocation[] {
   const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, []);
-  const lyricThemes = lyricThemesForOptions(emptyBase).slice(0, songCount);
+  // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
+  // order (the first N ids), which bypassed core/lyricDiversityPlan.ts's
+  // frame-capped allocation entirely: the naive slice becomes THIS axis's
+  // 'manual' allocation, and preallocateSongSlots always lets a manual
+  // allocation win over its own auto (frame-aware) computation — so every
+  // real senior-morning plan built through directSetLocal kept landing on
+  // 18/18 solitary-object themes regardless of the new frames existing at
+  // all. Reuses the exact same seed preallocateSongSlots will later derive
+  // from this same opts shape (seedForBlueprint only reads channel.id/
+  // projectTitle, both already fixed here), so this axis and the slots it
+  // seeds agree instead of drifting.
+  const seed = hashSeed(seedForBlueprint(emptyBase));
+  const lyricThemeIds = buildLyricThemePlan(emptyBase, seed);
+  const lyricThemeCounts: Record<string, number> = {};
+  for (const id of lyricThemeIds) lyricThemeCounts[id] = (lyricThemeCounts[id] ?? 0) + 1;
   const introIds = introTexturesForArchetype(channel.archetype || 'senior-morning').map(texture => texture.id);
   const hookIds = hookDevices.map(device => device.id);
   const structureIds = ADULT_STRUCTURE_TEMPLATE_IDS;
@@ -388,7 +403,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
     { axis: 'hookDevice', mode: 'manual', counts: countsFromSlots(hookIds, songCount, 4) },
     { axis: 'arrangementDensity', mode: 'manual', counts: exactBalancedCounts(ARRANGEMENT_DENSITY_IDS, songCount) },
     { axis: 'structureTemplate', mode: 'manual', counts: exactBalancedCounts(structureIds, songCount) },
-    { axis: 'lyricTheme', mode: 'manual', counts: Object.fromEntries(lyricThemes.map(theme => [theme.id, 1])) },
+    { axis: 'lyricTheme', mode: 'manual', counts: lyricThemeCounts },
     { axis: 'pov', mode: 'manual', counts: povCounts(songCount) }
   ] satisfies AxisAllocation[];
 }

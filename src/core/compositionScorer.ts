@@ -4,6 +4,7 @@ import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOverlapWarning } from './quality';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
+import { findExcessiveVocabularyRepetition } from './lyricVocabularyRepetition';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -53,6 +54,16 @@ export function scoreComposition(songs: SongIdea[], _opts?: Pick<GenerationOptio
     ...lyricDiversityReport.repeatedFirstLinePatterns.flatMap(p => p.trackNos),
     ...lyricDiversityReport.repeatedChorusStructures.flatMap(p => p.trackNos)
   ]);
+
+  // NEW (TASK v3.64 TASK A-4) — pack-wide vocabulary repetition (e.g. a real
+  // pack repeated "window" 28x, "light"/"old" 27x each). This is a
+  // whole-pack word-choice property, not attributable to any one track, so
+  // (like the pack-level lyric-diversity checks above) the same finding is
+  // surfaced as an advisory on every track rather than picking one to blame.
+  const vocabularyRepetitionFindings = findExcessiveVocabularyRepetition(songs);
+  const vocabularyRepetitionWarning = vocabularyRepetitionFindings.length
+    ? `이 세트에서 다음 단어가 상한을 넘겨 반복됩니다: ${vocabularyRepetitionFindings.map(f => `${f.word} ${f.count}회 (상한 ${f.cap})`).join(', ')}`
+    : undefined;
 
   return songs.map(song => {
     const blocking: string[] = [];
@@ -111,6 +122,8 @@ export function scoreComposition(songs: SongIdea[], _opts?: Pick<GenerationOptio
     if (repeatedPatternTracks.has(song.trackNo)) {
       advisory.push('이 곡의 후렴 반복 패턴/제목 형태/첫줄 패턴이 세트 내 다른 곡들과 반복됩니다.');
     }
+
+    if (vocabularyRepetitionWarning) advisory.push(vocabularyRepetitionWarning);
 
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };
   });

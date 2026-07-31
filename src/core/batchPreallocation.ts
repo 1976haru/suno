@@ -228,6 +228,7 @@ export function preallocateSongSlots(
       lyricTheme: lyricThemeId,
       ...(lyricTheme?.scene ? { lyricThemeText: lyricTheme.scene } : {}),
       ...(lyricTheme?.emotionalArc ? { lyricThemeArc: lyricTheme.emotionalArc } : {}),
+      ...(lyricThemeId ? { lyricFrameId: lyricTheme?.frameId ?? 'solitary-object' } : {}),
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,

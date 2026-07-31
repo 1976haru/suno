@@ -9,6 +9,24 @@ export interface LyricTheme {
   emotionalArc: string;
   suitedArchetypes?: ChannelArchetype[];
   languages?: ('korean' | 'japanese' | 'english')[];
+  /**
+   * TASK v3.64 (TASK A) — real measurement: 18/18 songs in a real pack used
+   * the identical "senior alone at home, gazing at an object" frame (only
+   * the object changed). Every existing entry below predates this field and
+   * is treated as 'solitary-object' by convention (see
+   * core/lyricDiversityPlan.ts's themeFrameId) — none of them needed
+   * editing to keep working. Only newly-added entries (a different scene
+   * shape entirely — first love, a Saturday dance, a train reunion, ...)
+   * set this explicitly, which is also what activates frame-capped
+   * allocation for the whole pool (a pool with zero explicit frameId values
+   * falls back to the pre-v3.64 stride behavior unchanged — see
+   * lyricDiversityPlan.ts's poolHasExplicitFrames).
+   */
+  frameId?: string;
+  /** v3.64 (TASK A) — Korean-language axis metadata for allocation diversity checks/reporting, not used in lyric generation itself. */
+  eraSettingKo?: string;
+  castKo?: string;
+  motionKo?: string;
 }
 
 export const adultLyricThemes: LyricTheme[] = [
@@ -173,6 +191,210 @@ export const adultLyricThemes: LyricTheme[] = [
     scene: 'walking past the old neighborhood clock tower as its evening chime rolls over the rooftops',
     emotionalArc: 'the day\'s weight easing with each familiar, unhurried step',
     suitedArchetypes: ['senior-morning']
+  },
+  // TASK v3.64 (TASK A) — 9 new frames (2 scenes each) so a 60s-80s
+  // Western-oldpop channel (senior-morning, oldpop-lounge) can actually
+  // reach the core subject matter of that era's music — young romance,
+  // dances, reunions, travel, city nights — instead of only ever landing
+  // on the pre-existing "solitary senior with an object" frame. See
+  // core/lyricDiversityPlan.ts's frame-capped allocation.
+  {
+    id: 'senior-first-dance-memory',
+    labelKo: '첫 춤의 기억',
+    scene: 'remembering the first slow dance at a summer social, hand shy on a shoulder for the first time',
+    emotionalArc: 'nervous shyness blooming into certainty',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'young-first-love',
+    eraSettingKo: '젊은 날',
+    castKo: '둘',
+    motionKo: '정적(춤)'
+  },
+  {
+    id: 'senior-porch-swing-courtship',
+    labelKo: '현관 그네에서의 구애',
+    scene: 'sitting close on a porch swing on a warm evening, working up the courage to hold a hand for the first time',
+    emotionalArc: 'quiet nervousness settling into warm certainty',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'young-first-love',
+    eraSettingKo: '젊은 날',
+    castKo: '둘',
+    motionKo: '정적'
+  },
+  {
+    id: 'senior-convertible-radio-night',
+    labelKo: '여름밤 오픈카 드라이브',
+    scene: 'driving with the windows down on a warm summer night, the radio playing low and the road stretching ahead',
+    emotionalArc: 'restlessness turning into free-wheeling joy',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'summer-night',
+    eraSettingKo: '젊은 날 여름',
+    castKo: '둘',
+    motionKo: '이동 중(드라이브)'
+  },
+  {
+    id: 'senior-boardwalk-summer-lights',
+    labelKo: '해변 보드워크의 여름 불빛',
+    scene: 'walking the boardwalk lights on a humid summer night, salt air mixing with music from an open doorway',
+    emotionalArc: 'sticky-hot restlessness melting into carefree delight',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'summer-night',
+    eraSettingKo: '젊은 날 여름',
+    castKo: '여럿',
+    motionKo: '이동 중'
+  },
+  {
+    id: 'senior-saturday-dance-hall',
+    labelKo: '토요일 밤 댄스홀',
+    scene: 'spinning across a crowded dance hall floor on a Saturday night as the band swings into a favorite number',
+    emotionalArc: 'nervous energy exploding into pure joy',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'dance-saturday',
+    eraSettingKo: '젊은 날',
+    castKo: '여럿',
+    motionKo: '춤'
+  },
+  {
+    id: 'senior-getting-ready-saturday',
+    labelKo: '토요일 외출 준비',
+    scene: 'curling hair and pressing a good shirt before a Saturday dance, the whole week narrowing down to this one night',
+    emotionalArc: 'anticipation building toward giddy readiness',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'dance-saturday',
+    eraSettingKo: '젊은 날',
+    castKo: '혼자(준비)',
+    motionKo: '정적(준비)'
+  },
+  {
+    id: 'senior-platform-goodbye-whistle',
+    labelKo: '기적소리와 플랫폼의 이별',
+    scene: 'standing on a train platform as the whistle blows, a hand still raised long after the train pulls away',
+    emotionalArc: 'sharp ache softening into quiet hope',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'reunion-parting',
+    eraSettingKo: '젊은 날',
+    castKo: '둘',
+    motionKo: '이동(이별)'
+  },
+  {
+    id: 'senior-unexpected-street-reunion',
+    labelKo: '거리에서의 우연한 재회',
+    scene: 'spotting an old sweetheart across a crowded street corner after years apart, both stopping mid-step at the same moment',
+    emotionalArc: 'startled disbelief opening into warm recognition',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'reunion-parting',
+    eraSettingKo: '오래전과 지금',
+    castKo: '둘',
+    motionKo: '이동 중'
+  },
+  {
+    id: 'senior-mailbox-love-letter',
+    labelKo: '우체통에 넣은 연애편지',
+    scene: 'sealing a letter with a shaking hand and walking it to the corner mailbox before losing the nerve',
+    emotionalArc: 'nervous risk settling into relieved hope',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'letter-sending',
+    eraSettingKo: '젊은 날',
+    castKo: '혼자(편지를 보내는)',
+    motionKo: '이동 중'
+  },
+  {
+    id: 'senior-waiting-mail-truck',
+    labelKo: '우편 마차를 기다리며',
+    scene: 'watching for the mail truck from the porch every afternoon, hoping today brings the letter that was promised',
+    emotionalArc: 'restless hope tipping into quiet joy',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'letter-sending',
+    eraSettingKo: '젊은 날',
+    castKo: '혼자(기다리는)',
+    motionKo: '정적'
+  },
+  {
+    id: 'senior-neon-downtown-friday',
+    labelKo: '금요일 밤 네온사인 거리',
+    scene: 'walking under neon signs downtown on a Friday night, music drifting out of every open doorway',
+    emotionalArc: 'ordinary tiredness lighting up into electric excitement',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'city-lights',
+    eraSettingKo: '젊은 날 도시',
+    castKo: '여럿',
+    motionKo: '이동 중'
+  },
+  {
+    id: 'senior-rooftop-city-view',
+    labelKo: '옥상에서 바라본 도시 불빛',
+    scene: 'watching the city lights switch on one by one from a rooftop lounge as evening traffic hums below',
+    emotionalArc: 'quiet awe settling into calm belonging',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'city-lights',
+    eraSettingKo: '젊은 날 도시',
+    castKo: '둘',
+    motionKo: '정적'
+  },
+  {
+    id: 'senior-train-window-towns',
+    labelKo: '기차 창밖의 낯선 마을들',
+    scene: 'watching unfamiliar towns roll past a train window, a suitcase resting against the knees',
+    emotionalArc: 'homesick uncertainty opening into curious wonder',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'travel-window',
+    eraSettingKo: '젊은 날 여행',
+    castKo: '혼자(여행)',
+    motionKo: '이동 중(기차)'
+  },
+  {
+    id: 'senior-highway-sunset-map',
+    labelKo: '해질녘 고속도로의 지도',
+    scene: 'driving down an open highway at sunset with a road map open on the dashboard and no fixed hour to arrive',
+    emotionalArc: 'aimless freedom deepening into calm wonder',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'travel-window',
+    eraSettingKo: '젊은 날 여행',
+    castKo: '둘',
+    motionKo: '이동 중(차)'
+  },
+  {
+    id: 'senior-big-family-dinner',
+    labelKo: '북적이는 가족 저녁 식탁',
+    scene: 'passing dishes around a packed family dinner table while three conversations happen at once',
+    emotionalArc: 'chaotic noise settling into full-hearted belonging',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'shared-table',
+    eraSettingKo: '현재',
+    castKo: '여럿',
+    motionKo: '정적(식탁)'
+  },
+  {
+    id: 'senior-diner-booth-old-friends',
+    labelKo: '단골 식당 부스의 옛 친구들',
+    scene: 'sliding into a familiar diner booth with old friends, the same stories somehow funnier every single time',
+    emotionalArc: 'ordinary routine warming into easy laughter',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'shared-table',
+    eraSettingKo: '현재',
+    castKo: '여럿',
+    motionKo: '정적'
+  },
+  {
+    id: 'senior-first-cold-morning',
+    labelKo: '첫 추위가 찾아온 아침',
+    scene: 'stepping outside on the first cold morning of autumn to find the whole street suddenly turned to color',
+    emotionalArc: 'mild surprise settling into grateful stillness',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'season-turning',
+    eraSettingKo: '계절이 바뀌는 순간',
+    castKo: '혼자',
+    motionKo: '정적'
+  },
+  {
+    id: 'senior-first-warm-afternoon',
+    labelKo: '봄의 첫 따뜻한 오후',
+    scene: 'throwing open every window on the first warm afternoon of spring and letting the whole house breathe again',
+    emotionalArc: 'long winter heaviness lifting into open relief',
+    suitedArchetypes: ['senior-morning', 'oldpop-lounge'],
+    frameId: 'season-turning',
+    eraSettingKo: '계절이 바뀌는 순간',
+    castKo: '혼자',
+    motionKo: '정적'
   },
   {
     id: 'showa-late-night-drive',

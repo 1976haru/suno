@@ -273,6 +273,25 @@ const INTRO_MODE_LABEL: Record<string, string> = {
   'vocal-after-texture': 'short [intro] line allowed'
 };
 
+/** TASK v3.64 (TASK A) — English scene-frame labels for the agent (see data/lyricThemes.ts's LyricTheme.frameId for the canonical list). */
+const LYRIC_FRAME_LABEL: Record<string, string> = {
+  'solitary-object': 'solitary reflection with an object',
+  'young-first-love': 'young first love',
+  'summer-night': 'a summer night out',
+  'dance-saturday': 'a Saturday-night dance',
+  'reunion-parting': 'a reunion or a parting',
+  'letter-sending': 'sending or awaiting a letter',
+  'city-lights': 'city lights at night',
+  'travel-window': 'travel, watching the world go by',
+  'shared-table': 'a shared table with others',
+  'season-turning': 'a season turning'
+};
+
+function frameLabelForSlot(slot: PreassignedSongSlot): string {
+  const frameId = slot.lyricFrameId ?? 'solitary-object';
+  return LYRIC_FRAME_LABEL[frameId] ?? frameId;
+}
+
 function setPlanTrackTable(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
   const genreLabel = (genreId: string | undefined) => genres.find(g => g.id === genreId)?.label ?? genreId ?? '-';
   const rows = preassignedSongs.map(slot => [
@@ -283,13 +302,31 @@ function setPlanTrackTable(preassignedSongs: PreassignedSongSlot[], genres: Genr
     markdownCell(slot.vocalType ?? slot.vocalGender ?? slot.vocalText ?? '-'),
     markdownCell(slot.structureTemplate ?? '-'),
     markdownCell(slot.introMode ? INTRO_MODE_LABEL[slot.introMode] : '-'),
+    markdownCell(frameLabelForSlot(slot)),
     markdownCell(slot.songRole)
   ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'));
   return [
-    '| Track | Genre | Era | BPM | Vocal | Structure | Intro | Role |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| Track | Genre | Era | BPM | Vocal | Structure | Intro | Scene frame | Role |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...rows
   ].join('\n');
+}
+
+/**
+ * TASK v3.64 (TASK A-5) — real measurement: 18/18 songs used the identical
+ * "solitary senior with an object" scene frame. This distribution line lets
+ * the agent see the whole pack's scene-frame spread at a glance, so it
+ * doesn't independently converge on the same safe scene for every track
+ * even though each track's own lyricThemeText already differs.
+ */
+function frameDistributionLine(preassignedSongs: PreassignedSongSlot[]): string {
+  const byFrame = new Map<string, number[]>();
+  for (const slot of preassignedSongs) {
+    const frameId = slot.lyricFrameId ?? 'solitary-object';
+    byFrame.set(frameId, [...(byFrame.get(frameId) ?? []), slot.trackNo]);
+  }
+  const parts = [...byFrame.entries()].map(([frameId, trackNos]) => `${LYRIC_FRAME_LABEL[frameId] ?? frameId} (${trackNos.join(',')})`);
+  return `Scene frames used in this pack: ${parts.join('; ')}. Each track's own scene/lyricThemeText is the specific detail — write a genuinely different kind of moment per frame, not the same "alone, looking at something" scene with the object swapped out.`;
 }
 
 function groupLetters(index: number): string {
@@ -334,6 +371,8 @@ export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot
     setPlanTrackTable(preassignedSongs, genres),
     '',
     'Follow each track\'s "Intro" column exactly: "instrumental" tracks must have NO lyric line under [intro] (an instrumental cue there is fine, e.g. "[intro]" with nothing sung until the next tag); "no [intro] tag at all" tracks should skip the [intro] tag entirely and start singing right away; "short [intro] line allowed" tracks may have a brief sung line there.',
+    '',
+    frameDistributionLine(preassignedSongs),
     '',
     '[Diversity groups] - constraints, not wording to copy:',
     `introTexture ${groupedBySlotValue(preassignedSongs, slot => slot.introTextureId, 4)}`,

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { directSetLocal } from '../src/core/setDirector';
 import { DIVERSITY_AXIS_IDS } from '../src/core/diversityAllocation';
-import { channelPresets } from './fixtures';
+import { getLyricThemeById } from '../src/data/lyricThemes';
+import { channelPresets, makeOptions } from './fixtures';
 
 const seniorChannel = channelPresets.find(channel => channel.archetype === 'senior-morning')!;
 
@@ -129,5 +130,29 @@ describe('[v3.63 TASK B] directSetLocal with a genre-family selection', () => {
 
   it('an unrecognized family id is ignored rather than throwing', () => {
     expect(() => directSetLocal('', seniorChannel, 18, { recentGenreIds: [], recentHooks: [] }, ['not-a-real-family'])).not.toThrow();
+  });
+});
+
+describe('[v3.64 TASK A] directSetLocal produces frame-diverse lyricTheme allocations, not just one repeated frame', () => {
+  it('regression: makeAllocations used to slice the theme pool in raw array order, silently overriding buildLyricThemePlan\'s frame-capped auto plan with 18/18 solitary-object themes — this is the actual real-world path (Step2Plan.tsx) the bug shipped through', () => {
+    const plan = directSetLocal(
+      '비틀즈 느낌으로, 아침에 커피와 함께 듣고 싶은 올드팝',
+      seniorChannel,
+      18,
+      { recentGenreIds: [], recentHooks: [] }
+    );
+    const opts = makeOptions({ channel: seniorChannel, songCount: 18 });
+    const frameIds = plan.slots.map(slot => getLyricThemeById(slot.lyricTheme, opts)?.frameId ?? 'solitary-object');
+    expect(new Set(frameIds).size).toBeGreaterThanOrEqual(6);
+
+    const counts = new Map<string, number>();
+    for (const frameId of frameIds) counts.set(frameId, (counts.get(frameId) ?? 0) + 1);
+    expect(counts.get('solitary-object') ?? 0).toBeLessThanOrEqual(5);
+  });
+
+  it('every slot carries its own lyricFrameId field (used by the bridge instruction\'s Scene frame column)', () => {
+    const plan = directSetLocal('', seniorChannel, 18, { recentGenreIds: [], recentHooks: [] }, ['abba-carpenters', 'warm-melody']);
+    expect(plan.slots.every(slot => Boolean(slot.lyricFrameId))).toBe(true);
+    expect(new Set(plan.slots.map(slot => slot.lyricFrameId)).size).toBeGreaterThan(1);
   });
 });
