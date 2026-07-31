@@ -42,6 +42,23 @@ export const CLAUDE_CODE_BRIDGE_OUTPUT_FILENAME = 'songs-output.json';
 const REQUIRED_SONG_FIELDS = ['title', 'hookPhrase', 'stylePrompt', 'lyrics'] as const;
 
 /**
+ * TASK v3.64 (TASK C) — real measurement showed a 3rd recurrence of a BPM-
+ * narrowing bug (app plans 62-112, stddev ~14; real output measured 94-106,
+ * stddev 3.0) that v3.60 TASK C had already reportedly fixed once. Direct
+ * investigation this time found the app's own plan (preallocateSongSlots)
+ * and this instruction's own "use exactly that BPM... verbatim" line both
+ * already correct on the current build — meaning the real narrow-output
+ * report was very likely generated against an older build (before this
+ * exact wording existed) or is residual LLM non-compliance despite a
+ * correct instruction, not a live app bug to chase a 4th time. This
+ * timestamp lets a future report be time-correlated against exactly which
+ * build actually produced it, instead of re-investigating from zero again.
+ */
+function instructionBuildMarkerLine(): string {
+  return `[Generated ${new Date().toISOString()} — bridge instruction schema v3.64]`;
+}
+
+/**
  * TASK v3.35 (bridge split) — real measurement: a single coding-agent
  * response tops out well under what a 180-song ask needs (~625 output
  * tokens/song measured x 180 songs =~112,600 tokens, past every current
@@ -530,6 +547,8 @@ export function buildClaudeCodeInstruction(
   const sectionStyleInstructionLine = sectionStyleInstructionLineFor(preassignedSongs);
 
   return [
+    instructionBuildMarkerLine(),
+    '',
     // TASK v3.62 — C안's core reframing: composer, not scribe. Everything
     // below "preassignedSongs" plans (track order, BPM, genre, structure,
     // hook uniqueness) is still fixed by the app; everything about HOW a
@@ -542,6 +561,16 @@ export function buildClaudeCodeInstruction(
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
     buildSetPlanHandoffSection(preassignedSongs, genres),
+    '',
+    // TASK v3.64 (TASK C) — the "use exactly that BPM, verbatim" rule
+    // already existed but was buried after the full per-song JSON payload
+    // (1000+ lines into a real 18-song instruction); a real pack still
+    // measured BPM stddev collapsing from a planned ~14 down to ~3. Whether
+    // that was a stale build or the agent smoothing tempos toward a
+    // comfortable middle regardless, repeating the rule here — right next
+    // to the BPM column it refers to — costs one line and removes any
+    // excuse for missing it.
+    'CRITICAL — tempo: use each track\'s own "BPM" value from the table above exactly, in every song\'s stylePrompt. Do not average, round toward a comfortable middle, or otherwise smooth tempos across tracks — the spread between tracks is intentional.',
     '',
     // TASK v3.62 (TASK 1-3) — per-track plan table so all N songs in this
     // one instruction are visible to each other before any one is composed
@@ -750,6 +779,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   };
 
   const instruction = [
+    instructionBuildMarkerLine(),
+    '',
     'You are an experienced music composer/producer generating multiple Suno playlist sets in one coding-agent session - no Anthropic/OpenAI API call, write every result straight to files. Compose each song using your own musical knowledge within the plan and constraints below; do not treat reference fields as scripts to transcribe verbatim.',
     '',
     'MASTER MODE:',
@@ -764,6 +795,9 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '',
     `All ${allSlots.length} tracks across every set (plan fixed by the app — compose within each row, do not renumber or reorder):`,
     buildSetPlanHandoffSection(allSlots, genres),
+    '',
+    // TASK v3.64 (TASK C) — see the single-pack instruction's own comment on why this is repeated here, right after the BPM column, instead of only appearing once near the JSON payload.
+    'CRITICAL — tempo: use each track\'s own "BPM" value from the table above exactly, in every song\'s stylePrompt. Do not average, round toward a comfortable middle, or otherwise smooth tempos across tracks — the spread between tracks is intentional.',
     '',
     perTrackPlanTable(allSlots, genres),
     ...artistReferenceInstructionLines(baseOpts),
