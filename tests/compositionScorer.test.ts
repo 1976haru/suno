@@ -197,6 +197,35 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
     expect(scores[0].advisory.some(a => a.includes('window'))).toBe(true);
     expect(scores[1].advisory.some(a => a.includes('window'))).toBe(true);
   });
+
+  it('TASK v3.64 (TASK E) — adds a pack-wide advisory (never blocking) when title shapes are too monotonous', () => {
+    const song1 = songWith({ trackNo: 1, title: 'Firstlight Cup' });
+    const song2 = songWith({
+      trackNo: 2,
+      title: 'Folded Frost',
+      stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different second track')
+    });
+    const scores = scoreComposition([song1, song2]);
+    expect(scores.every(s => s.passed)).toBe(true);
+    expect(scores[0].advisory.some(a => a.includes('제목 형태가'))).toBe(true);
+    expect(scores[1].advisory.some(a => a.includes('제목 형태가'))).toBe(true);
+  });
+
+  it('TASK v3.64 (TASK E) — no title-shape advisory once titles span 3+ shapes', () => {
+    const song1 = songWith({ trackNo: 1, title: 'Ember' });
+    const song2 = songWith({
+      trackNo: 2,
+      title: 'Wait by the Window',
+      stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different second track')
+    });
+    const song3 = songWith({
+      trackNo: 3,
+      title: 'Steam Radio',
+      stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different third track')
+    });
+    const scores = scoreComposition([song1, song2, song3]);
+    expect(scores.every(s => !s.advisory.some(a => a.includes('제목 형태가')))).toBe(true);
+  });
 });
 
 /**

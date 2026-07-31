@@ -6,6 +6,7 @@ import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOver
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { findExcessiveVocabularyRepetition } from './lyricVocabularyRepetition';
 import { findNearDuplicateHook } from './hookSimilarity';
+import { titleShapeVarietyWarning } from './titleShapeVariety';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -85,6 +86,11 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     ? `이 세트에서 다음 단어가 상한을 넘겨 반복됩니다: ${vocabularyRepetitionFindings.map(f => `${f.word} ${f.count}회 (상한 ${f.cap})`).join(', ')}`
     : undefined;
 
+  // NEW (TASK v3.64 TASK E) — real measurement: a real pack's titles were
+  // almost entirely "[noun][noun]" (Firstlight Cup, Folded Frost, ...).
+  // Warning-level only — title/hook overlap is never enforced as a ratio.
+  const titleShapeWarning = titleShapeVarietyWarning(songs.map(song => song.title));
+
   return songs.map(song => {
     const blocking: string[] = [];
     const advisory: string[] = [];
@@ -156,6 +162,7 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     }
 
     if (vocabularyRepetitionWarning) advisory.push(vocabularyRepetitionWarning);
+    if (titleShapeWarning) advisory.push(titleShapeWarning);
 
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };
   });
