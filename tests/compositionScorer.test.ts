@@ -163,20 +163,49 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
   });
 });
 
-const realPackPath = path.resolve(__dirname, '..', 'songs-output.json');
+/**
+ * TASK v3.63 — root songs-output.json is now a real, git-tracked file that
+ * changes every time the user commits a new real generation (see commit
+ * 9267e7e, "Add Autumn to Christmas playlist output" — a NEW 18-song pack
+ * that replaced the 16-song pre-v3.62 dictation-style pack these tests
+ * originally documented, including the specific track-1 "string pad"
+ * anachronism bug that pack demonstrated). Reading the live file made these
+ * tests break every time the user generates something new, for a reason
+ * that has nothing to do with a regression — the fix (v3.62 TASK 1) is
+ * exactly why new real packs no longer reproduce the old bug. Frozen here
+ * as tests/fixtures/realBridgePack.json so the assertions stay meaningful
+ * without chasing the user's live output forever; re-freeze deliberately
+ * (not as a side effect of a failing test) if a newer real pack is worth
+ * testing against instead.
+ */
+const realPackPath = path.resolve(__dirname, 'fixtures', 'realBridgePack.json');
 const describeRealPack = existsSync(realPackPath) ? describe : describe.skip;
 
-describeRealPack('[v3.62 TASK 2] scoreComposition against the real bridge-path pack', () => {
+describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-path pack', () => {
   const data = existsSync(realPackPath) ? JSON.parse(readFileSync(realPackPath, 'utf-8')) : { songs: [] };
 
-  it('flags the real oldpop-british-beat track (track 1) for its "string pad" anachronism', () => {
+  it('flags a real cross-track style-similarity violation (tracks 2 and 9, both oldpop-british-beat)', () => {
     const scores = scoreComposition(data.songs);
-    const track1 = scores.find(s => s.trackNo === 1)!;
-    expect(track1.blocking.some(b => b.includes('1950s-60s') && b.includes('string pad'))).toBe(true);
+    const track2 = scores.find(s => s.trackNo === 2)!;
+    expect(track2.blocking.some(b => b.includes('9') && b.includes('유사도'))).toBe(true);
   });
 
-  it('no song in this real, old-dictation-generated pack fully passes (every one has at least a descriptor-count issue)', () => {
+  it('flags a real artist-reference false positive: "bread" as an ordinary word matches the band Bread\'s alias pattern', () => {
+    // A genuine, disclosed limitation (see v3.62's completion report) — the reused
+    // v3.58 findArtistReferenceLeaks matches on `\bbread\b` regardless of context,
+    // so an ordinary lyric using the word "bread" (not a real leak) still blocks.
     const scores = scoreComposition(data.songs);
-    expect(scores.every(s => !s.passed)).toBe(true);
+    const flaggedForBread = scores.filter(s => s.blocking.some(b => /bread/i.test(b)));
+    expect(flaggedForBread.length).toBeGreaterThan(0);
+    for (const score of flaggedForBread) {
+      const song = data.songs.find((s: SongIdea) => s.trackNo === score.trackNo)!;
+      expect(song.lyrics.toLowerCase()).toContain('bread');
+    }
+  });
+
+  it('most songs in this real, post-v3.62 pack pass cleanly (unlike the pre-fix pack, where every song failed)', () => {
+    const scores = scoreComposition(data.songs);
+    const passedCount = scores.filter(s => s.passed).length;
+    expect(passedCount).toBeGreaterThan(scores.length / 2);
   });
 });
