@@ -339,17 +339,35 @@ export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {
  * the duet/harmony moment, matching the preset text's own verse/chorus
  * split. Only ever called when gender === 'duet'; every other gender keeps
  * the single top-level tag unchanged.
+ *
+ * TASK v3.70 (TASK A) — real listening feedback: a real duet-prompted track
+ * (T1) rendered as a single voice because these per-section tags never
+ * actually reached the song — this function existed but was only ever
+ * called from localGenerator.ts's own local-preview path, never from
+ * batchPreallocation.ts's reconcileWithPreassignedSlot (the realtime/Batch/
+ * bridge path every actual production song goes through — see that
+ * function's own wiring for where this is now also called). Extended here
+ * to also cover pre-chorus/bridge/breakdown, and the non-default
+ * structureTemplate final-chorus markers ('[key-lift final chorus]',
+ * '[chorus tag]' — see lyricEngine.ts's STRUCTURE_TEMPLATE_MARKER_TAG),
+ * since a duet song can land on any structureTemplate, not just the default
+ * T1 shape this function originally assumed.
  */
 export function applyDuetSectionVocalTags(lyrics: string, gender: VocalGender | undefined): string {
   if (gender !== 'duet') return lyrics;
+  const FINAL_CHORUS_TAGS = /^\[(final chorus|key-lift final chorus|chorus tag)\]$/i;
+  const BRIDGE_LIKE_TAGS = /^\[(short bridge|breakdown)\]$/i;
   return lyrics
     .split('\n')
     .map(line => {
       const trimmed = line.trim();
-      if (/^\[verse 1\]$/i.test(trimmed)) return line.replace('[verse 1]', '[verse 1: male vocal]');
-      if (/^\[verse 2\]$/i.test(trimmed)) return line.replace('[verse 2]', '[verse 2: female vocal]');
-      if (/^\[chorus\]$/i.test(trimmed)) return line.replace('[chorus]', '[chorus: male and female duet]');
-      if (/^\[final chorus\]$/i.test(trimmed)) return line.replace('[final chorus]', '[final chorus: male and female duet]');
+      const bracketBody = trimmed.slice(1, -1);
+      if (/^\[verse 1\]$/i.test(trimmed)) return line.replace(trimmed, '[verse 1: male vocal]');
+      if (/^\[verse 2\]$/i.test(trimmed)) return line.replace(trimmed, '[verse 2: female vocal]');
+      if (/^\[pre-chorus\]$/i.test(trimmed)) return line.replace(trimmed, '[pre-chorus: female vocal]');
+      if (/^\[chorus\]$/i.test(trimmed)) return line.replace(trimmed, '[chorus: male and female duet]');
+      if (FINAL_CHORUS_TAGS.test(trimmed)) return line.replace(trimmed, `[${bracketBody}: male and female duet harmony]`);
+      if (BRIDGE_LIKE_TAGS.test(trimmed)) return line.replace(trimmed, `[${bracketBody}: male and female call and response]`);
       return line;
     })
     .join('\n');

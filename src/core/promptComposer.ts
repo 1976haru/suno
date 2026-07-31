@@ -35,11 +35,19 @@ export const SAFE_TARGET = 900;
  * ${opts.durationTarget}" instruction only named the enum value itself, with
  * no concrete time range or word-count floor, so a short lyric was never
  * actually a rule violation. Suno's rendered length tracks lyric word count
- * far more directly than any duration-target label; 200-260 total words is
- * what actually produces a genuine ~2:50-3:20 song.
+ * far more directly than any duration-target label.
+ *
+ * TASK v3.70 (TASK B) — the 200-260 range this task originally set overshot:
+ * real listening measured 3:42-4:10 songs (216-234 words, 8-11 sections)
+ * against a 3:10-3:35 target. Lowered to 175-205 — combined with the
+ * section-count cut in lyricEngine.ts's composeLyrics (dropping the useless
+ * trailing [end] tag, a duplicated pre-chorus, and an "outro" this app's
+ * lyrics engine never actually had a tag for), this is the fix real Suno
+ * playback must confirm (see docs/v370-report.md §5 — text metrics alone are
+ * not proof of a shorter render).
  */
-export const MIN_LYRIC_WORDS = 200;
-export const MAX_LYRIC_WORDS = 260;
+export const MIN_LYRIC_WORDS = 175;
+export const MAX_LYRIC_WORDS = 205;
 
 /**
  * Priority order for TASK A2 — filled from the top down; once the running
@@ -914,7 +922,12 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
   const eraLyricGuidance = eraLyricGuidanceForArchetype(opts.channel.archetype);
   const totalSongCount = totalSongCountOverride ?? batch?.totalSongCount ?? opts.songCount;
 
-  const minHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
+  // TASK v3.70 (TASK C) — real listening feedback: every chorus (including
+  // the two earlier ones) bookended the hook, so the same line sang ~6x/song
+  // in an identical shape. Lowered from "at least 4, bookending every
+  // chorus" to "around 4, only the final chorus bookends" — see the Hook
+  // rules section below for the actual per-chorus instruction.
+  const targetHookRepeats = opts.lyricDepth === 'poetic' ? 3 : 4;
   // TASK v3.23 — branch, don't delete: default off (user makes thumbnails
   // externally) drops the ask and the schema field; on restores both.
   // TASK v3.60 (TASK F-2) — the app already strips any Suno/AI-generation
@@ -950,6 +963,7 @@ Rules:
 - CRITICAL — arrangement/production vocabulary belongs ONLY in "stylePrompt", never in "lyrics". If "preassignedSongs" gives you "introTextureText", "instrumentSet", "arrangementDensity", "hookDeviceText", or "moneyChordText" to weave in, those exact words (and any other instrument name, playing technique, or production/mix term — guitar, piano, drums, strings, brass, percussion, stop-time, breakdown, tape saturation, etc.) go into the stylePrompt string only. A lyric line must never describe what an instrument or the arrangement is doing — a listener sings words, not a mix note. Forbidden examples (real, previously-shipped mistakes): "Spiccato strings flicker over quiet water", "The straight-pop drums move softly", "Now the stop-time opens brighter", "The bass and drums fall silent". Section tags themselves ([breakdown], [instrumental hook], etc.) are fine; a sentence describing the arrangement underneath one is not.
 - Each song's hookPhrase must not contradict that song's own "listenerSituation" on time of day — if the scene is a morning/dawn moment, the hook (and the lyrics built around it) must not say "tonight"/"night"/"evening"/"midnight", and vice versa. Real, previously-shipped mistake: listenerSituation "sitting with morning coffee before the day begins" paired with hookPhrase "Stay with Me Tonight".
 - Each song's "lyrics" must total ${MIN_LYRIC_WORDS}-${MAX_LYRIC_WORDS} words (not counting section tags like [chorus]) — this is what actually determines Suno's rendered length; a short ~100-150 word lyric renders as a short ~2:00-2:20 song regardless of any target duration. Target render length for this pack: ${compactDuration(opts.durationTarget, true)}.
+- Include this exact phrase as one of stylePrompt's own descriptor clauses in EVERY song, verbatim: "${compactDuration(opts.durationTarget, false, true)}". Every song in this pack carries the identical phrase — that is intentional and required, not a "shared/redundant atom" to trim, vary, or omit; this is the one clause allowed to repeat identically across every song in the pack.
 ${youtubeMetadataLine}
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.
 - CRITICAL: Return ONLY the JSON object. No markdown, no code fences (no \`\`\`), no prose, no explanation, and no closing remarks before or after it. The response must start with { and end with } — nothing else outside those two characters.
@@ -961,8 +975,8 @@ ${youtubeMetadataLine}
 Hook rules (each song's hookPhrase):
 - The hook must be a short, singable phrase of 2-5 words, in Title Case, never starting with a lowercase letter.
 ${titleHookRuleLine}
-- The hook line must open and close every chorus section (bookend), repeating at least ${minHookRepeats} times across the whole song.
-- Vary how many times the hook repeats inside each chorus and where, from song to song — a real previous pack had every single chorus in the whole set repeat the hook in the exact same position (open, one line, hook again, three lines, hook again), every song. Some choruses can repeat the hook only twice (open/close), others three or four times with different line counts between repeats.
+- The hook line appears exactly ONCE in every earlier chorus-type section (not open-and-close both) — vary whether it's the first line, second line, or last line of that chorus block, from song to song. Only the FINAL chorus bookends: the hook opens AND closes it (2 occurrences there only). This gives roughly ${targetHookRepeats} hook occurrences total across the whole song (earlier choruses x1 each + final chorus x2) — do not exceed this by bookending every chorus like the final one; a real previous pack over-repeated the hook by doing exactly that (open, one line, hook again, three lines, hook again — every single chorus, every song), which read as repetitive on close listening.
+- CRITICAL: Every one of those hook occurrences inside "lyrics" must match "hookPhrase" EXACTLY, character for character, including its Title Case — do not lowercase or otherwise reword the hook when it's sung. (Sentence-case display for pasting into Suno is handled separately by the app at copy time — the stored "lyrics" field must keep the verbatim match so the app's own quality checks can find it.)
 - Never address an inanimate object as if it were a person (e.g. "Hold on, coffee" or "Close your eyes, doorway") — vocative phrasing may only address a person or an abstract/personified noun (a friend, a season, "my love"), never a physical object.
 
 Safety rules:
@@ -1003,7 +1017,11 @@ export function songOutputShape(generateThumbnailText: boolean) {
     hookPhrase: 'string',
     stylePrompt: 'string',
     excludePrompt: 'string optional; Suno Exclude styles text, never mixed into stylePrompt',
-    lyrics: 'string with [intro], [verse 1], [chorus], [verse 2], [short bridge], [final chorus], [end]',
+    // TASK v3.70 (TASK B) — dropped "[end]" from this example: real bridge
+    // output was literally reproducing every tag named here, and "[end]"
+    // reads as nothing in Suno (see this task's own real-length measurement).
+    // The final chorus is the last section of the song, nothing after it.
+    lyrics: 'string with section tags following the assigned structureTemplate\'s exact order (see the structure-template legend below) — the final section (e.g. final chorus) is the LAST thing in the string; do not add a trailing [end] or [outro] tag after it',
     ...(generateThumbnailText ? { thumbnailText: 'string' } : {}),
     youtube: {
       title: 'string',

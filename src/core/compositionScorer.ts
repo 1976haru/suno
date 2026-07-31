@@ -39,6 +39,22 @@ function descriptorCount(stylePrompt: string): number {
 /** TASK v3.58 (TASK 1) threshold, reused here as the blocking bar for cross-song style-prompt similarity. */
 const STYLE_SIMILARITY_BLOCK_THRESHOLD = 0.28;
 
+/**
+ * TASK v3.70 (TASK A) — a duet song's stylePrompt reliably contains the
+ * literal word "duet" without needing any extra slot/plan plumbing threaded
+ * into this function: both duet vocal presets' own prompt text says "...
+ * duet, ..." (data/vocalPresets.ts), and reconcileWithPreassignedSlot
+ * (core/batchPreallocation.ts) force-appends that exact vocalText into the
+ * final stylePrompt if a remote agent ever omits it — so by the time a song
+ * reaches this scorer, "duet" is a reliable, self-contained signal.
+ */
+const DUET_STYLE_SIGNAL = /\bduet\b/i;
+
+/** Only a colon-bearing bracket tag counts as a per-section assignment (e.g. "[verse 1: male vocal]") — the single blanket "[male vocal]"/"[duet vocal]" meta tag every solo/duet song already gets at the very top of its lyrics (core/vocalPlan.ts's resolveVocalMetaTag) must never be mistaken for one. */
+function sectionLevelGenderTags(lyrics: string): string[] {
+  return (lyrics.match(/\[[^\]]*:[^\]]*\]/g) || []).filter(tag => /\b(male|female)\b/i.test(tag));
+}
+
 export interface ScoreCompositionOptions {
   /**
    * TASK v3.64 (TASK A) — the channel's real cross-pack hook history (see
@@ -108,6 +124,23 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     if (lyricLeaks.length) blocking.push(`가사에 아티스트/밴드명 누출 (${lyricLeaks.map(l => l.surface).join(', ')})`);
     const youtubeLeaks = findArtistReferenceLeaks(`${song.youtube?.title ?? ''} ${song.youtube?.description ?? ''}`);
     if (youtubeLeaks.length) blocking.push(`youtube 메타데이터에 아티스트/밴드명 누출 (${youtubeLeaks.map(l => l.surface).join(', ')})`);
+
+    // NEW (TASK v3.70 TASK A) — real listening feedback: a duet-prompted
+    // track rendered as a single voice because nothing in the lyrics told
+    // Suno which section is which singer (Suno reads lyric tags to split
+    // vocals, not stylePrompt prose — see core/vocalPlan.ts's
+    // applyDuetSectionVocalTags). Blocking for a duet missing both genders'
+    // section tags; advisory (not blocking) for a non-duet song that
+    // somehow has them, since that's surprising but not necessarily wrong.
+    const isDuetSong = DUET_STYLE_SIGNAL.test(song.stylePrompt);
+    const genderTags = sectionLevelGenderTags(song.lyrics);
+    const hasMaleSectionTag = genderTags.some(tag => /\bmale\b/i.test(tag));
+    const hasFemaleSectionTag = genderTags.some(tag => /\bfemale\b/i.test(tag));
+    if (isDuetSong && !(hasMaleSectionTag && hasFemaleSectionTag)) {
+      blocking.push('듀엣 곡인데 가사에 [Verse 1: Male Vocal]/[Verse 2: Female Vocal] 같은 섹션별 보컬 배정 태그가 없습니다 — Suno는 가사 태그로 보컬을 나누므로, 태그가 없으면 한 명이 전부 부릅니다.');
+    } else if (!isDuetSong && (hasMaleSectionTag || hasFemaleSectionTag)) {
+      advisory.push('단독 보컬 곡인데 가사에 섹션별 성별 보컬 배정 태그가 있습니다 — 의도한 것인지 확인하세요.');
+    }
 
     // NEW (TASK v3.64 TASK D) — was a warning-only check (claudeCodeBridge.ts's
     // flagHookCollisions, unchanged, still runs at import time too); this is

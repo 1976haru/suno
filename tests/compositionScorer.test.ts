@@ -268,9 +268,31 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
     }
   });
 
-  it('most songs in this real, post-v3.62 pack pass cleanly (unlike the pre-fix pack, where every song failed)', () => {
+  it('most non-duet songs in this real, post-v3.62 pack pass cleanly (unlike the pre-fix pack, where every song failed)', () => {
+    // TASK v3.70 (TASK A) — this same frozen pack also has 5 real
+    // duet-prompted tracks (stylePrompt says "duet") with zero per-section
+    // [verse 1: male vocal]/[verse 2: female vocal] lyric tags — exactly the
+    // real listening-feedback bug ("듣기엔 한 명이 부름") TASK A's new blocking
+    // check exists to catch. That correctly lowers this pack's overall pass
+    // rate below the original v3.62-era "most songs pass" bar; excluding
+    // those 5 tracks (covered by their own test below) keeps this test's own
+    // original intent — v3.62's fixes hold for everything else — meaningful.
     const scores = scoreComposition(data.songs);
-    const passedCount = scores.filter(s => s.passed).length;
-    expect(passedCount).toBeGreaterThan(scores.length / 2);
+    const nonDuetScores = scores.filter(s => {
+      const song = data.songs.find((item: SongIdea) => item.trackNo === s.trackNo)!;
+      return !/\bduet\b/i.test(song.stylePrompt);
+    });
+    const passedCount = nonDuetScores.filter(s => s.passed).length;
+    expect(passedCount).toBeGreaterThan(nonDuetScores.length / 2);
+  });
+
+  it('TASK v3.70 (TASK A): correctly blocks this frozen pack\'s real duet tracks for missing per-section vocal-assignment tags', () => {
+    const scores = scoreComposition(data.songs);
+    const duetTrackNos = data.songs.filter((s: SongIdea) => /\bduet\b/i.test(s.stylePrompt)).map((s: SongIdea) => s.trackNo);
+    expect(duetTrackNos.length).toBeGreaterThan(0);
+    for (const trackNo of duetTrackNos) {
+      const score = scores.find(s => s.trackNo === trackNo)!;
+      expect(score.blocking.some(b => b.includes('듀엣'))).toBe(true);
+    }
   });
 });

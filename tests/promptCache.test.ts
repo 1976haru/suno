@@ -917,11 +917,13 @@ describe('[v3.27/v3.33] titleMode/hookMode branch buildBatchSystemNote\'s preass
 });
 
 describe('[v3.29] buildSystemInstruction gives a concrete lyric word-count floor, not just a duration-target label', () => {
-  it('includes the 200-260 word target explicitly', () => {
+  it('includes the 175-205 word target explicitly', () => {
+    // TASK v3.70 (TASK B) — real listening measured 3:42-4:10 songs (216-234
+    // words) against a 3:10-3:35 target; lowered from 200-260 to 175-205.
     const opts = makeOptions();
     const system = buildSystemInstruction(opts);
 
-    expect(system).toContain('200-260 words');
+    expect(system).toContain('175-205 words');
   });
 
   it('no longer interpolates the raw durationTarget enum value with no concrete time range', () => {
@@ -935,5 +937,17 @@ describe('[v3.29] buildSystemInstruction gives a concrete lyric word-count floor
     expect(buildSystemInstruction(makeOptions({ durationTarget: 'playlistShort' }))).toContain('2:50-3:20');
     expect(buildSystemInstruction(makeOptions({ durationTarget: 'under4m' }))).toContain('under 4:00');
     expect(buildSystemInstruction(makeOptions({ durationTarget: 'under3m30' }))).toContain('3:10-3:35');
+  });
+
+  it('TASK v3.70 (TASK B): explicitly requires the duration phrase in every song\'s own stylePrompt, and tells the agent it is not a "shared atom" to trim', () => {
+    // Real listening feedback: 18/18 songs in a real bridge-generated pack
+    // had no duration phrase in their stylePrompt at all, despite this same
+    // phrase being requested at the pack level (the "Target render length"
+    // sentence above) — restoring it as its own explicit, per-song bullet
+    // (with an explicit "not shared/redundant" carve-out) is this task's fix.
+    const system = buildSystemInstruction(makeOptions({ durationTarget: 'under3m30' }));
+    expect(system).toContain('Include this exact phrase as one of stylePrompt\'s own descriptor clauses in EVERY song, verbatim');
+    expect(system).toContain('short intro, 3:10-3:35, full arrangement, not a short cut');
+    expect(system).toContain('not a "shared/redundant atom"');
   });
 });

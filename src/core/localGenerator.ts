@@ -815,6 +815,11 @@ export function generateLocalBlueprint(
     // children's content). Title/hook (above) are unaffected: they already
     // come from the kid-safe hookBanks/kids.ts vocabulary via
     // opts.channel.archetype, independent of this branch.
+    // TASK v3.70 (TASK C) — reuses this track's own hookDevice pick (already
+    // a deterministic per-song rotation, see hookDevicePlan below) to derive
+    // which position the single non-final-chorus hook occurrence lands on,
+    // rather than introducing a separate new rotation/axis for it.
+    const hookPositionVariant = (hookDevices.findIndex(device => device.id === hookDevicePlan[idx]) % 3 + 3) % 3 as 0 | 1 | 2;
     const { lyrics: composedLyrics, hookPhrase } = opts.channel.archetype === 'kids'
       ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme })
       : composeLyrics({
@@ -829,7 +834,8 @@ export function generateLocalBlueprint(
         openingStyle,
         genreFlavorImages,
         conceptImages,
-        structureTemplate: structureTemplatePlan[idx]
+        structureTemplate: structureTemplatePlan[idx],
+        hookPositionVariant
       });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
     // handed to composeStylePrompt, which dedupes and — if the combined

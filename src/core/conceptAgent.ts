@@ -181,9 +181,49 @@ export function allocateGenreCounts(genreIds: string[], songCount: number): Genr
     overflow -= 1;
   }
 
+  const finalCounts = enforceMinimumGenreCount(counts, cap);
   return genreIds
-    .map((id, index) => ({ genreId: id, songCount: counts[index], roleKo: genreRoleKo(index) }))
+    .map((id, index) => ({ genreId: id, songCount: finalCounts[index], roleKo: genreRoleKo(index) }))
     .filter(slot => slot.songCount > 0);
+}
+
+/**
+ * TASK v3.70 (TASK E) — real measurement: an 18-song pack's lowest-ranked
+ * genre routinely landed at exactly 1 song (e.g. "folk-rock-70s 1 /
+ * baroque-pop 1" alongside 5 genres with 2+). A single-song genre has no
+ * real presence in the pack and only occupies an allocation slot another
+ * genre could have used instead. Merges any 1-count genre's song into
+ * another genre (preferring one still under cap, then the largest), and
+ * repeats until no 1-count genre remains — except it never merges below 3
+ * distinct genres (the same floor minimumGenrePoolSize already guarantees
+ * elsewhere), so a small pack that can only ever produce exactly 1 song per
+ * genre (e.g. songCount=3, pool=3) is left alone rather than collapsed to a
+ * single genre. Prefers a merge target still under `cap` so this never
+ * reintroduces the very "single genre dominates the pack" problem
+ * genreAllocationCap exists to prevent; only spills over cap as an absolute
+ * last resort (no target has room at all).
+ */
+function enforceMinimumGenreCount(counts: number[], cap: number): number[] {
+  const result = [...counts];
+  let guard = 0;
+  const maxGuard = result.length * 2 + 5;
+  while (guard++ < maxGuard) {
+    const nonZeroCount = result.filter(count => count > 0).length;
+    if (nonZeroCount <= 3) break;
+    const oneIndex = result.findIndex(count => count === 1);
+    if (oneIndex === -1) break;
+    const otherIndices = result.map((_, index) => index).filter(index => index !== oneIndex && result[index] > 0);
+    if (!otherIndices.length) break;
+    result[oneIndex] = 0;
+    const target = otherIndices.slice().sort((a, b) => {
+      const aRoom = result[a] < cap ? 1 : 0;
+      const bRoom = result[b] < cap ? 1 : 0;
+      if (aRoom !== bRoom) return bRoom - aRoom;
+      return result[b] - result[a];
+    })[0];
+    result[target] += 1;
+  }
+  return result;
 }
 
 /**

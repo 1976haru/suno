@@ -47,6 +47,8 @@ interface StandaloneSong {
   title: string;
   stylePrompt: string;
   lyrics: string;
+  /** TASK v3.70 (TASK D) — needed to render the sung hook in sentence case for copy/display, without touching the stored lyrics string itself. */
+  hookPhrase: string;
   excludePrompt: string;
   songId: string;
   genreId: string;
@@ -68,6 +70,7 @@ function toStandaloneSong(song: SongIdea): StandaloneSong {
     title: song.title,
     stylePrompt: song.stylePrompt,
     lyrics: song.lyrics,
+    hookPhrase: song.hookPhrase || '',
     excludePrompt: song.excludePrompt || '',
     songId: song.songId || '',
     genreId: song.genreId || 'unknown',
@@ -283,12 +286,38 @@ export function buildStandaloneProgressHtml(songs: SongIdea[], meta: StandaloneP
     document.body.removeChild(textarea);
   }
 
+  // TASK v3.70 (TASK D) — copy/display only, mirroring
+  // core/lyricEngine.ts's hookForLyrics/renderLyricsForDisplay: a hook sung
+  // in literal Title Case reads like a title announcement when pasted into
+  // Suno. Never mutates SONGS itself.
+  function hookForLyrics(hook) {
+    if (!hook) return hook;
+    var lower = hook.toLowerCase();
+    var firstLetterIndex = lower.search(/[a-z]/i);
+    if (firstLetterIndex === -1) return lower;
+    var capitalized = lower.slice(0, firstLetterIndex) + lower[firstLetterIndex].toUpperCase() + lower.slice(firstLetterIndex + 1);
+    return capitalized.replace(/\bi\b/g, 'I');
+  }
+  function renderLyricsForDisplay(lyrics, hookPhrase) {
+    if (!hookPhrase) return lyrics;
+    var sentenceCaseHook = hookForLyrics(hookPhrase);
+    if (sentenceCaseHook === hookPhrase) return lyrics;
+    return lyrics.split('\n').map(function (line) {
+      var leadingWs = line.slice(0, line.length - line.replace(/^\s+/, '').length);
+      var trimmed = line.trim();
+      var trailingPunctMatch = /[.,!?]+$/.exec(trimmed);
+      var trailingPunct = trailingPunctMatch ? trailingPunctMatch[0] : '';
+      var core = trailingPunct ? trimmed.slice(0, -trailingPunct.length) : trimmed;
+      return core === hookPhrase ? (leadingWs + sentenceCaseHook + trailingPunct) : line;
+    }).join('\n');
+  }
+
   function copyField(field) {
     var song = currentSong();
     if (!song) return;
     if (field === 'exclude' && !hasExclude(song)) return;
     if (field === 'style' && isOverPromptLimit(song)) return;
-    var text = field === 'title' ? song.title : field === 'style' ? song.stylePrompt : field === 'lyrics' ? song.lyrics : song.excludePrompt;
+    var text = field === 'title' ? song.title : field === 'style' ? song.stylePrompt : field === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt;
     copyToClipboard(text).then(function () {
       copiedFields[field] = true;
       if (allCopied(song)) {

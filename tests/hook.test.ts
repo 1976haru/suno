@@ -169,16 +169,41 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     expect(sawPreChorus).toBe(true);
   });
 
-  it.each(LANGUAGES)('[bookend] every chorus-type section opens and closes with the hook, in %s', language => {
+  it.each(LANGUAGES)('[bookend] only the final chorus-type section opens and closes with the hook; every earlier one gets exactly one occurrence, in %s', language => {
+    // TASK v3.70 (TASK C) — real listening feedback: bookending EVERY
+    // chorus-type section (chorus x2 + final chorus) repeated the hook 6x
+    // per song, always in the identical shape. Only the LAST chorus-type
+    // section (the final chorus) still bookends now; every earlier one gets
+    // exactly one occurrence, at a position that varies per song (see
+    // lyricEngine.ts's buildChorus/hookPositionVariant).
     const bp = generateLocalBlueprint(makeOptions({ songCount: 5, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       const chorusSections = extractTaggedSections(song.lyrics).filter(section => /chorus/i.test(section.tag) && !/pre-chorus/i.test(section.tag));
       expect(chorusSections.length, `no chorus-type section found for "${song.title}"`).toBeGreaterThan(0);
-      for (const section of chorusSections) {
-        expect(section.lines[0], `${section.tag} for "${song.title}" doesn't open with the hook`).toBe(song.hookPhrase);
-        expect(section.lines[section.lines.length - 1], `${section.tag} for "${song.title}" doesn't close with the hook`).toBe(song.hookPhrase);
+      const finalSection = chorusSections[chorusSections.length - 1];
+      const earlierSections = chorusSections.slice(0, -1);
+      expect(finalSection.lines[0], `${finalSection.tag} for "${song.title}" doesn't open with the hook`).toBe(song.hookPhrase);
+      expect(finalSection.lines[finalSection.lines.length - 1], `${finalSection.tag} for "${song.title}" doesn't close with the hook`).toBe(song.hookPhrase);
+      for (const section of earlierSections) {
+        const hookCount = section.lines.filter(line => line === song.hookPhrase).length;
+        expect(hookCount, `${section.tag} for "${song.title}" has ${hookCount} hook occurrences (expected exactly 1)`).toBe(1);
       }
     }
+  });
+
+  it('[v3.70 TASK C] varies the non-final chorus hook position across a pack instead of always opening line 1', () => {
+    // Real listening feedback: every chorus opened with the hook, in the
+    // identical shape, in every song. localGenerator.ts derives a per-song
+    // hookPositionVariant from that track's own hookDevice pick (an
+    // existing per-song rotation) rather than a new axis — this confirms
+    // real variety actually results, not just that the mechanism exists.
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
+    const firstChorusOpensWithHook = bp.songs.map(song => {
+      const chorusSections = extractTaggedSections(song.lyrics).filter(section => /chorus/i.test(section.tag) && !/pre-chorus/i.test(section.tag));
+      const firstNonFinal = chorusSections[0];
+      return firstNonFinal.lines[0] === song.hookPhrase;
+    });
+    expect(firstChorusOpensWithHook.some(opensWithHook => !opensWithHook)).toBe(true);
   });
 
   // TASK G1 (v3.10) — hookStyleDirectives now reuses Persona mode's terse

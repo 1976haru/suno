@@ -620,13 +620,23 @@ export type StructureTemplateId = 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
  * phrase — see PreassignedSongSlot.structureTemplate's comment in types.ts
  * and core/promptComposer.ts's structureTemplateLegend (the one-time legend
  * built from this map).
+ *
+ * TASK v3.70 (TASK B) — real listening feedback measured 3:42-4:10 songs
+ * against a 3:10-3:35 target, traced to 9-11 sections per song (a real
+ * Codex-bridge pack literally reproduced this doc's old text: two
+ * pre-chorus repeats, an "outro" section this app's own composeLyrics never
+ * had a tag for, and a trailing "[end]" that adds nothing in Suno). Rewritten
+ * to match what composeLyrics itself actually renders (T1/T3 now only
+ * mention pre-chorus once — see composeLyrics's own T3 branch fix below), to
+ * land every template at 6-8 sections, and to drop "outro"/an implied "end"
+ * entirely: the final chorus is the last section, nothing after it.
  */
 export const STRUCTURE_TEMPLATE_SECTION_NOTES: Record<StructureTemplateId, string> = {
-  T1: 'intro, verse 1, pre-chorus, chorus, verse 2, pre-chorus, chorus, bridge, final chorus, outro',
-  T2: 'cold hook intro (hook line first, no instrumental lead-in), verse 1, chorus, verse 2, chorus, breakdown section, final chorus, outro',
-  T3: 'intro, verse 1, pre-chorus, chorus, verse 2, pre-chorus, chorus, key-lift final chorus, outro',
-  T4: 'instrumental hook intro (short instrumental restatement of the melody, no lyrics), verse 1, chorus, verse 2, chorus, chorus repeated again as the final chorus (no bridge), outro',
-  T5: 'a cappella hook intro, verse 1, chorus, verse 2, bridge, chorus, tagged final chorus, outro'
+  T1: 'intro, verse 1, pre-chorus, chorus, verse 2, chorus, bridge, final chorus (8 sections — this is the last one, no trailing outro/end tag)',
+  T2: 'cold hook intro (hook line first, no instrumental lead-in), verse 1, chorus, verse 2, chorus, breakdown section, final chorus (7 sections — no trailing outro/end tag)',
+  T3: 'intro, verse 1, pre-chorus, chorus, verse 2, chorus, key-lift final chorus (7 sections, pre-chorus used only once — no trailing outro/end tag)',
+  T4: 'instrumental hook intro (short instrumental restatement of the melody, no lyrics), verse 1, chorus, verse 2, chorus, chorus repeated a third time as the final chorus (no bridge, no pre-chorus) (6 sections — no trailing outro/end tag)',
+  T5: 'a cappella hook intro, verse 1, chorus, verse 2, bridge, chorus, tagged final chorus (7 sections — no trailing outro/end tag)'
 };
 
 /**
@@ -711,6 +721,17 @@ export interface LyricComposeInput {
   conceptImages?: string[];
   /** TASK v3.42 Part C — which section-tag shape to assemble into; defaults to 'T1' (the original/only pre-v3.42 shape) when omitted, so every existing caller/test keeps working unchanged. */
   structureTemplate?: StructureTemplateId;
+  /**
+   * TASK v3.70 (TASK C) — real listening feedback: every chorus in every
+   * song bookended the hook (open AND close), so the same hook line sang
+   * 6x/song and the pack's choruses all felt identically shaped. Only the
+   * FINAL chorus still bookends now; every earlier chorus-type section gets
+   * exactly one hook occurrence, at a position that varies per song (first
+   * line / after the first dev line / last line) — see buildChorus below.
+   * Defaults to 0 (first line) when omitted, so any existing caller/test
+   * that doesn't pass this keeps the simplest, most predictable placement.
+   */
+  hookPositionVariant?: 0 | 1 | 2;
 }
 
 export interface ComposedLyrics {
@@ -725,6 +746,58 @@ function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used
   }
   lines.forEach(line => used.add(line));
   return lines;
+}
+
+/**
+ * TASK v3.70 (TASK D) — real listening feedback: a hook sung mid-lyric in
+ * literal Title Case ("You're Still Here, riding shotgun in my mind") reads
+ * like a title announcement, not a natural sung line.
+ *
+ * Deliberately NOT applied to the stored `song.lyrics`/composeLyrics output:
+ * core/quality.ts's checkHookQuality (and other downstream checks — the
+ * compositionScorer, SRT sung-line extraction, hook-collision detection)
+ * count/match the hook by searching for `song.hookPhrase` verbatim inside
+ * `song.lyrics`; silently lowercasing the stored copy would make every one
+ * of those checks see 0 occurrences and misfire. This is a display-only
+ * transform instead — applied where lyrics are actually shown/copied for
+ * pasting into Suno (see its call sites) — capitalizing the first letter of
+ * the phrase and the standalone pronoun "I" (including in contractions —
+ * "i'll"/"i'm"), lowercasing everything else. English/Latin-script only by
+ * construction — Korean/Japanese hooks have no case distinction, so
+ * toLowerCase() is a no-op on them and this returns them unchanged.
+ */
+export function hookForLyrics(hook: string): string {
+  if (!hook) return hook;
+  const lower = hook.toLowerCase();
+  const firstLetterIndex = lower.search(/[a-z]/i);
+  if (firstLetterIndex === -1) return lower;
+  const capitalized = lower.slice(0, firstLetterIndex) + lower[firstLetterIndex].toUpperCase() + lower.slice(firstLetterIndex + 1);
+  return capitalized.replace(/\bi\b/g, 'I');
+}
+
+/**
+ * TASK v3.70 (TASK D) — presentation-layer pass: rewrites every line that IS
+ * the hook (exact match, or the hook plus trailing sentence punctuation an
+ * agent may have added) to sentence case, for the copy actually shown/copied
+ * to the user. Never mutates the canonical `song.lyrics` this function's own
+ * doc comment above explains why (see hookForLyrics). A no-op when hookPhrase
+ * is blank or already reads the same either way (Korean/Japanese).
+ */
+export function renderLyricsForDisplay(lyrics: string, hookPhrase: string): string {
+  if (!hookPhrase?.trim()) return lyrics;
+  const sentenceCaseHook = hookForLyrics(hookPhrase);
+  if (sentenceCaseHook === hookPhrase) return lyrics;
+  return lyrics
+    .split('\n')
+    .map(line => {
+      const leadingWs = line.slice(0, line.length - line.trimStart().length);
+      const trimmed = line.trim();
+      const trailingPunctMatch = /[.,!?]+$/.exec(trimmed);
+      const trailingPunct = trailingPunctMatch?.[0] ?? '';
+      const core = trailingPunct ? trimmed.slice(0, -trailingPunct.length) : trimmed;
+      return core === hookPhrase ? `${leadingWs}${sentenceCaseHook}${trailingPunct}` : line;
+    })
+    .join('\n');
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
@@ -781,20 +854,38 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // TASK v3.29 — a real 20-song sample (both local and remote-generated)
   // came back short enough to render at ~2:00-2:20 in Suno despite every
   // song targeting 2:50-3:20; local generation measured ~190 words/song on
-  // average, still under the app's new 200-260 word target (see
-  // promptComposer.ts's MIN_LYRIC_WORDS). One extra verse2 draw (same
-  // "draw the pool twice, second draw gets a fresh filler context" pattern
-  // extendedBridgeRoles already uses below) is enough to close that gap
-  // without restructuring the whole template system.
+  // average. One extra verse2 draw (same "draw the pool twice, second draw
+  // gets a fresh filler context" pattern extendedBridgeRoles already uses
+  // below) is enough to close that gap without restructuring the whole
+  // template system.
+  //
+  // TASK v3.70 (TASK B) — measured the opposite problem for the REMOTE/
+  // bridge path (songs running 30-60s too long) and lowered the word-count
+  // target to 175-205 (promptComposer.ts's MIN_LYRIC_WORDS) accordingly —
+  // but this local double-draw's own ~190-words/song baseline already sits
+  // comfortably inside that new range, so it's left as-is rather than
+  // reverted (an earlier attempt at reverting this dropped the local
+  // average to ~170, under the new 175 floor — confirmed by this file's own
+  // test, tests/lyricEngine.test.ts).
   const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines)];
 
-  // The hook bookends every chorus-type section (open + close), so the
-  // listener always lands on it. Three chorus-type sections (chorus x2 +
-  // final chorus) give a baseline of 6 hook occurrences per song, +1 more
-  // for 'comforting closer' — within the 4-7 target range.
-  const buildChorus = (index: number) => {
+  // TASK v3.70 (TASK C) — real listening feedback: bookending EVERY
+  // chorus-type section made the same hook line sing 6x/song (2x per
+  // chorus x3), and always in the identical open+close shape. Only the
+  // FINAL chorus still bookends (2 occurrences); each earlier chorus gets
+  // exactly ONE hook occurrence, placed at a position that varies per song
+  // (hookPositionVariant, derived from this song's own hookDevice pick —
+  // see localGenerator.ts's call site — so position variation reuses the
+  // existing per-song rotation instead of a new axis).
+  const hookPosition = ((input.hookPositionVariant ?? 0) % 3 + 3) % 3;
+  function placeHookOnce(devLines: string[]): string[] {
+    if (hookPosition === 2) return [...devLines, hook]; // last line
+    if (hookPosition === 1 && devLines.length > 1) return [devLines[0], hook, ...devLines.slice(1)]; // after the first dev line
+    return [hook, ...devLines]; // first line (default, and line2's fallback when there's only one dev line)
+  }
+  const buildChorus = (index: number, isFinal = false) => {
     const devLines = takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines);
-    return [hook, ...devLines, hook];
+    return isFinal ? [hook, ...devLines, hook] : placeHookOnce(devLines);
   };
   const chorus1 = buildChorus(0);
   const chorus2 = buildChorus(1);
@@ -813,7 +904,12 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // pushing well past the 4-7 target. Every role's final chorus now bookends
   // with exactly 2 hooks, capping every song at 6 total regardless of role
   // or pack size.
-  const finalChorusBase = buildChorus(2);
+  //
+  // TASK v3.70 (TASK C) — that 4-7 target itself is now roughly 4 (1 + 1 +
+  // 2, see buildChorus above), so the final chorus is the ONLY section this
+  // task leaves bookended — every earlier chorus dropped to a single
+  // occurrence.
+  const finalChorusBase = buildChorus(2, true);
   const finalChorusLines = extendedFinalChorusTextRoles(role)
     // Closing is only used for this one role and is never part of the
     // motif budget, so it always renders with a filler noun.
@@ -850,6 +946,14 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const effectiveTemplate: StructureTemplateId = isColdOpen ? 'T1' : structureTemplate;
   const verse1Block = [t.verse1, ...opening, ...(shortOpenerRoles(role) ? [] : ['', ...situationLines])];
 
+  // TASK v3.70 (TASK B) — real listening feedback: 3:42-4:10 songs against a
+  // 3:10-3:35 target, traced to 9-11 sections/song. Every template below now
+  // ends at its final chorus — no trailing "" + t.end: the [end] tag reads
+  // as nothing in Suno, and dropping it (plus, for T3, its old second
+  // pre-chorus repeat) is exactly the section-count cut this task's own
+  // measurement called for, with zero change to any genre/lyric-content
+  // vocabulary (STRUCTURE_TEMPLATE_SECTION_NOTES above documents the same
+  // shapes for the remote/bridge path).
   const lines: string[] =
     effectiveTemplate === 'T2'
       ? [
@@ -859,8 +963,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
         t.verse2, ...verse2, '',
         t.chorus, ...chorus2, '',
         '[breakdown]', ...bridgeLines, '',
-        t.finalChorus, ...finalChorusLines, '',
-        t.end
+        t.finalChorus, ...finalChorusLines
       ]
       : effectiveTemplate === 'T3'
         ? [
@@ -869,10 +972,8 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
           t.preChorus, ...preChorusLines, '',
           t.chorus, ...chorus1, '',
           t.verse2, ...verse2, '',
-          t.preChorus, ...preChorusLines, '',
           t.chorus, ...chorus2, '',
-          '[key-lift final chorus]', ...finalChorusLines, '',
-          t.end
+          '[key-lift final chorus]', ...finalChorusLines
         ]
         : effectiveTemplate === 'T4'
           ? [
@@ -889,8 +990,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
             t.chorus, ...chorus1, '',
             t.verse2, ...verse2, '',
             t.chorus, ...chorus2, '',
-            t.chorus, ...finalChorusLines, '',
-            t.end
+            t.chorus, ...finalChorusLines
           ]
           : effectiveTemplate === 'T5'
             ? [
@@ -900,8 +1000,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
               t.verse2, ...verse2, '',
               t.bridge, ...bridgeLines, '',
               t.chorus, ...chorus2, '',
-              '[chorus tag]', ...finalChorusLines, '',
-              t.end
+              '[chorus tag]', ...finalChorusLines
             ]
             // T1 — original/default shape.
             : [
@@ -912,8 +1011,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
               t.verse2, ...verse2, '',
               t.chorus, ...chorus2, '',
               t.bridge, ...bridgeLines, '',
-              t.finalChorus, ...finalChorusLines, '',
-              t.end
+              t.finalChorus, ...finalChorusLines
             ];
 
   return { lyrics: lines.join('\n'), hookPhrase: hook };

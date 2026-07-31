@@ -1,5 +1,6 @@
 import type { ChannelProfile, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from '../types';
 import { AI_DISCLOSURE_LINE, buildUploadChecklist, extractContentIdFlags, isMadeForKidsChannel } from '../core/exportCompliance';
+import { renderLyricsForDisplay } from '../core/lyricEngine';
 
 /** TASK I5 (v3.11, PART D-2) — tracks 1-3 (cold-open + flagship) are the shorts-clip priority candidates, per the brief's "1~3번 곡이 제일 중요하다". */
 export function isShortsClipCandidate(song: Pick<SongIdea, 'trackNo'>): boolean {
@@ -63,7 +64,9 @@ export function buildSongTxt(song: SongIdea): string {
     song.stylePrompt,
     '',
     '===== LYRICS (Suno Lyrics 필드) =====',
-    song.lyrics,
+    // TASK v3.70 (TASK D) — copy/display only; song.lyrics itself keeps its
+    // exact hookPhrase match for core/quality.ts's checks.
+    renderLyricsForDisplay(song.lyrics, song.hookPhrase),
     '',
     '===== EXCLUDE (Suno Exclude styles) =====',
     song.excludePrompt || '',

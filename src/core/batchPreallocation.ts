@@ -7,6 +7,7 @@ import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangement
 import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
+  applyDuetSectionVocalTags,
   buildVocalPlan,
   buildVocalVariantPlan,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -549,7 +550,11 @@ export function reconcileWithPreassignedSlot(
     hookPhrase,
     stylePrompt,
     excludePrompt,
-    lyrics: ensureVocalMetaTag(song.lyrics, vocalTag),
+    // TASK v3.70 (TASK A) — the realtime/Batch/bridge path never applied
+    // applyDuetSectionVocalTags (see that function's own updated comment):
+    // a duet stylePrompt alone never told Suno WHICH section is which
+    // singer, so a real duet-prompted track rendered as a single voice.
+    lyrics: ensureVocalMetaTag(applyDuetSectionVocalTags(song.lyrics, slot.vocalGender), vocalTag),
     listenerSituation,
     emotionArc: options.keepEmotionArc && song.emotionArc?.trim() ? song.emotionArc : slot.emotionArc,
     songRole: slot.songRole,

@@ -6,6 +6,7 @@ import { getPackPastedAt, getPackProgress, markTrackPasted, setTrackProgress } f
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
+import { renderLyricsForDisplay } from '../core/lyricEngine';
 
 type ProgressField = 'title' | 'style' | 'lyrics' | 'exclude';
 
@@ -117,7 +118,10 @@ export default function SunoProgressMode({ songs, packId, channelId, personaMode
     if (!song) return;
     if (field === 'exclude' && !hasExclude) return;
     if (field === 'style' && isOverPromptLimit) return;
-    const text = field === 'title' ? song.title : field === 'style' ? song.stylePrompt : field === 'lyrics' ? song.lyrics : song.excludePrompt || '';
+    // TASK v3.70 (TASK D) — copy/display only: the stored song.lyrics keeps
+    // its exact hookPhrase match so core/quality.ts's checks keep working —
+    // see renderLyricsForDisplay's own doc comment.
+    const text = field === 'title' ? song.title : field === 'style' ? song.stylePrompt : field === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt || '';
     await copyText(text);
     setCopiedFields(prev => ({ ...prev, [field]: true }));
     setFlash(field);

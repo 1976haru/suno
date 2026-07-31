@@ -126,10 +126,17 @@ describe('[v3.60 TASK D-3] titleHookOverlapWarning already applies to bridge-sha
 
 describe('[v3.60 TASK D-1] bridge instruction encourages varying chorus hook-repetition shape', () => {
   it('includes guidance against a single fixed hook-repetition shape', () => {
+    // TASK v3.70 (TASK C) — real listening feedback: bookending every
+    // chorus (including the two earlier ones) made every song's chorus
+    // hook-repetition shape identical. Wording updated: only the final
+    // chorus still bookends now; the guidance text changed to match, but
+    // the underlying "don't reuse one fixed shape for every chorus" intent
+    // this test checks is unchanged.
     const opts = makeOptions({ songCount: 3 });
     const slots = preallocateSongSlots(opts, testGenres, { usedTitles: [], usedHooks: [] });
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, { usedTitles: [], usedHooks: [] }, slots, false);
-    expect(instruction).toContain('Vary how many times the hook repeats inside each chorus');
+    expect(instruction).toContain('vary whether it\'s the first line, second line, or last line');
+    expect(instruction).toContain('Only the FINAL chorus bookends');
   });
 });
 

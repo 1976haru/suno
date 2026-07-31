@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint, getRecurringMotifWords } from '../src/core/localGenerator';
-import { assertLyricDiversity, createTitleGenerator, dedupeTitlesAcrossPack, hookRhythmLength, titleFromHook, type HookSpec } from '../src/core/lyricEngine';
+import {
+  assertLyricDiversity,
+  createTitleGenerator,
+  dedupeTitlesAcrossPack,
+  hookForLyrics,
+  hookRhythmLength,
+  renderLyricsForDisplay,
+  titleFromHook,
+  type HookSpec
+} from '../src/core/lyricEngine';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { SongIdea } from '../src/types';
 
@@ -51,10 +60,18 @@ describe('lyric engine', () => {
   // count by 2-4 words on every one of the 12 songs (100%, not just the
   // 17/18 the 5-3 fix touched), same "measurement artifact from removing
   // never-meant-to-be-sung text" reasoning as the 200->195 change above.
-  it('local generation averages at least 190 words/song across a 12-song English pack', () => {
+  //
+  // TASK v3.70 (TASK B/C) — floor lowered again, 190->180. Real listening
+  // measured songs running 30-60s too long against a 3:10-3:35 target;
+  // MIN_LYRIC_WORDS dropped from 200-260 to 175-205 (promptComposer.ts) and
+  // TASK C additionally dropped one hook occurrence from each of the two
+  // earlier (non-final) chorus-type sections, which by itself measured
+  // ~184 words/song average — a deliberate reduction, not a bug, and still
+  // comfortably inside the new 175-205 target.
+  it('local generation averages at least 180 words/song across a 12-song English pack', () => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
     const avgWords = bp.songs.reduce((sum, song) => sum + song.lyrics.split(/\s+/).filter(Boolean).length, 0) / bp.songs.length;
-    expect(avgWords).toBeGreaterThanOrEqual(190);
+    expect(avgWords).toBeGreaterThanOrEqual(180);
   });
 
   it('no local song comes back under 145 words even for the shortest role (cold-open)', () => {
@@ -65,14 +82,18 @@ describe('lyric engine', () => {
     }
   });
 
-  it('produces 0 duplicate chorus first lines across 30 songs', () => {
+  it('produces 0 duplicate hooks across 30 songs', () => {
+    // TASK v3.70 (TASK C) — this used to read the literal first line after
+    // "[chorus]" as a hook-uniqueness proxy, back when the hook always
+    // opened every chorus. Hook position now varies per song (see
+    // lyricEngine.ts's buildChorus/hookPositionVariant), so that line is
+    // sometimes a generic chorusDev line instead — those legitimately CAN
+    // repeat across songs (drawn from a shared, non-cross-song-unique pool).
+    // The real invariant this test protects — every song's own hook phrase
+    // is unique across the pack — is checked directly instead.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 30 }), testGenres, testMoods, testSeason);
-    const chorusFirstLines = bp.songs.map(song => {
-      const chorusIdx = song.lyrics.indexOf('[chorus]');
-      const afterChorus = song.lyrics.slice(chorusIdx).split('\n').filter(Boolean);
-      return afterChorus[1];
-    });
-    expect(new Set(chorusFirstLines).size).toBe(chorusFirstLines.length);
+    const hooks = bp.songs.map(song => song.hookPhrase);
+    expect(new Set(hooks).size).toBe(hooks.length);
   });
 
   it('is deterministic for the same channel + project title + song count', () => {
@@ -187,12 +208,23 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
     }
   });
 
-  it.each(LANGUAGES)('[R1] song.hookPhrase matches the actual first chorus line, in %s', language => {
+  it.each(LANGUAGES)('[R1] song.hookPhrase appears exactly once inside the first chorus block, in %s', language => {
+    // TASK v3.70 (TASK C) — real listening feedback: every chorus used to
+    // bookend the hook (open AND close), so it was always literally the
+    // first line. Now only the FINAL chorus bookends; every earlier chorus
+    // (including this, the first one) gets exactly one hook occurrence at a
+    // position that varies per song (first/second/last line — see
+    // lyricEngine.ts's buildChorus/hookPositionVariant), so this checks the
+    // hook is present exactly once in the block instead of pinning its line
+    // position.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       const chorusIdx = song.lyrics.indexOf('[chorus]');
-      const actualFirstChorusLine = song.lyrics.slice(chorusIdx).split('\n').filter(Boolean)[1];
-      expect(song.hookPhrase).toBe(actualFirstChorusLine);
+      const afterChorus = song.lyrics.slice(chorusIdx).split('\n');
+      const blockEnd = afterChorus.indexOf('', 1);
+      const chorusBlock = (blockEnd === -1 ? afterChorus : afterChorus.slice(0, blockEnd)).filter(Boolean).slice(1);
+      const hookOccurrences = chorusBlock.filter(line => line === song.hookPhrase).length;
+      expect(hookOccurrences, `track ${song.trackNo}'s first chorus block: ${JSON.stringify(chorusBlock)}`).toBe(1);
     }
   });
 
@@ -378,5 +410,89 @@ describe('[v3.27] dedupeTitlesAcrossPack', () => {
     const { songs: result } = dedupeTitlesAcrossPack(songs);
     const titles = result.map(s => s.title.trim().toLowerCase());
     expect(new Set(titles).size).toBe(8);
+  });
+});
+
+describe('[v3.70 TASK D] hookForLyrics — Title Case hook normalized to sentence case for singable rendering', () => {
+  it('capitalizes only the first letter, lowercasing the rest', () => {
+    expect(hookForLyrics("You're Still Here")).toBe("You're still here");
+    expect(hookForLyrics('Stay a While, Darling')).toBe('Stay a while, darling');
+  });
+
+  it('keeps the standalone pronoun "I" capitalized, including inside contractions', () => {
+    expect(hookForLyrics("I'll Wait for Morning")).toBe("I'll wait for morning");
+    expect(hookForLyrics('Wait Till I Come Home')).toBe('Wait till I come home');
+  });
+
+  it('is a no-op on Korean/Japanese hooks (no case distinction to normalize)', () => {
+    expect(hookForLyrics('다시 만나줘')).toBe('다시 만나줘');
+    expect(hookForLyrics('もう一度会おう')).toBe('もう一度会おう');
+  });
+
+  it('returns an empty/blank hook unchanged', () => {
+    expect(hookForLyrics('')).toBe('');
+  });
+});
+
+describe('[v3.70 TASK D] renderLyricsForDisplay — copy/display-only transform, never mutates the stored data', () => {
+  const LYRICS = [
+    '[verse 1]',
+    'a line here',
+    '',
+    '[chorus]',
+    "You're Still Here",
+    'some other dev line',
+    "You're Still Here",
+    '',
+    '[final chorus]',
+    "You're Still Here.",
+    'closing line',
+    "You're Still Here"
+  ].join('\n');
+
+  it('rewrites every line matching the hook exactly to sentence case', () => {
+    const rendered = renderLyricsForDisplay(LYRICS, "You're Still Here");
+    expect(rendered).toContain("You're still here");
+    expect(rendered).not.toContain("You're Still Here\n");
+  });
+
+  it('preserves trailing sentence punctuation an agent may have added', () => {
+    const rendered = renderLyricsForDisplay(LYRICS, "You're Still Here");
+    expect(rendered).toContain("You're still here.");
+  });
+
+  it('leaves every non-hook line completely untouched', () => {
+    const rendered = renderLyricsForDisplay(LYRICS, "You're Still Here");
+    expect(rendered).toContain('a line here');
+    expect(rendered).toContain('some other dev line');
+    expect(rendered).toContain('closing line');
+    expect(rendered).toContain('[chorus]');
+    expect(rendered).toContain('[final chorus]');
+  });
+
+  it('is a no-op when hookPhrase is blank', () => {
+    expect(renderLyricsForDisplay(LYRICS, '')).toBe(LYRICS);
+  });
+
+  it('never mutates the original string (returns a new one)', () => {
+    const original = LYRICS;
+    renderLyricsForDisplay(LYRICS, "You're Still Here");
+    expect(LYRICS).toBe(original);
+  });
+
+  it('a real generated song\'s stored lyrics still match hookPhrase exactly (quality.ts\'s own invariant) even though the displayed copy differs', () => {
+    // This is the regression this task's own design explicitly guards
+    // against: normalizing the STORED lyrics (not just the display copy)
+    // broke core/quality.ts's checkHookQuality, which counts literal
+    // hookPhrase occurrences in song.lyrics — see this file's own history.
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 3, lyricLanguage: 'english' }), testGenres, testMoods, testSeason);
+    for (const song of bp.songs) {
+      const storedOccurrences = song.lyrics.split('\n').filter(line => line.trim() === song.hookPhrase).length;
+      expect(storedOccurrences, `track ${song.trackNo}`).toBeGreaterThan(0);
+      const rendered = renderLyricsForDisplay(song.lyrics, song.hookPhrase);
+      if (hookForLyrics(song.hookPhrase) !== song.hookPhrase) {
+        expect(rendered).not.toBe(song.lyrics);
+      }
+    }
   });
 });

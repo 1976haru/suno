@@ -5,6 +5,7 @@ import { buildSongTxt, copyText, downloadText, extractChorusText, isShortsClipCa
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
+import { renderLyricsForDisplay } from '../core/lyricEngine';
 
 type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
 
@@ -292,7 +293,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
                     {contribution.editedLineCount}/{contribution.totalLineCount} lines edited
                   </span>
                 )}
-                <button type="button" onClick={() => void copyText(song.lyrics)}>
+                {/* TASK v3.70 (TASK D) — copy-only display transform; the editable draft below stays bound to the raw song.lyrics so a save never writes the sentence-cased copy back as canonical data. */}
+                <button type="button" onClick={() => void copyText(renderLyricsForDisplay(song.lyrics, song.hookPhrase))}>
                   <Copy size={15} />
                   Copy
                 </button>

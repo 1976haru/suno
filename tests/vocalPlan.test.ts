@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_KIDS_VOCAL_QUOTA,
+  applyDuetSectionVocalTags,
   buildVocalPlan,
   scaleVocalQuota,
   usesVocalQuota,
@@ -132,5 +133,74 @@ describe('vocalDescriptionFor', () => {
     expect(vocalDescriptionFor('mixed', 'english', 0, 'senior-morning')).toContain('male and female duet');
     expect(vocalDescriptionFor('mixed', 'english', 0, 'senior-morning')).not.toContain("children's choir");
     expect(vocalDescriptionFor('male', 'english', 0, 'senior-morning')).toContain('mature warm male');
+  });
+});
+
+describe('[v3.70 TASK A] applyDuetSectionVocalTags', () => {
+  const T1_LYRICS = [
+    '[short intro]',
+    '[verse 1]',
+    'line one',
+    '',
+    '[pre-chorus]',
+    'lead in',
+    '',
+    '[chorus]',
+    'hook line',
+    '',
+    '[verse 2]',
+    'line two',
+    '',
+    '[chorus]',
+    'hook line',
+    '',
+    '[short bridge]',
+    'bridge line',
+    '',
+    '[final chorus]',
+    'hook line'
+  ].join('\n');
+
+  it('is a no-op for every gender except "duet"', () => {
+    expect(applyDuetSectionVocalTags(T1_LYRICS, undefined)).toBe(T1_LYRICS);
+    expect(applyDuetSectionVocalTags(T1_LYRICS, 'male')).toBe(T1_LYRICS);
+    expect(applyDuetSectionVocalTags(T1_LYRICS, 'female')).toBe(T1_LYRICS);
+    expect(applyDuetSectionVocalTags(T1_LYRICS, 'mixed')).toBe(T1_LYRICS);
+  });
+
+  it('tags every section of the default (T1-shaped) template for a duet', () => {
+    const tagged = applyDuetSectionVocalTags(T1_LYRICS, 'duet');
+    expect(tagged).toContain('[verse 1: male vocal]');
+    expect(tagged).toContain('[verse 2: female vocal]');
+    expect(tagged).toContain('[pre-chorus: female vocal]');
+    expect(tagged).toContain('[chorus: male and female duet]');
+    expect(tagged).toContain('[short bridge: male and female call and response]');
+    expect(tagged).toContain('[final chorus: male and female duet harmony]');
+    // Never touches the intro tag.
+    expect(tagged).toContain('[short intro]');
+  });
+
+  it('never tags the intro, regardless of whether it is instrumental', () => {
+    const tagged = applyDuetSectionVocalTags(T1_LYRICS, 'duet');
+    expect(tagged).not.toMatch(/\[short intro:.*\]/i);
+  });
+
+  it('recognizes the non-default structureTemplate final-chorus markers (T3 "key-lift final chorus", T5 "chorus tag")', () => {
+    const t3Lyrics = '[verse 1]\na\n\n[verse 2]\nb\n\n[key-lift final chorus]\nhook';
+    const t5Lyrics = '[verse 1]\na\n\n[verse 2]\nb\n\n[chorus tag]\nhook';
+    expect(applyDuetSectionVocalTags(t3Lyrics, 'duet')).toContain('[key-lift final chorus: male and female duet harmony]');
+    expect(applyDuetSectionVocalTags(t5Lyrics, 'duet')).toContain('[chorus tag: male and female duet harmony]');
+  });
+
+  it('recognizes the T2 "breakdown" tag as a bridge-like call-and-response moment', () => {
+    const t2Lyrics = '[verse 1]\na\n\n[breakdown]\nb\n\n[final chorus]\nhook';
+    expect(applyDuetSectionVocalTags(t2Lyrics, 'duet')).toContain('[breakdown: male and female call and response]');
+  });
+
+  it('leaves non-matching lines completely untouched', () => {
+    const tagged = applyDuetSectionVocalTags(T1_LYRICS, 'duet');
+    expect(tagged).toContain('line one');
+    expect(tagged).toContain('hook line');
+    expect(tagged).toContain('bridge line');
   });
 });

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Check, Copy, X } from 'lucide-react';
 import type { SongIdea } from '../types';
 import { copyText } from '../utils/exporters';
 import { getPackProgress, setTrackProgress } from '../core/library';
+import { renderLyricsForDisplay } from '../core/lyricEngine';
 
 type FocusTab = 'style' | 'lyrics' | 'exclude';
 
@@ -39,7 +40,12 @@ export default function FocusMode({ songs, packId, onClose }: FocusModeProps) {
   if (!song) return null;
 
   const isDone = done.includes(song.trackNo);
-  const tabText = tab === 'style' ? song.stylePrompt : tab === 'lyrics' ? song.lyrics : song.excludePrompt || '(제외할 항목 없음)';
+  // TASK v3.70 (TASK D) — real listening feedback: a hook sung in literal
+  // Title Case reads like a title announcement. Display/copy-only: the
+  // stored song.lyrics keeps its exact hookPhrase match so the app's own
+  // quality checks (core/quality.ts) keep working — see renderLyricsForDisplay's
+  // own doc comment for why this can't be applied at the data layer.
+  const tabText = tab === 'style' ? song.stylePrompt : tab === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt || '(제외할 항목 없음)';
 
   async function handleCopy() {
     await copyText(tabText);

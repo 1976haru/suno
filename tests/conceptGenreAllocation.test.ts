@@ -39,6 +39,54 @@ describe('[v3.58 TASK 2] allocateGenreCounts', () => {
   });
 });
 
+describe('[v3.70 TASK E] allocateGenreCounts — no 1-song genre allowed to survive', () => {
+  it('a real 7-genre pool at songCount=18 that would otherwise leave 2 genres at 1 song each ends up with every genre at >=2', () => {
+    // Mirrors the real measured pack this task's own spec quotes: 7 genres
+    // (weights descending) at songCount=18 naturally puts the two
+    // lowest-ranked genres at exactly 1 song each.
+    const ids = ['soft-rock-am', 'doowop', 'europop', 'warm-morning', 'brill-building', 'folk-rock-70s', 'baroque-pop'];
+    const allocation = allocateGenreCounts(ids, 18);
+    for (const slot of allocation) {
+      expect(slot.songCount, slot.genreId).toBeGreaterThanOrEqual(2);
+    }
+    // Merging away every 1-count genre lands inside the spec's own "5-7종" target range.
+    expect(allocation.length).toBeGreaterThanOrEqual(3);
+    expect(allocation.length).toBeLessThan(ids.length);
+  });
+
+  it('still sums to exactly songCount after merging away 1-count genres', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    for (const songCount of [12, 18, 24, 30]) {
+      const allocation = allocateGenreCounts(ids, songCount);
+      const total = allocation.reduce((sum, slot) => sum + slot.songCount, 0);
+      expect(total, `songCount=${songCount}`).toBe(songCount);
+    }
+  });
+
+  it('never merges below 3 distinct genres, even when every genre would otherwise land at exactly 1', () => {
+    // songCount=3, pool=3: every genre gets exactly 1 song and there is no
+    // way to give every genre >=2 without collapsing to fewer than 3
+    // genres — the existing "always >=3 genres" floor wins here.
+    const allocation = allocateGenreCounts(['a', 'b', 'c'], 3);
+    expect(allocation.length).toBe(3);
+    expect(allocation.every(slot => slot.songCount === 1)).toBe(true);
+  });
+
+  it('never pushes a genre over the 28% cap just to absorb a merged 1-count genre, when another under-cap target is available', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const cap = Math.floor(18 * 0.28);
+    const allocation = allocateGenreCounts(ids, 18);
+    const overCap = allocation.filter(slot => slot.songCount > cap);
+    expect(overCap).toEqual([]);
+  });
+
+  it('a pool with no 1-count genre at all is left completely unchanged', () => {
+    const ids = ['a', 'b', 'c', 'd'];
+    const allocation = allocateGenreCounts(ids, 18);
+    expect(allocation.every(slot => slot.songCount >= 2)).toBe(true);
+  });
+});
+
 describe('[v3.58 TASK 2] recommendConceptLocal genre allocation', () => {
   it('always returns a genre pool of at least 3 for an 18-song pack', () => {
     const result = recommendConceptLocal('그 겨울이 생각나는 노래', 'senior-morning', undefined, 0, 18);

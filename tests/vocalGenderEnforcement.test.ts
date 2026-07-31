@@ -161,6 +161,38 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
   });
 });
 
+describe('[v3.70 TASK A] reconcileWithPreassignedSlot applies per-section duet vocal tags (realtime/Batch/bridge choke point)', () => {
+  it('tags a duet-selected slot\'s verse/chorus/bridge lines even though the imported song never included them itself', () => {
+    const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
+    const opts = makeOptions({ channel: showaCafe, vocalTone: duetPreset.prompt });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalGender).toBe('duet');
+    const untaggedDuetLyrics = [
+      '[short intro]', '', '[verse 1]', 'a line', '', '[chorus]', 'Hold On', '',
+      '[verse 2]', 'b line', '', '[chorus]', 'Hold On', '', '[short bridge]', 'c line', '',
+      '[final chorus]', 'Hold On'
+    ].join('\n');
+    const song = baseSong({ trackNo: slot.trackNo, stylePrompt: duetPreset.prompt, lyrics: untaggedDuetLyrics });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics).toContain('[verse 1: male vocal]');
+    expect(fixed.lyrics).toContain('[verse 2: female vocal]');
+    expect(fixed.lyrics).toContain('[chorus: male and female duet]');
+    expect(fixed.lyrics).toContain('[short bridge: male and female call and response]');
+    expect(fixed.lyrics).toContain('[final chorus: male and female duet harmony]');
+  });
+
+  it('does not add any duet section tags for a non-duet slot', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: showaCafe.defaultVocal });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalGender).not.toBe('duet');
+    const lyrics = '[verse 1]\na line\n\n[chorus]\nHold On';
+    const song = baseSong({ trackNo: slot.trackNo, lyrics });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics).not.toContain('[verse 1: male vocal]');
+    expect(fixed.lyrics).not.toContain('[chorus: male and female duet]');
+  });
+});
+
 describe('[Part H] quality gate warns on a gender mismatch', () => {
   it('scoreSong pushes a warning when stylePrompt gender contradicts the channel default', () => {
     const song = baseSong();

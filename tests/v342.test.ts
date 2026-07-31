@@ -208,12 +208,56 @@ describe('[Part C] lyric structure template rotation', () => {
     expect(shapes.size).toBeGreaterThanOrEqual(4);
   });
 
-  it('every song still has at least one [verse and [chorus tag and ends with [end] (quality-gate required tags)', () => {
+  it('every song still has at least one [verse and [chorus tag (quality-gate required tags), and never a trailing [end] tag', () => {
+    // TASK v3.70 (TASK B) — '[end]' dropped from every structureTemplate:
+    // real listening measured songs running 30-60s over target, traced in
+    // part to a trailing tag that reads as nothing in Suno. quality.ts's
+    // own requiredLyricTags no longer requires it either (see that file).
     const bp = generateShowaPack(15);
     for (const song of bp.songs) {
       expect(song.lyrics).toMatch(/\[verse/);
       expect(song.lyrics).toMatch(/\[chorus/i);
-      expect(song.lyrics.trim().endsWith('[end]')).toBe(true);
+      expect(song.lyrics.trim().endsWith('[end]')).toBe(false);
+    }
+  });
+});
+
+describe('[v3.70 TASK B] section count and pre-chorus repetition — real listening measured 8-11 sections against a 7-8 target', () => {
+  // Excludes the leading vocal-meta tag (e.g. "[male vocal]", "[duet vocal]")
+  // every song gets via core/vocalPlan.ts's ensureVocalMetaTag — that
+  // identifies the singer, it isn't one of composeLyrics's own structure
+  // sections, so it must not count toward the section-count target here.
+  const VOCAL_META_TAG = /^\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]$/i;
+  function sectionTags(lyrics: string): string[] {
+    return lyrics
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => /^\[.+\]$/.test(l) && !VOCAL_META_TAG.test(l));
+  }
+
+  it('every non-cold-open track in a real 15-song pack renders 6-8 section tags (never more)', () => {
+    const bp = generateShowaPack(15);
+    for (const song of bp.songs.filter(s => s.trackNo !== 1)) {
+      const count = sectionTags(song.lyrics).length;
+      expect(count, `track ${song.trackNo} has ${count} sections`).toBeGreaterThanOrEqual(6);
+      expect(count, `track ${song.trackNo} has ${count} sections`).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('no song\'s pre-chorus tag appears more than once (the real T1/T3 double-repeat bug)', () => {
+    const bp = generateShowaPack(15);
+    for (const song of bp.songs) {
+      const preChorusCount = sectionTags(song.lyrics).filter(tag => /pre-chorus/i.test(tag)).length;
+      expect(preChorusCount, `track ${song.trackNo} has ${preChorusCount} pre-chorus sections`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('no song ends with a trailing [end] or [outro] tag — the final chorus (or its template-specific marker) is the last section', () => {
+    const bp = generateShowaPack(15);
+    for (const song of bp.songs) {
+      const tags = sectionTags(song.lyrics);
+      const last = tags[tags.length - 1];
+      expect(last, `track ${song.trackNo}'s last tag was "${last}"`).not.toMatch(/end|outro/i);
     }
   });
 });

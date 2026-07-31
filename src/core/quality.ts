@@ -48,7 +48,13 @@ const hookDeviceDisclosurePattern = /stop-time|key change|modulat|breakdown|drop
 // instead of coupling modules for them — see e.g. hookDeviceInstructionLine's
 // duplication between promptComposer.ts/claudeCodeBridge.ts).
 const BPM_DISCLOSURE_PATTERN = /\b\d{2,3}\s*bpm\b/i;
-const requiredLyricTags = ['[verse', '[chorus', '[end]'];
+// TASK v3.70 (TASK B) — '[end]' dropped: it reads as nothing in Suno, and
+// every structureTemplate shape now intentionally omits it (see
+// lyricEngine.ts's composeLyrics) to cut the 9-11 section pack real
+// listening measured against a 3:10-3:35 target. Requiring it here would
+// warn-and-penalize every single song going forward for correctly NOT
+// having a tag this task just removed.
+const requiredLyricTags = ['[verse', '[chorus'];
 
 // H3 (v3.3): a vocative-shaped hook ("Hold on, X") may only address a person
 // or an abstract/personified noun, never a physical object ("Hold on,

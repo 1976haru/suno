@@ -3,6 +3,7 @@ import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildM
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { stripSetTitlePrefix } from '../src/utils/generation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
 import type { PreassignedSongSlot } from '../src/types';
 
 const avoid = { usedTitles: ['Old Title'], usedHooks: ['Old Hook Phrase'] };
@@ -87,6 +88,27 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toMatch(/lyrics\/\d{8}_.+\.json/);
     expect(instruction).toContain('{ "songs": [ ... ] }');
     expect(instruction).toContain('no markdown fences');
+  });
+
+  it('TASK v3.70 (TASK A): tells the agent to mark who sings each section when a track is a male-female duet', () => {
+    const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
+    const opts = makeOptions({ songCount: 2, vocalTone: duetPreset.prompt });
+    const slots = preallocateSongSlots(opts, testGenres, avoid);
+    expect(slots.some(slot => slot.vocalGender === 'duet')).toBe(true);
+    const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
+
+    expect(instruction).toContain('[This song\'s vocal composition]');
+    expect(instruction).toContain('[Verse 1: Male Vocal]');
+    expect(instruction).toContain('[Chorus: Male and Female Duet]');
+  });
+
+  it('TASK v3.70 (TASK A): omits the duet vocal-composition line when no track in the pack is a duet', () => {
+    const opts = makeOptions({ songCount: 2 });
+    const slots = preallocateSongSlots(opts, testGenres, avoid);
+    expect(slots.some(slot => slot.vocalGender === 'duet')).toBe(false);
+    const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);
+
+    expect(instruction).not.toContain('[This song\'s vocal composition]');
   });
 
   it('TASK v3.69 (TASK D): includes an optional top-level "meta" object in the request payload, and tells the agent to copy it verbatim', () => {
