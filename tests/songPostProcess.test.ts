@@ -76,79 +76,82 @@ describe('[v3.60 TASK B-1/B-2] normalizeSongOutput strips leaked labels and dupl
 });
 
 /**
- * TASK v3.60 (TASK B-3), corrected by TASK v3.62 (TASK 2-4) — 8/17 real
- * songs sang a leaked arrangement description as the first lyric line
- * under a bare [intro]-family tag. The original rule reused TASK A's
- * arrangement-vocab-as-subject detector as the strip criterion, but a real
- * pack showed "Morning opens on the table" (not arrangement vocabulary at
- * all) surviving under the same tag while stylePrompt still declared
- * "(INTRO ONLY)" — a direct contradiction the old rule never caught
- * (7/16). Corrected criterion: whether stylePrompt itself declares an
- * instrument-only intro is the actual signal. If it does, EVERY line under
- * the tag is dropped (unconditionally — an instrument-only intro cannot
- * have any sung line under it) and the tag is relabeled
- * `[Instrumental Intro]`; if it doesn't, the line is real lyric content
- * and stays untouched regardless of its wording.
+ * TASK v3.60 (TASK B-3), corrected by TASK v3.62 (TASK 2-4), corrected again
+ * by TASK v3.64 (TASK B) — 8/17 real songs originally sang a leaked
+ * arrangement description as the first lyric line under a bare
+ * [intro]-family tag. The v3.62 fix keyed the strip decision off stylePrompt
+ * declaring "(INTRO ONLY)" verbatim — but v3.62 TASK 1 (same release) removed
+ * the verbatim requirement that used to write that exact declaration, so the
+ * condition stopped ever being true and a real 18-song pack measured 12/18
+ * songs still singing a leaked line under [intro]. The signal is now
+ * introMode (an app-planned value from PreassignedSongSlot, passed in
+ * directly — never inferred from stylePrompt text): 'instrumental' strips
+ * every line under the tag (unconditionally — an instrumental intro cannot
+ * have any sung line under it) and relabels it `[Instrumental Intro]`;
+ * anything else (or no introMode at all) leaves the line untouched
+ * regardless of its wording.
  */
-describe('[v3.62 TASK 2-4] normalizeSongOutput strips intro-tag lines only when stylePrompt declares an instrument-only intro', () => {
-  it('strips a line under a bare [intro] tag when stylePrompt declares "(INTRO ONLY)"', () => {
+describe('[v3.64 TASK B] normalizeSongOutput strips intro-tag lines only when introMode is \'instrumental\'', () => {
+  it('strips a line under a bare [intro] tag when introMode is \'instrumental\'', () => {
     const song = songWith({
-      stylePrompt: 'warm acoustic pop, 92 BPM, warm string pad swell intro texture (INTRO ONLY).',
       lyrics: '[intro]\nSpiccato strings flicker over quiet water\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
     });
-    const result = normalizeSongOutput(song);
+    const result = normalizeSongOutput(song, 'instrumental');
     expect(result.lyrics).not.toContain('Spiccato strings flicker');
     expect(result.lyrics).toContain('[Instrumental Intro]');
     expect(result.lyrics).toContain('I hold my father\'s guitar');
-    expect(result.warnings.some(w => w.includes('instrument-only intro'))).toBe(true);
+    expect(result.warnings.some(w => w.includes('instrumental intro'))).toBe(true);
   });
 
-  it('strips a real, non-arrangement-vocabulary line too, once "(INTRO ONLY)" is declared — this is the actual bug fix', () => {
+  it('strips a real, non-arrangement-vocabulary line too, once introMode is \'instrumental\' — this is the actual bug fix', () => {
     const song = songWith({
-      stylePrompt: 'warm acoustic pop, 92 BPM, soft acoustic guitar harmonics intro texture (INTRO ONLY).',
       lyrics: '[intro]\nMorning opens on the table\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
     });
-    const result = normalizeSongOutput(song);
+    const result = normalizeSongOutput(song, 'instrumental');
     expect(result.lyrics).not.toContain('Morning opens on the table');
     expect(result.lyrics).toContain('[Instrumental Intro]');
   });
 
-  it('strips under other intro-family tags ([cold hook intro], [a cappella hook intro]) when "(INTRO ONLY)" is declared', () => {
+  it('strips under other intro-family tags ([cold hook intro], [a cappella hook intro]) when introMode is \'instrumental\'', () => {
     for (const tag of ['[cold hook intro]', '[a cappella hook intro]']) {
       const song = songWith({
-        stylePrompt: 'warm acoustic pop, 92 BPM, clean electric guitar arpeggio intro texture (INTRO ONLY).',
         lyrics: `${tag}\nThe straight-pop drums move softly\n\n[chorus]\nHook 1\nHook 1\nHook 1`
       });
-      const result = normalizeSongOutput(song);
+      const result = normalizeSongOutput(song, 'instrumental');
       expect(result.lyrics, tag).not.toContain('drums move softly');
     }
   });
 
-  it('does NOT strip an intro-tag line when stylePrompt never declares "(INTRO ONLY)" — even if the line matches the old arrangement-vocab criterion', () => {
+  it('does NOT strip an intro-tag line when introMode is \'vocal-after-texture\' — even if the line matches the old arrangement-vocab criterion', () => {
     const song = songWith({
-      stylePrompt: 'warm acoustic pop, 92 BPM.',
+      lyrics: '[intro]\nSpiccato strings flicker over quiet water\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
+    });
+    const result = normalizeSongOutput(song, 'vocal-after-texture');
+    expect(result.lyrics).toContain('Spiccato strings flicker over quiet water');
+    expect(result.warnings.some(w => w.includes('instrumental intro'))).toBe(false);
+  });
+
+  it('does NOT strip when introMode is omitted entirely (no slot match) — same as \'vocal-after-texture\', a safe no-op default', () => {
+    const song = songWith({
       lyrics: '[intro]\nSpiccato strings flicker over quiet water\n\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
     });
     const result = normalizeSongOutput(song);
     expect(result.lyrics).toContain('Spiccato strings flicker over quiet water');
-    expect(result.warnings.some(w => w.includes('instrument-only intro'))).toBe(false);
   });
 
-  it('does not touch a line elsewhere in the lyrics that isn\'t under an intro tag, even with "(INTRO ONLY)" declared', () => {
+  it('does not touch a line elsewhere in the lyrics that isn\'t under an intro tag, even with introMode \'instrumental\'', () => {
     const song = songWith({
-      stylePrompt: 'warm acoustic pop, 92 BPM, clean electric guitar arpeggio intro texture (INTRO ONLY).',
       lyrics: '[verse 1]\nThe straight-pop drums move softly\n\n[chorus]\nHook 1\nHook 1\nHook 1'
     });
-    const result = normalizeSongOutput(song);
+    const result = normalizeSongOutput(song, 'instrumental');
     expect(result.lyrics).toContain('The straight-pop drums move softly');
   });
 
   it('leaves an [instrumental hook intro] tag followed immediately by a section tag untouched', () => {
     const song = songWith({
-      stylePrompt: 'warm acoustic pop, 92 BPM, clean electric guitar arpeggio intro texture (INTRO ONLY).',
       lyrics: '[instrumental hook intro]\n[verse 1]\nI hold my father\'s guitar\n\n[chorus]\nHook 1\nHook 1\nHook 1'
     });
-    const result = normalizeSongOutput(song);
+    const result = normalizeSongOutput(song, 'instrumental');
     expect(result.lyrics).toBe(song.lyrics);
   });
 });
@@ -214,17 +217,29 @@ describeRealPack('[v3.60 TASK B] normalizeSongOutput against the real bridge-pat
     }
   });
 
-  it('never strips lyrics in this real pack, since none of its style prompts declare a literal (INTRO ONLY) marker', () => {
+  it('TASK v3.64 (TASK B) — this real pack has real leaked lines under [intro] that the old (INTRO ONLY)-declaration signal never caught, since none of its style prompts declare that marker', () => {
     // This is real, LLM-composed (post-v3.62 TASK 1) content — the agent was
-    // never asked to write "(INTRO ONLY)" verbatim (that's exactly what TASK
-    // 1 removed), so this pack has nothing for the strip rule to act on. The
-    // strip rule itself (both "fires when declared" and "leaves content alone
-    // when not declared") is covered by the synthetic fixtures earlier in
-    // this file — this real-pack check just confirms it's a no-op here, not
-    // that it accidentally deletes real sung content.
-    for (const raw of data.songs) {
-      const result = normalizeSongOutput(raw as SongIdea);
-      expect(result.lyrics, `track ${raw.trackNo}`).toBe(raw.lyrics);
+    // never asked to write "(INTRO ONLY)" verbatim (that's exactly what
+    // TASK 1 removed). Without introMode, the old rule stays permanently
+    // dark — exactly the real 12/18 bug this task fixes, reproduced here
+    // with no arguments (the pre-v3.64 call shape).
+    const leaked = data.songs.filter((raw: SongIdea) => normalizeSongOutput(raw).lyrics !== raw.lyrics);
+    expect(leaked.length).toBe(0); // stylePrompt-based signal: always 0, that's the bug
+    const linesUnderIntro = data.songs.filter((raw: SongIdea) => /^\[[^\]]*intro[^\]]*\]\s*\n[^[(\s]/im.test(raw.lyrics));
+    expect(linesUnderIntro.length).toBeGreaterThan(0); // real leaked content is still there, unstripped
+  });
+
+  it('TASK v3.64 (TASK B) — the same real leaked lines are correctly stripped once introMode is passed as \'instrumental\'', () => {
+    // Simulates what the fix actually does in production: the app plans
+    // introMode from PreassignedSongSlot and passes it in directly (see
+    // claudeCodeBridge.ts's importSongsJson), instead of relying on
+    // anything the agent wrote in stylePrompt.
+    const tracksWithLeakedIntroLine = data.songs.filter((raw: SongIdea) => /^\[[^\]]*intro[^\]]*\]\s*\n[^[(\s]/im.test(raw.lyrics));
+    expect(tracksWithLeakedIntroLine.length).toBeGreaterThan(0);
+    for (const raw of tracksWithLeakedIntroLine) {
+      const result = normalizeSongOutput(raw as SongIdea, 'instrumental');
+      expect(result.lyrics, `track ${raw.trackNo}`).toContain('[Instrumental Intro]');
+      expect(result.lyrics, `track ${raw.trackNo}`).not.toMatch(/^\[[^\]]*intro[^\]]*\]\s*\n[^[(\s]/im);
     }
   });
 });

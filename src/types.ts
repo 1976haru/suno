@@ -10,6 +10,9 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 
 export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge';
 
+/** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
+export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
+
 export type DiversityAxisId =
   | 'genre' | 'vocalType' | 'introTexture' | 'hookDevice'
   | 'arrangementDensity' | 'structureTemplate' | 'lyricTheme' | 'pov';
@@ -525,6 +528,19 @@ export interface PreassignedSongSlot {
    * (never errors) if it's missing.
    */
   structureTemplate?: 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
+  /**
+   * TASK v3.64 (TASK B) — real bridge output measured 12/18 songs singing a
+   * leaked line under a bare [intro] tag. The v3.62 TASK 2-4 strip rule
+   * keyed off stylePrompt declaring "(INTRO ONLY)" verbatim, but v3.62
+   * TASK 1 removed that exact verbatim requirement — the declaration this
+   * rule looked for stopped being written, so the rule never fired again.
+   * This is the app-planned replacement signal (never inferred from
+   * stylePrompt text): 'instrumental' means no sung line may appear under
+   * [intro] (songPostProcess.ts strips it); 'vocal-immediate' means no
+   * [intro] tag at all (cold-open convention, see lyricEngine.ts);
+   * 'vocal-after-texture' allows a short sung line under [intro] as-is.
+   */
+  introMode?: IntroMode;
   /** v3.47 Step 3: planned lyric theme id for UI/bridge inspection and optional manual allocation. */
   lyricTheme?: string;
   /** v3.47 Step 2: concrete lyric scene copied from data/lyricThemes.ts, not generated here. */

@@ -30,7 +30,7 @@ describe('[v3.63] SetPlan bridge handoff', () => {
 
     expect(section).toContain('[SetPlan handoff]');
     expect(section).toContain("[This pack's 18-track plan]");
-    expect(section).toContain('| Track | Genre | Era | BPM | Vocal | Structure | Role |');
+    expect(section).toContain('| Track | Genre | Era | BPM | Vocal | Structure | Intro | Role |');
     expect(section).toContain('[Diversity groups] - constraints, not wording to copy:');
     expect(section).toContain('introTexture ');
     expect(section).toContain('hookDevice ');
@@ -52,6 +52,20 @@ describe('[v3.63] SetPlan bridge handoff', () => {
     expect(maxGroupSize(introLine)).toBeLessThanOrEqual(4);
     expect(maxGroupSize(hookLine)).toBeLessThanOrEqual(4);
     expect(maxGroupSize(densityLine)).toBeLessThanOrEqual(5);
+  });
+
+  it('[v3.64 TASK B] carries each track\'s introMode as plain-language guidance, not left for the agent to guess', () => {
+    const { plan, genres } = planFixture();
+    const section = buildSetPlanHandoffSection(plan.slots, genres);
+
+    expect(section).toContain('instrumental (no lyric line under [intro])');
+    expect(section).toContain('no [intro] tag at all — singing starts immediately');
+    expect(section).toContain('short [intro] line allowed');
+    expect(section.toLowerCase()).toContain('follow each track\'s "intro" column exactly');
+
+    // Track 1 (cold-open) is always vocal-immediate.
+    const track1Row = section.split('\n').find(line => line.startsWith('| 1 |'))!;
+    expect(track1Row).toContain('no [intro] tag at all');
   });
 
   it('is included in the one-shot Claude Code instruction before the JSON payload', () => {

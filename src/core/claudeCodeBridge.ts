@@ -266,6 +266,13 @@ function eraLabelForSlot(slot: PreassignedSongSlot, genres: GenrePack[]): string
   return bucket ? ERA_LABEL[bucket] : '-';
 }
 
+/** TASK v3.64 (TASK B) — plain-language instruction per introMode, so the agent knows what to actually write instead of the app silently deleting a leaked sung line under [intro] after the fact. */
+const INTRO_MODE_LABEL: Record<string, string> = {
+  instrumental: 'instrumental (no lyric line under [intro])',
+  'vocal-immediate': 'no [intro] tag at all — singing starts immediately',
+  'vocal-after-texture': 'short [intro] line allowed'
+};
+
 function setPlanTrackTable(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
   const genreLabel = (genreId: string | undefined) => genres.find(g => g.id === genreId)?.label ?? genreId ?? '-';
   const rows = preassignedSongs.map(slot => [
@@ -275,11 +282,12 @@ function setPlanTrackTable(preassignedSongs: PreassignedSongSlot[], genres: Genr
     `${slot.tempo} BPM`,
     markdownCell(slot.vocalType ?? slot.vocalGender ?? slot.vocalText ?? '-'),
     markdownCell(slot.structureTemplate ?? '-'),
+    markdownCell(slot.introMode ? INTRO_MODE_LABEL[slot.introMode] : '-'),
     markdownCell(slot.songRole)
   ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'));
   return [
-    '| Track | Genre | Era | BPM | Vocal | Structure | Role |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| Track | Genre | Era | BPM | Vocal | Structure | Intro | Role |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
     ...rows
   ].join('\n');
 }
@@ -324,6 +332,8 @@ export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot
     '[SetPlan handoff]',
     `[This pack's ${preassignedSongs.length}-track plan]`,
     setPlanTrackTable(preassignedSongs, genres),
+    '',
+    'Follow each track\'s "Intro" column exactly: "instrumental" tracks must have NO lyric line under [intro] (an instrumental cue there is fine, e.g. "[intro]" with nothing sung until the next tag); "no [intro] tag at all" tracks should skip the [intro] tag entirely and start singing right away; "short [intro] line allowed" tracks may have a brief sung line there.',
     '',
     '[Diversity groups] - constraints, not wording to copy:',
     `introTexture ${groupedBySlotValue(preassignedSongs, slot => slot.introTextureId, 4)}`,
@@ -1025,7 +1035,15 @@ export function importSongsJson(
   // shared, mechanical-only pass core/localGenerator.ts's own
   // generateLocalBlueprint now runs too, so the two paths agree instead of
   // the bridge growing a second copy of local-only logic.
-  const scored = scoreSongs(hookCollisionResult.songs.map(normalizeSongOutput), opts.channel, opts.lyricLanguage);
+  // TASK v3.64 (TASK B) — introMode comes from this trackNo's own slot
+  // (app-planned), not from anything the agent wrote in stylePrompt — see
+  // songPostProcess.ts's own note on why the old stylePrompt-declaration
+  // signal stopped firing after v3.62 TASK 1.
+  const scored = scoreSongs(
+    hookCollisionResult.songs.map(song => normalizeSongOutput(song, slotByTrackNo.get(song.trackNo)?.introMode)),
+    opts.channel,
+    opts.lyricLanguage
+  );
   // TASK v3.27 (Part A3) — an AI-creative title wasn't locally pre-decided
   // (unlike hookPhrase), so two songs in this import — or this import
   // against an older pack's title history — can still collide; catch and

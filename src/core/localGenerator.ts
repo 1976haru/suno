@@ -888,6 +888,6 @@ export function generateLocalBlueprint(
     // no-op here in practice (this path never produces the labels/leaks it
     // guards against) but runs unconditionally so the local and bridge paths
     // share one normalization pass instead of only the bridge having it.
-    songs: scoreSongs(songs.map(normalizeSongOutput), opts.channel, opts.lyricLanguage)
+    songs: scoreSongs(songs.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage)
   };
 }

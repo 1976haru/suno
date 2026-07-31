@@ -23,6 +23,7 @@ import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
+import { buildIntroModePlan } from './introModePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
@@ -104,6 +105,7 @@ export function preallocateSongSlots(
   // (same roles, same seed) so the realtime/Batch/bridge paths that call
   // this function agree with the local path on every trackNo's progression.
   const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
+  const introModePlan = buildIntroModePlan(opts.songCount, seed);
   const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
@@ -222,6 +224,7 @@ export function preallocateSongSlots(
       instrumentSet: rotatingInstrumentSet(trackGenres, seed, idx),
       arrangementDensity: arrangementDensityPlan[idx],
       structureTemplate: structureTemplatePlan[idx],
+      introMode: introModePlan[idx],
       lyricTheme: lyricThemeId,
       ...(lyricTheme?.scene ? { lyricThemeText: lyricTheme.scene } : {}),
       ...(lyricTheme?.emotionalArc ? { lyricThemeArc: lyricTheme.emotionalArc } : {}),

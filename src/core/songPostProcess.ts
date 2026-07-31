@@ -1,4 +1,4 @@
-import type { SongIdea } from '../types';
+import type { IntroMode, SongIdea } from '../types';
 import { ATOM_WORD_CAP, countWords, splitAtoms } from './promptBudget';
 
 /**
@@ -84,15 +84,22 @@ function dedupeDurationMentions(stylePrompt: string): { text: string; changed: b
  * (findArrangementVocabularyInLyrics) still runs — just at the whole-lyric-
  * body level via TASK A/compositionScorer.ts, not as this function's own
  * strip criterion.
+ *
+ * TASK v3.64 (TASK B) — that "stylePrompt declares (INTRO ONLY)" signal
+ * stopped ever being true the moment v3.62 TASK 1 removed the verbatim
+ * requirement that used to write it — a real 18-song pack measured 12/18
+ * songs still singing a leaked line under [intro] because the rule above
+ * simply never fired again. The signal is now slot.introMode (see
+ * introModePlan.ts), an app-planned value the LLM never has to declare in
+ * its own stylePrompt text for this rule to work.
  */
 const INTRO_TAG_PATTERN = /^\[([^\]]*intro[^\]]*)\]$/i;
 const ANY_SECTION_TAG_PATTERN = /^\[[^\]]+\]$/;
 /** A line entirely wrapped in parentheses is a deliberate non-lyric stage direction (e.g. lyricEngine.ts's WORDLESS_HUM_LINE, "(soft wordless hum of the hook melody, no lyrics, 2 bars)"), never leaked prose — must never be stripped as if it were sung content. */
 const PARENTHETICAL_DIRECTION_PATTERN = /^\(.*\)$/;
-const INSTRUMENT_ONLY_INTRO_PATTERN = /\(intro only\)/i;
 
-function stripLeakedIntroDescriptionLines(lyrics: string, stylePrompt: string): { text: string; changed: boolean; strippedLines: string[] } {
-  const declaresInstrumentOnlyIntro = INSTRUMENT_ONLY_INTRO_PATTERN.test(stylePrompt);
+function stripLeakedIntroDescriptionLines(lyrics: string, introMode: IntroMode | undefined): { text: string; changed: boolean; strippedLines: string[] } {
+  const declaresInstrumentOnlyIntro = introMode === 'instrumental';
   const lines = lyrics.split('\n');
   const kept: string[] = [];
   const strippedLines: string[] = [];
@@ -142,7 +149,7 @@ function longStylePromptClauseWarnings(trackNo: number, stylePrompt: string): st
  * creative rewrite of the agent's actual lyric/style content. B-4 only adds
  * warnings, never changes text.
  */
-export function normalizeSongOutput(song: SongIdea): SongIdea {
+export function normalizeSongOutput(song: SongIdea, introMode?: IntroMode): SongIdea {
   const warnings: string[] = [...(song.warnings || [])];
 
   const labelResult = stripStylePromptLabels(song.stylePrompt);
@@ -155,10 +162,10 @@ export function normalizeSongOutput(song: SongIdea): SongIdea {
     warnings.push(`Track ${song.trackNo}: removed a duplicate duration mention from the style prompt.`);
   }
 
-  const introResult = stripLeakedIntroDescriptionLines(song.lyrics, stylePrompt);
+  const introResult = stripLeakedIntroDescriptionLines(song.lyrics, introMode);
   const lyrics = introResult.text;
   if (introResult.changed) {
-    warnings.push(`Track ${song.trackNo}: stylePrompt declares an instrument-only intro (INTRO ONLY) — removed the sung line(s) under [intro] and relabeled it [Instrumental Intro] — "${introResult.strippedLines[0]}"`);
+    warnings.push(`Track ${song.trackNo}: planned as an instrumental intro (introMode) — removed the sung line(s) under [intro] and relabeled it [Instrumental Intro] — "${introResult.strippedLines[0]}"`);
   }
 
   warnings.push(...longStylePromptClauseWarnings(song.trackNo, stylePrompt));
