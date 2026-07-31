@@ -65,11 +65,29 @@ describe('[v3.61 TASK C] artist reference decomposition routes to oldpop-* genre
     const coreIds = new Set(getCoreGenresForArchetype('senior-morning').map(g => g.id));
     const editedAliasPatterns = [
       'carpenters', 'abba', 'simon and garfunkel', 'bee gees', 'stevie wonder', 'elton john', 'beach boys',
-      'billy joel', 'nat king cole', 'patti page'
+      'billy joel', 'nat king cole', 'patti page', 'beatles'
     ];
     for (const seed of ARTIST_REFERENCE_SEEDS) {
       if (!editedAliasPatterns.some(pattern => seed.aliasPattern.includes(pattern))) continue;
       expect(seed.suggestedGenreIds.some(id => coreIds.has(id)), seed.aliasPattern).toBe(true);
     }
+  });
+
+  /**
+   * TASK v3.62 — v3.61 (TASK C) added oldpop-british-beat for exactly the
+   * Beatles/"mid-1960s British beat pop" eraTag but never updated the
+   * Beatles seed itself, so this exact concept (also v3.62's own mandatory
+   * report scenario) never actually routed to it — see
+   * data/artistReferenceSeeds.ts's Beatles entry.
+   */
+  it('"비틀즈 스타일로, 아침에 커피와 함께 듣고 싶은 올드팝" routes to oldpop-british-beat', () => {
+    const text = '비틀즈 스타일로, 아침에 커피와 함께 듣고 싶은 올드팝';
+    const decomposed = decomposeArtistReferences(text);
+    expect(decomposed.length).toBe(1);
+    expect(decomposed[0].suggestedGenreIds).toContain('oldpop-british-beat');
+
+    const result = recommendConceptLocal(text, 'senior-morning');
+    const ids = result.recommendations[0]?.genreAllocation.map(slot => slot.genreId) ?? [];
+    expect(ids).toContain('oldpop-british-beat');
   });
 });

@@ -45,7 +45,13 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     rhythmTraits: ['driving eighth-note strum', 'handclaps on the chorus'],
     productionTraits: ['narrow warm 1960s mono-leaning mix', 'natural room reverb', 'tape compression on the drums'],
     vocalTraits: ['two-part male harmony singing in close intervals', 'bright forward diction', 'unison shout on the hook'],
-    suggestedGenreIds: ['folk-pop', 'acoustic-pop'],
+    // TASK v3.62 — v3.61 (TASK C) added oldpop-british-beat specifically for
+    // this eraTag (mid-1960s British beat pop) but never updated this seed's
+    // own suggestedGenreIds to point at it — a real gap: "비틀즈 스타일로" (this
+    // task's own mandatory report concept) was still routing to folk-pop/
+    // acoustic-pop instead of the genre built for exactly this reference.
+    // oldpop-british-beat first (most era-accurate), the pre-existing two kept as fallback for archetypes without it in their core tier.
+    suggestedGenreIds: ['oldpop-british-beat', 'folk-pop', 'acoustic-pop'],
     excludeAdditions: ['famous band imitation', 'soundalike vocals', 'copied melodies']
   },
   {
