@@ -1,6 +1,7 @@
 import type { ChannelArchetype, GenreLyricFlavorImage, GenrePack } from '../../types';
 import type { GenreTier } from './types';
 import { ERA_BUCKET_BY_GENRE_ID } from '../eraExclusions';
+import { buildGenreTraits } from '../genreTraits';
 
 /**
  * TASK H2 (v3.13) — 3-5 short, genre-authentic images per core-tier genre id,
@@ -1465,7 +1466,11 @@ export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...k
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;
-  return CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...enriched, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : enriched;
+  const withFlavor = CORE_LYRIC_FLAVOR_IMAGES[genre.id] ? { ...enriched, lyricFlavorImages: CORE_LYRIC_FLAVOR_IMAGES[genre.id] } : enriched;
+  // v3.65 (TASK A) — additive only; a genre with no entry in
+  // GENRE_TRAIT_OVERRIDES gets `traits: undefined` (unchanged shape).
+  const traits = buildGenreTraits(withFlavor);
+  return traits ? { ...withFlavor, traits } : withFlavor;
 });
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;

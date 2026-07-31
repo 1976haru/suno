@@ -119,6 +119,45 @@ export interface GenrePack {
   shortPrompt?: string;
   productionGuidance?: string;
   source?: 'legacy-preset' | 'notion-analysis';
+  /**
+   * v3.65 (TASK A) — decomposed, axis-separated genre traits for the
+   * trait-matching engine (core/traitMatcher.ts). Optional and additive:
+   * every existing GenrePack field above is untouched, and a genre without
+   * `traits` still works everywhere it always did (the matcher falls back
+   * to styleCore/instruments/tempoRange estimation, at a score penalty —
+   * see traitMatcher.ts's own doc comment). Hand-curated for ~60-80 genres
+   * (the senior/oldpop-lounge candidate pool); not populated for the full
+   * 320-genre catalog by design (see docs/v365-report.md TASK A section).
+   */
+  traits?: GenreTraits;
+}
+
+/**
+ * v3.65 (TASK A) — the five decomposed axes a genre's sound is described
+ * along, kept deliberately separate (not one flat string like
+ * GenrePack.signatureSound) so a matching/blending engine can compare or
+ * recombine just one axis at a time — e.g. taking chanson's harmonyTraits
+ * and instrumentation onto an oldpop-soft-rock-am's rhythmFeel/
+ * structureTraits (see core/genreBlend.ts's blendGenreTraits) instead of
+ * concatenating two whole genre descriptions into a mismatched pile.
+ */
+export interface GenreTraits {
+  /** Era/period this genre's sound belongs to. Field name matches eraExclusions.ts's own era-bucket vocabulary. */
+  eraTag: string;
+  /** Instrumentation/arrangement — what physically plays. */
+  instrumentation: string[];
+  /** Rhythm, groove, and meter/pulse feel. */
+  rhythmFeel: string[];
+  /** Harmony, chord progression, and tonal color. */
+  harmonyTraits: string[];
+  /** Mix, studio, and spatial/production character. */
+  productionTraits: string[];
+  /** Vocal delivery, register, and closeness/distance. */
+  vocalTraits: string[];
+  /** Overall dynamic range across a song. */
+  dynamicRange: 'low' | 'medium' | 'wide';
+  /** Song-structure character (verse-driven vs. hook-driven, build shape, etc). */
+  structureTraits: string[];
 }
 
 export interface MoodPack {
