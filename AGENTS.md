@@ -37,6 +37,13 @@ The app must support:
 8. Do not add an in-app Suno Persona selector. The app should provide signature material and Make Persona workflow guidance only.
 9. Persona mode must recompose prompts locally, keep lyrics unchanged, and avoid API calls.
 
+## 테스트 실행 규칙 (v3.66 TASK A)
+
+- 작업 중에는 `npm run test:fast` 만 실행하십시오 (프롬프트 조립·가사 생성·장르/다양성 배분·채점·브릿지 핸드오프 영역, 실측 약 5초/50파일).
+- `npm test` (전체 131개 파일)는 푸시 직전 한 번만 실행하십시오.
+- 수정마다 전체 스위트를 돌리지 마십시오.
+- `test:fast`에 포함되지 않은 파일(썸네일, 이미지 스튜디오, 설정, 스토리지, 배치 잡, 내보내기 등 안정화된 영역)을 수정했다면 그 영역에 한해 개별 파일을 지정해 실행하고, 최종 확인은 `npm test`로 하십시오.
+
 ## Current Recommended Tasks
 
 - Expand structured genre library coverage while preserving existing preset ids.
