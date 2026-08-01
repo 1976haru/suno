@@ -260,10 +260,16 @@ describe('[v3.72 TASK B] buildAdultVocalTraitPlan', () => {
     }
   });
 
-  it('never exceeds 12 words per song', () => {
+  it('never exceeds 13 words per song', () => {
+    // v3.75 (TASK C) — cap raised from 12 to 13: buildAdultVocalTraitPlan
+    // now prepends an explicit "male"/"female" word to every solo track's
+    // register (real bug — a register-only phrase like "full chest alto"
+    // never said the word "female" anywhere, risking a male render), a
+    // deliberate +1-word budget increase, not a regression of the 4-axis
+    // word cap itself (see vocalPlan.ts's own "v3.75 (TASK C)" comment).
     const texts = buildAdultVocalTraitPlan(plan18, 42, { isSenior: false, peakFlags: plan18.map(() => false) });
     for (const text of texts) {
-      expect(text.split(/\s+/).filter(Boolean).length, text).toBeLessThanOrEqual(12);
+      expect(text.split(/\s+/).filter(Boolean).length, text).toBeLessThanOrEqual(13);
     }
   });
 

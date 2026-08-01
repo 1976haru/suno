@@ -917,13 +917,16 @@ describe('[v3.27/v3.33] titleMode/hookMode branch buildBatchSystemNote\'s preass
 });
 
 describe('[v3.29] buildSystemInstruction gives a concrete lyric word-count floor, not just a duration-target label', () => {
-  it('includes the 175-205 word target explicitly', () => {
+  it('includes the 215-230 word target explicitly', () => {
     // TASK v3.70 (TASK B) — real listening measured 3:42-4:10 songs (216-234
     // words) against a 3:10-3:35 target; lowered from 200-260 to 175-205.
+    // TASK v3.75 (TASK A) — 175-205 overcorrected: a 194-word/song pack
+    // (inside that band) rendered at 2:34 average against the same target.
+    // Raised to 215-230 (see promptComposer.ts's MIN_LYRIC_WORDS comment).
     const opts = makeOptions();
     const system = buildSystemInstruction(opts);
 
-    expect(system).toContain('175-205 words');
+    expect(system).toContain('215-230 words');
   });
 
   it('no longer interpolates the raw durationTarget enum value with no concrete time range', () => {

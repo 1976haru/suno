@@ -175,7 +175,19 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
     return list.sort((a, b) => (a.matchedTrackNo ?? 0) - (b.matchedTrackNo ?? 0));
   }, [adoptedFileNameByTrack, analysesByFileName]);
 
-  const report = useMemo(() => buildAudioSetReport(adoptedMetrics, songs.length, audienceProfile), [adoptedMetrics, songs.length, audienceProfile]);
+  // v3.75 (TASK B) — a track with no designed killing point has no
+  // amplitude/late-peak expectation at all (this task's own spec: "킬링포인트가
+  // 없는 곡: 진폭 제한 없음, 평평해도 됩니다") — see buildAudioSetReport's own doc
+  // comment for why judging every track against the same bar both mis-flags
+  // legitimately-flat non-peak tracks and dilutes the peak-share stat.
+  const killingPointTrackNos = useMemo(
+    () => new Set(songs.filter(song => song.killingPointId).map(song => song.trackNo)),
+    [songs]
+  );
+  const report = useMemo(
+    () => buildAudioSetReport(adoptedMetrics, songs.length, audienceProfile, killingPointTrackNos),
+    [adoptedMetrics, songs.length, audienceProfile, killingPointTrackNos]
+  );
 
   const vocalReport = useMemo(() => {
     const entries: VocalDiversityEntry[] = [];

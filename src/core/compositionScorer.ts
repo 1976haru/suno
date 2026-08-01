@@ -37,6 +37,73 @@ function descriptorCount(stylePrompt: string): number {
   return stylePrompt.split(',').map(atom => atom.trim()).filter(Boolean).length;
 }
 
+/**
+ * v3.75 (TASK A) — real waveform measurement: a real 18-song pack averaged
+ * 2:34 against a 3:10-3:35 target, with one track at 1:38. Real
+ * measurement also showed word count alone does NOT reliably predict
+ * render length (a near-identical 191-word pack rendered 65s longer than
+ * this 194-word one) — so this check is deliberately NOT a precise duration
+ * estimator. It only catches the unambiguous pathological case: a lyric so
+ * short that no reasonable Suno pacing could reach 2:50. Passing this check
+ * is not proof a song renders >= 2:50; failing it is strong evidence it
+ * won't. See promptComposer.ts's MIN_LYRIC_WORDS (215-230, the actual
+ * instruction) — the floor here sits well below that, at the point where
+ * shortness stops being "a bit under target" and starts being "1:38-class".
+ */
+const LYRIC_WORD_COUNT_BLOCKING_FLOOR = 130;
+const LYRIC_WORD_COUNT_ADVISORY_FLOOR = 190;
+const SECTION_COUNT_ADVISORY_FLOOR = 5;
+
+function lyricWordAndSectionCounts(lyrics: string): { words: number; sections: number } {
+  let words = 0;
+  let sections = 0;
+  for (const rawLine of lyrics.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (/^\[[^\]]*\]$/.test(line)) { sections += 1; continue; }
+    words += line.split(/\s+/).filter(Boolean).length;
+  }
+  return { words, sections };
+}
+
+/**
+ * v3.75 (TASK C) — real measurement: overall vocal-type counts were normal
+ * (duet 6 / male 7 / female 5 across 18 songs) but the ORDER clumped 3
+ * duets into the first 6 tracks and 4 males in a row into tracks 13-16. A
+ * listener who samples a handful of tracks (a real user picking "6곡") sees
+ * this clumping directly. core/vocalPlan.ts's buildVocalPlan now schedules
+ * for even spread by construction (see its own v3.75 comment); this is the
+ * detection half — advisory only, checked in fixed thirds of the actual
+ * delivered pack (not the plan) so it also catches a hand-edited or
+ * partially-regenerated pack that drifted from the original plan.
+ */
+const VOCAL_ZONE_COUNT = 3;
+const VOCAL_ZONE_SAME_TYPE_ADVISORY_FLOOR = 4;
+
+function vocalZoneDistributionWarnings(songs: Pick<SongIdea, 'trackNo' | 'vocalType'>[]): string[] {
+  if (songs.length < 6) return [];
+  const ordered = [...songs].sort((a, b) => a.trackNo - b.trackNo);
+  const zoneSize = Math.ceil(ordered.length / VOCAL_ZONE_COUNT);
+  const warnings: string[] = [];
+  for (let zoneIndex = 0; zoneIndex < VOCAL_ZONE_COUNT; zoneIndex++) {
+    const zoneSongs = ordered.slice(zoneIndex * zoneSize, (zoneIndex + 1) * zoneSize);
+    if (!zoneSongs.length) continue;
+    const counts = new Map<string, number>();
+    for (const song of zoneSongs) {
+      if (!song.vocalType) continue;
+      counts.set(song.vocalType, (counts.get(song.vocalType) ?? 0) + 1);
+    }
+    for (const [type, count] of counts) {
+      if (count >= VOCAL_ZONE_SAME_TYPE_ADVISORY_FLOOR) {
+        const first = zoneSongs[0].trackNo;
+        const last = zoneSongs[zoneSongs.length - 1].trackNo;
+        warnings.push(`트랙 ${first}~${last} 구간에 ${type} 보컬이 ${count}곡 몰려 있습니다 — 이 구간만 들으면 보컬이 다양하지 않게 느껴질 수 있습니다.`);
+      }
+    }
+  }
+  return warnings;
+}
+
 /** TASK v3.58 (TASK 1) threshold, reused here as the blocking bar for cross-song style-prompt similarity. */
 const STYLE_SIMILARITY_BLOCK_THRESHOLD = 0.28;
 
@@ -112,6 +179,7 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
   const historicalHooks = opts?.historicalHooks ?? [];
   const historicalHookKeys = new Set(historicalHooks.map(hook => hook.trim().toLowerCase()));
   const eraFindings = eraConsistencyFindings(songs, opts?.eraConstraint);
+  const vocalZoneWarnings = vocalZoneDistributionWarnings(songs);
 
   const vocabFindings = findArrangementVocabularyInLyrics(songs);
   const vocabByTrack = new Map<number, string[]>();
@@ -156,6 +224,19 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
   return songs.map(song => {
     const blocking: string[] = [];
     const advisory: string[] = [];
+
+    // NEW (v3.75 TASK A) — see LYRIC_WORD_COUNT_BLOCKING_FLOOR's own doc
+    // comment: catches only the pathological-short case, not a precise
+    // duration prediction.
+    const { words: lyricWordCount, sections: sectionCount } = lyricWordAndSectionCounts(song.lyrics);
+    if (lyricWordCount < LYRIC_WORD_COUNT_BLOCKING_FLOOR) {
+      blocking.push(`가사가 ${lyricWordCount}단어로 지나치게 짧습니다 (최소 ${LYRIC_WORD_COUNT_BLOCKING_FLOOR}단어) — 2:50 미만으로 렌더링될 위험이 큽니다. 참고: 단어수만으로 정확한 길이를 예측할 수 없어 이 검사는 명백히 부족한 경우만 차단합니다.`);
+    } else if (lyricWordCount < LYRIC_WORD_COUNT_ADVISORY_FLOOR) {
+      advisory.push(`가사가 ${lyricWordCount}단어입니다 (권장 215~230단어) — 목표보다 짧게 렌더링될 수 있습니다.`);
+    }
+    if (sectionCount < SECTION_COUNT_ADVISORY_FLOOR) {
+      advisory.push(`섹션이 ${sectionCount}개뿐입니다 (권장 ${SECTION_COUNT_ADVISORY_FLOOR}개 이상) — 인스트루멘털 구간이나 브릿지가 빠졌을 수 있습니다.`);
+    }
 
     // Reused: TASK v3.60 TASK A — arrangement/production vocabulary sung as lyrics.
     const vocabLines = vocabByTrack.get(song.trackNo);
@@ -245,6 +326,7 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     if (titleShapeWarning) advisory.push(titleShapeWarning);
     blocking.push(...eraFindings.blocking);
     advisory.push(...eraFindings.advisory);
+    advisory.push(...vocalZoneWarnings);
 
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };
   });

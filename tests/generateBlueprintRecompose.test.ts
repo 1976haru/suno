@@ -29,6 +29,13 @@ import type { PlaylistBlueprint, ProviderSettings, SongIdea } from '../src/types
 const settings: ProviderSettings = { provider: 'anthropic', model: 'claude-sonnet-5', temperature: 0.8, proxyEndpoint: '/api/generate', batchSize: 3 };
 const avoid = { usedTitles: [] as string[], usedHooks: [] as string[] };
 
+// v3.75 (TASK A) — see compositionScorer.test.ts's own identical comment:
+// pads past the new lyric word-count blocking floor so this file's tests
+// (about the recompose wiring, not word count) don't spuriously trip it.
+function wordCountFillerLines(count: number): string {
+  return Array.from({ length: count }, (_, i) => `soft quiet morning light drifts gently through the old familiar window number ${i + 1}`).join('\n');
+}
+
 function stubSong(trackNo: number, stylePrompt: string): SongIdea {
   return {
     trackNo,
@@ -38,7 +45,7 @@ function stubSong(trackNo: number, stylePrompt: string): SongIdea {
     emotionArc: 'x',
     hookPhrase: `Hook ${trackNo}`,
     stylePrompt,
-    lyrics: '[chorus]\nline\n[end]',
+    lyrics: `[chorus]\nline\n[verse 1]\n${wordCountFillerLines(15)}\n[end]`,
     youtube: { title: 'x', description: 'x', tags: ['x'] },
     qualityScore: 0,
     warnings: []

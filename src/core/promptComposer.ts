@@ -45,9 +45,23 @@ export const SAFE_TARGET = 900;
  * lyrics engine never actually had a tag for), this is the fix real Suno
  * playback must confirm (see docs/v370-report.md §5 — text metrics alone are
  * not proof of a shorter render).
+ *
+ * v3.75 (TASK A) — 175-205 overcorrected the other way: a real 18-song pack
+ * at 194 words/song (inside that band) rendered at an average 2:34 against
+ * the same 3:10-3:35 target, with one track at 1:38. Word count alone isn't
+ * the whole story here (a near-identical 191-word pack from before v3.71
+ * rendered at 3:39) — v3.71's own template/instruction trims (dropping
+ * [end], shortening STRUCTURE_TEMPLATE_SECTION_NOTES) likely removed more
+ * effective render time than the word-count band alone can restore, and
+ * v3.75's own introModePlan/structureTemplate reconciliation (see
+ * core/introModePlan.ts) targets that directly. Raised to 215-230 as the
+ * secondary lever per this task's own explicit priority order (instrumental
+ * restoration and per-section length guidance first, word count last) —
+ * see this file's own section-length instruction line below, added in the
+ * same task.
  */
-export const MIN_LYRIC_WORDS = 175;
-export const MAX_LYRIC_WORDS = 205;
+export const MIN_LYRIC_WORDS = 215;
+export const MAX_LYRIC_WORDS = 230;
 
 /**
  * Priority order for TASK A2 — filled from the top down; once the running
@@ -824,8 +838,18 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // Absent entirely for a track with no killing point (arc peakStrength
   // 'none') — that silence is deliberate, not a gap to fill in.
   const hasKillingPoint = batch.preassignedSongs?.some(slot => slot.killingPointText);
+  // v3.75 (TASK B) — real waveform measurement of a real pack: songs WITH a
+  // killing point still averaged only 3.3dB of dynamic range (target 6dB+)
+  // and one track's loudest moment measured in the first 20% of the song
+  // instead of the back half — the peak was there, but too small and often
+  // in the wrong place to read as "the moment". The old instruction only
+  // said what the peak IS, never that it must be audibly the loudest/
+  // fullest point or that the material leading into it should hold back to
+  // give it something to rise from — added below without touching
+  // hardExclusions (a dynamic build-and-release is not the same thing as a
+  // belted high note or harsh top end, which stay banned regardless).
   const killingPointInstruction = hasKillingPoint
-    ? ' Each entry may also include "killingPointText" and "killingPointPlacement" — a one-line description of that song\'s single designed peak moment and where it falls (final-chorus/bridge/mid-instrumental/pre-chorus/outro). Understand the musical idea and make that moment the song\'s most memorable one, in your own words — do not quote killingPointText verbatim, and do not add a second comparable peak moment elsewhere in the same song. A track with no killingPointText should stay comfortably at its usual level throughout, with no invented peak of its own.'
+    ? ' Each entry may also include "killingPointText" and "killingPointPlacement" — a one-line description of that song\'s single designed peak moment and where it falls (final-chorus/bridge/mid-instrumental/pre-chorus/outro). Understand the musical idea and make that moment the song\'s most memorable one, in your own words — do not quote killingPointText verbatim, and do not add a second comparable peak moment elsewhere in the same song. This should be the loudest, fullest, most energetic point of the ENTIRE song, clearly audible as a lift, not a small nudge — and the section immediately before it should stay noticeably more restrained (thinner arrangement, lower energy) so the peak has something real to rise from, rather than the whole song sitting at one constant level. This dynamic build-and-release is separate from the audience\'s own vocal-register/production exclusions below (no belting, no harsh top end) — build energy through arrangement fullness and dynamics, not through those banned techniques. A track with no killingPointText should stay comfortably at its usual level throughout, with no invented peak of its own.'
     : '';
   const hasLyricTheme = batch.preassignedSongs?.some(slot => slot.lyricTheme || slot.lyricThemeText);
   const lyricThemeInstruction = hasLyricTheme
@@ -964,6 +988,8 @@ Rules:
 - CRITICAL — arrangement/production vocabulary belongs ONLY in "stylePrompt", never in "lyrics". If "preassignedSongs" gives you "introTextureText", "instrumentSet", "arrangementDensity", "hookDeviceText", or "moneyChordText" to weave in, those exact words (and any other instrument name, playing technique, or production/mix term — guitar, piano, drums, strings, brass, percussion, stop-time, breakdown, tape saturation, etc.) go into the stylePrompt string only. A lyric line must never describe what an instrument or the arrangement is doing — a listener sings words, not a mix note. Forbidden examples (real, previously-shipped mistakes): "Spiccato strings flicker over quiet water", "The straight-pop drums move softly", "Now the stop-time opens brighter", "The bass and drums fall silent". Section tags themselves ([breakdown], [instrumental hook], etc.) are fine; a sentence describing the arrangement underneath one is not.
 - Each song's hookPhrase must not contradict that song's own "listenerSituation" on time of day — if the scene is a morning/dawn moment, the hook (and the lyrics built around it) must not say "tonight"/"night"/"evening"/"midnight", and vice versa. Real, previously-shipped mistake: listenerSituation "sitting with morning coffee before the day begins" paired with hookPhrase "Stay with Me Tonight".
 - Each song's "lyrics" must total ${MIN_LYRIC_WORDS}-${MAX_LYRIC_WORDS} words (not counting section tags like [chorus]) — this is what actually determines Suno's rendered length; a short ~100-150 word lyric renders as a short ~2:00-2:20 song regardless of any target duration. Target render length for this pack: ${compactDuration(opts.durationTarget, true)}.
+- Give each section room to breathe rather than compressing it to hit the word count with fewer, shorter sections: a verse should run 5-6 lines, a pre-chorus or bridge 2-4 lines, a chorus 3-4 lines including its repeated hook line. A 2-3 line verse undercuts both the word-count floor above and the target render length even when the section TAGS match the assigned structure template.
+- Every song should include at least one genuinely wordless instrumental moment somewhere — either an instrumental intro before the first vocal line (when this song's plan calls for one, see "Intro" below) or, for a song whose intro is vocal, a short 4-8 bar instrumental break/solo before the final chorus with no lyric line under it. This costs a few seconds of render time without adding a single word of lyric content, and real listening measured most of a pack coming back with no instrumental section at all despite being planned.
 - Include this exact phrase as one of stylePrompt's own descriptor clauses in EVERY song, verbatim: "${compactDuration(opts.durationTarget, false, true)}". Every song in this pack carries the identical phrase — that is intentional and required, not a "shared/redundant atom" to trim, vary, or omit; this is the one clause allowed to repeat identically across every song in the pack.
 ${youtubeMetadataLine}
 - Return valid JSON only, matching the requested PlaylistBlueprint shape.

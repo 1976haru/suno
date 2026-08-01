@@ -51,7 +51,13 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     expect(instruction).toContain('preassignedSongs');
     expect(instruction).toContain(slots[0].hookPhrase);
     expect(instruction).toContain('fallback placeholder');
-    expect(instruction).toContain('Write your OWN original title');
+    // v3.75 (TASK D-3) — was "Write your OWN original title" verbatim; that
+    // wording was replaced with explicit hook-derived-title guidance (real
+    // measurement: 18/18 real titles never matched their own hook, because
+    // the old line flatly banned "a restatement of the hook" — see
+    // bridgeInstruction.ts's titleInstructionLineFor).
+    expect(instruction).toContain('genuine MIX of shapes');
+    expect(instruction).toContain('the title should simply BE the hook line itself');
   });
 
   it('titleMode="local" instructs the agent to copy the preassigned title verbatim (old behavior, unchanged)', () => {

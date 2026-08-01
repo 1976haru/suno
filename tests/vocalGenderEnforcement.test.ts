@@ -200,7 +200,13 @@ describe('[v3.70 TASK A] reconcileWithPreassignedSlot applies per-section duet v
   });
 
   it('does not add any duet section tags for a non-duet slot', () => {
-    const opts = makeOptions({ channel: showaCafe, vocalTone: showaCafe.defaultVocal });
+    // v3.75 — vocalTone must be an explicit preset DIFFERENT from
+    // showaCafe.defaultVocal (see explicitMalePreset's own comment above):
+    // "=== defaultVocal" engages the auto quota, where track 1's gender is
+    // an implementation detail of buildVocalPlan's scheduling algorithm,
+    // not a guarantee — this test's actual intent (no duet tags on a
+    // non-duet slot) needs a slot that's deterministically non-duet.
+    const opts = makeOptions({ channel: showaCafe, vocalTone: vocalPresets.find(p => p.id === 'low-calm-male')!.prompt });
     const [slot] = preallocateSongSlots(opts, []);
     expect(slot.vocalGender).not.toBe('duet');
     const lyrics = '[verse 1]\na line\n\n[chorus]\nHold On';

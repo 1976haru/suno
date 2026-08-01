@@ -62,7 +62,21 @@ const LEVEL_SPREAD_WARN_DB = 3;
 export function buildAudioSetReport(
   metrics: readonly SongAudioMetrics[],
   totalTracks: number,
-  audienceProfile: AudienceProfile
+  audienceProfile: AudienceProfile,
+  /**
+   * v3.75 (TASK B) — real measurement found a real pack averaging 3.3dB
+   * dynamic range and one track's loudest moment in the first 20% of the
+   * song — but this task's own spec is explicit that a track with NO
+   * designed killing point ("킬링포인트가 없는 곡") has "진폭 제한 없음, 평평해도
+   * 됩니다" (no amplitude requirement at all, flat is fine). Before this,
+   * every analyzed track was judged against the same late-peak/wide-dynamic
+   * bar regardless of whether it was ever supposed to have one, which both
+   * mis-flagged legitimately-flat non-peak tracks and diluted latePeakShare
+   * with tracks that were never candidates for a late peak. Optional and
+   * additive — omitting it (e.g. a caller with no per-track killing-point
+   * data) preserves the exact old behavior of judging every analyzed track.
+   */
+  killingPointTrackNos?: ReadonlySet<number>
 ): AudioSetReport {
   const analyzed = metrics.filter(m => m.matchedTrackNo !== undefined);
   const warnings: string[] = [];
@@ -79,16 +93,19 @@ export function buildAudioSetReport(
     else if (m.durationSec < minTarget) underTarget.push(trackNo);
   }
 
+  const peakRelevant = killingPointTrackNos
+    ? analyzed.filter(m => killingPointTrackNos.has(m.matchedTrackNo!))
+    : analyzed;
   const latePeakTracks: number[] = [];
   const noLatePeakTracks: number[] = [];
   const weakDynamicTracks: number[] = [];
-  for (const m of analyzed) {
+  for (const m of peakRelevant) {
     const trackNo = m.matchedTrackNo!;
     if (m.peakPosition >= LATE_PEAK_THRESHOLD) latePeakTracks.push(trackNo);
     else noLatePeakTracks.push(trackNo);
     if (m.dynamicRange < WEAK_DYNAMIC_RANGE_DB) weakDynamicTracks.push(trackNo);
   }
-  const latePeakShare = analyzed.length > 0 ? latePeakTracks.length / analyzed.length : 0;
+  const latePeakShare = peakRelevant.length > 0 ? latePeakTracks.length / peakRelevant.length : 0;
 
   const centroids = analyzed.map(m => m.spectralCentroid);
   const centroidSpread = centroids.length > 1 ? Math.max(...centroids) - Math.min(...centroids) : 0;
@@ -116,10 +133,11 @@ export function buildAudioSetReport(
   // Advisories — soft, informational, never blocking.
   if (overTarget.length) advisories.push(`길이 초과 ${overTarget.length}곡: T${overTarget.join(', T')} — 목표 ${formatRange(minTarget, maxTarget)}`);
   if (underTarget.length) advisories.push(`길이 미달 ${underTarget.length}곡: T${underTarget.join(', T')} — 목표 ${formatRange(minTarget, maxTarget)}`);
-  if (analyzed.length > 0 && latePeakShare < LATE_PEAK_SHARE_TARGET) {
-    advisories.push(`후반 상승이 ${Math.round(latePeakShare * 100)}%뿐입니다 (목표 60% 이상) — 킬링포인트가 후반부에서 잘 안 들릴 수 있습니다.`);
+  const peakScope = killingPointTrackNos ? '킬링포인트 곡 중 ' : '';
+  if (peakRelevant.length > 0 && latePeakShare < LATE_PEAK_SHARE_TARGET) {
+    advisories.push(`${peakScope}후반 상승이 ${Math.round(latePeakShare * 100)}%뿐입니다 (목표 60% 이상) — 킬링포인트가 후반부에서 잘 안 들릴 수 있습니다.`);
   }
-  if (weakDynamicTracks.length) advisories.push(`진폭 부족(<6dB) ${weakDynamicTracks.length}곡: T${weakDynamicTracks.join(', T')} — 평평하게 들릴 수 있습니다.`);
+  if (weakDynamicTracks.length) advisories.push(`${peakScope}진폭 부족(<6dB) ${weakDynamicTracks.length}곡: T${weakDynamicTracks.join(', T')} — 평평하게 들릴 수 있습니다.`);
   if (analyzed.length > 1 && centroidSpread < NARROW_TIMBRE_SPREAD_HZ) {
     advisories.push(`음색 팔레트가 좁습니다 (중심 주파수 폭 ${Math.round(centroidSpread)}Hz).`);
   }

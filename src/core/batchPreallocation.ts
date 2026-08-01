@@ -26,7 +26,7 @@ import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
-import { buildIntroModePlan } from './introModePlan';
+import { buildIntroModePlan, reconcileIntroModeWithStructureTemplate } from './introModePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
@@ -224,6 +224,14 @@ export function preallocateSongSlots(
     seed
   );
   if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  // v3.75 (TASK A) — see introModePlan.ts's own doc comment: T2/T5's own
+  // template text structurally forbids an instrumental intro, so any track
+  // that landed both 'instrumental' (introModePlan, above) and T2/T5 (this
+  // structureTemplatePlan) had two contradictory instructions in the same
+  // per-track table. Resolved here (after both plans exist) rather than by
+  // reordering the two independent buildXPlan calls, keeping each plan's own
+  // pre-pass untouched.
+  const reconciledIntroModePlan = reconcileIntroModeWithStructureTemplate(introModePlan, structureTemplatePlan);
   // TASK v3.67 (TASK C) — same reorder-not-recompute treatment as
   // localGenerator.ts's own arrangementDensityPlan (peak tracks skew toward
   // 'full', closing toward 'sparse'); no-op when arrangementDensity is
@@ -332,7 +340,7 @@ export function preallocateSongSlots(
       instrumentSet: rotatingInstrumentSet(trackGenres, seed, idx),
       arrangementDensity: arrangementDensityPlan[idx],
       structureTemplate: structureTemplatePlan[idx],
-      introMode: introModePlan[idx],
+      introMode: reconciledIntroModePlan[idx],
       lyricTheme: lyricThemeId,
       ...(lyricTheme?.scene ? { lyricThemeText: lyricTheme.scene } : {}),
       ...(lyricTheme?.emotionalArc ? { lyricThemeArc: lyricTheme.emotionalArc } : {}),

@@ -243,11 +243,22 @@ function buildBridgePayload(
   };
 }
 
+/**
+ * v3.75 (TASK D-3) — real measurement: 18/18 real titles were an
+ * "[adjective] [noun]" image pair, none matching their own song's hook,
+ * even though the hooks themselves ("Hold My Hand, Friend", "I Still
+ * Believe", "I'm Coming Home") already read exactly like real 1960s/70s pop
+ * titles. Traced to this line's own old wording — "never a restatement of
+ * the hook" — which flatly forbade the single most common title shape for
+ * that era (many 1960s-70s pop songs share their title with their hook or
+ * chorus line verbatim: a title IS often just its hook). Now explicitly
+ * allows and asks for a genuine mix instead of a blanket ban.
+ */
 function titleInstructionLineFor(opts: GenerationOptions): string {
   const titleMode = opts.titleMode ?? 'ai-creative';
   return titleMode === 'local'
     ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
-    : '- "preassignedSongs" gives local planning slots and fallback placeholders. Write your OWN original title for each song, independent of the hookPhrase. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. Write real Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images, never a restatement of the hook and never the same shape for every song. Keep the channel tone while varying the structure freely.';
+    : '- "preassignedSongs" gives local planning slots and fallback placeholders. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. For the TITLE, use a genuine MIX of shapes across this pack, not one formula repeated on every song: for at least a third of the songs, the title should simply BE the hook line itself (or a near-verbatim variant of it) — this is the single most common title shape in real pop songs of this kind, especially older-pop eras, and titles that never match their own hook read as artificial. For the rest, write independent Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images. Never default to the same "[adjective] [noun]" image-pair shape for every song regardless of which approach you pick — vary the shape itself (a short phrase, a question, a name being addressed, a single word) as much as whether it matches the hook.';
 }
 
 // TASK v3.43 Part A2 — same forced-verbatim BPM instruction promptComposer.ts's
@@ -598,12 +609,19 @@ function groupedBySlotValue(
  * track in this request has one (e.g. every track this batch owns happens
  * to be an arc peakStrength 'none' track).
  */
+/**
+ * v3.75 (TASK B) — mirrors promptComposer.ts's buildBatchSystemNote killing-
+ * point strengthening (same real-measurement rationale: 3.3dB average
+ * dynamic range on tracks WITH a killing point, one track's loudest moment
+ * in the first 20% instead of the back half). Kept in sync with that
+ * file's own wording per this module's existing convention.
+ */
 function killingPointSection(preassignedSongs: PreassignedSongSlot[]): string[] {
   const withKillingPoint = preassignedSongs.filter(slot => slot.killingPointText);
   if (!withKillingPoint.length) return [];
   return [
     '',
-    '[Killing points] - each track\'s one designed peak moment, an idea to realize in your own words, never a phrase to quote verbatim. A track not listed here has no designed peak moment — keep it comfortably at its usual level throughout, do not invent one.',
+    '[Killing points] - each track\'s one designed peak moment, an idea to realize in your own words, never a phrase to quote verbatim. This should be the loudest, fullest, most energetic point of the ENTIRE song — clearly audible as a lift, not a small nudge — and the section right before it should stay noticeably more restrained (thinner arrangement, lower energy) so the peak has something real to rise from, instead of the whole song sitting at one constant level. Build this through arrangement fullness and dynamics, never through belting or harsh top end — the audience\'s vocal-register/production exclusions elsewhere in this instruction still apply in full at the peak. A track not listed here has no designed peak moment — keep it comfortably at its usual level throughout, do not invent one.',
     ...withKillingPoint.map(slot => `  Track ${slot.trackNo} (${slot.killingPointPlacement}): ${slot.killingPointText}`)
   ];
 }

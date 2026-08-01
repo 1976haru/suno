@@ -9,6 +9,14 @@ import type { SongIdea } from '../src/types';
  * doc comment on why the dependency is injected in the first place.
  */
 
+// v3.75 (TASK A) — see compositionScorer.test.ts's own identical comment:
+// pads past the new LYRIC_WORD_COUNT_BLOCKING_FLOOR/ADVISORY_FLOOR so this
+// file's tests (about recompose retry logic, not word count) don't
+// spuriously trip the new check.
+function wordCountFillerLines(count: number): string {
+  return Array.from({ length: count }, (_, i) => `soft quiet morning light drifts gently through the old familiar window number ${i + 1}`).join('\n');
+}
+
 function songWith(overrides: Partial<SongIdea> & { trackNo: number }): SongIdea {
   return {
     title: `Song ${overrides.trackNo}`,
@@ -20,7 +28,7 @@ function songWith(overrides: Partial<SongIdea> & { trackNo: number }): SongIdea 
     // trackNo-unique leading descriptor, so two default songWith() calls never collide on the
     // in-pack style-similarity blocking check the way two byte-identical prompts would.
     stylePrompt: `track-${overrides.trackNo} signature texture, warm acoustic guitar, gentle piano, soft strings, mellow tempo, intimate vocal, tender phrasing, light percussion, airy harmony, subtle reverb, close-mic warmth, unhurried pacing, tasteful dynamics, understated bass, breathy backing vocal, delicate bells, soft brush drums, relaxed groove, hushed dynamics, sincere delivery, natural warmth, easy sway, gentle lift, quiet confidence, comfortable pace, homely feel, familiar warmth, simple hook`,
-    lyrics: '[verse 1]\nline one\n[chorus]\nHook line\nHook line\n[end]',
+    lyrics: `[verse 1]\nline one\n[chorus]\nHook line\nHook line\n[verse 2]\n${wordCountFillerLines(15)}\n[end]`,
     youtube: { title: 'x', description: 'x', tags: ['x'] },
     qualityScore: 90,
     warnings: [],

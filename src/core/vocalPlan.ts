@@ -1,6 +1,7 @@
 import type { GenerationOptions, LyricLanguage } from '../types';
 import { isManualAllocation } from './diversityAllocation';
 import { shuffle } from './lyricEngine';
+import { mulberry32 } from '../utils/prng';
 import {
   DUET_TRAIT_AXES,
   FEMALE_PEAK_ONLY_REGISTERS,
@@ -469,38 +470,83 @@ export function scaleVocalQuota(quota: VocalQuota, songCount: number): VocalQuot
  * row`) still holds unchanged: a run<3 guarantee is strictly stronger than
  * run<4, so nothing there needed touching.
  */
-export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: number, maxConsecutive = 2): VocalType[] {
-  const counts = scaleVocalQuota(quota, songCount);
-  const pool: VocalType[] = [
-    ...Array<VocalType>(counts.male).fill('male'),
-    ...Array<VocalType>(counts.female).fill('female'),
-    ...Array<VocalType>(counts.mixed).fill('mixed')
-  ];
-  const plan = shuffle(pool, seed);
+/**
+ * v3.75 (TASK C) — real measurement: a real 18-song pack had normal overall
+ * counts (duet 6 / male 7 / female 5) but a lopsided ORDER — 3 of the first
+ * 6 tracks were duets, and tracks 13-16 were 4 males in a row (a "no run of
+ * 3" violation the old plain-shuffle-then-repair below still let through,
+ * since the old shuffle had no notion of even spread beyond the immediate
+ * run check). A listener who only samples a handful of tracks (a real user
+ * picking "6곡 중 혼성이 3곡") sees the pool-level ratio, not the sequence.
+ * `interleaveByLargestRemainder` replaces the plain shuffle with a largest-
+ * remainder scheduler (same family of algorithm as Bresenham's line
+ * algorithm / apportionment) — at every position it places whichever type
+ * has "waited longest" relative to its own total share, which spaces each
+ * type near-evenly across the WHOLE sequence and, as a direct consequence,
+ * across any contiguous sub-range (e.g. any 6-song window) too. The old
+ * "no run > maxConsecutive" repair pass still runs afterward as a safety
+ * net (largest-remainder scheduling makes a run of 3+ very unlikely but
+ * doesn't structurally forbid one when a single type's count exceeds ~40%
+ * of the pack).
+ */
+function interleaveByLargestRemainder(counts: Record<VocalType, number>, songCount: number, seed: number): VocalType[] {
+  const remaining: Record<VocalType, number> = { ...counts };
+  const rng = mulberry32(seed + 9001);
+  const plan: VocalType[] = [];
+  for (let i = 0; i < songCount; i++) {
+    let candidates: VocalType[] = [];
+    let bestScore = -Infinity;
+    for (const type of VOCAL_TYPES) {
+      if (remaining[type] <= 0) continue;
+      const total = counts[type] || 1;
+      const score = remaining[type] / total;
+      if (score > bestScore + 1e-9) {
+        bestScore = score;
+        candidates = [type];
+      } else if (Math.abs(score - bestScore) <= 1e-9) {
+        candidates.push(type);
+      }
+    }
+    if (!candidates.length) break;
+    const pick = candidates[Math.floor(rng() * candidates.length)];
+    plan.push(pick);
+    remaining[pick] -= 1;
+  }
+  return plan;
+}
+
+function repairConsecutiveRuns(plan: VocalType[], maxConsecutive: number): VocalType[] {
+  const result = [...plan];
   const runLength = maxConsecutive + 1;
 
-  for (let i = runLength - 1; i < plan.length; i++) {
+  for (let i = runLength - 1; i < result.length; i++) {
     let runsTooLong = true;
     for (let k = 1; k < runLength && runsTooLong; k++) {
-      if (plan[i - k] !== plan[i]) runsTooLong = false;
+      if (result[i - k] !== result[i]) runsTooLong = false;
     }
     if (!runsTooLong) continue;
     let swapIndex = -1;
-    for (let j = i + 1; j < plan.length; j++) {
-      if (plan[j] !== plan[i]) { swapIndex = j; break; }
+    for (let j = i + 1; j < result.length; j++) {
+      if (result[j] !== result[i]) { swapIndex = j; break; }
     }
     if (swapIndex === -1) {
       for (let j = 0; j < i - (runLength - 1); j++) {
-        if (plan[j] !== plan[i]) { swapIndex = j; break; }
+        if (result[j] !== result[i]) { swapIndex = j; break; }
       }
     }
     if (swapIndex !== -1) {
-      const tmp = plan[i];
-      plan[i] = plan[swapIndex];
-      plan[swapIndex] = tmp;
+      const tmp = result[i];
+      result[i] = result[swapIndex];
+      result[swapIndex] = tmp;
     }
   }
-  return plan;
+  return result;
+}
+
+export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: number, maxConsecutive = 2): VocalType[] {
+  const counts = scaleVocalQuota(quota, songCount);
+  const plan = interleaveByLargestRemainder(counts, songCount, seed);
+  return repairConsecutiveRuns(plan, maxConsecutive);
 }
 
 /** TASK v3.72 (TASK B) — per-axis repeat caps within one pack; see vocalTraits.ts's doc comment for why (5 fixed sentences repeated 36x/week was the whole complaint this task exists to fix). */
@@ -673,8 +719,17 @@ export function buildAdultVocalTraitPlan(
     );
     const proximities = pickTraitSequence(indices.length, axes.proximity, AXIS_REPEAT_CAPS.proximity, seed, axisSeedBase + 1201, undefined, proximityUsage);
 
+    // v3.75 (TASK C) — real measurement: register-only text ("full chest
+    // alto", "low warm contralto") never states the word "female"/"male"
+    // anywhere — Suno has no other reliable signal for which voice to use,
+    // so a female-register track risks rendering male. The gender word is
+    // prepended here (composition time) rather than baked into
+    // data/vocalTraits.ts's register pool, since that file's own "never
+    // exceed 12 words combined" budget is calibrated against the 4 solo
+    // axes alone — this is a 5th, always-present word, not a budget
+    // regression of the pool itself.
     indices.forEach((songIdx, i) => {
-      result[songIdx] = `${registers[i]}, ${deliveries[i]}, ${timbres[i]}, ${proximities[i]}`;
+      result[songIdx] = `${gender} ${registers[i]}, ${deliveries[i]}, ${timbres[i]}, ${proximities[i]}`;
     });
   });
 
@@ -719,7 +774,12 @@ export function summarizeVocalTraitDistribution(slots: ReadonlyArray<{ vocalType
     quota[slot.vocalType] += 1;
     if (slot.vocalType === 'mixed' || !slot.vocalText) continue;
     const axes = slot.vocalType === 'male' ? MALE_VOCAL_TRAIT_AXES : FEMALE_VOCAL_TRAIT_AXES;
-    const foundRegister = axes.register.find(value => slot.vocalText!.startsWith(value));
+    // v3.75 (TASK C) — was `.startsWith(value)`: vocalText now starts with
+    // an explicit "male "/"female " prefix (see buildAdultVocalTraitPlan's
+    // own v3.75 comment), so the register string itself starts at index 5-7,
+    // not 0. `.includes` matches delivery/timbre's own pattern below and is
+    // still exact-substring, not fuzzy.
+    const foundRegister = axes.register.find(value => slot.vocalText!.includes(value));
     if (foundRegister) register[foundRegister] = (register[foundRegister] ?? 0) + 1;
     const foundDelivery = axes.delivery.find(value => slot.vocalText!.includes(value));
     if (foundDelivery) delivery[foundDelivery] = (delivery[foundDelivery] ?? 0) + 1;

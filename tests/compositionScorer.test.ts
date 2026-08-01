@@ -4,6 +4,14 @@ import path from 'node:path';
 import { scoreComposition } from '../src/core/compositionScorer';
 import type { SongIdea } from '../src/types';
 
+// v3.75 (TASK A) — compositionScorer now blocks lyrics under
+// LYRIC_WORD_COUNT_BLOCKING_FLOOR (130 words) and warns under 190; this
+// filler block pads the default fixture lyrics comfortably past both so
+// tests unrelated to word count don't spuriously trip the new check.
+function wordCountFillerLines(count: number): string {
+  return Array.from({ length: count }, (_, i) => `soft quiet morning light drifts gently through the old familiar window number ${i + 1}`).join('\n');
+}
+
 function songWith(overrides: Partial<SongIdea> = {}): SongIdea {
   // Deliberately 28 comma-separated descriptors (within the 25-35 range) so
   // tests that aren't specifically about the descriptor-count check don't
@@ -25,7 +33,7 @@ function songWith(overrides: Partial<SongIdea> = {}): SongIdea {
     emotionArc: 'x',
     hookPhrase: 'Song One Hook',
     stylePrompt,
-    lyrics: '[verse 1]\nline a\nline b\n\n[chorus]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[end]',
+    lyrics: `[verse 1]\nline a\nline b\n\n[chorus]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[verse 2]\n${wordCountFillerLines(15)}\n\n[end]`,
     warnings: [],
     qualityScore: 90,
     youtube: { title: 'Song One', description: 'desc', tags: [] },
@@ -189,7 +197,13 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
   });
 
   it('TASK v3.64 (TASK A-4) — adds a pack-wide advisory (never blocking) when a word repeats past its cap across the pack', () => {
-    const repeatedLyrics = Array.from({ length: 13 }, () => 'window').join('\n');
+    // v3.75 (TASK A) — each line adds enough unique-per-line filler tokens
+    // to clear the new lyric word-count blocking floor while keeping every
+    // word OTHER than "window" unique (so nothing besides "window" crosses
+    // its own repetition cap).
+    const repeatedLyrics = Array.from({ length: 13 }, (_, i) =>
+      `window unique filler token alpha${i} beta${i} gamma${i} delta${i} epsilon${i} zeta${i} eta${i} theta${i} iota${i} kappa${i} lambda${i} mu${i}`
+    ).join('\n');
     const song1 = songWith({ trackNo: 1, lyrics: repeatedLyrics });
     const song2 = songWith({ trackNo: 2, stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different second track') });
     const scores = scoreComposition([song1, song2]);
