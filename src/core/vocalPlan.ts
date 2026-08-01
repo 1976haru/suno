@@ -1,6 +1,15 @@
 import type { GenerationOptions, LyricLanguage } from '../types';
 import { isManualAllocation } from './diversityAllocation';
 import { shuffle } from './lyricEngine';
+import {
+  DUET_TRAIT_AXES,
+  FEMALE_PEAK_ONLY_REGISTERS,
+  FEMALE_REGISTER_TIMBRE_CONTRADICTIONS,
+  FEMALE_VOCAL_TRAIT_AXES,
+  MALE_PEAK_ONLY_REGISTERS,
+  MALE_REGISTER_TIMBRE_CONTRADICTIONS,
+  MALE_VOCAL_TRAIT_AXES
+} from '../data/vocalTraits';
 
 /**
  * TASK v3.41 Part A1 — the explicit gender axis a VocalPreset now carries
@@ -15,14 +24,38 @@ import { shuffle } from './lyricEngine';
 export type VocalGender = 'male' | 'female' | 'mixed' | 'duet';
 
 /**
- * TASK v3.38 Part B2 — per-song vocal-type quota for the 'kids' channel
- * archetype, mirroring core/moneyChordPlan.ts's activation pattern: only
- * ever engages for the 'kids' archetype (no other channel has a vocalQuota
- * concept), so every other channel's per-song vocal atom is completely
- * unaffected — see localGenerator.ts's wiring.
+ * TASK v3.38 Part B2 — per-song vocal-type quota, originally only engaged
+ * for the 'kids' channel archetype or an explicit manual vocalType
+ * allocation.
+ *
+ * TASK v3.72 (TASK A) — real regression: a senior channel with no manual
+ * 8-axis allocation fell all the way through to a single fixed
+ * `channel.defaultVocal` string for all 18 songs (a real pack measured
+ * male 18 / female 0 / duet 0, every song byte-identical — vocalTone was
+ * never set away from the channel default), because this returned false and
+ * batchPreallocation.ts's/localGenerator.ts's `vocalPlan = null`
+ * short-circuit skipped per-song vocal assignment entirely. The vocal quota
+ * (6/6/6 male/female/duet by default — see DEFAULT_ADULT_VOCAL_QUOTA below)
+ * now engages by default for every archetype, not just kids.
+ *
+ * Two things still opt out, both deliberate user choices rather than an
+ * untouched default: a manual vocalType allocation (8-axis panel) always
+ * wins outright, same as before — applyAxisAllocation (called on this
+ * function's output) overrides whatever buildVocalPlan produced regardless.
+ * And Step2Concept's "어떤 목소리로 부를까요?" grid lets a user pick one
+ * specific vocal preset (or type free text) for the WHOLE pack — e.g.
+ * explicitly choosing the duet preset because they want every song to be a
+ * duet. If `vocalTone` is set to something other than the channel's own
+ * `defaultVocal`, that is exactly this deliberate choice, and diluting it
+ * into an auto 6/6/6 split would silently break that picker. Only an
+ * *untouched* vocalTone (equal to defaultVocal, or unset) — the real
+ * regression's actual scenario — engages the auto quota.
  */
-export function usesVocalQuota(opts: Pick<GenerationOptions, 'channel' | 'diversityAllocations'>): boolean {
-  return opts.channel.archetype === 'kids' || isManualAllocation(opts.diversityAllocations, 'vocalType');
+export function usesVocalQuota(opts: Pick<GenerationOptions, 'channel' | 'diversityAllocations' | 'vocalTone'>): boolean {
+  if (opts.channel.archetype === 'kids' || isManualAllocation(opts.diversityAllocations, 'vocalType')) return true;
+  const explicitVocalTone = opts.vocalTone?.trim();
+  if (explicitVocalTone && explicitVocalTone !== opts.channel.defaultVocal) return false;
+  return true;
 }
 
 export type VocalType = 'male' | 'female' | 'mixed';
@@ -35,6 +68,16 @@ export interface VocalQuota {
 
 /** TASK v3.38 Part B2 — the 6/6/6-of-18 default; scaleVocalQuota below applies this as a ratio at any songCount, not a literal must-equal-18 requirement. */
 export const DEFAULT_KIDS_VOCAL_QUOTA: VocalQuota = { male: 6, female: 6, mixed: 6 };
+
+/**
+ * TASK v3.72 (TASK A) — same 6/6/6-of-18 ratio as the kids quota, but for
+ * every non-kids archetype ('mixed' means a male-female duet here, not a
+ * children's choir — see vocalDescriptionFor's archetype branch). A
+ * separate constant (not a reuse of DEFAULT_KIDS_VOCAL_QUOTA) so the two
+ * meanings of 'mixed' never get confused at a call site, even though the
+ * numbers are identical today.
+ */
+export const DEFAULT_ADULT_VOCAL_QUOTA: VocalQuota = { male: 6, female: 6, mixed: 6 };
 
 /** TASK v3.38 Part B (language follow-up) — the 3 lyricLanguages the kids channel supports. Any other LyricLanguage value (e.g. 'bilingual', which the kids channel UI doesn't offer) falls back to 'korean' via vocalDictionLanguage below. */
 export type KidsVocalLanguage = 'korean' | 'japanese' | 'english';
@@ -413,11 +456,20 @@ export function scaleVocalQuota(quota: VocalQuota, songCount: number): VocalQuot
 /**
  * TASK v3.38 Part B2 — deterministic (seeded) per-trackNo vocal-type plan.
  * Builds a flat pool from the scaled quota, shuffles it, then repairs any
- * run of 4+ consecutive same-type entries by swapping forward to the next
- * differing type (or, failing that, backward past the run) — "같은 타입 4곡
- * 연속 금지" from the spec.
+ * run of consecutive same-type entries longer than `maxConsecutive` by
+ * swapping forward to the next differing type (or, failing that, backward
+ * past the run).
+ *
+ * TASK v3.72 (TASK A) — tightened from "no run of 4" to "no run of 3"
+ * (maxConsecutive defaults to 2, matching the completion table's "같은
+ * 보컬 타입 최대 연속 ≤ 2" and diversityAllocation.ts's spreadPlanByCounts,
+ * which already enforces the same 2-in-a-row cap for a manual vocalType
+ * allocation — this brings the auto/default quota path in line with it. The
+ * v3.38 "run of 4" test (`never repeats the same vocal type 4 times in a
+ * row`) still holds unchanged: a run<3 guarantee is strictly stronger than
+ * run<4, so nothing there needed touching.
  */
-export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: number): VocalType[] {
+export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: number, maxConsecutive = 2): VocalType[] {
   const counts = scaleVocalQuota(quota, songCount);
   const pool: VocalType[] = [
     ...Array<VocalType>(counts.male).fill('male'),
@@ -425,16 +477,20 @@ export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: numbe
     ...Array<VocalType>(counts.mixed).fill('mixed')
   ];
   const plan = shuffle(pool, seed);
+  const runLength = maxConsecutive + 1;
 
-  for (let i = 3; i < plan.length; i++) {
-    const runsFour = plan[i] === plan[i - 1] && plan[i] === plan[i - 2] && plan[i] === plan[i - 3];
-    if (!runsFour) continue;
+  for (let i = runLength - 1; i < plan.length; i++) {
+    let runsTooLong = true;
+    for (let k = 1; k < runLength && runsTooLong; k++) {
+      if (plan[i - k] !== plan[i]) runsTooLong = false;
+    }
+    if (!runsTooLong) continue;
     let swapIndex = -1;
     for (let j = i + 1; j < plan.length; j++) {
       if (plan[j] !== plan[i]) { swapIndex = j; break; }
     }
     if (swapIndex === -1) {
-      for (let j = 0; j < i - 3; j++) {
+      for (let j = 0; j < i - (runLength - 1); j++) {
         if (plan[j] !== plan[i]) { swapIndex = j; break; }
       }
     }
@@ -445,4 +501,231 @@ export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: numbe
     }
   }
   return plan;
+}
+
+/** TASK v3.72 (TASK B) — per-axis repeat caps within one pack; see vocalTraits.ts's doc comment for why (5 fixed sentences repeated 36x/week was the whole complaint this task exists to fix). */
+const AXIS_REPEAT_CAPS = { register: 2, delivery: 3, timbre: 2, proximity: 3 } as const;
+const DUET_AXIS_REPEAT_CAPS = { pairing: 2, blend: 3 } as const;
+
+/**
+ * TASK v3.72 (TASK B) — picks one value per occurrence for a single axis
+ * (e.g. "register" across this pack's 6 male tracks), honoring a max-repeat
+ * cap and an optional per-occurrence filter (senior register gating,
+ * register/timbre contradiction avoidance). Falls back to ignoring the cap
+ * only when every pool value is already at cap (a pack far larger than any
+ * one axis's pool — not a real 18-song case, but keeps this correct instead
+ * of crashing at any songCount). Never repeats the immediately-previous pick
+ * when a different candidate is available, on top of the cap.
+ *
+ * `sharedUsage`, when passed, is mutated in place instead of starting a
+ * fresh Map — needed for delivery/proximity, whose wordings overlap heavily
+ * between the male and female pools (proximity is the exact same 4-entry
+ * pool for both). Without a shared counter, two independent per-gender calls
+ * could each stay under cap individually while the SAME phrase (e.g. "soft
+ * plate ambience") is picked by both a male and a female track, so a
+ * listener still hears it repeat pack-wide more than the cap allows.
+ * Register/timbre pools are 100% distinct strings between genders, so those
+ * two axes are called with a fresh Map per gender (no cross-gender
+ * collision is possible there).
+ */
+function pickTraitSequence(
+  occurrences: number,
+  pool: readonly string[],
+  cap: number,
+  seed: number,
+  axisSeed: number,
+  extraFilter?: (candidate: string, occurrenceIndex: number) => boolean,
+  sharedUsage?: Map<string, number>,
+  /**
+   * TASK v3.72 (TASK C) — a soft weighting hint (not a filter): a candidate
+   * with weight 2 is twice as likely to be the shuffle's first pick as
+   * weight 1, but every other candidate stays reachable. Used to lean axis
+   * selection toward a channel's own defaultVocal "character" without ever
+   * forcing it — see channelFlavorWeight below.
+   */
+  preferenceWeight?: (candidate: string) => number
+): string[] {
+  const usage = sharedUsage ?? new Map<string, number>();
+  const picks: string[] = [];
+  for (let i = 0; i < occurrences; i++) {
+    let candidates = pool.filter(value => (usage.get(value) ?? 0) < cap);
+    if (!candidates.length) candidates = [...pool];
+    if (extraFilter) {
+      const filtered = candidates.filter(value => extraFilter(value, i));
+      if (filtered.length) candidates = filtered;
+    }
+    const previous = picks[i - 1];
+    const nonRepeating = candidates.length > 1 ? candidates.filter(value => value !== previous) : candidates;
+    const finalCandidates = nonRepeating.length ? nonRepeating : candidates;
+    const weighted = preferenceWeight
+      ? finalCandidates.flatMap(value => Array<string>(Math.max(1, preferenceWeight(value))).fill(value))
+      : finalCandidates;
+    const pick = shuffle(weighted, seed + axisSeed + i * 97)[0];
+    picks.push(pick);
+    usage.set(pick, (usage.get(pick) ?? 0) + 1);
+  }
+  return picks;
+}
+
+/**
+ * TASK v3.72 (TASK C) — defaultVocal is demoted from "every song's vocal
+ * text" to "this channel's vocal CHARACTER": a soft weighting hint toward
+ * axis values that share a describing word with it (e.g. a channel whose
+ * defaultVocal says "husky" leans toward 'soft husky grain'/'worn weathered
+ * edge' timbre), never a hard filter — every candidate stays reachable, this
+ * only shifts the odds. Plain word-overlap counting, not semantic matching;
+ * intentionally simple since this is a bias, not a rule (see this task's own
+ * "축 선택의 가중치로 씁니다").
+ */
+function channelFlavorWeight(defaultVocal: string, candidate: string): number {
+  const flavorWords = new Set(defaultVocal.toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3));
+  if (!flavorWords.size) return 1;
+  const candidateWords = candidate.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  const overlap = candidateWords.filter(w => flavorWords.has(w)).length;
+  return 1 + overlap;
+}
+
+/**
+ * TASK v3.72 (TASK E) — recentRegisterSignatures is core/vocalComboLedger.ts's
+ * "M:<register>|F:<register>" strings from this channel's last few sets.
+ * Every non-recent register gets a 2x pull relative to a recent one — a soft
+ * lean, not an exclusion (a recent register can still be picked; it just
+ * doesn't win ties as often), matching this task's own "강제하지는 마십시오.
+ * 가중치 조정 수준으로".
+ */
+function recentComboAvoidanceWeight(recentRegisterSignatures: string[], candidate: string): number {
+  const recentRegisters = new Set(
+    recentRegisterSignatures.flatMap(signature => signature.split('|').map(part => part.slice(2)))
+  );
+  return recentRegisters.has(candidate) ? 1 : 2;
+}
+
+/**
+ * TASK v3.72 (TASK B) — replaces the flat 5-variant ADULT_VOCAL_DESCRIPTIONS
+ * lookup for every non-kids archetype. `plan` is the same VocalType[]
+ * buildVocalPlan/applyAxisAllocation already produced ('mixed' = duet for
+ * every non-kids archetype — see vocalGender resolution at both call sites);
+ * this only decides the WORDING for each of those slots, never the type
+ * counts/order themselves.
+ *
+ * `peakFlags[idx]` should be true exactly when trackNo idx+1's own killing
+ * point relaxes SENIOR_AUDIENCE_PROFILE's 'comfortable mid vocal register'
+ * (data/killingPoints.ts's `relaxes` list) — the ONE axis this task gates for
+ * a senior audience; delivery/timbre/proximity stay fully open on every
+ * track regardless of `isSenior`, per this task's own "음역만이 아니라
+ * timbre·delivery·proximity 로도 충분히 구분됩니다" guidance.
+ *
+ * `channelDefaultVocal` (TASK v3.72 TASK C) softly biases register/timbre
+ * selection toward this channel's own vocal character — see
+ * channelFlavorWeight above.
+ */
+export function buildAdultVocalTraitPlan(
+  plan: VocalType[],
+  seed: number,
+  options: { isSenior: boolean; peakFlags: boolean[]; channelDefaultVocal?: string; recentRegisterSignatures?: string[] }
+): string[] {
+  const result: string[] = new Array(plan.length).fill('');
+  // Shared across BOTH genders — see pickTraitSequence's own doc comment.
+  // Register/timbre pools are 100% distinct strings between genders so they
+  // don't need this (fresh Map per gender, inline below).
+  const deliveryUsage = new Map<string, number>();
+  const proximityUsage = new Map<string, number>();
+
+  (['male', 'female'] as const).forEach(gender => {
+    const indices: number[] = [];
+    plan.forEach((type, idx) => { if (type === gender) indices.push(idx); });
+    if (!indices.length) return;
+
+    const axes = gender === 'male' ? MALE_VOCAL_TRAIT_AXES : FEMALE_VOCAL_TRAIT_AXES;
+    const peakOnly = gender === 'male' ? MALE_PEAK_ONLY_REGISTERS : FEMALE_PEAK_ONLY_REGISTERS;
+    const contradictions = gender === 'male' ? MALE_REGISTER_TIMBRE_CONTRADICTIONS : FEMALE_REGISTER_TIMBRE_CONTRADICTIONS;
+    const axisSeedBase = gender === 'male' ? 5101 : 6803;
+    const flavorWeight = options.channelDefaultVocal
+      ? (candidate: string) => channelFlavorWeight(options.channelDefaultVocal!, candidate)
+      : undefined;
+    const recentSignatures = options.recentRegisterSignatures;
+    const registerWeight = (candidate: string) => {
+      const flavor = flavorWeight ? flavorWeight(candidate) : 1;
+      const avoidance = recentSignatures?.length ? recentComboAvoidanceWeight(recentSignatures, candidate) : 1;
+      return flavor * avoidance;
+    };
+
+    const registers = pickTraitSequence(
+      indices.length,
+      axes.register,
+      AXIS_REPEAT_CAPS.register,
+      seed,
+      axisSeedBase,
+      (candidate, occurrenceIndex) => !peakOnly.has(candidate) || !options.isSenior || options.peakFlags[indices[occurrenceIndex]] === true,
+      undefined,
+      registerWeight
+    );
+    const deliveries = pickTraitSequence(indices.length, axes.delivery, AXIS_REPEAT_CAPS.delivery, seed, axisSeedBase + 401, undefined, deliveryUsage);
+    const timbres = pickTraitSequence(
+      indices.length,
+      axes.timbre,
+      AXIS_REPEAT_CAPS.timbre,
+      seed,
+      axisSeedBase + 809,
+      (candidate, occurrenceIndex) => !contradictions.some(([reg, timb]) => reg === registers[occurrenceIndex] && timb === candidate),
+      undefined,
+      flavorWeight
+    );
+    const proximities = pickTraitSequence(indices.length, axes.proximity, AXIS_REPEAT_CAPS.proximity, seed, axisSeedBase + 1201, undefined, proximityUsage);
+
+    indices.forEach((songIdx, i) => {
+      result[songIdx] = `${registers[i]}, ${deliveries[i]}, ${timbres[i]}, ${proximities[i]}`;
+    });
+  });
+
+  const duetIndices: number[] = [];
+  plan.forEach((type, idx) => { if (type === 'mixed') duetIndices.push(idx); });
+  if (duetIndices.length) {
+    const pairings = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.pairing, DUET_AXIS_REPEAT_CAPS.pairing, seed, 9001);
+    const blends = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.blend, DUET_AXIS_REPEAT_CAPS.blend, seed, 9401);
+    duetIndices.forEach((songIdx, i) => {
+      result[songIdx] = `${pairings[i]}, ${blends[i]}, male and female duet`;
+    });
+  }
+
+  return result;
+}
+
+export interface VocalTraitDistribution {
+  quota: VocalQuota;
+  register: Record<string, number>;
+  delivery: Record<string, number>;
+  timbre: Record<string, number>;
+}
+
+/**
+ * TASK v3.72 (TASK D) — Step2Plan.tsx's "보컬" confirmation card used to read
+ * only the MANUAL diversityAllocations entry for 'vocalType', which is
+ * undefined whenever the pack is using the (now-default, see TASK A) auto
+ * quota — so the UI showed "-" even on a real 6/6/6 pack. This reads the
+ * pack's actual resolved slots instead, so it reflects reality regardless of
+ * auto/manual. Non-adult (kids) vocalText never matches these axis pools —
+ * register/delivery/timbre stay empty for a kids pack, which the caller
+ * should treat as "nothing to show" rather than an error.
+ */
+export function summarizeVocalTraitDistribution(slots: ReadonlyArray<{ vocalType?: VocalType; vocalText?: string }>): VocalTraitDistribution {
+  const quota: VocalQuota = { male: 0, female: 0, mixed: 0 };
+  const register: Record<string, number> = {};
+  const delivery: Record<string, number> = {};
+  const timbre: Record<string, number> = {};
+
+  for (const slot of slots) {
+    if (!slot.vocalType) continue;
+    quota[slot.vocalType] += 1;
+    if (slot.vocalType === 'mixed' || !slot.vocalText) continue;
+    const axes = slot.vocalType === 'male' ? MALE_VOCAL_TRAIT_AXES : FEMALE_VOCAL_TRAIT_AXES;
+    const foundRegister = axes.register.find(value => slot.vocalText!.startsWith(value));
+    if (foundRegister) register[foundRegister] = (register[foundRegister] ?? 0) + 1;
+    const foundDelivery = axes.delivery.find(value => slot.vocalText!.includes(value));
+    if (foundDelivery) delivery[foundDelivery] = (delivery[foundDelivery] ?? 0) + 1;
+    const foundTimbre = axes.timbre.find(value => slot.vocalText!.includes(value));
+    if (foundTimbre) timbre[foundTimbre] = (timbre[foundTimbre] ?? 0) + 1;
+  }
+
+  return { quota, register, delivery, timbre };
 }

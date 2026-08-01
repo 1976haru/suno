@@ -587,9 +587,13 @@ export interface PreassignedSongSlot {
   /**
    * TASK v3.39 — mirrors moneyChordText's per-trackNo verbatim-instruction
    * pattern for the kids channel's male/female/mixed vocal quota (see
-   * core/vocalPlan.ts's buildVocalPlan/usesVocalQuota). Undefined whenever
-   * usesVocalQuota(opts) is false (every non-kids archetype), so no other
-   * channel's slot shape changes. vocalType is the raw pick; vocalText is
+   * core/vocalPlan.ts's buildVocalPlan/usesVocalQuota).
+   * TASK v3.72 (TASK A) — usesVocalQuota(opts) is now true by default for
+   * every archetype (was kids-only); it's false only when the user picked an
+   * explicit single vocal preset/free-text different from the channel's own
+   * defaultVocal (Step2Concept's "어떤 목소리로 부를까요?" grid) — that stays a
+   * deliberate whole-pack choice, same as before this task. vocalType is
+   * still undefined in that one case. vocalType is the raw pick; vocalText is
    * its resolved, ready-to-weave description (vocalDescriptionFor) so
    * realtime/Batch/bridge can all instruct "use this verbatim" the same way
    * they already do for moneyChordText.

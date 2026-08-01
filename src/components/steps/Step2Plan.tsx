@@ -5,6 +5,7 @@ import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
 import { directSetLocal, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
+import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
 import type { AxisAllocation, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
@@ -37,6 +38,14 @@ function genreLabel(id: string) {
 
 function familyLabel(id: string) {
   return getGenreFamilyById(id)?.labelKo || id;
+}
+
+/** TASK v3.72 (TASK D) — "저음 바리톤 2 · 중음 4 · 밝은 테너 3" style one-line summary of an axis distribution, sorted by count so the most-used value reads first. */
+function axisSummaryLine(distribution: Record<string, number>): string {
+  return Object.entries(distribution)
+    .sort((a, b) => b[1] - a[1])
+    .map(([value, count]) => `${value} ${count}`)
+    .join(' · ');
 }
 
 /**
@@ -119,8 +128,14 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
   );
   const allocations = draftAllocations ?? plan.allocations;
   const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
-  const vocalAllocation = allocations.find(allocation => allocation.axis === 'vocalType');
   const structureAllocation = allocations.find(allocation => allocation.axis === 'structureTemplate');
+  // TASK v3.72 (TASK D) — reads the pack's actual resolved slots (real
+  // vocalType/vocalText per song) rather than only the manual
+  // diversityAllocations entry, which stays undefined under the new default
+  // auto quota (TASK A) — the old vocal stat-card showed "-" in exactly the
+  // case a user most needed to see it working.
+  const vocalDistribution = useMemo(() => summarizeVocalTraitDistribution(plan.slots), [plan.slots]);
+  const hasVocalAxisBreakdown = Object.keys(vocalDistribution.register).length > 0;
   const editing = editingAxis ? allocations.find(allocation => allocation.axis === editingAxis) : undefined;
   const hasMultipleSegments = plan.segments.length > 1;
   const displaySlots = hasMultipleSegments && segmentPlacement === 'blocked'
@@ -228,11 +243,29 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
       </div>
 
       <div className="option-block">
-        <div className="stats-grid">
-          <button type="button" className="stat-card" onClick={() => setEditingAxis('vocalType')}>
-            <b>보컬</b>
-            <span>{countSummary(vocalAllocation)}</span>
+        <div className="section-head">
+          <h3>보컬 배분</h3>
+          <button type="button" onClick={() => setEditingAxis('vocalType')}>
+            <SlidersHorizontal size={15} />
+            조정
           </button>
+        </div>
+        <div className="chips">
+          <span className="chip active">남성 솔로 {vocalDistribution.quota.male}곡</span>
+          <span className="chip active">여성 솔로 {vocalDistribution.quota.female}곡</span>
+          <span className="chip active">듀엣 {vocalDistribution.quota.mixed}곡</span>
+        </div>
+        {hasVocalAxisBreakdown && (
+          <>
+            <p className="supporting">음역 {axisSummaryLine(vocalDistribution.register)}</p>
+            <p className="supporting">창법 {axisSummaryLine(vocalDistribution.delivery)}</p>
+            <p className="supporting">질감 {axisSummaryLine(vocalDistribution.timbre)}</p>
+          </>
+        )}
+      </div>
+
+      <div className="option-block">
+        <div className="stats-grid">
           <button type="button" className="stat-card" onClick={() => setEditingAxis('structureTemplate')}>
             <b>구조</b>
             <span>{countSummary(structureAllocation)}</span>

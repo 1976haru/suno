@@ -3,6 +3,7 @@ import { channelPresets } from '../data/presets';
 import { isMadeForKidsChannel } from './exportCompliance';
 import { lintChannelDiversity, sampleFromSavedPack, type ChannelDiversityReport } from './diversityLinter';
 import { listVideos } from './videoLedger';
+import { dominantRegisterSignature, recordVocalCombo } from './vocalComboLedger';
 
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
 
@@ -220,6 +221,16 @@ export async function savePack(input: {
     return id;
   }
   await withStore('readwrite', store => store.put(pack));
+  // TASK v3.72 (TASK E) — records this pack's dominant register choice per
+  // gender for cross-set avoidance (core/vocalComboLedger.ts), read back by
+  // providers/index.ts's generateBlueprint on the next pack for this
+  // channel. Skipped for autosave (fires far more often than "a set was
+  // actually finished") and best-effort — a ledger write failure must never
+  // fail the actual save.
+  if (!input.isAutosave) {
+    const signature = dominantRegisterSignature(input.blueprint.songs);
+    if (signature) recordVocalCombo(input.options.channel.id, signature).catch(() => {});
+  }
   return id;
 }
 

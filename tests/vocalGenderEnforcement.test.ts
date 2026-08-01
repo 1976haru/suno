@@ -59,10 +59,19 @@ describe('[Part H] preallocateSongSlots carries vocalText for every channel', ()
     expect(slots.every(slot => slot.vocalType === undefined)).toBe(true);
   });
 
-  it('falls back to channel.defaultVocal when vocalTone is blank', () => {
-    const opts = makeOptions({ channel: showaCafe, vocalTone: '' });
+  // TASK v3.72 (TASK A) — real regression: a blank/untouched vocalTone
+  // (App.tsx initializes it to channel.defaultVocal on channel select, so
+  // "blank" and "still equal to defaultVocal" are the same real-world case)
+  // used to fall through to usesVocalQuota()===false and give every song the
+  // exact same defaultVocal string — the actual bug a real 18-song pack
+  // measured (male 18 / female 0 / duet 0, byte-identical). The auto quota
+  // now engages here instead, so vocalText varies per song.
+  it('applies the auto male/female/duet quota (varied vocalText) when vocalTone is blank, instead of one fixed defaultVocal string for every song', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: '', songCount: 18 });
     const slots = preallocateSongSlots(opts, []);
-    expect(slots.every(slot => slot.vocalText === showaCafe.defaultVocal)).toBe(true);
+    expect(slots.every(slot => slot.vocalType !== undefined)).toBe(true);
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+    expect(slots.some(slot => slot.vocalText === showaCafe.defaultVocal)).toBe(false);
   });
 });
 
@@ -123,8 +132,17 @@ describe('[Part H] resolveVocalMetaTag / ensureVocalMetaTag', () => {
 });
 
 describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (realtime/Batch/bridge choke point)', () => {
+  // TASK v3.72 (TASK A) — vocalTone here must be an explicit preset text
+  // DIFFERENT from showaCafe.defaultVocal, not equal to it: usesVocalQuota
+  // now treats "vocalTone === channel.defaultVocal" as untouched/default and
+  // engages the auto male/female/duet quota there (the real regression this
+  // task fixes), which would make `slot` not deterministically male anymore.
+  // A distinct explicit single-preset pick (low-calm-male) keeps this test's
+  // "user selected one specific male vocal for the whole pack" scenario.
+  const explicitMalePreset = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
+
   it('corrects a female stylePrompt back to the channel\'s selected male vocal, and tags the lyrics', () => {
-    const opts = makeOptions({ channel: showaCafe, vocalTone: showaCafe.defaultVocal });
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitMalePreset });
     const [slot] = preallocateSongSlots(opts, []);
     const wrongSong = baseSong({ trackNo: slot.trackNo });
     const fixed = reconcileWithPreassignedSlot(wrongSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
@@ -133,7 +151,7 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
   });
 
   it('is a no-op on an already-correct stylePrompt/lyrics pair', () => {
-    const opts = makeOptions({ channel: showaCafe, vocalTone: showaCafe.defaultVocal });
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitMalePreset });
     const [slot] = preallocateSongSlots(opts, []);
     // TASK v3.43 Part A1/A2, Step 2 Part A3 — reconcileWithPreassignedSlot
     // now also verbatim-enforces moneyChordText/hookDeviceText/instrumentSet/
@@ -142,7 +160,7 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
     // just the bare progression tag, for this to stay a real no-op.
     const correctPrompt = [
       'showa-modern cafe mood',
-      showaCafe.defaultVocal,
+      slot.vocalText,
       slot.moneyChordText,
       slot.hookDeviceText,
       ...(slot.instrumentSet ?? []),

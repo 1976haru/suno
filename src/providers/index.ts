@@ -17,6 +17,7 @@ import { scoreSongs } from '../core/quality';
 import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/compositionRecompose';
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
+import { getRecentVocalCombos } from '../core/vocalComboLedger';
 import { stripSetTitlePrefix } from '../utils/generation';
 import { generateWithOpenAI, type ProviderCallResult } from './openai';
 import { generateWithAnthropic } from './anthropic';
@@ -234,7 +235,7 @@ export async function generateBlueprint(
   settings: ProviderSettings,
   onProgress?: (progress: GenerationProgress) => void,
   /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. */
-  avoid?: { usedTitles?: string[]; usedHooks?: string[] },
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[] },
   /**
    * TASK v3.62 (TASK 3) — C안's automatic recomposition gate. Defaults to
    * false so every existing direct unit test of this function (which builds
@@ -248,6 +249,20 @@ export async function generateBlueprint(
    */
   enableRecompose = false
 ): Promise<PlaylistBlueprint> {
+  // TASK v3.72 (TASK E) — softly leans this pack's register choices away
+  // from whatever this channel's last few sets already leaned on (see
+  // core/vocalComboLedger.ts). One choke point covers both the local and
+  // realtime/Batch branches below, since both read `avoid` from here.
+  // Best-effort: a ledger read failure must never block generation.
+  if (opts.channel.archetype !== 'kids') {
+    try {
+      const recentVocalComboSignatures = await getRecentVocalCombos(opts.channel.id);
+      if (recentVocalComboSignatures.length) avoid = { ...avoid, recentVocalComboSignatures };
+    } catch {
+      // best-effort only
+    }
+  }
+
   if (settings.provider === 'local') {
     const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid, settings.promptCharLimit);
     const songs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);

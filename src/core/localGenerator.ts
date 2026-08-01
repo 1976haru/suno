@@ -7,7 +7,7 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, buildVocalPlan, buildVocalVariantPlan, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { applyDuetSectionVocalTags, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -635,7 +635,9 @@ export function generateLocalBlueprint(
   genres: GenrePack[],
   moods: MoodPack[],
   season: SeasonPack,
-  avoid?: { usedTitles?: string[]; usedHooks?: string[] },
+  // TASK v3.72 (TASK E) — see batchPreallocation.ts's preallocateSongSlots's
+  // matching parameter doc comment.
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[] },
   /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
   styleLimit?: number
 ): PlaylistBlueprint {
@@ -713,18 +715,39 @@ export function generateLocalBlueprint(
   // below assigns anything else.
   const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
   const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
-  // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota, active
-  // only for the 'kids' channel archetype. Mirrors progressionPlan's
-  // pre-pass shape; vocalQuota falls back to the 6/6/6 default when the
-  // channel/opts didn't set one explicitly.
-  const autoVocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota.
+  // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
+  // archetype, not just kids (see vocalPlan.ts's own doc comment for the
+  // regression this fixes); the quota shape still differs by archetype —
+  // kids keeps DEFAULT_KIDS_VOCAL_QUOTA, every other archetype falls back to
+  // DEFAULT_ADULT_VOCAL_QUOTA ('mixed' means duet there, not choir).
+  const autoVocalPlan = usesVocalQuota(opts)
+    ? buildVocalPlan(opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA), opts.songCount, seed)
+    : null;
   const vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
   // bridge paths rotate through the same per-song wording for the same opts.
-  const vocalVariantPlan = vocalPlan ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // Kids only now — the adult path uses buildAdultVocalTraitPlan below
+  // (TASK v3.72 TASK B).
+  const vocalVariantPlan = vocalPlan && opts.channel.archetype === 'kids' ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // TASK v3.72 (TASK B) — mirrors batchPreallocation.ts's own
+  // buildAdultVocalTraitPlan call (same seed) so the local and realtime/
+  // Batch/bridge paths agree on every trackNo's 4-axis vocal wording for the
+  // same opts. audienceProfile is already computed above (same var used for
+  // tempoBandPlan); killingPointPlan is already computed above too.
+  const isSeniorAudience = audienceProfile.id === 'senior';
+  const vocalPeakFlags = killingPointPlan.map(kp => Boolean(kp?.relaxes?.includes('comfortable mid vocal register')));
+  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids'
+    ? buildAdultVocalTraitPlan(vocalPlan, seed, {
+        isSenior: isSeniorAudience,
+        peakFlags: vocalPeakFlags,
+        channelDefaultVocal: opts.channel.defaultVocal,
+        recentRegisterSignatures: avoid?.recentVocalComboSignatures
+      })
+    : null;
   // TASK v3.39.1 Part H4 — matches batchPreallocation.ts's own fallback so
   // the local path's lyric meta tag agrees with what the realtime/Batch/
   // bridge paths would tag the same opts with.
@@ -843,9 +866,12 @@ export function generateLocalBlueprint(
     // ids first (never truncating mid-phrase). See promptComposer.ts.
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     // TASK v3.41 Part A2/D — same rotation index batchPreallocation.ts's
-    // preallocateSongSlots uses for the same opts/trackNo.
+    // preallocateSongSlots uses for the same opts/trackNo (kids only — see
+    // TASK v3.72 TASK B for the adult path below).
     const vocalDescriptionText = vocalType
-      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
+      ? (opts.channel.archetype === 'kids'
+          ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
+          : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText))
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
     // kids-quota song; otherwise falls back to the matched preset's own

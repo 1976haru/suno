@@ -1,24 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
   applyDuetSectionVocalTags,
+  buildAdultVocalTraitPlan,
   buildVocalPlan,
   scaleVocalQuota,
+  summarizeVocalTraitDistribution,
   usesVocalQuota,
   vocalDescriptionFor,
   vocalDictionLanguage,
   type VocalType
 } from '../src/core/vocalPlan';
+import {
+  MALE_VOCAL_TRAIT_AXES,
+  FEMALE_VOCAL_TRAIT_AXES,
+  MALE_PEAK_ONLY_REGISTERS,
+  MALE_REGISTER_TIMBRE_CONTRADICTIONS,
+  FEMALE_REGISTER_TIMBRE_CONTRADICTIONS
+} from '../src/data/vocalTraits';
 
 // TASK v3.38 Part B2 — permanent regression coverage for the kids-channel
 // vocal-type quota system (replaces the throwaway scratch test used to
 // verify this module during development).
 
 describe('usesVocalQuota', () => {
-  it('activates for kids by default, or for an explicit manual vocalType allocation', () => {
+  // TASK v3.72 (TASK A) — real regression: a senior channel with no manual
+  // 8-axis allocation fell through to usesVocalQuota()===false, which made
+  // batchPreallocation.ts/localGenerator.ts skip per-song vocal assignment
+  // entirely — a real 18-song pack measured male 18 / female 0 / duet 0,
+  // every song byte-identical. Now unconditional for every archetype; a
+  // manual vocalType allocation still applies on top via applyAxisAllocation
+  // (unchanged), it just no longer needs to also be what TURNS ON the quota.
+  it('is unconditional for every archetype, with or without a manual vocalType allocation', () => {
     expect(usesVocalQuota({ channel: { archetype: 'kids' } as any })).toBe(true);
-    expect(usesVocalQuota({ channel: { archetype: 'senior-morning' } as any })).toBe(false);
-    expect(usesVocalQuota({ channel: { archetype: 'showa-cafe' } as any })).toBe(false);
+    expect(usesVocalQuota({ channel: { archetype: 'senior-morning' } as any })).toBe(true);
+    expect(usesVocalQuota({ channel: { archetype: 'showa-cafe' } as any })).toBe(true);
     expect(usesVocalQuota({
       channel: { archetype: 'senior-morning' } as any,
       diversityAllocations: [{ axis: 'vocalType', mode: 'manual', counts: { male: 6, female: 6, mixed: 6 } }]
@@ -69,6 +86,32 @@ describe('buildVocalPlan', () => {
       for (let i = 1; i < plan.length; i++) {
         run = plan[i] === plan[i - 1] ? run + 1 : 1;
         expect(run, `seed=${seed} index=${i}`).toBeLessThan(4);
+      }
+    }
+  });
+
+  // TASK v3.72 (TASK A) — tightened default from "no run of 4" to "no run of
+  // 3" (maxConsecutive=2), matching diversityAllocation.ts's spreadPlanByCounts
+  // (the manual-allocation path already enforced this) and the completion
+  // table's "같은 보컬 타입 최대 연속 ≤ 2".
+  it('never repeats the same vocal type 3 times in a row by default (maxConsecutive=2)', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 42, 1234, 99999]) {
+      const plan = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, seed);
+      let run = 1;
+      for (let i = 1; i < plan.length; i++) {
+        run = plan[i] === plan[i - 1] ? run + 1 : 1;
+        expect(run, `seed=${seed} index=${i}`).toBeLessThanOrEqual(2);
+      }
+    }
+  });
+
+  it('an explicit maxConsecutive parameter is honored (e.g. 3 = the old pre-v3.72 default behavior)', () => {
+    for (const seed of [1, 2, 3, 42, 1234]) {
+      const plan = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, seed, 3);
+      let run = 1;
+      for (let i = 1; i < plan.length; i++) {
+        run = plan[i] === plan[i - 1] ? run + 1 : 1;
+        expect(run, `seed=${seed}`).toBeLessThanOrEqual(3);
       }
     }
   });
@@ -202,5 +245,123 @@ describe('[v3.70 TASK A] applyDuetSectionVocalTags', () => {
     expect(tagged).toContain('line one');
     expect(tagged).toContain('hook line');
     expect(tagged).toContain('bridge line');
+  });
+});
+
+describe('[v3.72 TASK B] buildAdultVocalTraitPlan', () => {
+  const plan18: VocalType[] = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, 42);
+
+  it('produces at least 12 distinct strings across an 18-song 6/6/6 pack (spec target: >= 12)', () => {
+    for (const seed of [1, 2, 3, 42, 1234, 99999]) {
+      const plan = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, seed);
+      const texts = buildAdultVocalTraitPlan(plan, seed, { isSenior: false, peakFlags: plan.map(() => false) });
+      expect(texts, `seed=${seed}`).toHaveLength(18);
+      expect(new Set(texts).size, `seed=${seed}`).toBeGreaterThanOrEqual(12);
+    }
+  });
+
+  it('never exceeds 12 words per song', () => {
+    const texts = buildAdultVocalTraitPlan(plan18, 42, { isSenior: false, peakFlags: plan18.map(() => false) });
+    for (const text of texts) {
+      expect(text.split(/\s+/).filter(Boolean).length, text).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it('every duet track\'s text contains the literal word "duet" (isDuetSlot fallback, bridgeInstruction.ts)', () => {
+    const texts = buildAdultVocalTraitPlan(plan18, 42, { isSenior: false, peakFlags: plan18.map(() => false) });
+    plan18.forEach((type, idx) => {
+      if (type === 'mixed') expect(texts[idx]).toMatch(/\bduet\b/i);
+    });
+  });
+
+  it('caps register/timbre at 2 and delivery/proximity at 3 occurrences pack-wide, across both genders combined', () => {
+    for (const seed of [1, 2, 3, 42, 1234, 99999]) {
+      const plan = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, seed);
+      const texts = buildAdultVocalTraitPlan(plan, seed, { isSenior: false, peakFlags: plan.map(() => false) });
+      const registerCounts = new Map<string, number>();
+      const timbreCounts = new Map<string, number>();
+      const deliveryCounts = new Map<string, number>();
+      const proximityCounts = new Map<string, number>();
+      plan.forEach((type, idx) => {
+        if (type === 'mixed') return;
+        const axes = type === 'male' ? MALE_VOCAL_TRAIT_AXES : FEMALE_VOCAL_TRAIT_AXES;
+        const text = texts[idx];
+        const reg = axes.register.find(v => text.startsWith(v));
+        const timb = axes.timbre.find(v => text.includes(v));
+        const deliv = axes.delivery.find(v => text.includes(v));
+        const prox = axes.proximity.find(v => text.includes(v));
+        if (reg) registerCounts.set(reg, (registerCounts.get(reg) ?? 0) + 1);
+        if (timb) timbreCounts.set(timb, (timbreCounts.get(timb) ?? 0) + 1);
+        if (deliv) deliveryCounts.set(deliv, (deliveryCounts.get(deliv) ?? 0) + 1);
+        if (prox) proximityCounts.set(prox, (proximityCounts.get(prox) ?? 0) + 1);
+      });
+      for (const [value, count] of registerCounts) expect(count, `seed=${seed} register "${value}"`).toBeLessThanOrEqual(2);
+      for (const [value, count] of timbreCounts) expect(count, `seed=${seed} timbre "${value}"`).toBeLessThanOrEqual(2);
+      for (const [value, count] of deliveryCounts) expect(count, `seed=${seed} delivery "${value}"`).toBeLessThanOrEqual(3);
+      for (const [value, count] of proximityCounts) expect(count, `seed=${seed} proximity "${value}"`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('never produces a register/timbre contradiction (e.g. "deep chest-register lead" + "airy breath-forward tone")', () => {
+    for (const seed of [1, 2, 3, 42, 1234, 99999]) {
+      const plan = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, seed);
+      const texts = buildAdultVocalTraitPlan(plan, seed, { isSenior: false, peakFlags: plan.map(() => false) });
+      plan.forEach((type, idx) => {
+        if (type === 'mixed') return;
+        const axes = type === 'male' ? MALE_VOCAL_TRAIT_AXES : FEMALE_VOCAL_TRAIT_AXES;
+        const contradictions = type === 'male' ? MALE_REGISTER_TIMBRE_CONTRADICTIONS : FEMALE_REGISTER_TIMBRE_CONTRADICTIONS;
+        const text = texts[idx];
+        const reg = axes.register.find(v => text.startsWith(v));
+        const timb = axes.timbre.find(v => text.includes(v));
+        if (!reg || !timb) return;
+        const isContradiction = contradictions.some(([r, t]) => r === reg && t === timb);
+        expect(isContradiction, `seed=${seed} track ${idx + 1}: "${reg}" + "${timb}"`).toBe(false);
+      });
+    }
+  });
+
+  it('a senior-audience track only gets a peak-only register (e.g. "bright tenor lead") when its own killing point relaxes comfortable register', () => {
+    const allMale: VocalType[] = Array(10).fill('male');
+    const noPeak = buildAdultVocalTraitPlan(allMale, 5, { isSenior: true, peakFlags: allMale.map(() => false) });
+    for (const text of noPeak) {
+      for (const peakOnly of MALE_PEAK_ONLY_REGISTERS) expect(text.startsWith(peakOnly), text).toBe(false);
+    }
+  });
+
+  it('a channel defaultVocal mentioning "husky" biases toward husky-flavored traits, but the repeat cap still wins (never a hard override)', () => {
+    // 10, not 20 — the timbre pool (7 entries x cap 2 = 14 capacity) must
+    // stay unsaturated, or pickTraitSequence's own documented "every
+    // candidate already at cap" fallback kicks in and ignores the cap
+    // entirely (correct behavior for a pack bigger than any axis's pool,
+    // but not what this test means to exercise).
+    const manyMale: VocalType[] = Array(10).fill('male');
+    const texts = buildAdultVocalTraitPlan(manyMale, 3, { isSenior: false, peakFlags: manyMale.map(() => false), channelDefaultVocal: 'soft husky male tenor' });
+    const huskyHits = texts.filter(text => text.includes('husky')).length;
+    // The bias makes it likely to appear at all (weight, not a filter)...
+    expect(huskyHits).toBeGreaterThan(0);
+    // ...but AXIS_REPEAT_CAPS.timbre (2) still bounds it — weighting can never
+    // defeat the cap that keeps a pack from repeating one phrase too often.
+    expect(huskyHits).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('[v3.72 TASK D] summarizeVocalTraitDistribution', () => {
+  it('counts quota + axis distribution from resolved slots', () => {
+    const plan = buildVocalPlan(DEFAULT_ADULT_VOCAL_QUOTA, 18, 42);
+    const texts = buildAdultVocalTraitPlan(plan, 42, { isSenior: false, peakFlags: plan.map(() => false) });
+    const slots = plan.map((type, idx) => ({ vocalType: type, vocalText: texts[idx] }));
+    const dist = summarizeVocalTraitDistribution(slots);
+    expect(dist.quota).toEqual({ male: 6, female: 6, mixed: 6 });
+    expect(Object.values(dist.register).reduce((a, b) => a + b, 0)).toBe(12); // 6 male + 6 female, duet excluded
+    expect(Object.values(dist.timbre).reduce((a, b) => a + b, 0)).toBe(12);
+  });
+
+  it('returns empty axis breakdowns for a kids pack (vocalText never matches the adult trait pools)', () => {
+    const dist = summarizeVocalTraitDistribution([
+      { vocalType: 'male', vocalText: 'bright childlike boy voice, playful and youthful, kindergarten-age tone' },
+      { vocalType: 'female', vocalText: 'bright childlike girl voice, sweet and clear, kindergarten-age tone' }
+    ]);
+    expect(dist.quota).toEqual({ male: 1, female: 1, mixed: 0 });
+    expect(dist.register).toEqual({});
   });
 });

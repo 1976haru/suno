@@ -8,8 +8,10 @@ import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
   applyDuetSectionVocalTags,
+  buildAdultVocalTraitPlan,
   buildVocalPlan,
   buildVocalVariantPlan,
+  DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
   enforceVocalTextInStylePrompt,
@@ -73,7 +75,13 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
 export function preallocateSongSlots(
   opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience' | 'ratingInsights'>,
   genres: GenrePack[],
-  avoid?: { usedTitles?: string[]; usedHooks?: string[] }
+  // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
+  // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
+  // signatures for this channel, pre-fetched by the caller (this function
+  // stays a pure sync function — no IndexedDB access here). Softly
+  // deprioritizes those exact registers in buildAdultVocalTraitPlan; never
+  // required, never blocking.
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[] }
 ): PreassignedSongSlot[] {
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
@@ -132,15 +140,42 @@ export function preallocateSongSlots(
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
   // type for the same opts.
-  const autoVocalPlan = usesVocalQuota(opts) ? buildVocalPlan(opts.vocalQuota ?? DEFAULT_KIDS_VOCAL_QUOTA, opts.songCount, seed) : null;
+  // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
+  // archetype (see vocalPlan.ts's own doc comment for the regression this
+  // fixes); the quota itself still differs by archetype — kids keeps
+  // DEFAULT_KIDS_VOCAL_QUOTA, every other archetype falls back to
+  // DEFAULT_ADULT_VOCAL_QUOTA (same 6/6/6 shape, 'mixed' means duet here).
+  const autoVocalPlan = usesVocalQuota(opts)
+    ? buildVocalPlan(opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA), opts.songCount, seed)
+    : null;
   const vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
   // 5/5/5 kids pack no longer reuses one fixed string per type across
-  // realtime/Batch/bridge (see vocalPlan.ts's buildVocalVariantPlan).
-  const vocalVariantPlan = vocalPlan ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // realtime/Batch/bridge (see vocalPlan.ts's buildVocalVariantPlan). Kids
+  // only — the adult path's wording now comes from buildAdultVocalTraitPlan
+  // below (TASK v3.72 TASK B), not this flat variant-index scheme.
+  const vocalVariantPlan = vocalPlan && opts.channel.archetype === 'kids' ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // TASK v3.72 (TASK B) — the 4-axis (register/delivery/timbre/proximity;
+  // pairing/blend for duet) per-song wording plan for every non-kids
+  // archetype, replacing the old flat 5-variant ADULT_VOCAL_DESCRIPTIONS
+  // lookup that produced only 5 distinct sentences per gender pack-wide.
+  // isSenior gates ONLY the register axis's brightest/highest entries
+  // (data/vocalTraits.ts's *_PEAK_ONLY_REGISTERS) to a track whose killing
+  // point actually relaxes SENIOR_AUDIENCE_PROFILE's 'comfortable mid vocal
+  // register' constraint; every other axis stays fully open regardless.
+  const isSeniorAudience = audienceProfile.id === 'senior';
+  const vocalPeakFlags = killingPointPlan.map(kp => Boolean(kp?.relaxes?.includes('comfortable mid vocal register')));
+  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids'
+    ? buildAdultVocalTraitPlan(vocalPlan, seed, {
+        isSenior: isSeniorAudience,
+        peakFlags: vocalPeakFlags,
+        channelDefaultVocal: opts.channel.defaultVocal,
+        recentRegisterSignatures: avoid?.recentVocalComboSignatures
+      })
+    : null;
   // TASK v3.39 Part H — every channel (not just kids) now carries a per-song
   // vocalText, so reconcileWithPreassignedSlot below can enforce the
   // selected vocal across realtime/Batch/bridge the same way moneyChordText
@@ -214,7 +249,9 @@ export function preallocateSongSlots(
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalText = vocalType
-      ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
+      ? (opts.channel.archetype === 'kids'
+          ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
+          : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText))
       : fallbackVocalText;
     const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType

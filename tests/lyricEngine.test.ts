@@ -11,6 +11,7 @@ import {
   type HookSpec
 } from '../src/core/lyricEngine';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
 import type { SongIdea } from '../src/types';
 
 describe('lyric engine', () => {
@@ -117,7 +118,14 @@ describe('lyric engine', () => {
   });
 
   it('varies structure by song role (extended bridge for late-set emotional center)', () => {
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 12 }), testGenres, testMoods, testSeason);
+    // TASK v3.72 (TASK A) — an explicit non-default single vocal preset,
+    // so usesVocalQuota() stays off and no track becomes a duet (which
+    // would retag "[short bridge]"/"[final chorus]" to
+    // "[short bridge: male and female call and response]" etc. — see
+    // vocalPlan.ts's applyDuetSectionVocalTags — breaking the plain-tag
+    // .split() below; this test is about bridge length, not vocal tagging).
+    const soloVocal = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, vocalTone: soloVocal }), testGenres, testMoods, testSeason);
     const opener = bp.songs[0];
     const emotionalCenter = bp.songs.find((_, idx) => idx === 7); // 'late-set emotional center' role position
     expect(opener).toBeDefined();
@@ -219,8 +227,15 @@ describe('v3.1 grammar/repetition regressions (B1 lyric-quality follow-up)', () 
     // position.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
-      const chorusIdx = song.lyrics.indexOf('[chorus]');
-      const afterChorus = song.lyrics.slice(chorusIdx).split('\n');
+      // TASK v3.72 (TASK A) — usesVocalQuota now defaults on, so a plain
+      // makeOptions() pack can legitimately include a duet track; a duet's
+      // "[chorus]" line gets retagged to "[chorus: male and female duet]"
+      // (applyDuetSectionVocalTags, v3.70), which a bare `'[chorus]'` search
+      // no longer finds. Matches either form — this test is about hook
+      // repetition, not vocal tagging.
+      const lines = song.lyrics.split('\n');
+      const chorusLineIdx = lines.findIndex(line => /^\[chorus(?::.*)?\]$/i.test(line.trim()));
+      const afterChorus = lines.slice(chorusLineIdx);
       const blockEnd = afterChorus.indexOf('', 1);
       const chorusBlock = (blockEnd === -1 ? afterChorus : afterChorus.slice(0, blockEnd)).filter(Boolean).slice(1);
       const hookOccurrences = chorusBlock.filter(line => line === song.hookPhrase).length;

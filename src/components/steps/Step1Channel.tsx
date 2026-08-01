@@ -361,7 +361,12 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
           </select>
         </div>
         <div>
-          <label>Default vocal (기본 보컬 톤)</label>
+          {/* TASK v3.72 (TASK C) — this no longer overwrites every song's vocal
+              text (that made an untouched channel produce 18 identical
+              voices); it's now this channel's own vocal CHARACTER — the
+              starting point Step2Concept's voice picker shows, and a soft
+              flavor hint for axis selection when the auto quota is active. */}
+          <label>Channel vocal character (이 채널 보컬 성향)</label>
           <input value={editorChannel.defaultVocal} onChange={event => onUpdateField('defaultVocal', event.target.value)} />
         </div>
       </div>

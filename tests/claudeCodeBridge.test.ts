@@ -174,7 +174,9 @@ describe('[v3.40] buildMultiSetClaudeCodeMasterInstruction - one instruction can
     expect(result.outputFilenames.every((name: string) => /^lyrics\/\d{8}_.+_set0[123]\.json$/.test(name))).toBe(true);
     expect(result.instruction).toContain('MASTER MODE');
     expect(result.instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
-    expect(result.instruction).toContain('single vocal identity');
+    // TASK v3.72 (TASK A) — usesVocalQuota is now unconditional; see the
+    // matching fix in the buildMultiSetClaudeCodeInstructions test above.
+    expect(result.instruction).toContain('male 2, female 2, mixed 2');
     expect(result.instruction).toContain('Do not stop after the first file');
     for (const filename of result.outputFilenames) expect(result.instruction).toContain(filename);
 
@@ -592,7 +594,10 @@ describe('[v3.35] buildMultiSetClaudeCodeInstructions — one instruction per se
     const results = buildMultiSetClaudeCodeInstructions(makeOptions({ songCount: 6 }), 3, 6, testGenres, testMoods, testSeason, undefined, false);
     expect(results[0].instruction).toContain('flavor');
     expect(results[0].instruction).toContain('| Set | Concept | Season | Money chord | Vocal quota | Output file |');
-    expect(results[0].instruction).toContain('single vocal identity');
+    // TASK v3.72 (TASK A) — usesVocalQuota is now unconditional, so even an
+    // unquota'd-looking pack gets a real male/female/duet split instead of
+    // the old "single vocal identity" fallback.
+    expect(results[0].instruction).toContain('male 2, female 2, mixed 2');
     expect(results[0].instruction).toContain('Set 1/3');
     expect(results[1].instruction).toContain('Set 2/3');
     expect(results[2].instruction).toContain('Set 3/3');

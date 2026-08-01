@@ -53,7 +53,15 @@ describe('[v3.58 TASK 5-3] duet selections get per-section vocal-assignment tags
   });
 
   it('a solo (non-duet) vocal selection is left with plain, untagged section tags', () => {
-    const soloPreset = vocalPresets.find(p => p.id === 'warm-mature-male')!;
+    // TASK v3.72 (TASK A) — must be a preset whose prompt text differs from
+    // the test channel's own defaultVocal: usesVocalQuota() now treats
+    // "vocalTone === channel.defaultVocal" as untouched/default and engages
+    // the auto male/female/duet quota there, which would make some of these
+    // 4 songs female/duet and break this test's "plain, untagged" premise.
+    // 'warm-mature-male' happens to be byte-identical to the default test
+    // channel's defaultVocal, so it no longer isolates this scenario;
+    // 'low-calm-male' is a distinct explicit single-preset pick instead.
+    const soloPreset = vocalPresets.find(p => p.id === 'low-calm-male')!;
     const bp = generateLocalBlueprint(makeOptions({ songCount: 4, vocalTone: soloPreset.prompt }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       expect(song.lyrics).toContain('[verse 1]');

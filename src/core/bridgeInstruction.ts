@@ -11,7 +11,6 @@ import { preallocateSongSlots } from './batchPreallocation';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
 import { moneyChordPresets } from '../data/moneyChords';
-import { usesVocalQuota } from './vocalPlan';
 import { decomposeArtistReferences, decomposedReferenceDescriptors, isSafeDecomposedReference } from './artistReferenceDecomposer';
 import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { buildSetName } from '../utils/setNaming';
@@ -635,9 +634,15 @@ function summarizeMoneyChord(opts: GenerationOptions, preassignedSongs: Preassig
  * recomputing scaleVocalQuota independently, so the set-planning table's
  * summary can never drift from what preassignedSongs (and therefore the
  * per-song "vocalText" instruction below) actually assigned.
+ *
+ * TASK v3.72 (TASK A) — usesVocalQuota is now unconditional (every archetype
+ * gets a real male/female/duet quota by default — see vocalPlan.ts), so the
+ * old "single vocal identity" fallback for an unquota'd pack is dead code;
+ * removed rather than left as an unreachable branch. An empty
+ * `preassignedSongs` (e.g. songCount 0) still degrades gracefully to
+ * "male 0, female 0, mixed 0" rather than throwing.
  */
-function summarizeVocalQuota(opts: GenerationOptions, preassignedSongs: PreassignedSongSlot[]): string {
-  if (!usesVocalQuota(opts)) return 'single vocal identity';
+function summarizeVocalQuota(preassignedSongs: PreassignedSongSlot[]): string {
   const counts = { male: 0, female: 0, mixed: 0 };
   for (const slot of preassignedSongs) {
     if (slot.vocalType) counts[slot.vocalType] += 1;
@@ -664,7 +669,7 @@ function buildSetPlanningTable(rows: BridgeSetPlanningRow[]): string {
       markdownCell(row.conceptLine),
       markdownCell(row.seasonLabel),
       markdownCell(summarizeMoneyChord(row.setOpts, row.preassignedSongs)),
-      markdownCell(summarizeVocalQuota(row.setOpts, row.preassignedSongs)),
+      markdownCell(summarizeVocalQuota(row.preassignedSongs)),
       row.outputFilename
     ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'))
   ].join('\n');
