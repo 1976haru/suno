@@ -37,9 +37,12 @@ import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOpti
 import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
 import { getWorkspace } from './data/workspaces';
-import { runWorkspaceMigrationOnce } from './core/workspaceMigration';
+import { isMigrationPending, runWorkspaceMigrationOnce } from './core/workspaceMigration';
 import { setCurrentWorkspace } from './core/workspaceScope';
+import { downloadBlob, exportAllWorkspacesBlob, nextTransferFileName, recordBackupNow } from './core/workspaceTransfer';
+import { workspaceDefinitions } from './data/workspaces';
 import WorkspaceSelectScreen, { skipWorkspacePickerPreference } from './components/WorkspaceSelectScreen';
+import MigrationBackupPrompt from './components/MigrationBackupPrompt';
 import SettingsModal from './components/SettingsModal';
 import HookExhaustionWarningModal from './components/HookExhaustionWarningModal';
 import CachePromptModal from './components/CachePromptModal';
@@ -1151,6 +1154,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
  * state, before mounting the new workspace's tree.
  */
 export default function App() {
+  const [migrationPromptOpen, setMigrationPromptOpen] = useState(() => isMigrationPending());
+  const [migrationBackupBusy, setMigrationBackupBusy] = useState(false);
   const [workspaceId, setWorkspaceId] = useState<WorkspaceId | null>(() => {
     const skip = skipWorkspacePickerPreference();
     if (!skip) return null;
@@ -1159,12 +1164,28 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (migrationPromptOpen) return; // v4.1 (TASK A2 §4-3) -- wait for the user to back up (or explicitly skip) before an irreversible migration runs.
     void runWorkspaceMigrationOnce().catch(() => {
       // Migration failures are reported inside the resolved value, never
       // thrown (see workspaceMigration.ts) — this catch only guards against
       // an unexpected rejection so the app can never fail to render over it.
     });
-  }, []);
+  }, [migrationPromptOpen]);
+
+  async function handleMigrationBackupAndContinue() {
+    setMigrationBackupBusy(true);
+    try {
+      // Pre-migration, every real record is implicitly 'senior-oldpop'
+      // (scopeFilter's own default for untagged rows) — exportAllWorkspacesBlob()
+      // needs no special-casing to capture everything correctly here.
+      const blob = await exportAllWorkspacesBlob();
+      await downloadBlob(blob, nextTransferFileName('ALL'));
+      for (const ws of workspaceDefinitions) recordBackupNow(ws.id);
+    } finally {
+      setMigrationBackupBusy(false);
+      setMigrationPromptOpen(false);
+    }
+  }
 
   function handleSelectWorkspace(id: WorkspaceId) {
     setCurrentWorkspace(id);
@@ -1173,6 +1194,16 @@ export default function App() {
 
   function handleSwitchWorkspace() {
     setWorkspaceId(null);
+  }
+
+  if (migrationPromptOpen) {
+    return (
+      <MigrationBackupPrompt
+        busy={migrationBackupBusy}
+        onBackupAndContinue={() => void handleMigrationBackupAndContinue()}
+        onSkip={() => setMigrationPromptOpen(false)}
+      />
+    );
   }
 
   if (!workspaceId) {

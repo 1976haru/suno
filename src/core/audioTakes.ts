@@ -153,6 +153,21 @@ export async function migrateAudioTakesWorkspaceTags(): Promise<{ totalRecords: 
   return { totalRecords: all.length, taggedSeniorOldpop: all.filter(t => (t.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace, across every pack/song/channel (unlike getTakes(), which requires a filter). */
+export async function listAllTakesForWorkspace(workspaceId: WorkspaceId): Promise<AudioTake[]> {
+  const all = await withStore<AudioTake[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId);
+}
+
+/** v4.1 (TASK A2) — the import path's primitive: `takeId`-keyed, newest `analyzedAt` wins (spec §3-2). workspaceId is always stamped from the current workspace. */
+export async function putTakeIfNewer(take: AudioTake): Promise<'written' | 'skipped'> {
+  const workspaceId = currentWorkspaceId();
+  const existing = (await listAllTakesForWorkspace(workspaceId)).find(t => t.takeId === take.takeId);
+  if (existing && existing.analyzedAt >= take.analyzedAt) return 'skipped';
+  await withStore('readwrite', store => store.put({ ...take, workspaceId }));
+  return 'written';
+}
+
 /** Marks `takeId` adopted and un-adopts every other take of the same song (a trackNo/song only ever has one adopted take at a time — see this task's own AudioTake.adopted doc comment). */
 export async function setAdopted(takeId: string): Promise<void> {
   const all = await withStore<AudioTake[]>('readonly', store => store.getAll());

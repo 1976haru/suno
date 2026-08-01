@@ -57,9 +57,15 @@ export function setCurrentWorkspace(id: WorkspaceId): void {
   }
 }
 
-/** For a whole-blob key-value entry (localStorage, or a settingsStore record) — gives each workspace its own separate slot under the same logical key. */
-export function scopedKey(key: string): string {
-  return `${currentWorkspaceId()}::${key}`;
+/**
+ * For a whole-blob key-value entry (localStorage, or a settingsStore record)
+ * — gives each workspace its own separate slot under the same logical key.
+ * `forWorkspace` defaults to currentWorkspaceId(), same override pattern as
+ * scopeFilter() below — v4.1 (TASK A2)'s cross-workspace export/import needs
+ * to read/write a workspace that may not be the current one.
+ */
+export function scopedKey(key: string, forWorkspace: WorkspaceId = currentWorkspaceId()): string {
+  return `${forWorkspace}::${key}`;
 }
 
 /**

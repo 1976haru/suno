@@ -131,3 +131,17 @@ export async function migrateUsageLedgerWorkspaceTags(): Promise<{ totalRecords:
   }
   return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
+
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace regardless of the current one. Usage defaults to excluded from a workspace export (spec §1-1 "선택") — this is only called when the user opts in. */
+export async function listAllUsageForWorkspace(workspaceId: WorkspaceId): Promise<UsageRecord[]> {
+  const all = await withStore<UsageRecord[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId);
+}
+
+/** v4.1 (TASK A2) — the import path's primitive. `at` is regenerated (uniqueTimestamp()) rather than trusted verbatim from the source file whenever it would collide with an existing record in this workspace, so importing never silently drops a usage entry to a same-millisecond key clash. */
+export async function putUsageRecord(record: UsageRecord): Promise<void> {
+  const workspaceId = currentWorkspaceId();
+  const existing = await withStore<UsageRecord | undefined>('readonly', store => store.get(record.at));
+  const at = existing && existing.workspaceId !== workspaceId ? uniqueTimestamp() : record.at;
+  await withStore('readwrite', store => store.put({ ...record, at, workspaceId }));
+}

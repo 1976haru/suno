@@ -1,4 +1,4 @@
-import type { ChannelProfile } from '../types';
+import type { ChannelProfile, WorkspaceId } from '../types';
 import { scopedKey } from '../core/workspaceScope';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
@@ -89,4 +89,25 @@ export function writeStoredChannels(channels: ChannelProfile[]) {
   } catch {
     // Storage can be blocked in private or embedded browser contexts.
   }
+}
+
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace regardless of the current one. */
+export function readStoredChannelsForWorkspace(workspaceId: WorkspaceId): ChannelProfile[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(scopedKey(STORAGE_KEY, workspaceId)) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(item => normalizeChannel(item)).filter(channel => channel.id);
+  } catch {
+    return [];
+  }
+}
+
+/** v4.1 (TASK A2) — the import path's primitive: merges `incoming` into the CURRENT workspace's stored channels, skipping any id that already exists (spec §3-2 "같으면 건너뜀 — 사용자 설정을 지우지 않음"). Returns how many were actually added. */
+export function mergeStoredChannels(incoming: ChannelProfile[]): number {
+  const current = readStoredChannels();
+  const existingIds = new Set(current.map(c => c.id));
+  const additions = incoming.filter(c => !existingIds.has(c.id));
+  if (additions.length) writeStoredChannels([...current, ...additions]);
+  return additions.length;
 }

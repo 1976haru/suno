@@ -155,6 +155,12 @@ export function exportRatingsToJson(records: RatingRecord[]): string {
   return JSON.stringify(records, null, 2);
 }
 
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace regardless of the current one. */
+export async function listAllRatingsForWorkspace(workspaceId: WorkspaceId): Promise<RatingRecord[]> {
+  const all = await withStore<RatingRecord[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId);
+}
+
 /** v4.0 (TASK A1, migration) — additive-only, idempotent; see core/library.ts's migrateLibraryWorkspaceTags for the shared contract. */
 export async function migrateRatingLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
   const all = await withStore<RatingRecord[]>('readonly', store => store.getAll());

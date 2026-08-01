@@ -5,7 +5,17 @@ import { stripSetTitlePrefix } from '../utils/generation';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 const DB_NAME = 'suno-weaver-hooks';
-const DB_VERSION = 1;
+/**
+ * v4.1 (TASK A2) — bumped from 1 to 2 after real browser testing hit
+ * `VersionError: The requested version (1) is less than the existing
+ * version (2)` on a real, already-in-use profile — its physical
+ * `suno-weaver-hooks` database was already stamped at version 2 (this
+ * codebase's own git history shows the version constant itself was always
+ * 1, so this was a real runtime/on-disk state, not a reverted intentional
+ * bump). The upgrade handler below is unchanged and idempotent either way,
+ * so this is safe for both that profile and a fresh one still at version 1.
+ */
+const DB_VERSION = 2;
 const STORE = 'usage';
 
 export interface HookUsage {
@@ -283,6 +293,26 @@ export async function migrateHookLedgerWorkspaceTags(): Promise<{ totalRecords: 
     if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
   }
   return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
+}
+
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace regardless of the current one. */
+export async function listAllHooksForWorkspace(workspaceId: WorkspaceId): Promise<HookUsage[]> {
+  const all = await withStore<HookUsage[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId);
+}
+
+/**
+ * v4.1 (TASK A2) — the import path's primitive: union merge, "중복은 자연히
+ * 제거됨" (spec §3-2) — `id` is always RECONSTRUCTED from packId/trackNo and
+ * the CURRENT workspace (never trusted verbatim from the source file), so
+ * put()-ing the same hook twice (same pack/track) naturally overwrites
+ * itself rather than duplicating, and an id computed under a DIFFERENT
+ * workspace's prefix (cross-workspace import) lands correctly under this one.
+ */
+export async function putHookRecord(record: HookUsage): Promise<void> {
+  const workspaceId = currentWorkspaceId();
+  const stamped: HookUsage = { ...record, workspaceId, id: `${workspaceId}::${record.packId}:${record.trackNo}` };
+  await withStore('readwrite', store => store.put(stamped));
 }
 
 export async function clearChannelHistory(channelId: string): Promise<void> {

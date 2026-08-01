@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { listPacks } from '../core/library';
-import { exportPreMigrationBackup } from '../core/workspaceMigration';
-import { setCurrentWorkspace } from '../core/workspaceScope';
+import { currentWorkspaceId, setCurrentWorkspace } from '../core/workspaceScope';
 import { workspaceDefinitions, type WorkspaceDefinition } from '../data/workspaces';
 import type { WorkspaceId } from '../types';
+import DataManagementPanel from './DataManagementPanel';
 
 interface WorkspaceSelectScreenProps {
   onSelect: (id: WorkspaceId) => void;
@@ -32,6 +32,7 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
   const [stats, setStats] = useState<Partial<Record<WorkspaceId, WorkspaceCardStats>>>({});
   const [notReadyNotice, setNotReadyNotice] = useState<WorkspaceDefinition | null>(null);
   const [skipNextTime, setSkipNextTime] = useState(false);
+  const [dataManagementOpen, setDataManagementOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,16 +54,6 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
     setNotReadyNotice(null);
     if (skipNextTime) setSkipWorkspacePickerPreference(workspace.id);
     onSelect(workspace.id);
-  }
-
-  async function handleDataManagement() {
-    const blob = await exportPreMigrationBackup();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `suno-weaver-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   return (
@@ -113,11 +104,15 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
           <button type="button" title="워크스페이스를 먼저 선택하면 설정을 열 수 있습니다" disabled>
             설정
           </button>
-          <button type="button" onClick={() => void handleDataManagement()}>
-            데이터 관리 (백업 내보내기)
+          <button type="button" onClick={() => setDataManagementOpen(true)}>
+            데이터 관리
           </button>
         </div>
       </div>
+
+      {dataManagementOpen && (
+        <DataManagementPanel initialWorkspaceId={currentWorkspaceId()} onClose={() => setDataManagementOpen(false)} />
+      )}
     </div>
   );
 }

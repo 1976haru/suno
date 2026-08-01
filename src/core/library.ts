@@ -640,6 +640,40 @@ export async function migrateLibraryWorkspaceTags(): Promise<{ totalRecords: num
   return { totalRecords: all.length, taggedSeniorOldpop: all.filter(p => (p.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
+/**
+ * v4.1 (TASK A2) — export-oriented reads: the FULL pack record (blueprint +
+ * options included, unlike listPacks()'s meta-only shape), for one explicit
+ * workspace regardless of the current one. Never used by the wizard itself.
+ */
+export async function listFullPacksForWorkspace(workspaceId: WorkspaceId): Promise<SavedPack[]> {
+  const all = hasIndexedDb()
+    ? await withStore<SavedPack[]>('readonly', store => store.getAll())
+    : Array.from(memoryPacks.values());
+  return scopeFilter(all, workspaceId).map(normalizeSavedPack);
+}
+
+/**
+ * v4.1 (TASK A2) — writes a pack record exactly as given (no id
+ * regeneration, no autosave-slot rewriting) — the import path's own
+ * primitive. `workspaceId` is stamped from the CURRENT workspace, never from
+ * whatever the source file's pack happened to carry, since import always
+ * means "bring this into the workspace I'm in now".
+ */
+export async function putFullPack(pack: SavedPack): Promise<void> {
+  const stamped = { ...pack, workspaceId: currentWorkspaceId() };
+  if (!hasIndexedDb()) {
+    memoryPacks.set(stamped.id, stamped);
+    return;
+  }
+  await withStore('readwrite', store => store.put(stamped));
+}
+
+/** v4.1 (TASK A2) — the import merge key: spec's own "setName 기준" (a pack's own `name` field is the set's display name), scoped to the target workspace so importing into a different workspace never treats another workspace's same-named pack as a duplicate. */
+export async function findPackByName(workspaceId: WorkspaceId, name: string): Promise<SavedPack | undefined> {
+  const packs = await listFullPacksForWorkspace(workspaceId);
+  return packs.find(pack => pack.name === name);
+}
+
 export async function addConceptHistory(channelId: string, input: string): Promise<string[]> {
   const trimmed = input.trim();
   if (!trimmed) return getConceptHistory(channelId);

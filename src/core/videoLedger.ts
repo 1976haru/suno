@@ -156,6 +156,22 @@ export async function migrateVideoLedgerWorkspaceTags(): Promise<{ totalRecords:
   return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace, across every channel (unlike listVideos(), which requires one channelId). */
+export async function listAllVideosForWorkspace(workspaceId: WorkspaceId): Promise<VideoRecord[]> {
+  const all = await withStore<VideoRecord[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId);
+}
+
+/** v4.1 (TASK A2) — the import path's primitive: `packId`-keyed, newest `scheduledAt` wins (spec §3-2's "최신 우선" — VideoRecord has no separate updatedAt field). `id` is regenerated only if the incoming record's id would collide with a DIFFERENT pack's existing row; workspaceId is always stamped from the current workspace. */
+export async function putVideoRecordIfNewer(record: VideoRecord): Promise<'written' | 'skipped'> {
+  const workspaceId = currentWorkspaceId();
+  const existing = (await listAllVideosForWorkspace(workspaceId)).find(v => v.packId === record.packId);
+  if (existing && existing.scheduledAt >= record.scheduledAt) return 'skipped';
+  const stamped: VideoRecord = { ...record, workspaceId, id: existing?.id ?? record.id };
+  await withStore('readwrite', store => store.put(stamped));
+  return 'written';
+}
+
 export async function forgetVideosForPack(packId: string): Promise<void> {
   const all = await withStore<VideoRecord[]>('readonly', store => store.getAll());
   const ids = all.filter(v => v.packId === packId).map(v => v.id);

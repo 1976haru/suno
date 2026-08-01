@@ -100,6 +100,17 @@ function migrateLocalStorageKey(key: string): LocalStorageMigrationResult {
 }
 
 /**
+ * v4.1 (TASK A2, §4-3) — lets the caller show "먼저 백업을 저장해 주세요" BEFORE
+ * actually running the migration, without triggering it as a side effect of
+ * just checking. `runWorkspaceMigrationOnce()` itself still checks the same
+ * flag internally, so calling it after this always behaves correctly even
+ * if the caller never checks first.
+ */
+export function isMigrationPending(): boolean {
+  return !hasLocalStorage() || window.localStorage.getItem(MIGRATION_DONE_KEY) !== 'true';
+}
+
+/**
  * Runs once per browser profile (guarded by MIGRATION_DONE_KEY). Safe to
  * call on every app start — after the first successful run it's an
  * immediate no-op. Never throws: a mid-migration failure is reported in the
