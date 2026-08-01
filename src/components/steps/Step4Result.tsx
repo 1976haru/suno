@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, Copy, Download, FileText, Focus, Headphones, ListMusic, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, Copy, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -8,6 +8,8 @@ import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
+import AudioAnalysisPanel from '../AudioAnalysisPanel';
+import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
 import { buildSongTxt, copyText, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
@@ -26,7 +28,7 @@ import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
-export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt';
+export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -415,7 +417,20 @@ export default function Step4Result({
             <Captions size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             🎬 자막(SRT)
           </button>
+          <button type="button" className={resultTab === 'audio' ? 'tab active' : 'tab'} onClick={() => setResultTab('audio')}>
+            <Music2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            🎧 음원 분석
+          </button>
         </div>
+      )}
+
+      {blueprint && resultTab === 'audio' && (
+        <AudioAnalysisPanel
+          songs={blueprint.songs}
+          packId={packId}
+          channelId={opts.channel.id}
+          audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+        />
       )}
 
       {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (

@@ -2,7 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
 import type { GenrePack } from '../src/types';
+
+// TASK v3.72 (TASK A) — vocalTone: channel.defaultVocal used to mean
+// "usesVocalQuota() stays off, fall back to variedVocalText's own 18-entry
+// per-track rotation" (real measurement: still >=12 distinct openings, see
+// below). It now means "untouched, engage the auto register/delivery/
+// timbre/proximity quota" instead — whose register axis is capped at 2
+// occurrences per value (v3.72's own explicit requirement) across a 6-track
+// gender split, which can't reach the same raw distinct-opening count
+// variedVocalText's dedicated 18-slot pool did. This test is about
+// genreSignature/instrument opening diversity (see this file's own
+// docstring), not vocal diversity (already covered by tests/vocalPlan.test.ts),
+// so an explicit non-default vocalTone keeps its original intent testable.
+const EXPLICIT_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
 /**
  * TASK v3.56 Part 2/3/4 verification — the reported diagnosis was 1/18
@@ -46,7 +60,7 @@ function generatePack(channelId: string, songCount = 18) {
     genreIds: channel.preferredGenres,
     moodIds: channel.preferredMoods,
     seasonId: season.id,
-    vocalTone: channel.defaultVocal
+    vocalTone: EXPLICIT_VOCAL_TONE
   });
   return generateLocalBlueprint(opts, genres, moods, season);
 }

@@ -49,6 +49,8 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 62,
   tempoCeiling: 112,
   lyricWordRange: [200, 250],
+  /** v3.73 (TASK A) — 3:10-3:35, matching core/soundSignature.ts's own compactDuration() text for this archetype and the real-listening target TASK v3.71/v3.72 already measured against. */
+  songLengthSecondsRange: [190, 215],
   /**
    * v3.67 (TASK B) — real killing points need permission to bend exactly
    * these, and only at their own song's own killing-point location: a
@@ -109,6 +111,8 @@ export const GENERAL_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 60,
   tempoCeiling: 132,
   lyricWordRange: [180, 260],
+  /** v3.73 (TASK A) — a loose default (this profile spans teens/twenties/thirtiesForties/allAges/general on purpose, see this const's own doc comment) rather than a tight per-archetype target. */
+  songLengthSecondsRange: [150, 250],
   relaxableAtPeak: [],
   hardExclusions: []
 };
@@ -121,6 +125,8 @@ export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 92,
   tempoCeiling: 128,
   lyricWordRange: [120, 220],
+  /** v3.73 (TASK A) — 1:30-2:30, per this task's own spec. */
+  songLengthSecondsRange: [90, 150],
   relaxableAtPeak: [],
   hardExclusions: []
 };

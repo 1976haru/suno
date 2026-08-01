@@ -48,6 +48,22 @@ export interface RatingAttributes {
   lyricFrameId?: string;
   moneyChordId?: string;
   channelId: string;
+  /**
+   * v3.73 (TASK E) — measured from a real rendered mp3 (core/audioAnalysis.ts),
+   * not predicted from text. Undefined for the vast majority of ratings (only
+   * present when the user rated a song from the 음원 분석 panel, which already
+   * has the file decoded) — core/ratingAnalysis.ts's extractors treat an
+   * absent value as "excluded from that axis", same as every other optional
+   * attribute here.
+   */
+  audioMetrics?: {
+    durationSec: number;
+    peakPosition: number;
+    dynamicRange: number;
+    spectralCentroid: number;
+    lowBandRatio: number;
+    overallLevel: number;
+  };
 }
 
 export interface RatingRecord {
@@ -90,7 +106,7 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore
  * so it's testable without IndexedDB, and so the caller (the rating UI)
  * never has to know which SongIdea fields map to which attribute.
  */
-export function attributesFromSong(song: SongIdea, channelId: string): RatingAttributes {
+export function attributesFromSong(song: SongIdea, channelId: string, audioMetrics?: RatingAttributes['audioMetrics']): RatingAttributes {
   return {
     genreId: song.genreId || 'unknown',
     eraTag: song.eraTag,
@@ -104,7 +120,8 @@ export function attributesFromSong(song: SongIdea, channelId: string): RatingAtt
     segmentLabel: undefined,
     lyricFrameId: song.lyricFrameId,
     moneyChordId: song.moneyChordId,
-    channelId
+    channelId,
+    audioMetrics
   };
 }
 

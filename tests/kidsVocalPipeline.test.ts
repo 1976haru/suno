@@ -48,14 +48,33 @@ describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () 
     }
   });
 
-  it('non-kids channels never get vocalType, but do get vocalText from opts.vocalTone/defaultVocal (Part H)', () => {
+  // TASK v3.39 Part H's original point still holds unchanged: an explicit
+  // vocalTone (a user's deliberate single-preset pick, different from the
+  // channel's own defaultVocal) carries through verbatim to every song,
+  // never diluted.
+  it('an explicit non-default vocalTone carries through verbatim to every song, with no per-song vocalType (Part H)', () => {
     const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
-    const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id });
+    const explicitVocalTone = 'low calm male baritone, restrained emotional delivery, warm late-night tone';
+    const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id, vocalTone: explicitVocalTone });
     const slots = preallocateSongSlots(opts, seniorGenres);
     for (const slot of slots) {
       expect(slot.vocalType).toBeUndefined();
-      expect(slot.vocalText).toBe(opts.vocalTone?.trim() || seniorMorning.defaultVocal);
+      expect(slot.vocalText).toBe(explicitVocalTone);
     }
+  });
+
+  // TASK v3.72 (TASK A) — the real regression this task fixed: a non-kids
+  // channel with vocalTone left untouched (equal to the channel's own
+  // defaultVocal, e.g. never opened the voice picker) used to get this same
+  // single fallback string on every song. It now gets the auto 6/6/6-style
+  // quota instead, with real per-song vocalType/vocalText.
+  it('a non-kids channel with an UNTOUCHED vocalTone (still equal to defaultVocal) gets the auto quota, not one fixed string for every song', () => {
+    const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
+    const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id });
+    expect(opts.vocalTone).toBe(seniorMorning.defaultVocal);
+    const slots = preallocateSongSlots(opts, seniorGenres);
+    expect(slots.every(slot => slot.vocalType !== undefined)).toBe(true);
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
   });
 
   it('agrees with the local generation path on the same opts: identical per-trackNo vocalType', () => {

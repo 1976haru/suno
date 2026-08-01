@@ -4,7 +4,17 @@ import { scoreCatchiness } from '../src/core/openingContest';
 import { hookEmotionalWeight } from '../src/core/lyricEngine';
 import { SUNO_COPY_LIMIT } from '../src/core/promptBudget';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
 import type { LyricLanguage } from '../src/types';
+
+// TASK v3.72 (TASK A) — usesVocalQuota defaults to on for every archetype
+// now, so a bare makeOptions() (vocalTone left equal to channel.defaultVocal)
+// can land track 1 as a duet, which retags "[verse 1]" to
+// "[verse 1: male vocal]" (vocalPlan.ts's applyDuetSectionVocalTags) and
+// breaks a plain `.indexOf('[verse 1]')` search below. An explicit distinct
+// single-preset vocalTone keeps usesVocalQuota off for these structure-only
+// tests, same fix already applied to lyricEngine.test.ts/lyricBodyFidelity.test.ts.
+const SOLO_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
 const LANGUAGES: LyricLanguage[] = ['english', 'korean', 'japanese'];
 
@@ -15,7 +25,7 @@ describe('cold-open (TASK I1, v3.11)', () => {
   });
 
   it('hook-forward: lyrics have a [cold open] section with the hook, before [verse 1]', () => {
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 3, openingStyle: 'hook-forward' }), testGenres, testMoods, testSeason);
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 3, openingStyle: 'hook-forward', vocalTone: SOLO_VOCAL_TONE }), testGenres, testMoods, testSeason);
     const song = bp.songs[0];
     expect(song.openingStyle).toBe('hook-forward');
     expect(song.lyrics).toContain('[cold open]');

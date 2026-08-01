@@ -2,10 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
+
+// TASK v3.72 (TASK A) — explicit non-default vocalTone so usesVocalQuota()
+// stays off and every song keeps a single detectable male-vocal phrase
+// (what this test's own final assertion checks), instead of the new default
+// 4-axis quota putting some tracks in female/duet registers with no
+// "male|tenor|baritone" word at all.
+const SOLO_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
 describe('v3.53 vocal and genre diversity completion', () => {
   it('produces at least 12 distinct style openings in an 18-song local pack', () => {
-    const blueprint = generateLocalBlueprint(makeOptions({ songCount: 18 }), testGenres, testMoods, testSeason);
+    const blueprint = generateLocalBlueprint(makeOptions({ songCount: 18, vocalTone: SOLO_VOCAL_TONE }), testGenres, testMoods, testSeason);
     const starts = new Set(blueprint.songs.map(song => song.stylePrompt.split(',').slice(0, 2).join(',').trim().toLowerCase()));
     const report = lintInPackStyleSimilarity(blueprint.songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
     expect(starts.size).toBeGreaterThanOrEqual(12);

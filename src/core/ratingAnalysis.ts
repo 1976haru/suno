@@ -52,6 +52,33 @@ function bpmBucketLabel(bpm: number): string {
   return `${low}~${low + BPM_BUCKET_WIDTH - 1} BPM`;
 }
 
+/**
+ * v3.73 (TASK E) — same uniform-bucket-width pattern as bpmBucketLabel above,
+ * applied to the two continuous audio measurements the spec's own example
+ * output calls out (§5-2: "진폭 6dB 이상...", "스펙트럼 중심 2500Hz 이상...").
+ * A fixed bucket width (not the spec's illustrative >=/< threshold framing)
+ * keeps this consistent with every other continuous axis in this file.
+ *
+ * Label uses a half-open `low~low+width` (e.g. "6~8dB" covers [6,8)), unlike
+ * bpmBucketLabel's `low~low+width-1` — BPM is effectively integer already,
+ * but dB/Hz measurements are real-valued, and `76~87` implying "never 88"
+ * would misdescribe a bucket that actually contains 87.4.
+ */
+const DYNAMIC_RANGE_BUCKET_WIDTH_DB = 2;
+const SPECTRAL_CENTROID_BUCKET_WIDTH_HZ = 500;
+/** peakPosition >= 0.75 — same threshold core/audioSetReport.ts uses for "an audible late lift". */
+const LATE_PEAK_THRESHOLD = 0.75;
+
+function dynamicRangeBucketLabel(dynamicRangeDb: number): string {
+  const low = Math.floor(dynamicRangeDb / DYNAMIC_RANGE_BUCKET_WIDTH_DB) * DYNAMIC_RANGE_BUCKET_WIDTH_DB;
+  return `${low}~${low + DYNAMIC_RANGE_BUCKET_WIDTH_DB}dB`;
+}
+
+function spectralCentroidBucketLabel(centroidHz: number): string {
+  const low = Math.floor(centroidHz / SPECTRAL_CENTROID_BUCKET_WIDTH_HZ) * SPECTRAL_CENTROID_BUCKET_WIDTH_HZ;
+  return `${low}~${low + SPECTRAL_CENTROID_BUCKET_WIDTH_HZ}Hz`;
+}
+
 const ARC_PHASE_LABELS_KO: Record<string, string> = {
   opening: '도입부',
   rising: '상승부',
@@ -93,7 +120,13 @@ const SINGLE_ATTRIBUTE_EXTRACTORS: Record<string, (record: RatingRecord) => stri
   earwormVariantId: record => record.attributes.earwormVariantId,
   segmentLabel: record => record.attributes.segmentLabel,
   lyricFrameId: record => record.attributes.lyricFrameId,
-  moneyChordId: record => record.attributes.moneyChordId
+  moneyChordId: record => record.attributes.moneyChordId,
+  // v3.73 (TASK E) — only present for ratings recorded from the 음원 분석
+  // panel (real decoded mp3), so these three are excluded from the vast
+  // majority of ratings rather than treated as zero/blank.
+  audioDynamicRange: record => (record.attributes.audioMetrics ? dynamicRangeBucketLabel(record.attributes.audioMetrics.dynamicRange) : undefined),
+  audioSpectralCentroid: record => (record.attributes.audioMetrics ? spectralCentroidBucketLabel(record.attributes.audioMetrics.spectralCentroid) : undefined),
+  audioLatePeak: record => (record.attributes.audioMetrics ? (record.attributes.audioMetrics.peakPosition >= LATE_PEAK_THRESHOLD ? '후반 상승 있음' : '후반 상승 없음') : undefined)
 };
 
 /** Attribute pairs worth checking together — deliberately a short, named list rather than every possible pairwise combination (this task's own "조합 분석은 표본이 급격히 줄어듭니다" warning; an unbounded combinatorial sweep would multiply that problem, not just tolerate it). */

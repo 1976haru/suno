@@ -3,7 +3,14 @@ import { generateLocalBlueprint, rebuildStylePromptsForPersonaMode } from '../sr
 import { buildPersonaStylePrompt, buildSoundSignature, PERSONA_STYLE_LIMIT, type SoundSignature } from '../src/core/soundSignature';
 import { SUNO_COPY_LIMIT } from '../src/core/promptBudget';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
 import type { LyricLanguage } from '../src/types';
+
+// TASK v3.72 (TASK A) — an explicit vocalTone different from the channel's
+// own defaultVocal, so usesVocalQuota() stays off and every song keeps this
+// exact string verbatim (what "keeps vocal text on every track" tests
+// below actually mean to check) instead of the new default 4-axis quota.
+const SOLO_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
 function personaBlueprint(language: LyricLanguage = 'english') {
   const opts = makeOptions({ personaMode: true, songCount: 30, lyricLanguage: language });
@@ -223,7 +230,7 @@ describe('persona mode prompt compression', () => {
   });
 
   it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps vocal text on every track when persona mode is off (%s)', language => {
-    const opts = makeOptions({ personaMode: false, songCount: 12, lyricLanguage: language });
+    const opts = makeOptions({ personaMode: false, songCount: 12, lyricLanguage: language, vocalTone: SOLO_VOCAL_TONE });
     const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
     for (const song of blueprint.songs) {
       expect(song.stylePrompt).toContain(opts.vocalTone);

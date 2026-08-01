@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { vocalPresets } from '../src/data/vocalPresets';
+
+// TASK v3.72 (TASK A) — an explicit vocalTone different from the channel's
+// defaultVocal, so usesVocalQuota() stays off and "channel vocal identity"
+// stays literally one fixed phrase (what this test means to check) instead
+// of the new default 4-axis quota diversifying it on purpose.
+const SOLO_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
 describe('v3.52 concept and vocal diversity', () => {
   it('injects four mapped concepts into both style prompts and lyric imagery', () => {
@@ -25,11 +32,11 @@ describe('v3.52 concept and vocal diversity', () => {
   });
 
   it('varies style-prompt starts across an 18-song pack while preserving channel vocal identity', () => {
-    const blueprint = generateLocalBlueprint(makeOptions({ songCount: 18, customConcept: '아침 카페' }), testGenres, testMoods, testSeason);
+    const blueprint = generateLocalBlueprint(makeOptions({ songCount: 18, customConcept: '아침 카페', vocalTone: SOLO_VOCAL_TONE }), testGenres, testMoods, testSeason);
     const starts = new Set(blueprint.songs.map(song => song.stylePrompt.split(',').slice(0, 2).join(',').toLowerCase()));
     const report = lintInPackStyleSimilarity(blueprint.songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
     expect(starts.size).toBeGreaterThanOrEqual(3);
-    expect(blueprint.songs.every(song => song.stylePrompt.includes('mature soulful male tenor'))).toBe(true);
+    expect(blueprint.songs.every(song => song.stylePrompt.includes(SOLO_VOCAL_TONE))).toBe(true);
     expect(report.averageSimilarity).toBeLessThan(0.4);
   });
 

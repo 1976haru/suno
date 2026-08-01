@@ -78,6 +78,16 @@ export interface AudienceProfile {
   tempoCeiling: number;
   lyricWordRange: [number, number];
   /**
+   * v3.73 (TASK A) — target rendered-song length in seconds, for
+   * core/audioSetReport.ts to judge a real mp3's duration against (audio
+   * analysis has no other source of a "target length" — GenerationOptions'
+   * own `durationTarget` is a request-text field, not a numeric per-audience
+   * range). Deliberately separate from lyricWordRange: word count and actual
+   * Suno render length are exactly the two things v3.71/v3.72's own real
+   * measurements showed can diverge.
+   */
+  songLengthSecondsRange: [number, number];
+  /**
    * v3.67 (TASK B) — the subset of `exclusions` a track's own killing point
    * (see data/killingPoints.ts) may relax, once per song, only at that
    * song's own killing-point location — never pack-wide, and never for a
