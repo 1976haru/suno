@@ -42,6 +42,7 @@ import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } f
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
 import { buildArcPlan, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
+import { resolveConstraintsFromOptions } from './constraints';
 
 export type { PreassignedSongSlot };
 
@@ -92,7 +93,6 @@ export function preallocateSongSlots(
   // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, mirroring
   // localGenerator.ts's own emotionArcPlanForArc call (same seed).
   const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
-  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
   // TASK v3.60 (TASK C) — this pre-pass feeds the realtime/Batch/bridge
   // paths (this whole function's own docstring), which measured BPM 96-104
   // (stddev ~2.2) on a real bridge pack because averageTempo() was still
@@ -102,6 +102,10 @@ export function preallocateSongSlots(
   // localGenerator.ts's own generateLocalBlueprint pre-pass exactly (same
   // seed) so the bridge/Batch path's BPM spread matches the local path's.
   const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  // v4.2 (TASK A3) — mirrors localGenerator.ts's own generateLocalBlueprint:
+  // one ResolvedConstraints instance feeding this path's own title generation.
+  const constraints = resolveConstraintsFromOptions(opts, audienceProfile);
+  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype, constraints);
   const tempoBands = tempoBandsForProfile(audienceProfile);
   const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
   // TASK I2 (v3.11) — the Batch API path is local-then-submit (this whole
@@ -245,7 +249,7 @@ export function preallocateSongSlots(
     const trackNo = idx + 1;
     const songRole = songRoles[idx];
     const { title, hook } = trackNo <= 3
-      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext)
+      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext, 3, false, constraints)
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalText = vocalType

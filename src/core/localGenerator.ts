@@ -15,7 +15,7 @@ import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
-import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
+import { audienceProfileForAgeGroup, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
@@ -47,6 +47,7 @@ import {
   type TitleGenerator,
   type TitleResult
 } from './lyricEngine';
+import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
 import { buildArcPlan, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
@@ -259,7 +260,9 @@ export function nextContestedTitle(
   packContext: OpeningPackContext,
   k = 3,
   /** v3.15 — see types.ts's GenerationOptions.earwormMode; threaded straight into runOpeningContest's scoring weight. */
-  earwormMode = false
+  earwormMode = false,
+  /** v4.2 (TASK A3) — the same ResolvedConstraints instance the caller built `gen` with (see createTitleGenerator's own constraints param) — title-pattern selection must agree with the rest of the pack's own generator state, so this is never independently re-resolved here. */
+  constraints?: ResolvedConstraints
 ): TitleResult {
   const idx = gen.index;
   const shape = gen.shapeSequence[idx % gen.shapeSequence.length] ?? HOOK_SHAPES[idx % HOOK_SHAPES.length];
@@ -273,7 +276,8 @@ export function nextContestedTitle(
   };
   const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k, earwormMode);
   gen.usedHooks.add(winner.hook.phrase);
-  const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles, archetype);
+  const resolvedConstraints = constraints ?? resolveConstraintsFromOptions({ projectTitle: 'Set Plan', songCount: gen.shapeSequence.length, channel: { archetype } }, archetype === 'kids' ? KIDS_AUDIENCE_PROFILE : SENIOR_AUDIENCE_PROFILE);
+  const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles, resolvedConstraints, gen.patternUsage);
   gen.usedTitles.add(title);
   gen.index += 1;
   return { title, hook: winner.hook.phrase };
@@ -663,6 +667,12 @@ export function generateLocalBlueprint(
   // spread across the audience profile's own tempo range instead of only
   // from which genre happened to be assigned per track.
   const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  // v4.2 (TASK A3) — the single ResolvedConstraints instance this whole
+  // blueprint's title generation (createTitleGenerator/nextContestedTitle
+  // below) reads from; see core/constraints.ts's own top doc comment for
+  // why this is re-derived from opts.customConcept rather than sharing the
+  // exact object core/setDirector.ts built for the same concept text.
+  const constraints = resolveConstraintsFromOptions(opts, audienceProfile);
   const tempoBands = tempoBandsForProfile(audienceProfile);
   // TASK v3.67 (TASK C) — an 18-song curve instead of flat intensity: the
   // arc's own intensity ranking reorders (never recomputes — see
@@ -699,7 +709,7 @@ export function generateLocalBlueprint(
   // up front. Undefined for genres without an entry — composeLyrics falls
   // back to the generic filler pool in that case, unchanged from before v3.13.
   const genreFlavorImages = genres[0]?.lyricFlavorImages?.map(image => phraseFor(image, opts.lyricLanguage));
-  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype);
+  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype, constraints);
   const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase);
   const packMotif = recurringMotifs[seed % recurringMotifs.length];
   // TASK I2 (v3.11) — "팩에서 고른 moodIds/genreIds" per the brief: the plain
@@ -814,7 +824,7 @@ export function generateLocalBlueprint(
     // state (usedHooks/usedTitles/index) nextTitle(role) would have, so
     // later tracks can never collide with a contest-picked hook.
     const { title, hook } = trackNo <= 3
-      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, role, role === 'cold-open' ? 'cold-open' : 'flagship', openingPackContext, 3, opts.earwormMode)
+      ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, role, role === 'cold-open' ? 'cold-open' : 'flagship', openingPackContext, 3, opts.earwormMode, constraints)
       : nextTitle(role);
     const openingStyle = role === 'cold-open' ? resolveOpeningStyle(opts.openingStyle, opts.channel.archetype) : undefined;
     const situationOption = situationPool.take();

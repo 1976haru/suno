@@ -70,8 +70,20 @@ export interface ChannelProfile {
  * the mechanical half of this; AudienceProfile resolves the other half by
  * giving channel identity its own always-on, genre-independent home).
  */
+/**
+ * v4.2 (TASK A3) — 'five-phase' is the existing opening-rising-peak-easing-
+ * closing set-level curve (core/arcPlan.ts), unchanged. 'repetition-cycle'
+ * is new and for children's-song workspaces only (see AudienceProfile.arcModelId's
+ * own doc comment) — no set-level 5-phase curve is imposed; a single song's
+ * own internal repetition is what matters instead. Not yet implemented
+ * (arcPlan.ts still only ever builds a five-phase curve) — this is the type
+ * D1/E1/F1 will switch on once a real repetition-cycle builder exists.
+ */
+export type ArcModelId = 'five-phase' | 'repetition-cycle';
+
 export interface AudienceProfile {
-  id: 'senior' | 'general' | 'kids';
+  /** v4.2 (TASK A3) — widened from the closed 'senior'|'general'|'kids' union so workspace-scoped profiles (e.g. 'kr-2030-emotional', 'kids-0to2') can exist without extending this union for every new one; every existing `=== 'senior'`/`=== 'kids'` comparison still works unchanged since those are still the literal ids in use. */
+  id: string;
   labelKo: string;
   /** Woven into every song's style prompt regardless of genre (non-essential/droppable under hard budget pressure, same as any other style atom — never a new promptBudget.ts "never drop" category). */
   constraints: string[];
@@ -111,6 +123,29 @@ export interface AudienceProfile {
    * nothing becomes relaxable merely by omission.
    */
   hardExclusions: string[];
+
+  /**
+   * v4.2 (TASK A3, TASK E) — the seven fields below let a whole workspace's
+   * generation "shape" (which killing points, structure templates, title
+   * patterns, vocabulary, arc curve) be swapped by picking a different
+   * AudienceProfile, instead of new workspace support meaning new branches
+   * inside core/*.ts (see this task's own §11 "코드 수정 없이 데이터만
+   * 추가하면 되어야 합니다"). Only `senior` is fully wired end-to-end today
+   * (killingPointSetId/structureTemplateSetId are id-only — no actual
+   * per-workspace killing-point/structure-template SET exists yet, since
+   * there is still only ever one KILLING_POINTS array and one T1-T5
+   * template list; a real multi-set split is B1/D1's job, not this task's).
+   */
+  killingPointSetId: string;
+  /** See ArcModelId's own doc comment. */
+  arcModelId: ArcModelId;
+  structureTemplateSetId: string;
+  /** data/titlePatterns.ts pattern-set id this profile draws from — today every profile shares the same one adult-English pattern list (see core/constraints.ts's buildTitleConstraint), so this is informational until a workspace needs its own set (§4-6). */
+  titlePatternSetId: string;
+  /** data/vocabularyBanks.ts VocabularyBank ids this profile draws from by default (before era-based narrowing — see core/constraints.ts's buildVocabularyConstraint). */
+  vocabularyBankIds: string[];
+  /** D1's safety policy (children's workspaces) reads this; undefined for every non-children profile. */
+  safetyPolicyId?: string;
 }
 
 export interface GenreLyricFlavorImage {

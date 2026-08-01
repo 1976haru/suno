@@ -13,7 +13,7 @@ import type { SongIdea } from '../types';
 const SECTION_TAG_LINE_PATTERN = /^\s*\[[^\]]*\]\s*$/;
 const WORD_PATTERN = /[a-z']+/gi;
 
-const STOPWORDS = new Set([
+export const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'but', 'or', 'in', 'on', 'at', 'to', 'of', 'for', 'with', 'is', 'are',
   'was', 'were', 'my', 'your', 'his', 'her', 'their', 'our', 'this', 'that', 'these', 'those', 'it',
   'its', 'i', 'you', 'he', 'she', 'we', 'they', 'as', 'so', 'if', 'not', 'no', 'do', 'does', 'did',
@@ -78,4 +78,40 @@ export function topWordFrequencies(songs: Pick<SongIdea, 'lyrics'>[], limit = 20
     .map(([word, count]) => ({ word, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+}
+
+export interface HookWordOveruseFinding {
+  word: string;
+  /** Number of DISTINCT hooks (not raw occurrences) this word appears in. */
+  hookCount: number;
+}
+
+/**
+ * v4.2 (TASK A3 / TASK D) — new check per this task's own §5-2 "훅에서의
+ * 반복: 같은 단어가 훅 3개 이상에 등장하면 advisory". Real measurement: "every"
+ * appeared in 3 of 18 hooks ("Every Light Tonight" / "Every Mile Tells
+ * More" / "Open Every Window"). Distinct from findExcessiveVocabularyRepetition
+ * above, which counts raw word occurrences across LYRIC BODIES; this counts
+ * DISTINCT HOOKS a word appears in — a word can be pack-wide-common without
+ * ever anchoring 3+ different hooks, and vice versa for a rare word that
+ * happens to anchor several hooks.
+ */
+export function findHookWordOveruse(songs: Pick<SongIdea, 'hookPhrase'>[], minHooks = 3): HookWordOveruseFinding[] {
+  const hookIndexesByWord = new Map<string, Set<number>>();
+  songs.forEach((song, idx) => {
+    const words = new Set(
+      ((song.hookPhrase ?? '').toLowerCase().match(WORD_PATTERN) ?? [])
+        .map(raw => raw.replace(/'+$/, '').replace(/^'+/, ''))
+        .filter(word => word && word.length >= 3 && !STOPWORDS.has(word))
+    );
+    for (const word of words) {
+      if (!hookIndexesByWord.has(word)) hookIndexesByWord.set(word, new Set());
+      hookIndexesByWord.get(word)!.add(idx);
+    }
+  });
+  const findings: HookWordOveruseFinding[] = [];
+  for (const [word, idxSet] of hookIndexesByWord) {
+    if (idxSet.size >= minHooks) findings.push({ word, hookCount: idxSet.size });
+  }
+  return findings.sort((a, b) => b.hookCount - a.hookCount);
 }

@@ -33,10 +33,19 @@ describe('[v3.58 TASK 5-6] weak title/hook noun-overlap check', () => {
     expect(result.warnings.some(w => w.includes('shares no word with the hook'))).toBe(true);
   });
 
-  it('a real locally generated pack never triggers the overlap warning (titleFromHook always keeps at least one hook word, or Korean/Japanese titles are the hook itself)', () => {
+  it('a real locally generated pack rarely triggers the overlap warning (most titles still share a hook word; a minority may not, by design)', () => {
+    // v4.2 (TASK A3) — pre-A3, EVERY title pattern derived from the hook
+    // itself (compressed image, verbatim, prefix/suffix), so zero-overlap
+    // never happened. TASK C added genuinely hook-independent title
+    // patterns (e.g. "question" — "Do You Remember", matching how real
+    // 1960s/70s song titles often differ from their hook line) — some
+    // zero-overlap is now expected, and titleHookOverlapWarning is
+    // deliberately zero-score-penalty/advisory-only for exactly this
+    // reason (see this describe block's own TASK v3.58 comment). This
+    // guards against the OTHER failure mode: every title losing its hook
+    // connection.
     const bp = generateLocalBlueprint(makeOptions({ songCount: 18 }), testGenres, testMoods, testSeason);
-    for (const song of bp.songs) {
-      expect(song.warnings.some(w => w.includes('shares no word with the hook')), `${song.title} / ${song.hookPhrase}`).toBe(false);
-    }
+    const overlapWarningCount = bp.songs.filter(song => song.warnings.some(w => w.includes('shares no word with the hook'))).length;
+    expect(overlapWarningCount, `${overlapWarningCount}/${bp.songs.length} songs had zero title/hook overlap`).toBeLessThan(bp.songs.length / 2);
   });
 });

@@ -90,7 +90,13 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     'harsh bright top end',
     'excessive reverb washing out the vocal',
     'dense syncopation that obscures the melody'
-  ]
+  ],
+  /** v4.2 (TASK A3) — the only profile fully wired end-to-end; see AudienceProfile's own doc comment for what these ids/sets do and don't do yet. */
+  killingPointSetId: 'senior-oldpop-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: ['1960s-youth', '1970s-domestic', 'seasonal', 'emotional']
 };
 
 /**
@@ -114,7 +120,12 @@ export const GENERAL_AUDIENCE_PROFILE: AudienceProfile = {
   /** v3.73 (TASK A) — a loose default (this profile spans teens/twenties/thirtiesForties/allAges/general on purpose, see this const's own doc comment) rather than a tight per-archetype target. */
   songLengthSecondsRange: [150, 250],
   relaxableAtPeak: [],
-  hardExclusions: []
+  hardExclusions: [],
+  killingPointSetId: 'senior-oldpop-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: []
 };
 
 export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
@@ -128,8 +139,175 @@ export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
   /** v3.73 (TASK A) — 1:30-2:30, per this task's own spec. */
   songLengthSecondsRange: [90, 150],
   relaxableAtPeak: [],
-  hardExclusions: []
+  hardExclusions: [],
+  killingPointSetId: 'senior-oldpop-default',
+  arcModelId: 'repetition-cycle',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: []
 };
+
+/**
+ * v4.2 (TASK A3, TASK E) — skeletons only, per this task's own §6-2 "senior
+ * 외 프로파일의 실제 값을 채우지 말 것. 골격만." Real
+ * constraints/exclusions/tempo/vocabulary/killing-points are B1 (kr-2030)/
+ * C1 (jp-2030)/D1+E1 (kr-kids)/F1 (jp-kids)'s job — these exist now only so
+ * WorkspaceDefinition.defaultAudienceProfileId has real ids to eventually
+ * point at (see data/workspaces/index.ts's own "A3 fills in
+ * defaultAudienceProfileId properly" comment) and so AudienceProfile's
+ * per-workspace field shape is proven out against more than one real
+ * profile before those tasks build on it. Placeholder values below borrow
+ * the closest existing profile's numbers (general for the 20s/30s pair,
+ * kids for the three age bands) rather than inventing untested ranges.
+ */
+const KR_2030_EMOTIONAL_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kr-2030-emotional',
+  labelKo: '한국 2030 감성 팝록·R&B',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 60,
+  tempoCeiling: 132,
+  lyricWordRange: [180, 260],
+  songLengthSecondsRange: [150, 250],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'kr-2030-emotional-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: []
+};
+
+const KR_2030_ELECTRO_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kr-2030-electro',
+  labelKo: '한국 2030 일렉트로팝',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 60,
+  tempoCeiling: 132,
+  lyricWordRange: [180, 260],
+  songLengthSecondsRange: [150, 250],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'kr-2030-electro-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: []
+};
+
+const JP_2030_MELODIC_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'jp-2030-melodic',
+  labelKo: '일본 2030 J-pop/J-rock',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 60,
+  tempoCeiling: 132,
+  lyricWordRange: [180, 260],
+  songLengthSecondsRange: [150, 250],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'jp-2030-melodic-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: []
+};
+
+const JP_2030_ANIME_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'jp-2030-anime',
+  labelKo: '일본 2030 애니송',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 60,
+  tempoCeiling: 132,
+  lyricWordRange: [180, 260],
+  songLengthSecondsRange: [150, 250],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'jp-2030-anime-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: []
+};
+
+const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kids-0to2',
+  labelKo: '동요 0~2세',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 60,
+  tempoCeiling: 100,
+  lyricWordRange: [20, 60],
+  songLengthSecondsRange: [60, 120],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'kids-default',
+  arcModelId: 'repetition-cycle',
+  structureTemplateSetId: 'kids-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  safetyPolicyId: 'kids-safety-default'
+};
+
+const KIDS_2_TO_4_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kids-2to4',
+  labelKo: '동요 2~4세',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 100,
+  tempoCeiling: 130,
+  lyricWordRange: [40, 90],
+  songLengthSecondsRange: [90, 150],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'kids-default',
+  arcModelId: 'repetition-cycle',
+  structureTemplateSetId: 'kids-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  safetyPolicyId: 'kids-safety-default'
+};
+
+const KIDS_4_TO_7_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kids-4to7',
+  labelKo: '동요 4~7세',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 105,
+  tempoCeiling: 140,
+  lyricWordRange: [60, 120],
+  songLengthSecondsRange: [90, 150],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'kids-default',
+  arcModelId: 'repetition-cycle',
+  structureTemplateSetId: 'kids-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  safetyPolicyId: 'kids-safety-default'
+};
+
+/** v4.2 (TASK A3) — every provisional/skeleton profile, for lookup by id (data/workspaces/index.ts's defaultAudienceProfileId, once B1/C1/D1/E1/F1 point at these instead of 'general'/'kids'). */
+export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
+  KR_2030_EMOTIONAL_AUDIENCE_PROFILE,
+  KR_2030_ELECTRO_AUDIENCE_PROFILE,
+  JP_2030_MELODIC_AUDIENCE_PROFILE,
+  JP_2030_ANIME_AUDIENCE_PROFILE,
+  KIDS_0_TO_2_AUDIENCE_PROFILE,
+  KIDS_2_TO_4_AUDIENCE_PROFILE,
+  KIDS_4_TO_7_AUDIENCE_PROFILE
+];
+
+export const ALL_AUDIENCE_PROFILES: AudienceProfile[] = [
+  SENIOR_AUDIENCE_PROFILE,
+  ...PROVISIONAL_AUDIENCE_PROFILES
+];
+
+export function audienceProfileById(id: string): AudienceProfile | undefined {
+  return ALL_AUDIENCE_PROFILES.find(profile => profile.id === id) ?? [GENERAL_AUDIENCE_PROFILE, KIDS_AUDIENCE_PROFILE].find(profile => profile.id === id);
+}
 
 const AUDIENCE_PROFILE_BY_AGE_GROUP: Record<AgeGroup, AudienceProfile> = {
   seniors: SENIOR_AUDIENCE_PROFILE,

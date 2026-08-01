@@ -2,6 +2,15 @@ import type { ChannelArchetype, GenerationOptions, LyricLanguage, SeasonPack, So
 import { defaultHookParts, resolveHookParts, type HookPartBank } from '../data/hookParts';
 import { overrideForArchetype } from '../data/hookBanks';
 import { stripSetTitlePrefix } from '../utils/generation';
+import { hashSeed, mulberry32, shuffle } from '../utils/prng';
+import { resolveConstraints, type ResolvedConstraints } from './constraints';
+import { TITLE_PATTERNS, uniqueTitle } from '../data/titlePatterns';
+import { KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE } from '../data/audienceProfiles';
+
+// v4.2 (TASK A3) — re-exported so every existing `from './lyricEngine'`
+// import of these three stays valid; see utils/prng.ts's own doc comment for
+// why the definitions moved there.
+export { hashSeed, shuffle };
 
 export interface LyricLineCtx {
   season: string;
@@ -13,36 +22,6 @@ export interface LyricLineCtx {
 }
 
 type LineTemplate = (ctx: LyricLineCtx) => string[];
-
-export function hashSeed(text: string) {
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function mulberry32(seed: number) {
-  let state = seed >>> 0;
-  return function next() {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-export function shuffle<T>(items: T[], seed: number): T[] {
-  const rng = mulberry32(seed);
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
 
 export class UniquePool<T> {
   private available: T[];
@@ -1051,24 +1030,6 @@ export interface HookContext {
   archetype?: ChannelArchetype;
 }
 
-// Time words also serve as an optional one-word title prefix for English
-// nounPhrase hooks (see titleFromHook) — kept here rather than duplicated.
-const enTimeWords = ['Winter', 'Golden', 'Quiet', 'Old December', 'First Snow', 'Slow Sunday', 'Midnight', 'Soft Christmas', 'Rainy Afternoon', 'New Year'];
-
-/**
- * TASK v3.27 (Part A4, low priority) — a second title shape for English
- * nounPhrase hooks: a contrast/concession suffix ("<hook>, Still" / "<hook>,
- * After All") instead of only a leading word. Purely additive scope: still
- * English + nounPhrase only, still always keeps the hook phrase verbatim (a
- * comma-appended qualifier, unlike a leading adjective, reads naturally after
- * any noun phrase without needing real NLP). The real, general fix for
- * pack-wide title monotony is GenerationOptions.titleMode='ai-creative'
- * (default) — this local/offline fallback path stays deliberately narrow
- * rather than risk the double-genitive class of bug the docstring on
- * titleFromHook below already warns about for Korean/Japanese.
- */
-const enContrastWords = ['Still', 'After All', 'Even Now', 'Anyway', 'Somehow'];
-
 // Vocative hooks only ever address a person/abstract noun, never an object —
 // H3's entire bug class is prevented by simply never parameterizing this
 // bank with the object-word list used elsewhere.
@@ -1440,133 +1401,100 @@ export function hookPoolSizeByShape(language: LyricLanguage, archetype?: Channel
   return out;
 }
 
-function hasWordOverlap(language: LyricLanguage, ...parts: (string | null)[]): boolean {
-  const filtered = parts.filter((part): part is string => Boolean(part));
-  if (language === 'japanese') {
-    // Japanese has no whitespace word boundaries, so compare by substring containment instead.
-    for (let i = 0; i < filtered.length; i++) {
-      for (let j = 0; j < filtered.length; j++) {
-        if (i !== j && filtered[i].length >= 2 && filtered[j].includes(filtered[i])) return true;
-      }
-    }
-    return false;
+/**
+ * v4.2 (TASK A3 / TASK C) — weighted, era-filtered, cap-respecting pattern
+ * pick from data/titlePatterns.ts's TITLE_PATTERNS. Replaces the old fixed
+ * probability-roll cascade (image-pair 45-80% of the time, everything else
+ * a leftover) — see titlePatterns.ts's own doc comment for the real
+ * measurement that motivated this. `patternUsage` is mutated in place
+ * (maxPerPattern is a cross-song constraint, not a per-call one) only on a
+ * successful pick.
+ */
+function pickTitleFromPatterns(
+  hook: HookSpec,
+  seed: number,
+  usedTitles: Set<string>,
+  constraints: ResolvedConstraints,
+  patternUsage: Map<string, number>
+): string | null {
+  const era = constraints.era;
+  const eligible = TITLE_PATTERNS.filter(pattern => {
+    if (constraints.title.forbiddenPatterns.includes(pattern.id)) return false;
+    if ((patternUsage.get(pattern.id) ?? 0) >= constraints.title.maxPerPattern) return false;
+    if (era.unspecified || !pattern.fitsEras?.length) return true;
+    return pattern.fitsEras.includes(era.primary) || era.adjacent.some(adjacent => pattern.fitsEras!.includes(adjacent.era));
+  });
+  if (!eligible.length) return null;
+
+  // Weighted shuffle: each pattern appears in the pre-shuffle pool
+  // round(weight * 4) times (min 1), so a weight-1 pattern still gets a fair
+  // turn against a weight-0.5 one (image-pair — see buildTitleConstraint)
+  // without needing a full cumulative-distribution draw.
+  const pool: typeof TITLE_PATTERNS = [];
+  for (const pattern of eligible) {
+    const weight = Math.max(1, Math.round((constraints.title.patternWeights[pattern.id] ?? 1) * 4));
+    for (let i = 0; i < weight; i++) pool.push(pattern);
   }
-  const words = filtered.flatMap(part => part.toLowerCase().split(/\s+/).filter(Boolean));
-  return new Set(words).size !== words.length;
-}
+  const seen = new Set<string>();
+  const order: typeof TITLE_PATTERNS = [];
+  for (const pattern of shuffle(pool, seed)) {
+    if (seen.has(pattern.id)) continue;
+    seen.add(pattern.id);
+    order.push(pattern);
+  }
 
-function uniqueTitle(base: string, usedTitles: Set<string>): string {
-  if (!usedTitles.has(base)) return base;
-  let n = 2;
-  while (usedTitles.has(`${base} #${n}`)) n += 1;
-  return `${base} #${n}`;
-}
-
-/**
- * TASK v3.28 (Part 3) — a flat word-level heuristic, not real NLP: strips
- * common function words/pronouns/generic verbs from an English hook phrase,
- * leaving (usually) just its core noun/image, so titleFromHook can offer a
- * genuinely independent, billboard-style title instead of the hook verbatim.
- * Deliberately conservative — if stripping removes nothing (the hook was
- * already all "content" words, e.g. a nounPhrase-shape hook like "Golden
- * Window Light") or removes everything (nothing left to make a title from),
- * this returns null so the caller falls back to another shape.
- */
-const enHookStopwords = new Set([
-  'i', "i'll", "i'm", 'we', "we'll", "won't", "don't", "you're", 'you', 'still',
-  'the', 'a', 'an', 'to', 'for', 'of', 'with', 'on', 'in', 'at', 'by', 'me', 'my', 'your', 'it',
-  'let', 'go', 'keep', 'hold', 'wait', 'come', 'back', 'stay', 'wrap', 'pour', 'be',
-  'hush', 'rest', 'breathe', 'take', 'carry', 'save', 'remember', 'will', 'not',
-  'know', 'found', 'way', 'made', 'through', 'believe', 'this', 'here', 'now',
-  'again', 'close', 'near', 'tonight', 'softly', 'us'
-]);
-
-function compressHookToImage(phrase: string): string | null {
-  const words = phrase.replace(/[,.]/g, '').split(/\s+/).filter(Boolean);
-  const kept = words.filter(word => !enHookStopwords.has(word.toLowerCase()));
-  if (!kept.length || kept.length === words.length) return null;
-  return kept.slice(0, 2).join(' ');
-}
-
-/** TASK v3.28 — paired with a compressed image for the "<Image> & <Word>" contrast shape; deliberately distinct from enTimeWords/enContrastWords so this shape doesn't just read as a relabel of those. */
-const enImagePairWords = ['Frost', 'Ember', 'Static', 'Velvet', 'Hollow', 'Glow', 'Echo', 'Dust'];
-
-/**
- * TASK v3.39.1 Part C1 — this pool was global regardless of archetype, so a
- * kids-channel title could pair a child-safe compressed hook image with an
- * adult-mood word from the list above (real measurement: "Dear Playmate &
- * Dust", "Toy Box & Hollow", "Crayon & Static"). Kids gets its own
- * bright/playful pair-word pool instead.
- */
-const kidsImagePairWords = ['Sunshine', 'Rainbow', 'Bubble', 'Giggle', 'Sparkle', 'Puddle', 'Kite', 'Cupcake'];
-
-function imagePairWordsForArchetype(archetype?: ChannelArchetype): string[] {
-  return archetype === 'kids' ? kidsImagePairWords : enImagePairWords;
+  const kidsAudience = constraints.audienceProfileId === 'kids' || constraints.audienceProfileId.startsWith('kids-');
+  for (const pattern of order) {
+    const candidate = pattern.build({ hook, seed, usedTitles, kidsAudience });
+    if (candidate && !usedTitles.has(candidate)) {
+      patternUsage.set(pattern.id, (patternUsage.get(pattern.id) ?? 0) + 1);
+      return candidate;
+    }
+  }
+  return null;
 }
 
 /**
- * TASK v3.28 — the title used to always contain the hook verbatim (H2's
- * completion condition, and previously also enforced as a quality-score
- * penalty in core/quality.ts's checkHookQuality). Real measurement showed
- * that constraint left almost no room to actually diverge even with v3.27's
- * shape rotation: 12 real titles came back 100% identical to their hooks.
- * The title is now free to be fully independent — for English hooks,
- * compressHookToImage's extracted core noun/image (alone, or paired with an
- * evocative contrast word) is now the majority outcome for ANY hook shape,
- * since compression only ever drops words already present (grammatically
- * safe regardless of shape) — verbatim, and the old nounPhrase-only time-
- * prefix/contrast-suffix shapes, remain as fallbacks when compression
- * doesn't yield anything usable. Korean/Japanese are untouched: word-level
- * stopword-stripping isn't reliable without whitespace-delimited words, and
- * the old joinTitle() particle-appending was exactly what caused the
- * double-genitive title bug fixed in v3.2 — this function never reintroduces
- * that class of composition for those languages.
+ * TASK v3.28 — the title used to always contain the hook verbatim; real
+ * measurement showed that left almost no room to diverge. v4.2 (TASK A3)
+ * replaced the old fixed-probability shape cascade with constraints-driven
+ * pattern selection (see pickTitleFromPatterns above and data/
+ * titlePatterns.ts) — `constraints` (not `archetype`) now decides which
+ * title shapes are even eligible, so a 60s-concept pack and an 80s-concept
+ * pack draw from different pattern mixes instead of the same one. Korean/
+ * Japanese are untouched (still hook-verbatim, per this task's own "하지
+ * 말 것: lyricEngine.ts의 문장 생성 로직을 건드리지 말 것" — word-level
+ * stopword-stripping was never reliable without whitespace-delimited words,
+ * and the old joinTitle() particle-appending caused the double-genitive
+ * title bug fixed in v3.2; this never reintroduces that class of bug for
+ * those languages).
  */
-export function titleFromHook(hook: HookSpec, seed: number, language: LyricLanguage, usedTitles: Set<string>, archetype?: ChannelArchetype): string {
+export function titleFromHook(
+  hook: HookSpec,
+  seed: number,
+  language: LyricLanguage,
+  usedTitles: Set<string>,
+  constraints: ResolvedConstraints,
+  /** Cross-song pattern-usage tally for constraints.title.maxPerPattern — createTitleGenerator threads its own persistent Map; a bare call (e.g. a test, or nextContestedTitle's one-off contest pick) gets a fresh one, i.e. no cross-call cap. */
+  patternUsage: Map<string, number> = new Map()
+): string {
   if (language !== 'english') {
     return uniqueTitle(hook.phrase, usedTitles);
   }
+  return pickTitleFromPatterns(hook, seed, usedTitles, constraints, patternUsage) ?? uniqueTitle(hook.phrase, usedTitles);
+}
 
-  const rng = mulberry32(seed);
-  const roll = rng();
-  const image = compressHookToImage(hook.phrase);
-
-  if (image) {
-    if (roll < 0.45) {
-      const pairPool = shuffle(imagePairWordsForArchetype(archetype), seed + 1313);
-      for (const pair of pairPool) {
-        if (hasWordOverlap('english', image, pair)) continue;
-        const candidate = `${image} & ${pair}`;
-        if (!usedTitles.has(candidate)) return candidate;
-      }
-    }
-    if (roll < 0.8 && !usedTitles.has(image)) return image;
-  }
-
-  if (hook.shape === 'nounPhrase') {
-    // Unchanged from v3.27: a genuine verbatim zone (roll < 0.33) stays
-    // alongside the time-prefix/contrast-suffix shapes — nounPhrase hooks
-    // (e.g. "Golden Window Light") rarely compress at all (they're already
-    // all "content" words), so this is the shape rotation that actually
-    // applies to most of them.
-    if (roll >= 0.66) {
-      const prefixPool = shuffle(enTimeWords, seed + 777);
-      for (const prefix of prefixPool) {
-        if (hasWordOverlap('english', prefix, hook.phrase)) continue;
-        const candidate = `${prefix} ${hook.phrase}`;
-        if (!usedTitles.has(candidate)) return candidate;
-      }
-    } else if (roll >= 0.33) {
-      const framePool = shuffle(enContrastWords, seed + 991);
-      for (const frame of framePool) {
-        if (hasWordOverlap('english', frame, hook.phrase)) continue;
-        const candidate = `${hook.phrase}, ${frame}`;
-        if (!usedTitles.has(candidate)) return candidate;
-      }
-    }
-  }
-
-  return uniqueTitle(hook.phrase, usedTitles);
+/**
+ * v4.2 (TASK A3) — fallback for callers that only ever passed `archetype`
+ * (pre-A3 signature) and haven't been threaded through to a real
+ * resolveConstraints() call yet. Empty conceptLabel means extractEraConstraint
+ * finds no era signal, i.e. unspecified:true — the same "don't filter"
+ * behavior those callers had before this task (no era filtering existed at
+ * all pre-A3).
+ */
+function defaultConstraintsFor(archetype: ChannelArchetype | undefined, songCount: number): ResolvedConstraints {
+  const audience = archetype === 'kids' ? KIDS_AUDIENCE_PROFILE : SENIOR_AUDIENCE_PROFILE;
+  return resolveConstraints({ conceptLabel: '' }, { id: 'senior-oldpop' }, audience, songCount || 18);
 }
 
 export interface TitleResult {
@@ -1594,6 +1522,8 @@ export interface TitleGenerator {
   rhythmTarget: number;
   seed: number;
   index: number;
+  /** v4.2 (TASK A3) — cross-song per-title-pattern usage, so titleFromHook's constraints.title.maxPerPattern is enforced over this generator's whole lifetime (see nextContestedTitle, which also writes into this same map for tracks 1-3). */
+  patternUsage: Map<string, number>;
 }
 
 /**
@@ -1601,14 +1531,18 @@ export interface TitleGenerator {
  * keeps the {title, hook} shape the rest of the codebase (and existing
  * tests) already depend on, while the hook is now the source of truth the
  * title is derived from instead of the reverse. songCount defaults to 30 to
- * match every existing caller's actual pack size.
+ * match every existing caller's actual pack size. `archetype` still scopes
+ * composeHook's own word-bank selection (untouched sentence-generation
+ * concern); `constraints` (v4.2, TASK A3) scopes title-pattern selection —
+ * see titleFromHook's own doc comment for why these are two separate axes.
  */
 export function createTitleGenerator(
   language: LyricLanguage,
   seedBase: string,
   songCount = 30,
   avoid?: { usedTitles?: Iterable<string>; usedHooks?: Iterable<string> },
-  archetype?: ChannelArchetype
+  archetype?: ChannelArchetype,
+  constraints?: ResolvedConstraints
 ): TitleGenerator {
   const s = hashSeed(seedBase);
   const shapeSequence = buildShapeSequence(songCount, s + 31);
@@ -1619,6 +1553,7 @@ export function createTitleGenerator(
   // gets lucky.
   const usedHooks = new Set<string>(avoid?.usedHooks ?? []);
   const usedTitles = new Set<string>(avoid?.usedTitles ?? []);
+  const resolvedConstraints = constraints ?? defaultConstraintsFor(archetype, songCount);
 
   const nextTitle: TitleGenerator = Object.assign(
     (role?: string): TitleResult => {
@@ -1633,12 +1568,12 @@ export function createTitleGenerator(
         emotionalWeight: targetHookEmotionalWeight(role)
       });
       nextTitle.usedHooks.add(hook.phrase);
-      const title = titleFromHook(hook, nextTitle.seed + 53 + idx * 131, language, nextTitle.usedTitles, archetype);
+      const title = titleFromHook(hook, nextTitle.seed + 53 + idx * 131, language, nextTitle.usedTitles, resolvedConstraints, nextTitle.patternUsage);
       nextTitle.usedTitles.add(title);
       nextTitle.index += 1;
       return { title, hook: hook.phrase };
     },
-    { usedHooks, usedTitles, shapeSequence, rhythmTarget, seed: s, index: 0 }
+    { usedHooks, usedTitles, shapeSequence, rhythmTarget, seed: s, index: 0, patternUsage: new Map<string, number>() }
   );
 
   return nextTitle;

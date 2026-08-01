@@ -13,6 +13,15 @@ import {
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import { vocalPresets } from '../src/data/vocalPresets';
 import type { SongIdea } from '../src/types';
+import { resolveConstraints } from '../src/core/constraints';
+import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
+
+// v4.2 (TASK A3) — titleFromHook now reads title-shape rules from a
+// ResolvedConstraints object instead of a bare ChannelArchetype (see
+// core/constraints.ts). An empty conceptLabel resolves era.unspecified:true,
+// i.e. every title pattern is era-eligible — the same "no filtering"
+// behavior these pre-A3 tests were written against.
+const UNSPECIFIED_CONSTRAINTS = resolveConstraints({ conceptLabel: '' }, { id: 'senior-oldpop' }, SENIOR_AUDIENCE_PROFILE, 18);
 
 describe('lyric engine', () => {
   it('generates 1 song without error', () => {
@@ -307,22 +316,30 @@ describe('[v3.28] titleFromHook: title-hook independence', () => {
     return { phrase: 'Morning Light', shape: 'nounPhrase', ...overrides };
   }
 
-  it('a nounPhrase hook with no compressible words (e.g. "Morning Light") still always contains the hook verbatim, via the v3.27 rotation fallback', () => {
+  it('a nounPhrase hook with no compressible words (e.g. "Morning Light") still always contains the hook verbatim, via the hook-verbatim/time-prefix patterns', () => {
     const usedTitles = new Set<string>();
     for (let seed = 0; seed < 60; seed++) {
-      const title = titleFromHook(makeHook(), seed, 'english', usedTitles);
+      const title = titleFromHook(makeHook(), seed, 'english', usedTitles, UNSPECIFIED_CONSTRAINTS);
       expect(title).toContain('Morning Light');
     }
   });
 
-  it('across many seeds, that same hook produces more than 2 distinct structural shapes (verbatim / time-prefix / contrast-suffix)', () => {
+  // v4.2 (TASK A3) — the old fixed verbatim/time-prefix/contrast-suffix
+  // cascade is gone (see data/titlePatterns.ts's TITLE_PATTERNS); a
+  // nounPhrase hook with a possessive lead word now fits more of the 8
+  // canonical patterns (sentence-fragment, hook-verbatim, single-word,
+  // image-pair, time-prefix), so this checks pattern diversity against a
+  // hook shaped to actually exercise several of them, not a fixed 3-shape list.
+  it('across many seeds, a compressible+possessive nounPhrase hook produces more than 2 distinct title shapes', () => {
+    const hook = makeHook({ phrase: 'My Old December Letter' });
     const shapes = new Set<string>();
     for (let seed = 0; seed < 300; seed++) {
       const usedTitles = new Set<string>();
-      const title = titleFromHook(makeHook(), seed, 'english', usedTitles);
-      if (title === 'Morning Light') shapes.add('verbatim');
-      else if (title.startsWith('Morning Light,')) shapes.add('contrast-suffix');
-      else shapes.add('time-prefix');
+      const title = titleFromHook(hook, seed, 'english', usedTitles, UNSPECIFIED_CONSTRAINTS);
+      if (title === hook.phrase) shapes.add('verbatim');
+      else if (title.includes(' & ')) shapes.add('image-pair');
+      else if (title.endsWith(hook.phrase)) shapes.add('time-prefix');
+      else shapes.add('single-word');
     }
     expect(shapes.size).toBeGreaterThan(2);
   });
@@ -331,7 +348,7 @@ describe('[v3.28] titleFromHook: title-hook independence', () => {
     const titles: string[] = [];
     for (let seed = 0; seed < 60; seed++) {
       const usedTitles = new Set<string>();
-      titles.push(titleFromHook(makeHook({ shape: 'imperative', phrase: 'Hold the Photo Close' }), seed, 'english', usedTitles));
+      titles.push(titleFromHook(makeHook({ shape: 'imperative', phrase: 'Hold the Photo Close' }), seed, 'english', usedTitles, UNSPECIFIED_CONSTRAINTS));
     }
     const independentCount = titles.filter(title => !title.toLowerCase().includes('hold the photo close')).length;
     expect(independentCount).toBeGreaterThan(0);
@@ -341,7 +358,7 @@ describe('[v3.28] titleFromHook: title-hook independence', () => {
     const titles: string[] = [];
     for (let seed = 0; seed < 60; seed++) {
       const usedTitles = new Set<string>();
-      titles.push(titleFromHook(makeHook({ shape: 'declarative', phrase: "I'll Wait for Morning" }), seed, 'english', usedTitles));
+      titles.push(titleFromHook(makeHook({ shape: 'declarative', phrase: "I'll Wait for Morning" }), seed, 'english', usedTitles, UNSPECIFIED_CONSTRAINTS));
     }
     expect(titles).toContain('Morning');
   });
@@ -350,7 +367,7 @@ describe('[v3.28] titleFromHook: title-hook independence', () => {
     const titles: string[] = [];
     for (let seed = 0; seed < 60; seed++) {
       const usedTitles = new Set<string>();
-      titles.push(titleFromHook(makeHook({ shape: 'imperative', phrase: 'Pour the Coffee Warm' }), seed, 'english', usedTitles));
+      titles.push(titleFromHook(makeHook({ shape: 'imperative', phrase: 'Pour the Coffee Warm' }), seed, 'english', usedTitles, UNSPECIFIED_CONSTRAINTS));
     }
     expect(titles.some(title => /^Coffee( Warm)? & /.test(title))).toBe(true);
   });
@@ -359,7 +376,7 @@ describe('[v3.28] titleFromHook: title-hook independence', () => {
     const usedTitles = new Set<string>();
     for (const language of ['korean', 'japanese'] as const) {
       for (let seed = 0; seed < 20; seed++) {
-        const title = titleFromHook(makeHook({ phrase: '고요한 아침' }), seed, language, usedTitles);
+        const title = titleFromHook(makeHook({ phrase: '고요한 아침' }), seed, language, usedTitles, UNSPECIFIED_CONSTRAINTS);
         expect(title === '고요한 아침' || title.startsWith('고요한 아침 #')).toBe(true);
       }
     }

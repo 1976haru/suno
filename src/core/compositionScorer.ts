@@ -3,10 +3,11 @@ import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOverlapWarning } from './quality';
-import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
-import { findExcessiveVocabularyRepetition } from './lyricVocabularyRepetition';
+import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL } from '../data/eraExclusions';
+import { findExcessiveVocabularyRepetition, findHookWordOveruse } from './lyricVocabularyRepetition';
 import { findNearDuplicateHook } from './hookSimilarity';
 import { titleShapeVarietyWarning } from './titleShapeVariety';
+import { eraSharesOf, type EraConstraint } from './constraints';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -69,6 +70,40 @@ export interface ScoreCompositionOptions {
    * check, same as any other omitted context.
    */
   historicalHooks?: string[];
+  /**
+   * v4.2 (TASK A3, TASK B) — this pack's own resolved era constraint (see
+   * core/constraints.ts's EraConstraint), when the caller has one. Undefined
+   * (or era.unspecified — no decade/artist-era signal in the concept)
+   * skips this check entirely, same as any other omitted context; never
+   * invented from the songs themselves.
+   */
+  eraConstraint?: EraConstraint;
+}
+
+/** v4.2 (TASK A3, TASK B) — see this task's own §3-3 "primary 비중 < 50% → blocking, forbidden 시대 장르 존재 → blocking, 범용 장르 > 20% → advisory". Pack-level (not attributable to one track), so every song's own score gets the same findings, same pattern as vocabularyRepetitionWarning/titleShapeWarning below. */
+function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint | undefined): { blocking: string[]; advisory: string[] } {
+  if (!eraConstraint || eraConstraint.unspecified) return { blocking: [], advisory: [] };
+  const genreCounts: Record<string, number> = {};
+  for (const song of songs) {
+    if (song.genreId) genreCounts[song.genreId] = (genreCounts[song.genreId] ?? 0) + 1;
+  }
+  const shares = eraSharesOf(genreCounts);
+  const primaryShare = shares[eraConstraint.primary] ?? 0;
+  const genericShare = shares.generic ?? 0;
+  const forbiddenBuckets = eraConstraint.forbidden.filter(bucket => (shares[bucket] ?? 0) > 0);
+
+  const blocking: string[] = [];
+  const advisory: string[] = [];
+  if (primaryShare < 0.5) {
+    blocking.push(`이 컨셉의 주 시대(${ERA_LABEL[eraConstraint.primary]}) 장르 비중이 ${Math.round(primaryShare * 100)}%로 최소 50% 미만입니다.`);
+  }
+  if (forbiddenBuckets.length) {
+    blocking.push(`이 컨셉이 금지한 시대(${forbiddenBuckets.map(bucket => ERA_LABEL[bucket]).join(', ')}) 장르가 포함되어 있습니다 (${forbiddenBuckets.map(bucket => `${Math.round((shares[bucket] ?? 0) * 100)}%`).join(', ')}).`);
+  }
+  if (genericShare > 0.2) {
+    advisory.push(`시대 표기 없는 범용 장르 비중이 ${Math.round(genericShare * 100)}%로 권장 상한(20%)을 넘습니다.`);
+  }
+  return { blocking, advisory };
 }
 
 export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptions): CompositionScore[] {
@@ -76,6 +111,7 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
 
   const historicalHooks = opts?.historicalHooks ?? [];
   const historicalHookKeys = new Set(historicalHooks.map(hook => hook.trim().toLowerCase()));
+  const eraFindings = eraConsistencyFindings(songs, opts?.eraConstraint);
 
   const vocabFindings = findArrangementVocabularyInLyrics(songs);
   const vocabByTrack = new Map<number, string[]>();
@@ -100,6 +136,16 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
   const vocabularyRepetitionFindings = findExcessiveVocabularyRepetition(songs);
   const vocabularyRepetitionWarning = vocabularyRepetitionFindings.length
     ? `이 세트에서 다음 단어가 상한을 넘겨 반복됩니다: ${vocabularyRepetitionFindings.map(f => `${f.word} ${f.count}회 (상한 ${f.cap})`).join(', ')}`
+    : undefined;
+
+  // NEW (v4.2, TASK A3 TASK D-2) — a word anchoring 3+ distinct hooks reads
+  // as a recurring gimmick even when its pack-wide word count never crosses
+  // GENERIC_WORD_CAP (findExcessiveVocabularyRepetition above counts lyric
+  // bodies, not hooks specifically). Advisory only, per this task's own
+  // "어휘 반복을 blocking으로 세게 걸지 말 것".
+  const hookWordOveruseFindings = findHookWordOveruse(songs);
+  const hookWordOveruseWarning = hookWordOveruseFindings.length
+    ? `다음 단어가 3개 이상의 훅에 반복됩니다: ${hookWordOveruseFindings.map(f => `${f.word} (훅 ${f.hookCount}개)`).join(', ')}`
     : undefined;
 
   // NEW (TASK v3.64 TASK E) — real measurement: a real pack's titles were
@@ -195,7 +241,10 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     }
 
     if (vocabularyRepetitionWarning) advisory.push(vocabularyRepetitionWarning);
+    if (hookWordOveruseWarning) advisory.push(hookWordOveruseWarning);
     if (titleShapeWarning) advisory.push(titleShapeWarning);
+    blocking.push(...eraFindings.blocking);
+    advisory.push(...eraFindings.advisory);
 
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };
   });

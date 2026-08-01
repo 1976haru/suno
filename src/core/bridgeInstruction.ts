@@ -14,6 +14,7 @@ import { moneyChordPresets } from '../data/moneyChords';
 import { decomposeArtistReferences, decomposedReferenceDescriptors, isSafeDecomposedReference } from './artistReferenceDecomposer';
 import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { buildSetName } from '../utils/setNaming';
+import type { ResolvedConstraints } from './constraints';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -114,6 +115,49 @@ export interface ClaudeCodeInstructionOptions {
     segments: SetDirectorSegmentLike[];
     listeningContext: SetDirectorListeningContextLike;
   };
+  /**
+   * v4.2 (TASK A3, TASK F) — carries the concept's own era/title/vocabulary
+   * constraints (core/constraints.ts's ResolvedConstraints) into the bridge
+   * instruction as constraints, never verbatim phrasing to transcribe — same
+   * "작곡하라" trust model as buildSetDirectorInterpretationSection above
+   * (see this task's own §7 "문구를 verbatim으로 강제하지 말고 제약으로
+   * 전달합니다"). Optional — omitted by every caller that doesn't go through
+   * core/setDirector.ts's resolveConstraints path yet.
+   */
+  resolvedConstraints?: ResolvedConstraints;
+}
+
+/**
+ * TASK F (7) — real measurement: a concept used to reach only genre
+ * selection; title/vocabulary/era never crossed into the actual composing
+ * instruction at all. This section is the missing half — constraints, not
+ * verbatim text, per this task's own "작곡하라" convention (v3.62).
+ */
+function buildResolvedConstraintsSection(constraints: ResolvedConstraints): string {
+  const lines = ['[이 세트의 컨셉 제약]'];
+  if (!constraints.era.unspecified) {
+    const adjacentText = constraints.era.adjacent
+      .map(adjacent => `${ERA_LABEL[adjacent.era]}은 최대 ${Math.round(adjacent.maxShare * 100)}%`)
+      .join(', ');
+    const forbiddenText = constraints.era.forbidden.map(bucket => ERA_LABEL[bucket]).join(', ');
+    lines.push(
+      `  시대   ${ERA_LABEL[constraints.era.primary]} 중심(전체의 최소 50%).` +
+      (adjacentText ? ` ${adjacentText}.` : '') +
+      (forbiddenText ? ` ${forbiddenText}는 이 세트에 쓰지 마십시오.` : '')
+    );
+  }
+  lines.push(
+    '  제목   문장형·호명형·한 단어형·질문형·감탄형 등 여러 형태를 섞으십시오.',
+    '         이미지 조합형([형용사][명사], 예: "Fogged Window")은 세트 전체에서 일부 곡에만 쓰십시오 — 모든 곡을 같은 형태로 짓지 마십시오.'
+  );
+  if (constraints.vocabulary.forbidden.length) {
+    lines.push(`  금지   ${constraints.vocabulary.forbidden.join(', ')}`);
+  }
+  lines.push(
+    `  어휘   같은 단어를 이 세트에서 ${constraints.vocabulary.maxRepeatPerWord}회 넘게 쓰지 마십시오` +
+    `(채널 정체성 어휘${constraints.vocabulary.identityWords.length ? ` — ${constraints.vocabulary.identityWords.join(', ')}` : ''}는 ${constraints.vocabulary.identityMaxRepeat}회까지 허용).`
+  );
+  return lines.join('\n');
 }
 
 /**
@@ -758,6 +802,8 @@ export function buildClaudeCodeInstruction(
     instructionOptions.setDirectorInterpretation
       ? buildSetDirectorInterpretationSection(instructionOptions.setDirectorInterpretation.segments, instructionOptions.setDirectorInterpretation.listeningContext)
       : '',
+    '',
+    instructionOptions.resolvedConstraints ? buildResolvedConstraintsSection(instructionOptions.resolvedConstraints) : '',
     '',
     // TASK v3.64 (TASK C) — the "use exactly that BPM, verbatim" rule
     // already existed but was buried after the full per-song JSON payload

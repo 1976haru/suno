@@ -34,6 +34,7 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
+import { applyEraQuota, extractEraConstraint } from './constraints';
 
 /**
  * v3.63 재작성 (TASK B) — 2단계 해석의 산출 타입. 1단계(자연어 → 이 타입)는
@@ -782,11 +783,32 @@ export function buildSetPlanFromIntent(
       genreCounts[id] = (genreCounts[id] ?? 0) + count;
     }
   }
-  const selectedIds = Object.keys(genreCounts);
+  // v4.2 (TASK A3, TASK B) — the concept's own era constraint (extracted
+  // from intentKo, which always carries the user's original decade/artist
+  // words verbatim) applied to the merged genre-count map before it becomes
+  // the genre axis, so a "60년대 비틀즈" concept can't land 50%+ of its
+  // songs in the 1970s bucket the way real measurement showed (see
+  // docs/v4.2-a3-report.md). era.unspecified (no decade/artist-era signal)
+  // makes applyEraQuota a no-op, per this task's own "억지로 시대를 정하지
+  // 말 것". Only applied for a SINGLE resolved segment: a multi-segment
+  // request ("카펜터스 9곡 + 아바 9곡") already carries its own explicit
+  // per-segment song-count split — a global era quota redistributing counts
+  // across segment boundaries would fight that explicit split rather than
+  // the vague/single-concept case this task's own measurement was about.
+  const eraConstraint = resolvedSegments.length === 1
+    ? extractEraConstraint([intent.intentKo, ...resolvedSegments.map(segment => segment.eraTag)].filter(Boolean).join(' '))
+    : { primary: 'timeless' as const, adjacent: [], forbidden: [], unspecified: true };
+  const { counts: quotaAdjustedGenreCounts, warnings: eraQuotaWarnings } = applyEraQuota(
+    genreCounts,
+    safeSongCount,
+    eraConstraint,
+    genre => genreMatchesChannel(genre, channel)
+  );
+  const selectedIds = Object.keys(quotaAdjustedGenreCounts);
 
   const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds);
   const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
-  if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: genreCounts };
+  if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedGenreCounts };
 
   // TASK v3.68 (TASK E) — only ever set when the caller (Step2Plan.tsx's
   // "지난 평가 반영" toggle) explicitly passes insights; undefined here
@@ -803,7 +825,8 @@ export function buildSetPlanFromIntent(
   const warnings = [
     ...(selectedIds.length < 4 ? ['장르 후보가 4종 미만입니다. 채널 필터 또는 입력 키워드를 확인하십시오.'] : []),
     ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : []),
-    ...blendWarnings
+    ...blendWarnings,
+    ...eraQuotaWarnings
   ];
   // TASK v3.68 (TASK E) — Step2.5's "지난 평가 반영" banner text: only
   // 'strong'-confidence killingPointId insights ever produce a line here
@@ -907,8 +930,27 @@ export function directSetLocal(
   // post-filter here too (family/keyword path), not just inside
   // buildSetPlanFromIntent, so "커피숍에서"/"잔잔한" actually narrows the
   // genre pool instead of only being echoed back in the interpretation.
-  const selectedIds = applyListeningContextFilter(familySelectedIds.length ? familySelectedIds : keywordSelectedIds, listeningContext);
+  const preQuotaSelectedIds = applyListeningContextFilter(familySelectedIds.length ? familySelectedIds : keywordSelectedIds, listeningContext);
+  // v4.2 (TASK A3, TASK B) — same era-quota enforcement as
+  // buildSetPlanFromIntent (this path is directSetLocal's own plain-keyword/
+  // family-picker branch, which never calls that function). Genres here have
+  // no per-id count yet (preQuotaSelectedIds is a flat list, not counts), so
+  // this seeds an even split first — makeAllocations/allocateGenreCounts
+  // would otherwise redo that same even split with no era awareness at all.
+  const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
+  const preQuotaCounts = countsFromSlots(preQuotaSelectedIds, safeSongCount, 5);
+  const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
+    preQuotaCounts,
+    safeSongCount,
+    eraConstraint,
+    genre => genreMatchesChannel(genre, channel)
+  );
+  const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
   const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds);
+  if (!eraConstraint.unspecified) {
+    const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
+    if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedCounts };
+  }
   const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations), ratingInsights: history.insights };
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
@@ -917,7 +959,8 @@ export function directSetLocal(
   const densityMax = densityAllocation ? Math.max(...Object.values(densityAllocation.counts)) : 0;
   const warnings = [
     ...(selectedIds.length < 4 ? ['장르 후보가 4종 미만입니다. 채널 필터 또는 입력 키워드를 확인하십시오.'] : []),
-    ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : [])
+    ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : []),
+    ...(eraConstraint.unspecified ? [] : eraQuotaWarnings)
   ];
   // TASK v3.68 (TASK E) — mirrors buildSetPlanFromIntent's own banner-text
   // computation exactly (same filter, same per-slot recount).

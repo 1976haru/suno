@@ -20,14 +20,26 @@ describe('v3.52 concept and vocal diversity', () => {
     ] as const;
 
     for (const [concept, styleAtom] of cases) {
+      // v4.2 (TASK A3) — songCount:1 checking only song[0]'s lyrics used to
+      // be reliable because the concept-image draw's own seed
+      // (lyricEngine.ts's composeLyrics: motifRng = mulberry32(hashSeed(
+      // `${title}::${hook}::motif-budget`))) is derived from the exact
+      // title string. TASK C changed what titleFromHook produces (data-
+      // driven pattern selection replacing the old fixed-probability
+      // cascade — see data/titlePatterns.ts), which legitimately shifts
+      // that per-song draw for any single fixed seed. Checking across a
+      // few songs (any one hitting the concept image) keeps this a real
+      // regression guard on "the concept reaches lyrics at all" without
+      // being coupled to one exact title string.
       const blueprint = generateLocalBlueprint(
-        makeOptions({ songCount: 1, customConcept: concept }),
+        makeOptions({ songCount: 6, customConcept: concept }),
         testGenres,
         testMoods,
         testSeason
       );
       expect(blueprint.songs[0].stylePrompt.toLowerCase()).toContain(styleAtom);
-      expect(blueprint.songs[0].lyrics.toLowerCase()).toContain(styleAtom.split(' ')[0]);
+      const styleWord = styleAtom.split(' ')[0];
+      expect(blueprint.songs.some(song => song.lyrics.toLowerCase().includes(styleWord))).toBe(true);
     }
   });
 
