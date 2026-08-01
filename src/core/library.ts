@@ -1,9 +1,10 @@
-import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature } from '../types';
+import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature, WorkspaceId } from '../types';
 import { channelPresets } from '../data/presets';
 import { isMadeForKidsChannel } from './exportCompliance';
 import { lintChannelDiversity, sampleFromSavedPack, type ChannelDiversityReport } from './diversityLinter';
 import { listVideos } from './videoLedger';
 import { dominantRegisterSignature, recordVocalCombo } from './vocalComboLedger';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter, scopedKey } from './workspaceScope';
 
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
 
@@ -188,13 +189,20 @@ export async function savePack(input: {
   setIndex?: number;
   setTotal?: number;
 }): Promise<string> {
-  const id = input.id || (input.isAutosave ? AUTOSAVE_ID : randomId());
+  // v4.0 (TASK A1) — the autosave slot is one singleton record per app; without
+  // scoping its physical key by workspace, two workspaces' autosaves would
+  // put() the same IndexedDB primary key and silently overwrite each other.
+  // A real pack's id (randomId()) is already globally unique, so it's never
+  // rescoped here (rescoping it would break rename/update, which pass the
+  // pack's existing real id back in expecting an exact-key match).
+  const id = input.isAutosave ? scopedKey(AUTOSAVE_ID) : (input.id || randomId());
   const personaMode = input.personaMode ?? input.options.personaMode ?? false;
   const pack: SavedPack = {
     id,
     name: input.name || buildDefaultPackName(input.blueprint, input.options),
     savedAt: new Date().toISOString(),
     isAutosave: Boolean(input.isAutosave),
+    workspaceId: currentWorkspaceId(),
     channelId: input.options.channel.id,
     channelName: input.options.channel.name,
     projectTitle: input.blueprint.projectTitle,
@@ -244,7 +252,7 @@ export async function saveAutosave(
 }
 
 export async function promoteAutosave(name: string): Promise<string | null> {
-  const autosave = await loadPack(AUTOSAVE_ID);
+  const autosave = await loadPack(scopedKey(AUTOSAVE_ID));
   if (!autosave) return null;
   return savePack({
     blueprint: autosave.blueprint,
@@ -257,15 +265,22 @@ export async function promoteAutosave(name: string): Promise<string | null> {
   });
 }
 
-export async function listPacks(): Promise<SavedPackMeta[]> {
+/**
+ * v4.0 (TASK A1) — `workspaceId` is optional and defaults to the current
+ * workspace; pass it explicitly to read a DIFFERENT workspace's packs
+ * without touching the shared currentWorkspaceId() global (see
+ * workspaceScope.ts's scopeFilter doc comment for why that matters —
+ * WorkspaceSelectScreen.tsx's per-card counts are the reason this exists).
+ */
+export async function listPacks(workspaceId?: WorkspaceId): Promise<SavedPackMeta[]> {
   if (!hasIndexedDb()) {
-    return Array.from(memoryPacks.values())
+    return scopeFilter(Array.from(memoryPacks.values()), workspaceId)
       .map(normalizeSavedPack)
       .map(({ blueprint: _blueprint, options: _options, evaluation: _evaluation, ...meta }) => meta)
       .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
   }
   const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
-  return all
+  return scopeFilter(all, workspaceId)
     .map(normalizeSavedPack)
     .map(({ blueprint: _blueprint, options: _options, evaluation: _evaluation, ...meta }) => meta)
     .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
@@ -404,12 +419,19 @@ export async function renamePack(id: string, name: string): Promise<void> {
   await savePack({ ...pack, id, name });
 }
 
+/**
+ * v4.0 (TASK A1) — scoped to the current workspace only: exporting from
+ * inside kr-2030 must never silently bundle senior-oldpop's packs (or vice
+ * versa) into the download. A cross-workspace backup is core/workspaceMigration.ts's
+ * exportFullBackup(), a separate, explicitly-named function for that
+ * separate purpose.
+ */
 export async function exportAllPacks(): Promise<Blob> {
   if (!hasIndexedDb()) {
-    return new Blob([JSON.stringify(Array.from(memoryPacks.values()).map(normalizeSavedPack), null, 2)], { type: 'application/json;charset=utf-8' });
+    return new Blob([JSON.stringify(scopeFilter(Array.from(memoryPacks.values())).map(normalizeSavedPack), null, 2)], { type: 'application/json;charset=utf-8' });
   }
   const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
-  return new Blob([JSON.stringify(all, null, 2)], { type: 'application/json;charset=utf-8' });
+  return new Blob([JSON.stringify(scopeFilter(all), null, 2)], { type: 'application/json;charset=utf-8' });
 }
 
 export async function importPacks(file: File): Promise<number> {
@@ -425,14 +447,37 @@ export async function importPacks(file: File): Promise<number> {
   return count;
 }
 
+/**
+ * v4.0 (TASK A1) — deletes only the current workspace's packs/personas.
+ * store.clear() wipes the entire physical table regardless of workspace, so
+ * it can no longer be used directly here — a "전체 삭제" click from inside
+ * kr-2030 must never take out senior-oldpop's real, already-operating data.
+ */
 export async function deleteAllPacks(): Promise<void> {
   if (!hasIndexedDb()) {
-    memoryPacks.clear();
-    memoryPersonas.clear();
+    const scopedPacks = scopeFilter(Array.from(memoryPacks.values()));
+    const channelIds = new Set(scopedPacks.map(pack => pack.channelId));
+    for (const pack of scopedPacks) memoryPacks.delete(pack.id);
+    for (const [id, persona] of memoryPersonas) {
+      if (channelIds.has(persona.channelId)) memoryPersonas.delete(id);
+    }
     return;
   }
-  await withStore('readwrite', store => store.clear());
-  await withStore('readwrite', store => store.clear(), PERSONA_STORE);
+  const packs = await withStore<SavedPack[]>('readonly', store => store.getAll());
+  const scopedPacks = scopeFilter(packs);
+  for (const pack of scopedPacks) {
+    await withStore('readwrite', store => store.delete(pack.id));
+  }
+  // ChannelPersonaRecord has no workspaceId of its own (see saveChannelPersona) —
+  // only the personas belonging to a channel visible in this workspace's own
+  // pack history are removed, rather than clearing the whole persona store.
+  const channelIds = new Set(scopedPacks.map(pack => pack.channelId));
+  const personas = await withStore<ChannelPersonaRecord[]>('readonly', store => store.getAll(), PERSONA_STORE);
+  for (const persona of personas) {
+    if (channelIds.has(persona.channelId)) {
+      await withStore('readwrite', store => store.delete(persona.id), PERSONA_STORE);
+    }
+  }
 }
 
 function personaRecordId(channelId: string, personaName: string) {
@@ -571,6 +616,28 @@ export async function getConceptHistory(channelId: string): Promise<string[]> {
     ? await withStore<ConceptHistoryRecord | undefined>('readonly', store => store.get(channelId), CONCEPT_HISTORY_STORE)
     : memoryConceptHistory.get(channelId);
   return record?.inputs || [];
+}
+
+/**
+ * v4.0 (TASK A1, migration) — tags every pre-v4.0 pack (no workspaceId at
+ * all) as 'senior-oldpop', the one workspace that existed before this task.
+ * Additive only: never deletes a pack, only backfills the workspaceId field
+ * on records that don't already have one. Idempotent — running it again once
+ * every pack is already tagged is a correct no-op.
+ */
+export async function migrateLibraryWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  if (!hasIndexedDb()) {
+    for (const [id, pack] of memoryPacks) {
+      if (!pack.workspaceId) memoryPacks.set(id, { ...pack, workspaceId: DEFAULT_WORKSPACE_ID });
+    }
+    const all = Array.from(memoryPacks.values());
+    return { totalRecords: all.length, taggedSeniorOldpop: all.filter(p => (p.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
+  }
+  const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
+  for (const pack of all) {
+    if (!pack.workspaceId) await withStore('readwrite', store => store.put({ ...pack, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(p => (p.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
 export async function addConceptHistory(channelId: string, input: string): Promise<string[]> {

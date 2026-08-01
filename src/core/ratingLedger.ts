@@ -1,4 +1,5 @@
-import type { SongIdea } from '../types';
+import type { SongIdea, WorkspaceId } from '../types';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 /**
  * TASK v3.68 (TASK B) — "청취 평가 루프": six prior tasks measured text
@@ -73,6 +74,8 @@ export interface RatingRecord {
   ratedAt: string;
   attributes: RatingAttributes;
   noteKo?: string;
+  /** v4.0 (TASK A1) — optional only so records rated before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). Learning must never mix workspaces. */
+  workspaceId?: WorkspaceId;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -127,12 +130,12 @@ export function attributesFromSong(song: SongIdea, channelId: string, audioMetri
 
 /** Rates a song, or overwrites its previous rating (re-rating is always allowed — see TASK C's "이미 평가한 곡을 다시 누르면 수정됩니다"). */
 export async function recordRating(record: RatingRecord): Promise<void> {
-  await withStore('readwrite', store => store.put(record));
+  await withStore('readwrite', store => store.put({ ...record, workspaceId: record.workspaceId ?? currentWorkspaceId() }));
 }
 
 export async function getRatings(filter?: { channelId?: string; since?: string }): Promise<RatingRecord[]> {
   const all = await withStore<RatingRecord[]>('readonly', store => store.getAll());
-  return all.filter(record =>
+  return scopeFilter(all).filter(record =>
     (!filter?.channelId || record.attributes.channelId === filter.channelId)
     && (!filter?.since || record.ratedAt >= filter.since)
   );
@@ -150,4 +153,13 @@ export async function deleteRating(songId: string): Promise<void> {
 /** TASK F (v3.68) — "평가 데이터를 서버로 보내지 말 것. 로컬 저장만." export is a manual, user-triggered file download, never an automatic upload. */
 export function exportRatingsToJson(records: RatingRecord[]): string {
   return JSON.stringify(records, null, 2);
+}
+
+/** v4.0 (TASK A1, migration) — additive-only, idempotent; see core/library.ts's migrateLibraryWorkspaceTags for the shared contract. */
+export async function migrateRatingLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<RatingRecord[]>('readonly', store => store.getAll());
+  for (const record of all) {
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }

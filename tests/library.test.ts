@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   deleteAllPacks,
+  exportAllPacks,
   getPackPastedAt,
   getPackProgress,
   listChannelPersonas,
+  listPacks,
   loadPack,
   markTrackPasted,
   recordChannelPersonaUse,
@@ -13,6 +15,7 @@ import {
 } from '../src/core/library';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildSoundSignature } from '../src/core/soundSignature';
+import { setCurrentWorkspace, __resetWorkspaceScopeForTests } from '../src/core/workspaceScope';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 
 describe('library persona persistence', () => {
@@ -124,5 +127,113 @@ describe('[v3.31] pack progress + pasted-at persistence (shared record, no test 
     await markTrackPasted(packId, 9);
     const done = await getPackProgress(packId);
     expect(done).toContain(9);
+  });
+});
+
+// v4.0 (TASK A1) — the actual bug this task exists to prevent: two
+// workspaces' packs must never appear in each other's list, export, or bulk
+// delete. Runs against library.ts's memory-fallback path (no indexedDB in
+// Node), which is exercised identically to a real browser's IndexedDB path —
+// same savePack/listPacks/deleteAllPacks code, just a different backing map.
+describe('[v4.0 TASK A1] workspace data isolation', () => {
+  beforeEach(async () => {
+    setCurrentWorkspace('senior-oldpop');
+    await deleteAllPacks();
+    setCurrentWorkspace('kr-2030');
+    await deleteAllPacks();
+    setCurrentWorkspace('senior-oldpop');
+  });
+
+  afterEach(() => {
+    __resetWorkspaceScopeForTests();
+  });
+
+  it('a pack saved in one workspace never appears in listPacks() for another', async () => {
+    setCurrentWorkspace('senior-oldpop');
+    const opts = makeOptions({ songCount: 1, projectTitle: 'Senior Pack' });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint, options: opts, name: 'Senior Pack' });
+
+    setCurrentWorkspace('kr-2030');
+    const krOpts = makeOptions({ songCount: 1, projectTitle: 'KR 2030 Pack' });
+    const krBlueprint = generateLocalBlueprint(krOpts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint: krBlueprint, options: krOpts, name: 'KR 2030 Pack' });
+
+    const krPacks = await listPacks();
+    expect(krPacks.map(p => p.name)).toEqual(['KR 2030 Pack']);
+
+    setCurrentWorkspace('senior-oldpop');
+    const seniorPacks = await listPacks();
+    expect(seniorPacks.map(p => p.name)).toEqual(['Senior Pack']);
+  });
+
+  it('exportAllPacks() only bundles the current workspace, never another', async () => {
+    setCurrentWorkspace('senior-oldpop');
+    const opts = makeOptions({ songCount: 1 });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint, options: opts, name: 'Senior Only' });
+
+    setCurrentWorkspace('kr-2030');
+    const exported = JSON.parse(await (await exportAllPacks()).text());
+    expect(exported).toEqual([]);
+  });
+
+  it('deleteAllPacks() from inside one workspace never touches another workspace\'s packs', async () => {
+    setCurrentWorkspace('senior-oldpop');
+    const opts = makeOptions({ songCount: 1 });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint, options: opts, name: 'Must Survive' });
+
+    setCurrentWorkspace('kr-2030');
+    const krOpts = makeOptions({ songCount: 1 });
+    const krBlueprint = generateLocalBlueprint(krOpts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint: krBlueprint, options: krOpts, name: 'KR Pack' });
+    await deleteAllPacks(); // deleting "all" while inside kr-2030
+
+    setCurrentWorkspace('senior-oldpop');
+    const seniorPacks = await listPacks();
+    expect(seniorPacks.map(p => p.name)).toEqual(['Must Survive']);
+  });
+
+  it('listPacks(workspaceId) reads a DIFFERENT workspace explicitly, without touching the shared current-workspace global (real browser testing caught a race in the original design that used setCurrentWorkspace()+restore instead)', async () => {
+    setCurrentWorkspace('senior-oldpop');
+    const seniorOpts = makeOptions({ songCount: 1 });
+    const seniorBlueprint = generateLocalBlueprint(seniorOpts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint: seniorBlueprint, options: seniorOpts, name: 'Senior Explicit' });
+
+    setCurrentWorkspace('kr-2030');
+    const krOpts = makeOptions({ songCount: 1 });
+    const krBlueprint = generateLocalBlueprint(krOpts, testGenres, testMoods, testSeason);
+    await savePack({ blueprint: krBlueprint, options: krOpts, name: 'KR Explicit' });
+
+    // Still "in" kr-2030, but explicitly asking for senior-oldpop's packs.
+    const seniorViaOverride = await listPacks('senior-oldpop');
+    expect(seniorViaOverride.map(p => p.name)).toEqual(['Senior Explicit']);
+
+    // The override must never leak into the ambient current workspace.
+    const stillKr = await listPacks();
+    expect(stillKr.map(p => p.name)).toEqual(['KR Explicit']);
+  });
+
+  it('each workspace gets its own independent autosave slot', async () => {
+    setCurrentWorkspace('senior-oldpop');
+    const seniorOpts = makeOptions({ songCount: 1, projectTitle: 'Senior Autosave' });
+    const seniorBlueprint = generateLocalBlueprint(seniorOpts, testGenres, testMoods, testSeason);
+    const seniorId = await savePack({ blueprint: seniorBlueprint, options: seniorOpts, isAutosave: true, name: 'Autosave' });
+
+    setCurrentWorkspace('kr-2030');
+    const krOpts = makeOptions({ songCount: 1, projectTitle: 'KR Autosave' });
+    const krBlueprint = generateLocalBlueprint(krOpts, testGenres, testMoods, testSeason);
+    const krId = await savePack({ blueprint: krBlueprint, options: krOpts, isAutosave: true, name: 'Autosave' });
+
+    expect(seniorId).not.toBe(krId); // different physical keys -- confirms no put() overwrite collision
+
+    setCurrentWorkspace('senior-oldpop');
+    const seniorAutosave = await loadPack(seniorId);
+    expect(seniorAutosave?.projectTitle).toBe('Senior Autosave');
+
+    setCurrentWorkspace('kr-2030');
+    const krAutosave = await loadPack(krId);
+    expect(krAutosave?.projectTitle).toBe('KR Autosave');
   });
 });

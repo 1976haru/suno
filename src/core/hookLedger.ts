@@ -1,14 +1,23 @@
-import type { ChannelArchetype, LyricLanguage, PlaylistBlueprint } from '../types';
+import type { ChannelArchetype, LyricLanguage, PlaylistBlueprint, WorkspaceId } from '../types';
 import { hookPoolSize } from './lyricEngine';
 import { forecastCapacity } from './capacityPlanner';
 import { stripSetTitlePrefix } from '../utils/generation';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 const DB_NAME = 'suno-weaver-hooks';
 const DB_VERSION = 1;
 const STORE = 'usage';
 
 export interface HookUsage {
-  /** `${packId}:${trackNo}` — unique per song, and lets forgetPack() find every record for a pack without a secondary index. */
+  /**
+   * `${workspaceId}::${packId}:${trackNo}` — unique per song, and lets
+   * forgetPack() find every record for a pack without a secondary index.
+   * v4.0 (TASK A1): the workspace prefix matters because packId is not
+   * always globally unique — every workspace's ephemeral autosave slot
+   * shares the same literal packId ('autosave-temp'), and without this
+   * prefix two workspaces' autosave hook rows would put() the same physical
+   * IndexedDB key and silently overwrite each other.
+   */
   id: string;
   hook: string;
   title: string;
@@ -17,6 +26,8 @@ export interface HookUsage {
   usedAt: string;
   packId: string;
   trackNo: number;
+  /** v4.0 (TASK A1) — optional only so records written before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). */
+  workspaceId?: WorkspaceId;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -45,8 +56,15 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore
   });
 }
 
+/**
+ * v4.0 (TASK A1) — every caller in this file immediately narrows to its own
+ * workspace's records (none of them ever needs cross-workspace visibility),
+ * so scoping here once covers usedHooks/usedTitles/recentUsedTitlesAndHooks/
+ * listChannelUsage/forgetPack/clearChannelHistory/channel*Forecast for free.
+ */
 async function allRecords(): Promise<HookUsage[]> {
-  return withStore<HookUsage[]>('readonly', store => store.getAll());
+  const all = await withStore<HookUsage[]>('readonly', store => store.getAll());
+  return scopeFilter(all);
 }
 
 /** Every hook this channel (in this language) has ever used, across every pack — not just the current one. This is TASK X1's core fix: without cross-pack history, a hook bank of any size eventually repeats because nothing remembers what the *previous* pack already used. */
@@ -110,14 +128,15 @@ export async function recordPackHooks(packId: string, channelId: string, bluepri
   const now = new Date().toISOString();
   for (const song of blueprint.songs) {
     const record: HookUsage = {
-      id: `${packId}:${song.trackNo}`,
+      id: `${currentWorkspaceId()}::${packId}:${song.trackNo}`,
       hook: song.hookPhrase,
       title: stripSetTitlePrefix(song.title),
       channelId,
       language,
       usedAt: now,
       packId,
-      trackNo: song.trackNo
+      trackNo: song.trackNo,
+      workspaceId: currentWorkspaceId()
     };
     await withStore('readwrite', store => store.put(record));
   }
@@ -255,6 +274,15 @@ export async function listChannelUsage(channelId: string): Promise<HookUsage[]> 
 
 export async function forgetUsage(id: string): Promise<void> {
   await withStore('readwrite', store => store.delete(id));
+}
+
+/** v4.0 (TASK A1, migration) — same shape/contract as core/library.ts's migrateLibraryWorkspaceTags: additive-only, idempotent, tags every pre-v4.0 hook record 'senior-oldpop'. Reads the raw (unfiltered) store directly — allRecords() is already workspace-scoped and would hide exactly the untagged records this needs to see. */
+export async function migrateHookLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<HookUsage[]>('readonly', store => store.getAll());
+  for (const record of all) {
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
 export async function clearChannelHistory(channelId: string): Promise<void> {

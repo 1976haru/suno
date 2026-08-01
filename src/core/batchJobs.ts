@@ -1,5 +1,6 @@
 import type { BatchRequestSpec } from '../providers/batchAnthropic';
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PlaylistIdentity, PreassignedSongSlot, ProviderType } from '../types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PlaylistIdentity, PreassignedSongSlot, ProviderType, WorkspaceId } from '../types';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 const DB_NAME = 'suno-weaver-batch';
 const DB_VERSION = 1;
@@ -65,6 +66,8 @@ export interface BatchJobRecord {
   /** Set on a job created by retryFailed() to resubmit only the sub-batches that errored in a parent job. */
   parentJobId?: string;
   snapshot: BatchJobSnapshot;
+  /** v4.0 (TASK A1) — optional only so jobs created before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). */
+  workspaceId?: WorkspaceId;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -112,7 +115,8 @@ export async function createBatchJob(input: {
     status: 'submitting',
     requests: input.requests,
     totalSongCount: input.totalSongCount,
-    snapshot: input.snapshot
+    snapshot: input.snapshot,
+    workspaceId: currentWorkspaceId()
   };
   await withStore('readwrite', store => store.put(record));
   return record;
@@ -148,7 +152,7 @@ export async function getBatchJob(id: string): Promise<BatchJobRecord | undefine
 
 export async function listBatchJobs(channelId: string): Promise<BatchJobRecord[]> {
   const all = await withStore<BatchJobRecord[]>('readonly', store => store.getAll());
-  return all.filter(job => job.channelId === channelId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return scopeFilter(all).filter(job => job.channelId === channelId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
 /** Jobs still worth polling on app reopen. */
@@ -159,4 +163,13 @@ export async function listActiveBatchJobs(channelId: string): Promise<BatchJobRe
 
 export async function deleteBatchJob(id: string): Promise<void> {
   await withStore('readwrite', store => store.delete(id));
+}
+
+/** v4.0 (TASK A1, migration) — additive-only, idempotent; see core/library.ts's migrateLibraryWorkspaceTags for the shared contract. */
+export async function migrateBatchJobsWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<BatchJobRecord[]>('readonly', store => store.getAll());
+  for (const record of all) {
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }

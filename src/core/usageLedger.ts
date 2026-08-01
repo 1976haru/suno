@@ -1,3 +1,6 @@
+import type { WorkspaceId } from '../types';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
+
 const DB_NAME = 'suno-weaver-usage';
 const DB_VERSION = 1;
 const STORE = 'usage';
@@ -15,6 +18,8 @@ export interface UsageRecord {
   cacheReadTokens?: number;
   imageCount?: number;
   imageCostCny?: number;
+  /** v4.0 (TASK A1) — optional only so records logged before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). Cost tracking must stay per-workspace so one workspace's spend never gets attributed to another. */
+  workspaceId?: WorkspaceId;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -49,7 +54,7 @@ function uniqueTimestamp(): string {
 }
 
 export async function recordUsage(record: Omit<UsageRecord, 'at'> & { at?: string }): Promise<void> {
-  const full: UsageRecord = { ...record, at: record.at || uniqueTimestamp() };
+  const full: UsageRecord = { ...record, at: record.at || uniqueTimestamp(), workspaceId: currentWorkspaceId() };
   await withStore('readwrite', store => store.put(full));
 }
 
@@ -83,17 +88,23 @@ export function summarizeUsage(records: UsageRecord[]): UsageSummary {
 
 export async function usageSummary(since?: string): Promise<UsageSummary> {
   const all = await withStore<UsageRecord[]>('readonly', store => store.getAll());
-  const filtered = since ? all.filter(record => record.at >= since) : all;
+  const scoped = scopeFilter(all);
+  const filtered = since ? scoped.filter(record => record.at >= since) : scoped;
   return summarizeUsage(filtered);
 }
 
 export async function listUsage(since?: string): Promise<UsageRecord[]> {
   const all = await withStore<UsageRecord[]>('readonly', store => store.getAll());
-  return since ? all.filter(record => record.at >= since) : all;
+  const scoped = scopeFilter(all);
+  return since ? scoped.filter(record => record.at >= since) : scoped;
 }
 
+/** v4.0 (TASK A1) — clears only the current workspace's usage history; store.clear() would wipe every workspace's cost tracking at once. */
 export async function clearUsage(): Promise<void> {
-  await withStore('readwrite', store => store.clear());
+  const all = await withStore<UsageRecord[]>('readonly', store => store.getAll());
+  for (const record of scopeFilter(all)) {
+    await withStore('readwrite', store => store.delete(record.at));
+  }
 }
 
 /**
@@ -110,4 +121,13 @@ export async function clearUsage(): Promise<void> {
 export function estimateCacheSavingsKrw(totalCacheReadTokens: number, inputPricePerM: number | null): number | null {
   if (inputPricePerM == null || Number.isNaN(inputPricePerM) || totalCacheReadTokens <= 0) return null;
   return (totalCacheReadTokens / 1_000_000) * inputPricePerM * 0.9;
+}
+
+/** v4.0 (TASK A1, migration) — additive-only, idempotent; see core/library.ts's migrateLibraryWorkspaceTags for the shared contract. */
+export async function migrateUsageLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<UsageRecord[]>('readonly', store => store.getAll());
+  for (const record of all) {
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }

@@ -10,6 +10,9 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 
 export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge';
 
+/** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. */
+export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids';
+
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
 
@@ -843,6 +846,8 @@ export interface SavedPack {
   aiDisclosure?: boolean;
   /** TASK v3.39.1 Part B4 — derived from channel.archetype === 'kids' at save time (core/exportCompliance.ts's isMadeForKidsChannel), stored so a saved pack's COPPA status is visible without re-deriving it from the channel record, which may since have changed. */
   madeForKids?: boolean;
+  /** v4.0 (TASK A1) — which workspace this pack belongs to; optional only so packs saved before this task keep loading (core/workspaceMigration.ts backfills them to 'senior-oldpop'). See core/workspaceScope.ts. */
+  workspaceId?: WorkspaceId;
 }
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;

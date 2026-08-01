@@ -10,6 +10,7 @@ import {
   searchHiddenGenresForArchetype
 } from '../../data/genreLibrary';
 import { forecastCapacity } from '../../core/capacityPlanner';
+import { scopedKey } from '../../core/workspaceScope';
 import TagChips from '../TagChips';
 import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market } from '../../types';
 
@@ -165,7 +166,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
   const [songsPerWeek, setSongsPerWeek] = useState(12);
   const [kidsBannerDismissed, setKidsBannerDismissed] = useState(() => {
     try {
-      return localStorage.getItem(KIDS_BANNER_DISMISSED_KEY) === 'true';
+      return localStorage.getItem(scopedKey(KIDS_BANNER_DISMISSED_KEY)) === 'true';
     } catch {
       return false;
     }
@@ -175,7 +176,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
   function dismissKidsBanner() {
     setKidsBannerDismissed(true);
     try {
-      localStorage.setItem(KIDS_BANNER_DISMISSED_KEY, 'true');
+      localStorage.setItem(scopedKey(KIDS_BANNER_DISMISSED_KEY), 'true');
     } catch {
       // localStorage unavailable (private browsing, etc.) — banner just reappears next session, harmless.
     }

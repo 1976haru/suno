@@ -2642,3 +2642,100 @@ pre {
   border-color: var(--teal);
   background: #eafaf6;
 }
+
+/* v4.0 (TASK A1/D) — WorkspaceSelectScreen.tsx entry screen. */
+.workspace-select-screen {
+  max-width: 720px;
+  margin: 40px auto;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.workspace-select-head h1 {
+  margin: 4px 0 8px;
+}
+
+.workspace-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.workspace-card {
+  display: grid;
+  gap: 6px;
+  height: auto;
+  min-height: 88px;
+  padding: 16px;
+  border-width: 2px;
+  border-radius: 12px;
+  background: #ffffff;
+  text-align: left;
+  white-space: normal;
+  align-items: start;
+  justify-items: start;
+}
+
+.workspace-card.not-ready {
+  opacity: 0.65;
+}
+
+.workspace-card-label {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.workspace-card-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.workspace-not-ready-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.workspace-select-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.workspace-skip-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.workspace-skip-checkbox input {
+  width: auto;
+}
+
+/* v4.0 (TASK D) — the always-visible current-workspace indicator/switcher in the topbar. */
+.workspace-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  cursor: pointer;
+}

@@ -1,5 +1,6 @@
-import type { AudienceProfile, SongIdea } from '../types';
+import type { AudienceProfile, SongIdea, WorkspaceId } from '../types';
 import type { SongAudioMetrics, TempoEstimate, VocalMetrics } from './audioAnalysis';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 /**
  * TASK v3.74 (TASK A) — "테이크(take)": one rendered mp3 for one track's
@@ -45,8 +46,8 @@ export interface AudioTake {
   packId: string;
   /** TASK v3.74 (TASK H) — not in the spec's own AudioTake sketch, added so TASK H's feedback loop can query "this channel's takes" without an extra pack lookup (AudioTake otherwise only carries packId, and a saved pack's channelId isn't guaranteed to still exist by the time a take is queried). */
   channelId?: string;
-  /** Reserved for a future workspace-scoping feature not yet implemented in this codebase ("A1" in the v3.74 spec) — always undefined today. */
-  workspaceId?: string;
+  /** v4.0 (TASK A1) — wired up: recordTake() stamps it, getTakes() filters by it (core/workspaceScope.ts's scopeFilter). Optional only so takes recorded before this task keep loading (treated as 'senior-oldpop'). */
+  workspaceId?: WorkspaceId;
 
   fileName: string;
   versionLabel: string;
@@ -127,12 +128,12 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore
 }
 
 export async function recordTake(take: AudioTake): Promise<void> {
-  await withStore('readwrite', store => store.put(take));
+  await withStore('readwrite', store => store.put({ ...take, workspaceId: take.workspaceId ?? currentWorkspaceId() }));
 }
 
 export async function getTakes(filter?: { packId?: string; songId?: string; channelId?: string }): Promise<AudioTake[]> {
   const all = await withStore<AudioTake[]>('readonly', store => store.getAll());
-  return all.filter(take =>
+  return scopeFilter(all).filter(take =>
     (!filter?.packId || take.packId === filter.packId)
     && (!filter?.songId || take.songId === filter.songId)
     && (!filter?.channelId || take.channelId === filter.channelId)
@@ -141,6 +142,15 @@ export async function getTakes(filter?: { packId?: string; songId?: string; chan
 
 export async function deleteTake(takeId: string): Promise<void> {
   await withStore('readwrite', store => store.delete(takeId));
+}
+
+/** v4.0 (TASK A1, migration) — additive-only, idempotent; see core/library.ts's migrateLibraryWorkspaceTags for the shared contract. */
+export async function migrateAudioTakesWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<AudioTake[]>('readonly', store => store.getAll());
+  for (const take of all) {
+    if (!take.workspaceId) await withStore('readwrite', store => store.put({ ...take, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(t => (t.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
 /** Marks `takeId` adopted and un-adopts every other take of the same song (a trackNo/song only ever has one adopted take at a time — see this task's own AudioTake.adopted doc comment). */

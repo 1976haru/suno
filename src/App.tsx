@@ -35,7 +35,11 @@ import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
 import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId } from './types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
+import { getWorkspace } from './data/workspaces';
+import { runWorkspaceMigrationOnce } from './core/workspaceMigration';
+import { setCurrentWorkspace } from './core/workspaceScope';
+import WorkspaceSelectScreen, { skipWorkspacePickerPreference } from './components/WorkspaceSelectScreen';
 import SettingsModal from './components/SettingsModal';
 import HookExhaustionWarningModal from './components/HookExhaustionWarningModal';
 import CachePromptModal from './components/CachePromptModal';
@@ -70,7 +74,24 @@ const STEPS: StepDef[] = [
 const PROVIDER_SETTINGS_KEY = 'providerSettings';
 const UI_MODE_KEY = 'ui:mode';
 
-export default function App() {
+interface WizardAppProps {
+  workspaceId: WorkspaceId;
+  /** v4.0 (TASK D) — hands control back to the outer App component, which unmounts this whole component (see App()'s key={workspaceId}) and shows the picker again. Checking for an in-flight batch job before calling this is this component's own job (it's the only place that state lives) — see handleRequestSwitchWorkspace below. */
+  onSwitchWorkspace: () => void;
+}
+
+/**
+ * v4.0 (TASK A1/D) — this used to be the default-exported App(). It is now
+ * mounted with key={workspaceId} by the real default export below, so
+ * switching workspaces fully unmounts and remounts every hook in this
+ * component (opts, blueprint, selected channel, step, bridge instruction
+ * text, batch flow, everything) — this task's own explicit "전환 시 상태
+ *초기화" requirement, satisfied structurally rather than by manually
+ * resetting each of the ~15 state variables below one at a time (and risking
+ * missing one).
+ */
+function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
+  const workspace = getWorkspace(workspaceId);
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsFocus, setSettingsFocus] = useState<'qwen' | undefined>();
@@ -840,12 +861,32 @@ export default function App() {
   const resultStepBlocked = !gen.blueprint;
   const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
 
+  /**
+   * v4.0 (TASK D §5-3) — "진행 중인 배치 작업 (있으면 경고 후 중단 여부 확인)".
+   * The batch job itself is not canceled by switching (it's an Anthropic
+   * Batch API job running server-side, independent of this tab — see
+   * hooks/useBatchGenerationFlow.ts's resumeActiveJobs, which is exactly how
+   * switching back later would pick it back up); this only warns that this
+   * tab stops watching it.
+   */
+  function handleRequestSwitchWorkspace() {
+    const job = batchFlow.activeJob;
+    const inFlight = job && (job.status === 'submitting' || job.status === 'in_progress' || job.status === 'canceling');
+    if (inFlight && !window.confirm('진행 중인 배치 작업이 있습니다. 워크스페이스를 전환하면 이 화면에서는 더 이상 진행 상황을 볼 수 없습니다 (작업 자체는 서버에서 계속 진행되며, 나중에 이 워크스페이스로 돌아오면 다시 확인할 수 있습니다). 전환하시겠습니까?')) {
+      return;
+    }
+    onSwitchWorkspace();
+  }
+
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={{ ['--teal' as string]: workspace.theme.accent, ['--bg' as string]: workspace.theme.surface }}>
       <header className="topbar">
         <div>
           <p className="eyebrow">Suno Weaver Studio v3</p>
           <h1>Playlist prompt and lyrics workbench</h1>
+          <button type="button" className="workspace-indicator" onClick={handleRequestSwitchWorkspace} title="다른 워크스페이스로 전환">
+            {workspace.labelKo} · 전환
+          </button>
         </div>
         <div className="button-row">
           {topBridgeInstruction && <button type="button" onClick={() => void copyText(topBridgeInstruction)}>전체 복사</button>}
@@ -1098,4 +1139,45 @@ export default function App() {
       />
     </main>
   );
+}
+
+/**
+ * v4.0 (TASK A1/D) — the real entry point. Runs the one-time, non-destructive
+ * workspace migration once on mount (core/workspaceMigration.ts — additive
+ * only, never blocks rendering), then either shows the workspace picker or
+ * mounts WizardApp for the chosen workspace. key={workspaceId} is what makes
+ * switching workspaces a full, clean reset (see WizardAppProps' own doc
+ * comment) — React unmounts the entire previous tree, including every hook's
+ * state, before mounting the new workspace's tree.
+ */
+export default function App() {
+  const [workspaceId, setWorkspaceId] = useState<WorkspaceId | null>(() => {
+    const skip = skipWorkspacePickerPreference();
+    if (!skip) return null;
+    setCurrentWorkspace(skip);
+    return skip;
+  });
+
+  useEffect(() => {
+    void runWorkspaceMigrationOnce().catch(() => {
+      // Migration failures are reported inside the resolved value, never
+      // thrown (see workspaceMigration.ts) — this catch only guards against
+      // an unexpected rejection so the app can never fail to render over it.
+    });
+  }, []);
+
+  function handleSelectWorkspace(id: WorkspaceId) {
+    setCurrentWorkspace(id);
+    setWorkspaceId(id);
+  }
+
+  function handleSwitchWorkspace() {
+    setWorkspaceId(null);
+  }
+
+  if (!workspaceId) {
+    return <WorkspaceSelectScreen onSelect={handleSelectWorkspace} />;
+  }
+
+  return <WizardApp key={workspaceId} workspaceId={workspaceId} onSwitchWorkspace={handleSwitchWorkspace} />;
 }

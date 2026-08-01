@@ -1,4 +1,5 @@
 import type { ChannelProfile } from '../types';
+import { scopedKey } from '../core/workspaceScope';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
 
@@ -62,10 +63,18 @@ export function createDraftChannel(name = 'New Playlist Channel'): ChannelProfil
   });
 }
 
+/**
+ * v4.0 (TASK A1) — scoped by workspace via scopedKey(): each workspace gets
+ * its own separate custom-channels array under its own key, rather than one
+ * shared array that a naive read-filter-then-write-back would silently
+ * shrink to just the current workspace's subset (see workspaceScope.ts's own
+ * doc comment on why scopedKey(), not per-record filtering, is used for
+ * whole-blob storage like this).
+ */
 export function readStoredChannels(): ChannelProfile[] {
   if (typeof window === 'undefined') return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]');
+    const parsed = JSON.parse(window.localStorage.getItem(scopedKey(STORAGE_KEY)) || '[]');
     if (!Array.isArray(parsed)) return [];
     return parsed.map(item => normalizeChannel(item)).filter(channel => channel.id);
   } catch {
@@ -76,7 +85,7 @@ export function readStoredChannels(): ChannelProfile[] {
 export function writeStoredChannels(channels: ChannelProfile[]) {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(channels));
+    window.localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(channels));
   } catch {
     // Storage can be blocked in private or embedded browser contexts.
   }

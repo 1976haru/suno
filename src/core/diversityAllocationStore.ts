@@ -1,11 +1,12 @@
 import { getSetting, setSetting } from './settingsStore';
 import type { AxisAllocation } from '../types';
 import { hasAllocationOverflow, normalizeDiversityAllocations } from './diversityAllocation';
+import { scopedKey } from './workspaceScope';
 
 const CHANNEL_INDEX_KEY = 'diversityAllocationChannels';
 
 function templateKey(channelId: string) {
-  return `diversityAllocation:${channelId}`;
+  return scopedKey(`diversityAllocation:${channelId}`);
 }
 
 export interface DiversityAllocationTemplate {
@@ -15,14 +16,14 @@ export interface DiversityAllocationTemplate {
 }
 
 export async function listDiversityAllocationChannelIds(): Promise<string[]> {
-  const index = await getSetting<string[]>(CHANNEL_INDEX_KEY);
+  const index = await getSetting<string[]>(scopedKey(CHANNEL_INDEX_KEY));
   return Array.isArray(index) ? index : [];
 }
 
 async function addToChannelIndex(channelId: string): Promise<void> {
   const current = await listDiversityAllocationChannelIds();
   if (current.includes(channelId)) return;
-  await setSetting(CHANNEL_INDEX_KEY, [...current, channelId]);
+  await setSetting(scopedKey(CHANNEL_INDEX_KEY), [...current, channelId]);
 }
 
 export function normalizeDiversityAllocationTemplate(saved: DiversityAllocationTemplate | undefined): DiversityAllocationTemplate | undefined {

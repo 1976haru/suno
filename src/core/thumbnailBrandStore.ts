@@ -1,22 +1,23 @@
 import { getSetting, setSetting } from './settingsStore';
 import type { ThumbnailBrandTemplate, ThumbnailTextLayer } from '../types';
 import { normalizeThumbnailTextLayer } from './thumbnailTextLayers';
+import { scopedKey } from './workspaceScope';
 
 const CHANNEL_INDEX_KEY = 'thumbnailBrandChannels';
 
 function templateKey(channelName: string) {
-  return `thumbnailBrand:${channelName}`;
+  return scopedKey(`thumbnailBrand:${channelName}`);
 }
 
 export async function listBrandChannelNames(): Promise<string[]> {
-  const index = await getSetting<string[]>(CHANNEL_INDEX_KEY);
+  const index = await getSetting<string[]>(scopedKey(CHANNEL_INDEX_KEY));
   return Array.isArray(index) ? index : [];
 }
 
 async function addToChannelIndex(channelName: string): Promise<void> {
   const current = await listBrandChannelNames();
   if (current.includes(channelName)) return;
-  await setSetting(CHANNEL_INDEX_KEY, [...current, channelName]);
+  await setSetting(scopedKey(CHANNEL_INDEX_KEY), [...current, channelName]);
 }
 
 function isLayerLike(value: unknown): value is Partial<ThumbnailTextLayer> & Pick<ThumbnailTextLayer, 'id' | 'role'> {

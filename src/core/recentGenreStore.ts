@@ -1,3 +1,5 @@
+import { scopedKey } from './workspaceScope';
+
 const STORAGE_KEY = 'suno-weaver-recent-genres-v1';
 const MAX_RECENT_PER_CHANNEL = 12;
 
@@ -6,7 +8,7 @@ type RecentGenreMap = Record<string, string[]>;
 function readMap(): RecentGenreMap {
   if (typeof window === 'undefined') return {};
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}');
+    const parsed = JSON.parse(window.localStorage.getItem(scopedKey(STORAGE_KEY)) || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
@@ -16,7 +18,7 @@ function readMap(): RecentGenreMap {
 function writeMap(map: RecentGenreMap) {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    window.localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(map));
   } catch {
     // Recent genres are a convenience; blocked storage should not break generation.
   }

@@ -1,4 +1,5 @@
-import type { ThumbnailVariantId } from '../types';
+import type { ThumbnailVariantId, WorkspaceId } from '../types';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 const DB_NAME = 'suno-weaver-videos';
 const DB_VERSION = 1;
@@ -38,6 +39,9 @@ export interface VideoRecord {
   subscribersGained?: number;
   likeRate?: number;
   commentKeywords?: string[];
+
+  /** v4.0 (TASK A1) — optional only so records created before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). */
+  workspaceId?: WorkspaceId;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -72,7 +76,7 @@ function randomId() {
 
 export async function listVideos(channelId: string): Promise<VideoRecord[]> {
   const all = await withStore<VideoRecord[]>('readonly', store => store.getAll());
-  return all.filter(v => v.channelId === channelId).sort((a, b) => a.weekNo - b.weekNo);
+  return scopeFilter(all).filter(v => v.channelId === channelId).sort((a, b) => a.weekNo - b.weekNo);
 }
 
 export async function getVideoByPackId(packId: string): Promise<VideoRecord | undefined> {
@@ -116,6 +120,7 @@ export async function upsertVideoForPack(input: {
     id: randomId(),
     channelId: input.channelId,
     packId: input.packId,
+    workspaceId: currentWorkspaceId(),
     weekNo: nextWeekNo,
     scheduledAt: new Date().toISOString(),
     videoTitle: input.videoTitle,
@@ -140,6 +145,15 @@ export async function updateVideo(id: string, patch: Partial<VideoRecord>): Prom
 
 export async function deleteVideo(id: string): Promise<void> {
   await withStore('readwrite', store => store.delete(id));
+}
+
+/** v4.0 (TASK A1, migration) — additive-only, idempotent; see core/library.ts's migrateLibraryWorkspaceTags for the shared contract. */
+export async function migrateVideoLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<VideoRecord[]>('readonly', store => store.getAll());
+  for (const record of all) {
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }
 
 export async function forgetVideosForPack(packId: string): Promise<void> {
