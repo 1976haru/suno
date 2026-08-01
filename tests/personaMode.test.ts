@@ -229,11 +229,22 @@ describe('persona mode prompt compression', () => {
     expect(result.droppedTerms).toEqual(['track role', 'mood', 'mix note', 'instrument: grand piano']);
   });
 
-  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('keeps vocal text on every track when persona mode is off (%s)', language => {
+  // v3.77 (TASK A) — an explicit non-default vocalTone no longer copies its
+  // own preset text verbatim onto every track (that was itself the real bug:
+  // zero vocal variety across the whole pack); it now LEANS the auto quota
+  // toward that gender instead (core/vocalPlan.ts's leaningAdultVocalQuota),
+  // so every track still gets real per-song vocal text, with the requested
+  // gender ('male', from the low-calm-male preset) as the clear majority.
+  it.each(['english', 'korean', 'japanese'] as LyricLanguage[])('leans vocal type/text toward the requested tone on every track when persona mode is off (%s)', language => {
     const opts = makeOptions({ personaMode: false, songCount: 12, lyricLanguage: language, vocalTone: SOLO_VOCAL_TONE });
     const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const counts = { male: 0, female: 0, mixed: 0 };
     for (const song of blueprint.songs) {
-      expect(song.stylePrompt).toContain(opts.vocalTone);
+      expect(song.vocalType, `trackNo ${song.trackNo}`).toBeDefined();
+      counts[song.vocalType!] += 1;
+      expect(song.stylePrompt.length).toBeGreaterThan(0);
     }
+    expect(counts.male).toBeGreaterThan(counts.female);
+    expect(counts.male).toBeGreaterThan(counts.mixed);
   });
 });

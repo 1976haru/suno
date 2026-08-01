@@ -1,7 +1,38 @@
-import type { ChannelProfile, WorkspaceId } from '../types';
+import type { AgeGroup, ChannelArchetype, ChannelProfile, WorkspaceId } from '../types';
 import { scopedKey } from '../core/workspaceScope';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
+
+/**
+ * v3.77 (TASK C) — mirrors components/steps/Step1Channel.tsx's own
+ * archetypeChoices[].audience table (not imported directly — a utils/
+ * module importing a component file would invert the normal dependency
+ * direction; kept in sync by hand, same trade-off this app already accepts
+ * elsewhere for small duplicated tables). Real bug found while
+ * investigating this task's own §4: normalizeChannel defaulted a missing
+ * `archetype` to 'senior-morning' but a missing `audience` to a totally
+ * unrelated 'allAges' — a fresh custom channel (createDraftChannel, the
+ * "New"/quick-create flow, which sets neither field) ended up
+ * archetype:'senior-morning' + audience:'allAges', a real mismatch: the
+ * senior archetype's own template card sets audience:'seniors', but a
+ * quick-created channel skipped that card entirely and got the generic
+ * age-group fallback instead — exactly the kind of "특정 조건에서만 켜지는
+ * 구조" (audienceProfileForAgeGroup('allAges') resolves to
+ * GENERAL_AUDIENCE_PROFILE, not SENIOR_AUDIENCE_PROFILE) this task's own
+ * §10 names as the root pattern behind repeated regressions.
+ */
+const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
+  'senior-morning': 'seniors',
+  'oldpop-lounge': 'seniors',
+  'showa-cafe': 'seniors',
+  'showa-70s': 'seniors',
+  j2000s: 'general',
+  christmas: 'allAges',
+  'lofi-study': 'twenties',
+  'modern-chill': 'twenties',
+  'city-night': 'thirtiesForties',
+  kids: 'kids'
+};
 
 export function slugify(value: string) {
   return value
@@ -25,13 +56,21 @@ export function makeUniqueId(label: string, existingIds: Set<string>, currentId?
 }
 
 export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile {
+  // v3.4 — channels saved before archetypes existed have no `archetype` field;
+  // they fall back to 'senior-morning' rather than an unscoped/empty hook bank.
+  const archetype = input.archetype || 'senior-morning';
   return {
     id: input.id || `channel-${Date.now()}`,
     name: input.name?.trim() || 'Untitled Channel',
     englishName: input.englishName?.trim() || input.name?.trim() || 'Untitled Channel',
     market: input.market || 'custom',
     primaryLanguage: input.primaryLanguage || 'english',
-    audience: input.audience || 'allAges',
+    // v3.77 (TASK C) — was `input.audience || 'allAges'`, independent of
+    // archetype; now derives from the SAME resolved archetype this function
+    // already falls back to, so archetype and audience never end up an
+    // inconsistent pair again (see ARCHETYPE_DEFAULT_AUDIENCE's own doc
+    // comment for the real bug this closes).
+    audience: input.audience || ARCHETYPE_DEFAULT_AUDIENCE[archetype] || 'allAges',
     promise: input.promise?.trim() || 'custom playlist channel concept',
     visualIdentity: input.visualIdentity?.trim() || 'consistent thumbnail layout, readable typography, recognizable channel colors',
     defaultVocal: input.defaultVocal?.trim() || 'clear emotional vocal, polished playlist-friendly delivery',
@@ -39,9 +78,7 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
     preferredMoods: input.preferredMoods?.length ? input.preferredMoods : ['warm', 'hopeful'],
     forbiddenCliches: input.forbiddenCliches?.length ? input.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
     seoKeywords: input.seoKeywords || [],
-    // v3.4 — channels saved before archetypes existed have no `archetype` field;
-    // they fall back to 'senior-morning' rather than an unscoped/empty hook bank.
-    archetype: input.archetype || 'senior-morning'
+    archetype
   };
 }
 
@@ -52,7 +89,10 @@ export function createDraftChannel(name = 'New Playlist Channel'): ChannelProfil
     englishName: name,
     market: 'custom',
     primaryLanguage: 'english',
-    audience: 'allAges',
+    // v3.77 (TASK C) — no longer hardcoded to 'allAges' here: omitting it
+    // lets normalizeChannel derive it from this draft's own (also
+    // unspecified, so 'senior-morning'-defaulted) archetype instead, so the
+    // two fields stay a consistent pair.
     promise: 'creator-defined playlist channel with a clear listener promise',
     visualIdentity: 'consistent colors, readable thumbnail typography, clear seasonal object',
     defaultVocal: 'clear emotional vocal, polished playlist-friendly delivery',

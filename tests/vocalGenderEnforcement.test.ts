@@ -52,11 +52,24 @@ describe('detectVocalGender', () => {
 });
 
 describe('[Part H] preallocateSongSlots carries vocalText for every channel', () => {
-  it('a non-kids channel slot carries vocalText from opts.vocalTone', () => {
-    const opts = makeOptions({ channel: showaCafe, vocalTone: 'warm-mature-male preset text: mature soft male tenor, restrained emotional tone' });
+  // v3.77 (TASK A) — was "carries vocalText from opts.vocalTone" verbatim on
+  // every slot, with usesVocalQuota() OFF (vocalType always undefined) —
+  // that verbatim-copy-to-every-song behavior is the real bug this task
+  // fixes (see vocalPlan.ts's leaningGenderFor doc comment: an 18-song real
+  // pack came back byte-identical on every track). The auto quota now
+  // always runs; a picked vocalTone LEANS the mix toward its detected
+  // gender instead of replacing per-song variety with one fixed string.
+  it('a non-kids channel leans vocalText toward the picked vocalTone\'s gender, but keeps per-song variety instead of one fixed string', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: 'warm-mature-male preset text: mature soft male tenor, restrained emotional tone', songCount: 12 });
     const slots = preallocateSongSlots(opts, []);
-    expect(slots.every(slot => slot.vocalText === opts.vocalTone)).toBe(true);
-    expect(slots.every(slot => slot.vocalType === undefined)).toBe(true);
+    expect(slots.every(slot => slot.vocalType !== undefined)).toBe(true);
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+    const maleCount = slots.filter(slot => slot.vocalType === 'male').length;
+    expect(maleCount).toBeGreaterThan(slots.length / 2);
+    // Leaning male must not zero out the other genders (this task's own
+    // "최소 각 3곡" — scaled here for a 12-song pack, min 2 per leaningAdultVocalQuota).
+    expect(slots.some(slot => slot.vocalType === 'female')).toBe(true);
+    expect(slots.some(slot => slot.vocalType === 'mixed')).toBe(true);
   });
 
   // TASK v3.72 (TASK A) — real regression: a blank/untouched vocalTone
@@ -142,7 +155,12 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
   const explicitMalePreset = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
   it('corrects a female stylePrompt back to the channel\'s selected male vocal, and tags the lyrics', () => {
-    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitMalePreset });
+    // v3.77 (TASK A) — vocalTone alone only LEANS the quota now (see
+    // vocalPlan.ts's leaningGenderFor); an explicit opts.vocalQuota override
+    // is the deterministic tool for "this one slot must be male" that this
+    // test actually needs (opts.vocalQuota always wins outright over a
+    // vocalTone-derived lean — see batchPreallocation.ts's own wiring).
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitMalePreset, vocalQuota: { male: 1, female: 0, mixed: 0 } });
     const [slot] = preallocateSongSlots(opts, []);
     const wrongSong = baseSong({ trackNo: slot.trackNo });
     const fixed = reconcileWithPreassignedSlot(wrongSong, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
@@ -182,7 +200,11 @@ describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (real
 describe('[v3.70 TASK A] reconcileWithPreassignedSlot applies per-section duet vocal tags (realtime/Batch/bridge choke point)', () => {
   it('tags a duet-selected slot\'s verse/chorus/bridge lines even though the imported song never included them itself', () => {
     const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
-    const opts = makeOptions({ channel: showaCafe, vocalTone: duetPreset.prompt });
+    // v3.77 — vocalTone alone only leans the quota now; an explicit
+    // opts.vocalQuota override deterministically guarantees this slot is a
+    // duet (see the "does not add any duet section tags" test below for
+    // the equivalent non-duet-guarantee case).
+    const opts = makeOptions({ channel: showaCafe, vocalTone: duetPreset.prompt, vocalQuota: { male: 0, female: 0, mixed: 1 } });
     const [slot] = preallocateSongSlots(opts, []);
     expect(slot.vocalGender).toBe('duet');
     const untaggedDuetLyrics = [
@@ -200,13 +222,10 @@ describe('[v3.70 TASK A] reconcileWithPreassignedSlot applies per-section duet v
   });
 
   it('does not add any duet section tags for a non-duet slot', () => {
-    // v3.75 — vocalTone must be an explicit preset DIFFERENT from
-    // showaCafe.defaultVocal (see explicitMalePreset's own comment above):
-    // "=== defaultVocal" engages the auto quota, where track 1's gender is
-    // an implementation detail of buildVocalPlan's scheduling algorithm,
-    // not a guarantee — this test's actual intent (no duet tags on a
-    // non-duet slot) needs a slot that's deterministically non-duet.
-    const opts = makeOptions({ channel: showaCafe, vocalTone: vocalPresets.find(p => p.id === 'low-calm-male')!.prompt });
+    // v3.77 — vocalTone alone only leans the quota (see leaningGenderFor);
+    // an explicit opts.vocalQuota override is what deterministically
+    // guarantees "this slot is not a duet" now.
+    const opts = makeOptions({ channel: showaCafe, vocalTone: vocalPresets.find(p => p.id === 'low-calm-male')!.prompt, vocalQuota: { male: 1, female: 0, mixed: 0 } });
     const [slot] = preallocateSongSlots(opts, []);
     expect(slot.vocalGender).not.toBe('duet');
     const lyrics = '[verse 1]\na line\n\n[chorus]\nHold On';

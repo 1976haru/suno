@@ -2,7 +2,7 @@ import type { AudienceProfile, SongIdea } from '../types';
 import { descriptorCount, lyricWordAndSectionCounts, vocalZoneDistributionWarnings } from './compositionScorer';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
-import { findExcessiveVocabularyRepetition, findHookWordOveruse, topWordFrequencies } from './lyricVocabularyRepetition';
+import { findBlockingVocabularyRepetition, findExcessiveVocabularyRepetition, findHookWordOveruse, topWordFrequencies, WORD_BLOCKING_THRESHOLD } from './lyricVocabularyRepetition';
 import { lintInPackStyleSimilarity } from './diversityLinter';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { classifyTitleShape } from './titleShapeVariety';
@@ -263,6 +263,7 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
   const placeholderLeaks = songs.filter(song => PLACEHOLDER_PATTERN.test(song.lyrics));
   const endTagLeaks = songs.filter(song => END_TAG_PATTERN.test(song.lyrics));
   const vocabRepetition = findExcessiveVocabularyRepetition(songs);
+  const blockingVocab = findBlockingVocabularyRepetition(songs);
   const maxWordRepeat = topWordFrequencies(songs, 1)[0]?.count ?? 0;
   const hookOveruse = findHookWordOveruse(songs);
 
@@ -332,7 +333,17 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
       id: 'vocab_repeat_advisory', category: '가사', labelKo: '어휘 반복 (advisory, 12회 기준)',
       targetKo: '≤ 12회', actualKo: vocabRepetition.slice(0, 5).map(f => `${f.word}(${f.count})`).join(', '),
       pass: null, requiresAudio: false, specifiedBy: ['v3.64 TASK A-4']
-    })] : [])
+    })] : []),
+    // v3.77 (TASK D-2/E) — mirrors compositionScorer.ts's own new BLOCKING
+    // gate exactly (WORD_BLOCKING_THRESHOLD=30, hard-fails composition, not
+    // just an advisory), so this audit surfaces whether the pack it just
+    // generated would actually have been blocked at generation time, not
+    // just "over the softer 12/20 advisory caps".
+    item({
+      id: 'vocab_repeat_blocking', category: '가사', labelKo: `어휘 반복 (blocking, ${WORD_BLOCKING_THRESHOLD}회 기준)`,
+      targetKo: `≤ ${WORD_BLOCKING_THRESHOLD}회`, actualKo: `${maxWordRepeat}회${blockingVocab.length ? ` (${blockingVocab.slice(0, 5).map(f => `${f.word} ${f.count}회`).join(', ')})` : ''}`,
+      pass: blockingVocab.length === 0, requiresAudio: false, specifiedBy: ['v3.77 TASK D-2']
+    })
   ];
 }
 

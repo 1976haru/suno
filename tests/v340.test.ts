@@ -98,8 +98,16 @@ describe('[Part H4/H5] local generation path gets the same lyric meta tag + qual
     const genres = genrePacks.filter(g => showaCafe.preferredGenres.includes(g.id));
     const moods = moodPacks.filter(m => showaCafe.preferredMoods.includes(m.id));
     const bp = generateLocalBlueprint(opts, genres, moods, season);
+    // v3.77 (TASK A) — showaCafe is a non-kids channel, so its 'mixed'
+    // vocalType slots (auto quota, untouched vocalTone) mean duet, not
+    // choir; this regex used to omit 'duet vocal'/'group vocal' entirely,
+    // which happened not to matter while resolveVocalMetaTag's own ordering
+    // bug mistagged every such slot as "[children's choir]" instead (see
+    // core/vocalPlan.ts's resolveVocalMetaTag doc comment for that fix) —
+    // now that a duet slot is correctly tagged "[duet vocal]", this
+    // assertion's own tag list needs to include it too.
     for (const song of bp.songs) {
-      expect(/^\[(male vocal|female vocal|children'?s choir)\]/i.test(song.lyrics)).toBe(true);
+      expect(/^\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]/i.test(song.lyrics)).toBe(true);
     }
   });
 

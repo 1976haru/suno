@@ -356,7 +356,14 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
           </select>
         </div>
         <div>
-          <label>Generation pack (타겟 연령대)</label>
+          {/* v3.77 (TASK C) — this field drives more than lyric tone: BPM
+              range/tempo bands and word-count targets all key off it (see
+              data/audienceProfiles.ts's audienceProfileForAgeGroup). Label
+              clarified so it reads as a real generation setting, not just a
+              content-pack label — a real custom channel's audience silently
+              defaulting away from what its archetype implied was part of
+              this task's own diagnosed root cause. */}
+          <label>Generation pack / 타겟 연령대 (BPM·가사 톤에 영향)</label>
           <select value={editorChannel.audience} onChange={event => onUpdateField('audience', event.target.value as AgeGroup)}>
             {generationPacks.map(pack => <option key={pack.id} value={pack.id}>{pack.label}</option>)}
           </select>

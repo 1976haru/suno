@@ -35,6 +35,7 @@ import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 import { applyEraQuota, extractEraConstraint } from './constraints';
+import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
 
 /**
  * v3.63 재작성 (TASK B) — 2단계 해석의 산출 타입. 1단계(자연어 → 이 타입)는
@@ -390,6 +391,30 @@ function vocalCounts(songCount: number) {
   return exactBalancedCounts(VOCAL_TYPE_IDS, songCount);
 }
 
+/**
+ * v3.77 (TASK A) — real gap found while verifying this task's own §10 "결과물
+ * 검사에서 이 기능이 작동했는가를 직접 확인": the real Step2Concept -> Step2Plan
+ * -> generate UI flow bakes THIS function's blind, vocalTone-blind
+ * vocalCounts(songCount) split into plan.allocations as a 'manual' axis, and
+ * core/diversityAllocation.ts's applyAxisAllocation always lets a manual
+ * allocation win over the auto/leaning-aware quota — so leaningAdultVocalQuota
+ * (however correct in isolation) never actually reached a real end-to-end
+ * generation, only direct generateLocalBlueprint/preallocateSongSlots calls
+ * with no diversityAllocations override (exactly what this session's own unit
+ * tests use). This computes the SAME leaning the auto path would, so the
+ * manual allocation directSetLocal hands off is leaning-aware from the start
+ * instead of silently discarding vocalTone. Scoped to directSetLocal's own
+ * plain (non-segment) path only — buildSetPlanFromIntent's segment/
+ * artist-blend path still uses the blind split; a documented, not silent,
+ * remaining gap (see this task's own report).
+ */
+function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTone: string | undefined): Record<string, number> {
+  if (channel.archetype === 'kids' || !vocalTone) return vocalCounts(songCount);
+  const leaning = leaningGenderFor({ channel, vocalTone });
+  if (!leaning) return vocalCounts(songCount);
+  return { ...leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, songCount, leaning) };
+}
+
 function povCounts(songCount: number): Record<string, number> {
   if (songCount <= 2) return { firstPerson: songCount };
   const variantCount = songCount >= 10 ? 3 : 2;
@@ -436,7 +461,7 @@ function buildBaseOptions(
   };
 }
 
-function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[]): AxisAllocation[] {
+function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string): AxisAllocation[] {
   const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, []);
   // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
   // order (the first N ids), which bypassed core/lyricDiversityPlan.ts's
@@ -464,7 +489,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
       mode: 'manual',
       counts: Object.fromEntries(genreAllocation.map(slot => [slot.genreId, slot.songCount]))
     },
-    { axis: 'vocalType', mode: 'manual', counts: vocalCounts(songCount) },
+    { axis: 'vocalType', mode: 'manual', counts: resolveVocalCounts(channel, songCount, vocalTone) },
     { axis: 'introTexture', mode: 'manual', counts: countsFromSlots(introIds, songCount, 4) },
     { axis: 'hookDevice', mode: 'manual', counts: countsFromSlots(hookIds, songCount, 4) },
     { axis: 'arrangementDensity', mode: 'manual', counts: exactBalancedCounts(ARRANGEMENT_DENSITY_IDS, songCount) },
@@ -869,7 +894,18 @@ export function directSetLocal(
   songCount: number,
   history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] },
   /** v3.63 (TASK B) — GenreFamily ids from Step2Concept's family picker. When non-empty, these choose the genre axis directly (see chooseGenreIdsFromFamilies); free text still drives era/mood/season/artist-reference interpretation either way. */
-  familyIds: string[] = []
+  familyIds: string[] = [],
+  /**
+   * v3.77 (TASK A) — the caller's actual current vocalTone selection (e.g.
+   * opts.vocalTone from Step2Plan.tsx), when different from omitted/undefined.
+   * Threaded through so this plan's own 'vocalType' manual allocation (see
+   * resolveVocalCounts) reflects the same leaning generation-time would apply,
+   * instead of a blind even split that then wins over leaning anyway via
+   * applyAxisAllocation's manual-always-wins rule. Only affects this
+   * function's own plain (non-segment) path; omitted entirely preserves this
+   * function's exact prior behavior.
+   */
+  vocalTone?: string
 ): SetPlan {
   const safeSongCount = clamp(Math.round(songCount) || 18, 1, 80);
   const listeningContext = detectListeningContext(freeText);
@@ -938,6 +974,8 @@ export function directSetLocal(
   // this seeds an even split first — makeAllocations/allocateGenreCounts
   // would otherwise redo that same even split with no era awareness at all.
   const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
+  // eslint-disable-next-line no-console
+  console.log('ZZDEBUG eraConstraint', JSON.stringify(eraConstraint), 'preQuotaSelectedIds', preQuotaSelectedIds);
   const preQuotaCounts = countsFromSlots(preQuotaSelectedIds, safeSongCount, 5);
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
@@ -946,12 +984,17 @@ export function directSetLocal(
     genre => genreMatchesChannel(genre, channel)
   );
   const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
-  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds);
+  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone);
   if (!eraConstraint.unspecified) {
     const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
     if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedCounts };
   }
-  const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations), ratingInsights: history.insights };
+  // v3.77 (TASK A) — overrides buildBaseOptions' own channel.defaultVocal
+  // fallback so this plan's own preview slots (below) agree with the
+  // leaning-aware manual vocalType allocation just built above, instead of
+  // resolving vocalType leaning while still previewing with the untouched
+  // channel default.
+  const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations), ...(vocalTone?.trim() ? { vocalTone: vocalTone.trim() } : {}), ratingInsights: history.insights };
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });

@@ -1210,6 +1210,38 @@ textarea {
   margin-top: 4px;
 }
 
+/* v3.78 (TASK A/B) — 관문 1/관문 2 panels (DesignGatePanel.tsx / GenerationGatePanel.tsx). */
+.design-gate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.design-gate-panel.passed {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.design-gate-issue-list {
+  display: grid;
+  gap: 10px;
+}
+
+.design-gate-issue {
+  border: 1px solid var(--border, #444);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.design-gate-ignore {
+  margin-top: 6px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

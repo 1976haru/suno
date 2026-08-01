@@ -48,19 +48,29 @@ describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () 
     }
   });
 
-  // TASK v3.39 Part H's original point still holds unchanged: an explicit
-  // vocalTone (a user's deliberate single-preset pick, different from the
-  // channel's own defaultVocal) carries through verbatim to every song,
-  // never diluted.
-  it('an explicit non-default vocalTone carries through verbatim to every song, with no per-song vocalType (Part H)', () => {
+  // v3.77 (TASK A) supersedes TASK v3.39 Part H's original "explicit
+  // vocalTone disables the quota entirely" behavior: usesVocalQuota is now
+  // always true, and an explicit non-default vocalTone instead LEANS the
+  // quota toward that gender (majority share, real per-song vocalType/
+  // vocalText) rather than copying one fixed string onto every song — the
+  // old all-identical-string behavior was itself a real bug (zero vocal
+  // variety for a whole 15-18 song pack). See core/vocalPlan.ts's
+  // leaningAdultVocalQuota/leaningGenderFor.
+  it('an explicit non-default vocalTone leans the vocal quota toward that gender, with real per-song vocalType/vocalText (Part H, updated v3.77)', () => {
     const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
     const explicitVocalTone = 'low calm male baritone, restrained emotional delivery, warm late-night tone';
     const opts = makeOptions({ channel: seniorMorning, songCount: 15, seasonId: season.id, vocalTone: explicitVocalTone });
     const slots = preallocateSongSlots(opts, seniorGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
     for (const slot of slots) {
-      expect(slot.vocalType).toBeUndefined();
-      expect(slot.vocalText).toBe(explicitVocalTone);
+      expect(slot.vocalType, `trackNo ${slot.trackNo}`).toBeDefined();
+      counts[slot.vocalType!] += 1;
     }
+    expect(counts.male).toBeGreaterThan(counts.female);
+    expect(counts.male).toBeGreaterThan(counts.mixed);
+    expect(counts.female).toBeGreaterThan(0);
+    expect(counts.mixed).toBeGreaterThan(0);
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
   });
 
   // TASK v3.72 (TASK A) — the real regression this task fixed: a non-kids

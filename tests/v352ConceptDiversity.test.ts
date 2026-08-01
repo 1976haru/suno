@@ -4,10 +4,14 @@ import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import { vocalPresets } from '../src/data/vocalPresets';
 
-// TASK v3.72 (TASK A) — an explicit vocalTone different from the channel's
-// defaultVocal, so usesVocalQuota() stays off and "channel vocal identity"
-// stays literally one fixed phrase (what this test means to check) instead
-// of the new default 4-axis quota diversifying it on purpose.
+// v3.77 (TASK A) supersedes the TASK v3.72 comment this used to have: an
+// explicit vocalTone different from the channel's defaultVocal no longer
+// turns usesVocalQuota() off (that was itself the bug — a whole pack copying
+// one fixed phrase verbatim, zero vocal variety). It now LEANS the quota
+// toward this preset's gender instead (core/vocalPlan.ts's
+// leaningAdultVocalQuota) — "channel vocal identity" below means the
+// requested gender is the clear majority, not a literal string on every
+// track.
 const SOLO_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
 
 describe('v3.52 concept and vocal diversity', () => {
@@ -43,12 +47,18 @@ describe('v3.52 concept and vocal diversity', () => {
     }
   });
 
-  it('varies style-prompt starts across an 18-song pack while preserving channel vocal identity', () => {
+  it('varies style-prompt starts across an 18-song pack while leaning channel vocal identity toward the requested gender', () => {
     const blueprint = generateLocalBlueprint(makeOptions({ songCount: 18, customConcept: '아침 카페', vocalTone: SOLO_VOCAL_TONE }), testGenres, testMoods, testSeason);
     const starts = new Set(blueprint.songs.map(song => song.stylePrompt.split(',').slice(0, 2).join(',').toLowerCase()));
     const report = lintInPackStyleSimilarity(blueprint.songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
     expect(starts.size).toBeGreaterThanOrEqual(3);
-    expect(blueprint.songs.every(song => song.stylePrompt.includes(SOLO_VOCAL_TONE))).toBe(true);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const song of blueprint.songs) {
+      expect(song.vocalType, `trackNo ${song.trackNo}`).toBeDefined();
+      counts[song.vocalType!] += 1;
+    }
+    expect(counts.male).toBeGreaterThan(counts.female);
+    expect(counts.male).toBeGreaterThan(counts.mixed);
     expect(report.averageSimilarity).toBeLessThan(0.4);
   });
 

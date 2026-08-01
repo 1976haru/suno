@@ -19,7 +19,8 @@ import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../cor
 import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
 import { auditAlbum } from '../../core/albumAudit';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
-import { scoreComposition } from '../../core/compositionScorer';
+import { evaluateGenerationGate } from '../../core/generationGate';
+import { resolveConstraintsFromOptions } from '../../core/constraints';
 import { buildRecomposeInstruction } from '../../core/claudeCodeBridge';
 import { recentUsedTitlesAndHooks } from '../../core/hookLedger';
 import { getRatingForSong } from '../../core/ratingLedger';
@@ -264,14 +265,37 @@ export default function Step4Result({
     return () => { cancelled = true; };
   }, [opts.channel.id, opts.lyricLanguage]);
 
+  // v3.78 (TASK B, §3-1) — "관문 2": this is the ONE place a bridge-imported
+  // pack (or any generated pack) is actually visible to the user after
+  // import, since App.tsx's onImportSongsJson navigates straight to this
+  // screen (setCurrentStep(5)) the instant an import succeeds — a
+  // GenerationGatePanel wired into Step3Generate.tsx alone would never be
+  // seen in the real single-pack import flow (confirmed live: a real bridge
+  // import never re-renders Step3Generate before this screen replaces it).
+  // Reuses this file's own pre-existing TASK v3.62 blockingSongs/recompose
+  // mechanism (scoreComposition-based) — evaluateGenerationGate is a
+  // superset of scoreComposition's own checks (same historicalHooks input,
+  // same CompositionScore shape per track) plus this task's new §3-2 checks
+  // (title-pattern variety, situation/emotion variety, tighter blocking
+  // word-count/section-count bounds, placeholder/label/article leaks), so
+  // this is an extension of the existing gate, not a second parallel one.
+  const generationGateConstraints = useMemo(
+    () => (blueprint ? resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience)) : null),
+    [blueprint, opts]
+  );
+  const generationGateResult = useMemo(
+    () => (blueprint
+      ? evaluateGenerationGate(blueprint.songs, { historicalHooks, conceptLabel: opts.customConcept || opts.projectTitle, eraConstraint: generationGateConstraints?.era })
+      : null),
+    [blueprint, historicalHooks, opts.customConcept, opts.projectTitle, generationGateConstraints]
+  );
   const blockingSongs = useMemo(() => {
-    if (!blueprint) return [];
-    const scores = scoreComposition(blueprint.songs, { historicalHooks });
-    return scores
-      .filter(score => !score.passed)
-      .map(score => ({ song: blueprint.songs.find(song => song.trackNo === score.trackNo)!, blocking: score.blocking }))
+    if (!blueprint || !generationGateResult) return [];
+    return generationGateResult.tracks
+      .filter(track => !track.passed)
+      .map(track => ({ song: blueprint.songs.find(song => song.trackNo === track.trackNo)!, blocking: track.blocking }))
       .filter(entry => entry.song);
-  }, [blueprint, historicalHooks]);
+  }, [blueprint, generationGateResult]);
 
   async function handleCopyRecomposeInstruction() {
     await copyText(buildRecomposeInstruction(blockingSongs));
@@ -559,13 +583,20 @@ export default function Step4Result({
         <div className="warning error">
           <ShieldAlert size={16} />
           <span>
-            {blockingSongs.length}곡이 작곡 품질 검사(compositionScorer)를 통과하지 못했습니다: {blockingSongs.map(entry => entry.song.trackNo).join(', ')}번.
-            브릿지(코딩 에이전트 복사/붙여넣기)로 만든 곡이라면 재작곡 지시문을 복사해 해당 곡만 다시 만들게 하세요.
+            {blockingSongs.length}곡이 생성 검증(관문 2)을 통과하지 못했습니다: {blockingSongs.map(entry => entry.song.trackNo).join(', ')}번.
+            {generationGateResult?.needsFullRegeneration
+              ? ' 12곡 이상 실패했습니다 — 설계 자체가 컨셉에 맞지 않을 가능성이 큽니다. 전체 재설계를 검토하세요.'
+              : ' 브릿지(코딩 에이전트 복사/붙여넣기)로 만든 곡이라면 이 곡들만 재작곡 지시문을 복사해 다시 만들게 하세요 — 세트 전체를 폐기할 필요는 없습니다.'}
             <button type="button" className="icon-button" title="문제가 있는 곡만 다시 작곡시킬 지시문 복사" onClick={() => void handleCopyRecomposeInstruction()}>
               <Copy size={14} />
               {recomposeCopied ? '복사됨 ✅' : '재작곡 지시문 복사'}
             </button>
           </span>
+        </div>
+      )}
+      {resultTab === 'songs' && blockingSongs.length === 0 && generationGateResult && blueprint && (
+        <div className="provider-summary design-gate-panel passed">
+          <span>생성 검증 통과 ✅ — {blueprint.songs.length}곡 중 {blueprint.songs.length}곡 통과</span>
         </div>
       )}
       {resultTab === 'songs' && evalError && <p className="error">{evalError}</p>}

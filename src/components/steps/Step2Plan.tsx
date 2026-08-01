@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, SlidersHorizontal } from 'lucide-react';
-import { getGenreById } from '../../data/genreLibrary';
+import { getGenreById, genreLibrary } from '../../data/genreLibrary';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
 import { directSetLocal, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
@@ -8,12 +8,20 @@ import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
 import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
+import { preallocateSongSlots } from '../../core/batchPreallocation';
+import { evaluateDesignGate } from '../../core/designGate';
+import { resolveConstraintsFromOptions } from '../../core/constraints';
+import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
+import { currentWorkspaceId } from '../../core/workspaceScope';
+import DesignGatePanel from '../DesignGatePanel';
 import type { AxisAllocation, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
 import type { SetSegment } from '../../core/setDirector';
 
 interface Step2PlanProps {
   opts: GenerationOptions;
   setOpts: (updater: (prev: GenerationOptions) => GenerationOptions) => void;
+  /** v3.78 (TASK A) — lets App.tsx gate the global "다음" footer button on 관문 1's status, mirroring step2Blocked's own pattern. Undefined is fine (e.g. in isolated tests) — the panel still renders and works, it just has no navigation side effect. */
+  onDesignGateStatusChange?: (status: { passed: boolean; acknowledged: boolean }) => void;
 }
 
 const AXIS_LABELS: Record<DiversityAxisId, string> = {
@@ -90,11 +98,12 @@ function applyPlanToOptions(plan: SetPlan, setOpts: Step2PlanProps['setOpts'], r
   }));
 }
 
-export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
+export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: Step2PlanProps) {
   const [recentAvoid, setRecentAvoid] = useState<string[]>([]);
   const [editingAxis, setEditingAxis] = useState<DiversityAxisId | null>(null);
   const [draftAllocations, setDraftAllocations] = useState<AxisAllocation[] | null>(null);
   const [segmentPlacement, setSegmentPlacement] = useState<'interleave' | 'blocked'>('interleave');
+  const [gateAcknowledged, setGateAcknowledged] = useState(false);
   // TASK v3.68 (TASK E) — "지난 평가 반영" toggle; on by default, but only
   // ever has an effect once real ratings exist (strongInsights stays empty
   // otherwise, and killingPointBoostFromInsights is a no-op on an empty list).
@@ -119,12 +128,18 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
 
   const appliedInsights = insightsEnabled ? strongInsights : undefined;
   const plan = useMemo(
+    // v3.77 (TASK A) — passes the user's actual current vocalTone selection
+    // so this plan's own 'vocalType' manual allocation (and the "보컬 배분"
+    // card's preview below) reflects leaning, instead of a blind even split
+    // that would then win over leaning at generation time anyway (see
+    // core/setDirector.ts's resolveVocalCounts doc comment for the real gap
+    // this closes).
     () => directSetLocal(freeText, opts.channel, opts.songCount, {
       recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid],
       recentHooks: [],
       insights: appliedInsights
-    }, familyIds),
-    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights]
+    }, familyIds, opts.vocalTone),
+    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone]
   );
   const allocations = draftAllocations ?? plan.allocations;
   const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
@@ -141,6 +156,47 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
   const displaySlots = hasMultipleSegments && segmentPlacement === 'blocked'
     ? reorderSlotsBySegment(plan.slots, plan.segments)
     : plan.slots;
+
+  // v3.78 (TASK A) — 관문 1 (design-time gate). Deliberately recomputed via
+  // preallocateSongSlots directly (the same function Step3Generate's own
+  // bridgePreassignedSongs calls), NOT plan.slots — directSetLocal's own
+  // preview plan doesn't read opts.diversityAllocations at all (it always
+  // builds a fresh allocation internally, see setDirector.ts's
+  // buildBaseOptions/makeAllocations), so a manual axis edit or an
+  // [자동 수정] click here would never be reflected in plan.slots. Calling
+  // preallocateSongSlots with THIS screen's live `allocations` (draft-aware)
+  // is what makes the gate panel actually reflect a fix immediately, and
+  // matches exactly what real generation will use.
+  const gateGenreIds = genreAllocation ? Object.keys(genreAllocation.counts) : opts.genreIds;
+  const gateGenres = useMemo(
+    () => genreLibrary.filter(genre => gateGenreIds.includes(genre.id)),
+    [gateGenreIds.join('|')]
+  );
+  const gateOpts = useMemo(
+    () => ({ ...opts, genreIds: gateGenreIds, diversityAllocations: allocations }),
+    [opts, gateGenreIds, allocations]
+  );
+  const gateSlots = useMemo(
+    () => preallocateSongSlots(gateOpts, gateGenres, { usedTitles: [], usedHooks: [] }),
+    [gateOpts, gateGenres]
+  );
+  const constraints = useMemo(
+    () => resolveConstraintsFromOptions(gateOpts, audienceProfileForAgeGroup(gateOpts.audience), currentWorkspaceId()),
+    [gateOpts]
+  );
+  const designGateResult = useMemo(() => evaluateDesignGate(gateSlots, constraints, gateOpts), [gateSlots, constraints, gateOpts]);
+
+  useEffect(() => {
+    setGateAcknowledged(false);
+  }, [designGateResult.blocking.map(issue => issue.id).join(',')]);
+
+  useEffect(() => {
+    onDesignGateStatusChange?.({ passed: designGateResult.passed, acknowledged: gateAcknowledged });
+  }, [designGateResult.passed, gateAcknowledged, onDesignGateStatusChange]);
+
+  function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
+    setOpts(prev => ({ ...prev, ...fix }));
+  }
 
   function updateCount(axis: DiversityAxisId, id: string, value: number) {
     setDraftAllocations(current => {
@@ -225,6 +281,13 @@ export default function Step2Plan({ opts, setOpts }: Step2PlanProps) {
           </div>
         )}
       </div>
+
+      <DesignGatePanel
+        result={designGateResult}
+        onAutoFix={applyDesignGateAutoFix}
+        acknowledged={gateAcknowledged}
+        onAcknowledgedChange={setGateAcknowledged}
+      />
 
       <div className="option-block">
         <div className="section-head">

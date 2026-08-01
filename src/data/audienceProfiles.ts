@@ -346,14 +346,48 @@ export const SENIOR_TEMPO_BANDS: TempoBand[] = [
 ];
 
 /**
- * TASK v3.58 — only the senior profile has a deliberate tempo-band
- * distribution defined; general/kids channels keep core/localGenerator.ts's
- * pre-existing genre-only tempo computation unchanged (this task's measured
- * regression was specifically on senior channels). Returns undefined for
- * any profile without an explicit entry, which callers treat as "no band
- * plan" (see core/tempoPlan.ts's resolveTempoWithBand fallback).
+ * v3.77 (TASK B) — real measurement: this returned `undefined` for every
+ * profile except the literal id `'senior'` — general/twenties/thirtiesForties/
+ * kids/undefined audience all fell through to `undefined`, which
+ * core/batchPreallocation.ts's/localGenerator.ts's own `tempoBands ? ... : []`
+ * turned into an EMPTY band plan, which core/localGenerator.ts's
+ * averageTempo() then silently treated as "no band" and fell back to a
+ * narrow genre-tempoRange average (`fallbackCenter`) — measured BPM stddev
+ * 2.4 on a real non-senior custom channel. This is the 4th time this exact
+ * class of bug was fixed (v3.58/v3.60/v3.64/v3.75 all "fixed" a narrow-BPM
+ * symptom without ever touching this root cause) — see this task's own §10
+ * "특정 조건에서만 켜지는 구조" principle for why: a real generation always
+ * had SOME AudienceProfile, but only one profile id's worth of code path
+ * was ever exercised by a default/manual test.
+ *
+ * Every profile now gets real bands: senior keeps its hand-tuned
+ * SENIOR_TEMPO_BANDS (unique real-listening-calibrated shape, untouched);
+ * every other profile gets 4 auto-generated equal-width bands spanning its
+ * own tempoFloor..tempoCeiling (generateTempoBands below) — never
+ * `undefined`, so no caller can silently collapse to a no-band fallback
+ * again.
  */
-export function tempoBandsForProfile(profile: AudienceProfile): TempoBand[] | undefined {
+export function tempoBandsForProfile(profile: AudienceProfile): TempoBand[] {
   if (profile.id === 'senior') return SENIOR_TEMPO_BANDS;
-  return undefined;
+  return generateTempoBands(profile.tempoFloor, profile.tempoCeiling);
+}
+
+/**
+ * v3.77 (TASK B) — 4 equal-width, non-overlapping bands spanning
+ * [tempoFloor, tempoCeiling]. Equal `shareOf18` weights (the field just
+ * means "relative share", not literally out of 18 — see core/tempoPlan.ts's
+ * buildTempoBandPlan, which normalizes by the SUM of shareOf18 across the
+ * given bands, at any songCount) — a flat split is the right default for a
+ * profile with no hand-tuned real-listening distribution of its own.
+ */
+export function generateTempoBands(tempoFloor: number, tempoCeiling: number, count = 4): TempoBand[] {
+  if (!(tempoCeiling > tempoFloor) || count <= 0) {
+    return [{ low: tempoFloor, high: Math.max(tempoFloor, tempoCeiling), shareOf18: 1 }];
+  }
+  const width = (tempoCeiling - tempoFloor) / count;
+  return Array.from({ length: count }, (_, i) => {
+    const low = Math.round(tempoFloor + width * i);
+    const high = i === count - 1 ? tempoCeiling : Math.round(tempoFloor + width * (i + 1)) - 1;
+    return { low, high: Math.max(low, high), shareOf18: 1 };
+  });
 }

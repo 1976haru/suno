@@ -43,8 +43,11 @@ describe('[v3.58 TASK 5-3] no singable line directly under [short intro]', () =>
 describe('[v3.58 TASK 5-3] duet selections get per-section vocal-assignment tags', () => {
   const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
 
-  it('verse 1 is tagged male, verse 2 is tagged female, choruses are tagged as a duet', () => {
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 4, vocalTone: duetPreset.prompt }), testGenres, testMoods, testSeason);
+  it('a duet-assigned track is tagged male verse1/female verse2/duet choruses', () => {
+    // v3.77 (TASK A) — vocalTone alone only LEANS the quota now (see
+    // vocalPlan.ts's leaningGenderFor); an explicit opts.vocalQuota override
+    // is what deterministically guarantees every track here is a duet.
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 4, vocalTone: duetPreset.prompt, vocalQuota: { male: 0, female: 0, mixed: 1 } }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       expect(song.lyrics, song.lyrics).toContain('[verse 1: male vocal]');
       expect(song.lyrics, song.lyrics).toContain('[verse 2: female vocal]');
@@ -53,21 +56,36 @@ describe('[v3.58 TASK 5-3] duet selections get per-section vocal-assignment tags
   });
 
   it('a solo (non-duet) vocal selection is left with plain, untagged section tags', () => {
-    // TASK v3.72 (TASK A) — must be a preset whose prompt text differs from
-    // the test channel's own defaultVocal: usesVocalQuota() now treats
-    // "vocalTone === channel.defaultVocal" as untouched/default and engages
-    // the auto male/female/duet quota there, which would make some of these
-    // 4 songs female/duet and break this test's "plain, untagged" premise.
-    // 'warm-mature-male' happens to be byte-identical to the default test
-    // channel's defaultVocal, so it no longer isolates this scenario;
-    // 'low-calm-male' is a distinct explicit single-preset pick instead.
+    // v3.77 (TASK A) — same reasoning as above: opts.vocalQuota
+    // deterministically guarantees no track here is a duet, which a bare
+    // vocalTone lean can no longer promise (see vocalPlan.ts's
+    // leaningAdultVocalQuota — leaning male still leaves a minimum share
+    // for female/duet, by design, so a small pack could otherwise land a
+    // duet by chance and break this test's "plain, untagged" premise).
     const soloPreset = vocalPresets.find(p => p.id === 'low-calm-male')!;
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 4, vocalTone: soloPreset.prompt }), testGenres, testMoods, testSeason);
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 4, vocalTone: soloPreset.prompt, vocalQuota: { male: 1, female: 0, mixed: 0 } }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
       expect(song.lyrics).toContain('[verse 1]');
       expect(song.lyrics).toContain('[verse 2]');
       expect(song.lyrics).not.toContain('[verse 1: male vocal]');
       expect(song.lyrics).not.toContain('male and female duet');
     }
+  });
+});
+
+describe('[v3.77 TASK A] vocalTone leans the auto quota without eliminating other genders', () => {
+  it('a male-leaning vocalTone still leaves female and duet tracks in an 18-song pack', () => {
+    const malePreset = vocalPresets.find(p => p.id === 'low-calm-male')!;
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 18, vocalTone: malePreset.prompt }), testGenres, testMoods, testSeason);
+    const byType = { male: 0, female: 0, mixed: 0 } as Record<string, number>;
+    for (const song of bp.songs) {
+      if (song.vocalType) byType[song.vocalType] = (byType[song.vocalType] ?? 0) + 1;
+    }
+    expect(byType.male).toBeGreaterThan(9);
+    expect(byType.female).toBeGreaterThanOrEqual(3);
+    expect(byType.mixed).toBeGreaterThanOrEqual(3);
+    // Male tracks themselves should still vary (not one fixed sentence).
+    const maleStylePrompts = new Set(bp.songs.filter(song => song.vocalType === 'male').map(song => song.stylePrompt));
+    expect(maleStylePrompts.size).toBeGreaterThan(1);
   });
 });

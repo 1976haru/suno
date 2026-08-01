@@ -11,10 +11,17 @@ import type { LyricLanguage } from '../src/types';
 // now, so a bare makeOptions() (vocalTone left equal to channel.defaultVocal)
 // can land track 1 as a duet, which retags "[verse 1]" to
 // "[verse 1: male vocal]" (vocalPlan.ts's applyDuetSectionVocalTags) and
-// breaks a plain `.indexOf('[verse 1]')` search below. An explicit distinct
-// single-preset vocalTone keeps usesVocalQuota off for these structure-only
-// tests, same fix already applied to lyricEngine.test.ts/lyricBodyFidelity.test.ts.
+// breaks a plain `.indexOf('[verse 1]')` search below.
+// v3.77 (TASK A) — an explicit distinct single-preset vocalTone no longer
+// disables the quota at all (it only LEANS it — see vocalPlan.ts's
+// leaningGenderFor/leaningAdultVocalQuota); track 1 can still occasionally
+// land as a duet even with SOLO_VOCAL_TONE set, since leaning always keeps a
+// minority share for the other types. An explicit vocalQuota override is the
+// one thing that still wins outright (opts.vocalQuota always wins over
+// leaning by design), so it's the only reliable way left to guarantee zero
+// duets for this structure-only test.
 const SOLO_VOCAL_TONE = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
+const ALL_MALE_VOCAL_QUOTA = { male: 12, female: 0, mixed: 0 };
 
 const LANGUAGES: LyricLanguage[] = ['english', 'korean', 'japanese'];
 
@@ -25,7 +32,7 @@ describe('cold-open (TASK I1, v3.11)', () => {
   });
 
   it('hook-forward: lyrics have a [cold open] section with the hook, before [verse 1]', () => {
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 3, openingStyle: 'hook-forward', vocalTone: SOLO_VOCAL_TONE }), testGenres, testMoods, testSeason);
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 3, openingStyle: 'hook-forward', vocalTone: SOLO_VOCAL_TONE, vocalQuota: ALL_MALE_VOCAL_QUOTA }), testGenres, testMoods, testSeason);
     const song = bp.songs[0];
     expect(song.openingStyle).toBe('hook-forward');
     expect(song.lyrics).toContain('[cold open]');

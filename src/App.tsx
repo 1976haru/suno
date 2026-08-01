@@ -863,6 +863,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
   const step2Blocked = opts.moodIds.length === 0;
   const resultStepBlocked = !gen.blueprint;
   const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
+  // v3.78 (TASK A, §2-1) — "Step2Plan → Step3 이동 시 경고": Step2Plan.tsx
+  // lifts its own 관문 1 status here via onDesignGateStatusChange so the
+  // global "다음" footer button (nextDisabled below) blocks navigation out of
+  // currentStep 3 the same way step2Blocked already blocks step 2 — unless
+  // the user explicitly acknowledged via the panel's "무시하고 진행" checkbox
+  // (§8 "[무시하고 진행]을 없애지 말 것" — this must never be a hard, unbypassable block).
+  const [designGateStatus, setDesignGateStatus] = useState<{ passed: boolean; acknowledged: boolean }>({ passed: true, acknowledged: false });
+  const designGateBlocked = !designGateStatus.passed && !designGateStatus.acknowledged;
 
   /**
    * v4.0 (TASK D §5-3) — "진행 중인 배치 작업 (있으면 경고 후 중단 여부 확인)".
@@ -986,6 +994,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
             <Step2Plan
               opts={opts}
               setOpts={setOpts}
+              onDesignGateStatusChange={setDesignGateStatus}
             />
           )}
 
@@ -1099,8 +1108,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
             currentStep={currentStep}
             onPrev={() => setCurrentStep(step => Math.max(1, step - 1))}
             onNext={() => setCurrentStep(step => Math.min(5, step + 1))}
-            nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 4 && resultStepBlocked)}
-            blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
+            nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 3 && designGateBlocked) || (currentStep === 4 && resultStepBlocked)}
+            blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 3 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
             maxStep={5}
           />
             </>

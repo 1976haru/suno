@@ -1,7 +1,6 @@
 import type { GenerationOptions, LyricLanguage } from '../types';
-import { isManualAllocation } from './diversityAllocation';
 import { shuffle } from './lyricEngine';
-import { mulberry32 } from '../utils/prng';
+import { hashSeed, mulberry32 } from '../utils/prng';
 import {
   DUET_TRAIT_AXES,
   FEMALE_PEAK_ONLY_REGISTERS,
@@ -11,6 +10,7 @@ import {
   MALE_REGISTER_TIMBRE_CONTRADICTIONS,
   MALE_VOCAL_TRAIT_AXES
 } from '../data/vocalTraits';
+import { matchVocalPreset } from '../data/vocalPresets';
 
 /**
  * TASK v3.41 Part A1 — the explicit gender axis a VocalPreset now carries
@@ -39,24 +39,92 @@ export type VocalGender = 'male' | 'female' | 'mixed' | 'duet';
  * (6/6/6 male/female/duet by default — see DEFAULT_ADULT_VOCAL_QUOTA below)
  * now engages by default for every archetype, not just kids.
  *
- * Two things still opt out, both deliberate user choices rather than an
- * untouched default: a manual vocalType allocation (8-axis panel) always
- * wins outright, same as before — applyAxisAllocation (called on this
- * function's output) overrides whatever buildVocalPlan produced regardless.
- * And Step2Concept's "어떤 목소리로 부를까요?" grid lets a user pick one
- * specific vocal preset (or type free text) for the WHOLE pack — e.g.
- * explicitly choosing the duet preset because they want every song to be a
- * duet. If `vocalTone` is set to something other than the channel's own
- * `defaultVocal`, that is exactly this deliberate choice, and diluting it
- * into an auto 6/6/6 split would silently break that picker. Only an
- * *untouched* vocalTone (equal to defaultVocal, or unset) — the real
- * regression's actual scenario — engages the auto quota.
+ * v3.77 (TASK A) — real measurement: this used to also return `false`
+ * whenever `vocalTone` differed from the channel's own `defaultVocal` — the
+ * ordinary result of a user picking ANY vocal preset in Step2Concept's "어떤
+ * 목소리로 부를까요?" grid, since the grid's whole purpose is letting a user
+ * pick something other than the channel default. A real 18-song pack came
+ * back with the picked preset's prompt text byte-identical on every track.
+ * The old comment here reasoned this was a "deliberate user choice" to
+ * disable diversity entirely — that reasoning was wrong: picking "따뜻한
+ * 중년 남성" expresses a LEANING ("more like this"), not a literal
+ * requirement that all 18 tracks share one identical sentence. The auto
+ * quota/trait plan now ALWAYS runs; `vocalTone`'s actual effect moved to
+ * `leaningGenderFor`/`leaningAdultVocalQuota` below, which bias the
+ * existing quota and 4-axis trait selection toward the picked preset's
+ * gender/character instead of replacing per-song variety with one fixed
+ * string. See this task's own §10 "기본은 항상 켜짐, 끄려면 명시적 플래그" —
+ * there is currently no explicit "disable vocal diversity" flag in this
+ * app, so this function has no remaining `false` branch other than the
+ * defensive manual-allocation check below (which was always redundant with
+ * the unconditional `true` — kept only as a documented no-op so a real
+ * future "explicit disable" flag has an obvious place to plug in).
  */
-export function usesVocalQuota(opts: Pick<GenerationOptions, 'channel' | 'diversityAllocations' | 'vocalTone'>): boolean {
-  if (opts.channel.archetype === 'kids' || isManualAllocation(opts.diversityAllocations, 'vocalType')) return true;
-  const explicitVocalTone = opts.vocalTone?.trim();
-  if (explicitVocalTone && explicitVocalTone !== opts.channel.defaultVocal) return false;
+export function usesVocalQuota(_opts: Pick<GenerationOptions, 'channel' | 'diversityAllocations' | 'vocalTone'>): boolean {
   return true;
+}
+
+/**
+ * v3.77 (TASK A) — resolves which gender (if any) a user's actual vocalTone
+ * pick should LEAN the pack's quota/trait selection toward. Returns
+ * undefined (no lean — balanced default) when vocalTone is unset or equals
+ * the channel's own untouched default, matching this module's pre-v3.77
+ * "explicit selection" detection exactly (same condition, repurposed from
+ * an on/off switch to a lean signal). `matchVocalPreset` is tried first
+ * (exact, no ambiguity for a duet); `detectVocalGender` is the fallback for
+ * free-text vocalTone that doesn't match any preset.
+ */
+export function leaningGenderFor(opts: Pick<GenerationOptions, 'channel' | 'vocalTone'>): VocalGender | undefined {
+  const explicitVocalTone = opts.vocalTone?.trim();
+  if (!explicitVocalTone || explicitVocalTone === opts.channel.defaultVocal) return undefined;
+  const preset = matchVocalPreset(explicitVocalTone);
+  if (preset) return preset.gender;
+  return detectVocalGender(explicitVocalTone) ?? undefined;
+}
+
+/**
+ * v3.77 (TASK A) — real measurement's own worked example: an 18-song pack
+ * leaning male comes back male 10 / female 4 / mixed(duet) 4 — the leaning
+ * gender gets ~55% of the pack, the other two share the rest evenly, never
+ * below `minEach` (3 for an 18-ish pack, scaled down only for a pack too
+ * small to fit 3+3+3). A 'duet' lean skews toward `mixed` (this module's
+ * own vocalType name for a duet slot); a 'mixed' preset (group-harmony,
+ * not gender-specific) or no lean at all returns `quota` untouched.
+ */
+const LEANING_SHARE = 0.55;
+
+export function leaningAdultVocalQuota(quota: VocalQuota, songCount: number, leaning: VocalGender | undefined): VocalQuota {
+  if (!leaning || leaning === 'mixed') return quota;
+  const leadKey: VocalType = leaning === 'duet' ? 'mixed' : leaning;
+  const otherKeys = VOCAL_TYPES.filter(key => key !== leadKey);
+  // v3.77 (TASK A) bugfix — for songCount < 6 the un-guarded floor
+  // (Math.max(1, ...)) demanded minEach=1 for BOTH other keys regardless of
+  // how few songs existed, inflating the quota's total past songCount
+  // itself (e.g. songCount=1 produced {lead:1, other:1, other:1} — 3 slots
+  // for 1 song). buildVocalPlan then normalized every such degenerate quota
+  // to the same result no matter which gender was leading, so a
+  // 1-4-song pack silently lost its leaning signal entirely — real
+  // measurement: a stress cross-product test caught 3 different vocal
+  // presets (mature-female/husky-jazz-female/male-female-duet) collapsing
+  // to one identical stylePrompt at songCount=1. Below 6 songs there isn't
+  // room to guarantee a floor for two other buckets anyway, so it's 0
+  // instead of a value that can't be honestly satisfied.
+  const minEach = songCount >= 6 ? Math.max(1, Math.min(3, Math.floor(songCount / 6))) : 0;
+  const leadCount = Math.round(songCount * LEANING_SHARE);
+  const remaining = Math.max(0, songCount - leadCount);
+  const perOther = Math.floor(remaining / 2);
+  const result: VocalQuota = { male: 0, female: 0, mixed: 0 };
+  result[leadKey] = leadCount;
+  result[otherKeys[0]] = perOther;
+  result[otherKeys[1]] = remaining - perOther;
+  for (const key of otherKeys) {
+    if (result[key] < minEach) {
+      const deficit = minEach - result[key];
+      result[key] = minEach;
+      result[leadKey] = Math.max(minEach, result[leadKey] - deficit);
+    }
+  }
+  return result;
 }
 
 export type VocalType = 'male' | 'female' | 'mixed';
@@ -350,10 +418,21 @@ export function enforceVocalTextInStylePrompt(
  * not by archetype, so this stays a pure function.
  */
 export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: VocalGender | undefined, vocalText: string | undefined): string | null {
+  // v3.77 (TASK A) — gender's own 'duet' MUST be checked before the bare
+  // vocalType === 'mixed' shortcut below: since usesVocalQuota is now always
+  // true (was previously false whenever an explicit non-default vocalTone
+  // was picked), an adult duet slot now legitimately carries
+  // vocalType==='mixed' too (batchPreallocation.ts derives
+  // vocalGender: 'duet' from exactly this vocalType for every non-kids
+  // archetype) — checking vocalType first used to mistag every such song as
+  // "[children's choir]" instead of "[duet vocal]", invisible only because
+  // no end-to-end path used to set both fields at once. A kids 'mixed' slot
+  // is unaffected: batchPreallocation.ts sets its gender equal to vocalType
+  // ('mixed', never 'duet'), so it still falls through to the next line.
+  if (gender === 'duet') return '[duet vocal]';
   if (vocalType === 'mixed') return "[children's choir]";
   if (vocalType === 'male') return '[male vocal]';
   if (vocalType === 'female') return '[female vocal]';
-  if (gender === 'duet') return '[duet vocal]';
   if (gender === 'mixed') return vocalText && /\bchoir\b/i.test(vocalText) ? "[children's choir]" : '[group vocal]';
   if (gender === 'male') return '[male vocal]';
   if (gender === 'female') return '[female vocal]';
@@ -685,7 +764,26 @@ export function buildAdultVocalTraitPlan(
     const axes = gender === 'male' ? MALE_VOCAL_TRAIT_AXES : FEMALE_VOCAL_TRAIT_AXES;
     const peakOnly = gender === 'male' ? MALE_PEAK_ONLY_REGISTERS : FEMALE_PEAK_ONLY_REGISTERS;
     const contradictions = gender === 'male' ? MALE_REGISTER_TIMBRE_CONTRADICTIONS : FEMALE_REGISTER_TIMBRE_CONTRADICTIONS;
-    const axisSeedBase = gender === 'male' ? 5101 : 6803;
+    // v3.77 (TASK A) bugfix — channelDefaultVocal used to affect ONLY
+    // channelFlavorWeight's soft candidate reweight, never the underlying
+    // RNG draw itself; when two different vocalTone presets share a gender
+    // (and neither's describing words happen to literally overlap any axis
+    // candidate — the common case), the draw was byte-identical for both,
+    // so the whole composed vocal text collapsed to the same string. Real
+    // measurement: a stress cross-product test caught
+    // mature-female/bright-young-female/husky-jazz-female all producing an
+    // identical stylePrompt for the same genre/moneyChord.
+    //
+    // Each axis rehashes "<axisName>::<gender>::<text>" independently
+    // (rather than one shared base + small numeric per-axis offsets) —
+    // measured while building this fix: a shared base perturbed by only a
+    // small offset (e.g. +401) between axes, or added to the hash as a
+    // plain integer, still collided for specific real seed+preset pairs on
+    // MULTIPLE axes simultaneously (arithmetic offsets/additions can
+    // correlate for specific operand combinations in a way that four
+    // independently-salted string hashes don't).
+    const axisSeed = (axisName: string) =>
+      options.channelDefaultVocal ? hashSeed(`${axisName}::${gender}::${options.channelDefaultVocal}`) : hashSeed(`${axisName}::${gender}`);
     const flavorWeight = options.channelDefaultVocal
       ? (candidate: string) => channelFlavorWeight(options.channelDefaultVocal!, candidate)
       : undefined;
@@ -701,23 +799,23 @@ export function buildAdultVocalTraitPlan(
       axes.register,
       AXIS_REPEAT_CAPS.register,
       seed,
-      axisSeedBase,
+      axisSeed('register'),
       (candidate, occurrenceIndex) => !peakOnly.has(candidate) || !options.isSenior || options.peakFlags[indices[occurrenceIndex]] === true,
       undefined,
       registerWeight
     );
-    const deliveries = pickTraitSequence(indices.length, axes.delivery, AXIS_REPEAT_CAPS.delivery, seed, axisSeedBase + 401, undefined, deliveryUsage);
+    const deliveries = pickTraitSequence(indices.length, axes.delivery, AXIS_REPEAT_CAPS.delivery, seed, axisSeed('delivery'), undefined, deliveryUsage);
     const timbres = pickTraitSequence(
       indices.length,
       axes.timbre,
       AXIS_REPEAT_CAPS.timbre,
       seed,
-      axisSeedBase + 809,
+      axisSeed('timbre'),
       (candidate, occurrenceIndex) => !contradictions.some(([reg, timb]) => reg === registers[occurrenceIndex] && timb === candidate),
       undefined,
       flavorWeight
     );
-    const proximities = pickTraitSequence(indices.length, axes.proximity, AXIS_REPEAT_CAPS.proximity, seed, axisSeedBase + 1201, undefined, proximityUsage);
+    const proximities = pickTraitSequence(indices.length, axes.proximity, AXIS_REPEAT_CAPS.proximity, seed, axisSeed('proximity'), undefined, proximityUsage);
 
     // v3.75 (TASK C) — real measurement: register-only text ("full chest
     // alto", "low warm contralto") never states the word "female"/"male"
@@ -736,8 +834,20 @@ export function buildAdultVocalTraitPlan(
   const duetIndices: number[] = [];
   plan.forEach((type, idx) => { if (type === 'mixed') duetIndices.push(idx); });
   if (duetIndices.length) {
-    const pairings = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.pairing, DUET_AXIS_REPEAT_CAPS.pairing, seed, 9001);
-    const blends = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.blend, DUET_AXIS_REPEAT_CAPS.blend, seed, 9401);
+    // v3.77 (TASK A) bugfix — mirrors the male/female axisSeedBase fold-in
+    // above: the duet seed offsets (9001/9401) used to be plain constants,
+    // so any two duet-gendered vocalTone presets (e.g. the kids 'kid-duet'
+    // preset and the adult 'male-female-duet' preset, both leaning='duet')
+    // produced byte-identical pairing/blend text for the same base seed.
+    // See the male/female axisSeed comment above for why this independently
+    // rehashes an axis-name-salted string per axis rather than a shared base
+    // + small numeric offset (real measurement: the offset scheme still
+    // collided for 'kid-duet' vs 'male-female-duet' on both pairing AND
+    // blend simultaneously, for one specific real seed).
+    const pairingSeed = options.channelDefaultVocal ? hashSeed(`pairing::duet::${options.channelDefaultVocal}`) : hashSeed('pairing::duet');
+    const blendSeed = options.channelDefaultVocal ? hashSeed(`blend::duet::${options.channelDefaultVocal}`) : hashSeed('blend::duet');
+    const pairings = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.pairing, DUET_AXIS_REPEAT_CAPS.pairing, seed, pairingSeed);
+    const blends = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.blend, DUET_AXIS_REPEAT_CAPS.blend, seed, blendSeed);
     duetIndices.forEach((songIdx, i) => {
       result[songIdx] = `${pairings[i]}, ${blends[i]}, male and female duet`;
     });

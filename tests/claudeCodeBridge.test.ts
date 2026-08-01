@@ -103,8 +103,13 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     // slot.vocalGender === 'duet' alone, which can silently miss a real duet
     // vocalText that doesn't exactly match vocalPresets.ts's canonical
     // string. The table below is unconditional so it never goes missing.
+    // v3.77 (TASK A) — vocalTone alone only LEANS the auto quota now (see
+    // vocalPlan.ts's leaningGenderFor); at songCount:2 the lean's own
+    // minimum-per-other-gender floor can squeeze the duet share to 0. An
+    // explicit opts.vocalQuota override deterministically guarantees a duet
+    // slot regardless of pack size.
     const duetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!;
-    const opts = makeOptions({ songCount: 2, vocalTone: duetPreset.prompt });
+    const opts = makeOptions({ songCount: 2, vocalTone: duetPreset.prompt, vocalQuota: { male: 0, female: 0, mixed: 1 } });
     const slots = preallocateSongSlots(opts, testGenres, avoid);
     expect(slots.some(slot => slot.vocalGender === 'duet')).toBe(true);
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, avoid, slots, false);

@@ -33,6 +33,20 @@ export const CHANNEL_IDENTITY_WORDS = new Set(['morning', 'warm', 'coffee']);
 export const GENERIC_WORD_CAP = 12;
 export const CHANNEL_IDENTITY_WORD_CAP = 20;
 
+/**
+ * v3.77 (TASK D-2) — a word this far past its own advisory cap (12 generic /
+ * 20 channel-identity, both already <30) is no longer a stylistic quirk, it
+ * reads as a stuck loop; the pack-level advisory alone (see
+ * vocabularyRepetitionWarning in compositionScorer.ts) was letting a real
+ * pack ship with "every" at 55x. This is deliberately a much higher, harder
+ * bar than the 12/20 advisory caps — NOT a replacement for them, and it does
+ * not change GENERIC_WORD_CAP/CHANNEL_IDENTITY_WORD_CAP themselves (still
+ * advisory-only at those levels; see compositionScorer.ts's own prior "어휘
+ * 반복을 blocking으로 세게 걸지 말 것" note, which this task's own spec
+ * explicitly overrides only at this new 30-word threshold).
+ */
+export const WORD_BLOCKING_THRESHOLD = 30;
+
 /** Strips bracket-tag-only lines (e.g. "[chorus]") before counting — a repeated section tag isn't a vocabulary-choice problem. */
 function lyricBodyOnly(lyrics: string): string {
   return lyrics
@@ -70,6 +84,11 @@ export function findExcessiveVocabularyRepetition(songs: Pick<SongIdea, 'lyrics'
     if (count > cap) findings.push({ word, count, cap });
   }
   return findings.sort((a, b) => b.count - a.count);
+}
+
+/** TASK D-2 — blocking-level only: any word whose pack-wide count exceeds WORD_BLOCKING_THRESHOLD (30), regardless of which advisory cap it already tripped. A strict subset of findExcessiveVocabularyRepetition's findings. */
+export function findBlockingVocabularyRepetition(songs: Pick<SongIdea, 'lyrics'>[]): VocabularyRepetitionFinding[] {
+  return findExcessiveVocabularyRepetition(songs).filter(f => f.count > WORD_BLOCKING_THRESHOLD);
 }
 
 /** Top N words by pack-wide frequency, regardless of whether they exceed a cap — for reporting (see this task's own mandatory report format: "어휘 빈도 상위 20개"). */

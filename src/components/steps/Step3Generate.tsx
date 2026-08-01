@@ -10,6 +10,11 @@ import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
 import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
+import { evaluateDesignGate } from '../../core/designGate';
+import { resolveConstraintsFromOptions } from '../../core/constraints';
+import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
+import { currentWorkspaceId } from '../../core/workspaceScope';
+import DesignGatePanel from '../DesignGatePanel';
 import {
   bridgeImportBlockMessage,
   bridgeImportStatusText,
@@ -329,6 +334,40 @@ export default function Step3Generate({
     () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false),
     [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText]
   );
+
+  // v3.78 (TASK A, §2-1) — 관문 1 gates this screen's own bridge copy button
+  // (the "801행" button this task's own spec names explicitly), evaluated
+  // against the SAME preallocated slots the instruction/import actually use
+  // (bridgePreassignedSongs), not a separate re-derivation.
+  const designGateConstraints = useMemo(
+    () => resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience), currentWorkspaceId()),
+    [opts]
+  );
+  const designGateResult = useMemo(
+    () => evaluateDesignGate(bridgePreassignedSongs, designGateConstraints, opts),
+    [bridgePreassignedSongs, designGateConstraints, opts]
+  );
+  const [bridgeGateAcknowledged, setBridgeGateAcknowledged] = useState(false);
+  useEffect(() => {
+    setBridgeGateAcknowledged(false);
+  }, [designGateResult.blocking.map(issue => issue.id).join(',')]);
+  const bridgeGateBlocksCopy = !designGateResult.passed && !bridgeGateAcknowledged;
+
+  function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
+    setOpts(prev => ({ ...prev, ...fix }));
+  }
+
+  // v3.78 (TASK B) — 관문 2 itself lives in Step4Result.tsx, not here: a real
+  // bridge import (single or multi-set) always navigates straight to the
+  // result screen on success (App.tsx's onImportSongsJson/
+  // onImportMultiSetSongsJson both call setCurrentStep(5) unconditionally
+  // once report.blueprint exists), so anything rendered in THIS component
+  // conditioned on importReport.blueprint would never actually be seen —
+  // confirmed live in this task's own §5 stress testing (a real bridge
+  // import unmounts this screen before a render here could ever show).
+  // Step4Result.tsx's own pre-existing TASK v3.62 blockingSongs/재작곡 지시문
+  // mechanism is the real, reachable "관문 2" surface — extended to use
+  // evaluateGenerationGate there instead of bare scoreComposition.
 
   async function handleCopyClaudeCodeInstruction() {
     await copyText(claudeCodeInstruction);
@@ -793,12 +832,23 @@ export default function Step3Generate({
 
         {!multiSet.mode ? (
           <>
+            <DesignGatePanel
+              result={designGateResult}
+              onAutoFix={applyDesignGateAutoFix}
+              acknowledged={bridgeGateAcknowledged}
+              onAcknowledgedChange={setBridgeGateAcknowledged}
+            />
             <p className="supporting">
               아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
               그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
             </p>
             <div className="button-row">
-              <button type="button" onClick={() => void handleCopyClaudeCodeInstruction()}>
+              <button
+                type="button"
+                disabled={bridgeGateBlocksCopy}
+                title={bridgeGateBlocksCopy ? '설계 검증(관문 1)을 통과하거나 "무시하고 진행"에 동의해야 복사할 수 있습니다.' : undefined}
+                onClick={() => void handleCopyClaudeCodeInstruction()}
+              >
                 <Copy size={16} />
                 {bridgeCopied ? '복사됨 ✅' : 'Claude Code용 지시문 복사'}
               </button>

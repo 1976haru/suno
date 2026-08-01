@@ -11,7 +11,6 @@ import {
   type HookSpec
 } from '../src/core/lyricEngine';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
-import { vocalPresets } from '../src/data/vocalPresets';
 import type { SongIdea } from '../src/types';
 import { resolveConstraints } from '../src/core/constraints';
 import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
@@ -127,14 +126,15 @@ describe('lyric engine', () => {
   });
 
   it('varies structure by song role (extended bridge for late-set emotional center)', () => {
-    // TASK v3.72 (TASK A) — an explicit non-default single vocal preset,
-    // so usesVocalQuota() stays off and no track becomes a duet (which
-    // would retag "[short bridge]"/"[final chorus]" to
-    // "[short bridge: male and female call and response]" etc. — see
-    // vocalPlan.ts's applyDuetSectionVocalTags — breaking the plain-tag
-    // .split() below; this test is about bridge length, not vocal tagging).
-    const soloVocal = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, vocalTone: soloVocal }), testGenres, testMoods, testSeason);
+    // v3.77 (TASK A) — vocalTone alone only LEANS the auto quota now (see
+    // vocalPlan.ts's leaningGenderFor), so it can no longer guarantee zero
+    // duets pack-wide. An explicit opts.vocalQuota override deterministically
+    // keeps every track non-duet here (a duet would retag "[short bridge]"/
+    // "[final chorus]" to "[short bridge: male and female call and
+    // response]" etc. — see vocalPlan.ts's applyDuetSectionVocalTags —
+    // breaking the plain-tag .split() below; this test is about bridge
+    // length, not vocal tagging).
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 12, vocalQuota: { male: 1, female: 0, mixed: 0 } }), testGenres, testMoods, testSeason);
     const opener = bp.songs[0];
     const emotionalCenter = bp.songs.find((_, idx) => idx === 7); // 'late-set emotional center' role position
     expect(opener).toBeDefined();

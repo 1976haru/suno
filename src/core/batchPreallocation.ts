@@ -15,6 +15,8 @@ import {
   DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
   enforceVocalTextInStylePrompt,
+  leaningAdultVocalQuota,
+  leaningGenderFor,
   resolveVocalMetaTag,
   usesVocalQuota,
   vocalDescriptionFor,
@@ -149,8 +151,32 @@ export function preallocateSongSlots(
   // fixes); the quota itself still differs by archetype — kids keeps
   // DEFAULT_KIDS_VOCAL_QUOTA, every other archetype falls back to
   // DEFAULT_ADULT_VOCAL_QUOTA (same 6/6/6 shape, 'mixed' means duet here).
+  // v3.77 (TASK A) — usesVocalQuota() is now unconditionally true; a
+  // user's actual vocalTone pick (when it differs from the channel's own
+  // default) now LEANS the quota toward that gender instead of replacing
+  // per-song variety with one fixed string (see vocalPlan.ts's own
+  // leaningGenderFor/leaningAdultVocalQuota doc comments). Skipped for
+  // kids (its own quota system) and whenever the caller supplied an
+  // explicit opts.vocalQuota override, which always wins outright.
+  const baseVocalQuota = opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  const vocalLeaning = opts.channel.archetype === 'kids' || opts.vocalQuota ? undefined : leaningGenderFor(opts);
+  const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
+  // v3.77 (TASK A) — leaningGenderFor only recognizes a known preset or a
+  // literal gender word; a genuinely custom vocalTone with neither (e.g. a
+  // hand-written description, or extreme/free-form text) still differs from
+  // the channel's default but produces no leaning at all. Without this
+  // guard, buildAdultVocalTraitPlan below would silently replace that text
+  // with its own generic composed register wording on every track — exactly
+  // the "vocalTone을 무시하지 말 것" this task's own spec prohibits, just
+  // triggered by an undetectable gender instead of a detectable one. When
+  // this is true, adultVocalTraitPlan is skipped so vocalText falls back to
+  // fallbackVocalText (the user's own text, verbatim) below; vocalType is
+  // still assigned from the (unleaned) base quota, so type diversity is
+  // unaffected — only the WORDING stays the user's own.
+  const explicitUnrecognizedVocalTone = opts.channel.archetype !== 'kids' && !opts.vocalQuota && !vocalLeaning
+    && Boolean(opts.vocalTone?.trim()) && opts.vocalTone!.trim() !== opts.channel.defaultVocal;
   const autoVocalPlan = usesVocalQuota(opts)
-    ? buildVocalPlan(opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA), opts.songCount, seed)
+    ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
   const vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
@@ -172,11 +198,15 @@ export function preallocateSongSlots(
   // register' constraint; every other axis stays fully open regardless.
   const isSeniorAudience = audienceProfile.id === 'senior';
   const vocalPeakFlags = killingPointPlan.map(kp => Boolean(kp?.relaxes?.includes('comfortable mid vocal register')));
-  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids'
+  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids' && !explicitUnrecognizedVocalTone
     ? buildAdultVocalTraitPlan(vocalPlan, seed, {
         isSenior: isSeniorAudience,
         peakFlags: vocalPeakFlags,
-        channelDefaultVocal: opts.channel.defaultVocal,
+        // v3.77 (TASK A) — prefer the user's actual vocalTone pick for this
+        // generation over the channel's stored default, so "따뜻한 중년
+        // 남성" softly biases register/timbre toward THAT character, not
+        // whatever the channel was originally set up with.
+        channelDefaultVocal: opts.vocalTone?.trim() || opts.channel.defaultVocal,
         recentRegisterSignatures: avoid?.recentVocalComboSignatures
       })
     : null;

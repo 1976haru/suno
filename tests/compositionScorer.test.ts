@@ -310,3 +310,84 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
     }
   });
 });
+
+/**
+ * v3.77 (TASK A-5 / TASK B-4 / TASK D-2) — proves the new regression-
+ * prevention blocking checks actually FIRE when the exact failure they exist
+ * to catch is deliberately reproduced (this task's own §8 item 5, called out
+ * as "이 문서의 핵심"): each test below builds a pack that reproduces one of
+ * the two historical silent-collapse bugs (a single vocal descriptor/type
+ * repeated across the whole pack, a BPM value repeated/narrow across the
+ * whole pack) or the new vocabulary ceiling, and checks that scoreComposition
+ * now blocks it — not just that a healthy pack passes.
+ */
+describe('[v3.77 TASK A-5/B-4/D-2] new blocking checks fire on the exact failures they exist to catch', () => {
+  function packOf(count: number, overridesFor: (i: number) => Partial<SongIdea>): SongIdea[] {
+    return Array.from({ length: count }, (_, i) => songWith({ trackNo: i + 1, ...overridesFor(i) }));
+  }
+
+  it('blocks when the whole pack collapses to one vocal descriptor (register) repeated on every track', () => {
+    const songs = packOf(6, () => ({
+      stylePrompt: songWith().stylePrompt.replace('mature male tenor lead', 'male deep chest-register lead')
+    }));
+    const scores = scoreComposition(songs);
+    expect(scores.every(s => s.blocking.some(b => b.includes('보컬 서술') && b.includes('종뿐')))).toBe(true);
+  });
+
+  it('blocks when one vocal descriptor appears in more than 3 songs (even if a couple of others vary)', () => {
+    const registers = ['deep chest-register lead', 'deep chest-register lead', 'deep chest-register lead', 'deep chest-register lead', 'bright tenor lead', 'light high tenor'];
+    const songs = packOf(6, i => ({
+      stylePrompt: songWith().stylePrompt.replace('mature male tenor lead', `male ${registers[i]}`)
+    }));
+    const scores = scoreComposition(songs);
+    expect(scores.every(s => s.blocking.some(b => b.includes('deep chest-register lead') && b.includes('4곡')))).toBe(true);
+  });
+
+  it('blocks when vocalType never varies across the whole pack (every track the same string)', () => {
+    const songs = packOf(6, () => ({ vocalType: 'male' as const }));
+    const scores = scoreComposition(songs);
+    expect(scores.every(s => s.blocking.some(b => b.includes('보컬 타입') && b.includes('한 종류')))).toBe(true);
+  });
+
+  it('blocks when BPM barely varies across the pack (stddev collapse — tempoBandsForProfile silently returning one narrow band)', () => {
+    const bpms = [95, 96, 95, 96, 95, 96];
+    const songs = packOf(6, i => ({ bpm: bpms[i] }));
+    const scores = scoreComposition(songs);
+    expect(scores.every(s => s.blocking.some(b => b.includes('BPM 표준편차')))).toBe(true);
+  });
+
+  it('blocks when the BPM range is too narrow even if stddev alone might look acceptable', () => {
+    const bpms = [90, 92, 94, 96, 98, 100];
+    const songs = packOf(6, i => ({ bpm: bpms[i] }));
+    const scores = scoreComposition(songs);
+    expect(scores.every(s => s.blocking.some(b => b.includes('BPM 범위')))).toBe(true);
+  });
+
+  it('does NOT block a healthy pack with real BPM spread and vocal variety on either new check', () => {
+    const bpms = [78, 84, 90, 96, 102, 108];
+    const registers = ['deep chest-register lead', 'bright tenor lead', 'light high tenor', 'mid baritone-tenor lead', 'narrow crooner tone', 'low warm baritone'];
+    const songs = packOf(6, i => ({
+      bpm: bpms[i],
+      stylePrompt: songWith().stylePrompt.replace('mature male tenor lead', `male ${registers[i]}`).replace('100 BPM', `${bpms[i]} BPM`)
+    }));
+    const scores = scoreComposition(songs);
+    for (const score of scores) {
+      expect(score.blocking.some(b => b.includes('BPM 표준편차') || b.includes('BPM 범위') || b.includes('보컬 서술') || b.includes('보컬 타입'))).toBe(false);
+    }
+  });
+
+  it('blocks when a word appears more than 30 times pack-wide (WORD_BLOCKING_THRESHOLD)', () => {
+    const overusedLyrics = `[verse 1]\n${Array.from({ length: 31 }, (_, i) => `light light light number ${i}`).join('\n')}\n\n[end]`;
+    const songs = [songWith({ trackNo: 1, lyrics: overusedLyrics })];
+    const scores = scoreComposition(songs);
+    expect(scores[0].blocking.some(b => b.includes('30회를 초과'))).toBe(true);
+  });
+
+  it('does NOT block (advisory only) a word repeated between the 12/20 advisory cap and the 30 blocking threshold', () => {
+    const moderatelyRepeated = `[verse 1]\n${Array.from({ length: 25 }, (_, i) => `light quiet moment number ${i}`).join('\n')}\n\n[end]`;
+    const songs = [songWith({ trackNo: 1, lyrics: moderatelyRepeated })];
+    const scores = scoreComposition(songs);
+    expect(scores[0].blocking.some(b => b.includes('30회를 초과'))).toBe(false);
+    expect(scores[0].advisory.some(a => a.includes('상한을 넘겨'))).toBe(true);
+  });
+});

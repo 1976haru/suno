@@ -7,7 +7,7 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { applyDuetSectionVocalTags, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -311,7 +311,19 @@ export function averageTempo(genres: GenrePack[], trackNo: number, band?: { low:
   const center = Math.round((low + high) / 2);
   const offset = [-4, -2, 0, 2, 3, 1, -1, 4, 2, 0][trackNo % 10];
   const fallbackCenter = Math.min(high, Math.max(low, center + offset));
-  if (!band) return fallbackCenter;
+  // v3.77 (TASK B) — data/audienceProfiles.ts's tempoBandsForProfile now
+  // always returns real bands (never undefined), so a caller reaching this
+  // function with no `band` at all should no longer be possible in normal
+  // operation. Kept as a defensive fallback (never remove — a caller this
+  // function doesn't control could still omit the argument), but now logs
+  // loudly: this exact silent fallback, reached from a profile that
+  // resolved to no band plan, is the root cause this task's own §1-2
+  // traced BPM stddev collapsing to 2.4. If this ever fires again, it
+  // means a NEW path bypassed tempoBandsForProfile entirely.
+  if (!band) {
+    console.warn('[tempo] band missing — falling back to genre average. This should not happen; tempoBandsForProfile always returns bands now (see v3.77 report).');
+    return fallbackCenter;
+  }
   const [leadLow, leadHigh] = genres[0]?.tempoRange ?? [low, high];
   return resolveTempoWithBand(leadLow, leadHigh, band, audienceFloor ?? leadLow, audienceCeiling ?? leadHigh, fallbackCenter);
 }
@@ -731,8 +743,20 @@ export function generateLocalBlueprint(
   // regression this fixes); the quota shape still differs by archetype —
   // kids keeps DEFAULT_KIDS_VOCAL_QUOTA, every other archetype falls back to
   // DEFAULT_ADULT_VOCAL_QUOTA ('mixed' means duet there, not choir).
+  // v3.77 (TASK A) — mirrors batchPreallocation.ts's own leaning-quota
+  // wiring (same reasoning: see vocalPlan.ts's leaningGenderFor doc comment).
+  const baseVocalQuota = opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  const vocalLeaning = opts.channel.archetype === 'kids' || opts.vocalQuota ? undefined : leaningGenderFor(opts);
+  const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
+  // v3.77 (TASK A) — mirrors batchPreallocation.ts's identical guard/comment:
+  // a custom vocalTone with no detectable preset/gender word must still
+  // reach the stylePrompt verbatim (via fallbackVocalText below) rather than
+  // being silently replaced by buildAdultVocalTraitPlan's generic composed
+  // wording.
+  const explicitUnrecognizedVocalTone = opts.channel.archetype !== 'kids' && !opts.vocalQuota && !vocalLeaning
+    && Boolean(opts.vocalTone?.trim()) && opts.vocalTone!.trim() !== opts.channel.defaultVocal;
   const autoVocalPlan = usesVocalQuota(opts)
-    ? buildVocalPlan(opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA), opts.songCount, seed)
+    ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
   const vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
@@ -750,11 +774,12 @@ export function generateLocalBlueprint(
   // tempoBandPlan); killingPointPlan is already computed above too.
   const isSeniorAudience = audienceProfile.id === 'senior';
   const vocalPeakFlags = killingPointPlan.map(kp => Boolean(kp?.relaxes?.includes('comfortable mid vocal register')));
-  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids'
+  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids' && !explicitUnrecognizedVocalTone
     ? buildAdultVocalTraitPlan(vocalPlan, seed, {
         isSenior: isSeniorAudience,
         peakFlags: vocalPeakFlags,
-        channelDefaultVocal: opts.channel.defaultVocal,
+        // v3.77 (TASK A) — see batchPreallocation.ts's identical comment.
+        channelDefaultVocal: opts.vocalTone?.trim() || opts.channel.defaultVocal,
         recentRegisterSignatures: avoid?.recentVocalComboSignatures
       })
     : null;
