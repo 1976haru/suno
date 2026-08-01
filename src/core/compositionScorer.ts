@@ -33,7 +33,8 @@ const DESCRIPTOR_COUNT_BLOCK_MAX = 40;
 const DESCRIPTOR_COUNT_ADVISORY_MIN = 25;
 const DESCRIPTOR_COUNT_ADVISORY_MAX = 35;
 
-function descriptorCount(stylePrompt: string): number {
+/** v3.76 (TASK B) — exported so core/fullAudit.ts can reuse the exact same counting logic instead of duplicating it; no behavior change. */
+export function descriptorCount(stylePrompt: string): number {
   return stylePrompt.split(',').map(atom => atom.trim()).filter(Boolean).length;
 }
 
@@ -54,7 +55,8 @@ const LYRIC_WORD_COUNT_BLOCKING_FLOOR = 130;
 const LYRIC_WORD_COUNT_ADVISORY_FLOOR = 190;
 const SECTION_COUNT_ADVISORY_FLOOR = 5;
 
-function lyricWordAndSectionCounts(lyrics: string): { words: number; sections: number } {
+/** v3.76 (TASK B) — exported for core/fullAudit.ts; no behavior change. */
+export function lyricWordAndSectionCounts(lyrics: string): { words: number; sections: number } {
   let words = 0;
   let sections = 0;
   for (const rawLine of lyrics.split('\n')) {
@@ -80,7 +82,8 @@ function lyricWordAndSectionCounts(lyrics: string): { words: number; sections: n
 const VOCAL_ZONE_COUNT = 3;
 const VOCAL_ZONE_SAME_TYPE_ADVISORY_FLOOR = 4;
 
-function vocalZoneDistributionWarnings(songs: Pick<SongIdea, 'trackNo' | 'vocalType'>[]): string[] {
+/** v3.76 (TASK B) — exported for core/fullAudit.ts; no behavior change. */
+export function vocalZoneDistributionWarnings(songs: Pick<SongIdea, 'trackNo' | 'vocalType'>[]): string[] {
   if (songs.length < 6) return [];
   const ordered = [...songs].sort((a, b) => a.trackNo - b.trackNo);
   const zoneSize = Math.ceil(ordered.length / VOCAL_ZONE_COUNT);

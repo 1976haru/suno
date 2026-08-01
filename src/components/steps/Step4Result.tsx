@@ -9,6 +9,7 @@ import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
 import AudioAnalysisPanel from '../AudioAnalysisPanel';
+import PromiseAuditPanel from '../PromiseAuditPanel';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
 import { buildSongTxt, copyText, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
@@ -28,7 +29,7 @@ import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
-export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio';
+export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio' | 'promiseAudit';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -421,6 +422,10 @@ export default function Step4Result({
             <Music2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             🎧 음원 분석
           </button>
+          <button type="button" className={resultTab === 'promiseAudit' ? 'tab active' : 'tab'} onClick={() => setResultTab('promiseAudit')}>
+            <ShieldAlert size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            🔍 정합성 검사
+          </button>
         </div>
       )}
 
@@ -430,6 +435,15 @@ export default function Step4Result({
           packId={packId}
           channelId={opts.channel.id}
           audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+        />
+      )}
+
+      {blueprint && resultTab === 'promiseAudit' && (
+        <PromiseAuditPanel
+          songs={blueprint.songs}
+          conceptLabel={opts.customConcept?.trim() || opts.projectTitle}
+          audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+          channelId={opts.channel.id}
         />
       )}
 
