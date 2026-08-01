@@ -152,3 +152,72 @@ function formatMinSec(totalSec: number): string {
   const seconds = Math.round(totalSec % 60);
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
+
+/**
+ * TASK v3.74 (TASK C) — real listening feedback: "남녀 가수 음색이 너무
+ * 비슷하다". Same shape/thresholds as buildAudioSetReport's `timbre` section
+ * above, but on the 200-3500Hz vocal-band measurements (audioAnalysis.ts's
+ * computeVocalBandMetrics) instead of the full-spectrum ones — this is the
+ * check that's actually about the VOICE, not the whole mix. A separate
+ * function (not folded into buildAudioSetReport) since it needs vocalType
+ * per entry for the same-gender-narrow check, which the full-spectrum report
+ * has no use for.
+ */
+export interface VocalDiversityEntry {
+  trackNo: number;
+  vocalType: string;
+  vocalCentroid: number;
+  vocalProfile: number[];
+}
+
+export interface VocalDiversityReport {
+  centroidSpread: number;
+  clusteredPairs: [number, number][];
+  meanSimilarity: number;
+  /** Per vocalType (e.g. 'male'/'female') with >=2 entries, the centroid spread within that type alone — spec's own "같은 vocalType 안에서 폭 < 200Hz → 경고, 남성 6곡이 다 같은 목소리". */
+  sameTypeSpread: Array<{ vocalType: string; spread: number; count: number }>;
+  advisories: string[];
+}
+
+const VOCAL_NARROW_SPREAD_HZ = 300;
+const VOCAL_CLUSTER_SIMILARITY_THRESHOLD = 0.95;
+const VOCAL_SET_SIMILARITY_WARN_THRESHOLD = 0.9;
+const VOCAL_SAME_TYPE_NARROW_SPREAD_HZ = 200;
+
+export function buildVocalDiversityReport(entries: readonly VocalDiversityEntry[]): VocalDiversityReport {
+  const advisories: string[] = [];
+  const centroids = entries.map(e => e.vocalCentroid);
+  const centroidSpread = centroids.length > 1 ? Math.max(...centroids) - Math.min(...centroids) : 0;
+
+  const clusteredPairs: [number, number][] = [];
+  let similaritySum = 0;
+  let pairCount = 0;
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const similarity = cosineSimilarity(entries[i].vocalProfile, entries[j].vocalProfile);
+      similaritySum += similarity;
+      pairCount += 1;
+      if (similarity >= VOCAL_CLUSTER_SIMILARITY_THRESHOLD) clusteredPairs.push([entries[i].trackNo, entries[j].trackNo]);
+    }
+  }
+  const meanSimilarity = pairCount > 0 ? similaritySum / pairCount : 0;
+
+  const byType = new Map<string, number[]>();
+  for (const entry of entries) {
+    const list = byType.get(entry.vocalType) ?? [];
+    list.push(entry.vocalCentroid);
+    byType.set(entry.vocalType, list);
+  }
+  const sameTypeSpread = [...byType.entries()]
+    .filter(([, values]) => values.length >= 2)
+    .map(([vocalType, values]) => ({ vocalType, spread: Math.max(...values) - Math.min(...values), count: values.length }));
+
+  if (entries.length > 1 && centroidSpread < VOCAL_NARROW_SPREAD_HZ) advisories.push(`보컬 음색 폭이 좁습니다 (${Math.round(centroidSpread)}Hz) — 목소리가 다 비슷하게 들릴 수 있습니다.`);
+  for (const [a, b] of clusteredPairs) advisories.push(`T${a}↔T${b}는 같은 목소리처럼 들릴 수 있습니다 (보컬 대역 유사도 높음).`);
+  if (pairCount > 0 && meanSimilarity >= VOCAL_SET_SIMILARITY_WARN_THRESHOLD) advisories.push(`세트 평균 보컬 유사도가 ${meanSimilarity.toFixed(2)}로 높습니다.`);
+  for (const { vocalType, spread, count } of sameTypeSpread) {
+    if (spread < VOCAL_SAME_TYPE_NARROW_SPREAD_HZ) advisories.push(`같은 보컬 타입(${vocalType}) ${count}곡의 음역 폭이 좁습니다 (${Math.round(spread)}Hz) — 다 같은 목소리로 들릴 수 있습니다.`);
+  }
+
+  return { centroidSpread, clusteredPairs, meanSimilarity, sameTypeSpread, advisories };
+}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deriveVersionLabel,
   groupMatchesByTrackNo,
+  labelTakesInGroup,
   matchAudioFileName,
   matchAudioFiles,
   missingTrackNumbers,
@@ -27,7 +29,7 @@ describe('[v3.73 TASK B] parseLeadingTrackNumber / parseVersionSuffix', () => {
   });
 
   it('parses a duplicate-take "(1)" suffix separately from the base name', () => {
-    expect(parseVersionSuffix('01 Two Sugars (1)')).toEqual({ baseName: '01 Two Sugars', versionSuffix: '(1)' });
+    expect(parseVersionSuffix('01 Two Sugars (1)')).toEqual({ baseName: '01 Two Sugars', versionSuffix: '(1)', versionNumber: 1 });
     expect(parseVersionSuffix('01 Two Sugars')).toEqual({ baseName: '01 Two Sugars' });
   });
 });
@@ -91,5 +93,43 @@ describe('[v3.73 TASK B] a partial upload (5 of 18 tracks) never errors, just re
     const matches = matchAudioFiles(['01 Song 1.mp3', '01 Song 1 (1).mp3', '01 Song 1 (2).mp3'], eighteenCandidates);
     const grouped = groupMatchesByTrackNo(matches);
     expect(grouped.get(1)).toHaveLength(3);
+  });
+});
+
+describe('[v3.74 TASK B] version marker recognition — "v2"/"_2", not just "(N)"', () => {
+  it('recognizes a "v2" suffix', () => {
+    const result = matchAudioFileName('01 Two Sugars v2.mp3', candidates);
+    expect(result).toMatchObject({ trackNo: 1, versionNumber: 2 });
+  });
+
+  it('recognizes a bare trailing "_2" suffix', () => {
+    const result = matchAudioFileName('01 Two Sugars_2.mp3', candidates);
+    expect(result).toMatchObject({ trackNo: 1, versionNumber: 2 });
+  });
+
+  it('a plain filename with no marker at all has no versionNumber', () => {
+    const result = matchAudioFileName('01 Two Sugars.mp3', candidates);
+    expect(result.versionNumber).toBeUndefined();
+  });
+});
+
+describe('[v3.74 TASK B] deriveVersionLabel / labelTakesInGroup', () => {
+  it('an explicit version number always maps to the same letter regardless of which filename shape produced it', () => {
+    expect(deriveVersionLabel(1, 0)).toBe('A');
+    expect(deriveVersionLabel(2, 0)).toBe('B');
+  });
+
+  it('a group with one marked ("v2") and one unmarked file: the unmarked one fills in the gap, not always "A"', () => {
+    const matches = matchAudioFiles(['01 Two Sugars.mp3', '01 Two Sugars v2.mp3'], candidates);
+    const labeled = labelTakesInGroup(matches);
+    const byFile = new Map(labeled.map(m => [m.fileName, m.versionLabel]));
+    expect(byFile.get('01 Two Sugars.mp3')).toBe('A');
+    expect(byFile.get('01 Two Sugars v2.mp3')).toBe('B');
+  });
+
+  it('3+ unmarked takes of the same track get distinct sequential labels', () => {
+    const matches = matchAudioFiles(['01 Two Sugars.mp3', '01 Two Sugars (1).mp3', '01 Two Sugars (2).mp3'], candidates);
+    const labeled = labelTakesInGroup(matches);
+    expect(new Set(labeled.map(m => m.versionLabel)).size).toBe(3);
   });
 });

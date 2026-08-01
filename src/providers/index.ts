@@ -18,6 +18,8 @@ import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/composi
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { getRecentVocalCombos } from '../core/vocalComboLedger';
+import { getTakes } from '../core/audioTakes';
+import { buildDirectiveExecutionReport, mergeExecutionInsightsIntoRatingInsights } from '../core/audioDirectiveAnalysis';
 import { stripSetTitlePrefix } from '../utils/generation';
 import { generateWithOpenAI, type ProviderCallResult } from './openai';
 import { generateWithAnthropic } from './anthropic';
@@ -247,7 +249,20 @@ export async function generateBlueprint(
    * settings.provider === 'local' regardless, since that branch returns
    * before this flag is ever read.
    */
-  enableRecompose = false
+  enableRecompose = false,
+  /**
+   * TASK v3.74 (TASK H) — opt-in (default false, unlike TASK A's vocal-combo
+   * lean above, which is unconditional): feeding real killing-point
+   * execution rates (core/audioDirectiveAnalysis.ts) back into
+   * killingPointBoostFromInsights is new and, unlike the vocal-combo signal,
+   * has no UI toggle wired to it yet (see docs/v374-report.md's own
+   * disclosure) — defaulting to false means every existing caller, and any
+   * pack generated before real take data exists, produces byte-identical
+   * output to before this task (this task's own explicit "학습 데이터가
+   * 0건일 때 생성한 18곡이 작업 전과 동일해야 합니다"). Best-effort: a
+   * lookup failure must never block generation.
+   */
+  audioLearningEnabled = false
 ): Promise<PlaylistBlueprint> {
   // TASK v3.72 (TASK E) — softly leans this pack's register choices away
   // from whatever this channel's last few sets already leaned on (see
@@ -258,6 +273,26 @@ export async function generateBlueprint(
     try {
       const recentVocalComboSignatures = await getRecentVocalCombos(opts.channel.id);
       if (recentVocalComboSignatures.length) avoid = { ...avoid, recentVocalComboSignatures };
+    } catch {
+      // best-effort only
+    }
+  }
+
+  // TASK v3.74 (TASK H) — strong-confidence killing-point execution rates
+  // (real measured "did the late lift actually happen", not text
+  // prediction) softly re-weight killing-point selection through the exact
+  // same, already-capped v3.68 mechanism real ratings already use — see
+  // core/audioDirectiveAnalysis.ts's own doc comment for why the existing
+  // MAX_SONGS_PER_KILLING_POINT cap already keeps this well under the 50%
+  // ceiling this task requires, with no new cap logic needed.
+  if (audioLearningEnabled) {
+    try {
+      const takes = await getTakes({ channelId: opts.channel.id });
+      if (takes.length) {
+        const executionEntries = buildDirectiveExecutionReport(takes);
+        const merged = mergeExecutionInsightsIntoRatingInsights(opts.ratingInsights, executionEntries);
+        if (merged.length) opts = { ...opts, ratingInsights: merged };
+      }
     } catch {
       // best-effort only
     }

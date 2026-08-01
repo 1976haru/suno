@@ -1,0 +1,163 @@
+import type { AudienceProfile, SongIdea } from '../types';
+import type { SongAudioMetrics, TempoEstimate, VocalMetrics } from './audioAnalysis';
+
+/**
+ * TASK v3.74 (TASK A) — "테이크(take)": one rendered mp3 for one track's
+ * prompt. A track can have 1..N takes (Suno's own "generate 2 versions"
+ * habit); at most one is ever `adopted`. This is the record a real listen
+ * (or a plain adoption choice — see core/audioAdoption.ts) attaches to.
+ *
+ * Mirrors core/ratingLedger.ts's IndexedDB pattern exactly (openDb/withStore
+ * shape), in its own database (`suno-weaver-audio`) rather than a new store
+ * inside suno-weaver-ratings — a take isn't a rating (most takes are never
+ * explicitly rated at all; adoption alone is signal, see TASK G), so giving
+ * it its own shape/lifecycle (deletable independently of any rating) is
+ * clearer than overloading RatingRecord.
+ *
+ * Never stores the audio file itself — only measurements (this task's own
+ * "음원 파일 자체는 저장하지 마십시오": 18 tracks x 2 takes x ~5MB would be
+ * ~180MB, well past what IndexedDB should hold for this app).
+ */
+
+export interface AudioTakeDirectives {
+  genreId: string;
+  killingPointId?: string;
+  arcPhase?: string;
+  introMode?: string;
+  vocalType: string;
+  /**
+   * Best-effort only: SongIdea persists the resolved gender (`vocalType`)
+   * but not the full per-song register/delivery/timbre/proximity text
+   * (v3.72's axis combo) — that's only ever materialized transiently into
+   * `stylePrompt` at generation time, not kept as its own field. Falls back
+   * to `vocalType` when nothing richer is available.
+   */
+  vocalDescriptor: string;
+  targetBpm: number;
+  targetDurationSec: [number, number];
+  instrumentAtoms: string[];
+}
+
+export interface AudioTake {
+  takeId: string;
+  songId: string;
+  trackNo: number;
+  packId: string;
+  /** TASK v3.74 (TASK H) — not in the spec's own AudioTake sketch, added so TASK H's feedback loop can query "this channel's takes" without an extra pack lookup (AudioTake otherwise only carries packId, and a saved pack's channelId isn't guaranteed to still exist by the time a take is queried). */
+  channelId?: string;
+  /** Reserved for a future workspace-scoping feature not yet implemented in this codebase ("A1" in the v3.74 spec) — always undefined today. */
+  workspaceId?: string;
+
+  fileName: string;
+  versionLabel: string;
+  adopted: boolean;
+
+  metrics: SongAudioMetrics;
+  vocalMetrics: VocalMetrics;
+  tempoEstimate: TempoEstimate;
+
+  directives: AudioTakeDirectives;
+
+  analyzedAt: string;
+}
+
+/**
+ * Pure — builds a take's directive snapshot from the saved song + this
+ * channel's audience profile, so recording a take never needs the original
+ * (long-gone) generation-time slot data.
+ *
+ * `instrumentAtoms`/`introMode` are always empty/undefined unless supplied:
+ * both `instrumentSet` and `introMode` are PreassignedSongSlot-only fields
+ * (the per-song instrument rotation and intro-vocal-timing plan used while
+ * composing the prompt) — neither is persisted onto the saved SongIdea, so
+ * a take recorded after the fact (from an uploaded mp3, long after the
+ * original slot is gone) has no reliable source for them. Left as explicit
+ * optional overrides so a caller that still has the original slot (e.g.
+ * right after local generation, before the pack is even saved) can supply
+ * real values instead.
+ */
+export function buildTakeDirectives(
+  song: Pick<SongIdea, 'genreId' | 'killingPointId' | 'arcPhase' | 'vocalType' | 'bpm'>,
+  audienceProfile: AudienceProfile,
+  options: { instrumentAtoms?: string[]; introMode?: string } = {}
+): AudioTakeDirectives {
+  return {
+    genreId: song.genreId ?? 'unknown',
+    killingPointId: song.killingPointId,
+    arcPhase: song.arcPhase,
+    introMode: options.introMode,
+    vocalType: song.vocalType ?? 'unknown',
+    vocalDescriptor: song.vocalType ?? 'unknown',
+    targetBpm: song.bpm ?? 0,
+    targetDurationSec: audienceProfile.songLengthSecondsRange,
+    instrumentAtoms: options.instrumentAtoms ?? []
+  };
+}
+
+const DB_NAME = 'suno-weaver-audio';
+const DB_VERSION = 1;
+const STORE = 'takes';
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const store = db.createObjectStore(STORE, { keyPath: 'takeId' });
+        store.createIndex('songId', 'songId', { unique: false });
+        store.createIndex('packId', 'packId', { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB open failed.'));
+  });
+}
+
+async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, mode);
+    const store = tx.objectStore(STORE);
+    const request = fn(store);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
+    tx.oncomplete = () => db.close();
+  });
+}
+
+export async function recordTake(take: AudioTake): Promise<void> {
+  await withStore('readwrite', store => store.put(take));
+}
+
+export async function getTakes(filter?: { packId?: string; songId?: string; channelId?: string }): Promise<AudioTake[]> {
+  const all = await withStore<AudioTake[]>('readonly', store => store.getAll());
+  return all.filter(take =>
+    (!filter?.packId || take.packId === filter.packId)
+    && (!filter?.songId || take.songId === filter.songId)
+    && (!filter?.channelId || take.channelId === filter.channelId)
+  );
+}
+
+export async function deleteTake(takeId: string): Promise<void> {
+  await withStore('readwrite', store => store.delete(takeId));
+}
+
+/** Marks `takeId` adopted and un-adopts every other take of the same song (a trackNo/song only ever has one adopted take at a time — see this task's own AudioTake.adopted doc comment). */
+export async function setAdopted(takeId: string): Promise<void> {
+  const all = await withStore<AudioTake[]>('readonly', store => store.getAll());
+  const target = all.find(take => take.takeId === takeId);
+  if (!target) return;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    for (const take of all) {
+      if (take.songId !== target.songId) continue;
+      const shouldBeAdopted = take.takeId === takeId;
+      if (take.adopted !== shouldBeAdopted) store.put({ ...take, adopted: shouldBeAdopted });
+    }
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error || new Error('IndexedDB request failed.')); };
+  });
+}

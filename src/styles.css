@@ -2622,3 +2622,23 @@ pre {
 .audio-track-detail {
   border-left: 3px solid var(--line);
 }
+
+/* TASK v3.74 (TASK I) — AudioAnalysisPanel.tsx's A/B take comparison */
+.audio-take-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.audio-take-card {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.audio-take-card.adopted {
+  border-color: var(--teal);
+  background: #eafaf6;
+}

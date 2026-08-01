@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAudioSetReport } from '../src/core/audioSetReport';
+import { buildAudioSetReport, buildVocalDiversityReport, type VocalDiversityEntry } from '../src/core/audioSetReport';
 import type { SongAudioMetrics } from '../src/core/audioAnalysis';
 import { SENIOR_AUDIENCE_PROFILE, KIDS_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
 
@@ -145,5 +145,52 @@ describe('[v3.73 TASK C] buildAudioSetReport — partial analysis never errors',
     const report = buildAudioSetReport([], 18, SENIOR_AUDIENCE_PROFILE);
     expect(report.analyzedCount).toBe(0);
     expect(report.killingPoint.latePeakShare).toBe(0);
+  });
+});
+
+describe('[v3.74 TASK C] buildVocalDiversityReport', () => {
+  function entry(trackNo: number, vocalType: string, vocalCentroid: number, vocalProfile: number[]): VocalDiversityEntry {
+    return { trackNo, vocalType, vocalCentroid, vocalProfile };
+  }
+
+  it('flags a pair with vocal-band similarity >= 0.95 (the spec\'s own real 01<->12 = 0.969 scenario)', () => {
+    const entries = [
+      entry(1, 'male', 946, [1, 0, 0]),
+      entry(12, 'male', 1109, [0.99, 0.01, 0]), // near-identical -- should cluster
+      entry(5, 'male', 664, [0, 0, 1]) // very different -- should not cluster with either
+    ];
+    const report = buildVocalDiversityReport(entries);
+    expect(report.clusteredPairs).toContainEqual([1, 12]);
+    expect(report.clusteredPairs).not.toContainEqual([1, 5]);
+    expect(report.advisories.some(a => a.includes('T1↔T12'))).toBe(true);
+  });
+
+  it('flags a narrow same-vocalType centroid spread (e.g. all 6 male tracks within 200Hz)', () => {
+    const entries = [
+      entry(1, 'male', 950, [1, 0]),
+      entry(2, 'male', 1000, [0.9, 0.1]),
+      entry(3, 'male', 1050, [0.8, 0.2])
+    ];
+    const report = buildVocalDiversityReport(entries);
+    const maleSpread = report.sameTypeSpread.find(s => s.vocalType === 'male')!;
+    expect(maleSpread.spread).toBeLessThan(200);
+    expect(report.advisories.some(a => a.includes('같은 보컬 타입'))).toBe(true);
+  });
+
+  it('a wide, varied set produces no advisories', () => {
+    const entries = [
+      entry(1, 'male', 700, [1, 0, 0, 0]),
+      entry(2, 'female', 1600, [0, 1, 0, 0]),
+      entry(3, 'male', 1300, [0, 0, 1, 0]),
+      entry(4, 'female', 2400, [0, 0, 0, 1])
+    ];
+    const report = buildVocalDiversityReport(entries);
+    expect(report.clusteredPairs).toEqual([]);
+  });
+
+  it('never crashes on 0 or 1 entries', () => {
+    expect(() => buildVocalDiversityReport([])).not.toThrow();
+    expect(() => buildVocalDiversityReport([entry(1, 'male', 900, [1])])).not.toThrow();
+    expect(buildVocalDiversityReport([]).centroidSpread).toBe(0);
   });
 });
