@@ -4,6 +4,7 @@ import { isMadeForKidsChannel } from './exportCompliance';
 import { lintChannelDiversity, sampleFromSavedPack, type ChannelDiversityReport } from './diversityLinter';
 import { listVideos } from './videoLedger';
 import { dominantRegisterSignature, recordVocalCombo } from './vocalComboLedger';
+import { rememberFlagshipOrder } from './recentFlagshipOrderStore';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter, scopedKey } from './workspaceScope';
 import { assignSetCode, buildSongCode } from './setCode';
 
@@ -269,6 +270,17 @@ export async function savePack(input: {
   if (!input.isAutosave) {
     const signature = dominantRegisterSignature(input.blueprint.songs);
     if (signature) recordVocalCombo(input.options.channel.id, signature).catch(() => {});
+    // v3.80 (TASK A-3) — remembers this just-finished pack's actual tracks
+    // 1-3 vocal-type order (core/recentFlagshipOrderStore.ts), read back by
+    // providers/index.ts's generateBlueprint on the next pack for this
+    // channel so resolveFlagshipVocalOrder can avoid repeating it. Same
+    // "skip autosave, best-effort" treatment as the vocal-combo ledger just
+    // above; undefined for any track whose trackNo 1-3 slot is missing
+    // (e.g. a 1-2 song pack), in which case nothing is remembered.
+    const order = [1, 2, 3].map(trackNo => input.blueprint.songs.find(song => song.trackNo === trackNo)?.vocalType);
+    if (order.every((type): type is 'male' | 'female' | 'mixed' => Boolean(type))) {
+      rememberFlagshipOrder(input.options.channel.id, order);
+    }
   }
   return id;
 }

@@ -260,16 +260,23 @@ describe('[v3.72 TASK B] buildAdultVocalTraitPlan', () => {
     }
   });
 
-  it('never exceeds 13 words per song', () => {
+  it('never exceeds 17 words per song', () => {
     // v3.75 (TASK C) — cap raised from 12 to 13: buildAdultVocalTraitPlan
     // now prepends an explicit "male"/"female" word to every solo track's
     // register (real bug — a register-only phrase like "full chest alto"
     // never said the word "female" anywhere, risking a male render), a
     // deliberate +1-word budget increase, not a regression of the 4-axis
     // word cap itself (see vocalPlan.ts's own "v3.75 (TASK C)" comment).
+    // v3.80 (TASK A/B) — cap raised again, 13 -> 17: duets now also carry a
+    // proximity value (previously duets had none at all, so a flagship slot
+    // landing on 'mixed' couldn't be forced to plate/chamber ambience the
+    // way a solo slot could — see vocalPlan.ts's own duet proximity
+    // addition). Worst real case measured: pairing(4) + blend(4) +
+    // proximity(3, "narrow mono-leaning room") + "male and female duet"(4)
+    // = 15 words: still comfortably under 17.
     const texts = buildAdultVocalTraitPlan(plan18, 42, { isSenior: false, peakFlags: plan18.map(() => false) });
     for (const text of texts) {
-      expect(text.split(/\s+/).filter(Boolean).length, text).toBeLessThanOrEqual(13);
+      expect(text.split(/\s+/).filter(Boolean).length, text).toBeLessThanOrEqual(17);
     }
   });
 

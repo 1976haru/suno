@@ -8,8 +8,10 @@ import { compactMoneyChord } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import {
   applyDuetSectionVocalTags,
+  applyFlagshipVocalOrder,
   buildAdultVocalTraitPlan,
   buildVocalPlan,
+  buildVocalTechniquePlan,
   buildVocalVariantPlan,
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -17,12 +19,16 @@ import {
   enforceVocalTextInStylePrompt,
   leaningAdultVocalQuota,
   leaningGenderFor,
+  resolveFlagshipVocalOrder,
   resolveVocalMetaTag,
   usesVocalQuota,
   vocalDescriptionFor,
-  type VocalGender
+  type VocalGender,
+  type VocalType
 } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { eraBucketForGenreId } from '../data/eraExclusions';
+import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
@@ -42,7 +48,7 @@ import {
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
 import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
-import { buildArcPlan, reorderByArcIntensity } from './arcPlan';
+import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { resolveConstraintsFromOptions } from './constraints';
 
@@ -84,7 +90,13 @@ export function preallocateSongSlots(
   // stays a pure sync function — no IndexedDB access here). Softly
   // deprioritizes those exact registers in buildAdultVocalTraitPlan; never
   // required, never blocking.
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[] }
+  // v3.80 (TASK A-3) — previousFlagshipOrder is core/recentFlagshipOrderStore.ts's
+  // last-remembered tracks-1-3 vocal-type order for this channel, pre-read
+  // by the caller (same "core stays sync/pure, caller owns storage" split
+  // as recentVocalComboSignatures above). resolveFlagshipVocalOrder falls
+  // back to a plain seed-picked order when this is absent (e.g. a channel's
+  // first ever generation).
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] }
 ): PreassignedSongSlot[] {
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
@@ -127,8 +139,18 @@ export function preallocateSongSlots(
   // peakStrength 'none'), matched against this track's own lead genre's
   // eraTag — mirrors localGenerator.ts's own killingPointPlan pre-pass
   // (same seed offset).
+  // v3.80 (TASK A-1) — track 2 (idx 1) is a flagship slot and this task's
+  // spec requires it to always carry a killing point; buildArcPlan's own
+  // 'opening' phase leaves idx 0/1 at peakStrength 'none' and only idx 2
+  // 'subtle' (the edge-toward-lift track), so trackNo 2 never got one
+  // without this override. trackNo 1 (idx 0, cold-open) is deliberately
+  // left untouched — the spec explicitly keeps its existing no-killing-point
+  // arc-opening behavior.
+  const arcPlanForKillingPoints = opts.songCount >= 2
+    ? arcPlan.map((pos, idx) => (idx === 1 && pos.peakStrength === 'none' ? { ...pos, peakStrength: 'subtle' as const } : pos))
+    : arcPlan;
   const killingPointPlan = assignKillingPoints(
-    arcPlan.map((pos, idx) => ({
+    arcPlanForKillingPoints.map((pos, idx) => ({
       peakStrength: pos.peakStrength,
       eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
     })),
@@ -178,9 +200,38 @@ export function preallocateSongSlots(
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
-  const vocalPlan = autoVocalPlan
+  let vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
+  // v3.80 (TASK A-3) — tracks 1-3 (flagship slots) get 3 distinct vocal
+  // types, rotating order set-to-set (never repeating the immediately prior
+  // set's own order — see recentFlagshipOrderStore.ts/resolveFlagshipVocalOrder's
+  // own doc comment). Applied after applyAxisAllocation so it wins over
+  // whatever type order the auto quota OR a manual 8-axis vocalType
+  // allocation produced, without disturbing either one's overall counts —
+  // 'manual' here only ever fixes TOTALS (setDirector.ts's directSetLocal
+  // always sets vocalType to 'manual' with its own default 6/6/6 counts;
+  // per-position order is still algorithmic either way, so pinning
+  // positions 0-2 never overrides anything a user actually hand-picked).
+  // Data-driven guard instead of a manual/auto check: only pins when the
+  // plan already contains all 3 types somewhere — an opts.vocalQuota
+  // override that's deliberately all-one-type (e.g.
+  // tests/lyricBodyFidelity.test.ts's all-duet/all-solo quotas) naturally
+  // fails this and is left untouched, without needing to special-case
+  // vocalQuota separately. Also skipped whenever vocalLeaning is set — a
+  // user's own vocalTone pick (e.g. a duet preset) is a real preference
+  // signal (see leaningGenderFor's own doc comment) that this task's
+  // "rotate, don't always pin one type" rule must not override; the
+  // rotation only applies to the balanced, no-preference default (see
+  // tests/v341.test.ts's own "reconcileWithPreassignedSlot enforces a duet
+  // end-to-end" — a real regression this guard fixes).
+  const vocalPlanHasAllThreeTypes = vocalPlan ? new Set(vocalPlan).size === 3 : false;
+  const flagshipVocalOrder = vocalPlan && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
+    ? resolveFlagshipVocalOrder(seed, avoid?.previousFlagshipOrder)
+    : null;
+  if (vocalPlan && flagshipVocalOrder) {
+    vocalPlan = applyFlagshipVocalOrder(vocalPlan, flagshipVocalOrder);
+  }
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
   // 5/5/5 kids pack no longer reuses one fixed string per type across
@@ -198,6 +249,31 @@ export function preallocateSongSlots(
   // register' constraint; every other axis stays fully open regardless.
   const isSeniorAudience = audienceProfile.id === 'senior';
   const vocalPeakFlags = killingPointPlan.map(kp => Boolean(kp?.relaxes?.includes('comfortable mid vocal register')));
+  // v3.80 (TASK B-2-3) — each track's own lead genre's era bucket, so
+  // buildAdultVocalTraitPlan can softly prefer era-signature proximity
+  // values (plate/chamber/tape-slap/mono) over today's modern default.
+  // Mirrors genrePlan's own indexing exactly (same array, same idx).
+  const eraBucketByIndex = genrePlan.map(id => eraBucketForGenreId(id) ?? undefined);
+  // v3.80 (TASK E) — mirrors localGenerator.ts's identical technique-plan
+  // call (same seed); appended onto vocalText below so it reaches both the
+  // local path's stylePrompt and the bridge/Batch path's LLM-facing
+  // vocalText verbatim-enforcement.
+  const vocalTechniquePlan = opts.channel.archetype !== 'kids' ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  // v3.80 (TASK A-1) — track 1 (cold-open) forced spacious/not-dry (any
+  // proximity except the "dry and forward" modern-forward character);
+  // tracks 2-3 (flagship) forced to plate/chamber ambience specifically —
+  // the exact character real listening feedback singled out as the best
+  // track's own proximity. A hard override (proximityFilterFor in
+  // vocalPlan.ts honors proximityOverrideByIndex as a strict allow-list),
+  // not a soft weight — this task's spec states these three slots as
+  // non-negotiable, unlike the era-preference weighting above.
+  const flagshipProximityOverride = opts.songCount >= 3
+    ? {
+        0: PROXIMITY_POOL.filter(value => value !== 'dry and forward'),
+        1: ['soft plate ambience', 'chamber ambience'],
+        2: ['soft plate ambience', 'chamber ambience']
+      }
+    : undefined;
   const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids' && !explicitUnrecognizedVocalTone
     ? buildAdultVocalTraitPlan(vocalPlan, seed, {
         isSenior: isSeniorAudience,
@@ -207,7 +283,9 @@ export function preallocateSongSlots(
         // 남성" softly biases register/timbre toward THAT character, not
         // whatever the channel was originally set up with.
         channelDefaultVocal: opts.vocalTone?.trim() || opts.channel.defaultVocal,
-        recentRegisterSignatures: avoid?.recentVocalComboSignatures
+        recentRegisterSignatures: avoid?.recentVocalComboSignatures,
+        eraBucketByIndex,
+        proximityOverrideByIndex: flagshipProximityOverride
       })
     : null;
   // TASK v3.39 Part H — every channel (not just kids) now carries a per-song
@@ -268,7 +346,7 @@ export function preallocateSongSlots(
   // manually overridden (applyAxisAllocation returns the manual plan
   // untouched, same as always).
   const arrangementDensityRank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
-  const arrangementDensityPlan = applyAxisAllocation(
+  const autoOrManualArrangementDensityPlan = applyAxisAllocation(
     reorderByArcIntensity(
       Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
       arcPlan,
@@ -279,6 +357,26 @@ export function preallocateSongSlots(
     ARRANGEMENT_DENSITY_IDS,
     seed
   );
+  // v3.80 (TASK A-1) — flagship slots (tracks 2-3) forced sparse, cold-open
+  // (track 1) forced medium (not dry/full), per this task's own explicit
+  // per-slot density spec. Re-runs breakLongRuns afterward — pinning 3 of a
+  // 6:6:6 split can create a fresh run right at the position-2/3 seam that
+  // the pre-pin pass never saw (see arcPlan.ts's own breakLongRuns doc
+  // comment). Preserves the overall count split either way
+  // (pinPrefixPreservingCounts) — 'manual' here only ever fixes TOTALS
+  // (setDirector.ts's directSetLocal always sets arrangementDensity to
+  // 'manual' with its own default 6/6/6 counts), so pinning positions 0-2
+  // never overrides anything a user actually hand-picked. Data-driven guard
+  // instead of a manual/auto check, same reasoning as vocalPlanHasAllThreeTypes
+  // above: skips only when the plan doesn't actually contain all 3 levels
+  // (e.g. tests/v347step3.test.ts's deliberately narrow `{ full: 3 }`
+  // 5-song manual override, whose 2 auto-filled shortfall songs aren't
+  // enough to also produce a 'sparse'/'medium' — nothing to legally pin
+  // without violating that override's own total).
+  const arrangementDensityHasAllThreeLevels = new Set(autoOrManualArrangementDensityPlan).size === 3;
+  const arrangementDensityPlan = opts.songCount >= 3 && arrangementDensityHasAllThreeLevels
+    ? breakLongRuns(pinPrefixPreservingCounts(autoOrManualArrangementDensityPlan, ['medium', 'sparse', 'sparse'] as const), 2)
+    : autoOrManualArrangementDensityPlan;
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
@@ -290,10 +388,17 @@ export function preallocateSongSlots(
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext, 3, false, constraints)
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
+    // v3.80 (TASK E) — appends vocalTechniquePlan[idx] only when
+    // adultVocalTraitPlan[idx] is actually the text in use — mirrors
+    // localGenerator.ts's identical guard (see its own doc comment): never
+    // appended onto a kids description or onto a user's own verbatim
+    // vocalTone fallback text.
     const vocalText = vocalType
       ? (opts.channel.archetype === 'kids'
           ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
-          : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText))
+          : (adultVocalTraitPlan?.[idx]
+              ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+              : fallbackVocalText))
       : fallbackVocalText;
     const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType

@@ -1,16 +1,23 @@
 import type { GenerationOptions, LyricLanguage } from '../types';
 import { shuffle } from './lyricEngine';
 import { hashSeed, mulberry32 } from '../utils/prng';
+import { breakLongRuns, pinPrefixPreservingCounts } from './arcPlan';
 import {
   DUET_TRAIT_AXES,
   FEMALE_PEAK_ONLY_REGISTERS,
   FEMALE_REGISTER_TIMBRE_CONTRADICTIONS,
   FEMALE_VOCAL_TRAIT_AXES,
+  MALE_HIGH_OR_FALSETTO_REGISTERS,
+  MALE_LOW_REGISTERS,
   MALE_PEAK_ONLY_REGISTERS,
   MALE_REGISTER_TIMBRE_CONTRADICTIONS,
-  MALE_VOCAL_TRAIT_AXES
+  MALE_VOCAL_TRAIT_AXES,
+  MODERN_PROXIMITY_VALUES,
+  PROXIMITY_ERA_PREFERENCE
 } from '../data/vocalTraits';
 import { matchVocalPreset } from '../data/vocalPresets';
+import type { EraBucket } from '../data/eraExclusions';
+import { VOCAL_TECHNIQUES_BY_ERA } from '../data/vocalTechniquesByEra';
 
 /**
  * TASK v3.41 Part A1 — the explicit gender axis a VocalPreset now carries
@@ -628,9 +635,99 @@ export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: numbe
   return repairConsecutiveRuns(plan, maxConsecutive);
 }
 
+/** v3.80 (TASK E) — "같은 기법은 팩 전체에서 최대 4곡까지" (this task's own explicit pack-wide cap). */
+const VOCAL_TECHNIQUE_PACK_CAP = 4;
+
+/**
+ * v3.80 (TASK E) — 1-2 era-matched vocal technique phrases per song (see
+ * data/vocalTechniquesByEra.ts's own doc comment for what these are and
+ * why), each pack-wide-capped at VOCAL_TECHNIQUE_PACK_CAP uses regardless
+ * of era (a small pool like 1980s's 4 entries would otherwise repeat far
+ * more than 4 times across 18 songs). Falls back to 'timeless' for any song
+ * whose genre has no era bucket. Returns '' for a song whose era pool is
+ * already fully capped (rare — 4 possible eras x 4+ entries x cap 4 easily
+ * covers an 18-song pack) rather than reusing a 5th instance.
+ */
+export function buildVocalTechniquePlan(eraBucketByIndex: readonly (EraBucket | undefined)[], seed: number): string[] {
+  const usage = new Map<string, number>();
+  const rng = mulberry32(hashSeed(`vocalTechnique::${seed}`));
+  return eraBucketByIndex.map(bucket => {
+    const pool = VOCAL_TECHNIQUES_BY_ERA[bucket ?? 'timeless'];
+    const available = pool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    if (!available.length) return '';
+    const first = available[Math.floor(rng() * available.length)];
+    const picks = [first];
+    // ~40% of songs get a 2nd technique, matching this task's own "1-2개"
+    // (not always 2 — a single technique per song is still the common case).
+    if (rng() < 0.4) {
+      const secondPool = available.filter(technique => technique !== first);
+      if (secondPool.length) picks.push(secondPool[Math.floor(rng() * secondPool.length)]);
+    }
+    for (const technique of picks) usage.set(technique, (usage.get(technique) ?? 0) + 1);
+    return picks.join(', ');
+  });
+}
+
+/**
+ * v3.80 (TASK A-3) — every ordering of the 3 vocal types, used to rotate
+ * which type leads tracks 1-3 from one set to the next (real listening
+ * feedback: T2 landing male was pure accident of the pre-existing rotation,
+ * with no memory of the previous set's own order — see this task's own
+ * "특정 보컬을 대표곡에 고정하지 말 것, 순환시킬 것").
+ */
+const VOCAL_TYPE_ORDER_PERMUTATIONS: readonly VocalType[][] = [
+  ['male', 'female', 'mixed'],
+  ['male', 'mixed', 'female'],
+  ['female', 'male', 'mixed'],
+  ['female', 'mixed', 'male'],
+  ['mixed', 'male', 'female'],
+  ['mixed', 'female', 'male']
+];
+
+/**
+ * v3.80 (TASK A-3) — deterministic per-seed pick among the 6 orderings
+ * above; shifts to the next ordering (wrapping) only when the seed-picked
+ * one would exactly repeat `previousOrder` (the immediately prior set's own
+ * order, read from core/recentFlagshipOrderStore.ts by the caller — this
+ * function itself never touches storage, staying a pure function like the
+ * rest of this module). `previousOrder` is optional so a channel's first
+ * ever generation (no history yet) just uses the seed-picked order as-is.
+ */
+export function resolveFlagshipVocalOrder(seed: number, previousOrder?: VocalType[]): VocalType[] {
+  const index = Math.abs(seed) % VOCAL_TYPE_ORDER_PERMUTATIONS.length;
+  const candidate = VOCAL_TYPE_ORDER_PERMUTATIONS[index];
+  const repeatsPrevious = previousOrder && previousOrder.length === 3
+    && candidate.every((type, i) => type === previousOrder[i]);
+  return [...(repeatsPrevious ? VOCAL_TYPE_ORDER_PERMUTATIONS[(index + 1) % VOCAL_TYPE_ORDER_PERMUTATIONS.length] : candidate)];
+}
+
+/**
+ * v3.80 (TASK A-1/A-3) — pins tracks 1-3 (positions 0-2) to `order` (3
+ * distinct vocal types, per this task's own "1~3번은 서로 다른 보컬 타입 3개"),
+ * preserving the plan's overall type counts (pinPrefixPreservingCounts,
+ * arcPlan.ts), then re-breaks any fresh run the pin introduces right at the
+ * seam between position 2 and position 3. Uses breakLongRuns (arcPlan.ts),
+ * NOT buildVocalPlan's own repairConsecutiveRuns — repairConsecutiveRuns
+ * has a backward-fallback swap (search positions before the run when no
+ * later donor exists) that can reach back INTO the just-pinned prefix and
+ * silently undo it; a real adversarial-shape test caught this (a plan
+ * grouped into 6/6/6 blocks, whose only remaining donor for a late run sat
+ * before the run, right where the pin lives). breakLongRuns only ever
+ * swaps forward (`j > i`), and since positions 0-2 are always 3 DISTINCT
+ * values by construction here, they can never themselves be flagged as a
+ * same-value run — so they're never a write target either as the trigger
+ * index or as a forward swap target (which always resolves to an index
+ * strictly greater than the trigger, itself >= 2).
+ */
+export function applyFlagshipVocalOrder(plan: VocalType[], order: VocalType[]): VocalType[] {
+  if (plan.length < 3 || order.length !== 3) return plan;
+  return breakLongRuns(pinPrefixPreservingCounts(plan, order), 2);
+}
+
 /** TASK v3.72 (TASK B) — per-axis repeat caps within one pack; see vocalTraits.ts's doc comment for why (5 fixed sentences repeated 36x/week was the whole complaint this task exists to fix). */
-const AXIS_REPEAT_CAPS = { register: 2, delivery: 3, timbre: 2, proximity: 3 } as const;
-const DUET_AXIS_REPEAT_CAPS = { pairing: 2, blend: 3 } as const;
+/** v3.80 (TASK B-2-3) — proximity's own cap raised 3 -> 4 ("같은 proximity 최대 4곡") now that the pool has grown from 4 to 7 values (see data/vocalTraits.ts's PROXIMITY_POOL); the other axes' caps are unchanged. */
+const AXIS_REPEAT_CAPS = { register: 2, delivery: 3, timbre: 2, proximity: 4 } as const;
+const DUET_AXIS_REPEAT_CAPS = { pairing: 2, blend: 3, proximity: 4 } as const;
 
 /**
  * TASK v3.72 (TASK B) — picks one value per occurrence for a single axis
@@ -667,8 +764,15 @@ function pickTraitSequence(
    * weight 1, but every other candidate stays reachable. Used to lean axis
    * selection toward a channel's own defaultVocal "character" without ever
    * forcing it — see channelFlavorWeight below.
+   *
+   * v3.80 (TASK B) — now also receives `occurrenceIndex`, so a weight
+   * function can vary PER SONG (e.g. proximity's own era-preference weight
+   * below, which needs THIS song's own era bucket, not one flat weight for
+   * the whole gender group) — existing 1-arg callers (registerWeight,
+   * flavorWeight) are unaffected, since a function that ignores its second
+   * parameter is still assignable here.
    */
-  preferenceWeight?: (candidate: string) => number
+  preferenceWeight?: (candidate: string, occurrenceIndex: number) => number
 ): string[] {
   const usage = sharedUsage ?? new Map<string, number>();
   const picks: string[] = [];
@@ -683,7 +787,7 @@ function pickTraitSequence(
     const nonRepeating = candidates.length > 1 ? candidates.filter(value => value !== previous) : candidates;
     const finalCandidates = nonRepeating.length ? nonRepeating : candidates;
     const weighted = preferenceWeight
-      ? finalCandidates.flatMap(value => Array<string>(Math.max(1, preferenceWeight(value))).fill(value))
+      ? finalCandidates.flatMap(value => Array<string>(Math.max(1, preferenceWeight(value, i))).fill(value))
       : finalCandidates;
     const pick = shuffle(weighted, seed + axisSeed + i * 97)[0];
     picks.push(pick);
@@ -744,17 +848,89 @@ function recentComboAvoidanceWeight(recentRegisterSignatures: string[], candidat
  * selection toward this channel's own vocal character — see
  * channelFlavorWeight above.
  */
+/**
+ * v3.80 (TASK D) — mutates `registers` in place so it holds at least one
+ * high/falsetto register and at most 3 low registers, called right after
+ * the register pickTraitSequence and before timbre selection (which reads
+ * `registers` to filter contradictions, so it sees the corrected values).
+ * Prefers swapping a currently-low register into the forced high/falsetto
+ * slot (fixes both constraints in one move when possible). Always swaps
+ * TO 'falsetto-leaning tenor' specifically — never peak-gated (see
+ * MALE_PEAK_ONLY_REGISTERS' own doc comment), so this never needs to check
+ * `peakFlags` and can never fail to find a legal target.
+ */
+function enforceMaleRegisterSpread(registers: string[], indices: number[], peakFlags: boolean[]): void {
+  // v3.80 (TASK D) — the "at least 1 of 6" floor only makes sense against a
+  // real pack-sized sample. Enforcing it on a 1-2 song draw (e.g. a
+  // single-genre style-prompt preview) forces that lone song to
+  // 'falsetto-leaning tenor' almost every time (~64% of raw picks aren't
+  // already high/falsetto), which made unrelated single-song genre previews
+  // converge on an identical register and broke oldpopGenreFamily.test.ts's
+  // pairwise-similarity ceiling. No-op below this size; real 18-song packs
+  // (6 male songs) are unaffected.
+  if (registers.length < 4) return;
+  const highIdx = registers.findIndex(r => MALE_HIGH_OR_FALSETTO_REGISTERS.has(r));
+  if (highIdx === -1 && registers.length) {
+    const lowIdx = registers.findIndex(r => MALE_LOW_REGISTERS.has(r));
+    registers[lowIdx !== -1 ? lowIdx : 0] = 'falsetto-leaning tenor';
+  }
+  const lowIndices = registers.reduce<number[]>((acc, r, i) => { if (MALE_LOW_REGISTERS.has(r)) acc.push(i); return acc; }, []);
+  for (const idx of lowIndices.slice(3)) {
+    // Swap the 4th+ low pick to a non-low, non-peak-gated register (safe
+    // regardless of this song's own peakFlags, same reasoning as above).
+    registers[idx] = 'relaxed mid-range lead';
+  }
+  void peakFlags; // kept in the signature for symmetry with the register pickTraitSequence call's own filter — this function never needs it since its own forced targets are never peak-gated.
+}
+
 export function buildAdultVocalTraitPlan(
   plan: VocalType[],
   seed: number,
-  options: { isSenior: boolean; peakFlags: boolean[]; channelDefaultVocal?: string; recentRegisterSignatures?: string[] }
+  options: {
+    isSenior: boolean;
+    peakFlags: boolean[];
+    channelDefaultVocal?: string;
+    recentRegisterSignatures?: string[];
+    /** v3.80 (TASK B-2-3) — this pack's own per-song era bucket (song index -> bucket), softly weighting proximity toward era-appropriate values (data/vocalTraits.ts's PROXIMITY_ERA_PREFERENCE). Missing/undefined entries get no era weighting — every candidate stays equally likely, same as before this task. */
+    eraBucketByIndex?: (EraBucket | undefined)[];
+    /** v3.80 (TASK A) — song index -> allowed proximity values, a HARD filter (not a weight) for the flagship/cold-open slots this task's own spec requires. Any song index not present in this map falls back to the normal modern-cap + era-weight selection. */
+    proximityOverrideByIndex?: Record<number, string[]>;
+  }
 ): string[] {
   const result: string[] = new Array(plan.length).fill('');
   // Shared across BOTH genders — see pickTraitSequence's own doc comment.
   // Register/timbre pools are 100% distinct strings between genders so they
   // don't need this (fresh Map per gender, inline below).
   const deliveryUsage = new Map<string, number>();
+  // v3.80 (TASK B-2-3) — shared across male, female, AND duet proximity
+  // picks below (all three pickTraitSequence calls pass this SAME Map as
+  // sharedUsage), so the modern-proximity cap computed from it is a true
+  // pack-wide total, not one counted separately per gender.
   const proximityUsage = new Map<string, number>();
+  const modernProximityCap = Math.max(1, Math.round(plan.length * (6 / 18)));
+  const modernProximityCountSoFar = () =>
+    [...MODERN_PROXIMITY_VALUES].reduce((sum, value) => sum + (proximityUsage.get(value) ?? 0), 0);
+  const proximityFilterFor = (songIdx: number) => (candidate: string) => {
+    const override = options.proximityOverrideByIndex?.[songIdx];
+    if (override) return override.includes(candidate);
+    if (MODERN_PROXIMITY_VALUES.has(candidate)) return modernProximityCountSoFar() < modernProximityCap;
+    return true;
+  };
+  const proximityWeightFor = (songIdx: number) => (candidate: string) => {
+    // v3.80 (TASK B-2-3) — same reasoning as enforceMaleRegisterSpread's own
+    // minimum-sample guard: a real pack-wide preference only makes sense
+    // against a real pack. At plan.length=1 (e.g. a single-genre style
+    // preview), the era weight is fully deterministic for every song sharing
+    // that era bucket — a real measurement found this collapsed 22 of 28
+    // single-song oldpop-* genre previews onto one identical proximity
+    // value (1970s/1980s all landing on the same non-preferred tie-break),
+    // which broke oldpopGenreFamily.test.ts's cross-genre differentiation
+    // check. Below pack scale, every value stays equally weighted.
+    if (plan.length < 4) return 1;
+    const eraBucket = options.eraBucketByIndex?.[songIdx];
+    const preferred = eraBucket && eraBucket !== 'timeless' ? PROXIMITY_ERA_PREFERENCE[eraBucket] : undefined;
+    return preferred?.includes(candidate) ? 2 : 1;
+  };
 
   (['male', 'female'] as const).forEach(gender => {
     const indices: number[] = [];
@@ -804,6 +980,11 @@ export function buildAdultVocalTraitPlan(
       undefined,
       registerWeight
     );
+    // v3.80 (TASK D) — guarantees at least 1 high/falsetto + at most 3 low
+    // male registers per pack; mutates in place BEFORE timbre selection
+    // (below) reads `registers` for its own contradiction filter, so the
+    // corrected values are what timbre actually sees. No-op for female.
+    if (gender === 'male') enforceMaleRegisterSpread(registers, indices, options.peakFlags);
     const deliveries = pickTraitSequence(indices.length, axes.delivery, AXIS_REPEAT_CAPS.delivery, seed, axisSeed('delivery'), undefined, deliveryUsage);
     const timbres = pickTraitSequence(
       indices.length,
@@ -815,7 +996,16 @@ export function buildAdultVocalTraitPlan(
       undefined,
       flavorWeight
     );
-    const proximities = pickTraitSequence(indices.length, axes.proximity, AXIS_REPEAT_CAPS.proximity, seed, axisSeed('proximity'), undefined, proximityUsage);
+    const proximities = pickTraitSequence(
+      indices.length,
+      axes.proximity,
+      AXIS_REPEAT_CAPS.proximity,
+      seed,
+      axisSeed('proximity'),
+      (candidate, occurrenceIndex) => proximityFilterFor(indices[occurrenceIndex])(candidate),
+      proximityUsage,
+      (candidate, occurrenceIndex) => proximityWeightFor(indices[occurrenceIndex])(candidate)
+    );
 
     // v3.75 (TASK C) — real measurement: register-only text ("full chest
     // alto", "low warm contralto") never states the word "female"/"male"
@@ -848,8 +1038,25 @@ export function buildAdultVocalTraitPlan(
     const blendSeed = options.channelDefaultVocal ? hashSeed(`blend::duet::${options.channelDefaultVocal}`) : hashSeed('blend::duet');
     const pairings = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.pairing, DUET_AXIS_REPEAT_CAPS.pairing, seed, pairingSeed);
     const blends = pickTraitSequence(duetIndices.length, DUET_TRAIT_AXES.blend, DUET_AXIS_REPEAT_CAPS.blend, seed, blendSeed);
+    // v3.80 (TASK A/B) — duets previously carried no proximity value at all,
+    // so a flagship slot that happened to land on 'mixed' couldn't be forced
+    // to plate/chamber ambience the way a solo slot could, and duets never
+    // contributed to the pack-wide modern/era-signature proximity count.
+    // Shares the SAME proximityUsage map as the male/female picks above, so
+    // the modern-proximity cap stays a true pack-wide total.
+    const proximitySeed = options.channelDefaultVocal ? hashSeed(`proximity::duet::${options.channelDefaultVocal}`) : hashSeed('proximity::duet');
+    const proximities = pickTraitSequence(
+      duetIndices.length,
+      DUET_TRAIT_AXES.proximity,
+      DUET_AXIS_REPEAT_CAPS.proximity,
+      seed,
+      proximitySeed,
+      (candidate, occurrenceIndex) => proximityFilterFor(duetIndices[occurrenceIndex])(candidate),
+      proximityUsage,
+      (candidate, occurrenceIndex) => proximityWeightFor(duetIndices[occurrenceIndex])(candidate)
+    );
     duetIndices.forEach((songIdx, i) => {
-      result[songIdx] = `${pairings[i]}, ${blends[i]}, male and female duet`;
+      result[songIdx] = `${pairings[i]}, ${blends[i]}, ${proximities[i]}, male and female duet`;
     });
   }
 

@@ -7,10 +7,12 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor } from './vocalPlan';
+import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { eraBucketForGenreId } from '../data/eraExclusions';
+import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
@@ -50,7 +52,7 @@ import {
 import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
-import { buildArcPlan, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
+import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
 
 /**
@@ -652,8 +654,9 @@ export function generateLocalBlueprint(
   moods: MoodPack[],
   season: SeasonPack,
   // TASK v3.72 (TASK E) — see batchPreallocation.ts's preallocateSongSlots's
-  // matching parameter doc comment.
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[] },
+  // matching parameter doc comment. v3.80 (TASK A-3) — previousFlagshipOrder
+  // mirrors preallocateSongSlots's own new field, same doc comment there.
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] },
   /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
   styleLimit?: number
 ): PlaylistBlueprint {
@@ -708,8 +711,14 @@ export function generateLocalBlueprint(
   // eraTag (see data/killingPoints.ts's own "세그먼트가 없으면 eraTag로
   // 매칭" fallback — segment identity itself doesn't survive past
   // setDirector.ts into this pipeline, see docs/v367-report.md).
+  // v3.80 (TASK A-1) — mirrors batchPreallocation.ts's identical override:
+  // track 2 (idx 1, flagship) always gets a killing point; track 1
+  // (idx 0, cold-open) is left untouched.
+  const arcPlanForKillingPoints = opts.songCount >= 2
+    ? arcPlan.map((pos, idx) => (idx === 1 && pos.peakStrength === 'none' ? { ...pos, peakStrength: 'subtle' as const } : pos))
+    : arcPlan;
   const killingPointPlan = assignKillingPoints(
-    arcPlan.map((pos, idx) => ({
+    arcPlanForKillingPoints.map((pos, idx) => ({
       peakStrength: pos.peakStrength,
       eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
     })),
@@ -758,9 +767,20 @@ export function generateLocalBlueprint(
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
-  const vocalPlan = autoVocalPlan
+  let vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
+  // v3.80 (TASK A-3) — mirrors batchPreallocation.ts's identical flagship
+  // vocal-type-order pin (same seed, same rotation rule, same data-driven
+  // guard, same vocalLeaning skip — see that file's own doc comment for
+  // both).
+  const vocalPlanHasAllThreeTypes = vocalPlan ? new Set(vocalPlan).size === 3 : false;
+  const flagshipVocalOrder = vocalPlan && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
+    ? resolveFlagshipVocalOrder(seed, avoid?.previousFlagshipOrder)
+    : null;
+  if (vocalPlan && flagshipVocalOrder) {
+    vocalPlan = applyFlagshipVocalOrder(vocalPlan, flagshipVocalOrder);
+  }
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
   // bridge paths rotate through the same per-song wording for the same opts.
@@ -774,13 +794,34 @@ export function generateLocalBlueprint(
   // tempoBandPlan); killingPointPlan is already computed above too.
   const isSeniorAudience = audienceProfile.id === 'senior';
   const vocalPeakFlags = killingPointPlan.map(kp => Boolean(kp?.relaxes?.includes('comfortable mid vocal register')));
+  // v3.80 (TASK B-2-3) — mirrors batchPreallocation.ts's identical
+  // eraBucketByIndex construction (same genrePlan indexing).
+  const eraBucketByIndex = genrePlan.map(id => eraBucketForGenreId(id) ?? undefined);
+  // v3.80 (TASK E) — 1-2 era-matched vocal technique phrases per song,
+  // appended onto the 'vocal' style-prompt atom below (essential, never
+  // budget-dropped — see data/vocalTechniquesByEra.ts's own doc comment).
+  // Kids only skips this (its own vocalDescriptionFor archetype branch has
+  // no era concept).
+  const vocalTechniquePlan = opts.channel.archetype !== 'kids' ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  // v3.80 (TASK A-1) — mirrors batchPreallocation.ts's identical flagship
+  // proximity hard-override (same reasoning: track 1 spacious/not-dry,
+  // tracks 2-3 plate/chamber ambience specifically).
+  const flagshipProximityOverride = opts.songCount >= 3
+    ? {
+        0: PROXIMITY_POOL.filter(value => value !== 'dry and forward'),
+        1: ['soft plate ambience', 'chamber ambience'],
+        2: ['soft plate ambience', 'chamber ambience']
+      }
+    : undefined;
   const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids' && !explicitUnrecognizedVocalTone
     ? buildAdultVocalTraitPlan(vocalPlan, seed, {
         isSenior: isSeniorAudience,
         peakFlags: vocalPeakFlags,
         // v3.77 (TASK A) — see batchPreallocation.ts's identical comment.
         channelDefaultVocal: opts.vocalTone?.trim() || opts.channel.defaultVocal,
-        recentRegisterSignatures: avoid?.recentVocalComboSignatures
+        recentRegisterSignatures: avoid?.recentVocalComboSignatures,
+        eraBucketByIndex,
+        proximityOverrideByIndex: flagshipProximityOverride
       })
     : null;
   // TASK v3.39.1 Part H4 — matches batchPreallocation.ts's own fallback so
@@ -825,7 +866,7 @@ export function generateLocalBlueprint(
   // overridden — applyAxisAllocation returns the manual plan untouched
   // otherwise, same as for any other caller.
   const arrangementDensityRank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
-  const arrangementDensityPlan = applyAxisAllocation(
+  const autoOrManualArrangementDensityPlan = applyAxisAllocation(
     reorderByArcIntensity(
       Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
       arcPlan,
@@ -836,6 +877,15 @@ export function generateLocalBlueprint(
     ARRANGEMENT_DENSITY_IDS,
     seed
   );
+  // v3.80 (TASK A-1) — mirrors batchPreallocation.ts's identical flagship
+  // density pin (cold-open medium, flagship slots forced sparse), same
+  // preserve-counts + re-break-runs treatment and same data-driven guard
+  // (see that file's own doc comment for why a manual/auto check would be
+  // wrong here).
+  const arrangementDensityHasAllThreeLevels = new Set(autoOrManualArrangementDensityPlan).size === 3;
+  const arrangementDensityPlan = opts.songCount >= 3 && arrangementDensityHasAllThreeLevels
+    ? breakLongRuns(pinPrefixPreservingCounts(autoOrManualArrangementDensityPlan, ['medium', 'sparse', 'sparse'] as const), 2)
+    : autoOrManualArrangementDensityPlan;
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
@@ -1020,7 +1070,18 @@ export function generateLocalBlueprint(
       // (unmodified) still drives the lyrics' vocal-meta-tag/gender
       // resolution above — only this style-prompt-facing copy gets the
       // extra atom.
-      { id: 'vocal' as const, text: [vocalDescriptionText, audienceProfile.constraints[0]].filter(Boolean).join(', ') },
+      // v3.80 (TASK E) — vocalTechniquePlan[idx] inserted between the
+      // register/delivery wording and the audience constraint, matching
+      // this task's own "vocal technique 는 보컬 묘사와 나란히" placement —
+      // 'vocal' is ESSENTIAL_TERM_IDS (promptBudget.ts), so the technique
+      // phrase is never budget-dropped like a new non-essential atom id
+      // would risk being. Only added when adultVocalTraitPlan[idx] is the
+      // text actually in use (guarded by the same adultVocalTraitPlan?.[idx]
+      // presence check as vocalDescriptionText's own composition above) —
+      // never appended onto a user's own verbatim vocalTone text
+      // (explicitUnrecognizedVocalTone's fallback branch), which must stay
+      // untouched per v3.77 TASK A's "vocalTone을 무시하지 말 것".
+      { id: 'vocal' as const, text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', ') },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
       // TASK v3.59 (TASK D-1) — see the other composeStylePrompt call's own
       // comment above; same "no instrumental intro" vs. introTexture

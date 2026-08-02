@@ -18,6 +18,8 @@ import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/composi
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { getRecentVocalCombos } from '../core/vocalComboLedger';
+import { readRecentFlagshipOrder } from '../core/recentFlagshipOrderStore';
+import type { VocalType } from '../core/vocalPlan';
 import { getTakes } from '../core/audioTakes';
 import { buildDirectiveExecutionReport, mergeExecutionInsightsIntoRatingInsights } from '../core/audioDirectiveAnalysis';
 import { stripSetTitlePrefix } from '../utils/generation';
@@ -237,7 +239,7 @@ export async function generateBlueprint(
   settings: ProviderSettings,
   onProgress?: (progress: GenerationProgress) => void,
   /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. */
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[] },
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] },
   /**
    * TASK v3.62 (TASK 3) — C안's automatic recomposition gate. Defaults to
    * false so every existing direct unit test of this function (which builds
@@ -276,6 +278,17 @@ export async function generateBlueprint(
     } catch {
       // best-effort only
     }
+  }
+  // v3.80 (TASK A-3) — same choke point, same "core stays pure, this is the
+  // one place that reads storage" reasoning as the vocal-combo ledger read
+  // just above. Sync (localStorage, not IndexedDB — see
+  // recentFlagshipOrderStore.ts's own doc comment), but still guarded: a
+  // blocked/unavailable localStorage must never break generation.
+  try {
+    const previousFlagshipOrder = readRecentFlagshipOrder(opts.channel.id);
+    if (previousFlagshipOrder) avoid = { ...avoid, previousFlagshipOrder };
+  } catch {
+    // best-effort only
   }
 
   // TASK v3.74 (TASK H) — strong-confidence killing-point execution rates

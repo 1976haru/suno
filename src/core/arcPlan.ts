@@ -101,6 +101,42 @@ export function reorderByArcIntensity<T>(values: readonly T[], arc: readonly Slo
  * the overall ascending/descending trend stays intact) whenever more than
  * `maxConsecutive` identical values land back to back.
  */
+/**
+ * v3.80 (TASK A) — forces `values[0..prefix.length-1]` to exactly match
+ * `prefix`, while preserving the overall multiset of `values` (so a caller
+ * enforcing an exact N:N:N split, e.g. arrangementDensity's 6:6:6 or a
+ * vocal-type quota, doesn't have that split broken by the pin). Swap-based,
+ * never a reassignment, except in the one edge case a swap can't reach (see
+ * below). Donor search prefers positions outside the prefix first (so
+ * pinning position 0 doesn't disturb a not-yet-processed position 1/2's own
+ * target), falling back to a later, not-yet-finalized prefix position.
+ */
+export function pinPrefixPreservingCounts<T>(values: readonly T[], prefix: readonly T[]): T[] {
+  const result = [...values];
+  const k = Math.min(prefix.length, result.length);
+  for (let i = 0; i < k; i += 1) {
+    if (result[i] === prefix[i]) continue;
+    let donor = -1;
+    for (let j = k; j < result.length; j += 1) {
+      if (result[j] === prefix[i]) { donor = j; break; }
+    }
+    if (donor === -1) {
+      for (let j = i + 1; j < k; j += 1) {
+        if (result[j] === prefix[i]) { donor = j; break; }
+      }
+    }
+    if (donor !== -1) {
+      [result[i], result[donor]] = [result[donor], result[i]];
+    } else {
+      // The desired value doesn't exist anywhere in `values` — no swap can
+      // preserve counts exactly. Forces it anyway (a real gap in the source
+      // plan's own value domain, not something this helper can fix).
+      result[i] = prefix[i];
+    }
+  }
+  return result;
+}
+
 export function breakLongRuns<T>(values: readonly T[], maxConsecutive: number): T[] {
   const result = [...values];
   for (let i = maxConsecutive; i < result.length; i += 1) {

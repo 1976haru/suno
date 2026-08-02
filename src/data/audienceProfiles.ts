@@ -23,12 +23,27 @@ import type { AgeGroup, AudienceProfile } from '../types';
  * would be new generation-pipeline behavior outside this task's stated P2
  * scope of documenting the policy, not changing what's already enforced.
  */
+/**
+ * v3.80 (TASK B-3) — real listening feedback: 'lead vocal sits forward in
+ * the mix' was pushing every song toward the exact "dry and forward"/
+ * "intimate close-mic" proximity that reads as generic modern-playlist
+ * production (see PROXIMITY_POOL's own doc comment in data/vocalTraits.ts —
+ * the one track 하루님 singled out as best had `soft plate ambience`, the
+ * opposite of "forward"). The actual senior-audience need is intelligibility
+ * (the vocal must stay clearly readable over the arrangement), not physical
+ * mic distance — those are different constraints, and only the former was
+ * ever the real requirement. Relaxed to name the intelligibility goal
+ * directly so era-signature proximity values (plate/chamber/tape-slap/mono)
+ * are no longer implicitly excluded. 'excessive reverb washing out the
+ * vocal' (hardExclusions, below) is UNCHANGED — it still bans the failure
+ * mode this constraint was actually guarding against.
+ */
 export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'senior',
   labelKo: '시니어',
   constraints: [
     'clear unhurried diction',
-    'lead vocal sits forward in the mix',
+    'lead vocal stays clearly audible above the arrangement',
     'warm midrange-centred mix',
     'comfortable mid vocal register',
     'acoustic instruments carry the arrangement',
@@ -36,6 +51,15 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     'chorus sits in a comfortable singalong range',
     'arrangement leaves space between phrases'
   ],
+  /**
+   * v3.80 (TASK D-3) — "shouted or belted high notes" bans FORCED, pushed
+   * chest-voice highs (loud belting). It does NOT ban falsetto or head
+   * voice — those are a quieter, lower-effort register, not belting, and
+   * MALE_HIGH_OR_FALSETTO_REGISTERS' falsetto/head-voice entries in
+   * data/vocalTraits.ts are deliberately kept OUT of MALE_PEAK_ONLY_REGISTERS
+   * for exactly this reason (see that file's own doc comment). This is the
+   * key distinction this task's spec calls out ("이것이 핵심입니다").
+   */
   exclusions: [
     'shouted or belted high notes',
     'aggressive distorted percussion',
@@ -44,7 +68,13 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     'harsh bright top end',
     'excessive reverb washing out the vocal',
     'dense syncopation that obscures the melody',
-    'abrupt dynamic jumps'
+    'abrupt dynamic jumps',
+    // v3.80 (TASK B-3) — 'excessive reverb washing out the vocal' bans a
+    // vocal drowned by reverb; this separately bans a specific ambience
+    // character (a huge hall/cathedral tail) regardless of whether it
+    // drowns the vocal — the two are independent risks, so neither
+    // replaces the other.
+    'cavernous hall reverb'
   ],
   tempoFloor: 62,
   tempoCeiling: 112,
@@ -82,6 +112,9 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
    * becoming relaxable by omission (see docs/v367-report.md for this
    * reconciliation).
    */
+  // v3.80 (TASK D-3) — 'shouted or belted high notes' bans forced, pushed
+  // chest-voice highs only; falsetto and head voice are NOT belting (see
+  // the `exclusions` array's own doc comment above for the full reasoning).
   hardExclusions: [
     'shouted or belted high notes',
     'aggressive distorted percussion',
@@ -89,7 +122,10 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     'rapid syllable-dense phrasing',
     'harsh bright top end',
     'excessive reverb washing out the vocal',
-    'dense syncopation that obscures the melody'
+    'dense syncopation that obscures the melody',
+    // v3.80 (TASK B-3) — see `exclusions` array's own comment on why this
+    // is independent of 'excessive reverb washing out the vocal'.
+    'cavernous hall reverb'
   ],
   /** v4.2 (TASK A3) — the only profile fully wired end-to-end; see AudienceProfile's own doc comment for what these ids/sets do and don't do yet. */
   killingPointSetId: 'senior-oldpop-default',

@@ -10,7 +10,10 @@ import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
  */
 describe('[v3.61 TASK D] SENIOR_AUDIENCE_PROFILE documents warmth/gentleness as audience-level policy', () => {
   it('adds the 3 new constraints without removing any existing one', () => {
-    for (const existing of ['clear unhurried diction', 'lead vocal sits forward in the mix', 'warm midrange-centred mix', 'comfortable mid vocal register', 'acoustic instruments carry the arrangement']) {
+    // v3.80 (TASK B-3) — 'lead vocal sits forward in the mix' relaxed to
+    // 'lead vocal stays clearly audible above the arrangement' (see
+    // data/audienceProfiles.ts's own doc comment on that constraint).
+    for (const existing of ['clear unhurried diction', 'lead vocal stays clearly audible above the arrangement', 'warm midrange-centred mix', 'comfortable mid vocal register', 'acoustic instruments carry the arrangement']) {
       expect(SENIOR_AUDIENCE_PROFILE.constraints, existing).toContain(existing);
     }
     for (const added of ['melody moves in singable stepwise motion', 'chorus sits in a comfortable singalong range', 'arrangement leaves space between phrases']) {
