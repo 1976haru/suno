@@ -106,62 +106,141 @@ function loadAudioReport(audioMetricsPath: string, songCount: number, audiencePr
 // ---------------------------------------------------------------------------
 // Baseline
 // ---------------------------------------------------------------------------
-interface Baseline {
+/**
+ * v4.4 (TASK C) — "최고기록" per item: not just last-run pass/fail, but the
+ * best metric value ever recorded for THIS concept, so a real improvement
+ * that's still below target (e.g. lyric word count 137 -> 190, still short
+ * of 215) shows as progress instead of being lumped in with "still failing,
+ * no better than before". `pass`/`bestValue`/`bestAt` are all optional-ish
+ * in spirit but always written for measured items — bestValue/bestAt are
+ * only present for items that carry a `metric` (fullAudit.ts's own doc
+ * comment on AuditItem.metric explains which ~10 items that is).
+ */
+interface ConceptBaselineItem {
+  pass: boolean;
+  bestValue?: number;
+  bestAt?: string;
+}
+interface ConceptBaseline {
   savedAt: string;
-  conceptLabel: string;
-  items: Record<string, boolean>;
+  items: Record<string, ConceptBaselineItem>;
+}
+/**
+ * v4.4 (TASK C) — was a single flat {savedAt, conceptLabel, items} object
+ * covering exactly one concept; comparing ANY other concept against it
+ * produced false "regressions" for every legitimate concept-to-concept
+ * difference (v4.3's own audit found this — e.g. C5/C6's female-vocal-
+ * explicit share read as a regression against a Beatles-concept baseline
+ * that was never about those concepts at all). Now keyed by concept label
+ * so each concept only ever gets compared against its own history.
+ */
+type Baseline = Record<string, ConceptBaseline>;
+
+/** Not a real hash — the trimmed concept label itself is the key. Exact string match is all that's needed (comparing a concept's re-run against its own prior run), and it keeps the JSON file human-readable/diffable. */
+function conceptKey(label: string): string {
+  return label.trim();
 }
 
-function loadBaseline(): Baseline | undefined {
-  if (!fs.existsSync(BASELINE_PATH)) return undefined;
+function loadBaseline(): Baseline {
+  if (!fs.existsSync(BASELINE_PATH)) return {};
   try {
-    return JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
+    const parsed = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
+    // v4.4 (TASK C) — old-schema file (pre-dates the per-concept keying
+    // above): detected structurally by its own top-level conceptLabel/
+    // savedAt/items shape (the old file never had a schema-version field
+    // to check instead). Treated as no baseline rather than migrated —
+    // this task's own "재설정 시점" requirement is to re-save fresh after
+    // TASK A/B/F land, not to carry the old single-concept numbers forward.
+    if (parsed && typeof parsed.conceptLabel === 'string' && typeof parsed.savedAt === 'string' && parsed.items) {
+      return {};
+    }
+    return parsed ?? {};
   } catch {
-    return undefined;
+    return {};
   }
 }
 
 function saveBaseline(report: FullAuditReport): void {
-  const items: Record<string, boolean> = {};
+  const baseline = loadBaseline();
+  const key = conceptKey(report.conceptLabel);
+  const prior = baseline[key];
+  const now = new Date().toISOString();
+  const items: Record<string, ConceptBaselineItem> = {};
   for (const it of report.items) {
     if (it.status === 'not-measured') continue;
-    items[it.id] = it.status === 'pass';
+    const priorItem = prior?.items[it.id];
+    let bestValue = priorItem?.bestValue;
+    let bestAt = priorItem?.bestAt;
+    if (it.metric) {
+      const improved = bestValue === undefined
+        || (it.metric.direction === 'higherIsBetter' ? it.metric.value > bestValue : it.metric.value < bestValue);
+      if (improved) {
+        bestValue = it.metric.value;
+        bestAt = now;
+      }
+    }
+    items[it.id] = { pass: it.status === 'pass', bestValue, bestAt };
   }
-  const baseline: Baseline = { savedAt: new Date().toISOString(), conceptLabel: report.conceptLabel, items };
+  baseline[key] = { savedAt: now, items };
   fs.writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n', 'utf-8');
-  console.log(`[audit] 기준선을 저장했습니다: ${BASELINE_PATH}`);
+  console.log(`[audit] 기준선을 저장했습니다 (컨셉: "${report.conceptLabel}"): ${BASELINE_PATH}`);
 }
 
-type Classification = 'pass' | 'regression' | 'below-target' | 'not-measured' | 'new';
+type Classification = 'pass' | 'regression' | 'below-target' | 'improving' | 'not-measured' | 'new';
 
-function classify(item: AuditItem, baseline: Baseline | undefined): Classification {
+/**
+ * v4.4 (TASK C) — for items with a `metric` (fullAudit.ts), classification
+ * is now based on the best value ever recorded for this concept, not just
+ * "did it pass last time": current worse than best -> regression; current
+ * better than best but still below target -> improving (new); current
+ * equal to best and still below target -> below-target (unchanged meaning).
+ * Items without a metric keep the original pass-history-only comparison.
+ */
+function classify(item: AuditItem, conceptBaseline: ConceptBaseline | undefined): Classification {
   if (item.status === 'not-measured') return 'not-measured';
-  const prior = baseline?.items[item.id];
-  if (prior === undefined) return item.status === 'pass' ? 'pass' : 'new';
-  if (prior === true && item.status === 'fail') return 'regression';
-  if (prior === false && item.status === 'fail') return 'below-target';
-  return 'pass';
+  const prior = conceptBaseline?.items[item.id];
+  if (!prior) return item.status === 'pass' ? 'pass' : 'new';
+  if (item.status === 'pass') return 'pass';
+  if (item.metric && prior.bestValue !== undefined) {
+    const { value, direction } = item.metric;
+    const worseThanBest = direction === 'higherIsBetter' ? value < prior.bestValue : value > prior.bestValue;
+    const betterThanBest = direction === 'higherIsBetter' ? value > prior.bestValue : value < prior.bestValue;
+    if (worseThanBest) return 'regression';
+    if (betterThanBest) return 'improving';
+    return 'below-target';
+  }
+  return prior.pass ? 'regression' : 'below-target';
 }
 
 // ---------------------------------------------------------------------------
 // Console report
 // ---------------------------------------------------------------------------
-function printConsoleReport(report: FullAuditReport, baseline: Baseline | undefined): { regressionCount: number } {
-  const classified = report.items.map(it => ({ item: it, classification: classify(it, baseline) }));
+function printConsoleReport(report: FullAuditReport, baseline: Baseline): { regressionCount: number } {
+  const conceptBaseline = baseline[conceptKey(report.conceptLabel)];
+  const classified = report.items.map(it => ({ item: it, classification: classify(it, conceptBaseline) }));
   const regressions = classified.filter(c => c.classification === 'regression');
+  const improving = classified.filter(c => c.classification === 'improving');
   const belowTarget = classified.filter(c => c.classification === 'below-target' || c.classification === 'new');
   const passed = classified.filter(c => c.classification === 'pass');
   const notMeasured = classified.filter(c => c.classification === 'not-measured');
 
   console.log('');
   console.log(`세트: ${report.conceptLabel} (${report.songCount}곡)`);
-  console.log(baseline ? `기준선: ${baseline.savedAt}` : '기준선 없음 (최초 실행 — --save-baseline으로 저장하십시오)');
+  console.log(conceptBaseline ? `기준선(이 컨셉): ${conceptBaseline.savedAt}` : '기준선 없음 (이 컨셉 최초 실행 — --save-baseline으로 저장하십시오)');
   console.log('');
 
   if (regressions.length) {
     console.log(`🔻 회귀 ${regressions.length}건 ─────────────────────────────`);
     for (const { item } of regressions) {
       console.log(`  [${item.category}] ${item.labelKo}  ${item.targetKo} 기준 | 지금 ${item.actualKo}  ← 회귀`);
+    }
+    console.log('');
+  }
+
+  if (improving.length) {
+    console.log(`📈 개선 중 ${improving.length}건 (최고기록 대비 나아졌으나 아직 미달) ────────`);
+    for (const { item } of improving) {
+      console.log(`  [${item.category}] ${item.labelKo}  ${item.targetKo} 기준 | 지금 ${item.actualKo}`);
     }
     console.log('');
   }
@@ -177,7 +256,7 @@ function printConsoleReport(report: FullAuditReport, baseline: Baseline | undefi
   console.log(`✅ 통과 ${passed.length}건`);
   if (notMeasured.length) console.log(`⬜ 미측정 ${notMeasured.length}건 (${notMeasured.filter(c => c.item.requiresAudio).length}건 음원 필요, ${notMeasured.filter(c => c.item.notImplemented).length}건 미구현)`);
   console.log('');
-  console.log(`종합: ${report.items.length}개 항목 중 ${passed.length} 통과 / ${regressions.length} 회귀 / ${belowTarget.length} 미달 / ${notMeasured.length} 미측정`);
+  console.log(`종합: ${report.items.length}개 항목 중 ${passed.length} 통과 / ${regressions.length} 회귀 / ${improving.length} 개선 중 / ${belowTarget.length} 미달 / ${notMeasured.length} 미측정`);
   console.log('');
 
   return { regressionCount: regressions.length };
@@ -186,15 +265,16 @@ function printConsoleReport(report: FullAuditReport, baseline: Baseline | undefi
 // ---------------------------------------------------------------------------
 // Markdown report (TASK D)
 // ---------------------------------------------------------------------------
-function buildMarkdownReport(report: FullAuditReport, baseline: Baseline | undefined): string {
-  const classified = report.items.map(it => ({ item: it, classification: classify(it, baseline) }));
+function buildMarkdownReport(report: FullAuditReport, baseline: Baseline): string {
+  const conceptBaseline = baseline[conceptKey(report.conceptLabel)];
+  const classified = report.items.map(it => ({ item: it, classification: classify(it, conceptBaseline) }));
   const lines: string[] = [];
   lines.push(`# 정합성 전수 검사 리포트`);
   lines.push('');
   lines.push(`- 컨셉: ${report.conceptLabel}`);
   lines.push(`- 곡 수: ${report.songCount}`);
   lines.push(`- 생성 시각: ${new Date().toISOString()}`);
-  lines.push(`- 기준선: ${baseline ? baseline.savedAt : '없음'}`);
+  lines.push(`- 기준선(이 컨셉): ${conceptBaseline ? conceptBaseline.savedAt : '없음'}`);
   lines.push('');
 
   lines.push('## 1. 약속 이행도 상세');
@@ -215,7 +295,7 @@ function buildMarkdownReport(report: FullAuditReport, baseline: Baseline | undef
   lines.push('');
   lines.push('| 분류 | 항목 | 기준 | 실측 | 상태 | 지시문 이력 |');
   lines.push('|---|---|---|---|---|---|');
-  const statusLabel: Record<Classification, string> = { pass: '✅', regression: '🔻 회귀', 'below-target': '⚠ 미달', 'not-measured': '⬜ 미측정', new: '⚠ 신규' };
+  const statusLabel: Record<Classification, string> = { pass: '✅', regression: '🔻 회귀', improving: '📈 개선 중', 'below-target': '⚠ 미달', 'not-measured': '⬜ 미측정', new: '⚠ 신규' };
   for (const { item, classification } of classified) {
     lines.push(`| ${item.category} | ${item.labelKo} | ${item.targetKo} | ${item.actualKo} | ${statusLabel[classification]} | ${item.specifiedBy.join(', ') || '-'} |`);
   }

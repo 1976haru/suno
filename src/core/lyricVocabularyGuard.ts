@@ -8,6 +8,23 @@ const VOCAB_PATTERN = ARRANGEMENT_VOCABULARY.map(escapeRegex).join('|');
 const VERB_PATTERN = ARRANGEMENT_SUBJECT_VERBS.map(escapeRegex).join('|');
 
 /**
+ * v4.4 (TASK B) — a small, closed set of auxiliary/modal/copula words and a
+ * few common manner adverbs that may sit between the arrangement noun and
+ * its verb without breaking the "this noun is the line's subject" reading
+ * ("the string WILL HOLD it", "the strings ARE STILL RISING"). Deliberately
+ * NOT open-ended (no arbitrary word skipping) — each slot in the gap must
+ * itself be one of these words, so an unrelated word ("the guitar MY FATHER
+ * still plays") breaks the chain and correctly falls through to no match,
+ * preserving the original false-positive-avoidance design.
+ */
+const AUX_INFIX_WORDS = [
+  'will', 'can', 'could', 'would', 'should', 'must', 'may', 'might',
+  'is', 'was', 'are', 'were', 'has', 'have', 'had', 'do', 'does', 'did',
+  'still', 'softly', 'gently', 'slowly', 'quietly', 'now', 'again', 'always', 'never', 'just',
+];
+const AUX_PATTERN = AUX_INFIX_WORDS.map(escapeRegex).join('|');
+
+/**
  * TASK v3.60 (TASK A-2) — "the arrangement/production term is the line's
  * grammatical subject" is narrowed to "an arrangement-vocabulary word is
  * immediately followed by a motion/state verb" (see arrangementVocabulary.ts's
@@ -19,15 +36,37 @@ const VERB_PATTERN = ARRANGEMENT_SUBJECT_VERBS.map(escapeRegex).join('|');
  * nothing after "guitar" for this pattern to latch onto) or modified by an
  * unrelated noun ("a brass lamp warms..." — "brass" is followed by "lamp",
  * not a verb).
+ *
+ * v4.4 (TASK B) — real measurement (tests/fixtures/realBridgePack.json)
+ * found a leak this missed: "the string WILL HOLD it tight" — an auxiliary
+ * sat between the noun and verb, so the old immediately-adjacent match
+ * never fired. Now tolerates 0-2 words from the closed AUX_INFIX_WORDS set
+ * in that gap (see its own doc comment above for why this doesn't reopen
+ * the false-positive problem the original design avoided).
  */
-const SUBJECT_LEAK_PATTERN = new RegExp(`\\b(?:${VOCAB_PATTERN})\\b\\s+(?:${VERB_PATTERN})\\b`, 'i');
+const SUBJECT_LEAK_PATTERN = new RegExp(
+  `\\b(?:${VOCAB_PATTERN})\\b(?:\\s+(?:${AUX_PATTERN})){0,2}\\s+(?:${VERB_PATTERN})\\b`,
+  'i'
+);
 
-/** A line is part of the sung lyric body if it isn't a bracket section tag ([chorus], [verse 1], ...) and isn't empty. */
+/**
+ * A line is part of the sung lyric body if it isn't a bracket section tag
+ * ([chorus], [verse 1], ...), isn't empty, and isn't a parenthetical
+ * production/stage direction explicitly marked as unsung.
+ *
+ * v4.4 (TASK B) — real measurement found every local-generator pack
+ * flagging the SAME false positive 4x/pack: '(instrumental hook, band
+ * plays the melody, no lyrics, 2 bars)' (lyricEngine.ts's own instrumental
+ * section text) — this line is never sung (says so itself), so it isn't a
+ * lyric leak. Excluding lines that self-declare "no lyrics" fixes this
+ * without touching lyricEngine.ts's own template text.
+ */
 function isLyricBodyLine(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
   if (/^\[[^\]]*\]$/.test(trimmed)) return false;
   if (/^Title:/i.test(trimmed)) return false;
+  if (/no lyrics/i.test(trimmed)) return false;
   return true;
 }
 

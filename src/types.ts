@@ -676,6 +676,18 @@ export interface SongIdea {
   /** v3.68 (TASK B) — which lyric scene frame this track's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId; PreassignedSongSlot already carried this — see v3.64 TASK A — SongIdea didn't until now), snapshotted for rating analysis. */
   lyricFrameId?: string;
   /**
+   * v4.5 (TASK B) — this track's lyricTheme's motionKo/castKo/eraSettingKo
+   * (data/lyricThemes.ts's LyricTheme — see that file's own doc comment:
+   * these existed since v3.64 as "allocation diversity checks/reporting"
+   * metadata only, never reaching generation). Snapshotted here for the
+   * same rating-analysis parity every other lyricTheme field already has.
+   */
+  lyricThemeMotionKo?: string;
+  lyricThemeCastKo?: string;
+  lyricThemeEraSettingKo?: string;
+  /** v4.5 (TASK C) — data/vocabularyBanks.ts's VocabularyBank.id this track was matched to (see PreassignedSongSlot.vocabularyBankId's own doc comment), snapshotted for rating-analysis/set-distribution reporting. */
+  vocabularyBankId?: string;
+  /**
    * v3.79 (TASK D) — "S20260802-01-T07": this track's stable identifier,
    * `${blueprint.meta.setCode}-T${trackNo padded to 2 digits}`. Assigned once
    * (core/library.ts's savePack, the first real — non-autosave — save; see
@@ -926,6 +938,32 @@ export interface PreassignedSongSlot {
   lyricThemeArc?: string;
   /** v3.64 (TASK A) — which scene frame this trackNo's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId); 'solitary-object' for every theme that predates this field. Surfaced in the bridge instruction so the agent understands what kind of scene it's writing, not just its concrete details. */
   lyricFrameId?: string;
+  /**
+   * v4.5 (TASK B) — data/lyricThemes.ts's LyricTheme.motionKo/castKo/
+   * eraSettingKo, promoted from "allocation diversity metadata only" (their
+   * original v3.64 scope — see that file's own field doc comment) to an
+   * actual per-track bridge-instruction signal: real measurement found a
+   * concept like "젊은 시절 춤추던 토요일 밤" assigned the right scene
+   * (dance-saturday) but the generated lyrics still defaulted to a quiet,
+   * solitary framing — the scene's own motion/cast/era axis (움직임/인물/
+   * 시간축) was computed and available but never told to the agent, so
+   * nothing pushed back against that default. See
+   * core/bridgeInstruction.ts's lyricThemeInstructionLineFor.
+   */
+  lyricThemeMotionKo?: string;
+  lyricThemeCastKo?: string;
+  lyricThemeEraSettingKo?: string;
+  /**
+   * v4.5 (TASK C) — data/vocabularyBanks.ts's VocabularyBank.id this track
+   * was matched to (see that file's own vocabularyBankForScene, keyed by
+   * this track's lyricFrameId/lyricThemeMotionKo — falls back to
+   * 'quiet-morning' for the ~80% of the theme pool with no frame/motion
+   * data yet, this app's own pre-v4.5 default, not a new bias). Surfaced in
+   * the bridge instruction as a REFERENCE word list (never a checklist to
+   * paste in verbatim — see bridgeInstruction.ts's own vocabulary-bank
+   * instruction line), and for rating-analysis/set-distribution reporting.
+   */
+  vocabularyBankId?: string;
   /** v3.47 Step 3: planned lyric point of view for UI/bridge inspection and optional manual allocation. */
   pov?: LyricPerspective;
   /** v3.47 Step 2: section-level lyric-writing approach for the verse. */

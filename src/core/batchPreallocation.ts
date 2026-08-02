@@ -1,6 +1,6 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
-import { averageTempo, emotionArcPlanForArc, nextContestedTitle, resolveSongRole } from './localGenerator';
+import { averageTempo, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
@@ -54,6 +54,7 @@ import { resolveConstraintsFromOptions } from './constraints';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
 import { resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
+import { vocabularyBankForScene } from '../data/vocabularyBanks';
 
 export type { PreassignedSongSlot };
 
@@ -204,7 +205,12 @@ export function preallocateSongSlots(
   // TASK v3.33 Part C — mirrors localGenerator.ts's own pre-pass exactly
   // (same roles, same seed) so the realtime/Batch/bridge paths that call
   // this function agree with the local path on every trackNo's progression.
-  const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
+  // v4.4 (TASK D) — songRolePlanForArc (phase-aware), same seed+24 offset
+  // localGenerator.ts now uses — the old flat resolveSongRole(idx+1, idx)
+  // array clamped every track past 12 to 'comforting closer' (a real
+  // 18-song pack measured 7 tracks with that identical role); this path
+  // had the exact same bug since it called the same function.
+  const songRoles = songRolePlanForArc(arcPlan, seed + 24);
   const introModePlan = buildIntroModePlan(opts.songCount, seed);
   const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
@@ -558,6 +564,13 @@ export function preallocateSongSlots(
       ...(lyricTheme?.scene ? { lyricThemeText: lyricTheme.scene } : {}),
       ...(lyricTheme?.emotionalArc ? { lyricThemeArc: lyricTheme.emotionalArc } : {}),
       ...(lyricThemeId ? { lyricFrameId: lyricTheme?.frameId ?? 'solitary-object' } : {}),
+      ...(lyricTheme?.motionKo ? { lyricThemeMotionKo: lyricTheme.motionKo } : {}),
+      ...(lyricTheme?.castKo ? { lyricThemeCastKo: lyricTheme.castKo } : {}),
+      ...(lyricTheme?.eraSettingKo ? { lyricThemeEraSettingKo: lyricTheme.eraSettingKo } : {}),
+      // v4.5 (TASK C) — matched once, from this track's own theme frame/
+      // motion (already resolved above) — see data/vocabularyBanks.ts's
+      // own vocabularyBankForScene doc comment.
+      vocabularyBankId: vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo).id,
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,

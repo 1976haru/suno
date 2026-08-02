@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, Wand2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Wand2 } from 'lucide-react';
 import type { DesignGateResult, DesignIssue } from '../core/designGate';
 import type { GenerationOptions } from '../types';
 
@@ -10,8 +9,17 @@ import type { GenerationOptions } from '../types';
  * end to end. Per this task's own §2-4: passing state shows only "설계 검증
  * 통과 ✅"; a failing state lists every blocking issue with its own fix hint
  * and, when available, an [자동 수정] button; [무시하고 진행] always stays
- * available (collapsed) — this app must never fully block 하루's own
- * judgment (§8 "[무시하고 진행]을 없애지 말 것").
+ * available — this app must never fully block 하루's own judgment (§8
+ * "[무시하고 진행]을 없애지 말 것").
+ *
+ * v4.4 (TASK E) — was a real 2-click flow disguised as 1 click: the
+ * "무시하고 진행" button only ever expanded a menu, and a checkbox INSIDE
+ * that menu was the actual acknowledgment. Real feedback: 하루 clicked the
+ * button once, saw nothing visibly change (no menu was obviously new
+ * content in the flow), and concluded progress was blocked. Collapsed to a
+ * real 1-click: the warning text is now always visible (not hidden behind
+ * the button), and the button itself directly sets acknowledged=true —
+ * with a [취소] to undo, since a single click should still be reversible.
  */
 
 interface DesignGatePanelProps {
@@ -42,8 +50,6 @@ function IssueRow({ issue, onAutoFix }: { issue: DesignIssue; onAutoFix: (fix: P
 }
 
 export default function DesignGatePanel({ result, onAutoFix, acknowledged, onAcknowledgedChange, title = '설계 검증' }: DesignGatePanelProps) {
-  const [ignoreMenuOpen, setIgnoreMenuOpen] = useState(false);
-
   if (result.passed) {
     return (
       <div className="provider-summary design-gate-panel passed">
@@ -76,23 +82,22 @@ export default function DesignGatePanel({ result, onAutoFix, acknowledged, onAck
         </ul>
       )}
       <div className="design-gate-ignore">
-        <button type="button" className="chip" onClick={() => setIgnoreMenuOpen(open => !open)}>
-          무시하고 진행 <ChevronDown size={13} />
-        </button>
-        {ignoreMenuOpen && (
-          <div className="option-block compact">
-            <p className="supporting">
-              이 설정으로 진행하면 {result.blocking.length}개 항목이 컨셉을 지키지 못할 수 있습니다. 그래도 진행하시겠습니까?
-            </p>
-            <label>
-              <input
-                type="checkbox"
-                checked={acknowledged}
-                onChange={event => onAcknowledgedChange(event.target.checked)}
-              />
-              네, 이해했고 그래도 진행합니다.
-            </label>
+        {acknowledged ? (
+          <div className="button-row">
+            <span className="supporting">✅ 확인함 — 이대로 진행합니다</span>
+            <button type="button" className="chip" onClick={() => onAcknowledgedChange(false)}>
+              취소
+            </button>
           </div>
+        ) : (
+          <>
+            <p className="supporting">
+              ⚠ {result.blocking.length}개 항목이 컨셉을 지키지 못할 수 있습니다.
+            </p>
+            <button type="button" className="chip" onClick={() => onAcknowledgedChange(true)}>
+              그래도 이대로 진행하기
+            </button>
+          </>
         )}
       </div>
     </div>

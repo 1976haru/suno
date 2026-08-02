@@ -38,6 +38,19 @@ export interface AuditItem {
   notImplemented?: boolean;
   /** Which past task first asked for this check, and any later task that re-asked for it — TASK D's own "지시문끼리 모순되거나 근본 원인을 못 잡은 것" signal. */
   specifiedBy: string[];
+  /**
+   * v4.4 (TASK C) — a comparable number for baseline "best value ever
+   * measured" tracking, additive on top of the existing boolean pass/fail
+   * (AuditItem never had a raw numeric value, only the pre-formatted
+   * actualKo display string). Populated only for the handful of items
+   * TASK C's own scope names (word count/leak count/prompt length/
+   * descriptor count/vocab repeat/title patterns/era violations/vocal
+   * description variety) — not all items, so this stays additive rather
+   * than a full redesign. `direction` says which way is "better" so
+   * scripts/audit.ts's classify() can tell "improving but still below
+   * target" from "regressed" without hardcoding per-item knowledge.
+   */
+  metric?: { value: number; direction: 'higherIsBetter' | 'lowerIsBetter' };
 }
 
 export interface FullAuditReport {
@@ -175,7 +188,8 @@ function vocalItems(songs: SongIdea[]): AuditItem[] {
     item({
       id: 'vocal_desc_variety', category: '보컬', labelKo: '보컬 서술 종류',
       targetKo: '≥ 12', actualKo: `${distinctVocalDescriptors.size}`,
-      pass: distinctVocalDescriptors.size >= 12, requiresAudio: false, specifiedBy: ['v3.72 TASK B']
+      pass: distinctVocalDescriptors.size >= 12, requiresAudio: false, specifiedBy: ['v3.72 TASK B'],
+      metric: { value: distinctVocalDescriptors.size, direction: 'higherIsBetter' }
     })
   ];
 }
@@ -211,12 +225,18 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
     item({
       id: 'prompt_length', category: '프롬프트', labelKo: '프롬프트 길이',
       targetKo: '350~650자', actualKo: lengths.length ? `${Math.min(...lengths)}~${Math.max(...lengths)}자` : '(없음)',
-      pass: lengths.length ? lengths.every(length => length >= 350 && length <= 650) : null, requiresAudio: false, specifiedBy: ['v3.56']
+      pass: lengths.length ? lengths.every(length => length >= 350 && length <= 650) : null, requiresAudio: false, specifiedBy: ['v3.56'],
+      // v4.4 (TASK C) — the overshoot end (max) is this app's current known
+      // problem (target's upper bound, 650), so that's the tracked value;
+      // an undershoot below 350 would need the opposite direction, but
+      // that has never been the measured failure mode.
+      metric: lengths.length ? { value: Math.max(...lengths), direction: 'lowerIsBetter' } : undefined
     }),
     item({
       id: 'descriptor_count', category: '프롬프트', labelKo: '서술어 개수',
       targetKo: '15~25', actualKo: descriptorCounts.length ? `${Math.min(...descriptorCounts)}~${Math.max(...descriptorCounts)}` : '(없음)',
-      pass: descriptorCounts.length ? descriptorCounts.every(count => count >= 15 && count <= 25) : null, requiresAudio: false, specifiedBy: ['v3.62 TASK 2-2']
+      pass: descriptorCounts.length ? descriptorCounts.every(count => count >= 15 && count <= 25) : null, requiresAudio: false, specifiedBy: ['v3.62 TASK 2-2'],
+      metric: descriptorCounts.length ? { value: Math.max(...descriptorCounts), direction: 'lowerIsBetter' } : undefined
     }),
     item({
       id: 'shared_atoms', category: '프롬프트', labelKo: '공유 원자',
@@ -226,7 +246,8 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
     item({
       id: 'era_contradiction', category: '프롬프트', labelKo: '시대 모순 서술어',
       targetKo: '0건', actualKo: `${eraViolations.length}건`,
-      pass: eraViolations.length === 0, requiresAudio: false, specifiedBy: ['v3.62 TASK 2-2']
+      pass: eraViolations.length === 0, requiresAudio: false, specifiedBy: ['v3.62 TASK 2-2'],
+      metric: { value: eraViolations.length, direction: 'lowerIsBetter' }
     }),
     item({
       id: 'label_leak', category: '프롬프트', labelKo: '라벨 잔존',
@@ -271,12 +292,18 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
     item({
       id: 'lyric_word_count', category: '가사', labelKo: '가사 단어수',
       targetKo: '215~230', actualKo: words.length ? `${Math.min(...words)}~${Math.max(...words)}` : '(없음)',
-      pass: words.length ? words.every(count => count >= 215 && count <= 230) : null, requiresAudio: false, specifiedBy: ['v3.29', 'v3.70 TASK B', 'v3.75 TASK A']
+      pass: words.length ? words.every(count => count >= 215 && count <= 230) : null, requiresAudio: false, specifiedBy: ['v3.29', 'v3.70 TASK B', 'v3.75 TASK A'],
+      // v4.4 (TASK C) — the shortfall end (min) is this app's current known
+      // problem (undershooting 215), so that's the tracked value — the
+      // exact "137단어에서 190단어로" progress case this task's own doc
+      // names as the motivating example for "improving" classification.
+      metric: words.length ? { value: Math.min(...words), direction: 'higherIsBetter' } : undefined
     }),
     item({
       id: 'section_count', category: '가사', labelKo: '섹션 수',
       targetKo: '7~8', actualKo: sections.length ? `${Math.min(...sections)}~${Math.max(...sections)}` : '(없음)',
-      pass: sections.length ? sections.every(count => count >= 7 && count <= 8) : null, requiresAudio: false, specifiedBy: ['v3.70 TASK B']
+      pass: sections.length ? sections.every(count => count >= 7 && count <= 8) : null, requiresAudio: false, specifiedBy: ['v3.70 TASK B'],
+      metric: sections.length ? { value: Math.max(...sections), direction: 'lowerIsBetter' } : undefined
     }),
     item({
       id: 'situation_all_distinct', category: '가사', labelKo: '상황 종류',
@@ -291,7 +318,8 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
     item({
       id: 'arrangement_vocab_leak', category: '가사', labelKo: '편곡 어휘 가사 누출',
       targetKo: '0곡', actualKo: `${new Set(arrangementLeaks.map(f => f.trackNo)).size}곡`,
-      pass: arrangementLeaks.length === 0, requiresAudio: false, specifiedBy: ['v3.60 TASK A']
+      pass: arrangementLeaks.length === 0, requiresAudio: false, specifiedBy: ['v3.60 TASK A'],
+      metric: { value: new Set(arrangementLeaks.map(f => f.trackNo)).size, direction: 'lowerIsBetter' }
     }),
     item({
       id: 'title_line_leak', category: '가사', labelKo: 'Title: 첫줄 잔존',
@@ -321,7 +349,8 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
     item({
       id: 'vocab_repeat_max20', category: '가사', labelKo: '어휘 최대 반복',
       targetKo: '≤ 20회', actualKo: `${maxWordRepeat}회`,
-      pass: maxWordRepeat <= 20, requiresAudio: false, specifiedBy: ['v3.64 TASK A-4', 'v3.75 TASK D']
+      pass: maxWordRepeat <= 20, requiresAudio: false, specifiedBy: ['v3.64 TASK A-4', 'v3.75 TASK D'],
+      metric: { value: maxWordRepeat, direction: 'lowerIsBetter' }
     }),
     item({
       id: 'hook_word_overuse', category: '가사', labelKo: '훅 반복 단어',
@@ -396,12 +425,14 @@ function titleItems(songs: SongIdea[], titleConsistency: TitleConsistencyReport)
     item({
       id: 'title_pattern_variety', category: '제목', labelKo: '제목 패턴 종류',
       targetKo: '≥ 4', actualKo: `${shapeCounts.size}`,
-      pass: shapeCounts.size >= 4, requiresAudio: false, specifiedBy: ['v4.2 TASK C']
+      pass: shapeCounts.size >= 4, requiresAudio: false, specifiedBy: ['v4.2 TASK C'],
+      metric: { value: shapeCounts.size, direction: 'higherIsBetter' }
     }),
     item({
       id: 'title_pattern_max4', category: '제목', labelKo: '같은 패턴 최대 곡수',
       targetKo: '≤ 4곡', actualKo: `${Math.max(0, ...shapeCounts.values())}곡`,
-      pass: [...shapeCounts.values()].every(count => count <= 4), requiresAudio: false, specifiedBy: ['v4.2 TASK C']
+      pass: [...shapeCounts.values()].every(count => count <= 4), requiresAudio: false, specifiedBy: ['v4.2 TASK C'],
+      metric: { value: Math.max(0, ...shapeCounts.values()), direction: 'lowerIsBetter' }
     }),
     item({
       id: 'hook_connected_title', category: '제목', labelKo: '훅 연결 제목',

@@ -331,11 +331,6 @@ export default function Step3Generate({
     () => preallocateSongSlots(opts, genres, bridgeAvoid),
     [opts, genres, bridgeAvoid]
   );
-  const claudeCodeInstruction = useMemo(
-    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false),
-    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText]
-  );
-
   // v3.78 (TASK A, §2-1) — 관문 1 gates this screen's own bridge copy button
   // (the "801행" button this task's own spec names explicitly), evaluated
   // against the SAME preallocated slots the instruction/import actually use
@@ -343,6 +338,16 @@ export default function Step3Generate({
   const designGateConstraints = useMemo(
     () => resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience), currentWorkspaceId()),
     [opts]
+  );
+  // v4.4 (TASK F) — designGateConstraints (already computed above for 관문1)
+  // was never actually passed into the instruction the agent receives, so
+  // buildResolvedConstraintsSection's era/title/vocabulary guidance
+  // (bridgeInstruction.ts) was real, working, dead code — no production
+  // call site populated instructionOptions.resolvedConstraints. Wiring it
+  // through here is the fix, not a new mechanism.
+  const claudeCodeInstruction = useMemo(
+    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false, { resolvedConstraints: designGateConstraints }),
+    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText, designGateConstraints]
   );
   // v4.0 (TASK A) — evaluateDesignGate runs inside a Worker now (see
   // core/localGenerationClient.ts) — mirrors Step2Plan.tsx's identical

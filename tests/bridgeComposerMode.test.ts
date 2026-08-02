@@ -49,7 +49,7 @@ describe('[v3.62 TASK 1] bridge instruction: composer, not scribe', () => {
     expect(instruction).toContain('use exactly that BPM number in that song\'s stylePrompt');
 expect(instruction.toLowerCase()).toContain('do not invent a different tempo');
     expect(instruction).toContain('do not default back to T1\'s shape for a track assigned a different template');
-    expect(instruction).toContain('use that exact scene verbatim as the song\'s primary lyric situation');
+    expect(instruction).toContain('the actual sung verses/chorus of that song must depict this specific scene');
     expect(instruction).toContain('do not substitute a different narrator perspective');
   });
 

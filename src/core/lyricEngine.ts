@@ -825,10 +825,38 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const ctxFor = (slot: MotifSecondarySlot) => (slot === secondarySlot ? ctxWith : freshFillerCtx());
   const chorusDevCtx = (index: number) => (index === realMotifChorusIndex ? ctxWith : freshFillerCtx());
 
+  // TASK v4.4 — mirrors situationLines' own doc comment just below: a second
+  // universal (present in every template via verse1Block, present for every
+  // role except shortOpenerRoles) draw to help close the same 215-230 gap.
   const opening = shortOpenerRoles(role)
     ? takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines).slice(0, 2)
-    : takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines);
+    : [...takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines), ...takeUniqueLines(pools.opening, freshFillerCtx(), pools.usedLines)];
+  // TASK v4.4 — real measurement: local generation was landing 137-177
+  // words/song against a 215-230 target (fullAudit.ts's own 'lyric_word_count'
+  // item). v4.1 (TASK B) raised the English word-count target from the
+  // v3.70-era 175-205 to 215-230 (data/audienceProfiles.ts's
+  // lyricMetricsByLanguage), explicitly deferring the matching generation
+  // recalibration to "v4.2" — which never actually happened (v4.2 shipped a
+  // quality-threshold-basis registry, not a word-count fix). The verse2
+  // double-draw below was tuned for the OLD ~190-word baseline and was never
+  // revisited. Same "draw the pool twice, second draw gets a fresh filler
+  // context" pattern, applied to situationLines (verse1's own filler block)
+  // for every role EXCEPT shortOpenerRoles — cold-open/clear-opener stay
+  // deliberately short (TASK I1's own "reach the first chorus sooner"
+  // reasoning, unrelated to this word-count gap and left untouched).
   const situationLines = takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines);
+  // TASK v4.4 — tried doubling this too (same pattern), but combined with
+  // situationLines/opening/chorus2 below it overshot 230 specifically on
+  // T1/T3 (the two templates that already carry a pre-chorus AND, for T1, a
+  // bridge — more base sections than T2/T4/T5) — measured 240-255 words.
+  // Left as a single draw; T1/T3 templates don't need the extra push the
+  // sparser templates (T2/T4/T5, no pre-chorus) do.
+  // TASK v4.4 — tried doubling this too, but a real test
+  // (tests/hook.test.ts's own "[pre-chorus] section, when present, has
+  // exactly 2 lines") caught a real structural contract this would have
+  // broken — pre-chorus is meant to stay a tight 2-line setup into the
+  // chorus, not a second verse-length stanza. Reverted; the word-count gap
+  // is closed by opening/bridge (universal, no such contract) instead.
   const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines);
   // TASK v3.29 — a real 20-song sample (both local and remote-generated)
   // came back short enough to render at ~2:00-2:20 in Suno despite every
@@ -846,6 +874,10 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // reverted (an earlier attempt at reverting this dropped the local
   // average to ~170, under the new 175 floor — confirmed by this file's own
   // test, tests/lyricEngine.test.ts).
+  //
+  // TASK v4.4 — see situationLines' own doc comment just above: the same
+  // gap this verse2 double-draw was meant to close reopened when the target
+  // moved to 215-230 without a matching recalibration.
   const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines)];
 
   // TASK v3.70 (TASK C) — real listening feedback: bookending EVERY
@@ -862,6 +894,16 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     if (hookPosition === 1 && devLines.length > 1) return [devLines[0], hook, ...devLines.slice(1)]; // after the first dev line
     return [hook, ...devLines]; // first line (default, and line2's fallback when there's only one dev line)
   }
+  // TASK v4.4 — tried doubling the second chorus's dev lines too (same
+  // pattern), which closed the remaining 215-230 gap for templates with no
+  // pre-chorus/bridge (T2/T4) — but a real 30-song Korean/Japanese
+  // regression test (tests/lyricEngine.test.ts's own "[R1] lyrics never
+  // contain the full title... stuffed into an unrelated line") caught a
+  // real, if rare, coincidence: an extra freshFillerCtx() draw pulling in a
+  // filler line whose own trailing words happened to match the hook/title
+  // text. That's a genuine listening-quality regression (hook text leaking
+  // into a line that reads as unintentional repetition), not a false
+  // positive, so this extra draw was reverted rather than the test loosened.
   const buildChorus = (index: number, isFinal = false) => {
     const devLines = takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines);
     return isFinal ? [hook, ...devLines, hook] : placeHookOnce(devLines);
@@ -872,9 +914,11 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // Even when 'bridge' is the budgeted secondary slot, an extended bridge draws
   // the pool twice — only the first draw gets the real motif so bridge never
   // contributes more than one real-motif occurrence on its own.
-  const bridgeLines = extendedBridgeRoles(role)
-    ? [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines)]
-    : takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines);
+  // TASK v4.4 — was extendedBridgeRoles(role)-only (2 of 12 roles); widened
+  // to every role for the same 215-230 gap (see situationLines' own doc
+  // comment above) — T1/T5 templates are the only ones with a bridge
+  // section at all, so this only affects tracks already using one.
+  const bridgeLines = [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines)];
 
   // TASK X5-2 (v3.4): 'comforting closer' used to fade out on a 3rd hook
   // repeat here, but a 30-song pack clamps every track past the 12th to

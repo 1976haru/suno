@@ -30,6 +30,7 @@ import {
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
+import { vocabularyBankForScene } from '../data/vocabularyBanks';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
@@ -227,11 +228,67 @@ export const songRoles = [
  * songRoles array itself is untouched — every other position still reads
  * from it exactly as before — so the existing emotional-curve design for
  * tracks 4+ is unaffected.
+ *
+ * v4.4 (TASK D) — kept for backward compatibility (still used by the
+ * legacy-pack fallback below), but no longer called by either real
+ * generation pre-pass (this file's own songRoles pre-pass, or
+ * batchPreallocation.ts's mirror of it) — `Math.min(idx, songRoles.length-1)`
+ * has no wraparound, so any pack past 12 songs clamped every remaining
+ * track to the last entry ('comforting closer') — a real 18-song pack
+ * measured 7 tracks (12-18) with that exact identical role. See
+ * songRolePlanForArc below for the phase-aware replacement.
  */
 export function resolveSongRole(trackNo: number, idx: number): string {
   if (trackNo === 1) return 'cold-open';
   if (trackNo === 2 || trackNo === 3) return 'flagship';
   return songRoles[Math.min(idx, songRoles.length - 1)];
+}
+
+/**
+ * v4.4 (TASK D) — song-role pools by arc phase, same architecture as
+ * emotionArcPoolForPhase/emotionArcPlanForArc above (buildArcPlan's own
+ * ArcPhase, never tied to a flat array's length) so a role no longer
+ * freezes on the last entry once idx exceeds a fixed count — it rotates
+ * within its phase's own pool instead, which scales to any songCount.
+ * Redistributes the original 12 songRoles entries (opening's 3 were
+ * already dead content in every real pack — trackNo 1-3 always override
+ * them — now genuinely reachable only if 'opening' phase spans past idx 2
+ * at a larger songCount) and adds a handful more per phase so no phase's
+ * pool is thin enough to repeat within a single pack at realistic sizes.
+ */
+export function songRolePoolForPhase(phase: ArcPhase): string[] {
+  switch (phase) {
+    case 'opening':
+      return ['clear opener', 'gentle early lift', 'first nostalgic turn'];
+    case 'rising':
+      return ['brighter sing-along track', 'seasonal detail track', 'warm radio-friendly highlight', 'steady heartfelt build', 'easy singalong verse'];
+    case 'peak':
+      return ['late-set emotional center', 'romantic shade without melodrama', 'big emotional high point', 'passionate turning point'];
+    case 'easing':
+      return ['quiet middle scene', 'soft reset before the closing run', 'memory-focused late track', 'gentle wind-down moment', 'tender reflective pause'];
+    case 'closing':
+    default:
+      return ['comforting closer', 'warm goodnight track', 'final quiet reflection', 'peaceful farewell moment'];
+  }
+}
+
+/**
+ * v4.4 (TASK D) — one songRole per track, phase-aware — replaces the flat
+ * `Array.from({length}, (_, idx) => resolveSongRole(idx+1, idx))` pre-pass
+ * both real generation paths (this file, and batchPreallocation.ts's own
+ * mirror) used to run. idx 0/1/2 (trackNo 1-3) still resolve to
+ * 'cold-open'/'flagship'/'flagship' exactly as resolveSongRole did — only
+ * idx 3+ changes, from a length-clamped flat array to a per-phase rotating
+ * pool (mirrors emotionArcPlanForArc's own UniquePool-per-phase pattern).
+ */
+export function songRolePlanForArc(arc: SlotArcPosition[], seed: number): string[] {
+  const pools = new Map<ArcPhase, UniquePool<string>>();
+  return arc.map((pos, idx) => {
+    if (idx === 0) return 'cold-open';
+    if (idx === 1 || idx === 2) return 'flagship';
+    if (!pools.has(pos.phase)) pools.set(pos.phase, new UniquePool(songRolePoolForPhase(pos.phase), seed + pos.phase.length * 911));
+    return pools.get(pos.phase)!.take();
+  });
 }
 
 /** TASK I1 (v3.11) — per-archetype recommendation table from the brief; every archetype resolves to a concrete choice, 'lofi-study' being the only one whose recommendation is 'hum-intro'. */
@@ -509,6 +566,11 @@ export function rebuildStylePromptsForPersonaMode(
             'same channel vocal signature and mix balance across the full playlist set'
           ].filter(Boolean).join(', ')
         }
+      // v4.4 (TASK F) — see generateLocalBlueprint's matching
+      // composeStylePrompt call below for the full finding: a tighter
+      // safeTarget (3rd arg) here too would crowd out genre-differentiating
+      // atoms and regress tests/promptBudgetLoopGuard.test.ts's style
+      // similarity guard. Left unchanged (styleLimitValue for both).
       ], styleLimitValue, styleLimitValue, undefined, idx);
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const promptWarnings = warningsForComposedPrompt(composed, styleLimitValue);
@@ -778,7 +840,10 @@ export function generateLocalBlueprint(
   // progression). roles is computed as its own pre-pass since
   // buildProgressionPlan needs every trackNo's role before the main loop
   // below assigns anything else.
-  const songRoles = Array.from({ length: opts.songCount }, (_, idx) => resolveSongRole(idx + 1, idx));
+  // v4.4 (TASK D) — phase-aware (songRolePlanForArc), not the old flat
+  // length-clamped array — see that function's own doc comment for the
+  // duplication bug this replaces.
+  const songRoles = songRolePlanForArc(arcPlan, seed + 24);
   const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
   // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota.
   // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
@@ -1131,7 +1196,15 @@ export function generateLocalBlueprint(
       // never appended onto a user's own verbatim vocalTone text
       // (explicitUnrecognizedVocalTone's fallback branch), which must stay
       // untouched per v3.77 TASK A's "vocalTone을 무시하지 말 것".
-      { id: 'vocal' as const, text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', ') },
+      // v4.4 (TASK F) — 'vocal' is ESSENTIAL_TERM_IDS (promptBudget.ts), so it
+      // is never dropped, but essential atoms are only ever SHRUNK via an
+      // authored shortForm (promptBudget.ts's compressHardLimitWithGuard
+      // stage 1) — without one there was nothing for compression to grab,
+      // and the v3.80 technique phrase pushed real packs to 651-879 chars
+      // against a 350-650 target. Falls back to vocalDescriptionText alone
+      // (drops the technique phrase and the audience constraint phrase,
+      // both reference color, not the load-bearing vocal identity).
+      { id: 'vocal' as const, text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', '), shortForm: vocalDescriptionText },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
       // TASK v3.59 (TASK D-1) — see the other composeStylePrompt call's own
       // comment above; same "no instrumental intro" vs. introTexture
@@ -1170,6 +1243,23 @@ export function generateLocalBlueprint(
         openingStyle,
         styleLimitValue: resolvePersonaTrackLimit(styleLimit, trackNo)
       })
+      // v4.4 (TASK F) — tried lowering safeTarget (3rd arg) toward
+      // STYLE_CHAR_TARGET (450) to bring prompt length into fullAudit's
+      // 350-650 target (was 651-879, styleLimitValue used for both limit
+      // and safeTarget so the soft-fill loop never stopped short of the
+      // ~1000-char hard ceiling). Real measurement found a genuine
+      // tradeoff: tightening safeTarget crowds out the non-essential
+      // genre/mood/instrument atoms that keep different genres' style
+      // prompts distinct, and tests/promptBudgetLoopGuard.test.ts's own
+      // jazz-pop vs adult-contemporary similarity guard (< 0.35) started
+      // failing (0.36) once safeTarget dropped below ~750-800 — at which
+      // point prompt length barely moves (still ~800+ at the ceiling,
+      // nowhere near 650). Left as styleLimitValue (no behavior change)
+      // rather than trade a real cross-genre-distinctness regression for a
+      // soft length target — see docs/v440-report.md TASK F for the full
+      // finding. The 'vocal' atom's own new shortForm (see its own doc
+      // comment above) is kept: it only ever activates near the true hard
+      // limit, so it helps in that case without this tradeoff.
       : composeStylePrompt(
         songParts,
         styleLimitValue,
@@ -1228,6 +1318,11 @@ export function generateLocalBlueprint(
       ...(genreText ? { genreText } : {}),
       ...(lyricThemeText ? { lyricThemeText } : {}),
       ...(lyricThemeArc ? { lyricThemeArc } : {}),
+      ...(lyricTheme?.motionKo ? { lyricThemeMotionKo: lyricTheme.motionKo } : {}),
+      ...(lyricTheme?.castKo ? { lyricThemeCastKo: lyricTheme.castKo } : {}),
+      ...(lyricTheme?.eraSettingKo ? { lyricThemeEraSettingKo: lyricTheme.eraSettingKo } : {}),
+      // v4.5 (TASK C) — mirrors batchPreallocation.ts's identical field.
+      vocabularyBankId: vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo).id,
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalType,

@@ -15,7 +15,10 @@ import { moneyChordPresets } from '../data/moneyChords';
 import { decomposeArtistReferences, decomposedReferenceDescriptors, isSafeDecomposedReference } from './artistReferenceDecomposer';
 import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { buildSetName } from '../utils/setNaming';
-import type { ResolvedConstraints } from './constraints';
+import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
+import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
+import { currentWorkspaceId } from './workspaceScope';
+import { vocabularyBankById } from '../data/vocabularyBanks';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -149,7 +152,7 @@ function buildResolvedConstraintsSection(constraints: ResolvedConstraints): stri
   }
   lines.push(
     '  제목   문장형·호명형·한 단어형·질문형·감탄형 등 여러 형태를 섞으십시오.',
-    '         이미지 조합형([형용사][명사], 예: "Fogged Window")은 세트 전체에서 일부 곡에만 쓰십시오 — 모든 곡을 같은 형태로 짓지 마십시오.'
+    `         이미지 조합형([형용사][명사], 예: "Fogged Window")은 세트 전체에서 최대 ${constraints.title.maxPerPattern}곡까지만 쓰십시오 — 모든 곡을 같은 형태로 짓지 마십시오.`
   );
   if (constraints.vocabulary.forbidden.length) {
     lines.push(`  금지   ${constraints.vocabulary.forbidden.join(', ')}`);
@@ -364,6 +367,19 @@ function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): 
     : '';
 }
 
+// v4.4 (TASK B) — this prohibition never actually existed in the bridge
+// instruction (a real imported pack sang its own arrangement/production
+// notes: "Spiccato strings flicker over quiet water", "The straight-pop
+// drums move softly" — see data/arrangementVocabulary.ts's own doc comment
+// for the fuller history). instrumentSet/arrangementDensity/hookDeviceText
+// above are explicitly meant for the STYLE PROMPT only; nothing told the
+// agent those same words could never be the LYRIC's grammatical subject.
+// Added as a fixed CRITICAL line (not conditional on any one preassigned
+// field) since it applies regardless of which of those fields this pack
+// happens to use.
+const ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE =
+  '- CRITICAL: instrument/arrangement/production terms (guitar, strings, drums, piano, horns, reverb, stop-time, etc.) belong in the stylePrompt only. Never make one of these words the grammatical subject or actor of a lyric line (e.g. "the guitar keeps walking", "the strings will hold it tight") — lyrics describe feeling, scene, and people, not the arrangement performing itself. It is fine for a lyric to mention an instrument as an object a person interacts with ("I still play my father\'s guitar").';
+
 function arrangementDensityInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.arrangementDensity)
     ? `- Each "preassignedSongs" entry may include "arrangementDensity" (one of sparse/medium/full) — a REFERENCE point for how full this song's arrangement should feel (sparse ~ "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.sparse}"; medium ~ "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.medium}"; full ~ "${ARRANGEMENT_DENSITY_TEXT_BY_LEVEL.full}"). Aim for that general density in your own words; you do not need to use this phrasing.`
@@ -379,10 +395,152 @@ function structureTemplateInstructionLineFor(preassignedSongs: PreassignedSongSl
     : '';
 }
 
+/**
+ * v4.5 (TASK A/B) — real measurement: a concept like "젊은 시절 춤추던 토요일
+ * 밤" (a young Saturday night spent dancing) correctly assigned the
+ * senior-saturday-dance-hall theme (scene: "spinning across a crowded dance
+ * hall floor..."), but the ACTUAL sung lyrics still came back quiet and
+ * solitary — a real Codex-bridge pack's top vocabulary was quiet/strum/
+ * worn/guitar/strings, nothing danced. Root cause (this task's own TASK A
+ * investigation): the old instruction below told the agent to use
+ * lyricThemeText as "the song's primary lyric situation" — which the agent
+ * apparently read as "fill in the listenerSituation JSON field", not
+ * "the actual verses/chorus must depict this scene" — nothing told it NOT
+ * to fall back to this app's own generic quiet-imagery default. Rewritten
+ * to say explicitly that the LYRICS THEMSELVES (not just a metadata field)
+ * must depict the scene, and to explicitly forbid the quiet-alone default.
+ * See lyricThemeSceneSection below for the actual per-track scene block —
+ * this line now just points at it instead of repeating scene text inline.
+ */
 function lyricThemeInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.lyricTheme || slot.lyricThemeText)
-    ? '- Each "preassignedSongs" entry also includes "lyricThemeText" - use that exact scene verbatim as the song\'s primary lyric situation, keep it out of stylePrompt unless it naturally fits as a listener-scene note, and do not replace it with a generic listenerSituation or seasonMoment. If "lyricThemeArc" is present, use it as the lyric emotional turn.'
+    ? '- Each "preassignedSongs" entry also includes "lyricThemeText" (and, for some tracks, "lyricThemeArc") - see the "[Lyric scenes]" section below for the full scene per track. This is not just a "listenerSituation" field to fill in: the actual sung verses/chorus of that song must depict this specific scene and its stated motion/energy, not a generic scene of your own choosing. Do not quote lyricThemeText verbatim as lyrics; write it out as a real scene in your own words. If "lyricThemeArc" is present, use it as the lyric emotional turn.'
     : '';
+}
+
+/** v4.5 (TASK B) — data/lyricThemes.ts's motionKo/castKo/eraSettingKo are short Korean axis labels (originally v3.64 "allocation diversity metadata only" — see that file's own field doc comment), not English prose; this is the fixed vocabulary actually in use across the theme pool today, so an English-reading bridge agent gets real words instead of untranslated Korean. Falls back to passing the raw Korean through for any label not yet in this map (e.g. a future theme entry), which is still better than silently dropping the axis. */
+const SCENE_AXIS_LABEL_EN: Record<string, string> = {
+  '계절이 바뀌는 순간': 'a change of season',
+  '둘': 'two people',
+  '여럿': 'a group',
+  '오래전과 지금': 'long ago and now',
+  '이동 중': 'in motion, traveling',
+  '이동 중(기차)': 'traveling by train',
+  '이동 중(드라이브)': 'traveling by car, a drive',
+  '이동 중(차)': 'traveling by car',
+  '이동(이별)': 'traveling, a parting',
+  '젊은 날': 'younger days',
+  '젊은 날 도시': 'younger days, in the city',
+  '젊은 날 여름': 'younger days, summer',
+  '젊은 날 여행': 'younger days, traveling',
+  '정적': 'stillness',
+  '정적(식탁)': 'stillness, at the table',
+  '정적(준비)': 'stillness, getting ready',
+  '정적(춤)': 'stillness before the dance',
+  '춤': 'dancing',
+  '현재': 'the present day',
+  '혼자': 'alone',
+  '혼자(기다리는)': 'alone, waiting',
+  '혼자(여행)': 'alone, traveling',
+  '혼자(준비)': 'alone, getting ready',
+  '혼자(편지를 보내는)': 'alone, writing a letter'
+};
+
+function sceneAxisEn(labelKo: string | undefined): string | undefined {
+  if (!labelKo) return undefined;
+  return SCENE_AXIS_LABEL_EN[labelKo] ?? labelKo;
+}
+
+/**
+ * v4.5 (TASK B, 2-2) — one block per track that has a lyricTheme, spelling
+ * out the scene/arc/motion/cast/era-setting axes and ending with the exact
+ * "do not default to quiet and alone" guardrail this task's own spec calls
+ * for verbatim (§2-2's own "혼자 조용히 무언가를 바라보는 장면으로 바꾸지
+ * 마십시오" — this app's default lyric imagery skews toward exactly that
+ * shape, so a concept that explicitly asks for motion/energy needs an
+ * explicit override, not just a positive description it can partially
+ * ignore).
+ */
+function lyricThemeSceneSection(preassignedSongs: PreassignedSongSlot[]): string[] {
+  const withScene = preassignedSongs.filter(slot => slot.lyricThemeText);
+  if (!withScene.length) return [];
+  const lines = withScene.flatMap(slot => {
+    const axisParts = [
+      slot.lyricThemeEraSettingKo ? `time: ${sceneAxisEn(slot.lyricThemeEraSettingKo)}` : '',
+      slot.lyricThemeCastKo ? `cast: ${sceneAxisEn(slot.lyricThemeCastKo)}` : '',
+      slot.lyricThemeMotionKo ? `motion: ${sceneAxisEn(slot.lyricThemeMotionKo)}` : ''
+    ].filter(Boolean).join(' / ');
+    return [
+      `  Track ${slot.trackNo}: ${slot.lyricThemeText}`,
+      slot.lyricThemeArc ? `    emotional turn: ${slot.lyricThemeArc}` : '',
+      axisParts ? `    ${axisParts}` : ''
+    ].filter(Boolean);
+  });
+  return [
+    '',
+    '[Lyric scenes] - write THIS scene into each track\'s actual verses/chorus, in your own words (never quote the description verbatim as a lyric line). Do NOT default to a quiet, solitary "watching something alone" scene for these tracks even if that is this app\'s usual mood elsewhere in the pack - if a scene names motion (dancing, driving, traveling) or more than one person present, the lyrics must show that motion/energy/company, not replace it with stillness or solitude.',
+    ...lines
+  ];
+}
+
+/**
+ * v4.5 (TASK C, 3-3) — per-track "words to use / avoid", from the bank
+ * data/vocabularyBanks.ts's vocabularyBankForScene already matched this
+ * track to at design time (see batchPreallocation.ts/localGenerator.ts's
+ * own vocabularyBankId field). This is the actual "connect the bank to
+ * generation" step this task's own §0-3 found missing — the banks existed
+ * (v4.2) but nothing fed them into a generation prompt until this line.
+ * The "do not just list these words" caveat is this task's own explicit
+ * §3-3 requirement ("그대로 나열하지 말고 이 세계의 언어로 자연스러운 가사를
+ * 쓰십시오") — without it, a real risk is a lyric that reads like a word
+ * bank dumped into sentence shape rather than an actual song.
+ */
+function vocabularyBankInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string[] {
+  const withBank = preassignedSongs.filter(slot => slot.vocabularyBankId);
+  if (!withBank.length) return [];
+  const lines = withBank.map(slot => {
+    const bank = vocabularyBankById(slot.vocabularyBankId!);
+    if (!bank) return '';
+    const use = [...bank.nouns.slice(0, 4), ...bank.verbs.slice(0, 3), ...bank.adjectives.slice(0, 3)].join(', ');
+    const avoidWords = bank.avoid.length ? ` | avoid: ${bank.avoid.join(', ')}` : '';
+    return `  Track ${slot.trackNo}: ${use}${avoidWords}`;
+  }).filter(Boolean);
+  if (!lines.length) return [];
+  return [
+    '',
+    '[Vocabulary per track] - REFERENCE word lists matched to each track\'s own scene, not a checklist. Do NOT just list these words in a row or force all of them in - write natural, singable lyrics in your own words that happen to live in this same vocabulary world. A lyric that reads like a word list stitched together is worse than one that uses none of these words but still captures the scene. Where an "avoid" list is given, steer away from those words for this specific track (they belong to a different mood this scene isn\'t).',
+    ...lines
+  ];
+}
+
+/**
+ * v4.5 (TASK B, 2-3) — set-wide motion/cast/era-setting counts, so the
+ * agent sees it's writing a MIX of scene shapes across the pack, not just
+ * one track's own scene in isolation (this task's own §2-3 "전부 혼자
+ * 정적으로 만들지 마십시오"). Tracks with no theme/axis data at all are
+ * simply excluded from that axis's tally, not counted as any bucket.
+ */
+function sceneAxisDistributionLine(preassignedSongs: PreassignedSongSlot[]): string {
+  const tally = (extract: (slot: PreassignedSongSlot) => string | undefined) => {
+    const counts = new Map<string, number>();
+    for (const slot of preassignedSongs) {
+      const value = extract(slot);
+      if (!value) continue;
+      const en = sceneAxisEn(value) ?? value;
+      counts.set(en, (counts.get(en) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([label, count]) => `${label} ${count}`).join(', ');
+  };
+  const motion = tally(slot => slot.lyricThemeMotionKo);
+  const cast = tally(slot => slot.lyricThemeCastKo);
+  const era = tally(slot => slot.lyricThemeEraSettingKo);
+  if (!motion && !cast && !era) return '';
+  const parts = [
+    motion ? `motion: ${motion}` : '',
+    cast ? `cast: ${cast}` : '',
+    era ? `time setting: ${era}` : ''
+  ].filter(Boolean);
+  return `Scene mix across this pack - ${parts.join(' | ')}. Keep this mix - do not flatten every track without an explicit motion/cast axis into the same quiet-alone shape either.`;
 }
 
 function povInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
@@ -712,12 +870,15 @@ export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot
     'Follow each track\'s "Intro" column exactly: "instrumental" tracks must have NO lyric line under [intro] (an instrumental cue there is fine, e.g. "[intro]" with nothing sung until the next tag); "no [intro] tag at all" tracks should skip the [intro] tag entirely and start singing right away; "short [intro] line allowed" tracks may have a brief sung line there.',
     '',
     frameDistributionLine(preassignedSongs),
+    sceneAxisDistributionLine(preassignedSongs),
     '',
     '[Diversity groups] - constraints, not wording to copy:',
     `introTexture ${groupedBySlotValue(preassignedSongs, slot => slot.introTextureId, 4)}`,
     `hookDevice ${groupedBySlotValue(preassignedSongs, slot => slot.hookDeviceId, 4)}`,
     `arrangementDensity ${groupedBySlotValue(preassignedSongs, slot => slot.arrangementDensity, 5, densityLabels)}`,
     'Tracks in the same group may share a similar approach; tracks in different groups must feel clearly different. Choose the concrete musical wording yourself.',
+    ...lyricThemeSceneSection(preassignedSongs),
+    ...vocabularyBankInstructionLineFor(preassignedSongs),
     ...killingPointSection(preassignedSongs)
   ].join('\n');
 }
@@ -958,6 +1119,7 @@ export function buildClaudeCodeInstruction(
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
+    ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
     lyricThemeInstructionLine,
@@ -1052,7 +1214,12 @@ export function buildMultiSetClaudeCodeInstructions(
       preassignedSongs,
       outputFilename
     }]);
-    const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine, setPlanningTable });
+    // v4.4 (TASK F) — same wiring gap as the single-pack path
+    // (buildClaudeCodeInstruction's own call site notes): resolvedConstraints
+    // existed and rendered real instruction text but no caller ever passed
+    // it in, including this multi-set loop.
+    const resolvedConstraints = resolveConstraintsFromOptions(setOpts, audienceProfileForAgeGroup(setOpts.audience), currentWorkspaceId());
+    const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine, setPlanningTable, resolvedConstraints });
 
     results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs, conceptLine, avoid });
     usedTitles = [...usedTitles, ...preassignedSongs.map(slot => slot.title)];
@@ -1183,6 +1350,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
+    ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
     lyricThemeInstructionLine,
