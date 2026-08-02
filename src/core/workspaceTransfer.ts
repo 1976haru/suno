@@ -11,6 +11,9 @@ import { mergeStoredChannels, readStoredChannelsForWorkspace } from '../utils/ch
 import { getSetting, setSetting } from './settingsStore';
 import type { DiversityAllocationTemplate } from './diversityAllocationStore';
 import type { ThumbnailBrandTemplate } from '../types';
+import { parseJsonFileResponsive } from './backupImportClient';
+import { APP_VERSION, COMMIT_SHA } from './buildInfo';
+import { EXPORT_SCHEMA_VERSION } from './exportMeta';
 
 /**
  * v4.1 (TASK A2) — "워크스페이스 데이터 이동": A1 gave every workspace its own
@@ -29,8 +32,15 @@ import type { ThumbnailBrandTemplate } from '../types';
 export const TRANSFER_FORMAT = 'suno-weaver-workspace';
 export const TRANSFER_BUNDLE_FORMAT = 'suno-weaver-workspace-bundle';
 export const TRANSFER_FORMAT_VERSION = 1;
-/** This codebase versions itself by task-doc label (v3.74, v4.1, ...), not package.json's stale "3.6.0" — this constant tracks that same scheme. */
-export const CURRENT_APP_VERSION = '4.1';
+/**
+ * v4.0 (TASK C) — this used to be its own hardcoded '4.1' because
+ * package.json's own "version" had gone stale (3.6.0, vs the actual commit
+ * history at v3.79) — this task's whole point is making package.json
+ * authoritative again (bumped to 4.0.0, kept in sync going forward), so
+ * this now reads the real thing instead of shadowing it with a second,
+ * independently-maintained number.
+ */
+export const CURRENT_APP_VERSION = APP_VERSION;
 
 // Raw settingsStore/localStorage key names, duplicated here (not imported)
 // because diversityAllocationStore.ts/thumbnailBrandStore.ts/recentGenreStore.ts/
@@ -94,6 +104,9 @@ export interface WorkspaceExportFile {
   format: typeof TRANSFER_FORMAT;
   formatVersion: number;
   appVersion: string;
+  /** v4.0 (TASK C) — see core/exportMeta.ts's own doc comment on why this is separate from formatVersion/appVersion. */
+  schemaVersion: number;
+  commitSha: string;
   workspaceId: WorkspaceId;
   workspaceLabel: string;
   exportedAt: string;
@@ -105,6 +118,8 @@ export interface WorkspaceBundleFile {
   format: typeof TRANSFER_BUNDLE_FORMAT;
   formatVersion: number;
   appVersion: string;
+  schemaVersion: number;
+  commitSha: string;
   exportedAt: string;
   workspaces: Record<WorkspaceId, WorkspaceExportFile>;
 }
@@ -211,6 +226,8 @@ export async function exportWorkspace(opts: ExportOptions): Promise<WorkspaceExp
     format: TRANSFER_FORMAT,
     formatVersion: TRANSFER_FORMAT_VERSION,
     appVersion: CURRENT_APP_VERSION,
+    schemaVersion: EXPORT_SCHEMA_VERSION,
+    commitSha: COMMIT_SHA,
     workspaceId: opts.workspaceId,
     workspaceLabel: workspace.labelKo,
     exportedAt: new Date().toISOString(),
@@ -238,6 +255,8 @@ export async function exportAllWorkspaces(include?: Partial<ExportInclude>): Pro
     format: TRANSFER_BUNDLE_FORMAT,
     formatVersion: TRANSFER_FORMAT_VERSION,
     appVersion: CURRENT_APP_VERSION,
+    schemaVersion: EXPORT_SCHEMA_VERSION,
+    commitSha: COMMIT_SHA,
     exportedAt: new Date().toISOString(),
     workspaces
   };
@@ -335,12 +354,19 @@ export interface ImportPreview {
 export class ImportFormatError extends Error {}
 
 async function parseTransferFile(file: File): Promise<WorkspaceExportFile> {
-  const text = await file.text();
+  // v4.0 (TASK A) — file.text()+JSON.parse() moved off the main thread (see
+  // backupImportClient.ts's own doc comment); a large library export was a
+  // real freeze risk this task exists to fix. Any failure (malformed JSON,
+  // or a worker infrastructure problem) is wrapped in the same
+  // ImportFormatError this function always threw for a bad file, so every
+  // existing caller (DataManagementPanel.tsx's instanceof check,
+  // tests/workspaceTransfer.test.ts's own "rejects malformed JSON" case)
+  // sees identical behavior.
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new ImportFormatError('이 파일은 올바른 JSON이 아닙니다.');
+    parsed = await parseJsonFileResponsive(file);
+  } catch (error) {
+    throw new ImportFormatError(error instanceof Error ? error.message : '이 파일은 올바른 JSON이 아닙니다.');
   }
   const candidate = parsed as Partial<WorkspaceExportFile>;
   if (candidate.format !== TRANSFER_FORMAT) {
@@ -348,6 +374,15 @@ async function parseTransferFile(file: File): Promise<WorkspaceExportFile> {
   }
   if (typeof candidate.formatVersion !== 'number' || candidate.formatVersion > TRANSFER_FORMAT_VERSION) {
     throw new ImportFormatError('이 파일은 더 최신 앱에서 만들어졌습니다. 앱을 업데이트한 뒤 다시 시도하세요.');
+  }
+  // v4.0 (TASK C-4) — schemaVersion didn't exist before this task; a file
+  // exported by an older app simply has no field here, which is a LOWER
+  // version by definition (implicitly migrated to EXPORT_SCHEMA_VERSION —
+  // there is nothing to actually transform yet at schema version 1, see
+  // core/exportMeta.ts's own doc comment). Only an explicit, HIGHER number
+  // is a real rejection case: this app genuinely cannot read that shape.
+  if (typeof candidate.schemaVersion === 'number' && candidate.schemaVersion > EXPORT_SCHEMA_VERSION) {
+    throw new ImportFormatError('이 파일은 더 최신 앱에서 만든 파일입니다. 앱을 업데이트한 뒤 다시 시도하세요.');
   }
   if (!candidate.workspaceId || !candidate.data) {
     throw new ImportFormatError('이 파일의 내용이 손상되었거나 비어 있습니다.');

@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import type { AudienceProfile, SongIdea } from '../types';
-import { runFullAudit, type AuditItem, type FullAuditReport } from '../core/fullAudit';
+import type { AuditItem, FullAuditReport } from '../core/fullAudit';
+import { runFullAuditResponsive } from '../core/localGenerationClient';
 import { scopedKey } from '../core/workspaceScope';
 
 interface PromiseAuditPanelProps {
@@ -70,19 +71,39 @@ function classify(it: AuditItem, baseline: StoredBaseline | undefined): Classifi
 export default function PromiseAuditPanel({ songs, conceptLabel, audienceProfile, channelId }: PromiseAuditPanelProps) {
   const [baseline, setBaseline] = useState(() => loadBaseline(channelId));
   const [expanded, setExpanded] = useState(false);
+  // v4.0 (TASK A) — runFullAudit (49 items, including the pack-wide style-
+  // similarity linter) now runs inside a Worker (see
+  // core/localGenerationClient.ts's runFullAuditResponsive) instead of
+  // synchronously inside a useMemo — an 18-80 song pack's full audit was a
+  // real main-thread freeze risk this task exists to fix. `report` starts
+  // null while the worker runs; a stale-closure guard drops any response
+  // that arrives after the inputs changed again.
+  const [report, setReport] = useState<FullAuditReport | null>(null);
+  const [auditError, setAuditError] = useState('');
 
-  const report = useMemo(
-    () => runFullAudit(songs, { conceptLabel, songCount: songs.length, audienceProfile }),
-    [songs, conceptLabel, audienceProfile]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    setAuditError('');
+    runFullAuditResponsive(songs, { conceptLabel, songCount: songs.length, audienceProfile })
+      .then(result => { if (!cancelled) setReport(result); })
+      .catch(error => { if (!cancelled) setAuditError(error instanceof Error ? error.message : String(error)); });
+    return () => { cancelled = true; };
+  }, [songs, conceptLabel, audienceProfile]);
 
-  const classified = useMemo(() => report.items.map(it => ({ item: it, classification: classify(it, baseline) })), [report, baseline]);
+  const classified = useMemo(() => report?.items.map(it => ({ item: it, classification: classify(it, baseline) })) ?? [], [report, baseline]);
   const regressions = classified.filter(c => c.classification === 'regression');
   const belowTarget = classified.filter(c => c.classification === 'below-target' || c.classification === 'new');
   const passed = classified.filter(c => c.classification === 'pass');
   const notMeasured = classified.filter(c => c.classification === 'not-measured');
 
-  const overallPct = Math.round(report.promiseAudit.overallFulfillment * 100);
+  const overallPct = report ? Math.round(report.promiseAudit.overallFulfillment * 100) : 0;
+
+  if (auditError) {
+    return <div className="promise-audit-panel promise-audit-error">정합성 검사를 실행하지 못했습니다: {auditError}</div>;
+  }
+  if (!report) {
+    return <div className="promise-audit-panel promise-audit-loading">정합성 검사 실행 중...</div>;
+  }
 
   return (
     <div className="promise-audit-panel">

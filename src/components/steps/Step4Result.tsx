@@ -11,7 +11,9 @@ import SunoProgressMode from '../SunoProgressMode';
 import AudioAnalysisPanel from '../AudioAnalysisPanel';
 import AudioEditPanel from '../AudioEditPanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
+import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
+import { FEATURE_STATUS_LABEL_KO, featureStatus } from '../../data/featureFlags';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
 import { buildSongTxt, copyText, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
@@ -500,6 +502,8 @@ export default function Step4Result({
           <button type="button" className={resultTab === 'audio' ? 'tab active' : 'tab'} onClick={() => setResultTab('audio')}>
             <Music2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             🎧 음원 분석
+            {/* v4.0 (TASK D) — audioAnalysis/audioEdit are both 'experimental' (src/data/featureFlags.ts); this one tab covers both. */}
+            <span className="feature-badge">{FEATURE_STATUS_LABEL_KO[featureStatus('audioAnalysis')]}</span>
           </button>
           <button type="button" className={resultTab === 'promiseAudit' ? 'tab active' : 'tab'} onClick={() => setResultTab('promiseAudit')}>
             <ShieldAlert size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
@@ -508,25 +512,30 @@ export default function Step4Result({
         </div>
       )}
 
+      {/* v4.0 (TASK D) — audioAnalysis/audioEdit are both 'experimental' (src/data/featureFlags.ts). */}
       {blueprint && resultTab === 'audio' && (
-        <AudioAnalysisPanel
-          songs={blueprint.songs}
-          packId={packId}
-          channelId={opts.channel.id}
-          audienceProfile={audienceProfileForAgeGroup(opts.audience)}
-          onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
-        />
+        <ExperimentalFeatureBoundary featureLabel="음원 분석">
+          <AudioAnalysisPanel
+            songs={blueprint.songs}
+            packId={packId}
+            channelId={opts.channel.id}
+            audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+            onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
+          />
+        </ExperimentalFeatureBoundary>
       )}
 
       {editingTrack && (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal-panel">
-            <AudioEditPanel
-              file={editingTrack.file}
-              durationSec={editingTrack.durationSec}
-              title={`T${editingTrack.trackNo} ${blueprint?.songs.find(s => s.trackNo === editingTrack.trackNo)?.title ?? editingTrack.fileName}`}
-              onClose={() => setEditingTrack(null)}
-            />
+            <ExperimentalFeatureBoundary featureLabel="음원 편집">
+              <AudioEditPanel
+                file={editingTrack.file}
+                durationSec={editingTrack.durationSec}
+                title={`T${editingTrack.trackNo} ${blueprint?.songs.find(s => s.trackNo === editingTrack.trackNo)?.title ?? editingTrack.fileName}`}
+                onClose={() => setEditingTrack(null)}
+              />
+            </ExperimentalFeatureBoundary>
           </div>
         </div>
       )}
@@ -554,13 +563,16 @@ export default function Step4Result({
         />
       )}
 
+      {/* v4.0 (TASK D) — imageGeneration is 'experimental'. */}
       {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
-        <ThumbnailImageStudioPanel
-          spec={thumbnailSpec}
-          defaultSeasonId={thumbnailSeasonId}
-          defaultArchetypeId={thumbnailArchetypeId}
-          textModelSettings={textModelSettings}
-        />
+        <ExperimentalFeatureBoundary featureLabel="썸네일 이미지 생성">
+          <ThumbnailImageStudioPanel
+            spec={thumbnailSpec}
+            defaultSeasonId={thumbnailSeasonId}
+            defaultArchetypeId={thumbnailArchetypeId}
+            textModelSettings={textModelSettings}
+          />
+        </ExperimentalFeatureBoundary>
       )}
 
       {blueprint && resultTab === 'srt' && (

@@ -12,6 +12,7 @@ import type {
   SongIdea
 } from '../types';
 import { generateLocalBlueprint } from '../core/localGenerator';
+import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
 import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
 import { scoreSongs } from '../core/quality';
 import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/compositionRecompose';
@@ -312,12 +313,21 @@ export async function generateBlueprint(
   }
 
   if (settings.provider === 'local') {
-    const blueprint = generateLocalBlueprint(opts, genres, moods, season, avoid, settings.promptCharLimit);
-    const songs = scoreSongs(blueprint.songs, opts.channel, opts.lyricLanguage);
-    onProgress?.({ done: songs.length, total: opts.songCount, songs });
+    // v4.0 (TASK A) — an 18-80 song local pack runs the full title/lyric/
+    // stylePrompt pipeline plus scoring synchronously; on the main thread
+    // this is exactly the freeze main's own emergency-browser-freeze fix
+    // (PR #4) addressed, which this branch never inherited (see
+    // docs/v400-report.md). generateLocalBlueprintResponsive runs the same
+    // generateLocalBlueprint+scoreSongs pair inside a Worker — everything
+    // ABOVE this branch (vocal-combo lean, flagship-order lean, audio
+    // learning insights) still runs here on the main thread first and feeds
+    // into `opts`/`avoid` exactly as before; only the actual heavy
+    // generation call moves off-thread.
+    const blueprint = await generateLocalBlueprintResponsive(opts, genres, moods, season, avoid, settings.promptCharLimit);
+    onProgress?.({ done: blueprint.songs.length, total: opts.songCount, songs: blueprint.songs });
     // v3.66 (TASK B) — marks this blueprint as the local-preview path so the
     // UI can disclose that real output may differ (see Step4Result.tsx).
-    return { ...blueprint, songs, isLocalPreview: true };
+    return { ...blueprint, isLocalPreview: true };
   }
 
   const identity: GenerateChunkIdentity = { base: null, locked: null };

@@ -57,6 +57,7 @@ import WizardNav from './components/WizardNav';
 import VideoDashboard from './components/VideoDashboard';
 import RatingInsightsPanel from './components/RatingInsightsPanel';
 import ThumbnailImageStudioPanel from './components/ThumbnailImageStudioPanel';
+import ExperimentalFeatureBoundary from './components/ExperimentalFeatureBoundary';
 
 const STEPS: StepDef[] = [
   { id: 1, label: '채널' },
@@ -940,19 +941,25 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
           {dashboardOpen ? (
             <VideoDashboard channel={cm.selectedChannel} onClose={() => setDashboardOpen(false)} />
           ) : insightsOpen ? (
-            <RatingInsightsPanel channel={cm.selectedChannel} channels={cm.channels} onClose={() => setInsightsOpen(false)} />
+            // v4.0 (TASK D) — ratingLearning is 'experimental' (src/data/featureFlags.ts).
+            <ExperimentalFeatureBoundary featureLabel="청취 평가 인사이트">
+              <RatingInsightsPanel channel={cm.selectedChannel} channels={cm.channels} onClose={() => setInsightsOpen(false)} />
+            </ExperimentalFeatureBoundary>
           ) : thumbnailStandaloneOpen ? (
-            <ThumbnailImageStudioPanel
-              spec={standaloneThumbnailSpec}
-              defaultSeasonId={thumbnailStandaloneSeasonId}
-              defaultArchetypeId={thumbnailArchetypeId}
-              standalone
-              standaloneChannelName={cm.selectedChannel.name}
-              standaloneSeasonId={thumbnailStandaloneSeasonId}
-              onStandaloneSeasonChange={setThumbnailStandaloneSeasonId}
-              onStandaloneClose={() => setThumbnailStandaloneOpen(false)}
-              onOpenSettings={() => { setSettingsFocus('qwen'); setSettingsOpen(true); }}
-            />
+            // v4.0 (TASK D) — imageGeneration is 'experimental'.
+            <ExperimentalFeatureBoundary featureLabel="Thumbnail studio">
+              <ThumbnailImageStudioPanel
+                spec={standaloneThumbnailSpec}
+                defaultSeasonId={thumbnailStandaloneSeasonId}
+                defaultArchetypeId={thumbnailArchetypeId}
+                standalone
+                standaloneChannelName={cm.selectedChannel.name}
+                standaloneSeasonId={thumbnailStandaloneSeasonId}
+                onStandaloneSeasonChange={setThumbnailStandaloneSeasonId}
+                onStandaloneClose={() => setThumbnailStandaloneOpen(false)}
+                onOpenSettings={() => { setSettingsFocus('qwen'); setSettingsOpen(true); }}
+              />
+            </ExperimentalFeatureBoundary>
           ) : (
             <>
           <StepIndicator steps={STEPS} current={currentStep} maxUnlocked={maxUnlocked} onSelect={setCurrentStep} />

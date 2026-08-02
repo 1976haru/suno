@@ -1,6 +1,25 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+
+/**
+ * v4.0 (TASK C) — package.json's own "version" had gone stale (3.6.0)
+ * relative to both the actual commit history (v3.79) and the task docs
+ * (v4.2) — nobody could tell which build they were running. Read once at
+ * config-eval time (dev server start / build), not per-request — neither
+ * value can change without restarting Vite anyway.
+ */
+const appVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version: string }).version;
+function readCommitSha(): string {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'unknown'; // No .git available (e.g. some CI/CD checkout modes) — never fails the build over this.
+  }
+}
+const commitSha = readCommitSha();
 
 function readRequestBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -77,12 +96,21 @@ function devApiPlugin(): Plugin {
     configureServer(server) {
       mountApi(server, '/api/generate', '/api/generate.js');
       mountApi(server, '/api/batch', '/api/batch.js');
+      // v4.0 (TASK B) — api/image.js already existed but was never mounted
+      // here, so a local `npm run dev` session 404'd on every thumbnail
+      // image-generation request (Gemini/Qwen) even though the handler
+      // itself was fine on a real Vercel-style host.
+      mountApi(server, '/api/image', '/api/image.js');
     }
   };
 }
 
 export default defineConfig({
   plugins: [react(), devApiPlugin()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __COMMIT_SHA__: JSON.stringify(commitSha)
+  },
   server: {
     port: 5200,
     host: '127.0.0.1'

@@ -1,5 +1,7 @@
 import { BookOpen, Download, Film, Headphones, Plus, Settings2, Sparkles, Trash2 } from 'lucide-react';
 import type { ChannelProfile, SavedPackMeta } from '../types';
+import { APP_VERSION_LABEL, COMMIT_SHA } from '../core/buildInfo';
+import { FEATURE_STATUS_LABEL_KO, featureStatus } from '../data/featureFlags';
 
 interface SidebarProps {
   channels: ChannelProfile[];
@@ -119,10 +121,14 @@ export default function Sidebar({
       <button type="button" className="full-width" onClick={onOpenInsights}>
         <Headphones size={16} />
         🎧 청취 평가 인사이트
+        <span className="feature-badge">{FEATURE_STATUS_LABEL_KO[featureStatus('ratingLearning')]}</span>
       </button>
 
       <div className="button-row">
-        <button type="button" onClick={onOpenThumbnail}>Thumbnail studio</button>
+        <button type="button" onClick={onOpenThumbnail}>
+          Thumbnail studio
+          <span className="feature-badge">{FEATURE_STATUS_LABEL_KO[featureStatus('imageGeneration')]}</span>
+        </button>
         <button type="button" onClick={onOpenPersona}>Persona</button>
       </div>
 
@@ -130,6 +136,9 @@ export default function Sidebar({
         <Settings2 size={16} />
         ⚙️ 설정
       </button>
+
+      {/* v4.0 (TASK C) — "앱 내 버전 표시" (this task's own spec item). */}
+      <div className="sidebar-version" title={`커밋 ${COMMIT_SHA}`}>{APP_VERSION_LABEL}</div>
     </aside>
   );
 }

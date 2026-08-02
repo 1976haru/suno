@@ -91,7 +91,10 @@ describe('[v3.69] TASK A: buildStandaloneProgressHtml', () => {
     const scriptCloseCount = (html.match(/<\/script>/g) || []).length;
     expect(scriptCloseCount).toBe(1);
 
-    const songsMatch = html.match(/var SONGS = (\[[\s\S]*?\]);\n\s*var META/);
+    // v4.0 (TASK C) — matches up to the next `var` declaration generically
+    // (not literally "var META") since EXPORT_META now sits between SONGS
+    // and META in the generated script.
+    const songsMatch = html.match(/var SONGS = (\[[\s\S]*?\]);\n\s*var \w+/);
     expect(songsMatch).not.toBeNull();
     const parsedSongs = JSON.parse(songsMatch![1]);
     expect(parsedSongs[0].lyrics).toContain('</script>');
@@ -101,7 +104,10 @@ describe('[v3.69] TASK A: buildStandaloneProgressHtml', () => {
     const song = makeSong({ excludePrompt: 'no metal, no screaming', trackNo: 7 });
     const html = buildStandaloneProgressHtml([song], BASE_META);
 
-    const songsMatch = html.match(/var SONGS = (\[[\s\S]*?\]);\n\s*var META/);
+    // v4.0 (TASK C) — matches up to the next `var` declaration generically
+    // (not literally "var META") since EXPORT_META now sits between SONGS
+    // and META in the generated script.
+    const songsMatch = html.match(/var SONGS = (\[[\s\S]*?\]);\n\s*var \w+/);
     const parsed = JSON.parse(songsMatch![1]);
     expect(parsed[0]).toMatchObject({
       trackNo: 7,

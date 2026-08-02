@@ -463,8 +463,16 @@ export function analyzeFullPcmData(samples: Float32Array, sampleRate: number, fi
   };
 }
 
-/** Shared browser-only decode step: file -> mono PCM at ANALYSIS_SAMPLE_RATE. Used by both analyzeAudioFile (v3.73) and analyzeFullAudioFile (v3.74) so there's exactly one decode implementation. */
-async function decodeToMonoPcm(file: File): Promise<Float32Array> {
+/**
+ * Shared browser-only decode step: file -> mono PCM at ANALYSIS_SAMPLE_RATE.
+ * Used by both analyzeAudioFile (v3.73) and analyzeFullAudioFile (v3.74) so
+ * there's exactly one decode implementation. Exported (v4.0 TASK A) so
+ * core/audioAnalysisClient.ts can call it directly: AudioContext/
+ * OfflineAudioContext don't exist inside a Worker, so decode must stay on
+ * the main thread even though the FFT/DSP pass that follows it now runs in
+ * audioAnalysisWorker.ts.
+ */
+export async function decodeToMonoPcm(file: File): Promise<Float32Array> {
   const arrayBuffer = await file.arrayBuffer();
   const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const decodeContext = new AudioContextCtor();

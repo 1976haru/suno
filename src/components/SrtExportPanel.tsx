@@ -20,6 +20,7 @@ import {
 import { buildZip } from '../utils/zipExporter';
 import { downloadBlob, downloadText } from '../utils/exporters';
 import { buildSetName } from '../utils/setNaming';
+import { buildExportMeta } from '../core/exportMeta';
 import type { PlaylistBlueprint, ProviderSettings, SongIdea } from '../types';
 
 interface SrtExportPanelProps {
@@ -138,6 +139,17 @@ export default function SrtExportPanel({ blueprint, textModelSettings, onUpdateL
       }
     }
     if (!files.length) return;
+    // v4.0 (TASK C) — "SRT zip 안의 manifest" (this task's own spec item):
+    // a listing of what's actually in the zip alongside the shared version/
+    // schema meta block every export now carries (see core/exportMeta.ts).
+    files.push({
+      name: `${setName}/manifest.json`,
+      content: JSON.stringify({
+        ...buildExportMeta(blueprint.generatedAt),
+        setName,
+        files: files.map(file => file.name)
+      }, null, 2)
+    });
     downloadBlob(`${setName}_srt.zip`, buildZip(files));
   }
 

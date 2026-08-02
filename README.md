@@ -1,8 +1,20 @@
-# Suno Weaver Studio v3
+# Suno Weaver Studio
 
-Suno Weaver Studio is a prompt, lyrics, and YouTube metadata generator for playlist channels. It supports reusable channel profiles, 1-30 song batch generation, local template generation, an LLM evaluation agent, saved-pack storage, and serverless-proxied OpenAI or Claude generation.
+Suno Weaver Studio is a prompt, lyrics, and YouTube metadata generator for playlist channels. It supports reusable channel profiles, 1-80 song batch generation, local template generation, an LLM evaluation agent, saved-pack storage, and serverless-proxied OpenAI or Claude generation.
 
 See [`docs/MIGRATION.md`](docs/MIGRATION.md) for what changed since v2, and [`docs/STRESS_TEST_REPORT.md`](docs/STRESS_TEST_REPORT.md) for the current automated stress-test results (regenerated on every `npm run test:stress` run).
+
+## v4.0 (TASK C-5) — minimal status update
+
+> Full rewrite is a separate task; this section only covers the four items v4.0 asked for.
+
+- **현재 버전**: v4.0.0 (앱 내 사이드바 하단에도 표시됩니다)
+- **현재 개발 브랜치**: `feat/notion-genre-library`
+- **워크플로 단계**: 워크스페이스 선택 → 5단계(1채널 → 2컨셉 → 3설계안 → 4생성 → 5결과)
+- **기능 상태** (`src/data/featureFlags.ts` 참고):
+  - `production`: 시니어 올드팝 세트 생성 / 품질관문(설계·생성) / Claude Code 브릿지 / SRT 자막 내보내기
+  - `experimental`: 음원 분석 / 음원 편집 / 평가 학습 / 이미지 생성
+  - `scaffold`: 한국 20~30대 / 일본 20~30대 / 한국 동요 / 일본 동요 워크스페이스
 
 ## Current Features
 

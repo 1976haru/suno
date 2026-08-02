@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, Music, Upload } from 'lucide-react';
 import type { AudienceProfile, SongIdea } from '../types';
-import { analyzeFullAudioFile, type FullAudioAnalysis } from '../core/audioAnalysis';
+import type { FullAudioAnalysis } from '../core/audioAnalysis';
+import { analyzeFullAudioFileResponsive } from '../core/audioAnalysisClient';
 import { groupMatchesByTrackNo, labelTakesInGroup, matchAudioFileName, type AudioMatchResult } from '../core/audioTrackMatch';
 import { buildAudioSetReport, buildVocalDiversityReport, type VocalDiversityEntry } from '../core/audioSetReport';
 import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
@@ -106,11 +107,14 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
     const nextFiles = new Map(filesByName);
 
     // Sequential — never Promise.all across the whole batch. Each
-    // analyzeFullAudioFile() call's decoded buffers go out of scope as soon
-    // as this iteration ends, so only one file's PCM is ever live at a time.
+    // analyzeFullAudioFileResponsive() call's decoded buffers go out of
+    // scope as soon as this iteration ends, so only one file's PCM is ever
+    // live at a time. v4.0 (TASK A) — the FFT/DSP pass itself now runs in a
+    // Worker (see core/audioAnalysisClient.ts); an 18-take batch's worth of
+    // hand-rolled FFT was a real main-thread freeze risk.
     for (const file of audioFiles) {
       try {
-        const full = await analyzeFullAudioFile(file);
+        const full = await analyzeFullAudioFileResponsive(file);
         const match = matchAudioFileName(file.name, candidates);
         full.metrics.matchedTrackNo = match.trackNo;
         const song = match.trackNo !== undefined ? songs.find(s => s.trackNo === match.trackNo) : undefined;

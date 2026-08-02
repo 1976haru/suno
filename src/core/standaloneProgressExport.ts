@@ -1,5 +1,6 @@
 import type { SongIdea } from '../types';
 import { buildSetName } from '../utils/setNaming';
+import { buildExportMeta } from './exportMeta';
 
 /**
  * TASK v3.69 (TASK A) — "독립 실행 수노모드": the real workflow (see this
@@ -203,11 +204,17 @@ export function buildStandaloneProgressHtml(songs: SongIdea[], meta: StandaloneP
   const standaloneSongs = songs.map(toStandaloneSong);
   const dateLabel = new Date(meta.generatedAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
   const title = `${meta.channelLabel} · ${meta.conceptLabel} — 수노 진행 모드`;
+  // v4.0 (TASK C) — computed here (regular app code, generation time), not
+  // inside `script` below — this file's own runtime must stay zero-app-code
+  // (see this module's own doc comment), so the meta is baked into a plain
+  // literal exactly like SONGS/META already are, never a live import.
+  const exportMeta = buildExportMeta(meta.generatedAt);
 
   const script = `
 (function () {
   'use strict';
   var SONGS = ${embedJson(standaloneSongs)};
+  var EXPORT_META = ${embedJson(exportMeta)};
   var META = ${embedJson({
     packId: meta.packId,
     channelId: meta.channelId,
@@ -514,6 +521,7 @@ export function buildStandaloneProgressHtml(songs: SongIdea[], meta: StandaloneP
 
   return [
     '<!doctype html>',
+    `<!-- ${escapeHtml(JSON.stringify(exportMeta))} -->`,
     '<html lang="ko">',
     '<head>',
     '<meta charset="utf-8">',

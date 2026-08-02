@@ -1,6 +1,7 @@
 import type { ChannelProfile, PlaylistBlueprint, SongIdea, SoundSignature, ThumbnailSpec } from '../types';
 import { AI_DISCLOSURE_LINE, buildUploadChecklist, extractContentIdFlags, isMadeForKidsChannel } from '../core/exportCompliance';
 import { renderLyricsForDisplay } from '../core/lyricEngine';
+import { buildExportMeta } from '../core/exportMeta';
 
 /** TASK I5 (v3.11, PART D-2) — tracks 1-3 (cold-open + flagship) are the shorts-clip priority candidates, per the brief's "1~3번 곡이 제일 중요하다". */
 export function isShortsClipCandidate(song: Pick<SongIdea, 'trackNo'>): boolean {
@@ -286,6 +287,10 @@ export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: Thumbna
     }
     : undefined;
   return JSON.stringify({
+    // v4.0 (TASK C) — see core/exportMeta.ts's own doc comment. Spread
+    // first so blueprint.generatedAt (v3.69, this set's own real generation
+    // time) wins over buildExportMeta's "now" default for the same key.
+    ...buildExportMeta(blueprint.generatedAt),
     ...blueprint,
     ...(thumbnailSpec ? { thumbnailSpec } : {}),
     ...(soundSignature ? { soundSignature } : {}),
@@ -349,7 +354,14 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
     ]);
   }
 
-  return rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  // v4.0 (TASK C) — leading `#`-comment row (see core/exportMeta.ts's own
+  // doc comment), not an extra column: this file has no re-import path
+  // anywhere in this app (download-only, see exporters.test.ts), so there's
+  // no fixed column-index consumer to break, and a comment row is the
+  // simpler read for a human opening this in a spreadsheet.
+  const meta = buildExportMeta(blueprint.generatedAt);
+  const metaLine = `# appVersion=${meta.appVersion} schemaVersion=${meta.schemaVersion} commitSha=${meta.commitSha} workspaceId=${meta.workspaceId} generatedAt=${meta.generatedAt} exportFormatVersion=${meta.exportFormatVersion}`;
+  return [metaLine, ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
 }
 
 export function downloadText(filename: string, text: string, mime = 'text/plain;charset=utf-8') {

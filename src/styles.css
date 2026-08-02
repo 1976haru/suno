@@ -3008,3 +3008,52 @@ pre {
 .promise-audit-row-new {
   background: #fef3c7;
 }
+
+.sidebar-version {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.promise-audit-loading,
+.promise-audit-error {
+  padding: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.promise-audit-error {
+  color: #b91c1c;
+}
+
+.feature-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  vertical-align: middle;
+}
+
+.feature-badge:empty {
+  display: none;
+}
+
+.experimental-feature-error {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.experimental-feature-error button {
+  margin-top: 8px;
+}

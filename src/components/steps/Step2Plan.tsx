@@ -9,7 +9,8 @@ import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
-import { evaluateDesignGate } from '../../core/designGate';
+import type { DesignGateResult } from '../../core/designGate';
+import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { currentWorkspaceId } from '../../core/workspaceScope';
@@ -184,15 +185,45 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     () => resolveConstraintsFromOptions(gateOpts, audienceProfileForAgeGroup(gateOpts.audience), currentWorkspaceId()),
     [gateOpts]
   );
-  const designGateResult = useMemo(() => evaluateDesignGate(gateSlots, constraints, gateOpts), [gateSlots, constraints, gateOpts]);
+  // v4.0 (TASK A) — evaluateDesignGate now runs inside a Worker (see
+  // core/localGenerationClient.ts's evaluateDesignGateResponsive) instead of
+  // synchronously inside a useMemo. `designGateResult` starts null while the
+  // worker runs; onDesignGateStatusChange deliberately does NOT fire with an
+  // optimistic "passed" while loading — App.tsx's own "다음" button gating
+  // must never read a stale/premature pass.
+  const [designGateResult, setDesignGateResult] = useState<DesignGateResult | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    evaluateDesignGateResponsive(gateSlots, constraints, gateOpts)
+      .then(result => { if (!cancelled) setDesignGateResult(result); })
+      .catch(error => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setDesignGateResult({
+          passed: false,
+          blocking: [{
+            id: 'design-gate-worker-error',
+            labelKo: '관문 1 실행 오류',
+            expected: '정상 실행',
+            actual: message,
+            fixHintKo: '페이지를 새로고침해 다시 시도하세요. 계속되면 /?repair=1 로 접속해 복구 모드를 사용하세요.'
+          }],
+          advisory: []
+        });
+      });
+    return () => { cancelled = true; };
+  }, [gateSlots, constraints, gateOpts]);
+
+  useEffect(() => {
+    if (!designGateResult) return;
     setGateAcknowledged(false);
-  }, [designGateResult.blocking.map(issue => issue.id).join(',')]);
+  }, [designGateResult?.blocking.map(issue => issue.id).join(',')]);
 
   useEffect(() => {
+    if (!designGateResult) return;
     onDesignGateStatusChange?.({ passed: designGateResult.passed, acknowledged: gateAcknowledged });
-  }, [designGateResult.passed, gateAcknowledged, onDesignGateStatusChange]);
+  }, [designGateResult, gateAcknowledged, onDesignGateStatusChange]);
 
   function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
     setOpts(prev => ({ ...prev, ...fix }));
@@ -282,12 +313,16 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
         )}
       </div>
 
-      <DesignGatePanel
-        result={designGateResult}
-        onAutoFix={applyDesignGateAutoFix}
-        acknowledged={gateAcknowledged}
-        onAcknowledgedChange={setGateAcknowledged}
-      />
+      {designGateResult
+        ? (
+          <DesignGatePanel
+            result={designGateResult}
+            onAutoFix={applyDesignGateAutoFix}
+            acknowledged={gateAcknowledged}
+            onAcknowledgedChange={setGateAcknowledged}
+          />
+        )
+        : <div className="option-block compact">관문 1 검사 중...</div>}
 
       <div className="option-block">
         <div className="section-head">

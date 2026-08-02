@@ -1,6 +1,21 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+
+// v4.0 (TASK C) — same version/commit injection as vite.config.ts (see that
+// file's own doc comment); this build never imports that one (fully
+// separate `vite build` invocation), so it needs its own copy.
+const appVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version: string }).version;
+function readCommitSha(): string {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'unknown';
+  }
+}
+const commitSha = readCommitSha();
 
 /**
  * TASK v3.71 (TASK A) — a separate build config (never touches `npm run
@@ -19,7 +34,9 @@ export default defineConfig({
   base: './',
   plugins: [react(), viteSingleFile()],
   define: {
-    __SINGLE_FILE_BUILD__: 'true'
+    __SINGLE_FILE_BUILD__: 'true',
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __COMMIT_SHA__: JSON.stringify(commitSha)
   },
   build: {
     outDir: 'dist-single',

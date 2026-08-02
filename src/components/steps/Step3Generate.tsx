@@ -10,7 +10,8 @@ import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
 import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
-import { evaluateDesignGate } from '../../core/designGate';
+import type { DesignGateResult } from '../../core/designGate';
+import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { currentWorkspaceId } from '../../core/workspaceScope';
@@ -343,15 +344,39 @@ export default function Step3Generate({
     () => resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience), currentWorkspaceId()),
     [opts]
   );
-  const designGateResult = useMemo(
-    () => evaluateDesignGate(bridgePreassignedSongs, designGateConstraints, opts),
-    [bridgePreassignedSongs, designGateConstraints, opts]
-  );
+  // v4.0 (TASK A) — evaluateDesignGate runs inside a Worker now (see
+  // core/localGenerationClient.ts) — mirrors Step2Plan.tsx's identical
+  // conversion/rationale. `designGateResult` starts null; `bridgeGateBlocksCopy`
+  // stays true (fail-closed) until a real result exists, so the "801행" copy
+  // button never unblocks based on a stale/premature default.
+  const [designGateResult, setDesignGateResult] = useState<DesignGateResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    evaluateDesignGateResponsive(bridgePreassignedSongs, designGateConstraints, opts)
+      .then(result => { if (!cancelled) setDesignGateResult(result); })
+      .catch(error => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setDesignGateResult({
+          passed: false,
+          blocking: [{
+            id: 'design-gate-worker-error',
+            labelKo: '관문 1 실행 오류',
+            expected: '정상 실행',
+            actual: message,
+            fixHintKo: '페이지를 새로고침해 다시 시도하세요. 계속되면 /?repair=1 로 접속해 복구 모드를 사용하세요.'
+          }],
+          advisory: []
+        });
+      });
+    return () => { cancelled = true; };
+  }, [bridgePreassignedSongs, designGateConstraints, opts]);
   const [bridgeGateAcknowledged, setBridgeGateAcknowledged] = useState(false);
   useEffect(() => {
+    if (!designGateResult) return;
     setBridgeGateAcknowledged(false);
-  }, [designGateResult.blocking.map(issue => issue.id).join(',')]);
-  const bridgeGateBlocksCopy = !designGateResult.passed && !bridgeGateAcknowledged;
+  }, [designGateResult?.blocking.map(issue => issue.id).join(',')]);
+  const bridgeGateBlocksCopy = !designGateResult?.passed && !bridgeGateAcknowledged;
 
   function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
     setOpts(prev => ({ ...prev, ...fix }));
@@ -832,12 +857,16 @@ export default function Step3Generate({
 
         {!multiSet.mode ? (
           <>
-            <DesignGatePanel
-              result={designGateResult}
-              onAutoFix={applyDesignGateAutoFix}
-              acknowledged={bridgeGateAcknowledged}
-              onAcknowledgedChange={setBridgeGateAcknowledged}
-            />
+            {designGateResult
+              ? (
+                <DesignGatePanel
+                  result={designGateResult}
+                  onAutoFix={applyDesignGateAutoFix}
+                  acknowledged={bridgeGateAcknowledged}
+                  onAcknowledgedChange={setBridgeGateAcknowledged}
+                />
+              )
+              : <div className="option-block compact">관문 1 검사 중...</div>}
             <p className="supporting">
               아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
               그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
