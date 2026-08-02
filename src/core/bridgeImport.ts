@@ -15,6 +15,8 @@ import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { normalizeSongOutput } from './songPostProcess';
+import { resolvePackagingLanguage } from './packagingLanguage';
+import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts. This module is the
@@ -190,7 +192,9 @@ function normalizeImportedSong(
   raw: unknown,
   index: number,
   slotByTrackNo: Map<number, PreassignedSongSlot>,
-  titleMode: 'local' | 'ai-creative'
+  titleMode: 'local' | 'ai-creative',
+  opts: GenerationOptions,
+  usedLocalizedTitles: Set<string>
 ): NormalizeSuccess | NormalizeFailure {
   if (!raw || typeof raw !== 'object') {
     return { error: `#${index + 1}: JSON 객체가 아닙니다.` };
@@ -245,7 +249,41 @@ function normalizeImportedSong(
     qualityScore: 0,
     warnings: []
   };
-  return { song: reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true }) };
+  const reconciled = reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true });
+
+  // v4.3 (TASK A) — trust the agent's own "titleLocalized" (the real
+  // creative reinterpretation instructed by titleLocalizedInstructionLineFor
+  // in bridgeInstruction.ts) when present; fall back to the local
+  // bank-based builder only if packaging is non-English and the agent
+  // omitted it, so the pack is never silently missing a display title —
+  // and warn, since an omission means the agent didn't follow the
+  // instruction.
+  const packagingLanguage = resolvePackagingLanguage(opts);
+  let titleLocalized = isNonEmptyString(obj.titleLocalized) ? obj.titleLocalized.trim() : undefined;
+  let missingTitleLocalizedWarning: string | undefined;
+  if (packagingLanguage !== 'english' && !titleLocalized) {
+    titleLocalized = buildLocalizedTitle(
+      packagingLanguage,
+      {
+        emotionArc: reconciled.emotionArc,
+        listenerSituation: reconciled.listenerSituation,
+        eraTag: slot?.eraTag,
+        archetype: opts.channel.archetype,
+        seed: localizedTitleSeed(`${opts.channel.id}-bridge-import`, reconciled.trackNo)
+      },
+      usedLocalizedTitles
+    );
+    missingTitleLocalizedWarning = `Track ${reconciled.trackNo}: 에이전트가 "titleLocalized"를 쓰지 않아 앱이 임시로 채웠습니다 — 직역이 아닌 재해석인지 확인하세요.`;
+  }
+  const titleDisplay = buildTitleDisplay(reconciled.title, titleLocalized);
+
+  return {
+    song: {
+      ...reconciled,
+      ...(titleLocalized ? { titleLocalized, titleDisplay } : {}),
+      ...(missingTitleLocalizedWarning ? { warnings: [...reconciled.warnings, missingTitleLocalizedWarning] } : {})
+    }
+  };
 }
 
 export interface ImportSongsReport {
@@ -304,9 +342,12 @@ export function importSongsJson(
   const slotByTrackNo = new Map(preassignedSongs.map(slot => [slot.trackNo, slot]));
   const validSongs: SongIdea[] = [];
   const skippedReasons: string[] = [];
+  // v4.3 (TASK A) — shared across every song in this import so the
+  // fallback-only bank builder doesn't hand out the same phrase twice.
+  const usedLocalizedTitles = new Set<string>();
 
   rawSongs.forEach((raw, index) => {
-    const result = normalizeImportedSong(raw, index, slotByTrackNo, titleMode);
+    const result = normalizeImportedSong(raw, index, slotByTrackNo, titleMode, opts, usedLocalizedTitles);
     if ('error' in result) {
       skippedReasons.push(result.error);
       return;

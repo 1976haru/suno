@@ -218,7 +218,7 @@ export default function SrtExportPanel({ blueprint, textModelSettings, onUpdateL
       <div className="avoid-word-list">
         {songs.map(song => (
           <label key={song.trackNo} className="avoid-word-item">
-            {song.trackNo}. {song.title}
+            {song.trackNo}. {song.titleDisplay ?? song.title}
             <input
               type="text"
               inputMode="numeric"

@@ -5,6 +5,7 @@ import { introTexturesForArchetype } from '../data/introTextures';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
+import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
@@ -686,6 +687,13 @@ export function generateLocalBlueprint(
 
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
+  // v4.3 (TASK A) — this pack's packaging-language title axis; see
+  // core/titleLocalization.ts's own doc comment for why the local generator
+  // builds a bank-based reinterpretation here rather than a literal
+  // translation of `title`. usedLocalizedTitles is shared across every song
+  // in this call so 18 songs don't collide on the same bank phrase.
+  const packagingLanguageForTitles = resolvePackagingLanguage(opts);
+  const usedLocalizedTitles = new Set<string>();
   // TASK v3.58 (TASK 4) — genre-independent tempo-band distribution (see
   // core/tempoPlan.ts), so BPM variety comes from a deliberate, data-driven
   // spread across the audience profile's own tempo range instead of only
@@ -1180,6 +1188,21 @@ export function generateLocalBlueprint(
       hookPhrase
     };
     const youtube = buildYoutubeMetadata(opts, partialSong, genres, moods, season);
+    // v4.3 (TASK A) — 곡 제목의 이중언어 표시. english 패키징이면 undefined
+    // (표시하지 않음). See core/titleLocalization.ts's own doc comment.
+    const titleLocalized = buildLocalizedTitle(
+      packagingLanguageForTitles,
+      {
+        emotionArc: partialSong.emotionArc,
+        listenerSituation: partialSong.listenerSituation,
+        arcPhase: arcPlan[idx]?.phase,
+        eraTag: trackGenres[0]?.eraTag,
+        archetype: opts.channel.archetype,
+        seed: localizedTitleSeed(seedBase, trackNo)
+      },
+      usedLocalizedTitles
+    );
+    const titleDisplay = buildTitleDisplay(title, titleLocalized);
 
     return {
       ...partialSong,
@@ -1192,6 +1215,7 @@ export function generateLocalBlueprint(
       youtube,
       youtubeTitleKo: `${title} | ${season.label} ${opts.channel.name} 플레이리스트`,
       youtubeTitleJa: `${title} | ${season.label} ${opts.channel.name} プレイリスト`,
+      ...(titleLocalized ? { titleLocalized, titleDisplay } : {}),
       qualityScore: 0,
       warnings: promptWarnings,
       promptLength: stylePrompt.length,

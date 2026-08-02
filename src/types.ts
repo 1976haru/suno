@@ -565,6 +565,25 @@ export interface SongIdea {
   youtube: YoutubeMetadata;
   youtubeTitleKo?: string;
   youtubeTitleJa?: string;
+  /**
+   * v4.3 (TASK A) — packaging-language song title: a non-literal
+   * reinterpretation of `title`'s scene/emotion in the pack's own
+   * packagingLanguage (see core/packagingLanguage.ts), NOT a translation of
+   * `title`'s words. Undefined when packagingLanguage resolves to 'english'
+   * (nothing to show), or for any song generated before this task existed.
+   * See core/titleLocalization.ts for the local-generation-path builder and
+   * core/compositionScorer.ts for the transliteration/length/missing checks.
+   */
+  titleLocalized?: string;
+  /**
+   * v4.3 (TASK A) — display-ready "English (Localized)" string, e.g.
+   * "Blue Cup (식어가는 찻잔)". Always derived from title+titleLocalized (never
+   * hand-edited independently) — undefined whenever titleLocalized is.
+   * NEVER used for the Suno-input title field (SongCard/SunoProgressMode/
+   * standaloneProgressExport's "제목 복사" always copies the bare `title`) —
+   * a parenthesized title confuses Suno's own title field.
+   */
+  titleDisplay?: string;
   qualityScore: number;
   /**
    * v4.1 (TASK D) — `qualityScore` above only ever measured structural

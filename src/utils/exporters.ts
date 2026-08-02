@@ -60,6 +60,10 @@ export function buildSongTxt(song: SongIdea): string {
     // has no prefix at all, rather than inventing one this function never
     // controlled.
     song.title,
+    // v4.3 (TASK A) — reference-only line, never part of the Suno-input
+    // title above (see SongIdea.titleDisplay's own doc comment: a
+    // parenthesized title must never be pasted into Suno's title field).
+    ...(song.titleLocalized ? [`(Localized: ${song.titleLocalized})`] : []),
     '',
     '===== STYLE (Suno Style 필드) =====',
     song.stylePrompt,
@@ -236,7 +240,7 @@ Sonic Signature: ${blueprint.sonicSignature}
 
 Vocal Signature: ${blueprint.vocalSignature}
 
-${uploadComplianceMarkdown(blueprint, channel)}${soundSignatureMarkdown(soundSignature, personaMode)}${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.title}
+${uploadComplianceMarkdown(blueprint, channel)}${soundSignatureMarkdown(soundSignature, personaMode)}${thumbnailSpecMarkdown(thumbnailSpec)}${blueprint.songs.map(song => `## ${song.trackNo}. ${song.titleDisplay ?? song.title}
 
 Situation: ${song.listenerSituation}
 
@@ -307,6 +311,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       'soundSignatureShort',
       'trackNo',
       'title',
+      'titleLocalized',
       'seasonMoment',
       'listenerSituation',
       'emotionArc',
@@ -334,6 +339,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
       soundSignature?.short || '',
       String(song.trackNo),
       song.title,
+      song.titleLocalized || '',
       song.seasonMoment,
       song.listenerSituation,
       song.emotionArc,

@@ -46,6 +46,8 @@ export function standaloneProgressFileName(meta: Pick<StandaloneProgressMeta, 'c
 interface StandaloneSong {
   trackNo: number;
   title: string;
+  /** v4.3 (TASK A) — "English (Localized)" display string; undefined when the song has no titleLocalized. NEVER used for the "제목 복사" clipboard field (`field === 'title'` still copies plain `title`) — see SongIdea.titleDisplay's own doc comment. */
+  titleDisplay?: string;
   stylePrompt: string;
   lyrics: string;
   /** TASK v3.70 (TASK D) — needed to render the sung hook in sentence case for copy/display, without touching the stored lyrics string itself. */
@@ -69,6 +71,7 @@ function toStandaloneSong(song: SongIdea): StandaloneSong {
   return {
     trackNo: song.trackNo,
     title: song.title,
+    ...(song.titleDisplay ? { titleDisplay: song.titleDisplay } : {}),
     stylePrompt: song.stylePrompt,
     lyrics: song.lyrics,
     hookPhrase: song.hookPhrase || '',
@@ -443,7 +446,7 @@ export function buildStandaloneProgressHtml(songs: SongIdea[], meta: StandaloneP
 
     var lastPastedAt = progress.pastedAt[song.trackNo];
     var titleBlock = el('div', { class: 'title-block' }, [
-      el('h2', { text: song.title }),
+      el('h2', { text: song.titleDisplay || song.title }),
       lastPastedAt ? el('p', { text: '\\uB9C8\\uC9C0\\uB9C9 \\uBD99\\uC5EC\\uB123\\uAE30: ' + new Date(lastPastedAt).toLocaleString() }) : null
     ]);
     var navRow = el('div', { class: 'nav-row' }, [

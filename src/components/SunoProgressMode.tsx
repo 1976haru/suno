@@ -214,7 +214,7 @@ export default function SunoProgressMode({ songs, packId, channelId, personaMode
             <ChevronLeft size={28} />
           </button>
           <div className="suno-progress-title">
-            <h3>{song.title}</h3>
+            <h3>{song.titleDisplay ?? song.title}</h3>
             {lastPastedAt && <p className="supporting">마지막 붙여넣기: {new Date(lastPastedAt).toLocaleString()}</p>}
           </div>
           <button type="button" className="focus-nav-button" disabled={index === songs.length - 1} onClick={goNext}>

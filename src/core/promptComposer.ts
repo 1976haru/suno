@@ -20,6 +20,7 @@ import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
 import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
 import { resolveLyricRange } from './lyricMetrics';
+import { resolvePackagingLanguage } from './packagingLanguage';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -1051,11 +1052,24 @@ function batchPlanningBullets(generateThumbnailText: boolean): string[] {
   ];
 }
 
-/** TASK v3.23 — see batchPlanningBullets' comment; the per-song output schema shared by both outputShape blocks. Exported for TASK v3.24's claudeCodeBridge.ts, which reuses this same schema for its own (narrower, songs-only) outputShape instead of re-authoring a third copy. */
-export function songOutputShape(generateThumbnailText: boolean) {
+/**
+ * TASK v3.23 — see batchPlanningBullets' comment; the per-song output schema
+ * shared by both outputShape blocks. Exported for TASK v3.24's
+ * claudeCodeBridge.ts, which reuses this same schema for its own (narrower,
+ * songs-only) outputShape instead of re-authoring a third copy.
+ * v4.3 (TASK A) — `packagingLanguage` (default 'english', matching every
+ * pre-v4.3 caller's behavior) adds "titleLocalized" to the schema only when
+ * packaging isn't English — see titleLocalizedInstructionLineFor
+ * (bridgeInstruction.ts) for the actual creative instruction; this is just
+ * the field-presence hint in the JSON shape shown to the agent.
+ */
+export function songOutputShape(generateThumbnailText: boolean, packagingLanguage: 'english' | 'korean' | 'japanese' = 'english') {
   return {
     trackNo: 1,
-    title: 'string',
+    title: 'string — English',
+    ...(packagingLanguage !== 'english' ? {
+      titleLocalized: `string — a natural, idiomatic ${packagingLanguage === 'korean' ? 'Korean' : 'Japanese'} song title reinterpreting this song's scene/emotion, NOT a translation of "title"'s words. See the [제목] guidance below.`
+    } : {}),
     seasonMoment: 'string',
     listenerSituation: 'string',
     emotionArc: 'string',
@@ -1093,6 +1107,7 @@ export function songOutputShape(generateThumbnailText: boolean) {
 
 export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext, generateThumbnailText = false) {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const packagingLanguage = resolvePackagingLanguage(opts);
 
   return {
     channel: opts.channel,
@@ -1133,7 +1148,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
       lyricRules: ['string'],
       harmonyRules: ['string'],
       visualRules: ['string'],
-      songs: [songOutputShape(generateThumbnailText)]
+      songs: [songOutputShape(generateThumbnailText, packagingLanguage)]
     }
   };
 }
@@ -1149,6 +1164,7 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
  */
 export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, generateThumbnailText = false): string {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
+  const packagingLanguage = resolvePackagingLanguage(opts);
   const block = {
     channel: opts.channel,
     generationPack,
@@ -1166,7 +1182,7 @@ export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePa
       lyricRules: ['string'],
       harmonyRules: ['string'],
       visualRules: ['string'],
-      songs: [songOutputShape(generateThumbnailText)]
+      songs: [songOutputShape(generateThumbnailText, packagingLanguage)]
     }
   };
   return `Channel profile and output schema for this generation run (stable across every batch):\n${JSON.stringify(block, null, 2)}`;

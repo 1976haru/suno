@@ -1,4 +1,5 @@
-import type { AudienceProfile, LyricLanguage, ScopedIssue, SongIdea } from '../types';
+import type { AudienceProfile, DisplayLanguage, LyricLanguage, ScopedIssue, SongIdea } from '../types';
+import { isOverLengthAdvisory, isTransliteratedTitle, looksLikeLiteralTranslation } from './titleLocalizationChecks';
 import { measureLyrics, resolveLyricRange } from './lyricMetrics';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
@@ -178,6 +179,8 @@ export interface ScoreCompositionOptions {
   lyricLanguage?: LyricLanguage;
   /** v4.1 (TASK B) -- source of the real per-language target range (see core/lyricMetrics.ts's resolveLyricRange). Omitting it falls back to language-appropriate estimates, not this file's own hardcoded numbers. */
   audienceProfile?: AudienceProfile;
+  /** v4.3 (TASK A) — this pack's resolved packaging language (see core/packagingLanguage.ts's resolvePackagingLanguage). Undefined/'english' skips every titleLocalized check below entirely — there is nothing to require. */
+  packagingLanguage?: DisplayLanguage;
 }
 
 /** v4.2 (TASK A3, TASK B) — see this task's own §3-3 "primary 비중 < 50% → blocking, forbidden 시대 장르 존재 → blocking, 범용 장르 > 20% → advisory". Pack-level (not attributable to one track), so every song's own score gets the same findings, same pattern as vocabularyRepetitionWarning/titleShapeWarning below. */
@@ -487,6 +490,26 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     // Reused: v3.58 TASK 5-6 — title/hook zero-overlap (advisory).
     const overlapWarning = titleHookOverlapWarning(song.title, song.hookPhrase);
     if (overlapWarning) advisory.push(overlapWarning);
+
+    // NEW (v4.3 TASK A) — 이중언어 제목 검사. packagingLanguage가 english가
+    // 아닐 때만 적용 (§1-6). 나머지 세 검사는 titleLocalized가 실제로 있을
+    // 때만 의미가 있으므로 missing 검사와 서로 배타적으로 실행한다.
+    const packagingLanguage = opts?.packagingLanguage;
+    if (packagingLanguage && packagingLanguage !== 'english') {
+      if (!song.titleLocalized) {
+        blocking.push(`packagingLanguage가 "${packagingLanguage}"인데 titleLocalized가 없습니다 — 이중언어 제목이 누락됐습니다.`);
+      } else {
+        if (isTransliteratedTitle(song.titleLocalized, packagingLanguage)) {
+          blocking.push(`titleLocalized "${song.titleLocalized}"가 영어 제목의 음차(발음 그대로 옮김)로 보입니다 — 재해석된 제목이어야 합니다.`);
+        }
+        if (isOverLengthAdvisory(song.titleLocalized)) {
+          advisory.push(`titleLocalized "${song.titleLocalized}"가 ${song.titleLocalized.length}자로 15자를 넘습니다 — 썸네일/목록에서 잘릴 수 있습니다.`);
+        }
+        if (looksLikeLiteralTranslation(song.title, song.titleLocalized, packagingLanguage)) {
+          advisory.push(`titleLocalized "${song.titleLocalized}"가 title "${song.title}"의 단어별 직역으로 보입니다 — 장면/감정을 재해석했는지 확인하세요. (자동 판정은 오탐이 있을 수 있습니다)`);
+        }
+      }
+    }
 
     // Reused: TASK v3.60 TASK D — chorus/title monotony (advisory, pack-level but attributed per track when this track is part of the repeated group).
     if (repeatedPatternTracks.has(song.trackNo)) {

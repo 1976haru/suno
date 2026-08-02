@@ -139,7 +139,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
       )}
       <button type="button" className="song-head song-head-toggle" onClick={() => setExpanded(v => !v)}>
         <div>
-          <h3>{song.trackNo}. {song.title}</h3>
+          <h3>{song.trackNo}. {song.titleDisplay ?? song.title}</h3>
           <p>{song.listenerSituation} / {song.emotionArc}</p>
           <span className="chip">{moneyChordLabel}</span>
           {song.songRole && SONG_ROLE_LABEL_KO[song.songRole] && <span className="chip">{SONG_ROLE_LABEL_KO[song.songRole]}</span>}

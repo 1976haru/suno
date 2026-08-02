@@ -7,6 +7,7 @@ import type {
   SeasonPack
 } from '../types';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildSystemInstruction, buildUserInstruction, songOutputShape, structureTemplateLegend } from './promptComposer';
+import { resolvePackagingLanguage } from './packagingLanguage';
 import { preallocateSongSlots } from './batchPreallocation';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
@@ -232,12 +233,13 @@ function buildBridgePayload(
     preassignedSongs
   };
   const basePayload = buildUserInstruction(opts, genres, moods, season, batch, generateThumbnailText);
+  const packagingLanguage = resolvePackagingLanguage(opts);
   return {
     batch,
     payload: {
       ...basePayload,
       preassignedSongs,
-      outputShape: { songs: [songOutputShape(generateThumbnailText)] },
+      outputShape: { songs: [songOutputShape(generateThumbnailText, packagingLanguage)] },
       ...(outputFilename ? { meta: buildBridgeMeta(opts, outputFilename) } : {})
     }
   };
@@ -259,6 +261,43 @@ function titleInstructionLineFor(opts: GenerationOptions): string {
   return titleMode === 'local'
     ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
     : '- "preassignedSongs" gives local planning slots and fallback placeholders. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. For the TITLE, use a genuine MIX of shapes across this pack, not one formula repeated on every song: for at least a third of the songs, the title should simply BE the hook line itself (or a near-verbatim variant of it) — this is the single most common title shape in real pop songs of this kind, especially older-pop eras, and titles that never match their own hook read as artificial. For the rest, write independent Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images. Never default to the same "[adjective] [noun]" image-pair shape for every song regardless of which approach you pick — vary the shape itself (a short phrase, a question, a name being addressed, a single word) as much as whether it matches the hook.';
+}
+
+/**
+ * v4.3 (TASK A) — "한글 채널을 하면 영어제목(한글제목), 일본 채널을 하면
+ * 영어제목(일본제목) 이렇게 표시됐으면 해. 그냥 직역하지 말고 올드팝
+ * 채널이면 올드팝 채널 감성에 맞는 제목으로 해줘야 돼" (하루님). v3.62's own
+ * "작곡하라" convention: this asks for intent (reinterpret the scene/
+ * emotion), never a phrase to transcribe verbatim, matching every other
+ * *InstructionLineFor function in this file. Returns '' for English
+ * packaging — nothing to ask for.
+ */
+function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
+  const packagingLanguage = resolvePackagingLanguage(opts);
+  if (packagingLanguage === 'english') return '';
+  const languageName = packagingLanguage === 'korean' ? 'Korean' : 'Japanese';
+  const eraHint = opts.channel.archetype === 'senior-morning' || opts.channel.archetype === 'showa-70s' || opts.channel.archetype === 'oldpop-lounge'
+    ? (packagingLanguage === 'korean'
+      ? 'Reference the tone of 1970s-80s Korean 가요 (歌謡) titles — phrases like "그 시절", "~하던 날", "잊지 못할", "다시 만나면".'
+      : 'Reference the tone of Showa-era (昭和) Japanese song titles — quiet, image-based, never a loanword transliteration.')
+    : opts.channel.archetype === 'kids'
+      ? (packagingLanguage === 'korean' ? 'Use simple words and onomatopoeia a young child understands.' : 'Use simple words and onomatopoeia a young child understands.')
+      : (packagingLanguage === 'korean'
+        ? 'Reference the tone of contemporary Korean pop/indie song titles.'
+        : 'Reference the tone of contemporary Japanese pop song titles.');
+  const lengthHint = packagingLanguage === 'korean' ? '3-10 characters (a short phrase, not a sentence)' : '3-12 characters (a short phrase, not a sentence)';
+  return [
+    '[제목] Title localization:',
+    `  - Along with the English "title", write a "titleLocalized" field: a natural, idiomatic ${languageName} song title.`,
+    '  - DO NOT translate the English title\'s words. Read this song\'s "listenerSituation" and "emotionArc" and re-express that scene/feeling as its own original ' + languageName + ' title — the kind a native speaker would actually give this song, not a rendering of the English one.',
+    `  - ${eraHint}`,
+    `  - Keep it to roughly ${lengthHint} — long titles get truncated in thumbnails and lists.`,
+    packagingLanguage === 'korean'
+      ? '  - Never write it as a phonetic transliteration of the English words (e.g. writing "Blue Cup" as "블루 컵") — that is not localization.'
+      : '  - Never write it as a katakana phonetic transliteration of the English words (e.g. writing "Blue Cup" as "ブルーカップ") — that is not localization.',
+    '  - Example: "title": "Blue Cup", "titleLocalized": "식어가는 찻잔" (NOT "파란 컵" — that is a literal translation, not a reinterpretation).',
+    '  - This titleLocalized value is for on-screen display only; it is never pasted into Suno\'s own title field (which stays the plain English "title" — no parentheses).'
+  ].join('\n');
 }
 
 // TASK v3.43 Part A2 — same forced-verbatim BPM instruction promptComposer.ts's
@@ -810,6 +849,7 @@ export function buildClaudeCodeInstruction(
   // titles still came back 100% identical to their hooks with that
   // constraint in place, even with v3.27's shape-rotation guidance.
   const titleInstructionLine = titleInstructionLineFor(opts);
+  const titleLocalizedInstructionLine = titleLocalizedInstructionLineFor(opts);
   // TASK v3.39 — same verbatim-weave rule promptComposer.ts's
   // buildBatchSystemNote gives real API requests, kept in sync here per this
   // file's existing convention (see the titleInstructionLine/moneyChordText
@@ -893,6 +933,7 @@ export function buildClaudeCodeInstruction(
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" — { "meta": { ... }, "songs": [ ... ] } — copying "meta" from the request payload above verbatim. Do not invent or recompute any of its values yourself.',
     titleInstructionLine,
+    titleLocalizedInstructionLine,
     // TASK v3.30 — real Codex-bridge output showed 20/20 titles and 19/20
     // hookPhrases copied verbatim from "alreadyUsedTitles"/"alreadyUsedHooks"
     // (just reshuffled to different track numbers) — the agent apparently
@@ -1129,6 +1170,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     `- Each set file must contain exactly ${songsPerSet} song objects matching requestPayload.outputShape.songs[0].`,
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" in each set file — { "meta": { ... }, "songs": [ ... ] } — copying that set\'s "requestPayload.meta" verbatim. Do not invent or recompute any of its values yourself.',
     titleInstructionLine,
+    titleLocalizedInstructionLineFor(baseOpts),
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     moneyChordInstructionLineFor(allSlots),
     genreInstructionLine,

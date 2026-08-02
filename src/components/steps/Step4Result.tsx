@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, ClipboardCheck, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -12,6 +12,8 @@ import AudioAnalysisPanel from '../AudioAnalysisPanel';
 import AudioEditPanel from '../AudioEditPanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
 import GenerationGatePanel from '../GenerationGatePanel';
+import SetCompletenessPanel from '../SetCompletenessPanel';
+import PreviewConcatPanel from '../PreviewConcatPanel';
 import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { FEATURE_STATUS_LABEL_KO, featureStatus } from '../../data/featureFlags';
@@ -32,13 +34,14 @@ import { getRatingForSong, getRatings } from '../../core/ratingLedger';
 import { getTakes } from '../../core/audioTakes';
 import { buildTakeLedgerCsv, downloadCsv, gatherAllSetSummaryRows, buildSetSummaryCsv, SET_SUMMARY_FILENAME, takeLedgerFileName, type SetContext } from '../../core/csvExport';
 import { currentWorkspaceId } from '../../core/workspaceScope';
+import { resolvePackagingLanguage } from '../../core/packagingLanguage';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
-export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio' | 'promiseAudit';
+export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio' | 'promiseAudit' | 'completeness';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -340,12 +343,14 @@ export default function Step4Result({
       // v4.1 (TASK B) — real per-language lyric measurement instead of
       // the gate silently assuming English (see core/lyricMetrics.ts).
       lyricLanguage: opts.lyricLanguage,
-      audienceProfile: audienceProfileForAgeGroup(opts.audience)
+      audienceProfile: audienceProfileForAgeGroup(opts.audience),
+      // v4.3 (TASK A) — gates the titleLocalized checks (compositionScorer.ts).
+      packagingLanguage: resolvePackagingLanguage(opts)
     })
       .then(result => { if (!cancelled) setGenerationGateResult(result); })
       .catch(() => { if (!cancelled) setGenerationGateResult(null); });
     return () => { cancelled = true; };
-  }, [blueprint, historicalHooks, opts.customConcept, opts.projectTitle, opts.lyricLanguage, opts.audience, generationGateConstraints]);
+  }, [blueprint, historicalHooks, opts.customConcept, opts.projectTitle, opts.lyricLanguage, opts.audience, opts.market, opts.packagingLanguage, generationGateConstraints]);
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -523,6 +528,10 @@ export default function Step4Result({
             <ShieldAlert size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             🔍 정합성 검사
           </button>
+          <button type="button" className={resultTab === 'completeness' ? 'tab active' : 'tab'} onClick={() => setResultTab('completeness')}>
+            <ClipboardCheck size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            ✅ 세트 완성도
+          </button>
         </div>
       )}
 
@@ -536,6 +545,7 @@ export default function Step4Result({
             audienceProfile={audienceProfileForAgeGroup(opts.audience)}
             onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
           />
+          <PreviewConcatPanel songs={blueprint.songs} setLabel={blueprint.meta?.setCode || opts.projectTitle} />
         </ExperimentalFeatureBoundary>
       )}
 
@@ -560,6 +570,15 @@ export default function Step4Result({
           conceptLabel={opts.customConcept?.trim() || opts.projectTitle}
           audienceProfile={audienceProfileForAgeGroup(opts.audience)}
           channelId={opts.channel.id}
+        />
+      )}
+
+      {blueprint && resultTab === 'completeness' && (
+        <SetCompletenessPanel
+          blueprint={blueprint}
+          opts={opts}
+          audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+          generationGateResult={generationGateResult}
         />
       )}
 
