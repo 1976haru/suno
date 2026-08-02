@@ -718,9 +718,24 @@ export interface ComposedLyrics {
   hookPhrase: string;
 }
 
-function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used: Set<string>, maxAttempts = 12): string[] {
+/**
+ * v4.4 (TASK A) — `hookGuard` (the song's own hook phrase) is a new,
+ * additive collision check alongside the existing exact-duplicate `used`
+ * check: a drawn line is also retried if it contains the hook/title text
+ * as a substring. This is what let the chorusDev double-draw below (TASK
+ * v4.4's own history, see buildChorus) be re-enabled — it was reverted
+ * earlier because an extra freshFillerCtx() draw occasionally pulled in a
+ * filler line whose own trailing words happened to match the hook/title
+ * (tests/lyricEngine.test.ts's "[R1] lyrics never contain the full title
+ * ... stuffed into an unrelated line"). Fixing the actual collision here
+ * (rather than reverting the draw) means every other double-draw in this
+ * file gets the same protection for free, not just chorusDev.
+ */
+function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used: Set<string>, hookGuard?: string, maxAttempts = 12): string[] {
+  const lowerHook = hookGuard?.trim().toLowerCase();
+  const collides = (line: string) => used.has(line) || (!!lowerHook && lowerHook.length >= 2 && line.toLowerCase().includes(lowerHook));
   let lines = pool.take()(ctx);
-  for (let attempt = 0; lines.some(line => used.has(line)) && attempt < maxAttempts; attempt++) {
+  for (let attempt = 0; lines.some(collides) && attempt < maxAttempts; attempt++) {
     lines = pool.take()(ctx);
   }
   lines.forEach(line => used.add(line));
@@ -829,35 +844,38 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // universal (present in every template via verse1Block, present for every
   // role except shortOpenerRoles) draw to help close the same 215-230 gap.
   const opening = shortOpenerRoles(role)
-    ? takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines).slice(0, 2)
-    : [...takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines), ...takeUniqueLines(pools.opening, freshFillerCtx(), pools.usedLines)];
+    ? takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines, hook).slice(0, 2)
+    : [...takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines, hook), ...takeUniqueLines(pools.opening, freshFillerCtx(), pools.usedLines, hook)];
   // TASK v4.4 — real measurement: local generation was landing 137-177
   // words/song against a 215-230 target (fullAudit.ts's own 'lyric_word_count'
   // item). v4.1 (TASK B) raised the English word-count target from the
   // v3.70-era 175-205 to 215-230 (data/audienceProfiles.ts's
   // lyricMetricsByLanguage), explicitly deferring the matching generation
   // recalibration to "v4.2" — which never actually happened (v4.2 shipped a
-  // quality-threshold-basis registry, not a word-count fix). The verse2
-  // double-draw below was tuned for the OLD ~190-word baseline and was never
-  // revisited. Same "draw the pool twice, second draw gets a fresh filler
-  // context" pattern, applied to situationLines (verse1's own filler block)
-  // for every role EXCEPT shortOpenerRoles — cold-open/clear-opener stay
-  // deliberately short (TASK I1's own "reach the first chorus sooner"
-  // reasoning, unrelated to this word-count gap and left untouched).
-  const situationLines = takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines);
-  // TASK v4.4 — tried doubling this too (same pattern), but combined with
-  // situationLines/opening/chorus2 below it overshot 230 specifically on
-  // T1/T3 (the two templates that already carry a pre-chorus AND, for T1, a
-  // bridge — more base sections than T2/T4/T5) — measured 240-255 words.
-  // Left as a single draw; T1/T3 templates don't need the extra push the
-  // sparser templates (T2/T4/T5, no pre-chorus) do.
+  // quality-threshold-basis registry, not a word-count fix). situationLines
+  // (verse1's own filler block) is conditionally doubled below, per
+  // structureTemplate (STRUCTURE_TEMPLATE_SECTION_NOTES): universal
+  // doubling overshot 230 on T1 (pre-chorus AND bridge — the fullest
+  // shape); T2 (a "breakdown section" instead of pre-chorus/bridge) was
+  // also tried here first, but its own section already carries enough
+  // content that boosting it overshot to 236-253. T3 (pre-chorus, no
+  // bridge — my own bridge-widening boost above never reaches it) and T4
+  // (neither pre-chorus nor bridge at all, 6 sections vs. every other
+  // template's 7-8) are the two shapes still measuring short (197-206)
+  // after the opening/verse2/bridge/chorus2 boosts above, and are the ones
+  // boosted here. shortOpenerRoles excluded, same as opening above —
+  // cold-open stays deliberately short.
+  const boostSituationLines = (structureTemplate === 'T4' || structureTemplate === 'T3') && !shortOpenerRoles(role);
+  const situationLines = boostSituationLines
+    ? [...takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines, hook), ...takeUniqueLines(pools.situation, freshFillerCtx(), pools.usedLines, hook)]
+    : takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines, hook);
   // TASK v4.4 — tried doubling this too, but a real test
   // (tests/hook.test.ts's own "[pre-chorus] section, when present, has
   // exactly 2 lines") caught a real structural contract this would have
   // broken — pre-chorus is meant to stay a tight 2-line setup into the
   // chorus, not a second verse-length stanza. Reverted; the word-count gap
   // is closed by opening/bridge (universal, no such contract) instead.
-  const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines);
+  const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines, hook);
   // TASK v3.29 — a real 20-song sample (both local and remote-generated)
   // came back short enough to render at ~2:00-2:20 in Suno despite every
   // song targeting 2:50-3:20; local generation measured ~190 words/song on
@@ -878,7 +896,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // TASK v4.4 — see situationLines' own doc comment just above: the same
   // gap this verse2 double-draw was meant to close reopened when the target
   // moved to 215-230 without a matching recalibration.
-  const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines)];
+  const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines, hook), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines, hook)];
 
   // TASK v3.70 (TASK C) — real listening feedback: bookending EVERY
   // chorus-type section made the same hook line sing 6x/song (2x per
@@ -894,18 +912,19 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
     if (hookPosition === 1 && devLines.length > 1) return [devLines[0], hook, ...devLines.slice(1)]; // after the first dev line
     return [hook, ...devLines]; // first line (default, and line2's fallback when there's only one dev line)
   }
-  // TASK v4.4 — tried doubling the second chorus's dev lines too (same
-  // pattern), which closed the remaining 215-230 gap for templates with no
-  // pre-chorus/bridge (T2/T4) — but a real 30-song Korean/Japanese
-  // regression test (tests/lyricEngine.test.ts's own "[R1] lyrics never
-  // contain the full title... stuffed into an unrelated line") caught a
-  // real, if rare, coincidence: an extra freshFillerCtx() draw pulling in a
-  // filler line whose own trailing words happened to match the hook/title
-  // text. That's a genuine listening-quality regression (hook text leaking
-  // into a line that reads as unintentional repetition), not a false
-  // positive, so this extra draw was reverted rather than the test loosened.
+  // TASK v4.4 — doubling the second chorus's dev lines closed the
+  // remaining 215-230 gap for templates with no pre-chorus/bridge (T2/T4),
+  // but was reverted once (see takeUniqueLines' own doc comment) after a
+  // real 30-song Korean/Japanese regression test caught an extra
+  // freshFillerCtx() draw occasionally pulling in a filler line whose own
+  // trailing words matched the hook/title. Re-enabled now that
+  // takeUniqueLines itself guards against that collision (retries instead
+  // of accepting a hook-colliding line) — the root cause is fixed rather
+  // than the draw avoided.
   const buildChorus = (index: number, isFinal = false) => {
-    const devLines = takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines);
+    const devLines = index === 1
+      ? [...takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines, hook), ...takeUniqueLines(pools.chorusDev, freshFillerCtx(), pools.usedLines, hook)]
+      : takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines, hook);
     return isFinal ? [hook, ...devLines, hook] : placeHookOnce(devLines);
   };
   const chorus1 = buildChorus(0);
@@ -918,7 +937,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // to every role for the same 215-230 gap (see situationLines' own doc
   // comment above) — T1/T5 templates are the only ones with a bridge
   // section at all, so this only affects tracks already using one.
-  const bridgeLines = [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines)];
+  const bridgeLines = [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines, hook), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines, hook)];
 
   // TASK X5-2 (v3.4): 'comforting closer' used to fade out on a 3rd hook
   // repeat here, but a 30-song pack clamps every track past the 12th to
@@ -936,7 +955,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const finalChorusLines = extendedFinalChorusTextRoles(role)
     // Closing is only used for this one role and is never part of the
     // motif budget, so it always renders with a filler noun.
-    ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines)]
+    ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines, hook)]
     : finalChorusBase;
 
   // TASK I1 (v3.11) — track 1 (cold-open) skips the standard instrumental

@@ -25,12 +25,27 @@ export interface BpmLengthTier {
   maxInstrumentalSections: number;
 }
 
-/** Spec's own §2-3 table, verbatim. Ordered low-to-high BPM; resolveBpmLengthTier clamps anything outside 62-112 to the nearest edge tier rather than returning nothing — every real track has SOME tier to target. */
+/**
+ * v4.4 (TASK A) — recentered around resolveLyricRange's English 215-230
+ * (data/audienceProfiles.ts's lyricMetricsByLanguage, raised from 175-205
+ * in v4.1). The original table's two slower tiers (180-200, 200-220) sat
+ * entirely or partly below 215, and this per-track table WINS over the
+ * pack-level 215-230 CRITICAL line in bridgeInstruction.ts's own
+ * songLengthInstructionLine (the more specific per-track instruction
+ * naturally reads as authoritative) — 8/18 songs in a real senior-morning
+ * pack (62-92 BPM band) were told a floor below the pack's own target.
+ * Every tier's minimum is now >= 215; the relative BPM shape (slower gets
+ * slightly fewer words, faster slightly more — a real 30-60s-too-long
+ * bridge-path regression from v3.70's own flat target motivated having
+ * per-tempo variation at all) is kept but compressed to fit inside the
+ * new, much narrower 15-word target window instead of the old table's
+ * 20-word-per-tier spread (sized for the old 30-word-wide 175-205 target).
+ */
 export const BPM_LENGTH_TIERS: readonly BpmLengthTier[] = [
-  { minBpm: 62, maxBpm: 78, sectionRange: [6, 7], wordRange: [180, 200], maxInstrumentalSections: 1 },
-  { minBpm: 79, maxBpm: 92, sectionRange: [7, 8], wordRange: [200, 220], maxInstrumentalSections: 1 },
-  { minBpm: 93, maxBpm: 104, sectionRange: [7, 8], wordRange: [215, 235], maxInstrumentalSections: 2 },
-  { minBpm: 105, maxBpm: 112, sectionRange: [8, 9], wordRange: [225, 245], maxInstrumentalSections: 2 }
+  { minBpm: 62, maxBpm: 78, sectionRange: [6, 7], wordRange: [215, 225], maxInstrumentalSections: 1 },
+  { minBpm: 79, maxBpm: 92, sectionRange: [7, 8], wordRange: [218, 228], maxInstrumentalSections: 1 },
+  { minBpm: 93, maxBpm: 104, sectionRange: [7, 8], wordRange: [220, 230], maxInstrumentalSections: 2 },
+  { minBpm: 105, maxBpm: 112, sectionRange: [8, 9], wordRange: [222, 232], maxInstrumentalSections: 2 }
 ];
 
 /** Clamps out-of-table BPM (e.g. a channel with a wider tempoFloor/tempoCeiling than 62-112) to the nearest edge tier rather than throwing or returning undefined — a design-time estimate always needs SOME target. */
