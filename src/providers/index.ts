@@ -21,6 +21,8 @@ import { recordUsage } from '../core/usageLedger';
 import { getRecentVocalCombos } from '../core/vocalComboLedger';
 import { readRecentFlagshipOrder } from '../core/recentFlagshipOrderStore';
 import type { VocalType } from '../core/vocalPlan';
+import { effectiveVerifiedCombos, getApprovedCombos } from '../core/verifiedCombos';
+import { currentWorkspaceId } from '../core/workspaceScope';
 import { getTakes } from '../core/audioTakes';
 import { buildDirectiveExecutionReport, mergeExecutionInsightsIntoRatingInsights } from '../core/audioDirectiveAnalysis';
 import { stripSetTitlePrefix } from '../utils/generation';
@@ -240,7 +242,7 @@ export async function generateBlueprint(
   settings: ProviderSettings,
   onProgress?: (progress: GenerationProgress) => void,
   /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. */
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] },
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[]; verifiedCombos?: import('../data/verifiedCombos').VerifiedCombo[] },
   /**
    * TASK v3.62 (TASK 3) — C안's automatic recomposition gate. Defaults to
    * false so every existing direct unit test of this function (which builds
@@ -290,6 +292,21 @@ export async function generateBlueprint(
     if (previousFlagshipOrder) avoid = { ...avoid, previousFlagshipOrder };
   } catch {
     // best-effort only
+  }
+  // v3.82 (TASK A) — same choke point, same "core stays pure, this is the
+  // one place that reads storage" split as the two reads just above.
+  // effectiveVerifiedCombos already merges the seed registry
+  // (data/verifiedCombos.ts) with whatever the user has approved
+  // (core/verifiedCombos.ts's own IndexedDB store), scoped to the current
+  // workspace, so batchPreallocation.ts/localGenerator.ts's flagship
+  // override never needs to know about storage or workspaces at all.
+  try {
+    const workspaceId = currentWorkspaceId();
+    const approvedCombos = await getApprovedCombos(workspaceId);
+    const verifiedCombos = effectiveVerifiedCombos(workspaceId, approvedCombos);
+    if (verifiedCombos.length) avoid = { ...avoid, verifiedCombos };
+  } catch {
+    // best-effort only — a verified-combo lookup failure must never block generation.
   }
 
   // TASK v3.74 (TASK H) — strong-confidence killing-point execution rates

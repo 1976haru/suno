@@ -51,6 +51,9 @@ import { conceptLyricImages, conceptStyleText, variedVocalText } from './concept
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { resolveConstraintsFromOptions } from './constraints';
+import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
+import { resolveFlagshipCombo } from './verifiedCombos';
+import type { VerifiedCombo } from '../data/verifiedCombos';
 
 export type { PreassignedSongSlot };
 
@@ -96,7 +99,21 @@ export function preallocateSongSlots(
   // as recentVocalComboSignatures above). resolveFlagshipVocalOrder falls
   // back to a plain seed-picked order when this is absent (e.g. a channel's
   // first ever generation).
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] }
+  avoid?: {
+    usedTitles?: string[];
+    usedHooks?: string[];
+    recentVocalComboSignatures?: string[];
+    previousFlagshipOrder?: VocalType[];
+    /**
+     * v3.82 (TASK A) — already workspace-scoped + seed-merged (see
+     * core/verifiedCombos.ts's effectiveVerifiedCombos), pre-fetched by the
+     * caller (providers/index.ts) — same "core stays sync/pure, caller owns
+     * IndexedDB" split as recentVocalComboSignatures/previousFlagshipOrder
+     * above. Consulted only for the flagship (track 2) slot — see this
+     * function's own flagshipCombo local below.
+     */
+    verifiedCombos?: VerifiedCombo[];
+  }
 ): PreassignedSongSlot[] {
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
@@ -135,6 +152,32 @@ export function preallocateSongSlots(
   const genrePlan = manualGenrePlan.length
     ? appendGenreAutoRemainder(manualGenrePlan, autoGenrePlan, opts.songCount)
     : autoGenrePlan;
+  // v3.82 (TASK A) — flagship (track 2, idx=1) genre override from a
+  // verified-good combo (see core/verifiedCombos.ts's own doc comment: a
+  // real listening-confirmed genre+BPM pairing, e.g. "philly-soul-sweet at
+  // 81 BPM", every one of T1/T4/T7 scored good). Only track 2 today, since
+  // the registry currently holds exactly one qualifying combo; a second
+  // approved combo would naturally have room to also fill track 3 later —
+  // this override just applies whatever the registry currently offers,
+  // never invents a second one. Swaps with another (non-flagship, idx>=3)
+  // track already carrying that genre id when one exists, so the overall
+  // genre-count distribution genreIssues (designGate.ts) checks stays
+  // intact; falls back to a direct overwrite (a single-track perturbation)
+  // only when no such swap candidate exists.
+  const flagshipCombo = opts.songCount >= 3 ? resolveFlagshipCombo(avoid?.verifiedCombos ?? [], genrePool) : undefined;
+  if (flagshipCombo && genrePlan[1] !== flagshipCombo.genreId) {
+    const swapIndex = genrePlan.findIndex((id, i) => i >= 3 && id === flagshipCombo.genreId);
+    if (swapIndex !== -1) {
+      const tmp = genrePlan[1];
+      genrePlan[1] = genrePlan[swapIndex];
+      genrePlan[swapIndex] = tmp;
+    } else {
+      genrePlan[1] = flagshipCombo.genreId;
+    }
+  }
+  const flagshipComboTempo = flagshipCombo
+    ? Math.round((flagshipCombo.bpmRange[0] + flagshipCombo.bpmRange[1]) / 2)
+    : undefined;
   // TASK v3.67 (TASK A) — one killing point per track (undefined for
   // peakStrength 'none'), matched against this track's own lead genre's
   // eraTag — mirrors localGenerator.ts's own killingPointPlan pre-pass
@@ -231,6 +274,21 @@ export function preallocateSongSlots(
     : null;
   if (vocalPlan && flagshipVocalOrder) {
     vocalPlan = applyFlagshipVocalOrder(vocalPlan, flagshipVocalOrder);
+  }
+  // v3.82 (TASK A) — flagshipCombo.vocalType is undefined for the app's own
+  // current registry entry (T7 itself proved gender doesn't matter for this
+  // combo — see verifiedCombos.ts), so this never fires today; kept for a
+  // future combo that DOES specify one. Swaps track 2 with another (idx>=3)
+  // track already carrying that vocal type, preserving the pack's overall
+  // 6/6/6-style type totals — never a blunt overwrite, which could silently
+  // break vocalIssues' (designGate.ts) own count checks.
+  if (vocalPlan && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
+    const swapIndex = vocalPlan.findIndex((type, i) => i >= 3 && type === flagshipCombo.vocalType);
+    if (swapIndex !== -1) {
+      const tmp = vocalPlan[1];
+      vocalPlan[1] = vocalPlan[swapIndex];
+      vocalPlan[swapIndex] = tmp;
+    }
   }
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song
@@ -431,12 +489,32 @@ export function preallocateSongSlots(
       const relaxesDiatonic = killingPoint?.relaxes.includes('predictable diatonic phrase structure');
       return relaxesDiatonic && /predictable cadence/i.test(text) ? rotatingEarwormText(seed, idx + 1) : text;
     })();
+    // v3.82 (TASK A) — flagship (track 2) tempo override from the same
+    // verified combo that overrode genreId above; clamped to the audience's
+    // own tempoFloor/tempoCeiling so it can never violate bpm-within-profile
+    // (designGate.ts's bpmIssues) even if a future combo's bpmRange is wider
+    // than this audience profile allows.
+    const resolvedTempo = idx === 1 && flagshipComboTempo !== undefined
+      ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
+      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+    // v3.82 (TASK B) — BPM-appropriate section/word/instrumental-section
+    // targets for this track (see core/bpmLengthControl.ts's own doc
+    // comment for the real-measurement root cause). Flagship slots (tracks
+    // 2-3) are additionally hard-capped at 1 instrumental section
+    // regardless of tier, per this task's own §3 대표곡 규격 확정 ("악기 구간
+    // 최대 1 — T7이 2개여서 4:16이 됐습니다").
+    const bpmTier = resolveBpmLengthTier(resolvedTempo);
+    const isFlagshipSlot = idx === 1 || idx === 2;
     return {
       trackNo,
       title,
       hookPhrase: hook,
       songRole,
-      tempo: averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling),
+      tempo: resolvedTempo,
+      sectionCountRange: bpmTier.sectionRange,
+      wordCountRange: bpmTier.wordRange,
+      maxInstrumentalSections: isFlagshipSlot ? Math.min(1, bpmTier.maxInstrumentalSections) : bpmTier.maxInstrumentalSections,
+      estimatedLengthSec: Math.round(estimateSongLengthSec(resolvedTempo, structureTemplatePlan[idx])),
       emotionArc: emotionArcPlan[idx],
       moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
         ...(genreId ? { genreId } : {}),

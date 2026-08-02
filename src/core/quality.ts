@@ -1,10 +1,11 @@
-import type { ChannelProfile, LyricLanguage, SongIdea } from '../types';
+import type { ChannelProfile, LyricLanguage, SongIdea, SongScores } from '../types';
 import { hookLength, isWithinHookLengthBounds } from './lyricEngine';
 import { countWords, SAFE_TARGET, STYLE_CHAR_TARGET, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT } from './promptBudget';
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from './sunoSafety';
 import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { eraLyricSafetyIssues } from '../data/japaneseEraGuidance';
+import { extractContentIdFlags } from './exportCompliance';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -571,10 +572,31 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     score -= 5;
   }
 
+  const structureScore = Math.max(0, score);
+  // v4.1 (TASK D) — safety is its own axis, not folded into the structural
+  // score above: a copyright/imitation/artist-name/blocked-token hit is a
+  // legal/policy risk, not a formatting nit, and burying it inside one
+  // combined number is exactly the "49% concept fit hidden behind 95
+  // structure" problem this task exists to fix. Reuses
+  // exportCompliance.ts's own extractContentIdFlags so this score and the
+  // pre-upload Content ID checklist never disagree about what counts as a
+  // flag. Flat per-flag penalty (not a re-derivation of scoreSong's own
+  // per-category deduction amounts above) — documented as a heuristic, not
+  // a precise legal-risk model.
+  const safetyScore = Math.max(0, 100 - extractContentIdFlags({ warnings }).length * 25);
+
   return {
     ...song,
     stylePrompt,
-    qualityScore: Math.max(0, score),
+    qualityScore: structureScore,
+    // v4.1 (TASK D) — conceptFitScore/diversityScore are pack-level (need
+    // every song in the set, not just this one); scoreSong only ever sees
+    // one song, so they're provisionally neutral (100 = "nothing measured
+    // yet, don't penalize") here and get overwritten with real pack-aware
+    // values by scoreSongs below. A caller that calls scoreSong directly
+    // (bypassing scoreSongs) keeps this neutral placeholder rather than a
+    // fabricated number.
+    scores: { structureScore, safetyScore, conceptFitScore: 100, diversityScore: 100 } satisfies SongScores,
     warnings,
     promptLength: stylePrompt.length,
     promptWithinLimit: stylePrompt.length <= SUNO_COPY_LIMIT,
@@ -582,6 +604,43 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   };
 }
 
+/**
+ * v4.1 (TASK D) — light, undocumented-precision heuristic: how much does
+ * this song's own genre/vocal-type repeat elsewhere in the pack? The more
+ * a song's own (genre, vocalType) pair dominates the set, the less it
+ * personally contributes to the pack's variety. NOT a rigorous diversity
+ * algorithm (this task's own scope explicitly doesn't ask for one) — a
+ * rough, bounded signal only.
+ */
+function packDiversityScore(song: SongIdea, songs: SongIdea[]): number {
+  if (songs.length <= 1) return 100;
+  const genreShare = song.genreId ? songs.filter(other => other.genreId === song.genreId).length / songs.length : 0;
+  const vocalShare = song.vocalType ? songs.filter(other => other.vocalType === song.vocalType).length / songs.length : 0;
+  const penalty = Math.round(((genreShare + vocalShare) / 2) * 60);
+  return Math.max(20, Math.min(100, 100 - penalty));
+}
+
+// v4.1 (TASK D) — conceptFitScore is deliberately NOT computed here even
+// though it's pack-level like diversityScore above: it needs v3.76's
+// auditPromises (core/promiseAudit.ts), which itself depends (transitively,
+// via core/localGenerator.ts's emotionArcsBrightOpening/CalmThroughout/
+// StrongLift exports) on this file's own scoreSongs — importing it here
+// would close a 3-module circular import (quality.ts -> promiseAudit.ts ->
+// localGenerator.ts -> quality.ts), which real breakage confirmed: the
+// cycle leaves promiseAudit.ts's module-level MOOD_KEYWORDS table holding
+// undefined for those pool imports at construction time, crashing every
+// pack whose concept text contains a mood keyword (e.g. "잔잔한"). Applying
+// conceptFitScore is the display layer's job instead — see
+// core/promiseAudit.ts's applyConceptFitScore, called once real concept
+// text is known (Step4Result.tsx), not on every generation-path scoreSongs
+// call.
 export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language: LyricLanguage = 'english') {
-  return songs.map(song => scoreSong(song, channel, language));
+  const scored = songs.map(song => scoreSong(song, channel, language));
+  return scored.map(song => ({
+    ...song,
+    scores: {
+      ...(song.scores as SongScores),
+      diversityScore: packDiversityScore(song, scored)
+    }
+  }));
 }

@@ -19,6 +19,7 @@ import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
 import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
+import { resolveLyricRange } from './lyricMetrics';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -830,6 +831,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const structureTemplateInstruction = hasStructureTemplate
     ? ` Each entry also includes "structureTemplate" (one of T1-T5). Structure templates, each a different lyric section order: ${structureTemplateLegend()}. Write THIS song's lyrics — actual section content, not the letter code — following its assigned template's section order exactly; do not default back to T1's shape for a track assigned a different template, and do not invent a different template than the one assigned.`
     : '';
+  // v3.82 (TASK B) — mirrors core/bridgeInstruction.ts's identical
+  // songLengthInstructionLine/Length-target-column addition (same real
+  // T1/T4/T7 measurement — see core/bpmLengthControl.ts's own doc comment):
+  // a slow-BPM track needs FEWER sections/words and a tighter instrumental-
+  // section cap than a fast one to land in the same clock-time target.
+  const hasLengthTarget = batch.preassignedSongs?.some(slot => slot.sectionCountRange);
+  const lengthTargetInstruction = hasLengthTarget
+    ? ' Each entry also includes "sectionCountRange", "wordCountRange", and "maxInstrumentalSections" — that track\'s own BPM-appropriate targets (a slower tempo gets a shorter structure so it still lands in the pack\'s target song length). Stay within these instead of one flat target regardless of tempo; do not add an extra instrumental-only section beyond maxInstrumentalSections (counting the intro if it has no lyrics) just because the tempo feels slow.'
+    : '';
   // TASK v3.67 (TASK A) — killingPointText is conveyed as INTENT, never a
   // verbatim phrase to force-copy (unlike hookDeviceText/moneyChordText
   // above) — the whole point is that the composer decides the concrete
@@ -872,6 +882,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
     ...(hasArrangementDensity ? ['arrangementDensity'] : []),
     ...(hasStructureTemplate ? ['structureTemplate'] : []),
+    ...(hasLengthTarget ? ['sectionCountRange', 'wordCountRange', 'maxInstrumentalSections'] : []),
     ...(hasKillingPoint ? ['killingPointText', 'killingPointPlacement'] : []),
     ...(hasLyricTheme ? ['lyricTheme', 'lyricThemeText', 'lyricThemeArc'] : []),
     ...(hasPov ? ['pov'] : []),
@@ -892,7 +903,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasConceptText ? ['conceptText', 'conceptLyricImages'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${lengthTargetInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }
@@ -945,6 +956,13 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
   const earwormNote = opts.earwormMode ? earwormSystemNote(Boolean(batch?.preassignedSongs?.some(slot => slot.earwormText))) : '';
   const eraLyricGuidance = eraLyricGuidanceForArchetype(opts.channel.archetype);
   const totalSongCount = totalSongCountOverride ?? batch?.totalSongCount ?? opts.songCount;
+  // v4.1 (TASK B) -- was a flat MIN_LYRIC_WORDS/MAX_LYRIC_WORDS (English-only)
+  // instruction regardless of opts.lyricLanguage; now reads the real
+  // per-language target (core/lyricMetrics.ts's resolveLyricRange). English
+  // still resolves to the same 215-230 (MIN_LYRIC_WORDS/MAX_LYRIC_WORDS stay
+  // exported as that English default/fallback, unchanged).
+  const lyricUnitLabel = opts.lyricLanguage === 'japanese' ? 'characters' : 'words';
+  const [minLyricUnits, maxLyricUnits] = resolveLyricRange(opts.lyricLanguage, audienceProfileForAgeGroup(opts.channel.audience)).primaryRange;
 
   // TASK v3.70 (TASK C) — real listening feedback: every chorus (including
   // the two earlier ones) bookended the hook, so the same line sang ~6x/song
@@ -987,7 +1005,7 @@ Rules:
 - CRITICAL — do NOT add an "[end]" or "[outro]" tag (or any closing/fade-out tag) after the final chorus. Neither does anything in Suno — they only add a section that inflates the song's render length past its target duration. The final chorus (or that structure template's own tagged final-chorus marker) is the LAST thing in "lyrics"; nothing follows it. Real, previously-shipped mistake: every song in a real pack ended with a trailing "[end]" tag despite this exact instruction being given.
 - CRITICAL — arrangement/production vocabulary belongs ONLY in "stylePrompt", never in "lyrics". If "preassignedSongs" gives you "introTextureText", "instrumentSet", "arrangementDensity", "hookDeviceText", or "moneyChordText" to weave in, those exact words (and any other instrument name, playing technique, or production/mix term — guitar, piano, drums, strings, brass, percussion, stop-time, breakdown, tape saturation, etc.) go into the stylePrompt string only. A lyric line must never describe what an instrument or the arrangement is doing — a listener sings words, not a mix note. Forbidden examples (real, previously-shipped mistakes): "Spiccato strings flicker over quiet water", "The straight-pop drums move softly", "Now the stop-time opens brighter", "The bass and drums fall silent". Section tags themselves ([breakdown], [instrumental hook], etc.) are fine; a sentence describing the arrangement underneath one is not.
 - Each song's hookPhrase must not contradict that song's own "listenerSituation" on time of day — if the scene is a morning/dawn moment, the hook (and the lyrics built around it) must not say "tonight"/"night"/"evening"/"midnight", and vice versa. Real, previously-shipped mistake: listenerSituation "sitting with morning coffee before the day begins" paired with hookPhrase "Stay with Me Tonight".
-- Each song's "lyrics" must total ${MIN_LYRIC_WORDS}-${MAX_LYRIC_WORDS} words (not counting section tags like [chorus]) — this is what actually determines Suno's rendered length; a short ~100-150 word lyric renders as a short ~2:00-2:20 song regardless of any target duration. Target render length for this pack: ${compactDuration(opts.durationTarget, true)}.
+- Each song's "lyrics" must total ${minLyricUnits}-${maxLyricUnits} ${lyricUnitLabel} (not counting section tags like [chorus]) — this is what actually determines Suno's rendered length; a short lyric renders noticeably shorter than target regardless of any target duration. Target render length for this pack: ${compactDuration(opts.durationTarget, true)}.
 - Give each section room to breathe rather than compressing it to hit the word count with fewer, shorter sections: a verse should run 5-6 lines, a pre-chorus or bridge 2-4 lines, a chorus 3-4 lines including its repeated hook line. A 2-3 line verse undercuts both the word-count floor above and the target render length even when the section TAGS match the assigned structure template.
 - Every song should include at least one genuinely wordless instrumental moment somewhere — either an instrumental intro before the first vocal line (when this song's plan calls for one, see "Intro" below) or, for a song whose intro is vocal, a short 4-8 bar instrumental break/solo before the final chorus with no lyric line under it. This costs a few seconds of render time without adding a single word of lyric content, and real listening measured most of a pack coming back with no instrumental section at all despite being planned.
 - Include this exact phrase as one of stylePrompt's own descriptor clauses in EVERY song, verbatim: "${compactDuration(opts.durationTarget, false, true)}". Every song in this pack carries the identical phrase — that is intentional and required, not a "shared/redundant atom" to trim, vary, or omit; this is the one clause allowed to repeat identically across every song in the pack.

@@ -46,10 +46,15 @@ export async function recomposeBlockingTracks(
   let current = songs;
   const log: RecomposeLogEntry[] = [];
   const scoreOpts = { historicalHooks };
-  const blockingTrackNos = scoreComposition(current, scoreOpts).filter(score => !score.passed).map(score => score.trackNo);
+  // v4.1 (TASK C) — .tracks only (not packBlocking/packAdvisory): a
+  // pack-level design issue (era share, BPM/vocal structure collapse) isn't
+  // fixable by recomposing any one song, so this loop — which regenerates
+  // exactly one track at a time — must never target one just because a
+  // pack-level finding used to be copied into its own blocking list.
+  const blockingTrackNos = scoreComposition(current, scoreOpts).tracks.filter(score => !score.passed).map(score => score.trackNo);
 
   for (const trackNo of blockingTrackNos) {
-    let score = scoreComposition(current, scoreOpts).find(item => item.trackNo === trackNo)!;
+    let score = scoreComposition(current, scoreOpts).tracks.find(item => item.trackNo === trackNo)!;
     const initialBlockingCount = score.blocking.length;
     let attempts = 0;
     let abortedEarly = false;
@@ -58,7 +63,7 @@ export async function recomposeBlockingTracks(
       const feedback = score.blocking;
       current = await regenerateOne(current, trackNo, feedback);
       attempts += 1;
-      const nextScore = scoreComposition(current, scoreOpts).find(item => item.trackNo === trackNo)!;
+      const nextScore = scoreComposition(current, scoreOpts).tracks.find(item => item.trackNo === trackNo)!;
       if (nextScore.blocking.length >= score.blocking.length) {
         score = nextScore;
         abortedEarly = attempts < RECOMPOSE_MAX_RETRIES;

@@ -5,12 +5,16 @@ import { runFullAudit } from './fullAudit';
 import type { FullAuditReport } from './fullAudit';
 import { evaluateDesignGate } from './designGate';
 import type { DesignGateResult } from './designGate';
+import { evaluateGenerationGate } from './generationGate';
+import type { GenerationGateResult } from './generationGate';
 import type { AudienceProfile, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, PreassignedSongSlot, SeasonPack, SongIdea } from '../types';
 import type { AudioSetReport } from './audioSetReport';
 import type { ResolvedConstraints } from './constraints';
 import type { VocalType } from './vocalPlan';
+import type { VerifiedCombo } from '../data/verifiedCombos';
+import type { ScoreCompositionOptions } from './compositionScorer';
 
-type Avoid = { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] };
+type Avoid = { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[]; verifiedCombos?: VerifiedCombo[] };
 
 /**
  * v4.0 (TASK A) — browser UI path for the local-generation pipeline (blueprint
@@ -121,6 +125,20 @@ export async function evaluateDesignGateResponsive(
     { type: 'designGate', slots, constraints, opts },
     'designGate',
     '설계 관문 평가 시간이 120초를 넘겨 중단했습니다.'
+  );
+  return response.result;
+}
+
+/** v4.1 (TASK C) — closes the one gap left over from v4.0's own worker migration: evaluateGenerationGate ("관문 2") was still running synchronously in Step4Result.tsx's own useMemo. */
+export async function evaluateGenerationGateResponsive(
+  songs: SongIdea[],
+  opts: ScoreCompositionOptions & { conceptLabel?: string }
+): Promise<GenerationGateResult> {
+  if (typeof Worker === 'undefined') return evaluateGenerationGate(songs, opts);
+  const response = await runOnWorker<{ type: 'generationGate'; ok: true; result: GenerationGateResult }>(
+    { type: 'generationGate', songs, opts },
+    'generationGate',
+    '생성 검증(관문 2) 시간이 120초를 넘겨 중단했습니다.'
   );
   return response.result;
 }

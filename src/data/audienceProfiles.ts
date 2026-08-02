@@ -132,7 +132,25 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   arcModelId: 'five-phase',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: ['1960s-youth', '1970s-domestic', 'seasonal', 'emotional']
+  vocabularyBankIds: ['1960s-youth', '1970s-domestic', 'seasonal', 'emotional'],
+  /**
+   * v4.1 (TASK B) — real per-language lyric targets (core/lyricMetrics.ts's
+   * measureLyrics). ESTIMATES, not yet calibrated against a real generated
+   * set per language — this task's own spec gives these as starting points,
+   * with actual calibration explicitly deferred to v4.2. English's
+   * primaryRange narrows this profile's pre-existing lyricWordRange
+   * ([200,250]) to the tighter 215-230 the spec names; syllableRange is
+   * derived from that word range at ~1.3 syllables/word (not independently
+   * measured). Korean/Japanese ranges are copied directly from the spec's
+   * own table. bilingual has no real data yet, so it reuses English's
+   * range rather than inventing one.
+   */
+  lyricMetricsByLanguage: {
+    english: { primaryRange: [215, 230], syllableRange: [280, 300] },
+    korean: { primaryRange: [150, 180], syllableRange: [350, 450] },
+    japanese: { primaryRange: [400, 520], syllableRange: [400, 520] },
+    bilingual: { primaryRange: [215, 230], syllableRange: [280, 300] }
+  }
 };
 
 /**

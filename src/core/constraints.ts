@@ -1,4 +1,4 @@
-import type { AudienceProfile, GenrePack, WorkspaceId } from '../types';
+import type { AudienceProfile, ConceptBreadth, GenrePack, WorkspaceId } from '../types';
 import { genreLibrary, getGenreById } from '../data/genreLibrary';
 import { ERA_BUCKET_BY_GENRE_ID, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { TITLE_PATTERNS } from '../data/titlePatterns';
@@ -73,6 +73,11 @@ export interface ResolvedConstraints {
   workspaceId: WorkspaceId;
   audienceProfileId: string;
   conceptLabel: string;
+
+  /** v4.1 (TASK A) — see types.ts's ConceptBreadth doc comment. */
+  breadth: ConceptBreadth;
+  /** 'user' when opts.breadthOverride was set, 'auto' when detectConceptBreadth decided it. */
+  breadthSource: 'auto' | 'user';
 
   era: EraConstraint;
   title: TitleConstraint;
@@ -200,6 +205,65 @@ export function extractEraConstraint(freeText: string, artistReferenceEraTags: s
   const forbidden = REAL_ERA_BUCKETS.filter(bucket => bucket !== primary && !adjacentSet.has(bucket));
 
   return { primary, adjacent, forbidden, unspecified: false };
+}
+
+// ---------------------------------------------------------------------------
+// v4.1 (TASK A) — concept breadth detection
+// ---------------------------------------------------------------------------
+
+/**
+ * A small, explicit set of single-genre Korean/English names this app's
+ * concept text actually uses (matches data/genreLibrary.ts's real genre
+ * vocabulary at a coarse level) — not a full NLP genre classifier. Counting
+ * how many of these appear distinguishes "정확히 한 장르가 명시됨" (focused)
+ * from "여러 장르가 나열됨" (variety) without needing to parse every one of
+ * the ~320 genre labels in genreLibrary.ts against free Korean text.
+ */
+const SINGLE_GENRE_HINT_WORDS = [
+  '샹송', '보사노바', '재즈', '발라드', '시티팝', '어쿠스틱', 'r&b', '알앤비',
+  '소울', '트로트', '포크', '신스팝', '컨템포러리', '로파이', 'lo-fi'
+];
+
+function countGenreHintWords(text: string): number {
+  const lower = text.toLowerCase();
+  return SINGLE_GENRE_HINT_WORDS.filter(word => lower.includes(word.toLowerCase())).length;
+}
+
+const FOCUSED_SOLE_MARKER_PATTERN = /(으)?로만|위주로|통일감|한\s*가지\s*(색|느낌|장르)로/;
+const FOCUSED_BACKGROUND_USE_PATTERN = /수면용|잠\s*잘\s*때|공부할\s*때|공부용|카페\s*배경|백색소음|업무용|집중할\s*때|명상/;
+const FOCUSED_MOOD_ONLY_PATTERN = /잔잔한|차분한|조용한|담백한|슬로우/;
+const FOCUSED_MOOD_CONFLICT_PATTERN = /신나는|밝은|경쾌한|업템포|다양한/;
+
+const VARIETY_KEYWORD_PATTERN = /다양한|여러\s*(장르|스타일)?|골고루|모음|믹스/;
+const VARIETY_GENRE_LIST_PATTERN = /[가-힣]+\s*(이랑|랑|와|과)\s*[가-힣]+\s*(이랑|랑|와|과)/;
+
+/**
+ * v4.1 (TASK A) — same "자유 텍스트를 정규식 키워드로 판정" shape as
+ * extractEraConstraint above, deliberately: this is a heuristic detector,
+ * not a hard classifier, so it's designed to fail toward 'balanced' (today's
+ * existing fixed thresholds) rather than guess wrong in either narrow
+ * direction. `era` is passed in (not re-derived) so a compound-decade
+ * concept ("60~70년대 향수") counts as a variety signal for free — that's
+ * already exactly what era.coPrimary/era.adjacent mean.
+ */
+export function detectConceptBreadth(freeText: string, era: EraConstraint): ConceptBreadth {
+  const hasCompoundEra = Boolean(era.coPrimary) || era.adjacent.length > 0;
+  const genreHintCount = countGenreHintWords(freeText);
+  const hasVarietySignal = hasCompoundEra
+    || VARIETY_KEYWORD_PATTERN.test(freeText)
+    || VARIETY_GENRE_LIST_PATTERN.test(freeText)
+    || genreHintCount >= 3;
+  if (hasVarietySignal) return 'variety';
+
+  const hasSoleGenreMention = genreHintCount === 1;
+  const hasFocusedMoodOnly = FOCUSED_MOOD_ONLY_PATTERN.test(freeText) && !FOCUSED_MOOD_CONFLICT_PATTERN.test(freeText);
+  const hasFocusedSignal = FOCUSED_SOLE_MARKER_PATTERN.test(freeText)
+    || FOCUSED_BACKGROUND_USE_PATTERN.test(freeText)
+    || hasSoleGenreMention
+    || hasFocusedMoodOnly;
+  if (hasFocusedSignal) return 'focused';
+
+  return 'balanced';
 }
 
 const GENRE_ERA_QUOTA_PER_GENRE_CAP = 5;
@@ -505,6 +569,8 @@ export interface ConceptInput {
   conceptLabel: string;
   /** Era-tag text from any decomposed artist reference (core/artistReferenceDecomposer.ts's DecomposedReference.eraTag) — kept as plain strings so this module never needs to import that module's full type. */
   artistReferenceEraTags?: string[];
+  /** v4.1 (TASK A) — explicit user choice (GenerationOptions.breadthOverride) — wins over detectConceptBreadth's own auto-detection when present. */
+  breadthOverride?: ConceptBreadth;
 }
 
 export interface WorkspaceLike {
@@ -529,6 +595,8 @@ export function resolveConstraints(
   const era = extractEraConstraint(concept.conceptLabel, concept.artistReferenceEraTags);
   const title = buildTitleConstraint(era, songCount);
   const vocabulary = buildVocabularyConstraint(era, workspace.id, audience);
+  const breadth = concept.breadthOverride ?? detectConceptBreadth(concept.conceptLabel, era);
+  const breadthSource: 'auto' | 'user' = concept.breadthOverride ? 'user' : 'auto';
 
   const genreCandidates = era.unspecified
     ? []
@@ -537,6 +605,8 @@ export function resolveConstraints(
   return {
     workspaceId: workspace.id,
     audienceProfileId: audience.id,
+    breadth,
+    breadthSource,
     conceptLabel: concept.conceptLabel,
     era,
     title,
@@ -568,9 +638,10 @@ export function resolveConstraintsFromOptions(opts: {
   projectTitle: string;
   songCount: number;
   channel: { archetype?: string };
+  breadthOverride?: ConceptBreadth;
 }, audience: AudienceProfile, workspaceId: WorkspaceId = 'senior-oldpop'): ResolvedConstraints {
   const conceptLabel = opts.customConcept?.trim() || opts.projectTitle;
-  return resolveConstraints({ conceptLabel }, { id: workspaceId }, audience, opts.songCount || 18);
+  return resolveConstraints({ conceptLabel, breadthOverride: opts.breadthOverride }, { id: workspaceId }, audience, opts.songCount || 18);
 }
 
 export { getGenreById };

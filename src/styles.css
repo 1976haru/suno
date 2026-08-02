@@ -841,6 +841,17 @@ textarea {
   margin-top: 18px;
 }
 
+/* v3.82 (TASK A) — VerifiedComboPanel.tsx */
+.verified-combo-suggestion {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.verified-combo-suggestion .button-row {
+  margin-top: 6px;
+}
+
 .load-warning {
   background: rgba(180, 60, 60, 0.1);
   border: 1px solid rgba(180, 60, 60, 0.35);

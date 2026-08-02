@@ -3,7 +3,7 @@ import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { getGenreById, genreLibrary } from '../../data/genreLibrary';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
-import { directSetLocal, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
+import { BREADTH_LABEL_KO, directSetLocal, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
 import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
@@ -14,8 +14,11 @@ import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { currentWorkspaceId } from '../../core/workspaceScope';
+import { effectiveVerifiedCombos, getApprovedCombos } from '../../core/verifiedCombos';
+import type { VerifiedCombo } from '../../data/verifiedCombos';
 import DesignGatePanel from '../DesignGatePanel';
-import type { AxisAllocation, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
+import VerifiedComboPanel from '../VerifiedComboPanel';
+import type { AxisAllocation, ConceptBreadth, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
 import type { SetSegment } from '../../core/setDirector';
 
 interface Step2PlanProps {
@@ -139,8 +142,8 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid],
       recentHooks: [],
       insights: appliedInsights
-    }, familyIds, opts.vocalTone),
-    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone]
+    }, familyIds, opts.vocalTone, opts.breadthOverride),
+    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone, opts.breadthOverride]
   );
   const allocations = draftAllocations ?? plan.allocations;
   const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
@@ -177,9 +180,23 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     () => ({ ...opts, genreIds: gateGenreIds, diversityAllocations: allocations }),
     [opts, gateGenreIds, allocations]
   );
+  // v3.82 (TASK A) — same best-effort IndexedDB read as VerifiedComboPanel's
+  // own reload(); kept separate (not lifted into shared state) since this
+  // screen's gateSlots preview and that panel's "적용됨" note are allowed to
+  // refresh independently — a stale preview here for one render never blocks
+  // generation, and this mirrors the panel's own scope.
+  const [gateVerifiedCombos, setGateVerifiedCombos] = useState<VerifiedCombo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    getApprovedCombos(workspaceId)
+      .then(approved => { if (!cancelled) setGateVerifiedCombos(effectiveVerifiedCombos(workspaceId, approved)); })
+      .catch(() => { if (!cancelled) setGateVerifiedCombos([]); });
+    return () => { cancelled = true; };
+  }, []);
   const gateSlots = useMemo(
-    () => preallocateSongSlots(gateOpts, gateGenres, { usedTitles: [], usedHooks: [] }),
-    [gateOpts, gateGenres]
+    () => preallocateSongSlots(gateOpts, gateGenres, { usedTitles: [], usedHooks: [], verifiedCombos: gateVerifiedCombos }),
+    [gateOpts, gateGenres, gateVerifiedCombos]
   );
   const constraints = useMemo(
     () => resolveConstraintsFromOptions(gateOpts, audienceProfileForAgeGroup(gateOpts.audience), currentWorkspaceId()),
@@ -313,6 +330,28 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
         )}
       </div>
 
+      <div className="option-block compact">
+        <h4>이 세트의 성격</h4>
+        <div className="button-row segment-placement-row">
+          {(['focused', 'balanced', 'variety'] as ConceptBreadth[]).map(breadth => (
+            <label key={breadth}>
+              <input
+                type="radio"
+                name="conceptBreadth"
+                checked={plan.interpretation.breadth === breadth}
+                onChange={() => setOpts(prev => ({ ...prev, breadthOverride: breadth }))}
+              />
+              {BREADTH_LABEL_KO[breadth]}
+            </label>
+          ))}
+        </div>
+        <p className="supporting">
+          {plan.interpretation.breadthSource === 'user'
+            ? '직접 선택한 값입니다.'
+            : '컨셉 문구에서 자동 판정한 값입니다 — 필요하면 위에서 바꿀 수 있습니다.'}
+        </p>
+      </div>
+
       {designGateResult
         ? (
           <DesignGatePanel
@@ -323,6 +362,8 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
           />
         )
         : <div className="option-block compact">관문 1 검사 중...</div>}
+
+      <VerifiedComboPanel workspaceId={currentWorkspaceId()} availableGenreIds={gateGenreIds} />
 
       <div className="option-block">
         <div className="section-head">

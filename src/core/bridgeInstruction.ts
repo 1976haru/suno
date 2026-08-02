@@ -269,6 +269,23 @@ function tempoInstructionLine(): string {
   return '- Each "preassignedSongs" entry also includes "tempo" - use exactly that BPM number in that song\'s stylePrompt (e.g. "96 BPM"), verbatim. Do not invent a different tempo.';
 }
 
+/**
+ * v3.82 (TASK B) — real measurement: a 81 BPM track ran 4:16 against a
+ * 3:15-3:35 target while carrying almost the exact same word count as two
+ * other tracks at the same tempo that landed 3:30/3:58 — the actual
+ * difference was 9 sections + 2 instrumental-type sections vs 8+1. A slow
+ * tempo makes every section audibly LONGER in real time even at a flat word
+ * count, so the "Length target" column (see perTrackPlanTable above) scales
+ * both section count AND instrumental-section count with each track's own
+ * BPM, not just word count. CRITICAL-prefixed and placed right next to the
+ * existing CRITICAL tempo line (same reasoning as that line's own doc
+ * comment: a rule buried 1000+ lines into a real 18-song instruction gets
+ * missed).
+ */
+function songLengthInstructionLine(): string {
+  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure so the clock-time length still lands in the pack\'s target range). Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow; a slow track staying within its own target section count is what keeps it from running long.';
+}
+
 // TASK v3.62 (TASK 1-1) — was "weave that exact phrase into that song's
 // stylePrompt, verbatim." A real 1960s-flavored bridge pack got "warm
 // string pad swell" and "layered backing" — production textures that
@@ -482,18 +499,37 @@ function vocalCompositionSection(preassignedSongs: PreassignedSongSlot[]): strin
  * preassignedSongs already in the JSON payload, so the agent can see its
  * neighbors before composing any one track.
  */
+/**
+ * v3.82 (TASK B) — "Length target" column: real measurement traced a
+ * 4:16 render (target 3:15-3:35) to a slow-BPM track (81) carrying the same
+ * section/word count as a similar-length faster track — the composer had
+ * no idea a slow tempo needed a SHORTER structure to land in the same
+ * clock-time target (see core/bpmLengthControl.ts's own doc comment).
+ * Undefined for any slot missing these fields (defensive only — both
+ * core/batchPreallocation.ts and core/localGenerator.ts always set them).
+ */
+function lengthTargetCell(slot: PreassignedSongSlot): string {
+  if (!slot.sectionCountRange || !slot.wordCountRange) return '-';
+  const [sMin, sMax] = slot.sectionCountRange;
+  const [wMin, wMax] = slot.wordCountRange;
+  const cap = slot.maxInstrumentalSections ?? 1;
+  return `${sMin}-${sMax} sections, ${wMin}-${wMax} words, max ${cap} instrumental section${cap === 1 ? '' : 's'}`;
+}
+
 function perTrackPlanTable(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
   const genreLabel = (genreId: string | undefined) => genres.find(g => g.id === genreId)?.label ?? genreId ?? '-';
+  const hasLengthTarget = preassignedSongs.some(slot => slot.sectionCountRange);
   const rows = preassignedSongs.map(slot => [
     String(slot.trackNo),
     markdownCell(genreLabel(slot.genreId)),
     `${slot.tempo} BPM`,
     markdownCell(slot.vocalText ?? slot.vocalType ?? '-'),
-    markdownCell(slot.songRole)
+    markdownCell(slot.songRole),
+    ...(hasLengthTarget ? [markdownCell(lengthTargetCell(slot))] : [])
   ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'));
   return [
-    '| Track | Genre | BPM | Vocal | Role |',
-    '| --- | --- | --- | --- | --- |',
+    hasLengthTarget ? '| Track | Genre | BPM | Vocal | Role | Length target |' : '| Track | Genre | BPM | Vocal | Role |',
+    hasLengthTarget ? '| --- | --- | --- | --- | --- | --- |' : '| --- | --- | --- | --- | --- |',
     ...rows
   ].join('\n');
 }
@@ -873,6 +909,7 @@ export function buildClaudeCodeInstruction(
     moneyChordInstructionLineFor(preassignedSongs),
     genreInstructionLine,
     tempoInstructionLine(),
+    songLengthInstructionLine(),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
@@ -1096,6 +1133,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     moneyChordInstructionLineFor(allSlots),
     genreInstructionLine,
     tempoInstructionLine(),
+    songLengthInstructionLine(),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,

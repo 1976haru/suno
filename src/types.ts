@@ -2,6 +2,20 @@ export type ProviderType = 'local' | 'openai' | 'anthropic';
 
 export type Market = 'korea' | 'japan' | 'global' | 'custom';
 export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
+
+/**
+ * v4.1 (TASK A) — how narrow or wide a concept's own intended diversity is.
+ * 'focused': deliberately narrow ("잔잔한 보사노바 18곡", "수면용 어쿠스틱 팝") —
+ * genre/BPM/vocal-type variety gates should relax, but lyric-scene/emotion
+ * diversity must NOT (a unified sound needs MORE varied lyrics, not less —
+ * see this task's own "음악이 통일될수록 가사가 더 달라야 합니다"). 'variety':
+ * deliberately broad ("6070 올드팝 모음", "다양한 장르"). 'balanced': today's
+ * existing fixed thresholds, unchanged — the default when neither signal
+ * is detected. See core/constraints.ts's detectConceptBreadth for the
+ * auto-detector and core/designGate.ts's BREADTH_THRESHOLDS for the actual
+ * per-breadth gate numbers.
+ */
+export type ConceptBreadth = 'focused' | 'balanced' | 'variety';
 export type LyricPerspective = 'firstPerson' | 'secondPerson' | 'thirdPerson' | 'radioHost';
 export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepeat';
 /** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
@@ -146,6 +160,29 @@ export interface AudienceProfile {
   vocabularyBankIds: string[];
   /** D1's safety policy (children's workspaces) reads this; undefined for every non-children profile. */
   safetyPolicyId?: string;
+  /**
+   * v4.1 (TASK B) — per-language lyric length targets. Real measurement: a
+   * one-line Korean/Japanese/English translation of the same sentence came
+   * back 6/1/9 "words" under English's own whitespace-split word counter —
+   * Japanese has no spaces at all (the whole lyric collapses to ~1 "word"),
+   * Korean's 어절 count runs well below English's word count for the same
+   * sung duration. `lyricWordRange` above stays the language-agnostic
+   * legacy field (still read by any caller that hasn't migrated to
+   * core/lyricMetrics.ts's measureLyrics yet); this is the real per-language
+   * source of truth going forward. Optional per-language entry — a profile
+   * only needs to populate the languages it actually generates in.
+   * **Values below (where populated) are estimates from a single reference
+   * translation, not real Suno-render measurements — recalibrate after the
+   * first real Korean/Japanese sets (see v4.2's own stated purpose).**
+   */
+  lyricMetricsByLanguage?: Partial<Record<LyricLanguage, {
+    primaryRange: [number, number];
+    syllableRange: [number, number];
+    /** Kids-only: minimum required repeated-word ratio (0-1). */
+    repetitionRatioMin?: number;
+    /** Kids-only: maximum distinct non-repeated words allowed. */
+    uniqueWordMax?: number;
+  }>>;
 }
 
 export interface GenreLyricFlavorImage {
@@ -309,6 +346,14 @@ export interface GenerationOptions {
    * applies its ratio at any song count.
    */
   vocalQuota?: { male: number; female: number; mixed: number };
+  /**
+   * v4.1 (TASK A) — user override for core/constraints.ts's
+   * detectConceptBreadth auto-detection (Step2Plan.tsx's "이 세트의 성격" radio).
+   * Undefined means "trust the auto-detector" — this field only ever holds
+   * an EXPLICIT user choice, mirroring vocalQuota's own override pattern
+   * just above. See ResolvedConstraints.breadthSource for which one actually won.
+   */
+  breadthOverride?: ConceptBreadth;
   /** v3.8 — when true, per-song Style Prompts keep only song-specific differences because Suno Persona supplies the stable voice/style identity. */
   personaMode: boolean;
   /** TASK D5 (v3.6) — thumbnail/title packaging language; defaults from `market` (see core/packagingLanguage.ts) but can be overridden independent of lyricLanguage. */
@@ -409,6 +454,111 @@ export interface HumanContributionRecord {
   updatedAt: string;
 }
 
+/**
+ * v4.1 (TASK D) — six independent axes instead of one merged `qualityScore`
+ * number, per this task's own "합산하지 마십시오. 각각 표시하십시오." Never
+ * summed into a single score anywhere — a low `conceptFitScore` next to a
+ * high `structureScore` is the whole point (a structurally perfect song
+ * that doesn't fit the concept is not "mostly fine").
+ */
+export interface SongScores {
+  /** Structural/format compliance — identical computation to (and value of) SongIdea.qualityScore. */
+  structureScore: number;
+  /** Copyright/blocked-token/content-ID safety. */
+  safetyScore: number;
+  /** v3.76 promiseAudit's overallFulfillment for this pack, as a 0-100 score — pack-wide, so every song in the same pack shares this value (concept fit is a property of the whole set, not any one track). */
+  conceptFitScore: number;
+  /** How much this song's own genre/vocal-type contributes to the pack's overall variety — a light heuristic (this task's own scope doesn't ask for a rigorous algorithm), not a precise measurement. */
+  diversityScore: number;
+  /** v3.73/74 audio-render metrics based. Undefined when no audio take exists for this song yet. */
+  renderScore?: number;
+  /** v3.68 listener rating based. Undefined when this song has never been rated. */
+  listenerScore?: number;
+}
+
+/**
+ * v4.1 (TASK C) — how far a fix for this issue actually has to reach.
+ * Before this, every pack-level finding (title pattern, era share, vocab
+ * repetition, ...) was flattened into every track's own blocking list (see
+ * core/generationGate.ts's old `...pack.blocking` spread) — a 3-4-song
+ * title-pattern problem read as an 18-song failure. The 5 scopes here are
+ * this task's own classification table:
+ * - 'track': fixable by touching only this one song (word count,
+ *   placeholder text, vocab leak, missing vocal descriptor).
+ * - 'pair': fixable by touching the worse-scoring song of a 2-track
+ *   collision (scene/hook duplication).
+ * - 'rebalance': fixable by touching a MINIMUM subset of tracks, computed
+ *   from the actual shortfall (title pattern, emotion variety, vocal
+ *   descriptor variety, excess vocab repetition) — never the whole pack.
+ * - 'design': not fixable by regenerating songs at all; the pre-generation
+ *   design itself (genre/BPM/vocal-type allocation) needs to change (BPM
+ *   range, era share, genre skew, vocal type distribution).
+ * - 'full': the pack is broken badly enough (promise fulfillment <40%, or
+ *   >=12 blocking tracks) that a full regeneration is the realistic fix.
+ */
+export type IssueScope = 'track' | 'pair' | 'rebalance' | 'design' | 'full';
+
+export interface ScopedIssue {
+  scope: IssueScope;
+  /** Stable machine id for this finding (e.g. 'title-pattern-variety') — same id across recomputations, so UI state (dismissed/expanded) can key off it. */
+  id: string;
+  labelKo: string;
+  /** trackNos this specific finding actually touches. For 'design'/'full' scope this is every track in the pack (a design-level problem isn't any one song's fault, but nothing short of a redesign fixes it either) — the scope itself is what tells the UI a song-regen button can't help, not an empty list. */
+  affectedTracks: number[];
+  fixHintKo: string;
+}
+
+/**
+ * v4.2 (TASK A) — how much an A/B adoption-pair signal is worth trusting.
+ * Sign-test only (this task's own explicit "회귀·상관 분석을 쓰지 말 것,
+ * 부호 검정만 쓰십시오") — a win rate near 50% is noise regardless of n,
+ * and a strong-looking win rate under ~10 pairs is still noise from sample
+ * size alone. See core/adoptionAnalysis.ts for the actual thresholds.
+ */
+export type AdoptionConfidence = 'insufficient' | 'weak' | 'moderate' | 'strong';
+
+/**
+ * v4.2 (TASK A) — one metric's A/B adoption sign-test result (e.g. "does
+ * the take with higher dynamicRange get adopted more often"). Pure
+ * counting/ratio, not a regression coefficient — see AdoptionConfidence's
+ * own doc comment for why. `metric` is the AudioTake.metrics field name
+ * this insight measures (e.g. 'dynamicRange', 'peakPosition').
+ */
+export interface AdoptionInsight {
+  metric: string;
+  labelKo: string;
+  /** How many pairs adopted the take that scored HIGHER on `metric`. */
+  adoptedHigherCount: number;
+  totalPairs: number;
+  /** adoptedHigherCount / totalPairs. */
+  winRate: number;
+  meanDelta: number;
+  confidence: AdoptionConfidence;
+}
+
+/**
+ * v4.2 (TASK E) — how much confidence a quality threshold actually
+ * deserves, so the UI can tell "estimated" (a guess awaiting validation)
+ * apart from "measured"/"listener-verified" (backed by real data) instead
+ * of presenting every hardcoded number with equal, unearned authority. See
+ * this task's own §0-1 table — most of this app's existing thresholds are
+ * `estimated` today, not because they're wrong, but because nobody has
+ * checked yet.
+ */
+export type ThresholdBasis = 'measured' | 'listener-verified' | 'estimated';
+
+/** v4.2 (TASK E) — a single adjustable quality/gate threshold, stored as data (see data/qualityThresholds.ts) instead of a bare hardcoded number, so a validation pass (TASK C/D) has somewhere to record what it found without editing source constants directly. */
+export interface Threshold {
+  id: string;
+  labelKo: string;
+  value: number;
+  basis: ThresholdBasis;
+  /** How many real A/B pairs or listener ratings this basis rests on — undefined/0 for a still-`estimated` threshold. */
+  sampleSize?: number;
+  /** ISO date of the last time this threshold was checked against real data, regardless of whether the check changed its value. */
+  lastValidated?: string;
+}
+
 export interface SongIdea {
   trackNo: number;
   title: string;
@@ -444,6 +594,18 @@ export interface SongIdea {
   youtubeTitleKo?: string;
   youtubeTitleJa?: string;
   qualityScore: number;
+  /**
+   * v4.1 (TASK D) — `qualityScore` above only ever measured structural
+   * compliance (word count, prompt length, leak checks) but reads to a user
+   * as "overall quality" — a real pack showed structure=95/concept-fit=49%
+   * and the single merged number hid the low concept fit entirely. This is
+   * additive, never a replacement: `qualityScore` keeps its exact existing
+   * meaning/computation (still what `structureScore` below equals) for
+   * every caller that hasn't migrated. Optional because it's computed
+   * alongside scoring, not always available (e.g. a stub song before real
+   * scoring runs — see core/localGenerator.ts's own qualityScore:0 stubs).
+   */
+  scores?: SongScores;
   warnings: string[];
   /** TASK A5 (v3.5) — length/budget of the final stylePrompt against Suno's style-field limit; always set by core/quality.ts's scoreSong. */
   promptLength?: number;
@@ -806,6 +968,21 @@ export interface PreassignedSongSlot {
   arcPhase?: string;
   /** v3.68 (TASK B) — this trackNo's arc intensity, 1-5 (see core/arcPlan.ts), for rating analysis. */
   intensity?: number;
+  /**
+   * v3.82 (TASK B) — this trackNo's BPM-appropriate lyric length targets
+   * (see core/bpmLengthControl.ts's resolveBpmLengthTier), so a slow-tempo
+   * track is told to use FEWER sections/words than a fast one instead of
+   * one flat target regardless of tempo (the real cause of T7's 4:16 — see
+   * that module's own doc comment). Always set when `tempo` is (i.e.
+   * always, in practice) by both core/batchPreallocation.ts and
+   * core/localGenerator.ts's pre-pass.
+   */
+  sectionCountRange?: [number, number];
+  wordCountRange?: [number, number];
+  /** v3.82 (TASK B) — total instrumental-only sections allowed for this trackNo, INCLUDING the intro if instrumental. Flagship slots (tracks 2-3) are additionally hard-capped at 1 regardless of this tier value — see core/batchPreallocation.ts's own flagship override. */
+  maxInstrumentalSections?: number;
+  /** v3.82 (TASK B) — this trackNo's own design-time estimated render length in seconds (core/bpmLengthControl.ts's estimateSongLengthSec), for UI/report display alongside the design gate's own blocking check. */
+  estimatedLengthSec?: number;
 }
 
 export interface BatchContext {

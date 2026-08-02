@@ -52,23 +52,23 @@ function songWith(overrides: Partial<SongIdea> = {}): SongIdea {
 describe('[v3.62 TASK 2] scoreComposition — reused blocking checks', () => {
   it('blocks a song whose lyrics sing an arrangement/instrument as the grammatical subject (TASK v3.60 TASK A, reused)', () => {
     const song = songWith({ lyrics: '[verse 1]\nThe straight-pop drums move softly\n\n[chorus]\nSong One Hook\nline\nSong One Hook\nline\nline\nline\nSong One Hook\n\n[end]' });
-    const [score] = scoreComposition([song]);
+    const [score] = scoreComposition([song]).tracks;
     expect(score.passed).toBe(false);
     expect(score.blocking.some(b => b.includes('편곡/악기 어휘'))).toBe(true);
   });
 
   it('blocks a song with an artist-name leak in stylePrompt, lyrics, or youtube metadata (TASK v3.58 TASK 3, reused)', () => {
     const styleLeak = songWith({ stylePrompt: 'in the style of the Beatles, jangly guitars, 100 BPM' });
-    expect(scoreComposition([styleLeak])[0].blocking.some(b => b.includes('아티스트/밴드명 누출'))).toBe(true);
+    expect(scoreComposition([styleLeak]).tracks[0].blocking.some(b => b.includes('아티스트/밴드명 누출'))).toBe(true);
 
     const youtubeLeak = songWith({ youtube: { title: 'Beatles-style song', description: 'desc', tags: [] } });
-    expect(scoreComposition([youtubeLeak])[0].blocking.some(b => b.includes('youtube'))).toBe(true);
+    expect(scoreComposition([youtubeLeak]).tracks[0].blocking.some(b => b.includes('youtube'))).toBe(true);
   });
 
   it('blocks the pair of songs whose style prompts are too similar (TASK v3.58 TASK 1 threshold, reused)', () => {
     const identical = 'oldpop-british-beat, 12-string electric guitar, melodic walking bass, tambourine backbeat, mature male tenor lead, 100 BPM, bright studio mix';
     const songs = [songWith({ trackNo: 1, stylePrompt: identical }), songWith({ trackNo: 2, stylePrompt: identical, hookPhrase: 'Other Hook' })];
-    const scores = scoreComposition(songs);
+    const scores = scoreComposition(songs).tracks;
     expect(scores.every(s => !s.passed)).toBe(true);
     expect(scores[0].blocking.some(b => b.includes('유사도'))).toBe(true);
   });
@@ -78,7 +78,7 @@ describe('[v3.62 TASK 2] scoreComposition — reused blocking checks', () => {
       songWith({ trackNo: 1, stylePrompt: 'oldpop-british-beat, 12-string electric guitar, melodic walking bass, tambourine backbeat, mature male tenor lead, 100 BPM' }),
       songWith({ trackNo: 2, stylePrompt: 'folk-pop, fingerpicked acoustic guitar, soft piano, upright bass, plainspoken lead vocal, 92 BPM', hookPhrase: 'Other Hook' })
     ];
-    const scores = scoreComposition(songs);
+    const scores = scoreComposition(songs).tracks;
     expect(scores.every(s => !s.blocking.some(b => b.includes('유사도')))).toBe(true);
   });
 });
@@ -87,7 +87,7 @@ describe('[v3.62 TASK 2] scoreComposition — reused blocking checks', () => {
 describe('[v3.62 TASK 2-2] scoreComposition — descriptor-count check (NEW)', () => {
   it('blocks a style prompt with fewer than 20 descriptors', () => {
     const song = songWith({ stylePrompt: 'warm pop, acoustic guitar, 92 BPM' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.passed).toBe(false);
     expect(score.blocking.some(b => b.includes('서술어'))).toBe(true);
   });
@@ -95,21 +95,21 @@ describe('[v3.62 TASK 2-2] scoreComposition — descriptor-count check (NEW)', (
   it('blocks a style prompt with more than 40 descriptors', () => {
     const manyDescriptors = Array.from({ length: 45 }, (_, i) => `descriptor ${i}`).join(', ');
     const song = songWith({ stylePrompt: manyDescriptors });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.passed).toBe(false);
     expect(score.blocking.some(b => b.includes('서술어'))).toBe(true);
   });
 
   it('adds only an advisory (never blocks) for 20-24 or 36-40 descriptors', () => {
     const twentyTwo = Array.from({ length: 22 }, (_, i) => `descriptor ${i}`).join(', ');
-    const score = scoreComposition([songWith({ stylePrompt: twentyTwo })])[0];
+    const score = scoreComposition([songWith({ stylePrompt: twentyTwo })]).tracks[0];
     expect(score.blocking.some(b => b.includes('서술어'))).toBe(false);
     expect(score.advisory.some(a => a.includes('서술어'))).toBe(true);
   });
 
   it('adds no descriptor-count warning at all for 25-35 descriptors', () => {
     const thirty = Array.from({ length: 30 }, (_, i) => `descriptor ${i}`).join(', ');
-    const score = scoreComposition([songWith({ stylePrompt: thirty })])[0];
+    const score = scoreComposition([songWith({ stylePrompt: thirty })]).tracks[0];
     expect(score.blocking.some(b => b.includes('서술어'))).toBe(false);
     expect(score.advisory.some(a => a.includes('서술어'))).toBe(false);
   });
@@ -122,7 +122,7 @@ describe('[v3.62 TASK 2-2] scoreComposition — era-anachronism check (NEW)', ()
       genreId: 'oldpop-british-beat',
       stylePrompt: 'early-1960s British beat pop, 12-string electric guitar, melodic walking bass, warm string pad swell intro texture (INTRO ONLY), 100 BPM'
     });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.passed).toBe(false);
     expect(score.blocking.some(b => b.includes('1950s-60s') && b.includes('string pad'))).toBe(true);
   });
@@ -132,19 +132,19 @@ describe('[v3.62 TASK 2-2] scoreComposition — era-anachronism check (NEW)', ()
       genreId: 'oldpop-british-beat',
       stylePrompt: 'early-1960s British beat pop, 12-string electric guitar, melodic walking bass, tambourine backbeat, bright mono-leaning studio mix, 100 BPM'
     });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.blocking.some(b => b.includes('1950s-60s'))).toBe(false);
   });
 
   it('does not apply any era restriction to a genre with no era bucket (e.g. adult-contemporary)', () => {
     const song = songWith({ genreId: 'adult-contemporary', stylePrompt: 'warm adult contemporary pop, string pad, synth pad, gated reverb, 96 BPM' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.blocking.some(b => b.includes('시대'))).toBe(false);
   });
 
   it('blocks a 1980s oldpop track using a too-early "mono-leaning mix"', () => {
     const song = songWith({ genreId: 'oldpop-adult-contemporary-80s', stylePrompt: '1980s warm adult contemporary pop, warm electric piano, sustained synth pad, mono-leaning mix, 92 BPM' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.blocking.some(b => b.includes('1980s') && b.includes('mono-leaning mix'))).toBe(true);
   });
 });
@@ -152,51 +152,51 @@ describe('[v3.62 TASK 2-2] scoreComposition — era-anachronism check (NEW)', ()
 describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks reused from earlier tasks', () => {
   it('adds an advisory for a hook/scene time-of-day mismatch (TASK v3.60 TASK E, reused)', () => {
     const song = songWith({ listenerSituation: 'sitting with morning coffee before the day begins', hookPhrase: 'Stay with Me Tonight' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.passed).toBe(true);
     expect(score.advisory.some(a => a.includes('time-of-day'))).toBe(true);
   });
 
   it('adds an advisory for a title/hook zero-overlap (v3.58 TASK 5-6, reused)', () => {
     const song = songWith({ title: 'Tableglow', hookPhrase: 'Stay with Me Tonight' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.advisory.some(a => a.includes('shares no word'))).toBe(true);
   });
 
   it('a fully clean song passes with no blocking and no advisory', () => {
     const song = songWith({ title: 'Guitar Morning', hookPhrase: 'Guitar Morning Song' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.passed).toBe(true);
     expect(score.blocking).toEqual([]);
   });
 
   it('TASK v3.64 (TASK D) — blocks a hook that exactly duplicates a hook from this channel\'s history', () => {
     const song = songWith({ hookPhrase: 'I Won\'t Forget' });
-    const score = scoreComposition([song], { historicalHooks: ['I Won\'t Forget', 'Some Other Hook'] })[0];
+    const score = scoreComposition([song], { historicalHooks: ['I Won\'t Forget', 'Some Other Hook'] }).tracks[0];
     expect(score.passed).toBe(false);
     expect(score.blocking.some(b => b.includes('이전 세트에서 이미 사용됐습니다'))).toBe(true);
   });
 
   it('TASK v3.64 (TASK D) — blocks a near-duplicate hook (the spec\'s own real example: "I Won\'t Forget" vs "I Can\'t Forget")', () => {
     const song = songWith({ hookPhrase: "I Won't Forget" });
-    const score = scoreComposition([song], { historicalHooks: ["I Can't Forget"] })[0];
+    const score = scoreComposition([song], { historicalHooks: ["I Can't Forget"] }).tracks[0];
     expect(score.passed).toBe(false);
     expect(score.blocking.some(b => b.includes('사실상 같은 훅'))).toBe(true);
   });
 
   it('TASK v3.64 (TASK D) — does not block a genuinely new hook against real channel history', () => {
     const song = songWith({ hookPhrase: 'Wait by the Window' });
-    const score = scoreComposition([song], { historicalHooks: ['Catch the Morning Train', 'Hold the Photo Close'] })[0];
+    const score = scoreComposition([song], { historicalHooks: ['Catch the Morning Train', 'Hold the Photo Close'] }).tracks[0];
     expect(score.passed).toBe(true);
   });
 
   it('TASK v3.64 (TASK D) — omitting historicalHooks entirely is a safe no-op (does not block anything)', () => {
     const song = songWith({ hookPhrase: 'I Won\'t Forget' });
-    const score = scoreComposition([song])[0];
+    const score = scoreComposition([song]).tracks[0];
     expect(score.passed).toBe(true);
   });
 
-  it('TASK v3.64 (TASK A-4) — adds a pack-wide advisory (never blocking) when a word repeats past its cap across the pack', () => {
+  it('TASK v3.64 (TASK A-4) — adds a pack-level advisory (never blocking) when a word repeats past its cap across the pack (v4.1 TASK C: lives in packAdvisory, not copied into every track)', () => {
     // v3.75 (TASK A) — each line adds enough unique-per-line filler tokens
     // to clear the new lyric word-count blocking floor while keeping every
     // word OTHER than "window" unique (so nothing besides "window" crosses
@@ -206,23 +206,21 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
     ).join('\n');
     const song1 = songWith({ trackNo: 1, lyrics: repeatedLyrics });
     const song2 = songWith({ trackNo: 2, stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different second track') });
-    const scores = scoreComposition([song1, song2]);
-    expect(scores.every(s => s.passed)).toBe(true);
-    expect(scores[0].advisory.some(a => a.includes('window'))).toBe(true);
-    expect(scores[1].advisory.some(a => a.includes('window'))).toBe(true);
+    const result = scoreComposition([song1, song2]);
+    expect(result.tracks.every(s => s.passed)).toBe(true);
+    expect(result.packAdvisory.some(issue => issue.labelKo.includes('window'))).toBe(true);
   });
 
-  it('TASK v3.64 (TASK E) — adds a pack-wide advisory (never blocking) when title shapes are too monotonous', () => {
+  it('TASK v3.64 (TASK E) — adds a pack-level advisory (never blocking) when title shapes are too monotonous (v4.1 TASK C: lives in packAdvisory, not copied into every track)', () => {
     const song1 = songWith({ trackNo: 1, title: 'Firstlight Cup' });
     const song2 = songWith({
       trackNo: 2,
       title: 'Folded Frost',
       stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different second track')
     });
-    const scores = scoreComposition([song1, song2]);
-    expect(scores.every(s => s.passed)).toBe(true);
-    expect(scores[0].advisory.some(a => a.includes('제목 형태가'))).toBe(true);
-    expect(scores[1].advisory.some(a => a.includes('제목 형태가'))).toBe(true);
+    const result = scoreComposition([song1, song2]);
+    expect(result.tracks.every(s => s.passed)).toBe(true);
+    expect(result.packAdvisory.some(issue => issue.labelKo.includes('제목 형태가'))).toBe(true);
   });
 
   it('TASK v3.64 (TASK E) — no title-shape advisory once titles span 3+ shapes', () => {
@@ -237,8 +235,8 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
       title: 'Steam Radio',
       stylePrompt: song1.stylePrompt.replace('oldpop-british-beat', 'oldpop-british-beat, distinctly different third track')
     });
-    const scores = scoreComposition([song1, song2, song3]);
-    expect(scores.every(s => !s.advisory.some(a => a.includes('제목 형태가')))).toBe(true);
+    const result = scoreComposition([song1, song2, song3]);
+    expect(result.packAdvisory.some(issue => issue.labelKo.includes('제목 형태가'))).toBe(false);
   });
 });
 
@@ -264,7 +262,7 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
   const data = existsSync(realPackPath) ? JSON.parse(readFileSync(realPackPath, 'utf-8')) : { songs: [] };
 
   it('flags a real cross-track style-similarity violation (tracks 2 and 9, both oldpop-british-beat)', () => {
-    const scores = scoreComposition(data.songs);
+    const scores = scoreComposition(data.songs).tracks;
     const track2 = scores.find(s => s.trackNo === 2)!;
     expect(track2.blocking.some(b => b.includes('9') && b.includes('유사도'))).toBe(true);
   });
@@ -273,7 +271,7 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
     // A genuine, disclosed limitation (see v3.62's completion report) — the reused
     // v3.58 findArtistReferenceLeaks matches on `\bbread\b` regardless of context,
     // so an ordinary lyric using the word "bread" (not a real leak) still blocks.
-    const scores = scoreComposition(data.songs);
+    const scores = scoreComposition(data.songs).tracks;
     const flaggedForBread = scores.filter(s => s.blocking.some(b => /bread/i.test(b)));
     expect(flaggedForBread.length).toBeGreaterThan(0);
     for (const score of flaggedForBread) {
@@ -291,7 +289,7 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
     // rate below the original v3.62-era "most songs pass" bar; excluding
     // those 5 tracks (covered by their own test below) keeps this test's own
     // original intent — v3.62's fixes hold for everything else — meaningful.
-    const scores = scoreComposition(data.songs);
+    const scores = scoreComposition(data.songs).tracks;
     const nonDuetScores = scores.filter(s => {
       const song = data.songs.find((item: SongIdea) => item.trackNo === s.trackNo)!;
       return !/\bduet\b/i.test(song.stylePrompt);
@@ -301,7 +299,7 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
   });
 
   it('TASK v3.70 (TASK A): correctly blocks this frozen pack\'s real duet tracks for missing per-section vocal-assignment tags', () => {
-    const scores = scoreComposition(data.songs);
+    const scores = scoreComposition(data.songs).tracks;
     const duetTrackNos = data.songs.filter((s: SongIdea) => /\bduet\b/i.test(s.stylePrompt)).map((s: SongIdea) => s.trackNo);
     expect(duetTrackNos.length).toBeGreaterThan(0);
     for (const trackNo of duetTrackNos) {
@@ -326,12 +324,12 @@ describe('[v3.77 TASK A-5/B-4/D-2] new blocking checks fire on the exact failure
     return Array.from({ length: count }, (_, i) => songWith({ trackNo: i + 1, ...overridesFor(i) }));
   }
 
-  it('blocks when the whole pack collapses to one vocal descriptor (register) repeated on every track', () => {
+  it('blocks when the whole pack collapses to one vocal descriptor (register) repeated on every track (v4.1 TASK C: design-scope packBlocking, not copied into every track)', () => {
     const songs = packOf(6, () => ({
       stylePrompt: songWith().stylePrompt.replace('mature male tenor lead', 'male deep chest-register lead')
     }));
-    const scores = scoreComposition(songs);
-    expect(scores.every(s => s.blocking.some(b => b.includes('보컬 서술') && b.includes('종뿐')))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.scope === 'design' && issue.labelKo.includes('보컬 서술') && issue.labelKo.includes('종뿐'))).toBe(true);
   });
 
   it('blocks when one vocal descriptor appears in more than 3 songs (even if a couple of others vary)', () => {
@@ -339,28 +337,28 @@ describe('[v3.77 TASK A-5/B-4/D-2] new blocking checks fire on the exact failure
     const songs = packOf(6, i => ({
       stylePrompt: songWith().stylePrompt.replace('mature male tenor lead', `male ${registers[i]}`)
     }));
-    const scores = scoreComposition(songs);
-    expect(scores.every(s => s.blocking.some(b => b.includes('deep chest-register lead') && b.includes('4곡')))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('deep chest-register lead') && issue.labelKo.includes('4곡'))).toBe(true);
   });
 
   it('blocks when vocalType never varies across the whole pack (every track the same string)', () => {
     const songs = packOf(6, () => ({ vocalType: 'male' as const }));
-    const scores = scoreComposition(songs);
-    expect(scores.every(s => s.blocking.some(b => b.includes('보컬 타입') && b.includes('한 종류')))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('보컬 타입') && issue.labelKo.includes('한 종류'))).toBe(true);
   });
 
   it('blocks when BPM barely varies across the pack (stddev collapse — tempoBandsForProfile silently returning one narrow band)', () => {
     const bpms = [95, 96, 95, 96, 95, 96];
     const songs = packOf(6, i => ({ bpm: bpms[i] }));
-    const scores = scoreComposition(songs);
-    expect(scores.every(s => s.blocking.some(b => b.includes('BPM 표준편차')))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('BPM 표준편차'))).toBe(true);
   });
 
   it('blocks when the BPM range is too narrow even if stddev alone might look acceptable', () => {
     const bpms = [90, 92, 94, 96, 98, 100];
     const songs = packOf(6, i => ({ bpm: bpms[i] }));
-    const scores = scoreComposition(songs);
-    expect(scores.every(s => s.blocking.some(b => b.includes('BPM 범위')))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('BPM 범위'))).toBe(true);
   });
 
   it('does NOT block a healthy pack with real BPM spread and vocal variety on either new check', () => {
@@ -370,24 +368,22 @@ describe('[v3.77 TASK A-5/B-4/D-2] new blocking checks fire on the exact failure
       bpm: bpms[i],
       stylePrompt: songWith().stylePrompt.replace('mature male tenor lead', `male ${registers[i]}`).replace('100 BPM', `${bpms[i]} BPM`)
     }));
-    const scores = scoreComposition(songs);
-    for (const score of scores) {
-      expect(score.blocking.some(b => b.includes('BPM 표준편차') || b.includes('BPM 범위') || b.includes('보컬 서술') || b.includes('보컬 타입'))).toBe(false);
-    }
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('BPM 표준편차') || issue.labelKo.includes('BPM 범위') || issue.labelKo.includes('보컬 서술') || issue.labelKo.includes('보컬 타입'))).toBe(false);
   });
 
-  it('blocks when a word appears more than 30 times pack-wide (WORD_BLOCKING_THRESHOLD)', () => {
+  it('blocks when a word appears more than 30 times pack-wide (WORD_BLOCKING_THRESHOLD) (v4.1 TASK C: rebalance-scope packBlocking, not copied into every track)', () => {
     const overusedLyrics = `[verse 1]\n${Array.from({ length: 31 }, (_, i) => `light light light number ${i}`).join('\n')}\n\n[end]`;
     const songs = [songWith({ trackNo: 1, lyrics: overusedLyrics })];
-    const scores = scoreComposition(songs);
-    expect(scores[0].blocking.some(b => b.includes('30회를 초과'))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.scope === 'rebalance' && issue.labelKo.includes('30회를 초과'))).toBe(true);
   });
 
   it('does NOT block (advisory only) a word repeated between the 12/20 advisory cap and the 30 blocking threshold', () => {
     const moderatelyRepeated = `[verse 1]\n${Array.from({ length: 25 }, (_, i) => `light quiet moment number ${i}`).join('\n')}\n\n[end]`;
     const songs = [songWith({ trackNo: 1, lyrics: moderatelyRepeated })];
-    const scores = scoreComposition(songs);
-    expect(scores[0].blocking.some(b => b.includes('30회를 초과'))).toBe(false);
-    expect(scores[0].advisory.some(a => a.includes('상한을 넘겨'))).toBe(true);
+    const result = scoreComposition(songs);
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('30회를 초과'))).toBe(false);
+    expect(result.packAdvisory.some(issue => issue.labelKo.includes('상한을 넘겨'))).toBe(true);
   });
 });

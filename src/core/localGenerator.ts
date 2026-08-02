@@ -54,6 +54,8 @@ import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
+import { resolveFlagshipCombo } from './verifiedCombos';
+import type { VerifiedCombo } from '../data/verifiedCombos';
 
 /**
  * Suno-facing text (style prompt, YouTube metadata) stays English regardless
@@ -656,7 +658,14 @@ export function generateLocalBlueprint(
   // TASK v3.72 (TASK E) — see batchPreallocation.ts's preallocateSongSlots's
   // matching parameter doc comment. v3.80 (TASK A-3) — previousFlagshipOrder
   // mirrors preallocateSongSlots's own new field, same doc comment there.
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] },
+  avoid?: {
+    usedTitles?: string[];
+    usedHooks?: string[];
+    recentVocalComboSignatures?: string[];
+    previousFlagshipOrder?: VocalType[];
+    /** v3.82 (TASK A) — mirrors batchPreallocation.ts's identical field/doc comment. */
+    verifiedCombos?: VerifiedCombo[];
+  },
   /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
   styleLimit?: number
 ): PlaylistBlueprint {
@@ -700,6 +709,23 @@ export function generateLocalBlueprint(
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
+  // v3.82 (TASK A) — mirrors batchPreallocation.ts's identical flagship
+  // (track 2) genre/tempo override from a verified-good combo — see that
+  // file's own doc comment for the swap-preserving-counts reasoning.
+  const flagshipCombo = opts.songCount >= 3 ? resolveFlagshipCombo(avoid?.verifiedCombos ?? [], genrePool) : undefined;
+  if (flagshipCombo && genrePlan[1] !== flagshipCombo.genreId) {
+    const swapIndex = genrePlan.findIndex((id, i) => i >= 3 && id === flagshipCombo.genreId);
+    if (swapIndex !== -1) {
+      const tmp = genrePlan[1];
+      genrePlan[1] = genrePlan[swapIndex];
+      genrePlan[swapIndex] = tmp;
+    } else {
+      genrePlan[1] = flagshipCombo.genreId;
+    }
+  }
+  const flagshipComboTempo = flagshipCombo
+    ? Math.round((flagshipCombo.bpmRange[0] + flagshipCombo.bpmRange[1]) / 2)
+    : undefined;
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, replacing
   // the flat UniquePool(emotionArcs, seed) draw (every shape used to be the
@@ -780,6 +806,18 @@ export function generateLocalBlueprint(
     : null;
   if (vocalPlan && flagshipVocalOrder) {
     vocalPlan = applyFlagshipVocalOrder(vocalPlan, flagshipVocalOrder);
+  }
+  // v3.82 (TASK A) — mirrors batchPreallocation.ts's identical flagship
+  // vocal-type override from a verified combo (see that file's own doc
+  // comment — never fires for the app's current registry, since its one
+  // entry's vocalType is deliberately undefined/gender-independent).
+  if (vocalPlan && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
+    const swapIndex = vocalPlan.findIndex((type, i) => i >= 3 && type === flagshipCombo.vocalType);
+    if (swapIndex !== -1) {
+      const tmp = vocalPlan[1];
+      vocalPlan[1] = vocalPlan[swapIndex];
+      vocalPlan[swapIndex] = tmp;
+    }
   }
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
@@ -907,7 +945,11 @@ export function generateLocalBlueprint(
     const emotionArc = emotionArcPlan[idx];
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
-    const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+    // v3.82 (TASK A) — mirrors batchPreallocation.ts's identical flagship
+    // (track 2) tempo override, clamped to the audience's own tempo range.
+    const tempo = idx === 1 && flagshipComboTempo !== undefined
+      ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
+      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
     const killingPoint = killingPointPlan[idx];
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);

@@ -2,10 +2,13 @@ import { generateLocalBlueprint } from '../core/localGenerator';
 import { scoreSongs } from '../core/quality';
 import { runFullAudit } from '../core/fullAudit';
 import { evaluateDesignGate } from '../core/designGate';
+import { evaluateGenerationGate } from '../core/generationGate';
 import type { AudienceProfile, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, PreassignedSongSlot, SeasonPack, SongIdea } from '../types';
 import type { AudioSetReport } from '../core/audioSetReport';
 import type { ResolvedConstraints } from '../core/constraints';
 import type { VocalType } from '../core/vocalPlan';
+import type { ScoreCompositionOptions } from '../core/compositionScorer';
+import type { VerifiedCombo } from '../core/verifiedCombos';
 
 /**
  * v4.0 (TASK A) — ported from main's localGenerationWorker.ts (the browser-
@@ -27,7 +30,7 @@ interface GenerateRequest {
   genres: GenrePack[];
   moods: MoodPack[];
   season: SeasonPack;
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[] };
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[]; verifiedCombos?: VerifiedCombo[] };
   promptCharLimit?: number;
 }
 
@@ -44,12 +47,20 @@ interface DesignGateRequest {
   opts: GenerationOptions;
 }
 
-type LocalGenerationWorkerRequest = GenerateRequest | FullAuditRequest | DesignGateRequest;
+/** v4.1 (TASK C) — evaluateGenerationGate ("관문 2") was the one heavy pure computation from this same family that v4.0's own worker migration missed (it moved evaluateDesignGate/runFullAudit but not this one) — closing that gap here, on the existing worker, rather than a new one. */
+interface GenerationGateRequest {
+  type: 'generationGate';
+  songs: SongIdea[];
+  opts: ScoreCompositionOptions & { conceptLabel?: string };
+}
+
+type LocalGenerationWorkerRequest = GenerateRequest | FullAuditRequest | DesignGateRequest | GenerationGateRequest;
 
 type LocalGenerationWorkerResponse =
   | { type: 'generate'; ok: true; blueprint: PlaylistBlueprint }
   | { type: 'fullAudit'; ok: true; report: ReturnType<typeof runFullAudit> }
   | { type: 'designGate'; ok: true; result: ReturnType<typeof evaluateDesignGate> }
+  | { type: 'generationGate'; ok: true; result: ReturnType<typeof evaluateGenerationGate> }
   | { type: LocalGenerationWorkerRequest['type']; ok: false; error: string };
 
 const workerScope = self as unknown as {
@@ -74,6 +85,11 @@ workerScope.onmessage = event => {
     if (request.type === 'designGate') {
       const result = evaluateDesignGate(request.slots, request.constraints, request.opts);
       workerScope.postMessage({ type: 'designGate', ok: true, result });
+      return;
+    }
+    if (request.type === 'generationGate') {
+      const result = evaluateGenerationGate(request.songs, request.opts);
+      workerScope.postMessage({ type: 'generationGate', ok: true, result });
       return;
     }
   } catch (error) {

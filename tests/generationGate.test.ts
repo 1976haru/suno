@@ -171,29 +171,49 @@ describe('evaluateGenerationGate — per-track checks', () => {
 });
 
 describe('evaluateGenerationGate — pack-level checks (§3-2)', () => {
-  it('blocks lyric-situation-unique when two tracks share the exact same situation', () => {
+  it('blocks lyric-situation-unique when two tracks share the exact same situation (v4.1 TASK C: pair-scope, targets only the later track, not the whole pack)', () => {
     const songs = healthyPack(6);
     songs[1] = { ...songs[1], listenerSituation: songs[0].listenerSituation };
     const result = evaluateGenerationGate(songs);
-    expect(result.tracks.every(t => t.blocking.some(b => b.includes('가사 상황이 중복')))).toBe(true);
+    const issue = result.packBlocking.find(item => item.id === 'lyric-situation-duplicate');
+    expect(issue?.scope).toBe('pair');
+    expect(issue?.affectedTracks).toEqual([songs[1].trackNo]);
+    // The pack isn't "passed" while this is open, but neither individual
+    // track's OWN text is at fault, so neither carries it in `.blocking`.
+    expect(result.passed).toBe(false);
+    expect(result.tracks.every(t => t.passed)).toBe(true);
   });
 
-  it('blocks lyric-emotion-variety when fewer than 8 distinct emotion arcs appear', () => {
+  it('blocks lyric-emotion-variety when fewer than 8 distinct emotion arcs appear (v4.1 TASK C: rebalance-scope, real minimum affectedTracks)', () => {
     const songs = healthyPack(18).map(song => ({ ...song, emotionArc: 'warm nostalgia' }));
     const result = evaluateGenerationGate(songs);
-    expect(result.packBlocking.some(b => b.includes('감정 아크'))).toBe(true);
+    const issue = result.packBlocking.find(item => item.id === 'emotion-arc-variety');
+    expect(issue?.scope).toBe('rebalance');
+    expect(issue?.labelKo).toContain('감정 아크');
+    expect(issue!.affectedTracks.length).toBeGreaterThan(0);
+    expect(issue!.affectedTracks.length).toBeLessThan(18);
   });
 
-  it('blocks vocal-descriptor-variety when every song shares the same register phrase', () => {
+  it('blocks vocal-descriptor-variety when every song shares the same register phrase (v4.1 TASK C: design-scope, every track affected)', () => {
     const songs = healthyPack(18).map(song => ({ ...song, stylePrompt: song.stylePrompt.replace(/male [a-z -]+ lead|warm alto|clear soprano|smoky contralto|bright mezzo|gentle falsetto|rich full chest voice|airy head voice|husky low tenor/, 'male deep chest-register lead') }));
     const result = evaluateGenerationGate(songs);
-    expect(result.packBlocking.some(b => b.includes('보컬 서술 종류'))).toBe(true);
+    const issue = result.packBlocking.find(item => item.id === 'vocal-descriptor-variety');
+    expect(issue?.scope).toBe('design');
+    expect(issue?.labelKo).toContain('보컬 서술 종류');
   });
 
-  it('blocks title-pattern-variety/max when titles collapse to one shape', () => {
+  it('blocks title-pattern-variety/max when titles collapse to one shape (v4.1 TASK C: rebalance-scope, real minimum affectedTracks — verification scenario D)', () => {
     const songs = healthyPack(18).map((song, i) => ({ ...song, title: `Word${i}` }));
     const result = evaluateGenerationGate(songs);
-    expect(result.packBlocking.some(b => b.includes('제목 패턴'))).toBe(true);
+    const issue = result.packBlocking.find(item => item.id === 'title-pattern-variety');
+    expect(issue?.scope).toBe('rebalance');
+    expect(issue?.labelKo).toContain('제목 패턴');
+    // The actual point of TASK C: a handful of titles need rewriting, not all 18.
+    expect(issue!.affectedTracks.length).toBeGreaterThan(0);
+    expect(issue!.affectedTracks.length).toBeLessThan(18);
+    // The regen button must be disabled (design/full/rebalance semantics —
+    // see GenerationGatePanel), and the pack must not read as "passed".
+    expect(result.passed).toBe(false);
   });
 });
 

@@ -221,29 +221,29 @@ describe('[v4.2 TASK A3] compositionScorer — era consistency check', () => {
     genreId
   });
 
-  it('BLOCKS when primary-era share is under 50%', () => {
+  it('BLOCKS when primary-era share is under 50% (v4.1 TASK C: design-scope packBlocking, not copied into every track)', () => {
     const songs = [song('oldpop-yacht-west-coast'), song('oldpop-yacht-west-coast'), song('oldpop-british-beat')];
-    const scores = scoreComposition(songs, { eraConstraint });
-    expect(scores[0].blocking.some(b => b.includes('최소 50% 미만'))).toBe(true);
+    const result = scoreComposition(songs, { eraConstraint });
+    expect(result.packBlocking.some(issue => issue.scope === 'design' && issue.labelKo.includes('최소 50% 미만'))).toBe(true);
   });
 
   it('BLOCKS when a forbidden-era genre is present', () => {
     const songs = [song('oldpop-british-beat'), song('oldpop-british-beat'), song('oldpop-soft-duet-80s')];
-    const scores = scoreComposition(songs, { eraConstraint });
-    expect(scores[0].blocking.some(b => b.includes('금지한 시대'))).toBe(true);
+    const result = scoreComposition(songs, { eraConstraint });
+    expect(result.packBlocking.some(issue => issue.labelKo.includes('금지한 시대'))).toBe(true);
   });
 
   it('does not block a compliant era distribution (>=50% primary, no forbidden)', () => {
     const songs = [song('oldpop-british-beat'), song('oldpop-british-beat'), song('oldpop-doowop-harmony')];
-    const scores = scoreComposition(songs, { eraConstraint });
-    expect(scores[0].blocking.filter(b => b.includes('시대'))).toEqual([]);
+    const result = scoreComposition(songs, { eraConstraint });
+    expect(result.packBlocking.filter(issue => issue.labelKo.includes('시대'))).toEqual([]);
   });
 
   it('skips entirely when era is unspecified', () => {
     const unspecified = extractEraConstraint('비 오는 날 창가에서 듣는 올드팝');
     const songs = [song('oldpop-yacht-west-coast'), song('oldpop-soft-duet-80s')];
-    const scores = scoreComposition(songs, { eraConstraint: unspecified });
-    expect(scores[0].blocking.filter(b => b.includes('시대'))).toEqual([]);
+    const result = scoreComposition(songs, { eraConstraint: unspecified });
+    expect(result.packBlocking.filter(issue => issue.labelKo.includes('시대'))).toEqual([]);
   });
 });
 

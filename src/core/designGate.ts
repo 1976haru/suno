@@ -1,7 +1,8 @@
-import type { GenerationOptions, PreassignedSongSlot } from '../types';
+import type { ConceptBreadth, GenerationOptions, PreassignedSongSlot } from '../types';
 import type { EraConstraint, ResolvedConstraints } from './constraints';
 import { eraSharesOf } from './constraints';
 import { ERA_LABEL } from '../data/eraExclusions';
+import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC } from './bpmLengthControl';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -108,9 +109,42 @@ function withVocalTypeAllocation(opts: GenerationOptions, quota: VocalQuota): Pa
   };
 }
 
-const VOCAL_TYPE_MIN_RATIO = 3 / 18;
 const KILLING_POINT_ASSIGNED_RATIO = 12 / 18;
 const KILLING_POINT_VARIETY_RATIO = 6 / 18;
+
+/**
+ * v4.1 (TASK A) — per this task's own §1-3 table. `balanced` keeps every
+ * number this file already enforced before this task (this is the "no
+ * regression" anchor — see docs/v410-report.md's own diff check) — only
+ * `focused`/`variety` are new. `genre.max` widened from `balanced`'s
+ * original hardcoded 9 stays 9 for both balanced/variety (the spec's own
+ * "6~9종" text for variety), never narrower than what already worked.
+ * `vocal.minPerTypeRatio: null` means "제한 없음" (§1-3's own focused row) —
+ * the per-type minimum check is skipped entirely, not set to 0 (0 would
+ * still technically require "at least 0", same as skipping, but null makes
+ * the "there is no floor here" intent explicit at the call site).
+ */
+export const BREADTH_THRESHOLDS: Record<ConceptBreadth, {
+  genre: { min: number; max: number; maxPerGenre: number };
+  bpm: { stddevFloor: number; rangeFloor: number };
+  vocal: { minDistinctTypes: number; minPerTypeRatio: number | null };
+}> = {
+  focused: {
+    genre: { min: 1, max: 3, maxPerGenre: 12 },
+    bpm: { stddevFloor: 4, rangeFloor: 10 },
+    vocal: { minDistinctTypes: 1, minPerTypeRatio: null }
+  },
+  balanced: {
+    genre: { min: 4, max: 9, maxPerGenre: 5 },
+    bpm: { stddevFloor: 8, rangeFloor: 25 },
+    vocal: { minDistinctTypes: 3, minPerTypeRatio: 3 / 18 }
+  },
+  variety: {
+    genre: { min: 6, max: 9, maxPerGenre: 4 },
+    bpm: { stddevFloor: 10, rangeFloor: 30 },
+    vocal: { minDistinctTypes: 3, minPerTypeRatio: 4 / 18 }
+  }
+};
 
 function issue(partial: DesignIssue): DesignIssue {
   return partial;
@@ -119,37 +153,40 @@ function issue(partial: DesignIssue): DesignIssue {
 // ---------------------------------------------------------------------------
 // 보컬 (vocal-type-variety / vocal-type-min / vocal-consecutive / vocal-segment-balance)
 // ---------------------------------------------------------------------------
-function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions): DesignIssue[] {
+function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, constraints: ResolvedConstraints): DesignIssue[] {
   const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
   const types = ordered.map(slot => slot.vocalType).filter((type): type is 'male' | 'female' | 'mixed' => Boolean(type));
   const issues: DesignIssue[] = [];
   if (!types.length) return issues; // no vocalType at all is a data-shape problem, not this gate's concern (usesVocalQuota is unconditionally true as of v3.77 — see vocalPlan.ts)
 
+  const threshold = BREADTH_THRESHOLDS[constraints.breadth].vocal;
   const counts = countBy(types);
   const distinctTypes = Object.keys(counts).length;
-  const minPerType = Math.max(1, Math.round(opts.songCount * VOCAL_TYPE_MIN_RATIO));
   const autoFix = () => withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
 
-  if (distinctTypes < 3) {
+  if (distinctTypes < threshold.minDistinctTypes) {
     issues.push(issue({
       id: 'vocal-type-variety',
       labelKo: '보컬 타입 종류',
-      expected: '3종 이상',
+      expected: `${threshold.minDistinctTypes}종 이상`,
       actual: `${distinctTypes}종`,
       fixHintKo: `${Object.keys(counts).join(', ') || '한 성별'}만 배정됐습니다 — 여성·듀엣을 추가하세요.`,
       autoFix
     }));
   }
-  const under = (['male', 'female', 'mixed'] as const).filter(type => (counts[type] ?? 0) < minPerType);
-  if (under.length) {
-    issues.push(issue({
-      id: 'vocal-type-min',
-      labelKo: '보컬 타입 최소 곡수',
-      expected: `각 ${minPerType}곡 이상`,
-      actual: (['male', 'female', 'mixed'] as const).map(type => `${type} ${counts[type] ?? 0}`).join(' / '),
-      fixHintKo: `${under.join(', ')} 타입이 최소 기준에 미달합니다.`,
-      autoFix
-    }));
+  if (threshold.minPerTypeRatio !== null) {
+    const minPerType = Math.max(1, Math.round(opts.songCount * threshold.minPerTypeRatio));
+    const under = (['male', 'female', 'mixed'] as const).filter(type => (counts[type] ?? 0) < minPerType);
+    if (under.length) {
+      issues.push(issue({
+        id: 'vocal-type-min',
+        labelKo: '보컬 타입 최소 곡수',
+        expected: `각 ${minPerType}곡 이상`,
+        actual: (['male', 'female', 'mixed'] as const).map(type => `${type} ${counts[type] ?? 0}`).join(' / '),
+        fixHintKo: `${under.join(', ')} 타입이 최소 기준에 미달합니다.`,
+        autoFix
+      }));
+    }
   }
   const runLength = longestRun(types);
   if (runLength > 2) {
@@ -184,12 +221,13 @@ function bpmIssues(slots: PreassignedSongSlot[], constraints: ResolvedConstraint
   const issues: DesignIssue[] = [];
   if (bpms.length < 2) return issues;
 
+  const threshold = BREADTH_THRESHOLDS[constraints.breadth].bpm;
   const spread = stddevOf(bpms);
-  if (spread < 8) {
+  if (spread < threshold.stddevFloor) {
     issues.push(issue({
       id: 'bpm-stddev',
       labelKo: 'BPM 표준편차',
-      expected: '≥ 8',
+      expected: `≥ ${threshold.stddevFloor}`,
       actual: spread.toFixed(1),
       fixHintKo: `템포가 ${Math.min(...bpms)}~${Math.max(...bpms)}에 몰려 있습니다 — 다시 설계로 새 시드를 받으세요.`
       // No mechanical autoFix: tempo bands come from data/audienceProfiles.ts's
@@ -200,11 +238,11 @@ function bpmIssues(slots: PreassignedSongSlot[], constraints: ResolvedConstraint
     }));
   }
   const width = Math.max(...bpms) - Math.min(...bpms);
-  if (width < 25) {
+  if (width < threshold.rangeFloor) {
     issues.push(issue({
       id: 'bpm-range',
       labelKo: 'BPM 범위 폭',
-      expected: '≥ 25',
+      expected: `≥ ${threshold.rangeFloor}`,
       actual: `${Math.min(...bpms)}~${Math.max(...bpms)} (폭 ${width})`,
       fixHintKo: '템포 범위가 좁습니다 — 다시 설계로 새 시드를 받으세요.'
     }));
@@ -224,39 +262,77 @@ function bpmIssues(slots: PreassignedSongSlot[], constraints: ResolvedConstraint
 }
 
 // ---------------------------------------------------------------------------
+// 예상 길이 (song-length-estimate) — v3.82 (TASK B)
+// ---------------------------------------------------------------------------
+/**
+ * v3.82 (TASK B, 2-4) — "생성 전에 길이를 추정해 관문 1에서 잡으십시오...
+ * 추정이 3:45를 넘으면 관문 1에서 blocking하십시오." Real cause: T7 (81 BPM)
+ * ran 4:16 against a 3:15-3:35 target even though its word count matched
+ * T1/T4 almost exactly — the missing variable was BPM itself (see
+ * core/bpmLengthControl.ts's own doc comment for the full calibration). This
+ * estimates from slot.tempo + slot.structureTemplate alone (both already
+ * decided at design time — no lyrics exist yet, per this app's own 원칙 3),
+ * so a slow-BPM track assigned a long template gets caught before a single
+ * word is written, instead of only being discoverable after Suno renders it.
+ */
+function songLengthIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+  // Only slots that already have a structureTemplate assigned — real
+  // production slots always do (buildStructureTemplatePlan runs
+  // unconditionally in both batchPreallocation.ts and localGenerator.ts), so
+  // this never skips a genuine case; it only avoids guessing a worst-case
+  // template for a slot (e.g. a narrow synthetic test fixture) that simply
+  // never set one.
+  const overLength = slots
+    .filter(slot => slot.structureTemplate)
+    .map(slot => ({ slot, estimateSec: estimateSongLengthSec(slot.tempo, slot.structureTemplate) }))
+    .filter(({ estimateSec }) => estimateSec > LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC);
+  if (!overLength.length) return [];
+  return [issue({
+    id: 'song-length-estimate',
+    labelKo: '예상 길이',
+    expected: `≤ ${formatEstimatedLength(LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC)}`,
+    actual: overLength.map(({ slot, estimateSec }) => `T${slot.trackNo} ${slot.tempo}BPM ${slot.structureTemplate ?? '?'} 약 ${formatEstimatedLength(estimateSec)}`).join(', '),
+    fixHintKo: '느린 BPM에 섹션이 많은 템플릿이 배정되면 실제 길이가 목표를 넘기기 쉽습니다 — 해당 트랙에 더 짧은 구조 템플릿을 배정하거나 BPM을 높이세요.'
+  })];
+}
+
+// ---------------------------------------------------------------------------
 // 장르 (genre-variety / genre-max / genre-singleton / genre-consecutive)
 // ---------------------------------------------------------------------------
-function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions): DesignIssue[] {
+function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, constraints: ResolvedConstraints): DesignIssue[] {
   const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
   const ids = ordered.map(slot => slot.genreId).filter((id): id is string => Boolean(id));
   const issues: DesignIssue[] = [];
   if (!ids.length) return issues;
 
+  const threshold = BREADTH_THRESHOLDS[constraints.breadth].genre;
   const counts = countBy(ids);
   const distinctCount = Object.keys(counts).length;
   // 3-E (스트레스 테스트) — a channel whose real candidate pool is smaller than
-  // 4 genres can never satisfy a flat "4종 이상" floor no matter how the
-  // slots are shuffled; the floor scales down to the real candidate count
-  // instead of blocking every such channel forever. opts.genreIds is this
-  // pack's own resolved candidate pool (not a literal senior/oldpop list —
-  // 원칙 4), so this adapts per channel/workspace with no code change.
+  // this breadth's own floor can never satisfy it no matter how the slots
+  // are shuffled; the floor scales down to the real candidate count instead
+  // of blocking every such channel forever. opts.genreIds is this pack's
+  // own resolved candidate pool (not a literal senior/oldpop list — 원칙
+  // 4), so this adapts per channel/workspace with no code change.
   const candidatePoolSize = new Set(opts.genreIds ?? []).size || distinctCount;
-  const varietyFloor = Math.min(4, candidatePoolSize || 4);
-  if (distinctCount < varietyFloor || distinctCount > 9) {
+  const varietyFloor = Math.min(threshold.min, candidatePoolSize || threshold.min);
+  if (distinctCount < varietyFloor || distinctCount > threshold.max) {
     issues.push(issue({
       id: 'genre-variety',
       labelKo: '장르 종류',
-      expected: candidatePoolSize < 4 ? `${varietyFloor}~9종 (후보 ${candidatePoolSize}종뿐이라 하한 조정)` : '4~9종',
+      expected: candidatePoolSize < threshold.min
+        ? `${varietyFloor}~${threshold.max}종 (후보 ${candidatePoolSize}종뿐이라 하한 조정)`
+        : `${threshold.min}~${threshold.max}종`,
       actual: `${distinctCount}종`,
       fixHintKo: '장르 배분을 다시 확인하세요.'
     }));
   }
   const maxCount = Math.max(0, ...Object.values(counts));
-  if (maxCount > 5) {
+  if (maxCount > threshold.maxPerGenre) {
     issues.push(issue({
       id: 'genre-max',
       labelKo: '같은 장르 최대 곡수',
-      expected: '≤ 5곡',
+      expected: `≤ ${threshold.maxPerGenre}곡`,
       actual: `${maxCount}곡`,
       fixHintKo: '한 장르에 곡이 몰려 있습니다 — 장르 배분을 조정하세요.'
     }));
@@ -416,11 +492,12 @@ export function evaluateDesignGate(
   opts: GenerationOptions
 ): DesignGateResult {
   const blocking: DesignIssue[] = [
-    ...vocalIssues(slots, opts),
+    ...vocalIssues(slots, opts, constraints),
     ...bpmIssues(slots, constraints),
-    ...genreIssues(slots, opts),
+    ...genreIssues(slots, opts, constraints),
     ...eraIssues(slots, constraints.era),
-    ...killingPointAndArcIssues(slots, opts.songCount)
+    ...killingPointAndArcIssues(slots, opts.songCount),
+    ...songLengthIssues(slots)
   ];
   const advisory: DesignIssue[] = [
     ...vocabularyForecastAdvisory(constraints)

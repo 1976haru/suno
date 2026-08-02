@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, Copy, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -11,20 +11,22 @@ import SunoProgressMode from '../SunoProgressMode';
 import AudioAnalysisPanel from '../AudioAnalysisPanel';
 import AudioEditPanel from '../AudioEditPanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
+import GenerationGatePanel from '../GenerationGatePanel';
 import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { FEATURE_STATUS_LABEL_KO, featureStatus } from '../../data/featureFlags';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
-import { buildSongTxt, copyText, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
+import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
 import { buildFfmpegPackVideoScript, buildPackVideoDescription } from '../../core/videoExport';
 import { lintInPackStyleSimilarity } from '../../core/diversityLinter';
 import { auditAlbum } from '../../core/albumAudit';
+import { applyConceptFitScore } from '../../core/promiseAudit';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
-import { evaluateGenerationGate } from '../../core/generationGate';
+import type { GenerationGateResult } from '../../core/generationGate';
+import { evaluateGenerationGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
-import { buildRecomposeInstruction } from '../../core/claudeCodeBridge';
 import { recentUsedTitlesAndHooks } from '../../core/hookLedger';
 import { getRatingForSong, getRatings } from '../../core/ratingLedger';
 import { getTakes } from '../../core/audioTakes';
@@ -156,7 +158,6 @@ export default function Step4Result({
   const [editingTrack, setEditingTrack] = useState<{ trackNo: number; fileName: string; file: File; durationSec: number } | null>(null);
   const [focusModeOpen, setFocusModeOpen] = useState(false);
   const [progressModeOpen, setProgressModeOpen] = useState(false);
-  const [recomposeCopied, setRecomposeCopied] = useState(false);
 
   useEffect(() => {
     if (focusTab) setResultTab(focusTab);
@@ -323,25 +324,28 @@ export default function Step4Result({
     () => (blueprint ? resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience)) : null),
     [blueprint, opts]
   );
-  const generationGateResult = useMemo(
-    () => (blueprint
-      ? evaluateGenerationGate(blueprint.songs, { historicalHooks, conceptLabel: opts.customConcept || opts.projectTitle, eraConstraint: generationGateConstraints?.era })
-      : null),
-    [blueprint, historicalHooks, opts.customConcept, opts.projectTitle, generationGateConstraints]
-  );
-  const blockingSongs = useMemo(() => {
-    if (!blueprint || !generationGateResult) return [];
-    return generationGateResult.tracks
-      .filter(track => !track.passed)
-      .map(track => ({ song: blueprint.songs.find(song => song.trackNo === track.trackNo)!, blocking: track.blocking }))
-      .filter(entry => entry.song);
-  }, [blueprint, generationGateResult]);
-
-  async function handleCopyRecomposeInstruction() {
-    await copyText(buildRecomposeInstruction(blockingSongs));
-    setRecomposeCopied(true);
-    setTimeout(() => setRecomposeCopied(false), 2000);
-  }
+  // v4.1 (TASK C) — evaluateGenerationGate now runs inside a Worker (see
+  // core/localGenerationClient.ts's evaluateGenerationGateResponsive)
+  // instead of synchronously inside a useMemo — the one gap v4.0's own
+  // worker migration left (it moved evaluateDesignGate/runFullAudit but
+  // missed this one). Starts null while the worker runs.
+  const [generationGateResult, setGenerationGateResult] = useState<GenerationGateResult | null>(null);
+  useEffect(() => {
+    if (!blueprint) { setGenerationGateResult(null); return; }
+    let cancelled = false;
+    evaluateGenerationGateResponsive(blueprint.songs, {
+      historicalHooks,
+      conceptLabel: opts.customConcept || opts.projectTitle,
+      eraConstraint: generationGateConstraints?.era,
+      // v4.1 (TASK B) — real per-language lyric measurement instead of
+      // the gate silently assuming English (see core/lyricMetrics.ts).
+      lyricLanguage: opts.lyricLanguage,
+      audienceProfile: audienceProfileForAgeGroup(opts.audience)
+    })
+      .then(result => { if (!cancelled) setGenerationGateResult(result); })
+      .catch(() => { if (!cancelled) setGenerationGateResult(null); });
+    return () => { cancelled = true; };
+  }, [blueprint, historicalHooks, opts.customConcept, opts.projectTitle, opts.lyricLanguage, opts.audience, generationGateConstraints]);
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -354,6 +358,16 @@ export default function Step4Result({
 
   const songs = blueprint?.songs ?? partialSongs;
   const skeletonCount = isGenerating ? Math.max(0, genProgress.total - songs.length) : 0;
+  // v4.1 (TASK D) — SongScores.conceptFitScore is pack-level and needs real
+  // concept text (core/promiseAudit.ts's applyConceptFitScore), which isn't
+  // available at scoreSongs() time on any generation path (see that
+  // function's own doc comment on the circular-import reason it stays out
+  // of core/quality.ts). Applied once, here, where the real concept text
+  // is already known — same conceptLabel PromiseAuditPanel below uses.
+  const scoredSongs = useMemo(
+    () => applyConceptFitScore(songs, opts.customConcept?.trim() || opts.projectTitle),
+    [songs, opts.customConcept, opts.projectTitle]
+  );
 
   return (
     <section className="panel results">
@@ -660,25 +674,8 @@ export default function Step4Result({
           </span>
         </div>
       )}
-      {resultTab === 'songs' && blockingSongs.length > 0 && (
-        <div className="warning error">
-          <ShieldAlert size={16} />
-          <span>
-            {blockingSongs.length}곡이 생성 검증(관문 2)을 통과하지 못했습니다: {blockingSongs.map(entry => entry.song.trackNo).join(', ')}번.
-            {generationGateResult?.needsFullRegeneration
-              ? ' 12곡 이상 실패했습니다 — 설계 자체가 컨셉에 맞지 않을 가능성이 큽니다. 전체 재설계를 검토하세요.'
-              : ' 브릿지(코딩 에이전트 복사/붙여넣기)로 만든 곡이라면 이 곡들만 재작곡 지시문을 복사해 다시 만들게 하세요 — 세트 전체를 폐기할 필요는 없습니다.'}
-            <button type="button" className="icon-button" title="문제가 있는 곡만 다시 작곡시킬 지시문 복사" onClick={() => void handleCopyRecomposeInstruction()}>
-              <Copy size={14} />
-              {recomposeCopied ? '복사됨 ✅' : '재작곡 지시문 복사'}
-            </button>
-          </span>
-        </div>
-      )}
-      {resultTab === 'songs' && blockingSongs.length === 0 && generationGateResult && blueprint && (
-        <div className="provider-summary design-gate-panel passed">
-          <span>생성 검증 통과 ✅ — {blueprint.songs.length}곡 중 {blueprint.songs.length}곡 통과</span>
-        </div>
+      {resultTab === 'songs' && generationGateResult && blueprint && (
+        <GenerationGatePanel result={generationGateResult} songs={blueprint.songs} />
       )}
       {resultTab === 'songs' && evalError && <p className="error">{evalError}</p>}
       {resultTab === 'songs' && retryWarning && <p className="error">{retryWarning}</p>}
@@ -715,7 +712,7 @@ export default function Step4Result({
         </div>
       )}
 
-      {resultTab === 'songs' && songs.map(song => (
+      {resultTab === 'songs' && scoredSongs.map(song => (
         retryingTrack === song.trackNo ? (
           <SongCardSkeleton key={song.trackNo} trackNo={song.trackNo} />
         ) : (

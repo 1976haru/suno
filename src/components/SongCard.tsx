@@ -100,6 +100,24 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
     setRegenerateLineNo(1);
   }, [song.lyrics, song.japanesePronunciationHints, song.trackNo]);
 
+  // v4.1 (TASK D) — SongScores.listenerScore is "undefined until rated"
+  // (see types.ts's own doc comment); this song's own rating is already
+  // loaded above for the 👍/🤷/👎 row, so it's the one score this component
+  // can compute itself rather than reading song.scores.listenerScore
+  // (which nothing in the generation pipeline populates — ratings only
+  // ever exist post-hoc, per-browser, via core/ratingLedger.ts).
+  const listenerScoreFromRating = rating === 'good' ? 100 : rating === 'ok' ? 60 : rating === 'bad' ? 20 : undefined;
+  const scoreLine = song.scores
+    ? [
+        `구조 ${song.scores.structureScore}`,
+        `안전 ${song.scores.safetyScore}`,
+        `컨셉 ${song.scores.conceptFitScore}`,
+        `다양성 ${song.scores.diversityScore}`,
+        song.scores.renderScore !== undefined ? `렌더 ${song.scores.renderScore}` : null,
+        (song.scores.listenerScore ?? listenerScoreFromRating) !== undefined ? `평가 ${song.scores.listenerScore ?? listenerScoreFromRating}` : null
+      ].filter((part): part is string => part !== null).join(' · ')
+    : `${song.qualityScore}/100`;
+
   const hasWarnings = song.warnings.length > 0 || Boolean(evaluation);
   const isSeedSong = personaMode && song.trackNo === 1;
   const configuredPromptLimit = Math.min(SUNO_COPY_LIMIT, Math.max(PERSONA_STYLE_LIMIT, promptCharLimit || SUNO_COPY_LIMIT));
@@ -132,7 +150,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           {hasWarnings && <span className="chip warning-chip">⚠ 확인 필요</span>}
         </div>
         <div className="button-row">
-          <span className="score">{song.qualityScore}/100</span>
+          <span className="score">{scoreLine}</span>
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>

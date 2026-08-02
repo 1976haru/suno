@@ -1,6 +1,7 @@
 import type {
   AxisAllocation,
   ChannelProfile,
+  ConceptBreadth,
   DiversityAxisId,
   GenerationOptions,
   GenrePack,
@@ -34,7 +35,8 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { applyEraQuota, extractEraConstraint } from './constraints';
+import { applyEraQuota, detectConceptBreadth, extractEraConstraint } from './constraints';
+import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
 
 /**
@@ -88,6 +90,9 @@ export interface SetPlan {
     unknownTermsKo: string[];
     /** v3.63 재작성 (TASK B) — listening-context constraints derived from the free text (e.g. "커피숍에서" -> low dynamic ceiling). */
     listeningContext: ListeningContext;
+    /** v4.1 (TASK A) — see types.ts's ConceptBreadth. */
+    breadth: ConceptBreadth;
+    breadthSource: 'auto' | 'user';
   };
   /** v3.63 재작성 (TASK B) — one entry per interpreted segment (an artist reference, a blend request, or the whole request when there's only one). Empty only never happens — a plan always has at least one segment covering the whole songCount. */
   segments: SetSegment[];
@@ -120,6 +125,13 @@ interface RankedGenre {
   score: number;
   reasons: string[];
 }
+
+/** v4.1 (TASK A) — display label for ConceptBreadth, used in interpretation.reasoningKo and (via export) Step2Plan.tsx's radio control. */
+export const BREADTH_LABEL_KO: Record<ConceptBreadth, string> = {
+  focused: '집중형',
+  balanced: '균형형',
+  variety: '폭넓게'
+};
 
 const AXIS_LABEL_KO: Record<DiversityAxisId, string> = {
   genre: '장르',
@@ -289,14 +301,24 @@ function chooseGenreIds(
   songCount: number,
   refs: DecomposedReference[],
   eraFocus: string[],
-  history: { recentGenreIds: string[] }
+  history: { recentGenreIds: string[] },
+  /**
+   * v4.1 (TASK A) — without this, a 'focused' concept ("잔잔한 보사노바
+   * 18곡") still got 4-8 genres allocated here, which then failed its OWN
+   * (now breadth-aware) designGate.ts check for having too MANY genres —
+   * the gate and the allocator disagreeing about what "focused" means.
+   * Reuses designGate.ts's BREADTH_THRESHOLDS.genre range directly (not a
+   * second copy of the numbers) so the two can never drift apart.
+   */
+  breadth: ConceptBreadth = 'balanced'
 ) {
   const candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel));
   const ranked = candidates
     .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history))
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
-  const minimumForCap = clamp(Math.ceil(songCount / 5), 4, 8);
-  const targetCount = clamp(Math.max(minimumForCap, ranked.filter(item => item.score >= 5).length >= 5 ? 5 : minimumForCap), 4, 8);
+  const { min: breadthMin, max: breadthMax } = BREADTH_THRESHOLDS[breadth].genre;
+  const minimumForCap = clamp(Math.ceil(songCount / 5), breadthMin, breadthMax);
+  const targetCount = clamp(Math.max(minimumForCap, ranked.filter(item => item.score >= 5).length >= 5 ? 5 : minimumForCap), breadthMin, breadthMax);
   const selected: string[] = [];
   const add = (id: string | undefined) => {
     if (!id || selected.includes(id)) return;
@@ -791,7 +813,10 @@ function buildBlendSegment(
 export function buildSetPlanFromIntent(
   intent: InterpretedIntent,
   channel: ChannelProfile,
-  history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] }
+  history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] },
+  /** v4.1 (TASK A) — pre-computed by the caller (directSetLocal/directSet both already have the original freeText detectConceptBreadth needs; this function only ever sees the already-interpreted InterpretedIntent, not the raw text). Defaults to 'balanced'/'auto' for any caller that hasn't migrated. */
+  breadth: ConceptBreadth = 'balanced',
+  breadthSource: 'auto' | 'user' = 'auto'
 ): SetPlan {
   const safeSongCount = clamp(intent.segments.reduce((sum, segment) => sum + segment.songCount, 0) || 18, 1, 80);
   const blendWarnings: string[] = [];
@@ -933,7 +958,9 @@ export function buildSetPlanFromIntent(
       audienceProfileId: channel.archetype || channel.audience,
       reasoningKo: intent.reasoningKo,
       unknownTermsKo: intent.unknownTermsKo,
-      listeningContext: intent.listeningContext
+      listeningContext: intent.listeningContext,
+      breadth,
+      breadthSource
     },
     segments: resolvedSegments,
     allocations,
@@ -961,12 +988,26 @@ export function directSetLocal(
    * function's own plain (non-segment) path; omitted entirely preserves this
    * function's exact prior behavior.
    */
-  vocalTone?: string
+  vocalTone?: string,
+  /** v4.1 (TASK A) — explicit user choice (GenerationOptions.breadthOverride, Step2Plan.tsx's "이 세트의 성격" radio); undefined trusts detectConceptBreadth's own auto-detection. */
+  breadthOverride?: ConceptBreadth
 ): SetPlan {
   const safeSongCount = clamp(Math.round(songCount) || 18, 1, 80);
   const listeningContext = detectListeningContext(freeText);
   const unknownTermsKo = detectUnknownTerms(freeText);
   const artistReferences = decomposeArtistReferences(freeText).filter(isSafeDecomposedReference);
+  // v4.1 (TASK A) — computed once here (not separately per branch below) so
+  // every return path — multi-artist segments, blend-hint, and the plain
+  // keyword/family path — reports the same breadth in its own
+  // interpretation, even though only the plain path's own chooseGenreIds
+  // actually acts on it today (multi-artist/blend-hint have their own
+  // segment-count semantics — see docs/v410-report.md's own 미구현 note).
+  // Also reused below (unchanged) as this function's own pre-existing
+  // era-quota input — same freeText/artistReferences inputs, so computing
+  // it twice would just be the same result computed again.
+  const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
+  const breadth = breadthOverride ?? detectConceptBreadth(freeText, eraConstraint);
+  const breadthSource: 'auto' | 'user' = breadthOverride ? 'user' : 'auto';
 
   // v3.63 재작성 (TASK B) — 2+ known-artist segments ("카펜터스와 아바 9곡씩").
   // Only when there's no family selection active (a family pick already
@@ -985,7 +1026,7 @@ export function directSetLocal(
         '아티스트명은 프롬프트에 넣지 않고 음악 특성으로만 분해했습니다.'
       ],
       unknownTermsKo
-    }, channel, history);
+    }, channel, history, breadth, breadthSource);
   }
 
   // v3.63 재작성 (TASK B) — explicit "X 느낌이 나는 Y" genre-blend request.
@@ -1009,13 +1050,13 @@ export function directSetLocal(
             listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO ? `청취 상황(${listeningContext.settingKo})을 반영했습니다.` : '별도 청취 상황 지정은 없었습니다.'
           ],
           unknownTermsKo
-        }, channel, history);
+        }, channel, history, breadth, breadthSource);
       }
     }
   }
 
   const eraFocus = deriveEraFocus(freeText, artistReferences);
-  const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history);
+  const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history, breadth);
   const { selectedIds: familySelectedIds, families } = chooseGenreIdsFromFamilies(familyIds, channel);
   // v3.63 재작성 (TASK B, 1-4) — listening-context is detected above
   // regardless of which genre-selection path ran; apply it as a light
@@ -1029,7 +1070,6 @@ export function directSetLocal(
   // no per-id count yet (preQuotaSelectedIds is a flat list, not counts), so
   // this seeds an even split first — makeAllocations/allocateGenreCounts
   // would otherwise redo that same even split with no era awareness at all.
-  const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
   const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, 5);
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
@@ -1083,10 +1123,15 @@ export function directSetLocal(
           ? `선택한 패밀리 ${families.map(family => family.labelKo).join(', ')}에서 ${selectedIds.length}개 장르를 골랐고 같은 장르는 최대 5곡 이하가 되도록 배분했습니다.`
           : `${selectedIds.length}개 장르를 골랐고 같은 장르는 최대 5곡 이하가 되도록 배분했습니다.`,
         '보컬은 남성/여성/듀엣 축을 균등 배분하고, 구조 템플릿은 5종을 순환시켰습니다.',
-        '인트로/훅 장치/밀도는 문구가 아니라 그룹 제약으로 브릿지에 전달합니다.'
+        '인트로/훅 장치/밀도는 문구가 아니라 그룹 제약으로 브릿지에 전달합니다.',
+        breadthSource === 'user'
+          ? `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 직접 선택하셨습니다.`
+          : `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 자동 판정했습니다 — 필요하면 아래에서 바꾸실 수 있습니다.`
       ],
       unknownTermsKo,
-      listeningContext
+      listeningContext,
+      breadth,
+      breadthSource
     },
     segments: [{
       label: families.length ? families.map(family => family.labelKo).join(' + ') : '전체',
@@ -1266,12 +1311,20 @@ export async function directSet(
   songCount: number,
   history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] },
   settings: ProviderSettings,
-  familyIds: string[] = []
+  familyIds: string[] = [],
+  /** v4.1 (TASK A) — same override as directSetLocal's own, threaded through both the remote-interpretation success path and the local fallback. */
+  breadthOverride?: ConceptBreadth
 ): Promise<SetPlan> {
+  // v4.1 (TASK A) — computed from the raw freeText (still available here,
+  // unlike inside buildSetPlanFromIntent which only sees the already-
+  // interpreted InterpretedIntent) so the remote-LLM path reports the same
+  // breadth detectConceptBreadth would give the local path for identical input.
+  const breadth = breadthOverride ?? detectConceptBreadth(freeText, extractEraConstraint(freeText));
+  const breadthSource: 'auto' | 'user' = breadthOverride ? 'user' : 'auto';
   try {
     const intent = await interpretFreeTextRemote(freeText, songCount, settings);
-    return buildSetPlanFromIntent(intent, channel, history);
+    return buildSetPlanFromIntent(intent, channel, history, breadth, breadthSource);
   } catch {
-    return directSetLocal(freeText, channel, songCount, history, familyIds);
+    return directSetLocal(freeText, channel, songCount, history, familyIds, undefined, breadthOverride);
   }
 }

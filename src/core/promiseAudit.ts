@@ -1,4 +1,4 @@
-import type { SongIdea } from '../types';
+import type { SongIdea, SongScores } from '../types';
 import { decomposeArtistReferences, type DecomposedReference } from './artistReferenceDecomposer';
 import { extractEraConstraint, type EraConstraint } from './constraints';
 import { eraBucketForGenreId, ERA_LABEL } from '../data/eraExclusions';
@@ -359,6 +359,35 @@ export function auditPromises(songs: SongIdea[], conceptLabel: string, constrain
     weakestPromise: weakest ? weakest.promise.labelKo : '',
     warnings
   };
+}
+
+/**
+ * v4.1 (TASK D) — attaches conceptFitScore (SongScores) onto an already-
+ * scored pack, reusing this file's own auditPromises rather than
+ * duplicating promise measurement. Deliberately lives here, not in
+ * core/quality.ts: quality.ts's scoreSongs runs on every generation path
+ * (worker, batch, bridge, retry) and this file transitively depends on
+ * quality.ts already (via core/localGenerator.ts's emotionArcsBrightOpening/
+ * CalmThroughout/StrongLift exports, which localGenerator.ts itself needs
+ * for scoreSongs) — importing auditPromises back into quality.ts would
+ * close that into a 3-module circular import, which real testing confirmed
+ * breaks this file's own top-level MOOD_KEYWORDS table (its brightPools
+ * entries read as undefined mid-cycle, crashing every pack whose concept
+ * text contains a mood keyword like "잔잔한"). Called once real concept
+ * text is available, at the display layer (Step4Result.tsx), not on every
+ * generation-path scoreSongs call. No promises detected (or no
+ * conceptLabel) means nothing was measured, not that the pack failed —
+ * stays neutral 100, same "no signal, don't penalize" convention
+ * generationGate.ts's own packLevelFindings already uses for promise
+ * fulfillment.
+ */
+export function applyConceptFitScore(songs: SongIdea[], conceptLabel: string): SongIdea[] {
+  const report = conceptLabel.trim() ? auditPromises(songs, conceptLabel) : null;
+  const conceptFitScore = report && report.promises.length ? Math.round(report.overallFulfillment * 100) : 100;
+  return songs.map(song => ({
+    ...song,
+    scores: { ...(song.scores as SongScores), conceptFitScore }
+  }));
 }
 
 // ---------------------------------------------------------------------------

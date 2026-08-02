@@ -1,4 +1,5 @@
-import type { SongIdea } from '../types';
+import type { AudienceProfile, LyricLanguage, ScopedIssue, SongIdea } from '../types';
+import { measureLyrics, resolveLyricRange } from './lyricMetrics';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
@@ -22,10 +23,25 @@ import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTra
 export interface CompositionScore {
   trackNo: number;
   passed: boolean;
-  /** Must be fixed by recomposing this song (TASK 3's retry loop targets these). */
+  /** Must be fixed by recomposing this song (TASK 3's retry loop targets these). Track-scoped only as of v4.1 (TASK C) — pack-level findings live in CompositionScoreResult.packBlocking/packAdvisory instead of being broadcast into every track (see this module's own top-of-scoreComposition doc note). */
   blocking: string[];
-  /** Surfaced to the user but never blocks. */
+  /** Surfaced to the user but never blocks. Track-scoped only, same v4.1 note as `blocking`. */
   advisory: string[];
+}
+
+/**
+ * v4.1 (TASK C) — scoreComposition's real return shape: per-track findings
+ * plus the pack-level findings that used to be copied into every track's
+ * own blocking/advisory array (era consistency, vocal/tempo structure
+ * collapse, vocabulary repetition, hook-word overuse, title-shape variety —
+ * see scoreComposition's own doc comment for exactly which). A pack-level
+ * finding is a property of the whole set, not any one song, so it belongs
+ * here once, not duplicated 18 times.
+ */
+export interface CompositionScoreResult {
+  tracks: CompositionScore[];
+  packBlocking: ScopedIssue[];
+  packAdvisory: ScopedIssue[];
 }
 
 /** TASK v3.62 (TASK 2-2, NEW) — a real pack measured 106 comma-separated descriptors in one stylePrompt; Suno reads a descriptor list, not prose, and this many stops being legible. 20/40 are the hard bounds; 25/35 is the advisory sweet spot the task's own spec asked for. */
@@ -52,20 +68,29 @@ export function descriptorCount(stylePrompt: string): number {
  * instruction) — the floor here sits well below that, at the point where
  * shortness stops being "a bit under target" and starts being "1:38-class".
  */
-const LYRIC_WORD_COUNT_BLOCKING_FLOOR = 130;
-const LYRIC_WORD_COUNT_ADVISORY_FLOOR = 190;
+const LYRIC_BLOCKING_FLOOR_RATIO = 130 / 215;
+const LYRIC_ADVISORY_FLOOR_RATIO = 190 / 215;
 const SECTION_COUNT_ADVISORY_FLOOR = 5;
 
-/** v3.76 (TASK B) — exported for core/fullAudit.ts; no behavior change. */
-export function lyricWordAndSectionCounts(lyrics: string): { words: number; sections: number } {
-  let words = 0;
+/**
+ * v3.76 (TASK B) — exported for core/fullAudit.ts.
+ * v4.1 (TASK B) — `language` picks the counting rule: English/Korean count
+ * whitespace-delimited units (word/eojeol), Japanese counts characters (see
+ * core/lyricMetrics.ts's measureLyrics -- NOT whitespace, Japanese lyrics
+ * have none). Defaults to 'english' so the two out-of-scope callers
+ * (csvExport.ts, fullAudit.ts -- not part of this task's 3-site list) keep
+ * their exact pre-v4.1 behavior unchanged.
+ */
+export function lyricWordAndSectionCounts(lyrics: string, language: LyricLanguage = 'english'): { words: number; sections: number } {
   let sections = 0;
+  const bodyLines: string[] = [];
   for (const rawLine of lyrics.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
     if (/^\[[^\]]*\]$/.test(line)) { sections += 1; continue; }
-    words += line.split(/\s+/).filter(Boolean).length;
+    bodyLines.push(line);
   }
+  const words = measureLyrics(bodyLines.join('\n'), language).primary;
   return { words, sections };
 }
 
@@ -149,6 +174,10 @@ export interface ScoreCompositionOptions {
    * invented from the songs themselves.
    */
   eraConstraint?: EraConstraint;
+  /** v4.1 (TASK B) -- which language's counting rule lyricWordAndSectionCounts should use. Defaults to 'english' when omitted. */
+  lyricLanguage?: LyricLanguage;
+  /** v4.1 (TASK B) -- source of the real per-language target range (see core/lyricMetrics.ts's resolveLyricRange). Omitting it falls back to language-appropriate estimates, not this file's own hardcoded numbers. */
+  audienceProfile?: AudienceProfile;
 }
 
 /** v4.2 (TASK A3, TASK B) — see this task's own §3-3 "primary 비중 < 50% → blocking, forbidden 시대 장르 존재 → blocking, 범용 장르 > 20% → advisory". Pack-level (not attributable to one track), so every song's own score gets the same findings, same pattern as vocabularyRepetitionWarning/titleShapeWarning below. */
@@ -257,11 +286,22 @@ function vocalAndTempoStructureFindings(songs: SongIdea[]): { blocking: string[]
   return { blocking };
 }
 
-export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptions): CompositionScore[] {
-  if (!songs.length) return [];
+/** v4.1 (TASK C) — which tracks actually contain `word` (case-insensitive whole-word match) in the given field, so a pack-level vocabulary finding can carry a real affectedTracks list instead of "all of them". */
+function tracksContainingWord(songs: SongIdea[], word: string, field: 'lyrics' | 'hookPhrase'): number[] {
+  const pattern = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+  return songs.filter(song => pattern.test(field === 'lyrics' ? song.lyrics : (song.hookPhrase || ''))).map(song => song.trackNo);
+}
+
+export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptions): CompositionScoreResult {
+  if (!songs.length) return { tracks: [], packBlocking: [], packAdvisory: [] };
+  const allTrackNos = songs.map(song => song.trackNo);
 
   const historicalHooks = opts?.historicalHooks ?? [];
   const historicalHookKeys = new Set(historicalHooks.map(hook => hook.trim().toLowerCase()));
+  const lyricLanguage: LyricLanguage = opts?.lyricLanguage ?? 'english';
+  const { primaryRange: lyricTargetRange } = resolveLyricRange(lyricLanguage, opts?.audienceProfile);
+  const lyricBlockingFloor = Math.round(lyricTargetRange[0] * LYRIC_BLOCKING_FLOOR_RATIO);
+  const lyricAdvisoryFloor = Math.round(lyricTargetRange[0] * LYRIC_ADVISORY_FLOOR_RATIO);
   const eraFindings = eraConsistencyFindings(songs, opts?.eraConstraint);
   const vocalZoneWarnings = vocalZoneDistributionWarnings(songs);
   const structureFindings = vocalAndTempoStructureFindings(songs);
@@ -315,18 +355,56 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
   // Warning-level only — title/hook overlap is never enforced as a ratio.
   const titleShapeWarning = titleShapeVarietyWarning(songs.map(song => song.title));
 
-  return songs.map(song => {
+  // v4.1 (TASK C) — pack-level findings, exposed once instead of copied
+  // into every track's own blocking/advisory array. `affectedTracks` is
+  // real where computable (which tracks actually contain the offending
+  // word); era/vocal/tempo structure collapse is a design-level property
+  // of the whole pack (not any one song's fault), so those carry every
+  // trackNo — that's what tells a caller "regenerating one song can't fix
+  // this", not an empty list.
+  const packBlocking: ScopedIssue[] = [];
+  const packAdvisory: ScopedIssue[] = [];
+  for (const message of eraFindings.blocking) {
+    packBlocking.push({ scope: 'design', id: 'era-consistency', labelKo: message, affectedTracks: allTrackNos, fixHintKo: '설계 단계에서 시대(era) 장르 비중을 다시 배분해야 합니다 — 곡을 다시 만드는 것만으로는 고쳐지지 않습니다.' });
+  }
+  for (const message of eraFindings.advisory) {
+    packAdvisory.push({ scope: 'design', id: 'era-consistency-advisory', labelKo: message, affectedTracks: allTrackNos, fixHintKo: '설계 단계에서 시대 장르 비중을 다시 배분하는 것을 고려하세요.' });
+  }
+  for (const message of structureFindings.blocking) {
+    packBlocking.push({ scope: 'design', id: 'vocal-tempo-structure', labelKo: message, affectedTracks: allTrackNos, fixHintKo: '설계 단계에서 보컬/BPM 배분 로직을 다시 실행해야 합니다 — 곡을 다시 만드는 것만으로는 고쳐지지 않습니다.' });
+  }
+  if (blockingVocabularyMessage) {
+    const affected = blockingVocabularyFindings.flatMap(finding => tracksContainingWord(songs, finding.word, 'lyrics'));
+    packBlocking.push({ scope: 'rebalance', id: 'vocabulary-repetition-blocking', labelKo: blockingVocabularyMessage, affectedTracks: [...new Set(affected)].sort((a, b) => a - b), fixHintKo: '해당 단어가 쓰인 곡들만 골라 다른 표현으로 바꿔 다시 작성하십시오.' });
+  }
+  if (vocabularyRepetitionWarning) {
+    const affected = vocabularyRepetitionFindings.flatMap(finding => tracksContainingWord(songs, finding.word, 'lyrics'));
+    packAdvisory.push({ scope: 'rebalance', id: 'vocabulary-repetition-advisory', labelKo: vocabularyRepetitionWarning, affectedTracks: [...new Set(affected)].sort((a, b) => a - b), fixHintKo: '해당 단어가 자주 쓰인 곡들만 다른 표현으로 바꾸는 것을 고려하세요.' });
+  }
+  if (hookWordOveruseWarning) {
+    const affected = hookWordOveruseFindings.flatMap(finding => tracksContainingWord(songs, finding.word, 'hookPhrase'));
+    packAdvisory.push({ scope: 'rebalance', id: 'hook-word-overuse', labelKo: hookWordOveruseWarning, affectedTracks: [...new Set(affected)].sort((a, b) => a - b), fixHintKo: '해당 단어가 쓰인 훅 몇 개만 다른 단어로 바꾸는 것을 고려하세요.' });
+  }
+  if (titleShapeWarning) {
+    packAdvisory.push({ scope: 'rebalance', id: 'title-shape-variety', labelKo: titleShapeWarning, affectedTracks: allTrackNos, fixHintKo: '제목 형태가 겹치는 곡 일부만 골라 제목을 다시 짓는 것을 고려하세요.' });
+  }
+
+  const tracks = songs.map(song => {
     const blocking: string[] = [];
     const advisory: string[] = [];
 
-    // NEW (v3.75 TASK A) — see LYRIC_WORD_COUNT_BLOCKING_FLOOR's own doc
+    // NEW (v3.75 TASK A) — see LYRIC_BLOCKING_FLOOR_RATIO's own doc
     // comment: catches only the pathological-short case, not a precise
     // duration prediction.
-    const { words: lyricWordCount, sections: sectionCount } = lyricWordAndSectionCounts(song.lyrics);
-    if (lyricWordCount < LYRIC_WORD_COUNT_BLOCKING_FLOOR) {
-      blocking.push(`가사가 ${lyricWordCount}단어로 지나치게 짧습니다 (최소 ${LYRIC_WORD_COUNT_BLOCKING_FLOOR}단어) — 2:50 미만으로 렌더링될 위험이 큽니다. 참고: 단어수만으로 정확한 길이를 예측할 수 없어 이 검사는 명백히 부족한 경우만 차단합니다.`);
-    } else if (lyricWordCount < LYRIC_WORD_COUNT_ADVISORY_FLOOR) {
-      advisory.push(`가사가 ${lyricWordCount}단어입니다 (권장 215~230단어) — 목표보다 짧게 렌더링될 수 있습니다.`);
+    // v4.1 (TASK B) — lyricUnitLabel/lyricWordCount now reflect the real
+    // per-language unit (character count for Japanese, not whitespace
+    // "words" -- see lyricWordAndSectionCounts's own doc comment).
+    const lyricUnitLabel = lyricLanguage === 'japanese' ? '자' : '단어';
+    const { words: lyricWordCount, sections: sectionCount } = lyricWordAndSectionCounts(song.lyrics, lyricLanguage);
+    if (lyricWordCount < lyricBlockingFloor) {
+      blocking.push(`가사가 ${lyricWordCount}${lyricUnitLabel}로 지나치게 짧습니다 (최소 ${lyricBlockingFloor}${lyricUnitLabel}) — 2:50 미만으로 렌더링될 위험이 큽니다. 참고: ${lyricUnitLabel}수만으로 정확한 길이를 예측할 수 없어 이 검사는 명백히 부족한 경우만 차단합니다.`);
+    } else if (lyricWordCount < lyricAdvisoryFloor) {
+      advisory.push(`가사가 ${lyricWordCount}${lyricUnitLabel}입니다 (권장 ${lyricTargetRange[0]}~${lyricTargetRange[1]}${lyricUnitLabel}) — 목표보다 짧게 렌더링될 수 있습니다.`);
     }
     if (sectionCount < SECTION_COUNT_ADVISORY_FLOOR) {
       advisory.push(`섹션이 ${sectionCount}개뿐입니다 (권장 ${SECTION_COUNT_ADVISORY_FLOOR}개 이상) — 인스트루멘털 구간이나 브릿지가 빠졌을 수 있습니다.`);
@@ -415,15 +493,17 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
       advisory.push('이 곡의 후렴 반복 패턴/제목 형태/첫줄 패턴이 세트 내 다른 곡들과 반복됩니다.');
     }
 
-    if (vocabularyRepetitionWarning) advisory.push(vocabularyRepetitionWarning);
-    if (blockingVocabularyMessage) blocking.push(blockingVocabularyMessage);
-    if (hookWordOveruseWarning) advisory.push(hookWordOveruseWarning);
-    if (titleShapeWarning) advisory.push(titleShapeWarning);
-    blocking.push(...eraFindings.blocking);
-    advisory.push(...eraFindings.advisory);
+    // v4.1 (TASK C) — vocabularyRepetitionWarning/blockingVocabularyMessage/
+    // hookWordOveruseWarning/titleShapeWarning/eraFindings/
+    // structureFindings.blocking used to be pushed into EVERY track's own
+    // blocking/advisory here (an 18x copy of a whole-pack finding). They now
+    // live in packBlocking/packAdvisory above instead — see this function's
+    // own top note. vocalZoneWarnings stays here unchanged (not part of
+    // this task's pack-level-findings list; still broadcast per track).
     advisory.push(...vocalZoneWarnings);
-    blocking.push(...structureFindings.blocking);
 
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };
   });
+
+  return { tracks, packBlocking, packAdvisory };
 }
