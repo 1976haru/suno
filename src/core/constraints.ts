@@ -315,28 +315,74 @@ export function applyEraQuota(
   // `freed`, called once per primary bucket (v3.77: up to 2 now) plus once
   // more for whatever's left, so every call shares one accounting path
   // instead of independently-buggy ones.
+  /**
+   * v3.78 follow-up (genre-singleton root cause) — the original version
+   * round-robin'd +1 across every candidate id (existing genres, then every
+   * pool genre not yet used) in one flat list, stopping the moment `amount`
+   * ran out. Whenever `amount` wasn't a clean multiple of the candidate
+   * count — the common case when filling a bucket mostly from scratch —
+   * the LAST partial pass gave exactly +1 to however many new (previously
+   * count=0) genres it took to exhaust `amount`, permanently stranding each
+   * at a count of 1. A first fix attempt (open new genres in blocks of >=2,
+   * greedily topping each up to cap before opening the next) still failed
+   * for a real case: filling a 3-song-short 1950s-60s bucket by 8 more
+   * topped the one already-existing genre to cap, opened ONE new genre and
+   * maxed IT to cap too, leaving exactly 1 leftover with no already-touched
+   * genre left to top up — forcing a second new genre open for just that 1
+   * (measured: "비틀즈 느낌의 밝은 60년대 팝" left `oldpop-brill-building`
+   * at exactly 1 song, `oldpop-british-beat`/`oldpop-doowop-harmony` at cap).
+   *
+   * Fixed by deciding the new-genre COUNT upfront instead of greedily
+   * maxing genres out one at a time: after topping up existing genres,
+   * `Math.ceil(remaining / cap)` is exactly how many new genres are needed
+   * to hold `remaining` without exceeding any of their caps, so opening
+   * precisely that many and round-robining evenly across just that set
+   * (instead of the whole candidate pool) naturally balances them —
+   * verified: the same real case above now lands doowop-harmony/
+   * brill-building at 3 songs each instead of 5/1.
+   */
   function distributeInto(targetBucket: EraBucket, amount: number): number {
     if (amount <= 0) return 0;
     const currentList = byBucket.get(targetBucket) ?? [];
-    const existingIds = new Set(currentList.map(([id]) => id));
-    const pool = genreLibrary.filter(genre => channelFilter(genre) && bucketKeyOf(genre.id) === targetBucket);
-    const orderedIds = [...existingIds, ...pool.map(genre => genre.id).filter(id => !existingIds.has(id))];
+    const existingIds = [...new Set(currentList.map(([id]) => id))];
+    const existingIdSet = new Set(existingIds);
+    const newIds = genreLibrary
+      .filter(genre => channelFilter(genre) && bucketKeyOf(genre.id) === targetBucket)
+      .map(genre => genre.id)
+      .filter(id => !existingIdSet.has(id));
     const counts = new Map(currentList);
     let remaining = amount;
-    let guard = 0;
-    while (remaining > 0 && orderedIds.length && guard < orderedIds.length * GENRE_ERA_QUOTA_PER_GENRE_CAP + 1) {
-      let addedAny = false;
-      for (const id of orderedIds) {
-        if (remaining <= 0) break;
-        const current = counts.get(id) ?? 0;
-        if (current >= GENRE_ERA_QUOTA_PER_GENRE_CAP) continue;
-        counts.set(id, current + 1);
-        remaining -= 1;
-        addedAny = true;
+
+    const topUp = (ids: readonly string[]) => {
+      let progressed = true;
+      while (remaining > 0 && progressed) {
+        progressed = false;
+        for (const id of ids) {
+          if (remaining <= 0) break;
+          const current = counts.get(id) ?? 0;
+          if (current >= GENRE_ERA_QUOTA_PER_GENRE_CAP) continue;
+          counts.set(id, current + 1);
+          remaining -= 1;
+          progressed = true;
+        }
       }
-      guard += 1;
-      if (!addedAny) break;
+    };
+
+    // Phase 1 — grow the bucket's existing genres before opening any new one.
+    topUp(existingIds);
+
+    // Phase 2 — open exactly as many new genres as the leftover needs to
+    // stay under cap on each, then round-robin evenly across just that set.
+    // If the pool runs out before `remaining` is exhausted (fewer newIds
+    // than needed), fall through to using every remaining candidate — the
+    // "insufficient candidates" case, unchanged from before, still returns
+    // a partial fill via `amount - remaining` for the caller's own warning.
+    while (remaining > 0 && newIds.length) {
+      const genresToOpen = Math.min(newIds.length, Math.max(1, Math.ceil(remaining / GENRE_ERA_QUOTA_PER_GENRE_CAP)));
+      const chosen = newIds.splice(0, genresToOpen);
+      topUp(chosen);
     }
+
     byBucket.set(targetBucket, [...counts.entries()]);
     return amount - remaining;
   }
@@ -366,26 +412,32 @@ export function applyEraQuota(
     }
   }
 
-  for (const bucket of primaryBuckets) {
+  // v3.78 follow-up (genre-singleton root cause) — era.primary is always
+  // processed LAST and absorbs the FULL remaining `freed` budget in one
+  // distributeInto call, rather than a separate "reach its own minimum"
+  // call followed later by a second, independent "dump whatever's still
+  // freed" call (both of which used to target era.primary). The TOTAL
+  // amount handed to era.primary is mathematically identical either way
+  // (min(needed, freed) + leftover === freed), but splitting it into two
+  // calls could leave the second call's remainder too small for
+  // distributeInto's own anti-singleton "never introduce a new genre with
+  // fewer than 2 songs" logic to place safely — stranding a genre at
+  // exactly 1 song even though the combined amount would have comfortably
+  // filled 2+. era.coPrimary (when present) is unaffected: it still only
+  // ever draws up to its own needed minimum, same as before.
+  const fillOrder = era.coPrimary ? [era.coPrimary, era.primary] : [era.primary];
+  for (const bucket of fillOrder) {
     const currentTotal = (byBucket.get(bucket) ?? []).reduce((sum, [, count]) => sum + count, 0);
     const min = Math.ceil(songCount * primaryMinShare);
     const needed = Math.max(0, min - currentTotal);
-    const toAdd = Math.min(needed, freed);
+    const toAdd = bucket === era.primary ? freed : Math.min(needed, freed);
     if (toAdd > 0) {
       const actuallyAdded = distributeInto(bucket, toAdd);
       freed -= actuallyAdded;
-      if (actuallyAdded < toAdd) {
-        warnings.push(`${ERA_LABEL[bucket]} 장르 후보가 부족해 최소 비중(${min}곡)을 ${toAdd - actuallyAdded}곡만큼 채우지 못했습니다.`);
+      if (actuallyAdded < needed) {
+        warnings.push(`${ERA_LABEL[bucket]} 장르 후보가 부족해 최소 비중(${min}곡)을 ${needed - actuallyAdded}곡만큼 채우지 못했습니다.`);
       }
     }
-  }
-
-  // Any songs still freed (forbidden/over-cap trims exceeding what the
-  // primary bucket(s) needed just to reach their minimum) go back into the
-  // FIRST primary bucket, never into a bucket that was just trimmed.
-  if (freed > 0) {
-    const actuallyAdded = distributeInto(era.primary, freed);
-    freed -= actuallyAdded;
   }
 
   const result: Record<string, number> = {};

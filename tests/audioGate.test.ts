@@ -65,8 +65,8 @@ describe('evaluateAudioGate — duration is the only blocking check', () => {
     const blockingIds = result.blocking.map(i => i.id);
     expect(blockingIds).not.toContain('audio-dynamic-range');
     expect(blockingIds).not.toContain('audio-peak-position');
-    expect(blockingIds).not.toContain('audio-vocal-spread');
-    expect(blockingIds).not.toContain('audio-vocal-similarity');
+    expect(blockingIds).not.toContain('audio-mix-brightness-spread');
+    expect(blockingIds).not.toContain('audio-mix-brightness-similarity');
   });
 
   it('passes cleanly on a healthy audio report', () => {

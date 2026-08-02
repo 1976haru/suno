@@ -522,6 +522,16 @@ export interface SongIdea {
   earwormText?: string;
   /** v3.68 (TASK B) — which lyric scene frame this track's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId; PreassignedSongSlot already carried this — see v3.64 TASK A — SongIdea didn't until now), snapshotted for rating analysis. */
   lyricFrameId?: string;
+  /**
+   * v3.79 (TASK D) — "S20260802-01-T07": this track's stable identifier,
+   * `${blueprint.meta.setCode}-T${trackNo padded to 2 digits}`. Assigned once
+   * (core/library.ts's savePack, the first real — non-autosave — save; see
+   * PlaylistBlueprint.meta's own doc comment for why save time rather than
+   * generation time), never recomputed later. Optional so every song that
+   * existed before this task, and any song in a pack never actually saved,
+   * keeps loading/working with no code at all rather than a fabricated one.
+   */
+  songCode?: string;
 }
 
 export interface PlaylistBlueprint {
@@ -557,6 +567,24 @@ export interface PlaylistBlueprint {
    * at the point of use, never a hard requirement.
    */
   generatedAt?: string;
+  /**
+   * v3.79 (TASK D) — "음원분석도 데이터잖아... 연번 코드 같은 거 붙여서" (하루님):
+   * a stable, dense identifier for this whole generated set (see
+   * core/setCode.ts's buildSetCode — "S20260802-01", date + that day's
+   * Nth set), separate from and parallel to utils/setNaming.ts's existing
+   * human-readable setName (which this task never changes). Assigned ONCE
+   * by core/library.ts's savePack, on the first real (non-autosave) save —
+   * not at blueprint-construction time, since the "Nth set today" count can
+   * only be answered once IndexedDB is actually queryable, and not
+   * recomputed on any later save of the same pack (mirrors this interface's
+   * own generatedAt field, just documented separately since it lives in its
+   * own nested object rather than growing PlaylistBlueprint's flat field
+   * list further). Undefined for every set generated before this task, and
+   * for any set still only in memory (never saved).
+   */
+  meta?: {
+    setCode?: string;
+  };
 }
 
 export interface SoundSignature {
@@ -883,6 +911,16 @@ export interface SavedPack {
   madeForKids?: boolean;
   /** v4.0 (TASK A1) — which workspace this pack belongs to; optional only so packs saved before this task keep loading (core/workspaceMigration.ts backfills them to 'senior-oldpop'). See core/workspaceScope.ts. */
   workspaceId?: WorkspaceId;
+  /**
+   * v3.79 (TASK D) — mirrors `blueprint.meta.setCode` at the top level (see
+   * PlaylistBlueprint.meta's own doc comment) purely so core/library.ts's
+   * cheap meta-only listPacks() (which strips `blueprint` out — see
+   * SavedPackMeta below) can still read a pack's set code without loading
+   * every full pack, e.g. to count today's existing sets when assigning the
+   * next one's sequence number. Always kept equal to blueprint.meta.setCode
+   * by savePack; never set independently of it.
+   */
+  setCode?: string;
 }
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;

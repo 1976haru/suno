@@ -73,22 +73,33 @@ export function evaluateAudioGate(report: AudioSetReport | undefined): AudioGate
       fixHintKo: '킬링포인트 배치가 곡 후반부에서 청감상 드러나지 않는 트랙입니다.'
     });
   }
+  // v3.79 (TASK B) — report.timbre is the FULL 0..Nyquist spectrum (guitar/
+  // piano/strings/horns included, not just voice), and Suno masters every
+  // track to a similar overall brightness — so this was never actually
+  // measuring "vocal similarity" despite the old id/labelKo below claiming
+  // so. Real measurement: three different band/method combinations all
+  // scored a real pair >= 0.97 "similar" while the user's own ears heard
+  // them as completely different singers (see audioSetReport.ts's own
+  // buildVocalDiversityReport doc comment for the full account). Renamed to
+  // "믹스 밝기" (mix brightness) and reframed as an arrangement-diversity
+  // advisory, never a same-voice claim — this task's own §9 "보컬 유사도
+  // 판정을 다른 방식으로 되살리지 말 것".
   if (report.timbre.centroidSpread < 200) {
     advisory.push({
-      id: 'audio-vocal-spread',
-      labelKo: '보컬 중심 주파수 폭',
+      id: 'audio-mix-brightness-spread',
+      labelKo: '믹스 중심 주파수 폭',
       expected: '≥ 200Hz',
       actual: `${Math.round(report.timbre.centroidSpread)}Hz`,
-      fixHintKo: '분석된 트랙들의 스펙트럼 중심 주파수가 서로 가깝습니다 — 보컬 음색이 실제로는 비슷하게 들릴 수 있습니다. (같은 보컬 타입 내로 제한한 측정치가 아니라 분석된 전체 트랙 기준입니다 — audioSetReport.ts에 트랙별 vocalType이 없어 세분화하지 못했습니다.)'
+      fixHintKo: '분석된 트랙들의 믹스 전체 밝기(스펙트럼 중심)가 서로 가깝습니다 — 편곡 다양성 참고용입니다. 목소리가 같다는 뜻은 아닙니다.'
     });
   }
   if (report.timbre.clusteredPairs.length) {
     advisory.push({
-      id: 'audio-vocal-similarity',
-      labelKo: '보컬 유사도',
+      id: 'audio-mix-brightness-similarity',
+      labelKo: '믹스 밝기 유사도',
       expected: '유사도 0.95 초과 쌍 0개',
       actual: `${report.timbre.clusteredPairs.length}쌍 (${report.timbre.clusteredPairs.map(([a, b]) => `${a}-${b}`).join(', ')})`,
-      fixHintKo: '이 트랙 쌍은 스펙트럼상 거의 같게 들릴 수 있습니다.'
+      fixHintKo: '이 트랙 쌍은 믹스 밝기가 비슷합니다(편곡 다양성 참고). 목소리가 같다는 뜻이 아닙니다.'
     });
   }
 

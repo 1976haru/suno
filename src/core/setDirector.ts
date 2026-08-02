@@ -377,6 +377,47 @@ function countsFromSlots(ids: string[], songCount: number, maxPer?: number) {
   return counts;
 }
 
+/**
+ * v3.78 follow-up (genre-singleton root cause) — countsFromSlots' own plain
+ * round-robin-with-cap (`ids[index % ids.length]`) can leave a low-ranked
+ * candidate at exactly 1 song whenever the per-id cap binds for
+ * higher-ranked candidates before `songCount` is fully placed (e.g. 2
+ * genres reach cap 5 each, leaving a 6th candidate to soak up a lone
+ * leftover song). This is genre-selection's own version of the same bug
+ * `applyEraQuota`'s `distributeInto` had: decide how many distinct genre
+ * ids are actually needed to hold `songCount` without any one exceeding
+ * `cap` (`Math.ceil(songCount / cap)`), then round-robin evenly across
+ * exactly that many — instead of the whole candidate list — so a
+ * lower-ranked id is only touched when the pack genuinely needs it, and
+ * when it is touched it gets a real share, not a stray 1. Used only for
+ * the genre axis (both `preQuotaCounts` and per-segment counts below) —
+ * `countsFromSlots` itself is left unchanged for introTexture/hookDevice,
+ * which have no "no singleton" requirement.
+ */
+function genreCountsFromIds(ids: string[], songCount: number, cap: number): Record<string, number> {
+  if (!ids.length || songCount <= 0) return {};
+  const counts: Record<string, number> = {};
+  let remaining = songCount;
+  const pool = [...ids];
+  while (remaining > 0 && pool.length) {
+    const genresToOpen = Math.min(pool.length, Math.max(1, Math.ceil(remaining / cap)));
+    const chosen = pool.splice(0, genresToOpen);
+    let progressed = true;
+    while (remaining > 0 && progressed) {
+      progressed = false;
+      for (const id of chosen) {
+        if (remaining <= 0) break;
+        const current = counts[id] ?? 0;
+        if (current >= cap) continue;
+        counts[id] = current + 1;
+        remaining -= 1;
+        progressed = true;
+      }
+    }
+  }
+  return counts;
+}
+
 function exactBalancedCounts(ids: readonly string[], songCount: number) {
   const counts: Record<string, number> = {};
   if (!ids.length || songCount <= 0) return counts;
@@ -798,7 +839,7 @@ export function buildSetPlanFromIntent(
   // exists to avoid. Round-robining one genre id from each segment at a
   // time keeps every segment's ids threaded through the map's order, so
   // the existing tie-break naturally alternates segments too.
-  const perSegmentCounts = resolvedSegments.map(segment => Object.entries(countsFromSlots(segment.genreIds, segment.songCount, 5)));
+  const perSegmentCounts = resolvedSegments.map(segment => Object.entries(genreCountsFromIds(segment.genreIds, segment.songCount, 5)));
   const genreCounts: Record<string, number> = {};
   const maxEntries = Math.max(0, ...perSegmentCounts.map(entries => entries.length));
   for (let i = 0; i < maxEntries; i++) {
@@ -820,8 +861,23 @@ export function buildSetPlanFromIntent(
   // per-segment song-count split — a global era quota redistributing counts
   // across segment boundaries would fight that explicit split rather than
   // the vague/single-concept case this task's own measurement was about.
+  // v3.79 (TASK A) — segment.eraTag for a BLEND segment (built.eraTag,
+  // see buildBlendSegment above) is `anchorGenre.traits.eraTag` — whichever
+  // genre chooseGenreIds happened to rank #1 for the anchor hint text, not
+  // curated user-facing copy. Real measurement: "비틀즈 느낌이 나는 밝은
+  // 60년대 팝" resolved its anchor to `oldpop-soft-rock-am` (eraTag "1970s
+  // AM-gold soft rock") despite the hint text itself saying "60년대" — that
+  // stray "1970s" then got joined into the haystack below and, once two
+  // distinct era buckets are both treated as compound co-primaries (see
+  // extractEraConstraint's own hits.length>=2 branch), pulled 50% of the
+  // set into 1970s for a concept that never asked for it. blendedTraits is
+  // only ever set for blend segments (see SetSegment's own field comment),
+  // so it doubles as the "is this eraTag curated or just a genre-ranking
+  // side effect" marker — a real DecomposedReference-sourced eraTag (e.g.
+  // ARTIST_REFERENCE_SEEDS' curated "early-1970s soft adult-contemporary
+  // pop" for 카펜터스) has no blendedTraits and still counts.
   const eraConstraint = resolvedSegments.length === 1
-    ? extractEraConstraint([intent.intentKo, ...resolvedSegments.map(segment => segment.eraTag)].filter(Boolean).join(' '))
+    ? extractEraConstraint([intent.intentKo, ...resolvedSegments.filter(segment => !segment.blendedTraits).map(segment => segment.eraTag)].filter(Boolean).join(' '))
     : { primary: 'timeless' as const, adjacent: [], forbidden: [], unspecified: true };
   const { counts: quotaAdjustedGenreCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     genreCounts,
@@ -974,9 +1030,7 @@ export function directSetLocal(
   // this seeds an even split first — makeAllocations/allocateGenreCounts
   // would otherwise redo that same even split with no era awareness at all.
   const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
-  // eslint-disable-next-line no-console
-  console.log('ZZDEBUG eraConstraint', JSON.stringify(eraConstraint), 'preQuotaSelectedIds', preQuotaSelectedIds);
-  const preQuotaCounts = countsFromSlots(preQuotaSelectedIds, safeSongCount, 5);
+  const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, 5);
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
     safeSongCount,

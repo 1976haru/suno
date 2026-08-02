@@ -148,12 +148,20 @@ describe('[v3.73 TASK C] buildAudioSetReport — partial analysis never errors',
   });
 });
 
-describe('[v3.74 TASK C] buildVocalDiversityReport', () => {
+describe('[v3.79 TASK B] buildVocalDiversityReport — renamed to mix-brightness, no same-voice verdicts', () => {
   function entry(trackNo: number, vocalType: string, vocalCentroid: number, vocalProfile: number[]): VocalDiversityEntry {
     return { trackNo, vocalType, vocalCentroid, vocalProfile };
   }
 
-  it('flags a pair with vocal-band similarity >= 0.95 (the spec\'s own real 01<->12 = 0.969 scenario)', () => {
+  // v3.79 (TASK B) — real listening feedback found this exact kind of
+  // vocal-band cosine-similarity "cluster" to be a false positive: T8/T9
+  // measured 0.974-0.987 similar by three different methods while the user
+  // heard them as completely different singers (see audioSetReport.ts's own
+  // buildVocalDiversityReport doc comment). The pair is still detected as a
+  // MIX-brightness cluster (the underlying number is real and useful for
+  // arrangement diversity), but the advisory must never claim it's the same
+  // voice, and must carry the disclaimer.
+  it('a vocal-band-similar pair (the spec\'s own real 01<->12 = 0.969 scenario) is reported as mix-brightness, never "same voice"', () => {
     const entries = [
       entry(1, 'male', 946, [1, 0, 0]),
       entry(12, 'male', 1109, [0.99, 0.01, 0]), // near-identical -- should cluster
@@ -162,10 +170,11 @@ describe('[v3.74 TASK C] buildVocalDiversityReport', () => {
     const report = buildVocalDiversityReport(entries);
     expect(report.clusteredPairs).toContainEqual([1, 12]);
     expect(report.clusteredPairs).not.toContainEqual([1, 5]);
-    expect(report.advisories.some(a => a.includes('T1↔T12'))).toBe(true);
+    expect(report.advisories.some(a => a.includes('T1') && a.includes('T12') && a.includes('믹스 밝기'))).toBe(true);
+    expect(report.advisories.some(a => a.includes('같은 목소리처럼'))).toBe(false);
   });
 
-  it('flags a narrow same-vocalType centroid spread (e.g. all 6 male tracks within 200Hz)', () => {
+  it('a narrow same-vocalType centroid spread is still measured in sameTypeSpread data, but no longer generates a "같은 목소리" advisory', () => {
     const entries = [
       entry(1, 'male', 950, [1, 0]),
       entry(2, 'male', 1000, [0.9, 0.1]),
@@ -174,7 +183,8 @@ describe('[v3.74 TASK C] buildVocalDiversityReport', () => {
     const report = buildVocalDiversityReport(entries);
     const maleSpread = report.sameTypeSpread.find(s => s.vocalType === 'male')!;
     expect(maleSpread.spread).toBeLessThan(200);
-    expect(report.advisories.some(a => a.includes('같은 보컬 타입'))).toBe(true);
+    expect(report.advisories.some(a => a.includes('같은 보컬 타입'))).toBe(false);
+    expect(report.advisories.some(a => a.includes('다 같은 목소리로'))).toBe(false);
   });
 
   it('a wide, varied set produces no advisories', () => {

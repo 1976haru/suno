@@ -5,6 +5,7 @@ import { lintChannelDiversity, sampleFromSavedPack, type ChannelDiversityReport 
 import { listVideos } from './videoLedger';
 import { dominantRegisterSignature, recordVocalCombo } from './vocalComboLedger';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter, scopedKey } from './workspaceScope';
+import { assignSetCode, buildSongCode } from './setCode';
 
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
 
@@ -175,6 +176,23 @@ export function buildDefaultPackName(blueprint: PlaylistBlueprint, opts: Generat
   return `${opts.channel.name} - ${blueprint.projectTitle} - ${date}`;
 }
 
+/**
+ * v3.79 (TASK D) — savePack's own set-code assignment step, pulled out as
+ * its own function so the "skip for autosave" / "keep an already-assigned
+ * code as-is" rules are readable in one place. Never mutates the caller's
+ * blueprint object; returns the (possibly) coded copy for savePack to use.
+ */
+async function withAssignedSetCode(blueprint: PlaylistBlueprint, isAutosave: boolean | undefined): Promise<PlaylistBlueprint> {
+  if (isAutosave || blueprint.meta?.setCode) return blueprint;
+  const existing = await listPacks();
+  const setCode = assignSetCode(new Date(), existing.map(pack => pack.setCode));
+  return {
+    ...blueprint,
+    meta: { ...blueprint.meta, setCode },
+    songs: blueprint.songs.map(song => (song.songCode ? song : { ...song, songCode: buildSongCode(setCode, song.trackNo) }))
+  };
+}
+
 export async function savePack(input: {
   blueprint: PlaylistBlueprint;
   options: GenerationOptions;
@@ -197,18 +215,31 @@ export async function savePack(input: {
   // pack's existing real id back in expecting an exact-key match).
   const id = input.isAutosave ? scopedKey(AUTOSAVE_ID) : (input.id || randomId());
   const personaMode = input.personaMode ?? input.options.personaMode ?? false;
+  // v3.79 (TASK D) — set-code assignment: mirrors this function's own
+  // pre-existing "skip for autosave" precedent just below (recordVocalCombo)
+  // — autosave fires far more often than "a set was actually finished", so
+  // it must never consume a daily sequence number. Assigned exactly once:
+  // if this blueprint already carries a code (a re-save/rename of an
+  // already-saved pack, or promoteAutosave() handing off an autosave's
+  // blueprint that was already coded on a prior real save), it's kept
+  // as-is — never recomputed, per this task's own "not recomputed on every
+  // read" requirement. listPacks() is already workspace-scoped and already
+  // the app's own lightweight "how many packs exist" read, so no separate
+  // counter store is needed (see core/setCode.ts's own doc comment).
+  const blueprint = await withAssignedSetCode(input.blueprint, input.isAutosave);
   const pack: SavedPack = {
     id,
-    name: input.name || buildDefaultPackName(input.blueprint, input.options),
+    name: input.name || buildDefaultPackName(blueprint, input.options),
     savedAt: new Date().toISOString(),
     isAutosave: Boolean(input.isAutosave),
     workspaceId: currentWorkspaceId(),
     channelId: input.options.channel.id,
     channelName: input.options.channel.name,
-    projectTitle: input.blueprint.projectTitle,
-    songCount: input.blueprint.songs.length,
-    avgQualityScore: averageQuality(input.blueprint),
-    blueprint: input.blueprint,
+    projectTitle: blueprint.projectTitle,
+    songCount: blueprint.songs.length,
+    avgQualityScore: averageQuality(blueprint),
+    blueprint,
+    setCode: blueprint.meta?.setCode,
     options: { ...input.options, personaMode },
     evaluation: input.evaluation,
     thumbnailSpec: input.thumbnailSpec,

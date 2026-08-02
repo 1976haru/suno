@@ -2655,6 +2655,34 @@ pre {
   border-left: 3px solid var(--line);
 }
 
+/* v3.79 (TASK C) — collapsible "상세 수치 보기" wrapping the raw-number
+   sections beneath the verdict-first summary banner. */
+.audio-detail-numbers {
+  margin: 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.audio-detail-numbers summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.audio-detail-numbers > :not(summary) {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.audio-detail-numbers > :last-child {
+  margin-bottom: 14px;
+}
+
 /* TASK v3.74 (TASK I) — AudioAnalysisPanel.tsx's A/B take comparison */
 .audio-take-compare {
   display: grid;

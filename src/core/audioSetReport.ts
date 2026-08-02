@@ -172,14 +172,26 @@ function formatMinSec(totalSec: number): string {
 }
 
 /**
- * TASK v3.74 (TASK C) — real listening feedback: "남녀 가수 음색이 너무
- * 비슷하다". Same shape/thresholds as buildAudioSetReport's `timbre` section
- * above, but on the 200-3500Hz vocal-band measurements (audioAnalysis.ts's
- * computeVocalBandMetrics) instead of the full-spectrum ones — this is the
- * check that's actually about the VOICE, not the whole mix. A separate
- * function (not folded into buildAudioSetReport) since it needs vocalType
- * per entry for the same-gender-narrow check, which the full-spectrum report
- * has no use for.
+ * v3.79 (TASK B) — v3.74's own doc comment above (still visible in git
+ * history) claimed 200-3500Hz isolates "the VOICE, not the whole mix". Real
+ * measurement disproved that: a real pack's T8/T9 measured 0.974-0.987
+ * similar by THREE different methods (this band, mid-side vocal emphasis,
+ * 300-2000Hz formant band) while the user's own ears heard them as
+ * "전혀 다르게" (completely different). The reason is structural, not a
+ * threshold-tuning problem — guitar/piano/strings/horns all live in
+ * 200-3500Hz too, and Suno masters every track to a similar overall
+ * brightness, so this band mostly measures MIX brightness, not voice
+ * identity. Separating voice from a mixed master needs a source-separation
+ * model, which this task's own "음원 분리 모델을 도입하지 말 것" rules out.
+ * So: every "same voice" verdict (per-pair clusteredPairs judgment, the
+ * same-vocalType-narrow-spread warning) is deleted outright — see this
+ * task's own §10 "측정값과 하루님의 청취가 어긋나면, 어긋나는 쪽이 측정입니다."
+ * The underlying numbers (centroidSpread/meanSimilarity) are kept and
+ * still exported — they're valid as an ARRANGEMENT/mix-brightness diversity
+ * signal (two tracks with a very bright/similar mix might read as
+ * monotonous back to back) — just relabeled away from any voice claim, and
+ * downgraded to a single grouped, disclaimed advisory instead of a per-pair
+ * "these sound like the same singer" line.
  */
 export interface VocalDiversityEntry {
   trackNo: number;
@@ -189,10 +201,11 @@ export interface VocalDiversityEntry {
 }
 
 export interface VocalDiversityReport {
+  /** Renamed from a "vocal timbre" framing — see this function's own doc comment. Reference-only, for arrangement diversity, never a voice-identity signal. */
   centroidSpread: number;
   clusteredPairs: [number, number][];
   meanSimilarity: number;
-  /** Per vocalType (e.g. 'male'/'female') with >=2 entries, the centroid spread within that type alone — spec's own "같은 vocalType 안에서 폭 < 200Hz → 경고, 남성 6곡이 다 같은 목소리". */
+  /** Per vocalType (e.g. 'male'/'female') with >=2 entries, the centroid spread within that type alone. Data only — v3.79 (TASK B) removed the advisory this used to generate ("다 같은 목소리로 들릴 수 있습니다"); kept here only for an optional "상세 수치" detail view, never surfaced as a warning. */
   sameTypeSpread: Array<{ vocalType: string; spread: number; count: number }>;
   advisories: string[];
 }
@@ -200,7 +213,6 @@ export interface VocalDiversityReport {
 const VOCAL_NARROW_SPREAD_HZ = 300;
 const VOCAL_CLUSTER_SIMILARITY_THRESHOLD = 0.95;
 const VOCAL_SET_SIMILARITY_WARN_THRESHOLD = 0.9;
-const VOCAL_SAME_TYPE_NARROW_SPREAD_HZ = 200;
 
 export function buildVocalDiversityReport(entries: readonly VocalDiversityEntry[]): VocalDiversityReport {
   const advisories: string[] = [];
@@ -230,11 +242,15 @@ export function buildVocalDiversityReport(entries: readonly VocalDiversityEntry[
     .filter(([, values]) => values.length >= 2)
     .map(([vocalType, values]) => ({ vocalType, spread: Math.max(...values) - Math.min(...values), count: values.length }));
 
-  if (entries.length > 1 && centroidSpread < VOCAL_NARROW_SPREAD_HZ) advisories.push(`보컬 음색 폭이 좁습니다 (${Math.round(centroidSpread)}Hz) — 목소리가 다 비슷하게 들릴 수 있습니다.`);
-  for (const [a, b] of clusteredPairs) advisories.push(`T${a}↔T${b}는 같은 목소리처럼 들릴 수 있습니다 (보컬 대역 유사도 높음).`);
-  if (pairCount > 0 && meanSimilarity >= VOCAL_SET_SIMILARITY_WARN_THRESHOLD) advisories.push(`세트 평균 보컬 유사도가 ${meanSimilarity.toFixed(2)}로 높습니다.`);
-  for (const { vocalType, spread, count } of sameTypeSpread) {
-    if (spread < VOCAL_SAME_TYPE_NARROW_SPREAD_HZ) advisories.push(`같은 보컬 타입(${vocalType}) ${count}곡의 음역 폭이 좁습니다 (${Math.round(spread)}Hz) — 다 같은 목소리로 들릴 수 있습니다.`);
+  if (entries.length > 1 && centroidSpread < VOCAL_NARROW_SPREAD_HZ) {
+    advisories.push(`믹스 중심 주파수(보컬 대역) 폭이 좁습니다 (${Math.round(centroidSpread)}Hz) — 편곡 다양성 참고용입니다. 목소리가 같다는 뜻은 아닙니다.`);
+  }
+  if (clusteredPairs.length) {
+    const involvedTracks = [...new Set(clusteredPairs.flat())].sort((a, b) => a - b);
+    advisories.push(`믹스 밝기가 비슷한 조합: T${involvedTracks.join('·T')} (편곡 다양성 참고) — 목소리가 같다는 뜻이 아닙니다. 편곡·믹스 성향이 비슷하다는 의미입니다.`);
+  }
+  if (pairCount > 0 && meanSimilarity >= VOCAL_SET_SIMILARITY_WARN_THRESHOLD) {
+    advisories.push(`세트 평균 믹스 밝기 유사도가 ${meanSimilarity.toFixed(2)}로 높습니다 (편곡 다양성 참고용, 목소리 판단 아님).`);
   }
 
   return { centroidSpread, clusteredPairs, meanSimilarity, sameTypeSpread, advisories };

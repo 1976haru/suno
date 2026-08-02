@@ -9,6 +9,7 @@ import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
 import AudioAnalysisPanel from '../AudioAnalysisPanel';
+import AudioEditPanel from '../AudioEditPanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
@@ -23,7 +24,10 @@ import { evaluateGenerationGate } from '../../core/generationGate';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
 import { buildRecomposeInstruction } from '../../core/claudeCodeBridge';
 import { recentUsedTitlesAndHooks } from '../../core/hookLedger';
-import { getRatingForSong } from '../../core/ratingLedger';
+import { getRatingForSong, getRatings } from '../../core/ratingLedger';
+import { getTakes } from '../../core/audioTakes';
+import { buildTakeLedgerCsv, downloadCsv, gatherAllSetSummaryRows, buildSetSummaryCsv, SET_SUMMARY_FILENAME, takeLedgerFileName, type SetContext } from '../../core/csvExport';
+import { currentWorkspaceId } from '../../core/workspaceScope';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
@@ -142,6 +146,12 @@ export default function Step4Result({
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
   const [resultTab, setResultTab] = useState<ResultTab>('songs');
+  // v3.79 (TASK C/E) — AudioAnalysisPanel's [편집] button hands back the
+  // original File + duration via onEditTrack; this modal is the only place
+  // that actually imports AudioEditPanel, so the analysis panel itself
+  // never needs to know the editor exists (see its own onEditTrack doc
+  // comment).
+  const [editingTrack, setEditingTrack] = useState<{ trackNo: number; fileName: string; file: File; durationSec: number } | null>(null);
   const [focusModeOpen, setFocusModeOpen] = useState(false);
   const [progressModeOpen, setProgressModeOpen] = useState(false);
   const [recomposeCopied, setRecomposeCopied] = useState(false);
@@ -214,6 +224,34 @@ export default function Step4Result({
   }
 
   const packId = blueprint ? `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}` : '';
+
+  /**
+   * v3.79 (TASK D) — 하루님's own request: "음원분석도 데이터잖아... 연번 코드
+   * 같은 거 붙여서... 엑셀 등으로 출력". `blueprint.meta.setCode` is only
+   * assigned by core/library.ts's savePack on this pack's first real save
+   * (see that task's own comment) — so "개별 세트" export is only available
+   * once the pack has been saved at least once (disabled with a tooltip
+   * below otherwise), while "전체 누적" never depends on the in-editor
+   * blueprint at all.
+   */
+  async function handleExportTakeLedgerCsv() {
+    if (!blueprint?.meta?.setCode) return;
+    const [takes, allRatings] = await Promise.all([getTakes({ packId }), getRatings()]);
+    const ctx: SetContext = {
+      blueprint,
+      channelName: blueprint.channelName,
+      customConcept: opts.customConcept,
+      workspaceId: currentWorkspaceId(),
+      savedAt: new Date().toISOString()
+    };
+    const csv = buildTakeLedgerCsv(ctx, takes, allRatings.filter(r => r.packId === packId));
+    downloadCsv(takeLedgerFileName(blueprint.meta.setCode), csv);
+  }
+
+  async function handleExportSetSummaryCsv() {
+    const rows = await gatherAllSetSummaryRows();
+    downloadCsv(SET_SUMMARY_FILENAME, buildSetSummaryCsv(rows));
+  }
 
   // TASK v3.68 (TASK C) — set-wide "N/전체 평가됨" progress, so a user who
   // skips SunoProgressMode and rates from the plain song list here still
@@ -366,6 +404,23 @@ export default function Step4Result({
             </button>
             <button
               type="button"
+              disabled={!blueprint.meta?.setCode}
+              title={blueprint.meta?.setCode ? '이 세트의 테이크(음원 분석) 데이터를 엑셀용 CSV로 내보내기' : '먼저 "이 팩 저장하기"를 눌러야 세트코드가 부여됩니다'}
+              onClick={() => void handleExportTakeLedgerCsv()}
+            >
+              <Download size={16} />
+              📊 테이크 CSV (개별 세트)
+            </button>
+            <button
+              type="button"
+              title="지금까지 저장된 모든 세트의 통계 요약을 엑셀용 CSV로 내보내기 (누적)"
+              onClick={() => void handleExportSetSummaryCsv()}
+            >
+              <Download size={16} />
+              📊 세트요약 CSV (전체 누적)
+            </button>
+            <button
+              type="button"
               title="전 곡을 한 영상으로 합칠 때 쓸 설명(타임스탬프 트랙리스트 포함)"
               onClick={() => downloadText('suno-pack-video-description.txt', buildPackVideoDescription(blueprint, opts))}
             >
@@ -459,7 +514,21 @@ export default function Step4Result({
           packId={packId}
           channelId={opts.channel.id}
           audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+          onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
         />
+      )}
+
+      {editingTrack && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-panel">
+            <AudioEditPanel
+              file={editingTrack.file}
+              durationSec={editingTrack.durationSec}
+              title={`T${editingTrack.trackNo} ${blueprint?.songs.find(s => s.trackNo === editingTrack.trackNo)?.title ?? editingTrack.fileName}`}
+              onClose={() => setEditingTrack(null)}
+            />
+          </div>
+        </div>
       )}
 
       {blueprint && resultTab === 'promiseAudit' && (

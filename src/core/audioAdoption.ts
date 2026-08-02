@@ -47,7 +47,7 @@ const ADOPTION_METRICS: AdoptionMetricDef[] = [
   { metric: 'dynamicRange', labelKo: '진폭', get: take => take.metrics.dynamicRange },
   { metric: 'peakPosition', labelKo: '후반 상승', get: take => take.metrics.peakPosition },
   { metric: 'durationSec', labelKo: '길이', get: take => take.metrics.durationSec },
-  { metric: 'vocalCentroid', labelKo: '보컬 중심', get: take => take.vocalMetrics.vocalCentroid },
+  { metric: 'vocalCentroid', labelKo: '믹스중심(보컬대역)', get: take => take.vocalMetrics.vocalCentroid },
   { metric: 'spectralCentroid', labelKo: '전체 밝기', get: take => take.metrics.spectralCentroid },
   { metric: 'overallLevel', labelKo: '음량', get: take => take.metrics.overallLevel }
 ];

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Music, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Music, Upload } from 'lucide-react';
 import type { AudienceProfile, SongIdea } from '../types';
 import { analyzeFullAudioFile, type FullAudioAnalysis } from '../core/audioAnalysis';
 import { groupMatchesByTrackNo, labelTakesInGroup, matchAudioFileName, type AudioMatchResult } from '../core/audioTrackMatch';
@@ -14,6 +14,15 @@ interface AudioAnalysisPanelProps {
   packId: string;
   channelId: string;
   audienceProfile: AudienceProfile;
+  /**
+   * v3.79 (TASK C/E) — deliberately a callback, not a direct import of the
+   * audio-edit panel: this component doesn't need to know an editor exists
+   * at all, and stays independently testable/buildable while that panel is
+   * developed separately. The parent (Step4Result.tsx) owns wiring this to
+   * an actual editor (e.g. opening AudioEditPanel with this file). Omitted
+   * entirely, the [편집] button in the "손봐야 할 곡" list just doesn't render.
+   */
+  onEditTrack?: (trackNo: number, fileName: string, file: File, durationSec: number) => void;
 }
 
 const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
@@ -53,7 +62,7 @@ function RmsBarRow({ metrics }: { metrics: FullAudioAnalysis['metrics'] }) {
  * and a channel-wide "무엇이 통하나" learning-results section
  * (core/audioAdoption.ts + core/audioDirectiveAnalysis.ts).
  */
-export default function AudioAnalysisPanel({ songs, packId, channelId, audienceProfile }: AudioAnalysisPanelProps) {
+export default function AudioAnalysisPanel({ songs, packId, channelId, audienceProfile, onEditTrack }: AudioAnalysisPanelProps) {
   const [analysesByFileName, setAnalysesByFileName] = useState<Map<string, FullAudioAnalysis>>(new Map());
   const [matches, setMatches] = useState<AudioMatchResult[]>([]);
   const [adoptedFileNameByTrack, setAdoptedFileNameByTrack] = useState<Record<number, string>>({});
@@ -64,6 +73,16 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
   const [dragOver, setDragOver] = useState(false);
   const [channelTakes, setChannelTakes] = useState<AudioTake[]>([]);
   const [learningEnabled, setLearningEnabled] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  // v3.79 (TASK C) — raw File kept alongside the decoded analysis so a
+  // [편집] click (onEditTrack) can hand the ORIGINAL bytes to an audio
+  // editor without re-prompting the user to re-upload the file.
+  const [filesByName, setFilesByName] = useState<Map<string, File>>(new Map());
+  // v3.79 (TASK C) — per-file manually-picked trackNo for files
+  // matchAudioFileName couldn't resolve (matchMethod 'none'), keyed by
+  // fileName; applied via assignManualTrack below (spec's own "매칭 실패 파일...
+  // 수동 지정 UI").
+  const [manualTrackPick, setManualTrackPick] = useState<Record<string, number>>({});
 
   const candidates = useMemo(() => songs.map(s => ({ trackNo: s.trackNo, title: s.title })), [songs]);
 
@@ -84,6 +103,7 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
 
     const nextAnalyses = new Map(analysesByFileName);
     const nextMatches: AudioMatchResult[] = [...matches];
+    const nextFiles = new Map(filesByName);
 
     // Sequential — never Promise.all across the whole batch. Each
     // analyzeFullAudioFile() call's decoded buffers go out of scope as soon
@@ -97,6 +117,7 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
         full.metrics.matchedSongId = song?.songId;
         nextAnalyses.set(file.name, full);
         nextMatches.push(match);
+        nextFiles.set(file.name, file);
 
         if (song?.songId) {
           const take: AudioTake = {
@@ -124,6 +145,7 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
 
     setAnalysesByFileName(nextAnalyses);
     setMatches(nextMatches);
+    setFilesByName(nextFiles);
     // Default-adopt the first file seen for each trackNo; a user can switch
     // takes below when Suno produced more than one version.
     setAdoptedFileNameByTrack(prev => {
@@ -141,6 +163,45 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
     event.preventDefault();
     setDragOver(false);
     void analyzeFiles(Array.from(event.dataTransfer.files));
+  }
+
+  /**
+   * v3.79 (TASK C) — the spec's own §3-3 "매칭 실패 파일은 상단에 크게 표시하고
+   * 수동 지정 UI 제공". A file matchAudioFileName couldn't resolve (no leading
+   * track number, no exact title match — e.g. "Keep Close My Friend.mp3")
+   * gets assigned to a trackNo the user picks by hand, then flows through
+   * the exact same match/adopt/take-recording pipeline as an automatic
+   * match — no separate code path downstream needs to know it was manual.
+   */
+  async function assignManualTrack(fileName: string, trackNo: number) {
+    setMatches(prev => prev.map(m => (m.fileName === fileName ? { ...m, trackNo, matchMethod: 'title' as const } : m)));
+    const full = analysesByFileName.get(fileName);
+    const song = songs.find(s => s.trackNo === trackNo);
+    if (full) {
+      const updated: FullAudioAnalysis = { ...full, metrics: { ...full.metrics, matchedTrackNo: trackNo, matchedSongId: song?.songId } };
+      setAnalysesByFileName(prev => new Map(prev).set(fileName, updated));
+      if (song?.songId) {
+        const take: AudioTake = {
+          takeId: takeIdFor(packId, fileName),
+          songId: song.songId,
+          trackNo: song.trackNo,
+          packId,
+          channelId,
+          fileName,
+          versionLabel: 'A',
+          adopted: false,
+          metrics: updated.metrics,
+          vocalMetrics: updated.vocalMetrics,
+          tempoEstimate: updated.tempoEstimate,
+          directives: buildTakeDirectives(song, audienceProfile),
+          analyzedAt: new Date().toISOString()
+        };
+        await recordTake(take);
+        loadChannelTakes();
+      }
+    }
+    setAdoptedFileNameByTrack(prev => (trackNo in prev ? prev : { ...prev, [trackNo]: fileName }));
+    setManualTrackPick(prev => { const next = { ...prev }; delete next[fileName]; return next; });
   }
 
   function handleFileInput(event: React.ChangeEvent<HTMLInputElement>) {
@@ -203,6 +264,58 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
   const executionEntries = useMemo(() => buildDirectiveExecutionReport(channelTakes), [channelTakes]);
 
   const unmatchedFiles = matches.filter(m => m.trackNo === undefined);
+
+  /**
+   * v3.79 (TASK C) — "판정을 먼저, 숫자는 접어두기" (verdict first, numbers
+   * tucked away). Real feedback on the pre-existing screen: "초보 입장에서
+   * 뭐가 뭔지 잘 모르겠어" — it only ever printed raw numbers ("중심 주파수 폭
+   * 1568Hz") with no judgment attached. This derives a plain-language
+   * verdict from the exact same report/vocalReport data the old screen
+   * already computed — no new measurement, just interpretation.
+   */
+  const verdict = useMemo(() => {
+    type ProblemTrack = { trackNo: number; title: string; durationSec: number; kind: 'over' | 'under'; severe: boolean; suggestTrimSec?: number; fileName?: string };
+    const problems: ProblemTrack[] = [];
+    const [targetLow, targetHigh] = report.duration.targetRange;
+    const SEVERE_DIFF_SEC = 30;
+    for (const trackNo of report.duration.overTarget) {
+      const durationSec = report.duration.values[trackNo];
+      const diff = durationSec - targetHigh;
+      problems.push({
+        trackNo,
+        title: songs.find(s => s.trackNo === trackNo)?.title ?? '',
+        durationSec,
+        kind: 'over',
+        severe: diff > SEVERE_DIFF_SEC,
+        suggestTrimSec: Math.max(10, Math.ceil(diff / 10) * 10),
+        fileName: adoptedFileNameByTrack[trackNo]
+      });
+    }
+    for (const trackNo of report.duration.underTarget) {
+      const durationSec = report.duration.values[trackNo];
+      const diff = targetLow - durationSec;
+      problems.push({ trackNo, title: songs.find(s => s.trackNo === trackNo)?.title ?? '', durationSec, kind: 'under', severe: diff > SEVERE_DIFF_SEC });
+    }
+    problems.sort((a, b) => a.trackNo - b.trackNo);
+
+    const positives: string[] = [];
+    const reliableBpms: number[] = [];
+    for (const fileName of Object.values(adoptedFileNameByTrack)) {
+      const full = analysesByFileName.get(fileName);
+      if (full && full.tempoEstimate.confidence >= 0.4) reliableBpms.push(full.tempoEstimate.bpm);
+    }
+    if (reliableBpms.length >= 2) {
+      positives.push(`템포가 잘 퍼졌습니다 (${Math.round(Math.min(...reliableBpms))}~${Math.round(Math.max(...reliableBpms))} BPM)`);
+    }
+    if (report.analyzedCount > 1 && report.level.spread <= 3) {
+      positives.push('음량이 균일합니다 (편집 시 볼륨 조정 불필요)');
+    }
+
+    const passCount = Math.max(0, report.analyzedCount - problems.length);
+    const okShare = report.analyzedCount > 0 ? passCount / report.analyzedCount : 1;
+
+    return { problems, positives, passCount, okShare, noLatePeak: report.killingPoint.noLatePeakTracks };
+  }, [report, songs, adoptedFileNameByTrack, analysesByFileName]);
 
   async function rateTrack(metrics: FullAudioAnalysis['metrics'], rating: SongRating) {
     const song = songs.find(s => s.trackNo === metrics.matchedTrackNo);
@@ -270,11 +383,87 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
       {error && <p className="error" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
 
       {unmatchedFiles.length > 0 && (
-        <p className="error">매칭 실패: {unmatchedFiles.map(m => m.fileName).join(', ')} — 파일명에서 트랙을 알아내지 못했습니다.</p>
+        <div className="error">
+          <b><AlertTriangle size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />매칭 실패 {unmatchedFiles.length}곡 — 트랙 번호를 직접 지정하세요</b>
+          {unmatchedFiles.map(m => (
+            <div key={m.fileName} className="button-row" style={{ marginTop: 6, alignItems: 'center' }}>
+              <span className="supporting">"{m.fileName}" — 파일명에서 트랙을 알아내지 못했습니다. 제목으로 매칭하십시오.</span>
+              <select
+                value={manualTrackPick[m.fileName] ?? ''}
+                onChange={event => setManualTrackPick(prev => ({ ...prev, [m.fileName]: Number(event.target.value) }))}
+              >
+                <option value="" disabled>트랙 선택</option>
+                {songs.map(s => (
+                  <option key={s.trackNo} value={s.trackNo}>T{s.trackNo} {s.title}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="chip"
+                disabled={!manualTrackPick[m.fileName]}
+                onClick={() => void assignManualTrack(m.fileName, manualTrackPick[m.fileName])}
+              >
+                적용
+              </button>
+            </div>
+          ))}
+        </div>
       )}
 
       {report.analyzedCount > 0 && (
         <>
+          <div className={verdict.problems.length === 0 ? 'provider-summary design-gate-panel passed' : 'error design-gate-panel failed'}>
+            <div className="section-head">
+              {verdict.problems.length === 0 ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+              <b>{verdict.problems.length === 0 ? '이 세트는 쓸 만합니다 ✅' : `${report.analyzedCount}곡 중 ${verdict.passCount}곡 통과`}</b>
+            </div>
+
+            {verdict.problems.length > 0 && (
+              <div className="design-gate-issue-list">
+                <p className="supporting" style={{ marginTop: 0 }}>손봐야 할 곡 {verdict.problems.length}개</p>
+                {verdict.problems.map(p => (
+                  <div key={p.trackNo} className="design-gate-issue">
+                    <div>
+                      <b>T{p.trackNo} {p.title}</b>
+                      <span className="supporting"> {formatMinSec(p.durationSec)}</span>
+                    </div>
+                    <p className="supporting">
+                      {p.kind === 'over' ? (p.severe ? '너무 깁니다' : '조금 깁니다') : (p.severe ? '많이 짧습니다' : '조금 짧습니다')}
+                      {p.kind === 'over' && p.suggestTrimSec ? ` → ${p.suggestTrimSec}초 줄이면 좋겠습니다` : ''}
+                    </p>
+                    {p.kind === 'over' && onEditTrack && p.fileName && filesByName.get(p.fileName) && (
+                      <button type="button" className="chip" onClick={() => onEditTrack(p.trackNo, p.fileName!, filesByName.get(p.fileName!)!, p.durationSec)}>
+                        편집
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {verdict.noLatePeak.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <p className="supporting" style={{ marginBottom: 2 }}>아쉬운 점</p>
+                <p className="supporting">
+                  후반이 안 올라가는 곡 {verdict.noLatePeak.length}개 (T{verdict.noLatePeak.join(', T')})
+                  <br />→ 마지막 후렴에서 고조되는 느낌이 약합니다.
+                </p>
+              </div>
+            )}
+
+            {verdict.positives.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <p className="supporting" style={{ marginBottom: 2 }}>잘 나온 것</p>
+                {verdict.positives.map(text => <p key={text} className="supporting">{text}</p>)}
+              </div>
+            )}
+          </div>
+
+          <details className="audio-detail-numbers" open={detailsOpen} onToggle={event => setDetailsOpen((event.target as HTMLDetailsElement).open)}>
+            <summary>
+              상세 수치 보기 <ChevronDown size={13} style={{ verticalAlign: '-2px' }} />
+            </summary>
+
           <div className="option-block compact">
             <h4>길이</h4>
             <p className="supporting">
@@ -304,23 +493,25 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
           </div>
 
           <div className="option-block compact">
-            <h4>전체 음색 다양성</h4>
+            <h4>전체 믹스 밝기 다양성</h4>
             <p className="supporting">중심 주파수 폭 {Math.round(report.timbre.centroidSpread)}Hz · 세트 평균 유사도 {report.timbre.meanSimilarity.toFixed(2)}</p>
+            <p className="supporting">ⓘ 편곡·믹스 다양성 참고용 수치입니다. 목소리가 같다/다르다는 판단에는 쓰지 않습니다.</p>
           </div>
 
           <div className="option-block compact">
-            <h4>보컬 음색 분포</h4>
-            <p className="supporting">ⓘ 반주가 일부 섞인 200-3500Hz 대역 분석입니다. 곡 간 상대 비교용입니다.</p>
+            <h4>믹스 중심 주파수 분포 (보컬 대역)</h4>
+            <p className="supporting">ⓘ 반주가 일부 섞인 200-3500Hz 대역 분석입니다 — 목소리 자체가 아니라 이 대역의 믹스 밝기입니다. 곡 간 상대 비교·편곡 다양성 참고용입니다.</p>
             {vocalReport.sameTypeSpread.map(({ vocalType, spread, count }) => (
-              <p key={vocalType} className="supporting">{vocalType} {count}곡 · 중심 폭 {Math.round(spread)}Hz{spread < 200 ? ' ⚠ 좁음' : ''}</p>
+              <p key={vocalType} className="supporting">{vocalType} {count}곡 · 중심 폭 {Math.round(spread)}Hz</p>
             ))}
-            {vocalReport.advisories.map(text => <p key={text} className="supporting">⚠ {text}</p>)}
+            {vocalReport.advisories.map(text => <p key={text} className="supporting">ⓘ {text}</p>)}
           </div>
 
           <div className="option-block compact">
             <h4>음량</h4>
             <p className="supporting">편차 {report.level.spread.toFixed(1)}dB {report.level.spread <= 3 ? '— 균일함 ✅' : '— 편차 있음 ⚠'}</p>
           </div>
+          </details>
 
           <div className="option-block">
             <h4>테이크 비교 / 곡별 상세</h4>
@@ -349,7 +540,7 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
                             </div>
                             <RmsBarRow metrics={takeFull.metrics} />
                             <p className="supporting">
-                              진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 보컬중심 {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
+                              진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 믹스중심(보컬대역) {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
                               템포 {takeFull.tempoEstimate.confidence >= 0.4 ? `${Math.round(takeFull.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
                             </p>
                             <button type="button" className={isAdopted ? 'chip active' : 'chip'} onClick={() => void adoptTake(trackNo, take.fileName)}>
@@ -365,7 +556,7 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
                         <RmsBarRow metrics={full.metrics} />
                         <p className="supporting">
                           최대 구간 {Math.round(metrics.peakPosition * (metrics.rmsCurve.length - 1)) + 1}/{metrics.rmsCurve.length} · 진폭 {metrics.dynamicRange.toFixed(1)}dB ·
-                          중심 {Math.round(metrics.spectralCentroid)}Hz · 보컬중심 {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
+                          중심 {Math.round(metrics.spectralCentroid)}Hz · 믹스중심(보컬대역) {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
                           템포 {full.tempoEstimate.confidence >= 0.4 ? `${Math.round(full.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
                         </p>
                       </>
