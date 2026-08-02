@@ -509,34 +509,6 @@ export interface ScopedIssue {
 }
 
 /**
- * v4.2 (TASK A) — how much an A/B adoption-pair signal is worth trusting.
- * Sign-test only (this task's own explicit "회귀·상관 분석을 쓰지 말 것,
- * 부호 검정만 쓰십시오") — a win rate near 50% is noise regardless of n,
- * and a strong-looking win rate under ~10 pairs is still noise from sample
- * size alone. See core/adoptionAnalysis.ts for the actual thresholds.
- */
-export type AdoptionConfidence = 'insufficient' | 'weak' | 'moderate' | 'strong';
-
-/**
- * v4.2 (TASK A) — one metric's A/B adoption sign-test result (e.g. "does
- * the take with higher dynamicRange get adopted more often"). Pure
- * counting/ratio, not a regression coefficient — see AdoptionConfidence's
- * own doc comment for why. `metric` is the AudioTake.metrics field name
- * this insight measures (e.g. 'dynamicRange', 'peakPosition').
- */
-export interface AdoptionInsight {
-  metric: string;
-  labelKo: string;
-  /** How many pairs adopted the take that scored HIGHER on `metric`. */
-  adoptedHigherCount: number;
-  totalPairs: number;
-  /** adoptedHigherCount / totalPairs. */
-  winRate: number;
-  meanDelta: number;
-  confidence: AdoptionConfidence;
-}
-
-/**
  * v4.2 (TASK E) — how much confidence a quality threshold actually
  * deserves, so the UI can tell "estimated" (a guess awaiting validation)
  * apart from "measured"/"listener-verified" (backed by real data) instead

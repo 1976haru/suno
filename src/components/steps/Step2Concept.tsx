@@ -22,11 +22,15 @@ import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import { buildReferenceMoodStyleClause, referenceMoodSafetyIssues } from '../../core/referenceMood';
 import { GENRE_FAMILIES, familiesBlendWell } from '../../data/genreFamilies';
+import { QUALITY_THRESHOLDS, thresholdsByBasis } from '../../data/qualityThresholds';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
 import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
+
+/** v4.2 (TASK E) — computed once at module load (QUALITY_THRESHOLDS is static data, not per-render/per-props), reused by the advanced-settings "기준값 검증 상태" summary below. */
+const THRESHOLD_BASIS_SUMMARY = thresholdsByBasis();
 
 const languageOptions: { value: LyricLanguage; label: string; sub: string }[] = [
   { value: 'english', label: '영어', sub: 'English' },
@@ -915,6 +919,16 @@ export default function Step2Concept({
           </div>
 
           <DiversityAllocationPanel opts={opts} setOpts={setOpts} genres={selectedGenres} />
+
+          <div className="option-block compact">
+            <h4>기준값 검증 상태</h4>
+            <p className="supporting">
+              품질 기준값 {QUALITY_THRESHOLDS.length}개 · 측정됨(measured) {THRESHOLD_BASIS_SUMMARY.measured.length} · 청취 검증됨(listener-verified) {THRESHOLD_BASIS_SUMMARY['listener-verified'].length} · 검증 대기(estimated) {THRESHOLD_BASIS_SUMMARY.estimated.length}
+            </p>
+            <p className="supporting">
+              ⓘ estimated 기준값은 아직 실제 데이터로 확인되지 않았습니다 — 실제 A/B 채택·청취 평가가 쌓이면 v4.2 데이터 검증 단계에서 하나씩 확인할 예정입니다.
+            </p>
+          </div>
         </div>
       )}
 

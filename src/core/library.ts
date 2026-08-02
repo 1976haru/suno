@@ -102,6 +102,8 @@ export interface PackProgressRecord {
   updatedAt: string;
   /** TASK v3.31 — per-track "last copied all fields in Suno Progress Mode" timestamp, so reopening a pack later shows what was already pasted. Optional/absent for records written before this field existed. */
   pastedAt?: Record<number, string>;
+  /** v4.2 (TASK A) — AudioAnalysisPanel's focus-mode cursor (which trackNo the user was reviewing takes for), so closing and reopening the panel resumes at the same track instead of always restarting at track 1. Optional/absent for records written before this field existed, or for packs that have never used focus mode. */
+  focusCursorTrackNo?: number;
 }
 
 const memoryProgress = new Map<string, PackProgressRecord>();
@@ -607,10 +609,10 @@ export async function setTrackProgress(packId: string, trackNo: number, done: bo
   const next = done
     ? Array.from(new Set([...current, trackNo])).sort((a, b) => a - b)
     : current.filter(no => no !== trackNo);
-  // Preserve pastedAt — this record is put() wholesale, so a naive
+  // Preserve pastedAt/focusCursorTrackNo — this record is put() wholesale, so a naive
   // {id, doneTrackNos, updatedAt} write here would silently wipe out
-  // markTrackPasted's history the next time either function runs.
-  const record: PackProgressRecord = { id: packId, doneTrackNos: next, updatedAt: new Date().toISOString(), pastedAt: existing?.pastedAt };
+  // markTrackPasted's/setFocusCursor's history the next time either function runs.
+  const record: PackProgressRecord = { id: packId, doneTrackNos: next, updatedAt: new Date().toISOString(), pastedAt: existing?.pastedAt, focusCursorTrackNo: existing?.focusCursorTrackNo };
   if (!hasIndexedDb()) {
     memoryProgress.set(packId, record);
     return next;
@@ -629,13 +631,37 @@ export async function setTrackProgress(packId: string, trackNo: number, done: bo
 export async function markTrackPasted(packId: string, trackNo: number): Promise<Record<number, string>> {
   const existing = await getProgressRecord(packId);
   const pastedAt = { ...(existing?.pastedAt || {}), [trackNo]: new Date().toISOString() };
-  const record: PackProgressRecord = { id: packId, doneTrackNos: existing?.doneTrackNos || [], updatedAt: new Date().toISOString(), pastedAt };
+  const record: PackProgressRecord = { id: packId, doneTrackNos: existing?.doneTrackNos || [], updatedAt: new Date().toISOString(), pastedAt, focusCursorTrackNo: existing?.focusCursorTrackNo };
   if (!hasIndexedDb()) {
     memoryProgress.set(packId, record);
     return pastedAt;
   }
   await withStore('readwrite', store => store.put(record), PROGRESS_STORE);
   return pastedAt;
+}
+
+/** v4.2 (TASK A) — companion to getPackProgress: which trackNo AudioAnalysisPanel's focus mode was last reviewing, set by setFocusCursor below. */
+export async function getFocusCursor(packId: string): Promise<number | undefined> {
+  const record = await getProgressRecord(packId);
+  return record?.focusCursorTrackNo;
+}
+
+/** v4.2 (TASK A) — persists AudioAnalysisPanel's focus-mode cursor, same put()-wholesale/preserve-the-rest pattern as markTrackPasted above. */
+export async function setFocusCursor(packId: string, trackNo: number): Promise<number> {
+  const existing = await getProgressRecord(packId);
+  const record: PackProgressRecord = {
+    id: packId,
+    doneTrackNos: existing?.doneTrackNos || [],
+    updatedAt: new Date().toISOString(),
+    pastedAt: existing?.pastedAt,
+    focusCursorTrackNo: trackNo
+  };
+  if (!hasIndexedDb()) {
+    memoryProgress.set(packId, record);
+    return trackNo;
+  }
+  await withStore('readwrite', store => store.put(record), PROGRESS_STORE);
+  return trackNo;
 }
 
 export async function getConceptCache(cacheKey: string): Promise<string | undefined> {

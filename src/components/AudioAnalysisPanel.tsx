@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, Music, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Music, Upload } from 'lucide-react';
 import type { AudienceProfile, SongIdea } from '../types';
 import type { FullAudioAnalysis } from '../core/audioAnalysis';
 import { analyzeFullAudioFileResponsive } from '../core/audioAnalysisClient';
@@ -9,6 +9,7 @@ import { attributesFromSong, getRatingForSong, recordRating, type SongRating } f
 import { buildTakeDirectives, getTakes, recordTake, setAdopted, type AudioTake } from '../core/audioTakes';
 import { buildDirectiveExecutionReport } from '../core/audioDirectiveAnalysis';
 import { analyzeAdoption, isNeutralWinRate } from '../core/audioAdoption';
+import { getFocusCursor, setFocusCursor } from '../core/library';
 
 interface AudioAnalysisPanelProps {
   songs: SongIdea[];
@@ -53,6 +54,93 @@ function RmsBarRow({ metrics }: { metrics: FullAudioAnalysis['metrics'] }) {
 }
 
 /**
+ * v4.2 (TASK A) — one track's take-comparison/detail card, factored out of
+ * the plain scrollable list below so the new focus mode (one card at a
+ * time, auto-advance on adopt) can reuse the exact same markup/logic
+ * instead of duplicating it — the only difference between the two modes is
+ * which `onAdopt` callback gets passed in (list mode never auto-advances;
+ * focus mode's onAdopt also calls goNextFocus, see AudioAnalysisPanel's own
+ * adoptTakeAndAdvance).
+ */
+function TrackDetailCard({
+  trackNo,
+  title,
+  metrics,
+  takes,
+  analysesByFileName,
+  adoptedFileName,
+  full,
+  rating,
+  onAdopt,
+  onRate
+}: {
+  trackNo: number;
+  title: string;
+  metrics: FullAudioAnalysis['metrics'];
+  takes: ReturnType<typeof labelTakesInGroup>;
+  analysesByFileName: Map<string, FullAudioAnalysis>;
+  adoptedFileName: string | undefined;
+  full: FullAudioAnalysis | undefined;
+  rating: SongRating | undefined;
+  onAdopt: (trackNo: number, fileName: string) => void;
+  onRate?: (rating: SongRating) => void;
+}) {
+  return (
+    <>
+      <div className="section-head">
+        <b>T{trackNo} {title}</b>
+      </div>
+
+      {takes.length > 1 ? (
+        <div className="audio-take-compare">
+          {takes.map(take => {
+            const takeFull = analysesByFileName.get(take.fileName);
+            if (!takeFull) return null;
+            const isAdopted = adoptedFileName === take.fileName;
+            return (
+              <div key={take.fileName} className={isAdopted ? 'audio-take-card adopted' : 'audio-take-card'}>
+                <div className="section-head">
+                  <b>{take.versionLabel}버전{isAdopted ? ' ●채택' : ''}</b>
+                  <span className="supporting">{formatMinSec(takeFull.metrics.durationSec)}</span>
+                </div>
+                <RmsBarRow metrics={takeFull.metrics} />
+                <p className="supporting">
+                  진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 믹스중심(보컬대역) {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
+                  템포 {takeFull.tempoEstimate.confidence >= 0.4 ? `${Math.round(takeFull.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
+                </p>
+                <button type="button" className={isAdopted ? 'chip active' : 'chip'} onClick={() => onAdopt(trackNo, take.fileName)}>
+                  {take.versionLabel} 채택
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        full && (
+          <>
+            <RmsBarRow metrics={full.metrics} />
+            <p className="supporting">
+              최대 구간 {Math.round(metrics.peakPosition * (metrics.rmsCurve.length - 1)) + 1}/{metrics.rmsCurve.length} · 진폭 {metrics.dynamicRange.toFixed(1)}dB ·
+              중심 {Math.round(metrics.spectralCentroid)}Hz · 믹스중심(보컬대역) {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
+              템포 {full.tempoEstimate.confidence >= 0.4 ? `${Math.round(full.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
+            </p>
+          </>
+        )
+      )}
+
+      {onRate && (
+        <div className="button-row">
+          <button type="button" className={rating === 'good' ? 'chip active' : 'chip'} onClick={() => onRate('good')}>👍 좋음</button>
+          <button type="button" className={rating === 'ok' ? 'chip active' : 'chip'} onClick={() => onRate('ok')}>🤷 보통</button>
+          <button type="button" className={rating === 'bad' ? 'chip active' : 'chip'} onClick={() => onRate('bad')}>👎 별로</button>
+          {rating && <span className="supporting">{RATING_LABELS_KO[rating]}</span>}
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
  * TASK v3.73/v3.74 — the UI entry point for browser-in mp3 analysis. Still
  * processes one file at a time (sequential `for...of` + `await`, never
  * Promise.all — TASK A's own "한 곡씩 처리하고 즉시 해제하십시오").
@@ -84,6 +172,17 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
   // fileName; applied via assignManualTrack below (spec's own "매칭 실패 파일...
   // 수동 지정 UI").
   const [manualTrackPick, setManualTrackPick] = useState<Record<string, number>>({});
+  // v4.2 (TASK A) — "포커스 모드": one track at a time instead of the
+  // scrollable list, with adopting auto-advancing (spec's own "채택하면
+  // 자동으로 다음 곡"). focusIndex is a position into `adoptedMetrics`
+  // (already sorted by trackNo); persisted as a trackNo via
+  // core/library.ts's getFocusCursor/setFocusCursor so closing and
+  // reopening this panel resumes at the same track instead of always
+  // restarting at the first one.
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusIndex, setFocusIndex] = useState(0);
+  const [persistedCursorTrackNo, setPersistedCursorTrackNo] = useState<number | undefined>(undefined);
+  const [cursorApplied, setCursorApplied] = useState(false);
 
   const candidates = useMemo(() => songs.map(s => ({ trackNo: s.trackNo, title: s.title })), [songs]);
 
@@ -224,6 +323,12 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
     loadChannelTakes();
   }
 
+  /** v4.2 (TASK A) — focus mode's own adopt handler: same adoptTake, plus the spec's own "채택하면 자동으로 다음 곡" auto-advance. List mode keeps calling plain adoptTake (unchanged behavior). */
+  async function adoptTakeAndAdvance(trackNo: number, fileName: string) {
+    await adoptTake(trackNo, fileName);
+    goNextFocus();
+  }
+
   const matchGroups = useMemo(() => groupMatchesByTrackNo(matches), [matches]);
   const labeledGroups = useMemo(() => {
     const labeled = new Map<number, ReturnType<typeof labelTakesInGroup>>();
@@ -239,6 +344,34 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
     }
     return list.sort((a, b) => (a.matchedTrackNo ?? 0) - (b.matchedTrackNo ?? 0));
   }, [adoptedFileNameByTrack, analysesByFileName]);
+
+  useEffect(() => {
+    void getFocusCursor(packId).then(setPersistedCursorTrackNo);
+  }, [packId]);
+
+  // Applies the persisted cursor exactly once, as soon as adoptedMetrics
+  // has the track it points at — analysis happens client-side after mount,
+  // so the list is typically still empty when the cursor itself finishes
+  // loading.
+  useEffect(() => {
+    if (cursorApplied || persistedCursorTrackNo === undefined || !adoptedMetrics.length) return;
+    const idx = adoptedMetrics.findIndex(m => m.matchedTrackNo === persistedCursorTrackNo);
+    if (idx >= 0) setFocusIndex(idx);
+    setCursorApplied(true);
+  }, [cursorApplied, persistedCursorTrackNo, adoptedMetrics]);
+
+  function goToFocusIndex(index: number) {
+    const clamped = Math.max(0, Math.min(adoptedMetrics.length - 1, index));
+    setFocusIndex(clamped);
+    const trackNo = adoptedMetrics[clamped]?.matchedTrackNo;
+    if (trackNo !== undefined) void setFocusCursor(packId, trackNo);
+  }
+  function goNextFocus() {
+    goToFocusIndex(focusIndex + 1);
+  }
+  function goPrevFocus() {
+    goToFocusIndex(focusIndex - 1);
+  }
 
   // v3.75 (TASK B) — a track with no designed killing point has no
   // amplitude/late-peak expectation at all (this task's own spec: "킬링포인트가
@@ -518,66 +651,77 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
           </details>
 
           <div className="option-block">
-            <h4>테이크 비교 / 곡별 상세</h4>
-            {adoptedMetrics.map(metrics => {
-              const trackNo = metrics.matchedTrackNo!;
-              const song = songs.find(s => s.trackNo === trackNo);
-              const takes = labeledGroups.get(trackNo) ?? [];
-              const full = analysesByFileName.get(adoptedFileNameByTrack[trackNo]);
-              return (
-                <div key={trackNo} className="option-block compact audio-track-detail">
-                  <div className="section-head">
-                    <b>T{trackNo} {song?.title ?? metrics.fileName}</b>
-                  </div>
+            <div className="section-head">
+              <h4>테이크 비교 / 곡별 상세</h4>
+              <button type="button" className={focusMode ? 'chip active' : 'chip'} onClick={() => setFocusMode(v => !v)}>
+                {focusMode ? '목록 보기' : '포커스 모드'}
+              </button>
+            </div>
 
-                  {takes.length > 1 ? (
-                    <div className="audio-take-compare">
-                      {takes.map(take => {
-                        const takeFull = analysesByFileName.get(take.fileName);
-                        if (!takeFull) return null;
-                        const isAdopted = adoptedFileNameByTrack[trackNo] === take.fileName;
-                        return (
-                          <div key={take.fileName} className={isAdopted ? 'audio-take-card adopted' : 'audio-take-card'}>
-                            <div className="section-head">
-                              <b>{take.versionLabel}버전{isAdopted ? ' ●채택' : ''}</b>
-                              <span className="supporting">{formatMinSec(takeFull.metrics.durationSec)}</span>
-                            </div>
-                            <RmsBarRow metrics={takeFull.metrics} />
-                            <p className="supporting">
-                              진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 믹스중심(보컬대역) {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
-                              템포 {takeFull.tempoEstimate.confidence >= 0.4 ? `${Math.round(takeFull.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
-                            </p>
-                            <button type="button" className={isAdopted ? 'chip active' : 'chip'} onClick={() => void adoptTake(trackNo, take.fileName)}>
-                              {take.versionLabel} 채택
-                            </button>
-                          </div>
-                        );
-                      })}
+            {focusMode ? (
+              (() => {
+                const clampedIndex = Math.max(0, Math.min(focusIndex, adoptedMetrics.length - 1));
+                const metrics = adoptedMetrics[clampedIndex];
+                if (!metrics) return <p className="supporting">아직 분석된 곡이 없습니다.</p>;
+                const trackNo = metrics.matchedTrackNo!;
+                const song = songs.find(s => s.trackNo === trackNo);
+                const takes = labeledGroups.get(trackNo) ?? [];
+                const full = analysesByFileName.get(adoptedFileNameByTrack[trackNo]);
+                return (
+                  <div className="option-block compact audio-track-detail audio-focus-card">
+                    <div className="focus-mode-nav">
+                      <button type="button" className="focus-nav-button" disabled={clampedIndex === 0} onClick={goPrevFocus}>
+                        <ChevronLeft size={22} />
+                      </button>
+                      <p className="supporting" style={{ margin: 0 }}>{clampedIndex + 1} / {adoptedMetrics.length}</p>
+                      <button type="button" className="focus-nav-button" disabled={clampedIndex === adoptedMetrics.length - 1} onClick={goNextFocus}>
+                        <ChevronRight size={22} />
+                      </button>
                     </div>
-                  ) : (
-                    full && (
-                      <>
-                        <RmsBarRow metrics={full.metrics} />
-                        <p className="supporting">
-                          최대 구간 {Math.round(metrics.peakPosition * (metrics.rmsCurve.length - 1)) + 1}/{metrics.rmsCurve.length} · 진폭 {metrics.dynamicRange.toFixed(1)}dB ·
-                          중심 {Math.round(metrics.spectralCentroid)}Hz · 믹스중심(보컬대역) {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
-                          템포 {full.tempoEstimate.confidence >= 0.4 ? `${Math.round(full.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
-                        </p>
-                      </>
-                    )
-                  )}
-
-                  {song?.songId && (
+                    <TrackDetailCard
+                      trackNo={trackNo}
+                      title={song?.title ?? metrics.fileName}
+                      metrics={metrics}
+                      takes={takes}
+                      analysesByFileName={analysesByFileName}
+                      adoptedFileName={adoptedFileNameByTrack[trackNo]}
+                      full={full}
+                      rating={song?.songId ? ratings[song.songId] : undefined}
+                      onAdopt={(t, fileName) => void adoptTakeAndAdvance(t, fileName)}
+                      onRate={song?.songId ? rating => void rateTrack(metrics, rating) : undefined}
+                    />
                     <div className="button-row">
-                      <button type="button" className={ratings[song.songId] === 'good' ? 'chip active' : 'chip'} onClick={() => void rateTrack(metrics, 'good')}>👍 좋음</button>
-                      <button type="button" className={ratings[song.songId] === 'ok' ? 'chip active' : 'chip'} onClick={() => void rateTrack(metrics, 'ok')}>🤷 보통</button>
-                      <button type="button" className={ratings[song.songId] === 'bad' ? 'chip active' : 'chip'} onClick={() => void rateTrack(metrics, 'bad')}>👎 별로</button>
-                      {ratings[song.songId] && <span className="supporting">{RATING_LABELS_KO[ratings[song.songId]]}</span>}
+                      <button type="button" className="chip" onClick={goNextFocus} disabled={clampedIndex === adoptedMetrics.length - 1}>
+                        건너뛰기 →
+                      </button>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })()
+            ) : (
+              adoptedMetrics.map(metrics => {
+                const trackNo = metrics.matchedTrackNo!;
+                const song = songs.find(s => s.trackNo === trackNo);
+                const takes = labeledGroups.get(trackNo) ?? [];
+                const full = analysesByFileName.get(adoptedFileNameByTrack[trackNo]);
+                return (
+                  <div key={trackNo} className="option-block compact audio-track-detail">
+                    <TrackDetailCard
+                      trackNo={trackNo}
+                      title={song?.title ?? metrics.fileName}
+                      metrics={metrics}
+                      takes={takes}
+                      analysesByFileName={analysesByFileName}
+                      adoptedFileName={adoptedFileNameByTrack[trackNo]}
+                      full={full}
+                      rating={song?.songId ? ratings[song.songId] : undefined}
+                      onAdopt={(t, fileName) => void adoptTake(t, fileName)}
+                      onRate={song?.songId ? rating => void rateTrack(metrics, rating) : undefined}
+                    />
+                  </div>
+                );
+              })
+            )}
           </div>
         </>
       )}
