@@ -7,7 +7,8 @@ import {
   hookRhythmLength,
   hookWordCount,
   matchCombinatorialShape,
-  matchHookShape
+  matchHookShape,
+  targetHookEmotionalWeight
 } from '../src/core/lyricEngine';
 import { hookStyleDirectives } from '../src/core/promptComposer';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -129,9 +130,25 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
     expect(highCount).toBeLessThanOrEqual(2);
   });
 
-  it.each(LANGUAGES)('uses a high-emotion hook for late-set emotional center in %s', language => {
+  // v4.4 (TASK D) — 'late-set emotional center' used to always land on a
+  // fixed track index (the old flat songRoles array), guaranteed present.
+  // Now assigned via a per-arc-phase pool (songRolePlanForArc,
+  // localGenerator.ts) that draws only as many of the 'peak' phase's 4
+  // role names as that phase has slots for at this songCount — at 12 songs
+  // that's fewer than 4, so this exact role name isn't guaranteed to appear
+  // (a real 12-song run drew 'romantic shade without melodrama' and 'big
+  // emotional high point' instead). Checks the real mechanism instead
+  // (targetHookEmotionalWeight's own role regex, lyricEngine.ts) against
+  // whichever role(s) actually got assigned, rather than one specific
+  // pool-internal role name or arc phase (a 'peak'-phase track can hold a
+  // non-high-emotion role like 'romantic shade without melodrama' too).
+  it.each(LANGUAGES)('uses a high-emotion hook for every high-emotion-role track in a 12 song pack in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 12, lyricLanguage: language }), testGenres, testMoods, testSeason);
-    expect(hookEmotionalWeight(bp.songs[7].hookPhrase)).toBe('high');
+    const highEmotionSongs = bp.songs.filter(s => targetHookEmotionalWeight(s.songRole) === 'high');
+    expect(highEmotionSongs.length, 'no track in this 12-song pack was assigned a high-emotion role').toBeGreaterThan(0);
+    for (const song of highEmotionSongs) {
+      expect(hookEmotionalWeight(song.hookPhrase), `track ${song.trackNo} (role: ${song.songRole})`).toBe('high');
+    }
   });
 
   // TASK v3.42 Part C — a pack's songs now rotate through 5 different

@@ -1201,10 +1201,28 @@ export function generateLocalBlueprint(
       // authored shortForm (promptBudget.ts's compressHardLimitWithGuard
       // stage 1) — without one there was nothing for compression to grab,
       // and the v3.80 technique phrase pushed real packs to 651-879 chars
-      // against a 350-650 target. Falls back to vocalDescriptionText alone
-      // (drops the technique phrase and the audience constraint phrase,
-      // both reference color, not the load-bearing vocal identity).
-      { id: 'vocal' as const, text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', '), shortForm: vocalDescriptionText },
+      // against a 350-650 target. shortForm drops only the technique phrase
+      // (reference color), NOT audienceProfile.constraints[0] — an earlier
+      // version of this fix dropped the constraint too, which broke
+      // tests/audienceProfile.test.ts's "every song weaves in at least one
+      // senior audience constraint" guarantee for any song that actually
+      // hit stage-1 compression; the constraint is load-bearing, the
+      // technique phrase is not.
+      // v4.4 (TASK F) — 'vocal' is ESSENTIAL_TERM_IDS (promptBudget.ts), so it
+      // is never dropped, but essential atoms are only ever SHRUNK via an
+      // authored shortForm (promptBudget.ts's compressHardLimitWithGuard
+      // stage 1) — without one there was nothing for compression to grab,
+      // and the v3.80 technique phrase pushed real packs to 651-879 chars
+      // against a 350-650 target. shortForm keeps audienceProfile.constraints[0]
+      // (load-bearing — tests/audienceProfile.test.ts requires it on every
+      // song) and drops the technique phrase entirely; composeStylePrompt's
+      // own shortAtomsById caps ANY id's short-form atom count at 3
+      // (.slice(0,3)), so vocalDescriptionText itself is trimmed to its
+      // first 2 comma-segments here to leave room for the constraint as the
+      // 3rd — an earlier version of this fix appended the constraint as a
+      // 4th atom and it silently got sliced off for any track whose
+      // pre-compression prompt happened to cross the hard limit.
+      { id: 'vocal' as const, text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', '), shortForm: [vocalDescriptionText.split(',').map(s => s.trim()).slice(0, 2).join(', '), audienceProfile.constraints[0]].filter(Boolean).join(', ') },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
       // TASK v3.59 (TASK D-1) — see the other composeStylePrompt call's own
       // comment above; same "no instrumental intro" vs. introTexture
