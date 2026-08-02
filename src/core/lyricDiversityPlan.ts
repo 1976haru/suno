@@ -1,4 +1,4 @@
-import { getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, type LyricTheme } from '../data/lyricThemes';
+import { frameIdForConceptText, getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, type LyricTheme } from '../data/lyricThemes';
 import type { GenerationOptions, LyricPerspective, LyricSectionStyleId } from '../types';
 import { applyAxisAllocation, POV_IDS, spreadPlanByCounts } from './diversityAllocation';
 import { buildStridePlan } from './stridePlan';
@@ -39,7 +39,7 @@ export const CHORUS_SECTION_STYLE_TEXT_BY_ID: Record<LyricSectionStyleId, string
 };
 
 type LyricPlanOptions = Pick<GenerationOptions,
-  'channel' | 'songCount' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'lyricLanguage'
+  'channel' | 'songCount' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'
 >;
 
 function positiveModulo(value: number, length: number): number {
@@ -48,12 +48,28 @@ function positiveModulo(value: number, length: number): number {
 
 const SOLITARY_OBJECT_FRAME_ID = 'solitary-object';
 const NON_SOLITARY_FRAME_CAP = 4;
+/**
+ * v4.5 (TASK D, 4-2) — real measurement: a concept naming a specific
+ * situation ("젊은 시절 춤추던 토요일 밤") still only landed its own
+ * dance-saturday frame on 2/18 songs (11%) — allocateThemesByFrame spread
+ * evenly across all 9 frames with no notion that the concept had already
+ * named one of them specifically. This app's own promise-fulfillment bar
+ * for a situation promise is >= 60% (core/promiseAudit.ts's own
+ * measureSituation) — the preferred frame's cap is raised to match that
+ * bar directly, while every other frame keeps its normal
+ * NON_SOLITARY_FRAME_CAP so the pack still isn't 100% one scene (this
+ * task's own "가사 상황이 18종 전부 다른 것도 유지하십시오").
+ */
+const PREFERRED_FRAME_SHARE = 0.6;
 
 function themeFrameId(theme: LyricTheme): string {
   return theme.frameId ?? SOLITARY_OBJECT_FRAME_ID;
 }
 
-function frameCapFor(frameId: string, songCount: number): number {
+function frameCapFor(frameId: string, songCount: number, preferredFrameId?: string): number {
+  if (preferredFrameId && frameId === preferredFrameId) {
+    return Math.min(songCount, Math.max(NON_SOLITARY_FRAME_CAP, Math.ceil(songCount * PREFERRED_FRAME_SHARE)));
+  }
   const cap = frameId === SOLITARY_OBJECT_FRAME_ID ? 5 : NON_SOLITARY_FRAME_CAP;
   return Math.min(cap, songCount);
 }
@@ -74,7 +90,7 @@ function poolHasExplicitFrames(pool: LyricTheme[]): boolean {
  * its cap before songCount is reached (a large songCount against a small
  * pool) rather than ever returning fewer entries than requested.
  */
-function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: number): string[] {
+function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: number, preferredFrameId?: string): string[] {
   if (!pool.length || songCount <= 0) return [];
   const byFrame = new Map<string, LyricTheme[]>();
   for (const theme of pool) {
@@ -83,15 +99,32 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
   }
   const frameIds = [...byFrame.keys()];
   const offset = Math.abs(seed + 1301) % frameIds.length;
-  const orderedFrameIds = [...frameIds.slice(offset), ...frameIds.slice(0, offset)];
+  const rotatedFrameIds = [...frameIds.slice(offset), ...frameIds.slice(0, offset)];
+  const orderedFrameIds = preferredFrameId && byFrame.has(preferredFrameId)
+    ? [preferredFrameId, ...rotatedFrameIds.filter(id => id !== preferredFrameId)]
+    : rotatedFrameIds;
 
   const frameSequence: string[] = [];
   const usedPerFrame = new Map<string, number>();
+  // v4.5 (TASK D, 4-2) — reserves the preferred frame's own (higher, see
+  // frameCapFor) share FIRST, as a dedicated phase, rather than folding it
+  // into the round-robin loop below. Real measurement: a straight
+  // round-robin (1 slot per frame per pass) naturally finishes filling
+  // songCount slots once every frame's SHARE of an even split is met —
+  // for a typical 18-song/9-frame pool that's 2 passes, well before a
+  // higher cap on one frame ever becomes the binding constraint, so the
+  // bias silently never fired. Reserving it up front guarantees the share
+  // regardless of how many other frames the pool happens to have.
+  if (preferredFrameId && byFrame.has(preferredFrameId)) {
+    const reserved = Math.min(songCount, frameCapFor(preferredFrameId, songCount, preferredFrameId));
+    for (let i = 0; i < reserved; i++) frameSequence.push(preferredFrameId);
+    usedPerFrame.set(preferredFrameId, reserved);
+  }
   let guard = 0;
   while (frameSequence.length < songCount && guard < songCount * orderedFrameIds.length * 2) {
     const frameId = orderedFrameIds[guard % orderedFrameIds.length];
     const used = usedPerFrame.get(frameId) ?? 0;
-    if (used < frameCapFor(frameId, songCount)) {
+    if (used < frameCapFor(frameId, songCount, preferredFrameId)) {
       frameSequence.push(frameId);
       usedPerFrame.set(frameId, used + 1);
     }
@@ -129,8 +162,14 @@ export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): strin
   const themes = lyricThemesForOptions(opts);
   const pool = themes.map(theme => theme.id);
   if (!pool.length || opts.songCount <= 0) return [];
+  // v4.5 (TASK D, 4-2) — the concept's own named situation (if any) gets a
+  // larger share of the pack's frame allocation — see allocateThemesByFrame's
+  // own preferredFrameId doc comment for why, and frameIdForConceptText's
+  // (data/lyricThemes.ts) doc comment for why this never forces a frame a
+  // concept didn't actually name.
+  const preferredFrameId = frameIdForConceptText(opts.customConcept);
   const autoPlan = poolHasExplicitFrames(themes)
-    ? allocateThemesByFrame(themes, opts.songCount, seed)
+    ? allocateThemesByFrame(themes, opts.songCount, seed, preferredFrameId)
     : buildStridePlan(pool, opts.songCount, Math.abs(seed + 907) % pool.length);
   const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool, seed);
   return spreadPlanByCounts(allocated, pool, 1);

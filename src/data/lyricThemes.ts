@@ -871,3 +871,38 @@ export function getLyricThemeScene(id: string | undefined, opts: Pick<Generation
 export function kidsLyricEngineThemeForLyricTheme(id: string | undefined): KidsLyricThemeHint | undefined {
   return id ? KIDS_ENGINE_THEME_BY_ID[id] : undefined;
 }
+
+/**
+ * v4.5 (TASK D, 4-2) — shared with core/promiseAudit.ts's own situation-
+ * promise detection (SITUATION_KEYWORD_RULES there mirrors this list
+ * exactly) AND core/lyricDiversityPlan.ts's buildLyricThemePlan (which uses
+ * this to bias frame allocation toward whatever situation the concept
+ * actually named — see that file's own preferredFrameId doc comment). One
+ * shared table instead of two independently-drifting copies. Deliberately
+ * excludes 'solitary-object', this app's own default/no-signal frame,
+ * which a concept never explicitly "promises" the way naming a dance or a
+ * reunion does.
+ */
+export interface SituationFrameRule {
+  frameId: string;
+  labelKo: string;
+  pattern: RegExp;
+}
+
+export const SITUATION_FRAME_RULES: SituationFrameRule[] = [
+  { frameId: 'dance-saturday', labelKo: '토요일 밤 댄스', pattern: /춤추|댄스|무도회|dance/i },
+  { frameId: 'young-first-love', labelKo: '첫사랑', pattern: /첫사랑|풋사랑|설렘|고백|첫\s*만남|first\s*love/i },
+  { frameId: 'summer-night', labelKo: '여름밤 외출', pattern: /여름\s*밤|무더운\s*밤|summer\s*night/i },
+  { frameId: 'reunion-parting', labelKo: '재회·이별', pattern: /재회|이별|헤어짐|기차역|플랫폼|reunion|parting/i },
+  { frameId: 'letter-sending', labelKo: '편지', pattern: /편지|엽서|letter/i },
+  { frameId: 'city-lights', labelKo: '도시의 밤', pattern: /도시의\s*밤|번화가|네온|city\s*light/i },
+  { frameId: 'travel-window', labelKo: '이동·여행', pattern: /퇴근길|출근길|여행|기차\s*창가|차창|드라이브|travel|drive/i },
+  { frameId: 'shared-table', labelKo: '식탁·모임', pattern: /식탁|모임|친구들과|다\s*같이|저녁\s*자리|table/i },
+  { frameId: 'season-turning', labelKo: '계절이 바뀌는 순간', pattern: /계절이\s*바뀌|환절기|season\s*turn/i }
+];
+
+/** Returns the first matching frameId a concept names, or undefined for a concept with no detectable situation (never forced — mirrors this app's own era-detection "억지로 정하지 말 것" convention). */
+export function frameIdForConceptText(conceptLabel: string | undefined): string | undefined {
+  if (!conceptLabel) return undefined;
+  return SITUATION_FRAME_RULES.find(rule => rule.pattern.test(conceptLabel))?.frameId;
+}

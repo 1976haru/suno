@@ -4,6 +4,9 @@ import { extractEraConstraint, type EraConstraint } from './constraints';
 import { eraBucketForGenreId, ERA_LABEL } from '../data/eraExclusions';
 import { vocabularyBanksForEra } from '../data/vocabularyBanks';
 import { seasonPacks } from '../data/presets';
+import { SITUATION_FRAME_RULES } from '../data/lyricThemes';
+import { getGenreById } from '../data/genreLibrary';
+import { matchConceptRules } from '../data/conceptKeywords';
 import {
   emotionArcsBrightOpening,
   emotionArcsCalmThroughout,
@@ -40,7 +43,7 @@ import { classifyTitleShape } from './titleShapeVariety';
  * made, documented for the same reason.
  */
 
-export type ConceptPromiseKind = 'era' | 'reference' | 'mood' | 'genre' | 'situation' | 'season';
+export type ConceptPromiseKind = 'era' | 'reference' | 'mood' | 'genre' | 'situation' | 'season' | 'motion' | 'cast';
 
 export interface ConceptPromise {
   id: string;
@@ -49,6 +52,21 @@ export interface ConceptPromise {
   /** The part of the concept text that triggered this promise. */
   sourceText: string;
   checkTargets: ('genre' | 'stylePrompt' | 'lyrics' | 'title' | 'emotionArc')[];
+  /**
+   * v4.5 (TASK D, 4-3) — only set on a 'reference' promise built by the
+   * fallback path (detectFallbackReferencePromise below) for an artist NOT
+   * in data/artistReferenceSeeds.ts's seed table. Carries the genre ids
+   * data/conceptKeywords.ts's own keyword rules matched from the concept
+   * text surrounding the unrecognized name (e.g. "포크" in "사이먼과 가펑클
+   * 같은 담백한 포크 하모니" already resolves to folk-pop/oldpop-folk-rock-70s
+   * via the SAME rule table core/conceptAgent.ts already uses for genre
+   * recommendation) — measured against, since there's no curated trait list
+   * for an unlisted artist to check against instead. Never set on a
+   * seed-matched reference promise, which measures the real curated traits.
+   */
+  fallbackGenreIds?: string[];
+  /** v4.5 (TASK D, 4-2) — only set on 'situation'/'motion'/'cast' promises: the data/lyricThemes.ts axis value (frameId for situation, motionKo/castKo for the other two) this promise expects generated songs to match. */
+  expectedAxisValue?: string;
 }
 
 export interface PromiseResult {
@@ -132,6 +150,44 @@ function detectReferencePromises(conceptLabel: string): { promise: ConceptPromis
   }));
 }
 
+/** "X 같은/풍의/스타일의/느낌의/처럼 Y" — the shape a user names ANY reference in, known artist or not (see this file's own detectFallbackReferencePromise doc comment). */
+const REFERENCE_PHRASE_PATTERN = /[\p{L}0-9]+(?:\s*[\p{L}0-9]+){0,2}\s*(?:같은|풍의|풍|스타일의|스타일|느낌의|처럼)/u;
+
+/**
+ * v4.5 (TASK D, 4-3) — real measurement: "사이먼과 가펑클 같은 담백한 포크
+ * 하모니" scored 0% overall promise fulfillment, not because the folk-pop
+ * genre it asks for wasn't actually selected (it was — core/conceptAgent.ts's
+ * own data/conceptKeywords.ts keyword rules already resolve "포크" to
+ * folk-pop/oldpop-folk-rock-70s independently of the artist name), but
+ * because NO promise was ever detected for this concept at all: Simon &
+ * Garfunkel isn't in data/artistReferenceSeeds.ts, so detectReferencePromises
+ * found nothing, and none of era/mood/season matched either. This task's
+ * own instruction is explicit: "시드 표를 늘리지 마십시오. 2단계 해석 경로를
+ * 고치십시오" — rather than adding Simon & Garfunkel (and the next unlisted
+ * artist, and the next) to the seed table, this reuses the SAME keyword-rule
+ * genre resolution conceptAgent.ts already trusts for genre SELECTION and
+ * turns it into something promiseAudit.ts can also MEASURE against — a
+ * real (if coarser than a curated trait list) fallback, not a live LLM call
+ * (this module stays a pure, synchronous function throughout).
+ */
+function detectFallbackReferencePromise(conceptLabel: string, seedReferences: DecomposedReference[]): ConceptPromise | undefined {
+  if (seedReferences.length) return undefined; // a real seed match already covers this concept's reference promise.
+  const phraseMatch = conceptLabel.match(REFERENCE_PHRASE_PATTERN);
+  if (!phraseMatch) return undefined;
+  const genreIds = [...new Set(matchConceptRules(conceptLabel).flatMap(rule => Object.keys(rule.genreWeights ?? {})))]
+    .filter(id => getGenreById(id));
+  if (!genreIds.length) return undefined;
+  const genreLabels = genreIds.map(id => getGenreById(id)!.label).join('/');
+  return {
+    id: `reference-fallback-${genreIds[0]}`,
+    kind: 'reference',
+    labelKo: `${genreLabels} 계열 사운드 (미수록 참조)`,
+    sourceText: phraseMatch[0],
+    checkTargets: ['genre'],
+    fallbackGenreIds: genreIds
+  };
+}
+
 const SEASON_KEYWORD_PATTERN = /봄|여름|가을|겨울|크리스마스|christmas|spring|summer|autumn|winter|장마|첫눈/i;
 
 function detectSeasonPromise(conceptLabel: string): ConceptPromise | undefined {
@@ -143,6 +199,85 @@ function detectSeasonPromise(conceptLabel: string): ConceptPromise | undefined {
     labelKo: matchedSeason?.label ?? '계절감',
     sourceText: conceptLabel.match(SEASON_KEYWORD_PATTERN)?.[0] ?? conceptLabel,
     checkTargets: ['lyrics', 'stylePrompt']
+  };
+}
+
+// ---------------------------------------------------------------------------
+// v4.5 (TASK D, 4-2) — situation/motion/cast promises. This app's lyric
+// themes (data/lyricThemes.ts) already carry a frameId (the scene shape)
+// and, for a growing subset, motionKo/castKo (what's physically happening,
+// who's there) — see that file's own field doc comment for why those two
+// axes existed since v3.64 as "allocation diversity metadata" but never
+// reached a promise/fulfillment measurement until now. A concept like
+// "젊은 시절 춤추던 토요일 밤" (a young Saturday night spent dancing) or
+// "퇴근길" (the commute home) names a SITUATION the same way an era or
+// artist reference names a sound — this is the missing axis that made C8
+// score 0% even though the right lyric theme (dance-saturday) was actually
+// being assigned (see core/bridgeInstruction.ts's own v4.5 TASK B work,
+// which is what actually wires that assignment into generation).
+// ---------------------------------------------------------------------------
+
+function detectSituationPromise(conceptLabel: string): ConceptPromise | undefined {
+  const match = SITUATION_FRAME_RULES.find(rule => rule.pattern.test(conceptLabel));
+  if (!match) return undefined;
+  return {
+    id: `situation-${match.frameId}`,
+    kind: 'situation',
+    labelKo: match.labelKo,
+    sourceText: conceptLabel.match(match.pattern)?.[0] ?? conceptLabel,
+    checkTargets: ['lyrics'],
+    expectedAxisValue: match.frameId
+  };
+}
+
+interface MotionKeywordRule {
+  motionKo: string;
+  labelKo: string;
+  pattern: RegExp;
+}
+
+/** motionKo values are free Korean short phrases (data/lyricThemes.ts, e.g. "이동 중(드라이브)"), not a closed enum — matched by substring below, so "드라이브" here also matches "이동 중(드라이브)" on a song. */
+const MOTION_KEYWORD_RULES: MotionKeywordRule[] = [
+  { motionKo: '춤', labelKo: '춤', pattern: /춤추|댄스|dance/i },
+  { motionKo: '드라이브', labelKo: '드라이브', pattern: /드라이브|차\s*몰|운전|drive/i },
+  { motionKo: '여행', labelKo: '여행·이동', pattern: /여행|기차|travel|journey/i }
+];
+
+function detectMotionPromise(conceptLabel: string): ConceptPromise | undefined {
+  const match = MOTION_KEYWORD_RULES.find(rule => rule.pattern.test(conceptLabel));
+  if (!match) return undefined;
+  return {
+    id: `motion-${match.motionKo}`,
+    kind: 'motion',
+    labelKo: match.labelKo,
+    sourceText: conceptLabel.match(match.pattern)?.[0] ?? conceptLabel,
+    checkTargets: ['lyrics'],
+    expectedAxisValue: match.motionKo
+  };
+}
+
+interface CastKeywordRule {
+  castKo: string;
+  labelKo: string;
+  pattern: RegExp;
+}
+
+const CAST_KEYWORD_RULES: CastKeywordRule[] = [
+  { castKo: '둘', labelKo: '둘이', pattern: /둘이|둘만|우리\s*둘|커플/i },
+  { castKo: '여럿', labelKo: '친구들과', pattern: /친구들과|친구들|여럿이|다\s*같이/i },
+  { castKo: '혼자', labelKo: '혼자', pattern: /혼자|나\s*홀로/i }
+];
+
+function detectCastPromise(conceptLabel: string): ConceptPromise | undefined {
+  const match = CAST_KEYWORD_RULES.find(rule => rule.pattern.test(conceptLabel));
+  if (!match) return undefined;
+  return {
+    id: `cast-${match.castKo}`,
+    kind: 'cast',
+    labelKo: match.labelKo,
+    sourceText: conceptLabel.match(match.pattern)?.[0] ?? conceptLabel,
+    checkTargets: ['lyrics'],
+    expectedAxisValue: match.castKo
   };
 }
 
@@ -164,11 +299,24 @@ export function decomposeConceptPromises(conceptLabel: string): {
   const referenceEntries = detectReferencePromises(conceptLabel);
   promises.push(...referenceEntries.map(entry => entry.promise));
 
+  // v4.5 (TASK D, 4-3) — only when no seed-recognized artist reference
+  // exists at all; see detectFallbackReferencePromise's own doc comment.
+  const fallbackReferencePromise = detectFallbackReferencePromise(conceptLabel, referenceEntries.map(entry => entry.reference));
+  if (fallbackReferencePromise) promises.push(fallbackReferencePromise);
+
   const moodPromise = detectMoodPromise(conceptLabel);
   if (moodPromise) promises.push(moodPromise);
 
   const seasonPromise = detectSeasonPromise(conceptLabel);
   if (seasonPromise) promises.push(seasonPromise);
+
+  // v4.5 (TASK D, 4-2)
+  const situationPromise = detectSituationPromise(conceptLabel);
+  if (situationPromise) promises.push(situationPromise);
+  const motionPromise = detectMotionPromise(conceptLabel);
+  if (motionPromise) promises.push(motionPromise);
+  const castPromise = detectCastPromise(conceptLabel);
+  if (castPromise) promises.push(castPromise);
 
   return { promises, references: referenceEntries.map(entry => entry.reference) };
 }
@@ -305,6 +453,57 @@ function measureSeason(songs: SongIdea[], seasonPromise: ConceptPromise): { byTa
 }
 
 /**
+ * v4.5 (TASK D, 4-2) — "컨셉의 상황 키워드가 lyricTheme.frameId와 매칭되는가...
+ * 기준 60% 이상." song.lyricFrameId is set by both generation paths (see
+ * core/batchPreallocation.ts/core/localGenerator.ts's own lyricFrameId
+ * field, v3.64 TASK A) — this is a real design-time value, not inferred
+ * from lyric text after the fact.
+ */
+function measureSituation(songs: SongIdea[], expectedFrameId: string): { byTarget: Record<string, number>; failedTracks: number[]; explanationKo: string } {
+  const hits = songs.filter(song => song.lyricFrameId === expectedFrameId);
+  const failedTracks = songs.filter(song => song.lyricFrameId !== expectedFrameId).map(song => song.trackNo);
+  return {
+    byTarget: { lyrics: ratio(hits.length, songs.length) },
+    failedTracks,
+    explanationKo: `이 상황(${SITUATION_FRAME_RULES.find(rule => rule.frameId === expectedFrameId)?.labelKo ?? expectedFrameId})의 장면 프레임이 배정된 곡은 ${hits.length}/${songs.length}입니다.`
+  };
+}
+
+/** v4.5 (TASK D, 4-2) — substring match against song.lyricThemeMotionKo, since that field is a free short phrase (e.g. "이동 중(드라이브)"), not a closed enum matching expectedMotionKo exactly. */
+function measureMotion(songs: SongIdea[], expectedMotionKo: string): { byTarget: Record<string, number>; failedTracks: number[]; explanationKo: string } {
+  const hits = songs.filter(song => song.lyricThemeMotionKo?.includes(expectedMotionKo));
+  const failedTracks = songs.filter(song => !song.lyricThemeMotionKo?.includes(expectedMotionKo)).map(song => song.trackNo);
+  return {
+    byTarget: { lyrics: ratio(hits.length, songs.length) },
+    failedTracks,
+    explanationKo: `이 움직임(${expectedMotionKo})이 장면에 포함된 곡은 ${hits.length}/${songs.length}입니다.`
+  };
+}
+
+/** v4.5 (TASK D, 4-2) — same substring-match reasoning as measureMotion, for song.lyricThemeCastKo. */
+function measureCast(songs: SongIdea[], expectedCastKo: string): { byTarget: Record<string, number>; failedTracks: number[]; explanationKo: string } {
+  const hits = songs.filter(song => song.lyricThemeCastKo?.includes(expectedCastKo));
+  const failedTracks = songs.filter(song => !song.lyricThemeCastKo?.includes(expectedCastKo)).map(song => song.trackNo);
+  return {
+    byTarget: { lyrics: ratio(hits.length, songs.length) },
+    failedTracks,
+    explanationKo: `이 인물 구성(${expectedCastKo})이 장면에 포함된 곡은 ${hits.length}/${songs.length}입니다.`
+  };
+}
+
+/** v4.5 (TASK D, 4-3) — see detectFallbackReferencePromise's own doc comment for why this measures genre assignment rather than a curated trait-phrase list. */
+function measureFallbackReference(songs: SongIdea[], genreIds: string[]): { byTarget: Record<string, number>; failedTracks: number[]; explanationKo: string } {
+  const genreIdSet = new Set(genreIds);
+  const hits = songs.filter(song => song.genreId && genreIdSet.has(song.genreId));
+  const failedTracks = songs.filter(song => !song.genreId || !genreIdSet.has(song.genreId)).map(song => song.trackNo);
+  return {
+    byTarget: { genre: ratio(hits.length, songs.length) },
+    failedTracks,
+    explanationKo: `미수록 참조를 장르 키워드(${genreIds.join(', ')})로 해석해 측정합니다 — 이 장르가 배정된 곡은 ${hits.length}/${songs.length}입니다.`
+  };
+}
+
+/**
  * v3.76 (TASK A) — measures whether the pack actually kept each promise the
  * concept made. `constraints` (A3's ResolvedConstraints) is reused for the
  * era promise specifically when the caller already has one (keeps the era
@@ -331,16 +530,29 @@ export function auditPromises(songs: SongIdea[], conceptLabel: string, constrain
     if (promise.kind === 'era') {
       measured = measureEra(songs, era);
     } else if (promise.kind === 'reference') {
-      const reference = references.find(ref => `reference-${ref.eraTag}` === promise.id);
-      if (!reference) continue;
-      measured = measureReference(songs, reference);
+      // v4.5 (TASK D, 4-3) — a fallback (unlisted-artist) reference promise
+      // has fallbackGenreIds set and no matching seed DecomposedReference;
+      // measured against genre assignment instead of a curated trait list.
+      if (promise.fallbackGenreIds?.length) {
+        measured = measureFallbackReference(songs, promise.fallbackGenreIds);
+      } else {
+        const reference = references.find(ref => `reference-${ref.eraTag}` === promise.id);
+        if (!reference) continue;
+        measured = measureReference(songs, reference);
+      }
     } else if (promise.kind === 'mood') {
       const moodEntry = MOOD_KEYWORDS.find(entry => entry.labelKo === promise.labelKo)!;
       measured = measureMood(songs, promise, moodEntry);
     } else if (promise.kind === 'season') {
       measured = measureSeason(songs, promise);
+    } else if (promise.kind === 'situation') {
+      measured = measureSituation(songs, promise.expectedAxisValue!);
+    } else if (promise.kind === 'motion') {
+      measured = measureMotion(songs, promise.expectedAxisValue!);
+    } else if (promise.kind === 'cast') {
+      measured = measureCast(songs, promise.expectedAxisValue!);
     } else {
-      continue; // 'genre'/'situation' promises are detected by setDirector-level context this function doesn't have direct access to — see this file's own "미구현" note in docs/v376-report.md.
+      continue; // 'genre' promises are detected by setDirector-level context this function doesn't have direct access to — see this file's own "미구현" note in docs/v376-report.md.
     }
     const targetValues = Object.values(measured.byTarget);
     const fulfillment = targetValues.length ? targetValues.reduce((sum, value) => sum + value, 0) / targetValues.length : 0;
