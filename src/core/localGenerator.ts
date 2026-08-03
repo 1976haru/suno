@@ -30,7 +30,8 @@ import {
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
-import { vocabularyBankForScene } from '../data/vocabularyBanks';
+import { QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabularyBanks';
+import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
@@ -1029,6 +1030,33 @@ export function generateLocalBlueprint(
     const lyricThemeText = lyricTheme?.scene;
     const lyricThemeArc = lyricTheme?.emotionalArc;
     const listenerScene = lyricThemeText || situation;
+    // v4.5 (TASK D follow-up) — vocabularyBankId (below) was only ever a
+    // metadata snapshot for the bridge instruction's "reference list"; the
+    // local composer's own conceptImages source (customConcept-derived only)
+    // never actually drew from a track's assigned scene bank, so a song
+    // tagged 'dance-saturday'/'dance-night' still sang quiet-morning-style
+    // imagery. Gated to non-default banks only (quiet-morning stays
+    // untouched — "실제 청취 피드백: quiet-morning 뱅크를 삭제하지 말 것") so
+    // this only changes the ~explicit-frame minority of tracks. Capped to 2
+    // nouns, not the full bank: each core genre already carries its own
+    // small (3-word) lyricFlavorImages pool that
+    // tests/genreDifferentiation.test.ts measures as genre-identity signal
+    // (line overlap between two genres, same concept/season, must stay
+    // <=80%). Mixing in the full 8-word bank overwhelmed that 3-word pool
+    // with genre-agnostic words shared across every genre and pushed
+    // measured overlap to 87-89%; 2 words keeps the scene audible without
+    // drowning out genre identity. Also filtered against
+    // ARRANGEMENT_VOCABULARY first — dance-night's own 'band' noun is a
+    // real production term data/arrangementVocabulary.ts's own
+    // findArrangementVocabularyInLyrics flags as a leak when it becomes a
+    // lyric line's subject, so it (and any future bank noun that collides)
+    // must never be a candidate here.
+    const sceneVocabularyBank = vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo);
+    const sceneVocabImages = sceneVocabularyBank.id !== QUIET_MORNING_BANK_ID
+      ? sceneVocabularyBank.nouns
+        .filter(noun => !noun.toLowerCase().split(/\s+/).some(word => ARRANGEMENT_VOCABULARY.includes(word)))
+        .slice(0, 2)
+      : [];
     const trackMotifOption = motifPool.take();
     const manualKidsTheme = kidsEngineThemeForLyricSlot(lyricThemeId) as KidsLyricTheme | undefined;
     const sectionStyle = sectionStylePlan[idx];
@@ -1055,7 +1083,19 @@ export function generateLocalBlueprint(
         role,
         pools: lyricPools,
         openingStyle,
-        genreFlavorImages,
+        // v4.5 (TASK D follow-up) — merged into genreFlavorImages, not
+        // conceptImages: composeLyrics's pickMotifOrFlavor() treats any
+        // non-empty conceptImages as a full override of genre-specific
+        // imagery at the guaranteed "real motif" slot. Since lyricTheme
+        // allocation is genre-independent, feeding scene words through
+        // conceptImages made same-slot tracks across different genres draw
+        // from the same genre-agnostic pool there, collapsing genre
+        // differentiation (regression caught by
+        // tests/genreDifferentiation.test.ts). genreFlavorImages already
+        // varies per genre and only ever gets mixed into the shared flavor
+        // pool, never used as a full override, so scene words still surface
+        // without erasing genre identity.
+        genreFlavorImages: sceneVocabImages.length ? [...(genreFlavorImages || []), ...sceneVocabImages] : genreFlavorImages,
         conceptImages,
         structureTemplate: structureTemplatePlan[idx],
         hookPositionVariant
@@ -1340,7 +1380,7 @@ export function generateLocalBlueprint(
       ...(lyricTheme?.castKo ? { lyricThemeCastKo: lyricTheme.castKo } : {}),
       ...(lyricTheme?.eraSettingKo ? { lyricThemeEraSettingKo: lyricTheme.eraSettingKo } : {}),
       // v4.5 (TASK C) — mirrors batchPreallocation.ts's identical field.
-      vocabularyBankId: vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo).id,
+      vocabularyBankId: sceneVocabularyBank.id,
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalType,
