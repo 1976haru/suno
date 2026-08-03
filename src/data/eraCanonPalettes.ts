@@ -243,3 +243,25 @@ export function eraCanonPalettesForGenreId(genreId: string | undefined): EraCano
   if (!genreId) return [];
   return ERA_CANON_PALETTES.filter(palette => palette.fitsGenreIds.includes(genreId));
 }
+
+/**
+ * TASK v4.7 (TASK B, §2-3) — "그 장르에 맞는 팔레트가 있는지 먼저 확인, 없으면
+ * 가장 가까운 팔레트를 부분 적용" — genre ids named explicitly in the spec
+ * (chanson, bossa-cafe) that sit outside every palette's own fitsGenreIds
+ * but are close enough in production character to borrow just that
+ * palette's productionTraits (not the full instrumentation/harmony/vocal
+ * set — those would actively misdescribe a chanson/bossa arrangement).
+ * core/eraCanonPalettePlan.ts checks this only after a direct
+ * eraCanonPalettesForGenreId match fails.
+ */
+export const PARTIAL_PALETTE_FALLBACK: Record<string, string> = {
+  chanson: 'canon-crooner-standard',
+  'bossa-cafe': 'canon-soft-rock-band'
+};
+
+export function partialPaletteForGenreId(genreId: string | undefined): EraCanonPalette | undefined {
+  if (!genreId) return undefined;
+  const paletteId = PARTIAL_PALETTE_FALLBACK[genreId];
+  if (!paletteId) return undefined;
+  return ERA_CANON_PALETTES.find(palette => palette.id === paletteId);
+}

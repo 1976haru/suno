@@ -56,7 +56,11 @@ describe('[P0-1] every generated stylePrompt fits Suno\'s 1,000-char style field
       { id: 'songRole' as const, text: 'track 1 role: clear opener' },
       { id: 'motif' as const, text: 'use recurring playlist motif: train ticket' },
       { id: 'listenerScene' as const, text: 'listener scene: morning coffee' },
-      { id: 'mixNotes' as const, text: 'same channel vocal signature and mix balance' }
+      { id: 'mixNotes' as const, text: 'same channel vocal signature and mix balance' },
+      // TASK v4.7 (TASK A) — 'soundFloor' joined ESSENTIAL_TERM_IDS
+      // (channelSoundFloor.ts's requiredAtoms); this fixture needs an entry
+      // for every essential id since the loop below looks each one up.
+      { id: 'soundFloor' as const, text: 'warm analog studio sound, acoustic instruments carry the arrangement, narrow warm stereo image' }
     ];
     const result = composeStylePrompt(parts, 100, 80); // absurdly small budget
     for (const id of ESSENTIAL_TERM_IDS) {

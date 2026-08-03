@@ -3,7 +3,16 @@ import { vocalPresets } from '../data/vocalPresets';
 import { genrePacks } from '../data/presets';
 import { getCoreGenreIdsForArchetype } from '../data/genreLibrary';
 import { compactGenreKeyword, compactVocalAtom } from './soundSignature';
+import { CHANNEL_SOUND_FLOORS } from '../data/channelSoundFloor';
 import type { SavedPack } from '../types';
+
+// TASK v4.7 (TASK A, §1-4) — "공유 원자 검사(<= 5개)에서 이 3개는 예외 처리
+//하십시오." channelSoundFloor.requiredAtoms are DELIBERATELY identical in
+// every song (that's the whole point — a floor the concept can't remove),
+// so counting them as "suspicious cross-song similarity" would be exactly
+// the same false positive this file's own doc comment above already
+// describes for BPM/vocal/progression/hook boilerplate.
+const SOUND_FLOOR_REQUIRED_ATOMS = new Set(CHANNEL_SOUND_FLOORS.flatMap(floor => floor.requiredAtoms.map(atom => atom.toLowerCase())));
 
 export type DiversityDimension = 'genre' | 'vocal' | 'moneyChord';
 
@@ -234,6 +243,7 @@ function stylePromptClauseSet(stylePrompt: string): Set<string> {
       .filter(clause => !/progression|3:10-3:35|short intro|radio edit|complete song/.test(clause))
       .filter(clause => !/^concept (cue|emphasis):/.test(clause))
       .filter(clause => !/hook heard immediately|intro only|arrangement with strings pad|nostalgic$/.test(clause))
+      .filter(clause => !SOUND_FLOOR_REQUIRED_ATOMS.has(clause))
       .filter(Boolean)
   );
 }

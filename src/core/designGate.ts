@@ -3,6 +3,9 @@ import type { EraConstraint, ResolvedConstraints } from './constraints';
 import { eraSharesOf } from './constraints';
 import { ERA_LABEL } from '../data/eraExclusions';
 import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC } from './bpmLengthControl';
+import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
+import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
+import { hashSeed, seedForBlueprint } from './lyricEngine';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -307,6 +310,58 @@ function songLengthIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
 }
 
 // ---------------------------------------------------------------------------
+// 팔레트 커버리지 (channel sound floor) — v4.7 (TASK B)
+// ---------------------------------------------------------------------------
+/**
+ * TASK v4.7 (TASK B) — "팔레트가 적용된 곡 >= 14곡, 팔레트 미적용 곡 <= 4곡,
+ * 사용된 팔레트 종류 >= 3종... 4곡을 넘으면 관문 1에서 blocking." Only runs for
+ * archetypes a ChannelSoundFloor actually covers (원칙 4 — data-driven via
+ * channelSoundFloorForArchetype, never a literal workspace string); every
+ * other archetype has no coverage requirement at all, matching v4.6's own
+ * scoping of the palette family to oldpop genres. Uses the exact same seed
+ * (hashSeed(seedForBlueprint(opts))) core/localGenerator.ts's real
+ * generation will use, so this design-time preview and the actual output
+ * agree on which songs land covered/uncovered — never a false pass/fail.
+ */
+function paletteCoverageIssues(slots: PreassignedSongSlot[], opts: GenerationOptions): DesignIssue[] {
+  const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
+  if (!soundFloor) return [];
+  const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
+  const genrePlan = ordered.map(slot => slot.genreId);
+  if (!genrePlan.length) return [];
+  const seed = hashSeed(seedForBlueprint(opts));
+  const assignments = buildEraCanonPalettePlan(genrePlan, seed);
+  const covered = assignments.filter((a): a is PaletteAssignment => !!a);
+  const fullyCovered = covered.filter(a => !a.partial);
+  const uncoveredCount = assignments.length - covered.length;
+  const distinctPaletteIds = new Set(fullyCovered.map(a => a.palette.id));
+
+  const issues: DesignIssue[] = [];
+  if (uncoveredCount > soundFloor.maxUncoveredGenreTracks) {
+    issues.push(issue({
+      id: 'palette-coverage',
+      labelKo: '팔레트 미적용',
+      expected: `≤ ${soundFloor.maxUncoveredGenreTracks}곡`,
+      actual: `${uncoveredCount}곡`,
+      fixHintKo: '이 컨셉은 채널 시대 사운드와 거리가 있습니다 — 팔레트가 있는 장르 비중을 늘리거나 컨셉을 조정하세요.'
+    }));
+  }
+  // Variety only makes sense to demand once there's enough covered material
+  // to spread across palettes at all — mirrors buildEraCanonPalettePlan's
+  // own "only enforce the floor when reachable" reasoning.
+  if (covered.length && distinctPaletteIds.size < soundFloor.minPaletteVariety) {
+    issues.push(issue({
+      id: 'palette-variety',
+      labelKo: '사용 팔레트 종류',
+      expected: `≥ ${soundFloor.minPaletteVariety}종`,
+      actual: `${distinctPaletteIds.size}종`,
+      fixHintKo: '팔레트 종류가 한쪽으로 몰려 있습니다 — 장르 배분을 다양하게 조정하세요.'
+    }));
+  }
+  return issues;
+}
+
+// ---------------------------------------------------------------------------
 // 장르 (genre-variety / genre-max / genre-singleton / genre-consecutive)
 // ---------------------------------------------------------------------------
 function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, constraints: ResolvedConstraints): DesignIssue[] {
@@ -506,7 +561,8 @@ export function evaluateDesignGate(
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
     ...eraIssues(slots, constraints.era),
-    ...killingPointAndArcIssues(slots, opts.songCount)
+    ...killingPointAndArcIssues(slots, opts.songCount),
+    ...paletteCoverageIssues(slots, opts)
   ];
   const advisory: DesignIssue[] = [
     ...vocabularyForecastAdvisory(constraints),

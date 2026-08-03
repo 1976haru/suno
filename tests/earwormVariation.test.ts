@@ -39,8 +39,13 @@ function atomsSharedByEverySong(stylePrompts: string[]): string[] {
  *    setting, not a melodic-design style choice — out of this task's scope
  *    (only EARWORM_STYLE_ATOMS/EARWORM_SYSTEM_NOTE and the hookDevice axis
  *    were in scope; compactHook was not touched)
+ *  - v4.7 (TASK A) — channelSoundFloor.requiredAtoms (data/channelSoundFloor.ts):
+ *    deliberately identical in every song of a covered archetype, same
+ *    reasoning as the duration/hook-repeat exemptions above — a floor the
+ *    concept can never remove is supposed to be pack-wide-shared, not a
+ *    melodic-design variety signal this test is checking.
  */
-const EXEMPT_SHARED_ATOM_PATTERN = /\b(vocal|male|female|tenor|baritone|contralto|mezzo|alto|husky|breathy|soulful|close-mic|duet|3:10-3:35|repeated chorus hook|repeats chorus)\b/i;
+const EXEMPT_SHARED_ATOM_PATTERN = /\b(vocal|male|female|tenor|baritone|contralto|mezzo|alto|husky|breathy|soulful|close-mic|duet|3:10-3:35|repeated chorus hook|repeats chorus|warm analog studio sound|acoustic instruments carry the arrangement|narrow warm stereo image)\b/i;
 
 function nonExemptSharedAtoms(stylePrompts: string[]): string[] {
   return atomsSharedByEverySong(stylePrompts).filter(atom => !EXEMPT_SHARED_ATOM_PATTERN.test(atom));

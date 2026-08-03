@@ -1293,7 +1293,27 @@ export function generateLocalBlueprint(
       // 3rd — an earlier version of this fix appended the constraint as a
       // 4th atom and it silently got sliced off for any track whose
       // pre-compression prompt happened to cross the hard limit.
-      { id: 'vocal' as const, text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', '), shortForm: [vocalDescriptionText.split(',').map(s => s.trim()).slice(0, 2).join(', '), audienceProfile.constraints[0]].filter(Boolean).join(', ') },
+      {
+        id: 'vocal' as const,
+        text: [vocalDescriptionText, adultVocalTraitPlan?.[idx] ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', '),
+        // TASK v4.7 (TASK A) — a real generated pack found this shortForm's
+        // blind "first 2 segments" slice dropping v3.80's own flagship
+        // proximity override (tracks 2-3's forced 'soft plate ambience'/
+        // 'chamber ambience') once channelSoundFloor.requiredAtoms' extra
+        // ~90 chars pushed that track's raw prompt just past SUNO_COPY_LIMIT
+        // for the first time — the override was never actually protected
+        // from this pre-existing v4.4 shortForm, only lucky not to collide
+        // with it before. When this track's own flagshipProximityOverride
+        // value is present in vocalDescriptionText, keep it explicitly
+        // instead of whichever 2 segments happened to come first.
+        shortForm: (() => {
+          const segments = vocalDescriptionText.split(',').map(s => s.trim());
+          const flagshipCandidates: string[] | undefined = (flagshipProximityOverride as Record<number, string[]> | undefined)?.[idx];
+          const flagshipClause = flagshipCandidates?.find(value => segments.includes(value));
+          const kept = flagshipClause ? [segments[0], flagshipClause] : segments.slice(0, 2);
+          return [kept.join(', '), audienceProfile.constraints[0]].filter(Boolean).join(', ');
+        })()
+      },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
       // TASK v3.59 (TASK D-1) — see the other composeStylePrompt call's own
       // comment above; same "no instrumental intro" vs. introTexture

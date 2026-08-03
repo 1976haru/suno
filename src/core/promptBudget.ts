@@ -105,7 +105,7 @@ export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
   | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'concept' | 'hookDevice' | 'introTexture' | 'arrangementDensity'
-  | 'killingPoint';
+  | 'killingPoint' | 'soundFloor';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -146,12 +146,28 @@ export type PromptTermId =
 // its only style-prompt atom under a moderately long custom concept — but
 // still non-essential, since plenty of tracks (arc peakStrength 'none')
 // have no killing point at all and that is by design, not a bug.
+// TASK v4.7 (TASK A) — 'soundFloor' (channelSoundFloor.ts's requiredAtoms, 3
+// short atoms) is essential (never dropped, see ESSENTIAL_TERM_IDS below),
+// so its OWN inclusion never depends on this position. Position only matters
+// for compressHardLimitWithGuard's "lowest-priority-essential-first" shortForm
+// stage (promptBudget.ts's essentialLowToHigh) — placing it first initially
+// pushed 'vocal' down to 2nd-most-protected, and a real generated pack
+// measured 'vocal' losing its proximity/ambience clauses (v3.80's own
+// flagship-track override) to shortForm once soundFloor's ~95 extra chars
+// tipped the total over SUNO_COPY_LIMIT. soundFloor has no shortForm at all
+// (it's 3 fixed short atoms, nothing to shrink), so placing it just after
+// 'tempo' — instead of first — costs nothing (it was never going anywhere)
+// while restoring 'vocal' to its original (pre-v4.7) most-protected slot.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice', 'killingPoint',
+  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'soundFloor', 'arrangementDensity', 'instruments', 'hookDevice', 'killingPoint',
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'genreSignature', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
+// TASK v4.7 (TASK A, §1-4) — "requiredAtoms... 18곡 전부의 stylePrompt 에
+// 포함" — added to ESSENTIAL_TERM_IDS alongside 'vocal' so it's never
+// trimmed under budget pressure, the same protection level channel identity
+// (vocal) already gets.
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'genreSignature', 'vocal', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo', 'soundFloor']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: 'genre',
@@ -175,7 +191,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   hookDevice: 'hook device',
   introTexture: 'intro texture',
   arrangementDensity: 'arrangement density',
-  killingPoint: 'killing point'
+  killingPoint: 'killing point',
+  soundFloor: 'channel sound floor'
 };
 
 export interface PromptPart {

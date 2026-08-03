@@ -22,7 +22,12 @@ const CHANNEL: ChannelProfile = {
   promise: 'test',
   visualIdentity: 'test',
   defaultVocal: 'mature soulful male tenor',
-  preferredGenres: ['oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul', 'oldpop-piano-ballad-70s', 'oldpop-adult-contemporary-80s'],
+  // TASK v4.7 (TASK A/B) — swapped to 5 genres every eraCanonPalette actually
+  // covers (data/eraCanonPalettes.ts), spanning 4 distinct palettes, so this
+  // "healthy" fixture also satisfies the new palette-coverage/variety design-
+  // gate check (designGate.ts's paletteCoverageIssues) instead of tripping
+  // it purely as an artifact of pre-v4.6 genre choices.
+  preferredGenres: ['oldpop-soft-rock-am', 'oldpop-adult-contemporary-80s', 'oldpop-europop-glow', 'oldpop-british-beat', 'oldpop-close-harmony-duo'],
   preferredMoods: ['nostalgic'],
   forbiddenCliches: [],
   seoKeywords: [],
@@ -81,7 +86,7 @@ function healthySlots(): PreassignedSongSlot[] {
     'male', 'mixed', 'female', 'male', 'mixed', 'male',
     'female', 'male', 'mixed', 'male', 'female', 'male'
   ];
-  const genreIds = ['oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul', 'oldpop-piano-ballad-70s', 'oldpop-adult-contemporary-80s'];
+  const genreIds = ['oldpop-soft-rock-am', 'oldpop-adult-contemporary-80s', 'oldpop-europop-glow', 'oldpop-british-beat', 'oldpop-close-harmony-duo'];
   const bpms = [78, 82, 84, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 96, 88, 84, 100];
   const arcPhases = ['opening', 'build', 'peak', 'release', 'closing'];
   return Array.from({ length: 18 }, (_, i) => slotFor({

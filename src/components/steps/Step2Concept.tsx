@@ -22,6 +22,7 @@ import { defaultPackagingLanguageForChannel } from '../../core/packagingLanguage
 import { readRecentGenreIds, rememberRecentGenreId } from '../../core/recentGenreStore';
 import { buildReferenceMoodStyleClause, referenceMoodSafetyIssues } from '../../core/referenceMood';
 import { GENRE_FAMILIES, familiesBlendWell } from '../../data/genreFamilies';
+import { channelSoundFloorForArchetype } from '../../data/channelSoundFloor';
 import { QUALITY_THRESHOLDS, thresholdsByBasis } from '../../data/qualityThresholds';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
@@ -793,6 +794,22 @@ export default function Step2Concept({
 
       <div className="option-block">
         <h3>어떤 이야기를 담고 싶으세요? (선택 사항 — 비워두셔도 됩니다)</h3>
+        {(() => {
+          // TASK v4.7 (TASK C) — "하루님이 컨셉으로 무엇을 바꿀 수 있는지
+          // 명확해집니다." Only shown for archetypes a ChannelSoundFloor
+          // actually covers (data/channelSoundFloor.ts) — every other
+          // archetype has no fixed sound floor, so this notice would be
+          // misleading there.
+          const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
+          if (!soundFloor) return null;
+          return (
+            <p className="supporting" style={{ background: 'var(--surface-2, #f5f5f5)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+              이 채널은 {soundFloor.labelKo}으로 고정됩니다. 컨셉으로는 장면·감정·계절·템포를 정합니다.
+              <br />
+              예) "비 오는 날 창가", "젊은 시절 첫사랑", "여름밤 드라이브", "연말 모임"
+            </p>
+          );
+        })()}
         <p className="supporting">자주 쓰는 주제:</p>
         <div className="chips">
           {CONCEPT_EXAMPLE_CHIPS.map(chip => (

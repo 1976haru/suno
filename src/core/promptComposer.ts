@@ -18,6 +18,7 @@ import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negati
 import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
+import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
 import { resolveLyricRange } from './lyricMetrics';
 import { resolvePackagingLanguage } from './packagingLanguage';
@@ -76,14 +77,18 @@ export const MAX_LYRIC_WORDS = 230;
 export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
-  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'hookDevice' | 'introTexture' | 'arrangementDensity';
+  | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'hookDevice' | 'introTexture' | 'arrangementDensity'
+  | 'soundFloor';
 
+// TASK v4.7 (TASK A) — see promptBudget.ts's matching PROMPT_PRIORITY doc
+// comment: 'soundFloor' moved after 'tempo' (not first) to keep 'vocal' the
+// most-protected essential atom under hard-limit shortForm compression.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreSignature', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'arrangementDensity', 'instruments', 'hookDevice',
+  'vocal', 'genreSignature', 'genreNarrative', 'moneyChord', 'introTexture', 'tempo', 'soundFloor', 'arrangementDensity', 'instruments', 'hookDevice',
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
-export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'genreSignature', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo']);
+export const ESSENTIAL_TERM_IDS = new Set<PromptTermId>(['genre', 'vocal', 'genreSignature', 'hook', 'moneyChord', 'duration', 'introTexture', 'tempo', 'soundFloor']);
 
 export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genre: '장르',
@@ -105,7 +110,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   genreSignature: 'genre signature',
   hookDevice: 'hook device',
   introTexture: 'intro texture',
-  arrangementDensity: 'arrangement density'
+  arrangementDensity: 'arrangement density',
+  soundFloor: '채널 사운드 바닥'
 };
 
 /**
@@ -607,6 +613,14 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   // Suno's Style field is unreliable — Suno's own Advanced Options has a
   // dedicated Exclude field for exactly this. See buildExcludePrompt below;
   // its output is meant for that separate field, never pasted into Style.
+  // TASK v4.7 (TASK A) — channel-level sound floor (data/channelSoundFloor.ts):
+  // undefined for any archetype the floor doesn't cover (every non-oldpop
+  // workspace, plus modern-chill/city-night/lofi-study/kids/christmas within
+  // senior-oldpop itself — see that file's own archetypeIds doc comment), in
+  // which case this contributes nothing, same as every other conditional
+  // atom here.
+  const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
+
   return [
     { id: 'genre', text: genreText },
     { id: 'genreSignature', text: genreSignature },
@@ -616,7 +630,8 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
     { id: 'duration', text: duration },
     { id: 'mood', text: moodText },
     { id: 'instruments', text: instrumentText },
-    { id: 'season', text: `${season.keywords.join(', ')} mood` }
+    { id: 'season', text: `${season.keywords.join(', ')} mood` },
+    ...(soundFloor ? [{ id: 'soundFloor' as const, text: soundFloor.requiredAtoms.join(', ') }] : [])
     // TASK v3.64-B — earworm's atom moved out of this whole-pack part list:
     // it's now a per-song rotation (rotatingEarwormText), added directly in
     // each caller's per-song loop instead of here, since this function has
@@ -651,6 +666,14 @@ export function buildExcludePrompt(
   const relaxable = new Set(audienceProfile.relaxableAtPeak);
   const relaxedNow = new Set(relaxedExclusions.filter(item => relaxable.has(item)));
   const exclusionsForThisSong = audienceProfile.exclusions.filter(item => !relaxedNow.has(item));
+  // TASK v4.7 (TASK A, §1-4) — channelSoundFloor.forbiddenAtoms, unconditional
+  // (no concept/negativeStyle input can remove these — there is no code path
+  // that subtracts terms from this merge, only opts.avoidWords/negativeStyle
+  // ADD to it). Priority per this task's own §1-4 ("audienceProfile.hardExclusions
+  // > channelSoundFloor.forbiddenAtoms > 컨셉") is naturally satisfied: audience
+  // exclusions and the sound floor both merge in here ahead of/independent of
+  // whatever a concept-driven caller might separately add via avoidWords.
+  const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
   return mergeNegativeStyleText(
     opts.avoidWords,
     resolveNegativeStyleText(opts, genres),
@@ -659,7 +682,8 @@ export function buildExcludePrompt(
     // genre (see types.ts's AudienceProfile) — e.g. a senior channel never
     // wants "shouted or belted high notes" whether the song is jazz-pop or
     // acoustic-pop this track.
-    exclusionsForThisSong.join(', ')
+    exclusionsForThisSong.join(', '),
+    soundFloor?.forbiddenAtoms.join(', ')
   );
 }
 
