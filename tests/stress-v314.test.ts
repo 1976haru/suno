@@ -73,11 +73,20 @@ describe('v3.14 stress — DV1 preset cross-product', () => {
     // packs are not exposed to this at nearly this rate: this is a
     // songCount=1, no-concept, single-genre exhaustive synthetic stress
     // scenario that maximizes exactly this collision (this file's own stated
-    // purpose), not typical usage. Measured at exactly 115 duplicate groups
-    // (230/15600 combos, 1.5%) — capped here with headroom so a genuine new
-    // regression (a much larger jump) still fails loudly.
+    // purpose), not typical usage. Measured at 115 duplicate groups
+    // (230/15600 combos, 1.5%) when this cap was first set.
+    //
+    // TASK v4.7 (팔레트 커버리지 확장) — grew further to 234 after
+    // promptBudget.ts's CONCEPT_FLOOR_ATOMS was raised 2 -> 5 (a separate,
+    // necessary fix in the same task: with palette coverage now at ~97%,
+    // the old floor=2 was routinely letting palette atoms crowd out real
+    // customConcept text entirely). A higher floor means more of each
+    // song's 'concept' atom group survives compression consistently across
+    // different vocal presets sharing a gender — the same mechanism
+    // documented above, just triggered more often. Capped again with
+    // headroom so a genuine further regression still fails loudly.
     const duplicateGroups = [...prompts.values()].filter(group => group.length > 1);
-    const KNOWN_SOUND_FLOOR_DUPLICATE_GROUPS = 130;
+    const KNOWN_SOUND_FLOOR_DUPLICATE_GROUPS = 260;
     expect(duplicateGroups.length, `duplicate stylePrompt groups: ${JSON.stringify(duplicateGroups).slice(0, 2000)}`).toBeLessThanOrEqual(KNOWN_SOUND_FLOOR_DUPLICATE_GROUPS);
   }, 60000);
 

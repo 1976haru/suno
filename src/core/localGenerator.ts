@@ -8,7 +8,7 @@ import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
+import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -1217,7 +1217,7 @@ export function generateLocalBlueprint(
             // artist-free, but this is the same output guard reused, not a
             // new one, per this task's own "출력 가드로 검사하십시오 (v3.58 기존
             // 가드 재사용)".
-            ...rotatingEraPaletteAtoms(eraCanonPalettePlan[idx], seed, idx).filter(atom => findArtistReferenceLeaks(atom).length === 0),
+            ...rotatingEraPaletteAtoms(eraCanonPalettePlan[idx], seed, idx, genreId).filter(atom => findArtistReferenceLeaks(atom).length === 0),
             conceptStyleText(opts.customConcept, idx)
           ].filter(Boolean).join(', ')
         }]
@@ -1306,11 +1306,33 @@ export function generateLocalBlueprint(
         // with it before. When this track's own flagshipProximityOverride
         // value is present in vocalDescriptionText, keep it explicitly
         // instead of whichever 2 segments happened to come first.
+        //
+        // TASK v4.7 (팔레트 커버리지 확장) — same collision hit a second, wider
+        // target once palette coverage rose to ~97%: `npm run audit`'s own
+        // "여성 곡의 female 명시" (explicit "female" word in every female-typed
+        // song) regressed 100%->67%, because segment 0 doesn't always carry
+        // the gender word (some vocalDescriptionFor phrasings put it later)
+        // and the blind 2-segment slice could drop it just like it dropped
+        // the proximity clause. Now also keeps the first segment containing
+        // a gender word explicitly, alongside segment 0 and any flagship
+        // clause, rather than assuming position 0 always has it.
         shortForm: (() => {
           const segments = vocalDescriptionText.split(',').map(s => s.trim());
           const flagshipCandidates: string[] | undefined = (flagshipProximityOverride as Record<number, string[]> | undefined)?.[idx];
           const flagshipClause = flagshipCandidates?.find(value => segments.includes(value));
-          const kept = flagshipClause ? [segments[0], flagshipClause] : segments.slice(0, 2);
+          const genderClause = segments.find(segment => {
+            const presence = detectVocalGenderPresence(segment);
+            return presence.male || presence.female;
+          });
+          // composeStylePrompt caps any id's shortForm atom list at 3 total
+          // (shortAtomsById's own .slice(0,3)) and the constraint below MUST
+          // survive (load-bearing, tests/audienceProfile.test.ts requires
+          // it on every song) — so at most 2 of these 3 candidates can be
+          // kept here, gender/flagship prioritized over the plain segment-0
+          // fallback since those are the two that have actually been found
+          // silently dropped.
+          const priority = [genderClause, flagshipClause, segments[0]].filter((value, i, arr): value is string => Boolean(value) && arr.indexOf(value) === i);
+          const kept = priority.slice(0, 2);
           return [kept.join(', '), audienceProfile.constraints[0]].filter(Boolean).join(', ');
         })()
       },

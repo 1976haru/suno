@@ -1,5 +1,6 @@
 import { eraCanonPalettesForGenreId, partialPaletteForGenreId, type EraCanonPalette } from '../data/eraCanonPalettes';
 import { shuffle } from './lyricEngine';
+import { hashSeed } from '../utils/prng';
 
 /** TASK v4.6 (§1-4) — "같은 팔레트 최대 6곡". */
 const MAX_SONGS_PER_PALETTE = 6;
@@ -107,11 +108,25 @@ export function buildEraCanonPalettePlan(genrePlan: readonly (string | undefined
  * added on roughly half of songs (seed-parity) to land the total at 3-4 as
  * specified, rather than always 4 (which would compete harder against the
  * concept atom's own budget floor — see localGenerator.ts's CONCEPT_FLOOR_ATOMS).
+ *
+ * TASK v4.7 (팔레트 커버리지 확장) — `genreId` folded into the selection seed:
+ * several v4.7 palettes now cover MULTIPLE genre ids at once (e.g.
+ * canon-doowop-girlgroup spans oldpop-doowop-harmony/oldpop-brill-building/
+ * oldpop-girl-group-wall). Before this, two songs sharing a palette at the
+ * same track index picked the exact same atoms (selection only varied by
+ * pack seed + track index, never by which genre was actually playing),
+ * which collapsed those genres' style prompts toward each other — a real
+ * regression caught by tests/oldpopGenreFamily.test.ts's pre-existing
+ * cross-genre similarity check once coverage widened enough for two genres
+ * in the same test pack to share a palette. Hashing genreId in means
+ * different genres drawing the same palette still pick different specific
+ * descriptors from it.
  */
-export function rotatingEraPaletteAtoms(assignment: PaletteAssignment | undefined, seed: number, index: number): string[] {
+export function rotatingEraPaletteAtoms(assignment: PaletteAssignment | undefined, seed: number, index: number, genreId?: string): string[] {
   if (!assignment) return [];
   const { palette, partial } = assignment;
-  const base = seed + index * 97;
+  const genreSalt = genreId ? hashSeed(genreId) : 0;
+  const base = seed + index * 97 + genreSalt;
   // TASK v4.7 (TASK B, §2-3) — a partial (fallback) assignment only borrows
   // productionTraits: the genre's own real instrumentation/harmony/vocal
   // character (chanson's accordion, bossa's clave) must not be overwritten

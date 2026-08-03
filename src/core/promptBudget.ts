@@ -73,7 +73,20 @@ export const ATOM_WORD_CAP = 8;
  */
 export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice', 'killingPoint']);
 export const GENRE_NARRATIVE_FLOOR_ATOMS = 2;
-export const CONCEPT_FLOOR_ATOMS = 2;
+// TASK v4.7 (팔레트 커버리지 확장) — raised 2 -> 5. The 'concept' atom group can
+// now hold up to 3 sources at once (rotatingArtistStyleAtoms, up to 3 atoms;
+// rotatingEraPaletteAtoms, up to 4 atoms — mutually exclusive with the
+// former; conceptStyleText, up to 2 atoms), all flattened into one array
+// BEFORE reduceToFloor runs, in that fixed order. With coverage expanded
+// from ~15 to ~70 genres, a real customConcept on a now-covered genre (e.g.
+// oldpop-motown-pop-soul, previously uncovered) started losing its own
+// concept-mapped text entirely under budget pressure — floor=2 always kept
+// only palette atoms, since they're listed first (tests/v352ConceptDiversity
+// .test.ts caught this: "morning light" silently vanished). 5 = the worst
+// case's max non-concept contribution (palette's own 4-atom ceiling) + 1, so
+// at least the first concept atom always survives regardless of how many
+// palette atoms preceded it.
+export const CONCEPT_FLOOR_ATOMS = 5;
 export const MOOD_FLOOR_ATOMS = 1;
 export const INSTRUMENTS_FLOOR_ATOMS = 2;
 /**

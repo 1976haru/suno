@@ -37,7 +37,15 @@ describe('[P0-1] every generated stylePrompt fits Suno\'s 1,000-char style field
       }
     }
     expect(checked).toBeGreaterThan(0);
-  });
+    // TASK v4.7 (팔레트 커버리지 확장) — explicit longer timeout: this test
+    // already iterates every channel x 3 languages x every season x 30
+    // songs, and era-canon-palette coverage now spans ~70 genres (up from
+    // ~15) across 7 palettes' worth of eraCanonPalettePlan.ts computation
+    // per song. Measured ~20s in isolation, comfortably under this, but
+    // close enough to the default 30s that it timed out under parallel
+    // full-suite load — a real, if modest, cost of the wider coverage, not
+    // a hang.
+  }, 60000);
 
   it('[A2] essential terms are never excluded, even under a tiny budget', () => {
     const parts = [

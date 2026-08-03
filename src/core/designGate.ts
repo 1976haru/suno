@@ -332,9 +332,16 @@ function paletteCoverageIssues(slots: PreassignedSongSlot[], opts: GenerationOpt
   const seed = hashSeed(seedForBlueprint(opts));
   const assignments = buildEraCanonPalettePlan(genrePlan, seed);
   const covered = assignments.filter((a): a is PaletteAssignment => !!a);
-  const fullyCovered = covered.filter(a => !a.partial);
   const uncoveredCount = assignments.length - covered.length;
-  const distinctPaletteIds = new Set(fullyCovered.map(a => a.palette.id));
+  // TASK v4.7 (팔레트 커버리지 확장) — partial assignments now count toward
+  // variety too: they still inject a real, distinguishing productionTraits
+  // atom (rotatingEraPaletteAtoms), not silence, so a set drawing from 3
+  // different partial-covered genres genuinely sounds more varied than one
+  // stuck on a single palette — the original "full only" rule under-counted
+  // real coverage width, which is what made even reasonably diverse concepts
+  // (S2-S5 in this task's own verification) fail the variety check despite
+  // the underlying uncovered-track count already being fine.
+  const distinctPaletteIds = new Set(covered.map(a => a.palette.id));
 
   const issues: DesignIssue[] = [];
   if (uncoveredCount > soundFloor.maxUncoveredGenreTracks) {

@@ -31,6 +31,19 @@ export interface EraCanonPalette {
   /** This cluster's canonical sound. 2-3 are drawn per song — see eraCanonPalettePlan.ts's rotatingEraPaletteAtoms. */
   instrumentation: string[];
   harmonyTraits: string[];
+  /**
+   * TASK v4.7 (팔레트 커버리지 확장) — never write "male"/"female" (or any
+   * literal gender word) here, even to describe a genre's own typical
+   * arrangement (e.g. "two-part male harmony"). A real audit run caught
+   * this: canon-british-beat's own vocalTraits happened to say "male"
+   * while a song's actual assigned vocalType was female, and
+   * core/vocalPlan.ts's detectVocalGender() treats "both words present" as
+   * ambiguous (returns null) rather than picking one — the song's real,
+   * assigned gender silently stopped being detectable in its own style
+   * prompt. Describe the ARRANGEMENT (harmony shape, register, delivery)
+   * without naming a gender; the actual vocalType-driven gender text is
+   * added separately elsewhere in the prompt.
+   */
   vocalTraits: string[];
   productionTraits: string[];
   /** Authoring reference only. Never read by prompt-building code, never surfaced to the user or the LLM. */
@@ -52,7 +65,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     // beyond 70s-nostalgic contexts), unlike the other two oldpop-* ids here,
     // so scoping the palette away from it is arguably more correct too, not
     // just safer.
-    fitsGenreIds: ['oldpop-folk-rock-70s', 'oldpop-close-harmony-duo'],
+    // TASK v4.7 (팔레트 커버리지 확장) — japanese-folk-70s added: its own
+    // genreLibrary styleCore ("1970s Japanese folk, acoustic guitar
+    // centered, modest live ensemble, close-mic vocal, dry room intimacy")
+    // is the same fingerpicked-acoustic-duo character as the other two ids
+    // here, just Japanese rather than English-language.
+    fitsGenreIds: ['oldpop-folk-rock-70s', 'oldpop-close-harmony-duo', 'japanese-folk-70s'],
     instrumentation: [
       'fingerpicked steel-string acoustic guitar',
       '12-string acoustic doubling the melody',
@@ -65,7 +83,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'verse melody that steps rather than leaps'
     ],
     vocalTraits: [
-      'two-part male close harmony sung as one blended voice',
+      'two-part close harmony sung as one blended voice',
       'clear unforced diction with no vibrato',
       'the harmony line stays above the melody'
     ],
@@ -117,11 +135,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     harmonyTraits: [
       'minor-key verse opening into a major chorus',
-      'stacked unison-to-thirds female harmony on the hook',
+      'stacked unison-to-thirds harmony on the hook',
       'strong descending bass under the chorus'
     ],
     vocalTraits: [
-      'two female voices in tight unison splitting into thirds',
+      'two voices in tight unison splitting into thirds',
       'clear forward diction',
       'strong sustained notes on the chorus'
     ],
@@ -149,7 +167,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'parallel thirds and sixths in the backing harmony'
     ],
     vocalTraits: [
-      'two-part male harmony in close intervals',
+      'two-part harmony in close intervals',
       'bright forward diction',
       'unison shout on the hook'
     ],
@@ -176,7 +194,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'one modal borrowed chord in the bridge'
     ],
     vocalTraits: [
-      'warm mid-range male lead with a slight rasp',
+      'warm mid-range lead with a slight rasp',
       'conversational phrasing close to speech',
       'group harmony joining only on the chorus'
     ],
@@ -190,7 +208,18 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     id: 'canon-crooner-standard',
     labelKo: '크루너 · 스탠더드',
     eraTag: '1960s-70s crooner standard',
-    fitsGenreIds: ['oldpop-standards-torch', 'oldpop-orchestral-easy', 'smooth-jazz-lounge'],
+    // TASK v4.7 (팔레트 커버리지 확장) — the 10 jazz-*-vocal/lounge ids added
+    // here are all vocal-jazz/lounge/crooner in character by genreLibrary's
+    // own OLDPOP_LOUNGE_CORE_GENRE_IDS comment ("Vocal jazz / standards /
+    // bossa / lounge — not bebop/fusion/acid-jazz/jazz-rap"), matching this
+    // palette's own strings/muted-trumpet/brushed-drums/piano instrumentation
+    // directly — not a stretch fit like the R&B/soul cluster below needed.
+    fitsGenreIds: [
+      'oldpop-standards-torch', 'oldpop-orchestral-easy', 'smooth-jazz-lounge',
+      'jazz-classic-vocal-lounge', 'jazz-soft-vocal-trio', 'jazz-jazz-ballad-vocal', 'jazz-smooth-sax-vocal',
+      'jazz-torch-vocal-jazz', 'jazz-swing-crooner-ballroom', 'jazz-cabaret-jazz', 'jazz-hotel-lounge-jazz',
+      'jazz-contemporary-vocal-jazz', 'jazz-pop'
+    ],
     instrumentation: [
       'full string section carrying the melody',
       'muted trumpet or alto sax obbligato',
@@ -228,7 +257,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'pre-chorus that lifts before resolving'
     ],
     vocalTraits: [
-      'smooth mid-range male lead',
+      'smooth mid-range lead',
       'three-part harmony on the hook'
     ],
     productionTraits: [
@@ -236,6 +265,254 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'balanced stereo with guitars panned'
     ],
     koreanReferenceNote: '이글스·아메리카·브레드 계열'
+  },
+  // TASK v4.7 (팔레트 커버리지 확장) — 7 new palettes below close the gap this
+  // task's own v4.7 report flagged: the original 7 palettes covered only
+  // ~15 of the 72 genres senior-morning/showa-cafe/oldpop-lounge/showa-70s
+  // actually draw from. Each new palette's fitsGenreIds/wording is checked
+  // against that genre's own real genreLibrary/index.ts styleCore/instruments
+  // text (not invented from scratch) — see this task's own investigation
+  // notes for exact citations. alt-rnb/contemporary-rnb are deliberately
+  // NOT covered anywhere (their own styleCore explicitly says "filtered
+  // synth pads"/"deep sub bass"/"sub-bass warmth" — directly contradicting
+  // channelSoundFloor's forbiddenAtoms; every other oldpop-lounge R&B id
+  // uses a shared, warmer "laid-back pocket groove, soft backbeat, lush
+  // seventh chords" styleCore with no such conflict).
+  {
+    id: 'canon-motown-soul',
+    labelKo: '모타운·필리 소울',
+    eraTag: '1960s-70s Motown / Philadelphia soul',
+    fitsGenreIds: ['oldpop-motown-pop-soul', 'oldpop-philly-soul-sweet'],
+    instrumentation: [
+      'tambourine on all four beats',
+      'melodic electric bass',
+      'horn section stabs',
+      'sweeping string section'
+    ],
+    harmonyTraits: [
+      'gospel-tinged pop-soul chord color',
+      'sweet extended soul-pop chords'
+    ],
+    vocalTraits: [
+      'soulful lead answered by gospel-toned backing vocals',
+      'velvet-toned romantic delivery on the chorus'
+    ],
+    productionTraits: [
+      'tight punchy soul-pop mix',
+      'velvet orchestral soul warmth'
+    ],
+    koreanReferenceNote: '모타운·필리 소울 계열 (스티비 원더, 슈프림스, 델포닉스 등)'
+  },
+  {
+    id: 'canon-doowop-girlgroup',
+    labelKo: '두왑·걸그룹 월오브사운드',
+    eraTag: '1950s-60s doo-wop / girl-group',
+    fitsGenreIds: ['oldpop-doowop-harmony', 'oldpop-brill-building', 'oldpop-girl-group-wall'],
+    instrumentation: [
+      'upright bass on the downbeat',
+      'brushed snare',
+      'close-harmony backing vocals',
+      'layered hand percussion'
+    ],
+    harmonyTraits: [
+      'I-vi-IV-V doo-wop turnaround',
+      'simple diatonic I-IV-V hook',
+      'bright major-key call and response'
+    ],
+    vocalTraits: [
+      'lead tenor answered by four-part close harmony',
+      'unison lead answered by a backing chorus, kept forward in the mix',
+      'nonsense-syllable backing vocal figures under the lead'
+    ],
+    productionTraits: [
+      'narrow warm mono-leaning mix',
+      'layered wall-of-sound reverb that never buries the lead',
+      'bright compact single-era studio mix'
+    ],
+    koreanReferenceNote: '두왑·걸그룹 월오브사운드 계열 (플래터스, 로네츠 등)'
+  },
+  {
+    id: 'canon-piano-orchestral-ballad',
+    labelKo: '피아노·오케스트라 발라드',
+    eraTag: '1970s-80s piano / orchestral ballad',
+    fitsGenreIds: ['oldpop-piano-ballad-70s', 'oldpop-orchestral-ballad-80s', 'oldpop-sunlit-strings-pop', 'piano-ballad', 'healing-ballad'],
+    // TASK v4.7 — this palette covers 5 genres; every axis needs enough
+    // distinct phrases that genreId-salted selection (eraCanonPalettePlan.ts's
+    // rotatingEraPaletteAtoms) can actually land 5 different genres on 5
+    // different phrases instead of the small pool forcing pigeonhole
+    // collisions (tests/oldpopGenreFamily.test.ts caught exactly this at the
+    // old 2-item pool size).
+    instrumentation: [
+      'grand piano',
+      'string section entering at the chorus',
+      'restrained brushed drums',
+      'soft timpani swell',
+      'soft harp glissando',
+      'muted cello countermelody'
+    ],
+    harmonyTraits: [
+      'cinematic piano-ballad chord movement',
+      'late key-change ballad lift',
+      'suspended fourth resolving into the hook',
+      'gentle diminished passing chord before the final lift',
+      'major-seventh verse color opening into a simpler chorus',
+      'slow descending bass line under a held chord'
+    ],
+    vocalTraits: [
+      'emotive piano-ballad lead vocal',
+      'powerful-but-controlled delivery building to the final chorus',
+      'restrained verse phrasing opening into a fuller chorus',
+      'held final note with a slow, controlled vibrato',
+      'quiet opening verse, full-voiced by the last chorus',
+      'unhurried rubato phrasing across the bar line'
+    ],
+    productionTraits: [
+      'intimate piano-forward room tone widening at the chorus',
+      'expansive orchestral ballad mix',
+      'warm room reverb with the piano close and present',
+      'strings held back until the last chorus for contrast',
+      'wide hall ambience opening only at the climax',
+      'close piano mic blending into a fuller room by the chorus'
+    ],
+    koreanReferenceNote: '70~80년대 피아노·오케스트라 발라드 계열'
+  },
+  {
+    id: 'canon-warm-gentle-acoustic',
+    labelKo: '시대 불문 따뜻한 어쿠스틱',
+    eraTag: 'timeless warm acoustic',
+    fitsGenreIds: ['oldpop-warm-morning-glow', 'oldpop-gentle-lullaby-pop', 'oldpop-hearth-acoustic', 'oldpop-slow-waltz-memory', 'oldpop-evening-lamp-ballad'],
+    // TASK v4.7 — same 5-genre pool-size reasoning as canon-piano-orchestral
+    // -ballad above.
+    instrumentation: [
+      'acoustic guitar arpeggio',
+      'warm electric piano',
+      'minimal light percussion',
+      'soft upright bass',
+      'light fingerstyle nylon guitar',
+      'soft celesta touches'
+    ],
+    harmonyTraits: [
+      'warm open major-key harmony',
+      'reflective minor-to-major waltz progression',
+      'simple plagal IV-I resolution',
+      'gentle suspended-second color on the verse',
+      'unhurried I-IV-V movement with no surprises',
+      'soft parallel-sixths harmony under the hook'
+    ],
+    vocalTraits: [
+      'gentle unhurried lead vocal',
+      'close warm delivery, no belting',
+      'plainspoken conversational delivery',
+      'soft falling phrase endings',
+      'whispered intimacy on the final line',
+      'warm mid-register delivery, never straining'
+    ],
+    productionTraits: [
+      'soft close room mix',
+      'minimal reverb, intimate and dry',
+      'natural unprocessed room tone',
+      'gentle tape-like warmth with no hard edges',
+      'quiet room tone with almost no processing',
+      'close-mic warmth, nothing pushed too bright'
+    ],
+    koreanReferenceNote: '시대 불문 따뜻한 어쿠스틱 계열'
+  },
+  {
+    id: 'canon-quiet-storm-synth',
+    labelKo: '콰이어트스톰·라이트 신스팝',
+    eraTag: '1980s quiet storm / light synth pop',
+    // TASK v4.7 — 'analog synth pad'/'arpeggiator' here, never 'digital
+    // synth pad': channelSoundFloor.forbiddenAtoms bans the latter
+    // specifically, and v4.7's own §1-4 explicitly allows 80s-analog synth
+    // texture under productionEraTags — this palette is exactly that case.
+    fitsGenreIds: ['oldpop-quiet-storm-warm', 'oldpop-light-synth-pop-warm', 'oldpop-soft-duet-80s'],
+    instrumentation: [
+      'fretless bass',
+      'alto saxophone',
+      'analog synth pad',
+      'soft brushed drums'
+    ],
+    harmonyTraits: [
+      'smooth minor-seventh quiet-storm chords',
+      'bright-but-soft synth-pop chords',
+      'gentle suspended chord before the chorus resolves'
+    ],
+    vocalTraits: [
+      'low close-mic quiet-storm lead',
+      'alternating verse leads trading the melody',
+      'soft breathy delivery, never belted'
+    ],
+    productionTraits: [
+      'intimate late-night close mix',
+      'warm analog-leaning hybrid mix',
+      'soft-focus room tone with a gentle low-end warmth',
+      // TASK v4.7 — this palette also serves the lofi-cafe partial fallback
+      // (PARTIAL_PALETTE_FALLBACK), so a 4th productionTraits phrase keeps
+      // that extra consumer from tightening the pool further.
+      'unhurried close-mic intimacy'
+    ],
+    koreanReferenceNote: '80년대 콰이어트스톰·라이트 신스팝 계열'
+  },
+  {
+    id: 'canon-showa-kayokyoku',
+    labelKo: '일본 70년대 가요쿄쿠',
+    eraTag: '1970s Japanese kayokyoku / new music / showa groove',
+    fitsGenreIds: ['kayokyoku-70s', 'new-music-70s', 'showa-groove-70s'],
+    instrumentation: [
+      'live brass section',
+      'sweeping strings',
+      'clavinet',
+      'wah electric guitar'
+    ],
+    harmonyTraits: [
+      'graceful minor-to-major chorus cadence',
+      'sophisticated add9 and maj7 colors'
+    ],
+    vocalTraits: [
+      'mature Japanese lead vocal',
+      'lyrical adult delivery'
+    ],
+    productionTraits: [
+      'analog tape saturation, spring and plate reverb',
+      'narrow stereo image'
+    ],
+    koreanReferenceNote: '1970년대 일본 가요쿄쿠·뉴뮤직·쇼와 그루브 계열'
+  },
+  {
+    id: 'canon-soulful-rnb',
+    labelKo: '따뜻한 소울·R&B',
+    eraTag: 'warm vintage-leaning soul / R&B',
+    // TASK v4.7 — every id here shares genreLibrary's own generic "laid-back
+    // pocket groove, soft backbeat, lush seventh chords, polished low-end
+    // focus" styleCore (the Notion-derived rnb-*-rnb ids) or an explicitly
+    // warm/hand-played one (neo-soul, retro-soul-pop) — none of them mention
+    // digital synths or sub bass, unlike alt-rnb/contemporary-rnb (excluded).
+    fitsGenreIds: [
+      'retro-soul-pop', 'neo-soul',
+      'rnb-old-school-romance-rnb', 'rnb-soulful-gospel-warmth', 'rnb-gospel-soul-lift',
+      'rnb-quiet-storm-baritone', 'rnb-velvet-baritone-rnb', 'rnb-silky-studio-rnb',
+      'rnb-soulful-male-rnb', 'rnb-soul-infused-female', 'rnb-romantic-rnb',
+      'rnb-emotional-female-rnb', 'rnb-smooth-clean-rnb'
+    ],
+    instrumentation: [
+      'Rhodes electric piano',
+      'live hand-played drum groove',
+      'warm round bass',
+      'close stacked backing harmonies'
+    ],
+    harmonyTraits: [
+      'lush seventh chords',
+      'smooth ii-V soul movement'
+    ],
+    vocalTraits: [
+      'warm laid-back lead vocal',
+      'close stacked harmony answering the lead'
+    ],
+    productionTraits: [
+      'polished low-end focus',
+      'soft backbeat, hand-played pocket'
+    ],
+    koreanReferenceNote: '따뜻한 빈티지 성향 소울·R&B 계열'
   }
 ];
 
@@ -256,7 +533,27 @@ export function eraCanonPalettesForGenreId(genreId: string | undefined): EraCano
  */
 export const PARTIAL_PALETTE_FALLBACK: Record<string, string> = {
   chanson: 'canon-crooner-standard',
-  'bossa-cafe': 'canon-soft-rock-band'
+  'bossa-cafe': 'canon-soft-rock-band',
+  // TASK v4.7 (팔레트 커버리지 확장) — same reasoning as chanson/bossa-cafe
+  // above: these genres are close enough in production character to borrow
+  // one nearby palette's productionTraits, but different enough in their
+  // own defining instrumentation (acoustic-pop's own genre, for instance,
+  // spans many different arrangements) that a FULL palette match would
+  // misdescribe them.
+  'acoustic-pop': 'canon-warm-gentle-acoustic',
+  'adult-contemporary': 'canon-soft-pop-duo',
+  'folk-pop': 'canon-folk-duo',
+  'soft-rock': 'canon-soft-rock-band',
+  // TASK v4.7 — mapped to quiet-storm-synth (not crooner-standard, which
+  // jazz-pop/several jazz-* ids already fully occupy) specifically so a
+  // narrow jazz-pop + lofi-cafe + bossa-cafe genre mix still reaches 2+
+  // distinct palettes instead of collapsing both onto the same one.
+  'lofi-cafe': 'canon-quiet-storm-synth',
+  'city-pop-soft': 'canon-europop-glow',
+  'city-pop-rainy-window-pop': 'canon-europop-glow',
+  'showa-modern': 'canon-quiet-storm-synth',
+  'christmas-soft-pop': 'canon-warm-gentle-acoustic',
+  'jazz-bossa-vocal-jazz': 'canon-soft-rock-band'
 };
 
 export function partialPaletteForGenreId(genreId: string | undefined): EraCanonPalette | undefined {
