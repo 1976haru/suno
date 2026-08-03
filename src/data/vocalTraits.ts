@@ -215,14 +215,17 @@ export interface DuetTraitAxes {
 
 export const DUET_TRAIT_AXES: DuetTraitAxes = {
   pairing: [
-    'alternating verses, joined chorus',
+    // TASK v4.8 (TASK A, §1-2) — merged into single no-comma phrases so each
+    // pairing value contributes ONE stylePrompt atom instead of two; the
+    // information conveyed is unchanged, only the internal comma is gone.
+    'alternating verses into joined chorus',
     'call and answer',
-    'female lead, male harmony',
-    'male lead, female harmony',
+    'female lead with male harmony',
+    'male lead with female harmony',
     'unison splitting to thirds',
     'trading lines mid-phrase',
     'narration answered wordlessly'
   ],
-  blend: ['close third harmony', 'wide octave harmony', 'tight unison, light detune', 'loose lines meeting hook'],
+  blend: ['close third harmony', 'wide octave harmony', 'tight unison with light detune', 'loose lines meeting hook'],
   proximity: PROXIMITY_POOL
 };

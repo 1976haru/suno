@@ -173,11 +173,14 @@ describe('[v3.47 Step 1] BPM de-duplication and prompt repair', () => {
     // TASK v3.58 (TASK 5-1) — MONEY_CHORD_ADHERENCE_TEXT ("Keep this
     // progression as the harmonic spine...") is no longer appended at all
     // (a 76-char imperative sentence Suno's Style field doesn't read as an
-    // instruction, pure overhead) — every slot's moneyChordText should
-    // still carry a real reinforcement clause (the preset's own
-    // audibleEffect), just never that specific sentence.
+    // instruction, pure overhead).
+    // TASK v4.8 (TASK A, §1-2) — the preset's own audibleEffect reinforcement
+    // clause (joined with ' - ') is ALSO no longer attached by default now
+    // (another decorative tail cut for prompt-length compression, see
+    // batchPreallocation.ts's own moneyChordText doc comment) — every slot's
+    // moneyChordText is just the bare compactProgression tag now.
     expect(slots.every(slot => !slot.moneyChordText.includes(MONEY_CHORD_ADHERENCE_TEXT))).toBe(true);
-    expect(slots.every(slot => slot.moneyChordText.includes(' - '))).toBe(true);
+    expect(slots.every(slot => slot.moneyChordText.length > 0)).toBe(true);
     const report = lintInPackStyleSimilarity(songs.map(song => ({ trackNo: song.trackNo, stylePrompt: song.stylePrompt })));
     expect(report.averageSimilarity).toBeLessThan(0.70);
     expect(report.maxSimilarity).toBeLessThan(1);

@@ -69,7 +69,7 @@ export const introTextures: IntroTexture[] = [
     id: 'ep_rhodes_riff',
     labelKo: '로즈 리프',
     labelEn: 'Rhodes riff',
-    tag: 'warm Rhodes electric piano riff intro texture (INTRO ONLY)',
+    tag: 'warm Rhodes riff intro texture (INTRO ONLY)',
     suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night']
   },
   {

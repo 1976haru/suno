@@ -236,7 +236,9 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
   it('[H5] style prompt tells Suno to bookend and repeat the hook, without quoting the hook lyric itself', () => {
     const directive = hookStyleDirectives('Hold On', 'commercial');
     expect(directive).not.toContain('Hold On');
-    expect(directive).toContain('repeats chorus');
+    // TASK v4.8 (TASK A) — compressed to "hook repeats 4x" (a single
+    // no-comma atom, was "strong repeated chorus hook, repeats chorus 4x").
+    expect(directive).toContain('repeats');
     expect(directive).toContain('4x');
   });
 
@@ -248,7 +250,7 @@ describe('hook engine (v3.3, TASK A1-A5)', () => {
   it.each(LANGUAGES)('[H5] every generated song stylePrompt includes the hook bookend directive (without the literal hook lyric), in %s', language => {
     const bp = generateLocalBlueprint(makeOptions({ songCount: 3, lyricLanguage: language }), testGenres, testMoods, testSeason);
     for (const song of bp.songs) {
-      expect(song.stylePrompt).toContain('repeats chorus');
+      expect(song.stylePrompt).toContain('repeats');
       expect(song.stylePrompt).not.toContain(`"${song.hookPhrase}"`);
     }
   });

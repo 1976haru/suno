@@ -165,7 +165,16 @@ function buildResolvedConstraintsSection(constraints: ResolvedConstraints): stri
     // pack-wide total; a real pack hit 69 uses of "every" alone. Named
     // explicitly since the generic cap line above is easy to read as being
     // about content nouns only.
-    ' 특히 every, before, more 같은 단어를 여러 곡에 걸쳐 반복하지 마십시오.'
+    ' 특히 every, before, more 같은 단어를 여러 곡에 걸쳐 반복하지 마십시오.' +
+    // TASK v4.8 (TASK C) — same fix, a new set of real offenders: a senior-
+    // morning pack still hit 48회 (quiet) / 45회 (feel) / 34회 (light,
+    // evening) after v4.6's every/before/more fix — these are mood/scene
+    // words an LLM reaches for by default for this channel's own "quiet
+    // morning reflection" register, same blind spot as before, just a
+    // different word class. Named explicitly rather than doing v4.5's
+    // vocabulary-bank rewrite (out of this task's own scope — "v4.5(어휘
+    // 뱅크)를 이번에 하지 말 것. 지시문 문구만 강화합니다").
+    ' 특히 quiet, feel, light, evening, morning 을 여러 곡에 걸쳐 반복하지 마십시오.'
   );
   return lines.join('\n');
 }

@@ -51,7 +51,7 @@ function musicClauseSet(prompt: string): Set<string> {
       .split(',')
       .map(clause => clause.trim().toLowerCase())
       .filter(clause => !/^\d{2,3} bpm$/.test(clause))
-      .filter(clause => !/repeats chorus|repeated chorus hook|same channel vocal signature/.test(clause))
+      .filter(clause => !/repeats chorus|repeated chorus hook|hook repeats \d+x|same channel vocal signature/.test(clause))
       .filter(clause => !/\b(vocal|voice|tenor|alto|soprano|choir|singer)\b/.test(clause))
       .filter(clause => !/progression|3:10-3:35|short intro|radio edit|complete song/.test(clause))
       .filter(clause => !/^concept (cue|emphasis):/.test(clause))

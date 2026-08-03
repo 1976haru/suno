@@ -38,7 +38,7 @@ export const KILLING_POINTS: KillingPoint[] = [
   {
     id: 'KP-02',
     labelKo: '하모니 3성 스택',
-    descriptor: 'backing harmony stacks to three parts on the last chorus',
+    descriptor: 'three-part harmony on the last chorus',
     placement: 'final-chorus',
     relaxes: ['abrupt dynamic jumps'],
     fitsEraTags: ['europop', 'disco', '1970s', '1980s']
@@ -53,7 +53,7 @@ export const KILLING_POINTS: KillingPoint[] = [
   {
     id: 'KP-04',
     labelKo: '브레이크다운 — 반주 멈추고 목소리만',
-    descriptor: 'instruments drop out leaving the voice alone in the bridge',
+    descriptor: 'instruments drop out in the bridge',
     placement: 'bridge',
     relaxes: ['abrupt dynamic jumps'],
     fitsEraTags: ['chanson', 'jazz', 'bossa', 'cafe']
@@ -61,7 +61,7 @@ export const KILLING_POINTS: KillingPoint[] = [
   {
     id: 'KP-05',
     labelKo: '롱톤 착지',
-    descriptor: 'lead holds one long sustained note entering the final chorus',
+    descriptor: 'sustained lead note into the final chorus',
     placement: 'final-chorus',
     relaxes: ['comfortable mid vocal register'],
     fitsEraTags: ['soft rock', 'adult contemporary', '1970s']
@@ -93,7 +93,7 @@ export const KILLING_POINTS: KillingPoint[] = [
   {
     id: 'KP-09',
     labelKo: '낮은 음역 착지',
-    descriptor: 'lead drops to a low chest-register line landing the hook',
+    descriptor: 'lead drops low into the hook',
     placement: 'final-chorus',
     relaxes: ['comfortable mid vocal register'],
     fitsEraTags: ['soft rock', 'adult contemporary']
@@ -109,7 +109,7 @@ export const KILLING_POINTS: KillingPoint[] = [
   {
     id: 'KP-11',
     labelKo: '유니즌 재진입',
-    descriptor: 'full ensemble re-enters in unison on the final hook',
+    descriptor: 'full ensemble unison on the final hook',
     placement: 'final-chorus',
     relaxes: ['abrupt dynamic jumps', 'arrangement leaves space between phrases'],
     fitsEraTags: ['europop', 'disco', 'motown']
@@ -117,7 +117,7 @@ export const KILLING_POINTS: KillingPoint[] = [
   {
     id: 'KP-12',
     labelKo: '오블리가토 응답',
-    descriptor: 'a solo instrument answers each vocal line after the second verse',
+    descriptor: 'solo instrument answers the vocal line',
     placement: 'mid-instrumental',
     relaxes: [],
     fitsEraTags: ['soft rock', 'adult contemporary', 'orchestral']

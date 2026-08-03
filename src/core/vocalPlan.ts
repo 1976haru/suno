@@ -779,8 +779,30 @@ function pickTraitSequence(
   for (let i = 0; i < occurrences; i++) {
     let candidates = pool.filter(value => (usage.get(value) ?? 0) < cap);
     if (!candidates.length) candidates = [...pool];
+    const capFilteredCandidates = candidates;
+    // TASK v4.8 (TASK D-1) — prefer a value this axis has never used yet
+    // over any already-used-but-under-cap value, whenever at least one
+    // unused candidate remains. Real measurement: a 6-song female register
+    // axis (7-value pool, cap=2) still repeated 'mid clear alto' on two
+    // songs, even though the cap never bound (nothing had reached 2 uses)
+    // — the cap alone only ever excludes a value AFTER it hits the cap, it
+    // never prefers spreading across the full pool first. Falls through to
+    // the existing cap-filtered set once every value has been used at
+    // least once, so behavior is unchanged for any pack past that point.
+    const unused = candidates.filter(value => !usage.has(value));
+    if (unused.length) candidates = unused;
     if (extraFilter) {
-      const filtered = candidates.filter(value => extraFilter(value, i));
+      let filtered = candidates.filter(value => extraFilter(value, i));
+      // A per-occurrence override (e.g. flagshipProximityOverride's "never
+      // 'dry and forward' on track 1") can legitimately reject every
+      // unused-preferred candidate above; re-check against the full
+      // cap-filtered set before falling back to an unfiltered pick, so the
+      // unused-preference above can never silently defeat a real override
+      // — that regressed tests/v380.test.ts's "track 1 is never 'dry and
+      // forward'" guarantee the first time this was tried.
+      if (!filtered.length && candidates !== capFilteredCandidates) {
+        filtered = capFilteredCandidates.filter(value => extraFilter(value, i));
+      }
       if (filtered.length) candidates = filtered;
     }
     const previous = picks[i - 1];

@@ -161,12 +161,17 @@ describe('[v3.33 Part C] end-to-end: an 18-song set actually carries the quota i
     expect(bp.songs).toHaveLength(18);
     expect(bp.songs[0].stylePrompt).toContain(moneyChordPresets.doowop.compactProgression);
     const assignedIds = bp.songs.map(song => progressionTagsPresentIn(song.stylePrompt)[0]);
-    // TASK v3.42 Part B3 — reinforcement text is now that song's own assigned
-    // preset's audibleEffect (was a fixed MONEY_CHORD_FEEL_SUFFIX fragment
-    // identical across every preset/song before this task).
+    // TASK v3.42 Part B3 — reinforcement text used to be that song's own
+    // assigned preset's audibleEffect (was a fixed MONEY_CHORD_FEEL_SUFFIX
+    // fragment identical across every preset/song before that task).
+    // TASK v4.8 (TASK A, §1-2) — audibleEffect is no longer attached to the
+    // default stylePrompt text at all (a 10-17-word decorative tail cut for
+    // prompt-length compression, see localGenerator.ts's own moneyChord
+    // PromptPart doc comment); compactProgression (the harmonic identity
+    // itself) is what's guaranteed present now.
     bp.songs.forEach((song, idx) => {
       const preset = moneyChordPresets[assignedIds[idx]];
-      expect(song.stylePrompt, `track ${idx + 1}`).toContain(preset.audibleEffect);
+      expect(song.stylePrompt, `track ${idx + 1}`).toContain(preset.compactProgression);
     });
     expect(maxRun(assignedIds), JSON.stringify(assignedIds)).toBeLessThanOrEqual(2);
   });

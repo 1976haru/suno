@@ -33,8 +33,9 @@ function atomsSharedByEverySong(stylePrompts: string[]): string[] {
  *    varying this is a separate, already-fixed axis, see
  *    tests/allocationInterleave.test.ts)
  *  - "3:10-3:35" duration — TASK B-4 explicitly keeps this shared
- *  - the fixed hook-repeat-count instruction ("strong repeated chorus
- *    hook, repeats chorus 4x") from soundSignature.ts's compactHook, which
+ *  - the fixed hook-repeat-count instruction (TASK v4.8: compressed to
+ *    "hook repeats 4x", was "strong repeated chorus hook, repeats chorus
+ *    4x") from promptComposer.ts's hookStyleDirectives, which
  *    is a structural requirement keyed off the whole pack's lyricDepth
  *    setting, not a melodic-design style choice — out of this task's scope
  *    (only EARWORM_STYLE_ATOMS/EARWORM_SYSTEM_NOTE and the hookDevice axis
@@ -45,7 +46,7 @@ function atomsSharedByEverySong(stylePrompts: string[]): string[] {
  *    concept can never remove is supposed to be pack-wide-shared, not a
  *    melodic-design variety signal this test is checking.
  */
-const EXEMPT_SHARED_ATOM_PATTERN = /\b(vocal|male|female|tenor|baritone|contralto|mezzo|alto|husky|breathy|soulful|close-mic|duet|3:10-3:35|repeated chorus hook|repeats chorus|warm analog studio sound|acoustic instruments carry the arrangement|narrow warm stereo image)\b/i;
+const EXEMPT_SHARED_ATOM_PATTERN = /\b(vocal|male|female|tenor|baritone|contralto|mezzo|alto|husky|breathy|soulful|close-mic|duet|3:10-3:35|repeated chorus hook|repeats chorus|hook repeats \d+x|warm analog studio sound|acoustic instruments carry the arrangement|narrow warm stereo image)\b/i;
 
 function nonExemptSharedAtoms(stylePrompts: string[]): string[] {
   return atomsSharedByEverySong(stylePrompts).filter(atom => !EXEMPT_SHARED_ATOM_PATTERN.test(atom));

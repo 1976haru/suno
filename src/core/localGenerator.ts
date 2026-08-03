@@ -12,7 +12,7 @@ import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTrai
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { matchVocalPreset } from '../data/vocalPresets';
-import { eraBucketForGenreId } from '../data/eraExclusions';
+import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
@@ -511,6 +511,9 @@ export function rebuildStylePromptsForPersonaMode(
     const openingStyle = role === 'cold-open' ? (song.openingStyle || resolveOpeningStyle(opts.openingStyle, opts.channel.archetype)) : undefined;
     const introTextureText = introTextureTagForId(introTexturePlan[idx]);
     const trackNarrativeText = rotatingArrangementNarrativeForGenres(trackGenres, idx);
+    // TASK v4.8 (TASK A) — 1-atom fallback for composeStylePrompt's shortForm
+    // compression stage, used only under hard-limit pressure.
+    const trackNarrativeShortForm = rotatingArrangementNarrativeForGenres(trackGenres, idx, 1);
     const excludePrompt = buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
     const earwormTextForTrack = (() => {
       if (!opts.earwormMode) return undefined;
@@ -540,7 +543,7 @@ export function rebuildStylePromptsForPersonaMode(
         ),
         { id: 'genre' as const, text: rotatingGenreText(trackGenres, seed, idx) },
         ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: rotatingGenreSignatureText(trackGenres, seed, idx), shortForm: trackGenres[0].shortSignatureSound, minimalForm: trackGenres[0].minimalSignatureSound }] : []),
-        ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
+        ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText, shortForm: trackNarrativeShortForm }] : []),
         // TASK v3.64-B — per-song rotating melodic-design phrase, replacing
         // the old flat whole-pack EARWORM_STYLE_ATOMS this channelParts
         // entry used to carry (see promptComposer.ts's rotatingEarwormText).
@@ -1143,9 +1146,38 @@ export function generateLocalBlueprint(
     // TASK v3.48.1 — narrative genres still get one auxiliary hook device,
     // but the auto plan filters out devices already described by the
     // arrangement narrative so the two cues do not fight each other.
-    const hookDeviceText = getHookDeviceById(hookDevicePlan[idx])?.prompt;
-    const introTextureText = introTextureTagForId(introTexturePlan[idx]);
+    // TASK v4.8 (TASK A, §1-2) — uses the device's own shortForm as the
+    // PRIMARY local-generation text (not just a shortForm fallback): the
+    // full `.prompt` sentence (12-23 words) never actually got compressed
+    // in practice, since composeStylePrompt's shortForm stage only fires
+    // once a song's raw prompt already exceeds the hard 1000-char limit,
+    // and a real measured pack sat at 831-998 chars — always under that
+    // trigger. `.prompt` itself is untouched (still used by the bridge/
+    // batch path's own slot metadata at batchPreallocation.ts, which faces
+    // no equivalent per-atom budget concern).
+    const hookDeviceEntry = getHookDeviceById(hookDevicePlan[idx]);
+    const hookDeviceText = hookDeviceEntry?.shortForm;
+    // TASK v4.8 (TASK D-2) — real measurement found "warm string pad swell
+    // intro texture" (data/introTextures.ts's 'str_warm_pad', suited to
+    // senior-morning broadly) landing on an early-1960s Brill Building song
+    // — 'string pad' is on data/eraExclusions.ts's own 1950s-60s forbidden
+    // list (a pad is a sustained synth/analog-synth texture, a later-era
+    // production technique). introTexturesForArchetype only ever filters by
+    // channel archetype, not by a song's own era bucket (which varies
+    // within one senior-morning pack) — dropped here via the same
+    // defense-in-depth output-guard pattern already used for palette atoms
+    // just below (rotatingEraPaletteAtoms's own findArtistReferenceLeaks
+    // filter) rather than reworking the pool-selection layer itself.
+    const rawIntroTextureText = introTextureTagForId(introTexturePlan[idx]);
+    const introEraBucket = eraBucketByIndex[idx];
+    const introTextureText = rawIntroTextureText && introEraBucket
+      && ERA_FORBIDDEN_DESCRIPTORS[introEraBucket]?.some(term => rawIntroTextureText.toLowerCase().includes(term.toLowerCase()))
+      ? undefined
+      : rawIntroTextureText;
     const trackNarrativeText = rotatingArrangementNarrativeForGenres(trackGenres, idx);
+    // TASK v4.8 (TASK A) — 1-atom fallback for composeStylePrompt's shortForm
+    // compression stage, used only under hard-limit pressure.
+    const trackNarrativeShortForm = rotatingArrangementNarrativeForGenres(trackGenres, idx, 1);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
     // TASK v3.67 (TASK B) — this track's own killing point may relax
     // specific audience exclusions, only for this one song (see
@@ -1226,11 +1258,24 @@ export function generateLocalBlueprint(
       // TASK v3.33 Part C — per-song progression override when the quota plan
       // is active; channelParts' flat whole-pack moneyChord atom is filtered
       // out above for exactly this case, so there's never a duplicate.
+      // TASK v4.8 (TASK A, §1-2) — includeFeelReinforcement dropped to its
+      // default (false): a `shortForm`-only fix doesn't help here, since
+      // composeStylePrompt's shortForm compression stage only fires once
+      // the RAW prompt already exceeds the hard 1000-char SUNO_COPY_LIMIT —
+      // a real measured pack sat at 831-998 chars, comfortably under that
+      // trigger on every song, so shortForm was silently never activating.
+      // The audibleEffect half ("- chorus lifts noticeably higher than the
+      // verse and lands with a soft ache", 10-17 words) is now dropped from
+      // the DEFAULT text outright — moneyChordPresets.ts's own
+      // compactProgression field (2-6 words) already carries the harmonic
+      // identity that matters; audibleEffect was decorative prose Suno
+      // reads as tags, not sentences, per this file's own established
+      // "Suno responds to descriptors, not paragraphs" convention.
       ...(progressionPlan
-        ? [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan[idx], includeFeelReinforcement: true }) }]
+        ? [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan[idx] }) }]
         : channelParts.some(part => part.id === 'moneyChord')
           ? []
-          : [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { includeFeelReinforcement: true }) }]),
+          : [{ id: 'moneyChord' as const, text: compactMoneyChord(opts) }]),
       // TASK v3.38 Part B2 — per-song vocal-type override when the kids
       // quota plan is active; this 'vocal' id is in promptBudget.ts's
       // ESSENTIAL_TERM_IDS, so it's never trimmed away like the whole-pack

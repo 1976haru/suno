@@ -12,7 +12,7 @@ import { generationPacks } from '../data/presets';
 import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyChords';
 import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
-import { compactDuration, compactHook, compactMoneyChord } from './soundSignature';
+import { compactDuration, compactMoneyChord } from './soundSignature';
 import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
 import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
 import { stripBpmText } from './bpmDedupe';
@@ -361,19 +361,46 @@ export function arrangementNarrativeForGenres(genres: GenrePack[]): string | und
 
 /** v3.52: preserve the genre's production vocabulary while rotating which
  * section/mix clauses lead each track, so a pack does not repeat one long
- * arrangement sentence verbatim on every song. */
-export function rotatingArrangementNarrativeForGenres(genres: GenrePack[], index: number): string | undefined {
+ * arrangement sentence verbatim on every song.
+ *
+ * TASK v4.8 (TASK A, §1-1) — count dropped from up to 5 down to `atomCount`
+ * (default 2): each clause in data/genreLibrary/index.ts's
+ * LEAD_ARRANGEMENT_NARRATIVES is a full production-narrative sentence
+ * fragment (10-18 words on its own), so 3-5 of them joined was the single
+ * largest contributor to prompt bloat measured in this task's own §1-1.
+ * `requiredIndexes` can still match up to 3 pattern types (pre-chorus/hook-
+ * entry/chorus); which of those survive the smaller `atomCount` now rotates
+ * per track-index instead of a fixed always-take-all-that-match, so a pack
+ * doesn't show the identical pair of clauses on every song sharing this
+ * genre.
+ */
+export function rotatingArrangementNarrativeForGenres(genres: GenrePack[], index: number, atomCount = 2): string | undefined {
   const narrative = arrangementNarrativeForGenres(genres);
   if (!narrative) return undefined;
   const atoms = narrative.split(',').map(atom => atom.trim()).filter(Boolean);
-  if (atoms.length <= 3) return narrative;
-  const count = Math.min(5, atoms.length);
+  if (atoms.length <= atomCount) return narrative;
+  const count = Math.min(atomCount, atoms.length);
+  // TASK v4.8 (TASK A, §1-1 follow-up) — every LEAD_ARRANGEMENT_NARRATIVES
+  // entry (data/genreLibrary/index.ts) opens with its verse clause (atom 0,
+  // containing the literal word "Verse"), which none of the 3 patterns
+  // below match — a real regression measured after this task's first pass
+  // dropped it whenever both a pre-chorus AND a hook-entry clause matched
+  // and out-competed it for the 2 available slots, failing
+  // tests/v347step4.test.ts's "describes section movement" check. The verse
+  // clause is now always kept; only the remaining `count - 1` slot(s)
+  // rotate among the pre-chorus/hook-entry/chorus matches.
+  const verseIndex = atoms.findIndex(atom => /\bverse\b/i.test(atom));
   const requiredIndexes = [
     atoms.findIndex(atom => /pre-chorus/i.test(atom)),
     atoms.findIndex(atom => /hook entry|downbeat|dropout|one-beat pause|rising sweep|drum pickup|walk-up|stop-and-go/i.test(atom)),
     atoms.findIndex(atom => /chorus/i.test(atom))
-  ].filter(index => index >= 0);
-  const selectedIndexes = new Set<number>(requiredIndexes);
+  ].filter(idx => idx >= 0 && idx !== verseIndex);
+  const remainingCount = Math.max(0, count - (verseIndex >= 0 ? 1 : 0));
+  const rotationOffset = requiredIndexes.length > remainingCount ? Math.abs(index) % requiredIndexes.length : 0;
+  const rotatedRequired = requiredIndexes.length > remainingCount
+    ? [...requiredIndexes.slice(rotationOffset), ...requiredIndexes.slice(0, rotationOffset)].slice(0, remainingCount)
+    : requiredIndexes;
+  const selectedIndexes = new Set<number>(verseIndex >= 0 ? [verseIndex, ...rotatedRequired] : rotatedRequired);
   for (let offset = 0; selectedIndexes.size < count && offset < atoms.length; offset++) {
     selectedIndexes.add((Math.abs(index) * 2 + offset * 2) % atoms.length);
   }
@@ -522,10 +549,11 @@ const ARRANGEMENT_DENSITY_LEVELS: ArrangementDensityLevel[] = ['sparse', 'medium
  * PreassignedSongSlot.arrangementDensity carries, without needing to know
  * this array's internal ordering.
  */
+// TASK v4.8 (TASK A) — 'sparse'/'full' shortened (11 words -> 4, 8 words -> 3).
 export const ARRANGEMENT_DENSITY_TEXT_BY_LEVEL: Record<ArrangementDensityLevel, string> = {
-  sparse: 'spare arrangement, voice and one or two instruments, lots of space',
+  sparse: 'spare, voice-forward arrangement, lots of space',
   medium: 'balanced small-combo arrangement',
-  full: 'fuller arrangement with strings pad and layered backing'
+  full: 'full layered arrangement with strings'
 };
 
 /**
@@ -591,15 +619,17 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
   // Reusing the same terse builders Persona mode already proved out
   // (compactMoneyChord/compactDuration) converges both modes on the same
   // short-tag style Suno actually responds best to.
-  // TASK v3.33 Part C — includeFeelReinforcement:true always here: real
-  // listening feedback found the bare progression name alone ("I-V-vi-IV
-  // progression") reads as vague to Suno. See soundSignature.ts's
-  // compactMoneyChord for why this stays essential (never trimmed)
-  // automatically. When a per-song progression quota is
-  // active (senior-morning/showa-cafe, see core/moneyChordPlan.ts), this
-  // atom is overridden per-song in localGenerator.ts's own loop — this call
-  // only ever supplies the flat, whole-pack fallback.
-  const money = compactMoneyChord(opts, { includeFeelReinforcement: true });
+  // TASK v3.33 Part C — this used to always pass includeFeelReinforcement:
+  // true (real listening feedback found the bare progression name alone,
+  // e.g. "I-V-vi-IV progression", read as vague to Suno). TASK v4.8 (TASK A,
+  // §1-2) drops it back to the default (false): the same audibleEffect tail
+  // is exactly the kind of 10-17-word decorative clause this task's
+  // compression pass removes everywhere else (see localGenerator.ts's own
+  // moneyChord PromptPart, edited the same way), and leaving this one path
+  // still attaching it would both blow the char budget on non-quota
+  // archetypes and desync from localGenerator.ts's per-song override, which
+  // no longer attaches it either.
+  const money = compactMoneyChord(opts);
   // TASK v3.29 — includeMinimumFloor=true only here: this is the main
   // (non-persona) style prompt, which has ~900 chars of budget headroom
   // (SAFE_TARGET) to spare for the "not a short cut" reinforcement. Persona
@@ -712,9 +742,18 @@ export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], m
  * 4-clause form ('hook "X", short repeated chorus hook, identical melody,
  * 3-4 clear returns') that alone cost ~11 words of every non-persona
  * prompt's word budget.
+ *
+ * TASK v4.8 (TASK A, §1-2) — compressed further to a single no-comma atom
+ * ("hook repeats 4x" instead of "strong repeated chorus hook, repeats
+ * chorus 4x", which comma-splits into 2 atoms downstream in
+ * composeStylePrompt). Deliberately bypasses compactHook (kept unchanged —
+ * still used by Persona mode/quality.ts's own tighter-budget paths at
+ * soundSignature.ts's own compactHook call sites) rather than changing that
+ * shared function's default output.
  */
-export function hookStyleDirectives(hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth']): string {
-  return compactHook(hookPhrase, lyricDepth, false);
+export function hookStyleDirectives(_hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth']): string {
+  const returns = lyricDepth === 'poetic' ? '3x' : '4x';
+  return `hook repeats ${returns}`;
 }
 
 /**

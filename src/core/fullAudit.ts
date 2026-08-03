@@ -10,6 +10,7 @@ import { detectVocalGender } from './vocalPlan';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, type TitleConsistencyReport } from './promiseAudit';
 import type { AudioSetReport } from './audioSetReport';
+import { resolveBpmLengthTier } from './bpmLengthControl';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -273,9 +274,37 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
 const PLACEHOLDER_PATTERN = /\[PLACEHOLDER\]|\bTODO\b|lorem ipsum|\{\{.*?\}\}/i;
 const END_TAG_PATTERN = /\[\s*(end|outro)\s*\]/i;
 
+/**
+ * TASK v4.8 (TASK B-1) — real per-song measurement traced the reported
+ * "162-word floor undershoots the 175 floor even on slow BPM" symptom to a
+ * wrong diagnosis: the 162-word outlier was track 1 (cold-open, 88 BPM —
+ * not even in the slowest tier), not a slow-tempo song. Every genuinely
+ * slow-BPM track in the same sample measured 202-220 words, comfortably
+ * above 175. The real cause is lyricEngine.ts's own shortOpenerRoles
+ * ('cold-open'/'clear opener' trim verse1 to 2 lines and skip the
+ * situationLines boost, by design since v3.11/v4.4 — "reach their first
+ * chorus sooner") — deliberate pacing, not a bug, and out of scope to
+ * touch (this file's own "lyricEngine.ts... 수정하지 말 것").
+ * This check was also a single fixed 215-230 window regardless of a song's
+ * own BPM tier, when core/bpmLengthControl.ts's BPM_LENGTH_TIERS already
+ * defines a per-tempo word target (175-195 for 62-78 BPM, up to 225-245 for
+ * 105-112 BPM) that generation is actually meant to hit. Both fixed here:
+ * the floor/ceiling now come from the song's own BPM tier, and a cold-open/
+ * clear-opener track gets a lower (still enforced, not exempted) floor
+ * reflecting its own intentionally shorter shape.
+ */
+function targetWordRangeFor(song: SongIdea): [number, number] {
+  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
+  const [tierFloor, tierCeil] = tier ? tier.wordRange : [175, 245];
+  const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
+  return isShortOpener ? [150, tierCeil] : [tierFloor, tierCeil];
+}
+
 function lyricsItems(songs: SongIdea[]): AuditItem[] {
   const counts = songs.map(song => lyricWordAndSectionCounts(song.lyrics));
   const words = counts.map(c => c.words);
+  const wordTargets = songs.map(targetWordRangeFor);
+  const wordFailures = songs.filter((song, i) => words[i] < wordTargets[i][0] || words[i] > wordTargets[i][1]);
   const sections = counts.map(c => c.sections);
   const situations = new Set(songs.map(song => song.listenerSituation));
   const emotionArcs = new Set(songs.map(song => song.emotionArc));
@@ -291,10 +320,16 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
   return [
     item({
       id: 'lyric_word_count', category: '가사', labelKo: '가사 단어수',
-      targetKo: '215~230', actualKo: words.length ? `${Math.min(...words)}~${Math.max(...words)}` : '(없음)',
-      pass: words.length ? words.every(count => count >= 215 && count <= 230) : null, requiresAudio: false, specifiedBy: ['v3.29', 'v3.70 TASK B', 'v3.75 TASK A'],
+      // TASK v4.8 (TASK B-1) — was a single fixed 215~230 window for every
+      // song regardless of BPM; now each song is checked against its own
+      // BPM tier's word target (core/bpmLengthControl.ts's BPM_LENGTH_TIERS),
+      // 150 as the floor for cold-open/clear-opener tracks specifically (see
+      // targetWordRangeFor's own doc comment above) — reported here as the
+      // overall observed span across whichever per-song targets applied.
+      targetKo: 'BPM별 (150/175~245)', actualKo: words.length ? `${Math.min(...words)}~${Math.max(...words)}` : '(없음)',
+      pass: words.length ? wordFailures.length === 0 : null, requiresAudio: false, specifiedBy: ['v3.29', 'v3.70 TASK B', 'v3.75 TASK A', 'v4.8 TASK B-1'],
       // v4.4 (TASK C) — the shortfall end (min) is this app's current known
-      // problem (undershooting 215), so that's the tracked value — the
+      // problem (undershooting the floor), so that's the tracked value — the
       // exact "137단어에서 190단어로" progress case this task's own doc
       // names as the motivating example for "improving" classification.
       metric: words.length ? { value: Math.min(...words), direction: 'higherIsBetter' } : undefined

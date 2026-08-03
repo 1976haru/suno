@@ -149,7 +149,11 @@ describe('[Part B1/B2] hook device pool and rotation', () => {
     const bp = generateFlatTagPack(15);
     const used = new Set<string>();
     for (const device of hookDevices) {
-      if (bp.songs.some(song => song.stylePrompt.includes(device.prompt))) used.add(device.id);
+      // TASK v4.8 (TASK A, §1-2) — localGenerator.ts now uses each device's
+      // own shortForm as the primary stylePrompt text, not the long .prompt
+      // sentence (which was silently never surfacing under real budget
+      // pressure — see localGenerator.ts's own doc comment on hookDeviceText).
+      if (bp.songs.some(song => song.stylePrompt.includes(device.shortForm))) used.add(device.id);
     }
     expect(used.size).toBeGreaterThanOrEqual(8);
   });
@@ -159,14 +163,20 @@ describe('[Part B1/B2] hook device pool and rotation', () => {
   });
 });
 
-describe('[Part B3] money chord audibleEffect reads as description, not just notation', () => {
-  it('a rotated-progression pack carries multiple distinct audibleEffect phrases', () => {
+describe('[Part B3] money chord progression rotates across the pack', () => {
+  // TASK v4.8 (TASK A, §1-2) — audibleEffect (a 10-17-word decorative tail,
+  // e.g. "chorus lifts noticeably higher than the verse and lands with a
+  // soft ache") is no longer attached to the default stylePrompt text at
+  // all — see localGenerator.ts's own moneyChord PromptPart doc comment.
+  // compactProgression (2-8 words, the harmonic identity itself) is what's
+  // left, so this now checks that instead of the removed audibleEffect.
+  it('a rotated-progression pack carries multiple distinct compactProgression phrases', () => {
     const bp = generateShowaPack(15);
-    const usedEffects = new Set<string>();
+    const usedProgressions = new Set<string>();
     for (const preset of Object.values(moneyChordPresets)) {
-      if (bp.songs.some(song => song.stylePrompt.includes(preset.audibleEffect))) usedEffects.add(preset.id);
+      if (bp.songs.some(song => song.stylePrompt.includes(preset.compactProgression))) usedProgressions.add(preset.id);
     }
-    expect(usedEffects.size).toBeGreaterThanOrEqual(2);
+    expect(usedProgressions.size).toBeGreaterThanOrEqual(2);
   });
 
   it('no song\'s stylePrompt contains the old fixed reinforcement boilerplate', () => {

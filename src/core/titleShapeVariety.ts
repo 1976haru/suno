@@ -19,15 +19,40 @@ const TITLE_VERB_LEAD_WORDS = new Set([
   'close', 'open', 'chase', 'follow', 'leave', 'return', 'reach'
 ]);
 
-export type TitleShapeCategory = 'single-word' | 'noun-noun' | 'short-phrase' | 'verb-phrase' | 'long-phrase';
+export type TitleShapeCategory =
+  | 'single-word' | 'noun-noun' | 'short-phrase' | 'verb-phrase' | 'long-phrase'
+  | 'image-pair' | 'name-address' | 'question';
 
+/**
+ * TASK v4.8 (TASK B-2) — real measurement: an 18-song pack with genuinely
+ * varied titles ("Hush Now, My Love", "Love & Velvet", "Catch", "Wait by
+ * the Window", ...) still classified into only 3 buckets (verb-phrase/
+ * short-phrase/single-word), because the original rule order let ANY title
+ * starting with a listed verb win as 'verb-phrase' regardless of its real
+ * shape — "Catch" (bare single word) and "Hush Now, My Love" (comma-address)
+ * both collapsed into the same bucket as "Wait by the Window" (plain verb
+ * phrase). This under-detection was traced to fullAudit.ts's title-pattern
+ * checks (title_pattern_variety/title_pattern_max4), not to a generation
+ * bug — core/lyricEngine.ts's own data/titlePatterns.ts already generates
+ * this exact structural variety (single-word/image-pair/name-address/
+ * question/exclamation/...) with a real cross-song maxPerPattern cap; this
+ * classifier just wasn't detecting it. Three unambiguous textual signals
+ * (word count === 1, an '&' pairing, a comma-address) now take priority
+ * over the verb-lead heuristic, and a trailing '?' is recognized as its own
+ * shape — all pure text-pattern checks, no change to what any title's own
+ * words are (out of scope per this task's own "lyricEngine.ts... 건드리지
+ * 말 것" — nothing here touches generation).
+ */
 export function classifyTitleShape(title: string | undefined): TitleShapeCategory | '' {
   const trimmed = (title || '').trim();
   if (!trimmed) return '';
   const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return 'single-word';
+  if (trimmed.includes('&')) return 'image-pair';
+  if (trimmed.includes(',')) return 'name-address';
+  if (trimmed.endsWith('?')) return 'question';
   const firstWord = words[0]?.toLowerCase().replace(/[^a-z]/g, '') ?? '';
   if (TITLE_VERB_LEAD_WORDS.has(firstWord)) return 'verb-phrase';
-  if (words.length === 1) return 'single-word';
   if (words.length === 2) return 'noun-noun';
   if (words.length <= 4) return 'short-phrase';
   return 'long-phrase';

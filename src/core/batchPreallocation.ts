@@ -515,7 +515,12 @@ export function preallocateSongSlots(
       maxInstrumentalSections: isFlagshipSlot ? Math.min(1, bpmTier.maxInstrumentalSections) : bpmTier.maxInstrumentalSections,
       estimatedLengthSec: Math.round(estimateSongLengthSec(resolvedTempo, structureTemplatePlan[idx])),
       emotionArc: emotionArcPlan[idx],
-      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId, includeFeelReinforcement: true }),
+      // TASK v4.8 (TASK A, §1-2) — includeFeelReinforcement dropped to stay
+      // consistent with localGenerator.ts's own per-song moneyChord
+      // override, which no longer attaches the audibleEffect tail either
+      // (see that file's own doc comment); tests/moneyChordPlan.test.ts
+      // asserts this batch path and the local path agree per trackNo.
+      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId }),
         ...(genreId ? { genreId } : {}),
         ...(genreText ? { genreText } : {}),
         ...(trackGenres[0]?.signatureSound ? { signatureSound: trackGenres[0].signatureSound } : {}),

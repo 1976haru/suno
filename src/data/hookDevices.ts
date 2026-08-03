@@ -16,58 +16,70 @@ export interface HookDevice {
   id: string;
   label: string;
   prompt: string;
+  /** TASK v4.8 (TASK A) — every `prompt` above reads as a sentence (12-23 words); this is the same device compressed to <=4 words for composeStylePrompt's shortForm/hard-limit compression stage. */
+  shortForm: string;
 }
 
 export const hookDevices: HookDevice[] = [
   {
     id: 'prechorus-dropout',
     label: '후렴 직전 정적',
-    prompt: 'drums and bass drop out for the last two bars before the chorus, then the whole band hits together on the chorus downbeat'
+    prompt: 'drums and bass drop out for the last two bars before the chorus, then the whole band hits together on the chorus downbeat',
+    shortForm: 'pre-chorus dropout'
   },
   {
     id: 'stop-time',
     label: '스톱타임 강조',
-    prompt: 'stop-time accent on the first word of the chorus, band silent for one beat, then groove resumes'
+    prompt: 'stop-time accent on the first word of the chorus, band silent for one beat, then groove resumes',
+    shortForm: 'stop-time chorus accent'
   },
   {
     id: 'octave-lift',
     label: '마지막 후렴 옥타브 상승',
-    prompt: 'final chorus vocal jumps up an octave, brighter and more open than the earlier choruses'
+    prompt: 'final chorus vocal jumps up an octave, brighter and more open than the earlier choruses',
+    shortForm: 'octave-lift final chorus'
   },
   {
     id: 'key-lift',
     label: '마지막 후렴 조 올림',
-    prompt: 'final chorus modulates up a semitone for a lift'
+    prompt: 'final chorus modulates up a semitone for a lift',
+    shortForm: 'key-lift final chorus'
   },
   {
     id: 'answer-riff',
     label: '훅 응답 리프',
-    prompt: 'a short instrumental riff answers the vocal hook after each chorus line, call and response'
+    prompt: 'a short instrumental riff answers the vocal hook after each chorus line, call and response',
+    shortForm: 'riff answers the hook'
   },
   {
     id: 'double-hook',
     label: '훅 더블링 화음',
-    prompt: 'hook line double-tracked with a harmony a third above, wider on every repeat'
+    prompt: 'hook line double-tracked with a harmony a third above, wider on every repeat',
+    shortForm: 'doubled hook harmony'
   },
   {
     id: 'half-time-chorus',
     label: '하프타임 후렴',
-    prompt: 'chorus shifts into a half-time feel for weight, verses stay in normal time'
+    prompt: 'chorus shifts into a half-time feel for weight, verses stay in normal time',
+    shortForm: 'half-time chorus shift'
   },
   {
     id: 'build-fill',
     label: '빌드업 필',
-    prompt: 'one-bar drum fill and rising swell leading into the chorus'
+    prompt: 'one-bar drum fill and rising swell leading into the chorus',
+    shortForm: 'build-fill into chorus'
   },
   {
     id: 'bridge-breakdown',
     label: '브리지 브레이크다운',
-    prompt: 'bridge strips down to voice and a single instrument, then the full arrangement returns for the final chorus'
+    prompt: 'bridge strips down to voice and a single instrument, then the full arrangement returns for the final chorus',
+    shortForm: 'bridge strips to voice'
   },
   {
     id: 'acappella-tag',
     label: '아카펠라 태그',
-    prompt: 'final repeat of the hook sung almost a cappella as the outro tag'
+    prompt: 'final repeat of the hook sung almost a cappella as the outro tag',
+    shortForm: 'a cappella outro tag'
   }
 ];
 

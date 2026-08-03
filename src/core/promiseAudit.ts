@@ -617,7 +617,13 @@ export interface TitleConsistencyReport {
   failedTracks: number[];
 }
 
-const ERA_APPROPRIATE_TITLE_SHAPES = new Set(['single-word', 'verb-phrase']);
+// TASK v4.8 (TASK B-2) — 'name-address' added: a comma-led direct-address
+// title ("Sweet Caroline", "Oh, Donna") is exactly data/titlePatterns.ts's
+// own 'name-address' pattern, era-restricted there to fitsEras:
+// ['1950s-60s'] — just as period-appropriate as single-word/verb-phrase,
+// only not detected as its own shape before titleShapeVariety.ts's own
+// classifier fix (see that file's own doc comment on classifyTitleShape).
+const ERA_APPROPRIATE_TITLE_SHAPES = new Set(['single-word', 'verb-phrase', 'name-address']);
 
 export function auditTitleConceptConsistency(songs: SongIdea[]): TitleConsistencyReport {
   let eraPatternHits = 0;

@@ -150,8 +150,10 @@ describe('structured genre library', () => {
     // positive traced to a hook fragment landing in the style prompt); the
     // style prompt only needs to say the chorus hook repeats, not which
     // words it is.
-    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('strong repeated chorus hook, repeats chorus 4x');
-    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('strong repeated chorus hook, repeats chorus 3x');
+    // TASK v4.8 (TASK A) — further compressed to a single no-comma atom
+    // ("hook repeats 4x") — see promptComposer.ts's hookStyleDirectives.
+    expect(hookStyleDirectives('Hold On', 'commercial')).toBe('hook repeats 4x');
+    expect(hookStyleDirectives('Hold On', 'poetic')).toBe('hook repeats 3x');
     expect(hookStyleDirectives('Hold On', 'commercial')).not.toContain('Hold On');
   });
 
