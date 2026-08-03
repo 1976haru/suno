@@ -182,7 +182,9 @@ export const genreCategories: GenreCategory[] = [
   // oldpop-* packs (see SENIOR_MORNING_CORE_GENRE_IDS/oldpopGenrePacks).
   { id: 'oldpop', label: '60s-80s Old Pop', description: 'Doo-wop, Brill Building, sunshine pop, 70s soft rock/soul, and 80s adult-contemporary presets for a warm senior playlist.' },
   // TASK B1 — kr-2030 workspace genre category (see kr2030GenrePacks below).
-  { id: 'kr-2030', label: 'Korean 20s-30s Pop', description: 'Modern Korean emotional band pop, electro pop, R&B, OST ballad, Y2K retro, and acoustic folk presets for the kr-2030 workspace.' }
+  { id: 'kr-2030', label: 'Korean 20s-30s Pop', description: 'Modern Korean emotional band pop, electro pop, R&B, OST ballad, Y2K retro, and acoustic folk presets for the kr-2030 workspace.' },
+  // TASK C1 — jp-2030 workspace genre category (see jp2030GenrePacks below).
+  { id: 'jp-2030', label: 'Japanese 20s-30s Pop', description: 'Modern melodic J-rock, anime-cinematic pop, Heisei nostalgia, dance vocal, kawaii idol, neo city pop, and chill neo soul presets for the jp-2030 workspace.' }
 ];
 
 export const SENIOR_MORNING_CORE_GENRE_IDS = [
@@ -323,6 +325,22 @@ export const KR_2030_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * TASK C1 — jp-2030 workspace's 7 genres (see jp2030GenrePacks below).
+ * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3); the
+ * market research's top-3 priority is melodic-jrock / anime-cinematic /
+ * heisei-nostalgia, which is already this array's literal order.
+ */
+export const JP_2030_CORE_GENRE_IDS = [
+  'jp2030-melodic-jrock',
+  'jp2030-anime-cinematic',
+  'jp2030-heisei-nostalgia',
+  'jp2030-dance-vocal',
+  'jp2030-kawaii-idol',
+  'jp2030-neo-citypop',
+  'jp2030-chill-neosoul'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -396,7 +414,8 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'modern-chill': MODERN_CHILL_CORE_GENRE_IDS,
   'city-night': CITY_NIGHT_CORE_GENRE_IDS,
   'oldpop-lounge': OLDPOP_LOUNGE_CORE_GENRE_IDS,
-  'kr-2030-pop': KR_2030_CORE_GENRE_IDS
+  'kr-2030-pop': KR_2030_CORE_GENRE_IDS,
+  'jp-2030-pop': JP_2030_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -406,7 +425,8 @@ const allCoreGenreIds = new Set<string>([
   ...J2000S_CORE_GENRE_IDS,
   ...MODERN_CHILL_CORE_GENRE_IDS,
   ...CITY_NIGHT_CORE_GENRE_IDS,
-  ...KR_2030_CORE_GENRE_IDS
+  ...KR_2030_CORE_GENRE_IDS,
+  ...JP_2030_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -1020,6 +1040,120 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
   }, 'kr-2030', { rhythm: ['gentle acoustic strum-and-pick pulse', 'unhurried folk-pop tempo'], vocal: ['plainspoken warm Korean lead', 'soft close-mic delivery'], production: ['natural low-stimulus acoustic room tone', 'minimal reverb, close and dry'], harmony: ['simple open-chord folk progression', 'gentle major-key resolution'], moods: ['gentle', 'understated', 'warm'], audiences: ['멜로 어쿠스틱·포크팝', '조용한 오후'], avoidTraits: [] })
 ];
 
+/**
+ * TASK C1 — jp-2030 workspace's 7 genres. `archetypes: ['jp-2030-pop']` and
+ * `tier: 'core'` are set explicitly on every single one — this task's own
+ * §0-2 measured that jp2030-neo-citypop/jp2030-chill-neosoul leak straight
+ * into city-night/modern-chill (senior-oldpop workspace archetypes) purely
+ * from styleCore words like "night drive"/"neo soul" when archetypes is
+ * left empty, and jp2030-anime-cinematic/jp2030-heisei-nostalgia land in NO
+ * archetype at all (tier falls to 'extended') for the same reason. Do not
+ * remove this field from any entry below. categoryId is 'jp-2030', never
+ * 'city-pop' or 'jazz' — either of those also auto-qualifies for
+ * showa-cafe's own inferArchetypes() branch (see this task's own §0-2).
+ *
+ * Korean-axis CONTRAST (this task's own §3-1, the direct counterpart to
+ * kr2030's bass/drum-led, short-repeated-chorus genres from B1): 5/7 lead
+ * with guitar/piano vocabulary in instrumentation's first 2 items (only
+ * jp2030-neo-citypop and jp2030-chill-neosoul are bass/drum-led, matching
+ * their own genre conventions), 6/7 carry explicit A-melo/B-melo/sabi
+ * structureTraits vocabulary, and dynamicRange is 'wide' on 4/7 — see
+ * genreTraits.ts's own GENRE_TRAIT_OVERRIDES entries for these 7 ids.
+ */
+export const jp2030GenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'jp2030-melodic-jrock',
+    label: 'Reiwa Melodic J-Rock',
+    styleCore: 'modern melodic J-rock, bright guitar-and-piano interplay, wide-open sabi vocal range',
+    instruments: ['bright clean-picked electric guitar', 'shimmering upright piano runs', 'melodic fretted bass line', 'energetic live drum kit'],
+    tempoRange: [100, 138],
+    goodFor: ['모던 멜로딕 J-pop·J-rock', 'anime opening energy', 'band-driven singalong'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', { rhythm: ['brisk uplifting rock momentum', 'rising fill-driven lead-in to the sabi'], vocal: ['warm, open-throated Japanese lead', 'belted high note at the sabi entrance'], production: ['crisp modern rock mix with headroom for the sabi', 'punchy low end that never overwhelms the vocal'], harmony: ['B-melo tension resolving into a wide-open sabi', 'bright triadic lift at the hook'], moods: ['driving', 'emotional', 'anthemic'], audiences: ['모던 멜로딕 J-rock', 'anime opening energy'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'jp2030-anime-cinematic',
+    label: 'Anime Cinematic Pop',
+    styleCore: 'original anime-opening-style cinematic pop, sweeping orchestral-band hybrid, dramatic sabi entrance',
+    instruments: ['orchestral piano', 'melodic electric guitar', 'sweeping string ensemble', 'driving rock drum kit'],
+    tempoRange: [120, 155],
+    goodFor: ['애니송풍 시네마틱 팝', 'opening-theme energy', 'dramatic set-piece track'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', {
+    rhythm: ['propulsive sixteenth-note rock-orchestral pulse', 'timpani-driven buildup into the sabi'],
+    vocal: ['powerful cinematic Japanese lead', 'soaring high-register sabi delivery'],
+    production: ['wide cinematic full-band mix', 'orchestral layers stacked under the band'],
+    harmony: ['dramatic key-adjacent modulation into the sabi', 'suspended orchestral tension resolving at the hook'],
+    moods: ['dramatic', 'soaring', 'cinematic'],
+    audiences: ['애니송풍 시네마틱 팝', '오프닝 테마 에너지'],
+    // TASK C1 (§3-4) — market research's own IP-avoidance requirement: no
+    // named anime title, character, studio, or song reference, ever.
+    avoidTraits: ['specific anime title reference', 'named character reference', 'named studio reference']
+  }),
+  legacyGenrePack({
+    id: 'jp2030-heisei-nostalgia',
+    label: 'Heisei Nostalgia Pop',
+    styleCore: 'Heisei-era-nostalgic band pop, warm guitar-and-piano interplay, drama-theme-song emotional arc',
+    instruments: ['warm mellow-toned guitar', 'gentle grand piano', 'melodic fretless bass', 'gently brushed drum kit'],
+    tempoRange: [88, 118],
+    goodFor: ['헤이세이 노스탤지어', 'drama theme-song mood', '2000년대 감성'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', { rhythm: ['unhurried Heisei-pop ballad pulse', 'gentle build through the B-melo'], vocal: ['warm nostalgic Japanese lead', 'emotive sabi lift'], production: ['warm 2000s-style radio mix', 'live-band room warmth'], harmony: ['nostalgic major-seventh verse color opening into the sabi', 'gentle key-adjacent lift at the final chorus'], moods: ['nostalgic', 'warm', 'emotional'], audiences: ['헤이세이 노스탤지어', '드라마 주제가 무드'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'jp2030-dance-vocal',
+    label: 'Dance Vocal Crossover',
+    styleCore: 'dance-vocal crossover pop, clean guitar chop and bright piano stabs over a performance-ready beat',
+    instruments: ['clean rhythm guitar chop', 'bright piano stabs', 'programmed dance-pop beat', 'synth bass underlay'],
+    tempoRange: [108, 128],
+    goodFor: ['댄스보컬·크로스오버', 'performance-ready energy', 'group vocal choreo'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', { rhythm: ['four-on-the-floor dance-pop pulse with syncopated rhythmic chops', 'tight choreography-ready beat grid'], vocal: ['crisp unison group vocal', 'confident lead breaking from the group in the sabi'], production: ['bright performance-pop mix', 'tight rhythmic low end'], harmony: ['simple bright diatonic movement', 'sabi widens into stacked group harmony'], moods: ['confident', 'bright', 'performance-ready'], audiences: ['댄스보컬·크로스오버', '퍼포먼스 에너지'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'jp2030-kawaii-idol',
+    label: 'Kawaii Idol Pop',
+    styleCore: 'kawaii idol pop, bright piano-and-guitar hook stacked over an energetic beat, easy-to-follow sabi',
+    instruments: ['chirpy synth-piano hook stabs', 'strummed acoustic-leaning guitar chop', 'energetic pop drum kit', 'bubbly plucked bassline'],
+    tempoRange: [118, 145],
+    goodFor: ['카와이 아이돌팝', 'call-and-response chant', 'high-energy singalong'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', { rhythm: ['bouncy eighth-note idol-pop pulse', 'call-and-response chant break'], vocal: ['bright youthful group vocal', 'high, easy-to-follow sabi melody'], production: ['bright clean idol-pop mix', 'punchy compressed pop drums'], harmony: ['simple bright major-key hook progression', 'sabi opens wide and high above the verse'], moods: ['bright', 'energetic', 'playful'], audiences: ['카와이 아이돌팝', '하이 에너지 싱어롱'], avoidTraits: ['adult romantic themes'] }),
+  legacyGenrePack({
+    id: 'jp2030-neo-citypop',
+    label: 'Neo City Pop',
+    styleCore: 'bedroom-produced neo city pop, minimal digital synth bass and one clean guitar line, sparser than the genre\'s glossy 80s-revival mainstream',
+    instruments: ['minimal digital synth bass', 'programmed lo-fi-leaning drum kit', 'single clean chorus guitar line', 'sparse electric piano touches'],
+    tempoRange: [96, 116],
+    goodFor: ['시티팝·네오시티팝', 'bedroom-producer revival', 'minimal night mix'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', {
+    rhythm: ['understated syncopated groove, sparser than mainstream city pop', 'loose, unquantized-feeling pocket'],
+    vocal: ['close, unpolished Japanese lead', 'restrained delivery, no belted climax'],
+    production: ['minimal bedroom-DAW mix, deliberately less glossy than mainstream city pop', 'slightly uneven, hand-mixed transitions'],
+    harmony: ['simple ii-V movement without dense extended-chord stacking', 'unresolved suspended tones left hanging'],
+    moods: ['minimal', 'understated', 'nocturnal'],
+    audiences: ['시티팝·네오시티팝', '베드룸 프로듀서 리바이벌'],
+    // TASK C1 (§1-1/§3-3) — 54 city-pop/future-funk ids already exist in
+    // this library; these are the exact generic clichés that would make a
+    // 55th indistinguishable from them.
+    avoidTraits: ['generic neon Tokyo skyline', 'sports car at night', 'palm trees and sunset boulevard']
+  }),
+  legacyGenrePack({
+    id: 'jp2030-chill-neosoul',
+    label: 'Chill Neo Soul J-Pop',
+    styleCore: 'chill neo-soul-adjacent J-pop, warm fretless-leaning bass and mellow Rhodes-style keys, soft-focus low-lit intimacy',
+    instruments: ['warm fretless-leaning bass', 'soft programmed rim-click loop', 'mellow Rhodes-style keys', 'hazy ambient pad'],
+    tempoRange: [74, 94],
+    goodFor: ['칠 R&B·네오소울', 'late-night wind-down', 'intimate vocal focus'],
+    archetypes: ['jp-2030-pop'],
+    tier: 'core'
+  }, 'jp-2030', { rhythm: ['unhurried unforced J-pop tempo', 'soft syncopation that never rushes the phrase'], vocal: ['soft breathy Japanese delivery', 'unhurried melodic phrasing with gentle drop-offs'], production: ['soft-focus low-lit room tone', 'breathy vocal placed intimately upfront'], harmony: ['soft major-leaning progression with unresolved suspensions', 'gentle chromatic passing tones between phrases'], moods: ['intimate', 'late-night', 'restrained'], audiences: ['칠 R&B·네오소울', '밤 시간대 무드'], avoidTraits: ['four-on-the-floor', 'idol call-and-response chant', 'sidechained pump'] })
+];
+
 export const eraGenrePacks: StructuredGenrePack[] = [
   legacyGenrePack({
     id: 'kayokyoku-70s',
@@ -1574,7 +1708,7 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;

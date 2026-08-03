@@ -16,13 +16,24 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
     expect(senior.contentTier).toBe('adult');
   });
 
-  it('the 3 not-yet-built workspaces stay not-ready and fully skeletal (no archetypes)', () => {
-    for (const id of ['jp-2030', 'kr-kids', 'jp-kids'] as const) {
+  it('the 2 not-yet-built workspaces stay not-ready and fully skeletal (no archetypes)', () => {
+    for (const id of ['kr-kids', 'jp-kids'] as const) {
       const ws = getWorkspace(id);
       expect(ws.ready).toBe(false);
       expect(ws.labelKo.length).toBeGreaterThan(0);
       expect(ws.archetypeIds).toEqual([]);
     }
+  });
+
+  // TASK C1 — jp-2030's genre layer (jp2030GenrePacks, 7 genres) landed, so
+  // archetypeIds is now populated, but ready stays false until C2 (lyric
+  // world/hooks/titles/thumbnails/UI/Japanese text handling) lands — same
+  // in-between state kr-2030 was in after B1, before B2 flipped it to true.
+  it('jp-2030 has its genre layer built but is not yet ready', () => {
+    const jp2030 = getWorkspace('jp-2030');
+    expect(jp2030.archetypeIds).toEqual(['jp-2030-pop']);
+    expect(jp2030.ready).toBe(false);
+    expect(jp2030.contentTier).toBe('adult');
   });
 
   // TASK B2 — kr-2030's lyric world/hooks/titles/thumbnails/channel presets

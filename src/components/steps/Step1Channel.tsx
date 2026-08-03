@@ -143,6 +143,20 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     primaryLanguage: 'korean'
   },
   {
+    // TASK C1 — jp-2030 workspace's single archetype (genreLibrary's
+    // jp2030GenrePacks). Not reachable from the senior-oldpop workspace's
+    // own UI flow today (this card only becomes user-visible once C2 flips
+    // JP_2030.ready to true), listed here per this task's own §5 edit map.
+    id: 'jp-2030-pop',
+    label: '일본 2030 J-POP',
+    description: '멜로딕 J-rock·애니송 시네마틱·헤이세이 노스탤지어·댄스보컬·카와이 아이돌·네오시티팝·칠 네오소울을 아우르는 2030 감성 채널',
+    vocal: 'emotionally open Japanese lead vocal, wide-range sabi delivery, modern band warmth',
+    moods: ['emotional', 'nostalgic', 'dramatic'],
+    market: 'japan',
+    audience: 'twenties',
+    primaryLanguage: 'japanese'
+  },
+  {
     id: 'kids',
     label: '키즈',
     description: '가족이 함께 듣기 좋은 밝고 안전한 창작 동요 채널',

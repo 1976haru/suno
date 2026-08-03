@@ -91,7 +91,11 @@ const JP_2030: WorkspaceDefinition = {
   id: 'jp-2030',
   labelKo: '일본 20~30대',
   descriptionKo: '일본 20~30대 대상 워크스페이스 — 준비 중 (C1/C2에서 채워집니다).',
-  archetypeIds: [],
+  // TASK C1 — genre layer filled in (jp2030GenrePacks, 7 genres). `ready`
+  // stays false until C2 (lyric world/hooks/titles/thumbnails/UI/Japanese
+  // text handling) lands — opening this workspace today would still serve
+  // the senior lyric dictionary underneath it.
+  archetypeIds: ['jp-2030-pop'],
   defaultAudienceProfileId: 'general',
   defaultLyricLanguage: 'japanese',
   theme: { accent: '#db2777', surface: '#fdf2f8' },

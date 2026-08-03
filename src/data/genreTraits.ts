@@ -495,6 +495,85 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
     vocalTraits: ['plainspoken warm Korean lead', 'soft close-mic delivery'],
     dynamicRange: 'low',
     structureTraits: ['simple verse-chorus form with no dramatic build', 'chorus stays close in dynamic to the verse']
+  },
+
+  // ===== TASK C1 — jp-2030 workspace, 7 new genres =====
+  // Japanese-axis rule (this task's own §3-1, the direct counterpart to
+  // kr2030's bass/drum-led rule above): 5/7 lead with guitar/piano
+  // vocabulary in instrumentation's first 2 items (only neo-citypop and
+  // chill-neosoul are bass/drum-led, matching their own genre conventions),
+  // 6/7 carry explicit A-melo/B-melo/sabi structureTraits vocabulary
+  // (kr2030's own 6 entries above carry zero), and dynamicRange is 'wide'
+  // on 4/7 (melodic-jrock, anime-cinematic, heisei-nostalgia, kawaii-idol).
+  'jp2030-melodic-jrock': {
+    eraTag: '2020s Reiwa melodic J-rock',
+    instrumentation: ['bright clean-picked electric guitar', 'shimmering upright piano runs', 'melodic fretted bass line', 'energetic live drum kit'],
+    rhythmFeel: ['brisk uplifting rock momentum', 'rising fill-driven lead-in to the sabi'],
+    harmonyTraits: ['B-melo tension resolving into a wide-open sabi', 'bright triadic lift at the hook'],
+    productionTraits: ['crisp modern rock mix with headroom for the sabi', 'punchy low end that never overwhelms the vocal'],
+    vocalTraits: ['warm, open-throated Japanese lead', 'belted high note at the sabi entrance'],
+    dynamicRange: 'wide',
+    structureTraits: ['clear A-melo / B-melo / sabi sections with a rising B-melo into the chorus', 'sabi opens the vocal range and chord color well beyond the verse']
+  },
+  'jp2030-anime-cinematic': {
+    eraTag: '2020s anime-opening-style cinematic pop',
+    instrumentation: ['orchestral piano', 'melodic electric guitar', 'sweeping string ensemble', 'driving rock drum kit'],
+    rhythmFeel: ['propulsive sixteenth-note rock-orchestral pulse', 'timpani-driven buildup into the sabi'],
+    harmonyTraits: ['dramatic key-adjacent modulation into the sabi', 'suspended orchestral tension resolving at the hook'],
+    productionTraits: ['wide cinematic full-band mix', 'orchestral layers stacked under the band'],
+    vocalTraits: ['powerful cinematic Japanese lead', 'soaring high-register sabi delivery'],
+    dynamicRange: 'wide',
+    structureTraits: ['A-melo narrates plainly before B-melo raises the stakes into a dramatic sabi', 'sabi vocal range and chord density both expand sharply from the verse']
+  },
+  'jp2030-heisei-nostalgia': {
+    eraTag: '2000s Heisei nostalgia pop',
+    instrumentation: ['warm mellow-toned guitar', 'gentle grand piano', 'melodic fretless bass', 'gently brushed drum kit'],
+    rhythmFeel: ['unhurried Heisei-pop ballad pulse', 'gentle build through the B-melo'],
+    harmonyTraits: ['nostalgic major-seventh verse color opening into the sabi', 'gentle key-adjacent lift at the final chorus'],
+    productionTraits: ['warm 2000s-style radio mix', 'live-band room warmth'],
+    vocalTraits: ['warm nostalgic Japanese lead', 'emotive sabi lift'],
+    dynamicRange: 'wide',
+    structureTraits: ['drama-theme-song arc: plainspoken A-melo, tightening B-melo, emotionally open sabi', 'final sabi repeats with fuller harmony than the first']
+  },
+  'jp2030-dance-vocal': {
+    eraTag: '2020s J-pop dance vocal crossover',
+    instrumentation: ['clean rhythm guitar chop', 'bright piano stabs', 'programmed dance-pop beat', 'synth bass underlay'],
+    rhythmFeel: ['four-on-the-floor dance-pop pulse with syncopated rhythmic chops', 'tight choreography-ready beat grid'],
+    harmonyTraits: ['simple bright diatonic movement', 'sabi widens into stacked group harmony'],
+    productionTraits: ['bright performance-pop mix', 'tight rhythmic low end'],
+    vocalTraits: ['crisp unison group vocal', 'confident lead breaking from the group in the sabi'],
+    dynamicRange: 'medium',
+    structureTraits: ['tight A-melo / B-melo / sabi form built for choreography', 'sabi opens into full group harmony after a leaner verse']
+  },
+  'jp2030-kawaii-idol': {
+    eraTag: '2020s kawaii idol pop',
+    instrumentation: ['chirpy synth-piano hook stabs', 'strummed acoustic-leaning guitar chop', 'energetic pop drum kit', 'bubbly plucked bassline'],
+    rhythmFeel: ['bouncy eighth-note idol-pop pulse', 'call-and-response chant break'],
+    harmonyTraits: ['simple bright major-key hook progression', 'sabi opens wide and high above the verse'],
+    productionTraits: ['bright clean idol-pop mix', 'punchy compressed pop drums'],
+    vocalTraits: ['bright youthful group vocal', 'high, easy-to-follow sabi melody'],
+    dynamicRange: 'wide',
+    structureTraits: ['short A-melo leading quickly into a call-and-response B-melo', 'sabi is the highest, widest, most repeated section of the song']
+  },
+  'jp2030-neo-citypop': {
+    eraTag: '2020s bedroom-produced neo city pop',
+    instrumentation: ['minimal digital synth bass', 'programmed lo-fi-leaning drum kit', 'single clean chorus guitar line', 'sparse electric piano touches'],
+    rhythmFeel: ['understated syncopated groove, sparser than mainstream city pop', 'loose, unquantized-feeling pocket'],
+    harmonyTraits: ['simple ii-V movement without dense extended-chord stacking', 'unresolved suspended tones left hanging'],
+    productionTraits: ['minimal bedroom-DAW mix, deliberately less glossy than mainstream city pop', 'slightly uneven, hand-mixed transitions'],
+    vocalTraits: ['close, unpolished Japanese lead', 'restrained delivery, no belted climax'],
+    dynamicRange: 'low',
+    structureTraits: ['restrained arrangement that deliberately avoids a dramatic sabi swell', 'vocal and instrumental energy stay level from first bar to last']
+  },
+  'jp2030-chill-neosoul': {
+    eraTag: '2020s J-pop chill neo soul',
+    instrumentation: ['warm fretless-leaning bass', 'soft programmed rim-click loop', 'mellow Rhodes-style keys', 'hazy ambient pad'],
+    rhythmFeel: ['unhurried unforced J-pop tempo', 'soft syncopation that never rushes the phrase'],
+    harmonyTraits: ['soft major-leaning progression with unresolved suspensions', 'gentle chromatic passing tones between phrases'],
+    productionTraits: ['soft-focus low-lit room tone', 'breathy vocal placed intimately upfront'],
+    vocalTraits: ['soft breathy Japanese delivery', 'unhurried melodic phrasing with gentle drop-offs'],
+    dynamicRange: 'low',
+    structureTraits: ['restrained chorus that mirrors the verse without a dramatic lift', 'dynamics stay soft-focus throughout, never fully opening']
   }
 };
 

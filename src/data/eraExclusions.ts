@@ -49,7 +49,11 @@ export const ERA_BUCKET_BY_GENRE_ID: Record<string, EraBucket> = {
   // TASK B1 — only kr2030-y2k-retro is era-mapped; the other 5 kr-2030
   // genres are deliberately left unmapped (no era restriction), same as
   // every non-oldpop genre in this file.
-  'kr2030-y2k-retro': '2000s'
+  'kr2030-y2k-retro': '2000s',
+  // TASK C1 — reuses B1's '2000s' bucket (not a new EraBucket member) for
+  // jp-2030's own Heisei-nostalgia genre; the other 6 jp-2030 genres are
+  // deliberately left unmapped, same reasoning as kr2030 above.
+  'jp2030-heisei-nostalgia': '2000s'
 };
 
 export const ERA_LABEL: Record<EraBucket, string> = {

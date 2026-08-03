@@ -34,7 +34,10 @@ const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
   kids: 'kids',
   // TASK B1 — kr-2030 workspace's single archetype (see genreLibrary's
   // kr2030GenrePacks / KR_2030_CORE_GENRE_IDS).
-  'kr-2030-pop': 'twenties'
+  'kr-2030-pop': 'twenties',
+  // TASK C1 — jp-2030 workspace's single archetype (see genreLibrary's
+  // jp2030GenrePacks / JP_2030_CORE_GENRE_IDS).
+  'jp-2030-pop': 'twenties'
 };
 
 export function slugify(value: string) {

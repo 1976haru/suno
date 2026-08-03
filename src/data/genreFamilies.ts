@@ -101,6 +101,25 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     memberGenreIds: ['kr2030-electro-pop', 'kr2030-dawn-rnb', 'kr2030-y2k-retro'],
     commonTraitKo: '단단한 베이스·야간 도시·짧고 강한 훅',
     blendsWellWith: ['kr2030-band-emotional']
+  },
+  // TASK C1 — jp-2030 workspace families. blendsWellWith only links to
+  // other jp2030 families (never a kr2030 or senior/oldpop family) so a set
+  // built from these two never pulls in another workspace's genres.
+  {
+    id: 'jp2030-band-cinematic',
+    labelKo: '밴드·시네마틱',
+    descriptionKo: '밴드 사운드와 극적인 사비 전개의 일본 2030 팝',
+    memberGenreIds: ['jp2030-melodic-jrock', 'jp2030-anime-cinematic', 'jp2030-heisei-nostalgia'],
+    commonTraitKo: '밴드 사운드·극적 사비·서사적 전개',
+    blendsWellWith: ['jp2030-groove-urban']
+  },
+  {
+    id: 'jp2030-groove-urban',
+    labelKo: '그루브·어반',
+    descriptionKo: '퍼포먼스 비트와 세련된 도시적 질감의 일본 2030 팝',
+    memberGenreIds: ['jp2030-dance-vocal', 'jp2030-kawaii-idol', 'jp2030-neo-citypop', 'jp2030-chill-neosoul'],
+    commonTraitKo: '퍼포먼스 비트·도시적 화성·세련된 질감',
+    blendsWellWith: ['jp2030-band-cinematic']
   }
 ];
 

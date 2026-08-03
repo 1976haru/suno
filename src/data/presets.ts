@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, kr2030GenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, kr2030GenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -497,6 +497,8 @@ const rawGenrePacks: GenrePack[] = [
   // export) is what generateLocalBlueprint actually receives genres from
   // (see this file's own comment on the genrePacks export just below).
   ...kr2030GenrePacks,
+  // TASK C1 — jp-2030 workspace's 7 genres, same registered-in-both pattern.
+  ...jp2030GenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks
