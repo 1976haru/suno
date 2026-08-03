@@ -699,6 +699,186 @@ export const adultLyricThemes: LyricTheme[] = [
     emotionalArc: 'impatience turning into a sparkling arrival',
     suitedArchetypes: ['j2000s'],
     languages: ['japanese']
+  },
+  // TASK B2 — kr-2030 workspace's 18 lyric scenes. Deliberately urban-30s
+  // life (commute, studio apartment, work, dating, old friends), never the
+  // senior vocabulary/sentiment above (no record player, kettle, photo
+  // album, folded letter, radio in the kitchen, grandchildren, decades ago,
+  // at my age). suitedArchetypes is 'kr-2030-pop' ONLY on every entry — see
+  // this task's own §0-3 ① for why fewer than 12 of these would silently
+  // fall back to the 80-entry senior/showa/j2000s pool above
+  // (lyricThemesForArchetype's own suited.length >= 12 threshold).
+  // frameId spans 8 distinct scene shapes (commute-transit x3, solitary-room
+  // x4, threshold-decision x3, two-people-talk x3, night-drive x1,
+  // reunion-passing x2, screen-memory x1, crowd-alone x1) so no single frame
+  // dominates the pool the way v3.64's "senior alone gazing at an object"
+  // regression did.
+  {
+    id: 'kr2030-commute-earbuds-relief',
+    labelKo: '퇴근길 이어폰 위로',
+    scene: 'riding the subway home from work with earbuds in, phone screen dim, letting the tired day drain out of the shoulders',
+    emotionalArc: 'flat exhaustion softening into small relief',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중(지하철)',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-rainy-night-window',
+    labelKo: '비 오는 밤 창밖',
+    scene: 'watching rain slide down a studio apartment window at night, city lights blurred through the glass',
+    emotionalArc: 'quiet loneliness settling into calm acceptance',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'solitary-room',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-thirty-crossroads',
+    labelKo: '서른 즈음의 고민',
+    scene: 'turning thirty and quietly wondering whether this is the life that was supposed to happen by now',
+    emotionalArc: 'anxious self-doubt opening into cautious hope',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-old-friend-table',
+    labelKo: '오래된 친구와의 술자리',
+    scene: 'sitting across an old friend at a late-night table, catching up on everything that changed since school',
+    emotionalArc: 'initial awkwardness warming into easy familiarity',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'two-people-talk',
+    castKo: '둘'
+  },
+  {
+    id: 'kr2030-fresh-start-morning',
+    labelKo: '다시 시작하는 아침',
+    scene: 'packing a bag for a fresh start, leaving an old apartment behind on a bright ordinary morning',
+    emotionalArc: 'nervous uncertainty turning into determined hope',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-summer-night-drive',
+    labelKo: '여름밤 드라이브',
+    scene: 'driving along the river at night in summer with the windows cracked, city lights streaming past',
+    emotionalArc: 'restless energy easing into open-hearted calm',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'night-drive',
+    motionKo: '이동 중(드라이브)',
+    castKo: '둘'
+  },
+  {
+    id: 'kr2030-ordinary-hard-day',
+    labelKo: '힘들지만 버티는 하루',
+    scene: "coming home after a hard, ordinary day at work and just sitting on the floor for a while before doing anything else",
+    emotionalArc: 'numb fatigue giving way to quiet self-compassion',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'solitary-room',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-dawn-cafe-alone',
+    labelKo: '새벽 카페, 혼자',
+    scene: 'sitting alone in a 24-hour cafe before dawn, laptop closed, watching the street slowly wake up outside',
+    emotionalArc: 'restless insomnia settling into unexpected peace',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'solitary-room',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-last-subway-thoughts',
+    labelKo: '지하철 막차 생각',
+    scene: "catching the last subway train home, the car nearly empty, replaying the day's conversations in silence",
+    emotionalArc: 'replayed regret loosening into forward-looking resolve',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중(지하철)',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-studio-apartment-glow',
+    labelKo: '원룸 조명 아래',
+    scene: 'sitting under the one warm lamp in a small studio apartment on an ordinary weeknight, takeout containers on the table',
+    emotionalArc: 'isolation softening into contented independence',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'solitary-room',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-alley-neon-walk',
+    labelKo: '서울 골목 네온',
+    scene: 'walking a narrow Seoul alley at night past convenience-store light and stacked delivery bikes, heading nowhere in particular',
+    emotionalArc: 'aimless drifting opening into unexpected clarity',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-subtle-almost-love',
+    labelKo: '애매한 썸의 감정',
+    scene: "texting back and forth with someone late at night, both circling a feeling neither has said out loud yet",
+    emotionalArc: 'cautious hesitation building into nervous excitement',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'two-people-talk',
+    castKo: '둘'
+  },
+  {
+    id: 'kr2030-breakup-recovery',
+    labelKo: '이별 후 회복',
+    scene: 'deleting old photos from a phone one by one, months after a breakup, in a room that finally feels like just yours again',
+    emotionalArc: 'lingering grief resolving into steady self-respect',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'reunion-passing',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-old-digital-diary-nostalgia',
+    labelKo: '싸이월드·MP3 시절 회상',
+    scene: 'opening an old personal web diary and a downloaded mp3 playlist saved from teenage years, a private photo mood board nobody else ever saw',
+    emotionalArc: 'surprised nostalgia softening into fond amusement',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'screen-memory',
+    castKo: '혼자'
+  },
+  {
+    id: 'kr2030-face-to-face-confession',
+    labelKo: '마주앉아 고백하는 순간',
+    scene: "sitting face to face with someone and finally saying the thing that's been held back for weeks",
+    emotionalArc: 'nervous tension releasing into relieved honesty',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'two-people-talk',
+    castKo: '둘'
+  },
+  {
+    id: 'kr2030-crowded-dinner-alone',
+    labelKo: '회식 자리에서 혼자인 느낌',
+    scene: 'sitting at a loud company dinner table full of coworkers, smiling along while feeling completely apart from the noise',
+    emotionalArc: 'social isolation easing into quiet self-possession',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'crowd-alone',
+    castKo: '여럿'
+  },
+  {
+    id: 'kr2030-passing-glance-stranger',
+    labelKo: '스쳐 지나간 그 사람',
+    scene: 'catching eyes for a second with a stranger on a crowded crosswalk, then losing them in the crowd before either can react',
+    emotionalArc: 'fleeting curiosity fading into wistful what-if',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'reunion-passing',
+    castKo: '둘'
+  },
+  {
+    id: 'kr2030-quitting-job-decision',
+    labelKo: '퇴사를 고민하는 밤',
+    scene: "staying late at an empty office, cursor hovering over a resignation email that still isn't sent",
+    emotionalArc: 'paralyzed indecision tipping into quiet resolve',
+    suitedArchetypes: ['kr-2030-pop'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
   }
 ];
 

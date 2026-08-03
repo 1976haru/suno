@@ -178,6 +178,67 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['동요', '어린이 노래', '창작동요', '유아 음악', '어린이 플레이리스트', '신나는 동요'],
     archetype: 'kids'
+  },
+  // TASK B2 (§8-1) — kr-2030 workspace's 3 channel presets. Each sets
+  // archetype: 'kr-2030-pop' explicitly — omitting it would route the
+  // channel to senior-morning via presets.ts's own migrateArchetype (this
+  // task's own §0-3 ④, a real measured leak path).
+  {
+    id: 'after-work-band-pop',
+    name: '퇴근 후 감성 밴드팝',
+    englishName: 'After-Work Band Pop',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '퇴근길 지하철과 원룸으로 이어지는 하루의 끝, 감성 밴드팝과 R&B 중심의 위로 플레이리스트',
+    visualIdentity: 'modern minimal city interior, warm desk lamp, subway window reflection, clean sans-serif typography',
+    defaultVocal: 'confident modern Korean pop lead, emotionally direct delivery, close-mic warmth',
+    preferredGenres: ['kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-acoustic-folk'],
+    preferredMoods: ['bittersweet', 'warm', 'hopeful'],
+    forbiddenCliches: [
+      'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',
+      'excessive rap verses', 'soundalike vocal', 'overly nostalgic senior-radio imagery'
+    ],
+    seoKeywords: ['퇴근길 노래', '감성 밴드팝', '20대 플레이리스트', '30대 플레이리스트', '위로 노래', '한국 인디팝'],
+    archetype: 'kr-2030-pop'
+  },
+  {
+    id: 'thirty-night-walk',
+    name: '서른의 밤, 다시 걷게 하는 노래',
+    englishName: 'Thirty, Walking Again',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '서른 즈음의 고민과 회복을 그리는 OST 발라드·어쿠스틱 포크 중심 플레이리스트',
+    visualIdentity: 'quiet night street, warm streetlight glow, minimal editorial typography, no crowds',
+    defaultVocal: 'emotive Korean ballad lead, controlled power building into the chorus, close-mic warmth',
+    preferredGenres: ['kr2030-ost-ballad', 'kr2030-acoustic-folk', 'kr2030-emo-band-pop'],
+    preferredMoods: ['bittersweet', 'hopeful', 'romantic'],
+    forbiddenCliches: [
+      'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',
+      'excessive rap verses', 'soundalike vocal', 'overly nostalgic senior-radio imagery'
+    ],
+    seoKeywords: ['서른 노래', '위로 발라드', '인생 노래', 'OST 감성', '30대 플레이리스트', '한국 발라드'],
+    archetype: 'kr-2030-pop'
+  },
+  {
+    id: 'rainy-seoul-nightscape',
+    name: '비 오는 서울 야경 플레이리스트',
+    englishName: 'Rainy Seoul Nightscape',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '비 오는 밤 서울의 골목과 거리를 그리는 R&B·일렉트로팝 중심 야경 드라이브 플레이리스트',
+    visualIdentity: 'rainy neon-lit Seoul alley, wet asphalt reflections, clean modern typography, no visible faces',
+    defaultVocal: 'close intimate Korean R&B lead, airy ad-lib runs, confident female-led pop vocal',
+    preferredGenres: ['kr2030-dawn-rnb', 'kr2030-electro-pop', 'kr2030-y2k-retro'],
+    preferredMoods: ['rainy-comfort', 'romantic', 'fresh-start'],
+    forbiddenCliches: [
+      'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',
+      'excessive rap verses', 'soundalike vocal', 'overly nostalgic senior-radio imagery'
+    ],
+    seoKeywords: ['서울 야경 플레이리스트', '드라이브 노래', 'R&B 플레이리스트', '일렉트로팝', '비 오는 밤 노래', '한국 시티팝'],
+    archetype: 'kr-2030-pop'
   }
 ];
 

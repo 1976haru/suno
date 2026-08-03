@@ -589,6 +589,7 @@ export default function Step4Result({
           selectedArchetypeId={thumbnailArchetypeId}
           packagingLanguage={thumbnailPackagingLanguage}
           customConcept={thumbnailCustomConcept}
+          channelArchetype={opts.channel.archetype}
           onSelectArchetype={onSelectThumbnailArchetype}
           onRegenerateHeadline={onRegenerateHeadline}
           onSelectVariant={onSelectThumbnailVariant}
@@ -603,6 +604,7 @@ export default function Step4Result({
             spec={thumbnailSpec}
             defaultSeasonId={thumbnailSeasonId}
             defaultArchetypeId={thumbnailArchetypeId}
+            channelArchetype={opts.channel.archetype}
             textModelSettings={textModelSettings}
           />
         </ExperimentalFeatureBoundary>

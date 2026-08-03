@@ -68,10 +68,15 @@ const KR_2030: WorkspaceDefinition = {
   id: 'kr-2030',
   labelKo: '한국 20~30대',
   descriptionKo: '한국 20~30대 대상 워크스페이스 — 준비 중 (B1/B2에서 채워집니다).',
-  // TASK B1 — genre layer filled in (kr2030GenrePacks, 6 genres). `ready`
-  // stays false until B2 (lyric world/hooks/titles/thumbnails/UI) lands —
-  // opening this workspace today would still serve the senior lyric
-  // dictionary underneath it.
+  // TASK B1 — genre layer filled in (kr2030GenrePacks, 6 genres).
+  // TASK B2 — lyric world (18 scenes), hook bank (kr2030Override, all 6
+  // fields, 0 vocabulary overlap with the senior default), 3 thumbnail
+  // archetypes, 6 concept-keyword rules, and 3 channel presets all filled
+  // in and verified (18-song real generation: 0/18 titles carry senior
+  // vocabulary, 18/18 unique titles and hooks). terms/hiddenFeatures stay
+  // {}/[] — no UI currently reads WorkspaceDefinition.terms or
+  // .hiddenFeatures at all (grep-verified zero callers), so there is
+  // nothing real to put there yet; see this task's own §12-4.
   archetypeIds: ['kr-2030-pop'],
   defaultAudienceProfileId: 'general',
   defaultLyricLanguage: 'korean',
@@ -79,7 +84,7 @@ const KR_2030: WorkspaceDefinition = {
   terms: {},
   hiddenFeatures: [],
   contentTier: 'adult',
-  ready: false
+  ready: true
 };
 
 const JP_2030: WorkspaceDefinition = {

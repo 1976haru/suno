@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { ArrowDown, ArrowUp, Copy, Download, Eye, EyeOff, Layers3, Plus, RefreshCw, Sparkles, Trash2, Undo2, Upload, Wand2 } from 'lucide-react';
 import type { ThumbnailSpec } from '../core/thumbnailSpec';
 import { composeThumbnailPromptSet, type ThumbnailPromptVariantId } from '../core/thumbnailPromptComposer';
-import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
+import { thumbnailArchetypesForArchetype } from '../data/thumbnailArchetypes';
 import type { ThumbnailArchetypeId, ThumbnailPeopleMode, ThumbnailTextSafeZone, ThumbnailTimeOfDay } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
 import { generateQwenImage, generateThumbnailImage, getQwenApiKey, getQwenImageSettings } from '../core/thumbnailImageGen';
@@ -21,7 +21,7 @@ import {
   templateStyle
 } from '../core/thumbnailTextLayers';
 import { defaultBrandTemplate, getBrandTemplate, listBrandChannelNames, saveBrandTemplate } from '../core/thumbnailBrandStore';
-import type { ProviderSettings, ThumbnailBadgePosition, ThumbnailBrandTemplate } from '../types';
+import type { ChannelArchetype, ProviderSettings, ThumbnailBadgePosition, ThumbnailBrandTemplate } from '../types';
 import { listSetGroups, loadPack } from '../core/library';
 import type { SetGroupSummary } from '../core/library';
 import { recordUsage } from '../core/usageLedger';
@@ -43,6 +43,8 @@ interface ThumbnailImageStudioPanelProps {
   defaultSeasonId: string;
   defaultArchetypeId: ThumbnailArchetypeId;
   textModelSettings?: ProviderSettings;
+  /** TASK B2 (§6-3) — undefined (every existing caller) means the archetype dropdown shows all 19 pre-existing entries, unchanged; only workspace-scoped archetypes (currently kr-2030-pop's 3) get filtered by this. */
+  channelArchetype?: ChannelArchetype;
   standalone?: boolean;
   standaloneChannelName?: string;
   standaloneSeasonId?: string;
@@ -159,6 +161,7 @@ export default function ThumbnailImageStudioPanel(props: ThumbnailImageStudioPan
         seasonId={props.standaloneSeasonId || props.defaultSeasonId}
         onSeasonChange={props.onStandaloneSeasonChange || (() => undefined)}
         defaultArchetypeId={props.defaultArchetypeId}
+        channelArchetype={props.channelArchetype}
         onClose={props.onStandaloneClose || (() => undefined)}
         onOpenSettings={props.onOpenSettings}
       />
@@ -168,7 +171,7 @@ export default function ThumbnailImageStudioPanel(props: ThumbnailImageStudioPan
   return <ThumbnailImageStudioPanelAdvanced {...props} />;
 }
 
-function ThumbnailImageStudioPanelAdvanced({ spec, defaultSeasonId, defaultArchetypeId, textModelSettings, onOpenSettings }: ThumbnailImageStudioPanelProps) {
+function ThumbnailImageStudioPanelAdvanced({ spec, defaultSeasonId, defaultArchetypeId, channelArchetype, textModelSettings, onOpenSettings }: ThumbnailImageStudioPanelProps) {
   const [channelName, setChannelName] = useState('');
   const [channels, setChannels] = useState<string[]>([]);
   const [template, setTemplate] = useState<ThumbnailBrandTemplate>(() => defaultBrandTemplate(''));
@@ -837,7 +840,7 @@ function ThumbnailImageStudioPanelAdvanced({ spec, defaultSeasonId, defaultArche
           <label>
             Archetype
             <select value={state.archetypeId} onChange={event => changeTargetArchetype(key, event.target.value as ThumbnailArchetypeId)}>
-              {thumbnailArchetypes.map(a => <option key={a.id} value={a.id}>{a.labelKo}</option>)}
+              {thumbnailArchetypesForArchetype(channelArchetype).map(a => <option key={a.id} value={a.id}>{a.labelKo}</option>)}
             </select>
           </label>
           <label>

@@ -16,26 +16,24 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
     expect(senior.contentTier).toBe('adult');
   });
 
-  it('the other 4 workspaces stay not-ready, and 3 of them are still fully skeletal (no archetypes)', () => {
-    for (const id of ['kr-2030', 'jp-2030', 'kr-kids', 'jp-kids'] as const) {
+  it('the 3 not-yet-built workspaces stay not-ready and fully skeletal (no archetypes)', () => {
+    for (const id of ['jp-2030', 'kr-kids', 'jp-kids'] as const) {
       const ws = getWorkspace(id);
       expect(ws.ready).toBe(false);
       expect(ws.labelKo.length).toBeGreaterThan(0);
-    }
-    for (const id of ['jp-2030', 'kr-kids', 'jp-kids'] as const) {
-      expect(getWorkspace(id).archetypeIds).toEqual([]);
+      expect(ws.archetypeIds).toEqual([]);
     }
   });
 
-  // TASK B1 — kr-2030's genre layer is filled in (6 kr2030-* genres, see
-  // genreLibrary/index.ts's kr2030GenrePacks), but the workspace is
-  // deliberately NOT flipped to ready=true yet — B2 (lyric world, hooks,
-  // titles, thumbnails, UI) still owes that, since opening this workspace
-  // today would still serve the senior lyric dictionary underneath it.
-  it('kr-2030 has its single archetype registered but stays ready=false until B2', () => {
+  // TASK B2 — kr-2030's lyric world/hooks/titles/thumbnails/channel presets
+  // all landed and were verified via real 18-song generation (0/18 titles
+  // carry senior vocabulary), so this workspace is now fully built —
+  // ready=true, same status as senior-oldpop.
+  it('kr-2030 is fully built: real archetype, ready=true', () => {
     const kr2030 = getWorkspace('kr-2030');
     expect(kr2030.archetypeIds).toEqual(['kr-2030-pop']);
-    expect(kr2030.ready).toBe(false);
+    expect(kr2030.ready).toBe(true);
+    expect(kr2030.contentTier).toBe('adult');
   });
 
   it('kids workspaces are contentTier=children, the 2030 workspaces are adult', () => {

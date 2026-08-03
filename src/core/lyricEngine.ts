@@ -1183,7 +1183,18 @@ const extraPremiumHooks: Record<Exclude<LyricLanguage, 'bilingual'>, Partial<Rec
 };
 
 function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: ChannelArchetype): string[] {
-  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || archetype === 'kids') return [];
+  // TASK B2 — real measurement: this app's own combinatorial hookBanks/
+  // kr2030.ts override (0 vocabulary overlap with the senior default bank)
+  // was correctly wired, but 8/18 real generated titles STILL carried
+  // senior imagery (겨울아/그대/촛불/달력/창문/오랜 마음) — because composeHook
+  // always tries this hand-written PREMIUM tier first (see its own doc
+  // comment: "premium first, then the archetype-scoped combinatorial
+  // layer"), and this exclusion list — a 6th leak path this task's own §0-3
+  // never found — only ever excluded showa-cafe/showa-70s/j2000s/kids, not
+  // kr-2030-pop. 'senior-morning' (and any archetype not in this list —
+  // oldpop-lounge/modern-chill/city-night included) keeps its exact
+  // pre-existing behavior; only kr-2030-pop is newly added here.
+  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || archetype === 'kids' || archetype === 'kr-2030-pop') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },

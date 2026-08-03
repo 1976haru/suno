@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, Download, ImagePlus, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { seasonPacks } from '../data/presets';
-import { thumbnailArchetypeById, thumbnailArchetypes, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
-import type { ProviderSettings, ThumbnailBrandTemplate, ThumbnailSpec, ThumbnailTextLayer } from '../types';
+import { thumbnailArchetypeById, thumbnailArchetypesForArchetype, type ThumbnailArchetypeId } from '../data/thumbnailArchetypes';
+import type { ChannelArchetype, ProviderSettings, ThumbnailBrandTemplate, ThumbnailSpec, ThumbnailTextLayer } from '../types';
 import { composeImage, downloadCanvas, loadImage, loadUserBackgroundDataUrl } from '../core/thumbnailCanvas';
 import { buildThumbnailTextLayersFromSpec, templateStyle } from '../core/thumbnailTextLayers';
 import { defaultBrandTemplate, getBrandTemplate } from '../core/thumbnailBrandStore';
@@ -15,6 +15,8 @@ interface StandaloneThumbnailStudioProps {
   seasonId: string;
   onSeasonChange: (seasonId: string) => void;
   defaultArchetypeId: ThumbnailArchetypeId;
+  /** TASK B2 (§6-3) — see ThumbnailImageStudioPanelProps's own doc comment. */
+  channelArchetype?: ChannelArchetype;
   textModelSettings?: ProviderSettings;
   onClose: () => void;
   onOpenSettings?: () => void;
@@ -39,7 +41,7 @@ function textLayers(spec: ThumbnailSpec, archetypeId: ThumbnailArchetypeId, temp
   }));
 }
 
-export default function StandaloneThumbnailStudio({ spec, channelName, seasonId, onSeasonChange, defaultArchetypeId, onClose, onOpenSettings }: StandaloneThumbnailStudioProps) {
+export default function StandaloneThumbnailStudio({ spec, channelName, seasonId, onSeasonChange, defaultArchetypeId, channelArchetype, onClose, onOpenSettings }: StandaloneThumbnailStudioProps) {
   const [archetypeId, setArchetypeId] = useState<ThumbnailArchetypeId>(defaultArchetypeId);
   const [template, setTemplate] = useState<ThumbnailBrandTemplate>(() => defaultBrandTemplate(channelName));
   const [mode, setMode] = useState<CanvasMode>('thumbnail');
@@ -224,7 +226,7 @@ export default function StandaloneThumbnailStudio({ spec, channelName, seasonId,
             <summary>세부 조정</summary>
             <div className="thumbnail-control-grid">
               <label>계절<select value={seasonId} onChange={event => onSeasonChange(event.target.value)}>{seasonPacks.map(season => <option key={season.id} value={season.id}>{season.label}</option>)}</select></label>
-              <label>배경 스타일<select value={archetypeId} onChange={event => setArchetypeId(event.target.value as ThumbnailArchetypeId)}>{thumbnailArchetypes.map(archetype => <option key={archetype.id} value={archetype.id}>{archetype.labelKo}</option>)}</select></label>
+              <label>배경 스타일<select value={archetypeId} onChange={event => setArchetypeId(event.target.value as ThumbnailArchetypeId)}>{thumbnailArchetypesForArchetype(channelArchetype).map(archetype => <option key={archetype.id} value={archetype.id}>{archetype.labelKo}</option>)}</select></label>
               <label>폰트<select value={template.fontId} onChange={event => setTemplate(prev => ({ ...prev, fontId: event.target.value as ThumbnailBrandTemplate['fontId'] }))}><option value="blackHanSans">Black Han Sans</option><option value="doHyeon">Do Hyeon</option><option value="jua">Jua</option><option value="gowunDodum">Gowun Dodum</option></select></label>
               <label>문구 위치<select value={template.position} onChange={event => setTemplate(prev => ({ ...prev, position: event.target.value as ThumbnailBrandTemplate['position'] }))}><option value="bottom-center">아래 중앙</option><option value="center">중앙</option><option value="top-center">위 중앙</option></select></label>
               <label>문구 색<input type="color" value={template.textColor} onChange={event => setTemplate(prev => ({ ...prev, textColor: event.target.value }))} /></label>

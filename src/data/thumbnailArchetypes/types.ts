@@ -1,4 +1,4 @@
-import type { ThumbnailTypographyGuide } from '../../types';
+import type { ChannelArchetype, ThumbnailTypographyGuide } from '../../types';
 
 export type { ThumbnailTypographyGuide };
 
@@ -33,7 +33,12 @@ export type ThumbnailArchetypeCategory =
   | 'city-night-drive-neon'
   | 'kids-animal-meadow'
   | 'kids-playground-sky'
-  | 'kids-cozy-room';
+  | 'kids-cozy-room'
+  // TASK B2 — kr-2030 workspace's 3 new archetypes (see kr2030CafeNight.ts /
+  // kr2030SeoulStreet.ts / kr2030PersonSilhouette.ts).
+  | 'kr2030-cafe-night'
+  | 'kr2030-seoul-street'
+  | 'kr2030-person-silhouette';
 
 export type ThumbnailArchetypeId = ThumbnailArchetypeCategory;
 
@@ -55,6 +60,14 @@ export interface ThumbnailArchetype {
   id: ThumbnailArchetypeId;
   category: ThumbnailArchetypeCategory;
   labelKo: string;
+  /**
+   * TASK B2 — optional channel-archetype scope. Undefined (the existing 19
+   * archetypes, left untouched) means "visible for every channel archetype",
+   * the exact pre-existing behavior — see
+   * thumbnailArchetypes/index.ts's thumbnailArchetypesForArchetype. Only set
+   * on new workspace-specific archetypes going forward.
+   */
+  suitedArchetypes?: ChannelArchetype[];
   /** Place-series scene variants, used by city/village archetypes. */
   sceneCore?: string[];
   /** Small-screen-safe recurring objects for city/village archetypes; max 3. */

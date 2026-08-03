@@ -17,7 +17,11 @@ import { cityNightDriveNeonArchetype } from './cityNightDriveNeon';
 import { kidsAnimalMeadowArchetype } from './kidsAnimalMeadow';
 import { kidsPlaygroundSkyArchetype } from './kidsPlaygroundSky';
 import { kidsCozyRoomArchetype } from './kidsCozyRoom';
+import { kr2030CafeNightArchetype } from './kr2030CafeNight';
+import { kr2030SeoulStreetArchetype } from './kr2030SeoulStreet';
+import { kr2030PersonSilhouetteArchetype } from './kr2030PersonSilhouette';
 import type { ThumbnailArchetype, ThumbnailArchetypeId } from './types';
+import type { ChannelArchetype } from '../../types';
 
 export type {
   ThumbnailArchetype,
@@ -58,11 +62,35 @@ export const kidsThumbnailArchetypes: ThumbnailArchetype[] = [
   kidsCozyRoomArchetype
 ];
 
+// TASK B2 — kr-2030 workspace's 3 new archetypes. Each sets
+// suitedArchetypes: ['kr-2030-pop'] (see their own files), so
+// thumbnailArchetypesForArchetype below is what keeps them out of every
+// other channel archetype's dropdown.
+export const kr2030ThumbnailArchetypes: ThumbnailArchetype[] = [
+  kr2030CafeNightArchetype,
+  kr2030SeoulStreetArchetype,
+  kr2030PersonSilhouetteArchetype
+];
+
 export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...seasonalThumbnailArchetypes,
   ...placeThumbnailArchetypes,
-  ...kidsThumbnailArchetypes
+  ...kidsThumbnailArchetypes,
+  ...kr2030ThumbnailArchetypes
 ];
+
+/**
+ * TASK B2 (§6-3) — `!a.suitedArchetypes` is the key clause: the existing 19
+ * archetypes never set this field, so they pass through unfiltered for
+ * EVERY channel archetype (including undefined/no-channel callers) — the
+ * exact pre-existing behavior, unchanged. Only archetype-scoped entries
+ * (currently just the 3 kr2030-* ones) get filtered out for a non-matching
+ * channel archetype.
+ */
+export function thumbnailArchetypesForArchetype(archetype?: ChannelArchetype): ThumbnailArchetype[] {
+  if (!archetype) return thumbnailArchetypes;
+  return thumbnailArchetypes.filter(a => !a.suitedArchetypes || a.suitedArchetypes.includes(archetype));
+}
 
 export const thumbnailArchetypeById = Object.fromEntries(
   thumbnailArchetypes.map(archetype => [archetype.id, archetype])

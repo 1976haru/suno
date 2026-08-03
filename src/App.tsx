@@ -952,6 +952,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
                 spec={standaloneThumbnailSpec}
                 defaultSeasonId={thumbnailStandaloneSeasonId}
                 defaultArchetypeId={thumbnailArchetypeId}
+                channelArchetype={cm.selectedChannel.archetype}
                 standalone
                 standaloneChannelName={cm.selectedChannel.name}
                 standaloneSeasonId={thumbnailStandaloneSeasonId}

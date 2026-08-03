@@ -211,6 +211,43 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
       'oldpop-gentle-lullaby-pop': 3, 'oldpop-evening-lamp-ballad': 3, 'oldpop-slow-waltz-memory': 2
     },
     moodWeights: { warm: 3 }
+  },
+  // TASK B2 (§7) — kr-2030 workspace rules. genreWeights only, per this
+  // task's own §7-2 constraint: seasonWeights/moodWeights aren't gated by a
+  // channel's core-genre tier the way genreWeights is (see this file's own
+  // module doc comment on that filtering), so adding those here would leak
+  // into senior-morning scoring for the same input text. A kr2030-* genre id
+  // is simply ignored at scoring time for any channel whose archetype's core
+  // tier doesn't include it — see conceptAgent.ts.
+  {
+    id: 'kr2030-after-work',
+    patterns: [/퇴근/, /야근/, /회사원/, /월요일/, /after\s*work/i],
+    genreWeights: { 'kr2030-emo-band-pop': 4, 'kr2030-dawn-rnb': 1 }
+  },
+  {
+    id: 'kr2030-dawn-night',
+    patterns: [/새벽/, /막차/, /지하철/, /밤거리/, /late\s*night/i],
+    genreWeights: { 'kr2030-dawn-rnb': 4, 'kr2030-electro-pop': 1 }
+  },
+  {
+    id: 'kr2030-thirty-something',
+    patterns: [/서른/, /스물아홉/, /삼십대/, /이십대\s*후반/, /turning\s*thirty/i],
+    genreWeights: { 'kr2030-ost-ballad': 4, 'kr2030-acoustic-folk': 2 }
+  },
+  {
+    id: 'kr2030-studio-seoul',
+    patterns: [/원룸/, /자취/, /골목/, /서울/, /studio\s*apartment/i],
+    genreWeights: { 'kr2030-acoustic-folk': 3, 'kr2030-dawn-rnb': 2 }
+  },
+  {
+    id: 'kr2030-y2k-nostalgia',
+    patterns: [/싸이월드/, /엠피쓰리/, /\bmp3\b/i, /y2k/i, /2000년대/, /이천년대/],
+    genreWeights: { 'kr2030-y2k-retro': 4 }
+  },
+  {
+    id: 'kr2030-summer-drive',
+    patterns: [/드라이브/, /여름\s*밤/, /summer\s*night\s*drive/i],
+    genreWeights: { 'kr2030-y2k-retro': 2, 'kr2030-emo-band-pop': 2 }
   }
 ];
 

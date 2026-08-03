@@ -12,7 +12,7 @@ import { listSetGroups, loadPack, type SetGroupSummary } from '../core/library';
 import { buildSetName } from '../utils/setNaming';
 import { recordUsage } from '../core/usageLedger';
 import { DEFAULT_QWEN_IMAGE_SETTINGS, estimateQwenImageCostCny, type QwenImageSettings } from '../core/qwenImageSettings';
-import { thumbnailArchetypes } from '../data/thumbnailArchetypes';
+import { thumbnailArchetypesForArchetype } from '../data/thumbnailArchetypes';
 import type {
   ThumbnailArchetypeId,
   ThumbnailPeopleMode,
@@ -20,7 +20,7 @@ import type {
   ThumbnailTimeOfDay
 } from '../data/thumbnailArchetypes';
 import { seasonPacks } from '../data/presets';
-import type { DisplayLanguage, SavedPack, ThumbnailVariantId } from '../types';
+import type { ChannelArchetype, DisplayLanguage, SavedPack, ThumbnailVariantId } from '../types';
 
 interface ThumbnailSpecPanelProps {
   spec: ThumbnailSpec;
@@ -29,6 +29,8 @@ interface ThumbnailSpecPanelProps {
   packagingLanguage: DisplayLanguage;
   /** TASK v3.37-b (work item 1) — GenerationOptions.customConcept for the pack currently in the editor; threaded through to both prompt builders. Empty string is a full no-op. */
   customConcept: string;
+  /** TASK B2 (§6-3) — see ThumbnailImageStudioPanelProps's own doc comment. */
+  channelArchetype?: ChannelArchetype;
   onSelectArchetype: (id: ThumbnailArchetypeId) => void;
   onRegenerateHeadline: () => void;
   onSelectVariant: (id: ThumbnailVariantId) => void;
@@ -111,6 +113,7 @@ export default function ThumbnailSpecPanel({
   selectedArchetypeId,
   packagingLanguage,
   customConcept,
+  channelArchetype,
   onSelectArchetype,
   onRegenerateHeadline,
   onSelectVariant,
@@ -588,7 +591,7 @@ export default function ThumbnailSpecPanel({
           <label>
             Archetype
             <select value={selectedArchetypeId} onChange={event => onSelectArchetype(event.target.value as ThumbnailArchetypeId)}>
-              {thumbnailArchetypes.map(archetype => (
+              {thumbnailArchetypesForArchetype(channelArchetype).map(archetype => (
                 <option key={archetype.id} value={archetype.id}>{archetype.labelKo}</option>
               ))}
             </select>
