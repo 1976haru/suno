@@ -1,44 +1,1135 @@
 {
-  "savedAt": "2026-08-01T12:17:58.505Z",
-  "conceptLabel": "비틀즈 느낌의 밝은 60년대 팝",
-  "items": {
-    "song_count": true,
-    "genre_variety": true,
-    "genre_max5": true,
-    "genre_no_singleton": false,
-    "genre_no_triple_run": true,
-    "bpm_stddev": true,
-    "bpm_in_range": true,
-    "vocal_distribution": true,
-    "vocal_zone_max3": true,
-    "vocal_no_triple_run": true,
-    "vocal_desc_present": true,
-    "female_gender_explicit": true,
-    "vocal_desc_variety": false,
-    "prompt_length": false,
-    "descriptor_count": false,
-    "shared_atoms": true,
-    "era_contradiction": false,
-    "label_leak": true,
-    "artist_leak": true,
-    "duration_dup": true,
-    "lyric_word_count": false,
-    "section_count": false,
-    "situation_all_distinct": true,
-    "emotion_arc_variety": true,
-    "arrangement_vocab_leak": false,
-    "title_line_leak": true,
-    "placeholder_leak": true,
-    "end_tag_leak": true,
-    "vocab_repeat_max20": false,
-    "hook_word_overuse": true,
-    "killing_point_assigned": true,
-    "killing_point_variety": true,
-    "arc_phase_all_used": true,
-    "peak_none_count": true,
-    "title_pattern_variety": false,
-    "title_pattern_max4": false,
-    "hook_connected_title": true,
-    "promise_fulfillment": false
+  "6070년대 향수가 느껴지는 올드팝": {
+    "savedAt": "2026-08-02T22:41:04.485Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": false
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 11,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 859,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 30,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": false,
+        "bestValue": 1,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 160,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 59,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "hook_word_overuse": {
+        "pass": true
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": true,
+        "bestValue": 4,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-02T22:41:04.485Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": false
+      }
+    }
+  },
+  "비틀즈 느낌의 밝은 60년대 팝": {
+    "savedAt": "2026-08-02T22:41:07.226Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": true
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 11,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 879,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 32,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": false,
+        "bestValue": 1,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 162,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 67,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "hook_word_overuse": {
+        "pass": true
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": false,
+        "bestValue": 3,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-02T22:41:07.226Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": false
+      }
+    }
+  },
+  "샹송 느낌이 나는 잔잔한 올드팝": {
+    "savedAt": "2026-08-02T22:41:09.963Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": true
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 918,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 32,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 166,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 71,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "hook_word_overuse": {
+        "pass": false
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": true,
+        "bestValue": 4,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 7,
+        "bestAt": "2026-08-02T22:41:09.963Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": false
+      }
+    }
+  },
+  "비 오는 날 창가에서 듣는 올드팝": {
+    "savedAt": "2026-08-02T22:41:12.725Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": true
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 894,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 32,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 173,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 75,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "hook_word_overuse": {
+        "pass": false
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": true,
+        "bestValue": 4,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 7,
+        "bestAt": "2026-08-02T22:41:12.725Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      }
+    }
+  },
+  "80년대 초반 어덜트 컨템포러리 발라드": {
+    "savedAt": "2026-08-02T22:41:15.563Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": false
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 7,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 836,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 29,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 159,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 74,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "hook_word_overuse": {
+        "pass": true
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": false,
+        "bestValue": 3,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 8,
+        "bestAt": "2026-08-02T22:41:15.563Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": true
+      }
+    }
+  },
+  "카펜터스와 아바 느낌으로": {
+    "savedAt": "2026-08-02T22:41:18.356Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": false
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 830,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 30,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 161,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 66,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "hook_word_overuse": {
+        "pass": true
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": true,
+        "bestValue": 4,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:18.356Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": false
+      }
+    }
+  },
+  "사이먼과 가펑클 같은 담백한 포크 하모니": {
+    "savedAt": "2026-08-02T22:41:21.106Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": false
+      },
+      "genre_max5": {
+        "pass": false
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": true
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 875,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 31,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 175,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 66,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "hook_word_overuse": {
+        "pass": false
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": true,
+        "bestValue": 4,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 7,
+        "bestAt": "2026-08-02T22:41:21.106Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": false
+      }
+    }
+  },
+  "젊은 시절 춤추던 토요일 밤": {
+    "savedAt": "2026-08-02T22:41:23.843Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "bpm_stddev": {
+        "pass": true
+      },
+      "bpm_in_range": {
+        "pass": true
+      },
+      "vocal_distribution": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_no_triple_run": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": true
+      },
+      "female_gender_explicit": {
+        "pass": true
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "prompt_length": {
+        "pass": false,
+        "bestValue": 895,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "descriptor_count": {
+        "pass": false,
+        "bestValue": 31,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 167,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 9,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "situation_all_distinct": {
+        "pass": false
+      },
+      "emotion_arc_variety": {
+        "pass": true
+      },
+      "arrangement_vocab_leak": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": true
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 86,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "hook_word_overuse": {
+        "pass": false
+      },
+      "vocab_repeat_blocking": {
+        "pass": false
+      },
+      "killing_point_assigned": {
+        "pass": true
+      },
+      "killing_point_variety": {
+        "pass": true
+      },
+      "arc_phase_all_used": {
+        "pass": true
+      },
+      "peak_none_count": {
+        "pass": true
+      },
+      "title_pattern_variety": {
+        "pass": true,
+        "bestValue": 4,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 7,
+        "bestAt": "2026-08-02T22:41:23.843Z"
+      },
+      "hook_connected_title": {
+        "pass": true
+      },
+      "promise_fulfillment": {
+        "pass": false
+      }
+    }
   }
 }
