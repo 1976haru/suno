@@ -89,6 +89,61 @@ export function resolveFlagshipCombo(effectiveCombos: readonly VerifiedCombo[], 
     .sort((a, b) => b.sampleSize - a.sampleSize)[0];
 }
 
+/**
+ * TASK v4.6 (TASK B) — "대표곡(2~3번) 중 최소 1곡에 배정, 세트 전체에서 최소
+ * 2곡, 최대 5곡." Real cause of a real 8/3 pack's 0 philly-soul-sweet songs
+ * traced to two separate things: (1) that pack's own genre selection simply
+ * didn't include oldpop-philly-soul-sweet at all (resolveFlagshipCombo's own
+ * availableGenreIds gate correctly returns undefined in that case — not a
+ * bug, the combo genuinely doesn't apply to a set built from a different
+ * genre mix, per this task's own "컨셉의 시대·장르와 맞을 때만 적용"); (2) even
+ * when the combo's genre WAS selected, v3.82's own override only ever
+ * touched a single track (idx 1 / track 2) — this task's own §2-1 doc
+ * comment even says so explicitly ("a second approved combo would naturally
+ * have room to also fill track 3 later — never invents a second one").
+ * This function is the fix for (2): still guarantees the flagship slot
+ * (track 2) carries the combo's genre (same swap-preserving-counts logic as
+ * before), then tops up / trims the WHOLE pack's occurrence count of that
+ * genre into [FLAGSHIP_COMBO_MIN_SONGS, FLAGSHIP_COMBO_MAX_SONGS] — mutates
+ * genrePlan in place, mirroring the call sites' own existing mutation style.
+ */
+const FLAGSHIP_COMBO_MIN_SONGS = 2;
+const FLAGSHIP_COMBO_MAX_SONGS = 5;
+
+export function applyVerifiedComboToGenrePlan(genrePlan: string[], combo: VerifiedCombo | undefined): void {
+  if (!combo || genrePlan.length < 2) return;
+  if (genrePlan[1] !== combo.genreId) {
+    const swapIndex = genrePlan.findIndex((id, i) => i >= 3 && id === combo.genreId);
+    if (swapIndex !== -1) {
+      const tmp = genrePlan[1];
+      genrePlan[1] = genrePlan[swapIndex];
+      genrePlan[swapIndex] = tmp;
+    } else {
+      genrePlan[1] = combo.genreId;
+    }
+  }
+
+  let occurrences = genrePlan.filter(id => id === combo.genreId).length;
+  // Top up toward the floor, latest-index-first so early flagship/narrative
+  // tracks beyond the slot above are disturbed as little as possible.
+  for (let i = genrePlan.length - 1; i >= 2 && occurrences < FLAGSHIP_COMBO_MIN_SONGS; i--) {
+    if (genrePlan[i] === combo.genreId) continue;
+    genrePlan[i] = combo.genreId;
+    occurrences++;
+  }
+  // Trim toward the ceiling if the natural rotation already over-represented
+  // this genre — reassigns the excess back to a neighboring track's own
+  // genre (a real swap, never invents a genre outside this pack's pool).
+  if (occurrences > FLAGSHIP_COMBO_MAX_SONGS) {
+    const fallbackGenreId = genrePlan.find(id => id !== combo.genreId);
+    for (let i = genrePlan.length - 1; i >= 3 && occurrences > FLAGSHIP_COMBO_MAX_SONGS; i--) {
+      if (genrePlan[i] !== combo.genreId) continue;
+      if (fallbackGenreId) genrePlan[i] = fallbackGenreId;
+      occurrences--;
+    }
+  }
+}
+
 export interface ComboSuggestion {
   genreId: string;
   bpmRange: [number, number];

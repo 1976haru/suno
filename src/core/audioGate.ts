@@ -55,11 +55,25 @@ export function evaluateAudioGate(report: AudioSetReport | undefined): AudioGate
     });
   }
 
+  // v4.6 (TASK C, §3-5) — a real 7:59 track is a Suno rendering outlier a
+  // style prompt can't reliably control (see audioSetReport.ts's own
+  // severelyOverTracks doc comment) — advisory, not blocking, same reasoning
+  // as this file's own top doc comment for every non-absolute-length check:
+  // the song already exists by the time audio is measurable.
+  if (report.duration.severelyOverTracks.length) {
+    advisory.push({
+      id: 'audio-duration-severe',
+      labelKo: '4:30 초과 트랙',
+      expected: '≤ 4:30',
+      actual: `${report.duration.severelyOverTracks.length}곡 (트랙 ${report.duration.severelyOverTracks.join(', ')})`,
+      fixHintKo: '프롬프트로 통제하기 어려운 수노 렌더링 편차입니다 — 페이드아웃 편집 또는 재생성(A/B 중 짧은 쪽 채택)을 권장합니다.'
+    });
+  }
   if (report.killingPoint.weakDynamicTracks.length) {
     advisory.push({
       id: 'audio-dynamic-range',
       labelKo: '킬링포인트 곡 진폭',
-      expected: '≥ 6dB',
+      expected: '≥ 5dB',
       actual: `진폭 부족 ${report.killingPoint.weakDynamicTracks.length}곡 (트랙 ${report.killingPoint.weakDynamicTracks.join(', ')})`,
       fixHintKo: '킬링포인트가 있는데도 진폭 변화가 약한 트랙입니다 — 다음 세트의 편곡 밀도/다이나믹 지시를 강화하세요.'
     });

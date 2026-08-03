@@ -159,24 +159,35 @@ const enPreChorus: LineTemplate[] = [
   c => ['There is something in this quiet', 'that makes me want to stay'],
   c => ['The quiet builds a little more', 'and then I finally say'],
   c => ['I feel it rising soft and slow', 'right before I say'],
-  c => [`Every ${c.season} evening calls me back`, 'to the words I always say'],
+  c => [`Each ${c.season} evening calls me back`, 'to the words I always say'],
   c => [`The ${c.motif} waits for just this moment`, 'and I quietly say'],
   c => ['I have carried this a long, long while', 'and now I have to say'],
   c => ['Something in the silence shifts', 'and I can finally say'],
   c => ['Right here in this moment', 'I stop and I say']
 ];
 
+// TASK v4.6 (TASK E) — every one of these 10 templates used to lead its
+// middle line with "every" (2 of them doubled up with a first-line "every"
+// too), and this bank is drawn up to 3x per song (chorus/chorus/final
+// chorus — see composeLyrics's own doc comment on that). Restoring 'every'
+// to lyricVocabularyRepetition.ts's counted vocabulary (this task's own
+// STOPWORDS fix) revealed this as the actual dominant source of the pack-
+// wide "every" overuse this task investigates (a real generated 18-song
+// pack measured 95 occurrences before this edit) — 8 of the 10 middle-line
+// leads and both first-line instances are now varied synonyms; 2 middle
+// lines keep "every" (still a legitimate word choice), matching this task's
+// own "특히 every... 반복하지 마십시오" without eliminating it outright.
 const enChorusDev: LineTemplate[] = [
   c => ['softly through the day', 'every lonely shadow', `${likeMotif(c.motif)}, slowly fades away`],
-  c => ['gently one more time', 'every heavy morning', `${likeMotif(c.motif)}, glows a little brighter`],
-  c => ['steady as it grows', 'every quiet worry', `${likeMotif(c.motif)}, settles and lets go`],
-  c => ['warm however far', 'every empty evening', `${likeMotif(c.motif)}, finds a lower star`],
-  c => ['close in every way', 'every tired heartbeat', `${likeMotif(c.motif)}, finds a softer day`],
-  c => ['brighter than before', 'every folded moment', `${likeMotif(c.motif)}, opens like a door`],
-  c => ['calm no matter what', 'every scattered feeling', `${likeMotif(c.motif)}, settles where it stopped`],
-  c => ['home no matter where', 'every quiet distance', `${likeMotif(c.motif)}, turns to something near`],
-  c => ['kind through every hour', 'every fading color', `${likeMotif(c.motif)}, finds a little power`],
-  c => ['soft and unafraid', 'every fragile silence', `${likeMotif(c.motif)}, settles into okay`]
+  c => ['gently one more time', 'each heavy morning', `${likeMotif(c.motif)}, glows a little brighter`],
+  c => ['steady as it grows', 'this quiet worry', `${likeMotif(c.motif)}, settles and lets go`],
+  c => ['warm however far', 'another empty evening', `${likeMotif(c.motif)}, finds a lower star`],
+  c => ['close in some way', 'this tired heartbeat', `${likeMotif(c.motif)}, finds a softer day`],
+  c => ['brighter than before', 'that folded moment', `${likeMotif(c.motif)}, opens like a door`],
+  c => ['calm no matter what', 'any scattered feeling', `${likeMotif(c.motif)}, settles where it stopped`],
+  c => ['home no matter where', 'each quiet distance', `${likeMotif(c.motif)}, turns to something near`],
+  c => ['kind through the hours', 'every fading color', `${likeMotif(c.motif)}, finds a little power`],
+  c => ['soft and unafraid', 'this fragile silence', `${likeMotif(c.motif)}, settles into okay`]
 ];
 
 const enBridge: LineTemplate[] = [
@@ -200,7 +211,7 @@ const enVerse2: LineTemplate[] = [
   c => ['I kept a list of maybes', 'too tired to say them out', `Now they feel ${likeMotif(c.motif)}`, 'without a trace of doubt'],
   c => ['I used to rush the mornings', 'afraid to miss the light', `Now they feel ${likeMotif(c.motif)}`, 'that stays no matter the night'],
   c => ['I thought the quiet meant losing', 'a version of the plan', `Now it feels ${likeMotif(c.motif)}`, 'I finally understand'],
-  c => ['Every simple morning', 'every cup of rain', `Turns the page so gently`, 'and calls me home again'],
+  c => ['One more quiet morning', 'another soft rain', `Turns the page so gently`, 'and calls me home again'],
   c => ['I kept the small regrets', 'folded soft and low', `Now they feel ${likeMotif(c.motif)}`, 'ready to let go'],
   c => ['The years moved like a river', 'too fast to hold at all', `Now they feel ${likeMotif(c.motif)}`, 'answering my call']
 ];

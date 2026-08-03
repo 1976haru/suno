@@ -20,13 +20,25 @@ export interface AudioSetReport {
     overTarget: number[];
     underTarget: number[];
     targetRange: [number, number];
+    /**
+     * v4.6 (TASK C, §3-5) — durationSec > SEVERE_OVER_TARGET_SEC (4:30).
+     * Distinct from overTarget above: a track a few seconds past the
+     * audience's own songLengthSecondsRange is common and not actionable,
+     * but a real 7:59 track (this task's own §3-5 T1/T18) is a Suno
+     * rendering outlier (repeat/extended-outro behavior) that a style
+     * prompt can't reliably control — see this task's own explicit
+     * "8분 곡을 프롬프트로 해결하려 하지 말 것. 편집·재생성으로 대응하십시오."
+     * This flags it for the fade-out edit panel (core/audioEdit.ts) or
+     * regeneration instead of pretending a prompt tweak will fix it.
+     */
+    severelyOverTracks: number[];
   };
 
   killingPoint: {
     /** peakPosition >= 0.75 — reads as an audible late lift. */
     latePeakTracks: number[];
     noLatePeakTracks: number[];
-    /** dynamicRange < 6dB — "평평합니다", regardless of where the peak lands. */
+    /** dynamicRange < WEAK_DYNAMIC_RANGE_DB (5dB, v4.6) — "평평합니다", regardless of where the peak lands. */
     weakDynamicTracks: number[];
     /** share of analyzed tracks with a late peak, 0..1 — the spec's own "60% 이상이 후반 상승이어야 정상" bar. */
     latePeakShare: number;
@@ -52,7 +64,10 @@ export interface AudioSetReport {
 }
 
 const LATE_PEAK_THRESHOLD = 0.75;
-const WEAK_DYNAMIC_RANGE_DB = 6;
+/** v4.6 (TASK D, §4-2) — lowered from 6dB: a real 36-song measurement averaged 4.4dB with only 1/36 (2.8%) reaching 6dB, making the old target unreachable in practice — see data/qualityThresholds.ts's matching entry (now registered there with basis:'measured'). */
+const WEAK_DYNAMIC_RANGE_DB = 5;
+/** v4.6 (TASK C, §3-5) — 4:30; see the AudioSetReport.duration.severelyOverTracks field doc comment above. */
+const SEVERE_OVER_TARGET_SEC = 270;
 const LATE_PEAK_SHARE_TARGET = 0.6;
 const NARROW_TIMBRE_SPREAD_HZ = 800;
 const CLUSTER_SIMILARITY_THRESHOLD = 0.95;
@@ -85,12 +100,14 @@ export function buildAudioSetReport(
   const durationValues: Record<number, number> = {};
   const overTarget: number[] = [];
   const underTarget: number[] = [];
+  const severelyOverTracks: number[] = [];
   const [minTarget, maxTarget] = audienceProfile.songLengthSecondsRange;
   for (const m of analyzed) {
     const trackNo = m.matchedTrackNo!;
     durationValues[trackNo] = m.durationSec;
     if (m.durationSec > maxTarget) overTarget.push(trackNo);
     else if (m.durationSec < minTarget) underTarget.push(trackNo);
+    if (m.durationSec > SEVERE_OVER_TARGET_SEC) severelyOverTracks.push(trackNo);
   }
 
   const peakRelevant = killingPointTrackNos
@@ -133,11 +150,14 @@ export function buildAudioSetReport(
   // Advisories — soft, informational, never blocking.
   if (overTarget.length) advisories.push(`길이 초과 ${overTarget.length}곡: T${overTarget.join(', T')} — 목표 ${formatRange(minTarget, maxTarget)}`);
   if (underTarget.length) advisories.push(`길이 미달 ${underTarget.length}곡: T${underTarget.join(', T')} — 목표 ${formatRange(minTarget, maxTarget)}`);
+  if (severelyOverTracks.length) {
+    advisories.push(`4:30을 크게 초과한 ${severelyOverTracks.length}곡: T${severelyOverTracks.join(', T')} — 프롬프트로 통제하기 어려운 수노 렌더링 편차입니다. 페이드아웃 편집 또는 재생성을 권장합니다 (재생성 시 A/B 두 버전 중 짧은 쪽 채택).`);
+  }
   const peakScope = killingPointTrackNos ? '킬링포인트 곡 중 ' : '';
   if (peakRelevant.length > 0 && latePeakShare < LATE_PEAK_SHARE_TARGET) {
     advisories.push(`${peakScope}후반 상승이 ${Math.round(latePeakShare * 100)}%뿐입니다 (목표 60% 이상) — 킬링포인트가 후반부에서 잘 안 들릴 수 있습니다.`);
   }
-  if (weakDynamicTracks.length) advisories.push(`${peakScope}진폭 부족(<6dB) ${weakDynamicTracks.length}곡: T${weakDynamicTracks.join(', T')} — 평평하게 들릴 수 있습니다.`);
+  if (weakDynamicTracks.length) advisories.push(`${peakScope}진폭 부족(<${WEAK_DYNAMIC_RANGE_DB}dB) ${weakDynamicTracks.length}곡: T${weakDynamicTracks.join(', T')} — 평평하게 들릴 수 있습니다.`);
   if (analyzed.length > 1 && centroidSpread < NARROW_TIMBRE_SPREAD_HZ) {
     advisories.push(`음색 팔레트가 좁습니다 (중심 주파수 폭 ${Math.round(centroidSpread)}Hz).`);
   }
@@ -152,7 +172,7 @@ export function buildAudioSetReport(
   return {
     analyzedCount: analyzed.length,
     totalTracks,
-    duration: { values: durationValues, overTarget, underTarget, targetRange: [minTarget, maxTarget] },
+    duration: { values: durationValues, overTarget, underTarget, targetRange: [minTarget, maxTarget], severelyOverTracks },
     killingPoint: { latePeakTracks, noLatePeakTracks, weakDynamicTracks, latePeakShare },
     timbre: { centroidSpread, clusteredPairs, meanSimilarity },
     level: { values: levelValues, spread: levelSpread },

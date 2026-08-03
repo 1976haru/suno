@@ -265,15 +265,25 @@ function bpmIssues(slots: PreassignedSongSlot[], constraints: ResolvedConstraint
 // 예상 길이 (song-length-estimate) — v3.82 (TASK B)
 // ---------------------------------------------------------------------------
 /**
- * v3.82 (TASK B, 2-4) — "생성 전에 길이를 추정해 관문 1에서 잡으십시오...
- * 추정이 3:45를 넘으면 관문 1에서 blocking하십시오." Real cause: T7 (81 BPM)
- * ran 4:16 against a 3:15-3:35 target even though its word count matched
- * T1/T4 almost exactly — the missing variable was BPM itself (see
- * core/bpmLengthControl.ts's own doc comment for the full calibration). This
- * estimates from slot.tempo + slot.structureTemplate alone (both already
- * decided at design time — no lyrics exist yet, per this app's own 원칙 3),
- * so a slow-BPM track assigned a long template gets caught before a single
- * word is written, instead of only being discoverable after Suno renders it.
+ * v3.82 (TASK B, 2-4) — "생성 전에 길이를 추정해 관문 1에서 잡으십시오." Real
+ * cause: T7 (81 BPM) ran 4:16 against a 3:15-3:35 target even though its
+ * word count matched T1/T4 almost exactly — the missing variable was BPM
+ * itself (see core/bpmLengthControl.ts's own doc comment for the full
+ * calibration). This estimates from slot.tempo + slot.structureTemplate
+ * alone (both already decided at design time — no lyrics exist yet, per
+ * this app's own 원칙 3), so a slow-BPM track assigned a long template gets
+ * flagged before a single word is written, instead of only being
+ * discoverable after Suno renders it.
+ *
+ * v4.6 (TASK C, §3-4) — downgraded from blocking to advisory. A real 36-song
+ * measurement found this same nominal-bars estimate landing 154-479s
+ * (2.6-8.0min) for songs sharing near-identical BPM/section/word inputs — a
+ * ~3x spread this task's own doc comment calls out as "정확한 예측은
+ * 불가능합니다." Blocking generation on an estimate with that much real-world
+ * variance produces false positives (a genuinely fine song rejected) at
+ * least as often as it catches a real problem, per this task's own explicit
+ * "예상 3:45 초과 시 경고만 하십시오" — this now surfaces via evaluateDesignGate's
+ * own advisory list instead of its blocking list.
  */
 function songLengthIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
   // Only slots that already have a structureTemplate assigned — real
@@ -496,11 +506,13 @@ export function evaluateDesignGate(
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
     ...eraIssues(slots, constraints.era),
-    ...killingPointAndArcIssues(slots, opts.songCount),
-    ...songLengthIssues(slots)
+    ...killingPointAndArcIssues(slots, opts.songCount)
   ];
   const advisory: DesignIssue[] = [
-    ...vocabularyForecastAdvisory(constraints)
+    ...vocabularyForecastAdvisory(constraints),
+    // v4.6 (TASK C, §3-4) — moved from blocking (see songLengthIssues's own
+    // updated doc comment for why).
+    ...songLengthIssues(slots)
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

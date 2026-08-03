@@ -19,12 +19,21 @@ export const STOPWORDS = new Set([
   'its', 'i', 'you', 'he', 'she', 'we', 'they', 'as', 'so', 'if', 'not', 'no', 'do', 'does', 'did',
   'from', 'by', 'be', 'been', 'has', 'have', 'had', 'will', 'would', 'can', 'could', 'just', 'now',
   'still', 'one', 'all', 'up', 'out', 'down', 'into', 'over', 'under', 'then', 'than', 'when',
-  'where', 'how', 'what', 'who', 'which', 'there', 'here', 'some', 'more', 'most', 'every', 'each',
-  'both', 'only', 'also', 'too', 'very', 'like', 'through', 'before', 'after', 'while', 'again',
+  'where', 'how', 'what', 'who', 'which', 'there', 'here', 'some', 'most', 'each',
+  'both', 'only', 'also', 'too', 'very', 'like', 'through', 'after', 'while', 'again',
   'me', 'us', 'them', 'am', 'll', 're', 've', 'd', 's', 't', 'm', 'on', 'off', 'yet', 'ever', 'never',
   // Structural/filler verbs common to any ballad regardless of scene content (e.g. "let the light in",
   // "I said", "I wait", "I know") — not the kind of vocabulary-choice repetition this check targets.
   'let', 'said', 'know', 'wait'
+  // TASK v4.6 (TASK E) — 'every'/'before'/'more' removed. v3.77 (TASK D-2,
+  // see WORD_BLOCKING_THRESHOLD's own doc comment) explicitly motivated the
+  // 30x blocking threshold by a real pack shipping "every" at 55x — meaning
+  // these words were being counted back then. Somewhere between v3.77 and
+  // this task they were added to STOPWORDS, silently exempting exactly the
+  // words the blocking threshold exists to catch: a real pack's "every"
+  // climbed to 69x uncaught (this task's own §5) because it was never
+  // counted at all, not because it stayed under 30. Restoring them is a
+  // regression fix, not a new exclusion-list policy.
 ]);
 
 /** Channel-identity words get a higher cap (20) than generic vocabulary (12) — see this module's own doc comment for why "morning"/"warm"/"coffee" specifically match the real measured data. */

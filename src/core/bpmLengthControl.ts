@@ -26,26 +26,31 @@ export interface BpmLengthTier {
 }
 
 /**
- * v4.4 (TASK A) — recentered around resolveLyricRange's English 215-230
- * (data/audienceProfiles.ts's lyricMetricsByLanguage, raised from 175-205
- * in v4.1). The original table's two slower tiers (180-200, 200-220) sat
- * entirely or partly below 215, and this per-track table WINS over the
- * pack-level 215-230 CRITICAL line in bridgeInstruction.ts's own
- * songLengthInstructionLine (the more specific per-track instruction
- * naturally reads as authoritative) — 8/18 songs in a real senior-morning
- * pack (62-92 BPM band) were told a floor below the pack's own target.
- * Every tier's minimum is now >= 215; the relative BPM shape (slower gets
- * slightly fewer words, faster slightly more — a real 30-60s-too-long
- * bridge-path regression from v3.70's own flat target motivated having
- * per-tempo variation at all) is kept but compressed to fit inside the
- * new, much narrower 15-word target window instead of the old table's
- * 20-word-per-tier spread (sized for the old 30-word-wide 175-205 target).
+ * v4.6 (TASK C, §3-3) — real 36-song measurement: slow tracks (<=86 BPM)
+ * averaged 4:42 against an 8-92 BPM-band target of 3:15-3:35, and v4.4's own
+ * table (below, in git history) put the slow tier's word floor at 215 —
+ * ABOVE where v4.1 originally had it (175-205) — specifically to match
+ * resolveLyricRange's pack-level 215-230 target and avoid a per-track
+ * instruction reading below the pack's own floor. That fix traded a
+ * (smaller, textual) contradiction problem for a (larger, real-audio)
+ * length problem: the raised floor is exactly why slow tracks kept running
+ * long. This table now prioritizes the real symptom the user is actually
+ * judging (audible length) over bridge-instruction-text self-consistency —
+ * see this task's own explicit "가사 단어수를 175 미만으로 줄이지 말 것. 느린
+ * 곡도 하한이 있습니다" floor. The pack-level 215-230 CRITICAL line
+ * (data/audienceProfiles.ts's lyricMetricsByLanguage) is intentionally left
+ * unchanged — out of this task's own scope — so a real contradiction with
+ * the slowest tier's new 175-195 floor can recur in the bridge instruction
+ * text; flagged as a known follow-up rather than silently expanded scope.
+ * Faster tiers widen upward from the old table (Local generation's real
+ * demonstrated bug was slow-track length, not fast-track shortness, so the
+ * faster tiers move opposite the slow ones per the user's own worked table).
  */
 export const BPM_LENGTH_TIERS: readonly BpmLengthTier[] = [
-  { minBpm: 62, maxBpm: 78, sectionRange: [6, 7], wordRange: [215, 225], maxInstrumentalSections: 1 },
-  { minBpm: 79, maxBpm: 92, sectionRange: [7, 8], wordRange: [218, 228], maxInstrumentalSections: 1 },
-  { minBpm: 93, maxBpm: 104, sectionRange: [7, 8], wordRange: [220, 230], maxInstrumentalSections: 2 },
-  { minBpm: 105, maxBpm: 112, sectionRange: [8, 9], wordRange: [222, 232], maxInstrumentalSections: 2 }
+  { minBpm: 62, maxBpm: 78, sectionRange: [5, 6], wordRange: [175, 195], maxInstrumentalSections: 1 },
+  { minBpm: 79, maxBpm: 92, sectionRange: [6, 7], wordRange: [195, 215], maxInstrumentalSections: 1 },
+  { minBpm: 93, maxBpm: 104, sectionRange: [7, 8], wordRange: [215, 235], maxInstrumentalSections: 2 },
+  { minBpm: 105, maxBpm: 112, sectionRange: [7, 8], wordRange: [225, 245], maxInstrumentalSections: 2 }
 ];
 
 /** Clamps out-of-table BPM (e.g. a channel with a wider tempoFloor/tempoCeiling than 62-112) to the nearest edge tier rather than throwing or returning undefined — a design-time estimate always needs SOME target. */
@@ -79,6 +84,25 @@ const TEMPLATE_BARS: Record<StructureTemplateId, number> = {
   T5: 52
 };
 const DEFAULT_TEMPLATE_BARS = TEMPLATE_BARS.T1;
+
+/**
+ * v4.6 (TASK C) — section count per structureTemplate, read from the same
+ * STRUCTURE_TEMPLATE_SECTION_NOTES lists TEMPLATE_BARS above already
+ * documents (T1=8, T2=7, T3=7, T4=6, T5=7) — used by
+ * core/structureTemplatePlan.ts to pick a template whose section count
+ * actually falls inside a song's own BPM tier's sectionRange, instead of
+ * the old BPM-independent rotation (core/lyricEngine.ts's
+ * buildStructureTemplatePlan) that let a slow track land on an 8-section
+ * template and a fast track on a 6-section one — see this task's own §0-3/
+ * §3-2 real measurement of exactly that inversion.
+ */
+export const TEMPLATE_SECTION_COUNT: Record<StructureTemplateId, number> = {
+  T1: 8,
+  T2: 7,
+  T3: 7,
+  T4: 6,
+  T5: 7
+};
 
 /**
  * TASK B (2-4) — real measurement calibration: T7 (81 BPM, template-

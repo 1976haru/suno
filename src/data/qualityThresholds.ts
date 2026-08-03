@@ -86,8 +86,16 @@ export const QUALITY_THRESHOLDS: Threshold[] = [
   { id: 'killing-point-assigned-ratio', labelKo: '킬링포인트 배정 비율', value: 12 / 18, basis: 'estimated' },
   { id: 'killing-point-variety-ratio', labelKo: '킬링포인트 종류 다양성 비율', value: 6 / 18, basis: 'estimated' },
 
-  // --- core/audioGate.ts ---
+  // --- core/audioGate.ts / core/audioSetReport.ts ---
   { id: 'audio-duration-absolute-min-seconds', labelKo: '오디오 길이 절대 하한(초)', value: 170, basis: 'measured' },
+  // v4.6 (TASK D) — lowered 6dB -> 5dB; a real 36-song measurement averaged
+  // 4.4dB with only 1/36 (2.8%) tracks reaching 6dB, making the old target
+  // unreachable in practice (see core/audioSetReport.ts's own
+  // WEAK_DYNAMIC_RANGE_DB doc comment). Registered here for the first time
+  // (previously untracked by this file) with basis:'measured', now that a
+  // real pack-wide measurement backs the value.
+  { id: 'audio-dynamic-range-weak-db', labelKo: '킬링포인트 곡 진폭 권장 하한(dB)', value: 5, basis: 'measured' },
+  { id: 'audio-duration-severe-over-seconds', labelKo: '수노 실측 길이 심각 초과 기준(초)', value: 270, basis: 'measured' },
 
   // --- core/lyricVocabularyRepetition.ts ---
   { id: 'generic-word-cap', labelKo: '일반 단어 반복 상한 (권장)', value: 12, basis: 'measured' },

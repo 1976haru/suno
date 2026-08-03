@@ -52,7 +52,7 @@ import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcInt
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { resolveConstraintsFromOptions } from './constraints';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
-import { resolveFlagshipCombo } from './verifiedCombos';
+import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { vocabularyBankForScene } from '../data/vocabularyBanks';
 
@@ -166,16 +166,9 @@ export function preallocateSongSlots(
   // intact; falls back to a direct overwrite (a single-track perturbation)
   // only when no such swap candidate exists.
   const flagshipCombo = opts.songCount >= 3 ? resolveFlagshipCombo(avoid?.verifiedCombos ?? [], genrePool) : undefined;
-  if (flagshipCombo && genrePlan[1] !== flagshipCombo.genreId) {
-    const swapIndex = genrePlan.findIndex((id, i) => i >= 3 && id === flagshipCombo.genreId);
-    if (swapIndex !== -1) {
-      const tmp = genrePlan[1];
-      genrePlan[1] = genrePlan[swapIndex];
-      genrePlan[swapIndex] = tmp;
-    } else {
-      genrePlan[1] = flagshipCombo.genreId;
-    }
-  }
+  // TASK v4.6 (TASK B) — expands the old single-track (idx 1 only) override
+  // into "세트 전체 최소 2곡, 최대 5곡" — see verifiedCombos.ts's own doc comment.
+  applyVerifiedComboToGenrePlan(genrePlan, flagshipCombo);
   const flagshipComboTempo = flagshipCombo
     ? Math.round((flagshipCombo.bpmRange[0] + flagshipCombo.bpmRange[1]) / 2)
     : undefined;

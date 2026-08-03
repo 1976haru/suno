@@ -35,7 +35,6 @@ import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
-  buildStructureTemplatePlan,
   composeLyrics,
   createLyricBatchPools,
   createTitleGenerator,
@@ -57,7 +56,9 @@ import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
-import { resolveFlagshipCombo } from './verifiedCombos';
+import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
+import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
+import { buildBpmAwareStructureTemplatePlan } from './structureTemplatePlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 
 /**
@@ -784,19 +785,20 @@ export function generateLocalBlueprint(
   // (track 2) genre/tempo override from a verified-good combo — see that
   // file's own doc comment for the swap-preserving-counts reasoning.
   const flagshipCombo = opts.songCount >= 3 ? resolveFlagshipCombo(avoid?.verifiedCombos ?? [], genrePool) : undefined;
-  if (flagshipCombo && genrePlan[1] !== flagshipCombo.genreId) {
-    const swapIndex = genrePlan.findIndex((id, i) => i >= 3 && id === flagshipCombo.genreId);
-    if (swapIndex !== -1) {
-      const tmp = genrePlan[1];
-      genrePlan[1] = genrePlan[swapIndex];
-      genrePlan[swapIndex] = tmp;
-    } else {
-      genrePlan[1] = flagshipCombo.genreId;
-    }
-  }
+  // TASK v4.6 (TASK B) — expands the old single-track (idx 1 only) override
+  // into "세트 전체 최소 2곡, 최대 5곡" — see verifiedCombos.ts's own doc comment.
+  applyVerifiedComboToGenrePlan(genrePlan, flagshipCombo);
   const flagshipComboTempo = flagshipCombo
     ? Math.round((flagshipCombo.bpmRange[0] + flagshipCombo.bpmRange[1]) / 2)
     : undefined;
+  // TASK v4.6 (TASK A) — era-canon-sound fallback for when no artist
+  // reference exists (the common case for a concept like "70년대 올드팝" with
+  // no artist name in it — decomposeArtistReferences then returns [] and
+  // artistStyleAtomPool is empty). Per this task's own §1-5, an artist
+  // reference (when present) already carries its own instrumentation/
+  // harmony/vocal/production atoms via DecomposedReference, so the palette
+  // is skipped rather than doubled up when artistStyleAtomPool is non-empty.
+  const eraCanonPalettePlan = artistStyleAtomPool.length === 0 ? buildEraCanonPalettePlan(genrePlan, seed) : [];
   const situationPool = new UniquePool(listenerSituations, seed + 21);
   // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, replacing
   // the flat UniquePool(emotionArcs, seed) draw (every shape used to be the
@@ -962,8 +964,18 @@ export function generateLocalBlueprint(
   // TASK v3.42 Part C — per-song lyric section-tag shape (see
   // lyricEngine.ts's buildStructureTemplatePlan); track 1 always resolves to
   // 'T1' inside composeLyrics regardless of what this plan assigns it.
+  // TASK v4.6 (TASK C) — BPM-aware selection (core/structureTemplatePlan.ts)
+  // replaces the old BPM-independent rotation: tempoBandPlan is already
+  // built above (well before any song's exact tempo is computed), so its
+  // own band midpoint is a good-enough per-song BPM proxy for picking a
+  // section-count-appropriate template, without needing to reorder the
+  // per-song loop below where the exact tempo is finalized.
+  const bpmProxyByIndex = Array.from({ length: opts.songCount }, (_, i) => {
+    const band = tempoBandPlan[i];
+    return band ? (band.low + band.high) / 2 : undefined;
+  });
   const structureTemplatePlan = applyAxisAllocation(
-    buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype),
+    buildBpmAwareStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype, bpmProxyByIndex),
     opts.diversityAllocations,
     'structureTemplate',
     opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -1177,7 +1189,7 @@ export function generateLocalBlueprint(
       // data/killingPoints.ts) — never present for a peakStrength 'none'
       // track (killingPoint is undefined in that case).
       ...(killingPoint ? [{ id: 'killingPoint' as const, text: killingPoint.descriptor }] : []),
-      ...(conceptInfluence
+      ...(conceptInfluence || eraCanonPalettePlan[idx]
         ? [{
           id: 'concept' as const,
           // TASK v3.58 TASK 3 — artist-derived descriptors listed first: the
@@ -1188,7 +1200,26 @@ export function generateLocalBlueprint(
           // of conceptStyleText's own generic fallback filler ("concept cue:
           // custom concept focus") when a long customConcept forces a choice
           // between them.
-          text: [...rotatingArtistStyleAtoms(artistStyleAtomPool, seed, idx), conceptStyleText(opts.customConcept, idx)].filter(Boolean).join(', ')
+          // TASK v4.6 (TASK A) — era-canon-palette atoms listed next (still
+          // ahead of the generic conceptStyleText fallback, same reasoning):
+          // rotatingEraPaletteAtoms returns [] whenever eraCanonPalettePlan[idx]
+          // is undefined (no artist ref AND no matching oldpop palette, or an
+          // artist ref IS present so the plan was never built at all), so this
+          // is a no-op for every non-oldpop/non-artist-reference song, and the
+          // branch condition above still needs the `|| eraCanonPalettePlan[idx]`
+          // check since a channel with no customConcept text at all would
+          // otherwise skip this whole atom (conceptInfluence is null for an
+          // empty customConcept, independent of whether a palette applies).
+          text: [
+            ...rotatingArtistStyleAtoms(artistStyleAtomPool, seed, idx),
+            // TASK v4.6 (§1-6) — same defense-in-depth re-check as
+            // artistStyleAtomPool above: every palette string is hand-authored
+            // artist-free, but this is the same output guard reused, not a
+            // new one, per this task's own "출력 가드로 검사하십시오 (v3.58 기존
+            // 가드 재사용)".
+            ...rotatingEraPaletteAtoms(eraCanonPalettePlan[idx], seed, idx).filter(atom => findArtistReferenceLeaks(atom).length === 0),
+            conceptStyleText(opts.customConcept, idx)
+          ].filter(Boolean).join(', ')
         }]
         : []),
       ...(role === 'cold-open' ? [{ id: 'duration' as const, text: openingDurationText(role, openingStyle, opts.durationTarget) }] : []),

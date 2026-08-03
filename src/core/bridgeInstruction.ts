@@ -159,7 +159,13 @@ function buildResolvedConstraintsSection(constraints: ResolvedConstraints): stri
   }
   lines.push(
     `  어휘   같은 단어를 이 세트에서 ${constraints.vocabulary.maxRepeatPerWord}회 넘게 쓰지 마십시오` +
-    `(채널 정체성 어휘${constraints.vocabulary.identityWords.length ? ` — ${constraints.vocabulary.identityWords.join(', ')}` : ''}는 ${constraints.vocabulary.identityMaxRepeat}회까지 허용).`
+    `(채널 정체성 어휘${constraints.vocabulary.identityWords.length ? ` — ${constraints.vocabulary.identityWords.join(', ')}` : ''}는 ${constraints.vocabulary.identityMaxRepeat}회까지 허용).` +
+    // TASK v4.6 (TASK E) — every/before/more are ordinary connector words an
+    // LLM reaches for by default across many songs without noticing the
+    // pack-wide total; a real pack hit 69 uses of "every" alone. Named
+    // explicitly since the generic cap line above is easy to read as being
+    // about content nouns only.
+    ' 특히 every, before, more 같은 단어를 여러 곡에 걸쳐 반복하지 마십시오.'
   );
   return lines.join('\n');
 }
