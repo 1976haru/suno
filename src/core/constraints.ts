@@ -139,7 +139,11 @@ const ERA_ADJACENCY: Record<EraBucket, EraBucket[]> = {
   '1950s-60s': ['1970s'],
   '1970s': ['1950s-60s', '1980s'],
   '1980s': ['1970s'],
-  timeless: []
+  timeless: [],
+  // TASK B1 — kr2030-y2k-retro is the only '2000s'-tagged genre and doesn't
+  // participate in the oldpop-era-quota system this table drives; no
+  // adjacency needed.
+  '2000s': []
 };
 
 const REAL_ERA_BUCKETS: EraBucket[] = ['1950s-60s', '1970s', '1980s'];

@@ -427,7 +427,75 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
   'jazz-torch-vocal-jazz': { dynamicRange: 'low', structureTraits: ['AABA torch-song form', 'rubato phrase endings before each new section'] },
   'jazz-late-night-lounge': { dynamicRange: 'low', structureTraits: ['loose lounge form, understated throughout', 'guitar solo stands in for a second verse'] },
   'jazz-mellow-flugelhorn-vocal': { dynamicRange: 'medium', structureTraits: ['verse-chorus ballad form', 'flugelhorn answers the vocal between phrases'] },
-  'jazz-cabaret-jazz': { dynamicRange: 'wide', structureTraits: ['theatrical verse building into a bigger chorus', 'piano punctuates the ends of phrases'] }
+  'jazz-cabaret-jazz': { dynamicRange: 'wide', structureTraits: ['theatrical verse building into a bigger chorus', 'piano punctuates the ends of phrases'] },
+
+  // ===== TASK B1 — kr-2030 workspace, 6 new genres =====
+  // Korean-axis rule (this task's own §3-1): at least 4/6 lead with bass or
+  // drum vocabulary in instrumentation's first 2 items, and at least 4/6
+  // carry a short-repeated-chorus structureTraits entry — the measurable
+  // form of "베이스·드럼 중심, 후렴 짧고 직접적" versus C1's future Japanese-axis
+  // contrast (guitar/piano-led, A멜로-B멜로-사비 structure, which never
+  // appears anywhere below on purpose).
+  'kr2030-emo-band-pop': {
+    eraTag: '2020s Korean band pop',
+    instrumentation: ['driving electric bass', 'live rock drum kit', 'clean-to-crunch electric guitar', 'piano countermelody'],
+    rhythmFeel: ['driving straight-eighth band pulse', 'tom-heavy prechorus build'],
+    harmonyTraits: ['minor-to-major prechorus lift', 'anthemic diatonic chorus'],
+    productionTraits: ['modern clean band mix', 'tight punchy low end'],
+    vocalTraits: ['emotionally direct Korean lead vocal', 'occasional falsetto lift on the hook'],
+    dynamicRange: 'wide',
+    structureTraits: ['short repeated one-line chorus hook', 'prechorus builds directly into the chorus with no bridge detour']
+  },
+  'kr2030-electro-pop': {
+    eraTag: '2020s Korean electro pop',
+    instrumentation: ['punchy synth bass', 'four-on-the-floor electronic kick', 'bright pluck synth', 'filtered synth pad'],
+    rhythmFeel: ['four-on-the-floor pulse with offbeat accents', 'UK garage-influenced syncopation'],
+    harmonyTraits: ['simple repeated verse-chorus progression', 'minimal chord substitution, direct diatonic movement'],
+    productionTraits: ['clean digital pop mix', 'sidechain-pumped low end'],
+    vocalTraits: ['confident female-led pop vocal', 'short clipped phrasing on the verse'],
+    dynamicRange: 'low',
+    structureTraits: ['one-line chorus hook repeated verbatim across the song', 'chorus arrives early with no extended bridge section']
+  },
+  'kr2030-dawn-rnb': {
+    eraTag: '2020s Korean R&B',
+    instrumentation: ['deep round bass', 'soft brushed trap drum programming', 'muted electric piano', 'airy synth pad'],
+    rhythmFeel: ['slow half-time R&B pocket', 'loose behind-the-beat swing'],
+    harmonyTraits: ['extended minor-seventh chord color', 'smooth ii-V neo-soul movement'],
+    productionTraits: ['dark intimate late-night mix', 'sparse negative space between hits'],
+    vocalTraits: ['close intimate Korean R&B lead', 'airy ad-lib runs'],
+    dynamicRange: 'low',
+    structureTraits: ['short repeated hook phrase carries the chorus', 'verse and chorus share the same low-key dynamic level']
+  },
+  'kr2030-ost-ballad': {
+    eraTag: '2020s Korean OST-style ballad',
+    instrumentation: ['grand piano', 'sweeping string section entering at the chorus', 'soft brushed drums', 'warm sustained bass'],
+    rhythmFeel: ['rubato verse settling into a slow steady chorus pulse', 'no swing, straight ballad time-feel'],
+    harmonyTraits: ['suspended chords resolving into a lush chorus progression', 'late key-change lift into the final chorus'],
+    productionTraits: ['cinematic OST-style room bloom', 'strings held back until the chorus'],
+    vocalTraits: ['emotive Korean ballad lead', 'controlled power building into the final chorus'],
+    dynamicRange: 'wide',
+    structureTraits: ['piano-only verse opening into a fully-arranged chorus', 'final chorus modulates up for the emotional peak']
+  },
+  'kr2030-y2k-retro': {
+    eraTag: '2000s Y2K Korean pop',
+    instrumentation: ['punchy electric bass', 'crisp programmed drum kit', 'bright digital synth stab', 'clean electric guitar chops'],
+    rhythmFeel: ['syncopated Y2K R&B-pop groove', 'crisp programmed backbeat'],
+    harmonyTraits: ['bright major-key verse-to-chorus lift', 'catchy diatonic hook progression'],
+    productionTraits: ['bright early-2000s digital polish', 'clean compressed pop mix'],
+    vocalTraits: ['bright confident Korean pop lead', 'stacked unison hook vocals'],
+    dynamicRange: 'medium',
+    structureTraits: ['short direct verse-chorus form', 'hook repeats immediately after the first verse']
+  },
+  'kr2030-acoustic-folk': {
+    eraTag: '2020s Korean acoustic folk pop',
+    instrumentation: ['fingerpicked acoustic guitar', 'soft piano answers', 'light hand percussion', 'warm upright bass'],
+    rhythmFeel: ['gentle acoustic strum-and-pick pulse', 'unhurried folk-pop tempo'],
+    harmonyTraits: ['simple open-chord folk progression', 'gentle major-key resolution'],
+    productionTraits: ['natural low-stimulus acoustic room tone', 'minimal reverb, close and dry'],
+    vocalTraits: ['plainspoken warm Korean lead', 'soft close-mic delivery'],
+    dynamicRange: 'low',
+    structureTraits: ['simple verse-chorus form with no dramatic build', 'chorus stays close in dynamic to the verse']
+  }
 };
 
 /**

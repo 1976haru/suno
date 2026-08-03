@@ -928,7 +928,10 @@ export function buildAdultVocalTraitPlan(
     // check. Below pack scale, every value stays equally weighted.
     if (plan.length < 4) return 1;
     const eraBucket = options.eraBucketByIndex?.[songIdx];
-    const preferred = eraBucket && eraBucket !== 'timeless' ? PROXIMITY_ERA_PREFERENCE[eraBucket] : undefined;
+    // TASK B1 — PROXIMITY_ERA_PREFERENCE only covers the 3 oldpop-* decade
+    // buckets (data/vocalTraits.ts); '2000s' (kr2030-y2k-retro) has no entry
+    // there, same as 'timeless' already didn't.
+    const preferred = eraBucket && eraBucket !== 'timeless' && eraBucket !== '2000s' ? PROXIMITY_ERA_PREFERENCE[eraBucket] : undefined;
     return preferred?.includes(candidate) ? 2 : 1;
   };
 

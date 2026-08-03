@@ -82,6 +82,25 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     memberGenreIds: ['oldpop-adult-contemporary-80s', 'oldpop-orchestral-ballad-80s', 'oldpop-light-synth-pop-warm', 'oldpop-soft-duet-80s'],
     commonTraitKo: '부드러운 신스 패드·오케스트라 스트링·듀엣 보컬',
     blendsWellWith: ['rnb-soul', 'warm-melody']
+  },
+  // TASK B1 — kr-2030 workspace families. blendsWellWith only links to other
+  // kr2030 families (never an oldpop/senior family) so a set built from
+  // these two never pulls in olpop-* genres.
+  {
+    id: 'kr2030-band-emotional',
+    labelKo: '밴드·감성',
+    descriptionKo: '라이브 밴드 사운드와 어쿠스틱 질감의 한국 2030 감성 팝',
+    memberGenreIds: ['kr2030-emo-band-pop', 'kr2030-ost-ballad', 'kr2030-acoustic-folk'],
+    commonTraitKo: '라이브 밴드 사운드·선명한 후렴·어쿠스틱 질감',
+    blendsWellWith: ['kr2030-night-groove']
+  },
+  {
+    id: 'kr2030-night-groove',
+    labelKo: '나이트·그루브',
+    descriptionKo: '단단한 베이스와 야간 도시 무드의 한국 2030 팝',
+    memberGenreIds: ['kr2030-electro-pop', 'kr2030-dawn-rnb', 'kr2030-y2k-retro'],
+    commonTraitKo: '단단한 베이스·야간 도시·짧고 강한 훅',
+    blendsWellWith: ['kr2030-band-emotional']
   }
 ];
 

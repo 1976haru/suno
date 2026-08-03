@@ -11,7 +11,10 @@
  * compositionScorer.ts (detection) read from, so the two stay in sync by
  * construction — same pattern as data/arrangementVocabulary.ts.
  */
-export type EraBucket = '1950s-60s' | '1970s' | '1980s' | 'timeless';
+// TASK B1 — '2000s' added for kr-2030's Y2K retro genre (kr2030-y2k-retro).
+// Additive only: the existing 3 real decades + 'timeless' keep their exact
+// prior meaning and membership below.
+export type EraBucket = '1950s-60s' | '1970s' | '1980s' | 'timeless' | '2000s';
 
 /** Hardcoded from the oldpop-* family's own 1-A/1-B/1-C/1-D grouping (see genreLibrary/index.ts's oldpopGenrePacks comment) — the era each of the 28 genres was authored for. Genres not listed here (every non-oldpop genre) have no era restriction. */
 export const ERA_BUCKET_BY_GENRE_ID: Record<string, EraBucket> = {
@@ -42,14 +45,19 @@ export const ERA_BUCKET_BY_GENRE_ID: Record<string, EraBucket> = {
   'oldpop-hearth-acoustic': 'timeless',
   'oldpop-sunlit-strings-pop': 'timeless',
   'oldpop-slow-waltz-memory': 'timeless',
-  'oldpop-evening-lamp-ballad': 'timeless'
+  'oldpop-evening-lamp-ballad': 'timeless',
+  // TASK B1 — only kr2030-y2k-retro is era-mapped; the other 5 kr-2030
+  // genres are deliberately left unmapped (no era restriction), same as
+  // every non-oldpop genre in this file.
+  'kr2030-y2k-retro': '2000s'
 };
 
 export const ERA_LABEL: Record<EraBucket, string> = {
   '1950s-60s': '1950s-60s',
   '1970s': '1970s',
   '1980s': '1980s',
-  timeless: 'timeless (no specific decade)'
+  timeless: 'timeless (no specific decade)',
+  '2000s': '2000s'
 };
 
 /**
@@ -67,7 +75,11 @@ export const ERA_FORBIDDEN_DESCRIPTORS: Record<EraBucket, string[]> = {
   '1950s-60s': ['string pad', 'synth pad', 'gated reverb', 'wide stereo'],
   '1970s': ['gated reverb', 'digital synth', 'sidechain'],
   '1980s': ['mono-leaning mix', 'mono mix', 'tape-only production'],
-  timeless: []
+  timeless: [],
+  // TASK B1 — no anachronism list specified by the source market research
+  // (§3-3's own "없는 조건을 지어내지 마십시오"); left empty like `timeless`
+  // rather than inventing one.
+  '2000s': []
 };
 
 export function eraBucketForGenreId(genreId: string | undefined): EraBucket | null {

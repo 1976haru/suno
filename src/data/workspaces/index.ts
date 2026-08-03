@@ -68,7 +68,11 @@ const KR_2030: WorkspaceDefinition = {
   id: 'kr-2030',
   labelKo: '한국 20~30대',
   descriptionKo: '한국 20~30대 대상 워크스페이스 — 준비 중 (B1/B2에서 채워집니다).',
-  archetypeIds: [],
+  // TASK B1 — genre layer filled in (kr2030GenrePacks, 6 genres). `ready`
+  // stays false until B2 (lyric world/hooks/titles/thumbnails/UI) lands —
+  // opening this workspace today would still serve the senior lyric
+  // dictionary underneath it.
+  archetypeIds: ['kr-2030-pop'],
   defaultAudienceProfileId: 'general',
   defaultLyricLanguage: 'korean',
   theme: { accent: '#7c3aed', surface: '#f5f3ff' },

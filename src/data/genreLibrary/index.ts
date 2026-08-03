@@ -180,7 +180,9 @@ export const genreCategories: GenreCategory[] = [
   // TASK v3.61 — 60s-80s Western old-pop family (doo-wop through torch song),
   // exposed as its own category so Step1's genre chip picker can group the
   // oldpop-* packs (see SENIOR_MORNING_CORE_GENRE_IDS/oldpopGenrePacks).
-  { id: 'oldpop', label: '60s-80s Old Pop', description: 'Doo-wop, Brill Building, sunshine pop, 70s soft rock/soul, and 80s adult-contemporary presets for a warm senior playlist.' }
+  { id: 'oldpop', label: '60s-80s Old Pop', description: 'Doo-wop, Brill Building, sunshine pop, 70s soft rock/soul, and 80s adult-contemporary presets for a warm senior playlist.' },
+  // TASK B1 — kr-2030 workspace genre category (see kr2030GenrePacks below).
+  { id: 'kr-2030', label: 'Korean 20s-30s Pop', description: 'Modern Korean emotional band pop, electro pop, R&B, OST ballad, Y2K retro, and acoustic folk presets for the kr-2030 workspace.' }
 ];
 
 export const SENIOR_MORNING_CORE_GENRE_IDS = [
@@ -306,6 +308,21 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * TASK B1 — kr-2030 workspace's 6 genres (see kr2030GenrePacks below).
+ * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3), and the
+ * market research's top-3 priority is emo-band-pop / dawn-rnb / y2k-retro
+ * (ranks 1, 3, 5), not simple array order — hence 1, 3, 5, 2, 4, 6 here.
+ */
+export const KR_2030_CORE_GENRE_IDS = [
+  'kr2030-emo-band-pop',
+  'kr2030-dawn-rnb',
+  'kr2030-y2k-retro',
+  'kr2030-electro-pop',
+  'kr2030-ost-ballad',
+  'kr2030-acoustic-folk'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -378,7 +395,8 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   j2000s: J2000S_CORE_GENRE_IDS,
   'modern-chill': MODERN_CHILL_CORE_GENRE_IDS,
   'city-night': CITY_NIGHT_CORE_GENRE_IDS,
-  'oldpop-lounge': OLDPOP_LOUNGE_CORE_GENRE_IDS
+  'oldpop-lounge': OLDPOP_LOUNGE_CORE_GENRE_IDS,
+  'kr-2030-pop': KR_2030_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -387,7 +405,8 @@ const allCoreGenreIds = new Set<string>([
   ...SHOWA_70S_CORE_GENRE_IDS,
   ...J2000S_CORE_GENRE_IDS,
   ...MODERN_CHILL_CORE_GENRE_IDS,
-  ...CITY_NIGHT_CORE_GENRE_IDS
+  ...CITY_NIGHT_CORE_GENRE_IDS,
+  ...KR_2030_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -906,6 +925,99 @@ export const oldpopGenrePacks: StructuredGenrePack[] = [
   legacyGenrePack({ id: 'oldpop-sunlit-strings-pop', label: 'Sunlit Strings Pop', styleCore: 'timeless sunlit chamber-strings pop, mid-tempo gentle uplift', instruments: ['chamber string section', 'acoustic rhythm guitar', 'light brushed drums', 'warm bass'], tempoRange: [86, 98], goodFor: ['bright gentle afternoon', 'hopeful memory', 'senior playlist'] }, 'oldpop', { rhythm: ['mid-tempo sunlit lift pulse'], vocal: ['bright gentle lead vocal'], production: ['warm sunlit chamber-pop mix'], harmony: ['bright gentle major-key rise'], moods: ['bright', 'gentle'], audiences: ['bright gentle afternoon', 'hopeful memory'], avoidTraits: ['harsh string tone', 'busy syncopation'] }),
   legacyGenrePack({ id: 'oldpop-slow-waltz-memory', label: 'Slow Waltz Memory Pop', styleCore: 'timeless slow-waltz memory pop, accordion or vibraphone color, reflective 3/4 sway', instruments: ['accordion', 'vibraphone', 'soft upright bass', 'light brushed drums'], tempoRange: [66, 78], goodFor: ['reflective memory', 'quiet evening', 'senior playlist'] }, 'oldpop', { rhythm: ['slow 3/4 memory waltz'], vocal: ['reflective waltz-tempo lead vocal'], production: ['warm reflective waltz-hall room tone'], harmony: ['reflective minor-to-major waltz progression'], moods: ['reflective', 'wistful'], audiences: ['reflective memory', 'quiet evening'], avoidTraits: ['rushed tempo', 'harsh accordion tone'] }),
   legacyGenrePack({ id: 'oldpop-evening-lamp-ballad', label: 'Evening Lamp Ballad', styleCore: 'timeless low-dynamic evening ballad, piano and brushed drums, strings reserved for the final chorus', instruments: ['piano', 'brushed drums', 'strings entering only in the final chorus', 'soft bass'], tempoRange: [68, 80], goodFor: ['quiet evening', 'unhurried comfort', 'senior playlist'] }, 'oldpop', { rhythm: ['low-dynamic evening ballad pulse'], vocal: ['restrained close evening lead vocal'], production: ['low-dynamic close evening mix, strings held back for the final chorus'], harmony: ['restrained evening-ballad chord movement'], moods: ['restrained', 'quietly warm'], audiences: ['quiet evening', 'unhurried comfort'], avoidTraits: ['early dynamic climax', 'abrupt dynamic jumps'] })
+];
+
+/**
+ * TASK B1 — kr-2030 workspace's 6 genres. `archetypes: ['kr-2030-pop']` is
+ * set explicitly on every single one (never left empty) — withGenreVisibility
+ * only calls inferArchetypes() when `genre.archetypes` is empty, and a real
+ * measurement during this task found that leaving it empty routes these
+ * straight into 'modern-chill'/'city-night' (senior-oldpop workspace
+ * archetypes) purely from styleCore words like "R&B"/"night drive". Do not
+ * remove this field from any entry below — see tests/genreLibrary.test.ts's
+ * "kr2030-* genres never leak into a senior-oldpop archetype" coverage.
+ *
+ * Korean-axis differentiation (this task's own §3-1, the future contrast
+ * point for C1's Japanese-axis genres): at least 4/6 lead with bass/drum
+ * vocabulary in instrumentation's first 2 items, at least 4/6 carry a
+ * short-repeated-chorus structureTraits entry (see genreTraits.ts's own
+ * GENRE_TRAIT_OVERRIDES entries for these 6 ids), and none of the 6 use
+ * A-melo/B-melo/sabi structural vocabulary.
+ */
+export const kr2030GenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'kr2030-emo-band-pop',
+    label: 'Korean Emotional Band Pop',
+    styleCore: 'warm Korean emotional band-pop, live rock band interplay, direct short chorus hook',
+    instruments: ['driving electric bass', 'live rock drum kit', 'clean-to-crunch electric guitar', 'piano countermelody'],
+    tempoRange: [95, 118],
+    goodFor: ['퇴근 후 감성 밴드팝', 'drive', 'emotional singalong'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core'
+  }, 'kr-2030', { rhythm: ['driving straight-eighth band pulse', 'tom-heavy prechorus build'], vocal: ['emotionally direct Korean lead vocal', 'occasional falsetto lift on the hook'], production: ['modern clean band mix', 'tight punchy low end'], harmony: ['minor-to-major prechorus lift', 'anthemic diatonic chorus'], moods: ['emotional', 'direct', 'youthful'], audiences: ['퇴근 후 감성 밴드팝', '2030 감성 플레이리스트'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'kr2030-dawn-rnb',
+    label: 'Seoul Dawn R&B',
+    styleCore: 'intimate Seoul dawn R&B, restrained groove, late-night vocal closeness',
+    instruments: ['deep round bass', 'soft brushed trap drum programming', 'muted electric piano', 'airy synth pad'],
+    tempoRange: [78, 98],
+    goodFor: ['새벽 감성 R&B', 'late-night', 'intimate'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core'
+  }, 'kr-2030', { rhythm: ['slow half-time R&B pocket', 'loose behind-the-beat swing'], vocal: ['close intimate Korean R&B lead', 'airy ad-lib runs'], production: ['dark intimate late-night mix', 'sparse negative space between hits'], harmony: ['extended minor-seventh chord color', 'smooth ii-V neo-soul movement'], moods: ['intimate', 'late-night', 'restrained'], audiences: ['새벽 감성 R&B', '인디팝 무드'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'kr2030-y2k-retro',
+    label: 'Y2K Korean Drive Pop',
+    styleCore: 'Y2K-era Korean drive pop, syncopated bass groove, nostalgic 2000s digital sheen',
+    instruments: ['punchy electric bass', 'crisp programmed drum kit', 'bright digital synth stab', 'clean electric guitar chops'],
+    tempoRange: [100, 120],
+    goodFor: ['Y2K 레트로팝', 'night drive', 'nostalgic 2000s mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core'
+  }, 'kr-2030', { rhythm: ['syncopated Y2K R&B-pop groove', 'crisp programmed backbeat'], vocal: ['bright confident Korean pop lead', 'stacked unison hook vocals'], production: ['bright early-2000s digital polish', 'clean compressed pop mix'], harmony: ['bright major-key verse-to-chorus lift', 'catchy diatonic hook progression'], moods: ['nostalgic', 'bright', 'confident'], audiences: ['Y2K 레트로팝', '드라이브'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'kr2030-electro-pop',
+    label: 'Modern K-Pop Electro Pop',
+    styleCore: 'sleek modern K-pop electro pop, minimal punchy bass, short addictive hook',
+    instruments: ['punchy synth bass', 'four-on-the-floor electronic kick', 'bright pluck synth', 'filtered synth pad'],
+    tempoRange: [105, 128],
+    goodFor: ['모던 일렉트로팝', 'night drive', 'confident pop'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core'
+  }, 'kr-2030', {
+    rhythm: ['four-on-the-floor pulse with offbeat accents', 'UK garage-influenced syncopation'],
+    vocal: ['confident female-led pop vocal', 'short clipped phrasing on the verse'],
+    production: ['clean digital pop mix', 'sidechain-pumped low end'],
+    harmony: ['simple repeated verse-chorus progression', 'minimal chord substitution, direct diatonic movement'],
+    moods: ['confident', 'sleek', 'modern'],
+    audiences: ['모던 일렉트로팝', '나이트 드라이브'],
+    // TASK B1 (§3-3) — the market research's own electro-pop-only caveats:
+    // no rap verse, no complex chord substitutions, no extended high
+    // belting. Song length (2:30-3:10) is deliberately NOT encoded here —
+    // that's AudienceProfile.songLengthSecondsRange, A3's territory (see
+    // this task's own §2/§10 "compactDuration()를 고치지 말 것").
+    avoidTraits: ['rap verse', 'complex chord substitutions', 'extended high belting']
+  }),
+  legacyGenrePack({
+    id: 'kr2030-ost-ballad',
+    label: 'Korean OST Ballad Pop',
+    styleCore: 'cinematic Korean OST-style ballad pop, piano-led verse opening into a string-lifted chorus',
+    instruments: ['grand piano', 'sweeping string section entering at the chorus', 'soft brushed drums', 'warm sustained bass'],
+    tempoRange: [68, 86],
+    goodFor: ['발라드·OST형 팝', 'drama soundtrack mood', 'emotional finale'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core'
+  }, 'kr-2030', { rhythm: ['rubato verse settling into a slow steady chorus pulse', 'no swing, straight ballad time-feel'], vocal: ['emotive Korean ballad lead', 'controlled power building into the final chorus'], production: ['cinematic OST-style room bloom', 'strings held back until the chorus'], harmony: ['suspended chords resolving into a lush chorus progression', 'late key-change lift into the final chorus'], moods: ['cinematic', 'emotional', 'bittersweet'], audiences: ['발라드·OST형 팝', '드라마 삽입곡 무드'], avoidTraits: [] }),
+  legacyGenrePack({
+    id: 'kr2030-acoustic-folk',
+    label: 'Melodic Acoustic Folk Pop',
+    styleCore: 'melodic Korean acoustic folk pop, warm fingerpicked guitar, gentle understated arrangement',
+    instruments: ['fingerpicked acoustic guitar', 'soft piano answers', 'light hand percussion', 'warm upright bass'],
+    tempoRange: [82, 100],
+    goodFor: ['멜로 어쿠스틱·포크팝', 'quiet afternoon', 'gentle singalong'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core'
+  }, 'kr-2030', { rhythm: ['gentle acoustic strum-and-pick pulse', 'unhurried folk-pop tempo'], vocal: ['plainspoken warm Korean lead', 'soft close-mic delivery'], production: ['natural low-stimulus acoustic room tone', 'minimal reverb, close and dry'], harmony: ['simple open-chord folk progression', 'gentle major-key resolution'], moods: ['gentle', 'understated', 'warm'], audiences: ['멜로 어쿠스틱·포크팝', '조용한 오후'], avoidTraits: [] })
 ];
 
 export const eraGenrePacks: StructuredGenrePack[] = [
@@ -1462,7 +1574,7 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;

@@ -90,7 +90,10 @@ describe('structured genre library', () => {
     // TASK v3.61 — +28 for oldpopGenrePacks (registered in both genreLibrary
     // and presets.ts's rawGenrePacks, so this fixed count grows by the same
     // 28 the LEGACY_IDS-based total already accounts for on the other side).
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 28);
+    // TASK B1 — +6 for kr2030GenrePacks, same registered-in-both pattern as
+    // oldpopGenrePacks just above (see presets.ts's own rawGenrePacks spread
+    // and genreLibrary/index.ts's kr2030GenrePacks doc comment).
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 28 + 6);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -291,8 +294,11 @@ describe('structured genre library', () => {
     // it turned out to silently break conceptAgent.ts's keyword routing,
     // not just the UI chip picker), so libraryIds gains those same 2 ids
     // and the two counts converge back to equal: 318+2=320, 320 unchanged.
-    expect(libraryIds.size).toBe(320);
-    expect(presetIds.size).toBe(320);
+    // TASK B1 — +6 kr2030-* ids, registered in both genreLibrary's own array
+    // and presets.ts's rawGenrePacks (same registered-in-both pattern as
+    // v3.61's oldpop-* addition above), so both counts move together: 326.
+    expect(libraryIds.size).toBe(326);
+    expect(presetIds.size).toBe(326);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

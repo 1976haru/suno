@@ -40,5 +40,13 @@ export const VOCAL_TECHNIQUES_BY_ERA: Record<EraBucket, string[]> = {
     'warm conversational lead delivery',
     'gentle unhurried phrasing throughout',
     'plain unadorned melodic delivery'
+  ],
+  // TASK B1 — kr2030-y2k-retro is the only '2000s'-tagged genre. Standard
+  // Y2K-era R&B-pop vocal techniques, same ≤8-word cap as every entry above.
+  '2000s': [
+    'runs and melisma on the hook',
+    'stacked ad-lib harmonies in the bridge',
+    'bright unison group vocal on the chorus',
+    'call-and-response vocal ad-libs'
   ]
 };

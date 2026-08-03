@@ -16,13 +16,26 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
     expect(senior.contentTier).toBe('adult');
   });
 
-  it('the other 4 workspaces are skeletal only: no archetypes yet, ready=false', () => {
+  it('the other 4 workspaces stay not-ready, and 3 of them are still fully skeletal (no archetypes)', () => {
     for (const id of ['kr-2030', 'jp-2030', 'kr-kids', 'jp-kids'] as const) {
       const ws = getWorkspace(id);
       expect(ws.ready).toBe(false);
-      expect(ws.archetypeIds).toEqual([]);
       expect(ws.labelKo.length).toBeGreaterThan(0);
     }
+    for (const id of ['jp-2030', 'kr-kids', 'jp-kids'] as const) {
+      expect(getWorkspace(id).archetypeIds).toEqual([]);
+    }
+  });
+
+  // TASK B1 — kr-2030's genre layer is filled in (6 kr2030-* genres, see
+  // genreLibrary/index.ts's kr2030GenrePacks), but the workspace is
+  // deliberately NOT flipped to ready=true yet — B2 (lyric world, hooks,
+  // titles, thumbnails, UI) still owes that, since opening this workspace
+  // today would still serve the senior lyric dictionary underneath it.
+  it('kr-2030 has its single archetype registered but stays ready=false until B2', () => {
+    const kr2030 = getWorkspace('kr-2030');
+    expect(kr2030.archetypeIds).toEqual(['kr-2030-pop']);
+    expect(kr2030.ready).toBe(false);
   });
 
   it('kids workspaces are contentTier=children, the 2030 workspaces are adult', () => {

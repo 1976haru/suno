@@ -129,6 +129,20 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     primaryLanguage: 'english'
   },
   {
+    // TASK B1 — kr-2030 workspace's single archetype (genreLibrary's
+    // kr2030GenrePacks). Not reachable from the senior-oldpop workspace's
+    // own UI flow today (this card only becomes user-visible once B2 flips
+    // KR_2030.ready to true), listed here per this task's own §5 edit map.
+    id: 'kr-2030-pop',
+    label: '한국 2030 감성팝',
+    description: '밴드팝·일렉트로팝·R&B·OST발라드·Y2K레트로·어쿠스틱포크를 아우르는 2030 감성 채널',
+    vocal: 'confident modern Korean pop lead, emotionally direct delivery, close-mic warmth',
+    moods: ['emotional', 'confident', 'nostalgic'],
+    market: 'korea',
+    audience: 'twenties',
+    primaryLanguage: 'korean'
+  },
+  {
     id: 'kids',
     label: '키즈',
     description: '가족이 함께 듣기 좋은 밝고 안전한 창작 동요 채널',

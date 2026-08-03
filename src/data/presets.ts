@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, kr2030GenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -430,6 +430,12 @@ const rawGenrePacks: GenrePack[] = [
     archetypes: ['kids']
   },
   ...oldpopGenrePacks,
+  // TASK B1 — kr-2030 workspace's 6 genres (see genreLibrary/index.ts's own
+  // kr2030GenrePacks doc comment). Spread here the same way oldpopGenrePacks
+  // is, above — this array (not genreLibrary/index.ts's own genrePacks
+  // export) is what generateLocalBlueprint actually receives genres from
+  // (see this file's own comment on the genrePacks export just below).
+  ...kr2030GenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks

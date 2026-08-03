@@ -28,5 +28,20 @@ export const GENRE_FORBIDDEN_DESCRIPTORS: GenreDescriptorRule[] = [
     // "swing feel"/"walking bass" instruction directly contradicts them.
     genreIds: ['adult-contemporary', 'acoustic-pop', 'retro-soul-pop', 'folk-pop', 'soft-rock'],
     forbiddenPhrases: ['swing feel', 'walking bass', 'walking upright bass']
+  },
+  // TASK B1 — kr-2030 workspace guards, so 60s-80s oldpop production
+  // vocabulary (this app's only other genre family with heavy era framing)
+  // never leaks into these 6 explicitly-modern genres.
+  {
+    genreIds: ['kr2030-emo-band-pop', 'kr2030-electro-pop', 'kr2030-dawn-rnb', 'kr2030-ost-ballad', 'kr2030-y2k-retro', 'kr2030-acoustic-folk'],
+    forbiddenPhrases: ['analog tape saturation', 'mono-leaning mix', 'brushed drum kit', 'crooner delivery', 'AM-radio compression', 'spring reverb']
+  },
+  {
+    genreIds: ['kr2030-electro-pop'],
+    forbiddenPhrases: ['acoustic instruments carry the arrangement', 'fingerpicked acoustic guitar', 'brushed snare']
+  },
+  {
+    genreIds: ['kr2030-ost-ballad', 'kr2030-acoustic-folk'],
+    forbiddenPhrases: ['four-on-the-floor', 'UK garage rhythm', 'sidechained pump']
   }
 ];
