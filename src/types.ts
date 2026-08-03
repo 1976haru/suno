@@ -236,6 +236,22 @@ export interface GenrePack {
    * 320-genre catalog by design (see docs/v365-report.md TASK A section).
    */
   traits?: GenreTraits;
+  /**
+   * TASK v4.9 (TASK B, §2-3) — real listening feedback: "재즈는 남녀 상관없이
+   * 약함. 재즈 = 무조건 여자" (and the analogous crooner/europop/soul
+   * observations this task's own §2-3 table generalizes from). A soft
+   * weighting hint (never a hard filter — this app's own established
+   * "가중치로만 씁니다, 강제하지 않습니다" convention, matching
+   * core/vocalPlan.ts's channelFlavorWeight) toward which vocalType this
+   * genre's own real recordings actually lean, consulted by
+   * core/vocalGenreAffinity.ts's applyGenreVocalAffinity to bias WHICH
+   * song-slot gets which genre+vocalType pairing without changing either
+   * axis's own pack-wide marginal counts (still 6 male/6 female/6 mixed for
+   * an 18-song adult pack, unchanged). Weights need not sum to 1; absent
+   * entirely means "no opinion" (uniform 1/1/1), the default for every
+   * genre this task doesn't explicitly name.
+   */
+  vocalPreference?: { male: number; female: number; mixed: number };
 }
 
 /**
@@ -321,6 +337,16 @@ export interface GenerationOptions {
   artistReferenceStyleAtoms?: string[];
   /** v3.63 (TASK B) — GenreFamily ids the user checked in Step2Concept's family picker (see data/genreFamilies.ts). When non-empty, setDirector.ts's directSetLocal uses these to choose the genre axis instead of free-text keyword scoring alone. */
   selectedGenreFamilyIds?: string[];
+  /**
+   * TASK v4.9 (TASK A, §1-6) — explicit override for the set's own
+   * data/paletteFamilies.ts PaletteFamily id (Step2Plan's "이 세트의 계열"
+   * selector). Distinct from selectedGenreFamilyIds just above (that's the
+   * older, genre-level GenreFamily picker, still a separate concern — see
+   * paletteFamilies.ts's own doc comment for how the two differ). Undefined
+   * lets core/setDirector.ts's resolveMainFamilyId auto-resolve one instead
+   * (concept keyword hint, then recency rotation).
+   */
+  paletteFamilyOverride?: string;
   /** v3.49A: optional selected-genre weights for blend/rotation previews. Keys are GenrePack ids, values are 0-100. */
   genreBlendWeights?: Record<string, number>;
   /** Optional user-written concrete lyric scene added to the lyric-theme allocation pool. */

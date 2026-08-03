@@ -3,7 +3,9 @@ import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { getGenreById, genreLibrary } from '../../data/genreLibrary';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
-import { BREADTH_LABEL_KO, directSetLocal, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
+import { BREADTH_LABEL_KO, directSetLocal, resolveMainFamilyId, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
+import { PALETTE_FAMILIES } from '../../data/paletteFamilies';
+import { channelSoundFloorForArchetype } from '../../data/channelSoundFloor';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
 import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
@@ -142,9 +144,21 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid],
       recentHooks: [],
       insights: appliedInsights
-    }, familyIds, opts.vocalTone, opts.breadthOverride),
-    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone, opts.breadthOverride]
+    }, familyIds, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride),
+    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride]
   );
+  // TASK v4.9 (TASK A, §1-6) — only meaningful for archetypes
+  // data/channelSoundFloor.ts actually covers (senior-morning/showa-cafe/
+  // oldpop-lounge/showa-70s — every other archetype's set was never
+  // constrained to one data/paletteFamilies.ts family to begin with, see
+  // core/setDirector.ts's own directSetLocal gating). Recomputed here
+  // (rather than reading it off `plan`) since SetPlan's own shape doesn't
+  // carry it — mirrors exactly what directSetLocal resolves internally
+  // (same freeText/history/override inputs), just for display.
+  const paletteFamilyCovered = Boolean(channelSoundFloorForArchetype(opts.channel.archetype));
+  const resolvedPaletteFamilyId = paletteFamilyCovered
+    ? resolveMainFamilyId(freeText, { recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid] }, opts.paletteFamilyOverride)
+    : undefined;
   const allocations = draftAllocations ?? plan.allocations;
   const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
   const structureAllocation = allocations.find(allocation => allocation.axis === 'structureTemplate');
@@ -351,6 +365,36 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
             : '컨셉 문구에서 자동 판정한 값입니다 — 필요하면 위에서 바꿀 수 있습니다.'}
         </p>
       </div>
+
+      {paletteFamilyCovered && (
+        <div className="option-block compact">
+          <h4>이 세트의 계열</h4>
+          <div className="button-row segment-placement-row">
+            {PALETTE_FAMILIES.map(family => (
+              <label key={family.id}>
+                <input
+                  type="radio"
+                  name="paletteFamily"
+                  checked={resolvedPaletteFamilyId === family.id}
+                  onChange={() => setOpts(prev => ({ ...prev, paletteFamilyOverride: family.id }))}
+                />
+                {family.labelKo}
+              </label>
+            ))}
+          </div>
+          <p className="supporting">
+            {(() => {
+              const family = PALETTE_FAMILIES.find(f => f.id === resolvedPaletteFamilyId);
+              return family?.koreanNoteKo ?? '';
+            })()}
+          </p>
+          <p className="supporting">
+            {opts.paletteFamilyOverride
+              ? '직접 선택한 계열입니다.'
+              : '컨셉 문구 또는 최근 세트 이력에서 자동 판정한 값입니다 — 필요하면 위에서 바꿀 수 있습니다.'}
+          </p>
+        </div>
+      )}
 
       {designGateResult
         ? (

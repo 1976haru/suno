@@ -46,11 +46,25 @@ export interface BpmLengthTier {
  * demonstrated bug was slow-track length, not fast-track shortness, so the
  * faster tiers move opposite the slow ones per the user's own worked table).
  */
+/**
+ * TASK v4.9 (TASK E) — real listening judgment reversed from v4.6's own:
+ * "대부분 3:30 이상이라 길다. 짧으면 더 좋을 것 같다" (was previously "2:34 짧다 ·
+ * 3:39 좋다 · 4:09 길다"). Real measurement backed it up — average 3:47,
+ * 10/18 songs over 3:30, only 5/18 inside the (now former) 3:05-3:25 target.
+ * Every tier's own wordRange dropped one notch (this task's own worked
+ * table); sectionRange for the 93-104 tier also dropped 7-8 -> 6-7 to match
+ * (a 6-7 section song at that tempo lands inside the new target without an
+ * 8th section pushing it long). The 165-word floor (this task's own
+ * explicit "하한 165 를 지키십시오") is still comfortably above local
+ * generation's own real per-tier measurements (v4.8's own 196-220 span),
+ * so this is a pure target-lowering, not a change requiring
+ * lyricEngine.ts's own composeLyrics section-doubling logic to move at all.
+ */
 export const BPM_LENGTH_TIERS: readonly BpmLengthTier[] = [
-  { minBpm: 62, maxBpm: 78, sectionRange: [5, 6], wordRange: [175, 195], maxInstrumentalSections: 1 },
-  { minBpm: 79, maxBpm: 92, sectionRange: [6, 7], wordRange: [195, 215], maxInstrumentalSections: 1 },
-  { minBpm: 93, maxBpm: 104, sectionRange: [7, 8], wordRange: [215, 235], maxInstrumentalSections: 2 },
-  { minBpm: 105, maxBpm: 112, sectionRange: [7, 8], wordRange: [225, 245], maxInstrumentalSections: 2 }
+  { minBpm: 62, maxBpm: 78, sectionRange: [5, 6], wordRange: [165, 185], maxInstrumentalSections: 1 },
+  { minBpm: 79, maxBpm: 92, sectionRange: [6, 7], wordRange: [185, 205], maxInstrumentalSections: 1 },
+  { minBpm: 93, maxBpm: 104, sectionRange: [6, 7], wordRange: [200, 220], maxInstrumentalSections: 2 },
+  { minBpm: 105, maxBpm: 112, sectionRange: [7, 8], wordRange: [210, 230], maxInstrumentalSections: 2 }
 ];
 
 /** Clamps out-of-table BPM (e.g. a channel with a wider tempoFloor/tempoCeiling than 62-112) to the nearest edge tier rather than throwing or returning undefined — a design-time estimate always needs SOME target. */

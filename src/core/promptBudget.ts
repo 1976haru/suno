@@ -71,7 +71,14 @@ export const ATOM_WORD_CAP = 8;
  * instead the trim loop below reduces them to a guaranteed-minimum atom count
  * rather than dropping the whole category.
  */
-export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice', 'killingPoint']);
+// TASK v4.9 (TASK C) bugfix — 'openingHook' added alongside 'killingPoint':
+// without this, the word-count-trim step below (§ "Step 1: fully drop
+// non-essential, non-guaranteed-minimum categories") dropped it on nearly
+// every song, since it sits one position lower-priority than killingPoint
+// in PROMPT_PRIORITY and gets evaluated (and dropped) first in that step's
+// reverse-priority loop — tracks 1-3's own MANDATORY opening hook was
+// silently missing from every real generated prompt until this was added.
+export const GUARANTEED_MINIMUM_TERM_IDS = new Set<PromptTermId>(['genreNarrative', 'concept', 'mood', 'instruments', 'earworm', 'arrangementDensity', 'hookDevice', 'killingPoint', 'openingHook']);
 export const GENRE_NARRATIVE_FLOOR_ATOMS = 2;
 // TASK v4.7 (팔레트 커버리지 확장) — raised 2 -> 5. The 'concept' atom group can
 // now hold up to 3 sources at once (rotatingArtistStyleAtoms, up to 3 atoms;
@@ -108,6 +115,8 @@ export const EARWORM_FLOOR_ATOMS = 1;
  * was added.
  */
 export const KILLING_POINT_FLOOR_ATOMS = 1;
+/** TASK v4.9 (TASK C) — always exactly 1 atom per song, same as KILLING_POINT_FLOOR_ATOMS. */
+export const OPENING_HOOK_FLOOR_ATOMS = 1;
 
 export function countWords(text: string): number {
   const trimmed = text.trim();
@@ -118,7 +127,7 @@ export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
   | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'concept' | 'hookDevice' | 'introTexture' | 'arrangementDensity'
-  | 'killingPoint' | 'soundFloor';
+  | 'killingPoint' | 'soundFloor' | 'openingHook';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -171,8 +180,17 @@ export type PromptTermId =
 // (it's 3 fixed short atoms, nothing to shrink), so placing it just after
 // 'tempo' — instead of first — costs nothing (it was never going anywhere)
 // while restoring 'vocal' to its original (pre-v4.7) most-protected slot.
+// TASK v4.9 (TASK C) bugfix — 'openingHook' is placed right after
+// 'killingPoint': same "one real atom this track needs, not disposable
+// copy" status. A real regression: this array (not the Set-shaped
+// TERM_LABELS_KO/ESSENTIAL_TERM_IDS, both updated correctly) is what
+// composeStylePrompt's own `order` actually iterates over to emit atoms —
+// an id missing here never appears in the final joined prompt at all,
+// silently, even though it was present in atomsById the whole time. Every
+// one of tracks 1-3's mandatory opening hooks was being dropped this way
+// until this line was added.
 export const PROMPT_PRIORITY: PromptTermId[] = [
-  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'soundFloor', 'arrangementDensity', 'instruments', 'hookDevice', 'killingPoint',
+  'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'soundFloor', 'arrangementDensity', 'instruments', 'hookDevice', 'killingPoint', 'openingHook',
   'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
 ];
 
@@ -205,7 +223,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   introTexture: 'intro texture',
   arrangementDensity: 'arrangement density',
   killingPoint: 'killing point',
-  soundFloor: 'channel sound floor'
+  soundFloor: 'channel sound floor',
+  openingHook: 'opening hook'
 };
 
 export interface PromptPart {
@@ -607,7 +626,8 @@ function compressHardLimitWithGuard(
  */
 const GUARANTEED_FLOOR_BY_ID: Partial<Record<PromptTermId, number>> = {
   earworm: EARWORM_FLOOR_ATOMS,
-  killingPoint: KILLING_POINT_FLOOR_ATOMS
+  killingPoint: KILLING_POINT_FLOOR_ATOMS,
+  openingHook: OPENING_HOOK_FLOOR_ATOMS
 };
 
 export function enforceHardLimit(

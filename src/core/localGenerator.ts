@@ -18,6 +18,9 @@ import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan
 import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
+import { applyGenreVocalAffinity } from './vocalGenreAffinity';
+import { assignOpeningHooks } from '../data/openingHooks';
+import { paletteFamilyForPaletteId } from '../data/paletteFamilies';
 import { audienceProfileForAgeGroup, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
@@ -827,6 +830,17 @@ export function generateLocalBlueprint(
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights)
   );
+  // TASK v4.9 (TASK C) — a first-15-seconds hooking device, distinct from
+  // killingPointPlan's final-chorus peak (see data/openingHooks.ts's own
+  // doc comment for why both are needed — real amplitude measurement found
+  // tracks 1-3's own peak sitting at 9/10 of the track, i.e. only at the
+  // very end, nothing up front to keep a listener from skipping). Tracks
+  // 1-3 always get one (3 distinct); tracks 4+ get one on at most 4 more
+  // songs. Family-aware via eraCanonPalettePlan's own per-song palette
+  // (undefined for any song with no palette match — assignOpeningHooks
+  // just falls back to the full dictionary for those).
+  const openingHookFamilyByIndex = eraCanonPalettePlan.map(assignment => assignment ? paletteFamilyForPaletteId(assignment.palette.id)?.id : undefined);
+  const openingHookPlan = assignOpeningHooks(opts.songCount, seed + 83, openingHookFamilyByIndex);
   // TASK H2 (v3.13) — the primary selected genre's own lyric imagery (see
   // GenrePack.lyricFlavorImages), resolved to this pack's lyricLanguage once
   // up front. Undefined for genres without an entry — composeLyrics falls
@@ -897,6 +911,19 @@ export function generateLocalBlueprint(
       vocalPlan[1] = vocalPlan[swapIndex];
       vocalPlan[swapIndex] = tmp;
     }
+  }
+  // TASK v4.9 (TASK B, §2-3) — genre-vocalType affinity pairing (real
+  // listening feedback: "재즈는 남녀 상관없이 약함. 재즈 = 무조건 여자"). Runs after
+  // every other vocalPlan reordering above (flagship pins) so it never
+  // fights them — applyGenreVocalAffinity only ever swaps two slots when
+  // doing so strictly improves the pack's total genre/vocalType affinity,
+  // so any position a flagship override already pinned just won't be a
+  // net-improving swap target unless doing so ALSO happens to raise the
+  // total (in which case the flagship's own vocalType is preserved anyway,
+  // just relocated). Kids skipped — data/genreLibrary vocalPreference is
+  // only authored for adult/senior oldpop genres.
+  if (vocalPlan && opts.channel.archetype !== 'kids') {
+    vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
   // buildVocalVariantPlan call (same seed) so the local and realtime/Batch/
@@ -1040,6 +1067,7 @@ export function generateLocalBlueprint(
       ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
       : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
     const killingPoint = killingPointPlan[idx];
+    const openingHook = openingHookPlan[idx];
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const lyricThemeText = lyricTheme?.scene;
@@ -1221,6 +1249,11 @@ export function generateLocalBlueprint(
       // data/killingPoints.ts) — never present for a peakStrength 'none'
       // track (killingPoint is undefined in that case).
       ...(killingPoint ? [{ id: 'killingPoint' as const, text: killingPoint.descriptor }] : []),
+      // TASK v4.9 (TASK C) — first-15-seconds hooking device, distinct from
+      // killingPoint above (see data/openingHooks.ts's own doc comment).
+      // Never present beyond openingHookPlan's own tracks-1-3-required +
+      // up-to-4-more cap.
+      ...(openingHook ? [{ id: 'openingHook' as const, text: openingHook.descriptor }] : []),
       ...(conceptInfluence || eraCanonPalettePlan[idx]
         ? [{
           id: 'concept' as const,

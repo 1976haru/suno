@@ -31,6 +31,8 @@ import {
 import { preallocateSongSlots } from './batchPreallocation';
 import { killingPointById } from '../data/killingPoints';
 import { GENRE_FAMILIES, membersPerFamilyForSelection, type GenreFamily } from '../data/genreFamilies';
+import { PALETTE_FAMILIES, genreIdsForFamilyAndCompatible, genreIdsForPaletteFamily, paletteFamilyForGenreId } from '../data/paletteFamilies';
+import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
@@ -212,13 +214,59 @@ function genreMatchesChannel(genre: GenrePack, channel: ChannelProfile) {
   return !hasAny(text, ['trap', 'rap', 'club', 'hard bop', 'bebop', 'big band', 'aggressive']);
 }
 
+/**
+ * TASK v4.9 (TASK A, §1-5) — concept-text keyword hints for which
+ * data/paletteFamilies.ts family a set should stay within. Checked in
+ * PALETTE_FAMILIES' own declared order (acoustic-soft, bright-pop,
+ * orchestral, soul) so a concept naming more than one family's artists
+ * (rare) resolves deterministically rather than by object-key iteration
+ * order.
+ */
+const PALETTE_FAMILY_HINT_PATTERNS: ReadonlyArray<readonly [string, RegExp]> = [
+  ['family-acoustic-soft', /(포크|사이먼|가펑클|카펜터|carpenter|이글스|eagles|존\s?덴버|denver|어쿠스틱|acoustic)/i],
+  ['family-bright-pop', /(아바|abba|비틀|beat|걸그룹|두왑|doowop|유로팝|europop)/i],
+  ['family-orchestral', /(샹송|chanson|톰\s?존스|tom\s?jones|엥겔베르트|engelbert|오케스트럴|orchestral|크루너|크루나|crooner)/i],
+  ['family-soul', /(소울|soul|모타운|motown|필라델피아|philly)/i]
+];
+
+/**
+ * TASK v4.9 (TASK A, §1-5) — resolves this set's own "주 그룹"
+ * (data/paletteFamilies.ts PaletteFamily): an explicit `override` (Step2Plan's
+ * family selector) always wins; failing that, a concept-text keyword hint;
+ * failing that, the family least represented in this channel's own recent
+ * genre history (`history.recentGenreIds`, mapped to families via
+ * paletteFamilyForGenreId) — so consecutive sets for the same channel
+ * naturally rotate through families instead of always landing on the same
+ * default. Falls back to family-acoustic-soft (the widest, safest default)
+ * when history is empty or maps to nothing.
+ */
+export function resolveMainFamilyId(
+  freeText: string,
+  history: { recentGenreIds: string[] },
+  override?: string
+): string {
+  if (override && PALETTE_FAMILIES.some(family => family.id === override)) return override;
+  for (const [familyId, pattern] of PALETTE_FAMILY_HINT_PATTERNS) {
+    if (pattern.test(freeText)) return familyId;
+  }
+  const recentFamilyCounts = new Map<string, number>(PALETTE_FAMILIES.map(family => [family.id, 0]));
+  for (const genreId of history.recentGenreIds) {
+    const family = paletteFamilyForGenreId(genreId);
+    if (family) recentFamilyCounts.set(family.id, (recentFamilyCounts.get(family.id) ?? 0) + 1);
+  }
+  const [leastUsedFamilyId] = [...recentFamilyCounts.entries()].sort((a, b) => a[1] - b[1])[0] ?? ['family-acoustic-soft'];
+  return leastUsedFamilyId;
+}
+
 function scoreGenre(
   genre: GenrePack,
   freeText: string,
   refs: DecomposedReference[],
   eraFocus: string[],
   channel: ChannelProfile,
-  history: { recentGenreIds: string[] }
+  history: { recentGenreIds: string[] },
+  /** TASK v4.9 (TASK A) — when set, a genre reachable ONLY via this family's own palettes (not a compatible neighbor) gets a strong boost, so chooseGenreIds' targetCount fills with main-family genres before any compatible-family genre gets a look-in. */
+  mainFamilyId?: string
 ): RankedGenre {
   const text = normalizeText(freeText);
   const haystack = normalizeText([
@@ -291,6 +339,10 @@ function scoreGenre(
     score += 1.5;
     reasons.push('시대 초점 일치');
   }
+  if (mainFamilyId && genreIdsForPaletteFamily(mainFamilyId).has(genre.id)) {
+    score += 6;
+    reasons.push('주 팔레트 계열');
+  }
 
   return { genre, score, reasons };
 }
@@ -310,11 +362,15 @@ function chooseGenreIds(
    * Reuses designGate.ts's BREADTH_THRESHOLDS.genre range directly (not a
    * second copy of the numbers) so the two can never drift apart.
    */
-  breadth: ConceptBreadth = 'balanced'
+  breadth: ConceptBreadth = 'balanced',
+  /** TASK v4.9 (TASK A, §1-3) — when set, the candidate pool is pre-narrowed to genres reachable from this family plus its declared compatibleWith neighbors (data/paletteFamilies.ts) — a non-adjacent-family genre never even reaches scoring, guaranteeing "비인접 그룹 0곡" rather than just discouraging it via score. */
+  mainFamilyId?: string
 ) {
-  const candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel));
+  const familyPool = mainFamilyId ? genreIdsForFamilyAndCompatible(mainFamilyId) : undefined;
+  const mainOnlyPool = mainFamilyId ? genreIdsForPaletteFamily(mainFamilyId) : undefined;
+  const candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel) && (!familyPool || familyPool.has(genre.id)));
   const ranked = candidates
-    .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history))
+    .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history, mainFamilyId))
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
   const { min: breadthMin, max: breadthMax } = BREADTH_THRESHOLDS[breadth].genre;
   const minimumForCap = clamp(Math.ceil(songCount / 5), breadthMin, breadthMax);
@@ -324,9 +380,27 @@ function chooseGenreIds(
     if (!id || selected.includes(id)) return;
     const genre = getGenreById(id);
     if (!genre || !genreMatchesChannel(genre, channel)) return;
+    if (familyPool && !familyPool.has(id)) return;
     selected.push(id);
   };
 
+  // TASK v4.9 (TASK A, §1-3) bugfix — real measurement: a +6 scoreGenre boost
+  // (see scoreGenre's own mainFamilyId branch) was nowhere near enough to
+  // beat an existing keyword rule (e.g. the pre-existing "아바" boost matching
+  // ANY genre whose text mentions "close harmony", not just a genuine
+  // europop one) plus channel.preferredGenres' own +1.5 — a real "아바 느낌"
+  // concept picked 17 compatible-family songs against just 1 main-family
+  // song, the opposite of "주 그룹 12곡 이상". A soft score nudge can't give a
+  // structural guarantee, so main-family candidates (by rank) are now added
+  // FIRST, up to targetCount, before any compatible-family candidate gets a
+  // look-in at all; compatible-family only fills whatever's left.
+  if (mainOnlyPool) {
+    for (const item of ranked) {
+      if (!mainOnlyPool.has(item.genre.id)) continue;
+      add(item.genre.id);
+      if (selected.length >= targetCount) break;
+    }
+  }
   for (const ref of refs) for (const id of ref.suggestedGenreIds) add(id);
   for (const item of ranked) {
     add(item.genre.id);
@@ -340,6 +414,52 @@ function chooseGenreIds(
     selectedIds: selected.slice(0, targetCount),
     ranked
   };
+}
+
+/**
+ * TASK v4.9 (TASK A, §1-3) — "인접 그룹 최대 5곡 (28% 이하)". chooseGenreIds'
+ * own family-pool filter + scoring boost already biases selection toward
+ * main-family genres, but a compatible-family genre can still outscore a
+ * weak main-family match on raw keyword/era signals — this is the actual
+ * enforcement, applied to the genre axis's final per-genre song counts
+ * after core/conceptAgent.ts's allocateGenreCounts (or this file's own
+ * era-quota path) has produced them. Shrinks compatible-family genres
+ * (largest first) down to `cap` total songs and redistributes the removed
+ * count round-robin across whichever main-family genres are already
+ * selected — never introduces a genre that wasn't already selected.
+ * No-op for family-soul (compatibleWith: [] means every selected genre is
+ * already "main"), matching this task's own "다른 그룹과 섞으면 튑니다".
+ */
+function capCompatibleFamilySongs(counts: Record<string, number>, mainFamilyId: string, cap: number): Record<string, number> {
+  const mainGenreIds = genreIdsForPaletteFamily(mainFamilyId);
+  const result = { ...counts };
+  const compatibleIds = Object.keys(result).filter(id => !mainGenreIds.has(id));
+  const compatibleTotal = compatibleIds.reduce((sum, id) => sum + (result[id] ?? 0), 0);
+  if (compatibleTotal <= cap) return result;
+  // TASK v4.9 bugfix — a real regression: partially shrinking a compatible
+  // genre by an arbitrary "excess" amount could leave it at exactly 1 song,
+  // reintroducing the exact bug tests/genreSingletonRootCause.test.ts exists
+  // to catch. A compatible genre is now only ever removed ENTIRELY (smallest
+  // count first) until the running total is back under the cap — never
+  // partially reduced, so it either survives at its own real count or
+  // disappears outright, same as this app's other genre-count paths.
+  let removedTotal = 0;
+  const sortedCompatible = [...compatibleIds].sort((a, b) => (result[a] ?? 0) - (result[b] ?? 0));
+  for (const id of sortedCompatible) {
+    if (compatibleTotal - removedTotal <= cap) break;
+    removedTotal += result[id] ?? 0;
+    delete result[id];
+  }
+  const mainIds = Object.keys(result).filter(id => mainGenreIds.has(id));
+  let remaining = removedTotal;
+  let idx = 0;
+  while (remaining > 0 && mainIds.length) {
+    const id = mainIds[idx % mainIds.length];
+    result[id] = (result[id] ?? 0) + 1;
+    remaining -= 1;
+    idx += 1;
+  }
+  return result;
 }
 
 /**
@@ -990,7 +1110,9 @@ export function directSetLocal(
    */
   vocalTone?: string,
   /** v4.1 (TASK A) — explicit user choice (GenerationOptions.breadthOverride, Step2Plan.tsx's "이 세트의 성격" radio); undefined trusts detectConceptBreadth's own auto-detection. */
-  breadthOverride?: ConceptBreadth
+  breadthOverride?: ConceptBreadth,
+  /** TASK v4.9 (TASK A, §1-6) — explicit user choice (GenerationOptions.paletteFamilyOverride, Step2Plan.tsx's "이 세트의 계열" radio); undefined trusts resolveMainFamilyId's own auto-resolution (concept keyword hint, then recency rotation). */
+  paletteFamilyOverride?: string
 ): SetPlan {
   const safeSongCount = clamp(Math.round(songCount) || 18, 1, 80);
   const listeningContext = detectListeningContext(freeText);
@@ -1055,8 +1177,17 @@ export function directSetLocal(
     }
   }
 
+  // TASK v4.9 (TASK A, §1-5) — resolved only when this channel's own archetype
+  // is covered by a ChannelSoundFloor (senior-morning/showa-cafe/oldpop-lounge/
+  // showa-70s — see data/channelSoundFloor.ts) and the user hasn't already
+  // picked explicit GenreFamily checkboxes (familyIds.length), which already
+  // pick a coherent cluster by explicit choice — this constraint layers on
+  // top of the free-text/keyword path only.
+  const mainFamilyId = !familyIds.length && channelSoundFloorForArchetype(channel.archetype)
+    ? resolveMainFamilyId(freeText, history, paletteFamilyOverride)
+    : undefined;
   const eraFocus = deriveEraFocus(freeText, artistReferences);
-  const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history, breadth);
+  const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history, breadth, mainFamilyId);
   const { selectedIds: familySelectedIds, families } = chooseGenreIdsFromFamilies(familyIds, channel);
   // v3.63 재작성 (TASK B, 1-4) — listening-context is detected above
   // regardless of which genre-selection path ran; apply it as a light
@@ -1071,17 +1202,50 @@ export function directSetLocal(
   // this seeds an even split first — makeAllocations/allocateGenreCounts
   // would otherwise redo that same even split with no era awareness at all.
   const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, 5);
+  // TASK v4.9 (TASK A) bugfix — real regression: applyEraQuota's own
+  // "reach this era's minimum share" fill searches every channel-matching
+  // genre, not just the family-filtered pool chooseGenreIds already
+  // narrowed to — for family-soul specifically (compatibleWith: [], meant
+  // to never mix) an explicit-era concept ("70년대") let it reach outside
+  // the pool for an acoustic-soft genre to hit its 1970s quota. AND'd onto
+  // the existing genreMatchesChannel predicate so an explicit era request
+  // still can't cross a family boundary this task's own family pool
+  // already decided.
+  const eraQuotaGenrePredicate = mainFamilyId
+    ? (genre: GenrePack) => genreMatchesChannel(genre, channel) && genreIdsForFamilyAndCompatible(mainFamilyId).has(genre.id)
+    : (genre: GenrePack) => genreMatchesChannel(genre, channel);
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
     safeSongCount,
     eraConstraint,
-    genre => genreMatchesChannel(genre, channel)
+    eraQuotaGenrePredicate
   );
   const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
   const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone);
   if (!eraConstraint.unspecified) {
     const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
     if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedCounts };
+  }
+  // TASK v4.9 (TASK A, §1-3) — "인접 그룹 최대 5곡" enforcement, applied to
+  // whichever genre-axis counts ended up selected above (era-quota override
+  // or makeAllocations' own allocateGenreCounts) — see capCompatibleFamilySongs'
+  // own doc comment. Skipped when the concept explicitly names its own era
+  // mix (eraConstraint.unspecified === false, e.g. "60년대70년대 감성" naming
+  // both 1950s-60s AND 1970s) — v3.79's own applyEraQuota already guarantees
+  // each named era >=30% share, which can legitimately require more than 5
+  // compatible-family songs; an explicit era request is a more specific,
+  // later user signal than the family-cohesion default this task adds, so
+  // it wins rather than fighting it (real regression: tests/v379EraParsing.test.ts's
+  // "60년대70년대" concept dropped to 27.8% 1950s-60s once capped at 5).
+  if (mainFamilyId && eraConstraint.unspecified) {
+    const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
+    if (genreAxisIndex >= 0) {
+      allocations[genreAxisIndex] = {
+        axis: 'genre',
+        mode: 'manual',
+        counts: capCompatibleFamilySongs(allocations[genreAxisIndex].counts, mainFamilyId, 5)
+      };
+    }
   }
   // v3.77 (TASK A) — overrides buildBaseOptions' own channel.defaultVocal
   // fallback so this plan's own preview slots (below) agree with the

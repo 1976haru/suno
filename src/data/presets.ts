@@ -24,9 +24,17 @@ export const channelPresets: ChannelProfile[] = [
     // NOT all 28 oldpop-* ids — see this task's own "preferredGenres를
     // 20종 이상으로 늘리지 말 것" constraint; this is the candidate POOL a
     // given pack draws a subset from, not every pack's actual genre list.
+    // TASK v4.9 (TASK B) — real listening feedback, twice: "재즈 2곡 들어있는데
+    // 전부 남자라 별로" and "재즈는 남자든 여자든 둘 다 약해". Korean 7080 팝송
+    // canon has no smooth-jazz-lounge sub-genre at all (crooner acts, not
+    // lounge jazz) — jazz-pop/smooth-jazz-lounge/bossa-cafe dropped from this
+    // channel's own pool (NOT deleted from genreLibrary — other workspaces
+    // still use them). canon-crooner-standard (data/eraCanonPalettes.ts,
+    // Tom Jones/Engelbert-type) stays reachable via chanson/oldpop-piano-ballad-70s,
+    // which is the actual 7080-canon member of that palette's fitsGenreIds.
     preferredGenres: [
-      'adult-contemporary', 'acoustic-pop', 'jazz-pop',
-      'chanson', 'bossa-cafe', 'smooth-jazz-lounge', 'retro-soul-pop', 'folk-pop',
+      'adult-contemporary', 'acoustic-pop',
+      'chanson', 'retro-soul-pop', 'folk-pop',
       'oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul',
       'oldpop-piano-ballad-70s', 'oldpop-adult-contemporary-80s', 'oldpop-close-harmony-duo',
       'oldpop-hearth-acoustic'

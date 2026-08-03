@@ -43,6 +43,18 @@ export interface EraCanonPalette {
    * prompt. Describe the ARRANGEMENT (harmony shape, register, delivery)
    * without naming a gender; the actual vocalType-driven gender text is
    * added separately elsewhere in the prompt.
+   *
+   * TASK v4.9 (TASK B, §2-3) — this ban extends past the literal words
+   * "male"/"female": core/vocalPlan.ts's MALE_VOICE_TERMS/FEMALE_VOICE_TERMS
+   * also match tenor/baritone (male) and soprano/mezzo/contralto/alto
+   * (female) — 'lead tenor answered by...', 'rich baritone with...', and
+   * 'low warm contralto lead...' all slipped past the v4.7 audit above
+   * (which only grepped for the literal words) and only surfaced once TASK
+   * B's own vocalPreference weighting made female-typed songs land on
+   * doo-wop-girlgroup-family genres often enough to hit the "tenor" one in
+   * practice (real regression: fullAudit.ts's "여성 곡의 female 명시"
+   * 100%->67%). Avoid the whole MALE_VOICE_TERMS/FEMALE_VOICE_TERMS
+   * vocabulary here, not just "male"/"female" themselves.
    */
   vocalTraits: string[];
   productionTraits: string[];
@@ -111,7 +123,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'key change lifting the final chorus'
     ],
     vocalTraits: [
-      'low warm contralto lead sitting close to the mic',
+      'low warm lead sitting close to the mic',
       'unhurried legato phrasing',
       'thick stacked harmony choir behind the lead'
     ],
@@ -231,7 +243,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'descending chromatic bass line'
     ],
     vocalTraits: [
-      'rich baritone with pronounced vibrato on held notes',
+      'rich resonant tone with pronounced vibrato on held notes',
       'behind-the-beat phrasing',
       'dramatic dynamic swell into the final chorus'
     ],
@@ -320,7 +332,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'bright major-key call and response'
     ],
     vocalTraits: [
-      'lead tenor answered by four-part close harmony',
+      'lead voice answered by four-part close harmony',
       'unison lead answered by a backing chorus, kept forward in the mix',
       'nonsense-syllable backing vocal figures under the lead'
     ],

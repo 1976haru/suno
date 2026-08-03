@@ -365,6 +365,23 @@ function paletteCoverageIssues(slots: PreassignedSongSlot[], opts: GenerationOpt
       fixHintKo: '팔레트 종류가 한쪽으로 몰려 있습니다 — 장르 배분을 다양하게 조정하세요.'
     }));
   }
+  // TASK v4.9 (TASK A, §1-4) — the new ceiling half of minPaletteVariety's
+  // redefinition: real listening feedback ("일식·중식·한식이 같이 나온 느낌")
+  // traced to unlimited palette variety letting genres from unrelated
+  // data/paletteFamilies.ts families pile into one set. core/setDirector.ts's
+  // own family-constrained genre pool is the primary fix (this never fires
+  // for a properly family-constrained pack); kept here as a design-time
+  // backstop for any path that bypasses that pool (e.g. hand-built
+  // diversityAllocations).
+  if (distinctPaletteIds.size > soundFloor.maxPaletteVariety) {
+    issues.push(issue({
+      id: 'palette-variety-max',
+      labelKo: '팔레트 종류 상한',
+      expected: `≤ ${soundFloor.maxPaletteVariety}종`,
+      actual: `${distinctPaletteIds.size}종`,
+      fixHintKo: '팔레트 계열이 섞여 있습니다 — 세트를 한 계열(paletteFamilies.ts) 안에서만 구성하세요.'
+    }));
+  }
   return issues;
 }
 

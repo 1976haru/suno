@@ -19,7 +19,12 @@ describe('[v3.58 TASK 5-3] no singable line directly under [short intro]', () =>
     // intro] at all; T2/T4/T5 open with a differently-tagged hook section
     // instead (see lyricEngine.ts's per-template `lines` shapes) — this
     // asserts on whichever tracks happen to land on a template that has it.
-    const bp = generateLocalBlueprint(makeOptions({ songCount: 18 }), testGenres, testMoods, testSeason);
+    // TASK v4.9 (TASK E) — core/bpmLengthControl.ts's own BPM_LENGTH_TIERS
+    // narrowed T1's (8-section) eligible BPM band to 105-112 only (was
+    // 93-112), so an 18-song pack's own random tempo spread doesn't
+    // reliably land at least one track there; songCount raised to keep this
+    // assertion meaningful rather than occasionally vacuous.
+    const bp = generateLocalBlueprint(makeOptions({ songCount: 40 }), testGenres, testMoods, testSeason);
     const withShortIntro = bp.songs.filter(song => song.lyrics.includes('[short intro]'));
     expect(withShortIntro.length).toBeGreaterThan(0);
     for (const song of withShortIntro) {

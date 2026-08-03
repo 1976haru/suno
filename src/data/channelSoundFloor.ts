@@ -40,6 +40,19 @@ export interface ChannelSoundFloor {
   productionEraTags: string[];
 
   minPaletteVariety: number;
+  /**
+   * TASK v4.9 (TASK A, §1-4) — real listening feedback: "18곡 조합이 어색...
+   * 맛있는 일식·중식·한식이 같이 나온 느낌" traced to the old minPaletteVariety:3
+   * forcing 3+ distinct palettes into a set with no ceiling and no
+   * family-cohesion concept — see data/paletteFamilies.ts's own doc comment.
+   * A set now stays within one PaletteFamily (± a capped compatible-family
+   * minority, enforced in core/setDirector.ts), so palette variety is
+   * re-scoped to WITHIN that family: minPaletteVariety dropped 3->2 (2-4
+   * distinct palettes from the same family reads as varied, not repetitive),
+   * and this new ceiling stops the family-internal count from creeping back
+   * up toward the old jumbled feel.
+   */
+  maxPaletteVariety: number;
   maxUncoveredGenreTracks: number;
 
   noteKo: string;
@@ -71,7 +84,8 @@ export const CHANNEL_SOUND_FLOORS: ChannelSoundFloor[] = [
 
     productionEraTags: ['1950s-60s', '1970s', '1980s'],
 
-    minPaletteVariety: 3,
+    minPaletteVariety: 2,
+    maxPaletteVariety: 4,
     maxUncoveredGenreTracks: 4,
 
     noteKo: '어떤 컨셉이 와도 이 조건은 유지됩니다. 컨셉은 장면·감정·계절만 바꿉니다'

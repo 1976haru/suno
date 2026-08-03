@@ -37,6 +37,7 @@ import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan'
 import { buildIntroModePlan, reconcileIntroModeWithStructureTemplate } from './introModePlan';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { introTexturesForArchetype } from '../data/introTextures';
+import { applyGenreVocalAffinity } from './vocalGenreAffinity';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   applyAxisAllocation,
@@ -288,6 +289,14 @@ export function preallocateSongSlots(
       vocalPlan[1] = vocalPlan[swapIndex];
       vocalPlan[swapIndex] = tmp;
     }
+  }
+  // TASK v4.9 (TASK B, §2-3) — mirrors core/localGenerator.ts's identical
+  // genre-vocalType affinity pass (same reasoning: "재즈는 남녀 상관없이 약함.
+  // 재즈 = 무조건 여자") so the local and Batch/bridge paths agree on which
+  // genre lands on which already-allocated vocalType, not just the raw
+  // 6/6/6-style totals.
+  if (vocalPlan && opts.channel.archetype !== 'kids') {
+    vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
   // step: which of each type's 5 wordings a given trackNo gets, so a 15-song

@@ -86,7 +86,16 @@ function healthySlots(): PreassignedSongSlot[] {
     'male', 'mixed', 'female', 'male', 'mixed', 'male',
     'female', 'male', 'mixed', 'male', 'female', 'male'
   ];
-  const genreIds = ['oldpop-soft-rock-am', 'oldpop-adult-contemporary-80s', 'oldpop-europop-glow', 'oldpop-british-beat', 'oldpop-close-harmony-duo'];
+  // TASK v4.9 (TASK A) — was 5 genres spanning up to 5 distinct
+  // data/eraCanonPalettes.ts palettes (oldpop-europop-glow/oldpop-british-beat
+  // pull in canon-europop-glow/canon-british-beat on top of the other three's
+  // own soft-pop/soft-rock/folk-duo palettes) — real listening feedback
+  // ("일식·중식·한식이 같이 나온 느낌") is exactly this shape, and
+  // channelSoundFloor.ts's new maxPaletteVariety:4 now correctly flags it.
+  // Narrowed to genres reachable from data/paletteFamilies.ts's own
+  // family-acoustic-soft only, so this fixture stays "healthy" under the
+  // new ceiling instead of demonstrating the bug it exists to catch.
+  const genreIds = ['oldpop-warm-morning-glow', 'oldpop-hearth-acoustic', 'oldpop-close-harmony-duo', 'oldpop-adult-contemporary-80s'];
   const bpms = [78, 82, 84, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 96, 88, 84, 100];
   const arcPhases = ['opening', 'build', 'peak', 'release', 'closing'];
   return Array.from({ length: 18 }, (_, i) => slotFor({
