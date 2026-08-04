@@ -247,6 +247,68 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['서울 야경 플레이리스트', '드라이브 노래', 'R&B 플레이리스트', '일렉트로팝', '비 오는 밤 노래', '한국 시티팝'],
     archetype: 'kr-2030-pop'
+  },
+  // TASK C2 (§9-1) — jp-2030 workspace's 3 channel presets, same reasoning
+  // as kr-2030's own comment above: archetype: 'jp-2030-pop' is mandatory on
+  // every entry (migrateArchetype would otherwise route to senior-morning).
+  // artistName left unset, following B2's own kr-2030 presets above (none
+  // of them set it either) — see this task's own §9-3/§13-4 "미결정".
+  {
+    id: 'reiwa-way-home-jpop',
+    name: '帰り道に聴く令和J-POP',
+    englishName: 'Reiwa J-Pop for the Way Home',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'twenties',
+    promise: '放課後や帰り道の気持ちに寄り添う、令和メロディックJ-ロック・アニメ調ポップ中心のプレイリスト',
+    visualIdentity: 'school path at dusk, soft seasonal light, clean minimal sans-serif typography, no visible faces',
+    defaultVocal: 'bright melodic Japanese pop lead, wide open sabi range, emotionally direct delivery',
+    preferredGenres: ['jp2030-melodic-jrock', 'jp2030-anime-cinematic', 'jp2030-heisei-nostalgia'],
+    preferredMoods: ['bittersweet', 'hopeful', 'warm'],
+    forbiddenCliches: [
+      'showa-era kissaten imagery', 'senior-radio nostalgia', 'specific anime title or character reference',
+      'famous artist imitation', 'soundalike vocal', 'childish lyrics'
+    ],
+    seoKeywords: ['帰り道 J-POP', '令和ポップス', 'アニメ風ポップ', '青春プレイリスト', '20代プレイリスト', 'メロディックJ-ロック'],
+    archetype: 'jp-2030-pop'
+  },
+  {
+    id: 'tokyo-night-melodic-pop',
+    name: '夜の東京メロディックポップ',
+    englishName: 'Tokyo Night Melodic Pop',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'twenties',
+    promise: '夜の東京を舞台にしたネオシティポップ・チルネオソウル中心のドライブ&夜更かしプレイリスト',
+    visualIdentity: 'quiet late-night city corner, muted wet-asphalt tones, one warm light source, no faces',
+    defaultVocal: 'smooth intimate Japanese R&B-pop lead, airy ad-lib runs, close-mic warmth',
+    preferredGenres: ['jp2030-neo-citypop', 'jp2030-chill-neosoul', 'jp2030-dance-vocal'],
+    preferredMoods: ['romantic', 'bittersweet', 'rainy-comfort'],
+    forbiddenCliches: [
+      'generic neon Tokyo skyline cliche', 'showa-era kissaten imagery', 'senior-radio nostalgia',
+      'famous artist imitation', 'soundalike vocal', 'excessive rap verses'
+    ],
+    seoKeywords: ['東京 シティポップ', 'ネオシティポップ', '夜のドライブ', 'チルポップ', '20代プレイリスト', 'メロディックポップ'],
+    archetype: 'jp-2030-pop'
+  },
+  {
+    id: 'want-to-cry-band-playlist',
+    name: '少し泣きたい日のバンドプレイリスト',
+    englishName: 'A Little Teary Band Playlist',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'twenties',
+    promise: '少し泣きたい日にそっと寄り添う、メロディックJ-ロック・平成ノスタルジア中心のバンドプレイリスト',
+    visualIdentity: 'empty classroom or clubroom at dusk, soft warm window light, minimal editorial typography',
+    defaultVocal: 'emotionally direct Japanese band-pop lead, occasional falsetto lift, close-mic warmth',
+    preferredGenres: ['jp2030-melodic-jrock', 'jp2030-heisei-nostalgia', 'jp2030-anime-cinematic'],
+    preferredMoods: ['bittersweet', 'warm', 'hopeful'],
+    forbiddenCliches: [
+      'showa-era kissaten imagery', 'senior-radio nostalgia', 'dramatic power ballad shouting',
+      'famous artist imitation', 'soundalike vocal', 'excessive rap verses'
+    ],
+    seoKeywords: ['泣ける歌', 'バンドプレイリスト', '青春ソング', 'J-ロック 感動', '20代プレイリスト', '平成ノスタルジー'],
+    archetype: 'jp-2030-pop'
   }
 ];
 

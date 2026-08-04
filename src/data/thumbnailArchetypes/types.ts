@@ -38,7 +38,12 @@ export type ThumbnailArchetypeCategory =
   // kr2030SeoulStreet.ts / kr2030PersonSilhouette.ts).
   | 'kr2030-cafe-night'
   | 'kr2030-seoul-street'
-  | 'kr2030-person-silhouette';
+  | 'kr2030-person-silhouette'
+  // TASK C2 — jp-2030 workspace's 3 new archetypes (see jp2030Seasonal.ts /
+  // jp2030StationPlatform.ts / jp2030CityNight.ts).
+  | 'jp2030-seasonal'
+  | 'jp2030-station-platform'
+  | 'jp2030-city-night';
 
 export type ThumbnailArchetypeId = ThumbnailArchetypeCategory;
 

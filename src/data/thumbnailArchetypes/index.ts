@@ -20,6 +20,9 @@ import { kidsCozyRoomArchetype } from './kidsCozyRoom';
 import { kr2030CafeNightArchetype } from './kr2030CafeNight';
 import { kr2030SeoulStreetArchetype } from './kr2030SeoulStreet';
 import { kr2030PersonSilhouetteArchetype } from './kr2030PersonSilhouette';
+import { jp2030SeasonalArchetype } from './jp2030Seasonal';
+import { jp2030StationPlatformArchetype } from './jp2030StationPlatform';
+import { jp2030CityNightArchetype } from './jp2030CityNight';
 import type { ThumbnailArchetype, ThumbnailArchetypeId } from './types';
 import type { ChannelArchetype } from '../../types';
 
@@ -72,11 +75,20 @@ export const kr2030ThumbnailArchetypes: ThumbnailArchetype[] = [
   kr2030PersonSilhouetteArchetype
 ];
 
+// TASK C2 — jp-2030 workspace's 3 new archetypes, same suitedArchetypes
+// scoping pattern as kr2030ThumbnailArchetypes above.
+export const jp2030ThumbnailArchetypes: ThumbnailArchetype[] = [
+  jp2030SeasonalArchetype,
+  jp2030StationPlatformArchetype,
+  jp2030CityNightArchetype
+];
+
 export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...seasonalThumbnailArchetypes,
   ...placeThumbnailArchetypes,
   ...kidsThumbnailArchetypes,
-  ...kr2030ThumbnailArchetypes
+  ...kr2030ThumbnailArchetypes,
+  ...jp2030ThumbnailArchetypes
 ];
 
 /**

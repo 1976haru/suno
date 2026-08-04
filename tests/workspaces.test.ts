@@ -25,14 +25,14 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
     }
   });
 
-  // TASK C1 — jp-2030's genre layer (jp2030GenrePacks, 7 genres) landed, so
-  // archetypeIds is now populated, but ready stays false until C2 (lyric
-  // world/hooks/titles/thumbnails/UI/Japanese text handling) lands — same
-  // in-between state kr-2030 was in after B1, before B2 flipped it to true.
-  it('jp-2030 has its genre layer built but is not yet ready', () => {
+  // TASK C2 — jp-2030's lyric world/hooks/titles/thumbnails/channel presets
+  // all landed and were verified via real 18-song generation (0/18 titles
+  // carry senior/showa vocabulary), so this workspace is now fully built —
+  // ready=true, same transition kr-2030 made after B2 (see the next test).
+  it('jp-2030 is fully built: real archetype, ready=true', () => {
     const jp2030 = getWorkspace('jp-2030');
     expect(jp2030.archetypeIds).toEqual(['jp-2030-pop']);
-    expect(jp2030.ready).toBe(false);
+    expect(jp2030.ready).toBe(true);
     expect(jp2030.contentTier).toBe('adult');
   });
 

@@ -879,6 +879,189 @@ export const adultLyricThemes: LyricTheme[] = [
     suitedArchetypes: ['kr-2030-pop'],
     frameId: 'threshold-decision',
     castKo: '혼자'
+  },
+  // TASK C2 — jp-2030 workspace's 18 lyric scenes. Deliberately Reiwa-era
+  // 20s/30s life (seasonal turning points, inner monologue, a narrative arc
+  // toward something, school/graduation memory, idol-pop self-affirmation,
+  // late-night city-pop solitude), never the senior/showa vocabulary above
+  // (this workspace's own doc's §0-3 ⑤ whitelist check: no record player,
+  // kettle, photo album, folded letter, candle, calendar, wool cardigan,
+  // kitchen radio from the senior dictionary; no vintage stereo console,
+  // rotary telephone, neon sign, street lamp, typewriter, film camera,
+  // sepia tone, vinyl-era, showa-era kissaten, old Tokyo from the showa-cafe
+  // dictionary; no grandchildren/long marriage/decades ago). suitedArchetypes
+  // is 'jp-2030-pop' ONLY on every entry — fewer than 12 of these would
+  // silently fall back to the 80-entry senior/showa/j2000s pool above (same
+  // lyricThemesForArchetype threshold kr-2030's own comment explains).
+  // frameId spans 9 distinct shapes (seasonal-marker x3, inner-monologue x3,
+  // narrative-arc x3, self-affirmation x3, parallel-world x2, school-memory
+  // x1, festival-crowd x1, solitary-room x1, night-drive x1) — only
+  // solitary-room and night-drive overlap kr-2030's own 8 frames above (2 of
+  // 4 allowed), so the Korean/Japanese frame axis genuinely diverges per
+  // this workspace's own §3-3 contrast requirement.
+  {
+    id: 'jp2030-graduation-farewell',
+    labelKo: '졸업식 이별',
+    scene: 'standing in a school gymnasium during a graduation ceremony, classmates crying and laughing at the same time, the future suddenly feeling real',
+    emotionalArc: 'bittersweet farewell opening into hopeful resolve',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'school-memory',
+    castKo: '여럿'
+  },
+  {
+    id: 'jp2030-summer-festival-crowd',
+    labelKo: '여름 축제의 인파',
+    scene: 'walking through a summer festival crowd in a yukata, fireworks bursting overhead, losing a friend in the crowd for just a second',
+    emotionalArc: 'excited anticipation building into pure joy',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'festival-crowd',
+    castKo: '여럿'
+  },
+  {
+    id: 'jp2030-cherry-blossom-goodbye',
+    labelKo: '벚꽃 아래의 작별',
+    scene: 'walking beneath falling cherry blossoms on the last day before moving to a new city, a close friend walking silently alongside',
+    emotionalArc: 'quiet sadness softening into grateful hope',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'seasonal-marker',
+    castKo: '둘'
+  },
+  {
+    id: 'jp2030-autumn-leaves-solo-walk',
+    labelKo: '단풍길 혼자 걷기',
+    scene: 'walking alone down a path lined with turning autumn leaves after a long week, breath visible in the cool evening air',
+    emotionalArc: 'tired numbness easing into calm clarity',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'seasonal-marker',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-first-snow-wish',
+    labelKo: '첫눈에 비는 소원',
+    scene: 'watching the first snow of the year fall outside a train window, making a small private wish before the doors open',
+    emotionalArc: 'quiet longing lifting into fragile hope',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'seasonal-marker',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-unreachable-voice',
+    labelKo: '닿지 않는 목소리',
+    scene: 'trying to call out to someone who is already walking away across a crowded platform, the words never quite reaching',
+    emotionalArc: 'helpless longing tightening into determined resolve',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'parallel-world',
+    castKo: '둘'
+  },
+  {
+    id: 'jp2030-parallel-life-what-if',
+    labelKo: '평행세계의 나',
+    scene: 'imagining a parallel version of life where a different choice was made at a fork in the road years ago',
+    emotionalArc: 'wistful regret settling into acceptance of the chosen path',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'parallel-world',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-inner-monologue-midnight',
+    labelKo: '한밤의 혼잣말',
+    scene: 'lying awake at midnight, quietly talking through unresolved feelings that were never said out loud to anyone',
+    emotionalArc: 'restless overthinking settling into honest self-understanding',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'inner-monologue',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-confession-to-the-mirror',
+    labelKo: '거울 앞의 고백 연습',
+    scene: 'standing in front of a mirror rehearsing words that need to be said to someone tomorrow, voice barely above a whisper',
+    emotionalArc: 'nervous hesitation firming into quiet courage',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'inner-monologue',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-diary-page-unsent',
+    labelKo: '부치지 못한 마음의 페이지',
+    scene: 'writing feelings into a personal notebook that will never actually be shown to the person they are about',
+    emotionalArc: 'private longing accepted with gentle resignation',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'inner-monologue',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-determined-stage-entrance',
+    labelKo: '무대로 향하는 결심',
+    scene: 'standing backstage moments before stepping into the spotlight, heart pounding, deciding to give everything this one time',
+    emotionalArc: 'nervous fear transforming into fierce determination',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'narrative-arc',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-getting-back-up',
+    labelKo: '다시 일어서는 순간',
+    scene: 'picking yourself back up after a public failure, lacing up shoes again the next morning despite everyone watching',
+    emotionalArc: 'humiliated defeat rebuilding into stubborn resolve',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'narrative-arc',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-forward-to-tomorrow',
+    labelKo: '내일을 향해 걷기',
+    scene: 'walking toward a train station at sunrise with a suitcase, leaving a familiar town behind to chase something uncertain',
+    emotionalArc: 'anxious uncertainty steadying into forward-looking courage',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'narrative-arc',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-just-as-i-am',
+    labelKo: '있는 그대로의 나',
+    scene: 'deciding to stop hiding an awkward laugh or a strange hobby in front of new classmates, and finding it actually goes fine',
+    emotionalArc: 'anxious self-consciousness relaxing into easy confidence',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'self-affirmation',
+    castKo: '여럿'
+  },
+  {
+    id: 'jp2030-okay-to-mess-up',
+    labelKo: '실수해도 괜찮아',
+    scene: 'tripping over the words during a class presentation and laughing it off with classmates instead of shrinking away',
+    emotionalArc: 'embarrassed panic dissolving into shared laughter and relief',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'self-affirmation',
+    castKo: '여럿'
+  },
+  {
+    id: 'jp2030-todays-main-character',
+    labelKo: '오늘은 내가 주인공',
+    scene: 'getting ready for an ordinary Saturday and deciding, just for today, to walk through it like the main character of the story',
+    emotionalArc: 'small self-doubt flipping into playful self-belief',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'self-affirmation',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-late-night-convenience-store',
+    labelKo: '새벽 편의점',
+    scene: 'standing under the fluorescent lights of an all-night convenience store at 3am, the town outside completely silent',
+    emotionalArc: 'quiet isolation settling into a strange, comfortable peace',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'solitary-room',
+    castKo: '혼자'
+  },
+  {
+    id: 'jp2030-coastal-highway-drive',
+    labelKo: '바닷가 국도 드라이브',
+    scene: 'driving an empty coastal highway before dawn with the windows down, the sea just barely visible in the dark',
+    emotionalArc: 'restless energy opening into wide, unhurried freedom',
+    suitedArchetypes: ['jp-2030-pop'],
+    frameId: 'night-drive',
+    motionKo: '이동 중(드라이브)',
+    castKo: '둘'
   }
 ];
 

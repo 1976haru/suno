@@ -248,6 +248,65 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'kr2030-summer-drive',
     patterns: [/드라이브/, /여름\s*밤/, /summer\s*night\s*drive/i],
     genreWeights: { 'kr2030-y2k-retro': 2, 'kr2030-emo-band-pop': 2 }
+  },
+  // TASK C2 (§7) — jp-2030 workspace rules. Same genreWeights-only
+  // constraint as kr-2030 above (§7-1: no seasonWeights/moodWeights — those
+  // aren't gated by a channel's core-genre tier, so they'd leak into
+  // senior-morning scoring for the same Japanese/Korean input text). Both
+  // Korean and Japanese script forms on every rule per this task's own
+  // §7-2 "한국어·일본어 표기를 모두 넣으십시오" — 하루 may type either.
+  {
+    id: 'jp2030-way-home',
+    patterns: [/帰り道/, /하교길/, /귀갓길/i, /放課後/, /방과\s*후/i, /after\s*school/i],
+    genreWeights: { 'jp2030-melodic-jrock': 2, 'jp2030-heisei-nostalgia': 2 }
+  },
+  {
+    id: 'jp2030-graduation-school',
+    patterns: [/卒業/, /졸업/, /教室/, /교실/, /制服/, /교복/, /graduation/i],
+    genreWeights: { 'jp2030-heisei-nostalgia': 4 }
+  },
+  {
+    id: 'jp2030-summer-festival',
+    patterns: [/夏祭り/, /여름\s*축제/, /花火/, /불꽃놀이/, /summer\s*festival/i, /fireworks/i],
+    genreWeights: { 'jp2030-dance-vocal': 3, 'jp2030-kawaii-idol': 1 }
+  },
+  {
+    id: 'jp2030-seasonal-bloom',
+    patterns: [/桜/, /벚꽃/, /紅葉/, /단풍/],
+    genreWeights: { 'jp2030-heisei-nostalgia': 2, 'jp2030-melodic-jrock': 1 }
+  },
+  {
+    id: 'jp2030-reiwa-youth',
+    patterns: [/令和/, /레이와/, /平成/, /헤이세이/, /青春/, /청춘/, /reiwa/i, /heisei/i],
+    genreWeights: { 'jp2030-melodic-jrock': 3, 'jp2030-heisei-nostalgia': 2 }
+  },
+  // Format only, no specific title/studio/character name — see C1's own IP
+  // avoidance principle, carried over here per this task's own §7-2 note.
+  {
+    id: 'jp2030-anime-opening',
+    patterns: [/アニメ/, /애니(메이션)?/, /オープニング/, /오프닝/, /\banime\b/i, /opening\s*theme/i],
+    genreWeights: { 'jp2030-anime-cinematic': 4 }
+  },
+  {
+    id: 'jp2030-citypop',
+    patterns: [/シティポップ/, /시티팝/, /ネオシティポップ/, /네오시티팝/, /city\s*pop/i, /東京/, /도쿄/, /\btokyo\b/i],
+    genreWeights: { 'jp2030-neo-citypop': 4, 'jp2030-chill-neosoul': 1 }
+  },
+  {
+    id: 'jp2030-convenience-transit',
+    patterns: [/コンビニ/, /편의점/, /改札/, /개찰구/, /ホーム/, /플랫폼/i, /convenience\s*store/i],
+    genreWeights: { 'jp2030-chill-neosoul': 2, 'jp2030-neo-citypop': 2 }
+  },
+  // v4.5-band(バンド)/'band' are deliberately narrower than a bare Korean
+  // "밴드" would be — real check found "밴드" alone collides with B2's own
+  // kr2030-after-work concept text ("퇴근 후 감성 밴드팝"), which would add
+  // this rule to that concept's match set (a real cross-workspace concept-
+  // matching regression, not just a genreWeights no-op). Japanese script
+  // and the "泣きたい" (want to cry) phrase are specific enough on their own.
+  {
+    id: 'jp2030-band-emotional',
+    patterns: [/バンド/, /泣きたい/, /울고\s*싶은\s*날/],
+    genreWeights: { 'jp2030-melodic-jrock': 3, 'jp2030-heisei-nostalgia': 1 }
   }
 ];
 

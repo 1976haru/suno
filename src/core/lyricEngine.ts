@@ -1205,7 +1205,17 @@ function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: C
   // kr-2030-pop. 'senior-morning' (and any archetype not in this list —
   // oldpop-lounge/modern-chill/city-night included) keeps its exact
   // pre-existing behavior; only kr-2030-pop is newly added here.
-  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || archetype === 'kids' || archetype === 'kr-2030-pop') return [];
+  //
+  // TASK C2 — same exact leak path, found independently for jp-2030-pop:
+  // real 18-song generation with hookBanks/jp2030.ts fully wired (0
+  // vocabulary overlap with both japaneseDefault and showaCafeOverride)
+  // still produced 18/18 senior-imagery titles (ラジオをつけて, レコードをかけて,
+  // 待っていて、友よ, ...) because this array was still missing 'jp-2030-pop' —
+  // every premium-tier draw (this function's own hand-written jaHook*/
+  // extraPremiumHooks.japanese banks below) kept winning before
+  // jp2030Override's combinatorial layer ever got a turn. Added here,
+  // mirroring kr-2030-pop exactly.
+  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || archetype === 'kids' || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },

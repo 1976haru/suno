@@ -90,11 +90,20 @@ const KR_2030: WorkspaceDefinition = {
 const JP_2030: WorkspaceDefinition = {
   id: 'jp-2030',
   labelKo: '일본 20~30대',
-  descriptionKo: '일본 20~30대 대상 워크스페이스 — 준비 중 (C1/C2에서 채워집니다).',
-  // TASK C1 — genre layer filled in (jp2030GenrePacks, 7 genres). `ready`
-  // stays false until C2 (lyric world/hooks/titles/thumbnails/UI/Japanese
-  // text handling) lands — opening this workspace today would still serve
-  // the senior lyric dictionary underneath it.
+  descriptionKo: '일본 20~30대 대상 워크스페이스 — 帰り道の令和J-POP.',
+  // TASK C1 — genre layer filled in (jp2030GenrePacks, 7 genres).
+  // TASK C2 — lyric world (18 scenes), hook bank (jp2030Override, all 6
+  // fields, 0 vocabulary overlap with BOTH senior Japanese dictionaries —
+  // japaneseDefault and showaCafeOverride), 3 thumbnail archetypes, 9
+  // concept-keyword rules, and 3 channel presets all filled in and
+  // verified (18-song real generation: 0/18 titles carry senior/showa
+  // imagery, 18/18 unique titles and hooks — see docs/c2-report.md).
+  // terms/hiddenFeatures stay {}/[] — no UI currently reads
+  // WorkspaceDefinition.terms or .hiddenFeatures at all (same grep-verified
+  // zero-callers finding B2's own KR_2030 comment made), so there is
+  // nothing real to put there yet. `ready: true` set last, only after
+  // npm run audit:isolation showed jp-2030 PASS across L1/L3/L4/L6 (was
+  // SKIP throughout before this task) and npm run test:fast passed clean.
   archetypeIds: ['jp-2030-pop'],
   defaultAudienceProfileId: 'general',
   defaultLyricLanguage: 'japanese',
@@ -102,7 +111,7 @@ const JP_2030: WorkspaceDefinition = {
   terms: {},
   hiddenFeatures: [],
   contentTier: 'adult',
-  ready: false
+  ready: true
 };
 
 const KR_KIDS: WorkspaceDefinition = {
