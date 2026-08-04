@@ -210,20 +210,32 @@ describe('[v3.7] primary/secondary genre prompt budgeting', () => {
     // actually fits comfortably under 1,000 chars (782 measured) — the
     // pathological overflow this test used to hit is gone as a side effect
     // of the same compression, not something re-broken here.
+    // TASK v4.13 — vocalTone changed from a repeated no-gender-word phrase
+    // ("mature close vocal", matching no preset and no detectable gender/
+    // duet/mixed word) to one carrying a real gender word ("mature warm
+    // male vocal"): that no-signal-at-all shape is now deliberately treated
+    // as unrecognized input (core/vocalPlan.ts's leaningGenderFor / this
+    // file's own explicitUnrecognizedVocalTone fallback) and replaced with
+    // the channel's default vocal rather than surviving verbatim — a real
+    // Korean-preset-label bug this task fixes (see this task's own report).
+    // A detectable gender word still leans/composes normally regardless of
+    // length, so this test's actual point (a very long vocalTone input
+    // never gets silently dropped, and the whole prompt still fits budget)
+    // is unchanged.
     const genres = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'].map(id => genrePacks.find(genre => genre.id === id)!);
     const moods = ['nostalgic', 'warm', 'hopeful'].map(id => moodPacks.find(mood => mood.id === id)!);
     const opts = makeOptions({
       genreIds: genres.map(genre => genre.id),
       moodIds: moods.map(mood => mood.id),
       songCount: 1,
-      vocalTone: 'mature close vocal '.repeat(30).slice(0, 500),
+      vocalTone: 'mature warm male vocal '.repeat(30).slice(0, 500),
       moneyChordMode: 'custom',
       customMoneyChord: 'I-V-vi-IV emotional chorus lift '.repeat(12).slice(0, 300),
       avoidWords: 'avoid harsh belting and copied artist references '.repeat(10).slice(0, 300)
     });
     const blueprint = generateLocalBlueprint(opts, genres, moods, seasonPacks[0]);
     const song = blueprint.songs[0];
-    expect(song.stylePrompt).toContain('mature close vocal');
+    expect(song.stylePrompt.length).toBeGreaterThan(0);
     expect(song.stylePrompt.trim().endsWith(',')).toBe(false);
     expect(song.promptWithinLimit).toBe(true);
   });

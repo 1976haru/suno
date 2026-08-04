@@ -11,6 +11,7 @@ import {
 } from '../../data/genreLibrary';
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
+import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from '../../core/vocalPlan';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
@@ -95,7 +96,13 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
 export default function Step2Concept({
   opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode
 }: Step2ConceptProps) {
-  const [vocalCustomOpen, setVocalCustomOpen] = useState(() => !matchVocalPreset(opts.vocalTone));
+  // TASK v4.13 bugfix — used to auto-open "직접 입력하기" for ANY vocalTone
+  // that isn't a byte-exact preset match, including the plain "no selection"
+  // balanced state (vocalTone === channel.defaultVocal) — the single most
+  // common state on first load, misread as "custom text" instead of the
+  // "고르게 배정" default it actually is. Only auto-opens for a genuinely
+  // different, unrecognized saved value now.
+  const [vocalCustomOpen, setVocalCustomOpen] = useState(() => Boolean(opts.vocalTone?.trim()) && opts.vocalTone.trim() !== opts.channel.defaultVocal && !matchVocalPreset(opts.vocalTone));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
   const [avoidCustomDraft, setAvoidCustomDraft] = useState('');
@@ -135,6 +142,24 @@ export default function Step2Concept({
       if (aSuited !== bSuited) return aSuited - bSuited;
       return VOCAL_GENDER_SORT_ORDER[a.gender] - VOCAL_GENDER_SORT_ORDER[b.gender];
     });
+  // TASK v4.13 (§5) — 하루님's own "남성 6 여성 6 혼성 6인데 선택은 하나이면
+  // 그것도 이상하고" — the balanced default needs its own explicit, always-
+  // selectable card (id below), not just "nothing else is picked". Reuses
+  // the exact vocalTone value "no selection" already means
+  // (channel.defaultVocal — see vocalPlan.ts's leaningGenderFor) rather than
+  // adding a new options field.
+  const BALANCED_VOCAL_CHOICE_ID = '__balanced__';
+  const defaultQuotaForChannel = channelArchetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
+  const balancedQuotaPreview = scaleVocalQuota(defaultQuotaForChannel, opts.songCount);
+  const isBalancedVocalTone = !opts.vocalTone?.trim() || opts.vocalTone.trim() === opts.channel.defaultVocal;
+  // TASK v4.13 (§5-2) — "선택 시 실제 계산된 쿼터를 보여주십시오": same
+  // leaningGenderFor/leaningAdultVocalQuota real generation itself calls
+  // (core/batchPreallocation.ts, core/localGenerator.ts), so the preview
+  // never drifts from what the pack actually gets.
+  const selectedVocalLeaning = channelArchetype === 'kids' || isBalancedVocalTone ? undefined : leaningGenderFor(opts);
+  const leaningQuotaPreview = selectedVocalLeaning
+    ? leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, opts.songCount, selectedVocalLeaning)
+    : null;
 
   // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
   // the same fields the existing chip grids below already control; it's a
@@ -575,18 +600,41 @@ export default function Step2Concept({
           to the childlike presets for 'kids', and to the plain adult
           presets otherwise — matchVocalPreset above still searches the full
           list either way, so a saved pack's vocalTone always resolves. */}
+      {/* TASK v4.13 (§5) — "어떤 목소리로 부를까요?" read as if only one voice
+          comes out of the whole 18-song pack; 하루님's own correction: this
+          picker LEANS the pack's existing male/female/duet quota (see
+          vocalPlan.ts's leaningGenderFor), it never replaces it with one
+          voice. Retitled, a "선택하지 않으면..." helper line added, and an
+          explicit "고르게 배정" card (always first) makes the balanced
+          default a real, selectable, visibly-active choice instead of an
+          implicit "nothing picked" state. */}
       <ChoiceGrid
-        question="어떤 목소리로 부를까요?"
-        choices={relevantVocalPresets.map(preset => ({
-          id: preset.id,
-          label: preset.label,
-          sublabel: preset.sublabel,
-          description: preset.description,
-          icon: '🎙',
-          recommended: preset.suitedArchetypes?.includes(channelArchetype)
-        }))}
-        value={vocalCustomOpen ? '' : (matchVocalPreset(opts.vocalTone)?.id ?? '')}
+        question="어떤 목소리를 중심으로 할까요?"
+        helper="선택하지 않으면 남성·여성·듀엣이 고르게 배정됩니다."
+        choices={[
+          {
+            id: BALANCED_VOCAL_CHOICE_ID,
+            label: '고르게 배정',
+            sublabel: 'Balanced (default)',
+            description: `남성 ${balancedQuotaPreview.male}곡 · 여성 ${balancedQuotaPreview.female}곡 · 듀엣 ${balancedQuotaPreview.mixed}곡으로 고르게 배정됩니다.`,
+            icon: '🎚'
+          },
+          ...relevantVocalPresets.map(preset => ({
+            id: preset.id,
+            label: preset.label,
+            sublabel: preset.sublabel,
+            description: preset.description,
+            icon: '🎙',
+            recommended: preset.suitedArchetypes?.includes(channelArchetype)
+          }))
+        ]}
+        value={vocalCustomOpen ? '' : (isBalancedVocalTone ? BALANCED_VOCAL_CHOICE_ID : (matchVocalPreset(opts.vocalTone)?.id ?? ''))}
         onChange={value => {
+          if (value === BALANCED_VOCAL_CHOICE_ID) {
+            setVocalCustomOpen(false);
+            setOpts(prev => ({ ...prev, vocalTone: prev.channel.defaultVocal }));
+            return;
+          }
           const preset = vocalPresets.find(p => p.id === value);
           if (preset) {
             setVocalCustomOpen(false);
@@ -595,6 +643,14 @@ export default function Step2Concept({
         }}
         columns={3}
       />
+      {/* TASK v4.13 (§5-2) — "선택 시... 실제 계산된 쿼터를 보여주십시오". Only
+          for a non-kids archetype: kids channels use their own separate
+          gendered-choir quota model this preview doesn't model. */}
+      {channelArchetype !== 'kids' && !isBalancedVocalTone && leaningQuotaPreview && (
+        <p className="supporting">
+          남성 {leaningQuotaPreview.male}곡 · 여성 {leaningQuotaPreview.female}곡 · 듀엣 {leaningQuotaPreview.mixed}곡으로 배정됩니다.
+        </p>
+      )}
       <div className="button-row" style={{ marginTop: 8 }}>
         <button type="button" className={vocalCustomOpen ? 'chip active' : 'chip'} onClick={() => setVocalCustomOpen(v => !v)}>
           ✏️ 직접 입력하기

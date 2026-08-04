@@ -936,7 +936,21 @@ export function buildSetPlanFromIntent(
   history: { recentGenreIds: string[]; recentHooks: string[]; insights?: RatingInsightLike[] },
   /** v4.1 (TASK A) — pre-computed by the caller (directSetLocal/directSet both already have the original freeText detectConceptBreadth needs; this function only ever sees the already-interpreted InterpretedIntent, not the raw text). Defaults to 'balanced'/'auto' for any caller that hasn't migrated. */
   breadth: ConceptBreadth = 'balanced',
-  breadthSource: 'auto' | 'user' = 'auto'
+  breadthSource: 'auto' | 'user' = 'auto',
+  /**
+   * TASK v4.13 bugfix — directSetLocal's own multi-artist-segment
+   * ("카펜터스와 아바 9곡씩") and genre-blend ("시티팝 느낌의 발라드") branches
+   * both early-return through this function without ever passing the
+   * caller's vocalTone along, so this function's own makeAllocations call
+   * below always fell back to a blind vocalCounts(songCount) split — no
+   * different from omitting vocalTone entirely, regardless of whether the
+   * user picked a valid English preset, typed free text, or left it at the
+   * channel default. resolveVocalCounts's own doc comment already named this
+   * "a documented, not silent, remaining gap"; this closes it the same way
+   * directSetLocal's own plain (non-segment) path already works. Optional,
+   * trailing — this function has no other caller, so this is purely additive.
+   */
+  vocalTone?: string
 ): SetPlan {
   const safeSongCount = clamp(intent.segments.reduce((sum, segment) => sum + segment.songCount, 0) || 18, 1, 80);
   const blendWarnings: string[] = [];
@@ -1032,7 +1046,7 @@ export function buildSetPlanFromIntent(
   );
   const selectedIds = Object.keys(quotaAdjustedGenreCounts);
 
-  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds);
+  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds, vocalTone);
   const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
   if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedGenreCounts };
 
@@ -1148,7 +1162,7 @@ export function directSetLocal(
         '아티스트명은 프롬프트에 넣지 않고 음악 특성으로만 분해했습니다.'
       ],
       unknownTermsKo
-    }, channel, history, breadth, breadthSource);
+    }, channel, history, breadth, breadthSource, vocalTone);
   }
 
   // v3.63 재작성 (TASK B) — explicit "X 느낌이 나는 Y" genre-blend request.
@@ -1172,7 +1186,7 @@ export function directSetLocal(
             listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO ? `청취 상황(${listeningContext.settingKo})을 반영했습니다.` : '별도 청취 상황 지정은 없었습니다.'
           ],
           unknownTermsKo
-        }, channel, history, breadth, breadthSource);
+        }, channel, history, breadth, breadthSource, vocalTone);
       }
     }
   }

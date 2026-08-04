@@ -367,7 +367,23 @@ export function preallocateSongSlots(
   // selected vocal across realtime/Batch/bridge the same way moneyChordText
   // already enforces the progression. Falls back to the channel's own
   // defaultVocal if this particular request never set vocalTone.
-  const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
+  // TASK v4.13 bugfix — explicitUnrecognizedVocalTone (above) now only fires
+  // when vocalTone matched no preset AND carried no detectable gender/duet/
+  // mixed signal at all (English or Korean, after this task's own
+  // leaningGenderFor/detectVocalGender additions) — genuinely unparseable
+  // text (gibberish, or a value some other language entirely), not merely
+  // "a creative description with no explicit gender word" as v3.77 first
+  // scoped this flag. Suno cannot read that text either way, and letting it
+  // reach every track's stylePrompt as the literal vocal descriptor is
+  // exactly the "실패한 문자열이 그대로 프롬프트에 들어갑니다" failure mode this
+  // task exists to close — falls back to the channel default instead, with
+  // a console warning (same [tag] convention as this file's own
+  // averageTempo band-missing warning) so the silent substitution is at
+  // least visible in a dev console, without a new UI surface.
+  if (explicitUnrecognizedVocalTone) {
+    console.warn(`[vocalTone] "${opts.vocalTone?.trim()}" matched no preset and no detectable gender/duet/mixed word — falling back to the channel default vocal instead of using it as every track's vocal descriptor.`);
+  }
+  const fallbackVocalText = explicitUnrecognizedVocalTone ? opts.channel.defaultVocal : (opts.vocalTone?.trim() || opts.channel.defaultVocal);
   // TASK v3.41 Part A1 — resolves the explicit gender axis for the non-kids-
   // quota case (a known preset's own `gender`, e.g. 'duet'), computed once
   // since fallbackVocalText is constant across the whole pack. Falls back to

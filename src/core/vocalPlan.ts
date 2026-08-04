@@ -72,6 +72,24 @@ export function usesVocalQuota(_opts: Pick<GenerationOptions, 'channel' | 'diver
 }
 
 /**
+ * TASK v4.13 — Korean duet/mixed-group words for the same free-text box
+ * detectVocalGender's own Korean addition targets above. Kept as a separate
+ * check here (not folded into detectVocalGender, whose 'male'|'female'|null
+ * contract several other callers — fullAudit.ts, quality.ts — already
+ * depend on) rather than widening that function's return type for a case
+ * only this one caller needs. "듀엣"/"남녀" name an alternating male-female
+ * duet specifically (VocalGender 'duet', same as the male-female-duet
+ * preset's own gender field); "혼성" names a gender-neutral group blend
+ * (VocalGender 'mixed', same as the mixed-harmony-group preset) — kept
+ * distinct rather than collapsing both to 'mixed', since leaningAdultVocalQuota
+ * already treats them identically for the quota math ('duet' remaps to the
+ * 'mixed' VocalType key internally) but other code may still care about the
+ * distinction (e.g. duet section-vocal lyric tagging).
+ */
+const DUET_TERMS_KO = /듀엣|남녀/;
+const MIXED_GROUP_TERMS_KO = /혼성/;
+
+/**
  * v3.77 (TASK A) — resolves which gender (if any) a user's actual vocalTone
  * pick should LEAN the pack's quota/trait selection toward. Returns
  * undefined (no lean — balanced default) when vocalTone is unset or equals
@@ -80,12 +98,26 @@ export function usesVocalQuota(_opts: Pick<GenerationOptions, 'channel' | 'diver
  * an on/off switch to a lean signal). `matchVocalPreset` is tried first
  * (exact, no ambiguity for a duet); `detectVocalGender` is the fallback for
  * free-text vocalTone that doesn't match any preset.
+ * TASK v4.13 — every preset card already writes its English `.prompt` into
+ * vocalTone (never the Korean label), so this only ever reached the English
+ * detectVocalGender fallback for the one UI site that accepts arbitrary
+ * text: "직접 입력하기". A Korean free-text pick ("낮고 차분한 남성") used
+ * to fail both matchVocalPreset and (English-only) detectVocalGender,
+ * returning undefined here — no lean — which then also disabled the
+ * per-track English trait plan downstream (batchPreallocation.ts's/
+ * localGenerator.ts's explicitUnrecognizedVocalTone guard), baking the raw
+ * Korean string into every track's style prompt as the literal vocal
+ * descriptor. Checked before detectVocalGender since "남녀"/"혼성" name a
+ * duet/group blend detectVocalGender's own male/female-only contract can't
+ * express.
  */
 export function leaningGenderFor(opts: Pick<GenerationOptions, 'channel' | 'vocalTone'>): VocalGender | undefined {
   const explicitVocalTone = opts.vocalTone?.trim();
   if (!explicitVocalTone || explicitVocalTone === opts.channel.defaultVocal) return undefined;
   const preset = matchVocalPreset(explicitVocalTone);
   if (preset) return preset.gender;
+  if (DUET_TERMS_KO.test(explicitVocalTone)) return 'duet';
+  if (MIXED_GROUP_TERMS_KO.test(explicitVocalTone)) return 'mixed';
   return detectVocalGender(explicitVocalTone) ?? undefined;
 }
 
@@ -310,16 +342,34 @@ export function buildVocalVariantPlan(plan: VocalType[], seed: number): number[]
 const FEMALE_VOICE_TERMS = 'female|girl|woman|women|she|her|soprano|mezzo(?:-soprano)?|contralto|chanteuse|diva|alto(?!\\s*(?:sax|flute))';
 const MALE_VOICE_TERMS = 'male|boy|man|men|he|his|tenor|baritone';
 
+/**
+ * TASK v4.13 — Korean gender words, for the "직접 입력하기" free-text
+ * vocalTone box (the only UI site that writes arbitrary unvalidated text
+ * into vocalTone — every preset card already writes its English `prompt`).
+ * `\b` word-boundaries don't work against Korean characters at all (they
+ * aren't "word characters" to JS regex — `/\b남성\b/.test('낮고 차분한
+ * 남성')` is false even though 남성 is plainly the last standalone word),
+ * so this is a plain substring alternation instead of
+ * genderTermsPattern's \b-wrapped English lists above — the same approach
+ * data/referenceMood.ts's own unrelated 여성|여자|female / 남성|남자|male
+ * mappings already use for exactly this reason. Deliberately only the
+ * 2-character forms (남성/남자/여성/여자), not bare 남/여 — those are single
+ * syllables that appear inside many unrelated Korean words (남기다, 여행,
+ * 여름, 남쪽, ...) and would false-positive constantly.
+ */
+const FEMALE_VOICE_TERMS_KO = /여성|여자/;
+const MALE_VOICE_TERMS_KO = /남성|남자/;
+
 function genderTermsPattern(terms: string, flags: string): RegExp {
   return new RegExp(`\\b(?:${terms})\\b`, flags);
 }
 
 function hasFemaleVoiceWord(text: string): boolean {
-  return genderTermsPattern(FEMALE_VOICE_TERMS, 'i').test(text);
+  return genderTermsPattern(FEMALE_VOICE_TERMS, 'i').test(text) || FEMALE_VOICE_TERMS_KO.test(text);
 }
 
 function hasMaleVoiceWord(text: string): boolean {
-  return genderTermsPattern(MALE_VOICE_TERMS, 'i').test(text);
+  return genderTermsPattern(MALE_VOICE_TERMS, 'i').test(text) || MALE_VOICE_TERMS_KO.test(text);
 }
 
 export function detectVocalGender(text: string): 'male' | 'female' | null {

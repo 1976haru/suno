@@ -976,7 +976,16 @@ export function generateLocalBlueprint(
   // TASK v3.39.1 Part H4 — matches batchPreallocation.ts's own fallback so
   // the local path's lyric meta tag agrees with what the realtime/Batch/
   // bridge paths would tag the same opts with.
-  const fallbackVocalText = opts.vocalTone?.trim() || opts.channel.defaultVocal;
+  // TASK v4.13 bugfix — mirrors batchPreallocation.ts's identical fallback:
+  // explicitUnrecognizedVocalTone means vocalTone matched no preset and
+  // carried no detectable gender/duet/mixed word (English or Korean) at
+  // all — genuinely unparseable text Suno can't read either way, so it must
+  // not become every track's literal vocal descriptor. Falls back to the
+  // channel default with the same console warning.
+  if (explicitUnrecognizedVocalTone) {
+    console.warn(`[vocalTone] "${opts.vocalTone?.trim()}" matched no preset and no detectable gender/duet/mixed word — falling back to the channel default vocal instead of using it as every track's vocal descriptor.`);
+  }
+  const fallbackVocalText = explicitUnrecognizedVocalTone ? opts.channel.defaultVocal : (opts.vocalTone?.trim() || opts.channel.defaultVocal);
   // TASK v3.41 Part A1 — mirrors batchPreallocation.ts's fallbackVocalGender.
   const fallbackVocalGender = matchVocalPreset(fallbackVocalText)?.gender;
   // TASK v3.42 Part B2 — mirrors batchPreallocation.ts's own hookDevicePlan
