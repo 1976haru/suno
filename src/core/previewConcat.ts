@@ -22,10 +22,13 @@ export interface PreviewConcatOptions {
   secondsPerTrack?: number;
   /** Linear fade-out applied to the last N ms of each clip so the cut into the next track isn't a hard click. */
   fadeOutMs?: number;
+  /** TASK v4.14 (TASK E) — silence inserted between tracks, "0.5초 무음 삽입" so back-to-back clips read as 18 distinct openings, not one continuous song. Not applied before the first track or after the last. */
+  gapMs?: number;
 }
 
 const DEFAULT_SECONDS_PER_TRACK = 15;
 const DEFAULT_FADE_OUT_MS = 150;
+const DEFAULT_GAP_MS = 500;
 
 export interface PreviewConcatResult {
   sampleRate: number;
@@ -52,6 +55,7 @@ export function buildPreviewConcat(tracks: DecodedTrackAudio[], options: Preview
 
   const secondsPerTrack = options.secondsPerTrack ?? DEFAULT_SECONDS_PER_TRACK;
   const fadeOutMs = options.fadeOutMs ?? DEFAULT_FADE_OUT_MS;
+  const gapMs = options.gapMs ?? DEFAULT_GAP_MS;
   const sampleRate = tracks[0].buffer.sampleRate;
   const numberOfChannels = Math.max(...tracks.map(t => t.buffer.numberOfChannels));
 
@@ -66,11 +70,13 @@ export function buildPreviewConcat(tracks: DecodedTrackAudio[], options: Preview
 
   const clipSamples = Math.round(secondsPerTrack * sampleRate);
   const fadeSamples = Math.min(clipSamples, Math.round((fadeOutMs / 1000) * sampleRate));
-  const totalSamples = usable.reduce((sum, track) => sum + Math.min(clipSamples, track.buffer.length), 0);
+  const gapSamples = Math.max(0, Math.round((gapMs / 1000) * sampleRate));
+  const clipTotalSamples = usable.reduce((sum, track) => sum + Math.min(clipSamples, track.buffer.length), 0);
+  const totalSamples = clipTotalSamples + gapSamples * Math.max(0, usable.length - 1);
 
   const channelData: Float32Array[] = Array.from({ length: numberOfChannels }, () => new Float32Array(totalSamples));
   let cursor = 0;
-  for (const track of usable) {
+  usable.forEach((track, trackIndex) => {
     const clipLength = Math.min(clipSamples, track.buffer.length);
     if (clipLength < clipSamples) {
       warnings.push(`Track ${track.trackNo}: 길이가 ${secondsPerTrack}초보다 짧아 전체 길이(${(clipLength / sampleRate).toFixed(1)}초)만 사용합니다.`);
@@ -88,7 +94,9 @@ export function buildPreviewConcat(tracks: DecodedTrackAudio[], options: Preview
       }
     }
     cursor += clipLength;
-  }
+    // Silence gap left as zero-filled (channelData is already zero-initialized) — skipped after the last track.
+    if (trackIndex < usable.length - 1) cursor += gapSamples;
+  });
 
   return {
     result: {
@@ -142,7 +150,15 @@ export function encodeWavFile(concat: PreviewConcatResult): Blob {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
+/**
+ * TASK v4.14 (TASK E) — spec names the pattern "<세트코드>_인트로.mp3"; kept
+ * as .wav (this task's own explicit "외부 라이브러리 없이" — mp3 encoding
+ * needs a codec library the app doesn't otherwise depend on, same reasoning
+ * as encodeWavFile's own doc comment) but renamed from the old
+ * "_15s미리듣기" to "_인트로" to match the spec's own naming as closely as
+ * the format substitution allows.
+ */
 export function previewConcatFileName(setLabel: string): string {
   const safe = setLabel.replace(/[\\/:*?"<>|]/g, '_').trim() || 'preview';
-  return `${safe}_15s미리듣기.wav`;
+  return `${safe}_인트로.wav`;
 }

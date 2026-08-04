@@ -58,6 +58,42 @@ function amplitudeScoreFor(song: SongIdea, signal: TrackAudioSignal | undefined)
 }
 
 /**
+ * TASK v4.14 (TASK D) — "동일 장르·보컬타입·머니코드 반복은 연속 2곡까지" as a
+ * real cap, not just the greedy loop's soft alternation bonus (which can
+ * still land 3+ in a row when nothing else scores better). Mirrors
+ * arcPlan.ts's own breakLongRuns (swap the run's overflow entry with the
+ * nearest later position holding a different value), rewritten to operate
+ * on a trackNo sequence resolved through `byTrackNo` for one song attribute
+ * at a time, and to never touch a pinned position (index < pinnedCount —
+ * the cold-open/flagship prefix `suggestSetOrder` already fixed in place).
+ * Undefined attribute values (e.g. no moneyChordId on this pack) never
+ * count as a run.
+ */
+function capConsecutiveRuns(
+  trackNos: readonly number[],
+  pinnedCount: number,
+  byTrackNo: Map<number, SongIdea>,
+  keyOf: (song: SongIdea) => string | undefined,
+  maxConsecutive: number
+): number[] {
+  const result = [...trackNos];
+  const start = Math.max(pinnedCount, maxConsecutive);
+  for (let i = start; i < result.length; i += 1) {
+    const currentKey = keyOf(byTrackNo.get(result[i])!);
+    if (!currentKey) continue;
+    let isRun = true;
+    for (let k = 1; k <= maxConsecutive; k += 1) {
+      if (keyOf(byTrackNo.get(result[i - k])!) !== currentKey) { isRun = false; break; }
+    }
+    if (!isRun) continue;
+    const swapWith = result.findIndex((trackNo, j) => j > i && j >= pinnedCount && keyOf(byTrackNo.get(trackNo)!) !== currentKey);
+    if (swapWith === -1) continue;
+    [result[i], result[swapWith]] = [result[swapWith], result[i]];
+  }
+  return result;
+}
+
+/**
  * Greedy nearest-neighbor-style reorder: starting from a fixed opening
  * (cold-open) and fixed flagship block (tracks 2-3, per this app's own
  * songRole convention), each remaining position picks whichever unplaced
@@ -88,6 +124,7 @@ export function suggestSetOrder(songs: SongIdea[], audioSignals: TrackAudioSigna
   const coldOpen = songs.find(song => song.songRole === 'cold-open') ?? songs[0];
   const flagships = songs.filter(song => song.songRole === 'flagship' && song.trackNo !== coldOpen.trackNo);
   const placed: number[] = [coldOpen.trackNo, ...flagships.map(song => song.trackNo)];
+  const pinnedCount = placed.length;
   const placedSet = new Set(placed);
   const remaining = songs.filter(song => !placedSet.has(song.trackNo));
 
@@ -121,6 +158,13 @@ export function suggestSetOrder(songs: SongIdea[], audioSignals: TrackAudioSigna
       score += Math.abs(bpm - prevBpm) > 10 ? 2 : 0;
       if (candidate.genreId && prev.genreId && candidate.genreId !== prev.genreId) score += 1;
       if (candidate.vocalType && prev.vocalType && candidate.vocalType !== prev.vocalType) score += 1;
+      // TASK v4.14 (TASK D) — moneyChordId gets the same soft alternation
+      // preference genre/vocalType already had; the hard "≤2 consecutive"
+      // cap this task's own spec names for all three axes is enforced
+      // separately below (capConsecutiveRuns), since this greedy pass only
+      // ever compares each candidate to the single immediately-preceding
+      // pick and can't see far enough back to guarantee a cap on its own.
+      if (candidate.moneyChordId && prev.moneyChordId && candidate.moneyChordId !== prev.moneyChordId) score += 1;
       if (inPeakWindow) score += amplitudeScoreFor(candidate, signal) / 10;
       if (score > bestScore) { bestScore = score; best = candidate; }
     }
@@ -138,14 +182,24 @@ export function suggestSetOrder(songs: SongIdea[], audioSignals: TrackAudioSigna
     prev = best;
   }
 
-  const entries: SetOrderSuggestionEntry[] = placed.map((trackNo, i) => ({
+  let capped = placed;
+  capped = capConsecutiveRuns(capped, pinnedCount, byTrackNo, song => song.genreId, 2);
+  capped = capConsecutiveRuns(capped, pinnedCount, byTrackNo, song => song.vocalType, 2);
+  capped = capConsecutiveRuns(capped, pinnedCount, byTrackNo, song => song.moneyChordId, 2);
+  for (let i = 0; i < capped.length; i += 1) {
+    if (capped[i] === placed[i]) continue;
+    const trackNo = capped[i];
+    notes.set(trackNo, `${notes.get(trackNo) ?? ''} (같은 장르·보컬·머니코드 연속 방지로 순서 조정)`.trim());
+  }
+
+  const entries: SetOrderSuggestionEntry[] = capped.map((trackNo, i) => ({
     position: i + 1,
     trackNo,
     title: byTrackNo.get(trackNo)!.title,
     noteKo: notes.get(trackNo) ?? ''
   }));
 
-  const changed = placed.some((trackNo, i) => trackNo !== originalOrder[i]);
+  const changed = capped.some((trackNo, i) => trackNo !== originalOrder[i]);
 
-  return { originalOrder, suggestedOrder: placed, entries, changed, usedRealAudioSignals };
+  return { originalOrder, suggestedOrder: capped, entries, changed, usedRealAudioSignals };
 }

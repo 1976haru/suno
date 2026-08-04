@@ -78,7 +78,7 @@ export default function PreviewConcatPanel({ songs, setLabel }: PreviewConcatPan
       </div>
       <p className="supporting">
         수노에서 내려받은 mp3 파일들을 한꺼번에 선택하세요 — 파일명 앞의 트랙번호("01 ...")로 자동 매칭합니다.
-        각 곡의 첫 15초만 이어붙인 wav 파일 하나로 다운로드됩니다 (곡 수 x 15초 분량).
+        각 곡의 첫 15초만 곡 사이 0.5초 무음을 두고 이어붙인 wav 파일 하나로 다운로드됩니다 (곡 수 x 15초 + 무음 분량).
       </p>
       <label className="button-row">
         <Download size={14} />

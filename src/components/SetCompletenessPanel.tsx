@@ -5,7 +5,7 @@ import type { GenerationGateResult } from '../core/generationGate';
 import type { FullAuditReport, AuditItem } from '../core/fullAudit';
 import { runFullAuditResponsive } from '../core/localGenerationClient';
 import { buildSetCompletenessSummary } from '../core/setCompletenessSummary';
-import { suggestSetOrder } from '../core/setOrderSuggestion';
+import { suggestSetOrder, type TrackAudioSignal } from '../core/setOrderSuggestion';
 import { scopedKey, currentWorkspaceId } from '../core/workspaceScope';
 import { getTakes } from '../core/audioTakes';
 import { getApprovedCombos, effectiveVerifiedCombos } from '../core/verifiedCombos';
@@ -65,6 +65,13 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   const conceptLabel = opts.customConcept || opts.projectTitle;
   const [report, setReport] = useState<FullAuditReport | null>(null);
   const [takeCount, setTakeCount] = useState(0);
+  // TASK v4.14 (TASK D) — adopted takes' real metrics.spectralCentroid/
+  // overallLevel, mapped to the shape suggestSetOrder's second argument
+  // expects. Before this task, this panel fetched takes only to count them
+  // (takeCount) and never actually handed suggestSetOrder any real audio
+  // data, so orderSuggestion.usedRealAudioSignals was always false and the
+  // "실측 음원 분석 반영" branch of the UI below was dead in practice.
+  const [audioSignals, setAudioSignals] = useState<TrackAudioSignal[]>([]);
   const [candidateCombos, setCandidateCombos] = useState<VerifiedCombo[]>([]);
 
   useEffect(() => {
@@ -75,12 +82,23 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
     return () => { cancelled = true; };
   }, [blueprint.songs, conceptLabel, audienceProfile]);
 
-  useEffect(() => {
+  const packId = `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}`;
+  function refreshAudioTakes() {
     let cancelled = false;
-    const packId = `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}`;
-    getTakes({ packId }).then(takes => { if (!cancelled) setTakeCount(takes.length); }).catch(() => { if (!cancelled) setTakeCount(0); });
+    getTakes({ packId })
+      .then(takes => {
+        if (cancelled) return;
+        setTakeCount(takes.length);
+        setAudioSignals(
+          takes
+            .filter(take => take.adopted)
+            .map(take => ({ trackNo: take.trackNo, spectralCentroid: take.metrics.spectralCentroid, overallLevel: take.metrics.overallLevel }))
+        );
+      })
+      .catch(() => { if (!cancelled) { setTakeCount(0); setAudioSignals([]); } });
     return () => { cancelled = true; };
-  }, [blueprint]);
+  }
+  useEffect(refreshAudioTakes, [blueprint]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,7 +128,7 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   }), [blueprint, conceptLabel, generationGateResult, regressionCount, promisePct, opts.lyricLanguage, takeCount, candidateCombos]);
   const combosPlaced = summary.verifiedCombosPlaced;
 
-  const orderSuggestion = useMemo(() => suggestSetOrder(blueprint.songs), [blueprint.songs]);
+  const orderSuggestion = useMemo(() => suggestSetOrder(blueprint.songs, audioSignals), [blueprint.songs, audioSignals]);
 
   function exportOrderSuggestion() {
     const lines = [
@@ -175,6 +193,11 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           <ListMusic size={14} />
           <strong>추천 재생 순서</strong>
           <span className="supporting">{orderSuggestion.usedRealAudioSignals ? '실측 음원 분석 반영' : '음원 미분석 — BPM/아크 단계 기반 추정'}</span>
+          {takeCount > 0 && (
+            <button type="button" onClick={refreshAudioTakes} title="음원 분석 탭에서 새로 채택한 테이크가 있으면 반영합니다.">
+              순서 다시 계산 (실측 반영)
+            </button>
+          )}
           {orderSuggestion.changed && <button type="button" onClick={exportOrderSuggestion}>추천 순서 내보내기 (.txt)</button>}
         </div>
         {!orderSuggestion.changed && <p className="supporting">현재 순서가 이미 추천 순서와 같습니다 — 재배치가 필요 없습니다.</p>}
