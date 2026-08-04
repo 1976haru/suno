@@ -123,10 +123,11 @@ describe('[Part H] enforceVocalTextInStylePrompt — deterministic correction', 
 });
 
 describe('[Part H] resolveVocalMetaTag / ensureVocalMetaTag', () => {
-  it('resolves [male vocal] / [female vocal] / [children\'s choir] correctly', () => {
+  // TASK D2 §6-3 (user decision) — the automatic kids 'mixed' vocalType now tags as [mixed vocal], not [children's choir].
+  it('resolves [male vocal] / [female vocal] / [mixed vocal] correctly', () => {
     expect(resolveVocalMetaTag(undefined, undefined, 'mature soft male tenor')).toBe('[male vocal]');
     expect(resolveVocalMetaTag(undefined, undefined, 'soft warm female alto')).toBe('[female vocal]');
-    expect(resolveVocalMetaTag('mixed', undefined, undefined)).toBe("[children's choir]");
+    expect(resolveVocalMetaTag('mixed', undefined, undefined)).toBe('[mixed vocal]');
     expect(resolveVocalMetaTag('male', undefined, undefined)).toBe('[male vocal]');
   });
 

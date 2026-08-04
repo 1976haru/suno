@@ -140,7 +140,8 @@ describe('vocalDescriptionFor', () => {
     expect(vocalDescriptionFor('male')).toBe('bright childlike boy voice, playful and youthful, kindergarten-age tone, clear Korean diction, bright and friendly');
     expect(vocalDescriptionFor('female')).toBe('bright childlike girl voice, sweet and clear, kindergarten-age tone, clear Korean diction, bright and friendly');
     // TASK v3.41 Part A2/D — mixed is now a 5-variant array; variant 0 is this string.
-    expect(vocalDescriptionFor('mixed')).toBe("children's choir singing together, cheerful call-and-response singalong, clear Korean diction, bright and friendly");
+    // TASK D2 §6-3 (user decision) — "choir" wording replaced with a boy-and-girl mixed duet.
+    expect(vocalDescriptionFor('mixed')).toBe('childlike boy and girl voices singing together, cheerful playful duet, clear Korean diction, bright and friendly');
   });
 
   it('never describes any vocal type as an adult voice', () => {

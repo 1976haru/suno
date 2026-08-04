@@ -54,6 +54,7 @@ import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } f
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
+import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { resolveConstraintsFromOptions } from './constraints';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
@@ -197,7 +198,8 @@ export function preallocateSongSlots(
       eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
     })),
     seed + 67,
-    killingPointBoostFromInsights(opts.ratingInsights)
+    killingPointBoostFromInsights(opts.ratingInsights),
+    isKidsArchetype(opts.channel.archetype) ? KIDS_KILLING_POINTS : undefined
   );
   // TASK v4.11 (TASK B) — mirrors localGenerator.ts's own openingLoudnessPlan
   // (same seed offset): tracks 1-3 only, a real waveform measurement found

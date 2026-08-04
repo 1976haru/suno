@@ -13,6 +13,7 @@ import { moneyChordPresets, resolveEarwormMoneyChordMode } from '../data/moneyCh
 import { safeLyricRules } from '../data/lyrics';
 import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget';
 import { compactDuration, compactMoneyChord } from './soundSignature';
+import { kidsAgeTierFor, type KidsAgeTierId } from '../data/kidsAgeTiers';
 import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
 import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
 import { stripBpmText } from './bpmDedupe';
@@ -750,8 +751,20 @@ export function buildStylePrompt(opts: GenerationOptions, genres: GenrePack[], m
  * still used by Persona mode/quality.ts's own tighter-budget paths at
  * soundSignature.ts's own compactHook call sites) rather than changing that
  * shared function's default output.
+ *
+ * TASK D2 §5 — §0-2 measured every kids song getting the same fixed "hook
+ * repeats 4x" regardless of age tier, while the research material wants
+ * T1=6/T2=5/T3=4 (data/kidsAgeTiers.ts's own minHookRepeats). Optional 4th
+ * arg only — omitting it (every existing caller today) reproduces the exact
+ * lyricDepth-only 3x/4x text above unchanged. Not yet wired at either real
+ * call site (core/localGenerator.ts): GenerationOptions has no ageTier field
+ * to pass one from (see §5-3's own T1-length caveat in the D2 report).
  */
-export function hookStyleDirectives(_hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth']): string {
+export function hookStyleDirectives(_hookPhrase: string, lyricDepth: GenerationOptions['lyricDepth'], kidsAgeTierId?: KidsAgeTierId): string {
+  if (kidsAgeTierId) {
+    const tierRepeats = kidsAgeTierFor(kidsAgeTierId).minHookRepeats;
+    if (tierRepeats !== undefined) return `hook repeats ${tierRepeats}x`;
+  }
   const returns = lyricDepth === 'poetic' ? '3x' : '4x';
   return `hook repeats ${returns}`;
 }

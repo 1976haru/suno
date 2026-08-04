@@ -168,7 +168,9 @@ export const channelPresets: ChannelProfile[] = [
     visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
     // TASK v3.39 — matches core/vocalPlan.ts's VOCAL_DESCRIPTIONS rewrite:
     // childlike/youthful tone throughout, no adult-coded wording.
-    defaultVocal: "bright cheerful children's choir singalong, youthful childlike voices, call-and-response group singing",
+    // TASK D2 §6-3 (user decision) — "choir" wording dropped in favor of a
+    // boy-and-girl mixed duet, matching VOCAL_DESCRIPTIONS.mixed's own update.
+    defaultVocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
     // TASK v3.38 Part B0 (correction) — kids songs are pop-style, not
     // traditional-nursery-rhyme-style; the 3 primary genres are all pop
     // variants, and kids-march (traditional/marching-song flavor) is kept

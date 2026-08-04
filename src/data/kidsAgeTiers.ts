@@ -67,7 +67,9 @@ export const KIDS_AGE_TIERS: Record<KidsAgeTierId, KidsAgeTier> = {
     tempoRange: [100, 130],
     maxWordsPerLine: undefined,
     totalWordTarget: 90,
-    minHookRepeats: undefined,
+    // TASK D2 §5-1 — D1 left this "미정(자료 없음)" (D1's own §4 table only said "다수").
+    // D2's own §5-1 table gives the concrete number; filled in here since D2 IS that source.
+    minHookRepeats: 5,
     allowedInstruments: ['우쿨렐레', '마림바', '실로폰', '핸드클랩', '밝은 신스'],
     forbiddenTraits: KIDS_COMMON_FORBIDDEN_TRAITS,
     emotionVocabulary: emotionVocabularyFor('kids-t2')
@@ -79,7 +81,9 @@ export const KIDS_AGE_TIERS: Record<KidsAgeTierId, KidsAgeTier> = {
     tempoRange: [105, 140],
     maxWordsPerLine: undefined,
     totalWordTarget: 120,
-    minHookRepeats: undefined,
+    // TASK D2 §5-1 — same as T2 above (D1 had "중간", D2 gives 4 — matching
+    // today's actual fixed value, so this is also the ageTier-omitted default).
+    minHookRepeats: 4,
     allowedInstruments: ['우쿨렐레', '마림바', '실로폰', '핸드클랩', '밝은 신스'],
     forbiddenTraits: KIDS_COMMON_FORBIDDEN_TRAITS,
     emotionVocabulary: emotionVocabularyFor('kids-t3')

@@ -1,6 +1,8 @@
 import type { LyricLanguage } from '../types';
 import type { KidsVocabularyWhitelist, KidsWhitelistLanguage } from '../data/kidsVocabularyWhitelist';
 import { whitelistViolations } from '../data/kidsVocabularyWhitelist';
+import type { KidsAgeTierId, KidsStructureSectionKind, KidsStructureTemplate } from '../data/kidsStructureTemplates';
+import { kidsStructureTemplateFor } from '../data/kidsStructureTemplates';
 
 /**
  * TASK v3.38 Part B3 — a self-contained kids-song lyric body composer,
@@ -27,6 +29,15 @@ export interface KidsLyricInput {
   hook: string;
   seed: number;
   theme?: KidsLyricTheme;
+  /**
+   * TASK D2 §3-1 — explicit structure override. Omit both this and
+   * `ageTier` to get the exact pre-D2 hardcoded structure (see
+   * DEFAULT_KIDS_SECTIONS below) — required so the senior workspace's
+   * little-singalong-radio channel keeps working unchanged.
+   */
+  structure?: KidsStructureTemplate;
+  /** TASK D2 §3-1 — picks a structure from KIDS_STRUCTURE_TEMPLATES (D1's T1/T2/T3) when `structure` isn't given directly. */
+  ageTier?: KidsAgeTierId;
 }
 
 export interface ComposedKidsLyrics {
@@ -250,12 +261,26 @@ const englishChorusSupport: Record<KidsLyricTheme, string> = {
 };
 
 function tags() {
-  return { intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]', bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]' };
+  return {
+    intro: '[short intro]', verse1: '[verse 1]', chorus: '[chorus]', verse2: '[verse 2]',
+    // TASK D2 §6-1 — structural slot only; content (E1/F1) reuses this
+    // theme's own already-safety-reviewed verse pool, see callLine/responseLine
+    // below. Suno's actual handling of this tag is unverified — flagged in
+    // the D2 report as a human-verification item, not assumed to "just work".
+    callResponse: '[call and response]',
+    bridge: '[short bridge]', finalChorus: '[final chorus]', end: '[end]'
+  };
 }
 
 function buildChorusBlock(tag: string, hook: string, support: string): string {
   return `${tag}\n${hook}\n${support}`;
 }
+
+// TASK D2 §3-1 — exactly the pre-D2 hardcoded order (t.end appended
+// separately below, unchanged). Used whenever both `structure` and
+// `ageTier` are omitted, so every existing caller (senior workspace's
+// little-singalong-radio included) keeps producing byte-identical lyrics.
+const DEFAULT_KIDS_SECTIONS: KidsStructureSectionKind[] = ['intro', 'verse1', 'chorus', 'verse2', 'chorus', 'chorus', 'bridge', 'finalChorus'];
 
 /**
  * TASK v3.38 Part B3 — chorus (hook + one support line) repeats 4 times
@@ -263,6 +288,13 @@ function buildChorusBlock(tag: string, hook: string, support: string): string {
  * identical text every time, matching the spec's "후렴 반복 3~4회" and the
  * genre convention that a children's song's hook line never varies once
  * introduced.
+ *
+ * TASK D2 §3-1 — section ORDER is now data-driven (see
+ * data/kidsStructureTemplates.ts): `input.structure` wins if given,
+ * otherwise `input.ageTier` picks one of D1's T1/T2/T3 templates,
+ * otherwise DEFAULT_KIDS_SECTIONS above reproduces the original hardcoded
+ * shape exactly. Only the ORDER changed — every individual block's own
+ * content logic (which theme pool, which seed offset) is untouched.
  */
 export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
   const { language, title, hook, seed } = input;
@@ -286,21 +318,28 @@ export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
   const theme = input.theme ?? themeForSeed(seed);
   const [verse1, verse2] = pick(versePairsByTheme[theme], seed + 3);
   const [verse1b, verse2b] = pick(versePairsByTheme[theme], seed + 7);
+  // TASK D2 §6-1 — call-response slot reuses the SAME per-theme pool verse1/
+  // verse2 already draw from (a third rotation, seed+11) rather than
+  // authoring new call/response sentences — D2's own scope is the section
+  // "자리" (slot), not new Korean/Japanese content (§0-1, E1/F1's job).
+  const [callLine, responseLine] = pick(versePairsByTheme[theme], seed + 11);
   const [bridgeLine1, bridgeLine2] = bridgeByTheme[theme];
   const support = chorusSupportByTheme[theme];
   const chorusBlock = buildChorusBlock(t.chorus, hookPhrase, support);
   const finalChorusBlock = buildChorusBlock(t.finalChorus, hookPhrase, support);
-  const lyrics = [
-    `${t.intro}\n${introLine}`,
-    `${t.verse1}\n${verse1}\n${verse2}`,
-    chorusBlock,
-    `${t.verse2}\n${verse1b}\n${verse2b}`,
-    chorusBlock,
-    chorusBlock,
-    `${t.bridge}\n${bridgeLine1}\n${bridgeLine2}`,
-    finalChorusBlock,
-    t.end
-  ].join('\n\n');
+
+  const blocksByKind: Record<KidsStructureSectionKind, string> = {
+    intro: `${t.intro}\n${introLine}`,
+    verse1: `${t.verse1}\n${verse1}\n${verse2}`,
+    verse2: `${t.verse2}\n${verse1b}\n${verse2b}`,
+    chorus: chorusBlock,
+    callResponse: `${t.callResponse}\n${callLine}\n${responseLine}`,
+    bridge: `${t.bridge}\n${bridgeLine1}\n${bridgeLine2}`,
+    finalChorus: finalChorusBlock
+  };
+
+  const sections = input.structure?.sections ?? (input.ageTier ? kidsStructureTemplateFor(input.ageTier).sections : DEFAULT_KIDS_SECTIONS);
+  const lyrics = [...sections.map(kind => blocksByKind[kind]), t.end].join('\n\n');
   return { lyrics, hookPhrase };
 }
 

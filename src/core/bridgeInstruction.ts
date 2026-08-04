@@ -721,7 +721,8 @@ function vocalCompositionLabel(slot: PreassignedSongSlot): string {
   if (isDuetSlot(slot)) return 'Male-Female Duet';
   if (slot.vocalGender === 'male' || slot.vocalType === 'male') return 'Male Solo';
   if (slot.vocalGender === 'female' || slot.vocalType === 'female') return 'Female Solo';
-  if (slot.vocalGender === 'mixed' || slot.vocalType === 'mixed') return 'Mixed Group/Choir';
+  // TASK D2 §6-3 (user decision) — kids' 'mixed' vocal is a boy-and-girl mixed pair now, not a choir (see vocalPlan.ts's own doc comment).
+  if (slot.vocalGender === 'mixed' || slot.vocalType === 'mixed') return 'Mixed Group';
   return 'Solo (see this track\'s own vocalText)';
 }
 

@@ -60,6 +60,7 @@ import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
+import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
@@ -499,7 +500,9 @@ export function rebuildStylePromptsForPersonaMode(
       eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
     })),
     seed + 67,
-    killingPointBoostFromInsights(opts.ratingInsights)
+    killingPointBoostFromInsights(opts.ratingInsights),
+    // TASK D2 §4-5 — kids workspaces draw from the separate kid-safe set instead of KILLING_POINTS.
+    isKidsArchetype(opts.channel.archetype) ? KIDS_KILLING_POINTS : undefined
   );
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
@@ -829,7 +832,8 @@ export function generateLocalBlueprint(
       eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
     })),
     seed + 67,
-    killingPointBoostFromInsights(opts.ratingInsights)
+    killingPointBoostFromInsights(opts.ratingInsights),
+    isKidsArchetype(opts.channel.archetype) ? KIDS_KILLING_POINTS : undefined
   );
   // TASK v4.9 (TASK C) — a first-15-seconds hooking device, distinct from
   // killingPointPlan's final-chorus peak (see data/openingHooks.ts's own
@@ -883,7 +887,8 @@ export function generateLocalBlueprint(
   // archetype, not just kids (see vocalPlan.ts's own doc comment for the
   // regression this fixes); the quota shape still differs by archetype —
   // kids keeps DEFAULT_KIDS_VOCAL_QUOTA, every other archetype falls back to
-  // DEFAULT_ADULT_VOCAL_QUOTA ('mixed' means duet there, not choir).
+  // DEFAULT_ADULT_VOCAL_QUOTA (both mean a boy-and-girl/male-female mixed
+  // vocal as of D2 §6-3 — see vocalPlan.ts's own doc comment).
   // v3.77 (TASK A) — mirrors batchPreallocation.ts's own leaning-quota
   // wiring (same reasoning: see vocalPlan.ts's leaningGenderFor doc comment).
   const baseVocalQuota = opts.vocalQuota ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
@@ -1196,7 +1201,7 @@ export function generateLocalBlueprint(
       ? (isKidsArchetype(opts.channel.archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
       : fallbackVocalGender;
     // TASK v3.39.1 Part H4 — realtime/Batch/bridge output all get a
-    // [male vocal]/[female vocal]/[children's choir] lyric meta tag via
+    // [male vocal]/[female vocal]/[mixed vocal] lyric meta tag via
     // batchPreallocation.ts's reconcileWithPreassignedSlot, but a local-only
     // generated pack never passes through that function, so its lyrics
     // always started with the section tag ([short intro], etc.) and no

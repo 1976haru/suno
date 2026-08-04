@@ -1028,7 +1028,8 @@ export interface PreassignedSongSlot {
    */
   killingPointText?: string;
   /** v3.67 (TASK A) — where in the song killingPointText's moment lands. */
-  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro';
+  // TASK D2 §4 — 'call-response' added alongside data/killingPoints.ts's own identical widening (kids-only killing points; see KIDS_KILLING_POINTS).
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
   /** v3.68 (TASK B) — this trackNo's killing point id (data/killingPoints.ts KillingPoint.id), snapshotted for rating analysis alongside killingPointText/killingPointPlacement above. */
   killingPointId?: string;
   /** v3.68 (TASK B) — this trackNo's own lead genre's broad era bucket (see data/genreLibrary's GenrePack.eraTag), for rating analysis. */

@@ -163,7 +163,8 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     description: '가족이 함께 듣기 좋은 밝고 안전한 창작 동요 채널',
     // TASK v3.38 Part B1/B6 — matches the full 'little-singalong-radio' preset in data/presets.ts.
     // TASK v3.39 — childlike/youthful tone, no adult-coded wording (see data/presets.ts's defaultVocal rewrite).
-    vocal: "bright cheerful children's choir singalong, youthful childlike voices, call-and-response group singing",
+    // TASK D2 §6-3 (user decision) — "choir" → boy-and-girl duet, kept in sync with data/presets.ts's defaultVocal.
+    vocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
     moods: ['bright-playful', 'warm', 'fresh-start'],
     market: 'korea',
     audience: 'kids',

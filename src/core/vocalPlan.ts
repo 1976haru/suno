@@ -179,12 +179,15 @@ export interface VocalQuota {
 export const DEFAULT_KIDS_VOCAL_QUOTA: VocalQuota = { male: 6, female: 6, mixed: 6 };
 
 /**
- * TASK v3.72 (TASK A) — same 6/6/6-of-18 ratio as the kids quota, but for
- * every non-kids archetype ('mixed' means a male-female duet here, not a
- * children's choir — see vocalDescriptionFor's archetype branch). A
- * separate constant (not a reuse of DEFAULT_KIDS_VOCAL_QUOTA) so the two
- * meanings of 'mixed' never get confused at a call site, even though the
- * numbers are identical today.
+ * TASK v3.72 (TASK A) — same 6/6/6-of-18 ratio as the kids quota, for every
+ * non-kids archetype. A separate constant (not a reuse of
+ * DEFAULT_KIDS_VOCAL_QUOTA) so the two contexts never get confused at a call
+ * site, even though the numbers are identical today.
+ *
+ * TASK D2 §6-3 (user decision) — 'mixed' now means the same thing in both
+ * quotas (a boy-and-girl / male-female mixed vocal), not a children's choir
+ * for kids vs. a duet for adult as before — see VOCAL_DESCRIPTIONS.mixed's
+ * own doc comment for why the choir framing was dropped.
  */
 export const DEFAULT_ADULT_VOCAL_QUOTA: VocalQuota = { male: 6, female: 6, mixed: 6 };
 
@@ -223,12 +226,17 @@ const VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
     'clear childlike girl voice, confident singalong delivery, young elementary-age tone',
     'sparkling young girl voice, bright airy tone, playful childlike delivery'
   ],
+  // TASK D2 §6-3 (user decision) — replaced the children's-choir framing
+  // with a male-female mixed pair, per §11-4[B]'s decision (research
+  // material's own "남녀 혼성" wording over the app's prior "아동 합창"
+  // choice). Kept childlike/kindergarten-age tone throughout, matching
+  // the male/female pools above — only the "choir" grouping concept changed.
   mixed: [
-    "children's choir singing together, cheerful call-and-response singalong",
-    "children's choir in simple unison, bright easy group singalong",
-    'childlike boy and girl voices trading lines, playful call-and-response',
-    "children's choir with clapping-game rhythm, chant-like group singing",
-    "children's choir in a simple round, overlapping cheerful entries"
+    'childlike boy and girl voices singing together, cheerful playful duet',
+    'young boy and girl voices trading lines, playful call-and-response',
+    'childlike boy and girl voices in simple unison, bright easy singalong',
+    'young boy and girl voices, bouncy clapping-game rhythm, chant-like duet',
+    'childlike boy and girl voices, overlapping cheerful entries, playful round'
   ]
 };
 
@@ -471,9 +479,17 @@ export function enforceVocalTextInStylePrompt(
  *
  * TASK v3.41 Part A1 — accepts the explicit `gender` axis alongside the
  * kids-quota `vocalType`; a non-kids 'mixed' selection (mixed-harmony-group)
- * tags as "[group vocal]" rather than "[children's choir]" — distinguished
- * by whether vocalText itself mentions "choir" (kids' mixed presets all do),
+ * tags as "[group vocal]" rather than a specific mixed-vocal tag —
+ * distinguished by whether vocalText itself mentions "choir" or "duet",
  * not by archetype, so this stays a pure function.
+ *
+ * TASK D2 §6-3 (user decision) — the AUTOMATIC kids quota's third vocal
+ * type ('mixed' vocalType, from vocalPlan/batchPreallocation) now tags as
+ * "[mixed vocal]", not "[children's choir]" — see VOCAL_DESCRIPTIONS.mixed's
+ * own doc comment. A user who manually picks one of vocalPresets.ts's own
+ * kid-choir* presets (left unchanged — still a legitimate, separate choice)
+ * still gets tagged "[children's choir]" via the vocalText "choir" check
+ * below; only the automatic default changed.
  */
 export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: VocalGender | undefined, vocalText: string | undefined): string | null {
   // v3.77 (TASK A) — gender's own 'duet' MUST be checked before the bare
@@ -483,22 +499,26 @@ export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: Vo
   // vocalType==='mixed' too (batchPreallocation.ts derives
   // vocalGender: 'duet' from exactly this vocalType for every non-kids
   // archetype) — checking vocalType first used to mistag every such song as
-  // "[children's choir]" instead of "[duet vocal]", invisible only because
+  // "[mixed vocal]" instead of "[duet vocal]", invisible only because
   // no end-to-end path used to set both fields at once. A kids 'mixed' slot
   // is unaffected: batchPreallocation.ts sets its gender equal to vocalType
   // ('mixed', never 'duet'), so it still falls through to the next line.
   if (gender === 'duet') return '[duet vocal]';
-  if (vocalType === 'mixed') return "[children's choir]";
+  if (vocalType === 'mixed') return '[mixed vocal]';
   if (vocalType === 'male') return '[male vocal]';
   if (vocalType === 'female') return '[female vocal]';
-  if (gender === 'mixed') return vocalText && /\bchoir\b/i.test(vocalText) ? "[children's choir]" : '[group vocal]';
+  if (gender === 'mixed') {
+    if (vocalText && /\bchoir\b/i.test(vocalText)) return "[children's choir]";
+    if (vocalText && /\bduet\b/i.test(vocalText)) return '[mixed vocal]';
+    return '[group vocal]';
+  }
   if (gender === 'male') return '[male vocal]';
   if (gender === 'female') return '[female vocal]';
   const detected = vocalText ? detectVocalGender(vocalText) : null;
   return detected === 'male' ? '[male vocal]' : detected === 'female' ? '[female vocal]' : null;
 }
 
-const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]/i;
+const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|mixed vocal|children'?s choir|duet vocal|group vocal)\]/i;
 
 /** Prepends `tag` to `lyrics` unless a vocal meta tag is already present at the top (never double-tags). */
 export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {

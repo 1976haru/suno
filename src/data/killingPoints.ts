@@ -1,3 +1,5 @@
+import type { KidsAgeTierId } from './kidsVocabularyWhitelist';
+
 /**
  * TASK v3.67 (TASK A) — real user listening feedback: "킬링포인트도 없는
  *것 같고, 지루함도 느껴지고" (60-70/100). Diagnosis: the senior audience
@@ -12,7 +14,10 @@
  * never more than one atom of stylePrompt budget (see this task's own
  * "프롬프트 원자 2개 이상으로 만들지 말 것").
  */
-export type KillingPointPlacement = 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro';
+// TASK D2 §4 — 'call-response' added for KIDS_KILLING_POINTS (data/killingPointsKids.ts):
+// purely additive, never read/switched on by any logic in this file (placement is opaque
+// descriptive metadata here), so every existing KILLING_POINTS entry's behavior is unchanged.
+export type KillingPointPlacement = 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
 
 export interface KillingPoint {
   id: string;
@@ -24,6 +29,8 @@ export interface KillingPoint {
   relaxes: string[];
   /** Loose, case-insensitive substrings matched against a track's own GenrePack.eraTag (e.g. "1970s AM-gold soft rock" contains "1970s" and "soft rock"). Undefined/empty means this killing point fits any era. */
   fitsEraTags?: string[];
+  /** TASK D2 §4-4 — kids-only: which age tier(s) this killing point is appropriate for. Undefined for every existing senior KILLING_POINTS entry (adult content has no age-tier concept). */
+  eligibleKidsTiers?: KidsAgeTierId[];
 }
 
 export const KILLING_POINTS: KillingPoint[] = [
@@ -137,11 +144,11 @@ export interface KillingPointAssignmentInput {
   eraTag?: string;
 }
 
-function candidatesFor(eraTag: string | undefined): KillingPoint[] {
-  if (!eraTag) return KILLING_POINTS;
+function candidatesFor(eraTag: string | undefined, pool: readonly KillingPoint[]): KillingPoint[] {
+  if (!eraTag) return [...pool];
   const lower = eraTag.toLowerCase();
-  const eraMatches = KILLING_POINTS.filter(kp => kp.fitsEraTags?.some(tag => lower.includes(tag.toLowerCase())));
-  const rest = KILLING_POINTS.filter(kp => !eraMatches.includes(kp));
+  const eraMatches = pool.filter(kp => kp.fitsEraTags?.some(tag => lower.includes(tag.toLowerCase())));
+  const rest = pool.filter(kp => !eraMatches.includes(kp));
   // Era-fitting killing points first (spec 2-3's "eraTag로 매칭"), any
   // killing point with no fitsEraTags restriction (or no match) still
   // available as a fallback so a genre with no match never goes without a
@@ -197,12 +204,17 @@ export function killingPointBoostFromInsights(
 export function assignKillingPoints(
   inputs: readonly KillingPointAssignmentInput[],
   seed = 0,
-  boost: KillingPointBoostMap = {}
+  boost: KillingPointBoostMap = {},
+  // TASK D2 §4-5 — optional set override so kids workspaces can draw from
+  // KIDS_KILLING_POINTS (data/killingPointsKids.ts) instead of the senior
+  // KILLING_POINTS array above, without adding a single entry to that array
+  // or changing any existing call site's behavior when omitted.
+  killingPointSet: readonly KillingPoint[] = KILLING_POINTS
 ): (KillingPoint | undefined)[] {
   const usage = new Map<string, number>();
   return inputs.map((input, idx) => {
     if (input.peakStrength === 'none') return undefined;
-    const candidates = candidatesFor(input.eraTag);
+    const candidates = candidatesFor(input.eraTag, killingPointSet);
     const offset = Math.abs(seed + idx * 97) % candidates.length;
     const rotated = [...candidates.slice(offset), ...candidates.slice(0, offset)];
     // v3.68 (TASK E) — a stable sort by boost weight (ties keep the
