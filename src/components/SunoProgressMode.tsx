@@ -23,6 +23,25 @@ interface SunoProgressModeProps {
 const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
 
 /**
+ * TASK v4.10 — the "1 키" title copy used to copy `song.title` alone, even
+ * though the screen already shows the bilingual `titleDisplay` ("Thaw
+ * (봄이 스미던 오후)") right above it. v4.9's own "복사에 괄호를 넣지 말 것"
+ * is retracted there — Suno's title field is a non-generation label (never
+ * touches the actual music), and the user re-types the localized title by
+ * hand into YouTube/file names afterward every single time otherwise. Track
+ * number is 2-digit zero-padded ("01."); the "(localized)" half is only
+ * added when `titleLocalized` is actually present and non-blank — an
+ * english-packaging pack (or any song titleLocalized wasn't built for)
+ * naturally has no such field, so this never produces an empty "()" pair
+ * without a separate language check.
+ */
+export function buildTitleCopyText(song: Pick<SongIdea, 'trackNo' | 'title' | 'titleLocalized'>): string {
+  const trackNoPadded = String(song.trackNo).padStart(2, '0');
+  const localized = song.titleLocalized?.trim();
+  return localized ? `${trackNoPadded}. ${song.title} (${localized})` : `${trackNoPadded}. ${song.title}`;
+}
+
+/**
  * TASK v3.31 (Part 1) — "수노 진행 모드": a tighter, keyboard-driven version
  * of FocusMode.tsx's single-song view, aimed squarely at the actual
  * bottleneck at 40-songs/day scale — copying title/style/lyrics/exclude into
@@ -121,7 +140,7 @@ export default function SunoProgressMode({ songs, packId, channelId, personaMode
     // TASK v3.70 (TASK D) — copy/display only: the stored song.lyrics keeps
     // its exact hookPhrase match so core/quality.ts's checks keep working —
     // see renderLyricsForDisplay's own doc comment.
-    const text = field === 'title' ? song.title : field === 'style' ? song.stylePrompt : field === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt || '';
+    const text = field === 'title' ? buildTitleCopyText(song) : field === 'style' ? song.stylePrompt : field === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt || '';
     await copyText(text);
     setCopiedFields(prev => ({ ...prev, [field]: true }));
     setFlash(field);

@@ -46,8 +46,10 @@ export function standaloneProgressFileName(meta: Pick<StandaloneProgressMeta, 'c
 interface StandaloneSong {
   trackNo: number;
   title: string;
-  /** v4.3 (TASK A) — "English (Localized)" display string; undefined when the song has no titleLocalized. NEVER used for the "제목 복사" clipboard field (`field === 'title'` still copies plain `title`) — see SongIdea.titleDisplay's own doc comment. */
+  /** v4.3 (TASK A) — "English (Localized)" display string; undefined when the song has no titleLocalized. Used for the on-screen title only — the "제목 복사" clipboard field builds its own "NN. Title (Localized)" string from trackNo/title/titleLocalized directly (see buildTitleCopyText below; TASK v4.10). */
   titleDisplay?: string;
+  /** TASK v4.10 — the localized-title copy behind titleDisplay's parenthetical; needed separately from titleDisplay since the "제목 복사" field's own "NN. " track-number prefix means it can't just reuse the prebuilt display string. */
+  titleLocalized?: string;
   stylePrompt: string;
   lyrics: string;
   /** TASK v3.70 (TASK D) — needed to render the sung hook in sentence case for copy/display, without touching the stored lyrics string itself. */
@@ -72,6 +74,7 @@ function toStandaloneSong(song: SongIdea): StandaloneSong {
     trackNo: song.trackNo,
     title: song.title,
     ...(song.titleDisplay ? { titleDisplay: song.titleDisplay } : {}),
+    ...(song.titleLocalized ? { titleLocalized: song.titleLocalized } : {}),
     stylePrompt: song.stylePrompt,
     lyrics: song.lyrics,
     hookPhrase: song.hookPhrase || '',
@@ -322,12 +325,21 @@ export function buildStandaloneProgressHtml(songs: SongIdea[], meta: StandaloneP
     }).join('\n');
   }
 
+  // TASK v4.10 — mirrors SunoProgressMode.tsx's own buildTitleCopyText: "01. Thaw
+  // (봄이 스미던 오후)", omitting the parenthetical entirely when the song has no
+  // titleLocalized (never an empty "()").
+  function buildTitleCopyText(song) {
+    var trackNoPadded = String(song.trackNo).length < 2 ? '0' + song.trackNo : String(song.trackNo);
+    var localized = song.titleLocalized ? song.titleLocalized.trim() : '';
+    return localized ? trackNoPadded + '. ' + song.title + ' (' + localized + ')' : trackNoPadded + '. ' + song.title;
+  }
+
   function copyField(field) {
     var song = currentSong();
     if (!song) return;
     if (field === 'exclude' && !hasExclude(song)) return;
     if (field === 'style' && isOverPromptLimit(song)) return;
-    var text = field === 'title' ? song.title : field === 'style' ? song.stylePrompt : field === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt;
+    var text = field === 'title' ? buildTitleCopyText(song) : field === 'style' ? song.stylePrompt : field === 'lyrics' ? renderLyricsForDisplay(song.lyrics, song.hookPhrase) : song.excludePrompt;
     copyToClipboard(text).then(function () {
       copiedFields[field] = true;
       if (allCopied(song)) {
