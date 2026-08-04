@@ -7,6 +7,7 @@ import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
 import { renderLyricsForDisplay } from '../core/lyricEngine';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 type ProgressField = 'title' | 'style' | 'lyrics' | 'exclude';
 
@@ -34,11 +35,19 @@ const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보�
  * english-packaging pack (or any song titleLocalized wasn't built for)
  * naturally has no such field, so this never produces an empty "()" pair
  * without a separate language check.
+ * TASK v4.12 bugfix — `song.title` already carries its own "NN. " prefix by
+ * default (utils/generation.ts's applySetTitlePrefixesToBlueprint, on by
+ * default via GenerationOptions.setNumberPrefix), so prepending trackNo here
+ * too doubled it ("02. 02. Folded"). Strips any existing prefix first via
+ * that same module's own stripSetTitlePrefix — the same trusted utility
+ * utils/exporters.ts's buildSongTxt already uses for this identical bug —
+ * rather than assuming song.title is bare.
  */
 export function buildTitleCopyText(song: Pick<SongIdea, 'trackNo' | 'title' | 'titleLocalized'>): string {
   const trackNoPadded = String(song.trackNo).padStart(2, '0');
+  const bareTitle = stripSetTitlePrefix(song.title);
   const localized = song.titleLocalized?.trim();
-  return localized ? `${trackNoPadded}. ${song.title} (${localized})` : `${trackNoPadded}. ${song.title}`;
+  return localized ? `${trackNoPadded}. ${bareTitle} (${localized})` : `${trackNoPadded}. ${bareTitle}`;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { safeFileName } from '../utils/zipExporter';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 /**
  * v3.57 (지시문 C) — CapCut subtitle export. This module only ever reads a
@@ -161,8 +162,15 @@ export function parseDurationToSeconds(input: string): number | null {
   return nums[0] * 3600 + nums[1] * 60 + nums[2];
 }
 
+/**
+ * TASK v4.12 bugfix — callers pass `song.title`, which already carries its
+ * own "NN. " prefix by default (utils/generation.ts's
+ * applySetTitlePrefixesToBlueprint), so prepending trackNo here too doubled
+ * it into filenames like "02_02. Folded_ko.srt". Strips any existing prefix
+ * first via that same module's own stripSetTitlePrefix.
+ */
 export function srtFilename(trackNo: number, title: string, mode: SrtMode): string {
-  return `${String(trackNo).padStart(2, '0')}_${safeFileName(title)}_${mode}.srt`;
+  return `${String(trackNo).padStart(2, '0')}_${safeFileName(stripSetTitlePrefix(title))}_${mode}.srt`;
 }
 
 /**

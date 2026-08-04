@@ -328,10 +328,21 @@ export function buildStandaloneProgressHtml(songs: SongIdea[], meta: StandaloneP
   // TASK v4.10 — mirrors SunoProgressMode.tsx's own buildTitleCopyText: "01. Thaw
   // (봄이 스미던 오후)", omitting the parenthetical entirely when the song has no
   // titleLocalized (never an empty "()").
+  // TASK v4.12 bugfix — song.title already carries its own "NN. " prefix by
+  // default (src/utils/generation.ts's applySetTitlePrefixesToBlueprint), so
+  // prepending trackNo here too doubled it ("02. 02. Folded"). Strips any
+  // existing 2-digit-dot prefix first — same regex as that module's own
+  // stripSetTitlePrefix, duplicated here (not imported) since this file must
+  // stay a self-contained standalone HTML with zero app code at runtime.
+  var SET_TITLE_PREFIX_RE = /^\d{2}\.\s+/;
+  function stripSetTitlePrefix(title) {
+    return title.replace(SET_TITLE_PREFIX_RE, '');
+  }
   function buildTitleCopyText(song) {
     var trackNoPadded = String(song.trackNo).length < 2 ? '0' + song.trackNo : String(song.trackNo);
+    var bareTitle = stripSetTitlePrefix(song.title);
     var localized = song.titleLocalized ? song.titleLocalized.trim() : '';
-    return localized ? trackNoPadded + '. ' + song.title + ' (' + localized + ')' : trackNoPadded + '. ' + song.title;
+    return localized ? trackNoPadded + '. ' + bareTitle + ' (' + localized + ')' : trackNoPadded + '. ' + bareTitle;
   }
 
   function copyField(field) {

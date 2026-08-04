@@ -6,6 +6,7 @@ import { SUNO_COPY_LIMIT } from '../core/promptBudget';
 import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
 import { renderLyricsForDisplay } from '../core/lyricEngine';
+import { stripSetTitlePrefix } from '../utils/generation';
 
 type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
 
@@ -139,7 +140,12 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
       )}
       <button type="button" className="song-head song-head-toggle" onClick={() => setExpanded(v => !v)}>
         <div>
-          <h3>{song.trackNo}. {song.titleDisplay ?? song.title}</h3>
+          {/* TASK v4.12 bugfix — song.title already carries its own "NN. " prefix by
+              default (utils/generation.ts's applySetTitlePrefixesToBlueprint), so this
+              line's own leading "{song.trackNo}. " doubled it whenever titleDisplay was
+              undefined (english-packaging packs) and it fell back to song.title.
+              titleDisplay itself never carries a prefix, so stripping is a no-op there. */}
+          <h3>{song.trackNo}. {stripSetTitlePrefix(song.titleDisplay ?? song.title)}</h3>
           <p>{song.listenerSituation} / {song.emotionArc}</p>
           <span className="chip">{moneyChordLabel}</span>
           {song.songRole && SONG_ROLE_LABEL_KO[song.songRole] && <span className="chip">{SONG_ROLE_LABEL_KO[song.songRole]}</span>}
