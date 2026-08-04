@@ -11,15 +11,17 @@ import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
+import { BPM_LENGTH_TIERS, resolveBpmLengthTier } from '../../core/bpmLengthControl';
 import type { DesignGateResult } from '../../core/designGate';
 import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
 import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
 import { currentWorkspaceId } from '../../core/workspaceScope';
-import { effectiveVerifiedCombos, getApprovedCombos } from '../../core/verifiedCombos';
+import { effectiveVerifiedCombos, getApprovedCombos, resolveFlagshipCombo } from '../../core/verifiedCombos';
 import type { VerifiedCombo } from '../../data/verifiedCombos';
 import DesignGatePanel from '../DesignGatePanel';
 import VerifiedComboPanel from '../VerifiedComboPanel';
+import ConceptRecommendationPanel from '../ConceptRecommendationPanel';
 import type { AxisAllocation, ConceptBreadth, DiversityAxisId, GenerationOptions, PreassignedSongSlot } from '../../types';
 import type { SetSegment } from '../../core/setDirector';
 
@@ -212,6 +214,43 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     () => preallocateSongSlots(gateOpts, gateGenres, { usedTitles: [], usedHooks: [], verifiedCombos: gateVerifiedCombos }),
     [gateOpts, gateGenres, gateVerifiedCombos]
   );
+
+  // TASK v4.14 (TASK A) — recommendation-panel derived data, all read off
+  // values this screen already computes for the design gate (gateSlots
+  // carries the real per-track tempo/moneyChordId batchPreallocation.ts
+  // assigned, so this never re-derives a second, possibly-inconsistent
+  // estimate).
+  const tempoSummaryKo = useMemo(() => {
+    if (!gateSlots.length) return '-';
+    const tempos = gateSlots.map(slot => slot.tempo);
+    const tierLabelsKo = ['느린', '중간', '밝은', '매우 밝은'];
+    const tierCounts = new Map<number, number>();
+    for (const bpm of tempos) {
+      const tierIndex = BPM_LENGTH_TIERS.indexOf(resolveBpmLengthTier(bpm));
+      tierCounts.set(tierIndex, (tierCounts.get(tierIndex) ?? 0) + 1);
+    }
+    const breakdown = [...tierCounts.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([tierIndex, count]) => `${tierLabelsKo[tierIndex] ?? tierIndex}${count}`)
+      .join(' · ');
+    return `${Math.min(...tempos)}~${Math.max(...tempos)} BPM (${breakdown})`;
+  }, [gateSlots]);
+  const moneyChordBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const slot of gateSlots) {
+      if (!slot.moneyChordId) continue;
+      counts.set(slot.moneyChordId, (counts.get(slot.moneyChordId) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, count]) => ({ id, count }));
+  }, [gateSlots]);
+  const flagshipCombo = useMemo(
+    () => resolveFlagshipCombo(gateVerifiedCombos, gateGenreIds),
+    [gateVerifiedCombos, gateGenreIds]
+  );
+  const vocalSummaryKo = `남성 솔로 ${vocalDistribution.quota.male}곡 · 여성 솔로 ${vocalDistribution.quota.female}곡 · 듀엣 ${vocalDistribution.quota.mixed}곡`;
+
   const constraints = useMemo(
     () => resolveConstraintsFromOptions(gateOpts, audienceProfileForAgeGroup(gateOpts.audience), currentWorkspaceId()),
     [gateOpts]
@@ -289,6 +328,17 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
 
   return (
     <section className="panel">
+      <ConceptRecommendationPanel
+        familyId={resolvedPaletteFamilyId}
+        onChangeFamily={id => setOpts(prev => ({ ...prev, paletteFamilyOverride: id }))}
+        tempoSummaryKo={tempoSummaryKo}
+        moneyChordBreakdown={moneyChordBreakdown}
+        vocalSummaryKo={vocalSummaryKo}
+        vocalIsBalanced={!opts.vocalTone}
+        flagshipCombo={flagshipCombo}
+        flagshipGenreLabelKo={flagshipCombo ? genreLabel(flagshipCombo.genreId) : ''}
+      />
+
       <div className="option-block">
         <div className="section-head">
           <div>

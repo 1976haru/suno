@@ -126,3 +126,45 @@ export function paletteFamilyForGenreId(genreId: string | undefined): PaletteFam
   if (!genreId) return undefined;
   return PALETTE_FAMILIES.find(family => genreIdsForPaletteFamily(family.id).has(genreId));
 }
+
+/**
+ * TASK v4.14 (TASK B) — this pack's dominant family, read straight off its
+ * own already-decided genrePlan (majority vote across all tracks) rather
+ * than re-deriving it from freeText/history the way core/setDirector.ts's
+ * resolveMainFamilyId does at plan time. Used by core/moneyChordPlan.ts to
+ * decide whether a pack qualifies for family-aware money-chord distribution
+ * at all — a channel/concept whose genres never map to any family (most
+ * non-oldpop archetypes) correctly returns undefined, same as before this
+ * task. Ties broken by PALETTE_FAMILIES' own declared order (stable,
+ * deterministic — never seed-random) since this only ever matters for a
+ * pack that's already near-evenly split, which is rare given
+ * core/setDirector.ts's own main-family-first genre selection.
+ */
+export function dominantPaletteFamilyId(genrePlan: readonly (string | undefined)[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const genreId of genrePlan) {
+    const family = paletteFamilyForGenreId(genreId);
+    if (!family) continue;
+    counts.set(family.id, (counts.get(family.id) ?? 0) + 1);
+  }
+  if (!counts.size) return undefined;
+  let bestId: string | undefined;
+  let bestCount = -1;
+  for (const family of PALETTE_FAMILIES) {
+    const count = counts.get(family.id) ?? 0;
+    if (count > bestCount) {
+      bestCount = count;
+      bestId = family.id;
+    }
+  }
+  // A real majority, not just whichever family happens to claim one
+  // incidental genre overlap (e.g. showa-cafe's japanese-folk-70s falls
+  // under family-acoustic-soft via canon-folk-duo's fitsGenreIds even
+  // though the rest of that archetype's genres — kayokyoku-70s,
+  // new-music-70s — belong to canon-showa-kayokyoku, a palette that isn't
+  // in any PaletteFamily at all). Without this guard a single stray genre
+  // could hijack the whole pack's family-aware money-chord distribution
+  // away from an archetype's own bespoke rotation pool.
+  if (bestCount * 2 < genrePlan.length) return undefined;
+  return bestId;
+}

@@ -65,10 +65,16 @@ export function useMultiSetGenerationFlow(batchFlow: ReturnType<typeof useBatchG
   ) => {
     let usedTitles = [...(initialAvoid?.usedTitles ?? [])];
     let usedHooks = [...(initialAvoid?.usedHooks ?? [])];
+    // TASK v4.14 (TASK C) — same rolling per-run family-rotation window as
+    // core/multiSetGeneration.ts's own runMultiSetGeneration (local/realtime
+    // path); Batch mode runs its own loop (submit()/poll() is React-hook
+    // managed, can't share the pure-function loop) but must get the same fix.
+    const recentGenreIdsWindow: string[][] = [];
 
     for (let index = 0; index < setCount; index++) {
       if (cancelRef.current) break;
-      const setOpts = buildSetOptions(baseOpts, index, setCount, songsPerSet);
+      const setOpts = buildSetOptions(baseOpts, index, setCount, songsPerSet, recentGenreIdsWindow.slice(-3).flat());
+      recentGenreIdsWindow.push(setOpts.genreIds);
       setState(prev => ({ ...prev, currentSet: index + 1, setProgress: { done: 0, total: songsPerSet } }));
       const avoid = { usedTitles, usedHooks };
 

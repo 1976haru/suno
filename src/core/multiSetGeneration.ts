@@ -2,6 +2,10 @@ import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, Provide
 import { generateBlueprint } from '../providers/index';
 import { resolveHookCollisions } from './hookDedup';
 import { applySetTitlePrefixesToBlueprint, stripSetTitlePrefix } from '../utils/generation';
+import { directSetLocal } from './setDirector';
+import { normalizeDiversityAllocations } from './diversityAllocation';
+import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
+import { readRecentGenreIds } from './recentGenreStore';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -48,13 +52,71 @@ function padSetIndex(oneBasedIndex: number): string {
   return String(oneBasedIndex).padStart(2, '0');
 }
 
-/** Every set's own GenerationOptions: same base options, its own songCount and a "{projectTitle} Set 0N" name. */
-export function buildSetOptions(baseOpts: GenerationOptions, setIndex: number, totalSets: number, songsPerSet: number): GenerationOptions {
-  return {
+/**
+ * Every set's own GenerationOptions: same base options, its own songCount and
+ * a "{projectTitle} Set 0N" name.
+ *
+ * TASK v4.14 (TASK C) — real cause of "30 sets, same concept, feels
+ * repetitive across sets even though each set is internally fine": before
+ * this task, every field besides songCount/projectTitle was copied from
+ * baseOpts UNCHANGED across all N sets — including genreIds/
+ * diversityAllocations, which Step2Plan.tsx resolves ONCE (via directSetLocal)
+ * before a multi-set run even starts. A 30-set run for an archetype whose
+ * concept has no strong palette-family keyword hint (data/paletteFamilies.ts's
+ * PALETTE_FAMILY_HINT_PATTERNS) would otherwise lock onto whichever single
+ * family set 1 happened to resolve to and repeat it 30 times over. For
+ * sets after the first, when the user hasn't pinned an explicit
+ * paletteFamilyOverride (a manual pin still always wins, matching this
+ * codebase's established rule), this re-runs directSetLocal with the genre
+ * ids actually used by the last few sets THIS RUN folded into
+ * recentGenreIds — resolveMainFamilyId's own existing least-recently-used
+ * rotation (never a hard block; a family already used by every recent set
+ * can still be picked again once it's no longer least-used) then naturally
+ * spreads family choice across the run instead of pinning it. A no-op for
+ * archetypes channelSoundFloorForArchetype doesn't cover (palette families
+ * only ever applied to a subset of archetypes to begin with) and for set
+ * index 0 (nothing to avoid yet — set 1 keeps Step2Plan's own reviewed
+ * allocation exactly as before this task).
+ */
+export function buildSetOptions(
+  baseOpts: GenerationOptions,
+  setIndex: number,
+  totalSets: number,
+  songsPerSet: number,
+  /** Genre ids actually assigned by prior sets in THIS run (caller's own rolling window — see runMultiSetGeneration's recentGenreIdsWindow). */
+  recentGenreIdsThisRun: string[] = []
+): GenerationOptions {
+  const setOpts: GenerationOptions = {
     ...baseOpts,
     songCount: songsPerSet,
     projectTitle: `${baseOpts.projectTitle} Set ${padSetIndex(setIndex + 1)}`
   };
+
+  const shouldRotateFamily = setIndex > 0
+    && !baseOpts.paletteFamilyOverride
+    && Boolean(channelSoundFloorForArchetype(baseOpts.channel.archetype));
+  if (!shouldRotateFamily) return setOpts;
+
+  const freeText = baseOpts.customConcept?.trim() || baseOpts.projectTitle;
+  const familyIds = baseOpts.selectedGenreFamilyIds ?? [];
+  const recentGenreIds = [...recentGenreIdsThisRun, ...readRecentGenreIds(baseOpts.channel.id)];
+  const plan = directSetLocal(
+    freeText,
+    baseOpts.channel,
+    songsPerSet,
+    { recentGenreIds, recentHooks: [] },
+    familyIds,
+    baseOpts.vocalTone,
+    baseOpts.breadthOverride,
+    undefined
+  );
+  const genreAllocation = plan.allocations.find(allocation => allocation.axis === 'genre');
+  const genreIds = genreAllocation ? Object.keys(genreAllocation.counts) : undefined;
+  if (!genreIds?.length) return setOpts;
+
+  setOpts.genreIds = genreIds;
+  setOpts.diversityAllocations = normalizeDiversityAllocations(plan.allocations);
+  return setOpts;
 }
 
 /**
@@ -120,9 +182,14 @@ export async function runMultiSetGeneration(
   const results: SetResult[] = [];
   let usedTitles = [...(initialAvoid?.usedTitles ?? [])];
   let usedHooks = [...(initialAvoid?.usedHooks ?? [])];
+  // TASK v4.14 (TASK C) — each entry is one prior set's own genreIds; only
+  // the last 3 sets feed buildSetOptions's palette-family rotation (matches
+  // this task's own "팔레트 계열 그룹 최근 3세트에서 안 쓴 것 우선").
+  const recentGenreIdsWindow: string[][] = [];
 
   for (let index = 0; index < setCount; index++) {
-    const setOpts = buildSetOptions(baseOpts, index, setCount, songsPerSet);
+    const setOpts = buildSetOptions(baseOpts, index, setCount, songsPerSet, recentGenreIdsWindow.slice(-3).flat());
+    recentGenreIdsWindow.push(setOpts.genreIds);
     const avoid = { usedTitles, usedHooks };
 
     const blueprint = await generateBlueprint(

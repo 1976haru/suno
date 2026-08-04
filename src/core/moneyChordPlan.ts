@@ -1,5 +1,7 @@
 import type { ChannelArchetype, GenerationOptions } from '../types';
 import { moneyChordRotationPool, resolveEarwormMoneyChordMode, signatureMoneyChordId } from '../data/moneyChords';
+import { moneyChordDistributionForFamily } from '../data/paletteFamilyMoneyChords';
+import { shuffle } from './lyricEngine';
 import { stridePick } from './stridePlan';
 
 /**
@@ -78,4 +80,83 @@ export function buildProgressionPlan(archetype: ChannelArchetype | undefined, se
     rotationIndex += 1;
   }
   return plan;
+}
+
+/**
+ * TASK v4.14 (TASK B) — largest-remainder proportional scale of a family's
+ * own 18-song-worked-example counts (data/paletteFamilyMoneyChords.ts) down
+ * or up to this pack's real songCount. Same apportionment approach
+ * vocalPlan.ts's scaleVocalQuota already uses for the vocal-type quota
+ * (never duplicated verbatim here since that function's return type is
+ * hard-typed to the 3 fixed VocalType keys, not an arbitrary money-chord id
+ * map).
+ */
+function scaleMoneyChordCounts(counts: Record<string, number>, songCount: number): Record<string, number> {
+  const ids = Object.keys(counts);
+  if (!ids.length || songCount <= 0) return {};
+  const sourceTotal = ids.reduce((sum, id) => sum + counts[id], 0) || 1;
+  const exact = ids.map(id => ({ id, value: (counts[id] / sourceTotal) * songCount }));
+  const result: Record<string, number> = {};
+  let assigned = 0;
+  for (const { id, value } of exact) {
+    const floored = Math.floor(value);
+    result[id] = floored;
+    assigned += floored;
+  }
+  const byRemainderDesc = exact
+    .slice()
+    .sort((a, b) => (b.value - Math.floor(b.value)) - (a.value - Math.floor(a.value)))
+    .map(entry => entry.id);
+  let remainder = songCount - assigned;
+  let i = 0;
+  while (remainder > 0 && byRemainderDesc.length) {
+    result[byRemainderDesc[i % byRemainderDesc.length]] += 1;
+    remainder -= 1;
+    i += 1;
+  }
+  return result;
+}
+
+/**
+ * TASK v4.14 (TASK B) — family-aware replacement for
+ * moneyChordRotationPool's flat archetype pool, used whenever this pack's
+ * dominant palette family (data/paletteFamilies.ts, resolved by
+ * core/moneyChordPlan.ts's own callers off their already-decided genrePlan)
+ * actually has a distribution table. Real gap the flat pool left open:
+ * moneyChordRotationPool only ever guarantees no *immediate* adjacent
+ * repeat, never an overall spread — an 18-song pack could still land 14
+ * songs on the same progression, and the pool itself was never
+ * family-aware to begin with (every senior-morning pack drew from the same
+ * 5-id pool regardless of whether the set leaned acoustic-folk or Motown
+ * soul). Track 1 (cold-open) still pins to the archetype's own
+ * signatureMoneyChordId, exactly like buildProgressionPlan — real listening
+ * feedback (v3.33 Part C) established that channel-identity anchor, and
+ * this task never asked to remove it; only the *rotation pool* the
+ * remaining tracks draw from becomes family-aware. Falls back to undefined
+ * (caller should use buildProgressionPlan instead) when no distribution
+ * exists for this family.
+ */
+export function buildFamilyProgressionPlan(familyId: string | undefined, archetype: ChannelArchetype | undefined, seed: number, songCount: number): string[] | undefined {
+  const distribution = moneyChordDistributionForFamily(familyId);
+  if (!distribution || songCount <= 0) return undefined;
+  const signature = signatureMoneyChordId(archetype);
+  if (songCount === 1) return [signature];
+  // Track 1's own signature slot is carved out of the family's proportional
+  // share first (if the family table names it at all) so the total count
+  // handed to the rest-of-pack pool below still sums to songCount - 1.
+  const remainingCounts = scaleMoneyChordCounts(distribution.counts, songCount - 1);
+  const pool: string[] = [];
+  for (const [id, count] of Object.entries(remainingCounts)) {
+    for (let i = 0; i < count; i += 1) pool.push(id);
+  }
+  const shuffled = shuffle(pool, seed);
+  for (let index = 1; index < shuffled.length; index += 1) {
+    if (shuffled[index] !== shuffled[index - 1]) continue;
+    const swapIndex = shuffled.findIndex((id, candidateIndex) => candidateIndex > index && id !== shuffled[index]);
+    if (swapIndex === -1) continue;
+    const tmp = shuffled[index];
+    shuffled[index] = shuffled[swapIndex];
+    shuffled[swapIndex] = tmp;
+  }
+  return [signature, ...shuffled];
 }

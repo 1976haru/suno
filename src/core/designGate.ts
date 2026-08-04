@@ -450,6 +450,43 @@ function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
 }
 
 // ---------------------------------------------------------------------------
+// 머니코드 (TASK v4.14 TASK B, §2-4) — same shape as genreIssues' own
+// variety/max-count pair above, but for moneyChordId. Not every slot always
+// carries one (e.g. a kids-archetype fallback or an explicit user-picked
+// non-'default' moneyChordMode, where usesMoneyChordQuota is false and no
+// per-track quota plan runs at all) — those packs correctly skip this check
+// entirely rather than reporting a false "0종" issue.
+// ---------------------------------------------------------------------------
+function moneyChordBlockingIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+  const ids = slots.map(slot => slot.moneyChordId).filter((id): id is string => Boolean(id));
+  if (!ids.length) return [];
+  const counts = countBy(ids);
+  const maxCount = Math.max(0, ...Object.values(counts));
+  if (maxCount <= 5) return [];
+  return [issue({
+    id: 'moneychord-max',
+    labelKo: '같은 머니코드 최대 곡수',
+    expected: '≤ 5곡',
+    actual: `${maxCount}곡`,
+    fixHintKo: '한 진행에 곡이 몰려 있습니다 — 머니코드 배분을 조정하세요.'
+  })];
+}
+
+function moneyChordAdvisoryIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+  const ids = slots.map(slot => slot.moneyChordId).filter((id): id is string => Boolean(id));
+  if (!ids.length) return [];
+  const distinctCount = new Set(ids).size;
+  if (distinctCount >= 4) return [];
+  return [issue({
+    id: 'moneychord-variety',
+    labelKo: '머니코드 종류',
+    expected: '4~6종',
+    actual: `${distinctCount}종`,
+    fixHintKo: '머니코드 진행이 몇 종류에만 몰려 있습니다 — 계열별 배분을 다시 확인하세요.'
+  })];
+}
+
+// ---------------------------------------------------------------------------
 // 시대 (era-primary-share / era-forbidden / era-unspecified-share)
 // ---------------------------------------------------------------------------
 function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssue[] {
@@ -586,13 +623,15 @@ export function evaluateDesignGate(
     ...genreIssues(slots, opts, constraints),
     ...eraIssues(slots, constraints.era),
     ...killingPointAndArcIssues(slots, opts.songCount),
-    ...paletteCoverageIssues(slots, opts)
+    ...paletteCoverageIssues(slots, opts),
+    ...moneyChordBlockingIssues(slots)
   ];
   const advisory: DesignIssue[] = [
     ...vocabularyForecastAdvisory(constraints),
     // v4.6 (TASK C, §3-4) — moved from blocking (see songLengthIssues's own
     // updated doc comment for why).
-    ...songLengthIssues(slots)
+    ...songLengthIssues(slots),
+    ...moneyChordAdvisoryIssues(slots)
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

@@ -6,7 +6,8 @@ import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm }
 import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
-import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { dominantPaletteFamilyId } from '../data/paletteFamilies';
 import {
   applyDuetSectionVocalTags,
   applyFlagshipVocalOrder,
@@ -214,7 +215,15 @@ export function preallocateSongSlots(
   // had the exact same bug since it called the same function.
   const songRoles = songRolePlanForArc(arcPlan, seed + 24);
   const introModePlan = buildIntroModePlan(opts.songCount, seed);
-  const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
+  // TASK v4.14 (TASK B) — family-aware money-chord distribution
+  // (data/paletteFamilyMoneyChords.ts) when this pack's genrePlan actually
+  // resolves to one of data/paletteFamilies.ts's 4 families; falls back to
+  // the old flat archetype-pool rotation (buildProgressionPlan) for every
+  // other channel/concept, exactly as before this task.
+  const dominantFamilyId = dominantPaletteFamilyId(genrePlan);
+  const progressionPlan = usesMoneyChordQuota(opts)
+    ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
+    : null;
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal

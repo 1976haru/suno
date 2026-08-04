@@ -7,7 +7,7 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
-import { buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
@@ -20,7 +20,7 @@ import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan'
 import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
 import { applyGenreVocalAffinity } from './vocalGenreAffinity';
 import { assignOpeningHooks, assignOpeningLoudnessDescriptors } from '../data/openingHooks';
-import { paletteFamilyForPaletteId } from '../data/paletteFamilies';
+import { dominantPaletteFamilyId, paletteFamilyForPaletteId } from '../data/paletteFamilies';
 import { audienceProfileForAgeGroup, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
@@ -869,7 +869,14 @@ export function generateLocalBlueprint(
   // length-clamped array — see that function's own doc comment for the
   // duplication bug this replaces.
   const songRoles = songRolePlanForArc(arcPlan, seed + 24);
-  const progressionPlan = usesMoneyChordQuota(opts) ? buildProgressionPlan(opts.channel.archetype, seed, songRoles) : null;
+  // TASK v4.14 (TASK B) — mirrors batchPreallocation.ts's identical
+  // family-aware money-chord distribution (same reasoning: falls back to
+  // the old flat archetype-pool rotation for any pack whose genrePlan
+  // never resolves to a data/paletteFamilies.ts family).
+  const dominantFamilyId = dominantPaletteFamilyId(genrePlan);
+  const progressionPlan = usesMoneyChordQuota(opts)
+    ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
+    : null;
   // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota.
   // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
   // archetype, not just kids (see vocalPlan.ts's own doc comment for the

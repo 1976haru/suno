@@ -223,6 +223,24 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     compactProgression: 'I-IV-I-V progression',
     audibleEffect: 'skips forward playfully like a marching game',
     bestFor: ['행진곡풍 동요', '율동·놀이 동작곡']
+  },
+  // TASK v4.14 (TASK B, §2-2) — the one progression this task's own
+  // palette-family money-chord distribution table names that had no
+  // existing preset: none of the other 17 progressions above use exactly
+  // "I-vi-ii-V" (doowop's I-vi-IV-V and jazzColor's ii-V-I turnaround are
+  // both close but distinct). basis: 'estimated' per this task's own §9 —
+  // general harmonic-theory knowledge, not yet verified against real
+  // listening feedback for this channel.
+  popStandard: {
+    id: 'popStandard',
+    label: 'Pop Standard Cycle',
+    labelKo: '팝 스탠더드 순환',
+    description: '50~60년대 팝 스탠더드에 흔한 순환 진행. 클래식한 팝 느낌.',
+    progressions: ['I-vi-ii-V'],
+    prompt: 'classic 1950s-60s pop standard cycle I-vi-ii-V, timeless songbook harmony, gentle circular movement, warm familiar resolution',
+    compactProgression: 'I-vi-ii-V progression',
+    audibleEffect: 'cycles through familiar songbook changes and resolves cleanly home',
+    bestFor: ['클래식한 팝 트랙', '오케스트럴·크루너 계열']
   }
 };
 
