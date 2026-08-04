@@ -22,7 +22,11 @@ export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepe
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
 export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seniors' | 'allAges' | 'general';
 
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop';
+// TASK D1 §3-2 — 'kr-kids-song'/'jp-kids-song' added (Approach A, per user decision): 'kids' itself
+// stays as-is (still used by the senior workspace's little-singalong-radio channel) so kr-kids/jp-kids
+// get their own per-workspace archetype, matching every other non-senior workspace's convention
+// (kr-2030-pop/jp-2030-pop). See utils/channelArchetype.ts's isKidsArchetype() for the combined check.
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song';
 
 /** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. */
 export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids';

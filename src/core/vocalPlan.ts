@@ -1,6 +1,7 @@
 import type { GenerationOptions, LyricLanguage } from '../types';
 import { shuffle } from './lyricEngine';
 import { hashSeed, mulberry32 } from '../utils/prng';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import { breakLongRuns, pinPrefixPreservingCounts } from './arcPlan';
 import {
   DUET_TRAIT_AXES,
@@ -276,7 +277,7 @@ export function vocalDictionLanguage(language: LyricLanguage): KidsVocalLanguage
  * for any caller that doesn't need rotation.
  */
 export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean', variantIndex = 0, archetype?: GenerationOptions['channel']['archetype']): string {
-  const useAdultDescription = Boolean(archetype && archetype !== 'kids');
+  const useAdultDescription = Boolean(archetype) && !isKidsArchetype(archetype);
   const variants = useAdultDescription ? ADULT_VOCAL_DESCRIPTIONS[type] : VOCAL_DESCRIPTIONS[type];
   const safeIndex = ((variantIndex % variants.length) + variants.length) % variants.length;
   if (useAdultDescription) return variants[safeIndex];

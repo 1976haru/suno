@@ -1,4 +1,5 @@
 import type { ChannelProfile, DisplayLanguage, GenerationOptions, Market } from '../types';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 /**
  * TASK D5 (v3.6) — real senior-channel operation runs English lyrics under
@@ -31,7 +32,7 @@ export function resolvePackagingLanguage(opts: Pick<GenerationOptions, 'market' 
  * file's original TASK D5 note — a use case the kids channel doesn't share).
  */
 export function defaultPackagingLanguageForChannel(channel: Pick<ChannelProfile, 'archetype' | 'market' | 'primaryLanguage'>): DisplayLanguage {
-  if (channel.archetype === 'kids') {
+  if (isKidsArchetype(channel.archetype)) {
     return channel.primaryLanguage === 'bilingual' ? 'english' : channel.primaryLanguage;
   }
   return defaultPackagingLanguage(channel.market);

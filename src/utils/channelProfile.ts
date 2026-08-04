@@ -37,7 +37,10 @@ const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
   'kr-2030-pop': 'twenties',
   // TASK C1 — jp-2030 workspace's single archetype (see genreLibrary's
   // jp2030GenrePacks / JP_2030_CORE_GENRE_IDS).
-  'jp-2030-pop': 'twenties'
+  'jp-2030-pop': 'twenties',
+  // TASK D1 §3-2 — kr-kids/jp-kids workspaces' own archetypes (Approach A).
+  'kr-kids-song': 'kids',
+  'jp-kids-song': 'kids'
 };
 
 export function slugify(value: string) {

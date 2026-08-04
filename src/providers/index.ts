@@ -12,6 +12,7 @@ import type {
   SongIdea
 } from '../types';
 import { generateLocalBlueprint } from '../core/localGenerator';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
 import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
 import { scoreSongs } from '../core/quality';
@@ -274,7 +275,7 @@ export async function generateBlueprint(
   // core/vocalComboLedger.ts). One choke point covers both the local and
   // realtime/Batch branches below, since both read `avoid` from here.
   // Best-effort: a ledger read failure must never block generation.
-  if (opts.channel.archetype !== 'kids') {
+  if (!isKidsArchetype(opts.channel.archetype)) {
     try {
       const recentVocalComboSignatures = await getRecentVocalCombos(opts.channel.id);
       if (recentVocalComboSignatures.length) avoid = { ...avoid, recentVocalComboSignatures };

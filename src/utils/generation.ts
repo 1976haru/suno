@@ -3,6 +3,7 @@ import { defaultAvoidWordsString } from '../data/avoidWordPresets';
 import { buildDefaultNegativeStyle } from '../data/negativeStyles';
 import { normalizeGenreSelection } from '../core/genreSelection';
 import { defaultPackagingLanguageForChannel } from '../core/packagingLanguage';
+import { isKidsArchetype } from './channelArchetype';
 
 export function clampSongCount(value: number) {
   if (!Number.isFinite(value)) return 12;
@@ -123,7 +124,7 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     // ("... - Christmas Cafe Little Singalong Radio Playlist"). 'spring-open'
     // is the least adult-coded season pack (no cafe/coffee/tea keywords) and
     // becomes the kids-only default; every other archetype is unchanged.
-    seasonId: channel.archetype === 'kids' ? 'spring-open' : 'christmas',
+    seasonId: isKidsArchetype(channel.archetype) ? 'spring-open' : 'christmas',
     vocalTone: channel.defaultVocal,
     perspective: 'firstPerson',
     lyricDepth: 'commercial',

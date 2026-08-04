@@ -1,4 +1,6 @@
 import type { LyricLanguage } from '../types';
+import type { KidsVocabularyWhitelist, KidsWhitelistLanguage } from '../data/kidsVocabularyWhitelist';
+import { whitelistViolations } from '../data/kidsVocabularyWhitelist';
 
 /**
  * TASK v3.38 Part B3 — a self-contained kids-song lyric body composer,
@@ -328,16 +330,31 @@ const KIDS_FORBIDDEN_TERMS: RegExp[] = [
   /\b(brand|sponsor|advertisement)\b/i
 ];
 
-export function kidsLyricSafetyIssues(text: string): string[] {
+/**
+ * TASK D1 §3-3/§3-4 — two-layer defense. §0-2 measured that the blacklist
+ * alone passed 12/12 real songs that still leaked senior-register phrases
+ * ("그 마음을", "이 순간을") no blacklist entry was ever written to catch.
+ * `whitelist` is optional and checked FIRST (1차) when given; the existing
+ * blacklist loop (2차, unchanged) always runs after it as the last line of
+ * defense. Omitting `whitelist` reproduces the exact prior behavior —
+ * required so every existing caller (senior workspace's little-singalong-
+ * radio included) keeps working unchanged.
+ */
+export function kidsLyricSafetyIssues(text: string, whitelist?: KidsVocabularyWhitelist): string[] {
   const issues: string[] = [];
+  if (whitelist) {
+    for (const word of whitelistViolations(text, whitelist)) {
+      issues.push(`vocabulary outside tier whitelist (${whitelist.tierId}/${whitelist.language}): ${word}`);
+    }
+  }
   for (const pattern of KIDS_FORBIDDEN_TERMS) {
     if (pattern.test(text)) issues.push(`forbidden kids-content pattern: ${pattern.source}`);
   }
   return issues;
 }
 
-export function isKidsLyricSafe(text: string): boolean {
-  return kidsLyricSafetyIssues(text).length === 0;
+export function isKidsLyricSafe(text: string, whitelist?: KidsVocabularyWhitelist): boolean {
+  return kidsLyricSafetyIssues(text, whitelist).length === 0;
 }
 
 /**
@@ -345,22 +362,41 @@ export function isKidsLyricSafe(text: string): boolean {
  * rhyme's title/melody/lyric-opening must never be reproduced, even
  * inadvertently. Checked against generated titles and hook phrases.
  */
-const KNOWN_EXISTING_KIDS_SONGS: RegExp[] = [
+/**
+ * TASK D1 §6 — split by language so F1 can append Japanese entries (§0-3 ④
+ * measured zero Japanese coverage here) without touching these 13. Every
+ * pattern below is unchanged from the original single list — only the
+ * grouping is new.
+ */
+const KNOWN_EXISTING_KIDS_SONGS_KOREAN: RegExp[] = [
   /곰\s*세\s*마리/,
   /아기\s*상어/i,
-  /baby\s*shark/i,
   /학교\s*종이?\s*땡땡땡/,
   /나비야/,
   /반짝반짝\s*작은\s*별/,
-  /twinkle\s*twinkle\s*little\s*star/i,
   /산토끼/,
   /고향의\s*봄/,
   /뽀롱뽀롱\s*뽀로로/,
-  /핑크퐁/i,
+  /핑크퐁/i
+];
+
+const KNOWN_EXISTING_KIDS_SONGS_ENGLISH: RegExp[] = [
+  /baby\s*shark/i,
+  /twinkle\s*twinkle\s*little\s*star/i,
   /pinkfong/i,
   /cocomelon/i
 ];
 
+// F1 appends here — see §6 ("일본 동요가 하나도 없습니다").
+const KNOWN_EXISTING_KIDS_SONGS_JAPANESE: RegExp[] = [];
+
+const KNOWN_EXISTING_KIDS_SONGS_BY_LANGUAGE: Record<KidsWhitelistLanguage, RegExp[]> = {
+  korean: KNOWN_EXISTING_KIDS_SONGS_KOREAN,
+  english: KNOWN_EXISTING_KIDS_SONGS_ENGLISH,
+  japanese: KNOWN_EXISTING_KIDS_SONGS_JAPANESE
+};
+
 export function referencesExistingKidsSong(text: string): boolean {
-  return KNOWN_EXISTING_KIDS_SONGS.some(pattern => pattern.test(text));
+  return Object.values(KNOWN_EXISTING_KIDS_SONGS_BY_LANGUAGE)
+    .some(patterns => patterns.some(pattern => pattern.test(text)));
 }

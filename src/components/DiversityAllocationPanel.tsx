@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Minus, Plus, RotateCcw, Save, Upload } from 'lucide-react';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import { lyricThemesForOptions } from '../data/lyricThemes';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -71,7 +72,7 @@ const VOCAL_LABELS: Record<string, string> = {
 
 function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefinition[] {
   const archetype = opts.channel.archetype;
-  const structureIds = archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS;
+  const structureIds = isKidsArchetype(archetype) ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS;
   const narrativeGenre = genres.some(genre => Boolean(genre.arrangementNarrative));
   return [
     {
@@ -90,11 +91,11 @@ function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefi
     {
       axis: 'vocalType',
       label: '보컬 쿼터',
-      help: archetype === 'kids'
+      help: isKidsArchetype(archetype)
         ? '키즈 채널 기본은 세 타입을 같은 비율(33/33/33)로 돌립니다.'
         : '이 채널은 단일 보컬 프리셋을 사용합니다. 키즈 채널에서만 수동 쿼터가 실제 보컬 타입을 바꿉니다.',
-      disabled: archetype !== 'kids',
-      disabledReason: archetype !== 'kids' ? '키즈 채널 전용 축' : undefined,
+      disabled: !isKidsArchetype(archetype),
+      disabledReason: !isKidsArchetype(archetype) ? '키즈 채널 전용 축' : undefined,
       options: VOCAL_TYPE_IDS.map(id => ({ id, label: VOCAL_LABELS[id] }))
     },
     {

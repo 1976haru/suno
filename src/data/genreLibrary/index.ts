@@ -415,7 +415,11 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'city-night': CITY_NIGHT_CORE_GENRE_IDS,
   'oldpop-lounge': OLDPOP_LOUNGE_CORE_GENRE_IDS,
   'kr-2030-pop': KR_2030_CORE_GENRE_IDS,
-  'jp-2030-pop': JP_2030_CORE_GENRE_IDS
+  'jp-2030-pop': JP_2030_CORE_GENRE_IDS,
+  // TASK D1 §3-2/§7 — kr-kids/jp-kids archetypes exist structurally now (Approach A);
+  // genre content is E1/F1's job, not D1's, so these stay empty like christmas/lofi-study above.
+  'kr-kids-song': [],
+  'jp-kids-song': []
 };
 
 const allCoreGenreIds = new Set<string>([

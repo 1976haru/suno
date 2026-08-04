@@ -1,4 +1,5 @@
 import type { ChannelArchetype, GenerationOptions, LyricLanguage } from '../types';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 export type KidsLyricThemeHint = 'animal' | 'season' | 'family' | 'friend' | 'play' | 'school' | 'counting' | 'hangul';
 
@@ -1206,7 +1207,7 @@ function languageAllows(theme: LyricTheme, language: LyricLanguage | undefined):
 
 export function lyricThemesForArchetype(archetype: ChannelArchetype | undefined, customScene?: string, language?: LyricLanguage): LyricTheme[] {
   const custom = customThemeFromScene(customScene, archetype);
-  const source = archetype === 'kids' ? kidsLyricThemes : adultLyricThemes;
+  const source = isKidsArchetype(archetype) ? kidsLyricThemes : adultLyricThemes;
   const suited = source.filter(theme => (!archetype || theme.suitedArchetypes?.includes(archetype)) && languageAllows(theme, language));
   const fallback = source.filter(theme => languageAllows(theme, language));
   const base = suited.length >= 12 ? suited : fallback;

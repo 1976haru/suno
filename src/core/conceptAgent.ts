@@ -9,6 +9,7 @@ import { MODEL_REGISTRY, defaultModelFor } from '../data/modelRegistry';
 import { getConceptCache, setConceptCache } from './library';
 import { recordUsage } from './usageLedger';
 import { decomposeArtistReferences, isSafeDecomposedReference, type DecomposedReference } from './artistReferenceDecomposer';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 /**
  * TASK v3.58 (지시문 v3.58 TASK 2) — applying a natural-language concept used
@@ -308,7 +309,7 @@ function rankFromRules(freeText: string, coreGenreIds: Set<string>): RankedScore
  * forKids-ness instead, same filter Step2Concept.tsx's own picker applies.
  */
 function defaultVocalPresetIdFor(archetype: ChannelArchetype): string {
-  const wantsKids = archetype === 'kids';
+  const wantsKids = isKidsArchetype(archetype);
   return vocalPresets.find(preset => Boolean(preset.forKids) === wantsKids)?.id || vocalPresets[0].id;
 }
 

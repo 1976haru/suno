@@ -16,12 +16,20 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
     expect(senior.contentTier).toBe('adult');
   });
 
-  it('the 2 not-yet-built workspaces stay not-ready and fully skeletal (no archetypes)', () => {
+  // TASK D1 §3-2/§5 — Approach A gave kr-kids/jp-kids their own archetypes
+  // (kr-kids-song/jp-kids-song), same per-workspace-archetype convention as
+  // kr-2030-pop/jp-2030-pop; still not ready — E1/F1 flip that once each
+  // workspace's actual content (genres, hook vocab, thumbnails) lands.
+  it('the 2 not-yet-built workspaces stay not-ready, own archetype set but no content yet', () => {
+    const expectedArchetypeIds: Record<'kr-kids' | 'jp-kids', string[]> = {
+      'kr-kids': ['kr-kids-song'],
+      'jp-kids': ['jp-kids-song']
+    };
     for (const id of ['kr-kids', 'jp-kids'] as const) {
       const ws = getWorkspace(id);
       expect(ws.ready).toBe(false);
       expect(ws.labelKo.length).toBeGreaterThan(0);
-      expect(ws.archetypeIds).toEqual([]);
+      expect(ws.archetypeIds).toEqual(expectedArchetypeIds[id]);
     }
   });
 

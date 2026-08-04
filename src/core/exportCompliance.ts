@@ -1,4 +1,5 @@
 import type { ChannelProfile, SongIdea } from '../types';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 /**
  * TASK v3.39.1 Part B4/C2 — the actual mechanism YouTube requires is the
@@ -33,7 +34,7 @@ export function sanitizePublicYoutubeTags(tags: string[]): string[] {
 }
 
 export function isMadeForKidsChannel(channel: Pick<ChannelProfile, 'archetype'>): boolean {
-  return channel.archetype === 'kids';
+  return isKidsArchetype(channel.archetype);
 }
 
 /**

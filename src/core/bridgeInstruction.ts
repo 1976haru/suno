@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildSystemInstruction, buildUserInstruction, songOutputShape, structureTemplateLegend } from './promptComposer';
 import { resolvePackagingLanguage } from './packagingLanguage';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
@@ -298,7 +299,7 @@ function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
     ? (packagingLanguage === 'korean'
       ? 'Reference the tone of 1970s-80s Korean 가요 (歌謡) titles — phrases like "그 시절", "~하던 날", "잊지 못할", "다시 만나면".'
       : 'Reference the tone of Showa-era (昭和) Japanese song titles — quiet, image-based, never a loanword transliteration.')
-    : opts.channel.archetype === 'kids'
+    : isKidsArchetype(opts.channel.archetype)
       ? (packagingLanguage === 'korean' ? 'Use simple words and onomatopoeia a young child understands.' : 'Use simple words and onomatopoeia a young child understands.')
       : (packagingLanguage === 'korean'
         ? 'Reference the tone of contemporary Korean pop/indie song titles.'

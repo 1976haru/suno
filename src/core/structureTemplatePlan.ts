@@ -2,6 +2,7 @@ import type { ChannelArchetype } from '../types';
 import { shuffle, type StructureTemplateId } from './lyricEngine';
 import { ADULT_STRUCTURE_TEMPLATE_IDS, KIDS_STRUCTURE_TEMPLATE_IDS } from './diversityAllocation';
 import { resolveBpmLengthTier, TEMPLATE_SECTION_COUNT } from './bpmLengthControl';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 function eligibleTemplates(pool: readonly StructureTemplateId[], bpm: number | undefined): StructureTemplateId[] {
   if (bpm === undefined) return [...pool];
@@ -34,7 +35,7 @@ export function buildBpmAwareStructureTemplatePlan(
   bpmByIndex: readonly (number | undefined)[]
 ): StructureTemplateId[] {
   if (songCount <= 0) return [];
-  const pool = archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS;
+  const pool = isKidsArchetype(archetype) ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS;
   const eligibleByIndex = Array.from({ length: songCount }, (_, i) => eligibleTemplates(pool, bpmByIndex[i]));
   const plan: StructureTemplateId[] = eligibleByIndex.map((eligible, i) => shuffle(eligible, seed + i * 601)[0]);
   plan[0] = 'T1';

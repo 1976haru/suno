@@ -11,6 +11,7 @@ import {
 } from '../../data/genreLibrary';
 import { forecastCapacity } from '../../core/capacityPlanner';
 import { scopedKey } from '../../core/workspaceScope';
+import { isKidsArchetype } from '../../utils/channelArchetype';
 import TagChips from '../TagChips';
 import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market } from '../../types';
 
@@ -310,7 +311,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
         </div>
       </div>
 
-      {archetype === 'kids' && !kidsBannerDismissed && (
+      {isKidsArchetype(archetype) && !kidsBannerDismissed && (
         <div className="notice-banner">
           <p>
             {/* TASK v3.38 Part B6 (correction) — exact replacement wording: clarifies the Made-for-Kids requirement is about content, not language, to avoid the earlier phrasing being misread as a language restriction. */}
@@ -378,7 +379,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
           <label>Primary language (기본 언어)</label>
           <select value={editorChannel.primaryLanguage} onChange={event => onUpdateField('primaryLanguage', event.target.value as LyricLanguage)}>
             {/* TASK v3.38 Part B1 (language follow-up) — the kids channel only supports korean/japanese/english (default korean); bilingual is not offered for it. */}
-            {(archetype === 'kids' ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
+            {(isKidsArchetype(archetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>

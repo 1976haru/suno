@@ -45,9 +45,23 @@ export interface HookPartBank {
  * just ONE side of the vocative pair (lead or addressee) or the declarative
  * stem is enough to guarantee full-string disjointness between archetypes,
  * regardless of join order — see data/hookBanks/*.ts.
+ *
+ * TASK D1 — the "broadly compatible with any object noun" assumption above
+ * held for every archetype added so far (kr-2030/jp-2030/showa-cafe/...)
+ * because their new nouns are still adult-register objects the shared
+ * verbs/tails were written for. It breaks for 'kids': the default banks'
+ * imperativeVerbs/imperativeTails/declarativeTails (온혀요.../오늘 밤/그
+ * 마음을, warm/tonight/that feeling) are senior-morning-appropriate, not
+ * "생일 세 마리를 안아줘요" balloon/kite-appropriate — a real measured bug
+ * ("연을 데워요" / "warm the kite"), not a false alarm. Widened the Pick
+ * here to the 3 fields that were structurally impossible to override
+ * before, so hookBanks/kids.ts can supply its own — no other archetype is
+ * affected (Partial<> keeps these optional; every existing archetype file
+ * that doesn't set them keeps inheriting the default exactly as before),
+ * and not one existing HookPartBank value in this file was touched.
  */
 export type HookVocabularyOverride = Partial<
-  Pick<HookPartBank, 'imperativeObjects' | 'nounModifiers' | 'nounObjects' | 'vocativeLeads' | 'vocativeAddressees' | 'declarativeStems'>
+  Pick<HookPartBank, 'imperativeObjects' | 'nounModifiers' | 'nounObjects' | 'vocativeLeads' | 'vocativeAddressees' | 'declarativeStems' | 'imperativeVerbs' | 'imperativeTails' | 'declarativeTails'>
 >;
 
 const englishDefault: HookPartBank = {

@@ -13,6 +13,7 @@ import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLa
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from '../../core/vocalPlan';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
+import { isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
 import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
@@ -134,7 +135,7 @@ export default function Step2Concept({
   // instead of interleaved.
   const VOCAL_GENDER_SORT_ORDER: Record<string, number> = { male: 0, female: 1, duet: 2, mixed: 3 };
   const relevantVocalPresets = vocalPresets
-    .filter(preset => Boolean(preset.forKids) === (channelArchetype === 'kids'))
+    .filter(preset => Boolean(preset.forKids) === isKidsArchetype(channelArchetype))
     .slice()
     .sort((a, b) => {
       const aSuited = a.suitedArchetypes?.includes(channelArchetype) ? 0 : 1;
@@ -149,14 +150,14 @@ export default function Step2Concept({
   // (channel.defaultVocal — see vocalPlan.ts's leaningGenderFor) rather than
   // adding a new options field.
   const BALANCED_VOCAL_CHOICE_ID = '__balanced__';
-  const defaultQuotaForChannel = channelArchetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
+  const defaultQuotaForChannel = isKidsArchetype(channelArchetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
   const balancedQuotaPreview = scaleVocalQuota(defaultQuotaForChannel, opts.songCount);
   const isBalancedVocalTone = !opts.vocalTone?.trim() || opts.vocalTone.trim() === opts.channel.defaultVocal;
   // TASK v4.13 (§5-2) — "선택 시 실제 계산된 쿼터를 보여주십시오": same
   // leaningGenderFor/leaningAdultVocalQuota real generation itself calls
   // (core/batchPreallocation.ts, core/localGenerator.ts), so the preview
   // never drifts from what the pack actually gets.
-  const selectedVocalLeaning = channelArchetype === 'kids' || isBalancedVocalTone ? undefined : leaningGenderFor(opts);
+  const selectedVocalLeaning = isKidsArchetype(channelArchetype) || isBalancedVocalTone ? undefined : leaningGenderFor(opts);
   const leaningQuotaPreview = selectedVocalLeaning
     ? leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, opts.songCount, selectedVocalLeaning)
     : null;
@@ -646,7 +647,7 @@ export default function Step2Concept({
       {/* TASK v4.13 (§5-2) — "선택 시... 실제 계산된 쿼터를 보여주십시오". Only
           for a non-kids archetype: kids channels use their own separate
           gendered-choir quota model this preview doesn't model. */}
-      {channelArchetype !== 'kids' && !isBalancedVocalTone && leaningQuotaPreview && (
+      {!isKidsArchetype(channelArchetype) && !isBalancedVocalTone && leaningQuotaPreview && (
         <p className="supporting">
           남성 {leaningQuotaPreview.male}곡 · 여성 {leaningQuotaPreview.female}곡 · 듀엣 {leaningQuotaPreview.mixed}곡으로 배정됩니다.
         </p>
@@ -899,7 +900,7 @@ export default function Step2Concept({
           <label>Lyrics language (가사 언어)</label>
           <div className="chips">
             {/* TASK v3.38 Part B1 (language follow-up) — the kids channel only supports korean/japanese/english (selectable per set, default korean); bilingual is not offered for it. */}
-            {(channelArchetype === 'kids' ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
+            {(isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
               <button
                 type="button"
                 key={option.value}

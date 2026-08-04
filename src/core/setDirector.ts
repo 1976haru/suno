@@ -13,6 +13,7 @@ import { genreLibrary, getCoreGenreIdsForArchetype, getGenreById, totalGenreCoun
 import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
 import { hookDevices } from '../data/hookDevices';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -181,7 +182,7 @@ function inferSeasonId(freeText: string, channel: ChannelProfile) {
   }
   const top = [...seasonScores.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   if (top && seasonPacks.some(season => season.id === top)) return top;
-  if (channel.archetype === 'kids') return 'spring-open';
+  if (isKidsArchetype(channel.archetype)) return 'spring-open';
   return seasonPacks.some(season => season.id === 'spring-open') ? 'spring-open' : seasonPacks[0].id;
 }
 
@@ -592,7 +593,7 @@ function vocalCounts(songCount: number) {
  * remaining gap (see this task's own report).
  */
 function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTone: string | undefined): Record<string, number> {
-  if (channel.archetype === 'kids' || !vocalTone) return vocalCounts(songCount);
+  if (isKidsArchetype(channel.archetype) || !vocalTone) return vocalCounts(songCount);
   const leaning = leaningGenderFor({ channel, vocalTone });
   if (!leaning) return vocalCounts(songCount);
   return { ...leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, songCount, leaning) };

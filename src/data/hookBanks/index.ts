@@ -16,6 +16,12 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
     case 'j2000s':
       return seniorMorningOverride;
     case 'kids':
+    // TASK D1 §3-2 — kr-kids/jp-kids archetypes (Approach A) share the same
+    // common-safe kidsOverride() bank D1 built; without these cases they'd
+    // silently fall through to `default` (senior-morning), the exact class
+    // of leak C2 found and fixed for jp-2030-pop.
+    case 'kr-kids-song':
+    case 'jp-kids-song':
       return kidsOverride(language);
     case 'christmas':
       return christmasOverride;

@@ -11,6 +11,7 @@ import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota }
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
@@ -343,7 +344,7 @@ export function nextContestedTitle(
   };
   const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k, earwormMode);
   gen.usedHooks.add(winner.hook.phrase);
-  const resolvedConstraints = constraints ?? resolveConstraintsFromOptions({ projectTitle: 'Set Plan', songCount: gen.shapeSequence.length, channel: { archetype } }, archetype === 'kids' ? KIDS_AUDIENCE_PROFILE : SENIOR_AUDIENCE_PROFILE);
+  const resolvedConstraints = constraints ?? resolveConstraintsFromOptions({ projectTitle: 'Set Plan', songCount: gen.shapeSequence.length, channel: { archetype } }, isKidsArchetype(archetype) ? KIDS_AUDIENCE_PROFILE : SENIOR_AUDIENCE_PROFILE);
   const title = titleFromHook(winner.hook, gen.seed + 53 + idx * 131, language, gen.usedTitles, resolvedConstraints, gen.patternUsage);
   gen.usedTitles.add(title);
   gen.index += 1;
@@ -885,15 +886,15 @@ export function generateLocalBlueprint(
   // DEFAULT_ADULT_VOCAL_QUOTA ('mixed' means duet there, not choir).
   // v3.77 (TASK A) — mirrors batchPreallocation.ts's own leaning-quota
   // wiring (same reasoning: see vocalPlan.ts's leaningGenderFor doc comment).
-  const baseVocalQuota = opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
-  const vocalLeaning = opts.channel.archetype === 'kids' || opts.vocalQuota ? undefined : leaningGenderFor(opts);
+  const baseVocalQuota = opts.vocalQuota ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota ? undefined : leaningGenderFor(opts);
   const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
   // v3.77 (TASK A) — mirrors batchPreallocation.ts's identical guard/comment:
   // a custom vocalTone with no detectable preset/gender word must still
   // reach the stylePrompt verbatim (via fallbackVocalText below) rather than
   // being silently replaced by buildAdultVocalTraitPlan's generic composed
   // wording.
-  const explicitUnrecognizedVocalTone = opts.channel.archetype !== 'kids' && !opts.vocalQuota && !vocalLeaning
+  const explicitUnrecognizedVocalTone = !isKidsArchetype(opts.channel.archetype) && !opts.vocalQuota && !vocalLeaning
     && Boolean(opts.vocalTone?.trim()) && opts.vocalTone!.trim() !== opts.channel.defaultVocal;
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
@@ -934,7 +935,7 @@ export function generateLocalBlueprint(
   // total (in which case the flagship's own vocalType is preserved anyway,
   // just relocated). Kids skipped — data/genreLibrary vocalPreference is
   // only authored for adult/senior oldpop genres.
-  if (vocalPlan && opts.channel.archetype !== 'kids') {
+  if (vocalPlan && !isKidsArchetype(opts.channel.archetype)) {
     vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
@@ -942,7 +943,7 @@ export function generateLocalBlueprint(
   // bridge paths rotate through the same per-song wording for the same opts.
   // Kids only now — the adult path uses buildAdultVocalTraitPlan below
   // (TASK v3.72 TASK B).
-  const vocalVariantPlan = vocalPlan && opts.channel.archetype === 'kids' ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  const vocalVariantPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) ? buildVocalVariantPlan(vocalPlan, seed) : null;
   // TASK v3.72 (TASK B) — mirrors batchPreallocation.ts's own
   // buildAdultVocalTraitPlan call (same seed) so the local and realtime/
   // Batch/bridge paths agree on every trackNo's 4-axis vocal wording for the
@@ -958,7 +959,7 @@ export function generateLocalBlueprint(
   // budget-dropped — see data/vocalTechniquesByEra.ts's own doc comment).
   // Kids only skips this (its own vocalDescriptionFor archetype branch has
   // no era concept).
-  const vocalTechniquePlan = opts.channel.archetype !== 'kids' ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
   // v3.80 (TASK A-1) — mirrors batchPreallocation.ts's identical flagship
   // proximity hard-override (same reasoning: track 1 spacious/not-dry,
   // tracks 2-3 plate/chamber ambience specifically).
@@ -969,7 +970,7 @@ export function generateLocalBlueprint(
         2: ['soft plate ambience', 'chamber ambience']
       }
     : undefined;
-  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids' && !explicitUnrecognizedVocalTone
+  const adultVocalTraitPlan = vocalPlan && !isKidsArchetype(opts.channel.archetype) && !explicitUnrecognizedVocalTone
     ? buildAdultVocalTraitPlan(vocalPlan, seed, {
         isSenior: isSeniorAudience,
         peakFlags: vocalPeakFlags,
@@ -1029,7 +1030,7 @@ export function generateLocalBlueprint(
     buildBpmAwareStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype, bpmProxyByIndex),
     opts.diversityAllocations,
     'structureTemplate',
-    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
+    isKidsArchetype(opts.channel.archetype) ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
     seed
   );
   if (autoStructureTemplatePlan.length) autoStructureTemplatePlan[0] = 'T1';
@@ -1144,7 +1145,7 @@ export function generateLocalBlueprint(
     // which position the single non-final-chorus hook occurrence lands on,
     // rather than introducing a separate new rotation/axis for it.
     const hookPositionVariant = (hookDevices.findIndex(device => device.id === hookDevicePlan[idx]) % 3 + 3) % 3 as 0 | 1 | 2;
-    const { lyrics: composedLyrics, hookPhrase } = opts.channel.archetype === 'kids'
+    const { lyrics: composedLyrics, hookPhrase } = isKidsArchetype(opts.channel.archetype)
       ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme })
       : composeLyrics({
         language: opts.lyricLanguage,
@@ -1182,7 +1183,7 @@ export function generateLocalBlueprint(
     // preallocateSongSlots uses for the same opts/trackNo (kids only — see
     // TASK v3.72 TASK B for the adult path below).
     const vocalDescriptionText = vocalType
-      ? (opts.channel.archetype === 'kids'
+      ? (isKidsArchetype(opts.channel.archetype)
           ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
           : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText))
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
@@ -1192,7 +1193,7 @@ export function generateLocalBlueprint(
     // locally generated non-kids pack also gets a correct duet/group tag
     // instead of relying on prose sniffing alone.
     const vocalGender = vocalType
-      ? (opts.channel.archetype === 'kids' ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
+      ? (isKidsArchetype(opts.channel.archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
       : fallbackVocalGender;
     // TASK v3.39.1 Part H4 — realtime/Batch/bridge output all get a
     // [male vocal]/[female vocal]/[children's choir] lyric meta tag via

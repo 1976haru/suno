@@ -7,6 +7,7 @@ import {
   type TitleMoodCategory
 } from '../data/titleLocalizationBank';
 import { hashSeed } from '../utils/prng';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 /**
  * v4.3 (TASK A) — local-generation-path builder for the packaging-language
@@ -51,7 +52,7 @@ export function buildLocalizedTitle(
   const language = packagingLanguage;
   const fallbackCategory: TitleMoodCategory = input.arcPhase ? MOOD_CATEGORY_BY_ARC_PHASE[input.arcPhase] : 'nostalgia';
   const category = detectMoodCategory(`${input.emotionArc} ${input.listenerSituation}`, fallbackCategory);
-  const eraFlavor = eraFlavorFor(input.eraTag, input.archetype === 'kids');
+  const eraFlavor = eraFlavorFor(input.eraTag, isKidsArchetype(input.archetype));
   const maxLength = MAX_LENGTH_BY_LANGUAGE[language];
 
   const candidates = localizedTitleCandidates(language, category, eraFlavor, input.seed);

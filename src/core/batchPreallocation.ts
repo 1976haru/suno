@@ -8,6 +8,7 @@ import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangement
 import { compactMoneyChord } from './soundSignature';
 import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import {
   applyDuetSectionVocalTags,
   applyFlagshipVocalOrder,
@@ -240,8 +241,8 @@ export function preallocateSongSlots(
   // leaningGenderFor/leaningAdultVocalQuota doc comments). Skipped for
   // kids (its own quota system) and whenever the caller supplied an
   // explicit opts.vocalQuota override, which always wins outright.
-  const baseVocalQuota = opts.vocalQuota ?? (opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
-  const vocalLeaning = opts.channel.archetype === 'kids' || opts.vocalQuota ? undefined : leaningGenderFor(opts);
+  const baseVocalQuota = opts.vocalQuota ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota ? undefined : leaningGenderFor(opts);
   const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
   // v3.77 (TASK A) — leaningGenderFor only recognizes a known preset or a
   // literal gender word; a genuinely custom vocalTone with neither (e.g. a
@@ -255,7 +256,7 @@ export function preallocateSongSlots(
   // fallbackVocalText (the user's own text, verbatim) below; vocalType is
   // still assigned from the (unleaned) base quota, so type diversity is
   // unaffected — only the WORDING stays the user's own.
-  const explicitUnrecognizedVocalTone = opts.channel.archetype !== 'kids' && !opts.vocalQuota && !vocalLeaning
+  const explicitUnrecognizedVocalTone = !isKidsArchetype(opts.channel.archetype) && !opts.vocalQuota && !vocalLeaning
     && Boolean(opts.vocalTone?.trim()) && opts.vocalTone!.trim() !== opts.channel.defaultVocal;
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
@@ -312,7 +313,7 @@ export function preallocateSongSlots(
   // 재즈 = 무조건 여자") so the local and Batch/bridge paths agree on which
   // genre lands on which already-allocated vocalType, not just the raw
   // 6/6/6-style totals.
-  if (vocalPlan && opts.channel.archetype !== 'kids') {
+  if (vocalPlan && !isKidsArchetype(opts.channel.archetype)) {
     vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
@@ -321,7 +322,7 @@ export function preallocateSongSlots(
   // realtime/Batch/bridge (see vocalPlan.ts's buildVocalVariantPlan). Kids
   // only — the adult path's wording now comes from buildAdultVocalTraitPlan
   // below (TASK v3.72 TASK B), not this flat variant-index scheme.
-  const vocalVariantPlan = vocalPlan && opts.channel.archetype === 'kids' ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  const vocalVariantPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) ? buildVocalVariantPlan(vocalPlan, seed) : null;
   // TASK v3.72 (TASK B) — the 4-axis (register/delivery/timbre/proximity;
   // pairing/blend for duet) per-song wording plan for every non-kids
   // archetype, replacing the old flat 5-variant ADULT_VOCAL_DESCRIPTIONS
@@ -341,7 +342,7 @@ export function preallocateSongSlots(
   // call (same seed); appended onto vocalText below so it reaches both the
   // local path's stylePrompt and the bridge/Batch path's LLM-facing
   // vocalText verbatim-enforcement.
-  const vocalTechniquePlan = opts.channel.archetype !== 'kids' ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
   // v3.80 (TASK A-1) — track 1 (cold-open) forced spacious/not-dry (any
   // proximity except the "dry and forward" modern-forward character);
   // tracks 2-3 (flagship) forced to plate/chamber ambience specifically —
@@ -357,7 +358,7 @@ export function preallocateSongSlots(
         2: ['soft plate ambience', 'chamber ambience']
       }
     : undefined;
-  const adultVocalTraitPlan = vocalPlan && opts.channel.archetype !== 'kids' && !explicitUnrecognizedVocalTone
+  const adultVocalTraitPlan = vocalPlan && !isKidsArchetype(opts.channel.archetype) && !explicitUnrecognizedVocalTone
     ? buildAdultVocalTraitPlan(vocalPlan, seed, {
         isSenior: isSeniorAudience,
         peakFlags: vocalPeakFlags,
@@ -448,7 +449,7 @@ export function preallocateSongSlots(
     buildBpmAwareStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype, bpmProxyByIndex),
     opts.diversityAllocations,
     'structureTemplate',
-    opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
+    isKidsArchetype(opts.channel.archetype) ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
     seed
   );
   if (autoStructureTemplatePlan.length) autoStructureTemplatePlan[0] = 'T1';
@@ -526,7 +527,7 @@ export function preallocateSongSlots(
     // appended onto a kids description or onto a user's own verbatim
     // vocalTone fallback text.
     const vocalText = vocalType
-      ? (opts.channel.archetype === 'kids'
+      ? (isKidsArchetype(opts.channel.archetype)
           ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
           : (adultVocalTraitPlan?.[idx]
               ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
@@ -534,7 +535,7 @@ export function preallocateSongSlots(
       : fallbackVocalText;
     const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType
-      ? (opts.channel.archetype === 'kids' ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
+      ? (isKidsArchetype(opts.channel.archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
       : fallbackVocalGender;
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];

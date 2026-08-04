@@ -1,6 +1,7 @@
 import type { ChannelArchetype, GenrePack } from '../types';
 import type { PromptTermId } from './promptBudget';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 export interface ConceptInfluence {
   key: string;
@@ -188,7 +189,7 @@ const VOCAL_VARIANTS = [
 ];
 
 export function variedVocalText(base: string, index: number, genre?: GenrePack, archetype?: ChannelArchetype): string {
-  if (archetype === 'kids') return base;
+  if (isKidsArchetype(archetype)) return base;
   const descriptor = VOCAL_VARIANTS[Math.abs(index) % VOCAL_VARIANTS.length];
   const genreCue = genre?.vocal?.[Math.abs(index + 1) % (genre.vocal.length || 1)];
   // Put the track-level delivery cue first inside the vocal atom. The exact

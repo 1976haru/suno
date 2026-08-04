@@ -118,7 +118,9 @@ const KR_KIDS: WorkspaceDefinition = {
   id: 'kr-kids',
   labelKo: '한국 동요',
   descriptionKo: '한국 동요 워크스페이스 — 준비 중 (D1/E1에서 채워집니다).',
-  archetypeIds: [],
+  // TASK D1 §3-2/§5 — Approach A (per user decision): own archetype, not the
+  // senior workspace's shared 'kids'. ready stays false — E1 flips it.
+  archetypeIds: ['kr-kids-song'],
   defaultAudienceProfileId: 'kids',
   defaultLyricLanguage: 'korean',
   theme: { accent: '#f59e0b', surface: '#fffbeb' },
@@ -132,7 +134,8 @@ const JP_KIDS: WorkspaceDefinition = {
   id: 'jp-kids',
   labelKo: '일본 동요',
   descriptionKo: '일본 동요 워크스페이스 — 준비 중 (F1에서 채워집니다).',
-  archetypeIds: [],
+  // TASK D1 §3-2/§5 — same reasoning as KR_KIDS above. ready stays false — F1 flips it.
+  archetypeIds: ['jp-kids-song'],
   defaultAudienceProfileId: 'kids',
   defaultLyricLanguage: 'japanese',
   theme: { accent: '#0ea5e9', surface: '#f0f9ff' },

@@ -4,6 +4,7 @@ import { applyAxisAllocation, POV_IDS, spreadPlanByCounts } from './diversityAll
 import { buildStridePlan } from './stridePlan';
 import type { KidsLyricTheme } from './kidsLyricEngine';
 import type { StructureTemplateId } from './lyricEngine';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 export const LYRIC_SECTION_STYLE_IDS: LyricSectionStyleId[] = ['narrative', 'image', 'dialogue', 'hookRepeat'];
 
@@ -176,7 +177,7 @@ export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): strin
 }
 
 function defaultPovPattern(opts: Pick<GenerationOptions, 'channel' | 'perspective'>): LyricPerspective[] {
-  if (opts.channel.archetype === 'kids') {
+  if (isKidsArchetype(opts.channel.archetype)) {
     return ['firstPerson', 'secondPerson', 'firstPerson', 'thirdPerson', 'secondPerson', 'firstPerson'];
   }
   const primary = opts.perspective || 'firstPerson';

@@ -6,6 +6,7 @@ import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
+import { isKidsArchetype } from '../utils/channelArchetype';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -95,9 +96,9 @@ function segmentBalanceViolations(ordered: readonly string[], windowSize = 6, ma
 }
 
 function vocalQuotaForAutoFix(opts: GenerationOptions): VocalQuota {
-  const base = opts.channel.archetype === 'kids' ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
+  const base = isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
   const scaledBase = scaleVocalQuota(base, opts.songCount);
-  if (opts.channel.archetype === 'kids') return scaledBase;
+  if (isKidsArchetype(opts.channel.archetype)) return scaledBase;
   const leaning = leaningGenderFor(opts);
   if (!leaning) return scaledBase;
   return leaningAdultVocalQuota(scaledBase, opts.songCount, leaning);

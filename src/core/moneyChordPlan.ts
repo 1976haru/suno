@@ -3,6 +3,7 @@ import { moneyChordRotationPool, resolveEarwormMoneyChordMode, signatureMoneyCho
 import { moneyChordDistributionForFamily } from '../data/paletteFamilyMoneyChords';
 import { shuffle } from './lyricEngine';
 import { stridePick } from './stridePlan';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 /**
  * TASK v3.33 Part C — per-song progression quota activates only when the
@@ -25,7 +26,7 @@ export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMod
   // TASK v3.38 Part B4 — 'kids' now has a real signature progression too (kidsSimple).
   return archetype === 'senior-morning'
     || archetype === 'showa-cafe'
-    || archetype === 'kids'
+    || isKidsArchetype(archetype)
     || archetype === 'showa-70s'
     || archetype === 'j2000s'
     || archetype === 'modern-chill'

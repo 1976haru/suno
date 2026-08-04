@@ -6,6 +6,7 @@ import { hashSeed, mulberry32, shuffle } from '../utils/prng';
 import { resolveConstraints, type ResolvedConstraints } from './constraints';
 import { TITLE_PATTERNS, uniqueTitle } from '../data/titlePatterns';
 import { KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE } from '../data/audienceProfiles';
+import { isKidsArchetype } from '../utils/channelArchetype';
 
 // v4.2 (TASK A3) — re-exported so every existing `from './lyricEngine'`
 // import of these three stays valid; see utils/prng.ts's own doc comment for
@@ -659,7 +660,7 @@ const KIDS_STRUCTURE_TEMPLATES: StructureTemplateId[] = ['T1', 'T3', 'T5'];
  */
 export function buildStructureTemplatePlan(songCount: number, seed: number, archetype?: ChannelArchetype): StructureTemplateId[] {
   if (songCount <= 0) return [];
-  const pool = archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATES : ADULT_STRUCTURE_TEMPLATES;
+  const pool = isKidsArchetype(archetype) ? KIDS_STRUCTURE_TEMPLATES : ADULT_STRUCTURE_TEMPLATES;
   const plan: StructureTemplateId[] = ['T1'];
   let lap = 0;
   while (plan.length < songCount) {
@@ -1215,7 +1216,7 @@ function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: C
   // extraPremiumHooks.japanese banks below) kept winning before
   // jp2030Override's combinatorial layer ever got a turn. Added here,
   // mirroring kr-2030-pop exactly.
-  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || archetype === 'kids' || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop') return [];
+  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || isKidsArchetype(archetype) || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },
@@ -1588,7 +1589,7 @@ export function titleFromHook(
  * all pre-A3).
  */
 function defaultConstraintsFor(archetype: ChannelArchetype | undefined, songCount: number): ResolvedConstraints {
-  const audience = archetype === 'kids' ? KIDS_AUDIENCE_PROFILE : SENIOR_AUDIENCE_PROFILE;
+  const audience = isKidsArchetype(archetype) ? KIDS_AUDIENCE_PROFILE : SENIOR_AUDIENCE_PROFILE;
   return resolveConstraints({ conceptLabel: '' }, { id: 'senior-oldpop' }, audience, songCount || 18);
 }
 
