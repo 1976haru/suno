@@ -300,12 +300,30 @@ function targetWordRangeFor(song: SongIdea): [number, number] {
   return isShortOpener ? [150, tierCeil] : [tierFloor, tierCeil];
 }
 
+/**
+ * TASK v4.11 (TASK A) — mirrors targetWordRangeFor above, same per-song BPM
+ * tier lookup (core/bpmLengthControl.ts's BPM_LENGTH_TIERS). cold-open/clear-
+ * opener tracks get the same widened ceiling as they get on the word check:
+ * core/structureTemplatePlan.ts's buildBpmAwareStructureTemplatePlan pins
+ * track 1 to T1's fixed 8-section shape regardless of its own BPM tier (a
+ * deliberate cold-open convention, not a bug), so a slow-tempo opener would
+ * otherwise permanently fail a strict tier-only section check.
+ */
+function targetSectionRangeFor(song: SongIdea): [number, number] {
+  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
+  const [tierMin, tierMax] = tier ? tier.sectionRange : [5, 8];
+  const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
+  return isShortOpener ? [tierMin, Math.max(tierMax, 8)] : [tierMin, tierMax];
+}
+
 function lyricsItems(songs: SongIdea[]): AuditItem[] {
   const counts = songs.map(song => lyricWordAndSectionCounts(song.lyrics));
   const words = counts.map(c => c.words);
   const wordTargets = songs.map(targetWordRangeFor);
   const wordFailures = songs.filter((song, i) => words[i] < wordTargets[i][0] || words[i] > wordTargets[i][1]);
   const sections = counts.map(c => c.sections);
+  const sectionTargets = songs.map(targetSectionRangeFor);
+  const sectionFailures = songs.filter((song, i) => sections[i] < sectionTargets[i][0] || sections[i] > sectionTargets[i][1]);
   const situations = new Set(songs.map(song => song.listenerSituation));
   const emotionArcs = new Set(songs.map(song => song.emotionArc));
   const arrangementLeaks = findArrangementVocabularyInLyrics(songs);
@@ -336,8 +354,13 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
     }),
     item({
       id: 'section_count', category: '가사', labelKo: '섹션 수',
-      targetKo: '7~8', actualKo: sections.length ? `${Math.min(...sections)}~${Math.max(...sections)}` : '(없음)',
-      pass: sections.length ? sections.every(count => count >= 7 && count <= 8) : null, requiresAudio: false, specifiedBy: ['v3.70 TASK B'],
+      // TASK v4.11 (TASK A) — was a single flat 7~8 window for every song
+      // regardless of BPM (the same bug lyric_word_count's own v4.8 TASK B-1
+      // fix already corrected for word count); now each song is checked
+      // against its own BPM tier's sectionRange (core/bpmLengthControl.ts's
+      // BPM_LENGTH_TIERS), same targetWordRangeFor-style per-song lookup.
+      targetKo: 'BPM별 (5~8)', actualKo: sections.length ? `${Math.min(...sections)}~${Math.max(...sections)}` : '(없음)',
+      pass: sections.length ? sectionFailures.length === 0 : null, requiresAudio: false, specifiedBy: ['v3.70 TASK B', 'v4.11 TASK A'],
       metric: sections.length ? { value: Math.max(...sections), direction: 'lowerIsBetter' } : undefined
     }),
     item({

@@ -55,6 +55,11 @@ function musicClauseSet(prompt: string): Set<string> {
       .filter(clause => !/\b(vocal|voice|tenor|alto|soprano|choir|singer)\b/.test(clause))
       .filter(clause => !/progression|3:10-3:35|short intro|radio edit|complete song/.test(clause))
       .filter(clause => !/^concept (cue|emphasis):/.test(clause))
+      // TASK v4.11 (TASK B) — data/openingHooks.ts's OPENING_LOUDNESS_DESCRIPTORS:
+      // 3 fixed, non-genre-specific mix/production phrases (track 1's own
+      // idx-0 slot always gets one), same shared-boilerplate category as the
+      // hook-repeat/vocal/progression filters above.
+      .filter(clause => !/full arrangement from the first bar|no quiet fade-in|opening is as loud and full as the chorus/.test(clause))
       .filter(Boolean)
   );
 }

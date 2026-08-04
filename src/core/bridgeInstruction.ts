@@ -340,7 +340,37 @@ function tempoInstructionLine(): string {
  * missed).
  */
 function songLengthInstructionLine(): string {
-  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure so the clock-time length still lands in the pack\'s target range). Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow; a slow track staying within its own target section count is what keeps it from running long.';
+  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure so the clock-time length still lands in the pack\'s target range). These are hard limits, not suggestions: going over the word/section count is a failure condition for that track, the same as missing its hookPhrase or tempo. Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow, and do not pad a slow track\'s lyrics past its word ceiling because it "feels short on the page" — a short lyric at a slow tempo is correct, not unfinished; a slow track staying within its own target is what keeps it from running long.';
+}
+
+/**
+ * TASK v4.11 (TASK A) — real measurement: even with the "Length target"
+ * table column above and the CRITICAL line right next to it, a real
+ * composed 18-song pack still violated 14/18 tracks, worst on the SLOWEST
+ * tracks specifically (a 71 BPM track measured 220 words against a 165-185
+ * target — 35 words over). The table cell and the generic CRITICAL line
+ * both state the numbers once, in passive voice, with no per-track
+ * reasoning, buried among ~20 other CRITICAL-prefixed rules in a long
+ * instruction — easy to skim past. This adds one explicit callout per
+ * slow-tier track (<=78 BPM, core/bpmLengthControl.ts's own slowest tier and
+ * the one that measured worst) naming that track's own real BPM and the
+ * concrete real-world consequence of ignoring its target ("40% longer at
+ * the same word count") rather than just repeating the same bare numbers a
+ * third time — a number with no reason attached is what got ignored before.
+ */
+function slowTrackLengthCallouts(slots: PreassignedSongSlot[]): string[] {
+  const SLOW_TIER_MAX_BPM = 78;
+  const slowSlots = slots.filter(slot => slot.tempo <= SLOW_TIER_MAX_BPM && slot.sectionCountRange && slot.wordCountRange);
+  if (!slowSlots.length) return [];
+  return [
+    '',
+    '[Slow-tempo tracks — read before writing these]',
+    ...slowSlots.map(slot => {
+      const [sMin, sMax] = slot.sectionCountRange!;
+      const [wMin, wMax] = slot.wordCountRange!;
+      return `- Track ${slot.trackNo} is slow — ${slot.tempo} BPM. At this tempo, the exact same section/word count as a faster track renders roughly 40% longer in real clock time; this is the actual, measured cause of past overlong renders, not a guess. MUST stay at ${sMin}-${sMax} sections and ${wMin}-${wMax} words for this track specifically. Do not add a section or extend a verse to make it "feel" like a complete song — at this tempo, ${wMin}-${wMax} words already fills the pack's target song length.`;
+    })
+  ];
 }
 
 // TASK v3.62 (TASK 1-1) — was "weave that exact phrase into that song's
@@ -610,6 +640,24 @@ function hookDeviceInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): 
 function earwormInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.earwormText)
     ? '- Each "preassignedSongs" entry may include "earwormText" — a REFERENCE melodic-design idea for this song (not required wording, not a specific song/artist). Reflect that design in your own words rather than copying the phrase, and make sure no two songs in this set read as the same melodic-construction technique.'
+    : '';
+}
+
+/**
+ * TASK v4.11 (TASK B) — real waveform measurement: tracks 1-3's first 15
+ * seconds rendered ~3.7dB quieter than that same track's own full-song
+ * average (worst -4.5dB), even with an opening hook already in place — a
+ * hook says WHAT the track opens with, never HOW LOUD, and Suno tends to
+ * render an intro quietly by default regardless of content. Same
+ * reference-not-verbatim pattern as hookDeviceInstructionLineFor: adapt the
+ * wording if needed, but the LEVEL it describes (full from the first bar,
+ * no quiet fade-in) must survive. Tracks 1-3 only, by construction
+ * (openingLoudnessText is never set beyond track 3) — applying this to
+ * every track would flatten the pack's own back-half dynamic build.
+ */
+function openingLoudnessInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.openingLoudnessText)
+    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build.'
     : '';
 }
 
@@ -1043,6 +1091,7 @@ export function buildClaudeCodeInstruction(
     : '';
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
   const earwormInstructionLine = earwormInstructionLineFor(preassignedSongs);
+  const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
@@ -1127,10 +1176,12 @@ export function buildClaudeCodeInstruction(
     genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
+    ...slowTrackLengthCallouts(preassignedSongs),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
     earwormInstructionLine,
+    openingLoudnessInstructionLine,
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
@@ -1274,6 +1325,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(allSlots);
   const earwormInstructionLine = earwormInstructionLineFor(allSlots);
+  const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(allSlots);
   const genreInstructionLine = genreInstructionLineFor(allSlots);
   const instrumentInstructionLine = instrumentInstructionLineFor(allSlots);
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
@@ -1358,10 +1410,12 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
+    ...slowTrackLengthCallouts(allSlots),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,
     earwormInstructionLine,
+    openingLoudnessInstructionLine,
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,

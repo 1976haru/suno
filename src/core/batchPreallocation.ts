@@ -1,7 +1,8 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
-import { buildStructureTemplatePlan, createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
+import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
+import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
@@ -51,6 +52,7 @@ import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } f
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
+import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { resolveConstraintsFromOptions } from './constraints';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
@@ -195,6 +197,12 @@ export function preallocateSongSlots(
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights)
   );
+  // TASK v4.11 (TASK B) — mirrors localGenerator.ts's own openingLoudnessPlan
+  // (same seed offset): tracks 1-3 only, a real waveform measurement found
+  // those tracks rendering ~3.7dB quieter than the same track's own
+  // full-song average (see data/openingHooks.ts's own
+  // OPENING_LOUDNESS_DESCRIPTORS doc comment for the real numbers).
+  const openingLoudnessPlan = assignOpeningLoudnessDescriptors(opts.songCount, seed + 149);
 
   // TASK v3.33 Part C — mirrors localGenerator.ts's own pre-pass exactly
   // (same roles, same seed) so the realtime/Batch/bridge paths that call
@@ -390,14 +398,47 @@ export function preallocateSongSlots(
   // hookDevicePlan above, so realtime/Batch/bridge songs get a per-song
   // structure-template id instead of only the local path varying its lyric
   // shape.
-  const structureTemplatePlan = applyAxisAllocation(
-    buildStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype),
+  // TASK v4.11 (TASK A) — was the flat, BPM-independent buildStructureTemplatePlan:
+  // a real 18-song bridge plan measured 8/18 slots where the assigned
+  // template's own nominal section count (lyricEngine.ts's
+  // STRUCTURE_TEMPLATE_SECTION_NOTES via bpmLengthControl.ts's
+  // TEMPLATE_SECTION_COUNT) fell OUTSIDE that same slot's own BPM-tier
+  // sectionRange below — e.g. a 69 BPM track (tier range 5-6) landing on T1
+  // (8 sections). The bridge instruction's own "Length target" column and
+  // "structureTemplate" field then told the composer two contradictory
+  // section counts for the same track, and a real composed pack followed the
+  // template's own concrete section list over the abstract range number 14/18
+  // times. Same BPM-aware selection localGenerator.ts already uses
+  // (core/structureTemplatePlan.ts's buildBpmAwareStructureTemplatePlan),
+  // fed the same tempoBandPlan-midpoint proxy (tempoBandPlan is already built
+  // above, well before any track's exact tempo is resolved in the per-track
+  // loop below) — same accepted proxy-vs-final-tempo tradeoff
+  // localGenerator.ts's own identical pre-pass already carries, not a new
+  // risk introduced here.
+  const bpmProxyByIndex = Array.from({ length: opts.songCount }, (_, i) => {
+    const band = tempoBandPlan[i];
+    return band ? (band.low + band.high) / 2 : undefined;
+  });
+  const autoStructureTemplatePlan = applyAxisAllocation(
+    buildBpmAwareStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype, bpmProxyByIndex),
     opts.diversityAllocations,
     'structureTemplate',
     opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
     seed
   );
-  if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  if (autoStructureTemplatePlan.length) autoStructureTemplatePlan[0] = 'T1';
+  // TASK v4.11 (TASK A) — applyAxisAllocation above almost always overrides
+  // buildBpmAwareStructureTemplatePlan's own BPM-eligible pick: opts.diversityAllocations
+  // sets a MANUAL, fixed-count target for the 'structureTemplate' axis (e.g.
+  // "T1:4, T2:4, T3:4, T4:3, T5:3") purely to guarantee template variety
+  // across the pack, with no knowledge of any one track's BPM — so the
+  // BPM-aware pick above almost never actually survives to the final plan
+  // (real measurement: 8/18 slots mismatched). This repair pass runs AFTER
+  // allocation and swaps templates PAIRWISE between tracks — never adding,
+  // removing, or recounting one — so the manual count distribution the
+  // allocation asked for is preserved exactly; only which track gets which
+  // of the already-chosen templates changes.
+  const structureTemplatePlan = repairStructureTemplatePlanForBpm(autoStructureTemplatePlan, bpmProxyByIndex);
   // v3.75 (TASK A) — see introModePlan.ts's own doc comment: T2/T5's own
   // template text structurally forbids an instrumental intro, so any track
   // that landed both 'instrumental' (introModePlan, above) and T2/T5 (this
@@ -538,6 +579,7 @@ export function preallocateSongSlots(
       ...(introTextureId ? { introTextureId } : {}),
       ...(hookDeviceText ? { hookDeviceText } : {}),
       ...(hookDeviceId ? { hookDeviceId } : {}),
+      ...(openingLoudnessPlan[idx] ? { openingLoudnessText: openingLoudnessPlan[idx] } : {}),
       // TASK v3.64-B — mirrors localGenerator.ts's own per-song
       // rotatingEarwormText call (same seed/idx), promoted to a slot field
       // so realtime/Batch/bridge songs get the same per-song melodic-design

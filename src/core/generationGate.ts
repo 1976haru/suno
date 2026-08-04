@@ -1,6 +1,7 @@
 import type { LyricLanguage, ScopedIssue, SongIdea } from '../types';
 import { descriptorCount, lyricWordAndSectionCounts, scoreComposition, type ScoreCompositionOptions } from './compositionScorer';
 import { resolveLyricRange } from './lyricMetrics';
+import { resolveBpmLengthTier } from './bpmLengthControl';
 import { classifyTitleShape } from './titleShapeVariety';
 import { lintInPackStyleSimilarity } from './diversityLinter';
 import { auditPromises, auditTitleConceptConsistency } from './promiseAudit';
@@ -64,6 +65,18 @@ export interface GenerationGateResult {
  * own pre-v4.1 numbers relative to promptComposer.ts's 215-230 instruction
  * target, so English behavior is unchanged; Korean/Japanese now get a real,
  * scaled band instead of an unreachable one.
+ * v4.11 (TASK A) -- was ALSO the only word/section bound this file's own
+ * per-track blocking check applied, regardless of that track's own BPM: a
+ * real 18-song bridge pack measured 14/18 songs violating their own BPM
+ * tier's word/section range (core/bpmLengthControl.ts's BPM_LENGTH_TIERS)
+ * while this flat 200-240 word / 6-8 section band caught almost none of it
+ * — a 71 BPM song's real target is 165-185 words, comfortably inside this
+ * flat band's 200 floor... no, BELOW it, which is exactly backwards (a slow
+ * song blocked for being too SHORT against a band meant for a faster tempo,
+ * while genuinely running long against its own real target). perTrackFindings
+ * below now resolves each song's own BPM tier first; these two constants
+ * are now only the fallback for a song with no `bpm` (pre-v3.68 songs, or
+ * any import path that never resolved one).
  */
 const LYRIC_WORD_COUNT_MIN_RATIO = 200 / 215;
 const LYRIC_WORD_COUNT_MAX_RATIO = 240 / 230;
@@ -367,15 +380,40 @@ function packLevelFindings(songs: SongIdea[], conceptLabel: string): { blocking:
 // ---------------------------------------------------------------------------
 // Per-track findings not already covered by compositionScorer.ts.
 // ---------------------------------------------------------------------------
-function perTrackFindings(song: SongIdea, language: LyricLanguage, wordCountRange: [number, number]): { blocking: string[]; advisory: string[] } {
+/**
+ * TASK v4.11 (TASK A) — mirrors core/fullAudit.ts's identical
+ * targetWordRangeFor/targetSectionRangeFor: resolves THIS song's own BPM
+ * tier (core/bpmLengthControl.ts's BPM_LENGTH_TIERS) instead of the flat
+ * pack-wide fallbackWordRange param, so import blocking actually catches a
+ * slow track running long against its own real target instead of comparing
+ * it to a band built for the pack's average tempo. cold-open/clear-opener
+ * tracks get the same widened section ceiling fullAudit.ts's own check
+ * gives them (structureTemplatePlan.ts pins track 1 to T1's fixed
+ * 8-section shape regardless of its BPM tier, by design). Falls back to the
+ * flat pack-wide bounds only when `song.bpm` is missing (pre-v3.68 songs,
+ * or any import path that never resolved one).
+ */
+function perTrackRanges(song: SongIdea, fallbackWordRange: [number, number]): { wordRange: [number, number]; sectionRange: [number, number] } {
+  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
+  const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
+  const wordRange = tier ? tier.wordRange : fallbackWordRange;
+  const [sectionMin, sectionMax] = tier ? tier.sectionRange : [SECTION_COUNT_MIN, SECTION_COUNT_MAX];
+  return {
+    wordRange: isShortOpener ? [Math.min(wordRange[0], 150), wordRange[1]] : wordRange,
+    sectionRange: isShortOpener ? [sectionMin, Math.max(sectionMax, 8)] : [sectionMin, sectionMax]
+  };
+}
+
+function perTrackFindings(song: SongIdea, language: LyricLanguage, fallbackWordRange: [number, number]): { blocking: string[]; advisory: string[] } {
   const blocking: string[] = [];
   const unitLabel = language === 'japanese' ? '자' : '단어';
   const { words, sections } = lyricWordAndSectionCounts(song.lyrics, language);
+  const { wordRange: wordCountRange, sectionRange: [sectionMin, sectionMax] } = perTrackRanges(song, fallbackWordRange);
   if (words < wordCountRange[0] || words > wordCountRange[1]) {
-    blocking.push(`가사 ${unitLabel}수 ${words} (기준 ${wordCountRange[0]}~${wordCountRange[1]})`);
+    blocking.push(`가사 ${unitLabel}수 ${words} (기준 ${wordCountRange[0]}~${wordCountRange[1]}, BPM ${song.bpm ?? '?'})`);
   }
-  if (sections < SECTION_COUNT_MIN || sections > SECTION_COUNT_MAX) {
-    blocking.push(`섹션 수 ${sections} (기준 ${SECTION_COUNT_MIN}~${SECTION_COUNT_MAX})`);
+  if (sections < sectionMin || sections > sectionMax) {
+    blocking.push(`섹션 수 ${sections} (기준 ${sectionMin}~${sectionMax}, BPM ${song.bpm ?? '?'})`);
   }
   if (PLACEHOLDER_PATTERN.test(song.lyrics)) {
     blocking.push('가사에 자리표시자([PLACEHOLDER]/TODO/lorem ipsum/{{...}})가 남아 있습니다.');
@@ -410,7 +448,10 @@ export function evaluateGenerationGate(songs: SongIdea[], opts: ScoreComposition
 
   const lyricLanguage: LyricLanguage = opts.lyricLanguage ?? 'english';
   const { primaryRange: lyricTargetRange } = resolveLyricRange(lyricLanguage, opts.audienceProfile);
-  const wordCountRange: [number, number] = [
+  // v4.11 (TASK A) — only the fallback for a song with no `bpm` now; see
+  // perTrackRanges above for the per-song BPM-tier lookup this file actually
+  // blocks on.
+  const fallbackWordCountRange: [number, number] = [
     Math.round(lyricTargetRange[0] * LYRIC_WORD_COUNT_MIN_RATIO),
     Math.round(lyricTargetRange[1] * LYRIC_WORD_COUNT_MAX_RATIO)
   ];
@@ -423,7 +464,7 @@ export function evaluateGenerationGate(songs: SongIdea[], opts: ScoreComposition
   // each with its own real scope/affectedTracks.
   const tracks: GenerationGateTrackResult[] = songs.map(song => {
     const base = baseByTrack.get(song.trackNo);
-    const own = perTrackFindings(song, lyricLanguage, wordCountRange);
+    const own = perTrackFindings(song, lyricLanguage, fallbackWordCountRange);
     const blocking = [...(base?.blocking ?? []), ...own.blocking];
     const advisory = [...(base?.advisory ?? []), ...own.advisory];
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };

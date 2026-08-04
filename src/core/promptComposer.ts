@@ -846,6 +846,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const hookDeviceInstruction = hasHookDeviceText
     ? ' Each entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this request.'
     : '';
+  // TASK v4.11 (TASK B) — tracks 1-3 only (openingLoudnessText is never set
+  // beyond track 3): real waveform measurement found those tracks'
+  // first 15 seconds rendering ~3.7dB quieter than that same track's own
+  // full-song average even with an opening hook already in place — a hook
+  // says WHAT the track opens with, never HOW LOUD.
+  const hasOpeningLoudnessText = batch.preassignedSongs?.some(slot => slot.openingLoudnessText);
+  const openingLoudnessInstruction = hasOpeningLoudnessText
+    ? ' Tracks 1-3\'s entries also include "openingLoudnessText" — that track must play at FULL playback level from the very first bar, not a quiet fade-in or hushed build-up. Weave that idea (own words are fine) into that track\'s stylePrompt alongside its opening-hook descriptor; this is about mix LEVEL, not emotional intensity, so a lyrically quiet/reflective opening still needs to render at full volume. Never apply this to a track beyond 1-3.'
+    : '';
   // TASK v3.43 Part A2 — "tempo" was already listed in preassignedFieldList
   // below but never forced or given its own instruction, unlike title/hook/
   // moneyChordText: a Batch/bridge stylePrompt could carry any BPM figure (or
@@ -901,8 +910,14 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   // a slow-BPM track needs FEWER sections/words and a tighter instrumental-
   // section cap than a fast one to land in the same clock-time target.
   const hasLengthTarget = batch.preassignedSongs?.some(slot => slot.sectionCountRange);
+  // v4.11 (TASK A) — was "Stay within these" (advisory phrasing, no stated
+  // consequence, no per-song reasoning): a real measured pack still
+  // violated 14/18 tracks against this same field. MUST-phrased and states
+  // WHY a slow tempo needs fewer words, not just that it does — see
+  // core/bridgeInstruction.ts's identical slowTrackLengthCallouts for the
+  // same real-measurement fix on the Claude Code bridge path.
   const lengthTargetInstruction = hasLengthTarget
-    ? ' Each entry also includes "sectionCountRange", "wordCountRange", and "maxInstrumentalSections" — that track\'s own BPM-appropriate targets (a slower tempo gets a shorter structure so it still lands in the pack\'s target song length). Stay within these instead of one flat target regardless of tempo; do not add an extra instrumental-only section beyond maxInstrumentalSections (counting the intro if it has no lyrics) just because the tempo feels slow.'
+    ? ' Each entry also includes "sectionCountRange", "wordCountRange", and "maxInstrumentalSections" — that track\'s own BPM-appropriate targets. A slower tempo makes the SAME word/section count render roughly 40% longer in real clock time, so a slow track needs a genuinely shorter structure, not just a smaller number on paper. These are hard limits: going over wordCountRange or sectionCountRange is a failure condition for that track. MUST stay within them instead of one flat target regardless of tempo; do not add an extra instrumental-only section beyond maxInstrumentalSections (counting the intro if it has no lyrics), and do not pad a slow track\'s lyrics past its word ceiling because it feels short on the page — a short lyric at a slow tempo is correct, not unfinished.'
     : '';
   // TASK v3.67 (TASK A) — killingPointText is conveyed as INTENT, never a
   // verbatim phrase to force-copy (unlike hookDeviceText/moneyChordText
@@ -941,6 +956,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
     ...(hasGenreText ? ['genreId', 'genreText'] : []),
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasOpeningLoudnessText ? ['openingLoudnessText'] : []),
     ...(hasIntroTextureText ? ['introTextureText'] : []),
     ...(hasNegativeStyleText ? ['negativeStyleText'] : []),
     ...(hasInstrumentSet ? ['instrumentSet'] : []),
@@ -967,7 +983,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasConceptText ? ['conceptText', 'conceptLyricImages'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${lengthTargetInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${openingLoudnessInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${lengthTargetInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

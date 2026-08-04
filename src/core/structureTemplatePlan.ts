@@ -58,3 +58,48 @@ export function buildBpmAwareStructureTemplatePlan(
 
   return plan;
 }
+
+/**
+ * TASK v4.11 (TASK A) — callers thread this plan's own auto (BPM-eligible)
+ * pick through core/diversityAllocation.ts's applyAxisAllocation, which
+ * overrides it with a fixed per-template COUNT target whenever the pack's
+ * diversityAllocations sets a manual 'structureTemplate' entry (which
+ * core/setDirector.ts's directSetLocal always does, purely to guarantee
+ * template variety across the pack — it has no idea what BPM any track
+ * landed on). That silently defeats buildBpmAwareStructureTemplatePlan
+ * above: a real 18-song bridge-plan measurement found 8/18 slots where the
+ * FINAL (post-allocation) template's own section count fell outside that
+ * track's own BPM-tier sectionRange. Run this after allocation (and after
+ * pinning index 0 to 'T1') to repair those mismatches by swapping templates
+ * PAIRWISE between two tracks whose own tiers both accept the other's
+ * current template — never adding, removing, or recounting a template, so
+ * whatever count distribution the manual allocation asked for survives
+ * exactly; only which track gets which of the already-chosen templates
+ * changes. A track with no valid swap partner (the plan simply contains no
+ * template fitting its tier anywhere) is left as-is — this repairs what it
+ * can, it doesn't fabricate templates the plan never had.
+ */
+export function repairStructureTemplatePlanForBpm(
+  plan: readonly StructureTemplateId[],
+  bpmByIndex: readonly (number | undefined)[]
+): StructureTemplateId[] {
+  const repaired = [...plan];
+  const fitsTier = (id: StructureTemplateId, bpm: number | undefined) => {
+    if (bpm === undefined) return true;
+    const [minSections, maxSections] = resolveBpmLengthTier(bpm).sectionRange;
+    const count = TEMPLATE_SECTION_COUNT[id];
+    return count >= minSections && count <= maxSections;
+  };
+  for (let i = 1; i < repaired.length; i++) {
+    if (fitsTier(repaired[i], bpmByIndex[i])) continue;
+    for (let j = i + 1; j < repaired.length; j++) {
+      if (repaired[j] === repaired[i]) continue;
+      if (!fitsTier(repaired[j], bpmByIndex[i]) || !fitsTier(repaired[i], bpmByIndex[j])) continue;
+      const tmp = repaired[i];
+      repaired[i] = repaired[j];
+      repaired[j] = tmp;
+      break;
+    }
+  }
+  return repaired;
+}

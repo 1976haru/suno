@@ -82,12 +82,26 @@ const SECTION_COUNT_ADVISORY_FLOOR = 5;
  * (csvExport.ts, fullAudit.ts -- not part of this task's 3-site list) keep
  * their exact pre-v4.1 behavior unchanged.
  */
+/**
+ * TASK v4.11 (TASK A) — the single blanket "[male vocal]"/"[duet vocal]"
+ * meta tag every solo/duet song gets at the very top of its lyrics
+ * (core/vocalPlan.ts's resolveVocalMetaTag; see this file's own
+ * sectionLevelGenderTags comment on the same distinction) is not a musical
+ * section, but the bracket-tag regex below used to count it as one — every
+ * song's measured section count was 1 higher than its real structural
+ * shape, which made a template that actually matched its BPM tier's
+ * sectionRange (core/bpmLengthControl.ts) read as a false violation. Mirrors
+ * srtExport.ts's own identical VOCAL_META_TAG_LINE exclusion.
+ */
+const VOCAL_META_TAG_LINE = /^\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]$/i;
+
 export function lyricWordAndSectionCounts(lyrics: string, language: LyricLanguage = 'english'): { words: number; sections: number } {
   let sections = 0;
   const bodyLines: string[] = [];
   for (const rawLine of lyrics.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
+    if (VOCAL_META_TAG_LINE.test(line)) continue;
     if (/^\[[^\]]*\]$/.test(line)) { sections += 1; continue; }
     bodyLines.push(line);
   }

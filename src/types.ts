@@ -895,6 +895,16 @@ export interface PreassignedSongSlot {
    */
   hookDeviceText?: string;
   /**
+   * TASK v4.11 (TASK B) — tracks 1-3 only (undefined for every other
+   * track): a real waveform measurement found those tracks' first 15
+   * seconds rendering ~3.7dB quieter than that same track's own full-song
+   * average, even with an opening hook (below) already in place — Suno
+   * tends to render an intro quietly by default regardless of what it
+   * contains, a separate axis from WHAT the opening is (data/openingHooks.ts's
+   * OPENING_LOUDNESS_DESCRIPTORS / assignOpeningLoudnessDescriptors).
+   */
+  openingLoudnessText?: string;
+  /**
    * TASK v3.64-B — this trackNo's rotating melodic-design/earworm phrase
    * (see core/promptComposer.ts's EARWORM_STYLE_VARIANTS /
    * rotatingEarwormText). Only set when opts.earwormMode is on. Replaces

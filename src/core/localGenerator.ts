@@ -19,7 +19,7 @@ import { getHookDeviceById } from '../data/hookDevices';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
 import { applyGenreVocalAffinity } from './vocalGenreAffinity';
-import { assignOpeningHooks } from '../data/openingHooks';
+import { assignOpeningHooks, assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { paletteFamilyForPaletteId } from '../data/paletteFamilies';
 import { audienceProfileForAgeGroup, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
@@ -61,7 +61,7 @@ import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcInt
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
-import { buildBpmAwareStructureTemplatePlan } from './structureTemplatePlan';
+import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 
 /**
@@ -841,6 +841,11 @@ export function generateLocalBlueprint(
   // just falls back to the full dictionary for those).
   const openingHookFamilyByIndex = eraCanonPalettePlan.map(assignment => assignment ? paletteFamilyForPaletteId(assignment.palette.id)?.id : undefined);
   const openingHookPlan = assignOpeningHooks(opts.songCount, seed + 83, openingHookFamilyByIndex);
+  // TASK v4.11 (TASK B) — a separate axis from openingHookPlan above (what
+  // the opening contains vs. how loud it renders — see
+  // data/openingHooks.ts's own OPENING_LOUDNESS_DESCRIPTORS doc comment).
+  // Tracks 1-3 only, same required-coverage shape as openingHookPlan.
+  const openingLoudnessPlan = assignOpeningLoudnessDescriptors(opts.songCount, seed + 149);
   // TASK H2 (v3.13) — the primary selected genre's own lyric imagery (see
   // GenrePack.lyricFlavorImages), resolved to this pack's lyricLanguage once
   // up front. Undefined for genres without an entry — composeLyrics falls
@@ -1004,14 +1009,22 @@ export function generateLocalBlueprint(
     const band = tempoBandPlan[i];
     return band ? (band.low + band.high) / 2 : undefined;
   });
-  const structureTemplatePlan = applyAxisAllocation(
+  const autoStructureTemplatePlan = applyAxisAllocation(
     buildBpmAwareStructureTemplatePlan(opts.songCount, seed, opts.channel.archetype, bpmProxyByIndex),
     opts.diversityAllocations,
     'structureTemplate',
     opts.channel.archetype === 'kids' ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS,
     seed
   );
-  if (structureTemplatePlan.length) structureTemplatePlan[0] = 'T1';
+  if (autoStructureTemplatePlan.length) autoStructureTemplatePlan[0] = 'T1';
+  // TASK v4.11 (TASK A) — mirrors batchPreallocation.ts's identical repair:
+  // applyAxisAllocation above almost always overrides the BPM-eligible pick
+  // with opts.diversityAllocations' manual, fixed-count 'structureTemplate'
+  // target (pure variety guarantee, no BPM awareness) — see
+  // repairStructureTemplatePlanForBpm's own doc comment for the real 8/18
+  // mismatch measurement this fixes. Swaps templates pairwise only; the
+  // manual count distribution survives exactly.
+  const structureTemplatePlan = repairStructureTemplatePlanForBpm(autoStructureTemplatePlan, bpmProxyByIndex);
   // TASK v3.67 (TASK C) — same reorder-not-recompute treatment as
   // tempoBandPlan above: arrangementDensityLevel's own round-robin values
   // are unchanged, only WHICH track gets which of sparse/medium/full is
@@ -1068,6 +1081,7 @@ export function generateLocalBlueprint(
       : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
     const killingPoint = killingPointPlan[idx];
     const openingHook = openingHookPlan[idx];
+    const openingLoudness = openingLoudnessPlan[idx];
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const lyricThemeText = lyricTheme?.scene;
@@ -1254,6 +1268,14 @@ export function generateLocalBlueprint(
       // Never present beyond openingHookPlan's own tracks-1-3-required +
       // up-to-4-more cap.
       ...(openingHook ? [{ id: 'openingHook' as const, text: openingHook.descriptor }] : []),
+      // TASK v4.11 (TASK B) — same tracks-1-3-only coverage as openingHook
+      // above, but for playback LEVEL rather than content (see
+      // data/openingHooks.ts's own OPENING_LOUDNESS_DESCRIPTORS doc comment
+      // — real waveform measurement: tracks 1-3 rendered 3.7dB quieter than
+      // the same track's own full-song average even with an opening hook in
+      // place, since Suno tends to render an intro quietly by default
+      // regardless of what it contains).
+      ...(openingLoudness ? [{ id: 'openingLoudness' as const, text: openingLoudness }] : []),
       ...(conceptInfluence || eraCanonPalettePlan[idx]
         ? [{
           id: 'concept' as const,

@@ -72,6 +72,45 @@ export function openingHookById(id: string): OpeningHook | undefined {
   return OPENING_HOOKS.find(hook => hook.id === id);
 }
 
+/**
+ * TASK v4.11 (TASK B) — real waveform measurement: tracks 1-3's first 15
+ * seconds averaged 3.7dB below that same track's own full-song average
+ * (worst -4.5dB) even after v4.9's opening hooks landed — those descriptors
+ * say WHAT the track opens with (a riff, an a cappella line, ...) but never
+ * HOW LOUD, and Suno tends to render an intro quietly by default regardless
+ * of what it contains. This is a separate axis from OPENING_HOOKS above
+ * (content vs. level) and from v3.67's killingPoint/emotionArc "opening
+ * intensity" (emotional arc shape, not mix loudness) — a quiet arc opening
+ * still needs to render at full level. Tracks 1-3 only, same as
+ * OPENING_HOOKS' own required coverage: applying this to all 18 songs would
+ * flatten the pack's back-half dynamic build (v3.75's own achievement).
+ */
+// TASK v4.11 (TASK B) bugfix — the middle phrase originally read "no quiet
+// fade-in, the song is already at full level": an internal comma, which
+// breaks this app's own single-atom-per-comma-segment style-prompt
+// convention (every other descriptor in this file, killingPoints.ts, etc.
+// is comma-free) the moment it's joined into a comma-separated stylePrompt —
+// it silently fragments into two separate "atoms" downstream (anywhere a
+// prompt gets split on commas, e.g. descriptorCount()), and a real test
+// caught the second half reading as ordinary shared boilerplate instead of
+// part of this one descriptor. Reworded comma-free, same meaning.
+export const OPENING_LOUDNESS_DESCRIPTORS: readonly string[] = [
+  'full arrangement from the first bar',
+  'no quiet fade-in — already at full level from the start',
+  'opening is as loud and full as the chorus'
+];
+
+/** Tracks 1-3 (idx 0-2) each get one of OPENING_LOUDNESS_DESCRIPTORS, seed-rotated so the pack doesn't repeat the same phrase three times in a row. Undefined for idx >= 3 — see this module's own "트랙 1~3만" scope note above. */
+export function assignOpeningLoudnessDescriptors(count: number, seed: number): (string | undefined)[] {
+  const plan: (string | undefined)[] = new Array(count).fill(undefined);
+  const requiredCount = Math.min(3, count);
+  for (let idx = 0; idx < requiredCount; idx++) {
+    const offset = Math.abs(seed + idx * 313) % OPENING_LOUDNESS_DESCRIPTORS.length;
+    plan[idx] = OPENING_LOUDNESS_DESCRIPTORS[offset];
+  }
+  return plan;
+}
+
 function candidatesForFamily(familyId: string | undefined): OpeningHook[] {
   if (!familyId) return OPENING_HOOKS;
   const fitting = OPENING_HOOKS.filter(hook => hook.fitsFamilies.includes(familyId));
