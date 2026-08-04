@@ -127,3 +127,66 @@ for (const g of withTraits) {
   }
 }
 console.log(`  total missing-word occurrences: ${missingWordTotal}`);
+console.log('');
+
+/**
+ * TASK G1 §6-3 — 워크스페이스 내 전수 + 워크스페이스 간 전수 유사도.
+ * §0-1 순수 추가 원칙: 위 1~6번(기존 §5의 무작위 20쌍 표본, 축별 개별 비교,
+ * 0.6 임계값)은 그대로 두고 새 섹션만 추가합니다 — 기존 함수(words/
+ * tokenOverlap/pick 등)는 재사용하되 수정하지 않습니다. 이 섹션은 "축별
+ * 개별 비교"가 아니라 이 앱의 실제 유사도 판정 기준(core/compositionScorer.ts의
+ * STYLE_SIMILARITY_BLOCK_THRESHOLD=0.28, core/diversityLinter.ts의
+ * jaccardSimilarity와 동일한 전체-원자-집합 자카드 방식)으로 워크스페이스
+ * 경계를 검사합니다 — "kr2030 장르끼리는 서로 다르게 들리는가"와 "kr2030과
+ * jp2030은 서로 다르게 들리는가"를 같은 척도로 봅니다.
+ */
+console.log('=== 7. 워크스페이스 내/간 전수 유사도 (TASK G1 §6-3) ===');
+function flattenTraits(g: (typeof genreLibrary)[number]): Set<string> {
+  if (!g.traits) return new Set();
+  return words(AXES.flatMap(axis => g.traits![axis] as string[]));
+}
+function fullJaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size && !b.size) return 1;
+  let intersection = 0;
+  for (const w of a) if (b.has(w)) intersection += 1;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+const WORKSPACE_GENRE_GROUPS: Record<string, string[]> = {
+  'kr-2030': withTraits.filter(g => g.id.startsWith('kr2030-')).map(g => g.id),
+  'jp-2030': withTraits.filter(g => g.id.startsWith('jp2030-')).map(g => g.id)
+};
+function summarizePairs(idsA: string[], idsB: string[], sameGroup: boolean): { avg: number; max: number; pairCount: number } {
+  const vectors = new Map(withTraits.map(g => [g.id, flattenTraits(g)]));
+  let total = 0, max = 0, count = 0;
+  for (let i = 0; i < idsA.length; i++) {
+    for (let j = sameGroup ? i + 1 : 0; j < idsB.length; j++) {
+      if (sameGroup && idsA[i] === idsB[j]) continue;
+      const sim = fullJaccard(vectors.get(idsA[i])!, vectors.get(idsB[j])!);
+      total += sim;
+      max = Math.max(max, sim);
+      count++;
+    }
+  }
+  return { avg: count ? total / count : 0, max, pairCount: count };
+}
+for (const [wsId, ids] of Object.entries(WORKSPACE_GENRE_GROUPS)) {
+  if (!ids.length) {
+    console.log(`  ${wsId} (워크스페이스 내): 장르 0개 — 미구축, SKIP`);
+    continue;
+  }
+  const { avg, max, pairCount } = summarizePairs(ids, ids, true);
+  const flag = avg > 0.28 || max > 0.4 ? '  <-- 기준 초과(평균 ≤0.28 / 최대 ≤0.40)' : '';
+  console.log(`  ${wsId} (워크스페이스 내, ${ids.length}종 ${pairCount}쌍): 평균 ${avg.toFixed(3)} / 최대 ${max.toFixed(3)}${flag}`);
+}
+const groupIds = Object.keys(WORKSPACE_GENRE_GROUPS).filter(k => WORKSPACE_GENRE_GROUPS[k].length);
+for (let i = 0; i < groupIds.length; i++) {
+  for (let j = i + 1; j < groupIds.length; j++) {
+    const a = WORKSPACE_GENRE_GROUPS[groupIds[i]];
+    const b = WORKSPACE_GENRE_GROUPS[groupIds[j]];
+    const { avg, max, pairCount } = summarizePairs(a, b, false);
+    const flag = avg > 0.28 || max > 0.4 ? '  <-- 기준 초과(평균 ≤0.28 / 최대 ≤0.40)' : '';
+    console.log(`  ${groupIds[i]} x ${groupIds[j]} (워크스페이스 간, ${pairCount}쌍): 평균 ${avg.toFixed(3)} / 최대 ${max.toFixed(3)}${flag}`);
+  }
+}
+console.log('');
