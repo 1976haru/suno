@@ -131,33 +131,30 @@ const GENRE_ERA_TAG_OVERRIDES: Record<string, string> = {
   chanson: 'mid-century French chanson',
   'smooth-jazz-lounge': '1980s-present smooth jazz lounge',
   'showa-modern': 'late-1970s to 1980s Showa cafe pop',
-  'city-pop-soft': 'late-1970s to 1980s city pop'
-  // TASK v5.7 (TASK C §3-4) — investigated, NOT applied. The task doc asked
-  // for oldpop-close-harmony-duo/orchestral-easy widened to "1960s-70s" and
-  // oldpop-standards-torch to "1950s-80s" (real music-history basis: Everly-
+  'city-pop-soft': 'late-1970s to 1980s city pop',
+  // TASK v5.7 follow-up (TASK C §3-4) — real music-history basis: Everly-
   // Brothers-era close harmony and Mantovani/Percy-Faith-era orchestral easy
   // listening both predate the 1970s; Sinatra-era torch-song phrasing
-  // predates the 1980s). A first attempt added exactly those 3 entries here
-  // (eraTag display/scoring text only — never touched eraExclusions.ts's
-  // ERA_BUCKET_BY_GENRE_ID quota bucket). Real measurement
-  // (tests/oldpopGenreFamily.test.ts, isolated with `git stash push --
-  // src/data/genreLibrary/index.ts`) showed this broke an UNRELATED pair's
-  // pairwise-similarity check (oldpop-quiet-storm-warm vs
-  // oldpop-light-synth-pop-warm, 0.467 > the 0.45 ceiling) even though
-  // neither of those two genres was touched. Root cause traced to
-  // core/diversityLinter.ts's lintInPackStyleSimilarity: it removes clauses
-  // common to EVERY song in a batch before scoring pairwise similarity
-  // (see its own `commonClauses`/`commonSet`), computed across all 28
-  // oldpop-* genres in ONE call — changing oldpop-orchestral-easy's own
-  // generated style-prompt text broke a clause's "common to literally all
-  // 28" status, so that clause stopped being excluded for every OTHER pair
-  // too, inflating similarity for a completely unrelated pair as a side
-  // effect. Given the task's own explicit "시니어 워크스페이스 성과를 되돌리지
-  // 말 것", this was reverted rather than shipped — see this task's own
-  // report for the full account. Left un-widened; a real, scoped follow-up
-  // (not this task) would need to trace exactly which shared boilerplate
-  // clause orchestral-easy's text change perturbed before this can ship
-  // safely.
+  // predates the 1980s. eraTag display/scoring text only — does NOT touch
+  // eraExclusions.ts's ERA_BUCKET_BY_GENRE_ID hard quota bucket (still
+  // '1970s'/'1980s' there, unchanged). A first attempt at exactly this
+  // change was reverted after tests/oldpopGenreFamily.test.ts measured an
+  // UNRELATED pair (oldpop-quiet-storm-warm vs oldpop-light-synth-pop-warm)
+  // jumping to 0.467 similarity — root cause was core/diversityLinter.ts's
+  // lintInPackStyleSimilarity requiring a clause be common to LITERALLY
+  // every one of the 28 oldpop-* genres in the batch before excluding it as
+  // shared boilerplate; changing this eraTag text reorders which
+  // data/killingPoints.ts candidate an affected genre's song lands on (its
+  // candidatesFor does era-substring matching), which flipped one clause's
+  // "common to all 28" status and stopped it being excluded for every OTHER
+  // pair too. diversityLinter.ts's commonClauses now tolerates near-common
+  // (>=90% of the batch, not literally 100%) specifically so one outlier
+  // entry's text can't swing the shared-boilerplate exclusion for the whole
+  // batch — see its own doc comment. Re-measured after that fix: this
+  // widening no longer perturbs the unrelated pair.
+  'oldpop-close-harmony-duo': '1960s-70s',
+  'oldpop-orchestral-easy': '1960s-70s',
+  'oldpop-standards-torch': '1950s-80s'
 };
 
 interface GenreVariantSeed {

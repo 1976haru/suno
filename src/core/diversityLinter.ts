@@ -346,10 +346,43 @@ export function lintInPackStyleSimilarity(songs: { trackNo: number; stylePrompt:
   }
 
   const rawEntries = songs.map(song => ({ trackNo: song.trackNo, clauses: stylePromptClauseSet(song.stylePrompt) }));
-  const commonClauses = [...rawEntries[0].clauses].filter(clause => rawEntries.every(entry => entry.clauses.has(clause)));
+  // TASK v5.7 follow-up — commonClauses used to require a clause be present
+  // in LITERALLY every entry (100%) before it counted as pack-wide shared
+  // identity. That cliff makes the whole batch's exclusion set hostage to
+  // any ONE entry: a real regression traced a genre's own text edit (an
+  // eraTag widening that reordered killingPoints.ts's candidatesFor
+  // era-match rotation, see genreLibrary/index.ts's GENRE_ERA_TAG_OVERRIDES
+  // comment) flipping a single clause from "common to all 28 oldpop-*
+  // genres" to "common to 27/28" — which stopped excluding that clause for
+  // every OTHER pair too, inflating similarity for two completely unrelated
+  // genres that were never touched. A clause genuinely shared by the
+  // overwhelming majority of the batch (>= COMMON_CLAUSE_SHARE) is still
+  // pack-wide boilerplate in every sense this exclusion cares about; it
+  // shouldn't lose that status — and stop protecting every unrelated pair —
+  // just because one other entry's own text happened to shift. Threshold is
+  // scaled by pack size (ceil), not a fixed count, so 2-6 song packs (where
+  // "literal all" is exactly the same as "90%+") keep today's exact
+  // behavior — this only changes anything once a batch is large enough
+  // (10+) for one outlier's flip to be a small share of the whole.
+  const COMMON_CLAUSE_SHARE = 0.9;
+  const commonClauseThreshold = Math.max(1, Math.ceil(rawEntries.length * COMMON_CLAUSE_SHARE));
+  const clausePresenceCount = new Map<string, number>();
+  for (const entry of rawEntries) {
+    for (const clause of entry.clauses) {
+      clausePresenceCount.set(clause, (clausePresenceCount.get(clause) ?? 0) + 1);
+    }
+  }
+  // Preserve rawEntries[0]'s clause order for stable, readable output (same
+  // ordering the old literal-intersection produced) rather than Map
+  // insertion order across the whole batch.
+  const commonClauses = [...rawEntries[0].clauses].filter(clause => (clausePresenceCount.get(clause) ?? 0) >= commonClauseThreshold);
+  for (const [clause, count] of clausePresenceCount) {
+    if (count >= commonClauseThreshold && !commonClauses.includes(clause)) commonClauses.push(clause);
+  }
   // A pack-level genre signature is intentionally shared identity, not
   // evidence that two individual arrangements are the same. Remove clauses
-  // common to every track before measuring the varying musical material.
+  // near-universally common across the pack before measuring the varying
+  // musical material.
   const commonSet = new Set(commonClauses);
   const entries = rawEntries.map(entry => ({
     trackNo: entry.trackNo,

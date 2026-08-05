@@ -42,7 +42,7 @@ import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
-import { emptyUserChoices, type UserExplicitChoices } from './userChoices';
+import { assertUserChoicesPreserved, emptyUserChoices, type UserExplicitChoices } from './userChoices';
 
 /**
  * v3.63 재작성 (TASK B) — 2단계 해석의 산출 타입. 1단계(자연어 → 이 타입)는
@@ -1116,6 +1116,60 @@ function buildBlendSegment(
 }
 
 /**
+ * v5.7 follow-up (production wiring) — closes the exact gap userChoices.ts's
+ * own doc comment names: assertUserChoicesPreserved/assertUserChoicesPreservedOrThrow
+ * existed but were only ever called from scripts/v57Measure.ts (a manual
+ * measurement script) and test files — never from the live pipeline a real
+ * "생성" click actually runs. Called from both directSetLocal and
+ * buildSetPlanFromIntent, right after each has finished building `slots` —
+ * preallocateSongSlots' own real per-song moneyChordId/genreId decisions,
+ * not the axis-allocation preview — i.e. "after genre/moneyChord/vocal/etc.
+ * allocation is finalized, not before", per this task's own instruction.
+ * moneyChordCounts/genreIdsUsed are read off that same real, already-computed
+ * `slots`/`allocations` rather than re-derived, mirroring exactly how
+ * scripts/v57Measure.ts builds its own `resolved` argument (moneyChordCounts
+ * from a real generated pack's per-song assignment, genreIdsUsed from the
+ * plan's own genre axis) instead of duplicating that construction ad-hoc.
+ *
+ * Per the original task doc's own "개발 모드에서는 throw, 운영에서는
+ * blocking 으로 처리하십시오": import.meta.env.PROD === true (a real
+ * built-and-shipped app — see vite.config.ts) is the ONLY condition that
+ * downgrades a violation to a non-throwing warning string appended to this
+ * plan's own `warnings` (SetPlan.warnings — already rendered by
+ * Step2Plan.tsx as an `.error`-class paragraph, the exact mechanism that
+ * screen already uses for both its own ConceptAxisCoverage "반영되지 않음"
+ * warnings and this array's other entries — no new UI surface needed, and
+ * generation is never blocked/thrown in production, only flagged). Every
+ * other case throws: `npm run dev`/Vitest (import.meta.env.DEV === true,
+ * verified empirically) AND plain `tsx` execution (scripts/audit.ts,
+ * scripts/v57Measure.ts — import.meta.env itself is undefined there, since
+ * neither goes through Vite's transform) — developer-run contexts should
+ * fail loudly, not log a warning string nobody's watching stdout for.
+ */
+function isProductionRuntime(): boolean {
+  return typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined' && import.meta.env.PROD === true;
+}
+
+/** See isProductionRuntime's own doc comment for the dev/prod split this implements. Returns violation strings to append to SetPlan.warnings in production; throws (rather than returning) everywhere else. */
+function checkUserChoicesPreservation(
+  choices: UserExplicitChoices,
+  slots: PreassignedSongSlot[],
+  allocations: AxisAllocation[],
+  stage: string
+): string[] {
+  const moneyChordCounts: Record<string, number> = {};
+  for (const slot of slots) {
+    if (slot.moneyChordId) moneyChordCounts[slot.moneyChordId] = (moneyChordCounts[slot.moneyChordId] ?? 0) + 1;
+  }
+  const genreAllocation = allocations.find(allocation => allocation.axis === 'genre');
+  const genreIdsUsed = genreAllocation ? Object.keys(genreAllocation.counts) : [];
+  const result = assertUserChoicesPreserved(choices, { moneyChordCounts, genreIdsUsed }, stage);
+  if (result.ok) return [];
+  if (isProductionRuntime()) return result.violations;
+  throw new Error(`[UserChoicePreservation] ${result.violations.join(' / ')}`);
+}
+
+/**
  * TASK B (2단계) — the single stage-2 function shared by every 1단계
  * interpretation path (directSetLocal's new segment/blend branches, and
  * directSet's LLM-derived intent below): turns an already-interpreted
@@ -1264,6 +1318,11 @@ export function buildSetPlanFromIntent(
     ...blendWarnings,
     ...eraQuotaWarnings
   ];
+  // v5.7 follow-up (production wiring) — see checkUserChoicesPreservation's
+  // own doc comment. Throws in dev/tooling contexts; in production appends
+  // any violation strings here, so they surface exactly like this array's
+  // other entries (Step2Plan.tsx's plan.warnings.map -> `.error` paragraph).
+  warnings.push(...checkUserChoicesPreservation(choices, slots, allocations, 'buildSetPlanFromIntent'));
   // TASK v3.68 (TASK E) — Step2.5's "지난 평가 반영" banner text: only
   // 'strong'-confidence killingPointId insights ever produce a line here
   // (mirrors killingPointBoostFromInsights' own filter exactly), counted
@@ -1463,11 +1522,18 @@ export function directSetLocal(
   const eraQuotaGenrePredicate = mainFamilyId
     ? (genre: GenrePack) => genreMatchesChannel(genre, channel) && genreIdsForFamilyAndCompatible(mainFamilyId).has(genre.id)
     : (genre: GenrePack) => genreMatchesChannel(genre, channel);
+  // v5.7 follow-up (TASK C §3-4) — `ranked` is scoreGenre's own output for
+  // this exact concept (already mood-boosted, see moodConstraint threaded
+  // into chooseGenreIds above), reused here as applyEraQuota's genreOrder so
+  // a quota bucket that needs new genres beyond what chooseGenreIds already
+  // picked opens the best mood/score match available in that bucket first,
+  // not just whichever genre data/genreLibrary happens to declare first.
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
     safeSongCount,
     eraConstraint,
-    eraQuotaGenrePredicate
+    eraQuotaGenrePredicate,
+    ranked.map(item => item.genre.id)
   );
   const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
   const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices);
@@ -1532,6 +1598,11 @@ export function directSetLocal(
     ...(densityMax > 5 ? ['arrangementDensity는 내부 값이 3종뿐이라 슬롯 값 기준으로는 5곡 초과가 발생합니다. 브릿지 다양성 그룹에서 5곡 이하 하위 그룹으로 분할합니다.'] : []),
     ...(eraConstraint.unspecified ? [] : eraQuotaWarnings)
   ];
+  // v5.7 follow-up (production wiring) — see checkUserChoicesPreservation's
+  // own doc comment. Throws in dev/tooling contexts; in production appends
+  // any violation strings here, so they surface exactly like this array's
+  // other entries (Step2Plan.tsx's plan.warnings.map -> `.error` paragraph).
+  warnings.push(...checkUserChoicesPreservation(choices, slots, allocations, 'directSetLocal'));
   // TASK v3.68 (TASK E) — mirrors buildSetPlanFromIntent's own banner-text
   // computation exactly (same filter, same per-slot recount).
   const appliedInsightsKo = (history.insights ?? [])

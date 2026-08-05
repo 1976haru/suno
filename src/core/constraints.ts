@@ -404,9 +404,31 @@ export function applyEraQuota(
   genreCounts: Record<string, number>,
   songCount: number,
   era: EraConstraint,
-  channelFilter: (genre: GenrePack) => boolean
+  channelFilter: (genre: GenrePack) => boolean,
+  /**
+   * TASK v5.7 follow-up (TASK C §3-4, mood axis genre-count balance) —
+   * best-first genre id preference (e.g. core/setDirector.ts's own `ranked`
+   * scoreGenre output, which already folds in mood.preferredTraits) used to
+   * order WHICH genre(s) distributeInto opens when a quota bucket needs new
+   * genres beyond whatever chooseGenreIds already selected. Without this,
+   * distributeInto's `newIds` fell back to genreLibrary's raw declaration
+   * order — completely blind to mood/score, so a mood-driven concept whose
+   * era-primary bucket (data/eraExclusions.ts's ERA_BUCKET_BY_GENRE_ID) has
+   * no genuinely mood-matching member at all (e.g. "60년대" only has bright
+   * doo-wop/Brill-Building/girl-group genres in its 1950s-60s bucket, zero
+   * orchestral ones) still picked whichever bucket genre happened to be
+   * declared first, every time, regardless of how "감미로운"/mellow the
+   * concept was. Optional and purely a re-ORDERING of the same candidate
+   * set (every existing candidate stays eligible; ids missing from
+   * genreOrder simply keep their relative genreLibrary order at the back)
+   * — never drops a genre, never changes which BUCKET wins the quota, only
+   * which genre(s) within a bucket get opened first. Undefined at every
+   * call site with no mood/rank signal to offer (unchanged behavior there).
+   */
+  genreOrder?: readonly string[]
 ): { counts: Record<string, number>; warnings: string[] } {
   if (era.unspecified || !songCount) return { counts: genreCounts, warnings: [] };
+  const genreOrderRank = genreOrder ? new Map(genreOrder.map((id, idx) => [id, idx])) : undefined;
 
   const warnings: string[] = [];
   const adjacentMap = new Map(era.adjacent.map(a => [a.era, a.maxShare]));
@@ -518,6 +540,13 @@ export function applyEraQuota(
       .filter(genre => channelFilter(genre) && bucketKeyOf(genre.id) === targetBucket)
       .map(genre => genre.id)
       .filter(id => !existingIdSet.has(id));
+    // Best-mood/score-match first when a preference order was supplied —
+    // stable sort, so two ids the caller has no opinion on (both absent from
+    // genreOrder) keep their original genreLibrary relative order, same as
+    // if genreOrder had never been passed at all.
+    if (genreOrderRank) {
+      newIds.sort((a, b) => (genreOrderRank.get(a) ?? Number.MAX_SAFE_INTEGER) - (genreOrderRank.get(b) ?? Number.MAX_SAFE_INTEGER));
+    }
     const counts = new Map(currentList);
     let remaining = amount;
 
