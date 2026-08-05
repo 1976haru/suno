@@ -34,6 +34,9 @@ import { jpkidsSeasonalMatsuriArchetype } from './jpkidsSeasonalMatsuri';
 import { kridolStagePerformanceArchetype } from './kridolStagePerformance';
 import { kridolNightCityMoveArchetype } from './kridolNightCityMove';
 import { kridolMonoPortraitArchetype } from './kridolMonoPortrait';
+import { kridolfDaylightCityArchetype } from './kridolfDaylightCity';
+import { kridolfGroupLineArchetype } from './kridolfGroupLine';
+import { kridolfColorBlockArchetype } from './kridolfColorBlock';
 import type { ThumbnailArchetype, ThumbnailArchetypeId } from './types';
 import type { ChannelArchetype } from '../../types';
 
@@ -120,6 +123,14 @@ export const kridolThumbnailArchetypes: ThumbnailArchetype[] = [
   kridolMonoPortraitArchetype
 ];
 
+// TASK K3 — kr-idol-female workspace's 3 new archetypes, same
+// suitedArchetypes scoping pattern as kridolThumbnailArchetypes above.
+export const kridolfThumbnailArchetypes: ThumbnailArchetype[] = [
+  kridolfDaylightCityArchetype,
+  kridolfGroupLineArchetype,
+  kridolfColorBlockArchetype
+];
+
 export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...seasonalThumbnailArchetypes,
   ...placeThumbnailArchetypes,
@@ -128,7 +139,8 @@ export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...jp2030ThumbnailArchetypes,
   ...krkidsThumbnailArchetypes,
   ...jpkidsThumbnailArchetypes,
-  ...kridolThumbnailArchetypes
+  ...kridolThumbnailArchetypes,
+  ...kridolfThumbnailArchetypes
 ];
 
 /**

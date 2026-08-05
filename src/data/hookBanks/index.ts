@@ -10,6 +10,7 @@ import { jp2030Override } from './jp2030';
 import { krKidsOverride } from './krKids';
 import { jpKidsOverride } from './jpKids';
 import { krIdolMaleOverride } from './krIdolMale';
+import { krIdolFemaleOverride } from './krIdolFemale';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -48,6 +49,10 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
     // C2/F1 both found and fixed for their own workspaces.
     case 'kr-idol-male':
       return krIdolMaleOverride(language);
+    // TASK K3 §6-1 — kr-idol-female workspace's own bank, same reasoning as
+    // kr-idol-male above.
+    case 'kr-idol-female':
+      return krIdolFemaleOverride(language);
     case 'senior-morning':
     default:
       return seniorMorningOverride;

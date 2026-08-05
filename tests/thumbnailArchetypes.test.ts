@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { jp2030ThumbnailArchetypes, jpkidsThumbnailArchetypes, kidsThumbnailArchetypes, kr2030ThumbnailArchetypes, kridolThumbnailArchetypes, krkidsThumbnailArchetypes, placeThumbnailArchetypes, seasonalThumbnailArchetypes, thumbnailArchetypes, thumbnailArchetypeCount } from '../src/data/thumbnailArchetypes';
+import { jp2030ThumbnailArchetypes, jpkidsThumbnailArchetypes, kidsThumbnailArchetypes, kr2030ThumbnailArchetypes, kridolThumbnailArchetypes, kridolfThumbnailArchetypes, krkidsThumbnailArchetypes, placeThumbnailArchetypes, seasonalThumbnailArchetypes, thumbnailArchetypes, thumbnailArchetypeCount } from '../src/data/thumbnailArchetypes';
 import type { ThumbnailArchetype } from '../src/data/thumbnailArchetypes';
 
 // TASK v3.38 Part A/B — 6 seasonal Korean-serif archetypes + 3 kids-bright archetypes.
@@ -60,7 +60,14 @@ const EXPECTED_CATEGORIES = [
   // KRIDOL_CATEGORIES below).
   'kridol-stage-performance',
   'kridol-night-city-move',
-  'kridol-mono-portrait'
+  'kridol-mono-portrait',
+  // TASK K3 — kr-idol-female workspace's 3 new archetypes, appended last
+  // (matches thumbnailArchetypes/index.ts's own array order: ...kridol,
+  // then kridolf). Same Korean-serif grammar as the other adult workspaces
+  // (see KRIDOLF_CATEGORIES below).
+  'kridolf-daylight-city',
+  'kridolf-group-line',
+  'kridolf-color-block'
 ];
 const SEASONAL_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(0, 6));
 const PLACE_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(6, 16));
@@ -68,6 +75,7 @@ const KIDS_CATEGORIES = new Set([...EXPECTED_CATEGORIES.slice(16, 19), ...EXPECT
 const KR2030_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(19, 22));
 const JP2030_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(22, 25));
 const KRIDOL_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(33, 36));
+const KRIDOLF_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(36, 39));
 
 const directReferenceTerms = /\b(in the style of|same composition as|movie scene from|film still from|screenshot from|as seen in|disney|pixar|marvel|netflix|ghibli|miyazaki|nolan|spielberg|tarantino|kubrick|wes anderson|tom hanks|leonardo dicaprio)\b|시소웨이브|GOMCAM/i;
 
@@ -100,7 +108,8 @@ describe('thumbnail archetype library', () => {
     // TASK E1 — + 4 krkids-* (krkidsThumbnailArchetypes, kids-bright grammar).
     // TASK F1 — + 4 jpkids-* (jpkidsThumbnailArchetypes, kids-bright grammar).
     // TASK K2 — + 3 kridol-* (kridolThumbnailArchetypes, Korean-serif grammar).
-    expect(thumbnailArchetypeCount).toBe(36);
+    // TASK K3 — + 3 kridolf-* (kridolfThumbnailArchetypes, Korean-serif grammar).
+    expect(thumbnailArchetypeCount).toBe(39);
     expect(thumbnailArchetypes.map(archetype => archetype.category)).toEqual(EXPECTED_CATEGORIES);
     expect(seasonalThumbnailArchetypes).toHaveLength(6);
     expect(placeThumbnailArchetypes).toHaveLength(10);
@@ -110,6 +119,7 @@ describe('thumbnail archetype library', () => {
     expect(krkidsThumbnailArchetypes).toHaveLength(4);
     expect(jpkidsThumbnailArchetypes).toHaveLength(4);
     expect(kridolThumbnailArchetypes).toHaveLength(3);
+    expect(kridolfThumbnailArchetypes).toHaveLength(3);
   });
 
   it('fills every required field with reusable prompt material', () => {
@@ -130,7 +140,7 @@ describe('thumbnail archetype library', () => {
       // TASK v3.38 Part A — seasonal archetypes use the Korean-serif grammar
       // (thin serif, no outline, divider+subtitle); Part B5's 3 kids
       // archetypes use a deliberately different bold/bright grammar.
-      if (SEASONAL_CATEGORIES.has(archetype.category) || PLACE_CATEGORIES.has(archetype.category) || KR2030_CATEGORIES.has(archetype.category) || JP2030_CATEGORIES.has(archetype.category) || KRIDOL_CATEGORIES.has(archetype.category)) {
+      if (SEASONAL_CATEGORIES.has(archetype.category) || PLACE_CATEGORIES.has(archetype.category) || KR2030_CATEGORIES.has(archetype.category) || JP2030_CATEGORIES.has(archetype.category) || KRIDOL_CATEGORIES.has(archetype.category) || KRIDOLF_CATEGORIES.has(archetype.category)) {
         expect(archetype.recommendedTypography.outline, archetype.id).toBe('none');
         expect(archetype.recommendedTypography.font.toLowerCase(), archetype.id).toContain('serif');
         expect(archetype.recommendedTypography.divider, archetype.id).toBe(true);

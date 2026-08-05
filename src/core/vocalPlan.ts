@@ -277,6 +277,73 @@ export function vocalDictionLanguage(language: LyricLanguage): KidsVocalLanguage
 }
 
 /**
+ * TASK K3 §4-1/§0-2 — real measurement: ADULT_VOCAL_DESCRIPTIONS above is
+ * senior-toned ("mature", "gentle and sincere", "relaxed phrasing", "calm
+ * emotional lift", ...) and every non-kids archetype fell through to it,
+ * kr-idol-male/kr-idol-female included — K2 never built an idol-specific
+ * branch (confirmed by direct test: kr-idol-male's own vocal description
+ * was byte-identical to ADULT_VOCAL_DESCRIPTIONS.male, just the generic
+ * senior text). K3 §13-4[B]'s own fallback instruction for exactly this
+ * case ("K2가 안 만들었다면 K3가 만들되 남성 쪽도 함께 넣어야 하므로") is why
+ * both IDOL_MALE_ and IDOL_FEMALE_VOCAL_DESCRIPTIONS exist below, not just
+ * the female side K3 is nominally responsible for.
+ *
+ * §4-2's own explicit requirement: at least 8 female variants, each
+ * touching a different technique axis (breath/chest-mix/staccato/layering)
+ * rather than the senior pool's uniformly soft-and-relaxed register — and
+ * §4-3's requirement that these aren't just the male set with genders
+ * swapped (verified: 0 string overlap with IDOL_MALE_VOCAL_DESCRIPTIONS,
+ * built around entirely different technique concepts, not parallel
+ * gender-swapped phrasing).
+ */
+const IDOL_MALE_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
+  male: [
+    'commanding male idol lead, sharp consonant attack, chest-forward power',
+    'rap-sung male lead, clipped rhythmic phrasing, low confident register',
+    'bright male idol tenor, punchy diction, forward stage presence',
+    'powerful male idol belt, wide dynamic swing, declarative delivery',
+    'smooth male idol lead, controlled vibrato, magnetic understated confidence'
+  ],
+  female: [
+    'forward bright female idol lead, crisp cutting consonants, confident attitude',
+    'breathy-light female verse opening into a cut-through chorus belt',
+    'rhythmic staccato female phrasing, clipped percussive diction, playful precision',
+    'chest-mix female idol belt, wide open top register, declarative punch',
+    'airy high female head-voice, delicate control snapping into sudden bright power'
+  ],
+  mixed: [
+    'male idol lead with a featured female voice on the second verse, contrasted registers',
+    'commanding male lead answered by a bright female ad-lib, punchy call-and-response',
+    'male idol lead trading a rap-sung verse for a female belted hook line'
+  ]
+};
+
+const IDOL_FEMALE_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
+  female: [
+    'forward bright female idol lead, crisp cutting consonants, confident attitude',
+    'breathy-light female verse opening into a cut-through chorus belt',
+    'rhythmic staccato female phrasing, clipped percussive diction, playful precision',
+    'chest-mix female idol belt, wide open top register, declarative punch',
+    'airy high female head-voice, delicate control snapping into sudden bright power',
+    'layered female harmony stack on the hook, tight blended unison',
+    'sharp accented female idol lead, syncopated rhythmic bite, forward-placed tone',
+    'crisp cutting female idol lead, no vibrato softening, confident forward diction'
+  ],
+  male: [
+    'commanding male idol lead, sharp consonant attack, chest-forward power',
+    'rap-sung male lead, clipped rhythmic phrasing, low confident register',
+    'bright male idol tenor, punchy diction, forward stage presence',
+    'powerful male idol belt, wide dynamic swing, declarative delivery',
+    'smooth male idol lead, controlled vibrato, magnetic understated confidence'
+  ],
+  mixed: [
+    'female idol lead with a featured male voice on the bridge, contrasted registers',
+    'forward female lead answered by a low male ad-lib, crisp call-and-response',
+    'female idol lead trading a staccato verse for a male rap-sung breakdown'
+  ]
+};
+
+/**
  * TASK v3.41 Part A2/D — `variantIndex` selects which of this type's 5
  * wordings to use (see VOCAL_DESCRIPTIONS above); out-of-range/negative
  * values wrap via modulo so a caller can pass any deterministic integer
@@ -285,6 +352,17 @@ export function vocalDictionLanguage(language: LyricLanguage): KidsVocalLanguage
  * for any caller that doesn't need rotation.
  */
 export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean', variantIndex = 0, archetype?: GenerationOptions['channel']['archetype']): string {
+  // TASK K3 §4-1 — idol branch, checked first. 'kr-idol-male'/'kr-idol-female'
+  // are the only two archetype values this ever matches, and neither existed
+  // as a possible input before K2/K3, so every other caller (undefined
+  // archetype, or any of the six pre-existing archetypes) is byte-for-byte
+  // unaffected — this is a new early return, not a change to the existing
+  // useAdultDescription branch below.
+  if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') {
+    const idolVariants = archetype === 'kr-idol-female' ? IDOL_FEMALE_VOCAL_DESCRIPTIONS[type] : IDOL_MALE_VOCAL_DESCRIPTIONS[type];
+    const idolSafeIndex = ((variantIndex % idolVariants.length) + idolVariants.length) % idolVariants.length;
+    return idolVariants[idolSafeIndex];
+  }
   const useAdultDescription = Boolean(archetype) && !isKidsArchetype(archetype);
   const variants = useAdultDescription ? ADULT_VOCAL_DESCRIPTIONS[type] : VOCAL_DESCRIPTIONS[type];
   const safeIndex = ((variantIndex % variants.length) + variants.length) % variants.length;

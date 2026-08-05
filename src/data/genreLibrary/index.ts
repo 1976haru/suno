@@ -387,6 +387,24 @@ export const KRIDOL_M_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * TASK K3 §3-1/§3-2 — kr-idol-female reuses the exact same 7 kridol-* ids
+ * as KRIDOL_M_CORE_GENRE_IDS above (§3-1's own explicit instruction: no
+ * new genres without documented justification, none added here), just in a
+ * different priority order — §3-2's own "댄스형·레트로형·크로스오버형 비중이
+ * 높음" leads the top-3 default with synth-dance/latin-afro/retro-funk
+ * instead of K2's performance-trap/synth-dance/band-crossover.
+ */
+export const KRIDOL_F_CORE_GENRE_IDS = [
+  'kridol-synth-dance',
+  'kridol-latin-afro',
+  'kridol-retro-funk',
+  'kridol-band-crossover',
+  'kridol-performance-trap',
+  'kridol-midtempo-rnb',
+  'kridol-emotional-ballad'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -472,7 +490,7 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   // like christmas/lofi-study above — K3's own workspace/genre-visibility
   // wiring, not K2's.
   'kr-idol-male': KRIDOL_M_CORE_GENRE_IDS,
-  'kr-idol-female': []
+  'kr-idol-female': KRIDOL_F_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([

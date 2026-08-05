@@ -37,7 +37,7 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song' | 'kr-idol-male' | 'kr-idol-female';
 
 /** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. */
-export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male';
+export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male' | 'kr-idol-female';
 
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';

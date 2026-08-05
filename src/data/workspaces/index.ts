@@ -205,7 +205,42 @@ const KR_IDOL_M: WorkspaceDefinition = {
   ready: true
 };
 
-export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M];
+const KR_IDOL_F: WorkspaceDefinition = {
+  id: 'kr-idol-female',
+  labelKo: '한국 여자 아이돌',
+  // TASK K3 — genre layer shares K2's own 7 kridol-* genres (§3-1, no new
+  // genres), lyric themes (18, entirely separate scenes from K2's own),
+  // hook bank (9/9, 0 intersection with koreanDefault/kr2030Override/
+  // krIdolMaleOverride), thumbnails (3), concept keywords (5 new + K2's own
+  // shared genre-name rules), channel presets (3), idol vocal descriptions
+  // (8 female variants, 0 overlap with K2's own male set), IdolPartPlan
+  // distribution (own ratios), and core/idolExpressionLint.ts (§7's hard
+  // constraint, also run against K2's own real output) all landed; see
+  // docs/k3-report.md.
+  descriptionKo: '한국 여자 아이돌 워크스페이스 — 장르 7종 공유, 여성 아이돌 보컬 8종, 자기주도·연대 가사 세계',
+  archetypeIds: ['kr-idol-female'],
+  // TASK A3 hasn't built a real per-workspace audience-profile framework yet
+  // (kr-2030/jp-2030/kr-idol-male's own comments already note this same gap).
+  defaultAudienceProfileId: 'general',
+  defaultLyricLanguage: 'korean',
+  theme: { accent: '#f97316', surface: '#fff7ed' },
+  terms: {},
+  hiddenFeatures: [],
+  // TASK K3 §9-4 — DistroKid distribution requires its own artist name for
+  // idol content, separate from kr-idol-male's own; "하루 님 결정 필요", not
+  // invented — see docs/k3-report.md's own decision-pending list.
+  artistName: undefined,
+  contentTier: 'adult',
+  // TASK K3 — structure only, not collected anywhere yet (same as K2's own).
+  humanCreativeInterventionNote: undefined,
+  // TASK K3 §12 item 13 — flipped true as the last step, after the full
+  // verification battery in docs/k3-report.md passed, including §7's hard
+  // expression-guideline gate (0 violations across both kr-idol-female and
+  // kr-idol-male real output).
+  ready: true
+};
+
+export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F];
 
 const BY_ID = new Map(workspaceDefinitions.map(w => [w.id, w]));
 

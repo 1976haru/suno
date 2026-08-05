@@ -502,6 +502,81 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['남자 아이돌 발라드', '새벽 감성 노래', 'K-POP R&B', '아이돌 감성 발라드', '갈망 노래', '남자 아이돌 R&B 플레이리스트'],
     archetype: 'kr-idol-male'
+  },
+  // TASK K3 §9-2 — kr-idol-female workspace's 3 channel presets. Every
+  // entry sets vocalQuotaOverride (§4-4: { male: 0, female: 15, mixed: 3 },
+  // symmetric with K2's own { male: 15, female: 0, mixed: 3 }) and
+  // forbiddenCliches includes §7-1/§7-2's own banned-vocabulary families
+  // (this is a UI-facing hint list, separate from core/idolExpressionLint.ts's
+  // own hard-gate scan of real generated output). defaultVocal wording is
+  // deliberately chosen to literally share words with
+  // data/vocalTraits.ts's FEMALE_VOCAL_TRAIT_AXES pool ("bright forward
+  // delivery" / "light rhythmic phrasing" / "warm rounded midrange" /
+  // "restrained understated reading" are actual pool candidates) — see
+  // core/vocalPlan.ts's channelFlavorWeight, the only safe lever available
+  // to bias buildAdultVocalTraitPlan's shared axis pool toward idol-
+  // appropriate register/timbre/delivery without touching the pool itself
+  // (K3's own report explains why touching the shared pool directly was
+  // judged out of scope).
+  {
+    id: 'daylight-city-kpop',
+    name: '낮의 도시를 걷는 K-POP',
+    englishName: 'Walking the Daylight City',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '신스 댄스와 라틴 아프로비트 중심, 낮의 도시를 당당하게 걷는 여자 아이돌 플레이리스트',
+    visualIdentity: 'bold saturated daylight color blocks, sharp midday shadow, bold sans-serif typography',
+    defaultVocal: 'bright forward female idol lead, light rhythmic phrasing, confident delivery',
+    preferredGenres: ['kridol-synth-dance', 'kridol-latin-afro', 'kridol-retro-funk'],
+    preferredMoods: ['confident', 'bright'],
+    vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
+    forbiddenCliches: [
+      'specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song',
+      'sultry seductive framing', 'schoolgirl or teen coding', 'senior-radio nostalgia imagery'
+    ],
+    seoKeywords: ['여자 아이돌 노래', '낮의 도시 K-POP', '여돌 댄스곡', 'K-POP 걸그룹 플레이리스트', '자신감 노래', '여자 아이돌 신스댄스'],
+    archetype: 'kr-idol-female'
+  },
+  {
+    id: 'nonstop-playlist',
+    name: '멈추지 않는 플레이리스트',
+    englishName: 'The Playlist That Never Stops',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '퍼포먼스 트랩과 밴드 크로스오버 중심, 끝까지 밀어붙이는 여자 아이돌 퍼포먼스 플레이리스트',
+    visualIdentity: 'bright even backlight, matched silhouette line, bold sans-serif typography',
+    defaultVocal: 'full chest female idol belt, bright rhythmic delivery, driving energy',
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance'],
+    preferredMoods: ['confident', 'energetic'],
+    vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
+    forbiddenCliches: [
+      'specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song',
+      'body or curves description', 'schoolgirl or teen coding', 'excessive rap verses without a sung hook'
+    ],
+    seoKeywords: ['여자 아이돌 퍼포먼스', '걸그룹 댄스곡', '여돌 트랩', 'K-POP 걸그룹 댄스', '통쾌한 노래', '여자 아이돌 밴드 크로스오버'],
+    archetype: 'kr-idol-female'
+  },
+  {
+    id: 'songs-for-after-its-over',
+    name: '끝내고 나서 듣는 노래',
+    englishName: 'Songs for After It\'s Over',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '미드템포 R&B와 감성 발라드 중심, 관계를 정리한 뒤의 후련함을 담은 여자 아이돌 발라드 플레이리스트',
+    visualIdentity: 'bold flat color-block graphic, small abstracted silhouette, restrained serif typography',
+    defaultVocal: 'clear female idol lead, warm rounded midrange, restrained understated delivery',
+    preferredGenres: ['kridol-midtempo-rnb', 'kridol-emotional-ballad', 'kridol-band-crossover'],
+    preferredMoods: ['intimate', 'emotional'],
+    vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
+    forbiddenCliches: [
+      'specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song',
+      'sultry seductive framing', 'schoolgirl or teen coding', 'lo-fi study beat'
+    ],
+    seoKeywords: ['여자 아이돌 발라드', '후련한 노래', 'K-POP R&B', '여돌 감성 발라드', '이별 후 노래', '여자 아이돌 R&B 플레이리스트'],
+    archetype: 'kr-idol-female'
   }
 ];
 

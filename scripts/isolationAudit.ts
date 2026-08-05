@@ -55,6 +55,10 @@ function genreWorkspaceOf(genreId: string): WorkspaceId {
   // TASK K2 — kr-idol-male's own genre prefix, same pattern as the four
   // cases above (each added by its own workspace's doc, not G1 itself).
   if (genreId.startsWith('kridol-')) return 'kr-idol-male';
+  // TASK K3 — kr-idol-female shares K2's own 'kridol-' genre prefix (§3-1's
+  // "신규 장르는 만들지 않는 것이 기본"), so there's no separate genre-id
+  // prefix to add a case for here; this function only ever needs to
+  // distinguish genres, and kr-idol-female contributes none of its own.
   return 'senior-oldpop';
 }
 
@@ -66,6 +70,9 @@ function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
   // TASK K2 — kr-idol-male's own theme prefix, same reasoning as
   // genreWorkspaceOf above.
   if (theme.id.startsWith('kridol-')) return 'kr-idol-male';
+  // TASK K3 — kr-idol-female's own theme prefix (krkidolf-, distinct from
+  // K2's kridol- since K3's lyric themes ARE its own, unlike genres above).
+  if (theme.id.startsWith('krkidolf-')) return 'kr-idol-female';
   return 'senior-oldpop';
 }
 

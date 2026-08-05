@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { getWorkspace, getWorkspaceTerm, isFeatureHidden, workspaceDefinitions } from '../src/data/workspaces';
 
 describe('[v4.0 TASK A] workspaceDefinitions', () => {
-  it('defines exactly the 6 spec workspaces, each with a unique id', () => {
+  it('defines exactly the 7 spec workspaces, each with a unique id', () => {
     const ids = workspaceDefinitions.map(w => w.id);
-    expect(ids).toEqual(['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-kids', 'jp-kids', 'kr-idol-male']);
-    expect(new Set(ids).size).toBe(6);
+    expect(ids).toEqual(['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female']);
+    expect(new Set(ids).size).toBe(7);
   });
 
   it('senior-oldpop is fully filled in: real archetypes, ready=true', () => {
@@ -53,6 +53,20 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
     expect(kridolM.labelKo.length).toBeGreaterThan(0);
   });
 
+  // TASK K3 — kr-idol-female's lyric-theme/hook-bank/thumbnail/concept/
+  // channel-preset/idol-vocal-description layers all landed and were
+  // verified via real 18-song generation (0/54 titles carry senior/kr2030/
+  // kr-idol-male vocabulary, 0 male-only vocal songs with the
+  // vocalQuotaOverride applied, 0 core/idolExpressionLint.ts violations
+  // across both this workspace's own output AND kr-idol-male's; see
+  // docs/k3-report.md), so this workspace is now fully built too.
+  it('kr-idol-female is fully built: real archetype, ready=true', () => {
+    const kridolF = getWorkspace('kr-idol-female');
+    expect(kridolF.ready).toBe(true);
+    expect(kridolF.archetypeIds).toEqual(['kr-idol-female']);
+    expect(kridolF.labelKo.length).toBeGreaterThan(0);
+  });
+
   // TASK C2 — jp-2030's lyric world/hooks/titles/thumbnails/channel presets
   // all landed and were verified via real 18-song generation (0/18 titles
   // carry senior/showa vocabulary), so this workspace is now fully built —
@@ -84,7 +98,7 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
 
   it('every workspace has a distinct theme accent', () => {
     const accents = new Set(workspaceDefinitions.map(w => w.theme.accent));
-    expect(accents.size).toBe(6);
+    expect(accents.size).toBe(7);
   });
 });
 

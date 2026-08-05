@@ -1222,7 +1222,9 @@ function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: C
   // produced titles like 라디오를 틀어요/레코드를 틀어봐요/스웨터를 껴입어요/촛불을
   // 다시 켜요/달력을 넘겨봐요 — because this array was still missing
   // 'kr-idol-male'. Added here, same reasoning as kr-2030-pop/jp-2030-pop.
-  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || isKidsArchetype(archetype) || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop' || archetype === 'kr-idol-male') return [];
+  // TASK K3 — 'kr-idol-female' added proactively (K2's own §14-5 handoff
+  // note flagged this exact gap in advance), same leak path.
+  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || isKidsArchetype(archetype) || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop' || archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },

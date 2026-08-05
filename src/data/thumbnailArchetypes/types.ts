@@ -62,7 +62,12 @@ export type ThumbnailArchetypeCategory =
   // kridolStagePerformance.ts / kridolNightCityMove.ts / kridolMonoPortrait.ts).
   | 'kridol-stage-performance'
   | 'kridol-night-city-move'
-  | 'kridol-mono-portrait';
+  | 'kridol-mono-portrait'
+  // TASK K3 — kr-idol-female workspace's 3 new archetypes (see
+  // kridolfDaylightCity.ts / kridolfGroupLine.ts / kridolfColorBlock.ts).
+  | 'kridolf-daylight-city'
+  | 'kridolf-group-line'
+  | 'kridolf-color-block';
 
 export type ThumbnailArchetypeId = ThumbnailArchetypeCategory;
 

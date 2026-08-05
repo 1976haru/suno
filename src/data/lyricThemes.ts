@@ -1254,6 +1254,182 @@ export const adultLyricThemes: LyricTheme[] = [
     suitedArchetypes: ['kr-idol-male'],
     frameId: 'promise-made',
     castKo: '혼자'
+  },
+  // TASK K3 §5 — kr-idol-female's 18 lyric scenes, entirely separate from
+  // K2's own 18 (§5-1's own explicit instruction: reusing K2's scenes with
+  // only the gender swapped would still pass §10-9's cross-similarity check
+  // while being the same world underneath). §5-2's axes: self-direction/
+  // choice, leading a relationship rather than following, friendship as
+  // mutual support, facing emotion directly (anger/relief/triumph, not
+  // dwelling in sadness), and daylight/rooftop/after-party/season-turning
+  // atmosphere — the deliberate contrast to K2's stage/limit/longing axes.
+  // frameId vocabulary (self-direction/gaze-passed/leading-the-approach/
+  // clean-break/unshaken-ground/friends-line/direct-release/daylight-city/
+  // after-party/season-turning) has 0 overlap with both kr2030's 18 frames
+  // and K2's own 9, well under the "≤4 combined" ceiling. None of the
+  // scenes below use kr2030's banned words (퇴근길/서른/원룸/막차) or K2's own
+  // (무대/컴백/연습실).
+  {
+    id: 'krkidolf-my-own-direction',
+    labelKo: '내가 정한 방향',
+    scene: 'standing at a crossroads and choosing her own path, deliberately ignoring what everyone else expected',
+    emotionalArc: 'hesitant doubt hardening into calm certainty',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'self-direction',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-walking-past-the-stares',
+    labelKo: '시선을 지나침',
+    scene: 'walking through a crowded street and letting every stare slide off without slowing her pace',
+    emotionalArc: 'self-conscious tension dissolving into easy confidence',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'gaze-passed',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-doing-it-my-way',
+    labelKo: '하고 싶은 대로',
+    scene: 'rearranging a room exactly the way she wants it, ignoring every unsolicited opinion',
+    emotionalArc: 'quiet defiance settling into satisfied ease',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'self-direction',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-first-to-speak',
+    labelKo: '먼저 말 거는 쪽',
+    scene: 'crossing a crowded room to speak first, before anyone else gets the chance',
+    emotionalArc: 'nervous energy sharpening into bold initiative',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'leading-the-approach',
+    castKo: '둘'
+  },
+  {
+    id: 'krkidolf-the-one-who-ends-it',
+    labelKo: '끝내는 쪽',
+    scene: 'closing the door calmly on a relationship that stopped working, no drama, no looking back',
+    emotionalArc: 'lingering hesitation resolving into clean resolve',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'clean-break',
+    castKo: '둘'
+  },
+  {
+    id: 'krkidolf-unshaken',
+    labelKo: '흔들리지 않는 쪽',
+    scene: 'standing steady while someone tries to provoke a reaction, refusing to flinch',
+    emotionalArc: 'rising provocation met with calm steadiness',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'unshaken-ground',
+    castKo: '둘'
+  },
+  {
+    id: 'krkidolf-friends-side-by-side',
+    labelKo: '같이 가는 사람들',
+    scene: 'walking in a line with friends down a bright street, matching pace without a word',
+    emotionalArc: 'separate energies syncing into one shared rhythm',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'friends-line',
+    castKo: '여럿'
+  },
+  {
+    id: 'krkidolf-lifting-each-other',
+    labelKo: '서로를 세워주는 관계',
+    scene: 'catching a friend\'s hand right as she stumbles, pulling her back up without breaking stride',
+    emotionalArc: 'momentary wobble steadied into renewed momentum',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'friends-line',
+    castKo: '둘'
+  },
+  {
+    id: 'krkidolf-crew-victory-lap',
+    labelKo: '함께 이룬 순간',
+    scene: 'throwing an arm around a friend\'s shoulder after a win, laughing about how close it almost didn\'t happen',
+    emotionalArc: 'built-up tension breaking into shared relief',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'friends-line',
+    castKo: '여럿'
+  },
+  {
+    id: 'krkidolf-finally-said-it',
+    labelKo: '화가 풀리는 순간',
+    scene: 'finally saying the thing she\'d swallowed for weeks, and watching the weight actually lift',
+    emotionalArc: 'pent-up frustration snapping into open relief',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'direct-release',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-clean-getaway',
+    labelKo: '후련함',
+    scene: 'walking out of a place that stopped feeling right, the door closing behind her, shoulders finally dropping',
+    emotionalArc: 'built-up pressure releasing into lightness',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'clean-break',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-the-last-laugh',
+    labelKo: '통쾌함',
+    scene: 'hearing news that proves every doubter wrong, and letting herself enjoy it openly',
+    emotionalArc: 'quiet vindication opening into bright triumph',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'direct-release',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-daylight-rooftop',
+    labelKo: '옥상에서 보는 낮',
+    scene: 'standing on a rooftop at midday, the city spread out bright and loud below',
+    emotionalArc: 'restless energy opening into wide-open freedom',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'daylight-city',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-after-the-party',
+    labelKo: '파티가 끝난 뒤',
+    scene: 'sitting on a curb after a party winds down, streetlights just starting to flicker on',
+    emotionalArc: 'winding-down energy settling into satisfied calm',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'after-party',
+    castKo: '여럿'
+  },
+  {
+    id: 'krkidolf-season-turning-color',
+    labelKo: '계절이 바뀌는 색',
+    scene: 'noticing the light change color on a familiar street as one season tips into the next',
+    emotionalArc: 'quiet noticing opening into anticipation',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'season-turning',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-strut-through-the-alley',
+    labelKo: '동네 골목을 활보하는 오후',
+    scene: 'strutting confidently through a familiar neighborhood alley in the middle of a bright afternoon',
+    emotionalArc: 'ordinary errand energy tipping into playful confidence',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'daylight-city',
+    castKo: '혼자'
+  },
+  {
+    id: 'krkidolf-leading-the-dance-floor',
+    labelKo: '먼저 나서는 순간',
+    scene: 'pulling a friend onto the dance floor first, setting the pace before anyone else moves',
+    emotionalArc: 'shy hesitation flipping into magnetic confidence',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'leading-the-approach',
+    castKo: '둘'
+  },
+  {
+    id: 'krkidolf-choosing-to-stay-close',
+    labelKo: '내 뜻대로 가까워지기',
+    scene: 'deciding, on her own terms, to stay close to someone rather than play it cool and pull away',
+    emotionalArc: 'guarded distance softening into deliberate closeness',
+    suitedArchetypes: ['kr-idol-female'],
+    frameId: 'self-direction',
+    castKo: '둘'
   }
 ];
 

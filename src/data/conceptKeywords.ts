@@ -452,6 +452,37 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'kridol-latin-genre',
     patterns: [/라틴/, /\blatin\b/i],
     genreWeights: { 'kridol-latin-afro': 4 }
+  },
+  // TASK K3 (§9-1) — kr-idol-female workspace rules. Genre-name patterns
+  // (댄스/레트로/라틴/훵크) already have rules above from K2 — genres are
+  // shared (§3-1), so those existing rules already serve kr-idol-female too
+  // via the archetype-scoped-tier design; only K3's own axis (자신감·주도·
+  // 선택·통쾌 / 친구·연대·나란히 / 낮의 도시·옥상·파티·계절 전환) needs new rules,
+  // deliberately not reusing K2's own "무대·퍼포먼스·컴백" words.
+  {
+    id: 'krkidolf-confidence-choice',
+    patterns: [/자신감/, /주도/, /통쾌/, /confidence/i],
+    genreWeights: { 'kridol-synth-dance': 3, 'kridol-band-crossover': 2 }
+  },
+  {
+    id: 'krkidolf-friends-solidarity',
+    patterns: [/나란히/, /연대/, /친구들과/, /friends\s*together/i],
+    genreWeights: { 'kridol-latin-afro': 3, 'kridol-synth-dance': 2 }
+  },
+  {
+    id: 'krkidolf-daylight-rooftop',
+    patterns: [/낮의\s*도시/, /옥상/, /daylight/i, /rooftop/i],
+    genreWeights: { 'kridol-retro-funk': 3, 'kridol-latin-afro': 2 }
+  },
+  {
+    id: 'krkidolf-after-party',
+    patterns: [/파티/, /애프터파티/, /\bparty\b/i],
+    genreWeights: { 'kridol-retro-funk': 3, 'kridol-band-crossover': 2 }
+  },
+  {
+    id: 'krkidolf-season-turning',
+    patterns: [/계절\s*전환/, /계절이\s*바뀌/, /season\s*turning/i],
+    genreWeights: { 'kridol-emotional-ballad': 2, 'kridol-midtempo-rnb': 2 }
   }
 ];
 
