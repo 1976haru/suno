@@ -1,4 +1,5 @@
 import type { PlaylistBlueprint, SongIdea, WorkspaceId } from '../types';
+import type { AudioArchiveEntry } from './audioArchive';
 import type { AudioTake } from './audioTakes';
 import { getTakes } from './audioTakes';
 import type { RatingRecord, SongRating } from './ratingLedger';
@@ -360,4 +361,70 @@ export async function gatherAllSetSummaryRows(): Promise<SetSummaryRow[]> {
     if (row) rows.push(row);
   }
   return rows.sort((a, b) => a.setCode.localeCompare(b.setCode));
+}
+
+// ---------------------------------------------------------------------------
+// v4.15 (TASK B) — 음원 분석 아카이브 CSV (§2-7): reuses buildCsvText/
+// withUtf8Bom above rather than a third hand-rolled CSV writer. Sheet 1 is
+// one archive's own tracks; Sheet 2 is every archive saved for one channel,
+// appended to as new sets get analyzed (see gatherAllSetSummaryRows's own
+// doc comment above for why "recompute fresh from storage" beats persisting
+// a running list — the same reasoning applies here).
+// ---------------------------------------------------------------------------
+
+export const ARCHIVE_TRACK_HEADER = [
+  '트랙번호', '파일명', '버전', '채택여부', '평가',
+  '길이(초)', '진폭(dB)', '최대구간(0~1)', '믹스중심(Hz)', '보컬대역중심(Hz)', '실측BPM'
+] as const;
+
+export function archiveTrackCsvFileName(archiveLabel: string): string {
+  return `${archiveLabel}_테이크.csv`;
+}
+
+export function buildArchiveTrackCsv(entry: AudioArchiveEntry): string {
+  const rows = entry.tracks.map(t => [
+    t.trackNo ?? '-',
+    t.fileName,
+    t.version ?? '-',
+    t.adopted === undefined ? '-' : t.adopted ? 'Y' : 'N',
+    t.rating ? RATING_LABEL[t.rating] : '미평가',
+    t.durationSec.toFixed(1),
+    t.dynamicRange.toFixed(1),
+    t.peakPosition.toFixed(2),
+    Math.round(t.spectralCentroid),
+    Math.round(t.vocalBandCentroid),
+    t.tempoEstimate === undefined ? '-' : Math.round(t.tempoEstimate)
+  ]);
+  return buildCsvText(ARCHIVE_TRACK_HEADER, rows);
+}
+
+export const CHANNEL_ARCHIVE_SUMMARY_HEADER = [
+  '아카이브명', '채널', '회차', '워크스페이스', '분석일시',
+  '곡수', '평균길이(초)', '길이범위', '목표범위내곡수', '평균진폭(dB)', '후반상승곡수', 'BPM범위'
+] as const;
+
+export function channelArchiveSummaryCsvFileName(channelSlug: string): string {
+  return `${channelSlug}_세트요약.csv`;
+}
+
+/** One row per archive, in the order given (callers pass listArchives()'s already-chronological result, same "recompute fresh" shape as gatherAllSetSummaryRows). */
+export function buildChannelArchiveSummaryCsv(archives: readonly AudioArchiveEntry[]): string {
+  const rows = archives.map(a => {
+    const [tempoLo, tempoHi] = a.summary.tempoRange;
+    return [
+      a.archiveLabel,
+      a.channelSlug ?? '-',
+      a.sequence ?? '-',
+      a.workspaceId,
+      a.analyzedAt,
+      a.trackCount,
+      a.summary.avgDuration.toFixed(1),
+      `${a.summary.durationRange[0].toFixed(0)}~${a.summary.durationRange[1].toFixed(0)}`,
+      a.summary.inTargetRange,
+      a.summary.avgDynamicRange.toFixed(1),
+      a.summary.lateRiseCount,
+      tempoLo || tempoHi ? `${Math.round(tempoLo)}~${Math.round(tempoHi)}` : '-'
+    ];
+  });
+  return buildCsvText(CHANNEL_ARCHIVE_SUMMARY_HEADER, rows);
 }

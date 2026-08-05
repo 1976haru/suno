@@ -10,6 +10,8 @@ import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
 import AudioAnalysisPanel from '../AudioAnalysisPanel';
 import AudioEditPanel from '../AudioEditPanel';
+import ShortsHighlightPanel from '../ShortsHighlightPanel';
+import AudioArchivePanel from '../AudioArchivePanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
 import GenerationGatePanel from '../GenerationGatePanel';
 import SetCompletenessPanel from '../SetCompletenessPanel';
@@ -546,6 +548,25 @@ export default function Step4Result({
             onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
           />
           <PreviewConcatPanel songs={blueprint.songs} setLabel={blueprint.meta?.setCode || opts.projectTitle} />
+        </ExperimentalFeatureBoundary>
+      )}
+
+      {/* v4.15 (TASK A) — 숏츠용 하이라이트, same tab/experimental-boundary treatment as the analysis tools above. */}
+      {blueprint && resultTab === 'audio' && (
+        <ExperimentalFeatureBoundary featureLabel="숏츠용 하이라이트">
+          <ShortsHighlightPanel songs={blueprint.songs} />
+        </ExperimentalFeatureBoundary>
+      )}
+
+      {/* v4.15 (TASK B) — 음원 분석 아카이브, same tab/experimental-boundary treatment. */}
+      {blueprint && resultTab === 'audio' && (
+        <ExperimentalFeatureBoundary featureLabel="음원 분석 아카이브">
+          <AudioArchivePanel
+            songs={blueprint.songs}
+            audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+            packId={packId}
+            setName={blueprint.meta?.setCode}
+          />
         </ExperimentalFeatureBoundary>
       )}
 

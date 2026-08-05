@@ -2662,6 +2662,11 @@ pre {
   background: var(--teal);
 }
 
+/* v4.15 (TASK A) — ShortsHighlightPanel.tsx's volume-curve region highlight. */
+.audio-rms-bar.selected {
+  background: var(--blue);
+}
+
 .audio-track-detail {
   border-left: 3px solid var(--line);
 }

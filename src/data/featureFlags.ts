@@ -24,6 +24,9 @@ export const FEATURES: Record<string, FeatureStatus> = {
   audioEdit: 'experimental',
   ratingLearning: 'experimental',
   imageGeneration: 'experimental',
+  /** v4.15 (TASK A/B) — new audio tooling, same isolate-your-own-errors expectation as audioAnalysis/audioEdit above. */
+  shortsHighlight: 'experimental',
+  audioArchive: 'experimental',
 
   kr2030: 'scaffold',
   jp2030: 'scaffold',

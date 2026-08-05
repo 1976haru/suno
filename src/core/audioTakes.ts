@@ -1,6 +1,7 @@
 import type { AudienceProfile, SongIdea, WorkspaceId } from '../types';
 import type { SongAudioMetrics, TempoEstimate, VocalMetrics } from './audioAnalysis';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
+import { openAudioDb, TAKES_STORE, withAudioStore } from './audioDb';
 
 /**
  * TASK v3.74 (TASK A) — "테이크(take)": one rendered mp3 for one track's
@@ -95,36 +96,11 @@ export function buildTakeDirectives(
   };
 }
 
-const DB_NAME = 'suno-weaver-audio';
-const DB_VERSION = 1;
-const STORE = 'takes';
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'takeId' });
-        store.createIndex('songId', 'songId', { unique: false });
-        store.createIndex('packId', 'packId', { unique: false });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('IndexedDB open failed.'));
-  });
-}
+/** v4.15 (TASK B) — DB open/upgrade now lives in core/audioDb.ts, shared with core/audioArchive.ts's new 'archives' store in this same database (see that module's own doc comment on why one shared opener is required, not two independent indexedDB.open calls). STORE kept as a local alias so the rest of this file reads unchanged. */
+const STORE = TAKES_STORE;
 
 async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const store = tx.objectStore(STORE);
-    const request = fn(store);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
-    tx.oncomplete = () => db.close();
-  });
+  return withAudioStore<T>(STORE, mode, fn);
 }
 
 export async function recordTake(take: AudioTake): Promise<void> {
@@ -173,7 +149,7 @@ export async function setAdopted(takeId: string): Promise<void> {
   const all = await withStore<AudioTake[]>('readonly', store => store.getAll());
   const target = all.find(take => take.takeId === takeId);
   if (!target) return;
-  const db = await openDb();
+  const db = await openAudioDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
