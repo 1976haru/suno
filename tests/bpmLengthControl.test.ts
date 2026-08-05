@@ -7,21 +7,22 @@ import {
   resolveBpmLengthTier
 } from '../src/core/bpmLengthControl';
 
+// v4.16 (TASK A) — tiers re-centered onto 62-72/73-84/85-94/95-100 (see bpmLengthControl.ts's own doc comment).
 describe('[v3.82 TASK B] resolveBpmLengthTier', () => {
   it('matches each of the spec\'s own 4 tiers exactly', () => {
-    expect(resolveBpmLengthTier(70)).toEqual(BPM_LENGTH_TIERS[0]);
-    expect(resolveBpmLengthTier(85)).toEqual(BPM_LENGTH_TIERS[1]);
-    expect(resolveBpmLengthTier(100)).toEqual(BPM_LENGTH_TIERS[2]);
-    expect(resolveBpmLengthTier(110)).toEqual(BPM_LENGTH_TIERS[3]);
+    expect(resolveBpmLengthTier(65)).toEqual(BPM_LENGTH_TIERS[0]);
+    expect(resolveBpmLengthTier(78)).toEqual(BPM_LENGTH_TIERS[1]);
+    expect(resolveBpmLengthTier(90)).toEqual(BPM_LENGTH_TIERS[2]);
+    expect(resolveBpmLengthTier(98)).toEqual(BPM_LENGTH_TIERS[3]);
   });
 
   it('boundary BPMs resolve to the tier that owns that exact edge', () => {
-    expect(resolveBpmLengthTier(78)).toBe(BPM_LENGTH_TIERS[0]);
-    expect(resolveBpmLengthTier(79)).toBe(BPM_LENGTH_TIERS[1]);
-    expect(resolveBpmLengthTier(92)).toBe(BPM_LENGTH_TIERS[1]);
-    expect(resolveBpmLengthTier(93)).toBe(BPM_LENGTH_TIERS[2]);
-    expect(resolveBpmLengthTier(104)).toBe(BPM_LENGTH_TIERS[2]);
-    expect(resolveBpmLengthTier(105)).toBe(BPM_LENGTH_TIERS[3]);
+    expect(resolveBpmLengthTier(72)).toBe(BPM_LENGTH_TIERS[0]);
+    expect(resolveBpmLengthTier(73)).toBe(BPM_LENGTH_TIERS[1]);
+    expect(resolveBpmLengthTier(84)).toBe(BPM_LENGTH_TIERS[1]);
+    expect(resolveBpmLengthTier(85)).toBe(BPM_LENGTH_TIERS[2]);
+    expect(resolveBpmLengthTier(94)).toBe(BPM_LENGTH_TIERS[2]);
+    expect(resolveBpmLengthTier(95)).toBe(BPM_LENGTH_TIERS[3]);
   });
 
   it('clamps out-of-table BPM to the nearest edge tier instead of failing', () => {

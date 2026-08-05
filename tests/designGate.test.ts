@@ -96,7 +96,10 @@ function healthySlots(): PreassignedSongSlot[] {
   // family-acoustic-soft only, so this fixture stays "healthy" under the
   // new ceiling instead of demonstrating the bug it exists to catch.
   const genreIds = ['oldpop-warm-morning-glow', 'oldpop-hearth-acoustic', 'oldpop-close-harmony-duo', 'oldpop-adult-contemporary-80s'];
-  const bpms = [78, 82, 84, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 96, 88, 84, 100];
+  // v4.16 (TASK A) — tempoCeiling 112 -> 100; spread rewritten to stay
+  // inside the new 62-100 range while still spanning nearly the full width
+  // (stddev/range floors still clear comfortably).
+  const bpms = [62, 65, 68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 100, 70, 85, 95, 78];
   const arcPhases = ['opening', 'build', 'peak', 'release', 'closing'];
   return Array.from({ length: 18 }, (_, i) => slotFor({
     trackNo: i + 1,

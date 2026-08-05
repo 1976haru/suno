@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from '../src/core/promptComposer';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
 import { vocalPresets } from '../src/data/vocalPresets';
 import type { GenrePack } from '../src/types';
+
+// v4.16 (TASK B) — same "shared boilerplate, not genre-identity" exclusion
+// core/diversityLinter.ts's own stylePromptClauseSet now applies (split by
+// comma — see that file's own doc comment on why 'medium'/'sparse' can't be
+// matched as one un-split phrase).
+const ARRANGEMENT_DENSITY_CLAUSES = new Set(
+  Object.values(ARRANGEMENT_DENSITY_TEXT_BY_LEVEL).flatMap(text => text.split(',').map(fragment => fragment.trim().toLowerCase()))
+);
 
 // TASK v3.72 (TASK A) — vocalTone: channel.defaultVocal used to mean
 // "usesVocalQuota() stays off, fall back to variedVocalText's own 18-entry
@@ -60,6 +69,7 @@ function musicClauseSet(prompt: string): Set<string> {
       // idx-0 slot always gets one), same shared-boilerplate category as the
       // hook-repeat/vocal/progression filters above.
       .filter(clause => !/full arrangement from the first bar|no quiet fade-in|opening is as loud and full as the chorus/.test(clause))
+      .filter(clause => !ARRANGEMENT_DENSITY_CLAUSES.has(clause))
       .filter(Boolean)
   );
 }

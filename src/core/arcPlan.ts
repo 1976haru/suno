@@ -104,8 +104,8 @@ export function reorderByArcIntensity<T>(values: readonly T[], arc: readonly Slo
 /**
  * v3.80 (TASK A) — forces `values[0..prefix.length-1]` to exactly match
  * `prefix`, while preserving the overall multiset of `values` (so a caller
- * enforcing an exact N:N:N split, e.g. arrangementDensity's 6:6:6 or a
- * vocal-type quota, doesn't have that split broken by the pin). Swap-based,
+ * enforcing an exact (or weighted, e.g. arrangementDensity's v4.16 6:8:4)
+ * split, or a vocal-type quota, doesn't have that split broken by the pin). Swap-based,
  * never a reassignment, except in the one edge case a swap can't reach (see
  * below). Donor search prefers positions outside the prefix first (so
  * pinning position 0 doesn't disturb a not-yet-processed position 1/2's own
@@ -137,17 +137,65 @@ export function pinPrefixPreservingCounts<T>(values: readonly T[], prefix: reado
   return result;
 }
 
+/**
+ * v4.16 (TASK B) — two compounding gaps in the original single forward-only
+ * pass: (1) fixing the run ending at position i by swapping in a later,
+ * differing donor value can create a NEW run right at the donor's own old
+ * position (its former neighbors may match the value just placed there),
+ * which a pass that only checks the INSERTION side (i) never notices; (2) a
+ * run at the very TAIL of the array has no later position to swap with at
+ * all (searching only `j > i`), so it can never be fixed regardless of how
+ * many passes run. Both were latent even before v4.16 (any forward-only
+ * swap heuristic has the same two gaps), but only started actually
+ * surfacing once arrangementDensity's weighted 6:8:4 split (was 6:6:6) gave
+ * 'medium' a heavier 8/18 share — a real 18-song measurement hit a genuine
+ * trailing run of 3 (positions 16-18, all 'sparse', arc-intensity reordering's
+ * own "closing skews sparse" clustering). Now searches donors in BOTH
+ * directions (forward preferred, backward as fallback — backward candidates
+ * are restricted to positions before the run itself, `j < i - maxConsecutive`,
+ * so a donor swap can never touch the run's own elements), loops to a fixed
+ * point (bounded by result.length, so it always terminates), and each
+ * candidate swap is simulated first, accepted only if it creates no new run
+ * at EITHER the insertion or the donor position — still purely swap-based
+ * (multiset preserved exactly).
+ */
 export function breakLongRuns<T>(values: readonly T[], maxConsecutive: number): T[] {
   const result = [...values];
-  for (let i = maxConsecutive; i < result.length; i += 1) {
-    let isRun = true;
+
+  function endsRun(idx: number): boolean {
+    if (idx < maxConsecutive) return false;
     for (let k = 1; k <= maxConsecutive; k += 1) {
-      if (result[i] !== result[i - k]) { isRun = false; break; }
+      if (result[idx] !== result[idx - k]) return false;
     }
-    if (!isRun) continue;
-    const swapWith = result.findIndex((value, j) => j > i && value !== result[i]);
-    if (swapWith === -1) continue;
-    [result[i], result[swapWith]] = [result[swapWith], result[i]];
+    return true;
+  }
+
+  function trySwap(i: number, j: number): boolean {
+    if (result[j] === result[i]) return false;
+    [result[i], result[j]] = [result[j], result[i]];
+    const stillBad = endsRun(i) || endsRun(j) || (j + 1 < result.length && endsRun(j + 1)) || (i + 1 < result.length && endsRun(i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+    return !stillBad;
+  }
+
+  for (let pass = 0; pass < result.length; pass += 1) {
+    let fixedAny = false;
+    for (let i = maxConsecutive; i < result.length; i += 1) {
+      if (!endsRun(i)) continue;
+      let swapWith = -1;
+      for (let j = i + 1; j < result.length; j += 1) {
+        if (trySwap(i, j)) { swapWith = j; break; }
+      }
+      if (swapWith === -1) {
+        for (let j = i - maxConsecutive - 1; j >= 0; j -= 1) {
+          if (trySwap(i, j)) { swapWith = j; break; }
+        }
+      }
+      if (swapWith === -1) continue;
+      [result[i], result[swapWith]] = [result[swapWith], result[i]];
+      fixedAny = true;
+    }
+    if (!fixedAny) break;
   }
   return result;
 }

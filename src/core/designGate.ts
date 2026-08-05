@@ -488,6 +488,64 @@ function moneyChordAdvisoryIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
 }
 
 // ---------------------------------------------------------------------------
+// 편곡 밀도 (arrangementDensity) — v4.16 (TASK B)
+// ---------------------------------------------------------------------------
+/**
+ * v4.16 (TASK B, §2-5) — real listening on a senior set found 12/18 tracks
+ * reading as 'full' density (v4.9's own 6:6:6 split, as actually rendered
+ * by Suno and heard by ear) — too dense to feel calm regardless of tempo/
+ * percussion fixes. Blocking, not advisory — §2-3's own explicit "full 을
+ * 4곡 이하로 제한하는 것이 핵심".
+ */
+function arrangementDensityBlockingIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+  const densities = slots.map(slot => slot.arrangementDensity).filter((d): d is 'sparse' | 'medium' | 'full' => Boolean(d));
+  if (!densities.length) return [];
+  const fullCount = densities.filter(d => d === 'full').length;
+  if (fullCount <= 4) return [];
+  return [issue({
+    id: 'arrangement-density-full-max',
+    labelKo: '편곡 밀도 full 최대 곡수',
+    expected: '≤ 4곡',
+    actual: `${fullCount}곡`,
+    fixHintKo: 'full 밀도가 너무 많습니다 — sparse/medium 비중을 늘리세요.'
+  })];
+}
+
+/**
+ * v4.16 (TASK B, §2-5) — advisory only (a short/small pack legitimately
+ * can't hit 6 medium tracks): medium < 6곡, and 3곡 이상 같은 밀도 연속
+ * (batchPreallocation.ts/localGenerator.ts already cap runs at 2 via
+ * breakLongRuns, so this only ever fires for a manual allocation edge case
+ * that bypasses that pass — see tests/v347step3.test.ts's own doc comment).
+ */
+function arrangementDensityAdvisoryIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+  const densities = slots.map(slot => slot.arrangementDensity).filter((d): d is 'sparse' | 'medium' | 'full' => Boolean(d));
+  if (!densities.length) return [];
+  const issues: DesignIssue[] = [];
+  const mediumCount = densities.filter(d => d === 'medium').length;
+  if (mediumCount < 6) {
+    issues.push(issue({
+      id: 'arrangement-density-medium-min',
+      labelKo: '편곡 밀도 medium 최소 곡수',
+      expected: '≥ 6곡',
+      actual: `${mediumCount}곡`,
+      fixHintKo: 'medium 밀도가 적습니다 — 편곡 밀도 배분을 다시 확인하세요.'
+    }));
+  }
+  const runLength = longestRun(densities);
+  if (runLength >= 3) {
+    issues.push(issue({
+      id: 'arrangement-density-consecutive',
+      labelKo: '같은 편곡 밀도 연속',
+      expected: '≤ 2곡 연속',
+      actual: `${runLength}곡 연속`,
+      fixHintKo: '같은 밀도가 3곡 이상 연달아 배치됐습니다.'
+    }));
+  }
+  return issues;
+}
+
+// ---------------------------------------------------------------------------
 // 시대 (era-primary-share / era-forbidden / era-unspecified-share)
 // ---------------------------------------------------------------------------
 function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssue[] {
@@ -625,14 +683,16 @@ export function evaluateDesignGate(
     ...eraIssues(slots, constraints.era),
     ...killingPointAndArcIssues(slots, opts.songCount),
     ...paletteCoverageIssues(slots, opts),
-    ...moneyChordBlockingIssues(slots)
+    ...moneyChordBlockingIssues(slots),
+    ...arrangementDensityBlockingIssues(slots)
   ];
   const advisory: DesignIssue[] = [
     ...vocabularyForecastAdvisory(constraints),
     // v4.6 (TASK C, §3-4) — moved from blocking (see songLengthIssues's own
     // updated doc comment for why).
     ...songLengthIssues(slots),
-    ...moneyChordAdvisoryIssues(slots)
+    ...moneyChordAdvisoryIssues(slots),
+    ...arrangementDensityAdvisoryIssues(slots)
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

@@ -30,9 +30,9 @@ describe('[v3.61 TASK D] SENIOR_AUDIENCE_PROFILE documents warmth/gentleness as 
     }
   });
 
-  it('keeps tempoFloor/tempoCeiling/lyricWordRange unchanged', () => {
+  it('keeps tempoFloor/lyricWordRange unchanged; tempoCeiling lowered by v4.16 (TASK A, 112 -> 100 — see audienceProfiles.ts\'s own doc comment)', () => {
     expect(SENIOR_AUDIENCE_PROFILE.tempoFloor).toBe(62);
-    expect(SENIOR_AUDIENCE_PROFILE.tempoCeiling).toBe(112);
+    expect(SENIOR_AUDIENCE_PROFILE.tempoCeiling).toBe(100);
     expect(SENIOR_AUDIENCE_PROFILE.lyricWordRange).toEqual([200, 250]);
   });
 });

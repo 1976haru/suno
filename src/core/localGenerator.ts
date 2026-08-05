@@ -2,7 +2,7 @@ import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, Moo
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
 import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
@@ -160,13 +160,27 @@ export const emotionArcsBrightToWistful = [
   'bright laughter softening into a quiet farewell'
 ];
 
-/** TASK v3.67 (TASK D) — which pool(s) an arc phase draws its emotionArc from, per this task's own phase table (5-3). */
+/**
+ * TASK v3.67 (TASK D) — which pool(s) an arc phase draws its emotionArc from, per this task's own phase table (5-3).
+ *
+ * v4.16 (TASK D, §4-2/§4-3) — 'rising' no longer draws emotionArcsBrightOpening.
+ * Real listening found "상승·밝음" reading as 5 songs against a 3-4 target —
+ * ARC_PHASES' own 'rising' phase (5 tracks, arcPlan.ts) was the source: it
+ * mixed in the genuinely bright/joyful shapes on top of the neutral
+ * dark-to-light baseline. Only 'peak' (3 tracks, arc position 9-11 for an
+ * 18-song set) still draws bright shapes now — matching this task's own
+ * "밝은 곡 3~4곡... peak 구간에 배치" exactly, with the freed 'rising' share
+ * moved to emotionArcsCalmThroughout instead (§4-3's own "나머지를 차분
+ * 쪽으로 옮기십시오"). ARC_PHASES' own shareOf18 numbers are untouched — this
+ * only changes which POOL a phase draws from, not the phase structure
+ * itself (this task's own "구조 변경은 없습니다").
+ */
 export function emotionArcPoolForPhase(phase: ArcPhase): string[] {
   switch (phase) {
     case 'opening':
       return [...emotionArcsCalmThroughout, ...emotionArcs];
     case 'rising':
-      return [...emotionArcs, ...emotionArcsBrightOpening];
+      return [...emotionArcs, ...emotionArcsCalmThroughout];
     case 'peak':
       return [...emotionArcsStrongLift, ...emotionArcsBrightOpening];
     case 'easing':
@@ -1053,8 +1067,9 @@ export function generateLocalBlueprint(
   // manual count distribution survives exactly.
   const structureTemplatePlan = repairStructureTemplatePlanForBpm(autoStructureTemplatePlan, bpmProxyByIndex);
   // TASK v3.67 (TASK C) — same reorder-not-recompute treatment as
-  // tempoBandPlan above: arrangementDensityLevel's own round-robin values
-  // are unchanged, only WHICH track gets which of sparse/medium/full is
+  // tempoBandPlan above: buildArrangementDensityPlan's own weighted values
+  // (v4.16 TASK B — 3:4:2 sparse:medium:full, see promptComposer.ts) are
+  // unchanged, only WHICH track gets which of sparse/medium/full is
   // realigned to the arc (peak tracks skew toward 'full', closing toward
   // 'sparse'). Only takes effect when arrangementDensity isn't manually
   // overridden — applyAxisAllocation returns the manual plan untouched
@@ -1062,7 +1077,7 @@ export function generateLocalBlueprint(
   const arrangementDensityRank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
   const autoOrManualArrangementDensityPlan = applyAxisAllocation(
     reorderByArcIntensity(
-      Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+      buildArrangementDensityPlan(opts.songCount, seed),
       arcPlan,
       level => arrangementDensityRank[level]
     ),

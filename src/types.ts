@@ -1013,7 +1013,7 @@ export interface PreassignedSongSlot {
   instrumentSet?: string[];
   /**
    * TASK v3.43 Step 2 (Part A3) — this trackNo's arrangement-weight level
-   * (see core/promptComposer.ts's arrangementDensityLevel /
+   * (see core/promptComposer.ts's buildArrangementDensityPlan /
    * ARRANGEMENT_DENSITY_TEXT_BY_LEVEL for the level->descriptive-text
    * lookup used to weave/verify this in a stylePrompt). Kept as the bare
    * enum tag (not pre-composed text) to match moneyChordPlan-style rotation

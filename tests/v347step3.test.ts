@@ -54,7 +54,22 @@ describe('[v3.47 Step 3] diversity allocation core', () => {
     const slots = preallocateSongSlots(opts, channelGenres(showaChannel.id));
     expect(slots.slice(0, 2).every(slot => slot.introTextureId === introId)).toBe(true);
     expect(slots).toHaveLength(5);
-    expect(slots.slice(0, 3).map(slot => slot.arrangementDensity)).toEqual(['full', 'full', 'full']);
+    // v4.16 (TASK B) — the manual `{full: 3}` request only covers 3 of 5
+    // songs; the other 2 are auto-filled from buildArrangementDensityPlan's
+    // new weighted (not 1:1:1) distribution. Under the old even split, that
+    // 2-song auto-fill never happened to also contain a 'sparse'/'medium',
+    // so v3.80's cold-open/flagship density pin (positions 0-2 forced to
+    // medium/sparse/sparse — see arcPlan.ts's pinPrefixPreservingCounts)
+    // skipped (its own data-driven guard: only pins when all 3 levels are
+    // actually present). The new weighted auto-fill DOES now produce all 3
+    // levels for this seed, so the pin fires — this is the same pre-existing
+    // "manual totals only, not manual positions" tradeoff
+    // batchPreallocation.ts's own doc comment already documents, just newly
+    // reachable with the new distribution. Real production never hits the
+    // shortfall path this test exercises (setDirector.ts's directSetLocal
+    // always supplies counts covering every song), so this remains a
+    // synthetic edge case, not a production regression.
+    expect(slots.slice(0, 3).map(slot => slot.arrangementDensity)).toEqual(['medium', 'sparse', 'sparse']);
   });
 
   it('manual kids vocal counts replace the old internal-only quota path', () => {

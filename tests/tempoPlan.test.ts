@@ -3,7 +3,8 @@ import { buildTempoBandPlan, resolveTempoWithBand } from '../src/core/tempoPlan'
 import { SENIOR_TEMPO_BANDS, audienceProfileForAgeGroup, SENIOR_AUDIENCE_PROFILE, GENERAL_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
 
 describe('[v3.58 TASK 4] buildTempoBandPlan', () => {
-  it('assigns exactly songCount bands, matching the 18-song default shares (3/5/6/4)', () => {
+  // v4.16 (TASK A) — re-centered bands/shares (4/6/5/3), see audienceProfiles.ts's SENIOR_TEMPO_BANDS own doc comment.
+  it('assigns exactly songCount bands, matching the 18-song default shares (4/6/5/3)', () => {
     const plan = buildTempoBandPlan(SENIOR_TEMPO_BANDS, 18, 42);
     expect(plan).toHaveLength(18);
     const counts = new Map<string, number>();
@@ -11,10 +12,10 @@ describe('[v3.58 TASK 4] buildTempoBandPlan', () => {
       const key = `${band.low}-${band.high}`;
       counts.set(key, (counts.get(key) || 0) + 1);
     }
-    expect(counts.get('62-78')).toBe(3);
-    expect(counts.get('80-92')).toBe(5);
-    expect(counts.get('94-104')).toBe(6);
-    expect(counts.get('106-112')).toBe(4);
+    expect(counts.get('62-72')).toBe(4);
+    expect(counts.get('73-84')).toBe(6);
+    expect(counts.get('85-94')).toBe(5);
+    expect(counts.get('95-100')).toBe(3);
   });
 
   it('scales proportionally for other songCounts and always sums to songCount', () => {

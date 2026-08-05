@@ -134,13 +134,16 @@ describe('[v3.80 TASK A] flagship slot spec — real 18-song senior packs via pr
       expect(slots[2].killingPointId).toBeDefined();
     });
 
-    it(`"${concept}": arrangementDensity is pinned medium/sparse/sparse for tracks 1-3, exact 6:6:6 overall, no run > 2`, () => {
+    it(`"${concept}": arrangementDensity is pinned medium/sparse/sparse for tracks 1-3, exact 6:8:4 overall (v4.16), no run > 2`, () => {
       const { slots } = realPack(concept);
       const density = slots.map(s => s.arrangementDensity);
       expect(density.slice(0, 3)).toEqual(['medium', 'sparse', 'sparse']);
       const counts = { sparse: 0, medium: 0, full: 0 } as Record<string, number>;
       for (const d of density) counts[d!] += 1;
-      expect(counts).toEqual({ sparse: 6, medium: 6, full: 6 });
+      // v4.16 (TASK B) — weighted 3:4:2 (sparse:medium:full), not an even
+      // split — real listening found 12/18 full-density tracks under the
+      // old 6:6:6 split, too dense for a senior "차분한" set.
+      expect(counts).toEqual({ sparse: 6, medium: 8, full: 4 });
       let run = 1;
       for (let i = 1; i < density.length; i++) {
         run = density[i] === density[i - 1] ? run + 1 : 1;

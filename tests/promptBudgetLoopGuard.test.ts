@@ -3,8 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { conceptStyleText } from '../src/core/conceptDiversity';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { composeStylePrompt, ESSENTIAL_TERM_IDS, STYLE_PROMPT_OVER_LIMIT_WARNING, SUNO_COPY_LIMIT } from '../src/core/promptBudget';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from '../src/core/promptComposer';
 import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks } from './fixtures';
 import type { ChannelProfile, GenrePack } from '../src/types';
+
+// v4.16 (TASK B) — same "shared boilerplate, not genre-identity" exclusion
+// core/diversityLinter.ts's own stylePromptClauseSet now applies (split by
+// comma — see that file's own doc comment on why 'medium'/'sparse' can't be
+// matched as one un-split phrase).
+const ARRANGEMENT_DENSITY_CLAUSES = new Set(
+  Object.values(ARRANGEMENT_DENSITY_TEXT_BY_LEVEL).flatMap(text => text.split(',').map(fragment => fragment.trim().toLowerCase()))
+);
 
 function moodsForChannel(channel: ChannelProfile) {
   const moods = moodPacks.filter(mood => channel.preferredMoods.includes(mood.id));
@@ -68,6 +77,7 @@ function musicClauseSet(prompt: string): Set<string> {
       // idx-0 slot always gets one), same shared-boilerplate category as the
       // hook-repeat/vocal/progression filters above.
       .filter(clause => !/full arrangement from the first bar|no quiet fade-in|opening is as loud and full as the chorus/.test(clause))
+      .filter(clause => !ARRANGEMENT_DENSITY_CLAUSES.has(clause))
       .filter(Boolean)
   );
 }

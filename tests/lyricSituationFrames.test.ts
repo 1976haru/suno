@@ -63,6 +63,37 @@ describe('[v3.64 TASK A] lyric situation frame diversity', () => {
     expect(overlap.length).toBeGreaterThan(0);
   });
 
+  // v4.16 (TASK D, §4-2/§4-3) — real listening: "상승·밝음" emotionArc read as
+  // 5/18 songs (too many for a calm senior set), traced to the pool's own
+  // summer-night/dance-saturday/city-lights-electric-excitement themes'
+  // normal ~2-songs-each round-robin share. lyricDiversityPlan.ts's
+  // capBrightLyricThemes caps this at 4 (upper bound only — see that
+  // function's own doc comment for why no lower bound is enforced).
+  const BRIGHT_LYRIC_THEME_IDS = new Set([
+    'senior-convertible-radio-night',
+    'senior-boardwalk-summer-lights',
+    'senior-saturday-dance-hall',
+    'senior-getting-ready-saturday',
+    'senior-neon-downtown-friday'
+  ]);
+
+  it('caps genuinely bright/high-energy senior themes at 4 songs across several seeds', () => {
+    const opts = makeOptions({ channel: seniorChannel, songCount: 18 });
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const plan = buildLyricThemePlan(opts, seed);
+      const brightCount = plan.filter(id => BRIGHT_LYRIC_THEME_IDS.has(id)).length;
+      expect(brightCount, `seed ${seed}`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('never produces a duplicate id even after the bright-theme cap swaps some picks out', () => {
+    const opts = makeOptions({ channel: seniorChannel, songCount: 18 });
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const plan = buildLyricThemePlan(opts, seed);
+      expect(new Set(plan).size, `seed ${seed}`).toBe(plan.length);
+    }
+  });
+
   it('kids archetype (no frameId tags at all) keeps its exact pre-v3.64 stride behavior', () => {
     const kidsChannel = channelPresets.find(channel => channel.archetype === 'kids')!;
     const kidsThemes = lyricThemesForArchetype('kids');

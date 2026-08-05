@@ -4,7 +4,25 @@ import { genrePacks } from '../data/presets';
 import { getCoreGenreIdsForArchetype } from '../data/genreLibrary';
 import { compactGenreKeyword, compactVocalAtom } from './soundSignature';
 import { CHANNEL_SOUND_FLOORS } from '../data/channelSoundFloor';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from './promptComposer';
 import type { SavedPack } from '../types';
+
+// v4.16 (TASK B) — arrangementDensity's own descriptive phrase (sparse/
+// medium/full) is an audience/arc-structural axis, not a genre-identity
+// signal — the same "shared boilerplate, not real similarity" category as
+// BPM/vocal/progression/hook-repeat below. The old regex here
+// ("arrangement with strings pad") targeted a pre-v4.8 wording that no
+// longer exists (v4.8 shortened sparse/full's own phrases), so it silently
+// stopped matching anything; this checks the 3 CURRENT phrases directly
+// instead of a regex that can go stale again the next time the wording
+// changes. Split by comma (same granularity stylePromptClauseSet itself
+// splits the whole prompt at) since 'medium'/'sparse' each contain an
+// internal comma of their own ("moderate arrangement, a few instruments at
+// a time") — comparing against the un-split whole phrase would never match
+// once the prompt's own comma-split already broke it into two fragments.
+const ARRANGEMENT_DENSITY_CLAUSES = new Set(
+  Object.values(ARRANGEMENT_DENSITY_TEXT_BY_LEVEL).flatMap(text => text.split(',').map(fragment => fragment.trim().toLowerCase()))
+);
 
 // TASK v4.7 (TASK A, §1-4) — "공유 원자 검사(<= 5개)에서 이 3개는 예외 처리
 //하십시오." channelSoundFloor.requiredAtoms are DELIBERATELY identical in
@@ -242,7 +260,8 @@ function stylePromptClauseSet(stylePrompt: string): Set<string> {
       .filter(clause => !/\b(vocal|voice|tenor|alto|soprano|choir|singer)\b/.test(clause))
       .filter(clause => !/progression|3:10-3:35|short intro|radio edit|complete song/.test(clause))
       .filter(clause => !/^concept (cue|emphasis):/.test(clause))
-      .filter(clause => !/hook heard immediately|intro only|arrangement with strings pad|nostalgic$/.test(clause))
+      .filter(clause => !/hook heard immediately|intro only|nostalgic$/.test(clause))
+      .filter(clause => !ARRANGEMENT_DENSITY_CLAUSES.has(clause))
       .filter(clause => !SOUND_FLOOR_REQUIRED_ATOMS.has(clause))
       .filter(Boolean)
   );

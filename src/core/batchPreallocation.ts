@@ -4,7 +4,7 @@ import { averageTempo, emotionArcPlanForArc, nextContestedTitle, songRolePlanFor
 import { buildTempoBandPlan } from './tempoPlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, arrangementDensityLevel, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
@@ -486,7 +486,7 @@ export function preallocateSongSlots(
   const arrangementDensityRank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
   const autoOrManualArrangementDensityPlan = applyAxisAllocation(
     reorderByArcIntensity(
-      Array.from({ length: opts.songCount }, (_, idx) => arrangementDensityLevel(seed, idx)),
+      buildArrangementDensityPlan(opts.songCount, seed),
       arcPlan,
       level => arrangementDensityRank[level]
     ),
@@ -497,13 +497,13 @@ export function preallocateSongSlots(
   );
   // v3.80 (TASK A-1) — flagship slots (tracks 2-3) forced sparse, cold-open
   // (track 1) forced medium (not dry/full), per this task's own explicit
-  // per-slot density spec. Re-runs breakLongRuns afterward — pinning 3 of a
-  // 6:6:6 split can create a fresh run right at the position-2/3 seam that
-  // the pre-pin pass never saw (see arcPlan.ts's own breakLongRuns doc
-  // comment). Preserves the overall count split either way
+  // per-slot density spec. Re-runs breakLongRuns afterward — pinning 3 of an
+  // (v4.16) 6:8:4 split can create a fresh run right at the position-2/3
+  // seam that the pre-pin pass never saw (see arcPlan.ts's own breakLongRuns
+  // doc comment). Preserves the overall count split either way
   // (pinPrefixPreservingCounts) — 'manual' here only ever fixes TOTALS
   // (setDirector.ts's directSetLocal always sets arrangementDensity to
-  // 'manual' with its own default 6/6/6 counts), so pinning positions 0-2
+  // 'manual' with its own weighted default counts, v4.16), so pinning positions 0-2
   // never overrides anything a user actually hand-picked. Data-driven guard
   // instead of a manual/auto check, same reasoning as vocalPlanHasAllThreeTypes
   // above: skips only when the plan doesn't actually contain all 3 levels

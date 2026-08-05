@@ -78,10 +78,16 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(max).toBeLessThanOrEqual(0.665);
   });
 
-  it('BPM 표준편차 — 13.42 허용 ±0.5', () => {
+  // v4.16 (TASK A) — 13.42 -> ~11.63 (실측): tempoCeiling 112 -> 100 +
+  // SENIOR_TEMPO_BANDS re-centered onto the new 7080-referenced range
+  // (audienceProfiles.ts). A narrower absolute BPM span (62~100 = 38, was
+  // 62~112 = 50) naturally lowers stddev even though the distribution is
+  // still well-spread across all 4 bands — still comfortably above the
+  // design-gate's own stddevFloor (see core/designGate.ts's BREADTH_THRESHOLDS).
+  it('BPM 표준편차 — 11.63 허용 ±0.5', () => {
     const bpms = bp.songs.map(s => s.bpm).filter((b): b is number => typeof b === 'number');
-    expect(stddev(bpms)).toBeGreaterThanOrEqual(12.92);
-    expect(stddev(bpms)).toBeLessThanOrEqual(13.92);
+    expect(stddev(bpms)).toBeGreaterThanOrEqual(11.13);
+    expect(stddev(bpms)).toBeLessThanOrEqual(12.13);
   });
 
   it('프롬프트 길이 min/avg/max — 715/786/898 허용 ±20', () => {

@@ -551,25 +551,66 @@ const ARRANGEMENT_DENSITY_LEVELS: ArrangementDensityLevel[] = ['sparse', 'medium
  * this array's internal ordering.
  */
 // TASK v4.8 (TASK A) — 'sparse'/'full' shortened (11 words -> 4, 8 words -> 3).
+// TASK v4.16 (TASK B) — 'medium''s old phrase ("balanced small-combo
+// arrangement") gave Suno no restrictive cue the way sparse's "lots of
+// space" or full's "full layered... with strings" do; a real 18-song
+// listen classified 0 songs as medium (12 read as full, 6 as sparse) even
+// though the phrase was correctly present in every medium-tagged prompt.
+// This phrase is deliberately as restrictive as sparse's own ("a few
+// instruments at a time" vs "lots of space") so a listener has something
+// concrete to distinguish it from full.
 export const ARRANGEMENT_DENSITY_TEXT_BY_LEVEL: Record<ArrangementDensityLevel, string> = {
   sparse: 'spare, voice-forward arrangement, lots of space',
-  medium: 'balanced small-combo arrangement',
+  medium: 'moderate arrangement, a few instruments at a time',
   full: 'full layered arrangement with strings'
 };
 
 /**
- * TASK v3.43 Step 2 (Part A3) — extracted so a caller that needs the bare
- * level tag (PreassignedSongSlot.arrangementDensity) doesn't have to
- * reverse-look-up arrangementDensityText's output. Same index math as
- * before (unchanged), so arrangementDensityText's own output is unaffected.
+ * TASK v4.16 (TASK B) — sparse:medium:full weighted 3:4:2 (6:8:4 for an
+ * 18-song set) instead of the old 1:1:1 split. §2-3's own explicit target:
+ * "full 을 4곡 이하로 제한하는 것이 핵심" — a senior set with 12/18 full-density
+ * tracks (v4.9's 6:6:6 as actually measured) reads as too dense to feel
+ * calm regardless of tempo/percussion. Same largest-remainder scaling
+ * core/tempoPlan.ts's scaleBandCounts already uses for SENIOR_TEMPO_BANDS,
+ * so any songCount (not just 18) still sums exactly.
  */
-export function arrangementDensityLevel(seed: number, index: number): ArrangementDensityLevel {
-  const offset = Math.abs(seed) % ARRANGEMENT_DENSITY_LEVELS.length;
-  return ARRANGEMENT_DENSITY_LEVELS[(index + offset) % ARRANGEMENT_DENSITY_LEVELS.length];
+const ARRANGEMENT_DENSITY_WEIGHTS: Record<ArrangementDensityLevel, number> = {
+  sparse: 3,
+  medium: 4,
+  full: 2
+};
+
+export function arrangementDensityCounts(songCount: number): Record<ArrangementDensityLevel, number> {
+  const totalWeight = ARRANGEMENT_DENSITY_LEVELS.reduce((sum, level) => sum + ARRANGEMENT_DENSITY_WEIGHTS[level], 0);
+  const raw = ARRANGEMENT_DENSITY_LEVELS.map(level => (ARRANGEMENT_DENSITY_WEIGHTS[level] / totalWeight) * songCount);
+  const floors = raw.map(Math.floor);
+  let remainder = songCount - floors.reduce((sum, value) => sum + value, 0);
+  const byFraction = raw
+    .map((value, index) => ({ index, fraction: value - floors[index] }))
+    .sort((a, b) => b.fraction - a.fraction);
+  const counts = [...floors];
+  for (let k = 0; k < byFraction.length && remainder > 0; k += 1, remainder -= 1) counts[byFraction[k].index] += 1;
+  const result = {} as Record<ArrangementDensityLevel, number>;
+  ARRANGEMENT_DENSITY_LEVELS.forEach((level, index) => { result[level] = counts[index]; });
+  return result;
 }
 
-export function arrangementDensityText(seed: number, index: number): string {
-  return ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[arrangementDensityLevel(seed, index)];
+/**
+ * TASK v4.16 (TASK B) — replaces the old per-index arrangementDensityLevel
+ * round-robin (which could only ever produce an even 1:1:1 split) with a
+ * weighted-then-shuffled plan, same shape as core/tempoPlan.ts's
+ * buildTempoBandPlan. Seed-deterministic (same seed+songCount always
+ * produces the same plan, only reordered by seed — see that module's own
+ * doc comment on why this matters for reproducibility).
+ */
+export function buildArrangementDensityPlan(songCount: number, seed: number): ArrangementDensityLevel[] {
+  if (songCount <= 0) return [];
+  const counts = arrangementDensityCounts(songCount);
+  const flat: ArrangementDensityLevel[] = [];
+  ARRANGEMENT_DENSITY_LEVELS.forEach(level => {
+    for (let n = 0; n < counts[level]; n += 1) flat.push(level);
+  });
+  return shuffle(flat, seed + 4016).slice(0, songCount);
 }
 
 /**

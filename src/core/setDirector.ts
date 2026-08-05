@@ -17,7 +17,6 @@ import { isKidsArchetype } from '../utils/channelArchetype';
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
-  ARRANGEMENT_DENSITY_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan } from './lyricDiversityPlan';
@@ -30,6 +29,7 @@ import {
   type DecomposedReference
 } from './artistReferenceDecomposer';
 import { preallocateSongSlots } from './batchPreallocation';
+import { arrangementDensityCounts } from './promptComposer';
 import { killingPointById } from '../data/killingPoints';
 import { GENRE_FAMILIES, membersPerFamilyForSelection, type GenreFamily } from '../data/genreFamilies';
 import { PALETTE_FAMILIES, genreIdsForFamilyAndCompatible, genreIdsForPaletteFamily, paletteFamilyForGenreId } from '../data/paletteFamilies';
@@ -676,7 +676,10 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
     { axis: 'vocalType', mode: 'manual', counts: resolveVocalCounts(channel, songCount, vocalTone) },
     { axis: 'introTexture', mode: 'manual', counts: countsFromSlots(introIds, songCount, 4) },
     { axis: 'hookDevice', mode: 'manual', counts: countsFromSlots(hookIds, songCount, 4) },
-    { axis: 'arrangementDensity', mode: 'manual', counts: exactBalancedCounts(ARRANGEMENT_DENSITY_IDS, songCount) },
+    // v4.16 (TASK B) — weighted 3:4:2 (sparse:medium:full, see promptComposer.ts's
+    // arrangementDensityCounts), not an even split — §2-3's own explicit
+    // "full 을 4곡 이하로 제한하는 것이 핵심".
+    { axis: 'arrangementDensity', mode: 'manual', counts: arrangementDensityCounts(songCount) },
     { axis: 'structureTemplate', mode: 'manual', counts: exactBalancedCounts(structureIds, songCount) },
     { axis: 'lyricTheme', mode: 'manual', counts: lyricThemeCounts },
     { axis: 'pov', mode: 'manual', counts: povCounts(songCount) }

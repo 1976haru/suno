@@ -58,6 +58,24 @@ export interface EraCanonPalette {
    */
   vocalTraits: string[];
   productionTraits: string[];
+  /**
+   * v4.16 (TASK C) — real listening: tambourine appeared in 8/18 songs
+   * (44%) because it's the British-beat palette's own signature instrument
+   * and that palette's genres got selected often; a senior set that
+   * percussion-forward can't read as calm regardless of tempo/arrangement
+   * fixes. 'brushed' (soft, spacious — folk-duo/soft-pop-duo/country-folk/
+   * crooner-standard/piano-orchestral-ballad/warm-gentle-acoustic/
+   * quiet-storm-synth), 'light' (some rhythmic presence, not driving —
+   * soft-rock-band/europop-glow/doowop-girlgroup/showa-kayokyoku), 'driving'
+   * (tambourine-forward backbeat energy, kept deliberately rare —
+   * british-beat/motown-soul/soulful-rnb). §3-3's own target: brushed >=10
+   * songs, light 4-6, driving <=4 across an 18-song set — this field only
+   * TAGS each palette's own character; it doesn't itself enforce that set-
+   * level distribution (no genre-selection code changed — see this task's
+   * own explicit "팔레트를 바꾸지 마십시오. 타악 성향만 추가하는 것입니다"),
+   * verified instead by real measurement (docs/v416-report.md).
+   */
+  percussionStyle: 'brushed' | 'light' | 'driving';
   /** Authoring reference only. Never read by prompt-building code, never surfaced to the user or the LLM. */
   koreanReferenceNote: string;
 }
@@ -102,8 +120,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     productionTraits: [
       'narrow warm stereo image',
       'close dry vocal with a short natural room tail',
-      'tape compression on the acoustic guitars'
+      'tape compression on the acoustic guitars',
+      // v4.16 (TASK C, §3-4) — no explicit percussion phrase existed here before.
+      'brushed drums with soft rim work'
     ],
+    percussionStyle: 'brushed',
     koreanReferenceNote: '사이먼과 가펑클 계열. 한국 라디오 7080 대표'
   },
   {
@@ -132,6 +153,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'almost no reverb on the lead vocal',
       'smooth compressed studio mix'
     ],
+    percussionStyle: 'brushed',
     koreanReferenceNote: '카펜터스 계열'
   },
   {
@@ -158,8 +180,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     productionTraits: [
       'bright wide studio mix',
       'layered double-tracked lead vocal',
-      'plate reverb on the chorus only'
+      'plate reverb on the chorus only',
+      // v4.16 (TASK C, §3-4) — no explicit percussion phrase existed here before.
+      'shaker and light hi-hat'
     ],
+    percussionStyle: 'light',
     koreanReferenceNote: '아바 계열'
   },
   {
@@ -186,8 +211,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     productionTraits: [
       'narrow warm mono-leaning mix',
       'natural room reverb',
-      'tape compression on the drums'
+      'tape compression on the drums',
+      // v4.16 (TASK C, §3-4) — reinforces this palette's driving character.
+      'crisp snare backbeat'
     ],
+    percussionStyle: 'driving',
     koreanReferenceNote: '비틀즈 계열'
   },
   {
@@ -214,6 +242,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'dry natural room',
       'wide acoustic guitars, centred vocal'
     ],
+    percussionStyle: 'brushed',
     koreanReferenceNote: '존 덴버·이글스 계열'
   },
   {
@@ -251,6 +280,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'wide orchestral hall ambience',
       'vocal forward over the strings'
     ],
+    percussionStyle: 'brushed',
     koreanReferenceNote: '톰 존스·엥겔베르트 계열'
   },
   {
@@ -274,8 +304,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     productionTraits: [
       'warm AM-radio compression',
-      'balanced stereo with guitars panned'
+      'balanced stereo with guitars panned',
+      // v4.16 (TASK C, §3-4) — no explicit percussion phrase existed here before.
+      'light kit with soft snare'
     ],
+    percussionStyle: 'light',
     koreanReferenceNote: '이글스·아메리카·브레드 계열'
   },
   // TASK v4.7 (팔레트 커버리지 확장) — 7 new palettes below close the gap this
@@ -311,8 +344,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     productionTraits: [
       'tight punchy soul-pop mix',
-      'velvet orchestral soul warmth'
+      'velvet orchestral soul warmth',
+      // v4.16 (TASK C, §3-4) — reinforces this palette's driving character.
+      'crisp snare backbeat'
     ],
+    percussionStyle: 'driving',
     koreanReferenceNote: '모타운·필리 소울 계열 (스티비 원더, 슈프림스, 델포닉스 등)'
   },
   {
@@ -339,8 +375,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     productionTraits: [
       'narrow warm mono-leaning mix',
       'layered wall-of-sound reverb that never buries the lead',
-      'bright compact single-era studio mix'
+      'bright compact single-era studio mix',
+      // v4.16 (TASK C, §3-4) — reinforces this palette's light (not driving) character.
+      'shaker and light hi-hat'
     ],
+    percussionStyle: 'light',
     koreanReferenceNote: '두왑·걸그룹 월오브사운드 계열 (플래터스, 로네츠 등)'
   },
   {
@@ -386,6 +425,7 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'wide hall ambience opening only at the climax',
       'close piano mic blending into a fuller room by the chorus'
     ],
+    percussionStyle: 'brushed',
     koreanReferenceNote: '70~80년대 피아노·오케스트라 발라드 계열'
   },
   {
@@ -425,8 +465,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'natural unprocessed room tone',
       'gentle tape-like warmth with no hard edges',
       'quiet room tone with almost no processing',
-      'close-mic warmth, nothing pushed too bright'
+      'close-mic warmth, nothing pushed too bright',
+      // v4.16 (TASK C, §3-4) — no explicit percussion phrase existed here before.
+      'minimal percussion, brushes only'
     ],
+    percussionStyle: 'brushed',
     koreanReferenceNote: '시대 불문 따뜻한 어쿠스틱 계열'
   },
   {
@@ -463,6 +506,11 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       // that extra consumer from tightening the pool further.
       'unhurried close-mic intimacy'
     ],
+    // v4.16 (TASK C) — not named in the spec's own §3-2 table; classified
+    // 'brushed' by the same reasoning as the other 6 (already carries "soft
+    // brushed drums" in its own instrumentation above, calm quiet-storm
+    // register).
+    percussionStyle: 'brushed',
     koreanReferenceNote: '80년대 콰이어트스톰·라이트 신스팝 계열'
   },
   {
@@ -486,8 +534,15 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     productionTraits: [
       'analog tape saturation, spring and plate reverb',
-      'narrow stereo image'
+      'narrow stereo image',
+      // v4.16 (TASK C, §3-4) — no explicit percussion phrase existed here before.
+      'light kit with soft snare'
     ],
+    // v4.16 (TASK C) — not named in the spec's own §3-2 table; classified
+    // 'light' (groove-oriented per its own eraTag, but no tambourine/driving
+    // backbeat character in its instrumentation — brass/strings/clavinet/wah
+    // guitar, not percussion-forward).
+    percussionStyle: 'light',
     koreanReferenceNote: '1970년대 일본 가요쿄쿠·뉴뮤직·쇼와 그루브 계열'
   },
   {
@@ -522,8 +577,17 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     productionTraits: [
       'polished low-end focus',
-      'soft backbeat, hand-played pocket'
+      'soft backbeat, hand-played pocket',
+      // v4.16 (TASK C, §3-4) — reinforces this palette's driving character
+      // WITHOUT adding a 3rd tambourine source (§3-4's own "탬버린은
+      // driving 에만 두십시오" is about which INSTRUMENT carries the
+      // signature, not that every driving palette must use it — british-beat/
+      // motown-soul already carry it; keeping tambourine to just those two
+      // keeps its real-set appearance count naturally low, per §3-3's own
+      // "최대 4곡").
+      'crisp snare backbeat'
     ],
+    percussionStyle: 'driving',
     koreanReferenceNote: '따뜻한 빈티지 성향 소울·R&B 계열'
   }
 ];

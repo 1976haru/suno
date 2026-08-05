@@ -76,8 +76,14 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     // replaces the other.
     'cavernous hall reverb'
   ],
+  // v4.16 (TASK A) — 112 -> 100: real listening comparison against 10 real
+  // 70s/80s standards (Carpenters/Simon & Garfunkel-era) found 8/10 at or
+  // below 88 BPM, while this set's own median ran 96 — the ceiling itself
+  // had no real basis (v3.58's own doc note: "근거 없이 넓게 잡음"). Range
+  // width (62~100 = 38) still clears BREADTH_THRESHOLDS' stddevFloor/
+  // rangeFloor bars — see SENIOR_TEMPO_BANDS below (also rebalanced).
   tempoFloor: 62,
-  tempoCeiling: 112,
+  tempoCeiling: 100,
   lyricWordRange: [200, 250],
   /** v3.73 (TASK A) — 3:10-3:35, matching core/soundSignature.ts's own compactDuration() text for this archetype and the real-listening target TASK v3.71/v3.72 already measured against. */
   songLengthSecondsRange: [190, 215],
@@ -392,11 +398,17 @@ export interface TempoBand {
   shareOf18: number;
 }
 
+// v4.16 (TASK A, §1-2) — re-centered from a 92-100-heavy shape (median 96)
+// toward the 7080-standard-referenced range (10 real Carpenters/Simon &
+// Garfunkel-era standards averaged 83 BPM, median 82) — median target 78-86
+// (§4-2 completion table). Range width (62~100 = 38) still clears the
+// BREADTH_THRESHOLDS stddev/range floor, so §2-3's "표준편차 기준을 낮추지
+// 말 것" holds without any threshold change.
 export const SENIOR_TEMPO_BANDS: TempoBand[] = [
-  { low: 62, high: 78, shareOf18: 3 },
-  { low: 80, high: 92, shareOf18: 5 },
-  { low: 94, high: 104, shareOf18: 6 },
-  { low: 106, high: 112, shareOf18: 4 }
+  { low: 62, high: 72, shareOf18: 4 },
+  { low: 73, high: 84, shareOf18: 6 },
+  { low: 85, high: 94, shareOf18: 5 },
+  { low: 95, high: 100, shareOf18: 3 }
 ];
 
 /**

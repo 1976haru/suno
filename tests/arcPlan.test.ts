@@ -97,4 +97,34 @@ describe('[v3.67] breakLongRuns', () => {
     const values = ['x', 'y', 'x', 'y', 'z'];
     expect(breakLongRuns(values, 2)).toEqual(values);
   });
+
+  // v4.16 (TASK B) — a forward-only donor search can never fix a run at the
+  // very END of the array (no later position to swap with); this is the
+  // real shape a real 18-song arrangementDensity plan hit (trailing 3x
+  // 'sparse' from arc-intensity reordering's own "closing skews sparse"
+  // clustering).
+  it('fixes a run at the very end of the array (no later position to swap with)', () => {
+    const values = ['a', 'b', 'a', 'b', 'x', 'x', 'x'];
+    const result = breakLongRuns(values, 2);
+    let run = 1;
+    for (let i = 1; i < result.length; i++) {
+      run = result[i] === result[i - 1] ? run + 1 : 1;
+      expect(run, `run at index ${i}`).toBeLessThanOrEqual(2);
+    }
+    expect(result.slice().sort()).toEqual(values.slice().sort());
+  });
+
+  // v4.16 (TASK B) — a heavily-weighted value (here 8 of 18, matching
+  // arrangementDensity's real medium:8 share) is more likely to produce a
+  // run a naive single pass leaves unfixed.
+  it('fixes runs even when one value dominates the sequence (8 of 18, matching arrangementDensity\'s real medium share)', () => {
+    const values = ['m', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 's', 's', 's', 's', 's', 's', 'f', 'f', 'f', 'f'];
+    const result = breakLongRuns(values, 2);
+    let run = 1;
+    for (let i = 1; i < result.length; i++) {
+      run = result[i] === result[i - 1] ? run + 1 : 1;
+      expect(run, `run at index ${i}`).toBeLessThanOrEqual(2);
+    }
+    expect(result.slice().sort()).toEqual(values.slice().sort());
+  });
 });

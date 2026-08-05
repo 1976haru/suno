@@ -67,6 +67,53 @@ function themeFrameId(theme: LyricTheme): string {
   return theme.frameId ?? SOLITARY_OBJECT_FRAME_ID;
 }
 
+/**
+ * v4.16 (TASK D, §4-2/§4-3) — real listening: "상승·밝음" read as 5/18 songs,
+ * which turned out to be the senior pool's own 3 genuinely high-energy
+ * frames (summer-night, dance-saturday, and city-lights' "electric
+ * excitement" theme) landing their normal ~2-songs-each round-robin share —
+ * song.emotionArc is populated almost entirely from the assigned LyricTheme's
+ * own emotionalArc text (`lyricThemeArc || emotionArc` in localGenerator.ts),
+ * so the phase-based emotionArcPoolForPhase pools (see that function's own
+ * v4.16 doc comment) rarely actually reach the final song once a theme is
+ * assigned — this list, not that one, is the real lever. Scoped to these 5
+ * specific senior-theme ids (harmless no-op for every other workspace's pool,
+ * none of which contain these ids) rather than a generic "brightness" field
+ * on LyricTheme, since only the senior set's own real-listening feedback
+ * named this as a problem.
+ *
+ * Enforced INSIDE allocateThemesByFrame's own round-robin (a combined cap
+ * across every frame these ids' themes belong to), not as a post-hoc swap
+ * on its output — a post-hoc swap was tried first and technically worked
+ * (verified: reduces the bright count correctly), but perturbing the
+ * frame-sequence AFTER spreadPlanByCounts had already run against the
+ * unswapped counts made spreadPlanByCounts's own reordering of the FULL
+ * array sensitive to exactly which substitute got picked, which cascaded
+ * into an unrelated title/body-line word collision at songCount=30 (a
+ * scale beyond real 18-song production use, but still a real regression —
+ * see tests/lyricEngine.test.ts's own [R1] guard). Building the correct
+ * distribution natively, before spreadPlanByCounts ever runs, avoids that
+ * whole class of cascade.
+ */
+const BRIGHT_LYRIC_THEME_IDS = new Set([
+  'senior-convertible-radio-night',
+  'senior-boardwalk-summer-lights',
+  'senior-saturday-dance-hall',
+  'senior-getting-ready-saturday',
+  'senior-neon-downtown-friday'
+]);
+/** §4-3 — "상승 5곡을 3~4곡으로 줄이고" — upper bound only (a pack landing on fewer than 3 isn't the problem the doc raised: excess, not scarcity). */
+const BRIGHT_LYRIC_THEME_MAX = 4;
+
+/** Every frameId that owns at least one bright-tagged theme (city-lights owns one bright + one calm theme — the whole frame counts, capping its calm theme's own availability slightly too, which real measurement shows doesn't push the total below 3). */
+function brightFrameIds(pool: readonly LyricTheme[]): Set<string> {
+  const ids = new Set<string>();
+  for (const theme of pool) {
+    if (BRIGHT_LYRIC_THEME_IDS.has(theme.id)) ids.add(themeFrameId(theme));
+  }
+  return ids;
+}
+
 function frameCapFor(frameId: string, songCount: number, preferredFrameId?: string): number {
   if (preferredFrameId && frameId === preferredFrameId) {
     return Math.min(songCount, Math.max(NON_SOLITARY_FRAME_CAP, Math.ceil(songCount * PREFERRED_FRAME_SHARE)));
@@ -107,6 +154,15 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
 
   const frameSequence: string[] = [];
   const usedPerFrame = new Map<string, number>();
+  // v4.16 (TASK D) — combined cap across every frame brightFrameIds names
+  // (see that function's own doc comment) — checked alongside each frame's
+  // own individual frameCapFor, never in place of it. A frame equal to
+  // preferredFrameId is never treated as "bright" for this purpose, even if
+  // it technically owns a bright-tagged theme — see capBrightLyricThemes's
+  // (removed) own doc comment for why a concept that explicitly asked for
+  // that scene must not have it suppressed.
+  const brightIds = brightFrameIds(pool);
+  let brightUsed = 0;
   // v4.5 (TASK D, 4-2) — reserves the preferred frame's own (higher, see
   // frameCapFor) share FIRST, as a dedicated phase, rather than folding it
   // into the round-robin loop below. Real measurement: a straight
@@ -125,9 +181,11 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
   while (frameSequence.length < songCount && guard < songCount * orderedFrameIds.length * 2) {
     const frameId = orderedFrameIds[guard % orderedFrameIds.length];
     const used = usedPerFrame.get(frameId) ?? 0;
-    if (used < frameCapFor(frameId, songCount, preferredFrameId)) {
+    const isBrightFrame = brightIds.has(frameId) && frameId !== preferredFrameId;
+    if (used < frameCapFor(frameId, songCount, preferredFrameId) && !(isBrightFrame && brightUsed >= BRIGHT_LYRIC_THEME_MAX)) {
       frameSequence.push(frameId);
       usedPerFrame.set(frameId, used + 1);
+      if (isBrightFrame) brightUsed += 1;
     }
     guard += 1;
   }

@@ -60,11 +60,21 @@ export interface BpmLengthTier {
  * so this is a pure target-lowering, not a change requiring
  * lyricEngine.ts's own composeLyrics section-doubling logic to move at all.
  */
+/**
+ * v4.16 (TASK A, §1-4) — re-centered onto the new SENIOR_TEMPO_BANDS ranges
+ * (audienceProfiles.ts, 62-72/73-84/85-94/95-100) after the tempo-ceiling
+ * drop (112 -> 100, §1-1): each tier's wordRange dropped one notch (same
+ * "slower song, fewer words, same target length" logic v4.9's own table
+ * already established), keeping the 155-word floor this task's own explicit
+ * "하한 155 를 지키십시오" requires (never crossed — verified in
+ * docs/v416-report.md). Target duration window (3:10-3:35,
+ * songLengthSecondsRange) is untouched.
+ */
 export const BPM_LENGTH_TIERS: readonly BpmLengthTier[] = [
-  { minBpm: 62, maxBpm: 78, sectionRange: [5, 6], wordRange: [165, 185], maxInstrumentalSections: 1 },
-  { minBpm: 79, maxBpm: 92, sectionRange: [6, 7], wordRange: [185, 205], maxInstrumentalSections: 1 },
-  { minBpm: 93, maxBpm: 104, sectionRange: [6, 7], wordRange: [200, 220], maxInstrumentalSections: 2 },
-  { minBpm: 105, maxBpm: 112, sectionRange: [7, 8], wordRange: [210, 230], maxInstrumentalSections: 2 }
+  { minBpm: 62, maxBpm: 72, sectionRange: [5, 6], wordRange: [155, 175], maxInstrumentalSections: 1 },
+  { minBpm: 73, maxBpm: 84, sectionRange: [5, 6], wordRange: [165, 185], maxInstrumentalSections: 1 },
+  { minBpm: 85, maxBpm: 94, sectionRange: [6, 7], wordRange: [185, 205], maxInstrumentalSections: 2 },
+  { minBpm: 95, maxBpm: 100, sectionRange: [6, 7], wordRange: [200, 220], maxInstrumentalSections: 2 }
 ];
 
 /** Clamps out-of-table BPM (e.g. a channel with a wider tempoFloor/tempoCeiling than 62-112) to the nearest edge tier rather than throwing or returning undefined — a design-time estimate always needs SOME target. */
