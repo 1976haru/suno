@@ -325,6 +325,213 @@ const koClosing: LineTemplate[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// kr-2030 Korean pools
+// ---------------------------------------------------------------------------
+
+/**
+ * v5.7 (TASK D) — real audit finding (docs/v56-report.md): `poolsFor()`
+ * used to branch only on LyricLanguage, so kr-2030 (and every other Korean
+ * workspace) drew from `koPools` above — a template set built entirely
+ * around senior-morning-radio imagery ('라디오', '커튼', '창가'/window,
+ * 'morning' as the anchoring time of day). A kr-2030 song about a rainy
+ * night out ended up singing about curtains and radios regardless of
+ * concept. This is a parallel, entirely original Korean template set for
+ * kr-2030 specifically: night/city imagery (거리·불빛·골목·이어폰·지하철·
+ * 편의점·가로등) instead of morning/home imagery, and zero vocabulary
+ * overlap with koPools by construction (every line written fresh, not
+ * edited from the senior set) — matching this workspace's own real channel
+ * character (after-work-band-pop/thirty-night-walk/rainy-seoul-nightscape,
+ * see data/presets.ts) and its AudienceProfile constraints
+ * (data/audienceProfiles.ts's KR_2030_EMOTIONAL_AUDIENCE_PROFILE, v5.7 TASK
+ * B: 'contemporary Korean urban-pop production', excludes 'nostalgic
+ * senior-radio announcer tone'). Same LineTemplate shape/line-count-per-
+ * category as koPools so composeLyrics's section assembly needs no changes.
+ */
+const kr2030Opening: LineTemplate[] = [
+  c => [`${c.season} 거리 위로 불빛이 번지고`, '이어폰 속 노래가 낮게 흐르고', `${c.motif}${koParticle(c.motif, '이', '가')} 골목 끝에서 기다리면`, '하루가 천천히 풀려요'],
+  c => [`퇴근길 ${c.season} 공기를 마시며`, '걸음이 조금씩 가벼워지고', `${c.motif}${koParticle(c.motif, '은', '는')} 늘 그 자리에 서서`, '나를 알아보는 것 같아요'],
+  c => [`${c.season} 밤이 도시를 덮으면`, '네온 불빛이 하나둘 켜지고', `${c.motif}${koParticle(c.motif, '을', '를')} 스쳐 지나가다가`, '문득 걸음을 멈춰요'],
+  c => [`버스 정류장에 서서 보는 ${c.season}`, '오늘의 소음이 잦아들고', `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 곁을 지키며`, '말없이 나를 따라와요'],
+  c => [`서른의 ${c.season}은 조금 다르게 와요`, '조급함 대신 익숙함으로', `${c.motif}${koParticle(c.motif, '이', '가')} 그 사이를 채우면`, '오늘 하루도 괜찮아져요'],
+  c => [`${c.season} 골목을 따라 걸으면`, '가로등이 하나씩 켜지고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 빛 아래 서서`, '나를 집으로 이끌어요'],
+  c => [`이어폰 너머로 들리는 ${c.season}`, '도시의 소리가 낮게 섞이고', `${c.motif}${koParticle(c.motif, '을', '를')} 떠올리면`, '마음이 조금 느슨해져요'],
+  c => [`${c.season} 비가 아스팔트를 적시면`, '발걸음마다 불빛이 번지고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 사이를 걸어와`, '내 하루 끝에 닿아요'],
+  c => [`늦은 ${c.season} 밤, 편의점 불빛 아래`, '잠깐의 쉼표를 찍고', `${c.motif}${koParticle(c.motif, '이', '가')} 옆에 놓이면`, '오늘도 무사히 넘어가요'],
+  c => [`${c.season} 하늘 아래 도시가 반짝이고`, '지하철 계단을 오르내리며', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음에 맞춰`, '조용히 리듬을 지켜요']
+];
+
+const kr2030Situation: LineTemplate[] = [
+  c => [`${c.situation} 속에서`, '숨 한 번 크게 고르고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 모든 걸 지켜보며`, '말없이 곁에 있어요'],
+  c => [`${c.situation} 안에서`, '어깨에 힘을 조금 빼고', `${c.motif}${koParticle(c.motif, '은', '는')} 나에게`, '아무것도 묻지 않아요'],
+  c => [`바로 이 ${c.situation}에서`, '오늘 하루를 내려놓고', `${c.motif}${koParticle(c.motif, '은', '는')} 익숙한 얼굴처럼`, '조용히 다가와요'],
+  c => [`${c.situation} 어딘가에서`, '마음의 속도를 늦추고', `${c.motif}${koParticle(c.motif, '은', '는')} 내 곁에 머물며`, '기다림도 잊게 해요'],
+  c => [`${c.situation}${koParticle(c.situation, '이', '가')} 나를 감싸면`, '조금은 솔직해져요', `${c.motif}${koParticle(c.motif, '은', '는')} 그 순간을 기억하며`, '나만 아는 얘기를 들어줘요'],
+  c => [`여전히 이 ${c.situation} 안에서`, '도시가 조금 가깝게 느껴지고', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음을 따라오며`, '부를 때마다 응답해요'],
+  c => [`${c.situation}${koParticle(c.situation, '을', '를')} 지나며`, '익숙한 리듬이 돌아오고', `${c.motif}${koParticle(c.motif, '은', '는')} 구석마다 남아서`, '혼자가 아니게 해줘요'],
+  c => [`${c.situation}에 둘러싸여`, '오늘의 무게가 가벼워지고', `${c.motif}${koParticle(c.motif, '은', '는')} 늦은 저녁을 함께 걸어요`, '늘 그래왔던 것처럼'],
+  c => [`${c.situation} 속에 자리 잡아`, '하루가 서두르지 않고', `${c.motif}${koParticle(c.motif, '은', '는')} 부드럽게 응답해요`, '조용한 확신 하나로'],
+  c => [`${c.situation} 안에서 차분히`, '이 순간을 붙잡아두고', `${c.motif}${koParticle(c.motif, '은', '는')} 다시 써 내려가요`, '조금 더 단단한 하루로']
+];
+
+const kr2030PreChorus: LineTemplate[] = [
+  c => [`${c.season} 밤이 낮게 내려올 때`, '나는 나직이 말해요'],
+  c => ['이 도시의 소음 속에서', '문득 이렇게 불러봐요'],
+  c => ['익숙함이 조금 더 짙어지면', '나는 결국 말해요'],
+  c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
+  c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 조용히 불러봐요'],
+  c => ['오래 미뤄뒀던 마음을', '이제는 말해볼게요'],
+  c => ['이 거리 끝에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
+  c => [`${c.season} 밤이 나를 부를 때`, '나는 이렇게 대답해요']
+];
+
+const kr2030ChorusDev: LineTemplate[] = [
+  c => ['오늘도 씩씩하게 걸어요', '지친 하루 끝에도', `${c.motif}처럼, 다시 걸음을 떼요`],
+  c => ['다시 한번 담담하게', '무거운 마음도', `${c.motif}처럼, 조금씩 가벼워져요`],
+  c => ['자랄수록 단단하게', '작은 걱정들도', `${c.motif}처럼, 조용히 흘려보내요`],
+  c => ['멀리 있어도 든든하게', '텅 빈 방도', `${c.motif}처럼, 낮은 불빛을 찾아요`],
+  c => ['어디에 있든 나답게', '흔들리던 마음도', `${c.motif}처럼, 제자리를 찾아요`],
+  c => ['전보다 더 솔직하게', '감춰뒀던 얘기도', `${c.motif}처럼, 조금씩 꺼내봐요`],
+  c => ['어떤 밤이든 담대하게', '흩어진 하루도', `${c.motif}처럼, 다시 모여들어요`],
+  c => ['매일 조금씩 씩씩하게', '지친 걸음도', `${c.motif}처럼, 다시 리듬을 찾아요`]
+];
+
+const kr2030Bridge: LineTemplate[] = [
+  c => ['어떤 밤은 유난히 길고', `어떤 밤은 순식간에 지나가요, ${c.motif}처럼`],
+  c => ['어떤 길은 끝이 안 보이고', `어떤 길은 집으로 곧장 이어져요, ${c.motif}처럼`],
+  c => ['어떤 말은 삼켜지고', `어떤 말은 결국 노래가 돼요, ${c.motif}처럼`],
+  c => ['어떤 하루는 무겁게 남고', `어떤 하루는 가볍게 흘러가요, ${c.motif}처럼`],
+  c => ['어떤 얼굴은 자꾸 떠오르고', `어떤 얼굴은 조용히 옅어져요, ${c.motif}처럼`],
+  c => ['어떤 계절은 유독 더디고', `어떤 계절은 순식간에 지나가요, ${c.motif}처럼`],
+  c => ['어떤 메시지는 끝내 못 보내고', `어떤 메시지는 결국 닿아요, ${c.motif}처럼`]
+];
+
+const kr2030Verse2: LineTemplate[] = [
+  c => ['지나온 밤들은 모두', '이제는 노래가 되고', '말하지 못한 마음까지', '거리 위에 내려앉아요'],
+  c => ['너무 멀게 느껴졌던 거리도', '이제는 다르게 보여요', `그것들은 ${c.motif}처럼`, '조용히 내 곁에 있어요'],
+  c => ['서두르던 걸음의 이유도', '이제는 세어보지 않아요', `그것들은 ${c.motif}처럼`, '익숙한 길이 되었어요'],
+  c => ['정착하지 못했던 밤들도', '가끔 다시 떠오르지만', `${c.motif}처럼 느껴져요`, '이제야 이해가 돼요'],
+  c => ['계절마다 흔들리던 마음도', '어디로 향할지 몰랐지만', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
+  c => ['대답받지 못한 밤들도', '조금 더 선명하게 돌아와요', `그것들은 ${c.motif}처럼`, '나를 더 단단하게 만들었어요'],
+  c => ['하지 못한 말들의 목록도', '너무 지쳐 꺼내지 못했지만', `이제는 ${c.motif}처럼`, '의심 없이 남아요'],
+  c => ['늦은 지하철을 서두르던 밤도', '이제는 천천히 흘러가요', `${c.motif}처럼 느껴져요`, '어떤 밤에도 머무는'],
+  c => ['혼자라 생각했던 저녁도', '이제는 다르게 보여요', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
+  c => ['매일의 작은 커피 한 잔과', '비에 젖은 거리도', '돌아갈 곳처럼', '따뜻하게 불러요']
+];
+
+const kr2030Closing: LineTemplate[] = [
+  c => [`이제야 마음이 놓여요, ${c.motif}${koParticle(c.motif, '과', '와')} 함께`],
+  c => [`오늘 하루도 다 괜찮았어요, ${c.motif}처럼`],
+  c => [`이 밤이 나를 집으로 데려가요, ${c.motif} 곁에서`],
+  c => [`익숙함이 위로처럼 느껴져요, ${c.motif}${koParticle(c.motif, '과', '와')} 함께`],
+  c => [`나는 더 이상 혼자가 아니에요, ${c.motif}${koParticle(c.motif, '이', '가')} 있어서`],
+  c => [`그 불빛이 조금 더 머물러요, ${c.motif} 위에`],
+  c => [`내일도 씩씩하게 걸어볼게요, ${c.motif}처럼`]
+];
+
+// ---------------------------------------------------------------------------
+// kr-idol Korean pools
+// ---------------------------------------------------------------------------
+
+/**
+ * v5.7 (TASK E) — same root-cause fix as kr2030Opening above, for
+ * kr-idol-male/kr-idol-female (both share this ONE pool, not two separate
+ * ones). That's a deliberate choice, not a shortcut: v5.7 TASK B's own
+ * AudienceProfile work already established that idol energy/tempo/
+ * structure is a workspace-GENRE trait, not a gendered one (see
+ * KR_IDOL_MALE_AUDIENCE_PROFILE/KR_IDOL_FEMALE_AUDIENCE_PROFILE's own doc
+ * comment in data/audienceProfiles.ts — "any gendered vocal-register
+ * difference belongs in the per-genre GenreTraits/idolExpressionLint layer,
+ * not invented here"). Standard polite Korean lyric register (-요/-어요) is
+ * already gender-neutral, so a single stage/performance-imagery pool
+ * (무대·조명·함성·카운트다운·앙코르 instead of kr2030's 거리·불빛·골목·이어폰,
+ * itself instead of koPools' 라디오·커튼·창가) serves both workspaces without
+ * inventing an ungrounded gendered distinction in sentence grammar — the
+ * two workspaces still differ in lyric THEME/hook-bank content (K2/K3's own
+ * separate 18-scene lyric worlds, data/lyricThemes.ts), just not in this
+ * sentence-template layer.
+ */
+const krIdolOpening: LineTemplate[] = [
+  c => [`${c.season} 조명이 켜지면`, '심장이 먼저 뛰기 시작해요', `${c.motif}${koParticle(c.motif, '이', '가')} 무대 위로 번지고`, '오늘 밤이 시작돼요'],
+  c => [`무대 뒤 ${c.season} 공기 속에서`, '숨을 크게 들이쉬고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리를 기다리며`, '카운트다운을 시작해요'],
+  c => [`${c.season} 함성이 커질수록`, '심장 박동도 빨라지고', `${c.motif}${koParticle(c.motif, '을', '를')} 손끝으로 느끼면`, '모든 게 선명해져요'],
+  c => [`스포트라이트 아래 ${c.season}`, '오늘의 우리가 빛나고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 중심에 서서`, '눈을 마주쳐요'],
+  c => [`${c.season} 리듬이 시작되면`, '발끝부터 깨어나고', `${c.motif}${koParticle(c.motif, '이', '가')} 신호처럼 울리면`, '망설임 없이 뛰어들어요'],
+  c => [`무대 위 ${c.season} 빛 아래서`, '우리 모두 하나가 되고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 순간을 지키며`, '함께 노래해요'],
+  c => [`${c.season} 함성 속으로`, '한 걸음 더 나아가고', `${c.motif}${koParticle(c.motif, '을', '를')} 마주 보면`, '두려움이 사라져요'],
+  c => [`${c.season} 밤, 무대의 문이 열리면`, '준비했던 모든 순간이', `${c.motif}처럼 한 번에 터지고`, '우리가 완성돼요'],
+  c => [`${c.season} 카운트다운이 끝나면`, '문이 열리고 빛이 쏟아지고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 편에 서서`, '오늘을 함께 완성해요'],
+  c => [`${c.season} 함성이 파도처럼 밀려오면`, '심장이 그 리듬을 따라가고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 사이를 채우며`, '무대가 완성돼요']
+];
+
+const krIdolSituation: LineTemplate[] = [
+  c => [`${c.situation} 위에서`, '숨 한 번 크게 몰아쉬고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 모든 순간을 지켜보며`, '우리와 함께 빛나요'],
+  c => [`${c.situation} 안에서`, '망설임을 다 내려놓고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리에게`, '망설일 틈을 주지 않아요'],
+  c => [`바로 이 ${c.situation}에서`, '오늘의 무게를 다 걸고', `${c.motif}${koParticle(c.motif, '은', '는')} 익숙한 신호처럼`, '우리를 이끌어요'],
+  c => [`${c.situation} 한가운데서`, '심장의 속도를 맞추고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 곁에 머물며`, '망설임도 잊게 해요'],
+  c => [`${c.situation}${koParticle(c.situation, '이', '가')} 우리를 감싸면`, '조금 더 대담해져요', `${c.motif}${koParticle(c.motif, '은', '는')} 그 순간을 기억하며`, '우리만 아는 신호를 보내요'],
+  c => [`여전히 이 ${c.situation} 위에서`, '함성이 조금 더 가깝게 느껴지고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 걸음을 따라오며`, '부를 때마다 응답해요'],
+  c => [`${c.situation}${koParticle(c.situation, '을', '를')} 지나며`, '익숙한 박자가 돌아오고', `${c.motif}${koParticle(c.motif, '은', '는')} 구석구석 채워져`, '혼자가 아니게 해줘요'],
+  c => [`${c.situation}에 둘러싸여`, '긴장이 오히려 힘이 되고', `${c.motif}${koParticle(c.motif, '은', '는')} 오늘 밤을 함께 걸어요`, '늘 그래왔던 것처럼'],
+  c => [`${c.situation} 위에 자리 잡아`, '오늘이 서두르지 않고', `${c.motif}${koParticle(c.motif, '은', '는')} 힘 있게 응답해요`, '확신에 찬 리듬 하나로'],
+  c => [`${c.situation} 안에서 담대하게`, '이 순간을 붙잡아두고', `${c.motif}${koParticle(c.motif, '은', '는')} 다시 써 내려가요`, '조금 더 눈부신 오늘로']
+];
+
+const krIdolPreChorus: LineTemplate[] = [
+  c => [`${c.season} 조명이 낮아질 때`, '나는 힘주어 말해요'],
+  c => ['이 함성 속에서', '문득 이렇게 외쳐봐요'],
+  c => ['긴장이 조금 더 짙어지면', '나는 결국 말해요'],
+  c => ['천천히 차오르는 확신으로', '나는 이렇게 말해요'],
+  c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 크게 외쳐봐요'],
+  c => ['오래 준비해온 마음을', '이제는 보여줄게요'],
+  c => ['이 무대 위에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
+  c => [`${c.season} 함성이 나를 부를 때`, '나는 이렇게 대답해요']
+];
+
+const krIdolChorusDev: LineTemplate[] = [
+  c => ['오늘도 당당하게 나아가요', '떨리는 순간에도', `${c.motif}처럼, 다시 힘을 내요`],
+  c => ['다시 한번 힘 있게', '무거운 긴장도', `${c.motif}처럼, 조금씩 빛으로 바뀌어요`],
+  c => ['자랄수록 눈부시게', '작은 불안도', `${c.motif}처럼, 조용히 흘려보내요`],
+  c => ['멀리 있어도 뜨겁게', '텅 빈 무대도', `${c.motif}처럼, 환한 빛을 찾아요`],
+  c => ['어디에 있든 우리답게', '흔들리던 마음도', `${c.motif}처럼, 제자리를 찾아요`],
+  c => ['전보다 더 뜨겁게', '감춰뒀던 진심도', `${c.motif}처럼, 조금씩 터져 나와요`],
+  c => ['어떤 무대든 담대하게', '흩어진 순간도', `${c.motif}처럼, 다시 하나로 모여요`],
+  c => ['매 순간 눈부시게', '지친 걸음도', `${c.motif}처럼, 다시 리듬을 찾아요`]
+];
+
+const krIdolBridge: LineTemplate[] = [
+  c => ['어떤 밤은 유난히 떨리고', `어떤 밤은 순식간에 지나가요, ${c.motif}처럼`],
+  c => ['어떤 무대는 끝이 안 보이고', `어떤 무대는 한순간에 완성돼요, ${c.motif}처럼`],
+  c => ['어떤 말은 삼켜지고', `어떤 말은 결국 함성이 돼요, ${c.motif}처럼`],
+  c => ['어떤 하루는 무겁게 남고', `어떤 하루는 가볍게 날아올라요, ${c.motif}처럼`],
+  c => ['어떤 순간은 자꾸 떠오르고', `어떤 순간은 조용히 새겨져요, ${c.motif}처럼`],
+  c => ['어떤 무대는 유독 길고', `어떤 무대는 순식간에 지나가요, ${c.motif}처럼`],
+  c => ['어떤 신호는 끝내 못 보내고', `어떤 신호는 결국 닿아요, ${c.motif}처럼`]
+];
+
+const krIdolVerse2: LineTemplate[] = [
+  c => ['지나온 무대들은 모두', '이제는 우리의 노래가 되고', '말하지 못한 마음까지', '함성 위에 내려앉아요'],
+  c => ['너무 멀게 느껴졌던 거리도', '이제는 다르게 보여요', `그것들은 ${c.motif}처럼`, '조용히 우리 곁에 있어요'],
+  c => ['서두르던 걸음의 이유도', '이제는 세어보지 않아요', `그것들은 ${c.motif}처럼`, '익숙한 무대가 되었어요'],
+  c => ['떨리기만 했던 순간도', '가끔 다시 떠오르지만', `${c.motif}처럼 느껴져요`, '이제야 이해가 돼요'],
+  c => ['무대마다 흔들리던 마음도', '어디로 향할지 몰랐지만', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
+  c => ['대답받지 못한 밤들도', '조금 더 선명하게 돌아와요', `그것들은 ${c.motif}처럼`, '우리를 더 단단하게 만들었어요'],
+  c => ['하지 못한 말들의 목록도', '너무 지쳐 꺼내지 못했지만', `이제는 ${c.motif}처럼`, '의심 없이 남아요'],
+  c => ['늦은 연습을 서두르던 밤도', '이제는 천천히 흘러가요', `${c.motif}처럼 느껴져요`, '어떤 무대에도 머무는'],
+  c => ['혼자라 생각했던 순간도', '이제는 다르게 보여요', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
+  c => ['매일의 작은 연습과', '땀에 젖은 무대도', '돌아갈 곳처럼', '뜨겁게 불러요']
+];
+
+const krIdolClosing: LineTemplate[] = [
+  c => [`이제야 마음이 놓여요, ${c.motif}${koParticle(c.motif, '과', '와')} 함께`],
+  c => [`오늘 무대도 완벽했어요, ${c.motif}처럼`],
+  c => [`이 함성이 우리를 하나로 만들어요, ${c.motif} 곁에서`],
+  c => [`뜨거움이 위로처럼 느껴져요, ${c.motif}${koParticle(c.motif, '과', '와')} 함께`],
+  c => [`우리는 더 이상 혼자가 아니에요, ${c.motif}${koParticle(c.motif, '이', '가')} 있어서`],
+  c => [`그 빛이 조금 더 머물러요, ${c.motif} 위에`],
+  c => [`다음 무대도 눈부시게 걸어볼게요, ${c.motif}처럼`]
+];
+
+// ---------------------------------------------------------------------------
 // Japanese pools
 // ---------------------------------------------------------------------------
 
@@ -420,6 +627,104 @@ const jaClosing: LineTemplate[] = [
   c => [`明日がやさしく思える、${c.motif}のように`]
 ];
 
+// ---------------------------------------------------------------------------
+// jp-2030 Japanese pools
+// ---------------------------------------------------------------------------
+
+/**
+ * v5.7 (TASK F) — same root-cause fix as kr2030Opening above, for jp-2030.
+ * jaPools above carries senior/showa-flavored imagery (ラジオ/radio,
+ * カーテン/curtain, morning-anchored scenes) same as koPools did for
+ * Korean; this is an entirely original set built around jp-2030's own real
+ * channel character (reiwa-way-home-jpop/tokyo-night-melodic-pop/want-to-
+ * cry-band-playlist — night/way-home/city imagery: 帰り道·夜の街·イヤホン·
+ * ネオン·街灯·コンビニ, not ラジオ/カーテン), matching its
+ * AudienceProfile constraints (JP_2030_MELODIC_AUDIENCE_PROFILE, v5.7 TASK
+ * B: 'contemporary Japanese melodic pop/rock production', excludes
+ * 'nostalgic senior-radio announcer tone'). Plain/poetic register (not
+ * polite -です/-ます), matching jaPools' own existing style.
+ */
+const jp2030Opening: LineTemplate[] = [
+  c => [`${c.season}の街に灯りが滲んで`, 'イヤホンの中で歌が低く流れ', `${c.motif}が路地の先で待っていれば`, '一日がゆっくりほどけてゆく'],
+  c => [`帰り道、${c.season}の空気を吸い込んで`, '足取りが少しずつ軽くなる', `${c.motif}はいつもそこに立って`, '私を見つけてくれる気がする'],
+  c => [`${c.season}の夜が街を包めば`, 'ネオンの灯りが一つずつ灯る', `${c.motif}をふと通り過ぎて`, 'ふいに足を止める'],
+  c => [`バス停に立って眺める${c.season}`, '今日の騒がしさが静まって', `${c.motif}は静かにそばにいて`, '黙って私についてくる'],
+  c => [`三十路の${c.season}は少し違って来る`, '焦りの代わりに馴染みが増えて', `${c.motif}がその隙間を埋めれば`, '今日も何とかなる気がする'],
+  c => [`${c.season}の路地を歩いていけば`, '街灯が一つずつ灯りだす', `${c.motif}はその灯りの下に立って`, '私を家へ導いてくれる'],
+  c => [`イヤホンの向こうに聞こえる${c.season}`, '街の音が低く混ざり合う', `${c.motif}を思い出せば`, '心が少しゆるんでいく'],
+  c => [`${c.season}の雨がアスファルトを濡らせば`, '足音のたびに灯りが滲む', `${c.motif}はその間を歩いてきて`, '一日の終わりに辿り着く'],
+  c => [`遅い${c.season}の夜、コンビニの灯りの下`, 'つかの間の休符を打って', `${c.motif}がそばに置かれれば`, '今日も無事に終わってゆく'],
+  c => [`${c.season}の空の下、街が輝いて`, '駅の階段を上り下りしながら', `${c.motif}は私の足取りに合わせて`, '静かにリズムを守っている']
+];
+
+const jp2030Situation: LineTemplate[] = [
+  c => [`${c.situation}の中で`, '息をひとつ整えて', `${c.motif}はそのすべてを見つめながら`, '黙ってそばにいてくれる'],
+  c => [`${c.situation}の中で`, '肩の力を少し抜いて', `${c.motif}は私に`, '何も求めてこない'],
+  c => [`まさにこの${c.situation}で`, '今日という日を下ろして', `${c.motif}は見慣れた顔のように`, '静かに近づいてくる'],
+  c => [`${c.situation}のどこかで`, '心の速度を緩めて', `${c.motif}は私のそばにとどまり`, '待つことさえ忘れさせる'],
+  c => [`${c.situation}が私を包めば`, '少しだけ素直になれる', `${c.motif}はその瞬間を覚えていて`, '自分だけが知る話を聞いてくれる'],
+  c => [`まだこの${c.situation}の中で`, '街が少し近く感じられる', `${c.motif}は私の足音を追いかけて`, '呼べば応えてくれる'],
+  c => [`${c.situation}を通り過ぎて`, '見慣れたリズムが戻ってくる', `${c.motif}は隅々に残っていて`, 'ひとりじゃないと思わせてくれる'],
+  c => [`${c.situation}に囲まれて`, '今日の重さが軽くなる', `${c.motif}は遅い夕暮れを共に歩く`, 'いつもそうだったように'],
+  c => [`${c.situation}の中に落ち着いて`, '一日が急がなくなる', `${c.motif}はやさしく応えてくれる`, '静かな確信ひとつで'],
+  c => [`${c.situation}の中で静かに`, 'この瞬間をつかまえておく', `${c.motif}はまた書き直してくれる`, 'もう少し確かな一日を']
+];
+
+const jp2030PreChorus: LineTemplate[] = [
+  c => [`${c.season}の夜が低く降りてくる頃`, '私は静かに言う'],
+  c => ['この街の騒がしさの中で', 'ふとこう呼びかける'],
+  c => ['馴染みがもう少し深まると', '私はついに言う'],
+  c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
+  c => [`${c.motif}がこの瞬間を待っていて`, '私は静かに呼びかける'],
+  c => ['長く後回しにしていた気持ちを', '今こそ伝えよう'],
+  c => ['この道の先で何かが変わるなら', '私はついにこう言う'],
+  c => [`${c.season}の夜が私を呼ぶとき`, '私はこう答える']
+];
+
+const jp2030ChorusDev: LineTemplate[] = [
+  c => ['今日もゆっくり歩いてゆこう', '疲れた一日の終わりにも', `${c.motif}のように、また歩き出す`],
+  c => ['もう一度落ち着いて', '重い気持ちさえ', `${c.motif}のように、少しずつ軽くなる`],
+  c => ['育つほど落ち着いて', '小さな不安さえ', `${c.motif}のように、静かに流してゆく`],
+  c => ['遠くにいても頼もしく', '空っぽの部屋さえ', `${c.motif}のように、低い灯りを見つける`],
+  c => ['どこにいても自分らしく', '揺れていた心さえ', `${c.motif}のように、居場所を見つける`],
+  c => ['前よりも素直に', '隠していた本音さえ', `${c.motif}のように、少しずつ溢れてくる`],
+  c => ['どんな夜でも大胆に', '散らばった一日さえ', `${c.motif}のように、また集まってくる`],
+  c => ['毎日少しずつ力強く', '疲れた足取りさえ', `${c.motif}のように、またリズムを見つける`]
+];
+
+const jp2030Bridge: LineTemplate[] = [
+  c => ['ある夜はやけに長く', `ある夜はあっという間に過ぎてゆく、${c.motif}のように`],
+  c => ['ある道は先が見えず', `ある道はまっすぐ家へと続く、${c.motif}のように`],
+  c => ['ある言葉は飲み込まれ', `ある言葉はやがて歌になる、${c.motif}のように`],
+  c => ['ある一日は重く残り', `ある一日は軽く流れてゆく、${c.motif}のように`],
+  c => ['ある顔はふと浮かび', `ある顔は静かに薄れてゆく、${c.motif}のように`],
+  c => ['ある季節はやけに長く', `ある季節はあっという間に過ぎてゆく、${c.motif}のように`],
+  c => ['あるメッセージはついに送れず', `あるメッセージはやがて届く、${c.motif}のように`]
+];
+
+const jp2030Verse2: LineTemplate[] = [
+  c => ['過ぎてきた夜はすべて', '今は歌になって', '言えなかった気持ちまで', '街の上にそっと降りる'],
+  c => ['遠すぎると思った距離も', '今は違って見える', `それは${c.motif}のように`, '静かにそばにある'],
+  c => ['急いでいた足取りの理由も', '今はもう数えない', `それは${c.motif}のように`, '見慣れた道になった'],
+  c => ['落ち着けなかった夜も', 'たまにまた浮かぶけれど', `${c.motif}のように感じる`, '今ようやくわかる'],
+  c => ['季節ごとに揺れていた心も', 'どこへ向かうか分からなかったが', `今は${c.motif}のように`, 'ようやくわかる'],
+  c => ['答えのなかった夜も', '少し鮮明に戻ってくる', `それは${c.motif}のように`, '私をより強くした'],
+  c => ['言えなかったことの一覧も', '疲れて出せなかったが', `今は${c.motif}のように`, '迷いなく残る'],
+  c => ['終電を急いでいた夜も', '今はゆっくり流れる', `${c.motif}のように感じる`, 'どんな夜にもとどまる'],
+  c => ['ひとりだと思っていた夕暮れも', '今は違って見える', `今は${c.motif}のように`, 'ようやくわかる'],
+  c => ['毎日の小さなコーヒーと', '雨に濡れた街も', '帰る場所のように', 'あたたかく呼んでいる']
+];
+
+const jp2030Closing: LineTemplate[] = [
+  c => [`ようやく心が休まる、${c.motif}と共に`],
+  c => [`今日という日も悪くなかった、${c.motif}のように`],
+  c => [`この夜が私を家へ連れてゆく、${c.motif}のそばで`],
+  c => [`馴染みが慰めのように感じる、${c.motif}と共に`],
+  c => [`私はもうひとりじゃない、${c.motif}がいるから`],
+  c => [`その灯りがもう少しとどまる、${c.motif}の上に`],
+  c => [`明日もゆっくり歩いてみよう、${c.motif}のように`]
+];
+
 interface LanguagePools {
   opening: LineTemplate[];
   situation: LineTemplate[];
@@ -432,11 +737,26 @@ interface LanguagePools {
 
 const enPools: LanguagePools = { opening: enOpening, situation: enSituation, preChorus: enPreChorus, chorusDev: enChorusDev, bridge: enBridge, verse2: enVerse2, closing: enClosing };
 const koPools: LanguagePools = { opening: koOpening, situation: koSituation, preChorus: koPreChorus, chorusDev: koChorusDev, bridge: koBridge, verse2: koVerse2, closing: koClosing };
+const kr2030Pools: LanguagePools = { opening: kr2030Opening, situation: kr2030Situation, preChorus: kr2030PreChorus, chorusDev: kr2030ChorusDev, bridge: kr2030Bridge, verse2: kr2030Verse2, closing: kr2030Closing };
+const krIdolPools: LanguagePools = { opening: krIdolOpening, situation: krIdolSituation, preChorus: krIdolPreChorus, chorusDev: krIdolChorusDev, bridge: krIdolBridge, verse2: krIdolVerse2, closing: krIdolClosing };
 const jaPools: LanguagePools = { opening: jaOpening, situation: jaSituation, preChorus: jaPreChorus, chorusDev: jaChorusDev, bridge: jaBridge, verse2: jaVerse2, closing: jaClosing };
+const jp2030Pools: LanguagePools = { opening: jp2030Opening, situation: jp2030Situation, preChorus: jp2030PreChorus, chorusDev: jp2030ChorusDev, bridge: jp2030Bridge, verse2: jp2030Verse2, closing: jp2030Closing };
 
-function poolsFor(language: LyricLanguage): LanguagePools {
-  if (language === 'korean') return koPools;
-  if (language === 'japanese') return jaPools;
+/**
+ * v5.7 (TASK D/E/F) — was branch-only-on-language (see kr2030Opening's own
+ * doc comment for why that was the audit's root cause for kr-2030's,
+ * kr-idol-male/female's, and jp-2030's senior-flavored lyrics). `archetype` is optional and
+ * additive: every existing caller that doesn't pass one keeps exactly the
+ * old koPools/jaPools/enPools behavior, so this is a strict no-op for
+ * senior-oldpop and every other archetype that isn't one of these four.
+ */
+function poolsFor(language: LyricLanguage, archetype?: ChannelArchetype): LanguagePools {
+  if (language === 'korean') {
+    if (archetype === 'kr-2030-pop') return kr2030Pools;
+    if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return krIdolPools;
+    return koPools;
+  }
+  if (language === 'japanese') return archetype === 'jp-2030-pop' ? jp2030Pools : jaPools;
   return enPools;
 }
 
@@ -497,8 +817,8 @@ export interface LyricBatchPools {
   usedLines: Set<string>;
 }
 
-export function createLyricBatchPools(language: LyricLanguage, seedBase: string): LyricBatchPools {
-  const pools = poolsFor(language);
+export function createLyricBatchPools(language: LyricLanguage, seedBase: string, archetype?: ChannelArchetype): LyricBatchPools {
+  const pools = poolsFor(language, archetype);
   const s = hashSeed(seedBase);
   return {
     opening: new UniquePool(pools.opening, s + 1),

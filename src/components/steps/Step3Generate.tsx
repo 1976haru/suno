@@ -13,7 +13,7 @@ import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildM
 import type { DesignGateResult } from '../../core/designGate';
 import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
-import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
+import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
 import { currentWorkspaceId } from '../../core/workspaceScope';
 import DesignGatePanel from '../DesignGatePanel';
 import {
@@ -336,7 +336,7 @@ export default function Step3Generate({
   // against the SAME preallocated slots the instruction/import actually use
   // (bridgePreassignedSongs), not a separate re-derivation.
   const designGateConstraints = useMemo(
-    () => resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience), currentWorkspaceId()),
+    () => resolveConstraintsFromOptions(opts, audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience), currentWorkspaceId()),
     [opts]
   );
   // v4.4 (TASK F) — designGateConstraints (already computed above for 관문1)

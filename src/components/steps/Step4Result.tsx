@@ -17,7 +17,7 @@ import GenerationGatePanel from '../GenerationGatePanel';
 import SetCompletenessPanel from '../SetCompletenessPanel';
 import PreviewConcatPanel from '../PreviewConcatPanel';
 import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
-import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
+import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
 import { FEATURE_STATUS_LABEL_KO, featureStatus } from '../../data/featureFlags';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
 import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
@@ -326,7 +326,7 @@ export default function Step4Result({
   // word-count/section-count bounds, placeholder/label/article leaks), so
   // this is an extension of the existing gate, not a second parallel one.
   const generationGateConstraints = useMemo(
-    () => (blueprint ? resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience)) : null),
+    () => (blueprint ? resolveConstraintsFromOptions(opts, audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)) : null),
     [blueprint, opts]
   );
   // v4.1 (TASK C) — evaluateGenerationGate now runs inside a Worker (see
@@ -345,7 +345,7 @@ export default function Step4Result({
       // v4.1 (TASK B) — real per-language lyric measurement instead of
       // the gate silently assuming English (see core/lyricMetrics.ts).
       lyricLanguage: opts.lyricLanguage,
-      audienceProfile: audienceProfileForAgeGroup(opts.audience),
+      audienceProfile: audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience),
       // v4.3 (TASK A) — gates the titleLocalized checks (compositionScorer.ts).
       packagingLanguage: resolvePackagingLanguage(opts)
     })
@@ -544,7 +544,7 @@ export default function Step4Result({
             songs={blueprint.songs}
             packId={packId}
             channelId={opts.channel.id}
-            audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+            audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
             onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
           />
           <PreviewConcatPanel songs={blueprint.songs} setLabel={blueprint.meta?.setCode || opts.projectTitle} />
@@ -563,7 +563,7 @@ export default function Step4Result({
         <ExperimentalFeatureBoundary featureLabel="음원 분석 아카이브">
           <AudioArchivePanel
             songs={blueprint.songs}
-            audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+            audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
             packId={packId}
             setName={blueprint.meta?.setCode}
           />
@@ -589,7 +589,7 @@ export default function Step4Result({
         <PromiseAuditPanel
           songs={blueprint.songs}
           conceptLabel={opts.customConcept?.trim() || opts.projectTitle}
-          audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+          audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
           channelId={opts.channel.id}
         />
       )}
@@ -598,7 +598,7 @@ export default function Step4Result({
         <SetCompletenessPanel
           blueprint={blueprint}
           opts={opts}
-          audienceProfile={audienceProfileForAgeGroup(opts.audience)}
+          audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
           generationGateResult={generationGateResult}
         />
       )}

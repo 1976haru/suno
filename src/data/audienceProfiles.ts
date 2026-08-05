@@ -1,4 +1,5 @@
-import type { AgeGroup, AudienceProfile } from '../types';
+import type { AgeGroup, AudienceProfile, ChannelArchetype } from '../types';
+import { workspaceForArchetype } from './workspaces';
 
 /**
  * TASK v3.58 (지시문 v3.58 TASK 4) — see AudienceProfile's own doc comment
@@ -208,34 +209,59 @@ export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
 };
 
 /**
- * v4.2 (TASK A3, TASK E) — skeletons only, per this task's own §6-2 "senior
- * 외 프로파일의 실제 값을 채우지 말 것. 골격만." Real
- * constraints/exclusions/tempo/vocabulary/killing-points are B1 (kr-2030)/
- * C1 (jp-2030)/D1+E1 (kr-kids)/F1 (jp-kids)'s job — these exist now only so
- * WorkspaceDefinition.defaultAudienceProfileId has real ids to eventually
- * point at (see data/workspaces/index.ts's own "A3 fills in
- * defaultAudienceProfileId properly" comment) and so AudienceProfile's
- * per-workspace field shape is proven out against more than one real
- * profile before those tasks build on it. Placeholder values below borrow
- * the closest existing profile's numbers (general for the 20s/30s pair,
- * kids for the three age bands) rather than inventing untested ranges.
+ * v4.2 (TASK A3, TASK E) — originally a skeleton per that task's own §6-2
+ * "senior 외 프로파일의 실제 값을 채우지 말 것. 골격만." v5.7 (TASK B) fills
+ * in the real values this was always meant to receive, per the v5.6 audit's
+ * finding that `defaultAudienceProfileId` had zero real callers and every
+ * non-senior adult workspace was silently generating against the generic
+ * `general` profile. Tempo/constraints reasoned from this workspace's own
+ * real channel presets (`after-work-band-pop`, `thirty-night-walk`,
+ * `rainy-seoul-nightscape` — band-pop/R&B/city-night, not electro-heavy),
+ * narrowed from `general`'s full 60-132 span rather than widened, since a
+ * workspace-specific profile that's just as loose as the generic fallback
+ * wouldn't be worth the resolution work. No real Suno-render calibration
+ * yet — same "estimate, recalibrate after first real set" caveat as
+ * `lyricMetricsByLanguage`'s own doc comment already states for senior.
  */
 const KR_2030_EMOTIONAL_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'kr-2030-emotional',
   labelKo: '한국 2030 감성 팝록·R&B',
-  constraints: [],
-  exclusions: [],
-  tempoFloor: 60,
-  tempoCeiling: 132,
-  lyricWordRange: [180, 260],
-  songLengthSecondsRange: [150, 250],
+  constraints: [
+    'contemporary Korean urban-pop production',
+    'bass and drums carry the groove',
+    'conversational present-day Korean vocal delivery',
+    'clean modern vocal-forward mix',
+    'melodic hooks written for a 20s-30s listener'
+  ],
+  exclusions: [
+    'vintage tape saturation',
+    '1970s AM-radio compression',
+    'sparse acoustic-only arrangement with no rhythm section',
+    'nostalgic senior-radio announcer tone'
+  ],
+  tempoFloor: 68,
+  tempoCeiling: 120,
+  lyricWordRange: [190, 260],
+  songLengthSecondsRange: [180, 225],
   relaxableAtPeak: [],
-  hardExclusions: [],
+  // No relaxableAtPeak split defined for this workspace yet (no real
+  // killing-point set exists — killingPointSetId below is id-only, same as
+  // every non-senior profile per AudienceProfile's own doc comment), so
+  // this equals `exclusions` verbatim per that field's own convention.
+  hardExclusions: [
+    'vintage tape saturation',
+    '1970s AM-radio compression',
+    'sparse acoustic-only arrangement with no rhythm section',
+    'nostalgic senior-radio announcer tone'
+  ],
   killingPointSetId: 'kr-2030-emotional-default',
   arcModelId: 'five-phase',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: []
+  vocabularyBankIds: [],
+  lyricMetricsByLanguage: {
+    korean: { primaryRange: [160, 200], syllableRange: [380, 480] }
+  }
 };
 
 const KR_2030_ELECTRO_AUDIENCE_PROFILE: AudienceProfile = {
@@ -256,22 +282,57 @@ const KR_2030_ELECTRO_AUDIENCE_PROFILE: AudienceProfile = {
   vocabularyBankIds: []
 };
 
+/**
+ * v5.7 (TASK B) — real values, same rationale/reasoning as
+ * KR_2030_EMOTIONAL_AUDIENCE_PROFILE's own doc comment above. Reasoned from
+ * this workspace's own real channel presets (`reiwa-way-home-jpop`,
+ * `tokyo-night-melodic-pop`, `want-to-cry-band-playlist` — melodic
+ * guitar/piano J-pop, not anime-vocal or showa-era), deliberately excluding
+ * the specific showa/vintage character `senior-oldpop` owns so the two
+ * never converge even though both are Japanese-adjacent in places.
+ */
 const JP_2030_MELODIC_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'jp-2030-melodic',
   labelKo: '일본 2030 J-pop/J-rock',
-  constraints: [],
-  exclusions: [],
-  tempoFloor: 60,
-  tempoCeiling: 132,
-  lyricWordRange: [180, 260],
-  songLengthSecondsRange: [150, 250],
+  constraints: [
+    'contemporary Japanese melodic pop/rock production',
+    'guitar and piano-led arrangement',
+    'clean modern J-pop mix',
+    'introspective present-day Japanese vocal delivery',
+    'melodic hooks written for a 20s-30s listener'
+  ],
+  exclusions: [
+    'vintage tape saturation',
+    'showa-era AM-radio compression',
+    'sparse acoustic-only arrangement with no rhythm section',
+    'nostalgic senior-radio announcer tone'
+  ],
+  tempoFloor: 65,
+  tempoCeiling: 125,
+  lyricWordRange: [185, 255],
+  songLengthSecondsRange: [180, 225],
   relaxableAtPeak: [],
-  hardExclusions: [],
+  // No relaxableAtPeak split defined yet — equals `exclusions` verbatim,
+  // same convention as KR_2030_EMOTIONAL_AUDIENCE_PROFILE above.
+  hardExclusions: [
+    'vintage tape saturation',
+    'showa-era AM-radio compression',
+    'sparse acoustic-only arrangement with no rhythm section',
+    'nostalgic senior-radio announcer tone'
+  ],
   killingPointSetId: 'jp-2030-melodic-default',
   arcModelId: 'five-phase',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: []
+  vocabularyBankIds: [],
+  lyricMetricsByLanguage: {
+    // v5.7 estimate: narrowed slightly from senior's own japanese row
+    // ([400,520]) — senior's figures were themselves never calibrated
+    // against a real Japanese set either, so this is a starting point, not
+    // a measurement; same "recalibrate after first real set" caveat as
+    // senior's own lyricMetricsByLanguage doc comment states.
+    japanese: { primaryRange: [380, 480], syllableRange: [380, 480] }
+  }
 };
 
 const JP_2030_ANIME_AUDIENCE_PROFILE: AudienceProfile = {
@@ -290,6 +351,99 @@ const JP_2030_ANIME_AUDIENCE_PROFILE: AudienceProfile = {
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
   vocabularyBankIds: []
+};
+
+/**
+ * v5.7 (TASK B) — no AudienceProfile existed at all for kr-idol-male/
+ * kr-idol-female before this (the v5.6 audit's finding: both silently
+ * resolved to `general`). Reasoned from these workspaces' own real channel
+ * presets (`stage-night`/`drive-kpop-playlist`/`dawn-confession` for male,
+ * `daylight-city-kpop`/`nonstop-playlist`/`songs-for-after-its-over` for
+ * female — all short-hook, choreography-ready K-pop, uptempo relative to
+ * kr-2030's band-pop register). Deliberately near-identical between the two
+ * profiles: idol energy/tempo/structure is a workspace-genre trait, not a
+ * gendered one — any gendered vocal-register difference belongs in the
+ * per-genre GenreTraits/idolExpressionLint layer (v5.7-H/I, not yet done),
+ * not invented here as a new distinction. The one wording difference
+ * ('anthemic' vs 'bright') mirrors each workspace's own promise text, not a
+ * musical constraint.
+ */
+const KR_IDOL_MALE_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kr-idol-male',
+  labelKo: '한국 아이돌 남성',
+  constraints: [
+    'confident anthemic K-pop stage delivery',
+    'punchy contemporary production built for choreography',
+    'driving rhythm section with a strong beat',
+    'short repeated hook-forward structure',
+    'high-energy performance-ready mix'
+  ],
+  exclusions: [
+    'slow ballad pacing',
+    'vintage tape saturation',
+    'nostalgic senior-radio announcer tone',
+    'understated subdued vocal delivery'
+  ],
+  tempoFloor: 92,
+  tempoCeiling: 138,
+  lyricWordRange: [140, 210],
+  songLengthSecondsRange: [165, 205],
+  relaxableAtPeak: [],
+  hardExclusions: [
+    'slow ballad pacing',
+    'vintage tape saturation',
+    'nostalgic senior-radio announcer tone',
+    'understated subdued vocal delivery'
+  ],
+  killingPointSetId: 'kr-idol-male-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  lyricMetricsByLanguage: {
+    // v5.7 estimate: shorter/more repetitive than kr-2030's own korean row
+    // ([160,200]) — hook-forward idol structure repeats a shorter core
+    // lyric more times rather than covering more distinct ground. Not yet
+    // calibrated against a real generated set.
+    korean: { primaryRange: [120, 160], syllableRange: [280, 380] }
+  }
+};
+
+const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kr-idol-female',
+  labelKo: '한국 아이돌 여성',
+  constraints: [
+    'bright confident K-pop stage delivery',
+    'punchy contemporary production built for choreography',
+    'driving rhythm section with a strong beat',
+    'short repeated hook-forward structure',
+    'high-energy performance-ready mix'
+  ],
+  exclusions: [
+    'slow ballad pacing',
+    'vintage tape saturation',
+    'nostalgic senior-radio announcer tone',
+    'understated subdued vocal delivery'
+  ],
+  tempoFloor: 92,
+  tempoCeiling: 138,
+  lyricWordRange: [140, 210],
+  songLengthSecondsRange: [165, 205],
+  relaxableAtPeak: [],
+  hardExclusions: [
+    'slow ballad pacing',
+    'vintage tape saturation',
+    'nostalgic senior-radio announcer tone',
+    'understated subdued vocal delivery'
+  ],
+  killingPointSetId: 'kr-idol-female-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  lyricMetricsByLanguage: {
+    korean: { primaryRange: [120, 160], syllableRange: [280, 380] }
+  }
 };
 
 const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
@@ -349,12 +503,20 @@ const KIDS_4_TO_7_AUDIENCE_PROFILE: AudienceProfile = {
   safetyPolicyId: 'kids-safety-default'
 };
 
-/** v4.2 (TASK A3) — every provisional/skeleton profile, for lookup by id (data/workspaces/index.ts's defaultAudienceProfileId, once B1/C1/D1/E1/F1 point at these instead of 'general'/'kids'). */
+/**
+ * v4.2 (TASK A3) — every provisional/skeleton/workspace profile, for lookup
+ * by id (data/workspaces/index.ts's defaultAudienceProfileId). v5.7 (TASK B)
+ * added the two new kr-idol-* profiles here (not a separate array) since
+ * `audienceProfileById`/`ALL_AUDIENCE_PROFILES` already iterate this one
+ * list — no new plumbing needed for a real, non-skeleton profile to join it.
+ */
 export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
   KR_2030_EMOTIONAL_AUDIENCE_PROFILE,
   KR_2030_ELECTRO_AUDIENCE_PROFILE,
   JP_2030_MELODIC_AUDIENCE_PROFILE,
   JP_2030_ANIME_AUDIENCE_PROFILE,
+  KR_IDOL_MALE_AUDIENCE_PROFILE,
+  KR_IDOL_FEMALE_AUDIENCE_PROFILE,
   KIDS_0_TO_2_AUDIENCE_PROFILE,
   KIDS_2_TO_4_AUDIENCE_PROFILE,
   KIDS_4_TO_7_AUDIENCE_PROFILE
@@ -381,6 +543,34 @@ const AUDIENCE_PROFILE_BY_AGE_GROUP: Record<AgeGroup, AudienceProfile> = {
 
 export function audienceProfileForAgeGroup(audience: AgeGroup | undefined): AudienceProfile {
   return (audience && AUDIENCE_PROFILE_BY_AGE_GROUP[audience]) || GENERAL_AUDIENCE_PROFILE;
+}
+
+/**
+ * v5.7 (TASK B) — the real, workspace-aware resolver. Prefers the calling
+ * channel's own workspace's `defaultAudienceProfileId` (real per-workspace
+ * tempo/word-range/exclusions, not the generic age-bucketed fallback);
+ * falls back to `audienceProfileForAgeGroup(audience)` when the channel's
+ * archetype doesn't resolve to a workspace at all, that workspace's own
+ * profile id doesn't resolve, OR the workspace is senior-oldpop.
+ *
+ * senior-oldpop is deliberately excluded from the workspace-override path,
+ * not merely a no-op: unlike the 4 target workspaces (one archetype, one
+ * audience each), senior-oldpop bundles 10 archetypes that were never all
+ * "senior audience" — 'modern-chill'/'city-night'/'lofi-study' etc. carry
+ * their own per-channel `audience` field for deliberate sub-targeting
+ * within the workspace (see tests/audienceProfile.test.ts's own "does not
+ * force senior-specific exclusions onto a non-senior channel", which
+ * caught this: routing senior-oldpop through its single workspace default
+ * would have force-applied SENIOR_AUDIENCE_PROFILE's exclusions onto e.g.
+ * chill-hours, a real regression this fix must not introduce). Excluding
+ * senior-oldpop here preserves that pre-existing, already-tested per-channel
+ * resolution exactly — see tests/audienceProfileForWorkspace.test.ts for
+ * the senior-morning channel's own strict-no-op confirmation.
+ */
+export function audienceProfileForChannelArchetype(archetype: ChannelArchetype | undefined, audienceFallback: AgeGroup | undefined): AudienceProfile {
+  const workspace = workspaceForArchetype(archetype);
+  const resolved = workspace && workspace.id !== 'senior-oldpop' && audienceProfileById(workspace.defaultAudienceProfileId);
+  return resolved || audienceProfileForAgeGroup(audienceFallback);
 }
 
 /**

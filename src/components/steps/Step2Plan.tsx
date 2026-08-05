@@ -15,7 +15,7 @@ import { BPM_LENGTH_TIERS, resolveBpmLengthTier } from '../../core/bpmLengthCont
 import type { DesignGateResult } from '../../core/designGate';
 import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
-import { audienceProfileForAgeGroup } from '../../data/audienceProfiles';
+import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
 import { currentWorkspaceId } from '../../core/workspaceScope';
 import { effectiveVerifiedCombos, getApprovedCombos, resolveFlagshipCombo } from '../../core/verifiedCombos';
 import type { VerifiedCombo } from '../../data/verifiedCombos';
@@ -157,7 +157,12 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   // (rather than reading it off `plan`) since SetPlan's own shape doesn't
   // carry it — mirrors exactly what directSetLocal resolves internally
   // (same freeText/history/override inputs), just for display.
-  const paletteFamilyCovered = Boolean(channelSoundFloorForArchetype(opts.channel.archetype));
+  // v5.7 (TASK C) — was mere floor presence; now matches setDirector.ts's
+  // own `usesPaletteFamily`-gated check exactly, so this display no longer
+  // shows a palette family for kr-2030/jp-2030/kr-idol-* (which have real
+  // floors now but no palette-family data — directSetLocal never resolves
+  // one for them either after this same task's setDirector.ts fix).
+  const paletteFamilyCovered = Boolean(channelSoundFloorForArchetype(opts.channel.archetype)?.usesPaletteFamily);
   const resolvedPaletteFamilyId = paletteFamilyCovered
     ? resolveMainFamilyId(freeText, { recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid] }, opts.paletteFamilyOverride)
     : undefined;
@@ -252,7 +257,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   const vocalSummaryKo = `남성 솔로 ${vocalDistribution.quota.male}곡 · 여성 솔로 ${vocalDistribution.quota.female}곡 · 듀엣 ${vocalDistribution.quota.mixed}곡`;
 
   const constraints = useMemo(
-    () => resolveConstraintsFromOptions(gateOpts, audienceProfileForAgeGroup(gateOpts.audience), currentWorkspaceId()),
+    () => resolveConstraintsFromOptions(gateOpts, audienceProfileForChannelArchetype(gateOpts.channel.archetype, gateOpts.audience), currentWorkspaceId()),
     [gateOpts]
   );
   // v4.0 (TASK A) — evaluateDesignGate now runs inside a Worker (see

@@ -92,9 +92,16 @@ export function buildSetOptions(
     projectTitle: `${baseOpts.projectTitle} Set ${padSetIndex(setIndex + 1)}`
   };
 
+  // v5.7 (TASK C) — was mere floor presence; now matches setDirector.ts's
+  // own `usesPaletteFamily` gate. Without this, kr-2030/jp-2030/kr-idol-*
+  // (real floors now, but no palette-family data) would recompute set 2+'s
+  // genre allocation here for no benefit — mainFamilyId resolves to
+  // undefined for them either way after the setDirector.ts fix, so this was
+  // wasted work, not a correctness bug, but keeping the check consistent
+  // with what "covered by the palette-family system" actually means now.
   const shouldRotateFamily = setIndex > 0
     && !baseOpts.paletteFamilyOverride
-    && Boolean(channelSoundFloorForArchetype(baseOpts.channel.archetype));
+    && Boolean(channelSoundFloorForArchetype(baseOpts.channel.archetype)?.usesPaletteFamily);
   if (!shouldRotateFamily) return setOpts;
 
   const freeText = baseOpts.customConcept?.trim() || baseOpts.projectTitle;

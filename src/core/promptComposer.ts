@@ -20,7 +20,7 @@ import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
-import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
+import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { resolveLyricRange } from './lyricMetrics';
 import { resolvePackagingLanguage } from './packagingLanguage';
 
@@ -734,7 +734,7 @@ export function buildExcludePrompt(
    */
   relaxedExclusions: readonly string[] = []
 ): string {
-  const audienceProfile = audienceProfileForAgeGroup(opts.channel.audience);
+  const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.channel.audience);
   const relaxable = new Set(audienceProfile.relaxableAtPeak);
   const relaxedNow = new Set(relaxedExclusions.filter(item => relaxable.has(item)));
   const exclusionsForThisSong = audienceProfile.exclusions.filter(item => !relaxedNow.has(item));
@@ -1096,7 +1096,7 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
   // still resolves to the same 215-230 (MIN_LYRIC_WORDS/MAX_LYRIC_WORDS stay
   // exported as that English default/fallback, unchanged).
   const lyricUnitLabel = opts.lyricLanguage === 'japanese' ? 'characters' : 'words';
-  const [minLyricUnits, maxLyricUnits] = resolveLyricRange(opts.lyricLanguage, audienceProfileForAgeGroup(opts.channel.audience)).primaryRange;
+  const [minLyricUnits, maxLyricUnits] = resolveLyricRange(opts.lyricLanguage, audienceProfileForChannelArchetype(opts.channel.archetype, opts.channel.audience)).primaryRange;
 
   // TASK v3.70 (TASK C) — real listening feedback: every chorus (including
   // the two earlier ones) bookended the hook, so the same line sang ~6x/song

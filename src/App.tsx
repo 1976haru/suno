@@ -164,7 +164,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
     }));
   }
 
-  const cm = useChannelManager(applyChannelToOptions);
+  const cm = useChannelManager(workspaceId, applyChannelToOptions);
   const gen = useGenerationFlow();
   const evalFlow = useEvaluationFlow();
   const batchFlow = useBatchGenerationFlow();

@@ -91,12 +91,23 @@ const KR_2030: WorkspaceDefinition = {
   // .hiddenFeatures at all (grep-verified zero callers), so there is
   // nothing real to put there yet; see this task's own §12-4.
   archetypeIds: ['kr-2030-pop'],
-  defaultAudienceProfileId: 'general',
+  // v5.7 (TASK B) — was 'general' (see removed comment above this task's
+  // fix: A3 never actually built the per-workspace framework it deferred
+  // to, so this pointed nowhere real). Now points at the workspace's own
+  // KR_2030_EMOTIONAL_AUDIENCE_PROFILE (data/audienceProfiles.ts).
+  defaultAudienceProfileId: 'kr-2030-emotional',
   defaultLyricLanguage: 'korean',
   theme: { accent: '#7c3aed', surface: '#f5f3ff' },
   terms: {},
   hiddenFeatures: [],
   contentTier: 'adult',
+  // v5.7 (TASK J) — re-flipped true: the v5.6 audit's findings (channel
+  // picker leaking senior's channels, shared senior lyric templates/motif
+  // pools, defaultAudienceProfileId pointing at 'general', no real sound
+  // floor) are all fixed (v5.7-A..H) and re-verified via real 18-song
+  // generation — 0/18 senior-vocabulary contamination, real audience-
+  // profile tempo range (68-120 BPM measured), 0 duplicate titles/hooks.
+  // See docs/v57-report.md for the full verification.
   ready: true
 };
 
@@ -118,12 +129,21 @@ const JP_2030: WorkspaceDefinition = {
   // npm run audit:isolation showed jp-2030 PASS across L1/L3/L4/L6 (was
   // SKIP throughout before this task) and npm run test:fast passed clean.
   archetypeIds: ['jp-2030-pop'],
-  defaultAudienceProfileId: 'general',
+  // v5.7 (TASK B) — was 'general'; now points at this workspace's own
+  // JP_2030_MELODIC_AUDIENCE_PROFILE (data/audienceProfiles.ts). See
+  // KR_2030's own defaultAudienceProfileId comment for the same fix's
+  // rationale.
+  defaultAudienceProfileId: 'jp-2030-melodic',
   defaultLyricLanguage: 'japanese',
   theme: { accent: '#db2777', surface: '#fdf2f8' },
   terms: {},
   hiddenFeatures: [],
   contentTier: 'adult',
+  // v5.7 (TASK J) — re-flipped true: same fixes/re-verification as
+  // KR_2030's own `ready` comment. Real 18-song generation: 0/18 senior-
+  // vocabulary contamination, 70-125 BPM measured (within
+  // JP_2030_MELODIC_AUDIENCE_PROFILE's real range), 0 duplicate titles/
+  // hooks. See docs/v57-report.md.
   ready: true
 };
 
@@ -185,10 +205,9 @@ const KR_IDOL_M: WorkspaceDefinition = {
   // real measured before/after.
   descriptionKo: '한국 남자 아이돌 워크스페이스 — 장르 7종, 구간별 장르 배정, 그룹 보컬 파트 지원',
   archetypeIds: ['kr-idol-male'],
-  // TASK A3 hasn't built a real per-workspace audience-profile framework yet
-  // (kr-2030/jp-2030's own KR_2030/JP_2030 comments already note this same
-  // gap) — 'general' is the same provisional placeholder those two use.
-  defaultAudienceProfileId: 'general',
+  // v5.7 (TASK B) — was 'general'; now points at this workspace's own
+  // KR_IDOL_MALE_AUDIENCE_PROFILE (data/audienceProfiles.ts, new in v5.7).
+  defaultAudienceProfileId: 'kr-idol-male',
   defaultLyricLanguage: 'korean',
   theme: { accent: '#dc2626', surface: '#fef2f2' },
   terms: {},
@@ -200,8 +219,12 @@ const KR_IDOL_M: WorkspaceDefinition = {
   contentTier: 'adult',
   // TASK K2 §10-5 — structure only, not collected anywhere yet.
   humanCreativeInterventionNote: undefined,
-  // TASK K2 §13 item 16 — flipped true as the last step, after the full
-  // verification battery in docs/k2-report.md passed.
+  // v5.7 (TASK J) — re-flipped true: shared senior lyric templates fixed
+  // (v5.7-E), real audience profile wired (v5.7-B), idolExpressionLint now
+  // a real auditAlbum gate (v5.7-I), gendered "male" vocal wording removed
+  // from the shared kridol-* genre packs (v5.7-H). Real 18-song generation:
+  // 0/18 contamination, 0 idol-expression violations, 95-132 BPM measured.
+  // See docs/v57-report.md.
   ready: true
 };
 
@@ -219,9 +242,9 @@ const KR_IDOL_F: WorkspaceDefinition = {
   // docs/k3-report.md.
   descriptionKo: '한국 여자 아이돌 워크스페이스 — 장르 7종 공유, 여성 아이돌 보컬 8종, 자기주도·연대 가사 세계',
   archetypeIds: ['kr-idol-female'],
-  // TASK A3 hasn't built a real per-workspace audience-profile framework yet
-  // (kr-2030/jp-2030/kr-idol-male's own comments already note this same gap).
-  defaultAudienceProfileId: 'general',
+  // v5.7 (TASK B) — was 'general'; now points at this workspace's own
+  // KR_IDOL_FEMALE_AUDIENCE_PROFILE (data/audienceProfiles.ts, new in v5.7).
+  defaultAudienceProfileId: 'kr-idol-female',
   defaultLyricLanguage: 'korean',
   theme: { accent: '#f97316', surface: '#fff7ed' },
   terms: {},
@@ -233,10 +256,10 @@ const KR_IDOL_F: WorkspaceDefinition = {
   contentTier: 'adult',
   // TASK K3 — structure only, not collected anywhere yet (same as K2's own).
   humanCreativeInterventionNote: undefined,
-  // TASK K3 §12 item 13 — flipped true as the last step, after the full
-  // verification battery in docs/k3-report.md passed, including §7's hard
-  // expression-guideline gate (0 violations across both kr-idol-female and
-  // kr-idol-male real output).
+  // v5.7 (TASK J) — re-flipped true: same fixes/re-verification as
+  // KR_IDOL_M's own `ready` comment. Real 18-song generation: 0/18
+  // contamination, 0 idol-expression violations, 95-138 BPM measured.
+  // See docs/v57-report.md.
   ready: true
 };
 
@@ -260,4 +283,19 @@ export function getWorkspaceTerm(workspace: WorkspaceDefinition, key: string, fa
 
 export function isFeatureHidden(workspace: WorkspaceDefinition, featureId: string): boolean {
   return workspace.hiddenFeatures.includes(featureId);
+}
+
+/**
+ * v5.7 (TASK B) — real audit finding (docs/v56-report.md §1): nothing in
+ * the real generation pipeline ever resolved a channel back to its owning
+ * workspace, so `WorkspaceDefinition.defaultAudienceProfileId` (declared
+ * per-workspace since v4.2) had zero real callers — every non-senior adult
+ * workspace silently generated against the generic `general` profile. A
+ * pure function of `channel.archetype` (never module-level "current
+ * workspace" state) so it stays correct in scripts/tests that build
+ * `GenerationOptions` directly without ever calling `setCurrentWorkspace()`.
+ */
+export function workspaceForArchetype(archetype: ChannelArchetype | undefined): WorkspaceDefinition | undefined {
+  if (!archetype) return undefined;
+  return workspaceDefinitions.find(w => w.archetypeIds.includes(archetype));
 }

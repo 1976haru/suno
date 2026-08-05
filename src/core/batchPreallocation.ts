@@ -3,7 +3,7 @@ import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MA
 import { averageTempo, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
-import { audienceProfileForAgeGroup, tempoBandsForProfile } from '../data/audienceProfiles';
+import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
 import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
@@ -61,6 +61,7 @@ import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl'
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { vocabularyBankForScene } from '../data/vocabularyBanks';
+import { workspaceForArchetype } from '../data/workspaces';
 
 export type { PreassignedSongSlot };
 
@@ -139,7 +140,7 @@ export function preallocateSongSlots(
   // fallbackCenter` short-circuit in localGenerator.ts). Mirrors
   // localGenerator.ts's own generateLocalBlueprint pre-pass exactly (same
   // seed) so the bridge/Batch path's BPM spread matches the local path's.
-  const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
   // v4.2 (TASK A3) — mirrors localGenerator.ts's own generateLocalBlueprint:
   // one ResolvedConstraints instance feeding this path's own title generation.
   const constraints = resolveConstraintsFromOptions(opts, audienceProfile);
@@ -649,8 +650,10 @@ export function preallocateSongSlots(
       ...(lyricTheme?.eraSettingKo ? { lyricThemeEraSettingKo: lyricTheme.eraSettingKo } : {}),
       // v4.5 (TASK C) — matched once, from this track's own theme frame/
       // motion (already resolved above) — see data/vocabularyBanks.ts's
-      // own vocabularyBankForScene doc comment.
-      vocabularyBankId: vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo).id,
+      // own vocabularyBankForScene doc comment. v5.7 (TASK G) — now passes
+      // the real workspaceId (was unscoped, same gap as localGenerator.ts's
+      // own fix).
+      vocabularyBankId: vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo, workspaceForArchetype(opts.channel.archetype)?.id).id,
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,

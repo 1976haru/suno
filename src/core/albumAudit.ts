@@ -4,8 +4,9 @@ import { SUNO_COPY_LIMIT } from './promptBudget';
 import { MAX_GENRE_SHARE } from './conceptAgent';
 import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOverlapWarning } from './quality';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
-import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
+import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { affectedTrackRatio, ARRANGEMENT_VOCABULARY_SET_ERROR_RATIO, findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
+import { lintIdolExpression } from './idolExpressionLint';
 
 export interface AlbumAuditReport {
   songCount: number;
@@ -50,7 +51,7 @@ function duplicateValues(values: string[]): string[] {
  * core/diversityLinter.ts's InPackSimilarityReport `errors`/`warnings`/
  * `passed` shape, the established convention for a pack-wide lint here).
  */
-export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'audience'>): AlbumAuditReport {
+export function auditAlbum(songs: SongIdea[], opts?: Partial<Pick<GenerationOptions, 'audience' | 'channel'>>): AlbumAuditReport {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -193,7 +194,10 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
     }
   }
 
-  const audienceProfile = audienceProfileForAgeGroup(opts?.audience);
+  // v5.7 (TASK B) — opts?.channel is optional here (scripts/integrationSweep.ts's
+  // own caller passes only { audience }, no channel) — audienceProfileForChannelArchetype
+  // falls back to the age-group resolver automatically when archetype is undefined.
+  const audienceProfile = audienceProfileForChannelArchetype(opts?.channel?.archetype, opts?.audience);
   if (audienceProfile.id === 'senior') {
     const missingConstraint = songs.filter(
       song => !audienceProfile.constraints.some(constraint => song.stylePrompt.includes(constraint))
@@ -206,6 +210,26 @@ export function auditAlbum(songs: SongIdea[], opts?: Pick<GenerationOptions, 'au
     const bpmStddev = stddev(bpms);
     if (bpms.length >= 2 && bpmStddev < 8) {
       warnings.push(`BPM standard deviation (${bpmStddev.toFixed(1)}) is below the senior-pack diversity target of 8.`);
+    }
+  }
+
+  // v5.7 (TASK I) — real audit finding (docs/v56-report.md): K3 §7's own
+  // idolExpressionLint ("이 린터는 K2에도 적용하십시오" — a hard constraint,
+  // not a warning, per its own doc comment) had zero real callers anywhere
+  // in the pipeline — only ever run manually against a one-off generated
+  // set for the K2/K3 reports, never wired as an actual gate. This is the
+  // same errors/warnings split every other check in this function already
+  // uses (mirrors the senior-audience block above): pushed to `errors`, not
+  // `warnings`, because the lint's own spec requires 0 violations to block,
+  // never "report and continue". Scoped to kr-idol-male/kr-idol-female only
+  // — every other workspace's `opts?.channel?.archetype` check is false, so
+  // this is a strict no-op elsewhere, including senior-oldpop.
+  if (opts?.channel?.archetype === 'kr-idol-male' || opts?.channel?.archetype === 'kr-idol-female') {
+    for (const song of songs) {
+      const violations = lintIdolExpression(song);
+      for (const violation of violations) {
+        errors.push(`Track ${song.trackNo}: idol-expression violation in ${violation.field} — "${violation.word}" (${violation.category}).`);
+      }
     }
   }
 

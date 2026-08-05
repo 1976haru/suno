@@ -1201,7 +1201,17 @@ export function directSetLocal(
   // picked explicit GenreFamily checkboxes (familyIds.length), which already
   // pick a coherent cluster by explicit choice — this constraint layers on
   // top of the free-text/keyword path only.
-  const mainFamilyId = !familyIds.length && channelSoundFloorForArchetype(channel.archetype)
+  // v5.7 (TASK C) — was a mere floor-presence check; now gated on
+  // `usesPaletteFamily` specifically (see that field's own doc comment in
+  // channelSoundFloor.ts). A floor's presence no longer implies its
+  // workspace participates in the palette-family system — kr-2030/jp-2030/
+  // kr-idol-* now have their own real floors (requiredAtoms/forbiddenAtoms)
+  // but zero data/paletteFamilies.ts membership, and the old presence-only
+  // check would have run every one of their genres through
+  // capCompatibleFamilySongs as "compatible" (none are ever "main"),
+  // silently discarding most of a pack down to a 5-song cap with nowhere
+  // for the removed songs to go back to.
+  const mainFamilyId = !familyIds.length && channelSoundFloorForArchetype(channel.archetype)?.usesPaletteFamily
     ? resolveMainFamilyId(freeText, history, paletteFamilyOverride)
     : undefined;
   const eraFocus = deriveEraFocus(freeText, artistReferences);

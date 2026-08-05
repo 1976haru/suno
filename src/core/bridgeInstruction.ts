@@ -17,7 +17,7 @@ import { decomposeArtistReferences, decomposedReferenceDescriptors, isSafeDecomp
 import { ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { buildSetName } from '../utils/setNaming';
 import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
-import { audienceProfileForAgeGroup } from '../data/audienceProfiles';
+import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { currentWorkspaceId } from './workspaceScope';
 import { vocabularyBankById } from '../data/vocabularyBanks';
 
@@ -1286,7 +1286,7 @@ export function buildMultiSetClaudeCodeInstructions(
     // (buildClaudeCodeInstruction's own call site notes): resolvedConstraints
     // existed and rendered real instruction text but no caller ever passed
     // it in, including this multi-set loop.
-    const resolvedConstraints = resolveConstraintsFromOptions(setOpts, audienceProfileForAgeGroup(setOpts.audience), currentWorkspaceId());
+    const resolvedConstraints = resolveConstraintsFromOptions(setOpts, audienceProfileForChannelArchetype(setOpts.channel.archetype, setOpts.audience), currentWorkspaceId());
     const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine, setPlanningTable, resolvedConstraints });
 
     results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs, conceptLine, avoid });

@@ -326,7 +326,15 @@ function songLengthIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
  */
 function paletteCoverageIssues(slots: PreassignedSongSlot[], opts: GenerationOptions): DesignIssue[] {
   const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
-  if (!soundFloor) return [];
+  // v5.7 (TASK C) — was `if (!soundFloor) return []`, i.e. any floor's mere
+  // presence opted a workspace into this whole palette-coverage check. Now
+  // gated on `usesPaletteFamily` (see channelSoundFloor.ts's own doc
+  // comment): kr-2030/jp-2030/kr-idol-* now have real floors but zero
+  // data/eraCanonPalettes.ts coverage for their genres, so every track would
+  // always land "uncovered" and trip maxUncoveredGenreTracks — a real
+  // design-gate false-positive block the old presence-only check would have
+  // introduced for all 4 workspaces.
+  if (!soundFloor?.usesPaletteFamily) return [];
   const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
   const genrePlan = ordered.map(slot => slot.genreId);
   if (!genrePlan.length) return [];

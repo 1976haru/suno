@@ -1453,7 +1453,19 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['triplet trap hi-hat rolls', 'hard-hitting 808 pulse'],
-    vocal: ['confident male rap-sung lead', 'unison male chorus stack'],
+    // v5.7 (TASK H) — real audit finding: this genre pack is shared by
+    // `archetypes: ['kr-idol-male', 'kr-idol-female']` (see this array's own
+    // K2 §3-1 note), but `vocal` used to say "male" explicitly — since
+    // core/sectionGenrePlan.ts reads GenreTraits.vocalTraits straight into
+    // the real style prompt (via buildGenreTraits's genre.vocal fallback,
+    // data/genreTraits.ts's own kridol overrides deliberately omit
+    // vocalTraits to reuse this field), a real kr-idol-female generation
+    // measured "male" leaking into 5/18 songs' style prompts. Gender itself
+    // is handled correctly elsewhere (this workspace's own per-song
+    // vocalType/vocalPlan assignment) — this field should describe delivery
+    // STYLE, not gender, so wording is now gender-neutral across all 7
+    // kridol-* genres below.
+    vocal: ['confident rap-sung lead', 'unison chorus stack'],
     production: ['punchy modern trap mix', 'tight low-end clarity'],
     harmony: ['minor-key tension riff', 'sparse dark chord stabs'],
     moods: ['confident', 'intense', 'declarative'],
@@ -1471,7 +1483,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['driving four-on-the-floor pulse', 'syncopated pre-chorus lift'],
-    vocal: ['bright confident male lead', 'layered unison hook vocal'],
+    vocal: ['bright confident lead', 'layered unison hook vocal'],
     production: ['sleek club-ready polish', 'sidechain-pumped low end'],
     harmony: ['bright major-key hook', 'simple diatonic drop'],
     moods: ['bright', 'confident', 'energetic'],
@@ -1489,7 +1501,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['driving rock backbeat', 'double-time chorus lift'],
-    vocal: ['powerful male belted lead', 'full unison chorus stack'],
+    vocal: ['powerful belted lead', 'full unison chorus stack'],
     production: ['big arena-ready mix', 'wide layered stereo image'],
     harmony: ['anthemic power-chord chorus', 'key-lift final hook'],
     moods: ['powerful', 'anthemic', 'confident'],
@@ -1499,7 +1511,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
   legacyGenrePack({
     id: 'kridol-midtempo-rnb',
     label: 'Midtempo R&B',
-    styleCore: 'Korean idol trap-soul crossover, hushed vocal-chop textures, a lower male voice handling the rap-adjacent verse',
+    styleCore: 'Korean idol trap-soul crossover, hushed vocal-chop textures, a hushed lower-register voice handling the rap-adjacent verse',
     instruments: ['808-influenced sub pulse', 'plucked nylon guitar figure', 'chopped vocal-sample stab', 'muted finger-snap layer'],
     tempoRange: [88, 104],
     goodFor: ['새벽의 고백', 'R&B', '갈망'],
@@ -1507,7 +1519,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['finger-snap trap-soul pocket', 'triplet hi-hat murmur under the verse'],
-    vocal: ['hushed lower-register male verse', 'breathy pitched-up ad-lib texture'],
+    vocal: ['hushed lower-register verse delivery', 'breathy pitched-up ad-lib texture'],
     production: ['muted vocal-chop atmosphere', 'wide negative-space stereo field'],
     harmony: ['suspended fourth color held over the hook', 'chromatic passing tone into the drop'],
     moods: ['hushed', 'restrained', 'late-night'],
@@ -1529,7 +1541,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['dembow-influenced groove', 'syncopated afrobeat pulse'],
-    vocal: ['playful confident male lead', 'call-and-response backing'],
+    vocal: ['playful confident lead', 'call-and-response backing'],
     production: ['warm summery mix', 'bright percussive clarity'],
     harmony: ['bright minor-to-major turn', 'simple repeating hook motif'],
     moods: ['playful', 'bright', 'confident'],
@@ -1547,7 +1559,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['loose rubato opening, no fixed pulse', 'gentle 6/8 lift into the final hook'],
-    vocal: ['layered male harmony stack carrying the melody', 'one voice breaking off into a solo ad-lib'],
+    vocal: ['layered harmony stack carrying the melody', 'one voice breaking off into a solo ad-lib'],
     production: ['close-mic layered choir bloom', 'reverb tail held back until the final hook'],
     harmony: ['stacked open-fifth harmony under the verse', 'modal borrowed chord into the final lift'],
     moods: ['emotional', 'yearning', 'unified'],
@@ -1565,7 +1577,7 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     tier: 'core'
   }, 'kr-idol', {
     rhythm: ['syncopated funk groove', 'driving disco backbeat'],
-    vocal: ['playful confident male lead', 'unison group hook vocal'],
+    vocal: ['playful confident lead', 'unison group hook vocal'],
     production: ['warm retro analog-style groove', 'punchy horn-forward mix'],
     harmony: ['funky dominant-seventh vamp', 'bright disco chorus lift'],
     moods: ['playful', 'punchy', 'retro'],

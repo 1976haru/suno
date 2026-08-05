@@ -22,7 +22,7 @@ import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
 import { applyGenreVocalAffinity } from './vocalGenreAffinity';
 import { assignOpeningHooks, assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { dominantPaletteFamilyId, paletteFamilyForPaletteId } from '../data/paletteFamilies';
-import { audienceProfileForAgeGroup, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
+import { audienceProfileForChannelArchetype, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
@@ -35,6 +35,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
 import { QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabularyBanks';
+import { workspaceForArchetype } from '../data/workspaces';
 import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
@@ -226,6 +227,129 @@ export const recurringMotifs: LocalizedPhrase[] = [
   { english: 'evening train', korean: '저녁 기차', japanese: '夕方の電車' },
   { english: 'small notebook', korean: '작은 수첩', japanese: '小さなノート' }
 ];
+
+/**
+ * v5.7 (TASK G) — real measured root cause of the v5.6 audit's contamination
+ * finding: `recurringMotifs`/`listenerSituations` (both defined here, both
+ * feeding `${motif}`/`${situation}` in every lyric template regardless of
+ * workspace) were the actual GLOBAL, unscoped pools composeLyrics drew from
+ * for every track's motif/situation slot — a real 18-song kr-2030
+ * generation measured literal 'old radio light'/'warm cafe window' entries
+ * surfacing as 오래된 라디오/따뜻한 가게 창가 in the lyrics themselves. This is
+ * a separate, more central mechanism than data/vocabularyBanks.ts's
+ * `vocabularyBankForScene` (which only supplies up to 2 supplementary words
+ * merged into genreFlavorImages, not the primary motif/situation draw) —
+ * both are fixed by this task, but this pair is the one the real
+ * measurement actually traced the contaminated text to.
+ */
+const kr2030Motifs: LocalizedPhrase[] = [
+  { english: 'earbuds still playing', korean: '흐르는 이어폰 소리', japanese: '流れ続けるイヤホンの音' },
+  { english: 'streetlight glow', korean: '가로등 불빛', japanese: '街灯の光' },
+  { english: 'neon reflection', korean: '네온 반사', japanese: 'ネオンの反射' },
+  { english: 'late bus window', korean: '막차 유리창', japanese: '終バスの窓' },
+  { english: 'convenience store light', korean: '편의점 불빛', japanese: 'コンビニの灯り' },
+  { english: 'rain on the pavement', korean: '아스팔트 위 빗물', japanese: 'アスファルトの雨' },
+  { english: 'half-finished coffee', korean: '반쯤 남은 커피', japanese: '飲みかけのコーヒー' },
+  { english: 'phone screen glow', korean: '휴대폰 불빛', japanese: 'スマホの灯り' },
+  { english: 'old playlist', korean: '오래된 플레이리스트', japanese: '古いプレイリスト' },
+  { english: 'empty subway seat', korean: '빈 지하철 좌석', japanese: '空いた地下鉄の座席' },
+  { english: 'worn sneakers', korean: '낡은 운동화', japanese: '履き古したスニーカー' },
+  { english: 'city skyline at night', korean: '밤의 도시 스카이라인', japanese: '夜の街のスカイライン' },
+  { english: 'alley shortcut', korean: '골목 지름길', japanese: '路地の近道' },
+  { english: 'takeout container', korean: '포장 음식 용기', japanese: 'テイクアウトの容器' },
+  { english: 'last train ticket', korean: '막차 티켓', japanese: '終電のチケット' }
+];
+
+const kr2030Situations: LocalizedPhrase[] = [
+  { english: 'subway ride home after work', korean: '퇴근길 지하철', japanese: '仕事帰りの地下鉄' },
+  { english: 'rainy night by the studio apartment window', korean: '비 오는 밤 원룸 창밖', japanese: '雨の夜、ワンルームの窓の外' },
+  { english: 'late-night table with an old friend', korean: '오래된 친구와의 밤 테이블', japanese: '古い友人との夜のテーブル' },
+  { english: 'empty office after everyone left', korean: '다들 떠난 빈 사무실', japanese: 'みんな帰った後の空のオフィス' },
+  { english: '24-hour cafe before dawn', korean: '새벽의 24시간 카페', japanese: '夜明け前の24時間カフェ' },
+  { english: 'last subway car, nearly empty', korean: '거의 빈 지하철 막차', japanese: 'ほぼ空の終電' },
+  { english: 'narrow alley past convenience-store light', korean: '편의점 불빛 지나는 좁은 골목', japanese: 'コンビニの灯りを過ぎる細い路地' },
+  { english: 'crowded company dinner table', korean: '북적이는 회식 자리', japanese: '賑やかな飲み会の席' },
+  { english: 'river road at night with the windows cracked', korean: '창문 살짝 연 밤의 강변도로', japanese: '窓を少し開けた夜の川沿いの道' },
+  { english: 'crosswalk in the middle of the crowd', korean: '인파 속 횡단보도', japanese: '人混みの中の横断歩道' }
+];
+
+const jp2030Motifs: LocalizedPhrase[] = [
+  { english: 'cherry blossom petal', korean: '벚꽃 잎', japanese: '桜の花びら' },
+  { english: 'graduation gate', korean: '졸업식 정문', japanese: '卒業式の門' },
+  { english: 'festival lantern', korean: '축제 등불', japanese: '祭りの提灯' },
+  { english: 'firework spark', korean: '불꽃놀이 불빛', japanese: '花火の光' },
+  { english: 'train platform sign', korean: '플랫폼 표지판', japanese: 'ホームの標識' },
+  { english: 'city night skyline', korean: '밤의 도시 스카이라인', japanese: '夜の街のスカイライン' },
+  { english: 'notebook margin note', korean: '노트 여백의 메모', japanese: 'ノートの余白のメモ' },
+  { english: 'convenience store light', korean: '편의점 불빛', japanese: 'コンビニの灯り' },
+  { english: 'half-empty train car', korean: '반쯤 빈 열차 칸', japanese: '半分空いた電車' },
+  { english: 'yukata sleeve', korean: '유카타 소매', japanese: '浴衣の袖' },
+  { english: 'reflection in a shop window', korean: '가게 유리에 비친 모습', japanese: '店のガラスに映る姿' },
+  { english: 'seasonal wind', korean: '계절의 바람', japanese: '季節の風' },
+  { english: 'old classroom desk', korean: '오래된 교실 책상', japanese: '古い教室の机' },
+  { english: 'night road streaming past', korean: '스쳐 지나가는 밤길', japanese: '流れゆく夜の道' },
+  { english: 'another version of me', korean: '또 다른 나', japanese: 'もう一人の自分' }
+];
+
+const jp2030Situations: LocalizedPhrase[] = [
+  { english: 'graduation ceremony gymnasium', korean: '졸업식 체육관', japanese: '卒業式の体育館' },
+  { english: 'summer festival crowd', korean: '여름 축제 인파', japanese: '夏祭りの人混み' },
+  { english: 'late train ride home', korean: '늦은 귀갓길 열차', japanese: '遅い帰りの電車' },
+  { english: 'quiet room after a long day', korean: '긴 하루 끝의 조용한 방', japanese: '長い一日の終わりの静かな部屋' },
+  { english: 'night drive along the river', korean: '강변을 따라가는 밤 드라이브', japanese: '川沿いを走る夜のドライブ' },
+  { english: 'convenience store on the way home', korean: '집으로 가는 길의 편의점', japanese: '帰り道のコンビニ' },
+  { english: 'empty classroom after school', korean: '방과 후 빈 교실', japanese: '放課後の空き教室' },
+  { english: 'crowded station at rush hour', korean: '혼잡한 출퇴근 시간의 역', japanese: 'ラッシュ時の混雑した駅' },
+  { english: 'rooftop under a changing sky', korean: '변하는 하늘 아래 옥상', japanese: '変わりゆく空の下の屋上' },
+  { english: 'quiet corner of a busy street', korean: '번화가의 조용한 구석', japanese: '賑やかな通りの静かな一角' }
+];
+
+/** v5.7 (TASK E/G) — shared by kr-idol-male/kr-idol-female, same "idol energy is a workspace-genre trait, not a gendered one" reasoning as krIdolPools in lyricEngine.ts. */
+const krIdolMotifs: LocalizedPhrase[] = [
+  { english: 'stage spotlight', korean: '무대 조명', japanese: 'ステージのスポットライト' },
+  { english: 'countdown clock', korean: '카운트다운 시계', japanese: 'カウントダウンの時計' },
+  { english: 'practice room mirror', korean: '연습실 거울', japanese: '練習室の鏡' },
+  { english: 'wave of cheering', korean: '함성의 물결', japanese: '歓声の波' },
+  { english: 'backstage curtain', korean: '무대 뒤 막', japanese: '舞台裏の幕' },
+  { english: 'tour bus window', korean: '투어버스 창', japanese: 'ツアーバスの窓' },
+  { english: 'fan letter', korean: '팬레터', japanese: 'ファンレター' },
+  { english: 'rooftop before dawn', korean: '새벽의 옥상', japanese: '夜明け前の屋上' },
+  { english: 'sweat-soaked microphone', korean: '땀에 젖은 마이크', japanese: '汗に濡れたマイク' },
+  { english: 'confetti in the air', korean: '흩날리는 색종이', japanese: '舞い散る紙吹雪' },
+  { english: 'airport departure gate', korean: '공항 출국 게이트', japanese: '空港の出発ゲート' },
+  { english: 'formation line', korean: '맞춘 대형', japanese: '揃った隊形' },
+  { english: 'city night from the tour van', korean: '투어밴에서 보는 밤의 도시', japanese: 'ツアーバンから見る夜の街' },
+  { english: 'encore chant', korean: '앙코르 함성', japanese: 'アンコールの声' },
+  { english: 'debut night nerves', korean: '데뷔 무대의 긴장', japanese: 'デビューステージの緊張' }
+];
+
+const krIdolSituations: LocalizedPhrase[] = [
+  { english: 'center stage before the beat drops', korean: '비트가 떨어지기 전 무대 중앙', japanese: 'ビートが落ちる前のステージ中央' },
+  { english: 'backstage in the dark before a comeback', korean: '컴백 직전 어두운 무대 뒤', japanese: 'カムバック直前の暗い舞台裏' },
+  { english: 'practice room past midnight', korean: '자정 넘은 연습실', japanese: '深夜を過ぎた練習室' },
+  { english: 'tour bus bunk late at night', korean: '늦은 밤 투어버스 침대', japanese: '夜遅くのツアーバスのベッド' },
+  { english: 'rooftop after a long show', korean: '긴 공연 후의 옥상', japanese: '長い公演の後の屋上' },
+  { english: 'crowded departure gate', korean: '북적이는 출국 게이트', japanese: '混雑した出発ゲート' },
+  { english: 'final chorus in front of the crowd', korean: '관객 앞 마지막 코러스', japanese: '観客の前での最後のコーラス' },
+  { english: 'full run-through in formation', korean: '대형 맞춘 전체 리허설', japanese: '隊形を揃えたフル通し稽古' },
+  { english: 'quiet dressing room before doors open', korean: '문 열기 전 조용한 대기실', japanese: '開場前の静かな控室' },
+  { english: 'empty venue after the crowd leaves', korean: '관객이 떠난 빈 공연장', japanese: '観客が去った後の空の会場' }
+];
+
+/** v5.7 (TASK G) — mirrors lyricEngine.ts's poolsFor: optional and additive, strict no-op for senior-oldpop and any archetype that isn't one of these three. */
+function motifsForArchetype(archetype: ChannelArchetype | undefined): LocalizedPhrase[] {
+  if (archetype === 'kr-2030-pop') return kr2030Motifs;
+  if (archetype === 'jp-2030-pop') return jp2030Motifs;
+  if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return krIdolMotifs;
+  return recurringMotifs;
+}
+
+function situationsForArchetype(archetype: ChannelArchetype | undefined): LocalizedPhrase[] {
+  if (archetype === 'kr-2030-pop') return kr2030Situations;
+  if (archetype === 'jp-2030-pop') return jp2030Situations;
+  if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return krIdolSituations;
+  return listenerSituations;
+}
 
 export const songRoles = [
   'clear opener',
@@ -491,7 +615,7 @@ export function rebuildStylePromptsForPersonaMode(
   // was still calling averageTempo() with only 2 args, so it never reached
   // the v3.58 TASK 4 tempo-band system either, same bug class as the bridge
   // path's batchPreallocation.ts.
-  const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
   const tempoBands = tempoBandsForProfile(audienceProfile);
   // TASK v3.67 (TASK C) — same arc-intensity reorder as generateLocalBlueprint
   // (see arcPlan.ts); this rebuild keeps every song's existing emotionArc
@@ -786,7 +910,7 @@ export function generateLocalBlueprint(
   // core/tempoPlan.ts), so BPM variety comes from a deliberate, data-driven
   // spread across the audience profile's own tempo range instead of only
   // from which genre happened to be assigned per track.
-  const audienceProfile = audienceProfileForAgeGroup(opts.audience);
+  const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
   // v4.2 (TASK A3) — the single ResolvedConstraints instance this whole
   // blueprint's title generation (createTitleGenerator/nextContestedTitle
   // below) reads from; see core/constraints.ts's own top doc comment for
@@ -823,12 +947,12 @@ export function generateLocalBlueprint(
   // harmony/vocal/production atoms via DecomposedReference, so the palette
   // is skipped rather than doubled up when artistStyleAtomPool is non-empty.
   const eraCanonPalettePlan = artistStyleAtomPool.length === 0 ? buildEraCanonPalettePlan(genrePlan, seed) : [];
-  const situationPool = new UniquePool(listenerSituations, seed + 21);
+  const situationPool = new UniquePool(situationsForArchetype(opts.channel.archetype), seed + 21);
   // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, replacing
   // the flat UniquePool(emotionArcs, seed) draw (every shape used to be the
   // same dark-to-light curve regardless of position in the pack).
   const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
-  const motifPool = new UniquePool(recurringMotifs, seed + 23);
+  const motifPool = new UniquePool(motifsForArchetype(opts.channel.archetype), seed + 23);
   // TASK v3.67 (TASK A) — one killing point per track (undefined for
   // peakStrength 'none'), matched against that track's own lead genre's
   // eraTag (see data/killingPoints.ts's own "세그먼트가 없으면 eraTag로
@@ -871,8 +995,9 @@ export function generateLocalBlueprint(
   // back to the generic filler pool in that case, unchanged from before v3.13.
   const genreFlavorImages = genres[0]?.lyricFlavorImages?.map(image => phraseFor(image, opts.lyricLanguage));
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype, constraints);
-  const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase);
-  const packMotif = recurringMotifs[seed % recurringMotifs.length];
+  const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase, opts.channel.archetype);
+  const packMotifPool = motifsForArchetype(opts.channel.archetype);
+  const packMotif = packMotifPool[seed % packMotifPool.length];
   // TASK I2 (v3.11) — "팩에서 고른 moodIds/genreIds" per the brief: the plain
   // set of ids the user selected for the whole pack, not a derived/weighted
   // statistic.
@@ -1150,7 +1275,11 @@ export function generateLocalBlueprint(
     // findArrangementVocabularyInLyrics flags as a leak when it becomes a
     // lyric line's subject, so it (and any future bank noun that collides)
     // must never be a candidate here.
-    const sceneVocabularyBank = vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo);
+    // v5.7 (TASK G) — was called with no workspaceId at all, so this always
+    // drew from the full unscoped (senior-only) bank list regardless of
+    // which workspace was generating — see vocabularyBankForScene's own doc
+    // comment for why that mattered.
+    const sceneVocabularyBank = vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo, workspaceForArchetype(opts.channel.archetype)?.id);
     const sceneVocabImages = sceneVocabularyBank.id !== QUIET_MORNING_BANK_ID
       ? sceneVocabularyBank.nouns
         .filter(noun => !noun.toLowerCase().split(/\s+/).some(word => ARRANGEMENT_VOCABULARY.includes(word)))
