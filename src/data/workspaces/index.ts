@@ -140,16 +140,25 @@ const KR_KIDS: WorkspaceDefinition = {
 const JP_KIDS: WorkspaceDefinition = {
   id: 'jp-kids',
   labelKo: '일본 동요',
-  descriptionKo: '일본 동요 워크스페이스 — 준비 중 (F1에서 채워집니다).',
-  // TASK D1 §3-2/§5 — same reasoning as KR_KIDS above. ready stays false — F1 flips it.
+  // TASK F1 — genre (7)/lyric themes (23)/onomatopoeia (26)/hook bank (9/9)/
+  // thumbnails (4)/concept keywords (7)/channel presets (3) all landed; see docs/f1-report.md.
+  descriptionKo: '일본 동요 워크스페이스 — 장르 7종, 의성어 시스템, 일영 이중언어 지원',
+  // TASK D1 §3-2/§5 — Approach A (per user decision): own archetype, not the
+  // senior workspace's shared 'kids'.
   archetypeIds: ['jp-kids-song'],
   defaultAudienceProfileId: 'kids',
   defaultLyricLanguage: 'japanese',
   theme: { accent: '#0ea5e9', surface: '#f0f9ff' },
   terms: {},
   hiddenFeatures: [],
+  // TASK F1 §9-4 — DistroKid distribution requires its own artist name for
+  // jp-kids content, separate from kr-kids's own; "하루 님 결정 필요", not
+  // invented — see docs/f1-report.md §13-4[A].
+  artistName: undefined,
   contentTier: 'children',
-  ready: false
+  // TASK F1 §9-3 — flipped true as the last step, after the full
+  // verification battery in docs/f1-report.md passed.
+  ready: true
 };
 
 export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS];

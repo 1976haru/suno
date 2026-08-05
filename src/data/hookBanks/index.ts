@@ -8,6 +8,7 @@ import { kidsOverride } from './kids';
 import { kr2030Override } from './kr2030';
 import { jp2030Override } from './jp2030';
 import { krKidsOverride } from './krKids';
+import { jpKidsOverride } from './jpKids';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -17,17 +18,17 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
     case 'j2000s':
       return seniorMorningOverride;
     case 'kids':
-    // TASK D1 §3-2 — jp-kids (not yet built by F1) shares the common-safe
-    // kidsOverride() bank D1 built, same reasoning as kr-kids-song used to
-    // have here before E1 gave it its own case below — without a case,
-    // either would silently fall through to `default` (senior-morning),
-    // the exact class of leak C2 found and fixed for jp-2030-pop.
-    case 'jp-kids-song':
       return kidsOverride(language);
     // TASK E1 §5-1 — kr-kids workspace's own bank, same reasoning as
     // kr-2030-pop/jp-2030-pop below (own vocabulary, own case).
     case 'kr-kids-song':
       return krKidsOverride(language);
+    // TASK F1 §7-1 — jp-kids workspace's own bank, same reasoning as
+    // kr-kids-song above. Without this case it would silently fall through
+    // to `default` (senior-morning) — the exact class of leak C2 found and
+    // fixed for jp-2030-pop, and §0-2 re-measured for this workspace.
+    case 'jp-kids-song':
+      return jpKidsOverride(language);
     case 'christmas':
       return christmasOverride;
     case 'lofi-study':

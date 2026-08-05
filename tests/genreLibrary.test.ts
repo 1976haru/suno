@@ -95,7 +95,8 @@ describe('structured genre library', () => {
     // and genreLibrary/index.ts's kr2030GenrePacks doc comment).
     // TASK C1 — +7 for jp2030GenrePacks, same registered-in-both pattern.
     // TASK E1 — +7 for krkidsGenrePacks, same registered-in-both pattern.
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 28 + 6 + 7 + 7);
+    // TASK F1 — +7 for jpkidsGenrePacks, same registered-in-both pattern.
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 28 + 6 + 7 + 7 + 7);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -303,8 +304,9 @@ describe('structured genre library', () => {
     // v3.61's oldpop-* addition above), so both counts move together: 326.
     // TASK C1 — +7 jp2030-* ids, same registered-in-both pattern: 333.
     // TASK E1 — +7 krkids-* ids, same registered-in-both pattern: 340.
-    expect(libraryIds.size).toBe(340);
-    expect(presetIds.size).toBe(340);
+    // TASK F1 — +7 jpkids-* ids, same registered-in-both pattern: 347.
+    expect(libraryIds.size).toBe(347);
+    expect(presetIds.size).toBe(347);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

@@ -5,6 +5,7 @@ import type { KidsAgeTierId, KidsStructureSectionKind, KidsStructureTemplate } f
 import { kidsStructureTemplateFor } from '../data/kidsStructureTemplates';
 import type { KrKidsBilingualConcept } from '../data/krKidsBilingual';
 import { bilingualContentFor } from '../data/krKidsBilingual';
+import { jpBilingualContentFor } from '../data/jpKidsBilingual';
 
 /**
  * TASK v3.38 Part B3 — a self-contained kids-song lyric body composer,
@@ -42,9 +43,16 @@ export interface KidsLyricInput {
   ageTier?: KidsAgeTierId;
   /**
    * TASK E1 §6 — when set, verse1/verse2/chorus content comes from
-   * data/krKidsBilingual.ts's hand-authored Korean-English pairs instead of
-   * the normal per-theme pool (§6-2: "영어 단어 + 한국어 문장", not English
-   * lyrics). Omit for every existing caller — no behavior change.
+   * data/krKidsBilingual.ts's hand-authored Korean-English pairs (when
+   * `language === 'korean'`) instead of the normal per-theme pool (§6-2:
+   * "영어 단어 + 한국어 문장", not English lyrics). Omit for every existing
+   * caller — no behavior change.
+   *
+   * TASK F1 §6-1 — the concept id set (`'color'|'number'|'greeting'`) is
+   * identical for both languages, so this field's own type is untouched
+   * (E1's explicit "필드 정의를 수정하지 마십시오"); when
+   * `language === 'japanese'`, the same concept id instead pulls from
+   * data/jpKidsBilingual.ts's Japanese-English pairs.
    */
   bilingualConcept?: KrKidsBilingualConcept;
 }
@@ -349,12 +357,14 @@ export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
 
   // TASK E1 §6 — bilingual override, applied after the normal blocks above
   // are computed so every other path (bilingualConcept omitted) is
-  // untouched. verse1/verse2 swap to data/krKidsBilingual.ts's own
-  // Korean-English pairs; chorus/finalChorus carry the bilingual hookLine
-  // (a real English word, unlike the Korean-only hook the title/hook-bank
+  // untouched. verse1/verse2 swap to a hand-authored base-language +
+  // English pair set; chorus/finalChorus carry the bilingual hookLine (a
+  // real English word, unlike the base-only hook the title/hook-bank
   // system produces) so the sung chorus itself teaches a word too.
+  // TASK F1 §6-1 — language-selects which content set (Korean vs Japanese
+  // base) supplies the same concept id; see this field's own doc comment.
   if (input.bilingualConcept) {
-    const bilingual = bilingualContentFor(input.bilingualConcept);
+    const bilingual = language === 'japanese' ? jpBilingualContentFor(input.bilingualConcept) : bilingualContentFor(input.bilingualConcept);
     const bilingualChorusBlock = buildChorusBlock(t.chorus, bilingual.hookLine, support);
     const bilingualFinalChorusBlock = buildChorusBlock(t.finalChorus, bilingual.hookLine, support);
     blocksByKind.verse1 = `${t.verse1}\n${bilingual.verse1[0]}\n${bilingual.verse1[1]}`;

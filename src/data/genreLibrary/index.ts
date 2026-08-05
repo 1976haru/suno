@@ -356,6 +356,21 @@ export const KR_KIDS_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * TASK F1 — jp-kids workspace's 7 genres (see jpkidsGenrePacks above).
+ * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3); §2's
+ * own "최우선 3종은 1·2·3번" is already this array's literal order.
+ */
+export const JP_KIDS_CORE_GENRE_IDS = [
+  'jpkids-teasobi',
+  'jpkids-taiso-dance',
+  'jpkids-onomatopoeia',
+  'jpkids-food-vehicle',
+  'jpkids-daily-habit',
+  'jpkids-seasonal',
+  'jpkids-english-learning'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -432,10 +447,10 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'kr-2030-pop': KR_2030_CORE_GENRE_IDS,
   'jp-2030-pop': JP_2030_CORE_GENRE_IDS,
   // TASK D1 §3-2/§7 — kr-kids/jp-kids archetypes exist structurally now (Approach A).
-  // TASK E1 — kr-kids's genre layer filled in (krkidsGenrePacks, 7 genres). jp-kids stays
-  // empty like christmas/lofi-study above — that's F1's job, not E1's.
+  // TASK E1 — kr-kids's genre layer filled in (krkidsGenrePacks, 7 genres).
+  // TASK F1 — jp-kids's genre layer filled in (jpkidsGenrePacks, 7 genres).
   'kr-kids-song': KR_KIDS_CORE_GENRE_IDS,
-  'jp-kids-song': []
+  'jp-kids-song': JP_KIDS_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -447,7 +462,8 @@ const allCoreGenreIds = new Set<string>([
   ...CITY_NIGHT_CORE_GENRE_IDS,
   ...KR_2030_CORE_GENRE_IDS,
   ...JP_2030_CORE_GENRE_IDS,
-  ...KR_KIDS_CORE_GENRE_IDS
+  ...KR_KIDS_CORE_GENRE_IDS,
+  ...JP_KIDS_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -1207,6 +1223,153 @@ export const krkidsGenrePacks: StructuredGenrePack[] = [
 ];
 
 /**
+ * TASK F1 — jp-kids workspace's 7 genres. `archetypes: ['jp-kids-song']` and
+ * `tier: 'core'` set explicitly on every entry, same isolation pattern as
+ * krkidsGenrePacks above. Order matters: getDefaultGenreIdsForArchetype()
+ * takes slice(0, 3); §2's own top-3 priority (teasobi/taiso-dance/
+ * onomatopoeia) is already this array's literal order.
+ *
+ * §2-1's own measured contrast axis against krkidsGenrePacks (E1): every
+ * entry below names onomatopoeia/hand-motion in styleCore or goodFor (7/7,
+ * exceeds the ≥5/7 bar) and every entry's structureTraits below describes a
+ * question-and-answer shape (7/7, exceeds the ≥5/7 bar) — the opposite
+ * profile from krkids's educationConcept-driven instruction sentences.
+ * dynamicRange stays 'low'/'medium' throughout (same "급격한 다이내믹 금지"
+ * rule as E1); jpkids-taiso-dance's avoidTraits explicitly names
+ * 'dense percussion layers'/'driving four-on-the-floor kick' per §3-2's own
+ * warning that exercise/dance genres drift toward "타악 과다" easiest.
+ */
+export const jpkidsGenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'jpkids-teasobi',
+    label: 'Japanese Hand-Play Song',
+    styleCore: 'cheerful Japanese hand-play song (手遊び歌), simple onomatopoeia, finger and clapping motions',
+    instruments: ['ukulele', 'hand claps', 'xylophone', 'marimba'],
+    tempoRange: [108, 122],
+    goodFor: ['手遊び', 'てあそび', 'finger-play song'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['delicate finger-tapping pulse', 'soft clap-marked echo timing'],
+    vocal: ['warm nursery-toned Japanese lead', "echoing children's-voice response"],
+    production: ['intimate near-mic warmth', 'unhurried room presence'],
+    harmony: ['gentle pentatonic-tinged nursery melody', 'soft resolution on each echo'],
+    moods: ['playful', 'warm'],
+    audiences: ['手遊び', 'てあそび'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'jpkids-taiso-dance',
+    label: 'Japanese Kids Exercise Dance',
+    styleCore: 'energetic Japanese kids exercise dance (体操・ダンス), easy two-step motions, onomatopoeia movement cues',
+    instruments: ['bright synth pad', 'hand claps', 'ukulele', 'xylophone'],
+    tempoRange: [116, 132],
+    goodFor: ['体操', '体操・ダンス', 'kids exercise dance'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['springy marching two-step', 'clap-cued motion-change timing'],
+    vocal: ['spirited coach-style Japanese lead', 'group shout-back on the motion cue'],
+    production: ['punchy daytime-bright energy', 'open-room live-class presence'],
+    harmony: ['upbeat marching-band lift', 'bouncy diatonic call-out hook'],
+    moods: ['energetic', 'playful'],
+    audiences: ['体操', '体操・ダンス'],
+    // §3-2's own explicit warning — exercise/dance drifts toward "타악 과다" easiest.
+    avoidTraits: ['dense percussion layers', 'driving four-on-the-floor kick', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar']
+  }),
+  legacyGenrePack({
+    id: 'jpkids-onomatopoeia',
+    label: 'Japanese Onomatopoeia Song',
+    styleCore: 'bright Japanese onomatopoeia song (オノマトペソング), playful sound-word hooks like ぴょんぴょん and ぐるぐる',
+    instruments: ['xylophone', 'marimba', 'ukulele', 'hand claps'],
+    tempoRange: [104, 120],
+    goodFor: ['オノマトペ', '擬音語・擬態語', 'onomatopoeia song'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['bouncing xylophone-bell pulse', 'giggly skip-step timing'],
+    vocal: ['giggly sound-word Japanese lead', 'children echoing the sound word back'],
+    production: ['sparkling bell-forward glow', 'uncluttered open space'],
+    harmony: ['playful ascending sound-motif', 'bright pentatonic sparkle'],
+    moods: ['playful', 'curious'],
+    audiences: ['オノマトペ', '擬音語・擬態語'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'jpkids-food-vehicle',
+    label: 'Japanese Food and Vehicle Song',
+    styleCore: 'playful Japanese food-and-vehicle song (食べ物・乗り物), sound-imitation hook, one food or vehicle per verse',
+    instruments: ['ukulele', 'bright synth pad', 'xylophone', 'hand claps'],
+    tempoRange: [106, 124],
+    goodFor: ['食べ物', '乗り物', 'food and vehicle song'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['chugging toy-engine groove', 'trotting bite-sized bounce'],
+    vocal: ['animated character-voice Japanese lead', 'kids shouting the naming answer back'],
+    production: ['punchy toy-bright clarity', 'clean daytime snap'],
+    harmony: ['cheerful naming-hook motif', 'bouncy major-key turn'],
+    moods: ['playful', 'curious'],
+    audiences: ['食べ物', '乗り物'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'jpkids-daily-habit',
+    label: 'Japanese Daily Routine Song',
+    styleCore: 'warm Japanese daily-routine song (生活習慣), onomatopoeia-marked routine cue repeated as the hook',
+    instruments: ['ukulele', 'xylophone', 'marimba', 'hand claps'],
+    tempoRange: [98, 112],
+    goodFor: ['生活習慣', 'daily routine song'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['unhurried morning-routine sway', 'soft stepwise walking gait'],
+    vocal: ['patient coaxing Japanese lead', 'children answering back the routine cue'],
+    production: ['tidy domestic hush', 'close near-mic gentleness'],
+    harmony: ['reassuring stepwise resolution', 'soft routine-song turn'],
+    moods: ['warm', 'encouraging'],
+    audiences: ['生活習慣'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'jpkids-seasonal',
+    label: 'Japanese Seasonal Event Song',
+    styleCore: 'cheerful Japanese seasonal-event song (季節の歌), bright onomatopoeia tied to cherry blossoms, festivals, snow',
+    instruments: ['marimba', 'xylophone', 'ukulele', 'bright synth pad'],
+    tempoRange: [96, 118],
+    goodFor: ['季節の歌', 'seasonal event song'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['drifting seasonal sway', 'unhurried strolling gait'],
+    vocal: ['bright open-air Japanese lead', 'children calling out the season name'],
+    production: ['natural outdoor glow', 'airy seasonal breadth'],
+    harmony: ['gentle seasonal melodic turn', 'warm resolving seasonal motif'],
+    moods: ['bright', 'cheerful'],
+    audiences: ['季節の歌'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'jpkids-english-learning',
+    label: 'Japanese-English Learning Song',
+    styleCore: 'clear Japanese-English learning song (英語知育ソング), one Japanese-English word pair repeated as the hook',
+    instruments: ['ukulele', 'xylophone', 'marimba', 'hand claps'],
+    tempoRange: [100, 116],
+    goodFor: ['英語知育', 'bilingual learning song'],
+    archetypes: ['jp-kids-song'],
+    tier: 'core'
+  }, 'jp-kids', {
+    rhythm: ['patient teaching-pace beat', 'crisp call-and-answer timing'],
+    vocal: ['crisp bilingual schoolroom lead', 'children answering back in the target word'],
+    production: ['tidy schoolroom clarity', 'light uncluttered focus'],
+    harmony: ['repeating word-pair teaching motif', 'bright resolving answer-hook'],
+    moods: ['bright', 'curious'],
+    audiences: ['英語知育'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  })
+];
+
+/**
  * TASK C1 — jp-2030 workspace's 7 genres. `archetypes: ['jp-2030-pop']` and
  * `tier: 'core'` are set explicitly on every single one — this task's own
  * §0-2 measured that jp2030-neo-citypop/jp2030-chill-neosoul leak straight
@@ -1874,7 +2037,7 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;

@@ -566,6 +566,75 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
     structureTraits: ['short repeated lullaby phrase, never building to a loud peak', 'verse and chorus stay at the same soft dynamic level']
   },
 
+  // ===== TASK F1 — jp-kids workspace, 7 new genres =====
+  // §2-1's own contrast axis vs krkids (E1) above: every entry's
+  // structureTraits names a question-and-answer shape (7/7, exceeds the
+  // ≥5/7 bar) rather than an instruction-sentence shape. No eraTag on any
+  // entry — same "kids content has no era concept" reasoning as krkids.
+  'jpkids-teasobi': {
+    instrumentation: ['ukulele', 'hand claps', 'xylophone', 'marimba'],
+    rhythmFeel: ['gentle finger-play pulse', 'clap-marked two-step groove'],
+    harmonyTraits: ['simple major-key singalong lift', 'repeated diatonic hook progression'],
+    productionTraits: ["clean close-mic children's mix", 'natural unforced warmth'],
+    vocalTraits: ['bright childlike Japanese lead', 'call-and-response between adult and children voices'],
+    dynamicRange: 'low',
+    structureTraits: ['adult voice calls a motion cue, children echo it back', 'short question line answered by the children in the next bar']
+  },
+  'jpkids-taiso-dance': {
+    instrumentation: ['bright synth pad', 'hand claps', 'ukulele', 'xylophone'],
+    rhythmFeel: ['bouncy two-step dance pulse', 'clap-driven call-and-response beat'],
+    harmonyTraits: ['simple major-key dance lift', 'repeated diatonic hook progression'],
+    productionTraits: ["bright clean children's mix", 'punchy but gentle low end'],
+    vocalTraits: ['energetic childlike Japanese lead', 'group chant on the chorus'],
+    dynamicRange: 'medium',
+    structureTraits: ['adult voice calls the next dance move, children echo it back', 'short motion-cue line answered by group repetition']
+  },
+  'jpkids-onomatopoeia': {
+    instrumentation: ['xylophone', 'marimba', 'ukulele', 'hand claps'],
+    rhythmFeel: ['bright bell-tone bounce pulse', 'skip-along light beat'],
+    harmonyTraits: ['simple ascending sound-word motif', 'bright major-key lift'],
+    productionTraits: ['clean bell-forward mix', 'light and airy production'],
+    vocalTraits: ['playful childlike Japanese lead', 'sound-word call-and-response'],
+    dynamicRange: 'medium',
+    structureTraits: ['a sound-word line answered by the children repeating it back', 'short question line ("何の音？") answered in the next bar']
+  },
+  'jpkids-food-vehicle': {
+    instrumentation: ['ukulele', 'bright synth pad', 'xylophone', 'hand claps'],
+    rhythmFeel: ['playful trotting pulse', 'engine-chug bounce groove'],
+    harmonyTraits: ['simple major-key playful lift', 'repeated diatonic hook progression'],
+    productionTraits: ["bright clean children's mix", 'punchy but gentle low end'],
+    vocalTraits: ['playful childlike Japanese lead', 'sound-imitation call-and-response'],
+    dynamicRange: 'medium',
+    structureTraits: ['a naming question answered by the children in the next bar', 'sound-imitation hook repeated as group call-and-response']
+  },
+  'jpkids-daily-habit': {
+    instrumentation: ['ukulele', 'xylophone', 'marimba', 'hand claps'],
+    rhythmFeel: ['steady walking routine pulse', 'gentle two-step groove'],
+    harmonyTraits: ['simple I-IV-V routine-song lift', 'warm major-key resolution'],
+    productionTraits: ["clean close-mic children's mix", 'natural unforced warmth'],
+    vocalTraits: ['clear instructive childlike Japanese lead', 'call-and-response between instruction and group'],
+    dynamicRange: 'low',
+    structureTraits: ['an instruction line answered by the children repeating it back', 'short routine-cue question answered in the next bar']
+  },
+  'jpkids-seasonal': {
+    instrumentation: ['marimba', 'xylophone', 'ukulele', 'bright synth pad'],
+    rhythmFeel: ['gentle seasonal-walk pulse', 'light skip-along groove'],
+    harmonyTraits: ['simple seasonal major-key progression', 'warm resolving lift'],
+    productionTraits: ["clean warm children's mix", 'natural unforced warmth'],
+    vocalTraits: ['bright childlike Japanese lead', 'call-and-response naming the season'],
+    dynamicRange: 'low',
+    structureTraits: ['a seasonal-naming question answered by the children in the next bar', 'short call-and-response between verse and chorus']
+  },
+  'jpkids-english-learning': {
+    instrumentation: ['ukulele', 'xylophone', 'marimba', 'hand claps'],
+    rhythmFeel: ['steady learning pulse', 'clean two-step groove'],
+    harmonyTraits: ['simple repeated learning-hook progression', 'bright major-key resolution'],
+    productionTraits: ["clean close-mic children's mix", 'light and airy production'],
+    vocalTraits: ['clear enunciated bilingual childlike Japanese lead', 'call-and-response between languages'],
+    dynamicRange: 'low',
+    structureTraits: ['a Japanese question answered with the English word in the next bar', 'short word-pair line repeated as group call-and-response']
+  },
+
   // ===== TASK C1 — jp-2030 workspace, 7 new genres =====
   // Japanese-axis rule (this task's own §3-1, the direct counterpart to
   // kr2030's bass/drum-led rule above): 5/7 lead with guitar/piano

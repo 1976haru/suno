@@ -50,7 +50,14 @@ export type ThumbnailArchetypeCategory =
   | 'krkids-daily-habit-bathroom'
   | 'krkids-counting-blocks'
   | 'krkids-roleplay-market'
-  | 'krkids-bilingual-alphabet';
+  | 'krkids-bilingual-alphabet'
+  // TASK F1 — jp-kids workspace's 4 new archetypes (see
+  // jpkidsTeasobiHands.ts / jpkidsFoodCharacter.ts / jpkidsVehicleParade.ts
+  // / jpkidsSeasonalMatsuri.ts).
+  | 'jpkids-teasobi-hands'
+  | 'jpkids-food-character'
+  | 'jpkids-vehicle-parade'
+  | 'jpkids-seasonal-matsuri';
 
 export type ThumbnailArchetypeId = ThumbnailArchetypeCategory;
 

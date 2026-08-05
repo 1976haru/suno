@@ -74,5 +74,23 @@ export const GENRE_FORBIDDEN_DESCRIPTORS: GenreDescriptorRule[] = [
     // TASK E1 (§3-4) — directly contradicts a lullaby's own definition.
     genreIds: ['krkids-sleep-calm'],
     forbiddenPhrases: ['hand claps', 'call and response', 'energetic', 'four-on-the-floor']
+  },
+  // TASK F1 (§3-4) — senior Japanese vocabulary blocked from all 7 jp-kids
+  // genres, drawn from BOTH senior Japanese dictionaries (japaneseDefault +
+  // showaCafe) since F1 §0-4 measured this workspace has twice the exposure
+  // risk E1's Korean-only senior dictionary has.
+  {
+    genreIds: ['jpkids-teasobi', 'jpkids-taiso-dance', 'jpkids-onomatopoeia', 'jpkids-food-vehicle', 'jpkids-daily-habit', 'jpkids-seasonal', 'jpkids-english-learning'],
+    forbiddenPhrases: ['analog tape saturation', 'crooner delivery', 'showa-era kissaten', 'sepia tone', 'wistful nostalgia', 'aching longing', 'bittersweet reflection']
+  },
+  {
+    // TASK F1 (§3-4) — jpkids-seasonal sits closest to the senior seasonal
+    // vocabulary of any jp-kids genre, so it gets a second, narrower guard.
+    genreIds: ['jpkids-seasonal'],
+    forbiddenPhrases: ['quiet winter melancholy', 'first snow nostalgia', 'looking back on the year']
+  },
+  {
+    genreIds: ['jpkids-teasobi', 'jpkids-daily-habit'],
+    forbiddenPhrases: ['driving beat', 'four-on-the-floor', 'big dynamic build']
   }
 ];

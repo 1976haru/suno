@@ -30,8 +30,10 @@ export interface LyricTheme {
   motionKo?: string;
   /** TASK E1 §4-3 — D1's age tier this theme targets. Optional; existing themes (predating D1) have none. */
   ageTier?: 'kids-t1' | 'kids-t2' | 'kids-t3';
-  /** TASK E1 §4-4 — exactly one education concept per theme ("한 곡에 개념 하나"); never contains "and". Optional; only krkids-* themes set this. */
+  /** TASK E1 §4-4 — exactly one education concept per theme ("한 곡에 개념 하나"); never contains "and". Optional; only krkids-* themes set this — F1 §4-3 deliberately keeps jpkids-* themes off this axis (onomatopoeiaGroup below is jp-kids's own). */
   educationConcept?: string;
+  /** TASK F1 §4-3/§5 — which data/onomatopoeia.ts entry this theme's motion/mood centers on. jp-kids's own axis — deliberately NOT educationConcept (that field stays kr-kids-only, see its own doc comment). */
+  onomatopoeiaGroup?: string;
   /**
    * TASK E1 §6-3 — which language pair this theme inserts learning words in
    * (base = the song's main lyric language, target = the language whose
@@ -1412,6 +1414,247 @@ export const kidsLyricThemes: LyricTheme[] = [
     ageTier: 'kids-t2',
     educationConcept: 'calming down with slow breathing',
     frameId: 'instruct-repeat'
+  },
+  // TASK F1 §4 — jp-kids workspace's 23 themes (doc's own §4-1 breakdown
+  // lists 23 concrete scenes, above the stated "18" floor — same
+  // over-delivery choice E1 made for the same reason: more coverage only
+  // helps stay clear of the 12-item fallback threshold). Appended here (not
+  // a separate array), same reasoning as E1's krkids-* block above —
+  // suitedArchetypes is what keeps jp-kids's pool apart from kr-kids's.
+  // NONE of these set educationConcept (§4-3/§12 item 3) — onomatopoeiaGroup
+  // is jp-kids's own axis instead, referencing data/onomatopoeia.ts ids.
+  {
+    id: 'jpkids-teasobi-fingerplay',
+    labelKo: '손가락 놀이',
+    scene: 'wiggling fingers one by one in a simple finger-play rhyme',
+    emotionalArc: 'careful watching turning into giggly copying',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'motion-wave',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-teasobi-clap-play',
+    labelKo: '박수 놀이',
+    scene: 'clapping hands together in a simple call-and-response rhythm',
+    emotionalArc: 'shy first claps turning into confident group clapping',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'motion-clap',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-teasobi-face-to-face',
+    labelKo: '두 사람이 마주 보고',
+    scene: 'sitting face to face with a partner, trading a simple hand-play pattern',
+    emotionalArc: 'careful timing turning into shared laughter',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-wave',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-taiso-morning',
+    labelKo: '아침 체조',
+    scene: 'stretching arms and legs together during morning exercise time',
+    emotionalArc: 'sleepy stillness waking into bright energy',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-stomp',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-taiso-two-step-dance',
+    labelKo: '두 걸음 춤',
+    scene: 'following a simple two-step dance move in a circle with friends',
+    emotionalArc: 'watching from the side turning into joining the circle',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-jump',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-onomatopoeia-jumping-sound',
+    labelKo: '뛰는 소리',
+    scene: 'hopping across the room and naming the jumping sound out loud',
+    emotionalArc: 'quiet stillness bursting into bouncy energy',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'motion-jump',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-onomatopoeia-spinning-sound',
+    labelKo: '도는 소리',
+    scene: 'spinning slowly in place and naming the spinning sound out loud',
+    emotionalArc: 'careful balance turning into dizzy giggles',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-spin',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-onomatopoeia-eating-sound',
+    labelKo: '먹는 소리',
+    scene: 'sharing a snack and naming the eating sound out loud together',
+    emotionalArc: 'quiet nibbling turning into cheerful sound-play',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'eat-chew',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-takoyaki-sizzle',
+    labelKo: '타코야키 지글지글',
+    scene: 'watching takoyaki batter sizzle and turn at a small festival stall',
+    emotionalArc: 'hungry watching turning into excited anticipation',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'eat-sizzle',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-bus-ride',
+    labelKo: '버스 타고 붕붕',
+    scene: 'riding a bus and waving out the window as it rolls along',
+    emotionalArc: 'quiet sitting turning into excited window-waving',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'vehicle-bus',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-train-ride',
+    labelKo: '기차 타고 덜컹덜컹',
+    scene: 'riding a train and rocking gently along with its rhythm',
+    emotionalArc: 'quiet curiosity turning into rhythmic delight',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'vehicle-train',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-animal-parade',
+    labelKo: '동물 흉내 행진',
+    scene: 'hopping and waddling like different animals in a line at the zoo',
+    emotionalArc: 'shy first hop turning into a joyful animal parade',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-jump',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-pajama-change',
+    labelKo: '잠옷 갈아입기',
+    scene: 'changing into soft pajamas and getting ready for bed',
+    emotionalArc: 'busy wiggling settling into cozy readiness',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'emotion-sleepy',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-teeth-brushing',
+    labelKo: '이 닦기',
+    scene: 'brushing teeth carefully in front of the bathroom mirror',
+    emotionalArc: 'sleepy reluctance turning into proud completion',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-scrub',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-tidying-up',
+    labelKo: '장난감 정리',
+    scene: 'wiping the table and putting toys back after playtime',
+    emotionalArc: 'reluctant pause turning into satisfied order',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-wipe',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-greeting-habit',
+    labelKo: '인사 연습',
+    scene: 'bowing and greeting a friend cheerfully at the door',
+    emotionalArc: 'shy hesitation turning into a bright greeting',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'emotion-smile',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-cherry-blossom',
+    labelKo: '벚꽃 흩날리기',
+    scene: 'watching pink cherry blossom petals spin and drift down in the park',
+    emotionalArc: 'quiet wonder turning into a sparkling chorus',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-spin',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-summer-festival',
+    labelKo: '여름 축제',
+    scene: 'stomping along to festival drums with a paper fan in hand',
+    emotionalArc: 'wide-eyed excitement turning into joyful dancing',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-stomp',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-autumn-leaves',
+    labelKo: '단풍잎 흔들기',
+    scene: 'waving a bright red maple leaf overhead while walking through the park',
+    emotionalArc: 'curious collecting turning into a cheerful wave',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'motion-wave',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-snow-play',
+    labelKo: '눈밭에서 놀기',
+    scene: 'hopping through fresh snow and catching snowflakes with open hands',
+    emotionalArc: 'careful first steps turning into excited snow-play',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'emotion-excited',
+    frameId: 'list-question'
+  },
+  {
+    id: 'jpkids-color-in-english',
+    labelKo: '색깔 한 개씩 영어로 배우기',
+    scene: 'naming a color in Japanese and then again in English',
+    emotionalArc: 'careful repeating turning into proud recall',
+    suitedArchetypes: ['jp-kids-song'],
+    languages: ['japanese'],
+    ageTier: 'kids-t3',
+    frameId: 'list-question',
+    learningLanguagePair: { base: 'japanese', target: 'english' }
+  },
+  {
+    id: 'jpkids-number-in-english',
+    labelKo: '숫자 한 개씩 영어로 배우기',
+    scene: 'counting a number in Japanese and then again in English',
+    emotionalArc: 'careful repeating turning into proud recall',
+    suitedArchetypes: ['jp-kids-song'],
+    languages: ['japanese'],
+    ageTier: 'kids-t3',
+    frameId: 'count-invite',
+    learningLanguagePair: { base: 'japanese', target: 'english' }
+  },
+  {
+    id: 'jpkids-greeting-in-english',
+    labelKo: '인사말 한 개씩 영어로 배우기',
+    scene: 'waving hello and saying a greeting in Japanese and English',
+    emotionalArc: 'shy waving turning into a cheerful greeting',
+    suitedArchetypes: ['jp-kids-song'],
+    languages: ['japanese'],
+    ageTier: 'kids-t3',
+    frameId: 'list-question',
+    learningLanguagePair: { base: 'japanese', target: 'english' }
   }
 ];
 
@@ -1455,7 +1698,31 @@ const KIDS_ENGINE_THEME_BY_ID: Record<string, KidsLyricThemeHint> = {
   'krkids-greeting-in-english': 'hangul',
   'krkids-lullaby-goodnight': 'family',
   'krkids-naptime-blanket': 'family',
-  'krkids-calm-breathing': 'family'
+  'krkids-calm-breathing': 'family',
+  // TASK F1 §4 — jp-kids's 23 new themes, same closest-of-8-hints mapping E1 used.
+  'jpkids-teasobi-fingerplay': 'play',
+  'jpkids-teasobi-clap-play': 'play',
+  'jpkids-teasobi-face-to-face': 'friend',
+  'jpkids-taiso-morning': 'play',
+  'jpkids-taiso-two-step-dance': 'play',
+  'jpkids-onomatopoeia-jumping-sound': 'play',
+  'jpkids-onomatopoeia-spinning-sound': 'play',
+  'jpkids-onomatopoeia-eating-sound': 'family',
+  'jpkids-takoyaki-sizzle': 'family',
+  'jpkids-bus-ride': 'play',
+  'jpkids-train-ride': 'play',
+  'jpkids-animal-parade': 'animal',
+  'jpkids-pajama-change': 'family',
+  'jpkids-teeth-brushing': 'family',
+  'jpkids-tidying-up': 'family',
+  'jpkids-greeting-habit': 'friend',
+  'jpkids-cherry-blossom': 'season',
+  'jpkids-summer-festival': 'season',
+  'jpkids-autumn-leaves': 'season',
+  'jpkids-snow-play': 'season',
+  'jpkids-color-in-english': 'hangul',
+  'jpkids-number-in-english': 'hangul',
+  'jpkids-greeting-in-english': 'hangul'
 };
 
 function normalizeCustomScene(scene: string | undefined): string {

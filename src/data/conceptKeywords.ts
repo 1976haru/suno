@@ -346,6 +346,54 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'krkids-action',
     patterns: [/율동/, /체조/, /따라\s*하기/, /action\s*song/i, /clapping\s*game/i],
     genreWeights: { 'krkids-action': 4 }
+  },
+  // TASK F1 §9-1 — jp-kids workspace's concept keywords. genreWeights only,
+  // pointing only at jpkids-* ids. §9-1's own explicit requirement: Korean
+  // AND Japanese script forms on every rule (하루 may type either). A few
+  // bare words below (체조/桜/雪/夏祭り) intentionally overlap with existing
+  // krkids-action/jp2030-seasonal-bloom/winter/jp2030-summer-festival
+  // patterns — expected multi-match, not a collision (genreWeights are
+  // archetype-scoped at consumption; see docs/f1-report.md §13-1[11] for
+  // the before/after comparison this task's own §9-1 asks for).
+  {
+    id: 'jpkids-teasobi',
+    patterns: [/手遊び/, /てあそび/, /손\s*놀이/, /hand[- ]?play\s*song/i],
+    genreWeights: { 'jpkids-teasobi': 4 }
+  },
+  {
+    id: 'jpkids-taiso-dance',
+    patterns: [/体操/, /たいそう/, /체조/, /kids\s*exercise\s*dance/i],
+    genreWeights: { 'jpkids-taiso-dance': 4 }
+  },
+  {
+    id: 'jpkids-onomatopoeia',
+    patterns: [/オノマトペ/, /의성어/, /擬音語/, /擬態語/],
+    genreWeights: { 'jpkids-onomatopoeia': 4 }
+  },
+  {
+    id: 'jpkids-food-vehicle',
+    patterns: [/たこやき/, /타코야키/, /食べ物/, /음식/, /バス/, /電車/, /버스/, /乗り物/],
+    genreWeights: { 'jpkids-food-vehicle': 4 }
+  },
+  {
+    id: 'jpkids-daily-habit',
+    patterns: [/生活習慣/, /생활습관/, /잠옷/, /パジャマ/],
+    genreWeights: { 'jpkids-daily-habit': 4 }
+  },
+  {
+    // TASK F1 §9-1 — bare 눈(snow) excludes 첫눈("first snow") specifically:
+    // G1's own L7 senior-concept regression check (scripts/isolationAudit.ts's
+    // L7_SENIOR_CONCEPTS) uses "첫눈" as a real senior test string expected
+    // to match only ['winter'] — a bare /눈/ pattern here would have added
+    // this rule to that result, a genuine cross-workspace match G1 caught.
+    id: 'jpkids-seasonal',
+    patterns: [/夏祭り/, /여름\s*축제/, /桜/, /벚꽃/, /雪/, /(?<!첫)눈(?!치)/],
+    genreWeights: { 'jpkids-seasonal': 4 }
+  },
+  {
+    id: 'jpkids-english-learning',
+    patterns: [/英語/, /영어/, /知育/, /bilingual\s*learning\s*song/i],
+    genreWeights: { 'jpkids-english-learning': 4 }
   }
 ];
 

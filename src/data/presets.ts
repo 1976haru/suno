@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, kr2030GenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, jpkidsGenrePacks, kr2030GenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -374,6 +374,69 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['자장가', '낮잠 동요', '수면 동요', '역할놀이 동요', '어린이 잠자리 노래', '편안한 동요'],
     archetype: 'kr-kids-song'
+  },
+  // TASK F1 §9-2 — jp-kids workspace's 3 channel presets, same
+  // registered-once pattern as E1's krkids block above. archetype:
+  // 'jp-kids-song' is mandatory on every entry (migrateArchetype would
+  // otherwise route to senior-morning). artistName left unset — §9-4 is a
+  // "하루 님 결정 필요" item (DistroKid distribution requirement, separate
+  // from kr-kids's own), reported not invented; see docs/f1-report.md §13-4[A].
+  {
+    id: 'teasobi-hiroba',
+    name: 'てあそびうた ひろば',
+    englishName: 'Hand-Play Song Plaza',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'kids',
+    promise: '指遊びや手拍子であそぶ、オノマトペいっぱいの手遊び歌プレイリスト',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: 'warm nursery-toned Japanese lead, echoing children\'s-voice response',
+    preferredGenres: ['jpkids-teasobi', 'jpkids-onomatopoeia', 'jpkids-food-vehicle'],
+    preferredMoods: ['bright-playful'],
+    forbiddenCliches: [
+      'showa-era kissaten imagery', 'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
+      'reusing an existing nursery rhyme melody or lyrics', 'excessive rap verses'
+    ],
+    seoKeywords: ['手遊び歌', 'てあそびうた', 'オノマトペソング', '幼児向け童謡', '保育園 手遊び', '親子で遊ぶ歌'],
+    archetype: 'jp-kids-song'
+  },
+  {
+    id: 'minna-de-taiso',
+    name: 'みんなで たいそう',
+    englishName: 'Exercise Together',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'kids',
+    promise: '体操やダンスで体を動かす、元気いっぱいの体操・オノマトペソングプレイリスト',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: 'spirited coach-style Japanese lead, group shout-back on the motion cue',
+    preferredGenres: ['jpkids-taiso-dance', 'jpkids-onomatopoeia', 'jpkids-teasobi'],
+    preferredMoods: ['bright-playful'],
+    forbiddenCliches: [
+      'showa-era kissaten imagery', 'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
+      'reusing an existing nursery rhyme melody or lyrics', 'dense percussion layers'
+    ],
+    seoKeywords: ['体操ソング', 'ダンスソング', '保育園 体操', '幼児向け童謡', '親子体操', '元気な歌'],
+    archetype: 'jp-kids-song'
+  },
+  {
+    id: 'oyasumi-mae-no-uta',
+    name: 'おやすみまえの うた',
+    englishName: 'Before-Bedtime Song',
+    market: 'japan',
+    primaryLanguage: 'japanese',
+    audience: 'kids',
+    promise: '生活習慣や季節の歌でゆったり過ごす、寝る前にぴったりの落ち着いた童謡プレイリスト',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: 'patient coaxing Japanese lead, children answering back the routine cue',
+    preferredGenres: ['jpkids-daily-habit', 'jpkids-seasonal', 'jpkids-english-learning'],
+    preferredMoods: ['bright-playful'],
+    forbiddenCliches: [
+      'showa-era kissaten imagery', 'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
+      'reusing an existing nursery rhyme melody or lyrics', 'driving beat'
+    ],
+    seoKeywords: ['生活習慣ソング', '季節の歌', '寝る前の歌', '幼児向け童謡', '保育園 生活習慣', '落ち着く童謡'],
+    archetype: 'jp-kids-song'
   }
 ];
 
@@ -636,6 +699,8 @@ const rawGenrePacks: GenrePack[] = [
   ...jp2030GenrePacks,
   // TASK E1 — kr-kids workspace's 7 genres, same registered-in-both pattern.
   ...krkidsGenrePacks,
+  // TASK F1 — jp-kids workspace's 7 genres, same registered-in-both pattern.
+  ...jpkidsGenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks

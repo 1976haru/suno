@@ -23,15 +23,19 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
   // channel-preset layers all landed and were verified via real 18-song
   // generation (0/18 titles carry senior vocabulary across 3 channels), so
   // this workspace is now fully built — ready=true, same transition
-  // kr-2030/jp-2030 made after B2/C2. jp-kids stays not-ready — F1's job.
-  it('kr-kids is fully built: real archetype, ready=true; jp-kids stays not-ready', () => {
+  // kr-2030/jp-2030 made after B2/C2.
+  // TASK F1 — jp-kids's own genre/lyric-theme/onomatopoeia/hook-bank/
+  // thumbnail/concept/channel-preset layers all landed and were verified via
+  // real 18-song generation (0/54 titles carry senior vocabulary across 3
+  // channels; see docs/f1-report.md), so jp-kids is now fully built too.
+  it('kr-kids and jp-kids are both fully built: real archetypes, ready=true', () => {
     const krKids = getWorkspace('kr-kids');
     expect(krKids.ready).toBe(true);
     expect(krKids.archetypeIds).toEqual(['kr-kids-song']);
     expect(krKids.labelKo.length).toBeGreaterThan(0);
 
     const jpKids = getWorkspace('jp-kids');
-    expect(jpKids.ready).toBe(false);
+    expect(jpKids.ready).toBe(true);
     expect(jpKids.archetypeIds).toEqual(['jp-kids-song']);
     expect(jpKids.labelKo.length).toBeGreaterThan(0);
   });

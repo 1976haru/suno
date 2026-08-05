@@ -1,35 +1,23 @@
-# Production Stress Test Report
+# 스트레스 테스트 결과 (STRESS_TEST_REPORT)
 
-Generated: 2026-08-04T11:11:53.870Z
+자동 생성됨 — `npm run test:stress` 실행 시 `tests/stress.test.ts`가 매번 이 파일을 다시 씁니다.
 
-| 시나리오 | 결과 | 소요시간(ms) | 비고 |
-|---|---:|---:|---|
-| S1 long run: 18 weeks x 12 songs has no title/hook duplicates and stable memory | PASS | 456 | - |
-| S2 hook pool exhaustion gives warning at 80 percent and clear error at exhaustion | PASS | 25 | - |
-| S3 performance: 30 local songs stay fast with 0/200/500 history entries | PASS | 111 | - |
-| S4 prompt caps: all genres/languages/seasons fit, persona tracks fit, seed keeps essentials | PASS | 18439 | - |
-| S5 extreme inputs are clamped and never execute script text | PASS | 255 | - |
-| S6 storage load simulation: 100 packs serialize/restore and hook lookup over 5000 entries stays fast | PASS | 3285 | - |
-| S7 batch stability: one failed batch preserves the rest and retry merges without duplicate trackNo | PASS | 1 | - |
-| S9 (v3.32) single pack of 80 songs: zero hook/title duplicates, trackNo 1..80 continuous | PASS | 110 | - |
-| S8 API failure modes are mocked, retried, recoverable, and key-safe | PASS | 21 | - |
-
-
-## Opening Sequence Stress Tests (v3.11)
-
-Generated: 2026-08-04T11:11:02.576Z
+생성 시각: 2026-08-05T01:38:21.537Z
 
 | 시나리오 | 결과 | 소요시간(ms) | 비고 |
-|---|---:|---:|---|
-| OS1 long simulation: 18 weeks x 12 songs, every combo either succeeds with correct cold-open/flagship or fails gracefully with the known pool-exhaustion message | PASS | 14628 | - |
-| OS2 contest load: k=3 contest runs 500x without crashing, average under 50ms | PASS | 338 | - |
-| OS2 contest near pool exhaustion still returns a clear result, no infinite loop | PASS | 27 | - |
-| OS3 extreme songCount inputs are clamped and never crash cold-open/flagship assignment | PASS | 416 | - |
-| OS3 invalid openingStyle values safely fall back to a concrete resolution | PASS | 1 | - |
-| OS3 a channel with no genres/moods selected does not crash dominant-context scoring | PASS | 15 | - |
-| OS4 chained promotions (1 -> 2 -> 3, repeated 5x) keep state consistent | PASS | 21 | - |
-| OS4 10 consecutive promotions never produce a hook collision | PASS | 21 | - |
-| OS5 persona mode + cold-open seed stays within 1000 chars | PASS | 6 | - |
-| OS5 batch preallocation assigns cold-open to track 1 and flagship to tracks 2-3 | PASS | 6 | - |
-| OS5 batch chunking always puts track 1 (cold-open) in the first sub-batch | PASS | 2 | - |
-| OS6 full regression: no crash across every archetype/language combination at pack scale | PASS | 775 | - |
+|---|---|---|---|
+| S1: 최소 부하 (1곡) | PASS | 17 | - |
+| S2: 표준 부하 (12곡 x 3언어 x 5장르조합) | PASS | 225 | - |
+| S3: 최대 부하 (30곡) | PASS | 38 | - |
+| S4: 연속 생성 (30곡 x 50회 반복) | PASS | 1603 | - |
+| S5: 경계값 (songCount 0, -5, 81, 999, NaN, Infinity, "abc") | PASS | 226 | - |
+| S6: 극단 입력 (채널명 10000자 / 이모지 / 빈 문자열 / <script>) | PASS | 48 | - |
+| S7: 프리셋 전수 (장르 x 무드 x 시즌 x 머니코드, 각 단독 검증) | PASS | 84 | - |
+| S8: 저장소 부하 (30곡 팩 100개 IndexedDB 저장/로드) | MANUAL | 0 | Node에 IndexedDB 없음. Playwright로 단일 팩 자동저장/불러오기는 확인함. 100개 벌크 부하는 별도 측정 안 됨. |
+| S9: 응답 파싱 실패 vs 잘림 구분 (서버 안전 파서 + 클라이언트 에러 노출) | PASS | 13 | - |
+| S10: 인증 실패 (401) | PASS | 0 | - |
+| S11: 레이트리밋 (429) 지수 백오프 재시도 후 성공 | PASS | 5 | - |
+| S11b: 레이트리밋 지속 시 최대 3회 재시도 후 안내 | PASS | 33 | - |
+| S12: 타임아웃 설정 확인 (서버 30초 AbortController) | PASS | 0 | - |
+| S13: 배치 부분 실패 (v3.21: 소단위 병렬 청크 — 성공한 청크는 진행률 콜백에 보존, 실패한 청크만 에러) | PASS | 12 | - |
+| S14: 키 누출 검사 (콘솔 로그 / 에러 메시지) | PASS | 1 | - |
