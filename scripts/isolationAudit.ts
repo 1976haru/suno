@@ -52,6 +52,9 @@ function genreWorkspaceOf(genreId: string): WorkspaceId {
   if (genreId.startsWith('jp2030-')) return 'jp-2030';
   if (genreId.startsWith('krkids-')) return 'kr-kids';
   if (genreId.startsWith('jpkids-')) return 'jp-kids';
+  // TASK K2 — kr-idol-male's own genre prefix, same pattern as the four
+  // cases above (each added by its own workspace's doc, not G1 itself).
+  if (genreId.startsWith('kridol-')) return 'kr-idol-male';
   return 'senior-oldpop';
 }
 
@@ -60,6 +63,9 @@ function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
   if (theme.id.startsWith('jp2030-')) return 'jp-2030';
   if (theme.id.startsWith('krkids-')) return 'kr-kids';
   if (theme.id.startsWith('jpkids-')) return 'jp-kids';
+  // TASK K2 — kr-idol-male's own theme prefix, same reasoning as
+  // genreWorkspaceOf above.
+  if (theme.id.startsWith('kridol-')) return 'kr-idol-male';
   return 'senior-oldpop';
 }
 

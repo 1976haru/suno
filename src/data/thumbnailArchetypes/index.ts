@@ -31,6 +31,9 @@ import { jpkidsTeasobiHandsArchetype } from './jpkidsTeasobiHands';
 import { jpkidsFoodCharacterArchetype } from './jpkidsFoodCharacter';
 import { jpkidsVehicleParadeArchetype } from './jpkidsVehicleParade';
 import { jpkidsSeasonalMatsuriArchetype } from './jpkidsSeasonalMatsuri';
+import { kridolStagePerformanceArchetype } from './kridolStagePerformance';
+import { kridolNightCityMoveArchetype } from './kridolNightCityMove';
+import { kridolMonoPortraitArchetype } from './kridolMonoPortrait';
 import type { ThumbnailArchetype, ThumbnailArchetypeId } from './types';
 import type { ChannelArchetype } from '../../types';
 
@@ -109,6 +112,14 @@ export const jpkidsThumbnailArchetypes: ThumbnailArchetype[] = [
   jpkidsSeasonalMatsuriArchetype
 ];
 
+// TASK K2 — kr-idol-male workspace's 3 new archetypes, same
+// suitedArchetypes scoping pattern as jpkidsThumbnailArchetypes above.
+export const kridolThumbnailArchetypes: ThumbnailArchetype[] = [
+  kridolStagePerformanceArchetype,
+  kridolNightCityMoveArchetype,
+  kridolMonoPortraitArchetype
+];
+
 export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...seasonalThumbnailArchetypes,
   ...placeThumbnailArchetypes,
@@ -116,7 +127,8 @@ export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...kr2030ThumbnailArchetypes,
   ...jp2030ThumbnailArchetypes,
   ...krkidsThumbnailArchetypes,
-  ...jpkidsThumbnailArchetypes
+  ...jpkidsThumbnailArchetypes,
+  ...kridolThumbnailArchetypes
 ];
 
 /**

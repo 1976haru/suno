@@ -39,6 +39,19 @@ export interface WorkspaceDefinition {
   contentTier: 'adult' | 'children';
 
   /**
+   * TASK K2 §10-5 — a place to record what human editing/arrangement/mixing
+   * decisions went into a workspace's output, in case content-authenticity
+   * regulation eventually requires it (K1 §12's own note: this is the one
+   * item worth preparing a home for ahead of time, since "인간의 창작 개입"
+   * is likely to stay a requirement even after distribution rules loosen).
+   * Deliberately just a free-text slot with no collection/recording feature
+   * behind it yet (§10-5's own explicit "과하게 만들지 마십시오, 자리만
+   * 잡습니다") — undefined for every workspace until an actual requirement
+   * exists to wire it up to.
+   */
+  humanCreativeInterventionNote?: string;
+
+  /**
    * v4.0 own addition (not in the spec's literal WorkspaceDefinition sketch,
    * needed so the entry screen and App.tsx's routing guard can tell "usable
    * today" apart from "skeleton only, placeholder value") — true only for
@@ -161,7 +174,38 @@ const JP_KIDS: WorkspaceDefinition = {
   ready: true
 };
 
-export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS];
+const KR_IDOL_M: WorkspaceDefinition = {
+  id: 'kr-idol-male',
+  labelKo: '한국 남자 아이돌',
+  // TASK K2 — genre (7, shared with the future kr-idol-female)/section-genre-
+  // plan presets (6, K1's engine)/lyric themes (18)/hook bank (9/9)/
+  // thumbnails (3)/concept keywords (10)/channel presets (3) all landed;
+  // see docs/k2-report.md. Vocal quota override ({male:15,female:0,mixed:3})
+  // is this workspace's own core deliverable (§5) — see that report for the
+  // real measured before/after.
+  descriptionKo: '한국 남자 아이돌 워크스페이스 — 장르 7종, 구간별 장르 배정, 그룹 보컬 파트 지원',
+  archetypeIds: ['kr-idol-male'],
+  // TASK A3 hasn't built a real per-workspace audience-profile framework yet
+  // (kr-2030/jp-2030's own KR_2030/JP_2030 comments already note this same
+  // gap) — 'general' is the same provisional placeholder those two use.
+  defaultAudienceProfileId: 'general',
+  defaultLyricLanguage: 'korean',
+  theme: { accent: '#dc2626', surface: '#fef2f2' },
+  terms: {},
+  hiddenFeatures: [],
+  // TASK K2 §10-4 — DistroKid distribution requires its own artist name for
+  // idol content, separate from every other workspace's own; "하루 님 결정
+  // 필요", not invented — see docs/k2-report.md's own decision-pending list.
+  artistName: undefined,
+  contentTier: 'adult',
+  // TASK K2 §10-5 — structure only, not collected anywhere yet.
+  humanCreativeInterventionNote: undefined,
+  // TASK K2 §13 item 16 — flipped true as the last step, after the full
+  // verification battery in docs/k2-report.md passed.
+  ready: true
+};
+
+export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M];
 
 const BY_ID = new Map(workspaceDefinitions.map(w => [w.id, w]));
 

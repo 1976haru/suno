@@ -57,7 +57,12 @@ export type ThumbnailArchetypeCategory =
   | 'jpkids-teasobi-hands'
   | 'jpkids-food-character'
   | 'jpkids-vehicle-parade'
-  | 'jpkids-seasonal-matsuri';
+  | 'jpkids-seasonal-matsuri'
+  // TASK K2 — kr-idol-male workspace's 3 new archetypes (see
+  // kridolStagePerformance.ts / kridolNightCityMove.ts / kridolMonoPortrait.ts).
+  | 'kridol-stage-performance'
+  | 'kridol-night-city-move'
+  | 'kridol-mono-portrait';
 
 export type ThumbnailArchetypeId = ThumbnailArchetypeCategory;
 

@@ -9,6 +9,7 @@ import { kr2030Override } from './kr2030';
 import { jp2030Override } from './jp2030';
 import { krKidsOverride } from './krKids';
 import { jpKidsOverride } from './jpKids';
+import { krIdolMaleOverride } from './krIdolMale';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -41,6 +42,12 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
     // kr-2030-pop above.
     case 'jp-2030-pop':
       return jp2030Override(language);
+    // TASK K2 §8-1 — kr-idol-male workspace's own bank, same reasoning as
+    // kr-2030-pop/jp-2030-pop above. Without this case it would silently
+    // fall through to `default` (senior-morning) — the exact class of leak
+    // C2/F1 both found and fixed for their own workspaces.
+    case 'kr-idol-male':
+      return krIdolMaleOverride(language);
     case 'senior-morning':
     default:
       return seniorMorningOverride;

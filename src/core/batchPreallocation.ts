@@ -243,8 +243,11 @@ export function preallocateSongSlots(
   // leaningGenderFor/leaningAdultVocalQuota doc comments). Skipped for
   // kids (its own quota system) and whenever the caller supplied an
   // explicit opts.vocalQuota override, which always wins outright.
-  const baseVocalQuota = opts.vocalQuota ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
-  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota ? undefined : leaningGenderFor(opts);
+  // TASK K2 §5-1 — opts.channel.vocalQuotaOverride mirrors localGenerator.ts's
+  // identical addition: same priority as opts.vocalQuota, undefined for
+  // every existing channel preset so this path is unchanged for them.
+  const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota || opts.channel.vocalQuotaOverride ? undefined : leaningGenderFor(opts);
   const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
   // v3.77 (TASK A) — leaningGenderFor only recognizes a known preset or a
   // literal gender word; a genuinely custom vocalTone with neither (e.g. a

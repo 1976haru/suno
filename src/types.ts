@@ -26,10 +26,18 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 // stays as-is (still used by the senior workspace's little-singalong-radio channel) so kr-kids/jp-kids
 // get their own per-workspace archetype, matching every other non-senior workspace's convention
 // (kr-2030-pop/jp-2030-pop). See utils/channelArchetype.ts's isKidsArchetype() for the combined check.
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song';
+// TASK K2 — 'kr-idol-female' is added now (not by K3) per K2 §3-3's own
+// explicit instruction: the 7 kr-idol genre packs reference both archetypes
+// from day one so K3 never has to edit an existing genre's `archetypes`
+// array later (this track's own additive-only rule). K3 is still the one
+// that wires 'kr-idol-female' up to a real workspace/genre-visibility/audience
+// entry — see the 'kr-idol-female': [] placeholders below and in
+// utils/channelProfile.ts, the same "declared but not yet built" pattern
+// 'christmas'/'lofi-study' already used in CORE_GENRE_IDS_BY_ARCHETYPE.
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song' | 'kr-idol-male' | 'kr-idol-female';
 
 /** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. */
-export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids';
+export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male';
 
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
@@ -72,6 +80,33 @@ export interface ChannelProfile {
   seoKeywords: string[];
   /** v3.4 — scopes which hook vocabulary bank this channel draws from. Missing/unrecognized values fall back to 'senior-morning' (see migrateArchetype in data/presets.ts). */
   archetype?: ChannelArchetype;
+  /**
+   * TASK K2 §5-1 — a single-gender-group channel's own vocal quota,
+   * overriding the shared DEFAULT_ADULT_VOCAL_QUOTA (core/vocalPlan.ts)
+   * that senior-oldpop/kr-2030/jp-2030 all still use unchanged. Optional and
+   * additive: undefined for every existing channel preset, so
+   * core/localGenerator.ts's existing `opts.vocalQuota ?? (kids ? ... :
+   * DEFAULT_ADULT_VOCAL_QUOTA)` fallback chain behaves 100% as before for
+   * them — this only takes effect for a channel that explicitly sets it
+   * (kr-idol-male's own 3 channel presets: `{ male: 15, female: 0, mixed: 3
+   * }`, mixed left non-zero for real-world featuring/duet tracks — see K2's
+   * own report for why 0 was rejected).
+   */
+  vocalQuotaOverride?: { male: number; female: number; mixed: number };
+}
+
+/**
+ * TASK K2 §5-3 — an idol group's part structure, entirely separate from
+ * VocalGender (core/vocalPlan.ts): that union's 'duet' already has a fixed
+ * meaning wired into several places (e.g. core/batchPreallocation.ts's own
+ * mixed→duet remap for non-kids archetypes), so this is a new, optional,
+ * additive axis rather than a widened union. Undefined for every existing
+ * song — only a kr-idol-male (later kr-idol-female) song ever sets it.
+ */
+export interface IdolPartPlan {
+  lead: 'main-vocal' | 'sub-vocal' | 'rapper';
+  chorus: 'unison' | 'main-vocal' | 'layered-harmony';
+  hasRapSection: boolean;
 }
 
 /** TASK H2 (v3.13) — same {english, korean, japanese} shape as localGenerator's LocalizedPhrase, duplicated here (not imported) since types.ts must stay free of core/* imports; keeps genre-flavor lyric images correctly localized instead of leaking raw English nouns into Korean/Japanese lyrics. */

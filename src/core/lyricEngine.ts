@@ -1216,7 +1216,13 @@ function premiumBankFor(language: LyricLanguage, shape: HookShape, archetype?: C
   // extraPremiumHooks.japanese banks below) kept winning before
   // jp2030Override's combinatorial layer ever got a turn. Added here,
   // mirroring kr-2030-pop exactly.
-  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || isKidsArchetype(archetype) || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop') return [];
+  // TASK K2 — same exact leak path, found independently for kr-idol-male:
+  // real 18-song generation with hookBanks/krIdolMale.ts fully wired (0
+  // vocabulary overlap with both koreanDefault and kr2030Override) still
+  // produced titles like 라디오를 틀어요/레코드를 틀어봐요/스웨터를 껴입어요/촛불을
+  // 다시 켜요/달력을 넘겨봐요 — because this array was still missing
+  // 'kr-idol-male'. Added here, same reasoning as kr-2030-pop/jp-2030-pop.
+  if (archetype === 'showa-cafe' || archetype === 'showa-70s' || archetype === 'j2000s' || isKidsArchetype(archetype) || archetype === 'kr-2030-pop' || archetype === 'jp-2030-pop' || archetype === 'kr-idol-male') return [];
   const banks: Record<Exclude<LyricLanguage, 'bilingual'>, Record<HookShape, string[]>> = {
     english: { vocative: enHookVocative, imperative: enHookImperative, nounPhrase: enHookNounPhrase, declarative: enHookDeclarative },
     korean: { vocative: koHookVocative, imperative: koHookImperative, nounPhrase: koHookNounPhrase, declarative: koHookDeclarative },

@@ -371,6 +371,22 @@ export const JP_KIDS_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * TASK K2 — kr-idol-male workspace's 7 genres (see kridolMaleGenrePacks
+ * below). Order matches §3's own numbered table — getDefaultGenreIdsForArchetype()
+ * takes slice(0, 3), so performance-trap/synth-dance/band-crossover (the
+ * three most "stage performance"-coded of the 7) are the top-3 default.
+ */
+export const KRIDOL_M_CORE_GENRE_IDS = [
+  'kridol-performance-trap',
+  'kridol-synth-dance',
+  'kridol-band-crossover',
+  'kridol-midtempo-rnb',
+  'kridol-latin-afro',
+  'kridol-emotional-ballad',
+  'kridol-retro-funk'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -450,7 +466,13 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   // TASK E1 — kr-kids's genre layer filled in (krkidsGenrePacks, 7 genres).
   // TASK F1 — jp-kids's genre layer filled in (jpkidsGenrePacks, 7 genres).
   'kr-kids-song': KR_KIDS_CORE_GENRE_IDS,
-  'jp-kids-song': JP_KIDS_CORE_GENRE_IDS
+  'jp-kids-song': JP_KIDS_CORE_GENRE_IDS,
+  // TASK K2 — kr-idol-male's genre layer filled in (kridolMaleGenrePacks, 7
+  // genres, shared with kr-idol-female per §3-3). 'kr-idol-female' stays []
+  // like christmas/lofi-study above — K3's own workspace/genre-visibility
+  // wiring, not K2's.
+  'kr-idol-male': KRIDOL_M_CORE_GENRE_IDS,
+  'kr-idol-female': []
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -463,7 +485,8 @@ const allCoreGenreIds = new Set<string>([
   ...KR_2030_CORE_GENRE_IDS,
   ...JP_2030_CORE_GENRE_IDS,
   ...KR_KIDS_CORE_GENRE_IDS,
-  ...JP_KIDS_CORE_GENRE_IDS
+  ...JP_KIDS_CORE_GENRE_IDS,
+  ...KRIDOL_M_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -1370,6 +1393,164 @@ export const jpkidsGenrePacks: StructuredGenrePack[] = [
 ];
 
 /**
+ * TASK K2 — kr-idol-male workspace's 7 genres, shared with K3's future
+ * kr-idol-female workspace from the start (§3-3's own explicit warning:
+ * `archetypes` carries BOTH 'kr-idol-male' and 'kr-idol-female' on every
+ * entry below so K3 never has to edit this array later — doing so after
+ * the fact would violate this track's own additive-only rule). K3 splits
+ * on vocal/lyrics/hooks/thumbnails, not genre.
+ *
+ * §3-1's own "구간 역할" column is this workspace's real design intent:
+ * these 7 are built to be combined via K1's core/sectionGenrePlan.ts
+ * (composeSectionGenres), not just used standalone — K1 §6-1's 6 section-
+ * genre-plan presets (see krIdolSectionPlans.ts) draw from exactly these
+ * ids. §4-2's own instruction keeps every axis entry short (≤5 words) since
+ * K1's per-section prompt budget is far tighter than a normal single-genre
+ * song's.
+ *
+ * dynamicRange follows §4-1's table — chorus-role genres (synth-dance,
+ * band-crossover, emotional-ballad) get 'wide' since K1's composeSectionGenres
+ * takes the WIDEST value among a plan's genres for the spine, and K-pop's
+ * whole point is a bigger verse-to-chorus contrast than any of the other
+ * workspaces built so far.
+ */
+export const kridolMaleGenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'kridol-performance-trap',
+    label: 'Performance Trap Pop',
+    styleCore: 'high-energy Korean idol performance trap pop, sharp hi-hat rolls, sung-rap verse driving into a stacked hook',
+    instruments: ['808 sub bass', 'trap hi-hat rolls', 'punchy synth stab', 'clean electric guitar'],
+    tempoRange: [130, 150],
+    goodFor: ['무대 위의 밤', '퍼포먼스', '컴백 무대'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['triplet trap hi-hat rolls', 'hard-hitting 808 pulse'],
+    vocal: ['confident male rap-sung lead', 'unison male chorus stack'],
+    production: ['punchy modern trap mix', 'tight low-end clarity'],
+    harmony: ['minor-key tension riff', 'sparse dark chord stabs'],
+    moods: ['confident', 'intense', 'declarative'],
+    audiences: ['무대 위의 밤', '퍼포먼스'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song']
+  }),
+  legacyGenrePack({
+    id: 'kridol-synth-dance',
+    label: 'Synth Dance Pop',
+    styleCore: 'sleek Korean idol synth dance pop, driving four-on-the-floor pulse opening into a bright unison hook',
+    instruments: ['four-on-the-floor kick', 'bright pluck synth', 'filtered synth bass', 'clap layer'],
+    tempoRange: [118, 132],
+    goodFor: ['드라이브 K-POP 플레이리스트', '댄스', '컴백 무대'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['driving four-on-the-floor pulse', 'syncopated pre-chorus lift'],
+    vocal: ['bright confident male lead', 'layered unison hook vocal'],
+    production: ['sleek club-ready polish', 'sidechain-pumped low end'],
+    harmony: ['bright major-key hook', 'simple diatonic drop'],
+    moods: ['bright', 'confident', 'energetic'],
+    audiences: ['드라이브 K-POP 플레이리스트', '댄스'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song']
+  }),
+  legacyGenrePack({
+    id: 'kridol-band-crossover',
+    label: 'Idol Band Crossover',
+    styleCore: 'anthemic Korean idol band crossover, live rock drive building into a soaring unison chorus',
+    instruments: ['live rock drum kit', 'distorted electric guitar', 'driving electric bass', 'soaring synth lead'],
+    tempoRange: [128, 150],
+    goodFor: ['무대 위의 밤', '퍼포먼스', '록 크로스오버'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['driving rock backbeat', 'double-time chorus lift'],
+    vocal: ['powerful male belted lead', 'full unison chorus stack'],
+    production: ['big arena-ready mix', 'wide layered stereo image'],
+    harmony: ['anthemic power-chord chorus', 'key-lift final hook'],
+    moods: ['powerful', 'anthemic', 'confident'],
+    audiences: ['무대 위의 밤', '록 크로스오버'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song']
+  }),
+  legacyGenrePack({
+    id: 'kridol-midtempo-rnb',
+    label: 'Midtempo R&B',
+    styleCore: 'Korean idol trap-soul crossover, hushed vocal-chop textures, a lower male voice handling the rap-adjacent verse',
+    instruments: ['808-influenced sub pulse', 'plucked nylon guitar figure', 'chopped vocal-sample stab', 'muted finger-snap layer'],
+    tempoRange: [88, 104],
+    goodFor: ['새벽의 고백', 'R&B', '갈망'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['finger-snap trap-soul pocket', 'triplet hi-hat murmur under the verse'],
+    vocal: ['hushed lower-register male verse', 'breathy pitched-up ad-lib texture'],
+    production: ['muted vocal-chop atmosphere', 'wide negative-space stereo field'],
+    harmony: ['suspended fourth color held over the hook', 'chromatic passing tone into the drop'],
+    moods: ['hushed', 'restrained', 'late-night'],
+    audiences: ['새벽의 고백', 'R&B'],
+    // TASK K2 (§3-2) — modern-chill's own r&b/neo-soul/trap-soul keyword
+    // triggers would swallow this genre if `archetypes` were ever left
+    // empty; kept explicit and non-negotiable, matching B1's own kr2030
+    // precedent for the identical risk.
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'lo-fi study beat', 'dusty piano loop', 'bedroom tape hiss']
+  }),
+  legacyGenrePack({
+    id: 'kridol-latin-afro',
+    label: 'Latin Afrobeat Crossover',
+    styleCore: 'playful Korean idol latin-afrobeat crossover, dembow-influenced groove, bright call-and-response hook',
+    instruments: ['reggaeton-influenced percussion', 'warm synth bass', 'guitar skank pattern', 'afrobeat log drum'],
+    tempoRange: [96, 110],
+    goodFor: ['드라이브 K-POP 플레이리스트', '라틴', '댄스'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['dembow-influenced groove', 'syncopated afrobeat pulse'],
+    vocal: ['playful confident male lead', 'call-and-response backing'],
+    production: ['warm summery mix', 'bright percussive clarity'],
+    harmony: ['bright minor-to-major turn', 'simple repeating hook motif'],
+    moods: ['playful', 'bright', 'confident'],
+    audiences: ['드라이브 K-POP 플레이리스트', '라틴'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song']
+  }),
+  legacyGenrePack({
+    id: 'kridol-emotional-ballad',
+    label: 'Idol Emotional Ballad',
+    styleCore: 'Korean idol unison-harmony ballad, layered group vocal stack carrying the melody more than any single instrument',
+    instruments: ['felt-muted upright piano', 'low cello drone', 'soft mallet percussion', 'distant choir pad'],
+    tempoRange: [68, 86],
+    goodFor: ['새벽의 고백', '발라드', '갈망'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['loose rubato opening, no fixed pulse', 'gentle 6/8 lift into the final hook'],
+    vocal: ['layered male harmony stack carrying the melody', 'one voice breaking off into a solo ad-lib'],
+    production: ['close-mic layered choir bloom', 'reverb tail held back until the final hook'],
+    harmony: ['stacked open-fifth harmony under the verse', 'modal borrowed chord into the final lift'],
+    moods: ['emotional', 'yearning', 'unified'],
+    audiences: ['새벽의 고백', '발라드'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song']
+  }),
+  legacyGenrePack({
+    id: 'kridol-retro-funk',
+    label: 'Retro Funk Disco Pop',
+    styleCore: 'punchy Korean idol retro funk disco pop, syncopated slap-bass groove, horn-forward unison hook',
+    instruments: ['slap electric bass', 'wah-wah rhythm guitar', 'bright horn stabs', 'four-on-the-floor kick'],
+    tempoRange: [108, 122],
+    goodFor: ['드라이브 K-POP 플레이리스트', '레트로', '훵크'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['syncopated funk groove', 'driving disco backbeat'],
+    vocal: ['playful confident male lead', 'unison group hook vocal'],
+    production: ['warm retro analog-style groove', 'punchy horn-forward mix'],
+    harmony: ['funky dominant-seventh vamp', 'bright disco chorus lift'],
+    moods: ['playful', 'punchy', 'retro'],
+    audiences: ['드라이브 K-POP 플레이리스트', '레트로'],
+    // TASK K2 (§3-2) — city-night's own disco/city-pop/night-drive keyword
+    // triggers would swallow this genre the same way modern-chill would
+    // swallow kridol-midtempo-rnb; kept explicit for the same reason.
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'generic neon Tokyo skyline', 'sports car at night']
+  })
+];
+
+/**
  * TASK C1 — jp-2030 workspace's 7 genres. `archetypes: ['jp-2030-pop']` and
  * `tier: 'core'` are set explicitly on every single one — this task's own
  * §0-2 measured that jp2030-neo-citypop/jp2030-chill-neosoul leak straight
@@ -2037,7 +2218,7 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;

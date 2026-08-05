@@ -712,6 +712,46 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
     vocalTraits: ['soft breathy Japanese delivery', 'unhurried melodic phrasing with gentle drop-offs'],
     dynamicRange: 'low',
     structureTraits: ['restrained chorus that mirrors the verse without a dramatic lift', 'dynamics stay soft-focus throughout, never fully opening']
+  },
+  // TASK K2 (§4-1/§4-2) — kr-idol-male's 7 genres. Every axis below is
+  // already fully populated on the genre pack itself (genreLibrary/index.ts's
+  // kridolMaleGenrePacks), so only dynamicRange/structureTraits — the two
+  // axes with no other home in the data model — are set here; the other
+  // fields are intentionally omitted rather than duplicated (buildGenreTraits
+  // falls back to genre.instruments/rhythm/harmony/production/vocal above
+  // when an override field is absent, so this is the same final .traits
+  // either way). dynamicRange follows §4-1's table exactly: chorus-role
+  // genres (synth-dance/band-crossover/emotional-ballad) get 'wide' since
+  // core/sectionGenrePlan.ts's composeSectionGenres takes the WIDEST value
+  // among a plan's genres for the spine (K1 §5-2) — the opposite choice
+  // from blendGenreTraits's lowerDynamicRange, deliberately.
+  'kridol-performance-trap': {
+    dynamicRange: 'medium',
+    structureTraits: ['rap-sung verse building into a stacked chorus hook', 'unison chorus repeats the hook with rising intensity']
+  },
+  'kridol-synth-dance': {
+    dynamicRange: 'wide',
+    structureTraits: ['pre-chorus lift explodes into a bright drop chorus', 'wide dynamic swing from verse to chorus']
+  },
+  'kridol-band-crossover': {
+    dynamicRange: 'wide',
+    structureTraits: ['verse restraint erupts into an anthemic full-band chorus', 'key-lift final chorus for maximum contrast']
+  },
+  'kridol-midtempo-rnb': {
+    dynamicRange: 'low',
+    structureTraits: ['verse-driven groove with minimal dynamic lift', 'chorus stays close and restrained, never opens wide']
+  },
+  'kridol-latin-afro': {
+    dynamicRange: 'medium',
+    structureTraits: ['call-and-response verse into a repeating hook chorus', 'steady groove with a moderate chorus lift']
+  },
+  'kridol-emotional-ballad': {
+    dynamicRange: 'wide',
+    structureTraits: ['rubato verse opening into a swelling final chorus', 'late key-change for maximum emotional contrast']
+  },
+  'kridol-retro-funk': {
+    dynamicRange: 'medium',
+    structureTraits: ['syncopated verse groove into a horn-lifted chorus', 'moderate build from verse restraint to chorus punch']
   }
 };
 

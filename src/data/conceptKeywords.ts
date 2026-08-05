@@ -394,6 +394,64 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'jpkids-english-learning',
     patterns: [/英語/, /영어/, /知育/, /bilingual\s*learning\s*song/i],
     genreWeights: { 'jpkids-english-learning': 4 }
+  },
+  // TASK K2 (§10-1) — kr-idol-male workspace rules. Same genreWeights-only
+  // constraint as every other adult workspace above. "야간 도시"/"드라이브"
+  // deliberately overlap with kr2030-dawn-night/kr2030-summer-drive's own
+  // pattern words — safe by the same archetype-scoped-tier design those
+  // rules already rely on (a kridol-* genre id is ignored for any channel
+  // whose core tier doesn't include it, and vice versa); see K2's own report
+  // for the required before/after concept-matching comparison this overlap
+  // calls for (§10-1's own instruction).
+  {
+    id: 'kridol-stage-performance',
+    patterns: [/무대/, /퍼포먼스/, /공연/, /stage/i, /performance/i],
+    genreWeights: { 'kridol-performance-trap': 3, 'kridol-band-crossover': 3 }
+  },
+  {
+    id: 'kridol-comeback-debut',
+    patterns: [/컴백/, /데뷔/, /comeback/i, /\bdebut\b/i],
+    genreWeights: { 'kridol-synth-dance': 3, 'kridol-band-crossover': 2 }
+  },
+  {
+    id: 'kridol-confidence-challenge',
+    patterns: [/자신감/, /확신/, /도전/, /한계/, /confidence/i],
+    genreWeights: { 'kridol-performance-trap': 3, 'kridol-band-crossover': 2 }
+  },
+  {
+    id: 'kridol-night-drive',
+    patterns: [/야간\s*도시/, /드라이브/, /밤거리/, /night\s*drive/i],
+    genreWeights: { 'kridol-synth-dance': 3, 'kridol-retro-funk': 2 }
+  },
+  {
+    id: 'kridol-practice-room',
+    patterns: [/연습실/, /연습생/, /practice\s*room/i],
+    genreWeights: { 'kridol-midtempo-rnb': 2, 'kridol-emotional-ballad': 2 }
+  },
+  {
+    id: 'kridol-rap-hiphop',
+    patterns: [/랩/, /힙합/, /\brap\b/i, /hip-?hop/i],
+    genreWeights: { 'kridol-performance-trap': 4 }
+  },
+  {
+    id: 'kridol-dance-genre',
+    patterns: [/댄스/, /\bdance\b/i],
+    genreWeights: { 'kridol-synth-dance': 4 }
+  },
+  {
+    id: 'kridol-ballad-genre',
+    patterns: [/발라드/, /\bballad\b/i],
+    genreWeights: { 'kridol-emotional-ballad': 4 }
+  },
+  {
+    id: 'kridol-retro-funk-genre',
+    patterns: [/레트로/, /훵크/, /\bretro\b/i, /\bfunk\b/i],
+    genreWeights: { 'kridol-retro-funk': 4 }
+  },
+  {
+    id: 'kridol-latin-genre',
+    patterns: [/라틴/, /\blatin\b/i],
+    genreWeights: { 'kridol-latin-afro': 4 }
   }
 ];
 

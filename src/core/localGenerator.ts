@@ -891,8 +891,13 @@ export function generateLocalBlueprint(
   // vocal as of D2 §6-3 — see vocalPlan.ts's own doc comment).
   // v3.77 (TASK A) — mirrors batchPreallocation.ts's own leaning-quota
   // wiring (same reasoning: see vocalPlan.ts's leaningGenderFor doc comment).
-  const baseVocalQuota = opts.vocalQuota ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
-  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota ? undefined : leaningGenderFor(opts);
+  // TASK K2 §5-1 — opts.channel.vocalQuotaOverride slots in ahead of the
+  // kids/adult default, same priority as opts.vocalQuota itself (a
+  // single-gender-group channel's own fixed quota should win the same way
+  // an explicit caller-supplied quota already does). undefined for every
+  // existing channel preset, so this fallback chain is unchanged for them.
+  const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota || opts.channel.vocalQuotaOverride ? undefined : leaningGenderFor(opts);
   const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
   // v3.77 (TASK A) — mirrors batchPreallocation.ts's identical guard/comment:
   // a custom vocalTone with no detectable preset/gender word must still

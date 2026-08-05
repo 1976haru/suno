@@ -92,5 +92,36 @@ export const GENRE_FORBIDDEN_DESCRIPTORS: GenreDescriptorRule[] = [
   {
     genreIds: ['jpkids-teasobi', 'jpkids-daily-habit'],
     forbiddenPhrases: ['driving beat', 'four-on-the-floor', 'big dynamic build']
+  },
+  // TASK K2 (§4-3) — senior/oldpop vocabulary blocked from all 7 kridol
+  // genres, same "second line of defense alongside the genre's own
+  // avoidTraits" pattern E1/F1 already established.
+  {
+    genreIds: ['kridol-performance-trap', 'kridol-synth-dance', 'kridol-band-crossover', 'kridol-midtempo-rnb', 'kridol-latin-afro', 'kridol-emotional-ballad', 'kridol-retro-funk'],
+    forbiddenPhrases: ['analog tape saturation', 'crooner delivery', 'showa-era kissaten', 'wistful nostalgia', 'AM-radio compression', 'spring reverb']
+  },
+  {
+    // TASK K2 (§4-3) — 54 existing city-pop/future-funk ids in the library;
+    // these are the exact generic clichés that would make kridol-retro-funk
+    // indistinguishable, same reasoning as C1's identical jp2030-neo-citypop guard.
+    genreIds: ['kridol-retro-funk'],
+    forbiddenPhrases: ['generic neon Tokyo skyline', 'sports car at night']
+  },
+  {
+    // TASK K2 (§4-3) — distinguishes from modern-chill's own r&b/lo-fi vocabulary.
+    genreIds: ['kridol-midtempo-rnb'],
+    forbiddenPhrases: ['lo-fi study beat', 'dusty piano loop', 'bedroom tape hiss']
+  },
+  // TASK K2 (§9-2 item 4) — anti-imitation guard specific to the idol
+  // workspace: existing avoidTraits already block generic "famous artist
+  // imitation" (sharedAvoid, genreLibrary/index.ts), but idol groups are
+  // identifiable by structure/hook/timbre even without a name ever
+  // appearing — see K2 §9-1's own reasoning. '~ style' comparisons and
+  // direct group/song-name patterns are blocked here as forbidden PHRASES
+  // (checked against generated prose), separate from avoidTraits (checked
+  // against style-prompt atom selection).
+  {
+    genreIds: ['kridol-performance-trap', 'kridol-synth-dance', 'kridol-band-crossover', 'kridol-midtempo-rnb', 'kridol-latin-afro', 'kridol-emotional-ballad', 'kridol-retro-funk'],
+    forbiddenPhrases: [' style', 'in the style of', 'sounds like', 'reminiscent of']
   }
 ];

@@ -1078,6 +1078,182 @@ export const adultLyricThemes: LyricTheme[] = [
     frameId: 'night-drive',
     motionKo: '이동 중(드라이브)',
     castKo: '둘'
+  },
+  // TASK K2 §7 — kr-idol-male's 18 lyric scenes. §7-2's own explicit
+  // prohibitions: no senior-register imagery (회상/그리움/쓸쓸함/오래된 사물),
+  // no kids vocabulary, and no reuse of kr2030's own scenes (퇴근길/서른/
+  // 원룸/막차) — the whole point of a separate idol scene set is that this
+  // workspace reads as stage/performance/declarative, not "생활인의 하루"
+  // the way kr2030 does. frameId vocabulary is deliberately idol-specific
+  // (stage-declaration/backstage-before/chase-focus/crew-together/
+  // night-city-move/turning-point/rehearsal-grind/comeback-countdown/
+  // crossed-paths/promise-made per §7-3's own example list) — 0 overlap
+  // with kr2030's own 18 frameIds, well under the "≤4" ceiling.
+  {
+    id: 'kridol-stage-confidence',
+    labelKo: '무대 위의 확신',
+    scene: 'standing center stage under bright lights just before the beat drops, feeling every hour of rehearsal pay off in this one moment',
+    emotionalArc: 'nervous anticipation snapping into full confidence',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'stage-declaration',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-limit-break',
+    labelKo: '한계를 넘는 순간',
+    scene: 'pushing through the final chorus of a brutal dance break, body exhausted but the voice getting louder instead of weaker',
+    emotionalArc: 'physical limit turning into a surge of defiant strength',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'turning-point',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-our-own-path',
+    labelKo: '우리가 만든 길',
+    scene: 'standing together backstage after a hard-won win, realizing no one handed this path to them, they built it themselves',
+    emotionalArc: 'quiet disbelief settling into shared pride',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'crew-together',
+    castKo: '여럿'
+  },
+  {
+    id: 'kridol-comeback-countdown',
+    labelKo: '컴백 직전의 긴장',
+    scene: 'standing backstage in the dark seconds before the curtain rises on a comeback stage, the crowd noise building on the other side',
+    emotionalArc: 'tight nervous tension resolving into ready focus',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'backstage-before',
+    castKo: '여럿'
+  },
+  {
+    id: 'kridol-only-you-in-the-room',
+    labelKo: '한 사람만 보이는 상태',
+    scene: 'scanning a crowded room and somehow only seeing one face clearly, everything else blurring into the background',
+    emotionalArc: 'scattered distraction narrowing into single-minded focus',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'chase-focus',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-late-night-thought',
+    labelKo: '밤새 붙잡은 생각',
+    scene: 'lying awake in a tour-bus bunk long after everyone else has gone quiet, unable to stop replaying one conversation',
+    emotionalArc: 'restless overthinking settling into quiet resolve',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'night-city-move',
+    motionKo: '이동 중(투어버스)',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-practice-room-mirror',
+    labelKo: '연습실 거울 앞에서',
+    scene: 'staring into a practice-room mirror well after midnight, running the same eight-count over and over until it finally clicks',
+    emotionalArc: 'stubborn frustration turning into hard-won satisfaction',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'rehearsal-grind',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-trainee-then-now',
+    labelKo: '연습생 시절과 지금',
+    scene: 'passing the same practice-room door years later and remembering exactly how nervous that very first day felt',
+    emotionalArc: 'nostalgic vulnerability turning into grounded confidence',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'turning-point',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-first-fan-letter',
+    labelKo: '첫 팬레터를 읽은 순간',
+    scene: 'reading a handwritten letter from the very first fan before a show, remembering exactly why any of this started',
+    emotionalArc: 'private doubt melting into quiet gratitude',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'promise-made',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-almost-said-it',
+    labelKo: '고백 직전',
+    scene: 'standing at a doorway with the right words finally ready, and losing the nerve in the very last second before saying them',
+    emotionalArc: 'building courage collapsing into hesitant silence',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'chase-focus',
+    castKo: '둘'
+  },
+  {
+    id: 'kridol-crossed-signals',
+    labelKo: '엇갈림',
+    scene: 'waving from opposite platforms as two trains pull out in different directions at exactly the same moment',
+    emotionalArc: 'sudden ache settling into wistful acceptance',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'crossed-paths',
+    motionKo: '이동 중(플랫폼)',
+    castKo: '둘'
+  },
+  {
+    id: 'kridol-wish-i-could-take-it-back',
+    labelKo: '되돌리고 싶은 말',
+    scene: 'replaying one careless sentence from a fight on a loop, wishing there were any way to unsay it',
+    emotionalArc: 'sharp regret softening into the resolve to make it right',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'crossed-paths',
+    castKo: '둘'
+  },
+  {
+    id: 'kridol-airport-goodbye',
+    labelKo: '공항에서의 인사',
+    scene: 'waving through a departure-gate glass wall, mouthing a promise to call the second the plane lands',
+    emotionalArc: 'reluctant goodbye turning into determined anticipation',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'crossed-paths',
+    motionKo: '이동 중(공항)',
+    castKo: '둘'
+  },
+  {
+    id: 'kridol-tour-bus-window',
+    labelKo: '차 안에서 보는 도시',
+    scene: 'watching an unfamiliar city skyline blur past a tour-van window at 3am, half the group already asleep',
+    emotionalArc: 'quiet exhaustion opening into wide-eyed wonder',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'night-city-move',
+    motionKo: '이동 중(투어버스)',
+    castKo: '여럿'
+  },
+  {
+    id: 'kridol-rooftop-before-dawn',
+    labelKo: '새벽 옥상',
+    scene: 'standing on a rooftop before sunrise after a long show, the whole city finally quiet below',
+    emotionalArc: 'drained adrenaline settling into peaceful stillness',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'backstage-before',
+    castKo: '혼자'
+  },
+  {
+    id: 'kridol-crew-in-formation',
+    labelKo: '함께 맞춘 동작',
+    scene: 'locking into the exact same movement as the rest of the line during a full run-through, feeling the sync click into place',
+    emotionalArc: 'individual effort dissolving into collective momentum',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'crew-together',
+    castKo: '여럿'
+  },
+  {
+    id: 'kridol-debut-day-nerves',
+    labelKo: '데뷔 무대 앞에서',
+    scene: 'standing in the wings on debut night, hearing the crowd for the very first time and feeling the ground shift underfoot',
+    emotionalArc: 'overwhelming nerves crystallizing into pure resolve',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'stage-declaration',
+    castKo: '여럿'
+  },
+  {
+    id: 'kridol-promise-to-the-crowd',
+    labelKo: '관객에게 하는 약속',
+    scene: 'pointing out at the crowd during the final chorus, mouthing a promise to come back to this exact stage',
+    emotionalArc: 'triumphant energy settling into a sincere vow',
+    suitedArchetypes: ['kr-idol-male'],
+    frameId: 'promise-made',
+    castKo: '혼자'
   }
 ];
 

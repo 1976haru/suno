@@ -40,7 +40,14 @@ const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
   'jp-2030-pop': 'twenties',
   // TASK D1 §3-2 — kr-kids/jp-kids workspaces' own archetypes (Approach A).
   'kr-kids-song': 'kids',
-  'jp-kids-song': 'kids'
+  'jp-kids-song': 'kids',
+  // TASK K2 — kr-idol-male's own archetype. 'kr-idol-female' stays reserved
+  // for K3 (§3-3's forward-declared union member — see types.ts's own
+  // ChannelArchetype doc comment) but still needs an entry here for Record
+  // completeness; 'twenties' matches kr-idol-male's own channel presets
+  // (§10-2's audience: 'twenties') since K3 will use the same audience.
+  'kr-idol-male': 'twenties',
+  'kr-idol-female': 'twenties'
 };
 
 export function slugify(value: string) {

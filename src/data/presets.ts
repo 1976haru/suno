@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, jpkidsGenrePacks, kr2030GenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, jpkidsGenrePacks, kr2030GenrePacks, kridolMaleGenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -437,6 +437,71 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['生活習慣ソング', '季節の歌', '寝る前の歌', '幼児向け童謡', '保育園 生活習慣', '落ち着く童謡'],
     archetype: 'jp-kids-song'
+  },
+  // TASK K2 §10-2 — kr-idol-male workspace's 3 channel presets. Every entry
+  // sets vocalQuotaOverride (§5-1: { male: 15, female: 0, mixed: 3 }, the
+  // 3 non-zero mixed slots reserved for real-world featuring/duet tracks)
+  // so this workspace never falls back to DEFAULT_ADULT_VOCAL_QUOTA's 6/6/6
+  // split — the whole point of §5's own vocal-quota work.
+  {
+    id: 'stage-night',
+    name: '무대 위의 밤',
+    englishName: 'Night on Stage',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '퍼포먼스 트랩과 밴드 크로스오버 중심, 무대 위의 확신과 폭발적인 에너지를 담은 남자 아이돌 플레이리스트',
+    visualIdentity: 'dark stage backlight, sweeping spotlight beams, haze and rim light, bold sans-serif typography',
+    defaultVocal: 'confident male idol lead, rap-sung verse into a stacked unison chorus',
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance'],
+    preferredMoods: ['confident', 'energetic'],
+    vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
+    forbiddenCliches: [
+      'specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song',
+      'senior-radio nostalgia imagery', 'childish lyrics', 'excessive rap verses without a sung hook'
+    ],
+    seoKeywords: ['남자 아이돌 노래', '퍼포먼스 트랩', '아이돌 무대곡', 'K-POP 남돌', '컴백 무대 노래', '남자 아이돌 플레이리스트'],
+    archetype: 'kr-idol-male'
+  },
+  {
+    id: 'drive-kpop-playlist',
+    name: '드라이브 K-POP 플레이리스트',
+    englishName: 'Drive K-Pop Playlist',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '신스 댄스와 레트로 훵크 중심, 야간 도시를 달리며 듣기 좋은 신나는 남자 아이돌 드라이브 플레이리스트',
+    visualIdentity: 'saturated neon city night, streaking headlights, skyline glow, bold sans-serif typography',
+    defaultVocal: 'bright confident male idol lead, layered unison hook vocal',
+    preferredGenres: ['kridol-synth-dance', 'kridol-retro-funk', 'kridol-latin-afro'],
+    preferredMoods: ['bright', 'confident'],
+    vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
+    forbiddenCliches: [
+      'specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song',
+      'generic neon Tokyo skyline', 'sports car at night', 'senior-radio nostalgia imagery'
+    ],
+    seoKeywords: ['드라이브 K-POP', '남자 아이돌 댄스곡', '신나는 아이돌 노래', 'K-POP 드라이브 플레이리스트', '레트로 훵크 아이돌', '아이돌 댄스 플레이리스트'],
+    archetype: 'kr-idol-male'
+  },
+  {
+    id: 'dawn-confession',
+    name: '새벽의 고백',
+    englishName: 'Dawn Confession',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'twenties',
+    promise: '미드템포 R&B와 감성 발라드 중심, 새벽 감성과 갈망을 담은 남자 아이돌 발라드 플레이리스트',
+    visualIdentity: 'monochrome close-up light and shadow, quiet negative space, restrained serif typography',
+    defaultVocal: 'smooth restrained male idol lead, layered harmony stack on the chorus',
+    preferredGenres: ['kridol-midtempo-rnb', 'kridol-emotional-ballad', 'kridol-band-crossover'],
+    preferredMoods: ['intimate', 'emotional'],
+    vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
+    forbiddenCliches: [
+      'specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song',
+      'lo-fi study beat', 'dusty piano loop', 'senior-radio nostalgia imagery'
+    ],
+    seoKeywords: ['남자 아이돌 발라드', '새벽 감성 노래', 'K-POP R&B', '아이돌 감성 발라드', '갈망 노래', '남자 아이돌 R&B 플레이리스트'],
+    archetype: 'kr-idol-male'
   }
 ];
 
@@ -701,6 +766,8 @@ const rawGenrePacks: GenrePack[] = [
   ...krkidsGenrePacks,
   // TASK F1 — jp-kids workspace's 7 genres, same registered-in-both pattern.
   ...jpkidsGenrePacks,
+  // TASK K2 — kr-idol-male workspace's 7 genres, same registered-in-both pattern.
+  ...kridolMaleGenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks
