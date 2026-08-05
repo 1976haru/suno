@@ -1167,6 +1167,18 @@ export interface PreassignedSongSlot {
   maxInstrumentalSections?: number;
   /** v3.82 (TASK B) — this trackNo's own design-time estimated render length in seconds (core/bpmLengthControl.ts's estimateSongLengthSec), for UI/report display alongside the design gate's own blocking check. */
   estimatedLengthSec?: number;
+  /**
+   * TASK (genre-archetype sanitization) — set only on trackNo 1's slot
+   * (core/batchPreallocation.ts's preallocateSongSlots is the one place this
+   * is computed, once per whole pack, not per track — see
+   * core/genreSelection.ts's genreSanitizationWarningKo). A whole-pack fact
+   * ("N genres removed for this channel's archetype"), so it's carried on a
+   * single slot rather than duplicated identically across every one;
+   * core/batchPreallocation.ts's reconcileWithPreassignedSlot folds it into
+   * that one song's own `warnings`, the same SongCard-visible mechanism
+   * every other post-hoc reconciliation warning already uses.
+   */
+  genreWarning?: string;
 }
 
 export interface BatchContext {

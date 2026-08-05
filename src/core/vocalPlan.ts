@@ -16,7 +16,7 @@ import {
   MODERN_PROXIMITY_VALUES,
   PROXIMITY_ERA_PREFERENCE
 } from '../data/vocalTraits';
-import { matchVocalPreset } from '../data/vocalPresets';
+import { matchVocalPreset, type VocalPreset } from '../data/vocalPresets';
 import type { EraBucket } from '../data/eraExclusions';
 import { VOCAL_TECHNIQUES_BY_ERA } from '../data/vocalTechniquesByEra';
 
@@ -368,6 +368,56 @@ export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = '
   const safeIndex = ((variantIndex % variants.length) + variants.length) % variants.length;
   if (useAdultDescription) return variants[safeIndex];
   return `${variants[safeIndex]}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
+}
+
+/**
+ * Quota/tone separation (v5.9) — a kids preset's own `gender` axis maps onto
+ * this pack's `mixed` vocalType two different ways depending on which of the
+ * 10 forKids presets was picked: a duet ('kid-duet', gender 'duet') and a
+ * choir/group preset ('kid-choir'/'kid-choir-unison'/..., gender 'mixed')
+ * both land on vocalType 'mixed' (see batchPreallocation.ts's/
+ * localGenerator.ts's own `vocalGender = vocalType` kids assignment — kids
+ * never distinguishes duet from mixed the way the adult path's
+ * vocalGender:'duet' remap does). Both must count as a match here, or a
+ * legitimately-picked 'kid-duet' preset would never be recognized against
+ * its own 'mixed' slots.
+ */
+function vocalTypeMatchesPresetGender(vocalType: VocalType, gender: VocalGender): boolean {
+  if (vocalType === 'mixed') return gender === 'mixed' || gender === 'duet';
+  return vocalType === gender;
+}
+
+/**
+ * Quota/tone separation (v5.9) — the kids-channel counterpart of the adult
+ * path's "tone preset always applies, independent of gender-quota lean" fix.
+ * Before this, a kids channel's vocalText came ONLY from vocalDescriptionFor's
+ * flat rotating pool (see this file's own doc comment on VOCAL_DESCRIPTIONS),
+ * completely ignoring which specific kids preset (e.g. 'kid-girl', "밝은
+ * 여자아이") the user actually picked in Step2Concept's voice grid — the
+ * picked preset's own wording never reached any track's vocalText, only its
+ * gender fed the (previously kids-disabled) quota lean.
+ *
+ * Whenever `matchedPreset` is recognized AND its gender genuinely matches
+ * this track's own assigned vocalType, that preset's own prompt text is used
+ * (plus the standard per-language diction clause) instead of an arbitrary
+ * rotated pool variant — this is what makes the picked tone actually audible
+ * in the generated prompt. Falls back to vocalDescriptionFor's own rotation
+ * for every track whose vocalType doesn't match the picked preset's gender
+ * (e.g. a 'male' slot in a pack where the user picked a girl preset) — there
+ * is no user pick for that gender, so the existing variety pool still
+ * supplies it.
+ */
+export function kidsVocalTextFor(
+  vocalType: VocalType,
+  language: LyricLanguage,
+  variantIndex: number,
+  archetype: GenerationOptions['channel']['archetype'] | undefined,
+  matchedPreset: VocalPreset | undefined
+): string {
+  if (matchedPreset && vocalTypeMatchesPresetGender(vocalType, matchedPreset.gender)) {
+    return `${matchedPreset.prompt}, ${VOCAL_DICTION_CLAUSE[vocalDictionLanguage(language)]}`;
+  }
+  return vocalDescriptionFor(vocalType, language, variantIndex, archetype);
 }
 
 /**

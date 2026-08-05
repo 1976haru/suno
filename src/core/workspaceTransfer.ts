@@ -8,6 +8,7 @@ import { listAllVideosForWorkspace, putVideoRecordIfNewer, type VideoRecord } fr
 import { listAllUsageForWorkspace, putUsageRecord, type UsageRecord } from './usageLedger';
 import { type AudioTake, listAllTakesForWorkspace, putTakeIfNewer } from './audioTakes';
 import { mergeStoredChannels, readStoredChannelsForWorkspace } from '../utils/channelProfile';
+import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { getSetting, setSetting } from './settingsStore';
 import type { DiversityAllocationTemplate } from './diversityAllocationStore';
 import type { ThumbnailBrandTemplate } from '../types';
@@ -517,6 +518,16 @@ export interface ImportResult {
   apiKeysImported: boolean;
   /** The safety snapshot taken of the CURRENT workspace before any write — always produced, regardless of options, per spec §3-1 rule 3. */
   preImportBackup: WorkspaceExportFile;
+  /**
+   * TASK (genre-archetype sanitization) — an imported pack's/channel's own
+   * genreIds/preferredGenres can belong to a completely different
+   * workspace's genre catalog (the whole point of a cross-workspace import
+   * — see core/genreSelection.ts's sanitizeGenreIdsForArchetype doc
+   * comment); this records what got stripped from each written pack/channel
+   * so DataManagementPanel.tsx's "done" stage can show it, the same
+   * "import-warning" paragraph previewImport's own `warnings` already uses.
+   */
+  warnings: string[];
 }
 
 /**
@@ -570,7 +581,8 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
     settingsImported: false,
     localKeysImported: false,
     apiKeysImported: false,
-    preImportBackup
+    preImportBackup,
+    warnings: []
   };
 
   const { data } = parsedFile;
@@ -585,7 +597,23 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
       // 'replace' with an existing same-name pack reuses that pack's own id
       // so it's a true in-place replace, not a second same-named pack.
       const toWrite = existing ? { ...pack, id: existing.id } : pack;
-      await putFullPack(toWrite);
+      // TASK (genre-archetype sanitization) — a pack imported from another
+      // workspace's export can carry genreIds that belong to that other
+      // workspace's genre catalog entirely (the real, verified "cross-
+      // workspace data import" contamination path — see
+      // core/genreSelection.ts's sanitizeGenreIdsForArchetype doc comment).
+      const packArchetype = toWrite.options.channel.archetype || 'senior-morning';
+      const { valid: sanitizedPackGenreIds, removed: removedPackGenreIds } = sanitizeGenreIdsForArchetype(
+        toWrite.options.genreIds,
+        packArchetype
+      );
+      const sanitizedToWrite = removedPackGenreIds.length
+        ? { ...toWrite, options: { ...toWrite.options, genreIds: sanitizedPackGenreIds } }
+        : toWrite;
+      if (removedPackGenreIds.length) {
+        result.warnings.push(`"${pack.name}": ${genreSanitizationWarningKo(removedPackGenreIds, packArchetype)}`);
+      }
+      await putFullPack(sanitizedToWrite);
       if (existing) result.packs.replaced += 1;
       else result.packs.added += 1;
     }
@@ -643,7 +671,22 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
   }
 
   if (data.channels) {
-    result.channels.added = mergeStoredChannels(data.channels);
+    // TASK (genre-archetype sanitization) — mirrors the packs loop above:
+    // an imported custom channel's own preferredGenres can carry another
+    // workspace's genre ids. mergeStoredChannels() itself stays untouched
+    // (it's also called from useChannelManager's own local-storage write
+    // path, which never carries foreign-workspace data) — sanitized here,
+    // right before the incoming array is handed to it.
+    const sanitizedChannels = data.channels.map(channel => {
+      const channelArchetype = channel.archetype || 'senior-morning';
+      const { valid, removed } = sanitizeGenreIdsForArchetype(channel.preferredGenres, channelArchetype);
+      if (removed.length) {
+        result.warnings.push(`"${channel.name}": ${genreSanitizationWarningKo(removed, channelArchetype)}`);
+        return { ...channel, preferredGenres: valid };
+      }
+      return channel;
+    });
+    result.channels.added = mergeStoredChannels(sanitizedChannels);
     result.channels.skipped = data.channels.length - result.channels.added;
   }
 

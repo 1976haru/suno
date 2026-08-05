@@ -95,10 +95,24 @@ function segmentBalanceViolations(ordered: readonly string[], windowSize = 6, ma
   return violations;
 }
 
+/**
+ * v5.9 (quota/tone separation) — mirrors batchPreallocation.ts's/
+ * localGenerator.ts's own baseVocalQuota/vocalLeaning resolution exactly, so
+ * this gate's autoFix suggestion reflects the SAME real resolved quota actual
+ * generation would use, not a generic DEFAULT_ADULT_VOCAL_QUOTA that ignores
+ * a channel's own fixed vocalQuotaOverride (e.g. a K-pop boy/girl-group
+ * channel's real 15/0/3 split) and unconditionally disabled the lean for
+ * kids. Before this fix: (1) a vocalQuotaOverride channel's autoFix silently
+ * discarded the channel's own fixed quota in favor of the generic 6/6/6
+ * default, which could suggest a "fix" that actually breaks the channel's
+ * deliberate imbalance; (2) a kids channel could never lean toward a picked
+ * gendered kids preset even when suggesting a fix.
+ */
 function vocalQuotaForAutoFix(opts: GenerationOptions): VocalQuota {
-  const base = isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
+  const base = opts.vocalQuota ?? opts.channel.vocalQuotaOverride
+    ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
   const scaledBase = scaleVocalQuota(base, opts.songCount);
-  if (isKidsArchetype(opts.channel.archetype)) return scaledBase;
+  if (opts.vocalQuota || opts.channel.vocalQuotaOverride) return scaledBase;
   const leaning = leaningGenderFor(opts);
   if (!leaning) return scaledBase;
   return leaningAdultVocalQuota(scaledBase, opts.songCount, leaning);

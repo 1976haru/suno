@@ -11,7 +11,7 @@ import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { channelExhaustionStats, clearChannelHistory, hookPoolGraduatedWarning, recordPackHooks, type ExhaustionStats } from './core/hookLedger';
 import { copyText } from './utils/exporters';
-import { normalizeGenreSelection, toggleGenreSelection } from './core/genreSelection';
+import { genreSanitizationWarningKo, normalizeGenreSelection, sanitizeGenreIdsForArchetype, toggleGenreSelection } from './core/genreSelection';
 import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
 import { getSetting, setSetting } from './core/settingsStore';
@@ -151,17 +151,27 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
   }, []);
 
   function applyChannelToOptions(channel: ChannelProfile) {
+    // TASK (genre-archetype sanitization) — a custom channel's own
+    // preferredGenres can carry ids left over from before a fix, a
+    // cross-workspace import, or a hand-edited profile (see
+    // core/genreSelection.ts's sanitizeGenreIdsForArchetype doc comment for
+    // the full list of real paths); this is the entry point every channel
+    // selection/apply (preset pick, quick-create, editor save) funnels
+    // through, so it's the one place that needs to catch all of them.
+    const archetype = channel.archetype || 'senior-morning';
+    const { valid, removed } = sanitizeGenreIdsForArchetype(channel.preferredGenres, archetype);
     setOpts(prev => ({
       ...prev,
       channel,
       market: channel.market,
       audience: channel.audience,
       lyricLanguage: channel.primaryLanguage,
-      genreIds: normalizeGenreSelection(channel.preferredGenres),
+      genreIds: normalizeGenreSelection(valid),
       moodIds: channel.preferredMoods,
       vocalTone: channel.defaultVocal,
       packagingLanguage: defaultPackagingLanguageForChannel(channel)
     }));
+    if (removed.length) setLoadWarning(genreSanitizationWarningKo(removed, archetype));
   }
 
   const cm = useChannelManager(workspaceId, applyChannelToOptions);
@@ -173,11 +183,23 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
   const library = usePackLibrary(pack => {
     gen.setBlueprint(pack.blueprint);
     const { clamped, truncatedFields } = clampOversizedFields(pack.options);
-    setOpts({ ...pack.options, ...clamped, personaMode: pack.personaMode ?? pack.options.personaMode ?? false });
+    // TASK (genre-archetype sanitization) — a pack saved before a channel-
+    // archetype fix (or one whose channel's archetype was hand-edited since)
+    // can carry genreIds that no longer belong to this channel's archetype;
+    // this is the one place every saved-pack load funnels through.
+    const loadArchetype = pack.options.channel.archetype || 'senior-morning';
+    const { valid: sanitizedGenreIds, removed: removedGenreIds } = sanitizeGenreIdsForArchetype(
+      pack.options.genreIds,
+      loadArchetype
+    );
+    setOpts({ ...pack.options, ...clamped, genreIds: sanitizedGenreIds, personaMode: pack.personaMode ?? pack.options.personaMode ?? false });
     setLoadWarning(
-      truncatedFields.length
-        ? `⚠️ 이 팩의 일부 입력이 글자 수 제한(${truncatedFields.map(f => `${f} ${INPUT_LIMITS[f]}자`).join(', ')})을 넘어 잘렸습니다.`
-        : ''
+      [
+        truncatedFields.length
+          ? `⚠️ 이 팩의 일부 입력이 글자 수 제한(${truncatedFields.map(f => `${f} ${INPUT_LIMITS[f]}자`).join(', ')})을 넘어 잘렸습니다.`
+          : '',
+        genreSanitizationWarningKo(removedGenreIds, loadArchetype)
+      ].filter(Boolean).join(' ')
     );
     evalFlow.setEvaluation(pack.evaluation || null);
     const channel = cm.channels.find(item => item.id === pack.options.channel.id);
@@ -971,6 +993,12 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
             </p>
           )}
 
+          {cm.archetypeMismatchWarning && (
+            <p className="supporting load-warning" onClick={cm.dismissArchetypeMismatchWarning}>
+              {cm.archetypeMismatchWarning} (닫으려면 클릭)
+            </p>
+          )}
+
           {currentStep === 1 && (
             <Step1Channel
               editorChannel={cm.editorChannel}
@@ -995,6 +1023,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
               basicMode={!expertMode}
               expertMode={expertMode}
               onToggleExpertMode={toggleExpertMode}
+              onGenreWarning={setLoadWarning}
             />
           )}
 

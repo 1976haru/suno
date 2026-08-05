@@ -258,6 +258,42 @@ describe('[Part G] kids channel defaults to english lyrics', () => {
   });
 });
 
+// v5.9 (quota/tone separation) — before this fix, opts.channel.vocalQuotaOverride
+// unconditionally forced vocalLeaning to undefined (correct — the fixed quota
+// IS the point of these channels), but explicitUnrecognizedVocalTone's old
+// condition also checked `!vocalLeaning`, which meant it could never tell a
+// genuinely unrecognized custom string apart from a perfectly valid,
+// recognized preset on exactly these channels — both looked identical
+// ("vocalLeaning is unset"). A recognized preset was therefore silently
+// discarded back to the channel's generic defaultVocal on every song.
+describe('[v5.9] a K-pop fixed-quota channel (vocalQuotaOverride) keeps its exact gender split and reflects a recognized tone preset', () => {
+  const idolFemaleChannel = channelPresets.find(c => c.archetype === 'kr-idol-female')!;
+  const huskyJazzFemale = vocalPresets.find(p => p.id === 'husky-jazz-female')!;
+
+  it('preserves the channel\'s exact fixed 15/female-0-male/3-mixed-style split regardless of the picked tone', () => {
+    const opts = makeOptions({ channel: idolFemaleChannel, songCount: 18, vocalTone: huskyJazzFemale.prompt });
+    const slots = preallocateSongSlots(opts, []);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    expect(counts).toEqual(idolFemaleChannel.vocalQuotaOverride);
+  });
+
+  it('no longer collapses every song\'s vocalText to the generic channel default (the real bug: explicitUnrecognizedVocalTone misfired here)', () => {
+    const opts = makeOptions({ channel: idolFemaleChannel, songCount: 18, vocalTone: huskyJazzFemale.prompt });
+    const slots = preallocateSongSlots(opts, []);
+    expect(slots.every(slot => slot.vocalText !== idolFemaleChannel.defaultVocal)).toBe(true);
+    // Real per-song composed wording (buildAdultVocalTraitPlan), not one
+    // fixed string repeated 18 times.
+    expect(new Set(slots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+  });
+
+  it('a genuinely unrecognized free-text vocalTone (no preset match, no detectable gender word) still correctly falls back to the channel default — explicitUnrecognizedVocalTone is not simply disabled', () => {
+    const opts = makeOptions({ channel: idolFemaleChannel, songCount: 6, vocalTone: 'asdkjhqwe some gibberish xyz text' });
+    const slots = preallocateSongSlots(opts, []);
+    expect(slots.every(slot => slot.vocalText === idolFemaleChannel.defaultVocal)).toBe(true);
+  });
+});
+
 describe('[Part D] kid vocal presets are registered and mutually distinct', () => {
   it('kid-boy/kid-girl/kid-choir exist and are flagged forKids', () => {
     for (const id of ['kid-boy', 'kid-girl', 'kid-choir']) {

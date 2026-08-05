@@ -8,7 +8,7 @@ import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
 import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
+import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { isKidsArchetype } from '../utils/channelArchetype';
@@ -38,6 +38,8 @@ import { QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabular
 import { workspaceForArchetype } from '../data/workspaces';
 import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
+import { getGenreById } from '../data/genreLibrary';
+import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 import { conceptLyricImages, conceptStyleText, promptPriorityForTrack, resolveConceptInfluence, safeConceptSummaryForDisplay, variedVocalText } from './conceptDiversity';
 import {
   composeLyrics,
@@ -882,6 +884,31 @@ export function generateLocalBlueprint(
   /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
   styleLimit?: number
 ): PlaylistBlueprint {
+  // TASK (genre-archetype sanitization) — the real local-generation entry
+  // point every non-realtime-API build funnels through. UI-level entry
+  // points (App.tsx's applyChannelToOptions, Step2Concept's concept-
+  // recommendation apply, core/library.ts pack loads) already sanitize
+  // opts.genreIds before it gets here, but this is defense in depth for a
+  // still-contaminated opts (stale saved data mid-session, a programmatic/
+  // test caller, or a future entry point this task didn't reach) — see
+  // core/genreSelection.ts's sanitizeGenreIdsForArchetype doc comment.
+  // Reassigns the `opts`/`genres` PARAMETERS (never mutates the caller's own
+  // objects — `opts = {...}` rebinds this function's local reference to a
+  // new object) so every one of this function's many later reads of
+  // `opts.genreIds`/`genres` — including the one at buildChannelPromptParts/
+  // buildSignatureBlueprint just below, which run before this function's
+  // own separate genrePool computation further down — see the sanitized
+  // set, not the original.
+  const archetype = opts.channel.archetype || 'senior-morning';
+  const genreSanitization = sanitizeGenreIdsForArchetype(
+    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    archetype
+  );
+  if (genreSanitization.removed.length) {
+    opts = { ...opts, genreIds: genreSanitization.valid };
+    genres = genreSanitization.valid.map(id => getGenreById(id)).filter((genre): genre is NonNullable<typeof genre> => Boolean(genre));
+  }
+  const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, archetype);
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
   const concept = opts.customConcept || `${opts.channel.name} ${season.label} playlist with ${genres.map(g => g.label).join(' + ')}`;
   const conceptInfluence = resolveConceptInfluence(opts.customConcept);
@@ -1076,15 +1103,35 @@ export function generateLocalBlueprint(
   // an explicit caller-supplied quota already does). undefined for every
   // existing channel preset, so this fallback chain is unchanged for them.
   const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
-  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota || opts.channel.vocalQuotaOverride ? undefined : leaningGenderFor(opts);
+  // v5.9 (quota/tone separation) — mirrors batchPreallocation.ts's identical
+  // split: `detectedVocalTone` is a pure recognition signal (independent of
+  // channel type), while `vocalLeaning` additionally decides whether that
+  // recognized tone is allowed to shift the gender QUOTA for this channel
+  // type. Kids channels are no longer blanket-excluded from the lean (see
+  // that file's own doc comment for why); a fixed vocalQuotaOverride channel
+  // or an explicit opts.vocalQuota override still keep the quota untouched,
+  // since the quota split itself is the point of those two cases.
+  const detectedVocalTone = leaningGenderFor(opts);
+  const vocalLeaning = opts.vocalQuota || opts.channel.vocalQuotaOverride ? undefined : detectedVocalTone;
   const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
   // v3.77 (TASK A) — mirrors batchPreallocation.ts's identical guard/comment:
   // a custom vocalTone with no detectable preset/gender word must still
   // reach the stylePrompt verbatim (via fallbackVocalText below) rather than
   // being silently replaced by buildAdultVocalTraitPlan's generic composed
   // wording.
-  const explicitUnrecognizedVocalTone = !isKidsArchetype(opts.channel.archetype) && !opts.vocalQuota && !vocalLeaning
+  // v5.9 (quota/tone separation) — checks `detectedVocalTone` (recognition),
+  // not `vocalLeaning` (whether the quota actually shifted) — see
+  // batchPreallocation.ts's own identical comment for the fixed-quota-channel
+  // bug this fixes (a recognized preset used to get discarded back to
+  // channel.defaultVocal on any channel where the lean happens to be
+  // disabled by design).
+  const explicitUnrecognizedVocalTone = !isKidsArchetype(opts.channel.archetype) && !opts.vocalQuota && !detectedVocalTone
     && Boolean(opts.vocalTone?.trim()) && opts.vocalTone!.trim() !== opts.channel.defaultVocal;
+  // v5.9 (quota/tone separation) — mirrors batchPreallocation.ts's identical
+  // kids tone-preset resolution (see vocalPlan.ts's kidsVocalTextFor doc
+  // comment): undefined (no-op) unless opts.vocalTone matches one of
+  // vocalPresets.ts's own forKids presets.
+  const kidsMatchedVocalPreset = isKidsArchetype(opts.channel.archetype) ? matchVocalPreset(opts.vocalTone?.trim() ?? '') : undefined;
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
@@ -1392,7 +1439,7 @@ export function generateLocalBlueprint(
     // TASK v3.72 TASK B for the adult path below).
     const vocalDescriptionText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
-          ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
+          ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
           : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText))
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
@@ -1847,7 +1894,14 @@ export function generateLocalBlueprint(
     // no-op here in practice (this path never produces the labels/leaks it
     // guards against) but runs unconditionally so the local and bridge paths
     // share one normalization pass instead of only the bridge having it.
-    songs: scoreSongs(songs.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage),
+    // TASK (genre-archetype sanitization) — a whole-pack fact (not a
+    // per-track one), so it's attached to just the first song's own
+    // warnings rather than repeated identically on every SongCard.
+    songs: (() => {
+      const scoredSongs = scoreSongs(songs.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage);
+      if (!genreWarningKo || !scoredSongs.length) return scoredSongs;
+      return scoredSongs.map((song, idx) => (idx === 0 ? { ...song, warnings: [...song.warnings, genreWarningKo] } : song));
+    })(),
     generatedAt: new Date().toISOString()
   };
 }

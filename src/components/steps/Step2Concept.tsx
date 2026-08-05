@@ -16,7 +16,7 @@ import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/av
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
-import { MAX_SELECTED_GENRES, normalizeGenreSelection } from '../../core/genreSelection';
+import { genreSanitizationWarningKo, MAX_SELECTED_GENRES, normalizeGenreSelection, sanitizeGenreIdsForArchetype } from '../../core/genreSelection';
 import { replaceAxisAllocation } from '../../core/diversityAllocation';
 import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
@@ -84,6 +84,14 @@ interface Step2ConceptProps {
   basicMode?: boolean;
   expertMode: boolean;
   onToggleExpertMode: () => void;
+  /**
+   * TASK (genre-archetype sanitization) — optional so any other caller of
+   * this component (there aren't any today, but nothing should require
+   * wiring this to keep compiling) still works without it; when omitted a
+   * concept recommendation's genreAllocation is still sanitized, it just has
+   * nowhere to display what got removed.
+   */
+  onGenreWarning?: (message: string) => void;
 }
 
 function CharCounter({ value, limit }: { value: string; limit: number }) {
@@ -95,7 +103,7 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
 }
 
 export default function Step2Concept({
-  opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode
+  opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode, onGenreWarning
 }: Step2ConceptProps) {
   // TASK v4.13 bugfix — used to auto-open "직접 입력하기" for ANY vocalTone
   // that isn't a byte-exact preset match, including the plain "no selection"
@@ -150,17 +158,39 @@ export default function Step2Concept({
   // (channel.defaultVocal — see vocalPlan.ts's leaningGenderFor) rather than
   // adding a new options field.
   const BALANCED_VOCAL_CHOICE_ID = '__balanced__';
-  const defaultQuotaForChannel = isKidsArchetype(channelArchetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA;
+  // v5.9 (quota/tone separation) — mirrors core/batchPreallocation.ts's/
+  // core/localGenerator.ts's own baseVocalQuota priority exactly: a channel's
+  // own fixed vocalQuotaOverride (e.g. a K-pop boy/girl-group channel's real
+  // 15/0/3 split) wins over the generic kids/adult default. Before this fix,
+  // this preview always showed a plain scaled 6/6/6 split here even for an
+  // override channel, whose real generation ignores that default entirely —
+  // the "고르게 배정" card lied about what the pack would actually get.
+  const hasFixedVocalQuota = Boolean(opts.channel.vocalQuotaOverride);
+  const defaultQuotaForChannel = opts.channel.vocalQuotaOverride
+    ?? (isKidsArchetype(channelArchetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
   const balancedQuotaPreview = scaleVocalQuota(defaultQuotaForChannel, opts.songCount);
   const isBalancedVocalTone = !opts.vocalTone?.trim() || opts.vocalTone.trim() === opts.channel.defaultVocal;
   // TASK v4.13 (§5-2) — "선택 시 실제 계산된 쿼터를 보여주십시오": same
   // leaningGenderFor/leaningAdultVocalQuota real generation itself calls
   // (core/batchPreallocation.ts, core/localGenerator.ts), so the preview
   // never drifts from what the pack actually gets.
-  const selectedVocalLeaning = isKidsArchetype(channelArchetype) || isBalancedVocalTone ? undefined : leaningGenderFor(opts);
-  const leaningQuotaPreview = selectedVocalLeaning
-    ? leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, opts.songCount, selectedVocalLeaning)
-    : null;
+  // v5.9 (quota/tone separation) — a kids channel can now lean too (see
+  // vocalPlan.ts's own doc comment for why isKidsArchetype no longer
+  // blanket-disables this); a channel-fixed quota (vocalQuotaOverride) never
+  // leans on ANY archetype — the split itself is the whole point of that
+  // channel, a vocal-tone pick only ever changes which TONE plays within it.
+  const selectedVocalLeaning = hasFixedVocalQuota || isBalancedVocalTone ? undefined : leaningGenderFor(opts);
+  const resolvedVocalQuotaPreview = selectedVocalLeaning
+    ? leaningAdultVocalQuota(defaultQuotaForChannel, opts.songCount, selectedVocalLeaning)
+    : balancedQuotaPreview;
+  // v5.9 (quota/tone separation) — tone-preset recognition (matchVocalPreset,
+  // or a detectable gender/duet/mixed phrase via leaningGenderFor) is now its
+  // own signal, independent of whether the quota above actually leaned. A
+  // fixed-quota channel's `selectedVocalLeaning` is always undefined by
+  // design — that must not read as "the tone wasn't recognized" (the exact
+  // bug core/batchPreallocation.ts's explicitUnrecognizedVocalTone fix
+  // addresses on the generation side; this mirrors it for the preview).
+  const isRecognizedVocalTone = isBalancedVocalTone || Boolean(matchVocalPreset(opts.vocalTone)) || Boolean(leaningGenderFor(opts));
 
   // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
   // the same fields the existing chip grids below already control; it's a
@@ -192,13 +222,37 @@ export default function Step2Concept({
       ...ref.productionTraits,
       ...ref.vocalTraits
     ]) ?? [];
+    // TASK (genre-archetype sanitization) — core/conceptAgent.ts's own
+    // rule-based ranking already filters against this channel's core genre
+    // ids, but a recommendation can also come back with a genreAllocation
+    // this app never validated end-to-end (defense in depth per this task's
+    // own background: "a bad concept-agent recommendation" is one of the
+    // named real contamination paths). Sanitize before it ever reaches
+    // opts.genreIds/diversityAllocations.
+    const conceptArchetype = opts.channel.archetype || 'senior-morning';
+    const { valid: sanitizedAllocationIds, removed: removedAllocationIds } = sanitizeGenreIdsForArchetype(
+      rec.genreAllocation.map(slot => slot.genreId),
+      conceptArchetype
+    );
+    const sanitizedAllocation = rec.genreAllocation.filter(slot => sanitizedAllocationIds.includes(slot.genreId));
+    // getDefaultGenreIdsForArchetype's own recovery ids never came with a
+    // songCount from the concept agent — split the recommendation's original
+    // total pack size evenly across them so recovery still leaves a usable,
+    // non-empty manual allocation rather than a { songId: 0 } no-op.
+    const recoveredTotal = rec.genreAllocation.reduce((sum, slot) => sum + slot.songCount, 0);
+    const recoveredAllocation = sanitizedAllocationIds.map(genreId => ({
+      genreId,
+      songCount: Math.max(1, Math.round(recoveredTotal / sanitizedAllocationIds.length) || 1)
+    }));
+    const finalAllocation = sanitizedAllocation.length ? sanitizedAllocation : recoveredAllocation;
+    if (removedAllocationIds.length) onGenreWarning?.(genreSanitizationWarningKo(removedAllocationIds, conceptArchetype));
     setOpts(prev => ({
       ...prev,
-      genreIds: normalizeGenreSelection(rec.genreAllocation.map(slot => slot.genreId)),
+      genreIds: normalizeGenreSelection(finalAllocation.map(slot => slot.genreId)),
       diversityAllocations: replaceAxisAllocation(prev.diversityAllocations, {
         axis: 'genre',
         mode: 'manual',
-        counts: Object.fromEntries(rec.genreAllocation.map(slot => [slot.genreId, slot.songCount]))
+        counts: Object.fromEntries(finalAllocation.map(slot => [slot.genreId, slot.songCount]))
       }),
       moodIds: rec.moodIds,
       seasonId: rec.seasonId,
@@ -214,7 +268,7 @@ export default function Step2Concept({
         : prev.negativeStyle,
       artistReferenceStyleAtoms: artistReferenceStyleAtoms.length ? artistReferenceStyleAtoms : prev.artistReferenceStyleAtoms
     }));
-    for (const slot of rec.genreAllocation) rememberRecentGenreId(opts.channel.id, slot.genreId);
+    for (const slot of finalAllocation) rememberRecentGenreId(opts.channel.id, slot.genreId);
   }
 
   const visibleGenres = useMemo(
@@ -644,13 +698,28 @@ export default function Step2Concept({
         }}
         columns={3}
       />
-      {/* TASK v4.13 (§5-2) — "선택 시... 실제 계산된 쿼터를 보여주십시오". Only
-          for a non-kids archetype: kids channels use their own separate
-          gendered-choir quota model this preview doesn't model. */}
-      {!isKidsArchetype(channelArchetype) && !isBalancedVocalTone && leaningQuotaPreview && (
-        <p className="supporting">
-          남성 {leaningQuotaPreview.male}곡 · 여성 {leaningQuotaPreview.female}곡 · 듀엣 {leaningQuotaPreview.mixed}곡으로 배정됩니다.
-        </p>
+      {/* TASK v4.13 (§5-2) — "선택 시... 실제 계산된 쿼터를 보여주십시오".
+          v5.9 (quota/tone separation) — now shown for every archetype
+          (kids included, since a kids channel can lean too) and split into
+          the two independent axes the task's own mockup calls for: the
+          actual resolved gender/count split (explicitly labeled "채널 고정"
+          whenever vocalQuotaOverride makes it non-adjustable), and a
+          separate confirmation that the picked TONE is actually being
+          applied — these two lines can disagree (e.g. a K-pop channel keeps
+          its fixed split while still applying the picked tone's character). */}
+      {!isBalancedVocalTone && (
+        <div className="supporting" style={{ marginTop: 4 }}>
+          <p>선택: {matchVocalPreset(opts.vocalTone)?.label ?? opts.vocalTone}</p>
+          <p>
+            성별 배정: 남성 {resolvedVocalQuotaPreview.male}곡 · 여성 {resolvedVocalQuotaPreview.female}곡 · 듀엣 {resolvedVocalQuotaPreview.mixed}곡
+            {hasFixedVocalQuota ? ' (채널 고정)' : ''}
+          </p>
+          <p>
+            음색: {isRecognizedVocalTone
+              ? '선택하신 톤이 실제 가사·스타일 프롬프트에 반영됩니다.'
+              : '이 문구에서 알아볼 수 있는 성별/톤을 찾지 못해 채널 기본 보컬로 대체됩니다.'}
+          </p>
+        </div>
       )}
       <div className="button-row" style={{ marginTop: 8 }}>
         <button type="button" className={vocalCustomOpen ? 'chip active' : 'chip'} onClick={() => setVocalCustomOpen(v => !v)}>

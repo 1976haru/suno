@@ -20,6 +20,7 @@ import { resolveConstraintsFromOptions, type ResolvedConstraints } from './const
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { currentWorkspaceId } from './workspaceScope';
 import { vocabularyBankById } from '../data/vocabularyBanks';
+import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -1061,8 +1062,20 @@ export function buildClaudeCodeInstruction(
   generateThumbnailText = false,
   instructionOptions: ClaudeCodeInstructionOptions = {}
 ): string {
+  // TASK (genre-archetype sanitization) — `genres` here is only ever a
+  // lookup table for label/description text (per-track assignment is driven
+  // by `preassignedSongs[i].genreId`, already sanitized upstream by
+  // core/batchPreallocation.ts's preallocateSongSlots — see that function's
+  // own doc comment); this defensively keeps a foreign entry that slipped
+  // through some other path out of the agent-facing payload/plan-table text
+  // too. No user-facing warning here (this function returns a plain string,
+  // not a structured report) — the real warning already surfaced wherever
+  // opts.genreIds was sanitized upstream.
+  const archetype = opts.channel.archetype || 'senior-morning';
+  const eligibleGenres = genres.filter(genre => isGenreEligibleForArchetype(genre, archetype));
+  const sanitizedGenres = eligibleGenres.length ? eligibleGenres : genres;
   const outputFilename = instructionOptions.outputFilename ?? defaultBridgeOutputPath(opts);
-  const { batch, payload } = buildBridgePayload(opts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, outputFilename);
+  const { batch, payload } = buildBridgePayload(opts, sanitizedGenres, moods, season, avoid, preassignedSongs, generateThumbnailText, outputFilename);
   const bridgeRulesBatch: BatchContext = { ...batch, preassignedSongs: [] };
   const rules = buildSystemInstruction(opts, bridgeRulesBatch, undefined, generateThumbnailText);
 
@@ -1118,7 +1131,7 @@ export function buildClaudeCodeInstruction(
     '',
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
-    buildSetPlanHandoffSection(preassignedSongs, genres),
+    buildSetPlanHandoffSection(preassignedSongs, sanitizedGenres),
     '',
     instructionOptions.setDirectorInterpretation
       ? buildSetDirectorInterpretationSection(instructionOptions.setDirectorInterpretation.segments, instructionOptions.setDirectorInterpretation.listeningContext)
@@ -1141,7 +1154,7 @@ export function buildClaudeCodeInstruction(
     // (prevents independently-composed songs from converging on the same
     // couple of "safe" instrument/vocal choices).
     `This pack's ${preassignedSongs.length} tracks (plan fixed by the app — compose within each row, do not renumber or reorder):`,
-    perTrackPlanTable(preassignedSongs, genres),
+    perTrackPlanTable(preassignedSongs, sanitizedGenres),
     '',
     vocalCompositionSection(preassignedSongs),
     ...artistReferenceInstructionLines(opts),

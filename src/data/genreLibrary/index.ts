@@ -2320,6 +2320,44 @@ export function isCoreGenreForArchetype(genre: GenrePack, archetype: ChannelArch
   return genre.tier === 'core' && getCoreGenreIdsForArchetype(archetype).includes(genre.id);
 }
 
+// TASK (genre-archetype sanitization) — same senior-morning-only heuristic
+// fallback core/setDirector.ts's genreMatchesChannel already used (a legacy
+// pop/jazz/city-pop/lofi/ballad/seasonal genre with no explicit `archetypes`
+// tag still counts as senior-morning-eligible when its own text reads as
+// quiet/cafe-appropriate and not aggressive/wrong-channel). Kept as its own
+// small list here rather than reusing quietCafeSignals/
+// aggressiveOrWrongChannelSignals above — those two feed inferArchetypes'
+// broader multi-archetype tagging pass; these two are the narrower set
+// genreMatchesChannel always used for its own single-archetype runtime check.
+const SENIOR_MORNING_ELIGIBILITY_SIGNALS = ['senior', 'morning', 'coffee', 'warm', 'nostalgic', 'old', 'cafe', 'comfort'];
+const SENIOR_MORNING_ELIGIBILITY_EXCLUDE_SIGNALS = ['trap', 'rap', 'club', 'hard bop', 'bebop', 'big band', 'aggressive'];
+
+/**
+ * TASK (genre-archetype sanitization) — extracted from
+ * core/setDirector.ts's genreMatchesChannel (this is the exact predicate
+ * every real generation-time genre candidate filter in that file already
+ * runs through — see its own updated doc comment), so
+ * core/genreSelection.ts's sanitizeGenreIdsForArchetype can reuse the same
+ * "is this genre actually valid for this archetype" rule that generation
+ * itself uses, instead of inventing a second one. genreMatchesChannel now
+ * delegates to this function unchanged (pure refactor — no behavior change
+ * for any of its existing callers).
+ */
+export function isGenreEligibleForArchetype(genre: GenrePack, archetype: ChannelArchetype): boolean {
+  if (genre.archetypes?.includes(archetype)) return true;
+  if (archetype !== 'senior-morning') return false;
+  const text = [
+    genre.id,
+    genre.label,
+    genre.categoryId,
+    ...(genre.goodFor || []),
+    ...(genre.audiences || []),
+    ...(genre.moods || [])
+  ].join(' ').toLowerCase();
+  if (!containsAny(text, SENIOR_MORNING_ELIGIBILITY_SIGNALS)) return false;
+  return !containsAny(text, SENIOR_MORNING_ELIGIBILITY_EXCLUDE_SIGNALS);
+}
+
 export function getVisibleGenresForArchetype(
   archetype: ChannelArchetype = 'senior-morning',
   selectedIds: string[] = [],

@@ -4,6 +4,7 @@ import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildBatchSystemNote, buildAnthropicUserPayload } from '../src/core/promptComposer';
 import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions } from '../src/core/claudeCodeBridge';
 import { vocalDescriptionFor, type VocalType } from '../src/core/vocalPlan';
+import { vocalPresets } from '../src/data/vocalPresets';
 import { getGenreById, getVisibleGenresForArchetype } from '../src/data/genreLibrary';
 import { makeOptions, channelPresets, genrePacks, moodPacks, seasonPacks } from './fixtures';
 import type { BatchContext } from '../src/types';
@@ -95,6 +96,58 @@ describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () 
       const song = bp.songs.find(s => s.trackNo === slot.trackNo)!;
       expect(song.vocalType, `trackNo ${slot.trackNo}`).toBe(slot.vocalType);
     }
+  });
+});
+
+// v5.9 (quota/tone separation) — before this fix, isKidsArchetype(...)
+// unconditionally forced vocalLeaning to undefined (no gender-quota lean) AND
+// the kids vocalText branch ignored opts.vocalTone entirely (always the flat
+// vocalDescriptionFor rotation), so picking a specific gendered kids preset
+// (e.g. '여자아이' kid-girl) had ZERO effect on either the pack's gender split
+// or the actual generated text. Both axes are now independently honored.
+describe('[v5.9] a kids channel honors an explicit gendered vocal preset on both axes (quota lean + tone wording)', () => {
+  it('a girl-leaning pick produces a girl-majority pack (balanced ~10/4/4-of-18, mirroring leaningAdultVocalQuota) with the picked preset\'s own wording on every female-assigned track', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+    const girlPreset = vocalPresets.find(p => p.id === 'kid-girl')!;
+    const opts = makeOptions({ channel: kidsChannel, songCount: 18, lyricLanguage: 'korean', vocalTone: girlPreset.prompt, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    // Balanced lean, not extreme: female gets ~55% (leaningAdultVocalQuota's
+    // own math), the other two share the rest evenly, never starved to 0.
+    expect(counts).toEqual({ male: 4, female: 10, mixed: 4 });
+    const femaleSlots = slots.filter(slot => slot.vocalType === 'female');
+    expect(femaleSlots.length).toBeGreaterThan(0);
+    for (const slot of femaleSlots) {
+      expect(slot.vocalText).toBe(`${girlPreset.prompt}, clear Korean diction, bright and friendly`);
+    }
+    // Non-matching-gender tracks keep the existing rotating variety pool
+    // (there is no user pick for boy/mixed, so nothing to apply there).
+    const maleSlots = slots.filter(slot => slot.vocalType === 'male');
+    expect(new Set(maleSlots.map(slot => slot.vocalText)).size).toBeGreaterThan(1);
+  });
+
+  it('a boy-leaning pick mirrors the same balanced math the other direction', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+    const boyPreset = vocalPresets.find(p => p.id === 'kid-boy')!;
+    const opts = makeOptions({ channel: kidsChannel, songCount: 18, lyricLanguage: 'korean', vocalTone: boyPreset.prompt, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    expect(counts).toEqual({ male: 10, female: 4, mixed: 4 });
+    const maleSlots = slots.filter(slot => slot.vocalType === 'male');
+    for (const slot of maleSlots) {
+      expect(slot.vocalText).toBe(`${boyPreset.prompt}, clear Korean diction, bright and friendly`);
+    }
+  });
+
+  it('leaves the quota balanced (5/5/5-of-15) when vocalTone is untouched (still equal to the channel default)', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const counts = { male: 0, female: 0, mixed: 0 };
+    for (const slot of slots) counts[slot.vocalType!] += 1;
+    expect(counts).toEqual({ male: 5, female: 5, mixed: 5 });
   });
 });
 

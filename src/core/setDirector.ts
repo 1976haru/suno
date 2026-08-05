@@ -10,7 +10,7 @@ import type {
   PreassignedSongSlot,
   ProviderSettings
 } from '../types';
-import { genreLibrary, getCoreGenreIdsForArchetype, getGenreById, totalGenreCount } from '../data/genreLibrary';
+import { genreLibrary, getCoreGenreIdsForArchetype, getGenreById, isGenreEligibleForArchetype, totalGenreCount } from '../data/genreLibrary';
 import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
 import { hookDevices } from '../data/hookDevices';
@@ -205,20 +205,15 @@ function inferMoodIds(freeText: string, channel: ChannelProfile) {
   return [...new Set([...ranked, ...fallback])].filter(id => moodPacks.some(mood => mood.id === id)).slice(0, 2);
 }
 
+// TASK (genre-archetype sanitization) — the actual predicate now lives in
+// data/genreLibrary/index.ts's isGenreEligibleForArchetype (extracted
+// unchanged, see its own doc comment) so core/genreSelection.ts's
+// sanitizeGenreIdsForArchetype can reuse the exact same rule this file's own
+// candidate filtering already relies on. Kept as a thin channel-shaped
+// wrapper since every call site below already has `channel`, not a bare
+// archetype.
 function genreMatchesChannel(genre: GenrePack, channel: ChannelProfile) {
-  const archetype = channel.archetype || 'senior-morning';
-  if (genre.archetypes?.includes(archetype)) return true;
-  if (archetype !== 'senior-morning') return false;
-  const text = [
-    genre.id,
-    genre.label,
-    genre.categoryId,
-    ...(genre.goodFor || []),
-    ...(genre.audiences || []),
-    ...(genre.moods || [])
-  ].join(' ').toLowerCase();
-  if (!hasAny(text, ['senior', 'morning', 'coffee', 'warm', 'nostalgic', 'old', 'cafe', 'comfort'])) return false;
-  return !hasAny(text, ['trap', 'rap', 'club', 'hard bop', 'bebop', 'big band', 'aggressive']);
+  return isGenreEligibleForArchetype(genre, channel.archetype || 'senior-morning');
 }
 
 /**

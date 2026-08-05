@@ -171,7 +171,7 @@ export async function generateChunkWithSplitRetry(
     const titleMode = opts.titleMode ?? 'ai-creative';
     const hookMode = opts.hookMode ?? 'ai-creative';
     const slotByTrackNo = new Map((batchContext.preassignedSongs ?? []).map(slot => [slot.trackNo, slot]));
-    return (result.songs || []).map(song => reconcileWithPreassignedSlot(song, slotByTrackNo.get(song.trackNo), titleMode, {}, hookMode));
+    return (result.songs || []).map(song => reconcileWithPreassignedSlot(song, slotByTrackNo.get(song.trackNo), titleMode, { archetype: opts.channel.archetype }, hookMode));
   } catch (error) {
     const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
     if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {

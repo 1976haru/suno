@@ -249,7 +249,7 @@ function normalizeImportedSong(
     qualityScore: 0,
     warnings: []
   };
-  const reconciled = reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true });
+  const reconciled = reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true, archetype: opts.channel.archetype });
 
   // v4.3 (TASK A) — trust the agent's own "titleLocalized" (the real
   // creative reinterpretation instructed by titleLocalizedInstructionLineFor

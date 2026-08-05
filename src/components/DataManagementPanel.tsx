@@ -235,6 +235,9 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
         {stage.kind === 'done' && (
           <div className="import-result">
             <p className="supporting">가져오기가 끝났습니다.</p>
+            {stage.result.warnings.map(w => (
+              <p key={w} className="import-warning">⚠ {w}</p>
+            ))}
             <ul>
               <li>팩: 추가 {stage.result.packs.added}개 · 교체 {stage.result.packs.replaced}개 · 건너뜀 {stage.result.packs.skipped}개</li>
               <li>훅 원장: {stage.result.hooks.written}건 반영</li>

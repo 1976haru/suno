@@ -98,21 +98,40 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
   };
 }
 
-export function createDraftChannel(name = 'New Playlist Channel'): ChannelProfile {
+/**
+ * v5.9 (TASK: workspace-scoped draft channels) — real bug fixed here: this
+ * used to take no workspace context at all, so EVERY draft channel (both
+ * useChannelManager's addQuickChannel and startNewProfile call sites) fell
+ * through normalizeChannel's own 'senior-morning' fallback regardless of
+ * which workspace the user was actually in — a kr-kids-workspace user's
+ * quick-created channel silently got the senior archetype/audience/vocal.
+ *
+ * `templateChannel` is optional and additive: when the caller has workspace
+ * context (useChannelManager already computes `defaultChannel` =
+ * presetsForWorkspace(workspaceId)[0]), it passes that preset in and this
+ * draft clones its archetype/audience/market/primaryLanguage/defaultVocal/
+ * preferredGenres — so a new draft always starts as a valid member of the
+ * caller's own workspace instead of an unscoped hardcoded default. Omitting
+ * `templateChannel` (any caller without workspace context) preserves the
+ * exact previous behavior: normalizeChannel's own 'senior-morning'/'custom'/
+ * 'english' fallbacks, unchanged.
+ */
+export function createDraftChannel(name = 'New Playlist Channel', templateChannel?: ChannelProfile): ChannelProfile {
   return normalizeChannel({
     id: slugify(name),
     name,
     englishName: name,
-    market: 'custom',
-    primaryLanguage: 'english',
-    // v3.77 (TASK C) — no longer hardcoded to 'allAges' here: omitting it
-    // lets normalizeChannel derive it from this draft's own (also
-    // unspecified, so 'senior-morning'-defaulted) archetype instead, so the
-    // two fields stay a consistent pair.
+    market: templateChannel?.market ?? 'custom',
+    primaryLanguage: templateChannel?.primaryLanguage ?? 'english',
+    // No template → leave both unset. normalizeChannel derives audience from
+    // archetype (see ARCHETYPE_DEFAULT_AUDIENCE above) so the pair stays
+    // consistent either way — templated or falling back to 'senior-morning'.
+    archetype: templateChannel?.archetype,
+    audience: templateChannel?.audience,
     promise: 'creator-defined playlist channel with a clear listener promise',
     visualIdentity: 'consistent colors, readable thumbnail typography, clear seasonal object',
-    defaultVocal: 'clear emotional vocal, polished playlist-friendly delivery',
-    preferredGenres: ['adult-contemporary', 'acoustic-pop'],
+    defaultVocal: templateChannel?.defaultVocal || 'clear emotional vocal, polished playlist-friendly delivery',
+    preferredGenres: templateChannel?.preferredGenres?.length ? templateChannel.preferredGenres : ['adult-contemporary', 'acoustic-pop'],
     preferredMoods: ['warm', 'hopeful'],
     forbiddenCliches: ['famous artist imitation', 'copied song structure'],
     seoKeywords: []

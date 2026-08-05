@@ -156,6 +156,26 @@ describe('evaluateDesignGate — 보컬 (재발 시나리오 1-D의 단위 테�
     expect(allocation.counts.female).toBeGreaterThan(0);
     expect(allocation.counts.mixed).toBeGreaterThan(0);
   });
+
+  // v5.9 (quota/tone separation) — vocalQuotaForAutoFix used to ALWAYS start
+  // from DEFAULT_ADULT_VOCAL_QUOTA/DEFAULT_KIDS_VOCAL_QUOTA, ignoring
+  // opts.channel.vocalQuotaOverride entirely — a K-pop boy/girl-group
+  // channel's autoFix suggestion could silently propose overwriting the
+  // channel's own deliberate fixed split (e.g. 15/0/3) with a generic
+  // balanced one. It now mirrors core/batchPreallocation.ts's/
+  // core/localGenerator.ts's own baseVocalQuota priority: vocalQuotaOverride
+  // wins, and never leans (the split itself is the point of that channel).
+  it('a channel with vocalQuotaOverride gets its OWN fixed split back from autoFix, not the generic 6/6/6 default', () => {
+    const fixedQuotaChannel: ChannelProfile = { ...CHANNEL, archetype: 'kr-idol-male', vocalQuotaOverride: { male: 15, female: 0, mixed: 3 } };
+    const opts = baseOpts({ channel: fixedQuotaChannel, vocalTone: fixedQuotaChannel.defaultVocal });
+    const slots = healthySlots().map(slot => ({ ...slot, vocalType: 'male' as const }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'vocal-type-variety');
+    expect(issue).toBeDefined();
+    const fix = issue!.autoFix!();
+    const allocation = fix.diversityAllocations!.find(a => a.axis === 'vocalType')!;
+    expect(allocation.counts).toEqual({ male: 15, female: 0, mixed: 3 });
+  });
 });
 
 describe('evaluateDesignGate — BPM (재발 시나리오 1-E의 단위 테스트 버전)', () => {

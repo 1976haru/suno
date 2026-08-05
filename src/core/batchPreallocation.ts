@@ -1,4 +1,4 @@
-import type { GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
+import type { ChannelArchetype, GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
@@ -20,12 +20,12 @@ import {
   DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
   enforceVocalTextInStylePrompt,
+  kidsVocalTextFor,
   leaningAdultVocalQuota,
   leaningGenderFor,
   resolveFlagshipVocalOrder,
   resolveVocalMetaTag,
   usesVocalQuota,
-  vocalDescriptionFor,
   type VocalGender,
   type VocalType
 } from './vocalPlan';
@@ -62,6 +62,8 @@ import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedC
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { vocabularyBankForScene } from '../data/vocabularyBanks';
 import { workspaceForArchetype } from '../data/workspaces';
+import { getGenreById } from '../data/genreLibrary';
+import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 
 export type { PreassignedSongSlot };
 
@@ -123,6 +125,25 @@ export function preallocateSongSlots(
     verifiedCombos?: VerifiedCombo[];
   }
 ): PreassignedSongSlot[] {
+  // TASK (genre-archetype sanitization) — mirrors core/localGenerator.ts's
+  // generateLocalBlueprint identical fix (see that function's own doc
+  // comment for the full reasoning): this is the real batch/Realtime/bridge
+  // slot-planning entry point every one of those paths funnels through, so
+  // it needs its own defense-in-depth sanitization even though every UI
+  // entry point already sanitizes opts.genreIds before it gets here.
+  // Reassigns the `opts`/`genres` PARAMETERS (never the caller's own
+  // objects) so this function's later genrePool/genresForTrack reads all
+  // see the sanitized set.
+  const archetype = opts.channel.archetype || 'senior-morning';
+  const genreSanitization = sanitizeGenreIdsForArchetype(
+    Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
+    archetype
+  );
+  if (genreSanitization.removed.length) {
+    opts = { ...opts, genreIds: genreSanitization.valid };
+    genres = genreSanitization.valid.map(id => getGenreById(id)).filter((genre): genre is NonNullable<typeof genre> => Boolean(genre));
+  }
+  const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, archetype);
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
   // TASK v3.67 (TASK C) — same arc-intensity reorder as localGenerator.ts's
@@ -266,14 +287,35 @@ export function preallocateSongSlots(
   // user's actual vocalTone pick (when it differs from the channel's own
   // default) now LEANS the quota toward that gender instead of replacing
   // per-song variety with one fixed string (see vocalPlan.ts's own
-  // leaningGenderFor/leaningAdultVocalQuota doc comments). Skipped for
-  // kids (its own quota system) and whenever the caller supplied an
-  // explicit opts.vocalQuota override, which always wins outright.
+  // leaningGenderFor/leaningAdultVocalQuota doc comments).
   // TASK K2 §5-1 — opts.channel.vocalQuotaOverride mirrors localGenerator.ts's
   // identical addition: same priority as opts.vocalQuota, undefined for
   // every existing channel preset so this path is unchanged for them.
   const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
-  const vocalLeaning = isKidsArchetype(opts.channel.archetype) || opts.vocalQuota || opts.channel.vocalQuotaOverride ? undefined : leaningGenderFor(opts);
+  // v5.9 (quota/tone separation) — `detectedVocalTone` is a pure recognition
+  // signal (does a preset/gender/duet/mixed phrase actually exist in
+  // opts.vocalTone?), computed the SAME way regardless of channel type; it
+  // used to be entangled with `vocalLeaning` itself (one variable serving
+  // both "should the quota shift" and "was the tone recognized"), which
+  // wrongly told explicitUnrecognizedVocalTone below that a perfectly valid
+  // preset was "unrecognized" on any channel where the quota lean happens to
+  // be disabled (kids, before this fix; every vocalQuotaOverride/opts.vocalQuota
+  // channel, always by design). See leaningGenderFor's own doc comment for
+  // what counts as recognized (matchVocalPreset first, then Korean duet/mixed
+  // terms, then English/Korean gender-word detection).
+  const detectedVocalTone = leaningGenderFor(opts);
+  // Gender-QUOTA lean is the one axis that legitimately depends on channel
+  // type: disabled only when the caller supplied an explicit quota
+  // (opts.vocalQuota) or the channel enforces a fixed quota
+  // (vocalQuotaOverride, e.g. a K-pop boy/girl-group channel) — in both
+  // cases the quota split itself IS the point and a vocal-tone pick must not
+  // shift it. Kids channels are NO LONGER blanket-excluded here: a kids
+  // channel should still be able to lean toward more girl- or boy-voiced
+  // songs when the user picks a gendered kids preset, the same way an adult
+  // channel already could (leaningAdultVocalQuota's own 0.55 lead-share math
+  // is unchanged and already yields a balanced ~10/4/4-of-18 split, not an
+  // extreme one, for either audience).
+  const vocalLeaning = opts.vocalQuota || opts.channel.vocalQuotaOverride ? undefined : detectedVocalTone;
   const resolvedVocalQuota = vocalLeaning ? leaningAdultVocalQuota(baseVocalQuota, opts.songCount, vocalLeaning) : baseVocalQuota;
   // v3.77 (TASK A) — leaningGenderFor only recognizes a known preset or a
   // literal gender word; a genuinely custom vocalTone with neither (e.g. a
@@ -287,8 +329,25 @@ export function preallocateSongSlots(
   // fallbackVocalText (the user's own text, verbatim) below; vocalType is
   // still assigned from the (unleaned) base quota, so type diversity is
   // unaffected — only the WORDING stays the user's own.
-  const explicitUnrecognizedVocalTone = !isKidsArchetype(opts.channel.archetype) && !opts.vocalQuota && !vocalLeaning
+  // v5.9 (quota/tone separation) — checks `detectedVocalTone` (recognition),
+  // not `vocalLeaning` (whether the quota actually shifted): a vocalTone that
+  // matched a real preset (e.g. an "airy soft female" pick on a fixed-quota
+  // K-pop channel) must still count as recognized even on a channel where
+  // vocalLeaning is always undefined by design — the old `!vocalLeaning`
+  // condition conflated "was this tone recognized" with "did it move the
+  // quota", silently discarding a legitimately-picked preset back to the
+  // channel's generic defaultVocal on exactly those channels.
+  const explicitUnrecognizedVocalTone = !isKidsArchetype(opts.channel.archetype) && !opts.vocalQuota && !detectedVocalTone
     && Boolean(opts.vocalTone?.trim()) && opts.vocalTone!.trim() !== opts.channel.defaultVocal;
+  // v5.9 (quota/tone separation) — the kids-channel counterpart of the same
+  // "tone preset always applies" fix: whenever opts.vocalTone matches one of
+  // vocalPresets.ts's own forKids presets, that preset's own wording now
+  // reaches the matching-gender tracks' vocalText below (see vocalPlan.ts's
+  // kidsVocalTextFor doc comment) instead of being silently ignored in favor
+  // of the flat rotating pool. undefined (no match) for every existing kids
+  // channel's own untouched/default vocalTone, so this is a no-op unless a
+  // user actually opens the voice picker and chooses a specific kids preset.
+  const kidsMatchedVocalPreset = isKidsArchetype(opts.channel.archetype) ? matchVocalPreset(opts.vocalTone?.trim() ?? '') : undefined;
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
@@ -570,7 +629,7 @@ export function preallocateSongSlots(
     // vocalTone fallback text.
     const vocalText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
-          ? vocalDescriptionFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype)
+          ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
           : (adultVocalTraitPlan?.[idx]
               ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
               : fallbackVocalText))
@@ -704,7 +763,8 @@ export function preallocateSongSlots(
       ...(conceptStyleText(opts.customConcept, idx) ? { conceptText: conceptStyleText(opts.customConcept, idx) } : {}),
       ...(conceptLyricImages(opts.customConcept).length ? { conceptLyricImages: conceptLyricImages(opts.customConcept) } : {}),
       ...(vocalGender ? { vocalGender } : {}),
-      ...(vocalType ? { vocalType } : {})
+      ...(vocalType ? { vocalType } : {}),
+      ...(idx === 0 && genreWarningKo ? { genreWarning: genreWarningKo } : {})
     };
   });
 }
@@ -747,6 +807,20 @@ export interface ReconcilePreassignedOptions {
    * structure.
    */
   keepEmotionArc?: boolean;
+  /**
+   * TASK (genre-archetype sanitization) — optional so every existing caller
+   * that omits it keeps compiling unchanged. When `slot` is present, `song`'s
+   * own genreId/genreText is always overwritten by the slot's (already
+   * sanitized by preallocateSongSlots — see its own doc comment), so this is
+   * a no-op there. It only matters for the `if (!slot) return song` branch
+   * below: an out-of-range trackNo (an agent inventing an extra track, or a
+   * bridge JSON entry with no matching preassigned slot) returns `song`
+   * completely unreconciled — including any genreId it carried — with
+   * nothing else in this function to catch it. Passing this lets that one
+   * branch sanitize it too instead of silently trusting raw model/import
+   * output.
+   */
+  archetype?: ChannelArchetype;
 }
 
 /**
@@ -858,7 +932,22 @@ export function reconcileWithPreassignedSlot(
   /** TASK v3.33 — see GenerationOptions.hookMode. Kept as its own trailing param (not folded into ReconcilePreassignedOptions) since every non-bridge caller passes it explicitly, the same way titleMode is its own positional param rather than an option. */
   hookMode: 'pool' | 'ai-creative' = 'ai-creative'
 ): SongIdea {
-  if (!slot) return song;
+  if (!slot) {
+    // TASK (genre-archetype sanitization) — see ReconcilePreassignedOptions.archetype's
+    // own doc comment for why this branch needs its own check: nothing else
+    // in this function touches `song` when there's no slot to reconcile
+    // against.
+    if (!options.archetype || !song.genreId) return song;
+    const { removed } = sanitizeGenreIdsForArchetype([song.genreId], options.archetype);
+    if (!removed.length) return song;
+    const warning = genreSanitizationWarningKo(removed, options.archetype);
+    return {
+      ...song,
+      genreId: undefined,
+      genreText: undefined,
+      warnings: song.warnings.includes(warning) ? song.warnings : [...song.warnings, warning]
+    };
+  }
   // TASK v3.68 (TASK A) — this is the one place every generation path
   // (realtime, Batch API, Claude Code bridge import) already reconciles a
   // model/agent's raw output (see this function's own docstring above), so
@@ -940,9 +1029,15 @@ export function reconcileWithPreassignedSlot(
   const structureWarning = structureMarker && !song.lyrics.includes(structureMarker)
     ? `Track ${slot.trackNo}: assigned structureTemplate ${slot.structureTemplate} but its section marker (${structureMarker}) doesn't appear in the lyrics — the structure guideline may not have been followed.`
     : undefined;
-  const warnings = structureWarning && !song.warnings.includes(structureWarning)
-    ? [...song.warnings, structureWarning]
-    : song.warnings;
+  // TASK (genre-archetype sanitization) — mirrors structureWarning
+  // immediately above: preallocateSongSlots computes this once per pack
+  // (trackNo 1's slot only — see PreassignedSongSlot.genreWarning's own doc
+  // comment), folded into that one song's own warnings here, the same way
+  // every other post-hoc reconciliation warning already surfaces.
+  const newWarnings = [structureWarning, slot.genreWarning].filter(
+    (warning): warning is string => typeof warning === 'string' && !song.warnings.includes(warning)
+  );
+  const warnings = newWarnings.length ? [...song.warnings, ...newWarnings] : song.warnings;
   const listenerSituation = slot.lyricThemeText || song.listenerSituation;
   return {
     ...song,
