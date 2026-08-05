@@ -7,7 +7,7 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
-import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
@@ -1018,9 +1018,17 @@ export function generateLocalBlueprint(
   // the old flat archetype-pool rotation for any pack whose genrePlan
   // never resolves to a data/paletteFamilies.ts family).
   const dominantFamilyId = dominantPaletteFamilyId(genrePlan);
-  const progressionPlan = usesMoneyChordQuota(opts)
-    ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
-    : null;
+  // v5.7 (TASK v5.7, TASK B) — an explicit user money-chord pick
+  // (moneyChordModeIsExplicitChoice) now gets its own 50-60%-of-pack +
+  // compatible-neighbor plan instead of either the old 100%-one-progression
+  // flat text or (worse — this task's own root-cause bug) being silently
+  // treated as 'default' and overridden by the family/archetype quota below.
+  // Checked BEFORE usesMoneyChordQuota so an explicit choice always wins.
+  const progressionPlan = usesUserChosenProgressionPlan(opts)
+    ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
+    : usesMoneyChordQuota(opts)
+      ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
+      : null;
   // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota.
   // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
   // archetype, not just kids (see vocalPlan.ts's own doc comment for the

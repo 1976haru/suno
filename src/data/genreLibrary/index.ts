@@ -132,6 +132,32 @@ const GENRE_ERA_TAG_OVERRIDES: Record<string, string> = {
   'smooth-jazz-lounge': '1980s-present smooth jazz lounge',
   'showa-modern': 'late-1970s to 1980s Showa cafe pop',
   'city-pop-soft': 'late-1970s to 1980s city pop'
+  // TASK v5.7 (TASK C §3-4) — investigated, NOT applied. The task doc asked
+  // for oldpop-close-harmony-duo/orchestral-easy widened to "1960s-70s" and
+  // oldpop-standards-torch to "1950s-80s" (real music-history basis: Everly-
+  // Brothers-era close harmony and Mantovani/Percy-Faith-era orchestral easy
+  // listening both predate the 1970s; Sinatra-era torch-song phrasing
+  // predates the 1980s). A first attempt added exactly those 3 entries here
+  // (eraTag display/scoring text only — never touched eraExclusions.ts's
+  // ERA_BUCKET_BY_GENRE_ID quota bucket). Real measurement
+  // (tests/oldpopGenreFamily.test.ts, isolated with `git stash push --
+  // src/data/genreLibrary/index.ts`) showed this broke an UNRELATED pair's
+  // pairwise-similarity check (oldpop-quiet-storm-warm vs
+  // oldpop-light-synth-pop-warm, 0.467 > the 0.45 ceiling) even though
+  // neither of those two genres was touched. Root cause traced to
+  // core/diversityLinter.ts's lintInPackStyleSimilarity: it removes clauses
+  // common to EVERY song in a batch before scoring pairwise similarity
+  // (see its own `commonClauses`/`commonSet`), computed across all 28
+  // oldpop-* genres in ONE call — changing oldpop-orchestral-easy's own
+  // generated style-prompt text broke a clause's "common to literally all
+  // 28" status, so that clause stopped being excluded for every OTHER pair
+  // too, inflating similarity for a completely unrelated pair as a side
+  // effect. Given the task's own explicit "시니어 워크스페이스 성과를 되돌리지
+  // 말 것", this was reverted rather than shipped — see this task's own
+  // report for the full account. Left un-widened; a real, scoped follow-up
+  // (not this task) would need to trace exactly which shared boilerplate
+  // clause orchestral-easy's text change perturbed before this can ship
+  // safely.
 };
 
 interface GenreVariantSeed {

@@ -360,13 +360,13 @@ export interface CompactMoneyChordOptions {
  */
 export const MONEY_CHORD_ADHERENCE_TEXT = 'Keep this progression as the harmonic spine from verse through final chorus.';
 
-export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode' | 'customMoneyChord' | 'earwormMode'>, options: CompactMoneyChordOptions = {}) {
+export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'moneyChordModeIsExplicitChoice'>, options: CompactMoneyChordOptions = {}) {
   const { moneyChordIdOverride, includeFeelReinforcement = false } = options;
   if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     const base = `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
     return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffect}` : base;
   }
-  const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
+  const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode, opts.moneyChordModeIsExplicitChoice);
   const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
   return includeFeelReinforcement ? `${preset.compactProgression} - ${preset.audibleEffect}` : preset.compactProgression;
 }

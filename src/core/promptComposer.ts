@@ -334,7 +334,7 @@ export function resolveMoneyChordText(opts: GenerationOptions) {
   if (opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     return `custom chord progression: ${opts.customMoneyChord.trim()}, with a clear emotional chorus lift`;
   }
-  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
+  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode, opts.moneyChordModeIsExplicitChoice);
   return moneyChordPresets[effectiveMode]?.prompt ?? moneyChordPresets.default.prompt;
 }
 

@@ -420,6 +420,25 @@ export interface GenerationOptions {
   lyricDepth: 'simple' | 'literary' | 'poetic' | 'commercial';
   durationTarget: 'under3m30' | 'under4m' | 'playlistShort';
   moneyChordMode: 'default' | 'emotional' | 'jazzColor' | 'cityPop' | 'canon' | 'showaModern' | 'winterBallad' | 'custom';
+  /**
+   * v5.7 (TASK v5.7, TASK A) — true only when the user actually clicked a
+   * money-chord choice in Step2Concept's picker this session (see that
+   * component's ChoiceGrid/custom-input onChange), as opposed to
+   * moneyChordMode simply still sitting at whatever createInitialOptions
+   * (or a channel switch) defaulted it to. Real gap this closes: v3.15's
+   * earworm mode (resolveEarwormMoneyChordMode) silently redirected ANY
+   * non-default/non-canon/non-custom moneyChordMode back to 'default'
+   * whenever the user had also checked "🎧 익숙한 멜로디로" — including a
+   * moneyChordMode the user had JUST explicitly picked in the same screen,
+   * which contradicts that function's own doc comment ("never overrides an
+   * explicit user choice"). Undefined/false preserves every pre-existing
+   * caller's exact behavior (including tests/earwormMode.test.ts's own
+   * locked-in "showaModern -> default" expectation for the *non*-explicit
+   * case) — only a caller that sets this true gets the new "explicit choice
+   * wins" behavior. See core/userChoices.ts's UserExplicitChoices for the
+   * broader pattern this is one instance of.
+   */
+  moneyChordModeIsExplicitChoice?: boolean;
   customMoneyChord: string;
   customConcept: string;
   /** v3.49A: user-written vibe reference converted to safe English style clauses; artist/song names are blocked before use. */

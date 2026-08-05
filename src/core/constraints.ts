@@ -212,6 +212,106 @@ export function extractEraConstraint(freeText: string, artistReferenceEraTags: s
 }
 
 // ---------------------------------------------------------------------------
+// v5.7 (TASK v5.7, TASK C §3-3) — mood/atmosphere axis extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Real gap this closes: a concept like "60년대 감미로운 올드팝" only ever had
+ * "60년대" (era) and "올드팝" (workspace) reach genre selection —
+ * "감미로운" (sweet/mellow) was detected nowhere at all, so a set asking for
+ * a tender, sweet 60s sound came back with only the brightest/loudest 60s
+ * genres (doowop/girl-group/sunshine-pop), because nothing in the pipeline
+ * ever weighed "sweet" against "bright" when picking a genre family. This
+ * dictionary is deliberately the task's own explicit 6-cluster list — not
+ * expanded past it, so an untested cluster never silently mismatches.
+ */
+export interface MoodConstraint {
+  /** English descriptors carried into genre scoring / prompt composition. */
+  descriptors: string[];
+  preferredTraits: {
+    dynamicRange?: 'low' | 'medium';
+    tempoLean?: 'slow' | 'mid' | 'fast';
+    harmonyLean?: string[];
+  };
+  /** The Korean word(s) from the concept text that triggered this — e.g. '감미로운'. */
+  sourceText: string;
+}
+
+interface MoodCluster {
+  pattern: RegExp;
+  descriptors: string[];
+  preferredTraits: MoodConstraint['preferredTraits'];
+}
+
+/** TASK v5.7 (TASK C §3-3) — the task's own literal 6-cluster Korean mood-adjective dictionary. Order matters only as a tie-break when a concept happens to trip two clusters at once (rare) — the first cluster tested wins, matching this file's other extract* functions' own "first hit wins" convention. */
+const MOOD_CLUSTERS: MoodCluster[] = [
+  {
+    pattern: /감미로운|달콤한|부드러운/,
+    descriptors: ['sweet', 'tender', 'mellow'],
+    preferredTraits: { tempoLean: 'slow', harmonyLean: ['lush chords', 'extended harmony'] }
+  },
+  {
+    pattern: /잔잔한|차분한|조용한/,
+    descriptors: ['calm', 'quiet', 'hushed'],
+    preferredTraits: { dynamicRange: 'low', tempoLean: 'slow' }
+  },
+  {
+    pattern: /밝은|경쾌한|신나는/,
+    descriptors: ['bright', 'upbeat', 'lively'],
+    preferredTraits: { tempoLean: 'mid' }
+  },
+  {
+    pattern: /쓸쓸한|애잔한|그리운/,
+    descriptors: ['wistful', 'tender-sad'],
+    preferredTraits: { tempoLean: 'slow', harmonyLean: ['minor-leaning harmony'] }
+  },
+  {
+    pattern: /따뜻한|포근한/,
+    descriptors: ['warm', 'cozy'],
+    preferredTraits: { dynamicRange: 'low', tempoLean: 'mid' }
+  },
+  {
+    pattern: /서정적인|애틋한/,
+    descriptors: ['lyrical', 'poignant'],
+    preferredTraits: { tempoLean: 'slow' }
+  }
+];
+
+/**
+ * TASK v5.7 (TASK C §3-3) — returns undefined (not a "neutral" MoodConstraint)
+ * when no cluster matched, so callers (setDirector.ts's ConceptAxisCoverage)
+ * can tell "no mood expressed" apart from "mood expressed but the dictionary
+ * doesn't cover this word" — per this task's own explicit "감지 못 하면
+ * unapplied 로 표시하십시오, 억지로 매칭하지 말 것".
+ */
+export function extractMoodConstraint(freeText: string): MoodConstraint | undefined {
+  for (const cluster of MOOD_CLUSTERS) {
+    const match = freeText.match(cluster.pattern);
+    if (match) {
+      return { descriptors: [...cluster.descriptors], preferredTraits: { ...cluster.preferredTraits }, sourceText: match[0] };
+    }
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// v5.7 (TASK v5.7, TASK C §3-5) — concept axis coverage
+// ---------------------------------------------------------------------------
+
+export type ConceptAxisId = 'era' | 'mood' | 'genre' | 'situation' | 'reference' | 'season';
+
+export interface ConceptAxisCoverage {
+  axis: ConceptAxisId;
+  detected: boolean;
+  /** The part of the concept text this axis was read from, e.g. '60년대', '감미로운'. Undefined when detected is false. */
+  sourceText?: string;
+  /** Where this axis actually landed — e.g. ['genre selection', 'era quota']. Empty when unapplied. */
+  appliedTo: string[];
+  /** true only when detected && appliedTo.length === 0 — a real "the app silently ignored this" case Step2Plan.tsx should warn about. */
+  unapplied: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // v4.1 (TASK A) — concept breadth detection
 // ---------------------------------------------------------------------------
 

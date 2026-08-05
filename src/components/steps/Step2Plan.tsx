@@ -4,6 +4,7 @@ import { getGenreById, genreLibrary } from '../../data/genreLibrary';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
 import { BREADTH_LABEL_KO, directSetLocal, resolveMainFamilyId, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
+import { userChoicesFromOptions } from '../../core/userChoices';
 import { PALETTE_FAMILIES } from '../../data/paletteFamilies';
 import { channelSoundFloorForArchetype } from '../../data/channelSoundFloor';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
@@ -41,6 +42,16 @@ const AXIS_LABELS: Record<DiversityAxisId, string> = {
   structureTemplate: '구조',
   lyricTheme: '가사 장면',
   pov: '시점'
+};
+
+/** v5.7 (TASK v5.7, TASK C §3-5) — labels for SetPlan.interpretation.axisCoverage's ConceptAxisId. */
+const AXIS_COVERAGE_LABEL_KO: Record<string, string> = {
+  era: '시대',
+  mood: '분위기',
+  genre: '장르',
+  situation: '상황',
+  reference: '참조',
+  season: '시즌'
 };
 
 function countSummary(allocation: AxisAllocation | undefined) {
@@ -142,12 +153,17 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     // that would then win over leaning at generation time anyway (see
     // core/setDirector.ts's resolveVocalCounts doc comment for the real gap
     // this closes).
+    // v5.7 (TASK v5.7, TASK A) — userChoicesFromOptions(opts) so this plan's
+    // own moneyChordMode preview (buildBaseOptions inside setDirector.ts)
+    // reflects whatever the user actually picked in Step2Concept's money-chord
+    // picker, instead of setDirector.ts's old hardcoded 'default' — the
+    // literal root-cause line this task exists to fix.
     () => directSetLocal(freeText, opts.channel, opts.songCount, {
       recentGenreIds: [...readRecentGenreIds(opts.channel.id), ...recentAvoid],
       recentHooks: [],
       insights: appliedInsights
-    }, familyIds, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride),
-    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride]
+    }, familyIds, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride, userChoicesFromOptions(opts)),
+    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride, opts.moneyChordMode, opts.moneyChordModeIsExplicitChoice, opts.customMoneyChord]
   );
   // TASK v4.9 (TASK A, §1-6) — only meaningful for archetypes
   // data/channelSoundFloor.ts actually covers (senior-morning/showa-cafe/
@@ -397,6 +413,27 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
             {plan.interpretation.unknownTermsKo.map(note => <p key={note} className="error">{note}</p>)}
           </div>
         )}
+        {/*
+          v5.7 (TASK v5.7, TASK C §3-5) — "컨셉 해석" coverage table: every
+          axis the concept could name (시대/분위기/장르/상황/참조/시즌), whether
+          it was detected, and whether it actually reached genre selection or
+          the prompt. A detected-but-unapplied axis is surfaced as a warning
+          instead of silently doing nothing — per this task's own §9 self-check
+          "앱이 먼저 알려줘야 합니다".
+        */}
+        <div className="option-block compact">
+          <h4>컨셉 해석</h4>
+          {plan.interpretation.axisCoverage.map(entry => (
+            <p key={entry.axis} className={entry.unapplied ? 'error' : 'supporting'}>
+              {AXIS_COVERAGE_LABEL_KO[entry.axis]}
+              {entry.detected ? (entry.sourceText ? ` "${entry.sourceText}"` : '') : ' — 감지 안 됨'}
+              {entry.detected && (entry.appliedTo.length ? ` → ${entry.appliedTo.join(', ')} 반영됨` : ' → 반영되지 않음 ⚠')}
+            </p>
+          ))}
+          {plan.interpretation.axisCoverage.every(entry => !entry.unapplied) && (
+            <p className="supporting">⚠ 반영되지 않은 표현: 없음</p>
+          )}
+        </div>
       </div>
 
       <div className="option-block compact">

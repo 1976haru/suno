@@ -31,6 +31,20 @@ export interface MoneyChordPreset {
    * also reads as an audible, distinguishing description.
    */
   audibleEffect: string;
+  /**
+   * TASK v5.7 (TASK B §2-4) — "함께 써도 어울리는 진행": the pool a set built
+   * primarily around this progression can pull its remaining ~40-50% of
+   * songs from (see core/moneyChordPlan.ts's buildUserChosenProgressionPlan)
+   * instead of either 100% one progression or falling back to a
+   * family/archetype-default rotation that ignores the chosen progression
+   * entirely. Chosen by harmonic/emotional-register closeness (same
+   * reasoning as data/paletteFamilies.ts's own compatibleWith), not by
+   * shared literal Roman numerals — e.g. doowop (I-vi-IV-V) and 'default'
+   * (I-V-vi-IV/vi-IV-I-V) share no numerals but are both simple, bright,
+   * two-chord-alternation 50s-60s pop progressions that sit comfortably
+   * back to back in one set.
+   */
+  compatibleWith: string[];
 }
 
 export const moneyChordPresets: Record<string, MoneyChordPreset> = {
@@ -43,7 +57,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'major-key money chord progression with I-V-vi-IV and vi-IV-I-V movement, warm nostalgic pop harmony, emotional chorus lift, familiar radio-friendly melody, easy sing-along hook',
     compactProgression: 'I-V-vi-IV progression',
     audibleEffect: 'chorus opens up warmly and resolves home, instantly familiar',
-    bestFor: ['처음 만드는 곡', '대부분의 플레이리스트 트랙']
+    bestFor: ['처음 만드는 곡', '대부분의 플레이리스트 트랙'],
+    compatibleWith: ['emotional', 'doowop', 'canon', 'popStandard']
   },
   emotional: {
     id: 'emotional',
@@ -54,7 +69,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'emotional major-key pop progression, I-V-vi-IV in verses and vi-IV-I-V in chorus, strong but gentle lift into the hook',
     compactProgression: 'I-V-vi-IV verses, vi-IV-I-V chorus lift',
     audibleEffect: 'chorus lifts noticeably higher than the verse and lands with a soft ache',
-    bestFor: ['감정 절정 트랙', '늦은 밤 감성 곡']
+    bestFor: ['감정 절정 트랙', '늦은 밤 감성 곡'],
+    compatibleWith: ['default', 'winterBallad', 'canon']
   },
   jazzColor: {
     id: 'jazzColor',
@@ -65,7 +81,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'major-key money chord progression with gentle maj7 and add9 color chords, occasional ii-V-I cafe jazz turnaround, warm adult contemporary harmony',
     compactProgression: 'ii-V-I turnaround, maj7 add9 color',
     audibleEffect: 'smoky turnaround that lands softly on the resolution',
-    bestFor: ['재즈 카페 채널', '어른스러운 무드']
+    bestFor: ['재즈 카페 채널', '어른스러운 무드'],
+    compatibleWith: ['emotional', 'royalRoad', 'cityPop']
   },
   cityPop: {
     id: 'cityPop',
@@ -76,7 +93,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'smooth city-pop friendly harmony, vi-IV-I-V movement, maj7 chords, gentle pre-chorus lift, nostalgic radio-friendly chorus',
     compactProgression: 'vi-IV-I-V movement, maj7 color',
     audibleEffect: 'glides forward smoothly then settles into a cool, polished landing',
-    bestFor: ['일본 채널', '나이트 드라이브 무드']
+    bestFor: ['일본 채널', '나이트 드라이브 무드'],
+    compatibleWith: ['marusa', 'jazzColor', 'default']
   },
   canon: {
     id: 'canon',
@@ -87,7 +105,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'classic canon progression I-V-vi-iii-IV-I-IV-V, cinematic emotional build, orchestral-pop warmth, climactic chorus lift',
     compactProgression: 'I-V-vi-iii-IV-I-IV-V progression',
     audibleEffect: 'steadily rising, cinematic swell that keeps building toward the peak',
-    bestFor: ['연말/크리스마스 이브 곡', '감정 최고조 트랙']
+    bestFor: ['연말/크리스마스 이브 곡', '감정 최고조 트랙'],
+    compatibleWith: ['emotional', 'default', 'popStandard']
   },
   showaModern: {
     id: 'showaModern',
@@ -98,7 +117,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'showa-modern kissaten harmony centered on IVmaj7-iii7-vi7 movement, warm mellow jazz-pop color, refined nostalgic Japanese cafe mood',
     compactProgression: 'IVmaj7-iii7-vi7 movement',
     audibleEffect: 'warm, wistful drift that never quite resolves until the very end',
-    bestFor: ['일본 채널', '쇼와 모던 카페 컨셉']
+    bestFor: ['일본 채널', '쇼와 모던 카페 컨셉'],
+    compatibleWith: ['royalRoad', 'marusa', 'doowop']
   },
   winterBallad: {
     id: 'winterBallad',
@@ -109,7 +129,12 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'winter ballad harmony, vi-IV-I-V in verses building to I-V-vi-IV in chorus, gentle key-up half-step modulation on the final chorus only',
     compactProgression: 'vi-IV-I-V to I-V-vi-IV, final chorus key-up',
     audibleEffect: 'stays hushed through the verse then opens into a brighter, lifted chorus',
-    bestFor: ['겨울 발라드', '마지막 트랙(클로저)']
+    bestFor: ['겨울 발라드', '마지막 트랙(클로저)'],
+    // TASK v5.7 (TASK B §2-4) — 'emotional' (also verse/chorus vi-IV-I-V <->
+    // I-V-vi-IV movement, same register just without the key-up), 'canon'
+    // (same cinematic-build emotional territory), 'default' (the most
+    // neutral/compatible progression in the whole pack, safe next to anything).
+    compatibleWith: ['emotional', 'canon', 'default']
   },
   custom: {
     id: 'custom',
@@ -122,7 +147,11 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     // reaching this field (see below), using opts.customMoneyChord verbatim.
     compactProgression: 'familiar chord progression',
     audibleEffect: 'familiar chorus lift that resolves cleanly',
-    bestFor: ['직접 코드 진행을 지정하고 싶을 때']
+    bestFor: ['직접 코드 진행을 지정하고 싶을 때'],
+    // TASK v5.7 (TASK B §2-4) — a hand-typed progression has no principled
+    // "neighbor" this app can infer; left empty (never mixed with a
+    // system-picked adjacent progression the user didn't type themselves).
+    compatibleWith: []
   },
   // TASK v3.33 Part C — channel-signature progressions, added after real
   // listening feedback that money chords "felt weak" and that the Japanese
@@ -140,7 +169,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: '1950s doo-wop chord progression I-vi-IV-V, deeply familiar nostalgic feel for older listeners, warm vintage pop harmony, gentle emotional lift into the chorus',
     compactProgression: 'I-vi-IV-V doo-wop progression',
     audibleEffect: 'gentle rocking sway, deeply nostalgic and easy to hum along',
-    bestFor: ['시니어 채널 시그니처', '아침 라디오 오프닝']
+    bestFor: ['시니어 채널 시그니처', '아침 라디오 오프닝'],
+    compatibleWith: ['default', 'canon', 'warmCycle']
   },
   warmCycle: {
     id: 'warmCycle',
@@ -151,7 +181,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'warm cyclical progression IV-I-V-vi, comforting circular movement, gentle unresolved lift each time it loops back',
     compactProgression: 'IV-I-V-vi warm cycle progression',
     audibleEffect: 'soft circular pull that never fully lands, comforting and unresolved',
-    bestFor: ['편안한 트랙', '오후 무드']
+    bestFor: ['편안한 트랙', '오후 무드'],
+    compatibleWith: ['doowop', 'default', 'jazzColor']
   },
   royalRoad: {
     id: 'royalRoad',
@@ -162,7 +193,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'royal road progression IV-V-iii-vi, the standard J-pop chorus movement, bittersweet nostalgic lift, instantly familiar to Japanese listeners',
     compactProgression: 'IV-V-iii-vi royal road progression',
     audibleEffect: 'bittersweet lift that leans forward then settles, classic J-pop ache',
-    bestFor: ['일본 채널 시그니처', 'J-pop 정체성']
+    bestFor: ['일본 채널 시그니처', 'J-pop 정체성'],
+    compatibleWith: ['marusa', 'komuro', 'showaModern']
   },
   marusa: {
     id: 'marusa',
@@ -173,7 +205,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'marusa progression IVM7-III7-vi-I7, city-pop signature harmony, sophisticated jazzy night-drive color, smooth secondary-dominant lift',
     compactProgression: 'IVM7-III7-vi-I7 marusa progression',
     audibleEffect: 'slick, late-night glide with a smooth jazzy turn',
-    bestFor: ['시티팝 트랙', '나이트 드라이브 무드']
+    bestFor: ['시티팝 트랙', '나이트 드라이브 무드'],
+    compatibleWith: ['cityPop', 'royalRoad', 'komuro']
   },
   komuro: {
     id: 'komuro',
@@ -184,7 +217,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'komuro-cycle progression vi-IV-V-I, driving 90s J-pop production movement, confident forward momentum, punchy chorus arrival',
     compactProgression: 'vi-IV-V-I komuro-cycle progression',
     audibleEffect: 'driving cyclic climb that keeps pulling to the next bar',
-    bestFor: ['업템포 트랙', '일본 채널 변주']
+    bestFor: ['업템포 트랙', '일본 채널 변주'],
+    compatibleWith: ['royalRoad', 'marusa', 'cityPop']
   },
   // TASK v3.38 Part B4 — kids-channel progressions. kidsSimple is pinned to
   // cold-open/flagship (see signatureMoneyChordId below); the other two
@@ -198,7 +232,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'simplest children\'s song progression I-IV-V-I, easy to sing along, bright and predictable, clear resolution every phrase',
     compactProgression: 'I-IV-V-I progression',
     audibleEffect: 'clear, predictable resolution every phrase, easy for little voices to follow',
-    bestFor: ['동요 채널 시그니처', '따라 부르기 쉬운 트랙']
+    bestFor: ['동요 채널 시그니처', '따라 부르기 쉬운 트랙'],
+    compatibleWith: ['kidsBright', 'kidsMarch']
   },
   kidsBright: {
     id: 'kidsBright',
@@ -213,7 +248,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     // two presets share the same underlying Roman-numeral progression.
     compactProgression: 'I-V-vi-IV bright kids progression',
     audibleEffect: 'bouncy and cheerful, lands happily on every downbeat',
-    bestFor: ['밝은 동요 트랙', '놀이 활동곡']
+    bestFor: ['밝은 동요 트랙', '놀이 활동곡'],
+    compatibleWith: ['kidsSimple', 'kidsMarch']
   },
   kidsMarch: {
     id: 'kidsMarch',
@@ -224,7 +260,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'bouncy marching children\'s song progression I-IV-I-V, skip-along rhythm feel, simple and confident',
     compactProgression: 'I-IV-I-V progression',
     audibleEffect: 'skips forward playfully like a marching game',
-    bestFor: ['행진곡풍 동요', '율동·놀이 동작곡']
+    bestFor: ['행진곡풍 동요', '율동·놀이 동작곡'],
+    compatibleWith: ['kidsSimple', 'kidsBright']
   },
   // TASK v4.14 (TASK B, §2-2) — the one progression this task's own
   // palette-family money-chord distribution table names that had no
@@ -242,7 +279,8 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     prompt: 'classic 1950s-60s pop standard cycle I-vi-ii-V, timeless songbook harmony, gentle circular movement, warm familiar resolution',
     compactProgression: 'I-vi-ii-V progression',
     audibleEffect: 'cycles through familiar songbook changes and resolves cleanly home',
-    bestFor: ['클래식한 팝 트랙', '오케스트럴·크루너 계열']
+    bestFor: ['클래식한 팝 트랙', '오케스트럴·크루너 계열'],
+    compatibleWith: ['jazzColor', 'default', 'canon']
   }
 };
 
@@ -307,7 +345,23 @@ export type MoneyChordMode = keyof typeof moneyChordPresets;
  * showaModern) when the mode is on, never overrides an explicit user choice
  * of their own custom text.
  */
-export function resolveEarwormMoneyChordMode(mode: MoneyChordMode, earwormMode: boolean | undefined): MoneyChordMode {
-  if (!earwormMode || mode === 'custom' || mode === 'default' || mode === 'canon') return mode;
+/**
+ * v5.7 (TASK v5.7, TASK A §1-3/§1-4) — added `isExplicitUserChoice` (default
+ * false, so every pre-existing 2-arg call site — including
+ * tests/earwormMode.test.ts's own locked-in "showaModern -> default"
+ * expectation for the non-explicit case — keeps its exact prior behavior).
+ * Real gap this closes: this function's own doc comment above already says
+ * it "never overrides an explicit user choice of their own custom text", but
+ * the code only ever exempted mode==='custom' — a user who explicitly picked
+ * 'winterBallad' (or any other named preset) in Step2Concept's picker, with
+ * earwormMode also checked, still got silently redirected to 'default',
+ * contradicting the documented intent and reproducing this task's own §0-2
+ * "① 사용자가 고른 머니코드가 0곡" symptom whenever earwormMode happened to be
+ * on. A caller now opts into "this really is an explicit pick" via
+ * GenerationOptions.moneyChordModeIsExplicitChoice (see that field's own doc
+ * comment) rather than this function guessing from the mode value alone.
+ */
+export function resolveEarwormMoneyChordMode(mode: MoneyChordMode, earwormMode: boolean | undefined, isExplicitUserChoice = false): MoneyChordMode {
+  if (!earwormMode || mode === 'custom' || mode === 'default' || mode === 'canon' || isExplicitUserChoice) return mode;
   return 'default';
 }

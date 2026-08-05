@@ -3,6 +3,7 @@ import { generateBlueprint } from '../providers/index';
 import { resolveHookCollisions } from './hookDedup';
 import { applySetTitlePrefixesToBlueprint, stripSetTitlePrefix } from '../utils/generation';
 import { directSetLocal } from './setDirector';
+import { userChoicesFromOptions } from './userChoices';
 import { normalizeDiversityAllocations } from './diversityAllocation';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { readRecentGenreIds } from './recentGenreStore';
@@ -115,7 +116,12 @@ export function buildSetOptions(
     familyIds,
     baseOpts.vocalTone,
     baseOpts.breadthOverride,
-    undefined
+    undefined,
+    // v5.7 (TASK v5.7, TASK A) — keeps set 2+'s own re-run of directSetLocal
+    // (genre-family rotation only, see this function's own doc comment)
+    // consistent with baseOpts' real moneyChordMode instead of silently
+    // reverting the plan's own preview to 'default'.
+    userChoicesFromOptions(baseOpts)
   );
   const genreAllocation = plan.allocations.find(allocation => allocation.axis === 'genre');
   const genreIds = genreAllocation ? Object.keys(genreAllocation.counts) : undefined;

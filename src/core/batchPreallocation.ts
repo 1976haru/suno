@@ -6,7 +6,7 @@ import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm }
 import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
-import { buildFamilyProgressionPlan, buildProgressionPlan, usesMoneyChordQuota } from './moneyChordPlan';
+import { buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import {
@@ -93,7 +93,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience' | 'ratingInsights'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience' | 'ratingInsights'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -225,9 +225,14 @@ export function preallocateSongSlots(
   // the old flat archetype-pool rotation (buildProgressionPlan) for every
   // other channel/concept, exactly as before this task.
   const dominantFamilyId = dominantPaletteFamilyId(genrePlan);
-  const progressionPlan = usesMoneyChordQuota(opts)
-    ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
-    : null;
+  // v5.7 (TASK v5.7, TASK B) — mirrors localGenerator.ts's identical
+  // addition: an explicit user money-chord pick wins over both the flat
+  // 100%-progression text and the default-side family/archetype quota.
+  const progressionPlan = usesUserChosenProgressionPlan(opts)
+    ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
+    : usesMoneyChordQuota(opts)
+      ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
+      : null;
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal

@@ -6,6 +6,7 @@ import type {
   GenerationOptions,
   GenrePack,
   GenreTraits,
+  LyricPerspective,
   PreassignedSongSlot,
   ProviderSettings
 } from '../types';
@@ -38,9 +39,10 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { applyEraQuota, detectConceptBreadth, extractEraConstraint } from './constraints';
+import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
+import { emptyUserChoices, type UserExplicitChoices } from './userChoices';
 
 /**
  * v3.63 재작성 (TASK B) — 2단계 해석의 산출 타입. 1단계(자연어 → 이 타입)는
@@ -96,6 +98,10 @@ export interface SetPlan {
     /** v4.1 (TASK A) — see types.ts's ConceptBreadth. */
     breadth: ConceptBreadth;
     breadthSource: 'auto' | 'user';
+    /** v5.7 (TASK v5.7, TASK C) — mood/atmosphere descriptors extracted from the concept text (e.g. "감미로운" -> sweet/tender/mellow), see constraints.ts's extractMoodConstraint. Undefined when no mood adjective from the dictionary was detected. */
+    mood?: MoodConstraint;
+    /** v5.7 (TASK v5.7, TASK C §3-5) — one entry per concept axis (era/mood/genre/situation/reference/season), reporting whether it was detected and whether it actually reached genre selection/prompt. Step2Plan.tsx surfaces any entry with unapplied:true as a warning. */
+    axisCoverage: ConceptAxisCoverage[];
   };
   /** v3.63 재작성 (TASK B) — one entry per interpreted segment (an artist reference, a blend request, or the whole request when there's only one). Empty only never happens — a plan always has at least one segment covering the whole songCount. */
   segments: SetSegment[];
@@ -231,11 +237,44 @@ const PALETTE_FAMILY_HINT_PATTERNS: ReadonlyArray<readonly [string, RegExp]> = [
 ];
 
 /**
+ * TASK v5.7 (TASK C §3-3/§3-5) — real gap this closes: "60년대 감미로운
+ * 올드팝" had no artist/genre keyword PALETTE_FAMILY_HINT_PATTERNS could
+ * match ("감미로운" isn't an artist or genre name), so resolveMainFamilyId
+ * fell straight through to the recency-rotation fallback, which landed on
+ * family-bright-pop by coincidence (whichever family this channel used
+ * least recently) — the loudest/brightest 60s genres, the opposite of what
+ * "sweet/tender/mellow" asked for. Keyed by each MOOD_CLUSTERS entry's own
+ * first descriptor (constraints.ts) so this table and the dictionary can't
+ * drift apart silently — a new cluster added there with no entry here just
+ * means that mood falls through to the existing rotation fallback, not a
+ * crash.
+ */
+const MOOD_FAMILY_HINT: Record<string, string> = {
+  sweet: 'family-orchestral',
+  calm: 'family-acoustic-soft',
+  bright: 'family-bright-pop',
+  wistful: 'family-orchestral',
+  warm: 'family-acoustic-soft',
+  lyrical: 'family-orchestral'
+};
+
+/** TASK v5.7 (TASK C) — exported so setDirector's own ConceptAxisCoverage builder and Step2Plan.tsx can both tell whether a detected mood actually influenced the family/genre axis, without re-deriving the MOOD_FAMILY_HINT lookup themselves. */
+export function moodFamilyHint(mood: MoodConstraint | undefined): string | undefined {
+  if (!mood) return undefined;
+  for (const descriptor of mood.descriptors) {
+    const familyId = MOOD_FAMILY_HINT[descriptor];
+    if (familyId) return familyId;
+  }
+  return undefined;
+}
+
+/**
  * TASK v4.9 (TASK A, §1-5) — resolves this set's own "주 그룹"
  * (data/paletteFamilies.ts PaletteFamily): an explicit `override` (Step2Plan's
  * family selector) always wins; failing that, a concept-text keyword hint;
- * failing that, the family least represented in this channel's own recent
- * genre history (`history.recentGenreIds`, mapped to families via
+ * failing that, a mood-adjective hint (v5.7, TASK C — see MOOD_FAMILY_HINT
+ * above); failing that, the family least represented in this channel's own
+ * recent genre history (`history.recentGenreIds`, mapped to families via
  * paletteFamilyForGenreId) — so consecutive sets for the same channel
  * naturally rotate through families instead of always landing on the same
  * default. Falls back to family-acoustic-soft (the widest, safest default)
@@ -250,6 +289,8 @@ export function resolveMainFamilyId(
   for (const [familyId, pattern] of PALETTE_FAMILY_HINT_PATTERNS) {
     if (pattern.test(freeText)) return familyId;
   }
+  const moodHintFamilyId = moodFamilyHint(extractMoodConstraint(freeText));
+  if (moodHintFamilyId) return moodHintFamilyId;
   const recentFamilyCounts = new Map<string, number>(PALETTE_FAMILIES.map(family => [family.id, 0]));
   for (const genreId of history.recentGenreIds) {
     const family = paletteFamilyForGenreId(genreId);
@@ -267,7 +308,9 @@ function scoreGenre(
   channel: ChannelProfile,
   history: { recentGenreIds: string[] },
   /** TASK v4.9 (TASK A) — when set, a genre reachable ONLY via this family's own palettes (not a compatible neighbor) gets a strong boost, so chooseGenreIds' targetCount fills with main-family genres before any compatible-family genre gets a look-in. */
-  mainFamilyId?: string
+  mainFamilyId?: string,
+  /** v5.7 (TASK v5.7, TASK C §3-3) — see constraints.ts's extractMoodConstraint; undefined when the concept text has no recognized mood adjective (never invented — see this task's own "억지로 매칭하지 말 것"). */
+  mood?: MoodConstraint
 ): RankedGenre {
   const text = normalizeText(freeText);
   const haystack = normalizeText([
@@ -345,6 +388,35 @@ function scoreGenre(
     reasons.push('주 팔레트 계열');
   }
 
+  // v5.7 (TASK v5.7, TASK C §3-3) — mood.preferredTraits used as a genre
+  // matching weight, per this task's own explicit instruction. A genre with
+  // no genre.moods/traits data simply scores 0 on this axis (never
+  // penalized for missing metadata — same convention applyListeningContextFilter
+  // already uses for dynamicRange).
+  if (mood) {
+    if (hasAny(haystack, mood.descriptors.map(word => word.toLowerCase()))) {
+      score += 3;
+      reasons.push(`분위기(${mood.sourceText}) 어휘 일치`);
+    }
+    const dynamicRange = genre.traits?.dynamicRange;
+    if (mood.preferredTraits.dynamicRange && dynamicRange && dynamicRange === mood.preferredTraits.dynamicRange) {
+      score += 2;
+      reasons.push(`분위기(${mood.sourceText}) 다이내믹 일치`);
+    }
+    if (mood.preferredTraits.tempoLean && genre.tempoRange) {
+      const avgTempo = (genre.tempoRange[0] + genre.tempoRange[1]) / 2;
+      const tempoBucket = avgTempo < 96 ? 'slow' : avgTempo < 126 ? 'mid' : 'fast';
+      if (tempoBucket === mood.preferredTraits.tempoLean) {
+        score += 2;
+        reasons.push(`분위기(${mood.sourceText}) 템포 일치`);
+      }
+    }
+    if (mood.preferredTraits.harmonyLean?.some(term => haystack.includes(normalizeText(term)))) {
+      score += 2;
+      reasons.push(`분위기(${mood.sourceText}) 화성 일치`);
+    }
+  }
+
   return { genre, score, reasons };
 }
 
@@ -365,13 +437,15 @@ function chooseGenreIds(
    */
   breadth: ConceptBreadth = 'balanced',
   /** TASK v4.9 (TASK A, §1-3) — when set, the candidate pool is pre-narrowed to genres reachable from this family plus its declared compatibleWith neighbors (data/paletteFamilies.ts) — a non-adjacent-family genre never even reaches scoring, guaranteeing "비인접 그룹 0곡" rather than just discouraging it via score. */
-  mainFamilyId?: string
+  mainFamilyId?: string,
+  /** v5.7 (TASK v5.7, TASK C §3-3) — computed once by the caller (directSetLocal) and threaded through to every scoreGenre call, rather than each call re-deriving it from freeText. */
+  mood?: MoodConstraint
 ) {
   const familyPool = mainFamilyId ? genreIdsForFamilyAndCompatible(mainFamilyId) : undefined;
   const mainOnlyPool = mainFamilyId ? genreIdsForPaletteFamily(mainFamilyId) : undefined;
   const candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel) && (!familyPool || familyPool.has(genre.id)));
   const ranked = candidates
-    .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history, mainFamilyId))
+    .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history, mainFamilyId, mood))
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
   const { min: breadthMin, max: breadthMax } = BREADTH_THRESHOLDS[breadth].genre;
   const minimumForCap = clamp(Math.ceil(songCount / 5), breadthMin, breadthMax);
@@ -599,54 +673,107 @@ function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTon
   return { ...leaningAdultVocalQuota(DEFAULT_ADULT_VOCAL_QUOTA, songCount, leaning) };
 }
 
-function povCounts(songCount: number): Record<string, number> {
-  if (songCount <= 2) return { firstPerson: songCount };
+/**
+ * v5.7 follow-up (TASK v5.7 §4-2 verification) — real measurement found
+ * that the "관점(POV)" picker in Step2Concept.tsx (opts.perspective) was
+ * silently discarded the moment a real user reached Step2Plan.tsx: that
+ * screen's applyPlanToOptions copies THIS function's manual 'pov' axis
+ * (via makeAllocations) into opts.diversityAllocations, and
+ * core/diversityAllocation.ts's applyAxisAllocation always lets a manual
+ * allocation win over generateLocalBlueprint's own perspective-aware
+ * defaultPovPattern — the exact same "auto default allocation baked into a
+ * manual axis and shipped to Step2Plan wins over an explicit user choice"
+ * bug class v3.77 (TASK A) already found and fixed for vocalTone
+ * (resolveVocalCounts). Mirrors that fix's shape exactly: thread the user's
+ * real choice through as a plain optional parameter (not a new mechanism),
+ * defaulting to 'firstPerson' — the same default this function always used
+ * — so every existing caller that doesn't pass a perspective keeps its
+ * exact prior behavior. Secondary/tertiary resolution mirrors
+ * lyricDiversityPlan.ts's own defaultPovPattern exactly, so the manual axis
+ * this hands off agrees with what the (now-overridden) auto plan would have
+ * produced instead of picking its own independent order.
+ */
+function povCounts(songCount: number, perspective?: LyricPerspective): Record<string, number> {
+  const primary = perspective ?? 'firstPerson';
+  if (songCount <= 2) return { [primary]: songCount };
   const variantCount = songCount >= 10 ? 3 : 2;
+  const fallback: LyricPerspective[] = ['firstPerson', 'secondPerson', 'thirdPerson'];
+  const secondary = fallback.find(item => item !== primary) ?? 'secondPerson';
+  const tertiary = fallback.find(item => item !== primary && item !== secondary) ?? 'thirdPerson';
   return {
-    firstPerson: songCount - variantCount,
-    secondPerson: Math.max(1, variantCount - 1),
-    thirdPerson: 1
+    [primary]: songCount - variantCount,
+    [secondary]: Math.max(1, variantCount - 1),
+    [tertiary]: 1
   };
 }
 
+/**
+ * v5.7 (TASK v5.7, TASK A §1-4) — was `moneyChordMode: 'default'` and
+ * `earwormMode: true`, both hardcoded literals that discarded whatever the
+ * user had actually picked in Step2Concept before SetPlan ever saw it (see
+ * this task's own root-cause note on setDirector.ts:633). `choices` is
+ * optional (every pre-existing caller that doesn't pass one gets the exact
+ * same 'default'/customMoneyChord:'' behavior as before — a deliberate
+ * no-regression default, not a silent behavior change), but any caller that
+ * DOES have the user's real choices (Step2Plan.tsx, multiSetGeneration.ts)
+ * should pass them so the plan's own preview/design-gate/adjustables agree
+ * with what generation will actually do. earwormMode now defaults to
+ * `false` (this app's own real default — see utils/generation.ts's
+ * createInitialOptions) instead of a hardcoded `true` this function invented
+ * on its own with no UI control feeding it.
+ */
 function buildBaseOptions(
   freeText: string,
   channel: ChannelProfile,
   songCount: number,
   genreIds: string[],
-  allocations: AxisAllocation[]
+  allocations: AxisAllocation[],
+  choices: UserExplicitChoices = emptyUserChoices()
 ): GenerationOptions {
+  const moneyChordMode = choices.source.moneyChordMode === 'user' && choices.moneyChordMode ? choices.moneyChordMode : 'default';
   return {
     channel,
     projectTitle: freeText.trim() || 'Set Plan',
     songCount,
-    lyricLanguage: channel.primaryLanguage,
+    lyricLanguage: choices.source.lyricLanguage === 'user' && choices.lyricLanguage ? choices.lyricLanguage : channel.primaryLanguage,
     market: channel.market,
     audience: channel.audience,
     genreIds,
     moodIds: inferMoodIds(freeText, channel),
-    seasonId: inferSeasonId(freeText, channel),
-    vocalTone: channel.defaultVocal,
-    perspective: 'firstPerson',
+    seasonId: choices.source.seasonId === 'user' && choices.seasonId ? choices.seasonId : inferSeasonId(freeText, channel),
+    vocalTone: choices.source.vocalTone === 'user' && choices.vocalTone ? choices.vocalTone : channel.defaultVocal,
+    perspective: choices.source.perspective === 'user' && choices.perspective ? choices.perspective : 'firstPerson',
     lyricDepth: 'commercial',
     durationTarget: 'under3m30',
-    moneyChordMode: 'default',
-    customMoneyChord: '',
+    moneyChordMode,
+    moneyChordModeIsExplicitChoice: choices.source.moneyChordMode === 'user',
+    customMoneyChord: moneyChordMode === 'custom' ? (choices.customMoneyChord ?? '') : '',
     customConcept: freeText,
     referenceMood: '',
     genreBlendWeights: {},
-    customLyricThemeScene: '',
+    // v5.7 follow-up (TASK v5.7 §4-2 verification) — was hardcoded '',
+    // meaning this preview's own buildLyricThemePlan call (below, via
+    // makeAllocations) could never know about a real customLyricThemeScene
+    // the user actually typed into DiversityAllocationPanel's "직접 주제/상황"
+    // textarea — so the 'lyricTheme' manual axis Step2Plan.tsx bakes into
+    // opts.diversityAllocations (applyPlanToOptions) never included the
+    // user's own scene, and that manual axis always wins over the real
+    // auto plan (which DOES read the real customLyricThemeScene) at
+    // generation time — same "manual preview axis silently discards an
+    // explicit user input" bug class as vocalTone (v3.77) and perspective
+    // (this same follow-up session, see povCounts' own doc comment).
+    customLyricThemeScene: choices.source.customLyricThemeScene === 'user' && choices.customLyricThemeScene ? choices.customLyricThemeScene : '',
     avoidWords: channel.forbiddenCliches.join(', '),
     negativeStyle: '',
     introUniqueness: 100,
     diversityAllocations: allocations,
     personaMode: false,
-    earwormMode: true
+    earwormMode: false
   };
 }
 
-function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string): AxisAllocation[] {
-  const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, []);
+function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string, choices?: UserExplicitChoices): AxisAllocation[] {
+  const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, [], choices);
   // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
   // order (the first N ids), which bypassed core/lyricDiversityPlan.ts's
   // frame-capped allocation entirely: the naive slice becomes THIS axis's
@@ -682,7 +809,11 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
     { axis: 'arrangementDensity', mode: 'manual', counts: arrangementDensityCounts(songCount) },
     { axis: 'structureTemplate', mode: 'manual', counts: exactBalancedCounts(structureIds, songCount) },
     { axis: 'lyricTheme', mode: 'manual', counts: lyricThemeCounts },
-    { axis: 'pov', mode: 'manual', counts: povCounts(songCount) }
+    // v5.7 follow-up — emptyBase.perspective is buildBaseOptions' own
+    // choices.perspective-aware resolution (see that function's existing
+    // `choices.source.perspective === 'user' ? ... : 'firstPerson'` line,
+    // which this manual axis previously never consulted at all).
+    { axis: 'pov', mode: 'manual', counts: povCounts(songCount, emptyBase.perspective) }
   ] satisfies AxisAllocation[];
 }
 
@@ -877,6 +1008,65 @@ function applyListeningContextFilter(ids: string[], listeningContext: ListeningC
   return filtered.length >= 4 ? filtered : ids;
 }
 
+// ============================================================
+// v5.7 (TASK v5.7, TASK C §3-5) — ConceptAxisCoverage. This is the "did the
+// app silently ignore part of what 하루 typed" detector §9's own self-check
+// question #3 asks for: every axis a concept COULD name is checked here for
+// whether it was (a) detected at all and (b) actually reached genre
+// selection/prompt, rather than only ever surfacing in a code-review.
+// ============================================================
+
+/** A deliberately small, explicit genre-name vocabulary (not a full classifier) — same scope/purpose as constraints.ts's own SINGLE_GENRE_HINT_WORDS, kept separate here since that list isn't exported (private to breadth detection) and this axis check has a slightly different job (any mention, not "exactly one"). */
+const GENRE_AXIS_HINT_WORDS = [
+  '샹송', '보사노바', '재즈', '발라드', '시티팝', '어쿠스틱', 'r&b', '알앤비',
+  '소울', '트로트', '포크', '신스팝', '컨템포러리', '로파이', 'lo-fi', '올드팝', '두왑', '스탠더드'
+];
+
+function seasonAxisDetected(freeText: string): boolean {
+  return matchConceptRules(freeText).some(rule => Object.keys(rule.seasonWeights || {}).length > 0);
+}
+
+function axisEntry(axis: ConceptAxisId, detected: boolean, applied: boolean, appliedTo: string[], sourceText?: string): ConceptAxisCoverage {
+  return {
+    axis,
+    detected,
+    sourceText: detected ? sourceText : undefined,
+    appliedTo: detected && applied ? appliedTo : [],
+    unapplied: detected && !applied
+  };
+}
+
+/**
+ * Builds the 6-axis coverage table for one SetPlan. `moodApplied` differs by
+ * caller: directSetLocal's plain/family path threads mood all the way into
+ * scoreGenre (see chooseGenreIds' own mood param) and into resolveMainFamilyId
+ * (moodFamilyHint), so it's always true there once a mood is detected;
+ * buildSetPlanFromIntent's segment/artist-blend path does NOT thread mood
+ * through its own matchGenresByTraits-based selection yet — a real,
+ * documented gap (not silently glossed over), so callers on that path must
+ * pass `moodApplied: false`.
+ */
+function computeAxisCoverage(input: {
+  freeText: string;
+  eraDetected: boolean;
+  mood?: MoodConstraint;
+  moodApplied: boolean;
+  referenceCount: number;
+  listeningContext: ListeningContext;
+  genreAxisApplied: boolean;
+}): ConceptAxisCoverage[] {
+  const situationDetected = input.listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO;
+  const genreAxisDetected = GENRE_AXIS_HINT_WORDS.some(word => input.freeText.toLowerCase().includes(word.toLowerCase()));
+  return [
+    axisEntry('era', input.eraDetected, input.eraDetected, ['genre selection', 'era quota']),
+    axisEntry('mood', Boolean(input.mood), input.moodApplied, ['genre selection(palette family)', 'genre scoring'], input.mood?.sourceText),
+    axisEntry('genre', genreAxisDetected, genreAxisDetected && input.genreAxisApplied, ['genre selection']),
+    axisEntry('situation', situationDetected, situationDetected, ['genre selection(filter)', 'arrangement'], input.listeningContext.settingKo),
+    axisEntry('reference', input.referenceCount > 0, input.referenceCount > 0, ['genre selection(decomposed)']),
+    axisEntry('season', seasonAxisDetected(input.freeText), seasonAxisDetected(input.freeText), ['season'])
+  ];
+}
+
 function segmentGenreIdsFromProfile(profile: TraitProfile, channel: ChannelProfile, limit: number): string[] {
   if (!Object.keys(profile).length) return [];
   return matchGenresByTraits(profile, candidatesForChannel(channel), limit)
@@ -954,7 +1144,9 @@ export function buildSetPlanFromIntent(
    * directSetLocal's own plain (non-segment) path already works. Optional,
    * trailing — this function has no other caller, so this is purely additive.
    */
-  vocalTone?: string
+  vocalTone?: string,
+  /** v5.7 (TASK v5.7, TASK A) — see core/userChoices.ts. Threaded into buildBaseOptions so the plan's own moneyChordMode preview matches what generation will actually use instead of the old hardcoded 'default'. */
+  choices: UserExplicitChoices = emptyUserChoices()
 ): SetPlan {
   const safeSongCount = clamp(intent.segments.reduce((sum, segment) => sum + segment.songCount, 0) || 18, 1, 80);
   const blendWarnings: string[] = [];
@@ -1050,7 +1242,7 @@ export function buildSetPlanFromIntent(
   );
   const selectedIds = Object.keys(quotaAdjustedGenreCounts);
 
-  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds, vocalTone);
+  const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds, vocalTone, choices);
   const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
   if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedGenreCounts };
 
@@ -1059,7 +1251,7 @@ export function buildSetPlanFromIntent(
   // means preallocateSongSlots' own killingPointBoostFromInsights call
   // computes an empty boost map, i.e. zero influence — exactly what the
   // toggle turning "off" needs.
-  const opts = { ...buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations), ratingInsights: history.insights };
+  const opts = { ...buildBaseOptions(intent.intentKo, channel, safeSongCount, selectedIds, allocations, choices), ratingInsights: history.insights };
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
@@ -1087,6 +1279,25 @@ export function buildSetPlanFromIntent(
         : `${labelKo} 킬링포인트는 반응이 약해 ${count}곡으로 줄였습니다.`;
     });
 
+  // v5.7 (TASK v5.7, TASK C) — this segment/artist-blend path resolves
+  // genres via matchGenresByTraits (segmentGenreIdsFromProfile) or the
+  // hint-resolution blend path, NOT chooseGenreIds/scoreGenre — so the mood
+  // dictionary isn't threaded into genre scoring here the way directSetLocal's
+  // plain/family path does. Detected honestly (extractMoodConstraint still
+  // runs), but reported as unapplied rather than silently claiming it worked —
+  // a real, documented gap (see computeAxisCoverage's own doc comment).
+  const moodConstraint = extractMoodConstraint(intent.intentKo);
+  const referenceCount = resolvedSegments.length > 1 ? resolvedSegments.length : (intent.segments[0]?.blendHint ? 1 : 0);
+  const axisCoverage = computeAxisCoverage({
+    freeText: intent.intentKo,
+    eraDetected: !eraConstraint.unspecified,
+    mood: moodConstraint,
+    moodApplied: false,
+    referenceCount,
+    listeningContext: intent.listeningContext,
+    genreAxisApplied: true
+  });
+
   return {
     interpretation: {
       intentKo: intent.intentKo,
@@ -1098,7 +1309,9 @@ export function buildSetPlanFromIntent(
       unknownTermsKo: intent.unknownTermsKo,
       listeningContext: intent.listeningContext,
       breadth,
-      breadthSource
+      breadthSource,
+      mood: moodConstraint,
+      axisCoverage
     },
     segments: resolvedSegments,
     allocations,
@@ -1130,7 +1343,9 @@ export function directSetLocal(
   /** v4.1 (TASK A) — explicit user choice (GenerationOptions.breadthOverride, Step2Plan.tsx's "이 세트의 성격" radio); undefined trusts detectConceptBreadth's own auto-detection. */
   breadthOverride?: ConceptBreadth,
   /** TASK v4.9 (TASK A, §1-6) — explicit user choice (GenerationOptions.paletteFamilyOverride, Step2Plan.tsx's "이 세트의 계열" radio); undefined trusts resolveMainFamilyId's own auto-resolution (concept keyword hint, then recency rotation). */
-  paletteFamilyOverride?: string
+  paletteFamilyOverride?: string,
+  /** v5.7 (TASK v5.7, TASK A) — see core/userChoices.ts. Threaded into buildBaseOptions/makeAllocations so this plan's own moneyChordMode preview reflects the user's real pick instead of setDirector.ts's old hardcoded 'default'. */
+  choices: UserExplicitChoices = emptyUserChoices()
 ): SetPlan {
   const safeSongCount = clamp(Math.round(songCount) || 18, 1, 80);
   const listeningContext = detectListeningContext(freeText);
@@ -1166,7 +1381,7 @@ export function directSetLocal(
         '아티스트명은 프롬프트에 넣지 않고 음악 특성으로만 분해했습니다.'
       ],
       unknownTermsKo
-    }, channel, history, breadth, breadthSource, vocalTone);
+    }, channel, history, breadth, breadthSource, vocalTone, choices);
   }
 
   // v3.63 재작성 (TASK B) — explicit "X 느낌이 나는 Y" genre-blend request.
@@ -1190,7 +1405,7 @@ export function directSetLocal(
             listeningContext.settingKo !== NO_LISTENING_CONTEXT_KO ? `청취 상황(${listeningContext.settingKo})을 반영했습니다.` : '별도 청취 상황 지정은 없었습니다.'
           ],
           unknownTermsKo
-        }, channel, history, breadth, breadthSource, vocalTone);
+        }, channel, history, breadth, breadthSource, vocalTone, choices);
       }
     }
   }
@@ -1214,8 +1429,14 @@ export function directSetLocal(
   const mainFamilyId = !familyIds.length && channelSoundFloorForArchetype(channel.archetype)?.usesPaletteFamily
     ? resolveMainFamilyId(freeText, history, paletteFamilyOverride)
     : undefined;
+  // v5.7 (TASK v5.7, TASK C §3-3) — see constraints.ts's extractMoodConstraint;
+  // threaded into both resolveMainFamilyId above (via its own internal
+  // moodFamilyHint call) and chooseGenreIds below (scoreGenre's mood boost),
+  // so a mood adjective with no artist/genre keyword match still reaches
+  // genre selection instead of being silently dropped.
+  const moodConstraint = extractMoodConstraint(freeText);
   const eraFocus = deriveEraFocus(freeText, artistReferences);
-  const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history, breadth, mainFamilyId);
+  const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history, breadth, mainFamilyId, moodConstraint);
   const { selectedIds: familySelectedIds, families } = chooseGenreIdsFromFamilies(familyIds, channel);
   // v3.63 재작성 (TASK B, 1-4) — listening-context is detected above
   // regardless of which genre-selection path ran; apply it as a light
@@ -1249,7 +1470,7 @@ export function directSetLocal(
     eraQuotaGenrePredicate
   );
   const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
-  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone);
+  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices);
   if (!eraConstraint.unspecified) {
     const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
     if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedCounts };
@@ -1265,6 +1486,26 @@ export function directSetLocal(
   // later user signal than the family-cohesion default this task adds, so
   // it wins rather than fighting it (real regression: tests/v379EraParsing.test.ts's
   // "60년대70년대" concept dropped to 27.8% 1950s-60s once capped at 5).
+  //
+  // v5.7 (TASK v5.7, TASK C) — investigated widening this gate to also cap
+  // a single-primary explicit-era concept with a mood hint (e.g. "60년대
+  // 감미로운 올드팝", which this task's own moodFamilyHint fix correctly
+  // resolves to family-orchestral, but whose compatible-family bright-pop
+  // genres still outnumbered it 14-to-4 in a real measured run — see
+  // scripts/v57Measure.ts). Reverted: real measurement (`npm run audit`)
+  // showed the same widening regressed the audit's own flagship "비틀즈
+  // 느낌의 밝은 60년대 팝" baseline (prompt length 722-942 vs the 350-650
+  // expected range, descriptor count 29-35 vs 15-25) — that concept ALSO has
+  // a single-primary explicit era plus a mood word ("밝은"), so it hit the
+  // same newly-capped path. Per this task's own explicit "시니어 워크스페이스
+  // 성과를 되돌리지 말 것", kept at the original, narrower
+  // `eraConstraint.unspecified` gate. Net effect on TASK C: the mood axis
+  // still reaches genre selection (mainFamilyId correctly resolves to
+  // family-orchestral, and its genres score higher and do enter the mix via
+  // scoreGenre's mood boost + era-quota's existing adjacency allowance) —
+  // only the family-cap ENFORCEMENT for a single-primary explicit era is
+  // left unchanged, so a bright-pop-vs-orchestral count imbalance can still
+  // remain. See this task's own report for the measured before/after.
   if (mainFamilyId && eraConstraint.unspecified) {
     const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
     if (genreAxisIndex >= 0) {
@@ -1280,7 +1521,7 @@ export function directSetLocal(
   // leaning-aware manual vocalType allocation just built above, instead of
   // resolving vocalType leaning while still previewing with the untouched
   // channel default.
-  const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations), ...(vocalTone?.trim() ? { vocalTone: vocalTone.trim() } : {}), ratingInsights: history.insights };
+  const opts = { ...buildBaseOptions(freeText, channel, safeSongCount, selectedIds, allocations, choices), ...(vocalTone?.trim() ? { vocalTone: vocalTone.trim() } : {}), ratingInsights: history.insights };
   const selectedIdSet = new Set(selectedIds);
   const genres = genreLibrary.filter(genre => selectedIdSet.has(genre.id));
   const slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: history.recentHooks });
@@ -1302,6 +1543,19 @@ export function directSetLocal(
         ? `${labelKo} 킬링포인트가 반응이 좋아 ${count}곡에 배정했습니다.`
         : `${labelKo} 킬링포인트는 반응이 약해 ${count}곡으로 줄였습니다.`;
     });
+  // v5.7 (TASK v5.7, TASK C §3-5) — genreAxisApplied is always true here:
+  // this is the plain keyword/family path, where a genre-name mention in
+  // freeText (or an explicit family checkbox) IS what chooseGenreIds/
+  // chooseGenreIdsFromFamilies just used above.
+  const axisCoverage = computeAxisCoverage({
+    freeText,
+    eraDetected: !eraConstraint.unspecified,
+    mood: moodConstraint,
+    moodApplied: true,
+    referenceCount: artistReferences.length,
+    listeningContext,
+    genreAxisApplied: true
+  });
   return {
     interpretation: {
       intentKo: intentSummaryKo(freeText, eraFocus, selectedIds, families),
@@ -1318,12 +1572,17 @@ export function directSetLocal(
         '인트로/훅 장치/밀도는 문구가 아니라 그룹 제약으로 브릿지에 전달합니다.',
         breadthSource === 'user'
           ? `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 직접 선택하셨습니다.`
-          : `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 자동 판정했습니다 — 필요하면 아래에서 바꾸실 수 있습니다.`
+          : `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 자동 판정했습니다 — 필요하면 아래에서 바꾸실 수 있습니다.`,
+        moodConstraint
+          ? `분위기 "${moodConstraint.sourceText}"을(를) 감지해 장르 선택/스코어링에 반영했습니다(${moodConstraint.descriptors.join(', ')}).`
+          : '컨셉에서 별도의 분위기 형용사는 감지되지 않았습니다.'
       ],
       unknownTermsKo,
       listeningContext,
       breadth,
-      breadthSource
+      breadthSource,
+      mood: moodConstraint,
+      axisCoverage
     },
     segments: [{
       label: families.length ? families.map(family => family.labelKo).join(' + ') : '전체',
@@ -1505,7 +1764,9 @@ export async function directSet(
   settings: ProviderSettings,
   familyIds: string[] = [],
   /** v4.1 (TASK A) — same override as directSetLocal's own, threaded through both the remote-interpretation success path and the local fallback. */
-  breadthOverride?: ConceptBreadth
+  breadthOverride?: ConceptBreadth,
+  /** v5.7 (TASK v5.7, TASK A) — see core/userChoices.ts. */
+  choices: UserExplicitChoices = emptyUserChoices()
 ): Promise<SetPlan> {
   // v4.1 (TASK A) — computed from the raw freeText (still available here,
   // unlike inside buildSetPlanFromIntent which only sees the already-
@@ -1515,8 +1776,8 @@ export async function directSet(
   const breadthSource: 'auto' | 'user' = breadthOverride ? 'user' : 'auto';
   try {
     const intent = await interpretFreeTextRemote(freeText, songCount, settings);
-    return buildSetPlanFromIntent(intent, channel, history, breadth, breadthSource);
+    return buildSetPlanFromIntent(intent, channel, history, breadth, breadthSource, undefined, choices);
   } catch {
-    return directSetLocal(freeText, channel, songCount, history, familyIds, undefined, breadthOverride);
+    return directSetLocal(freeText, channel, songCount, history, familyIds, undefined, breadthOverride, undefined, choices);
   }
 }

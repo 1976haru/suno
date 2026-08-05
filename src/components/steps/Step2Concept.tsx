@@ -675,7 +675,12 @@ export default function Step2Concept({
         helper="머니코드는 사람들이 편안하게 느끼는 코드 진행이에요. 잘 모르겠으면 추천 카드를 고르세요."
         choices={moneyChordChoices}
         value={opts.moneyChordMode === 'custom' ? '' : opts.moneyChordMode}
-        onChange={value => setOpts(prev => ({ ...prev, moneyChordMode: value as GenerationOptions['moneyChordMode'] }))}
+        // v5.7 (TASK v5.7, TASK A) — moneyChordModeIsExplicitChoice:true marks
+        // this as a real user pick (not just whatever the channel defaulted
+        // to), so downstream (resolveEarwormMoneyChordMode, moneyChordPlan.ts)
+        // never silently redirects it back to 'default'. See types.ts's own
+        // doc comment on this field for the earworm-mode interaction this closes.
+        onChange={value => setOpts(prev => ({ ...prev, moneyChordMode: value as GenerationOptions['moneyChordMode'], moneyChordModeIsExplicitChoice: true }))}
         columns={3}
       />
       <p className="supporting">스타일 프롬프트 미리보기: <em>{moneyPreview}</em></p>
@@ -960,7 +965,7 @@ export default function Step2Concept({
               <>
                 <input
                   value={opts.customMoneyChord}
-                  onChange={event => setOpts(prev => ({ ...prev, moneyChordMode: 'custom', customMoneyChord: clampToLimit('customMoneyChord', event.target.value) }))}
+                  onChange={event => setOpts(prev => ({ ...prev, moneyChordMode: 'custom', moneyChordModeIsExplicitChoice: true, customMoneyChord: clampToLimit('customMoneyChord', event.target.value) }))}
                   placeholder="예: I-V-vi-IV / vi-IV-I-V / IVmaj7-iii7-vi7"
                   maxLength={INPUT_LIMITS.customMoneyChord}
                   style={{ marginTop: 8 }}

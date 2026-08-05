@@ -1,5 +1,5 @@
 import type { ChannelArchetype, GenerationOptions } from '../types';
-import { moneyChordRotationPool, resolveEarwormMoneyChordMode, signatureMoneyChordId } from '../data/moneyChords';
+import { moneyChordPresets, moneyChordRotationPool, resolveEarwormMoneyChordMode, signatureMoneyChordId, type MoneyChordMode } from '../data/moneyChords';
 import { moneyChordDistributionForFamily } from '../data/paletteFamilyMoneyChords';
 import { shuffle } from './lyricEngine';
 import { stridePick } from './stridePlan';
@@ -12,15 +12,23 @@ import { isKidsArchetype } from '../utils/channelArchetype';
  * createInitialOptions) and the archetype has a real signature progression
  * defined (senior-morning/showa-cafe — see data/moneyChords.ts's
  * signatureMoneyChordId). A user who deliberately picked e.g. 'jazzColor'
- * keeps that exact progression uniformly across the whole pack, unchanged
- * from pre-v3.33 behavior — the quota system only ever activates in place
- * of the *default* choice, never overrides a deliberate one. Reads the
- * earworm-adjusted effective mode (not the raw field) so the two features
- * compose consistently: earwormMode redirecting an unrelated preset back to
- * 'default' also (correctly) lets quota rotation take over from there.
+ * without moneyChordModeIsExplicitChoice set (an older/API caller that
+ * hasn't migrated) keeps that exact progression uniformly across the whole
+ * pack, unchanged from pre-v3.33 behavior — the quota system only ever
+ * activates in place of the *default* choice, never overrides a deliberate
+ * one. v5.7 (TASK v5.7, TASK B) — a REAL explicit choice
+ * (moneyChordModeIsExplicitChoice: true) now uses
+ * usesUserChosenProgressionPlan/buildUserChosenProgressionPlan below
+ * instead of either of this function's two outcomes — see that function's
+ * own doc comment for why 100%-one-progression was itself a gap (하루
+ * explicitly wants "겨울발라드를 주로 하되 다른 진행도 섞기", not literally
+ * every song). Reads the earworm-adjusted effective mode (not the raw
+ * field) so the two features compose consistently: earwormMode redirecting
+ * an unrelated preset back to 'default' also (correctly) lets quota
+ * rotation take over from there.
  */
-export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMode' | 'earwormMode' | 'channel'>): boolean {
-  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode);
+export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMode' | 'earwormMode' | 'channel' | 'moneyChordModeIsExplicitChoice'>): boolean {
+  const effectiveMode = resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode, opts.moneyChordModeIsExplicitChoice);
   if (effectiveMode !== 'default') return false;
   const archetype = opts.channel.archetype;
   // TASK v3.38 Part B4 — 'kids' now has a real signature progression too (kidsSimple).
@@ -31,6 +39,83 @@ export function usesMoneyChordQuota(opts: Pick<GenerationOptions, 'moneyChordMod
     || archetype === 'j2000s'
     || archetype === 'modern-chill'
     || archetype === 'city-night';
+}
+
+/**
+ * TASK v5.7 (TASK B §2-2) — true whenever the user genuinely picked a named
+ * money-chord preset in Step2Concept's picker (moneyChordModeIsExplicitChoice
+ * true) and it isn't 'default' (nothing to blend against — the system default
+ * already IS the neutral choice) or 'custom' (a hand-typed progression already
+ * gets 100% of the pack via compactMoneyChord's own custom branch — "선택
+ * 반영" is already 100%, and this app has no principled way to invent
+ * "progressions compatible with a string the user just typed"). Deliberately
+ * independent of usesMoneyChordQuota's own archetype allowlist: TASK B's own
+ * §2-2 applies to "사용자가 머니코드를 선택했을 때" with no archetype carve-out,
+ * unlike the *default*-side per-archetype signature rotation that function
+ * gates — a user's explicit choice should be honored on every archetype, not
+ * just the 7 with a hand-authored default rotation pool.
+ */
+export function usesUserChosenProgressionPlan(opts: Pick<GenerationOptions, 'moneyChordMode' | 'moneyChordModeIsExplicitChoice'>): boolean {
+  return Boolean(opts.moneyChordModeIsExplicitChoice) && opts.moneyChordMode !== 'default' && opts.moneyChordMode !== 'custom';
+}
+
+/** Fraction of the pack the user's chosen progression gets — this task's own explicit "50~60%"/"9~11곡 (18곡 기준)". */
+const CHOSEN_PROGRESSION_MIN_SHARE = 0.5;
+const CHOSEN_PROGRESSION_MAX_SHARE = 0.6;
+const CHOSEN_PROGRESSION_TARGET_SHARE = 0.55;
+/** Track 1-3 (cold-open + the two flagship slots, see resolveSongRole) — this task's own explicit "대표곡(2~3번) 선택한 진행 우선". Track 1 is included too: the whole point of an explicit choice is that it's the identity the user wants heard first, which matters more here than an archetype signature the user never asked for. */
+const REPRESENTATIVE_TRACK_COUNT = 3;
+
+/**
+ * TASK v5.7 (TASK B §2-2/§2-3/§2-4) — the user's chosen progression fills
+ * 50-60% of the pack (representative tracks 1-3 first), the remainder is
+ * filled from that preset's own `compatibleWith` neighbors (data/moneyChords.ts),
+ * shuffled and de-duplicated adjacently the same way buildFamilyProgressionPlan
+ * already does for the default-quota path. Falls back to ['default'] as the
+ * sole neighbor when a preset has no compatibleWith entries (defensive; every
+ * real preset has at least one after this task's own moneyChords.ts edit).
+ * `chosenId` itself is used verbatim for winterBallad's own multi-part
+ * verse/chorus/key-up structure — this function only decides WHICH tracks get
+ * it, not what its text says (see soundSignature.ts's compactMoneyChord /
+ * promptComposer.ts's resolveMoneyChordText, both keyed off the same preset id).
+ */
+export function buildUserChosenProgressionPlan(chosenId: MoneyChordMode, songCount: number, seed: number): string[] {
+  if (songCount <= 0) return [];
+  const preset = moneyChordPresets[chosenId];
+  const neighbors = (preset?.compatibleWith ?? []).filter(id => id !== chosenId && moneyChordPresets[id]);
+  const neighborPool = neighbors.length ? neighbors : (['default'].filter(id => id !== chosenId));
+
+  const representativeCount = Math.min(REPRESENTATIVE_TRACK_COUNT, songCount);
+  const target = Math.round(songCount * CHOSEN_PROGRESSION_TARGET_SHARE);
+  const minShare = Math.ceil(songCount * CHOSEN_PROGRESSION_MIN_SHARE);
+  const maxShare = Math.floor(songCount * CHOSEN_PROGRESSION_MAX_SHARE);
+  const chosenCount = Math.min(songCount, Math.max(representativeCount, Math.min(Math.max(target, minShare), Math.max(maxShare, minShare))));
+  const remainderCount = songCount - chosenCount;
+
+  const plan: string[] = new Array(songCount).fill(chosenId);
+  if (remainderCount > 0 && neighborPool.length) {
+    const neighborCounts = scaleMoneyChordCounts(Object.fromEntries(neighborPool.map(id => [id, 1])), remainderCount);
+    const rawPool: string[] = [];
+    for (const [id, count] of Object.entries(neighborCounts)) for (let i = 0; i < count; i += 1) rawPool.push(id);
+    const shuffled = shuffle(rawPool, seed);
+    let neighborIdx = 0;
+    for (let i = representativeCount; i < songCount && neighborIdx < shuffled.length; i += 1) {
+      plan[i] = shuffled[neighborIdx];
+      neighborIdx += 1;
+    }
+    // Same anti-adjacent-duplicate swap buildFamilyProgressionPlan uses,
+    // scoped to non-representative indices so a representative slot never
+    // loses its chosen-progression guarantee to a swap.
+    for (let index = representativeCount + 1; index < plan.length; index += 1) {
+      if (plan[index] !== plan[index - 1]) continue;
+      const swapIndex = plan.findIndex((id, candidateIndex) => candidateIndex > index && candidateIndex >= representativeCount && id !== plan[index]);
+      if (swapIndex === -1) continue;
+      const tmp = plan[index];
+      plan[index] = plan[swapIndex];
+      plan[swapIndex] = tmp;
+    }
+  }
+  return plan;
 }
 
 /**
