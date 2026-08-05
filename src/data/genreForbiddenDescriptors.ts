@@ -63,5 +63,16 @@ export const GENRE_FORBIDDEN_DESCRIPTORS: GenreDescriptorRule[] = [
   {
     genreIds: ['jp2030-chill-neosoul', 'jp2030-heisei-nostalgia'],
     forbiddenPhrases: ['four-on-the-floor', 'idol call-and-response chant', 'sidechained pump']
+  },
+  // TASK E1 (§3-4) — senior-emotion vocabulary blocked from all 7 kr-kids
+  // genres, a second line of defense alongside D1's vocabulary whitelist.
+  {
+    genreIds: ['krkids-action', 'krkids-daily-habit', 'krkids-counting-color', 'krkids-animal-vehicle', 'krkids-roleplay-story', 'krkids-bilingual', 'krkids-sleep-calm'],
+    forbiddenPhrases: ['analog tape saturation', 'crooner delivery', 'smoky late-night atmosphere', 'wistful nostalgia', 'aching longing', 'bittersweet reflection']
+  },
+  {
+    // TASK E1 (§3-4) — directly contradicts a lullaby's own definition.
+    genreIds: ['krkids-sleep-calm'],
+    forbiddenPhrases: ['hand claps', 'call and response', 'energetic', 'four-on-the-floor']
   }
 ];

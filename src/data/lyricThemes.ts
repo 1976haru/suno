@@ -28,6 +28,19 @@ export interface LyricTheme {
   eraSettingKo?: string;
   castKo?: string;
   motionKo?: string;
+  /** TASK E1 §4-3 — D1's age tier this theme targets. Optional; existing themes (predating D1) have none. */
+  ageTier?: 'kids-t1' | 'kids-t2' | 'kids-t3';
+  /** TASK E1 §4-4 — exactly one education concept per theme ("한 곡에 개념 하나"); never contains "and". Optional; only krkids-* themes set this. */
+  educationConcept?: string;
+  /**
+   * TASK E1 §6-3 — which language pair this theme inserts learning words in
+   * (base = the song's main lyric language, target = the language whose
+   * words get woven in). Deliberately NOT a new LyricLanguage union member
+   * (E1 §6-1/§12 item 6 — widening that union would affect 3+ existing call
+   * sites using `Exclude<LyricLanguage, 'bilingual'>`); F1 reuses this same
+   * field with `{ base: 'japanese', target: 'english' }`.
+   */
+  learningLanguagePair?: { base: LyricLanguage; target: LyricLanguage };
 }
 
 export const adultLyricThemes: LyricTheme[] = [
@@ -1164,6 +1177,241 @@ export const kidsLyricThemes: LyricTheme[] = [
     scene: 'standing at the window in pajamas and waving goodnight to the moon',
     emotionalArc: 'busy day ending in safe calm',
     suitedArchetypes: ['kids']
+  },
+  // TASK E1 §4 — kr-kids workspace's 22 education-concept themes (doc's own
+  // §4-2 breakdown lists 22 concrete concepts, above the stated "18" summary
+  // total — a real internal inconsistency in the source doc; built the full
+  // 22-item list rather than truncating, since more coverage only helps stay
+  // clear of the 12-item fallback threshold, see lyricThemesForArchetype).
+  // Appended here (not a separate array) since lyricThemesForArchetype's own
+  // `source` selection doesn't distinguish 'kids' from 'kr-kids-song' —
+  // suitedArchetypes filtering is what keeps these two pools apart; the
+  // existing 14 above are untouched.
+  {
+    id: 'krkids-jump-along',
+    labelKo: '동그랗게 모여 콩콩 뛰기',
+    scene: 'jumping in place to the beat during circle time',
+    emotionalArc: 'shy hesitation turning into bouncy group energy',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'jumping along with the beat',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-clap-follow-along',
+    labelKo: '선생님 따라 손뼉 치기',
+    scene: "clapping hands and following the leader's simple moves",
+    emotionalArc: 'careful watching becoming confident copying',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'following a clapping pattern',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-brushing-teeth',
+    labelKo: '거울 보며 이 닦기',
+    scene: 'brushing teeth carefully in front of the bathroom mirror before bed',
+    emotionalArc: 'sleepy reluctance turning into proud completion',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'brushing teeth thoroughly',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-washing-hands',
+    labelKo: '밥 먹기 전 손 씻기',
+    scene: 'washing hands with soap and warm water before a meal',
+    emotionalArc: 'distraction settling into careful habit',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'washing hands before eating',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-tidying-toys',
+    labelKo: '놀이 끝나고 장난감 정리',
+    scene: 'putting toys back in the basket after playtime ends',
+    emotionalArc: 'reluctant pause turning into satisfied order',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'tidying up toys after playing',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-mealtime-manners',
+    labelKo: '식탁에 앉아 밥 먹기',
+    scene: 'sitting at the table and eating a meal without fuss',
+    emotionalArc: 'wandering attention settling into happy focus',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'eating a meal at the table',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-count-to-five',
+    labelKo: '손가락으로 다섯까지 세기',
+    scene: 'counting fingers one by one up to five during a game',
+    emotionalArc: 'careful concentration becoming proud counting',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'counting from one to five',
+    frameId: 'count-invite'
+  },
+  {
+    id: 'krkids-find-the-color',
+    labelKo: '방 안에서 색깔 찾기',
+    scene: 'pointing at toys around the room to find each color',
+    emotionalArc: 'curious searching turning into cheerful discovery',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'naming basic colors',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-shape-hunt',
+    labelKo: '동그라미 세모 네모 찾기',
+    scene: 'finding circles, triangles, and squares hidden around the room',
+    emotionalArc: 'puzzled looking turning into excited recognition',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'naming basic shapes',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-animal-sounds',
+    labelKo: '동물 소리 흉내내기',
+    scene: 'imitating farm animal sounds one after another in a picture book',
+    emotionalArc: 'quiet looking turning into giggly imitation',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'imitating animal sounds',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-dinosaur-parade',
+    labelKo: '공룡 흉내내며 걷기',
+    scene: 'marching like different dinosaurs across the living room floor',
+    emotionalArc: 'shy first steps turning into roaring confidence',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'naming dinosaur types',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-bus-and-train',
+    labelKo: '창밖으로 버스와 기차 보기',
+    scene: 'watching a bus and a train pass by from a window seat',
+    emotionalArc: 'quiet watching turning into excited pointing',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'naming vehicles by sound',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-hospital-checkup',
+    labelKo: '인형 청진기로 진찰 놀이',
+    scene: "pretending to be a doctor checking a stuffed animal's heartbeat",
+    emotionalArc: 'careful worry turning into gentle confidence',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'roleplaying a doctor visit',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-firefighter-rescue',
+    labelKo: '소방차 타고 구조하러 가기',
+    scene: 'pretending to drive a fire truck to rescue a toy cat from a tree',
+    emotionalArc: 'urgent excitement turning into proud rescue',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'roleplaying a firefighter rescue',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-market-shopping',
+    labelKo: '장난감 시장에서 장보기',
+    scene: 'pretending to shop for fruit at a small toy market stand',
+    emotionalArc: 'careful choosing turning into cheerful sharing',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'roleplaying grocery shopping',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-kindergarten-morning',
+    labelKo: '유치원 아침 인사 시간',
+    scene: 'lining up for morning greeting time at kindergarten',
+    emotionalArc: 'morning nerves turning into friendly belonging',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'roleplaying kindergarten routine',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-color-in-english',
+    labelKo: '색깔 한 개씩 영어로 배우기',
+    scene: 'naming a color in Korean and then again in English',
+    emotionalArc: 'careful repeating turning into proud recall',
+    suitedArchetypes: ['kr-kids-song'],
+    languages: ['korean'],
+    ageTier: 'kids-t3',
+    educationConcept: 'learning a color word in English',
+    frameId: 'list-question',
+    learningLanguagePair: { base: 'korean', target: 'english' }
+  },
+  {
+    id: 'krkids-number-in-english',
+    labelKo: '숫자 한 개씩 영어로 배우기',
+    scene: 'counting a number in Korean and then again in English',
+    emotionalArc: 'careful repeating turning into proud recall',
+    suitedArchetypes: ['kr-kids-song'],
+    languages: ['korean'],
+    ageTier: 'kids-t3',
+    educationConcept: 'learning a number word in English',
+    frameId: 'count-invite',
+    learningLanguagePair: { base: 'korean', target: 'english' }
+  },
+  {
+    id: 'krkids-greeting-in-english',
+    labelKo: '인사말 한 개씩 영어로 배우기',
+    scene: 'waving hello and saying a greeting in Korean and English',
+    emotionalArc: 'shy waving turning into cheerful greeting',
+    suitedArchetypes: ['kr-kids-song'],
+    languages: ['korean'],
+    ageTier: 'kids-t3',
+    educationConcept: 'learning a greeting word in English',
+    frameId: 'list-question',
+    learningLanguagePair: { base: 'korean', target: 'english' }
+  },
+  {
+    id: 'krkids-lullaby-goodnight',
+    labelKo: '자장가 들으며 잠들기',
+    scene: 'being tucked into bed while a soft lullaby plays',
+    emotionalArc: 'restless energy settling into peaceful sleep',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t1',
+    educationConcept: 'settling down for a lullaby',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-naptime-blanket',
+    labelKo: '이불 덮고 낮잠 자기',
+    scene: 'curling up under a small blanket for afternoon nap time',
+    emotionalArc: 'busy morning winding down into quiet rest',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'settling down for a nap',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-calm-breathing',
+    labelKo: '천천히 숨 쉬며 마음 가라앉히기',
+    scene: 'taking slow deep breaths to feel calm after playtime',
+    emotionalArc: 'excited fluster settling into steady calm',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'calming down with slow breathing',
+    frameId: 'instruct-repeat'
   }
 ];
 
@@ -1181,7 +1429,33 @@ const KIDS_ENGINE_THEME_BY_ID: Record<string, KidsLyricThemeHint> = {
   'kids-animal-sticker-parade': 'animal',
   'kids-music-class-bells': 'school',
   'kids-garden-butterfly': 'animal',
-  'kids-pajama-moon-window': 'family'
+  'kids-pajama-moon-window': 'family',
+  // TASK E1 §4 — kr-kids's 22 new themes, mapped to the closest of D1's
+  // fixed 8 KidsLyricThemeHint values (not extended — see that type's own
+  // doc comment; 'hangul' is the pre-existing "letters/language learning"
+  // hint, reused here for the 3 bilingual-English themes).
+  'krkids-jump-along': 'play',
+  'krkids-clap-follow-along': 'play',
+  'krkids-brushing-teeth': 'family',
+  'krkids-washing-hands': 'family',
+  'krkids-tidying-toys': 'family',
+  'krkids-mealtime-manners': 'family',
+  'krkids-count-to-five': 'counting',
+  'krkids-find-the-color': 'counting',
+  'krkids-shape-hunt': 'counting',
+  'krkids-animal-sounds': 'animal',
+  'krkids-dinosaur-parade': 'animal',
+  'krkids-bus-and-train': 'play',
+  'krkids-hospital-checkup': 'friend',
+  'krkids-firefighter-rescue': 'friend',
+  'krkids-market-shopping': 'friend',
+  'krkids-kindergarten-morning': 'school',
+  'krkids-color-in-english': 'hangul',
+  'krkids-number-in-english': 'hangul',
+  'krkids-greeting-in-english': 'hangul',
+  'krkids-lullaby-goodnight': 'family',
+  'krkids-naptime-blanket': 'family',
+  'krkids-calm-breathing': 'family'
 };
 
 function normalizeCustomScene(scene: string | undefined): string {

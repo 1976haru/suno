@@ -18,19 +18,22 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
 
   // TASK D1 §3-2/§5 — Approach A gave kr-kids/jp-kids their own archetypes
   // (kr-kids-song/jp-kids-song), same per-workspace-archetype convention as
-  // kr-2030-pop/jp-2030-pop; still not ready — E1/F1 flip that once each
-  // workspace's actual content (genres, hook vocab, thumbnails) lands.
-  it('the 2 not-yet-built workspaces stay not-ready, own archetype set but no content yet', () => {
-    const expectedArchetypeIds: Record<'kr-kids' | 'jp-kids', string[]> = {
-      'kr-kids': ['kr-kids-song'],
-      'jp-kids': ['jp-kids-song']
-    };
-    for (const id of ['kr-kids', 'jp-kids'] as const) {
-      const ws = getWorkspace(id);
-      expect(ws.ready).toBe(false);
-      expect(ws.labelKo.length).toBeGreaterThan(0);
-      expect(ws.archetypeIds).toEqual(expectedArchetypeIds[id]);
-    }
+  // kr-2030-pop/jp-2030-pop.
+  // TASK E1 — kr-kids's genre/lyric-theme/hook-bank/thumbnail/concept/
+  // channel-preset layers all landed and were verified via real 18-song
+  // generation (0/18 titles carry senior vocabulary across 3 channels), so
+  // this workspace is now fully built — ready=true, same transition
+  // kr-2030/jp-2030 made after B2/C2. jp-kids stays not-ready — F1's job.
+  it('kr-kids is fully built: real archetype, ready=true; jp-kids stays not-ready', () => {
+    const krKids = getWorkspace('kr-kids');
+    expect(krKids.ready).toBe(true);
+    expect(krKids.archetypeIds).toEqual(['kr-kids-song']);
+    expect(krKids.labelKo.length).toBeGreaterThan(0);
+
+    const jpKids = getWorkspace('jp-kids');
+    expect(jpKids.ready).toBe(false);
+    expect(jpKids.archetypeIds).toEqual(['jp-kids-song']);
+    expect(jpKids.labelKo.length).toBeGreaterThan(0);
   });
 
   // TASK C2 — jp-2030's lyric world/hooks/titles/thumbnails/channel presets

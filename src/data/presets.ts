@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, kr2030GenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, kr2030GenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -311,6 +311,69 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['泣ける歌', 'バンドプレイリスト', '青春ソング', 'J-ロック 感動', '20代プレイリスト', '平成ノスタルジー'],
     archetype: 'jp-2030-pop'
+  },
+  // TASK E1 §9-1 — kr-kids workspace's 3 channel presets, same
+  // registered-in-both-arrays pattern as kr2030/jp2030 above.
+  // archetype: 'kr-kids-song' is mandatory on every entry (migrateArchetype
+  // would otherwise route to senior-morning). artistName left unset — §9-3
+  // is a "하루 님 결정 필요" item (DistroKid distribution requirement),
+  // reported not invented; see docs/e1-report.md §13-4[A].
+  {
+    id: 'follow-along-action-song',
+    name: '따라 하는 율동 동요',
+    englishName: 'Follow-Along Action Song',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'kids',
+    promise: '점프하고 손뼉 치며 따라 부르는 신나는 율동 동요 플레이리스트',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
+    preferredGenres: ['krkids-action', 'krkids-animal-vehicle', 'krkids-counting-color'],
+    preferredMoods: ['bright-playful'],
+    forbiddenCliches: [
+      'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
+      'reusing an existing nursery rhyme melody or lyrics', 'excessive rap verses', 'soundalike vocal'
+    ],
+    seoKeywords: ['율동 동요', '유치원 체조', '동요 플레이리스트', '어린이 액션송', '유아 음악', '신나는 동요'],
+    archetype: 'kr-kids-song'
+  },
+  {
+    id: 'daily-habit-learning-song',
+    name: '생활습관 배우는 노래',
+    englishName: 'Daily Habit Learning Song',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'kids',
+    promise: '양치, 손 씻기, 숫자와 색깔을 신나게 배우는 생활습관·학습 동요 플레이리스트',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
+    preferredGenres: ['krkids-daily-habit', 'krkids-counting-color', 'krkids-bilingual'],
+    preferredMoods: ['bright-playful'],
+    forbiddenCliches: [
+      'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
+      'reusing an existing nursery rhyme melody or lyrics', 'excessive rap verses', 'soundalike vocal'
+    ],
+    seoKeywords: ['생활습관 동요', '숫자 동요', '색깔 동요', '유아 학습 노래', '한영 이중언어 동요', '어린이 교육송'],
+    archetype: 'kr-kids-song'
+  },
+  {
+    id: 'bedtime-lullaby-radio',
+    name: '잠들기 전 자장가',
+    englishName: 'Bedtime Lullaby Radio',
+    market: 'korea',
+    primaryLanguage: 'korean',
+    audience: 'kids',
+    promise: '하루를 마무리하며 편안하게 잠드는 부드러운 자장가·역할놀이 동요 플레이리스트',
+    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    defaultVocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
+    preferredGenres: ['krkids-sleep-calm', 'krkids-roleplay-story', 'krkids-daily-habit'],
+    preferredMoods: ['bright-playful'],
+    forbiddenCliches: [
+      'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
+      'reusing an existing nursery rhyme melody or lyrics', 'hand claps', 'energetic'
+    ],
+    seoKeywords: ['자장가', '낮잠 동요', '수면 동요', '역할놀이 동요', '어린이 잠자리 노래', '편안한 동요'],
+    archetype: 'kr-kids-song'
   }
 ];
 
@@ -571,6 +634,8 @@ const rawGenrePacks: GenrePack[] = [
   ...kr2030GenrePacks,
   // TASK C1 — jp-2030 workspace's 7 genres, same registered-in-both pattern.
   ...jp2030GenrePacks,
+  // TASK E1 — kr-kids workspace's 7 genres, same registered-in-both pattern.
+  ...krkidsGenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks

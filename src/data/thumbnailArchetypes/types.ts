@@ -43,7 +43,14 @@ export type ThumbnailArchetypeCategory =
   // jp2030StationPlatform.ts / jp2030CityNight.ts).
   | 'jp2030-seasonal'
   | 'jp2030-station-platform'
-  | 'jp2030-city-night';
+  | 'jp2030-city-night'
+  // TASK E1 — kr-kids workspace's 4 new archetypes (see
+  // krkidsDailyHabitBathroom.ts / krkidsCountingBlocks.ts /
+  // krkidsRoleplayMarket.ts / krkidsBilingualAlphabet.ts).
+  | 'krkids-daily-habit-bathroom'
+  | 'krkids-counting-blocks'
+  | 'krkids-roleplay-market'
+  | 'krkids-bilingual-alphabet';
 
 export type ThumbnailArchetypeId = ThumbnailArchetypeCategory;
 

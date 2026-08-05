@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { jp2030ThumbnailArchetypes, kidsThumbnailArchetypes, kr2030ThumbnailArchetypes, placeThumbnailArchetypes, seasonalThumbnailArchetypes, thumbnailArchetypes, thumbnailArchetypeCount } from '../src/data/thumbnailArchetypes';
+import { jp2030ThumbnailArchetypes, kidsThumbnailArchetypes, kr2030ThumbnailArchetypes, krkidsThumbnailArchetypes, placeThumbnailArchetypes, seasonalThumbnailArchetypes, thumbnailArchetypes, thumbnailArchetypeCount } from '../src/data/thumbnailArchetypes';
 import type { ThumbnailArchetype } from '../src/data/thumbnailArchetypes';
 
 // TASK v3.38 Part A/B — 6 seasonal Korean-serif archetypes + 3 kids-bright archetypes.
@@ -37,11 +37,19 @@ const EXPECTED_CATEGORIES = [
   // Same Korean-serif grammar as place/kr2030 (see JP2030_CATEGORIES below).
   'jp2030-seasonal',
   'jp2030-station-platform',
-  'jp2030-city-night'
+  'jp2030-city-night',
+  // TASK E1 — kr-kids workspace's 4 new archetypes, appended last (matches
+  // thumbnailArchetypes/index.ts's own array order: ...jp2030, then krkids).
+  // Same kids-bright grammar as the existing 3 kids-* archetypes (see
+  // KIDS_CATEGORIES below, extended to include these).
+  'krkids-daily-habit-bathroom',
+  'krkids-counting-blocks',
+  'krkids-roleplay-market',
+  'krkids-bilingual-alphabet'
 ];
 const SEASONAL_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(0, 6));
 const PLACE_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(6, 16));
-const KIDS_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(16, 19));
+const KIDS_CATEGORIES = new Set([...EXPECTED_CATEGORIES.slice(16, 19), ...EXPECTED_CATEGORIES.slice(25, 29)]);
 const KR2030_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(19, 22));
 const JP2030_CATEGORIES = new Set(EXPECTED_CATEGORIES.slice(22, 25));
 
@@ -73,13 +81,15 @@ function allText(archetype: ThumbnailArchetype): string {
 describe('thumbnail archetype library', () => {
   it('defines the 6 seasonal Korean-serif + 3 kids-bright categories', () => {
     // TASK B2 — 19 + 3 kr2030-*. TASK C2 — + 3 jp2030-* (jp2030ThumbnailArchetypes, own serif grammar).
-    expect(thumbnailArchetypeCount).toBe(25);
+    // TASK E1 — + 4 krkids-* (krkidsThumbnailArchetypes, kids-bright grammar).
+    expect(thumbnailArchetypeCount).toBe(29);
     expect(thumbnailArchetypes.map(archetype => archetype.category)).toEqual(EXPECTED_CATEGORIES);
     expect(seasonalThumbnailArchetypes).toHaveLength(6);
     expect(placeThumbnailArchetypes).toHaveLength(10);
     expect(kidsThumbnailArchetypes).toHaveLength(3);
     expect(kr2030ThumbnailArchetypes).toHaveLength(3);
     expect(jp2030ThumbnailArchetypes).toHaveLength(3);
+    expect(krkidsThumbnailArchetypes).toHaveLength(4);
   });
 
   it('fills every required field with reusable prompt material', () => {

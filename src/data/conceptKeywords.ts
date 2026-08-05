@@ -307,6 +307,45 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'jp2030-band-emotional',
     patterns: [/バンド/, /泣きたい/, /울고\s*싶은\s*날/],
     genreWeights: { 'jp2030-melodic-jrock': 3, 'jp2030-heisei-nostalgia': 1 }
+  },
+  // TASK E1 §8 — kr-kids workspace's concept keywords. genreWeights only
+  // (§8-1: no season/mood weights — these rules are about daily-life
+  // scenarios, not calendar seasons), pointing only at krkids-* ids so a
+  // match never affects senior/2030 scoring for the same input text.
+  {
+    id: 'krkids-daily-habit',
+    patterns: [/양치/, /이\s*닦기/, /손\s*씻기/, /정리/, /밥\s*먹기/, /배변/, /brush(ing)?\s*teeth/i, /wash(ing)?\s*hands/i],
+    genreWeights: { 'krkids-daily-habit': 4 }
+  },
+  {
+    id: 'krkids-counting-color',
+    patterns: [/숫자/, /세기/, /색깔/, /모양/, /도형/, /counting\s*song/i, /color(s)?\s*song/i],
+    genreWeights: { 'krkids-counting-color': 4 }
+  },
+  {
+    id: 'krkids-animal-vehicle',
+    patterns: [/동물/, /공룡/, /버스/, /기차/, /굴착기/, /dinosaur/i, /excavator/i],
+    genreWeights: { 'krkids-animal-vehicle': 4 }
+  },
+  {
+    id: 'krkids-roleplay-story',
+    patterns: [/역할\s*놀이/, /병원/, /소방서/, /마트/, /유치원/, /roleplay/i, /pretend\s*play/i],
+    genreWeights: { 'krkids-roleplay-story': 4 }
+  },
+  {
+    id: 'krkids-bilingual',
+    patterns: [/영어/, /알파벳/, /이중\s*언어/, /bilingual\s*song/i, /english\s*learning\s*song/i],
+    genreWeights: { 'krkids-bilingual': 4 }
+  },
+  {
+    id: 'krkids-sleep-calm',
+    patterns: [/자장가/, /낮잠/, /잠자기/, /마음\s*안정/, /lullaby/i, /nap\s*time/i],
+    genreWeights: { 'krkids-sleep-calm': 4 }
+  },
+  {
+    id: 'krkids-action',
+    patterns: [/율동/, /체조/, /따라\s*하기/, /action\s*song/i, /clapping\s*game/i],
+    genreWeights: { 'krkids-action': 4 }
   }
 ];
 

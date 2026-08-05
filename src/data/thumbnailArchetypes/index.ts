@@ -23,6 +23,10 @@ import { kr2030PersonSilhouetteArchetype } from './kr2030PersonSilhouette';
 import { jp2030SeasonalArchetype } from './jp2030Seasonal';
 import { jp2030StationPlatformArchetype } from './jp2030StationPlatform';
 import { jp2030CityNightArchetype } from './jp2030CityNight';
+import { krkidsDailyHabitBathroomArchetype } from './krkidsDailyHabitBathroom';
+import { krkidsCountingBlocksArchetype } from './krkidsCountingBlocks';
+import { krkidsRoleplayMarketArchetype } from './krkidsRoleplayMarket';
+import { krkidsBilingualAlphabetArchetype } from './krkidsBilingualAlphabet';
 import type { ThumbnailArchetype, ThumbnailArchetypeId } from './types';
 import type { ChannelArchetype } from '../../types';
 
@@ -83,12 +87,22 @@ export const jp2030ThumbnailArchetypes: ThumbnailArchetype[] = [
   jp2030CityNightArchetype
 ];
 
+// TASK E1 — kr-kids workspace's 4 new archetypes, same suitedArchetypes
+// scoping pattern as kr2030ThumbnailArchetypes/jp2030ThumbnailArchetypes above.
+export const krkidsThumbnailArchetypes: ThumbnailArchetype[] = [
+  krkidsDailyHabitBathroomArchetype,
+  krkidsCountingBlocksArchetype,
+  krkidsRoleplayMarketArchetype,
+  krkidsBilingualAlphabetArchetype
+];
+
 export const thumbnailArchetypes: ThumbnailArchetype[] = [
   ...seasonalThumbnailArchetypes,
   ...placeThumbnailArchetypes,
   ...kidsThumbnailArchetypes,
   ...kr2030ThumbnailArchetypes,
-  ...jp2030ThumbnailArchetypes
+  ...jp2030ThumbnailArchetypes,
+  ...krkidsThumbnailArchetypes
 ];
 
 /**

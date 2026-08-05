@@ -3,6 +3,8 @@ import type { KidsVocabularyWhitelist, KidsWhitelistLanguage } from '../data/kid
 import { whitelistViolations } from '../data/kidsVocabularyWhitelist';
 import type { KidsAgeTierId, KidsStructureSectionKind, KidsStructureTemplate } from '../data/kidsStructureTemplates';
 import { kidsStructureTemplateFor } from '../data/kidsStructureTemplates';
+import type { KrKidsBilingualConcept } from '../data/krKidsBilingual';
+import { bilingualContentFor } from '../data/krKidsBilingual';
 
 /**
  * TASK v3.38 Part B3 — a self-contained kids-song lyric body composer,
@@ -38,6 +40,13 @@ export interface KidsLyricInput {
   structure?: KidsStructureTemplate;
   /** TASK D2 §3-1 — picks a structure from KIDS_STRUCTURE_TEMPLATES (D1's T1/T2/T3) when `structure` isn't given directly. */
   ageTier?: KidsAgeTierId;
+  /**
+   * TASK E1 §6 — when set, verse1/verse2/chorus content comes from
+   * data/krKidsBilingual.ts's hand-authored Korean-English pairs instead of
+   * the normal per-theme pool (§6-2: "영어 단어 + 한국어 문장", not English
+   * lyrics). Omit for every existing caller — no behavior change.
+   */
+  bilingualConcept?: KrKidsBilingualConcept;
 }
 
 export interface ComposedKidsLyrics {
@@ -337,6 +346,22 @@ export function composeKidsLyrics(input: KidsLyricInput): ComposedKidsLyrics {
     bridge: `${t.bridge}\n${bridgeLine1}\n${bridgeLine2}`,
     finalChorus: finalChorusBlock
   };
+
+  // TASK E1 §6 — bilingual override, applied after the normal blocks above
+  // are computed so every other path (bilingualConcept omitted) is
+  // untouched. verse1/verse2 swap to data/krKidsBilingual.ts's own
+  // Korean-English pairs; chorus/finalChorus carry the bilingual hookLine
+  // (a real English word, unlike the Korean-only hook the title/hook-bank
+  // system produces) so the sung chorus itself teaches a word too.
+  if (input.bilingualConcept) {
+    const bilingual = bilingualContentFor(input.bilingualConcept);
+    const bilingualChorusBlock = buildChorusBlock(t.chorus, bilingual.hookLine, support);
+    const bilingualFinalChorusBlock = buildChorusBlock(t.finalChorus, bilingual.hookLine, support);
+    blocksByKind.verse1 = `${t.verse1}\n${bilingual.verse1[0]}\n${bilingual.verse1[1]}`;
+    blocksByKind.verse2 = `${t.verse2}\n${bilingual.verse2[0]}\n${bilingual.verse2[1]}`;
+    blocksByKind.chorus = bilingualChorusBlock;
+    blocksByKind.finalChorus = bilingualFinalChorusBlock;
+  }
 
   const sections = input.structure?.sections ?? (input.ageTier ? kidsStructureTemplateFor(input.ageTier).sections : DEFAULT_KIDS_SECTIONS);
   const lyrics = [...sections.map(kind => blocksByKind[kind]), t.end].join('\n\n');

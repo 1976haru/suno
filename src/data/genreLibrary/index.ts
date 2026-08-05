@@ -341,6 +341,21 @@ export const JP_2030_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * TASK E1 — kr-kids workspace's 7 genres (see krkidsGenrePacks above).
+ * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3); §2's
+ * own "최우선 3종은 1·2·3번" is already this array's literal order.
+ */
+export const KR_KIDS_CORE_GENRE_IDS = [
+  'krkids-action',
+  'krkids-daily-habit',
+  'krkids-counting-color',
+  'krkids-animal-vehicle',
+  'krkids-roleplay-story',
+  'krkids-bilingual',
+  'krkids-sleep-calm'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -416,9 +431,10 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   'oldpop-lounge': OLDPOP_LOUNGE_CORE_GENRE_IDS,
   'kr-2030-pop': KR_2030_CORE_GENRE_IDS,
   'jp-2030-pop': JP_2030_CORE_GENRE_IDS,
-  // TASK D1 §3-2/§7 — kr-kids/jp-kids archetypes exist structurally now (Approach A);
-  // genre content is E1/F1's job, not D1's, so these stay empty like christmas/lofi-study above.
-  'kr-kids-song': [],
+  // TASK D1 §3-2/§7 — kr-kids/jp-kids archetypes exist structurally now (Approach A).
+  // TASK E1 — kr-kids's genre layer filled in (krkidsGenrePacks, 7 genres). jp-kids stays
+  // empty like christmas/lofi-study above — that's F1's job, not E1's.
+  'kr-kids-song': KR_KIDS_CORE_GENRE_IDS,
   'jp-kids-song': []
 };
 
@@ -430,7 +446,8 @@ const allCoreGenreIds = new Set<string>([
   ...MODERN_CHILL_CORE_GENRE_IDS,
   ...CITY_NIGHT_CORE_GENRE_IDS,
   ...KR_2030_CORE_GENRE_IDS,
-  ...JP_2030_CORE_GENRE_IDS
+  ...JP_2030_CORE_GENRE_IDS,
+  ...KR_KIDS_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -1042,6 +1059,151 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
     archetypes: ['kr-2030-pop'],
     tier: 'core'
   }, 'kr-2030', { rhythm: ['gentle acoustic strum-and-pick pulse', 'unhurried folk-pop tempo'], vocal: ['plainspoken warm Korean lead', 'soft close-mic delivery'], production: ['natural low-stimulus acoustic room tone', 'minimal reverb, close and dry'], harmony: ['simple open-chord folk progression', 'gentle major-key resolution'], moods: ['gentle', 'understated', 'warm'], audiences: ['멜로 어쿠스틱·포크팝', '조용한 오후'], avoidTraits: [] })
+];
+
+/**
+ * TASK E1 — kr-kids workspace's 7 genres. `archetypes: ['kr-kids-song']` and
+ * `tier: 'core'` set explicitly on every entry, same isolation pattern as
+ * kr2030GenrePacks/jp2030GenrePacks above (see this file's own
+ * tests/genreLibrary.test.ts coverage note on that pattern).
+ *
+ * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3), and the
+ * research material's own top-3 priority is action/daily-habit/counting-
+ * color (§2's own "최우선 3종은 1·2·3번"), already this array's literal order.
+ *
+ * dynamicRange stays 'low'/'medium' for every entry (E1 §3-2 — "급격한
+ * 다이내믹 금지"), and instrumentation is drawn only from D1's own per-tier
+ * instrument constraints (soft bell/piano/ukulele for T1; +marimba/xylophone/
+ * hand claps/bright synth for T2-T3) — krkids-sleep-calm (0-4세, spans down
+ * into T1) draws from the T1 list only, per E1 §3-3's explicit instruction.
+ */
+export const krkidsGenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'krkids-action',
+    label: 'Korean Preschool Action Song',
+    styleCore: 'bright Korean preschool action song, jump-along energy, clear movement cues in every line',
+    instruments: ['ukulele', 'hand claps', 'xylophone', 'bright synth pad'],
+    tempoRange: [112, 128],
+    goodFor: ['율동 동요', 'action song', 'group activity'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['bouncy jump-along pulse', 'clap-driven call-and-response beat'],
+    vocal: ['energetic childlike lead vocal', 'group chant on the chorus'],
+    production: ["bright clean children's mix", 'punchy but gentle low end'],
+    harmony: ['simple major-key singalong lift', 'repeated diatonic hook progression'],
+    moods: ['energetic', 'playful'],
+    audiences: ['율동 동요', '유치원 단체 활동'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'krkids-daily-habit',
+    label: 'Korean Daily Routine Song',
+    styleCore: 'warm Korean daily-routine song, one clear habit instruction repeated as the hook',
+    instruments: ['ukulele', 'xylophone', 'hand claps', 'marimba'],
+    tempoRange: [98, 112],
+    goodFor: ['생활습관 동요', 'daily routine', 'toddler learning'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['steady walking routine pulse', 'gentle two-step groove'],
+    vocal: ['clear instructive childlike vocal', 'warm encouraging delivery'],
+    production: ["clean close-mic children's mix", 'natural unforced warmth'],
+    harmony: ['simple I-IV-V routine-song lift', 'warm major-key resolution'],
+    moods: ['warm', 'encouraging'],
+    audiences: ['생활습관 동요', '유아 학습'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'krkids-counting-color',
+    label: 'Korean Counting and Color Song',
+    styleCore: 'bright Korean counting-and-color song, bell-tone counting motif, question-and-answer chorus',
+    instruments: ['xylophone', 'marimba', 'ukulele', 'bright synth pad'],
+    tempoRange: [100, 118],
+    goodFor: ['숫자·색깔 동요', 'counting song', 'shape and color learning'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['bright bell-tone counting pulse', 'skip-along light beat'],
+    vocal: ['clear enunciated childlike vocal', 'playful question-and-answer delivery'],
+    production: ['clean bell-forward mix', 'light and airy production'],
+    harmony: ['simple ascending counting motif', 'bright major-key color-naming lift'],
+    moods: ['bright', 'curious'],
+    audiences: ['숫자·색깔 동요', '유아 학습'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'krkids-animal-vehicle',
+    label: 'Korean Animal and Vehicle Song',
+    styleCore: 'playful Korean animal-and-vehicle song, sound-imitation hook, one creature or vehicle per verse',
+    instruments: ['ukulele', 'bright synth pad', 'hand claps', 'xylophone'],
+    tempoRange: [108, 126],
+    goodFor: ['동물·탈것 동요', 'sound imitation play', 'group activity'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['playful trotting pulse', 'engine-chug bounce groove'],
+    vocal: ['playful childlike lead vocal', 'sound-imitation ad-libs'],
+    production: ["bright clean children's mix", 'punchy but gentle low end'],
+    harmony: ['simple major-key playful lift', 'repeated diatonic hook progression'],
+    moods: ['playful', 'curious'],
+    audiences: ['동물·탈것 동요', '유치원 단체 활동'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'krkids-roleplay-story',
+    label: 'Korean Roleplay Story Song',
+    styleCore: 'warm Korean roleplay story song, short scene-setting verse into a repeated role-name chorus',
+    instruments: ['marimba', 'ukulele', 'xylophone', 'bright synth pad'],
+    tempoRange: [105, 122],
+    goodFor: ['역할놀이 동요', 'roleplay story', 'imaginative play'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['gentle storytelling pulse', 'light skip-along groove'],
+    vocal: ['expressive storytelling childlike vocal', 'character-voice call-and-response'],
+    production: ["clean warm children's mix", 'natural unforced warmth'],
+    harmony: ['simple narrative major-key progression', 'warm resolving chorus lift'],
+    moods: ['warm', 'imaginative'],
+    audiences: ['역할놀이 동요', '상상 놀이'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'krkids-bilingual',
+    label: 'Korean-English Learning Song',
+    styleCore: 'clear Korean-English learning song, one Korean-English word pair repeated as the hook',
+    instruments: ['ukulele', 'xylophone', 'marimba', 'hand claps'],
+    tempoRange: [100, 116],
+    goodFor: ['한영 이중언어 동요', 'bilingual learning', 'word learning'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['steady learning pulse', 'clean two-step groove'],
+    vocal: ['clear enunciated bilingual childlike vocal', 'call-and-response between languages'],
+    production: ["clean close-mic children's mix", 'light and airy production'],
+    harmony: ['simple repeated learning-hook progression', 'bright major-key resolution'],
+    moods: ['bright', 'curious'],
+    audiences: ['한영 이중언어 동요', '유아 학습'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass']
+  }),
+  legacyGenrePack({
+    id: 'krkids-sleep-calm',
+    label: 'Korean Lullaby and Calm Song',
+    styleCore: 'soft Korean lullaby, short repeated phrase, never building to a loud peak',
+    instruments: ['soft bell', 'piano', 'ukulele'],
+    tempoRange: [62, 84],
+    goodFor: ['자장가', 'nap time', 'calm down time'],
+    archetypes: ['kr-kids-song'],
+    tier: 'core'
+  }, 'kr-kids', {
+    rhythm: ['slow gentle lullaby sway', 'unhurried rocking pulse'],
+    vocal: ['soft breathy childlike lullaby vocal', 'gentle unhurried phrasing'],
+    production: ['soft close intimate mix', 'minimal sparse arrangement'],
+    harmony: ['simple warm major-key lullaby progression', 'soft resolving cadence'],
+    moods: ['soft', 'calm'],
+    audiences: ['자장가', '낮잠 시간'],
+    avoidTraits: ['dense percussion layers', 'sudden dynamic jumps', 'piercing high register', 'distorted guitar', 'heavy sub bass', 'hand claps', 'call and response', 'energetic', 'four-on-the-floor']
+  })
 ];
 
 /**
@@ -1712,7 +1874,7 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;

@@ -497,6 +497,75 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
     structureTraits: ['simple verse-chorus form with no dramatic build', 'chorus stays close in dynamic to the verse']
   },
 
+  // ===== TASK E1 — kr-kids workspace, 7 new genres =====
+  // No eraTag on any entry below — kids content has no era concept (D1's
+  // own finding). dynamicRange stays 'low'/'medium' throughout (E1 §3-2:
+  // "급격한 다이내믹 금지" — none of the 7 use 'wide', unlike jp2030's 4/7).
+  'krkids-action': {
+    instrumentation: ['ukulele', 'hand claps', 'xylophone', 'bright synth pad'],
+    rhythmFeel: ['bouncy jump-along pulse', 'clap-driven call-and-response beat'],
+    harmonyTraits: ['simple major-key singalong lift', 'repeated diatonic hook progression'],
+    productionTraits: ["bright clean children's mix", 'punchy but gentle low end'],
+    vocalTraits: ['energetic childlike lead vocal', 'group chant on the chorus'],
+    dynamicRange: 'medium',
+    structureTraits: ['short repeated action-cue chorus', 'verse gives one clear movement instruction per line']
+  },
+  'krkids-daily-habit': {
+    instrumentation: ['ukulele', 'xylophone', 'hand claps', 'marimba'],
+    rhythmFeel: ['steady walking routine pulse', 'gentle two-step groove'],
+    harmonyTraits: ['simple I-IV-V routine-song lift', 'warm major-key resolution'],
+    productionTraits: ["clean close-mic children's mix", 'natural unforced warmth'],
+    vocalTraits: ['clear instructive childlike vocal', 'warm encouraging delivery'],
+    dynamicRange: 'low',
+    structureTraits: ['one habit instruction repeated as the hook', 'call-and-response between instruction and group response']
+  },
+  'krkids-counting-color': {
+    instrumentation: ['xylophone', 'marimba', 'ukulele', 'bright synth pad'],
+    rhythmFeel: ['bright bell-tone counting pulse', 'skip-along light beat'],
+    harmonyTraits: ['simple ascending counting motif', 'bright major-key color-naming lift'],
+    productionTraits: ['clean bell-forward mix', 'light and airy production'],
+    vocalTraits: ['clear enunciated childlike vocal', 'playful question-and-answer delivery'],
+    dynamicRange: 'low',
+    structureTraits: ['counting or naming sequence built into the chorus', 'short question-and-answer chorus shape']
+  },
+  'krkids-animal-vehicle': {
+    instrumentation: ['ukulele', 'bright synth pad', 'hand claps', 'xylophone'],
+    rhythmFeel: ['playful trotting pulse', 'engine-chug bounce groove'],
+    harmonyTraits: ['simple major-key playful lift', 'repeated diatonic hook progression'],
+    productionTraits: ["bright clean children's mix", 'punchy but gentle low end'],
+    vocalTraits: ['playful childlike lead vocal', 'sound-imitation ad-libs'],
+    dynamicRange: 'medium',
+    structureTraits: ['sound-imitation hook repeated each chorus', 'verse names one animal or vehicle at a time']
+  },
+  'krkids-roleplay-story': {
+    instrumentation: ['marimba', 'ukulele', 'xylophone', 'bright synth pad'],
+    rhythmFeel: ['gentle storytelling pulse', 'light skip-along groove'],
+    harmonyTraits: ['simple narrative major-key progression', 'warm resolving chorus lift'],
+    productionTraits: ["clean warm children's mix", 'natural unforced warmth'],
+    vocalTraits: ['expressive storytelling childlike vocal', 'character-voice call-and-response'],
+    dynamicRange: 'medium',
+    structureTraits: ['short scene-setting verse into a repeated role-name chorus', 'call-and-response between roles']
+  },
+  'krkids-bilingual': {
+    instrumentation: ['ukulele', 'xylophone', 'marimba', 'hand claps'],
+    rhythmFeel: ['steady learning pulse', 'clean two-step groove'],
+    harmonyTraits: ['simple repeated learning-hook progression', 'bright major-key resolution'],
+    productionTraits: ["clean close-mic children's mix", 'light and airy production'],
+    vocalTraits: ['clear enunciated bilingual childlike vocal', 'call-and-response between languages'],
+    dynamicRange: 'low',
+    structureTraits: ['one Korean-English word pair repeated as the hook', 'short question-and-answer chorus shape']
+  },
+  // T1-only instrumentation (E1 §3-3) — 0-4세 spans down into D1's T1 tier.
+  'krkids-sleep-calm': {
+    instrumentation: ['soft bell', 'piano', 'ukulele'],
+    rhythmFeel: ['slow gentle lullaby sway', 'unhurried rocking pulse'],
+    harmonyTraits: ['simple warm major-key lullaby progression', 'soft resolving cadence'],
+    productionTraits: ['soft close intimate mix', 'minimal sparse arrangement'],
+    vocalTraits: ['soft breathy childlike lullaby vocal', 'gentle unhurried phrasing'],
+    dynamicRange: 'low',
+    structureTraits: ['short repeated lullaby phrase, never building to a loud peak', 'verse and chorus stay at the same soft dynamic level']
+  },
+
   // ===== TASK C1 — jp-2030 workspace, 7 new genres =====
   // Japanese-axis rule (this task's own §3-1, the direct counterpart to
   // kr2030's bass/drum-led rule above): 5/7 lead with guitar/piano
