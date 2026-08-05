@@ -68,6 +68,30 @@ describe('library persona persistence', () => {
     expect(loaded?.setTotal).toBeUndefined();
   });
 
+  /**
+   * v5.8 (TASK 4) — GenerationOptions.moneyChordMode/moneyChordModeIsExplicitChoice/
+   * earwormMode are plain fields on the options object savePack spreads
+   * wholesale (`options: { ...input.options, personaMode }`, no field
+   * allow-list) and loadPack/normalizeSavedPack return verbatim (only ever
+   * spreading, never picking) — confirmed by reading core/library.ts's own
+   * savePack/normalizeSavedPack directly. This is a regression guard for
+   * that finding staying true, not a fix for a gap (there wasn't one).
+   */
+  it('[v5.8 TASK 4] save/load round trip preserves moneyChordMode + moneyChordModeIsExplicitChoice + earwormMode together', async () => {
+    const opts = makeOptions({
+      songCount: 3,
+      moneyChordMode: 'winterBallad',
+      moneyChordModeIsExplicitChoice: true,
+      earwormMode: true
+    });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const id = await savePack({ blueprint, options: opts, name: 'Money Chord Round Trip' });
+    const loaded = await loadPack(id);
+    expect(loaded?.options.moneyChordMode).toBe('winterBallad');
+    expect(loaded?.options.moneyChordModeIsExplicitChoice).toBe(true);
+    expect(loaded?.options.earwormMode).toBe(true);
+  });
+
   it('stores and reuses channel persona names', async () => {
     const opts = makeOptions({ personaMode: true, songCount: 2 });
     const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);

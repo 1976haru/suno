@@ -6,7 +6,7 @@ import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm }
 import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord } from './soundSignature';
-import { buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
+import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import {
@@ -146,7 +146,26 @@ export function preallocateSongSlots(
   const constraints = resolveConstraintsFromOptions(opts, audienceProfile);
   const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype, constraints);
   const tempoBands = tempoBandsForProfile(audienceProfile);
-  const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
+  // v5.8 (TASK 2) — mirrors localGenerator.ts's identical addition: computed
+  // here (before tempoBandPlan) so the tempo lean below has this pack's
+  // per-song explicit-choice assignment available; `progressionPlan` below
+  // reuses this exact value instead of recomputing it.
+  const userChosenProgressionPlan = usesUserChosenProgressionPlan(opts)
+    ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
+    : null;
+  const moneyChordLean = userChosenProgressionPlan ? moneyChordLeanFor(opts.moneyChordMode) : undefined;
+  const tempoBandPlanBase = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
+  // v5.8 (TASK 2) — mirrors localGenerator.ts's identical soft money-chord
+  // tempo lean (see moneyChordPlan.ts's applyMoneyChordLean doc comment).
+  const tempoBandPlan = moneyChordLean && moneyChordLean.tempo !== 'neutral' && userChosenProgressionPlan
+    ? applyMoneyChordLean(
+        tempoBandPlanBase,
+        leanEligibleIndices(userChosenProgressionPlan, opts.moneyChordMode, tempoBandPlanBase.length),
+        leanProtectedIndices(tempoBandPlanBase.length),
+        band => band.low,
+        moneyChordLean.tempo === 'lower' ? 'lower' : 'higher'
+      )
+    : tempoBandPlanBase;
   // TASK I2 (v3.11) — the Batch API path is local-then-submit (this whole
   // function's point per its own docstring), so tracks 1-3 get the same
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
@@ -228,11 +247,12 @@ export function preallocateSongSlots(
   // v5.7 (TASK v5.7, TASK B) — mirrors localGenerator.ts's identical
   // addition: an explicit user money-chord pick wins over both the flat
   // 100%-progression text and the default-side family/archetype quota.
-  const progressionPlan = usesUserChosenProgressionPlan(opts)
-    ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
-    : usesMoneyChordQuota(opts)
+  // v5.8 (TASK 2) — reuses userChosenProgressionPlan computed above (same
+  // deterministic value) instead of recomputing it.
+  const progressionPlan = userChosenProgressionPlan
+    ?? (usesMoneyChordQuota(opts)
       ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
-      : null;
+      : null);
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
@@ -518,9 +538,20 @@ export function preallocateSongSlots(
   // enough to also produce a 'sparse'/'medium' — nothing to legally pin
   // without violating that override's own total).
   const arrangementDensityHasAllThreeLevels = new Set(autoOrManualArrangementDensityPlan).size === 3;
-  const arrangementDensityPlan = opts.songCount >= 3 && arrangementDensityHasAllThreeLevels
+  const arrangementDensityPlanBase = opts.songCount >= 3 && arrangementDensityHasAllThreeLevels
     ? breakLongRuns(pinPrefixPreservingCounts(autoOrManualArrangementDensityPlan, ['medium', 'sparse', 'sparse'] as const), 2)
     : autoOrManualArrangementDensityPlan;
+  // v5.8 (TASK 2) — mirrors localGenerator.ts's identical soft money-chord
+  // density lean, applied after arc-reordering and flagship pinning.
+  const arrangementDensityPlan = moneyChordLean && moneyChordLean.density !== 'neutral' && userChosenProgressionPlan
+    ? applyMoneyChordLean(
+        arrangementDensityPlanBase,
+        leanEligibleIndices(userChosenProgressionPlan, opts.moneyChordMode, arrangementDensityPlanBase.length),
+        leanProtectedIndices(arrangementDensityPlanBase.length),
+        level => arrangementDensityRank[level],
+        moneyChordLean.density === 'sparser' ? 'lower' : 'higher'
+      )
+    : arrangementDensityPlanBase;
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
@@ -607,7 +638,14 @@ export function preallocateSongSlots(
       // override, which no longer attaches the audibleEffect tail either
       // (see that file's own doc comment); tests/moneyChordPlan.test.ts
       // asserts this batch path and the local path agree per trackNo.
-      moneyChordText: compactMoneyChord(opts, { moneyChordIdOverride: moneyChordId }),
+      // v5.8 (TASK 1) — mirrors localGenerator.ts's identical re-enable:
+      // reinforced (via the short audibleEffectTag, not audibleEffect) only
+      // for the songs carrying the user's own explicit pick verbatim, same
+      // condition as the local path so both paths still agree per trackNo.
+      moneyChordText: compactMoneyChord(opts, {
+        moneyChordIdOverride: moneyChordId,
+        includeFeelReinforcement: Boolean(opts.moneyChordModeIsExplicitChoice) && Boolean(moneyChordId) && moneyChordId === opts.moneyChordMode
+      }),
         ...(genreId ? { genreId } : {}),
         ...(genreText ? { genreText } : {}),
         ...(trackGenres[0]?.signatureSound ? { signatureSound: trackGenres[0].signatureSound } : {}),

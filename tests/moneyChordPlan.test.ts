@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildProgressionPlan, usesMoneyChordQuota } from '../src/core/moneyChordPlan';
+import { applyMoneyChordLean, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, REPRESENTATIVE_TRACK_COUNT, usesMoneyChordQuota } from '../src/core/moneyChordPlan';
 import { hashSeed } from '../src/core/lyricEngine';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, type ArrangementDensityLevel } from '../src/core/promptComposer';
 import { moneyChordPresets } from '../src/data/moneyChords';
 import { makeOptions, channelPresets, genrePacks, moodPacks, seasonPacks } from './fixtures';
 
@@ -210,5 +211,176 @@ describe('[v3.33 Part C] end-to-end: an 18-song set actually carries the quota i
     for (const song of bp.songs) {
       expect(song.stylePrompt).toContain(moneyChordPresets.jazzColor.compactProgression);
     }
+  });
+});
+
+/**
+ * v5.8 (TASK 2) — money-chord -> tempo/arrangement-density soft lean. Unit
+ * coverage for the swap-only mechanism itself (applyMoneyChordLean), plus
+ * end-to-end coverage proving it actually shifts a real 18-song pack's
+ * tempo/density in the documented direction WITHOUT disturbing the v4.16
+ * calm-senior arrangement-density split (6:8:4 sparse:medium:full for an
+ * 18-song senior pack) — verified via real generateLocalBlueprint runs, not
+ * estimation.
+ */
+describe('[v5.8 TASK 2] applyMoneyChordLean — swap-only mechanism', () => {
+  it('never changes the multiset of values (pure permutation), for any direction', () => {
+    const values = ['sparse', 'medium', 'full', 'sparse', 'medium', 'full', 'sparse', 'medium'];
+    const rank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
+    const eligible = [3, 4, 5, 6, 7];
+    const lower = applyMoneyChordLean(values, eligible, [0, 1, 2], v => rank[v], 'lower');
+    const higher = applyMoneyChordLean(values, eligible, [0, 1, 2], v => rank[v], 'higher');
+    expect([...lower].sort()).toEqual([...values].sort());
+    expect([...higher].sort()).toEqual([...values].sort());
+  });
+
+  it('never uses a protected index as a donor, even when it would be the objectively best one', () => {
+    // index 0 (protected) is 'sparse' — the objectively best 'lower' donor
+    // for eligible index 1 ('full'); index 2 ('medium') is a worse but
+    // legal donor. A correct implementation must pick index 2, proving
+    // index 0 was never even considered.
+    const values = ['sparse', 'full', 'medium'];
+    const rank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
+    const result = applyMoneyChordLean(values, [1], [0], v => rank[v], 'lower');
+    expect(result[0]).toBe('sparse'); // untouched
+    expect(result[1]).toBe('medium'); // swapped with index 2, not index 0
+    expect(result[2]).toBe('full');
+  });
+
+  it('moves an eligible index toward the requested direction when a suitable donor exists', () => {
+    const values = ['full', 'sparse', 'medium'];
+    const rank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
+    const result = applyMoneyChordLean(values, [0], [], v => rank[v], 'lower');
+    expect(result[0]).toBe('sparse'); // swapped with the lowest-rank non-eligible donor
+  });
+
+  it('is a no-op when there are no eligible indices', () => {
+    const values = ['sparse', 'medium', 'full'];
+    const rank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
+    expect(applyMoneyChordLean(values, [], [], v => rank[v], 'lower')).toEqual(values);
+  });
+
+  it('never reuses the same donor twice', () => {
+    const values = ['sparse', 'full', 'full'];
+    const rank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
+    // Both index 1 and 2 want to swap toward 'lower' with the single sparse donor at index 0.
+    const result = applyMoneyChordLean(values, [1, 2], [], v => rank[v], 'lower');
+    // Only one of them can actually get the sparse donor; the multiset is still preserved.
+    expect([...result].sort()).toEqual([...values].sort());
+    expect(result.filter(v => v === 'sparse').length).toBe(1);
+  });
+});
+
+describe('[v5.8 TASK 2] moneyChordLeanFor — lean table', () => {
+  it('the 6 UI-selectable non-default/non-custom presets each have a defined lean', () => {
+    for (const mode of ['emotional', 'jazzColor', 'cityPop', 'canon', 'showaModern', 'winterBallad'] as const) {
+      expect(moneyChordLeanFor(mode), mode).toBeDefined();
+    }
+  });
+
+  it('winterBallad/emotional/jazzColor/showaModern lean slower + sparser; cityPop leans faster + fuller; canon\'s tempo stays neutral', () => {
+    expect(moneyChordLeanFor('winterBallad')).toEqual({ tempo: 'lower', density: 'sparser' });
+    expect(moneyChordLeanFor('emotional')).toEqual({ tempo: 'lower', density: 'sparser' });
+    expect(moneyChordLeanFor('jazzColor')).toEqual({ tempo: 'lower', density: 'sparser' });
+    expect(moneyChordLeanFor('showaModern')).toEqual({ tempo: 'lower', density: 'sparser' });
+    expect(moneyChordLeanFor('cityPop')).toEqual({ tempo: 'higher', density: 'fuller' });
+    expect(moneyChordLeanFor('canon')?.tempo).toBe('neutral');
+  });
+
+  it('default/custom have no lean at all (usesUserChosenProgressionPlan already excludes them)', () => {
+    expect(moneyChordLeanFor('default')).toBeUndefined();
+    expect(moneyChordLeanFor('custom')).toBeUndefined();
+  });
+});
+
+describe('[v5.8 TASK 2] leanEligibleIndices / leanProtectedIndices', () => {
+  it('excludes the representative prefix and only includes indices matching the chosen id exactly', () => {
+    const plan = ['winterBallad', 'winterBallad', 'winterBallad', 'emotional', 'winterBallad', 'canon', 'winterBallad'];
+    const eligible = leanEligibleIndices(plan, 'winterBallad', plan.length);
+    expect(eligible).toEqual([4, 6]); // indices 0-2 excluded (representative prefix); 3 and 5 are neighbor presets, not the exact chosen one
+    expect(leanProtectedIndices(plan.length)).toEqual([0, 1, 2]);
+  });
+
+  it('returns [] when there is no progressionPlan', () => {
+    expect(leanEligibleIndices(null, 'winterBallad', 18)).toEqual([]);
+    expect(leanEligibleIndices(undefined, 'winterBallad', 18)).toEqual([]);
+  });
+
+  it('REPRESENTATIVE_TRACK_COUNT is 3, matching buildUserChosenProgressionPlan\'s own representative-track guarantee', () => {
+    expect(REPRESENTATIVE_TRACK_COUNT).toBe(3);
+    const plan = buildUserChosenProgressionPlan('winterBallad', 18, 1);
+    expect(plan.slice(0, REPRESENTATIVE_TRACK_COUNT)).toEqual(['winterBallad', 'winterBallad', 'winterBallad']);
+  });
+});
+
+describe('[v5.8 TASK 2] end-to-end: real 18-song senior-morning packs actually lean tempo/density, never disturbing the v4.16 density split', () => {
+  const season = seasonPacks[0];
+  const seniorGenres = genrePacks.filter(g => seniorMorning.preferredGenres.includes(g.id));
+  const seniorMoods = moodPacks.filter(m => seniorMorning.preferredMoods.includes(m.id));
+
+  function detectDensity(stylePrompt: string): ArrangementDensityLevel | undefined {
+    return (Object.keys(ARRANGEMENT_DENSITY_TEXT_BY_LEVEL) as ArrangementDensityLevel[])
+      .find(level => stylePrompt.includes(ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[level]));
+  }
+
+  function densityCounts(songs: { stylePrompt: string }[]) {
+    const counts: Record<string, number> = {};
+    for (const song of songs) {
+      const level = detectDensity(song.stylePrompt) ?? 'unknown';
+      counts[level] = (counts[level] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  it('an explicit winterBallad pick: chosen-preset songs average a lower BPM than the rest of the pack', () => {
+    const opts = makeOptions({ channel: seniorMorning, songCount: 18, moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true, seasonId: season.id });
+    const bp = generateLocalBlueprint(opts, seniorGenres, seniorMoods, season);
+    const chosen = bp.songs.filter(s => s.moneyChordId === 'winterBallad');
+    const others = bp.songs.filter(s => s.moneyChordId !== 'winterBallad' && s.moneyChordId);
+    expect(chosen.length).toBeGreaterThanOrEqual(9);
+    const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    expect(avg(chosen.map(s => s.bpm ?? 0))).toBeLessThan(avg(others.map(s => s.bpm ?? 0)));
+  });
+
+  it('an explicit cityPop pick: chosen-preset songs average a higher BPM than the rest of the pack', () => {
+    const opts = makeOptions({ channel: seniorMorning, songCount: 18, moneyChordMode: 'cityPop', moneyChordModeIsExplicitChoice: true, seasonId: season.id });
+    const bp = generateLocalBlueprint(opts, seniorGenres, seniorMoods, season);
+    const chosen = bp.songs.filter(s => s.moneyChordId === 'cityPop');
+    const others = bp.songs.filter(s => s.moneyChordId !== 'cityPop' && s.moneyChordId);
+    expect(chosen.length).toBeGreaterThanOrEqual(9);
+    const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    expect(avg(chosen.map(s => s.bpm ?? 0))).toBeGreaterThan(avg(others.map(s => s.bpm ?? 0)));
+  });
+
+  it('the v4.16 calm-senior arrangement-density split (6 sparse : 8 medium : 4 full for 18 songs) is IDENTICAL whether or not an explicit money-chord lean is active', () => {
+    const baseline = generateLocalBlueprint(makeOptions({ channel: seniorMorning, songCount: 18, seasonId: season.id }), seniorGenres, seniorMoods, season);
+    const winterBallad = generateLocalBlueprint(makeOptions({ channel: seniorMorning, songCount: 18, moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true, seasonId: season.id }), seniorGenres, seniorMoods, season);
+    const cityPop = generateLocalBlueprint(makeOptions({ channel: seniorMorning, songCount: 18, moneyChordMode: 'cityPop', moneyChordModeIsExplicitChoice: true, seasonId: season.id }), seniorGenres, seniorMoods, season);
+
+    const baselineCounts = densityCounts(baseline.songs);
+    expect(baselineCounts).toEqual({ sparse: 6, medium: 8, full: 4 });
+    expect(densityCounts(winterBallad.songs)).toEqual(baselineCounts);
+    expect(densityCounts(cityPop.songs)).toEqual(baselineCounts);
+  });
+
+  it('an explicit winterBallad pick: chosen-preset songs skew sparser than the rest of the pack (soft lean, not absolute)', () => {
+    const opts = makeOptions({ channel: seniorMorning, songCount: 18, moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true, seasonId: season.id });
+    const bp = generateLocalBlueprint(opts, seniorGenres, seniorMoods, season);
+    const rank: Record<string, number> = { sparse: 0, medium: 1, full: 2 };
+    const chosen = bp.songs.filter(s => s.moneyChordId === 'winterBallad');
+    const others = bp.songs.filter(s => s.moneyChordId !== 'winterBallad' && s.moneyChordId);
+    const avgRank = (songs: typeof bp.songs) => {
+      const ranks = songs.map(s => rank[detectDensity(s.stylePrompt) ?? '']).filter(r => r !== undefined);
+      return ranks.reduce((a, b) => a + b, 0) / ranks.length;
+    };
+    expect(avgRank(chosen)).toBeLessThanOrEqual(avgRank(others));
+  });
+
+  it('preallocateSongSlots (the Batch/realtime/bridge path) agrees with the local path: same lean direction, same v4.16 density split preserved', () => {
+    const opts = makeOptions({ channel: seniorMorning, songCount: 18, moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true, seasonId: season.id });
+    const slots = preallocateSongSlots(opts, seniorGenres);
+    const counts: Record<string, number> = {};
+    for (const slot of slots) counts[slot.arrangementDensity ?? 'unknown'] = (counts[slot.arrangementDensity ?? 'unknown'] ?? 0) + 1;
+    expect(counts).toEqual({ sparse: 6, medium: 8, full: 4 });
   });
 });

@@ -7,7 +7,7 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
-import { buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
+import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalDescriptionFor, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
@@ -925,7 +925,36 @@ export function generateLocalBlueprint(
   // tracks land in the lowest, instead of wherever buildTempoBandPlan's own
   // seeded shuffle happened to put them.
   const arcPlan = buildArcPlan(opts.songCount);
-  const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
+  // v5.8 (TASK 2) — computed here (rather than down where `progressionPlan`
+  // is normally built, well after tempoBandPlan) purely so the tempo-band
+  // lean just below has this pack's own per-song explicit-choice assignment
+  // available before tempoBandPlan is finalized. `progressionPlan` further
+  // down reuses this exact same value instead of recomputing it — both are
+  // the same deterministic function of (opts.moneyChordMode, opts.songCount,
+  // seed), so reusing it changes nothing about what either variable holds.
+  const userChosenProgressionPlan = usesUserChosenProgressionPlan(opts)
+    ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
+    : null;
+  const moneyChordLean = userChosenProgressionPlan ? moneyChordLeanFor(opts.moneyChordMode) : undefined;
+  const tempoBandPlanBase = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
+  // v5.8 (TASK 2) — soft money-chord tempo lean: a swap-only nudge (see
+  // moneyChordPlan.ts's applyMoneyChordLean's own doc comment for why this
+  // can never disturb the audience profile's own band-count shares, e.g.
+  // v4.16's calm-senior baseline) applied only when the user explicitly
+  // picked one of the 6 presets with a defined lean, and only to the
+  // non-representative tracks actually carrying that exact chosen
+  // progression (never the representative/flagship prefix, which stays
+  // exactly what arc-intensity reordering and any verifiedCombo tempo
+  // override already decided).
+  const tempoBandPlan = moneyChordLean && moneyChordLean.tempo !== 'neutral' && userChosenProgressionPlan
+    ? applyMoneyChordLean(
+        tempoBandPlanBase,
+        leanEligibleIndices(userChosenProgressionPlan, opts.moneyChordMode, tempoBandPlanBase.length),
+        leanProtectedIndices(tempoBandPlanBase.length),
+        band => band.low,
+        moneyChordLean.tempo === 'lower' ? 'lower' : 'higher'
+      )
+    : tempoBandPlanBase;
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const genrePlan = applyAxisAllocation(autoGenrePlan, opts.diversityAllocations, 'genre', genrePool, seed);
@@ -1024,11 +1053,14 @@ export function generateLocalBlueprint(
   // flat text or (worse — this task's own root-cause bug) being silently
   // treated as 'default' and overridden by the family/archetype quota below.
   // Checked BEFORE usesMoneyChordQuota so an explicit choice always wins.
-  const progressionPlan = usesUserChosenProgressionPlan(opts)
-    ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
-    : usesMoneyChordQuota(opts)
+  // v5.8 (TASK 2) — reuses userChosenProgressionPlan (computed earlier,
+  // right before tempoBandPlan) instead of recomputing it; identical value
+  // either way since both are the same deterministic function of
+  // (opts.moneyChordMode, opts.songCount, seed).
+  const progressionPlan = userChosenProgressionPlan
+    ?? (usesMoneyChordQuota(opts)
       ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
-      : null;
+      : null);
   // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota.
   // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
   // archetype, not just kids (see vocalPlan.ts's own doc comment for the
@@ -1225,9 +1257,23 @@ export function generateLocalBlueprint(
   // (see that file's own doc comment for why a manual/auto check would be
   // wrong here).
   const arrangementDensityHasAllThreeLevels = new Set(autoOrManualArrangementDensityPlan).size === 3;
-  const arrangementDensityPlan = opts.songCount >= 3 && arrangementDensityHasAllThreeLevels
+  const arrangementDensityPlanBase = opts.songCount >= 3 && arrangementDensityHasAllThreeLevels
     ? breakLongRuns(pinPrefixPreservingCounts(autoOrManualArrangementDensityPlan, ['medium', 'sparse', 'sparse'] as const), 2)
     : autoOrManualArrangementDensityPlan;
+  // v5.8 (TASK 2) — same soft money-chord lean as tempoBandPlan above,
+  // applied to the already-arc-reordered, already-flagship-pinned density
+  // plan (never before it) — see applyMoneyChordLean's own doc comment for
+  // why this is guaranteed swap-only and can't disturb the v4.16 3:4:2
+  // sparse:medium:full split.
+  const arrangementDensityPlan = moneyChordLean && moneyChordLean.density !== 'neutral' && userChosenProgressionPlan
+    ? applyMoneyChordLean(
+        arrangementDensityPlanBase,
+        leanEligibleIndices(userChosenProgressionPlan, opts.moneyChordMode, arrangementDensityPlanBase.length),
+        leanProtectedIndices(arrangementDensityPlanBase.length),
+        level => arrangementDensityRank[level],
+        moneyChordLean.density === 'sparser' ? 'lower' : 'higher'
+      )
+    : arrangementDensityPlanBase;
   const lyricThemePlan = buildLyricThemePlan(opts, seed);
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
@@ -1505,8 +1551,22 @@ export function generateLocalBlueprint(
       // identity that matters; audibleEffect was decorative prose Suno
       // reads as tags, not sentences, per this file's own established
       // "Suno responds to descriptors, not paragraphs" convention.
+      // v5.8 (TASK 1) — re-enabled, but only for the songs that actually
+      // carry the user's own EXPLICIT money-chord pick verbatim
+      // (progressionPlan[idx] === opts.moneyChordMode; excludes that pick's
+      // compatible-neighbor fill-in songs, see buildUserChosenProgressionPlan,
+      // which already read as distinct via their own compactProgression
+      // text and don't need reinforcing), and using audibleEffectTag (<=8
+      // words) rather than the long-form audibleEffect sentence this
+      // comment's own history above just explained is measurably worse.
       ...(progressionPlan
-        ? [{ id: 'moneyChord' as const, text: compactMoneyChord(opts, { moneyChordIdOverride: progressionPlan[idx] }) }]
+        ? [{
+            id: 'moneyChord' as const,
+            text: compactMoneyChord(opts, {
+              moneyChordIdOverride: progressionPlan[idx],
+              includeFeelReinforcement: Boolean(opts.moneyChordModeIsExplicitChoice) && progressionPlan[idx] === opts.moneyChordMode
+            })
+          }]
         : channelParts.some(part => part.id === 'moneyChord')
           ? []
           : [{ id: 'moneyChord' as const, text: compactMoneyChord(opts) }]),

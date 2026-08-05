@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { PALETTE_FAMILIES } from '../data/paletteFamilies';
 import { moneyChordPresets } from '../data/moneyChords';
 import { MONEY_CHORD_EMOTION_KO } from '../data/paletteFamilyMoneyChords';
+import { computeMoneyChordComparison } from '../core/moneyChordDisplay';
 import type { VerifiedCombo } from '../data/verifiedCombos';
+import type { GenerationOptions } from '../types';
 
 /**
  * TASK v4.14 (TASK A) — "컨셉만 입력했을 때 Step2Plan 상단에 계열/템포/머니코드
@@ -26,6 +28,11 @@ export interface ConceptRecommendationPanelProps {
   onChangeFamily: (id: string) => void;
   tempoSummaryKo: string;
   moneyChordBreakdown: MoneyChordBreakdownEntry[];
+  /** TASK v5.8 (TASK B) — the raw money-chord fields off GenerationOptions, needed to render "선택 vs 실제 적용" regardless of whether the recommendation panel above has been dismissed. */
+  moneyChordMode: GenerationOptions['moneyChordMode'];
+  moneyChordModeIsExplicitChoice?: boolean;
+  customMoneyChord: string;
+  songCount: number;
   vocalSummaryKo: string;
   vocalIsBalanced: boolean;
   flagshipCombo?: VerifiedCombo;
@@ -37,6 +44,10 @@ export default function ConceptRecommendationPanel({
   onChangeFamily,
   tempoSummaryKo,
   moneyChordBreakdown,
+  moneyChordMode,
+  moneyChordModeIsExplicitChoice,
+  customMoneyChord,
+  songCount,
   vocalSummaryKo,
   vocalIsBalanced,
   flagshipCombo,
@@ -44,6 +55,16 @@ export default function ConceptRecommendationPanel({
 }: ConceptRecommendationPanelProps) {
   const [mode, setMode] = useState<'open' | 'accepted' | 'manual'>('open');
   const family = PALETTE_FAMILIES.find(f => f.id === familyId);
+  // TASK v5.8 (TASK B) — always computed/rendered regardless of `mode`
+  // (open/accepted/manual): unlike the rest of this panel's content (a
+  // dismissible, one-time recommendation), "what actually got applied" stays
+  // relevant for the whole time this screen is open, including after the
+  // user dismisses the recommendation or switches to manual adjustment.
+  const moneyChordComparison = computeMoneyChordComparison(
+    { moneyChordMode, moneyChordModeIsExplicitChoice, customMoneyChord },
+    moneyChordBreakdown,
+    songCount
+  );
 
   return (
     <div className="option-block">
@@ -54,6 +75,14 @@ export default function ConceptRecommendationPanel({
         </div>
         {mode !== 'open' && (
           <button type="button" onClick={() => setMode('open')}>추천 다시 보기</button>
+        )}
+      </div>
+
+      <div className="option-block compact">
+        <h4>머니코드 — 선택 vs 실제 적용</h4>
+        <p>선택: {moneyChordComparison.chosenLabelKo} · 실제 적용: {moneyChordComparison.appliedSummaryKo}</p>
+        {moneyChordComparison.mismatchWarningKo && (
+          <p className="error">{moneyChordComparison.mismatchWarningKo}</p>
         )}
       </div>
 

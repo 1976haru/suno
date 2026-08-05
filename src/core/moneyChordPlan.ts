@@ -63,8 +63,141 @@ export function usesUserChosenProgressionPlan(opts: Pick<GenerationOptions, 'mon
 const CHOSEN_PROGRESSION_MIN_SHARE = 0.5;
 const CHOSEN_PROGRESSION_MAX_SHARE = 0.6;
 const CHOSEN_PROGRESSION_TARGET_SHARE = 0.55;
-/** Track 1-3 (cold-open + the two flagship slots, see resolveSongRole) — this task's own explicit "대표곡(2~3번) 선택한 진행 우선". Track 1 is included too: the whole point of an explicit choice is that it's the identity the user wants heard first, which matters more here than an archetype signature the user never asked for. */
-const REPRESENTATIVE_TRACK_COUNT = 3;
+/**
+ * Track 1-3 (cold-open + the two flagship slots, see resolveSongRole) —
+ * this task's own explicit "대표곡(2~3번) 선택한 진행 우선". Track 1 is
+ * included too: the whole point of an explicit choice is that it's the
+ * identity the user wants heard first, which matters more here than an
+ * archetype signature the user never asked for.
+ *
+ * v5.8 (TASK 2) — exported so the tempo/arrangement-density lean below can
+ * exclude these same representative slots from its own eligible/donor pool:
+ * arrangementDensityPlan pins exactly these 3 positions to
+ * ['medium','sparse','sparse'] (localGenerator.ts/batchPreallocation.ts's
+ * own v3.80 flagship-density pin) and tempoBandPlan's track-2 slot may carry
+ * its own verifiedCombo tempo override — the lean must compose with both,
+ * never fight them, so it never touches this prefix either as a target or a
+ * swap donor.
+ */
+export const REPRESENTATIVE_TRACK_COUNT = 3;
+
+/**
+ * v5.8 (TASK 2) — money-chord → tempo/arrangement-density SOFT lean. Real
+ * gap: an explicit money-chord pick (data/moneyChords.ts) currently has zero
+ * influence on a track's tempo or arrangement density — those are decided
+ * entirely by the audience-profile tempo-band plan (core/tempoPlan.ts) and
+ * the arc-intensity-reordered density plan (core/promptComposer.ts's
+ * buildArrangementDensityPlan), with no connection to which harmonic
+ * "flavor" the user actually picked. This table encodes only the 6 presets
+ * actually reachable as an explicit UI pick (GenerationOptions.moneyChordMode's
+ * own union — 'default'/'custom' are excluded by usesUserChosenProgressionPlan
+ * itself, and every other moneyChordPresets entry, e.g. doowop/royalRoad/
+ * kidsSimple, is archetype-signature/internal-only, never opts.moneyChordMode).
+ * Direction only (never a target BPM/level) — this stays a soft nudge
+ * layered on top of whatever the audience profile / v4.16 calm-senior
+ * baseline / arc shape already decided (see applyMoneyChordLean below for
+ * how "soft" is enforced structurally, not just by convention).
+ *
+ * Leans chosen from each preset's own `audibleEffect` wording (data/moneyChords.ts):
+ * emotional/winterBallad/showaModern/jazzColor read as hushed, sparse,
+ * unresolved, or "smoky" (laid-back, adult-contemporary-cafe) — slower and
+ * sparser. cityPop reads as a "smooth glide" into a "polished landing" —
+ * fuller and a touch faster (night-drive momentum). canon is a "steadily
+ * rising, cinematic swell" — an orchestral build wants fuller arrangement,
+ * but has no clear fast/slow signal of its own (it's used across both
+ * up-tempo and ballad contexts), so its tempo lean stays neutral.
+ */
+export interface MoneyChordLean {
+  tempo: 'lower' | 'higher' | 'neutral';
+  density: 'sparser' | 'fuller' | 'neutral';
+}
+
+const MONEY_CHORD_LEAN: Partial<Record<MoneyChordMode, MoneyChordLean>> = {
+  emotional: { tempo: 'lower', density: 'sparser' },
+  jazzColor: { tempo: 'lower', density: 'sparser' },
+  cityPop: { tempo: 'higher', density: 'fuller' },
+  canon: { tempo: 'neutral', density: 'fuller' },
+  showaModern: { tempo: 'lower', density: 'sparser' },
+  winterBallad: { tempo: 'lower', density: 'sparser' }
+};
+
+export function moneyChordLeanFor(mode: MoneyChordMode): MoneyChordLean | undefined {
+  return MONEY_CHORD_LEAN[mode];
+}
+
+/**
+ * v5.8 (TASK 2) — indices eligible for the lean: only tracks AFTER the
+ * representative prefix (see REPRESENTATIVE_TRACK_COUNT's own doc comment
+ * for why that prefix is excluded) whose assigned progression is the
+ * chosen id EXACTLY (not a compatible-neighbor fill-in song — a neighbor's
+ * own preset has its own, possibly different, lean and this function has no
+ * principled way to blend two).
+ */
+export function leanEligibleIndices(progressionPlan: readonly string[] | null | undefined, chosenId: string, length: number): number[] {
+  if (!progressionPlan) return [];
+  const out: number[] = [];
+  for (let i = REPRESENTATIVE_TRACK_COUNT; i < length && i < progressionPlan.length; i += 1) {
+    if (progressionPlan[i] === chosenId) out.push(i);
+  }
+  return out;
+}
+
+/** v5.8 (TASK 2) — the representative prefix, protected from ever being touched (as either the lean's target or its swap donor). */
+export function leanProtectedIndices(length: number): number[] {
+  return Array.from({ length: Math.min(REPRESENTATIVE_TRACK_COUNT, length) }, (_, i) => i);
+}
+
+/**
+ * v5.8 (TASK 2) — the actual soft-nudge mechanism, deliberately swap-only
+ * (never a reassignment): for each eligible index, finds the single
+ * non-eligible, non-protected donor index whose current value is most
+ * extreme in the requested direction and swaps with it (once per donor, so
+ * no position is touched twice). Because every change is a swap, the
+ * output's own multiset is byte-identical to the input's — the v4.16
+ * calm-senior tempo-band shares and arrangement-density 3:4:2 split are
+ * mathematically untouched, only WHICH track carries which already-planned
+ * value shifts, exactly the same "reorder, never recompute" contract
+ * arcPlan.ts's own reorderByArcIntensity/pinPrefixPreservingCounts already
+ * established for this codebase's other per-track value plans. A donor is
+ * never reused, so this can only ever improve (never repeatedly churn) the
+ * eligible tracks' lean, and it composes strictly AFTER (never before)
+ * arc-intensity reordering and flagship pinning — called on their already-
+ * finalized output, so it never fights either.
+ */
+export function applyMoneyChordLean<T>(
+  values: readonly T[],
+  eligibleIndices: readonly number[],
+  protectedIndices: readonly number[],
+  rank: (value: T) => number,
+  direction: 'lower' | 'higher'
+): T[] {
+  if (!eligibleIndices.length) return [...values];
+  const result = [...values];
+  const eligible = new Set(eligibleIndices);
+  const protectedSet = new Set(protectedIndices);
+  const donorUsed = new Set<number>();
+  for (const i of eligibleIndices) {
+    const currentRank = rank(result[i]);
+    let bestDonor = -1;
+    let bestRank = currentRank;
+    for (let j = 0; j < result.length; j += 1) {
+      if (j === i || eligible.has(j) || protectedSet.has(j) || donorUsed.has(j)) continue;
+      const candidateRank = rank(result[j]);
+      const better = direction === 'lower' ? candidateRank < bestRank : candidateRank > bestRank;
+      if (better) {
+        bestRank = candidateRank;
+        bestDonor = j;
+      }
+    }
+    if (bestDonor !== -1) {
+      const tmp = result[i];
+      result[i] = result[bestDonor];
+      result[bestDonor] = tmp;
+      donorUsed.add(bestDonor);
+    }
+  }
+  return result;
+}
 
 /**
  * TASK v5.7 (TASK B §2-2/§2-3/§2-4) — the user's chosen progression fills

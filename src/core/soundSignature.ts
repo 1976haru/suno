@@ -344,6 +344,15 @@ export interface CompactMoneyChordOptions {
    * pack. Now appends that preset's own `audibleEffect` instead, so the
    * reinforcement text itself varies with the chosen progression instead of
    * being boilerplate.
+   *
+   * v5.8 (TASK 1) — TASK A (v4.8) then turned this OFF by default (see
+   * localGenerator.ts's own moneyChord PromptPart doc comment): the full
+   * `audibleEffect` sentence (10-17 words of grammatical prose) reads to
+   * Suno as decorative text, not a descriptor tag, and measurably didn't
+   * help. This option now appends `audibleEffectTag` (data/moneyChords.ts) —
+   * a hand-written, <=8-word, tag-style compression of the same feel —
+   * instead of the long sentence, so a caller can re-enable reinforcement
+   * for an explicit user pick without paying that earlier prose-budget cost.
    */
   includeFeelReinforcement?: boolean;
 }
@@ -364,11 +373,11 @@ export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode'
   const { moneyChordIdOverride, includeFeelReinforcement = false } = options;
   if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     const base = `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
-    return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffect}` : base;
+    return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffectTag}` : base;
   }
   const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode, opts.moneyChordModeIsExplicitChoice);
   const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
-  return includeFeelReinforcement ? `${preset.compactProgression} - ${preset.audibleEffect}` : preset.compactProgression;
+  return includeFeelReinforcement ? `${preset.compactProgression} - ${preset.audibleEffectTag}` : preset.compactProgression;
 }
 
 /**

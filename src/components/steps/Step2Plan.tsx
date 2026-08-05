@@ -354,6 +354,10 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
         onChangeFamily={id => setOpts(prev => ({ ...prev, paletteFamilyOverride: id }))}
         tempoSummaryKo={tempoSummaryKo}
         moneyChordBreakdown={moneyChordBreakdown}
+        moneyChordMode={opts.moneyChordMode}
+        moneyChordModeIsExplicitChoice={opts.moneyChordModeIsExplicitChoice}
+        customMoneyChord={opts.customMoneyChord}
+        songCount={opts.songCount}
         vocalSummaryKo={vocalSummaryKo}
         vocalIsBalanced={!opts.vocalTone}
         flagshipCombo={flagshipCombo}

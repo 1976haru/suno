@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildStylePrompt } from '../src/core/promptComposer';
 import { compactMoneyChord } from '../src/core/soundSignature';
-import { isPlausibleChordProgression, moneyChordPresets, moneyChordRotationPool, signatureMoneyChordId } from '../src/data/moneyChords';
+import { detectMoneyChordPreset, isPlausibleChordProgression, moneyChordPresets, moneyChordRotationPool, signatureMoneyChordId } from '../src/data/moneyChords';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { GenerationOptions } from '../src/types';
 
@@ -84,6 +84,19 @@ describe('money chord presets', () => {
     for (const effect of effects) expect(effect.length).toBeGreaterThan(0);
     expect(new Set(effects).size).toBe(effects.length);
   });
+
+  // v5.8 (TASK 1) — audibleEffectTag is a hand-written, <=8-word, tag-style
+  // compression of audibleEffect (not a mechanical truncation), so every
+  // preset needs its own non-empty, mutually distinct, real value.
+  it('[v5.8 TASK 1] every preset has a non-empty, mutually distinct, <=8-word audibleEffectTag', () => {
+    const tags = Object.values(moneyChordPresets).map(p => p.audibleEffectTag);
+    expect(tags.length).toBe(17);
+    for (const tag of tags) {
+      expect(tag.length).toBeGreaterThan(0);
+      expect(tag.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(8);
+    }
+    expect(new Set(tags).size).toBe(tags.length);
+  });
 });
 
 describe('[v3.33 Part C] signatureMoneyChordId / moneyChordRotationPool', () => {
@@ -128,21 +141,27 @@ describe('[v3.33 Part C] signatureMoneyChordId / moneyChordRotationPool', () => 
 });
 
 describe('[v3.33 Part C] compactMoneyChord — override + feel reinforcement', () => {
-  it('[v3.42 Part B3] includeFeelReinforcement appends that preset\'s own audibleEffect, not a fixed boilerplate suffix', () => {
+  // v5.8 (TASK 1) — includeFeelReinforcement now appends the terse
+  // audibleEffectTag (<=8 words), not the long-form audibleEffect sentence:
+  // TASK A (v4.8) found the full sentence read as decorative prose to Suno
+  // and cost budget without helping (see soundSignature.ts's own
+  // CompactMoneyChordOptions doc comment).
+  it('[v5.8 TASK 1] includeFeelReinforcement appends that preset\'s own audibleEffectTag, not the long-form audibleEffect sentence', () => {
     const opts = makeOptions({ moneyChordMode: 'default' });
     const withReinforcement = compactMoneyChord(opts, { includeFeelReinforcement: true });
     const without = compactMoneyChord(opts);
-    expect(withReinforcement).toContain(moneyChordPresets.default.audibleEffect);
-    expect(without).not.toContain(moneyChordPresets.default.audibleEffect);
+    expect(withReinforcement).toContain(moneyChordPresets.default.audibleEffectTag);
+    expect(withReinforcement).not.toContain(moneyChordPresets.default.audibleEffect);
+    expect(without).not.toContain(moneyChordPresets.default.audibleEffectTag);
     expect(withReinforcement).toContain(without); // base text preserved as a prefix
   });
 
-  it('[v3.42 Part B3] different presets get different audibleEffect reinforcement text (no shared boilerplate)', () => {
+  it('[v5.8 TASK 1] different presets get different audibleEffectTag reinforcement text (no shared boilerplate)', () => {
     const jazz = compactMoneyChord(makeOptions({ moneyChordMode: 'default' }), { moneyChordIdOverride: 'jazzColor', includeFeelReinforcement: true });
     const komuro = compactMoneyChord(makeOptions({ moneyChordMode: 'default' }), { moneyChordIdOverride: 'komuro', includeFeelReinforcement: true });
     expect(jazz).not.toBe(komuro);
-    expect(jazz).toContain(moneyChordPresets.jazzColor.audibleEffect);
-    expect(komuro).toContain(moneyChordPresets.komuro.audibleEffect);
+    expect(jazz).toContain(moneyChordPresets.jazzColor.audibleEffectTag);
+    expect(komuro).toContain(moneyChordPresets.komuro.audibleEffectTag);
   });
 
   it('moneyChordIdOverride bypasses opts.moneyChordMode entirely', () => {
@@ -154,12 +173,60 @@ describe('[v3.33 Part C] compactMoneyChord — override + feel reinforcement', (
     const opts = makeOptions({ moneyChordMode: 'default' });
     const result = compactMoneyChord(opts, { moneyChordIdOverride: 'marusa', includeFeelReinforcement: true });
     expect(result).toContain(moneyChordPresets.marusa.compactProgression);
-    expect(result).toContain(moneyChordPresets.marusa.audibleEffect);
+    expect(result).toContain(moneyChordPresets.marusa.audibleEffectTag);
   });
 
   it('an unrecognized override id falls back to the default preset rather than crashing', () => {
     const opts = makeOptions();
     expect(() => compactMoneyChord(opts, { moneyChordIdOverride: 'not-a-real-id' })).not.toThrow();
     expect(compactMoneyChord(opts, { moneyChordIdOverride: 'not-a-real-id' })).toBe(moneyChordPresets.default.compactProgression);
+  });
+});
+
+/**
+ * v5.8 (TASK 3) — detectMoneyChordPreset must disambiguate presets whose
+ * compactProgression strings share a literal substring, verified directly
+ * against data/moneyChords.ts's real current strings (re-read from the file
+ * itself, not assumed): "vi-IV-I-V" is a substring shared by cityPop's,
+ * emotional's, and winterBallad's own compactProgression text; "I-V-vi-IV"
+ * is shared by default's, emotional's, winterBallad's, and kidsBright's.
+ */
+describe('[v5.8 TASK 3] detectMoneyChordPreset — exact match, not naive substring', () => {
+  it('detects each of the 4 presets sharing the "I-V-vi-IV" substring correctly from their own full text', () => {
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.default.compactProgression}, more atoms`)).toBe('default');
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.emotional.compactProgression}, more atoms`)).toBe('emotional');
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.winterBallad.compactProgression}, more atoms`)).toBe('winterBallad');
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.kidsBright.compactProgression}, more atoms`)).toBe('kidsBright');
+  });
+
+  it('detects each of the 3 presets sharing the "vi-IV-I-V" substring correctly from their own full text', () => {
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.cityPop.compactProgression}, more atoms`)).toBe('cityPop');
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.emotional.compactProgression}, more atoms`)).toBe('emotional');
+    expect(detectMoneyChordPreset(`some genre text, ${moneyChordPresets.winterBallad.compactProgression}, more atoms`)).toBe('winterBallad');
+  });
+
+  it('a prompt with ONLY the bare shared numeral run, none of any preset\'s full compactProgression text, returns null rather than guessing', () => {
+    expect(detectMoneyChordPreset('some genre text, vi-IV-I-V, more atoms')).toBeNull();
+    expect(detectMoneyChordPreset('some genre text, I-V-vi-IV, more atoms')).toBeNull();
+  });
+
+  it('detects a preset embedded inside a real, longer style-prompt-shaped string, not just in isolation', () => {
+    const prompt = `warm nostalgic pop, soft acoustic guitar, ${moneyChordPresets.winterBallad.compactProgression}, 92 BPM, short intro`;
+    expect(detectMoneyChordPreset(prompt)).toBe('winterBallad');
+  });
+
+  it('returns null for text containing no recognizable money-chord progression at all', () => {
+    expect(detectMoneyChordPreset('warm nostalgic pop, soft acoustic guitar, 92 BPM')).toBeNull();
+  });
+
+  it('never matches "custom" — custom has no fixed compactProgression to detect', () => {
+    expect(detectMoneyChordPreset(`custom progression ${moneyChordPresets.custom.compactProgression}`)).not.toBe('custom');
+  });
+
+  it('every real preset id (except custom) is independently detectable from its own compactProgression alone', () => {
+    for (const [id, preset] of Object.entries(moneyChordPresets)) {
+      if (id === 'custom') continue;
+      expect(detectMoneyChordPreset(preset.compactProgression), `preset ${id}`).toBe(id);
+    }
   });
 });
