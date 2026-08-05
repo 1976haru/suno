@@ -43,6 +43,20 @@ export interface LyricTheme {
    * field with `{ base: 'japanese', target: 'english' }`.
    */
   learningLanguagePair?: { base: LyricLanguage; target: LyricLanguage };
+  /**
+   * v5.8 (audit follow-up, docs/v58-report.md) — real measurement found a
+   * "bedtime lullaby" concept on kr-kids/jp-kids produced energetic
+   * play/counting content, because the 8-topic-bucket theme system
+   * (data/lyricThemes.ts's own suitedArchetypes scoping) has no mood axis
+   * at all — a channel's own `preferredMoods: ['calm-focus']` signal
+   * (data/presets.ts) had nothing to bias theme selection with. Optional;
+   * only set on kr-kids-song/jp-kids-song themes whose own `emotionalArc`
+   * text is unambiguously one or the other (most themes are mood-neutral
+   * routine/education content and stay unset — core/lyricDiversityPlan.ts's
+   * own filtering only ever EXCLUDES 'energetic' for a calm-signaling
+   * channel, never requires 'calm', so neutral themes stay in the pool).
+   */
+  moodTag?: 'calm' | 'energetic';
 }
 
 export const adultLyricThemes: LyricTheme[] = [
@@ -1548,6 +1562,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'shy hesitation turning into bouncy group energy',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     educationConcept: 'jumping along with the beat',
     frameId: 'instruct-repeat'
   },
@@ -1558,6 +1573,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'careful watching becoming confident copying',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t3',
+    moodTag: 'energetic',
     educationConcept: 'following a clapping pattern',
     frameId: 'instruct-repeat'
   },
@@ -1568,6 +1584,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'sleepy reluctance turning into proud completion',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'calm',
     educationConcept: 'brushing teeth thoroughly',
     frameId: 'instruct-repeat'
   },
@@ -1628,6 +1645,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'puzzled looking turning into excited recognition',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t3',
+    moodTag: 'energetic',
     educationConcept: 'naming basic shapes',
     frameId: 'list-question'
   },
@@ -1648,6 +1666,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'shy first steps turning into roaring confidence',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t3',
+    moodTag: 'energetic',
     educationConcept: 'naming dinosaur types',
     frameId: 'list-question'
   },
@@ -1678,6 +1697,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'urgent excitement turning into proud rescue',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t3',
+    moodTag: 'energetic',
     educationConcept: 'roleplaying a firefighter rescue',
     frameId: 'list-question'
   },
@@ -1744,6 +1764,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'restless energy settling into peaceful sleep',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t1',
+    moodTag: 'calm',
     educationConcept: 'settling down for a lullaby',
     frameId: 'instruct-repeat'
   },
@@ -1754,6 +1775,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'busy morning winding down into quiet rest',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'calm',
     educationConcept: 'settling down for a nap',
     frameId: 'instruct-repeat'
   },
@@ -1764,6 +1786,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'excited fluster settling into steady calm',
     suitedArchetypes: ['kr-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'calm',
     educationConcept: 'calming down with slow breathing',
     frameId: 'instruct-repeat'
   },
@@ -1792,6 +1815,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'shy first claps turning into confident group clapping',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t1',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-clap',
     frameId: 'list-question'
   },
@@ -1812,6 +1836,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'sleepy stillness waking into bright energy',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-stomp',
     frameId: 'list-question'
   },
@@ -1822,6 +1847,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'watching from the side turning into joining the circle',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-jump',
     frameId: 'list-question'
   },
@@ -1832,6 +1858,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'quiet stillness bursting into bouncy energy',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t1',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-jump',
     frameId: 'list-question'
   },
@@ -1842,6 +1869,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'careful balance turning into dizzy giggles',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-spin',
     frameId: 'list-question'
   },
@@ -1872,6 +1900,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'quiet sitting turning into excited window-waving',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'vehicle-bus',
     frameId: 'list-question'
   },
@@ -1892,6 +1921,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'shy first hop turning into a joyful animal parade',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-jump',
     frameId: 'list-question'
   },
@@ -1902,6 +1932,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'busy wiggling settling into cozy readiness',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t1',
+    moodTag: 'calm',
     onomatopoeiaGroup: 'emotion-sleepy',
     frameId: 'instruct-repeat'
   },
@@ -1912,6 +1943,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'sleepy reluctance turning into proud completion',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'calm',
     onomatopoeiaGroup: 'motion-scrub',
     frameId: 'instruct-repeat'
   },
@@ -1952,6 +1984,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'wide-eyed excitement turning into joyful dancing',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t2',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'motion-stomp',
     frameId: 'list-question'
   },
@@ -1972,6 +2005,7 @@ export const kidsLyricThemes: LyricTheme[] = [
     emotionalArc: 'careful first steps turning into excited snow-play',
     suitedArchetypes: ['jp-kids-song'],
     ageTier: 'kids-t1',
+    moodTag: 'energetic',
     onomatopoeiaGroup: 'emotion-excited',
     frameId: 'list-question'
   },
@@ -2007,6 +2041,50 @@ export const kidsLyricThemes: LyricTheme[] = [
     ageTier: 'kids-t3',
     frameId: 'list-question',
     learningLanguagePair: { base: 'japanese', target: 'english' }
+  },
+  // v5.8 (audit follow-up, docs/v58-report.md) — real measurement found
+  // jp-kids had only 2 moodTag:'calm' themes (jpkids-pajama-change/
+  // jpkids-teeth-brushing) against kr-kids's own 4, so oyasumi-mae-no-uta
+  // (jp-kids's own "before bedtime" channel) had noticeably less genuinely
+  // calm content to draw from even after core/lyricDiversityPlan.ts's
+  // preferCalm weighting landed. These 3 mirror kr-kids's own
+  // krkids-lullaby-goodnight/krkids-naptime-blanket/krkids-calm-breathing
+  // scene shapes directly (same frameId 'instruct-repeat' so they join the
+  // same frame-share reservation those two calm themes already benefit
+  // from), translated to a genuinely Japanese setting (futon, not a
+  // Western-style bed) rather than a literal translation of the Korean
+  // scene text.
+  {
+    id: 'jpkids-lullaby-goodnight',
+    labelKo: '자장가 들으며 잠들기',
+    scene: 'being tucked into a futon while a soft lullaby hums nearby',
+    emotionalArc: 'restless energy settling into peaceful sleep',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    moodTag: 'calm',
+    onomatopoeiaGroup: 'emotion-sleepy',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-naptime-blanket',
+    labelKo: '이불 덮고 낮잠 자기',
+    scene: 'curling up under a soft blanket for afternoon nap time',
+    emotionalArc: 'busy morning winding down into quiet rest',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'calm',
+    onomatopoeiaGroup: 'emotion-sleepy',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-calm-breathing',
+    labelKo: '천천히 숨 쉬며 마음 가라앉히기',
+    scene: 'taking slow deep breaths together to feel calm after playtime',
+    emotionalArc: 'excited fluster settling into steady calm',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'calm',
+    frameId: 'instruct-repeat'
   }
 ];
 
@@ -2074,7 +2152,16 @@ const KIDS_ENGINE_THEME_BY_ID: Record<string, KidsLyricThemeHint> = {
   'jpkids-snow-play': 'season',
   'jpkids-color-in-english': 'hangul',
   'jpkids-number-in-english': 'hangul',
-  'jpkids-greeting-in-english': 'hangul'
+  'jpkids-greeting-in-english': 'hangul',
+  // v5.8 (audit follow-up) — same 'family' mapping kr-kids's own 3 calm
+  // themes already use (krkids-lullaby-goodnight/naptime-blanket/
+  // calm-breathing, above) — composeKidsLyrics has no dedicated
+  // sleep/calm KidsLyricTheme bucket (only animal/season/family/friend/
+  // play/school/counting/hangul exist), so 'family' is the closest
+  // available real content pool, not a new one invented here.
+  'jpkids-lullaby-goodnight': 'family',
+  'jpkids-naptime-blanket': 'family',
+  'jpkids-calm-breathing': 'family'
 };
 
 function normalizeCustomScene(scene: string | undefined): string {
@@ -2107,8 +2194,29 @@ export function lyricThemesForArchetype(archetype: ChannelArchetype | undefined,
   return custom ? [custom, ...base] : base;
 }
 
+/**
+ * v5.8 (audit follow-up, docs/v58-report.md) — real measurement found a
+ * channel promising calm content (`preferredMoods: ['calm-focus']`, e.g.
+ * kr-kids's bedtime-lullaby-radio) still drew energetic-arc kids themes
+ * (jump-along, dinosaur-parade, ...) just as often as any other, since
+ * theme selection never read that signal at all — `moodTag` (this file's
+ * own LyricTheme field) exists specifically to fix that. Excludes only
+ * explicit `moodTag: 'energetic'` entries (most kids themes are
+ * mood-neutral routine/education content and stay available); never
+ * requires `moodTag: 'calm'`, so this can't collapse the pool down to just
+ * the handful of explicitly-calm entries and lose variety. Guarded by the
+ * same "≥12 or fall back" threshold `lyricThemesForArchetype` already uses
+ * for its own suited/fallback split, so a future workspace whose calm-
+ * filtered pool got too small would safely keep full variety rather than
+ * silently starving.
+ */
 export function lyricThemesForOptions(opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'>): LyricTheme[] {
-  return lyricThemesForArchetype(opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage);
+  const base = lyricThemesForArchetype(opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage);
+  if (isKidsArchetype(opts.channel.archetype) && opts.channel.preferredMoods?.includes('calm-focus')) {
+    const calmFiltered = base.filter(theme => theme.moodTag !== 'energetic');
+    if (calmFiltered.length >= 12) return calmFiltered;
+  }
+  return base;
 }
 
 export function getLyricThemeById(id: string | undefined, opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'>): LyricTheme | undefined {

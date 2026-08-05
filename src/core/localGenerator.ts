@@ -511,7 +511,7 @@ export function nextContestedTitle(
  * range instead lets each track's authentic genre range absorb the band
  * spread that genre can actually support.
  */
-export function averageTempo(genres: GenrePack[], trackNo: number, band?: { low: number; high: number }, audienceFloor?: number, audienceCeiling?: number) {
+export function averageTempo(genres: GenrePack[], trackNo: number, band?: { low: number; high: number }, audienceFloor?: number, audienceCeiling?: number, genreBoundedTempo?: boolean) {
   const ranges = genres.length ? genres.map(genre => genre.tempoRange) : ([[92, 104]] as [number, number][]);
   const low = Math.round(ranges.reduce((sum, range) => sum + range[0], 0) / ranges.length);
   const high = Math.round(ranges.reduce((sum, range) => sum + range[1], 0) / ranges.length);
@@ -532,7 +532,7 @@ export function averageTempo(genres: GenrePack[], trackNo: number, band?: { low:
     return fallbackCenter;
   }
   const [leadLow, leadHigh] = genres[0]?.tempoRange ?? [low, high];
-  return resolveTempoWithBand(leadLow, leadHigh, band, audienceFloor ?? leadLow, audienceCeiling ?? leadHigh, fallbackCenter);
+  return resolveTempoWithBand(leadLow, leadHigh, band, audienceFloor ?? leadLow, audienceCeiling ?? leadHigh, fallbackCenter, genreBoundedTempo);
 }
 
 function resolveSunoStyleLimit(styleLimit: number | undefined) {
@@ -646,7 +646,7 @@ export function rebuildStylePromptsForPersonaMode(
     const trackNo = song.trackNo;
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
-    const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+    const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
     const killingPoint = killingPointPlan[idx];
     // TASK I1 (v3.11) — prefer the role actually assigned at generation time
     // (including any manual promotion via core/openingOverride.ts) over
@@ -1245,7 +1245,7 @@ export function generateLocalBlueprint(
     // (track 2) tempo override, clamped to the audience's own tempo range.
     const tempo = idx === 1 && flagshipComboTempo !== undefined
       ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
-      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
     const killingPoint = killingPointPlan[idx];
     const openingHook = openingHookPlan[idx];
     const openingLoudness = openingLoudnessPlan[idx];

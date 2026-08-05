@@ -156,7 +156,15 @@ const KR_KIDS: WorkspaceDefinition = {
   // TASK D1 §3-2/§5 — Approach A (per user decision): own archetype, not the
   // senior workspace's shared 'kids'.
   archetypeIds: ['kr-kids-song'],
-  defaultAudienceProfileId: 'kids',
+  // v5.8 (audit follow-up) — was 'kids' (the generic, age-agnostic
+  // KIDS_AUDIENCE_PROFILE); now points at this workspace's own
+  // KR_KIDS_AUDIENCE_PROFILE (data/audienceProfiles.ts) with a real
+  // measured lyricWordRange. tempoFloor/tempoCeiling stay 92-128 (unchanged
+  // from the generic profile) — see that profile's own doc comment for why
+  // widening them to cover krkids-sleep-calm's own calm range measurably
+  // broke krkids-action's tempo instead of fixing anything; that needs a
+  // deeper core/tempoPlan.ts change, not a data edit. docs/v58-report.md.
+  defaultAudienceProfileId: 'kr-kids',
   defaultLyricLanguage: 'korean',
   theme: { accent: '#f59e0b', surface: '#fffbeb' },
   terms: {},
@@ -179,7 +187,12 @@ const JP_KIDS: WorkspaceDefinition = {
   // TASK D1 §3-2/§5 — Approach A (per user decision): own archetype, not the
   // senior workspace's shared 'kids'.
   archetypeIds: ['jp-kids-song'],
-  defaultAudienceProfileId: 'kids',
+  // v5.8 (audit follow-up) — was 'kids'; now points at this workspace's own
+  // JP_KIDS_AUDIENCE_PROFILE (data/audienceProfiles.ts), tempo widened to
+  // 96-132 to match jpkids-taiso-dance's own real 132 ceiling (was clamped
+  // to 128 by the generic profile) and a real measured lyricWordRange. See
+  // docs/v58-report.md.
+  defaultAudienceProfileId: 'jp-kids',
   defaultLyricLanguage: 'japanese',
   theme: { accent: '#0ea5e9', surface: '#f0f9ff' },
   terms: {},

@@ -62,6 +62,27 @@ export function buildTempoBandPlan(bands: readonly TempoBand[], songCount: numbe
  * fallbackCenter (the old averageTempo genre-only computation, clamped to
  * [genreLow, genreHigh]) is used verbatim when no band was assigned (empty
  * band plan, e.g. songCount <= 0 upstream).
+ *
+ * v5.8 (audit follow-up, docs/v58-report.md) — `genreBounded` opts a track
+ * into approach (2) from this comment's own history above ("proportionally
+ * mapping the band center into the genre's range"), rejected for senior
+ * specifically because it capped pack-wide stddev below the >=8 target —
+ * a real, valid tradeoff for a workspace whose genres all share roughly one
+ * tempo character and where cross-song BPM VARIETY is the actual goal.
+ * kr-kids has the opposite problem: its 7 genres genuinely span calm
+ * (krkids-sleep-calm, 62-84) to energetic (krkids-action, 112-128) in the
+ * SAME workspace, and audience-profile-wide bands (data/audienceProfiles.ts's
+ * KR_KIDS_AUDIENCE_PROFILE, kept at 92-128 specifically because widening it
+ * broke krkids-action instead of fixing krkids-sleep-calm — see that
+ * profile's own doc comment) made every song land in the same wide
+ * genre-blind range regardless of which genre was actually selected. When
+ * `genreBounded` is true, the track's position within its own band gets
+ * remapped proportionally onto ITS OWN genre's real [genreLow, genreHigh]
+ * instead of being clamped to the audience-wide floor/ceiling — a calm
+ * genre stays calm, an energetic genre stays energetic, with variety now
+ * coming from where in ITS OWN range each track lands rather than across
+ * the whole workspace. `undefined`/falsy (every existing profile) is a
+ * strict no-op — identical output to before this change.
  */
 export function resolveTempoWithBand(
   genreLow: number,
@@ -69,7 +90,8 @@ export function resolveTempoWithBand(
   band: Pick<TempoBand, 'low' | 'high'> | undefined,
   audienceFloor: number,
   audienceCeiling: number,
-  fallbackCenter: number
+  fallbackCenter: number,
+  genreBounded?: boolean
 ): number {
   if (!band) return Math.min(Math.max(fallbackCenter, genreLow), genreHigh);
   const bandCenter = Math.round((band.low + band.high) / 2);
@@ -80,5 +102,12 @@ export function resolveTempoWithBand(
   // on without needing its own seed parameter.
   const jitter = ((genreLow + genreHigh) % (bandSpan + 1)) - Math.floor(bandSpan / 2);
   const withinBand = Math.min(band.high, Math.max(band.low, bandCenter + jitter));
+  if (genreBounded) {
+    const audienceSpan = Math.max(1, audienceCeiling - audienceFloor);
+    const positionInAudienceRange = Math.min(1, Math.max(0, (withinBand - audienceFloor) / audienceSpan));
+    const genreSpan = Math.max(1, genreHigh - genreLow);
+    const mappedToGenre = Math.round(genreLow + positionInAudienceRange * genreSpan);
+    return Math.min(genreHigh, Math.max(genreLow, mappedToGenre));
+  }
   return Math.min(audienceCeiling, Math.max(audienceFloor, withinBand));
 }

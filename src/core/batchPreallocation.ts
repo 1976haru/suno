@@ -577,7 +577,7 @@ export function preallocateSongSlots(
     // than this audience profile allows.
     const resolvedTempo = idx === 1 && flagshipComboTempo !== undefined
       ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
-      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling);
+      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
     // v3.82 (TASK B) — BPM-appropriate section/word/instrumental-section
     // targets for this track (see core/bpmLengthControl.ts's own doc
     // comment for the real-measurement root cause). Flagship slots (tracks

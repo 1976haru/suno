@@ -144,6 +144,24 @@ export interface AudienceProfile {
   exclusions: string[];
   tempoFloor: number;
   tempoCeiling: number;
+  /**
+   * v5.8 (audit follow-up, docs/v58-report.md) — optional, defaults to
+   * falsy/unset for every existing profile (strict no-op: senior-oldpop/
+   * kr-2030/jp-2030/kr-idol-* keep the exact tempo-band behavior v3.58/v3.77
+   * established — wide BPM variety drawn from this profile's own
+   * tempoFloor/tempoCeiling regardless of which genre a track happens to
+   * use, deliberately, per those tasks' own real-measured stddev findings).
+   * When true, core/tempoPlan.ts's resolveTempoWithBand instead remaps each
+   * track's within-band position onto that track's OWN selected genre's
+   * real tempoRange, so a workspace whose genres genuinely span calm-to-
+   * energetic (kr-kids: krkids-sleep-calm 62-84 vs krkids-action 112-128,
+   * both in the same workspace) doesn't get every song clamped into one
+   * wide, genre-blind band. See that function's own doc comment for why a
+   * flat per-genre clamp isn't the fix used for the 4 adult workspaces —
+   * this flag exists so kr-kids/jp-kids can opt into different tempo
+   * semantics without changing anyone else's.
+   */
+  genreBoundedTempo?: boolean;
   lyricWordRange: [number, number];
   /**
    * v3.73 (TASK A) — target rendered-song length in seconds, for

@@ -138,12 +138,35 @@ function poolHasExplicitFrames(pool: LyricTheme[]): boolean {
  * its cap before songCount is reached (a large songCount against a small
  * pool) rather than ever returning fewer entries than requested.
  */
-function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: number, preferredFrameId?: string): string[] {
+/**
+ * v5.8 (audit follow-up, docs/v58-report.md) — real measurement found that
+ * merely EXCLUDING moodTag:'energetic' themes for a calm-signaling kids
+ * channel (data/lyricThemes.ts's own lyricThemesForOptions filter) still
+ * left the pack dominated by mood-neutral routine/education content, since
+ * within-frame round-robin gave every remaining theme (calm-tagged or not)
+ * equal turns. `preferCalm` sorts each frame's own theme list calm-tagged-
+ * first (stable — doesn't reorder anything else) so the round-robin's
+ * "first, not-yet-used" picks favor calm themes before neutral ones cycle
+ * in, same "compute it natively inside the loop, don't post-process the
+ * output" shape as this function's own existing `brightUsed`/
+ * `BRIGHT_LYRIC_THEME_MAX` capping above (a v4.16 lesson: a post-hoc swap on
+ * this function's already-computed output perturbed spreadPlanByCounts'
+ * downstream reordering enough to cause a real title/lyric collision
+ * regression — sorting the INPUT before the loop runs avoids that class of
+ * bug entirely). No-op for every pool with zero moodTag:'calm' entries
+ * (every non-kids pool today).
+ */
+function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: number, preferredFrameId?: string, preferCalm?: boolean): string[] {
   if (!pool.length || songCount <= 0) return [];
   const byFrame = new Map<string, LyricTheme[]>();
   for (const theme of pool) {
     const frameId = themeFrameId(theme);
     byFrame.set(frameId, [...(byFrame.get(frameId) ?? []), theme]);
+  }
+  if (preferCalm) {
+    for (const [frameId, themesInFrame] of byFrame) {
+      byFrame.set(frameId, [...themesInFrame].sort((a, b) => (a.moodTag === 'calm' ? 0 : 1) - (b.moodTag === 'calm' ? 0 : 1)));
+    }
   }
   const frameIds = [...byFrame.keys()];
   const offset = Math.abs(seed + 1301) % frameIds.length;
@@ -217,6 +240,22 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
   }).filter(Boolean);
 }
 
+/** v5.8 — the frameId that owns the most moodTag:'calm' themes in this pool, or undefined if none exist. Ties broken by the pool's own declared order (stable — Map preserves insertion order). */
+function frameWithMostCalmThemes(pool: LyricTheme[]): string | undefined {
+  const calmCountByFrame = new Map<string, number>();
+  for (const theme of pool) {
+    if (theme.moodTag !== 'calm') continue;
+    const frameId = themeFrameId(theme);
+    calmCountByFrame.set(frameId, (calmCountByFrame.get(frameId) ?? 0) + 1);
+  }
+  let best: string | undefined;
+  let bestCount = 0;
+  for (const [frameId, count] of calmCountByFrame) {
+    if (count > bestCount) { best = frameId; bestCount = count; }
+  }
+  return best;
+}
+
 export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): string[] {
   const themes = lyricThemesForOptions(opts);
   const pool = themes.map(theme => theme.id);
@@ -226,9 +265,16 @@ export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): strin
   // own preferredFrameId doc comment for why, and frameIdForConceptText's
   // (data/lyricThemes.ts) doc comment for why this never forces a frame a
   // concept didn't actually name.
-  const preferredFrameId = frameIdForConceptText(opts.customConcept);
+  // v5.8 (audit follow-up) — a real concept-named frame still wins (checked
+  // first); only when the concept named nothing do we fall back to the
+  // channel's own `preferredMoods: ['calm-focus']` signal (real, structured
+  // channel data, not text-matching) and bias toward whichever frame owns
+  // the most calm-tagged themes — see allocateThemesByFrame's own
+  // `preferCalm` doc comment for the within-frame half of this fix.
+  const wantsCalm = isKidsArchetype(opts.channel.archetype) && Boolean(opts.channel.preferredMoods?.includes('calm-focus'));
+  const preferredFrameId = frameIdForConceptText(opts.customConcept) ?? (wantsCalm ? frameWithMostCalmThemes(themes) : undefined);
   const autoPlan = poolHasExplicitFrames(themes)
-    ? allocateThemesByFrame(themes, opts.songCount, seed, preferredFrameId)
+    ? allocateThemesByFrame(themes, opts.songCount, seed, preferredFrameId, wantsCalm)
     : buildStridePlan(pool, opts.songCount, Math.abs(seed + 907) % pool.length);
   const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool, seed);
   return spreadPlanByCounts(allocated, pool, 1);

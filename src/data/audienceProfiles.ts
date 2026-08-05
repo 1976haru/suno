@@ -504,11 +504,110 @@ const KIDS_4_TO_7_AUDIENCE_PROFILE: AudienceProfile = {
 };
 
 /**
+ * v5.8 (audit follow-up, docs/v58-report.md) — real measurement found
+ * kr-kids/jp-kids both still pointed `defaultAudienceProfileId` at the
+ * generic `KIDS_AUDIENCE_PROFILE` (tempoFloor 92/tempoCeiling 128,
+ * lyricWordRange [120,220]) — the exact same "no real per-workspace
+ * profile" gap v5.7 fixed for the 4 adult workspaces, just never extended
+ * to kids. lyricWordRange below is a real measurement (18-song generation,
+ * `[title]`/`[section]` tags stripped): kr-kids Korean whitespace-token
+ * count 39-52 (avg 44.8) — nowhere near the generic profile's 120 floor;
+ * jp-kids Japanese character count 152-211 (avg 183.8) — an entirely
+ * different unit than kr-kids's own Korean token count, same units
+ * distinction v5.7's own lyricMetricsByLanguage entries already established
+ * for kr-2030 vs jp-2030.
+ *
+ * tempoFloor/tempoCeiling did NOT get the same "widen to match real genre
+ * range" treatment the 4 adult workspaces got in v5.7, and that was a
+ * deliberate reversal after real measurement, not an oversight: kr-kids's
+ * own `krkids-sleep-calm` genre (data/genreLibrary/index.ts tempoRange
+ * [62,84]) never actually renders calm today because
+ * core/tempoPlan.ts's `resolveTempoWithBand` clamps every song's BPM
+ * against the AUDIENCE PROFILE's tempoFloor/tempoCeiling, not the selected
+ * genre's own tempoRange (the genre only affects a small deterministic
+ * jitter). Widening tempoFloor to 62 to "unlock" sleep-calm was tried and
+ * measured: it did let sleep-calm reach as low as 72, but it ALSO let
+ * krkids-action (spec 112-128) drop as low as 64 BPM in the same real
+ * generation run, because tempo bands are carved from the whole
+ * [tempoFloor,tempoCeiling] span and assigned across tracks independent of
+ * which genre that track actually uses — an architecture that assumes one
+ * workspace has one roughly-coherent tempo character (true for
+ * senior-oldpop/kr-2030/jp-2030/kr-idol, false for kr-kids, which
+ * legitimately spans a genuinely calm genre and a genuinely energetic one
+ * in the same workspace). Fixing this properly means changing
+ * `resolveTempoWithBand`/the tempo-band-to-track assignment itself — shared
+ * code every other workspace (including senior-oldpop) also depends on —
+ * which is a bigger, riskier change than an AudienceProfile data edit and
+ * was not made here without checking scope first. tempoFloor/tempoCeiling
+ * below are therefore kept at the same value as the generic
+ * KIDS_AUDIENCE_PROFILE (92-128) — real, measured-safe for kr-kids's own
+ * upbeat majority (5 of 7 genres), but sleep-calm's own calm character
+ * still won't reach the real output yet. jp-kids's own genre spread (96-132
+ * across all 7 genres, no bimodal calm/energetic split) doesn't hit this
+ * problem, so its tempoCeiling is safely widened to 132 below to stop
+ * jpkids-taiso-dance's own real 132 ceiling being clipped to 128.
+ */
+const KR_KIDS_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'kr-kids',
+  labelKo: '한국 동요',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 92,
+  tempoCeiling: 128,
+  // v5.8 (audit follow-up) — see this profile's own doc comment above and
+  // core/tempoPlan.ts's resolveTempoWithBand doc comment for the full
+  // reasoning: lets krkids-sleep-calm/krkids-action each land within their
+  // own real genre tempoRange instead of both being clamped to this
+  // workspace-wide 92-128 span regardless of genre.
+  genreBoundedTempo: true,
+  lyricWordRange: [35, 60],
+  songLengthSecondsRange: [90, 150],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'kr-kids-default',
+  arcModelId: 'repetition-cycle',
+  structureTemplateSetId: 'kids-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  safetyPolicyId: 'kids-safety-default',
+  lyricMetricsByLanguage: {
+    korean: { primaryRange: [35, 60], syllableRange: [80, 140] }
+  }
+};
+
+const JP_KIDS_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'jp-kids',
+  labelKo: '일본 동요',
+  constraints: [],
+  exclusions: [],
+  tempoFloor: 96,
+  tempoCeiling: 132,
+  // v5.8 (audit follow-up) — same mechanism as KR_KIDS_AUDIENCE_PROFILE
+  // above; jp-kids's own 7 genres don't have as extreme a split, but this
+  // still makes each track's tempo genuinely reflect its own genre.
+  genreBoundedTempo: true,
+  lyricWordRange: [145, 215],
+  songLengthSecondsRange: [90, 150],
+  relaxableAtPeak: [],
+  hardExclusions: [],
+  killingPointSetId: 'jp-kids-default',
+  arcModelId: 'repetition-cycle',
+  structureTemplateSetId: 'kids-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  safetyPolicyId: 'kids-safety-default',
+  lyricMetricsByLanguage: {
+    japanese: { primaryRange: [145, 215], syllableRange: [145, 215] }
+  }
+};
+
+/**
  * v4.2 (TASK A3) — every provisional/skeleton/workspace profile, for lookup
  * by id (data/workspaces/index.ts's defaultAudienceProfileId). v5.7 (TASK B)
  * added the two new kr-idol-* profiles here (not a separate array) since
  * `audienceProfileById`/`ALL_AUDIENCE_PROFILES` already iterate this one
  * list — no new plumbing needed for a real, non-skeleton profile to join it.
+ * v5.8 added KR_KIDS/JP_KIDS the same way.
  */
 export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
   KR_2030_EMOTIONAL_AUDIENCE_PROFILE,
@@ -517,6 +616,8 @@ export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
   JP_2030_ANIME_AUDIENCE_PROFILE,
   KR_IDOL_MALE_AUDIENCE_PROFILE,
   KR_IDOL_FEMALE_AUDIENCE_PROFILE,
+  KR_KIDS_AUDIENCE_PROFILE,
+  JP_KIDS_AUDIENCE_PROFILE,
   KIDS_0_TO_2_AUDIENCE_PROFILE,
   KIDS_2_TO_4_AUDIENCE_PROFILE,
   KIDS_4_TO_7_AUDIENCE_PROFILE

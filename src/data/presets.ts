@@ -364,10 +364,40 @@ export const channelPresets: ChannelProfile[] = [
     primaryLanguage: 'korean',
     audience: 'kids',
     promise: '하루를 마무리하며 편안하게 잠드는 부드러운 자장가·역할놀이 동요 플레이리스트',
-    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
-    defaultVocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
-    preferredGenres: ['krkids-sleep-calm', 'krkids-roleplay-story', 'krkids-daily-habit'],
-    preferredMoods: ['bright-playful'],
+    // v5.8 (audit follow-up) — was byte-identical to follow-along-action-song's
+    // own visualIdentity ("bright playground colors...cheerful daylight"),
+    // directly contradicting this channel's own "잠들기 전"/"편안하게 잠드는"
+    // promise. Kept the shared brand constraint (simple shapes, no
+    // characters/mascots) unchanged, only swapped the color/lighting
+    // register from bright daytime to dim evening.
+    visualIdentity: 'soft muted pastel colors, simple shapes, warm dim evening light, no characters or mascots',
+    // v5.8 (audit follow-up, docs/v58-report.md §0-1) — was byte-identical to
+    // follow-along-action-song's own defaultVocal ("bright cheerful...
+    // call-and-response singing"), an energetic delivery this channel's own
+    // forbiddenCliches list below already banned ("energetic", "hand claps")
+    // — the vocal descriptor and the exclusion list directly contradicted
+    // each other. Real 18-song generation confirmed the mismatch (see
+    // report). Now matches the channel's own stated "부드러운 자장가" promise.
+    defaultVocal: 'soft soothing solo lead vocal, gentle and unhurried delivery, quiet warm humming accents, no energetic call-and-response',
+    // v5.8 — 'krkids-daily-habit' removed: it isn't named in this channel's
+    // own promise ("자장가·역할놀이", lullaby + roleplay — no "daily habit"),
+    // its own instrument list includes 'hand claps' (directly contradicting
+    // this channel's forbiddenCliches below), and its 98-112 BPM tempo range
+    // isn't lullaby-appropriate. The 2 remaining genres both match the
+    // channel's own promise text; 'krkids-sleep-calm' (62-84 BPM) is the
+    // only genuinely calm-tempo genre in the kr-kids catalog today —
+    // 'krkids-roleplay-story' stays upbeat (105-122 BPM) since roleplay
+    // itself is explicitly promised, not miscategorized; a calm-tempo
+    // roleplay variant would be genre-catalog work, out of this preset-level
+    // fix's scope.
+    preferredGenres: ['krkids-sleep-calm', 'krkids-roleplay-story'],
+    // v5.8 — was 'bright-playful' (identical to every energetic kr-kids
+    // channel); 'calm-focus' is the only calm-register mood in the shared
+    // catalog (data/presets.ts's own MOOD_PACKS — its lyricImages lean
+    // "quiet desk/window light" rather than bedtime-specific, since no
+    // dedicated lullaby mood exists yet, but it's a real, correct
+    // improvement over the previous mismatch).
+    preferredMoods: ['calm-focus'],
     forbiddenCliches: [
       'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
       'reusing an existing nursery rhyme melody or lyrics', 'hand claps', 'energetic'
@@ -427,10 +457,19 @@ export const channelPresets: ChannelProfile[] = [
     primaryLanguage: 'japanese',
     audience: 'kids',
     promise: '生活習慣や季節の歌でゆったり過ごす、寝る前にぴったりの落ち着いた童謡プレイリスト',
-    visualIdentity: 'bright playground colors, simple shapes, cheerful daylight, no characters or mascots',
+    // v5.8 (audit follow-up, docs/v58-report.md §0-1) — was byte-identical
+    // to every energetic jp-kids channel's own visualIdentity ("bright
+    // playground colors...cheerful daylight"), contradicting this channel's
+    // own "寝る前にぴったりの落ち着いた" (calm, just right before bed)
+    // promise. Same fix as kr-kids's bedtime-lullaby-radio channel.
+    visualIdentity: 'soft muted pastel colors, simple shapes, warm dim evening light, no characters or mascots',
     defaultVocal: 'patient coaxing Japanese lead, children answering back the routine cue',
     preferredGenres: ['jpkids-daily-habit', 'jpkids-seasonal', 'jpkids-english-learning'],
-    preferredMoods: ['bright-playful'],
+    // v5.8 — was 'bright-playful' (identical to minna-de-taiso, the
+    // energetic exercise channel). 'calm-focus' also now drives real theme
+    // selection (data/lyricThemes.ts's lyricThemesForOptions), excluding
+    // moodTag:'energetic' jp-kids themes for this channel specifically.
+    preferredMoods: ['calm-focus'],
     forbiddenCliches: [
       'showa-era kissaten imagery', 'senior-radio nostalgia', 'adult romantic themes', 'scary or frightening themes',
       'reusing an existing nursery rhyme melody or lyrics', 'driving beat'
