@@ -286,6 +286,48 @@ export interface GenreTraits {
   structureTraits: string[];
 }
 
+/**
+ * TASK K1 — a plan for a song where different sections use different
+ * genres ("구간 배정", not the 2-genre blendGenreTraits average — see
+ * core/sectionGenrePlan.ts's own doc comment for why K-pop's multi-genre
+ * songs need per-section assignment rather than blending). Purely additive
+ * and opt-in: a GenerationOptions/blueprint without this field uses the
+ * existing single-genre-per-song path unchanged. Not used by any of the
+ * five existing workspaces (senior-oldpop/kr-2030/jp-2030/kr-kids/jp-kids)
+ * — reserved for the future idol workspaces (K2/K3).
+ */
+export interface SectionGenrePlan {
+  sections: SectionGenreSlot[];
+  /** How the transition between adjacent sections should read. See core/sectionGenrePlan.ts's own doc comment for the default. */
+  transition: 'hard-cut' | 'ramp' | 'shared-spine';
+}
+
+export interface SectionGenreSlot {
+  /** e.g. 'verse' | 'pre-chorus' | 'chorus' | 'bridge' | 'outro' — follows whatever section-structure vocabulary the caller's structure template uses (A3's own structureTemplateSetId owns section naming; this field just references it by string id). */
+  sectionId: string;
+  genreId: string;
+  /** How much this section's genre should stand out. */
+  presence: 'accent' | 'primary';
+}
+
+/**
+ * TASK K1 — the axes that stay fixed across every section of a
+ * SectionGenrePlan (see core/sectionGenrePlan.ts's composeSectionGenres),
+ * so a multi-genre song still reads as one song rather than several
+ * stitched together. Sourced from the chorus section's own genre — see
+ * that function's own doc comment for why.
+ */
+export interface SpineTraits {
+  eraTag: string;
+  vocalTraits: string[];
+  productionTraits: string[];
+  dynamicRange: 'low' | 'medium' | 'wide';
+  structureTraits: string[];
+  bpm: number;
+  /** The single instrumentation item shared across every section, so the song doesn't sound like a splice. */
+  sharedInstrument: string;
+}
+
 export interface MoodPack {
   id: string;
   label: string;
