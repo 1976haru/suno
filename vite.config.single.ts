@@ -16,6 +16,9 @@ function readCommitSha(): string {
   }
 }
 const commitSha = readCommitSha();
+// v5.14 — same build-time injection as vite.config.ts (see that file's own
+// doc comment); this build never imports that one, so it needs its own copy.
+const buildTime = new Date().toISOString();
 
 /**
  * TASK v3.71 (TASK A) — a separate build config (never touches `npm run
@@ -36,7 +39,8 @@ export default defineConfig({
   define: {
     __SINGLE_FILE_BUILD__: 'true',
     __APP_VERSION__: JSON.stringify(appVersion),
-    __COMMIT_SHA__: JSON.stringify(commitSha)
+    __COMMIT_SHA__: JSON.stringify(commitSha),
+    __BUILD_TIME__: JSON.stringify(buildTime)
   },
   build: {
     outDir: 'dist-single',

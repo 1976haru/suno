@@ -1,5 +1,4 @@
 import { getSetting, setSetting } from './settingsStore';
-import { EXPORT_SCHEMA_VERSION } from './exportMeta';
 
 /**
  * v4.0 (TASK C-4) — a single app-wide schema-version marker for this
@@ -13,12 +12,17 @@ import { EXPORT_SCHEMA_VERSION } from './exportMeta';
  * settingsStore.ts (the one database repair mode never wipes — see
  * browserRecovery.ts — matching "손실돼도 되는 데이터가 아니다").
  *
- * Same version number as EXPORT_SCHEMA_VERSION by design: both start at 1
- * together and are meant to stay in lockstep going forward (a schema change
- * big enough to need an export-side migration is exactly the kind of
- * change that also needs this marker bumped).
+ * v5.14 — this is now the canonical definition (previously re-derived from
+ * exportMeta.ts's EXPORT_SCHEMA_VERSION); that direction created a circular
+ * import once buildInfo.ts also needed the schema version for BUILD_INFO
+ * (exportMeta.ts already imports APP_VERSION/COMMIT_SHA from buildInfo.ts).
+ * exportMeta.ts's EXPORT_SCHEMA_VERSION now derives from this constant
+ * instead — same number, same "stay in lockstep" intent, opposite import
+ * direction. Both are meant to stay in lockstep going forward: a schema
+ * change big enough to need an export-side migration is exactly the kind
+ * of change that also needs this marker bumped.
  */
-export const CURRENT_SCHEMA_VERSION = EXPORT_SCHEMA_VERSION;
+export const CURRENT_SCHEMA_VERSION = 1;
 
 const SCHEMA_VERSION_KEY = 'schemaVersion';
 

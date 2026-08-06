@@ -20,6 +20,11 @@ function readCommitSha(): string {
   }
 }
 const commitSha = readCommitSha();
+// v5.14 — same "read once at Vite config eval time" treatment as commitSha
+// above (see src/core/buildInfo.ts's BUILT_AT); a real wall-clock build
+// timestamp, not per-request, since neither value can change without
+// restarting Vite anyway.
+const buildTime = new Date().toISOString();
 
 function readRequestBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -109,7 +114,8 @@ export default defineConfig({
   plugins: [react(), devApiPlugin()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
-    __COMMIT_SHA__: JSON.stringify(commitSha)
+    __COMMIT_SHA__: JSON.stringify(commitSha),
+    __BUILD_TIME__: JSON.stringify(buildTime)
   },
   server: {
     port: 5200,

@@ -13,7 +13,7 @@ import { getSetting, setSetting } from './settingsStore';
 import type { DiversityAllocationTemplate } from './diversityAllocationStore';
 import type { ThumbnailBrandTemplate } from '../types';
 import { parseJsonFileResponsive } from './backupImportClient';
-import { APP_VERSION, COMMIT_SHA } from './buildInfo';
+import { APP_VERSION, BUILT_AT, COMMIT_SHA } from './buildInfo';
 import { EXPORT_SCHEMA_VERSION } from './exportMeta';
 
 /**
@@ -108,6 +108,8 @@ export interface WorkspaceExportFile {
   /** v4.0 (TASK C) — see core/exportMeta.ts's own doc comment on why this is separate from formatVersion/appVersion. */
   schemaVersion: number;
   commitSha: string;
+  /** v5.14 — when this build was produced; 'dev' outside a real `npm run build`. Optional-in-practice on older exported files, which predate this field. */
+  builtAt?: string;
   workspaceId: WorkspaceId;
   workspaceLabel: string;
   exportedAt: string;
@@ -121,6 +123,8 @@ export interface WorkspaceBundleFile {
   appVersion: string;
   schemaVersion: number;
   commitSha: string;
+  /** v5.14 — see WorkspaceExportFile.builtAt's own doc comment. */
+  builtAt?: string;
   exportedAt: string;
   workspaces: Record<WorkspaceId, WorkspaceExportFile>;
 }
@@ -229,6 +233,7 @@ export async function exportWorkspace(opts: ExportOptions): Promise<WorkspaceExp
     appVersion: CURRENT_APP_VERSION,
     schemaVersion: EXPORT_SCHEMA_VERSION,
     commitSha: COMMIT_SHA,
+    builtAt: BUILT_AT,
     workspaceId: opts.workspaceId,
     workspaceLabel: workspace.labelKo,
     exportedAt: new Date().toISOString(),
@@ -258,6 +263,7 @@ export async function exportAllWorkspaces(include?: Partial<ExportInclude>): Pro
     appVersion: CURRENT_APP_VERSION,
     schemaVersion: EXPORT_SCHEMA_VERSION,
     commitSha: COMMIT_SHA,
+    builtAt: BUILT_AT,
     exportedAt: new Date().toISOString(),
     workspaces
   };

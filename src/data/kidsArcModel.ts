@@ -1,4 +1,39 @@
 /**
+ * DEPRECATED / UNUSED — verified via full-repo grep on 2026-08-06: zero
+ * real imports of any export from this file anywhere in src/ or tests/
+ * (the only hits for `KidsArcZone`/`KIDS_ARC_ZONES`/`ARC_MODEL_KIDS_ID`/
+ * `KIDS_ARC_MODEL`/`kidsArcZoneDefinition` are this file itself, docs/
+ * d2-report.md, and core/arcModels.ts's own doc comment describing —
+ * not consuming — this file). No test file exists for it either
+ * (no tests/kidsArcModel.test.ts or equivalent), so there is nothing
+ * currently depending on or exercising this code.
+ *
+ * It was superseded by core/arcModels.ts's buildRepetitionCyclePlan
+ * (v5.11), which is the real, wired-in builder for the 'repetition-cycle'
+ * ArcModelId this file's own original comment below was angling toward.
+ * The two are NOT the same shape — arcModels.ts groups an 18-song pack
+ * into 4-5 named bundles (familiar/learning/moving/calm/closing) sized by
+ * age tier, whereas this file defines 5 fixed zones (activate/learn/play/
+ * settle/sleep) with per-zone intensity ranges — but they address the same
+ * underlying gap (a kids-appropriate replacement for the adult five-phase
+ * opening/rising/peak/easing/closing curve), and arcModels.ts's own top
+ * comment already flags this file as "a separate, still-fully-unwired
+ * candidate from an earlier task... a future task can decide whether to
+ * merge or retire kidsArcModel.ts." This comment is that flag, restated
+ * here for anyone landing on this file directly instead of arcModels.ts.
+ *
+ * Removal plan (not executed here — deletion is a human call, not this
+ * task's): safe to delete once a maintainer re-confirms zero real call
+ * sites (repeat the grep above) and decides arcModels.ts's bundle model
+ * fully covers what this file was for. If a future task instead wants
+ * this file's specific activate/learn/play/settle/sleep zone shape (e.g.
+ * as a genuinely orthogonal SONG-INTERNAL energy arc, distinct from
+ * arcModels.ts's pack-level bundling), wire it in explicitly and remove
+ * this deprecation notice rather than leaving both an unwired "maybe
+ * someday" file and a wired one describing the same problem space.
+ *
+ * --- Original TASK D2 §7 comment below, kept for context ---
+ *
  * TASK D2 §7 — an alternative, kids-specific arc model, defined as DATA
  * ONLY and not wired into generation anywhere (§7-2: "결정 전까지는 모델
  * 정의만 만들고 배선하지 마십시오" — core/arcPlan.ts, which every archetype

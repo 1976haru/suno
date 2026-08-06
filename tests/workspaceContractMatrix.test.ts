@@ -69,6 +69,13 @@ import { presetsForWorkspace, findArchetypeMismatches } from '../src/hooks/useCh
 import { vocalPresets } from '../src/data/vocalPresets';
 import { channelPresets, genrePacks, moodPacks, makeOptions, testSeason } from './fixtures';
 import type { ChannelArchetype, ChannelProfile, GenerationOptions, PreassignedSongSlot, SongIdea, WorkspaceId } from '../src/types';
+// TASK (matrix gap-closing — bridge-instruction 13-item verification, #3
+// audienceProfile / #8 kidsAgeTierId): real functions this session's own
+// gap analysis named as the source of truth for those two axes, reused here
+// rather than re-derived.
+import { resolveConstraintsFromOptions } from '../src/core/constraints';
+import { audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
+import { kidsAgeTierFor } from '../src/data/kidsAgeTiers';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures / helpers
@@ -183,6 +190,39 @@ function assertMoneyChordPreserved(label: string, choices: UserExplicitChoices, 
   expect(chosenCount, `${label} criterion 3 (user money-chord choice preserved: "${choices.moneyChordMode}")`).toBeGreaterThan(0);
 }
 
+/**
+ * TASK (matrix gap-closing, Gap 2) — real gap this session's own audit
+ * named: every existing criterion-2 check above only ever validates
+ * opts.genreIds (the user's whole-pack SELECTION) against
+ * sanitizeGenreIdsForArchetype; nothing in the matrix ever re-checks each
+ * REAL per-slot genreId/effectiveGenreIds that generation actually assigned
+ * — a bug that corrupts one specific slot's genre (as opposed to the whole
+ * selection) would slip through undetected. Reuses the exact same real
+ * detection mechanism (sanitizeGenreIdsForArchetype) the pack-level check
+ * above already trusts, just applied per-slot instead of pack-wide. Works
+ * for both PreassignedSongSlot[] and SongIdea[] (both types declare
+ * `effectiveGenreIds: string[]` as a required, always-populated field — see
+ * each type's own doc comment in src/types.ts).
+ */
+function assertSlotLevelGenreValidity(
+  label: string,
+  slots: readonly { trackNo: number; genreId?: string; effectiveGenreIds?: string[] }[],
+  archetype: ChannelArchetype
+) {
+  for (const slot of slots) {
+    if (slot.genreId) {
+      expect(slot.genreId, `${label} criterion 2b (slot ${slot.trackNo} genreId non-empty)`).toBeTruthy();
+      const check = sanitizeGenreIdsForArchetype([slot.genreId], archetype);
+      expect(check.removed, `${label} criterion 2b (slot ${slot.trackNo} genreId "${slot.genreId}" valid for archetype ${archetype})`).toEqual([]);
+    }
+    for (const id of slot.effectiveGenreIds ?? []) {
+      expect(id, `${label} criterion 2c (slot ${slot.trackNo} effectiveGenreIds entries non-empty)`).toBeTruthy();
+      const check = sanitizeGenreIdsForArchetype([id], archetype);
+      expect(check.removed, `${label} criterion 2c (slot ${slot.trackNo} effectiveGenreIds entry "${id}" valid for archetype ${archetype})`).toEqual([]);
+    }
+  }
+}
+
 function assertContractLevelCriteria(
   label: string,
   workspaceId: WorkspaceId,
@@ -196,6 +236,17 @@ function assertContractLevelCriteria(
   expect(getWorkspace(workspaceId).archetypeIds, `${label} criterion 1 (effective archetype belongs to workspace)`).toContain(contract.archetype.effective);
   const sanitized = sanitizeGenreIdsForArchetype(opts.genreIds, contract.archetype.effective);
   expect(sanitized.removed, `${label} criterion 2 (every selected genreId allowed for archetype)`).toEqual(expectedRemovedGenreIds);
+  // TASK (matrix gap-closing, Gap 2) — see assertSlotLevelGenreValidity's own
+  // doc comment. Skipped only for the boundary/contamination scenarios that
+  // deliberately pass a still-contaminated `slots` array to prove criterion 2
+  // catches it at the pack level (expectedRemovedGenreIds non-empty) — those
+  // scenarios' OWN assertions already check that the contamination never
+  // reaches a real slot (e.g. B1/B2's "no song should ever be assigned the
+  // foreign genre id"), so this per-slot pass would be redundant there, not
+  // a gap.
+  if (!expectedRemovedGenreIds.length) {
+    assertSlotLevelGenreValidity(label, slots, contract.archetype.effective);
+  }
   assertMoneyChordPreserved(label, choices, slots as readonly { moneyChordId?: string }[]);
   const tally = { male: 0, female: 0, mixed: 0 };
   for (const s of slots as readonly { vocalType?: 'male' | 'female' | 'mixed' }[]) if (s.vocalType) tally[s.vocalType] += 1;
@@ -661,4 +712,116 @@ describe('[workspace contract matrix] 경계 — 10 boundary scenarios', () => {
     expect(tally.male, 'B10: male-only-quota workspace scaled to 30 songs must stay male-dominant').toBeGreaterThan(tally.female);
     assertFullContract('B10/kr-idol-male-30-songs', workspaceId, opts, choices, songs);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Bridge instruction — 13-item content verification (Gap 3). The existing
+// 필수 bridge-instruction test above only ever checked criteria 1-4 plus an
+// artist-leak scan; this checks buildClaudeCodeInstruction's REAL current
+// output shape (both the embedded request-payload JSON block and the
+// instruction prose) for the 13 items this session's own gap analysis named
+// as missing coverage: lyricLanguage, effectiveArchetype, audienceProfile,
+// money-chord selection, vocal gender+tone, genreBlendMode, perspectiveMode,
+// kidsAgeTierId, forbidden phrases, song count, per-song slot assignment,
+// response JSON schema, and trackNo-omission guidance.
+//
+// genreBlendMode (#6) and perspectiveMode (#7) are deliberately verified
+// BEHAVIORALLY rather than by grepping the instruction text for a literal
+// "genreBlendMode:"/"perspectiveMode:" label — neither axis's name ever
+// reaches the instruction as its own labeled field; both are fully resolved
+// upstream (core/genreRotation.ts's genresForTrack, core/lyricDiversityPlan.ts's
+// buildPovPlan) into each slot's own genreText/pov BEFORE buildClaudeCodeInstruction
+// ever runs, so the real, checkable signal is that changing the axis changes
+// what the agent is actually handed, not a missing text label. This is a
+// design observation, not a bug — see the report for this task for the full
+// note.
+// ---------------------------------------------------------------------------
+
+describe('[workspace contract matrix] bridge instruction — 13-item content verification', () => {
+  for (const workspaceId of WORKSPACE_IDS) {
+    it(`workspace: ${workspaceId}`, () => {
+      const isKids = workspaceId === 'kr-kids' || workspaceId === 'jp-kids';
+      const opts = optsFor(workspaceId, {
+        moneyChordMode: 'emotional',
+        moneyChordModeIsExplicitChoice: true,
+        perspectiveMode: 'fixed',
+        perspectiveModeIsExplicitChoice: true,
+        customConcept: 'a quiet story about letting go',
+        ...(isKids ? { kidsAgeTierId: 'kids-t1' as const } : {})
+      });
+      const slots = runBatchSlots(opts);
+      const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
+      const resolvedConstraints = resolveConstraintsFromOptions(opts, audienceProfile, workspaceId);
+      const instruction = buildClaudeCodeInstruction(opts, genresFor(opts), moodsFor(opts), testSeason, undefined, slots, false, { resolvedConstraints });
+
+      const jsonMatch = instruction.match(/```json\n([\s\S]*?)\n```/);
+      expect(jsonMatch, `${workspaceId}/bridge-13item: request payload JSON block must be present`).toBeTruthy();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload = JSON.parse(jsonMatch![1]) as any;
+
+      // 1. lyricLanguage
+      expect(payload.lyricLanguage, `${workspaceId}/bridge-13item #1 lyricLanguage`).toBe(opts.lyricLanguage);
+
+      // 2. effectiveArchetype — the real channel archetype actually sent to the agent, and it belongs to this workspace.
+      expect(payload.channel.archetype, `${workspaceId}/bridge-13item #2 effectiveArchetype in payload`).toBe(opts.channel.archetype);
+      expect(getWorkspace(workspaceId).archetypeIds, `${workspaceId}/bridge-13item #2 effectiveArchetype belongs to workspace`).toContain(payload.channel.archetype);
+
+      // 3. audienceProfile — the real audience id and its generation pack both reach the agent.
+      expect(payload.audience, `${workspaceId}/bridge-13item #3 audienceProfile (audience id)`).toBe(opts.audience);
+      expect(audienceProfile.id, `${workspaceId}/bridge-13item #3 audienceProfile resolves to a real profile`).toBeTruthy();
+
+      // 4. money-chord selection — the explicit user pick is named in the payload and its verbatim-weave instruction line is present.
+      expect(payload.moneyChordMode, `${workspaceId}/bridge-13item #4 moneyChordMode in payload`).toBe('emotional');
+      expect(instruction, `${workspaceId}/bridge-13item #4 moneyChordText instruction line present`).toMatch(/moneyChordText/);
+
+      // 5. vocal gender+tone — the resolved tone reaches the payload, and the per-track vocal-composition table/rule is present.
+      expect(payload.vocalTone, `${workspaceId}/bridge-13item #5 vocalTone in payload`).toBe(opts.vocalTone || opts.channel.defaultVocal);
+      expect(instruction, `${workspaceId}/bridge-13item #5 vocal composition section present`).toContain("This set's vocal composition");
+
+      // 6. genreBlendMode — behavioral check (see this describe block's own header comment): switching modes must change what each slot's genreText/effectiveGenreIds actually carries into the instruction, for a multi-genre selection.
+      const blendPool = CORE_GENRE_IDS_BY_ARCHETYPE[opts.channel.archetype as ChannelArchetype] ?? [];
+      if (blendPool.length >= 2) {
+        const sharedPrimarySlots = runBatchSlots(optsFor(workspaceId, { genreIds: blendPool.slice(0, 2), genreBlendMode: 'shared-primary' }));
+        const leadOnlySlots = runBatchSlots(optsFor(workspaceId, { genreIds: blendPool.slice(0, 2), genreBlendMode: 'lead-only' }));
+        const differs = sharedPrimarySlots.some((slot, i) => slot.effectiveGenreIds.length !== leadOnlySlots[i]?.effectiveGenreIds.length);
+        expect(differs, `${workspaceId}/bridge-13item #6 genreBlendMode changes each slot's resolved genre set`).toBe(true);
+      }
+
+      // 7. perspectiveMode — 'fixed' (set above) must give every slot the chosen perspective (100%), not the 'dominant' default's ~60% lean.
+      const slotsWithPov = slots.filter(slot => slot.pov);
+      expect(slotsWithPov.every(slot => slot.pov === opts.perspective), `${workspaceId}/bridge-13item #7 perspectiveMode 'fixed' gives every slot the chosen perspective`).toBe(true);
+
+      // 8. kidsAgeTierId — kids workspaces only: every slot's tempo stays inside the explicitly requested tier's own range.
+      if (isKids) {
+        const tier = kidsAgeTierFor('kids-t1');
+        for (const slot of slots) {
+          expect(slot.tempo, `${workspaceId}/bridge-13item #8 kidsAgeTierId tempo range (track ${slot.trackNo})`).toBeGreaterThanOrEqual(tier.tempoRange[0]);
+          expect(slot.tempo, `${workspaceId}/bridge-13item #8 kidsAgeTierId tempo range (track ${slot.trackNo})`).toBeLessThanOrEqual(tier.tempoRange[1]);
+        }
+      }
+
+      // 9. forbidden phrases — resolvedConstraints.vocabulary.forbidden, when non-empty, must actually render in the [이 세트의 컨셉 제약] section.
+      if (resolvedConstraints.vocabulary.forbidden.length) {
+        expect(instruction, `${workspaceId}/bridge-13item #9 forbidden phrases rendered`).toContain(resolvedConstraints.vocabulary.forbidden[0]);
+      }
+
+      // 10. song count — named in both the output-requirement prose and the payload.
+      expect(instruction, `${workspaceId}/bridge-13item #10 song count in output requirement`).toContain(`${opts.songCount} objects total`);
+      expect(payload.songCount, `${workspaceId}/bridge-13item #10 song count in payload`).toBe(opts.songCount);
+
+      // 11. per-song slot assignment — every real trackNo's own row appears in the per-track plan table.
+      for (const slot of slots) {
+        expect(instruction, `${workspaceId}/bridge-13item #11 track ${slot.trackNo} row present in per-track plan table`).toContain(`| ${slot.trackNo} |`);
+      }
+
+      // 12. response JSON schema — outputShape.songs[0] names every field a real SongIdea needs, including trackNo.
+      const exampleSong = payload.outputShape.songs[0];
+      for (const field of ['trackNo', 'title', 'hookPhrase', 'stylePrompt', 'lyrics', 'youtube']) {
+        expect(exampleSong, `${workspaceId}/bridge-13item #12 schema field "${field}" present`).toHaveProperty(field);
+      }
+
+      // 13. trackNo-omission guidance — the schema's own example literally shows a trackNo value, so an agent following outputShape verbatim cannot omit it without visibly deviating from the shown shape.
+      expect(exampleSong.trackNo, `${workspaceId}/bridge-13item #13 trackNo present in schema example`).toBe(1);
+    });
+  }
 });

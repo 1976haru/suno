@@ -29,7 +29,10 @@ import type { PeakStrength, SlotArcPosition } from './arcPlan';
  * songs each, not 5 zones) given directly for this task; the two were
  * deliberately left unreconciled rather than one silently overwriting the
  * other's intent — a future task can decide whether to merge or retire
- * kidsArcModel.ts.
+ * kidsArcModel.ts. (2026-08-06 follow-up: re-verified still zero real call
+ * sites for that file and marked it DEPRECATED with a removal plan at its
+ * own top comment — no behavior change, this builder's bundle logic below
+ * is untouched.)
  *
  * Downstream compatibility: `SlotArcPosition.phase` is typed as arcPlan.ts's
  * `ArcPhase`, which this task's own instructions said may need widening

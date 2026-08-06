@@ -1,4 +1,5 @@
 import type { PlaylistBlueprint, SongIdea, WorkspaceId } from '../types';
+import { BUILD_INFO } from './buildInfo';
 import type { AudioArchiveEntry } from './audioArchive';
 import type { AudioTake } from './audioTakes';
 import { getTakes } from './audioTakes';
@@ -53,9 +54,28 @@ export function withUtf8Bom(csvText: string): string {
   return UTF8_BOM + csvText;
 }
 
-/** The one non-pure function in this module: hands the BOM-prefixed CSV text off to utils/exporters.ts's existing downloadBlob (Blob + anchor-click download). */
+/**
+ * v5.14 — a leading `#`-comment line carrying this build's version identity
+ * (same shape as utils/exporters.ts's exportCsv metaLine), so a take-ledger
+ * or set-summary sheet opened months later can be traced back to the app
+ * version/commit/schema that produced it. Deliberately NOT folded into
+ * buildTakeLedgerCsv/buildSetSummaryCsv/buildArchiveTrackCsv/
+ * buildChannelArchiveSummaryCsv themselves — those functions' return values
+ * are asserted on by line-index/line-count in tests/csvExport.test.ts
+ * (header at line 0, first data row at line 1, exact `toHaveLength` counts);
+ * adding a line there would break every one of those assertions for no
+ * benefit. Applied once, here, at the point where a CSV actually leaves the
+ * browser — kept pure (no BOM) for the same unit-testability reason as
+ * withUtf8Bom above.
+ */
+export function withBuildInfoComment(csvText: string): string {
+  const { appVersion, commitSha, schemaVersion, builtAt } = BUILD_INFO;
+  return `# suno-weaver-studio ${appVersion} · commit ${commitSha} · schema ${schemaVersion} · built ${builtAt}\r\n${csvText}`;
+}
+
+/** The one non-pure function in this module: hands the BOM-prefixed, build-info-commented CSV text off to utils/exporters.ts's existing downloadBlob (Blob + anchor-click download). */
 export function downloadCsv(filename: string, csvText: string): void {
-  downloadBlob(filename, new Blob([withUtf8Bom(csvText)], { type: 'text/csv;charset=utf-8' }));
+  downloadBlob(filename, new Blob([withUtf8Bom(withBuildInfoComment(csvText))], { type: 'text/csv;charset=utf-8' }));
 }
 
 // ---------------------------------------------------------------------------

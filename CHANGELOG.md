@@ -4,6 +4,42 @@ Summary of notable changes from v3.0 through v3.6. Dates are omitted since
 versions weren't tagged at release time — this is a retrospective summary
 written alongside the v3.6 work.
 
+**Gap notice (added in v5.14.0):** this file was never updated past v3.6,
+even though `package.json`'s `"version"` field and the commit history both
+kept moving (informal task-doc naming reached "v5.13" before this entry was
+written). Nothing between v3.7 and v5.13 is documented here — this entry
+does not attempt to reconstruct that history retroactively (see v5.14.0's
+own entry below for why), so treat everything below v5.14.0 as accurate but
+incomplete relative to the actual commit log.
+
+## v5.14.0
+
+- **Version consolidation**: `package.json`'s `"version"` (previously stale
+  at `4.0.0`), the app's own UI header (previously a hardcoded "Suno Weaver
+  Studio v3" string, unrelated to either the package version or the commit
+  history), and this changelog had drifted into three unrelated numbers
+  with no way for anyone looking at a running build to tell which
+  commit/feature-set they were actually looking at.
+- Added `src/core/buildInfo.ts`'s `BUILD_INFO` (`appVersion`,
+  `schemaVersion`, `commitSha`, `builtAt`) as the single source every
+  version display now reads from — extending v4.0 (TASK C)'s existing
+  `APP_VERSION`/`COMMIT_SHA` injection (Vite `define`, see
+  `vite.config.ts`/`vite.config.single.ts`) with a real `builtAt` (`new
+  Date().toISOString()`, injected the same way) and `schemaVersion` (reused
+  from `core/schemaVersion.ts`'s `CURRENT_SCHEMA_VERSION`, not a new
+  constant).
+- Fixed the app header's hardcoded "Suno Weaver Studio v3" string to show
+  the real `BUILD_INFO.appVersion`, commit, and schema.
+- `BUILD_INFO`/`builtAt` now flows through every real export this app
+  produces: the pack JSON/CSV export meta (`core/exportMeta.ts`'s
+  `buildExportMeta`, already used by `utils/exporters.ts` and
+  `core/standaloneProgressExport.ts`), the workspace backup file
+  (`core/workspaceTransfer.ts`'s `WorkspaceExportFile`/`WorkspaceBundleFile`
+  — `appVersion`/`schemaVersion`/`commitSha` were already wired in v4.0;
+  this task added `builtAt`), and the take-ledger/set-summary CSV downloads
+  (`core/csvExport.ts`'s `downloadCsv`, previously carrying no version
+  information at all).
+
 ## v3.6
 
 - **Prompt hard cap**: added `INPUT_LIMITS` with live character counters on

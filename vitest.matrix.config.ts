@@ -14,7 +14,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['tests/workspaceContractMatrix.test.ts'],
+    // TASK (matrix gap-closing) — tests/providerResponseFixtures.test.ts
+    // (the 12-fixture x 7-workspace provider-response matrix) is a sibling
+    // of workspaceContractMatrix.test.ts: same "never picked up by npm
+    // test/test:fast" isolation reasoning as this file's own header comment
+    // already explains, so it's added here rather than getting a third config.
+    include: ['tests/workspaceContractMatrix.test.ts', 'tests/providerResponseFixtures.test.ts'],
     testTimeout: 30000
   }
 });

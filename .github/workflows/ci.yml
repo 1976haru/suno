@@ -4,16 +4,97 @@ on:
   push:
   pull_request:
 
+# TASK (CI test-tier split) — was a single `test` job (checkout -> setup-node
+# -> npm ci -> typecheck -> test -> build), all sequential steps in one job.
+# GitHub Actions stops a job at its first failing step by default, so when
+# `npm run test` (plain `vitest run`, the whole tests/**/*.test.ts glob
+# including slow files like tests/promptLength.test.ts and
+# tests/stress-production.test.ts) genuinely timed out, `npm run build`
+# never ran at all — a real compile error could sit undetected. Split into 5
+# independent jobs so `build` (and every other job) runs regardless of
+# `unit`'s outcome; each job does its own checkout + npm ci rather than
+# sharing a setup job, since these are small/fast (`npm ci` is already
+# cached via setup-node's own `cache: npm`) and simple parallel jobs are
+# easier to reason about than an artifact-passing setup step for a suite
+# this size. No `needs:` between any of them — that's the whole point of
+# separating them; a slow/failing `unit` or `stress` run no longer hides a
+# `build` failure or blocks `matrix`/`isolation` from reporting.
 jobs:
-  test:
+  unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          # TASK (CI test-tier split) — Node 20 hit LTS end-of-life; Node 24
+          # is current Active LTS and matches actions/checkout@v7 /
+          # actions/setup-node@v7's own now-node24 action runtime (see this
+          # workflow's Node-version-warning note below) as well as this
+          # repo's local dev Node version. No project code required this
+          # bump (typecheck/test/build all verified green under it) — it's
+          # a currency fix, not a compatibility fix.
+          node-version: '24'
           cache: 'npm'
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+
+  matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:matrix
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
       - run: npm run build
+
+  isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run audit:isolation
+
+  stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:stress
+
+# TASK (CI test-tier split) — the "Node 20 기반 액션이 Node 24 에서 강제
+# 실행된다" (Node-20-based actions force-run on Node 24) warning is NOT
+# about the `node-version:` input above (that only controls which Node
+# runs THIS repo's own npm scripts). It's about the actions' own execution
+# runtime: actions/checkout@v4 and actions/setup-node@v4's action.yml both
+# declare `runs.using: node20` (verified via
+# raw.githubusercontent.com/actions/checkout/v4/action.yml and .../setup-
+# node/v4/action.yml). GitHub Actions runners are retiring the Node 20
+# runtime used to execute JS actions, so a `using: node20` action still
+# gets force-run under the runner's Node 24 interpreter with a deprecation
+# warning — bumping `node-version` would not touch this at all. The real
+# fix is the actions/checkout@v7 and actions/setup-node@v7 bump above:
+# both v7 releases declare `runs.using: node24` (verified the same way
+# against .../v7.0.1/action.yml and .../v7.0.0/action.yml), so the
+# declared and actual runtime now match and the warning is gone.

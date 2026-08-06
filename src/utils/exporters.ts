@@ -366,7 +366,7 @@ export function exportCsv(blueprint: PlaylistBlueprint, soundSignature?: SoundSi
   // no fixed column-index consumer to break, and a comment row is the
   // simpler read for a human opening this in a spreadsheet.
   const meta = buildExportMeta(blueprint.generatedAt);
-  const metaLine = `# appVersion=${meta.appVersion} schemaVersion=${meta.schemaVersion} commitSha=${meta.commitSha} workspaceId=${meta.workspaceId} generatedAt=${meta.generatedAt} exportFormatVersion=${meta.exportFormatVersion}`;
+  const metaLine = `# appVersion=${meta.appVersion} schemaVersion=${meta.schemaVersion} commitSha=${meta.commitSha} builtAt=${meta.builtAt} workspaceId=${meta.workspaceId} generatedAt=${meta.generatedAt} exportFormatVersion=${meta.exportFormatVersion}`;
   return [metaLine, ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
 }
 

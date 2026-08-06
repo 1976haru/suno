@@ -9,44 +9,26 @@ import {
   TERM_LABELS_KO
 } from '../src/core/promptComposer';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { enforcePromptLengthBudget, scoreSongs } from '../src/core/quality';
+import { enforcePromptLengthBudget } from '../src/core/quality';
 import { buildGenrePromptSummary } from '../src/core/promptComposer';
 import { channelPresets, genrePacks, moodPacks, seasonPacks } from '../src/data/presets';
 import { makeOptions } from './fixtures';
-import type { LyricLanguage } from '../src/types';
 
-const LANGUAGES: LyricLanguage[] = ['english', 'korean', 'japanese'];
+// TASK (CI test-tier split) — the original '30 songs x 3 languages x every
+// channel/season combo' test that lived here (every channelPresets entry x
+// 3 languages x every seasonPacks entry x 30 songs, ~40s measured in
+// isolation, worse under full-suite CPU contention) moved out to
+// tests/promptLength-senior.test.ts / -kr2030 / -jp2030 / -kids / -idol —
+// one file per workspace family, each running in its own vitest worker so a
+// single slow/failing workspace no longer blocks or obscures the rest of
+// this file's (fast) tests, and the heavy work actually parallelizes across
+// CPU cores instead of running serially in one test. Same assertions
+// (song.stylePrompt.length <= SUNO_STYLE_LIMIT, song.promptWithinLimit ===
+// true), same makeOptions/generateLocalBlueprint/scoreSongs call shape —
+// see tests/fixtures.ts's checkPromptLengthForChannels, which all 5 files
+// now call. Nothing here changes what was verified, only where.
 
 describe('[P0-1] every generated stylePrompt fits Suno\'s 1,000-char style field', () => {
-  it('30 songs x 3 languages x every channel/season combo never exceeds SUNO_STYLE_LIMIT', () => {
-    let checked = 0;
-    for (const channel of channelPresets) {
-      const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
-      const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id));
-      for (const language of LANGUAGES) {
-        for (const season of seasonPacks) {
-          const opts = makeOptions({ channel, lyricLanguage: language, seasonId: season.id, songCount: 30 });
-          const blueprint = generateLocalBlueprint(opts, genres, moods, season);
-          const scored = scoreSongs(blueprint.songs, channel, language);
-          for (const song of scored) {
-            checked += 1;
-            expect(song.stylePrompt.length, `${channel.id}/${language}/${season.id} track ${song.trackNo}`).toBeLessThanOrEqual(SUNO_STYLE_LIMIT);
-            expect(song.promptWithinLimit).toBe(true);
-          }
-        }
-      }
-    }
-    expect(checked).toBeGreaterThan(0);
-    // TASK v4.7 (팔레트 커버리지 확장) — explicit longer timeout: this test
-    // already iterates every channel x 3 languages x every season x 30
-    // songs, and era-canon-palette coverage now spans ~70 genres (up from
-    // ~15) across 7 palettes' worth of eraCanonPalettePlan.ts computation
-    // per song. Measured ~20s in isolation, comfortably under this, but
-    // close enough to the default 30s that it timed out under parallel
-    // full-suite load — a real, if modest, cost of the wider coverage, not
-    // a hang.
-  }, 60000);
-
   it('[A2] essential terms are never excluded, even under a tiny budget', () => {
     const parts = [
       { id: 'genre' as const, text: 'warm adult contemporary pop' },

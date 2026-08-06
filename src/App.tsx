@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ImagePlus, Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
+import { BUILD_INFO } from './core/buildInfo';
 import type { ThumbnailArchetypeId } from './data/thumbnailArchetypes';
 import { moneyChordPresets } from './data/moneyChords';
 import { AUTOSAVE_ID, listChannelPersonas, recordChannelPersonaUse, saveAutosave, saveChannelPersona, type ChannelPersonaRecord } from './core/library';
@@ -1002,7 +1003,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     <main className="app-shell" style={{ ['--teal' as string]: workspace.theme.accent, ['--bg' as string]: workspace.theme.surface }}>
       <header className="topbar">
         <div>
-          <p className="eyebrow">Suno Weaver Studio v3</p>
+          <p className="eyebrow">Suno Weaver Studio {BUILD_INFO.appVersion}</p>
+          <p className="eyebrow-build">commit {BUILD_INFO.commitSha} · schema {BUILD_INFO.schemaVersion}</p>
           <h1>Playlist prompt and lyrics workbench</h1>
           <button type="button" className="workspace-indicator" onClick={handleRequestSwitchWorkspace} title="다른 워크스페이스로 전환">
             {workspace.labelKo} · 전환

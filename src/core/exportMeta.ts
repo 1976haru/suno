@@ -1,4 +1,5 @@
-import { APP_VERSION, COMMIT_SHA } from './buildInfo';
+import { APP_VERSION, BUILT_AT, COMMIT_SHA } from './buildInfo';
+import { CURRENT_SCHEMA_VERSION } from './schemaVersion';
 import { currentWorkspaceId } from './workspaceScope';
 import type { WorkspaceId } from '../types';
 
@@ -18,14 +19,23 @@ import type { WorkspaceId } from '../types';
  * `exportFormatVersion` (which versions the FILE'S shape, e.g.
  * workspaceTransfer.ts's own TRANSFER_FORMAT_VERSION) or `appVersion`
  * (which versions the whole app).
+ *
+ * v5.14 — now derived from schemaVersion.ts's CURRENT_SCHEMA_VERSION (the
+ * canonical constant as of this task) rather than the other way around;
+ * see that file's own doc comment for why the direction flipped
+ * (buildInfo.ts needed the schema version too, and exportMeta.ts already
+ * imports APP_VERSION/COMMIT_SHA from buildInfo.ts, so the old direction
+ * would have created a cycle). Value is unchanged (still 1).
  */
-export const EXPORT_SCHEMA_VERSION = 1;
+export const EXPORT_SCHEMA_VERSION = CURRENT_SCHEMA_VERSION;
 export const EXPORT_FORMAT_VERSION = 1;
 
 export interface ExportMeta {
   appVersion: string;
   schemaVersion: number;
   commitSha: string;
+  /** v5.14 — when this build was produced (see core/buildInfo.ts's BUILD_INFO.builtAt); 'dev' outside a real `npm run build`. */
+  builtAt: string;
   workspaceId: WorkspaceId;
   generatedAt: string;
   exportFormatVersion: number;
@@ -37,6 +47,7 @@ export function buildExportMeta(generatedAt?: string, workspaceId: WorkspaceId =
     appVersion: APP_VERSION,
     schemaVersion: EXPORT_SCHEMA_VERSION,
     commitSha: COMMIT_SHA,
+    builtAt: BUILT_AT,
     workspaceId,
     generatedAt: generatedAt ?? new Date().toISOString(),
     exportFormatVersion: EXPORT_FORMAT_VERSION
