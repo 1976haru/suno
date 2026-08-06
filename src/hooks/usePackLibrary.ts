@@ -3,6 +3,8 @@ import { AUTOSAVE_ID, buildDefaultPackName, deleteAllPacks, deletePack, exportAl
 import { importPacksResponsive } from '../core/backupImportClient';
 import { clearAllSettings } from '../core/settingsStore';
 import { clearAllHookHistory, forgetPack, recordPackHooks } from '../core/hookLedger';
+import { clearAllSituationHistory, forgetPack as forgetSituationsPack, recordPackSituations } from '../core/situationLedger';
+import { clearAllLyricLineHistory, forgetPack as forgetLyricLinesPack, recordPackLyricLines } from '../core/lyricLineLedger';
 import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature, ThumbnailSpec } from '../types';
 
@@ -36,6 +38,19 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       await forgetPack(AUTOSAVE_ID);
     } catch {
       // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
+    try {
+      // v5.22 (AXIS 1) — same promote-from-autosave shape as recordPackHooks
+      // just above: situations/lyric lines were already tracked under the
+      // ephemeral autosave slot at generation time (see App.tsx's own
+      // recordPackHooks-adjacent call), re-recorded here under this pack's
+      // real, permanent id.
+      await recordPackSituations(id, options.channel.id, blueprint, options.lyricLanguage);
+      await recordPackLyricLines(id, options.channel.id, blueprint, options.lyricLanguage);
+      await forgetSituationsPack(AUTOSAVE_ID);
+      await forgetLyricLinesPack(AUTOSAVE_ID);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
     }
     try {
       // A saved pack is the operational unit of one video — draft a dashboard
@@ -78,6 +93,16 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       await recordPackHooks(id, options.channel.id, blueprint, options.lyricLanguage);
     } catch {
       // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
+    }
+    try {
+      // v5.22 (AXIS 1) — same "record everything real" shape as
+      // recordPackHooks just above; multi-set sets need this most, since
+      // cross-set scene/line duplication is exactly what this ledger exists
+      // to catch (see situationLedger.ts/lyricLineLedger.ts's own doc comments).
+      await recordPackSituations(id, options.channel.id, blueprint, options.lyricLanguage);
+      await recordPackLyricLines(id, options.channel.id, blueprint, options.lyricLanguage);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
     }
     try {
       await upsertVideoForPack({
@@ -125,6 +150,18 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Hook ledger tracking is best-effort; a save should still succeed even if this fails.
     }
+    try {
+      // v5.22 (AXIS 1) — same rationale as saveImportedPack's own recordPackHooks
+      // just above: a bridge import's scenes/lines must survive past this
+      // session the same way its hooks now do, or the next day's bridge
+      // instruction's recent-scene/recent-line avoid-lists would never see them.
+      await recordPackSituations(id, options.channel.id, blueprint, options.lyricLanguage);
+      await recordPackLyricLines(id, options.channel.id, blueprint, options.lyricLanguage);
+      await forgetSituationsPack(AUTOSAVE_ID);
+      await forgetLyricLinesPack(AUTOSAVE_ID);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
+    }
     await refresh();
     return id;
   }
@@ -140,6 +177,15 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       await forgetPack(id);
     } catch {
       // Hook ledger tracking is best-effort; deletion should still succeed even if this fails.
+    }
+    try {
+      // v5.22 (AXIS 1) — same "free it back into the pool" rule as the hook
+      // ledger just above: a deleted pack's scenes/lines must not keep
+      // permanently blocking future generations from reusing them.
+      await forgetSituationsPack(id);
+      await forgetLyricLinesPack(id);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
     }
     try {
       await forgetVideosForPack(id);
@@ -175,6 +221,9 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     if (!window.confirm('저장된 모든 팩, 훅 이력, 로컬 API 키를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
     await deleteAllPacks();
     await clearAllHookHistory();
+    // v5.22 (AXIS 1) — same "전체 삭제" scope as clearAllHookHistory just above.
+    await clearAllSituationHistory();
+    await clearAllLyricLineHistory();
     await clearAllSettings();
     await refresh();
   }

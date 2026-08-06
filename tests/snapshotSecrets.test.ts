@@ -104,7 +104,7 @@ describe('[v5.17 TASK A] pack JSON export never leaks a secret', () => {
 });
 
 describe('[v5.17 TASK A] workspace backup export never leaks a secret (scenario A/B)', () => {
-  const PACKS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
+  const PACKS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, situations: false, lyricLines: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
 
   beforeEach(async () => {
     setCurrentWorkspace('senior-oldpop');
@@ -194,7 +194,7 @@ describe('[v5.17 TASK A §1-3] already-saved (legacy) packs get scrubbed on read
 });
 
 describe('[v5.17 TASK A §1-3 item 3] importing a file with a leaked secret ignores and warns, never writes it', () => {
-  const PACKS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
+  const PACKS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, situations: false, lyricLines: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
 
   beforeEach(async () => {
     setCurrentWorkspace('senior-oldpop');

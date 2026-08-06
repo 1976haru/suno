@@ -6,6 +6,9 @@ import { detectVocalGender, detectVocalGenderPresence } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { eraLyricSafetyIssues } from '../data/japaneseEraGuidance';
 import { extractContentIdFlags } from './exportCompliance';
+import { lintEnglishLyrics } from './englishLint';
+import { checkTempoAgainstAudienceProfile, checkTempoWordingContradiction } from './tempoComplianceGate';
+import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -519,6 +522,55 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   for (const warning of hookCheck.warnings) pushUnique(warnings, warning);
   score -= hookCheck.penalty;
 
+  // v5.22 (AXIS 3 §3-5) — every real generation path (bridge import, Batch
+  // result, realtime API, local generation, per-song regen) already funnels
+  // through scoreSong regardless of provider (see TASK A1/A5's own doc
+  // comment just below on the identical reasoning for stylePrompt fixups) —
+  // the single choke point this task's own §3-5 asks englishLint to be
+  // wired into, rather than adding a second call site per path. English-only
+  // (core/englishLint.ts checks English grammar rules; running them against
+  // Korean/Japanese lyrics — including a 'bilingual' pack's own mixed lines —
+  // would be meaningless, so this is skipped for every other language).
+  let englishScore = 100;
+  if (language === 'english') {
+    const lint = lintEnglishLyrics(song.lyrics, song.hookPhrase);
+    for (const issue of lint.issues) pushUnique(warnings, `English lint (${issue.severity}): ${issue.labelKo} — "${issue.excerpt}"`);
+    const blockingCount = lint.issues.filter(issue => issue.severity === 'blocking').length;
+    englishScore = Math.max(0, 100 - blockingCount * 15);
+    score -= blockingCount * 8;
+  }
+
+  // v5.22 (AXIS 2 §2-3) — same "every path funnels through scoreSong" choke
+  // point as englishScore just above, for the POST-hoc BPM verification
+  // core/tempoComplianceGate.ts's own header doc comment explains (a real
+  // pack delivered BPM 131 against a documented 100 ceiling — the
+  // pre-generation design-time check alone wasn't enough).
+  //
+  // v5.22 — checkTempoAgainstGenreRange is deliberately NOT wired in here,
+  // even though the task spec's own §2-3 asks for it: real verification
+  // (tests/quality.test.ts's own "well-formed locally generated song"
+  // case) showed a legitimate, correctly-generated song at BPM 84 against
+  // its genre's own tempoRange of 96-106 — core/tempoPlan.ts's
+  // resolveTempoWithBand resolves BPM from the audience profile's tempo
+  // BAND, explicitly NOT from any individual genre's own tempoRange, by
+  // design (see that function's own doc comment). Enforcing genre.tempoRange
+  // here would flag correctly-generated packs as broken across this whole
+  // app, not catch a real defect — the function itself stays in
+  // tempoComplianceGate.ts (still correct in isolation, and tested there)
+  // for whichever future task actually reconciles tempo-band vs.
+  // genre-tempoRange design, but it is not a safe check to enforce today.
+  if (typeof song.bpm === 'number') {
+    const audienceProfile = audienceProfileForChannelArchetype(channel?.archetype, channel?.audience);
+    const tempoIssues = [
+      ...checkTempoAgainstAudienceProfile(song.bpm, audienceProfile),
+      ...checkTempoWordingContradiction(song.stylePrompt, song.bpm)
+    ];
+    for (const issue of tempoIssues) {
+      pushUnique(warnings, `Tempo compliance: ${issue.labelKo} — ${issue.detail}`);
+      score -= 10;
+    }
+  }
+
   // TASK A1/A5 (v3.5): every song funnels through scoreSong regardless of
   // provider, so this is the one place that guarantees promptLength/
   // promptWithinLimit are always accurate and, for the rare remote-LLM
@@ -596,7 +648,12 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     // values by scoreSongs below. A caller that calls scoreSong directly
     // (bypassing scoreSongs) keeps this neutral placeholder rather than a
     // fabricated number.
-    scores: { structureScore, safetyScore, conceptFitScore: 100, diversityScore: 100 } satisfies SongScores,
+    // v5.22 (AXIS 3/4) — englishScore is real (computed above); uniquenessScore
+    // stays the same "provisionally neutral, overwritten once real pack/
+    // history context exists" placeholder conceptFitScore/diversityScore's
+    // own comment already documents — see SongScores.uniquenessScore's own
+    // doc comment for where it's actually computed.
+    scores: { structureScore, safetyScore, conceptFitScore: 100, diversityScore: 100, englishScore, uniquenessScore: 100 } satisfies SongScores,
     warnings,
     promptLength: stylePrompt.length,
     promptWithinLimit: stylePrompt.length <= SUNO_COPY_LIMIT,

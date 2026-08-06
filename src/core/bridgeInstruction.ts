@@ -234,6 +234,23 @@ function buildSetDirectorInterpretationSection(segments: SetDirectorSegmentLike[
   return lines.join('\n');
 }
 
+/**
+ * v5.22 (AXIS 1) — the concept-driven-scene generation context: recent
+ * scene summaries (core/situationLedger.ts's recentSituations) and recent
+ * exact lyric lines (core/lyricLineLedger.ts's recentLyricLines) a bridge
+ * agent must avoid re-using. Deliberately its OWN parameter, not folded
+ * into the `avoid: { usedTitles, usedHooks }` shape every other generation
+ * call site (slot preallocation, hook dedup, batch generation, ...) already
+ * shares — those consumers need usedTitles/usedHooks for real collision
+ * avoidance during PLANNING; this is purely bridge-instruction prompt text,
+ * so widening that shared type would ripple through ~20 unrelated call
+ * sites for zero benefit.
+ */
+export interface ConceptSceneContext {
+  recentSituations: string[];
+  recentLyricLines: string[];
+}
+
 function buildBridgePayload(
   opts: GenerationOptions,
   genres: GenrePack[],
@@ -242,7 +259,8 @@ function buildBridgePayload(
   avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
   preassignedSongs: PreassignedSongSlot[],
   generateThumbnailText: boolean,
-  outputFilename?: string
+  outputFilename?: string,
+  conceptSceneContext?: ConceptSceneContext
 ) {
   const batch: BatchContext = {
     trackNoOffset: 0,
@@ -260,9 +278,50 @@ function buildBridgePayload(
       ...basePayload,
       preassignedSongs,
       outputShape: { songs: [songOutputShape(generateThumbnailText, packagingLanguage)] },
+      // v5.22 (AXIS 1) — always present (even empty) so the agent's own
+      // payload shape never silently varies between a channel's first-ever
+      // pack (no history yet) and its 30th.
+      alreadyUsedScenes: conceptSceneContext?.recentSituations ?? [],
+      alreadyUsedLyricLines: conceptSceneContext?.recentLyricLines ?? [],
       ...(outputFilename ? { meta: buildBridgeMeta(opts, outputFilename) } : {})
     }
   };
+}
+
+/**
+ * v5.22 (AXIS 1 §1-4) — "브릿지 지시문에 장면 생성을 요구하십시오": the real
+ * fix for the structural bug data/lyricThemes.ts's own lyricThemesForOptions
+ * doc comment names (customConcept never reaches theme selection, so scene
+ * candidates are archetype-fixed regardless of concept — measured 17/18
+ * scene collisions between two concept-distinct sets). Asks the agent to
+ * derive this set's own scenes from the CONCEPT text itself, checked
+ * against real cross-pack history, before it starts writing full lyrics —
+ * still one JSON response, no separate round-trip: the app has no way to
+ * review/approve scenes before lyrics exist for a bridge-generated pack, so
+ * this is scene brainstorming as an internal step within the SAME response,
+ * not a second request.
+ */
+function conceptSceneInstructionLines(opts: GenerationOptions, conceptSceneContext: ConceptSceneContext | undefined): string[] {
+  if (!conceptSceneContext) return [];
+  const concept = opts.customConcept?.trim();
+  if (!concept) return [];
+  const { recentSituations, recentLyricLines } = conceptSceneContext;
+  return [
+    '',
+    `[이 세트의 장면 ${opts.songCount}개를 먼저 만드십시오]`,
+    '',
+    `컨셉: ${concept}`,
+    `채널: ${opts.channel.name}`,
+    '',
+    `이 컨셉에서 떠오르는 구체적인 장면 ${opts.songCount}개를 먼저 머릿속으로 구상한 뒤 각 곡을 쓰십시오. 각 장면은 서로 다른 상황·장소·인물·시간대여야 합니다 — 두 곡이 같은 장면(예: "다이너에서 옛 친구를 만나는 장면")을 공유해서는 안 됩니다.`,
+    recentSituations.length
+      ? `이미 사용한 장면 (반복 금지, 최근 세트 기준 ${recentSituations.length}개):\n${recentSituations.map(s => `  - ${s}`).join('\n')}`
+      : '이미 사용한 장면 이력이 없습니다 (이 채널의 첫 세트이거나 기록이 없습니다).',
+    recentLyricLines.length
+      ? `\n이미 사용한 가사 문장 (아래와 동일하거나 거의 동일한 문장을 다시 쓰지 마십시오, 최근 세트 기준 ${recentLyricLines.length}개):\n${recentLyricLines.slice(0, 60).map(l => `  - ${l}`).join('\n')}`
+      : '',
+    '- CRITICAL: 각 곡의 "listenerSituation" 필드에 그 곡의 장면을 한 문장으로 요약해 쓰십시오 — 이 필드는 다음 세트가 참고할 이력으로 저장됩니다.'
+  ].filter(Boolean);
 }
 
 /**
@@ -426,6 +485,16 @@ function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): 
 // happens to use.
 const ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE =
   '- CRITICAL: instrument/arrangement/production terms (guitar, strings, drums, piano, horns, reverb, stop-time, etc.) belong in the stylePrompt only. Never make one of these words the grammatical subject or actor of a lyric line (e.g. "the guitar keeps walking", "the strings will hold it tight") — lyrics describe feeling, scene, and people, not the arrangement performing itself. It is fine for a lyric to mention an instrument as an object a person interacts with ("I still play my father\'s guitar").';
+
+// TASK v5.21 (TASK G-2) — real measured error from a live pack: forced,
+// abstract-to-abstract metaphors ("coin of common sense", "laughter lifting
+// flame") that a mechanical grammar check can't reliably catch (see
+// core/grammarLinter.ts's own doc comment on why that module deliberately
+// doesn't attempt this). The task's own conclusion was that this belongs in
+// the bridge instruction's guidance text instead of a runtime check —
+// concrete guidance with a bad/good pair, not a rule a script enforces.
+const LYRIC_IMAGERY_GUIDANCE_LINE =
+  '- [가사 표현] Ground metaphors in a concrete object and a real sense (sight/sound/touch/smell), never two abstract nouns linked to each other. Bad: "coin of common sense", "laughter lifting flame" (abstract idea + abstract idea). Good: "like a copper coin in light", "laughter rising all around" (a real object/sensation carrying the feeling).';
 
 function arrangementDensityInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.arrangementDensity)
@@ -1060,7 +1129,9 @@ export function buildClaudeCodeInstruction(
   avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
   preassignedSongs: PreassignedSongSlot[],
   generateThumbnailText = false,
-  instructionOptions: ClaudeCodeInstructionOptions = {}
+  instructionOptions: ClaudeCodeInstructionOptions = {},
+  /** v5.22 (AXIS 1) — see ConceptSceneContext's own doc comment. Optional and additive: every existing caller that doesn't pass it keeps generating the exact same instruction text as before. */
+  conceptSceneContext?: ConceptSceneContext
 ): string {
   // TASK (genre-archetype sanitization) — `genres` here is only ever a
   // lookup table for label/description text (per-track assignment is driven
@@ -1075,7 +1146,7 @@ export function buildClaudeCodeInstruction(
   const eligibleGenres = genres.filter(genre => isGenreEligibleForArchetype(genre, archetype));
   const sanitizedGenres = eligibleGenres.length ? eligibleGenres : genres;
   const outputFilename = instructionOptions.outputFilename ?? defaultBridgeOutputPath(opts);
-  const { batch, payload } = buildBridgePayload(opts, sanitizedGenres, moods, season, avoid, preassignedSongs, generateThumbnailText, outputFilename);
+  const { batch, payload } = buildBridgePayload(opts, sanitizedGenres, moods, season, avoid, preassignedSongs, generateThumbnailText, outputFilename, conceptSceneContext);
   const bridgeRulesBatch: BatchContext = { ...batch, preassignedSongs: [] };
   const rules = buildSystemInstruction(opts, bridgeRulesBatch, undefined, generateThumbnailText);
 
@@ -1128,6 +1199,7 @@ export function buildClaudeCodeInstruction(
     // the constraints and era below — not a template to fill in.
     'You are an experienced music composer/producer generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file. Compose each song using your own musical knowledge within the plan and constraints below; do not treat reference fields as scripts to transcribe verbatim.',
     instructionOptions.conceptLine ? `\nThis set's flavor: ${instructionOptions.conceptLine} — lean into this lead genre/season for the pack's overall tone, without abandoning the channel's core style.` : '',
+    ...conceptSceneInstructionLines(opts, conceptSceneContext),
     '',
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
@@ -1201,6 +1273,7 @@ export function buildClaudeCodeInstruction(
     negativeStyleInstructionLine,
     instrumentInstructionLine,
     ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE,
+    LYRIC_IMAGERY_GUIDANCE_LINE,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
     lyricThemeInstructionLine,
@@ -1435,6 +1508,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     negativeStyleInstructionLine,
     instrumentInstructionLine,
     ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE,
+    LYRIC_IMAGERY_GUIDANCE_LINE,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
     lyricThemeInstructionLine,

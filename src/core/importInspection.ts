@@ -3,6 +3,7 @@ import type { ImportSongsReport } from './bridgeImport';
 import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { findArtistReferenceLeaks, type ArtistReferenceLeak } from './artistReferenceDecomposer';
+import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } from './duplicationGate';
 
 /**
  * TASK (import transaction / pre-persistence inspection) — real, verified
@@ -75,6 +76,31 @@ export interface ImportInspection {
   artistLeakTrackNos: number[];
   /** TASK v5.19 (TASK C) — per-track leak detail (surface text + commonWordRisk) for the "오탐입니다" false-positive report UI; parallel to artistLeakTrackNos. */
   artistLeaks: ArtistLeakDetail[];
+  /**
+   * v5.22 (AXIS 1 §1-7, Gate 1) — trackNos whose listenerSituation exactly
+   * matches a scene already used in a recent set (core/situationLedger.ts),
+   * or whose title exactly matches the channel's full title history
+   * (core/hookLedger.ts's usedTitles) — same per-track exclusion treatment
+   * as artistLeakTrackNos above (App.tsx's "[N곡만 확정]" excludes these too),
+   * not a whole-pack block: a duplicate scene/title is this ONE track's
+   * problem, not proof the whole response is untrustworthy (mirrors the
+   * v5.19 reasoning that moved artist leaks out of the hard-block bucket).
+   * Empty whenever no `duplicationHistory` was passed in (existing callers
+   * that don't supply it keep compiling and keep pre-existing behavior).
+   */
+  duplicateContentTrackNos: number[];
+  sceneOverlaps: { trackNo: number; situation: string; matchedHistoryEntry: string }[];
+  titleHistoryCollisions: { trackNo: number; title: string }[];
+  /**
+   * v5.22 (AXIS 1 §1-7, Gate 2) — "가사 문장 25자 이상 완전일치 — 한 세트 3개
+   * 이상이면 blocking". Unlike scene/title collisions above, 3+ separate
+   * exact-line matches against recent history IS treated as a whole-import
+   * block (contributes to `status === 'blocked'`) — a per-track exclusion
+   * doesn't fit here (the same systemic-copying signal duplicate/invalid
+   * trackNo already hard-blocks on), so this is intentionally NOT folded
+   * into duplicateContentTrackNos.
+   */
+  lyricLineOverlapMatches: { trackNo: number; line: string }[];
   /** Non-empty only when `status === 'blocked'` AND report.blueprint was non-null (i.e. this module's own re-run of validateProviderTrackSet is what blocked it — that's the only remaining 'blocked' reason this module itself can add on top of importSongsJson's own upstream null-blueprint cases, which are already fully described by report.skippedReasons instead). */
   blockedReasons: string[];
 }
@@ -156,7 +182,18 @@ export function inspectImportReport(
    * auto-applied from anywhere but that explicit per-report click (see this
    * function's own artist-safety block below for where it's consulted).
    */
-  sessionExemptions?: Set<string>
+  sessionExemptions?: Set<string>,
+  /**
+   * v5.22 (AXIS 1 §1-7) — pre-fetched ledger history (this module never
+   * touches IndexedDB itself, same convention as languageContext/
+   * sessionExemptions above being pre-resolved by the caller). `historicalTitles`
+   * is the channel's full title history (core/hookLedger.ts's usedTitles);
+   * `recentSituations`/`recentLyricLines` are core/situationLedger.ts's/
+   * core/lyricLineLedger.ts's own recent-N-sets reads. Optional and
+   * additive — omitting it (every pre-v5.22 test/call site) skips these 3
+   * checks entirely rather than failing.
+   */
+  duplicationHistory?: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> }
 ): ImportInspection {
   if (!report.blueprint) {
     return {
@@ -175,6 +212,10 @@ export function inspectImportReport(
       vocalTagCorrections: [],
       artistLeakTrackNos: [],
       artistLeaks: [],
+      duplicateContentTrackNos: [],
+      sceneOverlaps: [],
+      titleHistoryCollisions: [],
+      lyricLineOverlapMatches: [],
       blockedReasons: report.skippedReasons
     };
   }
@@ -282,15 +323,58 @@ export function inspectImportReport(
       : { id: 'artistSafety', labelKo: '아티스트명·안전 검사 통과', status: 'pass' }
   );
 
-  // Only a structurally malformed response (bad JSON / trackNo set) is
-  // unsalvageable enough to discard the whole thing — see this module's own
-  // header doc comment on why an artist leak moved out of this bucket.
-  const hardBlocked = !trackSetValidation.valid;
+  // 8. 중복 방지 검사 (v5.22 AXIS 1 §1-7) — reuses core/duplicationGate.ts's
+  // pure checks directly, never a re-implementation. Gate 1 (scene/title):
+  // same per-track-exclusion treatment as the artist-safety check just
+  // above, not a whole-pack block — see duplicateContentTrackNos' own doc
+  // comment on ImportInspection for why. Gate 2 (lyric line, 3+): DOES
+  // contribute to hardBlocked below — see lyricLineOverlapMatches' own doc
+  // comment for why that one case is different.
+  const sceneOverlap = duplicationHistory
+    ? checkSceneOverlap(report.blueprint.songs, duplicationHistory.recentSituations)
+    : { blocking: false, collisions: [] };
+  const titleCollision = duplicationHistory
+    ? checkTitleHistoryCollision(report.blueprint.songs, duplicationHistory.historicalTitles)
+    : { blocking: false, collisions: [] };
+  const lyricLineOverlap = duplicationHistory
+    ? checkLyricLineOverlap(report.blueprint.songs, duplicationHistory.recentLyricLines)
+    : { blocking: false, matches: [] };
+  const duplicationReasons: string[] = [
+    ...sceneOverlap.collisions.map(c => `Track ${c.trackNo}: 장면이 최근 세트와 중복 ("${c.situation}")`),
+    ...titleCollision.collisions.map(c => `Track ${c.trackNo}: 제목이 이전 이력과 완전히 동일 ("${c.title}")`)
+  ];
+  checks.push(
+    duplicationReasons.length
+      ? { id: 'duplication', labelKo: '중복 방지 검사 (장면·제목)', status: 'blocked', detail: duplicationReasons.join(' / ') }
+      : { id: 'duplication', labelKo: '중복 방지 검사 통과 (장면·제목)', status: 'pass' }
+  );
+  checks.push(
+    lyricLineOverlap.blocking
+      ? {
+          id: 'lyricLineOverlap',
+          labelKo: '가사 문장 중복 검사',
+          status: 'blocked',
+          detail: `가사 문장 ${lyricLineOverlap.matches.length}개가 최근 세트와 완전일치 (3개 이상 — 전체 응답 신뢰 불가): ${lyricLineOverlap.matches.slice(0, 3).map(m => `T${m.trackNo} "${m.line}"`).join(' / ')}`
+        }
+      : { id: 'lyricLineOverlap', labelKo: '가사 문장 중복 검사 통과', status: 'pass' }
+  );
+  const duplicateContentTrackNos = [
+    ...new Set([...sceneOverlap.collisions.map(c => c.trackNo), ...titleCollision.collisions.map(c => c.trackNo)])
+  ];
+
+  // Only a structurally malformed response (bad JSON / trackNo set) or 3+
+  // exact lyric-line matches against recent history (evidence of systemic
+  // copying, not a one-track fluke) is unsalvageable enough to discard the
+  // whole thing — see this module's own header doc comment on why an
+  // artist leak (and, per the same reasoning, a scene/title collision)
+  // moved out of this bucket instead.
+  const hardBlocked = !trackSetValidation.valid || lyricLineOverlap.blocking;
   const hasShortfallOrRepairIssue =
     missingTrackNos.length > 0 ||
     fieldFailures.length > 0 ||
     languageMismatches.length > 0 ||
     artistLeakTrackNos.length > 0 ||
+    duplicateContentTrackNos.length > 0 ||
     report.importedCount !== report.requestedCount;
 
   const status: ImportStatus = hardBlocked ? 'blocked' : hasShortfallOrRepairIssue ? 'repairable' : 'valid';
@@ -304,7 +388,16 @@ export function inspectImportReport(
     vocalTagCorrections,
     artistLeakTrackNos,
     artistLeaks,
-    blockedReasons: hardBlocked ? [describeTrackSetValidation(trackSetValidation)] : []
+    duplicateContentTrackNos,
+    sceneOverlaps: sceneOverlap.collisions,
+    titleHistoryCollisions: titleCollision.collisions,
+    lyricLineOverlapMatches: lyricLineOverlap.matches,
+    blockedReasons: hardBlocked
+      ? [
+          ...(!trackSetValidation.valid ? [describeTrackSetValidation(trackSetValidation)] : []),
+          ...(lyricLineOverlap.blocking ? [`가사 문장 ${lyricLineOverlap.matches.length}개가 최근 세트와 중복되어 전체 응답을 신뢰할 수 없습니다.`] : [])
+        ]
+      : []
   };
 }
 

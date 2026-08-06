@@ -25,7 +25,7 @@ import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
  * explicitly disables every other category so exportWorkspace() never
  * touches an IndexedDB store this environment doesn't have.
  */
-const PACKS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
+const PACKS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, situations: false, lyricLines: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
 
 function fileFrom(json: WorkspaceExportFile): File {
   return new File([JSON.stringify(json)], 'test.json', { type: 'application/json' });

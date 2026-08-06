@@ -3,6 +3,8 @@ import { getWorkspace, workspaceDefinitions } from '../data/workspaces';
 import { currentWorkspaceId, scopedKey } from './workspaceScope';
 import { findPackByName, listFullPacksForWorkspace, putFullPack } from './library';
 import { type HookUsage, listAllHooksForWorkspace, putHookRecord } from './hookLedger';
+import { type SituationUsage, listAllSituationsForWorkspace, putSituationRecord } from './situationLedger';
+import { type LyricLineUsage, listAllLyricLinesForWorkspace, putLyricLineRecord } from './lyricLineLedger';
 import { getRatingForSong, listAllRatingsForWorkspace, recordRating, type RatingRecord } from './ratingLedger';
 import { listAllVideosForWorkspace, putVideoRecordIfNewer, type VideoRecord } from './videoLedger';
 import { listAllUsageForWorkspace, putUsageRecord, type UsageRecord } from './usageLedger';
@@ -58,6 +60,9 @@ const API_KEY_SETTINGS_KEYS = ['byok:openai', 'byok:anthropic', 'byok:qwen', 'by
 export interface ExportInclude {
   packs: boolean;
   hooks: boolean;
+  /** v5.22 (AXIS 1) — same category as hooks (a generation-history ledger), always exported/imported together with it. */
+  situations: boolean;
+  lyricLines: boolean;
   ratings: boolean;
   takes: boolean;
   videos: boolean;
@@ -70,7 +75,7 @@ export interface ExportInclude {
 }
 
 export const DEFAULT_EXPORT_INCLUDE: ExportInclude = {
-  packs: true, hooks: true, ratings: true, takes: true, videos: true, settings: true, channels: true, usage: false, apiKeys: false
+  packs: true, hooks: true, situations: true, lyricLines: true, ratings: true, takes: true, videos: true, settings: true, channels: true, usage: false, apiKeys: false
 };
 
 export interface ExportOptions {
@@ -91,6 +96,8 @@ interface ThumbnailBrandSettingsBundle {
 export interface WorkspaceExportData {
   packs?: SavedPack[];
   hooks?: HookUsage[];
+  situations?: SituationUsage[];
+  lyricLines?: LyricLineUsage[];
   ratings?: RatingRecord[];
   takes?: AudioTake[];
   videos?: VideoRecord[];
@@ -195,6 +202,16 @@ export async function exportWorkspace(opts: ExportOptions): Promise<WorkspaceExp
     const hooks = await listAllHooksForWorkspace(opts.workspaceId);
     data.hooks = hooks;
     counts.hooks = hooks.length;
+  }
+  if (include.situations) {
+    const situations = await listAllSituationsForWorkspace(opts.workspaceId);
+    data.situations = situations;
+    counts.situations = situations.length;
+  }
+  if (include.lyricLines) {
+    const lyricLines = await listAllLyricLinesForWorkspace(opts.workspaceId);
+    data.lyricLines = lyricLines;
+    counts.lyricLines = lyricLines.length;
   }
   if (include.ratings) {
     const ratings = await listAllRatingsForWorkspace(opts.workspaceId);
@@ -348,6 +365,8 @@ export async function downloadBlob(blob: Blob, filename: string): Promise<void> 
 export interface ImportPlan {
   packs: { new: number; skipped: number; conflicted: string[] };
   hooks: { new: number; existing: number };
+  situations: { new: number; existing: number };
+  lyricLines: { new: number; existing: number };
   ratings: { new: number; updated: number; skipped: number };
   takes: { new: number; updated: number };
   videos: { new: number; updated: number };
@@ -412,6 +431,8 @@ async function buildImportPlan(fileData: WorkspaceExportData, targetWorkspaceId:
   const plan: ImportPlan = {
     packs: { new: 0, skipped: 0, conflicted: [] },
     hooks: { new: 0, existing: 0 },
+    situations: { new: 0, existing: 0 },
+    lyricLines: { new: 0, existing: 0 },
     ratings: { new: 0, updated: 0, skipped: 0 },
     takes: { new: 0, updated: 0 },
     videos: { new: 0, updated: 0 },
@@ -435,6 +456,22 @@ async function buildImportPlan(fileData: WorkspaceExportData, targetWorkspaceId:
     for (const hook of fileData.hooks) {
       if (existingHooks.has(`${hook.packId}:${hook.trackNo}`)) plan.hooks.existing += 1;
       else plan.hooks.new += 1;
+    }
+  }
+
+  if (fileData.situations) {
+    const existingSituations = new Set((await listAllSituationsForWorkspace(targetWorkspaceId)).map(s => `${s.packId}:${s.trackNo}`));
+    for (const situation of fileData.situations) {
+      if (existingSituations.has(`${situation.packId}:${situation.trackNo}`)) plan.situations.existing += 1;
+      else plan.situations.new += 1;
+    }
+  }
+
+  if (fileData.lyricLines) {
+    const existingLyricLines = new Set((await listAllLyricLinesForWorkspace(targetWorkspaceId)).map(l => `${l.packId}:${l.trackNo}:${l.lineIndex}`));
+    for (const line of fileData.lyricLines) {
+      if (existingLyricLines.has(`${line.packId}:${line.trackNo}:${line.lineIndex}`)) plan.lyricLines.existing += 1;
+      else plan.lyricLines.new += 1;
     }
   }
 
@@ -533,6 +570,8 @@ export interface ApplyImportOptions {
 export interface ImportResult {
   packs: { added: number; replaced: number; skipped: number };
   hooks: { written: number };
+  situations: { written: number };
+  lyricLines: { written: number };
   ratings: { added: number; updated: number; skipped: number };
   takes: { new: number; updated: number };
   videos: { new: number; updated: number };
@@ -581,6 +620,8 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
   const backupInclude: Partial<ExportInclude> = {
     packs: Boolean(importedData.packs),
     hooks: Boolean(importedData.hooks),
+    situations: Boolean(importedData.situations),
+    lyricLines: Boolean(importedData.lyricLines),
     ratings: Boolean(importedData.ratings),
     takes: Boolean(importedData.takes),
     videos: Boolean(importedData.videos),
@@ -598,6 +639,8 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
   const result: ImportResult = {
     packs: { added: 0, replaced: 0, skipped: 0 },
     hooks: { written: 0 },
+    situations: { written: 0 },
+    lyricLines: { written: 0 },
     ratings: { added: 0, updated: 0, skipped: 0 },
     takes: { new: 0, updated: 0 },
     videos: { new: 0, updated: 0 },
@@ -660,6 +703,20 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
     for (const hook of data.hooks) {
       await putHookRecord(hook);
       result.hooks.written += 1;
+    }
+  }
+
+  if (data.situations) {
+    for (const situation of data.situations) {
+      await putSituationRecord(situation);
+      result.situations.written += 1;
+    }
+  }
+
+  if (data.lyricLines) {
+    for (const line of data.lyricLines) {
+      await putLyricLineRecord(line);
+      result.lyricLines.written += 1;
     }
   }
 

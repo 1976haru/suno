@@ -1,5 +1,7 @@
 import { migrateLibraryWorkspaceTags, migrateLibrarySnapshotSecrets, exportAllPacks } from './library';
 import { migrateHookLedgerWorkspaceTags } from './hookLedger';
+import { migrateSituationLedgerWorkspaceTags } from './situationLedger';
+import { migrateLyricLineLedgerWorkspaceTags } from './lyricLineLedger';
 import { migrateRatingLedgerWorkspaceTags } from './ratingLedger';
 import { migrateVideoLedgerWorkspaceTags } from './videoLedger';
 import { migrateUsageLedgerWorkspaceTags } from './usageLedger';
@@ -126,6 +128,10 @@ export async function runWorkspaceMigrationOnce(): Promise<WorkspaceMigrationRep
   const stores = await Promise.all([
     migrateStore('suno-weaver-library (packs)', migrateLibraryWorkspaceTags),
     migrateStore('suno-weaver-hooks', migrateHookLedgerWorkspaceTags),
+    // v5.22 (AXIS 1) — new stores, same migration contract as every other
+    // Pattern-A IndexedDB store here (additive-only, idempotent).
+    migrateStore('suno-weaver-situations', migrateSituationLedgerWorkspaceTags),
+    migrateStore('suno-weaver-lyric-lines', migrateLyricLineLedgerWorkspaceTags),
     migrateStore('suno-weaver-ratings', migrateRatingLedgerWorkspaceTags),
     migrateStore('suno-weaver-videos', migrateVideoLedgerWorkspaceTags),
     migrateStore('suno-weaver-usage', migrateUsageLedgerWorkspaceTags),

@@ -59,7 +59,7 @@ export interface MultiSetImportSetResult {
   preassignedSongs?: PreassignedSongSlot[];
 }
 
-export type CrossSetDuplicateKind = 'hook' | 'title' | 'genreDistribution';
+export type CrossSetDuplicateKind = 'hook' | 'title' | 'genreDistribution' | 'situation';
 
 export interface CrossSetDuplicateWarning {
   kind: CrossSetDuplicateKind;
@@ -85,14 +85,26 @@ export interface MultiSetImportPlan {
  * classifier, never a parallel reimplementation — then applies this task's
  * own batch-level persistence rules on top.
  */
-export function planMultiSetImport(inputs: MultiSetImportSetInput[], sessionExemptions?: Set<string>): MultiSetImportPlan {
+export function planMultiSetImport(
+  inputs: MultiSetImportSetInput[],
+  sessionExemptions?: Set<string>,
+  /**
+   * v5.22 (AXIS 1) — ONE snapshot fetched before this whole batch starts,
+   * reused identically for every set's own inspectImportReport call — a
+   * multi-set run's later sets are NOT checked against scenes/lines the
+   * earlier sets in this SAME run just produced (that within-batch case is
+   * detectCrossSetDuplicates' own job below, via its 'situation' kind), only
+   * against real cross-pack history that already existed before this run.
+   */
+  duplicationHistory?: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> }
+): MultiSetImportPlan {
   const results: MultiSetImportSetResult[] = inputs.map(input => ({
     setIndex: input.setIndex,
     report: input.report,
     importOpts: input.importOpts,
     rawSongs: input.rawSongs,
     preassignedSongs: input.preassignedSongs,
-    inspection: inspectImportReport(input.report, input.rawSongs, input.importOpts.lyricLanguage, input.languageContext, sessionExemptions)
+    inspection: inspectImportReport(input.report, input.rawSongs, input.importOpts.lyricLanguage, input.languageContext, sessionExemptions, duplicationHistory)
   }));
 
   const wholeBatchBlocked = results.some(result => result.inspection.status === 'blocked');
@@ -136,6 +148,14 @@ export function detectCrossSetDuplicates(sets: { setIndex: number; songs: SongId
   const hookOwners = new Map<string, Set<number>>();
   const titleOwners = new Map<string, Set<number>>();
   const genreSignatureOwners = new Map<string, Set<number>>();
+  // v5.22 (AXIS 1) — the WITHIN-THIS-BATCH counterpart to
+  // core/duplicationGate.ts's checkSceneOverlap (which only ever checks
+  // against real cross-pack ledger history fetched BEFORE the batch
+  // started — see planMultiSetImport's own doc comment on why later sets
+  // in the same run aren't checked against earlier sets' just-generated
+  // scenes there). Two sets in the SAME multi-set run sharing a scene is
+  // exactly the kind of duplication a per-set ledger snapshot can't catch.
+  const situationOwners = new Map<string, Set<number>>();
 
   for (const set of sets) {
     for (const song of set.songs) {
@@ -150,6 +170,12 @@ export function detectCrossSetDuplicates(sets: { setIndex: number; songs: SongId
         const owners = titleOwners.get(titleKey) ?? new Set<number>();
         owners.add(set.setIndex);
         titleOwners.set(titleKey, owners);
+      }
+      const situationKey = song.listenerSituation?.trim().toLowerCase();
+      if (situationKey) {
+        const owners = situationOwners.get(situationKey) ?? new Set<number>();
+        owners.add(set.setIndex);
+        situationOwners.set(situationKey, owners);
       }
     }
     const signature = genreDistributionSignature(set.songs);
@@ -169,6 +195,11 @@ export function detectCrossSetDuplicates(sets: { setIndex: number; songs: SongId
     if (owners.size < 2) continue;
     const setIndexes = Array.from(owners).sort((a, b) => a - b);
     warnings.push({ kind: 'title', value, setIndexes, labelKo: `세트 ${setIndexes.join(', ')}에 같은 제목이 반복됨: "${value}"` });
+  }
+  for (const [value, owners] of situationOwners) {
+    if (owners.size < 2) continue;
+    const setIndexes = Array.from(owners).sort((a, b) => a - b);
+    warnings.push({ kind: 'situation', value, setIndexes, labelKo: `세트 ${setIndexes.join(', ')}에 같은 장면이 반복됨: "${value}"` });
   }
   for (const [value, owners] of genreSignatureOwners) {
     if (owners.size < 2) continue;

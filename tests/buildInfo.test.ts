@@ -24,7 +24,7 @@ import type { AudioTake } from '../src/core/audioTakes';
  * itself works (see this task's own report, not this test file).
  */
 
-const NO_IDB_CATEGORIES = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
+const NO_IDB_CATEGORIES = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, situations: false, lyricLines: false, ratings: false, takes: false, videos: false, settings: false, channels: false };
 
 describe('[v5.14] BUILD_INFO assembly', () => {
   it('is a single object combining appVersion/schemaVersion/commitSha/builtAt', () => {

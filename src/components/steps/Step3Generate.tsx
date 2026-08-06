@@ -5,6 +5,8 @@ import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
 import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
+import { recentSituations } from '../../core/situationLedger';
+import { recentLyricLines } from '../../core/lyricLineLedger';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
@@ -583,6 +585,8 @@ export default function Step3Generate({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [hookStats, setHookStats] = useState<ExhaustionStats | null>(null);
   const [bridgeAvoid, setBridgeAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });
+  /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
+  const [bridgeConceptSceneContext, setBridgeConceptSceneContext] = useState<{ recentSituations: string[]; recentLyricLines: string[] }>({ recentSituations: [], recentLyricLines: [] });
   const [bridgeCopied, setBridgeCopied] = useState(false);
   const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -607,6 +611,21 @@ export default function Step3Generate({
     let cancelled = false;
     void safeAvoidSet(opts.channel.id, opts.lyricLanguage).then(avoid => {
       if (!cancelled) setBridgeAvoid({ usedTitles: avoid.usedTitles ?? [], usedHooks: avoid.usedHooks ?? [] });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.channel.id, opts.lyricLanguage]);
+
+  // v5.22 (AXIS 1) — same fetch shape as bridgeAvoid's own effect just
+  // above, for the concept-driven scene generation instruction.
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      recentSituations(opts.channel.id, opts.lyricLanguage),
+      recentLyricLines(opts.channel.id, opts.lyricLanguage)
+    ]).then(([situations, lines]) => {
+      if (!cancelled) setBridgeConceptSceneContext({ recentSituations: situations, recentLyricLines: lines });
     });
     return () => {
       cancelled = true;
@@ -722,8 +741,8 @@ export default function Step3Generate({
   // call site populated instructionOptions.resolvedConstraints. Wiring it
   // through here is the fix, not a new mechanism.
   const claudeCodeInstruction = useMemo(
-    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false, { resolvedConstraints: designGateConstraints }),
-    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText, designGateConstraints]
+    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false, { resolvedConstraints: designGateConstraints }, bridgeConceptSceneContext),
+    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText, designGateConstraints, bridgeConceptSceneContext]
   );
   // v4.0 (TASK A) — evaluateDesignGate runs inside a Worker now (see
   // core/localGenerationClient.ts) — mirrors Step2Plan.tsx's identical

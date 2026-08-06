@@ -927,6 +927,10 @@ export interface SongScores {
   conceptFitScore: number;
   /** How much this song's own genre/vocal-type contributes to the pack's overall variety — a light heuristic (this task's own scope doesn't ask for a rigorous algorithm), not a precise measurement. */
   diversityScore: number;
+  /** v5.22 (AXIS 3/4) — core/englishLint.ts's lintEnglishLyrics result, as a 0-100 score (100 = no issues). Computed for real inside core/quality.ts's scoreSong whenever `language === 'english'`; stays the neutral 100 ("nothing measured") for every other language, same convention conceptFitScore's own doc comment establishes for "no signal yet". */
+  englishScore: number;
+  /** v5.22 (AXIS 4) — how much this song's own scene/title collides with cross-pack ledger history (core/duplicationGate.ts) — 100 minus a flat penalty per collision. Pack-level context (recent-set/full-history data) isn't available inside scoreSong (no IndexedDB access there — same reason conceptFitScore stays neutral until display/import time), so this stays the neutral 100 placeholder until core/importInspection.ts's inspectImportReport recomputes it for real with real duplicationHistory (the one real consumer that already has it, via Gate 1/Gate 2 — see that function's own doc comment). */
+  uniquenessScore: number;
   /** v3.73/74 audio-render metrics based. Undefined when no audio take exists for this song yet. */
   renderScore?: number;
   /** v3.68 listener rating based. Undefined when this song has never been rated. */

@@ -10,7 +10,9 @@ import { isEvaluationAvailable } from './agents/evaluator';
 import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
-import { channelExhaustionStats, clearChannelHistory, hookPoolGraduatedWarning, recordPackHooks, type ExhaustionStats } from './core/hookLedger';
+import { channelExhaustionStats, clearChannelHistory, hookPoolGraduatedWarning, recordPackHooks, usedTitles as fetchHistoricalTitles, type ExhaustionStats } from './core/hookLedger';
+import { recordPackSituations, recentSituations } from './core/situationLedger';
+import { recordPackLyricLines, recentLyricLines } from './core/lyricLineLedger';
 import { copyText } from './utils/exporters';
 import { genreSanitizationWarningKo, normalizeGenreSelection, sanitizeGenreIdsForArchetype, toggleGenreSelection } from './core/genreSelection';
 import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
@@ -166,6 +168,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     /** TASK v5.19 (TASK C) — preserved so onReportArtistLeakFalsePositive's rebuilt onConfirm matches the original import's own focusTab/slots exactly, instead of defaulting. */
     focusTab?: ResultTab;
     preassignedSongs?: PreassignedSongSlot[];
+    /** v5.22 (AXIS 1) — same "preserve so a re-run doesn't need to re-fetch" reason as report/rawSongs above; onReportArtistLeakFalsePositive's re-run needs this to keep Gate 1/Gate 2 in the recomputed inspection. */
+    duplicationHistory?: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> };
   } | null>(null);
   /**
    * TASK v5.19 (TASK C) — lowercased leak surface text ("bread", "the
@@ -468,6 +472,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       const nextSoundSignature = buildSoundSignature(finalBlueprint, nextOpts, sourceOpts.channel);
       await saveAutosave(finalBlueprint, nextOpts, nextThumbnailSpec, nextSoundSignature);
       await recordPackHooks(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
+      // v5.22 (AXIS 1) — same autosave-slot tracking recordPackHooks just did
+      // for hooks, so a generation the user never explicitly saves still
+      // contributes to the recent-scene/recent-line avoid-lists the next
+      // bridge instruction reads (usePackLibrary.ts's saveCurrentPack/
+      // saveImportedPack promote these off AUTOSAVE_ID the same way they
+      // already promote hooks).
+      await recordPackSituations(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
+      await recordPackLyricLines(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
       await library.refresh();
     } catch {
       // Autosave is a convenience feature; failures should not block the result from showing.
@@ -598,10 +610,18 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
 
     const rawSongs = extractRawImportedSongs(text);
+    // v5.22 (AXIS 1) — Gate 1/Gate 2 need real cross-pack history; fetched
+    // here (not inside inspectImportReport, which stays a pure classifier —
+    // same convention languageContext/sessionExemptions already follow).
+    const duplicationHistory = {
+      recentSituations: await recentSituations(importChannel.id, importOpts.lyricLanguage),
+      recentLyricLines: await recentLyricLines(importChannel.id, importOpts.lyricLanguage),
+      historicalTitles: await fetchHistoricalTitles(importChannel.id, importOpts.lyricLanguage)
+    };
     const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage, {
       archetype: importOpts.channel.archetype,
       bilingualPair: resolveBilingualPair(importOpts)
-    }, artistLeakExemptions);
+    }, artistLeakExemptions, duplicationHistory);
 
     if (inspection.status === 'blocked') {
       // TASK v5.19 — this branch now only fires on a structurally malformed
@@ -615,7 +635,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         skippedCount: report.importedCount + report.skippedCount,
         skippedReasons: [...report.skippedReasons, ...inspection.blockedReasons]
       };
-      setPendingImportInspection({ inspection, importOpts, report, rawSongs, focusTab, preassignedSongs });
+      setPendingImportInspection({ inspection, importOpts, report, rawSongs, focusTab, preassignedSongs, duplicationHistory });
       return blockedReport;
     }
 
@@ -632,10 +652,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         rawSongs,
         focusTab,
         preassignedSongs,
+        duplicationHistory,
         onConfirm: () => void onConfirmPartialImport(
           {
             ...report.blueprint!,
-            songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo))
+            // v5.22 (AXIS 1) — a duplicated scene/title track is excluded
+            // the same way an artist-leak track already is; see
+            // ImportInspection.duplicateContentTrackNos' own doc comment.
+            songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo) && !inspection.duplicateContentTrackNos.includes(song.trackNo))
           },
           importOpts,
           focusTab,
@@ -760,7 +784,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage, {
       archetype: importOpts.channel.archetype,
       bilingualPair: resolveBilingualPair(importOpts)
-    }, nextExemptions);
+    }, nextExemptions, pending.duplicationHistory);
     setPendingImportInspection(prev => (prev ? {
       ...prev,
       inspection,
@@ -768,7 +792,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         ? () => void onConfirmPartialImport(
             {
               ...report.blueprint!,
-              songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo))
+              songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo) && !inspection.duplicateContentTrackNos.includes(song.trackNo))
             },
             importOpts,
             prev?.focusTab ?? 'songs',
@@ -943,7 +967,15 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
 
     // PASS 2 — the batch-level decision (core/multiSetImportInspection.ts).
-    const plan = planMultiSetImport(setInputs, artistLeakExemptions);
+    // v5.22 (AXIS 1) — same ONE-upfront-snapshot rule planMultiSetImport's
+    // own doc comment describes; within-batch scene/title/hook repeats are
+    // plan.crossSetDuplicates' job instead (already computed below).
+    const duplicationHistory = {
+      recentSituations: await recentSituations(importChannel.id, opts.lyricLanguage),
+      recentLyricLines: await recentLyricLines(importChannel.id, opts.lyricLanguage),
+      historicalTitles: await fetchHistoricalTitles(importChannel.id, opts.lyricLanguage)
+    };
+    const plan = planMultiSetImport(setInputs, artistLeakExemptions, duplicationHistory);
     const crossSetWarningsFor = (setIndex: number) => plan.crossSetDuplicates.filter(dup => dup.setIndexes.includes(setIndex)).map(dup => dup.labelKo);
 
     if (plan.wholeBatchBlocked) {
@@ -1036,7 +1068,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   ) {
     const trimmedBlueprint: PlaylistBlueprint = {
       ...result.report.blueprint!,
-      songs: result.report.blueprint!.songs.filter(song => !result.inspection.artistLeakTrackNos.includes(song.trackNo))
+      songs: result.report.blueprint!.songs.filter(song => !result.inspection.artistLeakTrackNos.includes(song.trackNo) && !result.inspection.duplicateContentTrackNos.includes(song.trackNo))
     };
     const prefixedBlueprint = applySetTitlePrefixesToBlueprint(trimmedBlueprint, result.importOpts.setNumberPrefix ?? true);
     const finalBlueprint = withGenerationSnapshot(prefixedBlueprint, { options: result.importOpts, provider, season: selectedSeason, slots: result.preassignedSongs ?? [] });

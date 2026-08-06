@@ -222,7 +222,7 @@ describe('reconcileWithPreassignedSlot — genreWarning folds into song.warnings
 });
 
 describe('workspaceTransfer.applyImport — cross-workspace pack/channel import', () => {
-  const PACKS_AND_CHANNELS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, ratings: false, takes: false, videos: false, settings: false };
+  const PACKS_AND_CHANNELS_ONLY = { ...DEFAULT_EXPORT_INCLUDE, hooks: false, situations: false, lyricLines: false, ratings: false, takes: false, videos: false, settings: false };
 
   function fileFrom(json: WorkspaceExportFile): File {
     return new File([JSON.stringify(json)], 'test.json', { type: 'application/json' });
