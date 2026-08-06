@@ -10,7 +10,7 @@ import type {
 } from '../types';
 import { buildSignatureBlueprint } from './localGenerator';
 import { scoreSongs } from './quality';
-import { reconcileWithPreassignedSlot } from './batchPreallocation';
+import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
@@ -181,17 +181,35 @@ function flagHookCollisions(songs: SongIdea[], avoidHooks: string[] = []): { son
 }
 
 /**
+ * The trackNo a raw bridge JSON entry claims — its own `trackNo` field when
+ * present and valid, else this entry's position in the raw array. Pure and
+ * side-effect-free so it can be run once up front (importSongsJson, to
+ * resolve slot claims via claimSlotsByTrackNo) and reproduced identically
+ * inside normalizeImportedSong for `rawSong.trackNo` itself.
+ */
+function claimedTrackNoFor(raw: unknown, index: number): number {
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return Number.isFinite(Number(obj.trackNo)) && Number(obj.trackNo) > 0 ? Number(obj.trackNo) : index + 1;
+}
+
+/**
  * Builds the song from the bridge agent's raw JSON, then reconciles only the
  * slot-owned planning fields. Bridge import preserves the agent's hookPhrase
  * and emotionArc so the stored hook stays aligned with the generated lyrics;
  * songRole remains slot-owned because it controls playlist/opening structure.
  * Title behavior still follows titleMode: local mode forces the slot title,
  * while ai-creative mode trusts the imported title unless it is blank.
+ *
+ * `slot` is passed in already resolved by the caller (importSongsJson) via
+ * claimSlotsByTrackNo (TASK duplicate-trackNo fix) — this function no longer
+ * does its own `slotByTrackNo.get(claimedTrackNo)` lookup, since two raw
+ * entries claiming the same trackNo must not both resolve to the same slot
+ * (see claimSlotsByTrackNo's own doc comment for the full mechanism).
  */
 function normalizeImportedSong(
   raw: unknown,
   index: number,
-  slotByTrackNo: Map<number, PreassignedSongSlot>,
+  slot: PreassignedSongSlot | undefined,
   titleMode: 'local' | 'ai-creative',
   opts: GenerationOptions,
   usedLocalizedTitles: Set<string>
@@ -206,8 +224,7 @@ function normalizeImportedSong(
     return { error: `"${label}": 필수 필드 누락 (${missing.join(', ')})` };
   }
 
-  const claimedTrackNo = Number.isFinite(Number(obj.trackNo)) && Number(obj.trackNo) > 0 ? Number(obj.trackNo) : index + 1;
-  const slot = slotByTrackNo.get(claimedTrackNo);
+  const claimedTrackNo = claimedTrackNoFor(raw, index);
 
   const youtubeRaw = obj.youtube && typeof obj.youtube === 'object' ? (obj.youtube as Record<string, unknown>) : {};
   const youtube: YoutubeMetadata = {
@@ -348,6 +365,23 @@ export function importSongsJson(
   }
 
   const titleMode = opts.titleMode ?? 'ai-creative';
+  // TASK (duplicate-trackNo fix) — was `new Map(preassignedSongs.map(slot =>
+  // [slot.trackNo, slot]))` handed straight into normalizeImportedSong, which
+  // did its own `.get(claimedTrackNo)` per entry — so two raw entries both
+  // claiming the same trackNo (this file's own tests/fixtures/providerResponses/
+  // duplicateTrackNo.json) both resolved to the SAME slot's plan. Resolved
+  // once up front via claimSlotsByTrackNo (core/batchPreallocation.ts): the
+  // first raw entry (array order) to claim a trackNo gets that slot; a later
+  // entry claiming an already-consumed trackNo gets `undefined` instead (the
+  // same no-slot remedy invalidTrackNo.json already exercises), keyed here by
+  // array index since normalizeImportedSong still needs one resolved slot per
+  // call, not a shared trackNo-keyed map.
+  const claimTargets = rawSongs.map((raw, index) => ({ index, trackNo: claimedTrackNoFor(raw, index) }));
+  const slotClaims = claimSlotsByTrackNo(claimTargets, preassignedSongs);
+  const slotByIndex = new Map(Array.from(slotClaims, ([target, slot]) => [target.index, slot]));
+  // Still used (unchanged) further below by normalizeSongOutput, which looks
+  // up introMode by each song's FINAL renumbered trackNo — an inherently
+  // duplicate-free position, unlike the originally-claimed trackNo above.
   const slotByTrackNo = new Map(preassignedSongs.map(slot => [slot.trackNo, slot]));
   const validSongs: SongIdea[] = [];
   const skippedReasons: string[] = [];
@@ -356,7 +390,7 @@ export function importSongsJson(
   const usedLocalizedTitles = new Set<string>();
 
   rawSongs.forEach((raw, index) => {
-    const result = normalizeImportedSong(raw, index, slotByTrackNo, titleMode, opts, usedLocalizedTitles);
+    const result = normalizeImportedSong(raw, index, slotByIndex.get(index), titleMode, opts, usedLocalizedTitles);
     if ('error' in result) {
       skippedReasons.push(result.error);
       return;

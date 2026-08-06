@@ -148,6 +148,42 @@ describe('[Part H] resolveVocalMetaTag / ensureVocalMetaTag', () => {
     const alreadyTagged = ensureVocalMetaTag('[male vocal]\n[verse 1]\nsome lyrics', '[male vocal]');
     expect(alreadyTagged).toBe('[male vocal]\n[verse 1]\nsome lyrics');
   });
+
+  // TASK (vocalPlan gap fix) — ensureVocalMetaTag used to only check "is ANY
+  // vocal meta tag present", never that it MATCHES `tag`; a wrong tag from a
+  // provider response survived untouched (tests/providerResponseFixtures.test.ts's
+  // wrongVocalMetaTag.json fixture). Fixed: a present-but-wrong tag is now
+  // REPLACED with the correct one, in place, preserving everything after it.
+  it('replaces an existing WRONG vocal meta tag with the correct one, across male/female/mixed/duet/group/choir', () => {
+    expect(ensureVocalMetaTag('[female vocal]\n[verse 1]\nsome lyrics', '[male vocal]'))
+      .toBe('[male vocal]\n[verse 1]\nsome lyrics');
+    expect(ensureVocalMetaTag('[male vocal]\n[verse 1]\nsome lyrics', '[female vocal]'))
+      .toBe('[female vocal]\n[verse 1]\nsome lyrics');
+    expect(ensureVocalMetaTag('[female vocal]\n[verse 1]\nsome lyrics', '[mixed vocal]'))
+      .toBe('[mixed vocal]\n[verse 1]\nsome lyrics');
+    expect(ensureVocalMetaTag('[male vocal]\n[verse 1]\nsome lyrics', '[duet vocal]'))
+      .toBe('[duet vocal]\n[verse 1]\nsome lyrics');
+    expect(ensureVocalMetaTag('[group vocal]\n[verse 1]\nsome lyrics', "[children's choir]"))
+      .toBe("[children's choir]\n[verse 1]\nsome lyrics");
+    // Case-insensitive match on the existing tag, but the replacement is
+    // always emitted verbatim as `tag`.
+    expect(ensureVocalMetaTag('[FEMALE VOCAL]\n[verse 1]\nsome lyrics', '[male vocal]'))
+      .toBe('[male vocal]\n[verse 1]\nsome lyrics');
+  });
+
+  it('does not disturb per-section duet retagging — only the single top-of-lyrics tag is checked/replaced', () => {
+    // applyDuetSectionVocalTags runs BEFORE ensureVocalMetaTag at every real
+    // call site (batchPreallocation.ts/localGenerator.ts) and only rewrites
+    // section tags like "[verse 1]" -> "[verse 1: male vocal]" further down
+    // in the lyrics body — those never match VOCAL_META_TAG_PATTERN, so a
+    // wrong top-level tag is still replaced independent of them.
+    const afterDuetSectionRetag =
+      '[female vocal]\n[verse 1: male vocal]\nline one\n\n[chorus: male and female duet]\nline two\n\n[verse 2: female vocal]\nline three';
+    const fixed = ensureVocalMetaTag(afterDuetSectionRetag, '[duet vocal]');
+    expect(fixed).toBe(
+      '[duet vocal]\n[verse 1: male vocal]\nline one\n\n[chorus: male and female duet]\nline two\n\n[verse 2: female vocal]\nline three'
+    );
+  });
 });
 
 describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (realtime/Batch/bridge choke point)', () => {

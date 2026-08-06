@@ -725,10 +725,46 @@ export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: Vo
 
 const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|mixed vocal|children'?s choir|duet vocal|group vocal)\]/i;
 
-/** Prepends `tag` to `lyrics` unless a vocal meta tag is already present at the top (never double-tags). */
+/**
+ * Ensures `lyrics` opens with the CORRECT vocal meta tag for the track's
+ * real assigned slot (`tag` — the caller's already-resolved
+ * resolveVocalMetaTag output, trusted as ground truth here).
+ *
+ * - `tag` is null → nothing enforceable, lyrics untouched.
+ * - No vocal meta tag present at the top → `tag` is prepended.
+ * - The correct tag is already present at the top → no-op (never
+ *   double-tags).
+ * - A DIFFERENT vocal meta tag is already present at the top (e.g. a
+ *   provider response hard-codes "[female vocal]" on a track whose real
+ *   assigned vocalType is male) → that wrong tag is REPLACED with `tag`.
+ *   TASK (matrix gap-closing) originally found and pinned this survives
+ *   uncorrected (tests/providerResponseFixtures.test.ts's
+ *   wrongVocalMetaTag.json fixture): presence alone used to be treated as
+ *   correctness, silently leaving a wrong tag in place even though the
+ *   separate style-prompt gender descriptor (enforceVocalTextInStylePrompt,
+ *   same reconciliation call site) already gets corrected. This closes that
+ *   gap by verifying correctness, not just presence, matching the
+ *   style-prompt side's own behavior.
+ *
+ * Every real caller (batchPreallocation.ts's reconcileWithPreassignedSlot,
+ * localGenerator.ts) runs this AFTER applyDuetSectionVocalTags on the same
+ * lyrics string. That's safe: applyDuetSectionVocalTags only ever rewrites
+ * PER-SECTION tags deep in the lyrics body (e.g. "[verse 1]" ->
+ * "[verse 1: male vocal]", only when gender === 'duet') — it never touches
+ * the single top-of-lyrics tag this function owns, since none of its
+ * rewritten section tags match VOCAL_META_TAG_PATTERN. So a wrong top-level
+ * tag on a duet track still gets replaced with "[duet vocal]" here,
+ * independent of — and without disturbing — whatever per-section tags
+ * applyDuetSectionVocalTags already wrote further down.
+ */
 export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {
-  if (!tag || VOCAL_META_TAG_PATTERN.test(lyrics)) return lyrics;
-  return `${tag}\n${lyrics}`;
+  if (!tag) return lyrics;
+  const match = lyrics.match(VOCAL_META_TAG_PATTERN);
+  if (!match) return `${tag}\n${lyrics}`;
+  const existingTag = `[${match[1]}]`;
+  if (existingTag.toLowerCase() === tag.toLowerCase()) return lyrics;
+  const leadingWhitespace = match[0].slice(0, match[0].length - existingTag.length);
+  return `${leadingWhitespace}${tag}${lyrics.slice(match[0].length)}`;
 }
 
 /**

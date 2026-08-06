@@ -454,3 +454,89 @@ describe('[ratio-based lyric language mismatch] scoreComposition — per-track b
     expect(score.blocking.some(b => b.includes('lyricLanguage'))).toBe(false);
   });
 });
+
+/**
+ * v5.14 (compositionScorer follow-up to v5.12's channel-fixed vocal quota
+ * work) — designGate.ts's own quota-fidelity check (v5.12) verifies real
+ * male/female/mixed song COUNTS match a channel's fixed vocalQuotaOverride
+ * (e.g. kr-idol-male's `{male:15,female:0,mixed:3}`), but only ever sees
+ * PreassignedSongSlot[], never the real generated stylePrompt/lyrics TEXT —
+ * that gap was explicitly left for this module (관문 2, the one that sees
+ * real text) to close. These 3 checks are that closure: a male-only or
+ * female-only track's own text must never carry the opposite gender's vocal
+ * descriptors, meta tags, or duet/group phrasing. Gated on
+ * opts.vocalQuotaOverride being set — see the "does NOT fire" tests below
+ * for why an auto-balanced channel must never trip these.
+ */
+describe('[v5.14 compositionScorer follow-up] fixed-quota channel male/female text-leak checks', () => {
+  const fixedMaleQuota = { male: 15, female: 0, mixed: 3 };
+  const fixedFemaleQuota = { male: 0, female: 15, mixed: 3 };
+
+  it('blocks a female-vocal descriptor leaking into a male-only track\'s stylePrompt (fixed-quota channel)', () => {
+    const song = songWith({ vocalType: 'male', stylePrompt: 'male low warm baritone, conversational unhurried phrasing, soft husky grain, intimate close-mic, soft warm female alto touch' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.passed).toBe(false);
+    expect(score.blocking.some(b => b.includes('style prompt에 여성 보컬 서술 어휘'))).toBe(true);
+  });
+
+  it('blocks a male-vocal descriptor leaking into a female-only track\'s stylePrompt (fixed-quota channel)', () => {
+    const song = songWith({ vocalType: 'female', stylePrompt: 'female full chest alto, tender confiding delivery, warm rounded midrange, intimate close-mic, mature soulful male tenor touch' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedFemaleQuota }).tracks;
+    expect(score.passed).toBe(false);
+    expect(score.blocking.some(b => b.includes('style prompt에 남성 보컬 서술 어휘'))).toBe(true);
+  });
+
+  it('blocks a [female vocal]-style meta tag leaking into a male-only track\'s lyrics (fixed-quota channel)', () => {
+    const song = songWith({ vocalType: 'male', lyrics: '[female vocal]\n[verse 1]\nline a\nline b\n\n[chorus]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[end]' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.passed).toBe(false);
+    expect(score.blocking.some(b => b.includes('보컬 메타 태그에 여성 표기'))).toBe(true);
+  });
+
+  it('does NOT flag ordinary third-person "she"/"her" storytelling prose in a male-only track\'s lyric body — the meta-tag check is scoped to bracket tags only', () => {
+    const song = songWith({ vocalType: 'male', lyrics: '[male vocal]\n[verse 1]\nshe walked away and I let her go\nline b\n\n[chorus]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[end]' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.blocking.some(b => b.includes('보컬 메타 태그에 여성 표기'))).toBe(false);
+  });
+
+  it('blocks duet/group phrasing leaking into a male-only track (DUET_TRAIT_AXES.pairing text, only appropriate for a mixed-quota track)', () => {
+    const song = songWith({ vocalType: 'male', stylePrompt: 'male low warm baritone, conversational unhurried phrasing, soft husky grain, intimate close-mic, trading lines mid-phrase' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.passed).toBe(false);
+    expect(score.blocking.some(b => b.includes('듀엣/그룹 보컬 표현'))).toBe(true);
+  });
+
+  it('blocks the literal "duet" word leaking into a female-only track', () => {
+    const song = songWith({ vocalType: 'female', stylePrompt: 'female full chest alto, tender confiding delivery, warm rounded midrange, intimate close-mic, male and female duet' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedFemaleQuota }).tracks;
+    expect(score.blocking.some(b => b.includes('듀엣/그룹 보컬 표현'))).toBe(true);
+  });
+
+  it('does NOT flag a genuinely correct male-only track (real composed vocabulary, no leak)', () => {
+    const song = songWith({ vocalType: 'male', stylePrompt: 'male low warm baritone, conversational unhurried phrasing, soft husky grain, intimate close-mic', lyrics: '[male vocal]\n[verse 1]\nline a\nline b\n\n[chorus]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[end]' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.blocking.some(b => b.includes('고정 보컬 쿼터'))).toBe(false);
+  });
+
+  it('does NOT flag a mixed-quota track carrying duet phrasing and both genders — duet/group text is legitimate there', () => {
+    const song = songWith({ vocalType: 'mixed', stylePrompt: 'alternating verses into joined chorus, close third harmony, intimate close-mic, male and female duet', lyrics: '[duet vocal]\n[verse 1: male vocal]\nline a\n\n[verse 2: female vocal]\nline b\n\n[chorus: male and female duet]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[end]' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.blocking.some(b => b.includes('고정 보컬 쿼터'))).toBe(false);
+  });
+
+  it('never fires on any of the 3 checks when opts.vocalQuotaOverride is omitted (auto-balanced channel — no hard "this track IS this gender" contract to enforce)', () => {
+    const song = songWith({
+      vocalType: 'male',
+      stylePrompt: 'male low warm baritone, conversational unhurried phrasing, soft husky grain, intimate close-mic, soft warm female alto touch, trading lines mid-phrase',
+      lyrics: '[female vocal]\n[verse 1]\nline a\nline b\n\n[chorus]\nSong One Hook\nline c\nSong One Hook\nline d\nline e\nline f\nSong One Hook\n\n[end]'
+    });
+    const [score] = scoreComposition([song]).tracks; // no opts at all
+    expect(score.blocking.some(b => b.includes('고정 보컬 쿼터'))).toBe(false);
+  });
+
+  it('never fires for a track with no vocalType, even on a fixed-quota channel', () => {
+    const song = songWith({ vocalType: undefined, stylePrompt: 'male low warm baritone, conversational unhurried phrasing, soft husky grain, intimate close-mic, soft warm female alto touch' });
+    const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
+    expect(score.blocking.some(b => b.includes('고정 보컬 쿼터'))).toBe(false);
+  });
+});

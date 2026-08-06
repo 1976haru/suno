@@ -185,3 +185,46 @@ describe('[v3.64 TASK D] recomposeBlockingTracks retries a song whose hook dupli
     expect(result.log).toEqual([]);
   });
 });
+
+/**
+ * v5.14 (compositionScorer follow-up to v5.12's channel-fixed vocal quota
+ * work) — mirrors the lyricLanguage-plumbing describe block above exactly:
+ * a fixed-quota channel's male-only track whose stylePrompt leaks a female
+ * descriptor is a real blocking finding (compositionScorer.ts's new
+ * male/female text-leak checks), and this new 5th param is what makes this
+ * loop actually retry it — the same "omitted = never even flagged" contract
+ * every other opt-in param in this loop already has.
+ */
+describe('[v5.14 compositionScorer follow-up] recomposeBlockingTracks — vocalQuotaOverride plumbing', () => {
+  const fixedMaleQuota = { male: 15, female: 0, mixed: 3 };
+  function maleOnlySongLeakingFemaleDescriptor(): SongIdea {
+    return songWith({
+      trackNo: 1,
+      vocalType: 'male',
+      stylePrompt: `${songWith({ trackNo: 1 }).stylePrompt}, soft warm female alto touch`
+    });
+  }
+
+  it('passing vocalQuotaOverride threads through to the new fixed-quota text-leak checks, so a leaking male-only track actually gets retried', async () => {
+    const songs = [maleOnlySongLeakingFemaleDescriptor()];
+    let calls = 0;
+    const result = await recomposeBlockingTracks(songs, async (current, trackNo) => {
+      calls += 1;
+      return current.map(song => (song.trackNo === trackNo ? songWith({ trackNo, vocalType: 'male' }) : song));
+    }, [], undefined, fixedMaleQuota);
+    expect(calls).toBe(1);
+    expect(result.log).toHaveLength(1);
+    expect(result.log[0]).toMatchObject({ trackNo: 1, resolved: true });
+  });
+
+  it('omitting vocalQuotaOverride means the exact same leaking male-only track is silently never retried (the real-world consequence of the gap this param closes)', async () => {
+    const songs = [maleOnlySongLeakingFemaleDescriptor()];
+    let calls = 0;
+    const result = await recomposeBlockingTracks(songs, async current => {
+      calls += 1;
+      return current;
+    });
+    expect(calls).toBe(0);
+    expect(result.log).toEqual([]);
+  });
+});

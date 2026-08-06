@@ -25,6 +25,8 @@ import { dominantPaletteFamilyId, paletteFamilyForPaletteId } from '../data/pale
 import { audienceProfileForChannelArchetype, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE, tempoBandsForProfile } from '../data/audienceProfiles';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { composeKidsLyrics, type KidsLyricTheme } from './kidsLyricEngine';
+import { krKidsBilingualConceptForThemeId } from '../data/krKidsBilingual';
+import { jpKidsBilingualConceptForThemeId } from '../data/jpKidsBilingual';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -1550,6 +1552,26 @@ export function generateLocalBlueprint(
       : [];
     const trackMotifOption = motifPool.take();
     const manualKidsTheme = kidsEngineThemeForLyricSlot(lyricThemeId) as KidsLyricTheme | undefined;
+    // v5.14 (bilingual wiring follow-up) — TASK E1/F1 built real
+    // krkids-color/number/greeting-in-english (and jpkids- equivalents)
+    // lyric themes plus a matching krKidsBilingualConceptForThemeId /
+    // jpKidsBilingualConceptForThemeId lookup and a bilingualConcept-aware
+    // branch inside composeKidsLyrics — but no caller ever derived the
+    // concept from the selected theme id and passed it through, so a picked
+    // "*-in-english" theme silently fell back to kidsLyricEngine.ts's plain
+    // hangul-fallback pool (via lyricThemeId's own kidsEngineThemeForLyricSlot
+    // mapping to 'hangul') and never produced the actual bilingual verse/
+    // chorus content it was authored for. This is unrelated to the kids
+    // channel's primary-language picker excluding 'bilingual' (that exclusion
+    // is intentional — see Step1Channel.tsx's TASK v3.38 Part B1 comment and
+    // TASK E1's own "deliberately not a new LyricLanguage member" note; the
+    // bilingualConcept mechanism is a within-language overlay driven by theme
+    // selection, not a fourth LyricLanguage value).
+    const kidsBilingualConcept = opts.lyricLanguage === 'japanese'
+      ? jpKidsBilingualConceptForThemeId(lyricThemeId)
+      : opts.lyricLanguage === 'korean'
+        ? krKidsBilingualConceptForThemeId(lyricThemeId)
+        : undefined;
     const sectionStyle = sectionStylePlan[idx];
     // TASK v3.38 Part B3 — the 'kids' channel archetype uses a dedicated,
     // self-contained lyric body composer instead of the adult engine's
@@ -1563,7 +1585,7 @@ export function generateLocalBlueprint(
     // rather than introducing a separate new rotation/axis for it.
     const hookPositionVariant = (hookDevices.findIndex(device => device.id === hookDevicePlan[idx]) % 3 + 3) % 3 as 0 | 1 | 2;
     const { lyrics: composedLyrics, hookPhrase } = isKidsArchetype(opts.channel.archetype)
-      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme, ageTier: resolvedKidsAgeTierId })
+      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme, ageTier: resolvedKidsAgeTierId, bilingualConcept: kidsBilingualConcept })
       : composeLyrics({
         language: opts.lyricLanguage,
         season,

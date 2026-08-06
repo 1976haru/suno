@@ -10,7 +10,8 @@ import { findBlockingVocabularyRepetition, findExcessiveVocabularyRepetition, fi
 import { findNearDuplicateHook } from './hookSimilarity';
 import { titleShapeVarietyWarning } from './titleShapeVariety';
 import { eraSharesOf, type EraConstraint } from './constraints';
-import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
+import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES, DUET_TRAIT_AXES } from '../data/vocalTraits';
+import { detectVocalGenderPresence } from './vocalPlan';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -194,7 +195,73 @@ export interface ScoreCompositionOptions {
   audienceProfile?: AudienceProfile;
   /** v4.3 (TASK A) — this pack's resolved packaging language (see core/packagingLanguage.ts's resolvePackagingLanguage). Undefined/'english' skips every titleLocalized check below entirely — there is nothing to require. */
   packagingLanguage?: DisplayLanguage;
+  /**
+   * v5.14 (compositionScorer follow-up to v5.12's channel-fixed vocal quota
+   * work) — this channel's real fixed gender quota
+   * (ChannelProfile.vocalQuotaOverride, e.g. kr-idol-male's
+   * `{male:15,female:0,mixed:3}`), when the caller has one. Gates the 3
+   * male-only/female-only text-leak checks below (opposite-gender descriptor
+   * in stylePrompt, opposite-gender meta tag in lyrics, duet/group phrasing
+   * outside a mixed-quota track) — see this module's own doc comment just
+   * above those checks for why an auto-balanced channel (no
+   * vocalQuotaOverride) must never run them. Undefined (the default for
+   * every existing caller) skips all 3 checks entirely, same as every other
+   * omitted opt in this file.
+   */
+  vocalQuotaOverride?: { male: number; female: number; mixed: number };
 }
+
+/**
+ * v5.14 (compositionScorer follow-up) — text-level counterpart to
+ * core/designGate.ts's numeric "quota-fidelity" check (v5.12): designGate.ts
+ * only ever sees PreassignedSongSlot[] (pre-text planning data), never the
+ * real generated stylePrompt/lyrics, so it can verify a fixed-quota
+ * channel's male/female/mixed song COUNTS match channel.vocalQuotaOverride
+ * but can never verify that a male-only track's own TEXT stays free of
+ * female-vocal language (or vice versa) — that gap was named as a follow-up
+ * left for this module, the one that actually sees post-generation text (관문
+ * 2). Only meaningful for a channel with a real fixed gender quota: an
+ * auto-balanced channel's 'male'/'female' vocalType is a soft outcome of
+ * scaleVocalQuota/buildVocalPlan, not a hard per-track promise, so there is
+ * no "this track IS strictly this gender, no exceptions" contract to check
+ * there — see ScoreCompositionOptions.vocalQuotaOverride's own doc comment.
+ *
+ * Vocabulary reused, not reinvented: detectVocalGenderPresence
+ * (core/vocalPlan.ts) is the exact male/female word-presence detector
+ * enforceVocalTextInStylePrompt already uses to correct a stray gender word
+ * at generation time (FEMALE_VOICE_TERMS/MALE_VOICE_TERMS — she/her/soprano/
+ * alto/... vs he/his/tenor/baritone/..., the real words this app's own
+ * vocal-trait axes and vocal presets actually compose into a stylePrompt).
+ * This is that same vocabulary, applied as a post-generation BLOCKING check
+ * instead of a silent auto-correction — defense-in-depth for a leak that
+ * slips past that correction, or is introduced by a future code path that
+ * never calls it.
+ */
+function bracketTagsIn(text: string): string {
+  return (text.match(/\[[^\]]*\]/g) || []).join(' ');
+}
+
+/**
+ * v5.14 (compositionScorer follow-up) — real duet/group phrasing markers,
+ * sourced from this codebase's own composed vocabulary rather than guessed:
+ * DUET_STYLE_SIGNAL (data/vocalPresets.ts's "... duet, ..." text, reused
+ * from this file's own TASK v3.70 check above), the literal meta-tag set
+ * core/vocalPlan.ts's resolveVocalMetaTag actually emits, the literal "male
+ * and female call and response" text core/vocalPlan.ts's
+ * applyDuetSectionVocalTags hardcodes for a bridge/breakdown section, and
+ * every DUET_TRAIT_AXES.pairing phrase (data/vocalTraits.ts) — the exact
+ * pool core/vocalPlan.ts's buildAdultVocalTraitPlan draws from to compose a
+ * mixed-quota track's own stylePrompt text. None of these phrases can appear
+ * in a correctly-generated male-only/female-only track (buildAdultVocalTraitPlan
+ * only ever composes them for a 'mixed'-type slot) — a match here means a
+ * duet/group phrase leaked into a track that must read as one solo voice.
+ */
+const DUET_GROUP_PHRASING_MARKERS: RegExp[] = [
+  DUET_STYLE_SIGNAL,
+  /\[(duet vocal|mixed vocal|group vocal|children'?s choir)\]/i,
+  /male and female call and response/i,
+  ...DUET_TRAIT_AXES.pairing.map(phrase => new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+];
 
 /** v4.2 (TASK A3, TASK B) — see this task's own §3-3 "primary 비중 < 50% → blocking, forbidden 시대 장르 존재 → blocking, 범용 장르 > 20% → advisory". Pack-level (not attributable to one track), so every song's own score gets the same findings, same pattern as vocabularyRepetitionWarning/titleShapeWarning below. */
 function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint | undefined): { blocking: string[]; advisory: string[] } {
@@ -321,6 +388,10 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
   const eraFindings = eraConsistencyFindings(songs, opts?.eraConstraint);
   const vocalZoneWarnings = vocalZoneDistributionWarnings(songs);
   const structureFindings = vocalAndTempoStructureFindings(songs);
+  // v5.14 (compositionScorer follow-up) — see DUET_GROUP_PHRASING_MARKERS'
+  // own doc comment for the full background; gates the 3 male-only/
+  // female-only text-leak checks below to a real fixed-quota channel only.
+  const fixedQuotaChannel = Boolean(opts?.vocalQuotaOverride);
 
   const vocabFindings = findArrangementVocabularyInLyrics(songs);
   const vocabByTrack = new Map<number, string[]>();
@@ -482,6 +553,43 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
       blocking.push('듀엣 곡인데 가사에 [Verse 1: Male Vocal]/[Verse 2: Female Vocal] 같은 섹션별 보컬 배정 태그가 없습니다 — Suno는 가사 태그로 보컬을 나누므로, 태그가 없으면 한 명이 전부 부릅니다.');
     } else if (!isDuetSong && (hasMaleSectionTag || hasFemaleSectionTag)) {
       advisory.push('단독 보컬 곡인데 가사에 섹션별 성별 보컬 배정 태그가 있습니다 — 의도한 것인지 확인하세요.');
+    }
+
+    // NEW (v5.14, compositionScorer follow-up to v5.12's channel-fixed vocal
+    // quota work) — see DUET_GROUP_PHRASING_MARKERS' own doc comment above
+    // for the full background/vocabulary sourcing. Only engages for a real
+    // fixed-quota channel (opts.vocalQuotaOverride set) and only for a track
+    // whose own assigned vocalType is strictly 'male' or 'female' — a
+    // 'mixed'-type track (or a track with no vocalType at all) is skipped
+    // entirely, since duet/group phrasing and either gender's descriptors
+    // are legitimate there.
+    if (fixedQuotaChannel && (song.vocalType === 'male' || song.vocalType === 'female')) {
+      const oppositeGender = song.vocalType === 'male' ? 'female' : 'male';
+      const oppositeLabel = oppositeGender === 'female' ? '여성' : '남성';
+
+      // Check 1 — zero opposite-gender vocal descriptors in the stylePrompt.
+      const stylePresence = detectVocalGenderPresence(song.stylePrompt);
+      if (stylePresence[oppositeGender]) {
+        blocking.push(`고정 보컬 쿼터 채널의 "${song.vocalType}" 전용 곡인데 style prompt에 ${oppositeLabel} 보컬 서술 어휘가 섞여 있습니다.`);
+      }
+
+      // Check 2 — zero opposite-gender meta tags in the lyrics (the top-level
+      // blanket tag or a per-section "[...: female vocal]"-style tag), scoped
+      // to bracket tags only so ordinary third-person pronouns in a lyric's
+      // storytelling body ("she"/"her" about someone the singer addresses)
+      // never false-positive here — see sectionLevelGenderTags above for the
+      // same bracket-only scoping principle on the colon-tag check.
+      const tagPresence = detectVocalGenderPresence(bracketTagsIn(song.lyrics));
+      if (tagPresence[oppositeGender]) {
+        blocking.push(`고정 보컬 쿼터 채널의 "${song.vocalType}" 전용 곡인데 가사의 보컬 메타 태그에 ${oppositeLabel} 표기가 섞여 있습니다.`);
+      }
+
+      // Check 3 — zero duet/group phrasing (only appropriate for a
+      // mixed-quota track), checked across both stylePrompt and lyrics.
+      const combinedVocalText = `${song.stylePrompt}\n${song.lyrics}`;
+      if (DUET_GROUP_PHRASING_MARKERS.some(pattern => pattern.test(combinedVocalText))) {
+        blocking.push(`고정 보컬 쿼터 채널의 "${song.vocalType}" 전용 곡인데 듀엣/그룹 보컬 표현이 섞여 있습니다 — 듀엣/그룹 표현은 mixed 쿼터 곡에만 허용됩니다.`);
+      }
     }
 
     // NEW (TASK v3.64 TASK D) — was a warning-only check (claudeCodeBridge.ts's

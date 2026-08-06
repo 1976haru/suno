@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { batchIndexFromCustomId, stitchBatchResults, type BatchRequestResult } from '../src/core/batchStitcher';
+import { batchIndexFromCustomId, stitchBatchResults, validateStitched, type BatchRequestResult } from '../src/core/batchStitcher';
 import { buildBatchRequestSpecs } from '../src/providers/batchAnthropic';
+import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import batchHandler, { __internal as batchApiInternal } from '../api/batch.js';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { PlaylistBlueprint, ProviderSettings } from '../src/types';
@@ -86,6 +87,37 @@ describe('[E2] stitchBatchResults (pure)', () => {
     const stitched = stitchBatchResults(opts, results);
     expect(stitched.blueprint).toBeNull();
     expect(stitched.failedBatchIndexes).toEqual([0, 1]);
+  });
+
+  it('[duplicate-trackNo fix] two songs in the SAME result claiming the same trackNo both survive — first claim keeps the real slot, second gets the no-slot fallback instead of sharing it — and validateStitched can still see the collision', () => {
+    const opts4 = makeOptions({ songCount: 4 });
+    const slots = preallocateSongSlots(opts4, testGenres);
+    const slot3 = slots.find(s => s.trackNo === 3)!;
+    // b0's own response is malformed: it returns FOUR songs for its own
+    // 3-track chunk, two of them both claiming trackNo 3 — the exact
+    // in-one-response shape tests/fixtures/providerResponses/duplicateTrackNo.json
+    // (tests/providerResponseFixtures.test.ts) exercises for the bridge path.
+    const results: BatchRequestResult[] = [
+      { customId: 'b0', blueprint: makeBlueprint([makeSong(1), makeSong(2), makeSong(3), makeSong(3)]), usage: null, error: null },
+      { customId: 'b1', blueprint: makeBlueprint([makeSong(4)]), usage: null, error: null }
+    ];
+    const stitched = stitchBatchResults(opts4, results, slots);
+
+    // No song silently vanished — both trackNo-3 claimants survive alongside 1, 2, 4.
+    expect(stitched.blueprint!.songs).toHaveLength(5);
+    const songsAtTrack3 = stitched.blueprint!.songs.filter(s => s.trackNo === 3);
+    expect(songsAtTrack3).toHaveLength(2);
+    // First claim (array order) gets slot 3's real, forced plan.
+    expect(songsAtTrack3[0].genreId).toBe(slot3.genreId);
+    // Second claim does NOT silently share slot 3's plan — it falls back to
+    // reconcileWithPreassignedSlot's own no-slot branch instead.
+    expect(songsAtTrack3[1].genreId).not.toBe(slot3.genreId);
+
+    // duplicateTrackNos — dead code before this fix on this call path — now
+    // actually fires, since the collision survives into the final songs list.
+    const validation = validateStitched(stitched.blueprint!.songs, opts4.songCount);
+    expect(validation.duplicateTrackNos).toEqual([3]);
+    expect(validation.issues.some(issue => issue.includes('Duplicate trackNo: 3'))).toBe(true);
   });
 });
 

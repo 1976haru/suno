@@ -834,6 +834,51 @@ export function slotsForRange(slots: PreassignedSongSlot[], trackNumbers: number
 }
 
 /**
+ * TASK (duplicate-trackNo fix) — every reconciliation call site in this
+ * codebase (providers/index.ts's generateChunkWithSplitRetry, core/
+ * batchStitcher.ts's stitchBatchResults, core/bridgeImport.ts's
+ * importSongsJson) used to build `new Map(slots.map(s => [s.trackNo, s]))`
+ * and then look up `.get(song.trackNo)` independently per song. A response
+ * where two returned songs both claim the SAME trackNo (a duplicate/
+ * adversarial or flaky provider response) let BOTH songs reconcile against
+ * the identical slot — same genreId/vocalType/tempo/money-chord plan —
+ * while whichever slot a different track was actually meant to carry went
+ * completely unused, silently (the pack's total song count still balanced,
+ * so nothing crashed or looked obviously wrong).
+ *
+ * This walks `songs` in the given array order and hands each slot to the
+ * FIRST song that claims its trackNo; any later song claiming an
+ * already-consumed trackNo gets `undefined` back instead — the exact same
+ * "no matching slot" outcome an out-of-range/invalid trackNo already
+ * produces (reconcileWithPreassignedSlot's own `!slot` branch: defensive
+ * genreId re-sanitization only, no slot-forced tempo/vocal/genre/hook
+ * contract). Reuses the codebase's one existing "can't trust this trackNo"
+ * remedy instead of inventing a second one for duplicates specifically.
+ *
+ * Keyed by song object identity (not trackNo) in the returned Map, since two
+ * colliding songs share the same trackNo and can't both be a key in a
+ * `Map<number, ...>`.
+ */
+export function claimSlotsByTrackNo<T extends { trackNo: number }>(
+  songs: readonly T[],
+  slots: readonly PreassignedSongSlot[]
+): Map<T, PreassignedSongSlot | undefined> {
+  const slotByTrackNo = new Map(slots.map(slot => [slot.trackNo, slot]));
+  const claimedTrackNos = new Set<number>();
+  const claims = new Map<T, PreassignedSongSlot | undefined>();
+  for (const song of songs) {
+    const slot = slotByTrackNo.get(song.trackNo);
+    if (slot && !claimedTrackNos.has(song.trackNo)) {
+      claimedTrackNos.add(song.trackNo);
+      claims.set(song, slot);
+    } else {
+      claims.set(song, undefined);
+    }
+  }
+  return claims;
+}
+
+/**
  * TASK v3.27 — the single place every generation path (realtime, Batch API,
  * Claude Code bridge import) reconciles a model/agent's raw song output
  * against the locally pre-decided slot for its trackNo, so the three paths

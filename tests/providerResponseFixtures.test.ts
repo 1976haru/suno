@@ -34,6 +34,7 @@ import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { sanitizeGenreIdsForArchetype } from '../src/core/genreSelection';
 import { getWorkspace } from '../src/data/workspaces';
 import { findArtistReferenceLeaks } from '../src/core/artistReferenceDecomposer';
+import { isKidsArchetype } from '../src/utils/channelArchetype';
 import { channelPresets, genrePacks, moodPacks, makeOptions, testSeason } from './fixtures';
 import type { ChannelProfile, GenerationOptions, WorkspaceId } from '../src/types';
 
@@ -189,7 +190,7 @@ describe('[provider-response fixtures] missingTracks.json — 4 of 5 requested t
 
 describe('[provider-response fixtures] duplicateTrackNo.json — two entries claim the same trackNo', () => {
   for (const workspaceId of WORKSPACE_IDS) {
-    it(`workspace: ${workspaceId} — real behavior verified: reconciliation keys off the CLAIMED trackNo, not the final renumbered position (discovered gap)`, () => {
+    it(`workspace: ${workspaceId} — FIXED (was a discovered gap): claimSlotsByTrackNo (core/batchPreallocation.ts) now consumes each slot on its first claim, so the duplicate claimant no longer silently shares the first claimant's slot`, () => {
       const { opts, slots, report } = runFixture(workspaceId, 'duplicateTrackNo.json');
       expect(report.blueprint, `${workspaceId}/duplicateTrackNo: must not crash or hard-fail`).not.toBeNull();
       // Every surviving entry gets sorted then renumbered 1..N by position
@@ -197,30 +198,40 @@ describe('[provider-response fixtures] duplicateTrackNo.json — two entries cla
       // countMismatchWarning fires here, unlike missingTracks.json.
       expect(report.importedCount, `${workspaceId}/duplicateTrackNo: total surviving entries still equals the request`).toBe(opts.songCount);
 
-      // DISCOVERED GAP: reconcileWithPreassignedSlot forces genreId/
-      // vocalType/tempo from the slot matching the response's own CLAIMED
-      // trackNo — resolved BEFORE the sort+renumber pass runs, not from the
-      // slot matching where the entry ends up afterward. This fixture's
-      // array order is [claim 1, claim 2, claim 3 (original), claim 3
-      // (duplicate, carries the dropped track 5's content), claim 4]; sort
-      // is a no-op (already ascending) and renumbering assigns final
-      // trackNos 1-5 by position. So both entries that claimed trackNo 3
-      // get slot 3's fields forced onto them — meaning FINAL tracks 3 AND 4
-      // both duplicate slot 3's own genreId/vocalType/tempo instead of each
-      // carrying its own distinct slot's plan, while the entry that claimed
-      // trackNo 4 (slot 4's real fields) lands at FINAL track 5, and slot
-      // 5's own real plan is never used by anyone. The pack still counts
-      // out correctly and every individual field is still internally valid
-      // (a real genreId, a real tempo) — but the per-track diversity plan
-      // silently shifts/duplicates rather than following final position.
+      // FIXED (was: "DISCOVERED GAP" — both entries claiming trackNo 3 got
+      // slot 3's plan forced onto them, while slot 5 went completely unused).
+      // This fixture's raw array order is [claim 1, claim 2, claim 3
+      // (original), claim 3 (duplicate), claim 4]; sort is a no-op (already
+      // ascending) and renumbering assigns final trackNos 1-5 by position.
+      // claimSlotsByTrackNo now hands slot 3 to whichever claim-3 entry is
+      // processed FIRST (array order) only — final track 3 (the original
+      // claim). The duplicate claim (final track 4) instead gets reconciled
+      // via reconcileWithPreassignedSlot's own no-slot branch — the SAME
+      // "no matching slot" remedy invalidTrackNo.json already exercises for
+      // an out-of-range trackNo — so it no longer silently duplicates slot
+      // 3's genreId/tempo; its own (unenforced) raw response fields survive
+      // instead. The claimed-trackNo-vs-final-position gap for the
+      // UNAMBIGUOUS entries (final track 5 still carrying slot 4's fields,
+      // not slot 5's) is a separate, pre-existing, still-documented behavior
+      // this fix does not change — slot 5 genuinely has no claimant in this
+      // fixture (no raw entry ever claims trackNo 5), so it goes unused
+      // either way.
       const songs = report.blueprint!.songs;
       const slot3 = slots.find(s => s.trackNo === 3)!;
       const slot4 = slots.find(s => s.trackNo === 4)!;
-      expect(songs[2].genreId, `${workspaceId}/duplicateTrackNo: final track 3 carries slot 3's fields (its original claim)`).toBe(slot3.genreId);
-      expect(songs[3].genreId, `${workspaceId}/duplicateTrackNo: final track 4 ALSO carries slot 3's fields (the duplicate claim), not slot 4's`).toBe(slot3.genreId);
-      expect(songs[4].genreId, `${workspaceId}/duplicateTrackNo: final track 5 carries slot 4's fields (shifted down from the claim-4 entry), not slot 5's`).toBe(slot4.genreId);
+      expect(songs[2].genreId, `${workspaceId}/duplicateTrackNo: final track 3 carries slot 3's fields (its original, first-claimed slot)`).toBe(slot3.genreId);
+      expect(songs[3].genreId, `${workspaceId}/duplicateTrackNo: FIXED — final track 4 (the duplicate claim) no longer duplicates slot 3's genreId`).not.toBe(slot3.genreId);
+      // The fixture's raw JSON never sets a genreId at all, so the no-slot
+      // branch's early-return (reconcileWithPreassignedSlot: `!song.genreId`)
+      // leaves it exactly as the response sent it — undefined, not force-sanitized.
+      expect(songs[3].genreId, `${workspaceId}/duplicateTrackNo: final track 4 carries no slot-forced genreId at all (no-slot branch)`).toBeUndefined();
+      expect(songs[4].genreId, `${workspaceId}/duplicateTrackNo: final track 5 still carries slot 4's fields (pre-existing, unrelated positional gap — unaffected by this fix)`).toBe(slot4.genreId);
       expect(songs[2].stylePrompt, `${workspaceId}/duplicateTrackNo: final track 3 tempo comes from slot 3`).toContain(`${slot3.tempo} BPM`);
-      expect(songs[3].stylePrompt, `${workspaceId}/duplicateTrackNo: final track 4 tempo ALSO comes from slot 3, not slot 4`).toContain(`${slot3.tempo} BPM`);
+      expect(songs[3].stylePrompt, `${workspaceId}/duplicateTrackNo: FIXED — final track 4 no longer carries slot 3's tempo`).not.toContain(`${slot3.tempo} BPM`);
+      // No slot-forced tempo enforcement runs in the no-slot branch, so the
+      // duplicate claim's own raw stylePrompt BPM figure (84, from the
+      // fixture's own "84 BPM" text) survives untouched instead.
+      expect(songs[3].stylePrompt, `${workspaceId}/duplicateTrackNo: final track 4 keeps its own raw (unenforced) BPM text`).toContain('84 BPM');
     });
   }
 });
@@ -316,33 +327,98 @@ describe('[provider-response fixtures] wrongLanguage.json — lyrics body in the
 });
 
 describe("[provider-response fixtures] wrongVocalMetaTag.json — a vocal meta-tag that contradicts the track's assigned vocalType", () => {
+  // TASK (vocalPlan gap fix) — core/vocalPlan.ts's ensureVocalMetaTag used to
+  // only check "is ANY vocal meta tag already present at the top of the
+  // lyrics", never that the tag MATCHES the slot's real vocalType, so an
+  // already-wrong tag from the response survived reconciliation completely
+  // uncorrected (previously pinned here as a known, documented gap). Fixed:
+  // ensureVocalMetaTag now verifies correctness, not just presence, and
+  // REPLACES a mismatched tag with the correct one, matching what the
+  // style-prompt side (enforceVocalTextInStylePrompt) was already doing.
+
+  // --- male / female: single-gender forced vocalType, uniform across every
+  // workspace (kids or not) — batchPreallocation.ts's own vocalGender
+  // derivation (`isKidsArchetype(archetype) ? vocalType : (vocalType ===
+  // 'mixed' ? 'duet' : vocalType)`) only diverges by archetype for the
+  // 'mixed' vocalType, so male/female stay simple here.
+  const SINGLE_GENDER_CASES: { forcedVocalType: 'male' | 'female'; expectedTag: string; wrongWord: RegExp }[] = [
+    { forcedVocalType: 'male', expectedTag: '[male vocal]', wrongWord: /\bfemale\b/i },
+    // The fixture's hardcoded tag IS already "[female vocal]" — forcing
+    // vocalType 'female' makes this the no-op/already-correct path (the
+    // existing tag matches and must be left byte-for-byte alone), a useful
+    // complement to the male case's actual replacement.
+    { forcedVocalType: 'female', expectedTag: '[female vocal]', wrongWord: /\bmale\b/i }
+  ];
   for (const workspaceId of WORKSPACE_IDS) {
-    it(`workspace: ${workspaceId} — stylePrompt gender IS corrected; the lyric bracket tag is NOT (discovered gap)`, () => {
-      // Force every slot to vocalType 'male' so the fixture's hard-coded
-      // "[female vocal]" tag is a deterministic, uniform mismatch on every
-      // one of the 7 workspaces regardless of that workspace's own seeded
-      // vocal-plan output.
-      const { report } = runFixture(workspaceId, 'wrongVocalMetaTag.json', { vocalQuota: { male: FIXTURE_SONG_COUNT, female: 0, mixed: 0 } });
-      expect(report.blueprint, `${workspaceId}/wrongVocalMetaTag: must still import`).not.toBeNull();
+    for (const { forcedVocalType, expectedTag, wrongWord } of SINGLE_GENDER_CASES) {
+      it(`workspace: ${workspaceId}, forced vocalType: ${forcedVocalType} — both stylePrompt gender AND the lyric bracket tag are corrected`, () => {
+        const vocalQuota =
+          forcedVocalType === 'male'
+            ? { male: FIXTURE_SONG_COUNT, female: 0, mixed: 0 }
+            : { male: 0, female: FIXTURE_SONG_COUNT, mixed: 0 };
+        const { report } = runFixture(workspaceId, 'wrongVocalMetaTag.json', { vocalQuota });
+        expect(report.blueprint, `${workspaceId}/wrongVocalMetaTag: must still import`).not.toBeNull();
+        for (const song of report.blueprint!.songs) {
+          expect(song.vocalType, `${workspaceId}/wrongVocalMetaTag: track ${song.trackNo} slot-forced vocalType is ${forcedVocalType}`).toBe(forcedVocalType);
+          // Real, working detection/correction: enforceVocalTextInStylePrompt +
+          // appendVerbatimIfMissing (batchPreallocation.ts) repair the
+          // style-prompt-level gender description to match the real slot.
+          expect(
+            wrongWord.test(song.stylePrompt),
+            `${workspaceId}/wrongVocalMetaTag: track ${song.trackNo} stylePrompt must not still claim the wrong gender after reconciliation`
+          ).toBe(false);
+          // FIXED: ensureVocalMetaTag (core/vocalPlan.ts) now replaces a
+          // mismatched lyric bracket tag with the correct one (or leaves an
+          // already-correct one untouched), the same way the style-prompt
+          // side already gets corrected.
+          expect(
+            song.lyrics.trim().startsWith(expectedTag),
+            `${workspaceId}/wrongVocalMetaTag: track ${song.trackNo} lyric meta-tag must be ${expectedTag} — got: ${JSON.stringify(song.lyrics.trim().slice(0, 40))}`
+          ).toBe(true);
+        }
+      });
+    }
+  }
+
+  // --- mixed: the duet-tagging nuance. A forced vocalType 'mixed' resolves
+  // to a DIFFERENT vocalGender depending on archetype (batchPreallocation.ts
+  // line ~660): kids archetypes keep gender === vocalType === 'mixed'
+  // (tags "[mixed vocal]", no per-section retagging — applyDuetSectionVocalTags
+  // is a no-op for anything but gender === 'duet'), while every non-kids
+  // archetype maps vocalType 'mixed' to gender 'duet' (tags "[duet vocal]",
+  // AND triggers applyDuetSectionVocalTags's per-section verse/chorus
+  // retagging). This proves ensureVocalMetaTag's correctness-fix and the
+  // pre-existing per-section duet mechanism coexist without either fighting
+  // or overwriting the other, for both branches.
+  for (const workspaceId of WORKSPACE_IDS) {
+    const kids = isKidsArchetype(channelFor(workspaceId).archetype);
+    const expectedTopTag = kids ? '[mixed vocal]' : '[duet vocal]';
+    it(`workspace: ${workspaceId} (${kids ? 'kids' : 'non-kids'}), forced vocalType: mixed — top-level tag corrected to ${expectedTopTag}${kids ? '' : ', per-section duet retagging also applied'}`, () => {
+      const { report } = runFixture(workspaceId, 'wrongVocalMetaTag.json', { vocalQuota: { male: 0, female: 0, mixed: FIXTURE_SONG_COUNT } });
+      expect(report.blueprint, `${workspaceId}/wrongVocalMetaTag(mixed): must still import`).not.toBeNull();
       for (const song of report.blueprint!.songs) {
-        expect(song.vocalType, `${workspaceId}/wrongVocalMetaTag: track ${song.trackNo} slot-forced vocalType is male`).toBe('male');
-        // Real, working detection/correction: enforceVocalTextInStylePrompt +
-        // appendVerbatimIfMissing (batchPreallocation.ts) DO repair the
-        // style-prompt-level gender description to match the real slot.
+        expect(song.vocalType, `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} slot-forced vocalType is mixed`).toBe('mixed');
+        const trimmed = song.lyrics.trim();
         expect(
-          /\bfemale\b/i.test(song.stylePrompt),
-          `${workspaceId}/wrongVocalMetaTag: track ${song.trackNo} stylePrompt must not still claim female after reconciliation`
-        ).toBe(false);
-        // DISCOVERED GAP: core/vocalPlan.ts's ensureVocalMetaTag only checks
-        // "is ANY vocal meta tag already present at the top of the lyrics" —
-        // it never checks that the tag MATCHES the slot's real vocalType, so
-        // an already-wrong tag from the response survives reconciliation
-        // completely uncorrected. Pinned here as real, current behavior
-        // (not silently tolerated) rather than hidden by a looser assertion.
-        expect(
-          song.lyrics.trim().startsWith('[female vocal]'),
-          `${workspaceId}/wrongVocalMetaTag: KNOWN GAP — the wrong lyric meta-tag survives reconciliation uncorrected`
+          trimmed.startsWith(expectedTopTag),
+          `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} top-level tag must be ${expectedTopTag} — got: ${JSON.stringify(trimmed.slice(0, 40))}`
         ).toBe(true);
+        // The fixture's original wrong "[female vocal]" tag must never
+        // survive as the top-level tag.
+        expect(trimmed.startsWith('[female vocal]'), `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} must not still carry the fixture's original wrong top-level tag`).toBe(false);
+        if (kids) {
+          // No per-section retagging for a non-duet gender — the plain
+          // structure section tags from the fixture survive unchanged.
+          expect(song.lyrics, `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} kids-mixed must NOT get duet per-section retagging`).not.toMatch(/\[verse 1: male vocal\]/i);
+        } else {
+          // Real before/after for the duet nuance: applyDuetSectionVocalTags
+          // (unrelated pre-existing mechanism, called before ensureVocalMetaTag
+          // at this same call site) still fires and rewrites the per-section
+          // tags — proving the top-level fix above didn't disturb it.
+          expect(song.lyrics, `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} duet per-section verse 1 retag must still fire`).toMatch(/\[verse 1: male vocal\]/i);
+          expect(song.lyrics, `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} duet per-section verse 2 retag must still fire`).toMatch(/\[verse 2: female vocal\]/i);
+          expect(song.lyrics, `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} duet per-section chorus retag must still fire`).toMatch(/\[chorus: male and female duet\]/i);
+        }
       }
     });
   }

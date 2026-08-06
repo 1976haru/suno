@@ -71,6 +71,50 @@ describe('composeKidsLyrics', () => {
   });
 });
 
+// v5.14 (bilingual wiring follow-up) — TASK E1/F1 built a real
+// bilingualConcept branch (data/krKidsBilingual.ts / data/jpKidsBilingual.ts
+// hand-authored color/number/greeting content) but localGenerator.ts never
+// derived it from the selected lyric theme and passed it through, so this
+// branch was reachable in unit tests only, never a real caller. Now wired —
+// these tests confirm the branch itself (already existed) still produces
+// safe, theme-matched, real bilingual content for both Korean and Japanese.
+describe('composeKidsLyrics with bilingualConcept', () => {
+  it('swaps verse/chorus content to the hand-authored Korean-English pairs when set (korean)', () => {
+    const { lyrics, hookPhrase } = composeKidsLyrics({ language: 'korean', title: '색깔놀이', hook: '색깔놀이 해봐요', seed: 4, bilingualConcept: 'color' });
+    expect(lyrics).toContain('노랑은 yellow');
+    expect(lyrics).toContain('파랑은 blue');
+    expect(hookPhrase).toBe('색깔놀이 해봐요');
+    expect(isKidsLyricSafe(lyrics)).toBe(true);
+    expect(kidsLyricSafetyIssues(lyrics)).toEqual([]);
+  });
+
+  it('swaps verse/chorus content to the hand-authored Japanese-English pairs when set (japanese)', () => {
+    const { lyrics } = composeKidsLyrics({ language: 'japanese', title: 'すうじ', hook: 'すうじで あそぼう', seed: 6, bilingualConcept: 'number' });
+    expect(lyrics).toContain('にで two');
+    expect(lyrics).toContain('さんで three');
+    expect(isKidsLyricSafe(lyrics)).toBe(true);
+    expect(kidsLyricSafetyIssues(lyrics)).toEqual([]);
+  });
+
+  it('is deterministic and produces every concept (color/number/greeting) safely in both languages', () => {
+    for (const language of ['korean', 'japanese'] as const) {
+      for (const concept of ['color', 'number', 'greeting'] as const) {
+        const a = composeKidsLyrics({ language, title: 'T', hook: 'Hook', seed: 9, bilingualConcept: concept });
+        const b = composeKidsLyrics({ language, title: 'T', hook: 'Hook', seed: 9, bilingualConcept: concept });
+        expect(a).toEqual(b);
+        expect(isKidsLyricSafe(a.lyrics), `${language}/${concept}`).toBe(true);
+        expect(referencesExistingKidsSong(a.lyrics), `${language}/${concept}`).toBe(false);
+      }
+    }
+  });
+
+  it('leaves non-bilingual output unchanged when bilingualConcept is omitted (no regression)', () => {
+    const withoutConcept = composeKidsLyrics({ language: 'korean', title: '즐거운 노래', hook: '친구야 놀자', seed: 11 });
+    const explicitUndefined = composeKidsLyrics({ language: 'korean', title: '즐거운 노래', hook: '친구야 놀자', seed: 11, bilingualConcept: undefined });
+    expect(withoutConcept).toEqual(explicitUndefined);
+  });
+});
+
 describe('themeForSeed', () => {
   it('always returns one of the 8 defined kids lyric themes', () => {
     for (let seed = 0; seed < 40; seed++) {

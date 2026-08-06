@@ -1,5 +1,5 @@
 import type { GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, SongIdea, UsageInfo } from '../types';
-import { reconcileWithPreassignedSlot } from './batchPreallocation';
+import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { stripSetTitlePrefix } from '../utils/generation';
 
@@ -29,16 +29,46 @@ export function batchIndexFromCustomId(customId: string): number {
 }
 
 /**
- * TASK B3 (v3.6) — keyed by trackNo instead of a naive push, so a retried
- * sub-batch's songs (see useBatchGenerationFlow.ts's retryFailed) overwrite
- * the original trackNo instead of appending a duplicate. Also the point
- * where TASK B2's preassigned identity is defensively re-applied via
- * core/batchPreallocation.ts's reconcileWithPreassignedSlot: even if the
- * model didn't follow the "copy this verbatim" instruction, the
- * trackNo/hookPhrase/emotionArc/songRole the pack actually ships with is
- * always the one decided locally before submission — title only follows
- * that same rule in 'local' titleMode (TASK v3.27); by default
- * ('ai-creative') each sub-batch's own title is trusted instead.
+ * TASK B3 (v3.6) — the point where TASK B2's preassigned identity is
+ * defensively re-applied via core/batchPreallocation.ts's
+ * reconcileWithPreassignedSlot: even if the model didn't follow the "copy
+ * this verbatim" instruction, the trackNo/hookPhrase/emotionArc/songRole the
+ * pack actually ships with is always the one decided locally before
+ * submission — title only follows that same rule in 'local' titleMode (TASK
+ * v3.27); by default ('ai-creative') each sub-batch's own title is trusted
+ * instead.
+ *
+ * TASK (duplicate-trackNo fix) — two DIFFERENT kinds of "trackNo collision"
+ * need two different remedies here, and this function now tells them apart:
+ *
+ * 1. CROSS-result: a later-processed result's own song for a trackNo an
+ *    earlier result already produced. This is the retried-sub-batch-overwrite
+ *    path (see useBatchGenerationFlow.ts's retryFailed and
+ *    tests/batchStability.test.ts's "[B3] stitchBatchResults — trackNo-keyed
+ *    merge") — a later result's trackNo entry is trusted to *replace* the
+ *    earlier one wholesale, same as always; not treated as an anomaly, no
+ *    duplicateTrackNos warning.
+ *
+ * 2. INTRA-result: two songs inside the SAME result's own `blueprint.songs`
+ *    array both claiming the same trackNo — a single response can never
+ *    legitimately do this (a retry is a separate result/customId, never a
+ *    second entry inside one blueprint's own songs array), so this is always
+ *    a malformed/adversarial response. This used to be silently collapsed by
+ *    a flat `Map<trackNo, SongIdea>` — both songs independently looked up and
+ *    reconciled against the identical slot, then whichever was processed LAST
+ *    silently overwrote the other in the map, so the pack ended up down one
+ *    real slot's worth of content, invisibly, and validateStitched's
+ *    duplicateTrackNos check (present since TASK B3) never actually got a
+ *    chance to see the collision — effectively dead code on this call path.
+ *    Now: claimSlotsByTrackNo (core/batchPreallocation.ts) resolves slot
+ *    ownership WITHIN each result's own songs first — the first song (array
+ *    order) to claim a trackNo gets that slot's real plan; a second song in
+ *    the same result claiming an already-consumed trackNo gets reconciled via
+ *    reconcileWithPreassignedSlot's own no-slot branch instead (the same
+ *    remedy an out-of-range trackNo already gets), never sharing the first
+ *    song's plan — and BOTH songs are kept, so they both survive into the
+ *    final blueprint and validateStitched's duplicateTrackNos can actually
+ *    observe and report the collision instead of it having already vanished.
  */
 export function stitchBatchResults(
   opts: GenerationOptions,
@@ -50,12 +80,16 @@ export function stitchBatchResults(
   const sorted = [...results].sort((a, b) => batchIndexFromCustomId(a.customId) - batchIndexFromCustomId(b.customId));
   const failedBatchIndexes: number[] = [];
   let base: Omit<PlaylistBlueprint, 'songs'> | null = null;
-  const songMap = new Map<number, SongIdea>();
+  // Value is an array (not a single SongIdea): a later result's own trackNo
+  // entry fully REPLACES whatever an earlier result contributed for that
+  // trackNo (the retry-overwrite contract, unchanged), while an intra-result
+  // duplicate replaces it with all of THAT result's own songs for the
+  // trackNo — i.e. more than one, surfacing the anomaly instead of hiding it.
+  const songsByTrackNo = new Map<number, SongIdea[]>();
   let inputTokens = 0;
   let outputTokens = 0;
   let cacheReadInputTokens = 0;
 
-  const slotByTrackNo = new Map((preassignedSlots ?? []).map(slot => [slot.trackNo, slot]));
   const titleMode = opts.titleMode ?? 'ai-creative';
   const hookMode = opts.hookMode ?? 'ai-creative';
 
@@ -81,13 +115,27 @@ export function stitchBatchResults(
         visualRules: result.blueprint.visualRules
       };
     }
-    for (const song of result.blueprint.songs || []) {
-      const slot = slotByTrackNo.get(song.trackNo);
-      songMap.set(song.trackNo, reconcileWithPreassignedSlot(song, slot, titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode));
+
+    const resultSongs = result.blueprint.songs || [];
+    // Slot ownership resolved WITHIN this one result only — see this
+    // function's own doc comment for why cross-result collisions are handled
+    // separately, below.
+    const slotClaims = claimSlotsByTrackNo(resultSongs, preassignedSlots ?? []);
+    const reconciledByTrackNo = new Map<number, SongIdea[]>();
+    for (const song of resultSongs) {
+      const reconciled = reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode);
+      const bucket = reconciledByTrackNo.get(song.trackNo);
+      if (bucket) bucket.push(reconciled);
+      else reconciledByTrackNo.set(song.trackNo, [reconciled]);
+    }
+    // This result's own trackNo entries replace (never append to) whatever
+    // an earlier-processed result already set for the same trackNo.
+    for (const [trackNo, bucket] of reconciledByTrackNo) {
+      songsByTrackNo.set(trackNo, bucket);
     }
   }
 
-  const allSongs = Array.from(songMap.values()).sort((a, b) => a.trackNo - b.trackNo);
+  const allSongs = Array.from(songsByTrackNo.values()).flat().sort((a, b) => a.trackNo - b.trackNo);
   // TASK v3.27 (Part A3) — parallel sub-batches can't see each other's real
   // title pick any more than parallel realtime chunks can; catch and
   // auto-uniquify any collision here, the same pass every generation path

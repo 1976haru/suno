@@ -45,14 +45,23 @@ export interface KidsLyricInput {
    * TASK E1 §6 — when set, verse1/verse2/chorus content comes from
    * data/krKidsBilingual.ts's hand-authored Korean-English pairs (when
    * `language === 'korean'`) instead of the normal per-theme pool (§6-2:
-   * "영어 단어 + 한국어 문장", not English lyrics). Omit for every existing
-   * caller — no behavior change.
+   * "영어 단어 + 한국어 문장", not English lyrics). Omit to get the normal
+   * per-theme pool — no behavior change for every other theme.
    *
    * TASK F1 §6-1 — the concept id set (`'color'|'number'|'greeting'`) is
    * identical for both languages, so this field's own type is untouched
    * (E1's explicit "필드 정의를 수정하지 마십시오"); when
    * `language === 'japanese'`, the same concept id instead pulls from
    * data/jpKidsBilingual.ts's Japanese-English pairs.
+   *
+   * v5.14 (bilingual wiring follow-up) — localGenerator.ts's kids branch now
+   * derives this from the track's selected lyric theme id via
+   * data/krKidsBilingual.ts's krKidsBilingualConceptForThemeId /
+   * data/jpKidsBilingual.ts's jpKidsBilingualConceptForThemeId whenever a
+   * "*-in-english" theme (krkids-color/number/greeting-in-english,
+   * jpkids-color/number/greeting-in-english) is picked for a kr-kids-song/
+   * jp-kids-song track — this field is real and reachable now, not just a
+   * plumbed-but-unused parameter.
    */
   bilingualConcept?: KrKidsBilingualConcept;
 }

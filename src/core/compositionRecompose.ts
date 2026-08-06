@@ -58,11 +58,26 @@ export async function recomposeBlockingTracks(
    * omits it keeps the exact old behavior (language-ratio check never
    * fires here, same as before this task).
    */
-  lyricLanguage?: LyricLanguage
+  lyricLanguage?: LyricLanguage,
+  /**
+   * v5.14 (compositionScorer follow-up to v5.12's channel-fixed vocal quota
+   * work) — this channel's real fixed gender quota
+   * (ChannelProfile.vocalQuotaOverride), threaded straight into
+   * scoreComposition's own opts of the same name so the new male-only/
+   * female-only text-leak checks (opposite-gender descriptor in stylePrompt,
+   * opposite-gender meta tag in lyrics, duet/group phrasing outside a
+   * mixed-quota track — see compositionScorer.ts's own doc comment on those
+   * checks) actually gate a blocking recompose here, not just a one-off
+   * evaluateGenerationGate() call elsewhere. Optional, same "omitted =
+   * no-op" pattern as historicalHooks/lyricLanguage above — a caller that
+   * doesn't pass it just never triggers those 3 checks in this loop, same as
+   * before this task.
+   */
+  vocalQuotaOverride?: { male: number; female: number; mixed: number }
 ): Promise<RecomposeResult> {
   let current = songs;
   const log: RecomposeLogEntry[] = [];
-  const scoreOpts = { historicalHooks, lyricLanguage };
+  const scoreOpts = { historicalHooks, lyricLanguage, vocalQuotaOverride };
   // v4.1 (TASK C) — .tracks only (not packBlocking/packAdvisory): a
   // pack-level design issue (era share, BPM/vocal structure collapse) isn't
   // fixable by recomposing any one song, so this loop — which regenerates

@@ -14,7 +14,7 @@ import type {
 import { generateLocalBlueprint } from '../core/localGenerator';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
-import { preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
+import { claimSlotsByTrackNo, preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
 import { scoreSongs } from '../core/quality';
 import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/compositionRecompose';
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
@@ -170,8 +170,14 @@ export async function generateChunkWithSplitRetry(
     // the whole pack is merged — see generateBlueprint's dedupeTitlesAcrossPack call.
     const titleMode = opts.titleMode ?? 'ai-creative';
     const hookMode = opts.hookMode ?? 'ai-creative';
-    const slotByTrackNo = new Map((batchContext.preassignedSongs ?? []).map(slot => [slot.trackNo, slot]));
-    return (result.songs || []).map(song => reconcileWithPreassignedSlot(song, slotByTrackNo.get(song.trackNo), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode));
+    // TASK (duplicate-trackNo fix) — was `new Map(slots.map(s => [s.trackNo, s]))`
+    // + a per-song `.get()`: a response where two songs both claimed the same
+    // trackNo let BOTH reconcile against the identical slot. claimSlotsByTrackNo
+    // (core/batchPreallocation.ts) consumes each slot on its first claim; see
+    // its own doc comment for the full mechanism/reasoning.
+    const chunkSongs = result.songs || [];
+    const slotClaims = claimSlotsByTrackNo(chunkSongs, batchContext.preassignedSongs ?? []);
+    return chunkSongs.map(song => reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode));
   } catch (error) {
     const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
     if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {
@@ -435,7 +441,7 @@ export async function generateBlueprint(
   const { songs: recomposedSongs } = await recomposeBlockingTracks(scoredSongs, async (currentSongs, trackNo, feedback) => {
     const { blueprint: next } = await regenerateTrack({ ...blueprint, songs: currentSongs }, trackNo, opts, genres, moods, season, settings, feedback, recomposeAvoid);
     return next.songs;
-  }, recomposeAvoid.usedHooks, opts.lyricLanguage);
+  }, recomposeAvoid.usedHooks, opts.lyricLanguage, opts.channel.vocalQuotaOverride);
 
   return { ...blueprint, songs: scoreSongs(recomposedSongs, opts.channel, opts.lyricLanguage) };
 }
