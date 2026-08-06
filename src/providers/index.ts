@@ -22,7 +22,7 @@ import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngin
 import { recordUsage } from '../core/usageLedger';
 import { getRecentVocalCombos } from '../core/vocalComboLedger';
 import { readRecentFlagshipOrder } from '../core/recentFlagshipOrderStore';
-import type { VocalType } from '../core/vocalPlan';
+import { ensureVocalMetaTag, resolveVocalMetaTag, type VocalGender, type VocalType } from '../core/vocalPlan';
 import { effectiveVerifiedCombos, getApprovedCombos } from '../core/verifiedCombos';
 import { currentWorkspaceId } from '../core/workspaceScope';
 import { getTakes } from '../core/audioTakes';
@@ -539,6 +539,37 @@ export async function regenerateTrack(
       const { blueprint: result, usage } = await callProviderBatch(settings, candidateOpts, genres, moods, season, batchContext);
       void recordProviderUsage(settings, 'refine', usage);
       raw = { ...result.songs[0], trackNo };
+      // TASK (regenerateTrack remote vocal-tag reconciliation gap) — unlike
+      // the 'local' branch above (generateLocalBlueprint composes the vocal
+      // meta tag correctly by construction) and every other real generation
+      // path (which funnels through batchPreallocation.ts's
+      // reconcileWithPreassignedSlot), this remote single-song response
+      // never had its lyrics' top-of-lyrics vocal meta tag (e.g.
+      // "[male vocal]") checked against this slot's actually-assigned vocal
+      // type at all — a wrong/stale tag from the provider survived
+      // untouched. No PreassignedSongSlot is available anywhere in this
+      // function's real call chain (hooks/useEvaluationFlow.ts's retrySong,
+      // compositionRecompose.ts's regenerateOne callback below, App.tsx,
+      // core/hookDedup.ts all pass only a PlaylistBlueprint + trackNo), so
+      // `original` (the song this trackNo is replacing, resolved above) is
+      // the most accurate source of truth actually reachable here — it
+      // already carries the real vocalType this slot resolved to, set by
+      // reconcileWithPreassignedSlot when the pack was first generated (or
+      // by this same fix on a prior regen attempt). The gender derivation
+      // below mirrors batchPreallocation.ts's own
+      // `vocalGender = isKidsArchetype(archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType)`
+      // so a non-kids 'mixed' slot (an adult duet) resolves to
+      // '[duet vocal]', not '[mixed vocal]'. Only resolveVocalMetaTag/
+      // ensureVocalMetaTag are called here — not the rest of
+      // reconcileWithPreassignedSlot's genre/money-chord/structure logic,
+      // which doesn't apply to a single free-standing regen candidate.
+      if (original?.vocalType) {
+        const originalVocalGender: VocalGender = isKidsArchetype(opts.channel.archetype)
+          ? original.vocalType
+          : original.vocalType === 'mixed' ? 'duet' : original.vocalType;
+        const expectedVocalTag = resolveVocalMetaTag(original.vocalType, originalVocalGender, undefined);
+        raw = { ...raw, lyrics: ensureVocalMetaTag(raw.lyrics, expectedVocalTag) };
+      }
     }
 
     candidate = scoreSongs([raw], opts.channel, opts.lyricLanguage)[0];

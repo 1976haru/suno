@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { regenerateTrack } from '../src/providers';
+import { resolveVocalMetaTag, type VocalGender } from '../src/core/vocalPlan';
+import { isKidsArchetype } from '../src/utils/channelArchetype';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { ProviderSettings, SongIdea } from '../src/types';
 
@@ -100,6 +102,49 @@ describe('regenerateTrack', () => {
     expect(capturedBody).not.toBeNull();
     expect(capturedBody.user.customConcept).toContain('famous artist imitation risk');
     expect(capturedBody.user.customConcept).toContain('chorus too long');
+    vi.unstubAllGlobals();
+  });
+
+  it('reconciles a wrong vocal meta tag from a remote regen response (remote provider gap fix)', async () => {
+    const opts = makeOptions({ songCount: 6 });
+    const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
+    const settings: ProviderSettings = { provider: 'anthropic', temperature: 0.7, proxyEndpoint: '/api/generate' };
+    const original = blueprint.songs.find(song => song.trackNo === 3)!;
+    // usesVocalQuota (core/vocalPlan.ts) is unconditionally true today, so
+    // every real song — not just kids-channel ones — carries a resolved
+    // vocalType; this is the same field regenerateTrack's remote branch now
+    // reads `original.vocalType` from.
+    expect(original.vocalType).toBeDefined();
+
+    const originalVocalGender: VocalGender = isKidsArchetype(opts.channel.archetype)
+      ? original.vocalType!
+      : original.vocalType === 'mixed' ? 'duet' : original.vocalType!;
+    const expectedTag = resolveVocalMetaTag(original.vocalType, originalVocalGender, undefined)!;
+    expect(expectedTag).toBeTruthy();
+    const wrongTag = expectedTag === '[male vocal]' ? '[female vocal]' : '[male vocal]';
+
+    // Simulates a remote provider ignoring the correct vocal assignment and
+    // hard-coding the wrong gender tag at the top of the lyrics — exactly
+    // the class of bug batchPreallocation.ts's reconcileWithPreassignedSlot
+    // already catches for every other real generation path, but which
+    // regenerateTrack's remote branch previously never checked at all.
+    const fetchMock = vi.fn(async () =>
+      stubFetchResponse([
+        stubSong(3, {
+          lyrics: `${wrongTag}\n[verse 1]\nline one\nline two\n[chorus]\nline three\nline four\n[end]`
+        })
+      ])
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { blueprint: next } = await regenerateTrack(blueprint, 3, opts, testGenres, testMoods, testSeason, settings, []);
+    const replaced = next.songs.find(song => song.trackNo === 3)!;
+
+    // Before this fix: the wrong tag from the provider survived untouched.
+    // After: it's corrected to the track's real assigned vocal type, same
+    // as every other reconciled generation path.
+    expect(replaced.lyrics.startsWith(wrongTag)).toBe(false);
+    expect(replaced.lyrics.startsWith(expectedTag)).toBe(true);
     vi.unstubAllGlobals();
   });
 
