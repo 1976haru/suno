@@ -31,7 +31,6 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { importSongsJson } from '../src/core/bridgeImport';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
-import { sanitizeGenreIdsForArchetype } from '../src/core/genreSelection';
 import { getWorkspace } from '../src/data/workspaces';
 import { findArtistReferenceLeaks } from '../src/core/artistReferenceDecomposer';
 import { isKidsArchetype } from '../src/utils/channelArchetype';
@@ -190,87 +189,56 @@ describe('[provider-response fixtures] missingTracks.json — 4 of 5 requested t
 
 describe('[provider-response fixtures] duplicateTrackNo.json — two entries claim the same trackNo', () => {
   for (const workspaceId of WORKSPACE_IDS) {
-    it(`workspace: ${workspaceId} — FIXED (was a discovered gap): claimSlotsByTrackNo (core/batchPreallocation.ts) now consumes each slot on its first claim, so the duplicate claimant no longer silently shares the first claimant's slot`, () => {
-      const { opts, slots, report } = runFixture(workspaceId, 'duplicateTrackNo.json');
-      expect(report.blueprint, `${workspaceId}/duplicateTrackNo: must not crash or hard-fail`).not.toBeNull();
-      // Every surviving entry gets sorted then renumbered 1..N by position
-      // (importSongsJson), so the pack never comes up short — no
-      // countMismatchWarning fires here, unlike missingTracks.json.
-      expect(report.importedCount, `${workspaceId}/duplicateTrackNo: total surviving entries still equals the request`).toBe(opts.songCount);
-
-      // FIXED (was: "DISCOVERED GAP" — both entries claiming trackNo 3 got
-      // slot 3's plan forced onto them, while slot 5 went completely unused).
-      // This fixture's raw array order is [claim 1, claim 2, claim 3
-      // (original), claim 3 (duplicate), claim 4]; sort is a no-op (already
-      // ascending) and renumbering assigns final trackNos 1-5 by position.
-      // claimSlotsByTrackNo now hands slot 3 to whichever claim-3 entry is
-      // processed FIRST (array order) only — final track 3 (the original
-      // claim). The duplicate claim (final track 4) instead gets reconciled
-      // via reconcileWithPreassignedSlot's own no-slot branch — the SAME
-      // "no matching slot" remedy invalidTrackNo.json already exercises for
-      // an out-of-range trackNo — so it no longer silently duplicates slot
-      // 3's genreId/tempo; its own (unenforced) raw response fields survive
-      // instead. The claimed-trackNo-vs-final-position gap for the
-      // UNAMBIGUOUS entries (final track 5 still carrying slot 4's fields,
-      // not slot 5's) is a separate, pre-existing, still-documented behavior
-      // this fix does not change — slot 5 genuinely has no claimant in this
-      // fixture (no raw entry ever claims trackNo 5), so it goes unused
-      // either way.
-      const songs = report.blueprint!.songs;
-      const slot3 = slots.find(s => s.trackNo === 3)!;
-      const slot4 = slots.find(s => s.trackNo === 4)!;
-      expect(songs[2].genreId, `${workspaceId}/duplicateTrackNo: final track 3 carries slot 3's fields (its original, first-claimed slot)`).toBe(slot3.genreId);
-      expect(songs[3].genreId, `${workspaceId}/duplicateTrackNo: FIXED — final track 4 (the duplicate claim) no longer duplicates slot 3's genreId`).not.toBe(slot3.genreId);
-      // The fixture's raw JSON never sets a genreId at all, so the no-slot
-      // branch's early-return (reconcileWithPreassignedSlot: `!song.genreId`)
-      // leaves it exactly as the response sent it — undefined, not force-sanitized.
-      expect(songs[3].genreId, `${workspaceId}/duplicateTrackNo: final track 4 carries no slot-forced genreId at all (no-slot branch)`).toBeUndefined();
-      expect(songs[4].genreId, `${workspaceId}/duplicateTrackNo: final track 5 still carries slot 4's fields (pre-existing, unrelated positional gap — unaffected by this fix)`).toBe(slot4.genreId);
-      expect(songs[2].stylePrompt, `${workspaceId}/duplicateTrackNo: final track 3 tempo comes from slot 3`).toContain(`${slot3.tempo} BPM`);
-      expect(songs[3].stylePrompt, `${workspaceId}/duplicateTrackNo: FIXED — final track 4 no longer carries slot 3's tempo`).not.toContain(`${slot3.tempo} BPM`);
-      // No slot-forced tempo enforcement runs in the no-slot branch, so the
-      // duplicate claim's own raw stylePrompt BPM figure (84, from the
-      // fixture's own "84 BPM" text) survives untouched instead.
-      expect(songs[3].stylePrompt, `${workspaceId}/duplicateTrackNo: final track 4 keeps its own raw (unenforced) BPM text`).toContain('84 BPM');
+    it(`workspace: ${workspaceId} — UPGRADED (structural trackNo rejection): the whole response is now refused outright (blueprint: null), not gracefully degraded per-track`, () => {
+      // TASK (structural trackNo rejection, third-party audit follow-up) —
+      // this fixture used to import successfully (the older "FIXED"
+      // duplicate-trackNo behavior: both claimants survived, the duplicate
+      // degraded to raw/unenforced fields instead of silently sharing slot
+      // 3's plan — see core/batchPreallocation.ts's claimSlotsByTrackNo doc
+      // comment). A stricter audit found that still too soft: a duplicate
+      // trackNo means the WHOLE response can't be trusted, so
+      // importSongsJson now calls validateProviderTrackSet
+      // (core/importValidation.ts) BEFORE claimSlotsByTrackNo ever runs and
+      // refuses to build any blueprint at all. claimSlotsByTrackNo's own
+      // per-track fallback still exists and still matters for the narrower
+      // case it was always about (see importValidation.ts's own doc
+      // comment) — this fixture's blatant duplicate just no longer reaches it.
+      const { opts, report } = runFixture(workspaceId, 'duplicateTrackNo.json');
+      expect(report.blueprint, `${workspaceId}/duplicateTrackNo: entire response rejected — no blueprint`).toBeNull();
+      expect(report.importedCount, `${workspaceId}/duplicateTrackNo: nothing imported`).toBe(0);
+      expect(report.skippedCount, `${workspaceId}/duplicateTrackNo: every raw entry counted as skipped`).toBe(5);
+      expect(
+        report.skippedReasons.some(reason => reason.includes('trackNo') && reason.includes('중복')),
+        `${workspaceId}/duplicateTrackNo: skip reason names the structural trackNo problem`
+      ).toBe(true);
+      expect(opts.songCount).toBe(5);
     });
   }
 });
 
 describe('[provider-response fixtures] invalidTrackNo.json — a trackNo outside the valid 1..songCount range', () => {
   for (const workspaceId of WORKSPACE_IDS) {
-    it(`workspace: ${workspaceId} — detected by: positional renumbering (count-safe) + reconcileWithPreassignedSlot's no-slot-branch genre sanitization; DISCOVERED GAP noted below`, () => {
-      const { opts, slots, report } = runFixture(workspaceId, 'invalidTrackNo.json');
-      expect(report.blueprint, `${workspaceId}/invalidTrackNo: must not crash or hard-fail`).not.toBeNull();
-      expect(report.importedCount, `${workspaceId}/invalidTrackNo: out-of-range trackNo doesn't shrink the pack — renumbering still lands it in range`).toBe(opts.songCount);
-
-      const songs = report.blueprint!.songs;
-      // Tracks 1-4 originally claimed valid trackNos and matched a real slot
-      // at parse time — full slot-forced contract still holds for them.
-      for (const song of songs.slice(0, 4)) {
-        const slot = slots.find(s => s.trackNo === song.trackNo)!;
-        expect(song.genreId, `${workspaceId}/invalidTrackNo: track ${song.trackNo} genreId matches its slot`).toBe(slot.genreId);
-      }
-      // Track 5 (final position) is the entry that originally claimed
-      // trackNo 42 — out of range, so slotByTrackNo.get(42) found nothing at
-      // reconciliation time. reconcileWithPreassignedSlot's own `!slot`
-      // branch is the one real defense that still runs: it re-validates any
-      // genreId the response supplied against the workspace's archetype
-      // (this fixture deliberately supplies the foreign 'krkids-action' id).
-      const archetype = opts.channel.archetype!;
-      const expectSanitized = sanitizeGenreIdsForArchetype(['krkids-action'], archetype);
-      const finalSong = songs[songs.length - 1];
-      if (expectSanitized.removed.length) {
-        expect(finalSong.genreId, `${workspaceId}/invalidTrackNo: no-slot branch strips a foreign genreId`).toBeUndefined();
-      } else {
-        // krkids-action is native to kr-kids/jp-kids themselves.
-        expect(finalSong.genreId, `${workspaceId}/invalidTrackNo: native genreId survives the no-slot branch unchanged`).toBe('krkids-action');
-      }
-      // DISCOVERED GAP (honest finding, not asserted as a failure): unlike
-      // duplicateTrackNo above, an out-of-range trackNo gets NO matching
-      // slot at all, so every OTHER slot-owned guarantee (tempo enforcement,
-      // vocalType, structureTemplate, arc phase) is silently skipped for
-      // this one track — it doesn't crash and the pack count stays correct,
-      // but that track's planned diversity/tempo contract is simply absent.
+    it(`workspace: ${workspaceId} — UPGRADED (structural trackNo rejection): the whole response is now refused outright (blueprint: null), not gracefully degraded per-track`, () => {
+      // TASK (structural trackNo rejection, third-party audit follow-up) —
+      // this fixture used to import successfully, with the out-of-range
+      // entry (originally claiming trackNo 42) falling back to
+      // reconcileWithPreassignedSlot's no-slot branch (defensive genreId
+      // re-sanitization only, no slot-forced tempo/vocal/genre/hook
+      // contract — a "DISCOVERED GAP" the older version of this test
+      // documented rather than asserted as a failure). A stricter audit
+      // found that gap unacceptable: an out-of-range trackNo now hard-blocks
+      // the ENTIRE response the same way a duplicate does — see this file's
+      // duplicateTrackNo.json describe block above and
+      // core/importValidation.ts's own doc comment.
+      const { opts, report } = runFixture(workspaceId, 'invalidTrackNo.json');
+      expect(report.blueprint, `${workspaceId}/invalidTrackNo: entire response rejected — no blueprint`).toBeNull();
+      expect(report.importedCount, `${workspaceId}/invalidTrackNo: nothing imported`).toBe(0);
+      expect(report.skippedCount, `${workspaceId}/invalidTrackNo: every raw entry counted as skipped`).toBe(5);
+      expect(
+        report.skippedReasons.some(reason => reason.includes('trackNo')),
+        `${workspaceId}/invalidTrackNo: skip reason names the structural trackNo problem`
+      ).toBe(true);
+      expect(opts.songCount).toBe(5);
     });
   }
 });

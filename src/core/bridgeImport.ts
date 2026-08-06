@@ -11,6 +11,7 @@ import type {
 import { buildSignatureBlueprint } from './localGenerator';
 import { scoreSongs } from './quality';
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
+import { describeTrackSetValidation, validateProviderTrackSet } from './importValidation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
@@ -78,6 +79,27 @@ function extractSongsArray(parsed: unknown): unknown[] {
     return (parsed as { songs: unknown[] }).songs;
   }
   return [];
+}
+
+/**
+ * TASK (import transaction / pre-persistence inspection) — exposes the raw,
+ * pre-normalization songs array for a bridge JSON import, purely as a
+ * diagnostic input for core/importInspection.ts (e.g. recovering
+ * validateProviderTrackSet's own `missing` trackNo list — importSongsJson
+ * runs that check internally but ImportSongsReport never surfaces it — and
+ * detecting whether a vocal meta-tag actually needed auto-correction).
+ * Reuses this module's own parseLeniently/extractSongsArray — not a second
+ * parser, and importSongsJson's own parsing/normalization logic is
+ * untouched. Returns [] for anything that fails to parse, mirroring
+ * importSongsJson's own tolerant behavior (the caller already gets that
+ * same failure reported through importSongsJson's real report).
+ */
+export function extractRawImportedSongs(rawText: string): unknown[] {
+  try {
+    return extractSongsArray(parseLeniently(rawText));
+  } catch {
+    return [];
+  }
 }
 
 export interface BridgeImportMeta {
@@ -376,6 +398,35 @@ export function importSongsJson(
   // same no-slot remedy invalidTrackNo.json already exercises), keyed here by
   // array index since normalizeImportedSong still needs one resolved slot per
   // call, not a shared trackNo-keyed map.
+  // TASK (structural trackNo rejection) — checked against each entry's own
+  // RAW trackNo field, NOT claimedTrackNoFor's index-fallback value used
+  // right below: an entry that omits trackNo entirely is normal, expected,
+  // positional bridge-JSON input (see claimedTrackNoFor's own doc comment)
+  // and must not trip this. A PRESENT-but-untrustworthy trackNo — a
+  // duplicate, a decimal, a non-numeric string, or a value outside
+  // 1..opts.songCount — means the whole response can't be trusted, so the
+  // entire import is refused here, before claimSlotsByTrackNo's own softer
+  // per-track no-slot fallback ever runs (see core/importValidation.ts's
+  // doc comment for why this doesn't replace that fallback — a fallback
+  // trackNo colliding with an explicit one elsewhere in the array is a
+  // real, different case still caught by claimSlotsByTrackNo below, not by
+  // this raw-value-only check). Matches this function's own existing
+  // "can't process this response" failure shape (blueprint: null + Korean
+  // skippedReasons), not a new shape.
+  const rawTrackNoEntries = rawSongs.map(raw => ({
+    trackNo: raw && typeof raw === 'object' ? (raw as Record<string, unknown>).trackNo : undefined
+  }));
+  const trackSetValidation = validateProviderTrackSet(rawTrackNoEntries, opts.songCount);
+  if (!trackSetValidation.valid) {
+    return {
+      blueprint: null,
+      importedCount: 0,
+      skippedCount: rawSongs.length,
+      skippedReasons: [`가져오기를 중단했습니다 — trackNo 구조 오류로 응답 전체를 사용할 수 없습니다 (${describeTrackSetValidation(trackSetValidation)}).`],
+      warnings: [],
+      requestedCount: opts.songCount
+    };
+  }
   const claimTargets = rawSongs.map((raw, index) => ({ index, trackNo: claimedTrackNoFor(raw, index) }));
   const slotClaims = claimSlotsByTrackNo(claimTargets, preassignedSongs);
   const slotByIndex = new Map(Array.from(slotClaims, ([target, slot]) => [target.index, slot]));
@@ -493,4 +544,90 @@ export function importSongsJson(
     ],
     requestedCount: opts.songCount
   };
+}
+
+export interface ImportSongsForSrtOnlyResult {
+  songs: SongIdea[];
+  warnings: string[];
+}
+
+/**
+ * TASK (SRT-only read path) — App.tsx's "lyrics file -> SRT" entry point
+ * (onImportSongsJsonForSrt) used to delegate straight into importSongsJson,
+ * which — via App.tsx's own onImportSongsJson wrapper — permanently
+ * registers the pack's hooks (handleGenerationSuccess -> recordPackHooks)
+ * and autosaves it to the library (library.saveImportedPack), even though
+ * this entry point's own stated purpose (see this file's v3.69 TASK D
+ * comment on extractBridgeImportMeta/importSongsJson above) is display-only:
+ * "이 import 가 이미 the whole pack — nothing to regenerate." A picked
+ * lyrics/*.json file already has every song's finished lyrics; the SRT tab
+ * only ever needs those lyrics plus whatever per-song duration the user
+ * types into SrtExportPanel afterward — never a slot plan, hook-collision
+ * defense, quality scoring, title dedup, or a permanent write.
+ *
+ * Reuses this module's own real parsing/normalization primitives
+ * (parseLeniently, extractSongsArray, normalizeImportedSong) so a file
+ * parses identically to importSongsJson regardless of which entry point
+ * reads it — this is NOT a second JSON parser. Deliberately skips
+ * everything importSongsJson does beyond that:
+ *   - claimSlotsByTrackNo/preallocateSongSlots: no slot plan is built here
+ *     at all; every song resolves through normalizeImportedSong's existing
+ *     `slot: undefined` branch (reconcileWithPreassignedSlot's own
+ *     `noSlotEffectiveFields` fallback — the same branch an agent-invented
+ *     extra track already exercises today), so effectiveArchetype/
+ *     workspaceId/etc. still come out populated without a plan to draw from.
+ *   - scoreSongs (the quality/safety gate), flagHookCollisions,
+ *     dedupeTitlesAcrossPack, normalizeSongOutput's mechanical cleanup, and
+ *     buildSignatureBlueprint itself: none of those exist to make a song
+ *     readable — only to make it safe/deduped/plan-conformant for a NEW
+ *     generation, which a read-only display path is not. The caller
+ *     (App.tsx's onImportSongsJsonForSrt) wraps the returned songs in its
+ *     own display-only blueprint via localGenerator.ts's
+ *     buildSignatureBlueprint (already pure/side-effect-free) and never
+ *     calls handleGenerationSuccess or library.saveImportedPack.
+ */
+export function importSongsForSrtOnly(
+  rawText: string,
+  opts: GenerationOptions
+): ImportSongsForSrtOnlyResult {
+  if (!opts?.channel) {
+    return { songs: [], warnings: ['채널 설정을 먼저 선택한 뒤 가져오기를 실행하세요.'] };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = parseLeniently(rawText);
+  } catch {
+    return { songs: [], warnings: ['JSON을 해석하지 못했습니다 — 파일 내용이 올바른 JSON인지 확인하세요.'] };
+  }
+
+  const rawSongs = extractSongsArray(parsed);
+  if (!rawSongs.length) {
+    return { songs: [], warnings: ['"songs" 배열을 찾지 못했습니다.'] };
+  }
+
+  const titleMode = opts.titleMode ?? 'ai-creative';
+  const usedLocalizedTitles = new Set<string>();
+  const songs: SongIdea[] = [];
+  const warnings: string[] = [];
+
+  rawSongs.forEach((raw, index) => {
+    // No slot plan exists for a read-only import (see this function's own
+    // doc comment) — every song resolves through normalizeImportedSong's
+    // existing `slot: undefined` handling.
+    const result = normalizeImportedSong(raw, index, undefined, titleMode, opts, usedLocalizedTitles);
+    if ('error' in result) {
+      warnings.push(result.error);
+      return;
+    }
+    songs.push(result.song);
+  });
+
+  // Same trackNo-gap/duplicate defense as importSongsJson's own renumbering
+  // pass (TASK B1), so the SRT panel's per-song duration list still lines up
+  // 1..N regardless of what trackNo values the raw file actually claimed.
+  songs.sort((a, b) => a.trackNo - b.trackNo);
+  const renumbered = songs.map((song, idx) => ({ ...song, trackNo: idx + 1 }));
+
+  return { songs: renumbered, warnings };
 }

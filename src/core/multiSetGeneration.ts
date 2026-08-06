@@ -1,4 +1,4 @@
-import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack } from '../types';
+import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, WorkspaceId } from '../types';
 import { generateBlueprint } from '../providers/index';
 import { resolveHookCollisions } from './hookDedup';
 import { applySetTitlePrefixesToBlueprint, stripSetTitlePrefix } from '../utils/generation';
@@ -7,6 +7,7 @@ import { userChoicesFromOptions } from './userChoices';
 import { normalizeDiversityAllocations } from './diversityAllocation';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { readRecentGenreIds } from './recentGenreStore';
+import { evaluateGenerationRequest, stableHash, type PreflightReason, type PreflightResult } from './generationPreflight';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -230,4 +231,109 @@ export async function runMultiSetGeneration(
   }
 
   return results;
+}
+
+export interface MultiSetPreflightInput {
+  workspaceId: WorkspaceId;
+  baseOptions: GenerationOptions;
+  setCount: number;
+  songsPerSet: number;
+  genres: GenrePack[];
+  avoid?: { usedTitles?: string[]; usedHooks?: string[] };
+}
+
+/**
+ * TASK (multi-set preflight) — real, verified gap: App.tsx's shared
+ * requestGeneration() (core/generationPreflight.ts's evaluateGenerationRequest)
+ * used to run exactly ONCE, against the screen's CURRENT single-set-shaped
+ * opts, even when multi-set mode was active — so a real generation-contract
+ * mismatch or 관문 1 (design-gate) failure only reachable at the REAL per-set
+ * configuration (songsPerSet overriding the base songCount; set 2+'s
+ * palette-family/genre rotation, see buildSetOptions's own doc comment) had
+ * no chance of being caught before generation started. This is the fix: N
+ * real per-set preflight checks, one per set index, built the exact same way
+ * runMultiSetGeneration above builds each set's real options — same
+ * buildSetOptions call, same recentGenreIdsWindow accumulation (last 3 sets'
+ * genreIds only, mirrored here byte-for-byte from the loop above rather than
+ * approximated) — so what this function evaluates against is the SAME real
+ * per-set options a real run of THIS module would actually produce, not a
+ * guess. Each set's own check goes through evaluateGenerationRequest
+ * unmodified — this function adds no new hard/soft-block logic of its own,
+ * only orchestrates N real single-set checks (the existing constraint that
+ * multi-set preflight must never be a parallel, potentially-looser check).
+ */
+export async function evaluateMultiSetGenerationRequest(input: MultiSetPreflightInput): Promise<PreflightResult[]> {
+  const { workspaceId, baseOptions, setCount, songsPerSet, genres, avoid } = input;
+  const results: PreflightResult[] = [];
+  // Mirrors this file's own runMultiSetGeneration recentGenreIdsWindow above exactly.
+  const recentGenreIdsWindow: string[][] = [];
+
+  for (let index = 0; index < setCount; index++) {
+    const setOpts = buildSetOptions(baseOptions, index, setCount, songsPerSet, recentGenreIdsWindow.slice(-3).flat());
+    recentGenreIdsWindow.push(setOpts.genreIds);
+    const result = await evaluateGenerationRequest({ workspaceId, options: setOpts, genres, avoid });
+    results.push(result);
+  }
+
+  return results;
+}
+
+export interface MultiSetPreflightReason extends PreflightReason {
+  /** 0-based set index (buildSetOptions's own setIndex) this reason came from. */
+  setIndex: number;
+}
+
+export interface MultiSetPreflightSummary {
+  allowed: boolean;
+  requiresAcknowledgement: boolean;
+  /**
+   * Content-based hash pooling every set's own already-content-based
+   * PreflightResult.mismatchSignature — never a re-derivation of what "the
+   * same content" means, just reuses resolveGenerationPreflight's own per-set
+   * hash one level up. Undefined whenever there is nothing to acknowledge
+   * (every set clean, or ANY set hard-blocked — same "hard blocks never
+   * expose anything to sign" rule as the single-set contract).
+   */
+  mismatchSignature?: string;
+  reasons: MultiSetPreflightReason[];
+  /** 0-based indexes of sets with at least one 'block' reason. */
+  blockedSetIndexes: number[];
+  /** 0-based indexes of sets with at least one 'warn' reason and no 'block' reason. */
+  warnSetIndexes: number[];
+}
+
+/**
+ * Combines evaluateMultiSetGenerationRequest's per-set PreflightResult[] into
+ * the ONE gating decision a multi-set trigger point actually needs, mirroring
+ * core/generationPreflight.ts's resolveGenerationPreflight block/warn/
+ * acknowledge contract one level up: ANY set's hard block makes the WHOLE run
+ * unblockable (same "no acknowledgment path" rule as a single-set hard
+ * block); with no hard block anywhere, every set's warn reasons are pooled
+ * into ONE signature that the caller acknowledges ONCE (the multi-set results
+ * screen's single "전체 진행" action) to unblock every set at once, instead of
+ * requiring a separate acknowledgment per set.
+ */
+export function combineMultiSetPreflight(perSet: PreflightResult[], acknowledgedSignature?: string): MultiSetPreflightSummary {
+  const reasons: MultiSetPreflightReason[] = perSet.flatMap((result, setIndex) =>
+    result.reasons.map(reason => ({ ...reason, setIndex }))
+  );
+  const blockedSetIndexes = perSet.reduce<number[]>((acc, result, setIndex) => {
+    if (result.reasons.some(reason => reason.severity === 'block')) acc.push(setIndex);
+    return acc;
+  }, []);
+  const warnSetIndexes = perSet.reduce<number[]>((acc, result, setIndex) => {
+    if (!blockedSetIndexes.includes(setIndex) && result.reasons.some(reason => reason.severity === 'warn')) acc.push(setIndex);
+    return acc;
+  }, []);
+
+  if (blockedSetIndexes.length) {
+    return { allowed: false, requiresAcknowledgement: false, reasons, blockedSetIndexes, warnSetIndexes };
+  }
+  if (!warnSetIndexes.length) {
+    return { allowed: true, requiresAcknowledgement: false, reasons: [], blockedSetIndexes: [], warnSetIndexes: [] };
+  }
+
+  const mismatchSignature = stableHash(perSet.map(result => result.mismatchSignature ?? null));
+  const acknowledged = acknowledgedSignature !== undefined && acknowledgedSignature === mismatchSignature;
+  return { allowed: acknowledged, requiresAcknowledgement: !acknowledged, mismatchSignature, reasons, blockedSetIndexes, warnSetIndexes };
 }

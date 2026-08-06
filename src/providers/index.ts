@@ -15,6 +15,7 @@ import { generateLocalBlueprint } from '../core/localGenerator';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
 import { claimSlotsByTrackNo, preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
+import { describeTrackSetValidation, validateProviderTrackSet } from '../core/importValidation';
 import { scoreSongs } from '../core/quality';
 import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/compositionRecompose';
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
@@ -176,6 +177,22 @@ export async function generateChunkWithSplitRetry(
     // (core/batchPreallocation.ts) consumes each slot on its first claim; see
     // its own doc comment for the full mechanism/reasoning.
     const chunkSongs = result.songs || [];
+    // TASK (structural trackNo rejection) — a harder gate than
+    // claimSlotsByTrackNo's own no-slot fallback above: a response with a
+    // duplicate trackNo (two songs in this SAME chunk both claiming it) or a
+    // trackNo outside the pack's real 1..opts.songCount range can't be
+    // trusted at all, so the whole chunk response is refused outright here,
+    // before any per-song reconciliation runs — see core/importValidation.ts's
+    // own doc comment for why this doesn't replace claimSlotsByTrackNo's
+    // softer per-track remedy (which still runs for every other malformed
+    // shape, e.g. a trackNo valid pack-wide but outside THIS chunk's own
+    // range). Thrown, matching this function's own throw-to-signal-failure
+    // convention (see the catch block below) — no ProxyError/TRUNCATED code,
+    // so it is never mistaken for a truncation and split-retried.
+    const trackSetValidation = validateProviderTrackSet(chunkSongs, opts.songCount);
+    if (!trackSetValidation.valid) {
+      throw new Error(`AI 응답의 trackNo 구조가 잘못되었습니다 (${describeTrackSetValidation(trackSetValidation)}) — 이 응답은 사용할 수 없습니다.`);
+    }
     const slotClaims = claimSlotsByTrackNo(chunkSongs, batchContext.preassignedSongs ?? []);
     return chunkSongs.map(song => reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode));
   } catch (error) {

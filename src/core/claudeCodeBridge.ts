@@ -34,9 +34,12 @@ export {
 
 export {
   importSongsJson,
+  importSongsForSrtOnly,
   extractBridgeImportMeta,
+  extractRawImportedSongs,
   type ImportSongsReport,
-  type BridgeImportMeta
+  type BridgeImportMeta,
+  type ImportSongsForSrtOnlyResult
 } from './bridgeImport';
 
 export { buildRecomposeInstruction } from './bridgeRecompose';

@@ -17,7 +17,7 @@ import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
 import { getSetting, setSetting } from './core/settingsStore';
 import { mergeRestoredProviderSettings, sanitizeProviderSettingsForPersistence } from './core/providerSettingsPersistence';
-import { rebuildStylePromptsForPersonaMode } from './core/localGenerator';
+import { buildSignatureBlueprint, rebuildStylePromptsForPersonaMode } from './core/localGenerator';
 import { applyLyricWorkspaceEdit, applyPronunciationHints, regenerateSingleLyricLine } from './core/lyricAuthorship';
 import type { LyricTranslationResult } from './core/lyricsTranslation';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
@@ -28,13 +28,15 @@ import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
 import { evaluateGenerationRequest } from './core/generationPreflight';
-import { importSongsJson, extractBridgeImportMeta, type ImportSongsReport } from './core/claudeCodeBridge';
+import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
+import { inspectImportReport, buildMissingTracksRegenerateInstruction, type ImportInspection } from './core/importInspection';
+import ImportInspectionModal from './components/ImportInspectionModal';
 import { parseSetName, sanitizeLabel } from './utils/setNaming';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
 import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
-import { buildSetOptions, type SetResult } from './core/multiSetGeneration';
+import { buildSetOptions, combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
 import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
@@ -129,6 +131,21 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const [multiSetWarnings, setMultiSetWarnings] = useState<string[]>([]);
   /** TASK v3.35 (bridge split) — grows as each bridge-imported set actually lands, so Step3Generate's not-yet-copied instruction previews (buildMultiSetClaudeCodeInstructions) reflect real titles/hooks instead of only the deterministic preallocated fallback. Reset whenever the user starts a fresh multi-set bridge batch (see onImportMultiSetSongsJson). */
   const [bridgeImportedSetAvoid, setBridgeImportedSetAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });
+  /**
+   * TASK (import transaction / pre-persistence inspection) — holds a
+   * single-pack bridge import (onImportSongsJson) that inspectImportReport
+   * classified as 'repairable' or 'blocked', BEFORE any autosave/hook
+   * registration. null means no inspection screen is showing (either
+   * nothing has been imported yet, or the last import was 'valid' and
+   * proceeded immediately with zero extra clicks — see onImportSongsJson).
+   * A 'repairable' entry's onConfirm is the ONLY path that ever runs the
+   * real persistence sequence for a partial pack; dismissing the modal
+   * instead leaves hookLedger/library completely untouched.
+   */
+  const [pendingImportInspection, setPendingImportInspection] = useState<{
+    inspection: ImportInspection;
+    onConfirm?: () => void;
+  } | null>(null);
 
   useEffect(() => {
     void getSetting<ProviderSettings>(PROVIDER_SETTINGS_KEY).then(saved => {
@@ -458,6 +475,26 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * hookLedger registration, library refresh) the realtime and Batch API
    * paths already share above, so a song's origin never changes what
    * happens to it once it's in the app.
+   *
+   * TASK (import transaction / pre-persistence inspection) — real, verified
+   * bug this fixes: this function used to run the autosave/hookLedger block
+   * below the instant importSongsJson produced ANY non-null blueprint, even
+   * a genuinely partial response (e.g. 17 of 18 requested songs) — zero user
+   * review, and those 17 hooks got permanently marked "already used" for
+   * future avoid-lists. Every candidate blueprint now runs through
+   * inspectImportReport (core/importInspection.ts) BEFORE any persistence:
+   *  - 'blocked' (a NEW artist-name-leak hard-check this module adds, since
+   *    importSongsJson's own upstream trackNo/parse checks already null the
+   *    blueprint before this point is ever reached) shows the inspection
+   *    screen with no proceed-anyway option and never touches
+   *    handleGenerationSuccess/library.saveImportedPack.
+   *  - 'repairable' (some requested tracks missing, but every song that DID
+   *    come through is individually valid) holds here via
+   *    pendingImportInspection for an explicit "[N곡만 확정]" click
+   *    (onConfirmPartialImport below) instead of auto-saving.
+   *  - 'valid' (nothing to review) falls straight through to the exact same
+   *    autosave/hook-registration sequence this function always ran — the
+   *    common case still takes zero extra clicks.
    */
   async function onImportSongsJson(file: File, focusTab: ResultTab = 'songs'): Promise<ImportSongsReport> {
     if (!hasSelectedChannel || !hasSelectedSeason) {
@@ -477,38 +514,109 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const avoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
     const preassignedSongs = preallocateSongSlots(importOpts, fallbackGenres(), avoid);
     const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
-    if (report.blueprint) {
-      const finalBlueprint = finalizeSinglePackBlueprint(report.blueprint, importOpts);
-      report.blueprint = finalBlueprint;
-      evalFlow.setEvaluation(null);
-      gen.setBlueprint(finalBlueprint);
-      // TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: picking a
-      // lyrics/*.json file straight from the SRT-focused import (see
-      // onImportSongsJsonForSrt below) lands directly on the SRT tab instead
-      // of the default songs tab, without regenerating anything — this
-      // import already IS the whole pack, nothing to regenerate. Only acts
-      // when a non-default tab is requested, so the normal import path's
-      // tab behavior is unchanged from before this task.
-      if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
-      setCurrentStep(5);
-      await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
-      // TASK v3.62 (TASK 4) — handleGenerationSuccess only records this
-      // pack's hooks under the ephemeral AUTOSAVE_ID slot, which the very
-      // next generation (autosave or otherwise) overwrites. Without an
-      // explicit "save to library" click, a bridge import's hooks never
-      // survived to the next day's avoidHooks list — a real channel
-      // measured 50% (8/16) hook duplication across sets from exactly this
-      // gap. Auto-saves under a real, permanent id (no name prompt — a
-      // daily-cadence bridge workflow can't stop for one), mirroring how
-      // multi-set bridge imports (saveGeneratedSet) already did this
-      // correctly.
-      try {
-        await library.saveImportedPack(finalBlueprint, importOpts);
-      } catch {
-        // Best-effort — the import itself already succeeded and is shown to the user regardless.
-      }
+    if (!report.blueprint) {
+      // Already refused upstream (parse failure / missing "songs" array /
+      // duplicate or out-of-range trackNo — importSongsJson's own
+      // validateProviderTrackSet call) — nothing to inspect or persist.
+      setPendingImportInspection(null);
+      return report;
+    }
+
+    const rawSongs = extractRawImportedSongs(text);
+    const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage);
+
+    if (inspection.status === 'blocked') {
+      // A NEW hard check this task adds (real artist-name-leak scan) refused
+      // a response importSongsJson itself was willing to parse — never
+      // persisted, and the report handed back to the caller reflects that
+      // (blueprint nulled out) so the existing bridge-import summary UI
+      // shows it as a failure too, consistent with every other blocked case.
+      const blockedReport: ImportSongsReport = {
+        ...report,
+        blueprint: null,
+        importedCount: 0,
+        skippedCount: report.importedCount + report.skippedCount,
+        skippedReasons: [...report.skippedReasons, ...inspection.blockedReasons]
+      };
+      setPendingImportInspection({ inspection });
+      return blockedReport;
+    }
+
+    if (inspection.status === 'repairable') {
+      // Deliberately does NOT finalize/navigate/save here — only the
+      // explicit "[N곡만 확정]" click (onConfirmPartialImport) does that.
+      setPendingImportInspection({
+        inspection,
+        onConfirm: () => void onConfirmPartialImport(report.blueprint!, importOpts, focusTab)
+      });
+      return report;
+    }
+
+    // 'valid' — proceed exactly as this function always has, no extra click.
+    setPendingImportInspection(null);
+    const finalBlueprint = finalizeSinglePackBlueprint(report.blueprint, importOpts);
+    report.blueprint = finalBlueprint;
+    evalFlow.setEvaluation(null);
+    gen.setBlueprint(finalBlueprint);
+    // TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: picking a
+    // lyrics/*.json file straight from the SRT-focused import (see
+    // onImportSongsJsonForSrt below) lands directly on the SRT tab instead
+    // of the default songs tab, without regenerating anything — this
+    // import already IS the whole pack, nothing to regenerate. Only acts
+    // when a non-default tab is requested, so the normal import path's
+    // tab behavior is unchanged from before this task.
+    if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
+    setCurrentStep(5);
+    await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
+    // TASK v3.62 (TASK 4) — handleGenerationSuccess only records this
+    // pack's hooks under the ephemeral AUTOSAVE_ID slot, which the very
+    // next generation (autosave or otherwise) overwrites. Without an
+    // explicit "save to library" click, a bridge import's hooks never
+    // survived to the next day's avoidHooks list — a real channel
+    // measured 50% (8/16) hook duplication across sets from exactly this
+    // gap. Auto-saves under a real, permanent id (no name prompt — a
+    // daily-cadence bridge workflow can't stop for one), mirroring how
+    // multi-set bridge imports (saveGeneratedSet) already did this
+    // correctly.
+    try {
+      await library.saveImportedPack(finalBlueprint, importOpts);
+    } catch {
+      // Best-effort — the import itself already succeeded and is shown to the user regardless.
     }
     return report;
+  }
+
+  /**
+   * TASK (import transaction) — the explicit "[N곡만 확정]" action for a
+   * 'repairable' classification: the ONLY way a partial import's hooks ever
+   * get registered/saved. Mirrors onImportSongsJson's own 'valid'-path
+   * persistence sequence exactly (finalize -> setBlueprint -> navigate ->
+   * handleGenerationSuccess -> library.saveImportedPack) — kept as its own
+   * function rather than factored into a shared helper so
+   * onImportSongsJson's own body stays a complete, literal record of what
+   * the normal (valid) import path does end to end.
+   */
+  async function onConfirmPartialImport(blueprint: PlaylistBlueprint, importOpts: GenerationOptions, focusTab: ResultTab) {
+    const finalBlueprint = finalizeSinglePackBlueprint(blueprint, importOpts);
+    evalFlow.setEvaluation(null);
+    gen.setBlueprint(finalBlueprint);
+    if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
+    setCurrentStep(5);
+    await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
+    try {
+      await library.saveImportedPack(finalBlueprint, importOpts);
+    } catch {
+      // Best-effort — same as onImportSongsJson's own 'valid'-path save.
+    }
+    setPendingImportInspection(null);
+  }
+
+  /** "[재생성 지시문 복사]" on the inspection modal — core/importInspection.ts's own intentionally-simple standalone instruction (see that function's doc comment for why it doesn't reuse the full bridgeInstruction.ts builder). */
+  async function onCopyMissingTracksInstruction() {
+    const pending = pendingImportInspection;
+    if (!pending || !pending.inspection.missingTrackNos.length) return;
+    const instruction = buildMissingTracksRegenerateInstruction(pending.inspection.missingTrackNos, { ...opts, channel: cm.selectedChannel });
+    if (instruction) await copyText(instruction);
   }
 
   /**
@@ -517,9 +625,70 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * instead of regenerating the whole pack — the file already has every
    * song's lyrics; SRT export only ever needed those plus per-song
    * durations, never a fresh generation.
+   *
+   * TASK (read-only SRT import fix) — this used to be
+   * `return onImportSongsJson(file, 'srt')`, which ran the EXACT SAME
+   * permanent-write pipeline as a real import (handleGenerationSuccess's
+   * hookLedger registration, then library.saveImportedPack) even though this
+   * entry point's own doc comment above says the opposite: "SRT export only
+   * ever needed those [lyrics] plus per-song durations, never a fresh
+   * generation." A user who only wanted subtitles from an already-finished
+   * pack was silently getting a second permanent library entry and a second
+   * hookLedger registration for the same songs every time they picked a file
+   * here. Now calls bridgeImport.ts's importSongsForSrtOnly (real
+   * parsing/normalization, no slot plan/quality gate/hook defense/dedup —
+   * see that function's own doc comment) and wraps the result in a
+   * display-only blueprint (localGenerator.ts's buildSignatureBlueprint,
+   * already pure) purely so the SRT tab has something to render — gen.setBlueprint
+   * is plain React state, not a persistence write. Deliberately never calls
+   * handleGenerationSuccess (hookLedger) or library.saveImportedPack.
    */
-  function onImportSongsJsonForSrt(file: File): Promise<ImportSongsReport> {
-    return onImportSongsJson(file, 'srt');
+  async function onImportSongsJsonForSrt(file: File): Promise<ImportSongsReport> {
+    if (!hasSelectedChannel || !hasSelectedSeason) {
+      return makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON);
+    }
+    const text = await file.text();
+    // Same channel-matching UX as onImportSongsJson above (TASK v3.69 TASK
+    // C/D) — a file names/carries the channel it was actually generated for,
+    // so the SRT tab shows it under the right channel context too. This is
+    // ordinary channel-selection UI state, not a library/hookLedger write.
+    const matchedChannel = channelFromBridgeFile(file.name, text);
+    if (matchedChannel && matchedChannel.id !== cm.selectedChannel.id) {
+      cm.selectChannel(matchedChannel.id);
+    }
+    const importChannel = matchedChannel ?? cm.selectedChannel;
+    const importOpts = { ...opts, channel: importChannel };
+    const { songs, warnings } = importSongsForSrtOnly(text, importOpts);
+    if (!songs.length) {
+      return {
+        blueprint: null,
+        importedCount: 0,
+        skippedCount: 0,
+        skippedReasons: warnings.length ? warnings : ['가져올 곡을 찾지 못했습니다.'],
+        warnings: [],
+        requestedCount: importOpts.songCount
+      };
+    }
+    const meta = extractBridgeImportMeta(text);
+    const concept = importOpts.customConcept || meta?.conceptLabel || `${importChannel.name} ${selectedSeason.label} imported lyrics`;
+    const displayBlueprint = finalizeSinglePackBlueprint(
+      meta?.generatedAt
+        ? buildSignatureBlueprint(importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, concept, songs, meta.generatedAt)
+        : buildSignatureBlueprint(importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, concept, songs),
+      importOpts
+    );
+    evalFlow.setEvaluation(null);
+    gen.setBlueprint(displayBlueprint);
+    setWorkspaceFocus('srt');
+    setCurrentStep(5);
+    return {
+      blueprint: displayBlueprint,
+      importedCount: songs.length,
+      skippedCount: 0,
+      skippedReasons: [],
+      warnings,
+      requestedCount: importOpts.songCount
+    };
   }
 
   /** TASK v3.35 (bridge split) — "songs-output-setNN.json" -> 0-based set index; falls back to upload order for a file that doesn't follow the convention (e.g. renamed by the user). */
@@ -606,9 +775,49 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * actually renders the contract/design-gate panels and the acknowledgment
    * UI) instead of letting generation start. Returns whether the caller may
    * proceed.
+   *
+   * TASK (multi-set preflight) — real, verified gap this closes: when
+   * multiSetMode is active, a single evaluateGenerationRequest call against
+   * `opts` checks a single-set-shaped configuration (e.g. the screen's base
+   * songCount) even though the real multi-set run uses per-set options
+   * (songsPerSet, and set 2+'s palette-family/genre rotation — see
+   * core/multiSetGeneration.ts's buildSetOptions) that can genuinely differ
+   * enough to trip a contract mismatch or 관문 1 failure the base opts alone
+   * never would. Now branches: multi-set mode runs
+   * evaluateMultiSetGenerationRequest (N real per-set checks, mirroring
+   * multiSetFlow.run's own buildSetOptions/recentGenreIds usage exactly) and
+   * combines them via combineMultiSetPreflight — any set hard-blocked blocks
+   * the whole run with no acknowledgment path, any set with only warn-level
+   * mismatches requires ONE acknowledgment covering every set (Step3Generate
+   * .tsx's per-set results screen, "[전체 진행]"). This handler's own perSet
+   * result is used only for the click-time allow/block decision, exactly
+   * like the single-set branch below discards its `preflight` result once
+   * the boolean is decided — the screen that's actually RENDERED on block
+   * (Step3Generate.tsx, currentStep 4) recomputes its own reactive multi-set
+   * preflight off live `opts` the same way it already does for the single-
+   * set contract/design-gate panels, so what the user sees never depends on
+   * a stale click-time snapshot.
    */
   async function requestGeneration(): Promise<boolean> {
     const effectiveOpts = { ...opts, channel: cm.selectedChannel };
+
+    if (multiSetMode) {
+      const { setCount, songsPerSet } = clampMultiSetTotal(multiSetCount, multiSetSongsPerSet);
+      const perSet = await evaluateMultiSetGenerationRequest({
+        workspaceId,
+        baseOptions: effectiveOpts,
+        setCount,
+        songsPerSet,
+        genres: fallbackGenres()
+      });
+      const combined = combineMultiSetPreflight(perSet, generationAcknowledgedSignature);
+      if (!combined.allowed) {
+        setCurrentStep(4);
+        return false;
+      }
+      return true;
+    }
+
     const preflight = await evaluateGenerationRequest({
       workspaceId,
       options: effectiveOpts,
@@ -1279,6 +1488,15 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         onGenerateFresh={() => void onGenerateFreshFromPrompt()}
         onCancel={() => setCachePrompt(null)}
       />
+
+      {pendingImportInspection && (
+        <ImportInspectionModal
+          inspection={pendingImportInspection.inspection}
+          onConfirmPartial={pendingImportInspection.onConfirm}
+          onCopyRegenerateInstruction={() => void onCopyMissingTracksInstruction()}
+          onClose={() => setPendingImportInspection(null)}
+        />
+      )}
     </main>
   );
 }

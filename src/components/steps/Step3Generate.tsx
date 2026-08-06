@@ -34,7 +34,8 @@ import { moneyChordPresets } from '../../data/moneyChords';
 import { vocalPresets } from '../../data/vocalPresets';
 import { getWorkspace } from '../../data/workspaces';
 import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
-import { resolveGenerationPreflight, type PreflightReason } from '../../core/generationPreflight';
+import { resolveGenerationPreflight, type PreflightReason, type PreflightResult } from '../../core/generationPreflight';
+import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
 import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
@@ -269,6 +270,85 @@ function GenerationContractPanel({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * TASK (multi-set preflight) — the per-set results screen: one row per set
+ * ("Set 01 통과" / "Set 03 <실제 reason.messageKo 문장>"), the multi-set
+ * mirror of the single-set generation-hard-block panel and
+ * GenerationContractPanel above (same "블록이면 진행 버튼 없음, 소프트
+ * 불일치면 명시적 확인 필요" contract, applied to the whole run at once
+ * rather than per field). Deliberately renders each reason's own real
+ * `messageKo` — the SAME sentence a single-set contract/관문1 panel would
+ * show for that exact issue — rather than inventing a new short label set,
+ * so a set's failure reason here is never out of sync with what the
+ * single-set screen would say about the identical issue. `combined` decides
+ * blocked vs warn-only vs clean; this component is a renderer only, same
+ * "never a second source of truth" rule as GenerationContractPanel above.
+ */
+function MultiSetPreflightPanel({
+  perSet,
+  combined,
+  onGoToConceptStep,
+  onAcknowledgeAll
+}: {
+  perSet: PreflightResult[];
+  combined: MultiSetPreflightSummary;
+  onGoToConceptStep: () => void;
+  onAcknowledgeAll: () => void;
+}) {
+  const hasBlock = combined.blockedSetIndexes.length > 0;
+  const hasWarn = combined.warnSetIndexes.length > 0;
+  if (!hasBlock && !hasWarn) return null;
+
+  return (
+    <div className={hasBlock ? 'error generation-hard-block-panel multi-set-preflight-panel' : 'warning generation-mismatch-panel multi-set-preflight-panel'}>
+      <div className="panel-title">
+        {hasBlock ? <XCircle size={16} /> : <AlertTriangle size={16} />}
+        <b>세트별 생성 전 점검</b>
+      </div>
+      <p className="supporting">
+        {hasBlock
+          ? '아래 세트는 "전체 진행"으로 넘어갈 수 없습니다 — 실제로 설정을 고쳐야 합니다.'
+          : '아래 세트는 선택과 다르게 적용됩니다 — "전체 진행"을 눌러야 모든 세트를 생성할 수 있습니다.'}
+      </p>
+      <ul className="multi-set-preflight-list">
+        {perSet.map((result, index) => {
+          const blocked = result.reasons.some(reason => reason.severity === 'block');
+          const warned = !blocked && result.reasons.some(reason => reason.severity === 'warn');
+          const rowClass = blocked ? 'multi-set-preflight-row blocked' : warned ? 'multi-set-preflight-row warned' : 'multi-set-preflight-row passed';
+          return (
+            <li key={index} className={rowClass}>
+              <span className="multi-set-preflight-set-label">Set {String(index + 1).padStart(2, '0')}</span>
+              {result.reasons.length === 0 ? (
+                <span className="multi-set-preflight-status">
+                  <Check size={14} /> 통과
+                </span>
+              ) : (
+                <ul className="multi-set-preflight-reasons">
+                  {result.reasons.map((reason, reasonIndex) => (
+                    <li key={`${reason.field}-${reasonIndex}`}>{reason.messageKo}</li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="button-row">
+        {hasBlock && (
+          <button type="button" onClick={onGoToConceptStep}>
+            {`Set ${String((combined.blockedSetIndexes[0] ?? 0) + 1).padStart(2, '0')} 설정 수정`}
+          </button>
+        )}
+        {!hasBlock && hasWarn && (
+          <button type="button" className="chip active" onClick={onAcknowledgeAll}>
+            <Check size={14} /> 전체 진행
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -664,6 +744,69 @@ export default function Step3Generate({
     ? (preflight.reasons.find(reason => reason.severity === 'block')?.messageKo
       ?? '위 "선택과 다르게 적용됩니다" / 관문 1 항목에 모두 "이대로 진행"을 눌러야 계속할 수 있습니다.')
     : undefined;
+
+  /**
+   * TASK (multi-set preflight) — real, verified gap this closes: this
+   * screen's own `preflight` above (and, transitively, every real trigger
+   * point that reads it) only ever checked ONE set's worth of options —
+   * `opts` itself — even while `multiSet.mode` is on, when the real run uses
+   * per-set options (songsPerSet overriding opts.songCount, set 2+'s
+   * palette-family/genre rotation — core/multiSetGeneration.ts's
+   * buildSetOptions) that can genuinely differ enough to trip a contract
+   * mismatch or 관문 1 failure `opts` alone never would. Computed the same
+   * reactive way `designGateResult` above is (evaluateGenerationRequest's
+   * own evaluateDesignGateResponsive call is Worker-async, so
+   * evaluateMultiSetGenerationRequest — N of those — is too): starts null,
+   * recomputed whenever `opts`/set-count/set-size/workspace change, and
+   * every real multi-set trigger point (this screen's own generate button
+   * below, App.tsx's onGenerateMultiSet) fails closed (disallowed) while
+   * still null rather than defaulting to allowed.
+   */
+  const [multiSetPreflightResults, setMultiSetPreflightResults] = useState<PreflightResult[] | null>(null);
+  useEffect(() => {
+    if (!multiSet.mode) {
+      setMultiSetPreflightResults(null);
+      return;
+    }
+    let cancelled = false;
+    void evaluateMultiSetGenerationRequest({
+      workspaceId,
+      baseOptions: opts,
+      setCount: multiSetClamped.setCount,
+      songsPerSet: multiSetClamped.songsPerSet,
+      genres
+    }).then(results => {
+      if (!cancelled) setMultiSetPreflightResults(results);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [multiSet.mode, workspaceId, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres]);
+
+  /**
+   * TASK (multi-set preflight) — the ONE gating decision for the whole
+   * multi-set run, combining every set's own raw PreflightResult
+   * (combineMultiSetPreflight never re-derives block/warn logic itself — see
+   * that function's own doc comment in core/multiSetGeneration.ts). Any set
+   * hard-blocked -> the whole run is unblockable (no "전체 진행" path, same
+   * rule as a single-set hard block); otherwise every set's warn reasons
+   * share ONE acknowledgment (`acknowledgedSignature`, the SAME lifted prop
+   * the single-set panel above uses) — acknowledging once via "전체 진행"
+   * below covers every set in this run, not per-set.
+   */
+  const multiSetPreflight = useMemo<MultiSetPreflightSummary | null>(
+    () => (multiSetPreflightResults ? combineMultiSetPreflight(multiSetPreflightResults, acknowledgedSignature) : null),
+    [multiSetPreflightResults, acknowledgedSignature]
+  );
+  function handleAcknowledgeAllSets() {
+    if (multiSetPreflight?.mismatchSignature) onAcknowledgedSignatureChange(multiSetPreflight.mismatchSignature);
+  }
+
+  const multiSetAllowed = multiSet.mode ? Boolean(multiSetPreflight?.allowed) : true;
+  const multiSetPreflightBlockReasonKo = multiSet.mode && multiSetPreflight && !multiSetPreflight.allowed
+    ? (multiSetPreflight.reasons.find(reason => reason.severity === 'block')?.messageKo
+      ?? '아래 세트별 점검에서 "전체 진행"을 눌러야 계속할 수 있습니다.')
+    : (multiSet.mode && !multiSetPreflight ? '세트별 점검 중입니다 — 잠시 기다리세요.' : undefined);
 
   function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
     // TASK (provenance) — 'system' provenance for whichever of the 13
@@ -1396,12 +1539,21 @@ export default function Step3Generate({
         onGoToConceptStep={onGoToConceptStep}
       />
 
+      {multiSet.mode && multiSetPreflightResults && multiSetPreflight && (
+        <MultiSetPreflightPanel
+          perSet={multiSetPreflightResults}
+          combined={multiSetPreflight}
+          onGoToConceptStep={onGoToConceptStep}
+          onAcknowledgeAll={handleAcknowledgeAllSets}
+        />
+      )}
+
       {multiSet.mode ? (
         <button
           type="button"
           className="primary full-width action-button"
-          disabled={multiSet.isRunning || !preflight.allowed}
-          title={preflightBlockReasonKo}
+          disabled={multiSet.isRunning || !multiSetAllowed}
+          title={multiSetPreflightBlockReasonKo}
           onClick={multiSet.onGenerate}
         >
           <Layers size={18} />

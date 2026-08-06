@@ -2,6 +2,7 @@ import type { GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, SongIde
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { stripSetTitlePrefix } from '../utils/generation';
+import { validateProviderTrackSet } from './importValidation';
 
 /**
  * TASK E2 (v3.5) — reconstructs one PlaylistBlueprint from the (possibly
@@ -117,6 +118,24 @@ export function stitchBatchResults(
     }
 
     const resultSongs = result.blueprint.songs || [];
+    // TASK (structural trackNo rejection) — a harder gate than
+    // claimSlotsByTrackNo's own intra-result no-slot fallback below: an
+    // intra-result trackNo collision or an out-of-pack-range trackNo can
+    // never legitimately happen in one sub-batch's own response (see this
+    // function's doc comment above on intra- vs cross-result duplicates), so
+    // a response this broken is refused outright — treated the same as any
+    // other failed sub-batch (the `!result.blueprint || result.error` branch
+    // above): its customId lands in failedBatchIndexes and contributes NO
+    // songs to the stitched blueprint, rather than reconciling an untrustworthy
+    // response via the softer no-slot fallback. Scoped to opts.songCount (the
+    // whole pack's range), not this result's own narrower trackNo slice, so
+    // a legitimate cross-chunk range mismatch still falls through to
+    // claimSlotsByTrackNo's existing softer remedy untouched.
+    const trackSetValidation = validateProviderTrackSet(resultSongs, opts.songCount);
+    if (!trackSetValidation.valid) {
+      failedBatchIndexes.push(batchIndexFromCustomId(result.customId));
+      continue;
+    }
     // Slot ownership resolved WITHIN this one result only — see this
     // function's own doc comment for why cross-result collisions are handled
     // separately, below.

@@ -709,6 +709,24 @@ export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: Vo
   // is unaffected: batchPreallocation.ts sets its gender equal to vocalType
   // ('mixed', never 'duet'), so it still falls through to the next line.
   if (gender === 'duet') return '[duet vocal]';
+  // v5.15 (vocal meta-tag audit, combination #5) — a KIDS 'mixed' slot is the
+  // only real caller where vocalType and gender both land on 'mixed'
+  // together (batchPreallocation.ts/localGenerator.ts's own vocalGender
+  // derivation: kids sets gender = vocalType verbatim; every non-kids
+  // archetype instead maps vocalType==='mixed' to gender:'duet', which the
+  // check above already intercepts first — so this can never resurrect the
+  // v3.77 adult-duet-mistagged-as-choir bug this function's own header
+  // comment documents). The AUTOMATIC kids quota's generic vocalText
+  // (VOCAL_DESCRIPTIONS.mixed, TASK D2 §6-3's own rewrite) never contains
+  // "choir", so it still falls through to the plain '[mixed vocal]' line
+  // right below unaffected; only a user who manually picked one of
+  // vocalPresets.ts's own kid-choir* presets (whose prompt text literally
+  // says "children's choir...", see kidsVocalTextFor) now actually reaches
+  // "[children's choir]" the way this module's TASK D2 §6-3 comment already
+  // promised but the old unconditional `vocalType === 'mixed'` shortcut
+  // below made unreachable in practice (the gender === 'mixed' choir check
+  // further down was dead code for every real kids call site).
+  if (vocalType === 'mixed' && vocalText && /\bchoir\b/i.test(vocalText)) return "[children's choir]";
   if (vocalType === 'mixed') return '[mixed vocal]';
   if (vocalType === 'male') return '[male vocal]';
   if (vocalType === 'female') return '[female vocal]';
@@ -723,7 +741,21 @@ export function resolveVocalMetaTag(vocalType: VocalType | undefined, gender: Vo
   return detected === 'male' ? '[male vocal]' : detected === 'female' ? '[female vocal]' : null;
 }
 
-const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|mixed vocal|children'?s choir|duet vocal|group vocal)\]/i;
+// v5.15 (vocal meta-tag audit) — the bracket-content words themselves now
+// tolerate internal whitespace variants (e.g. a provider response emitting
+// "[ Female Vocal ]" or "[female  vocal]") via `\s+`/`\s*`, not just the
+// case-insensitive `i` flag already in place. VOCAL_META_TAG_PATTERN stays
+// anchored to the very start of `lyrics` (top-of-lyrics tag only) with no
+// `g`/`m` flag; VOCAL_META_TAG_PATTERN_ANY is the unanchored, global
+// counterpart ensureVocalMetaTag below uses to find a stray SECOND
+// occurrence anywhere else in the string. Both share the same word list —
+// a per-section tag like "[verse 1: male vocal]" never matches either one,
+// since the bracket content there is never JUST one of these 6 phrases
+// (see ensureVocalMetaTag's own doc comment for why that keeps
+// applyDuetSectionVocalTags' retagging safe).
+const VOCAL_META_TAG_WORDS = "male\\s+vocal|female\\s+vocal|mixed\\s+vocal|children'?s\\s+choir|duet\\s+vocal|group\\s+vocal";
+const VOCAL_META_TAG_PATTERN = new RegExp(`^\\s*\\[\\s*(${VOCAL_META_TAG_WORDS})\\s*\\]`, 'i');
+const VOCAL_META_TAG_PATTERN_ANY = new RegExp(`\\[\\s*(${VOCAL_META_TAG_WORDS})\\s*\\]`, 'gi');
 
 /**
  * Ensures `lyrics` opens with the CORRECT vocal meta tag for the track's
@@ -745,6 +777,12 @@ const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|mixed vocal|child
  *   same reconciliation call site) already gets corrected. This closes that
  *   gap by verifying correctness, not just presence, matching the
  *   style-prompt side's own behavior.
+ * - A genuinely malformed/adversarial SECOND bare vocal meta tag further
+ *   down in the lyrics body (v5.15 hardening — real gap: VOCAL_META_TAG_PATTERN
+ *   has no `g`/`m` flag and is anchored to the very start of the string, so
+ *   without this it only ever sees/replaces the FIRST occurrence, leaving a
+ *   stray second one uncorrected) is stripped outright, not reconciled to
+ *   `tag` — only the one at the very top is ever the real directive.
  *
  * Every real caller (batchPreallocation.ts's reconcileWithPreassignedSlot,
  * localGenerator.ts) runs this AFTER applyDuetSectionVocalTags on the same
@@ -752,19 +790,29 @@ const VOCAL_META_TAG_PATTERN = /^\s*\[(male vocal|female vocal|mixed vocal|child
  * PER-SECTION tags deep in the lyrics body (e.g. "[verse 1]" ->
  * "[verse 1: male vocal]", only when gender === 'duet') — it never touches
  * the single top-of-lyrics tag this function owns, since none of its
- * rewritten section tags match VOCAL_META_TAG_PATTERN. So a wrong top-level
- * tag on a duet track still gets replaced with "[duet vocal]" here,
- * independent of — and without disturbing — whatever per-section tags
- * applyDuetSectionVocalTags already wrote further down.
+ * rewritten section tags match VOCAL_META_TAG_PATTERN/VOCAL_META_TAG_PATTERN_ANY
+ * (their bracket content is never JUST one of the 6 known phrases — it always
+ * carries a "verse 1: "/"chorus: " prefix first). So a wrong top-level tag on
+ * a duet track still gets replaced with "[duet vocal]" here, independent of —
+ * and without disturbing — whatever per-section tags applyDuetSectionVocalTags
+ * already wrote further down.
  */
 export function ensureVocalMetaTag(lyrics: string, tag: string | null): string {
   if (!tag) return lyrics;
   const match = lyrics.match(VOCAL_META_TAG_PATTERN);
-  if (!match) return `${tag}\n${lyrics}`;
-  const existingTag = `[${match[1]}]`;
-  if (existingTag.toLowerCase() === tag.toLowerCase()) return lyrics;
-  const leadingWhitespace = match[0].slice(0, match[0].length - existingTag.length);
-  return `${leadingWhitespace}${tag}${lyrics.slice(match[0].length)}`;
+  const leadingWhitespace = match ? match[0].match(/^\s*/)![0] : '';
+  const rest = match ? lyrics.slice(match[0].length) : lyrics;
+  // Collapse a stray duplicate down to nothing, then tidy up any 3+ run of
+  // newlines the removal leaves behind so the strip is invisible in normal
+  // (never-duplicated) lyrics — none of this function's other tests have a
+  // triple newline, so this is a no-op for every already-passing case.
+  const cleanedRest = rest.replace(VOCAL_META_TAG_PATTERN_ANY, '').replace(/\n{3,}/g, '\n\n');
+  // No top-level tag was there to slice off, so `rest`/`cleanedRest` never
+  // carries the separating newline the way a real match's own slice does
+  // (e.g. "[male vocal]\n[verse 1]..." slices to "\n[verse 1]..." — the "\n"
+  // comes from the original string). Insert it explicitly here instead.
+  if (!match) return `${tag}\n${cleanedRest}`;
+  return `${leadingWhitespace}${tag}${cleanedRest}`;
 }
 
 /**

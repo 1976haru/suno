@@ -506,3 +506,83 @@ describe('[v3.21] single-song budget-boost retry', () => {
     expect(calls).toBe(2); // normal + one boosted retry, then gives up
   });
 });
+
+/**
+ * TASK (structural trackNo rejection, third-party audit follow-up) — a
+ * malformed response (duplicate trackNo within the same chunk, or a trackNo
+ * outside the pack's real 1..opts.songCount range) must now reject the
+ * WHOLE chunk outright, not degrade gracefully via
+ * core/batchPreallocation.ts's claimSlotsByTrackNo no-slot fallback. See
+ * src/core/importValidation.ts's own doc comment for the shared diagnostic
+ * every real entry point runs, and tests/providerResponseFixtures.test.ts /
+ * tests/batchApi.test.ts for the bridge-import and Batch API equivalents.
+ */
+describe('[structural trackNo rejection] generateChunkWithSplitRetry rejects a structurally broken response outright', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('a chunk response with two songs claiming the same trackNo throws — no partial blueprint is ever built from it', async () => {
+    global.fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      const offset = body.user.trackNoOffset as number;
+      // both songs claim trackNo (offset + 1) — a duplicate within this one response.
+      const songs = [stubSong(offset + 1), { ...stubSong(offset + 1), title: 'Duplicate Claim' }];
+      return new Response(JSON.stringify({ blueprint: stubBlueprint(songs), usage: { inputTokens: 10, outputTokens: 10 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const opts = makeOptions({ songCount: 2 });
+    const identity: GenerateChunkIdentity = { base: null, locked: null };
+
+    await expect(
+      generateChunkWithSplitRetry([1, 2], opts, testGenres, testMoods, testSeason, settings, { usedTitles: [], usedHooks: [] }, identity)
+    ).rejects.toThrow(/trackNo 구조가 잘못되었습니다/);
+  });
+
+  it('a chunk response with a trackNo outside the pack\'s 1..songCount range throws — no partial blueprint is ever built from it', async () => {
+    global.fetch = vi.fn(async () => {
+      const songs = [stubSong(1), stubSong(99)];
+      return new Response(JSON.stringify({ blueprint: stubBlueprint(songs), usage: { inputTokens: 10, outputTokens: 10 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const opts = makeOptions({ songCount: 2 });
+    const identity: GenerateChunkIdentity = { base: null, locked: null };
+
+    await expect(
+      generateChunkWithSplitRetry([1, 2], opts, testGenres, testMoods, testSeason, settings, { usedTitles: [], usedHooks: [] }, identity)
+    ).rejects.toThrow(/trackNo 구조가 잘못되었습니다/);
+  });
+
+  it('a fully clean response is completely unaffected — generateBlueprint still succeeds end-to-end', async () => {
+    global.fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      const count = body.user.songCount as number;
+      const offset = body.user.trackNoOffset as number;
+      const songs = Array.from({ length: count }, (_, i) => stubSong(offset + i + 1));
+      return new Response(JSON.stringify({ blueprint: stubBlueprint(songs), usage: { inputTokens: 10, outputTokens: 10 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const opts = makeOptions({ songCount: 4 });
+    const blueprint = await generateBlueprint(opts, testGenres, testMoods, testSeason, settings);
+    expect(blueprint.songs.map(s => s.trackNo).sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('a chunk genuinely short one song (no duplicates/no out-of-range trackNo) is NOT hard-blocked by this check — that is the softer, separately-handled case', async () => {
+    global.fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      const offset = body.user.trackNoOffset as number;
+      // Only returns ONE song for a 2-song chunk request — missing, not duplicate/invalid.
+      const songs = [stubSong(offset + 1)];
+      return new Response(JSON.stringify({ blueprint: stubBlueprint(songs), usage: { inputTokens: 10, outputTokens: 10 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const opts = makeOptions({ songCount: 2 });
+    const identity: GenerateChunkIdentity = { base: null, locked: null };
+
+    const songs = await generateChunkWithSplitRetry([1, 2], opts, testGenres, testMoods, testSeason, settings, { usedTitles: [], usedHooks: [] }, identity);
+    expect(songs).toHaveLength(1);
+    expect(songs[0].trackNo).toBe(1);
+  });
+});

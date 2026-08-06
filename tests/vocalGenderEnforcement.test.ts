@@ -186,6 +186,153 @@ describe('[Part H] resolveVocalMetaTag / ensureVocalMetaTag', () => {
   });
 });
 
+// v5.15 (vocal meta-tag audit follow-up) — a fresh third-party audit
+// independently re-flagged "wrong vocal meta-tag isn't corrected" as a live
+// P0 with 8 required combinations, proposing a brand-new `reconcileVocalMetaTag`
+// function. Investigation found the EXISTING ensureVocalMetaTag (already
+// fixed by an earlier v5.14 follow-up, tested just above) already covers 6 of
+// the 8 for real; this suite is the real, function-level verification for
+// all 8 — 2 combinations (kids manual choir-preset resolution, the "두 개"
+// stray-second-tag case, and whitespace-variant tolerance) turned out to be
+// genuine gaps, hardened directly in ensureVocalMetaTag/resolveVocalMetaTag/
+// VOCAL_META_TAG_PATTERN above rather than building a second, parallel
+// mechanism.
+describe('[v5.15 audit] the 8 required combinations, verified with real functions/data', () => {
+  const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+  const explicitMalePreset = vocalPresets.find(p => p.id === 'low-calm-male')!.prompt;
+  const explicitFemalePreset = vocalPresets.find(p => p.id === 'husky-jazz-female')!.prompt;
+  const explicitDuetPreset = vocalPresets.find(p => p.id === 'male-female-duet')!.prompt;
+  const kidChoirPreset = vocalPresets.find(p => p.id === 'kid-choir')!;
+
+  // 1. 남성 슬롯 + [female vocal] -> male tag.
+  it('1) a male slot with a wrong [female vocal] tag reconciles to [male vocal]', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitMalePreset, vocalQuota: { male: 1, female: 0, mixed: 0 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: '[female vocal]\n[verse 1]\nsome lyrics' });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics.startsWith('[male vocal]')).toBe(true);
+  });
+
+  // 2. 여성 슬롯 + [male vocal] -> female tag.
+  it('2) a female slot with a wrong [male vocal] tag reconciles to [female vocal]', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitFemalePreset, vocalQuota: { male: 0, female: 1, mixed: 0 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: '[male vocal]\n[verse 1]\nsome lyrics' });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics.startsWith('[female vocal]')).toBe(true);
+  });
+
+  // 3. 혼성 슬롯 + [male vocal] -> mixed/duet tag. A non-kids 'mixed'
+  // vocalType always maps to gender 'duet' (batchPreallocation.ts's own
+  // vocalGender derivation), so the correct tag here is "[duet vocal]", not
+  // "[mixed vocal]" — this is what resolveVocalMetaTag's own v3.77 fix
+  // guarantees.
+  it('3) a mixed/duet slot with a wrong [male vocal] tag reconciles to [duet vocal]', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitDuetPreset, vocalQuota: { male: 0, female: 0, mixed: 1 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalGender).toBe('duet');
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: '[male vocal]\n[verse 1]\nsome lyrics' });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics.startsWith('[duet vocal]')).toBe(true);
+  });
+
+  // 4. 동요 남아(kids boy) + 성인 [male vocal] -> PASS, not a gap: the
+  // top-level meta-tag vocabulary (VOCAL_META_TAG_PATTERN) only ever encodes
+  // gender/duet/mixed/choir, never a kids-vs-adult axis — there is no
+  // separate "boy vocal" tag to reconcile to. A kids-boy slot's CORRECT tag
+  // genuinely is the same "[male vocal]" an adult male slot gets; the
+  // kids-appropriateness lives entirely in vocalText prose (kidsVocalTextFor),
+  // not in this tag. Verifies that's really a no-op, not silently wrong.
+  it('4) a kids-boy slot already carrying "[male vocal]" (adult-worded survivor) stays [male vocal] — no separate kids tag exists', () => {
+    const opts = makeOptions({ channel: kidsChannel, vocalQuota: { male: 1, female: 0, mixed: 0 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalType).toBe('male');
+    expect(resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText)).toBe('[male vocal]');
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: '[male vocal]\n[verse 1]\nsome lyrics' });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics.startsWith('[male vocal]')).toBe(true);
+  });
+
+  // 5. 동요 여아(kids girl) + [children's choir] -> a REAL gap, in two parts.
+  it("5a) a kids-girl slot with a wrong [children's choir] tag reconciles to [female vocal] (choir is wrong for a specific girl slot)", () => {
+    const opts = makeOptions({ channel: kidsChannel, vocalQuota: { male: 0, female: 1, mixed: 0 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalType).toBe('female');
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: "[children's choir]\n[verse 1]\nsome lyrics" });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics.startsWith('[female vocal]')).toBe(true);
+  });
+
+  it("5b) FIXED — a kids channel's manually-picked kid-choir preset now really resolves to [children's choir] (was a dead branch: vocalType==='mixed' always short-circuited to '[mixed vocal]' before the vocalText choir check could ever run)", () => {
+    const opts = makeOptions({ channel: kidsChannel, vocalTone: kidChoirPreset.prompt, vocalQuota: { male: 0, female: 0, mixed: 1 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalType).toBe('mixed');
+    expect(slot.vocalText).toContain('choir');
+    // Real before/after: resolveVocalMetaTag's own output for this exact
+    // real slot.
+    expect(resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText)).toBe("[children's choir]");
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: '[mixed vocal]\n[verse 1]\nsome lyrics' });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics.startsWith("[children's choir]")).toBe(true);
+  });
+
+  it("5c) the AUTOMATIC kids 'mixed' quota slot (no manual choir preset) still tags as [mixed vocal], not [children's choir] — the fix above must not regress TASK D2 §6-3's own decision", () => {
+    const opts = makeOptions({ channel: kidsChannel, vocalQuota: { male: 0, female: 0, mixed: 1 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    expect(slot.vocalType).toBe('mixed');
+    expect(slot.vocalText).not.toContain('choir');
+    expect(resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText)).toBe('[mixed vocal]');
+  });
+
+  // 6. 태그 없음 -> tag gets inserted.
+  it('6) no pre-existing tag: the correct tag is prepended', () => {
+    const opts = makeOptions({ channel: showaCafe, vocalTone: explicitMalePreset, vocalQuota: { male: 1, female: 0, mixed: 0 } });
+    const [slot] = preallocateSongSlots(opts, []);
+    const song = baseSong({ trackNo: slot.trackNo, lyrics: '[verse 1]\nsome lyrics' });
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', { keepHook: true, keepEmotionArc: true });
+    expect(fixed.lyrics).toBe('[male vocal]\n[verse 1]\nsome lyrics');
+  });
+
+  // 7. 태그가 두 개 (malformed/adversarial: two bare meta tags) -> FIXED. Old
+  // VOCAL_META_TAG_PATTERN had no g/m flag and was anchored to the very
+  // start of the string, so it only ever saw/replaced the first occurrence,
+  // silently leaving a stray wrong second tag further down. Confirmed with a
+  // real probe before the fix: ensureVocalMetaTag('[male vocal]\n[verse
+  // 1]\nfoo\n\n[female vocal]\n[chorus]\nbar', '[duet vocal]') used to return
+  // '[duet vocal]\n[verse 1]\nfoo\n\n[female vocal]\n[chorus]\nbar' — the
+  // stray "[female vocal]" survived untouched.
+  it('7) FIXED — a stray second bare vocal meta tag deeper in the lyrics is stripped, not left behind', () => {
+    const lyrics = '[male vocal]\n[verse 1]\nfoo\n\n[female vocal]\n[chorus]\nbar';
+    const fixed = ensureVocalMetaTag(lyrics, '[duet vocal]');
+    expect(fixed).toBe('[duet vocal]\n[verse 1]\nfoo\n\n[chorus]\nbar');
+    expect(fixed).not.toContain('[female vocal]');
+    // Real per-section duet tags must never be caught by the same stray-strip
+    // (they always carry a "verse 1: "/"chorus: " prefix, never a bare tag).
+    const withRealDuetSections = '[male vocal]\n[verse 1: male vocal]\nfoo\n\n[chorus: male and female duet]\nbar';
+    expect(ensureVocalMetaTag(withRealDuetSections, '[duet vocal]')).toBe(
+      '[duet vocal]\n[verse 1: male vocal]\nfoo\n\n[chorus: male and female duet]\nbar'
+    );
+  });
+
+  // 8. 대소문자·공백 변형 (case/whitespace variants).
+  it('8a) case-insensitivity already worked: [FEMALE VOCAL] is replaced correctly', () => {
+    expect(ensureVocalMetaTag('[FEMALE VOCAL]\n[verse 1]\nsome lyrics', '[male vocal]'))
+      .toBe('[male vocal]\n[verse 1]\nsome lyrics');
+  });
+
+  it('8b) FIXED — internal whitespace inside the brackets ([ Female Vocal ]) is now tolerated instead of silently double-tagging', () => {
+    // Before the fix, VOCAL_META_TAG_PATTERN required the bracket content to
+    // be an EXACT word match with no padding, so "[ Female Vocal ]" failed to
+    // match at all — ensureVocalMetaTag treated it as "no tag present" and
+    // PREPENDED a new one, leaving the malformed original as a stray second
+    // tag: '[male vocal]\n[ Female Vocal ]\n[verse 1]\nabc'. Confirmed with a
+    // real probe before the fix.
+    const fixed = ensureVocalMetaTag('[ Female Vocal ]\n[verse 1]\nabc', '[male vocal]');
+    expect(fixed).toBe('[male vocal]\n[verse 1]\nabc');
+    expect(fixed).not.toContain('Female Vocal');
+  });
+});
+
 describe('[Part H] reconcileWithPreassignedSlot enforces gender end-to-end (realtime/Batch/bridge choke point)', () => {
   // TASK v3.72 (TASK A) — vocalTone here must be an explicit preset text
   // DIFFERENT from showaCafe.defaultVocal, not equal to it: usesVocalQuota

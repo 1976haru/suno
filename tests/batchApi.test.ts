@@ -89,35 +89,66 @@ describe('[E2] stitchBatchResults (pure)', () => {
     expect(stitched.failedBatchIndexes).toEqual([0, 1]);
   });
 
-  it('[duplicate-trackNo fix] two songs in the SAME result claiming the same trackNo both survive — first claim keeps the real slot, second gets the no-slot fallback instead of sharing it — and validateStitched can still see the collision', () => {
+  it('[structural trackNo rejection] a result with an intra-result duplicate trackNo is now rejected ENTIRELY (treated as a failed sub-batch), not gracefully degraded per-track', () => {
+    // TASK (structural trackNo rejection, third-party audit follow-up) —
+    // this test used to assert the older "duplicate-trackNo fix" behavior:
+    // both trackNo-3 claimants survived, the duplicate falling back to
+    // reconcileWithPreassignedSlot's no-slot branch instead of silently
+    // sharing slot 3's plan (see core/batchPreallocation.ts's
+    // claimSlotsByTrackNo doc comment). A stricter audit found that still
+    // too soft — stitchBatchResults now calls validateProviderTrackSet
+    // (core/importValidation.ts) on each sub-batch's own raw songs BEFORE
+    // claimSlotsByTrackNo ever runs; a response this broken (b0 returns
+    // FOUR songs for its own 3-track chunk, two of them both claiming
+    // trackNo 3 — the exact in-one-response shape
+    // tests/fixtures/providerResponses/duplicateTrackNo.json exercises for
+    // the bridge path) is now treated exactly like any other failed
+    // sub-batch: its customId lands in failedBatchIndexes and contributes
+    // NO songs at all, rather than reconciling an untrustworthy response.
     const opts4 = makeOptions({ songCount: 4 });
     const slots = preallocateSongSlots(opts4, testGenres);
-    const slot3 = slots.find(s => s.trackNo === 3)!;
-    // b0's own response is malformed: it returns FOUR songs for its own
-    // 3-track chunk, two of them both claiming trackNo 3 — the exact
-    // in-one-response shape tests/fixtures/providerResponses/duplicateTrackNo.json
-    // (tests/providerResponseFixtures.test.ts) exercises for the bridge path.
     const results: BatchRequestResult[] = [
       { customId: 'b0', blueprint: makeBlueprint([makeSong(1), makeSong(2), makeSong(3), makeSong(3)]), usage: null, error: null },
       { customId: 'b1', blueprint: makeBlueprint([makeSong(4)]), usage: null, error: null }
     ];
     const stitched = stitchBatchResults(opts4, results, slots);
 
-    // No song silently vanished — both trackNo-3 claimants survive alongside 1, 2, 4.
-    expect(stitched.blueprint!.songs).toHaveLength(5);
-    const songsAtTrack3 = stitched.blueprint!.songs.filter(s => s.trackNo === 3);
-    expect(songsAtTrack3).toHaveLength(2);
-    // First claim (array order) gets slot 3's real, forced plan.
-    expect(songsAtTrack3[0].genreId).toBe(slot3.genreId);
-    // Second claim does NOT silently share slot 3's plan — it falls back to
-    // reconcileWithPreassignedSlot's own no-slot branch instead.
-    expect(songsAtTrack3[1].genreId).not.toBe(slot3.genreId);
+    expect(stitched.failedBatchIndexes).toEqual([0]);
+    // Only b1's single (valid) song survives — b0 contributed nothing.
+    expect(stitched.blueprint!.songs).toHaveLength(1);
+    expect(stitched.blueprint!.songs[0].trackNo).toBe(4);
 
-    // duplicateTrackNos — dead code before this fix on this call path — now
-    // actually fires, since the collision survives into the final songs list.
+    // The collision never reaches the final songs list at all now, so
+    // validateStitched has nothing to report for it — this is expected,
+    // not a regression: the rejection happened earlier and harder.
     const validation = validateStitched(stitched.blueprint!.songs, opts4.songCount);
-    expect(validation.duplicateTrackNos).toEqual([3]);
-    expect(validation.issues.some(issue => issue.includes('Duplicate trackNo: 3'))).toBe(true);
+    expect(validation.duplicateTrackNos).toEqual([]);
+  });
+
+  it('[structural trackNo rejection] a result with a trackNo outside the whole pack\'s 1..songCount range is also rejected entirely', () => {
+    const opts4 = makeOptions({ songCount: 4 });
+    const slots = preallocateSongSlots(opts4, testGenres);
+    const results: BatchRequestResult[] = [
+      { customId: 'b0', blueprint: makeBlueprint([makeSong(1), makeSong(2), makeSong(42)]), usage: null, error: null },
+      { customId: 'b1', blueprint: makeBlueprint([makeSong(3), makeSong(4)]), usage: null, error: null }
+    ];
+    const stitched = stitchBatchResults(opts4, results, slots);
+
+    expect(stitched.failedBatchIndexes).toEqual([0]);
+    expect(stitched.blueprint!.songs.map(s => s.trackNo).sort((a, b) => a - b)).toEqual([3, 4]);
+  });
+
+  it('[structural trackNo rejection] a clean multi-sub-batch job (no duplicates/no out-of-range) is completely unaffected', () => {
+    const opts4 = makeOptions({ songCount: 4 });
+    const slots = preallocateSongSlots(opts4, testGenres);
+    const results: BatchRequestResult[] = [
+      { customId: 'b0', blueprint: makeBlueprint([makeSong(1), makeSong(2)]), usage: null, error: null },
+      { customId: 'b1', blueprint: makeBlueprint([makeSong(3), makeSong(4)]), usage: null, error: null }
+    ];
+    const stitched = stitchBatchResults(opts4, results, slots);
+
+    expect(stitched.failedBatchIndexes).toEqual([]);
+    expect(stitched.blueprint!.songs.map(s => s.trackNo)).toEqual([1, 2, 3, 4]);
   });
 });
 

@@ -1231,6 +1231,36 @@ textarea {
   margin-top: 4px;
 }
 
+/* TASK (import transaction / pre-persistence inspection) — ImportInspectionModal.tsx's per-check checklist (파일 읽기/JSON 구조/trackNo/필수 필드/언어/보컬 태그/아티스트명 검사). */
+.import-check-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.import-check-line {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.import-check-detail {
+  color: var(--muted);
+}
+
+.import-check-blocked {
+  color: var(--danger, #dc2626);
+}
+
+.import-check-warn {
+  color: var(--warning, #b45309);
+}
+
+.import-inspection-modal .button-row {
+  margin-top: 14px;
+}
+
 /* v3.78 (TASK A/B) — 관문 1/관문 2 panels (DesignGatePanel.tsx / GenerationGatePanel.tsx). */
 .design-gate-panel {
   display: flex;
