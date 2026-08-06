@@ -1,11 +1,11 @@
-import type { ChannelArchetype, GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea } from '../types';
+import type { ChannelArchetype, GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
-import { averageTempo, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
+import { averageTempo, buildArcPlanForProfile, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
-import { compactMoneyChord } from './soundSignature';
+import { compactMoneyChord, resolveEffectiveMoneyChordId } from './soundSignature';
 import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
 import { isKidsArchetype } from '../utils/channelArchetype';
@@ -52,7 +52,7 @@ import {
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, lyricThemeForSlot } from './lyricDiversityPlan';
 import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } from './genreRotation';
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
-import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
+import { breakLongRuns, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
@@ -135,6 +135,11 @@ export function preallocateSongSlots(
   // objects) so this function's later genrePool/genresForTrack reads all
   // see the sanitized set.
   const archetype = opts.channel.archetype || 'senior-morning';
+  // v5.11 (TASK L) — mirrors localGenerator.ts's identical addition (same
+  // reasoning: see that file's own doc comment) — resolved once per pack,
+  // reused by every slot below, and copied onto the final SongIdea in
+  // reconcileWithPreassignedSlot.
+  const workspaceId: WorkspaceId = workspaceForArchetype(archetype)?.id ?? 'senior-oldpop';
   const genreSanitization = sanitizeGenreIdsForArchetype(
     Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
     archetype
@@ -146,13 +151,6 @@ export function preallocateSongSlots(
   const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, archetype);
   const seedBase = seedForBlueprint(opts);
   const seed = hashSeed(seedBase);
-  // TASK v3.67 (TASK C) — same arc-intensity reorder as localGenerator.ts's
-  // generateLocalBlueprint (see arcPlan.ts's own doc comment: reorders,
-  // never recomputes, buildTempoBandPlan's own output).
-  const arcPlan = buildArcPlan(opts.songCount);
-  // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, mirroring
-  // localGenerator.ts's own emotionArcPlanForArc call (same seed).
-  const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
   // TASK v3.60 (TASK C) — this pre-pass feeds the realtime/Batch/bridge
   // paths (this whole function's own docstring), which measured BPM 96-104
   // (stddev ~2.2) on a real bridge pack because averageTempo() was still
@@ -161,7 +159,21 @@ export function preallocateSongSlots(
   // fallbackCenter` short-circuit in localGenerator.ts). Mirrors
   // localGenerator.ts's own generateLocalBlueprint pre-pass exactly (same
   // seed) so the bridge/Batch path's BPM spread matches the local path's.
+  // v5.11 — moved above the arcPlan computation just below (was previously
+  // computed after it) so arcModelId-aware dispatch has this available; a
+  // pure lookup with no side effects, so moving it earlier changes nothing
+  // about what it returns.
   const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
+  // TASK v3.67 (TASK C) — same arc-intensity reorder as localGenerator.ts's
+  // generateLocalBlueprint (see arcPlan.ts's own doc comment: reorders,
+  // never recomputes, buildTempoBandPlan's own output).
+  // v5.11 — arcModelId-aware dispatch (see localGenerator.ts's
+  // buildArcPlanForProfile doc comment); resolves 'repetition-cycle' for
+  // every kids workspace, unaffected for every other profile.
+  const arcPlan = buildArcPlanForProfile(opts.songCount, audienceProfile.arcModelId);
+  // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, mirroring
+  // localGenerator.ts's own emotionArcPlanForArc call (same seed).
+  const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
   // v4.2 (TASK A3) — mirrors localGenerator.ts's own generateLocalBlueprint:
   // one ResolvedConstraints instance feeding this path's own title generation.
   const constraints = resolveConstraintsFromOptions(opts, audienceProfile);
@@ -348,6 +360,9 @@ export function preallocateSongSlots(
   // channel's own untouched/default vocalTone, so this is a no-op unless a
   // user actually opens the voice picker and chooses a specific kids preset.
   const kidsMatchedVocalPreset = isKidsArchetype(opts.channel.archetype) ? matchVocalPreset(opts.vocalTone?.trim() ?? '') : undefined;
+  // v5.11 (TASK L) — mirrors localGenerator.ts's identical addition (same
+  // reasoning: see SongIdea.effectiveVocalPresetId's own doc comment).
+  const wholePackMatchedVocalPreset = matchVocalPreset(opts.vocalTone?.trim() ?? '');
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
@@ -641,6 +656,10 @@ export function preallocateSongSlots(
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];
     const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;
+    // v5.11 (TASK L) — always resolved (unlike moneyChordId above, which
+    // stays undefined outside quota rotation) — see
+    // core/soundSignature.ts's resolveEffectiveMoneyChordId doc comment.
+    const effectiveMoneyChordId = resolveEffectiveMoneyChordId(opts, moneyChordId);
     const hookDeviceText = getHookDeviceById(hookDeviceId)?.prompt;
     const introTextureText = introTextureTagForId(introTextureId);
     const lyricThemeId = lyricThemePlan[idx];
@@ -648,14 +667,29 @@ export function preallocateSongSlots(
     const sectionStyle = sectionStylePlan[idx];
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
+    // v5.11 (TASK L) — this trackNo's actual assigned genre(s), re-sanitized
+    // defensively (mirrors SongIdea.effectiveGenreIds's own doc comment) —
+    // guards even a verified-combo genre override (applyVerifiedComboToGenrePlan
+    // above) that might not have come from this pack's own sanitized pool.
+    const effectiveGenreIds = sanitizeGenreIdsForArchetype(trackGenres.map(g => g.id), archetype).valid;
     const resolvedVocalVariantText = vocalVariantText || variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
     const killingPoint = killingPointPlan[idx];
+    // v5.10 (TASK H) — computed here (was only computed later, inline, for
+    // the vocabularyBankId slot field below) so its `avoid` words can also
+    // reach negativeStyleText/excludePrompt just below, for kids channels —
+    // see data/vocabularyBanks.ts's own v5.10 doc comment for why kr-kids/
+    // jp-kids previously resolved to an unscoped senior/adult bank here.
+    const sceneVocabularyBank = vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo, workspaceForArchetype(opts.channel.archetype)?.id);
     // TASK v3.67 (TASK B) — this track's own killing point may relax
     // specific audience exclusions for this one song only (see
     // data/killingPoints.ts / promptComposer.ts's buildExcludePrompt, which
     // only ever drops entries actually in the profile's relaxableAtPeak).
-    const negativeStyleText = buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+    // v5.10 (TASK H) — kids-only: also merges sceneVocabularyBank.avoid, same
+    // reasoning/gating as localGenerator.ts's identical excludePrompt change.
+    const negativeStyleText = isKidsArchetype(opts.channel.archetype) && sceneVocabularyBank.avoid.length
+      ? mergeNegativeStyleText(buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes), sceneVocabularyBank.avoid.join(', '))
+      : buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
     // TASK v3.67 (TASK D follow-up) — mirrors localGenerator.ts's own
     // predictable-cadence nudge: don't hand a relaxed track an earworm
     // phrase that IS the thing it was just given permission to break.
@@ -733,6 +767,12 @@ export function preallocateSongSlots(
       arcPhase: arcPlan[idx].phase,
       intensity: arcPlan[idx].intensity,
       ...(moneyChordId ? { moneyChordId } : {}),
+      // v5.11 (TASK L) — always-populated counterparts of moneyChordId/
+      // genreId above; see each SongIdea field's own doc comment. Copied
+      // onto the final SongIdea by reconcileWithPreassignedSlot below.
+      effectiveMoneyChordId,
+      effectiveGenreIds,
+      ...(wholePackMatchedVocalPreset ? { effectiveVocalPresetId: wholePackMatchedVocalPreset.id } : {}),
       // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
       // per-song rotatingInstrumentText/arrangementDensityText calls (same
       // genres/seed/idx), promoted to slot fields for realtime/Batch/bridge
@@ -754,8 +794,10 @@ export function preallocateSongSlots(
       // motion (already resolved above) — see data/vocabularyBanks.ts's
       // own vocabularyBankForScene doc comment. v5.7 (TASK G) — now passes
       // the real workspaceId (was unscoped, same gap as localGenerator.ts's
-      // own fix).
-      vocabularyBankId: vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo, workspaceForArchetype(opts.channel.archetype)?.id).id,
+      // own fix). v5.10 (TASK H) — reuses sceneVocabularyBank (computed once
+      // above, near negativeStyleText) instead of calling
+      // vocabularyBankForScene a second time with the same arguments.
+      vocabularyBankId: sceneVocabularyBank.id,
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
@@ -932,20 +974,42 @@ export function reconcileWithPreassignedSlot(
   /** TASK v3.33 — see GenerationOptions.hookMode. Kept as its own trailing param (not folded into ReconcilePreassignedOptions) since every non-bridge caller passes it explicitly, the same way titleMode is its own positional param rather than an option. */
   hookMode: 'pool' | 'ai-creative' = 'ai-creative'
 ): SongIdea {
+  // v5.11 (TASK L) — resolved once, used by EVERY return path below
+  // (including both no-slot branches just below), so effectiveArchetype/
+  // workspaceId are never silently skipped just because a trackNo had no
+  // matching slot (e.g. an agent-invented extra track). Falls back to
+  // whatever `song` already carried (rare — only when this song was
+  // already reconciled once before) and only then to the same
+  // 'senior-morning'/'senior-oldpop' defensive default this file's own
+  // preallocateSongSlots uses.
+  const resolvedArchetype: ChannelArchetype = options.archetype ?? song.effectiveArchetype ?? 'senior-morning';
+  const resolvedWorkspaceId: WorkspaceId = workspaceForArchetype(resolvedArchetype)?.id ?? song.workspaceId ?? 'senior-oldpop';
+  // v5.11 (TASK L) — the no-slot fallback for the two per-track "effective"
+  // fields: there's no plan data to draw from here, so this reuses
+  // whatever `song` already carried, or falls back to 'default'/this
+  // song's own raw genreId — never left unset.
+  const noSlotEffectiveFields = () => ({
+    effectiveMoneyChordId: song.effectiveMoneyChordId || 'default',
+    effectiveGenreIds: song.effectiveGenreIds?.length ? song.effectiveGenreIds : (song.genreId ? [song.genreId] : []),
+    effectiveArchetype: resolvedArchetype,
+    workspaceId: resolvedWorkspaceId
+  });
   if (!slot) {
     // TASK (genre-archetype sanitization) — see ReconcilePreassignedOptions.archetype's
     // own doc comment for why this branch needs its own check: nothing else
     // in this function touches `song` when there's no slot to reconcile
     // against.
-    if (!options.archetype || !song.genreId) return song;
+    if (!options.archetype || !song.genreId) return { ...song, ...noSlotEffectiveFields() };
     const { removed } = sanitizeGenreIdsForArchetype([song.genreId], options.archetype);
-    if (!removed.length) return song;
+    if (!removed.length) return { ...song, ...noSlotEffectiveFields() };
     const warning = genreSanitizationWarningKo(removed, options.archetype);
     return {
       ...song,
       genreId: undefined,
       genreText: undefined,
-      warnings: song.warnings.includes(warning) ? song.warnings : [...song.warnings, warning]
+      warnings: song.warnings.includes(warning) ? song.warnings : [...song.warnings, warning],
+      ...noSlotEffectiveFields(),
+      effectiveGenreIds: []
     };
   }
   // TASK v3.68 (TASK A) — this is the one place every generation path
@@ -973,7 +1037,22 @@ export function reconcileWithPreassignedSlot(
   ].filter(Boolean).every(value => song.stylePrompt.toLowerCase().includes(value!.trim().toLowerCase()));
   const startsWithVocal = [slot.vocalText, slot.vocalVariantText].filter(Boolean).some(value => song.stylePrompt.trim().toLowerCase().startsWith(value!.trim().toLowerCase()));
   if (completeFields && !startsWithVocal && song.stylePrompt.includes(`${slot.tempo} BPM`)) {
-    return { ...song, title, hookPhrase };
+    // v5.11 (TASK L) — this fast path used to skip every other slot-sourced
+    // field (moneyChordId, eraTag, arcPhase, ...) below, not just these 5;
+    // still true for those pre-existing optional fields, but the 5 new
+    // "effective" fields are required and this is a real generation-path
+    // return, so they're attached here explicitly rather than inheriting
+    // that same silent gap.
+    return {
+      ...song,
+      title,
+      hookPhrase,
+      effectiveMoneyChordId: slot.effectiveMoneyChordId,
+      effectiveGenreIds: slot.effectiveGenreIds,
+      ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+      effectiveArchetype: resolvedArchetype,
+      workspaceId: resolvedWorkspaceId
+    };
   }
   // TASK v3.39 Part H — a real showa-cafe channel selected a male vocal
   // preset but a Codex-bridge-generated stylePrompt came back female,
@@ -1081,6 +1160,13 @@ export function reconcileWithPreassignedSlot(
     ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
     ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
     ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
-    ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {})
+    ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
+    // v5.11 (TASK L) — always-populated "what actually went into this song"
+    // fields; see each SongIdea field's own doc comment.
+    effectiveMoneyChordId: slot.effectiveMoneyChordId,
+    effectiveGenreIds: slot.effectiveGenreIds,
+    ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+    effectiveArchetype: resolvedArchetype,
+    workspaceId: resolvedWorkspaceId
   };
 }

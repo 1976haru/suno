@@ -34,6 +34,11 @@ function makeSong(trackNo: number, overrides: Partial<SongIdea> = {}): SongIdea 
     youtube: { title: 'x', description: 'x', tags: ['x'], thumbnailText: 'x' },
     qualityScore: 0,
     warnings: [],
+    // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+    effectiveMoneyChordId: 'default',
+    effectiveGenreIds: [],
+    effectiveArchetype: 'senior-morning',
+    workspaceId: 'senior-oldpop',
     ...overrides
   };
 }
@@ -81,14 +86,30 @@ describe('[v3.27] reconcileWithPreassignedSlot', () => {
       youtube: { title: 'x', description: 'x', tags: [] },
       qualityScore: 0,
       warnings: [],
+      // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+      effectiveMoneyChordId: 'default',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop',
       ...overrides
     };
   }
-  const slot = { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 100, emotionArc: 'Slot Arc', moneyChordText: 'I-V-vi-IV progression' };
+  const slot = { trackNo: 1, title: 'Slot Title', hookPhrase: 'Slot Hook', songRole: 'flagship', tempo: 100, emotionArc: 'Slot Arc', moneyChordText: 'I-V-vi-IV progression', effectiveMoneyChordId: 'default', effectiveGenreIds: [] as string[] };
 
-  it('returns the song unchanged when no slot matches', () => {
+  it('returns the song unchanged (plus v5.11\'s always-populated "effective" defaults) when no slot matches', () => {
     const song = makeSong();
-    expect(reconcileWithPreassignedSlot(song, undefined, 'ai-creative')).toBe(song);
+    // v5.11 (TASK L) — no longer a strict `toBe` passthrough: this branch
+    // now also attaches effectiveMoneyChordId/effectiveGenreIds/
+    // effectiveArchetype/workspaceId defaults (see reconcileWithPreassignedSlot's
+    // own noSlotEffectiveFields), since a real generated song must carry
+    // real values for these even in the "no matching slot" edge case.
+    expect(reconcileWithPreassignedSlot(song, undefined, 'ai-creative')).toEqual({
+      ...song,
+      effectiveMoneyChordId: 'default',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop'
+    });
   });
 
   it('emotionArc/songRole always come from the slot, regardless of titleMode/hookMode', () => {

@@ -33,6 +33,11 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
     youtube: { title: 'yt title', description: '', tags: [] },
     qualityScore: 0,
     warnings: [],
+    // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+    effectiveMoneyChordId: 'default',
+    effectiveGenreIds: [],
+    effectiveArchetype: 'senior-morning',
+    workspaceId: 'senior-oldpop',
     ...overrides
   };
 }

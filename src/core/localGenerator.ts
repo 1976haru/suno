@@ -1,4 +1,4 @@
-import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, YoutubeMetadata } from '../types';
+import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
@@ -6,7 +6,7 @@ import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrange
 import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
-import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT } from './soundSignature';
+import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT, resolveEffectiveMoneyChordId } from './soundSignature';
 import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
@@ -35,6 +35,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
 import { QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabularyBanks';
+import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { workspaceForArchetype } from '../data/workspaces';
 import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
 import { buildGenreRotationPlan, genresForTrack } from './genreRotation';
@@ -62,12 +63,48 @@ import { resolveConstraintsFromOptions, type ResolvedConstraints } from './const
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
+import { buildRepetitionCyclePlan } from './arcModels';
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
 import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
+
+/**
+ * v5.11 — dispatches to core/arcModels.ts's buildRepetitionCyclePlan for any
+ * AudienceProfile whose arcModelId resolves to 'repetition-cycle' (every
+ * kids AudienceProfile today — kids-0to2/kids-2to4/kids-4to7/kr-kids/
+ * jp-kids, see data/audienceProfiles.ts), buildArcPlan (five-phase,
+ * completely unchanged) for every other profile ('five-phase', today's
+ * only other value). Switches on the already-resolved arcModelId rather
+ * than re-deriving from `isKidsArchetype(archetype)` directly, matching how
+ * the rest of this app resolves audience-driven behavior (see
+ * core/constraints.ts's own `audience.arcModelId ?? 'five-phase'`
+ * resolution). Shared by every buildArcPlan call site (this file's own two,
+ * plus batchPreallocation.ts's) so all three stay in sync by construction.
+ * `ageTier` is always omitted at every real call site today — see
+ * arcModels.ts's own doc comment for why (no real ageTier signal reaches
+ * GenerationOptions yet); buildRepetitionCyclePlan's own documented
+ * no-ageTier default (the kids-t2/2-4세 shape) applies.
+ */
+export function buildArcPlanForProfile(songCount: number, arcModelId: 'five-phase' | 'repetition-cycle'): SlotArcPosition[] {
+  return arcModelId === 'repetition-cycle' ? buildRepetitionCyclePlan(songCount) : buildArcPlan(songCount);
+}
+
+/**
+ * v5.11 — core/titleLocalization.ts's LocalizedTitleInput.arcPhase (and the
+ * data/titleLocalizationBank.ts MOOD_CATEGORY_BY_ARC_PHASE Record it feeds)
+ * are narrowly typed to only the five adult ArcPhase literals — the one
+ * real consumer arcModels.ts's widened ArcPhase type required guarding at
+ * its actual call site (see arcModels.ts's own top comment). A 'kids-*'
+ * phase passes `undefined` instead, which buildLocalizedTitle already
+ * treats as "use the neutral 'nostalgia' fallback category" — already more
+ * accurate for kids than a mapped adult mood category was.
+ */
+function fivePhaseArcPhase(phase: ArcPhase | undefined): 'opening' | 'rising' | 'peak' | 'easing' | 'closing' | undefined {
+  return phase === 'opening' || phase === 'rising' || phase === 'peak' || phase === 'easing' || phase === 'closing' ? phase : undefined;
+}
 
 /**
  * Suno-facing text (style prompt, YouTube metadata) stays English regardless
@@ -178,17 +215,30 @@ export const emotionArcsBrightToWistful = [
  * only changes which POOL a phase draws from, not the phase structure
  * itself (this task's own "구조 변경은 없습니다").
  */
+/**
+ * v5.11 — 'kids-*' cases alias to their nearest adult-phase pool (familiar
+ * ~ opening, learning ~ rising, moving ~ peak, calm/closing ~ easing/
+ * closing) rather than falling through to this switch's own `default:`
+ * for every one of them, which would otherwise flatten every kids bundle
+ * onto the same closing-flavored pool. See core/arcModels.ts's own top
+ * comment for why this widened-ArcPhase handling exists at all.
+ */
 export function emotionArcPoolForPhase(phase: ArcPhase): string[] {
   switch (phase) {
     case 'opening':
+    case 'kids-familiar':
       return [...emotionArcsCalmThroughout, ...emotionArcs];
     case 'rising':
+    case 'kids-learning':
       return [...emotionArcs, ...emotionArcsCalmThroughout];
     case 'peak':
+    case 'kids-moving':
       return [...emotionArcsStrongLift, ...emotionArcsBrightOpening];
     case 'easing':
       return [...emotionArcsBrightToWistful, ...emotionArcs];
+    case 'kids-calm':
     case 'closing':
+    case 'kids-closing':
     default:
       return [...emotionArcsCalmThroughout, ...emotionArcs];
   }
@@ -403,17 +453,23 @@ export function resolveSongRole(trackNo: number, idx: number): string {
  * at a larger songCount) and adds a handful more per phase so no phase's
  * pool is thin enough to repeat within a single pack at realistic sizes.
  */
+/** v5.11 — same 'kids-*' aliasing as emotionArcPoolForPhase above, same reasoning. */
 export function songRolePoolForPhase(phase: ArcPhase): string[] {
   switch (phase) {
     case 'opening':
+    case 'kids-familiar':
       return ['clear opener', 'gentle early lift', 'first nostalgic turn'];
     case 'rising':
+    case 'kids-learning':
       return ['brighter sing-along track', 'seasonal detail track', 'warm radio-friendly highlight', 'steady heartfelt build', 'easy singalong verse'];
     case 'peak':
+    case 'kids-moving':
       return ['late-set emotional center', 'romantic shade without melodrama', 'big emotional high point', 'passionate turning point'];
     case 'easing':
       return ['quiet middle scene', 'soft reset before the closing run', 'memory-focused late track', 'gentle wind-down moment', 'tender reflective pause'];
+    case 'kids-calm':
     case 'closing':
+    case 'kids-closing':
     default:
       return ['comforting closer', 'warm goodnight track', 'final quiet reflection', 'peaceful farewell moment'];
   }
@@ -623,7 +679,10 @@ export function rebuildStylePromptsForPersonaMode(
   // (see arcPlan.ts); this rebuild keeps every song's existing emotionArc
   // (song spread below), so only tempo/killing-point/exclude are arc-aware
   // here, not emotionArc itself.
-  const arcPlan = buildArcPlan(blueprint.songs.length);
+  // v5.11 — arcModelId-aware dispatch (see buildArcPlanForProfile's own doc
+  // comment); audienceProfile.arcModelId resolves 'repetition-cycle' for
+  // every kids workspace, unaffected for every other profile ('five-phase').
+  const arcPlan = buildArcPlanForProfile(blueprint.songs.length, audienceProfile.arcModelId);
   const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, blueprint.songs.length, seed), arcPlan, band => band.low) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
@@ -900,6 +959,13 @@ export function generateLocalBlueprint(
   // own separate genrePool computation further down — see the sanitized
   // set, not the original.
   const archetype = opts.channel.archetype || 'senior-morning';
+  // v5.11 (TASK L) — resolved once per pack (never per-track — a workspace
+  // doesn't vary by trackNo); workspaceForArchetype covers every real
+  // ChannelArchetype (see data/workspaces/index.ts's own archetypeIds
+  // coverage), so the 'senior-oldpop' fallback only guards a
+  // theoretically-corrupted/foreign archetype value, mirroring this
+  // function's own `archetype` fallback just above.
+  const workspaceId: WorkspaceId = workspaceForArchetype(archetype)?.id ?? 'senior-oldpop';
   const genreSanitization = sanitizeGenreIdsForArchetype(
     Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
     archetype
@@ -951,7 +1017,10 @@ export function generateLocalBlueprint(
   // already produces, so peak tracks land in the highest bands and closing
   // tracks land in the lowest, instead of wherever buildTempoBandPlan's own
   // seeded shuffle happened to put them.
-  const arcPlan = buildArcPlan(opts.songCount);
+  // v5.11 — arcModelId-aware dispatch (see buildArcPlanForProfile's own doc
+  // comment); reads the already-resolved constraints.arcModelId (computed
+  // just above) rather than re-deriving from archetype directly.
+  const arcPlan = buildArcPlanForProfile(opts.songCount, constraints.arcModelId);
   // v5.8 (TASK 2) — computed here (rather than down where `progressionPlan`
   // is normally built, well after tempoBandPlan) purely so the tempo-band
   // lean just below has this pack's own per-song explicit-choice assignment
@@ -1132,6 +1201,15 @@ export function generateLocalBlueprint(
   // comment): undefined (no-op) unless opts.vocalTone matches one of
   // vocalPresets.ts's own forKids presets.
   const kidsMatchedVocalPreset = isKidsArchetype(opts.channel.archetype) ? matchVocalPreset(opts.vocalTone?.trim() ?? '') : undefined;
+  // v5.11 (TASK L) — generalizes kidsMatchedVocalPreset above to every
+  // archetype (not just kids): SongIdea.effectiveVocalPresetId's own doc
+  // comment explains why this is a whole-pack, not per-song, resolution —
+  // the actual per-song wording is frequently a composed trait/variant
+  // blend (buildAdultVocalTraitPlan/kidsVocalTextFor) rather than a
+  // preset's own verbatim prompt, so this stays undefined (correctly — no
+  // discrete preset applies) whenever opts.vocalTone is free text with no
+  // recognizable preset match.
+  const wholePackMatchedVocalPreset = matchVocalPreset(opts.vocalTone?.trim() ?? '');
   const autoVocalPlan = usesVocalQuota(opts)
     ? buildVocalPlan(resolvedVocalQuota, opts.songCount, seed)
     : null;
@@ -1498,7 +1576,19 @@ export function generateLocalBlueprint(
     // data/killingPoints.ts's KillingPoint.relaxes / promptComposer.ts's
     // buildExcludePrompt, which itself only ever drops entries that are
     // actually in the profile's relaxableAtPeak — hardExclusions never move).
-    const excludePrompt = buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
+    // v5.10 (TASK H) — kids-only: this track's own matched scene vocabulary
+    // bank (sceneVocabularyBank, computed above for genreFlavorImages) now
+    // also contributes its `avoid` words here, so a kr-kids/jp-kids track's
+    // excludePrompt actually carries kids-safe exclusions (e.g. Korean
+    // "그리움/추억/이별" or Japanese "さびしい/かなしい") instead of leaving
+    // that data sitting unused in vocabularyBanks.ts. Gated to kids
+    // archetypes only — non-kids scene banks' own `avoid` lists are already
+    // reference-only text fed to the Claude Code bridge instruction (see
+    // bridgeInstruction.ts's vocabularyBankInstructionLineFor), not meant to
+    // become a hard Suno Exclude-field entry for every adult track.
+    const excludePrompt = isKidsArchetype(opts.channel.archetype) && sceneVocabularyBank.avoid.length
+      ? mergeNegativeStyleText(buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes), sceneVocabularyBank.avoid.join(', '))
+      : buildExcludePrompt(opts, trackGenres, killingPoint?.relaxes);
     // TASK v3.67 (TASK D follow-up) — a killing point relaxing "predictable
     // diatonic phrase structure" should not sit next to an earworm variant
     // that IS a predictable-cadence phrase; nudge to the adjacent rotation
@@ -1802,7 +1892,7 @@ export function generateLocalBlueprint(
       {
         emotionArc: partialSong.emotionArc,
         listenerSituation: partialSong.listenerSituation,
-        arcPhase: arcPlan[idx]?.phase,
+        arcPhase: fivePhaseArcPhase(arcPlan[idx]?.phase),
         eraTag: trackGenres[0]?.eraTag,
         archetype: opts.channel.archetype,
         seed: localizedTitleSeed(seedBase, trackNo)
@@ -1855,7 +1945,19 @@ export function generateLocalBlueprint(
       ...(structureTemplatePlan[idx] ? { structureTemplate: structureTemplatePlan[idx] } : {}),
       ...(progressionPlan?.[idx] ? { moneyChordId: progressionPlan[idx] } : {}),
       ...(earwormTextForTrack ? { earwormText: earwormTextForTrack } : {}),
-      ...(lyricThemeId ? { lyricFrameId: lyricTheme?.frameId ?? 'solitary-object' } : {})
+      ...(lyricThemeId ? { lyricFrameId: lyricTheme?.frameId ?? 'solitary-object' } : {}),
+      // v5.11 (TASK L) — always-populated "what actually went into this
+      // song" fields, resolved at this same final per-song construction
+      // point (see each field's own SongIdea doc comment). Reuses
+      // progressionPlan?.[idx] as the moneyChordIdOverride so this agrees
+      // exactly with the moneyChordId field/moneyChord PromptPart just
+      // above whenever quota rotation is active, and still resolves a real
+      // id (never empty) when it isn't.
+      effectiveMoneyChordId: resolveEffectiveMoneyChordId(opts, progressionPlan?.[idx]),
+      ...(wholePackMatchedVocalPreset ? { effectiveVocalPresetId: wholePackMatchedVocalPreset.id } : {}),
+      effectiveGenreIds: sanitizeGenreIdsForArchetype(trackGenres.map(g => g.id), archetype).valid,
+      effectiveArchetype: archetype,
+      workspaceId
     };
   });
 

@@ -37,6 +37,13 @@ function makeSong(overrides: Partial<SongIdea> = {}): SongIdea {
     genreId: 'oldpop-brill-building',
     vocalType: 'male',
     bpm: 92,
+    // v5.11 (TASK L) — always-populated on a real generated song; see
+    // types.ts's SongIdea.effectiveMoneyChordId & co doc comments.
+    effectiveMoneyChordId: 'default',
+    effectiveVocalPresetId: 'warm-mature-male',
+    effectiveGenreIds: ['oldpop-brill-building'],
+    effectiveArchetype: 'senior-morning',
+    workspaceId: 'senior-oldpop',
     ...overrides
   };
 }
@@ -158,15 +165,44 @@ describe('[v3.79 TASK D] take ledger CSV (Sheet 1)', () => {
     savedAt: '2026-08-02T09:30:00.000Z'
   };
 
-  it('header matches the spec\'s exact 28-column list (A~AB)', () => {
+  it('header matches the spec\'s exact 28-column list (A~AB), plus v5.11\'s 4 appended "effective" columns', () => {
     expect(TAKE_LEDGER_HEADER).toEqual([
       '테이크코드', '세트코드', '트랙번호', '버전', '채택여부', '평가',
       '세트명', '컨셉', '워크스페이스', '제목', '훅', '장르ID', '시대버킷',
       '보컬타입', '보컬서술', '킬링포인트ID', '아크구간', '지시BPM', '실측BPM',
       '지시길이', '실측길이(초)', '진폭(dB)', '최대구간(1~10)', '믹스중심(Hz)',
-      '저역비중(%)', '가사단어수', '섹션수', '분석일시'
+      '저역비중(%)', '가사단어수', '섹션수', '분석일시',
+      '실제머니코드ID', '실제보컬프리셋ID', '실제장르ID목록', '실제채널아키타입'
     ]);
-    expect(TAKE_LEDGER_HEADER.length).toBe(28);
+    expect(TAKE_LEDGER_HEADER.length).toBe(32);
+  });
+
+  it('appends the 4 v5.11 "effective" columns after 분석일시, reading them straight off the song', () => {
+    const take = makeTake();
+    const csv = buildTakeLedgerCsv(ctx, [take], []);
+    const cells = csv.split('\r\n')[1].split(',');
+    expect(cells).toHaveLength(32);
+    expect(cells[28]).toBe('default'); // 실제머니코드ID
+    expect(cells[29]).toBe('warm-mature-male'); // 실제보컬프리셋ID
+    expect(cells[30]).toBe('oldpop-brill-building'); // 실제장르ID목록
+    expect(cells[31]).toBe('senior-morning'); // 실제채널아키타입
+  });
+
+  it('blanks the 4 v5.11 columns with \'-\' rather than throwing when a song predates them', () => {
+    const legacyCtx: SetContext = {
+      ...ctx,
+      blueprint: makeBlueprint({
+        songs: [makeSong({
+          effectiveMoneyChordId: undefined as unknown as string,
+          effectiveVocalPresetId: undefined,
+          effectiveGenreIds: undefined as unknown as string[],
+          effectiveArchetype: undefined as unknown as SongIdea['effectiveArchetype']
+        })]
+      })
+    };
+    const csv = buildTakeLedgerCsv(legacyCtx, [makeTake()], []);
+    const cells = csv.split('\r\n')[1].split(',');
+    expect(cells.slice(28)).toEqual(['-', '-', '-', '-']);
   });
 
   it('one row per take, joined to its song, with the spec\'s exact code shapes', () => {

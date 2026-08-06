@@ -9,7 +9,19 @@
  * reorderByArcIntensity below), and to decide killing-point placement (see
  * data/killingPoints.ts).
  */
-export type ArcPhase = 'opening' | 'rising' | 'peak' | 'easing' | 'closing';
+/**
+ * v5.11 — widened additively for core/arcModels.ts's buildRepetitionCyclePlan
+ * (the kids-workspace 'repetition-cycle' arc model; see that file's own top
+ * doc comment for the full reasoning and the real downstream consumers this
+ * widening required handling). The five original literals and every
+ * function in THIS file are completely unaffected — buildArcPlan only ever
+ * produces the original five, byte-for-byte unchanged. The five new
+ * 'kids-*' literals are only ever produced by arcModels.ts, never by
+ * anything in this file.
+ */
+export type ArcPhase =
+  | 'opening' | 'rising' | 'peak' | 'easing' | 'closing'
+  | 'kids-familiar' | 'kids-learning' | 'kids-moving' | 'kids-calm' | 'kids-closing';
 export type PeakStrength = 'none' | 'subtle' | 'strong';
 
 export interface SlotArcPosition {

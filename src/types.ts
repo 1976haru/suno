@@ -914,6 +914,49 @@ export interface SongIdea {
    * keeps loading/working with no code at all rather than a fabricated one.
    */
   songCode?: string;
+  /**
+   * v5.11 (TASK L) — this track's REAL applied money-chord preset id,
+   * always resolved and always populated (unlike `moneyChordId` above,
+   * which stays undefined whenever the per-song quota/rotation plan isn't
+   * active). Real gap this closes: a channel using a FIXED single
+   * money-chord preset (moneyChordMode picked but no per-song rotation —
+   * see core/moneyChordPlan.ts's usesMoneyChordQuota/
+   * usesUserChosenProgressionPlan) still applies a real progression to
+   * every song via core/soundSignature.ts's compactMoneyChord, but nothing
+   * ever surfaced WHICH id that was on the song itself — post-hoc
+   * debugging ("why does this song sound like this") and CSV/export
+   * records had no way to answer that. See
+   * core/soundSignature.ts's resolveEffectiveMoneyChordId, the single
+   * function both real generation paths now call to populate this.
+   */
+  effectiveMoneyChordId: string;
+  /**
+   * v5.11 (TASK L) — data/vocalPresets.ts id whose canonical `prompt`
+   * matches this pack's `opts.vocalTone` selection (see
+   * data/vocalPresets.ts's matchVocalPreset), when the user's vocalTone
+   * recognizably names one. Optional (unlike the other 4 new fields here)
+   * because a real song's actual vocal wording is frequently a
+   * procedurally-composed blend (core/vocalPlan.ts's
+   * buildAdultVocalTraitPlan / kidsVocalTextFor variant text) rather than
+   * a single named preset applied verbatim — in that case there genuinely
+   * is no discrete preset to report, not a skipped lookup. Always
+   * attempted (matchVocalPreset(opts.vocalTone) is called for every song),
+   * never silently skipped.
+   */
+  effectiveVocalPresetId?: string;
+  /**
+   * v5.11 (TASK L) — this track's actual assigned genre id(s) (from
+   * core/genreRotation.ts's genresForTrack, usually length 1, length 2 for
+   * a blended pair), already run through core/genreSelection.ts's
+   * sanitizeGenreIdsForArchetype so a foreign/contaminated id can never
+   * leak into a rating-analysis/CSV record even if it somehow slipped past
+   * this pack's own upstream sanitization.
+   */
+  effectiveGenreIds: string[];
+  /** v5.11 (TASK L) — this song's real channel archetype at generation time (opts.channel.archetype), snapshotted alongside the other 4 "effective" fields so a rating/export record is self-describing without needing the channel it came from to still exist/be unchanged. */
+  effectiveArchetype: ChannelArchetype;
+  /** v5.11 (TASK L) — the workspace (data/workspaces/index.ts's WorkspaceDefinition.id) that owns `effectiveArchetype`, resolved via workspaceForArchetype. Every real ChannelArchetype resolves to exactly one workspace today (see that file's own WORKSPACE coverage), so this is always a real id, never a guess. */
+  workspaceId: WorkspaceId;
 }
 
 export interface PlaylistBlueprint {
@@ -1203,6 +1246,12 @@ export interface PreassignedSongSlot {
   moneyChordId?: string;
   hookDeviceId?: string;
   introTextureId?: string;
+  /** v5.11 (TASK L) — always-resolved counterpart to moneyChordId above (never undefined outside quota rotation); see SongIdea.effectiveMoneyChordId's own doc comment. Copied verbatim onto the final SongIdea by core/batchPreallocation.ts's reconcileWithPreassignedSlot. */
+  effectiveMoneyChordId: string;
+  /** v5.11 (TASK L) — mirrors SongIdea.effectiveVocalPresetId's own doc comment; whole-pack-resolved (same value on every slot), not per-track. */
+  effectiveVocalPresetId?: string;
+  /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
+  effectiveGenreIds: string[];
   /**
    * v3.67 (TASK A) — this trackNo's one designed peak moment (see
    * data/killingPoints.ts), a single short style-prompt atom. Undefined for

@@ -247,7 +247,16 @@ function normalizeImportedSong(
     ...(isNonEmptyString(obj.chorusStyle) ? { chorusStyle: obj.chorusStyle as SongIdea['chorusStyle'] } : {}),
     ...(isNonEmptyString(obj.chorusStyleText) ? { chorusStyleText: obj.chorusStyleText } : {}),
     qualityScore: 0,
-    warnings: []
+    warnings: [],
+    // v5.11 (TASK L) — placeholder values only: reconcileWithPreassignedSlot
+    // right below is the real resolution point for all 5 of these fields
+    // (it always overwrites them from `slot`/`opts.channel.archetype`, even
+    // when `slot` is undefined — see that function's own noSlotEffectiveFields)
+    // and is guaranteed to run on every path this function returns through.
+    effectiveMoneyChordId: '',
+    effectiveGenreIds: [],
+    effectiveArchetype: opts.channel.archetype || 'senior-morning',
+    workspaceId: 'senior-oldpop'
   };
   const reconciled = reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true, archetype: opts.channel.archetype });
 

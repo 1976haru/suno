@@ -16,6 +16,11 @@ function makeSong(overrides: Partial<SongIdea> = {}): SongIdea {
     qualityScore: 80,
     warnings: [],
     songId: 'song-1',
+    // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+    effectiveMoneyChordId: 'default',
+    effectiveGenreIds: [],
+    effectiveArchetype: 'senior-morning',
+    workspaceId: 'senior-oldpop',
     ...overrides
   };
 }

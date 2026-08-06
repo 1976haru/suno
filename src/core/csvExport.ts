@@ -106,7 +106,17 @@ export const TAKE_LEDGER_HEADER = [
   '세트명', '컨셉', '워크스페이스', '제목', '훅', '장르ID', '시대버킷',
   '보컬타입', '보컬서술', '킬링포인트ID', '아크구간', '지시BPM', '실측BPM',
   '지시길이', '실측길이(초)', '진폭(dB)', '최대구간(1~10)', '믹스중심(Hz)',
-  '저역비중(%)', '가사단어수', '섹션수', '분석일시'
+  '저역비중(%)', '가사단어수', '섹션수', '분석일시',
+  // v5.11 (TASK L) — SongIdea's always-populated "what actually went into
+  // this song" fields (types.ts's own doc comment on each). Appended at the
+  // end (never inserted mid-row) so every existing positional column index
+  // this file's own tests already assert on (보컬타입 at 13, 실측BPM at 18,
+  // etc.) stays unchanged. `워크스페이스` above already carries
+  // ctx.workspaceId (the same value as song.workspaceId for a real
+  // generated song, since a pack's songs all belong to the one workspace it
+  // was generated in) — song.workspaceId itself is deliberately NOT
+  // duplicated as its own column for that reason.
+  '실제머니코드ID', '실제보컬프리셋ID', '실제장르ID목록', '실제채널아키타입'
 ] as const;
 
 const RATING_LABEL: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
@@ -166,7 +176,18 @@ function takeLedgerRow(ctx: SetContext, take: AudioTake, song: SongIdea, ratings
     Math.round(take.metrics.lowBandRatio * 100),
     words,
     sections,
-    take.analyzedAt
+    take.analyzedAt,
+    // v5.11 (TASK L) — see TAKE_LEDGER_HEADER's own doc comment for why
+    // these 4 (not 5 — workspaceId is intentionally not duplicated) are
+    // appended here. `song` already carries real, always-populated values
+    // for every song that went through either real generation path (see
+    // core/localGenerator.ts's generateLocalBlueprint / core/
+    // batchPreallocation.ts's reconcileWithPreassignedSlot) — no extra
+    // threading needed, `song` was already in scope in this function.
+    song.effectiveMoneyChordId || '-',
+    song.effectiveVocalPresetId || '-',
+    song.effectiveGenreIds?.length ? song.effectiveGenreIds.join(' · ') : '-',
+    song.effectiveArchetype || '-'
   ];
 }
 

@@ -369,13 +369,38 @@ export interface CompactMoneyChordOptions {
  */
 export const MONEY_CHORD_ADHERENCE_TEXT = 'Keep this progression as the harmonic spine from verse through final chorus.';
 
+/**
+ * v5.11 (TASK L) — the real per-song effective money-chord id, factored out
+ * of compactMoneyChord's own effectiveMode resolution so a caller can get
+ * just the id (for SongIdea.effectiveMoneyChordId / CSV export) without
+ * needing to also build display text. Real gap this closes: `moneyChordId`
+ * on SongIdea/PreassignedSongSlot only ever gets set when the per-song
+ * quota/rotation plan is active (moneyChordIdOverride present) — a FIXED
+ * single money-chord preset (no rotation) still resolves and applies a real
+ * id right here via resolveEarwormMoneyChordMode, but that id was previously
+ * only ever used to pick prompt text and then discarded, never surfaced on
+ * the song itself. Mirrors compactMoneyChord's own branching exactly (same
+ * 'custom' special case, same resolveEarwormMoneyChordMode call) so the two
+ * functions can never disagree on what "effective" means for a given
+ * opts/override pair.
+ */
+export function resolveEffectiveMoneyChordId(
+  opts: Pick<GenerationOptions, 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'moneyChordModeIsExplicitChoice'>,
+  moneyChordIdOverride?: string
+): string {
+  if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
+    return 'custom';
+  }
+  return moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode, opts.moneyChordModeIsExplicitChoice);
+}
+
 export function compactMoneyChord(opts: Pick<GenerationOptions, 'moneyChordMode' | 'customMoneyChord' | 'earwormMode' | 'moneyChordModeIsExplicitChoice'>, options: CompactMoneyChordOptions = {}) {
   const { moneyChordIdOverride, includeFeelReinforcement = false } = options;
   if (!moneyChordIdOverride && opts.moneyChordMode === 'custom' && opts.customMoneyChord.trim()) {
     const base = `custom progression ${clipClause(opts.customMoneyChord.trim(), 42)}`;
     return includeFeelReinforcement ? `${base}, ${moneyChordPresets.custom.audibleEffectTag}` : base;
   }
-  const effectiveMode = moneyChordIdOverride ?? resolveEarwormMoneyChordMode(opts.moneyChordMode, opts.earwormMode, opts.moneyChordModeIsExplicitChoice);
+  const effectiveMode = resolveEffectiveMoneyChordId(opts, moneyChordIdOverride);
   const preset = moneyChordPresets[effectiveMode] || moneyChordPresets.default;
   return includeFeelReinforcement ? `${preset.compactProgression} - ${preset.audibleEffectTag}` : preset.compactProgression;
 }

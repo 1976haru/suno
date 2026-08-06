@@ -369,12 +369,141 @@ const KR_IDOL_FEMALE_VOCABULARY_BANKS: VocabularyBank[] = [
   }
 ];
 
+/**
+ * v5.10 (TASK H) — real audit finding (this task's own brief): kr-kids/
+ * jp-kids had ZERO entries in VOCABULARY_BANKS at all, so
+ * vocabularyBankForScene's workspace filter always found an empty
+ * `workspaceScoped` list for those two workspaces and silently fell back to
+ * the FULL unscoped list (see that function's own v5.7 doc comment) —
+ * meaning a kids track's `vocabularyBankId` metadata, and the "words to
+ * use/avoid" line core/bridgeInstruction.ts's vocabularyBankInstructionLineFor
+ * builds from it for the Claude Code bridge path, could silently carry
+ * senior/2030/idol vocabulary (e.g. "kettle", "grandchildren") for a
+ * children's song. The real hand-authored kids lyric body
+ * (core/kidsLyricEngine.ts's composeKidsLyrics) never reads this system —
+ * per this task's own scope, that composer is untouched — so this was a
+ * metadata/bridge-instruction accuracy gap, not the local-generation lyric
+ * text itself. These two bank sets close it.
+ */
+const KR_KIDS_AVOID_WORDS = ['그리움', '추억', '회상', '이별', '외로움', '쓸쓸함', '창가', '주전자', '사진첩', '편지', '라디오'];
+
+export const KR_KIDS_VOCABULARY_BANKS: VocabularyBank[] = [
+  {
+    id: 'kids-kr-routine',
+    labelKo: '한국 동요 — 생활습관',
+    fitsWorkspaces: ['kr-kids'],
+    nouns: ['손', '비누', '칫솔', '이불', '신발', '가방', '컵'],
+    verbs: ['씻어요', '닦아요', '개어요', '신어요', '정리해요'],
+    adjectives: ['깨끗한', '반짝반짝', '뽀득뽀득'],
+    avoid: KR_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-kr-count',
+    labelKo: '한국 동요 — 숫자·색깔·모양',
+    fitsWorkspaces: ['kr-kids'],
+    nouns: ['하나', '둘', '셋', '빨강', '노랑', '파랑', '동그라미', '네모'],
+    verbs: ['세어요', '찾아요', '그려요'],
+    adjectives: ['알록달록', '커다란', '작은'],
+    avoid: KR_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-kr-animal',
+    labelKo: '한국 동요 — 동물·탈것',
+    fitsWorkspaces: ['kr-kids'],
+    nouns: ['강아지', '고양이', '코끼리', '버스', '기차', '자동차'],
+    verbs: ['달려요', '뛰어요', '날아요'],
+    adjectives: ['귀여운', '커다란', '빠른'],
+    avoid: KR_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-kr-action',
+    labelKo: '한국 동요 — 율동',
+    fitsWorkspaces: ['kr-kids'],
+    nouns: ['손', '발', '어깨', '무릎', '박수'],
+    verbs: ['흔들어요', '뛰어요', '돌아요', '손뼉쳐요'],
+    adjectives: ['신나는', '즐거운'],
+    avoid: KR_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-kr-calm',
+    labelKo: '한국 동요 — 수면·진정',
+    fitsWorkspaces: ['kr-kids'],
+    nouns: ['별', '달', '이불', '인형', '꿈'],
+    verbs: ['자요', '쉬어요', '안아요'],
+    adjectives: ['포근한', '조용한', '따뜻한'],
+    avoid: KR_KIDS_AVOID_WORDS
+  }
+];
+
+const JP_KIDS_AVOID_WORDS = ['さびしい', 'かなしい', 'わかれ', 'こわい', 'おもいで'];
+
+/**
+ * v5.10 (TASK H) — the VocabularyBank type has only nouns/verbs/adjectives
+ * (no dedicated onomatopoeia field — checked before writing these). Each
+ * bank's given onomatopoeia (ぴょんぴょん, ごしごし, etc.) is placed in
+ * `adjectives` since it functions the same way as this file's existing
+ * mood/manner adjectives (e.g. senior's 'crowded', 'dizzy'), never forced
+ * into `nouns`/`verbs` where it wouldn't fit grammatically. A small number
+ * of plain companion verbs (たたく/のる/ねる, etc.) are added alongside the
+ * task-specified words so `verbs` isn't left empty, matching every other
+ * bank in this file.
+ */
+export const JP_KIDS_VOCABULARY_BANKS: VocabularyBank[] = [
+  {
+    id: 'kids-jp-teasobi',
+    labelKo: '일본 동요 — 手遊び(손놀이)',
+    fitsWorkspaces: ['jp-kids'],
+    nouns: ['おてて', 'ゆび'],
+    verbs: ['はねる', 'たたく', 'まわす'],
+    adjectives: ['ぴょんぴょん', 'ぱちぱち', 'くるくる'],
+    avoid: JP_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-jp-routine',
+    labelKo: '일본 동요 — 生活習慣(생활습관)',
+    fitsWorkspaces: ['jp-kids'],
+    nouns: ['はみがき', 'おきがえ', 'おかたづけ'],
+    verbs: ['する', 'がんばる'],
+    adjectives: ['ごしごし', 'しゅっしゅっ'],
+    avoid: JP_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-jp-food',
+    labelKo: '일본 동요 — 食べ物(음식)',
+    fitsWorkspaces: ['jp-kids'],
+    nouns: ['りんご', 'おにぎり'],
+    verbs: ['たべる', 'あじわう'],
+    adjectives: ['もぐもぐ', 'ぱくぱく', 'おいしい'],
+    avoid: JP_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-jp-vehicle',
+    labelKo: '일본 동요 — 乗り物(탈것)',
+    fitsWorkspaces: ['jp-kids'],
+    nouns: ['バス', 'でんしゃ'],
+    verbs: ['はしる', 'のる'],
+    adjectives: ['ぶーぶー', 'がたんごとん'],
+    avoid: JP_KIDS_AVOID_WORDS
+  },
+  {
+    id: 'kids-jp-calm',
+    labelKo: '일본 동요 — ねんね(잠자리)',
+    fitsWorkspaces: ['jp-kids'],
+    nouns: ['おほしさま', 'おつきさま'],
+    verbs: ['ねる', 'ゆれる'],
+    adjectives: ['ゆらゆら', 'すやすや'],
+    avoid: JP_KIDS_AVOID_WORDS
+  }
+];
+
 export const VOCABULARY_BANKS: VocabularyBank[] = [
   ...SENIOR_VOCABULARY_BANKS,
   ...KR_2030_VOCABULARY_BANKS,
   ...JP_2030_VOCABULARY_BANKS,
   ...KR_IDOL_MALE_VOCABULARY_BANKS,
-  ...KR_IDOL_FEMALE_VOCABULARY_BANKS
+  ...KR_IDOL_FEMALE_VOCABULARY_BANKS,
+  ...KR_KIDS_VOCABULARY_BANKS,
+  ...JP_KIDS_VOCABULARY_BANKS
 ];
 
 /** v4.5 (TASK C, 3-4) — this app's own pre-v4.5 default lean; capped at 40% of a set's per-track bank assignments so it stays available (real listening feedback: "quiet-morning 뱅크를 삭제하지 말 것. 좋은 가사가 나오는 뱅크입니다") without being able to dominate a whole set again — see core/lyricVocabularyRepetition.ts's setVocabularyBankIssues for the actual set-level check. */
@@ -408,16 +537,21 @@ export const MIN_DISTINCT_BANKS_USED = 4;
  * resolution is unchanged.
  *
  * v5.7 (TASK G) bugfix — real test failure caught this: kr-kids/jp-kids
- * have zero entries in VOCABULARY_BANKS at all (out of this task's scope —
- * the user's own instruction was the 4 non-kids workspaces only), so
- * workspace-filtering `scoped` down to an empty array made this crash on
- * `scoped[0]` being undefined the moment a real caller passed their
- * workspaceId (core/localGenerator.ts calls this unconditionally, before
- * the kids-vs-adult branch decides whether the result even gets used — see
- * that call site's own comment). A workspace with no dedicated banks yet
- * now falls back to the full unscoped list instead of crashing — the
- * pre-v5.7 behavior for every non-senior workspace anyway, so this is a
- * strict no-op for kids, not a new bias.
+ * had zero entries in VOCABULARY_BANKS at all (out of that task's own
+ * scope — the user's instruction there was the 4 non-kids workspaces
+ * only), so workspace-filtering `scoped` down to an empty array made this
+ * crash on `scoped[0]` being undefined the moment a real caller passed
+ * their workspaceId (core/localGenerator.ts calls this unconditionally,
+ * before the kids-vs-adult branch decides whether the result even gets
+ * used — see that call site's own comment). A workspace with no dedicated
+ * banks fell back to the full unscoped list instead of crashing.
+ *
+ * v5.10 (TASK H) — kr-kids/jp-kids now have their own dedicated bank sets
+ * (KR_KIDS_VOCABULARY_BANKS/JP_KIDS_VOCABULARY_BANKS above), so the
+ * empty-`scoped` fallback above is no longer reachable for either of them —
+ * it stays only as defensive code for a hypothetical future workspace that
+ * ships with no banks yet, same as it protected kr-2030/jp-2030/kr-idol-*
+ * before their own bank sets landed in v5.7.
  */
 export function vocabularyBankForScene(frameId: string | undefined, motionKo: string | undefined, workspaceId?: WorkspaceId): VocabularyBank {
   const workspaceScoped = workspaceId ? VOCABULARY_BANKS.filter(bank => !bank.fitsWorkspaces?.length || bank.fitsWorkspaces.includes(workspaceId)) : VOCABULARY_BANKS;

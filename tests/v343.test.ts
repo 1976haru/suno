@@ -33,6 +33,11 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
     youtube: { title: 'yt', description: 'desc', tags: ['tag'] },
     qualityScore: 0,
     warnings: [],
+    // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+    effectiveMoneyChordId: 'default',
+    effectiveGenreIds: [],
+    effectiveArchetype: 'senior-morning',
+    workspaceId: 'senior-oldpop',
     ...overrides
   };
 }
@@ -161,9 +166,18 @@ describe('[Part A1/A2, Step 2 A3] reconcileWithPreassignedSlot repairs verbatim-
     expect(fixed.stylePrompt).toBe(correctPrompt);
   });
 
-  it('is a no-op (as before) when there is no matching slot', () => {
+  it('is a no-op on every pre-existing field (plus v5.11\'s always-populated "effective" defaults) when there is no matching slot', () => {
     const song = baseSong({ trackNo: 999 });
-    expect(reconcileWithPreassignedSlot(song, undefined)).toBe(song);
+    // v5.11 (TASK L) — see batchStability.test.ts's identical updated
+    // comment: no longer a strict `toBe` passthrough, since this branch now
+    // also attaches the 4 always-populated "effective" default fields.
+    expect(reconcileWithPreassignedSlot(song, undefined)).toEqual({
+      ...song,
+      effectiveMoneyChordId: 'default',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop'
+    });
   });
 });
 

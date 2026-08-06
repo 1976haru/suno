@@ -32,7 +32,12 @@ function makeSong(trackNo: number) {
     thumbnailText: 'x',
     youtube: { title: 'x', description: 'x', tags: ['x'], thumbnailText: 'x' },
     qualityScore: 0,
-    warnings: []
+    warnings: [],
+    // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+    effectiveMoneyChordId: 'default',
+    effectiveGenreIds: [],
+    effectiveArchetype: 'senior-morning',
+    workspaceId: 'senior-oldpop'
   };
 }
 

@@ -21,6 +21,11 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
     hookPhrase: 'Stage Lights',
     stylePrompt: 'punchy contemporary K-pop production, 128 BPM',
     lyrics: 'we shine under the lights tonight',
+    // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+    effectiveMoneyChordId: 'default',
+    effectiveGenreIds: [],
+    effectiveArchetype: 'kr-idol-male',
+    workspaceId: 'kr-idol-male',
     ...overrides
   };
 }

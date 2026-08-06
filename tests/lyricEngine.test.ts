@@ -402,7 +402,12 @@ describe('[v3.27] dedupeTitlesAcrossPack', () => {
       lyrics: '[chorus]\nline\n[end]',
       youtube: { title, description: 'd', tags: [] },
       qualityScore: 90,
-      warnings: []
+      warnings: [],
+      // v5.11 (TASK L) — genuine defaults for the new always-populated fields.
+      effectiveMoneyChordId: 'default',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop'
     };
   }
 
