@@ -4,7 +4,15 @@ import { moneyChordPresets } from '../data/moneyChords';
 import { MONEY_CHORD_EMOTION_KO } from '../data/paletteFamilyMoneyChords';
 import { computeMoneyChordComparison } from '../core/moneyChordDisplay';
 import type { VerifiedCombo } from '../data/verifiedCombos';
-import type { GenerationOptions } from '../types';
+import type { GenerationOptions, VocalAllocationMode } from '../types';
+
+/** TASK v5.13 (vocal allocation mode) — VocalAllocationMode -> the "목소리" card's own supporting line; see that type's doc comment (types.ts) for why a plain balanced/not-balanced boolean under-described a channel-fixed quota (e.g. kr-idol-male). */
+const VOCAL_ALLOCATION_MODE_SUPPORTING_KO: Record<VocalAllocationMode, string> = {
+  balanced: '기본값은 고르게 배분입니다 — 남성·여성·듀엣이 비슷한 비중으로 섞입니다.',
+  leaning: '선택한 쏠림에 맞춰 배분했습니다.',
+  'channel-fixed': '이 채널은 성별이 고정된 쿼터를 사용합니다 — 고르게 배분이 아니라 채널이 정한 고정 비율입니다.',
+  manual: '선택한 음색을 그대로 반영해 배분했습니다.'
+};
 
 /**
  * TASK v4.14 (TASK A) — "컨셉만 입력했을 때 Step2Plan 상단에 계열/템포/머니코드
@@ -34,7 +42,7 @@ export interface ConceptRecommendationPanelProps {
   customMoneyChord: string;
   songCount: number;
   vocalSummaryKo: string;
-  vocalIsBalanced: boolean;
+  vocalAllocationMode: VocalAllocationMode;
   flagshipCombo?: VerifiedCombo;
   flagshipGenreLabelKo: string;
 }
@@ -49,7 +57,7 @@ export default function ConceptRecommendationPanel({
   customMoneyChord,
   songCount,
   vocalSummaryKo,
-  vocalIsBalanced,
+  vocalAllocationMode,
   flagshipCombo,
   flagshipGenreLabelKo
 }: ConceptRecommendationPanelProps) {
@@ -145,11 +153,7 @@ export default function ConceptRecommendationPanel({
           <div className="option-block compact">
             <h4>목소리</h4>
             <p>{vocalSummaryKo}</p>
-            <p className="supporting">
-              {vocalIsBalanced
-                ? '기본값은 고르게 배분입니다 — 남성·여성·듀엣이 비슷한 비중으로 섞입니다.'
-                : '선택한 쏠림에 맞춰 배분했습니다.'}
-            </p>
+            <p className="supporting">{VOCAL_ALLOCATION_MODE_SUPPORTING_KO[vocalAllocationMode]}</p>
           </div>
 
           <div className="option-block compact">

@@ -7,6 +7,9 @@ import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { attributesFromSong, getRatingForSong, recordRating, type SongRating } from '../core/ratingLedger';
 import { renderLyricsForDisplay } from '../core/lyricEngine';
 import { stripSetTitlePrefix } from '../utils/generation';
+import { isKidsArchetype } from '../utils/channelArchetype';
+import { vocalLabel } from '../core/vocalPlan';
+import type { ChannelArchetype } from '../types';
 
 type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
 
@@ -15,14 +18,22 @@ const SONG_ROLE_LABEL_KO: Record<string, string> = {
   flagship: '⭐ 대표곡'
 };
 
-// TASK v3.39 Part D — kids-channel per-song vocal quota badge (see
-// core/vocalPlan.ts's VocalType), shown only when the song actually carries
-// a vocalType (kids archetype only — see core/batchPreallocation.ts).
-const VOCAL_TYPE_LABEL_KO: Record<string, string> = {
-  male: '👦 남자아이',
-  female: '👧 여자아이',
-  mixed: '🎤 혼성 합창'
-};
+/**
+ * TASK v3.39 Part D — per-song vocal quota badge (see core/vocalPlan.ts's
+ * VocalType). Originally kids-only wording ("👦 남자아이" etc), but v3.72/
+ * v3.77 made the underlying vocalType quota engage for EVERY archetype, not
+ * just kids (core/vocalPlan.ts's usesVocalQuota doc comment), so this chip
+ * now renders on senior/kr-2030/kr-idol songs too — real regression: it kept
+ * showing child-voice wording ("남자아이"/"여자아이") on those adult-vocal
+ * packs until this fix. See vocalLabel (core/vocalPlan.ts) for the actual
+ * kids/adult branch this now defers to.
+ */
+const VOCAL_TYPE_CHIP_EMOJI_KIDS: Record<string, string> = { male: '👦', female: '👧', mixed: '🎤' };
+
+function vocalTypeChipLabel(vocalType: 'male' | 'female' | 'mixed', archetype: ChannelArchetype | undefined): string {
+  const emoji = isKidsArchetype(archetype) ? VOCAL_TYPE_CHIP_EMOJI_KIDS[vocalType] : '🎤';
+  return `${emoji} ${vocalLabel(vocalType, archetype)}`;
+}
 
 interface SongCardProps {
   song: SongIdea;
@@ -49,6 +60,8 @@ interface SongCardProps {
   channelId?: string;
   /** TASK v3.68 (TASK C) — same packId string Step4Result/SunoProgressMode already compute, carried onto the rating record for reference. */
   packId?: string;
+  /** TASK v5.13 — needed so the vocal-type chip (song.vocalType) renders kids wording only for a real kids archetype; optional so existing callers/tests without a channel archetype in scope fall back to adult wording (the safer default — see vocalLabel's own doc comment). */
+  channelArchetype?: ChannelArchetype;
 }
 
 const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
@@ -59,7 +72,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false, channelId, packId }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false, channelId, packId, channelArchetype }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   // TASK v3.68 (TASK C) — this song's own rating, loaded once per song
@@ -149,7 +162,7 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
           <p>{song.listenerSituation} / {song.emotionArc}</p>
           <span className="chip">{moneyChordLabel}</span>
           {song.songRole && SONG_ROLE_LABEL_KO[song.songRole] && <span className="chip">{SONG_ROLE_LABEL_KO[song.songRole]}</span>}
-          {song.vocalType && VOCAL_TYPE_LABEL_KO[song.vocalType] && <span className="chip">{VOCAL_TYPE_LABEL_KO[song.vocalType]}</span>}
+          {song.vocalType && <span className="chip">{vocalTypeChipLabel(song.vocalType, channelArchetype)}</span>}
           {isShortsCandidate && <span className="chip">🎬 쇼츠 클립 우선 후보</span>}
           {isSeedSong && <span className="chip">시드 곡</span>}
           {personaMode && !isSeedSong && <span className="chip">Persona 모드</span>}

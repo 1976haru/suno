@@ -449,7 +449,18 @@ function killingPointItems(songs: SongIdea[], arcModelId: 'five-phase' | 'repeti
   // comment): 'five-phase' (every non-kids workspace) keeps the exact
   // pre-v5.12 "5종 전부" pass condition byte-identical. 'repetition-cycle'
   // (kids workspaces) is checked against its own real bundle count.
-  const expectedPhaseCount = expectedArcPhaseCount(arcModelId, songs.length);
+  // v5.13 (TASK: kidsAgeTierId wiring) — real gap this closes: generation
+  // now actually resolves and uses a specific tier per pack (a kr-kids
+  // channel preset can carry kids-t1/t3, not just the ageTier-omitted
+  // default), so the "expected" bundle count must match that same real
+  // tier or a correctly-tiered pack fails this check for using MORE/FEWER
+  // distinct bundles than the old flat always-4 assumption. Derived from
+  // the songs' own already-recorded SongIdea.effectiveKidsAgeTierId (the
+  // real "what actually happened" field — see that field's own doc
+  // comment) rather than requiring a new parameter threaded all the way
+  // from GenerationOptions into this audit-only function.
+  const kidsAgeTierId = songs.find(song => song.effectiveKidsAgeTierId)?.effectiveKidsAgeTierId;
+  const expectedPhaseCount = expectedArcPhaseCount(arcModelId, songs.length, kidsAgeTierId);
   // Same "only real kids bundle phases count" filtering as
   // designGate.ts's killingPointAndArcIssues — see that file's own v5.12
   // comment. 'five-phase' keeps the original unfiltered Set (byte-identical).

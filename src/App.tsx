@@ -83,6 +83,8 @@ interface WizardAppProps {
   workspaceId: WorkspaceId;
   /** v4.0 (TASK D) — hands control back to the outer App component, which unmounts this whole component (see App()'s key={workspaceId}) and shows the picker again. Checking for an in-flight batch job before calling this is this component's own job (it's the only place that state lives) — see handleRequestSwitchWorkspace below. */
   onSwitchWorkspace: () => void;
+  /** TASK (gap 2 — workspace recovery) — jumps DIRECTLY to a specific workspace (unlike onSwitchWorkspace, which only resets to the picker screen). Threaded down to Step3Generate's "채널의 워크스페이스로 이동" recovery button — core/userChoices.ts's buildResolvedGenerationContract now surfaces the channel's real correct workspaceId via ResolvedGenerationContract.workspaceRecovery.correctWorkspaceId when it disagrees with the currently active one. */
+  onNavigateToWorkspace: (id: WorkspaceId) => void;
 }
 
 /**
@@ -95,7 +97,7 @@ interface WizardAppProps {
  * resetting each of the ~15 state variables below one at a time (and risking
  * missing one).
  */
-function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
+function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: WizardAppProps) {
   const workspace = getWorkspace(workspaceId);
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -170,7 +172,34 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
       genreIds: normalizeGenreSelection(valid),
       moodIds: channel.preferredMoods,
       vocalTone: channel.defaultVocal,
-      packagingLanguage: defaultPackagingLanguageForChannel(channel)
+      // v5.13 (TASK: kidsAgeTierId wiring) — mirrors vocalTone just above:
+      // switching to a channel with its own kidsAgeTierId resets the
+      // per-generation override to that channel's default, same as every
+      // other channel-default field this function already re-seeds.
+      kidsAgeTierId: channel.kidsAgeTierId,
+      packagingLanguage: defaultPackagingLanguageForChannel(channel),
+      // TASK (provenance) — every field this function resets to the new
+      // channel's own default gets its provenance reset to 'channel' too,
+      // overwriting whatever the PREVIOUS channel's 'user'/'concept' picks
+      // left behind on `prev.choiceProvenance` — those no longer describe
+      // the values `opts` now actually holds. This is also the one real,
+      // findable recording point for kidsAgeTierId: Step1Channel.tsx's own
+      // age-tier picker only ever writes to the channel editor's draft state
+      // (ChannelProfile.kidsAgeTierId via useChannelManager's
+      // updateEditorField), never straight to GenerationOptions — it only
+      // reaches `opts.kidsAgeTierId` via this exact channel-apply path
+      // (select/save/create — see useChannelManager.ts's selectChannel/
+      // saveEditorProfile/addQuickChannel, all of which call this function),
+      // so 'channel' is the only real provenance kidsAgeTierId is ever
+      // observed to carry.
+      choiceProvenance: {
+        ...prev.choiceProvenance,
+        lyricLanguage: 'channel',
+        genreIds: 'channel',
+        vocalTone: 'channel',
+        kidsAgeTierId: 'channel',
+        packagingLanguage: 'channel'
+      }
     }));
     if (removed.length) setLoadWarning(genreSanitizationWarningKo(removed, archetype));
   }
@@ -1128,6 +1157,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
               onInstructionReady={setTopBridgeInstruction}
               bridgeImportedSetAvoid={bridgeImportedSetAvoid}
               workspaceId={workspaceId}
+              onNavigateToWorkspace={onNavigateToWorkspace}
               acknowledgedSignature={generationAcknowledgedSignature}
               onAcknowledgedSignatureChange={setGenerationAcknowledgedSignature}
               multiSet={{
@@ -1317,5 +1347,5 @@ export default function App() {
     return <WorkspaceSelectScreen onSelect={handleSelectWorkspace} />;
   }
 
-  return <WizardApp key={workspaceId} workspaceId={workspaceId} onSwitchWorkspace={handleSwitchWorkspace} />;
+  return <WizardApp key={workspaceId} workspaceId={workspaceId} onSwitchWorkspace={handleSwitchWorkspace} onNavigateToWorkspace={handleSelectWorkspace} />;
 }

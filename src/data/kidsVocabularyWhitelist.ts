@@ -17,9 +17,16 @@
  * workspace; E1/F1 extend per-tier lists with their own education/onomatopoeia
  * vocabulary rather than replacing these.
  */
-import type { LyricLanguage } from '../types';
+import type { KidsAgeTierId, LyricLanguage } from '../types';
 
-export type KidsAgeTierId = 'kids-t1' | 'kids-t2' | 'kids-t3';
+// v5.13 (TASK: kidsAgeTierId wiring) — single-sourced from types.ts now
+// (GenerationOptions/ChannelProfile need the same type to actually thread a
+// real value through the pipeline this file's own top doc comment describes
+// as previously unreachable). Re-exported so every existing importer of
+// `KidsAgeTierId` from this module (data/kidsStructureTemplates.ts,
+// data/kidsAgeTiers.ts, data/killingPointsKids.ts, data/onomatopoeia.ts,
+// core/kidsLyricEngine.ts, core/promptComposer.ts) keeps working unchanged.
+export type { KidsAgeTierId };
 export type KidsWhitelistLanguage = Extract<LyricLanguage, 'korean' | 'japanese' | 'english'>;
 
 export interface KidsVocabularyWhitelist {

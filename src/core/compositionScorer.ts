@@ -1,6 +1,6 @@
 import type { AudienceProfile, DisplayLanguage, LyricLanguage, ScopedIssue, SongIdea } from '../types';
 import { isOverLengthAdvisory, isTransliteratedTitle, looksLikeLiteralTranslation } from './titleLocalizationChecks';
-import { measureLyrics, resolveLyricRange } from './lyricMetrics';
+import { lyricLanguageMismatchReasonKo, measureLyrics, resolveLyricRange, stripLyricsToBody } from './lyricMetrics';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
@@ -93,20 +93,19 @@ const SECTION_COUNT_ADVISORY_FLOOR = 5;
  * sectionRange (core/bpmLengthControl.ts) read as a false violation. Mirrors
  * srtExport.ts's own identical VOCAL_META_TAG_LINE exclusion.
  */
-const VOCAL_META_TAG_LINE = /^\[(male vocal|female vocal|children'?s choir|duet vocal|group vocal)\]$/i;
-
+/**
+ * TASK (ratio-based lyric language mismatch) — the meta-tag/section-header
+ * stripping this function used to do inline now lives in
+ * core/lyricMetrics.ts's stripLyricsToBody (that file's own new ratio check
+ * needs the exact same stripping, so it moved there rather than staying
+ * duplicated in two files — see that function's own doc comment). Behavior
+ * here is unchanged: same VOCAL_META_TAG_LINE/bracket-line rules, same
+ * `sections` count, same `words` measurement.
+ */
 export function lyricWordAndSectionCounts(lyrics: string, language: LyricLanguage = 'english'): { words: number; sections: number } {
-  let sections = 0;
-  const bodyLines: string[] = [];
-  for (const rawLine of lyrics.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    if (VOCAL_META_TAG_LINE.test(line)) continue;
-    if (/^\[[^\]]*\]$/.test(line)) { sections += 1; continue; }
-    bodyLines.push(line);
-  }
-  const words = measureLyrics(bodyLines.join('\n'), language).primary;
-  return { words, sections };
+  const { text, sectionCount } = stripLyricsToBody(lyrics);
+  const words = measureLyrics(text, language).primary;
+  return { words, sections: sectionCount };
 }
 
 /**
@@ -425,6 +424,33 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     }
     if (sectionCount < SECTION_COUNT_ADVISORY_FLOOR) {
       advisory.push(`섹션이 ${sectionCount}개뿐입니다 (권장 ${SECTION_COUNT_ADVISORY_FLOOR}개 이상) — 인스트루멘털 구간이나 브릿지가 빠졌을 수 있습니다.`);
+    }
+
+    // TASK (ratio-based lyric language mismatch) — BLOCKING, not advisory:
+    // this is the tier CompositionScore.blocking's own doc comment describes
+    // ("must be fixed by recomposing this song", TASK 3's retry loop
+    // target), the real "block + mark for recompose" mechanism this
+    // codebase already has (core/compositionRecompose.ts's
+    // recomposeBlockingTracks retries exactly these findings for the
+    // realtime/AI-creative path; every other caller surfaces the same
+    // blocking list to the user for the manual "재작곡 지시문 복사" flow).
+    // core/batchPreallocation.ts's reconcileWithPreassignedSlot already
+    // surfaces the identical finding earlier as a non-blocking
+    // `song.warnings` entry (lyricLanguageMismatchWarning) — this is the
+    // stricter tier on top of that, not a replacement for it.
+    //
+    // Only runs when the caller explicitly declared a real target language
+    // via opts.lyricLanguage (not this function's own `lyricLanguage`
+    // constant, which silently falls back to 'english' when omitted) —
+    // mirrors lyricWordAndSectionCounts's own pre-v4.1 carve-out for the
+    // out-of-scope callers that never supply a real language
+    // (csvExport.ts's evaluateGenerationGate call, and this file's own
+    // no-opts test calls): those must keep reading as "no finding" rather
+    // than getting a spurious block on every non-English pack just because
+    // nothing told this function what language to expect.
+    if (opts?.lyricLanguage) {
+      const languageReason = lyricLanguageMismatchReasonKo(song.lyrics, opts.lyricLanguage);
+      if (languageReason) blocking.push(languageReason);
     }
 
     // Reused: TASK v3.60 TASK A — arrangement/production vocabulary sung as lyrics.

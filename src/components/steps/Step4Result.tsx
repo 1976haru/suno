@@ -778,6 +778,7 @@ export default function Step4Result({
             onUpdatePronunciationHints={onUpdatePronunciationHints}
             albumAuditBlocked={albumAuditBlocked}
             channelId={opts.channel.id}
+            channelArchetype={opts.channel.archetype}
             packId={packId}
           />
         )

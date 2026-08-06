@@ -47,6 +47,37 @@ export type PerspectiveMode = 'fixed' | 'dominant' | 'varied';
  * contrast ("곡마다 한 장르만").
  */
 export type GenreBlendMode = 'shared-primary' | 'lead-only';
+/**
+ * TASK v5.13 (vocal allocation mode) — real regression: a K-pop channel's
+ * fixed gender quota (ChannelProfile.vocalQuotaOverride, e.g. kr-idol-male's
+ * `{male:15,female:0,mixed:3}`) had no label distinct from a genuinely
+ * "balanced" auto-allocation — both the Step2Plan "목소리" recommendation
+ * card and the pre-generation contract screen only ever displayed a boolean
+ * (`vocalIsBalanced`), so a deliberately gender-locked idol channel read as
+ * "고르게 배분" (evenly balanced) exactly like a senior channel with no lean
+ * at all. This is a 4-way classification of WHY the resolved vocal quota
+ * looks the way it does, not a new quota shape:
+ *  - 'channel-fixed': the channel itself hard-codes the gender split
+ *    (`channel.vocalQuotaOverride` is set) — never "balanced", regardless of
+ *    whether a vocal-tone preset was also picked on top of it.
+ *  - 'leaning': no channel-fixed quota, but the user's picked vocalTone
+ *    resolves to a real gender lean (core/vocalPlan.ts's leaningGenderFor
+ *    returns 'male'/'female'/'duet' — NOT the gender-neutral 'mixed', which
+ *    leaves the quota untouched, see leaningAdultVocalQuota) that skews the
+ *    quota toward one gender.
+ *  - 'manual': the user picked something explicit that doesn't itself move
+ *    the quota — a gender-neutral group/choir preset (gender 'mixed', e.g.
+ *    "혼성 화음 그룹" — NOT a duet: a duet lean DOES skew the quota toward
+ *    the 'mixed' vocalType, see leaningAdultVocalQuota, so a duet pick
+ *    resolves to 'leaning' above, not here) or an unrecognized free-text
+ *    tone — or an explicit opts.vocalQuota override was supplied directly.
+ *  - 'balanced': the true default — no channel-fixed quota, no lean, no
+ *    explicit tone pick (vocalTone is unset or still equals the channel's
+ *    own untouched `defaultVocal`). See core/vocalPlan.ts's
+ *    resolveVocalAllocationMode for the resolver and isVocalToneBalanced for
+ *    the plain tone-only check this reuses for its final branch.
+ */
+export type VocalAllocationMode = 'balanced' | 'leaning' | 'channel-fixed' | 'manual';
 export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepeat';
 /** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
@@ -71,6 +102,22 @@ export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 
 
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
+
+/**
+ * v5.13 (TASK: kidsAgeTierId wiring) — the real, previously-undone gap named
+ * in data/kidsAgeTiers.ts/data/kidsStructureTemplates.ts/data/kidsVocabularyWhitelist.ts/
+ * data/killingPointsKids.ts/data/onomatopoeia.ts/core/arcModels.ts/core/promptComposer.ts's
+ * own doc comments: every one of those already has real, tier-aware
+ * behavior gated behind an optional `ageTier`/`kidsAgeTierId` parameter, but
+ * no field anywhere on GenerationOptions/ChannelProfile ever supplied one —
+ * every real call site called them with the parameter omitted (see
+ * docs/v58-report.md/docs/d2-report.md's identical "ageTier 파이프라인 연결:
+ * 없음" finding). This is that field, single-sourced here (not redefined —
+ * data/kidsVocabularyWhitelist.ts now re-exports this exact type instead of
+ * declaring its own copy, since every kids-tier data file already imports
+ * from that one module's re-export chain).
+ */
+export type KidsAgeTierId = 'kids-t1' | 'kids-t2' | 'kids-t3';
 
 export type DiversityAxisId =
   | 'genre' | 'vocalType' | 'introTexture' | 'hookDevice'
@@ -123,6 +170,19 @@ export interface ChannelProfile {
    * own report for why 0 was rejected).
    */
   vocalQuotaOverride?: { male: number; female: number; mixed: number };
+  /**
+   * v5.13 (TASK: kidsAgeTierId wiring) — this channel's own default age
+   * tier (see KidsAgeTierId's own doc comment). Only meaningful for a kids
+   * archetype ('kids'/'kr-kids-song'/'jp-kids-song') — undefined for every
+   * non-kids channel and for every kids channel that hasn't been assigned
+   * one yet (falls back to data/kidsAgeTiers.ts's own
+   * DEFAULT_KIDS_AGE_TIER_ID wherever a tier is actually needed, same
+   * no-signal-yet fallback every consumer already had before this field
+   * existed). GenerationOptions.kidsAgeTierId (below) can override this
+   * per-generation the same way opts.vocalTone already overrides
+   * channel.defaultVocal.
+   */
+  kidsAgeTierId?: KidsAgeTierId;
 }
 
 /**
@@ -457,6 +517,63 @@ export interface GenerationPack {
   youtubeAngle: string;
 }
 
+/**
+ * TASK (provenance) — where a given field's CURRENT value on GenerationOptions
+ * actually came from, recorded at the moment it was set rather than
+ * reconstructed later by inspecting the resulting option shape (see
+ * core/userChoices.ts's own doc comment for the real, verified gap this
+ * closes: the old after-the-fact inference missed a genre-chip-only
+ * selection and never tracked vocalTone at all — the exact bug class
+ * v3.77/v4.13 shipped as live regressions).
+ *  - 'user': a real UI click/keystroke this session (Step2Concept.tsx's
+ *    pickers, Step1Channel.tsx/Step2Plan.tsx/Step3Generate.tsx's controls).
+ *    Choosing the explicitly-labeled "balanced"/"고르게" option counts as
+ *    'user' too — it's still a deliberate pick, even though the resulting
+ *    value happens to equal what the field would have defaulted to anyway.
+ *  - 'default': never touched — still whatever createInitialOptions (or a
+ *    field's own resolver) set it to.
+ *  - 'concept': applied via a concept-agent recommendation (Step2Concept.tsx's
+ *    handleApplyConceptRecommendation).
+ *  - 'channel': reset to a channel's own default the moment that channel was
+ *    selected/applied (App.tsx's applyChannelToOptions, called from every
+ *    useChannelManager.ts entry point that switches/saves/creates a channel).
+ *  - 'system': overwritten by a system-driven correction, e.g. a design-gate
+ *    auto-fix (Step2Plan.tsx's/Step3Generate.tsx's shared
+ *    applyDesignGateAutoFix, via core/userChoices.ts's provenanceForSystemFix).
+ *  - 'migration': reserved for a future schema-migration writer (e.g.
+ *    normalizing an old saved pack's fields on load) — no real caller sets
+ *    this today; included so a future migration doesn't have to invent a new
+ *    ChoiceSource value and touch every switch/consumer of this type.
+ */
+export type ChoiceSource = 'user' | 'default' | 'concept' | 'channel' | 'system' | 'migration';
+
+/**
+ * TASK (provenance) — the 13 GenerationOptions axes this app has ever shipped
+ * (or could plausibly ship) a "system default silently wins over what the
+ * user picked" regression for, each mapped to its own ChoiceSource. Every key
+ * here is optional on GenerationOptions.choiceProvenance (a field genuinely
+ * untouched this session simply has no entry, read as 'default' by
+ * consumers) — see core/userChoices.ts's userChoicesFromOptions for the one
+ * function that reads this map to build UserExplicitChoices.source, and this
+ * type's own field-by-field doc comments below on GenerationOptions for
+ * exactly which UI control is responsible for each key.
+ */
+export interface GenerationChoiceProvenance {
+  moneyChordMode: ChoiceSource;
+  vocalTone: ChoiceSource;
+  genreIds: ChoiceSource;
+  lyricLanguage: ChoiceSource;
+  packagingLanguage: ChoiceSource;
+  perspective: ChoiceSource;
+  perspectiveMode: ChoiceSource;
+  genreBlendMode: ChoiceSource;
+  seasonId: ChoiceSource;
+  songCount: ChoiceSource;
+  breadth: ChoiceSource;
+  paletteFamilyId: ChoiceSource;
+  kidsAgeTierId: ChoiceSource;
+}
+
 export interface GenerationOptions {
   channel: ChannelProfile;
   projectTitle: string;
@@ -515,6 +632,18 @@ export interface GenerationOptions {
   perspectiveModeIsExplicitChoice?: boolean;
   customMoneyChord: string;
   customConcept: string;
+  /**
+   * v5.13 (TASK: kidsAgeTierId wiring) — per-generation override of
+   * `channel.kidsAgeTierId`, same priority relationship opts.vocalTone
+   * already has over channel.defaultVocal. Only ever read for a kids
+   * archetype; every real resolver in this app uses the same
+   * `opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID`
+   * chain (core/localGenerator.ts's resolveKidsAgeTierId) so this stays the
+   * single place downstream consumers (arc bundle plan, structure template,
+   * hook-repeat count, kids killing-point set, tempo range clamp) all agree
+   * on which tier a pack is actually using.
+   */
+  kidsAgeTierId?: KidsAgeTierId;
   /** v3.49A: user-written vibe reference converted to safe English style clauses; artist/song names are blocked before use. */
   referenceMood?: string;
   /**
@@ -670,6 +799,22 @@ export interface GenerationOptions {
     lift: number;
     confidence: 'insufficient' | 'weak' | 'moderate' | 'strong';
   }[];
+  /**
+   * TASK (provenance) — click-time-recorded source for each of the 13 axes
+   * GenerationChoiceProvenance names, the SOURCE OF TRUTH
+   * core/userChoices.ts's userChoicesFromOptions now reads first (falling
+   * back to its own after-the-fact heuristics only for a field with no entry
+   * here — e.g. an old saved/imported pack from before this field existed).
+   * Every real setOpts call site that changes one of the 13 tracked fields
+   * merges its own entry in here (`choiceProvenance: { ...prev.choiceProvenance,
+   * <field>: 'user' }`); a field this session never touched simply has no
+   * key, which every consumer reads the same as 'default'. Undefined for the
+   * whole map is fully backward-compatible — every pre-existing caller that
+   * never sets this keeps userChoicesFromOptions' old inferred behavior
+   * exactly (see that function's own doc comment for the one field,
+   * vocalTone, that had no old inference to fall back to at all).
+   */
+  choiceProvenance?: Partial<GenerationChoiceProvenance>;
 }
 
 export interface YoutubeMetadata {
@@ -979,6 +1124,17 @@ export interface SongIdea {
   effectiveArchetype: ChannelArchetype;
   /** v5.11 (TASK L) — the workspace (data/workspaces/index.ts's WorkspaceDefinition.id) that owns `effectiveArchetype`, resolved via workspaceForArchetype. Every real ChannelArchetype resolves to exactly one workspace today (see that file's own WORKSPACE coverage), so this is always a real id, never a guess. */
   workspaceId: WorkspaceId;
+  /**
+   * v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveArchetype/workspaceId's
+   * own "record what actually happened" pattern: the real
+   * `opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID`
+   * resolution this track's arc bundle/structure/hook-repeat/tempo range
+   * actually used, snapshotted at generation time. Optional (unlike the 2
+   * fields above) since it's only ever resolved for a kids archetype —
+   * absent for every senior/kr-2030/jp-2030/kr-idol song, same
+   * kids-only-field convention `vocalType` already established.
+   */
+  effectiveKidsAgeTierId?: KidsAgeTierId;
 }
 
 export interface PlaylistBlueprint {
@@ -1274,6 +1430,8 @@ export interface PreassignedSongSlot {
   effectiveVocalPresetId?: string;
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
   effectiveGenreIds: string[];
+  /** v5.13 (TASK: kidsAgeTierId wiring) — mirrors SongIdea.effectiveKidsAgeTierId's own doc comment; whole-pack-resolved (same value on every slot for a kids archetype), not per-track. */
+  effectiveKidsAgeTierId?: KidsAgeTierId;
   /**
    * v3.67 (TASK A) — this trackNo's one designed peak moment (see
    * data/killingPoints.ts), a single short style-prompt atom. Undefined for

@@ -1,7 +1,7 @@
 import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
-import { averageTempo, buildArcPlanForProfile, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
+import { averageTempo, buildArcPlanForProfile, clampTempoToKidsAgeTier, emotionArcPlanForArc, nextContestedTitle, resolveKidsAgeTierId, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
@@ -55,7 +55,7 @@ import { buildGenreCountRotationPlan, buildGenreRotationPlan, genresForTrack } f
 import { conceptLyricImages, conceptStyleText, variedVocalText } from './conceptDiversity';
 import { breakLongRuns, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
-import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
+import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { resolveConstraintsFromOptions } from './constraints';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
@@ -165,13 +165,17 @@ export function preallocateSongSlots(
   // pure lookup with no side effects, so moving it earlier changes nothing
   // about what it returns.
   const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
+  // v5.13 (TASK: kidsAgeTierId wiring) — real resolved tier for this pack;
+  // undefined for every non-kids channel.
+  const resolvedKidsAgeTierId = resolveKidsAgeTierId(opts);
   // TASK v3.67 (TASK C) — same arc-intensity reorder as localGenerator.ts's
   // generateLocalBlueprint (see arcPlan.ts's own doc comment: reorders,
   // never recomputes, buildTempoBandPlan's own output).
   // v5.11 — arcModelId-aware dispatch (see localGenerator.ts's
   // buildArcPlanForProfile doc comment); resolves 'repetition-cycle' for
   // every kids workspace, unaffected for every other profile.
-  const arcPlan = buildArcPlanForProfile(opts.songCount, audienceProfile.arcModelId);
+  // v5.13 — now also passes the real resolved tier.
+  const arcPlan = buildArcPlanForProfile(opts.songCount, audienceProfile.arcModelId, resolvedKidsAgeTierId);
   // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, mirroring
   // localGenerator.ts's own emotionArcPlanForArc call (same seed).
   const emotionArcPlan = emotionArcPlanForArc(arcPlan, seed + 22);
@@ -253,7 +257,8 @@ export function preallocateSongSlots(
     })),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
-    isKidsArchetype(opts.channel.archetype) ? KIDS_KILLING_POINTS : undefined
+    // v5.13 — tier-aware filter instead of always the unfiltered full set.
+    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : undefined
   );
   // TASK v4.11 (TASK B) — mirrors localGenerator.ts's own openingLoudnessPlan
   // (same seed offset): tracks 1-3 only, a real waveform measurement found
@@ -705,9 +710,14 @@ export function preallocateSongSlots(
     // own tempoFloor/tempoCeiling so it can never violate bpm-within-profile
     // (designGate.ts's bpmIssues) even if a future combo's bpmRange is wider
     // than this audience profile allows.
-    const resolvedTempo = idx === 1 && flagshipComboTempo !== undefined
-      ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
-      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
+    // v5.13 — clamps the final BPM into this pack's real kids age-tier tempo
+    // range (data/kidsAgeTiers.ts); no-op for a non-kids/no-tier pack.
+    const resolvedTempo = clampTempoToKidsAgeTier(
+      idx === 1 && flagshipComboTempo !== undefined
+        ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
+        : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo),
+      resolvedKidsAgeTierId
+    );
     // v3.82 (TASK B) — BPM-appropriate section/word/instrumental-section
     // targets for this track (see core/bpmLengthControl.ts's own doc
     // comment for the real-measurement root cause). Flagship slots (tracks
@@ -774,6 +784,11 @@ export function preallocateSongSlots(
       effectiveMoneyChordId,
       effectiveGenreIds,
       ...(wholePackMatchedVocalPreset ? { effectiveVocalPresetId: wholePackMatchedVocalPreset.id } : {}),
+      // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/
+      // effectiveGenreIds's own "always-populated counterpart" pattern just
+      // above; absent for a non-kids pack. Copied onto the final SongIdea by
+      // reconcileWithPreassignedSlot below.
+      ...(resolvedKidsAgeTierId ? { effectiveKidsAgeTierId: resolvedKidsAgeTierId } : {}),
       // TASK v3.43 Step 2 (Part A3) — mirrors localGenerator.ts's own
       // per-song rotatingInstrumentText/arrangementDensityText calls (same
       // genres/seed/idx), promoted to slot fields for realtime/Batch/bridge
@@ -1005,9 +1020,14 @@ export function reconcileWithPreassignedSlot(
   // return path below (mirrors resolvedArchetype/resolvedWorkspaceId just
   // above), so a wrong-language response can't slip through any one branch
   // this function returns from. undefined whenever the caller didn't pass
-  // lyricLanguage (every existing caller before this task) or the language
-  // is 'bilingual' (mixed script is the correct shape there — see
-  // lyricLanguageMismatchWarning's own doc comment in core/lyricMetrics.ts).
+  // lyricLanguage (every existing caller before this task).
+  // TASK (ratio-based lyric language mismatch) — 'bilingual' USED to always
+  // return undefined here unconditionally; now it's checked for real (at
+  // least 2 real multi-word lines in English and in whichever of
+  // Korean/Japanese is present — see lyricLanguageMismatchWarning's own doc
+  // comment in core/lyricMetrics.ts), since a single decorative word in one
+  // language is not the "correct, expected mixed-script shape" the old
+  // blanket skip assumed.
   const languageWarning = options.lyricLanguage
     ? lyricLanguageMismatchWarning(song.lyrics, options.lyricLanguage, slot?.trackNo ?? song.trackNo)
     : undefined;
@@ -1021,7 +1041,11 @@ export function reconcileWithPreassignedSlot(
     effectiveMoneyChordId: song.effectiveMoneyChordId || 'default',
     effectiveGenreIds: song.effectiveGenreIds?.length ? song.effectiveGenreIds : (song.genreId ? [song.genreId] : []),
     effectiveArchetype: resolvedArchetype,
-    workspaceId: resolvedWorkspaceId
+    workspaceId: resolvedWorkspaceId,
+    // v5.13 (TASK: kidsAgeTierId wiring) — no plan data to draw from here
+    // either; reuses whatever `song` already carried, same as the other
+    // "effective" fields just above.
+    ...(song.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: song.effectiveKidsAgeTierId } : {})
   });
   if (!slot) {
     // TASK (genre-archetype sanitization) — see ReconcilePreassignedOptions.archetype's
@@ -1085,6 +1109,7 @@ export function reconcileWithPreassignedSlot(
       effectiveMoneyChordId: slot.effectiveMoneyChordId,
       effectiveGenreIds: slot.effectiveGenreIds,
       ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+      ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
       effectiveArchetype: resolvedArchetype,
       workspaceId: resolvedWorkspaceId
     };
@@ -1201,6 +1226,7 @@ export function reconcileWithPreassignedSlot(
     effectiveMoneyChordId: slot.effectiveMoneyChordId,
     effectiveGenreIds: slot.effectiveGenreIds,
     ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+    ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
     effectiveArchetype: resolvedArchetype,
     workspaceId: resolvedWorkspaceId
   };

@@ -261,7 +261,7 @@ export async function evaluateGenerationRequest(input: GenerationRequestInput): 
   const { workspaceId, options, genres, avoid, acknowledgedSignature } = input;
   const slots = preallocateSongSlots(options, genres, avoid);
   const choices = userChoicesFromOptions(options);
-  const contract = buildResolvedGenerationContract(options, choices, slots);
+  const contract = buildResolvedGenerationContract(options, choices, slots, workspaceId);
   const constraints = resolveConstraintsFromOptions(
     options,
     audienceProfileForChannelArchetype(options.channel.archetype, options.audience),

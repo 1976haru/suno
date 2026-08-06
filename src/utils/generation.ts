@@ -126,6 +126,10 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     // becomes the kids-only default; every other archetype is unchanged.
     seasonId: isKidsArchetype(channel.archetype) ? 'spring-open' : 'christmas',
     vocalTone: channel.defaultVocal,
+    // v5.13 (TASK: kidsAgeTierId wiring) — seeded from the channel's own
+    // default the same way vocalTone is seeded from channel.defaultVocal
+    // just above; undefined for every non-kids/no-tier-assigned channel.
+    kidsAgeTierId: channel.kidsAgeTierId,
     perspective: 'firstPerson',
     lyricDepth: 'commercial',
     durationTarget: 'under3m30',

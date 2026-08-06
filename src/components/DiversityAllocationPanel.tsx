@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Minus, Plus, RotateCcw, Save, Upload } from 'lu
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { vocalLabel } from '../core/vocalPlan';
 import { lyricThemesForOptions } from '../data/lyricThemes';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -64,12 +65,6 @@ const ARRANGEMENT_LABELS: Record<string, string> = {
   full: 'Full'
 };
 
-const VOCAL_LABELS: Record<string, string> = {
-  male: '남자아이',
-  female: '여자아이',
-  mixed: '혼성 합창'
-};
-
 function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefinition[] {
   const archetype = opts.channel.archetype;
   const structureIds = isKidsArchetype(archetype) ? KIDS_STRUCTURE_TEMPLATE_IDS : ADULT_STRUCTURE_TEMPLATE_IDS;
@@ -96,7 +91,7 @@ function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefi
         : '이 채널은 단일 보컬 프리셋을 사용합니다. 키즈 채널에서만 수동 쿼터가 실제 보컬 타입을 바꿉니다.',
       disabled: !isKidsArchetype(archetype),
       disabledReason: !isKidsArchetype(archetype) ? '키즈 채널 전용 축' : undefined,
-      options: VOCAL_TYPE_IDS.map(id => ({ id, label: VOCAL_LABELS[id] }))
+      options: VOCAL_TYPE_IDS.map(id => ({ id, label: vocalLabel(id, archetype) }))
     },
     {
       axis: 'introTexture',

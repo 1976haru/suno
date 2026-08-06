@@ -1,4 +1,4 @@
-import type { SongIdea } from '../types';
+import type { LyricLanguage, SongIdea } from '../types';
 import { scoreComposition } from './compositionScorer';
 
 /**
@@ -41,11 +41,28 @@ export async function recomposeBlockingTracks(
   songs: SongIdea[],
   regenerateOne: (currentSongs: SongIdea[], trackNo: number, feedback: string[]) => Promise<SongIdea[]>,
   /** TASK v3.64 (TASK D) — the channel's real cross-pack hook history, so a song that duplicates (or near-duplicates) a previously-used hook gets caught and retried here too, not only via the bridge path's manual "재작곡 지시문 복사" button. */
-  historicalHooks: string[] = []
+  historicalHooks: string[] = [],
+  /**
+   * TASK (ratio-based lyric language mismatch) — this loop's own
+   * scoreComposition() call below previously always omitted lyricLanguage
+   * entirely (a pre-existing gap, unrelated to this task's own fix). The
+   * new per-track language-ratio blocking check in compositionScorer.ts is
+   * deliberately gated on opts.lyricLanguage being explicitly present (see
+   * that check's own comment) specifically so this gap could never turn
+   * into a false block — omitting this param just means the check silently
+   * never runs during a recompose pass, not that it misfires. Passing it
+   * through is what makes a genuine language mismatch actually retried by
+   * this loop instead of only showing up in the score afterward. Optional
+   * so the one pre-existing call site (providers/index.ts's
+   * generateBlueprint) is the only thing that changes; a caller that still
+   * omits it keeps the exact old behavior (language-ratio check never
+   * fires here, same as before this task).
+   */
+  lyricLanguage?: LyricLanguage
 ): Promise<RecomposeResult> {
   let current = songs;
   const log: RecomposeLogEntry[] = [];
-  const scoreOpts = { historicalHooks };
+  const scoreOpts = { historicalHooks, lyricLanguage };
   // v4.1 (TASK C) — .tracks only (not packBlocking/packAdvisory): a
   // pack-level design issue (era share, BPM/vocal structure collapse) isn't
   // fixable by recomposing any one song, so this loop — which regenerates

@@ -1,4 +1,4 @@
-import type { GenerationOptions, LyricLanguage } from '../types';
+import type { ChannelArchetype, GenerationOptions, LyricLanguage, VocalAllocationMode } from '../types';
 import { shuffle } from './lyricEngine';
 import { hashSeed, mulberry32 } from '../utils/prng';
 import { isKidsArchetype } from '../utils/channelArchetype';
@@ -123,6 +123,26 @@ export function leaningGenderFor(opts: Pick<GenerationOptions, 'channel' | 'voca
 }
 
 /**
+ * TASK v5.13 (vocal allocation mode) — real regression found in
+ * Step2Plan.tsx: `vocalIsBalanced={!opts.vocalTone}` reads `opts.vocalTone`
+ * as though "no selection" were its unset/falsy state, but
+ * createInitialOptions (utils/generation.ts) always seeds it to
+ * `channel.defaultVocal` — a non-empty string for every real channel — so
+ * `!opts.vocalTone` was always `false`, even for a genuinely untouched
+ * default. Step2Concept.tsx already had the correct check for its own
+ * "직접 입력하기" auto-open logic (`isBalancedVocalTone`, this file's
+ * `leaningGenderFor` above encodes the identical condition) — this is that
+ * same check, exported so both call sites (and resolveVocalAllocationMode
+ * below) share one source of truth instead of three near-duplicate
+ * `!vocalTone?.trim() || vocalTone.trim() === channel.defaultVocal` copies
+ * silently drifting apart.
+ */
+export function isVocalToneBalanced(opts: Pick<GenerationOptions, 'channel' | 'vocalTone'>): boolean {
+  const tone = opts.vocalTone?.trim();
+  return !tone || tone === opts.channel.defaultVocal.trim();
+}
+
+/**
  * v3.77 (TASK A) — real measurement's own worked example: an 18-song pack
  * leaning male comes back male 10 / female 4 / mixed(duet) 4 — the leaning
  * gender gets ~55% of the pack, the other two share the rest evenly, never
@@ -167,12 +187,69 @@ export function leaningAdultVocalQuota(quota: VocalQuota, songCount: number, lea
   return result;
 }
 
+/**
+ * TASK v5.13 (vocal allocation mode) — resolves the real reason behind the
+ * pack's vocal quota into one of VocalAllocationMode's 4 buckets (see that
+ * type's own doc comment in types.ts for the full rationale), in the same
+ * precedence order batchPreallocation.ts's/localGenerator.ts's/
+ * userChoices.ts's own `opts.vocalQuota ?? opts.channel.vocalQuotaOverride ??
+ * default` chain already establishes: an explicit per-generation
+ * `opts.vocalQuota` override and the channel's own fixed
+ * `vocalQuotaOverride` both take priority over any tone-driven lean (see
+ * those files' own `vocalLeaning = opts.vocalQuota || opts.channel.
+ * vocalQuotaOverride ? undefined : detectedVocalTone` — a fixed/overridden
+ * quota already disables leaning entirely at generation time, so this
+ * resolver mirrors that by classifying those cases before ever consulting
+ * leaningGenderFor).
+ */
+export function resolveVocalAllocationMode(opts: Pick<GenerationOptions, 'channel' | 'vocalTone' | 'vocalQuota'>): VocalAllocationMode {
+  if (opts.vocalQuota) return 'manual';
+  if (opts.channel.vocalQuotaOverride) return 'channel-fixed';
+  const leaning = leaningGenderFor(opts);
+  // 'mixed' (a group/duet preset pick) is an explicit choice but, per
+  // leaningAdultVocalQuota above, never actually skews the quota toward one
+  // gender — that's 'manual' (a real pick with no quota-moving lean), not
+  // 'leaning'.
+  if (leaning && leaning !== 'mixed') return 'leaning';
+  return isVocalToneBalanced(opts) ? 'balanced' : 'manual';
+}
+
 export type VocalType = 'male' | 'female' | 'mixed';
 
 export interface VocalQuota {
   male: number;
   female: number;
   mixed: number;
+}
+
+/**
+ * TASK v5.13 (hardcoded kids vocal labels bugfix) — real regression: a fixed
+ * `{ male: '남자아이', female: '여자아이', mixed: '혼성 합창' }` (literally
+ * "boy"/"girl"/"children's choir") was hardcoded and shown unconditionally
+ * in Step3Generate.tsx's diversity-assignment preview, DiversityAllocationPanel.tsx's
+ * vocal-quota axis picker, and SongCard.tsx's per-song vocal chip — so a
+ * senior, kr-2030, or kr-idol channel's adult-lead vocal breakdown displayed
+ * child-voice wording even though those channels' songs are adult vocals.
+ * Single source of truth for every one of those sites now: branches on
+ * isKidsArchetype (utils/channelArchetype.ts) the same way vocalDescriptionFor
+ * above already does for the actual style-prompt text, so a real kids
+ * archetype ('kids'/'kr-kids-song'/'jp-kids-song') keeps child-voice wording
+ * and every other archetype gets adult wording instead.
+ */
+const VOCAL_TYPE_LABEL_KO_KIDS: Record<VocalType, string> = {
+  male: '남아',
+  female: '여아',
+  mixed: '남아·여아 듀엣'
+};
+
+const VOCAL_TYPE_LABEL_KO_ADULT: Record<VocalType, string> = {
+  male: '남성',
+  female: '여성',
+  mixed: '듀엣·혼성'
+};
+
+export function vocalLabel(vocalType: VocalType, archetype: ChannelArchetype | string | undefined): string {
+  return (isKidsArchetype(archetype) ? VOCAL_TYPE_LABEL_KO_KIDS : VOCAL_TYPE_LABEL_KO_ADULT)[vocalType];
 }
 
 /** TASK v3.38 Part B2 — the 6/6/6-of-18 default; scaleVocalQuota below applies this as a ratio at any songCount, not a literal must-equal-18 requirement. */

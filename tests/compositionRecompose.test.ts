@@ -119,6 +119,49 @@ describe('[v3.62 TASK 3] recomposeBlockingTracks', () => {
   });
 });
 
+/**
+ * TASK (ratio-based lyric language mismatch) — this loop's own internal
+ * scoreComposition() call previously always omitted lyricLanguage entirely
+ * (a pre-existing gap, unrelated to this task's own fix). The NEW per-track
+ * language-ratio check in compositionScorer.ts is gated on opts.lyricLanguage
+ * being explicitly present, so that pre-existing gap never turns into a
+ * false-block — it just means this loop couldn't retry a genuine language
+ * mismatch at all until this new 4th param was added. providers/index.ts's
+ * real call site now passes opts.lyricLanguage through; these two tests
+ * prove the difference that makes.
+ */
+describe('[ratio-based lyric language mismatch] recomposeBlockingTracks — lyricLanguage plumbing', () => {
+  function koreanFillerLines(count: number): string {
+    return Array.from({ length: count }, (_, i) => `조용한 아침 햇살이 창가에 부드럽게 내려와요 번호 ${i + 1}`).join('\n');
+  }
+  function brokenKoreanTargetLyrics(): string {
+    return `[verse 1]\n${Array.from({ length: 20 }, (_, i) => `this is an entirely english verse line number ${i}`).join('\n')}\n\n[end]`;
+  }
+
+  it('passing lyricLanguage threads through to the new language-ratio blocking check, so a wrong-language track actually gets retried', async () => {
+    const songs = [songWith({ trackNo: 1, lyrics: brokenKoreanTargetLyrics() })];
+    let calls = 0;
+    const result = await recomposeBlockingTracks(songs, async (current, trackNo) => {
+      calls += 1;
+      return current.map(song => (song.trackNo === trackNo ? songWith({ trackNo, lyrics: `[verse 1]\n${koreanFillerLines(15)}\n\n[end]` }) : song));
+    }, [], 'korean');
+    expect(calls).toBe(1);
+    expect(result.log).toHaveLength(1);
+    expect(result.log[0]).toMatchObject({ trackNo: 1, resolved: true });
+  });
+
+  it('omitting lyricLanguage means the exact same wrong-language track is silently never retried (the real-world consequence of the gap this param closes)', async () => {
+    const songs = [songWith({ trackNo: 1, lyrics: brokenKoreanTargetLyrics() })];
+    let calls = 0;
+    const result = await recomposeBlockingTracks(songs, async (current, trackNo) => {
+      calls += 1;
+      return current;
+    });
+    expect(calls).toBe(0);
+    expect(result.log).toEqual([]);
+  });
+});
+
 describe('[v3.64 TASK D] recomposeBlockingTracks retries a song whose hook duplicates channel history', () => {
   it('retries and resolves once the regenerated hook is genuinely new', async () => {
     const songs = [songWith({ trackNo: 1, hookPhrase: 'I Won\'t Forget' })];

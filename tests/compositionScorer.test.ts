@@ -387,3 +387,70 @@ describe('[v3.77 TASK A-5/B-4/D-2] new blocking checks fire on the exact failure
     expect(result.packAdvisory.some(issue => issue.labelKo.includes('상한을 넘겨'))).toBe(true);
   });
 });
+
+/**
+ * TASK (ratio-based lyric language mismatch) — the stricter BLOCKING tier on
+ * top of core/lyricMetrics.ts's checkLyricLanguageMatch/
+ * lyricLanguageMismatchReasonKo (the same ratio math
+ * core/batchPreallocation.ts's reconcileWithPreassignedSlot already uses for
+ * its own non-blocking song.warnings entry — see
+ * tests/lyricLanguageReconciliation.test.ts). This is the real "block + mark
+ * for recompose" mechanism this codebase has: CompositionScore.blocking is
+ * exactly what core/compositionRecompose.ts's recomposeBlockingTracks
+ * retries (see this file's own top-of-module doc comment), and every other
+ * caller surfaces the same blocking list to the user.
+ *
+ * Only fires when the caller passes a real opts.lyricLanguage — omitting it
+ * (this file's own songWith() fixture default, and csvExport.ts's real
+ * evaluateGenerationGate call) must never spuriously block a pack nobody
+ * told this function the real target language of.
+ */
+describe('[ratio-based lyric language mismatch] scoreComposition — per-track blocking check', () => {
+  function koreanFillerLines(count: number): string {
+    return Array.from({ length: count }, (_, i) => `조용한 아침 햇살이 창가에 부드럽게 내려와요 번호 ${i + 1}`).join('\n');
+  }
+  function japaneseFillerLines(count: number): string {
+    return Array.from({ length: count }, (_, i) => `しずかな あさの ひかりが まどべに やさしく さしこみます ばんごう ${i + 1}`).join('\n');
+  }
+
+  it('blocks a 90%-English body with only one stray Korean word against a korean target (the real gap the presence-only check missed)', () => {
+    const brokenLyrics = `[verse 1]\n${Array.from({ length: 20 }, (_, i) => `this is an entirely english verse line number ${i}`).join('\n')}\nonly one word here is 한글\n\n[end]`;
+    const song = songWith({ trackNo: 1, lyrics: brokenLyrics });
+    const [score] = scoreComposition([song], { lyricLanguage: 'korean' }).tracks;
+    expect(score.blocking.some(b => b.includes("lyricLanguage가 'korean'"))).toBe(true);
+  });
+
+  it('does NOT block real Korean content at a realistic generated ratio (measured against real local-generation output: ~70-81% Hangul with legitimate English simile phrases mixed in)', () => {
+    const realisticKoreanLyrics = `[verse 1]\n${koreanFillerLines(15)}\n크라우디드 룸 같은 느낌이에요, crowded room처럼\n\n[end]`;
+    const song = songWith({ trackNo: 1, lyrics: realisticKoreanLyrics });
+    const [score] = scoreComposition([song], { lyricLanguage: 'korean' }).tracks;
+    expect(score.blocking.some(b => b.includes("lyricLanguage가 'korean'")), `blocking: ${JSON.stringify(score.blocking)}`).toBe(false);
+  });
+
+  it('blocks a Japanese target whose body is entirely English', () => {
+    const brokenLyrics = `[verse 1]\n${Array.from({ length: 20 }, (_, i) => `this is an entirely english verse line number ${i}`).join('\n')}\n\n[end]`;
+    const song = songWith({ trackNo: 1, lyrics: brokenLyrics });
+    const [score] = scoreComposition([song], { lyricLanguage: 'japanese' }).tracks;
+    expect(score.blocking.some(b => b.includes("lyricLanguage가 'japanese'"))).toBe(true);
+  });
+
+  it('does NOT block real Japanese content at a realistic generated ratio (measured against real local-generation output: ~70-82% kana/kanji)', () => {
+    const realisticJapaneseLyrics = `[verse 1]\n${japaneseFillerLines(15)}\n\n[end]`;
+    const song = songWith({ trackNo: 1, lyrics: realisticJapaneseLyrics });
+    const [score] = scoreComposition([song], { lyricLanguage: 'japanese' }).tracks;
+    expect(score.blocking.some(b => b.includes("lyricLanguage가 'japanese'")), `blocking: ${JSON.stringify(score.blocking)}`).toBe(false);
+  });
+
+  it('does NOT block real English content (measured against real local-generation output: ~99% Latin)', () => {
+    const song = songWith({ trackNo: 1 }); // songWith()'s own default lyrics are already realistic English pop lyrics
+    const [score] = scoreComposition([song], { lyricLanguage: 'english' }).tracks;
+    expect(score.blocking.some(b => b.includes("lyricLanguage가 'english'")), `blocking: ${JSON.stringify(score.blocking)}`).toBe(false);
+  });
+
+  it('never fires when the caller omits opts.lyricLanguage — same all-English default fixture would otherwise never spuriously block a caller that never declared a target language', () => {
+    const brokenLyrics = `[verse 1]\n${koreanFillerLines(15)}\n\n[end]`;
+    const song = songWith({ trackNo: 1, lyrics: brokenLyrics });
+    const [score] = scoreComposition([song]).tracks; // no opts at all, mirrors csvExport.ts's real evaluateGenerationGate call
+    expect(score.blocking.some(b => b.includes('lyricLanguage'))).toBe(false);
+  });
+});

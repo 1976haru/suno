@@ -4,11 +4,11 @@ import { getGenreById, genreLibrary } from '../../data/genreLibrary';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
 import { BREADTH_LABEL_KO, directSetLocal, resolveMainFamilyId, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
-import { userChoicesFromOptions } from '../../core/userChoices';
+import { provenanceForSystemFix, userChoicesFromOptions } from '../../core/userChoices';
 import { PALETTE_FAMILIES } from '../../data/paletteFamilies';
 import { channelSoundFloorForArchetype } from '../../data/channelSoundFloor';
 import { normalizeDiversityAllocations } from '../../core/diversityAllocation';
-import { summarizeVocalTraitDistribution } from '../../core/vocalPlan';
+import { resolveVocalAllocationMode, summarizeVocalTraitDistribution } from '../../core/vocalPlan';
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
@@ -271,6 +271,17 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     [gateVerifiedCombos, gateGenreIds]
   );
   const vocalSummaryKo = `남성 솔로 ${vocalDistribution.quota.male}곡 · 여성 솔로 ${vocalDistribution.quota.female}곡 · 듀엣 ${vocalDistribution.quota.mixed}곡`;
+  // TASK v5.13 — real bug: this used to be `!opts.vocalTone` (Step2Plan.tsx
+  // pre-v5.13), which is always `false` since createInitialOptions
+  // (utils/generation.ts) seeds vocalTone to channel.defaultVocal — a
+  // non-empty string for every real channel — so the "고르게 배분" (balanced)
+  // message never rendered even for a genuinely untouched default.
+  // resolveVocalAllocationMode (core/vocalPlan.ts) replaces the old boolean
+  // outright: its 'balanced' branch reuses the corrected tone-only check
+  // (isVocalToneBalanced) AND additionally distinguishes a channel's own
+  // fixed gender quota (vocalQuotaOverride, e.g. kr-idol-male) from a real
+  // balanced default — see VocalAllocationMode's own doc comment (types.ts).
+  const vocalAllocationMode = resolveVocalAllocationMode(opts);
 
   const constraints = useMemo(
     () => resolveConstraintsFromOptions(gateOpts, audienceProfileForChannelArchetype(gateOpts.channel.archetype, gateOpts.audience), currentWorkspaceId()),
@@ -317,7 +328,11 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   }, [designGateResult, gateAcknowledged, onDesignGateStatusChange]);
 
   function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
-    setOpts(prev => ({ ...prev, ...fix }));
+    // TASK (provenance) — see Step3Generate.tsx's own identical
+    // applyDesignGateAutoFix comment / core/userChoices.ts's
+    // provenanceForSystemFix doc comment for why this is currently a no-op
+    // for the 13 tracked fields but stays correct for a future autoFix.
+    setOpts(prev => ({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
   }
 
   function updateCount(axis: DiversityAxisId, id: string, value: number) {
@@ -351,7 +366,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     <section className="panel">
       <ConceptRecommendationPanel
         familyId={resolvedPaletteFamilyId}
-        onChangeFamily={id => setOpts(prev => ({ ...prev, paletteFamilyOverride: id }))}
+        onChangeFamily={id => setOpts(prev => ({ ...prev, paletteFamilyOverride: id, choiceProvenance: { ...prev.choiceProvenance, paletteFamilyId: 'user' } }))}
         tempoSummaryKo={tempoSummaryKo}
         moneyChordBreakdown={moneyChordBreakdown}
         moneyChordMode={opts.moneyChordMode}
@@ -359,7 +374,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
         customMoneyChord={opts.customMoneyChord}
         songCount={opts.songCount}
         vocalSummaryKo={vocalSummaryKo}
-        vocalIsBalanced={!opts.vocalTone}
+        vocalAllocationMode={vocalAllocationMode}
         flagshipCombo={flagshipCombo}
         flagshipGenreLabelKo={flagshipCombo ? genreLabel(flagshipCombo.genreId) : ''}
       />
@@ -449,7 +464,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
                 type="radio"
                 name="conceptBreadth"
                 checked={plan.interpretation.breadth === breadth}
-                onChange={() => setOpts(prev => ({ ...prev, breadthOverride: breadth }))}
+                onChange={() => setOpts(prev => ({ ...prev, breadthOverride: breadth, choiceProvenance: { ...prev.choiceProvenance, breadth: 'user' } }))}
               />
               {BREADTH_LABEL_KO[breadth]}
             </label>
@@ -472,7 +487,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
                   type="radio"
                   name="paletteFamily"
                   checked={resolvedPaletteFamilyId === family.id}
-                  onChange={() => setOpts(prev => ({ ...prev, paletteFamilyOverride: family.id }))}
+                  onChange={() => setOpts(prev => ({ ...prev, paletteFamilyOverride: family.id, choiceProvenance: { ...prev.choiceProvenance, paletteFamilyId: 'user' } }))}
                 />
                 {family.labelKo}
               </label>

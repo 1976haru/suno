@@ -435,7 +435,7 @@ export async function generateBlueprint(
   const { songs: recomposedSongs } = await recomposeBlockingTracks(scoredSongs, async (currentSongs, trackNo, feedback) => {
     const { blueprint: next } = await regenerateTrack({ ...blueprint, songs: currentSongs }, trackNo, opts, genres, moods, season, settings, feedback, recomposeAvoid);
     return next.songs;
-  }, recomposeAvoid.usedHooks);
+  }, recomposeAvoid.usedHooks, opts.lyricLanguage);
 
   return { ...blueprint, songs: scoreSongs(recomposedSongs, opts.channel, opts.lyricLanguage) };
 }

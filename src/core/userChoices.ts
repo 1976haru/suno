@@ -27,8 +27,13 @@
 
 import type {
   ChannelArchetype,
+  ChannelProfile,
+  ChoiceSource,
   ConceptBreadth,
+  GenerationChoiceProvenance,
   GenerationOptions,
+  GenreBlendMode,
+  KidsAgeTierId,
   LyricLanguage,
   LyricPerspective,
   PerspectiveMode,
@@ -36,14 +41,14 @@ import type {
   SongIdea,
   WorkspaceId
 } from '../types';
-import { migrateArchetype } from '../data/presets';
-import { workspaceForArchetype } from '../data/workspaces';
+import { channelPresets, migrateArchetype } from '../data/presets';
+import { getWorkspace, workspaceForArchetype } from '../data/workspaces';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { getGenreById } from '../data/genreLibrary';
 import { moneyChordPresets } from '../data/moneyChords';
 import { computeMoneyChordComparison, type MoneyChordBreakdownEntry } from './moneyChordDisplay';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
-import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
+import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, type VocalType } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
 import { isKidsArchetype } from '../utils/channelArchetype';
@@ -62,12 +67,26 @@ export interface UserExplicitChoices {
   perspective?: GenerationOptions['perspective'];
   /** TASK v6.0 (perspectiveMode) — Step2Concept's "적용 방식" picker (fixed/dominant/varied); see GenerationOptions.perspectiveModeIsExplicitChoice for why this needs its own explicit-choice flag (same shape as moneyChordMode). */
   perspectiveMode?: GenerationOptions['perspectiveMode'];
+  /** TASK (provenance) — Step2Concept's genre-blend "적용 방식" picker (shared-primary/lead-only); same shape as perspectiveMode just above. */
+  genreBlendMode?: GenreBlendMode;
   songCount?: number;
+  /** TASK (provenance) — the 13th tracked axis; see GenerationChoiceProvenance's own doc comment (types.ts) for why this has no legacy inference to fall back to — Step1Channel.tsx's picker only ever reaches GenerationOptions via a channel switch/save (App.tsx's applyChannelToOptions), so 'channel' is the only real provenance value this field is ever observed to carry today. */
+  kidsAgeTierId?: KidsAgeTierId;
   /** v5.7 follow-up (TASK v5.7 §4-2 verification) — DiversityAllocationPanel's "직접 주제/상황" free-text field; see setDirector.ts's buildBaseOptions own doc comment for the real gap this closes. */
   customLyricThemeScene?: string;
 
-  /** Per-field provenance — only 'user' entries are protected by assertUserChoicesPreserved. Keys not present here are treated as 'default'. */
-  source: Partial<Record<keyof Omit<UserExplicitChoices, 'source'>, 'user' | 'default' | 'concept'>>;
+  /**
+   * Per-field provenance — only 'user' entries are protected by
+   * assertUserChoicesPreserved. Keys not present here are treated as
+   * 'default'. TASK (provenance) — widened from the old
+   * 'user' | 'default' | 'concept' literal union to the full ChoiceSource
+   * type (types.ts) so a value read straight from
+   * GenerationOptions.choiceProvenance (which can also carry 'channel' /
+   * 'system' / 'migration') never needs a lossy cast here. Purely additive:
+   * every value this module itself ever wrote before ('user'/'default'/
+   * 'concept') is still a valid ChoiceSource.
+   */
+  source: Partial<Record<keyof Omit<UserExplicitChoices, 'source'>, ChoiceSource>>;
 }
 
 export function emptyUserChoices(): UserExplicitChoices {
@@ -75,21 +94,89 @@ export function emptyUserChoices(): UserExplicitChoices {
 }
 
 /**
+ * TASK (provenance) — GenerationChoiceProvenance field name -> the actual
+ * GenerationOptions key that field's live value lives on. Only needed for
+ * the two axes whose provenance-map name doesn't match the opts property
+ * name 1:1 (breadth/breadthOverride, paletteFamilyId/paletteFamilyOverride);
+ * every other entry is identity. Shared by provenanceForSystemFix below and
+ * available to any future caller that needs the same mapping.
+ */
+const PROVENANCE_FIELD_TO_OPTS_KEY: { [K in keyof GenerationChoiceProvenance]: keyof GenerationOptions } = {
+  moneyChordMode: 'moneyChordMode',
+  vocalTone: 'vocalTone',
+  genreIds: 'genreIds',
+  lyricLanguage: 'lyricLanguage',
+  packagingLanguage: 'packagingLanguage',
+  perspective: 'perspective',
+  perspectiveMode: 'perspectiveMode',
+  genreBlendMode: 'genreBlendMode',
+  seasonId: 'seasonId',
+  songCount: 'songCount',
+  breadth: 'breadthOverride',
+  paletteFamilyId: 'paletteFamilyOverride',
+  kidsAgeTierId: 'kidsAgeTierId'
+};
+
+/**
+ * TASK (provenance) — generic 'system' recording helper for any code path
+ * that force-applies a `Partial<GenerationOptions>` patch outside direct
+ * user interaction. Today's one real caller is Step2Plan.tsx's/
+ * Step3Generate.tsx's shared applyDesignGateAutoFix (a design-gate issue's
+ * own `autoFix()`). Only marks a tracked field 'system' when `fix` actually
+ * carries that field's own opts key — every real autoFix today
+ * (core/designGate.ts's withVocalTypeAllocation) only ever patches
+ * `diversityAllocations`, which isn't one of this task's 13 tracked axes, so
+ * this correctly returns `{}` for it; this stays ready for the next autoFix
+ * that DOES touch one of the 13 (e.g. a future vocalTone/genreIds autoFix)
+ * without needing its call site to know the field-name mapping itself.
+ */
+export function provenanceForSystemFix(fix: Partial<GenerationOptions>): Partial<GenerationChoiceProvenance> {
+  const result: Partial<GenerationChoiceProvenance> = {};
+  for (const field of Object.keys(PROVENANCE_FIELD_TO_OPTS_KEY) as (keyof GenerationChoiceProvenance)[]) {
+    const optsKey = PROVENANCE_FIELD_TO_OPTS_KEY[field];
+    if (Object.prototype.hasOwnProperty.call(fix, optsKey)) result[field] = 'system';
+  }
+  return result;
+}
+
+/**
  * Builds UserExplicitChoices off a live GenerationOptions the way the real
- * app's App.tsx state actually carries it. Money-chord provenance uses the
- * explicit moneyChordModeIsExplicitChoice flag when the caller set it
- * (Step2Concept's picker does); every other axis falls back to the
- * "differs from the neutral default" heuristic this task's own §2-2 uses
- * operationally ("사용자가 머니코드를 선택했을 때 (source === 'user')" is
- * defined by contrast with "사용자가 선택하지 않았을 때 (기본값)") — a
- * pragmatic stand-in for screens that don't yet track provenance per-field,
- * documented here rather than silently assumed elsewhere.
+ * app's App.tsx state actually carries it.
+ *
+ * TASK (provenance) — real, verified gap this closes: every source
+ * assignment below used to be RECONSTRUCTED after the fact by inspecting the
+ * final GenerationOptions shape (e.g. "genreIds looks user-picked because
+ * selectedGenreFamilyIds is also non-empty" — a heuristic that missed a user
+ * who only ever clicked genre chips, never the separate family checkboxes),
+ * and vocalTone's source was never populated AT ALL despite the field
+ * existing on this interface since v5.7 — the exact bug class
+ * (v3.77/v4.13's vocal-preset-ignored regressions) this whole module exists
+ * to catch could never have been caught for a vocal-tone regression.
+ *
+ * `opts.choiceProvenance` (types.ts's GenerationChoiceProvenance, recorded at
+ * the real moment of each click by Step1Channel.tsx/Step2Concept.tsx/
+ * Step2Plan.tsx/Step3Generate.tsx/App.tsx's applyChannelToOptions — see each
+ * field's own inline comment below for its exact recording point) is now
+ * read FIRST for every one of the 13 tracked axes. The old after-the-fact
+ * heuristics (moneyChordModeIsExplicitChoice, perspectiveModeIsExplicitChoice,
+ * genreBlendModeIsExplicitChoice, the selectedGenreFamilyIds/paletteFamilyOverride/
+ * breadthOverride "presence implies user" checks, "any perspective value
+ * reaching here is real") survive ONLY as fallbacks for a GenerationOptions
+ * that arrived without live click-time tracking — an old saved/imported pack
+ * predating this field, or a hand-built options object in an older test —
+ * so every pre-existing caller keeps its previous behavior byte-for-byte.
+ * vocalTone/lyricLanguage/packagingLanguage/seasonId/songCount/kidsAgeTierId
+ * had no prior heuristic at all (declared on the interface, never wired), so
+ * for those six, `choiceProvenance` is the ONLY way source ever gets set.
  */
 export function userChoicesFromOptions(opts: Partial<GenerationOptions> & Pick<GenerationOptions, 'moneyChordMode'>): UserExplicitChoices {
   const choices = emptyUserChoices();
+  const provenance = opts.choiceProvenance ?? {};
+
   if (opts.moneyChordMode && opts.moneyChordMode !== 'default') {
     choices.moneyChordMode = opts.moneyChordMode;
-    choices.source.moneyChordMode = opts.moneyChordModeIsExplicitChoice ? 'user' : 'default';
+    // Recorded at click time by Step2Concept.tsx's money-chord ChoiceGrid and its custom-progression input.
+    choices.source.moneyChordMode = provenance.moneyChordMode ?? (opts.moneyChordModeIsExplicitChoice ? 'user' : 'default');
   }
   if (opts.moneyChordMode === 'custom' && opts.customMoneyChord?.trim()) {
     choices.customMoneyChord = opts.customMoneyChord.trim();
@@ -100,15 +187,45 @@ export function userChoicesFromOptions(opts: Partial<GenerationOptions> & Pick<G
   }
   if (opts.paletteFamilyOverride) {
     choices.paletteFamilyId = opts.paletteFamilyOverride;
-    choices.source.paletteFamilyId = 'user';
+    // Recorded at click time by Step2Plan.tsx's "이 세트의 계열" radio picker and ConceptRecommendationPanel's own family chips (both funnel into the same paletteFamilyOverride setOpts call).
+    choices.source.paletteFamilyId = provenance.paletteFamilyId ?? 'user';
   }
   if (opts.breadthOverride) {
     choices.breadth = opts.breadthOverride;
-    choices.source.breadth = 'user';
+    // Recorded at click time by Step2Plan.tsx's "이 세트의 성격" radio picker.
+    choices.source.breadth = provenance.breadth ?? 'user';
   }
-  if (opts.genreIds?.length && opts.selectedGenreFamilyIds?.length) {
+  // TASK (provenance) — real, verified gap: the old heuristic required BOTH
+  // opts.genreIds.length AND opts.selectedGenreFamilyIds.length, so a user
+  // who only ever clicked genre chips (Step2Concept.tsx's selectPrimaryGenre/
+  // toggleSecondaryGenre/chooseGenreFromSearch — the ordinary, most common
+  // genre-picking path, never touching the separate GenreFamily checkbox
+  // control) got choices.source.genreIds left undefined: completely
+  // unprotected by assertUserChoicesPreserved. provenance.genreIds (set by
+  // every one of those handlers, and by handleApplyConceptRecommendation as
+  // 'concept', and by App.tsx's applyChannelToOptions as 'channel') is
+  // checked first now; the old family-ids heuristic survives only as the
+  // fallback described in this function's own doc comment above.
+  if (opts.genreIds?.length) {
     choices.genreIds = opts.genreIds;
-    choices.source.genreIds = 'user';
+    const genreIdsSource = provenance.genreIds ?? (opts.selectedGenreFamilyIds?.length ? 'user' : undefined);
+    if (genreIdsSource) choices.source.genreIds = genreIdsSource;
+  }
+  // TASK (provenance) — real, verified gap: vocalTone had a declared field on
+  // this interface (since v5.7) but userChoicesFromOptions never set
+  // choices.source.vocalTone anywhere — grep-confirmed. A real vocal-preset
+  // regression (the exact v3.77/v4.13 bug class) could never have been
+  // caught by assertUserChoicesPreserved's own vocalTone check, because
+  // nothing ever fed it a 'user' source to protect. Recorded at click time by
+  // Step2Concept.tsx's vocal ChoiceGrid (including the explicit "고르게 배정"
+  // balanced card — see that handler's own comment) and its manual text
+  // input; 'concept' by handleApplyConceptRecommendation when a recommended
+  // vocal preset is actually applied; 'channel' by App.tsx's
+  // applyChannelToOptions on channel switch. No legacy heuristic existed for
+  // this field, so there is none to fall back to.
+  if (opts.vocalTone?.trim()) {
+    choices.vocalTone = opts.vocalTone;
+    if (provenance.vocalTone) choices.source.vocalTone = provenance.vocalTone;
   }
   // v5.7 follow-up (TASK v5.7 §4-2 verification) — real measurement found
   // this field existed on the UserExplicitChoices interface (declared from
@@ -121,11 +238,12 @@ export function userChoicesFromOptions(opts: Partial<GenerationOptions> & Pick<G
   // updated doc comment for the full trace). perspective is a required,
   // always-set GenerationOptions field (unlike moneyChordMode's sentinel
   // 'default') with no separate "was this really explicit" flag of its own,
-  // so — matching how vocalTone/genreIds are treated here when present —
-  // any value reaching this function is treated as the user's real choice.
+  // so the pre-existing "any value reaching this function is the user's real
+  // choice" heuristic survives as the fallback when live provenance (recorded
+  // at click time by Step2Concept.tsx's perspective ChoiceGrid) is absent.
   if (opts.perspective) {
     choices.perspective = opts.perspective;
-    choices.source.perspective = 'user';
+    choices.source.perspective = provenance.perspective ?? 'user';
   }
   // TASK v6.0 (perspectiveMode) — unlike `perspective` just above,
   // perspectiveMode is genuinely optional/undefined on a fresh
@@ -135,10 +253,44 @@ export function userChoicesFromOptions(opts: Partial<GenerationOptions> & Pick<G
   // is itself a legitimately clickable choice in Step2Concept's picker (not
   // just a sentinel), so this mirrors moneyChordMode's explicit-choice-flag
   // treatment instead of `perspective`'s "any value reaching here is real"
-  // heuristic.
+  // heuristic. Recorded at click time by Step2Concept.tsx's "적용 방식" (POV)
+  // ChoiceGrid.
   if (opts.perspectiveMode) {
     choices.perspectiveMode = opts.perspectiveMode;
-    choices.source.perspectiveMode = opts.perspectiveModeIsExplicitChoice ? 'user' : 'default';
+    choices.source.perspectiveMode = provenance.perspectiveMode ?? (opts.perspectiveModeIsExplicitChoice ? 'user' : 'default');
+  }
+  // TASK (provenance) — same sentinel-vs-explicit-choice shape as
+  // perspectiveMode just above; 'shared-primary' is both the neutral default
+  // AND a legitimately clickable choice in Step2Concept's genre "적용 방식"
+  // ChoiceGrid, so genreBlendModeIsExplicitChoice survives as the fallback.
+  if (opts.genreBlendMode) {
+    choices.genreBlendMode = opts.genreBlendMode;
+    choices.source.genreBlendMode = provenance.genreBlendMode ?? (opts.genreBlendModeIsExplicitChoice ? 'user' : 'default');
+  }
+  // TASK (provenance) — declared on this interface but, like vocalTone above,
+  // never previously populated by this function. No legacy heuristic existed;
+  // only ever comes from live click-time provenance (Step2Concept.tsx's
+  // language chips / season chips, App.tsx's applyChannelToOptions for a
+  // channel switch, handleApplyConceptRecommendation for seasonId).
+  if (opts.lyricLanguage && provenance.lyricLanguage) {
+    choices.lyricLanguage = opts.lyricLanguage;
+    choices.source.lyricLanguage = provenance.lyricLanguage;
+  }
+  if (opts.packagingLanguage && provenance.packagingLanguage) {
+    choices.packagingLanguage = opts.packagingLanguage;
+    choices.source.packagingLanguage = provenance.packagingLanguage;
+  }
+  if (opts.seasonId && provenance.seasonId) {
+    choices.seasonId = opts.seasonId;
+    choices.source.seasonId = provenance.seasonId;
+  }
+  if (opts.songCount && provenance.songCount) {
+    choices.songCount = opts.songCount;
+    choices.source.songCount = provenance.songCount;
+  }
+  if (opts.kidsAgeTierId && provenance.kidsAgeTierId) {
+    choices.kidsAgeTierId = opts.kidsAgeTierId;
+    choices.source.kidsAgeTierId = provenance.kidsAgeTierId;
   }
   if (opts.customLyricThemeScene?.trim()) {
     choices.customLyricThemeScene = opts.customLyricThemeScene.trim();
@@ -281,9 +433,51 @@ export function assertUserChoicesPreservedOrThrow(
  * computed and, critically, which existing v5.7-v5.10 machinery it reuses
  * instead of recomputing.
  */
+/**
+ * TASK (gap 2 — workspace-derivation fix) — non-silent recovery data for a
+ * channel whose archetype doesn't belong to the REAL active workspace (the
+ * exact case core/generationPreflight.ts's channelArchetypeHardBlock already
+ * hard-blocks — this is display/recovery data for that same condition, never
+ * a second source of truth for WHETHER it's blocked). The task doc names 4
+ * concrete recovery actions a UI can offer; this exposes the data the first
+ * two need (the other two — "채널 편집", "채널 삭제" — need no extra data,
+ * they just navigate to the existing channel editor/manager, already wired
+ * elsewhere in this app).
+ */
+export interface WorkspaceRecoveryOptions {
+  /** True only when `channel.archetype` genuinely doesn't belong to the active workspace's own archetypeIds. Every other field is undefined when there's nothing to recover from. */
+  mismatched: boolean;
+  /** The workspace this channel's archetype ACTUALLY belongs to (data/workspaces.ts's workspaceForArchetype) — "채널의 워크스페이스로 이동" target. Undefined for an archetype that belongs to no shipped workspace at all (nothing real to navigate to). */
+  correctWorkspaceId?: WorkspaceId;
+  /** A representative built-in channel preset for the CURRENTLY ACTIVE workspace (the first registered preset whose own archetype belongs to it) — "현재 워크스페이스 기본 채널로 전환" target. Undefined only if the active workspace ships with zero built-in presets (not true for any real workspace today). */
+  suggestedDefaultChannel?: ChannelProfile;
+}
+
+/**
+ * TASK (gap 2) — pure, directly testable. Kept separate from
+ * buildResolvedGenerationContract's own body (not just inlined) so a UI
+ * layer or another caller can compute recovery options off a bare
+ * archetype/workspaceId pair without needing a full opts/choices/slots
+ * contract build.
+ */
+export function computeWorkspaceRecoveryOptions(archetype: ChannelArchetype, activeWorkspaceId: WorkspaceId): WorkspaceRecoveryOptions {
+  const activeWorkspace = getWorkspace(activeWorkspaceId);
+  if (activeWorkspace.archetypeIds.includes(archetype)) return { mismatched: false };
+  const correctWorkspace = workspaceForArchetype(archetype);
+  const suggestedDefaultChannel = channelPresets.find(preset => preset.archetype && activeWorkspace.archetypeIds.includes(preset.archetype));
+  return {
+    mismatched: true,
+    correctWorkspaceId: correctWorkspace?.id,
+    suggestedDefaultChannel
+  };
+}
+
 export interface ResolvedGenerationContract {
+  /** TASK (gap 2) — the REAL currently-active workspace (whatever the caller's own `activeWorkspaceId` argument to buildResolvedGenerationContract said), never reverse-derived from the channel's own archetype — see that function's own doc comment for the real bug this replaced. */
   workspaceId: WorkspaceId;
   archetype: { selected: ChannelArchetype; effective: ChannelArchetype };
+  /** TASK (gap 2) — non-silent recovery data when `channel.archetype` doesn't belong to `workspaceId` above; `mismatched: false` (every other field undefined) otherwise. */
+  workspaceRecovery: WorkspaceRecoveryOptions;
   genreIds: { selected: string[]; effective: string[]; removed: string[] };
   /** Real per-song tally off `slots` (id -> song count, sorted by count desc) — what the UI actually renders as "밝은 키즈팝 6 · 어쿠스틱 동요 6". Not in the task doc's own interface sketch verbatim, but genreIds.effective alone (an id pool, no counts) can't render that line without the UI re-deriving the same tally a second time. */
   genreCounts: { id: string; count: number }[];
@@ -343,54 +537,108 @@ function tallyPovCounts(slots: readonly ResolvedSlotLike[]): Partial<Record<Lyri
  *    useMemo already derives off real slots — this function derives an
  *    identical tally (tallyById) rather than requiring the caller to hand
  *    one in.
- *  - genreIds.effective/removed: core/genreSelection.ts's
- *    sanitizeGenreIdsForArchetype, called directly (its own real output,
- *    not re-derived).
+ *  - genreIds.effective/removed: `removed` is still
+ *    core/genreSelection.ts's sanitizeGenreIdsForArchetype's own real output
+ *    (archetype-eligibility only). `effective` (TASK gap 1 fix) is no
+ *    longer that function's `.valid` verbatim — `.valid` is an
+ *    OPTION-LEVEL allow-list ("which selected ids are archetype-eligible"),
+ *    not a report of what actually got used; `effective` is now `.valid`
+ *    filtered down to the ids that actually appear in `slots` (falling back
+ *    to the theoretical `.valid` only when `slots` is empty). A genre that's
+ *    eligible but still got 0 real songs is surfaced as its own mismatch
+ *    (see below), not silently reported as "applied".
  *  - vocal.effectiveQuota: the REAL per-song vocalType tally off `slots`
  *    when slots are non-empty (tallyVocalQuota) — the actual applied
  *    distribution, not merely the theoretical quota target. Falls back to
  *    the v5.9 baseVocalQuota/leaningAdultVocalQuota resolution chain
  *    (core/vocalPlan.ts) only when `slots` is empty (a caller that hasn't
- *    preallocated yet). vocal.presetApplied reuses leaningGenderFor's own
- *    recognition signal — the exact "was this vocalTone recognized" check
- *    v5.9 fixed batchPreallocation.ts's explicitUnrecognizedVocalTone
- *    guard with.
+ *    preallocated yet). vocal.presetApplied (TASK gap 1 fix) now checks the
+ *    REAL tally too — whether the leaning gender's own vocalType bucket
+ *    actually got >=1 real song — not just leaningGenderFor's "was this
+ *    vocalTone text even recognized" signal; falls back to the old
+ *    recognition-only check (the exact one v5.9's own
+ *    batchPreallocation.ts's explicitUnrecognizedVocalTone guard uses) only
+ *    when `slots` is empty.
  *  - perspective.effective/mode: core/lyricDiversityPlan.ts's
  *    resolvePerspectiveMode/povDistribution (v5.10 TASK C) — real per-song
  *    pov tally off `slots` when available, else that module's own
- *    theoretical distribution.
+ *    theoretical distribution. Already fully slot-derived; unchanged by the
+ *    gap-1 fix.
+ *  - workspaceId/workspaceRecovery (TASK gap 2 fix): `workspaceId` is now
+ *    the caller's own `activeWorkspaceId` argument verbatim — never
+ *    reverse-derived via workspaceForArchetype(effectiveArchetype) the way
+ *    it used to be. Reverse-derivation meant a genuinely mismatched
+ *    channel/workspace pairing computed its own "expected" workspace from
+ *    the SAME broken channel data the check was supposed to be validating
+ *    against, silently defeating the whole point of a mismatch check.
+ *    `workspaceRecovery` (computeWorkspaceRecoveryOptions) surfaces
+ *    non-silent recovery data for the UI when the two disagree — purely
+ *    informational, never an acknowledgeable `mismatches` entry, since
+ *    core/generationPreflight.ts's channelArchetypeHardBlock is the real,
+ *    sole (no "proceed anyway") enforcement of this condition.
  *  - mismatches: for the 3 axes assertUserChoicesPreserved already checks
  *    (money-chord-zeroed, vocal-tone-not-applied, genre-completely-dropped),
  *    this reuses computeStructuredViolations directly — the exact same
  *    function assertUserChoicesPreserved itself now calls — so the contract
  *    screen and the dev-throw/prod-warning guardrail can never disagree
- *    about whether a given case is a violation. On top of that shared set,
- *    two checks computeStructuredViolations structurally cannot express are
- *    added directly here: (a) a money-chord chosenCount-zero case detected
+ *    about whether a given case is a violation. `genreIdsUsed` fed into it
+ *    is now real-slot-derived too (TASK gap 1 fix), not the options-level
+ *    allow-list. On top of that shared set, three checks
+ *    computeStructuredViolations structurally cannot express are added
+ *    directly here: (a) a money-chord chosenCount-zero case detected
  *    generically via computeMoneyChordComparison even when `choices` wasn't
  *    built from real UI provenance (mirrors that module's own "no live
- *    repro today, kept generic for a future regression" stance), and (b) a
+ *    repro today, kept generic for a future regression" stance), (b) a
  *    PARTIAL genre removal (sanitizeGenreIdsForArchetype stripped some but
  *    not all ids) — computeStructuredViolations' own genreIds check is
  *    all-or-nothing by design (mirrors assertUserChoicesPreserved's
- *    pre-existing contract) and was never meant to catch a partial strip.
+ *    pre-existing contract) and was never meant to catch a partial strip,
+ *    and (c) TASK gap 1's own new case — a genre that IS archetype-eligible
+ *    but still got 0 real songs (an explicit multi-select only, see that
+ *    check's own doc comment for why it's gated on choices.source.genreIds
+ *    === 'user').
  */
 export function buildResolvedGenerationContract(
   opts: GenerationOptions,
   choices: UserExplicitChoices,
   slots: PreassignedSongSlot[] | SongIdea[],
+  activeWorkspaceId: WorkspaceId,
   extraWarnings: string[] = []
 ): ResolvedGenerationContract {
   const effectiveArchetype = resolveEffectiveArchetype(opts.channel);
   const selectedArchetype = opts.channel.archetype ?? effectiveArchetype;
-  const workspace = workspaceForArchetype(effectiveArchetype);
+  // TASK (gap 2) — the channel's own NATURAL home workspace (purely a
+  // function of its archetype) — still needed for the genre-removal
+  // reasonKo below ("이 채널에서 쓸 수 없습니다" names the workspace the
+  // channel itself belongs to, not necessarily the one the user is
+  // currently active in). Deliberately kept separate from
+  // `activeWorkspaceId` (the real currently-active workspace, now a
+  // required parameter — see this function's own doc comment for the real
+  // bug that reverse-derivation used to cause when the two disagree).
+  const channelHomeWorkspace = workspaceForArchetype(effectiveArchetype);
   const audienceProfile = audienceProfileForChannelArchetype(effectiveArchetype, opts.audience);
+  const workspaceRecovery = computeWorkspaceRecoveryOptions(effectiveArchetype, activeWorkspaceId);
 
   // --- genre ---
   const selectedGenreIds = opts.genreIds ?? [];
   const genreSanitization = sanitizeGenreIdsForArchetype(selectedGenreIds, effectiveArchetype);
   const genreCounts = tallyById(slots, 'genreId');
   const genreWarningKo = genreSanitizationWarningKo(genreSanitization.removed, effectiveArchetype);
+  // TASK (gap 1) — sanitizeGenreIdsForArchetype's own `.valid` only reports
+  // which selected ids are ARCHETYPE-ELIGIBLE (an options-level allow-list),
+  // never "which ids actually landed on a real song" — a genre can be
+  // perfectly eligible and still get 0 real songs from whatever the real
+  // rotation/allocation logic actually decided (a real allocation quirk, a
+  // bug, an edge case). `realUsedGenreIds` is the ground truth `genreIds.effective`
+  // (below) and the genre-under-allocation mismatch check further down are
+  // both built from, instead of the options-level allow-list alone.
+  const realUsedGenreIds = new Set(genreCounts.map(entry => entry.id));
+  // Falls back to the theoretical genreSanitization.valid only when `slots`
+  // is empty (nothing to tally against yet — a caller previewing before any
+  // allocation has run).
+  const genreEffective = slots.length
+    ? genreSanitization.valid.filter(id => realUsedGenreIds.has(id))
+    : genreSanitization.valid;
 
   // --- money chord ---
   const moneyChordCounts = tallyById(slots, 'moneyChordId');
@@ -417,6 +665,29 @@ export function buildResolvedGenerationContract(
   const effectiveQuota = talliedVocal.total > 0
     ? { male: talliedVocal.male, female: talliedVocal.female, mixed: talliedVocal.mixed }
     : theoreticalVocalQuota;
+  // TASK (gap 1) — presetApplied/vocalToneApplied used to be purely
+  // options-level (Boolean(detectedVocalTone) — "was vocalTone's text even
+  // RECOGNIZED as a preset/leaning"), never checking whether the recognized
+  // lean actually shows up in the REAL per-song vocalType distribution —
+  // the exact v3.77/v4.13 bug class (a picked preset recognized fine but
+  // never actually reflected in the real per-song plan). Now checked
+  // against the real tally when slots exist: the leaning gender's own
+  // vocalType bucket (duet AND the group-harmony 'mixed' preset both fold
+  // into vocalType 'mixed', matching leaningAdultVocalQuota's own remap)
+  // must have gotten at least one real song. Falls back to the old
+  // recognition-only check when there's no real tally yet to compare
+  // against — and, matching the pre-existing behavior exactly, stays false
+  // whenever nothing was leaned toward at all (detectedVocalTone undefined).
+  const leanVocalTypeKey: VocalType | undefined = !detectedVocalTone
+    ? undefined
+    : detectedVocalTone === 'duet' || detectedVocalTone === 'mixed'
+      ? 'mixed'
+      : detectedVocalTone;
+  const vocalToneReallyApplied = !detectedVocalTone
+    ? false
+    : talliedVocal.total > 0
+      ? talliedVocal[leanVocalTypeKey!] > 0
+      : true;
 
   // --- perspective ---
   const mode = resolvePerspectiveMode(opts);
@@ -434,8 +705,12 @@ export function buildResolvedGenerationContract(
     choices,
     {
       moneyChordCounts: moneyChordCountsRecord,
-      vocalToneApplied: choices.source.vocalTone === 'user' ? Boolean(detectedVocalTone) : undefined,
-      genreIdsUsed: genreSanitization.valid
+      vocalToneApplied: choices.source.vocalTone === 'user' ? vocalToneReallyApplied : undefined,
+      // TASK (gap 1) — real per-song usage (falls back to the theoretical
+      // allow-list only when there's no real slot data yet), not the
+      // options-level allow-list alone — see genreEffective's own doc
+      // comment just above for why that distinction matters.
+      genreIdsUsed: slots.length ? [...realUsedGenreIds] : genreSanitization.valid
     },
     'contract'
   );
@@ -475,24 +750,66 @@ export function buildResolvedGenerationContract(
       field: 'genreIds',
       selected: genreSanitization.removed.map(id => getGenreById(id)?.label ?? id).join(' · '),
       effective: '(제외됨)',
-      reasonKo: workspace?.labelKo ? `${workspace.labelKo} 채널에서 쓸 수 없습니다.` : '이 채널에서 쓸 수 없습니다.'
+      reasonKo: channelHomeWorkspace?.labelKo ? `${channelHomeWorkspace.labelKo} 채널에서 쓸 수 없습니다.` : '이 채널에서 쓸 수 없습니다.'
     });
   }
+
+  // TASK (gap 1) — a genre that IS archetype-eligible (never touched by the
+  // "removed" check just above) but still got 0 real songs — the exact
+  // "option-level validity != actual usage" gap this task exists to close
+  // (e.g. a user picks 3 valid genres A/B/C and the real rotation logic only
+  // ever assigns A). computeStructuredViolations' own genreIds check is
+  // deliberately all-or-nothing (fires only when EVERY explicitly-chosen id
+  // is missing — see that function's own doc comment); this covers the
+  // PARTIAL case it structurally can't (`< explicitStillEligible.length`
+  // guards against double-reporting the exact same "everything's gone" case
+  // that check already reports with its own message). Scoped to a genuine
+  // explicit multi-select (choices.source.genreIds === 'user') — a
+  // channel's own preferredGenres CANDIDATE POOL (the ordinary default
+  // genreIds source when the user never opened the genre-family picker) is
+  // deliberately larger than any one pack's real rotation diversity (see
+  // data/presets.ts's own preferredGenres doc comments), so checking it here
+  // unconditionally would false-positive on nearly every normal generation.
+  if (choices.source.genreIds === 'user' && choices.genreIds?.length) {
+    const explicitStillEligible = choices.genreIds.filter(id => genreSanitization.valid.includes(id));
+    const explicitUnused = explicitStillEligible.filter(id => !realUsedGenreIds.has(id));
+    if (explicitUnused.length && explicitUnused.length < explicitStillEligible.length) {
+      const unusedLabelsKo = explicitUnused.map(id => getGenreById(id)?.label ?? id).join(' · ');
+      mismatches.push({
+        field: 'genreIds',
+        selected: unusedLabelsKo,
+        effective: genreCounts.length ? genreCounts.map(entry => getGenreById(entry.id)?.label ?? entry.id).join(' · ') : '(반영된 장르 없음)',
+        reasonKo: `장르 ${unusedLabelsKo}가 결과에 반영되지 않았습니다.`
+      });
+    }
+  }
+
+  // TASK (gap 2) — informational only, never an acknowledgeable mismatch:
+  // core/generationPreflight.ts's channelArchetypeHardBlock is the real,
+  // sole enforcement (a hard block with no "proceed anyway" path) — this
+  // warning and workspaceRecovery just make the SAME real condition visible
+  // on the contract screen instead of silently relying on a separately
+  // reverse-derived (and, before this fix, WRONG) workspaceId.
+  const workspaceMismatchWarningKo = workspaceRecovery.mismatched
+    ? `⚠ 채널 "${opts.channel.name}"의 유형(${effectiveArchetype})은 현재 워크스페이스(${getWorkspace(activeWorkspaceId).labelKo})에서 사용할 수 없습니다.`
+    : undefined;
 
   const warnings = Array.from(new Set([
     ...extraWarnings,
     ...(genreWarningKo ? [genreWarningKo] : []),
-    ...(moneyChordComparison.mismatchWarningKo ? [moneyChordComparison.mismatchWarningKo] : [])
+    ...(moneyChordComparison.mismatchWarningKo ? [moneyChordComparison.mismatchWarningKo] : []),
+    ...(workspaceMismatchWarningKo ? [workspaceMismatchWarningKo] : [])
   ]));
 
   return {
-    workspaceId: (workspace?.id ?? 'senior-oldpop') as WorkspaceId,
+    workspaceId: activeWorkspaceId,
     archetype: { selected: selectedArchetype, effective: effectiveArchetype },
-    genreIds: { selected: selectedGenreIds, effective: genreSanitization.valid, removed: genreSanitization.removed },
+    workspaceRecovery,
+    genreIds: { selected: selectedGenreIds, effective: genreEffective, removed: genreSanitization.removed },
     genreCounts,
     moneyChord: { selectedId: moneyChordSelectedId, effectiveIds: moneyChordEffectiveIds, source: moneyChordSource },
     moneyChordCounts,
-    vocal: { selectedPresetId: selectedPreset?.id, effectiveQuota, presetApplied: Boolean(detectedVocalTone) },
+    vocal: { selectedPresetId: selectedPreset?.id, effectiveQuota, presetApplied: vocalToneReallyApplied },
     perspective: { selected: opts.perspective, effective: perspectiveEffective, mode, counts: povCounts },
     lyricLanguage: opts.lyricLanguage,
     audienceProfileId: audienceProfile.id,

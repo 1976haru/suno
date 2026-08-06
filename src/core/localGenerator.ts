@@ -1,4 +1,4 @@
-import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
+import type { ChannelArchetype, GenerationOptions, GenrePack, KidsAgeTierId, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
@@ -65,7 +65,8 @@ import { normalizeSongOutput } from './songPostProcess';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
 import { buildRepetitionCyclePlan } from './arcModels';
 import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
-import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
+import { kidsKillingPointsForTier } from '../data/killingPointsKids';
+import { kidsAgeTierFor } from '../data/kidsAgeTiers';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
@@ -83,13 +84,72 @@ import type { VerifiedCombo } from '../data/verifiedCombos';
  * core/constraints.ts's own `audience.arcModelId ?? 'five-phase'`
  * resolution). Shared by every buildArcPlan call site (this file's own two,
  * plus batchPreallocation.ts's) so all three stay in sync by construction.
- * `ageTier` is always omitted at every real call site today — see
- * arcModels.ts's own doc comment for why (no real ageTier signal reaches
- * GenerationOptions yet); buildRepetitionCyclePlan's own documented
- * no-ageTier default (the kids-t2/2-4세 shape) applies.
+ * v5.13 (TASK: kidsAgeTierId wiring) — `ageTier` is no longer always
+ * omitted: every real call site below now passes resolveKidsAgeTierId(opts)
+ * (or the equivalent audienceProfile-derived resolution in
+ * batchPreallocation.ts). Still optional/additive — a caller that omits it
+ * (any pre-existing test/fixture) gets buildRepetitionCyclePlan's own
+ * documented no-ageTier default (the kids-t2/2-4세 shape) exactly as before.
  */
-export function buildArcPlanForProfile(songCount: number, arcModelId: 'five-phase' | 'repetition-cycle'): SlotArcPosition[] {
-  return arcModelId === 'repetition-cycle' ? buildRepetitionCyclePlan(songCount) : buildArcPlan(songCount);
+export function buildArcPlanForProfile(songCount: number, arcModelId: 'five-phase' | 'repetition-cycle', ageTier?: KidsAgeTierId): SlotArcPosition[] {
+  return arcModelId === 'repetition-cycle' ? buildRepetitionCyclePlan(songCount, ageTier) : buildArcPlan(songCount);
+}
+
+/**
+ * v5.13 (TASK: kidsAgeTierId wiring) — the one real resolver every kids-tier
+ * consumer in this file (and core/batchPreallocation.ts, which imports this)
+ * now calls, instead of each call site re-deriving its own `opts.kidsAgeTierId
+ * ?? opts.channel.kidsAgeTierId ?? ...` chain independently. Mirrors the
+ * exact priority order GenerationOptions.kidsAgeTierId's own doc comment
+ * documents (per-generation override wins over the channel's own default).
+ *
+ * Deliberately does NOT fall back to DEFAULT_KIDS_AGE_TIER_ID when neither
+ * is set — real regression found while testing this task's own wiring: a
+ * kids channel with no explicit tier anywhere (the senior workspace's own
+ * 'kids'-archetype little-singalong-radio channel, and any custom kids
+ * channel saved before this task existed) would otherwise silently start
+ * receiving composeKidsLyrics's NEW kids-t2 structure template
+ * (call-and-response sections) instead of core/kidsLyricEngine.ts's own
+ * DEFAULT_KIDS_SECTIONS — directly breaking that file's own documented
+ * safety invariant (TASK D2 §3-1: "ageTier를 지정하지 않으면... 완전히 동일한
+ * 구조가 나오는 것이 핵심 안전장치") and TASK D2's own explicit
+ * little-singalong-radio backward-compatibility guarantee. Every real
+ * per-tier consumer this resolver feeds already has its own correct
+ * no-signal fallback when given `undefined` (buildRepetitionCyclePlan's own
+ * KIDS_BUNDLES_DEFAULT, kidsKillingPointsForTier's own "return the full
+ * unfiltered set", hookStyleDirectives's own un-tiered 3x/4x text,
+ * clampTempoToKidsAgeTier's own no-op) — so returning `undefined` here is
+ * itself the correct "no signal" outcome, not a missing default. Returns
+ * undefined for a non-kids archetype too — every caller below only applies
+ * tier-aware behavior when this returns a real value.
+ */
+export function resolveKidsAgeTierId(opts: { channel: { archetype?: string; kidsAgeTierId?: KidsAgeTierId }; kidsAgeTierId?: KidsAgeTierId }): KidsAgeTierId | undefined {
+  if (!isKidsArchetype(opts.channel.archetype)) return undefined;
+  return opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId;
+}
+
+/**
+ * v5.13 (TASK: kidsAgeTierId wiring) — connects the already-defined
+ * per-tier BPM target (data/kidsAgeTiers.ts's own KidsAgeTier.tempoRange —
+ * see that file's doc comment: these numbers come straight from the D1
+ * research doc's own §4 table, T1 60-100/T2 100-130/T3 105-140) to real
+ * per-song output. Applied as a final clamp (not by narrowing the
+ * audienceFloor/Ceiling args passed into averageTempo/resolveTempoWithBand)
+ * because kr-kids/jp-kids both set `genreBoundedTempo: true`
+ * (data/audienceProfiles.ts), under which resolveTempoWithBand's own
+ * genre-bounded branch clamps its result to the SELECTED GENRE's own
+ * tempoRange, not the audienceFloor/Ceiling parameters — so narrowing those
+ * parameters alone would silently do nothing for kr-kids/jp-kids specifically
+ * (verified by reading resolveTempoWithBand's own genreBounded branch, see
+ * core/tempoPlan.ts). A final clamp is the one place that reliably applies
+ * regardless of which branch produced the raw tempo. No-op (returns `tempo`
+ * unchanged) whenever `ageTier` is undefined — every non-kids/no-tier-set
+ * call site is byte-for-byte unaffected.
+ */
+export function clampTempoToKidsAgeTier(tempo: number, ageTier: KidsAgeTierId | undefined): number {
+  if (!ageTier) return tempo;
+  const [floor, ceiling] = kidsAgeTierFor(ageTier).tempoRange;
+  return Math.min(ceiling, Math.max(floor, tempo));
 }
 
 /**
@@ -675,6 +735,9 @@ export function rebuildStylePromptsForPersonaMode(
   // path's batchPreallocation.ts.
   const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
   const tempoBands = tempoBandsForProfile(audienceProfile);
+  // v5.13 (TASK: kidsAgeTierId wiring) — real resolved tier for this pack;
+  // undefined for every non-kids channel.
+  const resolvedKidsAgeTierId = resolveKidsAgeTierId(opts);
   // TASK v3.67 (TASK C) — same arc-intensity reorder as generateLocalBlueprint
   // (see arcPlan.ts); this rebuild keeps every song's existing emotionArc
   // (song spread below), so only tempo/killing-point/exclude are arc-aware
@@ -682,7 +745,8 @@ export function rebuildStylePromptsForPersonaMode(
   // v5.11 — arcModelId-aware dispatch (see buildArcPlanForProfile's own doc
   // comment); audienceProfile.arcModelId resolves 'repetition-cycle' for
   // every kids workspace, unaffected for every other profile ('five-phase').
-  const arcPlan = buildArcPlanForProfile(blueprint.songs.length, audienceProfile.arcModelId);
+  // v5.13 — now passes the real resolved tier instead of always omitting it.
+  const arcPlan = buildArcPlanForProfile(blueprint.songs.length, audienceProfile.arcModelId, resolvedKidsAgeTierId);
   const tempoBandPlan = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, blueprint.songs.length, seed), arcPlan, band => band.low) : [];
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
   const autoGenrePlan = buildGenreRotationPlan(genrePool, blueprint.songs.length, seed);
@@ -701,13 +765,20 @@ export function rebuildStylePromptsForPersonaMode(
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
     // TASK D2 §4-5 — kids workspaces draw from the separate kid-safe set instead of KILLING_POINTS.
-    isKidsArchetype(opts.channel.archetype) ? KIDS_KILLING_POINTS : undefined
+    // v5.13 — tier-aware filter (data/killingPointsKids.ts's own kidsKillingPointsForTier)
+    // instead of always the unfiltered full set.
+    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : undefined
   );
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const genreId = genrePlan[idx];
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
-    const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
+    // v5.13 — clamps the resolved BPM into this pack's real kids age-tier
+    // tempo range (data/kidsAgeTiers.ts), no-op for a non-kids/no-tier pack.
+    const tempo = clampTempoToKidsAgeTier(
+      averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo),
+      resolvedKidsAgeTierId
+    );
     const killingPoint = killingPointPlan[idx];
     // TASK I1 (v3.11) — prefer the role actually assigned at generation time
     // (including any manual promotion via core/openingOverride.ts) over
@@ -765,7 +836,7 @@ export function rebuildStylePromptsForPersonaMode(
         // contradicted each other in the same style prompt in real output.
         ...(introTextureText && !coldOpenHasNoInstrumentalIntro(role, openingStyle) ? [{ id: 'introTexture' as const, text: introTextureText }] : []),
         { id: 'instruments' as const, text: rotatingInstrumentText(trackGenres, seed, idx) },
-        { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth) },
+        { id: 'hook', text: hookStyleDirectives(song.hookPhrase, opts.lyricDepth, resolvedKidsAgeTierId) },
         { id: 'tempo', text: `${tempo} BPM` },
         { id: 'songRole', text: `track ${trackNo} role: ${role}` },
         { id: 'listenerScene', text: `listener scene: ${song.listenerSituation}` },
@@ -966,6 +1037,10 @@ export function generateLocalBlueprint(
   // theoretically-corrupted/foreign archetype value, mirroring this
   // function's own `archetype` fallback just above.
   const workspaceId: WorkspaceId = workspaceForArchetype(archetype)?.id ?? 'senior-oldpop';
+  // v5.13 (TASK: kidsAgeTierId wiring) — real resolved tier for this pack
+  // (see resolveKidsAgeTierId's own doc comment); undefined for every
+  // non-kids channel, so every downstream use below is a no-op for them.
+  const resolvedKidsAgeTierId = resolveKidsAgeTierId(opts);
   const genreSanitization = sanitizeGenreIdsForArchetype(
     Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
     archetype
@@ -1020,7 +1095,10 @@ export function generateLocalBlueprint(
   // v5.11 — arcModelId-aware dispatch (see buildArcPlanForProfile's own doc
   // comment); reads the already-resolved constraints.arcModelId (computed
   // just above) rather than re-deriving from archetype directly.
-  const arcPlan = buildArcPlanForProfile(opts.songCount, constraints.arcModelId);
+  // v5.13 — now also passes the real resolved tier (constraints.kidsAgeTierId
+  // and resolvedKidsAgeTierId agree by construction — both derive from this
+  // same `opts`).
+  const arcPlan = buildArcPlanForProfile(opts.songCount, constraints.arcModelId, resolvedKidsAgeTierId);
   // v5.8 (TASK 2) — computed here (rather than down where `progressionPlan`
   // is normally built, well after tempoBandPlan) purely so the tempo-band
   // lean just below has this pack's own per-song explicit-choice assignment
@@ -1096,7 +1174,8 @@ export function generateLocalBlueprint(
     })),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
-    isKidsArchetype(opts.channel.archetype) ? KIDS_KILLING_POINTS : undefined
+    // v5.13 — tier-aware filter instead of always the unfiltered full set.
+    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : undefined
   );
   // TASK v4.9 (TASK C) — a first-15-seconds hooking device, distinct from
   // killingPointPlan's final-chorus peak (see data/openingHooks.ts's own
@@ -1422,9 +1501,14 @@ export function generateLocalBlueprint(
     const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
     // v3.82 (TASK A) — mirrors batchPreallocation.ts's identical flagship
     // (track 2) tempo override, clamped to the audience's own tempo range.
-    const tempo = idx === 1 && flagshipComboTempo !== undefined
-      ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
-      : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
+    // v5.13 — clamps the final BPM into this pack's real kids age-tier
+    // tempo range (data/kidsAgeTiers.ts); no-op for a non-kids/no-tier pack.
+    const tempo = clampTempoToKidsAgeTier(
+      idx === 1 && flagshipComboTempo !== undefined
+        ? Math.min(audienceProfile.tempoCeiling, Math.max(audienceProfile.tempoFloor, flagshipComboTempo))
+        : averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo),
+      resolvedKidsAgeTierId
+    );
     const killingPoint = killingPointPlan[idx];
     const openingHook = openingHookPlan[idx];
     const openingLoudness = openingLoudnessPlan[idx];
@@ -1479,7 +1563,7 @@ export function generateLocalBlueprint(
     // rather than introducing a separate new rotation/axis for it.
     const hookPositionVariant = (hookDevices.findIndex(device => device.id === hookDevicePlan[idx]) % 3 + 3) % 3 as 0 | 1 | 2;
     const { lyrics: composedLyrics, hookPhrase } = isKidsArchetype(opts.channel.archetype)
-      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme })
+      ? composeKidsLyrics({ language: opts.lyricLanguage, title, hook, seed: seed + trackNo * 13, theme: manualKidsTheme, ageTier: resolvedKidsAgeTierId })
       : composeLyrics({
         language: opts.lyricLanguage,
         season,
@@ -1823,7 +1907,7 @@ export function generateLocalBlueprint(
       { id: 'instruments' as const, text: rotatingInstrumentText(trackGenres, seed, idx) },
       // TASK v3.42 Part A3 — sparse/medium/full rotation.
       { id: 'arrangementDensity' as const, text: ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[arrangementDensityPlan[idx]] },
-      { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth) },
+      { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth, resolvedKidsAgeTierId) },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },
       { id: 'motif', text: lyricThemeText ? `lyric scene: ${lyricThemeText}` : `use recurring playlist motif: ${packMotif.english}` },
@@ -1957,7 +2041,12 @@ export function generateLocalBlueprint(
       ...(wholePackMatchedVocalPreset ? { effectiveVocalPresetId: wholePackMatchedVocalPreset.id } : {}),
       effectiveGenreIds: sanitizeGenreIdsForArchetype(trackGenres.map(g => g.id), archetype).valid,
       effectiveArchetype: archetype,
-      workspaceId
+      workspaceId,
+      // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveArchetype/
+      // workspaceId's own "record what actually happened" pattern just
+      // above; absent (not just undefined) for a non-kids pack, same
+      // optional-spread convention every other kids-only field here uses.
+      ...(resolvedKidsAgeTierId ? { effectiveKidsAgeTierId: resolvedKidsAgeTierId } : {})
     };
   });
 

@@ -5,11 +5,14 @@ import {
   applyDuetSectionVocalTags,
   buildAdultVocalTraitPlan,
   buildVocalPlan,
+  isVocalToneBalanced,
+  resolveVocalAllocationMode,
   scaleVocalQuota,
   summarizeVocalTraitDistribution,
   usesVocalQuota,
   vocalDescriptionFor,
   vocalDictionLanguage,
+  vocalLabel,
   type VocalType
 } from '../src/core/vocalPlan';
 import {
@@ -19,6 +22,15 @@ import {
   MALE_REGISTER_TIMBRE_CONTRADICTIONS,
   FEMALE_REGISTER_TIMBRE_CONTRADICTIONS
 } from '../src/data/vocalTraits';
+import { channelPresets } from '../src/data/presets';
+import { createInitialOptions } from '../src/utils/generation';
+import { matchVocalPreset } from '../src/data/vocalPresets';
+
+function channelByArchetype(archetype: string) {
+  const channel = channelPresets.find(c => c.archetype === archetype);
+  if (!channel) throw new Error(`fixture missing: no channel preset with archetype ${archetype}`);
+  return channel;
+}
 
 // TASK v3.38 Part B2 — permanent regression coverage for the kids-channel
 // vocal-type quota system (replaces the throwaway scratch test used to
@@ -377,5 +389,145 @@ describe('[v3.72 TASK D] summarizeVocalTraitDistribution', () => {
     ]);
     expect(dist.quota).toEqual({ male: 1, female: 1, mixed: 0 });
     expect(dist.register).toEqual({});
+  });
+});
+
+// TASK v5.13 — real regression: Step3Generate.tsx's DiversityAssignmentPreview,
+// DiversityAllocationPanel.tsx's vocal-quota axis, and SongCard.tsx's
+// per-song vocal chip all hardcoded '남자아이'/'여자아이'/'혼성 합창' (literally
+// "boy"/"girl"/"children's choir") unconditionally, even for senior/kr-2030/
+// kr-idol archetypes whose vocalType is an ADULT lead voice, not a literal
+// child's voice. vocalLabel is the single fix all 3 sites now defer to.
+describe('[v5.13] vocalLabel', () => {
+  it('returns kids-appropriate labels for every real kids archetype (kids, kr-kids-song, jp-kids-song)', () => {
+    for (const archetype of ['kids', 'kr-kids-song', 'jp-kids-song'] as const) {
+      expect(vocalLabel('male', archetype)).toBe('남아');
+      expect(vocalLabel('female', archetype)).toBe('여아');
+      expect(vocalLabel('mixed', archetype)).toBe('남아·여아 듀엣');
+    }
+  });
+
+  it('returns adult labels for every real non-kids archetype (senior, kr-2030, jp-2030, kr-idol-male, kr-idol-female)', () => {
+    for (const archetype of ['senior-morning', 'showa-cafe', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female'] as const) {
+      expect(vocalLabel('male', archetype)).toBe('남성');
+      expect(vocalLabel('female', archetype)).toBe('여성');
+      expect(vocalLabel('mixed', archetype)).toBe('듀엣·혼성');
+    }
+  });
+
+  it('never returns the old kids-only wording for a real senior channel (the exact pre-fix bug string)', () => {
+    const senior = channelByArchetype('senior-morning');
+    expect(vocalLabel('male', senior.archetype)).not.toBe('남자아이');
+    expect(vocalLabel('female', senior.archetype)).not.toBe('여자아이');
+    expect(vocalLabel('mixed', senior.archetype)).not.toBe('혼성 합창');
+  });
+
+  it('defaults to adult wording for an undefined archetype (the safer default for an unknown/unmigrated channel)', () => {
+    expect(vocalLabel('male', undefined)).toBe('남성');
+  });
+});
+
+// TASK v5.13 — real regression: Step2Plan.tsx's `vocalIsBalanced={!opts.vocalTone}`
+// was always `false`, because createInitialOptions (utils/generation.ts)
+// always seeds vocalTone to channel.defaultVocal (a non-empty string for
+// every real channel) — never the empty string the old check assumed "no
+// selection" would look like. Verified here against REAL GenerationOptions
+// built the same way the app actually builds them (createInitialOptions +
+// a real channelPresets entry), not a hand-typed empty string that
+// wouldn't reproduce the actual bug.
+describe('[v5.13] isVocalToneBalanced (vocalIsBalanced bugfix)', () => {
+  it('a freshly created GenerationOptions (untouched vocalTone) is balanced, even though vocalTone is a non-empty string', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    // This is the exact real value the old `!opts.vocalTone` check got wrong:
+    // non-empty, so `!opts.vocalTone` was always false.
+    expect(opts.vocalTone).toBe(channel.defaultVocal);
+    expect(opts.vocalTone.length).toBeGreaterThan(0);
+    expect(isVocalToneBalanced(opts)).toBe(true);
+  });
+
+  it('picking a real vocal preset (Step2Concept.tsx behavior) makes it unbalanced', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    const preset = matchVocalPreset('soft warm female alto, gentle breathy delivery, intimate and calm');
+    expect(preset?.id).toBe('soft-female');
+    const withPick = { ...opts, vocalTone: preset!.prompt };
+    expect(isVocalToneBalanced(withPick)).toBe(false);
+  });
+
+  it('re-selecting the channel default explicitly is still balanced (matches Step2Concept.tsx isBalancedVocalTone exactly)', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    const backToDefault = { ...opts, vocalTone: `  ${channel.defaultVocal}  ` };
+    expect(isVocalToneBalanced(backToDefault)).toBe(true);
+  });
+
+  it('an empty/whitespace vocalTone (defensive — not what createInitialOptions ever produces) is balanced', () => {
+    const channel = channelByArchetype('senior-morning');
+    expect(isVocalToneBalanced({ channel, vocalTone: '' })).toBe(true);
+    expect(isVocalToneBalanced({ channel, vocalTone: '   ' })).toBe(true);
+  });
+});
+
+// TASK v5.13 — VocalAllocationMode distinguishes WHY the resolved vocal
+// quota looks the way it does (see types.ts's own doc comment), most
+// importantly separating a K-pop channel's own fixed gender quota
+// ('channel-fixed') from a genuinely balanced default — before this, both
+// read as "balanced" in the UI.
+describe('[v5.13] resolveVocalAllocationMode', () => {
+  it('a real kr-idol-male channel (vocalQuotaOverride {male:15,female:0,mixed:3}) resolves to channel-fixed, even with the channel default vocalTone untouched', () => {
+    const channel = channelByArchetype('kr-idol-male');
+    expect(channel.vocalQuotaOverride).toEqual({ male: 15, female: 0, mixed: 3 });
+    const opts = createInitialOptions(channel);
+    expect(resolveVocalAllocationMode(opts)).toBe('channel-fixed');
+  });
+
+  it('a real kr-idol-female channel also resolves to channel-fixed even after picking a vocal-tone preset on top of it', () => {
+    const channel = channelByArchetype('kr-idol-female');
+    const opts = createInitialOptions(channel);
+    const withTone = { ...opts, vocalTone: 'forward bright female idol lead, crisp cutting consonants, confident attitude' };
+    expect(resolveVocalAllocationMode(withTone)).toBe('channel-fixed');
+  });
+
+  it('a real senior channel with a recognized gender-leaning vocal preset (soft-female) resolves to leaning', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    const preset = matchVocalPreset('soft warm female alto, gentle breathy delivery, intimate and calm');
+    expect(preset?.id).toBe('soft-female');
+    expect(preset?.gender).toBe('female');
+    const leaning = { ...opts, vocalTone: preset!.prompt };
+    expect(resolveVocalAllocationMode(leaning)).toBe('leaning');
+  });
+
+  it('a real senior channel with a duet preset (leaningAdultVocalQuota DOES skew the quota for a duet lean) also resolves to leaning, not manual', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    const duetPreset = matchVocalPreset('male and female duet, alternating verses, close harmony on the chorus, warm blended tone');
+    expect(duetPreset?.gender).toBe('duet');
+    const leaning = { ...opts, vocalTone: duetPreset!.prompt };
+    expect(resolveVocalAllocationMode(leaning)).toBe('leaning');
+  });
+
+  it('a real senior channel with an explicit but gender-neutral pick (mixed-harmony-group preset, which leaningAdultVocalQuota leaves untouched) resolves to manual, not leaning', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    const groupPreset = matchVocalPreset('small mixed vocal group, close three-part harmony, soft blended backing, retro group feel');
+    expect(groupPreset?.id).toBe('mixed-harmony-group');
+    expect(groupPreset?.gender).toBe('mixed');
+    const manual = { ...opts, vocalTone: groupPreset!.prompt };
+    expect(resolveVocalAllocationMode(manual)).toBe('manual');
+  });
+
+  it('a real senior channel with its untouched default vocalTone resolves to balanced (the true default)', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    expect(resolveVocalAllocationMode(opts)).toBe('balanced');
+  });
+
+  it('an explicit opts.vocalQuota override resolves to manual regardless of channel/tone', () => {
+    const channel = channelByArchetype('senior-morning');
+    const opts = createInitialOptions(channel);
+    const withQuota = { ...opts, vocalQuota: { male: 9, female: 9, mixed: 0 } };
+    expect(resolveVocalAllocationMode(withQuota)).toBe('manual');
   });
 });

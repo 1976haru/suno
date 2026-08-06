@@ -300,7 +300,20 @@ export default function Step2Concept({
       negativeStyle: excludeAdditions.length
         ? mergeNegativeStyleText(prev.negativeStyle ?? buildDefaultNegativeStyle(prev.channel), ...excludeAdditions)
         : prev.negativeStyle,
-      artistReferenceStyleAtoms: artistReferenceStyleAtoms.length ? artistReferenceStyleAtoms : prev.artistReferenceStyleAtoms
+      artistReferenceStyleAtoms: artistReferenceStyleAtoms.length ? artistReferenceStyleAtoms : prev.artistReferenceStyleAtoms,
+      // TASK (provenance) — applying a concept-agent recommendation is its
+      // own ChoiceSource ('concept'), distinct from a direct chip/card click
+      // ('user'). Only marks the fields this handler actually changed above:
+      // genreIds/seasonId unconditionally (finalAllocation/rec.seasonId are
+      // always set by this handler), vocalTone only when a real vocalPreset
+      // was matched and applied (prev.vocalTone is left untouched otherwise,
+      // so its provenance shouldn't change either).
+      choiceProvenance: {
+        ...prev.choiceProvenance,
+        genreIds: 'concept',
+        seasonId: 'concept',
+        ...(vocalPreset ? { vocalTone: 'concept' as const } : {})
+      }
     }));
     for (const slot of finalAllocation) rememberRecentGenreId(opts.channel.id, slot.genreId);
   }
@@ -337,13 +350,27 @@ export default function Step2Concept({
   }
 
   function selectPrimaryGenre(id: string) {
-    setOpts(prev => ({ ...prev, genreIds: normalizeGenreSelection([id, ...prev.genreIds.filter(item => item !== id)]) }));
+    // TASK (provenance) — real, verified gap this closes: this is the most
+    // common real genre-picking path (a plain chip click), and the OLD
+    // userChoicesFromOptions heuristic never recognized it as 'user'
+    // provenance unless the separate GenreFamily checkbox control had also
+    // been touched. See core/userChoices.ts's userChoicesFromOptions doc
+    // comment for the full gap.
+    setOpts(prev => ({
+      ...prev,
+      genreIds: normalizeGenreSelection([id, ...prev.genreIds.filter(item => item !== id)]),
+      choiceProvenance: { ...prev.choiceProvenance, genreIds: 'user' }
+    }));
     const genre = getGenreById(id);
     if (genre?.tier === 'extended') rememberGenreForChannel(id);
   }
 
   function toggleSecondaryGenre(id: string) {
     if (id === primaryGenreId) return;
+    // TASK (provenance) — also the real "genre removal" handler: clicking an
+    // already-active secondary chip again removes it via this same function
+    // (nextSecondary's own includes-then-filter branch above), so a removal
+    // click is 'user' provenance too, same as an addition.
     setOpts(prev => {
       const currentPrimary = prev.genreIds[0] || id;
       const currentSecondary = prev.genreIds.slice(1);
@@ -352,7 +379,11 @@ export default function Step2Concept({
         : currentSecondary.length >= 2
           ? currentSecondary
           : [...currentSecondary, id];
-      return { ...prev, genreIds: normalizeGenreSelection([currentPrimary, ...nextSecondary]) };
+      return {
+        ...prev,
+        genreIds: normalizeGenreSelection([currentPrimary, ...nextSecondary]),
+        choiceProvenance: { ...prev.choiceProvenance, genreIds: 'user' }
+      };
     });
     const genre = getGenreById(id);
     if (genre?.tier === 'extended') rememberGenreForChannel(id);
@@ -475,7 +506,7 @@ export default function Step2Concept({
               key={season.id}
               className={opts.seasonId === season.id ? 'chip active' : 'chip'}
               title={season.period}
-              onClick={() => setOpts(prev => ({ ...prev, seasonId: season.id }))}
+              onClick={() => setOpts(prev => ({ ...prev, seasonId: season.id, choiceProvenance: { ...prev.choiceProvenance, seasonId: 'user' } }))}
             >
               {seasonLabelsKo[season.id] || season.label}
             </button>
@@ -659,7 +690,8 @@ export default function Step2Concept({
               onChange={value => setOpts(prev => ({
                 ...prev,
                 genreBlendMode: value as GenerationOptions['genreBlendMode'],
-                genreBlendModeIsExplicitChoice: true
+                genreBlendModeIsExplicitChoice: true,
+                choiceProvenance: { ...prev.choiceProvenance, genreBlendMode: 'user' }
               }))}
               columns={2}
             />
@@ -772,13 +804,17 @@ export default function Step2Concept({
         onChange={value => {
           if (value === BALANCED_VOCAL_CHOICE_ID) {
             setVocalCustomOpen(false);
-            setOpts(prev => ({ ...prev, vocalTone: prev.channel.defaultVocal }));
+            // TASK (provenance) — "고르게 배정" is a real, deliberate click
+            // even though the resulting value (channel.defaultVocal) equals
+            // what the field would already have defaulted to — still 'user'
+            // provenance, per this task's own explicit requirement.
+            setOpts(prev => ({ ...prev, vocalTone: prev.channel.defaultVocal, choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' } }));
             return;
           }
           const preset = vocalPresets.find(p => p.id === value);
           if (preset) {
             setVocalCustomOpen(false);
-            setOpts(prev => ({ ...prev, vocalTone: preset.prompt }));
+            setOpts(prev => ({ ...prev, vocalTone: preset.prompt, choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' } }));
           }
         }}
         columns={3}
@@ -815,7 +851,7 @@ export default function Step2Concept({
         <>
           <input
             value={opts.vocalTone}
-            onChange={event => setOpts(prev => ({ ...prev, vocalTone: clampToLimit('vocalTone', event.target.value) }))}
+            onChange={event => setOpts(prev => ({ ...prev, vocalTone: clampToLimit('vocalTone', event.target.value), choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' } }))}
             placeholder="예: mature soulful male tenor, soft slightly husky"
             maxLength={INPUT_LIMITS.vocalTone}
             style={{ marginTop: 8 }}
@@ -834,7 +870,12 @@ export default function Step2Concept({
         // to), so downstream (resolveEarwormMoneyChordMode, moneyChordPlan.ts)
         // never silently redirects it back to 'default'. See types.ts's own
         // doc comment on this field for the earworm-mode interaction this closes.
-        onChange={value => setOpts(prev => ({ ...prev, moneyChordMode: value as GenerationOptions['moneyChordMode'], moneyChordModeIsExplicitChoice: true }))}
+        onChange={value => setOpts(prev => ({
+          ...prev,
+          moneyChordMode: value as GenerationOptions['moneyChordMode'],
+          moneyChordModeIsExplicitChoice: true,
+          choiceProvenance: { ...prev.choiceProvenance, moneyChordMode: 'user' }
+        }))}
         columns={3}
       />
       <p className="supporting">스타일 프롬프트 미리보기: <em>{moneyPreview}</em></p>
@@ -1064,7 +1105,7 @@ export default function Step2Concept({
                 type="button"
                 key={option.value}
                 className={opts.lyricLanguage === option.value ? 'chip active' : 'chip'}
-                onClick={() => setOpts(prev => ({ ...prev, lyricLanguage: option.value }))}
+                onClick={() => setOpts(prev => ({ ...prev, lyricLanguage: option.value, choiceProvenance: { ...prev.choiceProvenance, lyricLanguage: 'user' } }))}
               >
                 {option.label} <span className="supporting">({option.sub})</span>
               </button>
@@ -1078,7 +1119,7 @@ export default function Step2Concept({
                 type="button"
                 key={option.value}
                 className={(opts.packagingLanguage ?? defaultPackagingLanguageForChannel(opts.channel)) === option.value ? 'chip active' : 'chip'}
-                onClick={() => setOpts(prev => ({ ...prev, packagingLanguage: option.value }))}
+                onClick={() => setOpts(prev => ({ ...prev, packagingLanguage: option.value, choiceProvenance: { ...prev.choiceProvenance, packagingLanguage: 'user' } }))}
               >
                 {option.label} <span className="supporting">({option.sub})</span>
               </button>
@@ -1106,7 +1147,7 @@ export default function Step2Concept({
             question="가사의 시점"
             choices={PERSPECTIVE_CHOICES}
             value={opts.perspective}
-            onChange={value => setOpts(prev => ({ ...prev, perspective: value as GenerationOptions['perspective'] }))}
+            onChange={value => setOpts(prev => ({ ...prev, perspective: value as GenerationOptions['perspective'], choiceProvenance: { ...prev.choiceProvenance, perspective: 'user' } }))}
             columns={4}
           />
 
@@ -1145,7 +1186,8 @@ export default function Step2Concept({
             onChange={value => setOpts(prev => ({
               ...prev,
               perspectiveMode: value as GenerationOptions['perspectiveMode'],
-              perspectiveModeIsExplicitChoice: true
+              perspectiveModeIsExplicitChoice: true,
+              choiceProvenance: { ...prev.choiceProvenance, perspectiveMode: 'user' }
             }))}
             columns={3}
           />
@@ -1159,7 +1201,13 @@ export default function Step2Concept({
               <>
                 <input
                   value={opts.customMoneyChord}
-                  onChange={event => setOpts(prev => ({ ...prev, moneyChordMode: 'custom', moneyChordModeIsExplicitChoice: true, customMoneyChord: clampToLimit('customMoneyChord', event.target.value) }))}
+                  onChange={event => setOpts(prev => ({
+                    ...prev,
+                    moneyChordMode: 'custom',
+                    moneyChordModeIsExplicitChoice: true,
+                    customMoneyChord: clampToLimit('customMoneyChord', event.target.value),
+                    choiceProvenance: { ...prev.choiceProvenance, moneyChordMode: 'user' }
+                  }))}
                   placeholder="예: I-V-vi-IV / vi-IV-I-V / IVmaj7-iii7-vi7"
                   maxLength={INPUT_LIMITS.customMoneyChord}
                   style={{ marginTop: 8 }}

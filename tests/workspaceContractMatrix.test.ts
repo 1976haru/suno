@@ -192,7 +192,7 @@ function assertContractLevelCriteria(
   /** Boundary/contamination scenarios deliberately inject a foreign genre id and expect sanitizeGenreIdsForArchetype to strip it — pass the exact expected `removed` list there. Defaults to [] (the clean-run expectation every 필수/중요 combination uses). */
   expectedRemovedGenreIds: string[] = []
 ) {
-  const contract = buildResolvedGenerationContract(opts, choices, slots);
+  const contract = buildResolvedGenerationContract(opts, choices, slots, workspaceId);
   expect(getWorkspace(workspaceId).archetypeIds, `${label} criterion 1 (effective archetype belongs to workspace)`).toContain(contract.archetype.effective);
   const sanitized = sanitizeGenreIdsForArchetype(opts.genreIds, contract.archetype.effective);
   expect(sanitized.removed, `${label} criterion 2 (every selected genreId allowed for archetype)`).toEqual(expectedRemovedGenreIds);
@@ -503,7 +503,7 @@ describe('[workspace contract matrix] 경계 — 10 boundary scenarios', () => {
     const sanitized = sanitizeGenreIdsForArchetype(opts.genreIds, 'senior-morning');
     expect(sanitized.removed, 'B1 criterion 2: the foreign genre id must be removed').toEqual([foreignId]);
     expect(songs.every(s => s.genreId !== foreignId), 'B1: no song should ever be assigned the foreign genre id').toBe(true);
-    const contract = buildResolvedGenerationContract(opts, choices, songs);
+    const contract = buildResolvedGenerationContract(opts, choices, songs, workspaceId);
     expect(contract.genreIds.removed, 'B1: contract must report the removal').toEqual([foreignId]);
     expect(generationBlockedByContract(contract), 'B1: an unacknowledged contamination must block generation').toBe(true);
     assertFullContract('B1/senior-oldpop-contaminated', workspaceId, opts, choices, songs, [foreignId]);
@@ -573,8 +573,9 @@ describe('[workspace contract matrix] 경계 — 10 boundary scenarios', () => {
     const opts = optsFor(workspaceId, { channel: mismatchedChannel, genreIds: mismatchedChannel.preferredGenres, vocalTone: mismatchedChannel.defaultVocal });
     const choices = userChoicesFromOptions(opts);
     const songs = runLocal(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, songs);
+    const contract = buildResolvedGenerationContract(opts, choices, songs, workspaceId);
     expect(getWorkspace(workspaceId).archetypeIds, 'B6 criterion 1: a mismatched channel\'s effective archetype must not belong to kr-kids').not.toContain(contract.archetype.effective);
+    expect(contract.workspaceRecovery.mismatched, 'B6: workspaceRecovery must also flag the mismatch (defense in depth alongside criterion 1)').toBe(true);
   });
 
   it('B7: scaffold/first-run entry — a brand-new channel with no genres picked yet (genreIds: [])', () => {

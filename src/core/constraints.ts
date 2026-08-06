@@ -1,4 +1,4 @@
-import type { AudienceProfile, ConceptBreadth, GenrePack, WorkspaceId } from '../types';
+import type { AudienceProfile, ConceptBreadth, GenrePack, KidsAgeTierId, WorkspaceId } from '../types';
 import { genreLibrary, getGenreById } from '../data/genreLibrary';
 import { ERA_BUCKET_BY_GENRE_ID, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { TITLE_PATTERNS } from '../data/titlePatterns';
@@ -96,6 +96,19 @@ export interface ResolvedConstraints {
   requiredAtoms: string[];
   hardExclusions: string[];
   relaxableAtPeak: string[];
+
+  /**
+   * v5.13 (TASK: kidsAgeTierId wiring) — the real resolved tier (see
+   * types.ts's GenerationOptions.kidsAgeTierId/KidsAgeTierId doc comments),
+   * threaded through here so any downstream consumer that already receives
+   * a `ResolvedConstraints` instance (not every caller has the original
+   * GenerationOptions in scope) can read it without re-deriving. Undefined
+   * for every non-kids resolution and for a kids resolution where the
+   * caller didn't pass one (resolveConstraintsFromOptions still resolves a
+   * real default via core/localGenerator.ts's resolveKidsAgeTierId at its
+   * own real call sites — this field is a pass-through, not a re-decision).
+   */
+  kidsAgeTierId?: KidsAgeTierId;
 
   warnings: string[];
 }
@@ -724,7 +737,9 @@ export function resolveConstraints(
   concept: ConceptInput,
   workspace: WorkspaceLike,
   audience: AudienceProfile,
-  songCount: number
+  songCount: number,
+  /** v5.13 (TASK: kidsAgeTierId wiring) — see ResolvedConstraints.kidsAgeTierId's own doc comment. Optional, additive: every existing caller that omits this gets byte-identical output. */
+  kidsAgeTierId?: KidsAgeTierId
 ): ResolvedConstraints {
   const warnings: string[] = [];
   const era = extractEraConstraint(concept.conceptLabel, concept.artistReferenceEraTags);
@@ -757,6 +772,7 @@ export function resolveConstraints(
     requiredAtoms: [],
     hardExclusions: [...audience.hardExclusions],
     relaxableAtPeak: [...audience.relaxableAtPeak],
+    ...(kidsAgeTierId ? { kidsAgeTierId } : {}),
     warnings
   };
 }
@@ -773,11 +789,14 @@ export function resolveConstraintsFromOptions(opts: {
   customConcept?: string;
   projectTitle: string;
   songCount: number;
-  channel: { archetype?: string };
+  channel: { archetype?: string; kidsAgeTierId?: KidsAgeTierId };
   breadthOverride?: ConceptBreadth;
+  /** v5.13 (TASK: kidsAgeTierId wiring) — per-generation override, same priority as opts.channel.kidsAgeTierId (mirrors GenerationOptions.kidsAgeTierId's own doc comment). */
+  kidsAgeTierId?: KidsAgeTierId;
 }, audience: AudienceProfile, workspaceId: WorkspaceId = 'senior-oldpop'): ResolvedConstraints {
   const conceptLabel = opts.customConcept?.trim() || opts.projectTitle;
-  return resolveConstraints({ conceptLabel, breadthOverride: opts.breadthOverride }, { id: workspaceId }, audience, opts.songCount || 18);
+  const kidsAgeTierId = opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId;
+  return resolveConstraints({ conceptLabel, breadthOverride: opts.breadthOverride }, { id: workspaceId }, audience, opts.songCount || 18, kidsAgeTierId);
 }
 
 export { getGenreById };

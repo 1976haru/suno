@@ -1,4 +1,4 @@
-import type { ConceptBreadth, GenerationOptions, PreassignedSongSlot } from '../types';
+import type { ConceptBreadth, GenerationOptions, KidsAgeTierId, PreassignedSongSlot } from '../types';
 import type { EraConstraint, ResolvedConstraints } from './constraints';
 import { eraSharesOf } from './constraints';
 import { ERA_LABEL } from '../data/eraExclusions';
@@ -796,7 +796,20 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssu
 // ---------------------------------------------------------------------------
 // 킬링포인트·아크 (killing-point-count / killing-point-variety / arc-phases)
 // ---------------------------------------------------------------------------
-function killingPointAndArcIssues(slots: PreassignedSongSlot[], songCount: number, arcModelId: 'five-phase' | 'repetition-cycle' = 'five-phase'): DesignIssue[] {
+function killingPointAndArcIssues(
+  slots: PreassignedSongSlot[],
+  songCount: number,
+  arcModelId: 'five-phase' | 'repetition-cycle' = 'five-phase',
+  // v5.13 (TASK: kidsAgeTierId wiring) — real gap this closes: expectedArcPhaseCount
+  // used to always assume the ageTier-omitted default (4 bundles) even
+  // though real generation now actually resolves and uses a specific tier
+  // (kids-t1 -> 3 bundles, kids-t3 -> 5) — a real kr-kids/jp-kids pack
+  // whose channel preset carries an explicit non-default tier would
+  // otherwise fail this check for being "too correct" (more/fewer distinct
+  // bundles than the wrong flat assumption). Optional/additive: omitting it
+  // reproduces the exact prior (always-4) expectation.
+  kidsAgeTierId?: KidsAgeTierId
+): DesignIssue[] {
   const issues: DesignIssue[] = [];
   const withKillingPoint = slots.filter(slot => slot.killingPointId);
   const expectedAssigned = Math.round(songCount * KILLING_POINT_ASSIGNED_RATIO);
@@ -825,7 +838,7 @@ function killingPointAndArcIssues(slots: PreassignedSongSlot[], songCount: numbe
   // hard-coded check. 'repetition-cycle' (kids workspaces, see
   // arcModels.ts) is checked against its own real bundle count instead of
   // the wrong constant 5 — see arcModels.ts's expectedArcPhaseCount.
-  const expectedPhaseCount = expectedArcPhaseCount(arcModelId, songCount);
+  const expectedPhaseCount = expectedArcPhaseCount(arcModelId, songCount, kidsAgeTierId);
   if (songCount >= expectedPhaseCount) {
     const arcPhases = new Set(slots.map(slot => slot.arcPhase).filter(Boolean));
     // For 'repetition-cycle', only count values that are actually real kids
@@ -988,7 +1001,11 @@ export function evaluateDesignGate(
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
     ...eraIssues(slots, constraints.era),
-    ...killingPointAndArcIssues(slots, opts.songCount, constraints.arcModelId),
+    // v5.13 (TASK: kidsAgeTierId wiring) — constraints.kidsAgeTierId is the
+    // real resolved tier (see ResolvedConstraints.kidsAgeTierId's own doc
+    // comment); passing it keeps this check's own "expected" bundle count in
+    // sync with what real generation actually produced for this pack.
+    ...killingPointAndArcIssues(slots, opts.songCount, constraints.arcModelId, constraints.kidsAgeTierId),
     ...paletteCoverageIssues(slots, opts),
     ...moneyChordBlockingIssues(slots, opts),
     ...arrangementDensityBlockingIssues(slots, constraints.arrangementDensityLimits.fullMax),

@@ -31,13 +31,15 @@ import { getIntroTextureById } from '../../data/introTextures';
 import { getLyricThemeLabel } from '../../data/lyricThemes';
 import { getGenreById } from '../../data/genreLibrary';
 import { moneyChordPresets } from '../../data/moneyChords';
+import { vocalPresets } from '../../data/vocalPresets';
 import { getWorkspace } from '../../data/workspaces';
-import { buildResolvedGenerationContract, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
+import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
 import { resolveGenerationPreflight, type PreflightReason } from '../../core/generationPreflight';
+import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
-import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, SeasonPack, WorkspaceId } from '../../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, SeasonPack, VocalAllocationMode, WorkspaceId } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
@@ -54,12 +56,8 @@ const POV_LABELS: Record<string, string> = {
   radioHost: '라디오 DJ'
 };
 
-const VOCAL_LABELS: Record<string, string> = {
-  male: '남자아이',
-  female: '여자아이',
-  mixed: '혼성 합창',
-  duet: '듀엣'
-};
+/** TASK v5.13 — 'duet' is a VocalGender (core/vocalPlan.ts), never a VocalType, so vocalLabel (kids/adult-branching) doesn't cover it; its own label is archetype-independent ("듀엣" reads fine for a kids duet or an adult duet alike). */
+const DUET_GENDER_LABEL_KO = '듀엣';
 
 function compactCell(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -97,9 +95,9 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
               const hook = slot.hookDeviceId ? getHookDeviceById(slot.hookDeviceId) : undefined;
               const genre = slot.genreId ? getGenreById(slot.genreId) : undefined;
               const vocal = slot.vocalType
-                ? VOCAL_LABELS[slot.vocalType]
+                ? vocalLabel(slot.vocalType, opts.channel.archetype)
                 : slot.vocalGender
-                  ? VOCAL_LABELS[slot.vocalGender] || slot.vocalGender
+                  ? (slot.vocalGender === 'duet' ? DUET_GENDER_LABEL_KO : vocalLabel(slot.vocalGender, opts.channel.archetype))
                   : '단일 보컬';
               return (
                 <tr key={slot.trackNo}>
@@ -135,6 +133,21 @@ const MISMATCH_FIELD_LABEL_KO: Record<string, string> = {
   genreIds: '장르',
   vocalTone: '보컬'
 };
+
+/** TASK v5.13 (vocal allocation mode) — VocalAllocationMode -> "적용 방식" row text; the 'channel-fixed' entry is overridden below when a vocal-tone preset was ALSO picked on top of the fixed quota, matching the task doc's own mockup ("채널 고정 성별 + 선택 음색 반영"). */
+const VOCAL_ALLOCATION_MODE_LABEL_KO: Record<VocalAllocationMode, string> = {
+  balanced: '고르게 배분 (기본값)',
+  leaning: '선택한 쏠림 반영',
+  'channel-fixed': '채널 고정 성별',
+  manual: '수동 지정 음색 반영'
+};
+
+function vocalToneLabelKo(opts: GenerationOptions, contract: ResolvedGenerationContract): string {
+  if (contract.vocal.selectedPresetId) {
+    return vocalPresets.find(preset => preset.id === contract.vocal.selectedPresetId)?.label ?? opts.vocalTone;
+  }
+  return opts.vocalTone?.trim() || opts.channel.defaultVocal;
+}
 
 function moneyChordLabelKo(id: string): string {
   return moneyChordPresets[id]?.labelKo ?? id;
@@ -180,6 +193,17 @@ function GenerationContractPanel({
     ? contract.moneyChordCounts.map(entry => `${moneyChordLabelKo(entry.id)} ${entry.count}곡`).join(' · ')
     : contract.moneyChord.effectiveIds.map(id => `${moneyChordLabelKo(id)} 전곡`).join(' · ');
   const vocalLine = `남성 ${contract.vocal.effectiveQuota.male} · 여성 ${contract.vocal.effectiveQuota.female} · 혼성/듀엣 ${contract.vocal.effectiveQuota.mixed}`;
+  // TASK v5.13 (vocal allocation mode) — see VocalAllocationMode's own doc
+  // comment (types.ts) for why this is no longer a plain balanced/not-balanced
+  // boolean: a K-pop channel's fixed gender quota is never "balanced", even
+  // when a vocal-tone preset is also picked on top of it (that combination
+  // gets its own "채널 고정 성별 + 선택 음색 반영" wording, matching the task
+  // doc's own mockup, rather than collapsing into the plain 'channel-fixed' text).
+  const vocalAllocationMode = resolveVocalAllocationMode(opts);
+  const vocalAllocationLine = vocalAllocationMode === 'channel-fixed' && contract.vocal.presetApplied
+    ? '채널 고정 성별 + 선택 음색 반영'
+    : VOCAL_ALLOCATION_MODE_LABEL_KO[vocalAllocationMode];
+  const vocalToneLine = vocalToneLabelKo(opts, contract);
   const perspectiveLine = contract.perspective.effective.length
     ? contract.perspective.effective.map(id => `${POV_LABELS[id] || id} ${contract.perspective.counts[id] ?? 0}곡`).join(' · ')
     : '-';
@@ -198,7 +222,9 @@ function GenerationContractPanel({
         <div><dt>채널</dt><dd>{opts.channel.name}{opts.channel.englishName ? ` (${opts.channel.englishName})` : ''}</dd></div>
         <div><dt>가사 언어</dt><dd>{contract.lyricLanguage}</dd></div>
         <div><dt>장르</dt><dd>{genreLine || '-'}</dd></div>
-        <div><dt>보컬</dt><dd>{vocalLine}</dd></div>
+        <div><dt>보컬 비율</dt><dd>{vocalLine}</dd></div>
+        <div><dt>중심 음색</dt><dd>{vocalToneLine}</dd></div>
+        <div><dt>적용 방식</dt><dd>{vocalAllocationLine}</dd></div>
         <div><dt>머니코드</dt><dd>{moneyChordLine || '-'}</dd></div>
         <div><dt>시점</dt><dd>{perspectiveLine}</dd></div>
       </dl>
@@ -367,6 +393,8 @@ interface Step3GenerateProps {
   onInstructionReady?: (instruction: string) => void;
   /** TASK (generation preflight) — this screen's own real workspaceId (App.tsx's WizardApp prop), needed so resolveGenerationPreflight's 3 hard-block conditions (channel/workspace archetype mismatch, scaffold workspace) check against the SAME workspace the rest of this app scopes to, not a re-derived guess. */
   workspaceId: WorkspaceId;
+  /** TASK (gap 2 — workspace recovery) — jumps directly to a different workspace; wired to the "채널의 워크스페이스로 이동" recovery button below (App.tsx's WizardApp threads this to its own handleSelectWorkspace). Optional so this component still renders (minus that one button) in any test/host context that hasn't wired it. */
+  onNavigateToWorkspace?: (id: WorkspaceId) => void;
   /** TASK (generation preflight) — lifted to App.tsx (shared with every OTHER real generation trigger point there — onGenerate/onGenerateMultiSet/onHookWarningContinueAnyway/onGenerateFreshFromPrompt) so acknowledging a mismatch here carries through to those too, instead of each tracking its own signature. */
   acknowledgedSignature?: string;
   onAcknowledgedSignatureChange: (signature: string | undefined) => void;
@@ -376,7 +404,7 @@ export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
   onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
-  workspaceId, acknowledgedSignature, onAcknowledgedSignatureChange
+  workspaceId, onNavigateToWorkspace, acknowledgedSignature, onAcknowledgedSignatureChange
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -468,8 +496,8 @@ export default function Step3Generate({
   // one place "user picked this" gets decided.
   const generationChoices = useMemo(() => userChoicesFromOptions(opts), [opts]);
   const generationContract = useMemo(
-    () => buildResolvedGenerationContract(opts, generationChoices, bridgePreassignedSongs),
-    [opts, generationChoices, bridgePreassignedSongs]
+    () => buildResolvedGenerationContract(opts, generationChoices, bridgePreassignedSongs, workspaceId),
+    [opts, generationChoices, bridgePreassignedSongs, workspaceId]
   );
   const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
   // TASK (generation preflight) — this used to reset on a signature built
@@ -638,7 +666,13 @@ export default function Step3Generate({
     : undefined;
 
   function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
-    setOpts(prev => ({ ...prev, ...fix }));
+    // TASK (provenance) — 'system' provenance for whichever of the 13
+    // tracked axes `fix` actually touches (see core/userChoices.ts's
+    // provenanceForSystemFix doc comment: today's real design-gate autoFixes
+    // only ever patch diversityAllocations, none of the 13, so this is a
+    // no-op in practice today but stays correct for a future autoFix that
+    // does).
+    setOpts(prev => ({ ...prev, ...fix, choiceProvenance: { ...prev.choiceProvenance, ...provenanceForSystemFix(fix) } }));
   }
 
   // v3.78 (TASK B) — 관문 2 itself lives in Step4Result.tsx, not here: a real
@@ -827,14 +861,14 @@ export default function Step3Generate({
               min={1}
               max={80}
               value={opts.songCount}
-              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)) }))}
+              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)), choiceProvenance: { ...prev.choiceProvenance, songCount: 'user' } }))}
             />
             <input
               type="number"
               min={1}
               max={80}
               value={opts.songCount}
-              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)) }))}
+              onChange={event => setOpts(prev => ({ ...prev, songCount: clampSongCount(Number(event.target.value)), choiceProvenance: { ...prev.choiceProvenance, songCount: 'user' } }))}
             />
           </div>
           <div className="chips">
@@ -843,7 +877,7 @@ export default function Step3Generate({
                 type="button"
                 key={count}
                 className={opts.songCount === count ? 'chip active' : 'chip'}
-                onClick={() => setOpts(prev => ({ ...prev, songCount: clampSongCount(count) }))}
+                onClick={() => setOpts(prev => ({ ...prev, songCount: clampSongCount(count), choiceProvenance: { ...prev.choiceProvenance, songCount: 'user' } }))}
               >
                 {count === 1 ? '1곡 (테스트)' : `${count}곡`}
               </button>
@@ -1317,6 +1351,38 @@ export default function Step3Generate({
               <li key={reason.field}>{reason.messageKo}</li>
             ))}
           </ul>
+          {/* TASK (gap 2 — workspace recovery) — the channelArchetype hard
+              block above has no "proceed anyway" path by design (see
+              generationPreflight.ts's channelArchetypeHardBlock), so this
+              offers real, non-silent ways OUT of it instead — the 4 recovery
+              actions the task doc names. Data comes straight from
+              core/userChoices.ts's buildResolvedGenerationContract
+              (generationContract.workspaceRecovery), never re-derived here. */}
+          {generationContract.workspaceRecovery.mismatched && (
+            <div className="button-row workspace-recovery-actions">
+              {generationContract.workspaceRecovery.suggestedDefaultChannel && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const defaultChannel = generationContract.workspaceRecovery.suggestedDefaultChannel;
+                    if (defaultChannel) setOpts(prev => ({ ...prev, channel: defaultChannel }));
+                  }}
+                >
+                  현재 워크스페이스 기본 채널로 전환
+                </button>
+              )}
+              {generationContract.workspaceRecovery.correctWorkspaceId && onNavigateToWorkspace && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToWorkspace(generationContract.workspaceRecovery.correctWorkspaceId!)}
+                >
+                  채널의 워크스페이스({getWorkspace(generationContract.workspaceRecovery.correctWorkspaceId).labelKo})로 이동
+                </button>
+              )}
+              <button type="button" onClick={onGoToChannelStep}>채널 편집</button>
+              <button type="button" onClick={onGoToChannelStep}>채널 관리에서 삭제</button>
+            </div>
+          )}
         </div>
       )}
 

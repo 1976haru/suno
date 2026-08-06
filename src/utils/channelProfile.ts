@@ -108,7 +108,12 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
     // straight through, never defaulted: an absent override on `input`
     // must stay absent on output, same as this function already treats
     // every other genuinely-optional field with no fallback value.
-    vocalQuotaOverride: input.vocalQuotaOverride
+    vocalQuotaOverride: input.vocalQuotaOverride,
+    // v5.13 (TASK: kidsAgeTierId wiring) — same copy-through, never-defaulted
+    // pattern as vocalQuotaOverride just above (see that field's own v5.12
+    // doc comment for the real bug this mirrors — an absent-from-return-object
+    // field silently drops any real value `input` was carrying).
+    kidsAgeTierId: input.kidsAgeTierId
   };
 }
 
@@ -163,7 +168,12 @@ export function createDraftChannel(name = 'New Playlist Channel', templateChanne
     preferredMoods: templateChannel?.preferredMoods?.length ? templateChannel.preferredMoods : ['warm', 'hopeful'],
     forbiddenCliches: templateChannel?.forbiddenCliches?.length ? templateChannel.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
     seoKeywords: templateChannel?.seoKeywords ?? [],
-    vocalQuotaOverride: templateChannel?.vocalQuotaOverride
+    vocalQuotaOverride: templateChannel?.vocalQuotaOverride,
+    // v5.13 (TASK: kidsAgeTierId wiring) — clones the template's own tier the
+    // same way vocalQuotaOverride does just above, so a draft created from a
+    // real kids preset (e.g. 'bedtime-lullaby-radio') starts as a valid
+    // member of its tier instead of silently losing it.
+    kidsAgeTierId: templateChannel?.kidsAgeTierId
   });
 }
 

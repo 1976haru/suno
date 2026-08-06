@@ -13,8 +13,11 @@ import { forecastCapacity } from '../../core/capacityPlanner';
 import { scopedKey } from '../../core/workspaceScope';
 import { isKidsArchetype, partitionArchetypeChoicesByWorkspace } from '../../utils/channelArchetype';
 import { getWorkspace } from '../../data/workspaces';
+import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS } from '../../data/kidsAgeTiers';
 import TagChips from '../TagChips';
-import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market, WorkspaceId } from '../../types';
+import type { AgeGroup, ChannelArchetype, ChannelProfile, KidsAgeTierId, LyricLanguage, Market, WorkspaceId } from '../../types';
+
+const kidsAgeTierOptions = Object.values(KIDS_AGE_TIERS);
 
 const marketOptions: { value: Market; label: string }[] = [
   { value: 'korea', label: 'Korea' },
@@ -331,6 +334,13 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     onUpdateField('market', defaults.market);
     onUpdateField('audience', defaults.audience);
     onUpdateField('defaultVocal', defaults.vocal);
+    // v5.13 (TASK: kidsAgeTierId wiring) — mirrors the audience default just
+    // above: switching TO a kids archetype seeds a real default tier
+    // (data/kidsAgeTiers.ts's own DEFAULT_KIDS_AGE_TIER_ID, 'kids-t2' —
+    // matching every other real call site's "ageTier 없을 때" fallback)
+    // instead of leaving the field unset; switching AWAY clears it, since a
+    // non-kids channel has no meaningful tier.
+    onUpdateField('kidsAgeTierId', isKidsArchetype(archetypeId) ? DEFAULT_KIDS_AGE_TIER_ID : undefined);
     if (shouldResetGenres) onUpdateField('preferredGenres', genreIds);
     onUpdateField('preferredMoods', defaults.moods);
     // TASK v3.38 Part B1 — previously never set here, so a quick-template
@@ -534,6 +544,28 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
             {generationPacks.map(pack => <option key={pack.id} value={pack.id}>{pack.label}</option>)}
           </select>
         </div>
+        {isKidsArchetype(archetype) && (
+          <div>
+            {/* v5.13 (TASK: kidsAgeTierId wiring) — kids-only picker, following
+                the same convention as the audience select just above (real
+                generation setting, not just a label): drives BPM range, the
+                repetition-cycle arc's bundle shape, section structure, and
+                hook-repeat count (see data/kidsAgeTiers.ts). Empty option
+                keeps the channel unassigned (falls back to
+                DEFAULT_KIDS_AGE_TIER_ID wherever a tier is actually needed) —
+                not every kids channel needs an explicit pick. */}
+            <label>동요 연령대 / Kids age tier (BPM·구조·반복 횟수에 영향)</label>
+            <select
+              value={editorChannel.kidsAgeTierId || ''}
+              onChange={event => onUpdateField('kidsAgeTierId', (event.target.value || undefined) as KidsAgeTierId | undefined)}
+            >
+              <option value="">미지정 (기본값 T2 적용)</option>
+              {kidsAgeTierOptions.map(tier => (
+                <option key={tier.id} value={tier.id}>{tier.labelKo}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           {/* TASK v3.72 (TASK C) — this no longer overwrites every song's vocal
               text (that made an untouched channel produce 18 identical

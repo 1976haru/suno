@@ -58,7 +58,7 @@ describe('resolveGenerationPreflight — clean case', () => {
     const opts = makeOptions({ channel: seniorChannel, songCount: 6, genreIds: seniorChannel.preferredGenres });
     const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
 
     const result = resolveGenerationPreflight({
       workspaceId: 'senior-oldpop',
@@ -77,7 +77,8 @@ describe('resolveGenerationPreflight — hard blocks never offer a proceed-anywa
     const opts = makeOptions({ channel: seniorChannel, songCount: 6, genreIds: seniorChannel.preferredGenres });
     const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    // Real active workspace is 'kr-2030' (the same one resolveGenerationPreflight is called with below) — every real call site passes the SAME activeWorkspaceId to both functions.
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'kr-2030');
 
     // senior-morning is not in kr-2030's own archetypeIds (['kr-2030-pop']).
     const result = resolveGenerationPreflight({
@@ -103,7 +104,7 @@ describe('resolveGenerationPreflight — hard blocks never offer a proceed-anywa
     // "some removed", the selection produced literally zero matching songs.
     const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: 'oldpop-europop-glow' }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
 
     const result = resolveGenerationPreflight({
       workspaceId: 'senior-oldpop',
@@ -137,7 +138,7 @@ describe('resolveGenerationPreflight — hard blocks never offer a proceed-anywa
     const opts = makeOptions({ channel: seniorChannel, songCount: 6, genreIds: seniorChannel.preferredGenres });
     const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
 
     const result = resolveGenerationPreflight({
       workspaceId: 'senior-oldpop',
@@ -169,7 +170,7 @@ describe('resolveGenerationPreflight — hard blocks never offer a proceed-anywa
       genreId: 'oldpop-does-not-exist-in-selection'
     }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
     expect(contract.mismatches.some(m => m.field === 'moneyChordMode')).toBe(true);
 
     const result = resolveGenerationPreflight({
@@ -202,7 +203,7 @@ describe('resolveGenerationPreflight — soft mismatches are acknowledgeable via
       genreId: seniorChannel.preferredGenres[0]
     }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
 
     const first = resolveGenerationPreflight({ workspaceId: 'senior-oldpop', options: opts, slots, contract, designGate: CLEAN_DESIGN_GATE });
     expect(first.allowed).toBe(false);
@@ -225,7 +226,7 @@ describe('resolveGenerationPreflight — soft mismatches are acknowledgeable via
     const opts = makeOptions({ channel: seniorChannel, songCount: 6, genreIds: seniorChannel.preferredGenres });
     const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
     const choices = userChoicesFromOptions(opts);
-    const contract = buildResolvedGenerationContract(opts, choices, slots);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
     const gateWithIssue: DesignGateResult = {
       passed: false,
       blocking: [{ id: 'bpm-stddev', labelKo: 'BPM 표준편차', expected: '>= 8', actual: '2.1', fixHintKo: 'fix it' }],
@@ -264,7 +265,7 @@ describe('resolveGenerationPreflight — signature staleness (scenario C)', () =
       moneyChordModeIsExplicitChoice: true,
       genreIds: seniorChannel.preferredGenres
     });
-    const contract1 = buildResolvedGenerationContract(optsAttempt1, userChoicesFromOptions(optsAttempt1), slots);
+    const contract1 = buildResolvedGenerationContract(optsAttempt1, userChoicesFromOptions(optsAttempt1), slots, 'senior-oldpop');
     const preflight1 = resolveGenerationPreflight({ workspaceId: 'senior-oldpop', options: optsAttempt1, slots, contract: contract1, designGate: CLEAN_DESIGN_GATE });
     expect(preflight1.requiresAcknowledgement).toBe(true);
     const acknowledgedSignature = preflight1.mismatchSignature;
@@ -278,7 +279,7 @@ describe('resolveGenerationPreflight — signature staleness (scenario C)', () =
       moneyChordModeIsExplicitChoice: true,
       genreIds: seniorChannel.preferredGenres
     });
-    const contract2 = buildResolvedGenerationContract(optsAttempt2, userChoicesFromOptions(optsAttempt2), slots);
+    const contract2 = buildResolvedGenerationContract(optsAttempt2, userChoicesFromOptions(optsAttempt2), slots, 'senior-oldpop');
     // Same FIELD mismatches both times (moneyChordMode) — a naive
     // field-name-only signature would treat these as identical.
     expect(contract1.mismatches.map(m => m.field)).toEqual(contract2.mismatches.map(m => m.field));

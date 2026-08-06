@@ -335,7 +335,13 @@ export const channelPresets: ChannelProfile[] = [
       'reusing an existing nursery rhyme melody or lyrics', 'excessive rap verses', 'soundalike vocal'
     ],
     seoKeywords: ['율동 동요', '유치원 체조', '동요 플레이리스트', '어린이 액션송', '유아 음악', '신나는 동요'],
-    archetype: 'kr-kids-song'
+    archetype: 'kr-kids-song',
+    // v5.13 (TASK: kidsAgeTierId wiring) — "점프하고 손뼉 치며 따라 부르는" 신나는
+    // 율동(action/exercise) 콘텐츠: 지시문의 "학습·운동·스토리 동요 → kids-t3"
+    // 버킷에 해당. preferredGenres의 krkids-action 자체도 T2/T3 모션 규칙
+    // (data/kidsStructureTemplates.ts's KIDS_MOTION_CUE_RULES) 중 T3에서만
+    // 허용되는 'spin'까지 포함한 더 활동적인 동작 범위와 맞습니다.
+    kidsAgeTierId: 'kids-t3'
   },
   {
     id: 'daily-habit-learning-song',
@@ -354,7 +360,13 @@ export const channelPresets: ChannelProfile[] = [
       'reusing an existing nursery rhyme melody or lyrics', 'excessive rap verses', 'soundalike vocal'
     ],
     seoKeywords: ['생활습관 동요', '숫자 동요', '색깔 동요', '유아 학습 노래', '한영 이중언어 동요', '어린이 교육송'],
-    archetype: 'kr-kids-song'
+    archetype: 'kr-kids-song',
+    // v5.13 (TASK: kidsAgeTierId wiring) — "양치, 손 씻기, 숫자와 색깔" 콘텐츠는
+    // 지시문의 "일반 유아 동요·생활습관 → kids-t2" 버킷과 정확히 일치하고,
+    // preferredGenres의 krkids-daily-habit/krkids-counting-color도
+    // data/kidsVocabularyWhitelist.ts의 T2 화이트리스트("숫자 1~5/색깔/탈것")와
+    // 그대로 겹칩니다.
+    kidsAgeTierId: 'kids-t2'
   },
   {
     id: 'bedtime-lullaby-radio',
@@ -403,7 +415,12 @@ export const channelPresets: ChannelProfile[] = [
       'reusing an existing nursery rhyme melody or lyrics', 'hand claps', 'energetic'
     ],
     seoKeywords: ['자장가', '낮잠 동요', '수면 동요', '역할놀이 동요', '어린이 잠자리 노래', '편안한 동요'],
-    archetype: 'kr-kids-song'
+    archetype: 'kr-kids-song',
+    // v5.13 (TASK: kidsAgeTierId wiring) — 자장가 채널은 지시문의 "자장가·영아
+    // 채널 → kids-t1" 버킷 그 자체. preferredGenres의 krkids-sleep-calm
+    // (62-84 BPM)도 kidsAgeTiers.ts의 kids-t1 tempoRange([60,100])와 겹치는
+    // 유일한 kr-kids 장르입니다.
+    kidsAgeTierId: 'kids-t1'
   },
   // TASK F1 §9-2 — jp-kids workspace's 3 channel presets, same
   // registered-once pattern as E1's krkids block above. archetype:
@@ -428,7 +445,13 @@ export const channelPresets: ChannelProfile[] = [
       'reusing an existing nursery rhyme melody or lyrics', 'excessive rap verses'
     ],
     seoKeywords: ['手遊び歌', 'てあそびうた', 'オノマトペソング', '幼児向け童謡', '保育園 手遊び', '親子で遊ぶ歌'],
-    archetype: 'jp-kids-song'
+    archetype: 'jp-kids-song',
+    // v5.13 (TASK: kidsAgeTierId wiring) — 指遊び(손가락 놀이)·손뼉 중심의
+    // 일반적인 놀이 콘텐츠로, 자장가(t1)도 운동/체조(t3)도 아닌 지시문의
+    // "일반 유아 동요·생활습관 → kids-t2" 버킷에 해당 — kr-kids의
+    // daily-habit-learning-song과 같은 자리(자장가/운동이 아닌 나머지)의
+    // jp-kids 대응 채널.
+    kidsAgeTierId: 'kids-t2'
   },
   {
     id: 'minna-de-taiso',
@@ -447,7 +470,11 @@ export const channelPresets: ChannelProfile[] = [
       'reusing an existing nursery rhyme melody or lyrics', 'dense percussion layers'
     ],
     seoKeywords: ['体操ソング', 'ダンスソング', '保育園 体操', '幼児向け童謡', '親子体操', '元気な歌'],
-    archetype: 'jp-kids-song'
+    archetype: 'jp-kids-song',
+    // v5.13 (TASK: kidsAgeTierId wiring) — 体操・ダンス(체조·댄스) 콘텐츠는
+    // 지시문의 "학습·운동·스토리 동요 → kids-t3" 버킷 그 자체 — kr-kids의
+    // follow-along-action-song과 동일한 자리의 jp-kids 대응 채널.
+    kidsAgeTierId: 'kids-t3'
   },
   {
     id: 'oyasumi-mae-no-uta',
@@ -475,7 +502,12 @@ export const channelPresets: ChannelProfile[] = [
       'reusing an existing nursery rhyme melody or lyrics', 'driving beat'
     ],
     seoKeywords: ['生活習慣ソング', '季節の歌', '寝る前の歌', '幼児向け童謡', '保育園 生活習慣', '落ち着く童謡'],
-    archetype: 'jp-kids-song'
+    archetype: 'jp-kids-song',
+    // v5.13 (TASK: kidsAgeTierId wiring) — 콘텐츠 자체는 생활습관/계절 노래지만
+    // 채널의 실제 약속("寝る前にぴったりの落ち着いた" — 자기 전에 딱 맞는
+    // 차분한)은 명백히 취침 전 프레이밍 — 지시문의 "자장가·영아 채널 → kids-t1"
+    // 버킷. kr-kids의 bedtime-lullaby-radio와 동일한 자리의 jp-kids 대응 채널.
+    kidsAgeTierId: 'kids-t1'
   },
   // TASK K2 §10-2 — kr-idol-male workspace's 3 channel presets. Every entry
   // sets vocalQuotaOverride (§5-1: { male: 15, female: 0, mixed: 3 }, the
