@@ -11,9 +11,10 @@ import {
 } from '../../data/genreLibrary';
 import { forecastCapacity } from '../../core/capacityPlanner';
 import { scopedKey } from '../../core/workspaceScope';
-import { isKidsArchetype } from '../../utils/channelArchetype';
+import { isKidsArchetype, partitionArchetypeChoicesByWorkspace } from '../../utils/channelArchetype';
+import { getWorkspace } from '../../data/workspaces';
 import TagChips from '../TagChips';
-import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market } from '../../types';
+import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market, WorkspaceId } from '../../types';
 
 const marketOptions: { value: Market; label: string }[] = [
   { value: 'korea', label: 'Korea' },
@@ -172,6 +173,71 @@ const archetypeChoices: { id: ChannelArchetype; label: string; description: stri
     // default (english, not korean); see applyArchetype below for why a
     // user's own language choice now survives re-selecting this card.
     primaryLanguage: 'english'
+  },
+  {
+    // TASK: 4 missing archetype cards — kr-kids-song has shipped real
+    // generation since TASK E1 (kr-kids workspace, docs/e1-report.md) but
+    // never had its own card here, so a custom channel could never
+    // explicitly pick it. label/description/vocal/moods sourced from
+    // data/presets.ts's 3 kr-kids-song presets (follow-along-action-song,
+    // daily-habit-learning-song, bedtime-lullaby-radio) — vocal matches
+    // follow-along-action-song's own defaultVocal, since that's the
+    // workspace's first/default preset (presetsForWorkspace('kr-kids')[0]).
+    id: 'kr-kids-song',
+    label: '한국 동요',
+    description: '율동·생활습관 학습·자장가까지 아우르는 밝고 안전한 한국 창작 동요 채널',
+    vocal: 'bright cheerful boy and girl duet singalong, youthful childlike voices, call-and-response singing',
+    moods: ['bright-playful', 'calm-focus', 'warm'],
+    market: 'korea',
+    audience: 'kids',
+    primaryLanguage: 'korean'
+  },
+  {
+    // TASK: same as kr-kids-song above — jp-kids-song shipped real
+    // generation since TASK F1 (jp-kids workspace, docs/f1-report.md).
+    // label/description/vocal/moods sourced from data/presets.ts's 3
+    // jp-kids-song presets (teasobi-hiroba, minna-de-taiso,
+    // oyasumi-mae-no-uta) — vocal matches teasobi-hiroba's own
+    // defaultVocal, the workspace's first/default preset.
+    id: 'jp-kids-song',
+    label: '일본 동요',
+    description: '손유희·체조부터 잠들기 전 노래까지 아우르는 일본 창작 동요 채널, 의성어 시스템 포함',
+    vocal: "warm nursery-toned Japanese lead, echoing children's-voice response",
+    moods: ['bright-playful', 'calm-focus', 'warm'],
+    market: 'japan',
+    audience: 'kids',
+    primaryLanguage: 'japanese'
+  },
+  {
+    // TASK: kr-idol-male shipped real generation since TASK K2 (kr-idol-male
+    // workspace, docs/k2-report.md). label/description/vocal/moods sourced
+    // from data/presets.ts's 3 kr-idol-male presets (stage-night,
+    // drive-kpop-playlist, dawn-confession) — vocal matches stage-night's
+    // own defaultVocal, the workspace's first/default preset.
+    id: 'kr-idol-male',
+    label: '한국 보이그룹',
+    description: '퍼포먼스 트랩·신스댄스·미드템포 R&B를 아우르는 한국 보이그룹 아이돌 팝 채널',
+    vocal: 'confident male idol lead, rap-sung verse into a stacked unison chorus',
+    moods: ['confident', 'energetic', 'bright'],
+    market: 'korea',
+    audience: 'twenties',
+    primaryLanguage: 'korean'
+  },
+  {
+    // TASK: kr-idol-female shipped real generation since TASK K3
+    // (kr-idol-female workspace, docs/k3-report.md). label/description/
+    // vocal/moods sourced from data/presets.ts's 3 kr-idol-female presets
+    // (daylight-city-kpop, nonstop-playlist, songs-for-after-its-over) —
+    // vocal matches daylight-city-kpop's own defaultVocal, the workspace's
+    // first/default preset.
+    id: 'kr-idol-female',
+    label: '한국 걸그룹',
+    description: '신스댄스·라틴아프로·퍼포먼스 트랩·감성 발라드를 아우르는 한국 걸그룹 아이돌 팝 채널',
+    vocal: 'bright forward female idol lead, light rhythmic phrasing, confident delivery',
+    moods: ['confident', 'bright', 'energetic'],
+    market: 'korea',
+    audience: 'twenties',
+    primaryLanguage: 'korean'
   }
 ];
 
@@ -183,17 +249,33 @@ interface Step1ChannelProps {
   onSave: () => void;
   onDelete: () => void;
   basicMode?: boolean;
+  // TASK: workspace-filtered archetype cards. Optional (falls back to
+  // 'senior-oldpop', the workspace every archetypeChoices entry before this
+  // task already belonged to) so no existing caller/test that doesn't yet
+  // pass it breaks.
+  workspaceId?: WorkspaceId;
 }
 
 // TASK v3.38 Part B6 — shown once (persisted in localStorage, not per-session
 // state) the first time a user selects the kids channel archetype.
 const KIDS_BANNER_DISMISSED_KEY = 'kidsChannelBannerDismissed';
 
-export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete, basicMode = false }: Step1ChannelProps) {
+export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete, basicMode = false, workspaceId = 'senior-oldpop' }: Step1ChannelProps) {
   const [genreSearchOpen, setGenreSearchOpen] = useState(false);
   const [genreQuery, setGenreQuery] = useState('');
   const [genreCategoryId, setGenreCategoryId] = useState('all');
   const [songsPerWeek, setSongsPerWeek] = useState(12);
+  // TASK: default view only shows this workspace's own archetype cards;
+  // "다른 유형 보기" reveals the rest for a custom channel that genuinely
+  // wants an off-workspace archetype. Reuses the same archetypeIds source
+  // hooks/useChannelManager.ts's presetsForWorkspace/saveEditorProfile
+  // already filter/validate against, per this task's own instruction not
+  // to invent a new data source.
+  const [otherArchetypesOpen, setOtherArchetypesOpen] = useState(false);
+  const { inWorkspace: workspaceArchetypeChoices, other: otherArchetypeChoices } = useMemo(
+    () => partitionArchetypeChoicesByWorkspace(archetypeChoices, getWorkspace(workspaceId).archetypeIds),
+    [workspaceId]
+  );
   const [kidsBannerDismissed, setKidsBannerDismissed] = useState(() => {
     try {
       return localStorage.getItem(scopedKey(KIDS_BANNER_DISMISSED_KEY)) === 'true';
@@ -276,13 +358,35 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
         <h2>Choose a channel</h2>
         <p className="supporting">Choose a channel profile. Its language, mood, and vocal defaults will be applied automatically.</p>
         <div className="genre-card-grid">
-          {archetypeChoices.map(choice => (
+          {workspaceArchetypeChoices.map(choice => (
             <button key={choice.id} type="button" className={archetype === choice.id ? 'genre-card-choice active' : 'genre-card-choice'} onClick={() => applyArchetype(choice.id)}>
               <b>{choice.label}</b>
               <span>{choice.description}</span>
             </button>
           ))}
         </div>
+        {otherArchetypeChoices.length > 0 && (
+          <>
+            <button type="button" className="genre-search-toggle" onClick={() => setOtherArchetypesOpen(open => !open)}>
+              <Search size={16} />
+              다른 유형 보기 ({otherArchetypeChoices.length}개)
+              {otherArchetypesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {otherArchetypesOpen && (
+              <>
+                <p className="supporting">다른 워크스페이스의 채널 유형입니다. 이 워크스페이스에는 저장할 수 없어요 — 필요하면 해당 워크스페이스로 이동해서 만드세요.</p>
+                <div className="genre-card-grid">
+                  {otherArchetypeChoices.map(choice => (
+                    <button key={choice.id} type="button" className={archetype === choice.id ? 'genre-card-choice active' : 'genre-card-choice'} onClick={() => applyArchetype(choice.id)}>
+                      <b>{choice.label}</b>
+                      <span>{choice.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </section>
     );
   }
@@ -326,7 +430,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
       <div className="option-block">
         <h3>어떤 채널인가요?</h3>
         <div className="genre-card-grid">
-          {archetypeChoices.map(choice => (
+          {workspaceArchetypeChoices.map(choice => (
             <button
               type="button"
               key={choice.id}
@@ -338,6 +442,38 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
             </button>
           ))}
         </div>
+        {otherArchetypeChoices.length > 0 && (
+          <>
+            <button type="button" className="genre-search-toggle" onClick={() => setOtherArchetypesOpen(open => !open)}>
+              <Search size={16} />
+              다른 유형 보기 ({otherArchetypeChoices.length}개)
+              {otherArchetypesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {otherArchetypesOpen && (
+              <>
+                {/* TASK: v5.9's saveEditorProfile already hard-blocks saving a
+                    channel whose archetype isn't in this workspace's own
+                    archetypeIds (window.alert on Save) — this note fires
+                    earlier, at pick time, so the user isn't surprised only
+                    after filling out the whole form. */}
+                <p className="supporting">다른 워크스페이스의 채널 유형입니다. 이 워크스페이스에는 저장할 수 없어요 — 필요하면 해당 워크스페이스로 이동해서 만드세요.</p>
+                <div className="genre-card-grid">
+                  {otherArchetypeChoices.map(choice => (
+                    <button
+                      type="button"
+                      key={choice.id}
+                      className={archetype === choice.id ? 'genre-card-choice active' : 'genre-card-choice'}
+                      onClick={() => applyArchetype(choice.id)}
+                    >
+                      <span className="genre-card-title">{choice.label}</span>
+                      <span>{choice.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       <div className="option-block capacity-forecast">

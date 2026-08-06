@@ -17,6 +17,36 @@ export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
  */
 export type ConceptBreadth = 'focused' | 'balanced' | 'variety';
 export type LyricPerspective = 'firstPerson' | 'secondPerson' | 'thirdPerson' | 'radioHost';
+/**
+ * TASK v6.0 (perspectiveMode) — how strongly `perspective` (the chosen POV)
+ * should dominate the pack's own pov axis, distinct from WHICH perspective
+ * was chosen. 'dominant' is this app's pre-existing real behavior (see
+ * core/setDirector.ts's povCounts) — the chosen perspective gets ~60% of the
+ * songs (11 of 18), the rest spread across the other two — and stays the
+ * type's own default so any caller that never sets this field keeps
+ * byte-identical output. 'fixed' gives the chosen perspective 100% of the
+ * pack ("18곡 전부 1인칭"). 'varied' spreads as evenly as songCount allows
+ * across firstPerson/secondPerson/thirdPerson with no lean toward the chosen
+ * one at all ("자동 분산") — see core/lyricDiversityPlan.ts's povDistribution
+ * for the exact split math shared by both the manual (setDirector.ts
+ * povCounts) and auto (lyricDiversityPlan.ts defaultPovPattern) pov paths.
+ */
+export type PerspectiveMode = 'fixed' | 'dominant' | 'varied';
+/**
+ * TASK (genreBlendMode) — whether every song's genre mix blends in the
+ * first-selected ("primary") genre, or each song plays only its own
+ * assigned lead genre. See core/genreRotation.ts's genresForTrack for the
+ * actual function this toggles the behavior of (the v3.58 design this whole
+ * feature makes visible/optional, not a bug — see that function's own doc
+ * comment). 'shared-primary' (default): today's pre-existing behavior — the
+ * pack's first-selected genre gets blended into every song regardless of
+ * that song's own lead genre, giving a whole set a common sonic thread
+ * rather than songs that sound genre-disconnected from each other
+ * ("공통 중심 장르" in Step2Concept's picker). 'lead-only': each song gets
+ * ONLY its own lead genre, no forced primary blend — sharper per-song genre
+ * contrast ("곡마다 한 장르만").
+ */
+export type GenreBlendMode = 'shared-primary' | 'lead-only';
 export type LyricSectionStyleId = 'narrative' | 'image' | 'dialogue' | 'hookRepeat';
 /** TASK D5 (v3.6) — the language titles/thumbnails/packaging are written in, independent of the lyrics' own language (e.g. a Korean channel commonly runs English lyrics with Korean packaging). */
 export type DisplayLanguage = 'english' | 'korean' | 'japanese';
@@ -439,6 +469,28 @@ export interface GenerationOptions {
    * broader pattern this is one instance of.
    */
   moneyChordModeIsExplicitChoice?: boolean;
+  /**
+   * TASK v6.0 (perspectiveMode) — how strongly `perspective` should dominate
+   * the pack's pov axis; see PerspectiveMode's own doc comment for the 3
+   * values. Optional/undefined resolves to 'dominant' for a non-kids
+   * channel (today's exact real behavior, unchanged) and to 'varied' for a
+   * kids channel (core/setDirector.ts's makeAllocations and
+   * core/lyricDiversityPlan.ts's defaultPovPattern both apply this same
+   * kids-varied fallback) — see this field's own
+   * perspectiveModeIsExplicitChoice flag for why the resolution isn't just
+   * "field present or not" (mirrors moneyChordMode/moneyChordModeIsExplicitChoice's
+   * own sentinel-vs-explicit-choice problem: 'dominant' is both the neutral
+   * default AND a legitimately clickable UI choice in Step2Concept's own
+   * "적용 방식" picker).
+   */
+  perspectiveMode?: PerspectiveMode;
+  /**
+   * TASK v6.0 (perspectiveMode) — true only when the user actually clicked a
+   * perspectiveMode choice in Step2Concept's "적용 방식" picker this session,
+   * as opposed to perspectiveMode simply sitting at whatever createInitialOptions
+   * defaulted it to. Same shape as moneyChordModeIsExplicitChoice just above.
+   */
+  perspectiveModeIsExplicitChoice?: boolean;
   customMoneyChord: string;
   customConcept: string;
   /** v3.49A: user-written vibe reference converted to safe English style clauses; artist/song names are blocked before use. */
@@ -467,6 +519,27 @@ export interface GenerationOptions {
   paletteFamilyOverride?: string;
   /** v3.49A: optional selected-genre weights for blend/rotation previews. Keys are GenrePack ids, values are 0-100. */
   genreBlendWeights?: Record<string, number>;
+  /**
+   * TASK (genreBlendMode) — 'shared-primary' | 'lead-only'; see
+   * GenreBlendMode's own doc comment for the two values. Optional/undefined
+   * resolves to 'shared-primary' (core/genreRotation.ts's
+   * resolveGenreBlendMode) — today's exact pre-existing genresForTrack
+   * behavior, unchanged, so any caller that never sets this field keeps
+   * byte-identical output. Mirrors perspectiveMode/
+   * perspectiveModeIsExplicitChoice's own sentinel-vs-explicit-choice shape
+   * (see that field's doc comment above): 'shared-primary' is both the
+   * neutral default AND a legitimately clickable choice in Step2Concept's
+   * own genre "적용 방식" picker.
+   */
+  genreBlendMode?: GenreBlendMode;
+  /**
+   * TASK (genreBlendMode) — true only when the user actually clicked a
+   * genreBlendMode choice in Step2Concept's genre "적용 방식" picker this
+   * session, as opposed to genreBlendMode simply sitting at whatever
+   * createInitialOptions defaulted it to. Same shape as
+   * perspectiveModeIsExplicitChoice/moneyChordModeIsExplicitChoice.
+   */
+  genreBlendModeIsExplicitChoice?: boolean;
   /** Optional user-written concrete lyric scene added to the lyric-theme allocation pool. */
   customLyricThemeScene?: string;
   avoidWords: string;

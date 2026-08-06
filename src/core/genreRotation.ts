@@ -1,4 +1,4 @@
-import type { GenrePack } from '../types';
+import type { GenerationOptions, GenreBlendMode, GenrePack } from '../types';
 import { buildStridePlan, repairAdjacentRepeats } from './stridePlan';
 
 function normalizedWeight(value: unknown): number {
@@ -48,14 +48,37 @@ export function buildGenreCountRotationPlan(
   return plan;
 }
 
+/**
+ * TASK (genreBlendMode) — resolves GenerationOptions.genreBlendMode's own
+ * optional/default split: undefined means the pre-existing 'shared-primary'
+ * behavior (unchanged), so any caller that never sets the field keeps
+ * byte-identical output. Mirrors lyricDiversityPlan.ts's
+ * resolvePerspectiveMode (same undefined-means-today's-default shape),
+ * except genreBlendMode's default doesn't vary by channel archetype the way
+ * perspectiveMode's kids-varied fallback does — 'shared-primary' is the
+ * fallback for every channel.
+ */
+export function resolveGenreBlendMode(opts: Pick<GenerationOptions, 'genreBlendMode'>): GenreBlendMode {
+  return opts.genreBlendMode ?? 'shared-primary';
+}
+
 export function genresForTrack(
   genres: readonly GenrePack[],
   leadGenreId: string | undefined,
-  weights?: Record<string, number>
+  weights?: Record<string, number>,
+  blendMode?: GenreBlendMode
 ): GenrePack[] {
   if (!genres.length) return [];
   const primary = genres[0];
   const lead = genres.find(genre => genre.id === leadGenreId) || genres[0];
+  // TASK (genreBlendMode) — 'lead-only' returns exactly this track's own
+  // lead genre, skipping the primary-blend/weighted-extra logic below
+  // entirely; the task doc's own mockup ("곡마다 한 장르만") means strictly
+  // one genre per song, not "lead + weighted extras minus primary". Any
+  // other value (including undefined) falls through to the pre-existing
+  // 'shared-primary' body untouched, which is this function's regression-
+  // safety contract.
+  if (blendMode === 'lead-only') return [lead];
   const weightedRest = genres
     .filter(genre => genre.id !== lead.id && genre.id !== primary.id)
     .map(genre => ({ genre, weight: normalizedWeight(weights?.[genre.id]) }))

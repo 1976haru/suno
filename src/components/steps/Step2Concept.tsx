@@ -12,6 +12,8 @@ import {
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from '../../core/vocalPlan';
+import { povDistribution, resolvePerspectiveMode } from '../../core/lyricDiversityPlan';
+import { resolveGenreBlendMode } from '../../core/genreRotation';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
@@ -72,6 +74,14 @@ const PERSPECTIVE_CHOICES = [
   { id: 'thirdPerson', label: '그 사람 이야기 (3인칭)', sublabel: 'Third person', description: '제3자의 이야기를 들려주는 느낌이에요.' },
   { id: 'radioHost', label: '라디오 DJ처럼', sublabel: 'Radio host', description: '라디오 진행자가 청취자에게 말하는 느낌이에요.' }
 ];
+
+/** TASK v6.0 (perspectiveMode) — short label used to interpolate PERSPECTIVE_CHOICES' own long labels into the "적용 방식" picker below (e.g. "18곡 전부 1인칭"). */
+const PERSPECTIVE_SHORT_LABEL_KO: Record<GenerationOptions['perspective'], string> = {
+  firstPerson: '1인칭',
+  secondPerson: '2인칭',
+  thirdPerson: '3인칭',
+  radioHost: '라디오 DJ'
+};
 
 interface Step2ConceptProps {
   opts: GenerationOptions;
@@ -191,6 +201,30 @@ export default function Step2Concept({
   // bug core/batchPreallocation.ts's explicitUnrecognizedVocalTone fix
   // addresses on the generation side; this mirrors it for the preview).
   const isRecognizedVocalTone = isBalancedVocalTone || Boolean(matchVocalPreset(opts.vocalTone)) || Boolean(leaningGenderFor(opts));
+
+  // TASK v6.0 (perspectiveMode) — "적용 방식" picker. Mirrors the vocal-quota
+  // preview immediately above: resolvedPerspectiveMode is exactly what
+  // core/setDirector.ts's makeAllocations (the manual 'pov' axis a real
+  // Step2Plan visit bakes into diversityAllocations) and
+  // core/lyricDiversityPlan.ts's own auto/fallback pov path both resolve to
+  // for THIS opts object (resolvePerspectiveMode's own kids-varied fallback
+  // included), so this preview never drifts from what generation actually
+  // does. Song counts shown per option use the same povDistribution split
+  // math those two real code paths call, not a re-derived approximation.
+  const perspectiveShortLabel = PERSPECTIVE_SHORT_LABEL_KO[opts.perspective] ?? '1인칭';
+  const resolvedPerspectiveMode = resolvePerspectiveMode(opts);
+  const dominantPovPreview = povDistribution(opts.songCount, opts.perspective, 'dominant');
+  const variedPovPreview = povDistribution(opts.songCount, opts.perspective, 'varied');
+  const variedPovSummaryKo = Object.entries(variedPovPreview)
+    .map(([id, count]) => `${PERSPECTIVE_SHORT_LABEL_KO[id as GenerationOptions['perspective']] ?? id} ${count}곡`)
+    .join(' · ');
+
+  // TASK (genreBlendMode) — "적용 방식" picker for the genre chip list below,
+  // same shape as the perspectiveMode preview just above: resolvedGenreBlendMode
+  // is exactly what core/genreRotation.ts's genresForTrack (the function every
+  // real generation call site threads opts.genreBlendMode through) resolves to
+  // for THIS opts object, so this never drifts from what generation actually does.
+  const resolvedGenreBlendMode = resolveGenreBlendMode(opts);
 
   // TASK H8 (v3.10) — applying a concept-agent recommendation just fills in
   // the same fields the existing chip grids below already control; it's a
@@ -556,6 +590,15 @@ export default function Step2Concept({
                 <div className="genre-preview-head">
                   <span className="genre-role">{index === 0 ? 'Main' : `Sub ${index}`}</span>
                   <h4>{genre.label}</h4>
+                  {/* TASK (genreBlendMode) — labels the resolved/first-selected
+                      genre inline, same "적용 방식" preview pattern the
+                      perspectiveMode picker uses above: only shown while
+                      shared-primary (the mode this label describes) is
+                      actually in effect, and only once there's a second genre
+                      for it to blend into. */}
+                  {index === 0 && selectedGenreDetails.length > 1 && resolvedGenreBlendMode === 'shared-primary' && (
+                    <span className="supporting">← 공통 중심 장르</span>
+                  )}
                   {genre.categoryId && <span className="supporting">{genre.categoryId}</span>}
                 </div>
                 <p><span>{describeGenreForUserKo(genre)}</span></p>
@@ -578,6 +621,48 @@ export default function Step2Concept({
                 </details>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* TASK (genreBlendMode) — makes the pre-existing v3.58 "first-picked
+            genre blends into every song" design visible instead of reading
+            as a bug, and offers the lead-only opt-out. Same "적용 방식"
+            ChoiceGrid shape/placement convention the perspectiveMode picker
+            above uses (question + helper + a labeled preview). Gated to 2+
+            genres — with only one genre selected, lead and primary are
+            always the same genre and the two modes produce identical output. */}
+        {selectedGenreDetails.length > 1 && (
+          <div className="option-block compact">
+            <p className="supporting">
+              지금은 첫 번째로 고른 장르(<b>{selectedGenreDetails[0]?.label}</b>)가 모든 곡에 공통으로 섞여, 세트 전체가 하나의 사운드로 이어져요.
+              곡마다 뚜렷하게 다른 장르 느낌을 원한다면 아래에서 바꿀 수 있어요.
+            </p>
+            <ChoiceGrid
+              question="적용 방식"
+              helper="선택하지 않으면 공통 중심 장르 섞기가 기본이에요."
+              choices={[
+                {
+                  id: 'shared-primary',
+                  label: '첫 장르를 모든 곡에 섞기',
+                  sublabel: '통일감',
+                  description: `모든 곡에 ${selectedGenreDetails[0]?.label}을(를) 함께 섞어, 세트 전체가 하나의 사운드로 이어져요.`,
+                  recommended: true
+                },
+                {
+                  id: 'lead-only',
+                  label: '곡마다 한 장르만',
+                  sublabel: '뚜렷한 대비',
+                  description: '각 곡에 배정된 장르 하나만 사용해요. 장르별 색깔이 뚜렷하게 대비돼요.'
+                }
+              ]}
+              value={resolvedGenreBlendMode}
+              onChange={value => setOpts(prev => ({
+                ...prev,
+                genreBlendMode: value as GenerationOptions['genreBlendMode'],
+                genreBlendModeIsExplicitChoice: true
+              }))}
+              columns={2}
+            />
           </div>
         )}
       </div>
@@ -1023,6 +1108,46 @@ export default function Step2Concept({
             value={opts.perspective}
             onChange={value => setOpts(prev => ({ ...prev, perspective: value as GenerationOptions['perspective'] }))}
             columns={4}
+          />
+
+          {/* TASK v6.0 (perspectiveMode) — "이 시점을 얼마나 강하게 적용할지"
+              선택. 셋 다 songCount/perspective가 바뀔 때마다 다시 계산되는
+              실제 배분 수치를 라벨에 보여줘요 (v5.9 보컬 쿼터 미리보기와 같은
+              방식) — 라벨의 숫자와 실제 생성 결과가 어긋나지 않도록. */}
+          <ChoiceGrid
+            question="적용 방식"
+            helper={isKidsArchetype(channelArchetype)
+              ? '아이 채널은 선택하지 않으면 자동 분산이 기본이에요 (실제 아이 동요 문장은 시점과 무관하게 주제별로 미리 쓰여 있어, 이 선택은 곡에 붙는 시점 표시에 반영돼요).'
+              : '선택하지 않으면 중심 시점이 기본이에요.'}
+            choices={[
+              {
+                id: 'fixed',
+                label: `${opts.songCount}곡 전부 ${perspectiveShortLabel}`,
+                sublabel: 'Fixed',
+                description: `모든 곡을 ${perspectiveShortLabel} 시점 하나로 통일해요.`
+              },
+              {
+                id: 'dominant',
+                label: `${perspectiveShortLabel} 중심 (${dominantPovPreview[opts.perspective] ?? 0}곡) · 나머지 다른 시점`,
+                sublabel: 'Dominant',
+                description: `${perspectiveShortLabel}이 중심이고, 나머지는 다른 시점으로 섞여요.`,
+                recommended: !isKidsArchetype(channelArchetype)
+              },
+              {
+                id: 'varied',
+                label: '자동 분산',
+                sublabel: 'Varied',
+                description: `시점을 고르게 섞어요 (${variedPovSummaryKo}).`,
+                recommended: isKidsArchetype(channelArchetype)
+              }
+            ]}
+            value={resolvedPerspectiveMode}
+            onChange={value => setOpts(prev => ({
+              ...prev,
+              perspectiveMode: value as GenerationOptions['perspectiveMode'],
+              perspectiveModeIsExplicitChoice: true
+            }))}
+            columns={3}
           />
 
           <div className="option-block">

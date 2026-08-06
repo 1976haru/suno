@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Coins, Copy, Download, FileJson, Info, Layers, Search, Settings2, ShieldAlert, Wand2 } from 'lucide-react';
+import { AlertTriangle, Check, Coins, Copy, Download, FileJson, Info, Layers, Search, Settings2, ShieldAlert, Wand2, XCircle } from 'lucide-react';
 import { clampMultiSetTotal, clampSongCount, MULTI_SET_TOTAL_CAP } from '../../utils/generation';
 import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
@@ -30,6 +30,9 @@ import { getHookDeviceById } from '../../data/hookDevices';
 import { getIntroTextureById } from '../../data/introTextures';
 import { getLyricThemeLabel } from '../../data/lyricThemes';
 import { getGenreById } from '../../data/genreLibrary';
+import { moneyChordPresets } from '../../data/moneyChords';
+import { getWorkspace } from '../../data/workspaces';
+import { buildResolvedGenerationContract, generationBlockedByContract, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
@@ -121,6 +124,124 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/** TASK v5.10 (contract screen) — field id -> Korean row label, matching the task doc's own mockup headers. */
+const MISMATCH_FIELD_LABEL_KO: Record<string, string> = {
+  moneyChordMode: '머니코드',
+  genreIds: '장르',
+  vocalTone: '보컬'
+};
+
+function moneyChordLabelKo(id: string): string {
+  return moneyChordPresets[id]?.labelKo ?? id;
+}
+
+function genreLabelFor(id: string): string {
+  return getGenreById(id)?.label ?? id;
+}
+
+/**
+ * TASK v5.10 (contract screen) — "이대로 생성합니다" summary + (when real
+ * mismatches exist) "⚠ 선택과 다르게 적용됩니다" warning block, per the task
+ * doc's own mockup. Deliberately reads every number off `contract` (built by
+ * core/userChoices.ts's buildResolvedGenerationContract from the SAME
+ * `slots` this screen already previews with) rather than re-deriving
+ * anything — this panel is a renderer, not a second source of truth.
+ * `blocked` is the caller's own generationBlockedByContract(...) result;
+ * this component never decides blocking itself, only displays it and
+ * collects the explicit "이대로 진행" acknowledgment per mismatched field.
+ */
+function GenerationContractPanel({
+  contract,
+  opts,
+  multiSetPreviewOnly,
+  acknowledgedFields,
+  onAcknowledge,
+  onKeepOriginalMoneyChord,
+  onGoToConceptStep
+}: {
+  contract: ResolvedGenerationContract;
+  opts: GenerationOptions;
+  multiSetPreviewOnly: boolean;
+  acknowledgedFields: Set<string>;
+  onAcknowledge: (field: string) => void;
+  onKeepOriginalMoneyChord: () => void;
+  onGoToConceptStep: () => void;
+}) {
+  const workspace = getWorkspace(contract.workspaceId);
+  const genreLine = contract.genreCounts.length
+    ? contract.genreCounts.map(entry => `${genreLabelFor(entry.id)} ${entry.count}`).join(' · ')
+    : contract.genreIds.effective.map(genreLabelFor).join(' · ');
+  const moneyChordLine = contract.moneyChordCounts.length
+    ? contract.moneyChordCounts.map(entry => `${moneyChordLabelKo(entry.id)} ${entry.count}곡`).join(' · ')
+    : contract.moneyChord.effectiveIds.map(id => `${moneyChordLabelKo(id)} 전곡`).join(' · ');
+  const vocalLine = `남성 ${contract.vocal.effectiveQuota.male} · 여성 ${contract.vocal.effectiveQuota.female} · 혼성/듀엣 ${contract.vocal.effectiveQuota.mixed}`;
+  const perspectiveLine = contract.perspective.effective.length
+    ? contract.perspective.effective.map(id => `${POV_LABELS[id] || id} ${contract.perspective.counts[id] ?? 0}곡`).join(' · ')
+    : '-';
+
+  return (
+    <div className="provider-summary generation-contract-panel">
+      <div className="panel-title">
+        <Check size={18} />
+        <h2>이대로 생성합니다</h2>
+      </div>
+      {multiSetPreviewOnly && (
+        <p className="supporting">멀티 세트: 세트당(1세트분) 미리보기 기준 숫자입니다. 세트마다 로테이션은 조금씩 달라질 수 있습니다.</p>
+      )}
+      <dl className="contract-summary-list">
+        <div><dt>워크스페이스</dt><dd>{workspace.labelKo}</dd></div>
+        <div><dt>채널</dt><dd>{opts.channel.name}{opts.channel.englishName ? ` (${opts.channel.englishName})` : ''}</dd></div>
+        <div><dt>가사 언어</dt><dd>{contract.lyricLanguage}</dd></div>
+        <div><dt>장르</dt><dd>{genreLine || '-'}</dd></div>
+        <div><dt>보컬</dt><dd>{vocalLine}</dd></div>
+        <div><dt>머니코드</dt><dd>{moneyChordLine || '-'}</dd></div>
+        <div><dt>시점</dt><dd>{perspectiveLine}</dd></div>
+      </dl>
+
+      {contract.mismatches.length > 0 && (
+        <div className="warning generation-contract-mismatch-block">
+          <div className="panel-title">
+            <AlertTriangle size={16} />
+            <b>선택과 다르게 적용됩니다</b>
+          </div>
+          {contract.mismatches.map(mismatch => {
+            const acknowledged = acknowledgedFields.has(mismatch.field);
+            const isPartialGenreRemoval = mismatch.field === 'genreIds' && contract.genreIds.removed.length > 0 && contract.genreIds.effective.length > 0;
+            return (
+              <div key={mismatch.field} className="option-block compact">
+                <b>{MISMATCH_FIELD_LABEL_KO[mismatch.field] ?? mismatch.field}</b>
+                <p className="supporting">{isPartialGenreRemoval ? '제외' : '선택'}: {mismatch.selected}</p>
+                {!isPartialGenreRemoval && <p className="supporting">적용: {mismatch.effective}</p>}
+                <p className="supporting">이유: {mismatch.reasonKo}</p>
+                <div className="button-row">
+                  {mismatch.field === 'moneyChordMode' && opts.earwormMode && (
+                    <button type="button" onClick={onKeepOriginalMoneyChord}>
+                      {moneyChordLabelKo(opts.moneyChordMode)} 유지 (귀에 잘 붙는 모드 끄기)
+                    </button>
+                  )}
+                  {mismatch.field === 'genreIds' && (
+                    <button type="button" onClick={onGoToConceptStep}>
+                      수정하고 다시
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={acknowledged ? 'chip active' : 'chip'}
+                    onClick={() => onAcknowledge(mismatch.field)}
+                  >
+                    {acknowledged ? <Check size={14} /> : <XCircle size={14} />}
+                    이대로 진행
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -331,6 +452,57 @@ export default function Step3Generate({
     () => preallocateSongSlots(opts, genres, bridgeAvoid),
     [opts, genres, bridgeAvoid]
   );
+  // TASK v5.10 (contract screen) — the "이대로 생성합니다" confirmation this
+  // whole task exists for: built off the SAME opts/slots every generation
+  // path from this screen actually uses (bridgePreassignedSongs above),
+  // never a separately-recomputed preview. userChoicesFromOptions(opts) is
+  // the same provenance builder Step2Plan.tsx's own plan preview already
+  // calls — see core/userChoices.ts's own doc comment for why this is the
+  // one place "user picked this" gets decided.
+  const generationChoices = useMemo(() => userChoicesFromOptions(opts), [opts]);
+  const generationContract = useMemo(
+    () => buildResolvedGenerationContract(opts, generationChoices, bridgePreassignedSongs),
+    [opts, generationChoices, bridgePreassignedSongs]
+  );
+  const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
+  const mismatchFieldSignature = generationContract.mismatches.map(mismatch => mismatch.field).sort().join(',');
+  // A real change in WHICH fields mismatch (a fresh generate attempt after
+  // editing a choice, or a genuinely new mismatch appearing) resets any
+  // prior "이대로 진행" acknowledgment — per this task's own explicit
+  // constraint, acknowledgment is scoped to one generation attempt, never a
+  // persisted "always allow" toggle.
+  useEffect(() => {
+    setAcknowledgedMismatchFields(new Set());
+  }, [mismatchFieldSignature]);
+  const contractBlocked = generationBlockedByContract(generationContract, acknowledgedMismatchFields);
+
+  function handleAcknowledgeMismatch(field: string) {
+    setAcknowledgedMismatchFields(prev => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
+
+  // "겨울 발라드 유지" — the one concrete, realistically wireable fix
+  // investigated for this task: earworm mode (Step2Concept's "🎧 익숙한
+  // 멜로디로") is the only real, structural cause this app has ever had for
+  // a money-chord mismatch (see core/userChoices.ts's own doc comment on
+  // buildResolvedGenerationContract) — turning it off is a real, undoable
+  // action, not a relabel. There is no equivalent concrete fix for a genre
+  // mismatch (a foreign id is simply invalid for this channel, nothing to
+  // toggle off), so that mismatch's own action re-focuses Step2Concept
+  // instead (onGoToConceptStep below).
+  function handleKeepOriginalMoneyChord() {
+    setOpts(prev => ({ ...prev, earwormMode: false }));
+  }
+  // v3.78-style step navigation — currentStep 2 (Step2Concept) is where both
+  // the earworm toggle and the genre chip picker actually live; App.tsx's
+  // own onGoToSeasonStep already navigates there (see that prop's own
+  // wiring — season selection lives on the same screen), so this reuses it
+  // rather than adding a parallel navigation prop for the same destination.
+  const onGoToConceptStep = onGoToSeasonStep;
   // v3.78 (TASK A, §2-1) — 관문 1 gates this screen's own bridge copy button
   // (the "801행" button this task's own spec names explicitly), evaluated
   // against the SAME preallocated slots the instruction/import actually use
@@ -879,8 +1051,14 @@ export default function Step3Generate({
             <div className="button-row">
               <button
                 type="button"
-                disabled={bridgeGateBlocksCopy}
-                title={bridgeGateBlocksCopy ? '설계 검증(관문 1)을 통과하거나 "무시하고 진행"에 동의해야 복사할 수 있습니다.' : undefined}
+                disabled={bridgeGateBlocksCopy || contractBlocked}
+                title={
+                  bridgeGateBlocksCopy
+                    ? '설계 검증(관문 1)을 통과하거나 "무시하고 진행"에 동의해야 복사할 수 있습니다.'
+                    : contractBlocked
+                      ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 복사할 수 있습니다.'
+                      : undefined
+                }
                 onClick={() => void handleCopyClaudeCodeInstruction()}
               >
                 <Copy size={16} />
@@ -959,7 +1137,12 @@ export default function Step3Generate({
             </p>
             {bridgeInstructionMode === 'master' && (
               <div className="button-row">
-                <button type="button" onClick={() => void handleCopyMasterInstruction()}>
+                <button
+                  type="button"
+                  disabled={contractBlocked}
+                  title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 복사할 수 있습니다.' : undefined}
+                  onClick={() => void handleCopyMasterInstruction()}
+                >
                   <Copy size={16} />
                   {masterBridgeCopied ? 'Master copied' : 'Copy master instruction'}
                 </button>
@@ -981,7 +1164,12 @@ export default function Step3Generate({
                     />
                     Set {String(item.setIndex + 1).padStart(2, '0')} ({multiSetClamped.songsPerSet}곡) — {item.outputFilename}
                   </label>
-                  <button type="button" onClick={() => void handleCopySetInstruction(item)}>
+                  <button
+                    type="button"
+                    disabled={contractBlocked}
+                    title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 복사할 수 있습니다.' : undefined}
+                    onClick={() => void handleCopySetInstruction(item)}
+                  >
                     {copiedSetIndexes.has(item.setIndex) ? <Check size={16} /> : <Copy size={16} />}
                     {copiedSetIndexes.has(item.setIndex) ? '복사됨' : '복사'}
                   </button>
@@ -1030,11 +1218,22 @@ export default function Step3Generate({
         </p>
       )}
 
+      <GenerationContractPanel
+        contract={generationContract}
+        opts={opts}
+        multiSetPreviewOnly={multiSet.mode}
+        acknowledgedFields={acknowledgedMismatchFields}
+        onAcknowledge={handleAcknowledgeMismatch}
+        onKeepOriginalMoneyChord={handleKeepOriginalMoneyChord}
+        onGoToConceptStep={onGoToConceptStep}
+      />
+
       {multiSet.mode ? (
         <button
           type="button"
           className="primary full-width action-button"
-          disabled={multiSet.isRunning}
+          disabled={multiSet.isRunning || contractBlocked}
+          title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 생성할 수 있습니다.' : undefined}
           onClick={multiSet.onGenerate}
         >
           <Layers size={18} />
@@ -1048,7 +1247,8 @@ export default function Step3Generate({
         <button
           type="button"
           className="primary full-width action-button"
-          disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling'}
+          disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling' || contractBlocked}
+          title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 생성할 수 있습니다.' : undefined}
           onClick={onGenerate}
         >
           <Wand2 size={18} />

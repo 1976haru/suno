@@ -637,7 +637,7 @@ export function rebuildStylePromptsForPersonaMode(
   const killingPointPlan = assignKillingPoints(
     arcPlan.map((pos, idx) => ({
       peakStrength: pos.peakStrength,
-      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
+      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0]?.eraTag
     })),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
@@ -647,7 +647,7 @@ export function rebuildStylePromptsForPersonaMode(
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
     const genreId = genrePlan[idx];
-    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
     const tempo = averageTempo(trackGenres, trackNo, tempoBandPlan[idx], audienceProfile.tempoFloor, audienceProfile.tempoCeiling, audienceProfile.genreBoundedTempo);
     const killingPoint = killingPointPlan[idx];
     // TASK I1 (v3.11) — prefer the role actually assigned at generation time
@@ -1023,7 +1023,7 @@ export function generateLocalBlueprint(
   const killingPointPlan = assignKillingPoints(
     arcPlanForKillingPoints.map((pos, idx) => ({
       peakStrength: pos.peakStrength,
-      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
+      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0]?.eraTag
     })),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
@@ -1341,7 +1341,7 @@ export function generateLocalBlueprint(
     const situation = situationOption.english;
     const emotionArc = emotionArcPlan[idx];
     const genreId = genrePlan[idx];
-    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
     // v3.82 (TASK A) — mirrors batchPreallocation.ts's identical flagship
     // (track 2) tempo override, clamped to the audience's own tempo range.
     const tempo = idx === 1 && flagshipComboTempo !== undefined

@@ -7,6 +7,7 @@ import type {
   GenrePack,
   GenreTraits,
   LyricPerspective,
+  PerspectiveMode,
   PreassignedSongSlot,
   ProviderSettings
 } from '../types';
@@ -20,7 +21,7 @@ import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
-import { buildLyricThemePlan } from './lyricDiversityPlan';
+import { buildLyricThemePlan, povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { allocateGenreCounts } from './conceptAgent';
 import {
@@ -687,19 +688,16 @@ function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTon
  * lyricDiversityPlan.ts's own defaultPovPattern exactly, so the manual axis
  * this hands off agrees with what the (now-overridden) auto plan would have
  * produced instead of picking its own independent order.
+ *
+ * TASK v6.0 (perspectiveMode) — `mode` added, defaulting to 'dominant' (this
+ * function's own pre-existing body, unchanged when mode is omitted or
+ * 'dominant' — the regression-safety contract this task's own report
+ * verifies). The actual per-mode count math now lives in
+ * lyricDiversityPlan.ts's povDistribution (shared with that file's own
+ * auto/fallback pov path) rather than being reimplemented here a second time.
  */
-function povCounts(songCount: number, perspective?: LyricPerspective): Record<string, number> {
-  const primary = perspective ?? 'firstPerson';
-  if (songCount <= 2) return { [primary]: songCount };
-  const variantCount = songCount >= 10 ? 3 : 2;
-  const fallback: LyricPerspective[] = ['firstPerson', 'secondPerson', 'thirdPerson'];
-  const secondary = fallback.find(item => item !== primary) ?? 'secondPerson';
-  const tertiary = fallback.find(item => item !== primary && item !== secondary) ?? 'thirdPerson';
-  return {
-    [primary]: songCount - variantCount,
-    [secondary]: Math.max(1, variantCount - 1),
-    [tertiary]: 1
-  };
+function povCounts(songCount: number, perspective?: LyricPerspective, mode: PerspectiveMode = 'dominant'): Record<string, number> {
+  return povDistribution(songCount, perspective, mode);
 }
 
 /**
@@ -738,6 +736,13 @@ function buildBaseOptions(
     seasonId: choices.source.seasonId === 'user' && choices.seasonId ? choices.seasonId : inferSeasonId(freeText, channel),
     vocalTone: choices.source.vocalTone === 'user' && choices.vocalTone ? choices.vocalTone : channel.defaultVocal,
     perspective: choices.source.perspective === 'user' && choices.perspective ? choices.perspective : 'firstPerson',
+    // TASK v6.0 (perspectiveMode) — same "explicit choice" shape as
+    // moneyChordMode just below: undefined here (not a hardcoded 'dominant')
+    // so this plan's own makeAllocations can tell "user really picked a
+    // mode" apart from "nothing chosen yet" and apply the kids-varied
+    // fallback (resolvePerspectiveMode) only in the latter case.
+    perspectiveMode: choices.source.perspectiveMode === 'user' && choices.perspectiveMode ? choices.perspectiveMode : undefined,
+    perspectiveModeIsExplicitChoice: choices.source.perspectiveMode === 'user',
     lyricDepth: 'commercial',
     durationTarget: 'under3m30',
     moneyChordMode,
@@ -808,7 +813,13 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
     // choices.perspective-aware resolution (see that function's existing
     // `choices.source.perspective === 'user' ? ... : 'firstPerson'` line,
     // which this manual axis previously never consulted at all).
-    { axis: 'pov', mode: 'manual', counts: povCounts(songCount, emptyBase.perspective) }
+    // TASK v6.0 (perspectiveMode) — resolvePerspectiveMode applies the same
+    // "explicit choice, else kids-varied, else dominant" fallback this
+    // file's buildBaseOptions and lyricDiversityPlan.ts's own auto pov path
+    // both use (see that function's doc comment) — a kids channel that never
+    // touched Step2Concept's "적용 방식" picker gets a 'varied' manual pov
+    // axis here instead of always landing on the 'dominant' 60% split.
+    { axis: 'pov', mode: 'manual', counts: povCounts(songCount, emptyBase.perspective, resolvePerspectiveMode(emptyBase)) }
   ] satisfies AxisAllocation[];
 }
 

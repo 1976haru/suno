@@ -15,3 +15,30 @@
 export function isKidsArchetype(archetype: string | undefined): boolean {
   return archetype === 'kids' || archetype === 'kr-kids-song' || archetype === 'jp-kids-song';
 }
+
+/**
+ * TASK: Step1 archetype cards filtered by workspace — Step1Channel.tsx's
+ * archetypeChoices grid used to render every archetype from every
+ * workspace unconditionally, so a user in e.g. kr-kids saw senior-oldpop's
+ * 10+ cards too, and could pick one that useChannelManager's saveEditorProfile
+ * (v5.9 TASK §3) would then reject at save time with no warning until then.
+ * Pure so it's testable without mounting the component (this codebase's
+ * tests are vitest logic-level, not DOM-rendering — see
+ * tests/channelDraftWorkspaceScope.test.ts's own presetsForWorkspace/
+ * findArchetypeMismatches tests for the same pattern this mirrors). Generic
+ * over the choice shape so Step1Channel.tsx's own richer archetypeChoices
+ * item type (label/description/vocal/moods/market/audience/primaryLanguage)
+ * doesn't need to be duplicated or imported here.
+ */
+export function partitionArchetypeChoicesByWorkspace<T extends { id: string }>(
+  choices: T[],
+  workspaceArchetypeIds: string[]
+): { inWorkspace: T[]; other: T[] } {
+  const allowed = new Set(workspaceArchetypeIds);
+  const inWorkspace: T[] = [];
+  const other: T[] = [];
+  for (const choice of choices) {
+    (allowed.has(choice.id) ? inWorkspace : other).push(choice);
+  }
+  return { inWorkspace, other };
+}

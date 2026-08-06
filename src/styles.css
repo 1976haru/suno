@@ -3073,3 +3073,45 @@ pre {
 .experimental-feature-error button {
   margin-top: 8px;
 }
+
+/* TASK v5.10 (contract screen) — "이대로 생성합니다" pre-generation summary + mismatch block. */
+.generation-contract-panel {
+  border-color: #86efac;
+}
+
+.contract-summary-list {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  row-gap: 6px;
+  column-gap: 12px;
+  margin: 10px 0 0;
+}
+
+.contract-summary-list > div {
+  display: contents;
+}
+
+.contract-summary-list dt {
+  font-weight: 800;
+  color: #475569;
+  font-size: 13px;
+}
+
+.contract-summary-list dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.generation-contract-mismatch-block {
+  display: block;
+  margin-top: 14px;
+}
+
+.generation-contract-mismatch-block .panel-title {
+  margin-bottom: 6px;
+}
+
+.generation-contract-mismatch-block .option-block.compact {
+  background: #fff;
+  margin-top: 8px;
+}

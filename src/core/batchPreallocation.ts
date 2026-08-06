@@ -95,7 +95,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'audience' | 'ratingInsights'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -236,7 +236,7 @@ export function preallocateSongSlots(
   const killingPointPlan = assignKillingPoints(
     arcPlanForKillingPoints.map((pos, idx) => ({
       peakStrength: pos.peakStrength,
-      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights)[0]?.eraTag
+      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0]?.eraTag
     })),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
@@ -647,7 +647,7 @@ export function preallocateSongSlots(
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
     const sectionStyle = sectionStylePlan[idx];
     const genreId = genrePlan[idx];
-    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights);
+    const trackGenres = genresForTrack(genres, genreId, opts.genreBlendWeights, opts.genreBlendMode);
     const resolvedVocalVariantText = vocalVariantText || variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     const genreText = rotatingGenreText(trackGenres, seed, idx);
     const killingPoint = killingPointPlan[idx];

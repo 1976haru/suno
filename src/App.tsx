@@ -1008,6 +1008,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
               onSave={cm.saveEditorProfile}
               onDelete={cm.deleteSelectedCustomChannel}
               basicMode={!expertMode}
+              workspaceId={workspaceId}
             />
           )}
 

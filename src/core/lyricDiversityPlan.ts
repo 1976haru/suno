@@ -1,5 +1,5 @@
 import { frameIdForConceptText, getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, type LyricTheme } from '../data/lyricThemes';
-import type { GenerationOptions, LyricPerspective, LyricSectionStyleId } from '../types';
+import type { GenerationOptions, LyricPerspective, LyricSectionStyleId, PerspectiveMode } from '../types';
 import { applyAxisAllocation, POV_IDS, spreadPlanByCounts } from './diversityAllocation';
 import { buildStridePlan } from './stridePlan';
 import type { KidsLyricTheme } from './kidsLyricEngine';
@@ -40,7 +40,7 @@ export const CHORUS_SECTION_STYLE_TEXT_BY_ID: Record<LyricSectionStyleId, string
 };
 
 type LyricPlanOptions = Pick<GenerationOptions,
-  'channel' | 'songCount' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'
+  'channel' | 'songCount' | 'diversityAllocations' | 'perspective' | 'perspectiveMode' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'
 >;
 
 function positiveModulo(value: number, length: number): number {
@@ -280,11 +280,97 @@ export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): strin
   return spreadPlanByCounts(allocated, pool, 1);
 }
 
-function defaultPovPattern(opts: Pick<GenerationOptions, 'channel' | 'perspective'>): LyricPerspective[] {
+/**
+ * TASK v6.0 (perspectiveMode) — kids channels have no UI-tracked "explicit
+ * choice" flag of their own to consult here (that lives on
+ * GenerationOptions.perspectiveModeIsExplicitChoice, set only by
+ * Step2Concept's picker), so both this module and core/setDirector.ts's
+ * makeAllocations resolve the SAME way: whatever the caller's own
+ * opts.perspectiveMode already says (already resolved upstream — see
+ * setDirector.ts's buildBaseOptions) if present, else 'varied' for a kids
+ * channel (real children's songs naturally mix "나는 손을 씻어요"/"너는 할 수
+ * 있어" rather than committing to one person — see this task's own report),
+ * else 'dominant' (today's pre-existing real default for every other
+ * channel, unchanged). Centralized here so setDirector.ts's manual pov axis
+ * and this file's own auto/fallback pov plan never resolve a bare
+ * `perspectiveMode: undefined` two different ways.
+ */
+export function resolvePerspectiveMode(opts: Pick<GenerationOptions, 'channel' | 'perspectiveMode'>): PerspectiveMode {
+  return opts.perspectiveMode ?? (isKidsArchetype(opts.channel.archetype) ? 'varied' : 'dominant');
+}
+
+/**
+ * TASK v6.0 (perspectiveMode) — the exact count split for `songCount` songs
+ * given a primary `perspective` and a resolution `mode`. Single source of
+ * truth for both core/setDirector.ts's povCounts (the manual 'pov' axis
+ * baked into diversityAllocations once a real user reaches Step2Plan.tsx —
+ * see that function's own doc comment for why the manual axis is what a real
+ * generation actually uses) and this file's own defaultPovPattern/
+ * buildPovPlan (the auto/fallback path a caller that never went through
+ * Step2Plan — most direct generateLocalBlueprint calls, including this
+ * app's own test suite — still exercises).
+ *
+ * 'dominant' branch is byte-identical to this app's pre-v6.0 povCounts body
+ * (primary gets songCount minus a 2-3 song "variant" reserve, unchanged) —
+ * this is the regression-safety contract the whole perspectiveMode feature
+ * promises: any existing caller that never sets perspectiveMode keeps
+ * exactly today's output.
+ */
+export function povDistribution(songCount: number, perspective: LyricPerspective | undefined, mode: PerspectiveMode): Record<string, number> {
+  const primary = perspective ?? 'firstPerson';
+  if (songCount <= 0) return {};
+  const fallback: LyricPerspective[] = ['firstPerson', 'secondPerson', 'thirdPerson'];
+  const secondary = fallback.find(item => item !== primary) ?? 'secondPerson';
+  const tertiary = fallback.find(item => item !== primary && item !== secondary) ?? 'thirdPerson';
+
+  if (mode === 'fixed') return { [primary]: songCount };
+
+  if (mode === 'varied') {
+    if (songCount <= 2) return { [primary]: songCount };
+    // v6.0 — same round-robin-across-N-ids convention setDirector.ts's own
+    // exactBalancedCounts (structureTemplate/vocalType axes) already uses
+    // for "no dominant signal, split as evenly as possible" allocation, so
+    // this doesn't invent a second even-split algorithm for the same job.
+    const order: LyricPerspective[] = [primary, secondary, tertiary];
+    const counts: Record<string, number> = {};
+    for (let idx = 0; idx < songCount; idx += 1) {
+      const id = order[idx % order.length];
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    return counts;
+  }
+
+  // 'dominant' — unchanged pre-v6.0 povCounts body.
+  if (songCount <= 2) return { [primary]: songCount };
+  const variantCount = songCount >= 10 ? 3 : 2;
+  return {
+    [primary]: songCount - variantCount,
+    [secondary]: Math.max(1, variantCount - 1),
+    [tertiary]: 1
+  };
+}
+
+function defaultPovPattern(opts: Pick<GenerationOptions, 'channel' | 'perspective' | 'perspectiveMode'>): LyricPerspective[] {
+  const primary = opts.perspective || 'firstPerson';
+  const mode = resolvePerspectiveMode(opts);
+  if (mode === 'fixed') return [primary];
+  if (mode === 'varied') {
+    const fallback: LyricPerspective[] = ['firstPerson', 'secondPerson', 'thirdPerson'];
+    const secondary = fallback.find(item => item !== primary) ?? 'secondPerson';
+    const tertiary = fallback.find(item => item !== primary && item !== secondary) ?? 'thirdPerson';
+    return [primary, secondary, tertiary];
+  }
+  // 'dominant' — unchanged pre-v6.0 body for both the kids and non-kids
+  // branch (a kids channel only reaches this branch when perspectiveMode was
+  // explicitly set to 'dominant' — its own unset default resolves to
+  // 'varied' above, a real, intentional behavior change from pre-v6.0's
+  // unconditional kids pattern; see this task's own report for why nothing
+  // downstream of this pattern (composeKidsLyrics) actually reads pov, so
+  // this change only affects the pov *label* attached to a kids song, never
+  // its lyric text).
   if (isKidsArchetype(opts.channel.archetype)) {
     return ['firstPerson', 'secondPerson', 'firstPerson', 'thirdPerson', 'secondPerson', 'firstPerson'];
   }
-  const primary = opts.perspective || 'firstPerson';
   const fallback: LyricPerspective[] = ['firstPerson', 'secondPerson', 'thirdPerson'];
   const secondary = fallback.find(item => item !== primary) ?? 'secondPerson';
   const tertiary = fallback.find(item => item !== primary && item !== secondary) ?? 'thirdPerson';
