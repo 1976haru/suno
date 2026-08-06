@@ -3,7 +3,9 @@ import type { ImportSongsReport } from './bridgeImport';
 import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { findArtistReferenceLeaks, type ArtistReferenceLeak } from './artistReferenceDecomposer';
+import { ARTIST_SCAN_FIELDS } from '../data/scanTargets';
 import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } from './duplicationGate';
+import { checkDistinctChoices } from './distinctChoiceCheck';
 
 /**
  * TASK (import transaction / pre-persistence inspection) — real, verified
@@ -57,10 +59,15 @@ export interface ImportCheckLine {
   detail?: string;
 }
 
+/** TASK v5.18 (유형 D) — which data/scanTargets.ts field a leak was found in ('title', 'lyrics', 'youtube.tags', etc.) — lets the "오탐입니다" UI and any report show WHERE, not just what surface text matched. */
+export interface ArtistLeakWithField extends ArtistReferenceLeak {
+  field: string;
+}
+
 /** TASK v5.19 (TASK C) — one flagged track's surviving (non-exempted) leaks; see ImportInspection.artistLeaks. */
 export interface ArtistLeakDetail {
   trackNo: number;
-  leaks: ArtistReferenceLeak[];
+  leaks: ArtistLeakWithField[];
 }
 
 export interface ImportInspection {
@@ -101,6 +108,15 @@ export interface ImportInspection {
    * into duplicateContentTrackNos.
    */
   lyricLineOverlapMatches: { trackNo: number; line: string }[];
+  /**
+   * v5.23 (TASK B §2-4) — core/distinctChoiceCheck.ts's own report on
+   * SongIdea.distinctChoice, surfaced purely for display (Step4Result.tsx
+   * shows "이 세트가 무엇을 시도했는지" per this task's own §2-4 "화면에
+   * 표시하십시오"). NEVER contributes to `status`/`checks`' blocked bucket —
+   * see checkDistinctChoices' own doc comment on why this stays advisory.
+   * undefined for a report.blueprint===null early return (nothing to check).
+   */
+  distinctChoiceReport?: import('./distinctChoiceCheck').DistinctChoiceReport;
   /** Non-empty only when `status === 'blocked'` AND report.blueprint was non-null (i.e. this module's own re-run of validateProviderTrackSet is what blocked it — that's the only remaining 'blocked' reason this module itself can add on top of importSongsJson's own upstream null-blueprint cases, which are already fully described by report.skippedReasons instead). */
   blockedReasons: string[];
 }
@@ -288,13 +304,42 @@ export function inspectImportReport(
       : { id: 'vocalTag', labelKo: '보컬 태그 정상', status: 'pass' }
   );
 
+  // v5.23 (TASK B §2-4) — SongIdea.distinctChoice, same "informational
+  // only, never a reason to block or mark 'repairable'" treatment as the
+  // vocal-tag check just above (see checkDistinctChoices' own doc comment
+  // for why this task's spec explicitly forbids making it blocking).
+  const distinctChoiceReport = checkDistinctChoices(report.blueprint.songs);
+  checks.push(
+    distinctChoiceReport.missingTrackNos.length || distinctChoiceReport.duplicateGroups.length || distinctChoiceReport.belowWrittenTarget
+      ? {
+          id: 'distinctChoice',
+          labelKo: '곡별 다른 시도 (distinctChoice)',
+          status: 'info',
+          detail: [
+            distinctChoiceReport.missingTrackNos.length ? `누락: T${distinctChoiceReport.missingTrackNos.join(', T')}` : '',
+            distinctChoiceReport.duplicateGroups.length ? `중복: ${distinctChoiceReport.duplicateGroups.map(g => `T${g.trackNos.join('/T')} "${g.value}"`).join(' / ')}` : '',
+            `작성 ${distinctChoiceReport.writtenCount}/${distinctChoiceReport.totalCount}`
+          ].filter(Boolean).join(' / ')
+        }
+      : { id: 'distinctChoice', labelKo: `곡별 다른 시도 작성 완료 (${distinctChoiceReport.writtenCount}/${distinctChoiceReport.totalCount})`, status: 'pass' }
+  );
+
   // 7. 아티스트명·안전 검사 — reuses artistReferenceDecomposer.ts's own
   // findArtistReferenceLeaks (the exact scanner core/albumAudit.ts's
   // auditAlbum already treats as a hard, block-the-copy-action "errors"
-  // condition) against every final song's title/stylePrompt/lyrics
-  // (title/lyrics scope now require real corroborating context for
+  // condition) against every field data/scanTargets.ts's ARTIST_SCAN_FIELDS
+  // names (title/lyrics scope require real corroborating context for
   // commonWordRisk seeds — see that function's own doc comment; this is the
   // TASK v5.19 P0 fix for "bread" the food false-blocking a whole pack).
+  //
+  // TASK v5.18 (유형 D) — this used to only check
+  // title/stylePrompt/lyrics, hand-written here (and, separately,
+  // stylePrompt/lyrics/youtube in core/compositionScorer.ts's own copy —
+  // two DIFFERENT field lists for the same guarantee). A real artist name
+  // in titleLocalized/hookPhrase/excludePrompt/listenerSituation/
+  // emotionArc/youtube.tags reached persistence with zero check. Now reads
+  // the one shared field list every checker (this file, compositionScorer.ts)
+  // consults — adding a field there fixes every checker at once.
   //
   // TASK v5.19 (TASK C) — a real hit no longer blocks the WHOLE import; it
   // marks only the affected track(s) via artistLeakTrackNos/artistLeaks
@@ -305,15 +350,14 @@ export function inspectImportReport(
   const artistLeaks: ArtistLeakDetail[] = [];
   const leakReasons: string[] = [];
   for (const song of report.blueprint.songs) {
-    const rawLeaks = [
-      ...findArtistReferenceLeaks(song.title, 'title'),
-      ...findArtistReferenceLeaks(song.stylePrompt),
-      ...findArtistReferenceLeaks(song.lyrics, 'lyrics')
-    ];
+    const rawLeaks = ARTIST_SCAN_FIELDS.flatMap(fieldRef =>
+      findArtistReferenceLeaks(fieldRef.read(song), fieldRef.scope).map(leak => ({ ...leak, field: fieldRef.id }))
+    );
     const effectiveLeaks = rawLeaks.filter(leak => !sessionExemptions?.has(leak.surface.toLowerCase()));
     if (effectiveLeaks.length) {
       artistLeaks.push({ trackNo: song.trackNo, leaks: effectiveLeaks });
-      leakReasons.push(`Track ${song.trackNo}: 아티스트명 노출 감지 (${[...new Set(effectiveLeaks.map(leak => leak.surface))].join(', ')})`);
+      const uniqueSurfaces = [...new Set(effectiveLeaks.map(leak => `${leak.surface}(${leak.field})`))];
+      leakReasons.push(`Track ${song.trackNo}: 아티스트명 노출 감지 (${uniqueSurfaces.join(', ')})`);
     }
   }
   const artistLeakTrackNos = artistLeaks.map(entry => entry.trackNo);
@@ -392,6 +436,7 @@ export function inspectImportReport(
     sceneOverlaps: sceneOverlap.collisions,
     titleHistoryCollisions: titleCollision.collisions,
     lyricLineOverlapMatches: lyricLineOverlap.matches,
+    distinctChoiceReport,
     blockedReasons: hardBlocked
       ? [
           ...(!trackSetValidation.valid ? [describeTrackSetValidation(trackSetValidation)] : []),

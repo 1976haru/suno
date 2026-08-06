@@ -1,5 +1,6 @@
 import type { GenerationOptions, SongIdea } from '../types';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
+import { ARTIST_SCAN_FIELDS } from '../data/scanTargets';
 import { SUNO_COPY_LIMIT } from './promptBudget';
 import { MAX_GENRE_SHARE } from './conceptAgent';
 import { hookSceneTimeOfDayWarning, scenePropContradictionWarning, titleHookOverlapWarning } from './quality';
@@ -127,23 +128,25 @@ export function auditAlbum(songs: SongIdea[], opts?: Partial<Pick<GenerationOpti
   }
 
   for (const song of songs) {
-    const leaks = findArtistReferenceLeaks(song.stylePrompt);
-    if (leaks.length) {
-      errors.push(`Track ${song.trackNo}: style prompt contains an artist-name leak (${leaks.map(leak => leak.surface).join(', ')}).`);
-    }
     // TASK v3.58 — a real generated pack was found singing the user's raw
     // customConcept free text verbatim (artist name included) as a chorus/
     // verse line, entirely outside the style prompt (see
     // conceptDiversity.ts's fallbackConcept fix); the lyrics themselves need
     // the same leak scan, not just the style prompt.
-    // TASK v5.19 (P0 emergency fix) — 'lyrics' scope requires real
+    // TASK v5.19 (P0 emergency fix) — 'lyrics'/'title' scope require real
     // corroborating context for commonWordRisk seeds (see
     // artistReferenceDecomposer.ts's hasArtistContextSignal), so an ordinary
     // word ("breaking bread", "the eagles fly south") no longer reads as a
     // leak here.
-    const lyricLeaks = findArtistReferenceLeaks(song.lyrics, 'lyrics');
-    if (lyricLeaks.length) {
-      errors.push(`Track ${song.trackNo}: lyrics contain an artist-name leak (${lyricLeaks.map(leak => leak.surface).join(', ')}).`);
+    // TASK v5.18 (유형 D) — was stylePrompt+lyrics only here; now reads
+    // data/scanTargets.ts's ARTIST_SCAN_FIELDS, the same field list every
+    // other artist-safety checker (importInspection.ts/compositionScorer.ts)
+    // consults.
+    for (const fieldRef of ARTIST_SCAN_FIELDS) {
+      const leaks = findArtistReferenceLeaks(fieldRef.read(song), fieldRef.scope);
+      if (leaks.length) {
+        errors.push(`Track ${song.trackNo}: ${fieldRef.id} contains an artist-name leak (${leaks.map(leak => leak.surface).join(', ')}).`);
+      }
     }
     if (song.stylePrompt.length > SUNO_COPY_LIMIT) {
       errors.push(`Track ${song.trackNo}: style prompt (${song.stylePrompt.length} chars) exceeds Suno's ${SUNO_COPY_LIMIT}-char copy limit.`);

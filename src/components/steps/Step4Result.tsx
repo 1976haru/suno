@@ -481,10 +481,11 @@ export default function Step4Result({
               <Download size={16} />
               📊 세트요약 CSV (전체 누적)
             </button>
+            {/* TASK v5.18 P1-6 — real gap: both exports below used to build their text from the live `opts` prop, so switching the screen's channel/settings after generating this pack (without regenerating) silently changed the downloaded description/script's genre/language wording for an already-generated pack. Prefers this blueprint's own generationSnapshot.options (what it was really generated under), falling back to live opts only for a pack with no snapshot yet. */}
             <button
               type="button"
               title="전 곡을 한 영상으로 합칠 때 쓸 설명(타임스탬프 트랙리스트 포함)"
-              onClick={() => downloadText('suno-pack-video-description.txt', buildPackVideoDescription(blueprint, opts))}
+              onClick={() => downloadText('suno-pack-video-description.txt', buildPackVideoDescription(blueprint, blueprint?.generationSnapshot?.options ?? opts))}
             >
               <Download size={16} />
               🎬 영상 설명(타임스탬프)
@@ -492,7 +493,7 @@ export default function Step4Result({
             <button
               type="button"
               title="audio/NN.mp3 + images/NN.png 준비 후 실행하는 ffmpeg 합본 영상 스크립트 (정적 이미지 1장 금지 대응)"
-              onClick={() => downloadText('render-pack-video.sh', buildFfmpegPackVideoScript(blueprint, opts))}
+              onClick={() => downloadText('render-pack-video.sh', buildFfmpegPackVideoScript(blueprint, blueprint?.generationSnapshot?.options ?? opts))}
             >
               <Download size={16} />
               🎞️ ffmpeg 스크립트

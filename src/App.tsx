@@ -31,7 +31,7 @@ import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
 import { evaluateGenerationRequest } from './core/generationPreflight';
 import { genresForOptions, moodsForOptions, resolveGenerationContext, withGenerationSnapshot } from './core/generationSnapshot';
-import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, type ImportSongsReport } from './core/claudeCodeBridge';
+import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, reconcileImportOptsWithMeta, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
 import { inspectImportReport, buildMissingTracksRegenerateInstruction, buildArtistLeakRegenerateInstruction, type ImportInspection } from './core/importInspection';
 import { planMultiSetImport, type MultiSetImportSetInput, type MultiSetImportSetResult } from './core/multiSetImportInspection';
@@ -404,8 +404,21 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   }
 
   const activeOptions = { ...opts, channel: cm.selectedChannel };
+  // TASK v5.18 P1-6 — real gap this task's audit found: soundSignature (the
+  // Suno persona-metadata label shown for the CURRENT gen.blueprint) used to
+  // rebuild itself from live opts/cm.selectedChannel on every render, so
+  // switching the screen's channel or vocal tone after generating a pack
+  // (without regenerating) silently relabeled an already-generated blueprint
+  // with settings it was never actually made under. Prefers the blueprint's
+  // own attached generationSnapshot (what it was REALLY generated with,
+  // same "snapshot wins when present" rule core/generationSnapshot.ts's own
+  // resolveGenerationContext already applies for evaluate/retry/refine),
+  // falling back to live state only for a pack with no snapshot yet
+  // (pre-v3.6x saved packs / mid-generation preview).
+  const soundSignatureOptions = gen.blueprint?.generationSnapshot?.options ?? activeOptions;
+  const soundSignatureChannel = gen.blueprint?.generationSnapshot?.channel ?? cm.selectedChannel;
   const soundSignature: SoundSignature | null = gen.blueprint
-    ? buildSoundSignature(gen.blueprint, activeOptions, cm.selectedChannel)
+    ? buildSoundSignature(gen.blueprint, soundSignatureOptions, soundSignatureChannel)
     : null;
   const personaPromptStats = useMemo(() => {
     if (!gen.blueprint) return null;
@@ -589,8 +602,19 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       cm.selectChannel(matchedChannel.id);
     }
     const importChannel = matchedChannel ?? cm.selectedChannel;
-    const importOpts = { ...opts, channel: importChannel };
-    const avoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
+    // TASK v5.18 P1-7 — the file's own meta (when present) describes what
+    // was actually generated more reliably than whatever the screen happens
+    // to be set to right now; trust it over opts.lyricLanguage/opts.songCount
+    // when the two disagree (see reconcileImportOptsWithMeta's own doc
+    // comment for the real gap this closes).
+    const metaReconciliation = reconcileImportOptsWithMeta(extractBridgeImportMeta(text), opts);
+    const importOpts = {
+      ...opts,
+      channel: importChannel,
+      ...(metaReconciliation.lyricLanguage ? { lyricLanguage: metaReconciliation.lyricLanguage } : {}),
+      ...(metaReconciliation.songCount ? { songCount: metaReconciliation.songCount } : {})
+    };
+    const avoid = await safeAvoidSet(importChannel.id, importOpts.lyricLanguage);
     // TASK (bridge-import fallback state-timing fix) — real bug:
     // cm.selectChannel(matchedChannel.id) just above doesn't update React
     // state synchronously, so fallbackGenres()/fallbackMoods() (which read
@@ -601,6 +625,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // no live component state read at all — so this race cannot happen.
     const preassignedSongs = preallocateSongSlots(importOpts, genresForOptions(importOpts), avoid);
     const report = importSongsJson(text, importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
+    report.warnings = [...report.warnings, ...metaReconciliation.warnings];
     if (!report.blueprint) {
       // Already refused upstream (parse failure / missing "songs" array /
       // duplicate or out-of-range trackNo — importSongsJson's own
@@ -940,8 +965,19 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // gets persisted below.
     const setInputs: MultiSetImportSetInput[] = [];
     for (const { file, setIndex } of ordered) {
-      const setOpts = buildSetOptions({ ...opts, channel: importChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
+      const baseSetOpts = buildSetOptions({ ...opts, channel: importChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
       const text = await file.text();
+      // TASK v5.18 P1-7 — same meta-over-screen-state priority as the
+      // single-file import path (reconcileImportOptsWithMeta's own doc
+      // comment); songCount is deliberately NOT overridden per set here
+      // (unlike the single-file path) since it drives this set's slot COUNT,
+      // and songsPerSet is a batch-wide setting shared across every set in
+      // this run — silently resizing one set's slot plan mid-batch is a
+      // bigger structural change than this file-level language check
+      // warrants. lyricLanguage carries no such slot-count side effect, so
+      // it's safe to reconcile per set.
+      const setMetaReconciliation = reconcileImportOptsWithMeta(extractBridgeImportMeta(text), baseSetOpts);
+      const setOpts = setMetaReconciliation.lyricLanguage ? { ...baseSetOpts, lyricLanguage: setMetaReconciliation.lyricLanguage } : baseSetOpts;
       const currentAvoid = { usedTitles, usedHooks };
       // TASK (bridge-import fallback state-timing fix) — fallbackGenres()/
       // fallbackMoods() read live cm.selectedChannel/opts, entirely
@@ -951,9 +987,11 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // consistently with the channel it's actually being imported under.
       const preassignedSongs = preallocateSongSlots(setOpts, genresForOptions(setOpts), currentAvoid);
       const report = importSongsJson(text, setOpts, genresForOptions(setOpts), moodsForOptions(setOpts), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
+      report.warnings = [...report.warnings, ...setMetaReconciliation.warnings];
       const rawSongs = extractRawImportedSongs(text);
       setInputs.push({
         setIndex,
+        fileName: file.name,
         report,
         rawSongs,
         importOpts: setOpts,
@@ -975,7 +1013,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       recentLyricLines: await recentLyricLines(importChannel.id, opts.lyricLanguage),
       historicalTitles: await fetchHistoricalTitles(importChannel.id, opts.lyricLanguage)
     };
-    const plan = planMultiSetImport(setInputs, artistLeakExemptions, duplicationHistory);
+    const plan = planMultiSetImport(setInputs, artistLeakExemptions, duplicationHistory, multiSetCount);
     const crossSetWarningsFor = (setIndex: number) => plan.crossSetDuplicates.filter(dup => dup.setIndexes.includes(setIndex)).map(dup => dup.labelKo);
 
     if (plan.wholeBatchBlocked) {

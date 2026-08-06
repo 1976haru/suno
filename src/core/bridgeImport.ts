@@ -1,6 +1,7 @@
 import type {
   GenerationOptions,
   GenrePack,
+  LyricLanguage,
   MoodPack,
   PlaylistBlueprint,
   PreassignedSongSlot,
@@ -147,6 +148,49 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+const VALID_LYRIC_LANGUAGES: readonly LyricLanguage[] = ['english', 'korean', 'japanese', 'bilingual'];
+
+export interface BridgeImportMetaReconciliation {
+  /** Present only when meta.lyricLanguage disagreed with the screen's current setting — the caller should use this instead of opts.lyricLanguage for this import. */
+  lyricLanguage?: LyricLanguage;
+  /** Present only when meta.songCount disagreed with the screen's current setting — the caller should use this instead of opts.songCount for this import (it drives slot preallocation, so a stale screen count here would build the wrong number of slots for the file's real content). */
+  songCount?: number;
+  /** Korean-language warning strings ready to append to an ImportSongsReport.warnings array (or a multi-set input's own warning surface) — empty when meta agreed with the screen or nothing needed overriding. */
+  warnings: string[];
+}
+
+/**
+ * TASK v5.18 P1-7 — real gap this task's audit found: extractBridgeImportMeta
+ * already reads meta.lyricLanguage/meta.songCount off a bridge file (has done
+ * since v3.69 TASK D), but nothing ever compared them against the screen's
+ * current opts — a file generated as a Korean 12-song set imported while the
+ * screen was still set to English/18 silently imported under English/18,
+ * with the mismatch never surfaced anywhere. The file's own meta is what
+ * actually describes what was generated, so it wins over stale screen state
+ * whenever the two disagree; a file with no meta block at all (older, pre-
+ * v3.69 export) can't be trusted this way and falls back to the screen
+ * setting with an explicit "구버전 파일" warning instead of failing silently.
+ */
+export function reconcileImportOptsWithMeta(
+  meta: BridgeImportMeta | null,
+  opts: Pick<GenerationOptions, 'lyricLanguage' | 'songCount'>
+): BridgeImportMetaReconciliation {
+  if (!meta) {
+    return { warnings: ['구버전 파일입니다 (meta 정보 없음) — 화면에 설정된 언어/곡 수를 그대로 사용합니다. 이 파일이 실제로 어떤 설정으로 생성되었는지 알 수 없으니 언어와 곡 수가 맞는지 직접 확인하세요.'] };
+  }
+  const warnings: string[] = [];
+  const result: BridgeImportMetaReconciliation = { warnings };
+  if (meta.lyricLanguage && VALID_LYRIC_LANGUAGES.includes(meta.lyricLanguage as LyricLanguage) && meta.lyricLanguage !== opts.lyricLanguage) {
+    result.lyricLanguage = meta.lyricLanguage as LyricLanguage;
+    warnings.push(`파일의 meta.lyricLanguage("${meta.lyricLanguage}")가 화면 설정("${opts.lyricLanguage}")과 달라, 파일 기준으로 가져옵니다.`);
+  }
+  if (typeof meta.songCount === 'number' && meta.songCount > 0 && meta.songCount !== opts.songCount) {
+    result.songCount = meta.songCount;
+    warnings.push(`파일의 meta.songCount(${meta.songCount})가 화면 설정(${opts.songCount})과 달라, 파일 기준으로 가져옵니다.`);
+  }
+  return result;
 }
 
 interface NormalizeSuccess {
@@ -466,7 +510,7 @@ export function importSongsJson(
   // trackNo, then renumber sequentially so skipped/out-of-order entries never
   // leave gaps or duplicates in the final pack.
   validSongs.sort((a, b) => a.trackNo - b.trackNo);
-  const renumbered = validSongs.map((song, idx) => ({ ...song, trackNo: idx + 1 }));
+  const renumbered = validSongs.map((song, idx) => ({ ...song, trackNo: idx + 1, originalTrackNo: song.trackNo }));
 
   const hookCollisionResult = flagHookCollisions(renumbered, avoidHooks);
   // TASK v3.60 (TASK B) — the bridge agent's raw stylePrompt/lyrics strings
@@ -636,7 +680,7 @@ export function importSongsForSrtOnly(
   // pass (TASK B1), so the SRT panel's per-song duration list still lines up
   // 1..N regardless of what trackNo values the raw file actually claimed.
   songs.sort((a, b) => a.trackNo - b.trackNo);
-  const renumbered = songs.map((song, idx) => ({ ...song, trackNo: idx + 1 }));
+  const renumbered = songs.map((song, idx) => ({ ...song, trackNo: idx + 1, originalTrackNo: song.trackNo }));
 
   return { songs: renumbered, warnings };
 }

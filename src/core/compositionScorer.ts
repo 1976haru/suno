@@ -16,6 +16,7 @@ import { detectVocalGenderPresence } from './vocalPlan';
 import { findDuplicateExcludeTerms } from '../data/negativeStyles';
 import { EXCLUDE_PROMPT_HARD_CAP } from './promptComposer';
 import { lintGrammar } from './grammarLinter';
+import { ARTIST_SCAN_FIELDS } from '../data/scanTargets';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -633,19 +634,25 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
       blocking.push(`가사에 편곡/악기 어휘가 문장의 주어로 등장합니다 — "${vocabLines[0]}"`);
     }
 
-    // Reused: TASK v3.58 TASK 3 — artist-name leak guard (style prompt + lyrics + youtube).
+    // Reused: TASK v3.58 TASK 3 — artist-name leak guard.
     // TASK v5.19 (P0 emergency fix) — lyrics scope now requires real
     // corroborating context for commonWordRisk seeds (bread/eagles/
     // carpenters and similar), so an ordinary lyric line ("breaking bread at
     // the table") no longer trips this generation-time blocking gate; see
     // artistReferenceDecomposer.ts's hasArtistContextSignal. stylePrompt
     // stays strict/context-free — it's app-generated, not natural language.
-    const styleLeaks = findArtistReferenceLeaks(song.stylePrompt);
-    if (styleLeaks.length) blocking.push(`style prompt에 아티스트/밴드명 누출 (${styleLeaks.map(l => l.surface).join(', ')})`);
-    const lyricLeaks = findArtistReferenceLeaks(song.lyrics, 'lyrics');
-    if (lyricLeaks.length) blocking.push(`가사에 아티스트/밴드명 누출 (${lyricLeaks.map(l => l.surface).join(', ')})`);
-    const youtubeLeaks = findArtistReferenceLeaks(`${song.youtube?.title ?? ''} ${song.youtube?.description ?? ''}`);
-    if (youtubeLeaks.length) blocking.push(`youtube 메타데이터에 아티스트/밴드명 누출 (${youtubeLeaks.map(l => l.surface).join(', ')})`);
+    // TASK v5.18 (유형 D) — was a hand-written 3-field list here
+    // (stylePrompt/lyrics/youtube title+description), a DIFFERENT list from
+    // core/importInspection.ts's own copy (title/stylePrompt/lyrics) — two
+    // checkers, two different gaps. Now both read
+    // data/scanTargets.ts's ARTIST_SCAN_FIELDS, so titleLocalized/
+    // hookPhrase/excludePrompt/listenerSituation/emotionArc/youtube.tags
+    // are covered here too, and a future field addition only needs editing
+    // in one place.
+    for (const fieldRef of ARTIST_SCAN_FIELDS) {
+      const leaks = findArtistReferenceLeaks(fieldRef.read(song), fieldRef.scope);
+      if (leaks.length) blocking.push(`${fieldRef.id}에 아티스트/밴드명 누출 (${leaks.map(l => l.surface).join(', ')})`);
+    }
 
     // NEW (TASK v3.70 TASK A) — real listening feedback: a duet-prompted
     // track rendered as a single voice because nothing in the lyrics told

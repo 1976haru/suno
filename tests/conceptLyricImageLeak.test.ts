@@ -103,6 +103,12 @@ describe('[v3.58 TASK 6] auditAlbum also scans lyrics for artist-name leaks, not
     };
     const report = auditAlbum([song]);
     expect(report.passed).toBe(false);
-    expect(report.errors.some(e => e.includes('lyrics contain an artist-name leak'))).toBe(true);
+    // TASK v5.18 (P1-8) — albumAudit.ts's artist-leak scan now loops over
+    // data/scanTargets.ts's centralized ARTIST_SCAN_FIELDS instead of two
+    // separately hardcoded stylePrompt/lyrics checks; the message wording is
+    // now consistently "<field> contains an artist-name leak" for every
+    // field (previously "style prompt contains..." vs "lyrics contain..." —
+    // inconsistent grammar from being written by hand twice).
+    expect(report.errors.some(e => e.includes('lyrics contains an artist-name leak'))).toBe(true);
   });
 });

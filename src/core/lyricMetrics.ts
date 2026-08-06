@@ -278,6 +278,21 @@ const ENGLISH_NON_LATIN_RATIO_MAX = 0.02;
  */
 const BILINGUAL_MIN_REAL_LINES = 2;
 
+/**
+ * TASK v5.18 P1-9 — per-line script-purity floors for the bilingual line
+ * classifier below. Without these, a 'japanese' line was accepted on
+ * JAPANESE_CHAR_PATTERN alone (kana+kanji combined), so a purely kanji line
+ * lifted verbatim from Chinese text counted as real Japanese even with zero
+ * kana. Requiring an actual kana presence (not just kanji) and a low Hangul
+ * ceiling makes a line's language classification agree with the file's own
+ * whole-body ratio checks above (JAPANESE_KANA_RATIO_MIN /
+ * JAPANESE_HANGUL_RATIO_MAX), just applied per line instead of per body.
+ */
+const JAPANESE_LINE_KANA_RATIO_MIN = 0.15;
+const JAPANESE_LINE_HANGUL_RATIO_MAX = 0.02;
+const KOREAN_LINE_HANGUL_RATIO_MIN = 0.6;
+const KOREAN_LINE_KANA_RATIO_MAX = 0.02;
+
 /** "word" for English/Korean is a whitespace-delimited token containing that script's characters — mirrors this file's own whitespaceUnits/measureKorean convention (eojeol counted the same way). Japanese has no whitespace word boundary at all (measureJapanese above already substitutes character count for "primary" instead of a word count for exactly this reason) — so a Japanese "real line" instead requires more than a single bare kana/kanji character, i.e. more than one mora, not a one-syllable interjection. This is a judgment call this task's own brief doesn't fully resolve (Japanese genuinely has no word-boundary marker to count), documented here rather than silently assumed. */
 function realLanguageLineCounts(lines: string[]): { english: number; korean: number; japanese: number } {
   let english = 0;
@@ -286,9 +301,27 @@ function realLanguageLineCounts(lines: string[]): { english: number; korean: num
   for (const line of lines) {
     const tokens = line.split(/\s+/).map(token => token.trim()).filter(Boolean);
     if (tokens.filter(token => /[A-Za-z]/.test(token)).length > 1) english += 1;
-    if (tokens.filter(token => /[가-힣]/.test(token)).length > 1) korean += 1;
+
+    const dense = line.replace(/\s+/g, '');
+    const total = dense.length;
+    const lineHangulRatio = charRatio(HANGUL_SYLLABLE_PATTERN, dense, total);
+    const lineKanaRatio = charRatio(KANA_ONLY_PATTERN, dense, total);
+
+    if (
+      tokens.filter(token => /[가-힣]/.test(token)).length > 1 &&
+      lineHangulRatio >= KOREAN_LINE_HANGUL_RATIO_MIN &&
+      lineKanaRatio <= KOREAN_LINE_KANA_RATIO_MAX
+    ) {
+      korean += 1;
+    }
     const jpChars = line.match(JAPANESE_CHAR_PATTERN);
-    if (jpChars && jpChars.length > 1) japanese += 1;
+    if (
+      jpChars && jpChars.length > 1 &&
+      lineKanaRatio >= JAPANESE_LINE_KANA_RATIO_MIN &&
+      lineHangulRatio <= JAPANESE_LINE_HANGUL_RATIO_MAX
+    ) {
+      japanese += 1;
+    }
   }
   return { english, korean, japanese };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, extractBridgeImportMeta, importSongsJson } from '../src/core/claudeCodeBridge';
+import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, extractBridgeImportMeta, importSongsJson, reconcileImportOptsWithMeta } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { stripSetTitlePrefix } from '../src/utils/generation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -21,9 +21,13 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     // hooks copied verbatim from these "avoid" lists (reshuffled to
     // different tracks); the instruction now states the exact forbidden
     // count and an explicit before-writing self-check instead of one buried
-    // "never reuse" line.
-    expect(instruction).toContain('is FORBIDDEN for this pack');
-    expect(instruction).toContain('Before writing the file, check every song\'s "title" and "hookPhrase" against both lists');
+    // "never reuse" line. v5.23 (TASK A) moved this into
+    // buildFinalAvoidSection's consolidated (Korean) closing block — same
+    // real content, no longer this exact English wording; see that
+    // function's own doc comment for why (dedupe the same rule stated 2-3x
+    // across the file).
+    expect(instruction).toContain('전부 금지입니다');
+    expect(instruction).toContain('파일을 쓰기 전에 모든 곡의 title/hookPhrase를 두 목록과 대조하십시오');
 
     const payloadMatch = instruction.match(/```json\n([\s\S]*?)\n```/);
     expect(payloadMatch).not.toBeNull();
@@ -39,8 +43,9 @@ describe('[v3.24] buildClaudeCodeInstruction produces a self-contained, file-out
     };
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, wideAvoid, [], false);
 
-    expect(instruction).toContain('Every one of the 20 titles in "alreadyUsedTitles"');
-    expect(instruction).toContain('every one of the 20 hooks in "alreadyUsedHooks"');
+    // v5.23 (TASK A) — same consolidated Korean wording as the test above.
+    expect(instruction).toContain('"alreadyUsedTitles"의 20개');
+    expect(instruction).toContain('"alreadyUsedHooks"의 20개');
   });
 
   it('includes the preassigned hook per track and, by default (titleMode="ai-creative"), tells the agent to write its own title instead of copying the placeholder', () => {
@@ -541,6 +546,49 @@ describe('[v3.69] TASK D: extractBridgeImportMeta reads the optional top-level "
       songCount: 18,
       lyricLanguage: 'english'
     });
+  });
+});
+
+describe('[v5.18 P1-7] reconcileImportOptsWithMeta — file meta wins over stale screen state', () => {
+  it('returns a "구버전 파일" warning and no overrides when meta is null', () => {
+    const result = reconcileImportOptsWithMeta(null, { lyricLanguage: 'english', songCount: 12 });
+    expect(result.lyricLanguage).toBeUndefined();
+    expect(result.songCount).toBeUndefined();
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('구버전 파일');
+  });
+
+  it('overrides lyricLanguage when meta disagrees with the screen setting, with a warning', () => {
+    const result = reconcileImportOptsWithMeta({ lyricLanguage: 'korean' }, { lyricLanguage: 'english', songCount: 12 });
+    expect(result.lyricLanguage).toBe('korean');
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('lyricLanguage');
+  });
+
+  it('overrides songCount when meta disagrees with the screen setting, with a warning', () => {
+    const result = reconcileImportOptsWithMeta({ songCount: 18 }, { lyricLanguage: 'english', songCount: 12 });
+    expect(result.songCount).toBe(18);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('songCount');
+  });
+
+  it('produces zero overrides/warnings when meta agrees with the screen exactly', () => {
+    const result = reconcileImportOptsWithMeta({ lyricLanguage: 'english', songCount: 12 }, { lyricLanguage: 'english', songCount: 12 });
+    expect(result.lyricLanguage).toBeUndefined();
+    expect(result.songCount).toBeUndefined();
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('ignores an invalid/garbage meta.lyricLanguage value rather than overriding with garbage', () => {
+    const result = reconcileImportOptsWithMeta({ lyricLanguage: 'klingon' as never }, { lyricLanguage: 'english', songCount: 12 });
+    expect(result.lyricLanguage).toBeUndefined();
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('ignores a non-positive meta.songCount rather than overriding with 0', () => {
+    const result = reconcileImportOptsWithMeta({ songCount: 0 }, { lyricLanguage: 'english', songCount: 12 });
+    expect(result.songCount).toBeUndefined();
+    expect(result.warnings).toEqual([]);
   });
 });
 

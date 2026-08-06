@@ -72,6 +72,22 @@ jobs:
       - run: npm ci
       - run: npm run audit:isolation
 
+  build-single:
+    # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
+    # single-file build) had no CI coverage at all; only `build`'s regular
+    # multi-file `vite build` output was checked. A break specific to the
+    # singlefile plugin path (see core/sunoViewerExport.ts's own v5.20 fix
+    # for exactly this class of bug) could ship undetected.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build:single
+
   stress:
     runs-on: ubuntu-latest
     steps:

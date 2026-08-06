@@ -37,8 +37,10 @@ export {
   importSongsForSrtOnly,
   extractBridgeImportMeta,
   extractRawImportedSongs,
+  reconcileImportOptsWithMeta,
   type ImportSongsReport,
   type BridgeImportMeta,
+  type BridgeImportMetaReconciliation,
   type ImportSongsForSrtOnlyResult
 } from './bridgeImport';
 

@@ -39,7 +39,7 @@ function optsFor(overrides: Partial<GenerationOptions> = {}): GenerationOptions 
   });
 }
 
-function buildSetInput(setIndex: number, fixtureName: string, optsOverrides: Partial<GenerationOptions> = {}): MultiSetImportSetInput {
+function buildSetInput(setIndex: number, fixtureName: string, optsOverrides: Partial<GenerationOptions> = {}, fileName?: string): MultiSetImportSetInput {
   const opts = optsFor(optsOverrides);
   const genres = genrePacks.filter(g => opts.genreIds.includes(g.id));
   const moods = moodPacks.filter(m => opts.moodIds.includes(m.id));
@@ -47,7 +47,7 @@ function buildSetInput(setIndex: number, fixtureName: string, optsOverrides: Par
   const rawText = loadFixture(fixtureName);
   const report = importSongsJson(rawText, opts, genres, moods, testSeason, slots);
   const rawSongs = extractRawImportedSongs(rawText);
-  return { setIndex, report, rawSongs, importOpts: opts };
+  return { setIndex, report, rawSongs, importOpts: opts, ...(fileName ? { fileName } : {}) };
 }
 
 describe('[v5.17 TASK B] planMultiSetImport — per-set ImportStatus, reused from inspectImportReport', () => {
@@ -145,5 +145,63 @@ describe('[v5.17 TASK B §2-4] detectCrossSetDuplicates — problems only a mult
     const inputs = [buildSetInput(1, 'normal.json'), buildSetInput(2, 'normal.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.crossSetDuplicates.length).toBeGreaterThan(0);
+  });
+});
+
+describe('[v5.18 P1-3] planMultiSetImport structuralWarnings — batch-level file/meta consistency', () => {
+  it('flags a file whose own embedded set number disagrees with the setIndex it was assigned', () => {
+    // setIndex 0 (set 1) but the filename claims to be set 3.
+    const inputs = [buildSetInput(0, 'normal.json', {}, 'channel_concept_set03.json'), buildSetInput(1, 'normal.json', {}, 'channel_concept_set02.json')];
+    const plan = planMultiSetImport(inputs);
+    const warning = plan.structuralWarnings.find(w => w.kind === 'filenameSetMismatch');
+    expect(warning).toBeDefined();
+    expect(warning!.setIndexes).toEqual([0]);
+  });
+
+  it('no filenameSetMismatch when every filename agrees with its assigned setIndex', () => {
+    const inputs = [buildSetInput(0, 'normal.json', {}, 'channel_concept_set01.json'), buildSetInput(1, 'normal.json', {}, 'channel_concept_set02.json')];
+    const plan = planMultiSetImport(inputs);
+    expect(plan.structuralWarnings.find(w => w.kind === 'filenameSetMismatch')).toBeUndefined();
+  });
+
+  it('flags a batch with fewer files than the requested set count', () => {
+    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json')];
+    const plan = planMultiSetImport(inputs, undefined, undefined, 3);
+    const warning = plan.structuralWarnings.find(w => w.kind === 'setCountMismatch');
+    expect(warning).toBeDefined();
+  });
+
+  it('no setCountMismatch when expectedSetCount matches the real batch size', () => {
+    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json')];
+    const plan = planMultiSetImport(inputs, undefined, undefined, 2);
+    expect(plan.structuralWarnings.find(w => w.kind === 'setCountMismatch')).toBeUndefined();
+  });
+
+  it('flags a set whose real imported song count falls short of its own requested songCount', () => {
+    // missingTracks.json only carries 4 of the fixture's 5 requested songs.
+    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'missingTracks.json')];
+    const plan = planMultiSetImport(inputs);
+    const warning = plan.structuralWarnings.find(w => w.kind === 'songCountMismatch');
+    expect(warning).toBeDefined();
+    expect(warning!.setIndexes).toEqual([1]);
+  });
+
+  it('flags two sets resolving to the same pack identity (channel + title + song count)', () => {
+    // Same options both times -> identical channelName/projectTitle/songs.length.
+    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json')];
+    const plan = planMultiSetImport(inputs);
+    const warning = plan.structuralWarnings.find(w => w.kind === 'packIdDuplicate');
+    expect(warning).toBeDefined();
+    expect(warning!.setIndexes).toEqual([0, 1]);
+  });
+
+  it('flags a batch where sets were generated under different workspaces', () => {
+    const kidsChannel = channelPresets.find(c => c.archetype === 'kr-kids-song')!;
+    expect(kidsChannel).toBeDefined();
+    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json', { channel: kidsChannel, genreIds: kidsChannel.preferredGenres, moodIds: kidsChannel.preferredMoods, vocalTone: kidsChannel.defaultVocal })];
+    const plan = planMultiSetImport(inputs);
+    const warning = plan.structuralWarnings.find(w => w.kind === 'workspaceIdMismatch');
+    expect(warning).toBeDefined();
+    expect(warning!.setIndexes).toEqual([0, 1]);
   });
 });

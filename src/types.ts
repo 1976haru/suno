@@ -994,10 +994,28 @@ export interface Threshold {
 
 export interface SongIdea {
   trackNo: number;
+  /** The trackNo this song claimed (or was index-assigned) BEFORE bridgeImport.ts's 1..N gap/duplicate-repair renumbering — see importSongsJson/parseBridgeExportForReview. Only set on bridge-imported songs whose renumbering pass actually ran; absent (not just equal) for every other creation path, so its presence alone signals "this song was renumbered on import." */
+  originalTrackNo?: number;
   title: string;
   seasonMoment: string;
   listenerSituation: string;
   emotionArc: string;
+  /**
+   * v5.23 (TASK B) — one line, written by the agent itself, naming what
+   * THIS song does differently from the other N-1 in the set (e.g. "후렴을
+   * 한 번만 부른다", "마지막에 반주가 사라지고 목소리만 남는다"). Real,
+   * verified problem this closes: the bridge instruction was almost
+   * entirely a prohibition list (§0-2's own audit — 68 forbidden-thing
+   * spots, 1 line of creative encouragement), so nothing ever asked the
+   * agent to make an explicit creative choice per song, only to avoid
+   * mistakes. Advisory-only by design (core/distinctChoiceCheck.ts) — never
+   * blocking, since forcing this field would just produce a formulaic
+   * non-answer (this task's own explicit "blocking으로 만들지 마십시오").
+   * Optional: undefined for every song generated before this task, and for
+   * local generation (which doesn't ask an LLM anything, so there's no
+   * agent to make this call).
+   */
+  distinctChoice?: string;
   hookPhrase: string;
   stylePrompt: string;
   /** Text meant for Suno's separate Advanced Options -> Exclude field, never pasted into the style prompt itself (avoidWords + copyright-avoidance terms). See core/promptComposer.ts's buildExcludePrompt. */

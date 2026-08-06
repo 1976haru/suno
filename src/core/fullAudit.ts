@@ -2,6 +2,7 @@ import type { AudienceProfile, SongIdea } from '../types';
 import { descriptorCount, lyricWordAndSectionCounts, vocalZoneDistributionWarnings } from './compositionScorer';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
+import { ARTIST_SCAN_FIELDS } from '../data/scanTargets';
 import { findBlockingVocabularyRepetition, findExcessiveVocabularyRepetition, findHookWordOveruse, topWordFrequencies, WORD_BLOCKING_THRESHOLD } from './lyricVocabularyRepetition';
 import { lintInPackStyleSimilarity } from './diversityLinter';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
@@ -216,10 +217,11 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
   // TASK v5.19 (P0 emergency fix) — lyrics scope requires real corroborating
   // context for commonWordRisk seeds (see artistReferenceDecomposer.ts's
   // hasArtistContextSignal), so ordinary words no longer read as a leak here.
+  // TASK v5.18 (유형 D) — was stylePrompt+lyrics+youtube(title+description)
+  // only; now reads data/scanTargets.ts's ARTIST_SCAN_FIELDS, the same list
+  // every other artist-safety checker consults.
   const artistLeaks = songs.filter(song =>
-    findArtistReferenceLeaks(song.stylePrompt).length > 0
-    || findArtistReferenceLeaks(song.lyrics, 'lyrics').length > 0
-    || findArtistReferenceLeaks(`${song.youtube?.title ?? ''} ${song.youtube?.description ?? ''}`).length > 0
+    ARTIST_SCAN_FIELDS.some(fieldRef => findArtistReferenceLeaks(fieldRef.read(song), fieldRef.scope).length > 0)
   );
   const durationDuplicates = songs.filter(song => {
     const match = song.stylePrompt.match(/\d:\d{2}-\d:\d{2}/g);
