@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeExplorationLearningSuggestions, type ExplorationRecord } from '../src/core/explorationLedger';
+import { buildExplorationAttempts, computeExplorationLearningSuggestions, type ExplorationRecord } from '../src/core/explorationLedger';
 
 /**
  * v5.23 (TASK E §5-3) — coverage for computeExplorationLearningSuggestions,
@@ -65,5 +65,42 @@ describe('[v5.23 TASK E] computeExplorationLearningSuggestions', () => {
     const suggestions = computeExplorationLearningSuggestions(records);
     // The return type is a plain suggestion list — no side effects, no verifiedCombos mutation happened here.
     expect(Array.isArray(suggestions)).toBe(true);
+  });
+});
+
+/**
+ * v5.23 (TASK E UI) — coverage for buildExplorationAttempts, the pure
+ * helper Step3Generate.tsx's handleImportSongsFile calls right after a
+ * bridge import to turn the real imported songs into recordExploration's
+ * own attempts[] shape.
+ */
+describe('[v5.23 TASK E] buildExplorationAttempts', () => {
+  it('picks only the songs whose trackNo is in the plan, using distinctChoice as the description', () => {
+    const songs = [
+      { trackNo: 1, distinctChoice: 'Cold open' },
+      { trackNo: 7, distinctChoice: 'Chorus only once' },
+      { trackNo: 9, distinctChoice: 'No bridge' }
+    ];
+    const attempts = buildExplorationAttempts(songs, [7, 9]);
+    expect(attempts).toEqual([
+      { trackNo: 7, description: 'Chorus only once' },
+      { trackNo: 9, description: 'No bridge' }
+    ]);
+  });
+
+  it('falls back to a placeholder description when distinctChoice is missing/blank', () => {
+    const songs = [{ trackNo: 7, distinctChoice: '  ' }, { trackNo: 9 }];
+    const attempts = buildExplorationAttempts(songs, [7, 9]);
+    expect(attempts.every(a => a.description === '(설명 없음)')).toBe(true);
+  });
+
+  it('returns attempts sorted by trackNo regardless of input order', () => {
+    const songs = [{ trackNo: 9, distinctChoice: 'B' }, { trackNo: 7, distinctChoice: 'A' }];
+    const attempts = buildExplorationAttempts(songs, [9, 7]);
+    expect(attempts.map(a => a.trackNo)).toEqual([7, 9]);
+  });
+
+  it('returns an empty array when no song matches the plan\'s trackNos', () => {
+    expect(buildExplorationAttempts([{ trackNo: 1, distinctChoice: 'X' }], [7, 9])).toEqual([]);
   });
 });

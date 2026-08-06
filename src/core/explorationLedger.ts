@@ -37,6 +37,15 @@ export interface ExplorationRecord {
   outcomes?: ExplorationOutcome[];
   recordedAt: string;
   workspaceId?: WorkspaceId;
+  /**
+   * v5.23 (TASK E UI) — a human-readable label for the ledger screen
+   * (e.g. the pack's own projectTitle) — `setCode` alone is a real but
+   * cryptic identifier at RECORD time (see recordExplorationOnImport's own
+   * doc comment: recording happens right after a bridge import, before
+   * core/library.ts's savePack has assigned the pack's real setCode).
+   * Falls back to `setCode` in the UI when absent.
+   */
+  packLabel?: string;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -95,6 +104,26 @@ export async function nextAxisSequence(workspaceId: WorkspaceId = currentWorkspa
 export async function listExplorationHistory(workspaceId: WorkspaceId = currentWorkspaceId()): Promise<ExplorationRecord[]> {
   const all = await allRecords(workspaceId);
   return all.sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1));
+}
+
+/**
+ * v5.23 (TASK E UI) — turns the real, imported songs on an exploration
+ * slot's own tracks into ExplorationAttempt[] for recordExploration. Pure
+ * (no IndexedDB), so it's unit-testable without a browser environment —
+ * mirrors this file's own "storage stays at the edge" split. `distinctChoice`
+ * (TASK B) doubles as the real "what did this track try" description; a
+ * missing one (an agent that skipped the field) still records the attempt
+ * rather than silently dropping it, just with a placeholder description.
+ */
+export function buildExplorationAttempts(
+  songs: readonly { trackNo: number; distinctChoice?: string }[],
+  trackNos: readonly number[]
+): ExplorationAttempt[] {
+  const trackSet = new Set(trackNos);
+  return songs
+    .filter(song => trackSet.has(song.trackNo))
+    .map(song => ({ trackNo: song.trackNo, description: song.distinctChoice?.trim() || '(설명 없음)' }))
+    .sort((a, b) => a.trackNo - b.trackNo);
 }
 
 export interface ExplorationLearningSuggestion {

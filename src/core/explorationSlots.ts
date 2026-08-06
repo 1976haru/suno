@@ -59,7 +59,7 @@ export function selectExplorationTrackNos(songCount: number, workspaceId: Worksp
   return { enabled: true, trackNos, axis: explorationAxisForSequence(setSequence) };
 }
 
-const AXIS_LABEL_KO: Record<ExplorationAxis, string> = {
+export const AXIS_LABEL_KO: Record<ExplorationAxis, string> = {
   genre: '장르 조합',
   structure: '구조',
   vocal: '보컬',

@@ -862,6 +862,39 @@ textarea {
   margin-top: 6px;
 }
 
+/* v5.23 (TASK E §5-2) — ExplorationLedgerPanel.tsx */
+.exploration-ledger-record {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.exploration-ledger-attempts {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exploration-ledger-attempts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.exploration-ledger-attempts .button-row {
+  display: flex;
+  gap: 4px;
+}
+
+.exploration-ledger-suggestions {
+  margin-bottom: 10px;
+}
+
 .load-warning {
   background: rgba(180, 60, 60, 0.1);
   border: 1px solid rgba(180, 60, 60, 0.35);

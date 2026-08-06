@@ -8,7 +8,7 @@ import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } fro
 import { recentSituations } from '../../core/situationLedger';
 import { recentLyricLines } from '../../core/lyricLineLedger';
 import { selectExplorationTrackNos, type ExplorationSlotPlan } from '../../core/explorationSlots';
-import { nextAxisSequence } from '../../core/explorationLedger';
+import { nextAxisSequence, recordExploration, buildExplorationAttempts } from '../../core/explorationLedger';
 import { getApprovedCombos, effectiveVerifiedCombos, resolveFlagshipCombo } from '../../core/verifiedCombos';
 import type { VerifiedCombo } from '../../data/verifiedCombos';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
@@ -994,7 +994,7 @@ export default function Step3Generate({
   }
 
   async function handleImportSongsFile(file: File) {
-    await runBridgeImportAction({
+    const report = await runBridgeImportAction({
       prerequisites: bridgePrerequisites,
       run: () => onImportSongsJson(file),
       makeBlockedReport: makeBridgeImportFailureReport,
@@ -1002,6 +1002,30 @@ export default function Step3Generate({
       setLoading: setIsImporting,
       setReport: setImportReport
     });
+    // v5.23 (TASK E UI) — records this import's real exploration attempts
+    // (distinctChoice text on the plan's own trackNos) right here rather
+    // than in a post-import render: this component's own doc comment just
+    // above (v3.78 TASK B) already established that App.tsx navigates
+    // straight to Step4Result.tsx on a successful import, unmounting this
+    // screen before any render here could run — but an async side-effect
+    // fired from this handler (not a state update) completes fine
+    // regardless. setCode isn't assigned yet at import time (see
+    // core/library.ts's withAssignedSetCode — only a real, non-autosave
+    // save assigns one), so packLabel/setCode both fall back to a
+    // synthetic per-import id; the exploration ledger's own grouping never
+    // depends on this matching the pack's eventual saved setCode.
+    if (report.blueprint && bridgeExplorationPlan?.enabled && bridgeExplorationPlan.axis) {
+      const attempts = buildExplorationAttempts(report.blueprint.songs, bridgeExplorationPlan.trackNos);
+      if (attempts.length) {
+        void recordExploration({
+          setCode: report.blueprint.meta?.setCode ?? `import-${Date.now()}`,
+          axis: bridgeExplorationPlan.axis,
+          trackNos: bridgeExplorationPlan.trackNos,
+          attempts,
+          packLabel: report.blueprint.projectTitle
+        }).catch(() => {});
+      }
+    }
   }
 
   // TASK v3.69 (TASK D) — "lyrics file -> SRT" entry point: same import

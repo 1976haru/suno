@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, ClipboardCheck, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, ClipboardCheck, Compass, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -15,6 +15,7 @@ import AudioArchivePanel from '../AudioArchivePanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
 import GenerationGatePanel from '../GenerationGatePanel';
 import SetCompletenessPanel from '../SetCompletenessPanel';
+import ExplorationLedgerPanel from '../ExplorationLedgerPanel';
 import PreviewConcatPanel from '../PreviewConcatPanel';
 import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
 import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
@@ -45,7 +46,7 @@ import type { ChannelPersonaRecord } from '../../core/library';
 import type { ThumbnailSpec } from '../../core/thumbnailSpec';
 import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
-export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio' | 'promiseAudit' | 'completeness';
+export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio' | 'promiseAudit' | 'completeness' | 'explorationLedger';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -578,6 +579,13 @@ export default function Step4Result({
             <ClipboardCheck size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             ✅ 세트 완성도
           </button>
+          {/* v5.23 (TASK E §5-2/§11) — exploration slots only exist for senior-oldpop (core/explorationSlots.ts's own EXPLORATION_ENABLED_WORKSPACES) — every other workspace has zero exploration history to show, so the tab itself stays hidden rather than showing a permanently-empty screen. */}
+          {currentWorkspaceId() === 'senior-oldpop' && (
+            <button type="button" className={resultTab === 'explorationLedger' ? 'tab active' : 'tab'} onClick={() => setResultTab('explorationLedger')}>
+              <Compass size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+              🧭 탐색 원장
+            </button>
+          )}
         </div>
       )}
 
@@ -636,6 +644,10 @@ export default function Step4Result({
           audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
           channelId={opts.channel.id}
         />
+      )}
+
+      {resultTab === 'explorationLedger' && currentWorkspaceId() === 'senior-oldpop' && (
+        <ExplorationLedgerPanel workspaceId={currentWorkspaceId()} />
       )}
 
       {blueprint && resultTab === 'completeness' && (
