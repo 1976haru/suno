@@ -306,6 +306,12 @@ describe('[v3.68 TASK E] killingPointBoostFromInsights + assignKillingPoints inf
     expect(boost['KP-04']).toBeGreaterThan(0);
   });
 
+  // TASK v5.21 (TASK C-3) — MAX_SONGS_PER_KILLING_POINT raised 3 -> 4; an
+  // extreme rating-based boost here also multiplies against KP-01's own
+  // always-applied STRUCTURAL_BIAS (0.6) rather than replacing it (see
+  // data/killingPoints.ts's own assignKillingPoints doc comment) — still
+  // overwhelmingly dominant at boost=1000, so KP-01 still hits the (now
+  // higher) cap exactly.
   it('an extreme boost still never pushes one killing point past MAX_SONGS_PER_KILLING_POINT (well under any 50% share of an 18-song pack)', () => {
     const arc = buildArcPlan(18);
     const inputs = arc.map(pos => ({ peakStrength: pos.peakStrength, eraTag: '1970s AM-gold soft rock' }));
@@ -314,7 +320,7 @@ describe('[v3.68 TASK E] killingPointBoostFromInsights + assignKillingPoints inf
     const usage = new Map<string, number>();
     for (const kp of assigned) { if (kp) usage.set(kp.id, (usage.get(kp.id) ?? 0) + 1); }
     const eligibleCount = arc.filter(p => p.peakStrength !== 'none').length;
-    expect(usage.get('KP-01')).toBeLessThanOrEqual(3);
+    expect(usage.get('KP-01')).toBeLessThanOrEqual(4);
     expect((usage.get('KP-01') ?? 0) / eligibleCount).toBeLessThan(0.5);
   });
 

@@ -20,7 +20,10 @@ function bpm(stylePrompt: string): number {
 }
 
 describe('[v3.67] killing points reach the local generation stylePrompt', () => {
-  it('at least 12 of 18 tracks carry a recognizable killing-point descriptor, none repeated more than 3 times', () => {
+  // TASK v5.21 (TASK C-3) — cap raised 3 -> 4 ("같은 킬링포인트 최대 4곡 (기존
+  // 3곡에서 완화 가능)"); see data/killingPoints.ts's own MAX_SONGS_PER_KILLING_POINT
+  // doc comment.
+  it('at least 12 of 18 tracks carry a recognizable killing-point descriptor, none repeated more than 4 times', () => {
     const opts = makeOptions({ songCount: 18, earwormMode: true });
     const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
     const usage = new Map<string, number>();
@@ -33,7 +36,7 @@ describe('[v3.67] killing points reach the local generation stylePrompt', () => 
       }
     }
     expect(withKillingPoint).toBeGreaterThanOrEqual(12);
-    for (const count of usage.values()) expect(count).toBeLessThanOrEqual(3);
+    for (const count of usage.values()) expect(count).toBeLessThanOrEqual(4);
   });
 
   it('never lets a killing point add more than one style-prompt atom (no comma inside the woven descriptor)', () => {
@@ -73,7 +76,8 @@ describe('[v3.67] killing points reach the local generation stylePrompt', () => 
       if (!slot.killingPointText) continue;
       usage.set(slot.killingPointText, (usage.get(slot.killingPointText) ?? 0) + 1);
     }
-    for (const count of usage.values()) expect(count).toBeLessThanOrEqual(3);
+    // TASK v5.21 (TASK C-3) — cap raised 3 -> 4, see this file's own earlier test.
+    for (const count of usage.values()) expect(count).toBeLessThanOrEqual(4);
   });
 });
 

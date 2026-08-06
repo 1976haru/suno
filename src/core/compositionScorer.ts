@@ -13,6 +13,9 @@ import { eraSharesOf, type EraConstraint } from './constraints';
 import { ERA_POLICY } from '../data/eraPolicy';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES, DUET_TRAIT_AXES } from '../data/vocalTraits';
 import { detectVocalGenderPresence } from './vocalPlan';
+import { findDuplicateExcludeTerms } from '../data/negativeStyles';
+import { EXCLUDE_PROMPT_HARD_CAP } from './promptComposer';
+import { lintGrammar } from './grammarLinter';
 
 /**
  * TASK v3.62 (TASK 2) — C안's whole premise is "the app plans and scores,
@@ -56,6 +59,64 @@ const DESCRIPTOR_COUNT_ADVISORY_MAX = 35;
 /** v3.76 (TASK B) — exported so core/fullAudit.ts can reuse the exact same counting logic instead of duplicating it; no behavior change. */
 export function descriptorCount(stylePrompt: string): number {
   return stylePrompt.split(',').map(atom => atom.trim()).filter(Boolean).length;
+}
+
+/**
+ * v5.21 (TASK E-3) — a solo, gendered lead-vocal descriptor: this codebase's
+ * own convention (data/vocalTraits.ts's MALE_VOCAL_TRAIT_AXES/
+ * FEMALE_VOCAL_TRAIT_AXES) always states the lead voice as "<gender> <register
+ * word>" right next to each other ("male thin bright tenor", "female full
+ * chest alto") — it never needs the word "lead" nearby, since that IS the
+ * lead-vocal declaration in this app's own prompt style. Deliberately does
+ * NOT require "lead" in the match: the real T11 case this exists to catch
+ * had the vocal-plan reconciliation rewrite "male thin bright tenor lead"
+ * to "female full chest alto" — the gender/register pair stayed adjacent,
+ * but the word "lead" was no longer nearby (it moved earlier in the
+ * pipeline's own text), so a "lead"-anchored pattern silently stopped
+ * matching after that exact reconciliation step.
+ */
+const GENDERED_REGISTER_PATTERN = /\b(male|female)\b[^,]{0,20}?\b(tenor|alto|baritone|soprano|bass|contralto|mezzo|falsetto)\b/gi;
+/** v5.21 (TASK E-3) — a group/ensemble-style lead descriptor: "girl-group unison lead", "boy-group unison lead", or a bare "unison lead" with no gender attached. */
+const GROUP_LEAD_PATTERN = /\b(girl-group|boy-group|unison)\b[^,]{0,40}?\blead\b/gi;
+
+export interface PromptContradictionResult {
+  blocking: string[];
+  advisory: string[];
+}
+
+/**
+ * v5.21 (TASK E-3) — "모순 검사 신설". Real, measured examples from a live
+ * bridge-imported pack (not hypothetical — see this function's own callers'
+ * doc comment):
+ *  - two conflicting lead-vocal claims in one stylePrompt (a solo gendered
+ *    lead AND a separate group-style lead, or two different genders both
+ *    claiming lead) — Suno can only actually sing one lead arrangement, so
+ *    the second claim is either ignored or fights the first at render time.
+ *  - the same word repeated back to back ("male male head-voice lead") —
+ *    always a composition error, never an intentional stutter effect in
+ *    this codebase's own prompt style.
+ * Scoped to stylePrompt only (never lyrics — a lyric can legitimately repeat
+ * a word for effect, "no no no", which this function is never called on).
+ */
+export function findPromptContradictions(stylePrompt: string): PromptContradictionResult {
+  const blocking: string[] = [];
+  const advisory: string[] = [];
+
+  const soloLeads = [...stylePrompt.matchAll(GENDERED_REGISTER_PATTERN)];
+  const soloGenders = new Set(soloLeads.map(m => m[1].toLowerCase()));
+  const groupLeads = [...stylePrompt.matchAll(GROUP_LEAD_PATTERN)];
+  if (soloGenders.size > 1) {
+    blocking.push(`보컬 리드가 서로 다른 성별로 2개 이상 명시되어 있습니다 (${[...soloGenders].join(', ')}) — 리드와 백킹을 구분하거나 하나만 남기십시오.`);
+  } else if (soloLeads.length > 0 && groupLeads.length > 0) {
+    blocking.push(`솔로 보컬 리드("${soloLeads[0][0]}")와 그룹 리드("${groupLeads[0][0]}")가 함께 명시되어 있습니다 — 리드는 하나여야 합니다.`);
+  }
+
+  const consecutiveDupeMatch = stylePrompt.match(/\b(\w+)\s+\1\b/i);
+  if (consecutiveDupeMatch) {
+    blocking.push(`같은 단어가 연속으로 중복됩니다: "${consecutiveDupeMatch[0]}"`);
+  }
+
+  return { blocking, advisory };
 }
 
 /**
@@ -682,6 +743,50 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     if (timeOfDayWarning) advisory.push(timeOfDayWarning);
     const propWarning = scenePropContradictionWarning(song.listenerSituation, song.lyrics);
     if (propWarning) advisory.push(propWarning);
+
+    // NEW (v5.21 TASK B-4) — excludePrompt length/dedup regression guard.
+    // Real measurement: a bridge-imported 18-song pack averaged 1,041 chars
+    // (max 1,070), every track over 900 — that path never calls
+    // core/promptComposer.ts's buildExcludePrompt at all (a bridge-imported
+    // song's excludePrompt is Codex's own verbatim text — see
+    // core/bridgeImport.ts), so this check is the only backstop that
+    // actually runs against real imported packs, not just local generation.
+    if (song.excludePrompt) {
+      if (song.excludePrompt.length > EXCLUDE_PROMPT_HARD_CAP) {
+        blocking.push(`exclude prompt가 ${song.excludePrompt.length}자입니다 (상한 ${EXCLUDE_PROMPT_HARD_CAP}자) — 뒤쪽 지시가 Suno에서 무시되거나 잘릴 수 있습니다.`);
+      }
+      const excludeDupes = findDuplicateExcludeTerms(song.excludePrompt);
+      if (excludeDupes.length) {
+        advisory.push(`exclude prompt에 중복/포함 관계 항목이 있습니다: ${excludeDupes.map(([a, b]) => `"${a}" / "${b}"`).join(', ')}`);
+      }
+    }
+
+    // NEW (v5.21 TASK E-3) — prompt-contradiction checks. Real measured
+    // examples from a live bridge-imported pack: T11 named a solo gendered
+    // lead ("male thin bright tenor") alongside a group-lead descriptor
+    // ("girl-group unison lead") in the same stylePrompt; T17 repeated the
+    // same word back to back ("male male head-voice lead"); T18's genreText
+    // atom ("clear youthful lead vocal", data/genreTraits.ts) landed in the
+    // same stylePrompt as a conflicting slot-assigned vocal descriptor
+    // ("male low warm baritone"). Detection only — the T18-style case's real
+    // fix is architectural (core/promptComposer.ts's rotatingGenreText would
+    // need to suppress a genre's own lead-vocal trait whenever a per-track
+    // vocal descriptor is already decided elsewhere in the same prompt,
+    // which touches every caller of buildGenrePromptSummary and is out of
+    // this pass's scope) — this check exists so the conflict is at least
+    // surfaced instead of silently shipped.
+    const contradiction = findPromptContradictions(song.stylePrompt);
+    for (const finding of contradiction.blocking) blocking.push(finding);
+    for (const finding of contradiction.advisory) advisory.push(finding);
+
+    // NEW (v5.21 TASK G) — real measured error: T14 sang "I said that
+    // suited you and I" (should be "you and me"). Objective-case errors are
+    // unambiguous enough to block; article/subject-verb findings are
+    // advisory (narrower rules, more edge cases — see grammarLinter.ts's
+    // own doc comment on why each check is scoped the way it is).
+    const grammarResult = lintGrammar(song.lyrics);
+    for (const finding of grammarResult.blocking) blocking.push(finding.messageKo);
+    for (const finding of grammarResult.advisory) advisory.push(finding.messageKo);
 
     // Reused: v3.58 TASK 5-6 — title/hook zero-overlap (advisory).
     const overlapWarning = titleHookOverlapWarning(song.title, song.hookPhrase);

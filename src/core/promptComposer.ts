@@ -15,7 +15,7 @@ import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget
 import { compactDuration, compactMoneyChord } from './soundSignature';
 import { kidsAgeTierFor, type KidsAgeTierId } from '../data/kidsAgeTiers';
 import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
-import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
+import { resolveNegativeStyleText, mergeNegativeStyleText, parseNegativeStyleTerms } from '../data/negativeStyles';
 import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
@@ -720,6 +720,28 @@ export function buildChannelPromptParts(opts: GenerationOptions, genres: GenrePa
  * instruction in the one field Suno is documented to handle negatives
  * unreliably in.
  */
+/** TASK v5.21 (TASK B-3) — 750-850 char soft target, 900 hard cap (see compositionScorer.ts's own excludePrompt length check for the blocking side of this budget). A real 18-song pack averaged 1,041 chars (max 1,070) before this task — Suno's Exclude field has no documented hard limit the way Style does, but a needlessly long, redundant list still risks the LATER (more specific) terms getting less attention/being effectively ignored. */
+export const EXCLUDE_PROMPT_SAFE_TARGET = 850;
+export const EXCLUDE_PROMPT_HARD_CAP = 900;
+
+/**
+ * TASK v5.21 (TASK B-1/B-3) — greedily fits `candidates` (already deduped,
+ * lowest priority last) into the remaining budget after `alwaysKeep` — never
+ * splits a term mid-phrase, never reorders what it does include. Returns
+ * only the terms that fit; a caller joins alwaysKeep + the return value.
+ */
+function fitWithinBudget(alwaysKeepText: string, candidates: readonly string[], target: number): string[] {
+  let used = alwaysKeepText.length;
+  const kept: string[] = [];
+  for (const term of candidates) {
+    const addedLength = term.length + (used > 0 ? 2 : 0); // ", " separator
+    if (used + addedLength > target) continue;
+    kept.push(term);
+    used += addedLength;
+  }
+  return kept;
+}
+
 export function buildExcludePrompt(
   opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>,
   genres: GenrePack[] = [],
@@ -746,17 +768,24 @@ export function buildExcludePrompt(
   // exclusions and the sound floor both merge in here ahead of/independent of
   // whatever a concept-driven caller might separately add via avoidWords.
   const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
-  return mergeNegativeStyleText(
-    opts.avoidWords,
-    resolveNegativeStyleText(opts, genres),
+
+  // TASK v5.21 (TASK B-3) — priority tiers, highest first. Tiers 1-3 are
+  // NEVER trimmed for length (copyright/safety, the user's own explicit
+  // avoidWords, audience hardExclusions, and the channel's era-guard
+  // soundFloor); only tier 4 (general channel/genre quality preferences —
+  // GLOBAL_NEGATIVE_STYLE_TERMS and genre avoidTraits, see
+  // data/negativeStyles.ts's own buildDefaultNegativeStyle) can be cut when
+  // the budget runs out, since those are preferences, not safety/audience
+  // requirements.
+  const alwaysKeepText = mergeNegativeStyleText(
     'famous artist imitation, copied melodies, copyrighted song references, soundalike vocals',
-    // TASK v3.58 (TASK 4) — audience-level exclusions apply regardless of
-    // genre (see types.ts's AudienceProfile) — e.g. a senior channel never
-    // wants "shouted or belted high notes" whether the song is jazz-pop or
-    // acoustic-pop this track.
+    opts.avoidWords,
     exclusionsForThisSong.join(', '),
     soundFloor?.forbiddenAtoms.join(', ')
   );
+  const trimmableDeduped = parseNegativeStyleTerms(resolveNegativeStyleText(opts, genres));
+  const kept = fitWithinBudget(alwaysKeepText, trimmableDeduped, EXCLUDE_PROMPT_SAFE_TARGET);
+  return mergeNegativeStyleText(alwaysKeepText, kept.join(', '));
 }
 
 /**
@@ -1208,7 +1237,15 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
     emotionArc: 'string',
     hookPhrase: 'string',
     stylePrompt: 'string',
-    excludePrompt: 'string optional; Suno Exclude styles text, never mixed into stylePrompt',
+    // TASK v5.21 (TASK B) — real measurement: a bridge-imported 18-song
+    // pack averaged 1,041 chars (max 1,070), every track over 900, with
+    // duplicate singular/plural pairs ("copied melody" AND "copied
+    // melodies") — the old one-line description gave zero length or dedup
+    // guidance at all. Concrete numbers + an explicit priority order here,
+    // since "keep it short" alone measurably didn't work across 18 songs in
+    // one sitting; core/compositionScorer.ts's own excludePrompt checks are
+    // the backstop when this guidance isn't followed exactly.
+    excludePrompt: 'string; Suno Exclude styles text, never mixed into stylePrompt. Target 750-850 chars, hard cap 900 — comma-separated phrases, no duplicate singular/plural pairs ("copied melody" and "copied melodies" together), no phrase that is just a shorter version of another phrase already in the list (e.g. do not include both "sub bass" and "heavy sub bass"). Priority when trimming to fit: (1) copyright/artist-imitation safety terms, (2) this channel/audience\'s own hard exclusions, (3) era-consistency terms, (4) general production-quality preferences — cut from (4) first.',
     // TASK v3.70 (TASK B) — dropped "[end]" from this example: real bridge
     // output was literally reproducing every tag named here, and "[end]"
     // reads as nothing in Suno (see this task's own real-length measurement).

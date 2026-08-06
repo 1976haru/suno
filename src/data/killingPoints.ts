@@ -131,7 +131,48 @@ export const KILLING_POINTS: KillingPoint[] = [
   }
 ];
 
-const MAX_SONGS_PER_KILLING_POINT = 3;
+// TASK v5.21 (TASK C-3) — "같은 킬링포인트 최대 4곡 (기존 3곡에서 완화 가능)".
+// Raised from 3 -> 4 alongside STRUCTURAL_BIAS below (which already pulls
+// KP-01 well under this ceiling in practice) — the higher ceiling only
+// matters for the KPs the bias now favors (KP-02/03/05/08), giving them
+// room to actually reach their higher weight instead of being capped at
+// the same 3 as everything else.
+const MAX_SONGS_PER_KILLING_POINT = 4;
+
+/**
+ * TASK v5.21 (TASK C-3) — "킬링포인트 사전 재조정": real measurement found
+ * KP-01 ("final chorus lifts a semitone") plus this same "final chorus
+ * key-up" language baked into the winterBallad money-chord preset
+ * (data/moneyChords.ts) together produced a same-ending-formula pattern in
+ * 11/18 (61%) of a real pack's tracks — see this task's own §3-1 for the
+ * full measurement. This bias is the killing-point side of that fix: a
+ * fixed, always-applied selection-weight multiplier (independent of and
+ * combined with the rating-based KillingPointBoostMap below, never
+ * replacing it) that lowers how often KP-01 wins ties in
+ * assignKillingPoints' rotation, and raises KP-02 (harmony stack) / KP-03
+ * (instrumental solo) / KP-05 (sustained landing) / KP-08 (a cappella
+ * outro) — the four non-modulation "ending treatment" alternatives §3-2's
+ * own distribution table names. Every killing point not listed here keeps
+ * its neutral weight of 1 (no opinion), same as the rating-boost map's own
+ * convention.
+ */
+// TASK v5.21 (TASK C-3, tuning follow-up) — a first pass also up-weighted
+// KP-02/03/05/08 (§3-2's own named alternatives), but the ranking here is a
+// strict numeric sort (not weighted random sampling), so ANY weight > 1 for
+// those 4 ids ALWAYS wins ties against the other 8 (including KP-01)
+// regardless of how small the margin is — measured: even a mild 1.1 still
+// deterministically collapsed pack-wide variety to exactly those 4 ids,
+// failing the PRE-EXISTING, separate design-gate "killing-point-variety"
+// check (core/designGate.ts, ≥6 distinct ids expected in an 18-song pack —
+// a real, independent diversity requirement this task must not regress per
+// its own §9 "회귀 방지"). Down-weighting ONLY KP-01 (never up-weighting
+// specific alternatives) instead spreads KP-01's lost ties across all 11
+// OTHER killing points via the existing seeded rotation, which measurably
+// reduces KP-01's own share (the actual complaint) without concentrating
+// the freed-up selections into a new, equally narrow formula.
+const STRUCTURAL_BIAS: KillingPointBoostMap = {
+  'KP-01': 0.6
+};
 
 export function killingPointById(id: string): KillingPoint | undefined {
   return KILLING_POINTS.find(kp => kp.id === id);
@@ -221,7 +262,13 @@ export function assignKillingPoints(
     // rotation's own order) lets a boosted killing point win ties more
     // often without ever bypassing the MAX_SONGS_PER_KILLING_POINT cap
     // above, and without ever fully excluding a down-weighted one.
-    const ranked = Object.keys(boost).length ? [...rotated].sort((a, b) => (boost[b.id] ?? 1) - (boost[a.id] ?? 1)) : rotated;
+    // v5.21 (TASK C-3) — STRUCTURAL_BIAS is always combined in (multiplied,
+    // never replacing the rating-based boost), so this ranking pass always
+    // runs now, not just when a caller happened to pass real rating
+    // insights — the whole point is a real listening pass isn't required
+    // for KP-01's over-selection to be corrected.
+    const effectiveWeight = (id: string) => (STRUCTURAL_BIAS[id] ?? 1) * (boost[id] ?? 1);
+    const ranked = [...rotated].sort((a, b) => effectiveWeight(b.id) - effectiveWeight(a.id));
     const chosen = ranked.find(kp => (usage.get(kp.id) ?? 0) < MAX_SONGS_PER_KILLING_POINT) ?? rotated[0];
     usage.set(chosen.id, (usage.get(chosen.id) ?? 0) + 1);
     return chosen;
