@@ -1,4 +1,4 @@
-import type { GenerationOptions, GenerationSnapshot, GenrePack, MoodPack, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SeasonPack, WorkspaceId } from '../types';
+import type { GenerationOptions, GenerationSnapshot, GenrePack, MoodPack, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SeasonPack, SnapshotProviderInfo, WorkspaceId } from '../types';
 import { genrePacks, moodPacks } from '../data/presets';
 import { getDefaultGenreIdsForArchetype } from '../data/genreLibrary';
 import { normalizeGenreSelection } from './genreSelection';
@@ -56,6 +56,23 @@ export interface BuildGenerationSnapshotInput {
   workspaceId?: WorkspaceId;
 }
 
+/**
+ * v5.17 (TASK A) — narrows a live ProviderSettings (which carries real
+ * credentials) down to the snapshot-safe SnapshotProviderInfo. See that
+ * type's own doc comment in types.ts for why apiKey/accessToken/
+ * proxyEndpoint can never ride along on a GenerationSnapshot.
+ */
+export function toSnapshotProviderInfo(provider: ProviderSettings): SnapshotProviderInfo {
+  return {
+    provider: provider.provider,
+    model: provider.model,
+    temperature: provider.temperature,
+    batchSize: provider.batchSize,
+    keyStorageMode: provider.keyStorageMode,
+    hasApiKey: Boolean(provider.apiKey)
+  };
+}
+
 /** `contractSignature` reuses core/generationPreflight.ts's own stableHash — the same mechanism ResolvedGenerationContract/DesignGateResult acknowledgment tracking already uses — rather than a second hashing approach. */
 export function buildGenerationSnapshot(input: BuildGenerationSnapshotInput): GenerationSnapshot {
   const { options, provider, season } = input;
@@ -64,7 +81,7 @@ export function buildGenerationSnapshot(input: BuildGenerationSnapshotInput): Ge
     workspaceId: input.workspaceId ?? currentWorkspaceId(),
     channel: options.channel,
     options,
-    provider,
+    provider: toSnapshotProviderInfo(provider),
     season,
     slots,
     contractSignature: stableHash({ options, slots }),
@@ -86,6 +103,43 @@ export function buildGenerationSnapshot(input: BuildGenerationSnapshotInput): Ge
 export function withGenerationSnapshot(blueprint: PlaylistBlueprint, input: BuildGenerationSnapshotInput): PlaylistBlueprint {
   if (blueprint.generationSnapshot) return blueprint;
   return { ...blueprint, generationSnapshot: buildGenerationSnapshot(input) };
+}
+
+/**
+ * v5.17 (TASK A §1-3) — real fields a pack saved BEFORE this task's fix can
+ * still carry on its generationSnapshot.provider (back when that field was
+ * the full ProviderSettings). Checked by literal key rather than by
+ * SnapshotProviderInfo's current shape, since the whole point is catching
+ * fields that shouldn't be there regardless of what today's type says.
+ */
+const LEGACY_SNAPSHOT_SECRET_KEYS = ['apiKey', 'accessToken', 'proxyEndpoint'] as const;
+
+/**
+ * Idempotent: returns the same `blueprint` reference (not a copy) when
+ * there's nothing to strip, so callers (core/library.ts's read paths) can
+ * cheaply tell whether a rewrite is actually needed. Used both as the
+ * "app start" migration for already-saved packs (§1-3 item 1) and as the
+ * export/import re-check (§1-3 items 2-3) — one function, so a pack can
+ * never pass one check and fail the other.
+ */
+export function scrubBlueprintSnapshotSecrets(blueprint: PlaylistBlueprint): { blueprint: PlaylistBlueprint; scrubbed: boolean } {
+  const snapshot = blueprint.generationSnapshot;
+  if (!snapshot) return { blueprint, scrubbed: false };
+  const provider = snapshot.provider as SnapshotProviderInfo & Partial<Record<(typeof LEGACY_SNAPSHOT_SECRET_KEYS)[number], unknown>>;
+  const leaked = LEGACY_SNAPSHOT_SECRET_KEYS.filter(key => provider[key] !== undefined);
+  if (!leaked.length) return { blueprint, scrubbed: false };
+  const cleanProvider: SnapshotProviderInfo = {
+    provider: provider.provider,
+    model: provider.model,
+    temperature: provider.temperature,
+    batchSize: provider.batchSize,
+    keyStorageMode: provider.keyStorageMode,
+    hasApiKey: provider.hasApiKey ?? Boolean(provider.apiKey)
+  };
+  return {
+    blueprint: { ...blueprint, generationSnapshot: { ...snapshot, provider: cleanProvider } },
+    scrubbed: true
+  };
 }
 
 export interface ResolvedGenerationContext {
@@ -120,7 +174,21 @@ export function resolveGenerationContext(
   if (!snapshot) return live;
   return {
     options: snapshot.options,
-    provider: snapshot.provider,
+    // v5.17 (TASK A) — snapshot.provider is the credential-free
+    // SnapshotProviderInfo; provider/model/temperature/batchSize/
+    // keyStorageMode come from what this pack was ACTUALLY generated under,
+    // but apiKey/accessToken/proxyEndpoint were never persisted (see
+    // types.ts's SnapshotProviderInfo doc comment) so they're re-read live
+    // from `live.provider` here, at the point of actual use — same rule
+    // core/batchJobs.ts's BatchJobSnapshot already applies for resumed jobs.
+    provider: {
+      ...live.provider,
+      provider: snapshot.provider.provider,
+      model: snapshot.provider.model,
+      temperature: snapshot.provider.temperature,
+      batchSize: snapshot.provider.batchSize,
+      keyStorageMode: snapshot.provider.keyStorageMode
+    },
     season: snapshot.season,
     genres: genresForOptions(snapshot.options),
     moods: moodsForOptions(snapshot.options)

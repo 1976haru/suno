@@ -15,6 +15,7 @@ import type { ThumbnailBrandTemplate } from '../types';
 import { parseJsonFileResponsive } from './backupImportClient';
 import { APP_VERSION, BUILT_AT, COMMIT_SHA } from './buildInfo';
 import { EXPORT_SCHEMA_VERSION } from './exportMeta';
+import { scrubBlueprintSnapshotSecrets } from './generationSnapshot';
 
 /**
  * v4.1 (TASK A2) — "워크스페이스 데이터 이동": A1 gave every workspace its own
@@ -177,7 +178,17 @@ export async function exportWorkspace(opts: ExportOptions): Promise<WorkspaceExp
 
   if (include.packs) {
     const packs = await listFullPacksForWorkspace(opts.workspaceId);
-    data.packs = packs;
+    // v5.17 (TASK A §1-3 item 2) — belt-and-suspenders: listFullPacksForWorkspace
+    // already scrubs generationSnapshot secrets via normalizeSavedPack, but
+    // this is the one function that actually PRODUCES the backup file a user
+    // hands off, so it re-checks independently rather than trusting an
+    // upstream call site to have done it — a future refactor that bypasses
+    // normalizeSavedPack must not silently reopen this leak.
+    data.packs = packs.map(pack => {
+      if (!pack.blueprint) return pack;
+      const { blueprint, scrubbed } = scrubBlueprintSnapshotSecrets(pack.blueprint);
+      return scrubbed ? { ...pack, blueprint } : pack;
+    });
     counts.packs = packs.length;
   }
   if (include.hooks) {
@@ -484,6 +495,14 @@ export async function previewImport(file: File): Promise<ImportPreview> {
   if (plan.packs.conflicted.length) {
     warnings.push(`이름이 같은 팩 ${plan.packs.conflicted.length}개는 건너뜁니다(덮어쓰기를 선택하면 교체됩니다): ${plan.packs.conflicted.slice(0, 5).join(', ')}${plan.packs.conflicted.length > 5 ? ' 외' : ''}`);
   }
+  // v5.17 (TASK A §1-3 item 3) — preview-time heads-up; applyImport() strips
+  // and warns again at write time regardless of whether the user saw this.
+  const packsWithLeakedSecrets = (parsedFile.data.packs ?? []).filter(
+    pack => pack.blueprint && scrubBlueprintSnapshotSecrets(pack.blueprint).scrubbed
+  ).length;
+  if (packsWithLeakedSecrets) {
+    warnings.push(`이 파일의 팩 ${packsWithLeakedSecrets}개에 저장되면 안 되는 비밀 정보(API 키 등)가 남아 있습니다. 가져올 때 자동으로 제거됩니다.`);
+  }
 
   return {
     fileWorkspaceId: parsedFile.workspaceId,
@@ -602,7 +621,19 @@ export async function applyImport(file: File, mode: 'merge' | 'replace', options
       }
       // 'replace' with an existing same-name pack reuses that pack's own id
       // so it's a true in-place replace, not a second same-named pack.
-      const toWrite = existing ? { ...pack, id: existing.id } : pack;
+      const withoutSecrets = pack.blueprint ? (() => {
+        // v5.17 (TASK A §1-3 item 3) — an external file (from before this
+        // fix, or hand-edited) can still carry a real apiKey/accessToken/
+        // proxyEndpoint on its generationSnapshot; ignored and stripped
+        // before it ever reaches this workspace's storage, never imported
+        // even in 'replace' mode.
+        const { blueprint, scrubbed } = scrubBlueprintSnapshotSecrets(pack.blueprint);
+        if (scrubbed && !result.warnings.some(w => w.includes('비밀 정보'))) {
+          result.warnings.push('가져온 파일 일부에 저장되면 안 되는 비밀 정보(API 키 등)가 있어 무시했습니다.');
+        }
+        return scrubbed ? { ...pack, blueprint } : pack;
+      })() : pack;
+      const toWrite = existing ? { ...withoutSecrets, id: existing.id } : withoutSecrets;
       // TASK (genre-archetype sanitization) — a pack imported from another
       // workspace's export can carry genreIds that belong to that other
       // workspace's genre catalog entirely (the real, verified "cross-

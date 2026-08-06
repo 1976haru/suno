@@ -11,6 +11,8 @@ import { krKidsOverride } from './krKids';
 import { jpKidsOverride } from './jpKids';
 import { krIdolMaleOverride } from './krIdolMale';
 import { krIdolFemaleOverride } from './krIdolFemale';
+import { modernChillOverride } from './modernChill';
+import { cityNightOverride } from './cityNight';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -35,6 +37,32 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
       return christmasOverride;
     case 'lofi-study':
       return lofiStudyOverride;
+    // v5.17 (TASK C, isolation audit L4 fix) — 'twenties'/'thirtiesForties'
+    // audience archetypes (data/presets.ts's own chill-hours/city-night-drive
+    // channels), NOT the senior cohort senior-morning's vocabulary targets.
+    // Before this case existed, each silently fell through to `default`
+    // (senior-morning's REAL vocabulary) — a genuine audience-mismatched
+    // runtime leak. Now returns its own empty, "Deferred" bank instead — the
+    // SAME category as christmas/lofi-study just above, just deferred for a
+    // different reason (audience-appropriate vocabulary not yet written,
+    // rather than build order) — see modernChill.ts/cityNight.ts's own doc
+    // comments and scripts/isolationAudit.ts's L4_INTENTIONAL_SENIOR_MATCH.
+    case 'modern-chill':
+      return modernChillOverride;
+    case 'city-night':
+      return cityNightOverride;
+    // v5.17 (TASK C, isolation audit L4 fix) — unlike modern-chill/city-night
+    // above, oldpop-lounge's own audience IS 'seniors' (see
+    // utils/channelProfile.ts's ARCHETYPE_AUDIENCE map) — the exact same
+    // cohort senior-morning's hook vocabulary already targets, and
+    // data/channelSoundFloor.ts already groups oldpop-lounge with
+    // senior-morning/showa-cafe/showa-70s as one family for the same reason.
+    // Reusing seniorMorningOverride here is a deliberate, documented
+    // decision (same shape as j2000s's own case below), not an accidental
+    // switch fallthrough — see scripts/isolationAudit.ts's
+    // L4_INTENTIONAL_SENIOR_MATCH, which now references this comment.
+    case 'oldpop-lounge':
+      return seniorMorningOverride;
     // TASK B2 — kr-2030 workspace's single archetype. Added as its own case
     // so it never falls through to the `default` (senior-morning) below.
     case 'kr-2030-pop':

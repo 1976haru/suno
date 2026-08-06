@@ -17,5 +17,11 @@ describe('[P0-1][idol] every generated stylePrompt fits Suno\'s 1,000-char style
     expect(IDOL_CHANNELS.length).toBeGreaterThan(0);
     const checked = checkPromptLengthForChannels(IDOL_CHANNELS);
     expect(checked).toBeGreaterThan(0);
-  }, 30000);
+  // v5.17 (TASK D) — same "genuine timeout, not a logic bug" class
+  // vitest.config.ts's own S4 comment already documents: this exhaustive
+  // cross-product passes comfortably alone (~15-20s) but tips past 30s once
+  // it's competing for CPU with the rest of a full parallel `npm test` run.
+  // Raising the per-case timeout, not sampling fewer combinations — the
+  // whole point of this test is exhaustive coverage.
+  }, 60000);
 });

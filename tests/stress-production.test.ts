@@ -194,7 +194,14 @@ describe('production stress tests', () => {
     expect(personaBp.songs[0].stylePrompt).toContain('male soft husky tenor close-mic');
     expect(personaBp.songs[0].stylePrompt).toContain('repeated chorus hook');
     expect(personaBp.songs[0].stylePrompt).toContain('I-V-vi-IV progression');
-  });
+  // v5.17 (TASK D) — genuinely takes ~22s alone (a full genrePacks x 3
+  // languages x seasonPacks cross-product), which tips over the config's
+  // default 30000ms once it's competing for CPU with this same file's other
+  // heavy cases (S1/S6/S9) under `npm run test:stress`'s parallel run —
+  // confirmed by running this case alone (comfortably under 30s) vs. the
+  // full stress suite (times out). Same fix S1 already applies just above,
+  // for the same reason; not a correctness issue, so no assertion changed.
+  }, 45_000);
 
   productionCase('S5 extreme inputs are clamped and never execute script text', () => {
     for (const value of [0, -5, 81, 999, NaN, Infinity, Number('abc')]) {

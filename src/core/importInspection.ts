@@ -1,6 +1,6 @@
 import type { BilingualPair, GenerationOptions, LyricLanguage, SongIdea } from '../types';
 import type { ImportSongsReport } from './bridgeImport';
-import { describeTrackSetValidation, validateProviderTrackSet } from './importValidation';
+import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { findArtistReferenceLeaks, type ArtistReferenceLeak } from './artistReferenceDecomposer';
 
@@ -89,10 +89,10 @@ function leadingBracketTag(value: unknown): string | null {
   return match ? normalizeTagText(match[1]) : null;
 }
 
+/** v5.17 (TASK E) — delegates to core/importValidation.ts's resolveEffectiveTrackNo; see core/bridgeImport.ts's claimedTrackNoFor (same delegation) for why this is safe. */
 function claimedTrackNoForRaw(raw: unknown, index: number): number {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  const value = Number((obj as Record<string, unknown>).trackNo);
-  return Number.isFinite(value) && value > 0 ? value : index + 1;
+  return resolveEffectiveTrackNo(obj.trackNo, index);
 }
 
 /**

@@ -20,5 +20,10 @@ describe('[P0-1][senior-oldpop] every generated stylePrompt fits Suno\'s 1,000-c
     expect(SENIOR_CHANNELS.length).toBeGreaterThan(0);
     const checked = checkPromptLengthForChannels(SENIOR_CHANNELS);
     expect(checked).toBeGreaterThan(0);
-  }, 30000);
+  // v5.17 (TASK D) — senior-oldpop has the most channels of any workspace,
+  // so this is the slowest of the 5 promptLength-*.test.ts files; same
+  // "genuine timeout, not a logic bug" class vitest.config.ts's own S4
+  // comment already documents — see tests/promptLength-idol.test.ts's
+  // identical fix for the full reasoning.
+  }, 90000);
 });

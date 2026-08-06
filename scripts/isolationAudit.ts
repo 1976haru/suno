@@ -210,18 +210,47 @@ export function checkL3(): CheckResult[] {
 // senior-oldpop 워크스페이스 내부의 기존(B1~G1 이전) 아키타입들 — 데이터
 // 격리(워크스페이스 경계 침범) 대상이 아니라 senior-oldpop 자체의 완성도
 // 문제이므로 예외 처리합니다. 이유가 서로 달라 실측 코드를 인용해 구분:
-//   - senior-morning: 이 값 자체가 기준(비교 대상), 항상 동일
+//   - senior-morning: 이 값 자체가 기준(비교 대상), 항상 동일. 실측:
+//     hookBanks/seniorMorning.ts 자체가 override={}(빈 객체) — "공유
+//     기본 어휘(data/hookParts.ts) 자체가 이 아키타입을 염두에 두고
+//     쓰여서 오버라이드할 게 없다"는 그 파일 자체 주석. 즉 "override가
+//     비어 있다 == senior와 동일하다"는 이 검사의 구조적 성질이며, 이
+//     레지스트리에 없는 어떤 아키타입도 override가 비면 자동으로 FAIL
+//     대상이 됩니다 — "아직 안 만듦"과 "진짜 누출"을 코드만으로 구분할
+//     수 없어(§0-2), ready 워크스페이스에서는 보수적으로 FAIL 처리합니다.
 //   - j2000s: hookBanks/index.ts 자체 주석 — "의도적으로 seniorMorningOverride를 그대로 씁니다"
 //   - christmas/lofi-study: hookBanks/christmas.ts·lofiStudy.ts 자체 주석 —
 //     "Deferred per the v3.4 spec's explicit instruction to build
 //     senior-morning and showa-cafe first" — override가 `{}`(빈 객체)라
 //     seniorMorningOverride(마찬가지로 `{}`)와 동일하게 나오는 것은 "누출"이
 //     아니라 v3.4 시절부터 문서화된 "아직 안 만듦" 상태입니다.
+//   - v5.17 (TASK C) 'oldpop-lounge': 실측 확인(utils/channelProfile.ts의
+//     ARCHETYPE_AUDIENCE 맵) 결과 이 아키타입의 실제 audience는 'seniors' —
+//     senior-morning과 동일 대상층이며, data/channelSoundFloor.ts도 이미
+//     oldpop-lounge를 senior-morning/showa-cafe/showa-70s와 한 계열로 묶어
+//     취급합니다. hookBanks/index.ts의 해당 case 주석이 이 결정의 1차
+//     근거이며 — christmas/j2000s와 같은 "진짜 의도적 재사용" 부류입니다.
+//   - v5.17 (TASK C) 'modern-chill'/'city-night': 실측 확인 결과 각각
+//     audience 'twenties'/'thirtiesForties' — senior-morning과 대상층이
+//     다릅니다(oldpop-lounge와 정반대 결론). 이전에는 hookBanks/index.ts
+//     switch에 case 자체가 없어 default(senior)로 떨어졌고, senior의
+//     실제 어휘를 그대로 물려받는 진짜 누출이었습니다. 지금은
+//     hookBanks/modernChill.ts·cityNight.ts가 각각 자기 소유의 빈
+//     override를 명시적 case로 반환합니다 — christmas/lofi-study와 같은
+//     "진짜 미구축(Deferred)" 부류이지 senior 재사용이 아니지만, override가
+//     비어 있으면 (위 senior-morning 항목 설명대로) 이 검사 자체가 항상
+//     "senior와 동일"로 판정하므로 christmas/lofi-study와 동일하게 여기
+//     등재해 그 미구축 상태를 명시합니다. 실제 대상 어휘(twenties/
+//     thirtiesForties 톤)를 만드는 것은 별도 콘텐츠 작업(§0-2에 따라 이
+//     스크립트가 아니라 책임 문서로 되돌림)입니다.
 const L4_INTENTIONAL_SENIOR_MATCH: Record<string, string> = {
   'senior-morning': '비교 기준 자기 자신',
   'j2000s': 'hookBanks/index.ts 자체 주석 — 의도적으로 seniorMorningOverride 재사용',
   'christmas': 'hookBanks/christmas.ts 자체 주석 — v3.4부터 "Deferred", override={}로 문서화된 미구축 상태(누출 아님)',
-  'lofi-study': 'hookBanks/lofiStudy.ts 자체 주석 — v3.4부터 "Deferred", override={}로 문서화된 미구축 상태(누출 아님)'
+  'lofi-study': 'hookBanks/lofiStudy.ts 자체 주석 — v3.4부터 "Deferred", override={}로 문서화된 미구축 상태(누출 아님)',
+  'oldpop-lounge': 'hookBanks/index.ts 자체 주석 — audience가 senior-morning과 동일(\'seniors\')하여 의도적으로 seniorMorningOverride 재사용',
+  'modern-chill': 'hookBanks/modernChill.ts 자체 주석 — v5.17부터 자기 소유의 빈 override로 "Deferred" 명시(audience twenties, senior 재사용 아님 — 콘텐츠 미구축)',
+  'city-night': 'hookBanks/cityNight.ts 자체 주석 — v5.17부터 자기 소유의 빈 override로 "Deferred" 명시(audience thirtiesForties, senior 재사용 아님 — 콘텐츠 미구축)'
 };
 
 function hookOverrideFields(o: HookVocabularyOverride): (keyof HookVocabularyOverride)[] {

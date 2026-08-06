@@ -1,4 +1,5 @@
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature, WorkspaceId } from '../types';
+import { scrubBlueprintSnapshotSecrets } from './generationSnapshot';
 import { channelPresets } from '../data/presets';
 import { isMadeForKidsChannel } from './exportCompliance';
 import { lintChannelDiversity, sampleFromSavedPack, type ChannelDiversityReport } from './diversityLinter';
@@ -36,11 +37,31 @@ export function migrateLegacyChannelNames(pack: SavedPack): SavedPack {
 function normalizeSavedPack(pack: SavedPack): SavedPack {
   const migrated = migrateLegacyChannelNames(pack);
   const personaMode = migrated.personaMode ?? migrated.options?.personaMode ?? false;
-  return {
+  const normalized: SavedPack = {
     ...migrated,
     personaMode,
     options: migrated.options ? { ...migrated.options, personaMode } : migrated.options
   };
+  // v5.17 (TASK A §1-3) — every read path (listPacks, loadPack,
+  // listFullPacksForWorkspace, the memory-only export blob) funnels through
+  // here, so a pack saved before generationSnapshot.provider was narrowed to
+  // SnapshotProviderInfo never shows/exports its leaked apiKey/accessToken/
+  // proxyEndpoint again, even before loadPack's own write-back below
+  // actually cleans the stored record.
+  return scrubPackSnapshotSecrets(normalized).pack;
+}
+
+/**
+ * v5.17 (TASK A §1-3) — SavedPack-level wrapper around
+ * generationSnapshot.ts's scrubBlueprintSnapshotSecrets, so callers that
+ * need to know whether a rewrite happened (loadPack's own write-back) don't
+ * have to reach into `pack.blueprint` themselves.
+ */
+function scrubPackSnapshotSecrets(pack: SavedPack): { pack: SavedPack; scrubbed: boolean } {
+  if (!pack.blueprint) return { pack, scrubbed: false };
+  const { blueprint, scrubbed } = scrubBlueprintSnapshotSecrets(pack.blueprint);
+  if (!scrubbed) return { pack, scrubbed: false };
+  return { pack: { ...pack, blueprint }, scrubbed: true };
 }
 
 function randomSongId(packId: string, trackNo: number): string {
@@ -364,14 +385,20 @@ export async function loadPack(id: string): Promise<SavedPack | undefined> {
   if (!hasIndexedDb()) {
     const pack = memoryPacks.get(id);
     if (!pack) return undefined;
+    // v5.17 (TASK A §1-3) — scrubbed BEFORE migratePackSongIds so its own
+    // `migrated` flag can't mask a pack whose only real change is the
+    // snapshot secret strip (see scrubPackSnapshotSecrets's own doc
+    // comment); either flag alone triggers the write-back below.
+    const { scrubbed } = scrubPackSnapshotSecrets(pack);
     const { pack: migratedPack, migrated } = migratePackSongIds(normalizeSavedPack(pack));
-    if (migrated) memoryPacks.set(id, migratedPack);
+    if (migrated || scrubbed) memoryPacks.set(id, migratedPack);
     return migratedPack;
   }
   const pack = await withStore<SavedPack | undefined>('readonly', store => store.get(id));
   if (!pack) return pack;
+  const { scrubbed } = scrubPackSnapshotSecrets(pack);
   const { pack: migratedPack, migrated } = migratePackSongIds(normalizeSavedPack(pack));
-  if (migrated) await withStore('readwrite', store => store.put(migratedPack));
+  if (migrated || scrubbed) await withStore('readwrite', store => store.put(migratedPack));
   return migratedPack;
 }
 
@@ -707,6 +734,42 @@ export async function migrateLibraryWorkspaceTags(): Promise<{ totalRecords: num
     if (!pack.workspaceId) await withStore('readwrite', store => store.put({ ...pack, workspaceId: DEFAULT_WORKSPACE_ID }));
   }
   return { totalRecords: all.length, taggedSeniorOldpop: all.filter(p => (p.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
+}
+
+/**
+ * v5.17 (TASK A §1-3 item 1) — same shape/contract as
+ * migrateLibraryWorkspaceTags just above: additive-only (only ever narrows
+ * generationSnapshot.provider, never touches songs/options/anything else),
+ * idempotent, reads the raw (unscoped) store directly across every
+ * workspace in one pass — a leaked apiKey doesn't stop mattering just
+ * because the workspace it's in isn't the one currently open. Run
+ * unconditionally on every app start (core/workspaceMigration.ts's
+ * runSnapshotSecretMigrationOnce), not gated behind the v4.0 backup prompt —
+ * removing a secret is a strict safety improvement, never data loss a user
+ * needs to be warned about first.
+ */
+export async function migrateLibrarySnapshotSecrets(): Promise<{ totalRecords: number; scrubbed: number }> {
+  if (!hasIndexedDb()) {
+    let scrubbed = 0;
+    for (const [id, pack] of memoryPacks) {
+      const result = scrubPackSnapshotSecrets(pack);
+      if (result.scrubbed) {
+        memoryPacks.set(id, result.pack);
+        scrubbed += 1;
+      }
+    }
+    return { totalRecords: memoryPacks.size, scrubbed };
+  }
+  const all = await withStore<SavedPack[]>('readonly', store => store.getAll());
+  let scrubbed = 0;
+  for (const pack of all) {
+    const result = scrubPackSnapshotSecrets(pack);
+    if (result.scrubbed) {
+      await withStore('readwrite', store => store.put(result.pack));
+      scrubbed += 1;
+    }
+  }
+  return { totalRecords: all.length, scrubbed };
 }
 
 /**

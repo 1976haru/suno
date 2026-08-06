@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeTrackSetValidation, validateProviderTrackSet } from '../src/core/importValidation';
+import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from '../src/core/importValidation';
 
 /**
  * TASK (structural trackNo rejection, third-party audit follow-up) — unit
@@ -84,20 +84,56 @@ describe('[importValidation] validateProviderTrackSet', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('an absent trackNo field (undefined/null) is not flagged as invalid — some paths (bridge/JSON import) legitimately rely on position instead', () => {
+  it('an absent trackNo field (undefined/null) is not flagged as invalid — resolved to its own array position instead, same as the real normalizer (TASK E, v5.17)', () => {
     const songs = [{ trackNo: 1 }, { trackNo: undefined }, { trackNo: null }, { trackNo: 4 }];
     const result = validateProviderTrackSet(songs, 4);
     expect(result.invalid).toEqual([]);
-    // absent entries never claim a number, so their positions show up as "missing" too.
-    expect(result.missing).toEqual([2, 3]);
+    // v5.17 (TASK E) — an absent entry now effectively claims its own 1-based
+    // array position (index 1 -> 2, index 2 -> 3), the same fallback
+    // core/bridgeImport.ts's claimedTrackNoFor already applies when it
+    // actually resolves a slot — so nothing is "missing" here at all.
+    expect(result.missing).toEqual([]);
     expect(result.valid).toBe(true);
   });
 
-  it('an empty-string trackNo is treated the same as absent, not invalid', () => {
+  it('an empty-string trackNo is treated the same as absent, not invalid — also resolved by position (TASK E, v5.17)', () => {
     const songs = [{ trackNo: 1 }, { trackNo: '  ' }, { trackNo: 3 }];
     const result = validateProviderTrackSet(songs, 3);
     expect(result.invalid).toEqual([]);
-    expect(result.missing).toEqual([2]);
+    expect(result.missing).toEqual([]);
+  });
+
+  it('TASK E (v5.17) — an absent trackNo whose fallback position collides with another entry\'s EXPLICIT trackNo is a real duplicate, not silently invisible', () => {
+    // The exact repro from the v5.17 audit: index 0 is absent (falls back to
+    // position 1), index 1 explicitly claims trackNo 1 too — both would
+    // resolve to the SAME slot downstream (core/batchPreallocation.ts's
+    // claimSlotsByTrackNo), so this must be caught here, not silently pass
+    // as "no duplicates" the way the pre-fix checker (which excluded absent
+    // entries from duplicate detection entirely) used to let it through.
+    const songs = [{ trackNo: null }, { trackNo: 1 }];
+    const result = validateProviderTrackSet(songs, 2);
+    expect(result.duplicates).toEqual([1]);
+    expect(result.valid).toBe(false);
+  });
+
+  it('TASK E (v5.17) — a genuinely all-absent, positionally-sequential set (a legacy-shaped file) is fully valid, not "every track missing"', () => {
+    const songs = Array.from({ length: 18 }, () => ({ trackNo: undefined }));
+    const result = validateProviderTrackSet(songs, 18);
+    expect(result.invalid).toEqual([]);
+    expect(result.duplicates).toEqual([]);
+    expect(result.missing).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it('TASK E (v5.17) — a mix of explicit and absent trackNo (5 of 18 omitted, no collisions) resolves cleanly with nothing missing', () => {
+    const songs = Array.from({ length: 18 }, (_, i) => (
+      [2, 5, 9, 13, 17].includes(i) ? { trackNo: undefined } : { trackNo: i + 1 }
+    ));
+    const result = validateProviderTrackSet(songs, 18);
+    expect(result.invalid).toEqual([]);
+    expect(result.duplicates).toEqual([]);
+    expect(result.missing).toEqual([]);
+    expect(result.valid).toBe(true);
   });
 
   it('duplicate AND out-of-range together — both surfaced, valid is false', () => {
@@ -106,6 +142,14 @@ describe('[importValidation] validateProviderTrackSet', () => {
     expect(result.duplicates).toEqual([2]);
     expect(result.invalid).toEqual([99]);
     expect(result.valid).toBe(false);
+  });
+
+  it('TASK E (v5.17) — resolveEffectiveTrackNo is the same fallback core/bridgeImport.ts\'s claimedTrackNoFor delegates to: explicit value when trustworthy, else array position', () => {
+    expect(resolveEffectiveTrackNo(5, 0)).toBe(5);
+    expect(resolveEffectiveTrackNo(undefined, 2)).toBe(3);
+    expect(resolveEffectiveTrackNo(null, 4)).toBe(5);
+    expect(resolveEffectiveTrackNo('  ', 7)).toBe(8);
+    expect(resolveEffectiveTrackNo('3', 9)).toBe(3);
   });
 
   it('describeTrackSetValidation names both categories in a stable, readable form', () => {

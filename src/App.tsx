@@ -32,6 +32,7 @@ import { genresForOptions, moodsForOptions, resolveGenerationContext, withGenera
 import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
 import { inspectImportReport, buildMissingTracksRegenerateInstruction, buildArtistLeakRegenerateInstruction, type ImportInspection } from './core/importInspection';
+import { planMultiSetImport, type MultiSetImportSetInput, type MultiSetImportSetResult } from './core/multiSetImportInspection';
 import ImportInspectionModal from './components/ImportInspectionModal';
 import { parseSetName, sanitizeLabel } from './utils/setNaming';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
@@ -42,7 +43,7 @@ import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOpti
 import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
 import { getWorkspace } from './data/workspaces';
-import { isMigrationPending, runWorkspaceMigrationOnce } from './core/workspaceMigration';
+import { isMigrationPending, runWorkspaceMigrationOnce, runSnapshotSecretMigrationOnce } from './core/workspaceMigration';
 import { setCurrentWorkspace } from './core/workspaceScope';
 import { downloadBlob, exportAllWorkspacesBlob, nextTransferFileName, recordBackupNow } from './core/workspaceTransfer';
 import { workspaceDefinitions } from './data/workspaces';
@@ -872,6 +873,21 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * into bridgeImportedSetAvoid so any not-yet-copied instruction still
    * shown in the UI reflects what's actually been produced so far.
    */
+  /**
+   * v5.17 (TASK B) — real gap this task's audit found: unlike the single-set
+   * bridge path (onImportSongsJson above), this used to save every set
+   * (library.saveGeneratedSet, permanently registering hooks) the instant
+   * importSongsJson returned a non-null blueprint — no inspectImportReport
+   * classification at all, so a short/leaked/malformed set saved exactly
+   * like a clean one. Now runs the SAME two-pass shape onImportSongsJson
+   * already uses (build the report+inspection first, decide persistence
+   * after) via core/multiSetImportInspection.ts's planMultiSetImport (see
+   * that module's own header doc comment for the exact batch-level rules:
+   * any set 'blocked' aborts the WHOLE batch; a 'repairable' set holds back
+   * on its own via the SAME ImportInspectionModal onImportSongsJson already
+   * uses, one at a time; a 'valid' set persists immediately, zero extra
+   * clicks, same as before).
+   */
   async function onImportMultiSetSongsJson(files: File[]): Promise<ImportSongsReport[]> {
     if (!hasSelectedChannel || !hasSelectedSeason) {
       return [makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON)];
@@ -884,7 +900,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       cm.selectChannel(matchedChannel.id);
     }
     const importChannel = matchedChannel ?? cm.selectedChannel;
-    const reports: ImportSongsReport[] = [];
     const groupId = `bridge-multiset-${importChannel.id}-${Date.now()}`;
     const baseAvoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
     let usedTitles = [...(baseAvoid.usedTitles ?? [])];
@@ -894,8 +909,12 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       .map((file, uploadOrder) => ({ file, setIndex: parseSetIndexFromFilename(file.name, uploadOrder) }))
       .sort((a, b) => a.setIndex - b.setIndex);
 
-    let lastBlueprint: PlaylistBlueprint | null = null;
-
+    // PASS 1 — build every set's report, WITHOUT saving/registering
+    // anything yet. usedTitles/usedHooks still thread set-to-set here
+    // exactly as before this task: that's a slot-preallocation avoid
+    // heuristic for THIS run, unrelated to whether any given set ultimately
+    // gets persisted below.
+    const setInputs: MultiSetImportSetInput[] = [];
     for (const { file, setIndex } of ordered) {
       const setOpts = buildSetOptions({ ...opts, channel: importChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
       const text = await file.text();
@@ -908,24 +927,67 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // consistently with the channel it's actually being imported under.
       const preassignedSongs = preallocateSongSlots(setOpts, genresForOptions(setOpts), currentAvoid);
       const report = importSongsJson(text, setOpts, genresForOptions(setOpts), moodsForOptions(setOpts), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
-
+      const rawSongs = extractRawImportedSongs(text);
+      setInputs.push({
+        setIndex,
+        report,
+        rawSongs,
+        importOpts: setOpts,
+        preassignedSongs,
+        languageContext: { archetype: setOpts.channel.archetype, bilingualPair: resolveBilingualPair(setOpts) }
+      });
       if (report.blueprint) {
-        const prefixedBlueprint = applySetTitlePrefixesToBlueprint(report.blueprint, setOpts.setNumberPrefix ?? true);
-        // TASK (post-generation operation snapshot) — bridge multi-set import
-        // has no shared choke point with the local/realtime/batch multi-set
-        // path (finalizeSetBlueprint) or the single-file bridge import path
-        // (finalizeSinglePackBlueprint), so it attaches its own snapshot here
-        // directly, reusing this set's already-resolved setOpts/preassignedSongs.
-        const finalBlueprint = withGenerationSnapshot(prefixedBlueprint, { options: setOpts, provider, season: selectedSeason, slots: preassignedSongs });
-        await library.saveGeneratedSet(finalBlueprint, setOpts, setOpts.projectTitle, { setGroupId: groupId, setIndex, setTotal: multiSetCount });
-        usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))];
-        usedHooks = [...usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)];
-        setBridgeImportedSetAvoid({ usedTitles, usedHooks });
-        lastBlueprint = finalBlueprint;
-        reports.push({ ...report, blueprint: finalBlueprint });
-      } else {
-        reports.push(report);
+        usedTitles = [...usedTitles, ...report.blueprint.songs.map(song => stripSetTitlePrefix(song.title))];
+        usedHooks = [...usedHooks, ...report.blueprint.songs.map(song => song.hookPhrase)];
       }
+    }
+
+    // PASS 2 — the batch-level decision (core/multiSetImportInspection.ts).
+    const plan = planMultiSetImport(setInputs, artistLeakExemptions);
+    const crossSetWarningsFor = (setIndex: number) => plan.crossSetDuplicates.filter(dup => dup.setIndexes.includes(setIndex)).map(dup => dup.labelKo);
+
+    if (plan.wholeBatchBlocked) {
+      // Spec §2-3 "한 세트라도 blocked 면 전체 저장 금지" — nothing persists,
+      // not even a set that individually resolved 'valid'/'repairable'.
+      const blockedSetIndexes = plan.results.filter(result => result.inspection.status === 'blocked').map(result => result.setIndex);
+      return plan.results.map(result => ({
+        ...result.report,
+        blueprint: null,
+        importedCount: 0,
+        skippedCount: result.report.importedCount + result.report.skippedCount,
+        skippedReasons: blockedSetIndexes.includes(result.setIndex)
+          ? [...result.report.skippedReasons, ...result.inspection.blockedReasons]
+          : [...result.report.skippedReasons, `세트 ${blockedSetIndexes.join(', ')}이(가) 구조적으로 손상되어 이 배치 전체를 저장하지 않았습니다.`]
+      }));
+    }
+
+    let lastBlueprint: PlaylistBlueprint | null = null;
+    const finalReports: ImportSongsReport[] = [];
+
+    for (const result of plan.readyToPersist) {
+      const prefixedBlueprint = applySetTitlePrefixesToBlueprint(result.report.blueprint!, result.importOpts.setNumberPrefix ?? true);
+      // TASK (post-generation operation snapshot) — bridge multi-set import
+      // has no shared choke point with the local/realtime/batch multi-set
+      // path (finalizeSetBlueprint) or the single-file bridge import path
+      // (finalizeSinglePackBlueprint), so it attaches its own snapshot here
+      // directly, reusing this set's already-resolved setOpts/preassignedSongs.
+      const finalBlueprint = withGenerationSnapshot(prefixedBlueprint, { options: result.importOpts, provider, season: selectedSeason, slots: result.preassignedSongs ?? [] });
+      await library.saveGeneratedSet(finalBlueprint, result.importOpts, result.importOpts.projectTitle, { setGroupId: groupId, setIndex: result.setIndex, setTotal: multiSetCount });
+      setBridgeImportedSetAvoid(prev => ({
+        usedTitles: [...prev.usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))],
+        usedHooks: [...prev.usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)]
+      }));
+      lastBlueprint = finalBlueprint;
+      finalReports.push({ ...result.report, blueprint: finalBlueprint, warnings: [...result.report.warnings, ...crossSetWarningsFor(result.setIndex)] });
+    }
+
+    for (const result of plan.pendingConfirmation) {
+      // Spec §2-3 "repairable 이 있으면 그 세트만 보류" — held back individually
+      // (queued below via presentNextMultiSetConfirm), never auto-saved.
+      finalReports.push({
+        ...result.report,
+        warnings: [...result.report.warnings, `세트 ${result.setIndex}: 검토가 필요해 아직 저장하지 않았습니다.`, ...crossSetWarningsFor(result.setIndex)]
+      });
     }
 
     if (lastBlueprint) {
@@ -933,7 +995,60 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       gen.setBlueprint(lastBlueprint);
       setCurrentStep(5);
     }
-    return reports;
+    if (plan.pendingConfirmation.length) {
+      presentNextMultiSetConfirm({ groupId, setTotal: multiSetCount, items: plan.pendingConfirmation });
+    }
+    return finalReports;
+  }
+
+  /**
+   * v5.17 (TASK B) — shows the multi-set queue's next held-back ('repairable')
+   * set through the SAME ImportInspectionModal onImportSongsJson already
+   * uses for the single-set path (pendingImportInspection), one set at a
+   * time. Reused, not reinvented: this is what makes "훅 등록은 모든 세트가
+   * valid 일 때만" (spec §2-3) hold per set — a held set's hooks are only
+   * ever registered once its own explicit "[N곡만 확정]" click runs
+   * (onConfirmMultiSetPartialImport below).
+   */
+  function presentNextMultiSetConfirm(queue: { groupId: string; setTotal: number; items: MultiSetImportSetResult[] } | null) {
+    if (!queue || !queue.items.length) {
+      setPendingImportInspection(null);
+      return;
+    }
+    const [next, ...rest] = queue.items;
+    setPendingImportInspection({
+      inspection: next.inspection,
+      importOpts: next.importOpts,
+      report: next.report,
+      rawSongs: next.rawSongs,
+      focusTab: 'songs',
+      preassignedSongs: next.preassignedSongs,
+      onConfirm: () => void onConfirmMultiSetPartialImport(next, queue.groupId, queue.setTotal, { groupId: queue.groupId, setTotal: queue.setTotal, items: rest })
+    });
+  }
+
+  /** v5.17 (TASK B) — the multi-set "[N곡만 확정]": mirrors onConfirmPartialImport's persistence shape, but saves via library.saveGeneratedSet (setGroupId/setIndex/setTotal) exactly like a 'valid' set in this same batch already did, instead of saveImportedPack. */
+  async function onConfirmMultiSetPartialImport(
+    result: MultiSetImportSetResult,
+    groupId: string,
+    setTotal: number,
+    remainingQueue: { groupId: string; setTotal: number; items: MultiSetImportSetResult[] }
+  ) {
+    const trimmedBlueprint: PlaylistBlueprint = {
+      ...result.report.blueprint!,
+      songs: result.report.blueprint!.songs.filter(song => !result.inspection.artistLeakTrackNos.includes(song.trackNo))
+    };
+    const prefixedBlueprint = applySetTitlePrefixesToBlueprint(trimmedBlueprint, result.importOpts.setNumberPrefix ?? true);
+    const finalBlueprint = withGenerationSnapshot(prefixedBlueprint, { options: result.importOpts, provider, season: selectedSeason, slots: result.preassignedSongs ?? [] });
+    await library.saveGeneratedSet(finalBlueprint, result.importOpts, result.importOpts.projectTitle, { setGroupId: groupId, setIndex: result.setIndex, setTotal });
+    setBridgeImportedSetAvoid(prev => ({
+      usedTitles: [...prev.usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))],
+      usedHooks: [...prev.usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)]
+    }));
+    evalFlow.setEvaluation(null);
+    gen.setBlueprint(finalBlueprint);
+    setCurrentStep(5);
+    presentNextMultiSetConfirm(remainingQueue);
   }
 
   /**
@@ -1770,6 +1885,16 @@ export default function App() {
       // an unexpected rejection so the app can never fail to render over it.
     });
   }, [migrationPromptOpen]);
+
+  useEffect(() => {
+    // v5.17 (TASK A §1-3) — unlike the migration above, this never waits on
+    // migrationPromptOpen: stripping a leaked secret from already-saved
+    // packs is a strict safety improvement, not the kind of irreversible
+    // data change that needs a backup prompt first.
+    void runSnapshotSecretMigrationOnce().catch(() => {
+      // Same rule as runWorkspaceMigrationOnce's own catch just above.
+    });
+  }, []);
 
   async function handleMigrationBackupAndContinue() {
     setMigrationBackupBusy(true);

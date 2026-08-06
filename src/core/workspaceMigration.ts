@@ -1,4 +1,4 @@
-import { migrateLibraryWorkspaceTags, exportAllPacks } from './library';
+import { migrateLibraryWorkspaceTags, migrateLibrarySnapshotSecrets, exportAllPacks } from './library';
 import { migrateHookLedgerWorkspaceTags } from './hookLedger';
 import { migrateRatingLedgerWorkspaceTags } from './ratingLedger';
 import { migrateVideoLedgerWorkspaceTags } from './videoLedger';
@@ -163,4 +163,44 @@ export async function runWorkspaceMigrationOnce(): Promise<WorkspaceMigrationRep
  */
 export async function exportPreMigrationBackup(): Promise<Blob> {
   return exportAllPacks();
+}
+
+const SNAPSHOT_SECRET_MIGRATION_DONE_KEY = 'suno-weaver-snapshot-secret-migration-v1-done';
+
+export interface SnapshotSecretMigrationReport {
+  alreadyDone: boolean;
+  totalRecords: number;
+  scrubbed: number;
+  error?: string;
+}
+
+/**
+ * v5.17 (TASK A §1-3 item 1) — the "앱 시작 시 1회 마이그레이션" this task's
+ * spec requires, cleaning up packs saved before generationSnapshot.provider
+ * was narrowed to the credential-free SnapshotProviderInfo. Deliberately its
+ * OWN done-flag rather than reusing MIGRATION_DONE_KEY above: that flag is
+ * already 'true' for any browser profile that ran the v4.0 workspace-tag
+ * migration, which would silently skip this fix for exactly the users who
+ * most need it (anyone with existing saved packs). Never gated behind the
+ * v4.0 backup prompt (see runWorkspaceMigrationOnce's own doc comment) —
+ * stripping a secret is a safety improvement, not data loss.
+ */
+export async function runSnapshotSecretMigrationOnce(): Promise<SnapshotSecretMigrationReport> {
+  if (hasLocalStorage() && window.localStorage.getItem(SNAPSHOT_SECRET_MIGRATION_DONE_KEY) === 'true') {
+    return { alreadyDone: true, totalRecords: 0, scrubbed: 0 };
+  }
+  try {
+    const { totalRecords, scrubbed } = await migrateLibrarySnapshotSecrets();
+    if (hasLocalStorage()) {
+      try {
+        window.localStorage.setItem(SNAPSHOT_SECRET_MIGRATION_DONE_KEY, 'true');
+      } catch {
+        // Same tolerance as runWorkspaceMigrationOnce: worst case this simply reruns (harmlessly) next launch.
+      }
+    }
+    return { alreadyDone: false, totalRecords, scrubbed };
+  } catch (err) {
+    // Same "never blocks the app" rule as migrateStore above.
+    return { alreadyDone: false, totalRecords: 0, scrubbed: 0, error: err instanceof Error ? err.message : String(err) };
+  }
 }

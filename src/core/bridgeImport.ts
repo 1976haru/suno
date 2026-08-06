@@ -11,7 +11,7 @@ import type {
 import { buildSignatureBlueprint, resolveBilingualPair } from './localGenerator';
 import { scoreSongs } from './quality';
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
-import { describeTrackSetValidation, validateProviderTrackSet } from './importValidation';
+import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
@@ -208,10 +208,19 @@ function flagHookCollisions(songs: SongIdea[], avoidHooks: string[] = []): { son
  * side-effect-free so it can be run once up front (importSongsJson, to
  * resolve slot claims via claimSlotsByTrackNo) and reproduced identically
  * inside normalizeImportedSong for `rawSong.trackNo` itself.
+ *
+ * v5.17 (TASK E) — delegates to core/importValidation.ts's
+ * resolveEffectiveTrackNo, the same resolution validateProviderTrackSet now
+ * checks duplicates/range against, instead of keeping its own independent
+ * (and previously slightly looser — plain `Number(...)`, no integer check)
+ * copy of this fallback. Safe by construction: this function only ever runs
+ * on a raw entry set that already passed validateProviderTrackSet upstream,
+ * so every entry here is already known to be 'absent' or a valid in-range
+ * integer, never 'invalid' — see resolveEffectiveTrackNo's own doc comment.
  */
 function claimedTrackNoFor(raw: unknown, index: number): number {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  return Number.isFinite(Number(obj.trackNo)) && Number(obj.trackNo) > 0 ? Number(obj.trackNo) : index + 1;
+  return resolveEffectiveTrackNo(obj.trackNo, index);
 }
 
 /**

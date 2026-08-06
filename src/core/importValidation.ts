@@ -67,6 +67,35 @@ function coerceTrackNo(raw: unknown): number | 'invalid' | 'absent' {
   return 'invalid';
 }
 
+/**
+ * v5.17 (TASK E) — the ONE place the "absent trackNo -> this entry's own
+ * array position" fallback rule lives. Takes the raw `trackNo` VALUE itself
+ * (same contract as coerceTrackNo, e.g. `resolveEffectiveTrackNo(obj.trackNo,
+ * index)`), never the whole raw song object — a caller holding a raw entry
+ * must extract `.trackNo` first. Every real call site that actually CLAIMS a
+ * slot from an absent trackNo (core/bridgeImport.ts's claimedTrackNoFor,
+ * core/importInspection.ts's claimedTrackNoForRaw) delegates here instead of
+ * keeping its own copy — see this module's own
+ * header doc comment (§9 audit) for the real bug two independently-
+ * maintained copies of this fallback used to cause: validateProviderTrackSet
+ * used to treat an absent trackNo as "not claiming anything" (excluded from
+ * duplicate/missing detection entirely), while every actual normalizer
+ * resolved it to index+1 and claimed that slot for real — so
+ * `[{trackNo:null},{trackNo:1}]` (both effectively claiming position 1) sailed
+ * through the structural checker as "no duplicates" while genuinely
+ * colliding downstream, and a legitimate all-omitted-trackNo file (every
+ * entry's fallback lands on a distinct, in-range position) got misreported
+ * as "every track missing" even though nothing was actually missing.
+ * 'invalid' (a present-but-untrustworthy value) still falls back to the
+ * positional label too, purely for totality — in practice this branch is
+ * never reached with a real 'invalid' coercion, since validateProviderTrackSet
+ * already refuses the whole response before any caller reaches this far.
+ */
+export function resolveEffectiveTrackNo(raw: unknown, index: number): number {
+  const coerced = coerceTrackNo(raw);
+  return coerced === 'absent' || coerced === 'invalid' ? index + 1 : coerced;
+}
+
 export function validateProviderTrackSet(
   songs: { trackNo: unknown }[],
   requestedCount: number
@@ -76,16 +105,20 @@ export function validateProviderTrackSet(
 
   songs.forEach((song, index) => {
     const coerced = coerceTrackNo(song.trackNo);
-    if (coerced === 'absent') return;
     if (coerced === 'invalid') {
       invalid.push(index + 1);
       return;
     }
-    if (coerced < 1 || coerced > requestedCount) {
-      invalid.push(coerced);
+    // v5.17 (TASK E) — checked and claimed against the SAME effective value
+    // resolveEffectiveTrackNo produces for the real normalizer below, not a
+    // silently-excluded one — see that function's own doc comment for the
+    // exact bug this closes.
+    const effective = coerced === 'absent' ? index + 1 : coerced;
+    if (effective < 1 || effective > requestedCount) {
+      invalid.push(effective);
       return;
     }
-    seen.set(coerced, (seen.get(coerced) || 0) + 1);
+    seen.set(effective, (seen.get(effective) || 0) + 1);
   });
 
   const duplicates = Array.from(seen.entries())

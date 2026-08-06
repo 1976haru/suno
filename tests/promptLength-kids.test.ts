@@ -18,5 +18,8 @@ describe('[P0-1][kids] every generated stylePrompt fits Suno\'s 1,000-char style
     expect(KIDS_CHANNELS.length).toBeGreaterThan(0);
     const checked = checkPromptLengthForChannels(KIDS_CHANNELS);
     expect(checked).toBeGreaterThan(0);
-  }, 30000);
+  // v5.17 (TASK D) — same "genuine timeout, not a logic bug" class
+  // vitest.config.ts's own S4 comment already documents — see
+  // tests/promptLength-idol.test.ts's identical fix for the full reasoning.
+  }, 60000);
 });

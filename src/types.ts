@@ -1239,11 +1239,37 @@ export interface SongIdea {
  * so two packs generated under content-identical settings hash identically
  * regardless of key order, and any later options/slot drift is detectable.
  */
+/**
+ * v5.17 (TASK A) — GenerationSnapshot's own reduced view of ProviderSettings.
+ * A snapshot rides on PlaylistBlueprint, which is what IndexedDB pack
+ * storage, workspace backup export (core/workspaceTransfer.ts), and pack
+ * JSON sharing all serialize wholesale — so ProviderSettings' own
+ * apiKey/accessToken/proxyEndpoint (real credentials, and in proxyEndpoint's
+ * case potentially a private server address) must never ride along.
+ * `hasApiKey` records only whether a key was present, never the key itself,
+ * so a UI can still show "this pack was generated with a key configured"
+ * without persisting the secret. core/generationSnapshot.ts's
+ * buildGenerationSnapshot is the one place a full ProviderSettings is
+ * narrowed down to this shape; resolveGenerationContext re-merges live
+ * credentials back in at the point of actual use (retry/refine/evaluate),
+ * exactly the "re-read from current settings" rule core/batchJobs.ts's own
+ * BatchJobSnapshot already established for the same reason.
+ */
+export interface SnapshotProviderInfo {
+  provider: ProviderType;
+  model?: string;
+  temperature: number;
+  batchSize?: number;
+  keyStorageMode?: 'server' | 'local';
+  /** Whether a key was configured at generation time — never the key itself. */
+  hasApiKey: boolean;
+}
+
 export interface GenerationSnapshot {
   workspaceId: WorkspaceId;
   channel: ChannelProfile;
   options: GenerationOptions;
-  provider: ProviderSettings;
+  provider: SnapshotProviderInfo;
   season: SeasonPack;
   slots: PreassignedSongSlot[];
   contractSignature: string;
