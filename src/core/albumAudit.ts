@@ -136,7 +136,12 @@ export function auditAlbum(songs: SongIdea[], opts?: Partial<Pick<GenerationOpti
     // verse line, entirely outside the style prompt (see
     // conceptDiversity.ts's fallbackConcept fix); the lyrics themselves need
     // the same leak scan, not just the style prompt.
-    const lyricLeaks = findArtistReferenceLeaks(song.lyrics);
+    // TASK v5.19 (P0 emergency fix) — 'lyrics' scope requires real
+    // corroborating context for commonWordRisk seeds (see
+    // artistReferenceDecomposer.ts's hasArtistContextSignal), so an ordinary
+    // word ("breaking bread", "the eagles fly south") no longer reads as a
+    // leak here.
+    const lyricLeaks = findArtistReferenceLeaks(song.lyrics, 'lyrics');
     if (lyricLeaks.length) {
       errors.push(`Track ${song.trackNo}: lyrics contain an artist-name leak (${lyricLeaks.map(leak => leak.surface).join(', ')}).`);
     }

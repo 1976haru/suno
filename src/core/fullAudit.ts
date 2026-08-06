@@ -213,9 +213,12 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
     return forbidden.some(term => lower.includes(term));
   });
   const labelLeaks = songs.filter(song => LABEL_LEAK_PATTERN.test(song.stylePrompt) || LABEL_LEAK_PATTERN.test(song.lyrics));
+  // TASK v5.19 (P0 emergency fix) — lyrics scope requires real corroborating
+  // context for commonWordRisk seeds (see artistReferenceDecomposer.ts's
+  // hasArtistContextSignal), so ordinary words no longer read as a leak here.
   const artistLeaks = songs.filter(song =>
     findArtistReferenceLeaks(song.stylePrompt).length > 0
-    || findArtistReferenceLeaks(song.lyrics).length > 0
+    || findArtistReferenceLeaks(song.lyrics, 'lyrics').length > 0
     || findArtistReferenceLeaks(`${song.youtube?.title ?? ''} ${song.youtube?.description ?? ''}`).length > 0
   );
   const durationDuplicates = songs.filter(song => {

@@ -103,19 +103,42 @@ describe('[import inspection] scenario B / F — missingTracks.json (4 of 5 requ
   });
 });
 
-describe('[import inspection] scenario — artistNameLeak.json: a real safety hit hard-blocks at THIS layer even though importSongsJson itself still parses it', () => {
-  it('classifies as blocked with a track-specific artist-leak reason', () => {
+describe('[import inspection] scenario — artistNameLeak.json: a real safety hit excludes only that track, TASK v5.19 (TASK C)', () => {
+  it('classifies as repairable (not blocked) and names exactly the leaked track, leaving the rest confirmable', () => {
     const { report, inspection } = runFixture('artistNameLeak.json');
     // importSongsJson's own report still has a non-null blueprint (see
     // tests/providerResponseFixtures.test.ts's own "must still import (a
-    // warning, not a hard rejection)" assertion for this exact fixture) —
-    // this module's own NEW artist-safety check is what escalates it here,
-    // a decision importSongsJson itself was never asked to make.
+    // warning, not a hard rejection)" assertion for this exact fixture).
+    // TASK v5.19 (TASK C) — a real incident showed a whole clean 18-song
+    // pack getting discarded over ONE track's leak; this check now only
+    // excludes that one track (via artistLeakTrackNos), it no longer
+    // hard-blocks the whole import — see importInspection.ts's own
+    // file-header doc comment on why 'blocked' moved to structural-failure-
+    // only.
     expect(report.blueprint).not.toBeNull();
-    expect(inspection.status).toBe('blocked');
+    expect(inspection.status).toBe('repairable');
     const artistCheck = inspection.checks.find(c => c.id === 'artistSafety')!;
     expect(artistCheck.status).toBe('blocked');
-    expect(inspection.blockedReasons.some(r => r.includes('Track 1') && r.includes('아티스트명'))).toBe(true);
+    expect(artistCheck.detail).toContain('Track 1');
+    expect(inspection.artistLeakTrackNos).toEqual([1]);
+    expect(inspection.artistLeaks).toHaveLength(1);
+    expect(inspection.artistLeaks[0].trackNo).toBe(1);
+    expect(inspection.artistLeaks[0].leaks.some(leak => leak.surface.toLowerCase() === 'adele')).toBe(true);
+    // 'blocked'-specific bookkeeping stays empty — this is a 'repairable' result.
+    expect(inspection.blockedReasons).toEqual([]);
+  });
+
+  it('scenario F (TASK C, "오탐 신고 후 진행") — a sessionExemptions hit for the exact detected surface clears that track back to confirmable', () => {
+    const { opts, report, rawSongs } = runFixture('artistNameLeak.json');
+    const exempted = inspectImportReport(report, rawSongs, opts.lyricLanguage, undefined, new Set(['adele']));
+    expect(exempted.artistLeakTrackNos).toEqual([]);
+    expect(exempted.artistLeaks).toEqual([]);
+    const artistCheck = exempted.checks.find(c => c.id === 'artistSafety')!;
+    expect(artistCheck.status).toBe('pass');
+    // With the leak exempted and nothing else outstanding, this fixture's
+    // only other defect (if any) still governs status — the leak itself no
+    // longer contributes to 'repairable'.
+    expect(exempted.status).not.toBe('blocked');
   });
 });
 

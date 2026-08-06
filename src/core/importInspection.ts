@@ -2,7 +2,7 @@ import type { BilingualPair, GenerationOptions, LyricLanguage, SongIdea } from '
 import type { ImportSongsReport } from './bridgeImport';
 import { describeTrackSetValidation, validateProviderTrackSet } from './importValidation';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
-import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
+import { findArtistReferenceLeaks, type ArtistReferenceLeak } from './artistReferenceDecomposer';
 
 /**
  * TASK (import transaction / pre-persistence inspection) — real, verified
@@ -17,23 +17,31 @@ import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
  * reused, none of their internals touched), it only combines their outputs
  * into one status a caller (App.tsx) can gate a save on.
  *
- * - 'blocked': the response can never be trusted enough to save, no matter
- *   what the user says — a JSON parse failure, a missing "songs" array, a
- *   duplicate/out-of-range trackNo (importSongsJson's own upstream
- *   validateProviderTrackSet call already refuses to produce a blueprint for
- *   any of these — report.blueprint is null), or a genuine safety violation
- *   this module itself checks for (a real artist/band name leaked into a
- *   final song's title/stylePrompt/lyrics — the same findArtistReferenceLeaks
- *   scan core/albumAudit.ts's auditAlbum already treats as a hard,
+ * - 'blocked': the response itself can never be trusted enough to save, no
+ *   matter what the user says — a JSON parse failure, a missing "songs"
+ *   array, or a duplicate/out-of-range trackNo (importSongsJson's own
+ *   upstream validateProviderTrackSet call already refuses to produce a
+ *   blueprint for any of these — report.blueprint is null, or this module's
+ *   own re-run of that same check on the raw entries fails). A real
+ *   artist-name leak (see below) is deliberately NOT one of these reasons
+ *   as of TASK v5.19 (TASK C) — a real incident showed an entire clean
+ *   18-song pack getting discarded over one track's false positive, with
+ *   zero recourse but re-running the whole generation.
+ * - 'repairable': every song that DID come through is individually
+ *   well-formed, but the response is short of what was requested, OR one or
+ *   more (not all) songs need review before they can be trusted — genuinely
+ *   missing trackNo claims (validateProviderTrackSet.missing), a per-song
+ *   required-field failure (bridgeImport.ts's normalizeImportedSong,
+ *   surfaced via report.skippedReasons), a lyric-language-ratio mismatch
+ *   warning, or a real artist/band-name leak in one or more tracks' final
+ *   title/stylePrompt/lyrics (the same findArtistReferenceLeaks scan
+ *   core/albumAudit.ts's auditAlbum already treats as a hard,
  *   block-the-copy-action "errors" condition, just run here at import time
- *   instead of display time).
- * - 'repairable': every song that DID come through is individually valid,
- *   but the response is short of what was requested — genuinely missing
- *   trackNo claims (validateProviderTrackSet.missing), a per-song required-
- *   field failure (bridgeImport.ts's normalizeImportedSong, surfaced via
- *   report.skippedReasons), or a lyric-language-ratio mismatch warning. None
- *   of these mean the response is corrupt — they mean it needs a human to
- *   look at it before it becomes permanent.
+ *   instead of display time — see artistLeakTrackNos). None of these mean
+ *   the response is corrupt — they mean a human needs to look at it (or, for
+ *   leaks specifically, exclude the flagged track(s)) before it becomes
+ *   permanent. See App.tsx's onConfirmPartialImport for how artistLeakTrackNos
+ *   gets excluded from what "[N곡만 확정]" actually saves.
  * - 'valid': every requested track present, individually valid, nothing to
  *   review. The only status that should never interrupt the user with a
  *   confirmation screen.
@@ -48,6 +56,12 @@ export interface ImportCheckLine {
   detail?: string;
 }
 
+/** TASK v5.19 (TASK C) — one flagged track's surviving (non-exempted) leaks; see ImportInspection.artistLeaks. */
+export interface ArtistLeakDetail {
+  trackNo: number;
+  leaks: ArtistReferenceLeak[];
+}
+
 export interface ImportInspection {
   status: ImportStatus;
   checks: ImportCheckLine[];
@@ -57,7 +71,11 @@ export interface ImportInspection {
   missingTrackNos: number[];
   /** Informational only (see this module's own header comment on the 'blocked' bucket never including vocal-tag corrections) — never affects `status`. */
   vocalTagCorrections: { trackNo: number; from: string; to: string }[];
-  /** Non-empty only when `status === 'blocked'` AND report.blueprint was non-null (i.e. THIS module's own artist-safety check is what blocked it, not importSongsJson's upstream trackNo check — that case is already fully described by report.skippedReasons instead). */
+  /** TASK v5.19 (TASK C) — trackNos with a real (non-exempted) artist/band-name leak; App.tsx excludes exactly these from what "[N곡만 확정]" saves, instead of discarding the whole pack. Empty when the artist-safety check passed or every hit was session-exempted as a false positive. */
+  artistLeakTrackNos: number[];
+  /** TASK v5.19 (TASK C) — per-track leak detail (surface text + commonWordRisk) for the "오탐입니다" false-positive report UI; parallel to artistLeakTrackNos. */
+  artistLeaks: ArtistLeakDetail[];
+  /** Non-empty only when `status === 'blocked'` AND report.blueprint was non-null (i.e. this module's own re-run of validateProviderTrackSet is what blocked it — that's the only remaining 'blocked' reason this module itself can add on top of importSongsJson's own upstream null-blueprint cases, which are already fully described by report.skippedReasons instead). */
   blockedReasons: string[];
 }
 
@@ -128,7 +146,17 @@ export function inspectImportReport(
    * additive: existing callers that only pass the first 3 args keep
    * compiling and keep the pre-existing flat-threshold/auto-detect behavior.
    */
-  languageContext?: { archetype?: string; bilingualPair?: BilingualPair }
+  languageContext?: { archetype?: string; bilingualPair?: BilingualPair },
+  /**
+   * TASK v5.19 (TASK C) — lowercased leak surface text the user already
+   * marked "오탐입니다" earlier THIS SESSION (see App.tsx's
+   * artistLeakExemptions/onReportArtistLeakFalsePositive). A leak whose
+   * surface is in this set is dropped before it can contribute to
+   * artistLeakTrackNos/status — never persisted, never silently
+   * auto-applied from anywhere but that explicit per-report click (see this
+   * function's own artist-safety block below for where it's consulted).
+   */
+  sessionExemptions?: Set<string>
 ): ImportInspection {
   if (!report.blueprint) {
     return {
@@ -145,6 +173,8 @@ export function inspectImportReport(
       importedCount: 0,
       missingTrackNos: [],
       vocalTagCorrections: [],
+      artistLeakTrackNos: [],
+      artistLeaks: [],
       blockedReasons: report.skippedReasons
     };
   }
@@ -220,32 +250,47 @@ export function inspectImportReport(
   // 7. 아티스트명·안전 검사 — reuses artistReferenceDecomposer.ts's own
   // findArtistReferenceLeaks (the exact scanner core/albumAudit.ts's
   // auditAlbum already treats as a hard, block-the-copy-action "errors"
-  // condition) against every final song's title/stylePrompt/lyrics. A real
-  // hit is a genuine safety violation — the one check in this list that DOES
-  // override everything else into 'blocked', no matter how clean the rest of
-  // the response is.
+  // condition) against every final song's title/stylePrompt/lyrics
+  // (title/lyrics scope now require real corroborating context for
+  // commonWordRisk seeds — see that function's own doc comment; this is the
+  // TASK v5.19 P0 fix for "bread" the food false-blocking a whole pack).
+  //
+  // TASK v5.19 (TASK C) — a real hit no longer blocks the WHOLE import; it
+  // marks only the affected track(s) via artistLeakTrackNos/artistLeaks
+  // (folded into hasShortfallOrRepairIssue below, same 'repairable' bucket
+  // missing-track shortfalls already use), so App.tsx can offer "[N곡만
+  // 확정]" with just those tracks excluded instead of discarding a clean
+  // 17-of-18 pack over one track's real (or false-positive) hit.
+  const artistLeaks: ArtistLeakDetail[] = [];
   const leakReasons: string[] = [];
   for (const song of report.blueprint.songs) {
-    const leaks = [
-      ...findArtistReferenceLeaks(song.title),
+    const rawLeaks = [
+      ...findArtistReferenceLeaks(song.title, 'title'),
       ...findArtistReferenceLeaks(song.stylePrompt),
-      ...findArtistReferenceLeaks(song.lyrics)
+      ...findArtistReferenceLeaks(song.lyrics, 'lyrics')
     ];
-    if (leaks.length) {
-      leakReasons.push(`Track ${song.trackNo}: 아티스트명 노출 감지 (${[...new Set(leaks.map(leak => leak.surface))].join(', ')})`);
+    const effectiveLeaks = rawLeaks.filter(leak => !sessionExemptions?.has(leak.surface.toLowerCase()));
+    if (effectiveLeaks.length) {
+      artistLeaks.push({ trackNo: song.trackNo, leaks: effectiveLeaks });
+      leakReasons.push(`Track ${song.trackNo}: 아티스트명 노출 감지 (${[...new Set(effectiveLeaks.map(leak => leak.surface))].join(', ')})`);
     }
   }
+  const artistLeakTrackNos = artistLeaks.map(entry => entry.trackNo);
   checks.push(
     leakReasons.length
       ? { id: 'artistSafety', labelKo: '아티스트명·안전 검사', status: 'blocked', detail: leakReasons.join(' / ') }
       : { id: 'artistSafety', labelKo: '아티스트명·안전 검사 통과', status: 'pass' }
   );
 
-  const hardBlocked = !trackSetValidation.valid || leakReasons.length > 0;
+  // Only a structurally malformed response (bad JSON / trackNo set) is
+  // unsalvageable enough to discard the whole thing — see this module's own
+  // header doc comment on why an artist leak moved out of this bucket.
+  const hardBlocked = !trackSetValidation.valid;
   const hasShortfallOrRepairIssue =
     missingTrackNos.length > 0 ||
     fieldFailures.length > 0 ||
     languageMismatches.length > 0 ||
+    artistLeakTrackNos.length > 0 ||
     report.importedCount !== report.requestedCount;
 
   const status: ImportStatus = hardBlocked ? 'blocked' : hasShortfallOrRepairIssue ? 'repairable' : 'valid';
@@ -257,7 +302,9 @@ export function inspectImportReport(
     importedCount: report.importedCount,
     missingTrackNos,
     vocalTagCorrections,
-    blockedReasons: hardBlocked ? [...(trackSetValidation.valid ? [] : [describeTrackSetValidation(trackSetValidation)]), ...leakReasons] : []
+    artistLeakTrackNos,
+    artistLeaks,
+    blockedReasons: hardBlocked ? [describeTrackSetValidation(trackSetValidation)] : []
   };
 }
 
@@ -285,6 +332,32 @@ export function buildMissingTracksRegenerateInstruction(
   return [
     `다음 트랙만 재생성하세요: ${trackList} (채널: ${opts.channel.name}, 전체 ${opts.songCount}곡 중 ${missingTrackNos.length}곡 누락).`,
     `언어: ${opts.lyricLanguage}.`,
+    '이전 응답의 나머지 트랙은 이미 정상적으로 반영되었으므로 다시 보내지 마세요.',
+    `요청한 trackNo(${trackList})와 정확히 일치하는 값을 각 곡의 "trackNo" 필드에 넣어 반환하세요 — 다른 값이나 중복 값은 전체 응답이 거부됩니다.`,
+    '응답은 기존 songs-output.json과 동일한 형식(JSON 객체, "songs" 배열, 각 항목에 title/hookPhrase/stylePrompt/lyrics 포함)으로만 보내세요.'
+  ].join('\n');
+}
+
+/**
+ * TASK v5.19 (TASK C, "[해당 곡 재작곡 지시문 복사]") — same intentionally
+ * simple, self-contained shape as buildMissingTracksRegenerateInstruction
+ * above (see that function's own doc comment for why this never reuses the
+ * full bridgeInstruction.ts builder), but for tracks excluded over an
+ * artist/band-name leak rather than a missing trackNo — names the exact
+ * word(s) detected so the regenerating agent can avoid them specifically,
+ * instead of guessing at what went wrong.
+ */
+export function buildArtistLeakRegenerateInstruction(
+  artistLeaks: ArtistLeakDetail[],
+  opts: Pick<GenerationOptions, 'channel' | 'lyricLanguage' | 'songCount'>
+): string {
+  if (!artistLeaks.length) return '';
+  const trackList = artistLeaks.map(entry => `T${entry.trackNo}`).join(', ');
+  const detectedWords = [...new Set(artistLeaks.flatMap(entry => entry.leaks.map(leak => leak.surface)))];
+  return [
+    `다음 트랙만 재작곡하세요: ${trackList} (채널: ${opts.channel.name}, 전체 ${opts.songCount}곡 중 ${artistLeaks.length}곡이 아티스트/밴드명 노출로 제외됨).`,
+    `언어: ${opts.lyricLanguage}.`,
+    `다음 단어/표현이 실제 아티스트·밴드를 가리키는 것으로 감지되었습니다: ${detectedWords.join(', ')}. 제목·스타일 프롬프트·가사 어디에도 실제 아티스트/밴드명이 들어가지 않도록 다시 작성하세요 (해당 단어의 일반적인 의미로 자연스럽게 쓰는 것은 무방하지만, 밴드/아티스트를 가리키는 표현으로는 쓰지 마세요).`,
     '이전 응답의 나머지 트랙은 이미 정상적으로 반영되었으므로 다시 보내지 마세요.',
     `요청한 trackNo(${trackList})와 정확히 일치하는 값을 각 곡의 "trackNo" 필드에 넣어 반환하세요 — 다른 값이나 중복 값은 전체 응답이 거부됩니다.`,
     '응답은 기존 songs-output.json과 동일한 형식(JSON 객체, "songs" 배열, 각 항목에 title/hookPhrase/stylePrompt/lyrics 포함)으로만 보내세요.'

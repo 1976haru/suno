@@ -573,9 +573,15 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     }
 
     // Reused: TASK v3.58 TASK 3 — artist-name leak guard (style prompt + lyrics + youtube).
+    // TASK v5.19 (P0 emergency fix) — lyrics scope now requires real
+    // corroborating context for commonWordRisk seeds (bread/eagles/
+    // carpenters and similar), so an ordinary lyric line ("breaking bread at
+    // the table") no longer trips this generation-time blocking gate; see
+    // artistReferenceDecomposer.ts's hasArtistContextSignal. stylePrompt
+    // stays strict/context-free — it's app-generated, not natural language.
     const styleLeaks = findArtistReferenceLeaks(song.stylePrompt);
     if (styleLeaks.length) blocking.push(`style prompt에 아티스트/밴드명 누출 (${styleLeaks.map(l => l.surface).join(', ')})`);
-    const lyricLeaks = findArtistReferenceLeaks(song.lyrics);
+    const lyricLeaks = findArtistReferenceLeaks(song.lyrics, 'lyrics');
     if (lyricLeaks.length) blocking.push(`가사에 아티스트/밴드명 누출 (${lyricLeaks.map(l => l.surface).join(', ')})`);
     const youtubeLeaks = findArtistReferenceLeaks(`${song.youtube?.title ?? ''} ${song.youtube?.description ?? ''}`);
     if (youtubeLeaks.length) blocking.push(`youtube 메타데이터에 아티스트/밴드명 누출 (${youtubeLeaks.map(l => l.surface).join(', ')})`);

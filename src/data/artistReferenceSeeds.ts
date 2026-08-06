@@ -13,9 +13,25 @@
  * this table is careful never to contradict).
  */
 
+/**
+ * TASK v5.19 — how much an alias's English spelling overlaps with an
+ * ordinary English word/phrase a real lyric could use with zero artist
+ * intent ("bread" the food, "eagles" the bird, "carpenters" the trade).
+ * 'none': a genuine proper noun, no dictionary collision (beatles, abba).
+ * 'low'/'high': the English alias needs corroborating context before a
+ * title/lyrics match counts as a real leak — see
+ * artistReferenceDecomposer.ts's hasArtistContextSignal. Both levels get the
+ * same context-required treatment for now; the split exists so a future
+ * caller can choose to treat them differently without a data migration.
+ * Never relaxes the strict, context-free stylePrompt scan — the value only
+ * gates title/lyrics scope (see findArtistReferenceLeaks's `scope` param).
+ */
+export type CommonWordRisk = 'none' | 'low' | 'high';
+
 export interface ArtistReferenceSeed {
   /** Detection key: lowercase name/alias variants, pipe-separated, matched as whole-word-ish substrings against normalized free text. Never surfaced to Suno — see decomposeArtistReferences's matchedSurface (UI-only). */
   aliasPattern: string;
+  commonWordRisk: CommonWordRisk;
   eraTag: string;
   instrumentation: string[];
   harmonyTraits: string[];
@@ -30,6 +46,7 @@ export interface ArtistReferenceSeed {
 export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   {
     aliasPattern: 'beatles|비틀즈|비틀스|ザ・ビートルズ|ビートルズ',
+    commonWordRisk: 'none',
     eraTag: 'mid-1960s British beat pop',
     instrumentation: [
       'jangly 12-string electric guitar',
@@ -56,6 +73,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'carpenters|카펜터스|カーペンターズ',
+    commonWordRisk: 'high',
     eraTag: 'early-1970s soft adult-contemporary pop',
     instrumentation: ['lush orchestral strings', 'soft electric piano', 'warm upright bass', 'brushed drum kit'],
     harmonyTraits: ['rich extended major-seventh chords', 'gentle key change into the final chorus'],
@@ -73,6 +91,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'abba|아바|アバ',
+    commonWordRisk: 'none',
     eraTag: 'late-1970s European disco pop',
     instrumentation: ['bright analog synth pad', 'four-on-the-floor bass', 'strummed acoustic guitar layered under synths', 'orchestral string stabs'],
     harmonyTraits: ['major-key anthemic chorus lift', 'minor-to-major verse-to-chorus shift'],
@@ -93,6 +112,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'simon and garfunkel|simon & garfunkel|사이먼 앤 가펑클|サイモン&ガーファンクル',
+    commonWordRisk: 'none',
     eraTag: 'mid-1960s American folk pop',
     instrumentation: ['fingerpicked acoustic guitar', 'soft upright bass', 'light orchestral string arrangement'],
     harmonyTraits: ['plain diatonic folk harmony', 'modal touches in the verse'],
@@ -108,6 +128,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'frank sinatra|프랭크 시나트라|프랭크시나트라|フランク・シナトラ',
+    commonWordRisk: 'none',
     eraTag: 'mid-20th-century vocal jazz standards',
     instrumentation: ['full big-band horn section', 'walking upright bass', 'brushed swing drums', 'lush string pad'],
     harmonyTraits: ['ii-V-I jazz turnarounds', 'extended maj7/9 chord color'],
@@ -119,6 +140,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'ella fitzgerald|엘라 피츠제럴드|エラ・フィッツジェラルド',
+    commonWordRisk: 'none',
     eraTag: 'mid-20th-century vocal jazz',
     instrumentation: ['piano trio comping', 'walking upright bass', 'brushed ride cymbal swing'],
     harmonyTraits: ['ii-V-I turnarounds', 'maj7/9/13 extended voicings'],
@@ -130,6 +152,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'eagles|이글스|イーグルス',
+    commonWordRisk: 'high',
     eraTag: 'mid-1970s American soft rock',
     instrumentation: ['twin clean electric guitars', 'steady acoustic rhythm guitar', 'warm bass', 'restrained drum kit'],
     harmonyTraits: ['open major-key country-tinged harmony', 'close vocal harmony stacks'],
@@ -141,6 +164,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'fleetwood mac|플리트우드 맥|フリートウッド・マック',
+    commonWordRisk: 'none',
     eraTag: 'late-1970s soft rock',
     instrumentation: ['clean electric guitar arpeggios', 'melodic bass', 'warm keyboard pads', 'tambourine accents'],
     harmonyTraits: ['bittersweet major-to-minor shifts'],
@@ -152,6 +176,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'bee gees|비지스|ビージーズ',
+    commonWordRisk: 'low',
     eraTag: 'late-1970s falsetto disco pop',
     instrumentation: ['funky rhythm guitar chop', 'four-on-the-floor bass', 'string section stabs'],
     harmonyTraits: ['bright major-key disco chorus lift'],
@@ -166,6 +191,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'stevie wonder|스티비 원더|スティービー・ワンダー',
+    commonWordRisk: 'low',
     eraTag: '1970s soul and funk-pop',
     instrumentation: ['clavinet', 'funky electric bass', 'warm horn section', 'Rhodes electric piano'],
     harmonyTraits: ['soul-jazz seventh and ninth chord color'],
@@ -180,6 +206,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'carole king|캐롤 킹|キャロル・キング',
+    commonWordRisk: 'low',
     eraTag: 'early-1970s singer-songwriter pop',
     instrumentation: ['piano-led arrangement', 'warm acoustic guitar', 'soft rhythm section'],
     harmonyTraits: ['warm soul-tinged pop chords'],
@@ -191,6 +218,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'elton john|엘튼 존|エルトン・ジョン',
+    commonWordRisk: 'low',
     eraTag: 'early-1970s piano-driven pop rock',
     instrumentation: ['grand piano lead', 'orchestral string arrangement', 'steady rock rhythm section'],
     harmonyTraits: ['dramatic major-key piano chord movement'],
@@ -205,6 +233,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'beach boys|비치 보이스|ビーチ・ボーイズ',
+    commonWordRisk: 'low',
     eraTag: 'mid-1960s American harmony pop',
     instrumentation: ['bright strummed guitars', 'melodic bass', 'light percussion'],
     harmonyTraits: ['dense stacked vocal-harmony chords', 'unexpected chromatic passing chords'],
@@ -220,6 +249,15 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: '\\bbread\\b|브레드밴드|ブレッド',
+    // TASK v5.19 (P0 emergency fix) — 'bread' the food is a completely
+    // ordinary word in senior/oldpop lyrics ("breaking bread at the table").
+    // The English half of this pattern only counts as a leak in title/lyrics
+    // scope when hasArtistContextSignal finds real corroboration (capital
+    // mid-sentence, a comparison trigger like "sounds like", or the
+    // non-Latin variants below) — see artistReferenceDecomposer.ts. Kept in
+    // the pattern (not deleted) so a genuine reference ("sounds like Bread")
+    // still gets caught; stylePrompt scope stays fully strict regardless.
+    commonWordRisk: 'high',
     eraTag: 'early-1970s soft rock ballad',
     instrumentation: ['clean acoustic and electric guitar blend', 'warm bass', 'restrained strings'],
     harmonyTraits: ['gentle major-key ballad chords'],
@@ -231,6 +269,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'air supply|에어 서플라이|エア・サプライ',
+    commonWordRisk: 'low',
     eraTag: 'early-1980s adult-contemporary power ballad',
     instrumentation: ['soaring electric guitar', 'lush synth strings', 'steady soft-rock rhythm section'],
     harmonyTraits: ['sweeping major-key ballad build'],
@@ -242,6 +281,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: '유재하',
+    commonWordRisk: 'none',
     eraTag: '1980s Korean piano ballad',
     instrumentation: ['piano-led arrangement', 'soft strings', 'restrained rhythm section'],
     harmonyTraits: ['warm jazz-tinged ballad chords'],
@@ -253,6 +293,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: '이문세',
+    commonWordRisk: 'none',
     eraTag: 'late-1980s Korean adult-contemporary pop',
     instrumentation: ['warm synth pad', 'acoustic guitar', 'soft rhythm section'],
     harmonyTraits: ['warm nostalgic pop chord movement'],
@@ -264,6 +305,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: '山口百恵|야마구치 모모에|yamaguchi momoe',
+    commonWordRisk: 'none',
     eraTag: 'late-1970s Japanese kayokyoku',
     instrumentation: ['live string section', 'electric piano', 'brushed drums'],
     harmonyTraits: ['graceful kayokyoku minor-to-major cadence'],
@@ -275,6 +317,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: '松田聖子|마츠다 세이코|matsuda seiko',
+    commonWordRisk: 'none',
     eraTag: 'early-1980s Japanese idol pop',
     instrumentation: ['bright synth pad', 'clean guitar', 'four-on-the-floor-adjacent pop rhythm'],
     harmonyTraits: ['bright major-key idol-pop chorus lift'],
@@ -286,6 +329,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: '竹内まりや|타케우치 마리야|takeuchi mariya',
+    commonWordRisk: 'none',
     eraTag: '1980s Japanese city pop',
     instrumentation: ['clean chorus-effect guitar', 'slap electric bass', 'electric piano stabs'],
     harmonyTraits: ['jazz-colored city-pop chord movement'],
@@ -297,6 +341,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'yoasobi|요아소비|ヨアソビ',
+    commonWordRisk: 'none',
     eraTag: 'late-2010s/2020s uptempo Japanese pop',
     instrumentation: ['bright digital synth lead', 'fast piano runs', 'crisp modern pop drums'],
     harmonyTraits: ['fast-moving pop chord changes'],
@@ -308,6 +353,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'norah jones|노라 존스|ノラ・ジョーンズ',
+    commonWordRisk: 'low',
     eraTag: '2000s jazz-tinged singer-songwriter pop',
     instrumentation: ['soft piano and Rhodes blend', 'brushed drums', 'warm upright bass'],
     harmonyTraits: ['relaxed jazz-pop chord color'],
@@ -319,6 +365,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'adele|아델|アデル',
+    commonWordRisk: 'none',
     eraTag: '2010s soulful piano pop ballad',
     instrumentation: ['piano-led arrangement', 'building string section', 'restrained rhythm section'],
     harmonyTraits: ['emotional minor-to-major ballad build'],
@@ -330,6 +377,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'ed sheeran|에드 시런|エド・シーラン',
+    commonWordRisk: 'low',
     eraTag: '2010s acoustic-pop singer-songwriter',
     instrumentation: ['looped acoustic guitar', 'light programmed percussion', 'warm bass'],
     harmonyTraits: ['simple diatonic pop-folk chords'],
@@ -345,6 +393,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   // new oldpop-* genres that now actually fit them.
   {
     aliasPattern: 'billy joel|빌리 조엘|ビリー・ジョエル',
+    commonWordRisk: 'low',
     eraTag: 'mid-1970s piano-driven singer-songwriter pop',
     instrumentation: ['grand piano lead', 'restrained rock rhythm section', 'occasional string counterline'],
     harmonyTraits: ['storytelling major-key piano chord movement'],
@@ -356,6 +405,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'nat king cole|냇 킹 콜|냇킹콜|ナット・キング・コール',
+    commonWordRisk: 'low',
     eraTag: 'mid-20th-century vocal jazz standards',
     instrumentation: ['piano trio', 'muted trumpet', 'brushed drums', 'double bass'],
     harmonyTraits: ['jazz-standard extended chord changes'],
@@ -367,6 +417,7 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
   },
   {
     aliasPattern: 'patti page|패티 페이지|パティ・ペイジ',
+    commonWordRisk: 'low',
     eraTag: '1950s orchestral easy-listening pop',
     instrumentation: ['string section', 'soft vibraphone', 'light rhythm section'],
     harmonyTraits: ['lush orchestral resolution'],

@@ -31,7 +31,7 @@ import { evaluateGenerationRequest } from './core/generationPreflight';
 import { genresForOptions, moodsForOptions, resolveGenerationContext, withGenerationSnapshot } from './core/generationSnapshot';
 import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
-import { inspectImportReport, buildMissingTracksRegenerateInstruction, type ImportInspection } from './core/importInspection';
+import { inspectImportReport, buildMissingTracksRegenerateInstruction, buildArtistLeakRegenerateInstruction, type ImportInspection } from './core/importInspection';
 import ImportInspectionModal from './components/ImportInspectionModal';
 import { parseSetName, sanitizeLabel } from './utils/setNaming';
 import { useEvaluationFlow } from './hooks/useEvaluationFlow';
@@ -154,7 +154,28 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
      * modal). See onCopyMissingTracksInstruction's own doc comment.
      */
     importOpts?: GenerationOptions;
+    /**
+     * TASK v5.19 (TASK C) — the exact report/rawSongs this inspection was
+     * computed from, kept so "오탐입니다 — 이대로 진행" can re-run
+     * inspectImportReport with the updated session-exemption set without
+     * re-reading/re-parsing the file (see onReportArtistLeakFalsePositive).
+     */
+    report?: ImportSongsReport;
+    rawSongs?: unknown[];
+    /** TASK v5.19 (TASK C) — preserved so onReportArtistLeakFalsePositive's rebuilt onConfirm matches the original import's own focusTab/slots exactly, instead of defaulting. */
+    focusTab?: ResultTab;
+    preassignedSongs?: PreassignedSongSlot[];
   } | null>(null);
+  /**
+   * TASK v5.19 (TASK C) — lowercased leak surface text ("bread", "the
+   * carpenters", ...) the user has explicitly marked "오탐입니다" during THIS
+   * session (see onReportArtistLeakFalsePositive). Deliberately never
+   * persisted — a real leak should still be reviewable fresh next session,
+   * and this is a stopgap for reviewing THIS import, not a permanent
+   * allowlist edit (that stays a data-file change to
+   * artistReferenceSeeds.ts, done deliberately, not via a click).
+   */
+  const [artistLeakExemptions, setArtistLeakExemptions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void getSetting<ProviderSettings>(PROVIDER_SETTINGS_KEY).then(saved => {
@@ -524,15 +545,19 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * review, and those 17 hooks got permanently marked "already used" for
    * future avoid-lists. Every candidate blueprint now runs through
    * inspectImportReport (core/importInspection.ts) BEFORE any persistence:
-   *  - 'blocked' (a NEW artist-name-leak hard-check this module adds, since
-   *    importSongsJson's own upstream trackNo/parse checks already null the
-   *    blueprint before this point is ever reached) shows the inspection
-   *    screen with no proceed-anyway option and never touches
-   *    handleGenerationSuccess/library.saveImportedPack.
-   *  - 'repairable' (some requested tracks missing, but every song that DID
-   *    come through is individually valid) holds here via
-   *    pendingImportInspection for an explicit "[N곡만 확정]" click
-   *    (onConfirmPartialImport below) instead of auto-saving.
+   *  - 'blocked' (importSongsJson's own upstream trackNo/parse checks
+   *    already null the blueprint before this point is ever reached, OR
+   *    this module's own re-run of that same structural check fails) shows
+   *    the inspection screen with no proceed-anyway option and never
+   *    touches handleGenerationSuccess/library.saveImportedPack.
+   *  - 'repairable' (some requested tracks missing, a per-song artist-name
+   *    leak this module checks for — TASK v5.19 TASK C moved this OUT of
+   *    'blocked' after a real clean 18-song pack got discarded over one
+   *    track's false positive — or any other per-song review case, while
+   *    every song that DID come through is individually well-formed) holds
+   *    here via pendingImportInspection for an explicit "[N곡만 확정]" click
+   *    (onConfirmPartialImport below, with artistLeakTrackNos excluded)
+   *    instead of auto-saving.
    *  - 'valid' (nothing to review) falls straight through to the exact same
    *    autosave/hook-registration sequence this function always ran — the
    *    common case still takes zero extra clicks.
@@ -575,14 +600,13 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage, {
       archetype: importOpts.channel.archetype,
       bilingualPair: resolveBilingualPair(importOpts)
-    });
+    }, artistLeakExemptions);
 
     if (inspection.status === 'blocked') {
-      // A NEW hard check this task adds (real artist-name-leak scan) refused
-      // a response importSongsJson itself was willing to parse — never
-      // persisted, and the report handed back to the caller reflects that
-      // (blueprint nulled out) so the existing bridge-import summary UI
-      // shows it as a failure too, consistent with every other blocked case.
+      // TASK v5.19 — this branch now only fires on a structurally malformed
+      // response (bad JSON/trackNo set); an artist-name leak moved to the
+      // 'repairable' branch below (see importInspection.ts's own file-header
+      // doc comment) instead of discarding a whole clean pack.
       const blockedReport: ImportSongsReport = {
         ...report,
         blueprint: null,
@@ -590,17 +614,32 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         skippedCount: report.importedCount + report.skippedCount,
         skippedReasons: [...report.skippedReasons, ...inspection.blockedReasons]
       };
-      setPendingImportInspection({ inspection, importOpts });
+      setPendingImportInspection({ inspection, importOpts, report, rawSongs, focusTab, preassignedSongs });
       return blockedReport;
     }
 
     if (inspection.status === 'repairable') {
       // Deliberately does NOT finalize/navigate/save here — only the
       // explicit "[N곡만 확정]" click (onConfirmPartialImport) does that.
+      // TASK v5.19 (TASK C) — tracks flagged by the artist-safety check are
+      // excluded from what actually gets saved, same as trackNos the
+      // response never claimed at all; the rest of the pack is unaffected.
       setPendingImportInspection({
         inspection,
         importOpts,
-        onConfirm: () => void onConfirmPartialImport(report.blueprint!, importOpts, focusTab, preassignedSongs)
+        report,
+        rawSongs,
+        focusTab,
+        preassignedSongs,
+        onConfirm: () => void onConfirmPartialImport(
+          {
+            ...report.blueprint!,
+            songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo))
+          },
+          importOpts,
+          focusTab,
+          preassignedSongs
+        )
       });
       return report;
     }
@@ -684,6 +723,58 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const instructionOpts = pending.importOpts ?? { ...opts, channel: cm.selectedChannel };
     const instruction = buildMissingTracksRegenerateInstruction(pending.inspection.missingTrackNos, instructionOpts);
     if (instruction) await copyText(instruction);
+  }
+
+  /** TASK v5.19 (TASK C) — "[해당 곡 재작곡 지시문 복사]" on the inspection modal, mirrors onCopyMissingTracksInstruction above but for artist-leak-excluded tracks. */
+  async function onCopyArtistLeakInstruction() {
+    const pending = pendingImportInspection;
+    if (!pending || !pending.inspection.artistLeaks.length) return;
+    const instructionOpts = pending.importOpts ?? { ...opts, channel: cm.selectedChannel };
+    const instruction = buildArtistLeakRegenerateInstruction(pending.inspection.artistLeaks, instructionOpts);
+    if (instruction) await copyText(instruction);
+  }
+
+  /**
+   * TASK v5.19 (TASK C, "오탐 신고 경로") — the user's explicit "오탐입니다 —
+   * 이대로 진행" click for one detected surface (e.g. "bread"). Never
+   * auto-applied — this is the ONLY path that adds to artistLeakExemptions.
+   * Logs the report (§4-3's "콘솔 또는 로그에 기록") rather than silently
+   * discarding it, then re-runs inspectImportReport against the SAME
+   * report/rawSongs this inspection came from so the modal reflects the
+   * updated classification immediately (a track whose only leak(s) were all
+   * just exempted moves out of artistLeakTrackNos and stops being excluded
+   * from "[N곡만 확정]").
+   */
+  function onReportArtistLeakFalsePositive(surface: string) {
+    const pending = pendingImportInspection;
+    if (!pending?.report || !pending.rawSongs || !pending.importOpts) return;
+    const normalized = surface.toLowerCase();
+    console.warn(`[artist-safety] 오탐 신고: "${surface}" — 이 세션에서 예외 처리됩니다.`);
+    const nextExemptions = new Set(artistLeakExemptions);
+    nextExemptions.add(normalized);
+    setArtistLeakExemptions(nextExemptions);
+    const importOpts = pending.importOpts;
+    const report = pending.report;
+    const rawSongs = pending.rawSongs;
+    const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage, {
+      archetype: importOpts.channel.archetype,
+      bilingualPair: resolveBilingualPair(importOpts)
+    }, nextExemptions);
+    setPendingImportInspection(prev => (prev ? {
+      ...prev,
+      inspection,
+      onConfirm: inspection.status === 'repairable'
+        ? () => void onConfirmPartialImport(
+            {
+              ...report.blueprint!,
+              songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo))
+            },
+            importOpts,
+            prev?.focusTab ?? 'songs',
+            prev?.preassignedSongs
+          )
+        : undefined
+    } : prev));
   }
 
   /**
@@ -1643,6 +1734,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
           inspection={pendingImportInspection.inspection}
           onConfirmPartial={pendingImportInspection.onConfirm}
           onCopyRegenerateInstruction={() => void onCopyMissingTracksInstruction()}
+          onCopyArtistLeakInstruction={() => void onCopyArtistLeakInstruction()}
+          onReportFalsePositive={onReportArtistLeakFalsePositive}
           onClose={() => setPendingImportInspection(null)}
         />
       )}

@@ -1,6 +1,54 @@
 import { ARTIST_REFERENCE_SEEDS, type ArtistReferenceSeed } from '../data/artistReferenceSeeds';
 
 /**
+ * TASK v5.19 (P0 emergency fix) — real incident: an 18-song import got
+ * hard-blocked because a lyric said "breaking bread at the table" and the
+ * `bread` seed's aliasPattern (`\bbread\b`) matches the food word too. The
+ * seed table's own commonWordRisk marks which aliases collide with ordinary
+ * English words (bread/eagles/carpenters and similar plural-noun band
+ * names); for those, a bare lowercase substring match in free-flowing
+ * title/lyrics text is NOT enough — this module now requires one of:
+ *  - the non-Latin variant (브레드밴드/ブレッド etc.) — never a generic word
+ *  - an explicit comparison/reference trigger nearby ("sounds like Bread")
+ *  - the English surface capitalized somewhere OTHER than the very start of
+ *    a sentence/line (title-case first words and sentence-initial capitals
+ *    are just grammar, not a proper-noun signal)
+ * stylePrompt scope is deliberately exempt from all of this — a style
+ * prompt is app-generated, not natural language, so a common word landing
+ * there by chance is vanishingly unlikely and there's zero reason to relax
+ * the one field Suno actually reads (see this module's own top-of-file
+ * comment on why names must never reach it).
+ */
+const ARTIST_CONTEXT_TRIGGER_PATTERN = /\b(sounds?\s+like|like|style|feat(?:uring)?|inspired\s+by|in\s+the\s+style\s+of|tribute\s+to|cover\s+of|imitation\s+of)\b|스타일|느낌|커버|버전|처럼|따라|풍으로/iu;
+
+/** Hangul, Hiragana/Katakana, or CJK ideograph — never a coincidental English common-word collision. */
+function containsNonLatinScript(text: string): boolean {
+  return /[가-힣぀-ヿ一-鿿]/.test(text);
+}
+
+export type ArtistReferenceScope = 'stylePrompt' | 'title' | 'lyrics';
+
+/**
+ * Decides whether a commonWordRisk !== 'none' match in title/lyrics scope
+ * has enough corroborating context to count as a real artist reference
+ * rather than the ordinary word. stylePrompt scope never calls this — every
+ * match there is already treated as a leak (see findArtistReferenceLeaks).
+ */
+function hasArtistContextSignal(scope: ArtistReferenceScope, text: string, matchIndex: number, matchedSurface: string): boolean {
+  if (containsNonLatinScript(matchedSurface)) return true;
+  const before = text.slice(Math.max(0, matchIndex - 40), matchIndex);
+  if (ARTIST_CONTEXT_TRIGGER_PATTERN.test(before)) return true;
+  // Capitalization only carries signal in free-flowing lyrics — titles are
+  // conventionally title-cased throughout ("Bread and Butter" is a normal,
+  // innocent title), so relying on it there would over-block real titles.
+  if (scope !== 'lyrics') return false;
+  if (!/^[A-Z]/.test(matchedSurface)) return false;
+  const precedingContext = text.slice(0, matchIndex);
+  const isSentenceOrLineStart = /(^\s*|[.!?\n]\s*)$/.test(precedingContext);
+  return !isSentenceOrLineStart;
+}
+
+/**
  * TASK v3.58 (지시문 v3.58 TASK 3) — "비틀즈 스타일로" is a completely normal
  * way for a user to describe a sound, so the input side never blocks or
  * rejects it. But the artist name itself must never reach Suno's style
@@ -79,16 +127,37 @@ export function decomposedReferenceDescriptors(ref: DecomposedReference): string
 export interface ArtistReferenceLeak {
   surface: string;
   seedAliasPattern: string;
+  /** TASK v5.19 — surfaced so a caller's false-positive UI (see importInspection.ts/App.tsx) can tell a genuinely risky hit apart from a 'none'-risk proper noun; 'none' here means hasArtistContextSignal was never even consulted for this leak. */
+  commonWordRisk: ArtistReferenceSeed['commonWordRisk'];
 }
 
-/** Scans `text` for any known artist/band alias — used both as the self-check decomposeArtistReferences' own callers run before writing anything to stylePrompt/excludePrompt, and by core/albumAudit.ts's per-song check. Independent of whether decomposeArtistReferences was ever called on this exact text (an LLM-authored concept response could reintroduce a name decomposeArtistReferences was never asked about). */
-export function findArtistReferenceLeaks(text: string): ArtistReferenceLeak[] {
+/**
+ * Scans `text` for any known artist/band alias — used both as the self-check
+ * decomposeArtistReferences' own callers run before writing anything to
+ * stylePrompt/excludePrompt, and by core/albumAudit.ts's per-song check.
+ * Independent of whether decomposeArtistReferences was ever called on this
+ * exact text (an LLM-authored concept response could reintroduce a name
+ * decomposeArtistReferences was never asked about).
+ *
+ * TASK v5.19 (P0 emergency fix) — `scope` defaults to 'stylePrompt' so every
+ * pre-existing caller keeps its exact old (strict, context-free) behavior
+ * with zero code changes required. Callers scanning a song's title or
+ * lyrics should now pass the matching scope explicitly so a
+ * commonWordRisk !== 'none' seed only counts as a leak with real
+ * corroborating context (see hasArtistContextSignal) — see
+ * importInspection.ts/compositionScorer.ts/albumAudit.ts for the updated
+ * call sites.
+ */
+export function findArtistReferenceLeaks(text: string, scope: ArtistReferenceScope = 'stylePrompt'): ArtistReferenceLeak[] {
   const value = String(text || '');
   if (!value.trim()) return [];
   const leaks: ArtistReferenceLeak[] = [];
   for (const seed of ARTIST_REFERENCE_SEEDS) {
     const match = value.match(seedPattern(seed));
-    if (match) leaks.push({ surface: match[0], seedAliasPattern: seed.aliasPattern });
+    if (!match) continue;
+    const requiresContext = scope !== 'stylePrompt' && seed.commonWordRisk !== 'none';
+    if (requiresContext && !hasArtistContextSignal(scope, value, match.index ?? 0, match[0])) continue;
+    leaks.push({ surface: match[0], seedAliasPattern: seed.aliasPattern, commonWordRisk: seed.commonWordRisk });
   }
   return leaks;
 }

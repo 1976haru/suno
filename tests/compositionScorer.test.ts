@@ -269,16 +269,25 @@ describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-p
     expect(track2.blocking.some(b => b.includes('9') && b.includes('유사도'))).toBe(true);
   });
 
-  it('flags a real artist-reference false positive: "bread" as an ordinary word matches the band Bread\'s alias pattern', () => {
-    // A genuine, disclosed limitation (see v3.62's completion report) — the reused
-    // v3.58 findArtistReferenceLeaks matches on `\bbread\b` regardless of context,
-    // so an ordinary lyric using the word "bread" (not a real leak) still blocks.
+  it('TASK v5.19 fix — an ordinary lyric using the word "bread" no longer false-positives as an artist-reference leak', () => {
+    // Previously a genuine, disclosed limitation (see v3.62's completion
+    // report): the reused v3.58 findArtistReferenceLeaks matched `\bbread\b`
+    // regardless of context, so this real pack's ordinary use of "bread" in
+    // a lyric line got flagged as a leak even though it never referenced the
+    // band. TASK v5.19 (P0 emergency fix) made lyrics scope require real
+    // corroborating context for commonWordRisk seeds (see
+    // artistReferenceDecomposer.ts's hasArtistContextSignal) — this pack's
+    // lowercase, context-free "bread" no longer blocks. If this pack's own
+    // lyrics never say "bread" at all, this assertion is vacuously true and
+    // still correct — the point is zero false-positive blocking either way.
     const scores = scoreComposition(data.songs).tracks;
     const flaggedForBread = scores.filter(s => s.blocking.some(b => /bread/i.test(b)));
-    expect(flaggedForBread.length).toBeGreaterThan(0);
     for (const score of flaggedForBread) {
       const song = data.songs.find((s: SongIdea) => s.trackNo === score.trackNo)!;
-      expect(song.lyrics.toLowerCase()).toContain('bread');
+      // A flag surviving the fix must now be a REAL reference (capitalized
+      // mid-sentence, a comparison trigger, or non-Latin) — never a bare
+      // lowercase, context-free "bread".
+      expect(/\bbread\b/.test(song.lyrics), `track ${score.trackNo} lyrics: ${song.lyrics}`).toBe(false);
     }
   });
 
