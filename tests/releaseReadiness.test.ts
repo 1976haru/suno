@@ -118,4 +118,74 @@ describe('[v5.22 AXIS 4] evaluateReleaseReadiness — structural shape', () => {
     // checklist runs pre-release, before any audio exists to measure).
     expect(report.items.some(item => item.id.startsWith('audio_') || item.id.startsWith('render'))).toBe(false);
   });
+
+  it('without explorationTrackNos, explorationExemptCount is 0 and no item is marked exempted', () => {
+    const report = evaluateReleaseReadiness({
+      songs: scoredSongs, conceptLabel: opts.customConcept || opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english'
+    });
+    expect(report.explorationExemptCount).toBe(0);
+    expect(report.items.some(item => item.exempted)).toBe(false);
+  });
+});
+
+/**
+ * v5.23 (TASK C §3-6) — "발매 가능 (탐색 3곡 포함)": a track that was told to
+ * waive style-allocation rules (core/explorationSlots.ts) must not, by
+ * itself, block the whole pack from release over exactly the deviation it
+ * was asked to attempt. Verified with a real out-of-band BPM on one track —
+ * the fullAudit.ts item this actually maps to (bpm_in_range) fails on the
+ * unmodified pack and passes once that one track is named in
+ * explorationTrackNos, while a genuinely unrelated track's own BPM issue
+ * still fails normally.
+ */
+describe('[v5.23 TASK C §3-6] evaluateReleaseReadiness — exploration-slot style exemption', () => {
+  const channel = channelPresets[0];
+  const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
+  const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id));
+  const season = seasonPacks[0];
+  const opts = makeOptions({ channel, songCount: 6, lyricLanguage: 'english' });
+  const audienceProfile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
+
+  function buildScoredSongsWithOutOfRangeTrack(trackNo: number) {
+    const blueprint = generateLocalBlueprint(opts, genres, moods, season);
+    const scored = scoreSongs(blueprint.songs, channel, 'english');
+    return scored.map(song => song.trackNo === trackNo ? { ...song, bpm: audienceProfile.tempoCeiling + 40 } : song);
+  }
+
+  it('an out-of-range BPM on a real track fails bpm_in_range without any exemption', () => {
+    const songs = buildScoredSongsWithOutOfRangeTrack(2);
+    const report = evaluateReleaseReadiness({ songs, conceptLabel: opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english' });
+    const bpmItem = report.items.find(i => i.id === 'bpm_in_range');
+    expect(bpmItem?.status).toBe('fail');
+    expect(bpmItem?.exempted).toBeFalsy();
+  });
+
+  it('the SAME out-of-range track passes bpm_in_range once named in explorationTrackNos, and is marked exempted', () => {
+    const songs = buildScoredSongsWithOutOfRangeTrack(2);
+    const report = evaluateReleaseReadiness({
+      songs, conceptLabel: opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english', explorationTrackNos: [2]
+    });
+    const bpmItem = report.items.find(i => i.id === 'bpm_in_range');
+    expect(bpmItem?.status).toBe('pass');
+    expect(bpmItem?.exempted).toBe(true);
+    expect(report.explorationExemptCount).toBe(1);
+  });
+
+  it('an out-of-range track NOT named in explorationTrackNos still fails — the exemption never blanket-covers the whole pack', () => {
+    const songs = buildScoredSongsWithOutOfRangeTrack(2);
+    const report = evaluateReleaseReadiness({
+      songs, conceptLabel: opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english', explorationTrackNos: [5]
+    });
+    const bpmItem = report.items.find(i => i.id === 'bpm_in_range');
+    expect(bpmItem?.status).toBe('fail');
+  });
+
+  it('safety/quality items (never style-allocation) are unaffected by explorationTrackNos — never exempted', () => {
+    const songs = buildScoredSongsWithOutOfRangeTrack(2);
+    const report = evaluateReleaseReadiness({
+      songs, conceptLabel: opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english', explorationTrackNos: [2]
+    });
+    const grammarItem = report.items.find(i => i.id === 'english-grammar-errors');
+    expect(grammarItem?.exempted).toBeFalsy();
+  });
 });

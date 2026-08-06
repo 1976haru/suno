@@ -11,6 +11,11 @@ import { getTakes } from '../core/audioTakes';
 import { getApprovedCombos, effectiveVerifiedCombos } from '../core/verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { downloadText } from '../utils/exporters';
+import { evaluateReleaseReadiness, type ReleaseReadinessReport } from '../core/releaseReadiness';
+import { recentSituations } from '../core/situationLedger';
+import { recentLyricLines } from '../core/lyricLineLedger';
+import { usedTitles as fetchHistoricalTitles } from '../core/hookLedger';
+import { listExplorationHistory } from '../core/explorationLedger';
 
 /**
  * v4.3 (TASK E-3) — "실전 투입 전 마지막 확인용 화면 ... 이 화면 하나로
@@ -73,6 +78,8 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   // "실측 음원 분석 반영" branch of the UI below was dead in practice.
   const [audioSignals, setAudioSignals] = useState<TrackAudioSignal[]>([]);
   const [candidateCombos, setCandidateCombos] = useState<VerifiedCombo[]>([]);
+  const [releaseReadiness, setReleaseReadiness] = useState<ReleaseReadinessReport | null>(null);
+  const [releaseReadinessOpen, setReleaseReadinessOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +116,49 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
     return () => { cancelled = true; };
   }, []);
 
+  // v5.23 (TASK C §3-6) — "발매 가능 (탐색 3곡 포함)": evaluateReleaseReadiness
+  // itself is pure (core/releaseReadiness.ts), but its inputs need two
+  // IndexedDB reads: the same cross-pack duplicationHistory
+  // App.tsx/Step3Generate.tsx already fetch for Gate 1 (recentSituations/
+  // recentLyricLines/fetchHistoricalTitles), and — senior-oldpop only —
+  // this pack's own exploration-slot trackNos. There's no field on
+  // PlaylistBlueprint marking which tracks were exploration slots (the
+  // plan lives only in Step3Generate.tsx's own state at generation time —
+  // see core/explorationLedger.ts's own recordExploration call site), so
+  // this looks up the most recent ledger record whose packLabel matches
+  // this pack's own projectTitle — a real, best-effort match (title
+  // collisions are rare and, worst case, this is an advisory badge, not a
+  // safety gate).
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    void (async () => {
+      try {
+        const [situations, lines, historicalTitles, explorationHistory] = await Promise.all([
+          recentSituations(opts.channel.id, opts.lyricLanguage),
+          recentLyricLines(opts.channel.id, opts.lyricLanguage),
+          fetchHistoricalTitles(opts.channel.id, opts.lyricLanguage),
+          workspaceId === 'senior-oldpop' ? listExplorationHistory(workspaceId) : Promise.resolve([])
+        ]);
+        if (cancelled) return;
+        const matchingRecord = explorationHistory.find(record => record.packLabel === blueprint.projectTitle);
+        const report = evaluateReleaseReadiness({
+          songs: blueprint.songs,
+          conceptLabel,
+          songCount: blueprint.songs.length,
+          audienceProfile,
+          lyricLanguage: opts.lyricLanguage,
+          duplicationHistory: { recentSituations: situations, recentLyricLines: lines, historicalTitles },
+          explorationTrackNos: matchingRecord?.trackNos
+        });
+        if (!cancelled) setReleaseReadiness(report);
+      } catch {
+        if (!cancelled) setReleaseReadiness(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [blueprint, conceptLabel, audienceProfile, opts.channel.id, opts.lyricLanguage]);
+
   const baseline = useMemo(() => loadBaseline(opts.channel.id), [opts.channel.id]);
   const classified = useMemo(() => report?.items.map(it => ({ item: it, classification: classify(it, baseline) })) ?? [], [report, baseline]);
   const regressionCount = baseline ? classified.filter(c => c.classification === 'regression').length : null;
@@ -129,6 +179,19 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   const combosPlaced = summary.verifiedCombosPlaced;
 
   const orderSuggestion = useMemo(() => suggestSetOrder(blueprint.songs, audioSignals), [blueprint.songs, audioSignals]);
+
+  // v5.23 (TASK C §3-6) — measurableCriteria excludes the 2 permanently
+  // notImplemented items (modulation-count/intro-type-variety — see
+  // core/releaseReadiness.ts's own newItems doc comment): those can never
+  // pass today for ANY pack, so a raw "X/32" ratio against them would make
+  // "발매 가능" literally unreachable and useless as a signal. This still
+  // reports them separately below (never silently dropped), just not
+  // folded into the go/no-go badge itself.
+  const measurableFailing = releaseReadiness?.failing.filter(item => !item.notImplemented) ?? [];
+  const measurableTotal = releaseReadiness ? releaseReadiness.totalCriteria - releaseReadiness.items.filter(item => item.notImplemented).length : 0;
+  const measurablePassed = measurableTotal - measurableFailing.length;
+  const releaseReadyMeasurable = releaseReadiness ? measurableFailing.length === 0 : null;
+  const exemptCount = releaseReadiness?.explorationExemptCount ?? 0;
 
   function exportOrderSuggestion() {
     const lines = [
@@ -152,7 +215,49 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
         {summary.gate2Passed === false && <span className="supporting">실패 {summary.gate2FailingTrackCount}곡</span>}
         <StatusBadge ok={summary.auditRegressionCount === null ? null : summary.auditRegressionCount === 0} label={summary.auditRegressionCount === null ? 'audit 회귀' : `audit 회귀 ${summary.auditRegressionCount}건`} />
         <StatusBadge ok={summary.promiseFulfillmentPct === null ? null : summary.promiseFulfillmentPct >= 65} label={summary.promiseFulfillmentPct === null ? '약속 이행도' : `약속 이행도 ${summary.promiseFulfillmentPct}%`} />
+        <StatusBadge
+          ok={releaseReadyMeasurable}
+          label={
+            releaseReadiness
+              ? `발매 준비 ${measurablePassed}/${measurableTotal}${exemptCount > 0 ? ` (탐색 ${exemptCount}곡 포함)` : ''}`
+              : '발매 준비'
+          }
+        />
       </div>
+
+      {releaseReadiness && (
+        <div className="release-readiness-block">
+          <button type="button" className="chip" onClick={() => setReleaseReadinessOpen(open => !open)}>
+            {releaseReadinessOpen ? '발매 준비 세부 항목 접기' : `발매 준비 세부 항목 보기${measurableFailing.length ? ` (미통과 ${measurableFailing.length}건)` : ''}`}
+          </button>
+          {exemptCount > 0 && (
+            <p className="supporting">
+              탐색 슬롯 {exemptCount}곡은 BPM·장르·보컬 배분 기준에서 제외하고 판정했습니다 — 탐색 슬롯은 그 기준을 의도적으로 벗어나도 되는 트랙입니다.
+            </p>
+          )}
+          {releaseReadinessOpen && (
+            <ul className="release-readiness-items">
+              {releaseReadiness.items.filter(item => item.notImplemented).map(item => (
+                <li key={item.id} className="not-implemented">
+                  <span>⬜ {item.labelKo}</span>
+                  <span className="supporting">미구현 — {item.detail}</span>
+                </li>
+              ))}
+              {measurableFailing.map(item => (
+                <li key={item.id} className="fail">
+                  <span>❌ {item.labelKo}{item.exempted ? ' (탐색 예외 적용됨)' : ''}</span>
+                  <span className="supporting">{item.detail}</span>
+                </li>
+              ))}
+              {releaseReadiness.items.filter(item => item.status === 'pass').map(item => (
+                <li key={item.id} className="pass">
+                  <span>✅ {item.labelKo}{item.exempted ? ' (탐색 예외 적용됨)' : ''}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="set-completeness-grid">
         <div>

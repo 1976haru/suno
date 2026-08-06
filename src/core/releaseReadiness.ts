@@ -42,6 +42,12 @@ export interface ReleaseReadinessItem {
   status: AuditStatus;
   detail: string;
   notImplemented?: boolean;
+  /**
+   * v5.23 (TASK C §3-6) — true when this specific item was computed with
+   * `explorationTrackNos` excluded from the pack (see STYLE_ALLOCATION_ITEM_IDS
+   * below and this file's own evaluateReleaseReadiness doc comment).
+   */
+  exempted?: boolean;
 }
 
 export interface ReleaseReadinessReport {
@@ -51,6 +57,8 @@ export interface ReleaseReadinessReport {
   /** true only when every one of the 32 items is 'pass' — spec's own "32개 기준 전부 통과". A 'not-measured'/notImplemented item counts as NOT passed (conservative — never silently treated as passing). */
   releaseReady: boolean;
   failing: ReleaseReadinessItem[];
+  /** v5.23 (TASK C §3-6) — how many tracks were excluded from the style-allocation items above (0 for every non-senior-oldpop pack, or a senior-oldpop pack with no exploration slots). Drives the UI's own "발매 가능 (탐색 N곡 포함)" badge. */
+  explorationExemptCount: number;
 }
 
 function fromAuditItem(item: AuditItem, categoryKo: string): ReleaseReadinessItem {
@@ -72,7 +80,38 @@ export interface ReleaseReadinessInput {
   lyricLanguage: 'english' | 'korean' | 'japanese' | 'bilingual';
   /** AXIS 1 ledger history — optional; the 2 cross-set items report 'not-measured' (not a silent pass) when omitted. */
   duplicationHistory?: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> };
+  /**
+   * v5.23 (TASK C §3-6) — core/explorationSlots.ts's own resolved
+   * ExplorationSlotPlan.trackNos for THIS pack (senior-oldpop only —
+   * every other workspace never has any, so this parameter is simply
+   * omitted there). Exploration slots deliberately waive style-allocation
+   * rules (BPM position, genre/vocal distribution — TASK C's own doc
+   * comment) while keeping every safety/quality constraint, so a pack that
+   * would otherwise fail a style item ONLY because of its own exploration
+   * tracks should not be blocked from release over exactly the
+   * intentional deviation those tracks were told to attempt.
+   */
+  explorationTrackNos?: number[];
 }
+
+/**
+ * v5.23 (TASK C §3-6) — the real, checkable subset of fullAudit.ts's own
+ * item ids that measure STYLE ALLOCATION (BPM position/spread, genre
+ * distribution, vocal distribution) — never safety/quality items
+ * (duplication, English grammar, artist leaks, prompt hygiene all stay
+ * fully enforced on exploration tracks too, per TASK C's own "안전 제약은
+ * 그대로 유지"). Deliberately NOT copied from core/rewriteLoop.ts's own
+ * DESIGN_SCOPED_ITEM_IDS — that set's ids ('era-primary-share',
+ * 'bpm-in-range', hyphenated) don't actually match fullAudit.ts's real,
+ * underscored ids ('bpm_in_range'), so reusing it here would silently
+ * exempt nothing. This list was built by reading fullAudit.ts's own
+ * item ids directly instead.
+ */
+const STYLE_ALLOCATION_ITEM_IDS = new Set([
+  'bpm_stddev', 'bpm_in_range',
+  'genre_variety', 'genre_max5', 'genre_no_singleton', 'genre_no_triple_run',
+  'vocal_distribution', 'vocal_zone_max3', 'vocal_no_triple_run'
+]);
 
 // TASK spec's own §4-3 "제목=훅 일치 8~10곡" band.
 const TITLE_EQUALS_HOOK_TARGET = { min: 8, max: 10 };
@@ -188,9 +227,32 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     songCount: input.songCount,
     audienceProfile: input.audienceProfile
   });
-  const reused = fullAuditReport.items
+  let reused = fullAuditReport.items
     .filter(item => !item.requiresAudio) // audio-dependent items are never measurable pre-release without a rendered take; excluded from this checklist rather than reported as a fake failure.
     .map(item => fromAuditItem(item, item.category));
+
+  // v5.23 (TASK C §3-6) — re-measures ONLY the style-allocation items
+  // (STYLE_ALLOCATION_ITEM_IDS) on the pack with its exploration tracks
+  // removed, and splices just those results back in as `exempted: true`.
+  // Every other item (safety, quality, duplication, prompt hygiene, ...)
+  // still comes from the full pack above — exploration tracks are never
+  // exempt from those.
+  const explorationTrackNos = input.explorationTrackNos ?? [];
+  if (explorationTrackNos.length) {
+    const nonExplorationSongs = input.songs.filter(song => !explorationTrackNos.includes(song.trackNo));
+    const exemptAuditReport = runFullAudit(nonExplorationSongs, {
+      conceptLabel: input.conceptLabel,
+      songCount: nonExplorationSongs.length,
+      audienceProfile: input.audienceProfile
+    });
+    const exemptItemsById = new Map(exemptAuditReport.items.map(auditItem => [auditItem.id, auditItem]));
+    reused = reused.map(item => {
+      if (!STYLE_ALLOCATION_ITEM_IDS.has(item.id)) return item;
+      const recomputed = exemptItemsById.get(item.id);
+      if (!recomputed) return item;
+      return { ...fromAuditItem(recomputed, item.categoryKo), exempted: true };
+    });
+  }
 
   const items = [...reused, ...newItems(input)];
   const passedCriteria = items.filter(item => item.status === 'pass').length;
@@ -201,6 +263,7 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     totalCriteria: items.length,
     passedCriteria,
     releaseReady: failing.length === 0,
-    failing
+    failing,
+    explorationExemptCount: explorationTrackNos.length
   };
 }
