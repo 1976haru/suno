@@ -2,6 +2,7 @@ import type { WorkspaceId } from '../types';
 import type { RatingRecord } from './ratingLedger';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 import { SEED_VERIFIED_COMBOS, type VerifiedCombo } from '../data/verifiedCombos';
+import { listComboVariationRecords, mergeTriedVariationsIntoCombos } from './comboVariationLedger';
 
 /**
  * v3.82 (TASK A) — IndexedDB-backed store for user-APPROVED verified combos
@@ -69,6 +70,26 @@ export function effectiveVerifiedCombos(workspaceId: WorkspaceId, approved: read
     ...SEED_VERIFIED_COMBOS.filter(combo => combo.workspaceId === workspaceId),
     ...approved.filter(combo => combo.workspaceId === workspaceId && !seedIds.has(combo.id))
   ];
+}
+
+/**
+ * v5.23 (TASK D gap 3) — the one real entry point a generation-time caller
+ * should use instead of manually orchestrating getApprovedCombos +
+ * effectiveVerifiedCombos + listComboVariationRecords itself: folds
+ * core/comboVariationLedger.ts's own recorded tries into each combo's
+ * triedVariations (mergeTriedVariationsIntoCombos) so
+ * comboVariations.ts's generateUntriedVariations/nextComboVariation see
+ * the real, persistent "what's already been tried" history — not just
+ * whatever a combo's own seed/approved data happened to carry — the next
+ * time a flagship-variation track is planned. Three IndexedDB reads
+ * (approved combos, variation records) behind one call; every existing
+ * caller of getApprovedCombos+effectiveVerifiedCombos is unaffected since
+ * this is a new, additive function, not a change to either of those.
+ */
+export async function effectiveVerifiedCombosWithTriedVariations(workspaceId: WorkspaceId): Promise<VerifiedCombo[]> {
+  const [approved, records] = await Promise.all([getApprovedCombos(workspaceId), listComboVariationRecords(workspaceId)]);
+  const effective = effectiveVerifiedCombos(workspaceId, approved);
+  return mergeTriedVariationsIntoCombos(effective, records);
 }
 
 const FLAGSHIP_MIN_SAMPLE_SIZE = 3;

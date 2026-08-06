@@ -10,7 +10,7 @@ import { recentLyricLines } from '../../core/lyricLineLedger';
 import { selectExplorationTrackNos, type ExplorationSlotPlan } from '../../core/explorationSlots';
 import { selectPolicyExplorationTrackNos, type PolicyExplorationSlotPlan } from '../../core/explorationPolicyEngine';
 import { nextAxisSequence, recordExploration, buildExplorationAttempts } from '../../core/explorationLedger';
-import { getApprovedCombos, effectiveVerifiedCombos, resolveFlagshipCombo } from '../../core/verifiedCombos';
+import { effectiveVerifiedCombosWithTriedVariations, resolveFlagshipCombo } from '../../core/verifiedCombos';
 import type { VerifiedCombo } from '../../data/verifiedCombos';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
@@ -598,6 +598,10 @@ export default function Step3Generate({
   const [bridgePolicyExplorationPlan, setBridgePolicyExplorationPlan] = useState<PolicyExplorationSlotPlan | undefined>(undefined);
   /** v5.23 (TASK D) — the same flagship combo core/batchPreallocation.ts's preallocateSongSlots already resolves for bridgePreassignedSongs (see resolveFlagshipCombo), refetched here so buildClaudeCodeInstruction can add its own variation-track instruction (see comboVariations.ts's resolveFlagshipVariationPlan). undefined for every workspace with no verified-good combo. */
   const [bridgeFlagshipCombo, setBridgeFlagshipCombo] = useState<VerifiedCombo | undefined>(undefined);
+  /** v5.23 (TASK D multi-set gap) — the raw effective (seed + approved) combo list, same fetch as bridgeFlagshipCombo's own effect below but kept as a list rather than pre-resolved to one combo: the multi-set path resolves a combo PER SET (each set can have a different genre pool — see bridgeInstruction.ts's buildMultiSetClaudeCodeInstructions own per-set resolveFlagshipCombo call), so it needs the full candidate list, not a single-set answer. */
+  const [bridgeVerifiedCombos, setBridgeVerifiedCombos] = useState<VerifiedCombo[]>([]);
+  /** v5.23 (TASK C/D multi-set gap) — the raw nextAxisSequence number (same source as bridgeExplorationPlan's own effect below), kept separately so the multi-set builders can advance it by +index per set instead of reusing one resolved plan for every set in the run. */
+  const [bridgeAxisSequence, setBridgeAxisSequence] = useState<number | undefined>(undefined);
   const [bridgeCopied, setBridgeCopied] = useState(false);
   const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -651,7 +655,9 @@ export default function Step3Generate({
     let cancelled = false;
     const workspaceId = currentWorkspaceId();
     void nextAxisSequence(workspaceId).then(sequence => {
-      if (!cancelled) setBridgeExplorationPlan(selectExplorationTrackNos(opts.songCount, workspaceId, sequence));
+      if (cancelled) return;
+      setBridgeExplorationPlan(selectExplorationTrackNos(opts.songCount, workspaceId, sequence));
+      setBridgeAxisSequence(sequence);
     });
     return () => {
       cancelled = true;
@@ -674,21 +680,25 @@ export default function Step3Generate({
     };
   }, [opts.songCount]);
 
-  // v5.23 (TASK D) — same best-effort IndexedDB read Step2Plan.tsx's own
-  // gateVerifiedCombos effect already uses; resolveFlagshipCombo's own
-  // availableGenreIds gate naturally resolves to undefined for a workspace
-  // with no verified-good combo in this pack's genre pool.
+  // v5.23 (TASK D gap 3) — was getApprovedCombos + effectiveVerifiedCombos;
+  // now effectiveVerifiedCombosWithTriedVariations, which additionally
+  // folds core/comboVariationLedger.ts's own recorded outcomes into each
+  // combo's triedVariations, so nextComboVariation (comboVariations.ts)
+  // never re-suggests a variation this workspace already tried and rated
+  // in an earlier set. resolveFlagshipCombo's own availableGenreIds gate
+  // still naturally resolves to undefined for a workspace with no
+  // verified-good combo in this pack's genre pool.
   useEffect(() => {
     let cancelled = false;
     const workspaceId = currentWorkspaceId();
     const genreIds = opts.genreIds ?? genres.map(genre => genre.id);
-    getApprovedCombos(workspaceId)
-      .then(approved => {
+    effectiveVerifiedCombosWithTriedVariations(workspaceId)
+      .then(effective => {
         if (cancelled) return;
-        const effective = effectiveVerifiedCombos(workspaceId, approved);
         setBridgeFlagshipCombo(resolveFlagshipCombo(effective, genreIds));
+        setBridgeVerifiedCombos(effective);
       })
-      .catch(() => { if (!cancelled) setBridgeFlagshipCombo(undefined); });
+      .catch(() => { if (!cancelled) { setBridgeFlagshipCombo(undefined); setBridgeVerifiedCombos([]); } });
     return () => {
       cancelled = true;
     };
@@ -1114,9 +1124,16 @@ export default function Step3Generate({
   const combinedBridgeAvoid = useMemo(
     () => ({
       usedTitles: [...bridgeAvoid.usedTitles, ...bridgeImportedSetAvoid.usedTitles],
-      usedHooks: [...bridgeAvoid.usedHooks, ...bridgeImportedSetAvoid.usedHooks]
+      usedHooks: [...bridgeAvoid.usedHooks, ...bridgeImportedSetAvoid.usedHooks],
+      // v5.23 (TASK D multi-set gap) — same bridgeVerifiedCombos state the
+      // single-set path's own bridgeFlagshipCombo effect already resolves;
+      // bridgeInstruction.ts's own buildMultiSetClaudeCodeInstructions
+      // resolves ONE combo per set from this list (each set can draw a
+      // different genre pool), so the raw list travels here, not a single
+      // pre-resolved combo.
+      verifiedCombos: bridgeVerifiedCombos
     }),
-    [bridgeAvoid, bridgeImportedSetAvoid]
+    [bridgeAvoid, bridgeImportedSetAvoid, bridgeVerifiedCombos]
   );
   const multiSetBridgeInstructions = useMemo<MultiSetBridgeInstruction[]>(
     () => multiSet.mode
@@ -1128,10 +1145,11 @@ export default function Step3Generate({
         moods,
         season,
         combinedBridgeAvoid,
-        provider.generateThumbnailText ?? false
+        provider.generateThumbnailText ?? false,
+        bridgeAxisSequence
       )
       : [],
-    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText]
+    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
   );
   const multiSetMasterInstruction = useMemo(
     () => multiSet.mode
@@ -1143,10 +1161,11 @@ export default function Step3Generate({
         moods,
         season,
         combinedBridgeAvoid,
-        provider.generateThumbnailText ?? false
+        provider.generateThumbnailText ?? false,
+        bridgeAxisSequence
       ).instruction
       : '',
-    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText]
+    [multiSet.mode, opts, multiSetClamped.setCount, multiSetClamped.songsPerSet, genres, moods, season, combinedBridgeAvoid, provider.generateThumbnailText, bridgeAxisSequence]
   );
 
   useEffect(() => {

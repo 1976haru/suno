@@ -8,11 +8,10 @@ import type {
   WorkspaceId
 } from '../types';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildSystemInstruction, buildUserInstruction, songOutputShape, structureTemplateLegend } from './promptComposer';
-import { buildExplorationInstructionLines, type ExplorationSlotPlan } from './explorationSlots';
+import { buildExplorationInstructionLines, selectExplorationTrackNos, type ExplorationSlotPlan } from './explorationSlots';
 import { resolveFlagshipVariationPlan, buildFlagshipVariationInstructionLines } from './comboVariations';
 import { resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
-import { selectExplorationTrackNos } from './explorationSlots';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
@@ -1638,18 +1637,41 @@ export function buildMultiSetClaudeCodeInstructions(
   genres: GenrePack[],
   moods: MoodPack[],
   season: SeasonPack,
-  initialAvoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
-  generateThumbnailText = false
+  initialAvoid: { usedTitles?: string[]; usedHooks?: string[]; verifiedCombos?: VerifiedCombo[] } | undefined,
+  generateThumbnailText = false,
+  /**
+   * v5.23 (TASK D/C multi-set gap) — core/explorationLedger.ts's own
+   * nextAxisSequence(workspaceId), pre-fetched by the caller (same "core
+   * stays sync, caller owns IndexedDB" split every other pre-fetched
+   * value in this file already follows). Each set in this run consumes
+   * sequence+index, so an N-set run genuinely advances the 7-axis rotation
+   * N steps in one go rather than reusing the same axis for every set.
+   * Omitted (or the workspace isn't senior-oldpop) produces zero
+   * exploration text, identical to every pre-v5.23-multi-set instruction.
+   */
+  startingAxisSequence?: number
 ): MultiSetBridgeInstruction[] {
   const results: MultiSetBridgeInstruction[] = [];
   let usedTitles = [...(initialAvoid?.usedTitles ?? [])];
   let usedHooks = [...(initialAvoid?.usedHooks ?? [])];
+  const verifiedCombos = initialAvoid?.verifiedCombos ?? [];
 
   for (let index = 0; index < setCount; index++) {
     const setOpts = buildSetOptions(baseOpts, index, setCount, songsPerSet);
-    const avoid = { usedTitles, usedHooks };
+    const avoid = { usedTitles, usedHooks, verifiedCombos };
     const preassignedSongs = preallocateSongSlots(setOpts, genres, avoid);
     const conceptLine = buildSetConceptLine(setOpts.channel, season.label, index, setCount);
+    // v5.23 (TASK C/D multi-set gap) — mirrors core/batchPreallocation.ts's
+    // own flagshipCombo resolution exactly (same genrePool derivation, same
+    // resolveFlagshipCombo call) so this set's own instruction text agrees
+    // with whichever combo preallocateSongSlots (called just above, same
+    // `avoid`) actually applied to this set's own genrePlan.
+    const setGenrePool = Array.from(new Set((setOpts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
+    const flagshipCombo = setOpts.songCount >= 3 ? resolveFlagshipCombo(verifiedCombos, setGenrePool) : undefined;
+    const setWorkspaceId = workspaceForArchetype(setOpts.channel.archetype)?.id ?? currentWorkspaceId();
+    const explorationPlan = startingAxisSequence !== undefined
+      ? selectExplorationTrackNos(setOpts.songCount, setWorkspaceId, startingAxisSequence + index)
+      : undefined;
     // TASK v3.69 (TASK B) — "lyrics/<setName>_setNN.json", not
     // buildSetName's own collision-suffix scheme (bare "_02") — a multi-set
     // run's set index is a different concept (this is set N of M in one
@@ -1670,7 +1692,11 @@ export function buildMultiSetClaudeCodeInstructions(
     // existed and rendered real instruction text but no caller ever passed
     // it in, including this multi-set loop.
     const resolvedConstraints = resolveConstraintsFromOptions(setOpts, audienceProfileForChannelArchetype(setOpts.channel.archetype, setOpts.audience), currentWorkspaceId());
-    const instruction = buildClaudeCodeInstruction(setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText, { outputFilename, conceptLine, setPlanningTable, resolvedConstraints });
+    const instruction = buildClaudeCodeInstruction(
+      setOpts, genres, moods, season, avoid, preassignedSongs, generateThumbnailText,
+      { outputFilename, conceptLine, setPlanningTable, resolvedConstraints },
+      undefined, explorationPlan, flagshipCombo
+    );
 
     results.push({ setIndex: index, setOpts, outputFilename, instruction, preassignedSongs, conceptLine, avoid });
     usedTitles = [...usedTitles, ...preassignedSongs.map(slot => slot.title)];
@@ -1694,10 +1720,12 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   genres: GenrePack[],
   moods: MoodPack[],
   season: SeasonPack,
-  initialAvoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined,
-  generateThumbnailText = false
+  initialAvoid: { usedTitles?: string[]; usedHooks?: string[]; verifiedCombos?: VerifiedCombo[] } | undefined,
+  generateThumbnailText = false,
+  /** v5.23 (TASK D/C multi-set gap) — forwarded verbatim to buildMultiSetClaudeCodeInstructions' own startingAxisSequence param; see that param's own doc comment. */
+  startingAxisSequence?: number
 ): MultiSetBridgeMasterInstruction {
-  const setInstructions = buildMultiSetClaudeCodeInstructions(baseOpts, setCount, songsPerSet, genres, moods, season, initialAvoid, generateThumbnailText);
+  const setInstructions = buildMultiSetClaudeCodeInstructions(baseOpts, setCount, songsPerSet, genres, moods, season, initialAvoid, generateThumbnailText, startingAxisSequence);
   const totalSongs = setCount * songsPerSet;
   const masterWorkspaceId = workspaceForArchetype(baseOpts.channel.archetype)?.id ?? currentWorkspaceId();
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);

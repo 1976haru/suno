@@ -60,6 +60,7 @@ import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { resolveConstraintsFromOptions } from './constraints';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
+import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { vocabularyBankForScene } from '../data/vocabularyBanks';
 import { workspaceForArchetype } from '../data/workspaces';
@@ -636,7 +637,7 @@ export function preallocateSongSlots(
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
-  return Array.from({ length: opts.songCount }, (_, idx) => {
+  const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
     const songRole = songRoles[idx];
     const { title, hook } = trackNo <= 3
@@ -825,6 +826,12 @@ export function preallocateSongSlots(
       ...(idx === 0 && genreWarningKo ? { genreWarning: genreWarningKo } : {})
     };
   });
+  // v5.23 (TASK D gap 2) — "1곡 그대로, 1곡 변주": patches the second
+  // same-genre track (see comboVariations.ts's own resolveFlagshipVariationPlan)
+  // with one real structural variation instead of leaving it an exact
+  // repeat of the flagship combo. A no-op array (same slots back) whenever
+  // flagshipCombo is undefined or no second track carries its genre.
+  return applyFlagshipVariationToSlots(slots, flagshipCombo);
 }
 
 /** Splits a full slot list into the same trackNo ranges buildBatchRequestSpecs chunks the songs into, so each sub-batch's request only carries its own slots. */

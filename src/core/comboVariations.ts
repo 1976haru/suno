@@ -1,5 +1,6 @@
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import type { PreassignedSongSlot } from '../types';
+import { moneyChordPresets } from '../data/moneyChords';
 
 /**
  * v5.23 (TASK D §4-3) — "philly-soul 81 BPM 이 good 이면 안 해본 것을 자동으로
@@ -91,6 +92,80 @@ export function resolveFlagshipVariationPlan(
   const variation = nextComboVariation(combo);
   if (!variation) return undefined;
   return { trackNo: variationSlot.trackNo, comboLabelKo: combo.noteKo, variation };
+}
+
+/**
+ * v5.23 (TASK D gap 2) — "결정론적 로컬 생성기의 verifiedCombo 배정 구조
+ * 변경": turns ONE variation string into a real structural patch on a
+ * PreassignedSongSlot, for the local/realtime/batch paths that generate a
+ * song deterministically FROM this slot's own fields (unlike the bridge
+ * path, where slot fields are advisory text an LLM composes around).
+ *
+ * Deliberately only handles the 3 axes with no other downstream dependent
+ * computed from them earlier in core/batchPreallocation.ts's own pipeline:
+ * arrangementDensity, instrumentSet, and moneyChord are each standalone
+ * fields nothing else derives from. BPM and vocal-type variations are
+ * left as advisory-only (buildFlagshipVariationInstructionLines below,
+ * bridge-instruction text only) — a real tempo change would desync
+ * sectionCountRange/wordCountRange/estimatedLengthSec (all computed from
+ * the ORIGINAL tempo earlier in the same pipeline), and a real vocal-type
+ * change would desync the pack's own vocalDistribution quota counts
+ * (fullAudit.ts's vocal_distribution/vocal_zone_max3/vocal_no_triple_run)
+ * — both would need those earlier computations re-run, not just this one
+ * slot patched, so they're deliberately NOT attempted here. Returns the
+ * SAME slot object unchanged for a BPM/vocal variation (never throws,
+ * never applies a half-safe patch).
+ */
+/**
+ * The minimal field set applyComboVariationToSlot actually reads/writes —
+ * both PreassignedSongSlot (core/batchPreallocation.ts) and SongIdea
+ * (core/localGenerator.ts) satisfy this structurally, so the same
+ * function patches either one without a duplicate SongIdea-specific copy.
+ */
+export interface ComboVariableSlot {
+  trackNo: number;
+  instrumentSet?: string[];
+  arrangementDensity?: 'sparse' | 'medium' | 'full';
+  moneyChordId?: string;
+  moneyChordText?: string;
+}
+
+export function applyComboVariationToSlot<T extends ComboVariableSlot>(slot: T, variation: string): T {
+  const normalized = normalize(variation);
+  if (normalized === normalize('스트링 없이')) {
+    return { ...slot, instrumentSet: (slot.instrumentSet ?? []).filter(name => !/string/i.test(name)) };
+  }
+  if (normalized === normalize('브라스 추가')) {
+    const current = slot.instrumentSet ?? [];
+    return current.some(name => /brass|horn/i.test(name)) ? slot : { ...slot, instrumentSet: [...current, 'brass'] };
+  }
+  if (normalized === normalize('sparse 편곡')) return { ...slot, arrangementDensity: 'sparse' };
+  if (normalized === normalize('full 편곡')) return { ...slot, arrangementDensity: 'full' };
+  if (normalized === normalize('다른 머니코드')) {
+    const currentId = slot.moneyChordId ?? 'default';
+    const alt = Object.values(moneyChordPresets).find(preset => preset.id !== currentId && preset.id !== 'custom');
+    if (!alt) return slot;
+    return { ...slot, moneyChordId: alt.id, moneyChordText: `${alt.compactProgression} - ${alt.audibleEffectTag}` };
+  }
+  // BPM ("NN BPM") / vocal ("여성 듀엣" 등) — advisory-only, see this function's own doc comment.
+  return slot;
+}
+
+/**
+ * The one real entry point core/batchPreallocation.ts's own preallocateSongSlots
+ * and core/localGenerator.ts's own generateLocalBlueprint both call: resolves
+ * the same FlagshipVariationPlan the bridge instruction already shows the
+ * agent (resolveFlagshipVariationPlan above — same plan, same track, same
+ * variation, so the deterministic path and the bridge-advisory path never
+ * disagree about WHICH track is the variation track), then patches that one
+ * slot via applyComboVariationToSlot. Every other slot in the array is
+ * returned unchanged (same object references) — no plan means the exact
+ * same array back, byte-identical to every pre-v5.23 caller.
+ */
+export function applyFlagshipVariationToSlots<T extends ComboVariableSlot & { genreId?: string }>(slots: T[], combo: VerifiedCombo | undefined): T[] {
+  const plan = resolveFlagshipVariationPlan(slots, combo);
+  if (!plan) return slots;
+  return slots.map(slot => (slot.trackNo === plan.trackNo ? applyComboVariationToSlot(slot, plan.variation) : slot));
 }
 
 /**

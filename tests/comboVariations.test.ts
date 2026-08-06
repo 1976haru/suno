@@ -4,7 +4,9 @@ import {
   generateUntriedVariations,
   nextComboVariation,
   resolveFlagshipVariationPlan,
-  buildFlagshipVariationInstructionLines
+  buildFlagshipVariationInstructionLines,
+  applyComboVariationToSlot,
+  applyFlagshipVariationToSlots
 } from '../src/core/comboVariations';
 import type { VerifiedCombo } from '../src/data/verifiedCombos';
 
@@ -108,6 +110,92 @@ describe('[v5.23 TASK D] resolveFlagshipVariationPlan', () => {
     const combo = baseCombo({ triedVariations: all.map(variation => ({ variation, verdict: 'good' as const, setCode: 'S1' })) });
     const slots = [{ trackNo: 2, genreId: combo.genreId }, { trackNo: 9, genreId: combo.genreId }];
     expect(resolveFlagshipVariationPlan(slots, combo)).toBeUndefined();
+  });
+});
+
+/**
+ * v5.23 (TASK D gap 2) — coverage for the deterministic structural patch:
+ * arrangementDensity/instrumentSet/moneyChord get a REAL change, BPM/vocal
+ * variations are deliberately left alone (see applyComboVariationToSlot's
+ * own doc comment for why).
+ */
+function baseSlot(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    trackNo: 9,
+    genreId: 'oldpop-philly-soul-sweet',
+    moneyChordText: 'IV-V-vi-I - some effect',
+    moneyChordId: 'default',
+    instrumentSet: ['piano', 'strings'],
+    arrangementDensity: 'medium' as const,
+    tempo: 81,
+    ...overrides
+  };
+}
+
+describe('[v5.23 TASK D gap 2] applyComboVariationToSlot', () => {
+  it('"스트링 없이" removes string-like instruments', () => {
+    const patched = applyComboVariationToSlot(baseSlot(), '스트링 없이');
+    expect(patched.instrumentSet).toEqual(['piano']);
+  });
+
+  it('"브라스 추가" adds brass without duplicating an existing brass/horn entry', () => {
+    const patched = applyComboVariationToSlot(baseSlot(), '브라스 추가');
+    expect(patched.instrumentSet).toContain('brass');
+    const already = applyComboVariationToSlot(baseSlot({ instrumentSet: ['horns'] }), '브라스 추가');
+    expect(already.instrumentSet).toEqual(['horns']);
+  });
+
+  it('"sparse 편곡" / "full 편곡" override arrangementDensity', () => {
+    expect(applyComboVariationToSlot(baseSlot(), 'sparse 편곡').arrangementDensity).toBe('sparse');
+    expect(applyComboVariationToSlot(baseSlot(), 'full 편곡').arrangementDensity).toBe('full');
+  });
+
+  it('"다른 머니코드" picks a different preset id and rebuilds moneyChordText', () => {
+    const patched = applyComboVariationToSlot(baseSlot(), '다른 머니코드');
+    expect(patched.moneyChordId).not.toBe('default');
+    expect(patched.moneyChordText).not.toBe(baseSlot().moneyChordText);
+  });
+
+  it('a BPM variation ("NN BPM") leaves the slot completely unchanged (advisory-only, real downstream dependents elsewhere)', () => {
+    const slot = baseSlot();
+    expect(applyComboVariationToSlot(slot, '90 BPM')).toEqual(slot);
+  });
+
+  it('a vocal variation ("여성 듀엣" 등) leaves the slot completely unchanged (advisory-only)', () => {
+    const slot = baseSlot();
+    expect(applyComboVariationToSlot(slot, '여성 듀엣')).toEqual(slot);
+  });
+});
+
+describe('[v5.23 TASK D gap 2] applyFlagshipVariationToSlots', () => {
+  const combo: VerifiedCombo = {
+    id: 'senior-philly-81', workspaceId: 'senior-oldpop', genreId: 'oldpop-philly-soul-sweet',
+    bpmRange: [78, 86], verdict: 'good', sampleSize: 3, sampleTracks: ['T1', 'T4', 'T7'],
+    verifiedAt: '2026-08-02', noteKo: 'note', cautionsKo: [],
+    // BPM and vocal variations are the first 4 candidates (see
+    // candidateVariationsFor's own order) and are deliberately
+    // advisory-only (no structural patch) — marking them tried here so
+    // nextComboVariation lands on '스트링 없이' (a real, structurally-applied
+    // axis), matching this test's own intent.
+    triedVariations: [
+      { variation: '75 BPM', verdict: 'mixed', setCode: 'S0' },
+      { variation: '90 BPM', verdict: 'mixed', setCode: 'S0' },
+      { variation: '여성 듀엣', verdict: 'mixed', setCode: 'S0' },
+      { variation: '남성 솔로', verdict: 'mixed', setCode: 'S0' }
+    ]
+  };
+
+  it('patches only the second same-genre track, leaving every other slot byte-identical', () => {
+    const slots = [baseSlot({ trackNo: 2 }), baseSlot({ trackNo: 5, genreId: 'other' }), baseSlot({ trackNo: 9 })];
+    const patched = applyFlagshipVariationToSlots(slots, combo);
+    expect(patched[0]).toBe(slots[0]); // same reference — untouched
+    expect(patched[1]).toBe(slots[1]);
+    expect(patched[2]).not.toBe(slots[2]); // real, patched object
+  });
+
+  it('returns the exact same array when no combo is passed (byte-identical to every pre-v5.23 caller)', () => {
+    const slots = [baseSlot({ trackNo: 2 }), baseSlot({ trackNo: 9 })];
+    expect(applyFlagshipVariationToSlots(slots, undefined)).toBe(slots);
   });
 });
 

@@ -862,6 +862,17 @@ textarea {
   margin-top: 6px;
 }
 
+/* v5.23 (TASK D gap 3) — VerifiedComboPanel.tsx's own variation-rating row */
+.verified-combo-variation {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.verified-combo-variation .button-row {
+  margin-top: 6px;
+}
+
 /* v5.23 (TASK E §5-2) — ExplorationLedgerPanel.tsx */
 .exploration-ledger-record {
   margin-top: 14px;

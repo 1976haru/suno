@@ -16,6 +16,7 @@ import PromiseAuditPanel from '../PromiseAuditPanel';
 import GenerationGatePanel from '../GenerationGatePanel';
 import SetCompletenessPanel from '../SetCompletenessPanel';
 import ExplorationLedgerPanel from '../ExplorationLedgerPanel';
+import VerifiedComboPanel from '../VerifiedComboPanel';
 import PreviewConcatPanel from '../PreviewConcatPanel';
 import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
 import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
@@ -651,12 +652,20 @@ export default function Step4Result({
       )}
 
       {blueprint && resultTab === 'completeness' && (
-        <SetCompletenessPanel
-          blueprint={blueprint}
-          opts={opts}
-          audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
-          generationGateResult={generationGateResult}
-        />
+        <>
+          {/* v5.23 (TASK D gap 3) — self-guarding (renders nothing when no combo/suggestion/variation applies to this pack); the `blueprint` prop turns on the "이 변주가 어땠나요" rating row (see VerifiedComboPanel.tsx's own doc comment). */}
+          <VerifiedComboPanel
+            workspaceId={currentWorkspaceId()}
+            availableGenreIds={opts.genreIds ?? blueprint.songs.map(song => song.genreId).filter((id): id is string => Boolean(id))}
+            blueprint={blueprint}
+          />
+          <SetCompletenessPanel
+            blueprint={blueprint}
+            opts={opts}
+            audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
+            generationGateResult={generationGateResult}
+          />
+        </>
       )}
 
       {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (

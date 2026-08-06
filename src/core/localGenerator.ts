@@ -70,6 +70,7 @@ import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint }
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { kidsAgeTierFor } from '../data/kidsAgeTiers';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
+import { applyFlagshipVariationToSlots } from './comboVariations';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
@@ -2090,6 +2091,11 @@ export function generateLocalBlueprint(
       ...(resolvedKidsAgeTierId ? { effectiveKidsAgeTierId: resolvedKidsAgeTierId } : {})
     };
   });
+  // v5.23 (TASK D gap 2) — mirrors core/batchPreallocation.ts's identical
+  // addition (same comboVariations.ts entry point) — see that file's own
+  // applyComboVariationToSlot doc comment for why only arrangementDensity/
+  // instrumentSet/moneyChord are patched here, never tempo/vocal.
+  const songsWithFlagshipVariation = applyFlagshipVariationToSlots(songs, flagshipCombo);
 
   return {
     projectTitle: opts.projectTitle,
@@ -2130,7 +2136,7 @@ export function generateLocalBlueprint(
     // per-track one), so it's attached to just the first song's own
     // warnings rather than repeated identically on every SongCard.
     songs: (() => {
-      const scoredSongs = scoreSongs(songs.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage);
+      const scoredSongs = scoreSongs(songsWithFlagshipVariation.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage);
       if (!genreWarningKo || !scoredSongs.length) return scoredSongs;
       return scoredSongs.map((song, idx) => (idx === 0 ? { ...song, warnings: [...song.warnings, genreWarningKo] } : song));
     })(),
