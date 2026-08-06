@@ -40,6 +40,7 @@ import { getRatingForSong, getRatings } from '../../core/ratingLedger';
 import { getTakes } from '../../core/audioTakes';
 import { buildTakeLedgerCsv, downloadCsv, gatherAllSetSummaryRows, buildSetSummaryCsv, SET_SUMMARY_FILENAME, takeLedgerFileName, type SetContext } from '../../core/csvExport';
 import { currentWorkspaceId } from '../../core/workspaceScope';
+import { explorationPolicyFor } from '../../data/explorationPolicies';
 import { resolvePackagingLanguage } from '../../core/packagingLanguage';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
 import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
@@ -580,8 +581,8 @@ export default function Step4Result({
             <ClipboardCheck size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             ✅ 세트 완성도
           </button>
-          {/* v5.23 (TASK E §5-2/§11) — exploration slots only exist for senior-oldpop (core/explorationSlots.ts's own EXPLORATION_ENABLED_WORKSPACES) — every other workspace has zero exploration history to show, so the tab itself stays hidden rather than showing a permanently-empty screen. */}
-          {currentWorkspaceId() === 'senior-oldpop' && (
+          {/* v5.23 (TASK E §5-2/§11) — was `currentWorkspaceId() === 'senior-oldpop'`: true when only core/explorationSlots.ts's own engine existed. v5.24 added a real second engine (core/explorationPolicyEngine.ts) for kr-kids/jp-kids/kr-idol-male/kr-idol-female/kr-2030/jp-2030 that ALSO records into this same ledger (Step3Generate.tsx's own recordExploration call for bridgePolicyExplorationPlan) — the old senior-only gate was hiding real history for every one of those workspaces. data/explorationPolicies.ts's own EXPLORATION_POLICIES record covers every WorkspaceId (senior-oldpop included, via its legacyEngine flag), so `.enabled` is the correct universal gate now. */}
+          {explorationPolicyFor(currentWorkspaceId()).enabled && (
             <button type="button" className={resultTab === 'explorationLedger' ? 'tab active' : 'tab'} onClick={() => setResultTab('explorationLedger')}>
               <Compass size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
               🧭 탐색 원장
@@ -647,7 +648,7 @@ export default function Step4Result({
         />
       )}
 
-      {resultTab === 'explorationLedger' && currentWorkspaceId() === 'senior-oldpop' && (
+      {resultTab === 'explorationLedger' && explorationPolicyFor(currentWorkspaceId()).enabled && (
         <ExplorationLedgerPanel workspaceId={currentWorkspaceId()} />
       )}
 

@@ -16,6 +16,7 @@ import { recentSituations } from '../core/situationLedger';
 import { recentLyricLines } from '../core/lyricLineLedger';
 import { usedTitles as fetchHistoricalTitles } from '../core/hookLedger';
 import { listExplorationHistory } from '../core/explorationLedger';
+import { explorationPolicyFor } from '../data/explorationPolicies';
 
 /**
  * v4.3 (TASK E-3) — "실전 투입 전 마지막 확인용 화면 ... 이 화면 하나로
@@ -120,15 +121,20 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   // itself is pure (core/releaseReadiness.ts), but its inputs need two
   // IndexedDB reads: the same cross-pack duplicationHistory
   // App.tsx/Step3Generate.tsx already fetch for Gate 1 (recentSituations/
-  // recentLyricLines/fetchHistoricalTitles), and — senior-oldpop only —
-  // this pack's own exploration-slot trackNos. There's no field on
-  // PlaylistBlueprint marking which tracks were exploration slots (the
-  // plan lives only in Step3Generate.tsx's own state at generation time —
-  // see core/explorationLedger.ts's own recordExploration call site), so
-  // this looks up the most recent ledger record whose packLabel matches
-  // this pack's own projectTitle — a real, best-effort match (title
-  // collisions are rare and, worst case, this is an advisory badge, not a
-  // safety gate).
+  // recentLyricLines/fetchHistoricalTitles), and this pack's own
+  // exploration-slot trackNos. There's no field on PlaylistBlueprint
+  // marking which tracks were exploration slots (the plan lives only in
+  // Step3Generate.tsx's own state at generation time — see
+  // core/explorationLedger.ts's own recordExploration call site), so this
+  // looks up the most recent ledger record whose packLabel matches this
+  // pack's own projectTitle — a real, best-effort match (title collisions
+  // are rare and, worst case, this is an advisory badge, not a safety
+  // gate). v5.24 integration fix — was `workspaceId === 'senior-oldpop'`:
+  // core/explorationPolicyEngine.ts now records real exploration history
+  // for kr-kids/jp-kids/kr-idol-male/kr-idol-female/kr-2030/jp-2030 too
+  // (Step3Generate.tsx's own bridgePolicyExplorationPlan), so the exemption
+  // fetch uses the same universal explorationPolicyFor(...).enabled gate
+  // ExplorationLedgerPanel.tsx's own mount now uses.
   useEffect(() => {
     let cancelled = false;
     const workspaceId = currentWorkspaceId();
@@ -138,7 +144,7 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           recentSituations(opts.channel.id, opts.lyricLanguage),
           recentLyricLines(opts.channel.id, opts.lyricLanguage),
           fetchHistoricalTitles(opts.channel.id, opts.lyricLanguage),
-          workspaceId === 'senior-oldpop' ? listExplorationHistory(workspaceId) : Promise.resolve([])
+          explorationPolicyFor(workspaceId).enabled ? listExplorationHistory(workspaceId) : Promise.resolve([])
         ]);
         if (cancelled) return;
         const matchingRecord = explorationHistory.find(record => record.packLabel === blueprint.projectTitle);

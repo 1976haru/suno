@@ -9,9 +9,27 @@ import {
   type ExplorationRecord
 } from '../core/explorationLedger';
 import { AXIS_LABEL_KO, type ExplorationAxis } from '../core/explorationSlots';
+import { explorationPolicyFor } from '../data/explorationPolicies';
 
 interface ExplorationLedgerPanelProps {
   workspaceId: WorkspaceId;
+}
+
+/**
+ * v5.24 integration fix — a record's own `axis` is a plain id string from
+ * whichever engine wrote it: core/explorationSlots.ts's own 7 fixed ids
+ * ('genre'|'structure'|...) for senior-oldpop, or
+ * data/explorationPolicies.ts's own per-workspace axis ids
+ * ('axis-onomatopoeia', 'axis-part-split', ...) for every other workspace
+ * (core/explorationPolicyEngine.ts). AXIS_LABEL_KO only ever covered the
+ * first — this also checks the second engine's own policy.axes list (each
+ * axis already carries its own labelKo) before falling back to the raw id.
+ */
+export function axisLabelKoFor(workspaceId: WorkspaceId, axisId: string): string {
+  const legacyLabel = AXIS_LABEL_KO[axisId as ExplorationAxis];
+  if (legacyLabel) return legacyLabel;
+  const policyLabel = explorationPolicyFor(workspaceId).axes.find(axis => axis.id === axisId)?.labelKo;
+  return policyLabel ?? axisId;
 }
 
 const RATING_LABEL_KO: Record<ExplorationRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
@@ -76,7 +94,7 @@ export default function ExplorationLedgerPanel({ workspaceId }: ExplorationLedge
 
       {!records.length && (
         <p className="supporting">
-          아직 기록된 탐색 슬롯이 없습니다. senior-oldpop 세트를 브릿지로 가져오면 이 세트의 탐색 트랙(distinctChoice)이 여기 자동으로 기록됩니다.
+          아직 기록된 탐색 슬롯이 없습니다. 이 워크스페이스의 세트를 브릿지로 가져오면 그 세트의 탐색 트랙(distinctChoice)이 여기 자동으로 기록됩니다.
         </p>
       )}
 
@@ -96,7 +114,7 @@ export default function ExplorationLedgerPanel({ workspaceId }: ExplorationLedge
       {records.map(record => (
         <div key={record.id} className="exploration-ledger-record">
           <p className="supporting">
-            <strong>{record.packLabel || record.setCode}</strong> · 탐색 축: {AXIS_LABEL_KO[record.axis as ExplorationAxis] ?? record.axis}
+            <strong>{record.packLabel || record.setCode}</strong> · 탐색 축: {axisLabelKoFor(workspaceId, record.axis)}
           </p>
           <ul className="exploration-ledger-attempts">
             {record.attempts.map(attempt => {
