@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { channelPresets } from '../data/presets';
-import { createDraftChannel, makeUniqueId, normalizeChannel, readStoredChannels, writeStoredChannels } from '../utils/channelProfile';
+import { createDraftChannel, makeUniqueId, normalizeChannel, readStoredChannels, validateChannelProfile, writeStoredChannels } from '../utils/channelProfile';
 import { getWorkspace } from '../data/workspaces';
 import type { ChannelProfile, WorkspaceId } from '../types';
 
@@ -128,6 +128,18 @@ export function useChannelManager(workspaceId: WorkspaceId, onApply: (channel: C
       ? editorChannel.id
       : makeUniqueId(editorChannel.englishName || editorChannel.name, existingIds);
     const channel = normalizeChannel({ ...editorChannel, id });
+
+    // TASK v5.18 (TASK F, P2) — real-value guard on top of normalizeChannel's
+    // own fill-in-what's-missing pass, so a channel with a genre/mood id
+    // that no longer exists (or a market/language/audience/archetype string
+    // normalizeChannel doesn't itself validate) is caught here, at save
+    // time, instead of silently persisting and failing much later inside an
+    // actual generation run.
+    const validation = validateChannelProfile(channel);
+    if (!validation.valid) {
+      window.alert(`채널을 저장할 수 없습니다:\n${validation.errors.join('\n')}`);
+      return false;
+    }
 
     setCustomChannels(prev => (
       editingCustom

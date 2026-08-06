@@ -1,5 +1,6 @@
-import type { AgeGroup, ChannelArchetype, ChannelProfile, WorkspaceId } from '../types';
+import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market, WorkspaceId } from '../types';
 import { scopedKey } from '../core/workspaceScope';
+import { genrePacks, moodPacks } from '../data/presets';
 
 const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
 
@@ -115,6 +116,62 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
     // field silently drops any real value `input` was carrying).
     kidsAgeTierId: input.kidsAgeTierId
   };
+}
+
+const VALID_MARKETS: readonly Market[] = ['korea', 'japan', 'global', 'custom'];
+const VALID_LYRIC_LANGUAGES: readonly LyricLanguage[] = ['english', 'korean', 'japanese', 'bilingual'];
+const VALID_AGE_GROUPS: readonly AgeGroup[] = ['kids', 'teens', 'twenties', 'thirtiesForties', 'seniors', 'allAges', 'general'];
+const VALID_ARCHETYPES: readonly ChannelArchetype[] = [
+  'senior-morning', 'showa-cafe', 'christmas', 'lofi-study', 'kids', 'showa-70s', 'j2000s',
+  'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'kr-kids-song',
+  'jp-kids-song', 'kr-idol-male', 'kr-idol-female'
+];
+
+export interface ChannelProfileValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * TASK v5.18 (TASK F, P2) — real gap: normalizeChannel above defends every
+ * field against being EMPTY/missing (falls back to a sensible default), but
+ * never checks whether a PRESENT value is actually a real, recognized one —
+ * a hand-edited localStorage blob, or a channel imported from a differently-
+ * versioned build, can carry a `market`/`primaryLanguage`/`audience`/
+ * `archetype` string that TypeScript's own union types would reject at
+ * compile time but that survives untouched at runtime (JSON has no type
+ * system), or a `preferredGenres`/`preferredMoods` id that doesn't match
+ * any real genre/mood pack (a typo, or an id from a genre pack that's since
+ * been renamed/removed) — genresForOptions/moodsForOptions
+ * (core/generationSnapshot.ts) silently filter those down to an empty list,
+ * which can produce a generation with zero usable genre/mood context. This
+ * is a pure check, not a second normalizer — normalizeChannel still owns
+ * "fill in what's missing"; this owns "flag what's present but wrong" so a
+ * caller (useChannelManager's saveEditorProfile) can block the save with a
+ * concrete reason instead of persisting a channel that only fails much
+ * later, deep inside a generation run, with no context for why.
+ */
+export function validateChannelProfile(channel: ChannelProfile): ChannelProfileValidationResult {
+  const errors: string[] = [];
+  if (!channel.id.trim()) errors.push('id가 비어 있습니다.');
+  if (!channel.name.trim()) errors.push('채널 이름이 비어 있습니다.');
+  if (!VALID_MARKETS.includes(channel.market)) errors.push(`알 수 없는 market 값: "${channel.market}"`);
+  if (!VALID_LYRIC_LANGUAGES.includes(channel.primaryLanguage)) errors.push(`알 수 없는 primaryLanguage 값: "${channel.primaryLanguage}"`);
+  if (!VALID_AGE_GROUPS.includes(channel.audience)) errors.push(`알 수 없는 audience 값: "${channel.audience}"`);
+  if (channel.archetype && !VALID_ARCHETYPES.includes(channel.archetype)) {
+    errors.push(`알 수 없는 archetype 값: "${channel.archetype}"`);
+  }
+  const knownGenreIds = new Set(genrePacks.map(genre => genre.id));
+  const unknownGenres = channel.preferredGenres.filter(id => !knownGenreIds.has(id));
+  if (unknownGenres.length) errors.push(`존재하지 않는 장르 ID: ${unknownGenres.join(', ')}`);
+  const knownMoodIds = new Set(moodPacks.map(mood => mood.id));
+  const unknownMoods = channel.preferredMoods.filter(id => !knownMoodIds.has(id));
+  if (unknownMoods.length) errors.push(`존재하지 않는 무드 ID: ${unknownMoods.join(', ')}`);
+  if (channel.vocalQuotaOverride) {
+    const { male, female, mixed } = channel.vocalQuotaOverride;
+    if (male + female + mixed <= 0) errors.push('vocalQuotaOverride 값이 전부 0이라 생성 가능한 보컬 슬롯이 없습니다.');
+  }
+  return { valid: errors.length === 0, errors };
 }
 
 /**

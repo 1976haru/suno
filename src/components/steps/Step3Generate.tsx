@@ -8,6 +8,7 @@ import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } fro
 import { recentSituations } from '../../core/situationLedger';
 import { recentLyricLines } from '../../core/lyricLineLedger';
 import { selectExplorationTrackNos, type ExplorationSlotPlan } from '../../core/explorationSlots';
+import { selectPolicyExplorationTrackNos, type PolicyExplorationSlotPlan } from '../../core/explorationPolicyEngine';
 import { nextAxisSequence, recordExploration, buildExplorationAttempts } from '../../core/explorationLedger';
 import { getApprovedCombos, effectiveVerifiedCombos, resolveFlagshipCombo } from '../../core/verifiedCombos';
 import type { VerifiedCombo } from '../../data/verifiedCombos';
@@ -593,6 +594,8 @@ export default function Step3Generate({
   const [bridgeConceptSceneContext, setBridgeConceptSceneContext] = useState<{ recentSituations: string[]; recentLyricLines: string[] }>({ recentSituations: [], recentLyricLines: [] });
   /** v5.23 (TASK C) — core/explorationSlots.ts's own plan, resolved once nextAxisSequence is fetched (senior-oldpop only — every other workspace's plan stays `enabled: false`). */
   const [bridgeExplorationPlan, setBridgeExplorationPlan] = useState<ExplorationSlotPlan | undefined>(undefined);
+  /** v5.24 (TASK A/B/C/D) — core/explorationPolicyEngine.ts's own plan for every workspace except senior-oldpop (see bridgeExplorationPlan just above for that one). */
+  const [bridgePolicyExplorationPlan, setBridgePolicyExplorationPlan] = useState<PolicyExplorationSlotPlan | undefined>(undefined);
   /** v5.23 (TASK D) — the same flagship combo core/batchPreallocation.ts's preallocateSongSlots already resolves for bridgePreassignedSongs (see resolveFlagshipCombo), refetched here so buildClaudeCodeInstruction can add its own variation-track instruction (see comboVariations.ts's resolveFlagshipVariationPlan). undefined for every workspace with no verified-good combo. */
   const [bridgeFlagshipCombo, setBridgeFlagshipCombo] = useState<VerifiedCombo | undefined>(undefined);
   const [bridgeCopied, setBridgeCopied] = useState(false);
@@ -649,6 +652,22 @@ export default function Step3Generate({
     const workspaceId = currentWorkspaceId();
     void nextAxisSequence(workspaceId).then(sequence => {
       if (!cancelled) setBridgeExplorationPlan(selectExplorationTrackNos(opts.songCount, workspaceId, sequence));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.songCount]);
+
+  // v5.24 (TASK A/B/C/D) — same nextAxisSequence source as bridgeExplorationPlan
+  // just above, but through core/explorationPolicyEngine.ts; that engine
+  // itself skips senior-oldpop (see data/explorationPolicies.ts's own
+  // legacyEngine flag), so the two plans never both resolve `enabled: true`
+  // for the same workspace.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    void nextAxisSequence(workspaceId).then(sequence => {
+      if (!cancelled) setBridgePolicyExplorationPlan(selectPolicyExplorationTrackNos(opts.songCount, workspaceId, sequence));
     });
     return () => {
       cancelled = true;
@@ -784,8 +803,35 @@ export default function Step3Generate({
   // call site populated instructionOptions.resolvedConstraints. Wiring it
   // through here is the fix, not a new mechanism.
   const claudeCodeInstruction = useMemo(
-    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false, { resolvedConstraints: designGateConstraints }, bridgeConceptSceneContext, bridgeExplorationPlan, bridgeFlagshipCombo),
-    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText, designGateConstraints, bridgeConceptSceneContext, bridgeExplorationPlan, bridgeFlagshipCombo]
+    () =>
+      buildClaudeCodeInstruction(
+        opts,
+        genres,
+        moods,
+        season,
+        bridgeAvoid,
+        bridgePreassignedSongs,
+        provider.generateThumbnailText ?? false,
+        { resolvedConstraints: designGateConstraints },
+        bridgeConceptSceneContext,
+        bridgeExplorationPlan,
+        bridgeFlagshipCombo,
+        bridgePolicyExplorationPlan
+      ),
+    [
+      opts,
+      genres,
+      moods,
+      season,
+      bridgeAvoid,
+      bridgePreassignedSongs,
+      provider.generateThumbnailText,
+      designGateConstraints,
+      bridgeConceptSceneContext,
+      bridgeExplorationPlan,
+      bridgeFlagshipCombo,
+      bridgePolicyExplorationPlan
+    ]
   );
   // v4.0 (TASK A) — evaluateDesignGate runs inside a Worker now (see
   // core/localGenerationClient.ts) — mirrors Step2Plan.tsx's identical
@@ -1021,6 +1067,21 @@ export default function Step3Generate({
           setCode: report.blueprint.meta?.setCode ?? `import-${Date.now()}`,
           axis: bridgeExplorationPlan.axis,
           trackNos: bridgeExplorationPlan.trackNos,
+          attempts,
+          packLabel: report.blueprint.projectTitle
+        }).catch(() => {});
+      }
+    }
+    // v5.24 (TASK A/B/C/D) — same recording, for the policy-driven plan
+    // (every workspace except senior-oldpop, whose plan stays undefined —
+    // see bridgePolicyExplorationPlan's own doc comment above).
+    if (report.blueprint && bridgePolicyExplorationPlan?.enabled && bridgePolicyExplorationPlan.axis) {
+      const attempts = buildExplorationAttempts(report.blueprint.songs, bridgePolicyExplorationPlan.trackNos);
+      if (attempts.length) {
+        void recordExploration({
+          setCode: report.blueprint.meta?.setCode ?? `import-${Date.now()}`,
+          axis: bridgePolicyExplorationPlan.axis.id,
+          trackNos: bridgePolicyExplorationPlan.trackNos,
           attempts,
           packLabel: report.blueprint.projectTitle
         }).catch(() => {});
@@ -1519,7 +1580,7 @@ export default function Step3Generate({
                 <FileJson size={16} />
                 {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
               </label>
-              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? '기존 lyrics/*.json 파일로 팩 재생성 없이 바로 SRT 자막 만들기' : '채널과 시즌을 먼저 선택하세요'}>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? '기존 lyrics/*.json 파일로 팩 재생성 없이 바로 SRT 자막 만들기 — 라이브러리에는 저장되지 않습니다' : '채널과 시즌을 먼저 선택하세요'}>
                 <input
                   type="file"
                   accept="application/json"
@@ -1535,6 +1596,10 @@ export default function Step3Generate({
                 {isImporting ? '가져오는 중...' : '가사 파일 → 바로 SRT 만들기'}
               </label>
             </div>
+            {/* TASK v5.18 (TASK F, P2) — real gap: onImportSongsJsonForSrt (App.tsx) is deliberately read-only (no library.saveImportedPack, no hookLedger registration — see that function's own doc comment for the bug this behavior fixed), but nothing in the UI ever said so; a user could reasonably expect "가사 파일 → 바로 SRT 만들기" to behave like the normal import button right above it and later go looking for the pack in their saved library, where it will never appear. */}
+            <p className="basic-import-srt-only-notice">
+              "가사 파일 → 바로 SRT 만들기"는 자막 생성 전용입니다 — 라이브러리에 저장하거나 훅 이력에 등록하지 않습니다. 이 팩을 저장하려면 "곡 JSON 가져오기"를 사용하세요.
+            </p>
             <div
               className={canImportBridge ? 'basic-import-drop' : 'basic-import-drop disabled'}
               onDragOver={event => event.preventDefault()}

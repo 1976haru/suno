@@ -895,6 +895,36 @@ textarea {
   margin-bottom: 10px;
 }
 
+/* v5.23 (TASK C §3-6) — SetCompletenessPanel.tsx's own release-readiness section */
+.release-readiness-block {
+  margin-top: 10px;
+}
+
+.release-readiness-items {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.release-readiness-items li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.release-readiness-items li.fail {
+  color: #b43c3c;
+}
+
+.release-readiness-items li.not-implemented {
+  color: var(--muted);
+}
+
 .load-warning {
   background: rgba(180, 60, 60, 0.1);
   border: 1px solid rgba(180, 60, 60, 0.35);
@@ -1624,6 +1654,12 @@ textarea {
 
 .mode-more-panel > :not(summary) {
   margin: 0 14px 14px;
+}
+
+.basic-import-srt-only-notice {
+  margin: -4px 0 8px;
+  font-size: 0.85em;
+  color: var(--muted);
 }
 
 .basic-import-drop {
