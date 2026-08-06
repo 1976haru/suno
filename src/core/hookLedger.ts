@@ -161,6 +161,25 @@ export async function forgetPack(packId: string): Promise<void> {
   }
 }
 
+/**
+ * v5.17 (main-merge reconciliation) — main's own "delete all" flow also
+ * clears hook history (main has no workspace concept, so a flat
+ * store.clear() is correct there); this branch's deleteAllPacks() (TASK A1)
+ * already deliberately scopes "전체 삭제" to only the CURRENT workspace's own
+ * packs, so the equivalent hook-history clear must use the same
+ * allRecords()-then-scoped-delete pattern forgetPack() already establishes
+ * above — a bare store.clear() here would wipe every OTHER workspace's real
+ * hook-avoidance history too, a real regression this branch's own
+ * per-workspace isolation guarantee (see workspaceScope.ts) exists to
+ * prevent.
+ */
+export async function clearAllHookHistory(): Promise<void> {
+  const all = await allRecords();
+  for (const record of all) {
+    await withStore('readwrite', store => store.delete(record.id));
+  }
+}
+
 export interface ExhaustionStats {
   used: number;
   poolSize: number;

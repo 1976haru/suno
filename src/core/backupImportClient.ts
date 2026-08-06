@@ -1,4 +1,6 @@
 import BackupParseWorker from '../workers/backupParseWorker?worker';
+import { savePack } from './library';
+import type { SavedPack } from '../types';
 
 /**
  * v4.0 (TASK A) — browser UI path for parsing a workspace backup file (see
@@ -55,4 +57,32 @@ export async function parseJsonFileResponsive(file: File): Promise<unknown> {
       reject(new Error(`백업 파일을 Worker로 전달하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`));
     }
   });
+}
+
+/**
+ * v5.17 (main-merge reconciliation) — restores the bulk "전체 가져오기"
+ * path's own responsive/non-blocking guarantee, which this branch's v4.0
+ * port only gave to the per-workspace transfer flow (previewImport/
+ * applyImport), not this older, simpler bulk-import function. Reuses this
+ * same file's own parseJsonFileResponsive (already worker-backed) rather
+ * than main's separate inline-worker-string importParsedInWorker, so there
+ * is exactly one JSON-parsing-off-the-main-thread mechanism in this branch,
+ * not two. The actual per-pack savePack() calls stay on the main thread —
+ * each is independently async/IndexedDB-backed (never a synchronous,
+ * frame-blocking loop), so only the JSON.parse of a potentially large
+ * backup file (the real freeze source main's fix targets) needed moving
+ * off-thread.
+ */
+export async function importPacksResponsive(file: File): Promise<number> {
+  const parsed = await parseJsonFileResponsive(file);
+  const packs: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+  let count = 0;
+  for (const raw of packs) {
+    if (!raw || typeof raw !== 'object') continue;
+    const pack = raw as Partial<SavedPack>;
+    if (!pack.blueprint || !pack.options) continue;
+    await savePack({ ...(pack as SavedPack), id: pack.id });
+    count += 1;
+  }
+  return count;
 }
