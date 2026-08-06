@@ -157,7 +157,12 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
     korean: { primaryRange: [150, 180], syllableRange: [350, 450] },
     japanese: { primaryRange: [400, 520], syllableRange: [400, 520] },
     bilingual: { primaryRange: [215, 230], syllableRange: [280, 300] }
-  }
+  },
+  // See AudienceProfile.arrangementDensityLimits's own doc comment — fullMax:4
+  // is the real, already-tuned senior number (v4.16) that must never change.
+  // sparseMin:2 is a paired, currently-informational value consistent with
+  // this profile's own calm/space-between-phrases character.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 4 }
 };
 
 /**
@@ -186,7 +191,15 @@ export const GENERAL_AUDIENCE_PROFILE: AudienceProfile = {
   arcModelId: 'five-phase',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: []
+  vocabularyBankIds: [],
+  // See AudienceProfile.arrangementDensityLimits's own doc comment — this
+  // generic fallback profile is reached by several of senior-oldpop
+  // workspace's own real non-senior-audience sub-channels (modern-chill,
+  // city-night, lofi-study, ...) via the age-group fallback path
+  // (audienceProfileForAgeGroup), so it MUST keep the exact pre-fix fullMax:4
+  // behavior to hold senior-oldpop workspace byte-identical, same reasoning
+  // as SENIOR_AUDIENCE_PROFILE's own value just above.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 4 }
 };
 
 export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
@@ -205,7 +218,13 @@ export const KIDS_AUDIENCE_PROFILE: AudienceProfile = {
   arcModelId: 'repetition-cycle',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: []
+  vocabularyBankIds: [],
+  // See AudienceProfile.arrangementDensityLimits's own doc comment — this
+  // generic 'kids' profile is what senior-oldpop workspace's own shared
+  // 'kids' archetype resolves to via the age-group fallback path (it is NOT
+  // reached by kr-kids/jp-kids, which have their own real profiles below) —
+  // kept at fullMax:4 to hold senior-oldpop workspace byte-identical.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 4 }
 };
 
 /**
@@ -261,7 +280,14 @@ const KR_2030_EMOTIONAL_AUDIENCE_PROFILE: AudienceProfile = {
   vocabularyBankIds: [],
   lyricMetricsByLanguage: {
     korean: { primaryRange: [160, 200], syllableRange: [380, 480] }
-  }
+  },
+  // See AudienceProfile.arrangementDensityLimits's own doc comment —
+  // kr-2030/jp-2030 workspaces are a real step up in energy from senior but
+  // not idol-performance-track energy; fullMax:6 (vs senior's 4) reflects a
+  // modern urban-pop/R&B production that can comfortably carry more
+  // full-density tracks without losing the workspace's own "band-pop, not
+  // electro-heavy" character (see this profile's own top doc comment).
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
 };
 
 const KR_2030_ELECTRO_AUDIENCE_PROFILE: AudienceProfile = {
@@ -279,7 +305,13 @@ const KR_2030_ELECTRO_AUDIENCE_PROFILE: AudienceProfile = {
   arcModelId: 'five-phase',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: []
+  vocabularyBankIds: [],
+  // Same kr-2030 workspace family as KR_2030_EMOTIONAL_AUDIENCE_PROFILE
+  // above — electro-pop leans a touch more energetic still, but this profile
+  // is a provisional/never-wired skeleton (no workspace points at it — see
+  // this file's own top doc comment), so it keeps the same value rather than
+  // inventing an unverified distinction.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
 };
 
 /**
@@ -332,7 +364,11 @@ const JP_2030_MELODIC_AUDIENCE_PROFILE: AudienceProfile = {
     // a measurement; same "recalibrate after first real set" caveat as
     // senior's own lyricMetricsByLanguage doc comment states.
     japanese: { primaryRange: [380, 480], syllableRange: [380, 480] }
-  }
+  },
+  // Same reasoning as KR_2030_EMOTIONAL_AUDIENCE_PROFILE's own comment —
+  // melodic guitar/piano J-pop/J-rock, one workspace-family step up from
+  // senior, not idol-performance energy.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
 };
 
 const JP_2030_ANIME_AUDIENCE_PROFILE: AudienceProfile = {
@@ -350,7 +386,11 @@ const JP_2030_ANIME_AUDIENCE_PROFILE: AudienceProfile = {
   arcModelId: 'five-phase',
   structureTemplateSetId: 'adult-t1-t5',
   titlePatternSetId: 'adult-en-v1',
-  vocabularyBankIds: []
+  vocabularyBankIds: [],
+  // Provisional/never-wired skeleton (same status as KR_2030_ELECTRO above)
+  // — kept at the jp-2030 workspace family's own fullMax:6 rather than an
+  // unverified guess.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
 };
 
 /**
@@ -406,7 +446,13 @@ const KR_IDOL_MALE_AUDIENCE_PROFILE: AudienceProfile = {
     // lyric more times rather than covering more distinct ground. Not yet
     // calibrated against a real generated set.
     korean: { primaryRange: [120, 160], syllableRange: [280, 380] }
-  }
+  },
+  // See AudienceProfile.arrangementDensityLimits's own doc comment —
+  // "high-energy performance-ready mix"/"punchy contemporary production
+  // built for choreography" (this profile's own constraints, just above) is
+  // the opposite of senior's calm-arrangement target; a K-pop performance
+  // track pack legitimately wants most tracks at full density.
+  arrangementDensityLimits: { sparseMin: 0, fullMax: 10 }
 };
 
 const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
@@ -443,7 +489,12 @@ const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
   vocabularyBankIds: [],
   lyricMetricsByLanguage: {
     korean: { primaryRange: [120, 160], syllableRange: [280, 380] }
-  }
+  },
+  // Same reasoning as KR_IDOL_MALE_AUDIENCE_PROFILE's own comment — idol
+  // energy is a workspace-genre trait, not a gendered one (see this
+  // profile's own top doc comment), so the two idol profiles share the same
+  // value.
+  arrangementDensityLimits: { sparseMin: 0, fullMax: 10 }
 };
 
 const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
@@ -462,7 +513,13 @@ const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
   structureTemplateSetId: 'kids-t1-t5',
   titlePatternSetId: 'adult-en-v1',
   vocabularyBankIds: [],
-  safetyPolicyId: 'kids-safety-default'
+  safetyPolicyId: 'kids-safety-default',
+  // See AudienceProfile.arrangementDensityLimits's own doc comment —
+  // kids-0to2 is this app's lullaby-leaning tier (tempoFloor/Ceiling 60-100,
+  // the lowest of any kids profile): fullMax:2 keeps this age tier's own
+  // arrangements sparse/calm by default, matching arcModels.ts's own
+  // KIDS_BUNDLES_T1 (lowest per-bundle intensity of any kids tier).
+  arrangementDensityLimits: { sparseMin: 4, fullMax: 2 }
 };
 
 const KIDS_2_TO_4_AUDIENCE_PROFILE: AudienceProfile = {
@@ -481,7 +538,12 @@ const KIDS_2_TO_4_AUDIENCE_PROFILE: AudienceProfile = {
   structureTemplateSetId: 'kids-t1-t5',
   titlePatternSetId: 'adult-en-v1',
   vocabularyBankIds: [],
-  safetyPolicyId: 'kids-safety-default'
+  safetyPolicyId: 'kids-safety-default',
+  // Mid-tier tempo (100-130) and this app's own arcModels.ts KIDS_BUNDLES_DEFAULT
+  // tier (which this age also matches, per data/kidsAgeTiers.ts's own
+  // DEFAULT_KIDS_AGE_TIER_ID = 'kids-t2') — action-leaning relative to
+  // kids-0to2 but not as extreme as kids-4to7's own oldest/most-active tier.
+  arrangementDensityLimits: { sparseMin: 1, fullMax: 6 }
 };
 
 const KIDS_4_TO_7_AUDIENCE_PROFILE: AudienceProfile = {
@@ -500,7 +562,11 @@ const KIDS_4_TO_7_AUDIENCE_PROFILE: AudienceProfile = {
   structureTemplateSetId: 'kids-t1-t5',
   titlePatternSetId: 'adult-en-v1',
   vocabularyBankIds: [],
-  safetyPolicyId: 'kids-safety-default'
+  safetyPolicyId: 'kids-safety-default',
+  // Highest tempo range (105-140) of any kids profile — this app's own
+  // action-leaning tier, matching arcModels.ts's own KIDS_BUNDLES_T3 (adds a
+  // 'moving' bundle at intensity 4, the highest of any kids bundle).
+  arrangementDensityLimits: { sparseMin: 1, fullMax: 7 }
 };
 
 /**
@@ -572,7 +638,16 @@ const KR_KIDS_AUDIENCE_PROFILE: AudienceProfile = {
   safetyPolicyId: 'kids-safety-default',
   lyricMetricsByLanguage: {
     korean: { primaryRange: [35, 60], syllableRange: [80, 140] }
-  }
+  },
+  // See AudienceProfile.arrangementDensityLimits's own doc comment —
+  // kr-kids is a real, ready workspace that genuinely spans a calm genre
+  // (krkids-sleep-calm, tempoRange 62-84) and an energetic one (krkids-action,
+  // 112-128) in the SAME workspace (see this profile's own top doc comment
+  // for the real measurement establishing that split) — fullMax:5 is a
+  // deliberate mid-point between kids-lullaby-leaning (2) and
+  // kids-action-leaning (7), reflecting that mixed real character rather
+  // than picking either extreme.
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 5 }
 };
 
 const JP_KIDS_AUDIENCE_PROFILE: AudienceProfile = {
@@ -598,7 +673,14 @@ const JP_KIDS_AUDIENCE_PROFILE: AudienceProfile = {
   safetyPolicyId: 'kids-safety-default',
   lyricMetricsByLanguage: {
     japanese: { primaryRange: [145, 215], syllableRange: [145, 215] }
-  }
+  },
+  // See KR_KIDS_AUDIENCE_PROFILE's own comment for the shared reasoning —
+  // jp-kids's own genre spread (96-132 across all 7 genres) has "no bimodal
+  // calm/energetic split" (this profile's own top doc comment), i.e. it
+  // reads more uniformly energetic than kr-kids's genuinely bimodal spread,
+  // so it leans a step closer to action-leaning (6, matching kr-2030/jp-2030's
+  // own value) rather than kr-kids's own mid-point (5).
+  arrangementDensityLimits: { sparseMin: 1, fullMax: 6 }
 };
 
 /**

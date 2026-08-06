@@ -270,6 +270,28 @@ export interface AudienceProfile {
     /** Kids-only: maximum distinct non-repeated words allowed. */
     uniqueWordMax?: number;
   }>>;
+  /**
+   * TASK (design-gate audience decoupling) — core/designGate.ts's
+   * arrangementDensityBlockingIssues used to hard-code `fullCount <= 4`
+   * globally, a number real senior-listening feedback established (v4.16,
+   * "12/18 tracks reading as 'full' density ... too dense to feel calm") and
+   * that has no basis whatsoever for a K-pop performance-track workspace or
+   * a kids action-song workspace — both legitimately WANT most tracks at
+   * 'full' density. `fullMax` is the max count of 'full'-density tracks this
+   * profile's own pack tolerates before blocking; `sparseMin` is a paired,
+   * currently informational (not yet read by any check) minimum 'sparse'-
+   * density count consistent with the same profile's character, reserved for
+   * a future advisory check. senior's `fullMax` is EXACTLY 4 — the one real,
+   * already-tuned number that must never move (see designGate.ts's own
+   * "critical constraint" doc comment). `general`/generic `kids` (the two
+   * profiles senior-oldpop's own non-senior-audience sub-channels — modern-
+   * chill/city-night/lofi-study/the shared 'kids' archetype — resolve to via
+   * the age-group fallback, NOT the literal 'senior' profile) are also kept
+   * at 4 for the same reason: senior-oldpop workspace behavior must stay
+   * byte-identical for ALL its archetypes, not just the literal senior-morning
+   * one.
+   */
+  arrangementDensityLimits: { sparseMin: number; fullMax: number };
 }
 
 export interface GenreLyricFlavorImage {

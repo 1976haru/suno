@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateDesignGate } from '../src/core/designGate';
+import { BREADTH_THRESHOLDS, evaluateDesignGate } from '../src/core/designGate';
 import { resolveConstraintsFromOptions, type ResolvedConstraints } from '../src/core/constraints';
-import { SENIOR_AUDIENCE_PROFILE, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
-import { buildRepetitionCyclePlan } from '../src/core/arcModels';
+import { SENIOR_AUDIENCE_PROFILE, audienceProfileById, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
+import { buildRepetitionCyclePlan, kidsArcBundlePlanFor } from '../src/core/arcModels';
+import { buildUserChosenProgressionPlan, REPRESENTATIVE_TRACK_COUNT } from '../src/core/moneyChordPlan';
+import { scaleVocalQuota } from '../src/core/vocalPlan';
 import type { ChannelProfile, GenerationOptions, PreassignedSongSlot } from '../src/types';
 
 /**
@@ -166,12 +168,21 @@ describe('evaluateDesignGate — 보컬 (재발 시나리오 1-D의 단위 테�
   // balanced one. It now mirrors core/batchPreallocation.ts's/
   // core/localGenerator.ts's own baseVocalQuota priority: vocalQuotaOverride
   // wins, and never leans (the split itself is the point of that channel).
+  //
+  // v(design-gate audience decoupling) — the issue id this fires as changed:
+  // a vocalQuotaOverride channel now gets the new quota-fidelity check
+  // ('vocal-quota-fidelity') instead of the generic distinct-type-variety
+  // check ('vocal-type-variety') — 15/18 male tracks is mathematically
+  // incompatible with "3+ distinct types", so blocking on that check was
+  // never fixable for this channel shape in the first place. The autoFix
+  // contract (still returns the channel's own 15/0/3 split, never the
+  // generic 6/6/6 default) is unchanged and re-verified here.
   it('a channel with vocalQuotaOverride gets its OWN fixed split back from autoFix, not the generic 6/6/6 default', () => {
     const fixedQuotaChannel: ChannelProfile = { ...CHANNEL, archetype: 'kr-idol-male', vocalQuotaOverride: { male: 15, female: 0, mixed: 3 } };
     const opts = baseOpts({ channel: fixedQuotaChannel, vocalTone: fixedQuotaChannel.defaultVocal });
     const slots = healthySlots().map(slot => ({ ...slot, vocalType: 'male' as const }));
     const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
-    const issue = result.blocking.find(i => i.id === 'vocal-type-variety');
+    const issue = result.blocking.find(i => i.id === 'vocal-quota-fidelity');
     expect(issue).toBeDefined();
     const fix = issue!.autoFix!();
     const allocation = fix.diversityAllocations!.find(a => a.axis === 'vocalType')!;
@@ -340,5 +351,475 @@ describe('evaluateDesignGate — 킬링포인트·아크 (arc-model-aware, kids 
     expect(arcIssue).toBeDefined();
     expect(arcIssue!.expected).toBe('5종 전부');
     expect(arcIssue!.labelKo).toBe('아크 5구간 사용');
+  });
+});
+
+/**
+ * v(design-gate audience decoupling) fix 1 — BREADTH_THRESHOLDS.balanced.genre.maxPerGenre
+ * (5) is a fixed number that's mathematically unreachable for the common
+ * case of an 18-song pack spread over 3-4 candidate genres (18÷3=6 > 5,
+ * 18÷4=4.5→5 borderline). effectiveMaxPerGenre = max(staticThreshold,
+ * ceil(songCount / candidateGenreCount)) only ever WIDENS the ceiling, so
+ * this must never change behavior for a pack whose candidate pool is already
+ * >= 4 (18÷4=5, unchanged) — only packs with 3 or fewer candidates get a
+ * real, different (wider) ceiling.
+ */
+describe('evaluateDesignGate — genre-max effectiveMaxPerGenre (fix 1)', () => {
+  // v(design-gate audience decoupling) — a REAL run of
+  // scripts/v378-stress-test.ts (real 'good-morning-memory-radio' channel,
+  // real free-text senior concepts) proved core/setDirector.ts's own
+  // directSetLocal genre-selection ROUTINELY narrows opts.genreIds to as
+  // few as 4 candidates for ordinary senior concepts — applying the
+  // widening there measurably changed real senior-oldpop-workspace
+  // genre-max pass/fail outcomes. The fix is therefore EXCLUDED for
+  // workspaceId === 'senior-oldpop' (see designGate.ts's own doc comment on
+  // this exact exclusion) — every test below uses a non-senior-oldpop
+  // workspace id so the widening under test actually applies; the senior-
+  // oldpop exclusion itself is proven separately, at the bottom of this
+  // block, using the real workspace id.
+  function nonSeniorOpts(genreIds: string[]): GenerationOptions {
+    return baseOpts({ genreIds, channel: { ...CHANNEL, archetype: 'kr-idol-male' } });
+  }
+  function nonSeniorConstraints(opts: GenerationOptions): ResolvedConstraints {
+    return resolveConstraintsFromOptions(opts, audienceProfileById('kr-idol-male')!, 'kr-idol-male');
+  }
+  function slotsWithGenres(genreIds: string[]): PreassignedSongSlot[] {
+    return healthySlots().map((slot, i) => ({ ...slot, genreId: genreIds[i % genreIds.length] }));
+  }
+
+  it('non-senior workspace, 18 songs / 3 candidate genres: effectiveMaxPerGenre = max(5, ceil(18/3)) = 6 — 6/genre now PASSES (used to block at the static 5)', () => {
+    const genreIds = ['oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul'];
+    const opts = nonSeniorOpts(genreIds);
+    // 18 songs over 3 genres, 6/6/6 — maxCount = 6.
+    const slots = slotsWithGenres(genreIds);
+    const result = evaluateDesignGate(slots, nonSeniorConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'genre-max')).toBe(false);
+  });
+
+  it('non-senior workspace, 18 songs / 3 candidate genres: 7/genre still BLOCKS (effectiveMaxPerGenre=6, 7 > 6)', () => {
+    const genreIds = ['oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul'];
+    const opts = nonSeniorOpts(genreIds);
+    const slots = healthySlots().map((slot, i) => ({ ...slot, genreId: i < 7 ? genreIds[0] : genreIds[(i % 2) + 1] }));
+    const result = evaluateDesignGate(slots, nonSeniorConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'genre-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 6곡 (후보 3종 기준 자동 조정, 기본 5곡)');
+    expect(issue!.actual).toBe('7곡');
+  });
+
+  it('non-senior workspace, 18 songs / 4 candidate genres: effectiveMaxPerGenre = max(5, ceil(18/4)) = 5 — unchanged from the static threshold', () => {
+    const genreIds = ['oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul', 'oldpop-hearth-acoustic'];
+    const opts = nonSeniorOpts(genreIds);
+    // 5/5/4/4 split — maxCount = 5, right at the (unchanged) static ceiling.
+    const slots = healthySlots().map((slot, i) => ({ ...slot, genreId: genreIds[i % 4] }));
+    const result = evaluateDesignGate(slots, nonSeniorConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'genre-max')).toBe(false);
+    const overSlots = healthySlots().map((slot, i) => ({ ...slot, genreId: i < 6 ? genreIds[0] : genreIds[(i % 3) + 1] }));
+    const overResult = evaluateDesignGate(overSlots, nonSeniorConstraints(opts), opts);
+    const issue = overResult.blocking.find(i => i.id === 'genre-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 5곡'); // no "자동 조정" suffix — this IS the static threshold.
+  });
+
+  it('regression: the standard senior healthy fixture (5 candidate genres via CHANNEL.preferredGenres) is byte-identical — effectiveMaxPerGenre stays exactly 5 (ceil(18/5)=4 <= 5)', () => {
+    const opts = baseOpts(); // genreIds: CHANNEL.preferredGenres, 5 entries
+    const result = evaluateDesignGate(healthySlots(), baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'genre-max')).toBe(false);
+    // A pack that hits exactly the OLD static ceiling (5/genre) must still pass, unaffected.
+    const slots = healthySlots().map((slot, i) => ({
+      ...slot,
+      genreId: i === 0 ? 'oldpop-close-harmony-duo' : i < 13 ? 'oldpop-warm-morning-glow' : 'oldpop-soft-rock-am'
+    }));
+    // maxCount here is 12 (oldpop-warm-morning-glow), which must still BLOCK exactly as before.
+    const overResult = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const issue = overResult.blocking.find(i => i.id === 'genre-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 5곡');
+    expect(issue!.actual).toBe('12곡');
+  });
+
+  it('regression: senior-oldpop workspace is EXCLUDED from the widening even with a genuinely narrow (3) candidate pool — reproduces the real scripts/v378-stress-test.ts finding that forced this exclusion', () => {
+    const genreIds = ['oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul'];
+    const opts = baseOpts({ genreIds }); // baseConstraints below resolves workspaceId: 'senior-oldpop'
+    const slots = slotsWithGenres(genreIds); // 6/6/6 split — would PASS under the widened rule (max 6), must still BLOCK for senior-oldpop (max 5, unchanged).
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'genre-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 5곡'); // never the "자동 조정" text for senior-oldpop.
+    expect(issue!.actual).toBe('6곡');
+  });
+});
+
+/**
+ * v(design-gate audience decoupling) fix 2 — moneyChordBlockingIssues/
+ * moneyChordAdvisoryIssues used to apply the auto-rotation "max 5 songs on
+ * one progression" rule unconditionally, which v5.7's own explicit-choice
+ * feature (buildUserChosenProgressionPlan, 50-65% of the pack on the chosen
+ * progression) always failed by design. usesUserChosenProgressionPlan(opts)
+ * now branches to a dedicated set of checks instead.
+ */
+describe('evaluateDesignGate — money-chord explicit-choice mode (fix 2)', () => {
+  function explicitChoiceOpts(overrides: Partial<GenerationOptions> = {}): GenerationOptions {
+    return baseOpts({ moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true, ...overrides });
+  }
+  function slotsForPlan(plan: string[]): PreassignedSongSlot[] {
+    return healthySlots().map((slot, i) => ({ ...slot, moneyChordId: plan[i] }));
+  }
+
+  it('a real 10/18-song explicit-choice pack (buildUserChosenProgressionPlan) now PASSES where the old flat max-5 rule would have blocked it', () => {
+    const opts = explicitChoiceOpts();
+    const plan = buildUserChosenProgressionPlan('winterBallad', 18, 12345);
+    const chosenCount = plan.filter(id => id === 'winterBallad').length;
+    // Real, measured worked example — document the actual number this real
+    // builder produces for an 18-song pack (matches this task's own
+    // "9-11 of 18" expectation).
+    expect(chosenCount).toBeGreaterThanOrEqual(9);
+    expect(chosenCount).toBeLessThanOrEqual(11);
+    const slots = slotsForPlan(plan);
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id.startsWith('moneychord'))).toBe(false);
+    // Prove the OLD rule really would have blocked this (maxCount > 5) —
+    // confirms this is a real behavior change, not a no-op.
+    expect(chosenCount).toBeGreaterThan(5);
+  });
+
+  it('blocks moneychord-explicit-choice-zero when the chosen progression got 0 songs', () => {
+    const opts = explicitChoiceOpts();
+    const plan = new Array(18).fill('default');
+    const slots = slotsForPlan(plan);
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'moneychord-explicit-choice-zero')).toBe(true);
+  });
+
+  it(`blocks moneychord-explicit-choice-flagship when none of tracks 1-${REPRESENTATIVE_TRACK_COUNT} (the real REPRESENTATIVE_TRACK_COUNT) carry the chosen progression`, () => {
+    const opts = explicitChoiceOpts();
+    const plan = buildUserChosenProgressionPlan('winterBallad', 18, 12345);
+    // Overwrite exactly the representative prefix to something else, keep the rest.
+    for (let i = 0; i < REPRESENTATIVE_TRACK_COUNT; i += 1) plan[i] = 'default';
+    const slots = slotsForPlan(plan);
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'moneychord-explicit-choice-flagship');
+    expect(issue).toBeDefined();
+  });
+
+  it('warns (advisory, not blocking) moneychord-explicit-choice-share when the chosen share falls outside 45~65%', () => {
+    const opts = explicitChoiceOpts();
+    // Force the chosen progression down to a 20% share (well under 45%).
+    const plan = new Array(18).fill('default').map((id, i) => (i < 4 ? 'winterBallad' : id));
+    // Representative prefix still carries it (avoid tripping the flagship blocking check in this share-only test).
+    plan[0] = 'winterBallad';
+    const slots = slotsForPlan(plan);
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id.startsWith('moneychord'))).toBe(false);
+    const advisory = result.advisory.find(i => i.id === 'moneychord-explicit-choice-share');
+    expect(advisory).toBeDefined();
+    expect(advisory!.actual).toContain('%');
+  });
+
+  it('regression: the auto/non-explicit path (moneyChordModeIsExplicitChoice unset) still uses the original max-5/4-6-species rules, byte-identical', () => {
+    const opts = baseOpts(); // moneyChordMode: 'default', no explicit-choice flag
+    const overConcentrated = healthySlots().map((slot, i) => ({ ...slot, moneyChordId: i < 8 ? 'emotional' : `id-${i}` }));
+    const result = evaluateDesignGate(overConcentrated, baseConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'moneychord-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 5곡');
+    expect(issue!.actual).toBe('8곡');
+
+    const lowVariety = healthySlots().map((slot, i) => ({ ...slot, moneyChordId: i < 9 ? 'emotional' : 'canon' }));
+    const varietyResult = evaluateDesignGate(lowVariety, baseConstraints(opts), opts);
+    const varietyAdvisory = varietyResult.advisory.find(i => i.id === 'moneychord-variety');
+    expect(varietyAdvisory).toBeDefined();
+  });
+});
+
+/**
+ * v(design-gate audience decoupling) fix 3 — a channel.vocalQuotaOverride
+ * (e.g. a K-pop boy-group's real {male:15,female:0,mixed:3}) is
+ * mathematically incompatible with "3+ distinct types"/"no run > 2" — this
+ * replaces those checks with a quota-fidelity check for override channels
+ * only, and skips them entirely (never fires vocal-type-variety/
+ * vocal-type-min/vocal-consecutive/vocal-segment-balance for such a
+ * channel).
+ */
+describe('evaluateDesignGate — vocal quota-fidelity for vocalQuotaOverride channels (fix 3)', () => {
+  const IDOL_CHANNEL: ChannelProfile = { ...CHANNEL, archetype: 'kr-idol-male', vocalQuotaOverride: { male: 15, female: 0, mixed: 3 } };
+
+  function idolOpts(overrides: Partial<GenerationOptions> = {}): GenerationOptions {
+    return baseOpts({ channel: IDOL_CHANNEL, vocalTone: IDOL_CHANNEL.defaultVocal, ...overrides });
+  }
+  /** A real male-heavy sequence a 15/0/3 quota plan would actually produce — long male runs are structurally expected, not a bug. */
+  function idolSlots(maleRun = 15, mixedRun = 3): PreassignedSongSlot[] {
+    const types: ('male' | 'mixed')[] = [
+      ...Array(5).fill('male'), 'mixed',
+      ...Array(5).fill('male'), 'mixed',
+      ...Array(5).fill('male'), 'mixed'
+    ] as ('male' | 'mixed')[];
+    void maleRun; void mixedRun;
+    return healthySlots().map((slot, i) => ({ ...slot, vocalType: types[i] }));
+  }
+
+  it('a real 15/0/3 pack now PASSES quota-fidelity where it used to fail the distinct-type-count/consecutive-run checks', () => {
+    const opts = idolOpts();
+    const slots = idolSlots();
+    const maleCount = slots.filter(s => s.vocalType === 'male').length;
+    const mixedCount = slots.filter(s => s.vocalType === 'mixed').length;
+    expect(maleCount).toBe(15);
+    expect(mixedCount).toBe(3);
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id.startsWith('vocal-'))).toBe(false);
+    // Prove the OLD generic checks really would have fired on this exact
+    // shape (15 male tracks guarantees a run > 2 and 0 female = < 3 distinct
+    // types) — confirms this is a real behavior change.
+    expect(maleCount).toBeGreaterThan(2 * 5); // far beyond any "no run > 2" tolerance
+  });
+
+  it('blocks vocal-quota-fidelity when the actual split drifts more than ±1 from the (songCount-scaled) override', () => {
+    const opts = idolOpts();
+    const slots = healthySlots().map(slot => ({ ...slot, vocalType: 'male' as const })); // 18/0/0, override wants 15/0/3
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const issues = result.blocking.filter(i => i.id === 'vocal-quota-fidelity');
+    expect(issues.length).toBeGreaterThan(0);
+    expect(result.blocking.some(i => i.id === 'vocal-type-variety')).toBe(false); // the old check never fires for override channels
+    expect(result.blocking.some(i => i.id === 'vocal-consecutive')).toBe(false);
+  });
+
+  it('female:0 is honored exactly (no tolerance) — even 1 female song blocks fidelity', () => {
+    const opts = idolOpts();
+    const slots = idolSlots();
+    slots[0] = { ...slots[0], vocalType: 'female' as any };
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'vocal-quota-fidelity')).toBe(true);
+  });
+
+  it('scaleVocalQuota confirms the real (songCount-scaled) target this check compares against: 15/0/3 at songCount=18 scales to itself unchanged', () => {
+    expect(scaleVocalQuota({ male: 15, female: 0, mixed: 3 }, 18)).toEqual({ male: 15, female: 0, mixed: 3 });
+  });
+
+  it('regression: a channel with NO vocalQuotaOverride is completely unaffected — still uses the original distinct-type/consecutive/segment checks, byte-identical', () => {
+    const opts = baseOpts();
+    const slots = healthySlots().map(slot => ({ ...slot, vocalType: 'male' as const }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const ids = result.blocking.map(i => i.id);
+    expect(ids).toContain('vocal-type-variety');
+    expect(ids).toContain('vocal-type-min');
+    expect(ids).toContain('vocal-consecutive');
+    expect(ids).not.toContain('vocal-quota-fidelity');
+  });
+});
+
+/**
+ * v(design-gate audience decoupling) fix 4 — arc bundle structural checks
+ * for kids repetition-cycle workspaces: (a) the observed bundle-phase SET
+ * must exactly match one of the 3 real age-tier definitions (arcModels.ts),
+ * (b) the last bundle (by trackNo) must be measurably lower-intensity than
+ * every other bundle actually used, (c) no 3+ consecutive 'kids-moving'
+ * songs (advisory).
+ */
+describe('evaluateDesignGate — kids arc bundle structure (fix 4)', () => {
+  const KR_KIDS_AUDIENCE_PROFILE = audienceProfileForChannelArchetype('kr-kids-song', undefined);
+
+  function kidsConstraints(opts: GenerationOptions): ResolvedConstraints {
+    return resolveConstraintsFromOptions(opts, KR_KIDS_AUDIENCE_PROFILE, 'kr-kids');
+  }
+  function kidsOpts(overrides: Partial<GenerationOptions> = {}): GenerationOptions {
+    return baseOpts({ channel: { ...CHANNEL, archetype: 'kr-kids-song' }, audience: 'kids', ...overrides });
+  }
+  function kidsSlotsWithArc(arcPhases: string[]): PreassignedSongSlot[] {
+    return healthySlots().map((slot, i) => ({ ...slot, arcPhase: arcPhases[i], killingPointId: i < 14 ? `kp-${i % 8}` : undefined }));
+  }
+
+  it('a real default-tier (kids-t2, 4-bundle) 18-song plan matches its own tier exactly — no bundle-set-mismatch, no last-bundle-intensity issue', () => {
+    const opts = kidsOpts();
+    const plan = kidsArcBundlePlanFor(18); // default tier
+    // Real per-tier composition, exact expected shape from arcModels.ts's own bundle plan.
+    expect(plan.map(e => `${e.id}:${e.count}`)).toEqual(['familiar:4', 'learning:5', 'moving:5', 'calm:4']);
+    const phases = buildRepetitionCyclePlan(18).map(p => p.phase);
+    const slots = kidsSlotsWithArc(phases);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'kids-arc-bundle-set-mismatch')).toBe(false);
+    expect(result.blocking.some(i => i.id === 'kids-arc-last-bundle-intensity')).toBe(false);
+  });
+
+  it('a real T1 (kids-t1, 3-bundle: familiar/learning/calm) plan is recognized and validated against its OWN tier definition', () => {
+    const opts = kidsOpts();
+    const plan = kidsArcBundlePlanFor(18, 'kids-t1');
+    expect(plan.map(e => e.id)).toEqual(['familiar', 'learning', 'calm']);
+    const phases = buildRepetitionCyclePlan(18, 'kids-t1').map(p => p.phase);
+    const slots = kidsSlotsWithArc(phases);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'kids-arc-bundle-set-mismatch')).toBe(false);
+  });
+
+  it('a real T3 (kids-t3, 5-bundle: +closing) plan is recognized and validated against its OWN tier definition', () => {
+    const opts = kidsOpts();
+    const plan = kidsArcBundlePlanFor(18, 'kids-t3');
+    expect(plan.map(e => e.id)).toEqual(['familiar', 'learning', 'moving', 'calm', 'closing']);
+    const phases = buildRepetitionCyclePlan(18, 'kids-t3').map(p => p.phase);
+    const slots = kidsSlotsWithArc(phases);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'kids-arc-bundle-set-mismatch')).toBe(false);
+  });
+
+  it('blocks kids-arc-bundle-set-mismatch when the bundle phases used do not correspond to ANY real age-tier definition', () => {
+    const opts = kidsOpts();
+    // A genuinely invalid mix: default's 'moving' plus T3's 'closing' together — no single tier defines this combination.
+    const phases = Array.from({ length: 18 }, (_, i) => ['kids-familiar', 'kids-moving', 'kids-closing'][i % 3]);
+    const slots = kidsSlotsWithArc(phases);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'kids-arc-bundle-set-mismatch')).toBe(true);
+  });
+
+  it('blocks kids-arc-last-bundle-intensity when the LAST track (by trackNo) is not the tier\'s own lowest-intensity closing bundle', () => {
+    const opts = kidsOpts();
+    const phases = buildRepetitionCyclePlan(18).map(p => p.phase); // default tier: ends on 'kids-calm' (lowest intensity)
+    // Swap the last track to 'kids-moving' (the HIGHEST intensity bundle in this tier) instead.
+    const brokenPhases = [...phases];
+    brokenPhases[brokenPhases.length - 1] = 'kids-moving';
+    const slots = kidsSlotsWithArc(brokenPhases);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'kids-arc-last-bundle-intensity');
+    expect(issue).toBeDefined();
+  });
+
+  it('advisory: warns (does not block) kids-arc-moving-consecutive when 3+ kids-moving songs run consecutively', () => {
+    const opts = kidsOpts();
+    const phases = buildRepetitionCyclePlan(18).map(p => p.phase);
+    // Force 3 consecutive kids-moving tracks somewhere in the middle, keep the tail intact so the last-bundle check still passes.
+    const idx = phases.findIndex(p => p === 'kids-moving');
+    const forced = [...phases];
+    forced[idx] = 'kids-moving';
+    forced[idx + 1] = 'kids-moving';
+    forced[idx + 2] = 'kids-moving';
+    const slots = kidsSlotsWithArc(forced);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'kids-arc-moving-consecutive')).toBe(false); // never blocking
+    const advisory = result.advisory.find(i => i.id === 'kids-arc-moving-consecutive');
+    expect(advisory).toBeDefined();
+  });
+
+  it('regression: senior/adult (five-phase) workspace never produces any kids-arc-* issue, byte-identical (no-op for non-kids arcModelId)', () => {
+    const opts = baseOpts();
+    const result = evaluateDesignGate(healthySlots(), baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id.startsWith('kids-arc-'))).toBe(false);
+    expect(result.advisory.some(i => i.id.startsWith('kids-arc-'))).toBe(false);
+  });
+});
+
+/**
+ * v(design-gate audience decoupling) fix 5 — arrangementDensityBlockingIssues
+ * used to hard-code fullCount <= 4 globally; it now reads
+ * ResolvedConstraints.arrangementDensityLimits.fullMax, resolved from the
+ * real AudienceProfile per workspace.
+ */
+describe('evaluateDesignGate — arrangement density profile-aware fullMax (fix 5)', () => {
+  function densitySlots(fullCount: number, total = 18): PreassignedSongSlot[] {
+    return healthySlots().slice(0, total).map((slot, i) => ({
+      ...slot,
+      arrangementDensity: (i < fullCount ? 'full' : i % 2 === 0 ? 'medium' : 'sparse') as 'sparse' | 'medium' | 'full'
+    }));
+  }
+
+  it('senior: fullMax stays exactly 4 (the real, already-tuned senior number) — 4 passes, 5 blocks with "≤ 4곡", byte-identical wording', () => {
+    const opts = baseOpts();
+    const passResult = evaluateDesignGate(densitySlots(4), baseConstraints(opts), opts);
+    expect(passResult.blocking.some(i => i.id === 'arrangement-density-full-max')).toBe(false);
+    const blockResult = evaluateDesignGate(densitySlots(5), baseConstraints(opts), opts);
+    const issue = blockResult.blocking.find(i => i.id === 'arrangement-density-full-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 4곡');
+    expect(issue!.actual).toBe('5곡');
+  });
+
+  it('kr-idol-male: fullMax is 10 — a real performance-track-heavy pack (9 full) now passes where the old global fullMax:4 would have blocked it', () => {
+    const idolProfile = audienceProfileById('kr-idol-male')!;
+    const opts = baseOpts({ channel: { ...CHANNEL, archetype: 'kr-idol-male' } });
+    const constraints = resolveConstraintsFromOptions(opts, idolProfile, 'kr-idol-male');
+    expect(constraints.arrangementDensityLimits.fullMax).toBe(10);
+    const result = evaluateDesignGate(densitySlots(9), constraints, opts);
+    expect(result.blocking.some(i => i.id === 'arrangement-density-full-max')).toBe(false);
+    const overResult = evaluateDesignGate(densitySlots(11), constraints, opts);
+    const issue = overResult.blocking.find(i => i.id === 'arrangement-density-full-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 10곡');
+  });
+
+  it('kids-0to2 (lullaby-leaning): fullMax is 2', () => {
+    const profile = audienceProfileById('kids-0to2')!;
+    expect(profile.arrangementDensityLimits.fullMax).toBe(2);
+    const opts = baseOpts({ channel: { ...CHANNEL, archetype: 'kr-kids-song' } });
+    const constraints = resolveConstraintsFromOptions(opts, profile, 'kr-kids');
+    const result = evaluateDesignGate(densitySlots(3), constraints, opts);
+    expect(result.blocking.some(i => i.id === 'arrangement-density-full-max')).toBe(true);
+  });
+
+  it('kids-4to7 (action-leaning): fullMax is 7', () => {
+    const profile = audienceProfileById('kids-4to7')!;
+    expect(profile.arrangementDensityLimits.fullMax).toBe(7);
+  });
+
+  it('kr-2030/jp-2030: fullMax is 6 for all four real profiles', () => {
+    expect(audienceProfileById('kr-2030-emotional')!.arrangementDensityLimits.fullMax).toBe(6);
+    expect(audienceProfileById('kr-2030-electro')!.arrangementDensityLimits.fullMax).toBe(6);
+    expect(audienceProfileById('jp-2030-melodic')!.arrangementDensityLimits.fullMax).toBe(6);
+    expect(audienceProfileById('jp-2030-anime')!.arrangementDensityLimits.fullMax).toBe(6);
+  });
+
+  it('regression: SENIOR_AUDIENCE_PROFILE.arrangementDensityLimits.fullMax is exactly 4, matching the pre-fix hard-coded constant verbatim', () => {
+    expect(SENIOR_AUDIENCE_PROFILE.arrangementDensityLimits.fullMax).toBe(4);
+  });
+});
+
+/**
+ * v(design-gate audience decoupling) — explicit senior-workspace byte-
+ * identical proof, covering every one of the 5 fixes' own senior-facing
+ * path in one place (the task's own top-priority constraint: "시니어의 기존
+ * 관문 기준은 그대로 유지하십시오").
+ */
+describe('evaluateDesignGate — senior-workspace byte-identical regression sweep', () => {
+  it('BREADTH_THRESHOLDS.balanced.genre.maxPerGenre is untouched (still 5) — only the design-gate CHECK site adapts, never the source-of-truth table', () => {
+    expect(BREADTH_THRESHOLDS.balanced.genre.maxPerGenre).toBe(5);
+    expect(BREADTH_THRESHOLDS.focused.genre.maxPerGenre).toBe(12);
+    expect(BREADTH_THRESHOLDS.variety.genre.maxPerGenre).toBe(4);
+  });
+
+  it('a healthy senior pack (real fixture) passes with zero blocking/advisory shape drift', () => {
+    const opts = baseOpts();
+    const result = evaluateDesignGate(healthySlots(), baseConstraints(opts), opts);
+    expect(result).toEqual({ passed: true, blocking: [], advisory: [] });
+  });
+
+  it('a maximally unhealthy senior pack produces the exact same issue id set as before this task\'s fixes (no fix silently loosened or tightened a senior-facing check)', () => {
+    const opts = baseOpts();
+    const slots = healthySlots().map(slot => ({
+      ...slot,
+      vocalType: 'male' as const,
+      tempo: 96,
+      genreId: 'oldpop-warm-morning-glow',
+      killingPointId: undefined,
+      arcPhase: 'build',
+      arrangementDensity: 'full' as const
+    }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const ids = new Set(result.blocking.map(i => i.id));
+    // Every one of these fired before this task's fixes and must still fire, unchanged.
+    for (const expectedId of [
+      'vocal-type-variety', 'vocal-type-min', 'vocal-consecutive', 'vocal-segment-balance',
+      'bpm-stddev', 'bpm-range',
+      'genre-max', 'genre-consecutive',
+      'killing-point-count', 'killing-point-variety', 'arc-phases',
+      'arrangement-density-full-max'
+    ]) {
+      expect(ids.has(expectedId)).toBe(true);
+    }
+    // None of the NEW fix-2/fix-4 issue ids ever appear for a senior pack (default moneyChordMode, five-phase arcModelId).
+    for (const newId of [
+      'moneychord-explicit-choice-zero', 'moneychord-explicit-choice-flagship', 'moneychord-explicit-choice-share',
+      'vocal-quota-fidelity', 'kids-arc-bundle-set-mismatch', 'kids-arc-last-bundle-intensity', 'kids-arc-moving-consecutive'
+    ]) {
+      expect(ids.has(newId)).toBe(false);
+    }
+    // genre-max's own expected text stays the plain, non-auto-adjusted form (5 candidates, ceil(18/5)=4 <= 5).
+    const genreMaxIssue = result.blocking.find(i => i.id === 'genre-max');
+    expect(genreMaxIssue!.expected).toBe('≤ 5곡');
   });
 });

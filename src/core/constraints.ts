@@ -90,6 +90,8 @@ export interface ResolvedConstraints {
   songLengthRange: [number, number];
   lyricWordRange: [number, number];
   tempoRange: [number, number];
+  /** See AudienceProfile.arrangementDensityLimits's own doc comment (types.ts) — resolved verbatim from the audience profile, same pass-through pattern as tempoRange/songLengthRange just above. */
+  arrangementDensityLimits: { sparseMin: number; fullMax: number };
 
   requiredAtoms: string[];
   hardExclusions: string[];
@@ -751,6 +753,7 @@ export function resolveConstraints(
     songLengthRange: audience.songLengthSecondsRange,
     lyricWordRange: audience.lyricWordRange,
     tempoRange: [audience.tempoFloor, audience.tempoCeiling],
+    arrangementDensityLimits: audience.arrangementDensityLimits,
     requiredAtoms: [],
     hardExclusions: [...audience.hardExclusions],
     relaxableAtPeak: [...audience.relaxableAtPeak],

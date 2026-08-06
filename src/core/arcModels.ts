@@ -250,3 +250,28 @@ export function expectedArcPhaseCount(arcModelId: 'five-phase' | 'repetition-cyc
   const counts = scaleBundleCounts(bundles, songCount);
   return counts.filter(count => count > 0).length;
 }
+
+/**
+ * v(design-gate audience decoupling follow-up) — purely additive: exposes the
+ * SAME per-bundle (id/phase/intensity) data expectedArcPhaseCount already
+ * computes a bare count from, so a caller (core/designGate.ts's new
+ * structural checks) can validate WHICH bundles a real plan used and their
+ * relative intensity, not just how many. Reuses bundlesForAgeTier/
+ * scaleBundleCounts verbatim (no new math, no change to either) — this file's
+ * own existing bundle/intensity definitions and buildRepetitionCyclePlan/
+ * expectedArcPhaseCount's own behavior stay byte-for-byte untouched.
+ */
+export interface KidsArcBundlePlanEntry {
+  id: KidsArcBundleId;
+  phase: string;
+  intensity: number;
+  /** Scaled count for this (songCount, ageTier) — 0 for a bundle a small songCount legitimately drops (see scaleBundleCounts's own largest-remainder allocation). */
+  count: number;
+}
+
+export function kidsArcBundlePlanFor(songCount: number, ageTier?: string): KidsArcBundlePlanEntry[] {
+  const bundles = bundlesForAgeTier(ageTier);
+  if (songCount <= 0) return bundles.map(bundle => ({ id: bundle.id, phase: bundle.phase, intensity: bundle.intensity, count: 0 }));
+  const counts = scaleBundleCounts(bundles, songCount);
+  return bundles.map((bundle, i) => ({ id: bundle.id, phase: bundle.phase, intensity: bundle.intensity, count: counts[i] }));
+}

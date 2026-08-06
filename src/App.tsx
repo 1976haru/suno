@@ -26,6 +26,7 @@ import { useChannelManager } from './hooks/useChannelManager';
 import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
+import { evaluateGenerationRequest } from './core/generationPreflight';
 import { importSongsJson, extractBridgeImportMeta, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
 import { parseSetName, sanitizeLabel } from './utils/setNaming';
@@ -208,6 +209,21 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
   });
 
   const [opts, setOpts] = useState(() => createInitialOptions(cm.selectedChannel));
+
+  /**
+   * TASK (generation preflight) — shared with Step3Generate.tsx via props
+   * (mirrors designGateStatus/setDesignGateStatus's own lift-to-App pattern
+   * just below): a content-based signature of every mismatch/design-gate
+   * issue the user has explicitly acknowledged this attempt (see
+   * core/generationPreflight.ts's own PreflightResult.mismatchSignature doc
+   * comment). Every real generation trigger — this component's own
+   * onGenerate/onGenerateMultiSet/onHookWarningContinueAnyway/
+   * onGenerateFreshFromPrompt AND Step3Generate.tsx's bridge-copy handlers —
+   * reads the SAME state here, so acknowledging on one screen carries
+   * through to every trigger point instead of each tracking its own
+   * (potentially disagreeing) acknowledgment.
+   */
+  const [generationAcknowledgedSignature, setGenerationAcknowledgedSignature] = useState<string | undefined>(undefined);
 
   const selectedGenres = useMemo(() => genrePacks.filter(genre => opts.genreIds.includes(genre.id)), [opts.genreIds]);
   const selectedMoods = useMemo(() => moodPacks.filter(mood => opts.moodIds.includes(mood.id)), [opts.moodIds]);
@@ -546,7 +562,38 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
     return reports;
   }
 
+  /**
+   * TASK (generation preflight) — the one real check every generation
+   * trigger point in this component calls from INSIDE its own handler
+   * function (never only via a `disabled` prop on some button — that's
+   * exactly the bug this exists to fix: the top-of-page global generate
+   * button at the bottom of this file had no check at all beyond
+   * `gen.isGenerating`, completely bypassing v5.10's own Step3Generate.tsx
+   * contract screen). Builds the exact same slots/contract/design-gate
+   * resolveGenerationPreflight needs (core/generationPreflight.ts's
+   * evaluateGenerationRequest) off the CURRENT live opts/channel, and — when
+   * blocked — navigates to currentStep 4 (Step3Generate.tsx, the screen that
+   * actually renders the contract/design-gate panels and the acknowledgment
+   * UI) instead of letting generation start. Returns whether the caller may
+   * proceed.
+   */
+  async function requestGeneration(): Promise<boolean> {
+    const effectiveOpts = { ...opts, channel: cm.selectedChannel };
+    const preflight = await evaluateGenerationRequest({
+      workspaceId,
+      options: effectiveOpts,
+      genres: fallbackGenres(),
+      acknowledgedSignature: generationAcknowledgedSignature
+    });
+    if (!preflight.allowed) {
+      setCurrentStep(4);
+      return false;
+    }
+    return true;
+  }
+
   async function onGenerate() {
+    if (!(await requestGeneration())) return;
     // v3.12 PART C-3 — hook pool capacity is a local-engine concern shared by
     // every provider path (batch/local/hybrid all pre-allocate hooks
     // locally), so this gate runs before any of the branches below rather
@@ -578,6 +625,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
   }
 
   async function onGenerateMultiSet() {
+    if (!(await requestGeneration())) return;
     const { setCount, songsPerSet } = clampMultiSetTotal(multiSetCount, multiSetSongsPerSet);
     const totalSongs = setCount * songsPerSet;
 
@@ -674,8 +722,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
     await copyText(info);
   }
 
-  function onHookWarningContinueAnyway() {
+  async function onHookWarningContinueAnyway() {
     setHookExhaustionWarning(null);
+    // This is its own real trigger point, reached from the hook-exhaustion
+    // modal AFTER onGenerate's own requestGeneration() check already ran —
+    // re-checking here (rather than trusting that earlier check) matters
+    // because a stale closure or a modal left open across an options edit
+    // could otherwise reach proceedWithGeneration() with no check at all.
+    if (!(await requestGeneration())) return;
     void proceedWithGeneration();
   }
 
@@ -738,7 +792,10 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
     })();
   }
 
-  function onGenerateFreshFromPrompt() {
+  async function onGenerateFreshFromPrompt() {
+    // "캐시 무시하고 새로 생성" — its own real trigger point, reachable from
+    // CachePromptModal without ever going through onGenerate/proceedWithGeneration.
+    if (!(await requestGeneration())) return;
     const key = cachePrompt?.key;
     setCachePrompt(null);
     runGeneration(key);
@@ -1070,6 +1127,9 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
               onToggleExpertMode={toggleExpertMode}
               onInstructionReady={setTopBridgeInstruction}
               bridgeImportedSetAvoid={bridgeImportedSetAvoid}
+              workspaceId={workspaceId}
+              acknowledgedSignature={generationAcknowledgedSignature}
+              onAcknowledgedSignatureChange={setGenerationAcknowledgedSignature}
               multiSet={{
                 mode: multiSetMode,
                 onModeChange: setMultiSetMode,
@@ -1174,7 +1234,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
           stats={hookExhaustionWarning}
           onCleanUpHistory={() => void onHookWarningCleanUpHistory()}
           onCopyExpansionInfo={() => void onHookWarningCopyExpansionInfo()}
-          onContinueAnyway={onHookWarningContinueAnyway}
+          onContinueAnyway={() => void onHookWarningContinueAnyway()}
           onClose={() => setHookExhaustionWarning(null)}
           packSongCount={hookExhaustionPackSongCount}
         />
@@ -1184,7 +1244,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace }: WizardAppProps) {
         open={!!cachePrompt}
         cachedAt={cachePrompt?.cachedAt || ''}
         onUseCache={onUseCachedResult}
-        onGenerateFresh={onGenerateFreshFromPrompt}
+        onGenerateFresh={() => void onGenerateFreshFromPrompt()}
         onCancel={() => setCachePrompt(null)}
       />
     </main>

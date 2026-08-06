@@ -7,7 +7,8 @@ import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { isKidsArchetype } from '../utils/channelArchetype';
-import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
+import { expectedArcPhaseCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
+import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -178,10 +179,25 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   const issues: DesignIssue[] = [];
   if (!types.length) return issues; // no vocalType at all is a data-shape problem, not this gate's concern (usesVocalQuota is unconditionally true as of v3.77 — see vocalPlan.ts)
 
-  const threshold = BREADTH_THRESHOLDS[constraints.breadth].vocal;
   const counts = countBy(types);
-  const distinctTypes = Object.keys(counts).length;
   const autoFix = () => withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
+
+  // v(design-gate audience decoupling) — a channel with a fixed
+  // vocalQuotaOverride (e.g. a K-pop boy-group's real {male:15,female:0,
+  // mixed:3}) is mathematically incompatible with the generic diversity
+  // checks below: 15/18 male tracks guarantee long same-type runs no matter
+  // how the remaining 3 are spread, and female:0 is the channel's own
+  // deliberate choice, not a variety failure. Quota-fidelity replaces every
+  // one of those checks (distinct-type count / per-type minimum / consecutive
+  // run / segment balance) with "did the plan land within the override's own
+  // (songCount-scaled) counts" instead. A channel with no override is
+  // completely unaffected — falls through to the unchanged checks below.
+  if (opts.channel.vocalQuotaOverride) {
+    return quotaFidelityIssues(counts, opts.channel.vocalQuotaOverride, opts.songCount, autoFix);
+  }
+
+  const threshold = BREADTH_THRESHOLDS[constraints.breadth].vocal;
+  const distinctTypes = Object.keys(counts).length;
 
   if (distinctTypes < threshold.minDistinctTypes) {
     issues.push(issue({
@@ -229,6 +245,45 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
       autoFix
     }));
   }
+  return issues;
+}
+
+/**
+ * v(design-gate audience decoupling) — see vocalIssues' own doc comment for
+ * why a vocalQuotaOverride channel needs a different check entirely rather
+ * than a relaxed version of the same one. `scaleVocalQuota` is the exact
+ * same function core/batchPreallocation.ts/localGenerator.ts use to turn the
+ * channel's own raw override into this pack's real per-song target, so
+ * "expected" here is always the actual songCount-scaled target real
+ * generation aims for, not the raw override numbers verbatim. ±1 tolerance
+ * absorbs ordinary largest-remainder rounding; a type whose scaled target is
+ * exactly 0 must land at exactly 0 (no tolerance) since that's the channel's
+ * own explicit "never this type" choice, not a number that rounding could
+ * legitimately nudge.
+ */
+function quotaFidelityIssues(
+  counts: Record<string, number>,
+  override: VocalQuota,
+  songCount: number,
+  autoFix: () => Partial<GenerationOptions>
+): DesignIssue[] {
+  const scaled = scaleVocalQuota(override, songCount);
+  const issues: DesignIssue[] = [];
+  (['male', 'female', 'mixed'] as const).forEach(type => {
+    const actual = counts[type] ?? 0;
+    const expected = scaled[type];
+    const withinTolerance = expected === 0 ? actual === 0 : Math.abs(actual - expected) <= 1;
+    if (!withinTolerance) {
+      issues.push(issue({
+        id: 'vocal-quota-fidelity',
+        labelKo: '고정 보컬 쿼터 준수',
+        expected: expected === 0 ? `${type} 0곡 (고정)` : `${type} ${expected}곡 (±1)`,
+        actual: `${type} ${actual}곡`,
+        fixHintKo: `이 채널은 고정 보컬 비율(남 ${scaled.male}/여 ${scaled.female}/혼성 ${scaled.mixed})을 사용합니다 — 실제 배정이 벗어났습니다.`,
+        autoFix
+      }));
+    }
+  });
   return issues;
 }
 
@@ -441,11 +496,51 @@ function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
     }));
   }
   const maxCount = Math.max(0, ...Object.values(counts));
-  if (maxCount > threshold.maxPerGenre) {
+  // v(design-gate audience decoupling) — `threshold.maxPerGenre` is a fixed
+  // ceiling (5 for 'balanced') that's mathematically unreachable for the
+  // common case of an 18-song pack spread over only 3-4 selected/candidate
+  // genres (18÷3 = 6 > 5, 18÷4 = 4.5 -> 6 > 5 depending on rounding), which
+  // blocked every such pack regardless of how evenly the songs were actually
+  // spread — the real, verified trigger is most non-senior channel presets
+  // (kr-idol-*/kr-kids/jp-kids/kr-2030/jp-2030, and every senior-oldpop
+  // sub-archetype OTHER than senior-morning) declaring only 3
+  // `preferredGenres` (see data/presets.ts). `effectiveMaxPerGenre` only
+  // ever WIDENS the ceiling (never narrows it — `Math.max` with the
+  // original threshold), so a pack that already satisfied the static
+  // threshold keeps satisfying it identically; this only rescues packs
+  // whose real candidate genre pool is too small to ever satisfy the static
+  // number no matter how the songs are shuffled, same "adapt to the real
+  // candidate pool" reasoning genre-variety's own `varietyFloor` just above
+  // already uses (§3-E).
+  //
+  // EXCLUDED for workspaceId === 'senior-oldpop' — verified via a real,
+  // non-synthetic regression run (scripts/v378-stress-test.ts, real
+  // 'good-morning-memory-radio' channel + real free-text concepts like
+  // "6070년대 향수가 느껴지는 올드팝"): core/setDirector.ts's own real
+  // directSetLocal genre-selection algorithm ROUTINELY narrows
+  // opts.genreIds down to as few as 4 candidate genres for ordinary senior
+  // concepts (this is senior-morning's own pre-existing, already-tuned,
+  // already-accepted behavior — its channel preset was deliberately
+  // expanded to a 15-genre catalog back in v3.61 specifically to avoid
+  // exactly this ceiling problem; other senior-oldpop archetypes never got
+  // that same treatment and still narrow this way today, unrelated to this
+  // task). Applying the data-driven widening there measurably changed real
+  // senior-oldpop-workspace genre-max blocking/passing outcomes (a real,
+  // confirmed regression caught by that diff, not a hypothetical one) —
+  // this exclusion is a deliberate, narrowly-scoped departure from 원칙 4's
+  // usual "never branch on a literal workspace id" convention, made only
+  // because the task's own explicit top-priority constraint ("시니어의 기존
+  // 관문 기준은 그대로 유지") overrides it here, and only for this one check.
+  const effectiveMaxPerGenre = constraints.workspaceId === 'senior-oldpop'
+    ? threshold.maxPerGenre
+    : Math.max(threshold.maxPerGenre, Math.ceil(opts.songCount / (candidatePoolSize || 1)));
+  if (maxCount > effectiveMaxPerGenre) {
     issues.push(issue({
       id: 'genre-max',
       labelKo: '같은 장르 최대 곡수',
-      expected: `≤ ${threshold.maxPerGenre}곡`,
+      expected: effectiveMaxPerGenre > threshold.maxPerGenre
+        ? `≤ ${effectiveMaxPerGenre}곡 (후보 ${candidatePoolSize}종 기준 자동 조정, 기본 ${threshold.maxPerGenre}곡)`
+        : `≤ ${effectiveMaxPerGenre}곡`,
       actual: `${maxCount}곡`,
       fixHintKo: '한 장르에 곡이 몰려 있습니다 — 장르 배분을 조정하세요.'
     }));
@@ -480,11 +575,52 @@ function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
 // non-'default' moneyChordMode, where usesMoneyChordQuota is false and no
 // per-track quota plan runs at all) — those packs correctly skip this check
 // entirely rather than reporting a false "0종" issue.
+//
+// v(design-gate audience decoupling) — v5.7's usesUserChosenProgressionPlan
+// (core/moneyChordPlan.ts) deliberately puts 50-65% of the pack on a user's
+// EXPLICITLY chosen progression (buildUserChosenProgressionPlan) — the old
+// flat "max 5 songs on any one progression" rule was written for the
+// *default*/auto-rotation case and had no exemption for this real, intended
+// concentration, so every explicit-choice pack (9-11/18 songs on the chosen
+// id) failed this check by design. When `usesUserChosenProgressionPlan(opts)`
+// is true, this swaps to explicit-choice-aware checks instead; the original
+// max-5/4-6-species rules stay completely untouched (byte-identical) for
+// every other pack — including every senior-workspace pack, which never sets
+// moneyChordModeIsExplicitChoice.
 // ---------------------------------------------------------------------------
-function moneyChordBlockingIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+function moneyChordBlockingIssues(slots: PreassignedSongSlot[], opts: GenerationOptions): DesignIssue[] {
   const ids = slots.map(slot => slot.moneyChordId).filter((id): id is string => Boolean(id));
   if (!ids.length) return [];
   const counts = countBy(ids);
+
+  if (usesUserChosenProgressionPlan(opts)) {
+    const chosenId = opts.moneyChordMode;
+    const chosenCount = counts[chosenId] ?? 0;
+    const issues: DesignIssue[] = [];
+    if (chosenCount === 0) {
+      issues.push(issue({
+        id: 'moneychord-explicit-choice-zero',
+        labelKo: '선택한 머니코드 사용',
+        expected: '1곡 이상',
+        actual: '0곡',
+        fixHintKo: '사용자가 선택한 머니코드 진행이 한 곡에도 배정되지 않았습니다 — 다시 설계하세요.'
+      }));
+    }
+    const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
+    const representative = ordered.slice(0, Math.min(REPRESENTATIVE_TRACK_COUNT, ordered.length));
+    const representativeHasChosen = representative.some(slot => slot.moneyChordId === chosenId);
+    if (representative.length && !representativeHasChosen) {
+      issues.push(issue({
+        id: 'moneychord-explicit-choice-flagship',
+        labelKo: `대표곡(1~${REPRESENTATIVE_TRACK_COUNT}번) 선택 진행 반영`,
+        expected: '1곡 이상',
+        actual: '0곡',
+        fixHintKo: `대표곡(트랙 1~${REPRESENTATIVE_TRACK_COUNT}) 중 선택한 머니코드 진행을 쓰는 곡이 없습니다.`
+      }));
+    }
+    return issues;
+  }
+
   const maxCount = Math.max(0, ...Object.values(counts));
   if (maxCount <= 5) return [];
   return [issue({
@@ -496,9 +632,26 @@ function moneyChordBlockingIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
   })];
 }
 
-function moneyChordAdvisoryIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+function moneyChordAdvisoryIssues(slots: PreassignedSongSlot[], opts: GenerationOptions): DesignIssue[] {
   const ids = slots.map(slot => slot.moneyChordId).filter((id): id is string => Boolean(id));
   if (!ids.length) return [];
+
+  if (usesUserChosenProgressionPlan(opts)) {
+    const counts = countBy(ids);
+    const chosenId = opts.moneyChordMode;
+    const chosenCount = counts[chosenId] ?? 0;
+    const share = chosenCount / ids.length;
+    if (share < 0.45 || share > 0.65) {
+      return [issue({
+        id: 'moneychord-explicit-choice-share',
+        labelKo: '선택한 머니코드 비중',
+        expected: '45~65%',
+        actual: `${Math.round(share * 100)}% (${chosenCount}/${ids.length}곡)`,
+        fixHintKo: '사용자가 선택한 머니코드 진행의 비중이 권장 범위(45~65%)를 벗어났습니다.'
+      })];
+    }
+    return [];
+  }
   const distinctCount = new Set(ids).size;
   if (distinctCount >= 4) return [];
   return [issue({
@@ -519,16 +672,26 @@ function moneyChordAdvisoryIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
  * by Suno and heard by ear) — too dense to feel calm regardless of tempo/
  * percussion fixes. Blocking, not advisory — §2-3's own explicit "full 을
  * 4곡 이하로 제한하는 것이 핵심".
+ *
+ * v(design-gate audience decoupling) — that "4곡" ceiling was hard-coded
+ * globally, with no basis at all for a K-pop performance-track workspace or
+ * a kids action-song workspace, both of which legitimately WANT most tracks
+ * at 'full' density. `fullMax` now comes from the resolved AudienceProfile
+ * (see types.ts's AudienceProfile.arrangementDensityLimits doc comment) via
+ * ResolvedConstraints.arrangementDensityLimits — senior's own resolved value
+ * is still exactly 4 (unchanged), so this is byte-identical for senior/
+ * general/generic-kids and only actually loosens the ceiling for the
+ * workspaces whose profile now sets a wider one.
  */
-function arrangementDensityBlockingIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+function arrangementDensityBlockingIssues(slots: PreassignedSongSlot[], fullMax: number): DesignIssue[] {
   const densities = slots.map(slot => slot.arrangementDensity).filter((d): d is 'sparse' | 'medium' | 'full' => Boolean(d));
   if (!densities.length) return [];
   const fullCount = densities.filter(d => d === 'full').length;
-  if (fullCount <= 4) return [];
+  if (fullCount <= fullMax) return [];
   return [issue({
     id: 'arrangement-density-full-max',
     labelKo: '편곡 밀도 full 최대 곡수',
-    expected: '≤ 4곡',
+    expected: `≤ ${fullMax}곡`,
     actual: `${fullCount}곡`,
     fixHintKo: 'full 밀도가 너무 많습니다 — sparse/medium 비중을 늘리세요.'
   })];
@@ -687,6 +850,111 @@ function killingPointAndArcIssues(slots: PreassignedSongSlot[], songCount: numbe
   return issues;
 }
 
+// ---------------------------------------------------------------------------
+// 아크 번들 구조 (kids repetition-cycle) — design-gate audience decoupling
+// follow-up to v5.11/v5.12's arc-model-aware COUNT check above.
+// ---------------------------------------------------------------------------
+/** Longest run of consecutive items equal to `value` (unlike `longestRun`, which tracks the longest run of ANY repeated value). */
+function longestRunOf<T>(items: readonly T[], value: T): number {
+  let longest = 0;
+  let current = 0;
+  for (const item of items) {
+    current = item === value ? current + 1 : 0;
+    longest = Math.max(longest, current);
+  }
+  return longest;
+}
+
+/**
+ * v(design-gate audience decoupling) — this task's own item 4: the COUNT
+ * check above (v5.12) already confirms a kids pack uses "enough" distinct
+ * bundle values, but says nothing about WHICH bundles or their ordering.
+ * `GenerationOptions`/`ResolvedConstraints` have no real `ageTier` field
+ * reaching this gate today (see arcModels.ts's own bundlesForAgeTier doc
+ * comment for why — an honest, pre-existing gap, not something this task
+ * introduces) so the tier can't be read directly; instead, this infers the
+ * tier from the observed real bundle-phase SET itself: 'kids-t1' (3
+ * bundles)/'kids-t2 or default' (4)/'kids-t3' (5) are structurally distinct
+ * enough (arcModels.ts's own KIDS_BUNDLES_T1/DEFAULT/T3) that a real plan's
+ * distinct phase set will exactly match exactly one of the three candidates
+ * unless something is genuinely broken.
+ *
+ * Only ever runs for arcModelId === 'repetition-cycle' (kids workspaces) —
+ * a no-op for every 'five-phase' (adult/senior) pack, so senior-workspace
+ * gate output is completely unaffected.
+ */
+function kidsArcBundleStructureIssues(slots: PreassignedSongSlot[], arcModelId: 'five-phase' | 'repetition-cycle', songCount: number): { blocking: DesignIssue[]; advisory: DesignIssue[] } {
+  const blocking: DesignIssue[] = [];
+  const advisory: DesignIssue[] = [];
+  if (arcModelId !== 'repetition-cycle') return { blocking, advisory };
+
+  const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
+  const phases = ordered.map(slot => slot.arcPhase).filter((p): p is string => typeof p === 'string' && KIDS_ARC_PHASE_VALUES.has(p));
+  if (!phases.length) return { blocking, advisory };
+
+  // (a) age-tier-specific bundle composition — kids-t1 must show exactly its
+  // own 3-bundle set (familiar/learning/calm), kids-t2/default its 4-bundle
+  // set, kids-t3 its 5-bundle set (+closing) — never an ad-hoc mix (see
+  // arcModels.ts's real KIDS_BUNDLES_T1/DEFAULT/T3 definitions, not
+  // reinvented here).
+  const observedSet = new Set(phases);
+  const AGE_TIER_CANDIDATES: (string | undefined)[] = ['kids-t1', undefined, 'kids-t3'];
+  let matchedPlan: ReturnType<typeof kidsArcBundlePlanFor> | undefined;
+  for (const tier of AGE_TIER_CANDIDATES) {
+    const plan = kidsArcBundlePlanFor(songCount, tier);
+    const expectedSet = new Set(plan.filter(entry => entry.count > 0).map(entry => entry.phase));
+    if (expectedSet.size === observedSet.size && [...expectedSet].every(phase => observedSet.has(phase))) {
+      matchedPlan = plan;
+      break;
+    }
+  }
+
+  if (!matchedPlan) {
+    blocking.push(issue({
+      id: 'kids-arc-bundle-set-mismatch',
+      labelKo: '연령대별 아크 번들 구성',
+      expected: 'kids-t1(3종)/kids-t2(4종)/kids-t3(5종) 번들 세트 중 하나와 정확히 일치',
+      actual: `${observedSet.size}종 (${[...observedSet].join(', ')})`,
+      fixHintKo: '사용된 아크 번들 조합이 어느 연령대 정의(arcModels.ts)와도 일치하지 않습니다.'
+    }));
+  } else {
+    // (b) the LAST bundle in track order must be measurably lower-intensity
+    // than every other bundle actually used (arcModels.ts's own bundle
+    // definitions always place their calmest bundle last — verified by that
+    // file's own tests; this adds the design-gate-level check for it).
+    const lastPhase = phases[phases.length - 1];
+    const intensityByPhase = new Map(matchedPlan.filter(entry => entry.count > 0).map(entry => [entry.phase, entry.intensity]));
+    const lastIntensity = intensityByPhase.get(lastPhase);
+    const otherIntensities = [...intensityByPhase.entries()].filter(([phase]) => phase !== lastPhase).map(([, intensity]) => intensity);
+    const maxOtherIntensity = otherIntensities.length ? Math.max(...otherIntensities) : undefined;
+    if (lastIntensity !== undefined && maxOtherIntensity !== undefined && lastIntensity >= maxOtherIntensity) {
+      blocking.push(issue({
+        id: 'kids-arc-last-bundle-intensity',
+        labelKo: '마지막 아크 번들 강도',
+        expected: `마지막 번들(${lastPhase}) 강도 < 다른 번들 최대 강도(${maxOtherIntensity})`,
+        actual: `${lastPhase} 강도 ${lastIntensity}`,
+        fixHintKo: '마지막 번들은 다른 번들보다 확실히 낮은 강도(차분한 마무리)여야 합니다.'
+      }));
+    }
+  }
+
+  // (c) arrangement/energy-pacing concern, not structural — advisory only:
+  // no 3+ consecutive 'kids-moving' (high-intensity/movement) bundle-tagged
+  // songs in a row.
+  const movingRun = longestRunOf(phases, 'kids-moving');
+  if (movingRun >= 3) {
+    advisory.push(issue({
+      id: 'kids-arc-moving-consecutive',
+      labelKo: '연속된 활동적(moving) 번들',
+      expected: '연속 ≤ 2곡',
+      actual: `${movingRun}곡 연속`,
+      fixHintKo: '활동적인(moving) 번들 곡이 3곡 이상 연달아 배치됐습니다 — 다른 번들과 섞으세요.'
+    }));
+  }
+
+  return { blocking, advisory };
+}
+
 /**
  * 어휘 다양성 예측 (advisory only, UI 미리보기용) — this is a rough forecast,
  * not a measurement: the actual lyric text doesn't exist yet at design time
@@ -714,6 +982,7 @@ export function evaluateDesignGate(
   constraints: ResolvedConstraints,
   opts: GenerationOptions
 ): DesignGateResult {
+  const kidsArcStructure = kidsArcBundleStructureIssues(slots, constraints.arcModelId, opts.songCount);
   const blocking: DesignIssue[] = [
     ...vocalIssues(slots, opts, constraints),
     ...bpmIssues(slots, constraints),
@@ -721,16 +990,18 @@ export function evaluateDesignGate(
     ...eraIssues(slots, constraints.era),
     ...killingPointAndArcIssues(slots, opts.songCount, constraints.arcModelId),
     ...paletteCoverageIssues(slots, opts),
-    ...moneyChordBlockingIssues(slots),
-    ...arrangementDensityBlockingIssues(slots)
+    ...moneyChordBlockingIssues(slots, opts),
+    ...arrangementDensityBlockingIssues(slots, constraints.arrangementDensityLimits.fullMax),
+    ...kidsArcStructure.blocking
   ];
   const advisory: DesignIssue[] = [
     ...vocabularyForecastAdvisory(constraints),
     // v4.6 (TASK C, §3-4) — moved from blocking (see songLengthIssues's own
     // updated doc comment for why).
     ...songLengthIssues(slots),
-    ...moneyChordAdvisoryIssues(slots),
-    ...arrangementDensityAdvisoryIssues(slots)
+    ...moneyChordAdvisoryIssues(slots, opts),
+    ...arrangementDensityAdvisoryIssues(slots),
+    ...kidsArcStructure.advisory
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

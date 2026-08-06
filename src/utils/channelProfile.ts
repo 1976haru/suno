@@ -94,7 +94,21 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
     preferredMoods: input.preferredMoods?.length ? input.preferredMoods : ['warm', 'hopeful'],
     forbiddenCliches: input.forbiddenCliches?.length ? input.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
     seoKeywords: input.seoKeywords || [],
-    archetype
+    archetype,
+    // v5.12 — real bug fix: this return object never included
+    // vocalQuotaOverride at all, so EVERY channel that passed through
+    // normalizeChannel (readStoredChannels on load, writeStoredChannels's
+    // callers on save, createDraftChannel on draft creation — i.e. nearly
+    // every real channel) silently lost a set gender-quota override, even
+    // though it was present on `input`. Concretely: kr-idol-male's own
+    // channel presets (data/presets.ts) carry `{ male: 15, female: 0,
+    // mixed: 3 }`; after normalizeChannel the field came back `undefined`,
+    // silently falling back to the generic adult 6/6/6 quota — defeating
+    // the entire point of TASK K2 §5-1's per-workspace override. Copied
+    // straight through, never defaulted: an absent override on `input`
+    // must stay absent on output, same as this function already treats
+    // every other genuinely-optional field with no fallback value.
+    vocalQuotaOverride: input.vocalQuotaOverride
   };
 }
 
@@ -128,13 +142,28 @@ export function createDraftChannel(name = 'New Playlist Channel', templateChanne
     // consistent either way — templated or falling back to 'senior-morning'.
     archetype: templateChannel?.archetype,
     audience: templateChannel?.audience,
-    promise: 'creator-defined playlist channel with a clear listener promise',
-    visualIdentity: 'consistent colors, readable thumbnail typography, clear seasonal object',
+    // v5.12 — real bug fix: promise/visualIdentity/preferredMoods/
+    // forbiddenCliches/seoKeywords/vocalQuotaOverride below used to be
+    // hardcoded generic defaults regardless of `templateChannel`, unlike
+    // market/primaryLanguage/archetype/audience/defaultVocal/preferredGenres
+    // just above, which already clone the template. A draft created in the
+    // kr-idol-male workspace (from that workspace's own real preset, e.g.
+    // 'stage-night') would silently drop that preset's promise, visual
+    // identity, moods, forbidden-cliche list, SEO keywords, and — most
+    // importantly — its `{ male: 15, female: 0, mixed: 3 }` vocalQuotaOverride,
+    // even though the whole point of threading templateChannel through here
+    // (v5.9) was for a new draft to start as a valid, fully-seeded member of
+    // the caller's workspace. Every field now clones the template when one
+    // is given and falls back to the same generic defaults as before when it
+    // is not — no behavior change for the no-template call path.
+    promise: templateChannel?.promise || 'creator-defined playlist channel with a clear listener promise',
+    visualIdentity: templateChannel?.visualIdentity || 'consistent colors, readable thumbnail typography, clear seasonal object',
     defaultVocal: templateChannel?.defaultVocal || 'clear emotional vocal, polished playlist-friendly delivery',
     preferredGenres: templateChannel?.preferredGenres?.length ? templateChannel.preferredGenres : ['adult-contemporary', 'acoustic-pop'],
-    preferredMoods: ['warm', 'hopeful'],
-    forbiddenCliches: ['famous artist imitation', 'copied song structure'],
-    seoKeywords: []
+    preferredMoods: templateChannel?.preferredMoods?.length ? templateChannel.preferredMoods : ['warm', 'hopeful'],
+    forbiddenCliches: templateChannel?.forbiddenCliches?.length ? templateChannel.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
+    seoKeywords: templateChannel?.seoKeywords ?? [],
+    vocalQuotaOverride: templateChannel?.vocalQuotaOverride
   });
 }
 

@@ -32,11 +32,12 @@ import { getLyricThemeLabel } from '../../data/lyricThemes';
 import { getGenreById } from '../../data/genreLibrary';
 import { moneyChordPresets } from '../../data/moneyChords';
 import { getWorkspace } from '../../data/workspaces';
-import { buildResolvedGenerationContract, generationBlockedByContract, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
+import { buildResolvedGenerationContract, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
+import { resolveGenerationPreflight, type PreflightReason } from '../../core/generationPreflight';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
-import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, SeasonPack } from '../../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, SeasonPack, WorkspaceId } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
@@ -364,12 +365,18 @@ interface Step3GenerateProps {
   expertMode: boolean;
   onToggleExpertMode: () => void;
   onInstructionReady?: (instruction: string) => void;
+  /** TASK (generation preflight) — this screen's own real workspaceId (App.tsx's WizardApp prop), needed so resolveGenerationPreflight's 3 hard-block conditions (channel/workspace archetype mismatch, scaffold workspace) check against the SAME workspace the rest of this app scopes to, not a re-derived guess. */
+  workspaceId: WorkspaceId;
+  /** TASK (generation preflight) — lifted to App.tsx (shared with every OTHER real generation trigger point there — onGenerate/onGenerateMultiSet/onHookWarningContinueAnyway/onGenerateFreshFromPrompt) so acknowledging a mismatch here carries through to those too, instead of each tracking its own signature. */
+  acknowledgedSignature?: string;
+  onAcknowledgedSignatureChange: (signature: string | undefined) => void;
 }
 
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady
+  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
+  workspaceId, acknowledgedSignature, onAcknowledgedSignatureChange
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
     ? '로컬 템플릿 (무료)'
@@ -465,16 +472,19 @@ export default function Step3Generate({
     [opts, generationChoices, bridgePreassignedSongs]
   );
   const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
-  const mismatchFieldSignature = generationContract.mismatches.map(mismatch => mismatch.field).sort().join(',');
-  // A real change in WHICH fields mismatch (a fresh generate attempt after
-  // editing a choice, or a genuinely new mismatch appearing) resets any
-  // prior "이대로 진행" acknowledgment — per this task's own explicit
-  // constraint, acknowledgment is scoped to one generation attempt, never a
-  // persisted "always allow" toggle.
-  useEffect(() => {
-    setAcknowledgedMismatchFields(new Set());
-  }, [mismatchFieldSignature]);
-  const contractBlocked = generationBlockedByContract(generationContract, acknowledgedMismatchFields);
+  // TASK (generation preflight) — this used to reset on a signature built
+  // from WHICH FIELDS mismatched only (mismatch.field, sorted+joined), the
+  // exact naive-signature bug the new preflight module's own doc comment
+  // warns about: changing a mismatched choice to a DIFFERENT WRONG value
+  // that happens to trip the SAME field kept the OLD acknowledgment valid.
+  // The reset effect below is now keyed on `preflight.mismatchSignature`
+  // (defined further down) — a content-based hash covering the actual
+  // selected/effective values, not just field names — so this file's own
+  // instance of that bug is fixed here rather than just documented as a
+  // known gap. (The final gating boolean is now `preflight.allowed`, defined
+  // further down — generationBlockedByContract's own pure predicate is still
+  // used by other callers/tests, just not re-derived as a separate local
+  // here anymore.)
 
   function handleAcknowledgeMismatch(field: string) {
     setAcknowledgedMismatchFields(prev => {
@@ -549,11 +559,83 @@ export default function Step3Generate({
     return () => { cancelled = true; };
   }, [bridgePreassignedSongs, designGateConstraints, opts]);
   const [bridgeGateAcknowledged, setBridgeGateAcknowledged] = useState(false);
+  // (The final gating boolean for the bridge-copy buttons is now
+  // `preflight.allowed`, defined below — this used to be a separate local
+  // `bridgeGateBlocksCopy = !designGateResult?.passed && !bridgeGateAcknowledged`
+  // combined ad hoc with `contractBlocked` at each call site; both are now
+  // folded into the one preflight decision instead.)
+
+  /**
+   * TASK (generation preflight) — the ONE real gating decision this whole
+   * screen (and, transitively, App.tsx's top button / multi-set button /
+   * hook-warning-continue / cache-bypass-regenerate, all of which read the
+   * SAME lifted acknowledgedSignature prop) now goes through, combining:
+   *  - the 3 new hard-block conditions (channel/workspace archetype
+   *    mismatch, genre selection resolving to 0 real songs, scaffold
+   *    workspace) that neither generationContract nor designGateResult ever
+   *    covered on their own — see core/generationPreflight.ts.
+   *  - generationContract.mismatches (unchanged source, still v5.10's own
+   *    buildResolvedGenerationContract).
+   *  - designGateResult.blocking (unchanged source, still 관문 1's own
+   *    evaluateDesignGateResponsive) — falls back to a single synthetic
+   *    blocking issue while designGateResult is still null (worker result
+   *    pending), matching bridgeGateBlocksCopy's own pre-existing
+   *    fail-closed behavior above.
+   * This does NOT replace the granular per-mismatch/"관문1 무시하고 진행"
+   * checkboxes below (acknowledgedMismatchFields/bridgeGateAcknowledged) —
+   * those stay the review UI; this is what those checkboxes' state actually
+   * feeds into (see the effect just below) and what every real trigger
+   * point actually gates on.
+   */
+  const preflight = useMemo(
+    () => resolveGenerationPreflight({
+      workspaceId,
+      options: opts,
+      slots: bridgePreassignedSongs,
+      contract: generationContract,
+      designGate: designGateResult ?? {
+        passed: false,
+        blocking: [{
+          id: 'design-gate-pending',
+          labelKo: '관문 1 검사',
+          expected: '검사 완료',
+          actual: '아직 실행 중',
+          fixHintKo: '검사가 끝날 때까지 잠시 기다리세요.'
+        }],
+        advisory: []
+      },
+      acknowledgedSignature
+    }),
+    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature]
+  );
+
+  // A real change in the actual mismatch/design-gate CONTENT (not just which
+  // fields/ids are involved — see preflight.mismatchSignature's own doc
+  // comment) resets both granular acknowledgment UIs. Content-unchanged
+  // re-renders (e.g. the parent echoing the same acknowledgedSignature back
+  // down once acknowledged) do NOT refire this, so a user's checkmarks don't
+  // flicker the moment they finish acknowledging.
   useEffect(() => {
-    if (!designGateResult) return;
+    setAcknowledgedMismatchFields(new Set());
     setBridgeGateAcknowledged(false);
-  }, [designGateResult?.blocking.map(issue => issue.id).join(',')]);
-  const bridgeGateBlocksCopy = !designGateResult?.passed && !bridgeGateAcknowledged;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preflight.mismatchSignature]);
+
+  // Once the user has reviewed and checked every currently-required item in
+  // BOTH granular panels, push the current content signature up to App.tsx
+  // (shared with every other real trigger point) — this is the only place
+  // `acknowledgedSignature` is ever set to a non-undefined value.
+  useEffect(() => {
+    if (!preflight.mismatchSignature) return; // nothing to acknowledge (clean, or a hard block with no ack path at all)
+    const allMismatchesChecked = generationContract.mismatches.every(mismatch => acknowledgedMismatchFields.has(mismatch.field));
+    const designGateChecked = !designGateResult || designGateResult.passed || bridgeGateAcknowledged;
+    if (allMismatchesChecked && designGateChecked) onAcknowledgedSignatureChange(preflight.mismatchSignature);
+  }, [preflight.mismatchSignature, generationContract.mismatches, acknowledgedMismatchFields, designGateResult, bridgeGateAcknowledged, onAcknowledgedSignatureChange]);
+
+  const preflightBlockReasonKo = !preflight.allowed
+    ? (preflight.reasons.find(reason => reason.severity === 'block')?.messageKo
+      ?? '위 "선택과 다르게 적용됩니다" / 관문 1 항목에 모두 "이대로 진행"을 눌러야 계속할 수 있습니다.')
+    : undefined;
 
   function applyDesignGateAutoFix(fix: Partial<GenerationOptions>) {
     setOpts(prev => ({ ...prev, ...fix }));
@@ -572,6 +654,11 @@ export default function Step3Generate({
   // evaluateGenerationGate there instead of bare scoreComposition.
 
   async function handleCopyClaudeCodeInstruction() {
+    // TASK (generation preflight) — checked INSIDE the handler itself, not
+    // just via the button's own `disabled` prop below: this is one of the
+    // real trigger points named explicitly in the task doc ("801행" bridge
+    // copy button) that used to gate only via `disabled`.
+    if (!preflight.allowed) return;
     await copyText(claudeCodeInstruction);
     setBridgeCopied(true);
     setTimeout(() => setBridgeCopied(false), 2000);
@@ -657,6 +744,9 @@ export default function Step3Generate({
   }, [claudeCodeInstruction, multiSet.mode, multiSetMasterInstruction, onInstructionReady]);
 
   async function handleCopyMasterInstruction() {
+    // TASK (generation preflight) — same handler-internal check as
+    // handleCopyClaudeCodeInstruction above (multi-set's own bridge copy).
+    if (!preflight.allowed) return;
     await copyText(multiSetMasterInstruction);
     setMasterBridgeCopied(true);
     setTimeout(() => setMasterBridgeCopied(false), 2000);
@@ -667,6 +757,9 @@ export default function Step3Generate({
   }
 
   async function handleCopySetInstruction(item: MultiSetBridgeInstruction) {
+    // TASK (generation preflight) — same handler-internal check as
+    // handleCopyClaudeCodeInstruction above (per-set bridge copy).
+    if (!preflight.allowed) return;
     await copyText(item.instruction);
     setCopiedSetIndexes(prev => new Set(prev).add(item.setIndex));
     setCompletedSetIndexes(prev => new Set(prev).add(item.setIndex));
@@ -1051,14 +1144,8 @@ export default function Step3Generate({
             <div className="button-row">
               <button
                 type="button"
-                disabled={bridgeGateBlocksCopy || contractBlocked}
-                title={
-                  bridgeGateBlocksCopy
-                    ? '설계 검증(관문 1)을 통과하거나 "무시하고 진행"에 동의해야 복사할 수 있습니다.'
-                    : contractBlocked
-                      ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 복사할 수 있습니다.'
-                      : undefined
-                }
+                disabled={!preflight.allowed}
+                title={preflightBlockReasonKo}
                 onClick={() => void handleCopyClaudeCodeInstruction()}
               >
                 <Copy size={16} />
@@ -1139,8 +1226,8 @@ export default function Step3Generate({
               <div className="button-row">
                 <button
                   type="button"
-                  disabled={contractBlocked}
-                  title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 복사할 수 있습니다.' : undefined}
+                  disabled={!preflight.allowed}
+                  title={preflightBlockReasonKo}
                   onClick={() => void handleCopyMasterInstruction()}
                 >
                   <Copy size={16} />
@@ -1166,8 +1253,8 @@ export default function Step3Generate({
                   </label>
                   <button
                     type="button"
-                    disabled={contractBlocked}
-                    title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 복사할 수 있습니다.' : undefined}
+                    disabled={!preflight.allowed}
+                    title={preflightBlockReasonKo}
                     onClick={() => void handleCopySetInstruction(item)}
                   >
                     {copiedSetIndexes.has(item.setIndex) ? <Check size={16} /> : <Copy size={16} />}
@@ -1218,6 +1305,21 @@ export default function Step3Generate({
         </p>
       )}
 
+      {preflight.reasons.some(reason => reason.severity === 'block') && (
+        <div className="error generation-hard-block-panel">
+          <div className="panel-title">
+            <XCircle size={16} />
+            <b>생성할 수 없습니다</b>
+          </div>
+          <p className="supporting">아래 항목은 "이대로 진행"으로 넘어갈 수 없습니다 — 실제로 문제를 고쳐야 합니다.</p>
+          <ul>
+            {preflight.reasons.filter(reason => reason.severity === 'block').map(reason => (
+              <li key={reason.field}>{reason.messageKo}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <GenerationContractPanel
         contract={generationContract}
         opts={opts}
@@ -1232,8 +1334,8 @@ export default function Step3Generate({
         <button
           type="button"
           className="primary full-width action-button"
-          disabled={multiSet.isRunning || contractBlocked}
-          title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 생성할 수 있습니다.' : undefined}
+          disabled={multiSet.isRunning || !preflight.allowed}
+          title={preflightBlockReasonKo}
           onClick={multiSet.onGenerate}
         >
           <Layers size={18} />
@@ -1247,8 +1349,8 @@ export default function Step3Generate({
         <button
           type="button"
           className="primary full-width action-button"
-          disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling' || contractBlocked}
-          title={contractBlocked ? '위 "선택과 다르게 적용됩니다" 항목에 모두 "이대로 진행"을 눌러야 생성할 수 있습니다.' : undefined}
+          disabled={isGenerating || activeBatchJob?.status === 'in_progress' || activeBatchJob?.status === 'submitting' || activeBatchJob?.status === 'canceling' || !preflight.allowed}
+          title={preflightBlockReasonKo}
           onClick={onGenerate}
         >
           <Wand2 size={18} />
