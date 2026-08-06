@@ -2,6 +2,7 @@ import type { ConceptBreadth, GenerationOptions, KidsAgeTierId, PreassignedSongS
 import type { EraConstraint, ResolvedConstraints } from './constraints';
 import { eraSharesOf } from './constraints';
 import { ERA_LABEL } from '../data/eraExclusions';
+import { ERA_POLICY } from '../data/eraPolicy';
 import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC } from './bpmLengthControl';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
@@ -513,25 +514,31 @@ function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   // candidate pool" reasoning genre-variety's own `varietyFloor` just above
   // already uses (§3-E).
   //
-  // EXCLUDED for workspaceId === 'senior-oldpop' — verified via a real,
-  // non-synthetic regression run (scripts/v378-stress-test.ts, real
-  // 'good-morning-memory-radio' channel + real free-text concepts like
-  // "6070년대 향수가 느껴지는 올드팝"): core/setDirector.ts's own real
-  // directSetLocal genre-selection algorithm ROUTINELY narrows
-  // opts.genreIds down to as few as 4 candidate genres for ordinary senior
-  // concepts (this is senior-morning's own pre-existing, already-tuned,
-  // already-accepted behavior — its channel preset was deliberately
-  // expanded to a 15-genre catalog back in v3.61 specifically to avoid
-  // exactly this ceiling problem; other senior-oldpop archetypes never got
-  // that same treatment and still narrow this way today, unrelated to this
-  // task). Applying the data-driven widening there measurably changed real
-  // senior-oldpop-workspace genre-max blocking/passing outcomes (a real,
-  // confirmed regression caught by that diff, not a hypothetical one) —
-  // this exclusion is a deliberate, narrowly-scoped departure from 원칙 4's
-  // usual "never branch on a literal workspace id" convention, made only
-  // because the task's own explicit top-priority constraint ("시니어의 기존
-  // 관문 기준은 그대로 유지") overrides it here, and only for this one check.
-  const effectiveMaxPerGenre = constraints.workspaceId === 'senior-oldpop'
+  // TASK F (senior-oldpop workspace-wide exception is too broad) — this
+  // used to be excluded for the entire `workspaceId === 'senior-oldpop'`
+  // workspace, verified via a real, non-synthetic regression run
+  // (scripts/v378-stress-test.ts, real 'good-morning-memory-radio' channel +
+  // real free-text concepts like "6070년대 향수가 느껴지는 올드팝"):
+  // core/setDirector.ts's own real directSetLocal genre-selection algorithm
+  // ROUTINELY narrows opts.genreIds down to as few as 4 candidate genres for
+  // ordinary senior concepts — but that is specifically 'senior-morning's
+  // own pre-existing, already-tuned, already-accepted behavior (its channel
+  // preset was deliberately expanded to a 15-genre catalog back in v3.61
+  // specifically to avoid exactly this ceiling problem). The senior-oldpop
+  // WORKSPACE also contains OTHER archetypes (showa-cafe/modern-chill/
+  // city-night/oldpop-lounge) with far fewer candidate genres (as few as 3,
+  // same data/presets.ts shape as every other non-senior channel preset) —
+  // for those, the blanket workspace-wide exclusion made the same fixed cap
+  // mathematically impossible to satisfy (e.g. 18 songs / 3 genres = 6 avg,
+  // cap 5), exactly the problem this whole widening exists to rescue non-
+  // senior channels from. Narrowed to `archetype === 'senior-morning'` (the
+  // one archetype whose fixed cap is real, listening-validated, and
+  // required to stay unchanged) so every other senior-oldpop sub-archetype
+  // now gets the same auto-adjustment every other workspace already gets.
+  // `opts.channel.archetype` (not a workspace-wide id) is the exact same
+  // per-channel signal isKidsArchetype/vocalQuotaForAutoFix above already
+  // read from this same `opts` object — never re-derived, never a new field.
+  const effectiveMaxPerGenre = opts.channel.archetype === 'senior-morning'
     ? threshold.maxPerGenre
     : Math.max(threshold.maxPerGenre, Math.ceil(opts.songCount / (candidatePoolSize || 1)));
   if (maxCount > effectiveMaxPerGenre) {
@@ -734,6 +741,17 @@ function arrangementDensityAdvisoryIssues(slots: PreassignedSongSlot[]): DesignI
 // ---------------------------------------------------------------------------
 // 시대 (era-primary-share / era-forbidden / era-unspecified-share)
 // ---------------------------------------------------------------------------
+/**
+ * TASK E (design-gate and post-generation era-share checks disagree) — the
+ * single-primary/co-primary thresholds below now read from
+ * data/eraPolicy.ts's shared ERA_POLICY instead of hardcoding their own
+ * numbers (was 40%/30% here, disagreeing with compositionScorer.ts's own
+ * post-generation 50%/no-co-primary-check-at-all) — see ERA_POLICY's own
+ * doc comment for the real investigation (core/constraints.ts's
+ * applyEraQuota, the function that actually shapes a real pack's genre
+ * distribution at generation time) that picked 50%/40% as the correct,
+ * validated numbers over this file's own previously-looser 40%/30%.
+ */
 function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssue[] {
   // 컨셉에 시대 언급이 없으면 건너뜁니다 (원칙 3/§2-3의 명시적 지시 — 억지로 시대를 정하지 말 것).
   if (era.unspecified) return [];
@@ -747,22 +765,24 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssu
   if (era.coPrimary) {
     const primaryShare = shares[era.primary] ?? 0;
     const coPrimaryShare = shares[era.coPrimary] ?? 0;
-    if (primaryShare < 0.3 || coPrimaryShare < 0.3) {
+    const minEach = ERA_POLICY.coPrimaryMinEach;
+    if (primaryShare < minEach || coPrimaryShare < minEach) {
       issues.push(issue({
         id: 'era-primary-share',
         labelKo: '복수 시대 비중',
-        expected: `${ERA_LABEL[era.primary]}·${ERA_LABEL[era.coPrimary]} 각 30% 이상`,
+        expected: `${ERA_LABEL[era.primary]}·${ERA_LABEL[era.coPrimary]} 각 ${Math.round(minEach * 100)}% 이상`,
         actual: `${ERA_LABEL[era.primary]} ${Math.round(primaryShare * 100)}% / ${ERA_LABEL[era.coPrimary]} ${Math.round(coPrimaryShare * 100)}%`,
         fixHintKo: `${ERA_LABEL[era.primary]} 또는 ${ERA_LABEL[era.coPrimary]} 계열 장르를 추가하세요.`
       }));
     }
   } else {
     const primaryShare = shares[era.primary] ?? 0;
-    if (primaryShare < 0.4) {
+    const min = ERA_POLICY.singlePrimaryMin;
+    if (primaryShare < min) {
       issues.push(issue({
         id: 'era-primary-share',
         labelKo: `${ERA_LABEL[era.primary]} 장르 비중`,
-        expected: '40% 이상',
+        expected: `${Math.round(min * 100)}% 이상`,
         actual: `${Math.round(primaryShare * 100)}%`,
         fixHintKo: `${ERA_LABEL[era.primary]} 계열 장르를 추가하세요.`
       }));
@@ -781,11 +801,11 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssu
   }
 
   const genericShare = shares.generic ?? 0;
-  if (genericShare > 0.25) {
+  if (ERA_POLICY.genericBlockingMax !== undefined && genericShare > ERA_POLICY.genericBlockingMax) {
     issues.push(issue({
       id: 'era-unspecified-share',
       labelKo: '시대 미지정 장르 비중',
-      expected: '25% 이하',
+      expected: `${Math.round(ERA_POLICY.genericBlockingMax * 100)}% 이하`,
       actual: `${Math.round(genericShare * 100)}%`,
       fixHintKo: '시대 표기가 없는 범용 장르가 너무 많습니다.'
     }));
@@ -879,93 +899,178 @@ function longestRunOf<T>(items: readonly T[], value: T): number {
 }
 
 /**
- * v(design-gate audience decoupling) — this task's own item 4: the COUNT
- * check above (v5.12) already confirms a kids pack uses "enough" distinct
- * bundle values, but says nothing about WHICH bundles or their ordering.
- * `GenerationOptions`/`ResolvedConstraints` have no real `ageTier` field
- * reaching this gate today (see arcModels.ts's own bundlesForAgeTier doc
- * comment for why — an honest, pre-existing gap, not something this task
- * introduces) so the tier can't be read directly; instead, this infers the
- * tier from the observed real bundle-phase SET itself: 'kids-t1' (3
- * bundles)/'kids-t2 or default' (4)/'kids-t3' (5) are structurally distinct
- * enough (arcModels.ts's own KIDS_BUNDLES_T1/DEFAULT/T3) that a real plan's
- * distinct phase set will exactly match exactly one of the three candidates
- * unless something is genuinely broken.
+ * TASK D (kids arc bundle check ignores the user's actual selected age
+ * tier) — real bug this closes: the prior version received no age-tier
+ * signal at all and REVERSE-INFERRED which tier the observed phases best
+ * matched (tried kids-t1/default/kids-t3 candidates in turn, took whichever
+ * one's expected SET happened to equal the observed set). That means a user
+ * who explicitly selected 'kids-t1' (0-2세, 3-bundle structure) but whose
+ * real generated slots ended up showing 'kids-t2'/default's 4-bundle
+ * structure (a real dispatch bug elsewhere, or a stale cached value) would
+ * have this check see "4 phases present, matches kids-t2" and WRONGLY PASS
+ * — instead of catching that the actual selection wasn't honored.
+ *
+ * Fixed by taking the real SELECTED tier (`kidsAgeTierId`, threaded from
+ * ResolvedConstraints.kidsAgeTierId at the real call site — see that
+ * field's own v5.13 doc comment) and checking the observed plan against
+ * ONLY that tier's own real definition (arcModels.ts's kidsArcBundlePlanFor,
+ * same function buildRepetitionCyclePlan itself is built from) — never
+ * accepting whichever tier happens to fit. `kidsAgeTierId` omitted (every
+ * real call site with no per-generation tier signal) defaults the same way
+ * every other real consumer does — to KIDS_BUNDLES_DEFAULT ('kids-t2') —
+ * so this stays byte-identical for a pack that never set one.
  *
  * Only ever runs for arcModelId === 'repetition-cycle' (kids workspaces) —
  * a no-op for every 'five-phase' (adult/senior) pack, so senior-workspace
  * gate output is completely unaffected.
  */
-function kidsArcBundleStructureIssues(slots: PreassignedSongSlot[], arcModelId: 'five-phase' | 'repetition-cycle', songCount: number): { blocking: DesignIssue[]; advisory: DesignIssue[] } {
+function kidsArcBundleStructureIssues(
+  slots: PreassignedSongSlot[],
+  arcModelId: 'five-phase' | 'repetition-cycle',
+  songCount: number,
+  kidsAgeTierId?: KidsAgeTierId
+): { blocking: DesignIssue[]; advisory: DesignIssue[] } {
   const blocking: DesignIssue[] = [];
   const advisory: DesignIssue[] = [];
   if (arcModelId !== 'repetition-cycle') return { blocking, advisory };
 
   const ordered = [...slots].sort((a, b) => a.trackNo - b.trackNo);
-  const phases = ordered.map(slot => slot.arcPhase).filter((p): p is string => typeof p === 'string' && KIDS_ARC_PHASE_VALUES.has(p));
+  const rawPhases = ordered.map(slot => slot.arcPhase).filter((p): p is string => typeof p === 'string' && p.length > 0);
+  if (!rawPhases.length) return { blocking, advisory };
+
+  // (i) block if ANY adult (non-kids-*) phase appears at all — a real
+  // dispatch bug feeding adult five-phase strings (or any other stray
+  // value) into a kids pack. Checked up front, independent of whether the
+  // tier-match below also fails, so this always surfaces on its own.
+  const nonKidsPhases = rawPhases.filter(p => !KIDS_ARC_PHASE_VALUES.has(p));
+  if (nonKidsPhases.length) {
+    blocking.push(issue({
+      id: 'kids-arc-adult-phase-leak',
+      labelKo: '아크 번들에 비-kids 구간 값 혼입',
+      expected: '전부 kids-* 번들 값',
+      actual: `${nonKidsPhases.length}곡에 kids-* 아닌 값 (${[...new Set(nonKidsPhases)].join(', ')})`,
+      fixHintKo: '아크 배분 로직이 성인용(five-phase) 값이나 정의되지 않은 값을 kids 패키지에 잘못 흘려보냈을 가능성이 큽니다.'
+    }));
+  }
+
+  const phases = rawPhases.filter(p => KIDS_ARC_PHASE_VALUES.has(p));
   if (!phases.length) return { blocking, advisory };
 
-  // (a) age-tier-specific bundle composition — kids-t1 must show exactly its
-  // own 3-bundle set (familiar/learning/calm), kids-t2/default its 4-bundle
-  // set, kids-t3 its 5-bundle set (+closing) — never an ad-hoc mix (see
-  // arcModels.ts's real KIDS_BUNDLES_T1/DEFAULT/T3 definitions, not
-  // reinvented here).
+  // (ii) observed phases must exactly match the SELECTED tier's real
+  // expected phase set — no reverse inference (see this function's own top
+  // doc comment for the real bug this closes).
+  const selectedPlan = kidsArcBundlePlanFor(songCount, kidsAgeTierId).filter(entry => entry.count > 0);
+  const expectedSet = new Set(selectedPlan.map(entry => entry.phase));
   const observedSet = new Set(phases);
-  const AGE_TIER_CANDIDATES: (string | undefined)[] = ['kids-t1', undefined, 'kids-t3'];
-  let matchedPlan: ReturnType<typeof kidsArcBundlePlanFor> | undefined;
-  for (const tier of AGE_TIER_CANDIDATES) {
-    const plan = kidsArcBundlePlanFor(songCount, tier);
-    const expectedSet = new Set(plan.filter(entry => entry.count > 0).map(entry => entry.phase));
-    if (expectedSet.size === observedSet.size && [...expectedSet].every(phase => observedSet.has(phase))) {
-      matchedPlan = plan;
-      break;
-    }
-  }
+  const tierLabel = kidsAgeTierId ?? 'kids-t2(기본)';
 
-  if (!matchedPlan) {
+  const setMatches = expectedSet.size === observedSet.size && [...expectedSet].every(phase => observedSet.has(phase));
+  if (!setMatches) {
     blocking.push(issue({
       id: 'kids-arc-bundle-set-mismatch',
-      labelKo: '연령대별 아크 번들 구성',
-      expected: 'kids-t1(3종)/kids-t2(4종)/kids-t3(5종) 번들 세트 중 하나와 정확히 일치',
-      actual: `${observedSet.size}종 (${[...observedSet].join(', ')})`,
-      fixHintKo: '사용된 아크 번들 조합이 어느 연령대 정의(arcModels.ts)와도 일치하지 않습니다.'
+      labelKo: '선택한 연령대의 아크 번들 구성',
+      expected: `${tierLabel} 번들 세트 (${[...expectedSet].join(', ')})`,
+      actual: `${[...observedSet].join(', ')}`,
+      fixHintKo: `실제 사용된 아크 번들이 선택한 연령대(${tierLabel})의 정의(arcModels.ts)와 일치하지 않습니다 — 다른 연령대 구조가 잘못 배정됐거나 선택이 반영되지 않았을 수 있습니다.`
     }));
-  } else {
-    // (b) the LAST bundle in track order must be measurably lower-intensity
-    // than every other bundle actually used (arcModels.ts's own bundle
-    // definitions always place their calmest bundle last — verified by that
-    // file's own tests; this adds the design-gate-level check for it).
-    const lastPhase = phases[phases.length - 1];
-    const intensityByPhase = new Map(matchedPlan.filter(entry => entry.count > 0).map(entry => [entry.phase, entry.intensity]));
-    const lastIntensity = intensityByPhase.get(lastPhase);
-    const otherIntensities = [...intensityByPhase.entries()].filter(([phase]) => phase !== lastPhase).map(([, intensity]) => intensity);
-    const maxOtherIntensity = otherIntensities.length ? Math.max(...otherIntensities) : undefined;
-    if (lastIntensity !== undefined && maxOtherIntensity !== undefined && lastIntensity >= maxOtherIntensity) {
-      blocking.push(issue({
-        id: 'kids-arc-last-bundle-intensity',
-        labelKo: '마지막 아크 번들 강도',
-        expected: `마지막 번들(${lastPhase}) 강도 < 다른 번들 최대 강도(${maxOtherIntensity})`,
-        actual: `${lastPhase} 강도 ${lastIntensity}`,
-        fixHintKo: '마지막 번들은 다른 번들보다 확실히 낮은 강도(차분한 마무리)여야 합니다.'
-      }));
-    }
+    // The set itself doesn't correspond to the selected tier at all — the
+    // per-phase-count/last-phase checks below assume a matched tier to
+    // compare against, so there's nothing more to meaningfully check here.
+    return { blocking, advisory: [...advisory, ...movingRunAdvisory(phases)] };
   }
 
-  // (c) arrangement/energy-pacing concern, not structural — advisory only:
-  // no 3+ consecutive 'kids-moving' (high-intensity/movement) bundle-tagged
-  // songs in a row.
-  const movingRun = longestRunOf(phases, 'kids-moving');
-  if (movingRun >= 3) {
-    advisory.push(issue({
-      id: 'kids-arc-moving-consecutive',
-      labelKo: '연속된 활동적(moving) 번들',
-      expected: '연속 ≤ 2곡',
-      actual: `${movingRun}곡 연속`,
-      fixHintKo: '활동적인(moving) 번들 곡이 3곡 이상 연달아 배치됐습니다 — 다른 번들과 섞으세요.'
+  // (iii) each phase's real expected song-count share for the selected tier
+  // — ±1 tolerance absorbs ordinary largest-remainder rounding (same
+  // convention as quotaFidelityIssues' own ±1 elsewhere in this file).
+  const observedCountByPhase = countBy(phases);
+  const countMismatches = selectedPlan.filter(entry => Math.abs((observedCountByPhase[entry.phase] ?? 0) - entry.count) > 1);
+  if (countMismatches.length) {
+    blocking.push(issue({
+      id: 'kids-arc-bundle-count-mismatch',
+      labelKo: '번들별 곡수 배분',
+      expected: selectedPlan.map(entry => `${entry.phase} ${entry.count}곡`).join(', '),
+      actual: selectedPlan.map(entry => `${entry.phase} ${observedCountByPhase[entry.phase] ?? 0}곡`).join(', '),
+      fixHintKo: `선택한 연령대(${tierLabel})의 번들별 곡수 배분과 실제 배정이 ±1곡을 넘게 어긋납니다.`
     }));
   }
+
+  // (iv) the LAST track (by trackNo) must be the tier's own real defined
+  // closing/calm bundle — bundlesForAgeTier's declaration order always
+  // places its calmest bundle last (arcModels.ts's own doc comment), so
+  // selectedPlan's own last surviving (count > 0) entry IS that bundle.
+  const lastPhase = phases[phases.length - 1];
+  const definedClosingPhase = selectedPlan[selectedPlan.length - 1].phase;
+  if (lastPhase !== definedClosingPhase) {
+    blocking.push(issue({
+      id: 'kids-arc-last-phase-identity',
+      labelKo: '마지막 트랙의 아크 번들',
+      expected: `${definedClosingPhase} (${tierLabel}의 마무리 번들)`,
+      actual: lastPhase,
+      fixHintKo: `마지막 트랙은 선택한 연령대(${tierLabel})가 정의한 마무리 번들(${definedClosingPhase})이어야 합니다.`
+    }));
+  }
+
+  // Separately-found arithmetic bug in the last-bundle INTENSITY comparison
+  // (distinct from (iv)'s phase-identity check just above — a real plan
+  // could theoretically end on the "right" phase id while still measuring
+  // as not-quietest, or vice versa on a hand-edited plan): the OLD
+  // comparison only required the last bundle to be quieter than the
+  // LOUDEST other bundle used (lastIntensity < max(others)) — see
+  // lastBundleIntensityViolation's own doc comment for the real example
+  // (familiar:2/learning:3/moving:5/calm:1, last=learning) this wrongly
+  // passed. Fixed to require the last bundle to be quieter than the MINIMUM
+  // intensity among every other bundle actually used.
+  const intensityByPhase = new Map(selectedPlan.map(entry => [entry.phase, entry.intensity]));
+  const violation = lastBundleIntensityViolation(lastPhase, intensityByPhase);
+  if (violation) {
+    blocking.push(issue({
+      id: 'kids-arc-last-bundle-intensity',
+      labelKo: '마지막 아크 번들 강도',
+      expected: `마지막 번들(${lastPhase}) 강도 < 다른 번들 전체의 최소 강도(${violation.minOtherIntensity})`,
+      actual: `${lastPhase} 강도 ${violation.lastIntensity}`,
+      fixHintKo: '마지막 번들은 이 세트에서 실제로 쓰인 다른 모든 번들보다 확실히 낮은 강도(차분한 마무리)여야 합니다.'
+    }));
+  }
+
+  // (v) arrangement/energy-pacing concern, not structural — advisory only.
+  advisory.push(...movingRunAdvisory(phases));
 
   return { blocking, advisory };
+}
+
+/** (v) no 3+ consecutive 'kids-moving' (high-intensity/movement) bundle-tagged songs in a row — extracted so the early set-mismatch return above can still surface it. */
+function movingRunAdvisory(phases: readonly string[]): DesignIssue[] {
+  const movingRun = longestRunOf(phases, 'kids-moving');
+  if (movingRun < 3) return [];
+  return [issue({
+    id: 'kids-arc-moving-consecutive',
+    labelKo: '연속된 활동적(moving) 번들',
+    expected: '연속 ≤ 2곡',
+    actual: `${movingRun}곡 연속`,
+    fixHintKo: '활동적인(moving) 번들 곡이 3곡 이상 연달아 배치됐습니다 — 다른 번들과 섞으세요.'
+  })];
+}
+
+/**
+ * TASK D — isolated, directly-testable version of the last-bundle-intensity
+ * check's real comparison, extracted so a unit test can exercise the exact
+ * fixed example from this task's own doc (familiar:2/learning:3/moving:5/
+ * calm:1, real last bundle = learning) without needing a real arcModels.ts
+ * tier whose own intensities happen to match those illustrative numbers.
+ * Returns undefined when the last bundle IS strictly quieter than every
+ * other used bundle (no violation); otherwise the failing intensities for
+ * the caller's own message.
+ */
+export function lastBundleIntensityViolation(
+  lastPhase: string,
+  intensityByPhase: ReadonlyMap<string, number>
+): { lastIntensity: number; minOtherIntensity: number } | undefined {
+  const lastIntensity = intensityByPhase.get(lastPhase);
+  const otherIntensities = [...intensityByPhase.entries()].filter(([phase]) => phase !== lastPhase).map(([, intensity]) => intensity);
+  if (lastIntensity === undefined || !otherIntensities.length) return undefined;
+  const minOtherIntensity = Math.min(...otherIntensities);
+  if (lastIntensity >= minOtherIntensity) return { lastIntensity, minOtherIntensity };
+  return undefined;
 }
 
 /**
@@ -995,7 +1100,12 @@ export function evaluateDesignGate(
   constraints: ResolvedConstraints,
   opts: GenerationOptions
 ): DesignGateResult {
-  const kidsArcStructure = kidsArcBundleStructureIssues(slots, constraints.arcModelId, opts.songCount);
+  // TASK D — threads the SELECTED tier (constraints.kidsAgeTierId, the real
+  // resolved value — see ResolvedConstraints.kidsAgeTierId's own v5.13 doc
+  // comment) in, so this check compares the observed plan against what the
+  // user actually chose instead of reverse-inferring a tier from whatever
+  // the slots happen to show.
+  const kidsArcStructure = kidsArcBundleStructureIssues(slots, constraints.arcModelId, opts.songCount, constraints.kidsAgeTierId);
   const blocking: DesignIssue[] = [
     ...vocalIssues(slots, opts, constraints),
     ...bpmIssues(slots, constraints),

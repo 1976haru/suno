@@ -17,7 +17,7 @@ import { clampOversizedFields, INPUT_LIMITS } from './core/inputLimits';
 import { updateBatchJob } from './core/batchJobs';
 import { getSetting, setSetting } from './core/settingsStore';
 import { mergeRestoredProviderSettings, sanitizeProviderSettingsForPersistence } from './core/providerSettingsPersistence';
-import { buildSignatureBlueprint, rebuildStylePromptsForPersonaMode } from './core/localGenerator';
+import { buildSignatureBlueprint, rebuildStylePromptsForPersonaMode, resolveBilingualPair } from './core/localGenerator';
 import { applyLyricWorkspaceEdit, applyPronunciationHints, regenerateSingleLyricLine } from './core/lyricAuthorship';
 import type { LyricTranslationResult } from './core/lyricsTranslation';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from './core/soundSignature';
@@ -28,6 +28,7 @@ import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
 import { evaluateGenerationRequest } from './core/generationPreflight';
+import { genresForOptions, moodsForOptions, resolveGenerationContext, withGenerationSnapshot } from './core/generationSnapshot';
 import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
 import { inspectImportReport, buildMissingTracksRegenerateInstruction, type ImportInspection } from './core/importInspection';
@@ -39,7 +40,7 @@ import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
 import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
 import { getWorkspace } from './data/workspaces';
 import { isMigrationPending, runWorkspaceMigrationOnce } from './core/workspaceMigration';
 import { setCurrentWorkspace } from './core/workspaceScope';
@@ -145,6 +146,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const [pendingImportInspection, setPendingImportInspection] = useState<{
     inspection: ImportInspection;
     onConfirm?: () => void;
+    /**
+     * TASK (post-generation operation snapshot) — the real, resolved
+     * GenerationOptions this import attempt actually ran under (the file's
+     * matched channel, not necessarily whatever channel is live on screen
+     * by the time the user clicks "[재생성 지시문 복사]" on the inspection
+     * modal). See onCopyMissingTracksInstruction's own doc comment.
+     */
+    importOpts?: GenerationOptions;
   } | null>(null);
 
   useEffect(() => {
@@ -216,7 +225,13 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         genreIds: 'channel',
         vocalTone: 'channel',
         kidsAgeTierId: 'channel',
-        packagingLanguage: 'channel'
+        packagingLanguage: 'channel',
+        // TASK (provenance extension) — moodIds is reset to
+        // channel.preferredMoods two lines above, same as genreIds/vocalTone
+        // just above it; its provenance needs the same 'channel' reset so a
+        // previous channel's 'user' mood pick doesn't linger describing a
+        // value this channel switch just overwrote.
+        moodIds: 'channel'
       }
     }));
     if (removed.length) setLoadWarning(genreSanitizationWarningKo(removed, archetype));
@@ -336,7 +351,16 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       const next = new Set(prev[key]);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return { ...prev, [key]: Array.from(next) };
+      // TASK (provenance extension) — Step2Concept.tsx's mood chip grid is
+      // the only real caller of this branch today (genreIds always goes
+      // through Step2Concept.tsx's own selectPrimaryGenre/toggleSecondaryGenre
+      // instead); records the real click-time moment for moodIds, same as
+      // every other real UI handler in this app.
+      return {
+        ...prev,
+        [key]: Array.from(next),
+        ...(key === 'moodIds' ? { choiceProvenance: { ...prev.choiceProvenance, moodIds: 'user' as const } } : {})
+      };
     });
   }
 
@@ -388,8 +412,25 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
 
   const isHybridActive = hybridMode && provider.provider !== 'local';
 
-  function finalizeSinglePackBlueprint(next: PlaylistBlueprint, generationOpts: GenerationOptions = { ...opts, channel: cm.selectedChannel }) {
-    return applySetTitlePrefixesToBlueprint(next, generationOpts.setNumberPrefix ?? true);
+  /**
+   * TASK (post-generation operation snapshot) — the one real choke point
+   * every single-pack finalization path (realtime/local generation, Batch
+   * API completion, cached-result reuse, single-file bridge import, SRT-only
+   * bridge import) already ran through for title-prefix application; now
+   * also attaches this pack's GenerationSnapshot (see types.ts's own doc
+   * comment) the first time it's called on a fresh blueprint, and is a no-op
+   * on a blueprint that already has one (a later re-finalize from retry/
+   * refine/undo) — so the pack's ORIGINAL generation settings survive every
+   * later call here regardless of what's live on screen by then.
+   */
+  function finalizeSinglePackBlueprint(
+    next: PlaylistBlueprint,
+    generationOpts: GenerationOptions = { ...opts, channel: cm.selectedChannel },
+    /** Real preassigned slot plan this generation actually used, when the caller already computed one (e.g. bridge import) — avoids both a redundant recompute and drift from the plan the pack really used; withGenerationSnapshot/slotsForOptions recomputes one when omitted. */
+    slots?: PreassignedSongSlot[]
+  ) {
+    const prefixed = applySetTitlePrefixesToBlueprint(next, generationOpts.setNumberPrefix ?? true);
+    return withGenerationSnapshot(prefixed, { options: generationOpts, provider, season: selectedSeason, slots });
   }
 
   /** Shared by both the synchronous generation path and the Batch API path (TASK E2, v3.5) — whichever produced the blueprint, the autosave/hook-ledger/library-refresh behavior afterward is identical. */
@@ -512,8 +553,16 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const importChannel = matchedChannel ?? cm.selectedChannel;
     const importOpts = { ...opts, channel: importChannel };
     const avoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
-    const preassignedSongs = preallocateSongSlots(importOpts, fallbackGenres(), avoid);
-    const report = importSongsJson(text, importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
+    // TASK (bridge-import fallback state-timing fix) — real bug:
+    // cm.selectChannel(matchedChannel.id) just above doesn't update React
+    // state synchronously, so fallbackGenres()/fallbackMoods() (which read
+    // cm.selectedChannel directly) could still see the PREVIOUS channel on
+    // this same synchronous pass even though importOpts.channel is already
+    // correctly importChannel. genresForOptions/moodsForOptions
+    // (core/generationSnapshot.ts) are pure functions of importOpts itself —
+    // no live component state read at all — so this race cannot happen.
+    const preassignedSongs = preallocateSongSlots(importOpts, genresForOptions(importOpts), avoid);
+    const report = importSongsJson(text, importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
     if (!report.blueprint) {
       // Already refused upstream (parse failure / missing "songs" array /
       // duplicate or out-of-range trackNo — importSongsJson's own
@@ -523,7 +572,10 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
 
     const rawSongs = extractRawImportedSongs(text);
-    const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage);
+    const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage, {
+      archetype: importOpts.channel.archetype,
+      bilingualPair: resolveBilingualPair(importOpts)
+    });
 
     if (inspection.status === 'blocked') {
       // A NEW hard check this task adds (real artist-name-leak scan) refused
@@ -538,7 +590,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         skippedCount: report.importedCount + report.skippedCount,
         skippedReasons: [...report.skippedReasons, ...inspection.blockedReasons]
       };
-      setPendingImportInspection({ inspection });
+      setPendingImportInspection({ inspection, importOpts });
       return blockedReport;
     }
 
@@ -547,14 +599,15 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // explicit "[N곡만 확정]" click (onConfirmPartialImport) does that.
       setPendingImportInspection({
         inspection,
-        onConfirm: () => void onConfirmPartialImport(report.blueprint!, importOpts, focusTab)
+        importOpts,
+        onConfirm: () => void onConfirmPartialImport(report.blueprint!, importOpts, focusTab, preassignedSongs)
       });
       return report;
     }
 
     // 'valid' — proceed exactly as this function always has, no extra click.
     setPendingImportInspection(null);
-    const finalBlueprint = finalizeSinglePackBlueprint(report.blueprint, importOpts);
+    const finalBlueprint = finalizeSinglePackBlueprint(report.blueprint, importOpts, preassignedSongs);
     report.blueprint = finalBlueprint;
     evalFlow.setEvaluation(null);
     gen.setBlueprint(finalBlueprint);
@@ -596,8 +649,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * onImportSongsJson's own body stays a complete, literal record of what
    * the normal (valid) import path does end to end.
    */
-  async function onConfirmPartialImport(blueprint: PlaylistBlueprint, importOpts: GenerationOptions, focusTab: ResultTab) {
-    const finalBlueprint = finalizeSinglePackBlueprint(blueprint, importOpts);
+  async function onConfirmPartialImport(blueprint: PlaylistBlueprint, importOpts: GenerationOptions, focusTab: ResultTab, slots?: PreassignedSongSlot[]) {
+    const finalBlueprint = finalizeSinglePackBlueprint(blueprint, importOpts, slots);
     evalFlow.setEvaluation(null);
     gen.setBlueprint(finalBlueprint);
     if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
@@ -611,11 +664,25 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     setPendingImportInspection(null);
   }
 
-  /** "[재생성 지시문 복사]" on the inspection modal — core/importInspection.ts's own intentionally-simple standalone instruction (see that function's doc comment for why it doesn't reuse the full bridgeInstruction.ts builder). */
+  /**
+   * "[재생성 지시문 복사]" on the inspection modal — core/importInspection.ts's
+   * own intentionally-simple standalone instruction (see that function's doc
+   * comment for why it doesn't reuse the full bridgeInstruction.ts builder).
+   *
+   * TASK (post-generation operation snapshot) — real bug: this used to build
+   * the instruction from LIVE opts/cm.selectedChannel, so switching channel
+   * after a partial bridge import (before ever clicking "재생성 지시문 복사")
+   * produced an instruction naming the WRONG channel/language for tracks
+   * that must actually match the rest of the already-imported (old-channel)
+   * pack. Now reads the real importOpts this import attempt resolved
+   * (stored on pendingImportInspection at import time), falling back to live
+   * opts/channel only if that's somehow missing (defensive only).
+   */
   async function onCopyMissingTracksInstruction() {
     const pending = pendingImportInspection;
     if (!pending || !pending.inspection.missingTrackNos.length) return;
-    const instruction = buildMissingTracksRegenerateInstruction(pending.inspection.missingTrackNos, { ...opts, channel: cm.selectedChannel });
+    const instructionOpts = pending.importOpts ?? { ...opts, channel: cm.selectedChannel };
+    const instruction = buildMissingTracksRegenerateInstruction(pending.inspection.missingTrackNos, instructionOpts);
     if (instruction) await copyText(instruction);
   }
 
@@ -671,10 +738,15 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
     const meta = extractBridgeImportMeta(text);
     const concept = importOpts.customConcept || meta?.conceptLabel || `${importChannel.name} ${selectedSeason.label} imported lyrics`;
+    // TASK (bridge-import fallback state-timing fix) — same real race as
+    // onImportSongsJson above: cm.selectChannel(matchedChannel.id) doesn't
+    // land synchronously, so fallbackGenres()/fallbackMoods() could read the
+    // previous channel here. genresForOptions/moodsForOptions are pure over
+    // importOpts (already correctly importChannel), so no race.
     const displayBlueprint = finalizeSinglePackBlueprint(
       meta?.generatedAt
-        ? buildSignatureBlueprint(importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, concept, songs, meta.generatedAt)
-        : buildSignatureBlueprint(importOpts, fallbackGenres(), fallbackMoods(), selectedSeason, concept, songs),
+        ? buildSignatureBlueprint(importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, concept, songs, meta.generatedAt)
+        : buildSignatureBlueprint(importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, concept, songs),
       importOpts
     );
     evalFlow.setEvaluation(null);
@@ -737,11 +809,23 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       const setOpts = buildSetOptions({ ...opts, channel: importChannel }, setIndex, multiSetCount, multiSetSongsPerSet);
       const text = await file.text();
       const currentAvoid = { usedTitles, usedHooks };
-      const preassignedSongs = preallocateSongSlots(setOpts, fallbackGenres(), currentAvoid);
-      const report = importSongsJson(text, setOpts, fallbackGenres(), fallbackMoods(), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
+      // TASK (bridge-import fallback state-timing fix) — fallbackGenres()/
+      // fallbackMoods() read live cm.selectedChannel/opts, entirely
+      // disconnected from this set's own resolved setOpts.channel
+      // (importChannel) — genresForOptions/moodsForOptions derive from
+      // setOpts itself instead, so every set in this run resolves genres
+      // consistently with the channel it's actually being imported under.
+      const preassignedSongs = preallocateSongSlots(setOpts, genresForOptions(setOpts), currentAvoid);
+      const report = importSongsJson(text, setOpts, genresForOptions(setOpts), moodsForOptions(setOpts), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
 
       if (report.blueprint) {
-        const finalBlueprint = applySetTitlePrefixesToBlueprint(report.blueprint, setOpts.setNumberPrefix ?? true);
+        const prefixedBlueprint = applySetTitlePrefixesToBlueprint(report.blueprint, setOpts.setNumberPrefix ?? true);
+        // TASK (post-generation operation snapshot) — bridge multi-set import
+        // has no shared choke point with the local/realtime/batch multi-set
+        // path (finalizeSetBlueprint) or the single-file bridge import path
+        // (finalizeSinglePackBlueprint), so it attaches its own snapshot here
+        // directly, reusing this set's already-resolved setOpts/preassignedSongs.
+        const finalBlueprint = withGenerationSnapshot(prefixedBlueprint, { options: setOpts, provider, season: selectedSeason, slots: preassignedSongs });
         await library.saveGeneratedSet(finalBlueprint, setOpts, setOpts.projectTitle, { setGroupId: groupId, setIndex, setTotal: multiSetCount });
         usedTitles = [...usedTitles, ...finalBlueprint.songs.map(song => stripSetTitlePrefix(song.title))];
         usedHooks = [...usedHooks, ...finalBlueprint.songs.map(song => song.hookPhrase)];
@@ -982,17 +1066,35 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     void batchFlow.retryFailed(batchFlow.activeJob.id, provider, onBatchJobComplete);
   }
 
-  /** TASK B3 (v3.6) — one-track-at-a-time regeneration for trackNos validateStitched() found missing from a batch job's stitched result. */
+  /**
+   * TASK B3 (v3.6) — one-track-at-a-time regeneration for trackNos
+   * validateStitched() found missing from a batch job's stitched result.
+   *
+   * TASK (post-generation operation snapshot) — real bug found while
+   * auditing this operation: `batchOpts` already correctly came from
+   * `job.snapshot.options` (this batch job's own real settings, not live
+   * opts), but the genres/moods/season passed alongside it did not —
+   * fallbackGenres()/fallbackMoods()/selectedSeason all read LIVE
+   * cm.selectedChannel/opts, so a missing-track regen after switching
+   * channel could resolve batchOpts.channel = A's genres against channel
+   * B's live genre selection. Now derives genres/moods from batchOpts
+   * itself (genresForOptions/moodsForOptions) and season from batchOpts'
+   * own seasonId. `provider` (settings) stays live/intentional —
+   * BatchJobSnapshot deliberately never persists API credentials (see its
+   * own doc comment), the same reason resumeActiveJobs already re-reads
+   * settings live rather than from the snapshot.
+   */
   async function onRegenerateMissingBatchTracks() {
     const job = batchFlow.activeJob;
     const missing = job?.missingTrackNos;
     if (!job || !missing?.length || !gen.blueprint) return;
     const batchOpts = job.snapshot.options;
+    const batchSeason = seasonPacks.find(season => season.id === batchOpts.seasonId) ?? selectedSeason;
     let current = gen.blueprint;
     const stillMissing: number[] = [];
     for (const trackNo of missing) {
       try {
-        const { blueprint: next } = await regenerateTrack(current, trackNo, batchOpts, fallbackGenres(), fallbackMoods(), selectedSeason, provider, [], await safeAvoidSet(batchOpts.channel.id, batchOpts.lyricLanguage));
+        const { blueprint: next } = await regenerateTrack(current, trackNo, batchOpts, genresForOptions(batchOpts), moodsForOptions(batchOpts), batchSeason, provider, [], await safeAvoidSet(batchOpts.channel.id, batchOpts.lyricLanguage));
         current = next;
       } catch {
         stillMissing.push(trackNo);
@@ -1004,9 +1106,27 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     if (updated) void handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, batchOpts);
   }
 
-  function onRefineSelected(trackNos: number[]) {
+  /**
+   * TASK (post-generation operation snapshot) — the one real decision every
+   * post-generation operation below (refine/evaluate/retry) makes: use this
+   * pack's own GenerationSnapshot (what it was ACTUALLY generated under) by
+   * default, falling back to live opts/channel only when there's no
+   * snapshot at all (an old pack from before this task, or a display-only
+   * synthetic blueprint) or the user explicitly clicked
+   * "[현재 설정으로 다시 스타일링]" for THAT one action (useCurrentSettings) — see
+   * Step4Result.tsx's own per-action checkboxes; this is never a single
+   * global toggle that changes every operation's behavior at once.
+   */
+  function resolvedGenerationContext(useCurrentSettings?: boolean) {
+    const liveOptions = { ...opts, channel: cm.selectedChannel };
+    const live = { options: liveOptions, provider, season: selectedSeason, genres: fallbackGenres(), moods: fallbackMoods() };
+    return resolveGenerationContext(gen.blueprint, live, useCurrentSettings);
+  }
+
+  function onRefineSelected(trackNos: number[], useCurrentSettings?: boolean) {
     if (!gen.blueprint || !trackNos.length) return;
-    void gen.refineSelected(trackNos, { ...opts, channel: cm.selectedChannel }, fallbackGenres(), fallbackMoods(), selectedSeason, provider);
+    const ctx = resolvedGenerationContext(useCurrentSettings);
+    void gen.refineSelected(trackNos, ctx.options, ctx.genres, ctx.moods, ctx.season, ctx.provider);
   }
 
   function onUseCachedResult() {
@@ -1116,23 +1236,25 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     });
   }
 
-  function onEvaluate(scopeTrackNos?: number[]) {
+  function onEvaluate(scopeTrackNos?: number[], useCurrentSettings?: boolean) {
     if (!gen.blueprint) return;
-    void evalFlow.evaluate(gen.blueprint, { ...opts, channel: cm.selectedChannel }, provider, scopeTrackNos);
+    const ctx = resolvedGenerationContext(useCurrentSettings);
+    void evalFlow.evaluate(gen.blueprint, ctx.options, ctx.provider, scopeTrackNos);
   }
 
-  function onRetrySong(trackNo: number, issues: string[]) {
+  function onRetrySong(trackNo: number, issues: string[], useCurrentSettings?: boolean) {
     if (!gen.blueprint) return;
+    const ctx = resolvedGenerationContext(useCurrentSettings);
     void evalFlow.retrySong(
       gen.blueprint,
       trackNo,
-      { ...opts, channel: cm.selectedChannel },
-      fallbackGenres(),
-      fallbackMoods(),
-      selectedSeason,
-      provider,
+      ctx.options,
+      ctx.genres,
+      ctx.moods,
+      ctx.season,
+      ctx.provider,
       issues,
-      next => gen.setBlueprint(finalizeSinglePackBlueprint(next, { ...opts, channel: cm.selectedChannel })),
+      next => gen.setBlueprint(finalizeSinglePackBlueprint(next, ctx.options)),
       message => gen.setError(message)
     );
   }
@@ -1142,16 +1264,30 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     evalFlow.undoRetry(gen.blueprint, next => gen.setBlueprint(next));
   }
 
+  /**
+   * TASK (post-generation operation snapshot) — real bug: this used to
+   * always rebuild style prompts under LIVE opts/cm.selectedChannel, so
+   * switching channel after generating a pack and then merely toggling
+   * persona mode would silently rewrite every song's style prompt under the
+   * new channel's genre/vocal identity. Now rebuilds under this pack's own
+   * GenerationSnapshot (falling back to live opts/channel only when the
+   * blueprint has none — an old pack from before this task); no explicit
+   * "use current settings" override for this one, since the persona toggle
+   * itself has no dedicated per-click UI action to hang one off of the way
+   * retry/refine/evaluate do.
+   */
   function onPersonaModeChange(enabled: boolean) {
-    const nextOpts = { ...opts, channel: cm.selectedChannel, personaMode: enabled };
     setOpts(prev => ({ ...prev, personaMode: enabled }));
     if (!gen.blueprint) return;
+    const snapshot = gen.blueprint.generationSnapshot;
+    const baseOptions = snapshot?.options ?? { ...opts, channel: cm.selectedChannel };
+    const nextOpts = { ...baseOptions, personaMode: enabled };
     const nextBlueprint = rebuildStylePromptsForPersonaMode(
       gen.blueprint,
       nextOpts,
-      fallbackGenres(),
-      fallbackMoods(),
-      selectedSeason,
+      snapshot ? genresForOptions(snapshot.options) : fallbackGenres(),
+      snapshot ? moodsForOptions(snapshot.options) : fallbackMoods(),
+      snapshot?.season ?? selectedSeason,
       provider.promptCharLimit
     );
     gen.setBlueprint(nextBlueprint);
@@ -1171,10 +1307,23 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     await refreshSavedPersonas();
   }
 
+  /**
+   * TASK (post-generation operation snapshot) — real bug: a save used to
+   * always persist LIVE opts/cm.selectedChannel as the pack's own
+   * `options`, so switching channel after generating a pack and then
+   * clicking "저장" saved the pack under the NEW channel's id/genre/vocal
+   * settings even though every song in it was actually written for the old
+   * one — a real, permanent library record that no longer matched what it
+   * claimed to be generated under. Now saves under this pack's own
+   * GenerationSnapshot.options when present, falling back to live opts/
+   * channel only for a pack with no snapshot (an old pack from before this
+   * task, or a display-only synthetic blueprint).
+   */
   async function onSaveCurrentPack() {
-    await library.saveCurrentPack(gen.blueprint, { ...opts, channel: cm.selectedChannel }, thumbnailSpec, soundSignature ?? undefined);
+    const saveOptions = gen.blueprint?.generationSnapshot?.options ?? { ...opts, channel: cm.selectedChannel };
+    await library.saveCurrentPack(gen.blueprint, saveOptions, thumbnailSpec, soundSignature ?? undefined);
     if (soundSignature) {
-      await recordChannelPersonaUse(cm.selectedChannel.id, soundSignature.personaName, soundSignature);
+      await recordChannelPersonaUse(saveOptions.channel.id, soundSignature.personaName, soundSignature);
       await refreshSavedPersonas();
     }
   }

@@ -33,6 +33,11 @@ import { getGenreById } from '../../data/genreLibrary';
 import { moneyChordPresets } from '../../data/moneyChords';
 import { vocalPresets } from '../../data/vocalPresets';
 import { getWorkspace } from '../../data/workspaces';
+import { moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
+import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS } from '../../data/kidsAgeTiers';
+import { isKidsArchetype } from '../../utils/channelArchetype';
+import { resolveOpeningStyle } from '../../core/localGenerator';
+import { resolveGenreBlendMode } from '../../core/genreRotation';
 import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
 import { resolveGenerationPreflight, type PreflightReason, type PreflightResult } from '../../core/generationPreflight';
 import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
@@ -132,7 +137,58 @@ function DiversityAssignmentPreview({ slots, opts }: { slots: PreassignedSongSlo
 const MISMATCH_FIELD_LABEL_KO: Record<string, string> = {
   moneyChordMode: '머니코드',
   genreIds: '장르',
-  vocalTone: '보컬'
+  vocalTone: '보컬',
+  // TASK (provenance extension) — negativeStyle is the one newly-protected
+  // field with real mismatch-detection wiring (core/userChoices.ts's
+  // negativeStyleReallyApplied); the generic mismatch renderer below picks
+  // this label up automatically.
+  negativeStyle: '네거티브 스타일'
+};
+
+/**
+ * TASK (provenance extension) — the remaining newly-protected/newly-shown
+ * axes have no allocation/rotation step to mismatch-check (they flow
+ * straight from opts into the prompt, unlike money chord/vocal tone/genre),
+ * so they only get a display row here, mirroring how 채널/워크스페이스
+ * already render a single resolved value with no separate mismatch check.
+ * Label text mirrors each field's own real Step2Concept.tsx ChoiceGrid/chip
+ * labels (those consts aren't exported, so mirrored here rather than
+ * imported) so the contract screen never uses different wording than the
+ * picker the user actually clicked.
+ */
+const DURATION_TARGET_LABEL_KO: Record<string, string> = {
+  under3m30: '표준 (3:10-3:35)',
+  under4m: '조금 여유있게 (4:00 이내)',
+  playlistShort: '짧게 (2:50-3:20)'
+};
+
+const LYRIC_DEPTH_LABEL_KO: Record<string, string> = {
+  commercial: '가벼운 상업용',
+  simple: '아주 단순하게',
+  literary: '문학적으로',
+  poetic: '시적으로 깊게'
+};
+
+const GENRE_BLEND_MODE_LABEL_KO: Record<string, string> = {
+  'shared-primary': '첫 장르를 모든 곡에 섞기',
+  'lead-only': '곡마다 한 장르만'
+};
+
+const PERSPECTIVE_MODE_LABEL_KO: Record<string, string> = {
+  fixed: '고정',
+  dominant: '중심 시점',
+  varied: '자동 분산'
+};
+
+const HOOK_MODE_LABEL_KO: Record<string, string> = {
+  'ai-creative': 'AI가 훅 창작',
+  pool: '로컬 훅 뱅크 사용'
+};
+
+/** TASK (provenance extension) — openingStyle has no real UI control anywhere in this app (grep-confirmed, see types.ts's GenerationChoiceProvenance own doc comment) so this row is display-only: always shows the real resolved value, never a "선택" side. */
+const OPENING_STYLE_LABEL_KO: Record<string, string> = {
+  'hook-forward': '훅으로 바로 시작',
+  'hum-intro': '허밍 인트로 후 시작'
 };
 
 /** TASK v5.13 (vocal allocation mode) — VocalAllocationMode -> "적용 방식" row text; the 'channel-fixed' entry is overridden below when a vocal-tone preset was ALSO picked on top of the fixed quota, matching the task doc's own mockup ("채널 고정 성별 + 선택 음색 반영"). */
@@ -209,6 +265,24 @@ function GenerationContractPanel({
     ? contract.perspective.effective.map(id => `${POV_LABELS[id] || id} ${contract.perspective.counts[id] ?? 0}곡`).join(' · ')
     : '-';
 
+  // TASK (provenance extension) — 계절 · 분위기 · 곡 수 · 목표 길이 · 가사 깊이
+  // · 동요 연령 · 장르 혼합 방식 · 시점 적용 방식 · 오프닝 방식 · 훅 모드. Every
+  // value here is read straight off `opts`/`contract` (a renderer, not a
+  // second source of truth — same convention the existing 9 rows above use),
+  // except genreBlendMode/openingStyle which go through their own real
+  // resolvers (resolveGenreBlendMode/resolveOpeningStyle) since both fields
+  // are optional-with-a-resolved-default on GenerationOptions, same as
+  // perspectiveMode (contract.perspective.mode, already resolved) just below.
+  const seasonLine = seasonLabelsKo[opts.seasonId] ?? opts.seasonId;
+  const moodLine = opts.moodIds.length ? opts.moodIds.map(id => moodLabelsKo[id] ?? id).join(' · ') : '-';
+  const durationLine = DURATION_TARGET_LABEL_KO[opts.durationTarget] ?? opts.durationTarget;
+  const lyricDepthLine = LYRIC_DEPTH_LABEL_KO[opts.lyricDepth] ?? opts.lyricDepth;
+  const kidsAgeTierLine = KIDS_AGE_TIERS[opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID]?.labelKo;
+  const genreBlendModeLine = GENRE_BLEND_MODE_LABEL_KO[resolveGenreBlendMode(opts)] ?? resolveGenreBlendMode(opts);
+  const perspectiveModeLine = PERSPECTIVE_MODE_LABEL_KO[contract.perspective.mode] ?? contract.perspective.mode;
+  const openingStyleLine = OPENING_STYLE_LABEL_KO[resolveOpeningStyle(opts.openingStyle, contract.archetype.effective)];
+  const hookModeLine = HOOK_MODE_LABEL_KO[opts.hookMode ?? 'ai-creative'];
+
   return (
     <div className="provider-summary generation-contract-panel">
       <div className="panel-title">
@@ -228,6 +302,18 @@ function GenerationContractPanel({
         <div><dt>적용 방식</dt><dd>{vocalAllocationLine}</dd></div>
         <div><dt>머니코드</dt><dd>{moneyChordLine || '-'}</dd></div>
         <div><dt>시점</dt><dd>{perspectiveLine}</dd></div>
+        <div><dt>시점 적용 방식</dt><dd>{perspectiveModeLine}</dd></div>
+        <div><dt>계절</dt><dd>{seasonLine}</dd></div>
+        <div><dt>분위기</dt><dd>{moodLine}</dd></div>
+        <div><dt>곡 수</dt><dd>{opts.songCount}곡</dd></div>
+        <div><dt>목표 길이</dt><dd>{durationLine}</dd></div>
+        <div><dt>가사 깊이</dt><dd>{lyricDepthLine}</dd></div>
+        {isKidsArchetype(contract.archetype.effective) && (
+          <div><dt>동요 연령</dt><dd>{kidsAgeTierLine ?? '-'}</dd></div>
+        )}
+        <div><dt>장르 혼합 방식</dt><dd>{genreBlendModeLine}</dd></div>
+        <div><dt>오프닝 방식</dt><dd>{openingStyleLine}</dd></div>
+        <div><dt>훅 모드</dt><dd>{hookModeLine}</dd></div>
       </dl>
 
       {contract.mismatches.length > 0 && (

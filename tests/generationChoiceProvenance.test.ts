@@ -36,6 +36,7 @@ import {
   userChoicesFromOptions,
   type ResolvedChoiceCheck
 } from '../src/core/userChoices';
+import { buildDefaultNegativeStyle } from '../src/data/negativeStyles';
 import type { GenerationChoiceProvenance, GenerationOptions } from '../src/types';
 import { channelPresets, makeOptions } from './fixtures';
 
@@ -338,5 +339,102 @@ describe('[provenance] historical bug-class reproduction — vocal-tone-ignored 
     const oldResult = assertUserChoicesPreserved(oldChoices, brokenResolution, 'v413-repro-old');
     expect(oldResult.ok).toBe(true); // silently missed — proves the old logic could not have caught this
     expect(oldResult.violations).toEqual([]);
+  });
+});
+
+/**
+ * TASK (provenance extension) — real, verified gap: moodIds/durationTarget/
+ * lyricDepth/hookMode/referenceMood/negativeStyle/avoidWords all have a real,
+ * direct click-time control in Step2Concept.tsx (grep-confirmed — chip
+ * toggles, ChoiceGrids, or a textarea onChange, same shape as the original 13
+ * tracked axes) but GenerationChoiceProvenance never named them, so a
+ * silent-drop regression on any of them could never have been recorded, let
+ * alone caught. This mirrors the exact
+ * lyricLanguage/packagingLanguage/seasonId/songCount/kidsAgeTierId pattern
+ * above: no legacy heuristic ever existed for any of these 7, so live
+ * choiceProvenance is the ONLY way userChoicesFromOptions ever sets their
+ * source.
+ */
+describe('[provenance extension] moodIds/durationTarget/lyricDepth/hookMode/referenceMood/negativeStyle/avoidWords — real UI recording points', () => {
+  it('moodIds: untracked (old-shape) options never set source; a real click-time record (App.tsx\'s toggleArray) does', () => {
+    const untracked = userChoicesFromOptions(makeOptions({ channel: seniorChannel, moodIds: ['nostalgic', 'warm'] }));
+    expect(untracked.source.moodIds).toBeUndefined();
+
+    const tracked = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      moodIds: ['nostalgic', 'warm'],
+      choiceProvenance: { moodIds: 'user' }
+    }));
+    expect(tracked.moodIds).toEqual(['nostalgic', 'warm']);
+    expect(tracked.source.moodIds).toBe('user');
+  });
+
+  it('a channel switch (App.tsx\'s applyChannelToOptions) resets moodIds provenance to \'channel\', mirroring vocalTone/genreIds/kidsAgeTierId', () => {
+    const choices = userChoicesFromOptions(makeOptions({
+      channel: kidsChannel,
+      moodIds: kidsChannel.preferredMoods,
+      choiceProvenance: { moodIds: 'channel' }
+    }));
+    expect(choices.source.moodIds).toBe('channel');
+  });
+
+  it('durationTarget/lyricDepth: Step2Concept.tsx\'s "곡 길이"/"가사 깊이" ChoiceGrids record user provenance', () => {
+    const choices = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      durationTarget: 'under4m',
+      lyricDepth: 'poetic',
+      choiceProvenance: { durationTarget: 'user', lyricDepth: 'user' }
+    }));
+    expect(choices.durationTarget).toBe('under4m');
+    expect(choices.source.durationTarget).toBe('user');
+    expect(choices.lyricDepth).toBe('poetic');
+    expect(choices.source.lyricDepth).toBe('user');
+  });
+
+  it('hookMode: Step2Concept.tsx\'s "훅 생성 방식" chip pair records user provenance', () => {
+    const choices = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      hookMode: 'pool',
+      choiceProvenance: { hookMode: 'user' }
+    }));
+    expect(choices.hookMode).toBe('pool');
+    expect(choices.source.hookMode).toBe('user');
+  });
+
+  it('referenceMood: Step2Concept.tsx\'s "Reference mood" textarea records user provenance', () => {
+    const choices = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      referenceMood: '비 오는 새벽 드라이브, 나른한 여성 보컬',
+      choiceProvenance: { referenceMood: 'user' }
+    }));
+    expect(choices.referenceMood).toBe('비 오는 새벽 드라이브, 나른한 여성 보컬');
+    expect(choices.source.referenceMood).toBe('user');
+  });
+
+  it('negativeStyle: the preset chip/raw textarea record user; resetNegativeStyle\'s real handler records default instead (restoring the channel default is the opposite of an override)', () => {
+    const userChoices = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      negativeStyle: 'wordless humming or la-la filler',
+      choiceProvenance: { negativeStyle: 'user' }
+    }));
+    expect(userChoices.negativeStyle).toBe('wordless humming or la-la filler');
+    expect(userChoices.source.negativeStyle).toBe('user');
+
+    const resetChoices = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      negativeStyle: buildDefaultNegativeStyle(seniorChannel),
+      choiceProvenance: { negativeStyle: 'default' }
+    }));
+    expect(resetChoices.source.negativeStyle).toBe('default');
+  });
+
+  it('avoidWords: Step2Concept.tsx\'s preset checkboxes/custom-term input record user provenance', () => {
+    const choices = userChoicesFromOptions(makeOptions({
+      channel: seniorChannel,
+      avoidWords: '전쟁, 이별',
+      choiceProvenance: { avoidWords: 'user' }
+    }));
+    expect(choices.avoidWords).toBe('전쟁, 이별');
+    expect(choices.source.avoidWords).toBe('user');
   });
 });

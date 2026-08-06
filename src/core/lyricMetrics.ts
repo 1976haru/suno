@@ -1,4 +1,4 @@
-import type { AudienceProfile, LyricLanguage } from '../types';
+import type { AudienceProfile, BilingualPair, LyricLanguage } from '../types';
 
 /**
  * v4.1 (TASK B) — real per-language lyric measurement. Before this, every
@@ -179,9 +179,87 @@ export function measureLyricLanguageRatios(lyrics: string): LyricLanguageRatios 
   };
 }
 
-const KOREAN_HANGUL_RATIO_MIN = 0.6;
+/**
+ * TASK (per-workspace Korean hangul floor) — replaces the old single global
+ * `KOREAN_HANGUL_RATIO_MIN = 0.6` with real per-workspace values: a kids
+ * channel's Korean lyrics run almost pure Hangul (near-zero English), while
+ * a kr-idol pack routinely mixes in English hooks/rap verses as normal,
+ * expected content — one flat floor either false-positived on real kr-idol
+ * packs or was too loose to ever catch a real kr-kids mismatch.
+ *
+ * Calibrated against real core/localGenerator.ts generateLocalBlueprint
+ * output (`npx tsx` one-off script, not committed — see this task's own
+ * report): every kr-kids-song/kr-2030-pop/kr-idol-male/kr-idol-female
+ * channel x all 16 seasons, 12 songs each (576 real songs per archetype
+ * family; kr-idol-male + kr-idol-female measured separately, min taken
+ * across both since they share one archetype tier here).
+ *
+ *   kr-kids   real hangulRatio min observed: 0.772 (n=576) -> floor 0.70 (7.2pp margin)
+ *   kr-2030   real hangulRatio min observed: 0.624 (n=576) -> floor 0.55 (7.4pp margin)
+ *   kr-idol   real hangulRatio min observed: 0.620 (n=1152, male+female combined) -> floor 0.45 (17pp margin)
+ *
+ * All three: basis: measured (backed by the real-generation run above, not
+ * just re-stated from the task doc's own proposed numbers — those matched
+ * what was independently measured, so the doc's estimate and the measured
+ * floor happen to agree here).
+ *
+ * KOREAN_HANGUL_RATIO_MIN_DEFAULT is the pre-existing flat 0.6 value, kept
+ * verbatim as the fallback for every Korean-market archetype this task did
+ * NOT calibrate (senior-oldpop/senior-morning and any future one) — basis:
+ * estimated (this task's own original ratio-based-mismatch task's number,
+ * not re-verified here; out of this task's scope per its own file-ownership
+ * constraints).
+ */
+const KOREAN_HANGUL_RATIO_MIN_KR_KIDS = 0.70;
+const KOREAN_HANGUL_RATIO_MIN_KR_2030 = 0.55;
+const KOREAN_HANGUL_RATIO_MIN_KR_IDOL = 0.45;
+const KOREAN_HANGUL_RATIO_MIN_DEFAULT = 0.6;
+
+function koreanHangulRatioMinForArchetype(archetype: string | undefined): number {
+  if (archetype === 'kr-kids-song') return KOREAN_HANGUL_RATIO_MIN_KR_KIDS;
+  if (archetype === 'kr-2030-pop') return KOREAN_HANGUL_RATIO_MIN_KR_2030;
+  if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') return KOREAN_HANGUL_RATIO_MIN_KR_IDOL;
+  return KOREAN_HANGUL_RATIO_MIN_DEFAULT;
+}
+
 const KOREAN_KANA_RATIO_MAX = 0.05;
 const JAPANESE_SCRIPT_RATIO_MIN = 0.6;
+/**
+ * TASK (Japanese kana floor gap) — `kanaKanjiRatio` (kana+kanji combined)
+ * alone lets a 100%-kanji, zero-kana body (i.e. pure Chinese, not Japanese
+ * at all — kanji glyphs overlap with Hanzi) satisfy
+ * `kanaKanjiRatio >= JAPANESE_SCRIPT_RATIO_MIN` despite having no actual
+ * Japanese-specific script. `kanaRatio` (hiragana/katakana only, already
+ * computed by measureLyricLanguageRatios) is the one signal unique to
+ * Japanese among CJK scripts, so a real floor on it is required alongside
+ * the existing kanaKanjiRatio floor, not instead of it (a real Japanese lyric
+ * can still be legitimately kanji-heavy — see the calibration below).
+ *
+ * Calibrated against real generateLocalBlueprint output across every real
+ * Japanese-market archetype in this app (jp-kids-song, jp-2030-pop,
+ * showa-cafe, showa-70s, j2000s), every channel x all 16 seasons, 12 songs
+ * each (576-1728 real songs per archetype family):
+ *
+ *   jp-kids    kanaRatio min observed: 0.777 (n=576)
+ *   jp-2030    kanaRatio min observed: 0.480 (n=576) — lowest of all, driven
+ *              by real English hooks mixed into otherwise-real Japanese
+ *              verses ("night road", "city skyline" — genuine content, not
+ *              a fixture)
+ *   showa-cafe kanaRatio min observed: 0.630 (n=192)
+ *   showa-70s  kanaRatio min observed: 0.586 (n=192)
+ *   j2000s     kanaRatio min observed: 0.594 (n=192)
+ *
+ * Real floor across every workspace measured: 0.480. JAPANESE_KANA_RATIO_MIN
+ * is set well below that (0.2, a 2.4x safety margin under the lowest real
+ * value seen) while still comfortably failing a pure-Chinese body (kanaRatio
+ * = 0 exactly — no kana at all) and a Chinese body with a single stray
+ * Japanese word (measured kanaRatio ~0.065 for a real Li Bai poem + one
+ * inserted Japanese word — see tests/lyricLanguageReconciliation.test.ts's
+ * own Japanese-kana-floor describe block for the exact fixture).
+ * basis: measured (task doc's own suggested starting point was 0.15; 0.2 was
+ * chosen instead after measuring real content, not accepted as-is).
+ */
+const JAPANESE_KANA_RATIO_MIN = 0.2;
 const JAPANESE_HANGUL_RATIO_MAX = 0.05;
 const ENGLISH_LATIN_RATIO_MIN = 0.8;
 const ENGLISH_NON_LATIN_RATIO_MAX = 0.02;
@@ -223,6 +301,21 @@ export interface LyricLanguageCheck {
 }
 
 /**
+ * TASK (per-workspace Korean floor / bilingual pair auto-detection gap) —
+ * optional context checkLyricLanguageMatch uses to sharpen its two
+ * workspace-dependent checks beyond what `lyrics`/`language` alone can tell
+ * it. Both fields are additive: omitting either (or the whole object) keeps
+ * every pre-existing caller's exact behavior (flat KOREAN_HANGUL_RATIO_MIN_DEFAULT
+ * for 'korean', old auto-detect for 'bilingual').
+ */
+export interface LyricLanguageCheckContext {
+  /** Channel archetype string (GenerationOptions.channel.archetype, e.g. 'kr-kids-song') — selects the per-workspace Korean hangul-ratio floor via koreanHangulRatioMinForArchetype. Unrecognized/undefined archetypes fall back to KOREAN_HANGUL_RATIO_MIN_DEFAULT. */
+  archetype?: string;
+  /** Expected 'bilingual' language pair (GenerationOptions.bilingualPair / core/localGenerator.ts's resolveBilingualPair) — see BilingualPair's own doc comment in types.ts. Only consulted when language === 'bilingual'; undefined falls back to the old auto-detect heuristic below. */
+  bilingualPair?: BilingualPair;
+}
+
+/**
  * TASK (ratio-based lyric language mismatch) — the shared evaluator both
  * lyricLanguageMismatchWarning (English-language warning text, wired into
  * core/batchPreallocation.ts's reconcileWithPreassignedSlot) and
@@ -234,30 +327,54 @@ export interface LyricLanguageCheck {
  * section headers) — same "missing input, not a detected problem" carve-out
  * the presence-only check this replaces already had.
  */
-export function checkLyricLanguageMatch(lyrics: string, language: LyricLanguage): LyricLanguageCheck | undefined {
+export function checkLyricLanguageMatch(lyrics: string, language: LyricLanguage, context?: LyricLanguageCheckContext): LyricLanguageCheck | undefined {
   if (!lyrics.trim()) return undefined;
   const { text, lines } = stripLyricsToBody(lyrics);
   if (!text.trim()) return undefined;
   const ratios = measureLyricLanguageRatios(lyrics);
 
   if (language === 'bilingual') {
+    const counts = realLanguageLineCounts(lines);
+
+    // TASK (bilingual pair auto-detection gap) — when the caller knows the
+    // real EXPECTED pair, check against it directly: real presence (>=2
+    // multi-word lines) of English AND the SPECIFIC other language the pair
+    // names, not whichever of Korean/Japanese happens to show up more. A
+    // wrong-pair response (e.g. English+Korean lyrics for an expected
+    // en-ja pack) is now correctly caught here — it has zero real Japanese
+    // lines, so `otherLines < BILINGUAL_MIN_REAL_LINES` regardless of how
+    // much Korean is actually present.
+    if (context?.bilingualPair) {
+      const otherLanguage: 'korean' | 'japanese' = context.bilingualPair === 'en-ja' ? 'japanese' : 'korean';
+      const otherLines = otherLanguage === 'japanese' ? counts.japanese : counts.korean;
+      const ok = counts.english >= BILINGUAL_MIN_REAL_LINES && otherLines >= BILINGUAL_MIN_REAL_LINES;
+      return { ok, ratios, bilingualDetail: { englishLines: counts.english, otherLines, otherLanguage } };
+    }
+
+    // Fallback: no expected pair known (older saved pack, or a caller that
+    // hasn't been migrated to pass one yet) — auto-detect by picking
+    // whichever of Korean/Japanese has the higher character ratio, exactly
+    // the pre-existing behavior.
     const hasKoreanScript = ratios.hangulRatio > 0;
     const hasJapaneseScript = ratios.kanaKanjiRatio > 0;
     if (!hasKoreanScript && !hasJapaneseScript) {
       return { ok: false, ratios, bilingualDetail: { englishLines: 0, otherLines: 0, otherLanguage: 'korean' } };
     }
     const otherLanguage: 'korean' | 'japanese' = ratios.kanaKanjiRatio > ratios.hangulRatio ? 'japanese' : 'korean';
-    const counts = realLanguageLineCounts(lines);
     const otherLines = otherLanguage === 'japanese' ? counts.japanese : counts.korean;
     const ok = counts.english >= BILINGUAL_MIN_REAL_LINES && otherLines >= BILINGUAL_MIN_REAL_LINES;
     return { ok, ratios, bilingualDetail: { englishLines: counts.english, otherLines, otherLanguage } };
   }
 
   if (language === 'korean') {
-    return { ok: ratios.hangulRatio >= KOREAN_HANGUL_RATIO_MIN && ratios.kanaRatio <= KOREAN_KANA_RATIO_MAX, ratios };
+    const hangulMin = koreanHangulRatioMinForArchetype(context?.archetype);
+    return { ok: ratios.hangulRatio >= hangulMin && ratios.kanaRatio <= KOREAN_KANA_RATIO_MAX, ratios };
   }
   if (language === 'japanese') {
-    return { ok: ratios.kanaKanjiRatio >= JAPANESE_SCRIPT_RATIO_MIN && ratios.hangulRatio <= JAPANESE_HANGUL_RATIO_MAX, ratios };
+    return {
+      ok: ratios.kanaKanjiRatio >= JAPANESE_SCRIPT_RATIO_MIN && ratios.kanaRatio >= JAPANESE_KANA_RATIO_MIN && ratios.hangulRatio <= JAPANESE_HANGUL_RATIO_MAX,
+      ratios
+    };
   }
   // english
   return { ok: ratios.latinRatio >= ENGLISH_LATIN_RATIO_MIN && (ratios.hangulRatio + ratios.kanaRatio) <= ENGLISH_NON_LATIN_RATIO_MAX, ratios };
@@ -287,15 +404,16 @@ export function checkLyricLanguageMatch(lyrics: string, language: LyricLanguage)
  * reconciliation-time finding in batchPreallocation.ts (structureWarning,
  * genreWarning, ...).
  */
-export function lyricLanguageMismatchWarning(lyrics: string, language: LyricLanguage, trackNo: number): string | undefined {
-  const check = checkLyricLanguageMatch(lyrics, language);
+export function lyricLanguageMismatchWarning(lyrics: string, language: LyricLanguage, trackNo: number, context?: LyricLanguageCheckContext): string | undefined {
+  const check = checkLyricLanguageMatch(lyrics, language, context);
   if (!check || check.ok) return undefined;
   const { ratios } = check;
   if (language === 'korean') {
-    return `Track ${trackNo}: lyricLanguage is 'korean' but the lyrics body is only ${Math.round(ratios.hangulRatio * 100)}% Hangul (minimum ${Math.round(KOREAN_HANGUL_RATIO_MIN * 100)}%) or has too much Japanese kana (${Math.round(ratios.kanaRatio * 100)}%, maximum ${Math.round(KOREAN_KANA_RATIO_MAX * 100)}%) — possible language mismatch.`;
+    const hangulMin = koreanHangulRatioMinForArchetype(context?.archetype);
+    return `Track ${trackNo}: lyricLanguage is 'korean' but the lyrics body is only ${Math.round(ratios.hangulRatio * 100)}% Hangul (minimum ${Math.round(hangulMin * 100)}%) or has too much Japanese kana (${Math.round(ratios.kanaRatio * 100)}%, maximum ${Math.round(KOREAN_KANA_RATIO_MAX * 100)}%) — possible language mismatch.`;
   }
   if (language === 'japanese') {
-    return `Track ${trackNo}: lyricLanguage is 'japanese' but the lyrics body is only ${Math.round(ratios.kanaKanjiRatio * 100)}% kana/kanji (minimum ${Math.round(JAPANESE_SCRIPT_RATIO_MIN * 100)}%) or has too much Hangul (${Math.round(ratios.hangulRatio * 100)}%, maximum ${Math.round(JAPANESE_HANGUL_RATIO_MAX * 100)}%) — possible language mismatch.`;
+    return `Track ${trackNo}: lyricLanguage is 'japanese' but the lyrics body is only ${Math.round(ratios.kanaKanjiRatio * 100)}% kana/kanji (minimum ${Math.round(JAPANESE_SCRIPT_RATIO_MIN * 100)}%) or only ${Math.round(ratios.kanaRatio * 100)}% real kana (minimum ${Math.round(JAPANESE_KANA_RATIO_MIN * 100)}%, catches kanji-only Chinese text) or has too much Hangul (${Math.round(ratios.hangulRatio * 100)}%, maximum ${Math.round(JAPANESE_HANGUL_RATIO_MAX * 100)}%) — possible language mismatch.`;
   }
   if (language === 'english') {
     return `Track ${trackNo}: lyricLanguage is 'english' but the lyrics body is only ${Math.round(ratios.latinRatio * 100)}% Latin script (minimum ${Math.round(ENGLISH_LATIN_RATIO_MIN * 100)}%) or has too much Hangul/kana (${Math.round((ratios.hangulRatio + ratios.kanaRatio) * 100)}%, maximum ${Math.round(ENGLISH_NON_LATIN_RATIO_MAX * 100)}%) — possible language mismatch.`;
@@ -319,15 +437,16 @@ export function lyricLanguageMismatchWarning(lyrics: string, language: LyricLang
  * and (via CompositionScore.blocking vs. song.warnings) how severely the
  * two different consumers treat the same finding.
  */
-export function lyricLanguageMismatchReasonKo(lyrics: string, language: LyricLanguage): string | undefined {
-  const check = checkLyricLanguageMatch(lyrics, language);
+export function lyricLanguageMismatchReasonKo(lyrics: string, language: LyricLanguage, context?: LyricLanguageCheckContext): string | undefined {
+  const check = checkLyricLanguageMatch(lyrics, language, context);
   if (!check || check.ok) return undefined;
   const { ratios } = check;
   if (language === 'korean') {
-    return `lyricLanguage가 'korean'인데 가사 본문의 한글 비율이 ${Math.round(ratios.hangulRatio * 100)}%입니다 (최소 ${Math.round(KOREAN_HANGUL_RATIO_MIN * 100)}%) 또는 가나 비율이 ${Math.round(ratios.kanaRatio * 100)}%로 너무 높습니다 (최대 ${Math.round(KOREAN_KANA_RATIO_MAX * 100)}%) — 언어 불일치 가능성이 큽니다.`;
+    const hangulMin = koreanHangulRatioMinForArchetype(context?.archetype);
+    return `lyricLanguage가 'korean'인데 가사 본문의 한글 비율이 ${Math.round(ratios.hangulRatio * 100)}%입니다 (최소 ${Math.round(hangulMin * 100)}%) 또는 가나 비율이 ${Math.round(ratios.kanaRatio * 100)}%로 너무 높습니다 (최대 ${Math.round(KOREAN_KANA_RATIO_MAX * 100)}%) — 언어 불일치 가능성이 큽니다.`;
   }
   if (language === 'japanese') {
-    return `lyricLanguage가 'japanese'인데 가사 본문의 가나/한자 비율이 ${Math.round(ratios.kanaKanjiRatio * 100)}%입니다 (최소 ${Math.round(JAPANESE_SCRIPT_RATIO_MIN * 100)}%) 또는 한글 비율이 ${Math.round(ratios.hangulRatio * 100)}%로 너무 높습니다 (최대 ${Math.round(JAPANESE_HANGUL_RATIO_MAX * 100)}%) — 언어 불일치 가능성이 큽니다.`;
+    return `lyricLanguage가 'japanese'인데 가사 본문의 가나/한자 비율이 ${Math.round(ratios.kanaKanjiRatio * 100)}%입니다 (최소 ${Math.round(JAPANESE_SCRIPT_RATIO_MIN * 100)}%) 또는 실질 가나 비율이 ${Math.round(ratios.kanaRatio * 100)}%로 너무 낮습니다 (최소 ${Math.round(JAPANESE_KANA_RATIO_MIN * 100)}%, 한자만 있는 중국어 텍스트를 걸러냅니다) 또는 한글 비율이 ${Math.round(ratios.hangulRatio * 100)}%로 너무 높습니다 (최대 ${Math.round(JAPANESE_HANGUL_RATIO_MAX * 100)}%) — 언어 불일치 가능성이 큽니다.`;
   }
   if (language === 'english') {
     return `lyricLanguage가 'english'인데 가사 본문의 라틴 문자 비율이 ${Math.round(ratios.latinRatio * 100)}%입니다 (최소 ${Math.round(ENGLISH_LATIN_RATIO_MIN * 100)}%) 또는 한글/가나 비율이 ${Math.round((ratios.hangulRatio + ratios.kanaRatio) * 100)}%로 너무 높습니다 (최대 ${Math.round(ENGLISH_NON_LATIN_RATIO_MAX * 100)}%) — 언어 불일치 가능성이 큽니다.`;

@@ -47,20 +47,50 @@ function isBuilt(ws: WorkspaceDefinition): boolean {
   return ws.ready;
 }
 
-function genreWorkspaceOf(genreId: string): WorkspaceId {
-  if (genreId.startsWith('kr2030-')) return 'kr-2030';
-  if (genreId.startsWith('jp2030-')) return 'jp-2030';
-  if (genreId.startsWith('krkids-')) return 'kr-kids';
-  if (genreId.startsWith('jpkids-')) return 'jp-kids';
-  // TASK K2 — kr-idol-male's own genre prefix, same pattern as the four
-  // cases above (each added by its own workspace's doc, not G1 itself).
-  if (genreId.startsWith('kridol-')) return 'kr-idol-male';
-  // TASK K3 — kr-idol-female shares K2's own 'kridol-' genre prefix (§3-1's
-  // "신규 장르는 만들지 않는 것이 기본"), so there's no separate genre-id
-  // prefix to add a case for here; this function only ever needs to
-  // distinguish genres, and kr-idol-female contributes none of its own.
-  return 'senior-oldpop';
+/**
+ * TASK G — many-to-many replacement for the old single-workspace
+ * genreWorkspaceOf(). Real-source-verified (data/genreLibrary/index.ts,
+ * data/workspaces/index.ts): every kridol-* genre pack's own `archetypes`
+ * field literally lists BOTH `['kr-idol-male', 'kr-idol-female']` (K2's own
+ * design, K3 deliberately reused it per §3-1 "신규 장르는 만들지 않는 것이
+ * 기본") — kr-idol-male and kr-idol-female are two DIFFERENT WorkspaceIds
+ * that legitimately share one genre pool. The old function forced a single
+ * WorkspaceId per genre id, so kr-idol-female's real, intended access to
+ * K2's own genres was indistinguishable from an actual leak — see
+ * tests/workspaceDataIsolation.test.ts's now-removed L1_SHARED_KRIDOL_GENRES
+ * workaround for the false-positive this produced.
+ *
+ * Deliberately still keyed off the genre id's own naming PREFIX (not
+ * re-derived from genrePack.archetypes) — checkL1 below compares "what the
+ * id's own naming convention says this genre's legitimate home(s) are"
+ * against "what workspace(s) genrePack.archetypes currently grants it to".
+ * Building this map FROM genrePack.archetypes instead would make that
+ * comparison vacuously true (the field would be checked against itself) and
+ * blind L1 to the exact class of bug it exists to catch — e.g. a future
+ * genrePack.archetypes edit accidentally adding a kr-kids-song archetype to
+ * a kr2030-* genre would then just silently "match" its own map entry.
+ */
+function genreWorkspacesOf(genreId: string): WorkspaceId[] {
+  if (genreId.startsWith('kr2030-')) return ['kr-2030'];
+  if (genreId.startsWith('jp2030-')) return ['jp-2030'];
+  if (genreId.startsWith('krkids-')) return ['kr-kids'];
+  if (genreId.startsWith('jpkids-')) return ['jp-kids'];
+  // TASK K2/K3 — kridol-* is the one genuinely shared genre pool in the
+  // codebase today (verified: every kridolMaleGenrePacks entry in
+  // data/genreLibrary/index.ts sets `archetypes: ['kr-idol-male', 'kr-idol-female']`).
+  if (genreId.startsWith('kridol-')) return ['kr-idol-male', 'kr-idol-female'];
+  return ['senior-oldpop'];
 }
+
+/**
+ * TASK G — real Record<string, WorkspaceId[]> built from every genre id
+ * actually registered in resolvedGenrePacks (data/presets.ts's genrePacks),
+ * via genreWorkspacesOf's id-prefix rule above. Exported per this task's own
+ * required shape.
+ */
+export const GENRE_WORKSPACE_MAP: Record<string, WorkspaceId[]> = Object.fromEntries(
+  resolvedGenrePacks.map(g => [g.id, genreWorkspacesOf(g.id)])
+);
 
 function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
   if (theme.id.startsWith('kr2030-')) return 'kr-2030';
@@ -79,6 +109,17 @@ function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
 // ---------------------------------------------------------------------------
 // L1 — 아키타입 간 장르 누출
 // ---------------------------------------------------------------------------
+/**
+ * TASK G — the one real predicate checkL1 uses to decide "foreign", pulled
+ * out so tests/workspaceDataIsolation.test.ts (or any other test) can prove
+ * it still catches a genuine leak without duplicating the logic (§6-2) and
+ * without needing to mutate real production data to fabricate one — a genre
+ * id's own GENRE_WORKSPACE_MAP entry is real, checkable data on its own.
+ */
+export function isGenreForeignToWorkspace(genreId: string, workspaceId: WorkspaceId): boolean {
+  return !(GENRE_WORKSPACE_MAP[genreId] ?? ['senior-oldpop']).includes(workspaceId);
+}
+
 export function checkL1(): CheckResult[] {
   const results: CheckResult[] = [];
   for (const ws of workspaceDefinitions) {
@@ -93,14 +134,14 @@ export function checkL1(): CheckResult[] {
         results.push({ checkId: 'L1', workspaceId: ws.id, archetype, status: 'SKIP', detail: '이 아키타입에 배정된 장르 0개 — 장르 레이어 미구축' });
         continue;
       }
-      const foreign = visible.filter(g => genreWorkspaceOf(g.id) !== ws.id);
+      const foreign = visible.filter(g => isGenreForeignToWorkspace(g.id, ws.id));
       results.push({
         checkId: 'L1',
         workspaceId: ws.id,
         archetype,
         status: foreign.length ? 'FAIL' : 'PASS',
         detail: foreign.length
-          ? `외부 장르 ${foreign.length}건 노출: ${foreign.map(g => `${g.id}(${genreWorkspaceOf(g.id)})`).join(', ')}`
+          ? `외부 장르 ${foreign.length}건 노출: ${foreign.map(g => `${g.id}(${(GENRE_WORKSPACE_MAP[g.id] ?? ['senior-oldpop']).join('/')})`).join(', ')}`
           : `대상 ${visible.length}개 장르, 외부 노출 0건`
       });
     }

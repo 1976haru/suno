@@ -31,6 +31,7 @@ import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import type { GenerationGateResult } from '../../core/generationGate';
 import { evaluateGenerationGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
+import { resolveBilingualPair } from '../../core/localGenerator';
 import { recentUsedTitlesAndHooks } from '../../core/hookLedger';
 import { getRatingForSong, getRatings } from '../../core/ratingLedger';
 import { getTakes } from '../../core/audioTakes';
@@ -82,10 +83,11 @@ interface Step4ResultProps {
   onPersonaModeChange: (enabled: boolean) => void;
   onSavePersonaName: () => void;
   onSave: () => void;
-  onEvaluate: (scopeTrackNos?: number[]) => void;
-  onRetrySong: (trackNo: number, issues: string[]) => void;
+  /** `useCurrentSettings` (TASK: post-generation operation snapshot) — opt-in, per-action escape hatch: true uses live opts/channel for THIS call only; default (false/undefined) uses the pack's own GenerationSnapshot when it has one. */
+  onEvaluate: (scopeTrackNos?: number[], useCurrentSettings?: boolean) => void;
+  onRetrySong: (trackNo: number, issues: string[], useCurrentSettings?: boolean) => void;
   onUndoRetry: () => void;
-  onRefineSelected: (trackNos: number[]) => void;
+  onRefineSelected: (trackNos: number[], useCurrentSettings?: boolean) => void;
   onRegenerateHeadline: () => void;
   onSelectThumbnailVariant: (id: ThumbnailVariantId) => void;
   onApplyThumbnailFreeText: (suggestions: { headline: string; angle: string }[]) => void;
@@ -155,6 +157,23 @@ export default function Step4Result({
   const [selectedTrackNos, setSelectedTrackNos] = useState<number[]>([]);
   const [refineSelection, setRefineSelection] = useState<number[]>([]);
   const [resultTab, setResultTab] = useState<ResultTab>('songs');
+  // TASK (post-generation operation snapshot) — real bug: AudioAnalysisPanel/
+  // AudioArchivePanel's audienceProfile/channelId (below) used to always
+  // derive from the live `opts` prop (App.tsx's activeOptions = {...opts,
+  // channel: cm.selectedChannel}), so recording/scoring an audio take for a
+  // song in THIS pack after switching channel elsewhere in the app silently
+  // scored it (targetDurationSec range, etc.) against the NEW channel's
+  // audience profile, not the one this pack was actually written for. Falls
+  // back to the live `opts` prop only for a blueprint with no snapshot (an
+  // old pack from before this task, or a display-only synthetic blueprint).
+  const snapshotOpts = blueprint?.generationSnapshot?.options ?? opts;
+  // TASK (opt-in "use current settings" override) — per-action, not global:
+  // each of retry/refine/evaluate gets its OWN explicit checkbox below,
+  // defaulting to off (use this pack's own GenerationSnapshot). See
+  // App.tsx's resolvedGenerationContext for how the flag is consumed.
+  const [evaluateWithCurrentSettings, setEvaluateWithCurrentSettings] = useState(false);
+  const [refineWithCurrentSettings, setRefineWithCurrentSettings] = useState(false);
+  const [retryWithCurrentSettings, setRetryWithCurrentSettings] = useState(false);
   // v3.79 (TASK C/E) — AudioAnalysisPanel's [편집] button hands back the
   // original File + duration via onEditTrack; this modal is the only place
   // that actually imports AudioEditPanel, so the analysis panel itself
@@ -186,11 +205,11 @@ export default function Step4Result({
   }
 
   function handleEvaluateClick() {
-    onEvaluate(evalScope === 'selected' ? selectedTrackNos : undefined);
+    onEvaluate(evalScope === 'selected' ? selectedTrackNos : undefined, evaluateWithCurrentSettings);
   }
 
   function handleRefineClick() {
-    onRefineSelected(refineSelection);
+    onRefineSelected(refineSelection, refineWithCurrentSettings);
     setRefineSelection([]);
   }
 
@@ -347,7 +366,13 @@ export default function Step4Result({
       lyricLanguage: opts.lyricLanguage,
       audienceProfile: audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience),
       // v4.3 (TASK A) — gates the titleLocalized checks (compositionScorer.ts).
-      packagingLanguage: resolvePackagingLanguage(opts)
+      packagingLanguage: resolvePackagingLanguage(opts),
+      // v5.16 follow-up — without these, the language blocking check falls
+      // back to the flat Korean-hangul floor and auto-detected bilingual
+      // pair (core/lyricMetrics.ts's pre-v5.16-TASK-B+C behavior) even on
+      // this real user-facing 관문 2 screen.
+      archetype: opts.channel.archetype,
+      bilingualPair: resolveBilingualPair(opts)
     })
       .then(result => { if (!cancelled) setGenerationGateResult(result); })
       .catch(() => { if (!cancelled) setGenerationGateResult(null); });
@@ -543,8 +568,8 @@ export default function Step4Result({
           <AudioAnalysisPanel
             songs={blueprint.songs}
             packId={packId}
-            channelId={opts.channel.id}
-            audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
+            channelId={snapshotOpts.channel.id}
+            audienceProfile={audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)}
             onEditTrack={(trackNo, fileName, file, durationSec) => setEditingTrack({ trackNo, fileName, file, durationSec })}
           />
           <PreviewConcatPanel songs={blueprint.songs} setLabel={blueprint.meta?.setCode || opts.projectTitle} />
@@ -563,7 +588,7 @@ export default function Step4Result({
         <ExperimentalFeatureBoundary featureLabel="음원 분석 아카이브">
           <AudioArchivePanel
             songs={blueprint.songs}
-            audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
+            audienceProfile={audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)}
             packId={packId}
             setName={blueprint.meta?.setCode}
           />
@@ -656,6 +681,12 @@ export default function Step4Result({
           <p className="supporting">
             💡 1~3번 곡은 영상의 첫인상을 좌우합니다. API로 다듬는 걸 권장해서 기본으로 선택해뒀어요. (원치 않으면 체크 해제하세요)
           </p>
+          {blueprint?.generationSnapshot && (
+            <label className="inline" title="기본적으로 이 팩이 실제로 생성될 당시의 채널/장르/제공자 설정을 그대로 사용합니다. 체크하면 이번 정제 한 번만 지금 화면에 보이는 현재 설정을 대신 사용합니다.">
+              <input type="checkbox" checked={refineWithCurrentSettings} onChange={event => setRefineWithCurrentSettings(event.target.checked)} />
+              {' '}🔄 현재 설정으로 다시 스타일링 (정제)
+            </label>
+          )}
           <HybridRefinePanel
             songs={blueprint.songs}
             selected={refineSelection}
@@ -694,6 +725,12 @@ export default function Step4Result({
           </div>
           {evalScope === 'selected' && (
             <p className="supporting">아래 곡 목록에서 평가하고 싶은 곡의 체크박스를 선택하세요.</p>
+          )}
+          {blueprint?.generationSnapshot && (
+            <label className="inline" title="기본적으로 이 팩이 실제로 생성될 당시의 채널/장르/제공자 설정을 그대로 사용합니다. 체크하면 이번 평가 한 번만 지금 화면에 보이는 현재 설정을 대신 사용합니다.">
+              <input type="checkbox" checked={evaluateWithCurrentSettings} onChange={event => setEvaluateWithCurrentSettings(event.target.checked)} />
+              {' '}🔄 현재 설정으로 다시 스타일링 (평가)
+            </label>
           )}
         </div>
       )}
@@ -754,6 +791,13 @@ export default function Step4Result({
         </div>
       )}
 
+      {resultTab === 'songs' && blueprint?.generationSnapshot && (
+        <label className="inline" title="기본적으로 이 팩이 실제로 생성될 당시의 채널/장르/제공자 설정을 그대로 사용합니다. 체크하면 다음 개별 곡 재시도 한 번만 지금 화면에 보이는 현재 설정을 대신 사용합니다.">
+          <input type="checkbox" checked={retryWithCurrentSettings} onChange={event => setRetryWithCurrentSettings(event.target.checked)} />
+          {' '}🔄 현재 설정으로 다시 스타일링 (개별 재시도)
+        </label>
+      )}
+
       {resultTab === 'songs' && scoredSongs.map(song => (
         retryingTrack === song.trackNo ? (
           <SongCardSkeleton key={song.trackNo} trackNo={song.trackNo} />
@@ -764,7 +808,7 @@ export default function Step4Result({
             moneyChordLabel={moneyChordLabel}
             evaluation={evaluation?.songs.find(item => item.trackNo === song.trackNo)}
             isRetrying={false}
-            onRetry={onRetrySong}
+            onRetry={(trackNo, issues) => onRetrySong(trackNo, issues, retryWithCurrentSettings)}
             selectable={evalScope === 'selected' && evaluationAvailable}
             selected={selectedTrackNos.includes(song.trackNo)}
             onToggleSelect={toggleTrackSelected}

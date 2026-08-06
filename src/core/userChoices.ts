@@ -48,6 +48,7 @@ import { getGenreById } from '../data/genreLibrary';
 import { moneyChordPresets } from '../data/moneyChords';
 import { computeMoneyChordComparison, type MoneyChordBreakdownEntry } from './moneyChordDisplay';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
+import { parseNegativeStyleTerms } from '../data/negativeStyles';
 import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, type VocalType } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
 import { povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
@@ -74,6 +75,20 @@ export interface UserExplicitChoices {
   kidsAgeTierId?: KidsAgeTierId;
   /** v5.7 follow-up (TASK v5.7 §4-2 verification) — DiversityAllocationPanel's "직접 주제/상황" free-text field; see setDirector.ts's buildBaseOptions own doc comment for the real gap this closes. */
   customLyricThemeScene?: string;
+  /** TASK (provenance extension) — Step2Concept.tsx's mood chip grid. */
+  moodIds?: string[];
+  /** TASK (provenance extension) — Step2Concept.tsx's "곡 길이" ChoiceGrid. */
+  durationTarget?: GenerationOptions['durationTarget'];
+  /** TASK (provenance extension) — Step2Concept.tsx's "가사 깊이" ChoiceGrid. */
+  lyricDepth?: GenerationOptions['lyricDepth'];
+  /** TASK (provenance extension) — Step2Concept.tsx's "훅 생성 방식" chip pair. */
+  hookMode?: GenerationOptions['hookMode'];
+  /** TASK (provenance extension) — Step2Concept.tsx's "Reference mood" textarea. */
+  referenceMood?: string;
+  /** TASK (provenance extension) — Step2Concept.tsx's "Music Exclude styles" preset chips/textarea. */
+  negativeStyle?: string;
+  /** TASK (provenance extension) — Step2Concept.tsx's "가사에서 피할 것들" presets/custom terms. */
+  avoidWords?: string;
 
   /**
    * Per-field provenance — only 'user' entries are protected by
@@ -114,7 +129,14 @@ const PROVENANCE_FIELD_TO_OPTS_KEY: { [K in keyof GenerationChoiceProvenance]: k
   songCount: 'songCount',
   breadth: 'breadthOverride',
   paletteFamilyId: 'paletteFamilyOverride',
-  kidsAgeTierId: 'kidsAgeTierId'
+  kidsAgeTierId: 'kidsAgeTierId',
+  moodIds: 'moodIds',
+  durationTarget: 'durationTarget',
+  lyricDepth: 'lyricDepth',
+  hookMode: 'hookMode',
+  referenceMood: 'referenceMood',
+  negativeStyle: 'negativeStyle',
+  avoidWords: 'avoidWords'
 };
 
 /**
@@ -296,6 +318,42 @@ export function userChoicesFromOptions(opts: Partial<GenerationOptions> & Pick<G
     choices.customLyricThemeScene = opts.customLyricThemeScene.trim();
     choices.source.customLyricThemeScene = 'user';
   }
+  // TASK (provenance extension) — moodIds/durationTarget/lyricDepth/hookMode/
+  // referenceMood/negativeStyle/avoidWords all follow the exact
+  // lyricLanguage/packagingLanguage/seasonId/songCount/kidsAgeTierId pattern
+  // just above: no legacy heuristic ever existed for any of them (grep-
+  // confirmed — none was ever read by this function before this task), so
+  // live choiceProvenance is the ONLY way source is ever set here. See each
+  // field's own recording point in Step2Concept.tsx/App.tsx's
+  // applyChannelToOptions/handleApplyConceptRecommendation.
+  if (opts.moodIds?.length && provenance.moodIds) {
+    choices.moodIds = opts.moodIds;
+    choices.source.moodIds = provenance.moodIds;
+  }
+  if (opts.durationTarget && provenance.durationTarget) {
+    choices.durationTarget = opts.durationTarget;
+    choices.source.durationTarget = provenance.durationTarget;
+  }
+  if (opts.lyricDepth && provenance.lyricDepth) {
+    choices.lyricDepth = opts.lyricDepth;
+    choices.source.lyricDepth = provenance.lyricDepth;
+  }
+  if (opts.hookMode && provenance.hookMode) {
+    choices.hookMode = opts.hookMode;
+    choices.source.hookMode = provenance.hookMode;
+  }
+  if (opts.referenceMood?.trim() && provenance.referenceMood) {
+    choices.referenceMood = opts.referenceMood.trim();
+    choices.source.referenceMood = provenance.referenceMood;
+  }
+  if (opts.negativeStyle !== undefined && provenance.negativeStyle) {
+    choices.negativeStyle = opts.negativeStyle;
+    choices.source.negativeStyle = provenance.negativeStyle;
+  }
+  if (opts.avoidWords?.trim() && provenance.avoidWords) {
+    choices.avoidWords = opts.avoidWords;
+    choices.source.avoidWords = provenance.avoidWords;
+  }
   return choices;
 }
 
@@ -309,6 +367,15 @@ export interface ResolvedChoiceCheck {
   moneyChordCounts?: Record<string, number>;
   vocalToneApplied?: boolean;
   genreIdsUsed?: string[];
+  /**
+   * TASK (provenance extension) — whether every parsed term of an explicit
+   * 'user'-sourced negativeStyle actually shows up in the real per-song
+   * exclude text (PreassignedSongSlot.negativeStyleText / SongIdea.excludePrompt).
+   * Undefined when there's nothing to check (no explicit negativeStyle
+   * choice) — same "undefined means not applicable" convention
+   * vocalToneApplied already uses.
+   */
+  negativeStyleApplied?: boolean;
 }
 
 /**
@@ -317,7 +384,7 @@ export interface ResolvedChoiceCheck {
  * module's own ResolvedGenerationContract.mismatches shape below.
  */
 interface StructuredViolation {
-  field: 'moneyChordMode' | 'vocalTone' | 'genreIds';
+  field: 'moneyChordMode' | 'vocalTone' | 'genreIds' | 'negativeStyle';
   messageKo: string;
   selectedKo: string;
   effectiveKo: string;
@@ -382,6 +449,26 @@ function computeStructuredViolations(
         reasonKo: '선택한 장르가 결과에 전혀 사용되지 않았습니다.'
       });
     }
+  }
+
+  // TASK (provenance extension) — real gap this closes: negativeStyle now
+  // has a live click-time 'user' provenance path (Step2Concept.tsx's Music
+  // Exclude styles chips/textarea), but nothing ever checked whether the
+  // text actually survived into the real per-song exclude prompt — the same
+  // "silent drop" bug class moneyChordMode/vocalTone/genreIds were fixed
+  // for. Only fires for a genuinely explicit choice (source === 'user')
+  // whose resolver actually reported a real applied/not-applied signal
+  // (resolved.negativeStyleApplied !== undefined — buildResolvedGenerationContract
+  // only sets this when there's real slot data and a real explicit choice
+  // to check, mirroring vocalToneApplied's own convention).
+  if (choices.source.negativeStyle === 'user' && choices.negativeStyle?.trim() && resolved.negativeStyleApplied === false) {
+    violations.push({
+      field: 'negativeStyle',
+      messageKo: `[${stage}] 사용자가 입력한 네거티브 스타일이 결과에 반영되지 않았습니다.`,
+      selectedKo: choices.negativeStyle,
+      effectiveKo: '(반영되지 않음)',
+      reasonKo: '입력한 네거티브 스타일 문구가 결과에 반영되지 않았습니다.'
+    });
   }
 
   return violations;
@@ -492,8 +579,36 @@ export interface ResolvedGenerationContract {
   mismatches: { field: string; selected: string; effective: string; reasonKo: string }[];
 }
 
-/** Both PreassignedSongSlot and SongIdea carry these 4 fields with identical optional types — the real per-song assignment this function tallies against, regardless of which stage (preview-time preallocation vs. a finished blueprint) the caller has on hand. */
-type ResolvedSlotLike = Pick<PreassignedSongSlot, 'moneyChordId' | 'genreId' | 'vocalType' | 'pov'>;
+/**
+ * Both PreassignedSongSlot and SongIdea carry these 4 fields with identical
+ * optional types — the real per-song assignment this function tallies
+ * against, regardless of which stage (preview-time preallocation vs. a
+ * finished blueprint) the caller has on hand. `negativeStyleText`/
+ * `excludePrompt` are each type's own real exclude-text field name
+ * (PreassignedSongSlot.negativeStyleText vs. SongIdea.excludePrompt — see
+ * types.ts's own doc comments on each); both optional here so either real
+ * array structurally satisfies this type without a cast.
+ */
+type ResolvedSlotLike = Pick<PreassignedSongSlot, 'moneyChordId' | 'genreId' | 'vocalType' | 'pov'> & {
+  negativeStyleText?: string;
+  excludePrompt?: string;
+};
+
+/**
+ * TASK (provenance extension) — real per-song check for whether an explicit
+ * negativeStyle choice's terms actually show up in the resolved exclude
+ * text. Returns true (nothing to flag) whenever there's no explicit choice,
+ * no parsed terms, or no slots yet to compare against — mirrors
+ * vocalToneApplied/genreIdsUsed's own "only check when there's real signal"
+ * convention elsewhere in this file.
+ */
+function negativeStyleReallyApplied(choices: UserExplicitChoices, slots: readonly ResolvedSlotLike[]): boolean {
+  if (choices.source.negativeStyle !== 'user' || !choices.negativeStyle?.trim()) return true;
+  const terms = parseNegativeStyleTerms(choices.negativeStyle);
+  if (!terms.length || !slots.length) return true;
+  const combinedText = slots.map(slot => slot.negativeStyleText ?? slot.excludePrompt ?? '').join(' — ').toLowerCase();
+  return terms.every(term => combinedText.includes(term.toLowerCase()));
+}
 
 function resolveEffectiveArchetype(channel: GenerationOptions['channel']): ChannelArchetype {
   return migrateArchetype(channel).archetype ?? 'senior-morning';
@@ -710,7 +825,13 @@ export function buildResolvedGenerationContract(
       // allow-list only when there's no real slot data yet), not the
       // options-level allow-list alone — see genreEffective's own doc
       // comment just above for why that distinction matters.
-      genreIdsUsed: slots.length ? [...realUsedGenreIds] : genreSanitization.valid
+      genreIdsUsed: slots.length ? [...realUsedGenreIds] : genreSanitization.valid,
+      // TASK (provenance extension) — only a real signal when there's both
+      // an explicit choice AND real slot data to check it against (mirrors
+      // vocalToneApplied's own conditional just above).
+      negativeStyleApplied: choices.source.negativeStyle === 'user' && slots.length
+        ? negativeStyleReallyApplied(choices, slots)
+        : undefined
     },
     'contract'
   );

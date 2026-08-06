@@ -8,7 +8,7 @@ import type {
   SongIdea,
   YoutubeMetadata
 } from '../types';
-import { buildSignatureBlueprint } from './localGenerator';
+import { buildSignatureBlueprint, resolveBilingualPair } from './localGenerator';
 import { scoreSongs } from './quality';
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { describeTrackSetValidation, validateProviderTrackSet } from './importValidation';
@@ -297,7 +297,7 @@ function normalizeImportedSong(
     effectiveArchetype: opts.channel.archetype || 'senior-morning',
     workspaceId: 'senior-oldpop'
   };
-  const reconciled = reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true, archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage });
+  const reconciled = reconcileWithPreassignedSlot(rawSong, slot, titleMode, { keepHook: true, keepEmotionArc: true, archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage, bilingualPair: resolveBilingualPair(opts) });
 
   // v4.3 (TASK A) — trust the agent's own "titleLocalized" (the real
   // creative reinterpretation instructed by titleLocalizedInstructionLineFor

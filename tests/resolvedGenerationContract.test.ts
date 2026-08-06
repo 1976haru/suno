@@ -331,6 +331,93 @@ describe('computeWorkspaceRecoveryOptions — TASK (gap 2): the 4 recovery optio
   });
 });
 
+/**
+ * TASK (provenance extension) — negativeStyle is the one newly-protected
+ * field (of the 7 added: moodIds/durationTarget/lyricDepth/hookMode/
+ * referenceMood/negativeStyle/avoidWords) given real mismatch-detection
+ * wiring, per this task's own required proof: "an explicit user choice on
+ * one of the newly-added fields (e.g. a manually-set negativeStyle that
+ * somehow doesn't survive into the actual generation) gets caught, where it
+ * previously would have been invisible to the guardrail." Real generation
+ * (core/promptComposer.ts's buildExcludePrompt/resolveNegativeStyleText)
+ * always merges opts.negativeStyle into every song's real excludePrompt
+ * unconditionally today — there is no allocation/rotation step that could
+ * silently drop it, unlike money-chord/vocal-tone/genre — so, mirroring
+ * scenario A's own note above, this test injects the "dropped" case directly
+ * at the slots/opts level to prove the DETECTION machinery itself works for
+ * a future regression, and a second test proves the real (non-injected)
+ * pipeline genuinely does NOT false-positive.
+ */
+describe('buildResolvedGenerationContract — TASK (provenance extension): negativeStyle real-usage check', () => {
+  it('detects an explicit negativeStyle choice whose terms never landed in the real per-song exclude text (injected — no live repro today, see file header)', () => {
+    const opts = makeOptions({
+      channel: seniorChannel,
+      songCount: 4,
+      genreIds: seniorChannel.preferredGenres,
+      negativeStyle: 'wordless humming or la-la filler',
+      choiceProvenance: { negativeStyle: 'user' }
+    });
+    const choices = userChoicesFromOptions(opts);
+    expect(choices.source.negativeStyle).toBe('user');
+
+    // Every slot's real exclude text is missing the user's chosen term
+    // entirely — simulates a future regression where negativeStyle silently
+    // stops flowing into buildExcludePrompt.
+    const slots: SongIdea[] = Array.from({ length: 4 }, (_, i) => baseSong({
+      trackNo: i + 1,
+      genreId: seniorChannel.preferredGenres[0],
+      excludePrompt: 'famous artist imitation, copied melodies'
+    }));
+
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
+    const mismatch = contract.mismatches.find(m => m.field === 'negativeStyle');
+    expect(mismatch).toBeDefined();
+    expect(mismatch?.selected).toContain('humming');
+    expect(mismatch?.reasonKo).toContain('반영되지 않았습니다');
+
+    expect(generationBlockedByContract(contract)).toBe(true);
+    expect(generationBlockedByContract(contract, new Set(['negativeStyle']))).toBe(false);
+    // Acknowledging an unrelated field does NOT unblock it.
+    expect(generationBlockedByContract(contract, new Set(['genreIds']))).toBe(true);
+  });
+
+  it('a real negativeStyle choice that DOES survive into the exclude text is never flagged (no false positive)', () => {
+    const opts = makeOptions({
+      channel: seniorChannel,
+      songCount: 4,
+      genreIds: seniorChannel.preferredGenres,
+      negativeStyle: 'wordless humming or la-la filler',
+      choiceProvenance: { negativeStyle: 'user' }
+    });
+    const choices = userChoicesFromOptions(opts);
+    const slots: SongIdea[] = Array.from({ length: 4 }, (_, i) => baseSong({
+      trackNo: i + 1,
+      genreId: seniorChannel.preferredGenres[0],
+      excludePrompt: 'wordless humming or la-la filler, famous artist imitation'
+    }));
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
+    expect(contract.mismatches.filter(m => m.field === 'negativeStyle')).toEqual([]);
+  });
+
+  it('a real generateLocalBlueprint run genuinely never drops an explicit negativeStyle choice (proves this is not a live-reachable bug today, only a protected-against future one)', () => {
+    const opts = makeOptions({
+      channel: seniorChannel,
+      songCount: 4,
+      genreIds: seniorChannel.preferredGenres,
+      negativeStyle: 'wordless humming or la-la filler',
+      choiceProvenance: { negativeStyle: 'user' }
+    });
+    const choices = userChoicesFromOptions(opts);
+    const genres = opts.genreIds.map(id => getGenreById(id)).filter((g): g is NonNullable<typeof g> => Boolean(g));
+    const blueprint = generateLocalBlueprint(opts, genres, testMoods, testSeason);
+    expect(blueprint.songs.every(song => song.excludePrompt?.toLowerCase().includes('humming'))).toBe(true);
+
+    const contract = buildResolvedGenerationContract(opts, choices, blueprint.songs, 'senior-oldpop');
+    expect(contract.mismatches.filter(m => m.field === 'negativeStyle')).toEqual([]);
+    expect(generationBlockedByContract(contract)).toBe(false);
+  });
+});
+
 describe('generationBlockedByContract — pure predicate', () => {
   it('is false for zero mismatches', () => {
     expect(generationBlockedByContract({ mismatches: [] })).toBe(false);

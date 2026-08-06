@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { scoreComposition } from '../src/core/compositionScorer';
+import type { EraConstraint } from '../src/core/constraints';
+import { ERA_POLICY } from '../src/data/eraPolicy';
 import type { SongIdea } from '../src/types';
 
 // v3.75 (TASK A) — compositionScorer now blocks lyrics under
@@ -427,6 +429,20 @@ describe('[ratio-based lyric language mismatch] scoreComposition — per-track b
     expect(score.blocking.some(b => b.includes("lyricLanguage가 'korean'")), `blocking: ${JSON.stringify(score.blocking)}`).toBe(false);
   });
 
+  it('[v5.16 follow-up] threads archetype through to the per-workspace Korean floor at this blocking tier (previously always used the flat 60% floor regardless of channel)', () => {
+    // 7 Korean filler lines + 4 English filler lines measures at ~47.4% Hangul
+    // (verified via a real checkLyricLanguageMatch probe) — below the flat
+    // 60% floor (blocks with no archetype context, the old/default
+    // behavior) but above kr-idol's own 45% floor (core/lyricMetrics.ts,
+    // v5.16 TASK B+C — English hooks/rap are normal for that workspace).
+    const lyrics = `[verse 1]\n${koreanFillerLines(7)}\n${Array.from({ length: 4 }, (_, i) => `this is an entirely english verse line number ${i}`).join('\n')}\n\n[end]`;
+    const song = songWith({ trackNo: 1, lyrics });
+    const withoutArchetype = scoreComposition([song], { lyricLanguage: 'korean' }).tracks[0];
+    expect(withoutArchetype.blocking.some(b => b.includes("lyricLanguage가 'korean'")), `blocking: ${JSON.stringify(withoutArchetype.blocking)}`).toBe(true);
+    const withKrIdolArchetype = scoreComposition([song], { lyricLanguage: 'korean', archetype: 'kr-idol-male' }).tracks[0];
+    expect(withKrIdolArchetype.blocking.some(b => b.includes("lyricLanguage가 'korean'")), `blocking: ${JSON.stringify(withKrIdolArchetype.blocking)}`).toBe(false);
+  });
+
   it('blocks a Japanese target whose body is entirely English', () => {
     const brokenLyrics = `[verse 1]\n${Array.from({ length: 20 }, (_, i) => `this is an entirely english verse line number ${i}`).join('\n')}\n\n[end]`;
     const song = songWith({ trackNo: 1, lyrics: brokenLyrics });
@@ -538,5 +554,85 @@ describe('[v5.14 compositionScorer follow-up] fixed-quota channel male/female te
     const song = songWith({ vocalType: undefined, stylePrompt: 'male low warm baritone, conversational unhurried phrasing, soft husky grain, intimate close-mic, soft warm female alto touch' });
     const [score] = scoreComposition([song], { vocalQuotaOverride: fixedMaleQuota }).tracks;
     expect(score.blocking.some(b => b.includes('고정 보컬 쿼터'))).toBe(false);
+  });
+});
+
+/**
+ * TASK E (design-gate and post-generation era-share checks disagree) —
+ * eraConsistencyFindings now reads its single-primary threshold from the
+ * shared data/eraPolicy.ts (ERA_POLICY, unchanged 50% value — just
+ * re-sourced) and gained a real co-primary check that was previously
+ * entirely absent. tests/designGate.test.ts has the mirror-image proof that
+ * core/designGate.ts's pre-generation eraIssues now agrees with this file
+ * on the exact same real 45%/30%-30% cases.
+ */
+describe('[TASK E] scoreComposition — era policy (shared ERA_POLICY, closes the missing co-primary gap)', () => {
+  const SINGLE_ERA: EraConstraint = { primary: '1950s-60s', adjacent: [], forbidden: [], unspecified: false };
+  const CO_PRIMARY_ERA: EraConstraint = { primary: '1950s-60s', coPrimary: '1970s', adjacent: [], forbidden: ['1980s'], unspecified: false };
+
+  function songsWithGenrePattern(pattern: string[]): SongIdea[] {
+    return pattern.map((genreId, i) => songWith({ trackNo: i + 1, genreId, hookPhrase: `Hook ${i + 1}` }));
+  }
+
+  it('reads the exact same ERA_POLICY values core/designGate.ts reads (single source of truth)', () => {
+    expect(ERA_POLICY.singlePrimaryMin).toBe(0.5);
+    expect(ERA_POLICY.coPrimaryMinEach).toBe(0.4);
+  });
+
+  it('a real 45% single-era share blocks era-consistency (unchanged 50% floor — this file already agreed with designGate.ts\'s NEW floor even before this task; the disagreement was designGate.ts being looser, now fixed)', () => {
+    const pattern = [...Array(9).fill('oldpop-doowop-harmony'), ...Array(11).fill('oldpop-warm-morning-glow')]; // 9/20 = 45%
+    const songs = songsWithGenrePattern(pattern);
+    const result = scoreComposition(songs, { eraConstraint: SINGLE_ERA });
+    const found = result.packBlocking.find(i => i.id === 'era-consistency');
+    expect(found).toBeDefined();
+    expect(found!.labelKo).toContain('45%');
+    expect(found!.labelKo).toContain('50%');
+  });
+
+  it('a real 50% single-era share (exactly at the shared floor) passes era-consistency', () => {
+    const pattern = [...Array(10).fill('oldpop-doowop-harmony'), ...Array(10).fill('oldpop-warm-morning-glow')]; // 10/20 = 50%
+    const songs = songsWithGenrePattern(pattern);
+    const result = scoreComposition(songs, { eraConstraint: SINGLE_ERA });
+    expect(result.packBlocking.some(i => i.id === 'era-consistency')).toBe(false);
+  });
+
+  it('closes the real gap: a real 30%/30% co-primary split — which used to have NO post-generation era check at all (eraConsistencyFindings never read eraConstraint.coPrimary) — now correctly blocks era-consistency, matching the shared 40%-each floor', () => {
+    const pattern = [
+      ...Array(6).fill('oldpop-doowop-harmony'), // 1950s-60s: 6/20 = 30%
+      ...Array(6).fill('oldpop-soft-rock-am'), // 1970s: 6/20 = 30%
+      ...Array(8).fill('oldpop-warm-morning-glow')
+    ];
+    const songs = songsWithGenrePattern(pattern);
+    // Prove the gap was real: the OLD function signature only ever read
+    // eraConstraint.primary/.forbidden/generic share — a co-primary set like
+    // this one had no dedicated check waiting for it at all before this fix.
+    const result = scoreComposition(songs, { eraConstraint: CO_PRIMARY_ERA });
+    const found = result.packBlocking.find(i => i.id === 'era-consistency');
+    expect(found).toBeDefined();
+    expect(found!.labelKo).toContain('40%');
+  });
+
+  it('a real 40%/40% co-primary split (exactly at the shared floor) passes era-consistency', () => {
+    const pattern = [
+      ...Array(8).fill('oldpop-doowop-harmony'), // 1950s-60s: 8/20 = 40%
+      ...Array(8).fill('oldpop-soft-rock-am'), // 1970s: 8/20 = 40%
+      ...Array(4).fill('oldpop-warm-morning-glow')
+    ];
+    const songs = songsWithGenrePattern(pattern);
+    const result = scoreComposition(songs, { eraConstraint: CO_PRIMARY_ERA });
+    expect(result.packBlocking.some(i => i.id === 'era-consistency')).toBe(false);
+  });
+
+  it('genericAdvisoryMax (20%) is unchanged, byte-identical, and stays advisory-only (never blocking here)', () => {
+    const pattern = [
+      ...Array(11).fill('oldpop-doowop-harmony'), // 1950s-60s: 11/20 = 55%, comfortably clears the primary floor
+      ...Array(9).fill('not-an-era-mapped-genre') // generic: 9/20 = 45%, over the 20% advisory ceiling
+    ];
+    const songs = songsWithGenrePattern(pattern);
+    const result = scoreComposition(songs, { eraConstraint: SINGLE_ERA });
+    expect(result.packBlocking.some(i => i.id === 'era-consistency')).toBe(false);
+    const advisory = result.packAdvisory.find(i => i.id === 'era-consistency-advisory');
+    expect(advisory).toBeDefined();
+    expect(advisory!.labelKo).toContain('20%');
   });
 });

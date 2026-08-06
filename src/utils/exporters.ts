@@ -290,11 +290,20 @@ export function exportJson(blueprint: PlaylistBlueprint, thumbnailSpec?: Thumbna
       checklist: buildUploadChecklist(channel, blueprint.songs.flatMap(song => extractContentIdFlags(song).map(flag => `Track ${song.trackNo} (${song.title}): ${flag}`)))
     }
     : undefined;
+  // TASK (post-generation operation snapshot, TASK 5) — this pack's own real
+  // GenerationSnapshot (when it has one) is the single source for
+  // buildExportMeta's 9 new channelId/archetype/lyricLanguage/genreIds/
+  // moodIds/moneyChordMode/vocalTone/songCount/preassignedSlotHash fields —
+  // see that function's own doc comment. Undefined for a blueprint with no
+  // snapshot (an old pack from before this task, or a display-only
+  // synthetic blueprint), leaving those fields absent exactly as before.
+  const snapshot = blueprint.generationSnapshot;
+  const generationContext = snapshot ? { channel: snapshot.channel, options: snapshot.options, slots: snapshot.slots } : undefined;
   return JSON.stringify({
     // v4.0 (TASK C) — see core/exportMeta.ts's own doc comment. Spread
     // first so blueprint.generatedAt (v3.69, this set's own real generation
     // time) wins over buildExportMeta's "now" default for the same key.
-    ...buildExportMeta(blueprint.generatedAt),
+    ...buildExportMeta(blueprint.generatedAt, snapshot?.workspaceId, generationContext),
     ...blueprint,
     ...(thumbnailSpec ? { thumbnailSpec } : {}),
     ...(soundSignature ? { soundSignature } : {}),

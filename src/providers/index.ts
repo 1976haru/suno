@@ -11,7 +11,7 @@ import type {
   SeasonPack,
   SongIdea
 } from '../types';
-import { generateLocalBlueprint } from '../core/localGenerator';
+import { generateLocalBlueprint, resolveBilingualPair } from '../core/localGenerator';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { generateLocalBlueprintResponsive } from '../core/localGenerationClient';
 import { claimSlotsByTrackNo, preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
@@ -194,7 +194,7 @@ export async function generateChunkWithSplitRetry(
       throw new Error(`AI 응답의 trackNo 구조가 잘못되었습니다 (${describeTrackSetValidation(trackSetValidation)}) — 이 응답은 사용할 수 없습니다.`);
     }
     const slotClaims = claimSlotsByTrackNo(chunkSongs, batchContext.preassignedSongs ?? []);
-    return chunkSongs.map(song => reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode));
+    return chunkSongs.map(song => reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage, bilingualPair: resolveBilingualPair(opts) }, hookMode));
   } catch (error) {
     const isTruncated = error instanceof ProxyError && error.code === 'TRUNCATED';
     if (isTruncated && trackNumbers.length > MIN_SPLIT_RETRY_SIZE) {
@@ -458,7 +458,7 @@ export async function generateBlueprint(
   const { songs: recomposedSongs } = await recomposeBlockingTracks(scoredSongs, async (currentSongs, trackNo, feedback) => {
     const { blueprint: next } = await regenerateTrack({ ...blueprint, songs: currentSongs }, trackNo, opts, genres, moods, season, settings, feedback, recomposeAvoid);
     return next.songs;
-  }, recomposeAvoid.usedHooks, opts.lyricLanguage, opts.channel.vocalQuotaOverride);
+  }, recomposeAvoid.usedHooks, opts.lyricLanguage, opts.channel.vocalQuotaOverride, opts.channel.archetype, resolveBilingualPair(opts));
 
   return { ...blueprint, songs: scoreSongs(recomposedSongs, opts.channel, opts.lyricLanguage) };
 }

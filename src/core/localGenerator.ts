@@ -1,4 +1,4 @@
-import type { ChannelArchetype, GenerationOptions, GenrePack, KidsAgeTierId, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
+import type { BilingualPair, ChannelArchetype, GenerationOptions, GenrePack, KidsAgeTierId, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
@@ -128,6 +128,25 @@ export function buildArcPlanForProfile(songCount: number, arcModelId: 'five-phas
 export function resolveKidsAgeTierId(opts: { channel: { archetype?: string; kidsAgeTierId?: KidsAgeTierId }; kidsAgeTierId?: KidsAgeTierId }): KidsAgeTierId | undefined {
   if (!isKidsArchetype(opts.channel.archetype)) return undefined;
   return opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId;
+}
+
+/**
+ * TASK (bilingual pair auto-detection gap) — mirrors resolveKidsAgeTierId's
+ * own priority shape immediately above (per-generation override wins, then a
+ * real archetype-driven default, no forced fallback for an archetype this
+ * task never calibrated). Only kr-kids-song -> 'en-ko' and jp-kids-song ->
+ * 'en-ja' have a real default here — every other archetype (including a
+ * non-kids Korean/Japanese workspace someone might someday set
+ * lyricLanguage: 'bilingual' on) returns undefined, and
+ * core/lyricMetrics.ts's checkLyricLanguageMatch already has a documented
+ * auto-detect fallback for exactly that "no real signal" case, so returning
+ * undefined here is the correct "don't guess" outcome, not a missing case.
+ */
+export function resolveBilingualPair(opts: { channel: { archetype?: string }; bilingualPair?: BilingualPair }): BilingualPair | undefined {
+  if (opts.bilingualPair) return opts.bilingualPair;
+  if (opts.channel.archetype === 'kr-kids-song') return 'en-ko';
+  if (opts.channel.archetype === 'jp-kids-song') return 'en-ja';
+  return undefined;
 }
 
 /**

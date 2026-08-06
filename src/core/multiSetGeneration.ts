@@ -8,6 +8,8 @@ import { normalizeDiversityAllocations } from './diversityAllocation';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { readRecentGenreIds } from './recentGenreStore';
 import { evaluateGenerationRequest, stableHash, type PreflightReason, type PreflightResult } from './generationPreflight';
+import { withGenerationSnapshot } from './generationSnapshot';
+import { preallocateSongSlots } from './batchPreallocation';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -176,6 +178,22 @@ export async function finalizeSetBlueprint(
   if (setOpts.setNumberPrefix ?? true) {
     finalBlueprint = applySetTitlePrefixesToBlueprint(finalBlueprint, true);
   }
+  // TASK (post-generation operation snapshot) — this set's own real
+  // GenerationSnapshot, same "attach once, no-op if already present" guard
+  // as App.tsx's finalizeSinglePackBlueprint (see that function's own doc
+  // comment) — this is the single choke point both the local/realtime
+  // (runMultiSetGeneration below) and Batch API (useMultiSetGenerationFlow.ts's
+  // runBatchMode) multi-set loops share, so a later per-set retry/refine
+  // always has this set's own settings to fall back to, not whichever set
+  // (or live channel) happens to be on screen by then. Reuses this set's own
+  // already-resolved `genres`/`avoid` for the slot plan rather than
+  // re-deriving genres from setOpts alone.
+  finalBlueprint = withGenerationSnapshot(finalBlueprint, {
+    options: setOpts,
+    provider: settings,
+    season,
+    slots: preallocateSongSlots(setOpts, genres, avoid)
+  });
   return { blueprint: finalBlueprint, warnings };
 }
 

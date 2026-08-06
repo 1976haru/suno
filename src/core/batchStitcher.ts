@@ -1,5 +1,6 @@
 import type { GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, SongIdea, UsageInfo } from '../types';
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
+import { resolveBilingualPair } from './localGenerator';
 import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { stripSetTitlePrefix } from '../utils/generation';
 import { validateProviderTrackSet } from './importValidation';
@@ -142,7 +143,7 @@ export function stitchBatchResults(
     const slotClaims = claimSlotsByTrackNo(resultSongs, preassignedSlots ?? []);
     const reconciledByTrackNo = new Map<number, SongIdea[]>();
     for (const song of resultSongs) {
-      const reconciled = reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode);
+      const reconciled = reconcileWithPreassignedSlot(song, slotClaims.get(song), titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage, bilingualPair: resolveBilingualPair(opts) }, hookMode);
       const bucket = reconciledByTrackNo.get(song.trackNo);
       if (bucket) bucket.push(reconciled);
       else reconciledByTrackNo.set(song.trackNo, [reconciled]);

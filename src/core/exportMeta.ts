@@ -1,7 +1,8 @@
 import { APP_VERSION, BUILT_AT, COMMIT_SHA } from './buildInfo';
 import { CURRENT_SCHEMA_VERSION } from './schemaVersion';
 import { currentWorkspaceId } from './workspaceScope';
-import type { WorkspaceId } from '../types';
+import { stableHash } from './generationPreflight';
+import type { ChannelArchetype, ChannelProfile, GenerationOptions, LyricLanguage, PreassignedSongSlot, WorkspaceId } from '../types';
 
 /**
  * v4.0 (TASK C) — every export this app produces (가사 JSON, 워크스페이스 백업,
@@ -39,10 +40,56 @@ export interface ExportMeta {
   workspaceId: WorkspaceId;
   generatedAt: string;
   exportFormatVersion: number;
+  /**
+   * TASK (post-generation operation snapshot, TASK 5 — expand import file
+   * meta) — real gap: every export before this task carried, at best, the
+   * channel's display NAME (blueprint.channelName, a free-text string a
+   * remote model wrote) and this module's own pre-existing workspaceId/
+   * schemaVersion/appVersion — nothing machine-readable enough to
+   * reconstruct the real generation context (which channel id, which
+   * archetype, which language, which genres/moods, which money-chord/vocal
+   * settings, how many songs, or what slot plan) a re-imported file was
+   * actually generated under. These 9 fields are populated together, from a
+   * single real GenerationOptions (+ optional slot plan) — see
+   * `generationContext` below — never partially, so a consumer never sees
+   * some new fields present and others silently missing from the same
+   * export. Undefined for every export whose blueprint has no
+   * GenerationSnapshot (types.ts) to source them from — an old pack from
+   * before this task, or a display-only synthetic blueprint — same graceful
+   * degradation this module's pre-existing fields already have.
+   */
+  channelId?: string;
+  archetype?: ChannelArchetype;
+  lyricLanguage?: LyricLanguage;
+  genreIds?: string[];
+  moodIds?: string[];
+  moneyChordMode?: string;
+  vocalTone?: string;
+  songCount?: number;
+  /** stableHash (core/generationPreflight.ts) over the real preassigned slot plan this pack was generated against — lets an importer detect whether two exports of "the same" pack actually planned identical slots, without embedding the (much larger) slot array itself. Undefined when no slot plan was supplied. */
+  preassignedSlotHash?: string;
 }
 
-/** `generatedAt` defaults to "now" (export time) — callers with their own more meaningful timestamp (e.g. PlaylistBlueprint.generatedAt, a set's actual generation time) should pass it explicitly. */
-export function buildExportMeta(generatedAt?: string, workspaceId: WorkspaceId = currentWorkspaceId()): ExportMeta {
+export interface ExportGenerationContext {
+  channel: ChannelProfile;
+  options: Pick<GenerationOptions, 'lyricLanguage' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'vocalTone' | 'songCount'>;
+  slots?: PreassignedSongSlot[];
+}
+
+/**
+ * `generatedAt` defaults to "now" (export time) — callers with their own
+ * more meaningful timestamp (e.g. PlaylistBlueprint.generatedAt, a set's
+ * actual generation time) should pass it explicitly.
+ *
+ * `generationContext` (TASK 5) — the real, resolved generation context this
+ * export's channelId/archetype/lyricLanguage/genreIds/moodIds/
+ * moneyChordMode/vocalTone/songCount/preassignedSlotHash fields are sourced
+ * from (typically a PlaylistBlueprint.generationSnapshot's own channel/
+ * options/slots — see utils/exporters.ts's exportJson). Omitted entirely for
+ * a blueprint with no snapshot, leaving those 9 fields undefined exactly as
+ * they were before this task.
+ */
+export function buildExportMeta(generatedAt?: string, workspaceId: WorkspaceId = currentWorkspaceId(), generationContext?: ExportGenerationContext): ExportMeta {
   return {
     appVersion: APP_VERSION,
     schemaVersion: EXPORT_SCHEMA_VERSION,
@@ -50,6 +97,17 @@ export function buildExportMeta(generatedAt?: string, workspaceId: WorkspaceId =
     builtAt: BUILT_AT,
     workspaceId,
     generatedAt: generatedAt ?? new Date().toISOString(),
-    exportFormatVersion: EXPORT_FORMAT_VERSION
+    exportFormatVersion: EXPORT_FORMAT_VERSION,
+    ...(generationContext ? {
+      channelId: generationContext.channel.id,
+      archetype: generationContext.channel.archetype,
+      lyricLanguage: generationContext.options.lyricLanguage,
+      genreIds: generationContext.options.genreIds,
+      moodIds: generationContext.options.moodIds,
+      moneyChordMode: generationContext.options.moneyChordMode,
+      vocalTone: generationContext.options.vocalTone,
+      songCount: generationContext.options.songCount,
+      ...(generationContext.slots ? { preassignedSlotHash: stableHash(generationContext.slots) } : {})
+    } : {})
   };
 }

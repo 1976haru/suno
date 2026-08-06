@@ -1,4 +1,4 @@
-import type { AudienceProfile, DisplayLanguage, LyricLanguage, ScopedIssue, SongIdea } from '../types';
+import type { AudienceProfile, BilingualPair, ChannelArchetype, DisplayLanguage, LyricLanguage, ScopedIssue, SongIdea } from '../types';
 import { isOverLengthAdvisory, isTransliteratedTitle, looksLikeLiteralTranslation } from './titleLocalizationChecks';
 import { lyricLanguageMismatchReasonKo, measureLyrics, resolveLyricRange, stripLyricsToBody } from './lyricMetrics';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
@@ -10,6 +10,7 @@ import { findBlockingVocabularyRepetition, findExcessiveVocabularyRepetition, fi
 import { findNearDuplicateHook } from './hookSimilarity';
 import { titleShapeVarietyWarning } from './titleShapeVariety';
 import { eraSharesOf, type EraConstraint } from './constraints';
+import { ERA_POLICY } from '../data/eraPolicy';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES, DUET_TRAIT_AXES } from '../data/vocalTraits';
 import { detectVocalGenderPresence } from './vocalPlan';
 
@@ -209,6 +210,18 @@ export interface ScoreCompositionOptions {
    * omitted opt in this file.
    */
   vocalQuotaOverride?: { male: number; female: number; mixed: number };
+  /**
+   * v5.16 follow-up — the language blocking check just above (via
+   * lyricLanguageMismatchReasonKo) was still calling with no context at
+   * all, so it silently kept the flat 0.6 Korean-hangul floor and the
+   * auto-detected (not explicitly-checked) bilingual pair even after
+   * core/lyricMetrics.ts gained real per-workspace thresholds and an
+   * explicit BilingualPair check (v5.16 TASK B+C). Both undefined (every
+   * caller before this follow-up) reproduces the exact old behavior —
+   * these are additive, not a breaking change.
+   */
+  archetype?: ChannelArchetype;
+  bilingualPair?: BilingualPair;
 }
 
 /**
@@ -263,7 +276,24 @@ const DUET_GROUP_PHRASING_MARKERS: RegExp[] = [
   ...DUET_TRAIT_AXES.pairing.map(phrase => new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
 ];
 
-/** v4.2 (TASK A3, TASK B) — see this task's own §3-3 "primary 비중 < 50% → blocking, forbidden 시대 장르 존재 → blocking, 범용 장르 > 20% → advisory". Pack-level (not attributable to one track), so every song's own score gets the same findings, same pattern as vocabularyRepetitionWarning/titleShapeWarning below. */
+/**
+ * v4.2 (TASK A3, TASK B) — see this task's own §3-3 "primary 비중 < 50% →
+ * blocking, forbidden 시대 장르 존재 → blocking, 범용 장르 > 20% → advisory".
+ * Pack-level (not attributable to one track), so every song's own score
+ * gets the same findings, same pattern as vocabularyRepetitionWarning/
+ * titleShapeWarning below.
+ *
+ * TASK E (design-gate and post-generation era-share checks disagree) —
+ * thresholds now read from data/eraPolicy.ts's shared ERA_POLICY instead of
+ * hardcoding their own numbers here (single-primary 0.5/generic-advisory
+ * 0.2 are unchanged, byte-identical values — just re-sourced), and gained a
+ * real co-primary check that was previously entirely absent (a compound-
+ * decade concept's 30%/30% co-primary set used to pass core/designGate.ts's
+ * pre-generation gate with NO equivalent post-generation check waiting for
+ * it at all — see ERA_POLICY's own doc comment for the real investigation
+ * that closed this gap and picked 40% each as the correct, validated
+ * number, sourced from core/constraints.ts's applyEraQuota).
+ */
 function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint | undefined): { blocking: string[]; advisory: string[] } {
   if (!eraConstraint || eraConstraint.unspecified) return { blocking: [], advisory: [] };
   const genreCounts: Record<string, number> = {};
@@ -271,20 +301,32 @@ function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint 
     if (song.genreId) genreCounts[song.genreId] = (genreCounts[song.genreId] ?? 0) + 1;
   }
   const shares = eraSharesOf(genreCounts);
-  const primaryShare = shares[eraConstraint.primary] ?? 0;
   const genericShare = shares.generic ?? 0;
   const forbiddenBuckets = eraConstraint.forbidden.filter(bucket => (shares[bucket] ?? 0) > 0);
 
   const blocking: string[] = [];
   const advisory: string[] = [];
-  if (primaryShare < 0.5) {
-    blocking.push(`이 컨셉의 주 시대(${ERA_LABEL[eraConstraint.primary]}) 장르 비중이 ${Math.round(primaryShare * 100)}%로 최소 50% 미만입니다.`);
+
+  if (eraConstraint.coPrimary) {
+    const primaryShare = shares[eraConstraint.primary] ?? 0;
+    const coPrimaryShare = shares[eraConstraint.coPrimary] ?? 0;
+    const minEach = ERA_POLICY.coPrimaryMinEach;
+    if (primaryShare < minEach || coPrimaryShare < minEach) {
+      blocking.push(`이 컨셉의 복수 주 시대(${ERA_LABEL[eraConstraint.primary]}·${ERA_LABEL[eraConstraint.coPrimary]}) 중 비중이 최소 ${Math.round(minEach * 100)}% 미만인 쪽이 있습니다 (${ERA_LABEL[eraConstraint.primary]} ${Math.round(primaryShare * 100)}% / ${ERA_LABEL[eraConstraint.coPrimary]} ${Math.round(coPrimaryShare * 100)}%).`);
+    }
+  } else {
+    const primaryShare = shares[eraConstraint.primary] ?? 0;
+    const min = ERA_POLICY.singlePrimaryMin;
+    if (primaryShare < min) {
+      blocking.push(`이 컨셉의 주 시대(${ERA_LABEL[eraConstraint.primary]}) 장르 비중이 ${Math.round(primaryShare * 100)}%로 최소 ${Math.round(min * 100)}% 미만입니다.`);
+    }
   }
+
   if (forbiddenBuckets.length) {
     blocking.push(`이 컨셉이 금지한 시대(${forbiddenBuckets.map(bucket => ERA_LABEL[bucket]).join(', ')}) 장르가 포함되어 있습니다 (${forbiddenBuckets.map(bucket => `${Math.round((shares[bucket] ?? 0) * 100)}%`).join(', ')}).`);
   }
-  if (genericShare > 0.2) {
-    advisory.push(`시대 표기 없는 범용 장르 비중이 ${Math.round(genericShare * 100)}%로 권장 상한(20%)을 넘습니다.`);
+  if (genericShare > ERA_POLICY.genericAdvisoryMax) {
+    advisory.push(`시대 표기 없는 범용 장르 비중이 ${Math.round(genericShare * 100)}%로 권장 상한(${Math.round(ERA_POLICY.genericAdvisoryMax * 100)}%)을 넘습니다.`);
   }
   return { blocking, advisory };
 }
@@ -520,7 +562,7 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
     // than getting a spurious block on every non-English pack just because
     // nothing told this function what language to expect.
     if (opts?.lyricLanguage) {
-      const languageReason = lyricLanguageMismatchReasonKo(song.lyrics, opts.lyricLanguage);
+      const languageReason = lyricLanguageMismatchReasonKo(song.lyrics, opts.lyricLanguage, { archetype: opts.archetype, bilingualPair: opts.bilingualPair });
       if (languageReason) blocking.push(languageReason);
     }
 

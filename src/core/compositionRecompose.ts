@@ -1,4 +1,4 @@
-import type { LyricLanguage, SongIdea } from '../types';
+import type { BilingualPair, ChannelArchetype, LyricLanguage, SongIdea } from '../types';
 import { scoreComposition } from './compositionScorer';
 
 /**
@@ -73,11 +73,23 @@ export async function recomposeBlockingTracks(
    * doesn't pass it just never triggers those 3 checks in this loop, same as
    * before this task.
    */
-  vocalQuotaOverride?: { male: number; female: number; mixed: number }
+  vocalQuotaOverride?: { male: number; female: number; mixed: number },
+  /**
+   * v5.16 follow-up — same "omitted = exact old behavior" pattern as
+   * lyricLanguage/vocalQuotaOverride above. Without these, the language
+   * blocking check inside scoreComposition() falls back to the flat 0.6
+   * Korean-hangul floor and auto-detected bilingual pair instead of the
+   * per-workspace thresholds / explicit pair check core/lyricMetrics.ts
+   * gained in v5.16 TASK B+C — so a genuine language mismatch during a
+   * recompose pass wouldn't get the benefit of either fix unless a caller
+   * threads these through.
+   */
+  archetype?: ChannelArchetype,
+  bilingualPair?: BilingualPair
 ): Promise<RecomposeResult> {
   let current = songs;
   const log: RecomposeLogEntry[] = [];
-  const scoreOpts = { historicalHooks, lyricLanguage, vocalQuotaOverride };
+  const scoreOpts = { historicalHooks, lyricLanguage, vocalQuotaOverride, archetype, bilingualPair };
   // v4.1 (TASK C) — .tracks only (not packBlocking/packAdvisory): a
   // pack-level design issue (era share, BPM/vocal structure collapse) isn't
   // fixable by recomposing any one song, so this loop — which regenerates

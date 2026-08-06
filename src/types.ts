@@ -4,6 +4,25 @@ export type Market = 'korea' | 'japan' | 'global' | 'custom';
 export type LyricLanguage = 'english' | 'korean' | 'japanese' | 'bilingual';
 
 /**
+ * TASK (bilingual pair auto-detection gap) — the real EXPECTED language pair
+ * for a `lyricLanguage: 'bilingual'` pack. Before this, checkLyricLanguageMatch
+ * (core/lyricMetrics.ts) had no way to know which of Korean/Japanese a
+ * bilingual pack was actually supposed to mix with English — it auto-detected
+ * by picking whichever of the two happened to appear MORE in the lyrics body
+ * it was given, so a jp-kids pack whose lyrics came back as English+Korean
+ * instead of the expected English+Japanese still "passed" as long as enough
+ * Korean was present. GenerationOptions.bilingualPair carries the real
+ * expectation through so the check can validate against it directly instead
+ * of guessing. Optional/undefined preserves every existing caller's exact
+ * behavior — checkLyricLanguageMatch falls back to the old auto-detect
+ * heuristic whenever it isn't supplied (see core/localGenerator.ts's
+ * resolveBilingualPair for the real per-workspace default: kr-kids ->
+ * 'en-ko', jp-kids -> 'en-ja', same opts.bilingualPair ?? archetype-default
+ * priority shape as resolveKidsAgeTierId).
+ */
+export type BilingualPair = 'en-ko' | 'en-ja';
+
+/**
  * v4.1 (TASK A) — how narrow or wide a concept's own intended diversity is.
  * 'focused': deliberately narrow ("잔잔한 보사노바 18곡", "수면용 어쿠스틱 팝") —
  * genre/BPM/vocal-type variety gates should relax, but lyric-scene/emotion
@@ -557,6 +576,33 @@ export type ChoiceSource = 'user' | 'default' | 'concept' | 'channel' | 'system'
  * function that reads this map to build UserExplicitChoices.source, and this
  * type's own field-by-field doc comments below on GenerationOptions for
  * exactly which UI control is responsible for each key.
+ *
+ * TASK (provenance extension) — widened from 13 to 20 axes. Real, verified
+ * gap this closes: moodIds/durationTarget/lyricDepth/hookMode/referenceMood/
+ * negativeStyle/avoidWords all have a real, direct click-time UI control in
+ * Step2Concept.tsx (chip toggles, ChoiceGrids, or a textarea onChange —
+ * grep-confirmed, same as every one of the original 13) but were never
+ * tracked here, so a silent-drop regression on any of them (the same bug
+ * class moneyChordMode/vocalTone/genreIds were fixed for) could never have
+ * been caught by assertUserChoicesPreserved or shown on Step3Generate.tsx's
+ * contract screen. Two named candidates were investigated and deliberately
+ * NOT added:
+ *  - openingStyle: declared on GenerationOptions and read by
+ *    core/localGenerator.ts's resolveOpeningStyle, but grep-confirmed to have
+ *    ZERO real UI control anywhere in src/components — nothing ever calls
+ *    setOpts with an openingStyle key. There is no click-time moment to
+ *    record, so adding a provenance field for it would only ever read
+ *    'default' — a fake protection. (Step3Generate.tsx's contract screen
+ *    still gets a display-only row for it; see that file's own comment.)
+ *  - diversityAllocations' manually-set per-axis entries (structure/
+ *    arrangement/intro-texture/etc.): these already carry their own
+ *    AxisAllocation.mode: 'manual' | 'auto' flag, and
+ *    core/diversityAllocation.ts's applyAxisAllocation already guarantees "a
+ *    manual allocation always wins over the auto plan" by construction (see
+ *    that function's own doc comment and core/setDirector.ts's repeated
+ *    "manual-always-wins rule" references) — there is no silent-drop bug
+ *    class here to protect against, and AxisAllocation[] isn't a
+ *    single-value field this ChoiceSource-per-field shape fits anyway.
  */
 export interface GenerationChoiceProvenance {
   moneyChordMode: ChoiceSource;
@@ -572,6 +618,20 @@ export interface GenerationChoiceProvenance {
   breadth: ChoiceSource;
   paletteFamilyId: ChoiceSource;
   kidsAgeTierId: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's mood chip grid ("어떤 분위기로 만들까요?", toggleArray('moodIds', ...) in App.tsx) and applyChannelToOptions' channel-switch reset. */
+  moodIds: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's "곡 길이" ChoiceGrid. */
+  durationTarget: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's "가사 깊이" ChoiceGrid. */
+  lyricDepth: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's "훅(가사 반복구) 생성 방식" chip pair. */
+  hookMode: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's "Reference mood" textarea. */
+  referenceMood: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's "Music Exclude styles" preset chips/textarea (toggleNegativeStylePreset and the raw textarea onChange); resetNegativeStyle records 'default' instead, since it deliberately restores the channel default. */
+  negativeStyle: ChoiceSource;
+  /** TASK (provenance extension) — Step2Concept.tsx's "가사에서 피할 것들" preset checkboxes + custom-term input (toggleAvoidPreset/addCustomAvoidTerm/removeAvoidTerm). */
+  avoidWords: ChoiceSource;
 }
 
 export interface GenerationOptions {
@@ -644,6 +704,19 @@ export interface GenerationOptions {
    * on which tier a pack is actually using.
    */
   kidsAgeTierId?: KidsAgeTierId;
+  /**
+   * TASK (bilingual pair auto-detection gap) — per-generation override of the
+   * expected 'bilingual' language pair; see BilingualPair's own doc comment.
+   * Same priority relationship as kidsAgeTierId above (per-generation value
+   * wins over the archetype's own real default) — core/localGenerator.ts's
+   * resolveBilingualPair is the one resolver every real consumer
+   * (core/lyricMetrics.ts's checkLyricLanguageMatch, threaded through
+   * batchPreallocation.ts/importInspection.ts) calls instead of re-deriving
+   * this per call site. Undefined for every non-'bilingual' lyricLanguage and
+   * for a 'bilingual' pack whose channel archetype isn't kr-kids/jp-kids
+   * (checkLyricLanguageMatch's own auto-detect fallback still applies then).
+   */
+  bilingualPair?: BilingualPair;
   /** v3.49A: user-written vibe reference converted to safe English style clauses; artist/song names are blocked before use. */
   referenceMood?: string;
   /**
@@ -1137,6 +1210,46 @@ export interface SongIdea {
   effectiveKidsAgeTierId?: KidsAgeTierId;
 }
 
+/**
+ * TASK (post-generation operation snapshot) — real, verified bug this closes:
+ * once a pack finishes generating, every post-generation operation (retry,
+ * refine, evaluate, save, persona rebuild, missing-track regen, audio-take
+ * linking, bridge recompose instructions) used to read whatever `opts`/
+ * `cm.selectedChannel` happened to be LIVE on screen at the moment that
+ * operation was clicked — not what the pack was actually generated under.
+ * Generate an 18-song pack under Channel A, switch the sidebar to Channel B
+ * without regenerating, then retry track 5: that one track silently used
+ * Channel B's genre/vocal/lyric rules while the other 17 stayed on Channel
+ * A's, with nothing to tell the two apart afterward. This is the fix — a
+ * real record of exactly what a pack was generated under, attached ONCE at
+ * the real moment of generation (see core/generationSnapshot.ts's
+ * withGenerationSnapshot, which every real PlaylistBlueprint construction
+ * site calls) and carried forward automatically by every later `{...blueprint,
+ * songs: ...}` spread (regenerateTrack/refineTracks/etc. already only ever
+ * touch `songs`, never reconstruct the rest of the object) — so a retry/
+ * refine on an already-generated pack keeps referencing the ORIGINAL
+ * generation's settings unless the user explicitly opts into
+ * "[현재 설정으로 다시 스타일링]" (see Step4Result.tsx's per-action override,
+ * which passes live opts/channel through instead, one operation at a time).
+ * `slots` is the real preassigned song-slot plan (core/batchPreallocation.ts's
+ * preallocateSongSlots) this pack was actually generated against — the same
+ * shape core/generationPreflight.ts's evaluateGenerationRequest already
+ * builds, not a duplicate concept. `contractSignature` reuses that module's
+ * own stableHash (never a second hashing mechanism) over {options, slots},
+ * so two packs generated under content-identical settings hash identically
+ * regardless of key order, and any later options/slot drift is detectable.
+ */
+export interface GenerationSnapshot {
+  workspaceId: WorkspaceId;
+  channel: ChannelProfile;
+  options: GenerationOptions;
+  provider: ProviderSettings;
+  season: SeasonPack;
+  slots: PreassignedSongSlot[];
+  contractSignature: string;
+  generatedAt: string;
+}
+
 export interface PlaylistBlueprint {
   projectTitle: string;
   channelName: string;
@@ -1188,6 +1301,24 @@ export interface PlaylistBlueprint {
   meta?: {
     setCode?: string;
   };
+  /**
+   * TASK (post-generation operation snapshot) — see GenerationSnapshot's own
+   * doc comment above for the full bug this closes. Attached exactly once,
+   * at the real moment of generation (core/generationSnapshot.ts's
+   * withGenerationSnapshot, called from every real construction site —
+   * App.tsx's finalizeSinglePackBlueprint for realtime/local/batch/cache/
+   * bridge-single-import, core/multiSetGeneration.ts's finalizeSetBlueprint
+   * for multi-set local/realtime/batch, App.tsx's onImportMultiSetSongsJson
+   * for bridge multi-set import); every later `{...blueprint, songs: ...}`
+   * spread (regenerateTrack, refineTracks, resolveHookCollisions, ...)
+   * carries it forward unchanged since none of them reconstruct any field
+   * but `songs`. Undefined only for a blueprint built before this task
+   * (e.g. an old saved/cached pack) or a display-only synthetic blueprint
+   * that was never really "generated" this session — every real consumer
+   * falls back to the current live opts/channel in that case, which is
+   * exactly the pre-existing behavior for such a pack.
+   */
+  generationSnapshot?: GenerationSnapshot;
 }
 
 export interface SoundSignature {

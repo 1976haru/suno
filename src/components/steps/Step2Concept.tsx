@@ -312,7 +312,15 @@ export default function Step2Concept({
         ...prev.choiceProvenance,
         genreIds: 'concept',
         seasonId: 'concept',
-        ...(vocalPreset ? { vocalTone: 'concept' as const } : {})
+        // TASK (provenance extension) — moodIds is set unconditionally above
+        // (rec.moodIds), same as genreIds/seasonId; negativeStyle is only
+        // actually changed when excludeAdditions is non-empty (see the
+        // conditional negativeStyle field above this object), so its
+        // provenance only flips to 'concept' in that same case — otherwise
+        // prev.negativeStyle (and its existing provenance) is untouched.
+        moodIds: 'concept',
+        ...(vocalPreset ? { vocalTone: 'concept' as const } : {}),
+        ...(excludeAdditions.length ? { negativeStyle: 'concept' as const } : {})
       }
     }));
     for (const slot of finalAllocation) rememberRecentGenreId(opts.channel.id, slot.genreId);
@@ -404,9 +412,12 @@ export default function Step2Concept({
     else toggleSecondaryGenre(id);
   }
 
+  // TASK (provenance extension) — all 3 real avoidWords handlers funnel
+  // through this single setOpts shape (only the array they build differs),
+  // so 'user' provenance is recorded here rather than duplicated per caller.
   function toggleAvoidPreset(phrase: string) {
     const next = avoidList.includes(phrase) ? avoidList.filter(term => term !== phrase) : [...avoidList, phrase];
-    setOpts(prev => ({ ...prev, avoidWords: joinAvoidWords(next) }));
+    setOpts(prev => ({ ...prev, avoidWords: joinAvoidWords(next), choiceProvenance: { ...prev.choiceProvenance, avoidWords: 'user' } }));
   }
 
   function addCustomAvoidTerm() {
@@ -414,14 +425,19 @@ export default function Step2Concept({
     if (!term || avoidList.includes(term)) return;
     const next = joinAvoidWords([...avoidList, term]);
     if (next.length > INPUT_LIMITS.avoidWords) return;
-    setOpts(prev => ({ ...prev, avoidWords: next }));
+    setOpts(prev => ({ ...prev, avoidWords: next, choiceProvenance: { ...prev.choiceProvenance, avoidWords: 'user' } }));
     setAvoidCustomDraft('');
   }
 
   function removeAvoidTerm(term: string) {
-    setOpts(prev => ({ ...prev, avoidWords: joinAvoidWords(avoidList.filter(item => item !== term)) }));
+    setOpts(prev => ({ ...prev, avoidWords: joinAvoidWords(avoidList.filter(item => item !== term)), choiceProvenance: { ...prev.choiceProvenance, avoidWords: 'user' } }));
   }
 
+  // TASK (provenance extension) — toggleNegativeStylePreset/the raw textarea
+  // onChange (below) both record 'user'; resetNegativeStyle deliberately
+  // records 'default' instead — it restores the channel's own default text,
+  // the opposite of an explicit override, so treating it as 'user' would
+  // wrongly protect a value the user just asked to STOP overriding.
   function toggleNegativeStylePreset(phrase: string) {
     setOpts(prev => {
       const current = prev.negativeStyle ?? buildDefaultNegativeStyle(prev.channel);
@@ -430,12 +446,12 @@ export default function Step2Concept({
       const next = currentKeys.has(key)
         ? withoutNegativeStyleTerm(current, phrase)
         : withNegativeStyleTerm(current, phrase);
-      return { ...prev, negativeStyle: clampToLimit('negativeStyle', next) };
+      return { ...prev, negativeStyle: clampToLimit('negativeStyle', next), choiceProvenance: { ...prev.choiceProvenance, negativeStyle: 'user' } };
     });
   }
 
   function resetNegativeStyle() {
-    setOpts(prev => ({ ...prev, negativeStyle: buildDefaultNegativeStyle(prev.channel) }));
+    setOpts(prev => ({ ...prev, negativeStyle: buildDefaultNegativeStyle(prev.channel), choiceProvenance: { ...prev.choiceProvenance, negativeStyle: 'default' } }));
   }
 
   const moneyChordChoices = Object.values(moneyChordPresets)
@@ -754,7 +770,11 @@ export default function Step2Concept({
         <p className="supporting">Write a vibe in Korean or English. Artist names and soundalike requests are blocked before they enter the style prompt.</p>
         <textarea
           value={referenceMoodValue}
-          onChange={event => setOpts(prev => ({ ...prev, referenceMood: clampToLimit('referenceMood', event.target.value) }))}
+          onChange={event => setOpts(prev => ({
+            ...prev,
+            referenceMood: clampToLimit('referenceMood', event.target.value),
+            choiceProvenance: { ...prev.choiceProvenance, referenceMood: 'user' }
+          }))}
           placeholder="비 오는 새벽 드라이브, 나른한 여성 보컬"
           maxLength={INPUT_LIMITS.referenceMood}
           style={{ marginTop: 8 }}
@@ -919,7 +939,11 @@ export default function Step2Concept({
         </div>
         <textarea
           value={negativeStyleText}
-          onChange={event => setOpts(prev => ({ ...prev, negativeStyle: clampToLimit('negativeStyle', event.target.value) }))}
+          onChange={event => setOpts(prev => ({
+            ...prev,
+            negativeStyle: clampToLimit('negativeStyle', event.target.value),
+            choiceProvenance: { ...prev.choiceProvenance, negativeStyle: 'user' }
+          }))}
           maxLength={INPUT_LIMITS.negativeStyle}
           style={{ marginTop: 8 }}
         />
@@ -976,14 +1000,14 @@ export default function Step2Concept({
             <button
               type="button"
               className={(opts.hookMode ?? 'ai-creative') === 'ai-creative' ? 'chip active' : 'chip'}
-              onClick={() => setOpts(prev => ({ ...prev, hookMode: 'ai-creative' }))}
+              onClick={() => setOpts(prev => ({ ...prev, hookMode: 'ai-creative', choiceProvenance: { ...prev.choiceProvenance, hookMode: 'user' } }))}
             >
               AI가 훅 창작 (기본 · 추천)
             </button>
             <button
               type="button"
               className={opts.hookMode === 'pool' ? 'chip active' : 'chip'}
-              onClick={() => setOpts(prev => ({ ...prev, hookMode: 'pool' }))}
+              onClick={() => setOpts(prev => ({ ...prev, hookMode: 'pool', choiceProvenance: { ...prev.choiceProvenance, hookMode: 'user' } }))}
             >
               로컬 훅 뱅크 사용 (풀 소진 가능)
             </button>
@@ -1131,7 +1155,11 @@ export default function Step2Concept({
             question="곡 길이"
             choices={DURATION_CHOICES}
             value={opts.durationTarget}
-            onChange={value => setOpts(prev => ({ ...prev, durationTarget: value as GenerationOptions['durationTarget'] }))}
+            onChange={value => setOpts(prev => ({
+              ...prev,
+              durationTarget: value as GenerationOptions['durationTarget'],
+              choiceProvenance: { ...prev.choiceProvenance, durationTarget: 'user' }
+            }))}
             columns={3}
           />
 
@@ -1139,7 +1167,11 @@ export default function Step2Concept({
             question="가사 깊이"
             choices={DEPTH_CHOICES}
             value={opts.lyricDepth}
-            onChange={value => setOpts(prev => ({ ...prev, lyricDepth: value as GenerationOptions['lyricDepth'] }))}
+            onChange={value => setOpts(prev => ({
+              ...prev,
+              lyricDepth: value as GenerationOptions['lyricDepth'],
+              choiceProvenance: { ...prev.choiceProvenance, lyricDepth: 'user' }
+            }))}
             columns={4}
           />
 

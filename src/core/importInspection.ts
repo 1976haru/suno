@@ -1,4 +1,4 @@
-import type { GenerationOptions, LyricLanguage, SongIdea } from '../types';
+import type { BilingualPair, GenerationOptions, LyricLanguage, SongIdea } from '../types';
 import type { ImportSongsReport } from './bridgeImport';
 import { describeTrackSetValidation, validateProviderTrackSet } from './importValidation';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
@@ -120,7 +120,15 @@ function detectVocalTagCorrections(rawSongs: unknown[], finalSongs: SongIdea[]):
 export function inspectImportReport(
   report: ImportSongsReport,
   rawSongs: unknown[],
-  lyricLanguage: LyricLanguage
+  lyricLanguage: LyricLanguage,
+  /**
+   * TASK (per-workspace Korean floor / bilingual pair auto-detection gap) —
+   * optional real context for the language-ratio check below (see
+   * core/lyricMetrics.ts's LyricLanguageCheckContext). Both fields are
+   * additive: existing callers that only pass the first 3 args keep
+   * compiling and keep the pre-existing flat-threshold/auto-detect behavior.
+   */
+  languageContext?: { archetype?: string; bilingualPair?: BilingualPair }
 ): ImportInspection {
   if (!report.blueprint) {
     return {
@@ -184,7 +192,7 @@ export function inspectImportReport(
   // (core/lyricMetrics.ts) per final song; a real ratio-based heuristic, not
   // a re-implementation — this module never recomputes the ratio math itself.
   const languageMismatches = report.blueprint.songs
-    .map(song => ({ trackNo: song.trackNo, warning: lyricLanguageMismatchWarning(song.lyrics, lyricLanguage, song.trackNo) }))
+    .map(song => ({ trackNo: song.trackNo, warning: lyricLanguageMismatchWarning(song.lyrics, lyricLanguage, song.trackNo, languageContext) }))
     .filter((entry): entry is { trackNo: number; warning: string } => Boolean(entry.warning));
   checks.push(
     languageMismatches.length

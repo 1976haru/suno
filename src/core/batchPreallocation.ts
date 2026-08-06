@@ -1,4 +1,4 @@
-import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
+import type { BilingualPair, ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, buildArcPlanForProfile, clampTempoToKidsAgeTier, emotionArcPlanForArc, nextContestedTitle, resolveKidsAgeTierId, songRolePlanForArc } from './localGenerator';
@@ -940,6 +940,15 @@ export interface ReconcilePreassignedOptions {
    * already get folded into `song.warnings` below rather than blocking).
    */
   lyricLanguage?: LyricLanguage;
+  /**
+   * TASK (bilingual pair auto-detection gap) — the pack's expected
+   * BilingualPair (core/localGenerator.ts's resolveBilingualPair), threaded
+   * through the same way `archetype`/`lyricLanguage` are so
+   * lyricLanguageMismatchWarning can validate a 'bilingual' pack against the
+   * real expected pair instead of auto-detecting. Optional, same as every
+   * other field here — omitting it keeps the old auto-detect fallback.
+   */
+  bilingualPair?: BilingualPair;
 }
 
 /**
@@ -1074,7 +1083,10 @@ export function reconcileWithPreassignedSlot(
   // language is not the "correct, expected mixed-script shape" the old
   // blanket skip assumed.
   const languageWarning = options.lyricLanguage
-    ? lyricLanguageMismatchWarning(song.lyrics, options.lyricLanguage, slot?.trackNo ?? song.trackNo)
+    ? lyricLanguageMismatchWarning(song.lyrics, options.lyricLanguage, slot?.trackNo ?? song.trackNo, {
+        archetype: options.archetype ?? resolvedArchetype,
+        bilingualPair: options.bilingualPair
+      })
     : undefined;
   const withLanguageWarning = (warnings: string[]): string[] =>
     languageWarning && !warnings.includes(languageWarning) ? [...warnings, languageWarning] : warnings;

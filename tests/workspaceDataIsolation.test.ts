@@ -26,28 +26,56 @@ import {
   checkL5,
   checkL6,
   checkL7,
+  GENRE_WORKSPACE_MAP,
+  isGenreForeignToWorkspace,
   type CheckResult
 } from '../scripts/isolationAudit';
+import { KRIDOL_M_CORE_GENRE_IDS, KRIDOL_F_CORE_GENRE_IDS, KR_KIDS_CORE_GENRE_IDS } from '../src/data/genreLibrary';
 
 const L4_PREEXISTING_SENIOR_INTERNAL = new Set(['modern-chill', 'city-night', 'oldpop-lounge']);
 
 /**
- * TASK K3 §3-1 — kr-idol-female deliberately shares all 7 kridol-* genres
- * with kr-idol-male (K2's own explicit design, not an omission — see K2's
- * genreLibrary/index.ts comment: every kridol-* genre's `archetypes` array
- * always names both workspaces). checkL1's own model assumes a genre
- * belongs to exactly one workspace (scripts/isolationAudit.ts's
- * genreWorkspaceOf returns a single WorkspaceId per genre id-prefix), which
- * is fundamentally incompatible with two workspaces intentionally sharing
- * one genre pool — the "외부 장르 노출" it reports for kr-idol-female is the
- * expected, correct consequence of that shared design, not a real leak
- * (verified separately: 0 exposure to any of the OTHER 5 non-idol
- * workspaces — see docs/k3-report.md §13-1[1]). This is a genuine model
- * gap in checkL1 itself (not a missing prefix case, unlike the fixes K2/K3
- * already made to genreWorkspaceOf elsewhere) — reported to G1, not fixed
- * here, same "발견한 문제를 고치지 마십시오" principle as L4_PREEXISTING_SENIOR_INTERNAL above.
+ * TASK G — checkL1 used to model "genre belongs to a workspace" as one
+ * WorkspaceId per genre id (isolationAudit.ts's old genreWorkspaceOf),
+ * which is fundamentally incompatible with kr-idol-male/kr-idol-female's
+ * real, intentional shared kridol-* genre pool (K2/K3's own design — every
+ * kridol-* genre pack's `archetypes` field literally lists both). That
+ * forced a previous version of this test file to carve out an
+ * L1_SHARED_KRIDOL_GENRES exception for kr-idol-female's otherwise-correct
+ * "외부 장르 노출" FAIL. TASK G replaced genreWorkspaceOf with the
+ * many-to-many GENRE_WORKSPACE_MAP (Record<string, WorkspaceId[]>) below,
+ * so checkL1 itself now reports kr-idol-female's shared kridol-* genres as
+ * PASS (real, not a workaround) — see this file's own describeChecks call
+ * for L1 immediately below, no exception needed any more.
  */
-const L1_SHARED_KRIDOL_GENRES = new Set(['kr-idol-male', 'kr-idol-female']);
+describe('GENRE_WORKSPACE_MAP (TASK G many-to-many genre-workspace mapping)', () => {
+  it('kridol-* genres map to BOTH kr-idol-male and kr-idol-female (K2/K3\'s real shared design)', () => {
+    for (const id of KRIDOL_M_CORE_GENRE_IDS) {
+      expect(GENRE_WORKSPACE_MAP[id], `${id} must be shared with both idol workspaces`).toEqual(
+        expect.arrayContaining(['kr-idol-male', 'kr-idol-female'])
+      );
+    }
+    // Sanity: K2's and K3's own core-genre-id lists are the exact same 7 ids (K3's own doc comment).
+    expect(new Set(KRIDOL_F_CORE_GENRE_IDS)).toEqual(new Set(KRIDOL_M_CORE_GENRE_IDS));
+  });
+
+  it('isGenreForeignToWorkspace: shared kridol-* genres are NOT foreign to either idol workspace (positive case)', () => {
+    for (const id of KRIDOL_M_CORE_GENRE_IDS) {
+      expect(isGenreForeignToWorkspace(id, 'kr-idol-male'), `${id} must not be foreign to kr-idol-male`).toBe(false);
+      expect(isGenreForeignToWorkspace(id, 'kr-idol-female'), `${id} must not be foreign to kr-idol-female`).toBe(false);
+    }
+  });
+
+  it('isGenreForeignToWorkspace: a genuine cross-workspace leak is still caught (negative case) — a real kr-kids-exclusive genre id must be flagged foreign to senior-oldpop and to the idol workspaces', () => {
+    const realKrKidsGenreId = KR_KIDS_CORE_GENRE_IDS[0]; // 'krkids-action' — real registered kr-kids-only genre id, not fabricated.
+    expect(GENRE_WORKSPACE_MAP[realKrKidsGenreId], `${realKrKidsGenreId} must map to kr-kids only, not senior-oldpop or either idol workspace`).toEqual(['kr-kids']);
+    expect(isGenreForeignToWorkspace(realKrKidsGenreId, 'senior-oldpop'), `${realKrKidsGenreId} appearing in senior-oldpop's visible pool must still be flagged as a real leak`).toBe(true);
+    expect(isGenreForeignToWorkspace(realKrKidsGenreId, 'kr-idol-male'), `${realKrKidsGenreId} appearing in kr-idol-male's visible pool must still be flagged as a real leak`).toBe(true);
+    expect(isGenreForeignToWorkspace(realKrKidsGenreId, 'kr-idol-female'), `${realKrKidsGenreId} appearing in kr-idol-female's visible pool must still be flagged as a real leak`).toBe(true);
+    // ...but legitimately not foreign to its own real home.
+    expect(isGenreForeignToWorkspace(realKrKidsGenreId, 'kr-kids'), `${realKrKidsGenreId} must not be foreign to its own real workspace kr-kids`).toBe(false);
+  });
+});
 
 function describeChecks(checkId: string, results: CheckResult[], knownPreexisting?: (r: CheckResult) => boolean) {
   describe(`[${checkId}]`, () => {
@@ -69,7 +97,7 @@ function describeChecks(checkId: string, results: CheckResult[], knownPreexistin
 }
 
 describe('워크스페이스 데이터 격리 (TASK G1)', () => {
-  describeChecks('L1 아키타입 간 장르 누출', checkL1(), r => r.workspaceId === 'kr-idol-female' && L1_SHARED_KRIDOL_GENRES.has(r.workspaceId));
+  describeChecks('L1 아키타입 간 장르 누출', checkL1());
   describeChecks('L2 무배정 신규 장르', [checkL2()]);
   describeChecks('L3 가사 구도 폴백', checkL3());
   describeChecks('L4 훅 뱅크 분리', checkL4(), r => L4_PREEXISTING_SENIOR_INTERNAL.has(r.archetype ?? ''));

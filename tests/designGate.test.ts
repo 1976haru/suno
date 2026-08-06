@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BREADTH_THRESHOLDS, evaluateDesignGate } from '../src/core/designGate';
-import { resolveConstraintsFromOptions, type ResolvedConstraints } from '../src/core/constraints';
+import { BREADTH_THRESHOLDS, evaluateDesignGate, lastBundleIntensityViolation } from '../src/core/designGate';
+import { resolveConstraintsFromOptions, type EraConstraint, type ResolvedConstraints } from '../src/core/constraints';
 import { SENIOR_AUDIENCE_PROFILE, audienceProfileById, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
 import { buildRepetitionCyclePlan, kidsArcBundlePlanFor } from '../src/core/arcModels';
 import { buildUserChosenProgressionPlan, REPRESENTATIVE_TRACK_COUNT } from '../src/core/moneyChordPlan';
 import { scaleVocalQuota } from '../src/core/vocalPlan';
+import { ERA_POLICY } from '../src/data/eraPolicy';
 import type { ChannelProfile, GenerationOptions, PreassignedSongSlot } from '../src/types';
 
 /**
@@ -252,6 +253,93 @@ describe('evaluateDesignGate — 시대', () => {
   });
 });
 
+/**
+ * TASK E (design-gate and post-generation era-share checks disagree) —
+ * eraIssues now reads its single-primary/co-primary floors from the shared
+ * data/eraPolicy.ts (ERA_POLICY) instead of its own previously-looser
+ * hardcoded 40%/30% — see ERA_POLICY's own doc comment for the real
+ * investigation (core/constraints.ts's applyEraQuota) that picked 50%/40%
+ * as the correct, validated numbers. tests/compositionScorer.test.ts has
+ * the mirror-image proof that compositionScorer.ts's post-generation check
+ * now agrees with this file on the exact same real 45% case.
+ */
+describe('evaluateDesignGate — TASK E era policy (shared ERA_POLICY threshold)', () => {
+  const SINGLE_ERA: EraConstraint = { primary: '1950s-60s', adjacent: [], forbidden: [], unspecified: false };
+  const CO_PRIMARY_ERA: EraConstraint = { primary: '1950s-60s', coPrimary: '1970s', adjacent: [], forbidden: ['1980s'], unspecified: false };
+
+  function slotsWithGenrePattern(pattern: string[]): PreassignedSongSlot[] {
+    return pattern.map((genreId, i) => slotFor({ trackNo: i + 1, genreId }));
+  }
+
+  it('reads the real, validated 50%/40% floors — not the old, looser 40%/30% this file used to hardcode', () => {
+    expect(ERA_POLICY.singlePrimaryMin).toBe(0.5);
+    expect(ERA_POLICY.coPrimaryMinEach).toBe(0.4);
+  });
+
+  it("a real 45% single-era share — which used to PASS this file's old 40% floor — now correctly BLOCKS era-primary-share, matching the new shared 50% floor (and now agrees with compositionScorer.ts's own always-50% check)", () => {
+    const opts = baseOpts({ songCount: 20 });
+    const pattern = [
+      ...Array(9).fill('oldpop-doowop-harmony'), // 1950s-60s: 9/20 = 45%
+      ...Array(11).fill('oldpop-warm-morning-glow') // timeless filler — keeps genericShare and forbidden buckets both at 0, isolating the primary-share check
+    ];
+    const constraints = { ...baseConstraints(opts), era: SINGLE_ERA };
+    const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
+    const issue = result.blocking.find(i => i.id === 'era-primary-share');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('50% 이상');
+    expect(issue!.actual).toBe('45%');
+  });
+
+  it('a real senior-morning pack whose primary-era share meets the actual generation-time guarantee (exactly 50%, matching constraints.ts applyEraQuota\'s own real floor) still PASSES era-primary-share — the raised floor does not newly block a real, properly-quota\'d senior pack', () => {
+    const opts = baseOpts({ songCount: 20 }); // baseOpts() -> CHANNEL, archetype 'senior-morning'
+    expect(opts.channel.archetype).toBe('senior-morning');
+    const pattern = [
+      ...Array(10).fill('oldpop-doowop-harmony'), // 1950s-60s: 10/20 = 50%, exactly applyEraQuota's real single-primary floor
+      ...Array(10).fill('oldpop-warm-morning-glow')
+    ];
+    const constraints = { ...baseConstraints(opts), era: SINGLE_ERA };
+    const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
+    expect(result.blocking.some(i => i.id === 'era-primary-share')).toBe(false);
+  });
+
+  it("a real 30%/30% co-primary split — which used to PASS this file's old 30% floor — now correctly BLOCKS era-primary-share, matching the new shared 40%-each floor (and closes the real gap: compositionScorer.ts previously had NO co-primary check at all)", () => {
+    const opts = baseOpts({ songCount: 20 });
+    const pattern = [
+      ...Array(6).fill('oldpop-doowop-harmony'), // 1950s-60s: 6/20 = 30%
+      ...Array(6).fill('oldpop-soft-rock-am'), // 1970s: 6/20 = 30%
+      ...Array(8).fill('oldpop-warm-morning-glow') // timeless filler
+    ];
+    const constraints = { ...baseConstraints(opts), era: CO_PRIMARY_ERA };
+    const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
+    const issue = result.blocking.find(i => i.id === 'era-primary-share');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toContain('40%');
+  });
+
+  it('a real 40%/40% co-primary split (exactly at the new shared floor) passes era-primary-share', () => {
+    const opts = baseOpts({ songCount: 20 });
+    const pattern = [
+      ...Array(8).fill('oldpop-doowop-harmony'), // 1950s-60s: 8/20 = 40%
+      ...Array(8).fill('oldpop-soft-rock-am'), // 1970s: 8/20 = 40%
+      ...Array(4).fill('oldpop-warm-morning-glow')
+    ];
+    const constraints = { ...baseConstraints(opts), era: CO_PRIMARY_ERA };
+    const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
+    expect(result.blocking.some(i => i.id === 'era-primary-share')).toBe(false);
+  });
+
+  it('era-forbidden/era-unspecified-share are unaffected (byte-identical): generic-share ceiling stays 25% blocking, unrelated to the primary/co-primary threshold change', () => {
+    const opts = baseOpts({ customConcept: '비틀즈 느낌의 밝은 60년대 팝', projectTitle: '비틀즈 느낌의 밝은 60년대 팝', songCount: 20 });
+    const constraints = baseConstraints(opts);
+    // 26% generic (unmapped) genre id, over the 25% blocking ceiling.
+    const pattern = [...Array(9).fill('oldpop-doowop-harmony'), ...Array(6).fill('not-an-era-mapped-genre'), ...Array(5).fill('oldpop-warm-morning-glow')];
+    const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
+    const issue = result.blocking.find(i => i.id === 'era-unspecified-share');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('25% 이하');
+  });
+});
+
 describe('evaluateDesignGate — 킬링포인트·아크', () => {
   it('blocks killing-point-count/variety and arc-phases when too few tracks carry them', () => {
     const opts = baseOpts();
@@ -451,6 +539,80 @@ describe('evaluateDesignGate — genre-max effectiveMaxPerGenre (fix 1)', () => 
 });
 
 /**
+ * TASK F (senior-oldpop workspace-wide exception is too broad) — the
+ * effectiveMaxPerGenre auto-adjustment exclusion narrowed from the whole
+ * `workspaceId === 'senior-oldpop'` WORKSPACE to just the
+ * `archetype === 'senior-morning'` archetype. Other senior-oldpop
+ * sub-archetypes (showa-cafe/modern-chill/city-night/oldpop-lounge)
+ * declare as few as 3 `preferredGenres` (data/presets.ts's real
+ * 'morning-showa-cafe' preset: `['showa-modern', 'jazz-pop', 'city-pop-soft']`)
+ * — the exact same shape as every other non-senior channel preset that
+ * already benefits from this widening.
+ */
+describe('evaluateDesignGate — TASK F senior-oldpop non-morning archetypes get the same auto-adjustment', () => {
+  const SHOWA_CAFE_GENRE_IDS = ['showa-modern', 'jazz-pop', 'city-pop-soft']; // real morning-showa-cafe preset's own 3 preferredGenres (data/presets.ts)
+
+  function showaCafeOpts(genreIds: string[]): GenerationOptions {
+    return baseOpts({ genreIds, channel: { ...CHANNEL, archetype: 'showa-cafe' } });
+  }
+  function showaCafeConstraints(opts: GenerationOptions): ResolvedConstraints {
+    return resolveConstraintsFromOptions(opts, SENIOR_AUDIENCE_PROFILE, 'senior-oldpop');
+  }
+  function slotsWithGenres(genreIds: string[]): PreassignedSongSlot[] {
+    return healthySlots().map((slot, i) => ({ ...slot, genreId: genreIds[i % genreIds.length] }));
+  }
+
+  it('an 18-song / 3-genre senior-oldpop NON-morning channel (showa-cafe) — previously an impossible fixed ceiling (max 5, 18÷3=6>5) — now PASSES with the auto-adjusted ceiling (max 6), same as any other non-senior workspace', () => {
+    const opts = showaCafeOpts(SHOWA_CAFE_GENRE_IDS);
+    expect(opts.channel.archetype).toBe('showa-cafe');
+    const constraints = showaCafeConstraints(opts);
+    // Still the SAME workspace as senior-morning — proves the fix is archetype-scoped, not workspace-scoped.
+    expect(constraints.workspaceId).toBe('senior-oldpop');
+    const slots = slotsWithGenres(SHOWA_CAFE_GENRE_IDS); // 6/6/6 split
+    const result = evaluateDesignGate(slots, constraints, opts);
+    expect(result.blocking.some(i => i.id === 'genre-max')).toBe(false);
+  });
+
+  it('proves the OLD workspace-wide exclusion really would have blocked this exact case — the static ceiling (5) really is mathematically impossible for 18 songs / 3 genres', () => {
+    expect(Math.ceil(18 / SHOWA_CAFE_GENRE_IDS.length)).toBe(6);
+    expect(BREADTH_THRESHOLDS.balanced.genre.maxPerGenre).toBe(5);
+    // Directly reproduces what the OLD `workspaceId === 'senior-oldpop'` exclusion would have done: no widening at all for this channel.
+    const opts = showaCafeOpts(SHOWA_CAFE_GENRE_IDS);
+    const constraints = showaCafeConstraints(opts);
+    expect(constraints.workspaceId).toBe('senior-oldpop');
+    const slots = slotsWithGenres(SHOWA_CAFE_GENRE_IDS);
+    const maxCount = Math.max(...Object.values(
+      slots.reduce<Record<string, number>>((counts, slot) => {
+        if (slot.genreId) counts[slot.genreId] = (counts[slot.genreId] ?? 0) + 1;
+        return counts;
+      }, {})
+    ));
+    expect(maxCount).toBe(6); // > the OLD workspace-wide-excluded static ceiling of 5.
+  });
+
+  it('7/genre still BLOCKS for showa-cafe (effectiveMaxPerGenre=6, 7 > 6) — the widening only ever raises the ceiling, never removes it', () => {
+    const opts = showaCafeOpts(SHOWA_CAFE_GENRE_IDS);
+    const constraints = showaCafeConstraints(opts);
+    const slots = healthySlots().map((slot, i) => ({ ...slot, genreId: i < 7 ? SHOWA_CAFE_GENRE_IDS[0] : SHOWA_CAFE_GENRE_IDS[(i % 2) + 1] }));
+    const result = evaluateDesignGate(slots, constraints, opts);
+    const issue = result.blocking.find(i => i.id === 'genre-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 6곡 (후보 3종 기준 자동 조정, 기본 5곡)');
+  });
+
+  it('regression: senior-morning itself is UNCHANGED — still excluded from the widening even with the exact same narrow 3-genre pool', () => {
+    const opts = baseOpts({ genreIds: SHOWA_CAFE_GENRE_IDS }); // baseOpts() -> CHANNEL, archetype 'senior-morning'
+    expect(opts.channel.archetype).toBe('senior-morning');
+    const slots = slotsWithGenres(SHOWA_CAFE_GENRE_IDS);
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const issue = result.blocking.find(i => i.id === 'genre-max');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toBe('≤ 5곡'); // never the auto-adjusted text for senior-morning.
+    expect(issue!.actual).toBe('6곡');
+  });
+});
+
+/**
  * v(design-gate audience decoupling) fix 2 — moneyChordBlockingIssues/
  * moneyChordAdvisoryIssues used to apply the auto-rotation "max 5 songs on
  * one progression" rule unconditionally, which v5.7's own explicit-choice
@@ -640,8 +802,14 @@ describe('evaluateDesignGate — kids arc bundle structure (fix 4)', () => {
     expect(result.blocking.some(i => i.id === 'kids-arc-last-bundle-intensity')).toBe(false);
   });
 
-  it('a real T1 (kids-t1, 3-bundle: familiar/learning/calm) plan is recognized and validated against its OWN tier definition', () => {
-    const opts = kidsOpts();
+  // TASK D — kidsOpts now explicitly selects 'kids-t1' (threaded through
+  // ResolvedConstraints.kidsAgeTierId to the real call site) so this test
+  // proves "a real T1 plan is recognized" against the tier the user
+  // ACTUALLY selected, not merely whichever tier the observed phases happen
+  // to fit (the old reverse-inference this task's fix removes).
+  it('a real T1 (kids-t1, 3-bundle: familiar/learning/calm) plan, with the user actually having SELECTED kids-t1, is validated against its OWN tier definition', () => {
+    const opts = kidsOpts({ kidsAgeTierId: 'kids-t1' });
+    expect(kidsConstraints(opts).kidsAgeTierId).toBe('kids-t1');
     const plan = kidsArcBundlePlanFor(18, 'kids-t1');
     expect(plan.map(e => e.id)).toEqual(['familiar', 'learning', 'calm']);
     const phases = buildRepetitionCyclePlan(18, 'kids-t1').map(p => p.phase);
@@ -650,14 +818,45 @@ describe('evaluateDesignGate — kids arc bundle structure (fix 4)', () => {
     expect(result.blocking.some(i => i.id === 'kids-arc-bundle-set-mismatch')).toBe(false);
   });
 
-  it('a real T3 (kids-t3, 5-bundle: +closing) plan is recognized and validated against its OWN tier definition', () => {
-    const opts = kidsOpts();
+  it('a real T3 (kids-t3, 5-bundle: +closing) plan, with the user actually having SELECTED kids-t3, is validated against its OWN tier definition', () => {
+    const opts = kidsOpts({ kidsAgeTierId: 'kids-t3' });
+    expect(kidsConstraints(opts).kidsAgeTierId).toBe('kids-t3');
     const plan = kidsArcBundlePlanFor(18, 'kids-t3');
     expect(plan.map(e => e.id)).toEqual(['familiar', 'learning', 'moving', 'calm', 'closing']);
     const phases = buildRepetitionCyclePlan(18, 'kids-t3').map(p => p.phase);
     const slots = kidsSlotsWithArc(phases);
     const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
     expect(result.blocking.some(i => i.id === 'kids-arc-bundle-set-mismatch')).toBe(false);
+  });
+
+  /**
+   * TASK D (kids arc bundle check ignores the user's actual selected age
+   * tier) — real motivating bug: the OLD version received no age-tier
+   * signal at all and reverse-inferred a tier from the observed phase SET.
+   * A user who explicitly selected 'kids-t1' but whose real slots ended up
+   * showing the DEFAULT/'kids-t2' 4-bundle structure (a real dispatch bug
+   * elsewhere, or a stale cached value) would have the old check see "4
+   * phases present, matches kids-t2" and WRONGLY PASS. The fix threads the
+   * real SELECTED tier through (ResolvedConstraints.kidsAgeTierId) and
+   * checks against ONLY that tier's own definition.
+   */
+  it("TASK D before/after: a user who SELECTED kids-t1 but whose real slots show the default/kids-t2 4-bundle structure now correctly BLOCKS kids-arc-bundle-set-mismatch — the old reverse-inference would have WRONGLY PASSED this (it would have seen the 4-phase set and concluded 'matches kids-t2')", () => {
+    const opts = kidsOpts({ kidsAgeTierId: 'kids-t1' }); // real user selection
+    // Prove the OLD reverse-inference really would have matched this shape:
+    // the observed set below is EXACTLY the default/kids-t2 candidate the
+    // old 3-candidate loop would have tried and matched.
+    const defaultPlan = kidsArcBundlePlanFor(18); // no tier -> default/kids-t2
+    expect(defaultPlan.map(e => e.id)).toEqual(['familiar', 'learning', 'moving', 'calm']);
+    const phases = buildRepetitionCyclePlan(18).map(p => p.phase); // real dispatch bug: t2/default shape, not the selected t1 shape
+    const slots = kidsSlotsWithArc(phases);
+    const constraints = kidsConstraints(opts);
+    expect(constraints.kidsAgeTierId).toBe('kids-t1'); // the real selection reaches this gate
+    const result = evaluateDesignGate(slots, constraints, opts);
+    const issue = result.blocking.find(i => i.id === 'kids-arc-bundle-set-mismatch');
+    expect(issue).toBeDefined();
+    expect(issue!.expected).toContain('kids-t1');
+    expect(issue!.expected).toContain('kids-familiar, kids-learning, kids-calm');
+    expect(issue!.actual).toContain('kids-familiar');
   });
 
   it('blocks kids-arc-bundle-set-mismatch when the bundle phases used do not correspond to ANY real age-tier definition', () => {
@@ -702,6 +901,53 @@ describe('evaluateDesignGate — kids arc bundle structure (fix 4)', () => {
     const result = evaluateDesignGate(healthySlots(), baseConstraints(opts), opts);
     expect(result.blocking.some(i => i.id.startsWith('kids-arc-'))).toBe(false);
     expect(result.advisory.some(i => i.id.startsWith('kids-arc-'))).toBe(false);
+  });
+});
+
+/**
+ * TASK D — the SEPARATELY-FOUND last-bundle-intensity arithmetic bug fix,
+ * tested in isolation via the exported `lastBundleIntensityViolation`
+ * helper with the task doc's own exact worked example (familiar:2/
+ * learning:3/moving:5/calm:1, real last bundle = learning). This example's
+ * numbers are deliberately illustrative (not any real arcModels.ts tier's
+ * own intensities), which is exactly why the check needed extracting into
+ * its own directly-testable function rather than only being reachable
+ * through a real kidsAgeTierId's fixed definitions.
+ */
+describe('lastBundleIntensityViolation — TASK D arithmetic bug fix (isolated)', () => {
+  it("the task doc's own worked example now correctly reports a violation — the OLD comparison (last intensity < MAX of the others) wrongly passed this exact case", () => {
+    const intensityByPhase = new Map<string, number>([
+      ['familiar', 2],
+      ['learning', 3],
+      ['moving', 5],
+      ['calm', 1]
+    ]);
+    // Reproduce the OLD (buggy) comparison inline, to prove this is a real behavior change, not a hypothetical one.
+    const otherIntensities = [...intensityByPhase.entries()].filter(([phase]) => phase !== 'learning').map(([, v]) => v);
+    const oldCheckSaidNoViolation = intensityByPhase.get('learning')! < Math.max(...otherIntensities); // 3 < 5 -> true -> OLD code found "no violation" here
+    expect(oldCheckSaidNoViolation).toBe(true); // the real bug: this pack does NOT end quieter than everything (moving=5 > learning=3), yet the old logic passed it.
+
+    const violation = lastBundleIntensityViolation('learning', intensityByPhase);
+    expect(violation).toEqual({ lastIntensity: 3, minOtherIntensity: 1 }); // fixed: compares against the MIN of the others (1, from 'calm'), correctly catching the violation.
+  });
+
+  it('a genuinely correct closing bundle (strictly quieter than every other bundle actually used) reports no violation', () => {
+    const intensityByPhase = new Map<string, number>([
+      ['familiar', 2],
+      ['learning', 3],
+      ['moving', 5],
+      ['calm', 1]
+    ]);
+    expect(lastBundleIntensityViolation('calm', intensityByPhase)).toBeUndefined();
+  });
+
+  it('a tie (last bundle exactly equal to the quietest other bundle) still counts as a violation — must be STRICTLY quieter, not merely tied', () => {
+    const intensityByPhase = new Map<string, number>([
+      ['familiar', 2],
+      ['calm', 1],
+      ['closing', 1]
+    ]);
+    expect(lastBundleIntensityViolation('closing', intensityByPhase)).toEqual({ lastIntensity: 1, minOtherIntensity: 1 });
   });
 });
 

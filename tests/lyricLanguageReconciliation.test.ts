@@ -29,11 +29,39 @@
  * "[ratio-based lyric language mismatch] scoreComposition" describe block.
  * 'bilingual' is also no longer unconditionally skipped here — see the
  * dedicated bilingual tests below for its own real per-line-coverage rule.
+ *
+ * TASK (bilingual pair auto-detection gap / Japanese kana floor / per-
+ * workspace Korean floor) — three more real, verified gaps closed below:
+ *
+ * (1) 'bilingual' auto-detect used to pick whichever of Korean/Japanese
+ *     happened to appear MORE in the lyrics body, with no way to know which
+ *     pair was actually EXPECTED — a jp-kids pack whose lyrics came back as
+ *     English+Korean instead of the expected English+Japanese still "passed"
+ *     as long as enough Korean was present. GenerationOptions.bilingualPair /
+ *     core/localGenerator.ts's resolveBilingualPair / core/lyricMetrics.ts's
+ *     LyricLanguageCheckContext.bilingualPair close this — see the
+ *     "[bilingual pair auto-detection]" describe block.
+ * (2) The Japanese check's `kanaKanjiRatio >= 0.6` combines kana (unique to
+ *     Japanese) with kanji (shared with Chinese) — a 100%-kanji, zero-kana
+ *     body (pure Chinese) could satisfy it despite having no Japanese-
+ *     specific script at all. JAPANESE_KANA_RATIO_MIN closes this — see the
+ *     "[Japanese kana floor]" describe block, calibrated against real
+ *     generateLocalBlueprint output (see core/lyricMetrics.ts's own
+ *     JAPANESE_KANA_RATIO_MIN doc comment for the full real-generation
+ *     measurement this task's own numbers are based on).
+ * (3) KOREAN_HANGUL_RATIO_MIN used to be one flat 0.6 for every Korean
+ *     workspace — too loose to ever catch a real kr-kids mismatch (real
+ *     kr-kids lyrics run ~97%+ Hangul) and, in the other direction, would
+ *     false-positive on legitimate kr-idol English hooks/rap verses if
+ *     raised. koreanHangulRatioMinForArchetype closes this with real
+ *     per-workspace floors — see the "[per-workspace Korean floor]" describe
+ *     block.
  */
 import { describe, expect, it } from 'vitest';
 import { preallocateSongSlots, reconcileWithPreassignedSlot } from '../src/core/batchPreallocation';
-import { lyricLanguageMismatchWarning } from '../src/core/lyricMetrics';
-import { channelPresets, genrePacks, moodPacks, makeOptions, testSeason } from './fixtures';
+import { checkLyricLanguageMatch, lyricLanguageMismatchWarning, measureLyricLanguageRatios } from '../src/core/lyricMetrics';
+import { generateLocalBlueprint, resolveBilingualPair } from '../src/core/localGenerator';
+import { channelPresets, genrePacks, moodPacks, makeOptions, testSeason, seasonPacks } from './fixtures';
 import type { GenerationOptions, PreassignedSongSlot, SongIdea } from '../src/types';
 
 function genresFor(opts: GenerationOptions) {
@@ -267,6 +295,325 @@ describe('[lyric language mismatch] reconcileWithPreassignedSlot wiring', () => 
       workspaceId: 'senior-oldpop'
     };
     const fixed = reconcileWithPreassignedSlot(orphanSong, undefined, 'ai-creative', { archetype: koreanOpts.channel.archetype, lyricLanguage: 'korean' });
+    expect(hasLanguageWarning(fixed), `warnings: ${JSON.stringify(fixed.warnings)}`).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TASK (bilingual pair auto-detection gap)
+// ---------------------------------------------------------------------------
+
+describe('[bilingual pair auto-detection] resolveBilingualPair', () => {
+  it('kr-kids-song archetype defaults to en-ko', () => {
+    const channel = channelPresets.find(c => c.archetype === 'kr-kids-song')!;
+    expect(resolveBilingualPair({ channel })).toBe('en-ko');
+  });
+
+  it('jp-kids-song archetype defaults to en-ja', () => {
+    const channel = channelPresets.find(c => c.archetype === 'jp-kids-song')!;
+    expect(resolveBilingualPair({ channel })).toBe('en-ja');
+  });
+
+  it('a non-kids archetype has no real default (undefined, not a guess)', () => {
+    const channel = channelPresets.find(c => c.archetype === 'kr-idol-male')!;
+    expect(resolveBilingualPair({ channel })).toBeUndefined();
+  });
+
+  it('an explicit per-generation override wins over the archetype default', () => {
+    const channel = channelPresets.find(c => c.archetype === 'kr-kids-song')!;
+    expect(resolveBilingualPair({ channel, bilingualPair: 'en-ja' })).toBe('en-ja');
+  });
+});
+
+describe('[bilingual pair auto-detection] checkLyricLanguageMatch / lyricLanguageMismatchWarning with an expected pair', () => {
+  // Real gap this closes: with NO expected pair, the old auto-detect picks
+  // whichever of Korean/Japanese has the higher character ratio in the body
+  // it's given — so an English+Korean response passed a 'bilingual' check
+  // regardless of what pair was actually expected. A jp-kids pack (expects
+  // en-ja) that gets English+Korean back instead of English+Japanese is the
+  // concrete real-world case: nothing before this task could ever catch it.
+  const englishKoreanLyrics =
+    '[verse 1]\nHello there my dear friend today\nWe will sing a happy song\n\n[chorus]\n안녕하세요 오늘도 좋은 하루예요\n우리 함께 노래를 불러요';
+
+  it('BEFORE (documented): with no expected pair, English+Korean content auto-detects as a valid bilingual match', () => {
+    const check = checkLyricLanguageMatch(englishKoreanLyrics, 'bilingual');
+    expect(check?.ok).toBe(true);
+    expect(check?.bilingualDetail?.otherLanguage).toBe('korean');
+  });
+
+  it('AFTER (the real fix): the SAME English+Korean content is correctly BLOCKED when the expected pair is en-ja (jp-kids)', () => {
+    const check = checkLyricLanguageMatch(englishKoreanLyrics, 'bilingual', { bilingualPair: 'en-ja' });
+    expect(check?.ok).toBe(false);
+    // Zero real Japanese lines were found, regardless of how much Korean is present.
+    expect(check?.bilingualDetail?.otherLanguage).toBe('japanese');
+    expect(check?.bilingualDetail?.otherLines).toBe(0);
+  });
+
+  it('real English+Japanese content still passes when the expected pair is en-ja', () => {
+    const englishJapaneseLyrics =
+      '[verse 1]\nHello there my dear friend today\nWe will sing a happy song\n\n[chorus]\nこんにちは 今日もいい天気ですね\nいっしょに うたを うたおう';
+    const check = checkLyricLanguageMatch(englishJapaneseLyrics, 'bilingual', { bilingualPair: 'en-ja' });
+    expect(check?.ok).toBe(true);
+  });
+
+  it('lyricLanguageMismatchWarning surfaces the block with the correct otherLanguage/trackNo when the expected pair is en-ja', () => {
+    const warning = lyricLanguageMismatchWarning(englishKoreanLyrics, 'bilingual', 4, { bilingualPair: 'en-ja' });
+    expect(warning).toBeDefined();
+    expect(warning).toContain('Track 4');
+    expect(warning).toContain('0 japanese');
+  });
+
+  it('integration: reconcileWithPreassignedSlot blocks a jp-kids pack (bilingualPair en-ja) whose content is really English+Korean', () => {
+    const jpKidsChannel = channelPresets.find(c => c.archetype === 'jp-kids-song')!;
+    const opts = makeOptions({ channel: jpKidsChannel, lyricLanguage: 'bilingual', songCount: 2 });
+    const slots = preallocateSongSlots(opts, genresFor(opts));
+    const slot = slots[0];
+    const song: SongIdea = {
+      trackNo: slot.trackNo,
+      title: slot.title,
+      seasonMoment: '',
+      listenerSituation: '',
+      emotionArc: slot.emotionArc,
+      hookPhrase: slot.hookPhrase,
+      stylePrompt: 'generic pop mood, some vocal',
+      lyrics: englishKoreanLyrics,
+      youtube: { title: slot.title, description: '', tags: [] },
+      qualityScore: 0,
+      warnings: [],
+      effectiveMoneyChordId: '',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop'
+    };
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', {
+      archetype: opts.channel.archetype,
+      lyricLanguage: opts.lyricLanguage,
+      bilingualPair: resolveBilingualPair(opts)
+    });
+    expect(hasLanguageWarning(fixed), `warnings: ${JSON.stringify(fixed.warnings)}`).toBe(true);
+    const warning = fixed.warnings.find(w => w.includes('possible language mismatch'))!;
+    expect(warning).toContain("lyricLanguage is 'bilingual'");
+  });
+
+  it('integration: the same jp-kids slot with real English+Japanese content passes cleanly (no false positive from the new pair-aware check)', () => {
+    const jpKidsChannel = channelPresets.find(c => c.archetype === 'jp-kids-song')!;
+    const opts = makeOptions({ channel: jpKidsChannel, lyricLanguage: 'bilingual', songCount: 2 });
+    const slots = preallocateSongSlots(opts, genresFor(opts));
+    const slot = slots[1];
+    const song: SongIdea = {
+      trackNo: slot.trackNo,
+      title: slot.title,
+      seasonMoment: '',
+      listenerSituation: '',
+      emotionArc: slot.emotionArc,
+      hookPhrase: slot.hookPhrase,
+      stylePrompt: 'generic pop mood, some vocal',
+      lyrics:
+        '[verse 1]\nHello there my dear friend today\nWe will sing a happy song\n\n[chorus]\nこんにちは 今日もいい天気ですね\nいっしょに うたを うたおう',
+      youtube: { title: slot.title, description: '', tags: [] },
+      qualityScore: 0,
+      warnings: [],
+      effectiveMoneyChordId: '',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop'
+    };
+    const fixed = reconcileWithPreassignedSlot(song, slot, 'ai-creative', {
+      archetype: opts.channel.archetype,
+      lyricLanguage: opts.lyricLanguage,
+      bilingualPair: resolveBilingualPair(opts)
+    });
+    expect(hasLanguageWarning(fixed), `warnings: ${JSON.stringify(fixed.warnings)}`).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TASK (Japanese kana floor gap)
+// ---------------------------------------------------------------------------
+
+describe('[Japanese kana floor] the 5 real fixtures from this task\'s own brief', () => {
+  // Fixtures 1-3 are REAL lyrics captured verbatim from
+  // core/localGenerator.ts's generateLocalBlueprint (jp-kids-song,
+  // jp-2030-pop, and j2000s channels — a one-off `npx tsx` calibration run,
+  // not hand-written) — see core/lyricMetrics.ts's own JAPANESE_KANA_RATIO_MIN
+  // doc comment for the full real-generation measurement these were drawn
+  // from. Fixtures 4-5 use a real, well-known classical Chinese poem (Li
+  // Bai's 静夜思 + two more genuinely public-domain quatrains), not
+  // hand-typed pseudo-Chinese.
+
+  // 1. 정상 일본어 가사 — real jp-kids-song output (highest-kana sample from
+  // the calibration run: kanaRatio = 1.0, pure hiragana kids song).
+  const normalJapanese =
+    '[mixed vocal]\n[short intro]\nうたをできたよ の うたを はじめよう\n\n[chorus]\nうたをできたよ\nだいすきだよ みんなのかぞく\n\n[verse 1]\nいもうとと なかよく すごすよ\nいっしょにいると しあわせだね\n\n[call and response]\nおばあちゃん おじいちゃん こんにちは\nてをつないで あるいていこう\n\n[chorus]\nうたをできたよ\nだいすきだよ みんなのかぞく\n\n[verse 2]\nおかあさん おとうさん だいすきだよ\nかぞくみんなが さいこうだよ\n\n[call and response]\nおばあちゃん おじいちゃん こんにちは\nてをつないで あるいていこう\n\n[chorus]\nうたをできたよ\nだいすきだよ みんなのかぞく\n\n[final chorus]\nうたをできたよ\nだいすきだよ みんなのかぞく';
+
+  // 2. 한자 비중이 높은 정상 일본어 — real j2000s (formal/literary depth)
+  // output, the LOWEST-kana sample from that workspace's calibration run
+  // (kanaRatio ~0.594, kanaKanjiRatio ~0.865 — genuinely kanji-heavy but
+  // still real Japanese, still well clear of the new floor).
+  const kanjiHeavyJapanese =
+    '[duet vocal]\n[instrumental hook]\n(instrumental hook, band plays the melody, no lyrics, 2 bars)\n\n[verse 1: male vocal]\n新年の街の向こうで\n小さな鐘が鳴り\n静かな戸口にそっと触れると\n時間が少し止まる\n新年の風が過ぎて\n一日のページをめくる\n夕方がそばにいて\n何も言わずにとどまる\n\n季節の木々の下の静かな散歩の中で\n息をひとつ整え\n小さな瞬間みたいな記憶が\n静かにまた灯る\n季節の木々の下の静かな散歩にとどまり\n肩の力をそっと抜く\n柔らかな光は私に\n何も求めない\n\n[chorus: male and female duet]\nもう一度やわらかく\n重い朝さえ\n静かな戸口のように、また輝きを取り戻す\nあの日々を待っている\n\n[verse 2: female vocal]\n川のように流れた時間も\n速すぎてつかめなかったが\n今は小さな瞬間のように\n私の呼びかけに応える\n遠すぎると思った距離も\n今は違って見える\nそれは小さな瞬間のように\n静かにそばにある\n\n[chorus: male and female duet]\n遠くてもあたたかく\n空っぽの夜さえ\n朝のように、低い星を見つける\nどんな時も落ち着いて\n散らばった気持ちさえ\n朝のように、止まった場所へ戻る\nあの日々を待っている';
+
+  // 3. 일본어에 영어 훅 포함 — real jp-2030-pop output, the LOWEST-kana
+  // sample across every real Japanese workspace measured for this task
+  // (kanaRatio = 0.5 exactly), genuinely containing English hook phrases
+  // ("night road", "city skyline") mixed into real Japanese verses/chorus.
+  const japaneseWithEnglishHook =
+    '[female vocal]\n[instrumental hook]\n(instrumental hook, band plays the melody, no lyrics, 2 bars)\n\n[verse 1]\nイヤホンの向こうに聞こえる新年\n街の音が低く混ざり合う\nnight roadを思い出せば\n心が少しゆるんでいく\n新年の街に灯りが滲んで\nイヤホンの中で歌が低く流れ\ncity skylineが路地の先で待っていれば\n一日がゆっくりほどけてゆく\n\n放課後の空き教室の中で静かに\nこの瞬間をつかまえておく\nnight roadはまた書き直してくれる\nもう少し確かな一日を\n放課後の空き教室の中で静かに\nこの瞬間をつかまえておく\nnight roadはまた書き直してくれる\nもう少し確かな一日を\n\n[chorus]\n今日もゆっくり歩いてゆこう\n疲れた一日の終わりにも\nnight roadのように、また歩き出す\n顔を上げて、青春へ\n\n[verse 2]\n急いでいた足取りの理由も\n今はもう数えない\nそれはcity skylineのように\n見慣れた道になった\nひとりだと思っていた夕暮れも\n今は違って見える\n今はcity skylineのように\nようやくわかる\n\n[chorus]\nどんな夜でも大胆に\n散らばった一日さえ\ncity skylineのように、また集まってくる\n毎日少しずつ力強く\n疲れた足取りさえ\nnight roadのように、またリズムを見つける\n顔を上げて、青春へ\n\n[chorus]\n顔を上げて、青春へ\n前よりも素直に\n隠していた本音さえ\ncity skylineのように、少しずつ溢れてくる\n顔を上げて、青春へ';
+
+  // 4. 순수 중국어 — real classical Chinese (Li Bai's 静夜思, plus two more
+  // genuine public-domain quatrains). Zero kana anywhere.
+  const pureChinese =
+    '床前明月光，疑是地上霜。举头望明月，低头思故乡。\n春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。\n锄禾日当午，汗滴禾下土。谁知盘中餐，粒粒皆辛苦。';
+
+  // 5. 중국어에 일본어 한 단어만 — the same real Chinese poem with exactly
+  // one real Japanese word ("ありがとう", "thank you") inserted once.
+  const chineseWithOneJapaneseWord =
+    '床前明月光，疑是地上霜。举头望明月，低头思故乡。ありがとう\n春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。\n锄禾日当午，汗滴禾下土。谁知盘中餐，粒粒皆辛苦。';
+
+  it('1. normal Japanese (jp-kids): kanaRatio measured ~1.0, PASSES both before and after the kana-floor fix', () => {
+    const ratios = measureLyricLanguageRatios(normalJapanese);
+    expect(ratios.kanaRatio).toBeCloseTo(1.0, 2);
+    const check = checkLyricLanguageMatch(normalJapanese, 'japanese');
+    expect(check?.ok, `kanaRatio=${ratios.kanaRatio}`).toBe(true);
+  });
+
+  it('2. kanji-heavy real Japanese (j2000s literary): kanaRatio measured ~0.594, still PASSES (real content, not false-positived by the new floor)', () => {
+    const ratios = measureLyricLanguageRatios(kanjiHeavyJapanese);
+    expect(ratios.kanaRatio).toBeGreaterThan(0.5);
+    expect(ratios.kanaRatio).toBeLessThan(0.7);
+    const check = checkLyricLanguageMatch(kanjiHeavyJapanese, 'japanese');
+    expect(check?.ok, `kanaRatio=${ratios.kanaRatio}`).toBe(true);
+  });
+
+  it('3. real Japanese with an English hook mixed in (jp-2030): kanaRatio measured = 0.5 (the lowest real value seen), still PASSES', () => {
+    const ratios = measureLyricLanguageRatios(japaneseWithEnglishHook);
+    expect(ratios.kanaRatio).toBeCloseTo(0.5, 1);
+    const check = checkLyricLanguageMatch(japaneseWithEnglishHook, 'japanese');
+    expect(check?.ok, `kanaRatio=${ratios.kanaRatio}`).toBe(true);
+  });
+
+  it('4. pure Chinese: kanaRatio = 0 exactly, and kanaKanjiRatio alone (~0.83) would have wrongly PASSED before this fix — now correctly FAILS', () => {
+    const ratios = measureLyricLanguageRatios(pureChinese);
+    expect(ratios.kanaRatio).toBe(0);
+    // Documents the real gap: the OLD check (kanaKanjiRatio >= 0.6 && hangulRatio <= 0.05) alone.
+    expect(ratios.kanaKanjiRatio).toBeGreaterThanOrEqual(0.6);
+    expect(ratios.hangulRatio).toBeLessThanOrEqual(0.05);
+    // The NEW check (with the kana floor) correctly fails it.
+    const check = checkLyricLanguageMatch(pureChinese, 'japanese');
+    expect(check?.ok, `kanaRatio=${ratios.kanaRatio} kanaKanjiRatio=${ratios.kanaKanjiRatio}`).toBe(false);
+  });
+
+  it('5. Chinese with a single stray Japanese word: kanaRatio measured ~0.065, one word is not enough — correctly FAILS', () => {
+    const ratios = measureLyricLanguageRatios(chineseWithOneJapaneseWord);
+    expect(ratios.kanaRatio).toBeGreaterThan(0);
+    expect(ratios.kanaRatio).toBeLessThan(0.1);
+    const check = checkLyricLanguageMatch(chineseWithOneJapaneseWord, 'japanese');
+    expect(check?.ok, `kanaRatio=${ratios.kanaRatio}`).toBe(false);
+  });
+});
+
+describe('[Japanese kana floor] real generateLocalBlueprint output never false-positives across every Japanese workspace', () => {
+  // Real-generation smoke check (not the full calibration sweep — that ran
+  // separately, see core/lyricMetrics.ts's own JAPANESE_KANA_RATIO_MIN doc
+  // comment for the full 1700+-song measurement this threshold is based on).
+  // This just re-confirms, at test-suite time, that the chosen floor still
+  // doesn't false-positive on a real generated sample from each workspace.
+  const japaneseArchetypes = ['jp-kids-song', 'jp-2030-pop', 'showa-cafe', 'showa-70s', 'j2000s'];
+
+  it.each(japaneseArchetypes)('%s: real generated songs all pass the japanese language check (no false positive)', archetype => {
+    const channel = channelPresets.find(c => c.archetype === archetype);
+    expect(channel, `no channel found for archetype ${archetype}`).toBeDefined();
+    const genres = genrePacks.filter(g => channel!.preferredGenres.includes(g.id));
+    const moods = moodPacks.filter(m => channel!.preferredMoods.includes(m.id));
+    const opts = makeOptions({ channel: channel!, lyricLanguage: 'japanese', songCount: 12 });
+    const blueprint = generateLocalBlueprint(opts, genres, moods, testSeason);
+    for (const song of blueprint.songs) {
+      const check = checkLyricLanguageMatch(song.lyrics, 'japanese');
+      expect(check?.ok, `${archetype} track ${song.trackNo}: ${JSON.stringify(check?.ratios)}`).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TASK (per-workspace Korean floor)
+// ---------------------------------------------------------------------------
+
+describe('[per-workspace Korean floor] real generateLocalBlueprint output never false-positives, per workspace threshold', () => {
+  // Real-generation smoke check re-confirming, at test-suite time, that each
+  // workspace's calibrated floor (see core/lyricMetrics.ts's own
+  // koreanHangulRatioMinForArchetype doc comment for the full 576-1152-song
+  // measurement each number is based on) doesn't false-positive on a real
+  // generated sample. Sweeps every channel in the workspace x a few seasons
+  // (not the full 16-season sweep the original calibration ran, to keep this
+  // fast) so this stays a real regression guard, not just a re-statement of
+  // the calibration numbers.
+  const koreanWorkspaces: { archetype: string; label: string }[] = [
+    { archetype: 'kr-kids-song', label: 'kr-kids (floor 70%)' },
+    { archetype: 'kr-2030-pop', label: 'kr-2030 (floor 55%)' },
+    { archetype: 'kr-idol-male', label: 'kr-idol-male (floor 45%)' },
+    { archetype: 'kr-idol-female', label: 'kr-idol-female (floor 45%)' }
+  ];
+
+  it.each(koreanWorkspaces)('$label: real generated songs across every channel in the workspace pass (no false positive)', ({ archetype }) => {
+    const channels = channelPresets.filter(c => c.archetype === archetype);
+    expect(channels.length, `no channels found for archetype ${archetype}`).toBeGreaterThan(0);
+    let checked = 0;
+    for (const channel of channels) {
+      const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
+      const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id));
+      for (const season of [seasonPacks[0], seasonPacks[1]]) {
+        const opts = makeOptions({ channel, lyricLanguage: 'korean', songCount: 12, seasonId: season.id });
+        const blueprint = generateLocalBlueprint(opts, genres, moods, season);
+        for (const song of blueprint.songs) {
+          checked += 1;
+          const check = checkLyricLanguageMatch(song.lyrics, 'korean', { archetype });
+          expect(check?.ok, `${archetype}/${season.id} track ${song.trackNo}: ${JSON.stringify(check?.ratios)}`).toBe(true);
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('a real wrong-language response (English lyrics) is still caught under every per-workspace floor, including the loosest (kr-idol, 45%)', () => {
+    const krIdolChannel = channelPresets.find(c => c.archetype === 'kr-idol-male')!;
+    const englishLyrics = '[verse 1]\nThis is entirely English text with no Hangul anywhere\n\n[chorus]\nStill completely English right here';
+    const check = checkLyricLanguageMatch(englishLyrics, 'korean', { archetype: krIdolChannel.archetype });
+    expect(check?.ok).toBe(false);
+    expect(check?.ratios.hangulRatio).toBe(0);
+  });
+
+  it('the SAME per-workspace threshold is applied through lyricLanguageMismatchWarning/reconcileWithPreassignedSlot (integration), not just the unit-level check', () => {
+    const krKidsChannel = channelPresets.find(c => c.archetype === 'kr-kids-song')!;
+    const opts = makeOptions({ channel: krKidsChannel, lyricLanguage: 'korean', songCount: 2 });
+    const slots = preallocateSongSlots(opts, genresFor(opts));
+    const slot = slots[0];
+    // ~62% Hangul — passes kr-2030's 55% floor (and kr-idol's 45%) but fails
+    // kr-kids' real, stricter 70% floor. This is the concrete reason the
+    // check needs to be per-workspace, not one flat global number.
+    const marginalKoreanSong: SongIdea = {
+      trackNo: slot.trackNo,
+      title: slot.title,
+      seasonMoment: '',
+      listenerSituation: '',
+      emotionArc: slot.emotionArc,
+      hookPhrase: slot.hookPhrase,
+      stylePrompt: 'generic pop mood, some vocal',
+      lyrics: '[verse 1]\n오늘도 좋은 하루입니다 우리 함께 노래해요\n\n[chorus]\n사랑해요 내 마음을 today we sing along',
+      youtube: { title: slot.title, description: '', tags: [] },
+      qualityScore: 0,
+      warnings: [],
+      effectiveMoneyChordId: '',
+      effectiveGenreIds: [],
+      effectiveArchetype: 'senior-morning',
+      workspaceId: 'senior-oldpop'
+    };
+    const ratios = measureLyricLanguageRatios(marginalKoreanSong.lyrics);
+    expect(ratios.hangulRatio, `hangulRatio=${ratios.hangulRatio}`).toBeGreaterThan(0.55);
+    expect(ratios.hangulRatio, `hangulRatio=${ratios.hangulRatio}`).toBeLessThan(0.70);
+    const fixed = reconcileWithPreassignedSlot(marginalKoreanSong, slot, 'ai-creative', {
+      archetype: opts.channel.archetype,
+      lyricLanguage: opts.lyricLanguage
+    });
     expect(hasLanguageWarning(fixed), `warnings: ${JSON.stringify(fixed.warnings)}`).toBe(true);
   });
 });
