@@ -34,6 +34,21 @@ export interface VerifiedCombo {
   noteKo: string;
   /** Real caveats observed on THIS combo specifically (e.g. a length risk) — never a generic warning. */
   cautionsKo: string[];
+  /**
+   * v5.23 (TASK D §4-2) — "이 조합을 반복하라 -> 이 조합을 출발점으로
+   * 변주하라": real, verified problem this closes — a 'good' combo used to
+   * mean "repeat this exact genre/BPM/vocal/arrangement 2-5 times every
+   * set" (core/verifiedCombos.ts's own applyVerifiedComboToGenrePlan,
+   * unchanged by this task), which measurably means philly-soul-81 gets
+   * reused identically across 30 sets with nothing new ever learned. Each
+   * string here is one untried axis variation (see
+   * core/comboVariations.ts's generateUntriedVariations for the real
+   * generator) — plain Korean description text, not a structured diff,
+   * since these are meant to read directly as bridge-instruction guidance.
+   */
+  untriedVariations?: string[];
+  /** Spec's own §4-2 triedVariations — a variation that was actually tried and rated, with the set it came from. Moves an entry OUT of untriedVariations once recorded (see generateUntriedVariations). */
+  triedVariations?: { variation: string; verdict: 'good' | 'mixed' | 'bad'; setCode: string }[];
 }
 
 export const SEED_VERIFIED_COMBOS: VerifiedCombo[] = [
@@ -48,7 +63,8 @@ export const SEED_VERIFIED_COMBOS: VerifiedCombo[] = [
     sampleTracks: ['T1', 'T4', 'T7'],
     verifiedAt: '2026-08-02',
     noteKo: '필라델피아 스위트소울 81 BPM. 스트링 섹션과 비브라폰 편곡. 보컬 성별 무관(T7이 남성 리드로 확인 — 여성 보컬 우위 가설을 반증).',
-    cautionsKo: ['섹션 9개 + 악기 구간 2개면 4분을 넘습니다 (T7 실측 4:16) — 대표곡 배정 시 섹션 7-8·악기 구간 1개로 제한하십시오.']
+    cautionsKo: ['섹션 9개 + 악기 구간 2개면 4분을 넘습니다 (T7 실측 4:16) — 대표곡 배정 시 섹션 7-8·악기 구간 1개로 제한하십시오.'],
+    triedVariations: []
   },
   {
     id: 'senior-sparse-plate-REJECTED',

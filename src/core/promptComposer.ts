@@ -1235,6 +1235,11 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
     seasonMoment: 'string',
     listenerSituation: 'string',
     emotionArc: 'string',
+    // v5.23 (TASK B) — one line naming what THIS song does differently from
+    // the other tracks in the set. See the [각 곡에 하나씩] guidance below
+    // for examples; advisory-only (core/distinctChoiceCheck.ts), never
+    // required to unblock an import.
+    distinctChoice: 'string optional — one line: what THIS song does differently from the rest of the set (e.g. "후렴을 한 번만 부른다"). See [각 곡에 하나씩] guidance below.',
     hookPhrase: 'string',
     stylePrompt: 'string',
     // TASK v5.21 (TASK B) — real measurement: a bridge-imported 18-song

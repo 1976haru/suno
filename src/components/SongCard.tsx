@@ -160,6 +160,10 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
               titleDisplay itself never carries a prefix, so stripping is a no-op there. */}
           <h3>{song.trackNo}. {stripSetTitlePrefix(song.titleDisplay ?? song.title)}</h3>
           <p>{song.listenerSituation} / {song.emotionArc}</p>
+          {/* v5.23 (TASK B §2-2) — "하루님이 이 세트가 무엇을 시도했는지 볼 수 있어야
+              합니다": SongIdea.distinctChoice, shown only when the agent actually
+              wrote one (undefined for local generation / pre-v5.23 packs). */}
+          {song.distinctChoice && <p className="distinct-choice">✏️ {song.distinctChoice}</p>}
           <span className="chip">{moneyChordLabel}</span>
           {song.songRole && SONG_ROLE_LABEL_KO[song.songRole] && <span className="chip">{SONG_ROLE_LABEL_KO[song.songRole]}</span>}
           {song.vocalType && <span className="chip">{vocalTypeChipLabel(song.vocalType, channelArchetype)}</span>}

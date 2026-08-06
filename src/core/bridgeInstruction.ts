@@ -7,6 +7,9 @@ import type {
   SeasonPack
 } from '../types';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildSystemInstruction, buildUserInstruction, songOutputShape, structureTemplateLegend } from './promptComposer';
+import { buildExplorationInstructionLines, type ExplorationSlotPlan } from './explorationSlots';
+import { resolveFlagshipVariationPlan, buildFlagshipVariationInstructionLines } from './comboVariations';
+import type { VerifiedCombo } from '../data/verifiedCombos';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
@@ -1109,6 +1112,121 @@ function buildSetPlanningTable(rows: BridgeSetPlanningRow[]): string {
 }
 
 /**
+ * v5.23 (TASK A §1-3) — "먼저 읽는 것이 사고를 지배합니다": real, measured
+ * problem this fixes — before this task, the FIRST substantive thing a
+ * coding agent read (after one framing sentence) was a wall of
+ * plan-tables/constraints/rules ending in dozens of "never"/"do not"
+ * bullets (§0-2's own audit: 68 prohibition spots, 1 line of creative
+ * encouragement, in a 1,531-line instruction). This section is now the
+ * FIRST real content — what this set is trying to BE, not what to avoid —
+ * so the agent's first read establishes intent before constraint. Never
+ * itself a constraint: the last line explicitly says so, so an agent
+ * doesn't read "성공 기준" as a new checklist to satisfy on top of
+ * everything below it.
+ */
+function buildSetIntentSection(opts: GenerationOptions, conceptLabel: string | undefined): string {
+  const concept = conceptLabel?.trim() || `${opts.channel.name}의 평소 컨셉`;
+  const audience = opts.channel.promise || `${opts.channel.name} 청취자`;
+  return [
+    '[이 세트가 하려는 것]',
+    '',
+    `  컨셉    ${concept}`,
+    `  청취자  ${audience}`,
+    `  목표    ${opts.songCount}곡을 이어 들었을 때 이 컨셉이 실제로 느껴지게`,
+    '',
+    '  이 세트는 다음 중 하나를 이루면 성공입니다',
+    '    한 곡이라도 다시 듣고 싶게 만든다',
+    `    ${opts.songCount}곡이 하나의 시간대·분위기로 들린다`,
+    '    어느 한 곡이 특별히 기억에 남는다',
+    '',
+    '  아래의 재료와 제약은 그것을 돕기 위한 것입니다.',
+    '  제약을 지키는 것 자체가 목표가 아닙니다.'
+  ].join('\n');
+}
+
+/**
+ * v5.23 (TASK A §1-4) — "먼저 읽는 것이 사고를 지배합니다. 금지로 시작하면 금지를
+ * 피하는 데 집중합니다": the mirror-image fix of buildSetIntentSection above —
+ * consolidates the handful of genuinely UNIVERSAL/safety-critical
+ * prohibitions (previously scattered mid-array, interleaved with
+ * constructive field instructions) into one clearly-labeled block, moved to
+ * the true end of the instruction, right before the mechanical
+ * output-format bullets. Deliberately narrow in scope: the ~30 remaining
+ * field-specific single-clause caveats (e.g. structureTemplateInstructionLine's
+ * own "don't invent a different template") stay attached to their own field
+ * instruction rather than being extracted here — each of those is one
+ * clause inside an otherwise constructive, field-specific instruction, and
+ * severing it from its context would leave that field's own guidance
+ * incomplete. This section instead targets the real, measured source of
+ * bloat: the genuinely repeated/universal bans (already-used titles/hooks
+ * stated 3x across this file's own assembly and promptComposer.ts's rules
+ * block; arrangement-vocabulary-in-lyrics stated 2x) — collapsed to ONE
+ * canonical statement each, here.
+ */
+/**
+ * v5.23 (TASK F §7) — "안전(절대) / 품질(강함) / 스타일(권고)로 나누고, 스타일
+ * 등급은 '피하십시오' 대신 '이런 경향이 있습니다'로 누그러뜨리십시오." This
+ * function's own 4 items were audited against that 3-tier test: every one
+ * turned out to be either a copyright/safety-absolute rule or a
+ * quality-critical rule tied to a real, measured past failure (see each
+ * bullet's own history in this function's git blame / the TASK A doc
+ * comment above) — not a single one is a soft stylistic preference, so
+ * none is softened to "경향" wording. That's a real finding, not a gap:
+ * TASK A's own doc comment already established that the ~30 remaining
+ * field-specific single-clause caveats scattered through this file (e.g.
+ * introTextureInstructionLineFor's "never let it become the whole-song
+ * arrangement") are each tied to a similarly real measured failure, not
+ * mere style preference — there was no genuinely-advisory "스타일" tier
+ * hiding in the LLM-facing instruction text to relocate here. The tiering
+ * below (안전/품질 headers) still delivers §7's actual ask: an agent
+ * reading this section now sees which bullets are non-negotiable
+ * (copyright/safety) versus which are quality bars it should treat as
+ * seriously as safety even though a violation isn't legally risky.
+ */
+function buildFinalAvoidSection(avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined): string {
+  return [
+    '[마지막으로, 이것만은 피하십시오]',
+    '',
+    '  안전 (절대 완화하지 않음)',
+    '    - 실제 아티스트·밴드·프로듀서·곡·멜로디·가사를 모방하거나 이름을 언급하지 마십시오. "in the style of X"류 표현도 금지입니다.',
+    '',
+    '  품질 (항상 지킴 — 과거 실측 실패에서 나온 규칙입니다)',
+    `    - 이미 사용한 제목·훅: "alreadyUsedTitles"의 ${avoid?.usedTitles?.length ?? 0}개, "alreadyUsedHooks"의 ${avoid?.usedHooks?.length ?? 0}개는 전부 금지입니다 — 참고 자료가 아니라 이전 팩에서 이미 쓴 것들입니다. 파일을 쓰기 전에 모든 곡의 title/hookPhrase를 두 목록과 대조하십시오 (트랙 번호를 바꿔 재배치해도 안 됩니다).`,
+    '    - 악기·편곡·프로덕션 용어(guitar, strings, drums, piano, horns, reverb, stop-time 등)는 stylePrompt에만 씁니다. 가사 문장의 주어나 행위자로 쓰지 마십시오("the guitar keeps walking" 금지). 사람이 그 악기와 상호작용하는 묘사는 괜찮습니다("I still play my father\'s guitar").',
+    '    - negativeStyleText는 Suno의 별도 "Exclude styles" 필드용입니다 — stylePrompt 본문에 섞지 마십시오.'
+  ].join('\n');
+}
+
+/**
+ * v5.23 (TASK B §2-2) — "'다르게 하라' → 추상적이라 무시됩니다. '무엇을
+ * 다르게 했는지 적으라' → 적으려면 생각해야 합니다": asks for a concrete,
+ * one-line creative decision per song instead of a vague "be creative"
+ * directive. Deliberately advisory (see this function's own callers —
+ * core/distinctChoiceCheck.ts never blocks an import over this), so the
+ * wording here explains WHY (helps the set, not itself the goal) rather
+ * than framing it as one more rule to satisfy.
+ */
+function buildDistinctChoiceInstructionLines(songCount: number): string[] {
+  return [
+    '',
+    '[각 곡에 하나씩]',
+    '',
+    `  이 곡에서 다른 ${Math.max(0, songCount - 1)}곡과 다르게 시도한 것을 한 줄로 적으십시오. 필드명은 "distinctChoice"입니다.`,
+    '',
+    '  예시',
+    '    후렴을 한 번만 부른다',
+    '    마지막에 반주가 사라지고 목소리만 남는다',
+    '    질문으로 끝난다',
+    '    1절과 2절의 화자가 다르다',
+    '    같은 문장이 절마다 조금씩 바뀐다',
+    '    후렴 전에 한 박자 쉰다',
+    '    2절이 1절보다 짧다',
+    '',
+    '  같은 시도를 두 곡 이상에 쓰지 마십시오.'
+  ];
+}
+
+/**
  * Builds one self-contained instruction a coding agent can run without any
  * further back-and-forth: the same content rules generateBlueprint's remote
  * providers already send (buildSystemInstruction), the same per-run payload
@@ -1131,7 +1249,11 @@ export function buildClaudeCodeInstruction(
   generateThumbnailText = false,
   instructionOptions: ClaudeCodeInstructionOptions = {},
   /** v5.22 (AXIS 1) — see ConceptSceneContext's own doc comment. Optional and additive: every existing caller that doesn't pass it keeps generating the exact same instruction text as before. */
-  conceptSceneContext?: ConceptSceneContext
+  conceptSceneContext?: ConceptSceneContext,
+  /** v5.23 (TASK C) — core/explorationSlots.ts's own pre-resolved plan (senior-oldpop only — see selectExplorationTrackNos' own workspace gate). Optional and additive: omitted (or `enabled: false`) produces zero exploration text, identical to every pre-v5.23 instruction. */
+  explorationPlan?: ExplorationSlotPlan,
+  /** v5.23 (TASK D) — the same flagshipCombo core/batchPreallocation.ts's preallocateSongSlots already resolved to build `preassignedSongs` (see resolveFlagshipCombo). Optional and additive: omitted produces zero variation text. See comboVariations.ts's resolveFlagshipVariationPlan for how this turns into a single track-scoped instruction. */
+  flagshipCombo?: VerifiedCombo
 ): string {
   // TASK (genre-archetype sanitization) — `genres` here is only ever a
   // lookup table for label/description text (per-track assignment is driven
@@ -1198,6 +1320,23 @@ export function buildClaudeCodeInstruction(
     // phrasing) is now this agent's own musical judgment to exercise within
     // the constraints and era below — not a template to fill in.
     'You are an experienced music composer/producer generating song content for a Suno playlist pack as a one-shot task in this session — no Anthropic/OpenAI API call, write your result straight to a file. Compose each song using your own musical knowledge within the plan and constraints below; do not treat reference fields as scripts to transcribe verbatim.',
+    '',
+    // v5.23 (TASK A §1-2/§1-3) — the FIRST real content, before any
+    // plan/constraint/rule text: what this set is trying to BE. See
+    // buildSetIntentSection's own doc comment for the real problem this
+    // reordering fixes.
+    buildSetIntentSection(opts, instructionOptions.conceptLine ?? opts.customConcept),
+    // v5.23 (TASK B) — "창작 방향", right after intent per the task's own
+    // new section order (의도 -> 창작 방향 -> 곡별 재료 -> ...).
+    ...buildDistinctChoiceInstructionLines(opts.songCount),
+    // v5.23 (TASK C) — exploration slots, same "창작 방향" grouping; produces
+    // zero lines when explorationPlan is absent/disabled (see
+    // buildExplorationInstructionLines' own doc comment).
+    ...buildExplorationInstructionLines(explorationPlan ?? { enabled: false, trackNos: [], axis: null }),
+    // v5.23 (TASK D) — "이 조합을 반복하라 -> 이 조합을 출발점으로 변주하라"; zero
+    // lines when flagshipCombo is absent or no second track carries its
+    // genre id (see resolveFlagshipVariationPlan's own doc comment).
+    ...buildFlagshipVariationInstructionLines(resolveFlagshipVariationPlan(preassignedSongs, flagshipCombo)),
     instructionOptions.conceptLine ? `\nThis set's flavor: ${instructionOptions.conceptLine} — lean into this lead genre/season for the pack's overall tone, without abandoning the channel's core style.` : '',
     ...conceptSceneInstructionLines(opts, conceptSceneContext),
     '',
@@ -1246,18 +1385,13 @@ export function buildClaudeCodeInstruction(
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" — { "meta": { ... }, "songs": [ ... ] } — copying "meta" from the request payload above verbatim. Do not invent or recompute any of its values yourself.',
     titleInstructionLine,
     titleLocalizedInstructionLine,
-    // TASK v3.30 — real Codex-bridge output showed 20/20 titles and 19/20
-    // hookPhrases copied verbatim from "alreadyUsedTitles"/"alreadyUsedHooks"
-    // (just reshuffled to different track numbers) — the agent apparently
-    // read those arrays as source material rather than a blocklist. The old
-    // one-line "Never reuse..." bullet, buried 5th of 7 with no self-check
-    // step, wasn't forceful enough. This is now a CRITICAL bullet stating
-    // the exact forbidden count and an explicit before-writing verification
-    // step. The app's import-time safety net (title dedup + hook-collision
-    // warnings) still catches this if it happens again — see
-    // dedupeTitlesAcrossPack/flagHookCollisions — but this is the first line
-    // of defense.
-    `- CRITICAL: Every one of the ${avoid?.usedTitles?.length ?? 0} titles in "alreadyUsedTitles" and every one of the ${avoid?.usedHooks?.length ?? 0} hooks in "alreadyUsedHooks" above is FORBIDDEN for this pack — they were already used by a previous pack, not source material to draw from. Before writing the file, check every song's "title" and "hookPhrase" against both lists; if any match (even reordered onto a different track), rewrite that title/hook to something new.`,
+    // v5.23 (TASK A §1-4) — the CRITICAL "already-used titles/hooks are
+    // FORBIDDEN" bullet that used to live here (see git history for the old
+    // v3.30 wording/rationale — unchanged in substance) moved to
+    // buildFinalAvoidSection, consolidated with the other universal
+    // prohibitions at the true end of the instruction instead of scattered
+    // mid-array. This is still a real, positive requirement (not a
+    // prohibition), so it stays here: hookPhrase/lyrics must match.
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
     moneyChordInstructionLineFor(preassignedSongs),
     genreInstructionLine,
@@ -1272,7 +1406,10 @@ export function buildClaudeCodeInstruction(
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
-    ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE,
+    // v5.23 (TASK A §1-4) — ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE
+    // moved to buildFinalAvoidSection (see that function's own doc comment);
+    // LYRIC_IMAGERY_GUIDANCE_LINE stays here — it's genuine craft guidance
+    // with a bad/good pair, not a bare prohibition.
     LYRIC_IMAGERY_GUIDANCE_LINE,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
@@ -1281,6 +1418,13 @@ export function buildClaudeCodeInstruction(
     sectionStyleInstructionLine,
     vocalInstructionLine,
     conceptInstructionLine,
+    '',
+    // v5.23 (TASK A §1-2/§1-4) — the true LAST content section (before only
+    // the mechanical file-output bullets below), consolidating the
+    // universal prohibitions per this task's own "먼저 읽는 것이 사고를
+    // 지배합니다" — see buildFinalAvoidSection's own doc comment.
+    buildFinalAvoidSection(avoid),
+    '',
     // TASK v3.35 — multi-set generation can prefix each song's title with
     // its set-local track number ("01. ", "02. ", ...) after import, using
     // the locally trusted trackNo (see core/multiSetGeneration.ts's
@@ -1456,6 +1600,15 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '',
     'You are an experienced music composer/producer generating multiple Suno playlist sets in one coding-agent session - no Anthropic/OpenAI API call, write every result straight to files. Compose each song using your own musical knowledge within the plan and constraints below; do not treat reference fields as scripts to transcribe verbatim.',
     '',
+    // v5.23 (TASK A) — same reordering as the single-pack instruction (see
+    // buildSetIntentSection's own doc comment); master mode is a separate,
+    // hand-assembled array (not delegated to buildClaudeCodeInstruction —
+    // see this function's own header comment), so it needs the same fix
+    // applied independently rather than inheriting it for free.
+    buildSetIntentSection(baseOpts, baseOpts.customConcept),
+    // v5.23 (TASK B) — same "창작 방향" placement as the single-pack instruction.
+    ...buildDistinctChoiceInstructionLines(totalSongs),
+    '',
     'MASTER MODE:',
     `- Generate ${setCount} sets sequentially, Set 01 through Set ${String(setCount).padStart(2, '0')}, ${songsPerSet} songs per set.`,
     '- Do not stop after the first file. Finish every set and write every requested output file.',
@@ -1507,7 +1660,9 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     introTextureInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
-    ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE,
+    // v5.23 (TASK A) — ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE moved
+    // to buildFinalAvoidSection below (same reasoning as the single-pack
+    // instruction's identical comment).
     LYRIC_IMAGERY_GUIDANCE_LINE,
     arrangementDensityInstructionLine,
     structureTemplateInstructionLine,
@@ -1516,6 +1671,10 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     sectionStyleInstructionLine,
     vocalInstructionLine,
     conceptInstructionLine,
+    '',
+    buildFinalAvoidSection(initialAvoid),
+    '- Later sets must not reuse earlier-set titles or hooks — add each set\'s actual generated titles/hooks to your own avoid list before composing the next one.',
+    '',
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
     '- When done, tell me the paths of all files so I can import them back into Suno Weaver Studio.'

@@ -7,6 +7,10 @@ import { buildSystemInstruction, buildUserInstruction } from '../../core/promptC
 import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
 import { recentSituations } from '../../core/situationLedger';
 import { recentLyricLines } from '../../core/lyricLineLedger';
+import { selectExplorationTrackNos, type ExplorationSlotPlan } from '../../core/explorationSlots';
+import { nextAxisSequence } from '../../core/explorationLedger';
+import { getApprovedCombos, effectiveVerifiedCombos, resolveFlagshipCombo } from '../../core/verifiedCombos';
+import type { VerifiedCombo } from '../../data/verifiedCombos';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
 import { safeAvoidSet } from '../../hooks/useGenerationFlow';
@@ -587,6 +591,10 @@ export default function Step3Generate({
   const [bridgeAvoid, setBridgeAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });
   /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
   const [bridgeConceptSceneContext, setBridgeConceptSceneContext] = useState<{ recentSituations: string[]; recentLyricLines: string[] }>({ recentSituations: [], recentLyricLines: [] });
+  /** v5.23 (TASK C) — core/explorationSlots.ts's own plan, resolved once nextAxisSequence is fetched (senior-oldpop only — every other workspace's plan stays `enabled: false`). */
+  const [bridgeExplorationPlan, setBridgeExplorationPlan] = useState<ExplorationSlotPlan | undefined>(undefined);
+  /** v5.23 (TASK D) — the same flagship combo core/batchPreallocation.ts's preallocateSongSlots already resolves for bridgePreassignedSongs (see resolveFlagshipCombo), refetched here so buildClaudeCodeInstruction can add its own variation-track instruction (see comboVariations.ts's resolveFlagshipVariationPlan). undefined for every workspace with no verified-good combo. */
+  const [bridgeFlagshipCombo, setBridgeFlagshipCombo] = useState<VerifiedCombo | undefined>(undefined);
   const [bridgeCopied, setBridgeCopied] = useState(false);
   const [importReport, setImportReport] = useState<ImportSongsReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -631,6 +639,41 @@ export default function Step3Generate({
       cancelled = true;
     };
   }, [opts.channel.id, opts.lyricLanguage]);
+
+  // v5.23 (TASK C) — resolves the exploration-slot plan once nextAxisSequence
+  // is known; selectExplorationTrackNos itself already gates on workspaceId
+  // (senior-oldpop only), so every other workspace's fetch here just
+  // resolves to `enabled: false` harmlessly.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    void nextAxisSequence(workspaceId).then(sequence => {
+      if (!cancelled) setBridgeExplorationPlan(selectExplorationTrackNos(opts.songCount, workspaceId, sequence));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.songCount]);
+
+  // v5.23 (TASK D) — same best-effort IndexedDB read Step2Plan.tsx's own
+  // gateVerifiedCombos effect already uses; resolveFlagshipCombo's own
+  // availableGenreIds gate naturally resolves to undefined for a workspace
+  // with no verified-good combo in this pack's genre pool.
+  useEffect(() => {
+    let cancelled = false;
+    const workspaceId = currentWorkspaceId();
+    const genreIds = opts.genreIds ?? genres.map(genre => genre.id);
+    getApprovedCombos(workspaceId)
+      .then(approved => {
+        if (cancelled) return;
+        const effective = effectiveVerifiedCombos(workspaceId, approved);
+        setBridgeFlagshipCombo(resolveFlagshipCombo(effective, genreIds));
+      })
+      .catch(() => { if (!cancelled) setBridgeFlagshipCombo(undefined); });
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.genreIds, genres]);
 
   useEffect(() => {
     let cancelled = false;
@@ -741,8 +784,8 @@ export default function Step3Generate({
   // call site populated instructionOptions.resolvedConstraints. Wiring it
   // through here is the fix, not a new mechanism.
   const claudeCodeInstruction = useMemo(
-    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false, { resolvedConstraints: designGateConstraints }, bridgeConceptSceneContext),
-    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText, designGateConstraints, bridgeConceptSceneContext]
+    () => buildClaudeCodeInstruction(opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText ?? false, { resolvedConstraints: designGateConstraints }, bridgeConceptSceneContext, bridgeExplorationPlan, bridgeFlagshipCombo),
+    [opts, genres, moods, season, bridgeAvoid, bridgePreassignedSongs, provider.generateThumbnailText, designGateConstraints, bridgeConceptSceneContext, bridgeExplorationPlan, bridgeFlagshipCombo]
   );
   // v4.0 (TASK A) — evaluateDesignGate runs inside a Worker now (see
   // core/localGenerationClient.ts) — mirrors Step2Plan.tsx's identical
