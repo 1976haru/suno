@@ -343,12 +343,23 @@ function conceptSceneInstructionLines(opts: GenerationOptions, conceptSceneConte
  * that era (many 1960s-70s pop songs share their title with their hook or
  * chorus line verbatim: a title IS often just its hook). Now explicitly
  * allows and asks for a genuine mix instead of a blanket ban.
+ *
+ * v5.23 (TASK F §7) — the remaining "[adjective] [noun]" image-pair-shape
+ * clause below is tagged [스타일 경향] and reworded from "Never default to"
+ * to "there's a real tendency... worth watching for" — a genuine 스타일
+ * (advisory) item per this task's own 3-tier audit: unlike this comment's
+ * own v3.75 hook-matching fix above (a real measured correctness bug),
+ * repeating one title shape doesn't break anything structurally, it just
+ * reads as more formulaic. See buildFinalAvoidSection's own doc comment
+ * for the fuller audit — this and sectionStyleInstructionLineFor below are
+ * the two genuine 스타일-tier items that audit actually found once the
+ * search widened past the single already-consolidated section.
  */
 function titleInstructionLineFor(opts: GenerationOptions): string {
   const titleMode = opts.titleMode ?? 'ai-creative';
   return titleMode === 'local'
     ? '- "preassignedSongs" gives local planning slots. Copy the preassigned title in local title mode, but the final "hookPhrase" you write must exactly match the hook line repeated in that song\'s lyrics; never let the JSON hook and chorus hook diverge.'
-    : '- "preassignedSongs" gives local planning slots and fallback placeholders. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. For the TITLE, use a genuine MIX of shapes across this pack, not one formula repeated on every song: for at least a third of the songs, the title should simply BE the hook line itself (or a near-verbatim variant of it) — this is the single most common title shape in real pop songs of this kind, especially older-pop eras, and titles that never match their own hook read as artificial. For the rest, write independent Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images. Never default to the same "[adjective] [noun]" image-pair shape for every song regardless of which approach you pick — vary the shape itself (a short phrase, a question, a name being addressed, a single word) as much as whether it matches the hook.';
+    : '- "preassignedSongs" gives local planning slots and fallback placeholders. You may use the slot hook or write a new original hook, but the final "hookPhrase" must exactly match the hook line that opens and closes every chorus in that song\'s lyrics. For the TITLE, use a genuine MIX of shapes across this pack, not one formula repeated on every song: for at least a third of the songs, the title should simply BE the hook line itself (or a near-verbatim variant of it) — this is the single most common title shape in real pop songs of this kind, especially older-pop eras, and titles that never match their own hook read as artificial. For the rest, write independent Billboard Hot 100-style titles: single striking words, unexpected concrete nouns, short metaphors, or evocative images. [스타일 경향] There\'s a real tendency to fall into the same "[adjective] [noun]" image-pair shape for every song regardless of which approach you pick — worth watching for and varying against (a short phrase, a question, a name being addressed, a single word), as much as whether the title matches the hook.';
 }
 
 /**
@@ -674,9 +685,16 @@ function povInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string 
     : '';
 }
 
+// v5.23 (TASK F §7) — the trailing "same first-line shape" clause is
+// tagged [스타일 경향] (softened from "Do not let..."), the other genuine
+// 스타일-tier item this task's audit found — see titleInstructionLineFor's
+// own doc comment for the fuller reasoning. verseStyleText/chorusStyleText
+// themselves stay "verbatim as guidance" (app-planned per-song variety,
+// not this clause) — only the cross-pack "don't repeat the same shape"
+// nudge is the advisory part.
 function sectionStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.verseStyleText || slot.chorusStyleText)
-    ? '- Each "preassignedSongs" entry also includes "verseStyleText" and "chorusStyleText" - write verse sections and chorus sections with those distinct approaches, verbatim as guidance. Do not let every song start with the same first-line shape or every chorus use the same sentence structure.'
+    ? '- Each "preassignedSongs" entry also includes "verseStyleText" and "chorusStyleText" - write verse sections and chorus sections with those distinct approaches, verbatim as guidance. [스타일 경향] There\'s a real tendency for every song to start with the same first-line shape or every chorus to lean on the same sentence structure — worth watching for and varying against.'
     : '';
 }
 
@@ -1177,17 +1195,31 @@ function buildSetIntentSection(opts: GenerationOptions, conceptLabel: string | u
  * quality-critical rule tied to a real, measured past failure (see each
  * bullet's own history in this function's git blame / the TASK A doc
  * comment above) — not a single one is a soft stylistic preference, so
- * none is softened to "경향" wording. That's a real finding, not a gap:
- * TASK A's own doc comment already established that the ~30 remaining
- * field-specific single-clause caveats scattered through this file (e.g.
- * introTextureInstructionLineFor's "never let it become the whole-song
- * arrangement") are each tied to a similarly real measured failure, not
- * mere style preference — there was no genuinely-advisory "스타일" tier
- * hiding in the LLM-facing instruction text to relocate here. The tiering
- * below (안전/품질 headers) still delivers §7's actual ask: an agent
- * reading this section now sees which bullets are non-negotiable
- * (copyright/safety) versus which are quality bars it should treat as
- * seriously as safety even though a violation isn't legally risky.
+ * none is softened to "경향" wording here.
+ *
+ * The 3-tier audit was later widened past this one already-consolidated
+ * section to the ~30 field-specific single-clause caveats TASK A's own
+ * doc comment left in place (each still attached to its own field
+ * instruction, not relocated — severing context would leave that field's
+ * guidance incomplete). That wider pass DID find 2 genuine 스타일-tier
+ * items — both are cross-pack VARIETY nudges ("don't repeat the same
+ * shape on every song"), not correctness bugs: titleInstructionLineFor's
+ * "[adjective] [noun]" image-pair-shape clause and
+ * sectionStyleInstructionLineFor's "same first-line shape" clause. Both
+ * are now tagged [스타일 경향] and reworded from "Never/Do not" to "there's
+ * a real tendency... worth watching for" in place (softened, not
+ * relocated — same reasoning as TASK A's own scope decision). Every OTHER
+ * caveat in that wider pass (introTextureInstructionLineFor's "never let
+ * it become the whole-song arrangement", era-authenticity guardrails,
+ * structural determinism like tempo/genre/pov/structureTemplate, the
+ * lyricThemeSceneSection quiet-alone-default fix, ...) is tied to either
+ * app-planned determinism downstream code depends on or a real measured
+ * failure, so none of those were softened — a real finding, not a gap.
+ * The tiering below (안전/품질 headers) still delivers §7's actual ask for
+ * THIS section: an agent reading it now sees which bullets are
+ * non-negotiable (copyright/safety) versus which are quality bars it
+ * should treat as seriously as safety even though a violation isn't
+ * legally risky.
  */
 function buildFinalAvoidSection(avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined): string {
   return [
