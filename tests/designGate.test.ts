@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateDesignGate } from '../src/core/designGate';
 import { resolveConstraintsFromOptions, type ResolvedConstraints } from '../src/core/constraints';
-import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
+import { SENIOR_AUDIENCE_PROFILE, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
+import { buildRepetitionCyclePlan } from '../src/core/arcModels';
 import type { ChannelProfile, GenerationOptions, PreassignedSongSlot } from '../src/types';
 
 /**
@@ -257,5 +258,87 @@ describe('evaluateDesignGate — 킬링포인트·아크', () => {
     const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
     // 6 songs * 12/18 ratio = 4 required — 4 supplied, should not block on count.
     expect(result.blocking.some(i => i.id === 'killing-point-count')).toBe(false);
+  });
+});
+
+/**
+ * v5.12 — arc-model-aware killingPointAndArcIssues: kids workspaces
+ * (arcModelId 'repetition-cycle') produce 3-5 distinct 'kids-*' bundle
+ * values (core/arcModels.ts's buildRepetitionCyclePlan), never the 5
+ * 'opening'/.../'closing' adult values. Before this fix, the 'arc-phases'
+ * check hard-coded "must have exactly 5 distinct values" workspace-agnostic,
+ * so it would incorrectly flag a healthy, real kids pack (4 distinct bundle
+ * values by default) as failing. This must be additive only — the adult
+ * five-phase path (already covered above) stays byte-identical.
+ */
+describe('evaluateDesignGate — 킬링포인트·아크 (arc-model-aware, kids workspace)', () => {
+  const KR_KIDS_AUDIENCE_PROFILE = audienceProfileForChannelArchetype('kr-kids-song', undefined);
+
+  function kidsConstraints(opts: GenerationOptions): ResolvedConstraints {
+    return resolveConstraintsFromOptions(opts, KR_KIDS_AUDIENCE_PROFILE, 'kr-kids');
+  }
+
+  function kidsOpts(overrides: Partial<GenerationOptions> = {}): GenerationOptions {
+    return baseOpts({
+      channel: { ...CHANNEL, archetype: 'kr-kids-song' },
+      audience: 'kids',
+      ...overrides
+    });
+  }
+
+  /** A real (not synthetic-5-phase) kids arc: default bundle shape (familiar/learning/moving/calm, 4/5/5/4). */
+  function kidsSlotsWithArc(arcPhases: string[]): PreassignedSongSlot[] {
+    return healthySlots().map((slot, i) => ({
+      ...slot,
+      arcPhase: arcPhases[i],
+      killingPointId: i < 14 ? `kp-${i % 8}` : undefined
+    }));
+  }
+
+  it('confirms the arcModelId resolved for a real kr-kids channel is repetition-cycle (sanity check for the rest of this block)', () => {
+    expect(KR_KIDS_AUDIENCE_PROFILE.arcModelId).toBe('repetition-cycle');
+    expect(kidsConstraints(kidsOpts()).arcModelId).toBe('repetition-cycle');
+  });
+
+  it('a real 18-song kids pack (4 distinct bundle values, matching its actual buildRepetitionCyclePlan config) does NOT trigger arc-phases — previously would have incorrectly failed against the old hard-coded "must equal 5"', () => {
+    const opts = kidsOpts();
+    const realBundlePhases = buildRepetitionCyclePlan(18).map(p => p.phase);
+    const slots = kidsSlotsWithArc(realBundlePhases);
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'arc-phases')).toBe(false);
+  });
+
+  it('a genuinely broken kids arc (only 1 distinct bundle value used) still correctly FAILS — the fix did not turn this into a no-op for kids', () => {
+    const opts = kidsOpts();
+    const slots = kidsSlotsWithArc(Array(18).fill('kids-familiar'));
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    const arcIssue = result.blocking.find(i => i.id === 'arc-phases');
+    expect(arcIssue).toBeDefined();
+    expect(arcIssue!.expected).toBe('4종 전부');
+    expect(arcIssue!.actual).toBe('1종');
+  });
+
+  it('a kids arc using adult five-phase values instead of its own bundle values still correctly FAILS (wrong values entirely, not just too few — even though 5 distinct strings is >= the 4 expected)', () => {
+    const opts = kidsOpts();
+    const adultPhases = ['opening', 'rising', 'peak', 'easing', 'closing'];
+    const slots = kidsSlotsWithArc(Array.from({ length: 18 }, (_, i) => adultPhases[i % adultPhases.length]));
+    const result = evaluateDesignGate(slots, kidsConstraints(opts), opts);
+    // A raw Set-size comparison alone (5 distinct strings >= 4 expected)
+    // would have wrongly passed this — none of these 5 values are real kids
+    // bundle phases (arcModels.ts's KIDS_ARC_PHASE_VALUES), so the fix
+    // filters to 0 valid values before comparing, and this must still fail.
+    const arcIssue = result.blocking.find(i => i.id === 'arc-phases');
+    expect(arcIssue).toBeDefined();
+    expect(arcIssue!.actual).toBe('0종');
+  });
+
+  it('regression: adult/senior workspace (five-phase) is completely unaffected by the arc-model-aware change — still requires exactly 5, byte-identical', () => {
+    const opts = baseOpts();
+    const slots = healthySlots().map(slot => ({ ...slot, killingPointId: undefined, arcPhase: 'build' }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const arcIssue = result.blocking.find(i => i.id === 'arc-phases');
+    expect(arcIssue).toBeDefined();
+    expect(arcIssue!.expected).toBe('5종 전부');
+    expect(arcIssue!.labelKo).toBe('아크 5구간 사용');
   });
 });

@@ -59,22 +59,16 @@ import type { PeakStrength, SlotArcPosition } from './arcPlan';
  * there, and every generic label/CSV/rating consumer already falls back to
  * printing the raw string for an unrecognized value.
  *
- * Known, deliberately-not-fixed side effect: core/designGate.ts's
- * killingPointAndArcIssues and core/fullAudit.ts's killingPointItems both
+ * Previously-known, now-fixed side effect: core/designGate.ts's
+ * killingPointAndArcIssues and core/fullAudit.ts's killingPointItems used to
  * hard-code "exactly 5 distinct arcPhase values" as the pass condition
  * (v3.67 TASK C's own "아크 5구간 사용" gate) — workspace-agnostic, so it
- * would now correctly read as failing if either were ever run against a
- * real generated kids pack (3-5 distinct 'kids-*' values, not 5). This is
- * the same kind of "obsolete assumption for kids" the tests/
- * workspaceContractMatrix.test.ts owner already expected to need updating,
- * not a regression introduced here — `npm run audit`'s own default run
- * (senior-morning/five-phase) is unaffected, and neither gate has a kids-
- * targeted test locking in the old "must equal 5" expectation today (both
- * verified against tests/designGate.test.ts and tests/fullAudit.test.ts).
- * Left as a reported gap rather than silently widened, since making those
- * two gates workspace/arc-model-aware is outside this task's stated scope
- * (arcPlan.ts's own builder + its localGenerator.ts/batchPreallocation.ts
- * call sites).
+ * would incorrectly read as failing when run against a real generated kids
+ * pack (3-5 distinct 'kids-*' values, not 5). v5.12 made both gates
+ * arc-model-aware via this file's own `expectedArcPhaseCount` (below) —
+ * senior/adult workspaces still require exactly 5 (byte-identical pass/fail
+ * behavior), kids workspaces are now checked against their real bundle count
+ * instead of a wrong constant.
  */
 export type KidsArcBundleId = 'familiar' | 'learning' | 'moving' | 'calm' | 'closing';
 
@@ -134,6 +128,25 @@ const KIDS_BUNDLES_T3: KidsBundleDefinition[] = [
   { id: 'calm', phase: 'kids-calm', labelKo: '차분한 것 — 마음 가라앉히기', shareOf18: 3, intensity: 2, peakStrength: 'none' },
   { id: 'closing', phase: 'kids-closing', labelKo: '마무리 인사 — 안녕/굿나잇', shareOf18: 3, intensity: 1, peakStrength: 'none' }
 ];
+
+/**
+ * v5.12 — every 'kids-*' phase literal this file can ever emit, across all
+ * three age-tier bundle sets (union, not just the default's 4 — a caller
+ * validating "is this actually a kids-model phase" shouldn't have to know
+ * which ageTier produced it, since real call sites never pass one anyway;
+ * see bundlesForAgeTier's own doc comment). Used by expectedArcPhaseCount's
+ * callers (designGate.ts/fullAudit.ts) to tell "too few real kids bundle
+ * values used" apart from "these aren't kids bundle values at all" (e.g. a
+ * dispatch bug that fed adult five-phase strings into a repetition-cycle
+ * pack) — the latter must still read as a failure, not merely as "count is
+ * technically >= expected" which a bare Set-size comparison alone can't
+ * distinguish.
+ */
+export const KIDS_ARC_PHASE_VALUES: ReadonlySet<string> = new Set([
+  ...KIDS_BUNDLES_DEFAULT,
+  ...KIDS_BUNDLES_T1,
+  ...KIDS_BUNDLES_T3
+].map(bundle => bundle.phase));
 
 /**
  * v5.11 — real, honest gap: GenerationOptions has no `ageTier` field
@@ -205,4 +218,35 @@ export function buildRepetitionCyclePlan(songCount: number, ageTier?: string): S
     }
   });
   return plan.slice(0, songCount);
+}
+
+/**
+ * v5.12 — closes the gap this file's own top comment flagged ("Known,
+ * deliberately-not-fixed side effect: core/designGate.ts's
+ * killingPointAndArcIssues and core/fullAudit.ts's killingPointItems both
+ * hard-code 'exactly 5 distinct arcPhase values'"). Tells a caller how many
+ * DISTINCT phase/bundle values a given (arcModelId, songCount, ageTier)
+ * combination will actually produce, without re-running the whole builder
+ * just to count — reuses this file's own scaleBundleCounts (same math
+ * buildRepetitionCyclePlan itself uses) and only counts bundles whose scaled
+ * count is > 0, since a small enough songCount can genuinely zero out a
+ * low-share bundle (see scaleBundleCounts's largest-remainder allocation).
+ *
+ * 'five-phase' unconditionally returns 5 (never derived from arcPlan.ts's
+ * own scalePhaseCounts) — that gate's original "exactly 5" pass condition
+ * (v3.67 TASK C) predates this file and must stay byte-identical for every
+ * non-kids workspace; this function only adds a real, config-aware answer
+ * for the 'repetition-cycle' branch that previously had none.
+ *
+ * `ageTier` defaults the same way bundlesForAgeTier does (KIDS_BUNDLES_DEFAULT,
+ * 4 bundles) — matching every real call site today, which never has a real
+ * per-generation ageTier signal to pass (see bundlesForAgeTier's own doc
+ * comment).
+ */
+export function expectedArcPhaseCount(arcModelId: 'five-phase' | 'repetition-cycle', songCount: number, ageTier?: string): number {
+  if (arcModelId !== 'repetition-cycle') return 5;
+  if (songCount <= 0) return 0;
+  const bundles = bundlesForAgeTier(ageTier);
+  const counts = scaleBundleCounts(bundles, songCount);
+  return counts.filter(count => count > 0).length;
 }

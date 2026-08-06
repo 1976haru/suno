@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildArcPlan } from '../src/core/arcPlan';
-import { buildRepetitionCyclePlan } from '../src/core/arcModels';
+import { buildRepetitionCyclePlan, expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from '../src/core/arcModels';
 import { buildArcPlanForProfile } from '../src/core/localGenerator';
 
 /**
@@ -132,6 +132,83 @@ describe('[v5.11] buildArcPlanForProfile — arcModelId-aware dispatch', () => {
 
   it('"repetition-cycle" dispatches to buildRepetitionCyclePlan, byte-for-byte identical', () => {
     expect(buildArcPlanForProfile(18, 'repetition-cycle')).toEqual(buildRepetitionCyclePlan(18));
+  });
+});
+
+/**
+ * v5.12 — expectedArcPhaseCount closes the gap flagged in this file's own
+ * top doc comment: core/designGate.ts's killingPointAndArcIssues and
+ * core/fullAudit.ts's killingPointItems used to hard-code "exactly 5
+ * distinct arcPhase values" workspace-agnostic, which would incorrectly
+ * fail a real, healthy kids pack (3-5 distinct 'kids-*' bundle values, not
+ * 5). This function tells a caller the real expected count for a given
+ * (arcModelId, songCount, ageTier) without re-running the whole builder.
+ */
+describe('[v5.12] expectedArcPhaseCount', () => {
+  it('"five-phase" always returns the constant 5, regardless of songCount or ageTier — matches the pre-v5.12 hard-coded adult behavior byte-for-byte', () => {
+    expect(expectedArcPhaseCount('five-phase', 18)).toBe(5);
+    expect(expectedArcPhaseCount('five-phase', 3)).toBe(5);
+    expect(expectedArcPhaseCount('five-phase', 0)).toBe(5);
+    expect(expectedArcPhaseCount('five-phase', 100)).toBe(5);
+    expect(expectedArcPhaseCount('five-phase', 18, 'kids-t1')).toBe(5);
+  });
+
+  it('"repetition-cycle" with no ageTier (every real call site today) returns 4 for an 18-song pack — the default bundle set\'s real count, not 5', () => {
+    expect(expectedArcPhaseCount('repetition-cycle', 18)).toBe(4);
+  });
+
+  it('"repetition-cycle" returns the real per-ageTier bundle count for an 18-song pack: 3 for kids-t1, 4 for kids-t2/default, 5 for kids-t3', () => {
+    expect(expectedArcPhaseCount('repetition-cycle', 18, 'kids-t1')).toBe(3);
+    expect(expectedArcPhaseCount('repetition-cycle', 18, 'kids-t2')).toBe(4);
+    expect(expectedArcPhaseCount('repetition-cycle', 18)).toBe(4);
+    expect(expectedArcPhaseCount('repetition-cycle', 18, 'kids-t3')).toBe(5);
+  });
+
+  it('"repetition-cycle" returns 0 for songCount <= 0', () => {
+    expect(expectedArcPhaseCount('repetition-cycle', 0)).toBe(0);
+    expect(expectedArcPhaseCount('repetition-cycle', -5)).toBe(0);
+  });
+
+  it('a small songCount can legitimately zero out a low-share bundle, so the expected count is genuinely lower than the full bundle-set size', () => {
+    // Default bundle set has 4 named bundles, but a 2-song pack can only
+    // ever produce 2 distinct values (see scaleBundleCounts's own
+    // largest-remainder allocation) — expectedArcPhaseCount must reflect
+    // that real ceiling, not blindly return 4.
+    expect(expectedArcPhaseCount('repetition-cycle', 2)).toBe(2);
+    expect(expectedArcPhaseCount('repetition-cycle', 1)).toBe(1);
+  });
+
+  it('is consistent with buildRepetitionCyclePlan\'s own actual output for a real spread of songCounts and ageTiers (no re-derivation drift)', () => {
+    const ageTiers: (string | undefined)[] = [undefined, 'kids-t1', 'kids-t2', 'kids-t3', 'not-a-real-tier'];
+    const songCounts = [1, 2, 3, 5, 6, 9, 12, 18, 24, 30];
+    for (const ageTier of ageTiers) {
+      for (const songCount of songCounts) {
+        const actualDistinct = new Set(buildRepetitionCyclePlan(songCount, ageTier).map(p => p.phase)).size;
+        expect(expectedArcPhaseCount('repetition-cycle', songCount, ageTier)).toBe(actualDistinct);
+      }
+    }
+  });
+});
+
+describe('[v5.12] KIDS_ARC_PHASE_VALUES', () => {
+  it('contains exactly the 5 kids-* ArcPhase literals arcPlan.ts additively widened for, and nothing else', () => {
+    expect([...KIDS_ARC_PHASE_VALUES].sort()).toEqual(
+      ['kids-calm', 'kids-closing', 'kids-familiar', 'kids-learning', 'kids-moving'].sort()
+    );
+  });
+
+  it('never contains an adult five-phase value', () => {
+    for (const phase of ['opening', 'rising', 'peak', 'easing', 'closing']) {
+      expect(KIDS_ARC_PHASE_VALUES.has(phase)).toBe(false);
+    }
+  });
+
+  it('every phase buildRepetitionCyclePlan actually emits, across every ageTier, is a member', () => {
+    for (const ageTier of [undefined, 'kids-t1', 'kids-t2', 'kids-t3']) {
+      for (const pos of buildRepetitionCyclePlan(18, ageTier)) {
+        expect(KIDS_ARC_PHASE_VALUES.has(pos.phase)).toBe(true);
+      }
+    }
   });
 });
 

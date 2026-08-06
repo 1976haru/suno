@@ -11,6 +11,7 @@ import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTra
 import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, type TitleConsistencyReport } from './promiseAudit';
 import type { AudioSetReport } from './audioSetReport';
 import { resolveBpmLengthTier } from './bpmLengthControl';
+import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -437,13 +438,24 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
 // ---------------------------------------------------------------------------
 // [킬링포인트·아크]
 // ---------------------------------------------------------------------------
-function killingPointItems(songs: SongIdea[]): AuditItem[] {
+function killingPointItems(songs: SongIdea[], arcModelId: 'five-phase' | 'repetition-cycle' = 'five-phase'): AuditItem[] {
   const withKillingPoint = songs.filter(song => song.killingPointId);
   const distinctKillingPoints = new Set(withKillingPoint.map(song => song.killingPointId));
   const arcPhases = new Set(songs.map(song => song.arcPhase).filter(Boolean));
   const targetAssignedShare = songs.length ? Math.round(songs.length * (14 / 18)) : 0;
   const targetVarietyShare = songs.length ? Math.max(1, Math.round(songs.length * (9 / 18))) : 0;
   const targetNoneShare = songs.length ? Math.round(songs.length * (4 / 18)) : 0;
+  // v5.12 — arc-model-aware (see arcModels.ts's expectedArcPhaseCount doc
+  // comment): 'five-phase' (every non-kids workspace) keeps the exact
+  // pre-v5.12 "5종 전부" pass condition byte-identical. 'repetition-cycle'
+  // (kids workspaces) is checked against its own real bundle count.
+  const expectedPhaseCount = expectedArcPhaseCount(arcModelId, songs.length);
+  // Same "only real kids bundle phases count" filtering as
+  // designGate.ts's killingPointAndArcIssues — see that file's own v5.12
+  // comment. 'five-phase' keeps the original unfiltered Set (byte-identical).
+  const countedArcPhases = arcModelId === 'repetition-cycle'
+    ? new Set([...arcPhases].filter((phase): phase is string => typeof phase === 'string' && KIDS_ARC_PHASE_VALUES.has(phase)))
+    : arcPhases;
 
   return [
     item({
@@ -457,9 +469,10 @@ function killingPointItems(songs: SongIdea[]): AuditItem[] {
       pass: distinctKillingPoints.size >= targetVarietyShare, requiresAudio: false, specifiedBy: ['v3.67 TASK A']
     }),
     item({
-      id: 'arc_phase_all_used', category: '킬링포인트·아크', labelKo: '아크 5구간 사용',
-      targetKo: '5종 전부', actualKo: `${arcPhases.size}종`,
-      pass: songs.length >= 5 ? arcPhases.size === 5 : null, requiresAudio: false, specifiedBy: ['v3.67 TASK C']
+      id: 'arc_phase_all_used', category: '킬링포인트·아크',
+      labelKo: arcModelId === 'repetition-cycle' ? '아크 번들 전체 사용' : '아크 5구간 사용',
+      targetKo: `${expectedPhaseCount}종 전부`, actualKo: `${countedArcPhases.size}종`,
+      pass: songs.length >= expectedPhaseCount ? countedArcPhases.size === expectedPhaseCount : null, requiresAudio: false, specifiedBy: ['v3.67 TASK C', 'v5.12']
     }),
     item({
       id: 'peak_none_count', category: '킬링포인트·아크', labelKo: 'peakStrength none 곡',
@@ -583,7 +596,7 @@ export function runFullAudit(
     ...vocalItems(songs),
     ...promptItems(songs),
     ...lyricsItems(songs),
-    ...killingPointItems(songs),
+    ...killingPointItems(songs, opts.audienceProfile.arcModelId),
     ...audioItems(opts.audioReport),
     ...titleItems(songs, titleConsistency),
     ...promiseItems(promiseAuditReport),

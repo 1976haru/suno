@@ -1,4 +1,5 @@
-import type { ChannelArchetype, GenerationOptions, GenrePack, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
+import type { ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
+import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, buildArcPlanForProfile, emotionArcPlanForArc, nextContestedTitle, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
@@ -863,6 +864,22 @@ export interface ReconcilePreassignedOptions {
    * output.
    */
   archetype?: ChannelArchetype;
+  /**
+   * TASK (lyric language mismatch detection) — the pack's chosen target
+   * lyric language (GenerationOptions.lyricLanguage), threaded through so
+   * this function — the one choke point every non-local generation path
+   * (realtime, Batch API, Claude Code bridge import, individual song
+   * regeneration) funnels an AI-produced song through — can check whether
+   * `song.lyrics`' actual script matches it. Optional so every existing
+   * caller that omits it keeps compiling unchanged and simply skips the
+   * check, same as every other optional field here. Unlike a wrong
+   * genreId/stylePrompt substring, a language mismatch can't be silently
+   * "fixed" here (auto-translating lyrics isn't safe) — see
+   * lyricLanguageMismatchWarning's own doc comment for what this does
+   * instead (surface a warning, matching how structureWarning/genreWarning
+   * already get folded into `song.warnings` below rather than blocking).
+   */
+  lyricLanguage?: LyricLanguage;
 }
 
 /**
@@ -984,6 +1001,18 @@ export function reconcileWithPreassignedSlot(
   // preallocateSongSlots uses.
   const resolvedArchetype: ChannelArchetype = options.archetype ?? song.effectiveArchetype ?? 'senior-morning';
   const resolvedWorkspaceId: WorkspaceId = workspaceForArchetype(resolvedArchetype)?.id ?? song.workspaceId ?? 'senior-oldpop';
+  // TASK (lyric language mismatch detection) — resolved once, used by EVERY
+  // return path below (mirrors resolvedArchetype/resolvedWorkspaceId just
+  // above), so a wrong-language response can't slip through any one branch
+  // this function returns from. undefined whenever the caller didn't pass
+  // lyricLanguage (every existing caller before this task) or the language
+  // is 'bilingual' (mixed script is the correct shape there — see
+  // lyricLanguageMismatchWarning's own doc comment in core/lyricMetrics.ts).
+  const languageWarning = options.lyricLanguage
+    ? lyricLanguageMismatchWarning(song.lyrics, options.lyricLanguage, slot?.trackNo ?? song.trackNo)
+    : undefined;
+  const withLanguageWarning = (warnings: string[]): string[] =>
+    languageWarning && !warnings.includes(languageWarning) ? [...warnings, languageWarning] : warnings;
   // v5.11 (TASK L) — the no-slot fallback for the two per-track "effective"
   // fields: there's no plan data to draw from here, so this reuses
   // whatever `song` already carried, or falls back to 'default'/this
@@ -999,15 +1028,15 @@ export function reconcileWithPreassignedSlot(
     // own doc comment for why this branch needs its own check: nothing else
     // in this function touches `song` when there's no slot to reconcile
     // against.
-    if (!options.archetype || !song.genreId) return { ...song, ...noSlotEffectiveFields() };
+    if (!options.archetype || !song.genreId) return { ...song, warnings: withLanguageWarning(song.warnings), ...noSlotEffectiveFields() };
     const { removed } = sanitizeGenreIdsForArchetype([song.genreId], options.archetype);
-    if (!removed.length) return { ...song, ...noSlotEffectiveFields() };
+    if (!removed.length) return { ...song, warnings: withLanguageWarning(song.warnings), ...noSlotEffectiveFields() };
     const warning = genreSanitizationWarningKo(removed, options.archetype);
     return {
       ...song,
       genreId: undefined,
       genreText: undefined,
-      warnings: song.warnings.includes(warning) ? song.warnings : [...song.warnings, warning],
+      warnings: withLanguageWarning(song.warnings.includes(warning) ? song.warnings : [...song.warnings, warning]),
       ...noSlotEffectiveFields(),
       effectiveGenreIds: []
     };
@@ -1047,6 +1076,12 @@ export function reconcileWithPreassignedSlot(
       ...song,
       title,
       hookPhrase,
+      // TASK (lyric language mismatch detection) — this fast path otherwise
+      // skips every other slot-sourced warning too (see comment above), but
+      // language is checked against `song.lyrics` itself, not any
+      // stylePrompt-completeness signal this fast path tests for, so it's
+      // attached here the same way the "effective" fields are.
+      warnings: withLanguageWarning(song.warnings),
       effectiveMoneyChordId: slot.effectiveMoneyChordId,
       effectiveGenreIds: slot.effectiveGenreIds,
       ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
@@ -1113,7 +1148,7 @@ export function reconcileWithPreassignedSlot(
   // (trackNo 1's slot only — see PreassignedSongSlot.genreWarning's own doc
   // comment), folded into that one song's own warnings here, the same way
   // every other post-hoc reconciliation warning already surfaces.
-  const newWarnings = [structureWarning, slot.genreWarning].filter(
+  const newWarnings = [structureWarning, slot.genreWarning, languageWarning].filter(
     (warning): warning is string => typeof warning === 'string' && !song.warnings.includes(warning)
   );
   const warnings = newWarnings.length ? [...song.warnings, ...newWarnings] : song.warnings;

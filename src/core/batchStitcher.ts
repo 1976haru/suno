@@ -83,7 +83,7 @@ export function stitchBatchResults(
     }
     for (const song of result.blueprint.songs || []) {
       const slot = slotByTrackNo.get(song.trackNo);
-      songMap.set(song.trackNo, reconcileWithPreassignedSlot(song, slot, titleMode, { archetype: opts.channel.archetype }, hookMode));
+      songMap.set(song.trackNo, reconcileWithPreassignedSlot(song, slot, titleMode, { archetype: opts.channel.archetype, lyricLanguage: opts.lyricLanguage }, hookMode));
     }
   }
 

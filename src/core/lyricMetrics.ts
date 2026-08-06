@@ -97,3 +97,45 @@ export function resolveLyricRange(
 ): { primaryRange: [number, number]; syllableRange: [number, number] } {
   return profile?.lyricMetricsByLanguage?.[language] ?? FALLBACK_RANGE_BY_LANGUAGE[language];
 }
+
+/**
+ * TASK (lyric language mismatch detection) — reuses this file's own
+ * HANGUL_SYLLABLE_PATTERN/JAPANESE_CHAR_PATTERN (the same char-range signal
+ * measureKorean/measureJapanese above already use for 음절/mora counts), so
+ * core/batchPreallocation.ts's reconcileWithPreassignedSlot — the one choke
+ * point every non-local generation path (realtime, Batch API, Claude Code
+ * bridge import, individual song regeneration) funnels an AI-produced song
+ * through — can catch a raw model/bridge response whose `lyrics` body came
+ * back in the wrong language entirely (e.g. a `lyricLanguage: 'korean'`
+ * pack whose response is actually English prose).
+ *
+ * This is a coarse script-presence check, not a translation/fluency
+ * verifier — it can tell "no Hangul anywhere in this lyric" from "some
+ * Hangul present," nothing finer. That coarseness is intentional: it's the
+ * same signal tests/workspaceContractMatrix.test.ts's own assertLyricLanguage
+ * (its criterion 7) already relies on, and a language mismatch can't be
+ * safely auto-corrected the way a wrong genre-id substring can (auto-
+ * translating lyrics isn't something this function should ever do), so
+ * "detect and surface" is the realistic ceiling here, not "detect and fix."
+ *
+ * `bilingual` is deliberately never flagged — mixed-script content is the
+ * correct, expected shape there, not a defect. Empty/whitespace-only
+ * lyrics are also never flagged: there's no script to be wrong about yet,
+ * and every other reconciliation warning in this codebase fires on a
+ * detected problem, not on missing input another check already covers.
+ */
+export function lyricLanguageMismatchWarning(lyrics: string, language: LyricLanguage, trackNo: number): string | undefined {
+  if (language === 'bilingual' || !lyrics.trim()) return undefined;
+  const hangulCount = (lyrics.match(HANGUL_SYLLABLE_PATTERN) || []).length;
+  const japaneseCount = (lyrics.match(JAPANESE_CHAR_PATTERN) || []).length;
+  if (language === 'korean' && hangulCount === 0) {
+    return `Track ${trackNo}: lyricLanguage is 'korean' but the lyrics body contains no Hangul — possible language mismatch.`;
+  }
+  if (language === 'japanese' && japaneseCount === 0) {
+    return `Track ${trackNo}: lyricLanguage is 'japanese' but the lyrics body contains no Japanese kana/kanji — possible language mismatch.`;
+  }
+  if (language === 'english' && (hangulCount > 0 || japaneseCount > 0)) {
+    return `Track ${trackNo}: lyricLanguage is 'english' but the lyrics body contains Hangul or Japanese characters — possible language mismatch.`;
+  }
+  return undefined;
+}

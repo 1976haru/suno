@@ -7,6 +7,7 @@ import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
@@ -632,7 +633,7 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssu
 // ---------------------------------------------------------------------------
 // 킬링포인트·아크 (killing-point-count / killing-point-variety / arc-phases)
 // ---------------------------------------------------------------------------
-function killingPointAndArcIssues(slots: PreassignedSongSlot[], songCount: number): DesignIssue[] {
+function killingPointAndArcIssues(slots: PreassignedSongSlot[], songCount: number, arcModelId: 'five-phase' | 'repetition-cycle' = 'five-phase'): DesignIssue[] {
   const issues: DesignIssue[] = [];
   const withKillingPoint = slots.filter(slot => slot.killingPointId);
   const expectedAssigned = Math.round(songCount * KILLING_POINT_ASSIGNED_RATIO);
@@ -656,15 +657,30 @@ function killingPointAndArcIssues(slots: PreassignedSongSlot[], songCount: numbe
       fixHintKo: '킬링포인트 종류가 부족합니다 — 다시 설계하세요.'
     }));
   }
-  if (songCount >= 5) {
+  // v5.12 — arc-model-aware: 'five-phase' (every non-kids workspace) still
+  // requires exactly 5 distinct values, byte-identical to the pre-v5.12
+  // hard-coded check. 'repetition-cycle' (kids workspaces, see
+  // arcModels.ts) is checked against its own real bundle count instead of
+  // the wrong constant 5 — see arcModels.ts's expectedArcPhaseCount.
+  const expectedPhaseCount = expectedArcPhaseCount(arcModelId, songCount);
+  if (songCount >= expectedPhaseCount) {
     const arcPhases = new Set(slots.map(slot => slot.arcPhase).filter(Boolean));
-    if (arcPhases.size < 5) {
+    // For 'repetition-cycle', only count values that are actually real kids
+    // bundle phases — catches a dispatch bug feeding adult five-phase (or
+    // any other) strings into a kids pack, not just a raw count shortfall.
+    // 'five-phase' keeps the original unfiltered Set (byte-identical).
+    const countedArcPhases = arcModelId === 'repetition-cycle'
+      ? new Set([...arcPhases].filter((phase): phase is string => typeof phase === 'string' && KIDS_ARC_PHASE_VALUES.has(phase)))
+      : arcPhases;
+    if (countedArcPhases.size < expectedPhaseCount) {
       issues.push(issue({
         id: 'arc-phases',
-        labelKo: '아크 5구간 사용',
-        expected: '5종 전부',
-        actual: `${arcPhases.size}종`,
-        fixHintKo: '아크 5구간(오프닝~클로징)이 전부 쓰이지 않았습니다.'
+        labelKo: arcModelId === 'repetition-cycle' ? '아크 번들 전체 사용' : '아크 5구간 사용',
+        expected: `${expectedPhaseCount}종 전부`,
+        actual: `${countedArcPhases.size}종`,
+        fixHintKo: arcModelId === 'repetition-cycle'
+          ? '아크 번들(반복 주기)이 전부 쓰이지 않았습니다.'
+          : '아크 5구간(오프닝~클로징)이 전부 쓰이지 않았습니다.'
       }));
     }
   }
@@ -703,7 +719,7 @@ export function evaluateDesignGate(
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
     ...eraIssues(slots, constraints.era),
-    ...killingPointAndArcIssues(slots, opts.songCount),
+    ...killingPointAndArcIssues(slots, opts.songCount, constraints.arcModelId),
     ...paletteCoverageIssues(slots, opts),
     ...moneyChordBlockingIssues(slots),
     ...arrangementDensityBlockingIssues(slots)
