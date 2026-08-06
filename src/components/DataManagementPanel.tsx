@@ -3,6 +3,7 @@ import { listAllHooksForWorkspace } from '../core/hookLedger';
 import { listFullPacksForWorkspace } from '../core/library';
 import { listAllRatingsForWorkspace } from '../core/ratingLedger';
 import { listAllTakesForWorkspace } from '../core/audioTakes';
+import { importViewerRatings, type ViewerRatingsImportResult } from '../core/viewerRatingsImport';
 import {
   applyImport,
   daysSinceLastBackup,
@@ -59,6 +60,10 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
   const [mode, setMode] = useState<'merge' | 'replace'>('merge');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  /** TASK v5.20 (독립 수노모드 뷰어, TASK C-3) — kept separate from the workspace-transfer `stage` state machine above: a viewer ratings file is a much smaller, single-purpose import (no preview/merge-vs-replace choice, just "match what you can, tell me what you couldn't"). */
+  const [viewerImportBusy, setViewerImportBusy] = useState(false);
+  const [viewerImportError, setViewerImportError] = useState('');
+  const [viewerImportResult, setViewerImportResult] = useState<ViewerRatingsImportResult | null>(null);
 
   const workspace = getWorkspace(workspaceId);
   const staleDays = useMemo(() => daysSinceLastBackup(workspaceId), [workspaceId, stage]);
@@ -131,6 +136,25 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
     setInclude(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
+  /** TASK v5.20 (독립 수노모드 뷰어, TASK C-3) — "[뷰어 평가 가져오기]": reads a ratings_<setName>_<date>.json file core/sunoViewerExport.ts's viewer produced and merges it into ratingLedger.ts via core/viewerRatingsImport.ts. Never throws on a malformed file — importViewerRatings itself returns a result/warnings shape instead. */
+  async function handleImportViewerRatings(file: File | undefined) {
+    if (!file) return;
+    setViewerImportError('');
+    setViewerImportResult(null);
+    setViewerImportBusy(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const result = await importViewerRatings(parsed, workspaceId);
+      setViewerImportResult(result);
+      setCounts(await countsForWorkspace(workspaceId));
+    } catch {
+      setViewerImportError('파일을 읽는 중 문제가 발생했습니다 — 뷰어의 [평가 내보내기] 파일인지 확인하세요.');
+    } finally {
+      setViewerImportBusy(false);
+    }
+  }
+
   return (
     <div className="data-management-overlay" role="dialog" aria-label="데이터 관리">
       <div className="data-management-panel">
@@ -173,6 +197,25 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
               파일에서 가져오기
               <input type="file" accept="application/json" style={{ display: 'none' }} onChange={e => void handlePickFile(e.target.files?.[0])} />
             </label>
+
+            <label className="button-like">
+              뷰어 평가 가져오기
+              <input
+                type="file"
+                accept="application/json"
+                style={{ display: 'none' }}
+                disabled={viewerImportBusy}
+                onChange={e => { void handleImportViewerRatings(e.target.files?.[0]); e.target.value = ''; }}
+              />
+            </label>
+            <p className="hint">수노 진행 모드 뷰어(suno-mode.html)의 [평가 내보내기] 파일을 가져와 이 워크스페이스의 평가 원장에 합칩니다.</p>
+            {viewerImportResult && (
+              <p className="supporting">
+                뷰어 평가 가져오기 완료 — 병합 {viewerImportResult.matched}건 · 건너뜀 {viewerImportResult.skipped}건
+                {viewerImportResult.warnings.map(w => <span key={w}><br />⚠ {w}</span>)}
+              </p>
+            )}
+            {viewerImportError && <p className="import-warning">⚠ {viewerImportError}</p>}
 
             <button type="button" className="chip" onClick={() => setPartialOpen(o => !o)}>
               부분 내보내기 {partialOpen ? '▴' : '▾'}

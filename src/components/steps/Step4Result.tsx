@@ -20,6 +20,7 @@ import ExperimentalFeatureBoundary from '../ExperimentalFeatureBoundary';
 import { audienceProfileForChannelArchetype } from '../../data/audienceProfiles';
 import { FEATURE_STATUS_LABEL_KO, featureStatus } from '../../data/featureFlags';
 import { buildStandaloneProgressHtml, standaloneProgressFileName } from '../../core/standaloneProgressExport';
+import { buildSunoViewerHtml, SUNO_VIEWER_FILE_NAME } from '../../core/sunoViewerExport';
 import { buildSongTxt, downloadBlob, downloadText, exportCsv, exportJson, exportMarkdown } from '../../utils/exporters';
 import { buildZip, safeFileName } from '../../utils/zipExporter';
 import { exportDocxBlob } from '../../utils/docxExporter';
@@ -233,6 +234,19 @@ export default function Step4Result({
     };
     const html = buildStandaloneProgressHtml(blueprint.songs, meta);
     downloadBlob(standaloneProgressFileName(meta), new Blob([html], { type: 'text/html;charset=utf-8' }));
+  }
+
+  /**
+   * TASK v5.20 (독립 수노모드 뷰어, TASK E-2) — "[뷰어 받기]": downloads
+   * core/sunoViewerExport.ts's data-free suno-mode.html, the same file
+   * `npm run build:suno-viewer` produces. A one-time download — the whole
+   * point of the viewer (§0 of that task's own doc) is that after this,
+   * lyrics/*.json can be reviewed without the app open at all, so this
+   * button intentionally never needs blueprint/pack data.
+   */
+  function handleDownloadSunoViewer() {
+    const html = buildSunoViewerHtml();
+    downloadBlob(SUNO_VIEWER_FILE_NAME, new Blob([html], { type: 'text/html;charset=utf-8' }));
   }
 
   async function handleWordExport() {
@@ -506,7 +520,11 @@ export default function Step4Result({
             </button>
             <button type="button" onClick={handleExportStandaloneProgress}>
               <Download size={16} />
-              [독립 파일로 내보내기]
+              [이 세트를 HTML로]
+            </button>
+            <button type="button" onClick={handleDownloadSunoViewer}>
+              <Download size={16} />
+              [뷰어 받기]
             </button>
           </div>
         </div>
