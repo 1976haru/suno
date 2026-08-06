@@ -25,6 +25,16 @@ export type ExplorationRating = 'good' | 'ok' | 'bad';
 export interface ExplorationOutcome {
   trackNo: number;
   rating: ExplorationRating;
+  /**
+   * v5.24 (TASK F §6-2) — workspace-specific extra judgment questions beyond
+   * the shared good/ok/bad rating (§6-1): kids adds "아이가 따라 할 수 있는가"/
+   * "한 번 듣고 기억나는가", K-pop adds "후렴이 귀에 걸리는가"/"구조가
+   * 지루하지 않은가", 2030 adds "새롭게 들리는가"/"그래도 편안한가". Keys are
+   * free-form (no enum here) since each workspace's own question set differs
+   * and this is UI-recorded, human-judged data, not something the pipeline
+   * itself branches on.
+   */
+  extra?: Record<string, boolean>;
 }
 
 export interface ExplorationRecord {

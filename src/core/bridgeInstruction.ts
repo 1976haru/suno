@@ -4,12 +4,15 @@ import type {
   GenrePack,
   MoodPack,
   PreassignedSongSlot,
-  SeasonPack
+  SeasonPack,
+  WorkspaceId
 } from '../types';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildSystemInstruction, buildUserInstruction, songOutputShape, structureTemplateLegend } from './promptComposer';
 import { buildExplorationInstructionLines, type ExplorationSlotPlan } from './explorationSlots';
 import { resolveFlagshipVariationPlan, buildFlagshipVariationInstructionLines } from './comboVariations';
+import { resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
+import { selectExplorationTrackNos } from './explorationSlots';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
@@ -22,6 +25,10 @@ import { buildSetName } from '../utils/setNaming';
 import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { currentWorkspaceId } from './workspaceScope';
+import { workspaceForArchetype } from '../data/workspaces';
+import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan } from './explorationPolicyEngine';
+import { buildIdolPartPatternSet, renderIdolPartPatternLine } from './idolPartPattern';
+import { hashSeed } from '../utils/prng';
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 
@@ -1206,12 +1213,80 @@ function buildFinalAvoidSection(avoid: { usedTitles?: string[]; usedHooks?: stri
  * wording here explains WHY (helps the set, not itself the goal) rather
  * than framing it as one more rule to satisfy.
  */
-function buildDistinctChoiceInstructionLines(songCount: number): string[] {
+/**
+ * v5.24 (TASK E §5) — "distinctChoice 를 워크스페이스마다 다르게 물으십시오":
+ * kr-kids/jp-kids get an ADDITIONAL required-in-spirit field (kidsAction,
+ * types.ts's own SongIdea.kidsAction) asking what the child physically does,
+ * since a novelty-framed question is the wrong question for kids (§0-1).
+ * kr-idol-male, kr-idol-female, kr-2030, jp-2030 keep the same "distinctChoice"
+ * field but with workspace-tuned wording/examples; senior-oldpop and any
+ * other workspace
+ * keep the exact pre-v5.24 wording (regression-safe default branch).
+ */
+function buildDistinctChoiceInstructionLines(songCount: number, workspaceId: WorkspaceId): string[] {
+  const otherCount = Math.max(0, songCount - 1);
+
+  if (workspaceId === 'kr-kids' || workspaceId === 'jp-kids') {
+    return [
+      '',
+      '[각 곡에 하나씩]',
+      '',
+      '  이 곡을 들으며 아이가 하는 행동을 한 가지 적으십시오. 필드명은 "kidsAction"입니다.',
+      '',
+      '  예시',
+      '    손뼉 치기',
+      '    발 구르기',
+      '    제자리에서 돌기',
+      '    손가락으로 세기',
+      '    크게 웃기',
+      '',
+      '  세트 전체에서 행동 종류가 겹치지 않게 다양하게 고르십시오.',
+      '',
+      `  그리고 이 곡에서 다른 ${otherCount}곡과 다르게 시도한 것을 한 줄로 적으십시오. 필드명은 "distinctChoice"입니다.`
+    ];
+  }
+
+  if (workspaceId === 'kr-idol-male' || workspaceId === 'kr-idol-female') {
+    return [
+      '',
+      '[각 곡에 하나씩]',
+      '',
+      '  이 곡의 파트 배분 패턴을 한 줄로 적으십시오. 필드명은 "distinctChoice"입니다.',
+      '',
+      '  예시',
+      '    [Verse 1: A] [Verse 2: B] [Pre: A+B] [Chorus: All] [Bridge: C solo] [Final: All + C ad-lib]',
+      '    벌스마다 다른 파트가 시작하고 후렴은 전원',
+      '    브리지를 한 명이 통째로 부르고 후렴에서 합류',
+      '',
+      `  그리고 다른 ${otherCount}곡과 다르게 시도한 것도 함께 적으십시오.`,
+      '',
+      '  같은 파트 패턴을 두 곡 이상에 쓰지 마십시오.'
+    ];
+  }
+
+  if (workspaceId === 'kr-2030' || workspaceId === 'jp-2030') {
+    return [
+      '',
+      '[각 곡에 하나씩]',
+      '',
+      `  이 곡에서 새롭게 시도한 것을 한 줄로 적으십시오. 필드명은 "distinctChoice"입니다. 더 과감해도 됩니다 — 이 워크스페이스는 정전이 없습니다.`,
+      '',
+      '  예시',
+      '    장르 두 개를 섞는다',
+      '    후렴이 곡 끝에만 한 번 나온다',
+      '    로파이 질감으로 녹음한 듯한 프로덕션',
+      '    가사를 일기체로 쓴다',
+      '    갑작스러운 전조',
+      '',
+      '  같은 시도를 두 곡 이상에 쓰지 마십시오.'
+    ];
+  }
+
   return [
     '',
     '[각 곡에 하나씩]',
     '',
-    `  이 곡에서 다른 ${Math.max(0, songCount - 1)}곡과 다르게 시도한 것을 한 줄로 적으십시오. 필드명은 "distinctChoice"입니다.`,
+    `  이 곡에서 다른 ${otherCount}곡과 다르게 시도한 것을 한 줄로 적으십시오. 필드명은 "distinctChoice"입니다.`,
     '',
     '  예시',
     '    후렴을 한 번만 부른다',
@@ -1223,6 +1298,65 @@ function buildDistinctChoiceInstructionLines(songCount: number): string[] {
     '    2절이 1절보다 짧다',
     '',
     '  같은 시도를 두 곡 이상에 쓰지 마십시오.'
+  ];
+}
+
+/**
+ * v5.24 (TASK C §3-5) — "곡마다 파트 배분을 명시하십시오... 파트 패턴 8종 이상,
+ * 같은 패턴 최대 3곡." Kept as its own instruction block (not threaded through
+ * PreassignedSongSlot) so it stays fully additive — every workspace other
+ * than kr-idol-male/kr-idol-female gets an empty array, identical to
+ * pre-v5.24 output.
+ */
+function buildIdolPartPatternInstructionLines(workspaceId: WorkspaceId, songCount: number, seedSource: string): string[] {
+  if (workspaceId !== 'kr-idol-male' && workspaceId !== 'kr-idol-female') return [];
+  const patterns = buildIdolPartPatternSet(songCount, hashSeed(seedSource));
+  if (!patterns.length) return [];
+  return [
+    '',
+    '[파트 배분]',
+    '',
+    '  아이돌 곡은 파트가 곧 구조입니다. 아래 트랙별 파트 패턴을 그대로 따르십시오 (A/B/C는 서로 다른 보컬 파트를 뜻하며, 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오).',
+    '',
+    ...patterns.map((pattern, i) => renderIdolPartPatternLine(i + 1, pattern)),
+    ''
+  ];
+}
+
+/**
+ * v5.24 (TASK G §7) — four advisory, never-forced devices for whole-set
+ * completeness: a loose story thread (§7-1, suggestion only — never
+ * required, and explicitly absent for K-pop per spec's own "없어도 됨"),
+ * contrast (§7-2: quietest/brightest/shortest/oddest track), lead-track
+ * yielding (§7-3: tracks 1/4 stay plain so 2-3 stand out), and the last
+ * track's callback role (§7-4). None of this is enforced or checked
+ * anywhere — purely instruction text an agent may or may not act on, same
+ * "suggest, never auto-apply" posture as explorationLedger.ts's learning
+ * suggestions.
+ */
+function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId): string[] {
+  const storyThreadByWorkspace: Partial<Record<WorkspaceId, string>> = {
+    'senior-oldpop': '같은 계절의 하루 (아침 → 밤), 또는 같은 인물의 젊은 날과 지금, 또는 같은 장소의 다른 시간',
+    'kr-2030': '하루의 시간대, 또는 한 사람의 감정 변화',
+    'jp-2030': '하루의 시간대, 또는 한 사람의 감정 변화',
+    'kr-kids': '하루 일과 (일어나기 → 잠자기), 또는 계절 한 바퀴',
+    'jp-kids': '하루 일과 (일어나기 → 잠자기), 또는 계절 한 바퀴'
+  };
+  const storyThread = storyThreadByWorkspace[workspaceId];
+
+  return [
+    '',
+    '[세트 전체의 완성도 — 제안, 강제 아님]',
+    '',
+    ...(storyThread
+      ? ['  세트 전체를 느슨하게 잇는 이야기 하나를 둘 수 있습니다 (강제 아님, 제안일 뿐입니다).', `    예: ${storyThread}`, '']
+      : []),
+    '  대비를 만드십시오 — 18곡이 전부 좋으면 무엇이 좋은지 알 수 없습니다.',
+    '    가장 조용한 곡 1곡 · 가장 밝은 곡 1곡 · 가장 짧은 곡 1곡 · 가장 특이한 곡 1곡(탐색 슬롯)',
+    '',
+    '  1번과 4번 트랙은 담백하게 만들어, 2~3번(대표곡)이 상대적으로 돋보이게 하십시오.',
+    '',
+    '  마지막 트랙은 완전히 끝내지 말고 여운을 남기며, 1번 트랙의 요소를 살짝 반영하십시오 (플레이리스트는 반복 재생됩니다).'
   ];
 }
 
@@ -1253,7 +1387,9 @@ export function buildClaudeCodeInstruction(
   /** v5.23 (TASK C) — core/explorationSlots.ts's own pre-resolved plan (senior-oldpop only — see selectExplorationTrackNos' own workspace gate). Optional and additive: omitted (or `enabled: false`) produces zero exploration text, identical to every pre-v5.23 instruction. */
   explorationPlan?: ExplorationSlotPlan,
   /** v5.23 (TASK D) — the same flagshipCombo core/batchPreallocation.ts's preallocateSongSlots already resolved to build `preassignedSongs` (see resolveFlagshipCombo). Optional and additive: omitted produces zero variation text. See comboVariations.ts's resolveFlagshipVariationPlan for how this turns into a single track-scoped instruction. */
-  flagshipCombo?: VerifiedCombo
+  flagshipCombo?: VerifiedCombo,
+  /** v5.24 (TASK A/B/C/D) — core/explorationPolicyEngine.ts's own pre-resolved plan for every workspace except senior-oldpop (which keeps using `explorationPlan` above). Optional and additive: omitted (or `enabled: false`) produces zero exploration text. */
+  policyExplorationPlan?: PolicyExplorationSlotPlan
 ): string {
   // TASK (genre-archetype sanitization) — `genres` here is only ever a
   // lookup table for label/description text (per-track assignment is driven
@@ -1268,6 +1404,13 @@ export function buildClaudeCodeInstruction(
   const eligibleGenres = genres.filter(genre => isGenreEligibleForArchetype(genre, archetype));
   const sanitizedGenres = eligibleGenres.length ? eligibleGenres : genres;
   const outputFilename = instructionOptions.outputFilename ?? defaultBridgeOutputPath(opts);
+  // v5.24 — resolved per-instruction from the channel's own archetype rather
+  // than the UI's currentWorkspaceId() global, so a set built for a
+  // different channel than whatever is currently active in the UI still
+  // gets the right workspace's exploration policy/distinctChoice wording.
+  // Falls back to currentWorkspaceId() only when the archetype isn't mapped
+  // to any workspace (shouldn't happen for a real channel).
+  const workspaceId = workspaceForArchetype(archetype)?.id ?? currentWorkspaceId();
   const { batch, payload } = buildBridgePayload(opts, sanitizedGenres, moods, season, avoid, preassignedSongs, generateThumbnailText, outputFilename, conceptSceneContext);
   const bridgeRulesBatch: BatchContext = { ...batch, preassignedSongs: [] };
   const rules = buildSystemInstruction(opts, bridgeRulesBatch, undefined, generateThumbnailText);
@@ -1328,11 +1471,21 @@ export function buildClaudeCodeInstruction(
     buildSetIntentSection(opts, instructionOptions.conceptLine ?? opts.customConcept),
     // v5.23 (TASK B) — "창작 방향", right after intent per the task's own
     // new section order (의도 -> 창작 방향 -> 곡별 재료 -> ...).
-    ...buildDistinctChoiceInstructionLines(opts.songCount),
+    ...buildDistinctChoiceInstructionLines(opts.songCount, workspaceId),
     // v5.23 (TASK C) — exploration slots, same "창작 방향" grouping; produces
     // zero lines when explorationPlan is absent/disabled (see
-    // buildExplorationInstructionLines' own doc comment).
+    // buildExplorationInstructionLines' own doc comment). senior-oldpop only.
     ...buildExplorationInstructionLines(explorationPlan ?? { enabled: false, trackNos: [], axis: null }),
+    // v5.24 (TASK B/C/D) — the same slot-instruction shape, driven by
+    // data/explorationPolicies.ts, for every workspace except senior-oldpop.
+    ...buildPolicyExplorationInstructionLines(policyExplorationPlan ?? { enabled: false, workspaceId, trackNos: [], axis: null }),
+    // v5.24 (TASK C §3-5) — K-pop-only part-map block; empty for every other workspace.
+    ...buildIdolPartPatternInstructionLines(workspaceId, opts.songCount, outputFilename),
+    // v5.24 (TASK G) — advisory, never-forced set-completeness suggestions
+    // (loose story thread / contrast / lead-track yielding / last-track
+    // callback). Workspace-tuned; empty story-thread line for K-pop per spec
+    // §7-1 "K-pop 없어도 됨".
+    ...buildSetCompletenessSuggestionLines(workspaceId),
     // v5.23 (TASK D) — "이 조합을 반복하라 -> 이 조합을 출발점으로 변주하라"; zero
     // lines when flagshipCombo is absent or no second track carries its
     // genre id (see resolveFlagshipVariationPlan's own doc comment).
@@ -1546,6 +1699,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
 ): MultiSetBridgeMasterInstruction {
   const setInstructions = buildMultiSetClaudeCodeInstructions(baseOpts, setCount, songsPerSet, genres, moods, season, initialAvoid, generateThumbnailText);
   const totalSongs = setCount * songsPerSet;
+  const masterWorkspaceId = workspaceForArchetype(baseOpts.channel.archetype)?.id ?? currentWorkspaceId();
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
   const titleInstructionLine = titleInstructionLineFor(baseOpts);
   const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
@@ -1607,7 +1761,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     // applied independently rather than inheriting it for free.
     buildSetIntentSection(baseOpts, baseOpts.customConcept),
     // v5.23 (TASK B) — same "창작 방향" placement as the single-pack instruction.
-    ...buildDistinctChoiceInstructionLines(totalSongs),
+    ...buildDistinctChoiceInstructionLines(totalSongs, masterWorkspaceId),
     '',
     'MASTER MODE:',
     `- Generate ${setCount} sets sequentially, Set 01 through Set ${String(setCount).padStart(2, '0')}, ${songsPerSet} songs per set.`,

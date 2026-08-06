@@ -1016,6 +1016,15 @@ export interface SongIdea {
    * agent to make this call).
    */
   distinctChoice?: string;
+  /**
+   * v5.24 (TASK B §2-6) — one concrete physical action a kids listener does
+   * along with this song (손뼉·발 구르기·점프·돌기·앉기·손가락 세기·흔들기·
+   * 가리키기·소리 내기·숨 참기·크게 웃기 등). This is kids' own version of
+   * "distinctChoice" — participation, not novelty (see §0-1: kids songs are
+   * judged by whether a child can follow along, not by how new they sound).
+   * Only ever populated for kr-kids/jp-kids; undefined everywhere else.
+   */
+  kidsAction?: string;
   hookPhrase: string;
   stylePrompt: string;
   /** Text meant for Suno's separate Advanced Options -> Exclude field, never pasted into the style prompt itself (avoidWords + copyright-avoidance terms). See core/promptComposer.ts's buildExcludePrompt. */
