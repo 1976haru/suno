@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { REACHABILITY_ALLOWLIST } from './reachabilityAllowlist';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = path.join(repoRoot, 'src');
@@ -84,15 +85,45 @@ export function checkReachability(entryPoints: string[] = ENTRY_POINTS): Reachab
   return { reachable, unreachable, totalFiles: allFiles.length };
 }
 
+/**
+ * 지시문 09 TASK C-1 — "사유 없는 도달 불가는 실패다." allowlist에 있는
+ * 파일은 사유와 함께 보고만 하고 실패시키지 않는다. allowlist에 없는
+ * 도달 불가 파일이 있으면 실패 — 새로 추가된 미배선 모듈을 조용히
+ * 지나치지 않기 위해서다. allowlist에 있지만 실제로는 이제 도달
+ * 가능해진 항목(배선 완료)도 함께 보고한다 — 그 항목은 allowlist에서
+ * 지워야 한다는 신호다.
+ */
+export function checkReachabilityWithAllowlist(entryPoints: string[] = ENTRY_POINTS) {
+  const report = checkReachability(entryPoints);
+  const allowlistedSet = new Set(Object.keys(REACHABILITY_ALLOWLIST));
+  const unreasoned = report.unreachable.filter(f => !allowlistedSet.has(f));
+  const allowlistedStillUnreachable = report.unreachable.filter(f => allowlistedSet.has(f));
+  const staleAllowlistEntries = [...allowlistedSet].filter(f => !report.unreachable.includes(f));
+  return { report, unreasoned, allowlistedStillUnreachable, staleAllowlistEntries };
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const report = checkReachability();
+  const { report, unreasoned, allowlistedStillUnreachable, staleAllowlistEntries } = checkReachabilityWithAllowlist();
   console.log(`[check:reachability] 진입점: ${ENTRY_POINTS.join(', ')}`);
-  console.log(`[check:reachability] 전체 소스 파일 ${report.totalFiles}개 중 도달 가능 ${report.reachable.length}개 / 도달 불가 ${report.unreachable.length}개\n`);
-  if (report.unreachable.length) {
-    console.error('도달 불가 파일:');
-    for (const f of report.unreachable) console.error(`  ${f}`);
+  console.log(`[check:reachability] 전체 소스 파일 ${report.totalFiles}개 중 도달 가능 ${report.reachable.length}개 / 도달 불가 ${report.unreachable.length}개 (allowlist ${allowlistedStillUnreachable.length}개 · 사유 없음 ${unreasoned.length}개)\n`);
+
+  if (allowlistedStillUnreachable.length) {
+    console.log('도달 불가 (allowlist — 사유 있음, 실패 아님):');
+    for (const f of allowlistedStillUnreachable) console.log(`  ${f}\n    사유: ${REACHABILITY_ALLOWLIST[f]}`);
+    console.log('');
+  }
+
+  if (staleAllowlistEntries.length) {
+    console.log('⚠ allowlist에 있지만 이제 도달 가능해진 항목 (allowlist에서 제거하십시오):');
+    for (const f of staleAllowlistEntries) console.log(`  ${f}`);
+    console.log('');
+  }
+
+  if (unreasoned.length) {
+    console.error('❌ 사유 없는 도달 불가 파일 (scripts/reachabilityAllowlist.ts에 사유를 추가하거나 배선하십시오):');
+    for (const f of unreasoned) console.error(`  ${f}`);
     process.exit(1);
   } else {
-    console.log('도달 불가 파일 없음.');
+    console.log('사유 없는 도달 불가 파일 없음.');
   }
 }
