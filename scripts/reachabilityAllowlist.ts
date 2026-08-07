@@ -21,6 +21,7 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   'src/core/audioGate.ts': '지시문 11 범위(음원·번들) — 이 환경에 실제 음원 파일이 없어 검증 불가, 09에서는 사유만 기록',
   'src/core/blindBenchmark.ts': '위와 동일 — 지시문 11 §0에서 HotAIMusic 블라인드 A/B 요건 자체가 명시적으로 폐기됨, 실측 대체 완료',
   'src/core/musicGenerationProvider.ts': '위와 동일',
+  'src/core/semanticCritic.ts': '지시문 11 TASK C — musicGenerationProvider.ts와 동일한 이유·동일한 패턴(계약 + 정직한 UnavailableSemanticCritic 기본 구현). 이 앱에는 임의 LLM을 호출하는 실제 연결이 없어, 지금 억지로 호출부를 만들면 미승인 엔드포인트를 부르거나 성공을 지어내는 것 중 하나가 된다 — "optional/provider-gated"라는 지시문 자신의 표현대로 실제 공급자가 연결되기 전까지는 의도적으로 미배선.',
   'src/core/lyricsAlignment.ts': '지시문 09 §2-3 "음원·번들" 목록에 명시 — 위와 동일 사유(지시문 11 범위, 실제 음원 필요)',
 
   // 재작성 4종 — GenerationGatePanel.tsx에서 도달 가능하게 하려면 그 패널이
