@@ -11,7 +11,7 @@ import { buildDirectiveExecutionReport } from '../core/audioDirectiveAnalysis';
 import { analyzeAdoption, isNeutralWinRate } from '../core/audioAdoption';
 import { getFocusCursor, setFocusCursor } from '../core/library';
 import { analyzeAudioMeasurementsFromFile, type AudioMeasurements } from '../core/audioMeasurements';
-import { evaluateTakeSelectionSafety, canSelectTake, REJECTION_REASONS, isValidRejectionReasonId, type SelectionSafetyIssue } from '../core/audioTakeSelection';
+import { evaluateTakeSelectionSafety, REJECTION_REASONS, isValidRejectionReasonId, type SelectionSafetyIssue } from '../core/audioTakeSelection';
 import { checkCoreAudioCompliance, type ComplianceCheckResult } from '../core/audioCompliance';
 
 interface AudioAnalysisPanelProps {

@@ -35,17 +35,21 @@ interface ProductionBundlePanelProps {
  */
 export default function ProductionBundlePanel({ songs, packId, workspaceId, setName }: ProductionBundlePanelProps) {
   const [takes, setTakes] = useState<AudioTake[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  // 지시문 11 (TASK J) — 이펙트 본문에서 동기적으로 setState를 호출하지 않도록
+  // "이 packId까지 로드 완료"만 기록하고, loaded 자체는 아래에서 파생시킨다
+  // (react-hooks/set-state-in-effect 실제 lint 오류를 고치며 발견한 패턴).
+  const [loadedForPackId, setLoadedForPackId] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoaded(false);
     void getTakes({ packId }).then(result => {
-      if (!cancelled) { setTakes(result); setLoaded(true); }
-    }).catch(() => { if (!cancelled) setLoaded(true); });
+      if (!cancelled) { setTakes(result); setLoadedForPackId(packId); }
+    }).catch(() => { if (!cancelled) setLoadedForPackId(packId); });
     return () => { cancelled = true; };
   }, [packId]);
+
+  const loaded = loadedForPackId === packId;
 
   const readiness: PackAudioReadiness = evaluatePackAudioReadiness(songs.map(s => ({ trackNo: s.trackNo })), takes);
   const missingTracks = readiness.trackReadiness.filter(t => !t.hasAdoptedTake);

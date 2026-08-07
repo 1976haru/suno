@@ -218,18 +218,19 @@ jobs:
   # codex 지시문 07 (TASK C) — real Playwright browser E2E scenarios
   # (workspace select -> channel -> options -> contract -> preflight ->
   # bridge instruction -> import variants -> retry/rewrite -> export ->
-  # workspace-switch invariance) plus a 7-workspace smoke sweep.
-  # `continue-on-error: true` for the same honest reason as `lint` above:
-  # a real browser download/launch inside a fresh CI runner is the one
-  # step in this whole workflow this session could not itself verify
-  # end-to-end (no way to launch a real browser from this environment) —
-  # the scenarios themselves are real and meant to run for real in CI, but
-  # this flag prevents an environment-specific Playwright install/launch
-  # issue from blocking every other real, verified-locally job while that
-  # gets its first real CI run observed.
+  # workspace-switch invariance) plus a 7-workspace smoke sweep, now
+  # extended to all 7 workspaces for import/rewrite/export (지시문 11 TASK G).
+  #
+  # 지시문 11 (TASK J) — continue-on-error 제거. 원래 이유("이 세션은 브라우저를
+  # 실제로 실행해 볼 수 없다")가 더 이상 사실이 아니다 — TASK G에서 실제로
+  # `npx playwright install`로 chromium을 설치하고 51개 시나리오 전부를 이
+  # 로컬 환경에서 직접 실행해 직렬 실행 51/51 통과를 확인했다(12-worker 병렬
+  # 실행에서 1건의 flaky 타임아웃을 재현했지만, 단독 재실행 시 즉시 통과 —
+  # 실제 앱 결함이 아니라 리소스 경합으로 실측 판단, WORKSPACE_ACCEPTANCE_REPORT.md
+  # 참고). `ubuntu-latest` + `playwright install --with-deps chromium`은
+  # Playwright 공식 CI 권장 구성 그대로다.
   playwright:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
