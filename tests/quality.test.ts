@@ -307,3 +307,32 @@ describe('[지시문 11 TASK A] scoreSong — kr-2030/jp-2030 관계 연속성 �
     expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(false);
   });
 });
+
+describe('[지시문 11 TASK B] scoreSong — kr-kids/jp-kids 서사 결말 안전성 실제 배선 확인', () => {
+  const krKidsChannel = channelPresets.find(c => c.archetype === 'kr-kids-song')!;
+  const jpKidsChannel = channelPresets.find(c => c.archetype === 'jp-kids-song')!;
+  const seniorKidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
+
+  it('kr-kids-song 채널에서 실제 위험 서사가 warnings에 실제로 반영된다', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n혼자 길을 건넜어요\n[chorus]\n잘했어! 최고야!',
+      workspaceId: 'kr-kids'
+    }), krKidsChannel);
+    expect(song.warnings.some(w => w.startsWith('Kids narrative outcome:'))).toBe(true);
+  });
+
+  it('jp-kids-song 채널에서도 실제로 반영된다', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n一人で道を渡った\n[chorus]\nよくやった、最高だ',
+      workspaceId: 'jp-kids'
+    }), jpKidsChannel);
+    expect(song.warnings.some(w => w.startsWith('Kids narrative outcome:'))).toBe(true);
+  });
+
+  it('senior-oldpop의 kids(싱어롱 라디오) archetype에는 이 체크가 걸리지 않는다 — 실제 아동 대상이 아니므로 명시적으로 제외', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n혼자 길을 건넜어요\n[chorus]\n잘했어! 최고야!'
+    }), seniorKidsChannel);
+    expect(song.warnings.some(w => w.startsWith('Kids narrative outcome:'))).toBe(false);
+  });
+});

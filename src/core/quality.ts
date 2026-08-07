@@ -18,6 +18,7 @@ import { GENRE_FORBIDDEN_DESCRIPTORS } from '../data/genreForbiddenDescriptors';
 import { auditStylePromptAgainstSpec } from './promptSpec';
 import { bilingualLint } from './bilingualLint';
 import { checkRelationshipContinuity } from './relationshipContinuity';
+import { checkKidsOutcome } from './kidsOutcome';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -561,6 +562,18 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     for (const issue of checkRelationshipContinuity(song.lyrics, relationshipLanguage)) {
       pushUnique(warnings, `Relationship continuity: ${issue.labelKo}`);
       score -= 12;
+    }
+  }
+
+  // 지시문 11 (TASK B) — kr-kids-song/jp-kids-song 전용. senior-oldpop의
+  // 'kids' archetype(작은 라디오 싱어롱 채널, 실제 아동 대상이 아님)은
+  // 명시적으로 제외한다 — 이 체크는 실제 아동 청자를 향한 서사 안전성이
+  // 목적이라 senior 콘텐츠에 걸면 대상이 아닌 곳에 오탐만 늘어난다.
+  if (channel?.archetype === 'kr-kids-song' || channel?.archetype === 'jp-kids-song') {
+    const kidsLanguage = channel.archetype === 'jp-kids-song' ? 'japanese' : 'korean';
+    for (const issue of checkKidsOutcome(song.lyrics, kidsLanguage)) {
+      pushUnique(warnings, `Kids narrative outcome: ${issue.labelKo}`);
+      score -= 15;
     }
   }
   // languageQuality.ts's own doc comment calls its English checks "advisory

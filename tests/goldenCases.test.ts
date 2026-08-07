@@ -8,6 +8,7 @@ import { duetPartDistributionIssue } from '../src/core/lyricsAst';
 import { checkJpKidsKanaRatio } from '../src/core/jpKidsPolicy';
 import { computeSlotPlanOverlap } from '../src/core/slotPlanOverlap';
 import { checkRelationshipContinuity } from '../src/core/relationshipContinuity';
+import { checkKidsOutcome } from '../src/core/kidsOutcome';
 
 /**
  * 지시문 11 (TASK E) — golden case 회귀 잠금. src/data/goldenCases.ts의
@@ -101,6 +102,19 @@ describe('지시문 11 TASK E-2 — 2030-relation-break (blocking으로 재현, 
   it('회상 표지가 있는 정상적인 서사는 차단하지 않는다 — 과잉 차단 방지 확인', () => {
     const lyrics = '[verse 1]\n그때, 차마 보내지 못했던 문자\n[chorus]\n지금은 네게서 답장이 왔다';
     expect(checkRelationshipContinuity(lyrics, 'korean')).toEqual([]);
+  });
+});
+
+describe('지시문 11 TASK E-2 — kids-outcome (blocking으로 재현, TASK B 완료로 verified 전환)', () => {
+  it('실제 신고된 증상(위험 행동 -> 교정 없는 칭찬)을 최소 합성 재현으로 재현한다', () => {
+    const lyrics = '[verse 1]\n혼자 길을 건넜어요\n[chorus]\n잘했어! 최고야!';
+    const issues = checkKidsOutcome(lyrics, 'korean');
+    expect(issues.some(i => i.id === 'unsafe-reward')).toBe(true);
+  });
+
+  it('교정 표지가 있는 정상적인 안전 학습 서사는 차단하지 않는다 — 과잉 차단 방지 확인', () => {
+    const lyrics = '[verse 1]\n혼자 길을 건넜어요\n[chorus]\n잘했어! 그런데 위험하다는 걸 알았어요';
+    expect(checkKidsOutcome(lyrics, 'korean').some(i => i.id === 'unsafe-reward')).toBe(false);
   });
 });
 

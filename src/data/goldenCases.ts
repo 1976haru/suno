@@ -71,8 +71,8 @@ export const GOLDEN_CASES: GoldenCase[] = [
     category: 'kids-safety',
     symptomKo: '아이 대상 가사의 서사가 위험한 행동을 보상하거나, 공포·위협 상태로 끝나거나, 안전 규칙 무시를 칭찬하는 방향으로 종결될 위험이 체계적으로 점검되지 않았다.',
     addedFrom: '지시문 11 TASK B (챗지피티 지시문 09 TASK 4에서 최초 신고, 코덱스 지시문 03에서 명시적으로 미구현으로 신고됨)',
-    checkerRef: 'src/core/kidsOutcome.ts checkKidsOutcome (이 지시문에서 신규 구현 예정 — TASK B 완료 후 status를 verified로 바꾸고 회귀 테스트 추가)',
-    status: 'pending-checker'
+    checkerRef: 'src/core/kidsOutcome.ts checkKidsOutcome, src/core/quality.ts scoreSong (kr-kids-song/jp-kids-song archetype에서 실제로 호출됨) — 자동 체크만이며, 지시문이 별도로 요구한 "kr-kids/jp-kids 첫 세트 사람 검수"는 코드로 대체하지 않음(정직하게 별개 항목으로 남김)',
+    status: 'verified'
   },
   {
     id: 'kpop-gender-part',
