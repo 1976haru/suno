@@ -10,8 +10,9 @@ import { scopedKey, currentWorkspaceId } from '../core/workspaceScope';
 import { getTakes } from '../core/audioTakes';
 import { getApprovedCombos, effectiveVerifiedCombos } from '../core/verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
-import { downloadText } from '../utils/exporters';
+import { downloadText, copyText } from '../utils/exporters';
 import { evaluateReleaseReadiness, type ReleaseReadinessReport } from '../core/releaseReadiness';
+import { classifyReleaseReadinessFailures, buildRewriteInstruction } from '../core/rewriteLoop';
 import { recentSceneSignatures, recentSituations } from '../core/situationLedger';
 import { recentLyricLines } from '../core/lyricLineLedger';
 import { recentArrangementRecipes, recentFingerprints } from '../core/promptFingerprintLedger';
@@ -217,6 +218,23 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   const releaseReadyMeasurable = releaseReadiness ? measurableFailing.length === 0 : null;
   const exemptCount = releaseReadiness?.explorationExemptCount ?? 0;
 
+  // 지시문 08 (TASK C) — core/rewriteLoop.ts existed (v5.22 AXIS 5: real
+  // failing-item -> scoped-issue classification + a structured, per-track
+  // Korean rewrite instruction) but had zero real importers anywhere — a
+  // failed release-readiness check gave the user no app-generated guidance
+  // on what to actually fix, only the raw pass/fail list above. Wires the
+  // pure classify+build pair in here (this panel already has the real
+  // ReleaseReadinessReport in scope); the paste-back verification half
+  // (rewriteVerification.ts/rewriteWorkspaceRules.ts — confirming a
+  // returned rewrite didn't touch a locked "passed" track) needs a real
+  // paste-back UI flow this task didn't build, so those 2 modules stay
+  // unwired, honestly reported rather than half-wired.
+  const rewriteInstructionText = useMemo(() => {
+    if (!releaseReadiness || !measurableFailing.length) return '';
+    const issues = classifyReleaseReadinessFailures(releaseReadiness, blueprint.songs);
+    return buildRewriteInstruction(issues, blueprint.songs.map(song => song.trackNo));
+  }, [releaseReadiness, measurableFailing.length, blueprint.songs]);
+
   function exportOrderSuggestion() {
     const lines = [
       `${summary.setCode} — 추천 재생 순서 (${orderSuggestion.usedRealAudioSignals ? '실측 음원 분석 반영' : '실측 음원 분석 없음 — BPM/아크 단계 기반 추정'})`,
@@ -254,6 +272,11 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           <button type="button" className="chip" onClick={() => setReleaseReadinessOpen(open => !open)}>
             {releaseReadinessOpen ? '발매 준비 세부 항목 접기' : `발매 준비 세부 항목 보기${measurableFailing.length ? ` (미통과 ${measurableFailing.length}건)` : ''}`}
           </button>
+          {rewriteInstructionText && (
+            <button type="button" className="chip" onClick={() => void copyText(rewriteInstructionText)} title="미통과 항목만 대상으로 하는 재작성 지시문을 클립보드에 복사합니다.">
+              재작성 지시문 복사
+            </button>
+          )}
           {exemptCount > 0 && (
             <p className="supporting">
               탐색 슬롯 {exemptCount}곡은 BPM·장르·보컬 배분 기준에서 제외하고 판정했습니다 — 탐색 슬롯은 그 기준을 의도적으로 벗어나도 되는 트랙입니다.
