@@ -41,6 +41,7 @@ import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
 import { assertUserChoicesPreserved, emptyUserChoices, type UserExplicitChoices } from './userChoices';
@@ -1291,9 +1292,10 @@ export function buildSetPlanFromIntent(
   // side effect" marker — a real DecomposedReference-sourced eraTag (e.g.
   // ARTIST_REFERENCE_SEEDS' curated "early-1970s soft adult-contemporary
   // pop" for 카펜터스) has no blendedTraits and still counts.
-  const eraConstraint = resolvedSegments.length === 1
+  const eraConstraintRaw = resolvedSegments.length === 1
     ? extractEraConstraint([intent.intentKo, ...resolvedSegments.filter(segment => !segment.blendedTraits).map(segment => segment.eraTag)].filter(Boolean).join(' '))
     : { primary: 'timeless' as const, adjacent: [], forbidden: [], unspecified: true };
+  const eraConstraint = tightenEraConstraintForSenior(eraConstraintRaw, channel.archetype, safeSongCount);
   const { counts: quotaAdjustedGenreCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     genreCounts,
     safeSongCount,
@@ -1537,7 +1539,7 @@ export function directSetLocal(
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
     safeSongCount,
-    eraConstraint,
+    tightenEraConstraintForSenior(eraConstraint, channel.archetype, safeSongCount),
     eraQuotaGenrePredicate,
     ranked.map(item => item.genre.id)
   );

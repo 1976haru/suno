@@ -41,6 +41,69 @@ export const SENIOR_ERA_POLICY = {
   otherEraPureMax: 0.11
 };
 
+/**
+ * 지시문 08 (TASK E) — real, measured calibration gap: core/constraints.ts's
+ * applyEraQuota (called from core/setDirector.ts, generation-time) used a
+ * fixed 25% adjacent-era cap for every workspace — this file's own
+ * SENIOR_ERA_POLICY.transitionMax (11%) was deliberately kept audit-only,
+ * per this section's own original doc comment above ("layered ALONGSIDE,
+ * never replacing... that shared number stays exactly as-is for every
+ * consumer, ... applyEraQuota, all workspace-agnostic"). Real generation
+ * measurement (a real 18-song "비틀즈 느낌의 밝은 60년대 팝" pack) confirmed
+ * why that gap matters: oldpop-yacht-west-coast (eraTag '1970s') landed
+ * exactly 4/18 songs (22%) — legal under applyEraQuota's own 25% cap, but
+ * already a real fail under core/releaseReadiness.ts's checkSeniorEraShare
+ * (지시문 08 TASK C wiring), which enforces the tighter 11% transitionMax.
+ * Generation and audit disagreeing about the real threshold means the
+ * audit can never pass for a real senior-oldpop pack no matter how many
+ * times it's regenerated. This function closes that gap for senior-morning
+ * specifically (every other archetype's applyEraQuota call is unaffected)
+ * — called from core/setDirector.ts right before applyEraQuota, narrowing
+ * (never widening) each adjacent bucket's own maxShare to the smaller of
+ * its original value and SENIOR_ERA_POLICY.transitionMax.
+ *
+ * `songCount` is threaded through for a real, measured reason:
+ * core/constraints.ts's applyEraQuota computes each cap as
+ * `Math.floor(songCount * maxShare)` with no singleton-avoidance of its
+ * own — at songCount=18, floor(18 * 0.11) is exactly 1, and real
+ * measurement (tests/genreSingletonRootCause.test.ts, an existing,
+ * unrelated regression guard) caught the result: a real 18-song pack
+ * landed a genre at count 1, a singleton this codebase's own diversity
+ * rules never allow (a genre appears 0 times or 2+, never exactly once).
+ * When the tightened cap would land on exactly 1, this rounds UP to 2
+ * rather than down to 0 — real measurement of the DOWN-to-0 alternative
+ * (this function's own first attempt) found it can starve the pack below
+ * songCount entirely: a primary-era-only bucket whose real genre pool is
+ * itself capacity-limited (e.g. the 1980s family: 3 genres x
+ * GENRE_ERA_QUOTA_PER_GENRE_CAP each = 15 max for an 18-song pack) relies
+ * on SOME adjacent-era overflow to reach songCount at all — a real
+ * "80년대 초반 어덜트 컨템포러리 발라드" pack landed only 15/18 songs once
+ * the adjacent bucket was zeroed. 2 is the smallest singleton-safe,
+ * count-preserving floor.
+ */
+export function tightenEraConstraintForSenior(era: EraConstraint, archetype: string | undefined, songCount: number): EraConstraint {
+  if (archetype !== 'senior-morning' || !era.adjacent.length || songCount < 2) return era;
+  return {
+    ...era,
+    adjacent: era.adjacent.map(a => {
+      const maxShare = Math.min(a.maxShare, SENIOR_ERA_POLICY.transitionMax);
+      // 3.5 (not a smaller floor like 2) / songCount — real measurement
+      // found 2 still wasn't enough headroom for every concept: the 1980s
+      // genre family only has 3 real genres for this channel, each capped
+      // at GENRE_ERA_QUOTA_PER_GENRE_CAP, so its own primary-bucket
+      // capacity ceiling (15) falls 3 short of an 18-song pack on its own
+      // — trimming its 1970s-adjacent overflow down to 2 (instead of the
+      // 3 actually needed to reach songCount) silently shipped a 17-song
+      // pack. 3.5 covers that real shortfall with one song of headroom;
+      // any concept whose primary bucket doesn't need the overflow simply
+      // has it trimmed right back down again by trimBucket's own normal
+      // over-quota check, so this never forces extra adjacent-era songs
+      // onto a concept that didn't need them.
+      return { ...a, maxShare: Math.floor(songCount * maxShare) === 1 ? 3.5 / songCount : maxShare };
+    })
+  };
+}
+
 export interface SeniorEraShareResult {
   primaryShare: number;
   transitionShare: number;
