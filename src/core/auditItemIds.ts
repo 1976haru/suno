@@ -104,7 +104,11 @@ export const RELEASE_READINESS_ITEM_IDS = {
   introTypeVariety: 'intro-type-variety',
   /** codex 지시문 05 (TASK F) — genuinely new categories this task's own §measure list adds (language/export-completeness). */
   languageMatch: 'language-match',
-  exportFieldCompleteness: 'export-field-completeness'
+  exportFieldCompleteness: 'export-field-completeness',
+  /** 지시문 08 (TASK C) — core/seniorOldpopPolicy.ts's own 3 remaining checks (era share, motif sub-quotas, chord-progression dominance), senior-morning archetype only. */
+  seniorEraShare: 'senior-era-share',
+  seniorMotifQuota: 'senior-motif-quota',
+  seniorChordDominance: 'senior-chord-dominance'
 } as const;
 
 // ---------------------------------------------------------------------------

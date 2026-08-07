@@ -11,6 +11,7 @@ import { RELEASE_READINESS_ITEM_IDS, FULL_AUDIT_ITEM_IDS } from './auditItemIds'
 import { checkNegativePromptLength } from './negativePromptSpec';
 import { checkTitleHookRelationships } from './titleHookRelationship';
 import { checkLyricLanguageMatch } from './lyricMetrics';
+import { checkSeniorEraShare, checkSeniorMotifQuotas, checkChordProgressionDominance, countFinalKeyUps, countDistinctIntroTypes, SENIOR_MUSIC_POLICY } from './seniorOldpopPolicy';
 
 /**
  * v5.22 (AXIS 4 §4-3) — the task spec's own "무검수 발매 기준": 32 pass/fail
@@ -266,7 +267,7 @@ const EXCLUDE_PROMPT_TARGET = { min: 750, max: 850 };
  * not 25 chances to drift.
  */
 function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
-  const { songs, duplicationHistory, lyricLanguage } = input;
+  const { songs, duplicationHistory, lyricLanguage, archetype, conceptLabel, explorationTrackNos } = input;
   const items: Omit<ReleaseReadinessItem, 'category'>[] = [];
 
   // Gate 1 (AXIS 1) — scene vs. recent-set history, title vs. full history.
@@ -476,9 +477,60 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
     items.push({ id: RELEASE_READINESS_ITEM_IDS.motifFamilyRecentPackCooldown, categoryKo: '가사', labelKo: '최근 세트와 소재(모티프 계열) 쿨다운 준수', status: 'not-measured', detail: 'duplicationHistory.recentSceneSignatures 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
   }
 
-  // Genuine, still-unbuilt gaps — reported honestly, never faked as passing.
-  items.push({ id: RELEASE_READINESS_ITEM_IDS.modulationCount, categoryKo: '음악 설계', labelKo: '전조 5~6곡', status: 'not-measured', detail: '미구현 — 전조 여부를 추적하는 필드/검사가 앱에 없음', notImplemented: true });
-  items.push({ id: RELEASE_READINESS_ITEM_IDS.introTypeVariety, categoryKo: '음악 설계', labelKo: '인트로 유형 >= 4종', status: 'not-measured', detail: '미구현 — 인트로 유형별 다양성을 세는 검사가 없음 (introTexturePlan.ts는 배정만 함)', notImplemented: true });
+  // 지시문 08 (TASK C) — real gap-fills: core/seniorOldpopPolicy.ts's
+  // countFinalKeyUps/countDistinctIntroTypes were built (지시문 04) but
+  // never wired into this file's own real, previously-acknowledged
+  // modulationCount/introTypeVariety gaps. SENIOR_MUSIC_POLICY's own
+  // thresholds (maxFinalKeyUp/minIntroTypeVariety) are senior-oldpop-
+  // specific by design, so these only ever evaluate for that archetype —
+  // every other workspace stays honestly 'not-measured' rather than being
+  // judged against a threshold that was never calibrated for it.
+  const isSeniorOldpop = archetype === 'senior-morning';
+  if (isSeniorOldpop) {
+    const finalKeyUps = countFinalKeyUps(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.modulationCount, categoryKo: '음악 설계', labelKo: `전조 ≤ ${SENIOR_MUSIC_POLICY.maxFinalKeyUp}곡`,
+      status: finalKeyUps <= SENIOR_MUSIC_POLICY.maxFinalKeyUp ? 'pass' : 'fail',
+      detail: `전조(key-lift final chorus) ${finalKeyUps}곡`
+    });
+    const introTypes = countDistinctIntroTypes(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.introTypeVariety, categoryKo: '음악 설계', labelKo: `인트로 유형 >= ${SENIOR_MUSIC_POLICY.minIntroTypeVariety}종`,
+      status: introTypes >= SENIOR_MUSIC_POLICY.minIntroTypeVariety ? 'pass' : 'fail',
+      detail: `인트로 유형 ${introTypes}종`
+    });
+    const eraShare = checkSeniorEraShare(songs, conceptLabel, explorationTrackNos ?? []);
+    if (eraShare) {
+      const eraFail = eraShare.primaryBelowTarget || eraShare.transitionOverTarget || eraShare.blockingOtherEraPureTrackNos.length > 0;
+      items.push({
+        id: RELEASE_READINESS_ITEM_IDS.seniorEraShare, categoryKo: '음악 설계', labelKo: '단일 시대 78/11/11 배분',
+        status: eraFail ? 'fail' : 'pass',
+        detail: `primary ${(eraShare.primaryShare * 100).toFixed(0)}% / transition ${(eraShare.transitionShare * 100).toFixed(0)}% / other-era-pure ${(eraShare.otherEraPureShare * 100).toFixed(0)}%${eraShare.blockingOtherEraPureTrackNos.length ? ` (탐색 아님: T${eraShare.blockingOtherEraPureTrackNos.join(', T')})` : ''}`
+      });
+    } else {
+      items.push({ id: RELEASE_READINESS_ITEM_IDS.seniorEraShare, categoryKo: '음악 설계', labelKo: '단일 시대 78/11/11 배분', status: 'not-measured', detail: '컨셉에 명시된 시대가 없어 판정 불가' });
+    }
+    const motifFindings = checkSeniorMotifQuotas(songs, conceptLabel);
+    const blockingMotifFindings = motifFindings.filter(f => !f.overridden);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.seniorMotifQuota, categoryKo: '가사', labelKo: '시니어 소재 세부 쿼터 (letter/coffee/window/train/porch/diner)',
+      status: blockingMotifFindings.length === 0 ? 'pass' : 'fail',
+      detail: motifFindings.length ? motifFindings.map(f => `${f.labelKo}${f.overridden ? ' (콘셉트 지정, 위반 아님)' : ''}: ${f.count}곡 (한도 ${f.maxPerPack})`).join(' / ') : '위반 없음'
+    });
+    const chordDominance = checkChordProgressionDominance(songs);
+    if (chordDominance) {
+      items.push({
+        id: RELEASE_READINESS_ITEM_IDS.seniorChordDominance, categoryKo: '음악 설계', labelKo: `단일 코드 진행 점유율 ≤ ${(SENIOR_MUSIC_POLICY.maxSingleProgressionShare * 100).toFixed(0)}%`,
+        status: chordDominance.overCap ? 'fail' : 'pass',
+        detail: `${chordDominance.dominantId} ${(chordDominance.share * 100).toFixed(0)}%`
+      });
+    } else {
+      items.push({ id: RELEASE_READINESS_ITEM_IDS.seniorChordDominance, categoryKo: '음악 설계', labelKo: `단일 코드 진행 점유율 ≤ ${(SENIOR_MUSIC_POLICY.maxSingleProgressionShare * 100).toFixed(0)}%`, status: 'not-measured', detail: 'effectiveMoneyChordId가 있는 곡 없음' });
+    }
+  } else {
+    items.push({ id: RELEASE_READINESS_ITEM_IDS.modulationCount, categoryKo: '음악 설계', labelKo: '전조 5~6곡', status: 'not-measured', detail: 'senior-morning 아카이타입 전용 기준 — 이 워크스페이스는 판정 대상 아님', notImplemented: false });
+    items.push({ id: RELEASE_READINESS_ITEM_IDS.introTypeVariety, categoryKo: '음악 설계', labelKo: '인트로 유형 >= 4종', status: 'not-measured', detail: 'senior-morning 아카이타입 전용 기준 — 이 워크스페이스는 판정 대상 아님', notImplemented: false });
+  }
 
   return items.map(item => ({ ...item, category: categoryForItemId(item.id) }));
 }

@@ -90,7 +90,18 @@ describe('[v5.22 AXIS 4] evaluateReleaseReadiness — structural shape', () => {
     expect(report.releaseReady).toBe(false);
   });
 
-  it('genuinely unbuilt criteria (modulation count, intro-type variety) are reported not-measured with notImplemented: true, never faked as passing', () => {
+  // 지시문 08 (TASK C) — modulation-count/intro-type-variety are no longer
+  // universally unbuilt: core/seniorOldpopPolicy.ts's countFinalKeyUps/
+  // countDistinctIntroTypes are now wired in for the senior-morning
+  // archetype specifically (see evaluateReleaseReadiness's own isSeniorOldpop
+  // gate). Without a real archetype (this test's own channel is
+  // senior-morning, but the ORIGINAL call below never passed `archetype` at
+  // all), these correctly report not-measured with notImplemented: false —
+  // "this check exists and works, just not evaluated for an unknown
+  // workspace" — same convention englishGrammarErrors/inSongLineRepetition
+  // already use elsewhere in this file for "not applicable to this pack",
+  // distinct from notImplemented: true's "no check exists anywhere".
+  it('modulation count / intro-type variety are not-measured (not notImplemented) when archetype is unknown', () => {
     const report = evaluateReleaseReadiness({
       songs: scoredSongs,
       conceptLabel: opts.customConcept || opts.projectTitle,
@@ -101,9 +112,31 @@ describe('[v5.22 AXIS 4] evaluateReleaseReadiness — structural shape', () => {
     const modulation = report.items.find(i => i.id === 'modulation-count');
     const introVariety = report.items.find(i => i.id === 'intro-type-variety');
     expect(modulation?.status).toBe('not-measured');
-    expect(modulation?.notImplemented).toBe(true);
+    expect(modulation?.notImplemented).toBe(false);
     expect(introVariety?.status).toBe('not-measured');
-    expect(introVariety?.notImplemented).toBe(true);
+    expect(introVariety?.notImplemented).toBe(false);
+  });
+
+  it('modulation count / intro-type variety / era share / motif quota / chord dominance are genuinely measured for the senior-morning archetype', () => {
+    const report = evaluateReleaseReadiness({
+      songs: scoredSongs,
+      conceptLabel: opts.customConcept || opts.projectTitle,
+      songCount: opts.songCount,
+      audienceProfile,
+      lyricLanguage: 'english',
+      archetype: channel.archetype
+    });
+    expect(channel.archetype).toBe('senior-morning');
+    const modulation = report.items.find(i => i.id === 'modulation-count');
+    const introVariety = report.items.find(i => i.id === 'intro-type-variety');
+    const eraShare = report.items.find(i => i.id === 'senior-era-share');
+    const motifQuota = report.items.find(i => i.id === 'senior-motif-quota');
+    const chordDominance = report.items.find(i => i.id === 'senior-chord-dominance');
+    for (const item of [modulation, introVariety, eraShare, motifQuota, chordDominance]) {
+      expect(item).toBeDefined();
+      expect(['pass', 'fail', 'not-measured']).toContain(item?.status);
+      expect(item?.detail).not.toBe('');
+    }
   });
 
   it('audio-dependent fullAudit items (requiresAudio) are excluded entirely, never reported as a fake failure', () => {

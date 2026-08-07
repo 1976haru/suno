@@ -174,6 +174,7 @@ export async function finalizeBlueprintForUse(
     songCount: fullyScored.length,
     audienceProfile: context.audienceProfile,
     lyricLanguage: context.lyricLanguage,
+    archetype: context.channel.archetype,
     duplicationHistory: context.duplicationHistory,
     explorationTrackNos: context.explorationTrackNos
   });
