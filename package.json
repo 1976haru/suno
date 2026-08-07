@@ -21,6 +21,7 @@
     "test:matrix": "vitest run --config vitest.matrix.config.ts",
     "audit": "tsx scripts/audit.ts",
     "audit:isolation": "tsx scripts/isolationAudit.ts",
+    "check:node": "tsx scripts/checkNodeReachability.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",

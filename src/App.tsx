@@ -32,6 +32,7 @@ import { usePackLibrary } from './hooks/usePackLibrary';
 import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
 import { evaluateGenerationRequest } from './core/generationPreflight';
+import { evaluateDesignGateResponsive } from './core/localGenerationClient';
 import { genresForOptions, moodsForOptions, resolveGenerationContext, withGenerationSnapshot } from './core/generationSnapshot';
 import { applyConceptFitScore } from './core/promiseAudit';
 import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, reconcileImportOptsWithMeta, type ImportSongsReport } from './core/claudeCodeBridge';
@@ -1201,7 +1202,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         setCount,
         songsPerSet,
         genres: fallbackGenres()
-      });
+      }, evaluateDesignGateResponsive);
       const combined = combineMultiSetPreflight(perSet, generationAcknowledgedSignature);
       if (!combined.allowed) {
         setCurrentStep(4);
@@ -1215,7 +1216,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       options: effectiveOpts,
       genres: fallbackGenres(),
       acknowledgedSignature: generationAcknowledgedSignature
-    });
+    }, evaluateDesignGateResponsive);
     if (!preflight.allowed) {
       setCurrentStep(4);
       return false;

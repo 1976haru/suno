@@ -109,6 +109,39 @@ jobs:
       - run: npm ci
       - run: npm run audit:isolation
 
+  # 지시문 08 (TASK B) — the 48-item concept audit (scripts/audit.ts) had no
+  # CI coverage at all; it silently crashed under tsx/node from feed5a6
+  # (v5.17) through this branch's own start point (TASK A of this same
+  # directive fixed the underlying `?worker` static-import leak). `npm run
+  # audit` never passes `--save-baseline` (opt-in CLI flag only, see
+  # scripts/audit.ts's own usage comment) — baseline updates stay a human,
+  # explicit-commit action, never automatic in CI.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run audit
+
+  # 지시문 08 (TASK A-2/B) — regression guard for the exact class of bug TASK
+  # A of this directive fixed: a node/tsx-unreachable Vite-only import
+  # (`?worker`/`?url`) or a top-level browser global creeping back into
+  # anything scripts/audit.ts statically imports.
+  check-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:node
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

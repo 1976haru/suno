@@ -25,12 +25,11 @@
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, WorkspaceId } from '../types';
 import { getWorkspace, type WorkspaceDefinition } from '../data/workspaces';
 import { workspaceAvailabilityFor } from '../data/workspaceAvailability';
-import type { DesignGateResult } from './designGate';
+import { evaluateDesignGate, type DesignGateResult } from './designGate';
 import { buildResolvedGenerationContract, userChoicesFromOptions, type ResolvedGenerationContract } from './userChoices';
 import { preallocateSongSlots } from './batchPreallocation';
-import { resolveConstraintsFromOptions } from './constraints';
+import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
-import { evaluateDesignGateResponsive } from './localGenerationClient';
 import { hashSeed } from '../utils/prng';
 import { validateChannelProfile } from '../utils/channelProfile';
 
@@ -274,6 +273,25 @@ export interface GenerationRequestInput {
 }
 
 /**
+ * Evaluates 관문 1 for a real preallocated slot plan. Defaults to the pure,
+ * synchronous designGate.ts#evaluateDesignGate so this module (and anything
+ * that statically imports it, e.g. scripts/audit.ts's chain through
+ * generationSnapshot.ts) never pulls in localGenerationClient.ts's
+ * `?worker` import at module-load time — that top-level Vite-only import
+ * previously made this file, and everything that imports it, unloadable
+ * under tsx/node (SyntaxError on `?worker`). Browser callers that want the
+ * non-blocking worker path (App.tsx, multiSetGeneration.ts) pass
+ * localGenerationClient.ts's evaluateDesignGateResponsive in explicitly —
+ * the decision of whether to run on a worker now belongs to the UI-facing
+ * caller, not to this pure orchestration module.
+ */
+export type DesignGateEvaluator = (
+  slots: PreassignedSongSlot[],
+  constraints: ResolvedConstraints,
+  opts: GenerationOptions
+) => DesignGateResult | Promise<DesignGateResult>;
+
+/**
  * The one real orchestration path every generation trigger point (top
  * button, Step3's own button, batch submit, bridge-instruction copy,
  * hook-warning "continue anyway", cache-bypass "regenerate", ...) should
@@ -281,15 +299,17 @@ export interface GenerationRequestInput {
  * slots/contract/design-gate resolveGenerationPreflight needs, the same way
  * Step3Generate.tsx's own preview already builds them
  * (preallocateSongSlots -> userChoicesFromOptions/buildResolvedGenerationContract
- * -> resolveConstraintsFromOptions/evaluateDesignGateResponsive), so every
+ * -> resolveConstraintsFromOptions/evaluateDesignGate), so every
  * trigger point evaluates identical real state through one shared function
  * instead of each hand-rolling its own (potentially inconsistent) version.
- * Pure aside from evaluateDesignGateResponsive's own Worker dispatch (a
- * no-op fallback to the sync evaluateDesignGate when Worker is unavailable,
- * e.g. under vitest/node — see localGenerationClient.ts), so this is
- * directly unit-testable with real fixtures, no DOM/React needed.
+ * Pure by default; `designGateEvaluator` lets a caller substitute the
+ * worker-backed evaluateDesignGateResponsive without this module itself
+ * depending on it.
  */
-export async function evaluateGenerationRequest(input: GenerationRequestInput): Promise<PreflightResult> {
+export async function evaluateGenerationRequest(
+  input: GenerationRequestInput,
+  designGateEvaluator: DesignGateEvaluator = evaluateDesignGate
+): Promise<PreflightResult> {
   const { workspaceId, options, genres, avoid, acknowledgedSignature } = input;
   const slots = preallocateSongSlots(options, genres, avoid);
   const choices = userChoicesFromOptions(options);
@@ -299,6 +319,6 @@ export async function evaluateGenerationRequest(input: GenerationRequestInput): 
     audienceProfileForChannelArchetype(options.channel.archetype, options.audience),
     workspaceId
   );
-  const designGate = await evaluateDesignGateResponsive(slots, constraints, options);
+  const designGate = await designGateEvaluator(slots, constraints, options);
   return resolveGenerationPreflight({ workspaceId, options, slots, contract, designGate, acknowledgedSignature });
 }

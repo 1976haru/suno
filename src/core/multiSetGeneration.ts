@@ -7,7 +7,7 @@ import { userChoicesFromOptions } from './userChoices';
 import { normalizeDiversityAllocations } from './diversityAllocation';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { readRecentGenreIds } from './recentGenreStore';
-import { evaluateGenerationRequest, stableHash, type PreflightReason, type PreflightResult } from './generationPreflight';
+import { evaluateGenerationRequest, stableHash, type DesignGateEvaluator, type PreflightReason, type PreflightResult } from './generationPreflight';
 import { withGenerationSnapshot } from './generationSnapshot';
 import { preallocateSongSlots } from './batchPreallocation';
 import { applyConceptFitScore } from './promiseAudit';
@@ -287,7 +287,10 @@ export interface MultiSetPreflightInput {
  * only orchestrates N real single-set checks (the existing constraint that
  * multi-set preflight must never be a parallel, potentially-looser check).
  */
-export async function evaluateMultiSetGenerationRequest(input: MultiSetPreflightInput): Promise<PreflightResult[]> {
+export async function evaluateMultiSetGenerationRequest(
+  input: MultiSetPreflightInput,
+  designGateEvaluator?: DesignGateEvaluator
+): Promise<PreflightResult[]> {
   const { workspaceId, baseOptions, setCount, songsPerSet, genres, avoid } = input;
   const results: PreflightResult[] = [];
   // Mirrors this file's own runMultiSetGeneration recentGenreIdsWindow above exactly.
@@ -296,7 +299,9 @@ export async function evaluateMultiSetGenerationRequest(input: MultiSetPreflight
   for (let index = 0; index < setCount; index++) {
     const setOpts = buildSetOptions(baseOptions, index, setCount, songsPerSet, recentGenreIdsWindow.slice(-3).flat());
     recentGenreIdsWindow.push(setOpts.genreIds);
-    const result = await evaluateGenerationRequest({ workspaceId, options: setOpts, genres, avoid });
+    const result = designGateEvaluator
+      ? await evaluateGenerationRequest({ workspaceId, options: setOpts, genres, avoid }, designGateEvaluator)
+      : await evaluateGenerationRequest({ workspaceId, options: setOpts, genres, avoid });
     results.push(result);
   }
 
