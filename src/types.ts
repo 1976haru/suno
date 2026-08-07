@@ -145,6 +145,30 @@ export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-textur
 export type ScenePlanningMode = 'fixed-pool' | 'concept-generated' | 'same-story-comparison';
 
 /**
+ * 지시문 10 (TASK A-2) — decade-granularity era intent, distinct from
+ * core/constraints.ts's own EraConstraint/EraBucket: EraBucket collapses
+ * 1950s+1960s into one genre-data bucket ('1950s-60s', since the genre
+ * library has no finer split), which is the right granularity for GENRE
+ * selection but too coarse for reading what a stylePrompt's own PROSE
+ * actually claims ("1960s" vs "1970s" are different literal strings a real
+ * pack can and does mix — see core/eraIntent.ts's extractEraClaims). This
+ * type is built ON TOP of the existing EraConstraint (core/eraIntent.ts's
+ * deriveEraIntent reuses core/constraints.ts's extractEraConstraint
+ * unchanged for all the hard Korean-text parsing work — no new parser),
+ * never a replacement for it — genre-pool filtering still keys off
+ * EraBucket/ERA_BUCKET_BY_GENRE_ID, only the prose-claim check below reads
+ * this finer type. Stored on GenerationOptions.eraIntent (and so, via
+ * GenerationSnapshot.options, on the generation snapshot too) once computed.
+ */
+export interface EraIntent {
+  primary: '1950s' | '1960s' | '1970s' | '1980s' | '1990s' | '2000s' | '2010s' | '2020s';
+  secondary?: EraIntent['primary'];
+  primaryMinShare: number;
+  secondaryMaxShare?: number;
+  transitionAllowed: boolean;
+}
+
+/**
  * v5.13 (TASK: kidsAgeTierId wiring) — the real, previously-undone gap named
  * in data/kidsAgeTiers.ts/data/kidsStructureTemplates.ts/data/kidsVocabularyWhitelist.ts/
  * data/killingPointsKids.ts/data/onomatopoeia.ts/core/arcModels.ts/core/promptComposer.ts's
@@ -714,6 +738,18 @@ export interface GenerationOptions {
   perspectiveModeIsExplicitChoice?: boolean;
   customMoneyChord: string;
   customConcept: string;
+  /**
+   * 지시문 10 (TASK A-2) — computed once by core/eraIntent.ts's
+   * deriveEraIntent (customConcept text, reusing core/constraints.ts's
+   * extractEraConstraint) and stored here so every downstream reader (genre
+   * candidate filtering, the design-gate insufficient-candidates check,
+   * fullAudit.ts's era-prompt-claim check) reads the exact same resolved
+   * intent instead of re-deriving it independently and risking drift.
+   * Undefined for a concept with no era signal at all (era.unspecified) —
+   * callers must not force an era in that case, same principle
+   * EraConstraint.unspecified already documents.
+   */
+  eraIntent?: EraIntent;
   /**
    * v5.13 (TASK: kidsAgeTierId wiring) — per-generation override of
    * `channel.kidsAgeTierId`, same priority relationship opts.vocalTone

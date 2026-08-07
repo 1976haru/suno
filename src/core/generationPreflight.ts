@@ -28,7 +28,8 @@ import { workspaceAvailabilityFor } from '../data/workspaceAvailability';
 import { evaluateDesignGate, type DesignGateResult } from './designGate';
 import { buildResolvedGenerationContract, userChoicesFromOptions, type ResolvedGenerationContract } from './userChoices';
 import { preallocateSongSlots } from './batchPreallocation';
-import { resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
+import { GENRE_ERA_QUOTA_PER_GENRE_CAP, resolveConstraintsFromOptions, type ResolvedConstraints } from './constraints';
+import { deriveEraIntent, eraDeviantGenreIds } from './eraIntent';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { hashSeed } from '../utils/prng';
 import { validateChannelProfile } from '../utils/channelProfile';
@@ -159,6 +160,38 @@ function genreZeroSongsHardBlock(options: GenerationOptions, slots: PreassignedS
 }
 
 /**
+ * 지시문 10 (TASK A-3) — "제외 결과 후보가 부족해지면 설계 관문에서 차단하고
+ * 사유를 표시한다. 조용히 다른 시대 장르로 채우지 않는다." core/batchPreallocation.ts's
+ * genrePool now hard-filters era-deviant genres out of the candidate pool
+ * (see that module's own genrePool doc comment) — this is the companion
+ * check that stops generation BEFORE it runs when that filter would leave
+ * too few real candidates to reach songCount, rather than letting
+ * core/constraints.ts's applyEraQuota silently reach outside the intended
+ * era to fill the shortfall. Reuses the same minimum-genre-count formula
+ * core/setDirector.ts's chooseGenreIds already applies for breadth
+ * (`Math.ceil(songCount / GENRE_ERA_QUOTA_PER_GENRE_CAP)`) rather than a new
+ * arbitrary threshold. Senior-morning only (this directive's own "시니어
+ * 워크스페이스만"), and only when the caller hasn't already made an explicit
+ * manual genre-axis choice (that choice always wins, same convention as
+ * every other axis).
+ */
+function eraGenrePoolInsufficientHardBlock(options: GenerationOptions): PreflightReason | null {
+  if (options.channel.archetype !== 'senior-morning') return null;
+  const genreAllocation = options.diversityAllocations?.find(a => a.axis === 'genre');
+  if (genreAllocation?.mode === 'manual') return null;
+  const intent = deriveEraIntent(options.customConcept ?? '');
+  if (!intent || !options.genreIds?.length) return null;
+  const { eligible } = eraDeviantGenreIds(intent, options.genreIds);
+  const minimumNeeded = Math.ceil(options.songCount / GENRE_ERA_QUOTA_PER_GENRE_CAP);
+  if (eligible.length >= minimumNeeded) return null;
+  return {
+    field: 'eraGenrePoolInsufficient',
+    messageKo: `"${options.customConcept}" 컨셉(${intent.primary} 위주)에 맞는 장르가 ${eligible.length}종뿐입니다(최소 ${minimumNeeded}종 필요, ${options.songCount}곡 기준) — 다른 시대 장르로 조용히 채우지 않고 여기서 멈춥니다. 장르를 직접 고르거나 컨셉을 조정하세요.`,
+    severity: 'block'
+  };
+}
+
+/**
  * "scaffold 워크스페이스" — this codebase's real, existing concept is
  * data/workspaces/index.ts's WorkspaceDefinition.ready: false means "skeleton
  * only, placeholder value" per that field's own doc comment (never built out
@@ -220,7 +253,8 @@ export function resolveGenerationPreflight(input: GenerationPreflightInput): Pre
     channelArchetypeHardBlock(workspace, options),
     genreZeroSongsHardBlock(options, slots),
     workspaceScaffoldHardBlock(workspace),
-    channelProfileInvalidHardBlock(options)
+    channelProfileInvalidHardBlock(options),
+    eraGenrePoolInsufficientHardBlock(options)
   ].filter((reason): reason is PreflightReason => reason !== null);
 
   if (hardReasons.length) {

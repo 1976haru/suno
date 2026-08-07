@@ -226,6 +226,51 @@ describe('resolveGenerationPreflight — hard blocks never offer a proceed-anywa
     expect(result.reasons.every(r => r.severity === 'block')).toBe(true);
     expect(result.reasons.some(r => r.field === 'moneyChordMode')).toBe(false);
   });
+
+  // 지시문 10 (TASK A-3) — "제외 결과 후보가 부족해지면 설계 관문에서 차단하고
+  // 사유를 표시한다." A "60년대" concept whose genreIds have been narrowed to
+  // only 1980s-bucket genres has zero real 1960s/1970s/timeless candidates —
+  // the design gate must stop here rather than let applyEraQuota silently
+  // reach outside the intended era to fill songCount.
+  it('blocks when an era-narrowed concept has too few era-eligible genre candidates left', () => {
+    const opts = makeOptions({
+      channel: seniorChannel,
+      songCount: 6,
+      customConcept: '60년대 올드팝 명곡',
+      genreIds: ['oldpop-adult-contemporary-80s', 'oldpop-quiet-storm-warm']
+    });
+    const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: 'oldpop-adult-contemporary-80s' }));
+    const choices = userChoicesFromOptions(opts);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
+
+    const result = resolveGenerationPreflight({
+      workspaceId: 'senior-oldpop',
+      options: opts,
+      slots,
+      contract,
+      designGate: CLEAN_DESIGN_GATE,
+      acknowledgedSignature: 'anything-at-all'
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.requiresAcknowledgement).toBe(false);
+    expect(result.reasons.some(r => r.field === 'eraGenrePoolInsufficient' && r.severity === 'block')).toBe(true);
+  });
+
+  it('does NOT block when genreIds already give enough era-eligible candidates', () => {
+    const opts = makeOptions({
+      channel: seniorChannel,
+      songCount: 6,
+      customConcept: '60년대 올드팝 명곡',
+      genreIds: seniorChannel.preferredGenres
+    });
+    const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
+    const choices = userChoicesFromOptions(opts);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
+
+    const result = resolveGenerationPreflight({ workspaceId: 'senior-oldpop', options: opts, slots, contract, designGate: CLEAN_DESIGN_GATE });
+    expect(result.reasons.some(r => r.field === 'eraGenrePoolInsufficient')).toBe(false);
+  });
 });
 
 describe('resolveGenerationPreflight — soft mismatches are acknowledgeable via a content-based signature', () => {

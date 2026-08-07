@@ -13,6 +13,8 @@ import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, t
 import type { AudioSetReport } from './audioSetReport';
 import { resolveBpmLengthTier } from './bpmLengthControl';
 import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
+import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
+import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -596,6 +598,42 @@ function workspaceItems(): AuditItem[] {
 }
 
 /**
+ * 지시문 10 (TASK A-4) — the prose-claim counterpart to promptItems' own
+ * eraViolations check (which reads genre-bucket-derived ERA_FORBIDDEN_DESCRIPTORS
+ * anachronism terms, not what the stylePrompt's decade-prose actually
+ * claims). `not-measured` (never a fake pass) whenever the concept has no
+ * detected era signal at all — deriveEraIntent returns undefined for that
+ * case and this app never forces an era onto a concept that didn't name one.
+ */
+function eraIntentItems(songs: SongIdea[], conceptLabel: string, explorationTrackNos: readonly number[] = []): AuditItem[] {
+  const intent = deriveEraIntent(conceptLabel);
+  if (!intent) {
+    return [
+      item({
+        id: 'era_prompt_claim', category: '워크스페이스', labelKo: 'stylePrompt 시대 표기 (EraIntent)',
+        targetKo: `primary ≥ ${Math.round(SENIOR_ERA_POLICY.singlePrimaryMin * 100)}%`, actualKo: '컨셉에 시대 신호 없음 — 판정 불가',
+        pass: null, requiresAudio: false, specifiedBy: ['지시문 10 TASK A-4']
+      })
+    ];
+  }
+  const result = checkEraPromptAgainstIntent(songs, intent, new Set(explorationTrackNos));
+  return [
+    item({
+      id: 'era_prompt_claim', category: '워크스페이스', labelKo: 'stylePrompt 시대 표기 — primary 비중',
+      targetKo: `≥ ${Math.round(intent.primaryMinShare * 100)}%`, actualKo: `${Math.round(result.primaryShare * 100)}%`,
+      pass: !result.primaryBelowTarget, requiresAudio: false, specifiedBy: ['지시문 10 TASK A-4'],
+      metric: { value: result.primaryShare, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'era_prompt_other_pure', category: '워크스페이스', labelKo: 'stylePrompt 시대 표기 — 다른 시대 단독 (탐색 슬롯 제외)',
+      targetKo: '0곡 (탐색 슬롯 아닌 트랙)', actualKo: `${result.blockingOtherEraPureTrackNos.length}곡${result.blockingOtherEraPureTrackNos.length ? ` (T${result.blockingOtherEraPureTrackNos.join(', T')})` : ''}`,
+      pass: result.blockingOtherEraPureTrackNos.length === 0, requiresAudio: false, specifiedBy: ['지시문 10 TASK A-4'],
+      metric: { value: result.blockingOtherEraPureTrackNos.length, direction: 'lowerIsBetter' }
+    })
+  ];
+}
+
+/**
  * v3.76 (TASK B) — the one entry point: given an already-generated pack,
  * runs every check this app's task history has asked for, in one pass.
  * Pure — no IndexedDB, no fetch, no file I/O (scripts/audit.ts's CLI wraps
@@ -603,7 +641,7 @@ function workspaceItems(): AuditItem[] {
  */
 export function runFullAudit(
   songs: SongIdea[],
-  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport }
+  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[] }
 ): FullAuditReport {
   const promiseAuditReport = auditPromises(songs, opts.conceptLabel);
   const titleConsistency = auditTitleConceptConsistency(songs);
@@ -616,7 +654,8 @@ export function runFullAudit(
     ...audioItems(opts.audioReport),
     ...titleItems(songs, titleConsistency),
     ...promiseItems(promiseAuditReport),
-    ...workspaceItems()
+    ...workspaceItems(),
+    ...eraIntentItems(songs, opts.conceptLabel, opts.explorationTrackNos ?? [])
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency };
 }

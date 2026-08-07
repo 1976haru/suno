@@ -240,6 +240,36 @@ export function extractEraConstraint(freeText: string, artistReferenceEraTags: s
   return { primary, adjacent, forbidden, unspecified: false };
 }
 
+/**
+ * 지시문 10 (TASK A-2) — decade-granularity refinement of an already-resolved
+ * EraBucket, for core/eraIntent.ts's EraIntent (which needs to distinguish
+ * "1960s" from "1970s" as literal prose strings, finer than EraBucket's own
+ * '1950s-60s' genre-data grouping). Deliberately does NOT re-run Korean-text
+ * detection — it only re-tests the exact same 1950-vs-1960 split within a
+ * bucket ExtractEraConstraint already decided is '1950s-60s', so this stays a
+ * refinement of that function's own result, not a second parser.
+ */
+export function decadeLabelForBucket(bucket: EraBucket, freeText: string): EraIntentDecade {
+  if (bucket !== '1950s-60s') return BUCKET_TO_DECADE[bucket];
+  return /1950|50년대/i.test(freeText) && !/1960|1960s|60년대|\b60s\b/i.test(freeText) ? '1950s' : '1960s';
+}
+
+export type EraIntentDecade = '1950s' | '1960s' | '1970s' | '1980s' | '1990s' | '2000s' | '2010s' | '2020s';
+
+// 'timeless' never actually reaches decadeLabelForBucket in practice —
+// extractEraConstraint only ever returns primary:'timeless' paired with
+// unspecified:true, and every real caller (core/eraIntent.ts's
+// deriveEraIntent) skips building an EraIntent at all when unspecified is
+// true. Kept as a defensive, harmless default so this Record stays
+// exhaustive over EraBucket rather than needing an `as` cast.
+const BUCKET_TO_DECADE: Record<EraBucket, EraIntentDecade> = {
+  '1950s-60s': '1960s',
+  '1970s': '1970s',
+  '1980s': '1980s',
+  timeless: '1960s',
+  '2000s': '2000s'
+};
+
 // ---------------------------------------------------------------------------
 // v5.7 (TASK v5.7, TASK C §3-3) — mood/atmosphere axis extraction
 // ---------------------------------------------------------------------------
@@ -399,7 +429,10 @@ export function detectConceptBreadth(freeText: string, era: EraConstraint): Conc
   return 'balanced';
 }
 
-const GENRE_ERA_QUOTA_PER_GENRE_CAP = 5;
+// 지시문 10 (TASK A-3) — exported so core/batchPreallocation.ts's
+// genreCountsFromIds seed uses this exact same per-genre cap directSetLocal
+// already does, instead of a separate literal `5` that could silently drift.
+export const GENRE_ERA_QUOTA_PER_GENRE_CAP = 5;
 /** Genres with no oldpop-* era bucket at all (eraBucketForGenreId returns null) — this task's own "시대 표기 없는 범용 장르" bucket, capped at 20% same as any adjacent bucket. */
 const GENERIC_ERA_SHARE = 0.2;
 
@@ -673,6 +706,49 @@ export function applyEraQuota(
     }
   }
   return { counts: result, warnings };
+}
+
+/**
+ * v3.78 follow-up (genre-singleton root cause) — a plain round-robin-with-cap
+ * (`ids[index % ids.length]`) can leave a low-ranked candidate at exactly 1
+ * song whenever the per-id cap binds for higher-ranked candidates before
+ * `songCount` is fully placed (e.g. 2 genres reach cap 5 each, leaving a 6th
+ * candidate to soak up a lone leftover song). This is genre-selection's own
+ * version of the same bug applyEraQuota's own distributeInto had: decide how
+ * many distinct genre ids are actually needed to hold `songCount` without any
+ * one exceeding `cap` (`Math.ceil(songCount / cap)`), then round-robin evenly
+ * across exactly that many — instead of the whole candidate list — so a
+ * lower-ranked id is only touched when the pack genuinely needs it, and when
+ * it is touched it gets a real share, not a stray 1.
+ *
+ * Lives here (not core/setDirector.ts, its original home) so
+ * core/batchPreallocation.ts can seed applyEraQuota's genreCounts input with
+ * the same singleton-avoiding split core/setDirector.ts's directSetLocal
+ * already gets, without an import cycle (setDirector.ts already imports
+ * FROM batchPreallocation.ts's preallocateSongSlots) — see 지시문 10 TASK A-3.
+ */
+export function genreCountsFromIds(ids: string[], songCount: number, cap: number): Record<string, number> {
+  if (!ids.length || songCount <= 0) return {};
+  const counts: Record<string, number> = {};
+  let remaining = songCount;
+  const pool = [...ids];
+  while (remaining > 0 && pool.length) {
+    const genresToOpen = Math.min(pool.length, Math.max(1, Math.ceil(remaining / cap)));
+    const chosen = pool.splice(0, genresToOpen);
+    let progressed = true;
+    while (remaining > 0 && progressed) {
+      progressed = false;
+      for (const id of chosen) {
+        if (remaining <= 0) break;
+        const current = counts[id] ?? 0;
+        if (current >= cap) continue;
+        counts[id] = current + 1;
+        remaining -= 1;
+        progressed = true;
+      }
+    }
+  }
+  return counts;
 }
 
 /** For compositionScorer.ts's era-vs-concept advisory/blocking check — the actual measured share of each bucket in a resolved genre-count map. */

@@ -61,14 +61,15 @@ import { breakLongRuns, pinPrefixPreservingCounts, reorderByArcIntensity } from 
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
-import { resolveConstraintsFromOptions } from './constraints';
+import { applyEraQuota, extractEraConstraint, GENRE_ERA_QUOTA_PER_GENRE_CAP, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { vocabularyBankForScene } from '../data/vocabularyBanks';
 import { workspaceForArchetype } from '../data/workspaces';
-import { getGenreById } from '../data/genreLibrary';
+import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 
 export type { PreassignedSongSlot };
@@ -214,8 +215,48 @@ export function preallocateSongSlots(
   // local k=3 contest the synchronous path uses, not a plain single-hook pick.
   const packContext: OpeningPackContext = { dominantGenreIds: opts.genreIds ?? [], dominantMoodIds: opts.moodIds ?? [] };
   const genrePool = Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean)));
-  const autoGenrePlan = buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const genreAllocation = allocationForAxis(opts.diversityAllocations, 'genre');
+  /**
+   * 지시문 10 (TASK A-3) — real measured bug: this is the actual genre pool
+   * the real bridge deployment path (core/bridgeInstruction.ts's
+   * preallocateSongSlots call) assigns per track — core/setDirector.ts's own
+   * era-quota system (extractEraConstraint -> tightenEraConstraintForSenior
+   * -> applyEraQuota) only ever ran inside directSetLocal, the LOCAL PREVIEW
+   * path (scripts/audit.ts's own generatePack, never what a real published
+   * pack goes through). A real "60년대" concept's genrePool here was every
+   * channel.preferredGenres id with zero era awareness — 3 of its 4 real
+   * genres for a real pack turned out to be 1970s-bucket (oldpop-soft-rock-am,
+   * oldpop-motown-pop-soul, oldpop-piano-ballad-70s), landing 10/18 songs
+   * with pure-1970s stylePrompt text against a "60년대" concept. Skipped when
+   * the caller already made an explicit 'manual' genre-axis choice (that
+   * choice always wins, same as every other axis in this file) or the
+   * concept has no era signal at all (era.unspecified — never force an era).
+   * Scoped to senior-morning only (this directive's own "시니어 워크스페이스만
+   * 실질 변경, 다른 워크스페이스는 additive-only") — directSetLocal's
+   * unconditional applyEraQuota call already gives every OTHER workspace's
+   * local-preview path era-awareness today, but extending that to their real
+   * bridge-deployment path is out of this task's scope.
+   */
+  const eraConstraint = genreAllocation?.mode === 'manual' || opts.channel.archetype !== 'senior-morning'
+    ? undefined
+    : extractEraConstraint(opts.customConcept ?? '');
+  const eraQuotaCounts = eraConstraint && !eraConstraint.unspecified
+    ? applyEraQuota(
+        genreCountsFromIds(genrePool, opts.songCount, GENRE_ERA_QUOTA_PER_GENRE_CAP),
+        opts.songCount,
+        tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
+        genre => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning')
+      ).counts
+    : undefined;
+  // core/setDirector.ts's directSetLocal uses Object.keys(quotaAdjustedCounts)
+  // as its own final genre-id list, not the pre-quota pool — applyEraQuota's
+  // distributeInto can open a genre outside the original pool to reach a
+  // bucket's minimum share (never inventing an ineligible one; still filtered
+  // by the same channelFilter predicate passed in above), so filtering
+  // through the ORIGINAL genrePool here would silently drop those songs.
+  const autoGenrePlan = eraQuotaCounts
+    ? buildGenreCountRotationPlan(eraQuotaCounts, Object.keys(eraQuotaCounts), opts.songCount, seed)
+    : buildGenreRotationPlan(genrePool, opts.songCount, seed);
   const manualGenrePlan = genreAllocation?.mode === 'manual'
     ? buildGenreCountRotationPlan(genreAllocation.counts, genrePool, opts.songCount, seed)
     : [];

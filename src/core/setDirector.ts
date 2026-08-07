@@ -40,7 +40,7 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
@@ -587,47 +587,6 @@ function countsFromSlots(ids: string[], songCount: number, maxPer?: number) {
     index += 1;
     guard += 1;
     if (maxPer && ids.every(item => (counts[item] || 0) >= maxPer)) break;
-  }
-  return counts;
-}
-
-/**
- * v3.78 follow-up (genre-singleton root cause) — countsFromSlots' own plain
- * round-robin-with-cap (`ids[index % ids.length]`) can leave a low-ranked
- * candidate at exactly 1 song whenever the per-id cap binds for
- * higher-ranked candidates before `songCount` is fully placed (e.g. 2
- * genres reach cap 5 each, leaving a 6th candidate to soak up a lone
- * leftover song). This is genre-selection's own version of the same bug
- * `applyEraQuota`'s `distributeInto` had: decide how many distinct genre
- * ids are actually needed to hold `songCount` without any one exceeding
- * `cap` (`Math.ceil(songCount / cap)`), then round-robin evenly across
- * exactly that many — instead of the whole candidate list — so a
- * lower-ranked id is only touched when the pack genuinely needs it, and
- * when it is touched it gets a real share, not a stray 1. Used only for
- * the genre axis (both `preQuotaCounts` and per-segment counts below) —
- * `countsFromSlots` itself is left unchanged for introTexture/hookDevice,
- * which have no "no singleton" requirement.
- */
-function genreCountsFromIds(ids: string[], songCount: number, cap: number): Record<string, number> {
-  if (!ids.length || songCount <= 0) return {};
-  const counts: Record<string, number> = {};
-  let remaining = songCount;
-  const pool = [...ids];
-  while (remaining > 0 && pool.length) {
-    const genresToOpen = Math.min(pool.length, Math.max(1, Math.ceil(remaining / cap)));
-    const chosen = pool.splice(0, genresToOpen);
-    let progressed = true;
-    while (remaining > 0 && progressed) {
-      progressed = false;
-      for (const id of chosen) {
-        if (remaining <= 0) break;
-        const current = counts[id] ?? 0;
-        if (current >= cap) continue;
-        counts[id] = current + 1;
-        remaining -= 1;
-        progressed = true;
-      }
-    }
   }
   return counts;
 }
