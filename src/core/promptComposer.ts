@@ -1248,7 +1248,22 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
     // since "keep it short" alone measurably didn't work across 18 songs in
     // one sitting; core/compositionScorer.ts's own excludePrompt checks are
     // the backstop when this guidance isn't followed exactly.
-    excludePrompt: 'string; Suno Exclude styles text, never mixed into stylePrompt. Target 750-850 chars, hard cap 900 — comma-separated phrases, no duplicate singular/plural pairs ("copied melody" and "copied melodies" together), no phrase that is just a shorter version of another phrase already in the list (e.g. do not include both "sub bass" and "heavy sub bass"). Priority when trimming to fit: (1) copyright/artist-imitation safety terms, (2) this channel/audience\'s own hard exclusions, (3) era-consistency terms, (4) general production-quality preferences — cut from (4) first.',
+    //
+    // 지시문 10 (TASK C) — the target/cap numbers below are the exact same
+    // EXCLUDE_PROMPT_SAFE_TARGET/EXCLUDE_PROMPT_HARD_CAP constants this
+    // file's own buildExcludePrompt (local path) already enforces, pulled in
+    // by reference rather than retyped — this string can no longer drift
+    // from the real numbers the local compiler and compositionScorer.ts's
+    // blocking check both use. Second, separately measured problem this
+    // closes: a real 18-song bridge pack's excludePrompt was CHARACTER-FOR-
+    // CHARACTER IDENTICAL across all 18 tracks (1/18 unique) — the old text
+    // gave a length/dedup budget but never once said the content itself
+    // should differ by song, so the agent wrote one safe universal blob and
+    // reused it. The explicit instruction below is the fix: only this
+    // song's OWN genre/tempo/vocal/arrangement can produce a real conflict
+    // worth naming — an acoustic ballad has no reason to exclude "trap
+    // hi-hats" (nothing in that arrangement would ever produce one).
+    excludePrompt: `string; Suno Exclude styles text, never mixed into stylePrompt. Target ${EXCLUDE_PROMPT_SAFE_TARGET - 100}-${EXCLUDE_PROMPT_SAFE_TARGET} chars, hard cap ${EXCLUDE_PROMPT_HARD_CAP} — comma-separated phrases, no duplicate singular/plural pairs ("copied melody" and "copied melodies" together), no phrase that is just a shorter version of another phrase already in the list (e.g. do not include both "sub bass" and "heavy sub bass"). CRITICAL — this must be DIFFERENT per song, not one shared blob copy-pasted across the set: the safety/copyright/channel-hard-exclusion items are the same for every song in this pack, but everything beyond those must reflect what could ACTUALLY go wrong for THIS song specifically — its own genre, tempo, vocal, and arrangement. Do not name a production risk that arrangement could never produce (an acoustic ballad excluding "trap hi-hats" or "aggressive EDM drops" is a tell that this list wasn't actually written for this song). Priority when trimming to fit: (1) copyright/artist-imitation safety terms, (2) this channel/audience's own hard exclusions, (3) era-consistency terms, (4) this song's own genre/arrangement-specific risks — cut from (4) first, but never cut it to zero; a list with nothing but tier 1-3 items on every song is itself the collision this instruction exists to prevent.`,
     // TASK v3.70 (TASK B) — dropped "[end]" from this example: real bridge
     // output was literally reproducing every tag named here, and "[end]"
     // reads as nothing in Suno (see this task's own real-length measurement).

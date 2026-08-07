@@ -231,6 +231,14 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
     const match = song.stylePrompt.match(/\d:\d{2}-\d:\d{2}/g);
     return match && match.length > 1;
   });
+  // 지시문 10 (TASK C-4) — real measured bug: a real 18-song bridge pack's
+  // excludePrompt was character-for-character IDENTICAL across all 18
+  // tracks (1/18 unique). Only counts songs that actually HAVE an
+  // excludePrompt — a pack with none yet (local preview before this field is
+  // populated) reports not-measured below rather than a misleading "18/18
+  // unique" over an empty set.
+  const excludePromptsPresent = songs.map(song => song.excludePrompt).filter((value): value is string => Boolean(value?.trim()));
+  const excludePromptUniqueCount = new Set(excludePromptsPresent).size;
   // 지시문 10 (TASK D-4) — "final prompt compiler-normalized" measurement.
   // core/promptSpec.ts's auditStylePromptAgainstSpec already runs per-song
   // inside core/quality.ts's scoreSong (지시문 09 TASK C-2); this is the
@@ -285,6 +293,14 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
       id: 'duration_dup', category: '프롬프트', labelKo: 'duration 중복',
       targetKo: '0건', actualKo: `${durationDuplicates.length}건`,
       pass: durationDuplicates.length === 0, requiresAudio: false, specifiedBy: ['v3.59 TASK D-2']
+    }),
+    item({
+      id: 'exclude_prompt_unique', category: '프롬프트', labelKo: 'excludePrompt 고유값 (곡별 차별화)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: excludePromptsPresent.length ? `${excludePromptUniqueCount}/${excludePromptsPresent.length}` : '(excludePrompt 없음)',
+      pass: excludePromptsPresent.length ? excludePromptUniqueCount === excludePromptsPresent.length : null,
+      requiresAudio: false, specifiedBy: ['지시문 10 TASK C-4'],
+      metric: excludePromptsPresent.length ? { value: excludePromptUniqueCount, direction: 'higherIsBetter' } : undefined
     }),
     item({
       id: 'final_prompt_compiler_normalized', category: '프롬프트', labelKo: 'final prompt compiler-normalized (중복 BPM·보컬 선언 0건)',

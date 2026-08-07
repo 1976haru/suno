@@ -286,8 +286,14 @@ const STYLE_ALLOCATION_ITEM_IDS = new Set<string>([
 
 // TASK spec's own §4-3 "제목=훅 일치 8~10곡" band.
 const TITLE_EQUALS_HOOK_TARGET = { min: 8, max: 10 };
-// TASK spec's own §4-3 "excludePrompt 750~850자" band.
-const EXCLUDE_PROMPT_TARGET = { min: 750, max: 850 };
+// 지시문 10 (TASK C-2) — real dead code: this constant's only real consumer
+// was replaced by core/negativePromptSpec.ts's own checkNegativePromptLength
+// (지시문 05 TASK F, see the negativePromptLength item further down this
+// file) — nothing has read EXCLUDE_PROMPT_TARGET since. Removed rather than
+// left as a second, silently-stale "750~850자" band sitting next to the
+// real one (core/promptComposer.ts's EXCLUDE_PROMPT_SAFE_TARGET/HARD_CAP,
+// which the bridge schema text now references directly — see that file's
+// own songOutputShape doc comment).
 // codex 지시문 02 (TASK C) — TASK spec's own §4-3 "같은 소재 <= 4곡" is now
 // checked by core/motifFamilyCooldown.ts's checkMotifFamilyQuota, grouped
 // by data/motifFamilies.ts's own real family-per-frameId registry, rather

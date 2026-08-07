@@ -90,3 +90,37 @@ describe('지시문 10 TASK D — reconcileWithPreassignedSlot rawProviderStyleP
     expect(result.rawProviderStylePrompt).toBeUndefined();
   });
 });
+
+describe('지시문 10 TASK C — reconcileWithPreassignedSlot excludePrompt genre differentiation', () => {
+  it('appends this track\'s own genre avoidTraits when missing from the provider excludePrompt', () => {
+    // oldpop-warm-morning-glow's real avoidTraits: ['busy percussion', 'bright harsh top end']
+    const slot = slotFor({ genreId: 'oldpop-warm-morning-glow' });
+    const song = songFor({ excludePrompt: 'famous artist imitation, copied melodies' });
+    const result = reconcileWithPreassignedSlot(song, slot);
+    expect(result.excludePrompt?.toLowerCase()).toContain('busy percussion');
+    expect(result.excludePrompt?.toLowerCase()).toContain('bright harsh top end');
+    expect(result.excludePrompt?.toLowerCase()).toContain('famous artist imitation');
+  });
+
+  it('two tracks with different genres get different excludePrompt text', () => {
+    const songA = songFor({ excludePrompt: 'famous artist imitation, copied melodies' });
+    const songB = songFor({ trackNo: 2, excludePrompt: 'famous artist imitation, copied melodies' });
+    const resultA = reconcileWithPreassignedSlot(songA, slotFor({ trackNo: 1, genreId: 'oldpop-warm-morning-glow' }));
+    const resultB = reconcileWithPreassignedSlot(songB, slotFor({ trackNo: 2, genreId: 'oldpop-piano-ballad-70s' }));
+    expect(resultA.excludePrompt).not.toBe(resultB.excludePrompt);
+  });
+
+  it('never drops what the provider already wrote (purely additive)', () => {
+    const slot = slotFor({ genreId: 'oldpop-warm-morning-glow' });
+    const song = songFor({ excludePrompt: 'a very specific provider-written term' });
+    const result = reconcileWithPreassignedSlot(song, slot);
+    expect(result.excludePrompt?.toLowerCase()).toContain('a very specific provider-written term');
+  });
+
+  it('a slot with no genreId leaves excludePrompt untouched by this step', () => {
+    const slot = slotFor({ genreId: undefined });
+    const song = songFor({ excludePrompt: 'famous artist imitation' });
+    const result = reconcileWithPreassignedSlot(song, slot);
+    expect(result.excludePrompt).toBe('famous artist imitation');
+  });
+});

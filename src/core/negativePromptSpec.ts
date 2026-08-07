@@ -28,7 +28,9 @@ import { isKidsArchetype } from '../utils/channelArchetype';
  *    buildExcludePrompt already uses.
  *  - checkNegativePromptLength: a NEW, ADVISORY-ONLY 3-tier length signal
  *    (250-500/501-650/651+) — deliberately layered ALONGSIDE, not on top
- *    of, the existing EXCLUDE_PROMPT_TARGET (750-850, core/releaseReadiness.ts)
+ *    of, the existing EXCLUDE_PROMPT_SAFE_TARGET (850, core/promptComposer.ts —
+ *    지시문 10 removed releaseReadiness.ts's own separate, dead 750-850
+ *    literal that had drifted out of use)
  *    and EXCLUDE_PROMPT_HARD_CAP (900, core/compositionScorer.ts) BLOCKING
  *    checks, which stay completely unchanged — those numbers are real-
  *    measurement-calibrated to what a real pack's genuine safety/copyright/

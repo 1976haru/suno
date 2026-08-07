@@ -1333,9 +1333,29 @@ export function reconcileWithPreassignedSlot(
   // the provider wrote and what shipped is always inspectable later.
   const rawProviderStylePrompt = song.stylePrompt;
   const stylePrompt = normalizeProviderStylePrompt(rawProviderStylePrompt, slot);
-  const excludePrompt = slot.negativeStyleText
+  // 지시문 10 (TASK C) — real measured bug: a real 18-song bridge pack's
+  // excludePrompt was character-for-character identical across all 18
+  // tracks (1/18 unique) — the bridge schema instruction alone (see
+  // core/promptComposer.ts's songOutputShape doc comment) asks the provider
+  // to differentiate per song, but nothing enforced it, the same
+  // "prompt-only guidance measurably didn't work" pattern this whole
+  // directive's own §0 names. This appends THIS track's own genre-specific
+  // avoidTraits (data/genreLibrary's real, per-genre conflict list — an
+  // acoustic ballad's genre never lists "trap hi-hats") if missing, the same
+  // append-if-missing overlay normalizeProviderStylePrompt already applies
+  // to stylePrompt's own locked fields. Never removes anything the provider
+  // wrote (safety/copyright/channel terms untouched) — purely additive, so
+  // two tracks sharing the same genre still end up with more differentiated
+  // text than before even though they won't be FULLY unique from each other
+  // (a real, honestly-scoped structural floor, not a claim of 18/18 by
+  // itself — see the exclude_prompt_unique audit item for what's measured).
+  const genreAvoidTraits = slot.genreId ? getGenreById(slot.genreId)?.avoidTraits : undefined;
+  const excludePromptWithNegativeStyle = slot.negativeStyleText
     ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
     : song.excludePrompt;
+  const excludePrompt = genreAvoidTraits?.length
+    ? mergeNegativeStyleText(excludePromptWithNegativeStyle, genreAvoidTraits.join(', '))
+    : excludePromptWithNegativeStyle;
   const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText);
   // TASK v3.43 Step 2 (Part A3) — structureTemplate shapes the lyric's own
   // section tags, not stylePrompt, so unlike every field above there's
