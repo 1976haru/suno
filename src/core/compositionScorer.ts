@@ -490,12 +490,20 @@ export function scoreComposition(songs: SongIdea[], opts?: ScoreCompositionOptio
   const lyricBlockingFloor = Math.round(lyricTargetRange[0] * LYRIC_BLOCKING_FLOOR_RATIO);
   const lyricAdvisoryFloor = Math.round(lyricTargetRange[0] * LYRIC_ADVISORY_FLOOR_RATIO);
   const eraFindings = eraConsistencyFindings(songs, opts?.eraConstraint);
-  const vocalZoneWarnings = vocalZoneDistributionWarnings(songs);
   const structureFindings = vocalAndTempoStructureFindings(songs);
   // v5.14 (compositionScorer follow-up) — see DUET_GROUP_PHRASING_MARKERS'
   // own doc comment for the full background; gates the 3 male-only/
   // female-only text-leak checks below to a real fixed-quota channel only.
   const fixedQuotaChannel = Boolean(opts?.vocalQuotaOverride);
+  // codex 지시문 04 (§8, K-pop fixed-quota gating) — real bug: a K-pop pack
+  // with an intentional fixed vocal quota (e.g. 15 male / 0 female / 3 mixed
+  // for a boy group) legitimately clumps same-type vocal by DESIGN, not by
+  // accident — vocalZoneDistributionWarnings' own "same type 4+ in a zone"
+  // heuristic (v3.75 TASK C, written for freely-mixed workspaces where
+  // clumping is an unintended scheduling artifact) fired on every such pack
+  // regardless. Gated off here, same signal (`fixedQuotaChannel`) already
+  // used to gate the 3 male-only/female-only text-leak checks below.
+  const vocalZoneWarnings = fixedQuotaChannel ? [] : vocalZoneDistributionWarnings(songs);
 
   const vocabFindings = findArrangementVocabularyInLyrics(songs);
   const vocabByTrack = new Map<number, string[]>();
