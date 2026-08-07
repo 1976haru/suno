@@ -730,8 +730,13 @@ export const EXCLUDE_PROMPT_HARD_CAP = 900;
  * lowest priority last) into the remaining budget after `alwaysKeep` — never
  * splits a term mid-phrase, never reorders what it does include. Returns
  * only the terms that fit; a caller joins alwaysKeep + the return value.
+ *
+ * 지시문 10 (TASK E) — exported (was module-private) so
+ * scripts/excludeLengthTrial.ts can build its short/medium excludePrompt
+ * variants with the exact same budget-fitting rule buildExcludePrompt itself
+ * uses below, instead of a second, drifting reimplementation.
  */
-function fitWithinBudget(alwaysKeepText: string, candidates: readonly string[], target: number): string[] {
+export function fitWithinBudget(alwaysKeepText: string, candidates: readonly string[], target: number): string[] {
   let used = alwaysKeepText.length;
   const kept: string[] = [];
   for (const term of candidates) {
