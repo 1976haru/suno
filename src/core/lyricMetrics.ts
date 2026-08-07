@@ -491,3 +491,45 @@ export function lyricLanguageMismatchReasonKo(lyrics: string, language: LyricLan
   }
   return `lyricLanguage가 'bilingual'인데 영어와 ${detail.otherLanguage === 'japanese' ? '일본어' : '한국어'} 각각 실질 문장(2단어 이상)이 최소 ${BILINGUAL_MIN_REAL_LINES}줄씩 필요합니다 (실제 영어 ${detail.englishLines}줄, ${detail.otherLanguage === 'japanese' ? '일본어' : '한국어'} ${detail.otherLines}줄) — 성의 없는 응답이거나 단일 언어 응답일 가능성이 큽니다.`;
 }
+
+const SCENE_COPY_WINDOW_WORDS = 6;
+/** Below this many real words, a scene description is too short for a 6-word sliding window to mean anything — every real data/lyricThemes.ts scene entry is a full sentence (well above this), so this only ever guards against a hypothetical future one-liner. */
+const SCENE_COPY_MIN_SCENE_WORDS = 6;
+
+function normalizeForSceneCompare(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * codex 지시문 02 (TASK D) — real gap: lyricThemeSceneSection's own
+ * instruction prose ("never quote the description verbatim as a lyric
+ * line", "Do not quote lyricThemeText verbatim as lyrics") had no runtime
+ * check behind it anywhere in the codebase — a real response that pasted
+ * data/lyricThemes.ts's fixed-pool scene sentence directly into a lyric
+ * line would sail through completely unflagged, the same class of gap
+ * lyricLanguageMismatchWarning closed for language mismatches. Warn-only
+ * (same severity model as that function): a short natural overlap of a
+ * handful of common words is not a copy, so this only fires on a real
+ * SCENE_COPY_WINDOW_WORDS-word (default 6) consecutive run appearing
+ * verbatim in the lyrics, case/punctuation-insensitive. Every real
+ * data/lyricThemes.ts scene entry is English prose (see that file's own
+ * `scene` field values) regardless of the song's actual lyricLanguage, so
+ * this checks the raw lyrics text directly rather than trying to translate
+ * the scene first — a Korean/Japanese-language pack that pasted the raw
+ * English scene sentence in verbatim is exactly the failure mode this
+ * exists to catch.
+ */
+export function verbatimSceneCopyWarning(lyrics: string, sceneText: string | undefined, trackNo: number): string | undefined {
+  if (!sceneText || !lyrics.trim()) return undefined;
+  const sceneWords = normalizeForSceneCompare(sceneText).split(' ').filter(Boolean);
+  if (sceneWords.length < SCENE_COPY_MIN_SCENE_WORDS) return undefined;
+  const normalizedLyrics = normalizeForSceneCompare(lyrics);
+  const windowSize = Math.min(SCENE_COPY_WINDOW_WORDS, sceneWords.length);
+  for (let i = 0; i + windowSize <= sceneWords.length; i++) {
+    const window = sceneWords.slice(i, i + windowSize).join(' ');
+    if (normalizedLyrics.includes(window)) {
+      return `Track ${trackNo}: lyrics appear to copy the lyricThemeText scene description near-verbatim ("${window}") instead of depicting the scene in the song's own original words.`;
+    }
+  }
+  return undefined;
+}

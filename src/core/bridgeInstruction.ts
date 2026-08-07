@@ -4,6 +4,7 @@ import type {
   GenrePack,
   MoodPack,
   PreassignedSongSlot,
+  ScenePlanningMode,
   SeasonPack,
   WorkspaceId
 } from '../types';
@@ -258,6 +259,25 @@ function buildSetDirectorInterpretationSection(segments: SetDirectorSegmentLike[
 export interface ConceptSceneContext {
   recentSituations: string[];
   recentLyricLines: string[];
+}
+
+/**
+ * codex 지시문 02 (TASK D) — real trigger condition, mirrored exactly from
+ * conceptSceneInstructionLines's own guard (`if (!conceptSceneContext)
+ * return []`) + its own `opts.customConcept?.trim()` check just below it —
+ * this resolver exists so lyricThemeInstructionLineFor/lyricThemeSceneSection
+ * (the fixed-pool side) can ask "is the OTHER scene system also about to
+ * fire for this same instruction" without duplicating that condition a
+ * third time. Only ever 'concept-generated' in the single-pack bridge path
+ * (buildClaudeCodeInstruction) — master mode (buildMultiSetClaudeCodeMasterInstruction)
+ * never passes a conceptSceneContext at all today, so it always resolves
+ * 'fixed-pool' there, unchanged from pre-this-task behavior. 'same-story-
+ * comparison' has no real opts/context signal to key off yet — see
+ * types.ts's ScenePlanningMode doc comment for why it's still a real type
+ * member rather than removed.
+ */
+export function resolveScenePlanningMode(opts: Pick<GenerationOptions, 'customConcept'>, conceptSceneContext: ConceptSceneContext | undefined): ScenePlanningMode {
+  return conceptSceneContext && opts.customConcept?.trim() ? 'concept-generated' : 'fixed-pool';
 }
 
 function buildBridgePayload(
@@ -547,11 +567,22 @@ function structureTemplateInstructionLineFor(preassignedSongs: PreassignedSongSl
  * must depict the scene, and to explicitly forbid the quiet-alone default.
  * See lyricThemeSceneSection below for the actual per-track scene block —
  * this line now just points at it instead of repeating scene text inline.
+ *
+ * codex 지시문 02 (TASK D) — real collision this task closes: when
+ * scenePlanningMode is 'concept-generated', this same instruction ALSO
+ * contains conceptSceneInstructionLines telling the agent to invent its OWN
+ * concept-derived scene for these same tracks — the wording below used to
+ * unconditionally say the fixed-pool lyricThemeText "must" be depicted
+ * regardless, a second, contradictory scene authority in the same document.
+ * 'fixed-pool' mode (the default — no live customConcept+conceptSceneContext
+ * pair) keeps the exact pre-existing hard-mandate wording unchanged.
  */
-function lyricThemeInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.lyricTheme || slot.lyricThemeText)
-    ? '- Each "preassignedSongs" entry also includes "lyricThemeText" (and, for some tracks, "lyricThemeArc") - see the "[Lyric scenes]" section below for the full scene per track. This is not just a "listenerSituation" field to fill in: the actual sung verses/chorus of that song must depict this specific scene and its stated motion/energy, not a generic scene of your own choosing. Do not quote lyricThemeText verbatim as lyrics; write it out as a real scene in your own words. If "lyricThemeArc" is present, use it as the lyric emotional turn.'
-    : '';
+function lyricThemeInstructionLineFor(preassignedSongs: PreassignedSongSlot[], scenePlanningMode: ScenePlanningMode = 'fixed-pool'): string {
+  if (!preassignedSongs.some(slot => slot.lyricTheme || slot.lyricThemeText)) return '';
+  if (scenePlanningMode === 'concept-generated') {
+    return '- Each "preassignedSongs" entry also includes "lyricThemeText" (and, for some tracks, "lyricThemeArc") - see the "[Lyric scenes]" section below. You already built this set\'s own concept-derived scenes above (per the "먼저 만드십시오" step) — those take priority. Treat lyricThemeText as a FALLBACK scene only: use it if your own concept-derived scene for that track doesn\'t already give you enough to write from, or to check your scene isn\'t drifting into a generic quiet-alone default. Do not force both a concept-derived scene AND this fallback scene into the same song\'s lyrics. Do not quote lyricThemeText verbatim as lyrics.';
+  }
+  return '- Each "preassignedSongs" entry also includes "lyricThemeText" (and, for some tracks, "lyricThemeArc") - see the "[Lyric scenes]" section below for the full scene per track. This is not just a "listenerSituation" field to fill in: the actual sung verses/chorus of that song must depict this specific scene and its stated motion/energy, not a generic scene of your own choosing. Do not quote lyricThemeText verbatim as lyrics; write it out as a real scene in your own words. If "lyricThemeArc" is present, use it as the lyric emotional turn.';
 }
 
 /** v4.5 (TASK B) — data/lyricThemes.ts's motionKo/castKo/eraSettingKo are short Korean axis labels (originally v3.64 "allocation diversity metadata only" — see that file's own field doc comment), not English prose; this is the fixed vocabulary actually in use across the theme pool today, so an English-reading bridge agent gets real words instead of untranslated Korean. Falls back to passing the raw Korean through for any label not yet in this map (e.g. a future theme entry), which is still better than silently dropping the axis. */
@@ -596,8 +627,18 @@ function sceneAxisEn(labelKo: string | undefined): string | undefined {
  * shape, so a concept that explicitly asks for motion/energy needs an
  * explicit override, not just a positive description it can partially
  * ignore).
+ *
+ * codex 지시문 02 (TASK D) — 'concept-generated' mode: the header line
+ * changes from a hard "write THIS scene" mandate to an explicit fallback
+ * framing (this task's own literal "sceneFallback"/fallback-only intent),
+ * since the agent was already asked, earlier in the same instruction, to
+ * invent its own concept-derived scene for these same tracks — see
+ * lyricThemeInstructionLineFor's own doc comment for the full collision
+ * this closes. The per-track scene lines themselves are unchanged in
+ * either mode (still real, useful reference material — axis notes/emotional
+ * turn — just no longer phrased as a second mandatory scene).
  */
-function lyricThemeSceneSection(preassignedSongs: PreassignedSongSlot[]): string[] {
+function lyricThemeSceneSection(preassignedSongs: PreassignedSongSlot[], scenePlanningMode: ScenePlanningMode = 'fixed-pool'): string[] {
   const withScene = preassignedSongs.filter(slot => slot.lyricThemeText);
   if (!withScene.length) return [];
   const lines = withScene.flatMap(slot => {
@@ -612,9 +653,12 @@ function lyricThemeSceneSection(preassignedSongs: PreassignedSongSlot[]): string
       axisParts ? `    ${axisParts}` : ''
     ].filter(Boolean);
   });
+  const header = scenePlanningMode === 'concept-generated'
+    ? '[Lyric scenes — FALLBACK reference only] - you already built this set\'s own concept-derived scenes earlier in this instruction; those are what each track\'s lyrics should actually depict. The scenes below are a fallback/reference only (axis notes, emotional turn) for tracks where your own concept-derived scene needs a nudge — do not force this fallback scene into a song that already has its own concept-derived scene, and never quote the description verbatim as a lyric line.'
+    : '[Lyric scenes] - write THIS scene into each track\'s actual verses/chorus, in your own words (never quote the description verbatim as a lyric line). Do NOT default to a quiet, solitary "watching something alone" scene for these tracks even if that is this app\'s usual mood elsewhere in the pack - if a scene names motion (dancing, driving, traveling) or more than one person present, the lyrics must show that motion/energy/company, not replace it with stillness or solitude.';
   return [
     '',
-    '[Lyric scenes] - write THIS scene into each track\'s actual verses/chorus, in your own words (never quote the description verbatim as a lyric line). Do NOT default to a quiet, solitary "watching something alone" scene for these tracks even if that is this app\'s usual mood elsewhere in the pack - if a scene names motion (dancing, driving, traveling) or more than one person present, the lyrics must show that motion/energy/company, not replace it with stillness or solitude.',
+    header,
     ...lines
   ];
 }
@@ -1021,7 +1065,7 @@ function killingPointSection(preassignedSongs: PreassignedSongSlot[]): string[] 
   ];
 }
 
-export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[]): string {
+export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[], scenePlanningMode: ScenePlanningMode = 'fixed-pool'): string {
   if (!preassignedSongs.length) return '';
   const densityLabels: Record<string, string> = { sparse: 'sparse', medium: 'medium', full: 'full', auto: 'auto' };
   return [
@@ -1039,7 +1083,7 @@ export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot
     `hookDevice ${groupedBySlotValue(preassignedSongs, slot => slot.hookDeviceId, 4)}`,
     `arrangementDensity ${groupedBySlotValue(preassignedSongs, slot => slot.arrangementDensity, 5, densityLabels)}`,
     'Tracks in the same group may share a similar approach; tracks in different groups must feel clearly different. Choose the concrete musical wording yourself.',
-    ...lyricThemeSceneSection(preassignedSongs),
+    ...lyricThemeSceneSection(preassignedSongs, scenePlanningMode),
     ...vocabularyBankInstructionLineFor(preassignedSongs),
     ...killingPointSection(preassignedSongs)
   ].join('\n');
@@ -1480,7 +1524,12 @@ export function buildClaudeCodeInstruction(
   const introTextureInstructionLine = introTextureInstructionLineFor(preassignedSongs);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
   const genreInstructionLine = genreInstructionLineFor(preassignedSongs);
-  const lyricThemeInstructionLine = lyricThemeInstructionLineFor(preassignedSongs);
+  // codex 지시문 02 (TASK D) — resolved once here, reused for both
+  // lyricThemeInstructionLineFor below and buildSetPlanHandoffSection's own
+  // lyricThemeSceneSection call further down, so the two fixed-pool-scene
+  // instruction blocks never disagree about which mode is active.
+  const scenePlanningMode = resolveScenePlanningMode(opts, conceptSceneContext);
+  const lyricThemeInstructionLine = lyricThemeInstructionLineFor(preassignedSongs, scenePlanningMode);
   const povInstructionLine = povInstructionLineFor(preassignedSongs);
   const sectionStyleInstructionLine = sectionStyleInstructionLineFor(preassignedSongs);
 
@@ -1526,7 +1575,7 @@ export function buildClaudeCodeInstruction(
     '',
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
-    buildSetPlanHandoffSection(preassignedSongs, sanitizedGenres),
+    buildSetPlanHandoffSection(preassignedSongs, sanitizedGenres, scenePlanningMode),
     '',
     instructionOptions.setDirectorInterpretation
       ? buildSetDirectorInterpretationSection(instructionOptions.setDirectorInterpretation.segments, instructionOptions.setDirectorInterpretation.listeningContext)

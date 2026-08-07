@@ -135,18 +135,36 @@ export function resolveKidsAgeTierId(opts: { channel: { archetype?: string; kids
  * TASK (bilingual pair auto-detection gap) — mirrors resolveKidsAgeTierId's
  * own priority shape immediately above (per-generation override wins, then a
  * real archetype-driven default, no forced fallback for an archetype this
- * task never calibrated). Only kr-kids-song -> 'en-ko' and jp-kids-song ->
- * 'en-ja' have a real default here — every other archetype (including a
- * non-kids Korean/Japanese workspace someone might someday set
- * lyricLanguage: 'bilingual' on) returns undefined, and
- * core/lyricMetrics.ts's checkLyricLanguageMatch already has a documented
- * auto-detect fallback for exactly that "no real signal" case, so returning
- * undefined here is the correct "don't guess" outcome, not a missing case.
+ * task never calibrated).
+ *
+ * codex 지시문 02 (TASK F) — real, confirmed gap this closes: kr-2030-pop/
+ * jp-2030-pop/kr-idol-male/kr-idol-female had NO default here, even though
+ * (unlike kr-kids-song/jp-kids-song) their own channel-editor UI
+ * (Step1Channel.tsx/Step2Concept.tsx) genuinely offers 'bilingual' as a
+ * pickable `primaryLanguage`/`lyricLanguage` value — so exactly the
+ * archetypes whose UI can reach `lyricLanguage: 'bilingual'` were the ones
+ * with no expected pair to validate against, silently falling back to
+ * core/lyricMetrics.ts's old "whichever script has more presence"
+ * auto-detect heuristic (which can't tell EN+JA from EN+KO — it just picks
+ * whichever non-English script showed up). Added real defaults for all 4:
+ * kr-2030-pop/kr-idol-male/kr-idol-female -> 'en-ko' (Korean workspaces),
+ * jp-2030-pop -> 'en-ja' (Japanese workspace) — every other archetype
+ * (including a workspace this task never calibrated) still returns
+ * undefined, and checkLyricLanguageMatch's own documented auto-detect
+ * fallback remains the correct "don't guess" behavior for THOSE.
  */
 export function resolveBilingualPair(opts: { channel: { archetype?: string }; bilingualPair?: BilingualPair }): BilingualPair | undefined {
   if (opts.bilingualPair) return opts.bilingualPair;
   if (opts.channel.archetype === 'kr-kids-song') return 'en-ko';
   if (opts.channel.archetype === 'jp-kids-song') return 'en-ja';
+  if (opts.channel.archetype === 'jp-2030-pop') return 'en-ja';
+  if (
+    opts.channel.archetype === 'kr-2030-pop' ||
+    opts.channel.archetype === 'kr-idol-male' ||
+    opts.channel.archetype === 'kr-idol-female'
+  ) {
+    return 'en-ko';
+  }
   return undefined;
 }
 

@@ -1,5 +1,7 @@
 import type { SongIdea } from '../types';
 import { extractQualifyingLines } from './lyricLineLedger';
+import type { SceneSignature } from './situationLedger';
+import { sceneSimilarity, SCENE_SIMILARITY_ADVISORY_THRESHOLD, SCENE_SIMILARITY_BLOCKING_THRESHOLD } from './sceneSimilarity';
 
 /**
  * v5.22 (AXIS 1 §1-7) — the two ledger-backed blocking checks the task
@@ -49,6 +51,67 @@ export function checkSceneOverlap(songs: Pick<SongIdea, 'trackNo' | 'listenerSit
     if (matched) collisions.push({ trackNo: song.trackNo, situation, matchedHistoryEntry: matched });
   }
   return { blocking: collisions.length > 0, collisions };
+}
+
+export interface SceneSimilarityMatch {
+  trackNo: number;
+  situation: string;
+  matchedHistoryEntry: string;
+  score: number;
+}
+
+export interface SceneSimilarityResult {
+  /** true only when a match reaches SCENE_SIMILARITY_BLOCKING_THRESHOLD — a genuine near-verbatim reuse, not merely a similar idea. */
+  blocking: boolean;
+  blockingMatches: SceneSimilarityMatch[];
+  /** SCENE_SIMILARITY_ADVISORY_THRESHOLD <= score < SCENE_SIMILARITY_BLOCKING_THRESHOLD — worth a human glance, never blocking on its own. */
+  advisoryMatches: SceneSimilarityMatch[];
+}
+
+/**
+ * codex 지시문 02 (TASK B) — the NEW near-miss signal checkSceneOverlap's
+ * own doc comment explicitly says is out of its (exact-match) scope — see
+ * core/sceneSimilarity.ts's own top doc comment for the full design and why
+ * this is a separate function rather than a mode flag on checkSceneOverlap
+ * (different data shape: this needs the richer SceneSignature axes, not
+ * just the bare situation string checkSceneOverlap compares). Each song is
+ * compared against every recent-history signature; only the single BEST
+ * match per song is kept (a song already flagged as its worst-case overlap
+ * doesn't need N-1 duplicate entries for every other, lower-scoring
+ * history item).
+ */
+export function checkSceneSimilarity(
+  songs: Pick<SongIdea, 'trackNo' | 'listenerSituation' | 'lyricFrameId' | 'lyricThemeMotionKo' | 'lyricThemeCastKo' | 'lyricThemeEraSettingKo'>[],
+  recentHistory: SceneSignature[]
+): SceneSimilarityResult {
+  const blockingMatches: SceneSimilarityMatch[] = [];
+  const advisoryMatches: SceneSimilarityMatch[] = [];
+  if (!recentHistory.length) return { blocking: false, blockingMatches, advisoryMatches };
+
+  for (const song of songs) {
+    const situation = song.listenerSituation?.trim();
+    if (!situation) continue;
+    const signature: SceneSignature = {
+      situation,
+      packId: '',
+      trackNo: song.trackNo,
+      ...(song.lyricFrameId ? { frameId: song.lyricFrameId } : {}),
+      ...(song.lyricThemeMotionKo ? { motionKo: song.lyricThemeMotionKo } : {}),
+      ...(song.lyricThemeCastKo ? { castKo: song.lyricThemeCastKo } : {}),
+      ...(song.lyricThemeEraSettingKo ? { eraSettingKo: song.lyricThemeEraSettingKo } : {})
+    };
+    let best: { entry: SceneSignature; score: number } | undefined;
+    for (const entry of recentHistory) {
+      const score = sceneSimilarity(signature, entry);
+      if (!best || score > best.score) best = { entry, score };
+    }
+    if (!best || best.score < SCENE_SIMILARITY_ADVISORY_THRESHOLD) continue;
+    const match: SceneSimilarityMatch = { trackNo: song.trackNo, situation, matchedHistoryEntry: best.entry.situation, score: best.score };
+    if (best.score >= SCENE_SIMILARITY_BLOCKING_THRESHOLD) blockingMatches.push(match);
+    else advisoryMatches.push(match);
+  }
+
+  return { blocking: blockingMatches.length > 0, blockingMatches, advisoryMatches };
 }
 
 export interface TitleHistoryCollisionResult {

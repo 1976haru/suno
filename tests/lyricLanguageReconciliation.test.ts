@@ -314,8 +314,34 @@ describe('[bilingual pair auto-detection] resolveBilingualPair', () => {
     expect(resolveBilingualPair({ channel })).toBe('en-ja');
   });
 
-  it('a non-kids archetype has no real default (undefined, not a guess)', () => {
+  // codex 지시문 02 (TASK F) — real gap this closes: kr-2030-pop/jp-2030-pop/
+  // kr-idol-male/kr-idol-female are the exact archetypes whose own channel UI
+  // can select lyricLanguage: 'bilingual', yet had no expected pair to
+  // validate against (see resolveBilingualPair's own doc comment for the
+  // full "why" — the old presence-only auto-detect couldn't distinguish an
+  // EN+JA response from an EN+KO one).
+  it('kr-2030-pop archetype defaults to en-ko', () => {
+    const channel = channelPresets.find(c => c.archetype === 'kr-2030-pop')!;
+    expect(resolveBilingualPair({ channel })).toBe('en-ko');
+  });
+
+  it('jp-2030-pop archetype defaults to en-ja', () => {
+    const channel = channelPresets.find(c => c.archetype === 'jp-2030-pop')!;
+    expect(resolveBilingualPair({ channel })).toBe('en-ja');
+  });
+
+  it('kr-idol-male archetype defaults to en-ko', () => {
     const channel = channelPresets.find(c => c.archetype === 'kr-idol-male')!;
+    expect(resolveBilingualPair({ channel })).toBe('en-ko');
+  });
+
+  it('kr-idol-female archetype defaults to en-ko', () => {
+    const channel = channelPresets.find(c => c.archetype === 'kr-idol-female')!;
+    expect(resolveBilingualPair({ channel })).toBe('en-ko');
+  });
+
+  it('an archetype this task never calibrated still has no real default (undefined, not a guess)', () => {
+    const channel = channelPresets.find(c => c.archetype === 'senior-morning')!;
     expect(resolveBilingualPair({ channel })).toBeUndefined();
   });
 

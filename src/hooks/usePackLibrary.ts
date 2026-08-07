@@ -5,6 +5,7 @@ import { clearAllSettings } from '../core/settingsStore';
 import { clearAllHookHistory, forgetPack, recordPackHooks } from '../core/hookLedger';
 import { clearAllSituationHistory, forgetPack as forgetSituationsPack, recordPackSituations } from '../core/situationLedger';
 import { clearAllLyricLineHistory, forgetPack as forgetLyricLinesPack, recordPackLyricLines } from '../core/lyricLineLedger';
+import { clearAllFingerprintHistory, forgetPack as forgetFingerprintsPack, recordPackFingerprints } from '../core/promptFingerprintLedger';
 import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
 import { bumpGenerationHistoryRevision } from '../core/generationHistoryRevision';
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature, ThumbnailSpec } from '../types';
@@ -50,6 +51,14 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       await recordPackLyricLines(id, options.channel.id, blueprint, options.lyricLanguage);
       await forgetSituationsPack(AUTOSAVE_ID);
       await forgetLyricLinesPack(AUTOSAVE_ID);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
+    }
+    try {
+      // codex 지시문 02 (TASK K) — same promote-from-autosave shape as
+      // recordPackSituations just above.
+      await recordPackFingerprints(id, options.channel.id, blueprint);
+      await forgetFingerprintsPack(AUTOSAVE_ID);
     } catch {
       // Same best-effort convention as the hook ledger above.
     }
@@ -107,6 +116,13 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       // to catch (see situationLedger.ts/lyricLineLedger.ts's own doc comments).
       await recordPackSituations(id, options.channel.id, blueprint, options.lyricLanguage);
       await recordPackLyricLines(id, options.channel.id, blueprint, options.lyricLanguage);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
+    }
+    try {
+      // codex 지시문 02 (TASK K) — multi-set sets need this most, same
+      // reasoning as recordPackSituations's own comment just above.
+      await recordPackFingerprints(id, options.channel.id, blueprint);
     } catch {
       // Same best-effort convention as the hook ledger above.
     }
@@ -170,6 +186,14 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Same best-effort convention as the hook ledger above.
     }
+    try {
+      // codex 지시문 02 (TASK K) — same promote-from-autosave shape as
+      // recordPackSituations just above.
+      await recordPackFingerprints(id, options.channel.id, blueprint);
+      await forgetFingerprintsPack(AUTOSAVE_ID);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
+    }
     // codex 지시문 01 (TASK H) — see saveCurrentPack's own identical comment above.
     bumpGenerationHistoryRevision();
     await refresh();
@@ -194,6 +218,12 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
       // permanently blocking future generations from reusing them.
       await forgetSituationsPack(id);
       await forgetLyricLinesPack(id);
+    } catch {
+      // Same best-effort convention as the hook ledger above.
+    }
+    try {
+      // codex 지시문 02 (TASK K) — same "free it back into the pool" rule as the ledgers above.
+      await forgetFingerprintsPack(id);
     } catch {
       // Same best-effort convention as the hook ledger above.
     }
@@ -241,6 +271,8 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     // v5.22 (AXIS 1) — same "전체 삭제" scope as clearAllHookHistory just above.
     await clearAllSituationHistory();
     await clearAllLyricLineHistory();
+    // codex 지시문 02 (TASK K) — same "전체 삭제" scope as the ledgers above.
+    await clearAllFingerprintHistory();
     await clearAllSettings();
     // codex 지시문 01 (TASK H) — every ledger this whole function clears is exactly what a stale bridge-instruction avoid-list would otherwise still show.
     bumpGenerationHistoryRevision();

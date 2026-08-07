@@ -12,8 +12,9 @@ import { getApprovedCombos, effectiveVerifiedCombos } from '../core/verifiedComb
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { downloadText } from '../utils/exporters';
 import { evaluateReleaseReadiness, type ReleaseReadinessReport } from '../core/releaseReadiness';
-import { recentSituations } from '../core/situationLedger';
+import { recentSceneSignatures, recentSituations } from '../core/situationLedger';
 import { recentLyricLines } from '../core/lyricLineLedger';
+import { recentArrangementRecipes, recentFingerprints } from '../core/promptFingerprintLedger';
 import { usedTitles as fetchHistoricalTitles } from '../core/hookLedger';
 import { listExplorationHistory } from '../core/explorationLedger';
 import { explorationPolicyFor } from '../data/explorationPolicies';
@@ -140,11 +141,18 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
     const workspaceId = currentWorkspaceId();
     void (async () => {
       try {
-        const [situations, lines, historicalTitles, explorationHistory] = await Promise.all([
+        const [situations, lines, historicalTitles, explorationHistory, fingerprints, arrangementRecipes, sceneSignatures] = await Promise.all([
           recentSituations(opts.channel.id, opts.lyricLanguage),
           recentLyricLines(opts.channel.id, opts.lyricLanguage),
           fetchHistoricalTitles(opts.channel.id, opts.lyricLanguage),
-          explorationPolicyFor(workspaceId).enabled ? listExplorationHistory(workspaceId) : Promise.resolve([])
+          explorationPolicyFor(workspaceId).enabled ? listExplorationHistory(workspaceId) : Promise.resolve([]),
+          // codex 지시문 02 (TASK K) — same "pre-fetched by the caller" shape
+          // as recentSituations/recentLyricLines just above.
+          recentFingerprints(opts.channel.id),
+          recentArrangementRecipes(opts.channel.id),
+          // codex 지시문 02 (TASK B) — same shape, drives the new advisory
+          // scene-similarity item alongside the exact-match one above.
+          recentSceneSignatures(opts.channel.id, opts.lyricLanguage)
         ]);
         if (cancelled) return;
         const matchingRecord = explorationHistory.find(record => record.packLabel === blueprint.projectTitle);
@@ -154,7 +162,14 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           songCount: blueprint.songs.length,
           audienceProfile,
           lyricLanguage: opts.lyricLanguage,
-          duplicationHistory: { recentSituations: situations, recentLyricLines: lines, historicalTitles },
+          duplicationHistory: {
+            recentSituations: situations,
+            recentLyricLines: lines,
+            historicalTitles,
+            recentFingerprints: fingerprints,
+            recentArrangementRecipes: arrangementRecipes,
+            recentSceneSignatures: sceneSignatures
+          },
           explorationTrackNos: matchingRecord?.trackNos
         });
         if (!cancelled) setReleaseReadiness(report);

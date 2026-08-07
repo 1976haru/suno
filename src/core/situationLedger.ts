@@ -34,6 +34,18 @@ export interface SituationUsage {
   packId: string;
   trackNo: number;
   workspaceId?: WorkspaceId;
+  /**
+   * codex 지시문 02 (TASK B) — SongIdea.lyricFrameId/lyricThemeMotionKo/
+   * lyricThemeCastKo/lyricThemeEraSettingKo, when this song has them (see
+   * batchPreallocation.ts's reconcileWithPreassignedSlot for where these are
+   * actually populated now — a real gap this task closed, they used to be
+   * declared on SongIdea but never copied from the slot). Optional: a song
+   * generated before this task, or with no matching slot, has none of these.
+   */
+  frameId?: string;
+  motionKo?: string;
+  castKo?: string;
+  eraSettingKo?: string;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -88,7 +100,11 @@ export async function recordPackSituations(packId: string, channelId: string, bl
       usedAt: now,
       packId,
       trackNo: song.trackNo,
-      workspaceId: currentWorkspaceId()
+      workspaceId: currentWorkspaceId(),
+      ...(song.lyricFrameId ? { frameId: song.lyricFrameId } : {}),
+      ...(song.lyricThemeMotionKo ? { motionKo: song.lyricThemeMotionKo } : {}),
+      ...(song.lyricThemeCastKo ? { castKo: song.lyricThemeCastKo } : {}),
+      ...(song.lyricThemeEraSettingKo ? { eraSettingKo: song.lyricThemeEraSettingKo } : {})
     };
     await withStore('readwrite', store => store.put(record));
   }
@@ -138,6 +154,17 @@ export interface SceneSignature {
   situation: string;
   packId: string;
   trackNo: number;
+  /**
+   * codex 지시문 02 (TASK B) — widened from the 3-field minimal shape this
+   * type shipped with under codex 지시문 01 (see SituationUsage's own
+   * matching doc comment for why these are real now, not fabricated).
+   * Optional: absent for any scene recorded before this task, or for a
+   * song reconciled with no matching slot.
+   */
+  frameId?: string;
+  motionKo?: string;
+  castKo?: string;
+  eraSettingKo?: string;
 }
 
 export async function recentSceneSignatures(channelId: string, language: LyricLanguage, setLimit = 10): Promise<SceneSignature[]> {
@@ -145,7 +172,15 @@ export async function recentSceneSignatures(channelId: string, language: LyricLa
   const scoped = all.filter(u => u.channelId === channelId && u.language === language);
   const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
   const recentPackIds = new Set(packOrder.slice(0, setLimit));
-  return scoped.filter(u => recentPackIds.has(u.packId)).map(u => ({ situation: u.situation, packId: u.packId, trackNo: u.trackNo }));
+  return scoped.filter(u => recentPackIds.has(u.packId)).map(u => ({
+    situation: u.situation,
+    packId: u.packId,
+    trackNo: u.trackNo,
+    ...(u.frameId ? { frameId: u.frameId } : {}),
+    ...(u.motionKo ? { motionKo: u.motionKo } : {}),
+    ...(u.castKo ? { castKo: u.castKo } : {}),
+    ...(u.eraSettingKo ? { eraSettingKo: u.eraSettingKo } : {})
+  }));
 }
 
 export async function listAllSituationsForWorkspace(workspaceId: WorkspaceId): Promise<SituationUsage[]> {

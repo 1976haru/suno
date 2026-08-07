@@ -42,7 +42,8 @@ import { getWorkspace } from '../../data/workspaces';
 import { moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS } from '../../data/kidsAgeTiers';
 import { isKidsArchetype } from '../../utils/channelArchetype';
-import { resolveOpeningStyle } from '../../core/localGenerator';
+import { resolveBilingualPair, resolveOpeningStyle } from '../../core/localGenerator';
+import { resolveScenePlanningMode } from '../../core/bridgeInstruction';
 import { resolveGenreBlendMode } from '../../core/genreRotation';
 import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
 import { resolveGenerationPreflight, type PreflightReason, type PreflightResult } from '../../core/generationPreflight';
@@ -51,7 +52,7 @@ import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
-import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, SeasonPack, VocalAllocationMode, WorkspaceId } from '../../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, ScenePlanningMode, SeasonPack, VocalAllocationMode, WorkspaceId } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
@@ -197,6 +198,35 @@ const OPENING_STYLE_LABEL_KO: Record<string, string> = {
   'hum-intro': '허밍 인트로 후 시작'
 };
 
+/**
+ * codex 지시문 02 (TASK E) — same "display-only, no fake provenance" call
+ * as openingStyle just above: bilingualPair is grep-confirmed to have no
+ * real click-time UI control anywhere in src/components (it's purely
+ * auto-derived, see core/localGenerator.ts's resolveBilingualPair) — adding
+ * a GenerationChoiceProvenance entry for it would only ever read 'default',
+ * the exact "fake protection" this app's own provenance system already
+ * rejected for openingStyle. Real, own gap this DOES fix: the contract
+ * screen never showed this value anywhere before, despite bilingualPair
+ * being real, resolved, user-visible state (see TASK F earlier this same
+ * spec — kr-2030/jp-2030/kr-idol-* now have real defaults worth showing).
+ */
+const BILINGUAL_PAIR_LABEL_KO: Record<string, string> = {
+  'en-ko': '영어+한국어',
+  'en-ja': '영어+일본어'
+};
+
+/**
+ * codex 지시문 02 (TASK E) — same reasoning as bilingualPair just above:
+ * scenePlanningMode (core/bridgeInstruction.ts's resolveScenePlanningMode)
+ * is a mechanical CONSEQUENCE of whether customConcept is set, not an
+ * independent user choice with its own click moment — display-only.
+ */
+const SCENE_PLANNING_MODE_LABEL_KO: Record<ScenePlanningMode, string> = {
+  'fixed-pool': '고정 장면 풀 사용',
+  'concept-generated': '컨셉 기반 장면 생성',
+  'same-story-comparison': '동일 사건 다중 시점 비교'
+};
+
 /** TASK v5.13 (vocal allocation mode) — VocalAllocationMode -> "적용 방식" row text; the 'channel-fixed' entry is overridden below when a vocal-tone preset was ALSO picked on top of the fixed quota, matching the task doc's own mockup ("채널 고정 성별 + 선택 음색 반영"). */
 const VOCAL_ALLOCATION_MODE_LABEL_KO: Record<VocalAllocationMode, string> = {
   balanced: '고르게 배분 (기본값)',
@@ -288,6 +318,19 @@ function GenerationContractPanel({
   const perspectiveModeLine = PERSPECTIVE_MODE_LABEL_KO[contract.perspective.mode] ?? contract.perspective.mode;
   const openingStyleLine = OPENING_STYLE_LABEL_KO[resolveOpeningStyle(opts.openingStyle, contract.archetype.effective)];
   const hookModeLine = HOOK_MODE_LABEL_KO[opts.hookMode ?? 'ai-creative'];
+  // codex 지시문 02 (TASK E) — real gap: referenceMood/negativeStyle/avoidWords
+  // already have a real GenerationChoiceProvenance entry each (Step2Concept.tsx's
+  // own real UI controls — see that type's own doc comment) but were never
+  // surfaced on this 19-row contract screen. bilingualPair/scenePlanningMode
+  // are display-only (see their own *_LABEL_KO doc comments above — no fake
+  // provenance for either).
+  const referenceMoodLine = opts.referenceMood?.trim() || '-';
+  const negativeStyleLine = opts.negativeStyle?.trim() || '-';
+  const avoidWordsLine = opts.avoidWords?.trim() || '-';
+  const bilingualPairValue = resolveBilingualPair(opts);
+  const bilingualPairLine = bilingualPairValue ? BILINGUAL_PAIR_LABEL_KO[bilingualPairValue] : '-';
+  const scenePlanningModeValue = resolveScenePlanningMode(opts, opts.customConcept?.trim() ? { recentSituations: [], recentLyricLines: [] } : undefined);
+  const scenePlanningModeLine = SCENE_PLANNING_MODE_LABEL_KO[scenePlanningModeValue];
 
   return (
     <div className="provider-summary generation-contract-panel">
@@ -320,6 +363,13 @@ function GenerationContractPanel({
         <div><dt>장르 혼합 방식</dt><dd>{genreBlendModeLine}</dd></div>
         <div><dt>오프닝 방식</dt><dd>{openingStyleLine}</dd></div>
         <div><dt>훅 모드</dt><dd>{hookModeLine}</dd></div>
+        <div><dt>Reference mood</dt><dd>{referenceMoodLine}</dd></div>
+        <div><dt>Exclude 스타일</dt><dd>{negativeStyleLine}</dd></div>
+        <div><dt>가사에서 피할 것</dt><dd>{avoidWordsLine}</dd></div>
+        {bilingualPairValue && (
+          <div><dt>이중 언어 조합</dt><dd>{bilingualPairLine}</dd></div>
+        )}
+        <div><dt>장면 계획 방식</dt><dd>{scenePlanningModeLine}</dd></div>
       </dl>
 
       {contract.mismatches.length > 0 && (

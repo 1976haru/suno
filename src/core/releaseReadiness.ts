@@ -1,8 +1,12 @@
 import type { AudienceProfile, SongIdea } from '../types';
 import { runFullAudit, type AuditItem, type AuditStatus } from './fullAudit';
-import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } from './duplicationGate';
+import { checkLyricLineOverlap, checkSceneOverlap, checkSceneSimilarity, checkTitleHistoryCollision } from './duplicationGate';
+import { SCENE_SIMILARITY_ADVISORY_THRESHOLD, SCENE_SIMILARITY_BLOCKING_THRESHOLD } from './sceneSimilarity';
+import { checkMotifFamilyCooldown, checkMotifFamilyQuota } from './motifFamilyCooldown';
+import type { SceneSignature } from './situationLedger';
 import { lintEnglishLyrics } from './englishLint';
 import { checkTempoWordingContradiction } from './tempoComplianceGate';
+import { isDuplicateArrangementRecipe, isDuplicateFingerprint } from './promptFingerprintLedger';
 
 /**
  * v5.22 (AXIS 4 §4-3) — the task spec's own "무검수 발매 기준": 32 pass/fail
@@ -78,8 +82,33 @@ export interface ReleaseReadinessInput {
   songCount: number;
   audienceProfile: AudienceProfile;
   lyricLanguage: 'english' | 'korean' | 'japanese' | 'bilingual';
-  /** AXIS 1 ledger history — optional; the 2 cross-set items report 'not-measured' (not a silent pass) when omitted. */
-  duplicationHistory?: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> };
+  /**
+   * AXIS 1 ledger history — optional; the cross-set items report
+   * 'not-measured' (not a silent pass) when omitted.
+   * codex 지시문 02 (TASK K) — recentFingerprints/recentArrangementRecipes
+   * are core/promptFingerprintLedger.ts's own recentFingerprints(channelId)/
+   * recentArrangementRecipes(channelId) output, same "pre-fetched by the
+   * caller" convention as recentSituations/recentLyricLines just above.
+   * Optional independently of those two (a caller might have scene/line
+   * history but not yet be passing fingerprint history, or vice versa).
+   */
+  duplicationHistory?: {
+    recentSituations: string[];
+    recentLyricLines: string[];
+    historicalTitles: Set<string>;
+    recentFingerprints?: string[];
+    recentArrangementRecipes?: string[];
+    /**
+     * codex 지시문 02 (TASK B) — core/situationLedger.ts's own
+     * recentSceneSignatures(channelId, language) output, richer than the
+     * bare recentSituations strings above (see SceneSignature's own doc
+     * comment). Drives the new advisory-tier near-miss check
+     * (checkSceneSimilarity) alongside checkSceneOverlap's existing
+     * exact-match one — independently optional, same reasoning as
+     * recentFingerprints above.
+     */
+    recentSceneSignatures?: SceneSignature[];
+  };
   /**
    * v5.23 (TASK C §3-6) — core/explorationSlots.ts's own resolved
    * ExplorationSlotPlan.trackNos for THIS pack (senior-oldpop only —
@@ -117,8 +146,10 @@ const STYLE_ALLOCATION_ITEM_IDS = new Set([
 const TITLE_EQUALS_HOOK_TARGET = { min: 8, max: 10 };
 // TASK spec's own §4-3 "excludePrompt 750~850자" band.
 const EXCLUDE_PROMPT_TARGET = { min: 750, max: 850 };
-// TASK spec's own §4-3 "같은 소재 <= 4곡" — approximated via lyricTheme id (the closest existing "what is this song about" field), documented as an approximation rather than a precise "subject" classifier this app doesn't have.
-const MAX_SAME_SUBJECT = 4;
+// codex 지시문 02 (TASK C) — TASK spec's own §4-3 "같은 소재 <= 4곡" is now
+// checked by core/motifFamilyCooldown.ts's checkMotifFamilyQuota, grouped
+// by data/motifFamilies.ts's own real family-per-frameId registry, rather
+// than the exact-lyricTheme-id approximation formerly hardcoded here.
 
 function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
   const { songs, duplicationHistory, lyricLanguage } = input;
@@ -132,6 +163,29 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
       status: sceneOverlap.blocking ? 'fail' : 'pass',
       detail: sceneOverlap.blocking ? `중복 ${sceneOverlap.collisions.length}건: T${sceneOverlap.collisions.map(c => c.trackNo).join(', T')}` : '중복 0건'
     });
+    // codex 지시문 02 (TASK B) — NEW near-miss advisory signal, alongside
+    // (never replacing) the exact-match check just above. Only runs when
+    // the caller passed the richer recentSceneSignatures; independently
+    // optional of recentSituations, so this can be 'not-measured' even when
+    // the exact-match item above is genuinely measured.
+    if (duplicationHistory.recentSceneSignatures) {
+      const similarity = checkSceneSimilarity(songs, duplicationHistory.recentSceneSignatures);
+      const status = similarity.blocking ? 'fail' : 'pass';
+      const detailParts: string[] = [];
+      if (similarity.blockingMatches.length) {
+        detailParts.push(`근접 일치(임계값 ${Math.round(SCENE_SIMILARITY_BLOCKING_THRESHOLD * 100)}% 이상) ${similarity.blockingMatches.length}건: T${similarity.blockingMatches.map(m => `${m.trackNo}(${Math.round(m.score * 100)}%)`).join(', T')}`);
+      }
+      if (similarity.advisoryMatches.length) {
+        detailParts.push(`참고용 유사 ${similarity.advisoryMatches.length}건(${Math.round(SCENE_SIMILARITY_ADVISORY_THRESHOLD * 100)}~${Math.round(SCENE_SIMILARITY_BLOCKING_THRESHOLD * 100)}%, 발매를 막지 않음): T${similarity.advisoryMatches.map(m => `${m.trackNo}(${Math.round(m.score * 100)}%)`).join(', T')}`);
+      }
+      items.push({
+        id: 'scene-recent-set-similarity', categoryKo: '가사', labelKo: '최근 세트와 장면 유사도(근접 재사용) 없음',
+        status,
+        detail: detailParts.length ? detailParts.join(' / ') : '유사 장면 없음'
+      });
+    } else {
+      items.push({ id: 'scene-recent-set-similarity', categoryKo: '가사', labelKo: '최근 세트와 장면 유사도(근접 재사용) 없음', status: 'not-measured', detail: 'duplicationHistory.recentSceneSignatures 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
+    }
     const titleCollision = checkTitleHistoryCollision(songs, duplicationHistory.historicalTitles);
     items.push({
       id: 'title-full-history-collision', categoryKo: '제목', labelKo: '전체 이력과 제목 중복 0건',
@@ -152,6 +206,33 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
     ] as const) {
       items.push({ id, categoryKo: '가사', labelKo, status: 'not-measured', detail: 'duplicationHistory 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
     }
+  }
+
+  // codex 지시문 02 (TASK K) — prompt-fingerprint / arrangement-recipe
+  // cross-set duplication, independent of the scene/title/line gate above
+  // (a caller may have one history without the other yet — see
+  // ReleaseReadinessInput.duplicationHistory's own doc comment).
+  if (duplicationHistory?.recentFingerprints) {
+    const recent = duplicationHistory.recentFingerprints;
+    const dupTracks = songs.filter(song => isDuplicateFingerprint(song.promptFingerprint, recent)).map(song => song.trackNo);
+    items.push({
+      id: 'prompt-fingerprint-recent-set-overlap', categoryKo: '구성', labelKo: '최근 10세트와 프롬프트 지문(장르·템포·보컬·인트로·진행·훅장치·전조·밀도) 중복 0건',
+      status: dupTracks.length ? 'fail' : 'pass',
+      detail: dupTracks.length ? `중복 ${dupTracks.length}건: T${dupTracks.join(', T')}` : '중복 0건'
+    });
+  } else {
+    items.push({ id: 'prompt-fingerprint-recent-set-overlap', categoryKo: '구성', labelKo: '최근 10세트와 프롬프트 지문 중복 0건', status: 'not-measured', detail: 'duplicationHistory.recentFingerprints 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
+  }
+  if (duplicationHistory?.recentArrangementRecipes) {
+    const recent = duplicationHistory.recentArrangementRecipes;
+    const dupTracks = songs.filter(song => isDuplicateArrangementRecipe(song.arrangementRecipe, recent)).map(song => song.trackNo);
+    items.push({
+      id: 'arrangement-recipe-recent-set-overlap', categoryKo: '구성', labelKo: '최근 5세트와 편곡 레시피(인트로·밀도·악기 구성) 중복 0건',
+      status: dupTracks.length ? 'fail' : 'pass',
+      detail: dupTracks.length ? `중복 ${dupTracks.length}건: T${dupTracks.join(', T')}` : '중복 0건'
+    });
+  } else {
+    items.push({ id: 'arrangement-recipe-recent-set-overlap', categoryKo: '구성', labelKo: '최근 5세트와 편곡 레시피 중복 0건', status: 'not-measured', detail: 'duplicationHistory.recentArrangementRecipes 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
   }
 
   // English grammar + in-song line repetition (AXIS 3) — English-only, same convention core/quality.ts's own scoreSong wiring already follows.
@@ -195,19 +276,42 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
     detail: excludeLengths.length ? `범위 밖 ${excludeOutOfBand.length}/${excludeLengths.length}곡` : 'excludePrompt 없음'
   });
 
-  // Same-subject cap — approximated via lyricTheme id (documented above as an approximation, not a precise "subject" classifier).
-  const themeCounts = new Map<string, number>();
-  for (const song of songs) {
-    const theme = song.lyricTheme;
-    if (!theme) continue;
-    themeCounts.set(theme, (themeCounts.get(theme) ?? 0) + 1);
-  }
-  const maxThemeCount = Math.max(0, ...themeCounts.values());
+  // codex 지시문 02 (TASK C) — same-subject cap, now grouped by MotifFamily
+  // (data/motifFamilies.ts) instead of the old exact-lyricTheme-id
+  // approximation — see that registry's own doc comment for why the old
+  // check almost never actually fired (dozens of individual themes share
+  // only ~44 real frameId values, and an 18-song pack essentially never
+  // repeats one exact theme id 5+ times even when 5+ songs share a real
+  // subject family).
+  const quotaFindings = checkMotifFamilyQuota(songs.map(song => ({ trackNo: song.trackNo, frameId: song.lyricFrameId })));
   items.push({
-    id: 'same-subject-cap', categoryKo: '가사', labelKo: `같은 소재 <= ${MAX_SAME_SUBJECT}곡 (lyricTheme 기준 근사치)`,
-    status: maxThemeCount <= MAX_SAME_SUBJECT ? 'pass' : 'fail',
-    detail: `최다 소재 반복 ${maxThemeCount}곡`
+    id: 'same-subject-cap', categoryKo: '가사', labelKo: `같은 소재(모티프 계열) <= 계열별 한도`,
+    status: quotaFindings.length === 0 ? 'pass' : 'fail',
+    detail: quotaFindings.length
+      ? quotaFindings.map(f => `${f.labelKo} ${f.count}곡(한도 ${f.maxPerPack}): T${f.trackNos.join(', T')}`).join(' / ')
+      : '계열별 한도 내'
   });
+
+  // codex 지시문 02 (TASK C) — NEW cross-pack cooldown signal, independent
+  // of the within-pack quota just above. Only measured when the caller
+  // passed recentSceneSignatures (same optional axis TASK B's scene-
+  // similarity item already uses) — reports not-measured otherwise, same
+  // "never a silent pass" convention as every other ledger-based item.
+  if (duplicationHistory?.recentSceneSignatures) {
+    const cooldownFindings = checkMotifFamilyCooldown(
+      songs.map(song => ({ trackNo: song.trackNo, frameId: song.lyricFrameId })),
+      duplicationHistory.recentSceneSignatures
+    );
+    items.push({
+      id: 'motif-family-recent-pack-cooldown', categoryKo: '가사', labelKo: '최근 세트와 소재(모티프 계열) 쿨다운 준수',
+      status: cooldownFindings.length === 0 ? 'pass' : 'fail',
+      detail: cooldownFindings.length
+        ? cooldownFindings.map(f => `${f.labelKo}: 최근 ${f.recentPackCount}개 세트에서도 사용됨 (T${f.trackNos.join(', T')})`).join(' / ')
+        : '쿨다운 위반 없음'
+    });
+  } else {
+    items.push({ id: 'motif-family-recent-pack-cooldown', categoryKo: '가사', labelKo: '최근 세트와 소재(모티프 계열) 쿨다운 준수', status: 'not-measured', detail: 'duplicationHistory.recentSceneSignatures 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
+  }
 
   // Genuine, still-unbuilt gaps — reported honestly, never faked as passing.
   items.push({ id: 'modulation-count', categoryKo: '음악 설계', labelKo: '전조 5~6곡', status: 'not-measured', detail: '미구현 — 전조 여부를 추적하는 필드/검사가 앱에 없음', notImplemented: true });

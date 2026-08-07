@@ -123,6 +123,28 @@ export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
 
 /**
+ * codex 지시문 02 (TASK D) — which system owns "what scene does this track's
+ * lyric depict": 'fixed-pool' (data/lyricThemes.ts's allocated scene, the
+ * default — the vast majority of real generations) vs 'concept-generated'
+ * (core/bridgeInstruction.ts's conceptSceneInstructionLines asks the agent
+ * to invent its OWN concept-derived scenes instead, single-pack bridge
+ * generation only, when a real customConcept + conceptSceneContext are both
+ * present). See core/bridgeInstruction.ts's resolveScenePlanningMode for the
+ * real trigger condition and lyricThemeInstructionLineFor/
+ * lyricThemeSceneSection for the collision this closes: those two functions
+ * used to unconditionally tell the agent the FIXED-pool scene "must" be
+ * depicted, even in the same instruction that separately told it to invent
+ * its own concept-derived scene for the same track — two contradictory
+ * scene authorities in one document. 'same-story-comparison' is an
+ * explicit opt-in exemption this task's own spec named (e.g. "same event,
+ * two different singers' perspectives") — kept as a real type member for
+ * the day a caller wants it, but no UI/opts field selects it yet (see
+ * resolveScenePlanningMode's own doc comment) — not fabricated ahead of a
+ * real trigger.
+ */
+export type ScenePlanningMode = 'fixed-pool' | 'concept-generated' | 'same-story-comparison';
+
+/**
  * v5.13 (TASK: kidsAgeTierId wiring) — the real, previously-undone gap named
  * in data/kidsAgeTiers.ts/data/kidsStructureTemplates.ts/data/kidsVocabularyWhitelist.ts/
  * data/killingPointsKids.ts/data/onomatopoeia.ts/core/arcModels.ts/core/promptComposer.ts's
@@ -1114,6 +1136,18 @@ export interface SongIdea {
   lyricThemeText?: string;
   /** v3.47 Step 2: emotional turn paired with lyricThemeText. */
   lyricThemeArc?: string;
+  /**
+   * codex 지시문 02 (TASK K) — core/promptFingerprint.ts's buildPromptFingerprint
+   * output for this track's PreassignedSongSlot, attached here (rather than
+   * left slot-only) because introMode/arrangementDensity/hookDeviceId/
+   * moneyChordId don't otherwise survive reconciliation onto the final
+   * SongIdea — see core/promptFingerprintLedger.ts for the cross-pack
+   * duplication check this enables. Undefined for any song reconciled
+   * without a matching slot (e.g. an agent-invented extra track).
+   */
+  promptFingerprint?: string;
+  /** codex 지시문 02 (TASK K) — core/promptFingerprint.ts's buildArrangementRecipe output; see promptFingerprint's own doc comment just above for why this is attached here instead of staying slot-only. */
+  arrangementRecipe?: string;
   /** v3.47 Step 3: planned lyric point of view, mainly for allocation preview/auditing. */
   pov?: LyricPerspective;
   /** v3.47 Step 2: verse writing approach assigned per song. */

@@ -1,5 +1,6 @@
 import type { BilingualPair, ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
-import { lyricLanguageMismatchWarning } from './lyricMetrics';
+import { lyricLanguageMismatchWarning, verbatimSceneCopyWarning } from './lyricMetrics';
+import { buildArrangementRecipe, buildPromptFingerprint } from './promptFingerprint';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, buildArcPlanForProfile, clampTempoToKidsAgeTier, emotionArcPlanForArc, nextContestedTitle, resolveKidsAgeTierId, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
@@ -1095,8 +1096,21 @@ export function reconcileWithPreassignedSlot(
         bilingualPair: options.bilingualPair
       })
     : undefined;
-  const withLanguageWarning = (warnings: string[]): string[] =>
-    languageWarning && !warnings.includes(languageWarning) ? [...warnings, languageWarning] : warnings;
+  // codex 지시문 02 (TASK D) — resolved once, same "every return path" shape
+  // as languageWarning just above (undefined whenever there's no slot, since
+  // verbatimSceneCopyWarning's own sceneText param is then undefined too —
+  // no separate no-slot branching needed).
+  const sceneCopyWarning = verbatimSceneCopyWarning(song.lyrics, slot?.lyricThemeText, slot?.trackNo ?? song.trackNo);
+  const withLanguageWarning = (warnings: string[]): string[] => {
+    const extra = [languageWarning, sceneCopyWarning].filter((w): w is string => typeof w === 'string' && !warnings.includes(w));
+    return extra.length ? [...warnings, ...extra] : warnings;
+  };
+  // codex 지시문 02 (TASK K) — resolved once here (both fast-path and
+  // main-path returns below attach these), undefined when there's no slot
+  // (no plan data to fingerprint) — see types.ts's SongIdea.promptFingerprint
+  // doc comment for why this lives on the slot, not re-derived from `song`.
+  const promptFingerprint = slot ? buildPromptFingerprint(slot) : undefined;
+  const arrangementRecipe = slot ? buildArrangementRecipe(slot) : undefined;
   // v5.11 (TASK L) — the no-slot fallback for the two per-track "effective"
   // fields: there's no plan data to draw from here, so this reuses
   // whatever `song` already carried, or falls back to 'default'/this
@@ -1175,7 +1189,9 @@ export function reconcileWithPreassignedSlot(
       ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
       ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
       effectiveArchetype: resolvedArchetype,
-      workspaceId: resolvedWorkspaceId
+      workspaceId: resolvedWorkspaceId,
+      ...(promptFingerprint ? { promptFingerprint } : {}),
+      ...(arrangementRecipe ? { arrangementRecipe } : {})
     };
   }
   // TASK v3.39 Part H — a real showa-cafe channel selected a male vocal
@@ -1237,7 +1253,7 @@ export function reconcileWithPreassignedSlot(
   // (trackNo 1's slot only — see PreassignedSongSlot.genreWarning's own doc
   // comment), folded into that one song's own warnings here, the same way
   // every other post-hoc reconciliation warning already surfaces.
-  const newWarnings = [structureWarning, slot.genreWarning, languageWarning].filter(
+  const newWarnings = [structureWarning, slot.genreWarning, languageWarning, sceneCopyWarning].filter(
     (warning): warning is string => typeof warning === 'string' && !song.warnings.includes(warning)
   );
   const warnings = newWarnings.length ? [...song.warnings, ...newWarnings] : song.warnings;
@@ -1285,6 +1301,17 @@ export function reconcileWithPreassignedSlot(
     ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
     ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
     ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
+    // codex 지시문 02 (TASK B) — real gap this closes: SongIdea.lyricThemeMotionKo/
+    // lyricThemeCastKo/lyricThemeEraSettingKo have carried a v4.5 doc comment
+    // claiming "snapshotted here for the same rating-analysis parity every
+    // other lyricTheme field already has" since they were added, but nothing
+    // ever actually copied them from slot to song here — only lyricFrameId
+    // (the line just above) was. core/situationLedger.ts's richer
+    // SceneSignature (motionKo/castKo/eraSettingKo/frameId) needs these real
+    // to be worth anything more than the bare frameId it already had.
+    ...(slot.lyricThemeMotionKo ? { lyricThemeMotionKo: slot.lyricThemeMotionKo } : {}),
+    ...(slot.lyricThemeCastKo ? { lyricThemeCastKo: slot.lyricThemeCastKo } : {}),
+    ...(slot.lyricThemeEraSettingKo ? { lyricThemeEraSettingKo: slot.lyricThemeEraSettingKo } : {}),
     // v5.11 (TASK L) — always-populated "what actually went into this song"
     // fields; see each SongIdea field's own doc comment.
     effectiveMoneyChordId: slot.effectiveMoneyChordId,
@@ -1292,6 +1319,8 @@ export function reconcileWithPreassignedSlot(
     ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
     ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
     effectiveArchetype: resolvedArchetype,
-    workspaceId: resolvedWorkspaceId
+    workspaceId: resolvedWorkspaceId,
+    ...(promptFingerprint ? { promptFingerprint } : {}),
+    ...(arrangementRecipe ? { arrangementRecipe } : {})
   };
 }

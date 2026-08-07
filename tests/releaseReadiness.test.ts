@@ -129,6 +129,70 @@ describe('[v5.22 AXIS 4] evaluateReleaseReadiness — structural shape', () => {
 });
 
 /**
+ * codex 지시문 02 (TASK K) — prompt-fingerprint / arrangement-recipe items,
+ * same "not-measured without history, real pass/fail with it" shape as the
+ * scene/title/line items above (own describe block since these two axes
+ * are independently optional within duplicationHistory — see
+ * ReleaseReadinessInput.duplicationHistory's own doc comment).
+ */
+describe('[codex 지시문 02 TASK K] evaluateReleaseReadiness — prompt-fingerprint / arrangement-recipe items', () => {
+  const channel = channelPresets[0];
+  const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
+  const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id));
+  const season = seasonPacks[0];
+  const opts = makeOptions({ channel, songCount: 6, lyricLanguage: 'english' });
+  const blueprint = generateLocalBlueprint(opts, genres, moods, season);
+  const scoredSongs = scoreSongs(blueprint.songs, channel, 'english').map((song, idx) =>
+    idx === 0 ? { ...song, promptFingerprint: 'genre-x|90s|male|vocal-immediate|money-1|hook-1|no-mod|medium', arrangementRecipe: 'vocal-immediate|medium|guitar,piano' } : song
+  );
+  const audienceProfile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
+
+  it('without duplicationHistory.recentFingerprints/recentArrangementRecipes, both items report not-measured', () => {
+    const report = evaluateReleaseReadiness({
+      songs: scoredSongs, conceptLabel: opts.customConcept || opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english'
+    });
+    const fingerprintItem = report.items.find(i => i.id === 'prompt-fingerprint-recent-set-overlap');
+    const recipeItem = report.items.find(i => i.id === 'arrangement-recipe-recent-set-overlap');
+    expect(fingerprintItem?.status).toBe('not-measured');
+    expect(recipeItem?.status).toBe('not-measured');
+  });
+
+  it('with clean fingerprint/recipe history (no overlap), both items pass', () => {
+    const report = evaluateReleaseReadiness({
+      songs: scoredSongs, conceptLabel: opts.customConcept || opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english',
+      duplicationHistory: { recentSituations: [], recentLyricLines: [], historicalTitles: new Set(), recentFingerprints: [], recentArrangementRecipes: [] }
+    });
+    const fingerprintItem = report.items.find(i => i.id === 'prompt-fingerprint-recent-set-overlap');
+    const recipeItem = report.items.find(i => i.id === 'arrangement-recipe-recent-set-overlap');
+    expect(fingerprintItem?.status).toBe('pass');
+    expect(recipeItem?.status).toBe('pass');
+  });
+
+  it('a real fingerprint collision against recent history fails prompt-fingerprint-recent-set-overlap', () => {
+    const collidingFingerprint = scoredSongs[0].promptFingerprint!;
+    const report = evaluateReleaseReadiness({
+      songs: scoredSongs, conceptLabel: opts.customConcept || opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english',
+      duplicationHistory: { recentSituations: [], recentLyricLines: [], historicalTitles: new Set(), recentFingerprints: [collidingFingerprint], recentArrangementRecipes: [] }
+    });
+    const item = report.items.find(i => i.id === 'prompt-fingerprint-recent-set-overlap');
+    expect(item?.status).toBe('fail');
+    expect(item?.detail).toContain('T1');
+    expect(report.releaseReady).toBe(false);
+  });
+
+  it('a real arrangement-recipe collision against recent history fails arrangement-recipe-recent-set-overlap', () => {
+    const collidingRecipe = scoredSongs[0].arrangementRecipe!;
+    const report = evaluateReleaseReadiness({
+      songs: scoredSongs, conceptLabel: opts.customConcept || opts.projectTitle, songCount: opts.songCount, audienceProfile, lyricLanguage: 'english',
+      duplicationHistory: { recentSituations: [], recentLyricLines: [], historicalTitles: new Set(), recentFingerprints: [], recentArrangementRecipes: [collidingRecipe] }
+    });
+    const item = report.items.find(i => i.id === 'arrangement-recipe-recent-set-overlap');
+    expect(item?.status).toBe('fail');
+    expect(report.releaseReady).toBe(false);
+  });
+});
+
+/**
  * v5.23 (TASK C §3-6) — "발매 가능 (탐색 3곡 포함)": a track that was told to
  * waive style-allocation rules (core/explorationSlots.ts) must not, by
  * itself, block the whole pack from release over exactly the deviation it

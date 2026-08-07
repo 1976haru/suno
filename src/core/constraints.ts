@@ -4,6 +4,7 @@ import { ERA_BUCKET_BY_GENRE_ID, ERA_LABEL, eraBucketForGenreId, type EraBucket 
 import { TITLE_PATTERNS } from '../data/titlePatterns';
 import { VOCABULARY_BANKS, vocabularyBanksForEra } from '../data/vocabularyBanks';
 import { CHANNEL_IDENTITY_WORDS, CHANNEL_IDENTITY_WORD_CAP, GENERIC_WORD_CAP } from './lyricVocabularyRepetition';
+import { qualityPolicyForWorkspace } from '../data/workspaceQualityPolicies';
 
 /**
  * v4.2 (TASK A3) — the structural fix for the problem this task exists to
@@ -128,6 +129,18 @@ export interface ResolvedConstraints {
 const ERA_1950_60_PATTERN = /(1950|1950s|50년대|1960|1960s|\b60s\b|60년|60년대|비틀|beatles?|beat ?pop|doo-?wop|두왑|british beat)/i;
 const ERA_1970_PATTERN = /(1970|1970s|\b70s\b|70년|70년대|카펜터스?|carpenters?|abba|아바|모타운|motown|soul train|양키|yacht)/i;
 const ERA_1980_PATTERN = /(1980|1980s|\b80s\b|80년대|80년|신스팝|synth-?pop|시티팝|city ?pop|어덜트\s*컨템포러리|adult contemporary)/i;
+// codex 지시문 02 (TASK J) — real, bounded gap: data/eraExclusions.ts's own
+// EraBucket already has a '2000s' member with real genre data behind it
+// (kr2030-y2k-retro, jp2030-heisei-nostalgia — see those entries' own
+// goodFor/label text for the exact keywords used here), but no regex here
+// ever tested for it, so an explicit "Y2K"/"2000년대"/"헤이세이" concept could
+// never actually narrow toward its own matching genre via applyEraQuota —
+// the same mechanism that already works for "60년대"/"70년대"/"80년대" simply
+// never fired for the one other decade this app's genre data models.
+// Deliberately literal keywords straight from those two genre packs' own
+// text, not an invented broader vocabulary — see this file's own "don't
+// force an era" principle in extractEraConstraint's doc comment.
+const ERA_2000_PATTERN = /(2000년대|2000s|\by2k\b|밀레니엄|헤이세이|heisei)/i;
 
 const DECADE_TO_BUCKET: Record<string, EraBucket> = { '50': '1950s-60s', '60': '1950s-60s', '70': '1970s', '80': '1980s' };
 
@@ -190,6 +203,7 @@ export function extractEraConstraint(freeText: string, artistReferenceEraTags: s
   if (ERA_1950_60_PATTERN.test(haystack)) hits.push('1950s-60s');
   if (ERA_1970_PATTERN.test(haystack)) hits.push('1970s');
   if (ERA_1980_PATTERN.test(haystack)) hits.push('1980s');
+  if (ERA_2000_PATTERN.test(haystack)) hits.push('2000s');
   const uniqueHits = [...new Set(hits)];
 
   if (!uniqueHits.length) {
@@ -742,7 +756,25 @@ export function resolveConstraints(
   kidsAgeTierId?: KidsAgeTierId
 ): ResolvedConstraints {
   const warnings: string[] = [];
-  const era = extractEraConstraint(concept.conceptLabel, concept.artistReferenceEraTags);
+  const detectedEra = extractEraConstraint(concept.conceptLabel, concept.artistReferenceEraTags);
+  // codex 지시문 02 (TASK J) — 'safety-over-era' workspaces (kids) never let
+  // era gating narrow genre selection, even from an accidental decade-word
+  // match in concept text — see data/workspaceEraIntent.ts's own doc
+  // comment for why the other 3 modes are documented, real-behavior-matching
+  // no-ops rather than additional code paths here.
+  // codex 지시문 02 (TASK A) — reads eraIntent through the new
+  // WorkspaceQualityPolicy aggregation registry (data/workspaceQualityPolicies.ts)
+  // rather than calling data/workspaceEraIntent.ts directly — the one real,
+  // proven consumer that registry's own doc comment points to. Same value,
+  // same behavior; this is the aggregation layer actually being consulted
+  // by a real code path, not decorative.
+  const eraIntent = qualityPolicyForWorkspace(workspace.id).eraIntent;
+  const era: EraConstraint = eraIntent.mode === 'safety-over-era' && !detectedEra.unspecified
+    ? { primary: 'timeless', adjacent: [], forbidden: [], unspecified: true }
+    : detectedEra;
+  if (eraIntent.mode === 'safety-over-era' && !detectedEra.unspecified) {
+    warnings.push(`이 워크스페이스는 시대 지정을 사용하지 않습니다(안전 우선) — 감지된 "${ERA_LABEL[detectedEra.primary]}" 시대 신호를 무시했습니다.`);
+  }
   const title = buildTitleConstraint(era, songCount);
   const vocabulary = buildVocabularyConstraint(era, workspace.id, audience);
   const breadth = concept.breadthOverride ?? detectConceptBreadth(concept.conceptLabel, era);
