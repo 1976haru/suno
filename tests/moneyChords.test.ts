@@ -90,7 +90,7 @@ describe('money chord presets', () => {
   // preset needs its own non-empty, mutually distinct, real value.
   it('[v5.8 TASK 1] every preset has a non-empty, mutually distinct, <=8-word audibleEffectTag', () => {
     const tags = Object.values(moneyChordPresets).map(p => p.audibleEffectTag);
-    expect(tags.length).toBe(17);
+    expect(tags.length).toBe(18);
     for (const tag of tags) {
       expect(tag.length).toBeGreaterThan(0);
       expect(tag.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(8);

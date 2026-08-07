@@ -291,7 +291,28 @@ function quotaFidelityIssues(
 // ---------------------------------------------------------------------------
 // BPM (bpm-stddev / bpm-range / bpm-within-profile)
 // ---------------------------------------------------------------------------
+/**
+ * P1 fix (정합성 점검 §1) — kr-kids/jp-kids (ResolvedConstraints.genreBoundedTempo)
+ * anchor each track's BPM to ITS OWN genre's real tempoRange instead of a
+ * genre-blind workspace-wide draw (see tempoPlan.ts's resolveTempoWithBand
+ * doc comment) — a calm genre (e.g. krkids-sleep-calm, 62-84) stays calm, an
+ * energetic one (krkids-action, 112-128) stays energetic. All three checks
+ * below were written before that change and assume one workspace has one
+ * roughly-coherent tempo character: bpm-stddev/bpm-range measure pack-wide
+ * VARIETY (now legitimately determined by which genres a channel selected,
+ * not track-level jitter — real measurement found channels whose selected
+ * genres cluster in one part of the workspace's range mathematically cannot
+ * clear the >=8 stddev / >=25 width balanced-breadth floor even with a
+ * perfectly even draw), and bpm-within-profile checks the audience-wide
+ * floor/ceiling (a calm genre's own legitimately-low BPM then reads as "out
+ * of range" against a ceiling meant for the whole workspace). Each track's
+ * own genre fidelity is already guaranteed by construction
+ * (resolveTempoWithBand clamps to [genreLow, genreHigh]) — this gate has
+ * nothing left to re-verify for a genre-bounded audience. Every non-kids
+ * audience profile is unaffected (genreBoundedTempo undefined there).
+ */
 function bpmIssues(slots: PreassignedSongSlot[], constraints: ResolvedConstraints): DesignIssue[] {
+  if (constraints.genreBoundedTempo) return [];
   const bpms = slots.map(slot => slot.tempo).filter((bpm): bpm is number => typeof bpm === 'number');
   const issues: DesignIssue[] = [];
   if (bpms.length < 2) return issues;

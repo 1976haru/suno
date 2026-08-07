@@ -91,6 +91,19 @@ export interface ResolvedConstraints {
   songLengthRange: [number, number];
   lyricWordRange: [number, number];
   tempoRange: [number, number];
+  /**
+   * P1 fix (정합성 점검 §1) — resolved verbatim from AudienceProfile.genreBoundedTempo
+   * (types.ts). designGate.ts's bpmIssues reads this to stop holding a
+   * genre-bounded audience (kr-kids/jp-kids — see tempoPlan.ts's
+   * resolveTempoWithBand doc comment) to the workspace-wide variety/range
+   * floor that per-genre tempo fidelity structurally can't satisfy: with
+   * genreBoundedTempo on, a track's BPM is deliberately anchored to ITS OWN
+   * genre's real tempoRange (a calm genre stays calm) instead of a
+   * genre-blind workspace-wide draw, so pack-wide stddev/width now reflects
+   * which genres a channel selected, not track-level jitter. Undefined
+   * (every non-kids audience profile) is a strict no-op.
+   */
+  genreBoundedTempo?: boolean;
   /** See AudienceProfile.arrangementDensityLimits's own doc comment (types.ts) — resolved verbatim from the audience profile, same pass-through pattern as tempoRange/songLengthRange just above. */
   arrangementDensityLimits: { sparseMin: number; fullMax: number };
 
@@ -876,6 +889,7 @@ export function resolveConstraints(
     songLengthRange: audience.songLengthSecondsRange,
     lyricWordRange: audience.lyricWordRange,
     tempoRange: [audience.tempoFloor, audience.tempoCeiling],
+    genreBoundedTempo: audience.genreBoundedTempo,
     arrangementDensityLimits: audience.arrangementDensityLimits,
     requiredAtoms: [],
     hardExclusions: [...audience.hardExclusions],

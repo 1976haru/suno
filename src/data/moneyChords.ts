@@ -254,7 +254,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     compatibleWith: ['royalRoad', 'marusa', 'cityPop']
   },
   // TASK v3.38 Part B4 — kids-channel progressions. kidsSimple is pinned to
-  // cold-open/flagship (see signatureMoneyChordId below); the other two
+  // cold-open/flagship (see signatureMoneyChordId below); the other three
   // rotate through the rest of the pack (moneyChordRotationPool).
   kidsSimple: {
     id: 'kidsSimple',
@@ -267,7 +267,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'clear, predictable resolution every phrase, easy for little voices to follow',
     audibleEffectTag: 'clear, predictable resolution every phrase',
     bestFor: ['동요 채널 시그니처', '따라 부르기 쉬운 트랙'],
-    compatibleWith: ['kidsBright', 'kidsMarch']
+    compatibleWith: ['kidsBright', 'kidsMarch', 'kidsRound']
   },
   kidsBright: {
     id: 'kidsBright',
@@ -284,7 +284,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'bouncy and cheerful, lands happily on every downbeat',
     audibleEffectTag: 'bouncy and cheerful, happy downbeat',
     bestFor: ['밝은 동요 트랙', '놀이 활동곡'],
-    compatibleWith: ['kidsSimple', 'kidsMarch']
+    compatibleWith: ['kidsSimple', 'kidsMarch', 'kidsRound']
   },
   kidsMarch: {
     id: 'kidsMarch',
@@ -297,7 +297,27 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'skips forward playfully like a marching game',
     audibleEffectTag: 'playful marching skip',
     bestFor: ['행진곡풍 동요', '율동·놀이 동작곡'],
-    compatibleWith: ['kidsSimple', 'kidsBright']
+    compatibleWith: ['kidsSimple', 'kidsBright', 'kidsRound']
+  },
+  // P0 fix (정합성 점검 §1) — the kids rotation pool had only 3 progressions
+  // (moneyChordRotationPool below), which is mathematically incapable of
+  // clearing designGate.ts's moneychord-max gate (<=5 songs on the same
+  // progression) for an 18-song pack: 18/3 = 6 per progression even under a
+  // perfectly even rotation. Real measurement: every kr-kids/jp-kids channel
+  // (and senior-oldpop's own kids channel) failed this gate unconditionally.
+  // A 4th progression makes an even split 18/4 = 4.5, clearing the <=5 floor.
+  kidsRound: {
+    id: 'kidsRound',
+    label: 'Kids Round',
+    labelKo: '동요 돌림노래풍 진행',
+    description: '차분하고 감싸는 듯한 동요용 진행. 자장가·마무리 곡에도 어울립니다.',
+    progressions: ['I-IV-vi-V'],
+    prompt: 'gentle rounded children\'s song progression I-IV-vi-V, warm and cradling, settles softly at phrase end',
+    compactProgression: 'I-IV-vi-V rounded kids progression',
+    audibleEffect: 'settles softly and cradles each phrase, gentle rather than bouncy',
+    audibleEffectTag: 'gentle cradling settle',
+    bestFor: ['차분한 동요 트랙', '마무리·자장가곡'],
+    compatibleWith: ['kidsSimple', 'kidsBright', 'kidsMarch']
   },
   // TASK v4.14 (TASK B, §2-2) — the one progression this task's own
   // palette-family money-chord distribution table names that had no
@@ -355,7 +375,7 @@ export function moneyChordRotationPool(archetype: string | undefined): string[] 
   if (archetype === 'j2000s') return ['komuro', 'cityPop', 'default', 'canon', 'emotional'];
   if (archetype === 'modern-chill') return ['jazzColor', 'emotional', 'cityPop', 'default', 'canon'];
   if (archetype === 'city-night') return ['cityPop', 'marusa', 'jazzColor', 'komuro', 'default'];
-  if (isKidsArchetype(archetype)) return ['kidsSimple', 'kidsBright', 'kidsMarch'];
+  if (isKidsArchetype(archetype)) return ['kidsSimple', 'kidsBright', 'kidsMarch', 'kidsRound'];
   return ['default'];
 }
 
