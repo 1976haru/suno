@@ -677,6 +677,38 @@ export function enforceVocalTextInStylePrompt(
 }
 
 /**
+ * codex 지시문 03 (TASK B) — real gap: enforceVocalTextInStylePrompt above
+ * only runs on the incoming stylePrompt BEFORE core/batchPreallocation.ts's
+ * reconcileWithPreassignedSlot appends slot.genreText afterward via
+ * appendVerbatimIfMissing (which has zero gender-conflict awareness — it
+ * only checks for exact-substring presence, never content). A genre pack's
+ * own `vocal` field (data/genreLibrary's GenrePack.vocal, e.g. "airy female
+ * vocal", "smooth mature male croon") gets baked into genreText/shortPrompt
+ * and can reintroduce a conflicting gender word AFTER the enforcement
+ * already ran — e.g. resolved gender 'male' plus a blended-in genre whose
+ * own vocal trait independently says "female" would land BOTH words in the
+ * same final stylePrompt undetected (this task's own literal "male male" /
+ * "남성 리드와 여성 리드 동시 선언" complaint).
+ *
+ * Deliberately targets genreText specifically (the one field whose OWN
+ * vocal-trait content can reintroduce this), never the already-resolved
+ * vocalText itself. Strips only the conflicting GENDER WORD, not the whole
+ * genre trait phrase — matches this task's own explicit fix path ("장르
+ * 보컬 trait를 삭제하거나 backing 역할로 변환한다"): removing just the
+ * contradicting word keeps whatever non-gendered production detail that
+ * phrase also carries (e.g. "airy female vocal" → "airy vocal" rather than
+ * dropping the whole clause).
+ */
+export function stripConflictingGenreVocalGender(genreText: string | undefined, resolvedGender: VocalGender | undefined): string | undefined {
+  if (!genreText || (resolvedGender !== 'male' && resolvedGender !== 'female')) return genreText;
+  const conflictingGender = resolvedGender === 'male' ? 'female' : 'male';
+  const hasConflict = conflictingGender === 'male' ? hasMaleVoiceWord(genreText) : hasFemaleVoiceWord(genreText);
+  if (!hasConflict) return genreText;
+  const stripped = stripGenderTerms(genreText, conflictingGender);
+  return stripped || undefined;
+}
+
+/**
  * TASK v3.39 Part H — the strongest lever Suno actually reads for vocal
  * gender is a lyric meta tag, not prose in the style field (see the H spec's
  * "가사 메타 태그 부재" finding: 0 uses of [male vocal]-style tags in real

@@ -1,5 +1,7 @@
 import type { BilingualPair, ChannelArchetype, GenerationOptions, GenrePack, LyricLanguage, PreassignedSongSlot, SongIdea, WorkspaceId } from '../types';
 import { lyricLanguageMismatchWarning, verbatimSceneCopyWarning } from './lyricMetrics';
+import { lyricMetaLeakWarning } from './lyricMetaLeak';
+import { stylePromptWordBudgetWarning } from './stylePromptBudget';
 import { buildArrangementRecipe, buildPromptFingerprint } from './promptFingerprint';
 import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, buildArcPlanForProfile, clampTempoToKidsAgeTier, emotionArcPlanForArc, nextContestedTitle, resolveKidsAgeTierId, songRolePlanForArc } from './localGenerator';
@@ -27,6 +29,7 @@ import {
   leaningGenderFor,
   resolveFlagshipVocalOrder,
   resolveVocalMetaTag,
+  stripConflictingGenreVocalGender,
   usesVocalQuota,
   type VocalGender,
   type VocalType
@@ -1101,8 +1104,23 @@ export function reconcileWithPreassignedSlot(
   // verbatimSceneCopyWarning's own sceneText param is then undefined too —
   // no separate no-slot branching needed).
   const sceneCopyWarning = verbatimSceneCopyWarning(song.lyrics, slot?.lyricThemeText, slot?.trackNo ?? song.trackNo);
+  // codex 지시문 03 (TASK G) — resolved once here, same "every return path"
+  // shape as languageWarning/sceneCopyWarning above. Defaults to 'english'
+  // when the caller didn't pass lyricLanguage (matches every other
+  // language-scoped check in this same function's own precedent).
+  const metaLeakWarning = lyricMetaLeakWarning(song.lyrics, slot?.trackNo ?? song.trackNo, options.lyricLanguage ?? 'english');
+  // codex 지시문 03 (TASK C) — resolved once here, checked against
+  // song.stylePrompt (the INCOMING prompt) for the fast-path/no-slot
+  // branches below, which never mutate stylePrompt further (fast path's own
+  // completeFields precondition means nothing more gets appended; no-slot
+  // means there's no plan data to append from at all) — see
+  // stylePromptBudget.ts's own doc comment for why the bridge/Batch API
+  // paths had zero word-count enforcement before this. The main return path
+  // re-checks against the FINAL stylePrompt separately (finalWordBudgetWarning,
+  // below) since that one's stylePrompt keeps growing after this point.
+  const wordBudgetWarningForIncoming = stylePromptWordBudgetWarning(song.stylePrompt, resolvedWorkspaceId, slot?.trackNo ?? song.trackNo);
   const withLanguageWarning = (warnings: string[]): string[] => {
-    const extra = [languageWarning, sceneCopyWarning].filter((w): w is string => typeof w === 'string' && !warnings.includes(w));
+    const extra = [languageWarning, sceneCopyWarning, metaLeakWarning, wordBudgetWarningForIncoming].filter((w): w is string => typeof w === 'string' && !warnings.includes(w));
     return extra.length ? [...warnings, ...extra] : warnings;
   };
   // codex 지시문 02 (TASK K) — resolved once here (both fast-path and
@@ -1204,6 +1222,17 @@ export function reconcileWithPreassignedSlot(
   // vocalText has no detectable gender (e.g. a children's choir) or when the
   // stylePrompt already matches.
   const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
+  // codex 지시문 03 (TASK B) — real gap: slot.genreText (a genre pack's own
+  // `vocal` field baked into its prose, e.g. "airy female vocal") gets read
+  // directly in TWO separate places below — the append-if-missing step just
+  // below, AND diversifyVocalLedOpening's own `openings[0] = slot.genreText`
+  // candidate (called later in this same function) — either of which can
+  // reintroduce a gender word that conflicts with vocalFix's own resolved
+  // gender, undetected by appendVerbatimIfMissing's plain substring check.
+  // Stripped ONCE here and reused everywhere slot.genreText was previously
+  // read raw, so neither path can reintroduce the conflict independently.
+  const conflictFreeGenreText = stripConflictingGenreVocalGender(slot.genreText, slot.vocalGender);
+  const slotForStylePrompt: PreassignedSongSlot = conflictFreeGenreText === slot.genreText ? slot : { ...slot, genreText: conflictFreeGenreText };
   // TASK v3.43 Part A1/A2, Step 2 Part A3 — same "don't just trust the
   // instruction" principle applied to every other verbatim-weave slot field:
   // moneyChordText and hookDeviceText previously had no post-hoc check at
@@ -1215,15 +1244,17 @@ export function reconcileWithPreassignedSlot(
     stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
     stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.signatureSound);
   const existingPromptLower = stylePrompt.toLowerCase();
-  const genreTextToAppend = slot.genreText
-    && !existingPromptLower.includes(slot.genreText.trim().toLowerCase())
+  // codex 지시문 03 (TASK B) — reads the already gender-conflict-free
+  // conflictFreeGenreText (computed once above), not the raw slot.genreText.
+  const genreTextToAppend = conflictFreeGenreText
+    && !existingPromptLower.includes(conflictFreeGenreText.trim().toLowerCase())
     && slot.instrumentSet?.some(instrument =>
     existingPromptLower.includes(instrument.trim().toLowerCase())
   )
-    ? slot.genreText.split(',').map(atom => atom.trim()).filter(atom =>
+    ? conflictFreeGenreText.split(',').map(atom => atom.trim()).filter(atom =>
       !slot.instrumentSet!.some(instrument => atom.toLowerCase() === instrument.trim().toLowerCase())
     ).join(', ')
-    : slot.genreText;
+    : conflictFreeGenreText;
   stylePrompt = appendVerbatimIfMissing(stylePrompt, genreTextToAppend);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
   stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
@@ -1231,7 +1262,13 @@ export function reconcileWithPreassignedSlot(
   stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
   stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);
   stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
-  stylePrompt = diversifyVocalLedOpening(stylePrompt, slot);
+  // codex 지시문 03 (TASK B) — diversifyVocalLedOpening's own openings[0]
+  // candidate reads genreText directly (see this function's own doc
+  // comment on `openings` — `slot.genreText` is openings[0]); passing
+  // slotForStylePrompt (genreText already gender-conflict-free) instead of
+  // the raw slot prevents this second, independent read from reintroducing
+  // the same conflict genreTextToAppend above was just cleaned of.
+  stylePrompt = diversifyVocalLedOpening(stylePrompt, slotForStylePrompt);
   stylePrompt = removeRepeatedInstrumentMentions(stylePrompt, slot.instrumentSet);
   const excludePrompt = slot.negativeStyleText
     ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
@@ -1248,12 +1285,19 @@ export function reconcileWithPreassignedSlot(
   const structureWarning = structureMarker && !song.lyrics.includes(structureMarker)
     ? `Track ${slot.trackNo}: assigned structureTemplate ${slot.structureTemplate} but its section marker (${structureMarker}) doesn't appear in the lyrics — the structure guideline may not have been followed.`
     : undefined;
+  // codex 지시문 03 (TASK C) — re-checked here against the FINAL stylePrompt
+  // (after every append/enforcement step above), not the earlier
+  // wordBudgetWarning (computed on the still-incoming song.stylePrompt,
+  // correct only for the fast-path/no-slot branches above which never
+  // mutate it further) — the main path's own stylePrompt can grow
+  // significantly between those two points.
+  const finalWordBudgetWarning = stylePromptWordBudgetWarning(stylePrompt, resolvedWorkspaceId, slot.trackNo);
   // TASK (genre-archetype sanitization) — mirrors structureWarning
   // immediately above: preallocateSongSlots computes this once per pack
   // (trackNo 1's slot only — see PreassignedSongSlot.genreWarning's own doc
   // comment), folded into that one song's own warnings here, the same way
   // every other post-hoc reconciliation warning already surfaces.
-  const newWarnings = [structureWarning, slot.genreWarning, languageWarning, sceneCopyWarning].filter(
+  const newWarnings = [structureWarning, slot.genreWarning, languageWarning, sceneCopyWarning, metaLeakWarning, finalWordBudgetWarning].filter(
     (warning): warning is string => typeof warning === 'string' && !song.warnings.includes(warning)
   );
   const warnings = newWarnings.length ? [...song.warnings, ...newWarnings] : song.warnings;
