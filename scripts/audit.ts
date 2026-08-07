@@ -22,28 +22,51 @@ import { directSetLocal } from '../src/core/setDirector';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { getGenreById } from '../src/data/genreLibrary';
 import { channelPresets } from '../src/data/presets';
-import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
+import { SENIOR_AUDIENCE_PROFILE, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
 import { buildAudioSetReport } from '../src/core/audioSetReport';
 import { runFullAudit, type AuditItem, type FullAuditReport } from '../src/core/fullAudit';
-import type { AudienceProfile, GenerationOptions } from '../src/types';
+import { scoreSongs } from '../src/core/quality';
+import { importSongsJson, extractBridgeImportMeta } from '../src/core/bridgeImport';
+import { topWordFrequencies } from '../src/core/lyricVocabularyRepetition';
+import { lyricWordAndSectionCounts } from '../src/core/compositionScorer';
+import { parseLyricsSections } from '../src/core/lyricsAst';
+import { sceneSimilarity } from '../src/core/sceneSimilarity';
+import { checkSeniorEraShare } from '../src/core/seniorOldpopPolicy';
+import type { AudienceProfile, ChannelProfile, GenerationOptions, LyricLanguage, PlaylistBlueprint, SongIdea } from '../src/types';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const BASELINE_PATH = path.resolve(process.cwd(), 'audit-baseline.json');
+// 지시문 09 (TASK B-2) — 실제 발매 경로(--pack)와 로컬 템플릿 경로는 산출
+// 방식이 근본적으로 다르므로(외부 LLM 자유 작문 vs 결정론적 템플릿 채움) 같은
+// baseline으로 비교하지 않는다. 별도 파일, 별도 경로.
+const PACK_BASELINE_PATH = path.resolve(process.cwd(), 'audit-baseline.pack.json');
+
+const DEFAULT_CONCEPT = '비틀즈 느낌의 밝은 60년대 팝';
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const get = (flag: string, fallback: string) => {
+  const get = (flag: string): string | undefined => {
     const idx = args.indexOf(flag);
-    return idx >= 0 && args[idx + 1] ? args[idx + 1] : fallback;
+    return idx >= 0 && args[idx + 1] ? args[idx + 1] : undefined;
   };
+  // TASK B-1 — `--concept`가 실제로 CLI에 있었는지(explicitConcept)를
+  // `concept`(항상 값이 있는, 로컬 템플릿 경로용 기본값)과 분리해 둔다 —
+  // --pack 모드가 "명시적 --concept 없으면 meta.conceptLabel로" 폴백할 때
+  // DEFAULT_CONCEPT를 진짜 사용자 선택으로 오인하지 않기 위해서다.
+  const explicitConcept = get('--concept');
   return {
-    concept: get('--concept', '비틀즈 느낌의 밝은 60년대 팝'),
-    count: Math.max(1, parseInt(get('--count', '18'), 10) || 18),
-    channelId: get('--channel', channelPresets.find(c => c.archetype === 'senior-morning')!.id),
-    audioMetricsPath: get('--audio', ''),
-    reportPath: get('--report', ''),
-    saveBaseline: args.includes('--save-baseline')
+    concept: explicitConcept ?? DEFAULT_CONCEPT,
+    explicitConcept,
+    count: Math.max(1, parseInt(get('--count') ?? '18', 10) || 18),
+    channelId: get('--channel') ?? channelPresets.find(c => c.archetype === 'senior-morning')!.id,
+    audioMetricsPath: get('--audio') ?? '',
+    reportPath: get('--report') ?? '',
+    saveBaseline: args.includes('--save-baseline'),
+    packPath: get('--pack') ?? '',
+    compareLocal: args.includes('--compare-local'),
+    crossPath: get('--cross') ?? ''
   };
 }
 
@@ -74,8 +97,221 @@ function generatePack(concept: string, songCount: number, channelId: string) {
     personaMode: false,
     diversityAllocations: plan.allocations
   };
-  const season = { id: 'spring-open', label: 'Spring Opening', period: 'March', keywords: ['spring'], visualDirection: '' };
+  const season = defaultSeason();
   return generateLocalBlueprint(opts, genres, [], season);
+}
+
+function defaultSeason() {
+  return { id: 'spring-open', label: 'Spring Opening', period: 'March', keywords: ['spring'], visualDirection: '' };
+}
+
+// ---------------------------------------------------------------------------
+// TASK B-1 — 실제 발매 경로 (--pack). bridgeImport.ts:408의 importSongsJson
+// 을 그대로 통과시킨다 — 별도 파서를 만들지 않는다. 이 함수는 그 함수가
+// 필요로 하는 opts/genres/moods/season을 파일의 meta 블록(이미 존재하는
+// extractBridgeImportMeta로 읽음, 새 파서 아님)에서 구성할 뿐, songs 배열
+// 자체는 절대 직접 파싱하지 않는다.
+// ---------------------------------------------------------------------------
+export interface PackLoadOk {
+  blocked: false;
+  blueprint: PlaylistBlueprint;
+  conceptLabel: string;
+  channel: ChannelProfile;
+  importReport: ReturnType<typeof importSongsJson>;
+}
+export interface PackLoadBlocked {
+  blocked: true;
+  reasons: string[];
+}
+export type PackLoadResult = PackLoadOk | PackLoadBlocked;
+
+export function loadPackBlueprint(packPath: string, explicitConcept: string | undefined): PackLoadResult {
+  if (!fs.existsSync(packPath)) {
+    return { blocked: true, reasons: [`파일을 찾을 수 없습니다: ${packPath}`] };
+  }
+  const rawText = fs.readFileSync(packPath, 'utf-8');
+  const meta = extractBridgeImportMeta(rawText);
+  const channel = channelPresets.find(c => c.id === meta?.channelId)
+    ?? channelPresets.find(c => c.archetype === 'senior-morning')!;
+  const songCount = meta?.songCount ?? 18;
+  const lyricLanguage: LyricLanguage = (meta?.lyricLanguage as LyricLanguage | undefined) ?? channel.primaryLanguage;
+  // TASK B-1 — "--concept가 없으면 팩의 meta.conceptLabel에서 읽는다. 없으면
+  // 감사는 실행하되 '약속 이행도'를 미측정으로 표시한다. 통과 처리하지 않는다."
+  // conceptLabel이 빈 문자열이면 core/promiseAudit.ts's auditPromises가
+  // 자연히 0개 약속을 찾아 pass:null(미측정)이 된다 — 별도 통과 처리 로직을
+  // 추가하지 않는다 (허구 통과 방지).
+  const conceptLabel = explicitConcept || meta?.conceptLabel || '';
+  const genreIds = channel.preferredGenres;
+  const genres = genreIds.map(id => getGenreById(id)).filter((g): g is NonNullable<typeof g> => Boolean(g));
+  const opts: GenerationOptions = {
+    channel,
+    projectTitle: conceptLabel || meta?.setName || 'imported pack',
+    songCount,
+    lyricLanguage,
+    market: channel.market,
+    audience: channel.audience,
+    genreIds,
+    moodIds: channel.preferredMoods,
+    seasonId: 'spring-open',
+    vocalTone: channel.defaultVocal,
+    perspective: 'firstPerson',
+    lyricDepth: 'commercial',
+    durationTarget: 'under3m30',
+    moneyChordMode: 'default',
+    customMoneyChord: '',
+    customConcept: conceptLabel,
+    avoidWords: '',
+    personaMode: false,
+    diversityAllocations: []
+  };
+  const season = defaultSeason();
+  const importReport = importSongsJson(rawText, opts, genres, [], season);
+  if (!importReport.blueprint) {
+    return {
+      blocked: true,
+      reasons: importReport.skippedReasons.length ? importReport.skippedReasons : ['알 수 없는 이유로 가져오기가 차단되었습니다.']
+    };
+  }
+  return { blocked: false, blueprint: importReport.blueprint, conceptLabel, channel, importReport };
+}
+
+// ---------------------------------------------------------------------------
+// TASK B-3 — 로컬 템플릿 경로와 실제 팩 경로 대조. 로컬 템플릿 경로는
+// generateLocalBlueprint가 scoreSongs를 호출하지 않으므로(기존
+// generatePack()과 동일한 실제 동작 — qualityScore가 스키마 기본값 그대로),
+// 공정한 비교를 위해 여기서 직접 채점한다.
+// ---------------------------------------------------------------------------
+function printCompareLocal(packBlueprint: PlaylistBlueprint, conceptLabel: string, songCount: number, channel: ChannelProfile, lyricLanguage: LyricLanguage) {
+  const localRaw = generatePack(conceptLabel || DEFAULT_CONCEPT, songCount, channel.id);
+  const localScored = scoreSongs(localRaw.songs, channel, lyricLanguage);
+
+  const stats = (songs: SongIdea[]) => {
+    const counts = songs.map(s => lyricWordAndSectionCounts(s.lyrics));
+    const words = counts.map(c => c.words);
+    const styleLens = songs.map(s => s.stylePrompt.length);
+    const maxVocab = topWordFrequencies(songs, 1)[0]?.count ?? 0;
+    const quality = songs.map(s => s.qualityScore);
+    return {
+      wordRange: words.length ? `${Math.min(...words)}~${Math.max(...words)}` : '(없음)',
+      styleLenRange: styleLens.length ? `${Math.min(...styleLens)}~${Math.max(...styleLens)}` : '(없음)',
+      maxVocab,
+      qualityAvg: quality.length ? (quality.reduce((a, b) => a + b, 0) / quality.length).toFixed(1) : '(없음)'
+    };
+  };
+
+  const packStats = stats(packBlueprint.songs);
+  const localStats = stats(localScored);
+  const packPromiseReport = runFullAudit(packBlueprint.songs, { conceptLabel, songCount, audienceProfile: SENIOR_AUDIENCE_PROFILE }).promiseAudit;
+  const localPromiseReport = runFullAudit(localScored, { conceptLabel, songCount, audienceProfile: SENIOR_AUDIENCE_PROFILE }).promiseAudit;
+
+  console.log('=== --compare-local: 로컬 템플릿 vs 실제 팩 ===');
+  console.log('');
+  console.log('항목                로컬 템플릿          실제 팩              차이');
+  console.log(`어휘 최대 반복        ${String(localStats.maxVocab).padEnd(20)}${String(packStats.maxVocab).padEnd(20)}${packStats.maxVocab - localStats.maxVocab}`);
+  console.log(`약속 이행도          ${(Math.round(localPromiseReport.overallFulfillment * 100) + '%').padEnd(20)}${(Math.round(packPromiseReport.overallFulfillment * 100) + '%').padEnd(20)}${Math.round((packPromiseReport.overallFulfillment - localPromiseReport.overallFulfillment) * 100)}%p`);
+  console.log(`가사 단어수          ${localStats.wordRange.padEnd(20)}${packStats.wordRange.padEnd(20)}`);
+  console.log(`stylePrompt 길이     ${localStats.styleLenRange.padEnd(20)}${packStats.styleLenRange.padEnd(20)}`);
+  console.log(`qualityScore 평균    ${String(localStats.qualityAvg).padEnd(20)}${String(packStats.qualityAvg).padEnd(20)}`);
+  console.log('');
+}
+
+// ---------------------------------------------------------------------------
+// TASK B-4 — 세트 간 대조. 위치 정보(trackNo)를 반드시 함께 출력한다.
+// ---------------------------------------------------------------------------
+function openingSixWords(lyrics: string): string {
+  const sections = parseLyricsSections(lyrics);
+  const firstLine = sections.flatMap(s => s.lines).find(l => l.trim())?.trim() ?? '';
+  return firstLine.split(/\s+/).slice(0, 6).join(' ').toLowerCase();
+}
+
+function normalizedLyricLines(lyrics: string): string[] {
+  return lyrics.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('['));
+}
+
+export interface CrossComparisonResult {
+  titleDupTrackNos: number[];
+  hookDupTrackNos: number[];
+  situationDupAnyCount: number;
+  situationDupSameTrackCount: number;
+  themeDupAnyCount: number;
+  themeDupSameTrackCount: number;
+  exactSentenceMatchCount: number;
+  openingSixWordDupCount: number;
+  sceneSimilarity: { min: number; median: number; max: number };
+  totalA: number;
+}
+
+/** Pure — B-4/B-5's real cross-pack comparison, position-aware (trackNo). Separated from printCross's own formatting so tests/audit.pack.test.ts can assert on real numbers instead of parsing console output. */
+export function computeCross(a: SongIdea[], b: SongIdea[]): CrossComparisonResult {
+  const byTrackB = new Map(b.map(s => [s.trackNo, s]));
+
+  const titleDupTrackNos = a.filter(s => byTrackB.get(s.trackNo)?.title === s.title).map(s => s.trackNo);
+  const hookDupTrackNos = a.filter(s => byTrackB.get(s.trackNo)?.hookPhrase === s.hookPhrase).map(s => s.trackNo);
+  const situationDupAny = a.filter(sa => b.some(sb => sb.listenerSituation === sa.listenerSituation));
+  const situationDupSameTrack = a.filter(sa => byTrackB.get(sa.trackNo)?.listenerSituation === sa.listenerSituation);
+  const themeDupAny = a.filter(sa => b.some(sb => sb.lyricTheme && sb.lyricTheme === sa.lyricTheme));
+  const themeDupSameTrack = a.filter(sa => sa.lyricTheme && byTrackB.get(sa.trackNo)?.lyricTheme === sa.lyricTheme);
+
+  const linesA = a.flatMap(s => normalizedLyricLines(s.lyrics));
+  const linesBSet = new Set(b.flatMap(s => normalizedLyricLines(s.lyrics)));
+  const exactSentenceMatches = [...new Set(linesA.filter(l => linesBSet.has(l)))];
+
+  const openingA = a.map(s => openingSixWords(s.lyrics));
+  const openingBSet = new Set(b.map(s => openingSixWords(s.lyrics)));
+  const openingDup = openingA.filter(o => o && openingBSet.has(o));
+
+  const similarities: number[] = [];
+  for (const songA of a) {
+    const songB = byTrackB.get(songA.trackNo);
+    if (!songB) continue;
+    const sigA = { situation: songA.listenerSituation, packId: 'A', trackNo: songA.trackNo };
+    const sigB = { situation: songB.listenerSituation, packId: 'B', trackNo: songB.trackNo };
+    similarities.push(sceneSimilarity(sigA, sigB));
+  }
+  similarities.sort((x, y) => x - y);
+
+  return {
+    titleDupTrackNos,
+    hookDupTrackNos,
+    situationDupAnyCount: situationDupAny.length,
+    situationDupSameTrackCount: situationDupSameTrack.length,
+    themeDupAnyCount: themeDupAny.length,
+    themeDupSameTrackCount: themeDupSameTrack.length,
+    exactSentenceMatchCount: exactSentenceMatches.length,
+    openingSixWordDupCount: openingDup.length,
+    sceneSimilarity: {
+      min: similarities[0] ?? 0,
+      max: similarities[similarities.length - 1] ?? 0,
+      median: similarities.length ? similarities[Math.floor(similarities.length / 2)] : 0
+    },
+    totalA: a.length
+  };
+}
+
+function printCross(a: SongIdea[], b: SongIdea[], conceptLabelA: string, conceptLabelB: string) {
+  const r = computeCross(a, b);
+
+  console.log('=== --cross: 세트 간 대조 (위치 정보 포함) ===');
+  console.log('');
+  console.log(`제목 완전중복              ${r.titleDupTrackNos.length}개   trackNo: [${r.titleDupTrackNos.join(', ')}]`);
+  console.log(`훅 완전중복                ${r.hookDupTrackNos.length}개   trackNo: [${r.hookDupTrackNos.join(', ')}]`);
+  console.log(`listenerSituation 중복     ${r.situationDupAnyCount}/${r.totalA}  같은 trackNo: ${r.situationDupSameTrackCount}개`);
+  console.log(`lyricTheme 중복            ${r.themeDupAnyCount}/${r.totalA}  같은 trackNo: ${r.themeDupSameTrackCount}개`);
+  console.log(`가사 문장 완전일치          ${r.exactSentenceMatchCount}개`);
+  console.log(`도입부 첫6단어 중복         ${r.openingSixWordDupCount}개`);
+  console.log(`sceneSignature 유사도       최소 ${r.sceneSimilarity.min.toFixed(3)} / 중앙 ${r.sceneSimilarity.median.toFixed(3)} / 최대 ${r.sceneSimilarity.max.toFixed(3)}`);
+  console.log('');
+
+  for (const [label, songs, concept] of [['A', a, conceptLabelA], ['B', b, conceptLabelB]] as const) {
+    const eraShare = concept ? checkSeniorEraShare(songs, concept) : undefined;
+    console.log(`시대 표기 분포 (${label}, 컨셉: "${concept || '(없음)'}")`);
+    if (eraShare) {
+      console.log(`  primary(컨셉 시대) ${(eraShare.primaryShare * 100).toFixed(0)}% · transition(전환) ${(eraShare.transitionShare * 100).toFixed(0)}% · other-era-pure(다른 시대) ${(eraShare.otherEraPureShare * 100).toFixed(0)}%`);
+    } else {
+      console.log('  (컨셉 미지정 또는 시대 신호 없음 — 판정 불가)');
+    }
+  }
+  console.log('');
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +377,10 @@ function conceptKey(label: string): string {
   return label.trim();
 }
 
-function loadBaseline(): Baseline {
-  if (!fs.existsSync(BASELINE_PATH)) return {};
+function loadBaseline(baselinePath: string = BASELINE_PATH): Baseline {
+  if (!fs.existsSync(baselinePath)) return {};
   try {
-    const parsed = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
+    const parsed = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
     // v4.4 (TASK C) — old-schema file (pre-dates the per-concept keying
     // above): detected structurally by its own top-level conceptLabel/
     // savedAt/items shape (the old file never had a schema-version field
@@ -160,8 +396,8 @@ function loadBaseline(): Baseline {
   }
 }
 
-function saveBaseline(report: FullAuditReport): void {
-  const baseline = loadBaseline();
+function saveBaseline(report: FullAuditReport, baselinePath: string = BASELINE_PATH): void {
+  const baseline = loadBaseline(baselinePath);
   const key = conceptKey(report.conceptLabel);
   const prior = baseline[key];
   const now = new Date().toISOString();
@@ -182,8 +418,8 @@ function saveBaseline(report: FullAuditReport): void {
     items[it.id] = { pass: it.status === 'pass', bestValue, bestAt };
   }
   baseline[key] = { savedAt: now, items };
-  fs.writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n', 'utf-8');
-  console.log(`[audit] 기준선을 저장했습니다 (컨셉: "${report.conceptLabel}"): ${BASELINE_PATH}`);
+  fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n', 'utf-8');
+  console.log(`[audit] 기준선을 저장했습니다 (컨셉: "${report.conceptLabel}"): ${baselinePath}`);
 }
 
 type Classification = 'pass' | 'regression' | 'below-target' | 'improving' | 'not-measured' | 'new';
@@ -338,8 +574,72 @@ function buildMarkdownReport(report: FullAuditReport, baseline: Baseline): strin
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-function main() {
-  const args = parseArgs();
+function runPackMode(args: ReturnType<typeof parseArgs>) {
+  const startedAt = Date.now();
+  const loaded = loadPackBlueprint(args.packPath, args.explicitConcept);
+  if (loaded.blocked) {
+    console.error('[audit] --pack 가져오기가 차단되었습니다 — 구조 검증 실패, 감사를 실행하지 않습니다.');
+    for (const reason of loaded.reasons) console.error(`  - ${reason}`);
+    process.exit(1);
+  }
+
+  const { blueprint, conceptLabel, channel } = loaded;
+  const songCount = blueprint.songs.length;
+  const audienceProfile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
+  const lyricLanguage: LyricLanguage = blueprint.songs[0] ? (channel.primaryLanguage as LyricLanguage) : channel.primaryLanguage;
+
+  const killingPointTrackNos = new Set(blueprint.songs.filter(song => song.killingPointId).map(song => song.trackNo));
+  const audioReport = loadAudioReport(args.audioMetricsPath, songCount, audienceProfile, killingPointTrackNos);
+
+  const report = runFullAudit(blueprint.songs, { conceptLabel, songCount, audienceProfile, audioReport });
+
+  if (!conceptLabel) {
+    console.log('[audit] --concept도 meta.conceptLabel도 없습니다 — 약속 이행도는 미측정으로 표시됩니다 (통과 처리하지 않음).');
+    console.log('');
+  }
+
+  const baseline = loadBaseline(PACK_BASELINE_PATH);
+  const { regressionCount } = printConsoleReport(report, baseline);
+
+  // TASK B-1 — "지금까지 채점된 실제 발매물의 qualityScore를 아무도 본 적이
+  // 없다": bridgeImport.ts의 importSongsJson이 내부에서 scoreSongs를 실행한
+  // 결과이므로, 여기 나오는 값은 스키마 플레이스홀더(0)가 아니라 실측값이다.
+  console.log('실제 발매물 qualityScore (채점 후, 스키마 플레이스홀더 아님):');
+  for (const song of blueprint.songs) console.log(`  T${song.trackNo}: ${song.qualityScore}`);
+  console.log('');
+
+  if (args.compareLocal) {
+    printCompareLocal(blueprint, conceptLabel, songCount, channel, lyricLanguage);
+  }
+
+  console.log(`실행 시간: ${((Date.now() - startedAt) / 1000).toFixed(1)}초`);
+
+  if (args.reportPath) {
+    fs.writeFileSync(args.reportPath, buildMarkdownReport(report, baseline), 'utf-8');
+    console.log(`[audit] 마크다운 리포트를 저장했습니다: ${args.reportPath}`);
+  }
+
+  if (args.saveBaseline) {
+    saveBaseline(report, PACK_BASELINE_PATH);
+  }
+
+  if (args.crossPath) {
+    const loadedB = loadPackBlueprint(args.crossPath, undefined);
+    if (loadedB.blocked) {
+      console.error('[audit] --cross 대상 파일 가져오기가 차단되었습니다.');
+      for (const reason of loadedB.reasons) console.error(`  - ${reason}`);
+      process.exit(1);
+    }
+    printCross(blueprint.songs, loadedB.blueprint.songs, conceptLabel, loadedB.conceptLabel);
+  }
+
+  if (regressionCount > 0) {
+    console.error(`[audit] 회귀 ${regressionCount}건 발견 — exit code 1`);
+    process.exit(1);
+  }
+}
+
+function runLocalTemplateMode(args: ReturnType<typeof parseArgs>) {
   const startedAt = Date.now();
 
   const blueprint = generatePack(args.concept, args.count, args.channelId);
@@ -373,4 +673,19 @@ function main() {
   }
 }
 
-main();
+function main() {
+  const args = parseArgs();
+  if (args.packPath) {
+    runPackMode(args);
+  } else {
+    runLocalTemplateMode(args);
+  }
+}
+
+// TASK B-5 — direct-run guard (same convention as scripts/checkReachability.ts
+// /checkNodeReachability.ts) so tests/audit.pack.test.ts can import this
+// module's own real loadPackBlueprint/computeCross without triggering
+// main()'s CLI behavior (process.exit, etc.) as an import side effect.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main();
+}
