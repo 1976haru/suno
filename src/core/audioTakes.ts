@@ -1,5 +1,6 @@
 import type { AudienceProfile, SongIdea, WorkspaceId } from '../types';
 import type { SongAudioMetrics, TempoEstimate, VocalMetrics } from './audioAnalysis';
+import type { AudioMeasurements } from './audioMeasurements';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 import { openAudioDb, TAKES_STORE, withAudioStore } from './audioDb';
 
@@ -52,6 +53,7 @@ export interface AudioTake {
 
   fileName: string;
   versionLabel: string;
+  /** `adopted` IS this spec's own "selected" concept (지시문 06 TASK A's `selected: boolean`) — kept under its real, already-wired name rather than adding a redundant duplicate field; setAdopted() below already enforces "at most one per song". */
   adopted: boolean;
 
   metrics: SongAudioMetrics;
@@ -61,6 +63,19 @@ export interface AudioTake {
   directives: AudioTakeDirectives;
 
   analyzedAt: string;
+
+  /**
+   * codex 지시문 06 (TASK A) — real, genuinely new fields this task adds.
+   * All optional so every take recorded before this task keeps loading
+   * unchanged (same additive convention as `workspaceId` above).
+   */
+  /** Sequence number among this song's own takes (1, 2, 3...) — distinct from `versionLabel` (free-text, e.g. "v2 brighter mix"), a real ordinal a comparison UI can sort/label by without parsing that string. */
+  takeNo?: number;
+  source?: 'upload' | 'suno-api' | 'other';
+  rating?: 'good' | 'ok' | 'bad';
+  rejectionReasons?: string[];
+  /** The genuinely new clipping/silence/LUFS-approx/stereo-width/sampleRate/channels measurements (core/audioMeasurements.ts) — additive alongside the existing metrics/vocalMetrics/tempoEstimate, not a replacement for them. */
+  measurements?: AudioMeasurements;
 }
 
 /**
@@ -94,6 +109,21 @@ export function buildTakeDirectives(
     targetDurationSec: audienceProfile.songLengthSecondsRange,
     instrumentAtoms: options.instrumentAtoms ?? []
   };
+}
+
+/**
+ * codex 지시문 06 (TASK A) — real, pure helper: the next takeNo for a song
+ * that already has N takes recorded (1 when it has none yet). Pure so a
+ * caller can compute this before ever touching IndexedDB — same
+ * "1..N takes, at most one adopted" real shape this file's own top doc
+ * comment already establishes, this just gives that ordinal a real number
+ * instead of leaving every take's own position among its siblings implicit
+ * in `versionLabel` free text.
+ */
+export function nextTakeNo(existingTakesForSong: readonly Pick<AudioTake, 'songId' | 'takeNo'>[], songId: string): number {
+  const sameSong = existingTakesForSong.filter(take => take.songId === songId);
+  const maxTakeNo = sameSong.reduce((max, take) => Math.max(max, take.takeNo ?? 0), 0);
+  return maxTakeNo + 1;
 }
 
 /** v4.15 (TASK B) — DB open/upgrade now lives in core/audioDb.ts, shared with core/audioArchive.ts's new 'archives' store in this same database (see that module's own doc comment on why one shared opener is required, not two independent indexedDB.open calls). STORE kept as a local alias so the rest of this file reads unchanged. */

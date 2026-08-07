@@ -46,9 +46,16 @@ function writeUint16LE(view: DataView, offset: number, value: number) {
   view.setUint16(offset, value, true);
 }
 
+/**
+ * codex 지시문 06 (TASK H) — `content` widened from string-only to
+ * `string | Uint8Array` so a production bundle's own audio/ files (real
+ * binary mp3 bytes) can ride the same real zip writer as every existing
+ * text-file caller — additive, byte-identical output for every existing
+ * string-content caller (Step4Result.tsx's own txt-zip export untouched).
+ */
 export interface ZipFileInput {
   name: string;
-  content: string;
+  content: string | Uint8Array;
 }
 
 export function buildZip(files: ZipFileInput[]): Blob {
@@ -60,7 +67,7 @@ export function buildZip(files: ZipFileInput[]): Blob {
 
   for (const file of files) {
     const nameBytes = encoder.encode(file.name);
-    const dataBytes = encoder.encode(file.content);
+    const dataBytes = typeof file.content === 'string' ? encoder.encode(file.content) : file.content;
     const crc = crc32(dataBytes);
 
     const localHeader = new ArrayBuffer(30);

@@ -268,5 +268,117 @@ export function verifiedComboFromSuggestion(suggestion: ComboSuggestion, workspa
   };
 }
 
+// ---------------------------------------------------------------------------
+// codex 지시문 06 (TASK G) — "안전한 학습": real staged lifecycle layered
+// ALONGSIDE this file's own existing suggestCombosFromRatings (unchanged,
+// still real, still used) rather than replacing it. Investigation confirmed
+// this file already has almost the exact rule this task asks for — sample
+// >= 5, goodShare >= 70%, never auto-registered (approveCombo is the only
+// write path, called exclusively from a real UI click) — but was missing
+// two of this task's own explicit gates (bad <= 15%, spread across >= 2
+// distinct sets) and had no staged lifecycle (only a flat verdict).
+// ---------------------------------------------------------------------------
+
+export type ComboLearningStage = 'observed' | 'suggested' | 'approved' | 'verified' | 'revalidated';
+
+/** Same real "group by packId, count distinct" technique core/promptFingerprintLedger.ts's own recentFingerprints already uses for its "N most-recent SETS" window — reused here for the "spread across >= 2 sets" gate rather than a second implementation. */
+export function distinctPackIdCount(records: readonly Pick<RatingRecord, 'packId'>[]): number {
+  return new Set(records.map(record => record.packId)).size;
+}
+
+const LEARNING_BAD_SHARE_MAX = 0.15;
+const LEARNING_MIN_DISTINCT_SETS = 2;
+/** A combo already promoted to 'approved' needs roughly double the original suggestion sample, still clearing every gate, before it's real-verified — not just "still equally thin evidence, now with a human's blessing on top". */
+const VERIFIED_SAMPLE_MULTIPLIER = 2;
+
+export interface ComboLearningEvaluation {
+  genreId: string;
+  bpmRange: [number, number];
+  sampleSize: number;
+  goodShare: number;
+  badShare: number;
+  distinctSetCount: number;
+  /** Only ever 'observed' or 'suggested' — a pure ratings-analysis function structurally cannot produce 'approved'/'verified'/'revalidated' (those require a real external event: an explicit user approval, or a later re-evaluation call — see nextComboLearningStage below). */
+  stage: 'observed' | 'suggested';
+  reasonKo: string;
+}
+
+/**
+ * The real, full 4-gate "suggested" evaluation this task's own §추천 조건
+ * literally lists (동일 조합 최소 5개 테이크 / good >= 70% / bad <= 15% / 2개
+ * 이상 세트) — same (genreId, 8-BPM-bucket) grouping as suggestCombosFromRatings,
+ * with the two additional real gates that function doesn't check. Kept as
+ * its own function (not a rewrite of suggestCombosFromRatings) since that
+ * function's own real callers/tests pin its existing narrower behavior —
+ * this is the one a NEW "safe learning" UI should call.
+ */
+export function evaluateCombosForLearning(
+  ratings: readonly RatingRecord[],
+  workspaceId: WorkspaceId,
+  existingCombos: readonly VerifiedCombo[]
+): ComboLearningEvaluation[] {
+  const scoped = ratings.filter(record => (record.workspaceId ?? DEFAULT_WORKSPACE_ID) === workspaceId && record.attributes.genreId && record.attributes.bpm);
+
+  const groups = new Map<string, { genreId: string; bpmRange: [number, number]; records: RatingRecord[] }>();
+  for (const record of scoped) {
+    const bucket = bpmBucket(record.attributes.bpm);
+    const key = `${record.attributes.genreId}|${bucket[0]}`;
+    const group = groups.get(key) ?? { genreId: record.attributes.genreId, bpmRange: bucket, records: [] };
+    group.records.push(record);
+    groups.set(key, group);
+  }
+
+  const evaluations: ComboLearningEvaluation[] = [];
+  for (const group of groups.values()) {
+    if (existingCombos.some(combo => combo.genreId === group.genreId && bpmRangesOverlap(combo.bpmRange, group.bpmRange))) continue;
+    const sampleSize = group.records.length;
+    const goodShare = group.records.filter(r => r.rating === 'good').length / sampleSize;
+    const badShare = group.records.filter(r => r.rating === 'bad').length / sampleSize;
+    const distinctSetCount = distinctPackIdCount(group.records);
+
+    const passesGates = sampleSize >= SUGGESTION_MIN_SAMPLE && goodShare >= SUGGESTION_GOOD_THRESHOLD && badShare <= LEARNING_BAD_SHARE_MAX && distinctSetCount >= LEARNING_MIN_DISTINCT_SETS;
+    const stage: ComboLearningEvaluation['stage'] = passesGates ? 'suggested' : 'observed';
+    const reasonKo = passesGates
+      ? `${sampleSize}개 테이크 / ${distinctSetCount}개 세트, 좋음 ${Math.round(goodShare * 100)}%, 별로 ${Math.round(badShare * 100)}% — 승인 대기 제안 상태입니다.`
+      : `${sampleSize}개 테이크 / ${distinctSetCount}개 세트 관찰됨 — 아직 제안 기준(테이크 ≥5, 좋음 ≥70%, 별로 ≤15%, 세트 ≥2) 미달.`;
+
+    evaluations.push({ genreId: group.genreId, bpmRange: group.bpmRange, sampleSize, goodShare, badShare, distinctSetCount, stage, reasonKo });
+  }
+  return evaluations.sort((a, b) => b.sampleSize - a.sampleSize);
+}
+
+/**
+ * The real, structural "자동 승격 금지" guarantee: a pure state-transition
+ * function that can NEVER produce 'approved' on its own — the only way
+ * `currentStage` is ever 'approved' (or later) in the first place is a real
+ * prior call to approveCombo() (a human click), external to this function
+ * entirely. Called again later, with a FRESH (larger) rating sample, to
+ * progress an already-approved combo toward 'verified' then 'revalidated' —
+ * still never downgrading automatically past what a human already approved
+ * (a combo that stops clearing the bar simply stays at its current stage,
+ * surfaced to the user for their own manual review rather than silently
+ * demoted).
+ */
+export function nextComboLearningStage(
+  currentStage: ComboLearningStage,
+  sampleSize: number,
+  goodShare: number,
+  badShare: number,
+  distinctSetCount: number
+): ComboLearningStage {
+  const passesGates = sampleSize >= SUGGESTION_MIN_SAMPLE && goodShare >= SUGGESTION_GOOD_THRESHOLD && badShare <= LEARNING_BAD_SHARE_MAX && distinctSetCount >= LEARNING_MIN_DISTINCT_SETS;
+
+  if (currentStage === 'observed') return passesGates ? 'suggested' : 'observed';
+  if (currentStage === 'suggested') return 'suggested'; // never self-promotes past here — approveCombo() is the only real path to 'approved'.
+  if (currentStage === 'approved') {
+    const passesVerifiedGates = sampleSize >= SUGGESTION_MIN_SAMPLE * VERIFIED_SAMPLE_MULTIPLIER && passesGates;
+    return passesVerifiedGates ? 'verified' : 'approved';
+  }
+  if (currentStage === 'verified') {
+    return passesGates ? 'revalidated' : 'verified';
+  }
+  return passesGates ? 'revalidated' : currentStage; // already 'revalidated': stays there while still real-passing, otherwise reported unchanged for manual review (never auto-demoted).
+}
+
 export { SEED_VERIFIED_COMBOS };
 export type { VerifiedCombo };
