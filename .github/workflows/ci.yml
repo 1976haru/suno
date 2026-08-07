@@ -142,6 +142,22 @@ jobs:
       - run: npm ci
       - run: npm run check:node
 
+  # 지시문 08 (TASK C) — regression guard against modules existing but never
+  # being called from the app's own 3 real entry points (src/main.tsx,
+  # src/App.tsx, src/workers/localGenerationWorker.ts) — the exact failure
+  # mode TASK C found 43 instances of (a new module built, tested, but never
+  # wired into a real call site anything in the app actually reaches).
+  check-reachability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:reachability
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

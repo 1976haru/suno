@@ -22,6 +22,7 @@
     "audit": "tsx scripts/audit.ts",
     "audit:isolation": "tsx scripts/isolationAudit.ts",
     "check:node": "tsx scripts/checkNodeReachability.ts",
+    "check:reachability": "tsx scripts/checkReachability.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",

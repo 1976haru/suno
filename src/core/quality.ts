@@ -9,6 +9,10 @@ import { extractContentIdFlags } from './exportCompliance';
 import { lintEnglishLyrics } from './englishLint';
 import { checkTempoAgainstAudienceProfile, checkTempoWordingContradiction } from './tempoComplianceGate';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
+import { parseLyricsSections, findEmptyBridge, missingRequiredSections, rapSectionsMissingVocalist, duetPartDistributionIssue } from './lyricsAst';
+import { checkSectionAwareRepetition } from './sectionAwareRepetition';
+import { sceneSeasonContradictionWarning } from './semanticContradiction';
+import { checkEnglishLyricLineQuality, checkTranslationese } from './languageQuality';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -486,6 +490,64 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     if (!presence.male || !presence.female) {
       pushUnique(warnings, 'Style prompt may be missing one side of the selected duet vocal — review before pasting into Suno.');
       score -= 5;
+    }
+  }
+
+  // 지시문 08 (TASK C) — real structural/semantic lyric checks
+  // (core/lyricsAst.ts, sectionAwareRepetition.ts, semanticContradiction.ts,
+  // languageQuality.ts) existed as pure, individually-tested modules but
+  // were never actually called from any real generation path — every song
+  // funnels through scoreSong regardless of provider (same choke point the
+  // englishLint/tempoComplianceGate wiring below already uses), so this is
+  // the one place that surfaces their findings in song.warnings/qualityScore
+  // instead of leaving them as unreachable dead code.
+  const lyricSections = parseLyricsSections(song.lyrics);
+  if (findEmptyBridge(lyricSections).length) {
+    pushUnique(warnings, 'Lyrics contain a [bridge] section tag with no lines under it.');
+    score -= 8;
+  }
+  const missingSections = missingRequiredSections(lyricSections);
+  if (missingSections.length) {
+    pushUnique(warnings, `Lyrics are missing required section(s): ${missingSections.join(', ')}.`);
+    score -= 15;
+  }
+  if (rapSectionsMissingVocalist(lyricSections).length) {
+    pushUnique(warnings, 'A [rap] section has no vocalist assignment.');
+    score -= 5;
+  }
+  const duetIssue = duetPartDistributionIssue(lyricSections, targetGender ?? undefined);
+  if (duetIssue) {
+    pushUnique(warnings, duetIssue);
+    score -= 6;
+  }
+  for (const finding of checkSectionAwareRepetition(lyricSections, channel?.kidsAgeTierId)) {
+    pushUnique(warnings, `Section repetition: ${finding.detail}`);
+    score -= 6;
+  }
+  const sceneContradiction = sceneSeasonContradictionWarning(song.listenerSituation, song.lyrics);
+  if (sceneContradiction) {
+    pushUnique(warnings, sceneContradiction);
+    score -= 5;
+  }
+  // languageQuality.ts's own doc comment calls its English checks "advisory
+  // only, never blocking, since this is a style preference, not a
+  // correctness rule" — real measurement against a well-formed fixture
+  // confirmed why: the crude vowel-cluster syllable approximation flags
+  // ordinary, perfectly singable lines ("gently one more time", "I finally
+  // understand") at its 2.0 threshold. Surfaced as a visible warning (the
+  // real point of wiring this in) without a score penalty, matching its own
+  // documented non-blocking status — translationese markers are a fixed,
+  // precise phrase list (not a heuristic approximation) so those keep a real
+  // penalty.
+  const sungLines = lyricSections.flatMap(section => section.lines);
+  if (language === 'english') {
+    for (const finding of checkEnglishLyricLineQuality(sungLines)) {
+      pushUnique(warnings, `English lyric quality (${finding.kind}): ${finding.detail}`);
+    }
+  } else {
+    for (const warning of checkTranslationese(sungLines, language)) {
+      pushUnique(warnings, `Translationese: ${warning}`);
+      score -= 3;
     }
   }
 
