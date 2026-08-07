@@ -162,6 +162,7 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           songCount: blueprint.songs.length,
           audienceProfile,
           lyricLanguage: opts.lyricLanguage,
+          archetype: opts.channel.archetype,
           duplicationHistory: {
             recentSituations: situations,
             recentLyricLines: lines,
@@ -201,16 +202,18 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
 
   const orderSuggestion = useMemo(() => suggestSetOrder(blueprint.songs, audioSignals), [blueprint.songs, audioSignals]);
 
-  // v5.23 (TASK C §3-6) — measurableCriteria excludes the 2 permanently
-  // notImplemented items (modulation-count/intro-type-variety — see
-  // core/releaseReadiness.ts's own newItems doc comment): those can never
-  // pass today for ANY pack, so a raw "X/32" ratio against them would make
-  // "발매 가능" literally unreachable and useless as a signal. This still
-  // reports them separately below (never silently dropped), just not
-  // folded into the go/no-go badge itself.
+  // codex 지시문 05 (TASK F/H) — measuredCriteria/passedOfMeasured/
+  // unmeasuredCount now come straight from core/releaseReadiness.ts's own
+  // real ReleaseReadinessReport fields (single source — this panel used to
+  // re-derive the same 2-number ratio ad hoc; TASK F moved that
+  // computation into the report itself so no other future consumer has to
+  // re-derive it a second, possibly-diverging way). measurableFailing is
+  // still panel-local (only this panel needs the actual failing-item LIST,
+  // not just the count).
   const measurableFailing = releaseReadiness?.failing.filter(item => !item.notImplemented) ?? [];
-  const measurableTotal = releaseReadiness ? releaseReadiness.totalCriteria - releaseReadiness.items.filter(item => item.notImplemented).length : 0;
-  const measurablePassed = measurableTotal - measurableFailing.length;
+  const measurableTotal = releaseReadiness?.measuredCriteria ?? 0;
+  const measurablePassed = releaseReadiness?.passedOfMeasured ?? 0;
+  const unmeasuredCount = releaseReadiness?.unmeasuredCount ?? 0;
   const releaseReadyMeasurable = releaseReadiness ? measurableFailing.length === 0 : null;
   const exemptCount = releaseReadiness?.explorationExemptCount ?? 0;
 
@@ -240,7 +243,7 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           ok={releaseReadyMeasurable}
           label={
             releaseReadiness
-              ? `발매 준비 ${measurablePassed}/${measurableTotal}${exemptCount > 0 ? ` (탐색 ${exemptCount}곡 포함)` : ''}`
+              ? `측정 기준 ${measurablePassed}/${measurableTotal} 통과 · 감사 범위 ${measurableTotal}/${releaseReadiness.totalCriteria} · 미측정 ${unmeasuredCount}개${exemptCount > 0 ? ` (탐색 ${exemptCount}곡 포함)` : ''}`
               : '발매 준비'
           }
         />

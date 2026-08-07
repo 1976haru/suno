@@ -1,5 +1,6 @@
 import type { IssueScope, ScopedIssue, SongIdea } from '../types';
 import type { ReleaseReadinessItem, ReleaseReadinessReport } from './releaseReadiness';
+import { TRACK_SCOPED_ITEM_ID_SET, DESIGN_SCOPED_ITEM_ID_SET, REWRITE_LOOP_ITEM_IDS } from './auditItemIds';
 
 /**
  * v5.22 (AXIS 5) — real, verified gap this module fixes: no rewrite loop
@@ -11,6 +12,16 @@ import type { ReleaseReadinessItem, ReleaseReadinessReport } from './releaseRead
  * core/generationGate.ts's packLevelFindings already produces these for its
  * own pack-level blocking findings) rather than inventing a second scope
  * taxonomy.
+ *
+ * codex 지시문 05 (TASK C) — real bug fixed here: this module's own
+ * TRACK_SCOPED_ITEM_IDS/DESIGN_SCOPED_ITEM_IDS used to be hand-typed,
+ * hyphenated guesses ('era-primary-share', 'bpm-in-range', 'genre-max5')
+ * that never actually matched core/fullAudit.ts's real, underscored ids
+ * ('bpm_in_range', 'genre_max5') — self-documented as a known bug in
+ * core/releaseReadiness.ts's own STYLE_ALLOCATION_ITEM_IDS comment. This
+ * module also had ZERO real importers anywhere (confirmed by investigation)
+ * so the bug was silently inert rather than actively wrong — now sourced
+ * from core/auditItemIds.ts's single, verified-correct registry instead.
  */
 
 const MAX_AUTOMATIC_ROUNDS = 2;
@@ -20,13 +31,29 @@ export function shouldContinueRewriteLoop(roundsAlreadyRun: number): boolean {
   return roundsAlreadyRun < MAX_AUTOMATIC_ROUNDS;
 }
 
-const TRACK_SCOPED_ITEM_IDS = new Set([
-  'english-grammar-errors', 'in-song-line-repetition', 'tempo-wording-contradiction',
-  'scene-recent-set-overlap', 'title-full-history-collision', 'lyric-line-recent-set-overlap'
-]);
-const DESIGN_SCOPED_ITEM_IDS = new Set([
-  'era-primary-share', 'bpm-in-range', 'genre-variety', 'genre-max5', 'vocal_distribution', 'vocal_no_triple_run', 'modulation-count', 'intro-type-variety'
-]);
+/**
+ * codex 지시문 05 (TASK D, 완료 기준 "same failed signature repeated
+ * endlessly = 0") — real gap: nothing detected a rewrite round making zero
+ * real progress (the exact SAME set of failing item ids reported again
+ * after a round supposedly "fixed" something) before this task. A stable
+ * signature (sorted, deduped ids joined) so caller-side ordering never
+ * causes a false negative.
+ */
+export function failingItemsSignature(failing: readonly Pick<ReleaseReadinessItem, 'id'>[]): string {
+  return [...new Set(failing.map(item => item.id))].sort().join('|');
+}
+
+/**
+ * True when a rewrite round's own failing-item signature is IDENTICAL to
+ * the round before it — the real "this rewrite loop is stuck, stop
+ * spinning" signal. A caller should treat this the same as
+ * `!shouldContinueRewriteLoop` (fall to 'blocked-manual') even if the
+ * automatic round budget technically isn't exhausted yet.
+ */
+export function rewriteLoopHasStagnated(previousFailing: readonly Pick<ReleaseReadinessItem, 'id'>[], currentFailing: readonly Pick<ReleaseReadinessItem, 'id'>[]): boolean {
+  if (!previousFailing.length) return false; // nothing to compare against yet (this is round 1)
+  return failingItemsSignature(previousFailing) === failingItemsSignature(currentFailing);
+}
 
 /**
  * Classifies each failing ReleaseReadinessItem into a real IssueScope. Item
@@ -37,8 +64,8 @@ const DESIGN_SCOPED_ITEM_IDS = new Set([
  * single item's own default.
  */
 function scopeForItem(item: ReleaseReadinessItem): IssueScope {
-  if (TRACK_SCOPED_ITEM_IDS.has(item.id)) return 'track';
-  if (DESIGN_SCOPED_ITEM_IDS.has(item.id)) return 'design';
+  if (TRACK_SCOPED_ITEM_ID_SET.has(item.id)) return 'track';
+  if (DESIGN_SCOPED_ITEM_ID_SET.has(item.id)) return 'design';
   return 'rebalance';
 }
 
@@ -56,7 +83,7 @@ export function classifyReleaseReadinessFailures(report: ReleaseReadinessReport,
   if (report.totalCriteria > 0 && report.passedCriteria < report.totalCriteria - 12) {
     return [{
       scope: 'full',
-      id: 'release-readiness-catastrophic',
+      id: REWRITE_LOOP_ITEM_IDS.releaseReadinessCatastrophic,
       labelKo: `${report.totalCriteria}개 중 ${report.passedCriteria}개만 통과 — 부분 재작성으로는 부족합니다.`,
       affectedTracks: allTrackNos,
       fixHintKo: '전체 재생성이 현실적인 해결책입니다.'

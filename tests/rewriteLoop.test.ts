@@ -33,8 +33,12 @@ describe('[v5.22 AXIS 5 §5-3] classifyReleaseReadinessFailures — IssueScope c
     expect(issues[0].scope).toBe('track');
   });
 
-  it('a design-scoped item (bpm-in-range) affects every track', () => {
-    const report = makeReport([{ id: 'bpm-in-range', categoryKo: '음악 설계', labelKo: 'BPM 범위 준수', status: 'fail', detail: '2곡 위반' }]);
+  // codex 지시문 05 (TASK C) — fixture id fixed from the old, wrong
+  // hyphenated guess ('bpm-in-range') to the real underscored id
+  // fullAudit.ts actually uses ('bpm_in_range') — see core/auditItemIds.ts's
+  // own doc comment for the real drift bug this closes.
+  it('a design-scoped item (bpm_in_range) affects every track', () => {
+    const report = makeReport([{ id: 'bpm_in_range', categoryKo: '음악 설계', labelKo: 'BPM 범위 준수', status: 'fail', detail: '2곡 위반' }]);
     const issues = classifyReleaseReadinessFailures(report, songs);
     expect(issues[0].scope).toBe('design');
     expect(issues[0].affectedTracks).toEqual(songs.map(s => s.trackNo));
@@ -76,7 +80,7 @@ describe('[v5.22 AXIS 5 §5-4] buildRewriteInstruction — concrete per-track pr
 
   it('a design-scoped issue lists every track under "세트 전체에 적용되는 문제", not per-track blocks', () => {
     const issues = classifyReleaseReadinessFailures(
-      makeReport([{ id: 'bpm-in-range', categoryKo: '음악 설계', labelKo: 'BPM 범위 준수', status: 'fail', detail: '2곡 위반' }]),
+      makeReport([{ id: 'bpm_in_range', categoryKo: '음악 설계', labelKo: 'BPM 범위 준수', status: 'fail', detail: '2곡 위반' }]),
       allTrackNos.map(trackNo => ({ trackNo }))
     );
     const instruction = buildRewriteInstruction(issues, allTrackNos);

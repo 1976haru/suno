@@ -33,6 +33,7 @@ import { useGenerationFlow, safeAvoidSet } from './hooks/useGenerationFlow';
 import { preallocateSongSlots } from './core/batchPreallocation';
 import { evaluateGenerationRequest } from './core/generationPreflight';
 import { genresForOptions, moodsForOptions, resolveGenerationContext, withGenerationSnapshot } from './core/generationSnapshot';
+import { applyConceptFitScore } from './core/promiseAudit';
 import { importSongsJson, importSongsForSrtOnly, extractBridgeImportMeta, extractRawImportedSongs, reconcileImportOptsWithMeta, type ImportSongsReport } from './core/claudeCodeBridge';
 import { BRIDGE_IMPORT_PRECONDITION_REASON, makeBridgeImportFailureReport } from './core/bridgeImportUi';
 import { inspectImportReport, buildMissingTracksRegenerateInstruction, buildArtistLeakRegenerateInstruction, type ImportInspection } from './core/importInspection';
@@ -463,6 +464,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * on a blueprint that already has one (a later re-finalize from retry/
    * refine/undo) — so the pack's ORIGINAL generation settings survive every
    * later call here regardless of what's live on screen by then.
+   *
+   * codex 지시문 05 (TASK B) — real bug fixed here: `applyConceptFitScore`
+   * used to run ONLY inside Step4Result.tsx's own on-screen `scoredSongs`
+   * useMemo, so every autosaved pack (this function's own real caller,
+   * handleGenerationSuccess below) shipped the neutral conceptFitScore:100
+   * placeholder while only the live screen showed the real, concept-aware
+   * number. Applied here, once, at the one real finalize choke point every
+   * single-pack path (realtime/cache-hit/bridge import) shares.
    */
   function finalizeSinglePackBlueprint(
     next: PlaylistBlueprint,
@@ -470,7 +479,9 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     /** Real preassigned slot plan this generation actually used, when the caller already computed one (e.g. bridge import) — avoids both a redundant recompute and drift from the plan the pack really used; withGenerationSnapshot/slotsForOptions recomputes one when omitted. */
     slots?: PreassignedSongSlot[]
   ) {
-    const prefixed = applySetTitlePrefixesToBlueprint(next, generationOpts.setNumberPrefix ?? true);
+    const conceptLabel = generationOpts.customConcept || generationOpts.projectTitle;
+    const scored = { ...next, songs: applyConceptFitScore(next.songs, conceptLabel) };
+    const prefixed = applySetTitlePrefixesToBlueprint(scored, generationOpts.setNumberPrefix ?? true);
     return withGenerationSnapshot(prefixed, { options: generationOpts, provider, season: selectedSeason, slots });
   }
 

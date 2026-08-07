@@ -10,6 +10,7 @@ import { readRecentGenreIds } from './recentGenreStore';
 import { evaluateGenerationRequest, stableHash, type PreflightReason, type PreflightResult } from './generationPreflight';
 import { withGenerationSnapshot } from './generationSnapshot';
 import { preallocateSongSlots } from './batchPreallocation';
+import { applyConceptFitScore } from './promiseAudit';
 
 /**
  * TASK v3.33 — multi-set generation: N independent sets (e.g. 5 x 18 songs)
@@ -175,6 +176,12 @@ export async function finalizeSetBlueprint(
     finalBlueprint = resolved.blueprint;
     warnings = resolved.warnings;
   }
+  // codex 지시문 05 (TASK B) — same real conceptFitScore-drift fix as
+  // App.tsx's finalizeSinglePackBlueprint (see that function's own doc
+  // comment): applied once, at this multi-set path's own single finalize
+  // choke point, before the pack is ever autosaved.
+  const conceptLabel = setOpts.customConcept || setOpts.projectTitle;
+  finalBlueprint = { ...finalBlueprint, songs: applyConceptFitScore(finalBlueprint.songs, conceptLabel) };
   if (setOpts.setNumberPrefix ?? true) {
     finalBlueprint = applySetTitlePrefixesToBlueprint(finalBlueprint, true);
   }
