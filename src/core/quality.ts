@@ -17,6 +17,7 @@ import { idolSingleEnglishWordTitleWarning } from './idolTitleLint';
 import { GENRE_FORBIDDEN_DESCRIPTORS } from '../data/genreForbiddenDescriptors';
 import { auditStylePromptAgainstSpec } from './promptSpec';
 import { bilingualLint } from './bilingualLint';
+import { checkRelationshipContinuity } from './relationshipContinuity';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -550,6 +551,17 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   if (sceneContradiction) {
     pushUnique(warnings, sceneContradiction);
     score -= 5;
+  }
+
+  // 지시문 11 (TASK A) — kr-2030/jp-2030 전용: 관계 상태 연속성. 다른
+  // 워크스페이스의 가사에는 "관계"라는 축 자체가 없어(시니어 추억/아이 동요 등)
+  // 이 체크를 전역으로 걸면 오탐만 늘어난다 — archetype으로 명시적으로 좁힌다.
+  if (channel?.archetype === 'kr-2030-pop' || channel?.archetype === 'jp-2030-pop') {
+    const relationshipLanguage = channel.archetype === 'jp-2030-pop' ? 'japanese' : 'korean';
+    for (const issue of checkRelationshipContinuity(song.lyrics, relationshipLanguage)) {
+      pushUnique(warnings, `Relationship continuity: ${issue.labelKo}`);
+      score -= 12;
+    }
   }
   // languageQuality.ts's own doc comment calls its English checks "advisory
   // only, never blocking, since this is a style preference, not a

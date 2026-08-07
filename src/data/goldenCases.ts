@@ -62,8 +62,8 @@ export const GOLDEN_CASES: GoldenCase[] = [
     category: 'relationship-continuity',
     symptomKo: 'kr/jp-2030 세트에서 관계 상태가 섹션 간 모순됐다(예: 문자를 보내지 않은 상태에서 답장을 받거나, 이별한 사이인데 같은 시간선에서 첫 만남을 묘사).',
     addedFrom: '지시문 11 TASK A (챗지피티 지시문 09 TASK 3에서 최초 신고, 코덱스 지시문 03에서 명시적으로 미구현으로 신고됨)',
-    checkerRef: 'src/core/relationshipContinuity.ts checkRelationshipContinuity (이 지시문에서 신규 구현 예정 — TASK A 완료 후 status를 verified로 바꾸고 회귀 테스트 추가)',
-    status: 'pending-checker'
+    checkerRef: 'src/core/relationshipContinuity.ts checkRelationshipContinuity, src/core/quality.ts scoreSong (kr-2030-pop/jp-2030-pop archetype에서 실제로 호출됨)',
+    status: 'verified'
   },
   {
     id: 'kids-outcome',

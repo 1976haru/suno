@@ -7,6 +7,7 @@ import { deriveEraIntent, checkEraPromptAgainstIntent } from '../src/core/eraInt
 import { duetPartDistributionIssue } from '../src/core/lyricsAst';
 import { checkJpKidsKanaRatio } from '../src/core/jpKidsPolicy';
 import { computeSlotPlanOverlap } from '../src/core/slotPlanOverlap';
+import { checkRelationshipContinuity } from '../src/core/relationshipContinuity';
 
 /**
  * 지시문 11 (TASK E) — golden case 회귀 잠금. src/data/goldenCases.ts의
@@ -87,6 +88,19 @@ describe('지시문 11 TASK E-2 — kpop-gender-part (blocking으로 재현)', (
       { rawTag: 'Chorus', type: 'chorus' as const, vocalist: 'female vocal', lines: ['line'] }
     ];
     expect(duetPartDistributionIssue(sections, 'duet')).toBeUndefined();
+  });
+});
+
+describe('지시문 11 TASK E-2 — 2030-relation-break (blocking으로 재현, TASK A 완료로 verified 전환)', () => {
+  it('실제 신고된 증상(문자 미전송 -> 답장 수신, 같은 시간선)을 최소 합성 재현으로 재현한다', () => {
+    const lyrics = '[verse 1]\n차마 보내지 못했던 그 문자\n[chorus]\n네게서 답장이 왔다';
+    const issues = checkRelationshipContinuity(lyrics, 'korean');
+    expect(issues.some(i => i.id === 'unsent-then-reply')).toBe(true);
+  });
+
+  it('회상 표지가 있는 정상적인 서사는 차단하지 않는다 — 과잉 차단 방지 확인', () => {
+    const lyrics = '[verse 1]\n그때, 차마 보내지 못했던 문자\n[chorus]\n지금은 네게서 답장이 왔다';
+    expect(checkRelationshipContinuity(lyrics, 'korean')).toEqual([]);
   });
 });
 

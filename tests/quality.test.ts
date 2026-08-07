@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkHookQuality, scoreSong, scoreSongs } from '../src/core/quality';
 import { buildDurationControl, buildExcludePrompt, buildStylePrompt } from '../src/core/promptComposer';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
+import { makeOptions, testGenres, testMoods, testSeason, channelPresets } from './fixtures';
 import type { ChannelProfile, SongIdea } from '../src/types';
 
 function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
@@ -277,5 +277,33 @@ describe('Suno artist-filter safety (v3.39 Part F)', () => {
   it('does not flag a stylePrompt with a single BPM declaration', () => {
     const song = scoreSong(baseSong());
     expect(song.warnings.some(w => w.startsWith('Prompt spec violation (tempo)'))).toBe(false);
+  });
+});
+
+describe('[지시문 11 TASK A] scoreSong — kr-2030/jp-2030 관계 연속성 실제 배선 확인', () => {
+  const kr2030Channel = channelPresets.find(c => c.archetype === 'kr-2030-pop')!;
+  const jp2030Channel = channelPresets.find(c => c.archetype === 'jp-2030-pop')!;
+
+  it('kr-2030-pop 채널에서 실제 모순 가사가 warnings에 실제로 반영된다', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n차마 보내지 못했던 그 문자\n[chorus]\n네게서 답장이 왔다',
+      workspaceId: 'kr-2030'
+    }), kr2030Channel);
+    expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(true);
+  });
+
+  it('jp-2030-pop 채널에서도 실제로 반영된다', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n送れなかったメッセージ\n[chorus]\n返事が来た',
+      workspaceId: 'jp-2030'
+    }), jp2030Channel);
+    expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(true);
+  });
+
+  it('다른 워크스페이스(senior-oldpop)에는 이 체크가 걸리지 않는다 — archetype 게이트가 실제로 좁혀져 있다', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n차마 보내지 못했던 그 문자\n[chorus]\n네게서 답장이 왔다'
+    }));
+    expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(false);
   });
 });
