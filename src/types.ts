@@ -1087,6 +1087,17 @@ export interface SongIdea {
   stylePrompt: string;
   /** Text meant for Suno's separate Advanced Options -> Exclude field, never pasted into the style prompt itself (avoidWords + copyright-avoidance terms). See core/promptComposer.ts's buildExcludePrompt. */
   excludePrompt?: string;
+  /**
+   * 지시문 10 (TASK D) — the stylePrompt exactly as a provider (bridge/Batch
+   * API/realtime) wrote it, before core/batchPreallocation.ts's
+   * normalizeProviderStylePrompt overlaid the locked fields (vocal gender,
+   * verbatim atoms, instrument set, density, tempo, ...) onto it. Debug
+   * metadata only — never read by any generation/scoring/export path, never
+   * shown in the main UI. Undefined for local generation (nothing to
+   * normalize against — localGenerator.ts composes stylePrompt directly) and
+   * for any song reconciled with no slot at all.
+   */
+  rawProviderStylePrompt?: string;
   lyrics: string;
   /** v3.48: original AI lyric draft kept when the user rewrites lyrics in the authorship workspace. */
   aiDraftLyrics?: string;

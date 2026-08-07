@@ -1104,6 +1104,62 @@ function removeRepeatedInstrumentMentions(stylePrompt: string, instrumentSet: st
   }).filter(Boolean).join(', ');
 }
 
+/**
+ * 지시문 10 (TASK D) — the real, single choke point every provider-written
+ * stylePrompt (bridge, Batch API, realtime) already passed through as an
+ * inline sequence inside reconcileWithPreassignedSlot below — extracted
+ * here, unchanged, and given a real name so it can be pointed to as the
+ * locked-field enforcement step core/promptSpec.ts's own PromptSpec
+ * documents, rather than living as an anonymous block of local variables.
+ * A pure refactor: every one of these sub-steps (enforceVocalTextInStylePrompt,
+ * appendVerbatimIfMissing ×6, enforceInstrumentSetInStylePrompt,
+ * enforceArrangementDensityInStylePrompt, stripNegativeStyleFromStylePrompt,
+ * enforceTempoInStylePrompt, diversifyVocalLedOpening,
+ * removeRepeatedInstrumentMentions) already existed and already ran in this
+ * exact order; nothing here changes what any of them does.
+ *
+ * core/promptSpec.ts's own top doc comment (지시문 09) already gives the
+ * honest reason a full generative compiler (`compilePromptSpec` alone
+ * producing the final text, discarding provider prose entirely) stays out
+ * of scope: the bridge/Batch paths are structurally built around trusting a
+ * capable external model to write good prose, and this function's whole job
+ * is OVERLAYING the locked fields onto that prose (replace-in-place when a
+ * wrong value is present, append when missing) — not replacing it. That is
+ * exactly what "locked fields the LLM cannot change" means in a free-prose
+ * architecture: enforced after the fact, deterministically, in one place,
+ * every time — not "never written by the model at all".
+ */
+export function normalizeProviderStylePrompt(rawStylePrompt: string, slot: PreassignedSongSlot): string {
+  const vocalFix = enforceVocalTextInStylePrompt(rawStylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
+  const conflictFreeGenreText = stripConflictingGenreVocalGender(slot.genreText, slot.vocalGender);
+  const slotForStylePrompt: PreassignedSongSlot = conflictFreeGenreText === slot.genreText ? slot : { ...slot, genreText: conflictFreeGenreText };
+  let stylePrompt = vocalFix.text;
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.vocalText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.conceptText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.signatureSound);
+  const existingPromptLower = stylePrompt.toLowerCase();
+  const genreTextToAppend = conflictFreeGenreText
+    && !existingPromptLower.includes(conflictFreeGenreText.trim().toLowerCase())
+    && slot.instrumentSet?.some(instrument =>
+    existingPromptLower.includes(instrument.trim().toLowerCase())
+  )
+    ? conflictFreeGenreText.split(',').map(atom => atom.trim()).filter(atom =>
+      !slot.instrumentSet!.some(instrument => atom.toLowerCase() === instrument.trim().toLowerCase())
+    ).join(', ')
+    : conflictFreeGenreText;
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, genreTextToAppend);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
+  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
+  stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
+  stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
+  stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);
+  stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
+  stylePrompt = diversifyVocalLedOpening(stylePrompt, slotForStylePrompt);
+  stylePrompt = removeRepeatedInstrumentMentions(stylePrompt, slot.instrumentSet);
+  return stylePrompt;
+}
+
 export function reconcileWithPreassignedSlot(
   song: SongIdea,
   slot: PreassignedSongSlot | undefined,
@@ -1253,64 +1309,18 @@ export function reconcileWithPreassignedSlot(
       ...(arrangementRecipe ? { arrangementRecipe } : {})
     };
   }
-  // TASK v3.39 Part H — a real showa-cafe channel selected a male vocal
-  // preset but a Codex-bridge-generated stylePrompt came back female,
-  // because nothing forced the agent's free-form text to actually match the
-  // selection. Rather than trust the verbatim-weave instruction alone (see
-  // claudeCodeBridge.ts/promptComposer.ts), this deterministically corrects
-  // the gender here — the one place realtime/Batch/bridge output all funnel
-  // through — regardless of whether the agent complied. No-op when
-  // vocalText has no detectable gender (e.g. a children's choir) or when the
-  // stylePrompt already matches.
-  const vocalFix = enforceVocalTextInStylePrompt(song.stylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
-  // codex 지시문 03 (TASK B) — real gap: slot.genreText (a genre pack's own
-  // `vocal` field baked into its prose, e.g. "airy female vocal") gets read
-  // directly in TWO separate places below — the append-if-missing step just
-  // below, AND diversifyVocalLedOpening's own `openings[0] = slot.genreText`
-  // candidate (called later in this same function) — either of which can
-  // reintroduce a gender word that conflicts with vocalFix's own resolved
-  // gender, undetected by appendVerbatimIfMissing's plain substring check.
-  // Stripped ONCE here and reused everywhere slot.genreText was previously
-  // read raw, so neither path can reintroduce the conflict independently.
-  const conflictFreeGenreText = stripConflictingGenreVocalGender(slot.genreText, slot.vocalGender);
-  const slotForStylePrompt: PreassignedSongSlot = conflictFreeGenreText === slot.genreText ? slot : { ...slot, genreText: conflictFreeGenreText };
-  // TASK v3.43 Part A1/A2, Step 2 Part A3 — same "don't just trust the
-  // instruction" principle applied to every other verbatim-weave slot field:
-  // moneyChordText and hookDeviceText previously had no post-hoc check at
-  // all (unlike vocalText above), and tempo/instrumentSet/arrangementDensity
-  // are new fields this task adds to the same pattern.
-  let stylePrompt = vocalFix.text;
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.vocalText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.conceptText);
-    stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
-    stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.signatureSound);
-  const existingPromptLower = stylePrompt.toLowerCase();
-  // codex 지시문 03 (TASK B) — reads the already gender-conflict-free
-  // conflictFreeGenreText (computed once above), not the raw slot.genreText.
-  const genreTextToAppend = conflictFreeGenreText
-    && !existingPromptLower.includes(conflictFreeGenreText.trim().toLowerCase())
-    && slot.instrumentSet?.some(instrument =>
-    existingPromptLower.includes(instrument.trim().toLowerCase())
-  )
-    ? conflictFreeGenreText.split(',').map(atom => atom.trim()).filter(atom =>
-      !slot.instrumentSet!.some(instrument => atom.toLowerCase() === instrument.trim().toLowerCase())
-    ).join(', ')
-    : conflictFreeGenreText;
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, genreTextToAppend);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
-  stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
-  stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
-  stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);
-  stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
-  // codex 지시문 03 (TASK B) — diversifyVocalLedOpening's own openings[0]
-  // candidate reads genreText directly (see this function's own doc
-  // comment on `openings` — `slot.genreText` is openings[0]); passing
-  // slotForStylePrompt (genreText already gender-conflict-free) instead of
-  // the raw slot prevents this second, independent read from reintroducing
-  // the same conflict genreTextToAppend above was just cleaned of.
-  stylePrompt = diversifyVocalLedOpening(stylePrompt, slotForStylePrompt);
-  stylePrompt = removeRepeatedInstrumentMentions(stylePrompt, slot.instrumentSet);
+  // 지시문 10 (TASK D) — normalizeProviderStylePrompt (this file, above) is
+  // now the one named function every provider-written stylePrompt funnels
+  // through for locked-field enforcement (vocal gender, verbatim atoms,
+  // instrument set, arrangement density, negative-style stripping, tempo,
+  // opening diversification, repeated-instrument cleanup) — see that
+  // function's own doc comment for why this stays an overlay on provider
+  // prose rather than a from-scratch compile. rawProviderStylePrompt
+  // preserves the untouched incoming text as debug metadata (never shown to
+  // the user, never re-used downstream) so a real divergence between what
+  // the provider wrote and what shipped is always inspectable later.
+  const rawProviderStylePrompt = song.stylePrompt;
+  const stylePrompt = normalizeProviderStylePrompt(rawProviderStylePrompt, slot);
   const excludePrompt = slot.negativeStyleText
     ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
     : song.excludePrompt;
@@ -1349,6 +1359,7 @@ export function reconcileWithPreassignedSlot(
     title,
     hookPhrase,
     stylePrompt,
+    ...(rawProviderStylePrompt !== stylePrompt ? { rawProviderStylePrompt } : {}),
     excludePrompt,
     // TASK v3.70 (TASK A) — the realtime/Batch/bridge path never applied
     // applyDuetSectionVocalTags (see that function's own updated comment):

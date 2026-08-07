@@ -15,6 +15,7 @@ import { resolveBpmLengthTier } from './bpmLengthControl';
 import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
 import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
+import { auditStylePromptAgainstSpec } from './promptSpec';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -229,6 +230,17 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
     const match = song.stylePrompt.match(/\d:\d{2}-\d:\d{2}/g);
     return match && match.length > 1;
   });
+  // 지시문 10 (TASK D-4) — "final prompt compiler-normalized" measurement.
+  // core/promptSpec.ts's auditStylePromptAgainstSpec already runs per-song
+  // inside core/quality.ts's scoreSong (지시문 09 TASK C-2); this is the
+  // pack-level aggregate the directive's own D-4 table asks for. gender is
+  // only checked when song.vocalType is actually set (kids archetype songs —
+  // the one real per-song gender field SongIdea carries without needing
+  // channel context this function doesn't receive); BPM-duplicate detection
+  // needs no such context and always runs.
+  const specViolationSongs = songs.filter(song => auditStylePromptAgainstSpec(song.stylePrompt, {
+    vocal: { gender: song.vocalType === 'male' || song.vocalType === 'female' ? song.vocalType : undefined, text: '' }
+  }).length > 0);
 
   return [
     item({
@@ -272,6 +284,12 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
       id: 'duration_dup', category: '프롬프트', labelKo: 'duration 중복',
       targetKo: '0건', actualKo: `${durationDuplicates.length}건`,
       pass: durationDuplicates.length === 0, requiresAudio: false, specifiedBy: ['v3.59 TASK D-2']
+    }),
+    item({
+      id: 'final_prompt_compiler_normalized', category: '프롬프트', labelKo: 'final prompt compiler-normalized (중복 BPM·보컬 선언 0건)',
+      targetKo: '100%', actualKo: songs.length ? `${Math.round(((songs.length - specViolationSongs.length) / songs.length) * 100)}% (위반 ${specViolationSongs.length}곡${specViolationSongs.length ? `: T${specViolationSongs.map(s => s.trackNo).join(', T')}` : ''})` : '(없음)',
+      pass: songs.length ? specViolationSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 10 TASK D-4'],
+      metric: songs.length ? { value: specViolationSongs.length, direction: 'lowerIsBetter' } : undefined
     })
   ];
 }
