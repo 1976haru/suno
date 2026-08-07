@@ -48,7 +48,12 @@ export default defineConfig({
     // here so it gets the identical main-suite exclusion — without this it
     // would run under BOTH `npm test` and `npm run test:matrix`, which is
     // exactly the double-running/leak this exclude list exists to prevent.
-    exclude: [...configDefaults.exclude, 'tests/workspaceContractMatrix.test.ts', 'tests/providerResponseFixtures.test.ts', 'tests/stress*.test.ts'],
+    // codex 지시문 07 (TASK A/D) — tests/apiIntegration*.test.ts joins the
+    // same "own CI job, own exclude" pattern as matrix/stress above — TASK
+    // A's own spec lists `api-integration` as its own independent job, so
+    // these run via `npm run test:api-integration` only, never doubled up
+    // inside the default `unit` job's plain `vitest run`.
+    exclude: [...configDefaults.exclude, 'tests/workspaceContractMatrix.test.ts', 'tests/providerResponseFixtures.test.ts', 'tests/stress*.test.ts', 'tests/apiIntegration*.test.ts'],
     // TASK E1 (v3.7) — S4 (production stress test) exhaustively generates
     // one song per genre x language x season combination; on a loaded CI
     // runner this measured 11s+, over the 5s default. This is a slow-machine

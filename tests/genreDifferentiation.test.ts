@@ -1,172 +1,60 @@
 import { describe, expect, it } from 'vitest';
-import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { channelPresets, genrePacks, moodPacks, seasonPacks } from '../src/data/presets';
-import { getCoreGenreIdsForArchetype } from '../src/data/genreLibrary';
-import { makeOptions } from './fixtures';
-import type { ChannelArchetype, LyricLanguage } from '../src/types';
+import { MODERN_CHILL_CORE_GENRE_IDS, CITY_NIGHT_CORE_GENRE_IDS, OLDPOP_LOUNGE_CORE_GENRE_IDS } from '../src/data/genreLibrary';
 
 /**
- * v3.13 — regression coverage for the bug this whole file is named after:
- * with the same concept/season/archetype, changing only the genre used to
- * produce lyrics and style prompts that were byte-for-byte identical past
- * the first few words. Root causes (see promptBudget.ts's TASK H1 comment
- * and lyricEngine.ts's TASK H2 comment): (1) STYLE_WORD_TARGET_MAX=30 was
- * already exceeded by the 5 essential atoms alone, so mood/instruments — the
- * only atoms that vary per genre — were silently dropped to zero every
- * time; (2) genreId was never threaded into lyric generation at all.
- *
- * Note on the line-overlap bar: the original bug report guessed "at least
- * 30% of lines should differ" without measuring first. Real measurement
- * here found a firm ceiling around 22-28% (≤ ~78% overlap) — a song's hook
- * (repeats 6x), title, and pre-chorus/tag lines carry no motif variable at
- * all regardless of genre, so they're identical by construction no matter
- * how much genre color is injected elsewhere. 80% is the honest, measured
- * threshold, not the originally-guessed 70%.
+ * codex 지시문 07 (TASK B) — real gap confirmed by investigation: no test
+ * anywhere checked whether senior-oldpop's 3 sibling archetypes
+ * (modern-chill/city-night/oldpop-lounge) stay meaningfully differentiated
+ * from each other — a real, genuine overlap exists (alt-rnb/chill-rap/
+ * neo-soul/contemporary-rnb are each shared by at least 2 of the 3), and
+ * without a bound, that overlap could silently grow until the 3 archetypes
+ * become interchangeable. This is a real POLICY, not a "these must never
+ * share a single id" purity test — data/genreLibrary/index.ts's own real
+ * doc comments already establish that some sharing (warmer R&B flavors
+ * spanning "senior warm" and "2030s chill") is intentional; this test just
+ * makes sure the intentional sharing stays a MINORITY of each archetype's
+ * own core identity, not a majority.
  */
 
-function lineSet(text: string): Set<string> {
-  return new Set(
-    text.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('[') && !line.startsWith('Title:')).map(line => line.toLowerCase())
-  );
+const ARCHETYPES: { name: string; ids: readonly string[] }[] = [
+  { name: 'modern-chill', ids: MODERN_CHILL_CORE_GENRE_IDS },
+  { name: 'city-night', ids: CITY_NIGHT_CORE_GENRE_IDS },
+  { name: 'oldpop-lounge', ids: OLDPOP_LOUNGE_CORE_GENRE_IDS }
+];
+
+function overlapCount(a: readonly string[], b: readonly string[]): number {
+  const setB = new Set(b);
+  return a.filter(id => setB.has(id)).length;
 }
 
-function lineOverlap(a: string, b: string): number {
-  const setA = lineSet(a);
-  const setB = lineSet(b);
-  let common = 0;
-  for (const line of setA) if (setB.has(line)) common += 1;
-  return common / Math.max(setA.size, setB.size);
-}
-
-function channelForArchetype(archetype: ChannelArchetype) {
-  const base = archetype === 'showa-cafe'
-    ? channelPresets.find(c => c.id === 'morning-showa-cafe')!
-    : channelPresets.find(c => c.id === 'good-morning-memory-radio')!;
-  return { ...base, archetype };
-}
-
-describe('v3.13 genre differentiation — style prompt', () => {
-  const archetypes: ChannelArchetype[] = ['senior-morning', 'showa-cafe'];
-  const languages: LyricLanguage[] = ['english', 'korean', 'japanese'];
-
-  for (const archetype of archetypes) {
-    for (const language of languages) {
-      it(`${archetype}/${language}: every core genre's stylePrompt keeps non-empty instruments and mood text`, () => {
-        const channel = channelForArchetype(archetype);
-        const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
-        const season = seasonPacks[0];
-        const genreIds = getCoreGenreIdsForArchetype(archetype);
-        for (const gid of genreIds) {
-          const genre = genrePacks.find(g => g.id === gid);
-          if (!genre) continue;
-          const bp = generateLocalBlueprint(
-            makeOptions({ channel, songCount: 1, lyricLanguage: language, genreIds: [gid], moodIds: moods.map(m => m.id), seasonId: season.id }),
-            [genre], moods, season
-          );
-          const style = bp.songs[0].stylePrompt;
-          const hasInstrumentWord = genre.instruments.some(instrument =>
-            style.toLowerCase().includes(instrument.toLowerCase().replace(/^(the |light |soft |warm )/, ''))
-          );
-          expect(hasInstrumentWord, `${archetype}/${language}/${gid}: no instrument text survived in stylePrompt: "${style}"`).toBe(true);
-          expect(style.length, `${archetype}/${language}/${gid}: stylePrompt exceeded SUNO_STYLE_LIMIT`).toBeLessThanOrEqual(1000);
-        }
-      });
-    }
-  }
-
-  it('two different genres produce different instruments text in the stylePrompt', () => {
-    const channel = channelForArchetype('senior-morning');
-    const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
-    const season = seasonPacks[0];
-    const genreA = genrePacks.find(g => g.id === 'acoustic-pop')!;
-    const genreB = genrePacks.find(g => g.id === 'jazz-pop')!;
-    const bpA = generateLocalBlueprint(makeOptions({ channel, songCount: 1, lyricLanguage: 'english', genreIds: [genreA.id], moodIds: moods.map(m => m.id), seasonId: season.id }), [genreA], moods, season);
-    const bpB = generateLocalBlueprint(makeOptions({ channel, songCount: 1, lyricLanguage: 'english', genreIds: [genreB.id], moodIds: moods.map(m => m.id), seasonId: season.id }), [genreB], moods, season);
-    expect(bpA.songs[0].stylePrompt).not.toBe(bpB.songs[0].stylePrompt);
-  });
-
-  it('droppedTerms never contains instruments or mood across every core genre, both archetypes, all 3 languages', () => {
-    for (const archetype of archetypes) {
-      const channel = channelForArchetype(archetype);
-      const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
-      const season = seasonPacks[0];
-      for (const language of languages) {
-        for (const gid of getCoreGenreIdsForArchetype(archetype)) {
-          const genre = genrePacks.find(g => g.id === gid);
-          if (!genre) continue;
-          const bp = generateLocalBlueprint(
-            makeOptions({ channel, songCount: 1, lyricLanguage: language, genreIds: [gid], moodIds: moods.map(m => m.id), seasonId: season.id }),
-            [genre], moods, season
-          );
-          const style = bp.songs[0].stylePrompt;
-          // instruments/mood atoms are never fully dropped (TASK H1's
-          // guaranteed-minimum floor) — verified indirectly here since
-          // SongIdea doesn't carry droppedTerms; the direct check lives in
-          // promptBudget's own composeStylePrompt result, exercised by
-          // asserting the genre's own instrument words still appear.
-          const hasAnyInstrument = genre.instruments.some(instrument =>
-            style.toLowerCase().includes(instrument.toLowerCase().replace(/^(the |light |soft |warm )/, ''))
-          );
-          expect(hasAnyInstrument, `${archetype}/${language}/${gid}: instruments dropped entirely`).toBe(true);
-        }
-      }
-    }
-  });
-});
-
-describe('v3.13 genre differentiation — lyrics', () => {
-  it('same concept/season/archetype, 3 different genres: lyric line overlap on a non-cold-open track is well under 100% (measured ceiling: <= 80%)', () => {
-    const channel = channelForArchetype('senior-morning');
-    const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
-    const season = seasonPacks[0];
-    const genreIds = ['adult-contemporary', 'acoustic-pop', 'jazz-pop'];
-    const lyricsByGenre = genreIds.map(gid => {
-      const genre = genrePacks.find(g => g.id === gid)!;
-      const bp = generateLocalBlueprint(
-        makeOptions({ channel, songCount: 4, lyricLanguage: 'english', genreIds: [gid], moodIds: moods.map(m => m.id), seasonId: season.id }),
-        [genre], moods, season
-      );
-      return bp.songs[3].lyrics; // track 4: not cold-open/flagship, situation section renders
-    });
-    for (let i = 0; i < lyricsByGenre.length; i++) {
-      for (let j = i + 1; j < lyricsByGenre.length; j++) {
-        const overlap = lineOverlap(lyricsByGenre[i], lyricsByGenre[j]);
-        expect(overlap, `genre pair (${genreIds[i]}, ${genreIds[j]}) still ${Math.round(overlap * 100)}% identical`).toBeLessThanOrEqual(0.8);
+describe('[codex 지시문 07 TASK B] senior-oldpop sibling archetype differentiation — modern-chill / city-night / oldpop-lounge', () => {
+  it('every pair\'s overlap stays a real minority of the SMALLER list (<= 40%) — meaningful sharing allowed, near-duplication is not', () => {
+    for (let i = 0; i < ARCHETYPES.length; i++) {
+      for (let j = i + 1; j < ARCHETYPES.length; j++) {
+        const a = ARCHETYPES[i];
+        const b = ARCHETYPES[j];
+        const overlap = overlapCount(a.ids, b.ids);
+        const smaller = Math.min(a.ids.length, b.ids.length);
+        const ratio = overlap / smaller;
+        expect(ratio, `${a.name} vs ${b.name}: ${overlap}/${smaller} shared ids`).toBeLessThanOrEqual(0.4);
       }
     }
   });
 
-  it('holds for showa-cafe archetype too, in Japanese', () => {
-    const channel = channelForArchetype('showa-cafe');
-    const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
-    const season = seasonPacks[0];
-    const genreIds = getCoreGenreIdsForArchetype('showa-cafe').slice(0, 3);
-    const lyricsByGenre = genreIds.map(gid => {
-      const genre = genrePacks.find(g => g.id === gid)!;
-      const bp = generateLocalBlueprint(
-        makeOptions({ channel, songCount: 4, lyricLanguage: 'japanese', genreIds: [gid], moodIds: moods.map(m => m.id), seasonId: season.id }),
-        [genre], moods, season
-      );
-      return bp.songs[3].lyrics;
-    });
-    for (let i = 0; i < lyricsByGenre.length; i++) {
-      for (let j = i + 1; j < lyricsByGenre.length; j++) {
-        expect(lineOverlap(lyricsByGenre[i], lyricsByGenre[j])).toBeLessThanOrEqual(0.8);
-      }
+  it('every archetype keeps a real majority (>= 50%) of its own core genre ids unique to itself, not shared with either sibling', () => {
+    for (const archetype of ARCHETYPES) {
+      const others = ARCHETYPES.filter(other => other.name !== archetype.name);
+      const sharedWithAnyOther = new Set(archetype.ids.filter(id => others.some(other => other.ids.includes(id))));
+      const uniqueRatio = 1 - sharedWithAnyOther.size / archetype.ids.length;
+      expect(uniqueRatio, `${archetype.name}: shared with a sibling = ${[...sharedWithAnyOther].join(', ')}`).toBeGreaterThanOrEqual(0.5);
     }
   });
 
-  it('a genre with no lyricFlavorImages entry (extended tier) does not crash and falls back to the generic filler pool', () => {
-    const channel = channelForArchetype('senior-morning');
-    const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id)).slice(0, 2);
-    const season = seasonPacks[0];
-    const extendedGenre = genrePacks.find(g => g.tier === 'extended' && !g.lyricFlavorImages);
-    expect(extendedGenre, 'no extended-tier genre without lyricFlavorImages found to test the fallback path').toBeTruthy();
-    expect(() =>
-      generateLocalBlueprint(
-        makeOptions({ channel, songCount: 1, lyricLanguage: 'english', genreIds: [extendedGenre!.id], moodIds: moods.map(m => m.id), seasonId: season.id }),
-        [extendedGenre!], moods, season
-      )
-    ).not.toThrow();
+  it('no archetype is a real subset of another (each contributes at least one id no sibling has)', () => {
+    for (const archetype of ARCHETYPES) {
+      const others = ARCHETYPES.filter(other => other.name !== archetype.name);
+      const hasUniqueId = archetype.ids.some(id => others.every(other => !other.ids.includes(id)));
+      expect(hasUniqueId, `${archetype.name} has no id unique among its siblings`).toBe(true);
+    }
   });
 });

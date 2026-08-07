@@ -13,21 +13,40 @@
  * excluded, same as main: settings are never generated/cache data, and
  * losing a user's API key on top of an already-broken app would compound
  * the problem this mode exists to fix.
+ *
+ * codex 지시문 07 (TASK F) — real bug fixed here: this list had gone stale
+ * as new stores shipped across 지시문 01-06 (situations/lyric-lines/
+ * combo-variations/generation-reservations/prompt-fingerprints/
+ * exploration/release-readiness/verified-combos — 8 real, live databases,
+ * confirmed via a direct grep of every `const DB_NAME =` in core/*.ts —
+ * none were ever added here), so `/?repair=1` silently left 8 of 17 real
+ * non-settings databases untouched, defeating the "wipe everything
+ * recoverable" contract this mode promises. Every real DB_NAME below is
+ * re-verified against its own module, not copied from memory.
  */
 
 const REPAIR_PARAM = 'repair';
 const REPAIR_NOTICE_KEY = 'suno-weaver-repair-complete';
 
-const RECOVERABLE_DATABASES = [
+/** Exported (지시문 07 TASK F) so a real test can assert this list stays complete against every actual `DB_NAME` in core/*.ts — the exact regression guard the staleness bug this task fixed needed and didn't have. */
+export const RECOVERABLE_DATABASES = [
   'suno-weaver-cache',
   'suno-weaver-audio',
   'suno-weaver-batch',
+  'suno-weaver-combo-variations',
+  'suno-weaver-exploration',
+  'suno-weaver-generation-reservations',
   'suno-weaver-hooks',
   'suno-weaver-library',
+  'suno-weaver-lyric-lines',
+  'suno-weaver-prompt-fingerprints',
   'suno-weaver-ratings',
+  'suno-weaver-release-readiness',
+  'suno-weaver-situations',
   'suno-weaver-usage',
-  'suno-weaver-vocal-combos',
-  'suno-weaver-videos'
+  'suno-weaver-verified-combos',
+  'suno-weaver-videos',
+  'suno-weaver-vocal-combos'
 ];
 
 function deleteDatabase(name: string): Promise<void> {

@@ -201,6 +201,13 @@ describe('production stress tests', () => {
   // confirmed by running this case alone (comfortably under 30s) vs. the
   // full stress suite (times out). Same fix S1 already applies just above,
   // for the same reason; not a correctness issue, so no assertion changed.
+  //
+  // codex 지시문 07 (TASK B) — re-measured under full `npm run test:stress`
+  // contention: 23.1-24.1s real, against this test's own 45000ms override
+  // (not the file's 30000ms config default) — ~51-53% of budget, real
+  // headroom, not "close to timing out". Left at 45_000 (already correct);
+  // documenting the real number so this isn't re-investigated as a live
+  // risk again.
   }, 45_000);
 
   productionCase('S5 extreme inputs are clamped and never execute script text', () => {

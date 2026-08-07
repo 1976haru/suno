@@ -4,6 +4,81 @@ Summary of notable changes from v3.0 through v3.6. Dates are omitted since
 versions weren't tagged at release time — this is a retrospective summary
 written alongside the v3.6 work.
 
+## v5.25.0
+
+**Gap notice**: this file stopped at v5.14.0 while `package.json`'s own
+`"version"` field kept moving informally (comments throughout the codebase
+reference "v5.15" through "v5.24") — the same drift v5.14.0's own entry
+above already fixed once, recurred. This entry both catches the changelog
+up to the real current state and documents the 7 "codex 지시문" specs
+(01-07) that landed since, each as its own single commit on
+`feat/notion-genre-library`:
+
+- **지시문 01 (P0)** — response collection/import/snapshot/history
+  stabilization: `GenerationSnapshot.appVersion`/`schemaVersion`,
+  SRT-import channel-preservation fixes, `validateChannelProfile` wired
+  into the real generation gate, `generationHistoryRevision`/
+  `generationReservationLedger` modules.
+- **지시문 02 (P0)** — workspace-wide common policy/semantic-duplication/
+  choice-contract: `WorkspaceQualityPolicy` registry, `GenreWorkspaceOwnership`/
+  `WorkspaceAvailability` wrappers, generalized era detection, `SceneSignature`/
+  `sceneSimilarity` scorer, `MotifFamily` cross-pack cooldown registry,
+  expanded `GenerationChoiceProvenance`.
+- **지시문 03 (P1)** — type-based prompt/lyrics compiler: `PromptSpec`,
+  vocal/BPM/intro/duration conflict fixes, per-workspace prompt word
+  budgets, `NegativePromptSpec`, the real Lyrics AST
+  (`parseLyricsSections`), section-aware repetition detection,
+  multilingual `lyricMetaLeak` detection, `TitleHookRelationship`
+  taxonomy, per-language (EN/KO/JA) lyric quality checks,
+  `resolveLyricBudget`.
+- **지시문 04 (P1)** — per-workspace dedicated quality rules: real adapter
+  modules for all 7 workspaces (senior-oldpop/kr-2030/jp-2030/kr-kids/
+  jp-kids/kr-idol-male/kr-idol-female) built on the 지시문 01-03 common
+  engine, plus the shared `textMotifQuota`/`kpopWorkspacePolicy` engines.
+- **지시문 05 (P1)** — quality score/selective rewrite/final export:
+  the single `finalizeBlueprintForUse` pipeline, `ArtifactStage`/
+  `ArtifactAuditMeta`, unified `auditItemIds.ts` registry, the selective
+  rewrite loop (`hashStableSongFields` lock/verify, max-2-round cap +
+  stagnation stop condition), Release Readiness V2 (real 10-category
+  taxonomy, removed the old fixed 750-850자/제목=훅 exact-count bands),
+  stage-suffixed final export, the workspace-keyed rewrite-stage
+  dashboard. Also fixed a real, confirmed live bug: `conceptFitScore:100`
+  used to ship in every saved/exported pack.
+- **지시문 06 (P2)** — real audio takes/take comparison/blind A-B/
+  production bundles: `core/audioMeasurements.ts` (clipping/silence/
+  approximate-loudness/stereo-width/sampleRate/channels — extending the
+  already-real `core/audioTakes.ts`/`core/audioAnalysis.ts` pipeline),
+  `core/audioCompliance.ts`'s literal tolerance-band checks + per-workspace
+  additions, the 12-item rejection-reason taxonomy and selection-safety
+  gate, the honest `MusicGenerationProvider` contract (no real Suno API
+  access exists anywhere in this codebase, confirmed), the 5-axis blind
+  benchmark, the 5-stage safe-learning lifecycle extending
+  `verifiedCombos.ts`, and the real production-bundle exporter.
+- **지시문 07 (P2)** — CI/performance/migration/release readiness: split
+  CI jobs (typecheck/lint/unit/matrix/stress/isolation/build/build:single/
+  playwright/api-integration/security-audit — 11 independent jobs, none
+  bundled), `WorkspaceAvailability` unified as the one real gate across
+  UI/preflight/routing (3 previously-independent `.ready` re-derivations
+  now share one function), IndexedDB migration gaps closed
+  (`release-readiness` store), a real `/?repair=1` bug fixed (its
+  recoverable-database list had gone stale, silently leaving 8 of 17 real
+  databases un-wiped — now backed by a real regression test), a real
+  migration-progress callback, a real security audit script (0 high/critical
+  dependency vulnerabilities, 0 secret-leak findings across API-key/
+  localStorage/snapshot/export/log/error-message/upload-path checks), real
+  API integration tests (batch polling/cancellation/timeout/malformed-body/
+  secret-redaction, mock-contract only, zero real cost), a real
+  performance-baseline script + budget tests (9 operations measured, all
+  well under a 60fps frame budget at 18-song single-set scale — no worker
+  offload needed today), a 21-scenario real Playwright E2E suite (14
+  numbered wizard/import/results scenarios + 7-workspace smoke), and this
+  version-drift fix itself. Also fixed a real, previously-undetected bug
+  the new E2E smoke suite caught: every one of kr-idol-male/kr-idol-female's
+  6 default channel presets referenced 5 mood ids
+  (confident/energetic/bright/intimate/emotional) that were never added to
+  `moodPacks` — both idol workspaces failed `validateChannelProfile` on
+  their own defaults, out of the box, until now.
+
 **Gap notice (added in v5.14.0):** this file was never updated past v3.6,
 even though `package.json`'s `"version"` field and the commit history both
 kept moving (informal task-doc naming reached "v5.13" before this entry was

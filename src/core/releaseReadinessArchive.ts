@@ -1,5 +1,5 @@
 import type { WorkspaceId } from '../types';
-import { currentWorkspaceId, scopeFilter } from './workspaceScope';
+import { currentWorkspaceId, scopeFilter, DEFAULT_WORKSPACE_ID } from './workspaceScope';
 
 /**
  * v5.22 (AXIS 4 §4-5) — "통과율 추이": records each set's own
@@ -103,4 +103,24 @@ export function summarizeReleaseReadinessTrend(records: ReleaseReadinessArchiveR
 export async function listReleaseReadinessHistory(): Promise<ReleaseReadinessTrend> {
   const all = await allRecords();
   return summarizeReleaseReadinessTrend(all.sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1)));
+}
+
+/**
+ * codex 지시문 07 (TASK F) — real gap confirmed by investigation: this was
+ * the one Pattern-A IndexedDB store (of the 10 named migration targets)
+ * with an OPTIONAL `workspaceId` field but no migration function at all —
+ * every other optional-workspaceId store (hooks/situations/lyric-lines/
+ * ratings/videos/usage/batch/audio-takes) already has one, wired into
+ * core/workspaceMigration.ts's real runWorkspaceMigrationOnce orchestrator.
+ * Same additive-only, idempotent contract as every one of those (see
+ * core/audioTakes.ts's migrateAudioTakesWorkspaceTags for the identical
+ * shape this mirrors) — only backfills a missing workspaceId via `put()`,
+ * never deletes or overwrites an already-tagged record.
+ */
+export async function migrateReleaseReadinessArchiveWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+  const all = await withStore<ReleaseReadinessArchiveRecord[]>('readonly', store => store.getAll());
+  for (const record of all) {
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
 }

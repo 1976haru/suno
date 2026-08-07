@@ -11,7 +11,7 @@
  * pattern this task extends, not invents.
  */
 import type { WorkspaceId } from '../types';
-import { getWorkspace } from './workspaces';
+import { workspaceAvailability } from './workspaceAvailability';
 
 export type FeatureStatus = 'production' | 'experimental' | 'scaffold' | 'disabled';
 
@@ -34,9 +34,16 @@ export type FeatureStatus = 'production' | 'experimental' | 'scaffold' | 'disabl
  * instead of a separately hand-maintained literal — a derived value cannot
  * go stale again the way a manually-set one already did once; re-syncing it
  * by hand here would only prevent THIS drift, not the next one.
+ *
+ * codex 지시문 07 (TASK G) — now reads through data/workspaceAvailability.ts's
+ * own real workspaceAvailability() (지시문 02 TASK I) instead of re-deriving
+ * `.ready` a second, independent way — "UI·preflight·routing·tests에서 같은
+ * 상태" means every real gate (this one, WorkspaceSelectScreen.tsx's card
+ * gate, generationPreflight.ts's hard block) now shares the exact same
+ * function, not three separately-correct-today, driftable-tomorrow copies.
  */
 function statusForWorkspace(id: WorkspaceId): FeatureStatus {
-  return getWorkspace(id).ready ? 'production' : 'scaffold';
+  return workspaceAvailability(id).status === 'ready' ? 'production' : 'scaffold';
 }
 
 export const FEATURES: Record<string, FeatureStatus> = {

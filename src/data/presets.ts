@@ -994,7 +994,22 @@ export const moodPacks: MoodPack[] = [
   { id: 'rainy-comfort', label: 'Rainy Comfort', emotionWords: ['rainy', 'safe inside', 'softly reflective'], lyricImages: ['rain on glass', 'umbrella stand', 'warm lamp', 'wet street'] },
   { id: 'elegant', label: 'Elegant', emotionWords: ['elegant', 'reserved', 'polished'], lyricImages: ['porcelain cup', 'old record', 'tailored coat', 'quiet lobby'] },
   // TASK v3.38 Part B1 — kids-channel mood.
-  { id: 'bright-playful', label: 'Bright & Playful', emotionWords: ['bright', 'playful', 'curious', 'cheerful'], lyricImages: ['sunny playground', 'bouncing ball', 'giggling laughter', 'colorful balloons'] }
+  { id: 'bright-playful', label: 'Bright & Playful', emotionWords: ['bright', 'playful', 'curious', 'cheerful'], lyricImages: ['sunny playground', 'bouncing ball', 'giggling laughter', 'colorful balloons'] },
+  // codex 지시문 07 (TASK C, real gap found by E2E testing) — every one of
+  // TASK K2's own kr-idol-male/kr-idol-female channel presets (§10-2, this
+  // file's own '무대 위의 밤' etc. entries) sets preferredMoods to one of
+  // these 5 ids, but none of them were ever added to moodPacks — every
+  // default idol channel failed validateChannelProfile out of the box
+  // (both idol workspaces were unusable without the user manually
+  // reconfiguring moods first). Adding the missing ids, not remapping the
+  // presets, since these are real, distinct idol-context moods the presets
+  // were clearly designed around (stage confidence vs. intimate ballad vs.
+  // high-energy performance are meaningfully different lyric directions).
+  { id: 'confident', label: 'Confident', emotionWords: ['confident', 'self-assured', 'unshakable'], lyricImages: ['spotlight', 'front row', 'raised chin', 'center stage'] },
+  { id: 'energetic', label: 'Energetic', emotionWords: ['energetic', 'electric', 'high-voltage'], lyricImages: ['pounding bass', 'strobe light', 'packed floor', 'racing pulse'] },
+  { id: 'bright', label: 'Bright', emotionWords: ['bright', 'vivid', 'radiant'], lyricImages: ['neon skyline', 'headlights streaking', 'open road at night', 'city glow'] },
+  { id: 'intimate', label: 'Intimate', emotionWords: ['intimate', 'close', 'hushed'], lyricImages: ['low light', 'close whisper', 'quiet room', 'held hand'] },
+  { id: 'emotional', label: 'Emotional', emotionWords: ['emotional', 'raw', 'heartfelt'], lyricImages: ['welling eyes', 'trembling voice', 'empty stage after the lights', 'last note fading'] }
 ];
 
 export const seasonPacks: SeasonPack[] = [

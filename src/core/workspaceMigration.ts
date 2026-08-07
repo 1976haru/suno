@@ -7,6 +7,7 @@ import { migrateVideoLedgerWorkspaceTags } from './videoLedger';
 import { migrateUsageLedgerWorkspaceTags } from './usageLedger';
 import { migrateBatchJobsWorkspaceTags } from './batchJobs';
 import { migrateAudioTakesWorkspaceTags } from './audioTakes';
+import { migrateReleaseReadinessArchiveWorkspaceTags } from './releaseReadinessArchive';
 import { DEFAULT_WORKSPACE_ID } from './workspaceScope';
 
 /**
@@ -74,14 +75,31 @@ function hasLocalStorage(): boolean {
   }
 }
 
-async function migrateStore(store: string, fn: () => Promise<{ totalRecords: number; taggedSeniorOldpop: number }>): Promise<StoreMigrationResult> {
+/**
+ * codex 지시문 07 (TASK F) — `onStoreDone` is the real progress-reporting
+ * gap investigation confirmed absent from every migration in this app —
+ * fires once per store as it finishes (success OR error, since a failed
+ * store still represents "one more step done" for a progress bar), in
+ * whatever order the real, still-parallel Promise.all below resolves them.
+ * Optional so every existing caller (none passed one before this task)
+ * keeps working unchanged.
+ */
+async function migrateStore(
+  store: string,
+  fn: () => Promise<{ totalRecords: number; taggedSeniorOldpop: number }>,
+  onStoreDone?: (result: StoreMigrationResult) => void
+): Promise<StoreMigrationResult> {
   try {
     const result = await fn();
-    return { store, ...result };
+    const done = { store, ...result };
+    onStoreDone?.(done);
+    return done;
   } catch (err) {
     // A single store's migration failing must never stop the others, and
     // must never surface as an app crash (this task's own §4 안전장치).
-    return { store, totalRecords: 0, taggedSeniorOldpop: 0, error: err instanceof Error ? err.message : String(err) };
+    const failed = { store, totalRecords: 0, taggedSeniorOldpop: 0, error: err instanceof Error ? err.message : String(err) };
+    onStoreDone?.(failed);
+    return failed;
   }
 }
 
@@ -112,7 +130,41 @@ export function isMigrationPending(): boolean {
   return !hasLocalStorage() || window.localStorage.getItem(MIGRATION_DONE_KEY) !== 'true';
 }
 
+/** Real store list — one place both the count-based progress denominator and the actual Promise.all below read from, so they can never drift apart. */
+const MIGRATED_STORES: { name: string; migrate: () => Promise<{ totalRecords: number; taggedSeniorOldpop: number }> }[] = [
+  { name: 'suno-weaver-library (packs)', migrate: migrateLibraryWorkspaceTags },
+  { name: 'suno-weaver-hooks', migrate: migrateHookLedgerWorkspaceTags },
+  // v5.22 (AXIS 1) — new stores, same migration contract as every other
+  // Pattern-A IndexedDB store here (additive-only, idempotent).
+  { name: 'suno-weaver-situations', migrate: migrateSituationLedgerWorkspaceTags },
+  { name: 'suno-weaver-lyric-lines', migrate: migrateLyricLineLedgerWorkspaceTags },
+  { name: 'suno-weaver-ratings', migrate: migrateRatingLedgerWorkspaceTags },
+  { name: 'suno-weaver-videos', migrate: migrateVideoLedgerWorkspaceTags },
+  { name: 'suno-weaver-usage', migrate: migrateUsageLedgerWorkspaceTags },
+  { name: 'suno-weaver-batch', migrate: migrateBatchJobsWorkspaceTags },
+  { name: 'suno-weaver-audio (takes)', migrate: migrateAudioTakesWorkspaceTags },
+  // codex 지시문 07 (TASK F) — the one real gap investigation found: the only
+  // optional-workspaceId Pattern-A store with no migration function at all.
+  { name: 'suno-weaver-release-readiness', migrate: migrateReleaseReadinessArchiveWorkspaceTags }
+];
+
 /**
+ * codex 지시문 07 (TASK F) — real migration-progress reporting: `onProgress`
+ * fires once per store as it completes, `{ done, total }` — the total is
+ * MIGRATED_STORES.length + LEGACY_LOCAL_STORAGE_KEYS.length (both real
+ * counts, not an estimate), so a caller can render a real "N/M 완료" bar.
+ * Optional — omitted, this behaves byte-identical to before this task.
+ *
+ * combo-variation/generation-reservation ledgers are deliberately NOT in
+ * MIGRATED_STORES: both real record types have `workspaceId` as a
+ * REQUIRED (never optional) field, always stamped at write time since
+ * those modules were created — confirmed by direct read, there was never
+ * an untagged period for either, so a backfill migration would be a
+ * structural no-op. "motif" has no store of its own (data/motifFamilies.ts
+ * cooldown checks derive everything from situationLedger's own
+ * SceneSignature/frameId records — migrateSituationLedgerWorkspaceTags
+ * above already covers it).
+ *
  * Runs once per browser profile (guarded by MIGRATION_DONE_KEY). Safe to
  * call on every app start — after the first successful run it's an
  * immediate no-op. Never throws: a mid-migration failure is reported in the
@@ -120,26 +172,25 @@ export function isMigrationPending(): boolean {
  * from loading (this task's own "마이그레이션 실패 시 앱이 멈추지 말고 경고만
  * 띄우십시오").
  */
-export async function runWorkspaceMigrationOnce(): Promise<WorkspaceMigrationReport> {
+export async function runWorkspaceMigrationOnce(onProgress?: (done: number, total: number) => void): Promise<WorkspaceMigrationReport> {
   if (hasLocalStorage() && window.localStorage.getItem(MIGRATION_DONE_KEY) === 'true') {
     return { alreadyDone: true, stores: [], localStorageKeys: [] };
   }
 
-  const stores = await Promise.all([
-    migrateStore('suno-weaver-library (packs)', migrateLibraryWorkspaceTags),
-    migrateStore('suno-weaver-hooks', migrateHookLedgerWorkspaceTags),
-    // v5.22 (AXIS 1) — new stores, same migration contract as every other
-    // Pattern-A IndexedDB store here (additive-only, idempotent).
-    migrateStore('suno-weaver-situations', migrateSituationLedgerWorkspaceTags),
-    migrateStore('suno-weaver-lyric-lines', migrateLyricLineLedgerWorkspaceTags),
-    migrateStore('suno-weaver-ratings', migrateRatingLedgerWorkspaceTags),
-    migrateStore('suno-weaver-videos', migrateVideoLedgerWorkspaceTags),
-    migrateStore('suno-weaver-usage', migrateUsageLedgerWorkspaceTags),
-    migrateStore('suno-weaver-batch', migrateBatchJobsWorkspaceTags),
-    migrateStore('suno-weaver-audio (takes)', migrateAudioTakesWorkspaceTags)
-  ]);
+  const total = MIGRATED_STORES.length + LEGACY_LOCAL_STORAGE_KEYS.length;
+  let done = 0;
+  const reportProgress = () => {
+    done += 1;
+    onProgress?.(done, total);
+  };
 
-  const localStorageKeys = LEGACY_LOCAL_STORAGE_KEYS.map(migrateLocalStorageKey);
+  const stores = await Promise.all(MIGRATED_STORES.map(({ name, migrate }) => migrateStore(name, migrate, reportProgress)));
+
+  const localStorageKeys = LEGACY_LOCAL_STORAGE_KEYS.map(key => {
+    const result = migrateLocalStorageKey(key);
+    reportProgress();
+    return result;
+  });
 
   if (hasLocalStorage()) {
     try {

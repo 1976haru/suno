@@ -27,6 +27,18 @@ import { makeOptions } from './fixtures';
 // true), same makeOptions/generateLocalBlueprint/scoreSongs call shape —
 // see tests/fixtures.ts's checkPromptLengthForChannels, which all 5 files
 // now call. Nothing here changes what was verified, only where.
+//
+// codex 지시문 07 (TASK B) — re-verified: this file and all 5
+// promptLength-*.test.ts files contain ZERO timing/performance assertions
+// today (grep confirmed: no performance.now()/Date.now()/duration
+// expectations anywhere) — every assertion here is pure content
+// correctness. The only "performance" element already present is each
+// file's own per-`it()` vitest TIMEOUT (not an assertion), already split
+// per workspace. Real measured timings (isolated run, this machine):
+// jp2030 ~7.1s, kr2030 ~7.1s, kids ~10.2s, idol ~12.0s, senior ~14.8s —
+// none approach their own timeouts (30-90s). Nothing here was actually
+// mixing correctness with performance; this note records that this was
+// verified, not assumed.
 
 describe('[P0-1] every generated stylePrompt fits Suno\'s 1,000-char style field', () => {
   it('[A2] essential terms are never excluded, even under a tiny budget', () => {

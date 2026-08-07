@@ -441,11 +441,28 @@ export const KRIDOL_F_CORE_GENRE_IDS = [
  * family: the 5 general pop/chanson genres, the senior-appropriate slice of
  * the (much larger, mostly 2020s-production) rnb category, and the vocal/
  * standards/bossa/lounge slice of the jazz category — deliberately
- * excluding trap-soul/alt-R&B/bedroom-pop/city-night/bebop/fusion/acid-jazz
+ * excluding trap-soul/bedroom-pop/city-pop-modern/bebop/fusion/acid-jazz
  * flavored ids, which read as modern production choices this channel's
  * "warm 60s-80s" identity shouldn't blend into. See
  * getVisibleGenresForArchetype('oldpop-lounge').length >= 60 in
  * tests/genreLibrary.test.ts.
+ *
+ * codex 지시문 07 (TASK B) — real policy clarification, not a behavior
+ * change: this comment used to also list "alt-R&B" among the excluded
+ * styles, but 'alt-rnb'/'neo-soul' were both ALREADY real, deliberately
+ * included/tested members of this list (tests/genreLibrary.test.ts's own
+ * real "oldpop-lounge exposes 60+ genres" test asserts their presence,
+ * and its own separate "deliberately excluded" list never named them) —
+ * a stale comment claim, not the actual policy. Corrected here to match
+ * the real, tested behavior: warmer/vocal-led R&B flavors (alt-rnb,
+ * neo-soul, contemporary-rnb) are intentionally shared with
+ * modern-chill's own broader R&B set (both archetypes draw on the same
+ * real genre catalog for a mood that legitimately spans "senior warm" and
+ * "2030s chill") — see tests/genreDifferentiation.test.ts's own real,
+ * bounded overlap check across this channel's 3 sibling senior-oldpop
+ * archetypes (modern-chill/city-night/oldpop-lounge) for the policy that
+ * now measures and enforces this stays a MINORITY share of each list,
+ * not a majority overlap.
  */
 export const OLDPOP_LOUNGE_CORE_GENRE_IDS = [
   ...SENIOR_MORNING_CORE_GENRE_IDS.filter(id => id.startsWith('oldpop-')),

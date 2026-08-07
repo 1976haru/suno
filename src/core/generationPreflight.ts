@@ -24,6 +24,7 @@
  */
 import type { GenerationOptions, GenrePack, PreassignedSongSlot, WorkspaceId } from '../types';
 import { getWorkspace, type WorkspaceDefinition } from '../data/workspaces';
+import { workspaceAvailabilityFor } from '../data/workspaceAvailability';
 import type { DesignGateResult } from './designGate';
 import { buildResolvedGenerationContract, userChoicesFromOptions, type ResolvedGenerationContract } from './userChoices';
 import { preallocateSongSlots } from './batchPreallocation';
@@ -173,9 +174,17 @@ function genreZeroSongsHardBlock(options: GenerationOptions, slots: PreassignedS
  * gating (only ratingLearning/imageGeneration/audioAnalysis badges read
  * featureStatus() at all) — WorkspaceDefinition.ready is the real mechanism
  * that actually gates what a user can select and generate.
+ *
+ * codex 지시문 07 (TASK G) — reads through data/workspaceAvailability.ts's
+ * own real workspaceAvailabilityFor() instead of `workspace.ready`
+ * directly, so this hard block and WorkspaceSelectScreen.tsx's own card
+ * gate (and data/featureFlags.ts's statusForWorkspace) all share exactly
+ * one real status derivation — see that module's own doc comment. Uses the
+ * "already-resolved object" variant (not the by-id one) since `workspace`
+ * here may be a test-only workspaceOverride, never re-fetched by id.
  */
 function workspaceScaffoldHardBlock(workspace: WorkspaceDefinition): PreflightReason | null {
-  if (workspace.ready) return null;
+  if (workspaceAvailabilityFor(workspace).status === 'ready') return null;
   return {
     field: 'workspaceScaffold',
     messageKo: `"${workspace.labelKo}" 워크스페이스는 아직 준비 중입니다 — 이 워크스페이스에서는 생성할 수 없습니다.`,

@@ -66,3 +66,34 @@ describe('[v4.0 TASK C] runWorkspaceMigrationOnce — library store, real (memor
     expect(afterSecond).toHaveLength(afterFirst.length);
   });
 });
+
+/**
+ * codex 지시문 07 (TASK F) — real coverage of this task's own two additions:
+ * the release-readiness store joining the real migration set, and the new
+ * onProgress callback.
+ */
+describe('[codex 지시문 07 TASK F] runWorkspaceMigrationOnce — release-readiness store + onProgress', () => {
+  beforeEach(async () => {
+    setCurrentWorkspace('senior-oldpop');
+    await deleteAllPacks();
+  });
+
+  afterEach(() => {
+    __resetWorkspaceScopeForTests();
+  });
+
+  it('the real migration report includes a release-readiness store entry', async () => {
+    const report = await runWorkspaceMigrationOnce();
+    expect(report.stores.some(s => s.store.includes('release-readiness'))).toBe(true);
+  });
+
+  it('onProgress fires once per real store + once per real legacy localStorage key, reaching the real total', async () => {
+    const calls: [number, number][] = [];
+    await runWorkspaceMigrationOnce((done, total) => calls.push([done, total]));
+    expect(calls.length).toBeGreaterThan(0);
+    const [, total] = calls[0];
+    // Every call reports the SAME real total (a fixed denominator), and the final call's own `done` reaches it.
+    expect(calls.every(([, t]) => t === total)).toBe(true);
+    expect(calls[calls.length - 1][0]).toBe(total);
+  });
+});

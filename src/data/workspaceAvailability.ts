@@ -13,15 +13,30 @@
  * from `ready`, never hand-maintain a second value that can drift).
  */
 import type { WorkspaceId } from '../types';
-import { getWorkspace } from './workspaces';
+import { getWorkspace, type WorkspaceDefinition } from './workspaces';
 
 export interface WorkspaceAvailability {
   status: 'ready' | 'beta' | 'scaffold' | 'disabled';
   reason?: string;
 }
 
-export function workspaceAvailability(id: WorkspaceId): WorkspaceAvailability {
-  const workspace = getWorkspace(id);
+/**
+ * codex 지시문 07 (TASK G) — the pure core, operating on an ALREADY-RESOLVED
+ * WorkspaceDefinition rather than re-looking one up by id. Real reason this
+ * split exists: core/generationPreflight.ts's own real test suite passes a
+ * synthetic `workspaceOverride` WorkspaceDefinition (a test-only escape
+ * hatch simulating a scaffold workspace, since no live workspace is
+ * actually one today) — a caller that already has the real object in hand
+ * (this preflight override, or WorkspaceSelectScreen.tsx's own
+ * `workspaceDefinitions.map` iteration) must see THAT object's own `ready`
+ * value, not a fresh registry re-fetch by id that would silently discard
+ * the override/already-resolved object.
+ */
+export function workspaceAvailabilityFor(workspace: WorkspaceDefinition): WorkspaceAvailability {
   if (workspace.ready) return { status: 'ready' };
   return { status: 'scaffold', reason: `"${workspace.labelKo}" 워크스페이스는 아직 준비 중입니다.` };
+}
+
+export function workspaceAvailability(id: WorkspaceId): WorkspaceAvailability {
+  return workspaceAvailabilityFor(getWorkspace(id));
 }

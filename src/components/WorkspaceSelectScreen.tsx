@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import { listPacks } from '../core/library';
 import { currentWorkspaceId, setCurrentWorkspace } from '../core/workspaceScope';
 import { workspaceDefinitions, type WorkspaceDefinition } from '../data/workspaces';
+import { workspaceAvailabilityFor } from '../data/workspaceAvailability';
 import type { WorkspaceId } from '../types';
 import DataManagementPanel from './DataManagementPanel';
+
+/** codex 지시문 07 (TASK G) — this card's own real gate now reads through the same workspaceAvailabilityFor() every other real gate (generationPreflight.ts/featureFlags.ts) uses, instead of `workspace.ready` directly. */
+function isWorkspaceReady(workspace: WorkspaceDefinition): boolean {
+  return workspaceAvailabilityFor(workspace).status === 'ready';
+}
 
 interface WorkspaceSelectScreenProps {
   onSelect: (id: WorkspaceId) => void;
@@ -47,7 +53,7 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
   }, []);
 
   function handleCardClick(workspace: WorkspaceDefinition) {
-    if (!workspace.ready) {
+    if (!isWorkspaceReady(workspace)) {
       setNotReadyNotice(workspace);
       return;
     }
@@ -67,16 +73,17 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
       <div className="workspace-card-grid">
         {workspaceDefinitions.map(workspace => {
           const stat = stats[workspace.id];
+          const ready = isWorkspaceReady(workspace);
           return (
             <button
               key={workspace.id}
               type="button"
-              className={workspace.ready ? 'workspace-card' : 'workspace-card not-ready'}
-              style={{ borderColor: workspace.ready ? workspace.theme.accent : undefined }}
+              className={ready ? 'workspace-card' : 'workspace-card not-ready'}
+              style={{ borderColor: ready ? workspace.theme.accent : undefined }}
               onClick={() => handleCardClick(workspace)}
             >
               <span className="workspace-card-label">{workspace.labelKo}</span>
-              {workspace.ready ? (
+              {ready ? (
                 <span className="workspace-card-meta">
                   {stat ? `세트 ${stat.count}개` : ' '}
                   {stat?.lastSavedAt ? ` · 마지막 ${formatLastWorked(stat.lastSavedAt)}` : ''}

@@ -44,6 +44,17 @@ export interface ArtifactAuditMeta {
  * whenever the corresponding real logic changes shape in a way a consumer
  * (export reader, dashboard) would need to know about. Starting at 1 for
  * all three since this is the first version of each concept to ever exist.
+ *
+ * codex 지시문 07 (TASK H) — real clarification, not drift: these 3 are a
+ * DIFFERENT axis from `package.json`'s own app version (5.25.0 as of this
+ * task) and `core/schemaVersion.ts`'s `CURRENT_SCHEMA_VERSION` (IndexedDB
+ * data-shape version) — they version the SCORING/AUDIT PIPELINE ITSELF
+ * (how `finalizeBlueprintForUse` computed a given artifact's scores/audit),
+ * independent of which app build or which IndexedDB shape produced it. A
+ * pack scored under scorerVersion '1' stays legible even after the app's
+ * own semver moves on, as long as this constant hasn't changed. See
+ * CHANGELOG.md's v5.25.0 entry for the real reconciliation of the OTHER
+ * (app/schema) version fields, which is the drift this task actually found.
  */
 export const SCORER_VERSION = '1';
 export const AUDIT_SCHEMA_VERSION = '1';
