@@ -43,7 +43,7 @@ import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
 import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { BREADTH_THRESHOLDS } from './designGate';
-import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor } from './vocalPlan';
+import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from './vocalPlan';
 import { assertUserChoicesPreserved, emptyUserChoices, type UserExplicitChoices } from './userChoices';
 
 /**
@@ -621,8 +621,25 @@ function vocalCounts(songCount: number) {
  * plain (non-segment) path only — buildSetPlanFromIntent's segment/
  * artist-blend path still uses the blind split; a documented, not silent,
  * remaining gap (see this task's own report).
+ *
+ * P0 fix (정합성 점검 §1) — a channel with a fixed vocalQuotaOverride (e.g.
+ * kr-idol-male's real {male:15,female:0,mixed:3}) used to fall straight
+ * through to the generic 6/6/6 vocalCounts(songCount) below, same as any
+ * other channel. That blind split got stamped into plan.allocations as a
+ * 'manual' axis (see makeAllocations below), and
+ * core/diversityAllocation.ts's applyAxisAllocation always lets a manual
+ * allocation win — so it silently overrode the correct, vocalQuotaOverride-
+ * aware quota core/batchPreallocation.ts's real generation path computes for
+ * itself (baseVocalQuota there). Net effect: every kr-idol-male/female
+ * channel failed the design gate's vocal-quota-fidelity check unconditionally,
+ * regardless of concept. Mirrors designGate.ts's own vocalQuotaForAutoFix,
+ * which already gets this right for the same reason (a fixed quota channel's
+ * autoFix must never suggest discarding its own imbalance) — same priority,
+ * same scaleVocalQuota call, and same "leaning never applies" rule a fixed
+ * quota already implies in batchPreallocation.ts/localGenerator.ts.
  */
 function resolveVocalCounts(channel: ChannelProfile, songCount: number, vocalTone: string | undefined): Record<string, number> {
+  if (channel.vocalQuotaOverride) return { ...scaleVocalQuota(channel.vocalQuotaOverride, songCount) };
   if (isKidsArchetype(channel.archetype) || !vocalTone) return vocalCounts(songCount);
   const leaning = leaningGenderFor({ channel, vocalTone });
   if (!leaning) return vocalCounts(songCount);
