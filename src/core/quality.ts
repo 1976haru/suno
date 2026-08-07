@@ -15,6 +15,7 @@ import { sceneSeasonContradictionWarning } from './semanticContradiction';
 import { checkEnglishLyricLineQuality, checkTranslationese } from './languageQuality';
 import { idolSingleEnglishWordTitleWarning } from './idolTitleLint';
 import { GENRE_FORBIDDEN_DESCRIPTORS } from '../data/genreForbiddenDescriptors';
+import { auditStylePromptAgainstSpec } from './promptSpec';
 import { bilingualLint } from './bilingualLint';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
@@ -494,6 +495,24 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
       pushUnique(warnings, 'Style prompt may be missing one side of the selected duet vocal — review before pasting into Suno.');
       score -= 5;
     }
+  }
+
+  // 지시문 09 (TASK C-2) — core/promptSpec.ts's auditStylePromptAgainstSpec
+  // existed but was never called from a real generation path. That module's
+  // own doc comment scopes it deliberately: compilePromptSpec's full
+  // authority over stylePrompt construction is TASK 10's job (LockedPromptSpec)
+  // — "09는 호출되게까지만, 권위화는 10에서" — so this wires in the ONE part
+  // of promptSpec.ts that's genuinely safe to call today without replacing
+  // core/promptBudget.ts's own sophisticated priority/floor/shortForm
+  // compiler: a real, NEW check (duplicate BPM declarations) that
+  // BPM_DISCLOSURE_PATTERN above doesn't catch (that only checks BPM is
+  // disclosed AT LEAST once, never that it's declared more than once).
+  const specViolations = auditStylePromptAgainstSpec(song.stylePrompt, {
+    vocal: { gender: targetGender === 'male' || targetGender === 'female' ? targetGender : undefined, text: '' }
+  });
+  for (const violation of specViolations) {
+    pushUnique(warnings, `Prompt spec violation (${violation.field}): ${violation.detail}`);
+    score -= 8;
   }
 
   // 지시문 08 (TASK C) — real structural/semantic lyric checks

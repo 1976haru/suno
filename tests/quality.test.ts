@@ -264,4 +264,18 @@ describe('Suno artist-filter safety (v3.39 Part F)', () => {
     const song = scoreSong(baseSong({ title: 'Fire' }));
     expect(song.warnings.some(w => w.includes('single bare English word'))).toBe(false);
   });
+
+  // 지시문 09 (TASK C-2) — core/promptSpec.ts's auditStylePromptAgainstSpec
+  // was never called before this task. Real, new check: a stylePrompt
+  // declaring BPM twice — distinct from the existing "BPM disclosed at
+  // least once" check just above, which never catches a duplicate.
+  it('flags a stylePrompt that declares BPM twice', () => {
+    const song = scoreSong(baseSong({ stylePrompt: 'warm pop, hook repeats chorus 4x, I-V-vi-IV progression, 90 BPM, later section returns to 90 BPM' }));
+    expect(song.warnings.some(w => w.startsWith('Prompt spec violation (tempo)'))).toBe(true);
+  });
+
+  it('does not flag a stylePrompt with a single BPM declaration', () => {
+    const song = scoreSong(baseSong());
+    expect(song.warnings.some(w => w.startsWith('Prompt spec violation (tempo)'))).toBe(false);
+  });
 });

@@ -15,7 +15,8 @@ import { composeStylePrompt as composeBudgetedStylePrompt } from './promptBudget
 import { compactDuration, compactMoneyChord } from './soundSignature';
 import { kidsAgeTierFor, type KidsAgeTierId } from '../data/kidsAgeTiers';
 import { shuffle, STRUCTURE_TEMPLATE_SECTION_NOTES, type StructureTemplateId } from './lyricEngine';
-import { resolveNegativeStyleText, mergeNegativeStyleText, parseNegativeStyleTerms } from '../data/negativeStyles';
+import { resolveNegativeStyleText, mergeNegativeStyleText } from '../data/negativeStyles';
+import { buildNegativePromptSpec } from './negativePromptSpec';
 import { stripBpmText } from './bpmDedupe';
 import { eraLyricGuidanceForArchetype } from '../data/japaneseEraGuidance';
 import { buildReferenceMoodStyleClause } from './referenceMood';
@@ -756,35 +757,27 @@ export function buildExcludePrompt(
    */
   relaxedExclusions: readonly string[] = []
 ): string {
-  const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.channel.audience);
-  const relaxable = new Set(audienceProfile.relaxableAtPeak);
-  const relaxedNow = new Set(relaxedExclusions.filter(item => relaxable.has(item)));
-  const exclusionsForThisSong = audienceProfile.exclusions.filter(item => !relaxedNow.has(item));
-  // TASK v4.7 (TASK A, §1-4) — channelSoundFloor.forbiddenAtoms, unconditional
-  // (no concept/negativeStyle input can remove these — there is no code path
-  // that subtracts terms from this merge, only opts.avoidWords/negativeStyle
-  // ADD to it). Priority per this task's own §1-4 ("audienceProfile.hardExclusions
-  // > channelSoundFloor.forbiddenAtoms > 컨셉") is naturally satisfied: audience
-  // exclusions and the sound floor both merge in here ahead of/independent of
-  // whatever a concept-driven caller might separately add via avoidWords.
-  const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
-
-  // TASK v5.21 (TASK B-3) — priority tiers, highest first. Tiers 1-3 are
-  // NEVER trimmed for length (copyright/safety, the user's own explicit
-  // avoidWords, audience hardExclusions, and the channel's era-guard
-  // soundFloor); only tier 4 (general channel/genre quality preferences —
-  // GLOBAL_NEGATIVE_STYLE_TERMS and genre avoidTraits, see
-  // data/negativeStyles.ts's own buildDefaultNegativeStyle) can be cut when
-  // the budget runs out, since those are preferences, not safety/audience
-  // requirements.
+  // 지시문 09 (TASK C-2) — core/negativePromptSpec.ts's buildNegativePromptSpec
+  // existed but nothing built the exclude-prompt text FROM it — this
+  // function kept its own separate, ad-hoc re-derivation of the identical
+  // 4-tier categorization (safety/copyright/workspace/arrangement) that
+  // module's own doc comment already confirmed maps onto this exact real
+  // logic. Wired in here as the single source of truth for the
+  // categorization; the actual budget enforcement (fitWithinBudget /
+  // EXCLUDE_PROMPT_SAFE_TARGET) is UNCHANGED — compileNegativePromptSpec
+  // itself has no budget trimming of its own (would risk the real
+  // EXCLUDE_PROMPT_HARD_CAP quality gate if used directly), so this keeps
+  // that real protection rather than replacing it — matching this
+  // directive's own "09는 호출되게까지만, 권위화는 10에서" scoping for
+  // promptSpec.ts, applied the same way here.
+  const spec = buildNegativePromptSpec(opts, genres, relaxedExclusions);
   const alwaysKeepText = mergeNegativeStyleText(
-    'famous artist imitation, copied melodies, copyrighted song references, soundalike vocals',
-    opts.avoidWords,
-    exclusionsForThisSong.join(', '),
-    soundFloor?.forbiddenAtoms.join(', ')
+    spec.copyright.join(', '),
+    spec.user.join(', '),
+    spec.safety.join(', '),
+    spec.workspace.join(', ')
   );
-  const trimmableDeduped = parseNegativeStyleTerms(resolveNegativeStyleText(opts, genres));
-  const kept = fitWithinBudget(alwaysKeepText, trimmableDeduped, EXCLUDE_PROMPT_SAFE_TARGET);
+  const kept = fitWithinBudget(alwaysKeepText, spec.arrangement, EXCLUDE_PROMPT_SAFE_TARGET);
   return mergeNegativeStyleText(alwaysKeepText, kept.join(', '));
 }
 
