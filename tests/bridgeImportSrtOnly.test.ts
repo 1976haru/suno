@@ -223,4 +223,41 @@ describe('[read-only SRT import] App.tsx source-level regression guard', () => {
     expect(body).toContain('library.saveImportedPack');
     expect(body).toContain('handleGenerationSuccess');
   });
+
+  // codex 지시문 01 (TASK D) — real gap this closes: onImportSongsJsonForSrt
+  // used to call cm.selectChannel(matchedChannel.id) whenever the file's own
+  // embedded channel differed from the currently selected one — a real,
+  // persistent side effect on live session state (applyChannelToOptions
+  // derives market/audience/lyricLanguage from whichever channel is
+  // selected), directly violating this function's own "read-only, changes
+  // nothing but the current step/tab" contract. Fixed by scoping the
+  // matched channel to this import's own local importOpts/importChannel
+  // only, never touching cm/opts.
+  it('onImportSongsJsonForSrt no longer changes the globally selected channel', () => {
+    const body = extractFunctionBody(appSource, 'onImportSongsJsonForSrt');
+    expect(body).not.toContain('cm.selectChannel');
+    // Still resolves and uses the file's own matched channel for its own
+    // local importOpts — just without the global side effect.
+    expect(body).toContain('channelFromBridgeFile');
+    expect(body).toContain('importChannel');
+  });
+
+  it('onImportSongsJson (the regular import path) still matches-and-selects the file\'s own channel — this task did not touch that path', () => {
+    const body = extractFunctionBody(appSource, 'onImportSongsJson');
+    expect(body).toContain('cm.selectChannel');
+  });
+
+  // codex 지시문 01 (TASK D) — SrtExportPanel.tsx's own read-only notice
+  // (D2) depends on blueprint.isSrtOnlyImport being set at this exact
+  // construction site; this guards that the flag survives if the function
+  // is refactored later.
+  it('onImportSongsJsonForSrt marks the displayed blueprint with isSrtOnlyImport: true', () => {
+    const body = extractFunctionBody(appSource, 'onImportSongsJsonForSrt');
+    expect(body).toContain('isSrtOnlyImport: true');
+  });
+
+  it('onImportSongsJson (the regular import path) never sets isSrtOnlyImport — a normally-saved pack must never show the read-only notice', () => {
+    const body = extractFunctionBody(appSource, 'onImportSongsJson');
+    expect(body).not.toContain('isSrtOnlyImport');
+  });
 });

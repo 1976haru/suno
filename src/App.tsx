@@ -8,6 +8,8 @@ import { moneyChordPresets } from './data/moneyChords';
 import { AUTOSAVE_ID, listChannelPersonas, recordChannelPersonaUse, saveAutosave, saveChannelPersona, type ChannelPersonaRecord } from './core/library';
 import { isEvaluationAvailable } from './agents/evaluator';
 import { computeCacheKey, getCached, setCached } from './core/apiCache';
+import { validateProviderTrackSet } from './core/importValidation';
+import { bumpGenerationHistoryRevision } from './core/generationHistoryRevision';
 import { recordUsage } from './core/usageLedger';
 import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { channelExhaustionStats, clearChannelHistory, hookPoolGraduatedWarning, recordPackHooks, usedTitles as fetchHistoricalTitles, type ExhaustionStats } from './core/hookLedger';
@@ -493,6 +495,12 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // already promote hooks).
       await recordPackSituations(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
       await recordPackLyricLines(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
+      // codex 지시문 01 (TASK H) — this is the real choke point EVERY single-
+      // pack generation success (realtime, cache-hit, bridge import) runs
+      // through — see generationHistoryRevision.ts's own doc comment for the
+      // real staleness gap this closes (Step3Generate.tsx's own bridgeAvoid/
+      // bridgeConceptSceneContext effects, the one confirmed gap).
+      bumpGenerationHistoryRevision();
       await library.refresh();
     } catch {
       // Autosave is a convenience feature; failures should not block the result from showing.
@@ -856,14 +864,20 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       return makeBridgeImportFailureReport(BRIDGE_IMPORT_PRECONDITION_REASON);
     }
     const text = await file.text();
-    // Same channel-matching UX as onImportSongsJson above (TASK v3.69 TASK
-    // C/D) — a file names/carries the channel it was actually generated for,
-    // so the SRT tab shows it under the right channel context too. This is
-    // ordinary channel-selection UI state, not a library/hookLedger write.
+    // codex 지시문 01 (TASK D) — this used to also select the file's matched
+    // channel as the app's own live channel, exactly like the real
+    // (persisting) import path does. That's wrong HERE specifically: this
+    // whole function's own point is "read-only, changes nothing about the
+    // app's live state but the current step/tab" (see importSongsForSrtOnly's
+    // own doc comment in bridgeImport.ts) — switching the globally selected
+    // channel (and the market/audience/lyricLanguage applyChannelToOptions
+    // derives from it) is a real, persistent side effect on live session
+    // state that silently changes what a normal generation would do right
+    // after, which is exactly what "read-only" promises not to do. The
+    // matched channel is still used — just scoped to this import's own
+    // `importOpts`/`importChannel` locals, never touching the app's own
+    // live channel-manager state.
     const matchedChannel = channelFromBridgeFile(file.name, text);
-    if (matchedChannel && matchedChannel.id !== cm.selectedChannel.id) {
-      cm.selectChannel(matchedChannel.id);
-    }
     const importChannel = matchedChannel ?? cm.selectedChannel;
     const importOpts = { ...opts, channel: importChannel };
     const { songs, warnings } = importSongsForSrtOnly(text, importOpts);
@@ -879,17 +893,24 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
     const meta = extractBridgeImportMeta(text);
     const concept = importOpts.customConcept || meta?.conceptLabel || `${importChannel.name} ${selectedSeason.label} imported lyrics`;
-    // TASK (bridge-import fallback state-timing fix) — same real race as
-    // onImportSongsJson above: cm.selectChannel(matchedChannel.id) doesn't
-    // land synchronously, so fallbackGenres()/fallbackMoods() could read the
-    // previous channel here. genresForOptions/moodsForOptions are pure over
-    // importOpts (already correctly importChannel), so no race.
-    const displayBlueprint = finalizeSinglePackBlueprint(
-      meta?.generatedAt
-        ? buildSignatureBlueprint(importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, concept, songs, meta.generatedAt)
-        : buildSignatureBlueprint(importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, concept, songs),
-      importOpts
-    );
+    // genresForOptions/moodsForOptions are pure over importOpts (already
+    // correctly importChannel per the doc comment above this function's own
+    // matchedChannel resolution) — no live-state race to worry about here,
+    // unlike onImportSongsJson's own identically-named comment, since this
+    // path never touches the app's live channel selection at all.
+    const displayBlueprint: PlaylistBlueprint = {
+      ...finalizeSinglePackBlueprint(
+        meta?.generatedAt
+          ? buildSignatureBlueprint(importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, concept, songs, meta.generatedAt)
+          : buildSignatureBlueprint(importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, concept, songs),
+        importOpts
+      ),
+      // codex 지시문 01 (TASK D) — see PlaylistBlueprint.isSrtOnlyImport's own
+      // doc comment: the one, single-purpose flag SrtExportPanel.tsx reads
+      // to show its own read-only notice once the user is actually on the
+      // SRT tab, not just at the moment of clicking the import button.
+      isSrtOnlyImport: true
+    };
     evalFlow.setEvaluation(null);
     gen.setBlueprint(displayBlueprint);
     setWorkspaceFocus('srt');
@@ -1415,6 +1436,22 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         runGeneration(cachePrompt.key);
         return;
       }
+      // codex 지시문 01 (TASK A) — real gap this closes: a cached blueprint
+      // was restored verbatim with zero structural re-validation, unlike
+      // every other real entry point (realtime/batch/OpenAI/bridge import/
+      // multi-set — see core/importValidation.ts's own validateProviderTrackSet
+      // and its doc comment). It was already validated once, at the moment
+      // it was originally cached (setCached only ever runs after a real
+      // generateChunkWithSplitRetry call already passed this same check) —
+      // so this is defense-in-depth against an edited/corrupted IndexedDB
+      // record or a schema drift between app versions, not a live bug today.
+      // Same "reject, don't silently repair" principle: an invalid cache
+      // entry falls back to a fresh generation, exactly like a missing one.
+      const cacheValidation = validateProviderTrackSet(cached.blueprint.songs, cached.blueprint.songs.length);
+      if (!cacheValidation.valid) {
+        runGeneration(cachePrompt.key);
+        return;
+      }
       evalFlow.setEvaluation(null);
       const finalBlueprint = finalizeSinglePackBlueprint(cached.blueprint);
       gen.setBlueprint(finalBlueprint);
@@ -1449,10 +1486,23 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     setSelectedThumbnailVariant(id);
   }
 
-  /** TASK I3 (v3.11, PART D-4) — swaps songRole (+ style prompt opening directive) between trackNo and whoever currently holds that role; never touches trackNo order, lyrics, or hookPhrase. */
+  /**
+   * TASK I3 (v3.11, PART D-4) — swaps songRole (+ style prompt opening
+   * directive) between trackNo and whoever currently holds that role; never
+   * touches trackNo order, lyrics, or hookPhrase.
+   * codex 지시문 01 (TASK F) — was `{ ...opts, channel: cm.selectedChannel }`
+   * (live UI state, unconditionally) — the one operation in this file's own
+   * snapshot-vs-live audit with zero snapshot involvement at all. Switching
+   * channel/duration-target on screen after generating a pack, then
+   * promoting a track, would rebuild that track's opening-style text under
+   * the WRONG channel's archetype/durationTarget. Now mirrors every other
+   * post-generation operation's own snapshot-first fallback (see
+   * resolvedGenerationContext/onSaveCurrentPack's identical pattern).
+   */
   function onPromoteTrack(trackNo: number, role: 'cold-open' | 'flagship') {
     if (!gen.blueprint) return;
-    const result = promoteTrackToOpeningRole(gen.blueprint, { ...opts, channel: cm.selectedChannel }, trackNo, role);
+    const promoteOptions = gen.blueprint.generationSnapshot?.options ?? { ...opts, channel: cm.selectedChannel };
+    const result = promoteTrackToOpeningRole(gen.blueprint, promoteOptions, trackNo, role);
     gen.setBlueprint(result.blueprint);
     if (result.warning) {
       // eslint-disable-next-line no-console

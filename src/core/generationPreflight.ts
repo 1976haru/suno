@@ -31,6 +31,7 @@ import { resolveConstraintsFromOptions } from './constraints';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { evaluateDesignGateResponsive } from './localGenerationClient';
 import { hashSeed } from '../utils/prng';
+import { validateChannelProfile } from '../utils/channelProfile';
 
 export interface PreflightReason {
   /** Matches ResolvedGenerationContract.mismatches[].field / DesignIssue.id for a soft (acknowledgeable) reason; one of this module's own hard-block ids ('channelArchetype' | 'genreZeroSongs' | 'workspaceScaffold') for a hard one. */
@@ -182,6 +183,27 @@ function workspaceScaffoldHardBlock(workspace: WorkspaceDefinition): PreflightRe
   };
 }
 
+/**
+ * codex 지시문 01 (TASK J) — real, confirmed gap: utils/channelProfile.ts's
+ * own validateChannelProfile only ever ran at channel-SAVE time
+ * (useChannelManager's saveEditorProfile) — a channel saved before that
+ * check existed, corrupted by a hand-edited localStorage blob, or restored
+ * from a differently-versioned backup was never re-checked before a real
+ * generation request used it. Mirrors this file's other 3 hard-block
+ * functions exactly (same shape, same "no acknowledgment can ever unblock
+ * this" reasoning — an invalid channel isn't a judgment call to override,
+ * it's a structurally broken input).
+ */
+function channelProfileInvalidHardBlock(options: GenerationOptions): PreflightReason | null {
+  const validation = validateChannelProfile(options.channel);
+  if (validation.valid) return null;
+  return {
+    field: 'channelProfileInvalid',
+    messageKo: `채널 "${options.channel.name}" 설정이 유효하지 않습니다 — ${validation.errors.join(' / ')} — 채널 편집 화면에서 고친 뒤 다시 시도하세요.`,
+    severity: 'block'
+  };
+}
+
 export function resolveGenerationPreflight(input: GenerationPreflightInput): PreflightResult {
   const { workspaceId, options, slots, contract, designGate, acknowledgedSignature, workspaceOverride } = input;
   const workspace = workspaceOverride ?? getWorkspace(workspaceId);
@@ -189,7 +211,8 @@ export function resolveGenerationPreflight(input: GenerationPreflightInput): Pre
   const hardReasons: PreflightReason[] = [
     channelArchetypeHardBlock(workspace, options),
     genreZeroSongsHardBlock(options, slots),
-    workspaceScaffoldHardBlock(workspace)
+    workspaceScaffoldHardBlock(workspace),
+    channelProfileInvalidHardBlock(options)
   ].filter((reason): reason is PreflightReason => reason !== null);
 
   if (hardReasons.length) {

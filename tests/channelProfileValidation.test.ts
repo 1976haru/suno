@@ -95,3 +95,101 @@ describe('[v5.18 TASK F] validateChannelProfile', () => {
     expect(result.errors.some(e => e.includes('이름'))).toBe(true);
   });
 });
+
+/**
+ * codex 지시문 01 (TASK J) — coverage for the real gaps found by direct
+ * investigation before writing this: kidsAgeTierId was never checked at
+ * all; the old vocalQuotaOverride check only summed the 3 fields (a NaN
+ * or a single negative field offset by a larger positive one both
+ * silently passed); preferredGenres/preferredMoods/forbiddenCliches/
+ * seoKeywords were assumed to already be real arrays with no runtime
+ * guard, which would throw (not produce a validation error) on a
+ * hand-edited blob carrying the wrong type.
+ */
+describe('[codex 지시문 01 TASK J] validateChannelProfile — kidsAgeTierId / vocalQuota / array-shape', () => {
+  it('allows an undefined kidsAgeTierId (non-kids channel)', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    expect(validateChannelProfile(channel).valid).toBe(true);
+  });
+
+  it('allows a real kidsAgeTierId', () => {
+    const channel = normalizeChannel({ name: 'Test', kidsAgeTierId: 'kids-t2' });
+    expect(validateChannelProfile(channel).valid).toBe(true);
+  });
+
+  it('flags an unknown kidsAgeTierId value', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    const result = validateChannelProfile({ ...channel, kidsAgeTierId: 'kids-t99' as never });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('kidsAgeTierId'))).toBe(true);
+  });
+
+  it('flags a NaN vocalQuotaOverride field even though the 3-way sum would otherwise look positive', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    const result = validateChannelProfile({ ...channel, vocalQuotaOverride: { male: NaN, female: 10, mixed: 10 } });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('male') && e.includes('숫자'))).toBe(true);
+  });
+
+  it('flags a negative vocalQuotaOverride field even though a larger positive field offsets the sum', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    const result = validateChannelProfile({ ...channel, vocalQuotaOverride: { male: -5, female: 20, mixed: 0 } });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('male') && e.includes('음수'))).toBe(true);
+  });
+
+  it('flags preferredGenres when it is not a real array', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    const result = validateChannelProfile({ ...channel, preferredGenres: 'pop' as never });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('preferredGenres'))).toBe(true);
+  });
+
+  it('flags preferredMoods when it is not a real array', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    const result = validateChannelProfile({ ...channel, preferredMoods: { bad: true } as never });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('preferredMoods'))).toBe(true);
+  });
+
+  it('flags forbiddenCliches/seoKeywords when present but not real arrays', () => {
+    const channel = normalizeChannel({ name: 'Test' });
+    const result = validateChannelProfile({ ...channel, forbiddenCliches: 'x' as never, seoKeywords: 42 as never });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('forbiddenCliches'))).toBe(true);
+    expect(result.errors.some(e => e.includes('seoKeywords'))).toBe(true);
+  });
+});
+
+/**
+ * codex 지시문 01 (TASK J) — real gap this closes: normalizeChannel used to
+ * pass `input.preferredGenres`/etc. straight through by reference whenever
+ * non-empty, so two channels normalized from the same source array could
+ * end up sharing the identical array object. Confirms the fix: mutating
+ * the INPUT array after normalizing never leaks into the returned channel.
+ */
+describe('[codex 지시문 01 TASK J] normalizeChannel — array fields are real copies, not shared references', () => {
+  it('preferredGenres is a copy — mutating the input array does not affect the normalized channel', () => {
+    const input = ['adult-contemporary', 'acoustic-pop'];
+    const channel = normalizeChannel({ name: 'Test', preferredGenres: input });
+    input.push('injected-genre');
+    expect(channel.preferredGenres).not.toContain('injected-genre');
+  });
+
+  it('two channels normalized from the SAME input array never share the returned array reference', () => {
+    const shared = ['warm', 'hopeful'];
+    const channelA = normalizeChannel({ name: 'A', preferredMoods: shared });
+    const channelB = normalizeChannel({ name: 'B', preferredMoods: shared });
+    expect(channelA.preferredMoods).not.toBe(channelB.preferredMoods);
+    channelA.preferredMoods.push('mutated-on-a');
+    expect(channelB.preferredMoods).not.toContain('mutated-on-a');
+  });
+
+  it('forbiddenCliches/seoKeywords are also real copies, not the same reference as the input', () => {
+    const cliches = ['famous artist imitation'];
+    const keywords = ['music', 'playlist'];
+    const channel = normalizeChannel({ name: 'Test', forbiddenCliches: cliches, seoKeywords: keywords });
+    expect(channel.forbiddenCliches).not.toBe(cliches);
+    expect(channel.seoKeywords).not.toBe(keywords);
+  });
+});

@@ -324,7 +324,13 @@ export default function Step4Result({
   // fixes. `errors` block the per-song Suno-bound copy actions below
   // (mirrors this file's own isOverPromptLimit precedent in SongCard);
   // `warnings` are informational only and never block anything.
-  const albumAuditReport = useMemo(() => (blueprint ? auditAlbum(blueprint.songs, opts) : null), [blueprint, opts]);
+  // codex 지시문 01 (TASK F) — was `opts` (live UI state); this file's own
+  // snapshotOpts (just below) already exists for exactly this reason (see
+  // AudioAnalysisPanel/AudioArchivePanel's own doc comment on the same
+  // pattern) but this audit hadn't been switched over yet — switching
+  // channel/audience on screen after generating a pack silently re-scored
+  // it against the new channel's own rules.
+  const albumAuditReport = useMemo(() => (blueprint ? auditAlbum(blueprint.songs, snapshotOpts) : null), [blueprint, snapshotOpts]);
   const albumAuditBlocked = Boolean(albumAuditReport && !albumAuditReport.passed);
 
   // TASK v3.62 (TASK 3) — the bridge (manual copy-paste) import path has no
@@ -361,9 +367,14 @@ export default function Step4Result({
   // (title-pattern variety, situation/emotion variety, tighter blocking
   // word-count/section-count bounds, placeholder/label/article leaks), so
   // this is an extension of the existing gate, not a second parallel one.
+  // codex 지시문 01 (TASK F) — was `opts` (live UI state); switched to
+  // snapshotOpts for the same reason as albumAuditReport just above — 관문 2
+  // must judge the pack against the audience profile it was actually
+  // GENERATED under, not whatever channel/audience happens to be selected
+  // on screen right now.
   const generationGateConstraints = useMemo(
-    () => (blueprint ? resolveConstraintsFromOptions(opts, audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)) : null),
-    [blueprint, opts]
+    () => (blueprint ? resolveConstraintsFromOptions(snapshotOpts, audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)) : null),
+    [blueprint, snapshotOpts]
   );
   // v4.1 (TASK C) — evaluateGenerationGate now runs inside a Worker (see
   // core/localGenerationClient.ts's evaluateGenerationGateResponsive)
@@ -374,27 +385,31 @@ export default function Step4Result({
   useEffect(() => {
     if (!blueprint) { setGenerationGateResult(null); return; }
     let cancelled = false;
+    // codex 지시문 01 (TASK F) — every field below was `opts.*` (live UI
+    // state); switched to `snapshotOpts.*` for the same reason as
+    // albumAuditReport/generationGateConstraints just above — this is the
+    // SAME 관문 2 gate, just computed in a separate effect.
     evaluateGenerationGateResponsive(blueprint.songs, {
       historicalHooks,
-      conceptLabel: opts.customConcept || opts.projectTitle,
+      conceptLabel: snapshotOpts.customConcept || snapshotOpts.projectTitle,
       eraConstraint: generationGateConstraints?.era,
       // v4.1 (TASK B) — real per-language lyric measurement instead of
       // the gate silently assuming English (see core/lyricMetrics.ts).
-      lyricLanguage: opts.lyricLanguage,
-      audienceProfile: audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience),
+      lyricLanguage: snapshotOpts.lyricLanguage,
+      audienceProfile: audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience),
       // v4.3 (TASK A) — gates the titleLocalized checks (compositionScorer.ts).
-      packagingLanguage: resolvePackagingLanguage(opts),
+      packagingLanguage: resolvePackagingLanguage(snapshotOpts),
       // v5.16 follow-up — without these, the language blocking check falls
       // back to the flat Korean-hangul floor and auto-detected bilingual
       // pair (core/lyricMetrics.ts's pre-v5.16-TASK-B+C behavior) even on
       // this real user-facing 관문 2 screen.
-      archetype: opts.channel.archetype,
-      bilingualPair: resolveBilingualPair(opts)
+      archetype: snapshotOpts.channel.archetype,
+      bilingualPair: resolveBilingualPair(snapshotOpts)
     })
       .then(result => { if (!cancelled) setGenerationGateResult(result); })
       .catch(() => { if (!cancelled) setGenerationGateResult(null); });
     return () => { cancelled = true; };
-  }, [blueprint, historicalHooks, opts.customConcept, opts.projectTitle, opts.lyricLanguage, opts.audience, opts.market, opts.packagingLanguage, generationGateConstraints]);
+  }, [blueprint, historicalHooks, snapshotOpts, generationGateConstraints]);
 
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
@@ -640,11 +655,15 @@ export default function Step4Result({
       )}
 
       {blueprint && resultTab === 'promiseAudit' && (
+        // codex 지시문 01 (TASK F) — every prop below was `opts.*` (live UI
+        // state); switched to `snapshotOpts.*` — a promise audit judges this
+        // pack against the concept/audience it was actually generated to
+        // fulfill, not whatever channel happens to be selected right now.
         <PromiseAuditPanel
           songs={blueprint.songs}
-          conceptLabel={opts.customConcept?.trim() || opts.projectTitle}
-          audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
-          channelId={opts.channel.id}
+          conceptLabel={snapshotOpts.customConcept?.trim() || snapshotOpts.projectTitle}
+          audienceProfile={audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)}
+          channelId={snapshotOpts.channel.id}
         />
       )}
 
@@ -660,10 +679,11 @@ export default function Step4Result({
             availableGenreIds={opts.genreIds ?? blueprint.songs.map(song => song.genreId).filter((id): id is string => Boolean(id))}
             blueprint={blueprint}
           />
+          {/* codex 지시문 01 (TASK F) — was `opts`/`audienceProfileForChannelArchetype(opts...)` (live UI state); switched to snapshotOpts for the same reason as PromiseAuditPanel/albumAuditReport/generationGateConstraints above — "이 세트를 써도 되는가" must judge the pack against the settings it was actually generated under. */}
           <SetCompletenessPanel
             blueprint={blueprint}
-            opts={opts}
-            audienceProfile={audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience)}
+            opts={snapshotOpts}
+            audienceProfile={audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)}
             generationGateResult={generationGateResult}
           />
         </>

@@ -50,6 +50,16 @@ export default function SrtExportPanel({ blueprint, textModelSettings, onUpdateL
 
   const apiTranslationAvailable = Boolean(textModelSettings && textModelSettings.provider && textModelSettings.provider !== 'local');
 
+  // codex 지시문 01 (TASK D) — real gap this closes: the "read-only, never
+  // saved" warning previously only ever showed at the import BUTTON
+  // (Step3Generate.tsx's own basic-import-srt-only-notice), never restated
+  // once the user has actually navigated to this tab with an SRT-only-
+  // imported pack loaded — easy to lose track of after a few minutes of
+  // editing durations/translations here. blueprint.isSrtOnlyImport is set
+  // only by App.tsx's onImportSongsJsonForSrt (see that field's own doc
+  // comment), so a normal generated/saved pack never shows this.
+  const isSrtOnlyImport = Boolean(blueprint.isSrtOnlyImport);
+
   const songLines = useMemo(() => songLyricLinesFor(songs), [songs]);
   const totalKoDone = songs.filter(song => song.lyricTranslations?.ko?.length).length;
   const totalJaDone = songs.filter(song => song.lyricTranslations?.ja?.length).length;
@@ -161,6 +171,11 @@ export default function SrtExportPanel({ blueprint, textModelSettings, onUpdateL
         <Captions size={18} />
         <h2>🎬 캡컷 자막(SRT) 내보내기</h2>
       </div>
+      {isSrtOnlyImport && (
+        <p className="basic-import-srt-only-notice">
+          이 팩은 "가사 파일 → 바로 SRT 만들기"로 가져온 읽기 전용 팩입니다 — 라이브러리에 저장되거나 훅 이력에 등록되지 않습니다. 저장하려면 "곡 JSON 가져오기"로 다시 가져오세요.
+        </p>
+      )}
       <p className="supporting">{SRT_TIMING_DISCLAIMER}</p>
       <p className="supporting">캡컷에서 정상적으로 임포트되는지는 직접 한 번 확인해보세요 — 캡컷 버전에 따라 자막 스타일 임포트 방식이 다를 수 있습니다.</p>
 

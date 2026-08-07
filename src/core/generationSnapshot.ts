@@ -5,6 +5,7 @@ import { normalizeGenreSelection } from './genreSelection';
 import { preallocateSongSlots } from './batchPreallocation';
 import { stableHash } from './generationPreflight';
 import { currentWorkspaceId } from './workspaceScope';
+import { BUILD_INFO } from './buildInfo';
 
 /**
  * TASK (post-generation operation snapshot) — see types.ts's GenerationSnapshot
@@ -85,7 +86,9 @@ export function buildGenerationSnapshot(input: BuildGenerationSnapshotInput): Ge
     season,
     slots,
     contractSignature: stableHash({ options, slots }),
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    appVersion: BUILD_INFO.appVersion,
+    schemaVersion: BUILD_INFO.schemaVersion
   };
 }
 

@@ -683,11 +683,29 @@ export async function refineTracks(
       const { blueprint: result, usage } = await callProviderBatch(settings, batchOpts, genres, moods, season, batchContext);
       void recordProviderUsage(settings, 'refine', usage);
 
-      const remapped = (result.songs || []).map((song, i) => ({ ...song, trackNo: chunk[i] }));
-      const scored = scoreSongs(remapped, opts.channel, opts.lyricLanguage);
-      const byTrackNo = new Map(scored.map(song => [song.trackNo, song]));
-      const songs = current.songs.map(song => byTrackNo.get(song.trackNo) ?? song);
-      current = { ...current, songs };
+      // codex 지시문 01 (TASK A) — real gap this closes: this remap assumed
+      // result.songs.length === chunk.length and that array order matched
+      // chunk order, with no check either way. A provider response short a
+      // song, carrying an extra one, or (worst case) reordered would
+      // silently misassign lyrics to the WRONG trackNo via chunk[i] — the
+      // exact class of "structure validated only by position, never by
+      // count/identity" bug this task's own §목표 2 names. Never renumbers
+      // to paper over a mismatch (same "reject, don't silently repair"
+      // principle core/importValidation.ts's validateProviderTrackSet
+      // already follows) — a mismatched chunk is dropped from this pass
+      // entirely (those trackNos simply keep their pre-refine content) and
+      // reported as a warning, same as the existing catch block just below
+      // already does for a hard failure.
+      const resultSongs = result.songs || [];
+      if (resultSongs.length !== chunk.length) {
+        warnings.push(`${chunk.join(', ')}번 곡 배치 보정 실패: 응답 곡 수(${resultSongs.length})가 요청한 곡 수(${chunk.length})와 다릅니다 — 이 배치는 반영하지 않았습니다.`);
+      } else {
+        const remapped = resultSongs.map((song, i) => ({ ...song, trackNo: chunk[i] }));
+        const scored = scoreSongs(remapped, opts.channel, opts.lyricLanguage);
+        const byTrackNo = new Map(scored.map(song => [song.trackNo, song]));
+        const songs = current.songs.map(song => byTrackNo.get(song.trackNo) ?? song);
+        current = { ...current, songs };
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       warnings.push(`${chunk.join(', ')}번 곡 배치 보정에 실패했습니다: ${message} (다른 배치의 결과는 정상 반영되었습니다.)`);

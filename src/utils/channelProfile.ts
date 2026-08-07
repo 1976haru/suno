@@ -1,4 +1,4 @@
-import type { AgeGroup, ChannelArchetype, ChannelProfile, LyricLanguage, Market, WorkspaceId } from '../types';
+import type { AgeGroup, ChannelArchetype, ChannelProfile, KidsAgeTierId, LyricLanguage, Market, WorkspaceId } from '../types';
 import { scopedKey } from '../core/workspaceScope';
 import { genrePacks, moodPacks } from '../data/presets';
 
@@ -91,10 +91,20 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
     promise: input.promise?.trim() || 'custom playlist channel concept',
     visualIdentity: input.visualIdentity?.trim() || 'consistent thumbnail layout, readable typography, recognizable channel colors',
     defaultVocal: input.defaultVocal?.trim() || 'clear emotional vocal, polished playlist-friendly delivery',
-    preferredGenres: input.preferredGenres?.length ? input.preferredGenres : ['adult-contemporary', 'acoustic-pop'],
-    preferredMoods: input.preferredMoods?.length ? input.preferredMoods : ['warm', 'hopeful'],
-    forbiddenCliches: input.forbiddenCliches?.length ? input.forbiddenCliches : ['famous artist imitation', 'copied song structure'],
-    seoKeywords: input.seoKeywords || [],
+    // codex 지시문 01 (TASK J) — was a direct reference passthrough
+    // (`input.preferredGenres`, no copy) whenever `input` already carried a
+    // non-empty array — two channels normalized from the same source array
+    // (e.g. two drafts built from the same preset's own preferredGenres,
+    // both never spread before reaching here) would share the identical
+    // array object. No in-place mutation call site exists in this codebase
+    // today (confirmed by search), so this was latent, not yet triggered —
+    // but a future `channel.preferredGenres.push(...)`-style edit would
+    // silently corrupt every OTHER channel sharing that reference. `[...]`
+    // is enough (these are string arrays, no nested objects to worry about).
+    preferredGenres: input.preferredGenres?.length ? [...input.preferredGenres] : ['adult-contemporary', 'acoustic-pop'],
+    preferredMoods: input.preferredMoods?.length ? [...input.preferredMoods] : ['warm', 'hopeful'],
+    forbiddenCliches: input.forbiddenCliches?.length ? [...input.forbiddenCliches] : ['famous artist imitation', 'copied song structure'],
+    seoKeywords: input.seoKeywords ? [...input.seoKeywords] : [],
     archetype,
     // v5.12 — real bug fix: this return object never included
     // vocalQuotaOverride at all, so EVERY channel that passed through
@@ -126,6 +136,8 @@ const VALID_ARCHETYPES: readonly ChannelArchetype[] = [
   'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'kr-kids-song',
   'jp-kids-song', 'kr-idol-male', 'kr-idol-female'
 ];
+/** codex 지시문 01 (TASK J) — data/kidsAgeTiers.ts's own tier ids (see types.ts's KidsAgeTierId doc comment) — kept as a plain literal list here rather than importing data/kidsAgeTiers.ts, mirroring this file's own existing "small duplicated table, kept in sync by hand" trade-off (see ARCHETYPE_DEFAULT_AUDIENCE's own doc comment above). */
+const VALID_KIDS_AGE_TIER_IDS: readonly KidsAgeTierId[] = ['kids-t1', 'kids-t2', 'kids-t3'];
 
 export interface ChannelProfileValidationResult {
   valid: boolean;
@@ -161,15 +173,49 @@ export function validateChannelProfile(channel: ChannelProfile): ChannelProfileV
   if (channel.archetype && !VALID_ARCHETYPES.includes(channel.archetype)) {
     errors.push(`알 수 없는 archetype 값: "${channel.archetype}"`);
   }
-  const knownGenreIds = new Set(genrePacks.map(genre => genre.id));
-  const unknownGenres = channel.preferredGenres.filter(id => !knownGenreIds.has(id));
-  if (unknownGenres.length) errors.push(`존재하지 않는 장르 ID: ${unknownGenres.join(', ')}`);
-  const knownMoodIds = new Set(moodPacks.map(mood => mood.id));
-  const unknownMoods = channel.preferredMoods.filter(id => !knownMoodIds.has(id));
-  if (unknownMoods.length) errors.push(`존재하지 않는 무드 ID: ${unknownMoods.join(', ')}`);
+  // codex 지시문 01 (TASK J) — real gaps this closes, each confirmed absent
+  // by direct investigation before writing this: (1) kidsAgeTierId was never
+  // checked at all despite existing on ChannelProfile since v5.13; (2) the
+  // old vocalQuotaOverride check only summed the 3 fields (`male+female+mixed
+  // <= 0`), so a NaN value (NaN+10+10 = NaN, and `NaN <= 0` is false) or a
+  // single negative field offset by a larger positive one both silently
+  // passed; (3) preferredGenres/preferredMoods were assumed to already be
+  // real arrays and handed straight to `.filter()` — a hand-edited blob with
+  // a string instead of an array would throw here, not produce a validation
+  // error, defeating this whole function's own "flag what's wrong instead of
+  // crashing deep inside generation" purpose.
+  if (channel.kidsAgeTierId !== undefined && !VALID_KIDS_AGE_TIER_IDS.includes(channel.kidsAgeTierId)) {
+    errors.push(`알 수 없는 kidsAgeTierId 값: "${channel.kidsAgeTierId}"`);
+  }
+  if (!Array.isArray(channel.preferredGenres)) {
+    errors.push('preferredGenres가 배열이 아닙니다.');
+  } else {
+    const knownGenreIds = new Set(genrePacks.map(genre => genre.id));
+    const unknownGenres = channel.preferredGenres.filter(id => !knownGenreIds.has(id));
+    if (unknownGenres.length) errors.push(`존재하지 않는 장르 ID: ${unknownGenres.join(', ')}`);
+  }
+  if (!Array.isArray(channel.preferredMoods)) {
+    errors.push('preferredMoods가 배열이 아닙니다.');
+  } else {
+    const knownMoodIds = new Set(moodPacks.map(mood => mood.id));
+    const unknownMoods = channel.preferredMoods.filter(id => !knownMoodIds.has(id));
+    if (unknownMoods.length) errors.push(`존재하지 않는 무드 ID: ${unknownMoods.join(', ')}`);
+  }
+  if (channel.forbiddenCliches !== undefined && !Array.isArray(channel.forbiddenCliches)) {
+    errors.push('forbiddenCliches가 배열이 아닙니다.');
+  }
+  if (channel.seoKeywords !== undefined && !Array.isArray(channel.seoKeywords)) {
+    errors.push('seoKeywords가 배열이 아닙니다.');
+  }
   if (channel.vocalQuotaOverride) {
     const { male, female, mixed } = channel.vocalQuotaOverride;
-    if (male + female + mixed <= 0) errors.push('vocalQuotaOverride 값이 전부 0이라 생성 가능한 보컬 슬롯이 없습니다.');
+    for (const [label, value] of [['male', male], ['female', female], ['mixed', mixed]] as const) {
+      if (!Number.isFinite(value)) errors.push(`vocalQuotaOverride.${label} 값이 유효한 숫자가 아닙니다: ${value}`);
+      else if (value < 0) errors.push(`vocalQuotaOverride.${label} 값이 음수입니다: ${value}`);
+    }
+    if (Number.isFinite(male) && Number.isFinite(female) && Number.isFinite(mixed) && male + female + mixed <= 0) {
+      errors.push('vocalQuotaOverride 값이 전부 0이라 생성 가능한 보컬 슬롯이 없습니다.');
+    }
   }
   return { valid: errors.length === 0, errors };
 }

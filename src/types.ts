@@ -1305,6 +1305,18 @@ export interface GenerationSnapshot {
   slots: PreassignedSongSlot[];
   contractSignature: string;
   generatedAt: string;
+  /**
+   * codex 지시문 01 (TASK F) — real gap this closes: exportMeta.ts's own
+   * appVersion/schemaVersion always reflect the CURRENT build at export
+   * time, not what the pack was actually generated under — if the app is
+   * updated between generating a pack and exporting it, the export lies
+   * about which version produced it. Captured once here, at the real
+   * moment of generation (core/buildInfo.ts's BUILD_INFO — the same
+   * appVersion/schemaVersion every export already uses, just captured at
+   * the right time instead of read fresh every time).
+   */
+  appVersion: string;
+  schemaVersion: number;
 }
 
 export interface PlaylistBlueprint {
@@ -1328,6 +1340,16 @@ export interface PlaylistBlueprint {
    * existing saved packs never retroactively show a preview banner.
    */
   isLocalPreview?: boolean;
+  /**
+   * codex 지시문 01 (TASK D) — set only by App.tsx's onImportSongsJsonForSrt
+   * (core/bridgeImport.ts's own importSongsForSrtOnly, the read-only "가사
+   * 파일 → 바로 SRT 만들기" path — see that function's own doc comment for
+   * the full "never saves, never registers hooks" guarantee). Never set by
+   * any other construction site, so a normal generated/saved pack never
+   * shows a read-only notice. Mirrors isLocalPreview's own "narrow,
+   * construction-site-scoped flag" pattern just above.
+   */
+  isSrtOnlyImport?: boolean;
   /**
    * v3.69 (TASK B) — ISO timestamp captured once, at generation time (never
    * recomputed later), so every set-level export (Claude Code bridge output

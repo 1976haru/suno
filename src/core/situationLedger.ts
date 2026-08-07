@@ -125,6 +125,29 @@ export async function recentSituations(channelId: string, language: LyricLanguag
   return scoped.filter(u => recentPackIds.has(u.packId)).map(u => u.situation);
 }
 
+/**
+ * codex 지시문 01 (TASK H) — core/generationHistoryRevision.ts's own
+ * GenerationHistorySnapshot.recentSceneSignatures: the same real
+ * cross-pack window recentSituations above already computes, just
+ * returned with enough identity (packId/trackNo, not only the bare
+ * situation string) to trace which pack/track a scene actually came from.
+ * Same filtering/ordering as recentSituations — this is not a second,
+ * possibly-diverging window, just a richer projection of the identical set.
+ */
+export interface SceneSignature {
+  situation: string;
+  packId: string;
+  trackNo: number;
+}
+
+export async function recentSceneSignatures(channelId: string, language: LyricLanguage, setLimit = 10): Promise<SceneSignature[]> {
+  const all = await allRecords();
+  const scoped = all.filter(u => u.channelId === channelId && u.language === language);
+  const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
+  const recentPackIds = new Set(packOrder.slice(0, setLimit));
+  return scoped.filter(u => recentPackIds.has(u.packId)).map(u => ({ situation: u.situation, packId: u.packId, trackNo: u.trackNo }));
+}
+
 export async function listAllSituationsForWorkspace(workspaceId: WorkspaceId): Promise<SituationUsage[]> {
   const all = await withStore<SituationUsage[]>('readonly', store => store.getAll());
   return scopeFilter(all, workspaceId);

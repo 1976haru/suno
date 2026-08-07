@@ -6,6 +6,7 @@ import { clearAllHookHistory, forgetPack, recordPackHooks } from '../core/hookLe
 import { clearAllSituationHistory, forgetPack as forgetSituationsPack, recordPackSituations } from '../core/situationLedger';
 import { clearAllLyricLineHistory, forgetPack as forgetLyricLinesPack, recordPackLyricLines } from '../core/lyricLineLedger';
 import { forgetVideosForPack, upsertVideoForPack } from '../core/videoLedger';
+import { bumpGenerationHistoryRevision } from '../core/generationHistoryRevision';
 import type { GenerationOptions, PlaylistBlueprint, SavedPack, SavedPackMeta, SoundSignature, ThumbnailSpec } from '../types';
 
 export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
@@ -70,6 +71,11 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Video ledger tracking is best-effort; a save should still succeed even if this fails.
     }
+    // codex 지시문 01 (TASK H) — a real, permanent save just wrote fresh
+    // hooks/situations/lyric-lines; any consumer holding a stale avoid-list
+    // fetch (see generationHistoryRevision.ts's own doc comment for the real
+    // gap this closes) should refetch.
+    bumpGenerationHistoryRevision();
     await refresh();
   }
 
@@ -120,6 +126,8 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Video ledger tracking is best-effort; a save should still succeed even if this fails.
     }
+    // codex 지시문 01 (TASK H) — see saveCurrentPack's own identical comment above.
+    bumpGenerationHistoryRevision();
     await refresh();
     return id;
   }
@@ -162,6 +170,8 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Same best-effort convention as the hook ledger above.
     }
+    // codex 지시문 01 (TASK H) — see saveCurrentPack's own identical comment above.
+    bumpGenerationHistoryRevision();
     await refresh();
     return id;
   }
@@ -192,6 +202,10 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     } catch {
       // Video ledger tracking is best-effort; deletion should still succeed even if this fails.
     }
+    // codex 지시문 01 (TASK H) — a deleted pack's hooks/scenes/lines just
+    // freed back into the pool (forgetPack/forgetSituationsPack/
+    // forgetLyricLinesPack above) — see saveCurrentPack's own identical comment.
+    bumpGenerationHistoryRevision();
     await refresh();
   }
 
@@ -214,6 +228,9 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
 
   async function importAll(file: File) {
     await importPacksResponsive(file);
+    // codex 지시문 01 (TASK H) — a backup restore can bring back hooks/
+    // situations/lyric-lines for packs the current session never saw.
+    bumpGenerationHistoryRevision();
     await refresh();
   }
 
@@ -225,6 +242,8 @@ export function usePackLibrary(onRestore: (pack: SavedPack) => void) {
     await clearAllSituationHistory();
     await clearAllLyricLineHistory();
     await clearAllSettings();
+    // codex 지시문 01 (TASK H) — every ledger this whole function clears is exactly what a stale bridge-instruction avoid-list would otherwise still show.
+    bumpGenerationHistoryRevision();
     await refresh();
   }
 

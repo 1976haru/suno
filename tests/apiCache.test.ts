@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { CACHE_TTL_MS, computeCacheKey, isExpired } from '../src/core/apiCache';
+import { validateProviderTrackSet } from '../src/core/importValidation';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import type { ProviderSettings } from '../src/types';
 
@@ -55,5 +58,56 @@ describe('isExpired', () => {
   it('is expired just past the 7-day TTL', () => {
     const cachedAt = new Date(Date.now() - (CACHE_TTL_MS + 60_000)).toISOString();
     expect(isExpired(cachedAt)).toBe(true);
+  });
+});
+
+/**
+ * codex 지시문 01 (TASK A) — real gap this closes: App.tsx's own
+ * onUseCachedResult restored a cached blueprint verbatim with zero
+ * structural re-validation, unlike every other real entry point (realtime/
+ * batch/OpenAI/bridge import/multi-set all run validateProviderTrackSet —
+ * see that function's own doc comment). Defense-in-depth, not a live bug
+ * today (a cache entry was already validated once when it was first
+ * written), against an edited/corrupted IndexedDB record or a schema drift
+ * between app versions.
+ */
+describe('[codex 지시문 01 TASK A] validateProviderTrackSet catches a corrupted cached blueprint', () => {
+  it('flags duplicate trackNo in a restored blueprint\'s own songs', () => {
+    const songs = [{ trackNo: 1 }, { trackNo: 1 }, { trackNo: 3 }];
+    expect(validateProviderTrackSet(songs, songs.length).valid).toBe(false);
+  });
+
+  it('a real, well-formed cached blueprint passes cleanly', () => {
+    const songs = Array.from({ length: 6 }, (_, i) => ({ trackNo: i + 1 }));
+    expect(validateProviderTrackSet(songs, songs.length).valid).toBe(true);
+  });
+});
+
+// App.tsx itself can't be unit-tested directly (no jsdom/React-rendering
+// test infra — see tests/bridgeImportSrtOnly.test.ts's own identical
+// "App.tsx source-level regression guard" precedent, same reasoning here).
+describe('[codex 지시문 01 TASK A] App.tsx source-level regression guard', () => {
+  const appSource = readFileSync(resolve(__dirname, '../src/App.tsx'), 'utf8');
+
+  function extractFunctionBody(source: string, name: string): string {
+    const signatureIndex = source.indexOf(`function ${name}(`);
+    expect(signatureIndex, `function ${name} not found in App.tsx`).toBeGreaterThan(-1);
+    const braceStart = source.indexOf('{', signatureIndex);
+    let depth = 0;
+    for (let i = braceStart; i < source.length; i++) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}') {
+        depth--;
+        if (depth === 0) return source.slice(braceStart, i + 1);
+      }
+    }
+    throw new Error(`Unbalanced braces while extracting ${name}`);
+  }
+
+  it('onUseCachedResult re-validates the restored blueprint\'s trackNo structure before displaying it', () => {
+    const body = extractFunctionBody(appSource, 'onUseCachedResult');
+    expect(body).toContain('validateProviderTrackSet');
+    // An invalid cache entry falls back to the exact same runGeneration(...) path a MISSING one already used.
+    expect(body).toContain('runGeneration(cachePrompt.key)');
   });
 });

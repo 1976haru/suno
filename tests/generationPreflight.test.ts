@@ -155,6 +155,46 @@ describe('resolveGenerationPreflight — hard blocks never offer a proceed-anywa
     expect(result.reasons.some(r => r.field === 'workspaceScaffold' && r.severity === 'block')).toBe(true);
   });
 
+  // codex 지시문 01 (TASK J) — real gap this closes: validateChannelProfile
+  // (utils/channelProfile.ts) used to run only at channel-SAVE time, never
+  // before a real generation request used the channel. A hand-edited or
+  // pre-validation-era channel with a corrupted field could reach
+  // generation unnoticed.
+  it('blocks when the channel itself is structurally invalid (validateChannelProfile fails)', () => {
+    const opts = makeOptions({
+      channel: { ...seniorChannel, preferredGenres: 'not-an-array' as never },
+      songCount: 6,
+      genreIds: seniorChannel.preferredGenres
+    });
+    const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
+    const choices = userChoicesFromOptions(opts);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
+
+    const result = resolveGenerationPreflight({
+      workspaceId: 'senior-oldpop',
+      options: opts,
+      slots,
+      contract,
+      designGate: CLEAN_DESIGN_GATE,
+      acknowledgedSignature: 'anything-at-all'
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.requiresAcknowledgement).toBe(false);
+    expect(result.mismatchSignature).toBeUndefined();
+    expect(result.reasons.some(r => r.field === 'channelProfileInvalid' && r.severity === 'block')).toBe(true);
+  });
+
+  it('a real, valid channel (every preset) never trips channelProfileInvalid', () => {
+    const opts = makeOptions({ channel: seniorChannel, songCount: 6, genreIds: seniorChannel.preferredGenres });
+    const slots: PreassignedSongSlot[] = Array.from({ length: 6 }, (_, i) => slotFor({ trackNo: i + 1, genreId: seniorChannel.preferredGenres[0] }));
+    const choices = userChoicesFromOptions(opts);
+    const contract = buildResolvedGenerationContract(opts, choices, slots, 'senior-oldpop');
+
+    const result = resolveGenerationPreflight({ workspaceId: 'senior-oldpop', options: opts, slots, contract, designGate: CLEAN_DESIGN_GATE });
+    expect(result.reasons.some(r => r.field === 'channelProfileInvalid')).toBe(false);
+  });
+
   it('a hard block takes total precedence over a soft mismatch also present — only the hard reason is reported, no acknowledgment path opens up', () => {
     const opts = makeOptions({
       channel: seniorChannel,

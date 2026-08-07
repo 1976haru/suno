@@ -5,8 +5,8 @@ import { estimateCost, type TokenRange } from '../../core/costEstimator';
 import { getSetting } from '../../core/settingsStore';
 import { buildSystemInstruction, buildUserInstruction } from '../../core/promptComposer';
 import { channelExhaustionStats, packCapacityWarning, type ExhaustionStats } from '../../core/hookLedger';
-import { recentSituations } from '../../core/situationLedger';
-import { recentLyricLines } from '../../core/lyricLineLedger';
+import { useGenerationHistorySnapshot } from '../../hooks/useGenerationHistorySnapshot';
+import { reserveGeneration, releaseReservation, reservedAvoidLists } from '../../core/generationReservationLedger';
 import { selectExplorationTrackNos, type ExplorationSlotPlan } from '../../core/explorationSlots';
 import { selectPolicyExplorationTrackNos, type PolicyExplorationSlotPlan } from '../../core/explorationPolicyEngine';
 import { nextAxisSequence, recordExploration, buildExplorationAttempts } from '../../core/explorationLedger';
@@ -14,7 +14,6 @@ import { effectiveVerifiedCombosWithTriedVariations, resolveFlagshipCombo } from
 import type { VerifiedCombo } from '../../data/verifiedCombos';
 import { RECOMMENDATION_BADGE, STAGE_ADVICE } from '../../core/apiAdvisor';
 import { defaultModelFor } from '../../data/modelRegistry';
-import { safeAvoidSet } from '../../hooks/useGenerationFlow';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
 import { buildClaudeCodeInstruction, buildMultiSetClaudeCodeInstructions, buildMultiSetClaudeCodeMasterInstruction, type ImportSongsReport, type MultiSetBridgeInstruction } from '../../core/claudeCodeBridge';
 import type { DesignGateResult } from '../../core/designGate';
@@ -589,9 +588,64 @@ export default function Step3Generate({
   const [outputPrice, setOutputPrice] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [hookStats, setHookStats] = useState<ExhaustionStats | null>(null);
-  const [bridgeAvoid, setBridgeAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });
+  // codex 지시문 01 (TASK H) — was two separate useState+useEffect pairs
+  // (bridgeAvoid via safeAvoidSet, bridgeConceptSceneContext via
+  // recentSituations/recentLyricLines), each fetched once on
+  // channel/language change and never again — the one confirmed staleness
+  // gap this task's own investigation found: generate/save set A, stay on
+  // this same channel/language, copy a bridge instruction for set B, and
+  // that instruction's avoid-list could still miss what set A just wrote.
+  // useGenerationHistorySnapshot also refetches on
+  // core/generationHistoryRevision.ts's own revision counter, bumped at
+  // every real pack save/delete/restore (see that module's own doc
+  // comment) — bridgeAvoid/bridgeConceptSceneContext below are kept as
+  // plain derived objects (not their own state) so every existing
+  // downstream reference stays unchanged.
+  const historySnapshot = useGenerationHistorySnapshot(opts.channel.id, opts.lyricLanguage);
+  // codex 지시문 01 (TASK I) — "지시문만 복사하고 아직 결과를 가져오지 않았거나
+  // 두 세션을 동시에 실행해도 중복을 막는다": one stable runId per
+  // channel+language for this screen instance (regenerated only when the
+  // scope itself changes — a different channel/language is genuinely a
+  // different in-flight attempt, per the spec's own "같은 runId 재시도는
+  // 자신의 예약과 충돌하지 않음"). Reserved/updated on every bridge copy
+  // (handleCopyClaudeCodeInstruction/handleCopyMasterInstruction/
+  // handleCopySetInstruction below) with whatever avoid-list that copy
+  // actually sent, released on successful import.
+  const generationRunId = useMemo(
+    () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `run-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+    [opts.channel.id, opts.lyricLanguage]
+  );
+  // codex 지시문 01 (TASK I) — the actual consumption half of the
+  // reservation system: every ACTIVE sibling reservation (a different
+  // runId, same channel+language, not yet released/expired) for this scope,
+  // folded into bridgeAvoid below. Refetched on the same revision signal
+  // historySnapshot already uses (a reservation release on import success
+  // doesn't itself bump the revision, but the immediately-following
+  // handleGenerationSuccess/saveImportedPack write does — so this still
+  // settles within one real save, not indefinitely stale). Deliberately
+  // NOT dependent on bridgeAvoid/claudeCodeInstruction themselves — those
+  // are DERIVED from this state, so depending on them back here would be a
+  // circular effect.
+  const [reservedSiblingAvoid, setReservedSiblingAvoid] = useState<{ titles: string[]; hooks: string[] }>({ titles: [], hooks: [] });
+  useEffect(() => {
+    let cancelled = false;
+    reservedAvoidLists(opts.channel.id, opts.lyricLanguage, generationRunId)
+      .then(result => { if (!cancelled) setReservedSiblingAvoid({ titles: result.titles, hooks: result.hooks }); })
+      .catch(() => { if (!cancelled) setReservedSiblingAvoid({ titles: [], hooks: [] }); });
+    return () => { cancelled = true; };
+  }, [opts.channel.id, opts.lyricLanguage, generationRunId, historySnapshot.revision]);
+  const bridgeAvoid = useMemo(
+    () => ({
+      usedTitles: [...historySnapshot.usedTitles, ...reservedSiblingAvoid.titles],
+      usedHooks: [...historySnapshot.usedHooks, ...reservedSiblingAvoid.hooks]
+    }),
+    [historySnapshot.usedTitles, historySnapshot.usedHooks, reservedSiblingAvoid]
+  );
   /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
-  const [bridgeConceptSceneContext, setBridgeConceptSceneContext] = useState<{ recentSituations: string[]; recentLyricLines: string[] }>({ recentSituations: [], recentLyricLines: [] });
+  const bridgeConceptSceneContext = useMemo(
+    () => ({ recentSituations: historySnapshot.recentSituations, recentLyricLines: historySnapshot.recentLyricLines }),
+    [historySnapshot.recentSituations, historySnapshot.recentLyricLines]
+  );
   /** v5.23 (TASK C) — core/explorationSlots.ts's own plan, resolved once nextAxisSequence is fetched (senior-oldpop only — every other workspace's plan stays `enabled: false`). */
   const [bridgeExplorationPlan, setBridgeExplorationPlan] = useState<ExplorationSlotPlan | undefined>(undefined);
   /** v5.24 (TASK A/B/C/D) — core/explorationPolicyEngine.ts's own plan for every workspace except senior-oldpop (see bridgeExplorationPlan just above for that one). */
@@ -619,33 +673,12 @@ export default function Step3Generate({
   }, []);
 
   // TASK v3.24 — the Claude Code bridge instruction needs the same
-  // cross-pack usedTitles/usedHooks avoid-list as a real generation call
-  // (see hooks/useGenerationFlow.ts's safeAvoidSet), so a coding agent's
-  // output doesn't collide with a channel's prior packs either.
-  useEffect(() => {
-    let cancelled = false;
-    void safeAvoidSet(opts.channel.id, opts.lyricLanguage).then(avoid => {
-      if (!cancelled) setBridgeAvoid({ usedTitles: avoid.usedTitles ?? [], usedHooks: avoid.usedHooks ?? [] });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [opts.channel.id, opts.lyricLanguage]);
-
-  // v5.22 (AXIS 1) — same fetch shape as bridgeAvoid's own effect just
-  // above, for the concept-driven scene generation instruction.
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([
-      recentSituations(opts.channel.id, opts.lyricLanguage),
-      recentLyricLines(opts.channel.id, opts.lyricLanguage)
-    ]).then(([situations, lines]) => {
-      if (!cancelled) setBridgeConceptSceneContext({ recentSituations: situations, recentLyricLines: lines });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [opts.channel.id, opts.lyricLanguage]);
+  // cross-pack usedTitles/usedHooks avoid-list as a real generation call, so
+  // a coding agent's output doesn't collide with a channel's prior packs
+  // either. v5.22 (AXIS 1) added the same fetch shape for the
+  // concept-driven scene generation instruction. codex 지시문 01 (TASK H) —
+  // both are now sourced from useGenerationHistorySnapshot above instead of
+  // their own separate effects (see that hook's own call site comment).
 
   // v5.23 (TASK C) — resolves the exploration-slot plan once nextAxisSequence
   // is known; selectExplorationTrackNos itself already gates on workspaceId
@@ -1043,6 +1076,16 @@ export default function Step3Generate({
     await copyText(claudeCodeInstruction);
     setBridgeCopied(true);
     setTimeout(() => setBridgeCopied(false), 2000);
+    // codex 지시문 01 (TASK I) — "생성 시작/브릿지 복사 시 예약": best-effort,
+    // never blocks the copy itself if IndexedDB is unavailable.
+    void reserveGeneration({
+      runId: generationRunId,
+      channelId: opts.channel.id,
+      language: opts.lyricLanguage,
+      titles: bridgeAvoid.usedTitles,
+      hooks: bridgeAvoid.usedHooks,
+      sceneSignatures: historySnapshot.recentSceneSignatures
+    }).catch(() => {});
   }
 
   function handleDownloadClaudeCodeInstruction() {
@@ -1058,6 +1101,14 @@ export default function Step3Generate({
       setLoading: setIsImporting,
       setReport: setImportReport
     });
+    // codex 지시문 01 (TASK I) — "정상 import 후 실제 이력으로 승격": the real
+    // ledger (hookLedger/situationLedger/lyricLineLedger, via
+    // handleGenerationSuccess/saveImportedPack) now has this generation's
+    // real data (or will, once the user saves) — the reservation's job is
+    // done, whether this specific report ended up 'valid'/'repairable'/
+    // 'blocked' (a blocked import never produces a real blueprint at all,
+    // so there's nothing left to protect against a sibling copy either way).
+    if (report.blueprint) void releaseReservation(generationRunId).catch(() => {});
     // v5.23 (TASK E UI) — records this import's real exploration attempts
     // (distinctChoice text on the plan's own trackNos) right here rather
     // than in a post-import render: this component's own doc comment just
@@ -1179,6 +1230,19 @@ export default function Step3Generate({
     await copyText(multiSetMasterInstruction);
     setMasterBridgeCopied(true);
     setTimeout(() => setMasterBridgeCopied(false), 2000);
+    // codex 지시문 01 (TASK I) — "멀티세트는 전체 세트를 한 번에 예약": the
+    // master instruction already embeds every set's own request payload, so
+    // combinedBridgeAvoid (this screen's own running total across
+    // channel history + whatever sets were already copied/imported this
+    // session) is the real "whole batch" avoid-list to reserve.
+    void reserveGeneration({
+      runId: generationRunId,
+      channelId: opts.channel.id,
+      language: opts.lyricLanguage,
+      titles: combinedBridgeAvoid.usedTitles,
+      hooks: combinedBridgeAvoid.usedHooks,
+      sceneSignatures: historySnapshot.recentSceneSignatures
+    }).catch(() => {});
   }
 
   function handleDownloadMasterInstruction() {
@@ -1192,6 +1256,17 @@ export default function Step3Generate({
     await copyText(item.instruction);
     setCopiedSetIndexes(prev => new Set(prev).add(item.setIndex));
     setCompletedSetIndexes(prev => new Set(prev).add(item.setIndex));
+    // codex 지시문 01 (TASK I) — same "whole batch, one runId" reservation
+    // as handleCopyMasterInstruction above, updated (idempotent put) with
+    // this set's own preassigned titles/hooks folded in too.
+    void reserveGeneration({
+      runId: generationRunId,
+      channelId: opts.channel.id,
+      language: opts.lyricLanguage,
+      titles: [...combinedBridgeAvoid.usedTitles, ...item.preassignedSongs.map(slot => slot.title)],
+      hooks: [...combinedBridgeAvoid.usedHooks, ...item.preassignedSongs.map(slot => slot.hookPhrase)],
+      sceneSignatures: historySnapshot.recentSceneSignatures
+    }).catch(() => {});
   }
 
   function handleToggleSetCompleted(setIndex: number) {
@@ -1204,7 +1279,7 @@ export default function Step3Generate({
   }
 
   async function handleMultiImportFiles(fileList: FileList) {
-    await runBridgeImportAction({
+    const reports = await runBridgeImportAction({
       prerequisites: bridgePrerequisites,
       run: () => onImportMultiSetSongsJson(Array.from(fileList)),
       makeBlockedReport: reason => [makeBridgeImportFailureReport(reason)],
@@ -1212,6 +1287,11 @@ export default function Step3Generate({
       setLoading: setIsMultiImporting,
       setReport: setMultiImportReports
     });
+    // codex 지시문 01 (TASK I) — same "promote to real history, release the
+    // reservation" as handleImportSongsFile above — a multi-set batch shares
+    // ONE runId (see generationRunId's own doc comment), released once any
+    // set in this batch actually produced a real blueprint.
+    if (reports.some(report => report.blueprint)) void releaseReservation(generationRunId).catch(() => {});
   }
 
   return (
