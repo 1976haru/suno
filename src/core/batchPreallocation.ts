@@ -1294,6 +1294,23 @@ export function reconcileWithPreassignedSlot(
     ...(slot.instrumentSet || [])
   ].filter(Boolean).every(value => song.stylePrompt.toLowerCase().includes(value!.trim().toLowerCase()));
   const startsWithVocal = [slot.vocalText, slot.vocalVariantText].filter(Boolean).some(value => song.stylePrompt.trim().toLowerCase().startsWith(value!.trim().toLowerCase()));
+  // 지시문 10 (TASK C) — real bug found by TASK F's own fresh-pack
+  // measurement: this excludePrompt computation used to live AFTER the fast
+  // path below, so a song whose PROMPT happened to already be complete
+  // (every locked stylePrompt atom present, exact "N BPM") took the fast
+  // path's `...song` passthrough and never reached the genre-differentiation
+  // append at all — excludePrompt stayed byte-identical across every song
+  // sharing a genre regardless of this fix, exactly the measured bug it was
+  // meant to close. stylePrompt completeness and excludePrompt
+  // differentiation are independent concerns; computed here, once, so
+  // BOTH return paths below get it.
+  const genreAvoidTraits = slot.genreId ? getGenreById(slot.genreId)?.avoidTraits : undefined;
+  const excludePromptWithNegativeStyle = slot.negativeStyleText
+    ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
+    : song.excludePrompt;
+  const excludePrompt = genreAvoidTraits?.length
+    ? mergeNegativeStyleText(excludePromptWithNegativeStyle, genreAvoidTraits.join(', '))
+    : excludePromptWithNegativeStyle;
   if (completeFields && !startsWithVocal && song.stylePrompt.includes(`${slot.tempo} BPM`)) {
     // v5.11 (TASK L) — this fast path used to skip every other slot-sourced
     // field (moneyChordId, eraTag, arcPhase, ...) below, not just these 5;
@@ -1305,6 +1322,7 @@ export function reconcileWithPreassignedSlot(
       ...song,
       title,
       hookPhrase,
+      excludePrompt,
       // TASK (lyric language mismatch detection) — this fast path otherwise
       // skips every other slot-sourced warning too (see comment above), but
       // language is checked against `song.lyrics` itself, not any
@@ -1333,29 +1351,8 @@ export function reconcileWithPreassignedSlot(
   // the provider wrote and what shipped is always inspectable later.
   const rawProviderStylePrompt = song.stylePrompt;
   const stylePrompt = normalizeProviderStylePrompt(rawProviderStylePrompt, slot);
-  // 지시문 10 (TASK C) — real measured bug: a real 18-song bridge pack's
-  // excludePrompt was character-for-character identical across all 18
-  // tracks (1/18 unique) — the bridge schema instruction alone (see
-  // core/promptComposer.ts's songOutputShape doc comment) asks the provider
-  // to differentiate per song, but nothing enforced it, the same
-  // "prompt-only guidance measurably didn't work" pattern this whole
-  // directive's own §0 names. This appends THIS track's own genre-specific
-  // avoidTraits (data/genreLibrary's real, per-genre conflict list — an
-  // acoustic ballad's genre never lists "trap hi-hats") if missing, the same
-  // append-if-missing overlay normalizeProviderStylePrompt already applies
-  // to stylePrompt's own locked fields. Never removes anything the provider
-  // wrote (safety/copyright/channel terms untouched) — purely additive, so
-  // two tracks sharing the same genre still end up with more differentiated
-  // text than before even though they won't be FULLY unique from each other
-  // (a real, honestly-scoped structural floor, not a claim of 18/18 by
-  // itself — see the exclude_prompt_unique audit item for what's measured).
-  const genreAvoidTraits = slot.genreId ? getGenreById(slot.genreId)?.avoidTraits : undefined;
-  const excludePromptWithNegativeStyle = slot.negativeStyleText
-    ? mergeNegativeStyleText(song.excludePrompt, slot.negativeStyleText)
-    : song.excludePrompt;
-  const excludePrompt = genreAvoidTraits?.length
-    ? mergeNegativeStyleText(excludePromptWithNegativeStyle, genreAvoidTraits.join(', '))
-    : excludePromptWithNegativeStyle;
+  // excludePrompt (genre-differentiated, TASK C) was already computed above,
+  // before the fast-path branch — see that computation's own doc comment.
   const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText);
   // TASK v3.43 Step 2 (Part A3) — structureTemplate shapes the lyric's own
   // section tags, not stylePrompt, so unlike every field above there's

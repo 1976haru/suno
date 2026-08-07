@@ -26,14 +26,14 @@ import { SENIOR_AUDIENCE_PROFILE, audienceProfileForChannelArchetype } from '../
 import { buildAudioSetReport } from '../src/core/audioSetReport';
 import { runFullAudit, type AuditItem, type FullAuditReport } from '../src/core/fullAudit';
 import { scoreSongs } from '../src/core/quality';
-import { importSongsJson, extractBridgeImportMeta } from '../src/core/bridgeImport';
+import { importSongsJson, extractBridgeImportMeta, extractRawImportedSongs } from '../src/core/bridgeImport';
 import { topWordFrequencies } from '../src/core/lyricVocabularyRepetition';
 import { lyricWordAndSectionCounts } from '../src/core/compositionScorer';
 import { openingSixWords } from '../src/core/lyricsAst';
 import { sceneSimilarity } from '../src/core/sceneSimilarity';
 import { checkSeniorEraShare, SLOT_PLAN_LEDGER_POLICY } from '../src/core/seniorOldpopPolicy';
 import { computeSlotPlanOverlap, type SlotPlanOverlapResult } from '../src/core/slotPlanOverlap';
-import type { AudienceProfile, ChannelProfile, GenerationOptions, LyricLanguage, PlaylistBlueprint, SongIdea } from '../src/types';
+import type { AudienceProfile, ChannelProfile, GenerationOptions, LyricLanguage, PlaylistBlueprint, PreassignedSongSlot, SongIdea } from '../src/types';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -106,12 +106,49 @@ function defaultSeason() {
   return { id: 'spring-open', label: 'Spring Opening', period: 'March', keywords: ['spring'], visualDirection: '' };
 }
 
+/**
+ * 지시문 10 (TASK F) — real bug this closes, found while measuring TASK C/D
+ * against a freshly-generated pack: loadPackBlueprint used to pass `[]` as
+ * importSongsJson's preassignedSongs argument, so core/batchPreallocation.ts's
+ * reconcileWithPreassignedSlot could never find a matching slot for ANY
+ * track — every song silently took the "no slot" fallback path, meaning
+ * this audit tool could never actually exercise normalizeProviderStylePrompt
+ * (TASK D) or the excludePrompt genre-differentiation append (TASK C) at
+ * all, regardless of whether those fixes work in the real app. Building a
+ * minimal per-track slot from the file's OWN already-written genreId/tempo
+ * (parsed from stylePrompt's own "N BPM" text — the same verbatim value the
+ * bridge schema already asks the provider to write, not a second source of
+ * truth) makes reconciliation exercise those real code paths the same way a
+ * live import does, without needing a freshly-computed independent plan
+ * (which could disagree with what the file actually contains — a mismatch
+ * risk this deliberately avoids by deriving the shadow slot FROM the file).
+ * Reuses core/bridgeImport.ts's own extractRawImportedSongs — not a second
+ * parser.
+ */
+const STYLE_PROMPT_BPM_PATTERN = /(\d+)\s*BPM/i;
+
+function buildShadowSlotsFromRawSongs(rawText: string): PreassignedSongSlot[] {
+  const raw = extractRawImportedSongs(rawText);
+  return raw.map((entry, index): PreassignedSongSlot | null => {
+    if (!entry || typeof entry !== 'object') return null;
+    const obj = entry as Record<string, unknown>;
+    const trackNo = typeof obj.trackNo === 'number' ? obj.trackNo : index + 1;
+    const genreId = typeof obj.genreId === 'string' ? obj.genreId : undefined;
+    const stylePrompt = typeof obj.stylePrompt === 'string' ? obj.stylePrompt : '';
+    const bpmMatch = stylePrompt.match(STYLE_PROMPT_BPM_PATTERN);
+    const tempo = bpmMatch ? parseInt(bpmMatch[1], 10) : 0;
+    return { trackNo, title: '', hookPhrase: '', songRole: '', tempo, emotionArc: '', moneyChordText: '', ...(genreId ? { genreId } : {}) };
+  }).filter((slot): slot is PreassignedSongSlot => slot !== null);
+}
+
 // ---------------------------------------------------------------------------
 // TASK B-1 — 실제 발매 경로 (--pack). bridgeImport.ts:408의 importSongsJson
 // 을 그대로 통과시킨다 — 별도 파서를 만들지 않는다. 이 함수는 그 함수가
 // 필요로 하는 opts/genres/moods/season을 파일의 meta 블록(이미 존재하는
 // extractBridgeImportMeta로 읽음, 새 파서 아님)에서 구성할 뿐, songs 배열
-// 자체는 절대 직접 파싱하지 않는다.
+// 자체는 절대 직접 파싱하지 않는다. 지시문 10 (TASK F) — preassignedSongs도
+// 이제 buildShadowSlotsFromRawSongs(같은 extractRawImportedSongs 재사용)로
+// 파일 자체에서 만든다 — 더 이상 빈 배열이 아니다.
 // ---------------------------------------------------------------------------
 export interface PackLoadOk {
   blocked: false;
@@ -166,7 +203,7 @@ export function loadPackBlueprint(packPath: string, explicitConcept: string | un
     diversityAllocations: []
   };
   const season = defaultSeason();
-  const importReport = importSongsJson(rawText, opts, genres, [], season);
+  const importReport = importSongsJson(rawText, opts, genres, [], season, buildShadowSlotsFromRawSongs(rawText));
   if (!importReport.blueprint) {
     return {
       blocked: true,

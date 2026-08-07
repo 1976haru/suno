@@ -70,4 +70,32 @@ describe('지시문 09 TASK B-5 — 실제 팩 인수 fixture', () => {
       expect(new Set(openings).size).toBe(openings.length);
     }
   });
+
+  /**
+   * 지시문 10 (TASK F) — real bug found while measuring TASK C against a
+   * fresh pack: loadPackBlueprint used to call importSongsJson with
+   * preassignedSongs defaulted to `[]` (and a first fix attempt passed a
+   * value into the wrong positional argument — `moods`, not
+   * `preassignedSongs` — since importSongsJson's real signature is
+   * (rawText, opts, genres, moods, season, preassignedSongs, ...), not
+   * (..., genres, preassignedSongs, season) as first assumed). Either bug
+   * meant core/batchPreallocation.ts's reconcileWithPreassignedSlot could
+   * never find a matching slot for ANY track loaded via --pack, so TASK C's
+   * excludePrompt genre-differentiation append (and TASK D's
+   * normalizeProviderStylePrompt) never actually ran — the audit tool could
+   * never verify its own fixes. buildShadowSlotsFromRawSongs (built from the
+   * file's own real genreId/tempo, reusing extractRawImportedSongs — not a
+   * second parser) closes this. This is measured against the REAL fixture,
+   * not a synthetic case — 1/18 unique before this fix, 4/18 after (still
+   * not 18/18, since the fixture only spans 4 distinct genres and this
+   * append is deliberately additive-only, never a claim of full uniqueness
+   * — see batchPreallocation.ts's own excludePrompt computation doc comment).
+   */
+  it('--pack 로딩이 실제 슬롯과 재조정되어 excludePrompt 장르별 차별화가 작동한다 (1/18 -> 4/18)', () => {
+    const loaded = loadPackBlueprint(FIXTURE_60S, undefined);
+    if (loaded.blocked) throw new Error('fixture blocked');
+    const uniqueCount = new Set(loaded.blueprint.songs.map(s => s.excludePrompt)).size;
+    expect(uniqueCount).toBeGreaterThan(1);
+    expect(uniqueCount).toBe(4);
+  });
 });
