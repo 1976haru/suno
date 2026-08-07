@@ -10,6 +10,8 @@ import { buildTakeDirectives, getTakes, recordTake, setAdopted, type AudioTake }
 import { buildDirectiveExecutionReport } from '../core/audioDirectiveAnalysis';
 import { analyzeAdoption, isNeutralWinRate } from '../core/audioAdoption';
 import { getFocusCursor, setFocusCursor } from '../core/library';
+import { analyzeAudioMeasurementsFromFile } from '../core/audioMeasurements';
+import { evaluateTakeSelectionSafety, canSelectTake, REJECTION_REASONS, isValidRejectionReasonId, type SelectionSafetyIssue } from '../core/audioTakeSelection';
 
 interface AudioAnalysisPanelProps {
   songs: SongIdea[];
@@ -62,6 +64,49 @@ function RmsBarRow({ metrics }: { metrics: FullAudioAnalysis['metrics'] }) {
  * focus mode's onAdopt also calls goNextFocus, see AudioAnalysisPanel's own
  * adoptTakeAndAdvance).
  */
+/** 지시문 11 (TASK F) — renders core/audioTakeSelection.ts's own SelectionSafetyIssue[] as small badges, the same real check adoptTake() enforces server-side (AudioAnalysisPanel's own adoptTake). Shown per-take so a user sees WHY a take can't be adopted before clicking, not just after being refused. */
+function ComplianceBadges({ issues }: { issues: SelectionSafetyIssue[] }) {
+  if (!issues.length) return <span className="audio-compliance-badge ok">이상 없음</span>;
+  return (
+    <>
+      {issues.map(issue => (
+        <span key={issue.id} className={`audio-compliance-badge ${issue.severity}`}>{issue.labelKo}</span>
+      ))}
+    </>
+  );
+}
+
+/** 지시문 11 (TASK F) — real gap this closes: this panel could already visualize measured metrics (RMS bars, spectral centroid) but never let a user actually LISTEN to what they uploaded — a take-comparison UI that shows numbers but never plays audio. object URL is created lazily and never revoked eagerly (browser reclaims on navigation) — same lightweight pattern AudioEditPanel's own file preview already uses elsewhere in this app. */
+function TakeAudioPlayer({ file }: { file: File | undefined }) {
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : undefined), [file]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  if (!url) return null;
+  return <audio className="audio-take-player" controls preload="none" src={url} />;
+}
+
+/** 지시문 11 (TASK F) — REJECTION_REASONS 피커: 실제로 AudioTake.rejectionReasons에 반영되는 실제 저장 동작(recordTake upsert), 장식용 체크박스가 아니다. */
+function RejectionReasonPicker({ take, onReject }: { take: AudioTake | undefined; onReject: (id: string) => void }) {
+  if (!take) return null;
+  const selected = new Set(take.rejectionReasons ?? []);
+  return (
+    <details className="audio-rejection-picker">
+      <summary className="supporting">탈락 사유{selected.size ? ` (${selected.size})` : ''}</summary>
+      <div className="button-row">
+        {REJECTION_REASONS.map(reason => (
+          <button
+            key={reason.id}
+            type="button"
+            className={selected.has(reason.id) ? 'chip active' : 'chip'}
+            onClick={() => onReject(reason.id)}
+          >
+            {reason.labelKo}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function TrackDetailCard({
   trackNo,
   title,
@@ -71,8 +116,11 @@ function TrackDetailCard({
   adoptedFileName,
   full,
   rating,
+  channelTakes,
+  filesByName,
   onAdopt,
-  onRate
+  onRate,
+  onToggleRejectionReason
 }: {
   trackNo: number;
   title: string;
@@ -82,9 +130,14 @@ function TrackDetailCard({
   adoptedFileName: string | undefined;
   full: FullAudioAnalysis | undefined;
   rating: SongRating | undefined;
+  /** 지시문 11 (TASK F) — persisted AudioTake records for this song, so real measurements/compliance can be looked up per take (analysesByFileName only ever carries the ephemeral in-session analysis, never `measurements`). */
+  channelTakes: AudioTake[];
+  filesByName: Map<string, File>;
   onAdopt: (trackNo: number, fileName: string) => void;
   onRate?: (rating: SongRating) => void;
+  onToggleRejectionReason?: (take: AudioTake, reasonId: string) => void;
 }) {
+  const findTake = (fileName: string) => channelTakes.find(t => t.fileName === fileName && t.trackNo === trackNo);
   return (
     <>
       <div className="section-head">
@@ -97,6 +150,9 @@ function TrackDetailCard({
             const takeFull = analysesByFileName.get(take.fileName);
             if (!takeFull) return null;
             const isAdopted = adoptedFileName === take.fileName;
+            const persistedTake = findTake(take.fileName);
+            const issues = persistedTake ? evaluateTakeSelectionSafety(persistedTake) : [{ id: 'no-measurements', labelKo: '측정값 없이 선택되었습니다.', severity: 'blocking' as const }];
+            const blocked = issues.some(i => i.severity === 'blocking');
             return (
               <div key={take.fileName} className={isAdopted ? 'audio-take-card adopted' : 'audio-take-card'}>
                 <div className="section-head">
@@ -108,9 +164,14 @@ function TrackDetailCard({
                   진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 믹스중심(보컬대역) {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
                   템포 {takeFull.tempoEstimate.confidence >= 0.4 ? `${Math.round(takeFull.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
                 </p>
-                <button type="button" className={isAdopted ? 'chip active' : 'chip'} onClick={() => onAdopt(trackNo, take.fileName)}>
+                <TakeAudioPlayer file={filesByName.get(take.fileName)} />
+                <div><ComplianceBadges issues={issues} /></div>
+                <button type="button" className={isAdopted ? 'chip active' : 'chip'} disabled={blocked && !isAdopted} onClick={() => onAdopt(trackNo, take.fileName)}>
                   {take.versionLabel} 채택
                 </button>
+                {onToggleRejectionReason && persistedTake && (
+                  <RejectionReasonPicker take={persistedTake} onReject={id => onToggleRejectionReason(persistedTake, id)} />
+                )}
               </div>
             );
           })}
@@ -124,6 +185,19 @@ function TrackDetailCard({
               중심 {Math.round(metrics.spectralCentroid)}Hz · 믹스중심(보컬대역) {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
               템포 {full.tempoEstimate.confidence >= 0.4 ? `${Math.round(full.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
             </p>
+            {adoptedFileName && <TakeAudioPlayer file={filesByName.get(adoptedFileName)} />}
+            {adoptedFileName && (() => {
+              const persistedTake = findTake(adoptedFileName);
+              const issues = persistedTake ? evaluateTakeSelectionSafety(persistedTake) : [];
+              return (
+                <>
+                  <div><ComplianceBadges issues={issues} /></div>
+                  {onToggleRejectionReason && persistedTake && (
+                    <RejectionReasonPicker take={persistedTake} onReject={id => onToggleRejectionReason(persistedTake, id)} />
+                  )}
+                </>
+              );
+            })()}
           </>
         )
       )}
@@ -158,6 +232,8 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState('');
+  /** 지시문 11 (TASK F) — adoptTake's own blocking-refusal / warning-surface message. Separate from `error` (file-analysis failures) since this is about a SELECTION decision, not an upload failure. */
+  const [takeWarning, setTakeWarning] = useState('');
   const [ratings, setRatings] = useState<Record<string, SongRating>>({});
   const [dragOver, setDragOver] = useState(false);
   const [channelTakes, setChannelTakes] = useState<AudioTake[]>([]);
@@ -223,6 +299,20 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
         nextFiles.set(file.name, file);
 
         if (song?.songId) {
+          // 지시문 11 (TASK F) — real gap this closes: core/audioMeasurements.ts's
+          // analyzeAudioMeasurementsFromFile (clipping/silence/stereo-width/
+          // real sample rate) already existed as a tested, pure-cored module
+          // but nothing in this panel ever called it, so every recorded
+          // AudioTake.measurements stayed undefined — the exact state
+          // core/audioTakeSelection.ts's evaluateTakeSelectionSafety treats
+          // as an unconditional blocking issue ("선택할 수 없음: 측정값
+          // 없음"). Reuses full.tempoEstimate (already computed by the
+          // spectral pass above) so BPM is never computed twice over the
+          // same audio. Failure here (corrupt file, decode edge case)
+          // degrades to undefined measurements rather than losing the take
+          // entirely — the take is still recorded and visible, just
+          // correctly blocked from selection until re-analyzed.
+          const measurements = await analyzeAudioMeasurementsFromFile(file, full.tempoEstimate).catch(() => undefined);
           const take: AudioTake = {
             takeId: takeIdFor(packId, file.name),
             songId: song.songId,
@@ -236,7 +326,9 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
             vocalMetrics: full.vocalMetrics,
             tempoEstimate: full.tempoEstimate,
             directives: buildTakeDirectives(song, audienceProfile),
-            analyzedAt: new Date().toISOString()
+            analyzedAt: new Date().toISOString(),
+            source: 'upload',
+            ...(measurements ? { measurements } : {})
           };
           await recordTake(take);
         }
@@ -284,6 +376,8 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
       const updated: FullAudioAnalysis = { ...full, metrics: { ...full.metrics, matchedTrackNo: trackNo, matchedSongId: song?.songId } };
       setAnalysesByFileName(prev => new Map(prev).set(fileName, updated));
       if (song?.songId) {
+        const rawFile = filesByName.get(fileName);
+        const measurements = rawFile ? await analyzeAudioMeasurementsFromFile(rawFile, updated.tempoEstimate).catch(() => undefined) : undefined;
         const take: AudioTake = {
           takeId: takeIdFor(packId, fileName),
           songId: song.songId,
@@ -297,7 +391,9 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
           vocalMetrics: updated.vocalMetrics,
           tempoEstimate: updated.tempoEstimate,
           directives: buildTakeDirectives(song, audienceProfile),
-          analyzedAt: new Date().toISOString()
+          analyzedAt: new Date().toISOString(),
+          source: 'upload',
+          ...(measurements ? { measurements } : {})
         };
         await recordTake(take);
         loadChannelTakes();
@@ -313,13 +409,44 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
     void analyzeFiles(files);
   }
 
+  /**
+   * 지시문 11 (TASK F) — the real gate core/audioTakeSelection.ts's own doc
+   * comment describes ("selected take without measurements = 0", "clipped
+   * selected take = 0") applied here, the one place this panel actually
+   * persists an adoption. A blocking issue (no measurements yet, or real
+   * clipping) refuses the adoption outright — the take stays visible and
+   * comparable, just not selectable until it's re-analyzed or replaced. A
+   * warning (plausible vocal-gender mismatch) never blocks — it's surfaced
+   * via `takeWarning` and the adoption proceeds, matching
+   * evaluateTakeSelectionSafety's own "warning is IN the return value, so a
+   * caller can't forget to show it" design.
+   */
   async function adoptTake(trackNo: number, fileName: string) {
+    const takeId = takeIdFor(packId, fileName);
+    const take = channelTakes.find(t => t.takeId === takeId);
+    const issues = take ? evaluateTakeSelectionSafety(take) : [];
+    const blocking = issues.find(i => i.severity === 'blocking');
+    if (blocking) {
+      setTakeWarning(`선택할 수 없습니다 — ${blocking.labelKo}`);
+      return;
+    }
+    const warning = issues.find(i => i.severity === 'warning');
+    setTakeWarning(warning ? warning.labelKo : '');
     setAdoptedFileNameByTrack(prev => ({ ...prev, [trackNo]: fileName }));
     try {
-      await setAdopted(takeIdFor(packId, fileName));
+      await setAdopted(takeId);
     } catch {
       // best-effort — the local "which take is shown" state above still updates either way.
     }
+    loadChannelTakes();
+  }
+
+  /** 지시문 11 (TASK F) — real persistence, not a decorative checkbox: toggles one rejection reason on this take (recordTake is an upsert keyed by takeId — see core/audioTakes.ts's own recordTake doc comment) and reloads so every card reflects the saved state. */
+  async function toggleRejectionReason(take: AudioTake, reasonId: string) {
+    if (!isValidRejectionReasonId(reasonId)) return;
+    const current = new Set(take.rejectionReasons ?? []);
+    if (current.has(reasonId)) current.delete(reasonId); else current.add(reasonId);
+    await recordTake({ ...take, rejectionReasons: [...current] });
     loadChannelTakes();
   }
 
@@ -518,6 +645,7 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
 
       {analyzing && <p className="supporting">분석 중... {progress.done}/{progress.total}곡</p>}
       {error && <p className="error" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
+      {takeWarning && <p className="audio-take-warning">{takeWarning}</p>}
 
       {unmatchedFiles.length > 0 && (
         <div className="error">
@@ -687,8 +815,11 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
                       adoptedFileName={adoptedFileNameByTrack[trackNo]}
                       full={full}
                       rating={song?.songId ? ratings[song.songId] : undefined}
+                      channelTakes={channelTakes}
+                      filesByName={filesByName}
                       onAdopt={(t, fileName) => void adoptTakeAndAdvance(t, fileName)}
                       onRate={song?.songId ? rating => void rateTrack(metrics, rating) : undefined}
+                      onToggleRejectionReason={(take, id) => void toggleRejectionReason(take, id)}
                     />
                     <div className="button-row">
                       <button type="button" className="chip" onClick={goNextFocus} disabled={clampedIndex === adoptedMetrics.length - 1}>
@@ -715,8 +846,11 @@ export default function AudioAnalysisPanel({ songs, packId, channelId, audienceP
                       adoptedFileName={adoptedFileNameByTrack[trackNo]}
                       full={full}
                       rating={song?.songId ? ratings[song.songId] : undefined}
+                      channelTakes={channelTakes}
+                      filesByName={filesByName}
                       onAdopt={(t, fileName) => void adoptTake(t, fileName)}
                       onRate={song?.songId ? rating => void rateTrack(metrics, rating) : undefined}
+                      onToggleRejectionReason={(take, id) => void toggleRejectionReason(take, id)}
                     />
                   </div>
                 );

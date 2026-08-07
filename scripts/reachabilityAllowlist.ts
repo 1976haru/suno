@@ -18,11 +18,8 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 지시문 11(음원·번들) 범위 — 지시문 09 TASK C-2 자신의 스코프 노트:
   // "audio* · blindBenchmark · productionBundle · musicGenerationProvider
   // ※ 지시문 11의 범위다. 09에서는 allowlist에 사유를 적는다."
-  'src/core/audioCompliance.ts': '지시문 11 범위(음원·번들) — 이 환경에 실제 음원 파일이 없어 검증 불가, 09에서는 사유만 기록',
-  'src/core/audioGate.ts': '위와 동일',
-  'src/core/audioTakeSelection.ts': '위와 동일',
-  'src/core/audioWorkspaceCompliance.ts': '위와 동일',
-  'src/core/blindBenchmark.ts': '위와 동일',
+  'src/core/audioGate.ts': '지시문 11 범위(음원·번들) — 이 환경에 실제 음원 파일이 없어 검증 불가, 09에서는 사유만 기록',
+  'src/core/blindBenchmark.ts': '위와 동일 — 지시문 11 §0에서 HotAIMusic 블라인드 A/B 요건 자체가 명시적으로 폐기됨, 실측 대체 완료',
   'src/core/productionBundle.ts': '위와 동일',
   'src/core/musicGenerationProvider.ts': '위와 동일',
   'src/core/lyricsAlignment.ts': '지시문 09 §2-3 "음원·번들" 목록에 명시 — 위와 동일 사유(지시문 11 범위, 실제 음원 필요)',
