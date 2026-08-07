@@ -52,21 +52,20 @@ jobs:
       - run: npm ci
       - run: npm run test
 
-  # codex 지시문 07 (TASK A) — real, genuine external blocker: this
-  # project's real TypeScript version (7.0.2) is newer than any released
-  # @typescript-eslint version supports (confirmed via direct test —
-  # both @typescript-eslint/parser and @typescript-eslint/eslint-plugin
-  # throw "typescript-eslint does not support TS 7.0" at import time; see
-  # eslint.config.js's own doc comment and
-  # github.com/typescript-eslint/typescript-eslint/issues/10940). This is
-  # NOT hidden — the job still runs `npm run lint` for real and reports
-  # its real result, but `continue-on-error: true` keeps this one external,
-  # currently-unfixable dependency gap from blocking every other real,
-  # green job. Remove `continue-on-error` once typescript-eslint ships TS
-  # 7.x support (tracked in the issue above) and this becomes a real gate.
+  # 지시문 09 (§0/TASK D-2) — the real blocker documented here (TypeScript
+  # 7.0.2 newer than any released @typescript-eslint peer range supports)
+  # is gone: package.json's typescript is now pinned to 5.9.3 (verified —
+  # no @typescript-eslint/eslint-plugin release, stable or prerelease,
+  # supports TS 7.x; 5.9.3 is the real, tested fix, not --force/
+  # --legacy-peer-deps). `npm run lint` now genuinely runs to completion
+  # instead of crashing at import time — real measurement found 133
+  # pre-existing errors / 66 warnings that were silently invisible while
+  # this job could never actually execute. continue-on-error removed, so
+  # this is now a real gate; those 133 errors are a genuine, separate
+  # backlog this directive does not fix (지시문 09 is a measurement-recovery
+  # task, not a quality-fix task — see this repo's own "하지 말 것" section).
   lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
