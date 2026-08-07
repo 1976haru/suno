@@ -1,10 +1,11 @@
-import { frameIdForConceptText, getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, type LyricTheme } from '../data/lyricThemes';
+import { frameIdForConceptText, getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, resolveLocalScenePlanningMode, type LyricTheme } from '../data/lyricThemes';
 import type { GenerationOptions, LyricPerspective, LyricSectionStyleId, PerspectiveMode } from '../types';
 import { applyAxisAllocation, POV_IDS, spreadPlanByCounts } from './diversityAllocation';
 import { buildStridePlan } from './stridePlan';
 import type { KidsLyricTheme } from './kidsLyricEngine';
 import type { StructureTemplateId } from './lyricEngine';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { hashSeed } from '../utils/prng';
 
 export const LYRIC_SECTION_STYLE_IDS: LyricSectionStyleId[] = ['narrative', 'image', 'dialogue', 'hookRepeat'];
 
@@ -226,7 +227,42 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
   return spreadFrames.map(frameId => {
     const themesInFrame = byFrame.get(frameId) ?? [];
     if (!themesInFrame.length) return '';
-    const startIndex = frameCursor.get(frameId) ?? 0;
+    // 지시문 08 (TASK D) — real root cause of measured scene/theme
+    // duplication across 2 differently-seeded concepts on the same
+    // channel: this used to always start at index 0 within a frame's own
+    // theme list, regardless of `seed` — only WHICH FRAME came first
+    // (`orderedFrameIds`, above) was seed-sensitive, so as long as two
+    // packs land on the same per-frame counts (guaranteed by
+    // frameCapFor(songCount), seed-independent), they picked the exact
+    // same theme ids from each frame every time. Seeding the starting
+    // index too (hashed with frameId so different frames don't all land on
+    // the identical offset when their lengths coincide) makes the actual
+    // SET of themes chosen genuinely vary with the seed — and therefore,
+    // since seedForBlueprint now includes customConcept, with the concept.
+    // Seeding is skipped (kept at index 0, the original behavior) in two
+    // real cases where index 0 already carries deliberate meaning, not an
+    // arbitrary "first in array order" default:
+    //  - SOLITARY_OBJECT_FRAME_ID: a caller-supplied custom theme
+    //    (data/lyricThemes.ts's customThemeFromScene) is always PREPENDED
+    //    to that frame's own list, so index 0 there means "the user's own
+    //    explicit theme choice" — real regression measured
+    //    (tests/userChoicePreservation.test.ts) when seeding applied there.
+    //  - preferCalm: every frame's own list was just sorted calm-tagged-
+    //    first (above), specifically so index 0 lands on a calm theme —
+    //    real regression measured (tests/kidsCalmThemeWeighting.test.ts)
+    //    when seeding undid that ordering by starting past the calm prefix.
+    //  - preferredFrameId: the one frame frameIdForConceptText actually
+    //    matched to the concept's own named content — real regression
+    //    measured (tests/promiseAudit.test.ts's C8 case, "젊은 시절 춤추던
+    //    토요일 밤" / dancing Saturday night): fulfillment dropped from a
+    //    passing baseline once seeding could start past that frame's own
+    //    author-ordered best-fit theme. Concept-driven variety already
+    //    comes from WHICH frame gets reserved (frameIdForConceptText
+    //    itself, real per-concept text matching) — this frame doesn't also
+    //    need within-frame seeding to serve TASK D's own goal.
+    const skipSeeding = frameId === SOLITARY_OBJECT_FRAME_ID || preferCalm || frameId === preferredFrameId;
+    const startIndex = frameCursor.get(frameId)
+      ?? (skipSeeding ? 0 : Math.abs(hashSeed(`${seed}:${frameId}`)) % themesInFrame.length);
     for (let i = 0; i < themesInFrame.length; i++) {
       const candidate = themesInFrame[(startIndex + i) % themesInFrame.length];
       if (!usedThemeIds.has(candidate.id)) {
@@ -257,7 +293,7 @@ function frameWithMostCalmThemes(pool: LyricTheme[]): string | undefined {
 }
 
 export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): string[] {
-  const themes = lyricThemesForOptions(opts);
+  const themes = lyricThemesForOptions({ ...opts, scenePlanningMode: resolveLocalScenePlanningMode(opts) });
   const pool = themes.map(theme => theme.id);
   if (!pool.length || opts.songCount <= 0) return [];
   // v4.5 (TASK D, 4-2) — the concept's own named situation (if any) gets a
@@ -415,8 +451,8 @@ export function buildSectionStylePlan(songCount: number, seed: number, structure
   });
 }
 
-export function lyricThemeForSlot(id: string | undefined, opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'>): LyricTheme | undefined {
-  return getLyricThemeById(id, opts);
+export function lyricThemeForSlot(id: string | undefined, opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'>): LyricTheme | undefined {
+  return getLyricThemeById(id, { ...opts, scenePlanningMode: resolveLocalScenePlanningMode(opts) });
 }
 
 export function kidsEngineThemeForLyricSlot(id: string | undefined): KidsLyricTheme | undefined {

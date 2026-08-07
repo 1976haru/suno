@@ -1519,7 +1519,19 @@ export function generateLocalBlueprint(
         moneyChordLean.density === 'sparser' ? 'lower' : 'higher'
       )
     : arrangementDensityPlanBase;
-  const lyricThemePlan = buildLyricThemePlan(opts, seed);
+  // 지시문 08 (TASK D) — real, measured fix for cross-concept lyric-theme
+  // duplication: two different customConcept values on the same channel/
+  // projectTitle used to select the exact same theme sequence, since
+  // buildLyricThemePlan's own seed param came straight from the shared
+  // `seed` above (channel+projectTitle only). Threading a concept-aware
+  // seed into JUST this one call (not the shared `seed` itself) fixes the
+  // actual measured bug without touching genre/hook/BPM/vocal-combo
+  // rotation — see seedForBlueprint's own doc comment for why widening the
+  // shared seed directly was tried first and reverted (broke ~20 existing
+  // tests whose exact expected values were calibrated against the old,
+  // concept-independent seed).
+  const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
+  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed);
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 

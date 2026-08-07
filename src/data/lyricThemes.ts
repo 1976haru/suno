@@ -1,4 +1,4 @@
-import type { ChannelArchetype, GenerationOptions, LyricLanguage } from '../types';
+import type { ChannelArchetype, GenerationOptions, LyricLanguage, ScenePlanningMode } from '../types';
 import { isKidsArchetype } from '../utils/channelArchetype';
 
 export type KidsLyricThemeHint = 'animal' | 'season' | 'family' | 'friend' | 'play' | 'school' | 'counting' | 'hangul';
@@ -2210,7 +2210,34 @@ export function lyricThemesForArchetype(archetype: ChannelArchetype | undefined,
  * filtered pool got too small would safely keep full variety rather than
  * silently starving.
  */
-export function lyricThemesForOptions(opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'>): LyricTheme[] {
+/**
+ * 지시문 08 (TASK D) — `scenePlanningMode` (types.ts, already used by the
+ * bridge path's own core/bridgeInstruction.ts#resolveScenePlanningMode) is
+ * accepted here for the same real-root-cause reason described in that
+ * module: two concepts sharing a channel/archetype used to draw from the
+ * exact same fixed theme pool regardless of customConcept text. A first
+ * attempt at this task widened 'concept-generated' mode to the FULL
+ * unfiltered theme pool (152 themes, not just the ~40 archetype-suited
+ * ones) — real measurement showed that did shrink cross-concept scene
+ * collision, but at a real regression cost: most of that wider pool has no
+ * frameId assigned (only the archetype-curated subsets are frame-tagged),
+ * so allocateThemesByFrame's frame-diversity guarantee collapsed toward
+ * the shared 'solitary-object' fallback frame — the EXACT "18/18 solitary-
+ * object themes" failure tests/setDirector.test.ts's own v3.64 regression
+ * guard exists to catch, now reached through a different path. Reverted
+ * to the archetype-suited pool unconditionally (scenePlanningMode
+ * currently has no behavioral effect here) — the real, verified,
+ * non-regressing fix for cross-concept duplication lives in
+ * core/lyricEngine.ts's seedForBlueprint (customConcept now part of the
+ * seed) and core/lyricDiversityPlan.ts's allocateThemesByFrame (the
+ * within-frame starting index is now seed-derived instead of always 0),
+ * both of which make two different concepts draw a genuinely different
+ * SUBSET of the SAME frame-safe archetype pool rather than widening the
+ * pool itself.
+ */
+export function lyricThemesForOptions(
+  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'> & { scenePlanningMode?: ScenePlanningMode }
+): LyricTheme[] {
   const base = lyricThemesForArchetype(opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage);
   if (isKidsArchetype(opts.channel.archetype) && opts.channel.preferredMoods?.includes('calm-focus')) {
     const calmFiltered = base.filter(theme => theme.moodTag !== 'energetic');
@@ -2219,7 +2246,15 @@ export function lyricThemesForOptions(opts: Pick<GenerationOptions, 'channel' | 
   return base;
 }
 
-export function getLyricThemeById(id: string | undefined, opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'>): LyricTheme | undefined {
+/** Real, local-generation equivalent of core/bridgeInstruction.ts's own resolveScenePlanningMode — same "a real customConcept means the fixed theme pool is no longer a hard, exclusive contract" intent, minus that function's bridge-only ConceptSceneContext requirement. Currently informational only (see lyricThemesForOptions's own doc comment on why widening the pool itself was reverted) — kept as a real, tested, honestly-labeled hook for a future, more targeted concept-aware pool strategy rather than deleted. */
+export function resolveLocalScenePlanningMode(opts: Pick<GenerationOptions, 'customConcept'>): ScenePlanningMode {
+  return opts.customConcept?.trim() ? 'concept-generated' : 'fixed-pool';
+}
+
+export function getLyricThemeById(
+  id: string | undefined,
+  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'> & { scenePlanningMode?: ScenePlanningMode }
+): LyricTheme | undefined {
   if (!id) return undefined;
   return lyricThemesForOptions(opts).find(theme => theme.id === id);
 }
@@ -2229,8 +2264,8 @@ export function getLyricThemeLabel(id: string | undefined, archetype?: ChannelAr
   return lyricThemesForArchetype(archetype, customScene, language).find(theme => theme.id === id)?.labelKo || id;
 }
 
-export function getLyricThemeScene(id: string | undefined, opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'>): string {
-  return getLyricThemeById(id, opts)?.scene || '';
+export function getLyricThemeScene(id: string | undefined, opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'>): string {
+  return getLyricThemeById(id, { ...opts, scenePlanningMode: resolveLocalScenePlanningMode(opts) })?.scene || '';
 }
 
 export function kidsLyricEngineThemeForLyricTheme(id: string | undefined): KidsLyricThemeHint | undefined {

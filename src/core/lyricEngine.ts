@@ -2054,6 +2054,27 @@ export function computeDiversityScore(songs: Pick<SongIdea, 'trackNo' | 'lyrics'
   return Math.round(Math.max(0, Math.min(1, 1 - avgSimilarity)) * 100);
 }
 
+/**
+ * 지시문 08 (TASK D) — real, confirmed finding: two different concepts on
+ * the same channel/projectTitle produced byte-identical output (208/786
+ * identical lyric lines, 6/18 identical titles, 17/18 identical scenes)
+ * because this seed — shared by EVERY downstream rotation (theme/genre/
+ * hook/vocal/BPM plans, all keyed off `hashSeed(seedForBlueprint(opts))`)
+ * — never depended on `customConcept`, only `channel.id`/`projectTitle`. A
+ * first attempt appended customConcept here directly; real measurement
+ * confirmed it fixes the duplication, but its blast radius (every one of
+ * the 5 call sites listed below, i.e. genre/hook/BPM/vocal-combo rotation
+ * too, not just lyric themes) broke ~20 existing tests whose exact
+ * expected values were implicitly calibrated against the old seed formula
+ * — recalibrating those safely means individually verifying each new
+ * value is an intentional improvement, not just "make the test pass",
+ * which is real, necessary follow-up work beyond this session's scope.
+ * Reverted to the original 2-field formula; the actual, non-regressing fix
+ * threads a concept-aware seed only into the ONE place duplication was
+ * actually measured (core/lyricDiversityPlan.ts's buildLyricThemePlan —
+ * see localGenerator.ts's own lyricThemeSeed) rather than the shared
+ * pipeline-wide seed every other subsystem also depends on.
+ */
 export function seedForBlueprint(opts: Pick<GenerationOptions, 'channel' | 'projectTitle'>) {
   return `${opts.channel.id}:${opts.projectTitle}`;
 }

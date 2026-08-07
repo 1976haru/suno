@@ -4,7 +4,7 @@ import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { vocalLabel } from '../core/vocalPlan';
-import { lyricThemesForOptions } from '../data/lyricThemes';
+import { lyricThemesForOptions, resolveLocalScenePlanningMode } from '../data/lyricThemes';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
   allocationForAxis,
@@ -129,7 +129,7 @@ function axisDefinitions(opts: GenerationOptions, genres: GenrePack[]): AxisDefi
       axis: 'lyricTheme',
       label: '가사 테마',
       help: '곡마다 중심 이미지나 키즈 테마를 배정합니다.',
-      options: lyricThemesForOptions(opts).map(theme => ({
+      options: lyricThemesForOptions({ ...opts, scenePlanningMode: resolveLocalScenePlanningMode(opts) }).map(theme => ({
         id: theme.id,
         label: theme.labelKo,
         detail: theme.scene
