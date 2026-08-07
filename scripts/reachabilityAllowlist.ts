@@ -53,5 +53,12 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   'src/data/kidsArcModel.ts': '의도적 미배선(지시문 08에서 이미 판단) — core/arcModels.ts가 동일 개념(아이 아크 단계)을 실제 배선된 다른 이름 체계(kids-familiar/kids-learning/kids-moving/kids-calm/kids-closing)로 이미 구현 중. 배선하면 두 시스템이 공존하게 되어 "낡은 경로를 남기지 말 것"을 위반함',
 
   // 미착수 — 실제 사용처를 아직 찾지 못함.
-  'src/core/lyricBudget.ts': '미착수 — 가사 단어수 목표(BPM별 타깃)는 이미 core/compositionScorer.ts의 targetWordRangeFor/core/fullAudit.ts가 실제 배선된 경로로 처리 중이라, 이 모듈이 배선될 자리가 중복 없이 어디인지 아직 확정하지 못함'
+  'src/core/lyricBudget.ts': '미착수 — 가사 단어수 목표(BPM별 타깃)는 이미 core/compositionScorer.ts의 targetWordRangeFor/core/fullAudit.ts가 실제 배선된 경로로 처리 중이라, 이 모듈이 배선될 자리가 중복 없이 어디인지 아직 확정하지 못함',
+
+  // 지시문 11 (TASK E) — 테스트 전용 회귀 잠금 데이터. tests/goldenCases.test.ts가
+  // 유일한 실제 소비자다(main.tsx/App.tsx/localGenerationWorker.ts 진입점
+  // 그래프 밖) — tests/fixtures/*.json 같은 다른 순수 테스트 자산과 같은
+  // 성격이라 앱 자체에 배선할 대상이 없다. UI에 "골든 케이스 현황" 패널이
+  // 실제로 필요해지면 그때 배선한다(지금은 없는 요구를 미리 만들지 않는다).
+  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격'
 };
