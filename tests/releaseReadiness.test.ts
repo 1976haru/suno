@@ -286,3 +286,98 @@ describe('[v5.23 TASK C §3-6] evaluateReleaseReadiness — exploration-slot sty
     expect(grammarItem?.exempted).toBeFalsy();
   });
 });
+
+/**
+ * 지시문 08 (TASK C) — real coverage for the archetype-gated workspace-policy
+ * items wired into evaluateReleaseReadiness (core/kr2030Policy.ts,
+ * jp2030Policy.ts, krKidsPolicy.ts, jpKidsPolicy.ts, kpopMalePolicy.ts/
+ * kpopFemalePolicy.ts). Each of these modules existed, individually tested
+ * in isolation, but nothing in a real generation path ever called them —
+ * this runs a REAL generated+scored pack per archetype (same "not a mock"
+ * discipline as the AXIS 4 suite above) and confirms every new item id
+ * actually appears with a real status/detail, not just that the code
+ * doesn't throw.
+ */
+describe('[지시문 08 TASK C] evaluateReleaseReadiness — workspace-policy archetype items', () => {
+  const season = seasonPacks[0];
+
+  function reportFor(channelId: string) {
+    const channel = channelPresets.find(c => c.id === channelId)!;
+    const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
+    const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id));
+    const opts = makeOptions({ channel, songCount: 6, lyricLanguage: channel.archetype === 'jp-2030-pop' || channel.archetype === 'jp-kids-song' ? 'japanese' : 'english' });
+    const blueprint = generateLocalBlueprint(opts, genres, moods, season);
+    const scoredSongs = scoreSongs(blueprint.songs, channel, opts.lyricLanguage === 'bilingual' ? 'english' : opts.lyricLanguage);
+    const audienceProfile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
+    return { channel, report: evaluateReleaseReadiness({
+      songs: scoredSongs,
+      conceptLabel: opts.customConcept || opts.projectTitle,
+      songCount: opts.songCount,
+      audienceProfile,
+      lyricLanguage: opts.lyricLanguage,
+      archetype: channel.archetype
+    }) };
+  }
+
+  function expectRealItems(report: ReturnType<typeof reportFor>['report'], ids: string[]) {
+    for (const id of ids) {
+      const item = report.items.find(i => i.id === id);
+      expect(item, `expected item ${id} to exist`).toBeDefined();
+      expect(['pass', 'fail', 'not-measured']).toContain(item?.status);
+      expect(item?.detail).toBeTruthy();
+    }
+  }
+
+  it('kr-2030-pop archetype produces all 5 kr-2030 policy items', () => {
+    const { channel, report } = reportFor('after-work-band-pop');
+    expect(channel.archetype).toBe('kr-2030-pop');
+    expectRealItems(report, [
+      'kr-2030-opening-cliche', 'kr-2030-modern-motif', 'kr-2030-structure-variety', 'kr-2030-unexpected-rap', 'kr-2030-translationese'
+    ]);
+  });
+
+  it('jp-2030-pop archetype produces all 4 jp-2030 policy items', () => {
+    const { channel, report } = reportFor('reiwa-way-home-jpop');
+    expect(channel.archetype).toBe('jp-2030-pop');
+    expectRealItems(report, [
+      'jp-2030-katakana-overuse', 'jp-2030-modern-motif', 'jp-2030-title-suffix-overuse', 'jp-2030-translationese'
+    ]);
+  });
+
+  it('kr-kids-song archetype produces the kr-kids policy items (including didactic-tone, not kana-ratio)', () => {
+    const { channel, report } = reportFor('follow-along-action-song');
+    expect(channel.archetype).toBe('kr-kids-song');
+    expectRealItems(report, ['kr-kids-phase-policy', 'kr-kids-consecutive-phase', 'kr-kids-safety', 'kr-kids-didactic-tone']);
+    expect(report.items.find(i => i.id === 'jp-kids-kana-ratio')).toBeUndefined();
+  });
+
+  it('jp-kids-song archetype produces the jp-kids policy items (including kana-ratio, not didactic-tone)', () => {
+    const { channel, report } = reportFor('teasobi-hiroba');
+    expect(channel.archetype).toBe('jp-kids-song');
+    expectRealItems(report, ['jp-kids-phase-policy', 'jp-kids-consecutive-phase', 'jp-kids-safety', 'jp-kids-kana-ratio']);
+    expect(report.items.find(i => i.id === 'kr-kids-didactic-tone')).toBeUndefined();
+  });
+
+  it('kr-idol-male archetype produces all 4 kpop policy items via the male thin-instantiation wrapper', () => {
+    const { channel, report } = reportFor('stage-night');
+    expect(channel.archetype).toBe('kr-idol-male');
+    expectRealItems(report, ['kpop-quota-fidelity', 'kpop-motif-quota', 'kpop-rap-share', 'kpop-chant-overuse']);
+  });
+
+  it('kr-idol-female archetype produces all 4 kpop policy items via the female thin-instantiation wrapper', () => {
+    const { channel, report } = reportFor('daylight-city-kpop');
+    expect(channel.archetype).toBe('kr-idol-female');
+    expectRealItems(report, ['kpop-quota-fidelity', 'kpop-motif-quota', 'kpop-rap-share', 'kpop-chant-overuse']);
+  });
+
+  it('an unrelated archetype (senior-morning) produces none of the kr-2030/jp-2030/kids/kpop items', () => {
+    const { channel, report } = reportFor('good-morning-memory-radio');
+    expect(channel.archetype).toBe('senior-morning');
+    const foreignIds = [
+      'kr-2030-opening-cliche', 'jp-2030-katakana-overuse', 'kr-kids-phase-policy', 'jp-kids-phase-policy', 'kpop-quota-fidelity'
+    ];
+    for (const id of foreignIds) {
+      expect(report.items.find(i => i.id === id)).toBeUndefined();
+    }
+  });
+});

@@ -108,7 +108,34 @@ export const RELEASE_READINESS_ITEM_IDS = {
   /** 지시문 08 (TASK C) — core/seniorOldpopPolicy.ts's own 3 remaining checks (era share, motif sub-quotas, chord-progression dominance), senior-morning archetype only. */
   seniorEraShare: 'senior-era-share',
   seniorMotifQuota: 'senior-motif-quota',
-  seniorChordDominance: 'senior-chord-dominance'
+  seniorChordDominance: 'senior-chord-dominance',
+  /** 지시문 08 (TASK C) — core/kr2030Policy.ts, kr-2030-pop archetype only. */
+  kr2030OpeningCliche: 'kr-2030-opening-cliche',
+  kr2030ModernMotif: 'kr-2030-modern-motif',
+  kr2030StructureVariety: 'kr-2030-structure-variety',
+  kr2030UnexpectedRap: 'kr-2030-unexpected-rap',
+  kr2030Translationese: 'kr-2030-translationese',
+  /** 지시문 08 (TASK C) — core/jp2030Policy.ts, jp-2030-pop archetype only. */
+  jp2030KatakanaOveruse: 'jp-2030-katakana-overuse',
+  jp2030ModernMotif: 'jp-2030-modern-motif',
+  jp2030TitleSuffixOveruse: 'jp-2030-title-suffix-overuse',
+  jp2030Translationese: 'jp-2030-translationese',
+  /** 지시문 08 (TASK C) — core/krKidsPolicy.ts, kr-kids-song archetype only. */
+  krKidsPhasePolicy: 'kr-kids-phase-policy',
+  krKidsConsecutivePhase: 'kr-kids-consecutive-phase',
+  krKidsSafety: 'kr-kids-safety',
+  krKidsDidacticTone: 'kr-kids-didactic-tone',
+  /** 지시문 08 (TASK C) — core/jpKidsPolicy.ts, jp-kids-song archetype only. */
+  jpKidsPhasePolicy: 'jp-kids-phase-policy',
+  jpKidsConsecutivePhase: 'jp-kids-consecutive-phase',
+  jpKidsSafety: 'jp-kids-safety',
+  jpKidsKanaRatio: 'jp-kids-kana-ratio',
+  /** 지시문 08 (TASK C) — core/kpopSharedChecks.ts via kpopMalePolicy.ts/kpopFemalePolicy.ts, kr-idol-male/kr-idol-female archetypes only. */
+  kpopQuotaFidelity: 'kpop-quota-fidelity',
+  kpopMotifQuota: 'kpop-motif-quota',
+  kpopRapShare: 'kpop-rap-share',
+  kpopConsecutiveLead: 'kpop-consecutive-lead',
+  kpopChantOveruse: 'kpop-chant-overuse'
 } as const;
 
 // ---------------------------------------------------------------------------

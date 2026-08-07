@@ -12,6 +12,14 @@ import { checkNegativePromptLength } from './negativePromptSpec';
 import { checkTitleHookRelationships } from './titleHookRelationship';
 import { checkLyricLanguageMatch } from './lyricMetrics';
 import { checkSeniorEraShare, checkSeniorMotifQuotas, checkChordProgressionDominance, countFinalKeyUps, countDistinctIntroTypes, SENIOR_MUSIC_POLICY } from './seniorOldpopPolicy';
+import { checkKr2030OpeningClicheOveruse, checkKr2030ModernMotifQuotas, checkKr2030StructureVariety, findUnexpectedRapSections, checkKr2030Translationese } from './kr2030Policy';
+import { findKatakanaOveruse, checkJp2030ModernMotifQuotas, checkJp2030TitleSuffixOveruse, checkJp2030Translationese } from './jp2030Policy';
+import { resolveKrKidsExpectedPhasePolicy, findAdultPhaseLeaks, findConsecutivePhaseRuns, checkKrKidsSafety, didacticToneAdvisory } from './krKidsPolicy';
+import { findJpKidsAdultPhaseLeaks, findJpKidsConsecutivePhaseRuns, checkJpKidsGenericSafety, checkJpKidsKanaRatio } from './jpKidsPolicy';
+import { checkKrIdolMaleFixedQuota, checkKrIdolMaleMotifQuotas, checkKrIdolMaleRapShare, checkKrIdolMaleChantOveruse } from './kpopMalePolicy';
+import { checkKrIdolFemaleFixedQuota, checkKrIdolFemaleMotifQuotas, checkKrIdolFemaleRapShare, checkKrIdolFemaleChantOveruse } from './kpopFemalePolicy';
+import { parseLyricsSections } from './lyricsAst';
+import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
 
 /**
  * v5.22 (AXIS 4 §4-3) — the task spec's own "무검수 발매 기준": 32 pass/fail
@@ -123,7 +131,32 @@ const CATEGORY_BY_ITEM_ID: Record<string, ReleaseReadinessCategory> = {
   [RELEASE_READINESS_ITEM_IDS.titleHookDisconnectedQuota]: 'title-hook-relationship',
   [RELEASE_READINESS_ITEM_IDS.negativePromptLength]: 'prompt-consistency',
   [RELEASE_READINESS_ITEM_IDS.languageMatch]: 'language',
-  [RELEASE_READINESS_ITEM_IDS.exportFieldCompleteness]: 'export-completeness'
+  [RELEASE_READINESS_ITEM_IDS.exportFieldCompleteness]: 'export-completeness',
+  [RELEASE_READINESS_ITEM_IDS.seniorEraShare]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.seniorMotifQuota]: 'workspace-policy',
+  [RELEASE_READINESS_ITEM_IDS.seniorChordDominance]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.kr2030OpeningCliche]: 'workspace-policy',
+  [RELEASE_READINESS_ITEM_IDS.kr2030ModernMotif]: 'workspace-policy',
+  [RELEASE_READINESS_ITEM_IDS.kr2030StructureVariety]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.kr2030UnexpectedRap]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.kr2030Translationese]: 'lyric-naturalness',
+  [RELEASE_READINESS_ITEM_IDS.jp2030KatakanaOveruse]: 'language',
+  [RELEASE_READINESS_ITEM_IDS.jp2030ModernMotif]: 'workspace-policy',
+  [RELEASE_READINESS_ITEM_IDS.jp2030TitleSuffixOveruse]: 'title-hook-relationship',
+  [RELEASE_READINESS_ITEM_IDS.jp2030Translationese]: 'lyric-naturalness',
+  [RELEASE_READINESS_ITEM_IDS.krKidsPhasePolicy]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.krKidsConsecutivePhase]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.krKidsSafety]: 'safety',
+  [RELEASE_READINESS_ITEM_IDS.krKidsDidacticTone]: 'lyric-naturalness',
+  [RELEASE_READINESS_ITEM_IDS.jpKidsPhasePolicy]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.jpKidsConsecutivePhase]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.jpKidsSafety]: 'safety',
+  [RELEASE_READINESS_ITEM_IDS.jpKidsKanaRatio]: 'language',
+  [RELEASE_READINESS_ITEM_IDS.kpopQuotaFidelity]: 'workspace-policy',
+  [RELEASE_READINESS_ITEM_IDS.kpopMotifQuota]: 'workspace-policy',
+  [RELEASE_READINESS_ITEM_IDS.kpopRapShare]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.kpopConsecutiveLead]: 'structural',
+  [RELEASE_READINESS_ITEM_IDS.kpopChantOveruse]: 'lyric-naturalness'
 };
 
 function categoryForItemId(id: string): ReleaseReadinessCategory {
@@ -530,6 +563,160 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
   } else {
     items.push({ id: RELEASE_READINESS_ITEM_IDS.modulationCount, categoryKo: '음악 설계', labelKo: '전조 5~6곡', status: 'not-measured', detail: 'senior-morning 아카이타입 전용 기준 — 이 워크스페이스는 판정 대상 아님', notImplemented: false });
     items.push({ id: RELEASE_READINESS_ITEM_IDS.introTypeVariety, categoryKo: '음악 설계', labelKo: '인트로 유형 >= 4종', status: 'not-measured', detail: 'senior-morning 아카이타입 전용 기준 — 이 워크스페이스는 판정 대상 아님', notImplemented: false });
+  }
+
+  // 지시문 08 (TASK C) — core/kr2030Policy.ts, kr-2030-pop archetype only.
+  if (archetype === 'kr-2030-pop') {
+    const cliches = checkKr2030OpeningClicheOveruse(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kr2030OpeningCliche, categoryKo: '가사', labelKo: 'kr-2030 도입부 클리셰 과다 없음',
+      status: cliches.length === 0 ? 'pass' : 'fail',
+      detail: cliches.length ? cliches.map(f => `${f.labelKo} ${f.count}곡`).join(' / ') : '위반 없음'
+    });
+    const modernMotif = checkKr2030ModernMotifQuotas(songs, conceptLabel);
+    const blockingModernMotif = modernMotif.filter(f => !f.overridden);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kr2030ModernMotif, categoryKo: '가사', labelKo: 'kr-2030 모던 소재 쿼터',
+      status: blockingModernMotif.length === 0 ? 'pass' : 'fail',
+      detail: modernMotif.length ? modernMotif.map(f => `${f.labelKo}${f.overridden ? ' (콘셉트 지정)' : ''}: ${f.count}곡`).join(' / ') : '위반 없음'
+    });
+    const structureVariety = checkKr2030StructureVariety(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kr2030StructureVariety, categoryKo: '생성 구조', labelKo: 'kr-2030 구조 형태 다양성',
+      status: structureVariety.belowTarget ? 'fail' : 'pass',
+      detail: `${structureVariety.distinctCount}종 사용`
+    });
+    const unexpectedRap = findUnexpectedRapSections(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kr2030UnexpectedRap, categoryKo: '가사', labelKo: 'kr-2030 예상 밖 랩 섹션 없음',
+      status: unexpectedRap.length === 0 ? 'pass' : 'fail',
+      detail: unexpectedRap.length ? `T${unexpectedRap.join(', T')}` : '없음'
+    });
+    const translationese = checkKr2030Translationese(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kr2030Translationese, categoryKo: '가사', labelKo: 'kr-2030 번역체 없음',
+      status: translationese.length === 0 ? 'pass' : 'fail',
+      detail: translationese.length ? translationese.slice(0, 5).join(' / ') : '없음'
+    });
+  }
+
+  // 지시문 08 (TASK C) — core/jp2030Policy.ts, jp-2030-pop archetype only.
+  if (archetype === 'jp-2030-pop') {
+    const katakana = findKatakanaOveruse(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.jp2030KatakanaOveruse, categoryKo: '가사', labelKo: 'jp-2030 katakana 과다 없음',
+      status: katakana.length === 0 ? 'pass' : 'fail',
+      detail: katakana.length ? `T${katakana.join(', T')}` : '없음'
+    });
+    const modernMotif = checkJp2030ModernMotifQuotas(songs, conceptLabel);
+    const blockingModernMotif = modernMotif.filter(f => !f.overridden);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.jp2030ModernMotif, categoryKo: '가사', labelKo: 'jp-2030 모던 소재 쿼터',
+      status: blockingModernMotif.length === 0 ? 'pass' : 'fail',
+      detail: modernMotif.length ? modernMotif.map(f => `${f.labelKo}${f.overridden ? ' (콘셉트 지정)' : ''}: ${f.count}곡`).join(' / ') : '위반 없음'
+    });
+    const titleSuffix = checkJp2030TitleSuffixOveruse(songs);
+    const blockingTitleSuffix = titleSuffix.filter(f => !f.overridden);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.jp2030TitleSuffixOveruse, categoryKo: '제목', labelKo: 'jp-2030 제목 접미사 과다 없음',
+      status: blockingTitleSuffix.length === 0 ? 'pass' : 'fail',
+      detail: titleSuffix.length ? titleSuffix.map(f => `${f.labelKo}: ${f.count}곡`).join(' / ') : '위반 없음'
+    });
+    const translationese = checkJp2030Translationese(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.jp2030Translationese, categoryKo: '가사', labelKo: 'jp-2030 번역체 없음',
+      status: translationese.length === 0 ? 'pass' : 'fail',
+      detail: translationese.length ? translationese.slice(0, 5).join(' / ') : '없음'
+    });
+  }
+
+  // 지시문 08 (TASK C) — core/krKidsPolicy.ts/jpKidsPolicy.ts, kr-kids-song/jp-kids-song archetypes.
+  if (archetype === 'kr-kids-song' || archetype === 'jp-kids-song') {
+    const isJp = archetype === 'jp-kids-song';
+    const resolvePhase = isJp ? findJpKidsAdultPhaseLeaks : findAdultPhaseLeaks;
+    const resolveConsecutive = isJp ? findJpKidsConsecutivePhaseRuns : findConsecutivePhaseRuns;
+    const resolveSafety = isJp ? checkJpKidsGenericSafety : checkKrKidsSafety;
+    const kidsAgeTierId = songs.find(s => s.effectiveKidsAgeTierId)?.effectiveKidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID;
+    const observedPhases = songs.map(s => s.arcPhase).filter((p): p is string => Boolean(p));
+    const expectedPolicy = resolveKrKidsExpectedPhasePolicy(songs.length, kidsAgeTierId);
+    const adultLeaks = resolvePhase(observedPhases);
+    items.push({
+      id: isJp ? RELEASE_READINESS_ITEM_IDS.jpKidsPhasePolicy : RELEASE_READINESS_ITEM_IDS.krKidsPhasePolicy,
+      categoryKo: '생성 구조', labelKo: `${isJp ? 'jp' : 'kr'}-kids 아크 단계 (성인 단계 누출 0건)`,
+      status: adultLeaks.length === 0 ? 'pass' : 'fail',
+      detail: adultLeaks.length ? `성인 단계 누출: ${adultLeaks.join(', ')} (기대: ${expectedPolicy.expectedPhaseSet.join(', ')})` : `기대 단계 ${expectedPolicy.expectedPhaseSet.join(', ')}`
+    });
+    const consecutiveRuns = resolveConsecutive(observedPhases);
+    items.push({
+      id: isJp ? RELEASE_READINESS_ITEM_IDS.jpKidsConsecutivePhase : RELEASE_READINESS_ITEM_IDS.krKidsConsecutivePhase,
+      categoryKo: '생성 구조', labelKo: `${isJp ? 'jp' : 'kr'}-kids 연속 동일 단계 없음`,
+      status: consecutiveRuns.length === 0 ? 'pass' : 'fail',
+      detail: consecutiveRuns.length ? consecutiveRuns.map(r => `${r.phase} ${r.runLength}연속`).join(' / ') : '없음'
+    });
+    const safetyIssues = songs.flatMap(song => resolveSafety(song.lyrics).map(issue => ({ trackNo: song.trackNo, issue })));
+    items.push({
+      id: isJp ? RELEASE_READINESS_ITEM_IDS.jpKidsSafety : RELEASE_READINESS_ITEM_IDS.krKidsSafety,
+      categoryKo: '안전', labelKo: `${isJp ? 'jp' : 'kr'}-kids 안전 어휘 위반 0건`,
+      status: safetyIssues.length === 0 ? 'pass' : 'fail',
+      detail: safetyIssues.length ? safetyIssues.map(i => `T${i.trackNo}: ${i.issue}`).join(' / ') : '없음'
+    });
+    if (isJp) {
+      const kanaIssues = songs.filter(song => checkJpKidsKanaRatio(song.lyrics, kidsAgeTierId).belowFloor).map(s => s.trackNo);
+      items.push({
+        id: RELEASE_READINESS_ITEM_IDS.jpKidsKanaRatio, categoryKo: '언어', labelKo: 'jp-kids kana 비율 (연령대별) 준수',
+        status: kanaIssues.length === 0 ? 'pass' : 'fail',
+        detail: kanaIssues.length ? `T${kanaIssues.join(', T')} kana 비율 미달` : '없음'
+      });
+    } else {
+      const didacticTracks = songs.filter(song => didacticToneAdvisory(parseLyricsSections(song.lyrics).flatMap(s => s.lines))).map(s => s.trackNo);
+      items.push({
+        id: RELEASE_READINESS_ITEM_IDS.krKidsDidacticTone, categoryKo: '가사', labelKo: 'kr-kids 설교식 어조 advisory',
+        status: didacticTracks.length === 0 ? 'pass' : 'fail',
+        detail: didacticTracks.length ? `T${didacticTracks.join(', T')}` : '없음'
+      });
+    }
+  }
+
+  // 지시문 08 (TASK C) — core/kpopMalePolicy.ts/kpopFemalePolicy.ts (thin
+  // per-workspace instantiations of core/kpopSharedChecks.ts's shared
+  // engine — see that file's own doc comment), kr-idol-male/kr-idol-female
+  // archetypes only.
+  if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') {
+    const isMale = archetype === 'kr-idol-male';
+    const checkFixedQuota = isMale ? checkKrIdolMaleFixedQuota : checkKrIdolFemaleFixedQuota;
+    const checkMotifQuotas = isMale ? checkKrIdolMaleMotifQuotas : checkKrIdolFemaleMotifQuotas;
+    const checkRapShare = isMale ? checkKrIdolMaleRapShare : checkKrIdolFemaleRapShare;
+    const checkChantOveruse = isMale ? checkKrIdolMaleChantOveruse : checkKrIdolFemaleChantOveruse;
+
+    const counts = songs.reduce<Partial<Record<'male' | 'female' | 'mixed', number>>>((acc, song) => {
+      if (song.vocalType) acc[song.vocalType] = (acc[song.vocalType] ?? 0) + 1;
+      return acc;
+    }, {});
+    const quotaFindings = checkFixedQuota(counts, songs.length);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kpopQuotaFidelity, categoryKo: '보컬', labelKo: 'kpop 고정 보컬 쿼터 준수',
+      status: quotaFindings.length === 0 ? 'pass' : 'fail',
+      detail: quotaFindings.length ? quotaFindings.map(f => `${f.type}: 기대 ${f.expected} / 실제 ${f.actual}`).join(' / ') : '위반 없음'
+    });
+    const motifFindings = checkMotifQuotas(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kpopMotifQuota, categoryKo: '가사', labelKo: 'kpop 소재 쿼터 준수',
+      status: motifFindings.length === 0 ? 'pass' : 'fail',
+      detail: motifFindings.length ? motifFindings.map(f => `${f.labelKo}: ${f.count}곡`).join(' / ') : '위반 없음'
+    });
+    const rapPlans = songs.map(song => ({ hasRapSection: parseLyricsSections(song.lyrics).some(s => s.type === 'rap') }));
+    const rapShare = checkRapShare(rapPlans);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kpopRapShare, categoryKo: '생성 구조', labelKo: 'kpop 랩 비중 목표 근접',
+      status: rapShare.withinTolerance ? 'pass' : 'fail',
+      detail: `실제 ${(rapShare.actualRatio * 100).toFixed(0)}% / 목표 ${(rapShare.targetRatio * 100).toFixed(0)}%`
+    });
+    const chantFindings = checkChantOveruse(songs);
+    items.push({
+      id: RELEASE_READINESS_ITEM_IDS.kpopChantOveruse, categoryKo: '가사', labelKo: 'kpop 챈트 과다 없음',
+      status: chantFindings.length === 0 ? 'pass' : 'fail',
+      detail: chantFindings.length ? chantFindings.map(f => `"${f.phrase}" ${f.count}곡`).join(' / ') : '없음'
+    });
   }
 
   return items.map(item => ({ ...item, category: categoryForItemId(item.id) }));
