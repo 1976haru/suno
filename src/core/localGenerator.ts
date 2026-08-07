@@ -36,6 +36,7 @@ import {
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
+import { onomatopoeiaById } from '../data/onomatopoeia';
 import { QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabularyBanks';
 import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { workspaceForArchetype } from '../data/workspaces';
@@ -1557,6 +1558,14 @@ export function generateLocalBlueprint(
     const lyricThemeText = lyricTheme?.scene;
     const lyricThemeArc = lyricTheme?.emotionalArc;
     const listenerScene = lyricThemeText || situation;
+    // 지시문 08 (TASK C) — data/onomatopoeia.ts existed (jp-kids-only word
+    // bank) but lyricThemes.ts's own onomatopoeiaGroup field (set on 20+
+    // jp-kids theme entries) was never actually read anywhere — that
+    // module's own doc comment is explicit that motionEn "DOES surface, in
+    // the style prompt... never the raw Japanese word itself" (§5-5), so
+    // this resolves the theme's referenced entry into the motif atom below
+    // rather than mutating generated lyric text directly.
+    const onomatopoeiaMotionText = lyricTheme?.onomatopoeiaGroup ? onomatopoeiaById(lyricTheme.onomatopoeiaGroup)?.motionEn : undefined;
     // v4.5 (TASK D follow-up) — vocabularyBankId (below) was only ever a
     // metadata snapshot for the bridge instruction's "reference list"; the
     // local composer's own conceptImages source (customConcept-derived only)
@@ -1967,7 +1976,13 @@ export function generateLocalBlueprint(
       { id: 'instruments' as const, text: rotatingInstrumentText(trackGenres, seed, idx) },
       // TASK v3.42 Part A3 — sparse/medium/full rotation.
       { id: 'arrangementDensity' as const, text: ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[arrangementDensityPlan[idx]] },
-      { id: 'hook', text: hookStyleDirectives(hookPhrase, opts.lyricDepth, resolvedKidsAgeTierId) },
+      // 지시문 08 (TASK C) — onomatopoeiaMotionText appended to 'hook'
+      // (ESSENTIAL_TERM_IDS, never dropped) rather than the standalone
+      // low-priority 'motif' id below: real measurement against
+      // teasobi-hiroba (jp-kids) found 'motif' dropped by budget pressure on
+      // every one of 8 real generated songs, so a standalone atom there
+      // never actually survives to the pasted-into-Suno text.
+      { id: 'hook', text: [hookStyleDirectives(hookPhrase, opts.lyricDepth, resolvedKidsAgeTierId), onomatopoeiaMotionText].filter(Boolean).join(', ') },
       { id: 'tempo', text: `${tempo} BPM` },
       { id: 'songRole', text: `track ${trackNo} role: ${role}` },
       { id: 'motif', text: lyricThemeText ? `lyric scene: ${lyricThemeText}` : `use recurring playlist motif: ${packMotif.english}` },

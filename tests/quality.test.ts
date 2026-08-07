@@ -3,7 +3,7 @@ import { checkHookQuality, scoreSong, scoreSongs } from '../src/core/quality';
 import { buildDurationControl, buildExcludePrompt, buildStylePrompt } from '../src/core/promptComposer';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
-import type { SongIdea } from '../src/types';
+import type { ChannelProfile, SongIdea } from '../src/types';
 
 function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
   return {
@@ -226,5 +226,42 @@ describe('Suno artist-filter safety (v3.39 Part F)', () => {
   it('compactHook no longer embeds the literal hook lyric, so a hook fragment can never reach the style prompt through it', () => {
     const song = scoreSong(baseSong({ hookPhrase: 'Wayo Forever', stylePrompt: 'warm pop, strong repeated chorus hook, repeats chorus 4x, I-V-vi-IV progression' }));
     expect(song.stylePrompt.toLowerCase()).not.toContain('wayo');
+  });
+
+  // 지시문 08 (TASK C) — data/genreForbiddenDescriptors.ts was never checked
+  // against a real stylePrompt before this task.
+  it('flags a stylePrompt phrase that contradicts its own genreId (jazz-pop + "no swing")', () => {
+    const song = scoreSong(baseSong({ genreId: 'jazz-pop', stylePrompt: 'jazz pop, no swing, hook repeats chorus 4x, I-V-vi-IV progression' }));
+    expect(song.warnings.some(w => w.includes('contradicts genre "jazz-pop"'))).toBe(true);
+  });
+
+  it('does not flag a genre-contradicting phrase for a genreId the rule does not apply to', () => {
+    const song = scoreSong(baseSong({ genreId: 'adult-contemporary', stylePrompt: 'warm adult contemporary pop, no swing, hook repeats chorus 4x, I-V-vi-IV progression' }));
+    expect(song.warnings.some(w => w.includes('contradicts genre'))).toBe(false);
+  });
+
+  // 지시문 08 (TASK C) — core/bilingualLint.ts was never called before this task.
+  it('flags a krkids-bilingual song whose English target words never repeat and are glued to a Korean particle', () => {
+    const song = scoreSong(baseSong({
+      genreId: 'krkids-bilingual',
+      lyrics: '[chorus]\nred가 좋아\nblue도 좋아'
+    }));
+    expect(song.warnings.some(w => w.startsWith('Bilingual content:'))).toBe(true);
+  });
+
+  it('does not run bilingual-lint checks for a non-bilingual genreId', () => {
+    const song = scoreSong(baseSong({ genreId: 'adult-contemporary', lyrics: '[chorus]\nred가 좋아' }));
+    expect(song.warnings.some(w => w.startsWith('Bilingual content:'))).toBe(false);
+  });
+
+  // 지시문 08 (TASK C) — core/idolTitleLint.ts was never called before this task.
+  it('flags a single bare-English-word title for a kr-idol-male song', () => {
+    const song = scoreSong(baseSong({ title: 'Fire' }), { archetype: 'kr-idol-male' } as unknown as ChannelProfile);
+    expect(song.warnings.some(w => w.includes('single bare English word'))).toBe(true);
+  });
+
+  it('does not flag a single bare-English-word title outside the kr-idol archetypes', () => {
+    const song = scoreSong(baseSong({ title: 'Fire' }));
+    expect(song.warnings.some(w => w.includes('single bare English word'))).toBe(false);
   });
 });

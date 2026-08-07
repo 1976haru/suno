@@ -13,6 +13,9 @@ import { parseLyricsSections, findEmptyBridge, missingRequiredSections, rapSecti
 import { checkSectionAwareRepetition } from './sectionAwareRepetition';
 import { sceneSeasonContradictionWarning } from './semanticContradiction';
 import { checkEnglishLyricLineQuality, checkTranslationese } from './languageQuality';
+import { idolSingleEnglishWordTitleWarning } from './idolTitleLint';
+import { GENRE_FORBIDDEN_DESCRIPTORS } from '../data/genreForbiddenDescriptors';
+import { bilingualLint } from './bilingualLint';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -578,6 +581,48 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   if (!song.youtube?.title || !song.youtube?.description || !song.youtube?.tags?.length) {
     pushUnique(warnings, 'YouTube metadata is incomplete.');
     score -= 8;
+  }
+
+  // 지시문 08 (TASK C) — data/genreForbiddenDescriptors.ts existed
+  // (mutually-exclusive genre-pair phrase table, e.g. a swing/jazz genre's
+  // stylePrompt must never contain "no swing") but nothing ever checked a
+  // real generated stylePrompt against it.
+  if (song.genreId) {
+    for (const rule of GENRE_FORBIDDEN_DESCRIPTORS) {
+      if (!rule.genreIds.includes(song.genreId)) continue;
+      for (const phrase of rule.forbiddenPhrases) {
+        if (prompt.includes(phrase.toLowerCase())) {
+          pushUnique(warnings, `Style prompt contains a phrase that contradicts genre "${song.genreId}": "${phrase}".`);
+          score -= 10;
+        }
+      }
+    }
+  }
+
+  // 지시문 08 (TASK C) — core/bilingualLint.ts existed (E1/F1's real
+  // 3-5-target-word / repeat-twice / no-glued-particle rules for a
+  // bilingual-learning song) but was never called. Scoped to the two real
+  // bilingual-learning genre ids this rule set was actually built for
+  // (krkids-bilingual: Korean base + English target words; jpkids-english-
+  // learning: Japanese base) — every other genre's lyrics legitimately
+  // contain occasional English loanwords with no 3-5-word learning-list
+  // constraint, so applying this generally would false-positive constantly.
+  if (song.genreId === 'krkids-bilingual' || song.genreId === 'jpkids-english-learning') {
+    const baseLanguage = song.genreId === 'jpkids-english-learning' ? 'japanese' : 'korean';
+    for (const issue of bilingualLint(song.lyrics, { baseLanguage })) {
+      pushUnique(warnings, `Bilingual content: ${issue}`);
+      score -= 4;
+    }
+  }
+
+  // 지시문 08 (TASK C) — core/idolTitleLint.ts existed but was never called
+  // from any real generation path. kr-idol-only (its own §9-3 scope: a real
+  // K-pop existing-song-title collision risk, not a general title rule) —
+  // advisory-only, matching the module's own doc comment ("never blocks
+  // generation").
+  if (channel?.archetype === 'kr-idol-male' || channel?.archetype === 'kr-idol-female') {
+    const titleWarning = idolSingleEnglishWordTitleWarning(song.title);
+    if (titleWarning) pushUnique(warnings, titleWarning);
   }
 
   const hookCheck = checkHookQuality(song, language);
