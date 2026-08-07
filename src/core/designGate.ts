@@ -9,6 +9,7 @@ import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPale
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { expectedArcPhaseCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
+import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
@@ -864,7 +865,19 @@ function killingPointAndArcIssues(
     }));
   }
   const distinctKillingPoints = new Set(withKillingPoint.map(slot => slot.killingPointId)).size;
-  const expectedVariety = Math.max(1, Math.round(songCount * KILLING_POINT_VARIETY_RATIO));
+  // P1 fix (정합성 점검 §1) — expectedArcPhaseCount just above already got
+  // this exact tier-awareness fix once (v5.13); killing-point-variety was
+  // missed. Real measurement: kids-t1 (data/killingPointsKids.ts's own
+  // eligibleKidsTiers) only clears 4 of the 11 KIDS_KILLING_POINTS entries
+  // (KKP-06/08/11/SOUND — every other entry requires kids-t2/t3), so a flat
+  // 6-of-18 floor is mathematically unclearable for any kids-t1 channel
+  // regardless of how the pack is designed. Capping expectedVariety at the
+  // real eligible-pool size for the resolved tier fixes that without
+  // loosening the bar for kids-t2/t3 (10-11 eligible, still >= 6) or any
+  // non-kids workspace (kidsAgeTierId undefined there, same flat ratio as
+  // before).
+  const varietyCeiling = kidsAgeTierId ? kidsKillingPointsForTier(kidsAgeTierId).length : Infinity;
+  const expectedVariety = Math.min(Math.max(1, Math.round(songCount * KILLING_POINT_VARIETY_RATIO)), varietyCeiling);
   if (distinctKillingPoints < expectedVariety) {
     issues.push(issue({
       id: 'killing-point-variety',
