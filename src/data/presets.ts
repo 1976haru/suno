@@ -70,7 +70,14 @@ export const channelPresets: ChannelProfile[] = [
     promise: '1970年代の日本歌謡、フォーク、ニューミュージック感性を軸にした日本語プレイリスト',
     visualIdentity: '1970s Showa film grain, warm color temperature, kissaten paper textures, station lights, restrained Japanese retro typography',
     defaultVocal: 'mature Japanese male tenor, intimate close-mic delivery, restrained vibrato, warm analog presence',
-    preferredGenres: ['kayokyoku-70s', 'japanese-folk-70s', 'new-music-70s'],
+    // P2 fix (정합성 점검 §1) — showa-groove-70s (data/genreLibrary/index.ts)
+    // was already tagged archetypes:['showa-70s'] but never added here, so
+    // this channel's real candidate pool was only 3 genres — narrow enough
+    // that an empty/unspecified concept's own genre-selection picked just 1,
+    // forcing 18 consecutive same-genre songs (design gate's own
+    // genre-consecutive/palette-variety both failed unconditionally). Adding
+    // the genre this channel was already eligible for, not inventing a new one.
+    preferredGenres: ['kayokyoku-70s', 'japanese-folk-70s', 'new-music-70s', 'showa-groove-70s'],
     preferredMoods: ['nostalgic', 'elegant', 'bittersweet'],
     forbiddenCliches: [
       'modern EDM synths',

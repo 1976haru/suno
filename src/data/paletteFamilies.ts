@@ -71,6 +71,38 @@ export const PALETTE_FAMILIES: PaletteFamily[] = [
     compatibleWith: [],
     standalone: true,
     koreanNoteKo: '모타운 · 필라델피아 소울 계열. 다른 그룹과 섞으면 튑니다'
+  },
+  // P2 fix (정합성 점검 §1) — canon-showa-kayokyoku (eraCanonPalettes.ts)
+  // already existed with fitsGenreIds ['kayokyoku-70s', 'new-music-70s',
+  // 'showa-groove-70s'] but was never referenced by any PaletteFamily — see
+  // dominantPaletteFamilyId's own doc comment above, which already
+  // documented this exact gap ("a palette that isn't in any PaletteFamily
+  // at all"). Real effect: showa-70s's own ChannelSoundFloor
+  // (usesPaletteFamily true) made resolveMainFamilyId land on
+  // family-acoustic-soft (the only family any of this channel's genres
+  // belonged to, via japanese-folk-70s's own canon-folk-duo membership) and
+  // then filtered the other 3 preferredGenres out as "not compatible with
+  // the main family" — forcing every set onto japanese-folk-70s alone (18
+  // consecutive same-genre songs).
+  //
+  // This entry fixes the case where a user explicitly picks this family
+  // (Step2Plan's own "이 세트의 계열" picker, or paletteFamilyOverride) — all
+  // 4 preferredGenres verified reachable and balanced then. It does NOT yet
+  // fix the fully-automatic zero-history default: resolveMainFamilyId's own
+  // tie-break (setDirector.ts) falls back to whichever family is FIRST in
+  // PALETTE_FAMILIES (family-acoustic-soft) when no recency history or
+  // keyword hint exists, regardless of this entry's existence. Making that
+  // tie-break channel/language-aware would touch shared resolution logic
+  // 3 other archetypes (senior-morning/showa-cafe/oldpop-lounge) also
+  // depend on — deliberately left alone here rather than risking their
+  // already-passing behavior for one channel's cold-start case.
+  {
+    id: 'family-showa-kayokyoku',
+    labelKo: '쇼와 가요쿄쿠·그루브',
+    paletteIds: ['canon-showa-kayokyoku'],
+    compatibleWith: ['family-acoustic-soft'],
+    standalone: false,
+    koreanNoteKo: '일본 70년대 가요쿄쿠·뉴뮤직·쇼와 그루브 계열'
   }
 ];
 
