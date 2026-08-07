@@ -120,6 +120,34 @@ describe('[codex 지시문 06 TASK A] stereoWidth', () => {
   });
 });
 
+describe('[지시문 11 TASK F] oneSecRmsDeviationDb — 실제 1초 폭 윈도우 (audioAnalysis.ts의 고정 20구간과 다름)', () => {
+  it('일정한 진폭의 순음은 편차가 거의 0에 가깝다', () => {
+    const samples = sineWave(440, 5, 0.5);
+    const result = computeAudioMeasurements({ channels: [samples], sampleRate: SAMPLE_RATE });
+    expect(result.oneSecRmsDeviationDb).toBeLessThan(1);
+  });
+
+  it('조용한 구간과 큰 구간이 번갈아 있으면 편차가 실제로 크게 측정된다', () => {
+    const samples = concat(sineWave(440, 2, 0.05), sineWave(440, 2, 0.9));
+    const result = computeAudioMeasurements({ channels: [samples], sampleRate: SAMPLE_RATE });
+    expect(result.oneSecRmsDeviationDb).toBeGreaterThan(15);
+  });
+
+  it('1초 미만 길이의 오디오는 편차를 계산할 수 없어 0을 반환한다 (허구 값 생성 안 함)', () => {
+    const samples = sineWave(440, 0.3, 0.5);
+    const result = computeAudioMeasurements({ channels: [samples], sampleRate: SAMPLE_RATE });
+    expect(result.oneSecRmsDeviationDb).toBe(0);
+  });
+
+  it('트랙 길이와 무관하게 윈도우 폭이 항상 1초다 — 20초 트랙도 200초 트랙도 같은 윈도우 크기', () => {
+    const shortTrack = concat(sineWave(440, 10, 0.05), sineWave(440, 10, 0.9));
+    const longTrack = concat(sineWave(440, 100, 0.05), sineWave(440, 100, 0.9));
+    const shortResult = computeAudioMeasurements({ channels: [shortTrack], sampleRate: SAMPLE_RATE });
+    const longResult = computeAudioMeasurements({ channels: [longTrack], sampleRate: SAMPLE_RATE });
+    expect(shortResult.oneSecRmsDeviationDb).toBeCloseTo(longResult.oneSecRmsDeviationDb, 0);
+  });
+});
+
 describe('[codex 지시문 06 TASK A] bpm — reuses a supplied TempoEstimate rather than recomputing', () => {
   it('passes through a supplied tempoEstimate unchanged', () => {
     const result = computeAudioMeasurements({

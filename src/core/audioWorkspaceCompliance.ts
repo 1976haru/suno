@@ -162,6 +162,31 @@ function checkSeniorVocalComfort(metrics: SongAudioMetrics): ComplianceCheckResu
   };
 }
 
-export function checkSeniorAudioCompliance(metrics: SongAudioMetrics): ComplianceCheckResult[] {
-  return [checkSeniorHighBand(metrics), checkSeniorVocalComfort(metrics)];
+/**
+ * 지시문 11 §0 — 하루의 실제 청취 실측(HotAIMusic 실곡 2건: 진폭 편차 3.08dB/2.08dB)에서
+ * 나온 문자 그대로의 판정 밴드. "이 값들은 조정하면 안 된다"고 명시됐다 — 목표 5.0dB,
+ * 2.3~3.3dB는 "평평하다"는 실제 청취 판단과 일치하는 warn 구간, 6.0dB 이상은 하루가
+ * 실제로 들어본 범위를 벗어나는 "비현실적" 편차라 마찬가지로 warn(과대 편차 경고)으로
+ * 취급한다. 둘 사이(3.3~6.0dB)가 목표 5.0dB에 가장 가까운 pass 구간.
+ */
+const SENIOR_AMPLITUDE_DEVIATION_TARGET_DB = 5.0;
+const SENIOR_AMPLITUDE_DEVIATION_FLAT_MAX_DB = 3.3;
+const SENIOR_AMPLITUDE_DEVIATION_UNREALISTIC_MIN_DB = 6.0;
+
+function checkSeniorAmplitudeDeviation(measurements: AudioMeasurements): ComplianceCheckResult {
+  const deviation = measurements.oneSecRmsDeviationDb;
+  const detail = `1초 단위 RMS 편차 ${deviation.toFixed(2)}dB (목표 ${SENIOR_AMPLITUDE_DEVIATION_TARGET_DB}dB)`;
+  if (deviation >= SENIOR_AMPLITUDE_DEVIATION_UNREALISTIC_MIN_DB) {
+    return { id: 'senior-amplitude-deviation', labelKo: '진폭 편차 (advisory)', status: 'warn', detail: `${detail} — 비현실적으로 큰 편차` };
+  }
+  if (deviation <= SENIOR_AMPLITUDE_DEVIATION_FLAT_MAX_DB) {
+    return { id: 'senior-amplitude-deviation', labelKo: '진폭 편차 (advisory)', status: 'warn', detail: `${detail} — 평평함(단조로움)` };
+  }
+  return { id: 'senior-amplitude-deviation', labelKo: '진폭 편차 (advisory)', status: 'pass', detail };
+}
+
+export function checkSeniorAudioCompliance(metrics: SongAudioMetrics, measurements?: AudioMeasurements): ComplianceCheckResult[] {
+  const results = [checkSeniorHighBand(metrics), checkSeniorVocalComfort(metrics)];
+  if (measurements) results.push(checkSeniorAmplitudeDeviation(measurements));
+  return results;
 }

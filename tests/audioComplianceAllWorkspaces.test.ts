@@ -13,7 +13,7 @@ function makeMeasurements(overrides: Partial<AudioMeasurements> = {}): AudioMeas
   return {
     durationSec: 200, bpm: 96, bpmConfidence: 0.8, leadingSilenceSec: 0.3, trailingSilenceSec: 0.5,
     peak: 0.7, approximateLoudnessDb: -14, clippingSampleCount: 0, clipping: false, stereoWidth: 0.4,
-    sampleRate: 44100, channels: 2, ...overrides
+    sampleRate: 44100, channels: 2, oneSecRmsDeviationDb: 5.0, ...overrides
   };
 }
 
@@ -164,5 +164,29 @@ describe('[codex 지시문 06 TASK B] senior — 과도한 고역 / 보컬 편�
   it('flags an uncomfortably wide dynamic range as advisory', () => {
     const results = checkSeniorAudioCompliance(makeSongAudioMetrics({ dynamicRange: 30 }));
     expect(results.find(r => r.id === 'senior-vocal-comfort')!.status).toBe('warn');
+  });
+
+  it('진폭 편차 체크는 measurements 없이는 계산되지 않는다 (not-measured가 아니라 항목 자체를 생략)', () => {
+    const results = checkSeniorAudioCompliance(makeSongAudioMetrics());
+    expect(results.find(r => r.id === 'senior-amplitude-deviation')).toBeUndefined();
+  });
+
+  it('지시문 11 §0 실측값 — 목표 5.0dB 근처(3.3~6.0dB)는 pass', () => {
+    const results = checkSeniorAudioCompliance(makeSongAudioMetrics(), makeMeasurements({ oneSecRmsDeviationDb: 5.0 }));
+    expect(results.find(r => r.id === 'senior-amplitude-deviation')!.status).toBe('pass');
+  });
+
+  it('지시문 11 §0 실측값 — 하루가 "평평하다"고 판정한 2.3~3.3dB 밴드는 warn (실제 HotAIMusic 2.08dB/3.08dB 실측과 일치)', () => {
+    const flat1 = checkSeniorAudioCompliance(makeSongAudioMetrics(), makeMeasurements({ oneSecRmsDeviationDb: 2.08 }));
+    expect(flat1.find(r => r.id === 'senior-amplitude-deviation')!.status).toBe('warn');
+    const flat2 = checkSeniorAudioCompliance(makeSongAudioMetrics(), makeMeasurements({ oneSecRmsDeviationDb: 3.08 }));
+    expect(flat2.find(r => r.id === 'senior-amplitude-deviation')!.status).toBe('warn');
+  });
+
+  it('6.0dB 이상은 "비현실적" 편차로 warn', () => {
+    const results = checkSeniorAudioCompliance(makeSongAudioMetrics(), makeMeasurements({ oneSecRmsDeviationDb: 7.0 }));
+    const result = results.find(r => r.id === 'senior-amplitude-deviation')!;
+    expect(result.status).toBe('warn');
+    expect(result.detail).toContain('비현실적');
   });
 });

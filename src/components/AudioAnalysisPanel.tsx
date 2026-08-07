@@ -10,8 +10,9 @@ import { buildTakeDirectives, getTakes, recordTake, setAdopted, type AudioTake }
 import { buildDirectiveExecutionReport } from '../core/audioDirectiveAnalysis';
 import { analyzeAdoption, isNeutralWinRate } from '../core/audioAdoption';
 import { getFocusCursor, setFocusCursor } from '../core/library';
-import { analyzeAudioMeasurementsFromFile } from '../core/audioMeasurements';
+import { analyzeAudioMeasurementsFromFile, type AudioMeasurements } from '../core/audioMeasurements';
 import { evaluateTakeSelectionSafety, canSelectTake, REJECTION_REASONS, isValidRejectionReasonId, type SelectionSafetyIssue } from '../core/audioTakeSelection';
+import { checkCoreAudioCompliance, type ComplianceCheckResult } from '../core/audioCompliance';
 
 interface AudioAnalysisPanelProps {
   songs: SongIdea[];
@@ -73,6 +74,34 @@ function ComplianceBadges({ issues }: { issues: SelectionSafetyIssue[] }) {
         <span key={issue.id} className={`audio-compliance-badge ${issue.severity}`}>{issue.labelKo}</span>
       ))}
     </>
+  );
+}
+
+const COMPLIANCE_STATUS_CLASS: Record<ComplianceCheckResult['status'], string> = {
+  pass: 'ok', warn: 'warning', fail: 'blocking', 'not-measured': 'ok'
+};
+
+/** 지시문 11 (TASK F) — core/audioCompliance.ts의 실제 5개 pass/warn/fail 판정(길이·BPM·클리핑·앞/뒤무음)을 화면에 노출한다. 이전에는 이 함수가 존재만 하고 어디에서도 호출되지 않아, 측정은 됐지만 판정 결과 자체는 사용자에게 전혀 보이지 않았다. */
+function ComplianceCheckList({ results }: { results: ComplianceCheckResult[] }) {
+  return (
+    <div className="audio-compliance-checks">
+      {results.map(result => (
+        <span key={result.id} className={`audio-compliance-badge ${COMPLIANCE_STATUS_CLASS[result.status]}`} title={result.detail}>
+          {result.labelKo} {result.status === 'pass' ? '✓' : result.status === 'warn' ? '△' : result.status === 'fail' ? '✕' : '—'}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** 지시문 11 (TASK F) — 실측 항목 나열: peak/클리핑/앞뒤 무음/1초 단위 진폭 편차/샘플레이트/채널. 테이크 비교 화면에는 이전까지 이 값들이 전혀 표시되지 않았다(단일 테이크 화면의 dynamicRange/spectralCentroid만 표시됨 — audioAnalysis.ts 쪽 수치이지 audioMeasurements.ts 쪽 실측이 아니다). */
+function MeasurementDetail({ measurements }: { measurements: AudioMeasurements | undefined }) {
+  if (!measurements) return <p className="supporting">측정값 없음</p>;
+  return (
+    <p className="supporting">
+      피크 {measurements.peak.toFixed(2)} · 앞무음 {measurements.leadingSilenceSec.toFixed(2)}초 · 뒤무음 {measurements.trailingSilenceSec.toFixed(2)}초 ·
+      1초 단위 진폭편차 {measurements.oneSecRmsDeviationDb.toFixed(1)}dB · {measurements.sampleRate}Hz · {measurements.channels}ch
+    </p>
   );
 }
 
@@ -153,6 +182,9 @@ function TrackDetailCard({
             const persistedTake = findTake(take.fileName);
             const issues = persistedTake ? evaluateTakeSelectionSafety(persistedTake) : [{ id: 'no-measurements', labelKo: '측정값 없이 선택되었습니다.', severity: 'blocking' as const }];
             const blocked = issues.some(i => i.severity === 'blocking');
+            const complianceResults = persistedTake?.measurements
+              ? checkCoreAudioCompliance(persistedTake.measurements, { targetDurationSec: persistedTake.directives.targetDurationSec, targetBpm: persistedTake.directives.targetBpm })
+              : [];
             return (
               <div key={take.fileName} className={isAdopted ? 'audio-take-card adopted' : 'audio-take-card'}>
                 <div className="section-head">
@@ -164,7 +196,9 @@ function TrackDetailCard({
                   진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 믹스중심(보컬대역) {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
                   템포 {takeFull.tempoEstimate.confidence >= 0.4 ? `${Math.round(takeFull.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
                 </p>
+                <MeasurementDetail measurements={persistedTake?.measurements} />
                 <TakeAudioPlayer file={filesByName.get(take.fileName)} />
+                {complianceResults.length > 0 && <ComplianceCheckList results={complianceResults} />}
                 <div><ComplianceBadges issues={issues} /></div>
                 <button type="button" className={isAdopted ? 'chip active' : 'chip'} disabled={blocked && !isAdopted} onClick={() => onAdopt(trackNo, take.fileName)}>
                   {take.versionLabel} 채택
@@ -185,12 +219,17 @@ function TrackDetailCard({
               중심 {Math.round(metrics.spectralCentroid)}Hz · 믹스중심(보컬대역) {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
               템포 {full.tempoEstimate.confidence >= 0.4 ? `${Math.round(full.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
             </p>
+            {adoptedFileName && <MeasurementDetail measurements={findTake(adoptedFileName)?.measurements} />}
             {adoptedFileName && <TakeAudioPlayer file={filesByName.get(adoptedFileName)} />}
             {adoptedFileName && (() => {
               const persistedTake = findTake(adoptedFileName);
               const issues = persistedTake ? evaluateTakeSelectionSafety(persistedTake) : [];
+              const complianceResults = persistedTake?.measurements
+                ? checkCoreAudioCompliance(persistedTake.measurements, { targetDurationSec: persistedTake.directives.targetDurationSec, targetBpm: persistedTake.directives.targetBpm })
+                : [];
               return (
                 <>
+                  {complianceResults.length > 0 && <ComplianceCheckList results={complianceResults} />}
                   <div><ComplianceBadges issues={issues} /></div>
                   {onToggleRejectionReason && persistedTake && (
                     <RejectionReasonPicker take={persistedTake} onReject={id => onToggleRejectionReason(persistedTake, id)} />

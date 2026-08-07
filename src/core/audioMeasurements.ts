@@ -41,6 +41,13 @@ export interface AudioMeasurements {
   stereoWidth: number;
   sampleRate: number;
   channels: number;
+  /**
+   * 지시문 11 TASK F — 진짜 1초 단위 RMS dB 곡선의 최댓값-최솟값. `audioAnalysis.ts`의
+   * `dynamicRange`는 트랙 길이와 무관하게 고정 20구간(RMS_SEGMENTS)이라 트랙이 길수록
+   * 구간이 1초보다 훨씬 넓어져 하루가 실측한 "1초 단위" 진폭 편차와 다른 값이 된다 —
+   * 이 필드는 실제로 1초 폭 윈도우로 계산해 그 실측값과 직접 비교 가능하게 한다.
+   */
+  oneSecRmsDeviationDb: number;
 }
 
 /** A sample at or above this magnitude counts as clipped — 0dBFS minus a small margin for lossy-codec ringing/inter-sample peaks, same spirit as broadcast true-peak limiting practice (not a precise ITU-R BS.1770 true-peak measurement — that needs oversampling this module doesn't do). */
@@ -97,6 +104,36 @@ function computeStereoWidth(left: Float32Array, right: Float32Array): number {
   return denominator > 0 ? sideRms / denominator : 0;
 }
 
+/**
+ * Real 1-second-window RMS dB curve — max-across-channels combined per
+ * window (same combine strategy as `firstNonSilentIndex`/`lastNonSilentIndex`
+ * above), one value per whole second. The final partial window (< 1s of
+ * remaining samples) is included only when it has at least half a second of
+ * audio, so a track whose length isn't an exact multiple of 1s doesn't get a
+ * spuriously quiet/loud trailing window skewing the deviation.
+ */
+function oneSecRmsDeviationDb(channels: readonly Float32Array[], sampleRate: number): number {
+  const length = channels[0]?.length ?? 0;
+  if (sampleRate <= 0 || length <= 0) return 0;
+  const windowSamples = Math.round(sampleRate);
+  const windowDbs: number[] = [];
+  for (let start = 0; start < length; start += windowSamples) {
+    const end = Math.min(start + windowSamples, length);
+    if (end - start < windowSamples / 2 && windowDbs.length > 0) break;
+    let sumSquares = 0;
+    let count = 0;
+    for (const channel of channels) {
+      for (let i = start; i < end; i++) {
+        sumSquares += channel[i] * channel[i];
+        count += 1;
+      }
+    }
+    windowDbs.push(rmsToDb(count > 0 ? Math.sqrt(sumSquares / count) : 0));
+  }
+  if (windowDbs.length < 2) return 0;
+  return Math.max(...windowDbs) - Math.min(...windowDbs);
+}
+
 export interface ComputeAudioMeasurementsInput {
   /** 1 (mono) or 2+ (stereo/multichannel) equal-length channel buffers, at the SOURCE file's own real sample rate (not resampled/downmixed — unlike audioAnalysis.ts's spectral pipeline, this module measures the file as it actually is). */
   channels: readonly Float32Array[];
@@ -146,7 +183,8 @@ export function computeAudioMeasurements(input: ComputeAudioMeasurementsInput): 
     clipping: clippingSampleCount > 0,
     stereoWidth,
     sampleRate,
-    channels: channels.length
+    channels: channels.length,
+    oneSecRmsDeviationDb: oneSecRmsDeviationDb(channels, sampleRate)
   };
 }
 

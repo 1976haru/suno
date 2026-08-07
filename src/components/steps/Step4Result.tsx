@@ -12,6 +12,7 @@ import AudioAnalysisPanel from '../AudioAnalysisPanel';
 import AudioEditPanel from '../AudioEditPanel';
 import ShortsHighlightPanel from '../ShortsHighlightPanel';
 import AudioArchivePanel from '../AudioArchivePanel';
+import ProductionBundlePanel from '../ProductionBundlePanel';
 import PromiseAuditPanel from '../PromiseAuditPanel';
 import GenerationGatePanel from '../GenerationGatePanel';
 import SetCompletenessPanel from '../SetCompletenessPanel';
@@ -635,6 +636,19 @@ export default function Step4Result({
             audienceProfile={audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)}
             packId={packId}
             setName={blueprint.meta?.setCode}
+          />
+        </ExperimentalFeatureBoundary>
+      )}
+
+      {/* 지시문 11 (TASK F-5) — 프로덕션 번들 ZIP 진입점. 이전에는 core/productionBundle.ts가
+          완성돼 있어도 이걸 호출하는 화면이 전혀 없었다. */}
+      {blueprint && resultTab === 'audio' && (
+        <ExperimentalFeatureBoundary featureLabel="프로덕션 번들">
+          <ProductionBundlePanel
+            songs={blueprint.songs}
+            packId={packId}
+            workspaceId={currentWorkspaceId()}
+            setName={blueprint.meta?.setCode || opts.projectTitle}
           />
         </ExperimentalFeatureBoundary>
       )}

@@ -2872,6 +2872,10 @@ pre {
   color: var(--teal);
 }
 
+.audio-compliance-checks {
+  margin: 4px 0;
+}
+
 .audio-take-player {
   width: 100%;
   height: 32px;
