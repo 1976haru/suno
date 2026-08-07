@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
-import { recentSituations, recentSceneSignatures, type SceneSignature } from '../core/situationLedger';
+import { recentSituations, recentSceneSignatures, recentOpenings, type SceneSignature } from '../core/situationLedger';
 import { recentLyricLines } from '../core/lyricLineLedger';
 import { generationHistoryRevision, subscribeGenerationHistoryRevision } from '../core/generationHistoryRevision';
 import type { LyricLanguage } from '../types';
@@ -11,6 +11,8 @@ export interface GenerationHistorySnapshot {
   recentSituations: string[];
   recentLyricLines: string[];
   recentSceneSignatures: SceneSignature[];
+  /** 지시문 10 (TASK B-4-3) — core/situationLedger.ts's recentOpenings, same "fetched here, revision-refreshed" treatment as the other 3 avoid-list sources above. */
+  recentOpenings: string[];
   revision: number;
   isLoading: boolean;
   refresh(): Promise<void>;
@@ -21,7 +23,8 @@ const EMPTY: Omit<GenerationHistorySnapshot, 'revision' | 'isLoading' | 'refresh
   usedHooks: [],
   recentSituations: [],
   recentLyricLines: [],
-  recentSceneSignatures: []
+  recentSceneSignatures: [],
+  recentOpenings: []
 };
 
 /**
@@ -48,11 +51,12 @@ export function useGenerationHistorySnapshot(channelId: string, language: LyricL
     const thisRequest = ++requestId.current;
     setIsLoading(true);
     try {
-      const [avoid, situations, lines, sceneSignatures] = await Promise.all([
+      const [avoid, situations, lines, sceneSignatures, openings] = await Promise.all([
         recentUsedTitlesAndHooks(channelId, language),
         recentSituations(channelId, language),
         recentLyricLines(channelId, language),
-        recentSceneSignatures(channelId, language)
+        recentSceneSignatures(channelId, language),
+        recentOpenings(channelId, language)
       ]);
       // A newer refresh() already started (channel/language/revision changed
       // again mid-flight) — this stale response must never overwrite it.
@@ -62,7 +66,8 @@ export function useGenerationHistorySnapshot(channelId: string, language: LyricL
         usedHooks: avoid.hooks ?? [],
         recentSituations: situations,
         recentLyricLines: lines,
-        recentSceneSignatures: sceneSignatures
+        recentSceneSignatures: sceneSignatures,
+        recentOpenings: openings
       });
     } catch {
       if (thisRequest === requestId.current) setSnapshot(EMPTY);

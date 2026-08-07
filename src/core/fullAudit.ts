@@ -16,6 +16,7 @@ import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
 import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
 import { auditStylePromptAgainstSpec } from './promptSpec';
+import { resolveSceneSignatureSource } from './situationLedger';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -616,6 +617,33 @@ function workspaceItems(): AuditItem[] {
 }
 
 /**
+ * 지시문 10 (TASK B-4-4) — "legacy-missing SceneSignature를 pass 처리하지
+ * 말 것". core/situationLedger.ts's resolveSceneSignatureSource is the same
+ * function the ledger itself now uses when recording — applied here directly
+ * to the pack's own songs so signatureSource coverage is visible without
+ * needing IndexedDB history. 18/18 (every song has SOME real source, even a
+ * derived one) is the target; any 'legacy-missing' song makes this
+ * not-measured, never a silent pass.
+ */
+function sceneSignatureSourceItems(songs: SongIdea[]): AuditItem[] {
+  if (!songs.length) {
+    return [item({ id: 'scene_signature_source', category: '워크스페이스', labelKo: 'SceneSignature 출처 기록', targetKo: `${songs.length}/${songs.length} (provider 또는 local-parser)`, actualKo: '(곡 없음)', pass: null, requiresAudio: false, specifiedBy: ['지시문 10 TASK B-4-4'] })];
+  }
+  const resolved = songs.map(song => resolveSceneSignatureSource(song));
+  const legacyMissing = resolved.filter(r => r.source === 'legacy-missing').length;
+  const providerCount = resolved.filter(r => r.source === 'provider').length;
+  const localParserCount = resolved.filter(r => r.source === 'local-parser').length;
+  return [
+    item({
+      id: 'scene_signature_source', category: '워크스페이스', labelKo: 'SceneSignature 출처 기록 (legacy-missing 0건)',
+      targetKo: `${songs.length}/${songs.length}`, actualKo: `provider ${providerCount} · local-parser ${localParserCount} · legacy-missing ${legacyMissing}`,
+      pass: legacyMissing === 0 ? true : null, requiresAudio: false, specifiedBy: ['지시문 10 TASK B-4-4'],
+      metric: { value: legacyMissing, direction: 'lowerIsBetter' }
+    })
+  ];
+}
+
+/**
  * 지시문 10 (TASK A-4) — the prose-claim counterpart to promptItems' own
  * eraViolations check (which reads genre-bucket-derived ERA_FORBIDDEN_DESCRIPTORS
  * anachronism terms, not what the stylePrompt's decade-prose actually
@@ -673,7 +701,8 @@ export function runFullAudit(
     ...titleItems(songs, titleConsistency),
     ...promiseItems(promiseAuditReport),
     ...workspaceItems(),
-    ...eraIntentItems(songs, opts.conceptLabel, opts.explorationTrackNos ?? [])
+    ...eraIntentItems(songs, opts.conceptLabel, opts.explorationTrackNos ?? []),
+    ...sceneSignatureSourceItems(songs)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency };
 }

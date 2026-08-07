@@ -2234,9 +2234,19 @@ export function lyricThemesForArchetype(archetype: ChannelArchetype | undefined,
  * both of which make two different concepts draw a genuinely different
  * SUBSET of the SAME frame-safe archetype pool rather than widening the
  * pool itself.
+ *
+ * 지시문 10 (TASK B-4-1) — `customConcept` added to this Pick formally
+ * (every real call site — core/lyricDiversityPlan.ts:296,
+ * components/DiversityAllocationPanel.tsx:132, getLyricThemeById below —
+ * already spreads a full `opts` that carries it; TypeScript's own Pick was
+ * just silently dropping it from what this function's signature admits it
+ * reads). Still not read by the pool-selection logic below, for the exact
+ * regression-measured reason this doc comment already gives above — this is
+ * the same "real, tested, honestly-labeled hook, not fabricated ahead of a
+ * real trigger" status resolveLocalScenePlanningMode below already has.
  */
 export function lyricThemesForOptions(
-  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'> & { scenePlanningMode?: ScenePlanningMode }
+  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'> & { scenePlanningMode?: ScenePlanningMode }
 ): LyricTheme[] {
   const base = lyricThemesForArchetype(opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage);
   if (isKidsArchetype(opts.channel.archetype) && opts.channel.preferredMoods?.includes('calm-focus')) {
@@ -2253,7 +2263,7 @@ export function resolveLocalScenePlanningMode(opts: Pick<GenerationOptions, 'cus
 
 export function getLyricThemeById(
   id: string | undefined,
-  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage'> & { scenePlanningMode?: ScenePlanningMode }
+  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'> & { scenePlanningMode?: ScenePlanningMode }
 ): LyricTheme | undefined {
   if (!id) return undefined;
   return lyricThemesForOptions(opts).find(theme => theme.id === id);

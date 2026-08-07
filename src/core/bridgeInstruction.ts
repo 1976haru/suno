@@ -259,6 +259,17 @@ function buildSetDirectorInterpretationSection(segments: SetDirectorSegmentLike[
 export interface ConceptSceneContext {
   recentSituations: string[];
   recentLyricLines: string[];
+  /**
+   * 지시문 10 (TASK B-4-3) — cross-SET opening-line avoid list (first 6
+   * words of each song's own opening line, last 5 sets —
+   * core/situationLedger.ts's recentOpenings). Optional/defaults to [] at
+   * every real call site below, same "always present, even empty" shape as
+   * recentSituations/recentLyricLines above — never widens the shared
+   * `avoid: {usedTitles, usedHooks}` type real slot-preallocation reads,
+   * same reasoning this interface's own top doc comment already gives for
+   * those two fields.
+   */
+  recentOpenings?: string[];
 }
 
 /**
@@ -312,6 +323,7 @@ function buildBridgePayload(
       // pack (no history yet) and its 30th.
       alreadyUsedScenes: conceptSceneContext?.recentSituations ?? [],
       alreadyUsedLyricLines: conceptSceneContext?.recentLyricLines ?? [],
+      alreadyUsedOpenings: conceptSceneContext?.recentOpenings ?? [],
       ...(outputFilename ? { meta: buildBridgeMeta(opts, outputFilename) } : {})
     }
   };
@@ -334,7 +346,7 @@ function conceptSceneInstructionLines(opts: GenerationOptions, conceptSceneConte
   if (!conceptSceneContext) return [];
   const concept = opts.customConcept?.trim();
   if (!concept) return [];
-  const { recentSituations, recentLyricLines } = conceptSceneContext;
+  const { recentSituations, recentLyricLines, recentOpenings = [] } = conceptSceneContext;
   return [
     '',
     `[이 세트의 장면 ${opts.songCount}개를 먼저 만드십시오]`,
@@ -348,6 +360,16 @@ function conceptSceneInstructionLines(opts: GenerationOptions, conceptSceneConte
       : '이미 사용한 장면 이력이 없습니다 (이 채널의 첫 세트이거나 기록이 없습니다).',
     recentLyricLines.length
       ? `\n이미 사용한 가사 문장 (아래와 동일하거나 거의 동일한 문장을 다시 쓰지 마십시오, 최근 세트 기준 ${recentLyricLines.length}개):\n${recentLyricLines.slice(0, 60).map(l => `  - ${l}`).join('\n')}`
+      : '',
+    // 지시문 10 (TASK B-4-3) — "세트 내부 도입부는 이미 18/18 고유하다. 세트
+    // 간 회피만 추가한다." recentSituations/recentLyricLines above already
+    // give within-concept scene/sentence variety; this is specifically about
+    // two DIFFERENT sets opening on the same first line (a real measured
+    // bug: 2 exact opening-6-word matches across two concept-distinct real
+    // packs) — narrower window (5 sets) since an opening line is a much
+    // shorter, more collision-prone signal than a full scene or sentence.
+    recentOpenings.length
+      ? `\n이미 사용한 도입부 첫 문장 (최근 5세트 기준, 아래 시작 단어들과 겹치지 않게 여십시오):\n${recentOpenings.map(o => `  - ${o}`).join('\n')}`
       : '',
     '- CRITICAL: 각 곡의 "listenerSituation" 필드에 그 곡의 장면을 한 문장으로 요약해 쓰십시오 — 이 필드는 다음 세트가 참고할 이력으로 저장됩니다.'
   ].filter(Boolean);

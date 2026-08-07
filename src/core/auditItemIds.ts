@@ -82,6 +82,8 @@ export const FULL_AUDIT_ITEM_IDS = {
 export const RELEASE_READINESS_ITEM_IDS = {
   sceneRecentSetOverlap: 'scene-recent-set-overlap',
   sceneRecentSetSimilarity: 'scene-recent-set-similarity',
+  /** 지시문 10 (TASK B-4-2) — "배정표(trackNo -> theme/situation) 재사용" check, distinct from the two above (those detect an individual scene reused ANYWHERE in the set; this detects the whole per-track assignment table matching a recent set's). */
+  slotPlanOverlap: 'slot-plan-overlap',
   titleFullHistoryCollision: 'title-full-history-collision',
   lyricLineRecentSetOverlap: 'lyric-line-recent-set-overlap',
   promptFingerprintRecentSetOverlap: 'prompt-fingerprint-recent-set-overlap',

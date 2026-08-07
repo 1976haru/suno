@@ -108,6 +108,19 @@ export function parseLyricsSections(lyrics: string): LyricsSection[] {
   return sections;
 }
 
+/**
+ * 지시문 09/10 — the first 6 words of this song's first sung line, lowercased.
+ * Single-sourced here (was duplicated inline in scripts/audit.ts's own
+ * --cross comparison) so core/situationLedger.ts's opening-line tracking
+ * (지시문 10 TASK B-4-3) and the CLI's cross-pack comparison always agree on
+ * exactly what "the opening" means for a song.
+ */
+export function openingSixWords(lyrics: string): string {
+  const sections = parseLyricsSections(lyrics);
+  const firstLine = sections.flatMap(s => s.lines).find(l => l.trim())?.trim() ?? '';
+  return firstLine.split(/\s+/).slice(0, 6).join(' ').toLowerCase();
+}
+
 // ---------------------------------------------------------------------------
 // Structural checks
 // ---------------------------------------------------------------------------

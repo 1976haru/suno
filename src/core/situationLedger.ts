@@ -1,5 +1,6 @@
-import type { LyricLanguage, PlaylistBlueprint, WorkspaceId } from '../types';
+import type { LyricLanguage, PlaylistBlueprint, SongIdea, WorkspaceId } from '../types';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
+import { openingSixWords as computeOpeningSixWords, parseLyricsSections } from './lyricsAst';
 
 /**
  * v5.22 (AXIS 1, TASK B §1-6) — same real bug hookLedger.ts's own doc
@@ -46,6 +47,58 @@ export interface SituationUsage {
   motionKo?: string;
   castKo?: string;
   eraSettingKo?: string;
+  /**
+   * 지시문 10 (TASK B-4-2) — the theme ID itself (data/lyricThemes.ts's
+   * LyricTheme.id), not just its axis labels (motionKo/castKo/eraSettingKo
+   * above, which describe the theme's SHAPE but not its identity — two
+   * different themes can share the same motionKo). core/slotPlanOverlap.ts's
+   * computeSlotPlanOverlap needs the real id to detect "this trackNo got the
+   * literal same theme as last set", the real, measured bug this task closes
+   * (18/18 same-trackNo theme duplication across two concept-distinct real
+   * packs). Optional: absent for any scene recorded before this task.
+   */
+  lyricTheme?: string;
+  /**
+   * 지시문 10 (TASK B-4-3) — first 6 words of this song's own opening line
+   * (core/lyricsAst.ts's openingSixWords), lowercased. Cross-SET opening
+   * memory: "세트 내부 도입부는 이미 18/18 고유하다. 세트 간 회피만 추가한다" —
+   * this field/recentOpenings below are that cross-set addition; no
+   * within-set uniqueness check is added anywhere (that already passes).
+   */
+  openingSixWords?: string;
+  /** 지시문 10 (TASK B-4-4) — see resolveSceneSignatureSource's own doc comment below. */
+  signatureSource?: SceneSignatureSource;
+}
+
+/**
+ * 지시문 10 (TASK B-4-4) — "챗지피티 안(TASK 7) 통합": no real generation
+ * path in this codebase produces a distinct "provider signature" field
+ * separate from listenerSituation — investigation confirmed listenerSituation
+ * itself already IS the provider's own written scene summary (bridgeInstruction.ts's
+ * own CRITICAL instruction: "각 곡의 listenerSituation 필드에 그 곡의 장면을
+ * 한 문장으로 요약해 쓰십시오"). 'provider' means exactly that: the field the
+ * provider was asked to write is actually present. When it's missing (an
+ * agent that skipped the field, or a pre-this-task saved pack), this derives
+ * a local fallback in the directive's own stated priority order — never
+ * silently drops the song's ledger entry the way the old
+ * `if (!listenerSituation) continue` guard did.
+ */
+export type SceneSignatureSource = 'provider' | 'local-parser' | 'legacy-missing';
+
+export function resolveSceneSignatureSource(song: Pick<SongIdea, 'listenerSituation' | 'lyricThemeText' | 'lyrics'>): { situation: string; source: SceneSignatureSource } {
+  if (song.listenerSituation?.trim()) {
+    return { situation: song.listenerSituation.trim(), source: 'provider' };
+  }
+  if (song.lyricThemeText?.trim()) {
+    return { situation: song.lyricThemeText.trim(), source: 'local-parser' };
+  }
+  const firstVerseLine = parseLyricsSections(song.lyrics ?? '')
+    .find(section => section.type === 'verse')
+    ?.lines.find(line => line.trim());
+  if (firstVerseLine?.trim()) {
+    return { situation: firstVerseLine.trim(), source: 'local-parser' };
+  }
+  return { situation: '', source: 'legacy-missing' };
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -82,29 +135,45 @@ async function allRecords(): Promise<SituationUsage[]> {
 /**
  * Idempotent, same convention as hookLedger.ts's recordPackHooks: clears
  * this pack's own prior entries first, so re-saving an updated/renamed pack
- * replaces rather than duplicates. Only records songs with a non-empty
- * `listenerSituation` — a song from before this field existed, or a
- * display-only synthetic blueprint, silently contributes nothing rather
- * than a misleading empty-string entry.
+ * replaces rather than duplicates.
+ *
+ * 지시문 10 (TASK B-4-4) — now goes through resolveSceneSignatureSource
+ * (falls back to lyricThemeText, then the first verse line, before giving
+ * up) instead of only ever reading listenerSituation directly — a song an
+ * agent left listenerSituation empty on used to silently contribute nothing
+ * at all. A genuinely 'legacy-missing' song (nothing to derive from any of
+ * the 3 sources) still isn't recorded here — an empty situation string would
+ * just false-match every other empty one in a later comparison — but the
+ * measurement side (core/fullAudit.ts's scene_signature_source item) counts
+ * these directly off the pack's own songs and reports 'not-measured' rather
+ * than a silent pass, which is the real gap this task closes: "legacy-missing를
+ * pass 처리하지 말 것".
  */
 export async function recordPackSituations(packId: string, channelId: string, blueprint: PlaylistBlueprint, language: LyricLanguage): Promise<void> {
   await forgetPack(packId);
   const now = new Date().toISOString();
   for (const song of blueprint.songs) {
-    if (!song.listenerSituation?.trim()) continue;
+    const { situation, source } = resolveSceneSignatureSource(song);
+    if (!situation && source === 'legacy-missing') continue; // nothing at all to record — not even a placeholder string
     const record: SituationUsage = {
       id: `${currentWorkspaceId()}::${packId}:${song.trackNo}`,
-      situation: song.listenerSituation.trim(),
+      situation,
       channelId,
       language,
       usedAt: now,
       packId,
       trackNo: song.trackNo,
       workspaceId: currentWorkspaceId(),
+      signatureSource: source,
       ...(song.lyricFrameId ? { frameId: song.lyricFrameId } : {}),
       ...(song.lyricThemeMotionKo ? { motionKo: song.lyricThemeMotionKo } : {}),
       ...(song.lyricThemeCastKo ? { castKo: song.lyricThemeCastKo } : {}),
-      ...(song.lyricThemeEraSettingKo ? { eraSettingKo: song.lyricThemeEraSettingKo } : {})
+      ...(song.lyricThemeEraSettingKo ? { eraSettingKo: song.lyricThemeEraSettingKo } : {}),
+      ...(song.lyricTheme ? { lyricTheme: song.lyricTheme } : {}),
+      ...(() => {
+        const opening = computeOpeningSixWords(song.lyrics ?? '');
+        return opening ? { openingSixWords: opening } : {};
+      })()
     };
     await withStore('readwrite', store => store.put(record));
   }
@@ -142,6 +211,23 @@ export async function recentSituations(channelId: string, language: LyricLanguag
 }
 
 /**
+ * 지시문 10 (TASK B-4-3) — cross-SET opening-line avoid list, default window
+ * 5 sets (deliberately narrower than recentSituations'/recentLyricLines'
+ * default 10 — an opening line is a much shorter, more collision-prone
+ * signal, and this directive's own spec names 5 explicitly). Same
+ * pack-grouped/most-recent-first shape as recentSituations above. Empty
+ * strings (no qualifying opening line recorded for that song) are dropped —
+ * never a meaningless "" entry in the avoid list.
+ */
+export async function recentOpenings(channelId: string, language: LyricLanguage, setLimit = 5): Promise<string[]> {
+  const all = await allRecords();
+  const scoped = all.filter(u => u.channelId === channelId && u.language === language);
+  const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
+  const recentPackIds = new Set(packOrder.slice(0, setLimit));
+  return scoped.filter(u => recentPackIds.has(u.packId) && u.openingSixWords).map(u => u.openingSixWords!);
+}
+
+/**
  * codex 지시문 01 (TASK H) — core/generationHistoryRevision.ts's own
  * GenerationHistorySnapshot.recentSceneSignatures: the same real
  * cross-pack window recentSituations above already computes, just
@@ -165,6 +251,8 @@ export interface SceneSignature {
   motionKo?: string;
   castKo?: string;
   eraSettingKo?: string;
+  /** 지시문 10 (TASK B-4-2) — see SituationUsage.lyricTheme's own doc comment. */
+  lyricTheme?: string;
 }
 
 export async function recentSceneSignatures(channelId: string, language: LyricLanguage, setLimit = 10): Promise<SceneSignature[]> {
@@ -179,7 +267,8 @@ export async function recentSceneSignatures(channelId: string, language: LyricLa
     ...(u.frameId ? { frameId: u.frameId } : {}),
     ...(u.motionKo ? { motionKo: u.motionKo } : {}),
     ...(u.castKo ? { castKo: u.castKo } : {}),
-    ...(u.eraSettingKo ? { eraSettingKo: u.eraSettingKo } : {})
+    ...(u.eraSettingKo ? { eraSettingKo: u.eraSettingKo } : {}),
+    ...(u.lyricTheme ? { lyricTheme: u.lyricTheme } : {})
   }));
 }
 

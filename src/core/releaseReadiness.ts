@@ -11,7 +11,8 @@ import { RELEASE_READINESS_ITEM_IDS, FULL_AUDIT_ITEM_IDS } from './auditItemIds'
 import { checkNegativePromptLength } from './negativePromptSpec';
 import { checkTitleHookRelationships } from './titleHookRelationship';
 import { checkLyricLanguageMatch } from './lyricMetrics';
-import { checkSeniorEraShare, checkSeniorMotifQuotas, checkChordProgressionDominance, countFinalKeyUps, countDistinctIntroTypes, SENIOR_MUSIC_POLICY } from './seniorOldpopPolicy';
+import { checkSeniorEraShare, checkSeniorMotifQuotas, checkChordProgressionDominance, countFinalKeyUps, countDistinctIntroTypes, SENIOR_MUSIC_POLICY, SLOT_PLAN_LEDGER_POLICY } from './seniorOldpopPolicy';
+import { computeSlotPlanOverlap } from './slotPlanOverlap';
 import { checkKr2030OpeningClicheOveruse, checkKr2030ModernMotifQuotas, checkKr2030StructureVariety, findUnexpectedRapSections, checkKr2030Translationese } from './kr2030Policy';
 import { findKatakanaOveruse, checkJp2030ModernMotifQuotas, checkJp2030TitleSuffixOveruse, checkJp2030Translationese } from './jp2030Policy';
 import { resolveKrKidsExpectedPhasePolicy, findAdultPhaseLeaks, findConsecutivePhaseRuns, checkKrKidsSafety, didacticToneAdvisory } from './krKidsPolicy';
@@ -117,6 +118,7 @@ const CATEGORY_BY_ITEM_ID: Record<string, ReleaseReadinessCategory> = {
   [FULL_AUDIT_ITEM_IDS.workspaceIsolation]: 'workspace-policy',
   [RELEASE_READINESS_ITEM_IDS.sceneRecentSetOverlap]: 'novelty',
   [RELEASE_READINESS_ITEM_IDS.sceneRecentSetSimilarity]: 'novelty',
+  [RELEASE_READINESS_ITEM_IDS.slotPlanOverlap]: 'novelty',
   [RELEASE_READINESS_ITEM_IDS.titleFullHistoryCollision]: 'novelty',
   [RELEASE_READINESS_ITEM_IDS.lyricLineRecentSetOverlap]: 'novelty',
   [RELEASE_READINESS_ITEM_IDS.promptFingerprintRecentSetOverlap]: 'novelty',
@@ -334,6 +336,30 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
     } else {
       items.push({ id: RELEASE_READINESS_ITEM_IDS.sceneRecentSetSimilarity, categoryKo: '가사', labelKo: '최근 세트와 장면 유사도(근접 재사용) 없음', status: 'not-measured', detail: 'duplicationHistory.recentSceneSignatures 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
     }
+    // 지시문 10 (TASK B-4-2) — "같은 배정표가 재사용되는 것을 탐지할 방법이 지금
+    // 없다": distinct from sceneRecentSetOverlap/sceneRecentSetSimilarity just
+    // above (those flag an individual scene reused ANYWHERE in the recent
+    // history) — this flags a NEW set's whole per-trackNo assignment table
+    // (lyricTheme/situation) matching a SINGLE recent set's, position-aware.
+    // Real measured trigger: two concept-distinct real packs landed 18/18
+    // same-trackNo theme + 14/18 same-trackNo situation. 60%/80% thresholds
+    // are the directive's own unvalidated estimates (core/seniorOldpopPolicy.ts's
+    // SLOT_PLAN_LEDGER_POLICY) — advisory at warn, blocking at block.
+    if (duplicationHistory.recentSceneSignatures) {
+      const overlap = computeSlotPlanOverlap(
+        songs.map(s => ({ trackNo: s.trackNo, lyricTheme: s.lyricTheme, situation: s.listenerSituation })),
+        duplicationHistory.recentSceneSignatures
+      );
+      items.push({
+        id: RELEASE_READINESS_ITEM_IDS.slotPlanOverlap, categoryKo: '가사', labelKo: `배정표(trackNo→테마·장면) 재사용 없음 (경고 ${SLOT_PLAN_LEDGER_POLICY.warnShare * 100}%· 차단 ${SLOT_PLAN_LEDGER_POLICY.blockShare * 100}%, 추정치)`,
+        status: overlap.verdict === 'block' ? 'fail' : 'pass',
+        detail: overlap.worstMatch
+          ? `최고 일치 팩 ${overlap.worstMatch.packId} — ${Math.round(overlap.worstMatch.overlapShare * 100)}% (T${overlap.worstMatch.matchedTrackNos.join(', T')}) — ${overlap.verdict.toUpperCase()}`
+          : '재사용 없음'
+      });
+    } else {
+      items.push({ id: RELEASE_READINESS_ITEM_IDS.slotPlanOverlap, categoryKo: '가사', labelKo: '배정표(trackNo→테마·장면) 재사용 없음', status: 'not-measured', detail: 'duplicationHistory.recentSceneSignatures 없이 호출됨 — 실제 이력 대조 없이는 판정 불가', notImplemented: false });
+    }
     const titleCollision = checkTitleHistoryCollision(songs, duplicationHistory.historicalTitles);
     items.push({
       id: RELEASE_READINESS_ITEM_IDS.titleFullHistoryCollision, categoryKo: '제목', labelKo: '전체 이력과 제목 중복 0건',
@@ -349,6 +375,7 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
   } else {
     for (const [id, labelKo] of [
       [RELEASE_READINESS_ITEM_IDS.sceneRecentSetOverlap, '최근 5세트와 장면 중복 0건'],
+      [RELEASE_READINESS_ITEM_IDS.slotPlanOverlap, '배정표(trackNo→테마·장면) 재사용 없음'],
       [RELEASE_READINESS_ITEM_IDS.titleFullHistoryCollision, '전체 이력과 제목 중복 0건'],
       [RELEASE_READINESS_ITEM_IDS.lyricLineRecentSetOverlap, '최근 세트와 가사 문장 완전일치 0건']
     ] as const) {

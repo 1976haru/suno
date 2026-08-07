@@ -29,9 +29,10 @@ import { scoreSongs } from '../src/core/quality';
 import { importSongsJson, extractBridgeImportMeta } from '../src/core/bridgeImport';
 import { topWordFrequencies } from '../src/core/lyricVocabularyRepetition';
 import { lyricWordAndSectionCounts } from '../src/core/compositionScorer';
-import { parseLyricsSections } from '../src/core/lyricsAst';
+import { openingSixWords } from '../src/core/lyricsAst';
 import { sceneSimilarity } from '../src/core/sceneSimilarity';
-import { checkSeniorEraShare } from '../src/core/seniorOldpopPolicy';
+import { checkSeniorEraShare, SLOT_PLAN_LEDGER_POLICY } from '../src/core/seniorOldpopPolicy';
+import { computeSlotPlanOverlap, type SlotPlanOverlapResult } from '../src/core/slotPlanOverlap';
 import type { AudienceProfile, ChannelProfile, GenerationOptions, LyricLanguage, PlaylistBlueprint, SongIdea } from '../src/types';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -218,12 +219,6 @@ function printCompareLocal(packBlueprint: PlaylistBlueprint, conceptLabel: strin
 // ---------------------------------------------------------------------------
 // TASK B-4 — 세트 간 대조. 위치 정보(trackNo)를 반드시 함께 출력한다.
 // ---------------------------------------------------------------------------
-function openingSixWords(lyrics: string): string {
-  const sections = parseLyricsSections(lyrics);
-  const firstLine = sections.flatMap(s => s.lines).find(l => l.trim())?.trim() ?? '';
-  return firstLine.split(/\s+/).slice(0, 6).join(' ').toLowerCase();
-}
-
 function normalizedLyricLines(lyrics: string): string[] {
   return lyrics.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('['));
 }
@@ -239,6 +234,8 @@ export interface CrossComparisonResult {
   openingSixWordDupCount: number;
   sceneSimilarity: { min: number; median: number; max: number };
   totalA: number;
+  /** 지시문 10 (TASK B-4-2) — treats B as A's own "recent set" and asks core/slotPlanOverlap.ts whether A's per-trackNo (theme OR situation) assignment reuses B's wholesale. */
+  slotPlanOverlap: SlotPlanOverlapResult;
 }
 
 /** Pure — B-4/B-5's real cross-pack comparison, position-aware (trackNo). Separated from printCross's own formatting so tests/audit.pack.test.ts can assert on real numbers instead of parsing console output. */
@@ -270,6 +267,11 @@ export function computeCross(a: SongIdea[], b: SongIdea[]): CrossComparisonResul
   }
   similarities.sort((x, y) => x - y);
 
+  const slotPlanOverlap = computeSlotPlanOverlap(
+    a.map(s => ({ trackNo: s.trackNo, lyricTheme: s.lyricTheme, situation: s.listenerSituation })),
+    b.map(s => ({ situation: s.listenerSituation, packId: 'B', trackNo: s.trackNo, lyricTheme: s.lyricTheme }))
+  );
+
   return {
     titleDupTrackNos,
     hookDupTrackNos,
@@ -284,7 +286,8 @@ export function computeCross(a: SongIdea[], b: SongIdea[]): CrossComparisonResul
       max: similarities[similarities.length - 1] ?? 0,
       median: similarities.length ? similarities[Math.floor(similarities.length / 2)] : 0
     },
-    totalA: a.length
+    totalA: a.length,
+    slotPlanOverlap
   };
 }
 
@@ -300,6 +303,8 @@ function printCross(a: SongIdea[], b: SongIdea[], conceptLabelA: string, concept
   console.log(`가사 문장 완전일치          ${r.exactSentenceMatchCount}개`);
   console.log(`도입부 첫6단어 중복         ${r.openingSixWordDupCount}개`);
   console.log(`sceneSignature 유사도       최소 ${r.sceneSimilarity.min.toFixed(3)} / 중앙 ${r.sceneSimilarity.median.toFixed(3)} / 최대 ${r.sceneSimilarity.max.toFixed(3)}`);
+  const overlapPct = (r.slotPlanOverlap.worstMatch?.overlapShare ?? 0) * 100;
+  console.log(`배정표(slotPlan) 재사용     ${r.slotPlanOverlap.verdict.toUpperCase()} — ${overlapPct.toFixed(0)}% (trackNo: [${r.slotPlanOverlap.worstMatch?.matchedTrackNos.join(', ') ?? ''}], 임계값 warn ${SLOT_PLAN_LEDGER_POLICY.warnShare * 100}% / block ${SLOT_PLAN_LEDGER_POLICY.blockShare * 100}% — 추정치, 검증된 값 아님)`);
   console.log('');
 
   for (const [label, songs, concept] of [['A', a, conceptLabelA], ['B', b, conceptLabelB]] as const) {

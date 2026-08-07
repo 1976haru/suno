@@ -693,8 +693,8 @@ export default function Step3Generate({
   );
   /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
   const bridgeConceptSceneContext = useMemo(
-    () => ({ recentSituations: historySnapshot.recentSituations, recentLyricLines: historySnapshot.recentLyricLines }),
-    [historySnapshot.recentSituations, historySnapshot.recentLyricLines]
+    () => ({ recentSituations: historySnapshot.recentSituations, recentLyricLines: historySnapshot.recentLyricLines, recentOpenings: historySnapshot.recentOpenings }),
+    [historySnapshot.recentSituations, historySnapshot.recentLyricLines, historySnapshot.recentOpenings]
   );
   /** v5.23 (TASK C) — core/explorationSlots.ts's own plan, resolved once nextAxisSequence is fetched (senior-oldpop only — every other workspace's plan stays `enabled: false`). */
   const [bridgeExplorationPlan, setBridgeExplorationPlan] = useState<ExplorationSlotPlan | undefined>(undefined);

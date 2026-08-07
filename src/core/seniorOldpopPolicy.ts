@@ -42,6 +42,26 @@ export const SENIOR_ERA_POLICY = {
 };
 
 /**
+ * 지시문 10 (TASK B-4-2) — "이 임계값은 검증된 값이 아니다. 상수로 박지 말고
+ * 지시문 08 TASK 4의 정책 registry 필드로 두고, 주석에 추정치임을 명시한다."
+ * 60%/80% are the directive's own literal proposed thresholds for detecting
+ * a new set's slot assignment table (trackNo -> lyricTheme/situation)
+ * reusing a recent set's — NOT calibrated against any real listening
+ * comparison the way SENIOR_ERA_POLICY above was (that one has a
+ * docs/v367-report.md-style real-measurement trail; this one does not).
+ * Treat as a starting estimate to tune once real cross-pack data exists,
+ * not a proven number.
+ */
+export const SLOT_PLAN_LEDGER_POLICY = {
+  /** Same-trackNo (theme OR situation) overlap share against any one recent set, at or above which core/slotPlanOverlap.ts's computeSlotPlanOverlap returns 'warn'. */
+  warnShare: 0.6,
+  /** ...at or above which it returns 'block'. */
+  blockShare: 0.8,
+  /** "최근 10세트" — same window core/situationLedger.ts's recentSceneSignatures already uses (지시문 02 TASK K's own scene-signature range), reused here rather than a second, possibly-drifting window size. */
+  setWindow: 10
+};
+
+/**
  * 지시문 08 (TASK E) — real, measured calibration gap: core/constraints.ts's
  * applyEraQuota (called from core/setDirector.ts, generation-time) used a
  * fixed 25% adjacent-era cap for every workspace — this file's own

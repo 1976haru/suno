@@ -678,7 +678,19 @@ export function preallocateSongSlots(
         moneyChordLean.density === 'sparser' ? 'lower' : 'higher'
       )
     : arrangementDensityPlanBase;
-  const lyricThemePlan = buildLyricThemePlan(opts, seed);
+  // 지시문 10 (TASK B-3) — real measured bug: this is the REAL bridge
+  // deployment path's own theme assignment, and it was still using the
+  // shared, concept-blind `seed` — core/localGenerator.ts's identical call
+  // already got the real fix for this (see that file's own lyricThemeSeed
+  // comment, 지시문 08 TASK D) but it only ever ran on the LOCAL PREVIEW
+  // path. Two different concepts on the same channel (e.g. "60년대 올드팝
+  // 명곡" / "70년대 올드팝 명곡") landed the exact same lyricTheme sequence in
+  // a real published pack (18/18 same-trackNo theme duplication, 14/18
+  // same-trackNo listenerSituation duplication) — this seed swap is that
+  // fix, mirrored exactly (same formula, same "only this one call" scope —
+  // genre/hook/BPM/vocal rotation all keep the shared seed unchanged).
+  const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
+  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed);
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
