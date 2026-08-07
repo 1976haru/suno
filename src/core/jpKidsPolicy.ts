@@ -44,6 +44,26 @@ export const JP_KIDS_KANA_RATIO_MIN_BY_TIER: Record<KidsAgeTierId, number> = {
   'kids-t3': 0.7
 };
 
+/**
+ * 지시문 11 (TASK D) — 위 0.9/0.8/0.7 floor는 실측 검증된 값이 아니라는 사실을
+ * 이 doc comment 뿐 아니라 코드 자체의 상태값으로도 표시한다. "50개 이상의
+ * 승인된 실제 jp-kids 결과가 쌓이기 전까지는 provisional" — scripts/
+ * calibrateJpKidsLanguage.ts가 이 임계값(JP_KIDS_KANA_RATIO_MIN_APPROVED_SAMPLES_FOR_CALIBRATION)을
+ * 그대로 참조해 "아직 데이터가 부족하다"를 정직하게 보고한다. 이 지시문
+ * 자신의 "하지 말 것": 50곡이 쌓이기 전에 이 floor를 자동으로 바꾸지 않는다
+ * — calibrateJpKidsLanguage.ts는 값을 계산해 사람이 검토할 후보만 출력하고,
+ * JP_KIDS_KANA_RATIO_MIN_BY_TIER를 직접 덮어쓰지 않는다.
+ */
+export type CalibrationStatus = 'provisional' | 'calibrated';
+
+export const JP_KIDS_KANA_RATIO_CALIBRATION_STATUS: Record<KidsAgeTierId, CalibrationStatus> = {
+  'kids-t1': 'provisional',
+  'kids-t2': 'provisional',
+  'kids-t3': 'provisional'
+};
+
+export const JP_KIDS_KANA_RATIO_MIN_APPROVED_SAMPLES_FOR_CALIBRATION = 50;
+
 export function kanaRatioMinForTier(tierId: KidsAgeTierId): number {
   return JP_KIDS_KANA_RATIO_MIN_BY_TIER[tierId] ?? JP_KIDS_KANA_RATIO_MIN_BY_TIER[DEFAULT_KIDS_AGE_TIER_ID];
 }

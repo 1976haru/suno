@@ -16,7 +16,7 @@ import { computeSlotPlanOverlap } from './slotPlanOverlap';
 import { checkKr2030OpeningClicheOveruse, checkKr2030ModernMotifQuotas, checkKr2030StructureVariety, findUnexpectedRapSections, checkKr2030Translationese } from './kr2030Policy';
 import { findKatakanaOveruse, checkJp2030ModernMotifQuotas, checkJp2030TitleSuffixOveruse, checkJp2030Translationese } from './jp2030Policy';
 import { resolveKrKidsExpectedPhasePolicy, findAdultPhaseLeaks, findConsecutivePhaseRuns, checkKrKidsSafety, didacticToneAdvisory } from './krKidsPolicy';
-import { findJpKidsAdultPhaseLeaks, findJpKidsConsecutivePhaseRuns, checkJpKidsGenericSafety, checkJpKidsKanaRatio } from './jpKidsPolicy';
+import { findJpKidsAdultPhaseLeaks, findJpKidsConsecutivePhaseRuns, checkJpKidsGenericSafety, checkJpKidsKanaRatio, JP_KIDS_KANA_RATIO_CALIBRATION_STATUS } from './jpKidsPolicy';
 import { checkKrIdolMaleFixedQuota, checkKrIdolMaleMotifQuotas, checkKrIdolMaleRapShare, checkKrIdolMaleChantOveruse } from './kpopMalePolicy';
 import { checkKrIdolFemaleFixedQuota, checkKrIdolFemaleMotifQuotas, checkKrIdolFemaleRapShare, checkKrIdolFemaleChantOveruse } from './kpopFemalePolicy';
 import { parseLyricsSections } from './lyricsAst';
@@ -695,10 +695,11 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
     });
     if (isJp) {
       const kanaIssues = songs.filter(song => checkJpKidsKanaRatio(song.lyrics, kidsAgeTierId).belowFloor).map(s => s.trackNo);
+      const kanaCalibrationStatus = JP_KIDS_KANA_RATIO_CALIBRATION_STATUS[kidsAgeTierId];
       items.push({
-        id: RELEASE_READINESS_ITEM_IDS.jpKidsKanaRatio, categoryKo: '언어', labelKo: 'jp-kids kana 비율 (연령대별) 준수',
+        id: RELEASE_READINESS_ITEM_IDS.jpKidsKanaRatio, categoryKo: '언어', labelKo: `jp-kids kana 비율 (연령대별, ${kanaCalibrationStatus}) 준수`,
         status: kanaIssues.length === 0 ? 'pass' : 'fail',
-        detail: kanaIssues.length ? `T${kanaIssues.join(', T')} kana 비율 미달` : '없음'
+        detail: kanaIssues.length ? `T${kanaIssues.join(', T')} kana 비율 미달` : `없음${kanaCalibrationStatus === 'provisional' ? ' (기준값 provisional — 승인된 실제 결과 50개 누적 전까지 미검증)' : ''}`
       });
     } else {
       const didacticTracks = songs.filter(song => didacticToneAdvisory(parseLyricsSections(song.lyrics).flatMap(s => s.lines))).map(s => s.trackNo);

@@ -7,7 +7,9 @@ import {
   findJpKidsKatakanaOveruse,
   findJpKidsTrademarkReferences,
   findKrSchoolTermMistranslation,
-  JP_KIDS_FURIGANA_POLICY
+  JP_KIDS_FURIGANA_POLICY,
+  JP_KIDS_KANA_RATIO_CALIBRATION_STATUS,
+  JP_KIDS_KANA_RATIO_MIN_APPROVED_SAMPLES_FOR_CALIBRATION
 } from '../src/core/jpKidsPolicy';
 
 /**
@@ -38,6 +40,18 @@ describe('[codex 지시문 04 §5] checkJpKidsKanaRatio — real per-age-tier fl
 
   it('younger tiers have a real, stricter (higher) kana floor than older tiers', () => {
     expect(kanaRatioMinForTier('kids-t1')).toBeGreaterThan(kanaRatioMinForTier('kids-t3'));
+  });
+});
+
+describe('[지시문 11 TASK D] 캘리브레이션 상태 — 모든 tier가 provisional로 명시돼 있다', () => {
+  it('세 tier 전부 provisional이다 (실측 검증 전)', () => {
+    expect(JP_KIDS_KANA_RATIO_CALIBRATION_STATUS['kids-t1']).toBe('provisional');
+    expect(JP_KIDS_KANA_RATIO_CALIBRATION_STATUS['kids-t2']).toBe('provisional');
+    expect(JP_KIDS_KANA_RATIO_CALIBRATION_STATUS['kids-t3']).toBe('provisional');
+  });
+
+  it('50개 이상의 승인된 결과가 필요하다는 기준이 실제로 50이다', () => {
+    expect(JP_KIDS_KANA_RATIO_MIN_APPROVED_SAMPLES_FOR_CALIBRATION).toBe(50);
   });
 });
 
