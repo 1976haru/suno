@@ -6,7 +6,7 @@ import { evaluateGenerationGate } from '../core/generationGate';
 import type { AudienceProfile, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, PreassignedSongSlot, SeasonPack, SongIdea } from '../types';
 import type { AudioSetReport } from '../core/audioSetReport';
 import type { ResolvedConstraints } from '../core/constraints';
-import type { VocalType } from '../core/vocalPlan';
+import type { VocalType, VocalQuota } from '../core/vocalPlan';
 import type { ScoreCompositionOptions } from '../core/compositionScorer';
 import type { VerifiedCombo } from '../core/verifiedCombos';
 
@@ -37,7 +37,7 @@ interface GenerateRequest {
 interface FullAuditRequest {
   type: 'fullAudit';
   songs: SongIdea[];
-  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport };
+  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; vocalQuotaOverride?: VocalQuota };
 }
 
 interface DesignGateRequest {

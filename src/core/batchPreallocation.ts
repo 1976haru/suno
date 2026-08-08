@@ -61,7 +61,8 @@ import { breakLongRuns, pinPrefixPreservingCounts, reorderByArcIntensity } from 
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
-import { applyEraQuota, extractEraConstraint, GENRE_ERA_QUOTA_PER_GENRE_CAP, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { applyEraQuota, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
@@ -240,12 +241,19 @@ export function preallocateSongSlots(
   const eraConstraint = genreAllocation?.mode === 'manual' || opts.channel.archetype !== 'senior-morning'
     ? undefined
     : extractEraConstraint(opts.customConcept ?? '');
+  // 정합성 점검 §1 결함1 fix — same breadth-aware perGenreCap as
+  // core/setDirector.ts's own applyEraQuota calls (see applyEraQuota's own
+  // doc comment on the perGenreCap parameter). `constraints` (line 190
+  // above) already resolved this pack's real breadth via
+  // resolveConstraintsFromOptions — reused here rather than re-deriving it.
   const eraQuotaCounts = eraConstraint && !eraConstraint.unspecified
     ? applyEraQuota(
-        genreCountsFromIds(genrePool, opts.songCount, GENRE_ERA_QUOTA_PER_GENRE_CAP),
+        genreCountsFromIds(genrePool, opts.songCount, BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre),
         opts.songCount,
         tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
-        genre => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning')
+        genre => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning'),
+        undefined,
+        BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre
       ).counts
     : undefined;
   // core/setDirector.ts's directSetLocal uses Object.keys(quotaAdjustedCounts)

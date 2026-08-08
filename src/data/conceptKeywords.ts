@@ -116,11 +116,77 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // allocation from the generic core-genre order, which would dilute the
   // match with adult-contemporary/acoustic-pop appearing first there.
   {
+    // 정합성 점검 §2 결함3 fix — explicit "60년대"/"60s" routes to the six
+    // real 1950s-60s-bucket genres (data/genreLibrary/index.ts's oldpopGenrePacks
+    // "1-A" group), at weights (6-4) that beat the generic 'oldpop' rule's
+    // own max (5) so a decade word actually changes the recommendation
+    // instead of being drowned out by it. Declared BEFORE the generic
+    // 'oldpop' rule below (not just weighted higher) so rankFromRules'
+    // stable sort also breaks any remaining weight ties in this rule's
+    // favor — conceptAgent.ts's rankFromRules inserts matched rules' weights
+    // into a Map in CONCEPT_KEYWORD_RULES declaration order, and its final
+    // sort-by-score is stable, so declaration order alone decides ties.
+    // Weight gap kept small (6 vs 5), not large, since a large
+    // weight-gradient spread was measured to push a low-priority genre into
+    // chooseGenreIds' real pool at exactly 1 song (see
+    // tests/genreSingletonRootCause.test.ts's own doc comment on this exact
+    // failure class; CONCEPT_KEYWORD_RULES feeds both conceptAgent.ts's
+    // recommendation ranking AND setDirector.ts's real genre selection). The
+    // "60\s*[-~]\s*70" pattern keeps firing this rule for the compound
+    // "60~70년대" form too (a bare "60(s|년대)" pattern wouldn't match
+    // "60~70년대" — "60" isn't directly followed by "s"/"년대" there) so this
+    // rule and oldpop-70s both fire on that already-validated co-primary
+    // compound input, same as before.
+    id: 'oldpop-60s',
+    patterns: [/60(s|년대)/i, /1960s/i, /60\s*[-~]\s*70/],
+    genreWeights: {
+      'oldpop-doowop-harmony': 6, 'oldpop-brill-building': 6, 'oldpop-girl-group-wall': 5,
+      'oldpop-sunshine-pop': 5, 'oldpop-baroque-pop': 4, 'oldpop-british-beat': 4
+    },
+    moodWeights: { nostalgic: 2, warm: 1 }
+  },
+  {
+    // 정합성 점검 §2 결함3 fix — same pattern as oldpop-60s, for the ten real
+    // 1970s-bucket genres ("1-B" group). "70\s*[-~]\s*80" mirrors the 60~70
+    // compound handling above, for a "70~80년대" style request.
+    id: 'oldpop-70s',
+    patterns: [/70(s|년대)/i, /1970s/i, /70\s*[-~]\s*80/],
+    genreWeights: {
+      'oldpop-soft-rock-am': 6, 'oldpop-motown-pop-soul': 6, 'oldpop-piano-ballad-70s': 5,
+      'oldpop-philly-soul-sweet': 5, 'oldpop-close-harmony-duo': 4, 'oldpop-folk-rock-70s': 4,
+      'oldpop-countrypolitan': 3, 'oldpop-yacht-west-coast': 3, 'oldpop-europop-glow': 2,
+      'oldpop-orchestral-easy': 2
+    },
+    moodWeights: { nostalgic: 2, warm: 1 }
+  },
+  {
+    // 정합성 점검 §2 결함3 fix — same pattern as oldpop-60s/70s, for the six
+    // real 1980s-bucket genres ("1-C" group).
+    id: 'oldpop-80s',
+    patterns: [/80(s|년대)/i, /1980s/i],
+    genreWeights: {
+      'oldpop-adult-contemporary-80s': 6, 'oldpop-light-synth-pop-warm': 6, 'oldpop-quiet-storm-warm': 5,
+      'oldpop-soft-duet-80s': 5, 'oldpop-orchestral-ballad-80s': 4, 'oldpop-standards-torch': 4
+    },
+    moodWeights: { nostalgic: 2, warm: 1 }
+  },
+  {
+    // 정합성 점검 §2 결함3 fix — this rule used to also match any bare decade
+    // word (60/70/80 + s/년대) and hand out this SAME fixed weight bundle no
+    // matter which decade fired the match, so "60년대 올드팝" and "70년대
+    // 올드팝" recommended byte-identical genres, and the 1950s-60s genres in
+    // this bundle (weight 3) always lost buildGenrePool's targetSize-4
+    // truncation to the 1970s/1980s entries (weight 4-5) — the real cause of
+    // a "60년대" concept getting mostly 1970s genres. Decade words now route
+    // to the three sibling rules above (oldpop-60s/70s/80s) instead. This
+    // rule is now the decade-UNSPECIFIED fallback only — patterns and
+    // weights otherwise unchanged from before this fix, so a bare
+    // "올드팝"/"7080" request (no decade named) still resolves exactly as it
+    // did.
     id: 'oldpop',
     patterns: [
       /올드\s*팝/, /옛날\s*팝/, /추억의\s*팝송/, /7080/, /칠공팔공/,
-      /old\s*pop/i, /oldies/i, /\b(60|70|80)(s|년대)/i,
-      /60년대/, /70년대/, /80년대/
+      /old\s*pop/i, /oldies/i
     ],
     genreWeights: {
       'oldpop-warm-morning-glow': 5, 'oldpop-soft-rock-am': 5, 'oldpop-motown-pop-soul': 4,

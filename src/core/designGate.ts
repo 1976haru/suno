@@ -432,7 +432,10 @@ function paletteCoverageIssues(slots: PreassignedSongSlot[], opts: GenerationOpt
   const genrePlan = ordered.map(slot => slot.genreId);
   if (!genrePlan.length) return [];
   const seed = hashSeed(seedForBlueprint(opts));
-  const assignments = buildEraCanonPalettePlan(genrePlan, seed);
+  // 정합성 점검 §1 결함1/palette-variety-max fix — this floor's own
+  // minPaletteVariety (the real, current policy number) instead of
+  // buildEraCanonPalettePlan's stale module-default.
+  const assignments = buildEraCanonPalettePlan(genrePlan, seed, soundFloor.minPaletteVariety);
   const covered = assignments.filter((a): a is PaletteAssignment => !!a);
   const uncoveredCount = assignments.length - covered.length;
   // TASK v4.7 (팔레트 커버리지 확장) — partial assignments now count toward

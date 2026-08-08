@@ -678,6 +678,7 @@ export default function Step4Result({
           conceptLabel={snapshotOpts.customConcept?.trim() || snapshotOpts.projectTitle}
           audienceProfile={audienceProfileForChannelArchetype(snapshotOpts.channel.archetype, snapshotOpts.audience)}
           channelId={snapshotOpts.channel.id}
+          vocalQuotaOverride={snapshotOpts.channel.vocalQuotaOverride}
         />
       )}
 

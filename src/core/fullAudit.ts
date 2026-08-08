@@ -7,7 +7,7 @@ import { findBlockingVocabularyRepetition, findExcessiveVocabularyRepetition, fi
 import { lintInPackStyleSimilarity } from './diversityLinter';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { classifyTitleShape } from './titleShapeVariety';
-import { detectVocalGender } from './vocalPlan';
+import { detectVocalGender, scaleVocalQuota, type VocalQuota } from './vocalPlan';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, type TitleConsistencyReport } from './promiseAudit';
 import type { AudioSetReport } from './audioSetReport';
@@ -147,15 +147,38 @@ function structureItems(songs: SongIdea[], expectedSongCount: number, audiencePr
 // ---------------------------------------------------------------------------
 // [보컬]
 // ---------------------------------------------------------------------------
-function vocalItems(songs: SongIdea[]): AuditItem[] {
+/**
+ * TASK (정합성 점검 §1 결함2 fix) — a channel with a fixed vocalQuotaOverride
+ * (e.g. kr-idol-male's real {male:15, female:0, mixed:3}) mirrors
+ * designGate.ts's own vocalIssues/quotaFidelityIssues split (see that
+ * function's doc comment): 15/18 male tracks guarantee long same-type runs
+ * and a 0-share type no matter how the remaining songs are spread, so the
+ * generic 25~42%-per-type / zone / consecutive-run checks below are
+ * mathematically impossible to pass and were never a real quality signal for
+ * these channels — before this fix they made kr-idol-male/female
+ * permanently unable to reach releaseReady:true even on a correctly
+ * generated pack, while designGate.ts (already override-aware since 6bc2633)
+ * happily passed the same plan. `vocal_distribution` is replaced with a
+ * quota-fidelity check against the same songCount-scaled target/tolerance
+ * designGate.ts uses (scaleVocalQuota, ±1); `vocal_zone_max3`/
+ * `vocal_no_triple_run` are reported not-measured (never silently "passed")
+ * rather than evaluated against a threshold the override makes unreachable.
+ */
+function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditItem[] {
   const vocalTypes = songs.map(song => song.vocalType).filter((type): type is 'male' | 'female' | 'mixed' => Boolean(type));
   const counts: Record<string, number> = {};
   for (const type of vocalTypes) counts[type] = (counts[type] ?? 0) + 1;
+
+  const scaledQuota = vocalQuotaOverride ? scaleVocalQuota(vocalQuotaOverride, songs.length) : undefined;
   const lowShare = songs.length ? Math.floor(songs.length * 0.25) : 0;
   const highShare = songs.length ? Math.ceil(songs.length * 0.42) : 0;
-  const distributionOk = vocalTypes.length
-    ? Object.values(counts).every(count => count >= lowShare && count <= highShare)
-    : null;
+  const distributionOk = !vocalTypes.length ? null : scaledQuota
+    ? (['male', 'female', 'mixed'] as const).every(type => {
+      const actual = counts[type] ?? 0;
+      const expected = scaledQuota[type];
+      return expected === 0 ? actual === 0 : Math.abs(actual - expected) <= 1;
+    })
+    : Object.values(counts).every(count => count >= lowShare && count <= highShare);
 
   const zoneWarnings = vocalZoneDistributionWarnings(songs);
   const registerPool = [...MALE_VOCAL_TRAIT_AXES.register, ...FEMALE_VOCAL_TRAIT_AXES.register];
@@ -169,18 +192,23 @@ function vocalItems(songs: SongIdea[]): AuditItem[] {
   return [
     item({
       id: 'vocal_distribution', category: '보컬', labelKo: '보컬 타입 배분',
-      targetKo: `각 ${lowShare}~${highShare}곡`, actualKo: JSON.stringify(counts),
+      targetKo: scaledQuota
+        ? `고정 쿼터: 남 ${scaledQuota.male}·여 ${scaledQuota.female}·혼성 ${scaledQuota.mixed} (±1)`
+        : `각 ${lowShare}~${highShare}곡`,
+      actualKo: JSON.stringify(counts),
       pass: distributionOk, requiresAudio: false, specifiedBy: ['v3.72 TASK A']
     }),
     item({
       id: 'vocal_zone_max3', category: '보컬', labelKo: '구간별 같은 보컬 타입',
-      targetKo: '≤ 3곡', actualKo: zoneWarnings.length ? `${zoneWarnings.length}건 초과 구간` : '0건',
-      pass: songs.length >= 6 ? zoneWarnings.length === 0 : null, requiresAudio: false, specifiedBy: ['v3.75 TASK C']
+      targetKo: scaledQuota ? '해당 없음 (고정 쿼터 채널)' : '≤ 3곡',
+      actualKo: scaledQuota ? '고정 쿼터 채널 — 검사 제외' : (zoneWarnings.length ? `${zoneWarnings.length}건 초과 구간` : '0건'),
+      pass: scaledQuota ? null : (songs.length >= 6 ? zoneWarnings.length === 0 : null), requiresAudio: false, specifiedBy: ['v3.75 TASK C']
     }),
     item({
       id: 'vocal_no_triple_run', category: '보컬', labelKo: '같은 보컬 타입 연속',
-      targetKo: '≤ 2곡', actualKo: `${longestRun(vocalTypes)}곡`,
-      pass: vocalTypes.length ? longestRun(vocalTypes) <= 2 : null, requiresAudio: false, specifiedBy: ['v3.64-B', 'v3.72 TASK A']
+      targetKo: scaledQuota ? '해당 없음 (고정 쿼터 채널)' : '≤ 2곡',
+      actualKo: scaledQuota ? '고정 쿼터 채널 — 검사 제외' : `${longestRun(vocalTypes)}곡`,
+      pass: scaledQuota ? null : (vocalTypes.length ? longestRun(vocalTypes) <= 2 : null), requiresAudio: false, specifiedBy: ['v3.64-B', 'v3.72 TASK A']
     }),
     item({
       id: 'vocal_desc_present', category: '보컬', labelKo: '보컬 서술 누락',
@@ -703,13 +731,13 @@ function eraIntentItems(songs: SongIdea[], conceptLabel: string, explorationTrac
  */
 export function runFullAudit(
   songs: SongIdea[],
-  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[] }
+  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[]; vocalQuotaOverride?: VocalQuota }
 ): FullAuditReport {
   const promiseAuditReport = auditPromises(songs, opts.conceptLabel);
   const titleConsistency = auditTitleConceptConsistency(songs);
   const items = [
     ...structureItems(songs, opts.songCount, opts.audienceProfile),
-    ...vocalItems(songs),
+    ...vocalItems(songs, opts.vocalQuotaOverride),
     ...promptItems(songs),
     ...lyricsItems(songs),
     ...killingPointItems(songs, opts.audienceProfile.arcModelId),

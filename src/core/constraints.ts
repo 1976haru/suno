@@ -500,7 +500,26 @@ export function applyEraQuota(
    * which genre(s) within a bucket get opened first. Undefined at every
    * call site with no mood/rank signal to offer (unchanged behavior there).
    */
-  genreOrder?: readonly string[]
+  genreOrder?: readonly string[],
+  /**
+   * 정합성 점검 §1 결함1 fix — real measured bug: distributeInto used to
+   * always cap a genre it opens/tops-up at the module-wide
+   * GENRE_ERA_QUOTA_PER_GENRE_CAP (5) regardless of the CALLER's actual
+   * resolved breadth. That's correct for 'balanced' (designGate.ts's
+   * BREADTH_THRESHOLDS.balanced.genre.maxPerGenre is also 5) but wrong for
+   * 'variety' (maxPerGenre 4): a real "1950년대 향수가 느껴지는 올드팝"
+   * concept on senior-morning auto-detects 'variety' breadth (era-adjacency
+   * counts as a variety signal — see detectConceptBreadth), so
+   * chooseGenreIds only pre-seeds a few genres, era.primary's fill then
+   * opens fresh 1950s-60s genres capped at 5 each — one song over variety's
+   * own 4-cap — and design-gate's 'genre-max' check (senior-morning is
+   * intentionally exempt from the auto-widening every other archetype gets
+   * for this exact check, per that check's own doc comment) blocked a
+   * mathematically-satisfiable concept (6 real eligible 1950s-60s genres
+   * exist — more than enough at cap 4). Defaults to the original constant
+   * so every call site that doesn't know its own breadth is unaffected.
+   */
+  perGenreCap: number = GENRE_ERA_QUOTA_PER_GENRE_CAP
 ): { counts: Record<string, number>; warnings: string[] } {
   if (era.unspecified || !songCount) return { counts: genreCounts, warnings: [] };
   const genreOrderRank = genreOrder ? new Map(genreOrder.map((id, idx) => [id, idx])) : undefined;
@@ -632,7 +651,7 @@ export function applyEraQuota(
         for (const id of ids) {
           if (remaining <= 0) break;
           const current = counts.get(id) ?? 0;
-          if (current >= GENRE_ERA_QUOTA_PER_GENRE_CAP) continue;
+          if (current >= perGenreCap) continue;
           counts.set(id, current + 1);
           remaining -= 1;
           progressed = true;
@@ -650,7 +669,7 @@ export function applyEraQuota(
     // "insufficient candidates" case, unchanged from before, still returns
     // a partial fill via `amount - remaining` for the caller's own warning.
     while (remaining > 0 && newIds.length) {
-      const genresToOpen = Math.min(newIds.length, Math.max(1, Math.ceil(remaining / GENRE_ERA_QUOTA_PER_GENRE_CAP)));
+      const genresToOpen = Math.min(newIds.length, Math.max(1, Math.ceil(remaining / perGenreCap)));
       const chosen = newIds.splice(0, genresToOpen);
       topUp(chosen);
     }

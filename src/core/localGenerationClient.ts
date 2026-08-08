@@ -10,7 +10,7 @@ import type { GenerationGateResult } from './generationGate';
 import type { AudienceProfile, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, PreassignedSongSlot, SeasonPack, SongIdea } from '../types';
 import type { AudioSetReport } from './audioSetReport';
 import type { ResolvedConstraints } from './constraints';
-import type { VocalType } from './vocalPlan';
+import type { VocalType, VocalQuota } from './vocalPlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import type { ScoreCompositionOptions } from './compositionScorer';
 
@@ -104,7 +104,7 @@ export async function generateLocalBlueprintResponsive(
 
 export async function runFullAuditResponsive(
   songs: SongIdea[],
-  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport }
+  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; vocalQuotaOverride?: VocalQuota }
 ): Promise<FullAuditReport> {
   if (typeof Worker === 'undefined') return runFullAudit(songs, opts);
   const response = await runOnWorker<{ type: 'fullAudit'; ok: true; report: FullAuditReport }>(

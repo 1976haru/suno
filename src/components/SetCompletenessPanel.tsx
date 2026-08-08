@@ -86,11 +86,11 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
 
   useEffect(() => {
     let cancelled = false;
-    runFullAuditResponsive(blueprint.songs, { conceptLabel, songCount: blueprint.songs.length, audienceProfile })
+    runFullAuditResponsive(blueprint.songs, { conceptLabel, songCount: blueprint.songs.length, audienceProfile, vocalQuotaOverride: opts.channel.vocalQuotaOverride })
       .then(result => { if (!cancelled) setReport(result); })
       .catch(() => { if (!cancelled) setReport(null); });
     return () => { cancelled = true; };
-  }, [blueprint.songs, conceptLabel, audienceProfile]);
+  }, [blueprint.songs, conceptLabel, audienceProfile, opts.channel.vocalQuotaOverride]);
 
   const packId = `${blueprint.channelName}::${blueprint.projectTitle}::${blueprint.songs.length}`;
   function refreshAudioTakes() {
@@ -164,6 +164,7 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
           audienceProfile,
           lyricLanguage: opts.lyricLanguage,
           archetype: opts.channel.archetype,
+          vocalQuotaOverride: opts.channel.vocalQuotaOverride,
           duplicationHistory: {
             recentSituations: situations,
             recentLyricLines: lines,

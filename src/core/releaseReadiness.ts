@@ -21,6 +21,7 @@ import { checkKrIdolMaleFixedQuota, checkKrIdolMaleMotifQuotas, checkKrIdolMaleR
 import { checkKrIdolFemaleFixedQuota, checkKrIdolFemaleMotifQuotas, checkKrIdolFemaleRapShare, checkKrIdolFemaleChantOveruse } from './kpopFemalePolicy';
 import { parseLyricsSections } from './lyricsAst';
 import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
+import type { VocalQuota } from './vocalPlan';
 
 /**
  * v5.22 (AXIS 4 §4-3) — the task spec's own "무검수 발매 기준": 32 pass/fail
@@ -223,6 +224,18 @@ export interface ReleaseReadinessInput {
   lyricLanguage: 'english' | 'korean' | 'japanese' | 'bilingual';
   /** codex 지시문 05 (TASK F) — channel.archetype, threaded through to checkNegativePromptLength (kids archetypes get a real, different — currently unenforced — exempt band there). Optional: omitted callers get the non-kids band, same as every archetype-unaware caller before this task. */
   archetype?: string;
+  /**
+   * 정합성 점검 §1 결함2 fix — channel.vocalQuotaOverride (e.g. kr-idol-male's
+   * {male:15,female:0,mixed:3}), threaded through to runFullAudit's
+   * vocalItems so the generic 25~42%-per-type/zone/consecutive-run checks
+   * don't permanently fail a correctly-generated fixed-quota pack. Mirrors
+   * designGate.ts's own vocalQuotaOverride-aware branch (6bc2633) — before
+   * this fix, kr-idol-male/female could pass designGate but never reach
+   * releaseReady:true because this module's own vocal checks stayed
+   * archetype-blind. Optional: omitted callers (every non-quota-override
+   * channel) get the unchanged generic checks.
+   */
+  vocalQuotaOverride?: VocalQuota;
   /**
    * AXIS 1 ledger history — optional; the cross-set items report
    * 'not-measured' (not a silent pass) when omitted.
@@ -765,7 +778,8 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
   const fullAuditReport = runFullAudit(input.songs, {
     conceptLabel: input.conceptLabel,
     songCount: input.songCount,
-    audienceProfile: input.audienceProfile
+    audienceProfile: input.audienceProfile,
+    vocalQuotaOverride: input.vocalQuotaOverride
   });
   let reused = fullAuditReport.items
     .filter(item => !item.requiresAudio) // audio-dependent items are never measurable pre-release without a rendered take; excluded from this checklist rather than reported as a fake failure.
@@ -783,7 +797,8 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     const exemptAuditReport = runFullAudit(nonExplorationSongs, {
       conceptLabel: input.conceptLabel,
       songCount: nonExplorationSongs.length,
-      audienceProfile: input.audienceProfile
+      audienceProfile: input.audienceProfile,
+      vocalQuotaOverride: input.vocalQuotaOverride
     });
     const exemptItemsById = new Map(exemptAuditReport.items.map(auditItem => [auditItem.id, auditItem]));
     reused = reused.map(item => {

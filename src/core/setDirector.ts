@@ -1231,7 +1231,13 @@ export function buildSetPlanFromIntent(
   // exists to avoid. Round-robining one genre id from each segment at a
   // time keeps every segment's ids threaded through the map's order, so
   // the existing tie-break naturally alternates segments too.
-  const perSegmentCounts = resolvedSegments.map(segment => Object.entries(genreCountsFromIds(segment.genreIds, segment.songCount, 5)));
+  // 정합성 점검 §1 결함1 fix — this seed cap must match the same breadth-aware
+  // cap applyEraQuota now uses below (BREADTH_THRESHOLDS[breadth].genre.
+  // maxPerGenre), not the old hardcoded 5 — otherwise a genre could already
+  // land at 5 songs here, before applyEraQuota even runs, and survive
+  // untouched if era-quota trimming never revisits it (era-quota only trims
+  // buckets that are OVER their own share cap, not every genre).
+  const perSegmentCounts = resolvedSegments.map(segment => Object.entries(genreCountsFromIds(segment.genreIds, segment.songCount, BREADTH_THRESHOLDS[breadth].genre.maxPerGenre)));
   const genreCounts: Record<string, number> = {};
   const maxEntries = Math.max(0, ...perSegmentCounts.map(entries => entries.length));
   for (let i = 0; i < maxEntries; i++) {
@@ -1272,11 +1278,16 @@ export function buildSetPlanFromIntent(
     ? extractEraConstraint([intent.intentKo, ...resolvedSegments.filter(segment => !segment.blendedTraits).map(segment => segment.eraTag)].filter(Boolean).join(' '))
     : { primary: 'timeless' as const, adjacent: [], forbidden: [], unspecified: true };
   const eraConstraint = tightenEraConstraintForSenior(eraConstraintRaw, channel.archetype, safeSongCount);
+  // 정합성 점검 §1 결함1 fix — same breadth-aware perGenreCap as directSetLocal's
+  // own applyEraQuota call below (see that call site's comment / applyEraQuota's
+  // own doc comment on the perGenreCap parameter).
   const { counts: quotaAdjustedGenreCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     genreCounts,
     safeSongCount,
     eraConstraint,
-    genre => genreMatchesChannel(genre, channel)
+    genre => genreMatchesChannel(genre, channel),
+    undefined,
+    BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
   );
   const selectedIds = Object.keys(quotaAdjustedGenreCounts);
 
@@ -1493,7 +1504,11 @@ export function directSetLocal(
   // no per-id count yet (preQuotaSelectedIds is a flat list, not counts), so
   // this seeds an even split first — makeAllocations/allocateGenreCounts
   // would otherwise redo that same even split with no era awareness at all.
-  const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, 5);
+  // 정합성 점검 §1 결함1 fix — same reasoning as buildSetPlanFromIntent's
+  // identical perSegmentCounts seed just above: this cap must track
+  // BREADTH_THRESHOLDS[breadth].genre.maxPerGenre, not a hardcoded 5, or a
+  // genre can already sit at 5 songs before applyEraQuota (below) ever runs.
+  const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, BREADTH_THRESHOLDS[breadth].genre.maxPerGenre);
   // TASK v4.9 (TASK A) bugfix — real regression: applyEraQuota's own
   // "reach this era's minimum share" fill searches every channel-matching
   // genre, not just the family-filtered pool chooseGenreIds already
@@ -1512,12 +1527,21 @@ export function directSetLocal(
   // a quota bucket that needs new genres beyond what chooseGenreIds already
   // picked opens the best mood/score match available in that bucket first,
   // not just whichever genre data/genreLibrary happens to declare first.
+  // 정합성 점검 §1 결함1 fix — applyEraQuota's own per-genre cap now matches
+  // THIS concept's actual resolved breadth (BREADTH_THRESHOLDS[breadth].
+  // genre.maxPerGenre) instead of always using the module-wide constant
+  // (5) — see applyEraQuota's own doc comment on its new perGenreCap
+  // parameter for the real bug this closes (a 'variety'-breadth era-quota
+  // fill opening genres capped at 5 each, one over variety's own 4-cap,
+  // tripping designGate.ts's 'genre-max' check on an otherwise
+  // satisfiable concept).
   const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
     safeSongCount,
     tightenEraConstraintForSenior(eraConstraint, channel.archetype, safeSongCount),
     eraQuotaGenrePredicate,
-    ranked.map(item => item.genre.id)
+    ranked.map(item => item.genre.id),
+    BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
   );
   const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
   const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices);

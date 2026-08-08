@@ -4,12 +4,15 @@ import type { AudienceProfile, SongIdea } from '../types';
 import type { AuditItem, FullAuditReport } from '../core/fullAudit';
 import { runFullAuditResponsive } from '../core/localGenerationClient';
 import { scopedKey } from '../core/workspaceScope';
+import type { VocalQuota } from '../core/vocalPlan';
 
 interface PromiseAuditPanelProps {
   songs: SongIdea[];
   conceptLabel: string;
   audienceProfile: AudienceProfile;
   channelId: string;
+  /** 정합성 점검 §1 결함2 fix — same vocalQuotaOverride threading as SetCompletenessPanel.tsx, so a kr-idol-male/female pack doesn't show a permanently-failing vocal_distribution/zone/triple-run item here either. */
+  vocalQuotaOverride?: VocalQuota;
 }
 
 interface StoredBaseline {
@@ -68,7 +71,7 @@ function classify(it: AuditItem, baseline: StoredBaseline | undefined): Classifi
  * every other action on this screen (bridge instruction copy, etc.) stays
  * fully available regardless of what this panel shows.
  */
-export default function PromiseAuditPanel({ songs, conceptLabel, audienceProfile, channelId }: PromiseAuditPanelProps) {
+export default function PromiseAuditPanel({ songs, conceptLabel, audienceProfile, channelId, vocalQuotaOverride }: PromiseAuditPanelProps) {
   const [baseline, setBaseline] = useState(() => loadBaseline(channelId));
   const [expanded, setExpanded] = useState(false);
   // v4.0 (TASK A) — runFullAudit (49 items, including the pack-wide style-
@@ -84,11 +87,11 @@ export default function PromiseAuditPanel({ songs, conceptLabel, audienceProfile
   useEffect(() => {
     let cancelled = false;
     setAuditError('');
-    runFullAuditResponsive(songs, { conceptLabel, songCount: songs.length, audienceProfile })
+    runFullAuditResponsive(songs, { conceptLabel, songCount: songs.length, audienceProfile, vocalQuotaOverride })
       .then(result => { if (!cancelled) setReport(result); })
       .catch(error => { if (!cancelled) setAuditError(error instanceof Error ? error.message : String(error)); });
     return () => { cancelled = true; };
-  }, [songs, conceptLabel, audienceProfile]);
+  }, [songs, conceptLabel, audienceProfile, vocalQuotaOverride]);
 
   const classified = useMemo(() => report?.items.map(it => ({ item: it, classification: classify(it, baseline) })) ?? [], [report, baseline]);
   const regressions = classified.filter(c => c.classification === 'regression');

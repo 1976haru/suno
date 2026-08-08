@@ -73,6 +73,7 @@ import { kidsAgeTierFor } from '../data/kidsAgeTiers';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
+import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 
@@ -1190,7 +1191,15 @@ export function generateLocalBlueprint(
   // reference (when present) already carries its own instrumentation/
   // harmony/vocal/production atoms via DecomposedReference, so the palette
   // is skipped rather than doubled up when artistStyleAtomPool is non-empty.
-  const eraCanonPalettePlan = artistStyleAtomPool.length === 0 ? buildEraCanonPalettePlan(genrePlan, seed) : [];
+  // 정합성 점검 §1 결함1/palette-variety-max fix — mirrors designGate.ts's own
+  // paletteCoverageIssues call: real generation must use the same
+  // minPaletteVariety the design-time gate checked against, not
+  // buildEraCanonPalettePlan's stale module-default, or a pack that passed
+  // the gate's preview could still come out of real generation with a
+  // different (un-checked) palette count.
+  const eraCanonPalettePlan = artistStyleAtomPool.length === 0
+    ? buildEraCanonPalettePlan(genrePlan, seed, channelSoundFloorForArchetype(opts.channel.archetype)?.minPaletteVariety)
+    : [];
   const situationPool = new UniquePool(situationsForArchetype(opts.channel.archetype), seed + 21);
   // TASK v3.67 (TASK D) — phase-aware emotion-arc shape per track, replacing
   // the flat UniquePool(emotionArcs, seed) draw (every shape used to be the

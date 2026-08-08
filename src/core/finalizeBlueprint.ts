@@ -175,6 +175,7 @@ export async function finalizeBlueprintForUse(
     audienceProfile: context.audienceProfile,
     lyricLanguage: context.lyricLanguage,
     archetype: context.channel.archetype,
+    vocalQuotaOverride: context.channel.vocalQuotaOverride,
     duplicationHistory: context.duplicationHistory,
     explorationTrackNos: context.explorationTrackNos
   });
