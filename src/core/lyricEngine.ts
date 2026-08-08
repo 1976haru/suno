@@ -119,21 +119,25 @@ function koParticle(word: string, withBatchim: string, withoutBatchim: string): 
 // English pools
 // ---------------------------------------------------------------------------
 
+// 도입부 고유성 재조사 — koOpening's own doc comment above explains the root
+// cause and fix pattern; same here. A 4-phrase connector rotation prepends
+// ${c.motif} to each template's first line so it no longer depends on
+// ${c.season} alone.
 const enOpening: LineTemplate[] = [
-  c => [`The ${c.season} light is resting`, 'on the table by the door', 'I hear a quiet radio', 'like I have heard before'],
-  c => [`A ${c.season} wind is turning`, 'the pages of the day', `The ${c.motif} sits beside me`, 'with nothing left to say'],
-  c => [`Somewhere past the ${c.season} street`, 'a small clock starts to chime', `I trace the ${c.motif} slowly`, 'like it could hold the time'],
-  c => [`One more ${c.season} morning`, 'comes soft against the wall', `The ${c.motif} keeps its color`, 'through everything at all'],
-  c => [`I open up the curtain`, `to a ${c.season} kind of gray`, `The ${c.motif} waits in silence`, 'for whatever I might say'],
-  c => [`There is a ${c.season} quiet`, 'that only mornings know', `Beside the ${c.motif}, waiting`, 'I feel the hours grow slow'],
-  c => [`The ${c.season} air is settling`, 'like dust on old good news', `I hold the ${c.motif} closer`, 'to keep away the blues'],
-  c => [`A ${c.season} hush is falling`, 'on every empty chair', `The ${c.motif} still carries`, 'a softer kind of air'],
-  c => [`Under ${c.season} colors`, 'the whole street starts to wake', `I watch the ${c.motif} glowing`, 'for one more heart to take'],
-  c => [`The ${c.season} calm arrives here`, 'before the noise gets loud', `The ${c.motif} sits unhurried`, 'above the passing crowd'],
-  c => [`On this ${c.season} corner`, 'the world moves slow and kind', `The ${c.motif} keeps a rhythm`, 'that lingers in my mind'],
-  c => [`A ${c.season} note is drifting`, 'from somewhere down the hall', `The ${c.motif} leans in closer`, 'to answer when I call'],
-  c => [`I count the ${c.season} minutes`, 'the way an old friend would', `The ${c.motif} feels familiar`, 'in every neighborhood'],
-  c => [`Beneath a ${c.season} ceiling`, 'of quiet gray and gold', `The ${c.motif} holds a story`, 'that never gets too old']
+  c => [`With the ${c.motif} close, the ${c.season} light is resting`, 'on the table by the door', 'I hear a quiet radio', 'like I have heard before'],
+  c => [`Beside the ${c.motif}, a ${c.season} wind is turning`, 'the pages of the day', `The ${c.motif} sits beside me`, 'with nothing left to say'],
+  c => [`Holding the ${c.motif}, somewhere past the ${c.season} street`, 'a small clock starts to chime', `I trace the ${c.motif} slowly`, 'like it could hold the time'],
+  c => [`Like the ${c.motif}, one more ${c.season} morning`, 'comes soft against the wall', `The ${c.motif} keeps its color`, 'through everything at all'],
+  c => [`With the ${c.motif} close, I open up the curtain`, `to a ${c.season} kind of gray`, `The ${c.motif} waits in silence`, 'for whatever I might say'],
+  c => [`Beside the ${c.motif}, there is a ${c.season} quiet`, 'that only mornings know', `Beside the ${c.motif}, waiting`, 'I feel the hours grow slow'],
+  c => [`Holding the ${c.motif}, the ${c.season} air is settling`, 'like dust on old good news', `I hold the ${c.motif} closer`, 'to keep away the blues'],
+  c => [`Like the ${c.motif}, a ${c.season} hush is falling`, 'on every empty chair', `The ${c.motif} still carries`, 'a softer kind of air'],
+  c => [`With the ${c.motif} close, under ${c.season} colors`, 'the whole street starts to wake', `I watch the ${c.motif} glowing`, 'for one more heart to take'],
+  c => [`Beside the ${c.motif}, the ${c.season} calm arrives here`, 'before the noise gets loud', `The ${c.motif} sits unhurried`, 'above the passing crowd'],
+  c => [`Holding the ${c.motif}, on this ${c.season} corner`, 'the world moves slow and kind', `The ${c.motif} keeps a rhythm`, 'that lingers in my mind'],
+  c => [`Like the ${c.motif}, a ${c.season} note is drifting`, 'from somewhere down the hall', `The ${c.motif} leans in closer`, 'to answer when I call'],
+  c => [`With the ${c.motif} close, I count the ${c.season} minutes`, 'the way an old friend would', `The ${c.motif} feels familiar`, 'in every neighborhood'],
+  c => [`Beside the ${c.motif}, beneath a ${c.season} ceiling`, 'of quiet gray and gold', `The ${c.motif} holds a story`, 'that never gets too old']
 ];
 
 const enSituation: LineTemplate[] = [
@@ -232,19 +236,27 @@ const enClosing: LineTemplate[] = [
 // Korean pools
 // ---------------------------------------------------------------------------
 
+// 도입부 고유성 재조사 — 각 템플릿의 첫 줄은 원래 ${c.season}(팩 전체 고정값)에만
+// 의존해, 팩 크기(보통 18곡)가 템플릿 개수(12개)를 넘으면 비둘기집 원리로
+// 첫 줄이 구조적으로 중복될 수밖에 없었다(core/lyricsAst.ts's openingSixWords
+// 실측: 18곡 팩에서 평균 12.7/18 고유). 곡마다 달라지는 ${c.motif}를 짧은
+// 연결구로 첫 줄 맨 앞에 덧붙여, 기존 줄의 문법/줄 수는 그대로 두면서 첫
+// 줄의 실제 가짓수를 (템플릿 수) × (motif 풀 크기)로 넓힌다. 연결구 4종을
+// 순환시켜 같은 motif를 뽑은 두 곡이라도 연결구 자체가 곡마다 똑같이
+// 반복되지 않게 한다.
 const koOpening: LineTemplate[] = [
-  c => [`${c.season} 빛이 문가에 내려`, '오래된 잔 위에 머물고', '작은 라디오 소리 하나', '아침을 천천히 깨워요'],
-  c => [`${c.season} 바람이 지나가며`, '하루의 페이지를 넘기고', `${c.motif} 하나가 곁에서`, '아무 말 없이 머물러요'],
-  c => [`${c.season} 거리 저편에서`, '작은 종소리가 울리고', `${c.motif}${koParticle(c.motif, '을', '를')} 가만히 만지면`, '시간이 잠시 멈춰요'],
-  c => [`또 하루의 ${c.season} 아침이`, '벽 위로 부드럽게 내려와', `${c.motif}${koParticle(c.motif, '은', '는')} 그 색을 지키며`, '모든 걸 다 품어줘요'],
-  c => [`커튼을 살짝 걷으면`, `${c.season}의 흐린 하늘이 보여요`, `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 기다리며`, '내 말을 듣고 있어요'],
-  c => [`아침만 아는 ${c.season}의 고요가`, '가만히 내려앉고', `${c.motif} 곁에 서서 기다리면`, '시간이 천천히 자라요'],
-  c => [`${c.season} 공기가 내려앉아`, '지난 소식처럼 쌓이고', `${c.motif}${koParticle(c.motif, '을', '를')} 더 꼭 안으면`, '우울함이 멀어져요'],
-  c => [`${c.season}의 침묵이 내려와`, '빈 의자마다 앉고', `${c.motif}${koParticle(c.motif, '은', '는')} 여전히 머금고 있어요`, '더 부드러운 공기를'],
-  c => [`${c.season} 색깔 아래에서`, '거리 전체가 깨어나고', `빛나는 ${c.motif}${koParticle(c.motif, '을', '를')} 바라보면`, '마음 하나가 더 다가와요'],
-  c => [`${c.season}의 평온이 찾아와요`, '소음이 커지기 전에', `${c.motif}${koParticle(c.motif, '은', '는')} 서두르지 않고`, '차분히 자리를 지켜요'],
-  c => [`이 ${c.season} 모퉁이에서`, '세상은 천천히 다정하게 움직이고', `${c.motif}${koParticle(c.motif, '은', '는')} 리듬을 지키며`, '마음속에 오래 남아요'],
-  c => [`${c.season}의 음이 흘러와요`, '복도 저편 어디선가', `${c.motif}${koParticle(c.motif, '이', '가')} 조금 더 가까이`, '내가 부를 때 대답해요']
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, ${c.season} 빛이 문가에 내려`, '오래된 잔 위에 머물고', '작은 라디오 소리 하나', '아침을 천천히 깨워요'],
+  c => [`${c.motif} 곁에서, ${c.season} 바람이 지나가며`, '하루의 페이지를 넘기고', `${c.motif} 하나가 곁에서`, '아무 말 없이 머물러요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, ${c.season} 거리 저편에서`, '작은 종소리가 울리고', `${c.motif}${koParticle(c.motif, '을', '를')} 가만히 만지면`, '시간이 잠시 멈춰요'],
+  c => [`${c.motif}처럼 다가온, 또 하루의 ${c.season} 아침이`, '벽 위로 부드럽게 내려와', `${c.motif}${koParticle(c.motif, '은', '는')} 그 색을 지키며`, '모든 걸 다 품어줘요'],
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, 커튼을 살짝 걷으면`, `${c.season}의 흐린 하늘이 보여요`, `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 기다리며`, '내 말을 듣고 있어요'],
+  c => [`${c.motif} 곁에서, 아침만 아는 ${c.season}의 고요가`, '가만히 내려앉고', `${c.motif} 곁에 서서 기다리면`, '시간이 천천히 자라요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, ${c.season} 공기가 내려앉아`, '지난 소식처럼 쌓이고', `${c.motif}${koParticle(c.motif, '을', '를')} 더 꼭 안으면`, '우울함이 멀어져요'],
+  c => [`${c.motif}처럼 다가온, ${c.season}의 침묵이 내려와`, '빈 의자마다 앉고', `${c.motif}${koParticle(c.motif, '은', '는')} 여전히 머금고 있어요`, '더 부드러운 공기를'],
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, ${c.season} 색깔 아래에서`, '거리 전체가 깨어나고', `빛나는 ${c.motif}${koParticle(c.motif, '을', '를')} 바라보면`, '마음 하나가 더 다가와요'],
+  c => [`${c.motif} 곁에서, ${c.season}의 평온이 찾아와요`, '소음이 커지기 전에', `${c.motif}${koParticle(c.motif, '은', '는')} 서두르지 않고`, '차분히 자리를 지켜요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, 이 ${c.season} 모퉁이에서`, '세상은 천천히 다정하게 움직이고', `${c.motif}${koParticle(c.motif, '은', '는')} 리듬을 지키며`, '마음속에 오래 남아요'],
+  c => [`${c.motif}처럼 다가온, ${c.season}의 음이 흘러와요`, '복도 저편 어디선가', `${c.motif}${koParticle(c.motif, '이', '가')} 조금 더 가까이`, '내가 부를 때 대답해요']
 ];
 
 const koSituation: LineTemplate[] = [
@@ -347,17 +359,18 @@ const koClosing: LineTemplate[] = [
  * senior-radio announcer tone'). Same LineTemplate shape/line-count-per-
  * category as koPools so composeLyrics's section assembly needs no changes.
  */
+// 도입부 고유성 재조사 — koOpening's own doc comment above의 동일 원인/수정.
 const kr2030Opening: LineTemplate[] = [
-  c => [`${c.season} 거리 위로 불빛이 번지고`, '이어폰 속 노래가 낮게 흐르고', `${c.motif}${koParticle(c.motif, '이', '가')} 골목 끝에서 기다리면`, '하루가 천천히 풀려요'],
-  c => [`퇴근길 ${c.season} 공기를 마시며`, '걸음이 조금씩 가벼워지고', `${c.motif}${koParticle(c.motif, '은', '는')} 늘 그 자리에 서서`, '나를 알아보는 것 같아요'],
-  c => [`${c.season} 밤이 도시를 덮으면`, '네온 불빛이 하나둘 켜지고', `${c.motif}${koParticle(c.motif, '을', '를')} 스쳐 지나가다가`, '문득 걸음을 멈춰요'],
-  c => [`버스 정류장에 서서 보는 ${c.season}`, '오늘의 소음이 잦아들고', `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 곁을 지키며`, '말없이 나를 따라와요'],
-  c => [`서른의 ${c.season}은 조금 다르게 와요`, '조급함 대신 익숙함으로', `${c.motif}${koParticle(c.motif, '이', '가')} 그 사이를 채우면`, '오늘 하루도 괜찮아져요'],
-  c => [`${c.season} 골목을 따라 걸으면`, '가로등이 하나씩 켜지고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 빛 아래 서서`, '나를 집으로 이끌어요'],
-  c => [`이어폰 너머로 들리는 ${c.season}`, '도시의 소리가 낮게 섞이고', `${c.motif}${koParticle(c.motif, '을', '를')} 떠올리면`, '마음이 조금 느슨해져요'],
-  c => [`${c.season} 비가 아스팔트를 적시면`, '발걸음마다 불빛이 번지고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 사이를 걸어와`, '내 하루 끝에 닿아요'],
-  c => [`늦은 ${c.season} 밤, 편의점 불빛 아래`, '잠깐의 쉼표를 찍고', `${c.motif}${koParticle(c.motif, '이', '가')} 옆에 놓이면`, '오늘도 무사히 넘어가요'],
-  c => [`${c.season} 하늘 아래 도시가 반짝이고`, '지하철 계단을 오르내리며', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음에 맞춰`, '조용히 리듬을 지켜요']
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, ${c.season} 거리 위로 불빛이 번지고`, '이어폰 속 노래가 낮게 흐르고', `${c.motif}${koParticle(c.motif, '이', '가')} 골목 끝에서 기다리면`, '하루가 천천히 풀려요'],
+  c => [`${c.motif} 곁에서, 퇴근길 ${c.season} 공기를 마시며`, '걸음이 조금씩 가벼워지고', `${c.motif}${koParticle(c.motif, '은', '는')} 늘 그 자리에 서서`, '나를 알아보는 것 같아요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, ${c.season} 밤이 도시를 덮으면`, '네온 불빛이 하나둘 켜지고', `${c.motif}${koParticle(c.motif, '을', '를')} 스쳐 지나가다가`, '문득 걸음을 멈춰요'],
+  c => [`${c.motif}처럼 다가온, 버스 정류장에 서서 보는 ${c.season}`, '오늘의 소음이 잦아들고', `${c.motif}${koParticle(c.motif, '은', '는')} 조용히 곁을 지키며`, '말없이 나를 따라와요'],
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, 서른의 ${c.season}은 조금 다르게 와요`, '조급함 대신 익숙함으로', `${c.motif}${koParticle(c.motif, '이', '가')} 그 사이를 채우면`, '오늘 하루도 괜찮아져요'],
+  c => [`${c.motif} 곁에서, ${c.season} 골목을 따라 걸으면`, '가로등이 하나씩 켜지고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 빛 아래 서서`, '나를 집으로 이끌어요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, 이어폰 너머로 들리는 ${c.season}`, '도시의 소리가 낮게 섞이고', `${c.motif}${koParticle(c.motif, '을', '를')} 떠올리면`, '마음이 조금 느슨해져요'],
+  c => [`${c.motif}처럼 다가온, ${c.season} 비가 아스팔트를 적시면`, '발걸음마다 불빛이 번지고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 사이를 걸어와`, '내 하루 끝에 닿아요'],
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, 늦은 ${c.season} 밤, 편의점 불빛 아래`, '잠깐의 쉼표를 찍고', `${c.motif}${koParticle(c.motif, '이', '가')} 옆에 놓이면`, '오늘도 무사히 넘어가요'],
+  c => [`${c.motif} 곁에서, ${c.season} 하늘 아래 도시가 반짝이고`, '지하철 계단을 오르내리며', `${c.motif}${koParticle(c.motif, '은', '는')} 내 발걸음에 맞춰`, '조용히 리듬을 지켜요']
 ];
 
 const kr2030Situation: LineTemplate[] = [
@@ -450,17 +463,18 @@ const kr2030Closing: LineTemplate[] = [
  * separate 18-scene lyric worlds, data/lyricThemes.ts), just not in this
  * sentence-template layer.
  */
+// 도입부 고유성 재조사 — koOpening's own doc comment above의 동일 원인/수정.
 const krIdolOpening: LineTemplate[] = [
-  c => [`${c.season} 조명이 켜지면`, '심장이 먼저 뛰기 시작해요', `${c.motif}${koParticle(c.motif, '이', '가')} 무대 위로 번지고`, '오늘 밤이 시작돼요'],
-  c => [`무대 뒤 ${c.season} 공기 속에서`, '숨을 크게 들이쉬고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리를 기다리며`, '카운트다운을 시작해요'],
-  c => [`${c.season} 함성이 커질수록`, '심장 박동도 빨라지고', `${c.motif}${koParticle(c.motif, '을', '를')} 손끝으로 느끼면`, '모든 게 선명해져요'],
-  c => [`스포트라이트 아래 ${c.season}`, '오늘의 우리가 빛나고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 중심에 서서`, '눈을 마주쳐요'],
-  c => [`${c.season} 리듬이 시작되면`, '발끝부터 깨어나고', `${c.motif}${koParticle(c.motif, '이', '가')} 신호처럼 울리면`, '망설임 없이 뛰어들어요'],
-  c => [`무대 위 ${c.season} 빛 아래서`, '우리 모두 하나가 되고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 순간을 지키며`, '함께 노래해요'],
-  c => [`${c.season} 함성 속으로`, '한 걸음 더 나아가고', `${c.motif}${koParticle(c.motif, '을', '를')} 마주 보면`, '두려움이 사라져요'],
-  c => [`${c.season} 밤, 무대의 문이 열리면`, '준비했던 모든 순간이', `${c.motif}처럼 한 번에 터지고`, '우리가 완성돼요'],
-  c => [`${c.season} 카운트다운이 끝나면`, '문이 열리고 빛이 쏟아지고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 편에 서서`, '오늘을 함께 완성해요'],
-  c => [`${c.season} 함성이 파도처럼 밀려오면`, '심장이 그 리듬을 따라가고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 사이를 채우며`, '무대가 완성돼요']
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, ${c.season} 조명이 켜지면`, '심장이 먼저 뛰기 시작해요', `${c.motif}${koParticle(c.motif, '이', '가')} 무대 위로 번지고`, '오늘 밤이 시작돼요'],
+  c => [`${c.motif} 곁에서, 무대 뒤 ${c.season} 공기 속에서`, '숨을 크게 들이쉬고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리를 기다리며`, '카운트다운을 시작해요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, ${c.season} 함성이 커질수록`, '심장 박동도 빨라지고', `${c.motif}${koParticle(c.motif, '을', '를')} 손끝으로 느끼면`, '모든 게 선명해져요'],
+  c => [`${c.motif}처럼 다가온, 스포트라이트 아래 ${c.season}`, '오늘의 우리가 빛나고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 중심에 서서`, '눈을 마주쳐요'],
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, ${c.season} 리듬이 시작되면`, '발끝부터 깨어나고', `${c.motif}${koParticle(c.motif, '이', '가')} 신호처럼 울리면`, '망설임 없이 뛰어들어요'],
+  c => [`${c.motif} 곁에서, 무대 위 ${c.season} 빛 아래서`, '우리 모두 하나가 되고', `${c.motif}${koParticle(c.motif, '은', '는')} 그 순간을 지키며`, '함께 노래해요'],
+  c => [`${c.motif}${koParticle(c.motif, '을', '를')} 품은 채, ${c.season} 함성 속으로`, '한 걸음 더 나아가고', `${c.motif}${koParticle(c.motif, '을', '를')} 마주 보면`, '두려움이 사라져요'],
+  c => [`${c.motif}처럼 다가온, ${c.season} 밤, 무대의 문이 열리면`, '준비했던 모든 순간이', `${c.motif}처럼 한 번에 터지고`, '우리가 완성돼요'],
+  c => [`${c.motif}${koParticle(c.motif, '과', '와')} 함께, ${c.season} 카운트다운이 끝나면`, '문이 열리고 빛이 쏟아지고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 편에 서서`, '오늘을 함께 완성해요'],
+  c => [`${c.motif} 곁에서, ${c.season} 함성이 파도처럼 밀려오면`, '심장이 그 리듬을 따라가고', `${c.motif}${koParticle(c.motif, '은', '는')} 우리 사이를 채우며`, '무대가 완성돼요']
 ];
 
 const krIdolSituation: LineTemplate[] = [
@@ -535,19 +549,20 @@ const krIdolClosing: LineTemplate[] = [
 // Japanese pools
 // ---------------------------------------------------------------------------
 
+// 도입부 고유성 재조사 — koOpening's own doc comment above의 동일 원인/수정.
 const jaOpening: LineTemplate[] = [
-  c => [`${c.season}の光がそっと`, '古いカップに落ちて', '小さなラジオの音が', '朝をゆっくり起こす'],
-  c => [`${c.season}の風が過ぎて`, '一日のページをめくる', `${c.motif}がそばにいて`, '何も言わずにとどまる'],
-  c => [`${c.season}の街の向こうで`, '小さな鐘が鳴り', `${c.motif}にそっと触れると`, '時間が少し止まる'],
-  c => [`また巡る${c.season}の朝が`, '壁にやわらかく落ちて', `${c.motif}はその色を守り`, 'すべてを包み込む'],
-  c => [`カーテンをそっと開けると`, `${c.season}の曇り空が見える`, `${c.motif}は静かに待ちながら`, '私の声を聞いている'],
-  c => [`朝だけが知る${c.season}の静けさが`, 'そっと降りてきて', `${c.motif}のそばで待てば`, '時間がゆっくり育つ'],
-  c => [`${c.season}の空気が降り積もり`, '古い便りのように重なる', `${c.motif}をもっと抱きしめれば`, '憂鬱が遠ざかる'],
-  c => [`${c.season}の沈黙が降りて`, '空いた椅子に座る', `${c.motif}はまだ含んでいる`, 'やわらかな空気を'],
-  c => [`${c.season}色の下で`, '街全体が目を覚まし', `輝く${c.motif}を見つめれば`, '心がもう少し近づく'],
-  c => [`${c.season}の静けさが訪れる`, '騒がしさが増える前に', `${c.motif}は急がず`, '静かにそこにいる'],
-  c => [`この${c.season}の角で`, '世界はゆっくりやさしく動き', `${c.motif}はリズムを守り`, '心の中に長く残る'],
-  c => [`${c.season}の音が流れてくる`, '廊下の向こうのどこかから', `${c.motif}がもう少し近くで`, '呼べば応えてくれる']
+  c => [`${c.motif}と共に、${c.season}の光がそっと`, '古いカップに落ちて', '小さなラジオの音が', '朝をゆっくり起こす'],
+  c => [`${c.motif}のそばで、${c.season}の風が過ぎて`, '一日のページをめくる', `${c.motif}がそばにいて`, '何も言わずにとどまる'],
+  c => [`${c.motif}を見つめながら、${c.season}の街の向こうで`, '小さな鐘が鳴り', `${c.motif}にそっと触れると`, '時間が少し止まる'],
+  c => [`${c.motif}のように、また巡る${c.season}の朝が`, '壁にやわらかく落ちて', `${c.motif}はその色を守り`, 'すべてを包み込む'],
+  c => [`${c.motif}と共に、カーテンをそっと開けると`, `${c.season}の曇り空が見える`, `${c.motif}は静かに待ちながら`, '私の声を聞いている'],
+  c => [`${c.motif}のそばで、朝だけが知る${c.season}の静けさが`, 'そっと降りてきて', `${c.motif}のそばで待てば`, '時間がゆっくり育つ'],
+  c => [`${c.motif}を見つめながら、${c.season}の空気が降り積もり`, '古い便りのように重なる', `${c.motif}をもっと抱きしめれば`, '憂鬱が遠ざかる'],
+  c => [`${c.motif}のように、${c.season}の沈黙が降りて`, '空いた椅子に座る', `${c.motif}はまだ含んでいる`, 'やわらかな空気を'],
+  c => [`${c.motif}と共に、${c.season}色の下で`, '街全体が目を覚まし', `輝く${c.motif}を見つめれば`, '心がもう少し近づく'],
+  c => [`${c.motif}のそばで、${c.season}の静けさが訪れる`, '騒がしさが増える前に', `${c.motif}は急がず`, '静かにそこにいる'],
+  c => [`${c.motif}を見つめながら、この${c.season}の角で`, '世界はゆっくりやさしく動き', `${c.motif}はリズムを守り`, '心の中に長く残る'],
+  c => [`${c.motif}のように、${c.season}の音が流れてくる`, '廊下の向こうのどこかから', `${c.motif}がもう少し近くで`, '呼べば応えてくれる']
 ];
 
 const jaSituation: LineTemplate[] = [
@@ -644,17 +659,18 @@ const jaClosing: LineTemplate[] = [
  * 'nostalgic senior-radio announcer tone'). Plain/poetic register (not
  * polite -です/-ます), matching jaPools' own existing style.
  */
+// 도입부 고유성 재조사 — koOpening's own doc comment above의 동일 원인/수정.
 const jp2030Opening: LineTemplate[] = [
-  c => [`${c.season}の街に灯りが滲んで`, 'イヤホンの中で歌が低く流れ', `${c.motif}が路地の先で待っていれば`, '一日がゆっくりほどけてゆく'],
-  c => [`帰り道、${c.season}の空気を吸い込んで`, '足取りが少しずつ軽くなる', `${c.motif}はいつもそこに立って`, '私を見つけてくれる気がする'],
-  c => [`${c.season}の夜が街を包めば`, 'ネオンの灯りが一つずつ灯る', `${c.motif}をふと通り過ぎて`, 'ふいに足を止める'],
-  c => [`バス停に立って眺める${c.season}`, '今日の騒がしさが静まって', `${c.motif}は静かにそばにいて`, '黙って私についてくる'],
-  c => [`三十路の${c.season}は少し違って来る`, '焦りの代わりに馴染みが増えて', `${c.motif}がその隙間を埋めれば`, '今日も何とかなる気がする'],
-  c => [`${c.season}の路地を歩いていけば`, '街灯が一つずつ灯りだす', `${c.motif}はその灯りの下に立って`, '私を家へ導いてくれる'],
-  c => [`イヤホンの向こうに聞こえる${c.season}`, '街の音が低く混ざり合う', `${c.motif}を思い出せば`, '心が少しゆるんでいく'],
-  c => [`${c.season}の雨がアスファルトを濡らせば`, '足音のたびに灯りが滲む', `${c.motif}はその間を歩いてきて`, '一日の終わりに辿り着く'],
-  c => [`遅い${c.season}の夜、コンビニの灯りの下`, 'つかの間の休符を打って', `${c.motif}がそばに置かれれば`, '今日も無事に終わってゆく'],
-  c => [`${c.season}の空の下、街が輝いて`, '駅の階段を上り下りしながら', `${c.motif}は私の足取りに合わせて`, '静かにリズムを守っている']
+  c => [`${c.motif}と共に、${c.season}の街に灯りが滲んで`, 'イヤホンの中で歌が低く流れ', `${c.motif}が路地の先で待っていれば`, '一日がゆっくりほどけてゆく'],
+  c => [`${c.motif}のそばで、帰り道、${c.season}の空気を吸い込んで`, '足取りが少しずつ軽くなる', `${c.motif}はいつもそこに立って`, '私を見つけてくれる気がする'],
+  c => [`${c.motif}を見つめながら、${c.season}の夜が街を包めば`, 'ネオンの灯りが一つずつ灯る', `${c.motif}をふと通り過ぎて`, 'ふいに足を止める'],
+  c => [`${c.motif}のように、バス停に立って眺める${c.season}`, '今日の騒がしさが静まって', `${c.motif}は静かにそばにいて`, '黙って私についてくる'],
+  c => [`${c.motif}と共に、三十路の${c.season}は少し違って来る`, '焦りの代わりに馴染みが増えて', `${c.motif}がその隙間を埋めれば`, '今日も何とかなる気がする'],
+  c => [`${c.motif}のそばで、${c.season}の路地を歩いていけば`, '街灯が一つずつ灯りだす', `${c.motif}はその灯りの下に立って`, '私を家へ導いてくれる'],
+  c => [`${c.motif}を見つめながら、イヤホンの向こうに聞こえる${c.season}`, '街の音が低く混ざり合う', `${c.motif}を思い出せば`, '心が少しゆるんでいく'],
+  c => [`${c.motif}のように、${c.season}の雨がアスファルトを濡らせば`, '足音のたびに灯りが滲む', `${c.motif}はその間を歩いてきて`, '一日の終わりに辿り着く'],
+  c => [`${c.motif}と共に、遅い${c.season}の夜、コンビニの灯りの下`, 'つかの間の休符を打って', `${c.motif}がそばに置かれれば`, '今日も無事に終わってゆく'],
+  c => [`${c.motif}のそばで、${c.season}の空の下、街が輝いて`, '駅の階段を上り下りしながら', `${c.motif}は私の足取りに合わせて`, '静かにリズムを守っている']
 ];
 
 const jp2030Situation: LineTemplate[] = [

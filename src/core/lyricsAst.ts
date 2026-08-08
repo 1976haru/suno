@@ -114,10 +114,20 @@ export function parseLyricsSections(lyrics: string): LyricsSection[] {
  * --cross comparison) so core/situationLedger.ts's opening-line tracking
  * (지시문 10 TASK B-4-3) and the CLI's cross-pack comparison always agree on
  * exactly what "the opening" means for a song.
+ *
+ * 도입부 고유성 재조사 — 'instrumental'-typed sections are excluded from the
+ * search: this module's own instrumentalSectionsAllowedEmpty/
+ * coldVocalIntroEmptyWarning already treat that type as "no sung line
+ * expected here by design", but this function still read any production-note
+ * text under an `[instrumental hook]` tag (e.g. lyricEngine.ts's T4 template,
+ * which hardcodes the literal "(instrumental hook, band plays the melody, no
+ * lyrics, 2 bars)" for every song using that structure) as if it were the
+ * song's real opening lyric — collapsing every such song onto one identical
+ * "opening" even though that line explicitly says "no lyrics".
  */
 export function openingSixWords(lyrics: string): string {
   const sections = parseLyricsSections(lyrics);
-  const firstLine = sections.flatMap(s => s.lines).find(l => l.trim())?.trim() ?? '';
+  const firstLine = sections.filter(s => s.type !== 'instrumental').flatMap(s => s.lines).find(l => l.trim())?.trim() ?? '';
   return firstLine.split(/\s+/).slice(0, 6).join(' ').toLowerCase();
 }
 
