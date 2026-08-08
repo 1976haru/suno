@@ -17,10 +17,35 @@ import { buildGenreTraits } from '../genreTraits';
  * requirement every genre must satisfy.
  */
 export const CORE_LYRIC_FLAVOR_IMAGES: Partial<Record<string, GenreLyricFlavorImage[]>> = {
+  // 정합성 점검 §7 결함8 fix — real ROOT CAUSE found (not the systemic
+  // multi-pool drift the earlier partial fix targeted): core/localGenerator.ts's
+  // genreFlavorImages is computed from `genres[0]` ONCE per pack, not per
+  // track (that file's own TASK H2 (v3.13) comment — a deliberate "pack's
+  // primary genre supplies shared imagery" design, not a bug in the
+  // selection logic itself). For good-morning-memory-radio's own DEFAULT
+  // state (createInitialOptions, no concept applied), genres[0] is always
+  // 'adult-contemporary' — and every one of its 3 entries contained a
+  // WORD_BLOCKING_THRESHOLD-busting word (soft/radio, warm/coffee,
+  // quiet/window), so EVERY track in an 18-song pack — regardless of that
+  // track's own actual assigned genre — drew its hook/motif imagery from
+  // just these 3 phrases. A real measured pack traced literal repeated
+  // "like a quiet window seat"/"soft radio dial" lines back to exactly this
+  // array. Purely additive (5 new entries, existing 3 untouched, selection
+  // mechanism untouched — no risk to the §7-validated pack-cohesion
+  // behavior this design intentionally produces) — deliberately avoiding
+  // quiet/soft/warm/radio/coffee/window/cup/seat/dial as each new entry's
+  // own word, so pickFlavor()'s random draw (core/lyricEngine.ts) has real
+  // alternatives instead of a 3-way coin flip between three near-identical
+  // offenders.
   'adult-contemporary': [
     { english: 'soft radio dial', korean: '부드러운 라디오 다이얼', japanese: 'やわらかなラジオのダイヤル' },
     { english: 'warm coffee cup', korean: '따뜻한 커피잔', japanese: 'あたたかいコーヒーカップ' },
-    { english: 'quiet window seat', korean: '조용한 창가 자리', japanese: '静かな窓辺の席' }
+    { english: 'quiet window seat', korean: '조용한 창가 자리', japanese: '静かな窓辺の席' },
+    { english: 'evening newspaper page', korean: '저녁 신문 한 장', japanese: '夕刊の一面' },
+    { english: 'garden bench shade', korean: '정원 벤치의 그늘', japanese: '庭のベンチの木陰' },
+    { english: 'faded concert ticket', korean: '빛바랜 콘서트 표', japanese: '色あせたコンサートチケット' },
+    { english: 'worn leather journal', korean: '낡은 가죽 수첩', japanese: '使い込んだ革の手帳' },
+    { english: 'amber table lamp', korean: '호박빛 테이블 램프', japanese: '琥珀色のテーブルランプ' }
   ],
   'acoustic-pop': [
     { english: 'worn guitar strings', korean: '낡은 기타 줄', japanese: '使い込んだギターの弦' },
