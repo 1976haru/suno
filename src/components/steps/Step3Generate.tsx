@@ -1714,7 +1714,7 @@ export default function Step3Generate({
                 <Download size={16} />
                 .txt로 다운로드
               </button>
-              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'Claude Code가 만든 songs-output.json 가져오기' : '채널과 시즌을 먼저 선택하세요'}>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'Claude Code가 만든 songs-output.json 가져오기' : bridgeBlockMessage}>
                 <input
                   type="file"
                   accept="application/json"
@@ -1729,7 +1729,7 @@ export default function Step3Generate({
                 <FileJson size={16} />
                 {isImporting ? '가져오는 중...' : '곡 JSON 가져오기'}
               </label>
-              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? '기존 lyrics/*.json 파일로 팩 재생성 없이 바로 SRT 자막 만들기 — 라이브러리에는 저장되지 않습니다' : '채널과 시즌을 먼저 선택하세요'}>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? '기존 lyrics/*.json 파일로 팩 재생성 없이 바로 SRT 자막 만들기 — 라이브러리에는 저장되지 않습니다' : bridgeBlockMessage}>
                 <input
                   type="file"
                   accept="application/json"
@@ -1758,7 +1758,7 @@ export default function Step3Generate({
                 if (file) void handleImportSongsFile(file);
               }}
             >
-              {canImportBridge ? 'Drop songs-output.json here to import, or use the file picker above.' : '채널과 시즌을 먼저 선택해야 JSON을 가져올 수 있습니다.'}
+              {canImportBridge ? 'Drop songs-output.json here to import, or use the file picker above.' : bridgeBlockMessage}
             </div>
             {importReport && <BridgeImportReportSummary report={importReport} />}
             {importReport?.warnings.length ? (
@@ -1828,7 +1828,7 @@ export default function Step3Generate({
               </div>
             )}
             <div className="button-row">
-              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'songs-output-set01.json ~ setNN.json 파일을 한 번에 선택' : '채널과 시즌을 먼저 선택하세요'}>
+              <label className={canImportBridge ? 'import-button' : 'import-button disabled'} title={canImportBridge ? 'songs-output-set01.json ~ setNN.json 파일을 한 번에 선택' : bridgeBlockMessage}>
                 <input
                   type="file"
                   accept="application/json"

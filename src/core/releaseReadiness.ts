@@ -479,9 +479,15 @@ function newItems(input: ReleaseReadinessInput): ReleaseReadinessItem[] {
     .map(song => ({ trackNo: song.trackNo, severity: checkNegativePromptLength(song.excludePrompt ?? '', input.archetype) }));
   const blockingExcludes = excludeSeverities.filter(s => s.severity === 'blocking');
   const advisoryExcludes = excludeSeverities.filter(s => s.severity === 'advisory');
+  // 결함5 전수 재검토 — labelKo가 약속하는 조건("blocking 0건")과 실제
+  // status 계산이 어긋나 있었다: 팩의 모든 곡이 excludePrompt를 아예 갖고
+  // 있지 않으면(excludeSeverities.length === 0) blocking 건수가 자명하게
+  // 0인데도 무조건 'fail'로 표시됐다 — 라벨이 약속하지 않은 "excludePrompt가
+  // 하나 이상 존재해야 한다"는 조건이 몰래 섞여 있었던 것. 라벨 그대로,
+  // blocking 건수만으로 판정하도록 수정.
   items.push({
     id: RELEASE_READINESS_ITEM_IDS.negativePromptLength, categoryKo: '프롬프트', labelKo: 'excludePrompt 길이 (blocking 0건)',
-    status: excludeSeverities.length > 0 && blockingExcludes.length === 0 ? 'pass' : 'fail',
+    status: blockingExcludes.length === 0 ? 'pass' : 'fail',
     detail: excludeSeverities.length
       ? `blocking ${blockingExcludes.length}곡 / advisory ${advisoryExcludes.length}곡`
       : 'excludePrompt 없음'
