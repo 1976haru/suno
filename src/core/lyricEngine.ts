@@ -1437,12 +1437,27 @@ const enHookImperative = [
   'Keep the Light On', 'Pour the Coffee Warm', 'Write One More Letter', 'Play the Old Record',
   'Catch the Morning Train', 'Light the Candle Again', 'Turn the Page Slowly', 'Share the Warm Umbrella',
   'Keep the Radio Playing', 'Hold the Photo Close', 'Wrap the Old Sweater', 'Wait by the Window',
-  'Come Back to This Morning', 'Remember Me at Sunrise'
+  'Come Back to This Morning', 'Remember Me at Sunrise',
+  // 정합성 점검 §7 결함8 fix — real measured cause: this hand-written
+  // "premium" hook pool (preferred first, before the combinatorial
+  // hookParts.ts layer — see premiumBankFor's own doc comment) is what a
+  // real 18-song senior-morning pack's chorus hooks actually draw from,
+  // each repeated ~4x within its own song by design. A real measured pack
+  // showed pack-wide counts of quiet 67x/soft 67x/radio 52x/window 50x/
+  // coffee 45x, all traceable to this exact 14-entry pool (Coffee/Radio/
+  // Window above) — far past core/lyricVocabularyRepetition.ts's
+  // WORD_BLOCKING_THRESHOLD (30). Purely additive, positionally mirrored in
+  // koHookImperative/jaHookImperative below (same index = same meaning, per
+  // this file's own established convention), deliberately avoiding
+  // coffee/radio/window/quiet/soft/warm as each new entry's own word.
+  'Save the Old Letter', 'Light the Evening Star', 'Walk the Garden Path', 'Keep the Blanket Near',
+  'Turn the Photograph Over'
 ];
 const enHookNounPhrase = [
   'Winter Window Light', 'Golden Sunset Train', 'Quiet Morning Coffee', 'Old December Letter',
   'First Snow Radio', 'Slow Sunday Sweater', 'Midnight Hour Candle', 'Soft Christmas Doorway',
-  'Rainy Afternoon Record', 'New Year Umbrella'
+  'Rainy Afternoon Record', 'New Year Umbrella',
+  'Amber Evening Star', 'Faded Garden Letter', 'Long Autumn Bench', 'Blue Dusk Melody', 'Bright Sunday Blanket'
 ];
 const enHookDeclarative = [
   "I'll Wait for Morning", "We'll Be Alright", 'I Remember You', "I'm Coming Home",
@@ -1461,11 +1476,13 @@ const koHookVocative = [
 const koHookImperative = [
   '불을 켜둬요', '커피를 데워요', '편지를 써봐요', '라디오를 틀어요', '그 길을 걸어요',
   '촛불을 다시 켜요', '창문을 열어둬요', '우산을 함께 써요', '사진을 꺼내봐요', '달력을 넘겨봐요',
-  '스웨터를 껴입어요', '레코드를 틀어봐요'
+  '스웨터를 껴입어요', '레코드를 틀어봐요',
+  '편지를 간직해요', '저녁별을 밝혀요', '정원 길을 걸어요', '이불을 가까이 둬요', '사진을 다시 넘겨봐요'
 ];
 const koHookNounPhrase = [
   '겨울 창가의 빛', '금빛 새벽 기차', '고요한 아침 커피', '12월의 오래된 편지', '첫눈 내리는 라디오',
-  '느린 일요일 스웨터', '한밤의 촛불', '부드러운 크리스마스 문가', '비 오는 오후의 레코드', '새해의 작은 우산'
+  '느린 일요일 스웨터', '한밤의 촛불', '부드러운 크리스마스 문가', '비 오는 오후의 레코드', '새해의 작은 우산',
+  '호박빛 저녁별', '빛바랜 정원의 편지', '긴 가을 벤치', '푸른 황혼의 노래', '밝은 일요일의 이불'
 ];
 const koHookDeclarative = [
   '아침을 기다릴게요', '우리 함께 괜찮을 거예요', '너를 기억해요', '이제 집에 가요', '잊지 않을게요',
@@ -1484,11 +1501,13 @@ const jaHookVocative = [
 const jaHookImperative = [
   '灯りをつけて', 'コーヒーを温めて', '手紙を書いて', 'ラジオをつけて', 'あの駅で待って',
   'キャンドルをまた灯して', '窓を開けて', '傘を一緒にさして', '写真を取り出して', 'カレンダーをめくって',
-  'セーターを着て', 'レコードをかけて'
+  'セーターを着て', 'レコードをかけて',
+  '手紙を大事にして', '夕べの星を灯して', '庭の小道を歩いて', '毛布をそばに置いて', '写真をめくり返して'
 ];
 const jaHookNounPhrase = [
   '冬の窓辺の光', '金色の夕暮れ列車', '静かな朝のコーヒー', '十二月の古い手紙', '初雪のラジオ',
-  'ゆっくりな日曜のセーター', '真夜中のキャンドル', 'やわらかなクリスマスの戸口', '雨の午後のレコード', '新年の小さな傘'
+  'ゆっくりな日曜のセーター', '真夜中のキャンドル', 'やわらかなクリスマスの戸口', '雨の午後のレコード', '新年の小さな傘',
+  '琥珀色の夕べの星', '色あせた庭の手紙', '長い秋のベンチ', '青い黄昏のメロディ', '明るい日曜の毛布'
 ];
 const jaHookDeclarative = [
   '朝を待っている', 'きっと大丈夫', 'あなたを覚えている', 'もう家に着く', '忘れたりしない',

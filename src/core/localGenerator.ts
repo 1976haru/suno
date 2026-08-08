@@ -256,7 +256,32 @@ const listenerSituations: LocalizedPhrase[] = [
   { english: 'a warm shop window at dusk', korean: '따뜻한 가게 창가', japanese: '暖かい店の窓辺' },
   { english: 'slow train ride home', korean: '느린 기차를 타고 가는 귀갓길', japanese: 'ゆっくりな列車で帰る道' },
   { english: 'an old sweater folded in a quiet room', korean: '조용한 방에서 개는 오래된 스웨터', japanese: '静かな部屋で畳む古いセーター' },
-  { english: 'first light of evening', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' }
+  { english: 'first light of evening', korean: '하나둘 켜지는 불빛', japanese: 'ひとつずつ灯る明かり' },
+  // 정합성 점검 §7 결함8 fix — real measured cause: this pool had only 10
+  // entries for an 18-song pack, so UniquePool's own round-2 reshuffle (see
+  // that class's own doc comment) necessarily reused 8 of them a second
+  // time; several already-existing entries also share the same handful of
+  // core nouns (coffee/window/radio/quiet/warm appear across multiple
+  // entries here AND in recurringMotifs below AND in data/vocabularyBanks.ts's
+  // quiet-morning bank), so a reused entry's hook (repeated ~4x within its
+  // own song's chorus, per lyricEngine.ts's hook structure) compounded into
+  // pack-wide word counts (quiet/soft each 67x, radio 52x, window 50x — all
+  // far past WORD_BLOCKING_THRESHOLD=30) across a real measured 18-song
+  // senior-morning pack. Purely additive (same pattern as v5.7 TASK G's own
+  // fix for the analogous cross-workspace contamination bug this pool
+  // caused) — every existing entry/index is untouched. 8 new entries grows
+  // the pool to 18 (matching songCount, eliminating same-round reuse for the
+  // channel's own default pack size) and deliberately avoids
+  // coffee/window/radio/quiet/warm/soft/seat/cup as each new entry's core
+  // noun so the pool's own vocabulary is more spread out, not just longer.
+  { english: 'a garden bench beneath the maple tree', korean: '단풍나무 아래 정원 벤치', japanese: '楓の木の下の庭のベンチ' },
+  { english: 'an old record spinning in the parlor', korean: '응접실에서 돌아가는 옛 레코드', japanese: '客間で回る古いレコード' },
+  { english: 'a handwritten postcard from an old friend', korean: '옛 친구가 보낸 손편지 엽서', japanese: '古い友人からの手書きの葉書' },
+  { english: 'family photographs spread across the table', korean: '식탁 위에 펼쳐진 가족사진들', japanese: 'テーブルに広げた家族写真' },
+  { english: 'a slow walk past the corner bakery', korean: '모퉁이 빵집을 지나는 느린 걸음', japanese: '角のパン屋を通り過ぎるゆっくりした足取り' },
+  { english: 'laundry folded before the light fades', korean: '빛이 저물기 전 개어둔 빨래', japanese: '光が沈む前にたたんだ洗濯物' },
+  { english: 'a torn page mended by careful hands', korean: '조심스러운 손길로 고친 찢어진 페이지', japanese: '丁寧な手で直した破れたページ' },
+  { english: 'a favorite old tune hummed while the kettle boils', korean: '주전자가 끓는 동안 흥얼거리는 옛 노래', japanese: 'やかんが沸く間口ずさむ懐かしい歌' }
 ];
 
 /** Exported for batchPreallocation.ts (TASK B2, v3.6) — pre-allocating songRole/emotionArc/tempo locally, before a batch job is submitted, needs the exact same pools the local generator itself draws from. */
@@ -379,7 +404,23 @@ export const recurringMotifs: LocalizedPhrase[] = [
   { english: 'quiet doorway', korean: '조용한 문', japanese: '静かな戸口' },
   { english: 'porcelain cup', korean: '도자기 잔', japanese: '陶器のカップ' },
   { english: 'evening train', korean: '저녁 기차', japanese: '夕方の電車' },
-  { english: 'small notebook', korean: '작은 수첩', japanese: '小さなノート' }
+  { english: 'small notebook', korean: '작은 수첩', japanese: '小さなノート' },
+  // 정합성 점검 §7 결함8 fix — same real-measured cause as listenerSituations'
+  // own identical fix just above (15 entries for an 18-song pack forced a
+  // round-2 reuse; several entries already shared coffee/radio/window
+  // as their core noun). Purely additive, 10 new entries growing this pool
+  // past songCount too, deliberately avoiding
+  // coffee/radio/window/quiet/warm/soft/cup as each new entry's core noun.
+  { english: 'spinning vinyl record', korean: '돌아가는 레코드판', japanese: '回るレコード' },
+  { english: 'dawn garden gate', korean: '새벽의 정원 문', japanese: '夜明けの庭の門' },
+  { english: 'handwritten postcard', korean: '손으로 쓴 엽서', japanese: '手書きの葉書' },
+  { english: 'porch rocking chair', korean: '현관의 흔들의자', japanese: '縁側の揺り椅子' },
+  { english: 'ticking mantel clock', korean: '째깍이는 벽난로 시계', japanese: '時を刻む暖炉の時計' },
+  { english: 'pressed autumn leaf', korean: '눌러 말린 낙엽', japanese: '押し花にした紅葉', seasons: ['autumn'] },
+  { english: 'faded family album', korean: '빛바랜 가족 앨범', japanese: '色あせた家族アルバム' },
+  { english: 'knitting needles', korean: '뜨개바늘', japanese: '編み針', seasons: ['autumn', 'winter'] },
+  { english: 'dog-eared storybook', korean: '귀 접힌 옛날이야기책', japanese: '耳が折れた昔話の本' },
+  { english: 'polaroid snapshot', korean: '폴라로이드 사진', japanese: 'ポラロイド写真' }
 ];
 
 /**

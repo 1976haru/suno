@@ -109,9 +109,16 @@ describe('v3.12 hook pool capacity — real-production-config diagnosis + fix ve
     // premium tier lives in core/lyricEngine.ts and is shared/untouched, so
     // every archetype that still draws from it should show its known,
     // stable total.
-    expect(hookPoolSize('english', 'senior-morning')).toBe(400);
-    expect(hookPoolSize('english', 'christmas')).toBe(400);
-    expect(hookPoolSize('english', 'lofi-study')).toBe(400);
+    // 정합성 점검 §7 결함8 fix — 400 -> 405: enHookImperative/enHookNounPhrase
+    // (core/lyricEngine.ts's premium tier) grew by 5 entries each to reduce
+    // real measured pack-wide word repetition (quiet/soft/radio/window/
+    // coffee all far past WORD_BLOCKING_THRESHOLD in a real senior-morning
+    // pack — see those arrays' own doc comment). A deliberate change to this
+    // shared tier, not a regression of v3.12's own fix — this snapshot value
+    // just needs to track the new real total.
+    expect(hookPoolSize('english', 'senior-morning')).toBe(405);
+    expect(hookPoolSize('english', 'christmas')).toBe(405);
+    expect(hookPoolSize('english', 'lofi-study')).toBe(405);
   });
 
   it('showa-cafe vocabulary additions contain no modern IT/digital vocabulary (v3.7 archetype rule)', () => {
