@@ -126,6 +126,25 @@ jobs:
       - run: npm ci
       - run: npm run audit
 
+  # 정합성 점검 §4/결함7 fix — `--pack` mode (real bridgeImport-scored
+  # release packs, not the deterministic local template `audit` above)
+  # never ran anywhere: no CI job, and audit-baseline.pack.json didn't even
+  # exist, so a run always reported "기준선 없음" and could never detect a
+  # regression. audit-baseline.pack.json now committed (npm run audit:pack
+  # --save-baseline, run once by hand); this job compares future runs
+  # against it and never passes --save-baseline itself, same
+  # human-explicit-commit-only baseline policy as the `audit` job above.
+  audit-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run audit:pack
+
   # 지시문 08 (TASK A-2/B) — regression guard for the exact class of bug TASK
   # A of this directive fixed: a node/tsx-unreachable Vite-only import
   # (`?worker`/`?url`) or a top-level browser global creeping back into

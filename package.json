@@ -20,6 +20,7 @@
     "test:stress": "vitest run --config vitest.stress.config.ts --reporter=verbose",
     "test:matrix": "vitest run --config vitest.matrix.config.ts",
     "audit": "tsx scripts/audit.ts",
+    "audit:pack": "tsx scripts/audit.ts --pack tests/fixtures/realPack60s.json && tsx scripts/audit.ts --pack tests/fixtures/realPack70s.json",
     "audit:isolation": "tsx scripts/isolationAudit.ts",
     "check:node": "tsx scripts/checkNodeReachability.ts",
     "check:reachability": "tsx scripts/checkReachability.ts",
