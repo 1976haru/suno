@@ -1666,7 +1666,13 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
   }
 
-  const step2Blocked = opts.moodIds.length === 0;
+  // 정합성 점검 §0-5/결함5 fix — real bug: this only ever checked moodIds,
+  // but the button's own blockerMessage below has always said "장르와 무드를
+  // 각각 최소 1개 선택하세요" (genre AND mood) — an opts.genreIds:[] state
+  // (e.g. a concept-agent recommendation whose genreAllocation resolved
+  // empty) could pass this gate straight through with no defense here at
+  // all. genreIds now checked the same way moodIds already is.
+  const step2Blocked = opts.moodIds.length === 0 || opts.genreIds.length === 0;
   const resultStepBlocked = !gen.blueprint;
   const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
   // v3.78 (TASK A, §2-1) — "Step2Plan → Step3 이동 시 경고": Step2Plan.tsx
