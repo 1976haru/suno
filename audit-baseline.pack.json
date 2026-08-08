@@ -302,5 +302,144 @@
         "bestAt": "2026-08-08T02:28:49.439Z"
       }
     }
+  },
+  "브릿지 임포트 실측 샘플": {
+    "savedAt": "2026-08-08T03:41:55.646Z",
+    "items": {
+      "song_count": {
+        "pass": true
+      },
+      "genre_variety": {
+        "pass": true
+      },
+      "genre_max5": {
+        "pass": true
+      },
+      "genre_no_singleton": {
+        "pass": true
+      },
+      "genre_no_triple_run": {
+        "pass": true
+      },
+      "vocal_zone_max3": {
+        "pass": true
+      },
+      "vocal_desc_present": {
+        "pass": false
+      },
+      "vocal_desc_variety": {
+        "pass": false,
+        "bestValue": 0,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "prompt_length": {
+        "pass": true,
+        "bestValue": 583,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "descriptor_count": {
+        "pass": true,
+        "bestValue": 24,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "shared_atoms": {
+        "pass": true
+      },
+      "era_contradiction": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "label_leak": {
+        "pass": true
+      },
+      "artist_leak": {
+        "pass": true
+      },
+      "duration_dup": {
+        "pass": true
+      },
+      "exclude_prompt_unique": {
+        "pass": false,
+        "bestValue": 4,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "final_prompt_compiler_normalized": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "lyric_word_count": {
+        "pass": false,
+        "bestValue": 201,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "section_count": {
+        "pass": false,
+        "bestValue": 10,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "situation_all_distinct": {
+        "pass": true
+      },
+      "emotion_arc_variety": {
+        "pass": false
+      },
+      "arrangement_vocab_leak": {
+        "pass": false,
+        "bestValue": 1,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "title_line_leak": {
+        "pass": true
+      },
+      "placeholder_leak": {
+        "pass": true
+      },
+      "end_tag_leak": {
+        "pass": false
+      },
+      "vocab_repeat_max20": {
+        "pass": false,
+        "bestValue": 28,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "hook_word_overuse": {
+        "pass": true
+      },
+      "vocab_repeat_blocking": {
+        "pass": true
+      },
+      "killing_point_assigned": {
+        "pass": false
+      },
+      "killing_point_variety": {
+        "pass": false
+      },
+      "arc_phase_all_used": {
+        "pass": false
+      },
+      "peak_none_count": {
+        "pass": false
+      },
+      "title_pattern_variety": {
+        "pass": false,
+        "bestValue": 3,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "title_pattern_max4": {
+        "pass": false,
+        "bestValue": 13,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      },
+      "hook_connected_title": {
+        "pass": false
+      },
+      "scene_signature_source": {
+        "pass": true,
+        "bestValue": 0,
+        "bestAt": "2026-08-08T03:41:55.646Z"
+      }
+    }
   }
 }
