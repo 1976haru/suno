@@ -3237,6 +3237,31 @@ pre {
   margin-top: 8px;
 }
 
+/* 정합성 점검 §0-6/결함6 — StepErrorBoundary.tsx. Same red-error palette as
+   .experimental-feature-error above, sized larger since this covers a whole
+   step screen, not one small panel. */
+.step-error-boundary {
+  margin: 16px 0;
+  padding: 24px;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.step-error-boundary-message {
+  font-family: monospace;
+  white-space: pre-wrap;
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+
+.step-error-boundary .button-row {
+  margin-top: 12px;
+}
+
 /* TASK v5.10 (contract screen) — "이대로 생성합니다" pre-generation summary + mismatch block. */
 .generation-contract-panel {
   border-color: #86efac;

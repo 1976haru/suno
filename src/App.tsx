@@ -66,6 +66,7 @@ import Step2Plan from './components/steps/Step2Plan';
 import Step3Generate from './components/steps/Step3Generate';
 import Step4Result, { type ResultTab } from './components/steps/Step4Result';
 import WizardNav from './components/WizardNav';
+import StepErrorBoundary from './components/StepErrorBoundary';
 import VideoDashboard from './components/VideoDashboard';
 import RatingInsightsPanel from './components/RatingInsightsPanel';
 import ThumbnailImageStudioPanel from './components/ThumbnailImageStudioPanel';
@@ -1803,30 +1804,35 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
           )}
 
           {currentStep === 2 && (
-            <Step2Concept
-              opts={opts}
-              setOpts={setOpts}
-              selectedGenres={selectedGenres}
-              selectedMoods={selectedMoods}
-              selectedSeason={selectedSeason}
-              toggleArray={toggleArray}
-              provider={provider}
-              basicMode={!expertMode}
-              expertMode={expertMode}
-              onToggleExpertMode={toggleExpertMode}
-              onGenreWarning={setLoadWarning}
-            />
+            <StepErrorBoundary stepLabel="컨셉 (Step 2)" onGoBack={() => setCurrentStep(1)}>
+              <Step2Concept
+                opts={opts}
+                setOpts={setOpts}
+                selectedGenres={selectedGenres}
+                selectedMoods={selectedMoods}
+                selectedSeason={selectedSeason}
+                toggleArray={toggleArray}
+                provider={provider}
+                basicMode={!expertMode}
+                expertMode={expertMode}
+                onToggleExpertMode={toggleExpertMode}
+                onGenreWarning={setLoadWarning}
+              />
+            </StepErrorBoundary>
           )}
 
           {currentStep === 3 && (
-            <Step2Plan
-              opts={opts}
-              setOpts={setOpts}
-              onDesignGateStatusChange={setDesignGateStatus}
-            />
+            <StepErrorBoundary stepLabel="설계안 (Step 3)" onGoBack={() => setCurrentStep(2)}>
+              <Step2Plan
+                opts={opts}
+                setOpts={setOpts}
+                onDesignGateStatusChange={setDesignGateStatus}
+              />
+            </StepErrorBoundary>
           )}
 
           {currentStep === 4 && (
+            <StepErrorBoundary stepLabel="생성 (Step 4)" onGoBack={() => setCurrentStep(3)}>
             <Step3Generate
               opts={opts}
               setOpts={setOpts}
@@ -1881,9 +1887,11 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
                 onCancel: multiSetFlow.cancel
               }}
             />
+            </StepErrorBoundary>
           )}
 
           {currentStep === 5 && (
+            <StepErrorBoundary stepLabel="결과 (Step 5)" onGoBack={() => setCurrentStep(4)}>
             <Step4Result
               blueprint={gen.blueprint}
               isGenerating={gen.isGenerating}
@@ -1934,6 +1942,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
               onUpdateLyricTranslations={onUpdateLyricTranslations}
               focusTab={workspaceFocus}
             />
+            </StepErrorBoundary>
           )}
 
           <WizardNav
