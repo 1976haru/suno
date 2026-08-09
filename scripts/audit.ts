@@ -537,7 +537,35 @@ function printConsoleReport(report: FullAuditReport, baseline: Baseline): { regr
   console.log(`종합: ${report.items.length}개 항목 중 ${passed.length} 통과 / ${regressions.length} 회귀 / ${improving.length} 개선 중 / ${belowTarget.length} 미달 / ${notMeasured.length} 미측정`);
   console.log('');
 
+  printObservations(report.observations);
+
   return { regressionCount: regressions.length };
+}
+
+/**
+ * 지시문 23 TASK A-5 · TASK C · TASK D — 관찰 전용 출력. 위 회귀/미달/통과
+ * 집계에 전혀 관여하지 않는다 — regressionCount에도, exit code에도 반영되지
+ * 않는다(FullAuditReport.observations는 items와 분리된 필드). 표본이 쌓이기
+ * 전까지는 규칙으로 승격하지 않는다(§D "하지 말 것").
+ */
+function printObservations(observations: FullAuditReport['observations']): void {
+  console.log('📋 관찰 항목 (차단 없음, 표본 축적용) ─────────────────────');
+  const { intensityMismatches, adjacentJumps, chorusStyleDistribution, hookWordCountDistribution, eraColorTrackCount } = observations;
+
+  console.log(`  체감 에너지 vs 아크 강도 불일치 (|차이| ≥ 2): ${intensityMismatches.length}건`);
+  for (const m of intensityMismatches) {
+    console.log(`    T${m.trackNo}: perceivedEnergy=${m.perceivedEnergy} intensity=${m.intensity} (차이 ${m.diff > 0 ? '+' : ''}${m.diff})`);
+  }
+
+  console.log(`  세트 에너지 급변 지점 (인접 곡 차이 ≥ 3): ${adjacentJumps.length}건`);
+  for (const j of adjacentJumps) {
+    console.log(`    T${j.fromTrackNo}(${j.fromValue}) → T${j.toTrackNo}(${j.toValue})  차이 ${j.diff > 0 ? '+' : ''}${j.diff}`);
+  }
+
+  console.log(`  chorusStyle 분포: ${Object.entries(chorusStyleDistribution).map(([k, v]) => `${k} ${v}`).join(' · ') || '(없음)'}`);
+  console.log(`  훅 단어 수 분포: ${Object.entries(hookWordCountDistribution).sort(([a], [b]) => Number(a) - Number(b)).map(([k, v]) => `${k}단어 ${v}곡`).join(' · ') || '(없음)'}`);
+  console.log(`  시대색 곡 수(eraTag 보유): ${eraColorTrackCount}곡`);
+  console.log('');
 }
 
 // ---------------------------------------------------------------------------
