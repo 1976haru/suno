@@ -564,7 +564,7 @@ function printObservations(observations: FullAuditReport['observations']): void 
 
   console.log(`  chorusStyle 분포: ${Object.entries(chorusStyleDistribution).map(([k, v]) => `${k} ${v}`).join(' · ') || '(없음)'}`);
   console.log(`  훅 단어 수 분포: ${Object.entries(hookWordCountDistribution).sort(([a], [b]) => Number(a) - Number(b)).map(([k, v]) => `${k}단어 ${v}곡`).join(' · ') || '(없음)'}`);
-  console.log(`  시대색 곡 수(eraTag 보유): ${eraColorTrackCount}곡`);
+  console.log(`  시대색 곡 수(1950s-60s/1970s 장르): ${eraColorTrackCount}곡`);
   console.log('');
 }
 
