@@ -470,6 +470,8 @@ export interface GenreLyricFlavorImage {
 export interface GenrePack {
   id: string;
   label: string;
+  /** 지시문 25 (TASK A) — 한국어 통용 장르명. 기계 번역이 아니라 국내에서 통용되는 표기(예: city pop -> 시티팝) 또는 음차+짧은 수식으로 수기 작성. 362종 중 미채움 항목은 없음(label 폴백 없이 explainGenre가 직접 읽음). */
+  labelKo?: string;
   styleCore: string;
   /** Compact genre fingerprint: rhythm, signature instruments, and production color. */
   signatureSound?: string;

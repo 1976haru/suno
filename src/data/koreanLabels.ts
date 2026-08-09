@@ -2,26 +2,13 @@
 // Kept separate from GenrePack/MoodPack/SeasonPack (data/presets.ts) so the
 // English label data that feeds the Suno-facing style prompt is untouched.
 
-export const genreLabelsKo: Record<string, string> = {
-  'adult-contemporary': '어덜트 컨템포러리 팝',
-  'acoustic-pop': '어쿠스틱 팝',
-  'jazz-pop': '어쿠스틱 재즈 팝',
-  'showa-modern': '쇼와 모던 카페',
-  'city-pop-soft': '소프트 시티팝',
-  'lofi-cafe': '로파이 카페',
-  'christmas-soft-pop': '소프트 크리스마스 팝',
-  'healing-ballad': '힐링 발라드',
-  'folk-pop': '포크 팝',
-  'bossa-cafe': '보사노바 카페',
-  'soft-rock': '소프트 락',
-  'piano-ballad': '피아노 발라드',
-  'retro-soul-pop': '레트로 소울 팝',
-  'synthwave-mellow': '멜로우 신스웨이브',
-  'kids-bright-pop': '밝은 동요팝',
-  'kids-acoustic-singalong': '따라부르기 동요',
-  'kids-upbeat-pop': '신나는 동요팝',
-  'kids-march': '행진곡풍 동요'
-};
+// 지시문 25 (TASK A-3) — genreLabelsKo는 원래 이 파일에 18종만 하드코딩돼
+// 있었다. data/genreLabelKo.ts가 그 18종을 포함해 362종 전체를 채웠으므로,
+// 여기서 다시 하드코딩하면 두 표가 서로 다른 한국어를 보여주는 낡은 경로가
+// 남는다("§5 낡은 경로를 남긴 채 새 경로를 추가하지 않는다") — 그대로
+// 재노출해 이 파일의 기존 소비처(Step2Concept.tsx·ConceptAgentPanel.tsx)도
+// 362종 전체에서 자동으로 한국어 라벨을 받는다.
+export { LABEL_KO_BY_GENRE_ID as genreLabelsKo } from './genreLabelKo';
 
 export const moodLabelsKo: Record<string, string> = {
   nostalgic: '그리운',

@@ -1176,6 +1176,127 @@ textarea {
   justify-content: space-between;
 }
 
+/* 지시문 25 (TASK A-5) — 장르 칩 옆 ⓘ 정보 버튼. 선택 버튼과 형제 요소로 둬
+   버튼 안에 버튼을 중첩하지 않는다(중첩 인터랙티브 요소는 잘못된 HTML). */
+.genre-card-wrap,
+.chip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.genre-card-wrap {
+  display: grid;
+}
+
+.genre-info-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+}
+
+.chip-wrap .genre-info-btn {
+  position: static;
+  margin-left: 4px;
+  background: transparent;
+}
+
+/* 지시문 25 (TASK A) — 장르 설명 카드 모달. */
+.genre-explanation-panel {
+  max-width: 480px;
+}
+
+.genre-explanation-facts {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.genre-explanation-facts > div {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+}
+
+.genre-explanation-facts b {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.genre-explanation-energy {
+  font-weight: 800;
+}
+
+/* 지시문 25 (TASK D) — 용어 사전 점선 밑줄 + 팝오버. */
+.glossary-term {
+  display: inline;
+  padding: 0;
+  border: none;
+  border-bottom: 1px dotted var(--teal-dark);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.glossary-popover {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.glossary-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+/* 지시문 25 (TASK B/C) — 조합 요약 + 조언. */
+.genre-combo-summary {
+  margin-top: 12px;
+}
+
+.genre-combo-rows {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.genre-combo-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 10px;
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.genre-combo-advice {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.genre-combo-advice p {
+  font-size: 13px;
+  color: var(--amber-dark, #b45309);
+}
+
 .genre-preview-card details {
   display: grid;
   gap: 8px;

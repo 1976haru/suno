@@ -3,6 +3,7 @@ import type { GenreTier } from './types';
 import { ERA_BUCKET_BY_GENRE_ID } from '../eraExclusions';
 import { ERA_BUCKETS_BY_GENRE_ID, ERA_NOTE_KO_BY_GENRE_ID, type EraBucket as FineEraBucket } from '../eraBuckets';
 import { buildGenreTraits } from '../genreTraits';
+import { LABEL_KO_BY_GENRE_ID } from '../genreLabelKo';
 
 /**
  * TASK H2 (v3.13) — 3-5 short, genre-authentic images per core-tier genre id,
@@ -2454,6 +2455,9 @@ export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...ki
   // genreLibrary 전체를 순회해 만들었다) — 방어적으로만 ['era-neutral'] 폴백.
   const eraBuckets: FineEraBucket[] = ERA_BUCKETS_BY_GENRE_ID[genre.id] ?? ['era-neutral'];
   const eraNoteKo = ERA_NOTE_KO_BY_GENRE_ID[genre.id];
+  // 지시문 25 (TASK A-3) — 1차 배치만 채워짐(50/362). 없는 id는 labelKo
+  // undefined로 남는다 — genreExplainer.ts가 폴백(영문 label)을 처리한다.
+  const labelKo = LABEL_KO_BY_GENRE_ID[genre.id];
   const withKr2030 = KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS.has(genre.id) && !withTraits.archetypes?.includes('kr-2030-pop')
     ? { ...withTraits, archetypes: [...(withTraits.archetypes ?? []), 'kr-2030-pop' as const] }
     : withTraits;
@@ -2461,7 +2465,7 @@ export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...ki
   const withExtra = extraArchetypes
     ? { ...withKr2030, archetypes: [...new Set([...(withKr2030.archetypes ?? []), ...extraArchetypes])] }
     : withKr2030;
-  return { ...withExtra, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
+  return { ...withExtra, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}), ...(labelKo ? { labelKo } : {}) };
 });
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;

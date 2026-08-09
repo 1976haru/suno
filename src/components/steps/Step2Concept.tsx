@@ -35,6 +35,8 @@ import { buildGenreAllocationForListeningIntent, buildGenreCountsForExistingSele
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
+import GenreExplanationModal from '../GenreExplanationModal';
+import GenreComboSummaryPanel from '../GenreComboSummaryPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
 import type { GenerationOptions, GenrePack, ListeningIntent, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
 
@@ -147,6 +149,8 @@ export default function Step2Concept({
   const [genreCategoryId, setGenreCategoryId] = useState('all');
   const [genreSearchOpen, setGenreSearchOpen] = useState(false);
   const [recentGenreIds, setRecentGenreIds] = useState(() => readRecentGenreIds(opts.channel.id));
+  // 지시문 25 (TASK A-5) — 칩을 선택하지 않고도 설명 카드를 열 수 있는 진입점.
+  const [explainGenreId, setExplainGenreId] = useState<string | null>(null);
 
   const selectedGenerationPack = generationPacks.find(pack => pack.id === opts.audience);
   const moneyPreview = compactMoneyChord(opts);
@@ -621,19 +625,29 @@ export default function Step2Concept({
               const selected = primaryGenreId === genre.id;
               const recommended = opts.channel.preferredGenres[0] === genre.id;
               return (
-                <button
-                  type="button"
-                  key={genre.id}
-                  className={selected ? 'genre-card-choice active' : 'genre-card-choice'}
-                  onClick={() => selectPrimaryGenre(genre.id)}
-                >
-                  <span className="genre-card-title">
-                    {genre.label}
-                    {recommended && <span className="choice-badge">추천</span>}
-                    {genre.tier === 'extended' && <span className="genre-role">최근</span>}
-                  </span>
-                  <span>{describeGenreForUserKo(genre)}</span>
-                </button>
+                <div key={genre.id} className="genre-card-wrap">
+                  <button
+                    type="button"
+                    className={selected ? 'genre-card-choice active' : 'genre-card-choice'}
+                    onClick={() => selectPrimaryGenre(genre.id)}
+                  >
+                    <span className="genre-card-title">
+                      {genre.label}
+                      {recommended && <span className="choice-badge">추천</span>}
+                      {genre.tier === 'extended' && <span className="genre-role">최근</span>}
+                    </span>
+                    <span>{describeGenreForUserKo(genre)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="genre-info-btn"
+                    onClick={() => setExplainGenreId(genre.id)}
+                    aria-label={`${genre.label} 설명 보기`}
+                    title="장르 설명 보기"
+                  >
+                    ⓘ
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -648,15 +662,25 @@ export default function Step2Concept({
             {visibleGenres.filter(genre => genre.id !== primaryGenreId).map(genre => {
               const selected = secondaryGenreIds.includes(genre.id);
               return (
-                <button
-                  type="button"
-                  key={genre.id}
-                  className={selected ? 'chip active' : 'chip'}
-                  disabled={!selected && secondaryGenreIds.length >= 2}
-                  onClick={() => toggleSecondaryGenre(genre.id)}
-                >
-                  {genre.label}
-                </button>
+                <div key={genre.id} className="chip-wrap">
+                  <button
+                    type="button"
+                    className={selected ? 'chip active' : 'chip'}
+                    disabled={!selected && secondaryGenreIds.length >= 2}
+                    onClick={() => toggleSecondaryGenre(genre.id)}
+                  >
+                    {genre.label}
+                  </button>
+                  <button
+                    type="button"
+                    className="genre-info-btn"
+                    onClick={() => setExplainGenreId(genre.id)}
+                    aria-label={`${genre.label} 설명 보기`}
+                    title="장르 설명 보기"
+                  >
+                    ⓘ
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -688,17 +712,27 @@ export default function Step2Concept({
                 const selected = selectedIndex >= 0;
                 const role = selected ? (selectedIndex === 0 ? 'Main' : `Sub ${selectedIndex}`) : '';
                 return (
-                  <button
-                    type="button"
-                    key={genre.id}
-                    className={selected ? 'chip active' : 'chip'}
-                    disabled={!selected && opts.genreIds.length >= MAX_SELECTED_GENRES}
-                    onClick={() => chooseGenreFromSearch(genre.id)}
-                    title={selected ? role : describeGenreForUserKo(genre)}
-                  >
-                    {role && <span className="genre-role">{role}</span>}
-                    {genre.label}
-                  </button>
+                  <div key={genre.id} className="chip-wrap">
+                    <button
+                      type="button"
+                      className={selected ? 'chip active' : 'chip'}
+                      disabled={!selected && opts.genreIds.length >= MAX_SELECTED_GENRES}
+                      onClick={() => chooseGenreFromSearch(genre.id)}
+                      title={selected ? role : describeGenreForUserKo(genre)}
+                    >
+                      {role && <span className="genre-role">{role}</span>}
+                      {genre.label}
+                    </button>
+                    <button
+                      type="button"
+                      className="genre-info-btn"
+                      onClick={() => setExplainGenreId(genre.id)}
+                      aria-label={`${genre.label} 설명 보기`}
+                      title="장르 설명 보기"
+                    >
+                      ⓘ
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -746,6 +780,14 @@ export default function Step2Concept({
             ))}
           </div>
         )}
+
+        <GenreComboSummaryPanel
+          selectedGenres={selectedGenreDetails}
+          channel={opts.channel}
+          songCount={opts.songCount}
+          diversityAllocations={opts.diversityAllocations}
+          listeningIntent={opts.listeningIntent}
+        />
 
         {/* TASK (genreBlendMode) — makes the pre-existing v3.58 "first-picked
             genre blends into every song" design visible instead of reading
@@ -1365,6 +1407,13 @@ export default function Step2Concept({
         <Wand2 size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
         현재 선택: {selectedGenres.map(g => genreLabelsKo[g.id] || g.label).join(', ') || '없음'} / {selectedMoods.map(m => moodLabelsKo[m.id] || m.label).join(', ') || '없음'} / {seasonLabelsKo[selectedSeason.id] || selectedSeason.label}
       </p>
+
+      {explainGenreId && (() => {
+        const genreToExplain = getGenreById(explainGenreId);
+        return genreToExplain
+          ? <GenreExplanationModal genre={genreToExplain} channel={opts.channel} onClose={() => setExplainGenreId(null)} />
+          : null;
+      })()}
     </section>
   );
 }
