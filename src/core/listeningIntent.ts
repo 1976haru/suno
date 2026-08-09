@@ -80,7 +80,13 @@ export function buildGenreAllocationForListeningIntent(
 
   const scored = candidateGenres.map(genre => ({ genre, pe: representativePerceivedEnergy(genre, energyPolicy) }));
   const distribution = scaleEnergyDistribution(policy.energyDistribution, songCount);
-  const perGenreCap = Math.max(1, Math.ceil(songCount * 0.28));
+  // core/designGate.ts's "같은 장르 최대 곡수" 관문(BREADTH_THRESHOLDS)의
+  // 실측 최솟값(variety 등급 4곡)에 맞춘 안전한 상한 — 실제 브라우저 생성으로
+  // 확인: 0.28 비율 어림값(반올림 시 6)은 이 관문을 실제로 위반했다
+  // (5종 장르·18곡에서 한 장르에 6곡 몰림, 관문 상한은 5). songCount /
+  // MAX_SELECTED_GENRES 기반이면 balanced(5)·focused(12) 등급에서도
+  // 항상 안전하다.
+  const perGenreCap = Math.max(1, Math.ceil(songCount / MAX_SELECTED_GENRES));
 
   const counts: Record<string, number> = {};
   const usedGenreIds = new Set<string>();
@@ -95,6 +101,25 @@ export function buildGenreAllocationForListeningIntent(
     return byDistance[0]?.genre;
   }
 
+  /** 이미 고른 장르들에 나머지를 나눠 담는다 — perGenreCap을 절대 넘기지 않는다(장르 하나에 몰리면 designGate의 "같은 장르 최대 곡수" 관문을 실제로 위반한다, 실측 확인). 그래도 남으면(전 장르가 cap 도달) 어쩔 수 없이 가장 가까운 장르에 초과 배정 — MAX_SELECTED_GENRES 상한 안에서 songCount를 다 담아야 하는 마지막 안전판. */
+  function spreadRemaining(remaining: number, level: PerceivedEnergy) {
+    const byDistance = () => [...usedGenreIds]
+      .map(id => scored.find(s => s.genre.id === id)!)
+      .sort((a, b) => Math.abs(a.pe - level) - Math.abs(b.pe - level));
+    for (const entry of byDistance()) {
+      if (remaining <= 0) break;
+      const room = perGenreCap - (counts[entry.genre.id] ?? 0);
+      if (room <= 0) continue;
+      const assign = Math.min(remaining, room);
+      counts[entry.genre.id] = (counts[entry.genre.id] ?? 0) + assign;
+      remaining -= assign;
+    }
+    if (remaining > 0) {
+      const fallback = byDistance()[0];
+      if (fallback) counts[fallback.genre.id] = (counts[fallback.genre.id] ?? 0) + remaining;
+    }
+  }
+
   const levels: PerceivedEnergy[] = [1, 2, 3, 4, 5];
   for (const level of levels) {
     let remaining = distribution[level];
@@ -106,15 +131,7 @@ export function buildGenreAllocationForListeningIntent(
       counts[genre.id] = (counts[genre.id] ?? 0) + assign;
       remaining -= assign;
     }
-    if (remaining > 0) {
-      // 장르 풀이 MAX_SELECTED_GENRES에 도달했거나 후보가 바닥남 — 이미
-      // 고른 장르 중 이 레벨과 가장 가까운 곳에 나머지를 더한다(장르 종수
-      // 상한을 절대 넘기지 않는다).
-      const already = [...usedGenreIds]
-        .map(id => scored.find(s => s.genre.id === id)!)
-        .sort((a, b) => Math.abs(a.pe - level) - Math.abs(b.pe - level));
-      if (already.length) counts[already[0].genre.id] = (counts[already[0].genre.id] ?? 0) + remaining;
-    }
+    if (remaining > 0) spreadRemaining(remaining, level);
   }
 
   // minEraColorTracks 보정 — 시대색 장르에 배정된 곡 수가 하한 미달이면,

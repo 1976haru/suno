@@ -60,6 +60,21 @@ describe('지시문 23 TASK B — buildGenreAllocationForListeningIntent (실제
       expect(alloc.genreIds.length).toBeLessThanOrEqual(MAX_SELECTED_GENRES);
       expect(alloc.eraColorTrackCount).toBeGreaterThanOrEqual(policy.minEraColorTracks);
     });
+
+    // 실측 회귀 방지 — 실제 브라우저(dev 서버)로 감성 장시간형을 적용해 18곡
+    // 생성을 시도했을 때 core/designGate.ts의 "같은 장르 최대 곡수" 관문이
+    // 실제로 위반됨을 발견(장르 5종 중 chanson 1종에 6곡 몰림, 관문 상한은
+    // 5). 원인은 perGenreCap을 songCount*0.28 어림값(반올림 시 6)으로 잡아
+    // designGate의 실제 상한(가장 타이트한 variety 등급 4곡)보다 느슨했던
+    // 것 — songCount/MAX_SELECTED_GENRES 기반으로 교정.
+    it(`${intentId}: 어느 한 장르에도 ceil(songCount/${MAX_SELECTED_GENRES})곡을 초과해 몰리지 않는다 (designGate "같은 장르 최대 곡수" 관문 실측 회귀 방지)`, () => {
+      const policy = LISTENING_INTENT_POLICY[intentId];
+      const alloc = buildGenreAllocationForListeningIntent(candidates, policy, 18, energyPolicy);
+      const cap = Math.ceil(18 / MAX_SELECTED_GENRES);
+      for (const count of Object.values(alloc.counts)) {
+        expect(count).toBeLessThanOrEqual(cap);
+      }
+    });
   }
 
   it('감성 장시간형의 minEraColorTracks는 3 이상, maxEnergy는 4다 (하지 말 것: 0으로 만들지 말 것 / 3으로 낮추지 말 것)', () => {
