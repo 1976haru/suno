@@ -9,7 +9,7 @@ import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS, ERA_LABEL } from '../da
 import { findBlockingVocabularyRepetition, findExcessiveVocabularyRepetition, findHookWordOveruse, WORD_BLOCKING_THRESHOLD } from './lyricVocabularyRepetition';
 import { findNearDuplicateHook } from './hookSimilarity';
 import { titleShapeVarietyWarning } from './titleShapeVariety';
-import { eraSharesOf, type EraConstraint } from './constraints';
+import { eraSharesOf, eraPrimaryShareOf, eraNeutralShareOf, type EraConstraint } from './constraints';
 import { ERA_POLICY } from '../data/eraPolicy';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES, DUET_TRAIT_AXES } from '../data/vocalTraits';
 import { detectVocalGenderPresence } from './vocalPlan';
@@ -355,6 +355,13 @@ const DUET_GROUP_PHRASING_MARKERS: RegExp[] = [
  * it at all — see ERA_POLICY's own doc comment for the real investigation
  * that closed this gap and picked 40% each as the correct, validated
  * number, sourced from core/constraints.ts's applyEraQuota).
+ *
+ * 지시문 12 (TASK A-3) — primary/coPrimary 비중을 eraPrimaryShareOf로
+ * 전환(era-neutral 장르를 분모에서 제외)해 core/designGate.ts의 eraIssues와
+ * 다시 일치시켰다 — 이 함수가 갈라지면 TASK E가 원래 잡으려던 "설계 관문과
+ * 사후 검사가 서로 다른 답을 낸다" 문제가 이 축에서 재발한다. "범용 장르"
+ * 어드바이저리는 이제 eraNeutralShareOf(fine-grained, timeless 6종도 포함)로
+ * 계산하지만 임계값(genericAdvisoryMax, 20%)과 심각도(advisory)는 그대로다.
  */
 function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint | undefined): { blocking: string[]; advisory: string[] } {
   if (!eraConstraint || eraConstraint.unspecified) return { blocking: [], advisory: [] };
@@ -363,21 +370,21 @@ function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint 
     if (song.genreId) genreCounts[song.genreId] = (genreCounts[song.genreId] ?? 0) + 1;
   }
   const shares = eraSharesOf(genreCounts);
-  const genericShare = shares.generic ?? 0;
+  const eraNeutralShare = eraNeutralShareOf(genreCounts);
   const forbiddenBuckets = eraConstraint.forbidden.filter(bucket => (shares[bucket] ?? 0) > 0);
 
   const blocking: string[] = [];
   const advisory: string[] = [];
 
   if (eraConstraint.coPrimary) {
-    const primaryShare = shares[eraConstraint.primary] ?? 0;
-    const coPrimaryShare = shares[eraConstraint.coPrimary] ?? 0;
+    const primaryShare = eraPrimaryShareOf(genreCounts, eraConstraint.primary);
+    const coPrimaryShare = eraPrimaryShareOf(genreCounts, eraConstraint.coPrimary);
     const minEach = ERA_POLICY.coPrimaryMinEach;
     if (primaryShare < minEach || coPrimaryShare < minEach) {
       blocking.push(`이 컨셉의 복수 주 시대(${ERA_LABEL[eraConstraint.primary]}·${ERA_LABEL[eraConstraint.coPrimary]}) 중 비중이 최소 ${Math.round(minEach * 100)}% 미만인 쪽이 있습니다 (${ERA_LABEL[eraConstraint.primary]} ${Math.round(primaryShare * 100)}% / ${ERA_LABEL[eraConstraint.coPrimary]} ${Math.round(coPrimaryShare * 100)}%).`);
     }
   } else {
-    const primaryShare = shares[eraConstraint.primary] ?? 0;
+    const primaryShare = eraPrimaryShareOf(genreCounts, eraConstraint.primary);
     const min = ERA_POLICY.singlePrimaryMin;
     if (primaryShare < min) {
       blocking.push(`이 컨셉의 주 시대(${ERA_LABEL[eraConstraint.primary]}) 장르 비중이 ${Math.round(primaryShare * 100)}%로 최소 ${Math.round(min * 100)}% 미만입니다.`);
@@ -387,8 +394,8 @@ function eraConsistencyFindings(songs: SongIdea[], eraConstraint: EraConstraint 
   if (forbiddenBuckets.length) {
     blocking.push(`이 컨셉이 금지한 시대(${forbiddenBuckets.map(bucket => ERA_LABEL[bucket]).join(', ')}) 장르가 포함되어 있습니다 (${forbiddenBuckets.map(bucket => `${Math.round((shares[bucket] ?? 0) * 100)}%`).join(', ')}).`);
   }
-  if (genericShare > ERA_POLICY.genericAdvisoryMax) {
-    advisory.push(`시대 표기 없는 범용 장르 비중이 ${Math.round(genericShare * 100)}%로 권장 상한(${Math.round(ERA_POLICY.genericAdvisoryMax * 100)}%)을 넘습니다.`);
+  if (eraNeutralShare > ERA_POLICY.genericAdvisoryMax) {
+    advisory.push(`시대 표기 없는 범용 장르 비중이 ${Math.round(eraNeutralShare * 100)}%로 권장 상한(${Math.round(ERA_POLICY.genericAdvisoryMax * 100)}%)을 넘습니다.`);
   }
   return { blocking, advisory };
 }

@@ -1,8 +1,9 @@
-import type { ConceptBreadth, GenerationOptions, KidsAgeTierId, PreassignedSongSlot } from '../types';
+import type { ConceptBreadth, GenerationOptions, KidsAgeTierId, PreassignedSongSlot, WorkspaceId } from '../types';
 import type { EraConstraint, ResolvedConstraints } from './constraints';
-import { eraSharesOf } from './constraints';
+import { eraSharesOf, eraPrimaryShareOf, eraNeutralShareOf } from './constraints';
 import { ERA_LABEL } from '../data/eraExclusions';
 import { ERA_POLICY } from '../data/eraPolicy';
+import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC } from './bpmLengthControl';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
@@ -764,7 +765,7 @@ function arrangementDensityAdvisoryIssues(slots: PreassignedSongSlot[]): DesignI
 }
 
 // ---------------------------------------------------------------------------
-// 시대 (era-primary-share / era-forbidden / era-unspecified-share)
+// 시대 (era-primary-share / era-forbidden / era-neutral-share)
 // ---------------------------------------------------------------------------
 /**
  * TASK E (design-gate and post-generation era-share checks disagree) — the
@@ -776,8 +777,21 @@ function arrangementDensityAdvisoryIssues(slots: PreassignedSongSlot[]): DesignI
  * applyEraQuota, the function that actually shapes a real pack's genre
  * distribution at generation time) that picked 50%/40% as the correct,
  * validated numbers over this file's own previously-looser 40%/30%.
+ *
+ * 지시문 12 (TASK A-3) — 두 가지 근본 수정:
+ *  1. primary/coPrimary 비중은 이제 eraPrimaryShareOf로 계산한다 —
+ *     era-neutral(genreLibrary 354종 전수 부여, data/eraBuckets.ts) 장르를
+ *     분모에서 아예 제외한다. era-neutral 곡이 섞여 있다는 이유로 "시대
+ *     장르 비중이 낮다"고 잘못 판정하지 않는다.
+ *  2. (구) era-unspecified-share(모든 장르가 eraBuckets를 가지므로 "시대
+ *     미지정" 상태 자체가 더 이상 존재하지 않는다 — 삭제)를 워크스페이스
+ *     정책 기반 era-neutral-share로 대체했다. 상한이 정의된 워크스페이스
+ *     (현재는 senior-oldpop만, data/workspaceEraIntent.ts의
+ *     eraNeutralMaxShare — 추정치로 명시됨)에서만 검사하고, 정의되지 않은
+ *     워크스페이스(kr-2030/jp-2030/kids/kr-idol — 시대가 판정 대상이 아님)는
+ *     제한 없음.
  */
-function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssue[] {
+function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint, workspaceId: WorkspaceId): DesignIssue[] {
   // 컨셉에 시대 언급이 없으면 건너뜁니다 (원칙 3/§2-3의 명시적 지시 — 억지로 시대를 정하지 말 것).
   if (era.unspecified) return [];
   const genreCounts: Record<string, number> = {};
@@ -788,26 +802,26 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssu
   const issues: DesignIssue[] = [];
 
   if (era.coPrimary) {
-    const primaryShare = shares[era.primary] ?? 0;
-    const coPrimaryShare = shares[era.coPrimary] ?? 0;
+    const primaryShare = eraPrimaryShareOf(genreCounts, era.primary);
+    const coPrimaryShare = eraPrimaryShareOf(genreCounts, era.coPrimary);
     const minEach = ERA_POLICY.coPrimaryMinEach;
     if (primaryShare < minEach || coPrimaryShare < minEach) {
       issues.push(issue({
         id: 'era-primary-share',
         labelKo: '복수 시대 비중',
-        expected: `${ERA_LABEL[era.primary]}·${ERA_LABEL[era.coPrimary]} 각 ${Math.round(minEach * 100)}% 이상`,
+        expected: `${ERA_LABEL[era.primary]}·${ERA_LABEL[era.coPrimary]} 각 ${Math.round(minEach * 100)}% 이상 (era-neutral 제외)`,
         actual: `${ERA_LABEL[era.primary]} ${Math.round(primaryShare * 100)}% / ${ERA_LABEL[era.coPrimary]} ${Math.round(coPrimaryShare * 100)}%`,
         fixHintKo: `${ERA_LABEL[era.primary]} 또는 ${ERA_LABEL[era.coPrimary]} 계열 장르를 추가하세요.`
       }));
     }
   } else {
-    const primaryShare = shares[era.primary] ?? 0;
+    const primaryShare = eraPrimaryShareOf(genreCounts, era.primary);
     const min = ERA_POLICY.singlePrimaryMin;
     if (primaryShare < min) {
       issues.push(issue({
         id: 'era-primary-share',
         labelKo: `${ERA_LABEL[era.primary]} 장르 비중`,
-        expected: `${Math.round(min * 100)}% 이상`,
+        expected: `${Math.round(min * 100)}% 이상 (era-neutral 제외)`,
         actual: `${Math.round(primaryShare * 100)}%`,
         fixHintKo: `${ERA_LABEL[era.primary]} 계열 장르를 추가하세요.`
       }));
@@ -825,15 +839,18 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint): DesignIssu
     }));
   }
 
-  const genericShare = shares.generic ?? 0;
-  if (ERA_POLICY.genericBlockingMax !== undefined && genericShare > ERA_POLICY.genericBlockingMax) {
-    issues.push(issue({
-      id: 'era-unspecified-share',
-      labelKo: '시대 미지정 장르 비중',
-      expected: `${Math.round(ERA_POLICY.genericBlockingMax * 100)}% 이하`,
-      actual: `${Math.round(genericShare * 100)}%`,
-      fixHintKo: '시대 표기가 없는 범용 장르가 너무 많습니다.'
-    }));
+  const eraNeutralMaxShare = eraIntentForWorkspace(workspaceId).eraNeutralMaxShare;
+  if (eraNeutralMaxShare !== undefined) {
+    const neutralShare = eraNeutralShareOf(genreCounts);
+    if (neutralShare > eraNeutralMaxShare) {
+      issues.push(issue({
+        id: 'era-neutral-share',
+        labelKo: '시대 중립(era-neutral) 장르 비중',
+        expected: `${Math.round(eraNeutralMaxShare * 100)}% 이하 (${workspaceId} 워크스페이스 정책, 추정치)`,
+        actual: `${Math.round(neutralShare * 100)}%`,
+        fixHintKo: '특정 시대색이 있는 장르 비중을 늘리세요 — era-neutral 장르가 너무 많습니다.'
+      }));
+    }
   }
   return issues;
 }
@@ -1147,7 +1164,7 @@ export function evaluateDesignGate(
     ...vocalIssues(slots, opts, constraints),
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
-    ...eraIssues(slots, constraints.era),
+    ...eraIssues(slots, constraints.era, constraints.workspaceId),
     // v5.13 (TASK: kidsAgeTierId wiring) — constraints.kidsAgeTierId is the
     // real resolved tier (see ResolvedConstraints.kidsAgeTierId's own doc
     // comment); passing it keeps this check's own "expected" bundle count in

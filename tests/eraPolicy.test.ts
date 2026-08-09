@@ -27,10 +27,12 @@ describe('ERA_POLICY', () => {
     expect(ERA_POLICY.coPrimaryMinEach).toBe(0.4);
   });
 
-  it("genericAdvisoryMax/genericBlockingMax are unchanged from each file's own pre-existing real values (20%/25%) — a deliberate two-tier severity, not a raw disagreement to resolve to one number", () => {
+  // 지시문 12 (TASK A-3) — genericBlockingMax(designGate.ts의 구 전역 25%
+  // 블로킹 상한)는 삭제됐다. 그 역할은 이제 워크스페이스별
+  // eraNeutralMaxShare(data/workspaceEraIntent.ts)가 대신한다 — 전역 상수
+  // 하나로는 표현할 수 없던 "워크스페이스마다 다른 상한"을 위해서다.
+  it('genericAdvisoryMax is unchanged from its pre-existing real value (20%) — the only remaining ADVISORY-only era-neutral share ceiling in this module', () => {
     expect(ERA_POLICY.genericAdvisoryMax).toBe(0.2);
-    expect(ERA_POLICY.genericBlockingMax).toBe(0.25);
-    expect(ERA_POLICY.genericAdvisoryMax).toBeLessThan(ERA_POLICY.genericBlockingMax!);
   });
 
   it('a real single-primary concept, redistributed by applyEraQuota from an all-forbidden starting point, actually lands the primary bucket at/above ERA_POLICY.singlePrimaryMin', () => {

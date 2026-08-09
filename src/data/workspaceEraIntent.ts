@@ -32,13 +32,27 @@ export interface WorkspaceEraIntent {
   mode: EraIntentMode;
   /** Why this mode, in this workspace's own terms — surfaced nowhere in UI today, kept for the next reader (mirrors WorkspaceDefinition.humanCreativeInterventionNote's own "place to record intent, not a feature" precedent). */
   noteKo: string;
+  /**
+   * 지시문 12 (TASK A-3) — era-neutral(era-buckets.ts) 장르 비중의 워크스페이스별
+   * 상한. undefined = 상한 없음(이 워크스페이스는 시대가 판정 대상이 아님 —
+   * kr-2030/jp-2030/kids/kr-idol이 여기 해당, mode가 이미 그 성격을 반영).
+   * 정의된 값은 core/designGate.ts의 (구) era-unspecified-share 블로킹 관문을
+   * 대체하는 era-neutral-share 관문이 사용한다 — era.unspecified=false로 시대가
+   * 명시된 컨셉에서만 실제로 검사된다(strict-decade인 senior-oldpop이 사실상
+   * 유일한 실사용처).
+   *
+   * senior-oldpop의 6/18 ≈ 0.33은 지시문 12 §A-3 원문의 예시값을 그대로 쓴
+   * **추정치**다 — 청취로 검증된 값이 아니다. 실측 근거가 생기면 교체할 것.
+   */
+  eraNeutralMaxShare?: number;
 }
 
 export const WORKSPACE_ERA_INTENT: Record<WorkspaceId, WorkspaceEraIntent> = {
   // The one workspace extractEraConstraint's decade-quota machinery was
   // actually built for (1950s-60s/1970s/1980s + applyEraQuota) — real,
   // enforced narrowing when a concept explicitly names a decade.
-  'senior-oldpop': { mode: 'strict-decade', noteKo: '60/70/80년대 등 명시된 시대를 실제 장르 쿼터로 강제 적용 — applyEraQuota의 원래 대상.' },
+  // eraNeutralMaxShare: 6/18 ≈ 0.33 — 지시문 12 §A-3 예시값, 추정치(청취 미검증).
+  'senior-oldpop': { mode: 'strict-decade', noteKo: '60/70/80년대 등 명시된 시대를 실제 장르 쿼터로 강제 적용 — applyEraQuota의 원래 대상.', eraNeutralMaxShare: 6 / 18 },
   // Real, current behavior already matches this mode: no genre data ties
   // "2020s"/"current" to a bucket, so extractEraConstraint stays
   // unspecified:true for ordinary concept text and never over-narrows —

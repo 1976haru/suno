@@ -1,6 +1,7 @@
 import type { AudienceProfile, ConceptBreadth, GenrePack, KidsAgeTierId, WorkspaceId } from '../types';
 import { genreLibrary, getGenreById } from '../data/genreLibrary';
 import { ERA_BUCKET_BY_GENRE_ID, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
+import { ERA_BUCKETS_BY_GENRE_ID } from '../data/eraBuckets';
 import { TITLE_PATTERNS } from '../data/titlePatterns';
 import { VOCABULARY_BANKS, vocabularyBanksForEra } from '../data/vocabularyBanks';
 import { CHANNEL_IDENTITY_WORDS, CHANNEL_IDENTITY_WORD_CAP, GENERIC_WORD_CAP } from './lyricVocabularyRepetition';
@@ -795,6 +796,52 @@ export function eraSharesOf(genreCounts: Record<string, number>): Record<string,
   const shares: Record<string, number> = {};
   for (const [bucket, count] of byBucket) shares[bucket] = count / total;
   return shares;
+}
+
+/**
+ * 지시문 12 (TASK A-3) — genreLibrary 354종 전수 부여된 세분화 eraBuckets
+ * (data/eraBuckets.ts)에서 이 장르가 'era-neutral'인지 직접 읽는다 (구)
+ * eraBucketForGenreId의 null 반환과는 다르다 — 그쪽은 하위호환을 위해
+ * timeless 6종을 여전히 'timeless'로 반환하는 특례가 있다(eraExclusions.ts).
+ * 여기서는 그 특례 없이 "이 장르가 특정 연대를 주장하지 않는가"를 정직하게
+ * 판정한다 — timeless 6종도 (신) 데이터에서는 era-neutral이므로 포함된다.
+ */
+function isEraNeutralGenreId(genreId: string): boolean {
+  const fineBuckets = ERA_BUCKETS_BY_GENRE_ID[genreId];
+  // genreLibrary 354종은 전수 커버되므로 실제 장르 id는 항상 매핑이 있다 —
+  // 매핑이 없는 id(존재하지 않는 장르, 또는 eraBuckets.ts 갱신을 놓친 신규
+  // 장르)는 "특정 시대를 주장한다는 근거가 없다"는 원칙에 따라 보수적으로
+  // era-neutral 취급한다(구 시스템의 generic 폴백과 같은 안전망).
+  return !fineBuckets || (fineBuckets.length === 1 && fineBuckets[0] === 'era-neutral');
+}
+
+/**
+ * 지시문 12 (TASK A-3) — "era-neutral 장르는 primary share 계산의 분모에서
+ * 제외한다": era-neutral 장르가 섞여 있어도 그 곡들을 아예 빼고 남은
+ * 시대-표기 장르들끼리만 비중을 계산한다. 18곡 중 era-neutral 6곡이면
+ * 나머지 12곡에 대해서만 목표 비중(예: 78%)을 요구하는 식 — era-neutral
+ * 곡의 존재가 실제 시대 장르 배치의 정확도 요구를 흐리지 않게 한다.
+ */
+export function eraPrimaryShareOf(genreCounts: Record<string, number>, bucket: EraBucket): number {
+  let bucketCount = 0;
+  let nonNeutralTotal = 0;
+  for (const [id, count] of Object.entries(genreCounts)) {
+    if (isEraNeutralGenreId(id)) continue;
+    nonNeutralTotal += count;
+    if (bucketKeyOf(id) === bucket) bucketCount += count;
+  }
+  return nonNeutralTotal ? bucketCount / nonNeutralTotal : 0;
+}
+
+/** era-neutral 장르의 비중 — 분모는 전체 곡수(제외 없음). (구) era-unspecified-share/genericShare가 쓰던 "generic" 버킷과 동일한 모수, era-neutral로 명명만 정정. */
+export function eraNeutralShareOf(genreCounts: Record<string, number>): number {
+  const total = Object.values(genreCounts).reduce((sum, count) => sum + count, 0);
+  if (!total) return 0;
+  let neutralCount = 0;
+  for (const [id, count] of Object.entries(genreCounts)) {
+    if (isEraNeutralGenreId(id)) neutralCount += count;
+  }
+  return neutralCount / total;
 }
 
 // ---------------------------------------------------------------------------

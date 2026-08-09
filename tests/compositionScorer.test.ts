@@ -588,8 +588,11 @@ describe('[TASK E] scoreComposition — era policy (shared ERA_POLICY, closes th
     expect(ERA_POLICY.coPrimaryMinEach).toBe(0.4);
   });
 
+  // 지시문 12 (TASK A-3) — 필러 장르를 oldpop-warm-morning-glow(era-neutral,
+  // primary-share 분모에서 제외됨)에서 oldpop-adult-contemporary-80s(실제
+  // 1980s 버킷)로 교체 — designGate.test.ts의 동일 수정과 같은 이유.
   it('a real 45% single-era share blocks era-consistency (unchanged 50% floor — this file already agreed with designGate.ts\'s NEW floor even before this task; the disagreement was designGate.ts being looser, now fixed)', () => {
-    const pattern = [...Array(9).fill('oldpop-doowop-harmony'), ...Array(11).fill('oldpop-warm-morning-glow')]; // 9/20 = 45%
+    const pattern = [...Array(9).fill('oldpop-doowop-harmony'), ...Array(11).fill('oldpop-adult-contemporary-80s')]; // 9/20 = 45%
     const songs = songsWithGenrePattern(pattern);
     const result = scoreComposition(songs, { eraConstraint: SINGLE_ERA });
     const found = result.packBlocking.find(i => i.id === 'era-consistency');
@@ -599,17 +602,18 @@ describe('[TASK E] scoreComposition — era policy (shared ERA_POLICY, closes th
   });
 
   it('a real 50% single-era share (exactly at the shared floor) passes era-consistency', () => {
-    const pattern = [...Array(10).fill('oldpop-doowop-harmony'), ...Array(10).fill('oldpop-warm-morning-glow')]; // 10/20 = 50%
+    const pattern = [...Array(10).fill('oldpop-doowop-harmony'), ...Array(10).fill('oldpop-adult-contemporary-80s')]; // 10/20 = 50%
     const songs = songsWithGenrePattern(pattern);
     const result = scoreComposition(songs, { eraConstraint: SINGLE_ERA });
     expect(result.packBlocking.some(i => i.id === 'era-consistency')).toBe(false);
   });
 
+  // CO_PRIMARY_ERA의 forbidden=['1980s']라 필러는 kr2030-y2k-retro(2000s)로.
   it('closes the real gap: a real 30%/30% co-primary split — which used to have NO post-generation era check at all (eraConsistencyFindings never read eraConstraint.coPrimary) — now correctly blocks era-consistency, matching the shared 40%-each floor', () => {
     const pattern = [
       ...Array(6).fill('oldpop-doowop-harmony'), // 1950s-60s: 6/20 = 30%
       ...Array(6).fill('oldpop-soft-rock-am'), // 1970s: 6/20 = 30%
-      ...Array(8).fill('oldpop-warm-morning-glow')
+      ...Array(8).fill('kr2030-y2k-retro')
     ];
     const songs = songsWithGenrePattern(pattern);
     // Prove the gap was real: the OLD function signature only ever read
@@ -625,7 +629,7 @@ describe('[TASK E] scoreComposition — era policy (shared ERA_POLICY, closes th
     const pattern = [
       ...Array(8).fill('oldpop-doowop-harmony'), // 1950s-60s: 8/20 = 40%
       ...Array(8).fill('oldpop-soft-rock-am'), // 1970s: 8/20 = 40%
-      ...Array(4).fill('oldpop-warm-morning-glow')
+      ...Array(4).fill('kr2030-y2k-retro')
     ];
     const songs = songsWithGenrePattern(pattern);
     const result = scoreComposition(songs, { eraConstraint: CO_PRIMARY_ERA });

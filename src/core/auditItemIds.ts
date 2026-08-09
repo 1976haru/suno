@@ -170,7 +170,10 @@ export const DESIGN_GATE_ITEM_IDS = {
   arrangementDensityConsecutive: 'arrangement-density-consecutive',
   eraPrimaryShare: 'era-primary-share',
   eraForbidden: 'era-forbidden',
-  eraUnspecifiedShare: 'era-unspecified-share',
+  // 지시문 12 (TASK A-3) — (구) eraUnspecifiedShare('era-unspecified-share')를
+  // 대체한다. 모든 장르가 eraBuckets(신, 354/354 전수)를 갖게 되면서 "시대
+  // 미지정" 상태 자체가 없어졌다 — era-neutral은 명시적 값이다.
+  eraNeutralShare: 'era-neutral-share',
   killingPointCount: 'killing-point-count',
   killingPointVariety: 'killing-point-variety',
   arcPhases: 'arc-phases',

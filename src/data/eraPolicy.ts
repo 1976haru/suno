@@ -36,32 +36,35 @@
  * achievable senior-oldpop pack — see designGate.ts's own eraIssues call
  * site and this task's regression tests for the verification.
  *
- * `genericAdvisoryMax`/`genericBlockingMax` are NOT the same kind of
- * disagreement — designGate.ts's pre-existing 25% BLOCKING generic-share
- * ceiling and compositionScorer.ts's pre-existing 20% ADVISORY one are two
- * different severities of the SAME metric (mirrors this codebase's own
- * established two-tier convention elsewhere, e.g.
- * compositionScorer.ts's own DESCRIPTOR_COUNT_ADVISORY_MIN/MAX and
+ * `genericAdvisoryMax`(구 `genericBlockingMax`도 여기 있었다) —
+ * compositionScorer.ts의 20% ADVISORY 범용/era-neutral 장르 비중 경고
+ * (mirrors this codebase's own established two-tier convention elsewhere,
+ * e.g. compositionScorer.ts's own DESCRIPTOR_COUNT_ADVISORY_MIN/MAX and
  * DESCRIPTOR_COUNT_BLOCK_MIN/MAX pair, or LYRIC_ADVISORY_FLOOR_RATIO and
- * LYRIC_BLOCKING_FLOOR_RATIO — an early advisory heads-up before a later
- * hard block, not a raw inconsistency needing resolution to one number.
- * Both are kept, unchanged from their pre-existing real values, as two
- * separate fields here.
+ * LYRIC_BLOCKING_FLOOR_RATIO — an early advisory heads-up, no hard block
+ * behind it here since TASK A-3 below replaced that with something more
+ * precise).
+ *
+ * 지시문 12 (TASK A-3) — `genericBlockingMax`(designGate.ts의 구
+ * era-unspecified-share가 쓰던 전역 25% 블로킹 상한)는 삭제했다. genreLibrary
+ * 354종 전수가 eraBuckets를 갖게 되면서 "시대 미지정" 상태 자체가 없어졌고
+ * (모든 장르가 실제 연대 또는 명시적 'era-neutral' 값을 가짐), 그 대체
+ * 메커니즘(era-neutral-share 관문)은 워크스페이스마다 다른 정책값
+ * (data/workspaceEraIntent.ts의 eraNeutralMaxShare)을 쓴다 — 전역 단일
+ * 상수로는 "kr-2030/kids는 제한 없음, senior-oldpop만 낮게"를 표현할 수
+ * 없어서 이 파일에서 워크스페이스별 파일로 옮겼다.
  */
 export interface EraPolicy {
   /** A single (non-compound) primary era bucket's minimum required genre-count share. Both designGate.ts and compositionScorer.ts: BLOCKING. */
   singlePrimaryMin: number;
   /** Each bucket's minimum required share in a compound (co-primary) concept. Both designGate.ts and compositionScorer.ts: BLOCKING. */
   coPrimaryMinEach: number;
-  /** Era-unspecified ("generic") genre share ceiling past which compositionScorer.ts warns — ADVISORY only. */
+  /** Era-neutral genre share ceiling past which compositionScorer.ts warns — ADVISORY only, workspace-agnostic (unlike designGate.ts's blocking era-neutral-share gate, see data/workspaceEraIntent.ts's eraNeutralMaxShare). */
   genericAdvisoryMax: number;
-  /** Era-unspecified ("generic") genre share ceiling past which designGate.ts blocks. Optional: not every caller enforces a hard ceiling for this metric — compositionScorer.ts stays advisory-only for it, matching its own pre-existing behavior. */
-  genericBlockingMax?: number;
 }
 
 export const ERA_POLICY: EraPolicy = {
   singlePrimaryMin: 0.5,
   coPrimaryMinEach: 0.4,
-  genericAdvisoryMax: 0.2,
-  genericBlockingMax: 0.25
+  genericAdvisoryMax: 0.2
 };

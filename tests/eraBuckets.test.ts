@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { genreLibrary } from '../src/data/genreLibrary';
 import { ERA_BUCKETS_BY_GENRE_ID, ERA_NOTE_KO_BY_GENRE_ID } from '../src/data/eraBuckets';
 import { eraBucketForGenreId } from '../src/data/eraExclusions';
+import { eraPrimaryShareOf, eraNeutralShareOf } from '../src/core/constraints';
+import { eraIntentForWorkspace } from '../src/data/workspaceEraIntent';
 
 /**
  * 지시문 12 (TASK A) — genreLibrary 354종 전수 eraBuckets/eraNoteKo 부여의
@@ -81,5 +83,36 @@ describe('[지시문 12 TASK A-2] eraBucketForGenreId 커버리지 확장 — �
     for (const id of ['oldpop-warm-morning-glow', 'oldpop-gentle-lullaby-pop', 'oldpop-hearth-acoustic', 'oldpop-sunlit-strings-pop', 'oldpop-slow-waltz-memory', 'oldpop-evening-lamp-ballad']) {
       expect(eraBucketForGenreId(id)).toBe('timeless');
     }
+  });
+});
+
+describe('[지시문 12 TASK A-3] era-neutral 분모 제외 + 워크스페이스 정책 상한', () => {
+  it('eraPrimaryShareOf excludes era-neutral genres from the denominator entirely', () => {
+    // 6곡 1950s-60s + 4곡 era-neutral(timeless) → 분모는 6곡뿐, 100%
+    const counts = { 'oldpop-doowop-harmony': 6, 'oldpop-warm-morning-glow': 4 };
+    expect(eraPrimaryShareOf(counts, '1950s-60s')).toBe(1);
+  });
+
+  it('eraPrimaryShareOf returns a lower share when non-neutral competing-bucket genres are mixed in (denominator still excludes only era-neutral)', () => {
+    // 5곡 1950s-60s + 5곡 1970s(비-neutral) + 8곡 era-neutral → 분모 10곡, 1950s-60s 50%
+    const counts = { 'oldpop-doowop-harmony': 5, 'oldpop-soft-rock-am': 5, 'oldpop-warm-morning-glow': 8 };
+    expect(eraPrimaryShareOf(counts, '1950s-60s')).toBe(0.5);
+  });
+
+  it('eraNeutralShareOf denominator is the full song count (no exclusion)', () => {
+    const counts = { 'oldpop-doowop-harmony': 6, 'oldpop-warm-morning-glow': 4 };
+    expect(eraNeutralShareOf(counts)).toBeCloseTo(4 / 10);
+  });
+
+  it('an unmapped/unknown genre id is conservatively treated as era-neutral (fails toward being counted, matching the old generic-catch-all safety net)', () => {
+    const counts = { 'oldpop-doowop-harmony': 5, 'totally-made-up-genre-id': 5 };
+    expect(eraNeutralShareOf(counts)).toBe(0.5);
+    expect(eraPrimaryShareOf(counts, '1950s-60s')).toBe(1); // denominator excludes the unmapped id too
+  });
+
+  it('senior-oldpop has an eraNeutralMaxShare policy (~33%, documented as an estimate); other workspaces have none (unlimited)', () => {
+    expect(eraIntentForWorkspace('senior-oldpop').eraNeutralMaxShare).toBeCloseTo(6 / 18);
+    expect(eraIntentForWorkspace('kr-2030').eraNeutralMaxShare).toBeUndefined();
+    expect(eraIntentForWorkspace('kr-kids').eraNeutralMaxShare).toBeUndefined();
   });
 });

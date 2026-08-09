@@ -276,17 +276,23 @@ describe('evaluateDesignGate — TASK E era policy (shared ERA_POLICY threshold)
     expect(ERA_POLICY.coPrimaryMinEach).toBe(0.4);
   });
 
+  // 지시문 12 (TASK A-3) — 아래 4개 테스트의 필러 장르를 oldpop-warm-morning-glow
+  // (era-neutral, TASK A 재부여 후로는 primary-share 분모에서 제외됨)에서
+  // oldpop-adult-contemporary-80s(실제 1980s 버킷 — SINGLE_ERA는 forbidden이
+  // 없어 안전)로 바꿨다. era-neutral 필러를 그대로 뒀다면 분모 제외 로직 때문에
+  // 9/9=100%처럼 나와 원래 테스트 의도(45%/50%처럼 primary+non-primary 실제
+  // 버킷이 섞인 분포에서의 임계값)를 검증할 수 없다.
   it("a real 45% single-era share — which used to PASS this file's old 40% floor — now correctly BLOCKS era-primary-share, matching the new shared 50% floor (and now agrees with compositionScorer.ts's own always-50% check)", () => {
     const opts = baseOpts({ songCount: 20 });
     const pattern = [
       ...Array(9).fill('oldpop-doowop-harmony'), // 1950s-60s: 9/20 = 45%
-      ...Array(11).fill('oldpop-warm-morning-glow') // timeless filler — keeps genericShare and forbidden buckets both at 0, isolating the primary-share check
+      ...Array(11).fill('oldpop-adult-contemporary-80s') // 1980s filler — real (non-neutral) bucket, keeps forbidden buckets at 0, isolates the primary-share check
     ];
     const constraints = { ...baseConstraints(opts), era: SINGLE_ERA };
     const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
     const issue = result.blocking.find(i => i.id === 'era-primary-share');
     expect(issue).toBeDefined();
-    expect(issue!.expected).toBe('50% 이상');
+    expect(issue!.expected).toContain('50% 이상');
     expect(issue!.actual).toBe('45%');
   });
 
@@ -295,19 +301,22 @@ describe('evaluateDesignGate — TASK E era policy (shared ERA_POLICY threshold)
     expect(opts.channel.archetype).toBe('senior-morning');
     const pattern = [
       ...Array(10).fill('oldpop-doowop-harmony'), // 1950s-60s: 10/20 = 50%, exactly applyEraQuota's real single-primary floor
-      ...Array(10).fill('oldpop-warm-morning-glow')
+      ...Array(10).fill('oldpop-adult-contemporary-80s')
     ];
     const constraints = { ...baseConstraints(opts), era: SINGLE_ERA };
     const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
     expect(result.blocking.some(i => i.id === 'era-primary-share')).toBe(false);
   });
 
+  // 지시문 12 (TASK A-3) — CO_PRIMARY_ERA의 forbidden은 ['1980s']라 위 두
+  // 테스트처럼 1980s 필러를 쓸 수 없다. kr2030-y2k-retro(2000s, era-neutral도
+  // 아니고 primary/coPrimary/forbidden 어디에도 안 걸림)로 대체.
   it("a real 30%/30% co-primary split — which used to PASS this file's old 30% floor — now correctly BLOCKS era-primary-share, matching the new shared 40%-each floor (and closes the real gap: compositionScorer.ts previously had NO co-primary check at all)", () => {
     const opts = baseOpts({ songCount: 20 });
     const pattern = [
       ...Array(6).fill('oldpop-doowop-harmony'), // 1950s-60s: 6/20 = 30%
       ...Array(6).fill('oldpop-soft-rock-am'), // 1970s: 6/20 = 30%
-      ...Array(8).fill('oldpop-warm-morning-glow') // timeless filler
+      ...Array(8).fill('kr2030-y2k-retro') // 2000s filler — real (non-neutral) bucket, not forbidden/primary/coPrimary here
     ];
     const constraints = { ...baseConstraints(opts), era: CO_PRIMARY_ERA };
     const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
@@ -321,22 +330,28 @@ describe('evaluateDesignGate — TASK E era policy (shared ERA_POLICY threshold)
     const pattern = [
       ...Array(8).fill('oldpop-doowop-harmony'), // 1950s-60s: 8/20 = 40%
       ...Array(8).fill('oldpop-soft-rock-am'), // 1970s: 8/20 = 40%
-      ...Array(4).fill('oldpop-warm-morning-glow')
+      ...Array(4).fill('kr2030-y2k-retro')
     ];
     const constraints = { ...baseConstraints(opts), era: CO_PRIMARY_ERA };
     const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
     expect(result.blocking.some(i => i.id === 'era-primary-share')).toBe(false);
   });
 
-  it('era-forbidden/era-unspecified-share are unaffected (byte-identical): generic-share ceiling stays 25% blocking, unrelated to the primary/co-primary threshold change', () => {
+  // 지시문 12 (TASK A-3) — (구) era-unspecified-share(전역 25% 상한)는
+  // era-neutral-share(워크스페이스 정책 상한)로 대체됐다. baseOpts()의 채널은
+  // senior-morning → senior-oldpop 워크스페이스라 eraNeutralMaxShare=6/18≈33%
+  // 정책이 실제로 걸린다. 'not-an-era-mapped-genre'(가짜 id)는
+  // ERA_BUCKETS_BY_GENRE_ID에 없어 보수적으로 era-neutral 취급되고,
+  // oldpop-warm-morning-glow도 (신) 세분화 데이터에서 era-neutral이라 함께
+  // 잡힌다 — 6+5=11/20=55%, 정책 상한(33%)을 넘는다.
+  it('era-forbidden/era-neutral-share are both real: forbidden-bucket presence still blocks, and era-neutral share over the workspace policy ceiling (senior-oldpop ≈33%) also blocks', () => {
     const opts = baseOpts({ customConcept: '비틀즈 느낌의 밝은 60년대 팝', projectTitle: '비틀즈 느낌의 밝은 60년대 팝', songCount: 20 });
     const constraints = baseConstraints(opts);
-    // 26% generic (unmapped) genre id, over the 25% blocking ceiling.
     const pattern = [...Array(9).fill('oldpop-doowop-harmony'), ...Array(6).fill('not-an-era-mapped-genre'), ...Array(5).fill('oldpop-warm-morning-glow')];
     const result = evaluateDesignGate(slotsWithGenrePattern(pattern), constraints, opts);
-    const issue = result.blocking.find(i => i.id === 'era-unspecified-share');
+    const issue = result.blocking.find(i => i.id === 'era-neutral-share');
     expect(issue).toBeDefined();
-    expect(issue!.expected).toBe('25% 이하');
+    expect(issue!.actual).toBe('55%');
   });
 });
 

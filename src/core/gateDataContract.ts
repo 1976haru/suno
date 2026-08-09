@@ -3,6 +3,8 @@ import { DESIGN_GATE_ITEM_IDS } from './auditItemIds';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { getGenreById, type EraTaggedGenrePack } from '../data/genreLibrary';
 import { eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
+import { ERA_BUCKETS_BY_GENRE_ID } from '../data/eraBuckets';
+import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { ERA_POLICY } from '../data/eraPolicy';
 import { resolveConstraintsFromOptions, GENRE_ERA_QUOTA_PER_GENRE_CAP, type ResolvedConstraints } from './constraints';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
@@ -67,7 +69,7 @@ function countGenresInEraBucket(pool: EraTaggedGenrePack[], bucket: EraBucket): 
 }
 
 // ---------------------------------------------------------------------------
-// 시대 (era-primary-share / era-forbidden / era-unspecified-share)
+// 시대 (era-primary-share / era-forbidden / era-neutral-share)
 // ---------------------------------------------------------------------------
 function eraPrimaryShareRequires(channel: ChannelProfile, opts: GenerationOptions): GateDataContractResult {
   const constraints = resolvedConstraintsFor(channel, opts);
@@ -113,25 +115,37 @@ function eraForbiddenRequires(channel: ChannelProfile, opts: GenerationOptions):
   };
 }
 
-function eraGenericShareRequires(channel: ChannelProfile, opts: GenerationOptions): GateDataContractResult {
+function isEraNeutralGenreId(genreId: string): boolean {
+  const fine = ERA_BUCKETS_BY_GENRE_ID[genreId];
+  // constraints.ts의 동일 이름 함수와 같은 이유로 매핑 없는 id는 보수적으로 era-neutral 취급한다.
+  return !fine || (fine.length === 1 && fine[0] === 'era-neutral');
+}
+
+/**
+ * 지시문 12 (TASK A-3) — (구) eraGenericShareRequires를 대체한다. 워크스페이스
+ * 정책(data/workspaceEraIntent.ts의 eraNeutralMaxShare)이 정의돼 있을 때만
+ * 검사한다 — 정의 안 된 워크스페이스는 상한 자체가 없으므로 항상 만족.
+ */
+function eraNeutralShareRequires(channel: ChannelProfile, opts: GenerationOptions): GateDataContractResult {
   const constraints = resolvedConstraintsFor(channel, opts);
   const era = constraints.era;
-  if (era.unspecified || ERA_POLICY.genericBlockingMax === undefined) {
-    return { satisfiable: true, reasonKo: '이 컨셉/정책에는 미지정 상한이 적용되지 않습니다.', observed: 'N/A', needed: 'N/A' };
+  const eraNeutralMaxShare = eraIntentForWorkspace(constraints.workspaceId).eraNeutralMaxShare;
+  if (era.unspecified || eraNeutralMaxShare === undefined) {
+    return { satisfiable: true, reasonKo: '이 컨셉/워크스페이스 정책에는 era-neutral 상한이 적용되지 않습니다.', observed: 'N/A', needed: 'N/A' };
   }
   const pool = genrePoolFor(channel, opts);
   const songCount = opts.songCount || 18;
-  const nonGenericGenres = pool.filter(g => eraBucketForGenreId(g.id) !== null).length;
-  const achievableNonGenericShare = Math.min(1, (nonGenericGenres * GENRE_ERA_QUOTA_PER_GENRE_CAP) / songCount);
-  const bestCaseGenericShare = 1 - achievableNonGenericShare;
-  const satisfiable = bestCaseGenericShare <= ERA_POLICY.genericBlockingMax;
+  const nonNeutralGenres = pool.filter(g => !isEraNeutralGenreId(g.id)).length;
+  const achievableNonNeutralShare = Math.min(1, (nonNeutralGenres * GENRE_ERA_QUOTA_PER_GENRE_CAP) / songCount);
+  const bestCaseNeutralShare = 1 - achievableNonNeutralShare;
+  const satisfiable = bestCaseNeutralShare <= eraNeutralMaxShare;
   return {
     satisfiable,
     reasonKo: satisfiable
-      ? '시대 표기가 있는 장르만으로 세트를 채우면 미지정 비중을 상한 아래로 낮출 수 있습니다.'
-      : '시대 표기가 있는 장르가 부족해 미지정 비중을 상한 아래로 낮출 수 없습니다.',
-    observed: `시대 표기 장르 ${nonGenericGenres}종, 최선의 경우도 미지정 비중 ${Math.round(bestCaseGenericShare * 100)}%`,
-    needed: `미지정 비중 ${Math.round(ERA_POLICY.genericBlockingMax * 100)}% 이하`
+      ? '시대색이 있는 장르만으로 세트를 채우면 era-neutral 비중을 상한 아래로 낮출 수 있습니다.'
+      : '시대색이 있는 장르가 부족해 era-neutral 비중을 상한 아래로 낮출 수 없습니다.',
+    observed: `시대색 있는 장르 ${nonNeutralGenres}종, 최선의 경우도 era-neutral 비중 ${Math.round(bestCaseNeutralShare * 100)}%`,
+    needed: `era-neutral 비중 ${Math.round(eraNeutralMaxShare * 100)}% 이하 (${constraints.workspaceId} 정책, 추정치)`
   };
 }
 
@@ -505,7 +519,7 @@ export const GATE_DATA_CONTRACTS: Record<string, GateDataContract> = {
 
   [DESIGN_GATE_ITEM_IDS.eraPrimaryShare]: { gateId: DESIGN_GATE_ITEM_IDS.eraPrimaryShare, requires: (c, o) => eraPrimaryShareRequires(c, o) },
   [DESIGN_GATE_ITEM_IDS.eraForbidden]: { gateId: DESIGN_GATE_ITEM_IDS.eraForbidden, requires: (c, o) => eraForbiddenRequires(c, o) },
-  [DESIGN_GATE_ITEM_IDS.eraUnspecifiedShare]: { gateId: DESIGN_GATE_ITEM_IDS.eraUnspecifiedShare, requires: (c, o) => eraGenericShareRequires(c, o) },
+  [DESIGN_GATE_ITEM_IDS.eraNeutralShare]: { gateId: DESIGN_GATE_ITEM_IDS.eraNeutralShare, requires: (c, o) => eraNeutralShareRequires(c, o) },
 
   [DESIGN_GATE_ITEM_IDS.killingPointCount]: { gateId: DESIGN_GATE_ITEM_IDS.killingPointCount, requires: (c, o) => killingPointCountRequires(c, o) },
   [DESIGN_GATE_ITEM_IDS.killingPointVariety]: { gateId: DESIGN_GATE_ITEM_IDS.killingPointVariety, requires: (c, o) => killingPointVarietyRequires(c, o) },
