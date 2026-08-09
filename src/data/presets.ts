@@ -32,17 +32,78 @@ export const channelPresets: ChannelProfile[] = [
     // still use them). canon-crooner-standard (data/eraCanonPalettes.ts,
     // Tom Jones/Engelbert-type) stays reachable via chanson/oldpop-piano-ballad-70s,
     // which is the actual 7080-canon member of that palette's fitsGenreIds.
+    //
+    // 지시문 20 (TASK A-1/A-2) — 8개 1950s-60s/챔버팝 oldpop-* 장르(전부
+    // 이미 archetypes:['senior-morning']로 태그돼 있었으나 이 preferredGenres
+    // 배열에는 배선되지 않았던 것)와 재즈 4종을 추가한다. 재즈 재도입은
+    // 지시문 20 원문이 "이전에 뺀 이유는 장르 혼입(팔레트 계열)" 이라고
+    // 서술했지만, 바로 위 TASK v4.9 주석이 밝히는 실제 사유는 보컬 품질
+    // 불만(남성 편중·둘 다 약함)이다 — 다른 문제이므로 팔레트 계열 규칙만으로
+    // 해소된다고 볼 수 없다. jazz-pop/smooth-jazz-lounge는 그 불만의 직접
+    // 대상이었으므로 계속 제외하고, 그 불만이 향했던 적 없는 4개 신규 후보
+    // (jazz-classic-vocal-lounge/jazz-swing-crooner-ballroom/
+    // jazz-brush-ballad-jazz/bossa-cafe)만 추가한다. 청취 검증 대기 — 실제
+    // 세트를 뽑아 들어보고 같은 불만(보컬 약함/성별 편중)이 재현되면 되돌린다.
     preferredGenres: [
       'adult-contemporary', 'acoustic-pop',
       'chanson', 'retro-soul-pop', 'folk-pop',
       'oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul',
       'oldpop-piano-ballad-70s', 'oldpop-adult-contemporary-80s', 'oldpop-close-harmony-duo',
-      'oldpop-hearth-acoustic'
+      'oldpop-hearth-acoustic',
+      'oldpop-doowop-harmony', 'oldpop-british-beat', 'oldpop-girl-group-wall',
+      'oldpop-sunshine-pop', 'oldpop-brill-building',
+      'oldpop-baroque-pop', 'oldpop-sunlit-strings-pop', 'oldpop-orchestral-easy',
+      'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom', 'jazz-brush-ballad-jazz', 'bossa-cafe'
     ],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],
     forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
     seoKeywords: ['아침 음악', '커피 음악', '추억 팝송', '50대 음악', '60대 음악', '감성 팝', '계절 플레이리스트'],
     archetype: 'senior-morning'
+  },
+  {
+    // 지시문 20 (TASK A-3) — oldpop-lounge 아키타입은 이미
+    // core/audienceProfiles.ts의 AUDIENCE_PROFILE_ID_BY_ARCHETYPE(지시문 12
+    // TASK C)와 workspaces/index.ts의 senior-oldpop.archetypeIds에 등록돼
+    // 있었지만, 실제 프리셋 채널이 0개라 사용자가 커스텀 채널로 직접
+    // 만들어 쓰며 검증 설정이 유실되는 문제가 있었다. `audience`/`market`을
+    // 다른 시니어 채널과 동일하게 명시적으로 지정 — 지시문 12 TASK C가
+    // 다룬 함정(이 두 필드에 검증 설정이 묶여 있음)을 신설 채널도 그대로
+    // 밟지 않도록.
+    id: 'oldpop-lounge-main',
+    name: '올드팝 라운지',
+    englishName: 'Old Pop Lounge',
+    market: 'korea',
+    primaryLanguage: 'english',
+    audience: 'seniors',
+    promise: '60~80년대 서구 올드팝을 팝·소울·R&B·샹송·재즈까지 폭넓게 조합하는 라운지 플레이리스트',
+    visualIdentity: 'dim evening lounge, warm amber light, vinyl record, velvet upholstery, refined retro typography',
+    defaultVocal: 'warm mature male crooner tenor, close-mic intimate delivery, relaxed and elegant',
+    // 지시문 20 (TASK A-3) — jazz-brush-ballad-jazz는 genreLibrary의
+    // archetypes가 ['senior-morning', 'showa-cafe']뿐이라 (jazz-classic-
+    // vocal-lounge/jazz-swing-crooner-ballroom과 달리 oldpop-lounge가
+    // 없음) sanitizeGenreIdsForArchetype이 여기서는 걸러낸다 — 실측으로
+    // 확인(tests/genreArchetypeSanitization.test.ts). senior-morning
+    // 쪽에는 이미 포함돼 있으므로 이 채널에는 넣지 않는다.
+    preferredGenres: [
+      'adult-contemporary', 'chanson', 'bossa-cafe', 'smooth-jazz-lounge',
+      'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom',
+      'jazz-hotel-lounge-jazz', 'jazz-torch-vocal-jazz', 'jazz-soft-vocal-trio',
+      'oldpop-standards-torch', 'oldpop-doowop-harmony', 'oldpop-piano-ballad-70s',
+      // 지시문 20 (TASK C 1차 재검증) — check:gates 실측 신규 위반 발견:
+      // "70년대 추억이 느껴지는 올드팝" 컨셉이 era-primary-share(1970s
+      // 50% 이상)를 통과 못함 — 이 채널에 1970s 태그 장르가
+      // oldpop-piano-ballad-70s 1종뿐이라 곡당 상한 5곡 기준 최대
+      // 27.8%(5/18)로 수학적으로 50%를 못 채움. 같은 1970s 태그(이미
+      // senior-morning도 사용 중)를 하나 더 추가해 2종·최대 55.6%
+      // (10/18)로 실측 재검증.
+      'oldpop-soft-rock-am',
+      'oldpop-quiet-storm-warm', 'oldpop-evening-lamp-ballad', 'oldpop-slow-waltz-memory',
+      'retro-soul-pop', 'rnb-old-school-romance-rnb'
+    ],
+    preferredMoods: ['nostalgic', 'warm', 'hopeful'],
+    forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
+    seoKeywords: ['올드팝 라운지', '저녁 음악', '재즈 팝송', '샹송 플레이리스트', '50대 음악', '60대 음악', '라운지 음악'],
+    archetype: 'oldpop-lounge'
   },
   {
     id: 'morning-showa-cafe',
@@ -136,6 +197,43 @@ export const channelPresets: ChannelProfile[] = [
     archetype: 'modern-chill'
   },
   {
+    // 지시문 20 (TASK B-2) — 로파이 53종 중 3종만 chill-hours에 배선돼
+    // 있던 것을 확인, 전용 채널 신설. 새 아키타입을 만들지 말 것(지시문
+    // 명시) — modern-chill 아키타입을 chill-hours와 공유 재사용한다.
+    // audience/market은 chill-hours와 동일하게 명시(지시문 12 TASK C가
+    // 다룬 유실 함정 회피).
+    id: 'lofi-focus-main',
+    name: 'Lofi Focus',
+    englishName: 'Lofi Focus',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Study and work-background lo-fi hip-hop playlists — dusty tape textures, rainy jazzhop, and soft vocal chill',
+    visualIdentity: 'rainy study desk, warm lamp glow, cassette tape, headphones, muted pastel typography, no artist likeness',
+    defaultVocal: 'soft breathy female voice, distant and understated, tape-warm intimate delivery',
+    // 지시문 20 (TASK B-2/B-3) — 로파이 12종 + 재즈홉 2종(jazz-jazz-rap-late-night,
+    // jazz-lofi-vocal-jazz — 후자는 archetypes에 modern-chill이 없어
+    // genreLibrary/index.ts의 CROSS_ARCHETYPE_ADDITIONS로 먼저 등록).
+    preferredGenres: [
+      'lofi-cafe', 'lofi-hiphop-study', 'lofi-dusty-study-hop',
+      'lofi-rainy-jazzhop', 'lofi-soft-vocal-bedroom',
+      'lofi-sleepy-instrumental', 'lofi-lofi-jazz-vocal',
+      'lofi-warm-guitar-loop', 'lofi-study-beats-piano',
+      'lofi-rain-vocal-lofi', 'lofi-boom-bap-lofi', 'lofi-city-night-lofi',
+      'jazz-jazz-rap-late-night', 'jazz-lofi-vocal-jazz'
+    ],
+    preferredMoods: ['calm-focus', 'rainy-comfort', 'warm'],
+    forbiddenCliches: [
+      'bright EDM supersaw',
+      'festival drop',
+      'aggressive battle-rap delivery',
+      'hard autotune lead',
+      'famous artist imitation'
+    ],
+    seoKeywords: ['lofi study playlist', 'lofi hip hop', 'rainy jazzhop', 'study beats', 'chill lofi', 'focus music'],
+    archetype: 'modern-chill'
+  },
+  {
     id: 'city-night-drive',
     name: 'City Night Drive',
     englishName: 'City Night Drive',
@@ -145,7 +243,15 @@ export const channelPresets: ChannelProfile[] = [
     promise: 'Korean and English night-drive playlists with modern city-pop, future funk, disco pop, and polished urban groove',
     visualIdentity: 'night drive dashboard, wet asphalt neon, saturated city reflections, clean modern title layout, no brand logos',
     defaultVocal: 'bright young female voice, clean modern pop delivery, fresh and open tone',
-    preferredGenres: ['city-pop-modern', 'future-funk', 'disco-pop-2020s'],
+    // 지시문 20 (TASK B-4) — 시티팝 53종 중 3종만 배선돼 있던 것을 8~12종
+    // 으로 확장 (전부 이미 archetypes:['city-night']로 태그돼 있어 실측
+    // 확인, 채널 배선만으로 해결되는 TASK A/B-2 유형).
+    preferredGenres: [
+      'city-pop-modern', 'future-funk', 'disco-pop-2020s',
+      'city-pop-soft', 'city-pop-night', 'city-pop-bright-female-groove',
+      'city-pop-coastal-disco-pop', 'city-pop-funky-rhythm-pop',
+      'city-pop-airy-disco-pulse', 'city-pop-club-disco-pop'
+    ],
     preferredMoods: ['fresh-start', 'romantic', 'rainy-comfort'],
     forbiddenCliches: [
       'cheap retro parody',
@@ -210,7 +316,17 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퇴근길 지하철과 원룸으로 이어지는 하루의 끝, 감성 밴드팝과 R&B 중심의 위로 플레이리스트',
     visualIdentity: 'modern minimal city interior, warm desk lamp, subway window reflection, clean sans-serif typography',
     defaultVocal: 'confident modern Korean pop lead, emotionally direct delivery, close-mic warmth',
-    preferredGenres: ['kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-acoustic-folk'],
+    // 지시문 20 (TASK B-1) — R&B 4종·흑인 감성힙합 4종·랩 3종·트랩힙합 3종
+    // 추가(genreLibrary/index.ts의 KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS로
+    // archetypes에 'kr-2030-pop'을 먼저 등록해야 실제로 배정 가능 — 실측
+    // 확인, 등록 없이 넣으면 sanitizeGenreIdsForArchetype이 걸러냄).
+    preferredGenres: [
+      'kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-acoustic-folk',
+      'contemporary-rnb', 'rnb-ballad-2020s', 'rnb-contemporary-airy-female', 'rnb-modern-soft-male',
+      'alt-rnb', 'rnb-moody-alt-rnb', 'rnb-whisper-alt-rnb', 'rnb-alternative-night',
+      'chill-rap', 'boom-bap-mellow', 'jazz-rap',
+      'trap-soul', 'rnb-trap-soul-confession', 'rnb-trap-rnb-night'
+    ],
     preferredMoods: ['bittersweet', 'warm', 'hopeful'],
     forbiddenCliches: [
       'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',
@@ -248,7 +364,12 @@ export const channelPresets: ChannelProfile[] = [
     promise: '비 오는 밤 서울의 골목과 거리를 그리는 R&B·일렉트로팝 중심 야경 드라이브 플레이리스트',
     visualIdentity: 'rainy neon-lit Seoul alley, wet asphalt reflections, clean modern typography, no visible faces',
     defaultVocal: 'close intimate Korean R&B lead, airy ad-lib runs, confident female-led pop vocal',
-    preferredGenres: ['kr2030-dawn-rnb', 'kr2030-electro-pop', 'kr2030-y2k-retro'],
+    // 지시문 20 (TASK B-1) — R&B/야경 무드에 맞는 부분집합만 재사용
+    // (after-work-band-pop과 동일 후보 pool 공유, 채널마다 배타적일 필요 없음).
+    preferredGenres: [
+      'kr2030-dawn-rnb', 'kr2030-electro-pop', 'kr2030-y2k-retro',
+      'contemporary-rnb', 'rnb-contemporary-airy-female', 'alt-rnb', 'rnb-alternative-night', 'trap-soul'
+    ],
     preferredMoods: ['rainy-comfort', 'romantic', 'fresh-start'],
     forbiddenCliches: [
       'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',

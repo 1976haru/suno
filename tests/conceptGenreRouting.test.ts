@@ -68,9 +68,14 @@ describe('[v3.61 TASK B] Korean concept keyword routing reaches the requested ge
  * before the Korean-keyword fix above could even take effect.
  */
 describe('[v3.61 TASK B] chanson/smooth-jazz-lounge resolve via getCoreGenresForArchetype', () => {
-  it('the senior-morning channel preferredGenres pool is 12-16 ids (not 3, not 20+)', () => {
+  // 지시문 20 (TASK A-1/A-2) — v3.61's own "20종 이상으로 늘리지 말 것"
+  // 상한을 이 채널에 한해 명시적으로 초과한다: 지시문 20 자신의 완료
+  // 기준이 "24종 이상"이다 (같은 장르 최대 곡수 관문이 4~5종 풀에서는
+  // 18÷4~5로 위반되던 실측 문제 해결). 우연한 완화가 아니라 의도된
+  // 정책 변경 — 상한을 26으로 재조정.
+  it('the senior-morning channel preferredGenres pool is 12-26 ids (24+ per 지시문 20 TASK A, never 3, never unbounded)', () => {
     const channel = channelPresets.find(c => c.id === 'good-morning-memory-radio')!;
     expect(channel.preferredGenres.length).toBeGreaterThanOrEqual(12);
-    expect(channel.preferredGenres.length).toBeLessThanOrEqual(16);
+    expect(channel.preferredGenres.length).toBeLessThanOrEqual(26);
   });
 });
