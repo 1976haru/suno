@@ -93,12 +93,11 @@ const results: Record<string, unknown> = {};
 // ---------------------------------------------------------------------------
 {
   const concept = '60년대 감미로운 올드팝';
-  const { blueprint, plan } = generatePack(concept, SENIOR_MORNING, 18, {
+  const { blueprint } = generatePack(concept, SENIOR_MORNING, 18, {
     moneyChordMode: 'winterBallad',
     moneyChordModeIsExplicitChoice: true
   });
   const dist = moneyChordDistribution(blueprint);
-  const choices = userChoicesFromOptions({ ...SENIOR_MORNING, moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true } as unknown as GenerationOptions);
   const assertion = assertUserChoicesPreserved(
     userChoicesFromOptions({ moneyChordMode: 'winterBallad', moneyChordModeIsExplicitChoice: true } as GenerationOptions),
     { moneyChordCounts: dist },
@@ -235,7 +234,6 @@ const results: Record<string, unknown> = {};
   // Palette family override: 'family-orchestral' vs 'family-bright-pop' —
   // measured by whether the resulting genre axis actually differs.
   function familyGenreIds(familyOverride: string) {
-    const opts = { ...SENIOR_MORNING };
     const plan = directSetLocal(concept, SENIOR_MORNING, 18, { recentGenreIds: [], recentHooks: [] }, [], undefined, undefined, familyOverride);
     const alloc = plan.allocations.find(a => a.axis === 'genre');
     return alloc ? Object.keys(alloc.counts) : [];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProductionBundleManifest, buildProductionTimelineCsv, buildFfmpegConcatManifest,
-  buildAlbumMetadata, validateProductionBundleCompleteness, tracksWithoutAudio,
+  validateProductionBundleCompleteness, tracksWithoutAudio,
   buildProductionBundleFiles, type ProductionBundleTrackInput
 } from '../src/core/productionBundle';
 import { buildTakeDirectives, type AudioTake } from '../src/core/audioTakes';

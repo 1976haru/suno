@@ -51,7 +51,16 @@ export interface DesignIssue {
   /** How the user can fix this by hand (shown even when autoFix is also offered). */
   fixHintKo: string;
   /** Present only for issues this function knows how to mechanically resolve by recomputing slots (원칙 2's counterpart: fixing the SETTING that produces the bad output, never patching the output itself). */
-  autoFix?: () => Partial<GenerationOptions>;
+  // 지시문 19 (TASK C) — pre-computed value, not a closure: this whole
+  // result travels through a Worker's postMessage (core/localGenerationClient.ts
+  // / workers/localGenerationWorker.ts), and functions aren't structured-
+  // cloneable. A live `() => Partial<GenerationOptions>` here crashed
+  // every real generation attempt that hit a vocal-type design-gate issue
+  // (Failed to execute 'postMessage'... could not be cloned). Every actual
+  // autoFix (see vocalIssues below) only ever depended on `opts` at
+  // evaluation time anyway, so resolving eagerly changes nothing about
+  // what the suggested fix contains.
+  autoFix?: Partial<GenerationOptions>;
 }
 
 export interface DesignGateResult {
@@ -184,7 +193,7 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   if (!types.length) return issues; // no vocalType at all is a data-shape problem, not this gate's concern (usesVocalQuota is unconditionally true as of v3.77 — see vocalPlan.ts)
 
   const counts = countBy(types);
-  const autoFix = () => withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
+  const autoFix = withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
 
   // v(design-gate audience decoupling) — a channel with a fixed
   // vocalQuotaOverride (e.g. a K-pop boy-group's real {male:15,female:0,
@@ -269,7 +278,7 @@ function quotaFidelityIssues(
   counts: Record<string, number>,
   override: VocalQuota,
   songCount: number,
-  autoFix: () => Partial<GenerationOptions>
+  autoFix: Partial<GenerationOptions>
 ): DesignIssue[] {
   const scaled = scaleVocalQuota(override, songCount);
   const issues: DesignIssue[] = [];

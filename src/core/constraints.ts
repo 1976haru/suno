@@ -1,6 +1,6 @@
 import type { AudienceProfile, ConceptBreadth, GenrePack, KidsAgeTierId, WorkspaceId } from '../types';
 import { genreLibrary, getGenreById } from '../data/genreLibrary';
-import { ERA_BUCKET_BY_GENRE_ID, ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
+import { ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
 import { ERA_BUCKETS_BY_GENRE_ID } from '../data/eraBuckets';
 import { TITLE_PATTERNS } from '../data/titlePatterns';
 import { VOCABULARY_BANKS, vocabularyBanksForEra } from '../data/vocabularyBanks';

@@ -16,7 +16,7 @@ import { workspaceDefinitions, type WorkspaceDefinition } from '../src/data/work
 import { genrePacks as resolvedGenrePacks, channelPresets } from '../src/data/presets';
 import { lyricThemesForArchetype, adultLyricThemes } from '../src/data/lyricThemes';
 import { overrideForArchetype } from '../src/data/hookBanks';
-import { defaultHookParts, type HookVocabularyOverride, type HookPartBank } from '../src/data/hookParts';
+import { defaultHookParts, type HookVocabularyOverride } from '../src/data/hookParts';
 import { thumbnailArchetypesForArchetype, thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 import { matchConceptRules } from '../src/data/conceptKeywords';
 import { GENRE_WORKSPACE_OWNERSHIP, isGenreForeignToWorkspace } from '../src/data/genreWorkspaceOwnership';
@@ -208,7 +208,7 @@ const L4_INTENTIONAL_SENIOR_MATCH: Record<string, string> = {
   'city-night': 'hookBanks/cityNight.ts 자체 주석 — v5.17부터 자기 소유의 빈 override로 "Deferred" 명시(audience thirtiesForties, senior 재사용 아님 — 콘텐츠 미구축)'
 };
 
-function hookOverrideFields(o: HookVocabularyOverride): (keyof HookVocabularyOverride)[] {
+function hookOverrideFields(_o: HookVocabularyOverride): (keyof HookVocabularyOverride)[] {
   return ['imperativeObjects', 'nounModifiers', 'nounObjects', 'vocativeLeads', 'vocativeAddressees', 'declarativeStems'];
 }
 

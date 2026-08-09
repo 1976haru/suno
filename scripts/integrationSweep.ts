@@ -22,7 +22,6 @@ import type { ChannelPreset, GenerationOptions, SongIdea } from '../src/types';
 const SONG_COUNT = 18;
 
 // §3-3 판정 기준표 — 성인/동요 워크스페이스에 같은 기준을 적용하지 말 것.
-const ADULT_WORKSPACE_IDS = new Set(['senior-oldpop', 'kr-2030', 'jp-2030']);
 const THRESHOLDS = {
   adult: { promptMin: 350, promptMax: 650, avgSimilarityMax: 0.28, bpmStddevMin: 8 },
   kids: { promptMin: 350, promptMax: 650, avgSimilarityMax: 0.35, bpmStddevMin: 8 }
@@ -32,12 +31,6 @@ function stddev(values: number[]): number {
   if (!values.length) return 0;
   const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
   return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
-}
-
-function duplicates<T>(values: T[]): T[] {
-  const counts = new Map<T, number>();
-  for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);
-  return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value);
 }
 
 function sectionCount(lyrics: string): number {

@@ -46,7 +46,7 @@ import { resolveBilingualPair, resolveOpeningStyle } from '../../core/localGener
 import { resolveScenePlanningMode } from '../../core/bridgeInstruction';
 import { resolveGenreBlendMode } from '../../core/genreRotation';
 import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
-import { resolveGenerationPreflight, type PreflightReason, type PreflightResult } from '../../core/generationPreflight';
+import { resolveGenerationPreflight, type PreflightResult } from '../../core/generationPreflight';
 import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
 import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import DryRunPreviewModal from '../DryRunPreviewModal';
@@ -661,8 +661,15 @@ export default function Step3Generate({
   // (handleCopyClaudeCodeInstruction/handleCopyMasterInstruction/
   // handleCopySetInstruction below) with whatever avoid-list that copy
   // actually sent, released on successful import.
+  // 지시문 19 (TASK C) — opts.channel.id/opts.lyricLanguage are deliberate
+  // invalidation triggers, not computational inputs (the callback itself
+  // never reads them): per this hook's own doc comment just above, the
+  // intent is "one stable runId per channel+language scope, regenerated
+  // only when that scope changes." Removing them would make every
+  // channel/language switch keep the old runId, defeating the whole point.
   const generationRunId = useMemo(
     () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `run-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [opts.channel.id, opts.lyricLanguage]
   );
   // codex 지시문 01 (TASK I) — the actual consumption half of the
@@ -1023,7 +1030,7 @@ export default function Step3Generate({
   useEffect(() => {
     setAcknowledgedMismatchFields(new Set());
     setBridgeGateAcknowledged(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [preflight.mismatchSignature]);
 
   // Once the user has reviewed and checked every currently-required item in

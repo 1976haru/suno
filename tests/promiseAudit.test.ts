@@ -76,17 +76,17 @@ describe('[v3.76 TASK A] auditPromises — REPORT: real 18-song Beatles-60s pack
     const report = auditPromises(bp.songs, CONCEPT);
     const titleReport = auditTitleConceptConsistency(bp.songs);
 
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK v3.76 REPORT] === 약속 이행도 ===');
-    // eslint-disable-next-line no-console
+     
     console.log(`[TASK v3.76 REPORT] 컨셉: ${CONCEPT}`);
     for (const result of report.promises) {
-      // eslint-disable-next-line no-console
+       
       console.log(`[TASK v3.76 REPORT]   [${result.promise.kind}] ${result.promise.labelKo} — ${Math.round(result.fulfillment * 100)}%`, result.byTarget, result.explanationKo);
     }
-    // eslint-disable-next-line no-console
+     
     console.log(`[TASK v3.76 REPORT] 종합 이행도: ${Math.round(report.overallFulfillment * 100)}% / 가장 약한 약속: ${report.weakestPromise}`);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK v3.76 REPORT] 제목 정합성:', titleReport);
 
     expect(report.promises.length).toBeGreaterThanOrEqual(3);
@@ -117,7 +117,7 @@ describe('[v3.76 TASK A] auditTitleConceptConsistency — real reported symptom 
       youtube: { title: '', description: '', tags: [] }, qualityScore: 0, warnings: []
     })) as any;
     const report = auditTitleConceptConsistency(songs);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK v3.76 REPORT] real reported title/hook pairs — title consistency:', report);
     // hookConnectedCount is the strongest, most direct signal here — matches
     // the real "훅 연결 0/18" symptom exactly (0/9 in this smaller sample).
@@ -268,7 +268,7 @@ describe('[v4.5 TASK D] end-to-end — real report concepts C7/C8', () => {
   it('C8 "젊은 시절 춤추던 토요일 밤" reaches >= 60% overall fulfillment (this task\'s own bar)', () => {
     const bp = generatePackFor('젊은 시절 춤추던 토요일 밤');
     const report = auditPromises(bp.songs, '젊은 시절 춤추던 토요일 밤');
-    // eslint-disable-next-line no-console
+     
     console.log('[v4.5 TASK D REPORT] C8 overall fulfillment:', Math.round(report.overallFulfillment * 100) + '%', report.promises.map(p => `${p.promise.kind}:${Math.round(p.fulfillment * 100)}%`));
     expect(report.overallFulfillment).toBeGreaterThanOrEqual(0.6);
   });
@@ -276,7 +276,7 @@ describe('[v4.5 TASK D] end-to-end — real report concepts C7/C8', () => {
   it('C7 "사이먼과 가펑클 같은 담백한 포크 하모니" reaches >= 50% overall fulfillment (this task\'s own bar) despite the artist being unlisted', () => {
     const bp = generatePackFor('사이먼과 가펑클 같은 담백한 포크 하모니');
     const report = auditPromises(bp.songs, '사이먼과 가펑클 같은 담백한 포크 하모니');
-    // eslint-disable-next-line no-console
+     
     console.log('[v4.5 TASK D REPORT] C7 overall fulfillment:', Math.round(report.overallFulfillment * 100) + '%');
     expect(report.overallFulfillment).toBeGreaterThanOrEqual(0.5);
   });

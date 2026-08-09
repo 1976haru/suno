@@ -80,7 +80,7 @@ describe('[v3.77 TASK D] REPORT — real 18-song set for "60~70년대 향수가 
       const bucket = eraBucketForGenreId(id) ?? 'generic';
       byBucket.set(bucket, (byBucket.get(bucket) ?? 0) + count);
     }
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK v3.77 REPORT] "60~70년대 향수" genre era distribution:', Object.fromEntries(byBucket), 'genres:', genreAllocation.counts);
     expect(byBucket.get('1950s-60s') ?? 0).toBeGreaterThan(0);
     expect(byBucket.get('1970s') ?? 0).toBeGreaterThan(0);

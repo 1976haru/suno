@@ -1,7 +1,7 @@
 import type { SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
 import type { AudioTake } from './audioTakes';
 import type { ExportMeta } from './exportMeta';
-import { buildCsvText, csvField, withUtf8Bom } from './csvExport';
+import { buildCsvText, withUtf8Bom } from './csvExport';
 import { extractLyricSungLines, buildSrtCues, buildSrtFile, srtFilename } from './srtExport';
 import { safeFileName, type ZipFileInput } from '../utils/zipExporter';
 

@@ -452,6 +452,16 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       afterMax: personaLengths.length ? Math.max(...personaLengths) : 0,
       afterAvg: avg(personaLengths)
     };
+  // 지시문 19 (TASK C) — activeOptions/fallbackGenres()/fallbackMoods() are
+  // not independent state: activeOptions is `{...opts, channel:
+  // cm.selectedChannel}` and fallbackGenres()/fallbackMoods() only read
+  // selectedGenres/selectedMoods/cm.selectedChannel — every real input they
+  // touch is already listed below. Adding them here would just be adding a
+  // fresh object/function identity recreated every render, which would
+  // make this useMemo recompute on every render regardless of whether any
+  // of the real underlying values changed (defeating the memoization this
+  // hook exists for).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gen.blueprint, opts, cm.selectedChannel, selectedSeason, selectedGenres, selectedMoods, provider.promptCharLimit]);
 
   const isHybridActive = hybridMode && provider.provider !== 'local';
@@ -1518,7 +1528,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const result = promoteTrackToOpeningRole(gen.blueprint, promoteOptions, trackNo, role);
     gen.setBlueprint(result.blueprint);
     if (result.warning) {
-      // eslint-disable-next-line no-console
+       
       console.warn(result.warning);
     }
   }

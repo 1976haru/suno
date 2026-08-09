@@ -67,7 +67,7 @@ import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
 import { normalizeSongOutput } from './songPostProcess';
 import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcIntensity, type ArcPhase, type SlotArcPosition } from './arcPlan';
 import { buildRepetitionCyclePlan } from './arcModels';
-import { assignKillingPoints, killingPointBoostFromInsights, type KillingPoint } from '../data/killingPoints';
+import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { kidsAgeTierFor } from '../data/kidsAgeTiers';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
@@ -1836,7 +1836,15 @@ export function generateLocalBlueprint(
       // see promptComposer.ts's rotatingGenreText.
       { id: 'genre' as const, text: genreText },
       ...(trackGenres[0]?.signatureSound ? [{ id: 'genreSignature' as const, text: rotatingGenreSignatureText(trackGenres, seed, idx), shortForm: trackGenres[0].shortSignatureSound, minimalForm: trackGenres[0].minimalSignatureSound }] : []),
-      ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText }] : []),
+      // 지시문 19 (TASK C) — real gap found while clearing an unused-var lint
+      // error: trackNarrativeShortForm (below) was computed but never
+      // reached this array, unlike the sibling composeStylePrompt call path
+      // just above in this file (its own identical `{ id: 'genreNarrative',
+      // ..., shortForm: trackNarrativeShortForm }` entry). Without it, THIS
+      // path's genreNarrative atom had no shortForm to fall back to under
+      // hard-limit compression pressure (see trackNarrativeShortForm's own
+      // doc comment just below).
+      ...(trackNarrativeText ? [{ id: 'genreNarrative' as const, text: trackNarrativeText, shortForm: trackNarrativeShortForm }] : []),
       // TASK v3.64-B — per-song rotating melodic-design phrase, replacing
       // the old flat whole-pack EARWORM_STYLE_ATOMS this channelParts entry
       // used to carry (see promptComposer.ts's rotatingEarwormText).

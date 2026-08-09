@@ -31,7 +31,6 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { importSongsJson } from '../src/core/bridgeImport';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
-import { getWorkspace } from '../src/data/workspaces';
 import { findArtistReferenceLeaks } from '../src/core/artistReferenceDecomposer';
 import { isKidsArchetype } from '../src/utils/channelArchetype';
 import { channelPresets, genrePacks, moodPacks, makeOptions, testSeason } from './fixtures';

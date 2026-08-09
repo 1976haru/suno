@@ -592,7 +592,6 @@ describe('[workspace contract matrix] 경계 — 10 boundary scenarios', () => {
   });
 
   it('B4: cross-workspace data (negative case) — kr-idol-male genres injected into kr-idol-female must NOT be flagged (they are intentionally shared per K3\'s own design)', () => {
-    const workspaceId: WorkspaceId = 'kr-idol-female';
     const maleGenreIds = KRIDOL_M_CORE_GENRE_IDS.slice(0, 3);
     const sanitized = sanitizeGenreIdsForArchetype([...maleGenreIds], 'kr-idol-female');
     expect(sanitized.removed, 'B4: kr-idol-male genres are legitimately shared with kr-idol-female — must not be removed').toEqual([]);
@@ -756,7 +755,7 @@ describe('[workspace contract matrix] bridge instruction — 13-item content ver
 
       const jsonMatch = instruction.match(/```json\n([\s\S]*?)\n```/);
       expect(jsonMatch, `${workspaceId}/bridge-13item: request payload JSON block must be present`).toBeTruthy();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const payload = JSON.parse(jsonMatch![1]) as any;
 
       // 1. lyricLanguage

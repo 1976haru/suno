@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { composeHook, HOOK_SHAPES } from '../src/core/lyricEngine';
 import { overrideForArchetype } from '../src/data/hookBanks';
-import { resolveHookParts } from '../src/data/hookParts';
 import { migrateArchetype } from '../src/data/presets';
 import { normalizeChannel } from '../src/utils/channelProfile';
 import type { ChannelArchetype } from '../src/types';
 
 function allCombinatorialHooks(archetype: ChannelArchetype): Set<string> {
-  const parts = resolveHookParts('english', overrideForArchetype(archetype, 'english'));
   const out = new Set<string>();
   const used = new Set<string>();
   for (const shape of HOOK_SHAPES) {

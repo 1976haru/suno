@@ -69,7 +69,7 @@ export default function VerifiedComboPanel({ workspaceId, availableGenreIds, blu
     return () => { cancelled = true; };
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(reload, [workspaceId]);
   useEffect(() => setVariationRated(null), [blueprint]);
 

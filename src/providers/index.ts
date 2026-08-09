@@ -17,7 +17,7 @@ import { generateLocalBlueprintResponsive } from '../core/localGenerationClient'
 import { claimSlotsByTrackNo, preallocateSongSlots, reconcileWithPreassignedSlot, slotsForRange } from '../core/batchPreallocation';
 import { describeTrackSetValidation, validateProviderTrackSet } from '../core/importValidation';
 import { scoreSongs } from '../core/quality';
-import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/compositionRecompose';
+import { recomposeBlockingTracks } from '../core/compositionRecompose';
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { getRecentVocalCombos } from '../core/vocalComboLedger';

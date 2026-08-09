@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listPacks } from '../core/library';
-import { currentWorkspaceId, setCurrentWorkspace } from '../core/workspaceScope';
+import { currentWorkspaceId } from '../core/workspaceScope';
 import { workspaceDefinitions, type WorkspaceDefinition } from '../data/workspaces';
 import { workspaceAvailabilityFor } from '../data/workspaceAvailability';
 import type { WorkspaceId } from '../types';
@@ -127,6 +127,11 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
 const SKIP_PICKER_KEY = 'suno-weaver-skip-workspace-picker';
 
 /** Reads which workspace (if any) should auto-open, skipping this screen entirely. Deliberately NOT itself workspace-scoped (scopedKey would be circular — this is what CHOOSES the workspace in the first place). */
+// 지시문 19 (TASK C) — these 3 real cross-file utilities stay co-located
+// rather than being split into their own module; see
+// ExplorationLedgerPanel.tsx's identical doc comment on why (dev-only Fast
+// Refresh rule, no runtime effect).
+// eslint-disable-next-line react-refresh/only-export-components
 export function skipWorkspacePickerPreference(): WorkspaceId | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -136,6 +141,7 @@ export function skipWorkspacePickerPreference(): WorkspaceId | null {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function setSkipWorkspacePickerPreference(id: WorkspaceId): void {
   if (typeof window === 'undefined') return;
   try {
@@ -145,6 +151,7 @@ export function setSkipWorkspacePickerPreference(id: WorkspaceId): void {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function clearSkipWorkspacePickerPreference(): void {
   if (typeof window === 'undefined') return;
   try {

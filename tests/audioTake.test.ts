@@ -17,7 +17,6 @@ import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
  */
 
 function makeFullTake(overrides: Partial<AudioTake> = {}): AudioTake {
-  const measurements = computeAudioMeasurements({ channels: [new Float32Array(22050 * 3)], sampleRate: 22050 });
   return {
     takeId: 't1', songId: 's1', trackNo: 1, packId: 'p1',
     fileName: 'take1.mp3', versionLabel: 'v1', adopted: false,

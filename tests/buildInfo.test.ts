@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { APP_VERSION, APP_VERSION_LABEL, BUILD_INFO, BUILT_AT, COMMIT_SHA } from '../src/core/buildInfo';
 import { CURRENT_SCHEMA_VERSION } from '../src/core/schemaVersion';
-import { buildExportMeta, EXPORT_SCHEMA_VERSION } from '../src/core/exportMeta';
+import { EXPORT_SCHEMA_VERSION } from '../src/core/exportMeta';
 import { exportCsv, exportJson } from '../src/utils/exporters';
 import { downloadCsv, buildTakeLedgerCsv, withBuildInfoComment, type SetContext } from '../src/core/csvExport';
 import { exportWorkspace, exportAllWorkspaces, DEFAULT_EXPORT_INCLUDE } from '../src/core/workspaceTransfer';

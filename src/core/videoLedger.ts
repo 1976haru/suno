@@ -288,7 +288,6 @@ export function computeInsights(videos: VideoRecord[]): VideoInsights {
   const bestVariant = (Object.entries(variantAverageCtr) as [ThumbnailVariantId, number][])
     .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-  const avgCtr = withCtr.reduce((sum, v) => sum + (v.ctr as number), 0) / withCtr.length;
   const topCtrVideos = [...withCtr].sort((a, b) => (b.ctr as number) - (a.ctr as number)).slice(0, Math.max(1, Math.ceil(withCtr.length / 3)));
   const wordCounts = new Map<string, number>();
   for (const video of topCtrVideos) {

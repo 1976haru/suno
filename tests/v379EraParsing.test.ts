@@ -92,7 +92,7 @@ describe('[v3.79 TASK A] REPORT — real 18-song directSetLocal set for "60년�
       byBucket.set(bucket, (byBucket.get(bucket) ?? 0) + count);
     }
     const total = [...byBucket.values()].reduce((a, b) => a + b, 0);
-    // eslint-disable-next-line no-console
+     
     console.log(
       '[v3.79 TASK A REPORT] "60년대70년대 감성을 느낄수 있는 올드팝" genre era distribution:',
       Object.fromEntries(byBucket),

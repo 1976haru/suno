@@ -297,8 +297,11 @@ const STYLE_ALLOCATION_ITEM_IDS = new Set<string>([
   FULL_AUDIT_ITEM_IDS.vocalDistribution, FULL_AUDIT_ITEM_IDS.vocalZoneMax3, FULL_AUDIT_ITEM_IDS.vocalNoTripleRun
 ]);
 
-// TASK spec's own §4-3 "제목=훅 일치 8~10곡" band.
-const TITLE_EQUALS_HOOK_TARGET = { min: 8, max: 10 };
+// 지시문 19 (TASK C) — TITLE_EQUALS_HOOK_TARGET (TASK spec §4-3's old
+// "제목=훅 일치 8~10곡" fixed band) removed as real dead code: 지시문 05
+// (TASK F, see this file's own checkTitleHookRelationships call site below)
+// replaced it with core/titleHookRelationship.ts's calibrated
+// disconnected-quota check; nothing has read this constant since.
 // 지시문 10 (TASK C-2) — real dead code: this constant's only real consumer
 // was replaced by core/negativePromptSpec.ts's own checkNegativePromptLength
 // (지시문 05 TASK F, see the negativePromptLength item further down this

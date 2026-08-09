@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, ListMusic, Music2 } from 'lucide-react';
-import type { AudienceProfile, GenerationOptions, PlaylistBlueprint, SongIdea } from '../types';
+import type { AudienceProfile, GenerationOptions, PlaylistBlueprint } from '../types';
 import type { GenerationGateResult } from '../core/generationGate';
 import type { FullAuditReport, AuditItem } from '../core/fullAudit';
 import { runFullAuditResponsive } from '../core/localGenerationClient';
@@ -108,7 +108,7 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
       .catch(() => { if (!cancelled) { setTakeCount(0); setAudioSignals([]); } });
     return () => { cancelled = true; };
   }
-  useEffect(refreshAudioTakes, [blueprint]);
+  useEffect(refreshAudioTakes, [blueprint, packId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,7 +188,12 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
       }
     })();
     return () => { cancelled = true; };
-  }, [blueprint, conceptLabel, audienceProfile, opts.channel.id, opts.lyricLanguage]);
+  // 지시문 19 (TASK C) — real gap the exhaustive-deps warning caught:
+  // this effect reads opts.channel.archetype and
+  // opts.channel.vocalQuotaOverride directly (evaluateReleaseReadiness's
+  // input below) but only opts.channel.id was tracked — editing either in
+  // place (same channel id) left the release-readiness report stale.
+  }, [blueprint, conceptLabel, audienceProfile, opts.channel.id, opts.channel.archetype, opts.channel.vocalQuotaOverride, opts.lyricLanguage]);
 
   const baseline = useMemo(() => loadBaseline(opts.channel.id), [opts.channel.id]);
   const classified = useMemo(() => report?.items.map(it => ({ item: it, classification: classify(it, baseline) })) ?? [], [report, baseline]);
@@ -375,6 +380,3 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
   );
 }
 
-export function usableSongsForOrderSuggestion(songs: SongIdea[]): boolean {
-  return songs.length >= 4;
-}
