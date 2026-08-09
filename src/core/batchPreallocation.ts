@@ -869,6 +869,12 @@ export function preallocateSongSlots(
       ...(trackGenres[0]?.eraTag ? { eraTag: trackGenres[0].eraTag } : {}),
       arcPhase: arcPlan[idx].phase,
       intensity: arcPlan[idx].intensity,
+      // 지시문 26 (TASK A) — arcPlan[idx].peakStrength was only ever read
+      // transiently here (to build killingPointPlan above); never snapshotted
+      // onto the slot. Always set (unlike killingPointText/Id/Placement,
+      // which stay undefined for 'none') so downstream code can tell
+      // "genuinely no killing point by design" apart from "field missing".
+      peakStrength: arcPlanForKillingPoints[idx].peakStrength,
       ...(perceivedEnergyResult ? { perceivedEnergy: perceivedEnergyResult.value, perceivedEnergyReasonKo: perceivedEnergyResult.reasonKo } : {}),
       ...(moneyChordId ? { moneyChordId } : {}),
       // v5.11 (TASK L) — always-populated counterparts of moneyChordId/
@@ -1378,7 +1384,57 @@ export function reconcileWithPreassignedSlot(
       effectiveArchetype: resolvedArchetype,
       workspaceId: resolvedWorkspaceId,
       ...(promptFingerprint ? { promptFingerprint } : {}),
-      ...(arrangementRecipe ? { arrangementRecipe } : {})
+      ...(arrangementRecipe ? { arrangementRecipe } : {}),
+      // 지시문 26 (TASK C) — this fast path's own pre-existing comment
+      // (immediately above the `return` this block replaced) admits it
+      // "used to skip every other slot-sourced field (moneyChordId, eraTag,
+      // arcPhase, ...)... still true for those pre-existing optional
+      // fields" — a known, accepted gap for THIS path specifically, going
+      // back to when the fast path was first added (v5.11), before most of
+      // these fields (killingPoint* v3.68, perceivedEnergy 지시문23,
+      // lyricThemeMotionKo/CastKo/EraSettingKo codex 지시문02) even existed
+      // — every one of them was added to the main path below without a
+      // matching update here. tests/slotFieldRoundTrip.test.ts now exercises
+      // BOTH return paths for exactly this reason: a slot-owned field fixed
+      // in one path but not the other is still broken for any real response
+      // complete enough to take this fast path (this is not a rare case —
+      // a fully-compliant LLM response, one that already contains every
+      // locked verbatim field, is EXACTLY what triggers this fast path).
+      // Mirrors the main path's own conditional-copy list below field for
+      // field (except transformations that don't apply to an
+      // already-complete song: lyrics vocal-tag normalization/emotionArc
+      // fallback/listenerSituation fallback — those are content rewrites,
+      // not slot->song field copies, and are intentionally out of this
+      // task's "필드 왕복" scope).
+      songRole: slot.songRole,
+      ...(slot.lyricTheme ? { lyricTheme: slot.lyricTheme } : {}),
+      ...(slot.genreId ? { genreId: slot.genreId } : {}),
+      ...(slot.genreText ? { genreText: slot.genreText } : {}),
+      ...(slot.signatureSound ? { signatureSound: slot.signatureSound } : {}),
+      ...(slot.lyricThemeText ? { lyricThemeText: slot.lyricThemeText } : {}),
+      ...(slot.lyricThemeArc ? { lyricThemeArc: slot.lyricThemeArc } : {}),
+      ...(slot.pov ? { pov: slot.pov } : {}),
+      ...(slot.verseStyle ? { verseStyle: slot.verseStyle } : {}),
+      ...(slot.verseStyleText ? { verseStyleText: slot.verseStyleText } : {}),
+      ...(slot.chorusStyle ? { chorusStyle: slot.chorusStyle } : {}),
+      ...(slot.chorusStyleText ? { chorusStyleText: slot.chorusStyleText } : {}),
+      ...(slot.vocalType ? { vocalType: slot.vocalType } : {}),
+      ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
+      ...(slot.killingPointText ? { killingPointText: slot.killingPointText } : {}),
+      ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
+      ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
+      ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
+      ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
+      ...(slot.peakStrength ? { peakStrength: slot.peakStrength } : {}),
+      ...(slot.perceivedEnergy !== undefined ? { perceivedEnergy: slot.perceivedEnergy, perceivedEnergyReasonKo: slot.perceivedEnergyReasonKo } : {}),
+      bpm: slot.tempo,
+      ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
+      ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
+      ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
+      ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
+      ...(slot.lyricThemeMotionKo ? { lyricThemeMotionKo: slot.lyricThemeMotionKo } : {}),
+      ...(slot.lyricThemeCastKo ? { lyricThemeCastKo: slot.lyricThemeCastKo } : {}),
+      ...(slot.lyricThemeEraSettingKo ? { lyricThemeEraSettingKo: slot.lyricThemeEraSettingKo } : {})
     };
   }
   // 지시문 10 (TASK D) — normalizeProviderStylePrompt (this file, above) is
@@ -1460,9 +1516,19 @@ export function reconcileWithPreassignedSlot(
     // TASK v3.68 (TASK B) — snapshot fields for rating analysis
     // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.
     ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
+    // 지시문 26 (TASK A) — killingPointText/killingPointPlacement/peakStrength
+    // were missing from this reconciliation entirely (only killingPointId/
+    // arcPhase/intensity were copied) despite PreassignedSongSlot already
+    // carrying them — the exact "슬롯이 만들었는데 팩에 안 남는" gap this
+    // task exists to close. Unconditional override (LLM response's own
+    // fields, if any, are ignored — the slot's assignment is truth, per
+    // §A-2's own restoration rule).
+    ...(slot.killingPointText ? { killingPointText: slot.killingPointText } : {}),
+    ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
     ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
     ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
     ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
+    ...(slot.peakStrength ? { peakStrength: slot.peakStrength } : {}),
     ...(slot.perceivedEnergy !== undefined ? { perceivedEnergy: slot.perceivedEnergy, perceivedEnergyReasonKo: slot.perceivedEnergyReasonKo } : {}),
     bpm: slot.tempo,
     ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),

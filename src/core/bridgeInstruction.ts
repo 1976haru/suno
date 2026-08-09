@@ -1090,7 +1090,16 @@ function killingPointSection(preassignedSongs: PreassignedSongSlot[]): string[] 
   if (!withKillingPoint.length) return [];
   return [
     '',
-    '[Killing points] - each track\'s one designed peak moment, an idea to realize in your own words, never a phrase to quote verbatim. This should be the loudest, fullest, most energetic point of the ENTIRE song — clearly audible as a lift, not a small nudge — and the section right before it should stay noticeably more restrained (thinner arrangement, lower energy) so the peak has something real to rise from, instead of the whole song sitting at one constant level. Build this through arrangement fullness and dynamics, never through belting or harsh top end — the audience\'s vocal-register/production exclusions elsewhere in this instruction still apply in full at the peak. A track not listed here has no designed peak moment — keep it comfortably at its usual level throughout, do not invent one.',
+    // 지시문 26 (TASK B) — 실측: 슬롯 단계 배정 15/18 중 stylePrompt 텍스트에
+    // 실제로 남은 건 6/18뿐이었다. ①(지시문 전달 누락)·③(normalizeProviderStylePrompt가
+    // 지운다)는 코드로 직접 실증해 배제했다 — 남은 원인은 ②: 이 문단이
+    // "arrangement fullness/dynamics로 실현하라"는 오디오 결과만 요구하고
+    // "그 구체적인 기법을 stylePrompt 문장 안에 이름 붙여 적으라"는 요구가
+    // 없었다 — LLM이 다이내믹만 살리고 텍스트로는 안 옮겨도 이 문단을 어긴
+    // 게 아니었다. 새로 추가한 문장이 그 구멍을 명시적으로 막는다 — "직접
+    // 인용은 금지"(§v3.67 원 설계, 유지) 원칙은 그대로 두고 "그래도 문장
+    // 안에 구체적으로 적어라"만 강화한다.
+    '[Killing points] - each track\'s one designed peak moment, an idea to realize in your own words, never a phrase to quote verbatim. This should be the loudest, fullest, most energetic point of the ENTIRE song — clearly audible as a lift, not a small nudge — and the section right before it should stay noticeably more restrained (thinner arrangement, lower energy) so the peak has something real to rise from, instead of the whole song sitting at one constant level. Build this through arrangement fullness and dynamics, never through belting or harsh top end — the audience\'s vocal-register/production exclusions elsewhere in this instruction still apply in full at the peak. Critically, this moment must also be NAMED as a concrete, specific clause in the stylePrompt text itself (your own wording for the actual technique — an octave lift, a key/half-step modulation, a stripped-then-full swell, a sustained note into the chorus, etc.) — realizing the dynamic without ever describing it in the prompt text does not satisfy this. A track not listed here has no designed peak moment — keep it comfortably at its usual level throughout, do not invent one.',
     ...withKillingPoint.map(slot => `  Track ${slot.trackNo} (${slot.killingPointPlacement}): ${slot.killingPointText}`)
   ];
 }
