@@ -1137,13 +1137,20 @@ function removeRepeatedInstrumentMentions(stylePrompt: string, instrumentSet: st
  * inline sequence inside reconcileWithPreassignedSlot below — extracted
  * here, unchanged, and given a real name so it can be pointed to as the
  * locked-field enforcement step, rather than living as an anonymous block
- * of local variables. A pure refactor: every one of these sub-steps
- * (enforceVocalTextInStylePrompt, appendVerbatimIfMissing ×6,
+ * of local variables. A pure refactor at the time: every one of these
+ * sub-steps (enforceVocalTextInStylePrompt, appendVerbatimIfMissing ×6,
  * enforceInstrumentSetInStylePrompt, enforceArrangementDensityInStylePrompt,
  * stripNegativeStyleFromStylePrompt, enforceTempoInStylePrompt,
  * diversifyVocalLedOpening, removeRepeatedInstrumentMentions) already
- * existed and already ran in this exact order; nothing here changes what
- * any of them does.
+ * existed and already ran in this exact order; nothing here changed what
+ * any of them did.
+ *
+ * 지시문 16 (TASK B-3) — the 7 appendVerbatimIfMissing calls (string-match
+ * only, blind to which conceptual axis a clause belongs to) are gone now,
+ * replaced by mergeAtom (core/promptAxisMerge.ts, axis-aware via
+ * data/promptAxisLexicon.ts's classifyClause) — see this function's own
+ * body below for the real fix (§1-2's 7-song intro contradiction, §1-3's
+ * 5-song duplicate lead-vocal declaration).
  *
  * A full generative compiler (a PromptSpec type producing the final text
  * directly, discarding provider prose entirely) stays out of scope: the
