@@ -50,8 +50,9 @@ const MARKER_KEYWORDS: Record<RelationshipMarker, MarkerKeywords> = {
   }
 };
 
-const FLASHBACK_MARKERS_KOREAN = ['그때', '그날', '기억 속에', '추억 속에', '돌이켜보면', '회상하면', '떠올리면', '지난날'];
-const FLASHBACK_MARKERS_JAPANESE = ['あの日', 'あの頃', '思い出せば', '振り返れば', '記憶の中', '昔のこと'];
+/** 지시문 17 (TASK B) — core/narrativeState.ts의 ObjectState 회상 표지 판정이 이 목록을 그대로 재사용한다. "회상 표지 목록을 두 곳에 두지 않는다"는 그 지시문 자신의 요구 — export해서 공유한다, 복사하지 않는다. */
+export const FLASHBACK_MARKERS_KOREAN = ['그때', '그날', '기억 속에', '추억 속에', '돌이켜보면', '회상하면', '떠올리면', '지난날'];
+export const FLASHBACK_MARKERS_JAPANESE = ['あの日', 'あの頃', '思い出せば', '振り返れば', '記憶の中', '昔のこと'];
 
 function textContainsAny(text: string, keywords: string[]): boolean {
   return keywords.some(keyword => text.includes(keyword));

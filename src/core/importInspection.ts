@@ -10,6 +10,8 @@ import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
 import { distinctChoicePolicyForWorkspace, safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
 import { workspaceForArchetype } from '../data/workspaces';
 import { findLyricMetaLeaks } from './lyricMetaLeak';
+import { evaluateObjectState, type ObjectStateLanguage } from './narrativeState';
+import { objectStatePolicyForWorkspace } from '../data/objectStatePolicy';
 
 /**
  * TASK (import transaction / pre-persistence inspection) — real, verified
@@ -102,6 +104,8 @@ export interface ImportInspection {
   duplicateContentTrackNos: number[];
   /** 지시문 17 (TASK A-3) — 작곡 지시 유출 중 severity: 'blocking'(영어)인 것만 담는다 — artistLeakTrackNos와 같은 per-track 제외 취급(hasShortfallOrRepairIssue로만 영향, hardBlocked 아님). 한국어·일본어 advisory 매치는 여기 포함되지 않는다(checks의 'metaLeak' info 라인으로만 표시). */
   metaLeakTrackNos: number[];
+  /** 지시문 17 (TASK B) — 소품 상태 모순 중 severity: 'blocking'(실측된 kind)인 트랙만 담는다. metaLeakTrackNos와 동일한 per-track 제외 취급. */
+  objectStateTrackNos: number[];
   sceneOverlaps: { trackNo: number; situation: string; matchedHistoryEntry: string }[];
   titleHistoryCollisions: { trackNo: number; title: string }[];
   /**
@@ -236,6 +240,7 @@ export function inspectImportReport(
       artistLeaks: [],
       duplicateContentTrackNos: [],
       metaLeakTrackNos: [],
+      objectStateTrackNos: [],
       sceneOverlaps: [],
       titleHistoryCollisions: [],
       lyricLineOverlapMatches: [],
@@ -428,6 +433,47 @@ export function inspectImportReport(
     checks.push({ id: 'metaLeak', labelKo: '작곡 지시 유출 검사 통과', status: 'pass' });
   }
 
+  // 지시문 17 (TASK B) — 소품 상태 모순(core/narrativeState.ts). kind
+  // 단위로 verified가 갈린다(data/objectStatePolicy.ts) — 같은 워크스페이스
+  // 안에서도 실측된 kind(현재 senior-oldpop의 letter 하나)만 blocking,
+  // 나머지는 advisory. metaLeak과 동일한 per-track 제외 취급(hasShortfallOrRepairIssue만,
+  // hardBlocked 아님). bilingual 팩은 kind 어휘가 언어별로 갈려 있어 이번
+  // 엔진의 실측 범위 밖 — 건너뛴다(정직하게 미검사, 거짓 통과가 아니다).
+  const objectStateWorkspaceId = workspaceForArchetype(languageContext?.archetype as ChannelArchetype | undefined)?.id;
+  const objectStatePolicy = objectStateWorkspaceId ? objectStatePolicyForWorkspace(objectStateWorkspaceId) : undefined;
+  const objectStateLanguage: ObjectStateLanguage | undefined =
+    lyricLanguage === 'english' || lyricLanguage === 'korean' || lyricLanguage === 'japanese' ? lyricLanguage : undefined;
+  const objectStateFindingsByTrack = objectStatePolicy && objectStateLanguage && objectStatePolicy.kinds.length
+    ? report.blueprint.songs.map(song => ({
+        trackNo: song.trackNo,
+        findings: evaluateObjectState(song.lyrics, objectStatePolicy.kinds, objectStatePolicy.verifiedKinds, objectStateLanguage)
+      })).filter(entry => entry.findings.length > 0)
+    : [];
+  const objectStateBlockingEntries = objectStateFindingsByTrack
+    .map(entry => ({ trackNo: entry.trackNo, findings: entry.findings.filter(f => f.severity === 'blocking') }))
+    .filter(entry => entry.findings.length > 0);
+  const objectStateAdvisoryEntries = objectStateFindingsByTrack
+    .map(entry => ({ trackNo: entry.trackNo, findings: entry.findings.filter(f => f.severity === 'advisory') }))
+    .filter(entry => entry.findings.length > 0);
+  const objectStateTrackNos = objectStateBlockingEntries.map(entry => entry.trackNo);
+  if (objectStateBlockingEntries.length) {
+    checks.push({
+      id: 'objectState',
+      labelKo: '소품 상태 모순 검사',
+      status: 'blocked',
+      detail: objectStateBlockingEntries.flatMap(entry => entry.findings.map(f => `Track ${entry.trackNo} (${f.kind}): ${f.reasonKo}`)).join(' / ')
+    });
+  } else if (objectStateAdvisoryEntries.length) {
+    checks.push({
+      id: 'objectState',
+      labelKo: '소품 상태 모순 검사 (참고 — 미검증 kind)',
+      status: 'info',
+      detail: objectStateAdvisoryEntries.flatMap(entry => entry.findings.map(f => `Track ${entry.trackNo} (${f.kind}): ${f.reasonKo}`)).join(' / ')
+    });
+  } else {
+    checks.push({ id: 'objectState', labelKo: '소품 상태 모순 검사 통과', status: 'pass' });
+  }
+
   // 8. 중복 방지 검사 (v5.22 AXIS 1 §1-7) — reuses core/duplicationGate.ts's
   // pure checks directly, never a re-implementation. Gate 1 (scene/title):
   // same per-track-exclusion treatment as the artist-safety check just
@@ -481,6 +527,7 @@ export function inspectImportReport(
     artistLeakTrackNos.length > 0 ||
     duplicateContentTrackNos.length > 0 ||
     metaLeakTrackNos.length > 0 ||
+    objectStateTrackNos.length > 0 ||
     report.importedCount !== report.requestedCount;
 
   const status: ImportStatus = hardBlocked ? 'blocked' : hasShortfallOrRepairIssue ? 'repairable' : 'valid';
@@ -496,6 +543,7 @@ export function inspectImportReport(
     artistLeaks,
     duplicateContentTrackNos,
     metaLeakTrackNos,
+    objectStateTrackNos,
     sceneOverlaps: sceneOverlap.collisions,
     titleHistoryCollisions: titleCollision.collisions,
     lyricLineOverlapMatches: lyricLineOverlap.matches,
