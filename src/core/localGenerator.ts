@@ -1093,6 +1093,9 @@ export function generateLocalBlueprint(
     previousFlagshipOrder?: VocalType[];
     /** v3.82 (TASK A) — mirrors batchPreallocation.ts's identical field/doc comment. */
     verifiedCombos?: VerifiedCombo[];
+    /** 지시문 14 (Phase 2 TASK A-1/A-2) — mirrors batchPreallocation.ts's preallocateSongSlots identical fields/doc comment. */
+    recentLyricThemeIds?: string[];
+    recentSituations?: string[];
   },
   /** TASK A5 (v3.5) — Suno's own limit may change; the user can raise/lower it in Settings (default SUNO_STYLE_LIMIT). */
   styleLimit?: number
@@ -1581,7 +1584,10 @@ export function generateLocalBlueprint(
   // tests whose exact expected values were calibrated against the old,
   // concept-independent seed).
   const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
-  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed);
+  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed, {
+    recentThemeIds: avoid?.recentLyricThemeIds,
+    recentSituations: avoid?.recentSituations
+  });
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 

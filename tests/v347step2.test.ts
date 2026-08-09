@@ -78,10 +78,17 @@ describe('[v3.47 Step 2] lyric theme data and slot plans', () => {
     // summer-night, dance-saturday, ...) added deliberately to fix a real
     // 18/18-songs-one-frame homogeneity bug — a real, intentional expansion,
     // not accidental bloat. 50 still catches a runaway pool.
+    // 지시문 14 (Phase 2 TASK B) — ceiling raised 50 -> 80: a real measured
+    // gap (§2-2) found 11 of 13 archetypes couldn't sustain a 5-set avoid
+    // window (3 couldn't even fill one 18-song set), so senior-morning grew
+    // 40 -> 70 and showa-cafe/kids grew similarly, all deliberately, with
+    // real material-family diversity (§B-3) — see lyricThemes.ts's own
+    // "지시문 14 (Phase 2 TASK B)" doc comments at each archetype's block.
+    // 80 still catches a runaway pool above the real new sizes.
     for (const channel of [showaChannel, seniorChannel, kidsChannel]) {
       const themes = lyricThemesForArchetype(channel.archetype);
       expect(themes.length).toBeGreaterThanOrEqual(12);
-      expect(themes.length).toBeLessThanOrEqual(50);
+      expect(themes.length).toBeLessThanOrEqual(80);
       expect(themes.every(theme => theme.scene.split(/\s+/).length >= 8)).toBe(true);
       expect(themes.every(theme => theme.scene.toLowerCase() !== theme.labelKo.toLowerCase())).toBe(true);
     }

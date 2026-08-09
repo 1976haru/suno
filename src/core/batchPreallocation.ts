@@ -131,6 +131,20 @@ export function preallocateSongSlots(
      * function's own flagshipCombo local below.
      */
     verifiedCombos?: VerifiedCombo[];
+    /**
+     * 지시문 14 (Phase 2 TASK A-1/A-2) — workspace-scoped cross-pack lyric
+     * theme/scene history, pre-fetched by the caller (App.tsx's own
+     * duplicationHistory fetch already reads situationLedger.ts's
+     * recentSceneSignatures for Gate 1/Gate 2 — this reuses that exact same
+     * pre-fetch, not a second read) and threaded into buildLyricThemePlan's
+     * own new `avoid` param below. This is the real fix for 지시문 14 §2-1's
+     * measured gap: recentSituations used to reach only the bridge
+     * instruction's TEXT (a "please avoid this" suggestion an LLM can
+     * ignore); this actually REMOVES those ids/scenes from the candidate
+     * pool before a slot is ever assigned one.
+     */
+    recentLyricThemeIds?: string[];
+    recentSituations?: string[];
   }
 ): PreassignedSongSlot[] {
   // TASK (genre-archetype sanitization) — mirrors core/localGenerator.ts's
@@ -698,7 +712,10 @@ export function preallocateSongSlots(
   // fix, mirrored exactly (same formula, same "only this one call" scope —
   // genre/hook/BPM/vocal rotation all keep the shared seed unchanged).
   const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
-  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed);
+  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed, {
+    recentThemeIds: avoid?.recentLyricThemeIds,
+    recentSituations: avoid?.recentSituations
+  });
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 

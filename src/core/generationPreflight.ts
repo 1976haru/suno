@@ -33,6 +33,7 @@ import { deriveEraIntent, eraDeviantGenreIds } from './eraIntent';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { hashSeed } from '../utils/prng';
 import { validateChannelProfile } from '../utils/channelProfile';
+import { lyricThemesForOptions } from '../data/lyricThemes';
 
 export interface PreflightReason {
   /** Matches ResolvedGenerationContract.mismatches[].field / DesignIssue.id for a soft (acknowledgeable) reason; one of this module's own hard-block ids ('channelArchetype' | 'genreZeroSongs' | 'workspaceScaffold') for a hard one. */
@@ -89,6 +90,8 @@ export interface GenerationPreflightInput {
    * callers should never set this.
    */
   workspaceOverride?: WorkspaceDefinition;
+  /** 지시문 14 (Phase 2 TASK A-2) — see lyricThemePoolInsufficientHardBlock's own doc comment. Optional: a caller with no pre-fetched cross-pack history yet simply skips that one check. */
+  lyricThemeAvoid?: { recentThemeIds?: string[]; recentSituations?: string[] };
 }
 
 /** Recursively sorts object keys (arrays keep their own order — order is semantically meaningful there, e.g. contract.mismatches) so two structurally-identical values with differently-ordered keys hash identically. */
@@ -192,6 +195,40 @@ function eraGenrePoolInsufficientHardBlock(options: GenerationOptions): Prefligh
 }
 
 /**
+ * 지시문 14 (Phase 2 TASK A-2) — same "제외 결과 후보가 부족해지면 설계 관문에서
+ * 차단하고 사유를 표시한다. 조용히 [...] 채우지 않는다" pattern
+ * eraGenrePoolInsufficientHardBlock above already established for genre
+ * pools, mirrored here for lyric themes: batchPreallocation.ts's own
+ * buildLyricThemePlan call now actually removes recently-used theme
+ * ids/scenes from the candidate pool (지시문 14 TASK A-1's own
+ * lyricThemesForOptions `avoid` param) — this is the companion check that
+ * stops generation BEFORE it runs when that removal would leave fewer
+ * candidates than songCount, rather than letting allocateThemesByFrame
+ * silently fall back to a duplicate theme for the shortfall slots.
+ *
+ * `lyricThemeAvoid` is caller-supplied (this module stays sync/pure, same
+ * "core stays pure, caller owns storage" split as every other avoid-list
+ * param in this codebase — see batchPreallocation.ts's own doc comment) —
+ * omitting it (a caller with no pre-fetched history yet) simply skips this
+ * check rather than false-blocking on an empty avoid list.
+ */
+function lyricThemePoolInsufficientHardBlock(
+  options: GenerationOptions,
+  lyricThemeAvoid?: { recentThemeIds?: string[]; recentSituations?: string[] }
+): PreflightReason | null {
+  if (!lyricThemeAvoid || (!lyricThemeAvoid.recentThemeIds?.length && !lyricThemeAvoid.recentSituations?.length)) return null;
+  if (!options.songCount || options.songCount <= 0) return null;
+  const withoutAvoid = lyricThemesForOptions(options).length;
+  const withAvoid = lyricThemesForOptions(options, lyricThemeAvoid).length;
+  if (withAvoid >= options.songCount) return null;
+  return {
+    field: 'lyricThemePoolInsufficient',
+    messageKo: `장면 후보 부족 — ${options.channel.archetype} 테마 ${withoutAvoid}종 / 필요 ${options.songCount}곡. 최근 세트 회피를 켜면 ${withAvoid}종이 남습니다. 테마를 추가하거나 회피 범위를 줄이십시오.`,
+    severity: 'block'
+  };
+}
+
+/**
  * "scaffold 워크스페이스" — this codebase's real, existing concept is
  * data/workspaces/index.ts's WorkspaceDefinition.ready: false means "skeleton
  * only, placeholder value" per that field's own doc comment (never built out
@@ -246,7 +283,7 @@ function channelProfileInvalidHardBlock(options: GenerationOptions): PreflightRe
 }
 
 export function resolveGenerationPreflight(input: GenerationPreflightInput): PreflightResult {
-  const { workspaceId, options, slots, contract, designGate, acknowledgedSignature, workspaceOverride } = input;
+  const { workspaceId, options, slots, contract, designGate, acknowledgedSignature, workspaceOverride, lyricThemeAvoid } = input;
   const workspace = workspaceOverride ?? getWorkspace(workspaceId);
 
   const hardReasons: PreflightReason[] = [
@@ -254,7 +291,8 @@ export function resolveGenerationPreflight(input: GenerationPreflightInput): Pre
     genreZeroSongsHardBlock(options, slots),
     workspaceScaffoldHardBlock(workspace),
     channelProfileInvalidHardBlock(options),
-    eraGenrePoolInsufficientHardBlock(options)
+    eraGenrePoolInsufficientHardBlock(options),
+    lyricThemePoolInsufficientHardBlock(options, lyricThemeAvoid)
   ].filter((reason): reason is PreflightReason => reason !== null);
 
   if (hardReasons.length) {

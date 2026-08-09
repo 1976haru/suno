@@ -684,12 +684,20 @@ export default function Step3Generate({
       .catch(() => { if (!cancelled) setReservedSiblingAvoid({ titles: [], hooks: [] }); });
     return () => { cancelled = true; };
   }, [opts.channel.id, opts.lyricLanguage, generationRunId, historySnapshot.revision]);
+  // 지시문 14 (Phase 2 TASK A-2) — recentLyricThemeIds/recentSituations,
+  // same workspace-scoped historySnapshot already fetches (지시문 14 TASK C),
+  // now actually threaded into slot assignment (batchPreallocation.ts's own
+  // preallocateSongSlots) instead of only ever reaching the bridge
+  // instruction's TEXT — the real fix for §2-1's "회피 목록이 배정에 쓰이지
+  // 않는다".
   const bridgeAvoid = useMemo(
     () => ({
       usedTitles: [...historySnapshot.usedTitles, ...reservedSiblingAvoid.titles],
-      usedHooks: [...historySnapshot.usedHooks, ...reservedSiblingAvoid.hooks]
+      usedHooks: [...historySnapshot.usedHooks, ...reservedSiblingAvoid.hooks],
+      recentLyricThemeIds: historySnapshot.recentSceneSignatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id)),
+      recentSituations: historySnapshot.recentSituations
     }),
-    [historySnapshot.usedTitles, historySnapshot.usedHooks, reservedSiblingAvoid]
+    [historySnapshot.usedTitles, historySnapshot.usedHooks, historySnapshot.recentSceneSignatures, historySnapshot.recentSituations, reservedSiblingAvoid]
   );
   /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
   const bridgeConceptSceneContext = useMemo(
@@ -999,9 +1007,11 @@ export default function Step3Generate({
         }],
         advisory: []
       },
-      acknowledgedSignature
+      acknowledgedSignature,
+      // 지시문 14 (Phase 2 TASK A-2) — same recentLyricThemeIds/recentSituations bridgeAvoid already carries into slot assignment; lets this hard-block check run without a second fetch.
+      lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations }
     }),
-    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature]
+    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations]
   );
 
   // A real change in the actual mismatch/design-gate CONTENT (not just which

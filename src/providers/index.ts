@@ -21,6 +21,7 @@ import { recomposeBlockingTracks, type RecomposeLogEntry } from '../core/composi
 import { assertLyricDiversity, dedupeTitlesAcrossPack } from '../core/lyricEngine';
 import { recordUsage } from '../core/usageLedger';
 import { getRecentVocalCombos } from '../core/vocalComboLedger';
+import { recentSceneSignatures } from '../core/situationLedger';
 import { readRecentFlagshipOrder } from '../core/recentFlagshipOrderStore';
 import { ensureVocalMetaTag, resolveVocalMetaTag, type VocalGender, type VocalType } from '../core/vocalPlan';
 import { effectiveVerifiedCombos, getApprovedCombos } from '../core/verifiedCombos';
@@ -265,8 +266,8 @@ export async function generateBlueprint(
   season: SeasonPack,
   settings: ProviderSettings,
   onProgress?: (progress: GenerationProgress) => void,
-  /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. */
-  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[]; verifiedCombos?: import('../data/verifiedCombos').VerifiedCombo[] },
+  /** TASK X1 (v3.4) — this channel's cross-pack hook/title history, so a new pack never silently reuses a title from an older one. Capped by the caller (see core/hookLedger.ts's recentUsedTitlesAndHooks) before being sent to a remote LLM, to bound prompt token cost. 지시문 14 (Phase 2 TASK A-2) — recentLyricThemeIds/recentSituations are usually left for THIS function's own choke point below to fill in (workspace-scoped situationLedger read); a caller may still pass its own to override that. */
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentVocalComboSignatures?: string[]; previousFlagshipOrder?: VocalType[]; verifiedCombos?: import('../data/verifiedCombos').VerifiedCombo[]; recentLyricThemeIds?: string[]; recentSituations?: string[] },
   /**
    * TASK v3.62 (TASK 3) — C안's automatic recomposition gate. Defaults to
    * false so every existing direct unit test of this function (which builds
@@ -331,6 +332,26 @@ export async function generateBlueprint(
     if (verifiedCombos.length) avoid = { ...avoid, verifiedCombos };
   } catch {
     // best-effort only — a verified-combo lookup failure must never block generation.
+  }
+  // 지시문 14 (Phase 2 TASK A-2) — same choke point, same "core stays pure,
+  // this is the one place that reads storage" split as the 3 reads above.
+  // situationLedger.ts's own recentSceneSignatures is now workspace-scoped
+  // (지시문 14 TASK C's own LedgerScope), so this sees every channel's scene
+  // history within the workspace, not just this one channel's own — the
+  // real fix for §2-1's measured gap ("회피 목록이 배정에 쓰이지 않는다").
+  // Only overrides recentLyricThemeIds/recentSituations when the caller
+  // didn't already supply its own (a caller with a more targeted pre-fetch —
+  // e.g. an already-computed multi-set duplicationHistory — should win).
+  if (!avoid?.recentLyricThemeIds && !avoid?.recentSituations) {
+    try {
+      const scope = { workspaceId: currentWorkspaceId() };
+      const signatures = await recentSceneSignatures(scope, opts.lyricLanguage);
+      const recentLyricThemeIds = signatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id));
+      const recentSituations = signatures.map(s => s.situation).filter(Boolean);
+      if (recentLyricThemeIds.length || recentSituations.length) avoid = { ...avoid, recentLyricThemeIds, recentSituations };
+    } catch {
+      // best-effort only — an avoid-list lookup failure must never block generation.
+    }
   }
 
   // TASK v3.74 (TASK H) — strong-confidence killing-point execution rates

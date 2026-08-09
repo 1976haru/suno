@@ -292,8 +292,20 @@ function frameWithMostCalmThemes(pool: LyricTheme[]): string | undefined {
   return best;
 }
 
-export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number): string[] {
-  const themes = lyricThemesForOptions({ ...opts, scenePlanningMode: resolveLocalScenePlanningMode(opts) });
+/**
+ * 지시문 14 (Phase 2 TASK A-1/A-2) — `avoid` is optional and additive: the
+ * caller (core/batchPreallocation.ts's preallocateSongSlots) pre-fetches a
+ * workspace-scoped cross-pack theme-id/scene avoid list (situationLedger's
+ * recentSceneSignatures — this module itself stays sync/pure, no IndexedDB
+ * access here, same "core stays pure, caller owns storage" split every
+ * other avoid-list param in this codebase already follows) and threads it
+ * straight into lyricThemesForOptions's own new `avoid` param — see that
+ * function's own doc comment for why this filter is safe (never widens the
+ * pool, only shrinks it) unlike the regression this whole file already
+ * documents for `scenePlanningMode`.
+ */
+export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number, avoid?: { recentThemeIds?: string[]; recentSituations?: string[] }): string[] {
+  const themes = lyricThemesForOptions({ ...opts, scenePlanningMode: resolveLocalScenePlanningMode(opts) }, avoid);
   const pool = themes.map(theme => theme.id);
   if (!pool.length || opts.songCount <= 0) return [];
   // v4.5 (TASK D, 4-2) — the concept's own named situation (if any) gets a
