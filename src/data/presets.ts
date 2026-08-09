@@ -89,6 +89,14 @@ export const channelPresets: ChannelProfile[] = [
       'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom',
       'jazz-hotel-lounge-jazz', 'jazz-torch-vocal-jazz', 'jazz-soft-vocal-trio',
       'oldpop-standards-torch', 'oldpop-doowop-harmony', 'oldpop-piano-ballad-70s',
+      // 지시문 20 (TASK C 1차 재검증) — check:gates 실측 신규 위반 발견:
+      // "70년대 추억이 느껴지는 올드팝" 컨셉이 era-primary-share(1970s
+      // 50% 이상)를 통과 못함 — 이 채널에 1970s 태그 장르가
+      // oldpop-piano-ballad-70s 1종뿐이라 곡당 상한 5곡 기준 최대
+      // 27.8%(5/18)로 수학적으로 50%를 못 채움. 같은 1970s 태그(이미
+      // senior-morning도 사용 중)를 하나 더 추가해 2종·최대 55.6%
+      // (10/18)로 실측 재검증.
+      'oldpop-soft-rock-am',
       'oldpop-quiet-storm-warm', 'oldpop-evening-lamp-ballad', 'oldpop-slow-waltz-memory',
       'retro-soul-pop', 'rnb-old-school-romance-rnb'
     ],
