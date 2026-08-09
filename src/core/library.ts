@@ -230,6 +230,8 @@ export async function savePack(input: {
   setGroupId?: string;
   setIndex?: number;
   setTotal?: number;
+  generatedBy?: SavedPack['generatedBy'];
+  generatedByNote?: string;
 }): Promise<string> {
   // v4.0 (TASK A1) — the autosave slot is one singleton record per app; without
   // scoping its physical key by workspace, two workspaces' autosaves would
@@ -239,6 +241,11 @@ export async function savePack(input: {
   // pack's existing real id back in expecting an exact-key match).
   const id = input.isAutosave ? scopedKey(AUTOSAVE_ID) : (input.id || randomId());
   const personaMode = input.personaMode ?? input.options.personaMode ?? false;
+  // 지시문 18 (TASK C-1/C-2) — 어느 저장 경로도 이 필드를 비워두지 않는다.
+  // 정직한 기본값 'other'(§C-3 "generatedBy 미선택을 가져오기 차단 사유로
+  // 만들지 말 것" — 대신 값 자체를 'other'로 채워 세트가 쌓여도 데이터가 된다).
+  const generatedBy: SavedPack['generatedBy'] = input.generatedBy ?? input.options.generatedBy ?? 'other';
+  const generatedByNote = generatedBy === 'other' ? (input.generatedByNote ?? input.options.generatedByNote) : undefined;
   // v3.79 (TASK D) — set-code assignment: mirrors this function's own
   // pre-existing "skip for autosave" precedent just below (recordVocalCombo)
   // — autosave fires far more often than "a set was actually finished", so
@@ -264,7 +271,13 @@ export async function savePack(input: {
     avgQualityScore: averageQuality(blueprint),
     blueprint,
     setCode: blueprint.meta?.setCode,
-    options: { ...input.options, personaMode },
+    // 지시문 18 (TASK C-2) — blueprint.meta.bridgeVersion을 top level로
+    // 미러링한다(setCode와 같은 패턴 — 이유는 SavedPack.bridgeVersion 자신의
+    // doc comment 참고). 로컬 생성(브릿지 아님) 팩은 blueprint.meta.bridgeVersion
+    // 자체가 없으므로 undefined로 남는다 — 정직하다, 로컬 생성은 브릿지
+    // 버전이라는 개념이 없다.
+    bridgeVersion: blueprint.meta?.bridgeVersion,
+    options: { ...input.options, personaMode, generatedBy, generatedByNote },
     evaluation: input.evaluation,
     thumbnailSpec: input.thumbnailSpec,
     soundSignature: input.soundSignature,
@@ -275,6 +288,8 @@ export async function savePack(input: {
     aiDisclosure: true,
     madeForKids: isMadeForKidsChannel(input.options.channel),
     personaMode,
+    generatedBy,
+    generatedByNote,
     setGroupId: input.setGroupId,
     setIndex: input.setIndex,
     setTotal: input.setTotal

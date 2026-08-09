@@ -49,10 +49,11 @@ import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFro
 import { resolveGenerationPreflight, type PreflightResult } from '../../core/generationPreflight';
 import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
 import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
+import { readLastGeneratedByChoice, rememberGeneratedByChoice } from '../../core/generatedByPreference';
 import DryRunPreviewModal from '../DryRunPreviewModal';
 import BatchJobPanel from '../BatchJobPanel';
 import type { BatchJobRecord } from '../../core/batchJobs';
-import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PreassignedSongSlot, ProviderSettings, ScenePlanningMode, SeasonPack, VocalAllocationMode, WorkspaceId } from '../../types';
+import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PackGeneratedBy, PreassignedSongSlot, ProviderSettings, ScenePlanningMode, SeasonPack, VocalAllocationMode, WorkspaceId } from '../../types';
 
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
@@ -1159,6 +1160,22 @@ export default function Step3Generate({
     downloadText('claude-code-instruction.txt', claudeCodeInstruction, 'text/plain;charset=utf-8');
   }
 
+  // 지시문 18 (TASK C-2) — "기본값은 직전에 고른 값". opts.generatedBy가
+  // 아직 없을 때만(이 세션에서 아직 한 번도 안 건드렸을 때만) 마운트
+  // 시점에 저장된 마지막 선택으로 채운다 — 사용자가 이미 명시적으로 고른
+  // 값을 이 effect가 덮어쓰지 않는다.
+  useEffect(() => {
+    if (opts.generatedBy) return;
+    const last = readLastGeneratedByChoice();
+    if (last) setOpts(prev => (prev.generatedBy ? prev : { ...prev, generatedBy: last }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleGeneratedByChange(value: PackGeneratedBy) {
+    setOpts(prev => ({ ...prev, generatedBy: value, ...(value === 'other' ? {} : { generatedByNote: undefined }) }));
+    rememberGeneratedByChoice(value);
+  }
+
   async function handleImportSongsFile(file: File) {
     const report = await runBridgeImportAction({
       prerequisites: bridgePrerequisites,
@@ -1717,6 +1734,30 @@ export default function Step3Generate({
               아래 지시문을 복사해 Claude Code에 붙여넣으면, 결과를 "songs-output.json" 파일로 저장하도록 안내되어 있어요.
               그 파일을 다시 이 화면에서 가져오면 API 경로와 동일한 품질·안전 검사를 거쳐 결과 화면에 반영됩니다.
             </p>
+            {/* 지시문 18 (TASK C-2) — 이 지시문을 어느 코딩 에이전트에 붙여넣을 예정인지 선택. 가져오기를 막지 않는다 — 고르지 않으면 'other'로 정직하게 기록될 뿐이다. */}
+            <div className="option-block compact generated-by-select">
+              <label htmlFor="generated-by-select">이번 세트를 만든 생성 에이전트</label>
+              <select
+                id="generated-by-select"
+                value={opts.generatedBy ?? 'other'}
+                onChange={event => handleGeneratedByChange(event.target.value as PackGeneratedBy)}
+              >
+                <option value="claude-code">Claude Code</option>
+                <option value="codex">Codex</option>
+                <option value="fable-5">Fable 5</option>
+                <option value="api-direct">API 직접 호출</option>
+                <option value="local">로컬 생성(에이전트 아님)</option>
+                <option value="other">기타</option>
+              </select>
+              {opts.generatedBy === 'other' && (
+                <input
+                  type="text"
+                  placeholder="어떤 도구인지 적어 주세요 (선택)"
+                  value={opts.generatedByNote ?? ''}
+                  onChange={event => setOpts(prev => ({ ...prev, generatedByNote: event.target.value }))}
+                />
+              )}
+            </div>
             <div className="button-row">
               <button
                 type="button"
