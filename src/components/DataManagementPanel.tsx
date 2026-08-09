@@ -21,7 +21,7 @@ import {
 } from '../core/workspaceTransfer';
 import { getWorkspace, workspaceDefinitions } from '../data/workspaces';
 import { backfillHistoryFromPacks, diagnoseWorkspaceHistory, formatWorkspaceHistoryDiagnostic, type BackfillResult, type BackfillSource } from '../core/historyBackfill';
-import type { WorkspaceId } from '../types';
+import type { PackGeneratedBy, WorkspaceId } from '../types';
 
 interface DataManagementPanelProps {
   initialWorkspaceId: WorkspaceId;
@@ -69,6 +69,11 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
   const [backfillBusy, setBackfillBusy] = useState(false);
   const [backfillResults, setBackfillResults] = useState<BackfillResult[] | null>(null);
   const [backfillDiagnostic, setBackfillDiagnostic] = useState<string | null>(null);
+  // 지시문 18 (TASK C-2) — 이 배치의 파일들을 만든 에이전트. 이 패널
+  // 자체의 마지막 선택을 기억하지는 않는다(생성 화면의 선택과 별개 축 —
+  // 과거 파일을 한꺼번에 등록하는 드문 작업이라 매번 새로 고르는 편이
+  // 더 안전하다).
+  const [backfillGeneratedBy, setBackfillGeneratedBy] = useState<PackGeneratedBy>('other');
 
   const workspace = getWorkspace(workspaceId);
   const staleDays = useMemo(() => daysSinceLastBackup(workspaceId), [workspaceId, stage]);
@@ -221,9 +226,9 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
       const sources: BackfillSource[] = await Promise.all(files.map(async file => {
         try {
           const text = await file.text();
-          return { fileName: file.name, json: JSON.parse(text), workspaceId };
+          return { fileName: file.name, json: JSON.parse(text), workspaceId, generatedBy: backfillGeneratedBy };
         } catch {
-          return { fileName: file.name, json: null, workspaceId };
+          return { fileName: file.name, json: null, workspaceId, generatedBy: backfillGeneratedBy };
         }
       }));
       const results = await backfillHistoryFromPacks(sources);
@@ -298,6 +303,18 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
             )}
             {viewerImportError && <p className="import-warning">⚠ {viewerImportError}</p>}
 
+            {/* 지시문 18 (TASK C-2) — 이 배치를 만든 에이전트. historyBackfill.ts는 library 팩을 만들지 않으므로 이 값은 등록 결과 표시용일 뿐, qualityScore 집계에는 들어가지 않는다(그 파일 자신의 doc comment 참고). */}
+            <label>
+              이 파일들을 만든 생성 에이전트
+              <select value={backfillGeneratedBy} onChange={e => setBackfillGeneratedBy(e.target.value as PackGeneratedBy)}>
+                <option value="claude-code">Claude Code</option>
+                <option value="codex">Codex</option>
+                <option value="fable-5">Fable 5</option>
+                <option value="api-direct">API 직접 호출</option>
+                <option value="local">로컬 생성(에이전트 아님)</option>
+                <option value="other">기타</option>
+              </select>
+            </label>
             <div
               className="button-like"
               onDragOver={e => e.preventDefault()}
@@ -325,7 +342,7 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
                 {backfillResults.map(r => (
                   <li key={r.fileName}>
                     {r.fileName} — {
-                      r.status === 'registered' ? `신규 등록 ${r.songCount}곡`
+                      r.status === 'registered' ? `신규 등록 ${r.songCount}곡 (${r.generatedBy ?? 'other'})`
                         : r.status === 'skipped-duplicate' ? '이미 등록됨 — 건너뜀'
                           : `등록 불가 (${r.reasonKo})`
                     }

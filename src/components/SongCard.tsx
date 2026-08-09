@@ -9,7 +9,7 @@ import { renderLyricsForDisplay } from '../core/lyricEngine';
 import { stripSetTitlePrefix } from '../utils/generation';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { vocalLabel } from '../core/vocalPlan';
-import type { ChannelArchetype } from '../types';
+import type { ChannelArchetype, PackGeneratedBy } from '../types';
 
 type Tab = 'style' | 'lyrics' | 'exclude' | 'youtube';
 
@@ -62,6 +62,8 @@ interface SongCardProps {
   packId?: string;
   /** TASK v5.13 — needed so the vocal-type chip (song.vocalType) renders kids wording only for a real kids archetype; optional so existing callers/tests without a channel archetype in scope fall back to adult wording (the safer default — see vocalLabel's own doc comment). */
   channelArchetype?: ChannelArchetype;
+  /** 지시문 18 (TASK C-3) — 이 팩을 만든 생성 에이전트, 채점 시 RatingRecord.generatedBy로 그대로 실린다. 옵션이라 undefined면 그 필드 없이 기록된다(구형 팩과 동일 취급). */
+  generatedBy?: PackGeneratedBy;
 }
 
 const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
@@ -72,7 +74,7 @@ const VERDICT_LABEL: Record<SongEvaluation['verdict'], string> = {
   reject: '재생성 권장'
 };
 
-export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false, channelId, packId, channelArchetype }: SongCardProps) {
+export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying, onRetry, selectable, selected, onToggleSelect, personaMode = false, personaName, promptCharLimit, onPromote, onUpdateHumanEdits, onUpdateLyrics, onRegenerateLyricLine, onUpdatePronunciationHints, albumAuditBlocked = false, channelId, packId, channelArchetype, generatedBy }: SongCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('style');
   // TASK v3.68 (TASK C) — this song's own rating, loaded once per song
@@ -95,7 +97,8 @@ export default function SongCard({ song, moneyChordLabel, evaluation, isRetrying
       packId: packId ?? '',
       rating: next,
       ratedAt: new Date().toISOString(),
-      attributes: attributesFromSong(song, channelId)
+      attributes: attributesFromSong(song, channelId),
+      ...(generatedBy ? { generatedBy } : {})
     });
     setRating(next);
   }

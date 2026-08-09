@@ -595,6 +595,7 @@ export default function Step4Result({
           personaMode={personaMode}
           promptCharLimit={promptCharLimit}
           onClose={() => setProgressModeOpen(false)}
+          generatedBy={opts.generatedBy}
         />
       )}
 
@@ -933,6 +934,7 @@ export default function Step4Result({
             channelId={opts.channel.id}
             channelArchetype={opts.channel.archetype}
             packId={packId}
+            generatedBy={opts.generatedBy}
           />
         )
       ))}

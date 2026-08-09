@@ -1,4 +1,4 @@
-import type { SongIdea, WorkspaceId } from '../types';
+import type { PackGeneratedBy, SongIdea, WorkspaceId } from '../types';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 
 /**
@@ -76,6 +76,8 @@ export interface RatingRecord {
   noteKo?: string;
   /** v4.0 (TASK A1) — optional only so records rated before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). Learning must never mix workspaces. */
   workspaceId?: WorkspaceId;
+  /** 지시문 18 (TASK C-3) — 이 곡이 속한 SavedPack.generatedBy를 채점 시점에 그대로 복사한다(호출부가 넘겨줌 — 이 파일은 pack을 조회하지 않는다). undefined는 이 필드가 생기기 전에 채점된 기록. */
+  generatedBy?: PackGeneratedBy;
 }
 
 function openDb(): Promise<IDBDatabase> {
