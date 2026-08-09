@@ -1,4 +1,6 @@
 import type {
+  BilingualPair,
+  ChannelArchetype,
   GenerationOptions,
   GenrePack,
   LyricLanguage,
@@ -17,8 +19,11 @@ import { dedupeTitlesAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { normalizeSongOutput } from './songPostProcess';
-import { resolvePackagingLanguage } from './packagingLanguage';
+import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
+import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } from './duplicationGate';
+import { lyricLanguageMismatchWarning } from './lyricMetrics';
+import { checkDistinctChoices } from './distinctChoiceCheck';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts. This module is the
@@ -359,7 +364,11 @@ function normalizeImportedSong(
   // omitted it, so the pack is never silently missing a display title —
   // and warn, since an omission means the agent didn't follow the
   // instruction.
-  const packagingLanguage = resolvePackagingLanguage(opts);
+  // 지시문 12 (TASK C-2) — resolveTitleLocalizedLanguage: 이 채널의 아키타입이
+  // TITLE_LOCALIZED_REQUIRED_ARCHETYPES에 속하면 packagingLanguage 오버라이드가
+  // english여도 결측을 항상 신고한다 (이전에는 packagingLanguage==='english'이면
+  // 신고 자체가 스킵돼 결측이 조용히 넘어갔다).
+  const packagingLanguage = resolveTitleLocalizedLanguage(opts);
   let titleLocalized = isNonEmptyString(obj.titleLocalized) ? obj.titleLocalized.trim() : undefined;
   let missingTitleLocalizedWarning: string | undefined;
   if (packagingLanguage !== 'english' && !titleLocalized) {
@@ -683,4 +692,273 @@ export function importSongsForSrtOnly(
   const renumbered = songs.map((song, idx) => ({ ...song, trackNo: idx + 1, originalTrackNo: song.trackNo }));
 
   return { songs: renumbered, warnings };
+}
+
+/** 지시문 13 (TASK A) — song fields the read-only viewer refuses to open a whole file over if even one track is missing them. Deliberately narrower than REQUIRED_SONG_FIELDS (which also requires hookPhrase): a missing hookPhrase only loses the in-lyrics hook highlight, never lets blank/broken text reach Suno's paste fields the way a missing title/stylePrompt/lyrics would — see this function's own doc comment for the full "blocked vs allowed-with-warning" split. */
+const VIEWER_REQUIRED_FIELDS = ['title', 'stylePrompt', 'lyrics'] as const;
+
+/** Recognized top-of-lyrics vocal meta-tags, mirrors core/vocalPlan.ts's own (private) VOCAL_META_TAG_WORDS list — duplicated rather than exported from there since this is a display-only cosmetic normalization, not a real vocal-plan decision (no slot/channel context available in a read-only viewer open). */
+const VIEWER_VOCAL_TAG_PATTERN = /^(\s*)\[\s*(male vocal|female vocal|duet vocal|group vocal|mixed vocal|children'?s choir)\s*\]/i;
+
+/** 지시문 13 (TASK A-1) — normalizes ONLY the casing/spacing of an already-present, already-recognizable top-of-lyrics vocal tag (e.g. "[Female Vocal]" -> "[female vocal]") so the viewer's display is consistent with every other real generation path's canonical form. Never invents a tag that wasn't there, never re-derives one from archetype/slot context (this function has neither) — that's the "정규화, 원본 JSON 은 변경하지 않음" scope A-1 asks for: a display tidy-up, not a vocal-plan decision. */
+export function normalizeVocalTagForDisplay(lyrics: string): string {
+  const match = lyrics.match(VIEWER_VOCAL_TAG_PATTERN);
+  if (!match) return lyrics;
+  const canonical = `[${match[2].toLowerCase().replace(/\s+/g, ' ').trim()}]`;
+  if (match[0].trim() === canonical) return lyrics;
+  return match[1] + canonical + lyrics.slice(match[0].length);
+}
+
+export interface ReadOnlyViewerContext {
+  /** For the language-ratio/archetype-sensitive advisory checks only (lyricLanguageMismatchWarning's own context) — never used to gate/block, and the viewer never switches the app's own selected channel to match this. */
+  archetype?: ChannelArchetype;
+  lyricLanguage: LyricLanguage;
+  bilingualPair?: BilingualPair;
+  /**
+   * Optional pre-fetched cross-set history — same shape (and same "this
+   * module never touches IndexedDB itself" convention) as
+   * core/importInspection.ts's inspectImportReport duplicationHistory
+   * param. Omitting it simply skips the 3 duplication-history advisory
+   * checks below; it can never make this function block, unlike
+   * inspectImportReport's own lyricLineOverlap.blocking rule — see this
+   * function's own header comment for why that's the deliberate difference
+   * here.
+   */
+  duplicationHistory?: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> };
+}
+
+export interface ViewerCheckLine {
+  id: string;
+  labelKo: string;
+  /** Always 'info' or 'warn' here — never 'blocked'. A read-only viewer result's `status` is decided entirely by the structural checks inside parseSongsJsonForViewer itself, before any of these advisory lines are even computed; see that function's own header comment. */
+  status: 'info' | 'warn';
+  detail?: string;
+}
+
+export interface ViewerParseResult {
+  status: 'blocked' | 'ok';
+  /** Non-empty only when status === 'blocked'. */
+  blockedReasons: string[];
+  songs: SongIdea[];
+  meta: BridgeImportMeta | null;
+  /** Informational only — duplication/quality/language/distinctChoice findings the UI shows in a collapsed panel. Never affects `status`. */
+  checks: ViewerCheckLine[];
+}
+
+/**
+ * 지시문 13 (TASK A-1) — the read-only counterpart to importSongsJson/
+ * importSongsForSrtOnly: parses a bridge songs-output.json file for the
+ * standalone "수노모드로 열기 (읽기 전용)" entry point, WITHOUT going through
+ * importSongsJson's real generation pipeline (reconcileWithPreassignedSlot,
+ * hook-collision flagging, title dedup across the pack, buildSignatureBlueprint)
+ * — none of those exist to make a song safe to READ, only to make it safe to
+ * treat as a NEW generation result (see importSongsForSrtOnly's own doc
+ * comment for the identical reasoning on the SRT-only path this mirrors).
+ * Deliberately does not accept a GenerationOptions/ChannelProfile — this
+ * entry point must work without switching (or even requiring) the app's
+ * currently selected channel/season, per this task's own §A-1 "채널 선택
+ * 변경 금지".
+ *
+ * Two independent decisions this function makes, on purpose:
+ *
+ * 1. STRUCTURAL — decides `status`. Blocks the WHOLE file (no songs
+ *    returned at all) only for: JSON parse failure, no "songs" array (or
+ *    empty), a trackNo set validateProviderTrackSet itself rejects
+ *    (duplicate/non-integer/out-of-range), or any single track missing
+ *    title/stylePrompt/lyrics (VIEWER_REQUIRED_FIELDS — see that constant's
+ *    own doc comment for why this is narrower than REQUIRED_SONG_FIELDS).
+ *    A song missing only hookPhrase is still accepted (empty string) — the
+ *    viewer's own copy/highlight logic already degrades gracefully for that
+ *    (mirrors sunoViewerExport.ts's REVIEW_ENGINE_JS, which never assumes
+ *    hookPhrase is non-empty either).
+ *
+ * 2. ADVISORY — everything else this task's own §A-3 names (scene/title/
+ *    lyric-line duplication against cross-set history, era-tag inconsistency,
+ *    qualityScore, missing distinctChoice, missing excludePrompt, a vocal-tag
+ *    mismatch) is real information worth showing, but NEVER blocks — this is
+ *    the one deliberate policy difference from core/importInspection.ts's
+ *    inspectImportReport, which DOES hard-block on lyricLineOverlap.blocking
+ *    (3+ exact-line matches). That rule protects the SAVE/ledger-registration
+ *    path from silently laundering copied content into "already used"
+ *    history; it has nothing to say about whether a human is allowed to READ
+ *    text that's already sitting in a file on their own disk. Blocking read
+ *    access here would only re-create the exact bug this whole task exists
+ *    to fix (지시문 13 §1-3: "저장을 막는 관문이 복사까지 막고 있다").
+ */
+export function parseSongsJsonForViewer(
+  rawText: string,
+  context: ReadOnlyViewerContext
+): ViewerParseResult {
+  let parsed: unknown;
+  try {
+    parsed = parseLeniently(rawText);
+  } catch {
+    return { status: 'blocked', blockedReasons: ['JSON을 해석하지 못했습니다 — 파일 내용이 올바른 JSON인지 확인하세요.'], songs: [], meta: null, checks: [] };
+  }
+
+  const rawSongs = extractSongsArray(parsed);
+  if (!rawSongs.length) {
+    return { status: 'blocked', blockedReasons: ['"songs" 배열을 찾지 못했거나 비어 있습니다.'], songs: [], meta: null, checks: [] };
+  }
+
+  // trackNo range/duplicate validation — there is no live opts.songCount for
+  // a standalone viewer open, so the file's own song count is what "in
+  // range" means here (same reasoning importSongsForSrtOnly's own trackNo
+  // renumbering pass already relies on: this file IS the whole pack).
+  const rawTrackNoEntries = rawSongs.map(raw => ({
+    trackNo: raw && typeof raw === 'object' ? (raw as Record<string, unknown>).trackNo : undefined
+  }));
+  const trackSetValidation = validateProviderTrackSet(rawTrackNoEntries, rawSongs.length);
+  if (!trackSetValidation.valid) {
+    return {
+      status: 'blocked',
+      blockedReasons: [`trackNo 구조 오류로 열 수 없습니다 (${describeTrackSetValidation(trackSetValidation)}).`],
+      songs: [],
+      meta: null,
+      checks: []
+    };
+  }
+
+  const fieldFailures: string[] = [];
+  rawSongs.forEach((raw, index) => {
+    const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+    const missing = VIEWER_REQUIRED_FIELDS.filter(field => !isNonEmptyString(obj[field]));
+    if (missing.length) {
+      const label = isNonEmptyString(obj.title) ? obj.title : `#${index + 1}`;
+      fieldFailures.push(`"${label}": ${missing.join(', ')} 없음`);
+    }
+  });
+  if (fieldFailures.length) {
+    return {
+      status: 'blocked',
+      blockedReasons: [`필수 필드가 없는 곡이 있어 열 수 없습니다 — ${fieldFailures.join(' / ')}`],
+      songs: [],
+      meta: null,
+      checks: []
+    };
+  }
+
+  // Sort by each entry's own CLAIMED trackNo before assigning the final
+  // display 1..N sequence — same "trust the claimed number, not physical
+  // array position" convention importSongsJson/importSongsForSrtOnly both
+  // already follow (their own renumbering pass), so a file whose songs
+  // array happens to be physically out of order still displays track 1
+  // before track 2. Safe to rely on claimedTrackNoFor-equivalent field
+  // access here only because validateProviderTrackSet above already proved
+  // the raw trackNo values form a clean 1..rawSongs.length permutation with
+  // no duplicates/gaps — a plain numeric sort is enough, no claim-resolution
+  // needed the way claimSlotsByTrackNo provides for a real (possibly
+  // malformed) generation response.
+  const orderedRawSongs = rawSongs
+    .map((raw, index) => ({ raw, originalTrackNo: typeof (raw as Record<string, unknown>).trackNo === 'number' ? (raw as Record<string, unknown>).trackNo as number : index + 1 }))
+    .sort((a, b) => a.originalTrackNo - b.originalTrackNo);
+
+  // Lightweight, channel-independent normalization — deliberately NOT
+  // normalizeImportedSong (that function needs a real GenerationOptions/
+  // slot for reconcileWithPreassignedSlot's archetype-derived defaults,
+  // which this read-only entry point has no business requiring). Every
+  // field this viewer actually displays/copies is taken as-is from the raw
+  // JSON, type-guarded the same defensive way sunoViewerExport.ts's own
+  // in-browser normalizeSong already does for the standalone HTML twin of
+  // this same screen.
+  const songs: SongIdea[] = orderedRawSongs.map(({ raw, originalTrackNo }, index) => {
+    const obj = raw as Record<string, unknown>;
+    const trackNo = index + 1;
+    const youtubeRaw = obj.youtube && typeof obj.youtube === 'object' ? (obj.youtube as Record<string, unknown>) : {};
+    const lyrics = normalizeVocalTagForDisplay(String(obj.lyrics));
+    return {
+      trackNo,
+      originalTrackNo,
+      title: String(obj.title),
+      seasonMoment: isNonEmptyString(obj.seasonMoment) ? obj.seasonMoment : '',
+      listenerSituation: isNonEmptyString(obj.listenerSituation) ? obj.listenerSituation : '',
+      emotionArc: isNonEmptyString(obj.emotionArc) ? obj.emotionArc : '',
+      distinctChoice: isNonEmptyString(obj.distinctChoice) ? obj.distinctChoice : undefined,
+      hookPhrase: isNonEmptyString(obj.hookPhrase) ? obj.hookPhrase : '',
+      stylePrompt: String(obj.stylePrompt),
+      ...(isNonEmptyString(obj.excludePrompt) ? { excludePrompt: obj.excludePrompt } : {}),
+      lyrics,
+      ...(isNonEmptyString(obj.titleLocalized) ? { titleLocalized: obj.titleLocalized, titleDisplay: buildTitleDisplay(String(obj.title), obj.titleLocalized) } : {}),
+      youtube: {
+        title: isNonEmptyString(youtubeRaw.title) ? youtubeRaw.title : String(obj.title),
+        description: isNonEmptyString(youtubeRaw.description) ? youtubeRaw.description : '',
+        tags: sanitizePublicYoutubeTags(Array.isArray(youtubeRaw.tags) ? youtubeRaw.tags.filter((tag): tag is string => typeof tag === 'string') : [])
+      },
+      ...(isNonEmptyString(obj.genreId) ? { genreId: obj.genreId } : {}),
+      ...(isNonEmptyString(obj.genreText) ? { genreText: obj.genreText } : {}),
+      ...(isNonEmptyString(obj.eraTag) ? { eraTag: obj.eraTag } : {}),
+      qualityScore: 0,
+      warnings: [],
+      effectiveMoneyChordId: '',
+      effectiveGenreIds: [],
+      effectiveArchetype: context.archetype || 'senior-morning',
+      workspaceId: 'senior-oldpop'
+    } as SongIdea;
+  });
+
+  // Advisory-only checks from here on — none of these can flip `status`.
+  const checks: ViewerCheckLine[] = [];
+  const scored = scoreSongs(songs, undefined, context.lyricLanguage);
+  const belowThreshold = scored.filter(song => song.qualityScore < 70);
+  checks.push(
+    belowThreshold.length
+      ? { id: 'quality', labelKo: 'qualityScore 미달', status: 'warn', detail: belowThreshold.map(s => `T${s.trackNo} (${s.qualityScore}점)`).join(', ') }
+      : { id: 'quality', labelKo: 'qualityScore 정상', status: 'info' }
+  );
+
+  const missingExclude = songs.filter(song => !song.excludePrompt).map(song => song.trackNo);
+  checks.push(
+    missingExclude.length
+      ? { id: 'excludePrompt', labelKo: 'excludePrompt 없음', status: 'warn', detail: `T${missingExclude.join(', T')}` }
+      : { id: 'excludePrompt', labelKo: 'excludePrompt 전체 보유', status: 'info' }
+  );
+
+  const distinctChoiceReport = checkDistinctChoices(songs);
+  checks.push(
+    distinctChoiceReport.missingTrackNos.length
+      ? { id: 'distinctChoice', labelKo: 'distinctChoice 누락', status: 'warn', detail: `T${distinctChoiceReport.missingTrackNos.join(', T')}` }
+      : { id: 'distinctChoice', labelKo: 'distinctChoice 전체 보유', status: 'info' }
+  );
+
+  const languageWarnings = songs
+    .map(song => lyricLanguageMismatchWarning(song.lyrics, context.lyricLanguage, song.trackNo, { archetype: context.archetype, bilingualPair: context.bilingualPair }))
+    .filter((w): w is string => Boolean(w));
+  checks.push(
+    languageWarnings.length
+      ? { id: 'language', labelKo: '언어 비율 불일치', status: 'warn', detail: languageWarnings.join(' / ') }
+      : { id: 'language', labelKo: '언어 비율 정상', status: 'info' }
+  );
+
+  if (context.duplicationHistory) {
+    const sceneOverlap = checkSceneOverlap(songs, context.duplicationHistory.recentSituations);
+    const titleCollision = checkTitleHistoryCollision(songs, context.duplicationHistory.historicalTitles);
+    const lyricLineOverlap = checkLyricLineOverlap(songs, context.duplicationHistory.recentLyricLines);
+    const duplicationReasons = [
+      ...sceneOverlap.collisions.map(c => `Track ${c.trackNo}: 장면 중복 ("${c.situation}")`),
+      ...titleCollision.collisions.map(c => `Track ${c.trackNo}: 제목 중복 ("${c.title}")`)
+    ];
+    checks.push(
+      duplicationReasons.length
+        ? { id: 'duplication', labelKo: '중복 방지 검사 (장면·제목) — 읽기 전용이므로 차단하지 않음', status: 'warn', detail: duplicationReasons.join(' / ') }
+        : { id: 'duplication', labelKo: '중복 방지 검사 통과 (장면·제목)', status: 'info' }
+    );
+    checks.push(
+      lyricLineOverlap.matches.length
+        ? {
+            id: 'lyricLineOverlap',
+            labelKo: '가사 문장 중복 검사 — 읽기 전용이므로 차단하지 않음',
+            status: 'warn',
+            detail: `가사 문장 ${lyricLineOverlap.matches.length}개가 최근 세트와 완전일치: ${lyricLineOverlap.matches.slice(0, 3).map(m => `T${m.trackNo} "${m.line}"`).join(' / ')}`
+          }
+        : { id: 'lyricLineOverlap', labelKo: '가사 문장 중복 검사 통과', status: 'info' }
+    );
+  }
+
+  return {
+    status: 'ok',
+    blockedReasons: [],
+    songs,
+    meta: extractBridgeImportMeta(rawText),
+    checks
+  };
 }

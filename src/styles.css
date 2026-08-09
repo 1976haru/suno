@@ -1686,6 +1686,12 @@ textarea {
   cursor: not-allowed;
 }
 
+/* 지시문 13 (TASK A-2) — SunoModeReadOnlyViewer's drop zone reuses this same class; drag-over feedback was missing (only .audio-drop-zone had it). */
+.basic-import-drop.drag-over {
+  border-color: var(--accent, #2563eb);
+  background: var(--accent-soft, #eef2ff);
+}
+
 .roadmap-note {
   border-top: 1px solid var(--line);
   padding-top: 12px;

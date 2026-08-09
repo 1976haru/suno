@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, ClipboardCheck, Compass, Download, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, ClipboardCheck, Compass, Download, FileJson, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
 import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
@@ -8,6 +8,7 @@ import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
 import SunoProgressMode from '../SunoProgressMode';
+import SunoModeReadOnlyViewer from '../SunoModeReadOnlyViewer';
 import AudioAnalysisPanel from '../AudioAnalysisPanel';
 import AudioEditPanel from '../AudioEditPanel';
 import ShortsHighlightPanel from '../ShortsHighlightPanel';
@@ -187,6 +188,9 @@ export default function Step4Result({
   const [editingTrack, setEditingTrack] = useState<{ trackNo: number; fileName: string; file: File; durationSec: number } | null>(null);
   const [focusModeOpen, setFocusModeOpen] = useState(false);
   const [progressModeOpen, setProgressModeOpen] = useState(false);
+  // 지시문 13 (TASK A-2) — reachable with NO blueprint at all (see the
+  // early-return empty-state block below), unlike every other screen here.
+  const [readOnlyViewerOpen, setReadOnlyViewerOpen] = useState(false);
 
   useEffect(() => {
     if (focusTab) setResultTab(focusTab);
@@ -417,6 +421,21 @@ export default function Step4Result({
       <section className="panel">
         <p className="step-hint">아직 생성된 결과가 없어요. 이전 단계에서 곡을 생성해 보세요.</p>
         {generationError && <p className="error">{generationError}</p>}
+        {/* 지시문 13 (TASK A-2) — 이미 수노에서 뽑아둔 songs-output.json이
+            있다면, 중복 방지 검사에 blocked 되어 있어도(§1-2: "이 판정은
+            옳다") 새로 생성하지 않고 읽기 전용으로 바로 열 수 있다. */}
+        <button type="button" onClick={() => setReadOnlyViewerOpen(true)}>
+          📄 수노모드로 열기 (읽기 전용)
+        </button>
+        {readOnlyViewerOpen && (
+          <SunoModeReadOnlyViewer
+            archetype={opts.channel.archetype}
+            channelId={opts.channel.id}
+            lyricLanguage={opts.lyricLanguage}
+            bilingualPair={resolveBilingualPair(opts)}
+            onClose={() => setReadOnlyViewerOpen(false)}
+          />
+        )}
       </section>
     );
   }
@@ -546,8 +565,22 @@ export default function Step4Result({
               <Download size={16} />
               [뷰어 받기]
             </button>
+            <button type="button" onClick={() => setReadOnlyViewerOpen(true)} title="중복 방지 검사에 blocked 된 파일도 읽기 전용으로 열 수 있습니다 — 저장·이력 기록 없음">
+              <FileJson size={16} />
+              📄 수노모드로 열기 (읽기 전용)
+            </button>
           </div>
         </div>
+      )}
+
+      {readOnlyViewerOpen && (
+        <SunoModeReadOnlyViewer
+          archetype={opts.channel.archetype}
+          channelId={opts.channel.id}
+          lyricLanguage={opts.lyricLanguage}
+          bilingualPair={resolveBilingualPair(opts)}
+          onClose={() => setReadOnlyViewerOpen(false)}
+        />
       )}
 
       {blueprint && focusModeOpen && (
