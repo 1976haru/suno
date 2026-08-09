@@ -95,3 +95,34 @@ describe('[v5.20] SUNO_VIEWER_FILE_NAME', () => {
     expect(SUNO_VIEWER_FILE_NAME).toBe('suno-mode.html');
   });
 });
+
+// 지시문 13 (TASK B) — real, confirmed bug: normalizeSong never filled
+// titleDisplay, so the review screen's h2 (song.titleDisplay || song.title)
+// always fell through to the bare English title even for a pack whose
+// titleLocalized was fully populated. buildTitleCopyText (the "1" copy
+// action) already used titleLocalized correctly — only the on-screen heading
+// was affected. Same "string-content assertion on the self-contained HTML"
+// convention as every other test in this file (no jsdom/React-rendering
+// infra — see this file's own header comment).
+describe('[지시문 13 TASK B] titleDisplay fix in normalizeSong', () => {
+  const html = buildSunoViewerHtml();
+
+  it('normalizeSong computes titleDisplay: prefers raw.titleDisplay, falls back to title + " (" + titleLocalized + ")"', () => {
+    expect(html).toContain("typeof raw.titleDisplay === 'string' && raw.titleDisplay");
+    expect(html).toContain("stripSetTitlePrefix(title) + ' (' + titleLocalized + ')'");
+  });
+
+  it('the review screen heading still reads titleDisplay first, same as before this fix', () => {
+    expect(html).toContain('song.titleDisplay || song.title');
+  });
+
+  it('warns (never silently shows English-only) when a whole pack has zero titleLocalized values, naming the real root cause (packagingLanguage)', () => {
+    expect(html).toContain('noLocalizedTitleWarning');
+    expect(html).toContain('SONGS.every(function (s) { return !s.titleLocalized; })');
+    expect(html).toContain('packagingLanguage');
+  });
+
+  it('the viewer version was bumped for this fix (footer lets a user tell a previously-downloaded suno-mode.html is stale)', () => {
+    expect(SUNO_VIEWER_VERSION).toBe('1.1.0');
+  });
+});

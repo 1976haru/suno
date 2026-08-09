@@ -29,8 +29,8 @@
  */
 
 export const SUNO_VIEWER_FILE_NAME = 'suno-mode.html';
-/** TASK v5.20 (TASK D-4) — shown in the viewer's own footer; bump by hand whenever REVIEW_ENGINE_JS or the viewer-mode script below changes behavior or the on-disk ratings-export JSON contract. */
-export const SUNO_VIEWER_VERSION = '1.0.0';
+/** TASK v5.20 (TASK D-4) — shown in the viewer's own footer; bump by hand whenever REVIEW_ENGINE_JS or the viewer-mode script below changes behavior or the on-disk ratings-export JSON contract. 지시문 13 TASK C — 1.0.0 -> 1.1.0 for TASK B's normalizeSong titleDisplay/noLocalizedTitleWarning fix, so a user comparing footers can tell a previously-downloaded suno-mode.html is stale. */
+export const SUNO_VIEWER_VERSION = '1.1.0';
 
 /** Mirrors core/promptBudget.ts's SUNO_COPY_LIMIT (1000) and core/soundSignature.ts's PERSONA_STYLE_LIMIT (200) — duplicated as plain numbers rather than imported, same reasoning as standaloneProgressExport.ts's own copy: this file must stay free of any app-module import. */
 const SUNO_COPY_LIMIT = 1000;
@@ -466,6 +466,7 @@ export function buildSunoViewerHtml(): string {
   var flashTimer = null;
   var loadError = '';
   var secretWarning = '';
+  var noLocalizedTitleWarning = '';
   var dragActive = false;
 
   var root = document.getElementById('app');
@@ -613,10 +614,28 @@ ${REVIEW_ENGINE_JS}
   function normalizeSong(raw, idx) {
     var trackNo = typeof raw.trackNo === 'number' && raw.trackNo > 0 ? raw.trackNo : idx + 1;
     var songId = typeof raw.songId === 'string' && raw.songId ? raw.songId : ('trackNo:' + trackNo);
+    var title = typeof raw.title === 'string' && raw.title ? raw.title : ('Track ' + trackNo);
+    var titleLocalized = typeof raw.titleLocalized === 'string' && raw.titleLocalized ? raw.titleLocalized : undefined;
+    // 지시문 13 (TASK B) — normalizeSong never filled titleDisplay, so the
+    // review screen's h2 (song.titleDisplay || song.title) always fell
+    // through to the bare English title even for a pack whose titleLocalized
+    // was fully populated; buildTitleCopyText (above) already used
+    // titleLocalized correctly, so only the on-screen heading was affected.
+    // Mirrors core/titleLocalization.ts's buildTitleDisplay, but prefers the
+    // file's own raw.titleDisplay when present (the real pipeline computes
+    // it before applySetTitlePrefixesToBlueprint runs, so it's already
+    // correct) and only synthesizes one here as a fallback for files that
+    // never carried it — stripSetTitlePrefix keeps that fallback from
+    // showing a doubled "01. 01. Title" the way buildTitleCopyText's own
+    // v4.12 bugfix note above already had to guard against.
+    var titleDisplay = typeof raw.titleDisplay === 'string' && raw.titleDisplay
+      ? raw.titleDisplay
+      : (titleLocalized ? stripSetTitlePrefix(title) + ' (' + titleLocalized + ')' : undefined);
     return {
       trackNo: trackNo,
-      title: typeof raw.title === 'string' && raw.title ? raw.title : ('Track ' + trackNo),
-      titleLocalized: typeof raw.titleLocalized === 'string' && raw.titleLocalized ? raw.titleLocalized : undefined,
+      title: title,
+      titleLocalized: titleLocalized,
+      titleDisplay: titleDisplay,
       stylePrompt: typeof raw.stylePrompt === 'string' ? raw.stylePrompt : '',
       lyrics: typeof raw.lyrics === 'string' ? raw.lyrics : '',
       hookPhrase: typeof raw.hookPhrase === 'string' ? raw.hookPhrase : '',
@@ -676,6 +695,7 @@ ${REVIEW_ENGINE_JS}
   function loadFile(file) {
     loadError = '';
     secretWarning = '';
+    noLocalizedTitleWarning = '';
     if (!file) return;
     var reader = new FileReader();
     reader.onload = function () {
@@ -700,6 +720,17 @@ ${REVIEW_ENGINE_JS}
       }
       SONGS = result.songs;
       META = result.meta;
+      // 지시문 13 (TASK B-3) — a separate, real gap from B's own titleDisplay
+      // fix: some packs never carry titleLocalized at all (root cause is
+      // core/bridgeInstruction.ts's titleLocalizedInstructionLineFor
+      // returning '' whenever packagingLanguage resolves to 'english' — see
+      // core/packagingLanguage.ts's defaultPackagingLanguage; fixing THAT is
+      // 지시문 12 TASK C-3's scope, not this one). This viewer only ever sees
+      // the finished JSON, so the most it can do is say so instead of
+      // silently rendering English-only titles with no explanation.
+      noLocalizedTitleWarning = SONGS.length && SONGS.every(function (s) { return !s.titleLocalized; })
+        ? '\\uC774 \\uD329\\uC5D0\\uB294 \\uD55C\\uAE00 \\uC81C\\uBAA9(titleLocalized)\\uC774 \\uC5C6\\uC2B5\\uB2C8\\uB2E4 \\u2014 \\uCC44\\uB110\\uC758 packagingLanguage \\uC124\\uC815\\uC744 \\uD655\\uC778\\uD558\\uC138\\uC694.'
+        : '';
       FILE_LOADED = true;
       CURRENT_KEY = META.setName;
       var persisted = loadPersistedState(CURRENT_KEY);
@@ -778,6 +809,7 @@ ${REVIEW_ENGINE_JS}
   function afterPanel() {
     var children = [];
     if (secretWarning) children.push(el('p', { class: 'banner warn', text: '\\u26A0\\uFE0F ' + secretWarning }));
+    if (noLocalizedTitleWarning) children.push(el('p', { class: 'banner warn', text: '\\u26A0\\uFE0F ' + noLocalizedTitleWarning }));
     children.push(el('div', { class: 'button-row' }, [
       el('button', { type: 'button', class: 'chip', text: '\\u2190 \\uB2E4\\uB978 \\uD30C\\uC77C \\uC5F4\\uAE30', onClick: function () { FILE_LOADED = false; render(); } })
     ]));
