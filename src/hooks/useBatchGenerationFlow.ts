@@ -19,6 +19,7 @@ import { preallocateSongSlots } from '../core/batchPreallocation';
 import { stitchBatchResults, validateStitched } from '../core/batchStitcher';
 import { scoreSongs } from '../core/quality';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
+import { currentWorkspaceId } from '../core/workspaceScope';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, PlaylistIdentity, ProviderSettings, SeasonPack } from '../types';
 
 // Anthropic gives no hard SLA under 24h, even though most batches finish in
@@ -108,7 +109,7 @@ export function useBatchGenerationFlow() {
       // fetch the channel's title history fresh here (poll can resume after
       // a browser restart, with no in-memory avoid-set left from submit
       // time) so stitchBatchResults' dedup pass can catch them.
-      const avoidTitles = await recentUsedTitlesAndHooks(job.channelId, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
+      const avoidTitles = await recentUsedTitlesAndHooks({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
       const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots, avoidTitles);
       if (!stitched.blueprint) {
         const errorMessage = '모든 배치 요청이 실패했습니다.';
@@ -158,7 +159,7 @@ export function useBatchGenerationFlow() {
       }
 
       const results = await fetchBatchJobResults(job.anthropicBatchId, settings);
-      const avoidTitles = await recentUsedTitlesAndHooks(job.channelId, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
+      const avoidTitles = await recentUsedTitlesAndHooks({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage).then(r => r.titles).catch(() => [] as string[]);
       const stitched = stitchBatchResults(opts, results.results, job.snapshot.preassignedSlots, avoidTitles);
       const scored = stitched.blueprint ? { ...stitched.blueprint, songs: scoreSongs(stitched.blueprint.songs, opts.channel, opts.lyricLanguage) } : undefined;
       const finalStatus: BatchJobRecord['status'] = scored && scored.songs.length ? 'canceled_with_partial_results' : 'canceled';

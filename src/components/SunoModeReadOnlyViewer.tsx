@@ -8,6 +8,7 @@ import { usedTitles as fetchHistoricalTitles } from '../core/hookLedger';
 import { renderLyricsForDisplay } from '../core/lyricEngine';
 import { copyText } from '../utils/exporters';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
+import { currentWorkspaceId } from '../core/workspaceScope';
 
 type CopyField = 'title' | 'style' | 'lyrics' | 'exclude';
 
@@ -68,10 +69,15 @@ export default function SunoModeReadOnlyViewer({ archetype, channelId, lyricLang
       let duplicationHistory: { recentSituations: string[]; recentLyricLines: string[]; historicalTitles: Set<string> } | undefined;
       if (channelId && lyricLanguage) {
         try {
+          // 지시문 14 (TASK C) — workspace-scoped, not channel-scoped: this
+          // viewer's own duplication-history checks now see every channel's
+          // history within the current workspace, matching the real
+          // generation paths' avoid-list fetches (App.tsx etc).
+          const scope = { workspaceId: currentWorkspaceId() };
           const [situations, lyricLines, historicalTitles] = await Promise.all([
-            recentSituations(channelId, lyricLanguage),
-            recentLyricLines(channelId, lyricLanguage),
-            fetchHistoricalTitles(channelId, lyricLanguage)
+            recentSituations(scope, lyricLanguage),
+            recentLyricLines(scope, lyricLanguage),
+            fetchHistoricalTitles(scope, lyricLanguage)
           ]);
           duplicationHistory = { recentSituations: situations, recentLyricLines: lyricLines, historicalTitles };
         } catch {

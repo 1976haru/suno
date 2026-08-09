@@ -1,5 +1,6 @@
 import type { PlaylistBlueprint, WorkspaceId } from '../types';
-import { currentWorkspaceId, scopeFilter } from './workspaceScope';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, matchesLedgerScope, scopeFilter, type LedgerScope } from './workspaceScope';
+import { resolveWorkspaceIdForChannel } from './channelWorkspaceResolution';
 
 /**
  * codex 지시문 02 (TASK K) — mirrors core/situationLedger.ts's own
@@ -25,7 +26,8 @@ export interface FingerprintUsage {
   usedAt: string;
   packId: string;
   trackNo: number;
-  workspaceId?: WorkspaceId;
+  /** 지시문 14 (TASK C-3) — 'unknown' is a real third value; see situationLedger.ts's SituationUsage.workspaceId for the full rationale (identical here). */
+  workspaceId?: WorkspaceId | 'unknown';
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -101,8 +103,8 @@ export async function clearAllFingerprintHistory(): Promise<void> {
   }
 }
 
-function recentSetValues(all: FingerprintUsage[], channelId: string, setLimit: number, pick: (u: FingerprintUsage) => string | undefined): string[] {
-  const scoped = all.filter(u => u.channelId === channelId);
+function recentSetValues(all: FingerprintUsage[], scope: LedgerScope, setLimit: number, pick: (u: FingerprintUsage) => string | undefined): string[] {
+  const scoped = all.filter(u => matchesLedgerScope(u, scope));
   const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
   const recentPackIds = new Set(packOrder.slice(0, setLimit));
   return scoped.filter(u => recentPackIds.has(u.packId)).map(pick).filter((v): v is string => Boolean(v));
@@ -113,9 +115,9 @@ function recentSetValues(all: FingerprintUsage[], channelId: string, setLimit: n
  * ("this is essentially the same song"), so it gets the wider window: a
  * match against anything in the last 10 sets is worth flagging.
  */
-export async function recentFingerprints(channelId: string, setLimit = 10): Promise<string[]> {
+export async function recentFingerprints(scope: LedgerScope, setLimit = 10): Promise<string[]> {
   const all = await allRecords();
-  return recentSetValues(all, channelId, setLimit, u => u.promptFingerprint);
+  return recentSetValues(all, scope, setLimit, u => u.promptFingerprint);
 }
 
 /**
@@ -124,9 +126,38 @@ export async function recentFingerprints(channelId: string, setLimit = 10): Prom
  * different songs can share a production approach — so it only looks back
  * half as far as the full fingerprint above, per this task's own spec.
  */
-export async function recentArrangementRecipes(channelId: string, setLimit = 5): Promise<string[]> {
+export async function recentArrangementRecipes(scope: LedgerScope, setLimit = 5): Promise<string[]> {
   const all = await allRecords();
-  return recentSetValues(all, channelId, setLimit, u => u.arrangementRecipe);
+  return recentSetValues(all, scope, setLimit, u => u.arrangementRecipe);
+}
+
+/** v4.1 (TASK A2) — export-oriented read for one explicit workspace regardless of the current one, matching the other 3 ledgers' own listAll*ForWorkspace shape (this ledger never had one until now). */
+export async function listAllFingerprintsForWorkspace(workspaceId: WorkspaceId): Promise<FingerprintUsage[]> {
+  const all = await withStore<FingerprintUsage[]>('readonly', store => store.getAll());
+  return scopeFilter(all, workspaceId);
+}
+
+/**
+ * 지시문 14 (TASK C-3) — this ledger never had a workspace-tag migration at
+ * all (only situationLedger/hookLedger/lyricLineLedger did, from v4.0/v5.22)
+ * — a real gap, since every FingerprintUsage record has carried an optional
+ * `workspaceId` since this ledger's own codex 지시문 02 introduction, exactly
+ * like the other 3. Same additive-only/idempotent contract, same
+ * channelId -> archetype -> workspace resolution as the other 3 ledgers' own
+ * migrate*WorkspaceTags — see situationLedger.ts's own doc comment for the
+ * full rationale.
+ */
+export async function migrateFingerprintLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number; taggedUnknown: number }> {
+  const all = await withStore<FingerprintUsage[]>('readonly', store => store.getAll());
+  let taggedSeniorOldpop = 0;
+  let taggedUnknown = 0;
+  for (const record of all) {
+    const finalWorkspaceId = record.workspaceId ?? resolveWorkspaceIdForChannel(record.channelId) ?? 'unknown';
+    if (finalWorkspaceId === DEFAULT_WORKSPACE_ID) taggedSeniorOldpop += 1;
+    if (finalWorkspaceId === 'unknown') taggedUnknown += 1;
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: finalWorkspaceId }));
+  }
+  return { totalRecords: all.length, taggedSeniorOldpop, taggedUnknown };
 }
 
 export function isDuplicateFingerprint(fingerprint: string | undefined, recent: string[]): boolean {

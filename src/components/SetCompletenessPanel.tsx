@@ -142,18 +142,25 @@ export default function SetCompletenessPanel({ blueprint, opts, audienceProfile,
     const workspaceId = currentWorkspaceId();
     void (async () => {
       try {
+        // 지시문 14 (TASK C) — workspace-scoped avoid-list reads, not
+        // channel-scoped: this panel's own duplication check now sees every
+        // channel's history within the workspace (same fix as
+        // App.tsx/useGenerationHistorySnapshot.ts's own duplicationHistory
+        // fetches), using the `workspaceId` this effect already resolved for
+        // the exploration-history read just below.
+        const scope = { workspaceId };
         const [situations, lines, historicalTitles, explorationHistory, fingerprints, arrangementRecipes, sceneSignatures] = await Promise.all([
-          recentSituations(opts.channel.id, opts.lyricLanguage),
-          recentLyricLines(opts.channel.id, opts.lyricLanguage),
-          fetchHistoricalTitles(opts.channel.id, opts.lyricLanguage),
+          recentSituations(scope, opts.lyricLanguage),
+          recentLyricLines(scope, opts.lyricLanguage),
+          fetchHistoricalTitles(scope, opts.lyricLanguage),
           explorationPolicyFor(workspaceId).enabled ? listExplorationHistory(workspaceId) : Promise.resolve([]),
           // codex 지시문 02 (TASK K) — same "pre-fetched by the caller" shape
           // as recentSituations/recentLyricLines just above.
-          recentFingerprints(opts.channel.id),
-          recentArrangementRecipes(opts.channel.id),
+          recentFingerprints(scope),
+          recentArrangementRecipes(scope),
           // codex 지시문 02 (TASK B) — same shape, drives the new advisory
           // scene-similarity item alongside the exact-match one above.
-          recentSceneSignatures(opts.channel.id, opts.lyricLanguage)
+          recentSceneSignatures(scope, opts.lyricLanguage)
         ]);
         if (cancelled) return;
         const matchingRecord = explorationHistory.find(record => record.packLabel === blueprint.projectTitle);

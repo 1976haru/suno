@@ -20,6 +20,7 @@ import {
   type ImportResult
 } from '../core/workspaceTransfer';
 import { getWorkspace, workspaceDefinitions } from '../data/workspaces';
+import { backfillHistoryFromPacks, diagnoseWorkspaceHistory, formatWorkspaceHistoryDiagnostic, type BackfillResult, type BackfillSource } from '../core/historyBackfill';
 import type { WorkspaceId } from '../types';
 
 interface DataManagementPanelProps {
@@ -64,6 +65,10 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
   const [viewerImportBusy, setViewerImportBusy] = useState(false);
   const [viewerImportError, setViewerImportError] = useState('');
   const [viewerImportResult, setViewerImportResult] = useState<ViewerRatingsImportResult | null>(null);
+  /** 지시문 14 (TASK D-4) — "과거 세트 이력 등록": kept separate from the workspace-transfer `stage` state machine above, same reasoning as the viewer-ratings import just above — this is a much narrower, single-purpose import (no preview/merge-vs-replace choice, ledger-only, no library/result-screen writes). */
+  const [backfillBusy, setBackfillBusy] = useState(false);
+  const [backfillResults, setBackfillResults] = useState<BackfillResult[] | null>(null);
+  const [backfillDiagnostic, setBackfillDiagnostic] = useState<string | null>(null);
 
   const workspace = getWorkspace(workspaceId);
   const staleDays = useMemo(() => daysSinceLastBackup(workspaceId), [workspaceId, stage]);
@@ -155,6 +160,82 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
     }
   }
 
+  /** Recursively reads .json files out of a dropped folder — "폴더 드래그" (지시문 14 §D-4). Not exposed for a plain drag-of-loose-files (no directory entries): that path already falls through to `dataTransfer.files` below. */
+  async function readAllFilesFromEntry(entry: FileSystemEntry): Promise<File[]> {
+    if (entry.isFile) {
+      return new Promise(resolve => {
+        (entry as FileSystemFileEntry).file(
+          file => resolve(file.name.toLowerCase().endsWith('.json') ? [file] : []),
+          () => resolve([])
+        );
+      });
+    }
+    if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      const entries: FileSystemEntry[] = await new Promise(resolve => {
+        const all: FileSystemEntry[] = [];
+        const readBatch = () => {
+          reader.readEntries(batch => {
+            if (!batch.length) { resolve(all); return; }
+            all.push(...batch);
+            readBatch();
+          }, () => resolve(all));
+        };
+        readBatch();
+      });
+      const nested = await Promise.all(entries.map(readAllFilesFromEntry));
+      return nested.flat();
+    }
+    return [];
+  }
+
+  async function readFilesFromDataTransfer(dataTransfer: DataTransfer): Promise<File[]> {
+    const entries = Array.from(dataTransfer.items || [])
+      .map(item => item.webkitGetAsEntry?.())
+      .filter((entry): entry is FileSystemEntry => Boolean(entry));
+    if (entries.length) {
+      const nested = await Promise.all(entries.map(readAllFilesFromEntry));
+      return nested.flat();
+    }
+    return Array.from(dataTransfer.files || []).filter(file => file.name.toLowerCase().endsWith('.json'));
+  }
+
+  /**
+   * 지시문 14 (TASK D-4) — "과거 세트 이력 등록": every file is registered under
+   * this panel's OWN currently selected `workspaceId` (the "사용자가 지정
+   * (기본값: 현재 워크스페이스)" default §D-4 asks for) — a file's own
+   * meta.channelId still gets a real chance to resolve independently inside
+   * historyBackfill.ts's planBackfillSource, but the panel's explicit
+   * selection wins when the user has deliberately chosen a workspace here
+   * (this panel is workspace-scoped by its own `workspaceId` selector,
+   * independent of whatever the globally "current" app workspace happens to
+   * be — see this component's own header doc comment on why that selector
+   * exists at all).
+   */
+  async function handleBackfillFiles(files: File[]) {
+    if (!files.length) return;
+    setBackfillBusy(true);
+    setBackfillResults(null);
+    setBackfillDiagnostic(null);
+    try {
+      const sources: BackfillSource[] = await Promise.all(files.map(async file => {
+        try {
+          const text = await file.text();
+          return { fileName: file.name, json: JSON.parse(text), workspaceId };
+        } catch {
+          return { fileName: file.name, json: null, workspaceId };
+        }
+      }));
+      const results = await backfillHistoryFromPacks(sources);
+      setBackfillResults(results);
+      const diagnostic = await diagnoseWorkspaceHistory(workspaceId, workspace.defaultLyricLanguage);
+      setBackfillDiagnostic(formatWorkspaceHistoryDiagnostic(diagnostic));
+      setCounts(await countsForWorkspace(workspaceId));
+    } finally {
+      setBackfillBusy(false);
+    }
+  }
+
   return (
     <div className="data-management-overlay" role="dialog" aria-label="데이터 관리">
       <div className="data-management-panel">
@@ -216,6 +297,43 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
               </p>
             )}
             {viewerImportError && <p className="import-warning">⚠ {viewerImportError}</p>}
+
+            <div
+              className="button-like"
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => {
+                e.preventDefault();
+                void readFilesFromDataTransfer(e.dataTransfer).then(handleBackfillFiles);
+              }}
+            >
+              과거 세트 이력 등록 (파일 선택 또는 폴더 드래그)
+              <input
+                type="file"
+                accept="application/json"
+                multiple
+                style={{ display: 'none' }}
+                disabled={backfillBusy}
+                onChange={e => { void handleBackfillFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }}
+              />
+            </div>
+            <p className="hint">
+              지난 세트 songs-output.json 파일을 이 워크스페이스({workspace.labelKo})의 회피 이력(장면·훅·가사 문장·구조 지문)에만 등록합니다 — 라이브러리 저장·화면 표시는 하지 않습니다.
+            </p>
+            {backfillBusy && <p className="supporting">등록 중...</p>}
+            {backfillResults && (
+              <ul className="supporting">
+                {backfillResults.map(r => (
+                  <li key={r.fileName}>
+                    {r.fileName} — {
+                      r.status === 'registered' ? `신규 등록 ${r.songCount}곡`
+                        : r.status === 'skipped-duplicate' ? '이미 등록됨 — 건너뜀'
+                          : `등록 불가 (${r.reasonKo})`
+                    }
+                  </li>
+                ))}
+              </ul>
+            )}
+            {backfillDiagnostic && <pre className="supporting backfill-diagnostic">{backfillDiagnostic}</pre>}
 
             <button type="button" className="chip" onClick={() => setPartialOpen(o => !o)}>
               부분 내보내기 {partialOpen ? '▴' : '▾'}

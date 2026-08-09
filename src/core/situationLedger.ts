@@ -1,6 +1,7 @@
 import type { LyricLanguage, PlaylistBlueprint, SongIdea, WorkspaceId } from '../types';
-import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, matchesLedgerScope, scopeFilter, type LedgerScope } from './workspaceScope';
 import { openingSixWords as computeOpeningSixWords, parseLyricsSections } from './lyricsAst';
+import { resolveWorkspaceIdForChannel } from './channelWorkspaceResolution';
 
 /**
  * v5.22 (AXIS 1, TASK B §1-6) — same real bug hookLedger.ts's own doc
@@ -34,7 +35,21 @@ export interface SituationUsage {
   usedAt: string;
   packId: string;
   trackNo: number;
-  workspaceId?: WorkspaceId;
+  /**
+   * 지시문 14 (TASK C-3) — `'unknown'` is a real, intentional third value
+   * (not just "unset"): migrateSituationLedgerWorkspaceTags writes it onto a
+   * pre-workspace record whose channelId couldn't be resolved to any
+   * archetype/workspace (channelWorkspaceResolution.ts's own
+   * resolveWorkspaceIdForChannel returned undefined — e.g. Node has no
+   * localStorage to check custom channels against). Deliberately never
+   * silently folded into DEFAULT_WORKSPACE_ID: matchesLedgerScope's
+   * `(record.workspaceId ?? DEFAULT_WORKSPACE_ID) === scope.workspaceId`
+   * check only defaults a genuinely ABSENT workspaceId that way — a record
+   * explicitly tagged 'unknown' never equals any real WorkspaceId, so it's
+   * excluded from every workspace-scoped read instead of silently leaking
+   * into whichever workspace happens to ask first.
+   */
+  workspaceId?: WorkspaceId | 'unknown';
   /**
    * codex 지시문 02 (TASK B) — SongIdea.lyricFrameId/lyricThemeMotionKo/
    * lyricThemeCastKo/lyricThemeEraSettingKo, when this song has them (see
@@ -202,9 +217,9 @@ export async function clearAllSituationHistory(): Promise<void> {
  * (every song in one recordPackSituations() call shares the same `usedAt`),
  * most-recent first.
  */
-export async function recentSituations(channelId: string, language: LyricLanguage, setLimit = 10): Promise<string[]> {
+export async function recentSituations(scope: LedgerScope, language: LyricLanguage, setLimit = 10): Promise<string[]> {
   const all = await allRecords();
-  const scoped = all.filter(u => u.channelId === channelId && u.language === language);
+  const scoped = all.filter(u => matchesLedgerScope(u, scope) && u.language === language);
   const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
   const recentPackIds = new Set(packOrder.slice(0, setLimit));
   return scoped.filter(u => recentPackIds.has(u.packId)).map(u => u.situation);
@@ -219,9 +234,9 @@ export async function recentSituations(channelId: string, language: LyricLanguag
  * strings (no qualifying opening line recorded for that song) are dropped —
  * never a meaningless "" entry in the avoid list.
  */
-export async function recentOpenings(channelId: string, language: LyricLanguage, setLimit = 5): Promise<string[]> {
+export async function recentOpenings(scope: LedgerScope, language: LyricLanguage, setLimit = 5): Promise<string[]> {
   const all = await allRecords();
-  const scoped = all.filter(u => u.channelId === channelId && u.language === language);
+  const scoped = all.filter(u => matchesLedgerScope(u, scope) && u.language === language);
   const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
   const recentPackIds = new Set(packOrder.slice(0, setLimit));
   return scoped.filter(u => recentPackIds.has(u.packId) && u.openingSixWords).map(u => u.openingSixWords!);
@@ -255,9 +270,9 @@ export interface SceneSignature {
   lyricTheme?: string;
 }
 
-export async function recentSceneSignatures(channelId: string, language: LyricLanguage, setLimit = 10): Promise<SceneSignature[]> {
+export async function recentSceneSignatures(scope: LedgerScope, language: LyricLanguage, setLimit = 10): Promise<SceneSignature[]> {
   const all = await allRecords();
-  const scoped = all.filter(u => u.channelId === channelId && u.language === language);
+  const scoped = all.filter(u => matchesLedgerScope(u, scope) && u.language === language);
   const packOrder = Array.from(new Set(scoped.slice().sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1)).map(u => u.packId)));
   const recentPackIds = new Set(packOrder.slice(0, setLimit));
   return scoped.filter(u => recentPackIds.has(u.packId)).map(u => ({
@@ -284,11 +299,33 @@ export async function putSituationRecord(record: SituationUsage): Promise<void> 
   await withStore('readwrite', store => store.put(stamped));
 }
 
-/** v5.22 (AXIS 1, migration) — same shape/contract as core/library.ts's migrateLibraryWorkspaceTags: additive-only, idempotent. */
-export async function migrateSituationLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+/**
+ * v5.22 (AXIS 1, migration) — same shape/contract as core/library.ts's
+ * migrateLibraryWorkspaceTags: additive-only, idempotent.
+ *
+ * 지시문 14 (TASK C-3) — was a blind `DEFAULT_WORKSPACE_ID` stamp for every
+ * untagged record regardless of which channel it actually came from (wrong
+ * for any pre-workspace record from a non-senior channel — none existed
+ * when this migration first shipped, but the same function is what TASK D's
+ * historyBackfill-registered older packs would also run through). Now
+ * resolves each record's own channelId -> archetype -> workspace first
+ * (channelWorkspaceResolution.ts) and only falls back to
+ * DEFAULT_WORKSPACE_ID for a channelId that resolution can't place either —
+ * matching this whole ledger's own DEFAULT_WORKSPACE_ID convention for a
+ * senior-era record with literally no channel context to resolve from. A
+ * channelId that resolves to neither is tagged 'unknown' instead (see
+ * SituationUsage.workspaceId's own doc comment) — never silently folded
+ * into any real workspace's history.
+ */
+export async function migrateSituationLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number; taggedUnknown: number }> {
   const all = await withStore<SituationUsage[]>('readonly', store => store.getAll());
+  let taggedSeniorOldpop = 0;
+  let taggedUnknown = 0;
   for (const record of all) {
-    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+    const finalWorkspaceId = record.workspaceId ?? resolveWorkspaceIdForChannel(record.channelId) ?? 'unknown';
+    if (finalWorkspaceId === DEFAULT_WORKSPACE_ID) taggedSeniorOldpop += 1;
+    if (finalWorkspaceId === 'unknown') taggedUnknown += 1;
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: finalWorkspaceId }));
   }
-  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
+  return { totalRecords: all.length, taggedSeniorOldpop, taggedUnknown };
 }

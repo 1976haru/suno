@@ -2,6 +2,7 @@ import { migrateLibraryWorkspaceTags, migrateLibrarySnapshotSecrets, exportAllPa
 import { migrateHookLedgerWorkspaceTags } from './hookLedger';
 import { migrateSituationLedgerWorkspaceTags } from './situationLedger';
 import { migrateLyricLineLedgerWorkspaceTags } from './lyricLineLedger';
+import { migrateFingerprintLedgerWorkspaceTags } from './promptFingerprintLedger';
 import { migrateRatingLedgerWorkspaceTags } from './ratingLedger';
 import { migrateVideoLedgerWorkspaceTags } from './videoLedger';
 import { migrateUsageLedgerWorkspaceTags } from './usageLedger';
@@ -138,6 +139,9 @@ const MIGRATED_STORES: { name: string; migrate: () => Promise<{ totalRecords: nu
   // Pattern-A IndexedDB store here (additive-only, idempotent).
   { name: 'suno-weaver-situations', migrate: migrateSituationLedgerWorkspaceTags },
   { name: 'suno-weaver-lyric-lines', migrate: migrateLyricLineLedgerWorkspaceTags },
+  // 지시문 14 (TASK C-3) — this ledger never had a workspace-tag migration
+  // at all until now; see promptFingerprintLedger.ts's own doc comment.
+  { name: 'suno-weaver-prompt-fingerprints', migrate: migrateFingerprintLedgerWorkspaceTags },
   { name: 'suno-weaver-ratings', migrate: migrateRatingLedgerWorkspaceTags },
   { name: 'suno-weaver-videos', migrate: migrateVideoLedgerWorkspaceTags },
   { name: 'suno-weaver-usage', migrate: migrateUsageLedgerWorkspaceTags },

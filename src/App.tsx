@@ -50,7 +50,7 @@ import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
 import { getWorkspace } from './data/workspaces';
 import { isMigrationPending, runWorkspaceMigrationOnce, runSnapshotSecretMigrationOnce } from './core/workspaceMigration';
-import { setCurrentWorkspace } from './core/workspaceScope';
+import { currentWorkspaceId, setCurrentWorkspace } from './core/workspaceScope';
 import { downloadBlob, exportAllWorkspacesBlob, nextTransferFileName, recordBackupNow } from './core/workspaceTransfer';
 import { workspaceDefinitions } from './data/workspaces';
 import WorkspaceSelectScreen, { skipWorkspacePickerPreference } from './components/WorkspaceSelectScreen';
@@ -635,7 +635,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       ...(metaReconciliation.lyricLanguage ? { lyricLanguage: metaReconciliation.lyricLanguage } : {}),
       ...(metaReconciliation.songCount ? { songCount: metaReconciliation.songCount } : {})
     };
-    const avoid = await safeAvoidSet(importChannel.id, importOpts.lyricLanguage);
+    const avoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, importOpts.lyricLanguage);
     // TASK (bridge-import fallback state-timing fix) — real bug:
     // cm.selectChannel(matchedChannel.id) just above doesn't update React
     // state synchronously, so fallbackGenres()/fallbackMoods() (which read
@@ -660,9 +660,9 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // here (not inside inspectImportReport, which stays a pure classifier —
     // same convention languageContext/sessionExemptions already follow).
     const duplicationHistory = {
-      recentSituations: await recentSituations(importChannel.id, importOpts.lyricLanguage),
-      recentLyricLines: await recentLyricLines(importChannel.id, importOpts.lyricLanguage),
-      historicalTitles: await fetchHistoricalTitles(importChannel.id, importOpts.lyricLanguage)
+      recentSituations: await recentSituations({ workspaceId: currentWorkspaceId() }, importOpts.lyricLanguage),
+      recentLyricLines: await recentLyricLines({ workspaceId: currentWorkspaceId() }, importOpts.lyricLanguage),
+      historicalTitles: await fetchHistoricalTitles({ workspaceId: currentWorkspaceId() }, importOpts.lyricLanguage)
     };
     const inspection = inspectImportReport(report, rawSongs, importOpts.lyricLanguage, {
       archetype: importOpts.channel.archetype,
@@ -984,7 +984,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
     const importChannel = matchedChannel ?? cm.selectedChannel;
     const groupId = `bridge-multiset-${importChannel.id}-${Date.now()}`;
-    const baseAvoid = await safeAvoidSet(importChannel.id, opts.lyricLanguage);
+    const baseAvoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
     let usedTitles = [...(baseAvoid.usedTitles ?? [])];
     let usedHooks = [...(baseAvoid.usedHooks ?? [])];
 
@@ -1043,9 +1043,9 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // own doc comment describes; within-batch scene/title/hook repeats are
     // plan.crossSetDuplicates' job instead (already computed below).
     const duplicationHistory = {
-      recentSituations: await recentSituations(importChannel.id, opts.lyricLanguage),
-      recentLyricLines: await recentLyricLines(importChannel.id, opts.lyricLanguage),
-      historicalTitles: await fetchHistoricalTitles(importChannel.id, opts.lyricLanguage)
+      recentSituations: await recentSituations({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage),
+      recentLyricLines: await recentLyricLines({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage),
+      historicalTitles: await fetchHistoricalTitles({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage)
     };
     const plan = planMultiSetImport(setInputs, artistLeakExemptions, duplicationHistory, multiSetCount);
     const crossSetWarningsFor = (setIndex: number) => plan.crossSetDuplicates.filter(dup => dup.setIndexes.includes(setIndex)).map(dup => dup.labelKo);
@@ -1275,7 +1275,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     setMultiSetWarnings([]);
     evalFlow.setEvaluation(null);
     const generationOpts = { ...opts, channel: cm.selectedChannel };
-    const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+    const avoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
     const groupId = `multiset-${cm.selectedChannel.id}-${Date.now()}`;
 
     try {
@@ -1323,7 +1323,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     if (batchMode && provider.provider === 'anthropic') {
       evalFlow.setEvaluation(null);
       const generationOpts = { ...opts, channel: cm.selectedChannel };
-      const avoid = await safeAvoidSet(cm.selectedChannel.id, opts.lyricLanguage);
+      const avoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
       void batchFlow.submit(generationOpts, fallbackGenres(), fallbackMoods(), selectedSeason, provider, avoid, onBatchJobComplete);
       return;
     }
@@ -1404,7 +1404,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const stillMissing: number[] = [];
     for (const trackNo of missing) {
       try {
-        const { blueprint: next } = await regenerateTrack(current, trackNo, batchOpts, genresForOptions(batchOpts), moodsForOptions(batchOpts), batchSeason, provider, [], await safeAvoidSet(batchOpts.channel.id, batchOpts.lyricLanguage));
+        const { blueprint: next } = await regenerateTrack(current, trackNo, batchOpts, genresForOptions(batchOpts), moodsForOptions(batchOpts), batchSeason, provider, [], await safeAvoidSet({ workspaceId: currentWorkspaceId() }, batchOpts.lyricLanguage));
         current = next;
       } catch {
         stillMissing.push(trackNo);

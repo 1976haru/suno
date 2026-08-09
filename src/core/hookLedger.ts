@@ -2,7 +2,8 @@ import type { ChannelArchetype, LyricLanguage, PlaylistBlueprint, WorkspaceId } 
 import { hookPoolSize } from './lyricEngine';
 import { forecastCapacity } from './capacityPlanner';
 import { stripSetTitlePrefix } from '../utils/generation';
-import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
+import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, matchesLedgerScope, scopeFilter, type LedgerScope } from './workspaceScope';
+import { resolveWorkspaceIdForChannel } from './channelWorkspaceResolution';
 
 const DB_NAME = 'suno-weaver-hooks';
 /**
@@ -36,8 +37,8 @@ export interface HookUsage {
   usedAt: string;
   packId: string;
   trackNo: number;
-  /** v4.0 (TASK A1) — optional only so records written before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). */
-  workspaceId?: WorkspaceId;
+  /** v4.0 (TASK A1) — optional only so records written before this task keep loading (treated as 'senior-oldpop', see core/workspaceScope.ts's scopeFilter). 지시문 14 (TASK C-3) — 'unknown' is a real third value; see situationLedger.ts's SituationUsage.workspaceId for the full rationale (identical here). */
+  workspaceId?: WorkspaceId | 'unknown';
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -77,15 +78,15 @@ async function allRecords(): Promise<HookUsage[]> {
   return scopeFilter(all);
 }
 
-/** Every hook this channel (in this language) has ever used, across every pack — not just the current one. This is TASK X1's core fix: without cross-pack history, a hook bank of any size eventually repeats because nothing remembers what the *previous* pack already used. */
-export async function usedHooks(channelId: string, language: LyricLanguage): Promise<Set<string>> {
+/** Every hook this scope (in this language) has ever used, across every pack — not just the current one. This is TASK X1's core fix: without cross-pack history, a hook bank of any size eventually repeats because nothing remembers what the *previous* pack already used. 지시문 14 (TASK C) — scope defaults to workspace-wide; pass `{ channelId }` for the old single-channel view. */
+export async function usedHooks(scope: LedgerScope, language: LyricLanguage): Promise<Set<string>> {
   const all = await allRecords();
-  return new Set(all.filter(u => u.channelId === channelId && u.language === language).map(u => u.hook));
+  return new Set(all.filter(u => matchesLedgerScope(u, scope) && u.language === language).map(u => u.hook));
 }
 
-export async function usedTitles(channelId: string, language: LyricLanguage): Promise<Set<string>> {
+export async function usedTitles(scope: LedgerScope, language: LyricLanguage): Promise<Set<string>> {
   const all = await allRecords();
-  return new Set(all.filter(u => u.channelId === channelId && u.language === language).map(u => u.title));
+  return new Set(all.filter(u => matchesLedgerScope(u, scope) && u.language === language).map(u => u.title));
 }
 
 /**
@@ -105,14 +106,14 @@ export async function usedTitles(channelId: string, language: LyricLanguage): Pr
  * literally sending the channel's entire hook history on every request.
  */
 export async function recentUsedTitlesAndHooks(
-  channelId: string,
+  scope: LedgerScope,
   language: LyricLanguage,
   options: { titleLimit?: number; hookLimit?: number } = {}
 ): Promise<{ titles: string[]; hooks: string[] }> {
   const { titleLimit = 100, hookLimit = 500 } = options;
   const all = await allRecords();
   const scoped = all
-    .filter(u => u.channelId === channelId && u.language === language)
+    .filter(u => matchesLedgerScope(u, scope) && u.language === language)
     .sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1));
   return {
     titles: scoped.slice(0, titleLimit).map(u => u.title),
@@ -291,7 +292,7 @@ export async function channelCapacityForecast(channelId: string, language: Lyric
 }
 
 export async function channelExhaustionStats(channelId: string, language: LyricLanguage, archetype?: ChannelArchetype): Promise<ExhaustionStats> {
-  const used = (await usedHooks(channelId, language)).size;
+  const used = (await usedHooks({ channelId }, language)).size;
   const poolSize = hookPoolSize(language, archetype);
   return exhaustionStats(used, poolSize);
 }
@@ -305,13 +306,29 @@ export async function forgetUsage(id: string): Promise<void> {
   await withStore('readwrite', store => store.delete(id));
 }
 
-/** v4.0 (TASK A1, migration) — same shape/contract as core/library.ts's migrateLibraryWorkspaceTags: additive-only, idempotent, tags every pre-v4.0 hook record 'senior-oldpop'. Reads the raw (unfiltered) store directly — allRecords() is already workspace-scoped and would hide exactly the untagged records this needs to see. */
-export async function migrateHookLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number }> {
+/**
+ * v4.0 (TASK A1, migration) — same shape/contract as core/library.ts's
+ * migrateLibraryWorkspaceTags: additive-only, idempotent, tags every
+ * pre-v4.0 hook record 'senior-oldpop'. Reads the raw (unfiltered) store
+ * directly — allRecords() is already workspace-scoped and would hide
+ * exactly the untagged records this needs to see.
+ *
+ * 지시문 14 (TASK C-3) — now resolves each untagged record's own channelId
+ * first (channelWorkspaceResolution.ts), same real-resolution-over-blind-
+ * default fix as situationLedger.ts's own migrateSituationLedgerWorkspaceTags
+ * — see that function's own doc comment for the full rationale.
+ */
+export async function migrateHookLedgerWorkspaceTags(): Promise<{ totalRecords: number; taggedSeniorOldpop: number; taggedUnknown: number }> {
   const all = await withStore<HookUsage[]>('readonly', store => store.getAll());
+  let taggedSeniorOldpop = 0;
+  let taggedUnknown = 0;
   for (const record of all) {
-    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: DEFAULT_WORKSPACE_ID }));
+    const finalWorkspaceId = record.workspaceId ?? resolveWorkspaceIdForChannel(record.channelId) ?? 'unknown';
+    if (finalWorkspaceId === DEFAULT_WORKSPACE_ID) taggedSeniorOldpop += 1;
+    if (finalWorkspaceId === 'unknown') taggedUnknown += 1;
+    if (!record.workspaceId) await withStore('readwrite', store => store.put({ ...record, workspaceId: finalWorkspaceId }));
   }
-  return { totalRecords: all.length, taggedSeniorOldpop: all.filter(r => (r.workspaceId ?? DEFAULT_WORKSPACE_ID) === DEFAULT_WORKSPACE_ID).length };
+  return { totalRecords: all.length, taggedSeniorOldpop, taggedUnknown };
 }
 
 /** v4.1 (TASK A2) — export-oriented read for one explicit workspace regardless of the current one. */
