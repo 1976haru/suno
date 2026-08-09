@@ -65,7 +65,7 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
   return (
     <div className="workspace-select-screen">
       <div className="workspace-select-head">
-        <p className="eyebrow">Suno Weaver Studio</p>
+        <p className="eyebrow">하루 스튜디오</p>
         <h1>어떤 작업을 하시겠어요?</h1>
         <p className="step-hint">워크스페이스를 고르면 화면과 데이터가 완전히 갈립니다 — 다른 워크스페이스의 채널·팩·훅·평가는 여기서 보이지 않습니다.</p>
       </div>

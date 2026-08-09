@@ -1716,7 +1716,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     <main className="app-shell" style={{ ['--teal' as string]: workspace.theme.accent, ['--bg' as string]: workspace.theme.surface }}>
       <header className="topbar">
         <div>
-          <p className="eyebrow">Suno Weaver Studio {BUILD_INFO.appVersion}</p>
+          <p className="eyebrow">하루 스튜디오 {BUILD_INFO.appVersion}</p>
           <p className="eyebrow-build">commit {BUILD_INFO.commitSha} · schema {BUILD_INFO.schemaVersion}</p>
           <h1>Playlist prompt and lyrics workbench</h1>
           <button type="button" className="workspace-indicator" onClick={handleRequestSwitchWorkspace} title="다른 워크스페이스로 전환">

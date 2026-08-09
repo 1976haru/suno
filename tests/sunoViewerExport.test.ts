@@ -123,6 +123,6 @@ describe('[지시문 13 TASK B] titleDisplay fix in normalizeSong', () => {
   });
 
   it('the viewer version was bumped for this fix (footer lets a user tell a previously-downloaded suno-mode.html is stale)', () => {
-    expect(SUNO_VIEWER_VERSION).toBe('1.1.0');
+    expect(SUNO_VIEWER_VERSION).toBe('1.2.0');
   });
 });

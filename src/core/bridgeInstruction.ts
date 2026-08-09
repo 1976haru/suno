@@ -1698,7 +1698,7 @@ export function buildClaudeCodeInstruction(
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself — write only the creative title. If this pack needs numbered titles, the app adds that afterward from the trusted trackNo.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the file — the app supplies those separately from local context.',
     '- The file itself must be raw JSON — no markdown fences, no surrounding prose, inside the file.',
-    '- When done, tell me the file\'s path so I can import it back into Suno Weaver Studio.'
+    '- When done, tell me the file\'s path so I can import it back into Haru Studio.'
   ].join('\n');
 }
 
@@ -1970,7 +1970,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '',
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
-    '- When done, tell me the paths of all files so I can import them back into Suno Weaver Studio.'
+    '- When done, tell me the paths of all files so I can import them back into Haru Studio.'
   ].join('\n');
 
   return {
