@@ -55,15 +55,19 @@ export const channelPresets: ChannelProfile[] = [
       'oldpop-baroque-pop', 'oldpop-sunlit-strings-pop', 'oldpop-orchestral-easy',
       'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom', 'jazz-brush-ballad-jazz', 'bossa-cafe',
       // 지시문 21 (TASK C) — 신규 6종 중 5종 배선(oldpop-italian-canzone
-      // 제외). 실측: italian-canzone까지 추가하면(풀 30종) 이 채널의
-      // genreNarrative가 유독 긴 조합에서 core/promptBudget.ts의
-      // 'concept' 카테고리가 이른 단계(초기 safeTarget 정렬-채움 루프,
-      // GUARANTEED_FLOOR_BY_ID에 'concept' 미등록)에서 통째로 잘려
-      // customConcept 매핑 문구('morning light' 등)가 stylePrompt에서
-      // 사라지는 기존 결함이 재현됨(tests/v352ConceptDiversity.test.ts) —
-      // core/promptBudget.ts는 전 채널 공유 인프라라 이 지시문 범위 밖.
-      // italian-canzone은 tier:'extended'(부차 우선순위)라 이 채널에서는
-      // 빼고 oldpop-lounge-main에는 그대로 6종 전부 배선 — TASK D에 보고.
+      // 제외). TASK D 재실측(4개 concept 매핑 x 18곡 x 3개 풀 크기,
+      // docs/TASK_D_CONCEPT_ATOM_DROP.md)으로 원래 이 주석의 "italian-
+      // canzone 추가가 결함을 유발한다"는 서술을 정정: customConcept 매핑
+      // 문구('morning light' 등)가 stylePrompt에서 사라지는 결함은
+      // core/promptBudget.ts의 GUARANTEED_FLOOR_BY_ID에 'concept'이
+      // 미등록이라 24종(TASK C 이전) 풀에서도 이미 60%(43/72) 발생하며,
+      // 30종(italian-canzone 포함)에서는 65%(47/72)로 완만히 증가할
+      // 뿐이다 — italian-canzone 하나가 임계값을 넘기는 게 아니라 이미
+      // 있던 결함이 소폭 더 나빠지는 정도. 그래도 italian-canzone은
+      // tier:'extended'(부차 우선순위)이므로 굳이 이 채널의 풀을 더
+      // 넓힐 이유가 없어 제외는 유지 — oldpop-lounge-main에는 6종
+      // 전부 배선. 결함 자체(core/promptBudget.ts, 전 채널 공유 인프라)는
+      // 이 지시문 범위 밖.
       'oldpop-doowop-ballad', 'oldpop-doowop-uptempo', 'oldpop-night-chanson', 'oldpop-rainy-ballad-blues', 'oldpop-six-eight-slow-ballad'
     ],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],

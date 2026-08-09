@@ -73,9 +73,11 @@ describe('[v3.61 TASK B] chanson/smooth-jazz-lounge resolve via getCoreGenresFor
   // 기준이 "24종 이상"이다 (같은 장르 최대 곡수 관문이 4~5종 풀에서는
   // 18÷4~5로 위반되던 실측 문제 해결). 우연한 완화가 아니라 의도된
   // 정책 변경 — 상한을 26으로 재조정.
-  // 지시문 21 (TASK C) — 신규 6종 배선으로 24 -> 30. 상한을 32로 재조정
-  // (여유 2 — 향후 소폭 추가에 매 번 이 테스트를 건드리지 않도록).
-  it('the senior-morning channel preferredGenres pool is 12-32 ids (24+ per 지시문 20 TASK A, 30 per 지시문 21 TASK C, never 3, never unbounded)', () => {
+  // 지시문 21 (TASK C) — 신규 6종 중 5종 배선(oldpop-italian-canzone은
+  // 이 채널에서 제외 — presets.ts 배선 주석 참고)으로 24 -> 29. 상한을
+  // 32로 재조정(여유 3 — 향후 소폭 추가에 매 번 이 테스트를 건드리지
+  // 않도록).
+  it('the senior-morning channel preferredGenres pool is 12-32 ids (24+ per 지시문 20 TASK A, 29 per 지시문 21 TASK C, never 3, never unbounded)', () => {
     const channel = channelPresets.find(c => c.id === 'good-morning-memory-radio')!;
     expect(channel.preferredGenres.length).toBeGreaterThanOrEqual(12);
     expect(channel.preferredGenres.length).toBeLessThanOrEqual(32);
