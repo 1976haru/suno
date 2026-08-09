@@ -126,6 +126,14 @@ export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-textur
 export type PerceivedEnergy = 1 | 2 | 3 | 4 | 5;
 
 /**
+ * 지시문 23 (TASK B) — "청취 목적". oldpoplounge의 기본 정체성을 "60~70년대
+ * 음악을 복원하는 채널"에서 "60~70년대의 따뜻한 기억을 오늘 편하게 오래
+ * 들을 수 있는 음악으로 만드는 채널"로 옮기는 하루의 판단(§0-1)을 반영하되,
+ * 되돌릴 길(§0-2)로 'era-authentic'을 preset으로 남긴다.
+ */
+export type ListeningIntent = 'long-listen-comfort' | 'balanced' | 'era-authentic';
+
+/**
  * 지시문 15 (TASK A-1) — SongIdea.distinctChoice(사람이 읽는 한 줄 설명, 위)와
  * 분리된, 기계가 판정 가능한 구조화 값. 어떤 ruleId를 이 워크스페이스가
  * 허용하는지는 core/workspaceQualityPolicies.ts의 DistinctChoicePolicy가
@@ -904,6 +912,17 @@ export interface GenerationOptions {
    * since Suno's actual melody isn't controlled precisely by text.
    */
   earwormMode?: boolean;
+  /**
+   * 지시문 23 (TASK B) — 사용자가 "청취 목적" 카드(Step2Concept.tsx)에서
+   * 고른 preset. 실제 효과는 그 카드의 "적용" 버튼이 이 값과 함께
+   * genreIds/diversityAllocations를 한 번에 채우는 명시적 사용자 행동으로만
+   * 일어난다 — 그 뒤 사용자가 genreIds/diversityAllocations를 손으로 다시
+   * 고치면 그 수동 선택이 그대로 남는다(§B-5 "사용자 명시 선택 > 청취 목적
+   * preset", diversityAllocations의 manual이 항상 이기는 기존 보장과 동일
+   * 원리). 이 필드 자체는 마지막으로 적용한 preset의 기록일 뿐, 매 생성마다
+   * 다시 강제 적용되지 않는다.
+   */
+  listeningIntent?: ListeningIntent;
   /**
    * TASK v3.27 — 'ai-creative' (default) lets the remote model/coding agent
    * write its own title for each preassigned hookPhrase instead of copying

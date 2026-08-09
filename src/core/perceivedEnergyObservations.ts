@@ -1,4 +1,5 @@
 import type { SongIdea } from '../types';
+import { isEraColorGenreId } from './listeningIntent';
 
 /**
  * 지시문 23 TASK A-5 · TASK C · TASK D — "차단 없음. 감사에 표시만 한다."
@@ -70,9 +71,9 @@ export function hookWordCountDistribution(songs: SongIdea[]): Record<number, num
   return dist;
 }
 
-/** TASK D — eraTag가 있는(시대색이 뚜렷한 장르로 태그된) 곡 수. TASK B의 minEraColorTracks 하한이 실제로 채워지는지 세트마다 확인하는 관찰치 — 여기서는 정책과 비교하지 않고 실측 개수만 낸다. */
+/** TASK D — 시대색(1950s-60s/1970s, core/listeningIntent.ts's isEraColorGenreId) 장르로 배정된 곡 수. TASK B의 minEraColorTracks 하한이 실제로 채워지는지 세트마다 확인하는 관찰치 — 여기서는 정책과 비교하지 않고 실측 개수만 낸다. */
 export function eraColorTrackCount(songs: SongIdea[]): number {
-  return songs.filter(s => Boolean(s.eraTag)).length;
+  return songs.filter(s => isEraColorGenreId(s.genreId)).length;
 }
 
 export interface PerceivedEnergyObservations {

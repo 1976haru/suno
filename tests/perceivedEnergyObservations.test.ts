@@ -81,14 +81,18 @@ describe('지시문 23 TASK D — 관찰 항목 4종 (규칙화 금지, 표시�
     expect(hookWordCountDistribution(songs)).toEqual({ 2: 1, 3: 2 });
   });
 
-  it('eraTag 보유 곡 수를 센다', () => {
-    const songs = [song({ trackNo: 1, eraTag: '1960s' }), song({ trackNo: 2 }), song({ trackNo: 3, eraTag: '1970s' })];
+  it('시대색(1950s-60s/1970s) 장르로 배정된 곡 수를 센다', () => {
+    const songs = [
+      song({ trackNo: 1, genreId: 'oldpop-doowop-harmony' }), // 1950s-60s
+      song({ trackNo: 2, genreId: 'smooth-jazz-lounge' }), // 1980s — 시대색 아님
+      song({ trackNo: 3, genreId: 'oldpop-piano-ballad-70s' }) // 1970s
+    ];
     expect(eraColorTrackCount(songs)).toBe(2);
   });
 
   it('buildPerceivedEnergyObservations가 4종 전부를 한 번에 담는다', () => {
     const songs = [
-      song({ trackNo: 1, perceivedEnergy: 5, intensity: 1, chorusStyle: 'hookRepeat', hookPhrase: 'Hold On', eraTag: '1960s' }),
+      song({ trackNo: 1, perceivedEnergy: 5, intensity: 1, chorusStyle: 'hookRepeat', hookPhrase: 'Hold On', genreId: 'oldpop-doowop-harmony' }),
       song({ trackNo: 2, perceivedEnergy: 1, intensity: 1, chorusStyle: 'image', hookPhrase: 'I Know' })
     ];
     const obs = buildPerceivedEnergyObservations(songs);
