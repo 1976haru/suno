@@ -126,7 +126,7 @@ describe('지시문 23 TASK C — 20260808 팩 재현: 인접 곡 급변이 실�
 
 describe('지시문 23 TASK A — 실제 생성 파이프라인 배선 (새 입력 필드 없음)', () => {
   it('로컬 생성 경로: 18곡 전부 perceivedEnergy가 부여된다', () => {
-    const channel = channelPresets.find(c => c.id === 'oldpoplounge') ?? channelPresets[0];
+    const channel = channelPresets.find(c => c.id === 'oldpop-lounge-main')!;
     const opts = makeOptions({ channel, songCount: 18 });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, testSeason, { usedTitles: [], usedHooks: [] });
     const withEnergy = bp.songs.filter(s => s.perceivedEnergy !== undefined);
@@ -139,7 +139,7 @@ describe('지시문 23 TASK A — 실제 생성 파이프라인 배선 (새 입�
   });
 
   it('18곡 안에서 perceivedEnergy 값이 최소 2종 이상 나온다 (전부 같은 값으로 뭉치지 않음)', () => {
-    const channel = channelPresets.find(c => c.id === 'oldpoplounge') ?? channelPresets[0];
+    const channel = channelPresets.find(c => c.id === 'oldpop-lounge-main')!;
     const opts = makeOptions({ channel, songCount: 18 });
     const bp = generateLocalBlueprint(opts, testGenres, testMoods, testSeason, { usedTitles: [], usedHooks: [] });
     const distinctValues = new Set(bp.songs.map(s => s.perceivedEnergy));
