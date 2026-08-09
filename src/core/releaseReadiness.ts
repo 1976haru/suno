@@ -786,7 +786,8 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     songCount: input.songCount,
     audienceProfile: input.audienceProfile,
     vocalQuotaOverride: input.vocalQuotaOverride,
-    archetype: input.archetype as ChannelArchetype | undefined
+    archetype: input.archetype as ChannelArchetype | undefined,
+    lyricLanguage: input.lyricLanguage
   });
   let reused = fullAuditReport.items
     .filter(item => !item.requiresAudio) // audio-dependent items are never measurable pre-release without a rendered take; excluded from this checklist rather than reported as a fake failure.
@@ -806,7 +807,8 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
       songCount: nonExplorationSongs.length,
       audienceProfile: input.audienceProfile,
       vocalQuotaOverride: input.vocalQuotaOverride,
-      archetype: input.archetype as ChannelArchetype | undefined
+      archetype: input.archetype as ChannelArchetype | undefined,
+      lyricLanguage: input.lyricLanguage
     });
     const exemptItemsById = new Map(exemptAuditReport.items.map(auditItem => [auditItem.id, auditItem]));
     reused = reused.map(item => {

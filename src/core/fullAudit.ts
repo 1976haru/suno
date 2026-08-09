@@ -1,7 +1,10 @@
-import type { AudienceProfile, ChannelArchetype, SongIdea } from '../types';
+import type { AudienceProfile, ChannelArchetype, LyricLanguage, SongIdea } from '../types';
 import { workspaceForArchetype } from '../data/workspaces';
 import { distinctChoicePolicyForWorkspace, safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
 import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
+import { findLyricMetaLeaks } from './lyricMetaLeak';
+import { evaluateObjectState, type ObjectStateLanguage } from './narrativeState';
+import { objectStatePolicyForWorkspace } from '../data/objectStatePolicy';
 import { descriptorCount, lyricWordAndSectionCounts, vocalZoneDistributionWarnings } from './compositionScorer';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
@@ -699,6 +702,77 @@ function distinctChoiceItems(songs: SongIdea[], archetype?: ChannelArchetype): A
   ];
 }
 
+/**
+ * 지시문 17 (TASK A-4/D) — "감사 항목이 되지 않으면 미완이다"를 그대로
+ * 이어받는다. 영어 매치는 워크스페이스 무관 항상 fail 후보(§A-3), 한국어·
+ * 일본어 매치는 실측이 없어 not-measured로 표시만 한다.
+ */
+function metaLeakItems(songs: SongIdea[], lyricLanguage?: LyricLanguage): AuditItem[] {
+  if (!lyricLanguage) {
+    return [
+      item({
+        id: 'meta_leak_compliance', category: '가사', labelKo: '작곡 지시 유출 검사',
+        targetKo: '0건', actualKo: 'lyricLanguage 미상 — 판정 불가',
+        pass: null, requiresAudio: false, specifiedBy: ['지시문 17 TASK A-3']
+      })
+    ];
+  }
+  const findings = findLyricMetaLeaks(songs, lyricLanguage);
+  const blocking = findings.filter(f => f.severity === 'blocking');
+  const advisory = findings.filter(f => f.severity === 'advisory');
+  return [
+    item({
+      id: 'meta_leak_compliance', category: '가사', labelKo: '작곡 지시 유출 검사 (영어 — verified 무관 항상 blocking)',
+      targetKo: '0건', actualKo: blocking.length ? `${blocking.length}건: ${blocking.map(f => `T${f.trackNo} "${f.line}"`).join(' / ')}` : '0건',
+      pass: blocking.length === 0, requiresAudio: false, specifiedBy: ['지시문 17 TASK A-3'],
+      metric: { value: blocking.length, direction: 'lowerIsBetter' }
+    }),
+    item({
+      id: 'meta_leak_advisory', category: '가사', labelKo: '작곡 지시 유출 검사 (한국어·일본어 — 실측 없어 advisory)',
+      targetKo: '참고용, 미검증', actualKo: advisory.length ? `${advisory.length}건: ${advisory.map(f => `T${f.trackNo} "${f.line}"`).join(' / ')}` : '0건',
+      pass: null, requiresAudio: false, specifiedBy: ['지시문 17 TASK A-3']
+    })
+  ];
+}
+
+/**
+ * 지시문 17 (TASK B-5/D) — core/narrativeState.ts를 그대로 실행한다.
+ * kind 단위 verified만 fail 후보(§B-3) — senior-oldpop이라도 letter를
+ * 제외한 kind는 실측 근거가 없어 not-measured로 표시만 한다.
+ */
+function objectStateItems(songs: SongIdea[], archetype?: ChannelArchetype, lyricLanguage?: LyricLanguage): AuditItem[] {
+  const workspaceId = workspaceForArchetype(archetype)?.id;
+  const objectStateLanguage: ObjectStateLanguage | undefined =
+    lyricLanguage === 'english' || lyricLanguage === 'korean' || lyricLanguage === 'japanese' ? lyricLanguage : undefined;
+  if (!workspaceId || !objectStateLanguage) {
+    return [
+      item({
+        id: 'object_state_compliance', category: '가사', labelKo: '소품 상태 모순 검사',
+        targetKo: '0건', actualKo: '워크스페이스/언어를 확인할 수 없음 — 판정 불가',
+        pass: null, requiresAudio: false, specifiedBy: ['지시문 17 TASK B-5']
+      })
+    ];
+  }
+  const policy = objectStatePolicyForWorkspace(workspaceId);
+  const perTrack = songs.map(song => ({ trackNo: song.trackNo, findings: evaluateObjectState(song.lyrics, policy.kinds, policy.verifiedKinds, objectStateLanguage) }));
+  const blocking = perTrack.flatMap(entry => entry.findings.filter(f => f.severity === 'blocking').map(f => ({ trackNo: entry.trackNo, finding: f })));
+  const advisory = perTrack.flatMap(entry => entry.findings.filter(f => f.severity === 'advisory').map(f => ({ trackNo: entry.trackNo, finding: f })));
+  return [
+    item({
+      id: 'object_state_compliance', category: '가사',
+      labelKo: `소품 상태 모순 검사 (실측 kind: ${policy.verifiedKinds.join(', ') || '없음'})`,
+      targetKo: '0건', actualKo: blocking.length ? `${blocking.length}건: ${blocking.map(b => `T${b.trackNo} (${b.finding.kind})`).join(' / ')}` : '0건',
+      pass: blocking.length === 0, requiresAudio: false, specifiedBy: ['지시문 17 TASK B-5'],
+      metric: { value: blocking.length, direction: 'lowerIsBetter' }
+    }),
+    item({
+      id: 'object_state_advisory', category: '가사', labelKo: '소품 상태 모순 검사 (미검증 kind — 참고용)',
+      targetKo: '참고용, 미검증', actualKo: advisory.length ? `${advisory.length}건: ${advisory.map(a => `T${a.trackNo} (${a.finding.kind})`).join(' / ')}` : '0건',
+      pass: null, requiresAudio: false, specifiedBy: ['지시문 17 TASK B-5']
+    })
+  ];
+}
+
 function workspaceItems(): AuditItem[] {
   return [
     item({
@@ -780,7 +854,7 @@ function eraIntentItems(songs: SongIdea[], conceptLabel: string, explorationTrac
  */
 export function runFullAudit(
   songs: SongIdea[],
-  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[]; vocalQuotaOverride?: VocalQuota; archetype?: ChannelArchetype }
+  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[]; vocalQuotaOverride?: VocalQuota; archetype?: ChannelArchetype; lyricLanguage?: LyricLanguage }
 ): FullAuditReport {
   const promiseAuditReport = auditPromises(songs, opts.conceptLabel);
   const titleConsistency = auditTitleConceptConsistency(songs);
@@ -796,7 +870,9 @@ export function runFullAudit(
     ...workspaceItems(),
     ...eraIntentItems(songs, opts.conceptLabel, opts.explorationTrackNos ?? []),
     ...sceneSignatureSourceItems(songs),
-    ...distinctChoiceItems(songs, opts.archetype)
+    ...distinctChoiceItems(songs, opts.archetype),
+    ...metaLeakItems(songs, opts.lyricLanguage),
+    ...objectStateItems(songs, opts.archetype, opts.lyricLanguage)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency };
 }
