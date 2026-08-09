@@ -1308,12 +1308,30 @@ export interface SongIdea {
   songId?: string;
   /** v3.68 (TASK B) — this track's own lead genre's broad era bucket (see data/genreLibrary's GenrePack.eraTag), snapshotted at rating time since genreId alone loses era context once a pack is deleted. */
   eraTag?: string;
+  /**
+   * 지시문 26 (TASK A) — killingPointId만으로는 감사·평가 화면이 "무슨
+   * 킬링포인트인지"를 사람이 읽을 방법이 없었다(SongIdea에 텍스트가 아예
+   * 없었다 — PreassignedSongSlot에는 있었는데 reconcileWithPreassignedSlot이
+   * 이 필드를 복사하지 않았다). moneyChordText/hookDeviceText와 같은
+   * 슬롯-소유 스냅샷 필드.
+   */
+  killingPointText?: string;
+  /** 지시문 26 (TASK A) — killingPointText 모먼트가 곡 안 어디에 오는지. PreassignedSongSlot.killingPointPlacement와 동일한 값 집합. */
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
   /** v3.68 (TASK B) — this track's killing point id (see data/killingPoints.ts), when the arc gave it one (peakStrength other than 'none' — see core/arcPlan.ts). */
   killingPointId?: string;
   /** v3.68 (TASK B) — this track's arc phase (see core/arcPlan.ts). */
   arcPhase?: string;
   /** v3.68 (TASK B) — this track's arc intensity, 1-5 (see core/arcPlan.ts). */
   intensity?: number;
+  /**
+   * 지시문 26 (TASK A) — 이 트랙의 아크 위치가 'none'/'subtle'/'strong' 중
+   * 무엇인지(core/arcPlan.ts's PeakStrength). killingPointId 유무만으로는
+   * "이 곡이 원래 킬링포인트가 없는 게 설계 의도였는지" 감사가 구분할 수
+   * 없었다 — peakStrength가 있어야 "없는 게 정상인 4곡"과 "있어야 하는데
+   * 유실된 곡"을 구별할 수 있다.
+   */
+  peakStrength?: 'none' | 'subtle' | 'strong';
   /** 지시문 23 (TASK A) — this track's computed perceived energy, 1-5 (see core/perceivedEnergy.ts). Deliberately separate from `intensity` above — see PreassignedSongSlot.perceivedEnergy's own doc comment. */
   perceivedEnergy?: PerceivedEnergy;
   /** 지시문 23 (TASK A) — perceivedEnergy의 사람이 읽는 근거 문구(판정에는 쓰이지 않음). */
@@ -1837,6 +1855,16 @@ export interface PreassignedSongSlot {
   arcPhase?: string;
   /** v3.68 (TASK B) — this trackNo's arc intensity, 1-5 (see core/arcPlan.ts), for rating analysis. */
   intensity?: number;
+  /**
+   * 지시문 26 (TASK A) — this trackNo's PeakStrength (core/arcPlan.ts), snapshotted
+   * at slot-creation time. Previously only readable transiently off the arc
+   * plan array while building killingPointPlan (never stored on the slot
+   * itself) — so nothing downstream (SongIdea, exported packs, audit) could
+   * tell "peakStrength was genuinely 'none' by design" apart from "the field
+   * was just never populated". Always set (even for 'none' tracks), unlike
+   * killingPointText/Placement/Id which stay undefined only for 'none'.
+   */
+  peakStrength?: 'none' | 'subtle' | 'strong';
   /**
    * 지시문 23 (TASK A) — this trackNo's computed perceived energy, 1-5 (see
    * core/perceivedEnergy.ts's computePerceivedEnergy). Deliberately separate

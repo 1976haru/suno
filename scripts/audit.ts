@@ -19,7 +19,10 @@
  * task's own §1 measured against).
  */
 import { directSetLocal } from '../src/core/setDirector';
-import { generateLocalBlueprint } from '../src/core/localGenerator';
+import { generateLocalBlueprint, buildArcPlanForProfile, resolveKidsAgeTierId } from '../src/core/localGenerator';
+import { assignKillingPoints, killingPointBoostFromInsights } from '../src/data/killingPoints';
+import { kidsKillingPointsForTier } from '../src/data/killingPointsKids';
+import { isKidsArchetype } from '../src/utils/channelArchetype';
 import { getGenreById } from '../src/data/genreLibrary';
 import { channelPresets } from '../src/data/presets';
 import { SENIOR_AUDIENCE_PROFILE, audienceProfileForChannelArchetype } from '../src/data/audienceProfiles';
@@ -33,7 +36,7 @@ import { openingSixWords } from '../src/core/lyricsAst';
 import { sceneSimilarity } from '../src/core/sceneSimilarity';
 import { checkSeniorEraShare, SLOT_PLAN_LEDGER_POLICY } from '../src/core/seniorOldpopPolicy';
 import { computeSlotPlanOverlap, type SlotPlanOverlapResult } from '../src/core/slotPlanOverlap';
-import type { AudienceProfile, ChannelProfile, GenerationOptions, LyricLanguage, PlaylistBlueprint, PreassignedSongSlot, SongIdea } from '../src/types';
+import type { AudienceProfile, ChannelProfile, GenerationOptions, KidsAgeTierId, LyricLanguage, PlaylistBlueprint, PreassignedSongSlot, SongIdea } from '../src/types';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -127,17 +130,67 @@ function defaultSeason() {
  */
 const STYLE_PROMPT_BPM_PATTERN = /(\d+)\s*BPM/i;
 
-function buildShadowSlotsFromRawSongs(rawText: string): PreassignedSongSlot[] {
+/**
+ * 지시문 26 (TASK A) — killingPointText/killingPointPlacement/killingPointId/
+ * arcPhase/intensity/peakStrength는 위 doc comment의 "파일 자체에서 만든다"
+ * 원칙(genreId·tempo처럼 파일에 실제로 적힌 값을 재사용)을 애초에 적용할
+ * 수 없는 필드다 — 이 필드들은 LLM이 절대 돌려주지 않는다(브릿지 출력
+ * 스키마에 없다, §하지 말 것). 파일에는 처음부터 없었다. 대신 이 값들은
+ * §1-1이 실측한 그대로 channel과 무관하게 songCount·audienceProfile만으로
+ * 결정된다(buildArcPlanForProfile/assignKillingPoints — batchPreallocation.ts/
+ * localGenerator.ts의 실제 생성 경로와 동일한 함수, 동일한 v3.80 idx===1
+ * 오버라이드). 원래 생성 때 쓰인 정확한 seed는 복원할 수 없어(파일에
+ * 남지 않는다) trackNo별 killingPointId가 실제 생성 결과와 100% 일치하진
+ * 않을 수 있지만, 이 감사가 검증하는 건 분포 특성(14/18 배정·9종 이상·5구간
+ * 전부 사용)이지 트랙별 완전 일치가 아니다 — §A-4가 요구하는 것도 "그
+ * 팩에서도 값이 나와야 한다"는 존재/분포 검증이다.
+ */
+function buildShadowSlotsFromRawSongs(
+  rawText: string,
+  songCount: number,
+  audienceProfile: AudienceProfile,
+  archetype: string | undefined,
+  kidsAgeTierId?: KidsAgeTierId
+): PreassignedSongSlot[] {
   const raw = extractRawImportedSongs(rawText);
-  return raw.map((entry, index): PreassignedSongSlot | null => {
+  const base = raw.map((entry, index) => {
     if (!entry || typeof entry !== 'object') return null;
     const obj = entry as Record<string, unknown>;
     const trackNo = typeof obj.trackNo === 'number' ? obj.trackNo : index + 1;
     const genreId = typeof obj.genreId === 'string' ? obj.genreId : undefined;
-    const stylePrompt = typeof obj.stylePrompt === 'string' ? obj.stylePrompt : '';
-    const bpmMatch = stylePrompt.match(STYLE_PROMPT_BPM_PATTERN);
+    return { trackNo, genreId };
+  });
+
+  const arcPlan = buildArcPlanForProfile(songCount, audienceProfile.arcModelId, kidsAgeTierId);
+  // v3.80 (TASK A-1)과 동일한 오버라이드 — batchPreallocation.ts/
+  // localGenerator.ts 두 실제 생성 경로가 똑같이 적용하는 규칙이다.
+  const arcPlanForKillingPoints = songCount >= 2
+    ? arcPlan.map((pos, idx) => (idx === 1 && pos.peakStrength === 'none' ? { ...pos, peakStrength: 'subtle' as const } : pos))
+    : arcPlan;
+  const killingPointPlan = assignKillingPoints(
+    arcPlanForKillingPoints.map((pos, idx) => ({
+      peakStrength: pos.peakStrength,
+      eraTag: base[idx]?.genreId ? getGenreById(base[idx]!.genreId!)?.eraTag : undefined
+    })),
+    0,
+    killingPointBoostFromInsights(),
+    isKidsArchetype(archetype) ? kidsKillingPointsForTier(kidsAgeTierId) : undefined
+  );
+
+  return base.map((entry, index): PreassignedSongSlot | null => {
+    if (!entry) return null;
+    const { trackNo, genreId } = entry;
+    const stylePromptRaw = raw[index] && typeof raw[index] === 'object' ? (raw[index] as Record<string, unknown>).stylePrompt : undefined;
+    const bpmMatch = typeof stylePromptRaw === 'string' ? stylePromptRaw.match(STYLE_PROMPT_BPM_PATTERN) : null;
     const tempo = bpmMatch ? parseInt(bpmMatch[1], 10) : 0;
-    return { trackNo, title: '', hookPhrase: '', songRole: '', tempo, emotionArc: '', moneyChordText: '', ...(genreId ? { genreId } : {}) };
+    const arcPos = arcPlanForKillingPoints[index];
+    const killingPoint = killingPointPlan[index];
+    return {
+      trackNo, title: '', hookPhrase: '', songRole: '', tempo, emotionArc: '', moneyChordText: '',
+      ...(genreId ? { genreId } : {}),
+      ...(arcPos ? { arcPhase: arcPos.phase, intensity: arcPos.intensity, peakStrength: arcPos.peakStrength } : {}),
+      ...(killingPoint ? { killingPointText: killingPoint.descriptor, killingPointPlacement: killingPoint.placement, killingPointId: killingPoint.id } : {})
+    };
   }).filter((slot): slot is PreassignedSongSlot => slot !== null);
 }
 
@@ -203,7 +256,12 @@ export function loadPackBlueprint(packPath: string, explicitConcept: string | un
     diversityAllocations: []
   };
   const season = defaultSeason();
-  const importReport = importSongsJson(rawText, opts, genres, [], season, buildShadowSlotsFromRawSongs(rawText));
+  // 지시문 26 (TASK A) — killingPoint*/arcPhase/intensity/peakStrength 복원에
+  // 쓰인다. audienceProfile은 §1-1이 실측한 대로 channel과 무관하게 이 값들을
+  // 결정한다(archetype+songCount만).
+  const audienceProfile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
+  const kidsAgeTierId = resolveKidsAgeTierId({ channel });
+  const importReport = importSongsJson(rawText, opts, genres, [], season, buildShadowSlotsFromRawSongs(rawText, songCount, audienceProfile, channel.archetype, kidsAgeTierId));
   if (!importReport.blueprint) {
     return {
       blocked: true,

@@ -2188,9 +2188,19 @@ export function generateLocalBlueprint(
       // TASK v3.68 (TASK B) — snapshot fields for rating analysis
       // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.
       ...(trackGenres[0]?.eraTag ? { eraTag: trackGenres[0].eraTag } : {}),
-      ...(killingPoint ? { killingPointId: killingPoint.id } : {}),
+      // 지시문 26 (TASK A) — killingPointText/killingPointPlacement/peakStrength
+      // were never attached to the local-generation SongIdea either (only
+      // killingPointId/arcPhase/intensity were) — the same gap as
+      // batchPreallocation.ts's reconcileWithPreassignedSlot, just in the
+      // other generation pipeline. peakStrength read from
+      // arcPlanForKillingPoints (not arcPlan) so it stays consistent with
+      // whether `killingPoint` is actually defined for this track (the
+      // v3.80 idx===1 override upgrades 'none' to 'subtle' for killing-point
+      // assignment purposes — the exported peakStrength must agree).
+      ...(killingPoint ? { killingPointText: killingPoint.descriptor, killingPointPlacement: killingPoint.placement, killingPointId: killingPoint.id } : {}),
       arcPhase: arcPlan[idx].phase,
       intensity: arcPlan[idx].intensity,
+      peakStrength: arcPlanForKillingPoints[idx].peakStrength,
       ...(perceivedEnergyResult ? { perceivedEnergy: perceivedEnergyResult.value, perceivedEnergyReasonKo: perceivedEnergyResult.reasonKo } : {}),
       bpm: tempo,
       ...(structureTemplatePlan[idx] ? { structureTemplate: structureTemplatePlan[idx] } : {}),
