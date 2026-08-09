@@ -3,7 +3,7 @@ import { Download, X } from 'lucide-react';
 import { exportRatingsToJson, getRatings, type RatingRecord } from '../core/ratingLedger';
 import { analyzeRatings, type AttributeInsight, type ConfidenceTier } from '../core/ratingAnalysis';
 import { listPacks } from '../core/library';
-import { computeAgentComparisonStats, MIN_SETS_FOR_AGENT_COMPARISON, type AgentComparisonStat } from '../core/agentComparison';
+import { computeAgentComparisonStats, MIN_SETS_FOR_AGENT_COMPARISON } from '../core/agentComparison';
 import { downloadText } from '../utils/exporters';
 import type { ChannelProfile, PackGeneratedBy, SavedPackMeta } from '../types';
 
