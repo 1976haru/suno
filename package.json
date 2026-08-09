@@ -27,6 +27,7 @@
     "check:gates": "tsx scripts/checkGateContract.ts",
     "check:settings": "tsx scripts/checkVerifiedSettings.ts",
     "check:archetype": "tsx scripts/checkArchetypeHardcoding.ts",
+    "check:choices": "tsx scripts/checkChoiceContract.ts",
     "check:version": "tsx scripts/checkVersion.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",

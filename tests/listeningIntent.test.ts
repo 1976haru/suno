@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGenreAllocationForListeningIntent, isEraColorGenreId, representativePerceivedEnergy, scaleEnergyDistribution } from '../src/core/listeningIntent';
+import { buildGenreAllocationForListeningIntent, buildGenreCountsForExistingSelection, isEraColorGenreId, representativePerceivedEnergy, scaleEnergyDistribution } from '../src/core/listeningIntent';
 import { LISTENING_INTENT_POLICY, DEFAULT_LISTENING_INTENT } from '../src/data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from '../src/data/perceivedEnergyPolicy';
 import { getGenreById } from '../src/data/genreLibrary';
@@ -89,5 +89,49 @@ describe('지시문 23 TASK B — buildGenreAllocationForListeningIntent (실제
       expect(intent.verified).toBe(false);
       expect(intent.sourceKo).toBeTruthy();
     }
+  });
+});
+
+describe('지시문 24 TASK A-6 — buildGenreCountsForExistingSelection: 청취 목적은 "몇 곡씩"만 바꾸고 "어떤 장르"는 절대 바꾸지 않는다', () => {
+  // 실제 라이브 브라우저 재현: oldpop-lounge-main에서 사용자가 Piano Pop
+  // Ballad/Adult Contemporary Pop/Chanson Cafe/Bossa Cafe Pop/Smooth Jazz
+  // Lounge 5종을 직접 골라둔 상태에서 "정통 올드팝형"을 눌렀더니 genreIds가
+  // Doo-Wop Close Harmony/Doo-Wop Ballad/Night Chanson/Classic Vocal Jazz
+  // Lounge로 통째로 바뀌었다 — buildGenreAllocationForListeningIntent가
+  // 후보 전체(channel.preferredGenres)에서 새로 골랐기 때문. 이 함수는
+  // existingGenres 인자로 받은 것 이외의 장르를 절대 counts에 추가하지 않는다.
+  const userPickedGenreIds = ['piano-ballad', 'adult-contemporary', 'chanson', 'bossa-cafe', 'smooth-jazz-lounge'];
+  const userPickedGenres = userPickedGenreIds.map(getGenreById).filter((g): g is NonNullable<typeof g> => Boolean(g));
+
+  it('실제 장르 id들이 genreLibrary에 존재한다 (테스트 자체의 전제 검증)', () => {
+    expect(userPickedGenres.length).toBe(userPickedGenreIds.length);
+  });
+
+  for (const intentId of ['long-listen-comfort', 'balanced', 'era-authentic'] as const) {
+    it(`${intentId}: counts의 키 집합이 existingGenres와 정확히 같다 — 다른 장르가 섞여 들어오지 않는다`, () => {
+      const policy = LISTENING_INTENT_POLICY[intentId];
+      const { counts } = buildGenreCountsForExistingSelection(userPickedGenres, policy, 18, energyPolicy);
+      expect(new Set(Object.keys(counts))).toEqual(new Set(userPickedGenreIds));
+    });
+
+    it(`${intentId}: 사용자가 고른 장르는 단 하나도 0곡으로 남지 않는다`, () => {
+      const policy = LISTENING_INTENT_POLICY[intentId];
+      const { counts } = buildGenreCountsForExistingSelection(userPickedGenres, policy, 18, energyPolicy);
+      for (const id of userPickedGenreIds) {
+        expect(counts[id], `${id} must not be 0`).toBeGreaterThan(0);
+      }
+    });
+
+    it(`${intentId}: 총합이 정확히 songCount(18)와 같다 — 곡이 조용히 사라지거나 늘지 않는다`, () => {
+      const policy = LISTENING_INTENT_POLICY[intentId];
+      const { counts } = buildGenreCountsForExistingSelection(userPickedGenres, policy, 18, energyPolicy);
+      expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(18);
+    });
+  }
+
+  it('감성 장시간형과 정통 올드팝형은 같은 장르 집합에서도 실제로 다른 곡 수 배분을 낸다 (프리셋이 무의미해지지 않았는지 확인)', () => {
+    const comfortCounts = buildGenreCountsForExistingSelection(userPickedGenres, LISTENING_INTENT_POLICY['long-listen-comfort'], 18, energyPolicy).counts;
+    const authenticCounts = buildGenreCountsForExistingSelection(userPickedGenres, LISTENING_INTENT_POLICY['era-authentic'], 18, energyPolicy).counts;
+    expect(comfortCounts).not.toEqual(authenticCounts);
   });
 });

@@ -138,8 +138,16 @@ function genreRoleKo(index: number): string {
  * under cap — so the returned counts always sum to exactly songCount
  * (never silently drop songs) as long as poolSize * cap >= songCount,
  * which buildGenrePool's caller (minimumGenrePoolSize) guarantees.
+ *
+ * 지시문 24 TASK A — `protectedIds` (default none, so every existing
+ * recommendation-path caller keeps its exact prior behavior) marks ids that
+ * enforceMinimumGenreCount must never pick as the "1곡짜리라 지운다" merge
+ * source, because setDirector.ts's makeAllocations calls this function
+ * directly with the user's own explicit genre picks as genreIds — a
+ * protected id can still receive a merge (gain a song), it just can never
+ * be the one silently zeroed out.
  */
-export function allocateGenreCounts(genreIds: string[], songCount: number): GenreAllocationSlot[] {
+export function allocateGenreCounts(genreIds: string[], songCount: number, protectedIds: string[] = []): GenreAllocationSlot[] {
   if (!genreIds.length || songCount <= 0) return [];
   const cap = genreAllocationCap(songCount);
   const poolSize = genreIds.length;
@@ -182,7 +190,7 @@ export function allocateGenreCounts(genreIds: string[], songCount: number): Genr
     overflow -= 1;
   }
 
-  const finalCounts = enforceMinimumGenreCount(counts, cap);
+  const finalCounts = enforceMinimumGenreCount(counts, cap, genreIds, protectedIds);
   return genreIds
     .map((id, index) => ({ genreId: id, songCount: finalCounts[index], roleKo: genreRoleKo(index) }))
     .filter(slot => slot.songCount > 0);
@@ -203,15 +211,24 @@ export function allocateGenreCounts(genreIds: string[], songCount: number): Genr
  * reintroduces the very "single genre dominates the pack" problem
  * genreAllocationCap exists to prevent; only spills over cap as an absolute
  * last resort (no target has room at all).
+ *
+ * 지시문 24 TASK A — `protectedIds` (matched against `genreIds`, the same
+ * order `counts` is indexed by) excludes those indices from ever being
+ * picked as the 1-count merge source. Before this, a user's own explicit
+ * genre pick that happened to land at exactly 1 song (a normal outcome of
+ * the weighted split above, not a signal the genre is unwanted) was
+ * silently zeroed out here with no warning — the exact "선택했는데 결과에
+ * 없다" defect this task exists to fix.
  */
-function enforceMinimumGenreCount(counts: number[], cap: number): number[] {
+function enforceMinimumGenreCount(counts: number[], cap: number, genreIds: string[], protectedIds: string[]): number[] {
   const result = [...counts];
+  const protectedSet = new Set(protectedIds);
   let guard = 0;
   const maxGuard = result.length * 2 + 5;
   while (guard++ < maxGuard) {
     const nonZeroCount = result.filter(count => count > 0).length;
     if (nonZeroCount <= 3) break;
-    const oneIndex = result.findIndex(count => count === 1);
+    const oneIndex = result.findIndex((count, index) => count === 1 && !protectedSet.has(genreIds[index]));
     if (oneIndex === -1) break;
     const otherIndices = result.map((_, index) => index).filter(index => index !== oneIndex && result[index] > 0);
     if (!otherIndices.length) break;

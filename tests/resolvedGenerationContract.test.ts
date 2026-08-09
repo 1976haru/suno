@@ -215,7 +215,12 @@ describe('buildResolvedGenerationContract — TASK (gap 1): genre real-usage und
     const genreMismatch = contract.mismatches.find(m => m.field === 'genreIds');
     expect(genreMismatch).toBeDefined();
     for (const id of unusedIds) expect(genreMismatch?.selected).toContain(getGenreById(id)?.label);
-    expect(genreMismatch?.reasonKo).toContain('결과에 반영되지 않았습니다');
+    // 지시문 24 TASK B — computeStructuredViolations의 genreIds 체크가 부분
+    // 누락도 잡도록 강화되면서(이전엔 선택한 장르가 전부 빠졌을 때만 감지),
+    // 이 부분 누락 케이스는 이제 그 공유 체크가 먼저 보고한다(gap-1 전용
+    // 블록은 중복 방지를 위해 양보) — 문구가 "일부만 빠졌다"로 바뀌었다.
+    expect(genreMismatch?.reasonKo).toContain('일부');
+    expect(genreMismatch?.reasonKo).toContain('빠졌습니다');
     // A genuinely-used genre must NOT appear in the "selected" (unused) list.
     for (const id of realUsedIds) expect(genreMismatch?.selected).not.toContain(getGenreById(id)?.label);
 

@@ -168,3 +168,67 @@ export function buildGenreAllocationForListeningIntent(
 
   return { genreIds: Object.keys(counts), counts, eraColorTrackCount: eraColorCount() };
 }
+
+export interface ListeningIntentCountsForExisting {
+  counts: Record<string, number>;
+  eraColorTrackCount: number;
+}
+
+/**
+ * 지시문 24 TASK A-6 — "청취 목적 프리셋(지시문 23)은 사용자가 이미 명시
+ * 선택한 장르가 있을 때 '몇 곡씩'만 정해야지 '어떤 장르'까지 바꾸면 안
+ * 된다." buildGenreAllocationForListeningIntent와 달리 이 함수는 후보
+ * 장르 중 일부를 고르거나(pickForBucket) 시대색 하한을 못 채우면 다른
+ * 장르로 스왑하는 로직(§137-166)을 전혀 쓰지 않는다 — existingGenres(사용자가
+ * 그대로 고른 목록, 순서·구성 불변)에만 policy.energyDistribution 비중으로
+ * 곡 수를 나눠 담는다. 에너지 분포가 한쪽으로 쏠려도(예: focused처럼 장르
+ * 수가 songCount 대비 많을 때) 사용자가 고른 장르가 0곡으로 남는 걸 막기
+ * 위해 마지막에 최다 배정 장르에서 1곡씩 빌려와 0곡짜리를 채운다 — 이
+ * 파일의 다른 어떤 재분배도 사용자 선택 장르를 완전히 지우지 않는다는
+ * 원칙(지시문 24 §A-4/A-5)과 같은 이유.
+ */
+export function buildGenreCountsForExistingSelection(
+  existingGenres: readonly GenrePack[],
+  policy: ListeningIntentPolicy,
+  songCount: number,
+  energyPolicy: PerceivedEnergyPolicy
+): ListeningIntentCountsForExisting {
+  if (!existingGenres.length || songCount <= 0) return { counts: {}, eraColorTrackCount: 0 };
+
+  const scored = existingGenres.map(genre => ({ genre, pe: representativePerceivedEnergy(genre, energyPolicy) }));
+  const distribution = scaleEnergyDistribution(policy.energyDistribution, songCount);
+  const perGenreCap = Math.max(1, Math.ceil(songCount / existingGenres.length));
+  const counts: Record<string, number> = {};
+  for (const entry of scored) counts[entry.genre.id] = 0;
+
+  const levels: PerceivedEnergy[] = [1, 2, 3, 4, 5];
+  for (const level of levels) {
+    let remaining = distribution[level];
+    if (remaining <= 0) continue;
+    const byDistance = scored.slice().sort((a, b) => Math.abs(a.pe - level) - Math.abs(b.pe - level));
+    for (const entry of byDistance) {
+      if (remaining <= 0) break;
+      const room = perGenreCap - counts[entry.genre.id];
+      if (room <= 0) continue;
+      const take = Math.min(remaining, room);
+      counts[entry.genre.id] += take;
+      remaining -= take;
+    }
+    if (remaining > 0) {
+      const fallback = byDistance[0];
+      if (fallback) counts[fallback.genre.id] += remaining;
+    }
+  }
+
+  const zeroIds = Object.keys(counts).filter(id => counts[id] === 0);
+  for (const id of zeroIds) {
+    const donorId = Object.entries(counts).filter(([donorId]) => donorId !== id).sort(([, a], [, b]) => b - a)[0]?.[0];
+    if (donorId && counts[donorId] > 1) {
+      counts[donorId] -= 1;
+      counts[id] += 1;
+    }
+  }
+
+  const eraColorTrackCount = Object.entries(counts).reduce((sum, [id, n]) => sum + (isEraColorGenreId(id) ? n : 0), 0);
+  return { counts, eraColorTrackCount };
+}

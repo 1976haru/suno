@@ -12,6 +12,7 @@ import type {
   ProviderSettings
 } from '../types';
 import { genreLibrary, getCoreGenreIdsForArchetype, getGenreById, isGenreEligibleForArchetype, totalGenreCount } from '../data/genreLibrary';
+import { sanitizeGenreIdsForArchetype } from './genreSelection';
 import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
 import { hookDevices } from '../data/hookDevices';
@@ -502,8 +503,22 @@ function chooseGenreIds(
  * No-op for family-soul (compatibleWith: [] means every selected genre is
  * already "main"), matching this task's own "다른 그룹과 섞으면 튑니다".
  */
-function capCompatibleFamilySongs(counts: Record<string, number>, mainFamilyId: string, cap: number): Record<string, number> {
+/**
+ * 지시문 24 TASK A — `protectedIds` (default none, existing callers keep
+ * prior behavior) excludes those ids from the "compatible 장르는 통째로
+ * 지운다" removal below. Before this, a user's own explicit genre pick
+ * that happened to fall outside mainFamilyId's member set (a completely
+ * normal, allowed choice — this function's whole job is to bound
+ * cross-family songs, not forbid them) could be deleted entirely with no
+ * warning once the compatible total crossed `cap`. A protected id can still
+ * be counted toward compatibleTotal and can still push the total over cap
+ * (accepted as the lesser problem — matching allocateGenreCounts' own
+ * "over cap as last resort beats silently dropping the pick" precedent),
+ * it just can never be the one removed.
+ */
+function capCompatibleFamilySongs(counts: Record<string, number>, mainFamilyId: string, cap: number, protectedIds: string[] = []): Record<string, number> {
   const mainGenreIds = genreIdsForPaletteFamily(mainFamilyId);
+  const protectedSet = new Set(protectedIds);
   const result = { ...counts };
   const compatibleIds = Object.keys(result).filter(id => !mainGenreIds.has(id));
   const compatibleTotal = compatibleIds.reduce((sum, id) => sum + (result[id] ?? 0), 0);
@@ -516,7 +531,9 @@ function capCompatibleFamilySongs(counts: Record<string, number>, mainFamilyId: 
   // partially reduced, so it either survives at its own real count or
   // disappears outright, same as this app's other genre-count paths.
   let removedTotal = 0;
-  const sortedCompatible = [...compatibleIds].sort((a, b) => (result[a] ?? 0) - (result[b] ?? 0));
+  const sortedCompatible = [...compatibleIds]
+    .filter(id => !protectedSet.has(id))
+    .sort((a, b) => (result[a] ?? 0) - (result[b] ?? 0));
   for (const id of sortedCompatible) {
     if (compatibleTotal - removedTotal <= cap) break;
     removedTotal += result[id] ?? 0;
@@ -749,7 +766,7 @@ function buildBaseOptions(
   };
 }
 
-function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string, choices?: UserExplicitChoices): AxisAllocation[] {
+function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string, choices?: UserExplicitChoices, protectedGenreIds: string[] = []): AxisAllocation[] {
   const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, [], choices);
   // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
   // order (the first N ids), which bypassed core/lyricDiversityPlan.ts's
@@ -769,7 +786,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
   const introIds = introTexturesForArchetype(channel.archetype || 'senior-morning').map(texture => texture.id);
   const hookIds = hookDevices.map(device => device.id);
   const structureIds = ADULT_STRUCTURE_TEMPLATE_IDS;
-  const genreAllocation = allocateGenreCounts(genreIds, songCount);
+  const genreAllocation = allocateGenreCounts(genreIds, songCount, protectedGenreIds);
 
   return [
     {
@@ -1492,12 +1509,31 @@ export function directSetLocal(
   const eraFocus = deriveEraFocus(freeText, artistReferences);
   const { selectedIds: keywordSelectedIds, ranked } = chooseGenreIds(freeText, channel, safeSongCount, artistReferences, eraFocus, history, breadth, mainFamilyId, moodConstraint);
   const { selectedIds: familySelectedIds, families } = chooseGenreIdsFromFamilies(familyIds, channel);
+  // 지시문 24 (TASK A) — "사용자 명시 선택 > 계열 선택 > 키워드 추론 >
+  // 채널 기본값"(§A-1)의 1순위가 이전에는 아예 없었다: choices.genreIds는
+  // userChoicesFromOptions가 정상적으로 채우는데(입력 있음) 이 함수는 그걸
+  // 한 번도 읽지 않았다(소비 없음) — checkUserChoicesPreservation 가드가
+  // 실측으로 잡아낸 결함(§2). 가드를 고치지 않고 가드가 요구하는 실제
+  // 동작(사용자가 고른 장르가 실제로 쓰인다)을 만든다.
+  const userSelectedIdsRaw = choices.source.genreIds === 'user' ? (choices.genreIds ?? []) : [];
+  const userSelectedIds = sanitizeGenreIdsForArchetype(userSelectedIdsRaw, channel.archetype || 'senior-morning').valid;
+  // TASK A-3 — 사용자가 목표 수(4종, 기존 "장르 후보가 4종 미만입니다"
+  // 경고와 같은 기준)보다 적게 고르면 키워드 추론 결과로 부족분만 채운다.
+  // 사용자가 고른 것은 배열 앞쪽에 둬 시대 쿼터/계열 상한이 먼저 잘라내는
+  // 대상이 되지 않게 한다(§A-3 "사용자 선택을 순서상 앞에 둔다").
+  const GENRE_TARGET_MIN = 4;
+  const autoCompletedGenreIds = userSelectedIds.length && userSelectedIds.length < GENRE_TARGET_MIN
+    ? keywordSelectedIds.filter(id => !userSelectedIds.includes(id)).slice(0, GENRE_TARGET_MIN - userSelectedIds.length)
+    : [];
+  const baseSelectedIds = userSelectedIds.length
+    ? [...userSelectedIds, ...autoCompletedGenreIds]
+    : familySelectedIds.length ? familySelectedIds : keywordSelectedIds;
   // v3.63 재작성 (TASK B, 1-4) — listening-context is detected above
   // regardless of which genre-selection path ran; apply it as a light
   // post-filter here too (family/keyword path), not just inside
   // buildSetPlanFromIntent, so "커피숍에서"/"잔잔한" actually narrows the
   // genre pool instead of only being echoed back in the interpretation.
-  const preQuotaSelectedIds = applyListeningContextFilter(familySelectedIds.length ? familySelectedIds : keywordSelectedIds, listeningContext);
+  const preQuotaSelectedIds = applyListeningContextFilter(baseSelectedIds, listeningContext);
   // v4.2 (TASK A3, TASK B) — same era-quota enforcement as
   // buildSetPlanFromIntent (this path is directSetLocal's own plain-keyword/
   // family-picker branch, which never calls that function). Genres here have
@@ -1543,11 +1579,63 @@ export function directSetLocal(
     ranked.map(item => item.genre.id),
     BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
   );
-  const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(quotaAdjustedCounts);
-  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices);
+  // 지시문 24 (TASK A-4) — applyEraQuota는 시대 불일치 장르를 통째로
+  // 제외할 수 있다(forbidden bucket 삭제·adjacent cap trim·
+  // primary/adjacent/generic 어디에도 안 걸리면 삭제). 사용자가 명시
+  // 선택한 장르가 여기서 조용히 0곡이 되면 안 된다 — "제외하지 말고
+  // advisory로 알린다"(§A-4). 다른(비-사용자) 장르에서 1곡씩 빌려와
+  // 최소 1곡은 지키고, 그 사실을 reasoningKo로만 알린다(차단 없음).
+  const eraExcludedUserIds = userSelectedIds.filter(id => !(quotaAdjustedCounts[id] > 0));
+  const eraRestoredCounts = { ...quotaAdjustedCounts };
+  if (!eraConstraint.unspecified && eraExcludedUserIds.length) {
+    for (const id of eraExcludedUserIds) {
+      const donorEntry = Object.entries(eraRestoredCounts)
+        .filter(([donorId, count]) => !userSelectedIds.includes(donorId) && count > 1)
+        .sort(([, a], [, b]) => b - a)[0];
+      if (donorEntry) eraRestoredCounts[donorEntry[0]] -= 1;
+      eraRestoredCounts[id] = (eraRestoredCounts[id] ?? 0) + 1;
+    }
+  }
+  const selectedIds = eraConstraint.unspecified ? preQuotaSelectedIds : Object.keys(eraRestoredCounts);
+  // 지시문 24 TASK A — era-unspecified path never built eraRestoredCounts,
+  // so makeAllocations' own allocateGenreCounts call was the only place
+  // still computing final genre counts for it — and its internal
+  // enforceMinimumGenreCount could (and did, per live reproduction) merge
+  // away a user-selected genre that landed at exactly 1 song. Passing
+  // userSelectedIds as protectedIds closes that gap for both branches
+  // (era-specified already restores drops via eraRestoredCounts above, but
+  // protecting here too costs nothing and guards against a future allocator
+  // change reintroducing the same class of drop).
+  const allocations = makeAllocations(freeText, channel, safeSongCount, selectedIds, vocalTone, choices, userSelectedIds);
+  // 지시문 24 (TASK A-2/A-3/A-4) — 사용자 장르 선택에 관한 설명을
+  // reasoningKo(중립 정보, Step2Plan.tsx가 .supporting으로 렌더)로 남긴다.
+  // warnings(.error 렌더, 실제 문제 전용)와 섞지 않는다 — 이건 정상 동작
+  // 설명이지 오류가 아니다.
+  const userGenreReasoningKo: string[] = [];
+  if (userSelectedIds.length) {
+    const labels = userSelectedIds.map(id => getGenreById(id)?.label ?? id).join(', ');
+    userGenreReasoningKo.push(`선택하신 장르 ${userSelectedIds.length}종(${labels})을 그대로 설계에 반영했습니다.`);
+  }
+  if (autoCompletedGenreIds.length) {
+    const labels = autoCompletedGenreIds.map(id => getGenreById(id)?.label ?? id).join(', ');
+    userGenreReasoningKo.push(`선택하신 장르가 ${userSelectedIds.length}종이라 관련 장르 ${autoCompletedGenreIds.length}종을 자동으로 보완했습니다: ${labels}.`);
+  }
+  // eraExcludedUserIds is derived from quotaAdjustedCounts, which only
+  // decides the final genre axis when !eraConstraint.unspecified (see the
+  // eraRestoredCounts override just below). When era IS unspecified,
+  // quotaAdjustedCounts is never consulted for the final result — selectedIds
+  // falls back to preQuotaSelectedIds and makeAllocations/capCompatibleFamilySongs
+  // decide instead, both now protecting userSelectedIds directly — so this
+  // "시대 비중과 안 맞아 빠졌다" message would be actively wrong here (the
+  // genre didn't get excluded for an era reason, and may not be excluded at
+  // all).
+  if (!eraConstraint.unspecified && eraExcludedUserIds.length) {
+    const labels = eraExcludedUserIds.map(id => getGenreById(id)?.label ?? id).join(', ');
+    userGenreReasoningKo.push(`선택하신 ${labels}은(는) 이 컨셉의 시대 비중 기준과 맞지 않습니다(era-neutral이거나 다른 시대). 선택을 그대로 유지했지만, 시대색 장르를 추가하거나 컨셉을 조정하면 시대 비중이 더 잘 맞습니다.`);
+  }
   if (!eraConstraint.unspecified) {
     const genreAxisIndex = allocations.findIndex(item => item.axis === 'genre');
-    if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: quotaAdjustedCounts };
+    if (genreAxisIndex >= 0) allocations[genreAxisIndex] = { axis: 'genre', mode: 'manual', counts: eraRestoredCounts };
   }
   // TASK v4.9 (TASK A, §1-3) — "인접 그룹 최대 5곡" enforcement, applied to
   // whichever genre-axis counts ended up selected above (era-quota override
@@ -1586,7 +1674,7 @@ export function directSetLocal(
       allocations[genreAxisIndex] = {
         axis: 'genre',
         mode: 'manual',
-        counts: capCompatibleFamilySongs(allocations[genreAxisIndex].counts, mainFamilyId, 5)
+        counts: capCompatibleFamilySongs(allocations[genreAxisIndex].counts, mainFamilyId, 5, userSelectedIds)
       };
     }
   }
@@ -1654,7 +1742,8 @@ export function directSetLocal(
           : `이 세트의 성격을 "${BREADTH_LABEL_KO[breadth]}"으로 자동 판정했습니다 — 필요하면 아래에서 바꾸실 수 있습니다.`,
         moodConstraint
           ? `분위기 "${moodConstraint.sourceText}"을(를) 감지해 장르 선택/스코어링에 반영했습니다(${moodConstraint.descriptors.join(', ')}).`
-          : '컨셉에서 별도의 분위기 형용사는 감지되지 않았습니다.'
+          : '컨셉에서 별도의 분위기 형용사는 감지되지 않았습니다.',
+        ...userGenreReasoningKo
       ],
       unknownTermsKo,
       listeningContext,

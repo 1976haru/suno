@@ -440,13 +440,25 @@ function computeStructuredViolations(
   if (choices.source.genreIds === 'user' && choices.genreIds?.length) {
     const used = new Set(resolved.genreIdsUsed ?? []);
     const missing = choices.genreIds.filter(id => !used.has(id));
-    if (missing.length === choices.genreIds.length) {
+    // 지시문 24 TASK B — 이전에는 missing.length === choices.genreIds.length일
+    // 때만(선택한 장르가 "하나도" 안 쓰였을 때만) 걸렸다. 실제로 잡아야
+    // 했던 재현 버그(Piano Pop Ballad·Chanson Cafe 2종만 조용히 빠지고
+    // 나머지 3종은 정상 반영)는 부분 누락이라 이 조건을 통과하지 못했다 —
+    // 가드가 있어도 정작 이 버그는 못 잡았을 것이다. missing.length > 0으로
+    // 넓혀 부분 누락도 잡는다. §하지 말 것 "가드를 약화하지 말 것"의 반대
+    // 방향(더 엄격하게)이라 그 제약과 충돌하지 않는다.
+    if (missing.length > 0) {
+      const missingLabels = missing.map(id => getGenreById(id)?.label ?? id);
       violations.push({
         field: 'genreIds',
-        messageKo: `[${stage}] 사용자가 선택한 장르가 하나도 사용되지 않았습니다: ${missing.join(', ')}`,
-        selectedKo: missing.map(id => getGenreById(id)?.label ?? id).join(' · '),
-        effectiveKo: '(전부 제외됨)',
-        reasonKo: '선택한 장르가 결과에 전혀 사용되지 않았습니다.'
+        messageKo: missing.length === choices.genreIds.length
+          ? `[${stage}] 사용자가 선택한 장르가 하나도 사용되지 않았습니다: ${missingLabels.join(', ')}. 장르 배분 로직을 확인하십시오.`
+          : `[${stage}] 사용자가 선택한 장르 중 일부가 결과에서 빠졌습니다: ${missingLabels.join(', ')}. 장르 배분/시대 쿼터/계열 상한 중 어느 단계가 지웠는지 확인하십시오.`,
+        selectedKo: missingLabels.join(' · '),
+        effectiveKo: missing.length === choices.genreIds.length ? '(전부 제외됨)' : `(${missingLabels.join(', ')} 제외, 나머지는 반영됨)`,
+        reasonKo: missing.length === choices.genreIds.length
+          ? '선택한 장르가 결과에 전혀 사용되지 않았습니다.'
+          : '선택한 장르 중 일부만 결과에서 빠졌습니다 — 전부 빠진 게 아니라서 놓치기 쉽습니다.'
       });
     }
   }
@@ -691,27 +703,31 @@ function tallyPovCounts(slots: readonly ResolvedSlotLike[]): Partial<Record<Lyri
  *    informational, never an acknowledgeable `mismatches` entry, since
  *    core/generationPreflight.ts's channelArchetypeHardBlock is the real,
  *    sole (no "proceed anyway") enforcement of this condition.
- *  - mismatches: for the 3 axes assertUserChoicesPreserved already checks
- *    (money-chord-zeroed, vocal-tone-not-applied, genre-completely-dropped),
- *    this reuses computeStructuredViolations directly — the exact same
- *    function assertUserChoicesPreserved itself now calls — so the contract
- *    screen and the dev-throw/prod-warning guardrail can never disagree
- *    about whether a given case is a violation. `genreIdsUsed` fed into it
- *    is now real-slot-derived too (TASK gap 1 fix), not the options-level
- *    allow-list. On top of that shared set, three checks
+ *  - mismatches: for the axes assertUserChoicesPreserved already checks
+ *    (money-chord-zeroed, vocal-tone-not-applied, genre-dropped — genreIds
+ *    now covers both the all-missing AND partial-missing case, see 지시문 24
+ *    TASK B), this reuses computeStructuredViolations directly — the exact
+ *    same function assertUserChoicesPreserved itself now calls — so the
+ *    contract screen and the dev-throw/prod-warning guardrail can never
+ *    disagree about whether a given case is a violation. `genreIdsUsed` fed
+ *    into it is now real-slot-derived too (TASK gap 1 fix), not the
+ *    options-level allow-list. On top of that shared set, two checks
  *    computeStructuredViolations structurally cannot express are added
  *    directly here: (a) a money-chord chosenCount-zero case detected
  *    generically via computeMoneyChordComparison even when `choices` wasn't
  *    built from real UI provenance (mirrors that module's own "no live
- *    repro today, kept generic for a future regression" stance), (b) a
+ *    repro today, kept generic for a future regression" stance), and (b) a
  *    PARTIAL genre removal (sanitizeGenreIdsForArchetype stripped some but
- *    not all ids) — computeStructuredViolations' own genreIds check is
- *    all-or-nothing by design (mirrors assertUserChoicesPreserved's
- *    pre-existing contract) and was never meant to catch a partial strip,
- *    and (c) TASK gap 1's own new case — a genre that IS archetype-eligible
- *    but still got 0 real songs (an explicit multi-select only, see that
- *    check's own doc comment for why it's gated on choices.source.genreIds
- *    === 'user').
+ *    not all ids) — a channel-eligibility strip, a completely different
+ *    cause from "chosen but never landed on a real song" (which the shared
+ *    check now covers on its own). TASK gap 1's own "archetype-eligible but
+ *    still got 0 real songs" case used to need its own block here too
+ *    (computeStructuredViolations' genreIds check was all-or-nothing back
+ *    then) — 지시문 24 TASK B made the shared check catch partial drops as
+ *    well, so that block was retired in favor of the shared one; kept only
+ *    as a fallback (guarded on `!mismatches.some(m => m.field === 'genreIds')`)
+ *    for the rare shape where `resolved.genreIdsUsed` wasn't real-slot-derived
+ *    yet the caller still has real `slots` to check against.
  */
 export function buildResolvedGenerationContract(
   opts: GenerationOptions,
@@ -891,7 +907,15 @@ export function buildResolvedGenerationContract(
   // deliberately larger than any one pack's real rotation diversity (see
   // data/presets.ts's own preferredGenres doc comments), so checking it here
   // unconditionally would false-positive on nearly every normal generation.
-  if (choices.source.genreIds === 'user' && choices.genreIds?.length) {
+  // 지시문 24 TASK B — computeStructuredViolations의 genreIds 체크가 이제
+  // 부분 누락도 잡으므로(structured가 이미 realUsedGenreIds 기준으로
+  // 처리함), 같은 원인을 두 번 보고하지 않는다 — moneyChordMode의 기존
+  // 중복 방지 패턴(§857-860 "computeStructuredViolations already reported
+  // the same field")과 동일. structured만 확인한다(mismatches 전체가 아님)
+  // — 바로 위 "PARTIAL genre removal"(채널 부적격 스트립) 체크가 이미 넣은
+  // genreIds 항목은 이 gap-1 체크(적격인데 실사용 0)와 원인이 달라 서로
+  // 가리면 안 된다.
+  if (choices.source.genreIds === 'user' && choices.genreIds?.length && !structured.some(v => v.field === 'genreIds')) {
     const explicitStillEligible = choices.genreIds.filter(id => genreSanitization.valid.includes(id));
     const explicitUnused = explicitStillEligible.filter(id => !realUsedGenreIds.has(id));
     if (explicitUnused.length && explicitUnused.length < explicitStillEligible.length) {

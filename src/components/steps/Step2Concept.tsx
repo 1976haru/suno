@@ -31,7 +31,7 @@ import { QUALITY_THRESHOLDS, thresholdsByBasis } from '../../data/qualityThresho
 import { workspaceForArchetype } from '../../data/workspaces';
 import { LISTENING_INTENT_POLICY, DEFAULT_LISTENING_INTENT } from '../../data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from '../../data/perceivedEnergyPolicy';
-import { buildGenreAllocationForListeningIntent } from '../../core/listeningIntent';
+import { buildGenreAllocationForListeningIntent, buildGenreCountsForExistingSelection } from '../../core/listeningIntent';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
@@ -354,6 +354,24 @@ export default function Step2Concept({
     const policy = LISTENING_INTENT_POLICY[intent];
     const workspaceId = workspaceForArchetype(channelArchetype)?.id ?? 'senior-oldpop';
     const energyPolicy = PERCEIVED_ENERGY_POLICY[workspaceId];
+    // 지시문 24 TASK A-6 — 사용자가 이미 장르를 직접 골라둔 상태(§A-1 우선순위
+    // 1순위, choiceProvenance.genreIds === 'user')라면 청취 목적 프리셋은
+    // "장르당 몇 곡씩"만 다시 정하고 genreIds 자체는 절대 바꾸지 않는다.
+    // 이전에는 이 분기가 없어 정통 올드팝형 같은 프리셋이 사용자가 고른
+    // Piano Pop Ballad/Chanson Cafe 등을 통째로 Doo-Wop 계열로 바꿔치기했다
+    // — "무엇을" 바꾼 게 아니라 "몇 곡씩"만 바꾸라는 요구를 그대로 어긴 것.
+    const hasExplicitUserGenres = opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0;
+    if (hasExplicitUserGenres) {
+      const existingGenres = opts.genreIds.map(getGenreById).filter((g): g is NonNullable<typeof g> => Boolean(g));
+      const { counts } = buildGenreCountsForExistingSelection(existingGenres, policy, opts.songCount, energyPolicy);
+      if (!Object.keys(counts).length) return;
+      setOpts(prev => ({
+        ...prev,
+        listeningIntent: intent,
+        diversityAllocations: replaceAxisAllocation(prev.diversityAllocations, { axis: 'genre', mode: 'manual', counts })
+      }));
+      return;
+    }
     const candidateGenres = opts.channel.preferredGenres.map(getGenreById).filter((g): g is NonNullable<typeof g> => Boolean(g));
     const alloc = buildGenreAllocationForListeningIntent(candidateGenres, policy, opts.songCount, energyPolicy);
     if (!alloc.genreIds.length) return;
@@ -559,7 +577,9 @@ export default function Step2Concept({
           question="🎧 청취 목적"
           helper={
             opts.listeningIntent
-              ? `"${LISTENING_INTENT_POLICY[opts.listeningIntent].labelKo}" 적용됨 — 아래 장르 선택에 이미 반영돼 있어요. 직접 장르를 바꾸면 그 선택이 우선해요.`
+              ? (opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0
+                  ? `"${LISTENING_INTENT_POLICY[opts.listeningIntent].labelKo}" 적용됨 — 이미 고르신 장르는 그대로 두고, 장르당 곡 수만 다시 배분했어요.`
+                  : `"${LISTENING_INTENT_POLICY[opts.listeningIntent].labelKo}" 적용됨 — 아래 장르 선택에 이미 반영돼 있어요. 직접 장르를 바꾸면 그 선택이 우선해요.`)
               : '아래에서 고르면 이 채널의 장르 추천이 그 방향으로 바뀌어요. 고르지 않아도 괜찮아요 — 채널 기본값 그대로 진행돼요.'
           }
           choices={LISTENING_INTENT_CHOICES}
