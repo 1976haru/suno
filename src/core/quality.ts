@@ -500,15 +500,18 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   }
 
   // 지시문 09 (TASK C-2) — core/promptSpec.ts's auditStylePromptAgainstSpec
-  // existed but was never called from a real generation path. That module's
-  // own doc comment scopes it deliberately: compilePromptSpec's full
-  // authority over stylePrompt construction is TASK 10's job (LockedPromptSpec)
-  // — "09는 호출되게까지만, 권위화는 10에서" — so this wires in the ONE part
-  // of promptSpec.ts that's genuinely safe to call today without replacing
-  // core/promptBudget.ts's own sophisticated priority/floor/shortForm
-  // compiler: a real, NEW check (duplicate BPM declarations) that
-  // BPM_DISCLOSURE_PATTERN above doesn't catch (that only checks BPM is
-  // disclosed AT LEAST once, never that it's declared more than once).
+  // existed but was never called from a real generation path. Full
+  // generative authority over stylePrompt construction (a PromptSpec
+  // compiler replacing core/promptBudget.ts's own sophisticated
+  // priority/floor/shortForm compiler) was always out of scope — "09는
+  // 호출되게까지만, 권위화는 10에서" — so this wires in the ONE part of
+  // promptSpec.ts that's genuinely safe to call today: a real, NEW check
+  // (duplicate BPM declarations) that BPM_DISCLOSURE_PATTERN above doesn't
+  // catch (that only checks BPM is disclosed AT LEAST once, never that it's
+  // declared more than once). 정합성 점검 §3 — the never-wired compiler
+  // prototype (compilePromptSpec/promptSpecFromSlot) was later removed from
+  // promptSpec.ts as dead code; auditStylePromptAgainstSpec below is
+  // unaffected.
   const specViolations = auditStylePromptAgainstSpec(song.stylePrompt, {
     vocal: { gender: targetGender === 'male' || targetGender === 'female' ? targetGender : undefined, text: '' }
   });

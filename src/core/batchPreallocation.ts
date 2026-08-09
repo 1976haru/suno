@@ -1129,25 +1129,27 @@ function removeRepeatedInstrumentMentions(stylePrompt: string, instrumentSet: st
  * stylePrompt (bridge, Batch API, realtime) already passed through as an
  * inline sequence inside reconcileWithPreassignedSlot below — extracted
  * here, unchanged, and given a real name so it can be pointed to as the
- * locked-field enforcement step core/promptSpec.ts's own PromptSpec
- * documents, rather than living as an anonymous block of local variables.
- * A pure refactor: every one of these sub-steps (enforceVocalTextInStylePrompt,
- * appendVerbatimIfMissing ×6, enforceInstrumentSetInStylePrompt,
- * enforceArrangementDensityInStylePrompt, stripNegativeStyleFromStylePrompt,
- * enforceTempoInStylePrompt, diversifyVocalLedOpening,
- * removeRepeatedInstrumentMentions) already existed and already ran in this
- * exact order; nothing here changes what any of them does.
+ * locked-field enforcement step, rather than living as an anonymous block
+ * of local variables. A pure refactor: every one of these sub-steps
+ * (enforceVocalTextInStylePrompt, appendVerbatimIfMissing ×6,
+ * enforceInstrumentSetInStylePrompt, enforceArrangementDensityInStylePrompt,
+ * stripNegativeStyleFromStylePrompt, enforceTempoInStylePrompt,
+ * diversifyVocalLedOpening, removeRepeatedInstrumentMentions) already
+ * existed and already ran in this exact order; nothing here changes what
+ * any of them does.
  *
- * core/promptSpec.ts's own top doc comment (지시문 09) already gives the
- * honest reason a full generative compiler (`compilePromptSpec` alone
- * producing the final text, discarding provider prose entirely) stays out
- * of scope: the bridge/Batch paths are structurally built around trusting a
- * capable external model to write good prose, and this function's whole job
- * is OVERLAYING the locked fields onto that prose (replace-in-place when a
+ * A full generative compiler (a PromptSpec type producing the final text
+ * directly, discarding provider prose entirely) stays out of scope: the
+ * bridge/Batch paths are structurally built around trusting a capable
+ * external model to write good prose, and this function's whole job is
+ * OVERLAYING the locked fields onto that prose (replace-in-place when a
  * wrong value is present, append when missing) — not replacing it. That is
  * exactly what "locked fields the LLM cannot change" means in a free-prose
  * architecture: enforced after the fact, deterministically, in one place,
- * every time — not "never written by the model at all".
+ * every time — not "never written by the model at all". (정합성 점검 §3 — the
+ * PromptSpec/compilePromptSpec prototype that once lived in
+ * core/promptSpec.ts alongside this reasoning was removed as dead code;
+ * it was never wired into this or any live path, only tests exercised it.)
  */
 export function normalizeProviderStylePrompt(rawStylePrompt: string, slot: PreassignedSongSlot): string {
   const vocalFix = enforceVocalTextInStylePrompt(rawStylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
