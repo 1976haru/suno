@@ -100,10 +100,15 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // 파생)가 늘어난 풀에서 뽑히며 실제 세대 BPM 분포가 소폭 재조정됐다.
   // 여전히 design-gate stddevFloor를 comfortably 넘는다 — 회귀가 아니라
   // 채널 배선 확장의 직접 결과.
-  it('BPM 표준편차 — 10.37 허용 ±0.5', () => {
+  // 지시문 21 (TASK C) — 10.37 -> 11.43 (실측 재조정): senior-morning
+  // preferredGenres를 24->30종으로 확장(두왑 발라드/업템포·밤 샹송·비 오는
+  // 날 발라드 블루스·6/8 슬로우 발라드 5종 신규 배선)한 결과, testGenres
+  // 추첨 풀이 넓어지며 세대별 BPM 밴드 분포가 더 고르게 뽑혀 표준편차가
+  // 올랐다 — design-gate stddevFloor를 여전히 comfortably 넘는다.
+  it('BPM 표준편차 — 11.43 허용 ±0.5', () => {
     const bpms = bp.songs.map(s => s.bpm).filter((b): b is number => typeof b === 'number');
-    expect(stddev(bpms)).toBeGreaterThanOrEqual(9.87);
-    expect(stddev(bpms)).toBeLessThanOrEqual(10.87);
+    expect(stddev(bpms)).toBeGreaterThanOrEqual(10.93);
+    expect(stddev(bpms)).toBeLessThanOrEqual(11.93);
   });
 
   // 지시문 12 (TASK A) — min 715->736 (실측 재조정, 위 유사도 항목과 같은
@@ -114,15 +119,21 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // preferredGenres 확장(24종)이 원인 — 새로 추가된 1950s-60s/재즈 장르
   // 다수가 더 다양한 vocal/instrument 서술을 스타일 프롬프트에 더해
   // avg/max가 소폭 상승했다. 회귀가 아니라 채널 배선 확장의 직접 결과.
-  it('프롬프트 길이 min/avg/max — 745/807/928 허용 ±20', () => {
+  //
+  // 지시문 21 (TASK C) — 745/807/928 -> 706/818/920 (실측 재조정): 같은
+  // preferredGenres 확장(24->30종, 위 BPM 항목과 동일 원인)이 testGenres
+  // 추첨 풀을 넓혀 곡마다 뽑히는 장르 조합이 달라졌다 — min은 짧은 장르
+  // 서술이 더 자주 뽑히며 내려가고 avg는 소폭 오르는 등 방향이 일정하지
+  // 않은 건 무작위 추첨 풀 확장의 정상적 결과(§9 실측, 추정 아님).
+  it('프롬프트 길이 min/avg/max — 706/818/920 허용 ±20', () => {
     const lengths = bp.songs.map(s => s.stylePrompt.length);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(725);
-    expect(Math.min(...lengths)).toBeLessThanOrEqual(765);
-    expect(avg).toBeGreaterThanOrEqual(787);
-    expect(avg).toBeLessThanOrEqual(827);
-    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(908);
-    expect(Math.max(...lengths)).toBeLessThanOrEqual(948);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(686);
+    expect(Math.min(...lengths)).toBeLessThanOrEqual(726);
+    expect(avg).toBeGreaterThanOrEqual(798);
+    expect(avg).toBeLessThanOrEqual(838);
+    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(900);
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(940);
   });
 
   it('고유 제목 18/18', () => {

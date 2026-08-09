@@ -21,7 +21,16 @@ export const VOCAL_TECHNIQUES_BY_ERA: Record<EraBucket, string[]> = {
     'close four-part backing harmony',
     'nonsense-syllable backing vocals',
     'unison shout on the hook',
-    'girl-group unison lead'
+    // 지시문 21 (TASK C) — 'girl-group unison lead' -> gender-neutral로 수정.
+    // 실측: 이 파일 자체는 "기법"(technique)만 다루는 성별 무관 어휘 표라고
+    // 스스로 문서화하지만, 이 항목만 유일하게 성별 단어('girl')를 포함해
+    // detectVocalGenderPresence가 male 단독 트랙에서도 female:true로
+    // 오판정(core/vocalPlan.ts). 시니어 채널 장르 풀 확장(신규 6종 배선)이
+    // 기존에 도달하지 못했던 seed 경로를 열면서 처음 실측 재현됨
+    // (tests/promptContradictionsAllWorkspaces.test.ts). 기법 자체(유니즌
+    // 앙상블 리드)는 그대로 두고 성별 단어만 제거 — 데이터 한 단어 교정,
+    // 로직/시그니처 변경 없음.
+    'ensemble unison lead'
   ],
   '1970s': [
     'falsetto lift on the chorus',

@@ -53,7 +53,18 @@ export const channelPresets: ChannelProfile[] = [
       'oldpop-doowop-harmony', 'oldpop-british-beat', 'oldpop-girl-group-wall',
       'oldpop-sunshine-pop', 'oldpop-brill-building',
       'oldpop-baroque-pop', 'oldpop-sunlit-strings-pop', 'oldpop-orchestral-easy',
-      'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom', 'jazz-brush-ballad-jazz', 'bossa-cafe'
+      'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom', 'jazz-brush-ballad-jazz', 'bossa-cafe',
+      // 지시문 21 (TASK C) — 신규 6종 중 5종 배선(oldpop-italian-canzone
+      // 제외). 실측: italian-canzone까지 추가하면(풀 30종) 이 채널의
+      // genreNarrative가 유독 긴 조합에서 core/promptBudget.ts의
+      // 'concept' 카테고리가 이른 단계(초기 safeTarget 정렬-채움 루프,
+      // GUARANTEED_FLOOR_BY_ID에 'concept' 미등록)에서 통째로 잘려
+      // customConcept 매핑 문구('morning light' 등)가 stylePrompt에서
+      // 사라지는 기존 결함이 재현됨(tests/v352ConceptDiversity.test.ts) —
+      // core/promptBudget.ts는 전 채널 공유 인프라라 이 지시문 범위 밖.
+      // italian-canzone은 tier:'extended'(부차 우선순위)라 이 채널에서는
+      // 빼고 oldpop-lounge-main에는 그대로 6종 전부 배선 — TASK D에 보고.
+      'oldpop-doowop-ballad', 'oldpop-doowop-uptempo', 'oldpop-night-chanson', 'oldpop-rainy-ballad-blues', 'oldpop-six-eight-slow-ballad'
     ],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],
     forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
@@ -98,7 +109,10 @@ export const channelPresets: ChannelProfile[] = [
       // (10/18)로 실측 재검증.
       'oldpop-soft-rock-am',
       'oldpop-quiet-storm-warm', 'oldpop-evening-lamp-ballad', 'oldpop-slow-waltz-memory',
-      'retro-soul-pop', 'rnb-old-school-romance-rnb'
+      'retro-soul-pop', 'rnb-old-school-romance-rnb',
+      // 지시문 21 (TASK C) — 신규 6종 전부 배선(good-morning-memory-radio와 동일).
+      'oldpop-doowop-ballad', 'oldpop-doowop-uptempo', 'oldpop-night-chanson',
+      'oldpop-rainy-ballad-blues', 'oldpop-six-eight-slow-ballad', 'oldpop-italian-canzone'
     ],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],
     forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
@@ -250,7 +264,9 @@ export const channelPresets: ChannelProfile[] = [
       'city-pop-modern', 'future-funk', 'disco-pop-2020s',
       'city-pop-soft', 'city-pop-night', 'city-pop-bright-female-groove',
       'city-pop-coastal-disco-pop', 'city-pop-funky-rhythm-pop',
-      'city-pop-airy-disco-pulse', 'city-pop-club-disco-pop'
+      'city-pop-airy-disco-pulse', 'city-pop-club-disco-pop',
+      // 지시문 21 (TASK C) — 누아르 딥하우스 신규 배선(강사 원문이 city-night도 명시).
+      'kr2030-noir-deep-house'
     ],
     preferredMoods: ['fresh-start', 'romantic', 'rainy-comfort'],
     forbiddenCliches: [
@@ -325,7 +341,10 @@ export const channelPresets: ChannelProfile[] = [
       'contemporary-rnb', 'rnb-ballad-2020s', 'rnb-contemporary-airy-female', 'rnb-modern-soft-male',
       'alt-rnb', 'rnb-moody-alt-rnb', 'rnb-whisper-alt-rnb', 'rnb-alternative-night',
       'chill-rap', 'boom-bap-mellow', 'jazz-rap',
-      'trap-soul', 'rnb-trap-soul-confession', 'rnb-trap-rnb-night'
+      'trap-soul', 'rnb-trap-soul-confession', 'rnb-trap-rnb-night',
+      // 지시문 21 (TASK C) — 로파이 스윙 힙합팝 신규 배선. chill-rap/
+      // boom-bap-mellow/jazz-rap 등 기존 랩·힙합 계열과 같은 무드.
+      'kr2030-lofi-swing-hiphop'
     ],
     preferredMoods: ['bittersweet', 'warm', 'hopeful'],
     forbiddenCliches: [
@@ -368,7 +387,10 @@ export const channelPresets: ChannelProfile[] = [
     // (after-work-band-pop과 동일 후보 pool 공유, 채널마다 배타적일 필요 없음).
     preferredGenres: [
       'kr2030-dawn-rnb', 'kr2030-electro-pop', 'kr2030-y2k-retro',
-      'contemporary-rnb', 'rnb-contemporary-airy-female', 'alt-rnb', 'rnb-alternative-night', 'trap-soul'
+      'contemporary-rnb', 'rnb-contemporary-airy-female', 'alt-rnb', 'rnb-alternative-night', 'trap-soul',
+      // 지시문 21 (TASK C) — 누아르 딥하우스 신규 배선. 야경·드라이브 무드가
+      // 이 채널의 정체성과 직접 일치.
+      'kr2030-noir-deep-house'
     ],
     preferredMoods: ['rainy-comfort', 'romantic', 'fresh-start'],
     forbiddenCliches: [
