@@ -71,6 +71,8 @@ import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { vocabularyBankForScene } from '../data/vocabularyBanks';
 import { workspaceForArchetype } from '../data/workspaces';
+import { computePerceivedEnergy } from './perceivedEnergy';
+import { PERCEIVED_ENERGY_POLICY } from '../data/perceivedEnergyPolicy';
 import { getGenreById, isGenreEligibleForArchetype } from '../data/genreLibrary';
 import { genreSanitizationWarningKo, sanitizeGenreIdsForArchetype } from './genreSelection';
 
@@ -805,6 +807,17 @@ export function preallocateSongSlots(
     // 최대 1 — T7이 2개여서 4:16이 됐습니다").
     const bpmTier = resolveBpmLengthTier(resolvedTempo);
     const isFlagshipSlot = idx === 1 || idx === 2;
+    // 지시문 23 (TASK A) — 이 트랙의 실제 resolved 필드(tempo/arrangementDensity/
+    // instrumentSet/vocalText, lead genre의 rhythm/instruments/vocal/production)
+    // 만으로 계산 — 새 입력 필드 없음(§0 원칙). trackGenres[0]이 없을 수 있는
+    // 경로(genreWarning만 있고 실제 GenrePack 매칭 실패)에서는 계산을 건너뛴다.
+    const perceivedEnergyResult = trackGenres[0]
+      ? computePerceivedEnergy(
+          { tempo: resolvedTempo, arrangementDensity: arrangementDensityPlan[idx], instrumentSet: rotatingInstrumentSet(trackGenres, seed, idx), vocalText },
+          trackGenres[0],
+          PERCEIVED_ENERGY_POLICY[workspaceForArchetype(opts.channel.archetype)?.id ?? 'senior-oldpop']
+        )
+      : undefined;
     return {
       trackNo,
       title,
@@ -856,6 +869,7 @@ export function preallocateSongSlots(
       ...(trackGenres[0]?.eraTag ? { eraTag: trackGenres[0].eraTag } : {}),
       arcPhase: arcPlan[idx].phase,
       intensity: arcPlan[idx].intensity,
+      ...(perceivedEnergyResult ? { perceivedEnergy: perceivedEnergyResult.value, perceivedEnergyReasonKo: perceivedEnergyResult.reasonKo } : {}),
       ...(moneyChordId ? { moneyChordId } : {}),
       // v5.11 (TASK L) — always-populated counterparts of moneyChordId/
       // genreId above; see each SongIdea field's own doc comment. Copied
@@ -1449,6 +1463,7 @@ export function reconcileWithPreassignedSlot(
     ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
     ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
     ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
+    ...(slot.perceivedEnergy !== undefined ? { perceivedEnergy: slot.perceivedEnergy, perceivedEnergyReasonKo: slot.perceivedEnergyReasonKo } : {}),
     bpm: slot.tempo,
     ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
     ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),

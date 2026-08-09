@@ -28,11 +28,15 @@ import { buildReferenceMoodStyleClause, referenceMoodSafetyIssues } from '../../
 import { GENRE_FAMILIES, familiesBlendWell } from '../../data/genreFamilies';
 import { channelSoundFloorForArchetype } from '../../data/channelSoundFloor';
 import { QUALITY_THRESHOLDS, thresholdsByBasis } from '../../data/qualityThresholds';
+import { workspaceForArchetype } from '../../data/workspaces';
+import { LISTENING_INTENT_POLICY, DEFAULT_LISTENING_INTENT } from '../../data/listeningIntentPolicy';
+import { PERCEIVED_ENERGY_POLICY } from '../../data/perceivedEnergyPolicy';
+import { buildGenreAllocationForListeningIntent } from '../../core/listeningIntent';
 import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
-import type { GenerationOptions, GenrePack, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
+import type { GenerationOptions, GenrePack, ListeningIntent, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
 
 /** v4.2 (TASK E) — computed once at module load (QUALITY_THRESHOLDS is static data, not per-render/per-props), reused by the advanced-settings "기준값 검증 상태" summary below. */
 const THRESHOLD_BASIS_SUMMARY = thresholdsByBasis();
@@ -54,6 +58,20 @@ const packagingLanguageOptions: { value: DisplayLanguage; label: string; sub: st
 ];
 
 const CONCEPT_EXAMPLE_CHIPS = ['아침 커피 한 잔', '창밖의 첫눈', '오래된 라디오', '연말 편지', '산책길 낙엽', '크리스마스 이브', '옛 친구 생각'];
+
+// 지시문 23 (TASK B) — §0-1 하루의 판단(60~70년대 음악을 복원하는 채널 →
+// 60~70년대의 따뜻한 기억을 오늘 편하게 오래 들을 수 있는 음악으로 만드는
+// 채널)을 반영해 기본값은 감성 장시간형. 정통 올드팝형은 §0-2 "되돌릴 길".
+const LISTENING_INTENT_CHOICES = (['long-listen-comfort', 'balanced', 'era-authentic'] as const).map(id => {
+  const policy = LISTENING_INTENT_POLICY[id];
+  return {
+    id,
+    label: policy.labelKo,
+    sublabel: `시대색 ${policy.eraColorStrength}%`,
+    description: policy.descriptionKo,
+    recommended: id === DEFAULT_LISTENING_INTENT
+  };
+});
 
 const DURATION_CHOICES = [
   { id: 'under3m30', label: '표준 (권장)', sublabel: '3:10 - 3:35', description: '가장 무난한 표준 길이예요. 처음이라면 이걸 고르세요.', recommended: true },
@@ -326,6 +344,29 @@ export default function Step2Concept({
     for (const slot of finalAllocation) rememberRecentGenreId(opts.channel.id, slot.genreId);
   }
 
+  // 지시문 23 (TASK B) — "청취 목적" preset 적용. handleApplyConceptRecommendation과
+  // 같은 패턴(§B-5): genreIds/diversityAllocations를 이 한 번의 명시적 클릭으로만
+  // 채운다 — 이후 사용자가 genreIds나 diversityAllocations를 손으로 다시 고치면
+  // 그 수동 선택이 그대로 남는다(diversityAllocations의 manual-always-wins 보장,
+  // core/diversityAllocation.ts). listeningIntent 필드 자체는 매 생성마다 다시
+  // 강제 적용되지 않는, 마지막으로 적용한 preset의 기록일 뿐이다.
+  function handleApplyListeningIntent(intent: ListeningIntent) {
+    const policy = LISTENING_INTENT_POLICY[intent];
+    const workspaceId = workspaceForArchetype(channelArchetype)?.id ?? 'senior-oldpop';
+    const energyPolicy = PERCEIVED_ENERGY_POLICY[workspaceId];
+    const candidateGenres = opts.channel.preferredGenres.map(getGenreById).filter((g): g is NonNullable<typeof g> => Boolean(g));
+    const alloc = buildGenreAllocationForListeningIntent(candidateGenres, policy, opts.songCount, energyPolicy);
+    if (!alloc.genreIds.length) return;
+    setOpts(prev => ({
+      ...prev,
+      listeningIntent: intent,
+      genreIds: normalizeGenreSelection(alloc.genreIds),
+      diversityAllocations: replaceAxisAllocation(prev.diversityAllocations, { axis: 'genre', mode: 'manual', counts: alloc.counts }),
+      choiceProvenance: { ...prev.choiceProvenance, genreIds: 'user' as const }
+    }));
+    for (const genreId of alloc.genreIds) rememberRecentGenreId(opts.channel.id, genreId);
+  }
+
   const visibleGenres = useMemo(
     () => getVisibleGenresForArchetype(channelArchetype, opts.genreIds, recentGenreIds),
     [channelArchetype, opts.genreIds, recentGenreIds]
@@ -512,6 +553,21 @@ export default function Step2Concept({
 
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />
+
+      <div className="option-block">
+        <ChoiceGrid
+          question="🎧 청취 목적"
+          helper={
+            opts.listeningIntent
+              ? `"${LISTENING_INTENT_POLICY[opts.listeningIntent].labelKo}" 적용됨 — 아래 장르 선택에 이미 반영돼 있어요. 직접 장르를 바꾸면 그 선택이 우선해요.`
+              : '아래에서 고르면 이 채널의 장르 추천이 그 방향으로 바뀌어요. 고르지 않아도 괜찮아요 — 채널 기본값 그대로 진행돼요.'
+          }
+          choices={LISTENING_INTENT_CHOICES}
+          value={opts.listeningIntent ?? ''}
+          onChange={value => handleApplyListeningIntent(value as ListeningIntent)}
+          columns={3}
+        />
+      </div>
 
       <div className="option-block">
         <h3>어떤 계절 분위기로 만들까요?</h3>

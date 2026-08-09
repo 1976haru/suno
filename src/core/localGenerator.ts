@@ -2,7 +2,9 @@ import type { BilingualPair, ChannelArchetype, GenerationOptions, GenrePack, Kid
 import { generationPacks } from '../data/presets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentText } from './promptComposer';
+import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentSet, rotatingInstrumentText } from './promptComposer';
+import { computePerceivedEnergy } from './perceivedEnergy';
+import { PERCEIVED_ENERGY_POLICY } from '../data/perceivedEnergyPolicy';
 import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_WORD_TARGET_MAX, SUNO_COPY_LIMIT, type PromptPart } from './promptBudget';
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
@@ -2136,6 +2138,19 @@ export function generateLocalBlueprint(
     );
     const titleDisplay = buildTitleDisplay(title, titleLocalized);
 
+    // 지시문 23 (TASK A) — mirrors core/batchPreallocation.ts's identical
+    // computation (같은 원칙: 새 입력 필드 없이 기존 resolved 필드만 사용).
+    // 두 경로가 서로 다른 계산을 하면 로컬/원격 생성 결과가 갈린다 — 지시문
+    // 19 TASK C가 고친 "두 번째 composeStylePrompt 경로" 결함과 같은 재발
+    // 유형이므로 반드시 양쪽에 배선한다.
+    const perceivedEnergyResult = trackGenres[0]
+      ? computePerceivedEnergy(
+          { tempo, arrangementDensity: arrangementDensityPlan[idx], instrumentSet: rotatingInstrumentSet(trackGenres, seed, idx), vocalText: vocalDescriptionText },
+          trackGenres[0],
+          PERCEIVED_ENERGY_POLICY[workspaceId]
+        )
+      : undefined;
+
     return {
       ...partialSong,
       stylePrompt,
@@ -2176,6 +2191,7 @@ export function generateLocalBlueprint(
       ...(killingPoint ? { killingPointId: killingPoint.id } : {}),
       arcPhase: arcPlan[idx].phase,
       intensity: arcPlan[idx].intensity,
+      ...(perceivedEnergyResult ? { perceivedEnergy: perceivedEnergyResult.value, perceivedEnergyReasonKo: perceivedEnergyResult.reasonKo } : {}),
       bpm: tempo,
       ...(structureTemplatePlan[idx] ? { structureTemplate: structureTemplatePlan[idx] } : {}),
       ...(progressionPlan?.[idx] ? { moneyChordId: progressionPlan[idx] } : {}),

@@ -122,6 +122,17 @@ export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
 
+/** 지시문 23 (TASK A) — 체감 에너지, 1(매우 잔잔)~5(매우 활기). core/perceivedEnergy.ts's computePerceivedEnergy가 계산한다. arcPlan.ts의 intensity(구조상의 위치)와는 별개 값 — 둘의 불일치가 보정 데이터다(§A-5). */
+export type PerceivedEnergy = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * 지시문 23 (TASK B) — "청취 목적". oldpoplounge의 기본 정체성을 "60~70년대
+ * 음악을 복원하는 채널"에서 "60~70년대의 따뜻한 기억을 오늘 편하게 오래
+ * 들을 수 있는 음악으로 만드는 채널"로 옮기는 하루의 판단(§0-1)을 반영하되,
+ * 되돌릴 길(§0-2)로 'era-authentic'을 preset으로 남긴다.
+ */
+export type ListeningIntent = 'long-listen-comfort' | 'balanced' | 'era-authentic';
+
 /**
  * 지시문 15 (TASK A-1) — SongIdea.distinctChoice(사람이 읽는 한 줄 설명, 위)와
  * 분리된, 기계가 판정 가능한 구조화 값. 어떤 ruleId를 이 워크스페이스가
@@ -902,6 +913,17 @@ export interface GenerationOptions {
    */
   earwormMode?: boolean;
   /**
+   * 지시문 23 (TASK B) — 사용자가 "청취 목적" 카드(Step2Concept.tsx)에서
+   * 고른 preset. 실제 효과는 그 카드의 "적용" 버튼이 이 값과 함께
+   * genreIds/diversityAllocations를 한 번에 채우는 명시적 사용자 행동으로만
+   * 일어난다 — 그 뒤 사용자가 genreIds/diversityAllocations를 손으로 다시
+   * 고치면 그 수동 선택이 그대로 남는다(§B-5 "사용자 명시 선택 > 청취 목적
+   * preset", diversityAllocations의 manual이 항상 이기는 기존 보장과 동일
+   * 원리). 이 필드 자체는 마지막으로 적용한 preset의 기록일 뿐, 매 생성마다
+   * 다시 강제 적용되지 않는다.
+   */
+  listeningIntent?: ListeningIntent;
+  /**
    * TASK v3.27 — 'ai-creative' (default) lets the remote model/coding agent
    * write its own title for each preassigned hookPhrase instead of copying
    * core/lyricEngine.ts's titleFromHook output verbatim — that mechanical
@@ -1292,6 +1314,10 @@ export interface SongIdea {
   arcPhase?: string;
   /** v3.68 (TASK B) — this track's arc intensity, 1-5 (see core/arcPlan.ts). */
   intensity?: number;
+  /** 지시문 23 (TASK A) — this track's computed perceived energy, 1-5 (see core/perceivedEnergy.ts). Deliberately separate from `intensity` above — see PreassignedSongSlot.perceivedEnergy's own doc comment. */
+  perceivedEnergy?: PerceivedEnergy;
+  /** 지시문 23 (TASK A) — perceivedEnergy의 사람이 읽는 근거 문구(판정에는 쓰이지 않음). */
+  perceivedEnergyReasonKo?: string;
   /** v3.68 (TASK B) — resolved BPM actually planned for this track. The stylePrompt already carries this as text ("96 BPM"); this is the same number as a queryable field, since rating analysis needs to bucket by tempo without re-parsing prose. */
   bpm?: number;
   /** v3.68 (TASK B) — this track's lyric section-order template id, snapshotted for rating analysis (PreassignedSongSlot already carried this; SongIdea didn't until now). */
@@ -1811,6 +1837,20 @@ export interface PreassignedSongSlot {
   arcPhase?: string;
   /** v3.68 (TASK B) — this trackNo's arc intensity, 1-5 (see core/arcPlan.ts), for rating analysis. */
   intensity?: number;
+  /**
+   * 지시문 23 (TASK A) — this trackNo's computed perceived energy, 1-5 (see
+   * core/perceivedEnergy.ts's computePerceivedEnergy). Deliberately separate
+   * from `intensity` above (arc *position*, fixed by trackNo regardless of
+   * which genre/tempo actually landed on that slot) — perceivedEnergy is
+   * derived from the slot's actual resolved tempo/arrangementDensity/
+   * instrumentSet/vocalText and the lead genre's rhythm/instruments/vocal/
+   * production fields. The two are expected to disagree sometimes; that
+   * disagreement is itself the first calibration data (§A-5), not a bug to
+   * reconcile away.
+   */
+  perceivedEnergy?: PerceivedEnergy;
+  /** 지시문 23 (TASK A) — perceivedEnergy의 사람이 읽는 근거 문구. 판정에는 쓰이지 않는다(computePerceivedEnergy's own doc comment) — eraTag 자유 문자열 문제 재발 방지. */
+  perceivedEnergyReasonKo?: string;
   /**
    * v3.82 (TASK B) — this trackNo's BPM-appropriate lyric length targets
    * (see core/bpmLengthControl.ts's resolveBpmLengthTier), so a slow-tempo

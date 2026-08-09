@@ -24,6 +24,7 @@ import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
 import { auditStylePromptAgainstSpec } from './promptSpec';
 import { classifyClause, introSubcategory, type PromptAxis } from '../data/promptAxisLexicon';
 import { resolveSceneSignatureSource } from './situationLedger';
+import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } from './perceivedEnergyObservations';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -73,6 +74,14 @@ export interface FullAuditReport {
   items: AuditItem[];
   promiseAudit: PromiseAuditReport;
   titleConsistency: TitleConsistencyReport;
+  /**
+   * 지시문 23 TASK A-5 · TASK C · TASK D — 관찰 전용, `items`와 완전히
+   * 분리된 필드. `items`의 AuditItem은 pass/fail이 scripts/audit.ts의 회귀
+   * 판정·exit code에 반영되지만, 이 필드는 절대 그렇지 않다 — 표시만 한다
+   * (§D "관찰 항목이 blocking하는 건수 0건", §A-5 "차단하지 않는다. 목록만
+   * 출력한다").
+   */
+  observations: PerceivedEnergyObservations;
 }
 
 function stddev(values: number[]): number {
@@ -916,5 +925,5 @@ export function runFullAudit(
     ...metaLeakItems(songs, opts.lyricLanguage),
     ...objectStateItems(songs, opts.archetype, opts.lyricLanguage)
   ];
-  return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency };
+  return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency, observations: buildPerceivedEnergyObservations(songs) };
 }
