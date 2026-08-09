@@ -1,6 +1,6 @@
 {
-  "name": "suno-weaver-studio",
-  "version": "5.25.0",
+  "name": "haru-studio",
+  "version": "0.21.0",
   "private": true,
   "type": "module",
   "description": "Extensible Suno prompt and lyric generator for playlist channels, with optional OpenAI/Claude provider adapters.",
@@ -27,6 +27,7 @@
     "check:gates": "tsx scripts/checkGateContract.ts",
     "check:settings": "tsx scripts/checkVerifiedSettings.ts",
     "check:archetype": "tsx scripts/checkArchetypeHardcoding.ts",
+    "check:version": "tsx scripts/checkVersion.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",

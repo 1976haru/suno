@@ -25,6 +25,13 @@
  * re-verified against its own module, not copied from memory.
  */
 
+// 지시문 18 (TASK A-3) — 저장소 키의 'suno-weaver-' 접두는 제품명 변경(지시문
+// 18, Suno Weaver Studio → 하루 스튜디오) 후에도 유지한다. 바꾸면 브라우저가
+// 다른 DB로 인식해 팩·이력·평가·커스텀 채널이 전부 사라진다. 마이그레이션이
+// 필요하면 별도 지시문에서 백업·복원 경로와 함께 한다 — 이 지시문의 범위가
+// 아니다. 이 파일 아래 RECOVERABLE_DATABASES가 그 접두를 쓰는 실제 DB 이름
+// 전체 목록이다(core/library.ts·core/ratingLedger.ts 등 다른 모든 DB_NAME/
+// STORAGE_KEY 상수도 동일한 원칙 — 여기 한 곳에만 이 설명을 적어 둔다).
 const REPAIR_PARAM = 'repair';
 const REPAIR_NOTICE_KEY = 'suno-weaver-repair-complete';
 
@@ -54,7 +61,7 @@ function deleteDatabase(name: string): Promise<void> {
     const request = indexedDB.deleteDatabase(name);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error || new Error(`${name} 데이터베이스를 삭제하지 못했습니다.`));
-    request.onblocked = () => reject(new Error(`${name} 데이터베이스가 다른 탭에서 사용 중입니다. Suno Weaver 탭을 모두 닫고 다시 실행하세요.`));
+    request.onblocked = () => reject(new Error(`${name} 데이터베이스가 다른 탭에서 사용 중입니다. 하루 스튜디오 탭을 모두 닫고 다시 실행하세요.`));
   });
 }
 

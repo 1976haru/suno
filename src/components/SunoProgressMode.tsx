@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Copy, X } from 'lucide-react';
-import type { SongIdea } from '../types';
+import type { PackGeneratedBy, SongIdea } from '../types';
 import { copyText } from '../utils/exporters';
 import { getPackPastedAt, getPackProgress, markTrackPasted, setTrackProgress } from '../core/library';
 import { SUNO_COPY_LIMIT } from '../core/promptBudget';
@@ -19,6 +19,8 @@ interface SunoProgressModeProps {
   personaMode?: boolean;
   promptCharLimit?: number;
   onClose: () => void;
+  /** 지시문 18 (TASK C-3) — 이 팩을 만든 생성 에이전트, 채점 시 RatingRecord.generatedBy로 그대로 실린다. */
+  generatedBy?: PackGeneratedBy;
 }
 
 const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보통', bad: '별로' };
@@ -66,7 +68,7 @@ export function buildTitleCopyText(song: Pick<SongIdea, 'trackNo' | 'title' | 't
  * persistence FocusMode already established, so the two views' "done"
  * checkmarks stay in sync rather than tracking two separate progress sets.
  */
-export default function SunoProgressMode({ songs, packId, channelId, personaMode = false, promptCharLimit, onClose }: SunoProgressModeProps) {
+export default function SunoProgressMode({ songs, packId, channelId, personaMode = false, promptCharLimit, onClose, generatedBy }: SunoProgressModeProps) {
   const [index, setIndex] = useState(0);
   const [done, setDone] = useState<number[]>([]);
   const [pastedAt, setPastedAt] = useState<Record<number, string>>({});
@@ -179,7 +181,8 @@ export default function SunoProgressMode({ songs, packId, channelId, personaMode
       packId,
       rating,
       ratedAt: new Date().toISOString(),
-      attributes: attributesFromSong(song, channelId)
+      attributes: attributesFromSong(song, channelId),
+      ...(generatedBy ? { generatedBy } : {})
     });
     setRatings(prev => ({ ...prev, [song.songId!]: rating }));
     goNext();

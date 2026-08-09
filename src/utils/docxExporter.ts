@@ -168,7 +168,7 @@ export function buildDocxDocument(input: DocxExportInput): Document {
   children.push(heading('Thumbnail Spec'), ...codeBox('Thumbnail A/B/C and image prompts', thumbnailText(thumbnailSpec)));
 
   return new Document({
-    creator: 'Suno Weaver Studio',
+    creator: 'Haru Studio',
     title: blueprint.projectTitle,
     description: blueprint.oneLineConcept,
     sections: [{ properties: {}, children }]

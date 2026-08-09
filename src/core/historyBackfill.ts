@@ -1,4 +1,4 @@
-import type { ChannelArchetype, LyricLanguage, PlaylistBlueprint, WorkspaceId } from '../types';
+import type { ChannelArchetype, LyricLanguage, PackGeneratedBy, PlaylistBlueprint, WorkspaceId } from '../types';
 import { currentWorkspaceId } from './workspaceScope';
 import { resolveArchetypeForChannel, resolveWorkspaceIdForChannel } from './channelWorkspaceResolution';
 import { validateProviderTrackSet, describeTrackSetValidation, resolveEffectiveTrackNo } from './importValidation';
@@ -41,6 +41,18 @@ export interface BackfillSource {
   workspaceId?: WorkspaceId;
   channelId?: string;
   language?: LyricLanguage;
+  /**
+   * 지시문 18 (TASK C-2) — "지시문 14 TASK D 의 과거 이력 등록에서도
+   * 사용자가 지정할 수 있게 한다". 이 함수는 (파일 헤더 자신의 §D-2가
+   * 명시하듯) library 팩을 만들지 않는다 — situationLedger 등 4개 회피
+   * 목록에만 기록한다. 그래서 이 값은 SavedPack.generatedBy처럼 집계 화면의
+   * qualityScore 통계에 들어가지 않는다(백필된 파일은 재구성된 quality
+   * score 자체가 없다 — 이 파일 자신의 §D-2 "quality score를 지어내지
+   * 않는다"와 같은 이유). BackfillResult로 그대로 반향돼 등록 결과 화면에서
+   * "이 파일들을 codex로 기록했습니다"를 보여주는 용도로만 쓰인다.
+   */
+  generatedBy?: PackGeneratedBy;
+  generatedByNote?: string;
 }
 
 export interface BackfillResult {
@@ -49,6 +61,7 @@ export interface BackfillResult {
   packId?: string;
   songCount?: number;
   reasonKo?: string;
+  generatedBy?: PackGeneratedBy;
 }
 
 /** The subset of a raw bridge-JSON song entry the 4 avoid-list ledgers actually read — see recordPackSituations/recordPackHooks/recordPackLyricLines/recordPackFingerprints's own bodies for exactly which fields each one touches. Deliberately NOT a full SongIdea (that would require reconciling a slot plan/quality score/effective-archetype this backfill has no business inventing — see this file's own header comment). */
@@ -222,7 +235,7 @@ export async function backfillHistoryFromPacks(sources: BackfillSource[]): Promi
 
     const known = await existingPackIds(planned.workspaceId);
     if (known.has(planned.packId)) {
-      results.push({ fileName: source.fileName, status: 'skipped-duplicate', packId: planned.packId, reasonKo: '이미 등록됨 — 건너뜀' });
+      results.push({ fileName: source.fileName, status: 'skipped-duplicate', packId: planned.packId, reasonKo: '이미 등록됨 — 건너뜀', generatedBy: source.generatedBy });
       continue;
     }
 
@@ -237,7 +250,7 @@ export async function backfillHistoryFromPacks(sources: BackfillSource[]): Promi
     ]);
 
     known.add(planned.packId);
-    results.push({ fileName: source.fileName, status: 'registered', packId: planned.packId, songCount: planned.songs.length });
+    results.push({ fileName: source.fileName, status: 'registered', packId: planned.packId, songCount: planned.songs.length, generatedBy: source.generatedBy });
   }
 
   return results;

@@ -17,6 +17,7 @@ import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { TITLE_ERA_HINT_RETRO_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
+import { APP_VERSION } from './buildInfo';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
 import { moneyChordPresets } from '../data/moneyChords';
@@ -84,7 +85,11 @@ function buildBridgeMeta(
     channelLabel: opts.channel.name,
     conceptLabel: opts.customConcept?.trim() || opts.projectTitle,
     songCount: opts.songCount,
-    lyricLanguage: opts.lyricLanguage
+    lyricLanguage: opts.lyricLanguage,
+    // 지시문 18 (TASK C-2) — 앱이 이 요청을 만든 시점의 자기 버전. 지시문
+    // 스스로 "meta를 verbatim으로 복사하라"고 이미 요구하므로(위 doc comment),
+    // 이 필드도 별도 지시문 없이 자동으로 응답에 실려 돌아온다.
+    bridgeVersion: APP_VERSION
   };
 }
 
@@ -1693,7 +1698,7 @@ export function buildClaudeCodeInstruction(
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself — write only the creative title. If this pack needs numbered titles, the app adds that afterward from the trusted trackNo.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the file — the app supplies those separately from local context.',
     '- The file itself must be raw JSON — no markdown fences, no surrounding prose, inside the file.',
-    '- When done, tell me the file\'s path so I can import it back into Suno Weaver Studio.'
+    '- When done, tell me the file\'s path so I can import it back into Haru Studio.'
   ].join('\n');
 }
 
@@ -1965,7 +1970,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '',
     '- Do NOT prefix "title" with a track number or any "01.", "02." style numbering yourself - write only the creative title. The app adds numbering after import when enabled.',
     '- Do NOT include projectTitle, channelName, oneLineConcept, sonicSignature, vocalSignature, lyricRules, harmonyRules, or visualRules in the files.',
-    '- When done, tell me the paths of all files so I can import them back into Suno Weaver Studio.'
+    '- When done, tell me the paths of all files so I can import them back into Haru Studio.'
   ].join('\n');
 
   return {

@@ -977,7 +977,20 @@ export interface GenerationOptions {
    * vocalTone, that had no old inference to fall back to at all).
    */
   choiceProvenance?: Partial<GenerationChoiceProvenance>;
+  /**
+   * 지시문 18 (TASK C) — 이 세트를 실제로 만든 생성 에이전트. 가져오기 화면의
+   * 선택 UI(직전 선택값을 기본으로 기억)에서 세팅되고, core/library.ts의
+   * savePack이 SavedPack.generatedBy로 그대로 옮긴다. 선택 없이 저장되면
+   * 'other'로 정직하게 기록한다(빈 값으로 남기지 않는다) — 미선택을 가져오기
+   * 차단 사유로 만들지 말라는 지시문 자신의 요구와 짝을 이룬다.
+   */
+  generatedBy?: PackGeneratedBy;
+  /** generatedBy가 'other'일 때만 쓰는 자유 입력 — 그 외 값일 때는 무시된다. */
+  generatedByNote?: string;
 }
+
+/** 지시문 18 (TASK C) — SavedPack.generatedBy/GenerationOptions.generatedBy가 공유하는 값 집합. */
+export type PackGeneratedBy = 'claude-code' | 'codex' | 'fable-5' | 'api-direct' | 'local' | 'other';
 
 export interface YoutubeMetadata {
   title: string;
@@ -1505,6 +1518,14 @@ export interface PlaylistBlueprint {
    */
   meta?: {
     setCode?: string;
+    /**
+     * 지시문 18 (TASK C-2) — 브릿지 요청 payload에 실린 버전(core/bridgeInstruction.ts의
+     * buildBridgeMeta)을 LLM이 응답에 그대로 복사했을 때 채워진다(bridgeImport.ts의
+     * extractBridgeImportMeta가 읽음). 응답에 없으면(구형 응답, 또는 LLM이
+     * meta를 생략함) 가져오기 시점의 현재 앱 버전으로 채운다 — 절대 undefined로
+     * 남기지 않는다(§C-2 "응답에 없으면 앱이 생성 시점의 값을 채운다").
+     */
+    bridgeVersion?: string;
   };
   /**
    * TASK (post-generation operation snapshot) — see GenerationSnapshot's own
@@ -1932,6 +1953,24 @@ export interface SavedPack {
    * by savePack; never set independently of it.
    */
   setCode?: string;
+  /**
+   * 지시문 18 (TASK C) — 이 세트를 실제로 만든 생성 에이전트. savePack이
+   * options.generatedBy(가져오기 화면 선택값)에서 옮겨 담는다 — 어느
+   * 저장 경로도 이 필드를 빈 채로 남기지 않는다(정직한 기본값 'other').
+   * 세트가 쌓여도 "클로드코드와 코덱스 중 어느 쪽이 나은가"를 사후에
+   * 답할 수 없던 문제(§C-1)를 이 필드 하나로 해결한다.
+   */
+  generatedBy?: PackGeneratedBy;
+  /** generatedBy가 'other'일 때만 쓰는 자유 입력. */
+  generatedByNote?: string;
+  /**
+   * 지시문 18 (TASK C-2) — `blueprint.meta.bridgeVersion`을 top level로
+   * 미러링한다(setCode와 정확히 같은 패턴 — SavedPackMeta가 blueprint를
+   * 제외하므로, 가벼운 목록 조회에서도 이 값을 읽을 수 있어야 집계 화면이
+   * 매 팩을 전부 로드하지 않고도 동작한다). savePack이 항상 blueprint.meta.bridgeVersion과
+   * 동일하게 유지한다.
+   */
+  bridgeVersion?: string;
 }
 
 export type SavedPackMeta = Omit<SavedPack, 'blueprint' | 'options' | 'evaluation' | 'thumbnailSpec'>;

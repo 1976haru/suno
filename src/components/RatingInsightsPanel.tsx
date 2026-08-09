@@ -2,8 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import { exportRatingsToJson, getRatings, type RatingRecord } from '../core/ratingLedger';
 import { analyzeRatings, type AttributeInsight, type ConfidenceTier } from '../core/ratingAnalysis';
+import { listPacks } from '../core/library';
+import { computeAgentComparisonStats, MIN_SETS_FOR_AGENT_COMPARISON } from '../core/agentComparison';
 import { downloadText } from '../utils/exporters';
-import type { ChannelProfile } from '../types';
+import type { ChannelProfile, PackGeneratedBy, SavedPackMeta } from '../types';
+
+const GENERATED_BY_LABEL_KO: Record<PackGeneratedBy, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'Codex',
+  'fable-5': 'Fable 5',
+  'api-direct': 'API 직접 호출',
+  local: '로컬 생성',
+  other: '기타'
+};
 
 interface RatingInsightsPanelProps {
   channel: ChannelProfile;
@@ -55,10 +66,14 @@ function groupByAttribute(insights: AttributeInsight[]): Map<string, AttributeIn
 export default function RatingInsightsPanel({ channel, channels, onClose }: RatingInsightsPanelProps) {
   const [scopeChannelId, setScopeChannelId] = useState<string | 'all'>(channel.id);
   const [ratings, setRatings] = useState<RatingRecord[]>([]);
+  // 지시문 18 (TASK C-3) — 현재 워크스페이스의 팩 메타(blueprint 제외,
+  // listPacks가 이미 가벼운 조회로 제공 — 매 팩을 전부 로드하지 않는다).
+  const [packs, setPacks] = useState<SavedPackMeta[]>([]);
 
   async function refresh() {
-    const all = await getRatings();
-    setRatings(all);
+    const [allRatings, allPacks] = await Promise.all([getRatings(), listPacks()]);
+    setRatings(allRatings);
+    setPacks(allPacks);
   }
 
   useEffect(() => {
@@ -72,6 +87,10 @@ export default function RatingInsightsPanel({ channel, channels, onClose }: Rati
   );
   const grouped = useMemo(() => groupByAttribute(insights), [insights]);
   const totalCount = scopedRatings.length;
+  // 지시문 18 (TASK C-3) — 생성 에이전트별 실측. 채널 스코프가 아니라 항상
+  // 이 워크스페이스 전체로 집계한다(에이전트 비교는 채널 단위로 쪼갤
+  // 만큼 표본이 넉넉하지 않다 — 표본 부족 가드가 정확히 이 이유다).
+  const agentStats = useMemo(() => computeAgentComparisonStats(packs, ratings), [packs, ratings]);
 
   function handleExport() {
     downloadText('suno-rating-data.json', exportRatingsToJson(ratings), 'application/json;charset=utf-8');
@@ -114,6 +133,33 @@ export default function RatingInsightsPanel({ channel, channels, onClose }: Rati
 
       {totalCount === 0 && (
         <p className="step-hint">아직 평가한 곡이 없어요. 🎧 수노 진행 모드 또는 곡 카드에서 👍/🤷/👎로 평가해보세요.</p>
+      )}
+
+      {/*
+        지시문 18 (TASK C-3) — "생성 에이전트별 실측". 수치만 보여준다 — 어느
+        쪽이 낫다고 이 화면이 결론내지 않는다(§C-3 "자동 판정 금지"). 세트
+        MIN_SETS_FOR_AGENT_COMPARISON개 미만인 에이전트는 수치 대신
+        "표본 부족"만 보인다.
+      */}
+      {agentStats.length > 0 && (
+        <div className="option-block">
+          <h3>생성 에이전트별 실측</h3>
+          <div className="allocation-row-list">
+            {agentStats.map(stat => (
+              <div key={stat.generatedBy} className={stat.sampleSufficient ? 'allocation-row' : 'allocation-row insight-insufficient'} style={stat.sampleSufficient ? undefined : { opacity: 0.5 }}>
+                <div className="allocation-label">
+                  <b>{GENERATED_BY_LABEL_KO[stat.generatedBy]}</b>
+                  <span>
+                    세트 {stat.setCount}개 · {stat.songCount}곡
+                    {stat.sampleSufficient
+                      ? ` · qualityScore 평균 ${stat.avgQualityScore}${stat.ratedSongCount > 0 ? ` · 좋음 ${stat.goodPct}% · 별로 ${stat.badPct}% (n=${stat.ratedSongCount})` : ' · 채점된 곡 없음'}`
+                      : ` · 표본 부족(${MIN_SETS_FOR_AGENT_COMPARISON}세트 미만 — 비교로 쓰지 마세요)`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {[...grouped.entries()].map(([attribute, attributeInsights]) => (
