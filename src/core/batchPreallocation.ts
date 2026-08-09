@@ -35,6 +35,7 @@ import {
   type VocalType
 } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
+import { mergeAtom } from './promptAxisMerge';
 import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -131,6 +132,20 @@ export function preallocateSongSlots(
      * function's own flagshipCombo local below.
      */
     verifiedCombos?: VerifiedCombo[];
+    /**
+     * 지시문 14 (Phase 2 TASK A-1/A-2) — workspace-scoped cross-pack lyric
+     * theme/scene history, pre-fetched by the caller (App.tsx's own
+     * duplicationHistory fetch already reads situationLedger.ts's
+     * recentSceneSignatures for Gate 1/Gate 2 — this reuses that exact same
+     * pre-fetch, not a second read) and threaded into buildLyricThemePlan's
+     * own new `avoid` param below. This is the real fix for 지시문 14 §2-1's
+     * measured gap: recentSituations used to reach only the bridge
+     * instruction's TEXT (a "please avoid this" suggestion an LLM can
+     * ignore); this actually REMOVES those ids/scenes from the candidate
+     * pool before a slot is ever assigned one.
+     */
+    recentLyricThemeIds?: string[];
+    recentSituations?: string[];
   }
 ): PreassignedSongSlot[] {
   // TASK (genre-archetype sanitization) — mirrors core/localGenerator.ts's
@@ -698,7 +713,10 @@ export function preallocateSongSlots(
   // fix, mirrored exactly (same formula, same "only this one call" scope —
   // genre/hook/BPM/vocal rotation all keep the shared seed unchanged).
   const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
-  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed);
+  const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed, {
+    recentThemeIds: avoid?.recentLyricThemeIds,
+    recentSituations: avoid?.recentSituations
+  });
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
@@ -1024,22 +1042,6 @@ export interface ReconcilePreassignedOptions {
 }
 
 /**
- * TASK v3.43 Part A1 — appends `verbatim` to `stylePrompt` if it isn't
- * already present (case-insensitive), the same "trust but verify" pattern
- * enforceVocalTextInStylePrompt already uses for vocalText: the bridge/Batch
- * instructions ask the model to weave moneyChordText/hookDeviceText verbatim,
- * but real output can still drop or paraphrase it away. No-op when
- * `verbatim` is falsy (e.g. a slot with no hookDeviceText) or already
- * present anywhere in the prompt.
- */
-function appendVerbatimIfMissing(stylePrompt: string, verbatim: string | undefined): string {
-  if (!verbatim) return stylePrompt;
-  if (stylePrompt.toLowerCase().includes(verbatim.trim().toLowerCase())) return stylePrompt;
-  const trimmed = stylePrompt.trim().replace(/,\s*$/, '');
-  return trimmed ? `${trimmed}, ${verbatim}` : verbatim;
-}
-
-/**
  * TASK v3.43 Step 2 (Part A3) — instrumentSet is an array (unlike
  * moneyChordText/hookDeviceText's single ready-to-weave string), so this
  * checks/appends each instrument name individually: an agent that wove 2 of
@@ -1058,12 +1060,17 @@ function enforceInstrumentSetInStylePrompt(stylePrompt: string, instrumentSet: s
 /**
  * TASK v3.43 Step 2 (Part A3) — arrangementDensity is a bare level tag, not
  * text to weave; looks up its canonical descriptive phrase (the same one
- * the batch/bridge legend hands the agent) before falling back to the same
- * append-if-missing check every other verbatim atom uses.
+ * the batch/bridge legend hands the agent) before merging.
+ * 지시문 16 (TASK B-3) — now goes through mergeAtom (axis-aware) instead of
+ * appendVerbatimIfMissing (string-match only): arrangementDensity is a
+ * single-declaration axis (지시문 16 §B-2), so a provider that already wrote
+ * its own density phrase ("medium arrangement", "full arrangement, not a
+ * short cut" — both real fixture text) gets it replaced in place by the
+ * app's own locked value instead of both surviving side by side.
  */
 function enforceArrangementDensityInStylePrompt(stylePrompt: string, density: PreassignedSongSlot['arrangementDensity']): string {
   if (!density) return stylePrompt;
-  return appendVerbatimIfMissing(stylePrompt, ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[density]);
+  return mergeAtom(stylePrompt, { axis: 'arrangementDensity', text: ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[density], locked: true });
 }
 
 /**
@@ -1130,13 +1137,20 @@ function removeRepeatedInstrumentMentions(stylePrompt: string, instrumentSet: st
  * inline sequence inside reconcileWithPreassignedSlot below — extracted
  * here, unchanged, and given a real name so it can be pointed to as the
  * locked-field enforcement step, rather than living as an anonymous block
- * of local variables. A pure refactor: every one of these sub-steps
- * (enforceVocalTextInStylePrompt, appendVerbatimIfMissing ×6,
+ * of local variables. A pure refactor at the time: every one of these
+ * sub-steps (enforceVocalTextInStylePrompt, appendVerbatimIfMissing ×6,
  * enforceInstrumentSetInStylePrompt, enforceArrangementDensityInStylePrompt,
  * stripNegativeStyleFromStylePrompt, enforceTempoInStylePrompt,
  * diversifyVocalLedOpening, removeRepeatedInstrumentMentions) already
- * existed and already ran in this exact order; nothing here changes what
- * any of them does.
+ * existed and already ran in this exact order; nothing here changed what
+ * any of them did.
+ *
+ * 지시문 16 (TASK B-3) — the 7 appendVerbatimIfMissing calls (string-match
+ * only, blind to which conceptual axis a clause belongs to) are gone now,
+ * replaced by mergeAtom (core/promptAxisMerge.ts, axis-aware via
+ * data/promptAxisLexicon.ts's classifyClause) — see this function's own
+ * body below for the real fix (§1-2's 7-song intro contradiction, §1-3's
+ * 5-song duplicate lead-vocal declaration).
  *
  * A full generative compiler (a PromptSpec type producing the final text
  * directly, discarding provider prose entirely) stays out of scope: the
@@ -1155,11 +1169,20 @@ export function normalizeProviderStylePrompt(rawStylePrompt: string, slot: Preas
   const vocalFix = enforceVocalTextInStylePrompt(rawStylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
   const conflictFreeGenreText = stripConflictingGenreVocalGender(slot.genreText, slot.vocalGender);
   const slotForStylePrompt: PreassignedSongSlot = conflictFreeGenreText === slot.genreText ? slot : { ...slot, genreText: conflictFreeGenreText };
+  // 지시문 16 (TASK B-3) — appendVerbatimIfMissing(문자열 일치만 봄) 7곳을
+  // mergeAtom(축 인식)으로 교체. leadVocal은 vocalFix가 이미 주입한 값과
+  // 일치하도록 slot.vocalVariantText || slot.vocalText를 그대로 쓴다(기존
+  // 코드는 여기서 항상 slot.vocalText만 확인해, vocalFix가 vocalVariantText를
+  // 주입했을 때 서로 다른 문자열이라 인식되어 leadVocal 축 중복의 실제 원인
+  //중 하나였다 — 실측 §1-3). conceptText/signatureSound/genreTextToAppend는
+  // 모두 genre 축(복수 허용)으로 매핑 — 서로 다른 텍스트라 기존과 동일하게
+  // 전부 남는다(회귀 없음). moneyChordText는 harmony 축(복수 허용). intro는
+  // 단일 선언 축·locked — 이게 §1-2의 7곡 인트로 모순을 실제로 없애는 지점.
   let stylePrompt = vocalFix.text;
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.vocalText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.conceptText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.moneyChordText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.signatureSound);
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'leadVocal', text: slot.vocalVariantText || slot.vocalText || '', locked: true });
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'genre', text: slot.conceptText || '', locked: true });
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'harmony', text: slot.moneyChordText || '', locked: true });
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'genre', text: slot.signatureSound || '', locked: true });
   const existingPromptLower = stylePrompt.toLowerCase();
   const genreTextToAppend = conflictFreeGenreText
     && !existingPromptLower.includes(conflictFreeGenreText.trim().toLowerCase())
@@ -1170,9 +1193,9 @@ export function normalizeProviderStylePrompt(rawStylePrompt: string, slot: Preas
       !slot.instrumentSet!.some(instrument => atom.toLowerCase() === instrument.trim().toLowerCase())
     ).join(', ')
     : conflictFreeGenreText;
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, genreTextToAppend);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.hookDeviceText);
-  stylePrompt = appendVerbatimIfMissing(stylePrompt, slot.introTextureText);
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'genre', text: genreTextToAppend || '', locked: true });
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'hookDevice', text: slot.hookDeviceText || '', locked: true });
+  stylePrompt = mergeAtom(stylePrompt, { axis: 'intro', text: slot.introTextureText || '', locked: true });
   stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
   stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
   stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);

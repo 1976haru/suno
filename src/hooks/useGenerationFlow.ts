@@ -3,6 +3,7 @@ import { generateBlueprint, refineTracks } from '../providers';
 import { applySetTitlePrefixesToBlueprint, clampSongCount } from '../utils/generation';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import { resolveStageSettings } from '../core/apiAdvisor';
+import { currentWorkspaceId, type LedgerScope } from '../core/workspaceScope';
 import type { GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
 
 /** TASK D3 (v3.5) — applies the user's per-stage model choice (if any) on top of the base provider settings; unset stageModels leaves behavior exactly as before. */
@@ -12,9 +13,10 @@ function forStage(stage: 'lyrics' | 'evaluation', provider: ProviderSettings): P
   return resolveStageSettings(choice, provider);
 }
 
-export async function safeAvoidSet(channelId: string, language: GenerationOptions['lyricLanguage']) {
+/** 지시문 14 (TASK C) — `scope` replaces the old bare `channelId` param: every real caller now passes `{ workspaceId }` so cross-channel history within the same workspace is actually seen (see hookLedger.ts's recentUsedTitlesAndHooks own doc comment for the underlying fix). `{ channelId }` is still accepted for a caller that genuinely wants one channel's own history only. */
+export async function safeAvoidSet(scope: LedgerScope, language: GenerationOptions['lyricLanguage']) {
   try {
-    const { titles, hooks } = await recentUsedTitlesAndHooks(channelId, language);
+    const { titles, hooks } = await recentUsedTitlesAndHooks(scope, language);
     return { usedTitles: titles, usedHooks: hooks };
   } catch {
     // IndexedDB unavailable (private browsing, etc.) — generation still works, just without cross-pack dedup.
@@ -46,7 +48,7 @@ export function useGenerationFlow() {
     const songCount = clampSongCount(opts.songCount);
     setGenProgress({ done: 0, total: songCount });
     try {
-      const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
+      const avoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
       const generated = await generateBlueprint(
         { ...opts, songCount },
         genres,
@@ -92,7 +94,7 @@ export function useGenerationFlow() {
     setRefineWarnings([]);
     setRefineProgress({ done: 0, total: trackNos.length });
     try {
-      const avoid = await safeAvoidSet(opts.channel.id, opts.lyricLanguage);
+      const avoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
       const { blueprint: refinedBlueprint, warnings } = await refineTracks(
         blueprint,
         trackNos,

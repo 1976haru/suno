@@ -67,5 +67,12 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 그래프 밖) — tests/fixtures/*.json 같은 다른 순수 테스트 자산과 같은
   // 성격이라 앱 자체에 배선할 대상이 없다. UI에 "골든 케이스 현황" 패널이
   // 실제로 필요해지면 그때 배선한다(지금은 없는 요구를 미리 만들지 않는다).
-  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격'
+  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격',
+
+  // 지시문 16 (TASK C) — 7 워크스페이스 정책 레지스트리. gateDataContract.ts/
+  // verifiedSettingContract.ts와 같은 성격: 지금은 tests/promptAxisPolicy.test.ts
+  // 만 소비한다. "새 관문·새 품질 기능을 만들지 마십시오"라는 이 지시문 자신의
+  // 명시적 제약 때문에 실제 blocking 게이트에 배선하지 않았다 — 정책 값을
+  // 실제로 읽어야 하는 UI/게이트가 생기면 그때 배선한다.
+  'src/data/promptAxisPolicy.ts': 'CLI/테스트 전용 정책 레지스트리 — tests/promptAxisPolicy.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 16 TASK C, 새 게이트 생성 금지 제약으로 의도적 미배선)'
 };

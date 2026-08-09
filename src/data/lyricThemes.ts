@@ -426,6 +426,225 @@ export const adultLyricThemes: LyricTheme[] = [
     castKo: '혼자',
     motionKo: '정적'
   },
+  // 지시문 14 (Phase 2 TASK B) — 30 new entries, 40 -> 70. This is the one
+  // archetype with REAL registered usage (Phase 1 TASK D's backfill of 3
+  // real packs measured only 18/40 candidate themes actually used, but all
+  // 3 packs drew from the same narrow slice — 지시문 14 §1-1/§1-3). Strictly
+  // avoids every family §B-3 flags as already-covered here: letter/mail
+  // (x3: old-letter/mailbox-love-letter/waiting-mail-truck), coffee/tea/
+  // breakfast (x3), window/plant (x2), train/platform (x3), porch (x2),
+  // diner (x1) — plus radio/bookshop/newspaper/dance/boardwalk/calendar/
+  // laundry/riverside/highway/rooftop/neon-downtown, all already present.
+  {
+    id: 'senior-tomato-garden-harvest',
+    labelKo: '텃밭 토마토 수확',
+    scene: 'kneeling in a small backyard garden to pick the first ripe tomato of the season',
+    emotionalArc: 'patient waiting rewarded with quiet pride',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-church-choir-practice',
+    labelKo: '성가대 연습',
+    scene: 'holding a worn hymn book during a quiet weekday choir practice in an empty sanctuary',
+    emotionalArc: 'tired voice finding unexpected strength in harmony',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-fishing-pier-morning',
+    labelKo: '아침 낚시터',
+    scene: 'casting a line off a quiet pier before the town wakes up, coffee steam long gone cold',
+    emotionalArc: 'restless thoughts settling into patient stillness',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-bakery-bread-cooling-rack',
+    labelKo: '빵집 식힘망',
+    scene: 'watching fresh loaves cool on a rack through a neighborhood bakery window',
+    emotionalArc: 'ordinary errand becoming a small warm comfort',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-grandchild-video-call',
+    labelKo: '손주와의 영상통화',
+    scene: "fumbling with a tablet screen to answer a grandchild's video call and laughing at the shaky frame",
+    emotionalArc: 'clumsy technology giving way to pure delight',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-barbershop-old-friend-chat',
+    labelKo: '이발소 옛 친구와의 대화',
+    scene: 'settling into a familiar barbershop chair while an old friend across the room picks up an old argument',
+    emotionalArc: 'routine visit deepening into easy companionship',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-park-bench-chess-game',
+    labelKo: '공원 벤치 체스',
+    scene: 'moving a worn chess piece across a park bench board while pigeons wait for crumbs nearby',
+    emotionalArc: 'quiet rivalry settling into comfortable friendship',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-sewing-machine-mending',
+    labelKo: '재봉틀로 옷 수선',
+    scene: 'guiding fabric under an old sewing machine needle to mend a favorite worn shirt',
+    emotionalArc: 'careful repair becoming quiet satisfaction',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-greenhouse-orchid-care',
+    labelKo: '온실 난초 돌보기',
+    scene: 'misting a stubborn orchid in a small greenhouse and waiting patiently for one new bloom',
+    emotionalArc: 'quiet devotion rewarded with delicate beauty',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-farmers-market-stall',
+    labelKo: '농산물 직판장',
+    scene: 'choosing the ripest peaches at a weekend farmers market stall while vendors call out prices',
+    emotionalArc: 'simple errand blooming into cheerful conversation',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-piano-dust-cover-lifting',
+    labelKo: '피아노 덮개를 걷다',
+    scene: 'lifting a dusty cover off an old piano and pressing one hesitant key for the first time in years',
+    emotionalArc: 'rusty hesitation opening into rediscovered joy',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-wedding-anniversary-toast',
+    labelKo: '결혼기념일 건배',
+    scene: 'raising a quiet toast at a small anniversary dinner after all these years together',
+    emotionalArc: 'familiar routine deepening into renewed devotion',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-attic-trunk-keepsakes',
+    labelKo: '다락방 오래된 트렁크',
+    scene: 'opening a dusty attic trunk and finding keepsakes nobody has touched in decades',
+    emotionalArc: 'surprised memory softening into grateful reflection',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-museum-quiet-gallery-walk',
+    labelKo: '한적한 미술관 산책',
+    scene: 'wandering a quiet museum gallery on a weekday afternoon with no one else in the room',
+    emotionalArc: 'restless mind settling into calm appreciation',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-bicycle-basket-errand',
+    labelKo: '자전거 바구니 심부름',
+    scene: 'pedaling a bicycle with a small front basket to run one unhurried errand downtown',
+    emotionalArc: 'ordinary task becoming a small joyful outing',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-grandchildren-backyard-visit',
+    labelKo: '손주들 마당 방문',
+    scene: 'watching grandchildren chase each other across the backyard on a rare full-house Sunday',
+    emotionalArc: 'quiet house filling with unexpected joyful noise',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-library-return-desk',
+    labelKo: '도서관 반납대',
+    scene: 'returning a stack of well-loved books to a familiar library desk and choosing three more',
+    emotionalArc: 'quiet routine becoming a small private pleasure',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-seaside-chair-umbrella',
+    labelKo: '해변 접이의자 파라솔',
+    scene: 'settling into a folding beach chair under a striped umbrella with a book left unopened',
+    emotionalArc: 'restless urgency dissolving into unhurried rest',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-potluck-church-hall',
+    labelKo: '교회 친목 포트럭',
+    scene: 'setting a homemade dish on a long church hall table before old friends arrive for the potluck',
+    emotionalArc: 'quiet effort rewarded with warm shared belonging',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-mountain-cabin-fireplace',
+    labelKo: '산장 벽난로',
+    scene: 'stacking one more log onto a mountain cabin fireplace as evening settles over quiet hills',
+    emotionalArc: 'travel fatigue melting into cozy contentment',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-tailor-shop-old-suit',
+    labelKo: '양복점 오래된 정장',
+    scene: 'trying on an old suit at a tailor shop for an event that suddenly feels important again',
+    emotionalArc: 'faded self-doubt straightening into quiet dignity',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-music-box-winding',
+    labelKo: '오르골 태엽 감기',
+    scene: 'winding a small music box on a shelf and listening to the same melody it has always played',
+    emotionalArc: 'sudden memory arriving gently, without ache',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-orchard-apple-picking',
+    labelKo: '과수원 사과 따기',
+    scene: 'reaching for a high apple branch in a quiet orchard row on a crisp autumn morning',
+    emotionalArc: 'simple labor rewarded with a satisfying harvest',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-card-game-evening-table',
+    labelKo: '저녁 카드놀이',
+    scene: "shuffling a worn deck of cards at the kitchen table for the evening's usual friendly game",
+    emotionalArc: 'quiet evening warming into familiar laughter',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-lighthouse-keeper-memory',
+    labelKo: '등대지기의 기억',
+    scene: 'climbing the spiral stairs of an old lighthouse and remembering years spent keeping its light',
+    emotionalArc: 'faded duty softening into proud quiet nostalgia',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-swimming-pool-morning-laps',
+    labelKo: '아침 수영장',
+    scene: 'pushing off the wall for one more slow morning lap in an almost-empty community pool',
+    emotionalArc: 'stiff resistance easing into steady rhythm',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-antique-clock-repair',
+    labelKo: '골동품 시계 수리',
+    scene: 'opening the back panel of an old mantel clock to coax its ticking back to life',
+    emotionalArc: 'stubborn silence resolving into a satisfying tick',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-watercolor-painting-easel',
+    labelKo: '이젤 앞 수채화',
+    scene: 'mixing one more shade of blue at an easel set up near a sunlit window',
+    emotionalArc: 'restless hands finding calm through quiet color',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-harmonica-backstep-evening',
+    labelKo: '뒷계단 하모니카',
+    scene: 'playing a slow half-remembered tune on a harmonica from the back steps at dusk',
+    emotionalArc: 'quiet solitude softening into gentle nostalgia',
+    suitedArchetypes: ['senior-morning']
+  },
+  {
+    id: 'senior-campfire-grandchildren-story',
+    labelKo: '캠프파이어 손주 이야기',
+    scene: 'telling an old family story around a small backyard campfire while grandchildren lean in close',
+    emotionalArc: 'quiet memory passed on becoming shared warmth',
+    suitedArchetypes: ['senior-morning']
+  },
   {
     id: 'showa-late-night-drive',
     labelKo: '늦은 밤 드라이브',
@@ -538,6 +757,208 @@ export const adultLyricThemes: LyricTheme[] = [
     emotionalArc: 'routine ending with a small spark of longing',
     suitedArchetypes: ['showa-cafe']
   },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 18 -> 46 (16 exclusive above
+  // + 2 shared with senior-morning). Avoids every already-covered family
+  // (night-drive/rain-window/faded-photo/record-player/neon-street/
+  // last-train/payphone/lipstick-cup/jazz-bar/cassette-glovebox/
+  // arcade-umbrella/hotel-letter/seaside-motel/vinyl-store/elevator-mirror/
+  // cafe-counter).
+  {
+    id: 'showa-rooftop-bar-city-view',
+    labelKo: '옥상바 도시 전망',
+    scene: 'nursing a slow drink at a rooftop bar while the city grid glitters below in silence',
+    emotionalArc: 'quiet isolation opening into cool reflective calm',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-late-bakery-closing-shift',
+    labelKo: '늦은 베이커리 마감',
+    scene: 'wiping down flour-dusted counters as the last bakery light dims for the night',
+    emotionalArc: 'tired routine closing into a small private satisfaction',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-taxi-stand-queue-midnight',
+    labelKo: '자정 택시승강장 줄',
+    scene: 'waiting in a long taxi line past midnight while neon signs buzz overhead',
+    emotionalArc: 'restless impatience settling into people-watching calm',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-piano-bar-request-song',
+    labelKo: '피아노바 신청곡',
+    scene: 'passing a folded note with a song request across a dim piano bar',
+    emotionalArc: 'shy hesitation opening into a shared quiet smile',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-hotel-pool-night-swim',
+    labelKo: '호텔 옥상수영장 야간 수영',
+    scene: 'slipping into a quiet hotel rooftop pool after midnight with the skyline reflected on the water',
+    emotionalArc: 'restless overthinking dissolving into weightless calm',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-subway-mural-night-walk',
+    labelKo: '심야 지하철 벽화 거리',
+    scene: 'walking past a colorful underground mural on an empty late subway platform',
+    emotionalArc: 'flat exhaustion lifting into unexpected wonder',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-bookstore-cafe-late-reading',
+    labelKo: '늦은 밤 서점카페',
+    scene: 'losing track of time over one more chapter in a nearly empty bookstore cafe',
+    emotionalArc: 'restless week quieting into absorbed calm',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-wine-bar-tasting-alone',
+    labelKo: '혼자 즐기는 와인바',
+    scene: 'swirling a glass alone at a quiet wine bar counter, in no hurry to be anywhere else',
+    emotionalArc: 'solitary evening becoming unexpectedly rich company',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-night-market-food-stall',
+    labelKo: '심야 포장마차',
+    scene: 'ordering one more skewer from a steaming night-market stall as the crowd thins out',
+    emotionalArc: 'hungry loneliness warming into simple contentment',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-observation-deck-city-lights',
+    labelKo: '전망대 야경',
+    scene: 'standing at an observation deck railing while the whole city glitters silently below',
+    emotionalArc: 'small personal worries shrinking into wide perspective',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-allnight-diner-booth',
+    labelKo: '24시간 다이너 부스석',
+    scene: 'sliding into a quiet diner booth long after midnight and ordering the only thing that sounds right',
+    emotionalArc: 'aimless night settling into simple grounded comfort',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-art-gallery-late-opening',
+    labelKo: '늦은 갤러리 오프닝',
+    scene: 'wandering a nearly-empty gallery opening after the crowd has thinned to a few last guests',
+    emotionalArc: 'polite formality loosening into genuine connection',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-late-night-sento-spa',
+    labelKo: '늦은 밤 대중탕',
+    scene: 'soaking quietly in a near-empty late-night bathhouse pool with steam rising into silence',
+    emotionalArc: 'accumulated tension melting into total release',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-midnight-bakery-bread-pickup',
+    labelKo: '자정 빵집 픽업',
+    scene: "picking up warm bread from a bakery's overnight window on the walk home",
+    emotionalArc: 'tired errand becoming an unexpectedly warm comfort',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-street-musician-corner',
+    labelKo: '길거리 뮤지션의 코너',
+    scene: "stopping to listen to a street musician's quiet set on an empty late-night corner",
+    emotionalArc: 'hurried indifference slowing into genuine appreciation',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-hotel-bar-last-call',
+    labelKo: '호텔바 라스트콜',
+    scene: 'ordering one last round at a hotel bar as the bartender starts stacking chairs',
+    emotionalArc: 'lingering hesitation resolving into an honest goodbye',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-night-ferry-skyline',
+    labelKo: '야간 페리에서 본 스카이라인',
+    scene: 'watching the city skyline recede from the deck of a late-night ferry crossing',
+    emotionalArc: 'departure ache softening into calm anticipation',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-late-tailor-shop-fitting',
+    labelKo: '늦은 양장점 가봉',
+    scene: 'standing still for a late tailor shop fitting under one warm lamp after the shop has closed to others',
+    emotionalArc: 'tired stillness becoming quiet unexpected intimacy',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-night-bus-depot-waiting',
+    labelKo: '심야 버스터미널 대기',
+    scene: 'waiting on a hard depot bench for the last overnight bus with a bag at the feet',
+    emotionalArc: 'restless departure settling into resigned patience',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-midnight-flower-shop-delivery',
+    labelKo: '자정 꽃집 배달',
+    scene: 'carrying a wrapped bouquet through empty streets for one very late delivery',
+    emotionalArc: 'quiet obligation transforming into unexpected warmth',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-karaoke-bar-solo-mic',
+    labelKo: '노래방 혼자 마이크',
+    scene: 'taking a private karaoke room alone and finally singing one song all the way through',
+    emotionalArc: 'held-back emotion finally breaking into full voice',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-night-jogger-city-bridge',
+    labelKo: '야간 조깅 도시 다리',
+    scene: 'crossing a quiet city bridge on a late run with the river lights streaking below',
+    emotionalArc: 'restless static clearing into steady rhythm',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-antique-shop-closing-hour',
+    labelKo: '마감 시간 골동품점',
+    scene: 'browsing dusty antique shelves in the last minutes before a shop finally closes',
+    emotionalArc: 'idle curiosity narrowing into one meaningful find',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-hotel-lobby-piano-late',
+    labelKo: '호텔 로비 늦은 피아노',
+    scene: 'listening to a lone lobby pianist finish the last set while the front desk dims the lights',
+    emotionalArc: 'travel fatigue softening into unexpected peace',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-darkroom-photo-developing',
+    labelKo: '암실 사진 현상',
+    scene: 'watching an image slowly surface in a darkroom developing tray under red light',
+    emotionalArc: 'anxious waiting resolving into quiet revelation',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-midnight-noodle-shop-steam',
+    labelKo: '자정 국수집 김',
+    scene: 'blowing on a steaming bowl at a narrow midnight noodle counter after a long day',
+    emotionalArc: 'bone-deep tiredness melting into simple warmth',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-underground-jazz-club-entrance',
+    labelKo: '지하 재즈클럽 입구',
+    scene: 'ducking down a narrow stairway toward the muffled sound of a live jazz set below',
+    emotionalArc: 'curious hesitation opening into immersive discovery',
+    suitedArchetypes: ['showa-cafe']
+  },
+  {
+    id: 'showa-skyline-observatory-closing-time',
+    labelKo: '마감 시간 전망대',
+    scene: 'lingering at an observatory railing as staff begin quietly announcing closing time',
+    emotionalArc: 'reluctant ending softening into one last shared look',
+    suitedArchetypes: ['showa-cafe']
+  },
   {
     id: 'showa70s-night-train-ticket',
     labelKo: '70년대 야간열차 표',
@@ -634,6 +1055,203 @@ export const adultLyricThemes: LyricTheme[] = [
     suitedArchetypes: ['showa-70s'],
     languages: ['japanese']
   },
+  // 지시문 14 (Phase 2 TASK B) — 24 new entries, 12 -> 36, each a distinct
+  // material family from the original 12 above (no repeat of night-train/
+  // harbor/kissaten/station/photo-drawer/alley/record-shop/phone-booth/
+  // ferry/rooftop/curtain/coffee-counter) — this archetype could not even
+  // reach one 18-song set before this task (real measured gap, 지시문 14 §2-2).
+  {
+    id: 'showa70s-onsen-lantern-town',
+    labelKo: '온천마을 등불',
+    scene: 'walking a hot spring town lane in wooden sandals while paper lanterns sway above steaming gutters',
+    emotionalArc: 'travel-worn tiredness dissolving into warm belonging',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-matsuri-fireworks-riverside',
+    labelKo: '강변 여름 불꽃축제',
+    scene: 'watching summer fireworks bloom over the river in a borrowed yukata sleeve brushing against a sleeve nearby',
+    emotionalArc: 'crowded noise narrowing into one quiet held hand',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-cassette-mixtape-desk',
+    labelKo: '데스크 위 카세트 믹스테이프',
+    scene: 'rewinding a homemade cassette mixtape with a pencil while the label ink still smells fresh',
+    emotionalArc: 'private effort becoming a hopeful gift',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-bicycle-shop-repair',
+    labelKo: '자전거포 수리',
+    scene: 'waiting on a wooden stool while a bicycle shop owner patches a tire under a bare bulb',
+    emotionalArc: 'small delay becoming unexpected companionship',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-night-bus-window',
+    labelKo: '심야버스 창가',
+    scene: 'resting a forehead against a night bus window while distant town lights blur past like static',
+    emotionalArc: 'restless departure settling into drowsy peace',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-back-alley-izakaya',
+    labelKo: '뒷골목 이자카야',
+    scene: 'ducking under a red lantern into a narrow back-alley izakaya still fogged with evening steam',
+    emotionalArc: 'tired workday shedding into easy laughter',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-rooftop-laundry-line',
+    labelKo: '옥상 빨랫줄',
+    scene: 'pinning damp laundry to a rooftop rope while the whole neighborhood hums below in the afternoon heat',
+    emotionalArc: 'ordinary chore opening into a wide unexpected view',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-newspaper-delivery-dawn',
+    labelKo: '새벽 신문 배달',
+    scene: 'pedaling a delivery bicycle through a still-dark street and tossing the last folded newspaper onto a step',
+    emotionalArc: 'solitary dark labor meeting the first pale light',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-tobacco-stand-candy',
+    labelKo: '담배가게 사탕',
+    scene: 'counting small coins at a corner tobacco stand for one square of wrapped candy',
+    emotionalArc: 'careful counting becoming a small sweet victory',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-bookstore-rain-browsing',
+    labelKo: '비 오는 서점',
+    scene: 'sheltering from rain inside a narrow bookstore and turning pages slower than necessary',
+    emotionalArc: 'accidental shelter becoming unhurried discovery',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-streetcar-tram-bell',
+    labelKo: '노면전차 종소리',
+    scene: 'gripping a tram strap as the streetcar bell rings through a quiet crossing at dusk',
+    emotionalArc: 'swaying fatigue settling into rhythmic comfort',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-riverside-bench-evening',
+    labelKo: '저녁 강변 벤치',
+    scene: 'sitting on a riverside bench as paper lanterns from a distant boat drift past in the current',
+    emotionalArc: 'heavy silence loosening into gentle conversation',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-temple-bell-new-year',
+    labelKo: '새해 제야의 종',
+    scene: 'standing in a temple courtyard queue to ring the New Year bell once under a cold clear sky',
+    emotionalArc: 'weary old year lifting into quiet renewed hope',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-paper-fan-summer-heat',
+    labelKo: '여름 부채질',
+    scene: 'fanning slow air with a paper fan on a porch step while cicadas roar through the heavy afternoon',
+    emotionalArc: 'sluggish heat easing into unhurried closeness',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-schoolyard-reunion',
+    labelKo: '옛 교정 재회',
+    scene: 'walking back into an old schoolyard at dusk and recognizing a familiar silhouette by the gate',
+    emotionalArc: 'nervous distance closing into easy familiarity',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-barber-shop-mirror',
+    labelKo: '이발소 거울',
+    scene: 'watching a barber shop mirror fog slightly while warm towels steam over tired shoulders',
+    emotionalArc: 'quiet routine becoming an unexpected moment of care',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-bathhouse-sento-towel',
+    labelKo: '대중목욕탕 수건',
+    scene: 'carrying a small folded towel down a tiled sento hallway as steam curls beneath low lanterns',
+    emotionalArc: 'weary body loosening into simple comfort',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-cherry-blossom-bench',
+    labelKo: '벚꽃 아래 벤치',
+    scene: 'sitting under falling cherry blossoms on a park bench while petals gather quietly on a shared bag',
+    emotionalArc: 'fleeting bloom softening into unspoken affection',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-typewriter-office-late',
+    labelKo: '늦은 사무실 타자기',
+    scene: 'typing the final sentence on an office typewriter under one remaining desk lamp after everyone else has gone',
+    emotionalArc: 'lonely overtime settling into quiet resolve',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-radio-dial-tuning',
+    labelKo: '라디오 다이얼 맞추기',
+    scene: 'turning a static-filled radio dial slowly to find one familiar late-night program',
+    emotionalArc: 'searching frustration resolving into a comforting voice',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-countryside-grandmother-visit',
+    labelKo: '시골 할머니댁 방문',
+    scene: 'stepping off a rural bus toward a quiet family home in the countryside with cicadas loud in the summer trees',
+    emotionalArc: 'travel fatigue melting into unconditional welcome',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-lantern-paper-boat-river',
+    labelKo: '강물 위 종이등',
+    scene: 'setting a small paper lantern boat onto a dark river and watching it drift with dozens of others',
+    emotionalArc: 'quiet grief releasing into gentle collective hope',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-rice-field-harvest-dusk',
+    labelKo: '해질녘 벼 수확',
+    scene: 'walking home along a rice field path at dusk while cut stalks lean in gold evening light',
+    emotionalArc: 'tired labor settling into grounded satisfaction',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'showa70s-moving-day-boxes',
+    labelKo: '이사하는 날 상자들',
+    scene: 'taping the last cardboard box shut in an empty apartment room while afternoon light crosses the bare floor',
+    emotionalArc: 'chapter-closing sadness turning into forward-looking resolve',
+    suitedArchetypes: ['showa-70s'],
+    languages: ['japanese']
+  },
   {
     id: 'j2000s-keitai-mail-platform',
     labelKo: '역 앞 폴더폰 메일',
@@ -727,6 +1345,204 @@ export const adultLyricThemes: LyricTheme[] = [
     labelKo: '역 앞 기다림',
     scene: 'waiting under the station clock after school while the same melody leaks from wired earphones',
     emotionalArc: 'impatience turning into a sparkling arrival',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  // 지시문 14 (Phase 2 TASK B) — 24 new entries, 12 -> 36, each a distinct
+  // material family from the original 12 above (no repeat of keitai-mail/
+  // bicycle-school/festival-mail/graduation/first-train/CD-shop/rain-bus/
+  // rooftop-club/purikura/convenience-umbrella/exam-desk/station-wait) —
+  // this archetype could not even reach one 18-song set before this task
+  // (real measured gap, 지시문 14 §2-2).
+  {
+    id: 'j2000s-karaoke-box-duet',
+    labelKo: '노래방 듀엣',
+    scene: 'sharing one microphone in a small karaoke box booth and missing the same high note on purpose',
+    emotionalArc: 'nervous laughter turning into a bold shared chorus',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-ufo-catcher-arcade',
+    labelKo: '아케이드 인형뽑기',
+    scene: 'feeding coins into a UFO catcher machine and cheering when the claw finally holds',
+    emotionalArc: 'stubborn failed attempts turning into triumphant celebration',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-juku-late-cram-school',
+    labelKo: '늦은 학원 하굣길',
+    scene: 'walking home from late cram school under vending-machine light with a heavy bag on one shoulder',
+    emotionalArc: 'exhausted routine lifting into unexpected company',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-summer-homework-diary',
+    labelKo: '여름방학 숙제 일기',
+    scene: 'filling in the last blank page of a summer homework diary the night before it is due',
+    emotionalArc: 'guilty procrastination turning into relieved laughter',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-two-seater-bicycle',
+    labelKo: '이인승 자전거 하굣길',
+    scene: 'balancing on the back rack of a bicycle with arms looped loosely around a shoulder ahead',
+    emotionalArc: 'careful holding on becoming easy trust',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-vending-machine-warm-can',
+    labelKo: '자판기 따뜻한 캔',
+    scene: 'buying two warm cans from a roadside vending machine and pressing one into cold hands',
+    emotionalArc: 'small quiet gesture becoming a clear unspoken care',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-food-court-mall-meetup',
+    labelKo: '쇼핑몰 푸드코트 약속',
+    scene: 'scanning a crowded mall food court for one familiar face over a tray of shared fries',
+    emotionalArc: 'searching worry dissolving into relieved welcome',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-class-trip-bus-seat',
+    labelKo: '수학여행 버스 옆자리',
+    scene: 'sharing one earphone split down the middle on a school trip bus while the aisle fills with other chatter',
+    emotionalArc: 'awkward closeness settling into comfortable silence',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-goldfish-scooping-festival',
+    labelKo: '축제 금붕어 잡기',
+    scene: 'kneeling at a festival goldfish-scooping stall while a paper scoop softens in the water',
+    emotionalArc: 'competitive focus dissolving into shared laughter at failure',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-shared-scarf-winter',
+    labelKo: '겨울 함께 쓴 목도리',
+    scene: 'looping one long scarf around two necks while waiting at a freezing crosswalk after school',
+    emotionalArc: 'shivering discomfort turning into warm closeness',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-new-semester-seat-assignment',
+    labelKo: '새 학기 자리 배정',
+    scene: 'checking a new seating chart on the first day of term and hiding a small hopeful smile',
+    emotionalArc: 'anxious scanning turning into quiet delight',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-rooftop-lunch-bento',
+    labelKo: '옥상 도시락 점심',
+    scene: 'trading bento side dishes on the school rooftop during a short lunch break',
+    emotionalArc: 'ordinary sharing becoming an easy private ritual',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-after-school-library-desk',
+    labelKo: '방과후 도서관 책상',
+    scene: 'sitting across a library desk pretending to study while stealing quick glances over a textbook',
+    emotionalArc: 'quiet pretending giving way to an honest smile',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-train-delay-text-wait',
+    labelKo: '전철 지연 문자 기다림',
+    scene: 'checking a flip phone again for a reply while an announcement apologizes for the delayed train',
+    emotionalArc: 'anxious checking settling into patient relief',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-birthday-surprise-classroom',
+    labelKo: '교실 깜짝 생일파티',
+    scene: 'walking into a decorated classroom to a chorus of surprised birthday voices and paper streamers',
+    emotionalArc: 'stunned confusion melting into overwhelmed gratitude',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-sports-day-relay-baton',
+    labelKo: '체육대회 계주 바통',
+    scene: 'gripping a relay baton at the sports day starting line with the whole class shouting from the field',
+    emotionalArc: 'racing nerves exploding into shared victory',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-culture-festival-poster-prep',
+    labelKo: '문화제 포스터 준비',
+    scene: 'painting a hand-lettered festival poster late in an empty classroom with paint on both sleeves',
+    emotionalArc: 'tired teamwork becoming proud shared ownership',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-snow-day-cancelled-class',
+    labelKo: '눈으로 휴교한 날',
+    scene: 'staring out at unexpected snow piling on the school gate as morning classes get cancelled',
+    emotionalArc: 'routine disruption turning into spontaneous joy',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-valentine-chocolate-handoff',
+    labelKo: '발렌타인 초콜릿 전달',
+    scene: 'holding a small wrapped chocolate behind a school shoe locker and rehearsing one short sentence',
+    emotionalArc: 'terrified rehearsal resolving into brave delivery',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-convenience-store-part-time-job',
+    labelKo: '편의점 아르바이트',
+    scene: 'restocking a convenience store shelf during a slow late shift while rain streaks the front window',
+    emotionalArc: 'lonely shift work broken by a familiar visitor',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-summer-pool-class-whistle',
+    labelKo: '여름 수영수업 호루라기',
+    scene: "lining up at the pool edge at a whistle's signal with chlorine sharp in the summer air",
+    emotionalArc: 'nervous competition softening into shared exhaustion',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-graduation-photo-booth',
+    labelKo: '졸업 즉석사진 부스',
+    scene: 'squeezing into a cramped photo booth after graduation to fit one more face into the frame',
+    emotionalArc: 'crowded rush becoming a treasured captured instant',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-locker-shoe-change-note',
+    labelKo: '신발장 쪽지',
+    scene: 'finding a folded note tucked inside an indoor shoe at the entrance locker before first period',
+    emotionalArc: 'ordinary morning routine interrupted by a racing heart',
+    suitedArchetypes: ['j2000s'],
+    languages: ['japanese']
+  },
+  {
+    id: 'j2000s-summer-break-postcard',
+    labelKo: '여름방학 엽서',
+    scene: 'writing a short postcard from a hometown visit and wondering if a flip phone address is still the same',
+    emotionalArc: 'distant longing folding into a hopeful mailed word',
     suitedArchetypes: ['j2000s'],
     languages: ['japanese']
   },
@@ -909,6 +1725,207 @@ export const adultLyricThemes: LyricTheme[] = [
     suitedArchetypes: ['kr-2030-pop'],
     frameId: 'threshold-decision',
     castKo: '혼자'
+  },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 18 -> 46. Deliberately
+  // avoids the 6 families §B-3 names as already-covered in the existing 18
+  // above (phone/message x2, rain/umbrella x2, subway/last-train x1,
+  // cafe-alone x1, rooftop/city-light x1, social-media-memory x1) — new
+  // material only (gym, moving, market, hospital, reunion, ...).
+  {
+    id: 'kr2030-gym-after-work',
+    labelKo: '퇴근 후 헬스장',
+    scene: 'lacing up gym shoes after a long workday and forcing one more set before the lights dim',
+    emotionalArc: 'drained resistance turning into hard-earned relief',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-grocery-run-solo-cart',
+    labelKo: '혼자 장보는 저녁',
+    scene: 'pushing a half-empty cart through a late-night grocery aisle while deciding on dinner for one',
+    emotionalArc: 'quiet loneliness settling into simple self-care',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-moving-boxes-new-apartment',
+    labelKo: '새 자취방 이삿짐',
+    scene: 'unpacking the last taped box in an empty new apartment as evening light crosses the bare floor',
+    emotionalArc: 'overwhelmed exhaustion turning into proud independence',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-elevator-neighbor-small-talk',
+    labelKo: '엘리베이터 이웃 인사',
+    scene: 'trading a brief nod with a neighbor in a slow elevator ride up to a familiar floor',
+    emotionalArc: 'awkward silence softening into small comfort',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-laundromat-spin-cycle-wait',
+    labelKo: '빨래방 건조기 기다림',
+    scene: 'watching a laundromat dryer spin through the window while scrolling through nothing in particular',
+    emotionalArc: 'idle boredom settling into unexpected peace',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-bookstore-corner-reading',
+    labelKo: '서점 구석 독서',
+    scene: 'sitting on the floor of a bookstore corner finishing one more chapter before closing time',
+    emotionalArc: 'restless week quieting into absorbed calm',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-flea-market-weekend-stall',
+    labelKo: '주말 플리마켓',
+    scene: 'arranging secondhand finds on a folding table at a weekend flea market under uncertain skies',
+    emotionalArc: 'nervous first-timer energy becoming proud ownership',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-terrace-summer-grill-friends',
+    labelKo: '여름 테라스 바비큐',
+    scene: 'flipping skewers on a small terrace grill while friends laugh around a folding table',
+    emotionalArc: 'work fatigue melting into easy belonging',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-carwash-waiting-bench',
+    labelKo: '세차장 대기 벤치',
+    scene: 'sitting on a car wash waiting bench watching foam slide down the windshield in slow arcs',
+    emotionalArc: 'restless waiting settling into unplanned stillness',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-new-gym-membership-day',
+    labelKo: '헬스장 첫 등록',
+    scene: 'signing a gym membership form with a mix of resolve and quiet doubt about keeping the promise',
+    emotionalArc: 'hesitant resolve steadying into determined intent',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-coworker-lunch-vent',
+    labelKo: '점심시간 동료와 하소연',
+    scene: 'stirring a bowl of noodles across from a coworker trading quiet complaints about the same manager',
+    emotionalArc: 'shared frustration turning into relieved laughter',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-hiking-trail-sunrise',
+    labelKo: '새벽 등산 일출',
+    scene: 'catching a breath at a trail overlook just as the sunrise clears the ridge line',
+    emotionalArc: 'burning legs forgotten in a wide grateful view',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-balcony-plant-watering',
+    labelKo: '발코니 화분 물주기',
+    scene: 'watering a small balcony plant before work and noticing one new leaf has finally opened',
+    emotionalArc: 'routine chore becoming quiet unexpected pride',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-karaoke-solo-stress-release',
+    labelKo: '혼자 코인노래방',
+    scene: 'stepping into an empty coin karaoke booth alone to sing out one whole bad week',
+    emotionalArc: 'bottled tension breaking into cathartic release',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-job-interview-waiting-room',
+    labelKo: '면접 대기실',
+    scene: 'straightening a blazer in a company waiting room while rehearsing one answer one more time',
+    emotionalArc: 'sharp nerves steadying into quiet self-belief',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-moving-truck-goodbye',
+    labelKo: '이사트럭 앞 작별',
+    scene: 'waving off a moving truck outside an old building as a chapter of the neighborhood closes',
+    emotionalArc: 'nostalgic ache opening into hopeful anticipation',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-close-friend-wedding',
+    labelKo: '친한 친구의 결혼식',
+    scene: "catching a bouquet toss at a close friend's wedding and laughing through unexpected tears",
+    emotionalArc: 'bittersweet joy resolving into full-hearted happiness',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-hospital-waiting-room-worry',
+    labelKo: '병원 대기실',
+    scene: "sitting stiffly in a hospital waiting room chair, refreshing a phone for news that hasn't come yet",
+    emotionalArc: 'anxious stillness easing at the sound of good news',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-neighborhood-cat-feeding',
+    labelKo: '동네 고양이 밥 주기',
+    scene: 'setting out a small bowl for a neighborhood cat that waits by the same wall every evening',
+    emotionalArc: 'lonely routine turning into quiet companionship',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-gym-locker-pep-talk',
+    labelKo: '헬스장 락커룸 다짐',
+    scene: 'catching a tired reflection in a gym locker mirror and deciding to stay five more minutes',
+    emotionalArc: 'low motivation flickering back into stubborn resolve',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-potted-plant-new-home',
+    labelKo: '새집의 첫 화분',
+    scene: 'setting one small potted plant on an empty new windowsill to make the space finally feel like home',
+    emotionalArc: 'bare unfamiliarity softening into a sense of home',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-early-bus-stop-coffee',
+    labelKo: '이른 버스정류장 커피',
+    scene: 'holding a paper coffee cup at an empty bus stop before the first commuters arrive',
+    emotionalArc: 'sleepy dread easing into a quiet private moment',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-secondhand-furniture-pickup',
+    labelKo: '중고가구 픽업',
+    scene: 'loading a secondhand desk into the trunk of a borrowed car for a first real apartment',
+    emotionalArc: 'clumsy effort turning into satisfied accomplishment',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-class-reunion-nerves',
+    labelKo: '동창회 앞 긴장',
+    scene: 'straightening an outfit in a car mirror outside a class reunion, unsure how much has really changed',
+    emotionalArc: 'anxious comparison dissolving into easy old familiarity',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-solo-movie-theater-seat',
+    labelKo: '혼자 보는 심야영화',
+    scene: 'settling into an empty midweek theater row alone with popcorn and no one to explain the plot to',
+    emotionalArc: 'self-conscious solitude becoming guilt-free enjoyment',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-credit-card-bill-kitchen-table',
+    labelKo: '식탁 위 카드값',
+    scene: 'staring at a credit card statement at the kitchen table and doing quiet math with a tired sigh',
+    emotionalArc: 'financial dread settling into practical resolve',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-new-year-resolution-list',
+    labelKo: '새해 다짐 목록',
+    scene: 'writing a new year resolution list at a kitchen table with a candle burned down to its last hour',
+    emotionalArc: 'familiar self-doubt opening into fresh determination',
+    suitedArchetypes: ['kr-2030-pop']
+  },
+  {
+    id: 'kr2030-office-after-hours-empty-desk',
+    labelKo: '야근 후 텅 빈 사무실',
+    scene: 'turning off the last desk lamp in an empty office after a long overtime stretch',
+    emotionalArc: 'draining exhaustion settling into quiet self-respect',
+    suitedArchetypes: ['kr-2030-pop']
   },
   // TASK C2 — jp-2030 workspace's 18 lyric scenes. Deliberately Reiwa-era
   // 20s/30s life (seasonal turning points, inner monologue, a narrative arc
@@ -1093,6 +2110,208 @@ export const adultLyricThemes: LyricTheme[] = [
     motionKo: '이동 중(드라이브)',
     castKo: '둘'
   },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 18 -> 46. Avoids the same 6
+  // shared "2030" families §B-3 names (phone/message, rain/umbrella,
+  // subway/last-train, cafe-alone, rooftop/city-light, social-media-memory)
+  // AND every already-covered jp2030 family above (graduation/festival/
+  // cherry-blossom/autumn-leaves/first-snow/mirror-confession/diary/
+  // stage-entrance/convenience-store/highway-drive).
+  {
+    id: 'jp2030-new-job-first-day',
+    labelKo: '입사 첫날',
+    scene: 'straightening a new work badge in an elevator mirror on the first morning at a new company',
+    emotionalArc: 'stiff nervous formality loosening into a private hopeful smile',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-moving-to-city-alone',
+    labelKo: '상경 첫날',
+    scene: 'unlocking a tiny first apartment door alone in an unfamiliar city and setting one box down',
+    emotionalArc: 'overwhelming unfamiliarity settling into quiet resolve',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-new-year-shrine-wish',
+    labelKo: '새해 소원 신사참배',
+    scene: 'writing a wish on a small wooden ema plaque at a crowded New Year shrine visit',
+    emotionalArc: 'crowded noise narrowing into one private hope',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-summer-pool-friends-splash',
+    labelKo: '여름 수영장 친구들',
+    scene: 'splashing through a public pool with old friends on the one free weekend all summer',
+    emotionalArc: 'work-weary stiffness melting into carefree laughter',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-izakaya-after-work-toast',
+    labelKo: '퇴근 후 이자카야 건배',
+    scene: 'clinking a small glass with coworkers at a crowded izakaya table after a hard week',
+    emotionalArc: 'bottled exhaustion breaking into warm relief',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-morning-jog-riverside',
+    labelKo: '아침 강변 조깅',
+    scene: 'running along a quiet riverside path before sunrise with breath fogging in the cool air',
+    emotionalArc: 'restless anxiety burning off into clear-headed calm',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-department-store-gift-wrap',
+    labelKo: '백화점 선물포장',
+    scene: 'watching a department store clerk fold careful gift wrap corners for a birthday present',
+    emotionalArc: 'rushed errand slowing into thoughtful anticipation',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-old-classmate-chance-meeting',
+    labelKo: '우연히 만난 동창',
+    scene: 'recognizing an old classmate across a crowded crosswalk and hesitating before calling out',
+    emotionalArc: 'startled hesitation opening into warm recognition',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-solo-ramen-counter-seat',
+    labelKo: '혼밥 라멘집 카운터',
+    scene: 'slurping a late bowl of ramen alone at a counter seat after a long shift',
+    emotionalArc: 'tired solitude softening into simple contentment',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-summer-yukata-friends-walk',
+    labelKo: '여름 유카타 산책',
+    scene: 'walking in a borrowed yukata with friends toward distant festival drums',
+    emotionalArc: 'giddy anticipation building into shared excitement',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-resignation-letter-desk',
+    labelKo: '사직서 앞에서',
+    scene: 'folding a handwritten resignation letter at an empty desk after the office lights go down',
+    emotionalArc: 'anxious uncertainty steadying into brave resolve',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-mountain-cable-car-view',
+    labelKo: '케이블카에서 본 풍경',
+    scene: 'riding a mountain cable car above the clouds on a rare day off from work',
+    emotionalArc: 'flat routine lifting into wide-eyed wonder',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-cooking-class-first-attempt',
+    labelKo: '첫 요리교실',
+    scene: 'burning the first attempt at a recipe in a beginner cooking class and laughing it off with a stranger nearby',
+    emotionalArc: 'embarrassed fumbling turning into easy new friendship',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-summer-obon-hometown-return',
+    labelKo: '오봉 고향 방문',
+    scene: 'stepping off a crowded obon-season train back to a quiet hometown platform',
+    emotionalArc: 'big-city fatigue dissolving into familiar warmth',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-night-shift-vending-machine-break',
+    labelKo: '야간근무 자판기 휴식',
+    scene: 'leaning against a vending machine during a short night-shift break with the city silent outside',
+    emotionalArc: 'grinding fatigue softening into a private steady moment',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-matchmaking-park-bench-nerves',
+    labelKo: '소개팅 공원 벤치',
+    scene: 'sitting stiffly on a park bench for a first arranged meeting, unsure where to look',
+    emotionalArc: 'stiff formality relaxing into an easy real conversation',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-company-trip-hot-spring',
+    labelKo: '회사여행 온천',
+    scene: 'soaking in an outdoor hot spring during a company retreat, finally letting the whole week go',
+    emotionalArc: 'tense professional posture dissolving into total relaxation',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-apartment-hunting-empty-room',
+    labelKo: '빈 방 부동산 투어',
+    scene: 'standing in an empty rental room during a real estate viewing, imagining furniture that isn\'t there yet',
+    emotionalArc: 'blank uncertainty filling with quiet hopeful possibility',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-bicycle-commute-crossing',
+    labelKo: '자전거 출근길',
+    scene: 'pedaling a commuter bicycle through a familiar intersection just as the morning light turns gold',
+    emotionalArc: 'sluggish morning waking into a bright steady rhythm',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-desk-lunch-bento-break',
+    labelKo: '사무실 도시락 점심',
+    scene: 'unwrapping a homemade bento at a desk during a short lunch break between meetings',
+    emotionalArc: 'busy pressure pausing into a small grounding comfort',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-morning-market-fish-stall',
+    labelKo: '아침 어시장',
+    scene: 'wandering an early morning fish market with steam rising off fresh catch stalls',
+    emotionalArc: 'sleepy disorientation waking into vivid sensory delight',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-typing-cover-letter-midnight',
+    labelKo: '자소서 쓰는 밤',
+    scene: 'typing and deleting the same cover letter line past midnight before a job application deadline',
+    emotionalArc: 'circling self-doubt narrowing into one honest sentence',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-city-bike-share-return',
+    labelKo: '공유자전거 반납',
+    scene: 'docking a shared city bicycle at a station just as the evening crowd starts to thin',
+    emotionalArc: 'rushed commute settling into an unhurried walk home',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-summer-internship-last-day',
+    labelKo: '인턴 마지막 날',
+    scene: 'clearing out a small desk on the last day of a summer internship, business cards tucked carefully away',
+    emotionalArc: 'temporary belonging closing into hopeful ambition',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-birthday-solo-candle-apartment',
+    labelKo: '혼자 보내는 생일',
+    scene: 'lighting one candle on a small store-bought cake alone in a quiet apartment on a birthday',
+    emotionalArc: 'quiet loneliness turning into deliberate self-celebration',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-team-project-deadline-office',
+    labelKo: '팀 프로젝트 마감',
+    scene: 'stapling the final page of a team project together minutes before a deadline with coworkers cheering quietly',
+    emotionalArc: 'frantic pressure collapsing into relieved teamwork',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-summer-beach-trip-friends',
+    labelKo: '여름 바다 여행',
+    scene: 'kicking off sandals to run into cold morning waves on a spontaneous beach trip with old friends',
+    emotionalArc: 'stale routine breaking wide open into pure joy',
+    suitedArchetypes: ['jp-2030-pop']
+  },
+  {
+    id: 'jp2030-winter-illumination-street-walk',
+    labelKo: '겨울 일루미네이션 거리',
+    scene: 'walking slowly under a winter illumination display, breath visible in the cold bright air',
+    emotionalArc: 'quiet solitary chill warming into wide-eyed wonder',
+    suitedArchetypes: ['jp-2030-pop']
+  },
   // TASK K2 §7 — kr-idol-male's 18 lyric scenes. §7-2's own explicit
   // prohibitions: no senior-register imagery (회상/그리움/쓸쓸함/오래된 사물),
   // no kids vocabulary, and no reuse of kr2030's own scenes (퇴근길/서른/
@@ -1269,6 +2488,208 @@ export const adultLyricThemes: LyricTheme[] = [
     frameId: 'promise-made',
     castKo: '혼자'
   },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 18 -> 46. Avoids the 6
+  // K-pop families §B-3 names as already-covered (spotlight-stage,
+  // mirror-self-image, fire-rise, crown-throne, night-city-neon,
+  // run-fly-break-wall) and every already-covered concept from the 18
+  // above (limit-break/comeback/trainee/fan-letter/crossed-signals/
+  // regret/airport/tour-bus/rooftop/formation/debut/promise).
+  {
+    id: 'kridol-dance-battle-rehearsal',
+    labelKo: '연습실 댄스 배틀',
+    scene: 'trading turns in a friendly dance battle during a late rehearsal, laughing between competitive rounds',
+    emotionalArc: 'playful rivalry deepening into real mutual respect',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-recording-booth-vocal-take',
+    labelKo: '녹음부스 마지막 테이크',
+    scene: 'nailing the exact right take in a recording booth after a dozen close misses',
+    emotionalArc: 'frustrated repetition breaking into pure satisfaction',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-fan-meeting-handshake-line',
+    labelKo: '팬미팅 악수줄',
+    scene: "holding a fan's hand for one brief second at a meeting line and remembering every face after",
+    emotionalArc: 'routine greeting deepening into genuine connection',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-mv-set-waiting-between-takes',
+    labelKo: '뮤비 촬영 대기',
+    scene: 'sitting under a heat lamp between music video takes while the crew resets the same shot again',
+    emotionalArc: 'restless waiting settling into focused readiness',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-award-show-backstage-nerves',
+    labelKo: '시상식 백스테이지 긴장',
+    scene: 'straightening a jacket backstage at an award show while a category winner is announced through the wall',
+    emotionalArc: 'held-breath tension releasing into stunned gratitude',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-group-chat-late-night-support',
+    labelKo: '새벽 단톡방 응원',
+    scene: "reading encouraging messages from the members' group chat at 3am before a hard day",
+    emotionalArc: 'isolated worry dissolving into felt solidarity',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-hometown-visit-after-fame',
+    labelKo: '데뷔 후 고향 방문',
+    scene: 'walking the same childhood street now recognized by neighbors who used to just wave',
+    emotionalArc: 'strange new fame settling into grounded gratitude',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-injury-recovery-determination',
+    labelKo: '부상 재활 훈련',
+    scene: 'pushing through a slow physical therapy session, counting down the days back to the stage',
+    emotionalArc: 'frustrated setback hardening into stubborn determination',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-songwriting-studio-3am',
+    labelKo: '새벽 3시 작업실',
+    scene: 'scribbling one more lyric line alone in a small studio long after everyone else has gone home',
+    emotionalArc: 'creative frustration breaking open into a real breakthrough',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-photo-shoot-between-takes',
+    labelKo: '화보 촬영 사이',
+    scene: 'catching a breath between wardrobe changes at a photo shoot, joking quietly with the stylist',
+    emotionalArc: 'stiff posing tension loosening into an easy natural smile',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-tour-bus-card-games',
+    labelKo: '투어버스 카드게임',
+    scene: 'losing badly at cards on a long overnight tour bus ride while everyone else laughs',
+    emotionalArc: 'travel fatigue turning into warm shared laughter',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-member-birthday-surprise',
+    labelKo: '멤버 생일 서프라이즈',
+    scene: 'sneaking a small cake into the dorm kitchen to surprise a member right at midnight',
+    emotionalArc: 'quiet planning bursting into a loud shared celebration',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-overseas-interview-lost-in-translation',
+    labelKo: '해외 인터뷰 통역',
+    scene: 'fumbling through an overseas interview question before a translator steps in with a laugh',
+    emotionalArc: 'flustered embarrassment turning into good-natured relief',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-contract-signing-day',
+    labelKo: '계약서 서명하는 날',
+    scene: 'signing a new contract page by page at a long table, hand steadier than expected',
+    emotionalArc: 'quiet nerves settling into serious, grounded commitment',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-childhood-bedroom-poster',
+    labelKo: '어릴 적 방 안 포스터',
+    scene: 'finding an old poster of a favorite idol still taped inside a childhood bedroom closet',
+    emotionalArc: 'nostalgic distance collapsing into full-circle disbelief',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-sold-out-arena-empty-morning',
+    labelKo: '매진된 경기장의 아침',
+    scene: 'standing alone on an empty arena stage the morning before a sold-out show that night',
+    emotionalArc: 'quiet solitary awe steadying into focused calm',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-costume-fitting-room',
+    labelKo: '무대 의상 가봉실',
+    scene: 'standing still for pins and measurements in a costume fitting room before a comeback',
+    emotionalArc: 'restless impatience settling into anticipatory excitement',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-radio-interview-booth',
+    labelKo: '라디오 부스 인터뷰',
+    scene: 'leaning into a radio booth microphone to answer a question live, hearing the callback in real time',
+    emotionalArc: 'careful composure loosening into an honest laugh',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-fansign-event-nerves',
+    labelKo: '팬사인회 앞 긴장',
+    scene: 'practicing one signature over and over backstage before a long fan-sign line begins',
+    emotionalArc: 'repetitive nerves settling into warm readiness',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-group-huddle-before-entrance',
+    labelKo: '입장 전 그룹 허들',
+    scene: 'pulling into a tight huddle with the whole group seconds before walking out to the stage',
+    emotionalArc: 'scattered individual nerves fusing into one shared pulse',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-late-night-convenience-run',
+    labelKo: '늦은 밤 편의점 습격',
+    scene: 'raiding a convenience store together at 2am still in stage makeup after a long show',
+    emotionalArc: 'post-show adrenaline settling into easy off-duty joy',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-dorm-late-night-talk',
+    labelKo: '숙소 밤샘 대화',
+    scene: 'talking quietly on a dorm room floor long after lights-out about where this path might lead',
+    emotionalArc: 'private uncertainty easing into trusted companionship',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-broken-shoe-stage-recovery',
+    labelKo: '무대 위 신발 사고 수습',
+    scene: 'catching a stumble mid-performance when a shoe strap snaps, recovering the choreography without missing a beat',
+    emotionalArc: 'sudden panic mastered into unshaken professionalism',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-hate-comments-scroll-doubt',
+    labelKo: '악플 스크롤',
+    scene: 'scrolling past one cruel comment too many late at night before closing the phone for good',
+    emotionalArc: 'creeping self-doubt hardening into deliberate self-protection',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-training-center-hallway-walk',
+    labelKo: '연습생 시절 복도',
+    scene: 'walking the same training center hallway years later, nodding to a new class of hopeful trainees',
+    emotionalArc: 'quiet nostalgia turning into a sense of full-circle purpose',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-new-single-release-countdown',
+    labelKo: '신곡 발매 카운트다운',
+    scene: "watching the release countdown timer hit zero together on every member's phone at once",
+    emotionalArc: 'anxious anticipation exploding into shared relief',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-choreo-video-call-practice',
+    labelKo: '화상통화 안무 연습',
+    scene: "running through new choreography over a shaky video call while members correct each other's counts",
+    emotionalArc: 'clumsy distance practice tightening into real synchronization',
+    suitedArchetypes: ['kr-idol-male']
+  },
+  {
+    id: 'kridol-member-farewell-retirement',
+    labelKo: '멤버와의 작별',
+    scene: 'standing in a final group photo line as one member prepares to step away from the stage for good',
+    emotionalArc: 'heavy unspoken sadness resolving into grateful support',
+    suitedArchetypes: ['kr-idol-male']
+  },
   // TASK K3 §5 — kr-idol-female's 18 lyric scenes, entirely separate from
   // K2's own 18 (§5-1's own explicit instruction: reusing K2's scenes with
   // only the gender swapped would still pass §10-9's cross-similarity check
@@ -1444,6 +2865,210 @@ export const adultLyricThemes: LyricTheme[] = [
     suitedArchetypes: ['kr-idol-female'],
     frameId: 'self-direction',
     castKo: '둘'
+  },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 18 -> 46. Avoids the 6
+  // K-pop families §B-3 names as already-covered (spotlight-stage,
+  // mirror-self-image, fire-rise, crown-throne, night-city-neon,
+  // run-fly-break-wall) and every already-covered concept from the 18
+  // above (direction/stares/first-to-speak/ending-it/unshaken/friends/
+  // lifting-up/victory-lap/finally-said-it/getaway/last-laugh/
+  // daylight-rooftop/after-party/season-color/alley-strut/dance-floor/
+  // stay-close).
+  {
+    id: 'krkidolf-recording-booth-final-take',
+    labelKo: '녹음부스 완벽한 테이크',
+    scene: 'nailing a vocal run in one clean take after pushing through a dozen imperfect ones',
+    emotionalArc: 'stubborn perfectionism resolving into quiet pride',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-fan-letter-backstage',
+    labelKo: '백스테이지 팬레터',
+    scene: 'reading a handwritten letter from a young fan minutes before walking on stage',
+    emotionalArc: 'private doubt melting into renewed purpose',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-injury-recovery-comeback',
+    labelKo: '부상 재활 컴백 준비',
+    scene: 'stretching a healing ankle carefully before the first full rehearsal back',
+    emotionalArc: 'cautious fear firming into determined readiness',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-songwriting-credit-first-time',
+    labelKo: '첫 작사 크레딧',
+    scene: 'seeing her own name in the songwriting credits for the very first time on a released track',
+    emotionalArc: 'quiet disbelief blooming into fierce ownership',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-award-show-nomination-nerves',
+    labelKo: '시상식 후보 발표 긴장',
+    scene: "gripping a friend's hand as a nominee category is read aloud at an award show",
+    emotionalArc: 'held-breath tension breaking into overwhelmed joy',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-solo-stage-debut-nerves',
+    labelKo: '솔로 무대 데뷔',
+    scene: 'standing alone in the wings for a first solo stage without the rest of the group beside her',
+    emotionalArc: 'isolating fear steadying into fierce self-reliance',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-hair-makeup-chair-transformation',
+    labelKo: '헤어메이크업 체어',
+    scene: 'watching a mirror slowly transform an ordinary morning face into a stage-ready one',
+    emotionalArc: 'sleepy blankness sharpening into confident anticipation',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-childhood-dance-video-rewatch',
+    labelKo: '어릴 적 춤 영상 다시보기',
+    scene: 'rewatching an old childhood dance recital video and recognizing the same stubborn determination',
+    emotionalArc: 'nostalgic distance collapsing into grounded continuity',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-negotiating-her-own-contract',
+    labelKo: '스스로 협상하는 계약',
+    scene: 'reading contract terms line by line and asking for exactly what she knows she deserves',
+    emotionalArc: 'quiet intimidation replaced by calm assertiveness',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-fan-project-lightstick-sea',
+    labelKo: '팬 프로젝트 응원봉 바다',
+    scene: 'looking out at a sea of lightsticks perfectly timed to a song she wrote alone',
+    emotionalArc: 'private effort suddenly visible as collective love',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-overseas-tour-jet-lag',
+    labelKo: '해외투어 시차 적응',
+    scene: 'blinking awake in an unfamiliar hotel room, momentarily forgetting which country holds the next show',
+    emotionalArc: 'disoriented exhaustion steadying into professional focus',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-choreography-she-created',
+    labelKo: '직접 만든 안무',
+    scene: 'teaching her own choreography to the rest of the group for the first time, nervous about every count',
+    emotionalArc: 'anxious authorship settling into proud ownership',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-childhood-friend-still-there',
+    labelKo: '여전히 곁에 있는 오랜 친구',
+    scene: 'meeting a childhood friend backstage who never once treated her differently after fame',
+    emotionalArc: 'quiet gratitude anchoring into steady loyalty',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-magazine-cover-shoot-confidence',
+    labelKo: '매거진 커버 촬영',
+    scene: 'holding a still pose for a magazine cover shot, finding real confidence past the initial stiffness',
+    emotionalArc: 'self-conscious posing loosening into natural power',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-late-night-vocal-practice-alone',
+    labelKo: '늦은 밤 혼자 발성 연습',
+    scene: 'running scales alone in an empty practice room long after the rest of the group has gone to sleep',
+    emotionalArc: 'quiet solitary discipline hardening into private resolve',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-online-hate-turned-off',
+    labelKo: '악플 알림 끄기',
+    scene: 'turning off comment notifications for the night and choosing peace over one more scroll',
+    emotionalArc: 'creeping anxiety replaced by deliberate self-protection',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-hometown-fan-signing-full-circle',
+    labelKo: '고향 팬사인회',
+    scene: 'signing autographs in the same town square she used to walk through as an unknown trainee',
+    emotionalArc: 'quiet nostalgia deepening into full-circle pride',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-stylist-team-trust',
+    labelKo: '스타일리스트 팀과의 신뢰',
+    scene: "trusting a longtime stylist's instinct on a risky new look minutes before showtime",
+    emotionalArc: 'nervous uncertainty settling into confident trust',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-first-billboard-chart-entry',
+    labelKo: '첫 빌보드 차트 진입',
+    scene: "refreshing a chart page late at night and seeing her group's name climb higher than expected",
+    emotionalArc: 'anxious refreshing bursting into disbelieving joy',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-airport-fan-crowd-wave',
+    labelKo: '공항 팬들에게 손 흔들기',
+    scene: 'waving through an airport crowd barrier at fans who arrived before dawn just to see her pass',
+    emotionalArc: 'travel exhaustion melting into warm gratitude',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-choosing-her-own-stage-outfit',
+    labelKo: '직접 고른 무대 의상',
+    scene: "overruling a stylist's safe suggestion to wear the bolder outfit she actually wants",
+    emotionalArc: 'quiet hesitation firming into self-assured choice',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-group-dinner-after-hard-week',
+    labelKo: '힘든 한 주 뒤 회식',
+    scene: 'laughing over a late group dinner after a brutally hard promotional week finally ends',
+    emotionalArc: 'accumulated exhaustion dissolving into warm relief',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-mentoring-a-younger-trainee',
+    labelKo: '후배 연습생 멘토링',
+    scene: "correcting a nervous young trainee's posture gently, remembering exactly how that felt once",
+    emotionalArc: 'authoritative distance softening into genuine care',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-rainstorm-outdoor-stage-finish',
+    labelKo: '폭우 속 야외무대 완주',
+    scene: 'finishing a full outdoor set through sudden pouring rain without missing a single count',
+    emotionalArc: 'physical struggle transformed into fierce triumph',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-fan-fund-charity-project',
+    labelKo: '팬들과 함께한 기부',
+    scene: 'reading a thank-you letter from a charity her fanbase quietly funded in her name',
+    emotionalArc: 'private humility deepening into proud collective purpose',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-choosing-rest-over-schedule',
+    labelKo: '스케줄보다 휴식을 선택',
+    scene: 'canceling one nonessential schedule to finally get real sleep, without apologizing for it',
+    emotionalArc: 'guilty hesitation replaced by self-respecting clarity',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-first-time-writing-english-verse',
+    labelKo: '첫 영어 가사 작사',
+    scene: 'drafting her first English verse late at night, checking every word against a well-worn dictionary',
+    emotionalArc: 'careful uncertainty growing into confident expression',
+    suitedArchetypes: ['kr-idol-female']
+  },
+  {
+    id: 'krkidolf-ten-year-anniversary-stage',
+    labelKo: '데뷔 10주년 무대',
+    scene: 'standing on the same stage a decade after debut, recognizing faces that have been there from the start',
+    emotionalArc: 'accumulated years distilling into overwhelming gratitude',
+    suitedArchetypes: ['kr-idol-female']
   }
 ];
 
@@ -1544,6 +3169,207 @@ export const kidsLyricThemes: LyricTheme[] = [
     labelKo: '잠옷 입고 보는 달',
     scene: 'standing at the window in pajamas and waving goodnight to the moon',
     emotionalArc: 'busy day ending in safe calm',
+    suitedArchetypes: ['kids']
+  },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 14 -> 42, each a distinct
+  // material family from the original 14 above (no repeat of slide/puddle/
+  // snow/lunchbox/bubbles/crayon/gate/book/train/stairs/stickers/bells/
+  // butterfly/moon) — this archetype could not fill even one 18-song set
+  // before this task (real measured gap, 지시문 14 §2-2).
+  {
+    id: 'kids-kite-park-flying',
+    labelKo: '공원에서 연날리기',
+    scene: 'running across an open park to launch a kite while the string tugs against small hands',
+    emotionalArc: 'nervous first pull steadying into proud control',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-sandbox-digging',
+    labelKo: '모래놀이터 파기',
+    scene: 'digging a small tunnel in the sandbox and cheering when two hands finally meet in the middle',
+    emotionalArc: 'patient digging turning into triumphant discovery',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-hide-seek-backyard',
+    labelKo: '마당 숨바꼭질',
+    scene: 'crouching behind a garden bush during hide and seek while muffled counting drifts from the porch',
+    emotionalArc: 'held-breath excitement bursting into laughter when found',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-chalk-sidewalk-drawing',
+    labelKo: '보도블록 분필 그림',
+    scene: 'drawing a giant chalk sun across the sidewalk with knees pressed to warm concrete',
+    emotionalArc: 'quiet concentration opening into colorful pride',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-bicycle-training-wheels',
+    labelKo: '보조바퀴 자전거',
+    scene: 'pedaling a bicycle with training wheels down a driveway while a parent jogs alongside',
+    emotionalArc: 'wobbly nerves settling into steady balance',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-balloon-string-let-go',
+    labelKo: '놓친 풍선',
+    scene: 'watching a balloon slip from small fingers and drift above the rooftops',
+    emotionalArc: 'sudden loss softening into wide-eyed wonder',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-puzzle-pieces-living-room',
+    labelKo: '거실 퍼즐 조각',
+    scene: 'spreading puzzle pieces across the living room floor and searching for one stubborn corner',
+    emotionalArc: 'frustrated searching resolving into satisfied completion',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-treehouse-ladder-climb',
+    labelKo: '나무집 사다리',
+    scene: 'climbing a wooden ladder to a small treehouse with leaves brushing against bare arms',
+    emotionalArc: 'careful climbing turning into a proud lookout view',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-sprinkler-summer-yard',
+    labelKo: '여름 마당 스프링클러',
+    scene: 'running through a backyard sprinkler in bare feet while sunlight scatters through the water',
+    emotionalArc: 'squealing surprise settling into carefree joy',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-blanket-fort-living-room',
+    labelKo: '거실 담요 요새',
+    scene: 'building a blanket fort between two chairs and whispering secret rules inside',
+    emotionalArc: 'busy building becoming a cozy shared hideout',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-leaf-pile-autumn-jump',
+    labelKo: '낙엽 더미 점프',
+    scene: 'raking a pile of autumn leaves taller than small knees before jumping straight into the middle',
+    emotionalArc: 'careful raking exploding into gleeful chaos',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-birthday-candle-wish',
+    labelKo: '생일 초 소원',
+    scene: 'leaning close to a birthday cake to blow out one small candle before anyone can peek',
+    emotionalArc: 'shy anticipation blooming into a bright cheer',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-grocery-cart-ride',
+    labelKo: '장바구니 카트 타기',
+    scene: 'riding on the end of a grocery cart down a quiet aisle while the wheels squeak on the tile',
+    emotionalArc: 'restless waiting turning into a giggling ride',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-family-pet-walk',
+    labelKo: '강아지와 산책',
+    scene: 'holding a leash a little too tight on a first walk with the family dog around the block',
+    emotionalArc: 'careful caution loosening into happy trotting',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-storytime-circle-library',
+    labelKo: '도서관 이야기 시간',
+    scene: 'sitting cross-legged in a library storytime circle and leaning forward at the best part',
+    emotionalArc: 'shy quiet opening into wide-eyed listening',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-puppet-show-cardboard-box',
+    labelKo: '상자 인형극',
+    scene: 'poking two sock puppets over the edge of a cardboard box stage for a living room audience',
+    emotionalArc: 'nervous first line turning into confident performance',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-snow-angel-backyard',
+    labelKo: '마당 눈천사',
+    scene: 'lying back in fresh snow to sweep out a wobbly snow angel before hopping carefully away',
+    emotionalArc: 'cold hesitation melting into delighted pride',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-tent-camping-backyard',
+    labelKo: '마당 텐트 캠핑',
+    scene: 'unzipping a small backyard tent with a flashlight in hand while crickets start their evening song',
+    emotionalArc: 'nervous dark turning into brave adventure',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-seesaw-playground-balance',
+    labelKo: '놀이터 시소',
+    scene: 'balancing on one end of a playground seesaw and calling out to bounce a little higher',
+    emotionalArc: 'wobbly balance turning into rhythmic teamwork',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-bath-bubble-boat',
+    labelKo: '목욕탕 비누거품 배',
+    scene: 'floating a small toy boat through bathtub bubbles and steering it past a washcloth island',
+    emotionalArc: 'splashy play settling into calm bedtime quiet',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-sticker-book-collecting',
+    labelKo: '스티커북 모으기',
+    scene: 'peeling a new sticker into an almost-full sticker book and deciding exactly where it belongs',
+    emotionalArc: 'careful choosing becoming proud completion',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-balloon-animal-fair',
+    labelKo: '축제 풍선 동물',
+    scene: 'watching a fair vendor twist a balloon into an animal shape and reaching up for the finished tail',
+    emotionalArc: 'patient waiting turning into delighted surprise',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-face-painting-fair',
+    labelKo: '축제 페이스페인팅',
+    scene: 'sitting very still for a face-painting brush at a fair booth and peeking in a small mirror after',
+    emotionalArc: 'ticklish stillness turning into proud grinning',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-swing-set-push',
+    labelKo: '그네 밀어주기',
+    scene: 'kicking bare feet toward the sky on a playground swing while someone gives one more gentle push',
+    emotionalArc: 'timid swinging opening into fearless flying',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-sandcastle-beach-tide',
+    labelKo: '해변 모래성',
+    scene: 'patting a small sandcastle taller near the shoreline before the tide creeps in to visit it',
+    emotionalArc: 'proud building meeting a gentle acceptance of change',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-paper-airplane-classroom',
+    labelKo: '교실 종이비행기',
+    scene: 'folding a paper airplane at a classroom desk and testing one careful launch across the room',
+    emotionalArc: 'quiet focus lifting into surprised delight',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-new-shoes-first-day',
+    labelKo: '새 신발 첫날',
+    scene: 'lacing up brand new shoes on the first day of school and taking one careful bouncing step outside',
+    emotionalArc: 'nervous newness turning into confident stride',
+    suitedArchetypes: ['kids']
+  },
+  {
+    id: 'kids-goodnight-story-bedtime-hug',
+    labelKo: '잠자리 이야기와 포옹',
+    scene: 'listening to one more bedtime story with a stuffed animal tucked under one arm before the light goes low',
+    emotionalArc: 'wide-awake energy settling into safe sleepy comfort',
     suitedArchetypes: ['kids']
   },
   // TASK E1 §4 — kr-kids workspace's 22 education-concept themes (doc's own
@@ -1788,6 +3614,298 @@ export const kidsLyricThemes: LyricTheme[] = [
     ageTier: 'kids-t2',
     moodTag: 'calm',
     educationConcept: 'calming down with slow breathing',
+    frameId: 'instruct-repeat'
+  },
+  // 지시문 14 (Phase 2 TASK B) — 28 new entries, 22 -> 50, each a new
+  // educationConcept ("한 곡에 개념 하나" — see LyricTheme.educationConcept's
+  // own doc comment) not yet covered above.
+  {
+    id: 'krkids-count-six-to-ten',
+    labelKo: '6부터 10까지 세기',
+    scene: 'stacking one more block on a tower and counting all the way up past five to ten',
+    emotionalArc: 'careful counting building into a proud finished tower',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'counting from six to ten',
+    frameId: 'count-invite'
+  },
+  {
+    id: 'krkids-days-of-week-song',
+    labelKo: '요일 노래',
+    scene: 'flipping a calendar page each morning and singing the name of the new day',
+    emotionalArc: 'sleepy morning waking into a cheerful routine',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'naming the days of the week',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-seasons-of-year',
+    labelKo: '사계절 노래',
+    scene: 'holding up four pictures of falling snow, blooming flowers, bright sun, and red leaves in turn',
+    emotionalArc: 'curious sorting becoming confident recognition',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'naming the four seasons',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-weather-naming',
+    labelKo: '오늘의 날씨',
+    scene: 'looking out the window each morning and deciding whether it is sunny, rainy, or snowy outside',
+    emotionalArc: 'uncertain guessing turning into confident naming',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'naming basic weather types',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-body-parts-song',
+    labelKo: '몸 부분 이름',
+    scene: 'touching head, shoulders, knees, and toes one at a time in a simple call-and-response song',
+    emotionalArc: 'shy first touches turning into energetic full-body play',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t1',
+    moodTag: 'energetic',
+    educationConcept: 'naming basic body parts',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-family-members-song',
+    labelKo: '가족 이름 부르기',
+    scene: 'pointing to each person in a family photo and naming who they are one by one',
+    emotionalArc: 'quiet pointing warming into proud recitation',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'naming family members',
+    frameId: 'list-question'
+  },
+  {
+    id: 'krkids-opposites-big-small',
+    labelKo: '크다 작다 반대말',
+    scene: 'holding up a big ball and a small ball side by side and calling out which is which',
+    emotionalArc: 'careful comparing becoming playful certainty',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'learning opposite words like big and small',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-sharing-taking-turns',
+    labelKo: '순서대로 나누기',
+    scene: 'passing one favorite toy back and forth with a friend, waiting patiently for a turn',
+    emotionalArc: 'reluctant waiting softening into generous sharing',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'calm',
+    educationConcept: 'sharing and taking turns',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-saying-sorry',
+    labelKo: '미안하다고 말하기',
+    scene: 'bumping into a friend by accident and learning to say sorry before hugging it out',
+    emotionalArc: 'awkward guilt resolving into warm forgiveness',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'calm',
+    educationConcept: 'saying sorry and making up',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-tying-shoelaces',
+    labelKo: '신발끈 묶기',
+    scene: 'looping two shoelace ends slowly into a bow, trying again after it comes undone',
+    emotionalArc: 'frustrated fumbling turning into proud mastery',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'tying shoelaces',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-crossing-street-safely',
+    labelKo: '안전하게 길 건너기',
+    scene: 'stopping at a curb to look left and right before crossing at the crosswalk with a grown-up',
+    emotionalArc: 'careful caution becoming confident safe steps',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'crossing the street safely',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-recycling-sorting',
+    labelKo: '분리수거 하기',
+    scene: 'sorting bottles, paper, and cans into three different colored bins at home',
+    emotionalArc: 'confusing choices turning into satisfying order',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'sorting recycling correctly',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-planting-seed-growing',
+    labelKo: '씨앗 심고 키우기',
+    scene: 'pressing a small seed into a paper cup of soil and watering it every day to watch it grow',
+    emotionalArc: 'impatient waiting rewarded with delighted discovery',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'planting a seed and watching it grow',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-getting-dressed-independently',
+    labelKo: '혼자 옷 입기',
+    scene: 'buttoning a shirt slowly without help and feeling proud of every button done alone',
+    emotionalArc: 'clumsy struggle turning into independent pride',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'getting dressed independently',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-table-setting-roleplay',
+    labelKo: '식탁 차리기 놀이',
+    scene: 'placing a plate, cup, and spoon carefully at each seat before pretend dinner begins',
+    emotionalArc: 'careful placing becoming proud helpful contribution',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'roleplaying setting the table',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-postal-worker-roleplay',
+    labelKo: '우체부 놀이',
+    scene: 'delivering pretend letters door to door in a cardboard mail bag around the living room',
+    emotionalArc: 'busy pretend errand becoming joyful purpose',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'energetic',
+    educationConcept: 'roleplaying a postal worker',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-farmer-roleplay',
+    labelKo: '농부 놀이',
+    scene: 'pretending to plant, water, and harvest a toy vegetable patch in the backyard',
+    emotionalArc: 'imaginative labor turning into proud harvest pride',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'roleplaying a farmer',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-teacher-roleplay',
+    labelKo: '선생님 놀이',
+    scene: 'standing at a small chalkboard and teaching stuffed animals their letters for the day',
+    emotionalArc: 'shy first lesson growing into confident teaching',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    educationConcept: 'roleplaying a teacher',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-baker-roleplay',
+    labelKo: '빵집 아저씨 놀이',
+    scene: 'shaping pretend dough into little loaves and lining them up on a toy bakery tray',
+    emotionalArc: 'messy play becoming a proud finished display',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'roleplaying a baker',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-english-animal-word',
+    labelKo: '영어 동물 단어',
+    scene: 'pointing at a picture book animal and repeating its English name slowly together',
+    emotionalArc: 'careful repetition turning into confident recall',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    learningLanguagePair: { base: 'korean', target: 'english' },
+    educationConcept: 'learning an animal word in English',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-english-family-word',
+    labelKo: '영어 가족 단어',
+    scene: 'pointing to mom and dad in a photo and practicing the English words for each',
+    emotionalArc: 'shy mispronunciation turning into proud correct recall',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    learningLanguagePair: { base: 'korean', target: 'english' },
+    educationConcept: 'learning a family word in English',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-english-body-part-word',
+    labelKo: '영어 신체 단어',
+    scene: 'touching a nose and an ear while practicing their English names in a simple song',
+    emotionalArc: 'giggly mixing up turning into confident naming',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    learningLanguagePair: { base: 'korean', target: 'english' },
+    educationConcept: 'learning a body-part word in English',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-rhyming-word-game',
+    labelKo: '라임 말놀이',
+    scene: 'trading silly rhyming words back and forth until one makes everybody laugh',
+    emotionalArc: 'careful listening turning into playful wordplay',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'energetic',
+    educationConcept: 'playing a rhyming word game',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-singing-pitch-high-low',
+    labelKo: '높은음 낮은음 노래',
+    scene: 'raising a hand high for a high note and low for a low note while singing along',
+    emotionalArc: 'uncertain guessing becoming confident musical play',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'recognizing high and low pitch',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-musical-instrument-naming',
+    labelKo: '악기 이름 맞히기',
+    scene: 'shaking a tambourine and tapping a drum, naming each instrument by its sound',
+    emotionalArc: 'curious listening turning into confident naming',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'naming musical instruments by sound',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-traffic-light-rule',
+    labelKo: '신호등 규칙',
+    scene: 'watching a toy traffic light change from red to green before walking a pretend crosswalk',
+    emotionalArc: 'careful watching becoming confident rule-following',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    educationConcept: 'learning the traffic light rule',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-washing-face-morning',
+    labelKo: '아침 세수하기',
+    scene: 'splashing cool water on a sleepy face at the bathroom sink to wake up for the day',
+    emotionalArc: 'groggy reluctance turning into refreshed readiness',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t1',
+    educationConcept: 'washing your face in the morning',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'krkids-cleaning-up-spilled-milk',
+    labelKo: '흘린 우유 닦기',
+    scene: 'wiping up a spilled cup of milk with a cloth without any fuss and trying again carefully',
+    emotionalArc: 'startled worry settling into calm capable cleanup',
+    suitedArchetypes: ['kr-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'calm',
+    educationConcept: 'cleaning up a small spill calmly',
     frameId: 'instruct-repeat'
   },
   // TASK F1 §4 — jp-kids workspace's 23 themes (doc's own §4-1 breakdown
@@ -2085,6 +4203,262 @@ export const kidsLyricThemes: LyricTheme[] = [
     ageTier: 'kids-t2',
     moodTag: 'calm',
     frameId: 'instruct-repeat'
+  },
+  // 지시문 14 (Phase 2 TASK B) — 24 new entries, 25 -> 49, each a distinct
+  // scene family from the 25 above. Prioritizes onomatopoeiaGroup ids
+  // (data/onomatopoeia.ts) not yet used by any existing jp-kids entry
+  // (motion-tiptoe, eat-bite/slurp/crunch/lick, vehicle-car/boat/plane/bike,
+  // emotion-nervous/happy/proud) before reusing an already-represented group
+  // on a genuinely new scene.
+  {
+    id: 'jpkids-mochi-pounding-play',
+    labelKo: '떡메치기 놀이',
+    scene: 'taking a gentle turn with a small wooden mallet during a New Year mochi-pounding celebration',
+    emotionalArc: 'nervous first swing turning into joyful rhythm',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'energetic',
+    onomatopoeiaGroup: 'motion-stomp',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-furoshiki-wrapping-game',
+    labelKo: '후로시키 보자기 놀이',
+    scene: 'folding a colorful cloth furoshiki around a small gift and tying the corners into a neat knot',
+    emotionalArc: 'careful folding becoming proud presentation',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    onomatopoeiaGroup: 'motion-wipe',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-tanabata-wish-star',
+    labelKo: '칠석 소원 별',
+    scene: 'writing a small wish on a colorful strip of paper and tying it to a tanabata bamboo branch',
+    emotionalArc: 'quiet hoping opening into bright wonder',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    onomatopoeiaGroup: 'emotion-excited',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-newyear-kite-flying',
+    labelKo: '새해 연날리기',
+    scene: 'running across an open field to launch a New Year kite into a cold clear sky',
+    emotionalArc: 'nervous first pull steadying into proud control',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'energetic',
+    onomatopoeiaGroup: 'vehicle-plane',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-bathtime-rubber-duck',
+    labelKo: '목욕 시간 오리 인형',
+    scene: 'floating a small rubber duck through bathtub bubbles and steering it past a washcloth island',
+    emotionalArc: 'splashy play settling into calm bedtime quiet',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    moodTag: 'calm',
+    onomatopoeiaGroup: 'vehicle-boat',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-shrine-hatsumode-clap',
+    labelKo: '신사 참배 손뼉',
+    scene: 'clapping twice softly at a small shrine visit and bowing before making a quiet wish',
+    emotionalArc: 'shy unfamiliar ritual becoming proud participation',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    onomatopoeiaGroup: 'motion-clap',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-bubble-blowing-shabon',
+    labelKo: '비눗방울 놀이',
+    scene: 'blowing soap bubbles into the yard and chasing the biggest one toward the fence',
+    emotionalArc: 'curious blowing turning into giggly chasing',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'motion-wave',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-taiko-drum-practice',
+    labelKo: '타이코 북 연습',
+    scene: 'striking a small taiko drum in a simple rhythm during a group music lesson',
+    emotionalArc: 'hesitant first hit growing into confident rhythm',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'energetic',
+    onomatopoeiaGroup: 'motion-stomp',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-onigiri-making',
+    labelKo: '주먹밥 만들기',
+    scene: 'shaping warm rice into a small triangle onigiri with careful little hands',
+    emotionalArc: 'messy first attempt becoming a proud homemade snack',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'eat-chew',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-tsuyu-puddle-jumping',
+    labelKo: '장마철 물웅덩이 점프',
+    scene: 'jumping into small puddles in bright rain boots during the early summer rainy season',
+    emotionalArc: 'careful steps becoming playful splashing confidence',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    moodTag: 'energetic',
+    onomatopoeiaGroup: 'motion-jump',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-origami-crane-folding',
+    labelKo: '종이학 접기',
+    scene: 'folding careful creases into a small paper crane at the kitchen table',
+    emotionalArc: 'frustrated folding resolving into a proud finished shape',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    moodTag: 'calm',
+    onomatopoeiaGroup: 'motion-wipe',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-airplane-pretend-flying',
+    labelKo: '비행기 놀이',
+    scene: 'stretching both arms out like wings and running across the yard pretending to be an airplane',
+    emotionalArc: 'wobbly wing-arms steadying into soaring joy',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'energetic',
+    onomatopoeiaGroup: 'emotion-happy',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-bicycle-training-wheels',
+    labelKo: '보조바퀴 자전거',
+    scene: 'pedaling a bicycle with training wheels down a quiet street while a parent jogs alongside',
+    emotionalArc: 'wobbly nerves settling into steady balance',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'vehicle-bike',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-toy-car-driving-pretend',
+    labelKo: '장난감 자동차 운전 놀이',
+    scene: 'gripping a toy steering wheel and making engine sounds while driving around the living room',
+    emotionalArc: 'quiet solo play becoming an imaginative adventure',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'vehicle-car',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-apple-slice-biting',
+    labelKo: '사과 조각 베어먹기',
+    scene: 'biting into a crisp apple slice at snack time and grinning at the loud crunch',
+    emotionalArc: 'shy first bite turning into delighted crunching',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'eat-bite',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-udon-noodle-slurping',
+    labelKo: '우동 후루룩 먹기',
+    scene: 'slurping a long noodle from a warm bowl of udon and laughing when it splashes back',
+    emotionalArc: 'messy first slurp becoming happy giggling',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'eat-slurp',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-senbei-cracker-crunching',
+    labelKo: '센베이 과자 아삭아삭',
+    scene: 'crunching through a rice cracker one careful bite at a time during snack time',
+    emotionalArc: 'careful nibbling becoming satisfied munching',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'eat-crunch',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-icecream-cone-licking',
+    labelKo: '아이스크림 콘 핥아먹기',
+    scene: 'licking around the edge of a melting ice cream cone before it drips onto small fingers',
+    emotionalArc: 'urgent rushing turning into slow happy enjoyment',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t1',
+    onomatopoeiaGroup: 'eat-lick',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-first-day-school-nerves',
+    labelKo: '입학 첫날 긴장',
+    scene: 'standing at the school gate on the very first day, gripping a new backpack strap tightly',
+    emotionalArc: 'nervous stillness opening into brave first steps',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t3',
+    onomatopoeiaGroup: 'emotion-nervous',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-skipping-to-grandmas-house',
+    labelKo: '할머니댁 가는 길 콩콩 걷기',
+    scene: "skipping happily down a familiar path on the way to visit grandma's house",
+    emotionalArc: 'restless energy turning into bright anticipation',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'energetic',
+    onomatopoeiaGroup: 'emotion-happy',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-proud-drawing-showing',
+    labelKo: '그림 자랑하기',
+    scene: 'holding up a finished crayon drawing proudly to show a parent right after the last stroke',
+    emotionalArc: 'quiet concentration bursting into proud display',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'emotion-proud',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-tiptoe-quiet-game',
+    labelKo: '살금살금 걷기 놀이',
+    scene: 'tiptoeing carefully past a sleeping pet so as not to wake it up',
+    emotionalArc: 'careful stillness becoming a fun secret mission',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'calm',
+    onomatopoeiaGroup: 'motion-tiptoe',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-lantern-festival-walk',
+    labelKo: '등불 축제 산책',
+    scene: "walking slowly under paper lanterns at an evening festival, holding a grown-up's hand tightly",
+    emotionalArc: 'wide-eyed wonder settling into cozy closeness',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    moodTag: 'calm',
+    onomatopoeiaGroup: 'emotion-excited',
+    frameId: 'instruct-repeat'
+  },
+  {
+    id: 'jpkids-morning-greeting-bow',
+    labelKo: '아침 인사 허리숙이기',
+    scene: 'bowing politely and calling out a bright morning greeting to a teacher at the school gate',
+    emotionalArc: 'shy quiet morning opening into cheerful connection',
+    suitedArchetypes: ['jp-kids-song'],
+    ageTier: 'kids-t2',
+    onomatopoeiaGroup: 'emotion-smile',
+    frameId: 'instruct-repeat'
   }
 ];
 
@@ -2244,16 +4618,36 @@ export function lyricThemesForArchetype(archetype: ChannelArchetype | undefined,
  * regression-measured reason this doc comment already gives above — this is
  * the same "real, tested, honestly-labeled hook, not fabricated ahead of a
  * real trigger" status resolveLocalScenePlanningMode below already has.
+ *
+ * 지시문 14 (Phase 2 TASK A-1) — `avoid` is a SEPARATE, additive second
+ * parameter, deliberately not folded into the widening/regression-prone
+ * `scenePlanningMode` mechanism this doc comment already warns about above.
+ * It only ever REMOVES ids/scenes from the already-archetype-suited,
+ * already-frame-tagged pool `lyricThemesForArchetype` returns — it never
+ * changes which SOURCE array is used or adds untagged themes, so it cannot
+ * reproduce that regression (frame-diversity comes from the pool's own
+ * frameId tags, which this filter never touches, only shrinks). This is the
+ * real fix for 지시문 14 §2-1's own measured gap: "회피 목록이 배정에 쓰이지
+ * 않는다" — batchPreallocation.ts's own buildLyricThemePlan call is the one
+ * real caller that threads a caller-pre-fetched cross-pack avoid list
+ * through here (see that file's own preallocateSongSlots `avoid` param doc
+ * comment). Returns the filtered pool AS-IS, however small — this function
+ * never decides whether that's "enough" (core/generationPreflight.ts's own
+ * new hard-block condition does, so a caller can surface an actionable
+ * Korean reason instead of this module silently degrading to duplicates).
  */
 export function lyricThemesForOptions(
-  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'> & { scenePlanningMode?: ScenePlanningMode }
+  opts: Pick<GenerationOptions, 'channel' | 'customLyricThemeScene' | 'lyricLanguage' | 'customConcept'> & { scenePlanningMode?: ScenePlanningMode },
+  avoid?: { recentThemeIds?: string[]; recentSituations?: string[] }
 ): LyricTheme[] {
   const base = lyricThemesForArchetype(opts.channel.archetype, opts.customLyricThemeScene, opts.lyricLanguage);
-  if (isKidsArchetype(opts.channel.archetype) && opts.channel.preferredMoods?.includes('calm-focus')) {
-    const calmFiltered = base.filter(theme => theme.moodTag !== 'energetic');
-    if (calmFiltered.length >= 12) return calmFiltered;
-  }
-  return base;
+  const moodFiltered = isKidsArchetype(opts.channel.archetype) && opts.channel.preferredMoods?.includes('calm-focus')
+    ? (base.filter(theme => theme.moodTag !== 'energetic').length >= 12 ? base.filter(theme => theme.moodTag !== 'energetic') : base)
+    : base;
+  const avoidIds = avoid?.recentThemeIds?.length ? new Set(avoid.recentThemeIds) : undefined;
+  const avoidScenes = avoid?.recentSituations?.length ? new Set(avoid.recentSituations.map(s => s.trim().toLowerCase())) : undefined;
+  if (!avoidIds && !avoidScenes) return moodFiltered;
+  return moodFiltered.filter(theme => !avoidIds?.has(theme.id) && !avoidScenes?.has(theme.scene.trim().toLowerCase()));
 }
 
 /** Real, local-generation equivalent of core/bridgeInstruction.ts's own resolveScenePlanningMode — same "a real customConcept means the fixed theme pool is no longer a hard, exclusive contract" intent, minus that function's bridge-only ConceptSceneContext requirement. Currently informational only (see lyricThemesForOptions's own doc comment on why widening the pool itself was reverted) — kept as a real, tested, honestly-labeled hook for a future, more targeted concept-aware pool strategy rather than deleted. */

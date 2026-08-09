@@ -162,8 +162,12 @@ describe('[v3.48] era negatives, intro textures, and lyric guards', () => {
     const showaThemes = lyricThemesForArchetype('showa-70s', undefined, 'japanese');
     const j2000sThemes = lyricThemesForArchetype('j2000s', undefined, 'japanese');
 
-    expect(showaThemes).toHaveLength(12);
-    expect(j2000sThemes).toHaveLength(12);
+    // 지시문 14 (Phase 2 TASK B) — both pools grew 12 -> 36 (real measured
+    // gap: neither archetype could even fill one 18-song set before this,
+    // §2-2), all new entries scene-checked below for the same concreteness/
+    // anachronism guarantees this test has always enforced.
+    expect(showaThemes).toHaveLength(36);
+    expect(j2000sThemes).toHaveLength(36);
     expect(showaThemes.every(theme => theme.scene.split(/\s+/).length >= 8)).toBe(true);
     expect(j2000sThemes.some(theme => /flip phone|keitai mail/i.test(theme.scene))).toBe(true);
     expect(showaThemes.every(theme => !containsEraAnachronism(theme.scene, 'showa-70s'))).toBe(true);

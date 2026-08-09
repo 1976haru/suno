@@ -3,6 +3,7 @@ import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import { recentSituations, recentSceneSignatures, recentOpenings, type SceneSignature } from '../core/situationLedger';
 import { recentLyricLines } from '../core/lyricLineLedger';
 import { generationHistoryRevision, subscribeGenerationHistoryRevision } from '../core/generationHistoryRevision';
+import { currentWorkspaceId } from '../core/workspaceScope';
 import type { LyricLanguage } from '../types';
 
 export interface GenerationHistorySnapshot {
@@ -51,12 +52,19 @@ export function useGenerationHistorySnapshot(channelId: string, language: LyricL
     const thisRequest = ++requestId.current;
     setIsLoading(true);
     try {
+      // 지시문 14 (TASK C) — workspace-scoped, not channel-scoped: `channelId`
+      // stays this hook's own public param (Step3Generate.tsx's own refetch-
+      // on-channel-switch dep) but the real ledger reads now use the
+      // ambient current workspace, so switching between two channels that
+      // share one workspace (e.g. senior-oldpop's own multiple channels)
+      // actually sees each other's history instead of starting fresh.
+      const scope = { workspaceId: currentWorkspaceId() };
       const [avoid, situations, lines, sceneSignatures, openings] = await Promise.all([
-        recentUsedTitlesAndHooks(channelId, language),
-        recentSituations(channelId, language),
-        recentLyricLines(channelId, language),
-        recentSceneSignatures(channelId, language),
-        recentOpenings(channelId, language)
+        recentUsedTitlesAndHooks(scope, language),
+        recentSituations(scope, language),
+        recentLyricLines(scope, language),
+        recentSceneSignatures(scope, language),
+        recentOpenings(scope, language)
       ]);
       // A newer refresh() already started (channel/language/revision changed
       // again mid-flight) — this stale response must never overwrite it.

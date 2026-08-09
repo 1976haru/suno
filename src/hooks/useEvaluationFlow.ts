@@ -3,6 +3,7 @@ import { evaluatePack } from '../agents/evaluator';
 import { regenerateTrack } from '../providers';
 import { recentUsedTitlesAndHooks } from '../core/hookLedger';
 import { resolveStageSettings } from '../core/apiAdvisor';
+import { currentWorkspaceId } from '../core/workspaceScope';
 import type { AgentEvaluation, GenerationOptions, GenrePack, MoodPack, PlaylistBlueprint, ProviderSettings, SeasonPack, SongIdea } from '../types';
 
 /** TASK D3 (v3.5) — mirrors useGenerationFlow's forStage(): applies a per-stage model override when configured, otherwise leaves settings untouched. */
@@ -66,7 +67,7 @@ export function useEvaluationFlow() {
     try {
       let avoid: { usedTitles?: string[]; usedHooks?: string[] } | undefined;
       try {
-        const { titles, hooks } = await recentUsedTitlesAndHooks(opts.channel.id, opts.lyricLanguage);
+        const { titles, hooks } = await recentUsedTitlesAndHooks({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
         avoid = { usedTitles: titles, usedHooks: hooks };
       } catch {
         // IndexedDB unavailable — retry still works, just without cross-pack dedup.

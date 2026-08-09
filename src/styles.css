@@ -851,6 +851,13 @@ textarea {
   margin-top: 18px;
 }
 
+/* 지시문 14 (TASK D-4) — DataManagementPanel.tsx's "과거 세트 이력 등록" diagnostic output, which is real multi-line Korean text (formatWorkspaceHistoryDiagnostic) that must keep its own line breaks instead of collapsing to one paragraph. */
+.backfill-diagnostic {
+  white-space: pre-wrap;
+  font-family: inherit;
+  margin: 0;
+}
+
 /* v3.82 (TASK A) — VerifiedComboPanel.tsx */
 .verified-combo-suggestion {
   margin-top: 10px;

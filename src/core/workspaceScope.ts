@@ -83,8 +83,37 @@ export function scopedKey(key: string, forWorkspace: WorkspaceId = currentWorksp
  * variable interleaved and attributed one workspace's records to another.
  * An explicit parameter has no shared mutable state to race on.
  */
-export function scopeFilter<T extends { workspaceId?: WorkspaceId }>(items: readonly T[], forWorkspace: WorkspaceId = currentWorkspaceId()): T[] {
+/**
+ * 지시문 14 (TASK C-3) — the constraint accepts the avoid-list ledgers' own
+ * `WorkspaceId | 'unknown'` field shape (widened, not narrowed: every
+ * existing strictly-WorkspaceId-typed record store, e.g. library.ts's own,
+ * still satisfies this same constraint) so a record explicitly tagged
+ * 'unknown' by a failed migration resolution compares unequal to every real
+ * `forWorkspace` and is correctly excluded, never silently defaulted the way
+ * a genuinely ABSENT workspaceId is.
+ */
+export function scopeFilter<T extends { workspaceId?: WorkspaceId | 'unknown' }>(items: readonly T[], forWorkspace: WorkspaceId = currentWorkspaceId()): T[] {
   return items.filter(item => (item.workspaceId ?? DEFAULT_WORKSPACE_ID) === forWorkspace);
+}
+
+/**
+ * 지시문 14 (TASK C) — the avoid-list ledgers (situationLedger/hookLedger/
+ * lyricLineLedger/promptFingerprintLedger) used to scope every "recent N
+ * sets" read by channelId alone, so two channels sharing the same real
+ * audience/theme pool (e.g. senior-oldpop's "oldpoplounge" and "굿모닝
+ * 추억라디오") could never see each other's history — a fresh channel meant
+ * a fresh scene-avoidance memory. `workspaceId` is now the default scope;
+ * `channelId` stays a real option (never removed) for the diagnostic/display
+ * call sites that genuinely want just one channel's own history (e.g.
+ * SettingsModal's per-channel hook usage/forecast panel).
+ */
+export type LedgerScope = { workspaceId: WorkspaceId } | { channelId: string };
+
+/** Shared predicate every avoid-list ledger's scoped read now filters through — see LedgerScope's own doc comment for why both branches are real, not a transitional shim. Constraint matches scopeFilter's own widened `WorkspaceId | 'unknown'` shape (see that function's own doc comment). */
+export function matchesLedgerScope<T extends { workspaceId?: WorkspaceId | 'unknown'; channelId: string }>(record: T, scope: LedgerScope): boolean {
+  return 'workspaceId' in scope
+    ? (record.workspaceId ?? DEFAULT_WORKSPACE_ID) === scope.workspaceId
+    : record.channelId === scope.channelId;
 }
 
 /** Test-only reset — the module-level cache would otherwise leak the workspace chosen by one test into the next. */

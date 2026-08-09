@@ -352,7 +352,7 @@ export default function Step4Result({
   const [historicalHooks, setHistoricalHooks] = useState<string[]>([]);
   useEffect(() => {
     let cancelled = false;
-    recentUsedTitlesAndHooks(opts.channel.id, opts.lyricLanguage)
+    recentUsedTitlesAndHooks({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage)
       .then(result => { if (!cancelled) setHistoricalHooks(result.hooks); })
       .catch(() => { if (!cancelled) setHistoricalHooks([]); });
     return () => { cancelled = true; };
