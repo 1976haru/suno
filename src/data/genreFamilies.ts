@@ -29,7 +29,11 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     // 중립 vs 남성 인티메이트) 같은 계열로 묶이는 것 자체는 타당 — 한
     // family 안에서도 세부 캐릭터가 갈리는 것은 abba-carpenters/warm-melody
     // 등 다른 family에도 이미 있는 정상 패턴.
-    memberGenreIds: ['chanson', 'oldpop-orchestral-easy', 'oldpop-standards-torch', 'oldpop-slow-waltz-memory', 'oldpop-evening-lamp-ballad', 'oldpop-night-chanson'],
+    // 지시문 21 (TASK A) — oldpop-italian-canzone(이탈리안 칸초네)도 같은
+    // "유럽풍 올드팝" 정체성(labelKo·descriptionKo와 직접 일치)이라 추가.
+    // 프랑스 샹송과는 국가·오페라풍 남성 리드라는 세부 캐릭터가 다르지만
+    // night-chanson과 동일한 논리로 이 family에 속한다.
+    memberGenreIds: ['chanson', 'oldpop-orchestral-easy', 'oldpop-standards-torch', 'oldpop-slow-waltz-memory', 'oldpop-evening-lamp-ballad', 'oldpop-night-chanson', 'oldpop-italian-canzone'],
     commonTraitKo: '아코디언·현악·왈츠 박자·낭송조 보컬',
     blendsWellWith: ['warm-melody', 'vocal-jazz']
   },
@@ -62,7 +66,10 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     // 멜랑콜릭 계열과 blendsWellWith로 연결돼 있어 발라드블루스의
     // 무드와 자연스럽게 어울린다. 새 family를 만들지 않고 근거를 남겨
     // 기존 8개 중 하나로 편입.
-    memberGenreIds: ['oldpop-warm-morning-glow', 'oldpop-hearth-acoustic', 'oldpop-sunlit-strings-pop', 'oldpop-gentle-lullaby-pop', 'oldpop-piano-ballad-70s', 'oldpop-rainy-ballad-blues'],
+    // 지시문 21 (TASK A) — oldpop-six-eight-slow-ballad(6/8 슬로우 발라드)도
+    // "느린 템포·최소 퍼커션"이라는 이 family의 정의와 직접 일치(6/8
+    // 트리플렛 스윙 자체가 퍼커션이 절제된 느린 발라드 피트)해 추가.
+    memberGenreIds: ['oldpop-warm-morning-glow', 'oldpop-hearth-acoustic', 'oldpop-sunlit-strings-pop', 'oldpop-gentle-lullaby-pop', 'oldpop-piano-ballad-70s', 'oldpop-rainy-ballad-blues', 'oldpop-six-eight-slow-ballad'],
     commonTraitKo: '어쿠스틱 중심·느린 템포·최소 퍼커션',
     blendsWellWith: ['chanson-continental', 'rnb-soul', 'abba-carpenters', 'sixties-pop', 'vocal-jazz', 'seventies-soft', 'eighties-warm']
   },
@@ -116,7 +123,12 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     id: 'kr2030-night-groove',
     labelKo: '나이트·그루브',
     descriptionKo: '단단한 베이스와 야간 도시 무드의 한국 2030 팝',
-    memberGenreIds: ['kr2030-electro-pop', 'kr2030-dawn-rnb', 'kr2030-y2k-retro'],
+    // 지시문 21 (TASK A) — 신규 2종 모두 밴드형(kr2030-band-emotional)보다
+    // 그루브 중심 정체성이라 이 family에 편입. kr2030-noir-deep-house는
+    // "야간 도시" 정체성이 직접 일치. kr2030-lofi-swing-hiphop은 라이브
+    // 밴드 사운드가 아니라 스윙 붐뱁 그루브·따뜻한 베이스가 핵심이라
+    // (band-emotional보다) 이 family와 더 가깝다 — 근거를 남겨 편입.
+    memberGenreIds: ['kr2030-electro-pop', 'kr2030-dawn-rnb', 'kr2030-y2k-retro', 'kr2030-noir-deep-house', 'kr2030-lofi-swing-hiphop'],
     commonTraitKo: '단단한 베이스·야간 도시·짧고 강한 훅',
     blendsWellWith: ['kr2030-band-emotional']
   },

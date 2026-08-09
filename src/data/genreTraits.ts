@@ -77,6 +77,33 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
     dynamicRange: 'low',
     structureTraits: ['dark minor chord-melody guitar intro with no vocal', 'restrained final verse, no vocal ad-libs']
   },
+  // 지시문 21 (TASK A) — 신규 4종.
+  'oldpop-six-eight-slow-ballad': {
+    eraTag: '1970s-80s 6/8 slow ballad',
+    harmonyTraits: ['slow major-to-relative-minor ballad movement', 'suspended chord resolving into the chorus lift'],
+    dynamicRange: 'low',
+    structureTraits: ['restrained verse building into a string-lifted chorus', 'long-held final note under the triplet sway']
+  },
+  'oldpop-italian-canzone': {
+    eraTag: '1950s-70s Italian canzone',
+    rhythmFeel: ['slow rubato easing into a sweeping romantic pulse', 'unhurried canzone tempo with a passionate lift'],
+    productionTraits: ['lush romantic string-forward mix', 'warm operatic room bloom'],
+    harmonyTraits: ['sweeping melodic canzone progression with a passionate climax', 'minor-to-major resolve at the final chorus'],
+    dynamicRange: 'medium',
+    structureTraits: ['rubato verse opening into a sweeping orchestral chorus', 'passionate climactic final verse']
+  },
+  'kr2030-lofi-swing-hiphop': {
+    eraTag: '2010s-2020s Korean lofi swing hip-hop',
+    harmonyTraits: ['jazzy ii-V lofi chord loop', 'dusty seventh-chord voicing'],
+    dynamicRange: 'low',
+    structureTraits: ['half-spoken rap-sung verse opening into a melodic pre-chorus', 'short repeated chorus hook']
+  },
+  'kr2030-noir-deep-house': {
+    eraTag: '2010s-2020s noir deep house',
+    harmonyTraits: ['minor-key moody chord stab loop', 'sparse two-chord vamp'],
+    dynamicRange: 'medium',
+    structureTraits: ['extended instrumental groove before the vocal hook enters', 'sparse vocal hook repeated over the groove']
+  },
   'oldpop-brill-building': {
     eraTag: '1960-1963 Brill Building pop',
     rhythmFeel: ['bouncy two-beat pop pulse', 'four-on-the-floor backbeat with tambourine accents'],

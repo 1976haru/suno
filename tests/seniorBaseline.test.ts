@@ -129,21 +129,24 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(new Set(bp.songs.map(s => s.title)).size).toBe(18);
   });
 
-  it('senior-morning 코어 장르 44개', () => {
+  it('senior-morning 코어 장르 46개', () => {
     // 지시문 21 (TASK B) — 40 -> 44 (두왑 분화 2종·밤 샹송·발라드블루스 추가).
-    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(44);
+    // 지시문 21 (TASK A) — 44 -> 46 (6/8 슬로우 발라드·이탈리안 칸초네 추가).
+    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(46);
   });
 
-  it('oldpop-lounge 코어 장르 67개', () => {
+  it('oldpop-lounge 코어 장르 69개', () => {
     // 지시문 21 (TASK B) — 63 -> 67, same 4-genre addition (모두 oldpop-lounge 배선).
-    expect(getCoreGenreIdsForArchetype('oldpop-lounge').length).toBe(67);
+    // 지시문 21 (TASK A) — 67 -> 69, same 2-genre addition.
+    expect(getCoreGenreIdsForArchetype('oldpop-lounge').length).toBe(69);
   });
 
-  it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/7', () => {
+  it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/8', () => {
     expect(getCoreGenreIdsForArchetype('showa-cafe').length).toBe(12);
     expect(getCoreGenreIdsForArchetype('showa-70s').length).toBe(4);
     expect(getCoreGenreIdsForArchetype('j2000s').length).toBe(4);
-    expect(getCoreGenreIdsForArchetype('city-night').length).toBe(7);
+    // 지시문 21 (TASK A) — 7 -> 8 (kr2030-noir-deep-house도 city-night 배선).
+    expect(getCoreGenreIdsForArchetype('city-night').length).toBe(8);
   });
 });
 

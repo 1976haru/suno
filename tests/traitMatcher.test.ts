@@ -104,10 +104,10 @@ describe('[v3.65] traits coverage sanity', () => {
     expect(genreLibrary.filter(g => g.traits).length).toBeGreaterThanOrEqual(60);
   });
 
-  it('every oldpop-* genre (32 total) has .traits', () => {
+  it('every oldpop-* genre (34 total) has .traits', () => {
     const oldpopGenres = genreLibrary.filter(g => g.id.startsWith('oldpop-'));
-    // 지시문 21 (TASK B) — 28 -> 32.
-    expect(oldpopGenres.length).toBe(32);
+    // 지시문 21 (TASK A/B) — 28 -> 32 -> 34.
+    expect(oldpopGenres.length).toBe(34);
     for (const genre of oldpopGenres) {
       expect(genre.traits, genre.id).toBeTruthy();
     }

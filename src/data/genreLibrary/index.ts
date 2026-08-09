@@ -310,7 +310,10 @@ export const SENIOR_MORNING_CORE_GENRE_IDS = [
   'oldpop-doowop-ballad',
   'oldpop-doowop-uptempo',
   'oldpop-night-chanson',
-  'oldpop-rainy-ballad-blues'
+  'oldpop-rainy-ballad-blues',
+  // 지시문 21 (TASK A) — 신규 4종 중 oldpop 계열 2종. 같은 이유로 여기 등록.
+  'oldpop-six-eight-slow-ballad',
+  'oldpop-italian-canzone'
 ] as const;
 
 export const SHOWA_CAFE_CORE_GENRE_IDS = [
@@ -379,7 +382,10 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
   'bedroom-pop',
   'alt-rnb',
   'chill-rap',
-  'city-pop-night'
+  'city-pop-night',
+  // 지시문 21 (TASK A) — kr2030-noir-deep-house는 archetypes에 city-night도
+  // 명시(강사 원문)돼 있어 이 채널의 core pool에서도 실제로 닿도록 등록.
+  'kr2030-noir-deep-house'
 ] as const;
 
 /**
@@ -394,7 +400,11 @@ export const KR_2030_CORE_GENRE_IDS = [
   'kr2030-y2k-retro',
   'kr2030-electro-pop',
   'kr2030-ost-ballad',
-  'kr2030-acoustic-folk'
+  'kr2030-acoustic-folk',
+  // 지시문 21 (TASK A) — 신규 2종, 기존 6종의 우선순위 순서 뒤에 추가
+  // (getDefaultGenreIdsForArchetype의 top-3는 그대로 유지).
+  'kr2030-lofi-swing-hiphop',
+  'kr2030-noir-deep-house'
 ] as const;
 
 /**
@@ -1146,7 +1156,16 @@ export const oldpopGenrePacks: StructuredGenrePack[] = [
   // 발라드블루스 — 강사 원문 네거티브 4종(no humming/ooh/aah/mmm)을
   // avoidTraits에 그대로 반영. 기존 jazz-jazz-blues-club(클럽 재즈 블루스)
   // 과는 성격이 달라 별도 장르로 분리.
-  legacyGenrePack({ id: 'oldpop-rainy-ballad-blues', label: 'Rainy Ballad Blues', styleCore: 'rainy-night ballad blues, clean hollow-body electric guitar, subtle tremolo bar warble, spring reverb, dark minor chord-melody instrumental intro', instruments: ['clean hollow-body electric guitar', 'upright bass', 'brushed drums', 'spring reverb tank'], tempoRange: [62, 72], goodFor: ['rainy night reflection', 'late-night blues', 'male-led ballad'], vocalPreference: { male: 0.8, female: 0.1, mixed: 0.1 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1960s-70s ballad blues' }, 'oldpop', { rhythm: ['slow blues ballad pulse with a dark minor instrumental intro'], vocal: ['restrained sung baritone lead, no ad-lib filler'], production: ['subtle tremolo bar warble', 'spring reverb wash on the guitar'], harmony: ['dark minor chord-melody guitar intro before the vocal enters'], moods: ['melancholic', 'rain-soaked', 'intimate'], audiences: ['rainy night reflection', 'late-night blues'], avoidTraits: ['humming', 'ooh', 'aah', 'mmm'] })
+  legacyGenrePack({ id: 'oldpop-rainy-ballad-blues', label: 'Rainy Ballad Blues', styleCore: 'rainy-night ballad blues, clean hollow-body electric guitar, subtle tremolo bar warble, spring reverb, dark minor chord-melody instrumental intro', instruments: ['clean hollow-body electric guitar', 'upright bass', 'brushed drums', 'spring reverb tank'], tempoRange: [62, 72], goodFor: ['rainy night reflection', 'late-night blues', 'male-led ballad'], vocalPreference: { male: 0.8, female: 0.1, mixed: 0.1 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1960s-70s ballad blues' }, 'oldpop', { rhythm: ['slow blues ballad pulse with a dark minor instrumental intro'], vocal: ['restrained sung baritone lead, no ad-lib filler'], production: ['subtle tremolo bar warble', 'spring reverb wash on the guitar'], harmony: ['dark minor chord-melody guitar intro before the vocal enters'], moods: ['melancholic', 'rain-soaked', 'intimate'], audiences: ['rainy night reflection', 'late-night blues'], avoidTraits: ['humming', 'ooh', 'aah', 'mmm'] }),
+  // --- 지시문 21 (TASK A) — 신규 4종 중 2종(oldpop 계열). 강사 원문의
+  // "no disco beat, no uptempo, no fast dance groove, no four-on-the-floor"
+  // 네거티브는 docs/BENCHMARK_PROMPT_PRACTICE.md에 기록된 관행 차이에 따라
+  // styleCore 문장에 섞지 않고 avoidTraits로 분리해 반영한다(하루 앱의
+  // 기존 구조, excludePrompt 분리 원칙 유지).
+  legacyGenrePack({ id: 'oldpop-six-eight-slow-ballad', label: '6/8 Slow Ballad', styleCore: '1970s-80s slow 6/8 ballad, gentle rocking triplet feel, warm strings entering at the chorus', instruments: ['piano', 'warm strings entering at the chorus', 'brushed drums in a slow triplet feel', 'soft bass'], tempoRange: [64, 76], goodFor: ['slow dance memory', 'reflective evening', 'senior playlist'], archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1970s-80s 6/8 slow ballad' }, 'oldpop', { rhythm: ['gentle 6/8 rocking triplet ballad sway', 'brushed triplet drums under a slow pulse'], vocal: ['tender restrained ballad lead', 'held long notes across the triplet feel'], production: ['warm ballad room tone', 'strings held back until the chorus'], harmony: ['slow major-to-relative-minor ballad movement'], moods: ['tender', 'wistful'], audiences: ['senior playlist', 'slow dance memory'], avoidTraits: ['disco beat', 'uptempo', 'fast dance groove', 'four-on-the-floor'] }),
+  // 이탈리안 칸초네 — 기존 chanson(프랑스)과 구별되는 별도 유럽 올드팝
+  // 계열. 오페라풍 남성 리드·현악 스윕이 정체성 핵심.
+  legacyGenrePack({ id: 'oldpop-italian-canzone', label: 'Italian Canzone', styleCore: 'vintage Italian canzone pop, sweeping strings, passionate operatic-tinged male lead, romantic melodic sweep', instruments: ['sweeping string section', 'grand piano', 'soft brushed drums', 'warm upright bass'], tempoRange: [62, 78], goodFor: ['romantic Italian nostalgia', 'reflective evening', 'senior playlist'], vocalPreference: { male: 0.75, female: 0.15, mixed: 0.10 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1950s-70s Italian canzone' }, 'oldpop', { rhythm: ['slow rubato easing into a sweeping romantic pulse'], vocal: ['passionate operatic-tinged male lead', 'expressive sustained melodic phrasing'], production: ['lush romantic string-forward mix'], harmony: ['sweeping melodic canzone progression with a passionate climax'], moods: ['passionate', 'romantic', 'nostalgic'], audiences: ['romantic Italian nostalgia', 'reflective evening'], avoidTraits: [] })
 ];
 
 /**
@@ -1239,7 +1258,37 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
     goodFor: ['멜로 어쿠스틱·포크팝', 'quiet afternoon', 'gentle singalong'],
     archetypes: ['kr-2030-pop'],
     tier: 'core'
-  }, 'kr-2030', { rhythm: ['gentle acoustic strum-and-pick pulse', 'unhurried folk-pop tempo'], vocal: ['plainspoken warm Korean lead', 'soft close-mic delivery'], production: ['natural low-stimulus acoustic room tone', 'minimal reverb, close and dry'], harmony: ['simple open-chord folk progression', 'gentle major-key resolution'], moods: ['gentle', 'understated', 'warm'], audiences: ['멜로 어쿠스틱·포크팝', '조용한 오후'], avoidTraits: [] })
+  }, 'kr-2030', { rhythm: ['gentle acoustic strum-and-pick pulse', 'unhurried folk-pop tempo'], vocal: ['plainspoken warm Korean lead', 'soft close-mic delivery'], production: ['natural low-stimulus acoustic room tone', 'minimal reverb, close and dry'], harmony: ['simple open-chord folk progression', 'gentle major-key resolution'], moods: ['gentle', 'understated', 'warm'], audiences: ['멜로 어쿠스틱·포크팝', '조용한 오후'], avoidTraits: [] }),
+  // 지시문 21 (TASK A) — 신규 4종 중 나머지 2종(kr2030 계열). categoryId는
+  // 'hiphop'이 아니라 'kr-2030'으로 지정(지시문 명시) — 하루 앱의 hiphop
+  // 카테고리는 별개 워크스페이스 소속이라 혼동 방지.
+  legacyGenrePack({
+    id: 'kr2030-lofi-swing-hiphop',
+    label: 'Korean Lofi Swing Hip-Hop Pop',
+    styleCore: 'Korean lofi swing hip-hop pop, dusty swung boom-bap groove, half-spoken rap-sung verse opening into a melodic pre-chorus',
+    instruments: ['dusty swung boom-bap drums', 'warm upright bass', 'lofi electric piano', 'vinyl-textured sample pad'],
+    tempoRange: [78, 92],
+    goodFor: ['로파이 스윙 힙합팝', 'chill study', 'late-afternoon mood'],
+    vocalPreference: { male: 0.7, female: 0.15, mixed: 0.15 },
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s Korean lofi swing hip-hop'
+  }, 'kr-2030', { rhythm: ['swung boom-bap pocket', 'dusty lofi-textured backbeat'], vocal: ['half-spoken rap-sung phrasing verse opening into a melodic pre-chorus', 'relaxed conversational Korean delivery'], production: ['warm dusty lofi mix', 'vinyl-crackle texture kept subtle'], harmony: ['jazzy ii-V lofi chord loop'], moods: ['relaxed', 'warm', 'contemplative'], audiences: ['로파이 스윙 힙합팝', '인디팝 무드'], avoidTraits: [] }),
+  // 누아르 딥하우스 — 110-122 BPM 원안 중 상한을 kr-2030-emotional 프로필의
+  // 실측 tempoCeiling(120)에 맞춰 120으로 조정(지시문 원문 122는 실제
+  // 시스템 상한을 2 BPM 초과 — TASK D에 결함으로 보고). senior 계열
+  // archetypes는 절대 포함하지 않음(시니어 tempoCeiling 100 위반 방지).
+  legacyGenrePack({
+    id: 'kr2030-noir-deep-house',
+    label: 'Noir Deep House',
+    styleCore: 'noir deep house, hypnotic four-on-the-floor pulse, dark warm sub bass, minimal moody synth stabs',
+    instruments: ['four-on-the-floor electronic kick', 'deep warm sub bass', 'moody minimal synth stab', 'filtered hi-hat groove'],
+    tempoRange: [110, 120],
+    goodFor: ['나이트 딥하우스', 'late-night city drive', 'moody dance mood'],
+    archetypes: ['kr-2030-pop', 'city-night'],
+    tier: 'extended',
+    eraTag: '2010s-2020s noir deep house'
+  }, 'electronic', { rhythm: ['hypnotic four-on-the-floor deep-house pulse', 'off-beat open hi-hat groove'], vocal: ['sparse atmospheric vocal hook', 'processed vocal chops used sparingly'], production: ['dark warm nightclub mix', 'sub bass carrying the low end'], harmony: ['minor-key moody chord stab loop'], moods: ['moody', 'nocturnal', 'hypnotic'], audiences: ['나이트 딥하우스', '레이트나잇 드라이브'], avoidTraits: ['bright major-key pop hook', 'aggressive EDM drop'] })
 ];
 
 /**

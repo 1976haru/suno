@@ -42,6 +42,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'oldpop-doowop-uptempo': ['1950s', '1960s'],
   'oldpop-night-chanson': ['1950s', '1960s', '1970s'],
   'oldpop-rainy-ballad-blues': ['1960s', '1970s'],
+  // 지시문 21 (TASK A) — 신규 4종.
+  'oldpop-six-eight-slow-ballad': ['1970s', '1980s'],
+  'oldpop-italian-canzone': ['1950s', '1960s', '1970s'],
+  'kr2030-lofi-swing-hiphop': ['2010s', '2020s'],
+  'kr2030-noir-deep-house': ['2010s', '2020s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
   'oldpop-sunshine-pop': ['1960s'],
@@ -404,6 +409,11 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'oldpop-doowop-uptempo': '경쾌한 두왑 — oldpop-doowop-harmony와 같은 시대의 빠른 변형, 핸드클랩과 색소폰 브레이크 중심',
   'oldpop-night-chanson': '밤 샹송 — 프랑스 샹송이 미국 두왑과 동시대(1950s)부터 1970년대까지 이어진 전통이라 세 연대 모두 포함',
   'oldpop-rainy-ballad-blues': '빗속 발라드 블루스 — 트레몰로/스프링 리버브 기타 사운드가 1960년대 후반~1970년대 초 블루스 발라드의 전형',
+  // 지시문 21 (TASK A) — 신규 4종.
+  'oldpop-six-eight-slow-ballad': '6/8 슬로우 발라드 — 스트링이 후렴에서 들어오는 편성이 1970년대 후반~1980년대 발라드의 전형',
+  'oldpop-italian-canzone': '이탈리안 칸초네 — 오페라풍 남성 리드·현악 스윕이 1950년대~1970년대 이탈리아 칸초네 황금기의 전형',
+  'kr2030-lofi-swing-hiphop': '로파이 스윙 힙합팝 — 스윙 붐뱁·로파이 텍스처가 2010년대 이후 정립된 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-noir-deep-house': '누아르 딥하우스 — 110-120 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',
   'oldpop-sunshine-pop': '선샤인 팝 — 1960년대 중후반 캘리포니아 팝의 대표 스타일',

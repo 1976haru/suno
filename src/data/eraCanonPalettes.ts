@@ -270,7 +270,10 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'jazz-brush-ballad-jazz',
       // 지시문 21 (TASK B) — oldpop-night-chanson은 oldpop-standards-torch와
       // 같은 "인티메이트 멜랑콜릭 남성 보컬" 크루너 캐릭터를 공유해 추가.
-      'oldpop-night-chanson'
+      'oldpop-night-chanson',
+      // 지시문 21 (TASK A) — oldpop-italian-canzone도 "풀 스트링 섹션·
+      // 오페라풍 남성 리드"라는 이 팔레트의 핵심 정체성과 직접 일치해 추가.
+      'oldpop-italian-canzone'
     ],
     instrumentation: [
       'full string section carrying the melody',
@@ -400,7 +403,10 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     id: 'canon-piano-orchestral-ballad',
     labelKo: '피아노·오케스트라 발라드',
     eraTag: '1970s-80s piano / orchestral ballad',
-    fitsGenreIds: ['oldpop-piano-ballad-70s', 'oldpop-orchestral-ballad-80s', 'oldpop-sunlit-strings-pop', 'piano-ballad', 'healing-ballad'],
+    // 지시문 21 (TASK A) — oldpop-six-eight-slow-ballad(6/8 슬로우 발라드)
+    // 추가. 피아노 중심에 후렴에서 스트링이 들어오는 편성이 이 팔레트의
+    // 기존 5개 장르와 직접 일치해 새 팔레트를 만들지 않고 여기 편입.
+    fitsGenreIds: ['oldpop-piano-ballad-70s', 'oldpop-orchestral-ballad-80s', 'oldpop-sunlit-strings-pop', 'piano-ballad', 'healing-ballad', 'oldpop-six-eight-slow-ballad'],
     // TASK v4.7 — this palette covers 5 genres; every axis needs enough
     // distinct phrases that genreId-salted selection (eraCanonPalettePlan.ts's
     // rotatingEraPaletteAtoms) can actually land 5 different genres on 5
