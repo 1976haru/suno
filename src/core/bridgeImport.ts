@@ -24,6 +24,7 @@ import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './ti
 import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } from './duplicationGate';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { checkDistinctChoices } from './distinctChoiceCheck';
+import { coerceDistinctChoice } from './distinctChoiceTypes';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts. This module is the
@@ -343,6 +344,17 @@ function normalizeImportedSong(
     ...(isNonEmptyString(obj.verseStyleText) ? { verseStyleText: obj.verseStyleText } : {}),
     ...(isNonEmptyString(obj.chorusStyle) ? { chorusStyle: obj.chorusStyle as SongIdea['chorusStyle'] } : {}),
     ...(isNonEmptyString(obj.chorusStyleText) ? { chorusStyleText: obj.chorusStyleText } : {}),
+    // 지시문 15 (TASK A-2/B) — 실제 저장 경로(이 함수)에는 distinctChoice가
+    // 아예 빠져 있었다(parseBridgeExportForReview 쪽 미리보기 전용 경로에만
+    // 있었음) — 그 결과 실제로 임포트된 모든 팩이 조용히 distinctChoice를
+    // 잃고 있었다. coerceDistinctChoice로 신형 구조체/구형 자유 문자열 둘
+    // 다 받아들인다.
+    ...(() => {
+      const parsed = coerceDistinctChoice(obj.distinctChoice);
+      return parsed
+        ? { distinctChoice: parsed.descriptionKo, distinctChoiceRuleId: parsed.ruleId, ...(parsed.params ? { distinctChoiceParams: parsed.params } : {}) }
+        : {};
+    })(),
     qualityScore: 0,
     warnings: [],
     // v5.11 (TASK L) — placeholder values only: reconcileWithPreassignedSlot
@@ -873,7 +885,16 @@ export function parseSongsJsonForViewer(
       seasonMoment: isNonEmptyString(obj.seasonMoment) ? obj.seasonMoment : '',
       listenerSituation: isNonEmptyString(obj.listenerSituation) ? obj.listenerSituation : '',
       emotionArc: isNonEmptyString(obj.emotionArc) ? obj.emotionArc : '',
-      distinctChoice: isNonEmptyString(obj.distinctChoice) ? obj.distinctChoice : undefined,
+      // 지시문 15 (TASK A-2) — obj.distinctChoice가 신형 구조체({ruleId,
+      // descriptionKo, params})든 구형 자유 문자열이든 coerceDistinctChoice가
+      // 받아들인다. distinctChoice(표시용 문자열)는 이전과 동일하게 항상
+      // descriptionKo — SongCard.tsx 등 기존 표시 소비처는 무변경.
+      ...(() => {
+        const parsed = coerceDistinctChoice(obj.distinctChoice);
+        return parsed
+          ? { distinctChoice: parsed.descriptionKo, distinctChoiceRuleId: parsed.ruleId, ...(parsed.params ? { distinctChoiceParams: parsed.params } : {}) }
+          : { distinctChoice: undefined };
+      })(),
       hookPhrase: isNonEmptyString(obj.hookPhrase) ? obj.hookPhrase : '',
       stylePrompt: String(obj.stylePrompt),
       ...(isNonEmptyString(obj.excludePrompt) ? { excludePrompt: obj.excludePrompt } : {}),

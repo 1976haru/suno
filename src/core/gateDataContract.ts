@@ -18,6 +18,7 @@ import { usesUserChosenProgressionPlan, usesMoneyChordQuota } from './moneyChord
 import { moneyChordRotationPool } from '../data/moneyChords';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { workspaceForArchetype } from '../data/workspaces';
+import { FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 
 /**
@@ -278,7 +279,7 @@ function genreMaxRequires(channel: ChannelProfile, opts: GenerationOptions): Gat
   const threshold = BREADTH_THRESHOLDS[constraints.breadth].genre;
   const songCount = opts.songCount || 18;
   const candidatePoolSize = pool.length || 1;
-  const effectiveMaxPerGenre = channel.archetype === 'senior-morning'
+  const effectiveMaxPerGenre = channel.archetype && FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES.has(channel.archetype)
     ? threshold.maxPerGenre
     : Math.max(threshold.maxPerGenre, Math.ceil(songCount / candidatePoolSize));
   const minPossibleMax = Math.ceil(songCount / candidatePoolSize);

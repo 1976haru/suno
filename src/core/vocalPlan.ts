@@ -420,6 +420,12 @@ const IDOL_FEMALE_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
   ]
 };
 
+/** 지시문 15 (TASK B) — archetype 리터럴 비교 대신 조회 테이블로 idol 보컬 워딩을 고른다. */
+const IDOL_VOCAL_DESCRIPTIONS_BY_ARCHETYPE: Partial<Record<ChannelArchetype, Record<VocalType, string[]>>> = {
+  'kr-idol-male': IDOL_MALE_VOCAL_DESCRIPTIONS,
+  'kr-idol-female': IDOL_FEMALE_VOCAL_DESCRIPTIONS
+};
+
 /**
  * TASK v3.41 Part A2/D — `variantIndex` selects which of this type's 5
  * wordings to use (see VOCAL_DESCRIPTIONS above); out-of-range/negative
@@ -429,14 +435,14 @@ const IDOL_FEMALE_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
  * for any caller that doesn't need rotation.
  */
 export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = 'korean', variantIndex = 0, archetype?: GenerationOptions['channel']['archetype']): string {
-  // TASK K3 §4-1 — idol branch, checked first. 'kr-idol-male'/'kr-idol-female'
-  // are the only two archetype values this ever matches, and neither existed
-  // as a possible input before K2/K3, so every other caller (undefined
-  // archetype, or any of the six pre-existing archetypes) is byte-for-byte
-  // unaffected — this is a new early return, not a change to the existing
-  // useAdultDescription branch below.
-  if (archetype === 'kr-idol-male' || archetype === 'kr-idol-female') {
-    const idolVariants = archetype === 'kr-idol-female' ? IDOL_FEMALE_VOCAL_DESCRIPTIONS[type] : IDOL_MALE_VOCAL_DESCRIPTIONS[type];
+  // TASK K3 §4-1, 지시문 15 (TASK B) — idol branch, checked first, via a
+  // lookup table instead of archetype literal comparisons. Neither table
+  // entry existed as a possible input before K2/K3, so every other caller
+  // (undefined archetype, or any of the six pre-existing archetypes) is
+  // byte-for-byte unaffected — this is a new early return, not a change to
+  // the existing useAdultDescription branch below.
+  const idolVariants = archetype && IDOL_VOCAL_DESCRIPTIONS_BY_ARCHETYPE[archetype]?.[type];
+  if (idolVariants) {
     const idolSafeIndex = ((variantIndex % idolVariants.length) + idolVariants.length) % idolVariants.length;
     return idolVariants[idolSafeIndex];
   }

@@ -216,6 +216,22 @@ jobs:
       - run: npm ci
       - run: npm run check:settings
 
+  # 지시문 15 (TASK D) — 아키타입 하드코딩(archetype === '리터럴') 재발
+  # 방지. 어댑터(워크스페이스 정책 registry)를 만들어도 옛 분기를 지우지
+  # 않으면 새 기능이 시니어에만 붙는다(§0-3 실측: 13파일 59곳). 이
+  # allowlist는 늘어날 수 없고 줄어드는 것만 허용된다 — 이 지시문이 만든
+  # 신규 코드(distinctChoiceGate.ts 등)의 하드코딩은 등록 자체가 거부된다.
+  check-archetype:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:archetype
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

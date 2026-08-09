@@ -1234,10 +1234,18 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
     listenerSituation: 'string',
     emotionArc: 'string',
     // v5.23 (TASK B) — one line naming what THIS song does differently from
-    // the other tracks in the set. See the [각 곡에 하나씩] guidance below
-    // for examples; advisory-only (core/distinctChoiceCheck.ts), never
-    // required to unblock an import.
-    distinctChoice: 'string optional — one line: what THIS song does differently from the rest of the set (e.g. "후렴을 한 번만 부른다"). See [각 곡에 하나씩] guidance below.',
+    // the other tracks in the set. Advisory-only presence/dup check
+    // (core/distinctChoiceCheck.ts), never required to unblock an import.
+    // 지시문 15 (TASK A-2) — 자유 문자열에서 구조체로. ruleId는 [각 곡에
+    // 하나씩] 안내문이 이 워크스페이스의 허용 목록(allowedRuleIds)에서
+    // 골라 제시한다 — 여기서는 자리표시자 설명만 보여준다. 구형 자유
+    // 문자열 응답도 core/distinctChoiceTypes.ts의 coerceDistinctChoice가
+    // 거부하지 않고 받아들인다(하위호환).
+    distinctChoice: {
+      ruleId: 'string — one of the ruleId values listed in the [각 곡에 하나씩] guidance below for this workspace',
+      descriptionKo: 'string — one Korean sentence: what THIS song does differently from the rest of the set',
+      params: 'object optional — only when the chosen rule requires it (see guidance below for which ones)'
+    },
     hookPhrase: 'string',
     stylePrompt: 'string',
     // TASK v5.21 (TASK B) — real measurement: a bridge-imported 18-song

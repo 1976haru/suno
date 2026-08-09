@@ -14,6 +14,7 @@ import { resolveFlagshipVariationPlan, buildFlagshipVariationInstructionLines } 
 import { resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 import { resolveTitleLocalizedLanguage } from './packagingLanguage';
+import { TITLE_ERA_HINT_RETRO_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
 import { buildSetOptions } from './multiSetGeneration';
@@ -422,7 +423,7 @@ function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
   const packagingLanguage = resolveTitleLocalizedLanguage(opts);
   if (packagingLanguage === 'english') return '';
   const languageName = packagingLanguage === 'korean' ? 'Korean' : 'Japanese';
-  const eraHint = opts.channel.archetype === 'senior-morning' || opts.channel.archetype === 'showa-70s' || opts.channel.archetype === 'oldpop-lounge'
+  const eraHint = opts.channel.archetype && TITLE_ERA_HINT_RETRO_ARCHETYPES.has(opts.channel.archetype)
     ? (packagingLanguage === 'korean'
       ? 'Reference the tone of 1970s-80s Korean 가요 (歌謡) titles — phrases like "그 시절", "~하던 날", "잊지 못할", "다시 만나면".'
       : 'Reference the tone of Showa-era (昭和) Japanese song titles — quiet, image-based, never a loanword transliteration.')
