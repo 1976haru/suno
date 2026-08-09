@@ -13,7 +13,7 @@ import { buildExplorationInstructionLines, selectExplorationTrackNos, type Explo
 import { resolveFlagshipVariationPlan, buildFlagshipVariationInstructionLines } from './comboVariations';
 import { resolveFlagshipCombo } from './verifiedCombos';
 import type { VerifiedCombo } from '../data/verifiedCombos';
-import { resolvePackagingLanguage } from './packagingLanguage';
+import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
 import { buildSetOptions } from './multiSetGeneration';
@@ -311,13 +311,13 @@ function buildBridgePayload(
     preassignedSongs
   };
   const basePayload = buildUserInstruction(opts, genres, moods, season, batch, generateThumbnailText);
-  const packagingLanguage = resolvePackagingLanguage(opts);
+  const titleLocalizedLanguage = resolveTitleLocalizedLanguage(opts);
   return {
     batch,
     payload: {
       ...basePayload,
       preassignedSongs,
-      outputShape: { songs: [songOutputShape(generateThumbnailText, packagingLanguage)] },
+      outputShape: { songs: [songOutputShape(generateThumbnailText, titleLocalizedLanguage)] },
       // v5.22 (AXIS 1) — always present (even empty) so the agent's own
       // payload shape never silently varies between a channel's first-ever
       // pack (no history yet) and its 30th.
@@ -414,7 +414,12 @@ function titleInstructionLineFor(opts: GenerationOptions): string {
  * packaging — nothing to ask for.
  */
 function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
-  const packagingLanguage = resolvePackagingLanguage(opts);
+  // 지시문 12 (TASK C-2) — resolvePackagingLanguage(opts) 단독이 아니라
+  // resolveTitleLocalizedLanguage(opts)를 쓴다: 시니어/쇼와 계열 아키타입은
+  // packagingLanguage 오버라이드가 english여도 channel.market이 한/일본을
+  // 가리키면 이중언어 제목 안내문이 사라지지 않는다 (data/archetypeAudienceProfiles.ts의
+  // TITLE_LOCALIZED_REQUIRED_ARCHETYPES).
+  const packagingLanguage = resolveTitleLocalizedLanguage(opts);
   if (packagingLanguage === 'english') return '';
   const languageName = packagingLanguage === 'korean' ? 'Korean' : 'Japanese';
   const eraHint = opts.channel.archetype === 'senior-morning' || opts.channel.archetype === 'showa-70s' || opts.channel.archetype === 'oldpop-lounge'

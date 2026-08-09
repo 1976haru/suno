@@ -79,8 +79,14 @@ describe('[v3.62 TASK 1-2] era-authenticity guardrail', () => {
   });
 
   it('does not add an era guardrail line for a genre with no era restriction', () => {
-    const genre = genrePacks.find(g => g.id === 'adult-contemporary')!;
-    const opts = makeOptions({ songCount: 1, genreIds: ['adult-contemporary'] });
+    // 지시문 12 (TASK A) — 이전에는 'adult-contemporary'로 이 케이스를
+    // 검증했으나, 354종 전수 eraBuckets 재부여로 이 장르는 이제 정확히
+    // 1980s로 분류된다(기존 eraTag 자유문자열 "1980s-present adult
+    // contemporary"의 시작 연대를 채택 — data/eraBuckets.ts). 즉 이 장르는
+    // 더 이상 "시대 제약 없음" 사례가 아니다 — 진짜 era-neutral 장르인
+    // 'jazz-pop'으로 교체한다.
+    const genre = genrePacks.find(g => g.id === 'jazz-pop')!;
+    const opts = makeOptions({ songCount: 1, genreIds: ['jazz-pop'] });
     const slots = preallocateSongSlots(opts, [genre], avoid);
     const instruction = buildClaudeCodeInstruction(opts, [genre], testMoods, testSeason, avoid, slots, false);
     expect(instruction).not.toContain('era authenticity');

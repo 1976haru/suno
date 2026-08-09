@@ -23,7 +23,7 @@ import { buildReferenceMoodStyleClause } from './referenceMood';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { resolveLyricRange } from './lyricMetrics';
-import { resolvePackagingLanguage } from './packagingLanguage';
+import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 
 // TASK A1 (v3.5): Suno's style field truncates anything past 1,000 characters
 // — a real measurement of 12 generated songs found 12/12 over that limit
@@ -1295,7 +1295,10 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
 
 export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, batch?: BatchContext, generateThumbnailText = false) {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
-  const packagingLanguage = resolvePackagingLanguage(opts);
+  // 지시문 12 (TASK C-2) — resolveTitleLocalizedLanguage: 시니어/쇼와 계열
+  // 아키타입은 packagingLanguage 오버라이드가 english여도 titleLocalized
+  // 필드가 출력 스키마에서 사라지지 않는다.
+  const packagingLanguage = resolveTitleLocalizedLanguage(opts);
 
   return {
     channel: opts.channel,
@@ -1352,7 +1355,8 @@ export function buildUserInstruction(opts: GenerationOptions, genres: GenrePack[
  */
 export function buildChannelSystemBlock(opts: GenerationOptions, genres: GenrePack[], moods: MoodPack[], season: SeasonPack, generateThumbnailText = false): string {
   const generationPack = generationPacks.find(pack => pack.id === opts.audience);
-  const packagingLanguage = resolvePackagingLanguage(opts);
+  // 지시문 12 (TASK C-2) — 위 buildUserInstruction과 동일한 이유.
+  const packagingLanguage = resolveTitleLocalizedLanguage(opts);
   const block = {
     channel: opts.channel,
     generationPack,

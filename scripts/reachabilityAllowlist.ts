@@ -52,6 +52,16 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 미착수 — 실제 사용처를 아직 찾지 못함.
   'src/core/lyricBudget.ts': '미착수 — 가사 단어수 목표(BPM별 타깃)는 이미 core/compositionScorer.ts의 targetWordRangeFor/core/fullAudit.ts가 실제 배선된 경로로 처리 중이라, 이 모듈이 배선될 자리가 중복 없이 어디인지 아직 확정하지 못함',
 
+  // 지시문 12 (TASK B/C) — 관문/설정 계약 CLI 체커 전용 모듈. 이 계약
+  // 레지스트리는 scripts/checkGateContract.ts · scripts/checkVerifiedSettings.ts
+  // (npm run check:gates / check:settings)와 각각의 드리프트 테스트에서만
+  // 소비된다 — check:node/check:reachability 자신을 구성하는 다른 CLI 전용
+  // 모듈들과 같은 성격으로, 브라우저 3개 진입점(src/main.tsx/App.tsx/
+  // localGenerationWorker.ts) 그래프 밖에 의도적으로 존재한다. UI 패널에서
+  // 이 계약 결과를 직접 보여줘야 할 실제 요구가 생기면 그때 배선한다.
+  'src/core/gateDataContract.ts': 'CLI 전용 계약 모듈 — scripts/checkGateContract.ts(npm run check:gates)와 tests/gateDataContract.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 12 TASK B)',
+  'src/core/verifiedSettingContract.ts': 'CLI 전용 계약 모듈 — scripts/checkVerifiedSettings.ts(npm run check:settings)와 tests/verifiedSettingContract.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 12 TASK C)',
+
   // 지시문 11 (TASK E) — 테스트 전용 회귀 잠금 데이터. tests/goldenCases.test.ts가
   // 유일한 실제 소비자다(main.tsx/App.tsx/localGenerationWorker.ts 진입점
   // 그래프 밖) — tests/fixtures/*.json 같은 다른 순수 테스트 자산과 같은

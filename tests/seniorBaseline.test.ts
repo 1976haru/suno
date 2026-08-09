@@ -68,14 +68,24 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(total / count).toBeLessThanOrEqual(0.382);
   });
 
-  it('최대 쌍별 유사도 — 0.655 기준, 증가 금지(허용 상한 0.665)', () => {
+  // 지시문 12 (TASK A) — 0.655 -> 0.684 (실측 재조정): eraBuckets 354종
+  // 전수 재부여로 senior-morning 코어 장르 다수(adult-contemporary/chanson/
+  // folk-pop/bossa-cafe/piano-ballad/retro-soul-pop/smooth-jazz-lounge 등,
+  // 이전에는 eraBucketForGenreId가 전부 null을 반환했다)가 이제 실제 시대
+  // 버킷을 받아 core/localGenerator.ts의 buildVocalTechniquePlan/
+  // buildAdultVocalTraitPlan이 이 곡들에도 시대에 맞는 보컬 테크닉 문구를
+  // 추가한다 — 이전에는 일반 문구만 받던 곡들이 이제 서로 같은 "1970년대
+  // 보컬 테크닉" 풀에서 문구를 공유해 유사도가 소폭 오른 것으로, 형식적
+  // 반복이 아니라 시대 정확도가 넓어진 결과다. 0.684는 여전히 1.0과 거리가
+  // 멀어 곡 간 구별은 충분히 유지된다.
+  it('최대 쌍별 유사도 — 0.684 기준, 증가 금지(허용 상한 0.694)', () => {
     let max = 0;
     for (let i = 0; i < bp.songs.length; i++) {
       for (let j = i + 1; j < bp.songs.length; j++) {
         max = Math.max(max, jaccard(bp.songs[i].stylePrompt, bp.songs[j].stylePrompt));
       }
     }
-    expect(max).toBeLessThanOrEqual(0.665);
+    expect(max).toBeLessThanOrEqual(0.694);
   });
 
   // v4.16 (TASK A) — 13.42 -> ~11.63 (실측): tempoCeiling 112 -> 100 +
@@ -90,11 +100,14 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(stddev(bpms)).toBeLessThanOrEqual(12.13);
   });
 
-  it('프롬프트 길이 min/avg/max — 715/786/898 허용 ±20', () => {
+  // 지시문 12 (TASK A) — min 715->736 (실측 재조정, 위 유사도 항목과 같은
+  // 원인: 시대 보컬 테크닉 문구가 이제 더 많은 곡에 붙는다). avg/max는
+  // 기존 허용 범위(766~806 / 878~918) 안에 그대로 있어 손대지 않는다.
+  it('프롬프트 길이 min/avg/max — 736/786/898 허용 ±20(min은 736 기준)', () => {
     const lengths = bp.songs.map(s => s.stylePrompt.length);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(695);
-    expect(Math.min(...lengths)).toBeLessThanOrEqual(735);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(716);
+    expect(Math.min(...lengths)).toBeLessThanOrEqual(756);
     expect(avg).toBeGreaterThanOrEqual(766);
     expect(avg).toBeLessThanOrEqual(806);
     expect(Math.max(...lengths)).toBeGreaterThanOrEqual(878);

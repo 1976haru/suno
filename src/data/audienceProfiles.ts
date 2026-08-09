@@ -1,5 +1,5 @@
 import type { AgeGroup, AudienceProfile, ChannelArchetype } from '../types';
-import { workspaceForArchetype } from './workspaces';
+import { AUDIENCE_PROFILE_ID_BY_ARCHETYPE } from './archetypeAudienceProfiles';
 
 /**
  * TASK v3.58 (지시문 v3.58 TASK 4) — see AudienceProfile's own doc comment
@@ -729,31 +729,28 @@ export function audienceProfileForAgeGroup(audience: AgeGroup | undefined): Audi
 }
 
 /**
- * v5.7 (TASK B) — the real, workspace-aware resolver. Prefers the calling
- * channel's own workspace's `defaultAudienceProfileId` (real per-workspace
- * tempo/word-range/exclusions, not the generic age-bucketed fallback);
- * falls back to `audienceProfileForAgeGroup(audience)` when the channel's
- * archetype doesn't resolve to a workspace at all, that workspace's own
- * profile id doesn't resolve, OR the workspace is senior-oldpop.
+ * 지시문 12 (TASK C-1) — v5.7의 워크스페이스 단위 해석을 아키타입 단위로
+ * 대체한다. v5.7은 senior-oldpop 전체를 channel.audience 폴백으로 예외
+ * 처리했는데, 그 워크스페이스가 실제로는 시니어가 아닌 4개 아키타입
+ * (j2000s/modern-chill/city-night/kids)을 의도적으로 묶고 있어서였다
+ * (data/archetypeAudienceProfiles.ts의 doc comment에 실측 근거 전문).
+ * 문제는 "워크스페이스 단위 강제"가 아니라 "검증된 설정이 channel.audience
+ * 라는 개별 필드에 조용히 묶여 있었다"는 것 — oldpop-lounge/christmas/
+ * lofi-study처럼 프리셋이 없는(커스텀 채널 전용) 아키타입은 사용자가 채널을
+ * 만들 때 audience 필드를 무엇으로 두느냐에 따라 매번 다른 프로필을 받았다
+ * (지시문 12가 지적한 oldpoplounge tempoCeiling 132 실측이 이 경로).
  *
- * senior-oldpop is deliberately excluded from the workspace-override path,
- * not merely a no-op: unlike the 4 target workspaces (one archetype, one
- * audience each), senior-oldpop bundles 10 archetypes that were never all
- * "senior audience" — 'modern-chill'/'city-night'/'lofi-study' etc. carry
- * their own per-channel `audience` field for deliberate sub-targeting
- * within the workspace (see tests/audienceProfile.test.ts's own "does not
- * force senior-specific exclusions onto a non-senior channel", which
- * caught this: routing senior-oldpop through its single workspace default
- * would have force-applied SENIOR_AUDIENCE_PROFILE's exclusions onto e.g.
- * chill-hours, a real regression this fix must not introduce). Excluding
- * senior-oldpop here preserves that pre-existing, already-tested per-channel
- * resolution exactly — see tests/audienceProfileForWorkspace.test.ts for
- * the senior-morning channel's own strict-no-op confirmation.
+ * AUDIENCE_PROFILE_ID_BY_ARCHETYPE는 16개 아키타입 전부에 대해 명시적
+ * 기본값을 갖는다 — senior-oldpop의 4개 비-시니어 아키타입은 그 프리셋
+ * 채널이 오늘 실제로 받는 값(GENERAL_AUDIENCE_PROFILE/KIDS_AUDIENCE_PROFILE)
+ * 그대로 고정했으므로 동작이 바뀌지 않는다(tests/audienceProfile.test.ts의
+ * "does not force senior-specific exclusions onto a non-senior channel"
+ * 회귀 테스트로 확인). `audienceFallback`(channel.audience)은 인식되지
+ * 않는(테이블에 없는) archetype에서만 쓰이는 진짜 폴백으로 남는다.
  */
 export function audienceProfileForChannelArchetype(archetype: ChannelArchetype | undefined, audienceFallback: AgeGroup | undefined): AudienceProfile {
-  const workspace = workspaceForArchetype(archetype);
-  const resolved = workspace && workspace.id !== 'senior-oldpop' && audienceProfileById(workspace.defaultAudienceProfileId);
-  return resolved || audienceProfileForAgeGroup(audienceFallback);
+  const profileId = archetype && AUDIENCE_PROFILE_ID_BY_ARCHETYPE[archetype];
+  return (profileId && audienceProfileById(profileId)) || audienceProfileForAgeGroup(audienceFallback);
 }
 
 /**

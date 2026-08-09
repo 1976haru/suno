@@ -1,6 +1,7 @@
 import type { ChannelArchetype, GenreLyricFlavorImage, GenrePack } from '../../types';
 import type { GenreTier } from './types';
 import { ERA_BUCKET_BY_GENRE_ID } from '../eraExclusions';
+import { ERA_BUCKETS_BY_GENRE_ID, ERA_NOTE_KO_BY_GENRE_ID, type EraBucket as FineEraBucket } from '../eraBuckets';
 import { buildGenreTraits } from '../genreTraits';
 
 /**
@@ -141,6 +142,20 @@ export interface StructuredGenrePack extends GenrePack {
   productionGuidance: string;
   source: 'legacy-preset' | 'notion-analysis';
 }
+
+/**
+ * 지시문 12 (TASK A) — genreLibrary(아래 최종 export)의 실제 타입. 개별
+ * 팩토리(legacyGenrePack/makeProfile 등)가 만드는 중간 배열은 여전히
+ * StructuredGenrePack[]로 남겨둔다(eraBuckets는 이 파일 하나의 최종 파생
+ * 단계에서만 부여됨 — withGenreVisibility의 archetypes/tier와 같은
+ * "T & {...}" 교차 타입 패턴, StructuredGenrePack 자체를 넓히지 않는다).
+ * eraBuckets는 필수 — 354종 전수 부여가 이 타입으로 강제된다.
+ */
+export type EraTaggedGenrePack = StructuredGenrePack & {
+  eraBuckets: FineEraBucket[];
+  /** 이 장르에 그 eraBuckets를 부여한 근거 — 사람이 읽는 필드, 판정에 쓰지 않는다. */
+  eraNoteKo?: string;
+};
 
 const GENRE_ERA_TAG_OVERRIDES: Record<string, string> = {
   'adult-contemporary': '1980s-present adult contemporary',
@@ -2333,7 +2348,7 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
-export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;
@@ -2341,7 +2356,13 @@ export const genreLibrary: StructuredGenrePack[] = [...legacyGenreProfiles, ...k
   // v3.65 (TASK A) — additive only; a genre with no entry in
   // GENRE_TRAIT_OVERRIDES gets `traits: undefined` (unchanged shape).
   const traits = buildGenreTraits(withFlavor);
-  return traits ? { ...withFlavor, traits } : withFlavor;
+  const withTraits = traits ? { ...withFlavor, traits } : withFlavor;
+  // 지시문 12 (TASK A) — eraBuckets는 354종 전수 부여된 필수 필드다.
+  // ERA_BUCKETS_BY_GENRE_ID에 없는 id는 있을 수 없다(제너레이터가 그 시점의
+  // genreLibrary 전체를 순회해 만들었다) — 방어적으로만 ['era-neutral'] 폴백.
+  const eraBuckets: FineEraBucket[] = ERA_BUCKETS_BY_GENRE_ID[genre.id] ?? ['era-neutral'];
+  const eraNoteKo = ERA_NOTE_KO_BY_GENRE_ID[genre.id];
+  return { ...withTraits, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
 });
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;

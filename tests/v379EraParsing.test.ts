@@ -63,7 +63,7 @@ describe('[v3.79 TASK A] applyEraQuota on the compound phrases — each bucket >
       'oldpop-warm-morning-glow': 5
     };
     const era = extractEraConstraint('60년대70년대 감성을 느낄수 있는 올드팝');
-    const { counts, warnings } = applyEraQuota(before, 18, era, () => true);
+    const { counts } = applyEraQuota(before, 18, era, () => true);
     const byBucket = new Map<string, number>();
     for (const [id, count] of Object.entries(counts)) {
       const bucket = eraBucketForGenreId(id) ?? 'generic';
@@ -73,7 +73,12 @@ describe('[v3.79 TASK A] applyEraQuota on the compound phrases — each bucket >
     expect(total).toBe(18);
     expect((byBucket.get('1950s-60s') ?? 0) / total).toBeGreaterThanOrEqual(0.3);
     expect((byBucket.get('1970s') ?? 0) / total).toBeGreaterThanOrEqual(0.3);
-    expect(warnings.length).toBeGreaterThan(0);
+    // 지시문 12 (TASK A) — 이전에는 이 재분배가 항상 "부족분 경고"를 동반했다
+    // (oldpop-motown-pop-soul이 당시 1970s 단독으로 잘못 분류돼 1950s-60s
+    // 후보가 얕았기 때문). §A-4 정정(모타운 1960s 포함)으로 1950s-60s 채움이
+    // 부족분 없이 깨끗하게 끝나 warnings가 비어 있을 수 있다 — 이제 이
+    // 항목이 검증할 실질은 위의 두 비중 단언이며, warnings 유무 자체는
+    // 더 이상 "재분배가 실제로 일어났는가"의 신뢰할 만한 대리 지표가 아니다.
   });
 });
 
