@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Download, Upload, X } from 'lucide-react';
 import {
   channelInsights,
@@ -31,17 +31,17 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
   const [topPerformers, setTopPerformers] = useState<TopPerformerAttributes | null>(null);
   const [importMessage, setImportMessage] = useState('');
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const list = await listVideos(channel.id);
     setVideos(list);
     setInsights(await channelInsights(channel.id));
     setDiversity(await channelDiversityReport(channel.id));
     setTopPerformers(await topPerformerAttributes(channel.id));
-  }
+  }, [channel.id]);
 
   useEffect(() => {
     void refresh();
-  }, [channel.id]);
+  }, [refresh]);
 
   async function handleFieldChange(id: string, patch: Partial<VideoRecord>) {
     setVideos(prev => prev.map(v => (v.id === id ? { ...v, ...patch } : v)));

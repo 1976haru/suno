@@ -1,5 +1,5 @@
 import type { ChannelArchetype, GenerationOptions, LyricLanguage, SeasonPack, SongIdea } from '../types';
-import { defaultHookParts, resolveHookParts, type HookPartBank } from '../data/hookParts';
+import { resolveHookParts, type HookPartBank } from '../data/hookParts';
 import { overrideForArchetype } from '../data/hookBanks';
 import { stripSetTitlePrefix } from '../utils/generation';
 import { hashSeed, mulberry32, shuffle } from '../utils/prng';
@@ -161,14 +161,14 @@ const enSituation: LineTemplate[] = [
 // pool works before any hook phrase.
 const enPreChorus: LineTemplate[] = [
   c => [`And when the ${c.season} light comes low`, 'I hear myself say'],
-  c => ['There is something in this quiet', 'that makes me want to stay'],
-  c => ['The quiet builds a little more', 'and then I finally say'],
-  c => ['I feel it rising soft and slow', 'right before I say'],
+  _c => ['There is something in this quiet', 'that makes me want to stay'],
+  _c => ['The quiet builds a little more', 'and then I finally say'],
+  _c => ['I feel it rising soft and slow', 'right before I say'],
   c => [`Each ${c.season} evening calls me back`, 'to the words I always say'],
   c => [`The ${c.motif} waits for just this moment`, 'and I quietly say'],
-  c => ['I have carried this a long, long while', 'and now I have to say'],
-  c => ['Something in the silence shifts', 'and I can finally say'],
-  c => ['Right here in this moment', 'I stop and I say']
+  _c => ['I have carried this a long, long while', 'and now I have to say'],
+  _c => ['Something in the silence shifts', 'and I can finally say'],
+  _c => ['Right here in this moment', 'I stop and I say']
 ];
 
 // TASK v4.6 (TASK E) — every one of these 10 templates used to lead its
@@ -216,7 +216,7 @@ const enVerse2: LineTemplate[] = [
   c => ['I kept a list of maybes', 'too tired to say them out', `Now they feel ${likeMotif(c.motif)}`, 'without a trace of doubt'],
   c => ['I used to rush the mornings', 'afraid to miss the light', `Now they feel ${likeMotif(c.motif)}`, 'that stays no matter the night'],
   c => ['I thought the quiet meant losing', 'a version of the plan', `Now it feels ${likeMotif(c.motif)}`, 'I finally understand'],
-  c => ['One more quiet morning', 'another soft rain', `Turns the page so gently`, 'and calls me home again'],
+  _c => ['One more quiet morning', 'another soft rain', `Turns the page so gently`, 'and calls me home again'],
   c => ['I kept the small regrets', 'folded soft and low', `Now they feel ${likeMotif(c.motif)}`, 'ready to let go'],
   c => ['The years moved like a river', 'too fast to hold at all', `Now they feel ${likeMotif(c.motif)}`, 'answering my call']
 ];
@@ -276,14 +276,14 @@ const koSituation: LineTemplate[] = [
 
 const koPreChorus: LineTemplate[] = [
   c => [`${c.season}빛이 낮게 내려올 때`, '나는 조용히 말해요'],
-  c => ['이 순간 속에서', '문득 이렇게 불러봐요'],
-  c => ['고요함이 조금 더 짙어지면', '나는 결국 말해요'],
-  c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
+  _c => ['이 순간 속에서', '문득 이렇게 불러봐요'],
+  _c => ['고요함이 조금 더 짙어지면', '나는 결국 말해요'],
+  _c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
   c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 조용히 불러봐요'],
-  c => ['오래 품고 있던 마음을', '이제는 말해볼게요'],
-  c => ['고요 속에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
+  _c => ['오래 품고 있던 마음을', '이제는 말해볼게요'],
+  _c => ['고요 속에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
   c => [`${c.season} 저녁이 나를 부를 때`, '나는 이렇게 대답해요'],
-  c => ['바로 이 순간에서', '나는 마음을 열어 말해요']
+  _c => ['바로 이 순간에서', '나는 마음을 열어 말해요']
 ];
 
 const koChorusDev: LineTemplate[] = [
@@ -311,7 +311,7 @@ const koBridge: LineTemplate[] = [
 ];
 
 const koVerse2: LineTemplate[] = [
-  c => ['지나온 길들은 모두', '이제는 음악이 되고', `말하지 못한 마음까지`, '창가에 내려앉아요'],
+  _c => ['지나온 길들은 모두', '이제는 음악이 되고', `말하지 못한 마음까지`, '창가에 내려앉아요'],
   c => ['너무 멀게 느껴졌던 거리도', '이제는 다르게 보여요', `그것들은 ${c.motif}처럼`, '조용히 내 곁에 있어요'],
   c => ['느린 하루를 탓하던 이유도', '이제는 세어보지 않아요', `그것들은 ${c.motif}처럼`, '익숙한 길이 되었어요'],
   c => ['정착하지 못했던 시간도', '가끔 다시 떠오르지만', `${c.motif}처럼 느껴져요`, '이제야 이해가 돼요'],
@@ -320,7 +320,7 @@ const koVerse2: LineTemplate[] = [
   c => ['말하지 못한 것들의 목록도', '너무 지쳐 꺼내지 못했지만', `이제는 ${c.motif}처럼`, '의심 없이 남아요'],
   c => ['빛을 놓칠까 서두르던 아침도', '이제는 천천히 흘러가요', `${c.motif}처럼 느껴져요`, '어떤 밤에도 머무는'],
   c => ['고요함이 잃음이라 생각했던 계획도', '이제는 다르게 보여요', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
-  c => ['매일의 작은 커피와', '비에 젖은 거리도', '다시 돌아갈 곳처럼', '따뜻하게 불러요'],
+  _c => ['매일의 작은 커피와', '비에 젖은 거리도', '다시 돌아갈 곳처럼', '따뜻하게 불러요'],
   c => ['작은 후회들도', '조용히 접어두었지만', `이제는 ${c.motif}처럼`, '놓아줄 준비가 됐어요'],
   c => ['강물처럼 흘러간 시간도', '너무 빨라 붙잡지 못했지만', `이제는 ${c.motif}처럼`, '내 부름에 대답해요']
 ];
@@ -388,12 +388,12 @@ const kr2030Situation: LineTemplate[] = [
 
 const kr2030PreChorus: LineTemplate[] = [
   c => [`${c.season} 밤이 낮게 내려올 때`, '나는 나직이 말해요'],
-  c => ['이 도시의 소음 속에서', '문득 이렇게 불러봐요'],
-  c => ['익숙함이 조금 더 짙어지면', '나는 결국 말해요'],
-  c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
+  _c => ['이 도시의 소음 속에서', '문득 이렇게 불러봐요'],
+  _c => ['익숙함이 조금 더 짙어지면', '나는 결국 말해요'],
+  _c => ['천천히 차오르는 마음으로', '나는 이렇게 말해요'],
   c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 조용히 불러봐요'],
-  c => ['오래 미뤄뒀던 마음을', '이제는 말해볼게요'],
-  c => ['이 거리 끝에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
+  _c => ['오래 미뤄뒀던 마음을', '이제는 말해볼게요'],
+  _c => ['이 거리 끝에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
   c => [`${c.season} 밤이 나를 부를 때`, '나는 이렇게 대답해요']
 ];
 
@@ -419,7 +419,7 @@ const kr2030Bridge: LineTemplate[] = [
 ];
 
 const kr2030Verse2: LineTemplate[] = [
-  c => ['지나온 밤들은 모두', '이제는 노래가 되고', '말하지 못한 마음까지', '거리 위에 내려앉아요'],
+  _c => ['지나온 밤들은 모두', '이제는 노래가 되고', '말하지 못한 마음까지', '거리 위에 내려앉아요'],
   c => ['너무 멀게 느껴졌던 거리도', '이제는 다르게 보여요', `그것들은 ${c.motif}처럼`, '조용히 내 곁에 있어요'],
   c => ['서두르던 걸음의 이유도', '이제는 세어보지 않아요', `그것들은 ${c.motif}처럼`, '익숙한 길이 되었어요'],
   c => ['정착하지 못했던 밤들도', '가끔 다시 떠오르지만', `${c.motif}처럼 느껴져요`, '이제야 이해가 돼요'],
@@ -428,7 +428,7 @@ const kr2030Verse2: LineTemplate[] = [
   c => ['하지 못한 말들의 목록도', '너무 지쳐 꺼내지 못했지만', `이제는 ${c.motif}처럼`, '의심 없이 남아요'],
   c => ['늦은 지하철을 서두르던 밤도', '이제는 천천히 흘러가요', `${c.motif}처럼 느껴져요`, '어떤 밤에도 머무는'],
   c => ['혼자라 생각했던 저녁도', '이제는 다르게 보여요', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
-  c => ['매일의 작은 커피 한 잔과', '비에 젖은 거리도', '돌아갈 곳처럼', '따뜻하게 불러요']
+  _c => ['매일의 작은 커피 한 잔과', '비에 젖은 거리도', '돌아갈 곳처럼', '따뜻하게 불러요']
 ];
 
 const kr2030Closing: LineTemplate[] = [
@@ -492,12 +492,12 @@ const krIdolSituation: LineTemplate[] = [
 
 const krIdolPreChorus: LineTemplate[] = [
   c => [`${c.season} 조명이 낮아질 때`, '나는 힘주어 말해요'],
-  c => ['이 함성 속에서', '문득 이렇게 외쳐봐요'],
-  c => ['긴장이 조금 더 짙어지면', '나는 결국 말해요'],
-  c => ['천천히 차오르는 확신으로', '나는 이렇게 말해요'],
+  _c => ['이 함성 속에서', '문득 이렇게 외쳐봐요'],
+  _c => ['긴장이 조금 더 짙어지면', '나는 결국 말해요'],
+  _c => ['천천히 차오르는 확신으로', '나는 이렇게 말해요'],
   c => [`${c.motif}${koParticle(c.motif, '이', '가')} 이 순간을 기다리고`, '나는 크게 외쳐봐요'],
-  c => ['오래 준비해온 마음을', '이제는 보여줄게요'],
-  c => ['이 무대 위에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
+  _c => ['오래 준비해온 마음을', '이제는 보여줄게요'],
+  _c => ['이 무대 위에서 무언가 바뀌면', '나는 결국 이렇게 말해요'],
   c => [`${c.season} 함성이 나를 부를 때`, '나는 이렇게 대답해요']
 ];
 
@@ -523,7 +523,7 @@ const krIdolBridge: LineTemplate[] = [
 ];
 
 const krIdolVerse2: LineTemplate[] = [
-  c => ['지나온 무대들은 모두', '이제는 우리의 노래가 되고', '말하지 못한 마음까지', '함성 위에 내려앉아요'],
+  _c => ['지나온 무대들은 모두', '이제는 우리의 노래가 되고', '말하지 못한 마음까지', '함성 위에 내려앉아요'],
   c => ['너무 멀게 느껴졌던 거리도', '이제는 다르게 보여요', `그것들은 ${c.motif}처럼`, '조용히 우리 곁에 있어요'],
   c => ['서두르던 걸음의 이유도', '이제는 세어보지 않아요', `그것들은 ${c.motif}처럼`, '익숙한 무대가 되었어요'],
   c => ['떨리기만 했던 순간도', '가끔 다시 떠오르지만', `${c.motif}처럼 느껴져요`, '이제야 이해가 돼요'],
@@ -532,7 +532,7 @@ const krIdolVerse2: LineTemplate[] = [
   c => ['하지 못한 말들의 목록도', '너무 지쳐 꺼내지 못했지만', `이제는 ${c.motif}처럼`, '의심 없이 남아요'],
   c => ['늦은 연습을 서두르던 밤도', '이제는 천천히 흘러가요', `${c.motif}처럼 느껴져요`, '어떤 무대에도 머무는'],
   c => ['혼자라 생각했던 순간도', '이제는 다르게 보여요', `이제는 ${c.motif}처럼`, '드디어 이해가 돼요'],
-  c => ['매일의 작은 연습과', '땀에 젖은 무대도', '돌아갈 곳처럼', '뜨겁게 불러요']
+  _c => ['매일의 작은 연습과', '땀에 젖은 무대도', '돌아갈 곳처럼', '뜨겁게 불러요']
 ];
 
 const krIdolClosing: LineTemplate[] = [
@@ -582,14 +582,14 @@ const jaSituation: LineTemplate[] = [
 
 const jaPreChorus: LineTemplate[] = [
   c => [`${c.season}の光が低くなる頃`, '私は静かに言う'],
-  c => ['この瞬間の中で', 'ふとこう呼びかける'],
-  c => ['静けさがもう少し深まると', '私はついに言う'],
-  c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
+  _c => ['この瞬間の中で', 'ふとこう呼びかける'],
+  _c => ['静けさがもう少し深まると', '私はついに言う'],
+  _c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
   c => [`${c.motif}がこの瞬間を待っていて`, '私は静かに呼びかける'],
-  c => ['長く抱えていた気持ちを', '今こそ伝えよう'],
-  c => ['静寂の中で何かが変わるなら', '私はついにこう言う'],
+  _c => ['長く抱えていた気持ちを', '今こそ伝えよう'],
+  _c => ['静寂の中で何かが変わるなら', '私はついにこう言う'],
   c => [`${c.season}の夕暮れが私を呼ぶとき`, '私はこう答える'],
-  c => ['まさにこの瞬間の中で', '心を開いて言う']
+  _c => ['まさにこの瞬間の中で', '心を開いて言う']
 ];
 
 const jaChorusDev: LineTemplate[] = [
@@ -617,7 +617,7 @@ const jaBridge: LineTemplate[] = [
 ];
 
 const jaVerse2: LineTemplate[] = [
-  c => ['通り過ぎた道も', '今は音楽になり', '言えなかった気持ちまで', '窓辺にそっと座る'],
+  _c => ['通り過ぎた道も', '今は音楽になり', '言えなかった気持ちまで', '窓辺にそっと座る'],
   c => ['遠すぎると思った距離も', '今は違って見える', `それは${c.motif}のように`, '静かにそばにある'],
   c => ['遅い一日を責めた理由も', '今は数えない', `それは${c.motif}のように`, '見慣れた道になった'],
   c => ['落ち着けなかった時間も', 'たまにまた浮かぶけれど', `${c.motif}のように感じる`, '今ようやくわかる'],
@@ -626,7 +626,7 @@ const jaVerse2: LineTemplate[] = [
   c => ['言えなかったことの一覧も', '疲れて出せなかったが', `今は${c.motif}のように`, '迷いなく残る'],
   c => ['光を逃すまいと急いだ朝も', '今はゆっくり流れる', `${c.motif}のように感じる`, 'どんな夜にもとどまる'],
   c => ['静けさを失うことだと思った計画も', '今は違って見える', `今は${c.motif}のように`, 'ようやくわかる'],
-  c => ['毎日の小さなコーヒーと', '雨に濡れた街が', '帰る場所のように', 'やさしく呼んでいる'],
+  _c => ['毎日の小さなコーヒーと', '雨に濡れた街が', '帰る場所のように', 'やさしく呼んでいる'],
   c => ['小さな後悔も', '静かに畳んでいたけれど', `今は${c.motif}のように`, '手放す準備ができた'],
   c => ['川のように流れた時間も', '速すぎてつかめなかったが', `今は${c.motif}のように`, '私の呼びかけに応える']
 ];
@@ -688,12 +688,12 @@ const jp2030Situation: LineTemplate[] = [
 
 const jp2030PreChorus: LineTemplate[] = [
   c => [`${c.season}の夜が低く降りてくる頃`, '私は静かに言う'],
-  c => ['この街の騒がしさの中で', 'ふとこう呼びかける'],
-  c => ['馴染みがもう少し深まると', '私はついに言う'],
-  c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
+  _c => ['この街の騒がしさの中で', 'ふとこう呼びかける'],
+  _c => ['馴染みがもう少し深まると', '私はついに言う'],
+  _c => ['ゆっくり満ちてゆく心で', '私はこう言う'],
   c => [`${c.motif}がこの瞬間を待っていて`, '私は静かに呼びかける'],
-  c => ['長く後回しにしていた気持ちを', '今こそ伝えよう'],
-  c => ['この道の先で何かが変わるなら', '私はついにこう言う'],
+  _c => ['長く後回しにしていた気持ちを', '今こそ伝えよう'],
+  _c => ['この道の先で何かが変わるなら', '私はついにこう言う'],
   c => [`${c.season}の夜が私を呼ぶとき`, '私はこう答える']
 ];
 
@@ -719,7 +719,7 @@ const jp2030Bridge: LineTemplate[] = [
 ];
 
 const jp2030Verse2: LineTemplate[] = [
-  c => ['過ぎてきた夜はすべて', '今は歌になって', '言えなかった気持ちまで', '街の上にそっと降りる'],
+  _c => ['過ぎてきた夜はすべて', '今は歌になって', '言えなかった気持ちまで', '街の上にそっと降りる'],
   c => ['遠すぎると思った距離も', '今は違って見える', `それは${c.motif}のように`, '静かにそばにある'],
   c => ['急いでいた足取りの理由も', '今はもう数えない', `それは${c.motif}のように`, '見慣れた道になった'],
   c => ['落ち着けなかった夜も', 'たまにまた浮かぶけれど', `${c.motif}のように感じる`, '今ようやくわかる'],
@@ -728,7 +728,7 @@ const jp2030Verse2: LineTemplate[] = [
   c => ['言えなかったことの一覧も', '疲れて出せなかったが', `今は${c.motif}のように`, '迷いなく残る'],
   c => ['終電を急いでいた夜も', '今はゆっくり流れる', `${c.motif}のように感じる`, 'どんな夜にもとどまる'],
   c => ['ひとりだと思っていた夕暮れも', '今は違って見える', `今は${c.motif}のように`, 'ようやくわかる'],
-  c => ['毎日の小さなコーヒーと', '雨に濡れた街も', '帰る場所のように', 'あたたかく呼んでいる']
+  _c => ['毎日の小さなコーヒーと', '雨に濡れた街も', '帰る場所のように', 'あたたかく呼んでいる']
 ];
 
 const jp2030Closing: LineTemplate[] = [
@@ -846,10 +846,6 @@ export function createLyricBatchPools(language: LyricLanguage, seedBase: string,
     closing: new UniquePool(pools.closing, s + 7),
     usedLines: new Set<string>()
   };
-}
-
-function extendedBridgeRoles(role: string) {
-  return role === 'late-set emotional center' || role === 'romantic shade without melodrama';
 }
 
 /** 'soft reset before the closing run' keeps its old extra closing-pool texture line after the final chorus. */
@@ -1637,12 +1633,6 @@ export function isWithinHookLengthBounds(phrase: string, language: LyricLanguage
   const length = hookLength(phrase, language);
   return length >= bounds.min && length <= bounds.max;
 }
-
-const HOOK_RHYTHM_BOUNDS: Record<'english' | 'korean' | 'japanese', { min: number; max: number }> = {
-  english: { min: 4, max: 7 },
-  korean: { min: 6, max: 10 },
-  japanese: { min: 7, max: 12 }
-};
 
 export function hookRhythmLength(phrase: string, language: LyricLanguage): number {
   return estimateSyllables(phrase, language);

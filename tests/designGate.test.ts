@@ -135,7 +135,10 @@ describe('evaluateDesignGate — 보컬 (재발 시나리오 1-D의 단위 테�
     expect(ids).toContain('vocal-type-min');
     expect(ids).toContain('vocal-consecutive');
     // every vocal issue offers an autoFix.
-    expect(result.blocking.filter(i => i.id.startsWith('vocal-')).every(i => typeof i.autoFix === 'function')).toBe(true);
+    // 지시문 19 (TASK C) — autoFix is now a pre-computed value (not a
+    // closure), so it survives the Worker postMessage boundary; see
+    // core/designGate.ts's own doc comment on DesignIssue.autoFix.
+    expect(result.blocking.filter(i => i.id.startsWith('vocal-')).every(i => typeof i.autoFix === 'object' && i.autoFix !== null)).toBe(true);
   });
 
   it('blocks vocal-consecutive when one gender runs 3+ in a row even with otherwise-fine totals', () => {
@@ -148,11 +151,11 @@ describe('evaluateDesignGate — 보컬 (재발 시나리오 1-D의 단위 테�
     expect(result.blocking.some(i => i.id === 'vocal-consecutive')).toBe(true);
   });
 
-  it('an autoFix() call produces a vocalType allocation whose counts sum to songCount', () => {
+  it('autoFix produces a vocalType allocation whose counts sum to songCount', () => {
     const opts = baseOpts();
     const slots = healthySlots().map(slot => ({ ...slot, vocalType: 'male' as const }));
     const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
-    const fix = result.blocking.find(i => i.id === 'vocal-type-variety')!.autoFix!();
+    const fix = result.blocking.find(i => i.id === 'vocal-type-variety')!.autoFix!;
     const allocation = fix.diversityAllocations!.find(a => a.axis === 'vocalType')!;
     const total = Object.values(allocation.counts).reduce((sum, n) => sum + n, 0);
     expect(total).toBe(18);
@@ -185,7 +188,7 @@ describe('evaluateDesignGate — 보컬 (재발 시나리오 1-D의 단위 테�
     const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
     const issue = result.blocking.find(i => i.id === 'vocal-quota-fidelity');
     expect(issue).toBeDefined();
-    const fix = issue!.autoFix!();
+    const fix = issue!.autoFix!;
     const allocation = fix.diversityAllocations!.find(a => a.axis === 'vocalType')!;
     expect(allocation.counts).toEqual({ male: 15, female: 0, mixed: 3 });
   });

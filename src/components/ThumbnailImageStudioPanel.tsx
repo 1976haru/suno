@@ -223,7 +223,7 @@ function ThumbnailImageStudioPanelAdvanced({ spec, defaultSeasonId, defaultArche
 
   useEffect(() => {
     void refreshSetGroups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   async function refreshSetGroups() {

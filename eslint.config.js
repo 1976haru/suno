@@ -91,7 +91,25 @@ export default [
       // Real, high-value rules verified clean against this codebase today.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-undef': 'off', // TypeScript's own compiler already catches real undefined-identifier errors; this rule false-positives heavily on TS-only syntax (type-only imports, ambient globals) without type-aware parsing.
-      ...reactHooks.configs.recommended.rules,
+      // 지시문 19 (TASK C) — explicitly enumerated instead of
+      // `...reactHooks.configs.recommended.rules`: that spread silently
+      // absorbed a whole new "React Compiler" rule family (set-state-in-
+      // effect/purity/preserve-manual-memoization/immutability) the moment
+      // eslint-plugin-react-hooks was bumped to ^7.1.1 — none of it was a
+      // deliberate choice by anyone working on this repo, it just rode in
+      // on `recommended`'s own definition changing. Those rules assume a
+      // React-Compiler-optimized architecture this project doesn't use, and
+      // flag idiomatic, correct patterns (resetting state at the top of a
+      // data-fetch effect, Date.now() in a click handler) as errors. Fixing
+      // them "for real" would mean restructuring effects and hoisting
+      // Date.now()/Math.random() calls out of render across ~15 component
+      // files — a real behavior-risk refactor, not a lint cleanup, and
+      // exactly the kind of scope creep this task's own directive rules
+      // out ("새 품질 기능 추가 금지"). Keeping only the two rules this
+      // config's original header comment actually documented as intent
+      // ("real hook-dependency bugs, accidental Fast-Refresh breaks").
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }]
     }
   },

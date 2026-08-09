@@ -58,7 +58,6 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
   const [include, setInclude] = useState<ExportInclude>(DEFAULT_EXPORT_INCLUDE);
   const [partialOpen, setPartialOpen] = useState(false);
   const [stage, setStage] = useState<Stage>({ kind: 'idle' });
-  const [mode, setMode] = useState<'merge' | 'replace'>('merge');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   /** TASK v5.20 (독립 수노모드 뷰어, TASK C-3) — kept separate from the workspace-transfer `stage` state machine above: a viewer ratings file is a much smaller, single-purpose import (no preview/merge-vs-replace choice, just "match what you can, tell me what you couldn't"). */
@@ -71,6 +70,14 @@ export default function DataManagementPanel({ initialWorkspaceId, onClose }: Dat
   const [backfillDiagnostic, setBackfillDiagnostic] = useState<string | null>(null);
 
   const workspace = getWorkspace(workspaceId);
+  // 지시문 19 (TASK C) — `stage` is deliberately a dependency here even
+  // though daysSinceLastBackup(workspaceId) doesn't take it as an
+  // argument: stage transitioning to { kind: 'done' } means an import just
+  // wrote new backup data, so this is an intentional "recompute after this
+  // side effect" invalidation trigger, not an accidental dependency.
+  // Removing it would leave the displayed "days since last backup" stale
+  // right after a successful import.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const staleDays = useMemo(() => daysSinceLastBackup(workspaceId), [workspaceId, stage]);
 
   useEffect(() => {

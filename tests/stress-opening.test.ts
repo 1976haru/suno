@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateLocalBlueprint, resolveOpeningStyle, resolveSongRole } from '../src/core/localGenerator';
+import { generateLocalBlueprint, resolveOpeningStyle } from '../src/core/localGenerator';
 import { runOpeningContest, type OpeningPackContext } from '../src/core/openingContest';
 import { promoteTrackToOpeningRole } from '../src/core/openingOverride';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';

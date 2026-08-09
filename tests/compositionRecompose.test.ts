@@ -42,7 +42,7 @@ describe('[v3.62 TASK 3] recomposeBlockingTracks', () => {
   it('leaves an already-passing pack untouched — no regenerateOne calls at all', async () => {
     const songs = [songWith({ trackNo: 1 }), songWith({ trackNo: 2 })];
     let calls = 0;
-    const result = await recomposeBlockingTracks(songs, async (current, trackNo, feedback) => {
+    const result = await recomposeBlockingTracks(songs, async (current, _trackNo, _feedback) => {
       calls += 1;
       return current;
     });
@@ -88,7 +88,7 @@ describe('[v3.62 TASK 3] recomposeBlockingTracks', () => {
   it('aborts early (before using all retries) if an attempt does not reduce the blocking count, and keeps the result with a warning', async () => {
     const songs = [songWith({ trackNo: 1, stylePrompt: BLOCKING_STYLE_PROMPT })];
     let calls = 0;
-    const result = await recomposeBlockingTracks(songs, async (current, trackNo) => {
+    const result = await recomposeBlockingTracks(songs, async (current, _trackNo) => {
       calls += 1;
       // First attempt "fixes" nothing — same 1-descriptor prompt, same blocking count.
       return current;
@@ -153,7 +153,7 @@ describe('[ratio-based lyric language mismatch] recomposeBlockingTracks — lyri
   it('omitting lyricLanguage means the exact same wrong-language track is silently never retried (the real-world consequence of the gap this param closes)', async () => {
     const songs = [songWith({ trackNo: 1, lyrics: brokenKoreanTargetLyrics() })];
     let calls = 0;
-    const result = await recomposeBlockingTracks(songs, async (current, trackNo) => {
+    const result = await recomposeBlockingTracks(songs, async (current, _trackNo) => {
       calls += 1;
       return current;
     });

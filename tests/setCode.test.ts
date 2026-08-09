@@ -52,7 +52,6 @@ describe('[v3.79 TASK D] daily sequence increment', () => {
   });
 
   it('a different day starts its own sequence at -01, independent of other days\' codes', () => {
-    const day1 = new Date(2026, 7, 2);
     const day2 = new Date(2026, 7, 3);
     const existing = ['S20260802-01', 'S20260802-02', 'S20260802-03'];
     expect(assignSetCode(day2, existing)).toBe('S20260803-01');

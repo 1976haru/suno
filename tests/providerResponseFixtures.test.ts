@@ -31,7 +31,6 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { importSongsJson } from '../src/core/bridgeImport';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
-import { getWorkspace } from '../src/data/workspaces';
 import { findArtistReferenceLeaks } from '../src/core/artistReferenceDecomposer';
 import { isKidsArchetype } from '../src/utils/channelArchetype';
 import { channelPresets, genrePacks, moodPacks, makeOptions, testSeason } from './fixtures';
@@ -122,12 +121,33 @@ function loadFixture(name: string): string {
  *    lyrics") — a static fixture's own fixed [Verse]/[Chorus]/[Bridge]
  *    section shape can't possibly pre-match every structure template a
  *    dynamic, per-workspace/per-seed slot plan might assign to it.
+ *  - 지시문 19 (TASK B) — core/stylePromptBudget.ts's own per-workspace
+ *    word-budget warning ("Track N: stylePrompt is X words (workspace
+ *    target...)") is the SAME underlying phenomenon as the first bullet
+ *    above (reconcileWithPreassignedSlot's unconditional atom append),
+ *    just a newer, differently-worded check added after this list was
+ *    first written — never matched the old `/^Style prompt is/` pattern
+ *    since it's prefixed with "Track N: ". Re-measured: even a minimal
+ *    17-word fixture stylePrompt reconciles past every workspace's budget
+ *    from mandatory atoms alone, so no fixture rewrite can satisfy this —
+ *    it is exactly as "structurally inherent" as the sibling check above.
+ *  - core/idolTitleLint.ts's single-bare-English-word title warning — its
+ *    own doc comment already says "never blocks generation", and
+ *    core/quality.ts's call site (지시문 15 TASK D-3) already gates it
+ *    behind contentChecksPolicy.idolTitleLintApplies as advisory-only for
+ *    kr-idol-male/kr-idol-female (the only 2 workspaces it ever fires for,
+ *    both verified:false per data/distinctChoicePolicy.ts) — already
+ *    exactly the "verified:false -> advisory" pattern 지시문 19 asked for,
+ *    done by an earlier merged directive. Only this test's own allowlist
+ *    was stale.
  */
 const BENIGN_WARNING_PATTERNS = [
   /^Style prompt is \d+ (words|chars)/,
   /titleLocalized/,
   /^Track \d+: style prompt clause ".*" is \d+ words long\.$/,
-  /assigned structureTemplate .* doesn't appear in the lyrics/
+  /assigned structureTemplate .* doesn't appear in the lyrics/,
+  /^Track \d+: stylePrompt is \d+ words \(workspace target/,
+  /is a single bare English word — high collision risk with an existing K-pop song title/
 ];
 function nonBenignWarnings(warnings: string[]): string[] {
   return warnings.filter(w => !BENIGN_WARNING_PATTERNS.some(pattern => pattern.test(w)));

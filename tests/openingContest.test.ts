@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runOpeningContest, type OpeningPackContext } from '../src/core/openingContest';
-import { HOOK_SHAPES, targetHookSyllables, type HookContext } from '../src/core/lyricEngine';
+import { targetHookSyllables, type HookContext } from '../src/core/lyricEngine';
 import type { LyricLanguage } from '../src/types';
 
 const LANGUAGES: LyricLanguage[] = ['english', 'korean', 'japanese'];

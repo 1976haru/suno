@@ -1,4 +1,6 @@
-import { extractQualifyingLines } from './lyricLineLedger';
+import { LYRIC_LINE_MIN_LENGTH } from './lyricLineLedger';
+import { parseLyricsSections } from './lyricsAst';
+import { CHORUS_FAMILY } from './sectionAwareRepetition';
 
 /**
  * v5.22 (AXIS 3) — real, verified gap this module fixes: this codebase had
@@ -163,23 +165,47 @@ function findSubjectVerbAgreementErrors(text: string): EnglishLintIssue[] {
 }
 
 // ---------------------------------------------------------------------------
-// Blocking — the same sentence repeated within one song (excluding the hook)
+// Blocking — the same sentence repeated within one song (excluding the hook
+// and chorus-family sections)
 // ---------------------------------------------------------------------------
-// Reuses lyricLineLedger.ts's own extractQualifyingLines (same >=25-char/
-// section-tag/hook-exclusion rules that module's cross-set duplicate check
-// already uses) so "what counts as a real line" is defined in exactly one
-// place, never two silently-drifting copies.
+// 지시문 19 (TASK A) — real false-positive found via tests/fixtures/
+// providerResponses/normal.json (a fixture whose final [chorus] intentionally
+// repeats the previous [chorus] verbatim, exactly this app's own by-design
+// convention — see core/sectionAwareRepetition.ts's own doc comment): the
+// old version applied lyricLineLedger.ts's extractQualifyingLines (>=25-char/
+// section-tag/hook-exclusion rules, still reused below for the same
+// qualifying-line definition) with NO section awareness at all, so a
+// verbatim final-chorus callback got flagged as a blocking defect. Now
+// parses real sections (core/lyricsAst.ts) and only blocks when a repeated
+// line has at least one occurrence OUTSIDE a chorus-family section — a line
+// repeated only across chorus/final-chorus/post-chorus instances is exempt,
+// same rule core/sectionAwareRepetition.ts's own findLongTextCopyAcrossSections
+// already applies one level up (whole-section copies). That module's own
+// findExcessNonChorusLineRepeats (already wired in core/quality.ts) remains
+// the kids-age-tier-aware check for excess non-chorus repeats; this check
+// stays a simpler, language-generic "still counts as the same case even
+// after a legitimate chorus repeat" structural check.
 function findInSongLineRepetition(lyrics: string, hookPhrase: string): EnglishLintIssue[] {
-  const lines = extractQualifyingLines(lyrics, hookPhrase);
-  const seen = new Map<string, string>();
-  const issues: EnglishLintIssue[] = [];
-  for (const line of lines) {
-    const key = line.toLowerCase();
-    if (seen.has(key)) {
-      issues.push({ id: 'in-song-line-repetition', severity: 'blocking', labelKo: '한 곡 내 문장 반복', excerpt: line });
-    } else {
-      seen.set(key, line);
+  const hookNormalized = hookPhrase.trim().toLowerCase();
+  const sections = parseLyricsSections(lyrics);
+  const occurrences = new Map<string, { line: string; inChorus: boolean }[]>();
+  for (const section of sections) {
+    const inChorus = CHORUS_FAMILY.has(section.type);
+    for (const rawLine of section.lines) {
+      const line = rawLine.trim();
+      if (!line || line.length < LYRIC_LINE_MIN_LENGTH) continue;
+      if (line.toLowerCase() === hookNormalized) continue;
+      const key = line.toLowerCase();
+      const list = occurrences.get(key) ?? [];
+      list.push({ line, inChorus });
+      occurrences.set(key, list);
     }
+  }
+  const issues: EnglishLintIssue[] = [];
+  for (const list of occurrences.values()) {
+    if (list.length < 2) continue;
+    if (list.every(entry => entry.inChorus)) continue; // legitimate chorus-family repeat
+    issues.push({ id: 'in-song-line-repetition', severity: 'blocking', labelKo: '한 곡 내 문장 반복', excerpt: list[1].line });
   }
   return issues;
 }

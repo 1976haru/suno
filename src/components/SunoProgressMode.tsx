@@ -43,6 +43,11 @@ const RATING_LABELS_KO: Record<SongRating, string> = { good: '좋음', ok: '보�
  * utils/exporters.ts's buildSongTxt already uses for this identical bug —
  * rather than assuming song.title is bare.
  */
+// 지시문 19 (TASK C) — real cross-file utility, not dead code; see
+// ExplorationLedgerPanel.tsx's identical doc comment on why this stays
+// co-located rather than being split into its own module for a dev-only
+// Fast Refresh lint rule.
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildTitleCopyText(song: Pick<SongIdea, 'trackNo' | 'title' | 'titleLocalized'>): string {
   const trackNoPadded = String(song.trackNo).padStart(2, '0');
   const bareTitle = stripSetTitlePrefix(song.title);

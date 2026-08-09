@@ -15,7 +15,11 @@ import { KIDS_AGE_TIERS, DEFAULT_KIDS_AGE_TIER_ID, type KidsAgeTierId } from '..
  * second verse).
  */
 
-const CHORUS_FAMILY: ReadonlySet<LyricsSectionType> = new Set(['chorus', 'final-chorus', 'post-chorus']);
+// 지시문 19 (TASK A) — exported so core/englishLint.ts's own in-song
+// line-repetition check can reuse the exact same "what counts as a
+// chorus" definition instead of drifting from it. Single source of truth
+// for "chorus repeated verbatim is by-design, not a defect."
+export const CHORUS_FAMILY: ReadonlySet<LyricsSectionType> = new Set(['chorus', 'final-chorus', 'post-chorus']);
 
 /** Same window-size sliding-match technique as core/lyricMetrics.ts's own verbatimSceneCopyWarning (codex 지시문 02 TASK D) — proven pattern for "does a real N-word run repeat verbatim," reused here for a different pair of texts (two lyric sections, not a scene description vs. lyrics). */
 const NEAR_DUPLICATE_WINDOW_WORDS = 6;

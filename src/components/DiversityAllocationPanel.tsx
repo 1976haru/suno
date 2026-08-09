@@ -10,7 +10,6 @@ import {
   allocationForAxis,
   allocationStatus,
   ARRANGEMENT_DENSITY_IDS,
-  DIVERSITY_AXIS_IDS,
   DIVERSITY_AXIS_LABELS,
   hasAllocationOverflow,
   KIDS_STRUCTURE_TEMPLATE_IDS,
@@ -157,9 +156,17 @@ function statusClass(status: ReturnType<typeof allocationStatus>): string {
 }
 
 export default function DiversityAllocationPanel({ opts, setOpts, genres }: DiversityAllocationPanelProps) {
+  // 지시문 19 (TASK C) — real gap the exhaustive-deps warning caught:
+  // axisDefinitions passes the whole `opts` through to
+  // lyricThemesForOptions/resolveLocalScenePlanningMode, which also read
+  // opts.customConcept and opts.channel.preferredMoods — neither was
+  // tracked here, so editing the concept text or switching to a channel
+  // with different preferredMoods (same archetype) silently left this
+  // panel's lyric-theme axis options stale. Depending on `opts` itself
+  // (as the linter suggests) closes that gap.
   const definitions = useMemo(
     () => axisDefinitions(opts, genres),
-    [opts.channel.archetype, opts.customLyricThemeScene, opts.genreIds, opts.lyricLanguage, genres]
+    [opts, genres]
   );
   const [openAxes, setOpenAxes] = useState<Set<DiversityAxisId>>(() => new Set());
   const [hasSavedPreset, setHasSavedPreset] = useState(false);

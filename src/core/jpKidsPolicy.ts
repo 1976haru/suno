@@ -1,6 +1,6 @@
 import { measureLyricLanguageRatios, checkLyricLanguageMatch } from './lyricMetrics';
 import { katakanaShareOfKana } from './jp2030Policy';
-import { KIDS_AGE_TIERS, DEFAULT_KIDS_AGE_TIER_ID, type KidsAgeTierId } from '../data/kidsAgeTiers';
+import { DEFAULT_KIDS_AGE_TIER_ID, type KidsAgeTierId } from '../data/kidsAgeTiers';
 import {
   resolveKrKidsExpectedPhasePolicy,
   findAdultPhaseLeaks,

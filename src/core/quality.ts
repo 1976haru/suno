@@ -401,7 +401,6 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   const warnings: string[] = [...(song.warnings || [])];
   let score = 100;
   const text = collectSongText(song);
-  const textLower = text.toLowerCase();
   const prompt = song.stylePrompt.toLowerCase();
   const lyrics = song.lyrics.toLowerCase();
   const riskScanText = stripSafetyBoilerplate(text);

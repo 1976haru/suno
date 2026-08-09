@@ -69,7 +69,7 @@ function legacySnapshotBlueprint(blueprint: PlaylistBlueprint): PlaylistBlueprin
     ...blueprint,
     generationSnapshot: {
       ...blueprint.generationSnapshot,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberately bypassing SnapshotProviderInfo to simulate pre-fix stored data
+       
       provider: providerWithSecrets as any
     }
   };

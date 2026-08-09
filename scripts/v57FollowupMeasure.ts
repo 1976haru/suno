@@ -73,7 +73,7 @@ const results: Record<string, unknown> = {};
 {
   const concept = '겨울 발라드 세트';
   function measure(songCount: number) {
-    const { blueprint, plan, opts } = generatePack(concept, SENIOR_MORNING, songCount, {
+    const { blueprint, plan, opts: _opts } = generatePack(concept, SENIOR_MORNING, songCount, {
       moneyChordMode: 'winterBallad',
       moneyChordModeIsExplicitChoice: true
     });

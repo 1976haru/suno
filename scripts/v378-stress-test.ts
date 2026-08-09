@@ -18,7 +18,7 @@ import { evaluateDesignGate, type DesignGateResult } from '../src/core/designGat
 import { evaluateGenerationGate } from '../src/core/generationGate';
 import { runFullAudit } from '../src/core/fullAudit';
 import { resolveConstraintsFromOptions } from '../src/core/constraints';
-import { getGenreById, genreLibrary } from '../src/data/genreLibrary';
+import { getGenreById } from '../src/data/genreLibrary';
 import { channelPresets } from '../src/data/presets';
 import { audienceProfileForAgeGroup, GENERAL_AUDIENCE_PROFILE, KIDS_AUDIENCE_PROFILE, SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
 import { normalizeChannel } from '../src/utils/channelProfile';
@@ -113,7 +113,7 @@ function stage1() {
     console.log('[1-A] 자동 수정 적용 후 재검증:');
     let fixedOpts = r1a.opts;
     for (const issue of r1a.result.blocking) {
-      if (issue.autoFix) fixedOpts = { ...fixedOpts, ...issue.autoFix() };
+      if (issue.autoFix) fixedOpts = { ...fixedOpts, ...issue.autoFix };
     }
     const fixedGenres = genresFor(fixedOpts.genreIds);
     const fixedSlots = preallocateSongSlots(fixedOpts, fixedGenres, { usedTitles: [], usedHooks: [] });
@@ -339,6 +339,7 @@ function stage6() {
   console.log(`[6-C] 채널 defaultVocal과 동일한가? ${warmMatureMale.prompt === channel.defaultVocal ? '동일 (레이닝 미발동 — 기본 쿼터로 다양성 보장)' : '다름 (레이닝 발동 기대)'}`);
 
   const { opts, plan } = planAndOpts(channel, concept, 18, warmMatureMale.prompt);
+  void plan;
   const genres = genresFor(opts.genreIds);
   let slots = preallocateSongSlots(opts, genres, { usedTitles: [], usedHooks: [] });
   let constraints = resolveConstraintsFromOptions(opts, audienceProfileForAgeGroup(opts.audience), 'senior-oldpop');
@@ -351,7 +352,7 @@ function stage6() {
     console.log('[6-E] 관문 1 실패 -> 자동 수정 적용');
     for (const issue of gate1.blocking) {
       if (!issue.autoFix) continue;
-      const fix = issue.autoFix();
+      const fix = issue.autoFix;
       finalOpts = { ...finalOpts, ...fix };
       console.log(`  자동 수정 적용: ${issue.id}`);
     }

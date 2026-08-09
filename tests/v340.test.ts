@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectVocalGender, enforceVocalTextInStylePrompt, ensureVocalMetaTag, resolveVocalMetaTag } from '../src/core/vocalPlan';
+import { detectVocalGender, enforceVocalTextInStylePrompt, resolveVocalMetaTag } from '../src/core/vocalPlan';
 import { containsBlockedStyleToken, sanitizeSunoStyleText } from '../src/core/sunoSafety';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildPackTracklist, buildPackVideoDescription, buildFfmpegPackVideoScript } from '../src/core/videoExport';

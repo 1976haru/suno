@@ -105,7 +105,6 @@ describe('[v3.64 TASK A] lyric situation frame diversity', () => {
   });
 
   it('showa-cafe (no frameId tags either) keeps its exact pre-v3.64 stride behavior', () => {
-    const showaChannel = channelPresets.find(channel => channel.archetype === 'showa-cafe')!;
     const showaThemes = lyricThemesForArchetype('showa-cafe');
     expect(showaThemes.every(theme => !theme.frameId)).toBe(true);
   });

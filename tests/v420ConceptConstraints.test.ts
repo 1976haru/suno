@@ -3,7 +3,7 @@ import { directSetLocal } from '../src/core/setDirector';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { channelPresets, makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 import { getGenreById } from '../src/data/genreLibrary';
-import { eraBucketForGenreId, ERA_LABEL } from '../src/data/eraExclusions';
+import { eraBucketForGenreId } from '../src/data/eraExclusions';
 import { extractEraConstraint, resolveConstraints, applyEraQuota } from '../src/core/constraints';
 import { SENIOR_AUDIENCE_PROFILE } from '../src/data/audienceProfiles';
 import { classifyTitleShape } from '../src/core/titleShapeVariety';
@@ -90,7 +90,7 @@ describe('[v4.2 TASK A3] directSetLocal — real genre selection against the era
     const genreAllocation = plan.allocations.find(a => a.axis === 'genre')!;
     const shares = eraShareReport(Object.keys(genreAllocation.counts), genreAllocation.counts);
     const total = [...shares.values()].reduce((a, b) => a + b, 0);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Beatles-60s genre era distribution:', Object.fromEntries(shares), 'genres:', genreAllocation.counts, 'warnings:', plan.warnings);
     expect(total).toBe(18);
     expect((shares.get('1950s-60s') ?? 0) / total).toBeGreaterThanOrEqual(0.5);
@@ -103,7 +103,7 @@ describe('[v4.2 TASK A3] directSetLocal — real genre selection against the era
     const genreAllocation = plan.allocations.find(a => a.axis === 'genre')!;
     const shares = eraShareReport(Object.keys(genreAllocation.counts), genreAllocation.counts);
     const total = [...shares.values()].reduce((a, b) => a + b, 0);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] 80s-AC genre era distribution:', Object.fromEntries(shares), 'genres:', genreAllocation.counts);
     if (total > 0) {
       expect((shares.get('1980s') ?? 0) / total).toBeGreaterThanOrEqual(0.5);
@@ -115,7 +115,7 @@ describe('[v4.2 TASK A3] directSetLocal — real genre selection against the era
       const plan = directSetLocal(concept, seniorChannel, 18, { recentGenreIds: [], recentHooks: [] });
       const genreAllocation = plan.allocations.find(a => a.axis === 'genre')!;
       const shares = eraShareReport(Object.keys(genreAllocation.counts), genreAllocation.counts);
-      // eslint-disable-next-line no-console
+       
       console.log(`[TASK A3 REPORT] "${concept}" genre era distribution:`, Object.fromEntries(shares));
       // Not asserting a specific single-bucket dominance — the whole point
       // is this concept must NOT be forced into one era.
@@ -156,13 +156,13 @@ describe('[v4.2 TASK A3] title pattern diversity — real 18-song pack', () => {
     const shapes = new Set(titles.map(classifyTitleShape));
     const words = topWordFrequencies(bp.songs, 20);
     const hookOveruse = findHookWordOveruse(bp.songs.map(s => ({ hookPhrase: s.hookPhrase })));
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Beatles-60s titles:', titles);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Beatles-60s title shapes:', [...shapes]);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Beatles-60s top 20 words:', words);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Beatles-60s hook word overuse (>=3 hooks):', hookOveruse);
     expect(shapes.size).toBeGreaterThanOrEqual(3);
     expect(new Set(titles).size).toBe(titles.length);
@@ -180,7 +180,7 @@ describe('[v4.2 TASK A3] title pattern diversity — real 18-song pack', () => {
     const seedBase = seedForBlueprint({ channel: seniorChannel, projectTitle: '비틀즈 느낌의 밝은 60년대 팝' });
     const gen = createTitleGenerator('english', seedBase, 18, undefined, seniorChannel.archetype, constraints);
     for (let i = 0; i < 18; i++) gen();
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Beatles-60s title-pattern usage (patternUsage tally):', Object.fromEntries(gen.patternUsage));
     expect(gen.patternUsage.size).toBeGreaterThanOrEqual(4);
     for (const count of gen.patternUsage.values()) expect(count).toBeLessThanOrEqual(constraints.title.maxPerPattern);
@@ -195,7 +195,7 @@ describe('[v4.2 TASK A3] resolveConstraints — full object for report §9-3', (
       SENIOR_AUDIENCE_PROFILE,
       18
     );
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] ResolvedConstraints:', JSON.stringify(constraints, null, 2));
     expect(constraints.era.unspecified).toBe(false);
     expect(constraints.era.primary).toBe('1950s-60s');
@@ -254,7 +254,7 @@ describe('[v4.2 TASK A3, TASK F] bridge instruction — resolvedConstraints sect
     const constraints = resolveConstraints({ conceptLabel: '비틀즈 느낌의 밝은 60년대 팝' }, { id: 'senior-oldpop' }, SENIOR_AUDIENCE_PROFILE, 3);
     const instruction = buildClaudeCodeInstruction(opts, testGenres, testMoods, testSeason, { usedTitles: [], usedHooks: [] }, slots, false, { resolvedConstraints: constraints });
     const section = instruction.split('[이 세트의 컨셉 제약]')[1]?.split('\n\n')[0];
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK A3 REPORT] Bridge instruction constraints section:\n[이 세트의 컨셉 제약]' + section);
     expect(instruction).toContain('[이 세트의 컨셉 제약]');
     expect(instruction).toContain('1950s-60s');

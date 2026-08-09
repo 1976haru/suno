@@ -3,14 +3,14 @@ import fs from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { composeHook, HOOK_SHAPES, hookPoolSize, hookRhythmLength } from '../src/core/lyricEngine';
+import { composeHook, HOOK_SHAPES, hookPoolSize } from '../src/core/lyricEngine';
 import { buildSoundSignature, PERSONA_STYLE_LIMIT } from '../src/core/soundSignature';
 import { exhaustionStats, hookPoolNeedsWarning } from '../src/core/hookLedger';
 import { stitchBatchResults, validateStitched, type BatchRequestResult } from '../src/core/batchStitcher';
 import { clampSongCount } from '../src/utils/generation';
 import { callGenerateProxy } from '../src/providers/proxyFetch';
 import { SUNO_COPY_LIMIT } from '../src/core/promptBudget';
-import { channelPresets, genrePacks, makeOptions, moodPacks, seasonPacks, testGenres, testMoods, testSeason } from './fixtures';
+import { channelPresets, genrePacks, makeOptions, seasonPacks, testGenres, testMoods, testSeason } from './fixtures';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 

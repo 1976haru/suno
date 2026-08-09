@@ -39,18 +39,18 @@ export function useMultiSetGenerationFlow(batchFlow: ReturnType<typeof useBatchG
   const [state, setState] = useState<MultiSetRunState>(IDLE_STATE);
   const cancelRef = useRef(false);
 
-  function submitSetAndWait(
+  const submitSetAndWait = useCallback((
     setOpts: GenerationOptions,
     genres: GenrePack[],
     moods: MoodPack[],
     season: SeasonPack,
     settings: ProviderSettings,
     avoid: { usedTitles?: string[]; usedHooks?: string[] }
-  ): Promise<PlaylistBlueprint> {
+  ): Promise<PlaylistBlueprint> => {
     return new Promise((resolve, reject) => {
       void batchFlow.submit(setOpts, genres, moods, season, settings, avoid, blueprint => resolve(blueprint), message => reject(new Error(message)));
     });
-  }
+  }, [batchFlow]);
 
   const runBatchMode = useCallback(async (
     baseOpts: GenerationOptions,
@@ -87,7 +87,7 @@ export function useMultiSetGenerationFlow(batchFlow: ReturnType<typeof useBatchG
       setState(prev => ({ ...prev, setProgress: { done: songsPerSet, total: songsPerSet } }));
       await onSetComplete(result);
     }
-  }, [batchFlow]);
+  }, [submitSetAndWait]);
 
   const run = useCallback(async (
     baseOpts: GenerationOptions,

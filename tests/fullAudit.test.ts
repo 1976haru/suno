@@ -51,12 +51,12 @@ describe('[v3.76 TASK B] runFullAudit', () => {
     const byStatus = { pass: 0, fail: 0, 'not-measured': 0 };
     for (const it of report.items) byStatus[it.status] += 1;
 
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK v3.76 REPORT] full audit item count:', report.items.length);
-    // eslint-disable-next-line no-console
+     
     console.log('[TASK v3.76 REPORT] by status:', byStatus);
     for (const it of report.items) {
-      // eslint-disable-next-line no-console
+       
       console.log(`[TASK v3.76 REPORT]   [${it.category}] ${it.labelKo}: ${it.status} (target ${it.targetKo}, actual ${it.actualKo})${it.notImplemented ? ' [미구현]' : ''}`);
     }
 

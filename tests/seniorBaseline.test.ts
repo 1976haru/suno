@@ -20,7 +20,6 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
-import { lintInPackStyleSimilarity } from '../src/core/diversityLinter';
 import { channelPresets } from '../src/data/presets';
 import { genreLibrary } from '../src/data/genreLibrary';
 import { GENRE_TRAIT_OVERRIDES } from '../src/data/genreTraits';

@@ -416,6 +416,24 @@ export default function Step4Result({
     return () => { cancelled = true; };
   }, [blueprint, historicalHooks, snapshotOpts, generationGateConstraints]);
 
+  const songs = blueprint?.songs ?? partialSongs;
+  const skeletonCount = isGenerating ? Math.max(0, genProgress.total - songs.length) : 0;
+  // v4.1 (TASK D) — SongScores.conceptFitScore is pack-level and needs real
+  // concept text (core/promiseAudit.ts's applyConceptFitScore), which isn't
+  // available at scoreSongs() time on any generation path (see that
+  // function's own doc comment on the circular-import reason it stays out
+  // of core/quality.ts). Applied once, here, where the real concept text
+  // is already known — same conceptLabel PromiseAuditPanel below uses.
+  // 지시문 19 (TASK C) — moved above the early-return empty-state block
+  // below (was after it): a hook called only on SOME renders (whichever
+  // ones don't hit that early return) breaks the Rules of Hooks — real bug
+  // caught by react-hooks/rules-of-hooks, not just a lint nit. songs is []
+  // on the empty-state render, so this is a harmless no-op there.
+  const scoredSongs = useMemo(
+    () => applyConceptFitScore(songs, opts.customConcept?.trim() || opts.projectTitle),
+    [songs, opts.customConcept, opts.projectTitle]
+  );
+
   if (!blueprint && !isGenerating && !partialSongs.length) {
     return (
       <section className="panel">
@@ -439,19 +457,6 @@ export default function Step4Result({
       </section>
     );
   }
-
-  const songs = blueprint?.songs ?? partialSongs;
-  const skeletonCount = isGenerating ? Math.max(0, genProgress.total - songs.length) : 0;
-  // v4.1 (TASK D) — SongScores.conceptFitScore is pack-level and needs real
-  // concept text (core/promiseAudit.ts's applyConceptFitScore), which isn't
-  // available at scoreSongs() time on any generation path (see that
-  // function's own doc comment on the circular-import reason it stays out
-  // of core/quality.ts). Applied once, here, where the real concept text
-  // is already known — same conceptLabel PromiseAuditPanel below uses.
-  const scoredSongs = useMemo(
-    () => applyConceptFitScore(songs, opts.customConcept?.trim() || opts.projectTitle),
-    [songs, opts.customConcept, opts.projectTitle]
-  );
 
   return (
     <section className="panel results">

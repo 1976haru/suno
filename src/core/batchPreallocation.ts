@@ -158,11 +158,6 @@ export function preallocateSongSlots(
   // objects) so this function's later genrePool/genresForTrack reads all
   // see the sanitized set.
   const archetype = opts.channel.archetype || 'senior-morning';
-  // v5.11 (TASK L) — mirrors localGenerator.ts's identical addition (same
-  // reasoning: see that file's own doc comment) — resolved once per pack,
-  // reused by every slot below, and copied onto the final SongIdea in
-  // reconcileWithPreassignedSlot.
-  const workspaceId: WorkspaceId = workspaceForArchetype(archetype)?.id ?? 'senior-oldpop';
   const genreSanitization = sanitizeGenreIdsForArchetype(
     Array.from(new Set((opts.genreIds ?? genres.map(genre => genre.id)).filter(Boolean))),
     archetype

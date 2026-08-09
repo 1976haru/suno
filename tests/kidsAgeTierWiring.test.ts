@@ -25,8 +25,6 @@ const SEASON = seasonPacks.find(s => s.id === 'spring-open') ?? seasonPacks[0];
 const TIERS: KidsAgeTierId[] = ['kids-t1', 'kids-t2', 'kids-t3'];
 
 function optionsFor(channel: ChannelProfile, lyricLanguage: LyricLanguage, kidsAgeTierId: KidsAgeTierId, songCount = 18): GenerationOptions {
-  const genres = genrePacks.filter(g => channel.preferredGenres.includes(g.id));
-  const moods = moodPacks.filter(m => channel.preferredMoods.includes(m.id));
   return {
     channel,
     projectTitle: 'Kids Age Tier Test Pack',
@@ -225,7 +223,7 @@ describe('[v5.13] real generateLocalBlueprint output differs measurably by kidsA
       expect(Math.min(...primaries)).toBeGreaterThan(0);
       expect(Math.min(...syllables)).toBeGreaterThan(0);
     }
-    // eslint-disable-next-line no-console
+     
     console.log('[v5.13] measured kr-kids word/syllable ranges by tier:', report);
   });
 });
@@ -271,7 +269,7 @@ describe('[v5.13] real generateLocalBlueprint output differs measurably by kidsA
       };
       expect(Math.min(...primaries)).toBeGreaterThan(0);
     }
-    // eslint-disable-next-line no-console
+     
     console.log('[v5.13] measured jp-kids word/syllable ranges by tier:', report);
   });
 });

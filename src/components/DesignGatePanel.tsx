@@ -40,7 +40,7 @@ function IssueRow({ issue, onAutoFix }: { issue: DesignIssue; onAutoFix: (fix: P
       </div>
       <p className="supporting">{issue.fixHintKo}</p>
       {issue.autoFix && (
-        <button type="button" className="chip" onClick={() => onAutoFix(issue.autoFix!())}>
+        <button type="button" className="chip" onClick={() => onAutoFix(issue.autoFix!)}>
           <Wand2 size={13} />
           자동 수정
         </button>

@@ -90,12 +90,6 @@ const TIME_DESCRIPTORS: Record<ThumbnailTimeOfDay, string> = {
 // per-variant rotation. TASK v3.38 Part B5 — the 3 kids archetypes use a
 // different, open/centered layout instead (see buildPrompt's isKidsGrammar
 // branch below), so this copy is only ever used for seasonal archetypes.
-const TEXT_SAFE_ZONE_COPY: Record<ThumbnailTextSafeZone, string> = {
-  'left-third': 'left third of the frame reserved for a thin Korean serif headline, a thin divider line, and a small subtitle — keep this area calm, low-detail, and softly lit'
-};
-
-const KIDS_TEXT_ZONE_COPY = 'generous open, low-clutter space around the subject reserved for a bold rounded headline — keep this area bright and simple';
-
 const TEXT_SAFE_ZONE_BACKGROUND_COPY: Record<ThumbnailTextSafeZone, string> = {
   'left-third': 'left third of the frame reserved as blank, calm, low-detail space for later text overlay; do not render any text in the image'
 };

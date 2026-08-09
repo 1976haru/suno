@@ -83,6 +83,11 @@ function axisSummaryLine(distribution: Record<string, number>): string {
  * interleave (see setDirector.ts's segment-fatigue rationale); this toggle
  * only changes what the confirmation screen previews.
  */
+// 지시문 19 (TASK C) — real cross-file utility, not dead code; see
+// ExplorationLedgerPanel.tsx's identical doc comment on why this stays
+// co-located rather than being split into its own module for a dev-only
+// Fast Refresh lint rule.
+// eslint-disable-next-line react-refresh/only-export-components
 export function reorderSlotsBySegment(slots: PreassignedSongSlot[], segments: SetSegment[]): PreassignedSongSlot[] {
   const used = new Set<number>();
   const grouped: PreassignedSongSlot[] = [];
@@ -131,7 +136,12 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   const freeText = opts.customConcept.trim() || opts.projectTitle;
   // TASK v3.63 (TASK B) — family ids checked on Step2 (Step2Concept.tsx);
   // directSetLocal uses these to choose the genre axis directly when present.
-  const familyIds = opts.selectedGenreFamilyIds ?? [];
+  // 지시문 19 (TASK C) — wrapped in its own useMemo (per the
+  // exhaustive-deps warning's own suggestion): `?? []` was creating a new
+  // array identity every render whenever selectedGenreFamilyIds was unset,
+  // which would have defeated memoization on every useMemo that lists
+  // familyIds as a dependency below.
+  const familyIds = useMemo(() => opts.selectedGenreFamilyIds ?? [], [opts.selectedGenreFamilyIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,7 +173,12 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       recentHooks: [],
       insights: appliedInsights
     }, familyIds, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride, userChoicesFromOptions(opts)),
-    [freeText, opts.channel, opts.songCount, recentAvoid, familyIds, appliedInsights, opts.vocalTone, opts.breadthOverride, opts.paletteFamilyOverride, opts.moneyChordMode, opts.moneyChordModeIsExplicitChoice, opts.customMoneyChord]
+    // 지시문 19 (TASK C) — real gap the exhaustive-deps warning caught:
+    // userChoicesFromOptions(opts) above also reads opts.genreIds,
+    // opts.selectedGenreFamilyIds, and opts.choiceProvenance, none of
+    // which were tracked — depending on `opts` itself closes that gap
+    // (this is a UI preview recompute, not a hot path).
+    [freeText, opts, recentAvoid, familyIds, appliedInsights]
   );
   // TASK v4.9 (TASK A, §1-6) — only meaningful for archetypes
   // data/channelSoundFloor.ts actually covers (senior-morning/showa-cafe/
@@ -209,9 +224,17 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   // is what makes the gate panel actually reflect a fix immediately, and
   // matches exactly what real generation will use.
   const gateGenreIds = genreAllocation ? Object.keys(genreAllocation.counts) : opts.genreIds;
+  // 지시문 19 (TASK C) — gateGenreIdsKey is a deliberate stable-primitive
+  // key: gateGenreIds itself is a fresh array (Object.keys(...) or
+  // opts.genreIds) most renders even when its actual contents haven't
+  // changed, so depending on the array reference directly would make this
+  // useMemo recompute every render — the whole point of joining it into a
+  // string key. eslint can't verify that correlation statically.
+  const gateGenreIdsKey = gateGenreIds.join('|');
   const gateGenres = useMemo(
     () => genreLibrary.filter(genre => gateGenreIds.includes(genre.id)),
-    [gateGenreIds.join('|')]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gateGenreIdsKey]
   );
   const gateOpts = useMemo(
     () => ({ ...opts, genreIds: gateGenreIds, diversityAllocations: allocations }),
@@ -317,10 +340,18 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
     return () => { cancelled = true; };
   }, [gateSlots, constraints, gateOpts]);
 
+  // 지시문 19 (TASK C) — blockingIdsKey is a deliberate stable-primitive
+  // key, same reasoning as gateGenreIdsKey above: this effect should only
+  // reset gateAcknowledged when the actual SET of blocking issue ids
+  // changes, not every time designGateResult gets a new object identity
+  // (which would re-ask the user to re-acknowledge on every gate
+  // recompute, even when nothing blocking actually changed).
+  const blockingIdsKey = designGateResult?.blocking.map(issue => issue.id).join(',');
   useEffect(() => {
     if (!designGateResult) return;
     setGateAcknowledged(false);
-  }, [designGateResult?.blocking.map(issue => issue.id).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockingIdsKey]);
 
   useEffect(() => {
     if (!designGateResult) return;

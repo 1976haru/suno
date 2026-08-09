@@ -25,6 +25,13 @@ interface ExplorationLedgerPanelProps {
  * first — this also checks the second engine's own policy.axes list (each
  * axis already carries its own labelKo) before falling back to the raw id.
  */
+// 지시문 19 (TASK C) — real cross-file utility (imported by App.tsx and
+// others), not dead code; co-located here rather than in its own module
+// since it's a small, panel-specific label lookup. This rule only affects
+// Fast Refresh (dev-server hot reload state preservation), never runtime
+// behavior — splitting the file just to satisfy it would be scope creep
+// for a lint-cleanup task.
+// eslint-disable-next-line react-refresh/only-export-components
 export function axisLabelKoFor(workspaceId: WorkspaceId, axisId: string): string {
   const legacyLabel = AXIS_LABEL_KO[axisId as ExplorationAxis];
   if (legacyLabel) return legacyLabel;
@@ -61,7 +68,7 @@ export default function ExplorationLedgerPanel({ workspaceId }: ExplorationLedge
     return () => { cancelled = true; };
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(reload, [workspaceId]);
 
   async function handleRate(record: ExplorationRecord, trackNo: number, rating: ExplorationRating) {

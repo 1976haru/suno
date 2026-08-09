@@ -551,9 +551,6 @@ function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): 
 // Added as a fixed CRITICAL line (not conditional on any one preassigned
 // field) since it applies regardless of which of those fields this pack
 // happens to use.
-const ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE =
-  '- CRITICAL: instrument/arrangement/production terms (guitar, strings, drums, piano, horns, reverb, stop-time, etc.) belong in the stylePrompt only. Never make one of these words the grammatical subject or actor of a lyric line (e.g. "the guitar keeps walking", "the strings will hold it tight") — lyrics describe feeling, scene, and people, not the arrangement performing itself. It is fine for a lyric to mention an instrument as an object a person interacts with ("I still play my father\'s guitar").';
-
 // TASK v5.21 (TASK G-2) — real measured error from a live pack: forced,
 // abstract-to-abstract metaphors ("coin of common sense", "laughter lifting
 // flame") that a mechanical grammar check can't reliably catch (see
