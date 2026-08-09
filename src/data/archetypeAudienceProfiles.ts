@@ -72,3 +72,30 @@ export const TITLE_LOCALIZED_REQUIRED_ARCHETYPES: ReadonlySet<ChannelArchetype> 
   'christmas',
   'j2000s'
 ]);
+
+/**
+ * 지시문 15 (TASK B) — bridgeInstruction.ts의 titleLocalizedInstructionLineFor가
+ * `opts.channel.archetype === '...'`로 하드코딩하던 "레트로 톤 안내문" 분기를
+ * 정책 테이블로 옮긴다. 동작은 바꾸지 않는다 — 기존에 실제로 레트로 톤 힌트를
+ * 받던 정확히 그 3개 아키타입만 담는다. TITLE_LOCALIZED_REQUIRED_ARCHETYPES와는
+ * 다른 축이다: 그건 "titleLocalized 필드 자체가 필요한가", 이건 "그 필드를
+ * 어떤 톤으로 안내하는가".
+ */
+export const TITLE_ERA_HINT_RETRO_ARCHETYPES: ReadonlySet<ChannelArchetype> = new Set<ChannelArchetype>([
+  'senior-morning',
+  'showa-70s',
+  'oldpop-lounge'
+]);
+
+/**
+ * 지시문 15 (TASK B) — designGate.ts/gateDataContract.ts 둘 다
+ * `channel.archetype === 'senior-morning'`으로 하드코딩하던 "genre-max
+ * 자동 조정 예외" 분기를 정책 테이블로 옮긴다(두 파일이 반드시 같은 판정을
+ * 내려야 하므로 값을 여기 하나로 공유 — 지금까지는 두 파일에 리터럴이
+ * 따로 있어 하나만 바뀌면 조용히 어긋날 수 있었다). designGate.ts 자체의
+ * 원래 주석(TASK F)이 설명하듯 senior-morning만 실측 검증된 고정 상한이
+ * 필요하고, 다른 모든 아키타입은 후보 장르 풀 크기에 맞춰 자동 확장된다.
+ */
+export const FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES: ReadonlySet<ChannelArchetype> = new Set<ChannelArchetype>([
+  'senior-morning'
+]);

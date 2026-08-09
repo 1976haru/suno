@@ -123,6 +123,37 @@ export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';
 
 /**
+ * 지시문 15 (TASK A-1) — SongIdea.distinctChoice(사람이 읽는 한 줄 설명, 위)와
+ * 분리된, 기계가 판정 가능한 구조화 값. 어떤 ruleId를 이 워크스페이스가
+ * 허용하는지는 core/workspaceQualityPolicies.ts의 DistinctChoicePolicy가
+ * 정한다 — 이 타입 자체는 전체 카탈로그일 뿐 워크스페이스별 허용 여부를
+ * 모른다. core/distinctChoiceTypes.ts에 verifiability 매핑·라벨·
+ * coerceDistinctChoice(하위호환 파서)가 있다.
+ */
+export type DistinctChoiceRuleId =
+  // ① 가사 AST로 검증 가능 (core/lyricsAst.ts의 LyricsSection[])
+  | 'NO_CHORUS'
+  | 'FINAL_QUESTION'
+  | 'VOCAL_TOGETHER'
+  | 'VERSE2_HALF_LENGTH'
+  | 'VERSE_TAIL_REPEAT'
+  | 'WORD_ACCUMULATION'
+  | 'SCENE_PER_VERSE'
+  | 'HOOK_LAST_WORD_SHIFT'
+  | 'SINGLE_CHORUS'
+  | 'CALL_AND_RESPONSE'
+  // ② stylePrompt 자기모순만 검증 가능
+  | 'NO_INTRO'
+  | 'KEY_LIFT'
+  | 'OCTAVE_DOWN_CHORUS'
+  | 'MODE_SHIFT'
+  // ③ 검증 불가 — 미구현이 아니라 텍스트에 흔적이 남지 않는 편곡 지시
+  | 'ARRANGEMENT_NUANCE';
+
+/** 지시문 15 (TASK A-1) — ruleId 하나가 어떤 방식으로만 검증 가능한지 (고정, 곡마다 다르지 않음). */
+export type DistinctChoiceVerifiability = 'lyrics-ast' | 'prompt-only' | 'not-measured';
+
+/**
  * codex 지시문 02 (TASK D) — which system owns "what scene does this track's
  * lyric depict": 'fixed-pool' (data/lyricThemes.ts's allocated scene, the
  * default — the vast majority of real generations) vs 'concept-generated'
@@ -1074,6 +1105,20 @@ export interface SongIdea {
    * agent to make this call).
    */
   distinctChoice?: string;
+  /**
+   * 지시문 15 (TASK A) — distinctChoice의 구조화된 판정 값.
+   * `distinctChoice`(위, string) 는 여전히 사람이 읽는 한 줄 설명
+   * (DistinctChoice.descriptionKo와 동일한 값)으로 남는다 — SongCard.tsx
+   * 등 기존 표시 소비처는 전혀 바뀌지 않는다. 이 필드는 core/
+   * distinctChoiceGate.ts가 실제로 이행 여부를 판정할 때만 읽는다.
+   * 구형(v5.23~) 자유 문자열 응답이나 인식 불가 ruleId는
+   * core/distinctChoiceTypes.ts의 coerceDistinctChoice가 'ARRANGEMENT_NUANCE'
+   * (not-measured)로 받아들인다 — undefined는 "이 필드 자체가 없던 과거
+   * 응답"만을 뜻한다.
+   */
+  distinctChoiceRuleId?: DistinctChoiceRuleId;
+  /** VERSE_TAIL_REPEAT · WORD_ACCUMULATION 등 규칙이 검증에 쓰는 인자. */
+  distinctChoiceParams?: Record<string, string | number>;
   /**
    * v5.24 (TASK B §2-6) — one concrete physical action a kids listener does
    * along with this song (손뼉·발 구르기·점프·돌기·앉기·손가락 세기·흔들기·

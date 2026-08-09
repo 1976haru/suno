@@ -19,6 +19,10 @@ import { auditStylePromptAgainstSpec } from './promptSpec';
 import { bilingualLint } from './bilingualLint';
 import { checkRelationshipContinuity } from './relationshipContinuity';
 import { checkKidsOutcome } from './kidsOutcome';
+import { qualityPolicyForOptions } from '../data/workspaceQualityPolicies';
+import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
+import { safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
+import { workspaceForArchetype } from '../data/workspaces';
 
 // TASK G1 (v3.10) — updated to match the terse compactMoneyChord/compactHook
 // wording ('I-V-vi-IV progression', 'repeats chorus 4x') that replaced the
@@ -402,6 +406,11 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   const lyrics = song.lyrics.toLowerCase();
   const riskScanText = stripSafetyBoilerplate(text);
   const riskScanTextLower = riskScanText.toLowerCase();
+  // 지시문 15 (TASK D-3) — 워크스페이스 정책 단일 진실 공급원. 아래
+  // relationshipContinuityLanguage/kidsOutcomeLanguage/idolTitleLintApplies는
+  // 전부 이 한 번의 조회에서 나온다 — archetype 리터럴 비교는 이 파일
+  // 어디에도 없다.
+  const contentChecksPolicy = channel ? qualityPolicyForOptions({ channel }).contentChecksPolicy : undefined;
 
   // TASK v3.29 — 'progression' now accepts an actual chord-progression
   // disclosure (roman numerals, "money chord(s)", "chords in <key>"), not
@@ -557,24 +566,25 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     score -= 5;
   }
 
-  // 지시문 11 (TASK A) — kr-2030/jp-2030 전용: 관계 상태 연속성. 다른
-  // 워크스페이스의 가사에는 "관계"라는 축 자체가 없어(시니어 추억/아이 동요 등)
-  // 이 체크를 전역으로 걸면 오탐만 늘어난다 — archetype으로 명시적으로 좁힌다.
-  if (channel?.archetype === 'kr-2030-pop' || channel?.archetype === 'jp-2030-pop') {
-    const relationshipLanguage = channel.archetype === 'jp-2030-pop' ? 'japanese' : 'korean';
-    for (const issue of checkRelationshipContinuity(song.lyrics, relationshipLanguage)) {
+  // 지시문 11 (TASK A) — 관계 상태 연속성. 다른 워크스페이스의 가사에는
+  // "관계"라는 축 자체가 없어(시니어 추억/아이 동요 등) 이 체크를 전역으로
+  // 걸면 오탐만 늘어난다 — 지시문 15 (TASK D-3)부터는 워크스페이스 정책
+  // (contentChecksPolicy.relationshipContinuityLanguage, undefined면 이
+  // 축 자체가 없는 워크스페이스)으로 좁힌다.
+  if (contentChecksPolicy?.relationshipContinuityLanguage) {
+    for (const issue of checkRelationshipContinuity(song.lyrics, contentChecksPolicy.relationshipContinuityLanguage)) {
       pushUnique(warnings, `Relationship continuity: ${issue.labelKo}`);
       score -= 12;
     }
   }
 
-  // 지시문 11 (TASK B) — kr-kids-song/jp-kids-song 전용. senior-oldpop의
+  // 지시문 11 (TASK B) — 실제 아동 대상 워크스페이스 전용. senior-oldpop의
   // 'kids' archetype(작은 라디오 싱어롱 채널, 실제 아동 대상이 아님)은
-  // 명시적으로 제외한다 — 이 체크는 실제 아동 청자를 향한 서사 안전성이
-  // 목적이라 senior 콘텐츠에 걸면 대상이 아닌 곳에 오탐만 늘어난다.
-  if (channel?.archetype === 'kr-kids-song' || channel?.archetype === 'jp-kids-song') {
-    const kidsLanguage = channel.archetype === 'jp-kids-song' ? 'japanese' : 'korean';
-    for (const issue of checkKidsOutcome(song.lyrics, kidsLanguage)) {
+  // contentChecksPolicy.kidsOutcomeLanguage가 undefined라 자동으로 제외된다
+  // — 이 체크는 실제 아동 청자를 향한 서사 안전성이 목적이라 senior
+  // 콘텐츠에 걸면 대상이 아닌 곳에 오탐만 늘어난다.
+  if (contentChecksPolicy?.kidsOutcomeLanguage) {
+    for (const issue of checkKidsOutcome(song.lyrics, contentChecksPolicy.kidsOutcomeLanguage)) {
       pushUnique(warnings, `Kids narrative outcome: ${issue.labelKo}`);
       score -= 15;
     }
@@ -666,8 +676,8 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   // from any real generation path. kr-idol-only (its own §9-3 scope: a real
   // K-pop existing-song-title collision risk, not a general title rule) —
   // advisory-only, matching the module's own doc comment ("never blocks
-  // generation").
-  if (channel?.archetype === 'kr-idol-male' || channel?.archetype === 'kr-idol-female') {
+  // generation"). 지시문 15 (TASK D-3) — contentChecksPolicy.idolTitleLintApplies로 이전.
+  if (contentChecksPolicy?.idolTitleLintApplies) {
     const titleWarning = idolSingleEnglishWordTitleWarning(song.title);
     if (titleWarning) pushUnique(warnings, titleWarning);
   }
@@ -845,13 +855,52 @@ function packDiversityScore(song: SongIdea, songs: SongIdea[]): number {
 // core/promiseAudit.ts's applyConceptFitScore, called once real concept
 // text is known (Step4Result.tsx), not on every generation-path scoreSongs
 // call.
+/**
+ * 지시문 15 (TASK B-4) — distinctChoice 이행 관문을 세트 단위로 배선한다.
+ * 팩 전체가 있어야 이행률(complianceRate)을 계산할 수 있어 scoreSong
+ * (개별 곡)이 아니라 이 함수(팩 단위)에서 실행한다. archetype 분기는 이
+ * 함수에도 없다 — qualityPolicyForOptions가 워크스페이스를 해석하고,
+ * workspaceForArchetype + safetyForbiddenRuleIdsForWorkspace로 안전
+ * 제약만 조회한다(둘 다 기존 정식 어댑터).
+ *
+ * verified 워크스페이스(현재 senior-oldpop)만 위반이 실제 점수에
+ * 반영된다. verified: false 워크스페이스는 경고만 붙고(§B-2 "화면·감사에
+ * 표시만 한다") qualityScore는 건드리지 않는다 — 안전 제약(safetyViolation)
+ * 위반만은 verified와 무관하게 항상 감점된다.
+ */
 export function scoreSongs(songs: SongIdea[], channel?: ChannelProfile, language: LyricLanguage = 'english') {
   const scored = songs.map(song => scoreSong(song, channel, language));
-  return scored.map(song => ({
-    ...song,
-    scores: {
-      ...(song.scores as SongScores),
-      diversityScore: packDiversityScore(song, scored)
+
+  const workspaceId = channel ? workspaceForArchetype(channel.archetype)?.id : undefined;
+  const distinctChoicePolicy = channel ? qualityPolicyForOptions({ channel }).distinctChoicePolicy : undefined;
+  const gateResult = distinctChoicePolicy
+    ? evaluateDistinctChoiceGate(scored, distinctChoicePolicy, {
+        safetyForbiddenRuleIds: workspaceId ? safetyForbiddenRuleIdsForWorkspace(workspaceId) : [],
+        sameGenderVocalOnly: distinctChoicePolicy.sameGenderVocalOnly
+      })
+    : undefined;
+  const trackResultByNo = new Map((gateResult?.trackResults ?? []).map(r => [r.trackNo, r]));
+
+  return scored.map(song => {
+    const warnings = [...(song.warnings || [])];
+    let distinctChoicePenalty = 0;
+    const trackResult = trackResultByNo.get(song.trackNo);
+    if (trackResult?.safetyViolation) {
+      pushUnique(warnings, `distinctChoice safety: ${trackResult.safetyViolation}`);
+      distinctChoicePenalty += 20;
+    } else if (trackResult?.status === 'violated') {
+      const provisionalTag = gateResult?.verified ? '' : ' [미검증 정책 — 참고용, 점수 미반영]';
+      pushUnique(warnings, `distinctChoice (${trackResult.ruleId}): ${trackResult.reasonKo}${provisionalTag}`);
+      if (gateResult?.verified) distinctChoicePenalty += 8;
     }
-  }));
+    return {
+      ...song,
+      warnings,
+      scores: {
+        ...(song.scores as SongScores),
+        diversityScore: packDiversityScore(song, scored)
+      },
+      qualityScore: Math.max(0, song.qualityScore - distinctChoicePenalty)
+    };
+  });
 }

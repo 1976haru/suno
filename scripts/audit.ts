@@ -633,7 +633,7 @@ function runPackMode(args: ReturnType<typeof parseArgs>) {
   const killingPointTrackNos = new Set(blueprint.songs.filter(song => song.killingPointId).map(song => song.trackNo));
   const audioReport = loadAudioReport(args.audioMetricsPath, songCount, audienceProfile, killingPointTrackNos);
 
-  const report = runFullAudit(blueprint.songs, { conceptLabel, songCount, audienceProfile, audioReport, vocalQuotaOverride: channel.vocalQuotaOverride });
+  const report = runFullAudit(blueprint.songs, { conceptLabel, songCount, audienceProfile, audioReport, vocalQuotaOverride: channel.vocalQuotaOverride, archetype: channel.archetype });
 
   if (!conceptLabel) {
     console.log('[audit] --concept도 meta.conceptLabel도 없습니다 — 약속 이행도는 미측정으로 표시됩니다 (통과 처리하지 않음).');

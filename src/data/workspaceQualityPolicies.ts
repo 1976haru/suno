@@ -6,6 +6,7 @@ import { explorationPolicyFor, type WorkspaceExplorationPolicy } from './explora
 import { workspaceAvailability, type WorkspaceAvailability } from './workspaceAvailability';
 import { GENRE_WORKSPACE_OWNERSHIP } from './genreWorkspaceOwnership';
 import { MOTIF_FAMILIES } from './motifFamilies';
+import { distinctChoicePolicyForWorkspace, type DistinctChoicePolicy } from './distinctChoicePolicy';
 
 /**
  * codex 지시문 02 (TASK A) — "워크스페이스마다 좋은 노래가 나오는 조건이 다릅니다"
@@ -59,6 +60,21 @@ export interface WorkspaceScenePolicy {
   safetyOverEra: boolean;
 }
 
+/**
+ * 지시문 15 (TASK D-3) — core/quality.ts가 `channel?.archetype === '...'`로
+ * 하드코딩하던 3개 분기(관계 서사 연속성 언어·아동 결말 안전성 언어·아이돌
+ * 제목 충돌 검사 적용 여부)를 정책 필드로 옮긴다. undefined/false는 "이
+ * 워크스페이스에는 이 축 자체가 없다"는 뜻이지 "값을 아직 못 정했다"가
+ * 아니다 — senior-oldpop이 묶고 있는 'kids' 서브채널(작은 라디오
+ * 싱어롱, 실제 아동 대상이 아님)이 kidsOutcomeLanguage: undefined인
+ * 이유가 그것이다.
+ */
+export interface WorkspaceContentChecksPolicy {
+  relationshipContinuityLanguage?: 'korean' | 'japanese';
+  kidsOutcomeLanguage?: 'korean' | 'japanese';
+  idolTitleLintApplies: boolean;
+}
+
 export interface WorkspaceQualityPolicy {
   workspaceId: WorkspaceId;
   audienceProfileId: string;
@@ -70,7 +86,21 @@ export interface WorkspaceQualityPolicy {
   scenePolicy: WorkspaceScenePolicy;
   /** data/genreWorkspaceOwnership.ts's own GENRE_WORKSPACE_OWNERSHIP, filtered to genre ids this workspace is a real owner of. */
   ownedGenreIds: string[];
+  /** 지시문 15 (TASK B) — data/distinctChoicePolicy.ts. core/distinctChoiceGate.ts는 이 필드만 읽는다 — archetype을 직접 모른다. */
+  distinctChoicePolicy: DistinctChoicePolicy;
+  /** 지시문 15 (TASK D-3) — core/quality.ts의 하드코딩 3곳을 대체. */
+  contentChecksPolicy: WorkspaceContentChecksPolicy;
 }
+
+const CONTENT_CHECKS_POLICY: Record<WorkspaceId, WorkspaceContentChecksPolicy> = {
+  'senior-oldpop': { idolTitleLintApplies: false },
+  'kr-2030': { relationshipContinuityLanguage: 'korean', idolTitleLintApplies: false },
+  'jp-2030': { relationshipContinuityLanguage: 'japanese', idolTitleLintApplies: false },
+  'kr-kids': { kidsOutcomeLanguage: 'korean', idolTitleLintApplies: false },
+  'jp-kids': { kidsOutcomeLanguage: 'japanese', idolTitleLintApplies: false },
+  'kr-idol-male': { idolTitleLintApplies: true },
+  'kr-idol-female': { idolTitleLintApplies: true }
+};
 
 const BILINGUAL_CAPABLE_ARCHETYPES: ReadonlySet<ChannelArchetype> = new Set([
   'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female', 'kr-kids-song', 'jp-kids-song'
@@ -104,7 +134,9 @@ export function qualityPolicyForWorkspace(workspaceId: WorkspaceId): WorkspaceQu
       motifFamilyIds: motifFamilyIdsFor(workspaceId),
       safetyOverEra: eraIntent.mode === 'safety-over-era'
     },
-    ownedGenreIds: ownedGenreIdsFor(workspaceId)
+    ownedGenreIds: ownedGenreIdsFor(workspaceId),
+    distinctChoicePolicy: distinctChoicePolicyForWorkspace(workspaceId),
+    contentChecksPolicy: CONTENT_CHECKS_POLICY[workspaceId]
   };
 }
 

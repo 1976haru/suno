@@ -26,6 +26,7 @@
     "check:reachability": "tsx scripts/checkReachability.ts",
     "check:gates": "tsx scripts/checkGateContract.ts",
     "check:settings": "tsx scripts/checkVerifiedSettings.ts",
+    "check:archetype": "tsx scripts/checkArchetypeHardcoding.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",

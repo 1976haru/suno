@@ -1,4 +1,4 @@
-import type { AudienceProfile, SongIdea } from '../types';
+import type { AudienceProfile, ChannelArchetype, SongIdea } from '../types';
 import { runFullAudit, type AuditItem, type AuditStatus } from './fullAudit';
 import { checkLyricLineOverlap, checkSceneOverlap, checkSceneSimilarity, checkTitleHistoryCollision } from './duplicationGate';
 import { SCENE_SIMILARITY_ADVISORY_THRESHOLD, SCENE_SIMILARITY_BLOCKING_THRESHOLD } from './sceneSimilarity';
@@ -785,7 +785,8 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
     conceptLabel: input.conceptLabel,
     songCount: input.songCount,
     audienceProfile: input.audienceProfile,
-    vocalQuotaOverride: input.vocalQuotaOverride
+    vocalQuotaOverride: input.vocalQuotaOverride,
+    archetype: input.archetype as ChannelArchetype | undefined
   });
   let reused = fullAuditReport.items
     .filter(item => !item.requiresAudio) // audio-dependent items are never measurable pre-release without a rendered take; excluded from this checklist rather than reported as a fake failure.
@@ -804,7 +805,8 @@ export function evaluateReleaseReadiness(input: ReleaseReadinessInput): ReleaseR
       conceptLabel: input.conceptLabel,
       songCount: nonExplorationSongs.length,
       audienceProfile: input.audienceProfile,
-      vocalQuotaOverride: input.vocalQuotaOverride
+      vocalQuotaOverride: input.vocalQuotaOverride,
+      archetype: input.archetype as ChannelArchetype | undefined
     });
     const exemptItemsById = new Map(exemptAuditReport.items.map(auditItem => [auditItem.id, auditItem]));
     reused = reused.map(item => {

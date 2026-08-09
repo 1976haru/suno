@@ -1,4 +1,4 @@
-import type { BilingualPair, GenerationOptions, LyricLanguage, SongIdea } from '../types';
+import type { BilingualPair, ChannelArchetype, GenerationOptions, LyricLanguage, SongIdea } from '../types';
 import type { ImportSongsReport } from './bridgeImport';
 import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
 import { lyricLanguageMismatchWarning } from './lyricMetrics';
@@ -6,6 +6,9 @@ import { findArtistReferenceLeaks, type ArtistReferenceLeak } from './artistRefe
 import { ARTIST_SCAN_FIELDS } from '../data/scanTargets';
 import { checkLyricLineOverlap, checkSceneOverlap, checkTitleHistoryCollision } from './duplicationGate';
 import { checkDistinctChoices } from './distinctChoiceCheck';
+import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
+import { distinctChoicePolicyForWorkspace, safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
+import { workspaceForArchetype } from '../data/workspaces';
 
 /**
  * TASK (import transaction / pre-persistence inspection) — real, verified
@@ -304,25 +307,50 @@ export function inspectImportReport(
       : { id: 'vocalTag', labelKo: '보컬 태그 정상', status: 'pass' }
   );
 
-  // v5.23 (TASK B §2-4) — SongIdea.distinctChoice, same "informational
-  // only, never a reason to block or mark 'repairable'" treatment as the
-  // vocal-tag check just above (see checkDistinctChoices' own doc comment
-  // for why this task's spec explicitly forbids making it blocking).
+  // v5.23 (TASK B §2-4) — SongIdea.distinctChoice 자유 문자열 수준의 형태
+  // 검사(누락/중복/작성률). 지시문 15 이전에는 이 결과가 항상 'info'로만
+  // 표시됐다(워크스페이스마다 실제로 얼마나 심각한지는 무시). 지시문 15
+  // (TASK B-4) — core/distinctChoiceGate.ts로 이 워크스페이스의 정책을
+  // 조회해 실제 심각도를 정한다: verified 워크스페이스(현재 senior-oldpop)만
+  // 'warn'으로 올라가고, verified: false 6개는 게이트가 위반을 계산은 해도
+  // 항상 'info'로 남는다(§B-2 "advisory 전용 — 절대 blocking하지 않는다").
+  // 안전 제약(safetyViolation)만은 verified와 무관하게 항상 'warn'이다.
   const distinctChoiceReport = checkDistinctChoices(report.blueprint.songs);
-  checks.push(
+  const distinctChoiceWorkspaceId = workspaceForArchetype(languageContext?.archetype as ChannelArchetype | undefined)?.id;
+  const distinctChoicePolicy = distinctChoiceWorkspaceId ? distinctChoicePolicyForWorkspace(distinctChoiceWorkspaceId) : undefined;
+  const distinctChoiceGateResult = distinctChoicePolicy
+    ? evaluateDistinctChoiceGate(report.blueprint.songs, distinctChoicePolicy, {
+        safetyForbiddenRuleIds: distinctChoiceWorkspaceId ? safetyForbiddenRuleIdsForWorkspace(distinctChoiceWorkspaceId) : [],
+        sameGenderVocalOnly: distinctChoicePolicy.sameGenderVocalOnly
+      })
+    : undefined;
+  const distinctChoiceSafetyViolations = distinctChoiceGateResult?.trackResults.filter(r => r.safetyViolation) ?? [];
+  const distinctChoiceHasLegacyIssue = Boolean(
     distinctChoiceReport.missingTrackNos.length || distinctChoiceReport.duplicateGroups.length || distinctChoiceReport.belowWrittenTarget
-      ? {
-          id: 'distinctChoice',
-          labelKo: '곡별 다른 시도 (distinctChoice)',
-          status: 'info',
-          detail: [
-            distinctChoiceReport.missingTrackNos.length ? `누락: T${distinctChoiceReport.missingTrackNos.join(', T')}` : '',
-            distinctChoiceReport.duplicateGroups.length ? `중복: ${distinctChoiceReport.duplicateGroups.map(g => `T${g.trackNos.join('/T')} "${g.value}"`).join(' / ')}` : '',
-            `작성 ${distinctChoiceReport.writtenCount}/${distinctChoiceReport.totalCount}`
-          ].filter(Boolean).join(' / ')
-        }
-      : { id: 'distinctChoice', labelKo: `곡별 다른 시도 작성 완료 (${distinctChoiceReport.writtenCount}/${distinctChoiceReport.totalCount})`, status: 'pass' }
   );
+  const distinctChoiceThresholdIssue = Boolean(distinctChoiceGateResult?.verified && distinctChoiceGateResult.thresholdBlocking);
+  if (distinctChoiceSafetyViolations.length) {
+    checks.push({
+      id: 'distinctChoice',
+      labelKo: '곡별 다른 시도 (distinctChoice) — 안전 제약 위반',
+      status: 'warn',
+      detail: distinctChoiceSafetyViolations.map(r => `T${r.trackNo}: ${r.safetyViolation}`).join(' / ')
+    });
+  } else if (distinctChoiceHasLegacyIssue || distinctChoiceThresholdIssue) {
+    checks.push({
+      id: 'distinctChoice',
+      labelKo: '곡별 다른 시도 (distinctChoice)',
+      status: distinctChoiceThresholdIssue ? 'warn' : 'info',
+      detail: [
+        distinctChoiceReport.missingTrackNos.length ? `누락: T${distinctChoiceReport.missingTrackNos.join(', T')}` : '',
+        distinctChoiceReport.duplicateGroups.length ? `중복: ${distinctChoiceReport.duplicateGroups.map(g => `T${g.trackNos.join('/T')} "${g.value}"`).join(' / ')}` : '',
+        `작성 ${distinctChoiceReport.writtenCount}/${distinctChoiceReport.totalCount}`,
+        distinctChoiceThresholdIssue ? `[${distinctChoicePolicy?.sourceKo}] ${distinctChoiceGateResult?.thresholdReasonKo ?? ''}` : ''
+      ].filter(Boolean).join(' / ')
+    });
+  } else {
+    checks.push({ id: 'distinctChoice', labelKo: `곡별 다른 시도 작성 완료 (${distinctChoiceReport.writtenCount}/${distinctChoiceReport.totalCount})`, status: 'pass' });
+  }
 
   // 7. 아티스트명·안전 검사 — reuses artistReferenceDecomposer.ts's own
   // findArtistReferenceLeaks (the exact scanner core/albumAudit.ts's

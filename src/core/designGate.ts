@@ -9,6 +9,7 @@ import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { expectedArcPhaseCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
@@ -564,7 +565,7 @@ function genreIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   // `opts.channel.archetype` (not a workspace-wide id) is the exact same
   // per-channel signal isKidsArchetype/vocalQuotaForAutoFix above already
   // read from this same `opts` object — never re-derived, never a new field.
-  const effectiveMaxPerGenre = opts.channel.archetype === 'senior-morning'
+  const effectiveMaxPerGenre = opts.channel.archetype && FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES.has(opts.channel.archetype)
     ? threshold.maxPerGenre
     : Math.max(threshold.maxPerGenre, Math.ceil(opts.songCount / (candidatePoolSize || 1)));
   if (maxCount > effectiveMaxPerGenre) {

@@ -1,4 +1,7 @@
-import type { AudienceProfile, SongIdea } from '../types';
+import type { AudienceProfile, ChannelArchetype, SongIdea } from '../types';
+import { workspaceForArchetype } from '../data/workspaces';
+import { distinctChoicePolicyForWorkspace, safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
+import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
 import { descriptorCount, lyricWordAndSectionCounts, vocalZoneDistributionWarnings } from './compositionScorer';
 import { findArrangementVocabularyInLyrics } from './lyricVocabularyGuard';
 import { findArtistReferenceLeaks } from './artistReferenceDecomposer';
@@ -650,6 +653,52 @@ function audioItems(audioReport: AudioSetReport | undefined): AuditItem[] {
   ];
 }
 
+/**
+ * 지시문 15 (TASK B-4) — "감사 항목이 되지 않으면 이 TASK 는 미완이다".
+ * core/distinctChoiceGate.ts(구조는 7개 워크스페이스 공통, archetype 분기
+ * 없음)를 그대로 실행해 이행률/안전위반을 감사 항목으로 노출한다.
+ * verified 워크스페이스(현재 senior-oldpop)만 이행률 미달이 실제 fail로
+ * 뜬다 — verified: false 6개는 숫자는 실측·표시하되 pass:null(not-measured)로
+ * 남는다(§B-2 "advisory 전용, 절대 blocking하지 않는다"). 안전 제약
+ * 위반만은 verified와 무관하게 항상 fail이다.
+ */
+function distinctChoiceItems(songs: SongIdea[], archetype?: ChannelArchetype): AuditItem[] {
+  const workspaceId = workspaceForArchetype(archetype)?.id;
+  if (!workspaceId) {
+    return [
+      item({
+        id: 'distinct_choice_compliance', category: '워크스페이스', labelKo: '곡별 다른 시도 이행률 (distinctChoice gate)',
+        targetKo: '워크스페이스 정책 필요', actualKo: '아키타입에서 워크스페이스를 확인할 수 없음 — 판정 불가',
+        pass: null, requiresAudio: false, specifiedBy: ['지시문 15 TASK B-4']
+      })
+    ];
+  }
+  const policy = distinctChoicePolicyForWorkspace(workspaceId);
+  const result = evaluateDistinctChoiceGate(songs, policy, {
+    safetyForbiddenRuleIds: safetyForbiddenRuleIdsForWorkspace(workspaceId),
+    sameGenderVocalOnly: policy.sameGenderVocalOnly
+  });
+  const safetyViolations = result.trackResults.filter(r => r.safetyViolation);
+  return [
+    item({
+      id: 'distinct_choice_compliance', category: '워크스페이스',
+      labelKo: `곡별 다른 시도 이행률 (distinctChoice gate${policy.verified ? '' : ' — 미검증/advisory'})`,
+      targetKo: `≥ ${Math.round(policy.minComplianceRate * 100)}% (${policy.sourceKo})`,
+      actualKo: `이행률 ${Math.round(result.complianceRate * 100)}% (compliant ${result.compliantCount} · violated ${result.violatedCount} · not-measured ${result.notMeasuredCount} · missing ${result.missingCount})`,
+      pass: policy.verified ? !result.thresholdBlocking : null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 15 TASK B-4'],
+      metric: { value: result.complianceRate, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'distinct_choice_safety', category: '워크스페이스', labelKo: '곡별 다른 시도 — 안전 제약',
+      targetKo: '위반 0건 (verified 무관 항상 강제)',
+      actualKo: safetyViolations.length ? `${safetyViolations.length}건: ${safetyViolations.map(r => `T${r.trackNo}`).join(', ')}` : '위반 없음',
+      pass: safetyViolations.length === 0, requiresAudio: false, specifiedBy: ['지시문 15 TASK B-4']
+    })
+  ];
+}
+
 function workspaceItems(): AuditItem[] {
   return [
     item({
@@ -731,7 +780,7 @@ function eraIntentItems(songs: SongIdea[], conceptLabel: string, explorationTrac
  */
 export function runFullAudit(
   songs: SongIdea[],
-  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[]; vocalQuotaOverride?: VocalQuota }
+  opts: { conceptLabel: string; songCount: number; audienceProfile: AudienceProfile; audioReport?: AudioSetReport; explorationTrackNos?: number[]; vocalQuotaOverride?: VocalQuota; archetype?: ChannelArchetype }
 ): FullAuditReport {
   const promiseAuditReport = auditPromises(songs, opts.conceptLabel);
   const titleConsistency = auditTitleConceptConsistency(songs);
@@ -746,7 +795,8 @@ export function runFullAudit(
     ...promiseItems(promiseAuditReport),
     ...workspaceItems(),
     ...eraIntentItems(songs, opts.conceptLabel, opts.explorationTrackNos ?? []),
-    ...sceneSignatureSourceItems(songs)
+    ...sceneSignatureSourceItems(songs),
+    ...distinctChoiceItems(songs, opts.archetype)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency };
 }
