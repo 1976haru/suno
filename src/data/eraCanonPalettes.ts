@@ -259,7 +259,15 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'oldpop-standards-torch', 'oldpop-orchestral-easy', 'smooth-jazz-lounge',
       'jazz-classic-vocal-lounge', 'jazz-soft-vocal-trio', 'jazz-jazz-ballad-vocal', 'jazz-smooth-sax-vocal',
       'jazz-torch-vocal-jazz', 'jazz-swing-crooner-ballroom', 'jazz-cabaret-jazz', 'jazz-hotel-lounge-jazz',
-      'jazz-contemporary-vocal-jazz', 'jazz-pop'
+      'jazz-contemporary-vocal-jazz', 'jazz-pop',
+      // 지시문 20 (TASK A) — real gap found while wiring senior-morning's
+      // preferredGenres: jazz-brush-ballad-jazz shares this exact palette's
+      // instrumentation (brushed drums, extended jazz chords, warm live-room
+      // mix) and its own styleCore template is identical to
+      // jazz-classic-vocal-lounge/jazz-swing-crooner-ballroom just above,
+      // but it was never added to any palette's fitsGenreIds — same class
+      // of gap the showa-seventies incident already caught once.
+      'jazz-brush-ballad-jazz'
     ],
     instrumentation: [
       'full string section carrying the melody',

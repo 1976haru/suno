@@ -32,17 +32,70 @@ export const channelPresets: ChannelProfile[] = [
     // still use them). canon-crooner-standard (data/eraCanonPalettes.ts,
     // Tom Jones/Engelbert-type) stays reachable via chanson/oldpop-piano-ballad-70s,
     // which is the actual 7080-canon member of that palette's fitsGenreIds.
+    //
+    // 지시문 20 (TASK A-1/A-2) — 8개 1950s-60s/챔버팝 oldpop-* 장르(전부
+    // 이미 archetypes:['senior-morning']로 태그돼 있었으나 이 preferredGenres
+    // 배열에는 배선되지 않았던 것)와 재즈 4종을 추가한다. 재즈 재도입은
+    // 지시문 20 원문이 "이전에 뺀 이유는 장르 혼입(팔레트 계열)" 이라고
+    // 서술했지만, 바로 위 TASK v4.9 주석이 밝히는 실제 사유는 보컬 품질
+    // 불만(남성 편중·둘 다 약함)이다 — 다른 문제이므로 팔레트 계열 규칙만으로
+    // 해소된다고 볼 수 없다. jazz-pop/smooth-jazz-lounge는 그 불만의 직접
+    // 대상이었으므로 계속 제외하고, 그 불만이 향했던 적 없는 4개 신규 후보
+    // (jazz-classic-vocal-lounge/jazz-swing-crooner-ballroom/
+    // jazz-brush-ballad-jazz/bossa-cafe)만 추가한다. 청취 검증 대기 — 실제
+    // 세트를 뽑아 들어보고 같은 불만(보컬 약함/성별 편중)이 재현되면 되돌린다.
     preferredGenres: [
       'adult-contemporary', 'acoustic-pop',
       'chanson', 'retro-soul-pop', 'folk-pop',
       'oldpop-warm-morning-glow', 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul',
       'oldpop-piano-ballad-70s', 'oldpop-adult-contemporary-80s', 'oldpop-close-harmony-duo',
-      'oldpop-hearth-acoustic'
+      'oldpop-hearth-acoustic',
+      'oldpop-doowop-harmony', 'oldpop-british-beat', 'oldpop-girl-group-wall',
+      'oldpop-sunshine-pop', 'oldpop-brill-building',
+      'oldpop-baroque-pop', 'oldpop-sunlit-strings-pop', 'oldpop-orchestral-easy',
+      'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom', 'jazz-brush-ballad-jazz', 'bossa-cafe'
     ],
     preferredMoods: ['nostalgic', 'warm', 'hopeful'],
     forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
     seoKeywords: ['아침 음악', '커피 음악', '추억 팝송', '50대 음악', '60대 음악', '감성 팝', '계절 플레이리스트'],
     archetype: 'senior-morning'
+  },
+  {
+    // 지시문 20 (TASK A-3) — oldpop-lounge 아키타입은 이미
+    // core/audienceProfiles.ts의 AUDIENCE_PROFILE_ID_BY_ARCHETYPE(지시문 12
+    // TASK C)와 workspaces/index.ts의 senior-oldpop.archetypeIds에 등록돼
+    // 있었지만, 실제 프리셋 채널이 0개라 사용자가 커스텀 채널로 직접
+    // 만들어 쓰며 검증 설정이 유실되는 문제가 있었다. `audience`/`market`을
+    // 다른 시니어 채널과 동일하게 명시적으로 지정 — 지시문 12 TASK C가
+    // 다룬 함정(이 두 필드에 검증 설정이 묶여 있음)을 신설 채널도 그대로
+    // 밟지 않도록.
+    id: 'oldpop-lounge-main',
+    name: '올드팝 라운지',
+    englishName: 'Old Pop Lounge',
+    market: 'korea',
+    primaryLanguage: 'english',
+    audience: 'seniors',
+    promise: '60~80년대 서구 올드팝을 팝·소울·R&B·샹송·재즈까지 폭넓게 조합하는 라운지 플레이리스트',
+    visualIdentity: 'dim evening lounge, warm amber light, vinyl record, velvet upholstery, refined retro typography',
+    defaultVocal: 'warm mature male crooner tenor, close-mic intimate delivery, relaxed and elegant',
+    // 지시문 20 (TASK A-3) — jazz-brush-ballad-jazz는 genreLibrary의
+    // archetypes가 ['senior-morning', 'showa-cafe']뿐이라 (jazz-classic-
+    // vocal-lounge/jazz-swing-crooner-ballroom과 달리 oldpop-lounge가
+    // 없음) sanitizeGenreIdsForArchetype이 여기서는 걸러낸다 — 실측으로
+    // 확인(tests/genreArchetypeSanitization.test.ts). senior-morning
+    // 쪽에는 이미 포함돼 있으므로 이 채널에는 넣지 않는다.
+    preferredGenres: [
+      'adult-contemporary', 'chanson', 'bossa-cafe', 'smooth-jazz-lounge',
+      'jazz-classic-vocal-lounge', 'jazz-swing-crooner-ballroom',
+      'jazz-hotel-lounge-jazz', 'jazz-torch-vocal-jazz', 'jazz-soft-vocal-trio',
+      'oldpop-standards-torch', 'oldpop-doowop-harmony', 'oldpop-piano-ballad-70s',
+      'oldpop-quiet-storm-warm', 'oldpop-evening-lamp-ballad', 'oldpop-slow-waltz-memory',
+      'retro-soul-pop', 'rnb-old-school-romance-rnb'
+    ],
+    preferredMoods: ['nostalgic', 'warm', 'hopeful'],
+    forbiddenCliches: ['too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation'],
+    seoKeywords: ['올드팝 라운지', '저녁 음악', '재즈 팝송', '샹송 플레이리스트', '50대 음악', '60대 음악', '라운지 음악'],
+    archetype: 'oldpop-lounge'
   },
   {
     id: 'morning-showa-cafe',
