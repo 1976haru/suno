@@ -155,7 +155,7 @@ export function buildLyricsTranslationBridgeInstruction(songs: SongLyricLines[])
     'Output requirement:',
     `- Write a new file named "${LYRICS_TRANSLATION_BRIDGE_OUTPUT_FILENAME}" in the current directory.`,
     '- Its content must be exactly the JSON shape described above ({"translations": [...]}) — no markdown fences, no surrounding prose, inside the file.',
-    '- When done, tell me the file\'s path so I can import it back into Suno Weaver Studio.'
+    '- When done, tell me the file\'s path so I can import it back into Haru Studio.'
   ].join('\n');
 }
 

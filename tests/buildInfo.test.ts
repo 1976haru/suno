@@ -118,7 +118,7 @@ describe('[v5.14] sync point — take-ledger / set-summary CSV downloads (core/c
     const withComment = withBuildInfoComment(csv);
     const lines = withComment.split('\r\n');
 
-    expect(lines[0]).toBe(`# suno-weaver-studio ${BUILD_INFO.appVersion} · commit ${BUILD_INFO.commitSha} · schema ${BUILD_INFO.schemaVersion} · built ${BUILD_INFO.builtAt}`);
+    expect(lines[0]).toBe(`# haru-studio ${BUILD_INFO.appVersion} · commit ${BUILD_INFO.commitSha} · schema ${BUILD_INFO.schemaVersion} · built ${BUILD_INFO.builtAt}`);
     // Everything after the inserted comment line is the original, unmodified csv text.
     expect(lines.slice(1).join('\r\n')).toBe(csv);
   });
@@ -130,7 +130,7 @@ describe('[v5.14] sync point — take-ledger / set-summary CSV downloads (core/c
     // real code, not a re-implementation.
     const csvText = 'A,B\r\n1,2';
     const written = withBuildInfoComment(csvText);
-    expect(written.startsWith('# suno-weaver-studio')).toBe(true);
+    expect(written.startsWith('# haru-studio')).toBe(true);
     expect(written.endsWith(csvText)).toBe(true);
     void downloadCsv; // referenced to document that this is the function under test's real composition, without needing a DOM to invoke it directly.
   });

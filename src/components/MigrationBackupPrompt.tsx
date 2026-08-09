@@ -15,7 +15,7 @@ export default function MigrationBackupPrompt({ busy, onBackupAndContinue, onSki
   return (
     <div className="workspace-select-screen">
       <div className="workspace-select-head">
-        <p className="eyebrow">Suno Weaver Studio</p>
+        <p className="eyebrow">하루 스튜디오</p>
         <h1>데이터 구조를 업데이트합니다</h1>
         <p className="step-hint">
           이번 업데이트부터 워크스페이스별로 데이터가 나뉩니다. 기존 데이터는 자동으로 옮겨지며 사라지지 않지만,

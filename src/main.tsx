@@ -31,7 +31,7 @@ async function bootstrap() {
     const message = document.createElement('p');
     message.textContent = error instanceof Error ? error.message : String(error);
     const guide = document.createElement('p');
-    guide.textContent = '열려 있는 Suno Weaver 탭과 이전 개발 서버를 모두 종료한 뒤 같은 복구 주소를 다시 여세요.';
+    guide.textContent = '열려 있는 하루 스튜디오 탭과 이전 개발 서버를 모두 종료한 뒤 같은 복구 주소를 다시 여세요.';
     panel.append(heading, message, guide);
     root.append(panel);
     return;

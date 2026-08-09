@@ -29,8 +29,8 @@
  */
 
 export const SUNO_VIEWER_FILE_NAME = 'suno-mode.html';
-/** TASK v5.20 (TASK D-4) — shown in the viewer's own footer; bump by hand whenever REVIEW_ENGINE_JS or the viewer-mode script below changes behavior or the on-disk ratings-export JSON contract. 지시문 13 TASK C — 1.0.0 -> 1.1.0 for TASK B's normalizeSong titleDisplay/noLocalizedTitleWarning fix, so a user comparing footers can tell a previously-downloaded suno-mode.html is stale. */
-export const SUNO_VIEWER_VERSION = '1.1.0';
+/** TASK v5.20 (TASK D-4) — shown in the viewer's own footer; bump by hand whenever REVIEW_ENGINE_JS or the viewer-mode script below changes behavior or the on-disk ratings-export JSON contract. 지시문 13 TASK C — 1.0.0 -> 1.1.0 for TASK B's normalizeSong titleDisplay/noLocalizedTitleWarning fix, so a user comparing footers can tell a previously-downloaded suno-mode.html is stale. 지시문 18 TASK A-4 — 1.1.0 -> 1.2.0 for the product rename(Suno Weaver Studio → 하루 스튜디오); this file itself had no literal product-name string to change(그 이유는 이 파일의 footer가 "수노 진행 모드 뷰어"라는 기능 이름만 쓰기 때문), but the bump keeps a re-downloaded viewer's footer distinguishable from one built before this directive. */
+export const SUNO_VIEWER_VERSION = '1.2.0';
 
 /** Mirrors core/promptBudget.ts's SUNO_COPY_LIMIT (1000) and core/soundSignature.ts's PERSONA_STYLE_LIMIT (200) — duplicated as plain numbers rather than imported, same reasoning as standaloneProgressExport.ts's own copy: this file must stay free of any app-module import. */
 const SUNO_COPY_LIMIT = 1000;

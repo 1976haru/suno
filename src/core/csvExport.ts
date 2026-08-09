@@ -70,7 +70,7 @@ export function withUtf8Bom(csvText: string): string {
  */
 export function withBuildInfoComment(csvText: string): string {
   const { appVersion, commitSha, schemaVersion, builtAt } = BUILD_INFO;
-  return `# suno-weaver-studio ${appVersion} · commit ${commitSha} · schema ${schemaVersion} · built ${builtAt}\r\n${csvText}`;
+  return `# haru-studio ${appVersion} · commit ${commitSha} · schema ${schemaVersion} · built ${builtAt}\r\n${csvText}`;
 }
 
 /** The one non-pure function in this module: hands the BOM-prefixed, build-info-commented CSV text off to utils/exporters.ts's existing downloadBlob (Blob + anchor-click download). */

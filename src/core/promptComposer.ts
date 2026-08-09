@@ -1153,7 +1153,7 @@ export function buildSystemInstruction(opts: GenerationOptions, batch?: BatchCon
     ? '- The song\'s title must equal the hook phrase, or contain it verbatim (never a different phrase from the hook).'
     : '- The song\'s title is INDEPENDENT from the hookPhrase — do not just reuse or lightly reword the hook as the title. Write a genuinely different, evocative title the way real Billboard Hot 100 song titles work: a single striking word, an unexpected concrete noun, a short metaphor, or an image, not a restatement of the hook.';
 
-  return `You are Suno Weaver Studio, a commercial playlist song planner. Generate original Suno-ready style prompts, lyrics, and YouTube metadata.
+  return `You are Haru Studio, a commercial playlist song planner. Generate original Suno-ready style prompts, lyrics, and YouTube metadata.
 
 Rules:
 - Never imitate a specific artist, singer, band, producer, existing song, melody, lyric, hook, or copyrighted work.
