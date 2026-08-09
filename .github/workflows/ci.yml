@@ -232,6 +232,21 @@ jobs:
       - run: npm ci
       - run: npm run check:archetype
 
+  # 지시문 18 (TASK B-3) — package.json version이 유일한 진실인지 검사.
+  # docs/CHANGELOG.md 최상단 항목과 어긋나면 실패한다 — "package.json
+  # 5.14.0 / 실제 작업 v5.24 ← 불일치"(인수인계 문서 §3-1)가 다시 조용히
+  # 벌어지는 것을 CI에서 잡는다.
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:version
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular
