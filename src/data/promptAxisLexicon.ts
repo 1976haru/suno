@@ -69,7 +69,22 @@ const MIX_KEYWORDS = ['mix', 'ambience', 'mono', 'studio', 'room tone', 'colorat
 
 const HOOK_DEVICE_KEYWORDS = ['hook'];
 
-const ARRANGEMENT_DENSITY_KEYWORDS = ['arrangement', 'layered', 'voice-forward', 'a few instruments at a time'];
+/**
+ * 실측 버그(tests/v343.test.ts 회귀) — bare "arrangement" 키워드만으로 판정
+ * 하면 "then the full arrangement returns for the final chorus" 같은
+ * 서술형(구조 축) 클로즈까지 arrangementDensity로 오분류돼, 그 뒤 단일
+ * 선언 축 replace-in-place가 hookDeviceText의 일부를 통째로 지워버렸다
+ * (hookDeviceText 값 자체가 콤마를 포함해, 재분류 시 두 클로즈로 쪼개지는
+ * 게 원인). "이 클로즈가 밀도 선언 그 자체인가"를 실제로 판정하도록 좁힌다
+ * — 밀도 형용사로 시작하고 6단어 이하인 짧은 클로즈만 인정한다
+ * (ARRANGEMENT_DENSITY_TEXT_BY_LEVEL의 세 값 모두 이 형태를 만족한다).
+ */
+const ARRANGEMENT_DENSITY_START_WORDS = ['full', 'sparse', 'medium', 'moderate', 'spare', 'minimal', 'dense', 'light', 'thin', 'layered', 'voice-forward'];
+function looksLikeArrangementDensityDeclaration(lower: string): boolean {
+  const wordCount = lower.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 6) return false;
+  return ARRANGEMENT_DENSITY_START_WORDS.some(word => new RegExp(`^${word}\\b`).test(lower));
+}
 
 const TEMPO_PATTERN = /\b\d{2,3}\s*bpm\b/i;
 const DURATION_PATTERN = /\b\d:\d{2}\s*-\s*\d:\d{2}\b/;
@@ -106,10 +121,17 @@ export function classifyClause(clause: string, isFirstClause: boolean): PromptAx
   if (TEMPO_PATTERN.test(lower)) return 'tempo';
   if (DURATION_PATTERN.test(lower)) return 'duration';
   if (ERA_PATTERN.test(lower)) return 'era';
-  if (includesAny(lower, INTRO_IMMEDIATE_PHRASES) || includesAny(lower, INTRO_HAS_INTRO_PHRASES)) return 'intro';
+  // 실측 버그(지시문 16, tests/v343.test.ts 회귀) — "final repeat of the hook
+  // sung almost a cappella as the OUTRO tag"는 "a cappella"를 포함하지만
+  // 실제로는 아웃트로/훅 묘사이지 인트로가 아니다. "outro"/"final"이 같은
+  // 클로즈에 있으면 intro 어휘가 우연히 겹쳐도 intro로 판정하지 않는다 —
+  // 그래야 hookDevice 축으로 정상 분류되어 mergeAtom이 intro replace-in-place
+  // 대상으로 잘못 집어삼키지 않는다.
+  const looksLikeOutro = /\boutro\b|\bfinal\b/.test(lower);
+  if (!looksLikeOutro && (includesAny(lower, INTRO_IMMEDIATE_PHRASES) || includesAny(lower, INTRO_HAS_INTRO_PHRASES))) return 'intro';
   if (includesAny(lower, BACKING_VOCAL_MARKERS)) return 'backingVocal';
   if (includesAny(lower, LEAD_VOCAL_PHRASES)) return 'leadVocal';
-  if (includesAny(lower, ARRANGEMENT_DENSITY_KEYWORDS)) return 'arrangementDensity';
+  if (looksLikeArrangementDensityDeclaration(lower)) return 'arrangementDensity';
   if (HARMONY_ROMAN_NUMERAL_PATTERN.test(trimmed) || includesAny(lower, HARMONY_KEYWORDS)) return 'harmony';
   if (includesAny(lower, HOOK_DEVICE_KEYWORDS)) return 'hookDevice';
   if (includesAny(lower, MIX_KEYWORDS)) return 'mix';

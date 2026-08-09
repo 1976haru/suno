@@ -53,6 +53,10 @@ describe('[지시문 16 TASK B-4] classifyClause — real fixture clauses', () =
     expect(introSubcategory('no intro tag')).toBe('immediate');
   });
 
+  it('does NOT classify an outro/hook clause as intro just because it happens to contain "a cappella" (real regression, tests/v343.test.ts)', () => {
+    expect(classifyClause('final repeat of the hook sung almost a cappella as the outro tag', false)).toBe('hookDevice');
+  });
+
   it('classifies duplicate token clauses (지시문 16 §1-4 "male male head-voice lead") as leadVocal', () => {
     expect(classifyClause('male male head-voice lead', false)).toBe('leadVocal');
   });
@@ -71,6 +75,12 @@ describe('[지시문 16 TASK B-4] classifyClause — real fixture clauses', () =
   it('classifies arrangementDensity clauses, including a real duplicate pair ("medium arrangement" + "full arrangement, not a short cut")', () => {
     expect(classifyClause('full arrangement, not a short cut', false)).toBe('arrangementDensity');
     expect(classifyClause('medium arrangement', false)).toBe('arrangementDensity');
+    expect(classifyClause('full layered arrangement with strings', false)).toBe('arrangementDensity');
+  });
+
+  it('does NOT classify a structural narrative clause that merely mentions "arrangement" in passing as arrangementDensity (real regression, tests/v343.test.ts — a multi-clause hookDeviceText value got shredded and its second half destroyed by the density replace-in-place)', () => {
+    expect(classifyClause('then the full arrangement returns for the final chorus', false)).not.toBe('arrangementDensity');
+    expect(classifyClause('instruments drop out completely in the bridge then return for the final chorus', false)).not.toBe('arrangementDensity');
   });
 
   it('classifies mix/ambience clauses', () => {

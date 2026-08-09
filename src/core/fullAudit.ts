@@ -16,6 +16,7 @@ import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
 import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
 import { auditStylePromptAgainstSpec } from './promptSpec';
+import { classifyClause, introSubcategory, type PromptAxis } from '../data/promptAxisLexicon';
 import { resolveSceneSignatureSource } from './situationLedger';
 
 /**
@@ -279,6 +280,29 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
     vocal: { gender: song.vocalType === 'male' || song.vocalType === 'female' ? song.vocalType : undefined, text: '' }
   }).length > 0);
 
+  // 지시문 16 (TASK D) — 실측 13건(인트로 모순 7·리드보컬 중복 5·중복 토큰 1)을
+  // 재현하는 측정. data/promptAxisLexicon.ts's classifyClause로 stylePrompt를
+  // 콤마절 단위로 축 분류해, 단일 선언 축(SINGLE_DECLARATION_AXES)이 한 곡
+  // 안에 2번 이상 선언됐는지 센다. duration/tempo는 이미 duration_dup/
+  // final_prompt_compiler_normalized가 측정 중이라 제외 — intro·leadVocal만
+  // 새로 잰다(둘 다 실측 위반이 실제로 있었던 축).
+  function axesOf(stylePrompt: string): PromptAxis[] {
+    return stylePrompt.split(',').map(clause => clause.trim()).filter(Boolean)
+      .map((text, index) => classifyClause(text, index === 0))
+      .filter((axis): axis is PromptAxis => Boolean(axis));
+  }
+  const introContradictionSongs = songs.filter(song => {
+    const introClauses = song.stylePrompt.split(',').map(c => c.trim()).filter(Boolean)
+      .filter((text, index) => classifyClause(text, index === 0) === 'intro');
+    const subcategories = new Set(introClauses.map(introSubcategory).filter(Boolean));
+    return subcategories.size > 1;
+  });
+  const leadVocalDuplicateSongs = songs.filter(song => axesOf(song.stylePrompt).filter(axis => axis === 'leadVocal').length > 1);
+  // 지시문 16 §1-4 실측("male male head-voice lead") — 같은 단어가 바로
+  // 옆에서 반복되는 경우. 대소문자 무시.
+  const DUPLICATE_TOKEN_PATTERN = /\b(\w+)\s+\1\b/i;
+  const duplicateTokenSongs = songs.filter(song => DUPLICATE_TOKEN_PATTERN.test(song.stylePrompt));
+
   return [
     item({
       id: 'prompt_length', category: '프롬프트', labelKo: '프롬프트 길이',
@@ -335,6 +359,24 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
       targetKo: '100%', actualKo: songs.length ? `${Math.round(((songs.length - specViolationSongs.length) / songs.length) * 100)}% (위반 ${specViolationSongs.length}곡${specViolationSongs.length ? `: T${specViolationSongs.map(s => s.trackNo).join(', T')}` : ''})` : '(없음)',
       pass: songs.length ? specViolationSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 10 TASK D-4'],
       metric: songs.length ? { value: specViolationSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'intro_axis_contradiction', category: '프롬프트', labelKo: '인트로 모순 (즉시시작+인트로있음 동시 선언)',
+      targetKo: '0곡', actualKo: `${introContradictionSongs.length}곡${introContradictionSongs.length ? `: T${introContradictionSongs.map(s => s.trackNo).join(', T')}` : ''}`,
+      pass: songs.length ? introContradictionSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 16 TASK B/D'],
+      metric: songs.length ? { value: introContradictionSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'lead_vocal_axis_duplicate', category: '프롬프트', labelKo: '리드 보컬 중복 선언',
+      targetKo: '0곡', actualKo: `${leadVocalDuplicateSongs.length}곡${leadVocalDuplicateSongs.length ? `: T${leadVocalDuplicateSongs.map(s => s.trackNo).join(', T')}` : ''}`,
+      pass: songs.length ? leadVocalDuplicateSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 16 TASK B/D'],
+      metric: songs.length ? { value: leadVocalDuplicateSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'duplicate_token', category: '프롬프트', labelKo: '중복 토큰 (예: "male male")',
+      targetKo: '0곡', actualKo: `${duplicateTokenSongs.length}곡${duplicateTokenSongs.length ? `: T${duplicateTokenSongs.map(s => s.trackNo).join(', T')}` : ''}`,
+      pass: songs.length ? duplicateTokenSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 16 TASK B/D'],
+      metric: songs.length ? { value: duplicateTokenSongs.length, direction: 'lowerIsBetter' } : undefined
     })
   ];
 }
