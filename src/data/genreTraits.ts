@@ -45,6 +45,38 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
     dynamicRange: 'low',
     structureTraits: ['short verse leading straight into a repeated hook chorus', 'call-and-response between lead and backing group']
   },
+  // 지시문 21 (TASK B) — 기존 3종 보강.
+  'oldpop-doowop-ballad': {
+    eraTag: '1950s-60s doo-wop ballad',
+    harmonyTraits: ['I-vi-IV-V doo-wop turnaround at half speed', 'suspended fourth resolving into the tonic'],
+    dynamicRange: 'low',
+    structureTraits: ['long-held final chorus note under the backing harmony', 'tremolo guitar fill between vocal phrases']
+  },
+  'oldpop-doowop-uptempo': {
+    eraTag: '1950s-60s uptempo doo-wop',
+    harmonyTraits: ['I-vi-IV-V doo-wop turnaround at dance tempo', 'bright major-key call and response'],
+    dynamicRange: 'medium',
+    structureTraits: ['saxophone break before the final chorus', 'handclap-driven call-and-response bridge']
+  },
+  'oldpop-night-chanson': {
+    eraTag: '1950s-70s night chanson',
+    instrumentation: ['gentle acoustic guitar', 'subtle piano', 'soft upright bass'],
+    rhythmFeel: ['slow rubato easing into a gentle waltz-adjacent pulse', 'unhurried late-night café tempo'],
+    harmonyTraits: ['minor-key chanson progression with a wistful resolve', 'suspended chord held before the verse resolves'],
+    vocalTraits: ['intimate close-mic male lead', 'restrained spoken-sung delivery'],
+    dynamicRange: 'low',
+    structureTraits: ['piano-led intro before the vocal enters', 'restrained final verse instead of a lifted chorus']
+  },
+  'oldpop-rainy-ballad-blues': {
+    eraTag: '1960s-70s ballad blues',
+    instrumentation: ['clean hollow-body electric guitar', 'spring reverb tank'],
+    rhythmFeel: ['slow blues ballad pulse with a dark minor instrumental intro', 'unhurried rain-soaked half-time feel'],
+    harmonyTraits: ['dark minor chord-melody guitar intro before the vocal enters', 'blues-inflected minor-to-tonic resolution'],
+    vocalTraits: ['restrained sung baritone lead, no ad-lib filler', 'plainspoken delivery held close to the melody'],
+    productionTraits: ['subtle tremolo bar warble', 'spring reverb wash on the guitar'],
+    dynamicRange: 'low',
+    structureTraits: ['dark minor chord-melody guitar intro with no vocal', 'restrained final verse, no vocal ad-libs']
+  },
   'oldpop-brill-building': {
     eraTag: '1960-1963 Brill Building pop',
     rhythmFeel: ['bouncy two-beat pop pulse', 'four-on-the-floor backbeat with tambourine accents'],

@@ -129,12 +129,14 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(new Set(bp.songs.map(s => s.title)).size).toBe(18);
   });
 
-  it('senior-morning 코어 장르 40개', () => {
-    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(40);
+  it('senior-morning 코어 장르 44개', () => {
+    // 지시문 21 (TASK B) — 40 -> 44 (두왑 분화 2종·밤 샹송·발라드블루스 추가).
+    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(44);
   });
 
-  it('oldpop-lounge 코어 장르 63개', () => {
-    expect(getCoreGenreIdsForArchetype('oldpop-lounge').length).toBe(63);
+  it('oldpop-lounge 코어 장르 67개', () => {
+    // 지시문 21 (TASK B) — 63 -> 67, same 4-genre addition (모두 oldpop-lounge 배선).
+    expect(getCoreGenreIdsForArchetype('oldpop-lounge').length).toBe(67);
   });
 
   it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/7', () => {

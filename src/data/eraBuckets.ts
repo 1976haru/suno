@@ -37,6 +37,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'kids-upbeat-pop': ['era-neutral'],
   'kids-march': ['era-neutral'],
   'oldpop-doowop-harmony': ['1950s', '1960s'],
+  // 지시문 21 (TASK B) — 기존 3종 보강.
+  'oldpop-doowop-ballad': ['1950s', '1960s'],
+  'oldpop-doowop-uptempo': ['1950s', '1960s'],
+  'oldpop-night-chanson': ['1950s', '1960s', '1970s'],
+  'oldpop-rainy-ballad-blues': ['1960s', '1970s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
   'oldpop-sunshine-pop': ['1960s'],
@@ -394,6 +399,11 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'kids-upbeat-pop': '\'Upbeat Kids Pop\' — 동요는 시대 판정 대상이 아님, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kids-march': '\'Kids Marching Pop\' — 동요는 시대 판정 대상이 아님, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'oldpop-doowop-harmony': '두왑 하모니 — 1950년대 후반~1960년대 초 미국 두왑의 전성기 스타일',
+  // 지시문 21 (TASK B) — 기존 3종 보강.
+  'oldpop-doowop-ballad': '두왑 발라드 — oldpop-doowop-harmony와 같은 시대(1950s 후반~1960s 초)의 느린 변형, 스탠드업 베이스와 트레몰로 기타 중심',
+  'oldpop-doowop-uptempo': '경쾌한 두왑 — oldpop-doowop-harmony와 같은 시대의 빠른 변형, 핸드클랩과 색소폰 브레이크 중심',
+  'oldpop-night-chanson': '밤 샹송 — 프랑스 샹송이 미국 두왑과 동시대(1950s)부터 1970년대까지 이어진 전통이라 세 연대 모두 포함',
+  'oldpop-rainy-ballad-blues': '빗속 발라드 블루스 — 트레몰로/스프링 리버브 기타 사운드가 1960년대 후반~1970년대 초 블루스 발라드의 전형',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',
   'oldpop-sunshine-pop': '선샤인 팝 — 1960년대 중후반 캘리포니아 팝의 대표 스타일',

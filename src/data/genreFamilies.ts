@@ -23,7 +23,13 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     id: 'chanson-continental',
     labelKo: '샹송·콘티넨탈',
     descriptionKo: '아코디언과 현악, 낭송조 보컬의 유럽풍 올드팝',
-    memberGenreIds: ['chanson', 'oldpop-orchestral-easy', 'oldpop-standards-torch', 'oldpop-slow-waltz-memory', 'oldpop-evening-lamp-ballad'],
+    // 지시문 21 (TASK B) — oldpop-night-chanson(밤 샹송)은 프랑스 샹송
+    // 계열이라는 정체성 자체가 이 families의 핵심 근거(labelKo가 "샹송")와
+    // 직접 일치해 추가. 기존 chanson과는 장르 id가 다르지만(보컬 성별
+    // 중립 vs 남성 인티메이트) 같은 계열로 묶이는 것 자체는 타당 — 한
+    // family 안에서도 세부 캐릭터가 갈리는 것은 abba-carpenters/warm-melody
+    // 등 다른 family에도 이미 있는 정상 패턴.
+    memberGenreIds: ['chanson', 'oldpop-orchestral-easy', 'oldpop-standards-torch', 'oldpop-slow-waltz-memory', 'oldpop-evening-lamp-ballad', 'oldpop-night-chanson'],
     commonTraitKo: '아코디언·현악·왈츠 박자·낭송조 보컬',
     blendsWellWith: ['warm-melody', 'vocal-jazz']
   },
@@ -47,7 +53,16 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     id: 'warm-melody',
     labelKo: '따뜻한 멜로디',
     descriptionKo: '어쿠스틱 중심의 느리고 편안한 멜로디',
-    memberGenreIds: ['oldpop-warm-morning-glow', 'oldpop-hearth-acoustic', 'oldpop-sunlit-strings-pop', 'oldpop-gentle-lullaby-pop', 'oldpop-piano-ballad-70s'],
+    // 지시문 21 (TASK B) — oldpop-rainy-ballad-blues는 기존 8개 family
+    // 중 어느 것에도 완벽히 들어맞지 않는다(전기 기타·트레몰로·스프링
+    // 리버브는 다른 family의 아코디언/신스/브라스 팔레트와 다름). 가장
+    // 가까운 근거: 느린 템포·절제된 다이내믹·인티메이트 보컬이라는
+    // 이 family의 정의(commonTraitKo "느린 템포·최소 퍼커션")와 가장
+    // 잘 맞고, 이 family는 이미 chanson-continental/vocal-jazz 등
+    // 멜랑콜릭 계열과 blendsWellWith로 연결돼 있어 발라드블루스의
+    // 무드와 자연스럽게 어울린다. 새 family를 만들지 않고 근거를 남겨
+    // 기존 8개 중 하나로 편입.
+    memberGenreIds: ['oldpop-warm-morning-glow', 'oldpop-hearth-acoustic', 'oldpop-sunlit-strings-pop', 'oldpop-gentle-lullaby-pop', 'oldpop-piano-ballad-70s', 'oldpop-rainy-ballad-blues'],
     commonTraitKo: '어쿠스틱 중심·느린 템포·최소 퍼커션',
     blendsWellWith: ['chanson-continental', 'rnb-soul', 'abba-carpenters', 'sixties-pop', 'vocal-jazz', 'seventies-soft', 'eighties-warm']
   },
@@ -55,7 +70,10 @@ export const GENRE_FAMILIES: GenreFamily[] = [
     id: 'sixties-pop',
     labelKo: '60년대 팝',
     descriptionKo: '두왑·브릴빌딩·비트팝의 짧고 단순한 훅',
-    memberGenreIds: ['oldpop-doowop-harmony', 'oldpop-brill-building', 'oldpop-girl-group-wall', 'oldpop-sunshine-pop', 'oldpop-british-beat'],
+    // 지시문 21 (TASK B) — 두왑 분화 2종은 oldpop-doowop-harmony의 직계
+    // 형제 장르(같은 화성·같은 시대, 템포/무드만 다름)라 같은 family에
+    // 넣는 것이 자연스럽다.
+    memberGenreIds: ['oldpop-doowop-harmony', 'oldpop-brill-building', 'oldpop-girl-group-wall', 'oldpop-sunshine-pop', 'oldpop-british-beat', 'oldpop-doowop-ballad', 'oldpop-doowop-uptempo'],
     commonTraitKo: '짧은 구성·단순 다이어토닉 훅·클로즈하모니',
     blendsWellWith: ['abba-carpenters', 'rnb-soul', 'warm-melody']
   },

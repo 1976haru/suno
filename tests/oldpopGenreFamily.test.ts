@@ -15,12 +15,15 @@ import { audienceProfileForAgeGroup } from '../src/data/audienceProfiles';
  * each required to have its own instrumentation/rhythm/harmony/production
  * (not a rename of an existing genre with the same descriptors) and to stay
  * inside the senior audience's 62-112 BPM tempo range.
+ *
+ * 지시문 21 (TASK B) — 28 -> 32: doowop-ballad/doowop-uptempo/night-chanson/
+ * rainy-ballad-blues added (see genreLibrary/index.ts's oldpopGenrePacks).
  */
 describe('[v3.61 TASK A] oldpop-* genre family', () => {
   const oldpop = genrePacks.filter(genre => genre.id.startsWith('oldpop-'));
 
-  it('registers exactly 28 oldpop-* genres in the real generation pool (presets.ts genrePacks)', () => {
-    expect(oldpop).toHaveLength(28);
+  it('registers exactly 32 oldpop-* genres in the real generation pool (presets.ts genrePacks)', () => {
+    expect(oldpop).toHaveLength(32);
   });
 
   it('keeps every oldpop-* genre inside the senior audience tempo range (62-112 BPM)', () => {
@@ -41,13 +44,13 @@ describe('[v3.61 TASK A] oldpop-* genre family', () => {
     }
   });
 
-  it('all 28 oldpop-* genres are registered as core tier for the senior-morning archetype', () => {
+  it('all 32 oldpop-* genres are registered as core tier for the senior-morning archetype', () => {
     const seniorCoreIds = new Set(getCoreGenresForArchetype('senior-morning').map(genre => genre.id));
     for (const id of SENIOR_MORNING_CORE_GENRE_IDS) {
       if (id.startsWith('oldpop-')) expect(seniorCoreIds.has(id), id).toBe(true);
     }
     const oldpopCoreCount = [...seniorCoreIds].filter(id => id.startsWith('oldpop-')).length;
-    expect(oldpopCoreCount).toBe(28);
+    expect(oldpopCoreCount).toBe(32);
   });
 
   it('does not add any oldpop-* id to showa-cafe\'s core tier', () => {
@@ -83,7 +86,7 @@ describe('[v3.61 TASK A] oldpop-* genre family', () => {
    * (0.28 was calibrated when every genre's vocabulary was 100%
    * independently authored, before any shared-cluster concept existed).
    */
-  it('keeps pairwise style-prompt similarity across all 28 oldpop-* genres low on average, with no single pair collapsing together', () => {
+  it('keeps pairwise style-prompt similarity across all 32 oldpop-* genres low on average, with no single pair collapsing together', () => {
     const prompts = oldpop.map((genre, idx) => {
       const blueprint = generateLocalBlueprint(makeOptions({ songCount: 1, genreIds: [genre.id] }), [genre], testMoods, testSeason);
       return { trackNo: idx + 1, stylePrompt: blueprint.songs[0].stylePrompt };

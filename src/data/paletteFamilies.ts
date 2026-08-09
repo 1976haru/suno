@@ -37,9 +37,16 @@ export const PALETTE_FAMILIES: PaletteFamily[] = [
   {
     id: 'family-acoustic-soft',
     labelKo: '어쿠스틱 포크·소프트',
+    // 지시문 21 (TASK B) — canon-tremolo-blues-ballad(oldpop-rainy-ballad-blues
+    // 전용 신규 palette) 추가. 어느 PALETTE_FAMILIES에도 등록하지 않으면
+    // paletteFamilyForGenreId가 undefined를 반환해 showa-seventies 때와
+    // 같은 미등록 결함이 재현된다(실측으로 확인). 기타 중심·인티메이트·
+    // 싱어송라이터 성향이 이 family의 이글스/존 덴버 계열과 가장 가까워
+    // 여기 편입 — family-orchestral(오케스트럴)이나 family-soul(가스펠)
+    // 보다 훨씬 근접한 근거.
     paletteIds: [
       'canon-folk-duo', 'canon-soft-pop-duo', 'canon-country-folk',
-      'canon-soft-rock-band', 'canon-warm-gentle-acoustic'
+      'canon-soft-rock-band', 'canon-warm-gentle-acoustic', 'canon-tremolo-blues-ballad'
     ],
     compatibleWith: ['family-bright-pop', 'family-orchestral'],
     standalone: true,

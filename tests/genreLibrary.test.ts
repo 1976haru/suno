@@ -97,7 +97,10 @@ describe('structured genre library', () => {
     // TASK E1 — +7 for krkidsGenrePacks, same registered-in-both pattern.
     // TASK F1 — +7 for jpkidsGenrePacks, same registered-in-both pattern.
     // TASK K2 — +7 for kridolMaleGenrePacks, same registered-in-both pattern.
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 28 + 6 + 7 + 7 + 7 + 7);
+    // 지시문 21 (TASK B) — oldpopGenrePacks grew 28 -> 32 (doowop-ballad/
+    // doowop-uptempo/night-chanson/rainy-ballad-blues, all registered in both
+    // genreLibrary and presets.ts's rawGenrePacks, same pattern as v3.61).
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 32 + 6 + 7 + 7 + 7 + 7);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -213,28 +216,32 @@ describe('structured genre library', () => {
   // in a genuinely different warmth/era bracket from adult-contemporary.
   // The 28 new oldpop-* ids (oldpopGenrePacks) are registered directly in
   // genreLibrary's own array, so they DO resolve here.
-  it('adds the 28 oldpop-* genres to senior-morning\'s core pool without touching showa-cafe', () => {
+  it('adds the 32 oldpop-* genres to senior-morning\'s core pool without touching showa-cafe', () => {
     const seniorIds = getCoreGenresForArchetype('senior-morning').map(genre => genre.id);
     const oldpopIds = seniorIds.filter(id => id.startsWith('oldpop-'));
-    expect(oldpopIds).toHaveLength(28);
-    // 10 ids that already resolved before this task + 28 new oldpop-* + 2
+    // 지시문 21 (TASK B) — 28 -> 32: doowop-ballad/doowop-uptempo/
+    // night-chanson/rainy-ballad-blues all carry archetypes:
+    // ['senior-morning', 'oldpop-lounge'], tier: 'core'.
+    expect(oldpopIds).toHaveLength(32);
+    // 10 ids that already resolved before v3.61 + 32 oldpop-* + 2
     // (chanson/smooth-jazz-lounge) whose own pre-existing genreLibrary/
     // presets.ts split this task closed (see legacyGenreProfiles's own
     // comment) so conceptAgent.ts's keyword routing can reach them too.
-    expect(seniorIds).toHaveLength(40);
+    expect(seniorIds).toHaveLength(44);
     // The ids that resolved before this task must still be present, unchanged.
     for (const id of ['adult-contemporary', 'acoustic-pop', 'jazz-pop', 'healing-ballad', 'piano-ballad', 'lofi-cafe', 'retro-soul-pop', 'bossa-cafe', 'christmas-soft-pop', 'folk-pop', 'chanson', 'smooth-jazz-lounge']) {
       expect(seniorIds, id).toContain(id);
     }
     expect(getCoreGenresForArchetype('showa-cafe').length).toBeLessThanOrEqual(12);
-    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(40);
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(44);
   });
 
   it('[v3.63] keeps senior-morning genre access broad and all oldpop core genres era-tagged', () => {
     const seniorGenres = getVisibleGenresForArchetype('senior-morning');
     expect(seniorGenres.length).toBeGreaterThanOrEqual(30);
     const oldpopGenres = seniorGenres.filter(genre => genre.id.startsWith('oldpop-'));
-    expect(oldpopGenres).toHaveLength(28);
+    // 지시문 21 (TASK B) — 28 -> 32, see the 'adds the 32 oldpop-* genres...' test above.
+    expect(oldpopGenres).toHaveLength(32);
     expect(oldpopGenres.every(genre => Boolean(genre.eraTag))).toBe(true);
     for (const id of ['adult-contemporary', 'acoustic-pop', 'folk-pop', 'retro-soul-pop', 'chanson', 'smooth-jazz-lounge']) {
       expect(getGenreById(id)?.eraTag, id).toBeTruthy();
@@ -245,7 +252,8 @@ describe('structured genre library', () => {
     const loungeGenres = getVisibleGenresForArchetype('oldpop-lounge');
     expect(loungeGenres.length).toBeGreaterThanOrEqual(60);
     const ids = new Set(loungeGenres.map(genre => genre.id));
-    expect([...ids].filter(id => id.startsWith('oldpop-'))).toHaveLength(28);
+    // 지시문 21 (TASK B) — 28 -> 32, all 4 new oldpop-* genres also carry oldpop-lounge.
+    expect([...ids].filter(id => id.startsWith('oldpop-'))).toHaveLength(32);
     for (const id of ['chanson', 'smooth-jazz-lounge', 'bossa-cafe', 'jazz-pop', 'retro-soul-pop', 'soft-rock', 'adult-contemporary', 'acoustic-pop', 'folk-pop', 'piano-ballad', 'neo-soul', 'alt-rnb', 'contemporary-rnb']) {
       expect(ids.has(id), id).toBe(true);
     }
@@ -255,8 +263,9 @@ describe('structured genre library', () => {
     }
   });
 
-  it('[v3.63 TASK A] senior-morning\'s own 40-genre exposure is unaffected by adding oldpop-lounge', () => {
-    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(40);
+  it('[v3.63 TASK A] senior-morning\'s own 44-genre exposure is unaffected by adding oldpop-lounge', () => {
+    // 지시문 21 (TASK B) — 40 -> 44, see the 'adds the 32 oldpop-* genres...' test above.
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(44);
   });
 
   it('[v3.63] exposes the extended catalog through direct search, independent of archetype chips', () => {
@@ -307,8 +316,10 @@ describe('structured genre library', () => {
     // TASK E1 — +7 krkids-* ids, same registered-in-both pattern: 340.
     // TASK F1 — +7 jpkids-* ids, same registered-in-both pattern: 347.
     // TASK K2 — +7 kridol-* ids, same registered-in-both pattern: 354.
-    expect(libraryIds.size).toBe(354);
-    expect(presetIds.size).toBe(354);
+    // 지시문 21 (TASK B) — +4 oldpop-* ids (doowop-ballad/doowop-uptempo/
+    // night-chanson/rainy-ballad-blues), same registered-in-both pattern: 358.
+    expect(libraryIds.size).toBe(358);
+    expect(presetIds.size).toBe(358);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

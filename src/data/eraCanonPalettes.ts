@@ -267,7 +267,10 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       // jazz-classic-vocal-lounge/jazz-swing-crooner-ballroom just above,
       // but it was never added to any palette's fitsGenreIds — same class
       // of gap the showa-seventies incident already caught once.
-      'jazz-brush-ballad-jazz'
+      'jazz-brush-ballad-jazz',
+      // 지시문 21 (TASK B) — oldpop-night-chanson은 oldpop-standards-torch와
+      // 같은 "인티메이트 멜랑콜릭 남성 보컬" 크루너 캐릭터를 공유해 추가.
+      'oldpop-night-chanson'
     ],
     instrumentation: [
       'full string section carrying the melody',
@@ -363,7 +366,10 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     id: 'canon-doowop-girlgroup',
     labelKo: '두왑·걸그룹 월오브사운드',
     eraTag: '1950s-60s doo-wop / girl-group',
-    fitsGenreIds: ['oldpop-doowop-harmony', 'oldpop-brill-building', 'oldpop-girl-group-wall'],
+    // 지시문 21 (TASK B) — 두왑 분화 2종(느린 발라드형·경쾌한 업템포형)은
+    // oldpop-doowop-harmony와 같은 I-vi-IV-V 두왑 화성·클로즈하모니
+    // 정체성을 그대로 공유하는 형제 장르라 이 palette에 추가.
+    fitsGenreIds: ['oldpop-doowop-harmony', 'oldpop-brill-building', 'oldpop-girl-group-wall', 'oldpop-doowop-ballad', 'oldpop-doowop-uptempo'],
     instrumentation: [
       'upright bass on the downbeat',
       'brushed snare',
@@ -597,6 +603,38 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     percussionStyle: 'driving',
     koreanReferenceNote: '따뜻한 빈티지 성향 소울·R&B 계열'
+  },
+  // 지시문 21 (TASK B) — oldpop-rainy-ballad-blues 전용 신규 palette.
+  // 기존 14개 palette 전부 검토했으나 클린 할로우바디 기타·트레몰로 바·
+  // 스프링 리버브 조합에 들어맞는 것이 없었다(canon-soft-rock-band는
+  // 밴드 편성이라 성격 다름, canon-crooner-standard는 현악/피아노 중심이라
+  // 성격 다름) — 억지로 끼워 맞추지 않고 새 palette를 만든다.
+  {
+    id: 'canon-tremolo-blues-ballad',
+    labelKo: '트레몰로 발라드 블루스',
+    eraTag: '1960s-70s ballad blues',
+    fitsGenreIds: ['oldpop-rainy-ballad-blues'],
+    instrumentation: [
+      'clean hollow-body electric guitar',
+      'spring reverb tank',
+      'upright bass',
+      'brushed drums'
+    ],
+    harmonyTraits: [
+      'dark minor chord-melody guitar line',
+      'slow blues turnaround resolving into the tonic'
+    ],
+    vocalTraits: [
+      'restrained sung baritone lead',
+      'no ad-lib or wordless filler between phrases'
+    ],
+    productionTraits: [
+      'subtle tremolo bar warble',
+      'spring reverb wash on the guitar',
+      'dark minor instrumental intro before the vocal enters'
+    ],
+    percussionStyle: 'brushed',
+    koreanReferenceNote: '빗속 발라드 블루스 — 강사 원문의 "no humming/ooh/aah/mmm" 정체성 그대로'
   }
 ];
 
