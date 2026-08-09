@@ -67,5 +67,13 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 그래프 밖) — tests/fixtures/*.json 같은 다른 순수 테스트 자산과 같은
   // 성격이라 앱 자체에 배선할 대상이 없다. UI에 "골든 케이스 현황" 패널이
   // 실제로 필요해지면 그때 배선한다(지금은 없는 요구를 미리 만들지 않는다).
-  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격'
+  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격',
+
+  // 지시문 16 (TASK A-2/B-4) — TASK A-2(scripts/promptLengthTrial.ts, CLI
+  // 전용)와 tests/promptAxisLexicon.test.ts/promptLengthTrial.test.ts만
+  // 지금 이 파일을 소비한다. TASK B(mergeAtom, core/promptAxisMerge.ts)가
+  // batchPreallocation.ts에 실제로 배선되는 커밋에서 이 항목을 지운다 —
+  // "먼저 지우고 나중에 배선하지 않는다"는 이 파일 자신의 규칙을 그대로
+  // 따른다.
+  'src/data/promptAxisLexicon.ts': 'TASK A-2 시점 미배선 — scripts/promptLengthTrial.ts(CLI)와 테스트만 소비. TASK B(mergeAtom)가 batchPreallocation.ts에 배선하는 커밋에서 제거 예정'
 };
