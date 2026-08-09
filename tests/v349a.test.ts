@@ -8,6 +8,7 @@ import { buildReferenceMoodStyleClause, referenceMoodSafetyIssues } from '../src
 import { SUNO_COPY_LIMIT } from '../src/core/promptBudget';
 import { getGenreById, getVisibleGenresForArchetype, modernGenrePacks } from '../src/data/genreLibrary';
 import { createInitialOptions } from '../src/utils/generation';
+import { MAX_SELECTED_GENRES } from '../src/core/genreSelection';
 import { channelPresets, genrePacks, moodPacks, makeOptions, seasonPacks } from './fixtures';
 import type { ChannelProfile, GenrePack } from '../src/types';
 
@@ -109,8 +110,15 @@ describe('[v3.49A] modern genre library coverage', () => {
 
     expect(city.archetype).toBe('city-night');
     expect(city.primaryLanguage).toBe('english');
-    expect(city.preferredGenres).toEqual(['city-pop-modern', 'future-funk', 'disco-pop-2020s']);
-    expect(createInitialOptions(city).genreIds).toEqual(city.preferredGenres);
+    // 지시문 20 (TASK B-4) — city-night-drive의 preferredGenres가
+    // 3->10종으로 확장됐다. createInitialOptions().genreIds는
+    // normalizeGenreSelection이 MAX_SELECTED_GENRES(5)로 잘라낸 "기본
+    // 선택 부분집합"이지 preferredGenres 전체(=후보 pool)가 아니다 —
+    // pool이 3종일 때는 5보다 작아 우연히 1:1 일치했을 뿐, 진짜 계약은
+    // "이 pool의 선두 MAX_SELECTED_GENRES개"다.
+    expect(city.preferredGenres).toContain('city-pop-modern');
+    expect(city.preferredGenres.length).toBeGreaterThanOrEqual(10);
+    expect(createInitialOptions(city).genreIds).toEqual(city.preferredGenres.slice(0, MAX_SELECTED_GENRES));
   });
 });
 

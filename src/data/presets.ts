@@ -197,6 +197,43 @@ export const channelPresets: ChannelProfile[] = [
     archetype: 'modern-chill'
   },
   {
+    // 지시문 20 (TASK B-2) — 로파이 53종 중 3종만 chill-hours에 배선돼
+    // 있던 것을 확인, 전용 채널 신설. 새 아키타입을 만들지 말 것(지시문
+    // 명시) — modern-chill 아키타입을 chill-hours와 공유 재사용한다.
+    // audience/market은 chill-hours와 동일하게 명시(지시문 12 TASK C가
+    // 다룬 유실 함정 회피).
+    id: 'lofi-focus-main',
+    name: 'Lofi Focus',
+    englishName: 'Lofi Focus',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Study and work-background lo-fi hip-hop playlists — dusty tape textures, rainy jazzhop, and soft vocal chill',
+    visualIdentity: 'rainy study desk, warm lamp glow, cassette tape, headphones, muted pastel typography, no artist likeness',
+    defaultVocal: 'soft breathy female voice, distant and understated, tape-warm intimate delivery',
+    // 지시문 20 (TASK B-2/B-3) — 로파이 12종 + 재즈홉 2종(jazz-jazz-rap-late-night,
+    // jazz-lofi-vocal-jazz — 후자는 archetypes에 modern-chill이 없어
+    // genreLibrary/index.ts의 CROSS_ARCHETYPE_ADDITIONS로 먼저 등록).
+    preferredGenres: [
+      'lofi-cafe', 'lofi-hiphop-study', 'lofi-dusty-study-hop',
+      'lofi-rainy-jazzhop', 'lofi-soft-vocal-bedroom',
+      'lofi-sleepy-instrumental', 'lofi-lofi-jazz-vocal',
+      'lofi-warm-guitar-loop', 'lofi-study-beats-piano',
+      'lofi-rain-vocal-lofi', 'lofi-boom-bap-lofi', 'lofi-city-night-lofi',
+      'jazz-jazz-rap-late-night', 'jazz-lofi-vocal-jazz'
+    ],
+    preferredMoods: ['calm-focus', 'rainy-comfort', 'warm'],
+    forbiddenCliches: [
+      'bright EDM supersaw',
+      'festival drop',
+      'aggressive battle-rap delivery',
+      'hard autotune lead',
+      'famous artist imitation'
+    ],
+    seoKeywords: ['lofi study playlist', 'lofi hip hop', 'rainy jazzhop', 'study beats', 'chill lofi', 'focus music'],
+    archetype: 'modern-chill'
+  },
+  {
     id: 'city-night-drive',
     name: 'City Night Drive',
     englishName: 'City Night Drive',
@@ -206,7 +243,15 @@ export const channelPresets: ChannelProfile[] = [
     promise: 'Korean and English night-drive playlists with modern city-pop, future funk, disco pop, and polished urban groove',
     visualIdentity: 'night drive dashboard, wet asphalt neon, saturated city reflections, clean modern title layout, no brand logos',
     defaultVocal: 'bright young female voice, clean modern pop delivery, fresh and open tone',
-    preferredGenres: ['city-pop-modern', 'future-funk', 'disco-pop-2020s'],
+    // 지시문 20 (TASK B-4) — 시티팝 53종 중 3종만 배선돼 있던 것을 8~12종
+    // 으로 확장 (전부 이미 archetypes:['city-night']로 태그돼 있어 실측
+    // 확인, 채널 배선만으로 해결되는 TASK A/B-2 유형).
+    preferredGenres: [
+      'city-pop-modern', 'future-funk', 'disco-pop-2020s',
+      'city-pop-soft', 'city-pop-night', 'city-pop-bright-female-groove',
+      'city-pop-coastal-disco-pop', 'city-pop-funky-rhythm-pop',
+      'city-pop-airy-disco-pulse', 'city-pop-club-disco-pop'
+    ],
     preferredMoods: ['fresh-start', 'romantic', 'rainy-comfort'],
     forbiddenCliches: [
       'cheap retro parody',
@@ -271,7 +316,17 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퇴근길 지하철과 원룸으로 이어지는 하루의 끝, 감성 밴드팝과 R&B 중심의 위로 플레이리스트',
     visualIdentity: 'modern minimal city interior, warm desk lamp, subway window reflection, clean sans-serif typography',
     defaultVocal: 'confident modern Korean pop lead, emotionally direct delivery, close-mic warmth',
-    preferredGenres: ['kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-acoustic-folk'],
+    // 지시문 20 (TASK B-1) — R&B 4종·흑인 감성힙합 4종·랩 3종·트랩힙합 3종
+    // 추가(genreLibrary/index.ts의 KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS로
+    // archetypes에 'kr-2030-pop'을 먼저 등록해야 실제로 배정 가능 — 실측
+    // 확인, 등록 없이 넣으면 sanitizeGenreIdsForArchetype이 걸러냄).
+    preferredGenres: [
+      'kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-acoustic-folk',
+      'contemporary-rnb', 'rnb-ballad-2020s', 'rnb-contemporary-airy-female', 'rnb-modern-soft-male',
+      'alt-rnb', 'rnb-moody-alt-rnb', 'rnb-whisper-alt-rnb', 'rnb-alternative-night',
+      'chill-rap', 'boom-bap-mellow', 'jazz-rap',
+      'trap-soul', 'rnb-trap-soul-confession', 'rnb-trap-rnb-night'
+    ],
     preferredMoods: ['bittersweet', 'warm', 'hopeful'],
     forbiddenCliches: [
       'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',
@@ -309,7 +364,12 @@ export const channelPresets: ChannelProfile[] = [
     promise: '비 오는 밤 서울의 골목과 거리를 그리는 R&B·일렉트로팝 중심 야경 드라이브 플레이리스트',
     visualIdentity: 'rainy neon-lit Seoul alley, wet asphalt reflections, clean modern typography, no visible faces',
     defaultVocal: 'close intimate Korean R&B lead, airy ad-lib runs, confident female-led pop vocal',
-    preferredGenres: ['kr2030-dawn-rnb', 'kr2030-electro-pop', 'kr2030-y2k-retro'],
+    // 지시문 20 (TASK B-1) — R&B/야경 무드에 맞는 부분집합만 재사용
+    // (after-work-band-pop과 동일 후보 pool 공유, 채널마다 배타적일 필요 없음).
+    preferredGenres: [
+      'kr2030-dawn-rnb', 'kr2030-electro-pop', 'kr2030-y2k-retro',
+      'contemporary-rnb', 'rnb-contemporary-airy-female', 'alt-rnb', 'rnb-alternative-night', 'trap-soul'
+    ],
     preferredMoods: ['rainy-comfort', 'romantic', 'fresh-start'],
     forbiddenCliches: [
       'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',

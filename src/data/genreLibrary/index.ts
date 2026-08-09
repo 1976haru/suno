@@ -2348,6 +2348,25 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
+// 지시문 20 (TASK B-1) — real gap found: R&B/흑인 감성힙합/랩/트랩힙합
+// 벤치마크 14종은 이미 genreLibrary에 있었지만 archetypes가 modern-chill/
+// city-night뿐이었다 — 이 둘은 senior-oldpop 워크스페이스 소속이라
+// kr-2030 워크스페이스의 kr-2030-pop 채널에서는 워크스페이스 경계 때문에
+// 애초에 도달 불가능했다(단순 채널 배선으로 해결 불가). 새 장르를 만들지
+// 않고 기존 장르의 워크스페이스 경계만 넓힌다 — 하루 확인 후 진행.
+const KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS: ReadonlySet<string> = new Set([
+  'contemporary-rnb', 'rnb-ballad-2020s', 'rnb-contemporary-airy-female', 'rnb-modern-soft-male',
+  'alt-rnb', 'rnb-moody-alt-rnb', 'rnb-whisper-alt-rnb', 'rnb-alternative-night',
+  'chill-rap', 'boom-bap-mellow', 'jazz-rap',
+  'trap-soul', 'rnb-trap-soul-confession', 'rnb-trap-rnb-night'
+]);
+// 지시문 20 (TASK B-3) — jazz-lofi-vocal-jazz도 같은 이유(archetypes가
+// senior-morning/showa-cafe뿐 — modern-chill/kr-2030-pop 둘 다 없어
+// lofi-focus-main/kr-2030-pop 어느 쪽에서도 도달 불가)로 확장.
+const CROSS_ARCHETYPE_ADDITIONS: Readonly<Record<string, ChannelArchetype[]>> = {
+  'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop']
+};
+
 export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
@@ -2362,7 +2381,14 @@ export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...ki
   // genreLibrary 전체를 순회해 만들었다) — 방어적으로만 ['era-neutral'] 폴백.
   const eraBuckets: FineEraBucket[] = ERA_BUCKETS_BY_GENRE_ID[genre.id] ?? ['era-neutral'];
   const eraNoteKo = ERA_NOTE_KO_BY_GENRE_ID[genre.id];
-  return { ...withTraits, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
+  const withKr2030 = KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS.has(genre.id) && !withTraits.archetypes?.includes('kr-2030-pop')
+    ? { ...withTraits, archetypes: [...(withTraits.archetypes ?? []), 'kr-2030-pop' as const] }
+    : withTraits;
+  const extraArchetypes = CROSS_ARCHETYPE_ADDITIONS[genre.id];
+  const withExtra = extraArchetypes
+    ? { ...withKr2030, archetypes: [...new Set([...(withKr2030.archetypes ?? []), ...extraArchetypes])] }
+    : withKr2030;
+  return { ...withExtra, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
 });
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;
