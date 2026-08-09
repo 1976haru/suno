@@ -133,6 +133,38 @@ describe('[v5.22 AXIS 3] in-song sentence repetition, excluding the hook (blocki
     const result = lintEnglishLyrics(lyrics, 'Hold on tight through the storm tonight');
     expect(idOf(result, 'in-song-line-repetition')).toEqual([]);
   });
+
+  // 지시문 19 (TASK A) — real false positive found via
+  // tests/fixtures/providerResponses/normal.json: a NON-hook chorus line
+  // (not just the hook itself) repeated verbatim across two [chorus]
+  // instances is by-design songwriting, not a defect — see
+  // core/sectionAwareRepetition.ts's own doc comment on the same exemption
+  // one level up (whole-section copies).
+  it('does not flag a non-hook line repeated only across chorus-family sections', () => {
+    const lyrics = [
+      '[chorus]',
+      'Stay Here With Me',
+      "Don't let the evening pull you far away",
+      '[verse]',
+      'The garden gate creaks open in the breeze',
+      '[chorus]',
+      'Stay Here With Me',
+      "Don't let the evening pull you far away"
+    ].join('\n');
+    const result = lintEnglishLyrics(lyrics, 'Stay Here With Me');
+    expect(idOf(result, 'in-song-line-repetition')).toEqual([]);
+  });
+
+  it('still flags a non-hook line repeated across a chorus AND a non-chorus section (real defect, not a legitimate callback)', () => {
+    const lyrics = [
+      '[chorus]',
+      "Don't let the evening pull you far away",
+      '[bridge]',
+      "Don't let the evening pull you far away"
+    ].join('\n');
+    const result = lintEnglishLyrics(lyrics, 'Stay Here With Me');
+    expect(idOf(result, 'in-song-line-repetition')).toHaveLength(1);
+  });
 });
 
 describe('[v5.22 AXIS 3] forced-metaphor / abstract-noun-overload (advisory only, never blocking)', () => {
