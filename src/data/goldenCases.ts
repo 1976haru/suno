@@ -91,5 +91,109 @@ export const GOLDEN_CASES: GoldenCase[] = [
     addedFrom: '기존 신고 — core/jpKidsPolicy.ts checkJpKidsKanaRatio의 실제 tier별 하한(지시문 11 TASK D가 provisional로 재확인)',
     checkerRef: 'src/core/jpKidsPolicy.ts checkJpKidsKanaRatio',
     status: 'verified'
+  },
+  // 지시문 17 (TASK C-3) — 20260808 팩 실측 5건. core/semanticCritic.ts의
+  // SemanticCritic은 provider-gated이고 실제로 연결된 공급자가 없다
+  // (resolveSemanticCritic()가 항상 UnavailableSemanticCritic을 반환) — 그래서
+  // 이 5건 전부 status: 'pending-checker'다. "재현 불가능한데 verified라고
+  // 속이지 않는다"는 이 파일 자신의 원칙 그대로: 진짜 공급자가 연결되면
+  // 이 status를 'verified'로 바꾸고 tests/goldenCases.test.ts에 재현
+  // 테스트를 추가한다. 오탐 방지용 반대 케이스(정상 문장 5개)는
+  // SEMANTIC_CRITIC_ALLOW_EXAMPLES(이 파일 하단)에 짝지어 등록돼 있다 —
+  // 진짜 공급자가 연결됐을 때 이 5건과 함께 검증해야 "좋은 문장까지
+  // 고치자고 하지 않는다"를 보장할 수 있다.
+  {
+    id: 'en-relative-clause',
+    severity: 'blocking',
+    category: 'en-grammar',
+    symptomKo: '"What I was quiet for so long" — 관계사절 구조 오류(파싱은 되나 의미가 성립하지 않음).',
+    addedFrom: '지시문 17 §1-2 (20260808 팩 T2 실측)',
+    checkerRef: 'src/core/semanticCritic.ts SemanticCritic — provider 미설정, 아직 재현할 실제 체커 없음',
+    status: 'pending-checker'
+  },
+  {
+    id: 'en-verb-choice',
+    severity: 'blocking',
+    category: 'en-grammar',
+    symptomKo: '"Someone else insists that\'s not how it got" — got/went 오용(동사 자체는 정상이나 이 문맥에 맞지 않음).',
+    addedFrom: '지시문 17 §1-2 (20260808 팩 T16 실측)',
+    checkerRef: 'src/core/semanticCritic.ts SemanticCritic — provider 미설정, 아직 재현할 실제 체커 없음',
+    status: 'pending-checker'
+  },
+  {
+    id: 'en-article-uncountable',
+    severity: 'blocking',
+    category: 'en-grammar',
+    symptomKo: '"A gold came next, then orange down the walk" — 불가산 명사에 부정관사 오용.',
+    addedFrom: '지시문 17 §1-2 (20260808 팩 T17 실측)',
+    checkerRef: 'src/core/semanticCritic.ts SemanticCritic — provider 미설정, 아직 재현할 실제 체커 없음',
+    status: 'pending-checker'
+  },
+  {
+    id: 'en-preposition',
+    severity: 'blocking',
+    category: 'en-grammar',
+    symptomKo: '"And the whole warm afternoon came pouring on" — 전치사 on/in 오용.',
+    addedFrom: '지시문 17 §1-2 (20260808 팩 T18 실측)',
+    checkerRef: 'src/core/semanticCritic.ts SemanticCritic — provider 미설정, 아직 재현할 실제 체커 없음',
+    status: 'pending-checker'
+  },
+  {
+    id: 'en-intransitive',
+    severity: 'blocking',
+    category: 'en-grammar',
+    symptomKo: '"The whole long winter finally survived" — 자동사/타동사 오용(겨울이 스스로 살아남았다는 뜻이 되어버림).',
+    addedFrom: '지시문 17 §1-2 (20260808 팩 T18 실측)',
+    checkerRef: 'src/core/semanticCritic.ts SemanticCritic — provider 미설정, 아직 재현할 실제 체커 없음',
+    status: 'pending-checker'
+  }
+];
+
+/**
+ * 지시문 17 (TASK C-3) — 위 en-* 5건과 짝지어 등록하는 반대 케이스(오탐
+ * 방지). "반대 케이스가 없으면 critic이 좋은 문장까지 고치자고 한다" —
+ * 지시문 자신의 경고 그대로, GOLDEN_CASES(결함 전용 레지스트리)와 같은
+ * 파일에 두되 별도 배열로 둔다(GoldenCase 타입 자체가 "결함+체커"
+ * 모델이라 "이 문장은 정상"이라는 반대 명제를 담을 자리가 없다). 앞의 2개는
+ * 이 지시문 §1-3이 "취향이지 오류가 아니다"로 명시적으로 제외한 예시,
+ * 뒤의 3개는 §1-1이 "훼손하지 말 것"으로 지목한 실제 20260808 팩 문장이다.
+ */
+export interface SemanticCriticAllowExample {
+  id: string;
+  sentence: string;
+  reasonKo: string;
+  addedFrom: string;
+}
+
+export const SEMANTIC_CRITIC_ALLOW_EXAMPLES: SemanticCriticAllowExample[] = [
+  {
+    id: 'en-idiom-ok',
+    sentence: "We've got nowhere to be but gone",
+    reasonKo: '로드송 관용구 — 더 자연스러운 대안이 있다는 것과 문법 오류라는 것은 다르다.',
+    addedFrom: '지시문 17 §1-3 (20260808 팩 T5)'
+  },
+  {
+    id: 'en-taste-ok-1',
+    sentence: 'No Fixed Hour to Arrive',
+    reasonKo: '취향의 영역 — 기계로 판정할 문법적 근거가 없다.',
+    addedFrom: '지시문 17 §1-3 (20260808 팩 T14 훅)'
+  },
+  {
+    id: 'en-taste-ok-2',
+    sentence: "And nowhere left that we've been told",
+    reasonKo: '취향의 영역 — 기계로 판정할 문법적 근거가 없다.',
+    addedFrom: '지시문 17 §1-3 (20260808 팩 T14)'
+  },
+  {
+    id: 'en-good-1',
+    sentence: "You didn't say a thing, just moved your hand",
+    reasonKo: '하루가 좋다고 판정한 T4 문장 — 억지 은유가 줄어든 실제 개선 사례.',
+    addedFrom: '지시문 17 §1-1 (20260808 팩 T4)'
+  },
+  {
+    id: 'en-good-2',
+    sentence: 'An inch across the wood, and let it rest',
+    reasonKo: '하루가 좋다고 판정한 T4 문장 — 구체적 동작 묘사.',
+    addedFrom: '지시문 17 §1-1 (20260808 팩 T4)'
   }
 ];

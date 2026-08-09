@@ -9,13 +9,32 @@
  * modulation — from that file's instrument/production vocabulary, so this
  * is a sibling list, not a duplicate).
  */
-export const COMPOSITION_META_SUBJECT_WORDS_EN: string[] = ['hook', 'melody', 'chorus', 'arrangement', 'key'];
+/**
+ * 지시문 17 (TASK A-1) — 실측(20260808 팩 T8: "One borrowed chord colours the
+ * whole refrain")으로 확인된 유출 두 축을 넓힌다: 기존 5종(hook/melody/
+ * chorus/arrangement/key)에 화성·구조·믹싱 용어 13종을 더해 17종 이상으로.
+ * "harmony"/"beat"는 이 목록에 있다고 항상 발화하지 않는다 — 아래
+ * SUBJECT_VERB_LEAK_PATTERN_EN(core/lyricMetaLeak.ts)이 요구하는 "명사 바로
+ * 뒤 동사 인접" 구조가 없으면(예: "harmony between us", "the beat of your
+ * heart") 애초에 매칭되지 않는다 — TASK A-2가 요구한 허용 예문들이 바로 이
+ * 경계에 기대고 있다.
+ */
+export const COMPOSITION_META_SUBJECT_WORDS_EN: string[] = [
+  'hook', 'melody', 'chorus', 'arrangement', 'key',
+  'chord', 'refrain', 'verse', 'bridge', 'progression', 'harmony',
+  'tempo', 'beat', 'octave', 'register', 'take', 'mix', 'reverb'
+];
 export const COMPOSITION_META_SUBJECT_VERBS_EN: string[] = [
   'come', 'comes', 'came', 'home',
   'rise', 'rises', 'rose', 'risen', 'higher',
   'lift', 'lifts', 'lifted',
   'open', 'opens', 'opened',
-  'change', 'changes', 'changed'
+  'change', 'changes', 'changed',
+  'colour', 'colours', 'coloured', 'color', 'colors', 'colored',
+  'drop', 'drops', 'dropped',
+  'repeat', 'repeats', 'repeated',
+  'resolve', 'resolves', 'resolved',
+  'land', 'lands', 'landed'
 ];
 
 /** Fixed directive phrases (imperative/compound shape, not the noun-as-subject shape above) — matched as their own literal regexes in core/lyricMetaLeak.ts. */

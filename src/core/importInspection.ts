@@ -9,6 +9,7 @@ import { checkDistinctChoices } from './distinctChoiceCheck';
 import { evaluateDistinctChoiceGate } from './distinctChoiceGate';
 import { distinctChoicePolicyForWorkspace, safetyForbiddenRuleIdsForWorkspace } from '../data/distinctChoicePolicy';
 import { workspaceForArchetype } from '../data/workspaces';
+import { findLyricMetaLeaks } from './lyricMetaLeak';
 
 /**
  * TASK (import transaction / pre-persistence inspection) — real, verified
@@ -99,6 +100,8 @@ export interface ImportInspection {
    * that don't supply it keep compiling and keep pre-existing behavior).
    */
   duplicateContentTrackNos: number[];
+  /** 지시문 17 (TASK A-3) — 작곡 지시 유출 중 severity: 'blocking'(영어)인 것만 담는다 — artistLeakTrackNos와 같은 per-track 제외 취급(hasShortfallOrRepairIssue로만 영향, hardBlocked 아님). 한국어·일본어 advisory 매치는 여기 포함되지 않는다(checks의 'metaLeak' info 라인으로만 표시). */
+  metaLeakTrackNos: number[];
   sceneOverlaps: { trackNo: number; situation: string; matchedHistoryEntry: string }[];
   titleHistoryCollisions: { trackNo: number; title: string }[];
   /**
@@ -232,6 +235,7 @@ export function inspectImportReport(
       artistLeakTrackNos: [],
       artistLeaks: [],
       duplicateContentTrackNos: [],
+      metaLeakTrackNos: [],
       sceneOverlaps: [],
       titleHistoryCollisions: [],
       lyricLineOverlapMatches: [],
@@ -395,6 +399,35 @@ export function inspectImportReport(
       : { id: 'artistSafety', labelKo: '아티스트명·안전 검사 통과', status: 'pass' }
   );
 
+  // 지시문 17 (TASK A-3) — 작곡 지시 유출(core/lyricMetaLeak.ts). 영어
+  // 매치는 severity: 'blocking'(§2-2가 지적한 "이름만 warning, 실제로는
+  // 아무것도 막지 않던" 상태를 실제로 승격) — artistSafety와 같은 per-track
+  // 제외 취급이다(hasShortfallOrRepairIssue로만 들어가고 hardBlocked에는
+  // 넣지 않는다 — 한 트랙의 문제로 전체 팩을 버리지 않는다는 이 파일의
+  // 기존 원칙과 동일). 한국어·일본어 매치는 severity: 'advisory'라 어떤
+  // 경우에도 status에 영향을 주지 않는다(정보용 표시만).
+  const metaLeakFindings = findLyricMetaLeaks(report.blueprint.songs, lyricLanguage);
+  const metaLeakBlockingFindings = metaLeakFindings.filter(f => f.severity === 'blocking');
+  const metaLeakAdvisoryFindings = metaLeakFindings.filter(f => f.severity === 'advisory');
+  const metaLeakTrackNos = [...new Set(metaLeakBlockingFindings.map(f => f.trackNo))];
+  if (metaLeakBlockingFindings.length) {
+    checks.push({
+      id: 'metaLeak',
+      labelKo: '작곡 지시 유출 검사',
+      status: 'blocked',
+      detail: metaLeakBlockingFindings.map(f => `Track ${f.trackNo}: "${f.line}"`).join(' / ')
+    });
+  } else if (metaLeakAdvisoryFindings.length) {
+    checks.push({
+      id: 'metaLeak',
+      labelKo: '작곡 지시 유출 검사 (참고 — 한국어/일본어, 미검증)',
+      status: 'info',
+      detail: metaLeakAdvisoryFindings.map(f => `Track ${f.trackNo}: "${f.line}"`).join(' / ')
+    });
+  } else {
+    checks.push({ id: 'metaLeak', labelKo: '작곡 지시 유출 검사 통과', status: 'pass' });
+  }
+
   // 8. 중복 방지 검사 (v5.22 AXIS 1 §1-7) — reuses core/duplicationGate.ts's
   // pure checks directly, never a re-implementation. Gate 1 (scene/title):
   // same per-track-exclusion treatment as the artist-safety check just
@@ -447,6 +480,7 @@ export function inspectImportReport(
     languageMismatches.length > 0 ||
     artistLeakTrackNos.length > 0 ||
     duplicateContentTrackNos.length > 0 ||
+    metaLeakTrackNos.length > 0 ||
     report.importedCount !== report.requestedCount;
 
   const status: ImportStatus = hardBlocked ? 'blocked' : hasShortfallOrRepairIssue ? 'repairable' : 'valid';
@@ -461,6 +495,7 @@ export function inspectImportReport(
     artistLeakTrackNos,
     artistLeaks,
     duplicateContentTrackNos,
+    metaLeakTrackNos,
     sceneOverlaps: sceneOverlap.collisions,
     titleHistoryCollisions: titleCollision.collisions,
     lyricLineOverlapMatches: lyricLineOverlap.matches,

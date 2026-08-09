@@ -705,7 +705,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             // v5.22 (AXIS 1) — a duplicated scene/title track is excluded
             // the same way an artist-leak track already is; see
             // ImportInspection.duplicateContentTrackNos' own doc comment.
-            songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo) && !inspection.duplicateContentTrackNos.includes(song.trackNo))
+            songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo) && !inspection.duplicateContentTrackNos.includes(song.trackNo) && !inspection.metaLeakTrackNos.includes(song.trackNo))
           },
           importOpts,
           focusTab,
@@ -838,7 +838,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         ? () => void onConfirmPartialImport(
             {
               ...report.blueprint!,
-              songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo) && !inspection.duplicateContentTrackNos.includes(song.trackNo))
+              songs: report.blueprint!.songs.filter(song => !inspection.artistLeakTrackNos.includes(song.trackNo) && !inspection.duplicateContentTrackNos.includes(song.trackNo) && !inspection.metaLeakTrackNos.includes(song.trackNo))
             },
             importOpts,
             prev?.focusTab ?? 'songs',
@@ -1140,7 +1140,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   ) {
     const trimmedBlueprint: PlaylistBlueprint = {
       ...result.report.blueprint!,
-      songs: result.report.blueprint!.songs.filter(song => !result.inspection.artistLeakTrackNos.includes(song.trackNo) && !result.inspection.duplicateContentTrackNos.includes(song.trackNo))
+      songs: result.report.blueprint!.songs.filter(song => !result.inspection.artistLeakTrackNos.includes(song.trackNo) && !result.inspection.duplicateContentTrackNos.includes(song.trackNo) && !result.inspection.metaLeakTrackNos.includes(song.trackNo))
     };
     const prefixedBlueprint = applySetTitlePrefixesToBlueprint(trimmedBlueprint, result.importOpts.setNumberPrefix ?? true);
     const finalBlueprint = withGenerationSnapshot(prefixedBlueprint, { options: result.importOpts, provider, season: selectedSeason, slots: result.preassignedSongs ?? [] });
