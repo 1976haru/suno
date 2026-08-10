@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { getGenreById, genreLibrary } from '../../data/genreLibrary';
+import { moneyChordPresets } from '../../data/moneyChords';
 import { getGenreFamilyById } from '../../data/genreFamilies';
 import { readRecentGenreIds } from '../../core/recentGenreStore';
 import { BREADTH_LABEL_KO, directSetLocal, resolveMainFamilyId, type RatingInsightLike, type SetPlan } from '../../core/setDirector';
@@ -207,6 +208,26 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   // case a user most needed to see it working.
   const vocalDistribution = useMemo(() => summarizeVocalTraitDistribution(plan.slots), [plan.slots]);
   const hasVocalAxisBreakdown = Object.keys(vocalDistribution.register).length > 0;
+  // 지시문 27 (TASK B-5) — plan.slots는 preallocateSongSlots를 거치므로
+  // moneyChordId가 이미 실제 배정된 값이다(TASK A/B의 buildGenreAwareProgressionPlan
+  // 결과) — 별도 미리보기 계산 없이 그대로 집계한다.
+  const moneyChordDistribution = useMemo(() => {
+    const byId = new Map<string, number[]>();
+    for (const slot of plan.slots) {
+      if (!slot.moneyChordId) continue;
+      const list = byId.get(slot.moneyChordId) ?? [];
+      list.push(slot.trackNo);
+      byId.set(slot.moneyChordId, list);
+    }
+    return [...byId.entries()]
+      .map(([id, trackNos]) => ({
+        id,
+        labelKo: moneyChordPresets[id as keyof typeof moneyChordPresets]?.labelKo ?? id,
+        compactProgression: moneyChordPresets[id as keyof typeof moneyChordPresets]?.compactProgression ?? id,
+        trackNos: trackNos.sort((a, b) => a - b)
+      }))
+      .sort((a, b) => b.trackNos.length - a.trackNos.length);
+  }, [plan.slots]);
   const editing = editingAxis ? allocations.find(allocation => allocation.axis === editingAxis) : undefined;
   const hasMultipleSegments = plan.segments.length > 1;
   const displaySlots = hasMultipleSegments && segmentPlacement === 'blocked'
@@ -588,6 +609,19 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
           </>
         )}
       </div>
+
+      {moneyChordDistribution.length > 0 && (
+        <div className="option-block">
+          <div className="section-head">
+            <h3>머니코드 배분</h3>
+          </div>
+          {moneyChordDistribution.map(entry => (
+            <p key={entry.id} className="supporting">
+              {entry.labelKo} ({entry.compactProgression}) {entry.trackNos.length}곡 — {entry.trackNos.map(t => `T${t}`).join(' ')}
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="option-block">
         <div className="stats-grid">

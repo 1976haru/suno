@@ -108,10 +108,17 @@ describe('[v3.33 Part C] signatureMoneyChordId / moneyChordRotationPool', () => 
     expect(signatureMoneyChordId('showa-cafe')).toBe('royalRoad');
   });
 
-  it('christmas/lofi-study/undefined still fall back to default, unchanged from pre-v3.33', () => {
+  it('christmas/undefined still fall back to default, unchanged from pre-v3.33', () => {
     expect(signatureMoneyChordId('christmas')).toBe('default');
-    expect(signatureMoneyChordId('lofi-study')).toBe('default');
     expect(signatureMoneyChordId(undefined)).toBe('default');
+  });
+
+  // 지시문 27 (TASK A-1) — lofi-study는 §1-3이 실측한 "시그니처 없는
+  // 아키타입은 회전을 아예 안 한다"는 7개 아키타입 중 하나였다. 이제
+  // jazzColor(로파이의 정의적 색깔)를 시그니처로 준다 — pre-v3.33 동작을
+  // 의도적으로 바꾼 것이지 회귀가 아니다.
+  it('lofi-study\'s signature is jazzColor (지시문 27 TASK A-1 — 이전엔 default였다)', () => {
+    expect(signatureMoneyChordId('lofi-study')).toBe('jazzColor');
   });
 
   // TASK v3.38 Part B4 — 'kids' now has a real signature progression too.

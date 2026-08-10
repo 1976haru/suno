@@ -878,6 +878,18 @@ export interface GenerationOptions {
    */
   diversityAllocations?: AxisAllocation[];
   /**
+   * 지시문 27 (TASK C-2) — 관문 1 위반 중 "슬롯 순서" 문제(같은 보컬 타입
+   * 연속·에너지 급변)는 어떤 opts 필드로도 표현할 수 없었다 — 곡 내용
+   * (moneyChordId·genreId 등)은 그대로 두고 트랙 번호만 재배열해야 하는데,
+   * 기존 자동 수정은 GenerationOptions 패치만 할 수 있어서 이 종류의
+   * 위반에는 실제로 아무 효과가 없었다(§C-1). 원래 트랙 번호의 순열 —
+   * `preallocateSongSlots`/`generateLocalBlueprint`가 평소대로 슬롯을 전부
+   * 만든 *뒤에* 마지막 단계로 한 번만 적용한다(곡 내용 재계산 없음, 순서만
+   * 바뀜). 길이가 songCount와 다르거나 원소가 실제 trackNo 집합과 안 맞으면
+   * 무시한다(방어적 — 오염된 값으로 슬롯을 잃지 않는다).
+   */
+  slotOrderOverride?: number[];
+  /**
    * TASK v3.38 Part B — per-song male/female/mixed vocal distribution for
    * the 'kids' channel archetype (see core/vocalPlan.ts). Only consulted
    * when the channel archetype is 'kids' or a manual vocalType diversity

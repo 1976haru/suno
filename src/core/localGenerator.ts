@@ -9,9 +9,10 @@ import { composeStylePrompt, countWords, STYLE_PROMPT_OVER_LIMIT_WARNING, STYLE_
 import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT, resolveEffectiveMoneyChordId } from './soundSignature';
-import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
+import { applyMoneyChordLean, buildCustomProgressionPlan, buildFamilyProgressionPlan, buildGenreAwareProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, type VocalType } from './vocalPlan';
 import { scoreSongs } from './quality';
+import { applySlotOrderOverride } from './slotOrderOverride';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { matchVocalPreset } from '../data/vocalPresets';
@@ -1197,6 +1198,13 @@ export function generateLocalBlueprint(
   const userChosenProgressionPlan = usesUserChosenProgressionPlan(opts)
     ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
     : null;
+  // 지시문 27 (TASK B-4) — 'custom'은 usesUserChosenProgressionPlan이 의도적으로
+  // 제외하는 유일한 명시 선택 모드다(호환 진행을 계산할 수 없어서) — 대신
+  // buildCustomProgressionPlan이 대표곡만 undefined(커스텀 텍스트 그대로)로
+  // 두고 나머지를 아키타입 회전 풀로 채운다.
+  const customChosenProgressionPlan = Boolean(opts.moneyChordModeIsExplicitChoice) && opts.moneyChordMode === 'custom' && opts.customMoneyChord?.trim()
+    ? buildCustomProgressionPlan(opts.channel.archetype, opts.songCount, seed)
+    : null;
   const moneyChordLean = userChosenProgressionPlan ? moneyChordLeanFor(opts.moneyChordMode) : undefined;
   const tempoBandPlanBase = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
   // v5.8 (TASK 2) — soft money-chord tempo lean: a swap-only nudge (see
@@ -1328,9 +1336,19 @@ export function generateLocalBlueprint(
   // right before tempoBandPlan) instead of recomputing it; identical value
   // either way since both are the same deterministic function of
   // (opts.moneyChordMode, opts.songCount, seed).
-  const progressionPlan = userChosenProgressionPlan
+  // 지시문 27 (TASK B) — buildFamilyProgressionPlan은 팩 전체의 dominant
+  // 계열 하나로 진행을 뽑아 셔플만 할 뿐 트랙별 실제 장르는 보지 않는다.
+  // buildGenreAwareProgressionPlan이 genrePlan(트랙별 실제 lead 장르)을
+  // data/genreMoneyChordAffinity.ts와 대조해 우선한다 — pool.length>=2가
+  // 보장된 상태에서만 이 분기에 들어오므로(usesMoneyChordQuota 자체가
+  // 그 조건) 정상적으로는 항상 값을 반환하고, family/flat 폴백은 방어적
+  // 안전망으로만 남는다.
+  const progressionPlan: (string | undefined)[] | null = userChosenProgressionPlan
+    ?? customChosenProgressionPlan
     ?? (usesMoneyChordQuota(opts)
-      ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
+      ? (buildGenreAwareProgressionPlan(genrePlan, opts.channel.archetype, seed, opts.songCount)
+        ?? buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount)
+        ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
       : null);
   // TASK v3.38 Part B2 — per-song male/female/mixed vocal-type quota.
   // TASK v3.72 (TASK A) — usesVocalQuota now defaults true for every
@@ -2272,8 +2290,12 @@ export function generateLocalBlueprint(
     // warnings rather than repeated identically on every SongCard.
     songs: (() => {
       const scoredSongs = scoreSongs(songsWithFlagshipVariation.map(song => normalizeSongOutput(song)), opts.channel, opts.lyricLanguage);
-      if (!genreWarningKo || !scoredSongs.length) return scoredSongs;
-      return scoredSongs.map((song, idx) => (idx === 0 ? { ...song, warnings: [...song.warnings, genreWarningKo] } : song));
+      const withGenreWarning = !genreWarningKo || !scoredSongs.length
+        ? scoredSongs
+        : scoredSongs.map((song, idx) => (idx === 0 ? { ...song, warnings: [...song.warnings, genreWarningKo] } : song));
+      // 지시문 27 (TASK C-2) — batchPreallocation.ts's preallocateSongSlots와
+      // 동일한 마지막 단계.
+      return applySlotOrderOverride(withGenreWarning, opts.slotOrderOverride);
     })(),
     generatedAt: new Date().toISOString()
   };

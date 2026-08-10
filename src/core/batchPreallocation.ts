@@ -10,9 +10,10 @@ import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm }
 import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord, resolveEffectiveMoneyChordId } from './soundSignature';
-import { applyMoneyChordLean, buildFamilyProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
+import { applyMoneyChordLean, buildCustomProgressionPlan, buildFamilyProgressionPlan, buildGenreAwareProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { applySlotOrderOverride } from './slotOrderOverride';
 import {
   applyDuetSectionVocalTags,
   applyFlagshipVocalOrder,
@@ -106,7 +107,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -209,6 +210,10 @@ export function preallocateSongSlots(
   // reuses this exact value instead of recomputing it.
   const userChosenProgressionPlan = usesUserChosenProgressionPlan(opts)
     ? buildUserChosenProgressionPlan(opts.moneyChordMode, opts.songCount, seed)
+    : null;
+  // 지시문 27 (TASK B-4) — localGenerator.ts의 동일 추가와 같은 이유.
+  const customChosenProgressionPlan = Boolean(opts.moneyChordModeIsExplicitChoice) && opts.moneyChordMode === 'custom' && opts.customMoneyChord?.trim()
+    ? buildCustomProgressionPlan(opts.channel.archetype, opts.songCount, seed)
     : null;
   const moneyChordLean = userChosenProgressionPlan ? moneyChordLeanFor(opts.moneyChordMode) : undefined;
   const tempoBandPlanBase = tempoBands ? reorderByArcIntensity(buildTempoBandPlan(tempoBands, opts.songCount, seed), arcPlan, band => band.low) : [];
@@ -354,9 +359,15 @@ export function preallocateSongSlots(
   // 100%-progression text and the default-side family/archetype quota.
   // v5.8 (TASK 2) — reuses userChosenProgressionPlan computed above (same
   // deterministic value) instead of recomputing it.
-  const progressionPlan = userChosenProgressionPlan
+  // 지시문 27 (TASK B) — localGenerator.ts의 동일 추가와 같은 이유:
+  // buildGenreAwareProgressionPlan이 트랙별 실제 lead 장르(genrePlan)를
+  // data/genreMoneyChordAffinity.ts와 대조해 family/flat 폴백보다 우선한다.
+  const progressionPlan: (string | undefined)[] | null = userChosenProgressionPlan
+    ?? customChosenProgressionPlan
     ?? (usesMoneyChordQuota(opts)
-      ? (buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount) ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
+      ? (buildGenreAwareProgressionPlan(genrePlan, opts.channel.archetype, seed, opts.songCount)
+        ?? buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount)
+        ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
       : null);
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
@@ -929,7 +940,10 @@ export function preallocateSongSlots(
   // with one real structural variation instead of leaving it an exact
   // repeat of the flagship combo. A no-op array (same slots back) whenever
   // flagshipCombo is undefined or no second track carries its genre.
-  return applyFlagshipVariationToSlots(slots, flagshipCombo);
+  const flagshipVaried = applyFlagshipVariationToSlots(slots, flagshipCombo);
+  // 지시문 27 (TASK C-2) — 마지막 단계로 한 번만: 위 파이프라인이 평소대로
+  // 다 만든 뒤, 곡 내용은 그대로 두고 trackNo 순서만 재배열한다.
+  return applySlotOrderOverride(flagshipVaried, opts.slotOrderOverride);
 }
 
 /** Splits a full slot list into the same trackNo ranges buildBatchRequestSpecs chunks the songs into, so each sub-batch's request only carries its own slots. */

@@ -696,14 +696,18 @@ describe('evaluateDesignGate — money-chord explicit-choice mode (fix 2)', () =
     expect(advisory!.actual).toContain('%');
   });
 
-  it('regression: the auto/non-explicit path (moneyChordModeIsExplicitChoice unset) still uses the original max-5/4-6-species rules, byte-identical', () => {
+  it('regression: the auto/non-explicit path (moneyChordModeIsExplicitChoice unset) still uses the max-8/4-6-species rules', () => {
     const opts = baseOpts(); // moneyChordMode: 'default', no explicit-choice flag
-    const overConcentrated = healthySlots().map((slot, i) => ({ ...slot, moneyChordId: i < 8 ? 'emotional' : `id-${i}` }));
+    // 지시문 27 (TASK B-2/B-6) — 상한이 5 → 8로 바뀌었다(하루의 명시적
+    // "시그니처 6~8곡" 요구, designGate.ts's own moneychord-max 갱신 사유
+    // 참조). 이 테스트는 여전히 상한을 실제로 넘는 케이스를 검증해야 하므로
+    // 9곡으로 몰아넣는다(8은 이제 정상 범위).
+    const overConcentrated = healthySlots().map((slot, i) => ({ ...slot, moneyChordId: i < 9 ? 'emotional' : `id-${i}` }));
     const result = evaluateDesignGate(overConcentrated, baseConstraints(opts), opts);
     const issue = result.blocking.find(i => i.id === 'moneychord-max');
     expect(issue).toBeDefined();
-    expect(issue!.expected).toBe('≤ 5곡');
-    expect(issue!.actual).toBe('8곡');
+    expect(issue!.expected).toBe('≤ 8곡');
+    expect(issue!.actual).toBe('9곡');
 
     const lowVariety = healthySlots().map((slot, i) => ({ ...slot, moneyChordId: i < 9 ? 'emotional' : 'canon' }));
     const varietyResult = evaluateDesignGate(lowVariety, baseConstraints(opts), opts);
