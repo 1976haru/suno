@@ -1,20 +1,30 @@
-# Suno Weaver Studio
+# Suno Weaver Studio (haru-studio)
 
 Suno Weaver Studio is a prompt, lyrics, and YouTube metadata generator for playlist channels. It supports reusable channel profiles, 1-80 song batch generation, local template generation, an LLM evaluation agent, saved-pack storage, and serverless-proxied OpenAI or Claude generation.
 
-See [`docs/MIGRATION.md`](docs/MIGRATION.md) for what changed since v2, and [`docs/STRESS_TEST_REPORT.md`](docs/STRESS_TEST_REPORT.md) for the current automated stress-test results (regenerated on every `npm run test:stress` run).
+빠르게 처음부터 따라 하려면 [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)를 보세요(클론 → API 키 → 첫 세트 생성). 그 외에 [`docs/MIGRATION.md`](docs/MIGRATION.md) (v2 이후 변경점), [`docs/STRESS_TEST_REPORT.md`](docs/STRESS_TEST_REPORT.md) (`npm run test:stress` 실행마다 갱신되는 자동 스트레스 테스트 결과)도 참고하세요.
 
-## v4.0 (TASK C-5) — minimal status update
+## 현재 상태 (2026-08-10 기준)
 
-> Full rewrite is a separate task; this section only covers the four items v4.0 asked for.
-
-- **현재 버전**: v4.0.0 (앱 내 사이드바 하단에도 표시됩니다)
-- **현재 개발 브랜치**: `feat/notion-genre-library`
-- **워크플로 단계**: 워크스페이스 선택 → 5단계(1채널 → 2컨셉 → 3설계안 → 4생성 → 5결과)
+- **버전**: `package.json`의 `version`이 유일한 진실입니다 — 현재 **0.21.0**. 과거엔 "0.NN.0의 NN = 완료된 지시문 번호" 규칙이었으나(`docs/CHANGELOG.md` 참고) 이후 일부 지시문이 버전을 올리지 않아 더 이상 정확히 대응하지 않습니다. `git log`가 실제 최신 작업의 진실입니다(현재 최신 완료: 지시문 37).
+- **브랜치**: 아래 [브랜치 구조](#브랜치-구조) 참고.
+- **워크플로 단계**: 워크스페이스 선택 → 5단계(①채널 → ②컨셉 → ③설계안 → ④생성 → ⑤결과)
 - **기능 상태** (`src/data/featureFlags.ts` 참고):
-  - `production`: 시니어 올드팝 세트 생성 / 품질관문(설계·생성) / Claude Code 브릿지 / SRT 자막 내보내기
-  - `experimental`: 음원 분석 / 음원 편집 / 평가 학습 / 이미지 생성
-  - `scaffold`: 한국 20~30대 / 일본 20~30대 / 한국 동요 / 일본 동요 워크스페이스
+  - `production`: 세트 생성 / 품질관문(설계·생성) / Claude Code 브릿지 / SRT 자막 내보내기 / standalone 진행 모드 / 워크스페이스 전환
+  - `experimental`: 음원 분석 / 음원 편집 / 숏폼 하이라이트 / 음원 아카이브 / 평가 학습 / 이미지 생성
+- **워크스페이스 상태** (`src/data/workspaces/index.ts`의 `ready` 필드 + `src/data/distinctChoicePolicy.ts`의 `verified` 필드 기준 — 실제 게이팅에 쓰이는 값):
+
+  | 워크스페이스 | id | 사용 가능(`ready`) | 품질 실측(`verified`) |
+  |---|---|---|---|
+  | 시니어 올드팝 | `senior-oldpop` | ✅ | ✅ 실측 검증됨 (54곡·3세트) |
+  | 한국 20~30대 | `kr-2030` | ✅ | ⚠ 미검증 — 측정 18곡(1세트), 승격 조건(≥18곡) 충족했으나 자동 승격 아님(하루 승인 대기) |
+  | 일본 20~30대 | `jp-2030` | ✅ | ⚠ 미검증 — 측정 0곡 |
+  | 한국 동요 | `kr-kids` | ✅ | ⚠ 미검증 — 측정 18곡(1세트), 승격 조건 충족(승인 대기) |
+  | 일본 동요 | `jp-kids` | ✅ | ⚠ 미검증 — 측정 0곡 |
+  | 한국 남자 아이돌(K-pop) | `kr-idol-male` | ✅ | ⚠ 미검증 — 측정 0곡 |
+  | 한국 여자 아이돌(K-pop) | `kr-idol-female` | ✅ | ⚠ 미검증 — 측정 0곡 |
+
+  "사용 가능"은 워크스페이스를 선택하고 세트를 생성할 수 있다는 뜻입니다(전부 예). "품질 실측"은 하루가 실제로 들어보고 채점 임계값을 확정했는지 여부입니다 — 미검증 워크스페이스의 각종 품질 관문(distinctChoice 규칙 이행률, setArcAdherence 등)은 전부 **advisory**로만 동작하고 세트 생성을 막지 않습니다. 최신 실측 수치는 `npm run check:coverage`로 직접 확인하세요.
 
 ## Current Features
 
@@ -28,7 +38,19 @@ See [`docs/MIGRATION.md`](docs/MIGRATION.md) for what changed since v2, and [`do
 - Automatic rule-based warnings for copyright-risk wording, famous artist references, and singer imitation prompts
 - Local dev proxy for `/api/generate` (`vite.config.ts`), so OpenAI/Claude modes can be tested with `npm run dev` alone
 
-## Install
+## 실행 방법
+
+### Windows — `start-studio.bat` (권장, 비개발자용)
+
+레포 루트의 `start-studio.bat`을 더블클릭하면:
+
+1. Claude/Gemini/Qwen API 키를 물어보고(선택 사항 — 비워두면 로컬 전용 모드), `.anthropic_key`/`.gemini_key`/`.qwen_key` 파일에 저장합니다. **이 파일들은 `.gitignore`에 등록되어 있어 커밋되지 않습니다** — 저장소에는 스크립트만 있고 키는 절대 들어가지 않습니다.
+2. `feat/notion-genre-library` 브랜치로 전환하고 `git pull`합니다.
+3. `npm install` 후 `npm run dev -- --open`으로 브라우저를 엽니다.
+
+두 번째 실행부터는 저장된 키를 자동으로 읽어 바로 실행됩니다. 창을 닫으면 서버가 멈춥니다.
+
+### 수동 실행 (모든 OS)
 
 ```bash
 npm install
@@ -40,6 +62,8 @@ If PowerShell blocks `npm.ps1`, use:
 ```bash
 npm.cmd run dev
 ```
+
+처음부터 첫 세트 생성까지 전체 절차는 [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)를 참고하세요.
 
 ## API Key Setup
 
@@ -88,10 +112,13 @@ Running locally for yourself, none of this is urgent — skip it. **Before anyon
 
 ## Main Workflow
 
+워크스페이스를 먼저 고른 뒤(위 [워크스페이스 상태](#현재-상태-2026-08-10-기준) 표 참고), 5단계를 거칩니다:
+
 1. **① 채널** — build or select a channel profile.
 2. **② 컨셉** — pick genre, mood, season, money chords, and lyric depth.
-3. **③ 생성** — choose song count (1-30) and generate.
-4. **④ 결과** — review each song (style prompt / lyrics / YouTube tabs), run the AI evaluation agent, retry rejected tracks, and save or export the pack.
+3. **③ 설계안** — "이렇게 해석했습니다" 미리보기: 실제 생성 전에 장르/BPM/보컬 등 다양성 배분과 품질 관문(blocking/advisory) 결과를 확인하고 필요시 조정합니다.
+4. **④ 생성** — choose song count (1-30) and generate.
+5. **⑤ 결과** — review each song (style prompt / lyrics / YouTube tabs), run the AI evaluation agent, retry rejected tracks, and save or export the pack.
 
 ## 경로별 적정 규모 (실측 기반)
 
@@ -114,10 +141,22 @@ Running locally for yourself, none of this is urgent — skip it. **Before anyon
 
 ## Default Channels
 
-- Korean: 굿모닝 추억라디오 / Good Morning Memory Radio
-- Japanese: 朝の昭和喫茶 / Morning Showa Café
+각 워크스페이스(위 표)마다 여러 개의 채널 프리셋이 미리 등록되어 있습니다(`src/data/presets.ts`) — 예: 시니어 올드팝의 "굿모닝 추억라디오"/"朝の昭和喫茶", K-pop의 "낮의 도시를 걷는 K-POP" 등. 프리셋은 시작점일 뿐이며 앱 안에서 자유롭게 추가·복제·수정할 수 있습니다.
 
-These are presets only. Add, duplicate, or replace them for future channels.
+## 브랜치 구조
+
+```
+main                        ← 배포/안정 기준점. 주기적으로 feat/notion-genre-library를 머지해 따라잡음
+  └─ feat/notion-genre-library   ← 진행 중인 통합 브랜치. 완료된 지시문 작업이 여기로 머지됨
+       └─ feat/instruction-N     ← 지시문 N 하나를 위한 작업 브랜치. feat/notion-genre-library에서
+                                    분기하고, 완료되면 다시 feat/notion-genre-library로 머지·삭제
+```
+
+- **`main`**: 가장 안정적인 기준점. 새로 클론한다면 여기서 시작하세요(`start-studio.bat`은 계속 개발이 이어지는 `feat/notion-genre-library`를 기본으로 씁니다 — 최신 미검증 작업까지 보고 싶다면 그쪽을 쓰고, 안정적인 지점만 원하면 `main`으로 바꿔 쓰세요).
+- **`feat/notion-genre-library`**: 지시문 작업이 실제로 쌓이는 곳. `main`보다 앞서 있을 수 있습니다.
+- **`feat/instruction-N`**: 지시문(하루가 번호를 매겨 순차적으로 지시하는 작업 단위) 하나에 대응하는 임시 작업 브랜치. 완료 후 `feat/notion-genre-library`에 머지되면 보존할 이유가 없는 한 삭제됩니다.
+
+각 지시문의 완료 판정·수치·"하지 말 것" 목록 등 작업 이력은 `docs/CHANGELOG.md`와 각 지시문 커밋 메시지(`git log`)에서 확인할 수 있습니다.
 
 ## Testing
 
@@ -125,4 +164,8 @@ These are presets only. Add, duplicate, or replace them for future channels.
 npm run typecheck
 npm run test          # unit + stress tests
 npm run test:stress   # stress tests only, verbose, regenerates docs/STRESS_TEST_REPORT.md
+npm run lint          # eslint, 0 warnings 허용
+npm run audit -- --pack <path>   # 저장된 팩 JSON 하나를 감사(품질 관문 실측)
 ```
+
+작업 전 상태를 빠르게 점검하려면 `npm run check:gates`(장르 회전/시대 계약), `npm run check:coverage`(워크스페이스별 실측 곡 수), `npm run check:reachability`(죽은 코드 없음) 등 `check:*` 스크립트도 참고하세요 — 전체 목록은 `package.json`의 `scripts`.
