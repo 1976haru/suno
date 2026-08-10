@@ -60,6 +60,33 @@ describe('[codex 지시문 06 TASK B] checkCoreAudioCompliance — real literal 
     expect(results.find(r => r.id === 'bpm')!.status).toBe('not-measured');
   });
 
+  /**
+   * 지시문 28 (TASK C-3) — 실측(20260810 60년대 세트) BPM 배음 오검출 재현.
+   * 목표 96에 대해 192(정확히 2배)가 검출되면 배음 보정 없이는 delta=96으로
+   * 확실한 fail이지만, 실제로는 목표가 정확히 렌더된 것일 수 있다 — 보정
+   * 후보(측정값, ×2, ÷2) 중 목표에 가장 가까운 것을 쓴다.
+   */
+  it('bpm: 목표의 2배로 검출되면 배음 보정 후 pass (delta 0)', () => {
+    const results = checkCoreAudioCompliance(makeMeasurements({ bpm: 192, bpmConfidence: 0.6 }), target);
+    const bpmResult = results.find(r => r.id === 'bpm')!;
+    expect(bpmResult.status).toBe('pass');
+    expect(bpmResult.detail).toContain('배음보정');
+  });
+
+  it('bpm: 목표의 절반으로 검출되면 배음 보정 후 pass', () => {
+    const results = checkCoreAudioCompliance(makeMeasurements({ bpm: 48, bpmConfidence: 0.6 }), target);
+    const bpmResult = results.find(r => r.id === 'bpm')!;
+    expect(bpmResult.status).toBe('pass');
+    expect(bpmResult.detail).toContain('배음보정');
+  });
+
+  it('bpm: 보정해도 더 가까워지지 않으면 보정하지 않는다(120은 목표 96의 배음이 아님)', () => {
+    const results = checkCoreAudioCompliance(makeMeasurements({ bpm: 120 }), target);
+    const bpmResult = results.find(r => r.id === 'bpm')!;
+    expect(bpmResult.status).toBe('fail');
+    expect(bpmResult.detail).not.toContain('배음보정');
+  });
+
   it('clipping: any clipping at all = fail (0 tolerance)', () => {
     const results = checkCoreAudioCompliance(makeMeasurements({ clipping: true, clippingSampleCount: 3 }), target);
     expect(results.find(r => r.id === 'clipping')!.status).toBe('fail');

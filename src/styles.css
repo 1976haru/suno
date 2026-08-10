@@ -2944,6 +2944,15 @@ pre {
   color: var(--muted);
 }
 
+/* 지시문 28 (TASK B) — 준비 상태 배지: .chip의 툴바용 min-height(34px)는 이
+   카드 안에서 너무 두꺼워 보여 작은 라벨 치수로 덮어쓴다. */
+.workspace-card-readiness {
+  min-height: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: help;
+}
+
 .workspace-not-ready-notice {
   margin: 0;
   padding: 10px 12px;

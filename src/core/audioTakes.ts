@@ -3,6 +3,7 @@ import type { SongAudioMetrics, TempoEstimate, VocalMetrics } from './audioAnaly
 import type { AudioMeasurements } from './audioMeasurements';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 import { openAudioDb, TAKES_STORE, withAudioStore } from './audioDb';
+import { estimateSongLengthSec } from './bpmLengthControl';
 
 /**
  * TASK v3.74 (TASK A) — "테이크(take)": one rendered mp3 for one track's
@@ -38,6 +39,21 @@ export interface AudioTakeDirectives {
   vocalDescriptor: string;
   targetBpm: number;
   targetDurationSec: [number, number];
+  /**
+   * 지시문 28 (TASK C-2/C-6) — targetDurationSec(위)는 오디언스 프로필의
+   * 워크스페이스 전체 대역(예: 190~215초)이라 "이 곡 하나"의 기대치로는
+   * 너무 넓다. estimateSongLengthSec(bpm, structureTemplate)는 이 트랙
+   * 하나의 설계 시점 개별 추정값이라 "설계 3:20 / 실제 2:44"처럼 더 날카로운
+   * 대조가 가능하다. 단, 실측(20260810 60년대 세트) 결과 이 추정값 자체가
+   * 실제 길이보다 최대 120초까지 벗어나는 것으로 확인됐다(오차 원인:
+   * BPM_LENGTH_TIERS 자체가 아니라 Suno가 설계 BPM대로 렌더하지 않는다는
+   * 것 — 배음 보정 후에도 함의 계수가 0.70~1.49로 곡마다 들쭉날쭉해 단일
+   * 계수로 고칠 수 없다는 것까지 확인됨). 그래서 이 필드는 checkCoreAudioCompliance의
+   * blocking pass/warn/fail 체계에는 넣지 않는다 — 표시만 한다(§하지 말 것
+   * "음원 측정으로 세트를 차단하지 말 것"). song.bpm이 없으면 undefined —
+   * 추정할 근거가 없는 곡에 억지로 값을 채우지 않는다.
+   */
+  targetEstimatedLengthSec?: number;
   instrumentAtoms: string[];
 }
 
@@ -94,7 +110,7 @@ export interface AudioTake {
  * real values instead.
  */
 export function buildTakeDirectives(
-  song: Pick<SongIdea, 'genreId' | 'killingPointId' | 'arcPhase' | 'vocalType' | 'bpm'>,
+  song: Pick<SongIdea, 'genreId' | 'killingPointId' | 'arcPhase' | 'vocalType' | 'bpm' | 'structureTemplate'>,
   audienceProfile: AudienceProfile,
   options: { instrumentAtoms?: string[]; introMode?: string } = {}
 ): AudioTakeDirectives {
@@ -107,6 +123,7 @@ export function buildTakeDirectives(
     vocalDescriptor: song.vocalType ?? 'unknown',
     targetBpm: song.bpm ?? 0,
     targetDurationSec: audienceProfile.songLengthSecondsRange,
+    targetEstimatedLengthSec: song.bpm ? Math.round(estimateSongLengthSec(song.bpm, song.structureTemplate)) : undefined,
     instrumentAtoms: options.instrumentAtoms ?? []
   };
 }

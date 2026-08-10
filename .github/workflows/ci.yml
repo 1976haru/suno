@@ -247,6 +247,28 @@ jobs:
       - run: npm ci
       - run: npm run check:version
 
+  # 지시문 28 (TASK A) — check:archetype(하드코딩이 있는 곳을 센다)의 반대
+  # 방향으로, 13개 정본 아키타입 × 21개 축(장르 풀·머니코드 회전 풀·
+  # 인트로 텍스처·오디언스 프로필·BPM 대역·워크스페이스 정책 등)에 정의가
+  # 빠진 곳을 센다. 이 잡은 의도적으로 빨간불이다 — CONTRACT VIOLATION 3건이
+  # 남아 있고, 둘 다 데이터 배선으로 채울 수 없는 진짜 제품 결정 공백이다:
+  # lofi-study는 프리셋 채널 자체가 없고(장르 풀을 지어낼 근거가 없음),
+  # kr-idol-male/kr-idol-female은 introTextures 24종 전부가 어쿠스틱·빈티지
+  # 성격이라 아이돌의 펀치감 있는 퍼포먼스 사운드에 맞는 항목이 하나도
+  # 없다(§하지 말 것 "빈칸을 임의값으로 채워 ✗를 없애지 말 것"). check-gates
+  # job의 기존 선례(§주석)와 같은 성격 — 실제 제품 결정이 나기 전까지는
+  # 빨간불로 남겨 눈에 보이게 하는 것이 목적이다.
+  check-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:coverage
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

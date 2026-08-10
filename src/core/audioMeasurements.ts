@@ -188,6 +188,32 @@ export function computeAudioMeasurements(input: ComputeAudioMeasurementsInput): 
   };
 }
 
+export type AmplitudeDeviationBand = 'flat' | 'good' | 'unrealistic' | 'unclassified';
+
+/**
+ * 지시문 28 (TASK C-4/C-6) — 하루가 20260808 세트 청취로 직접 정한 진폭 편차
+ * 판정 대역("2.3~3.3dB 평평 · 5.0~5.8dB 좋음 · 6dB는 비현실적(36곡 중
+ * 1곡)"). 실측(20260810 세트) 결과 18곡 중 11곡이 "평평" 대역에 있었고
+ * 목표(5.0dB)와의 중앙값 격차가 이 지시문의 핵심 발견 중 하나였다 — 이
+ * 함수는 그 판정을 코드로 고정해 다음 세트부터 업로드만 하면 바로 보이게
+ * 한다. 청취로 검증된 값이므로 여기서 임의로 조정하지 않는다(§하지 말 것
+ * "진폭 편차 목표 5.0dB를 실측에 맞춰 낮추지 말 것"). 차단하지 않는다 —
+ * 표시용 라벨일 뿐, 어떤 관문에도 연결하지 않는다.
+ */
+export function amplitudeDeviationBand(deviationDb: number): AmplitudeDeviationBand {
+  if (deviationDb >= 2.3 && deviationDb <= 3.3) return 'flat';
+  if (deviationDb >= 5.0 && deviationDb <= 5.8) return 'good';
+  if (deviationDb >= 6.0) return 'unrealistic';
+  return 'unclassified';
+}
+
+export const AMPLITUDE_DEVIATION_BAND_LABEL_KO: Record<AmplitudeDeviationBand, string> = {
+  flat: '평평 (2.3~3.3dB)',
+  good: '좋음 (5.0~5.8dB)',
+  unrealistic: '비현실적 (≥6dB)',
+  unclassified: '미분류'
+};
+
 /**
  * Browser-only: decodes a file to its REAL native channel layout/sample
  * rate (unlike audioAnalysis.ts's decodeToMonoPcm, which deliberately
