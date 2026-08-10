@@ -37,9 +37,12 @@ import type { TextMotifFamily } from './textMotifQuota';
  * KR_IDOL_FEMALE_AUDIENCE_PROFILE already carry their own
  * `killingPointSetId`). This requirement is already satisfied — the real,
  * separate, PRE-EXISTING gap (no per-workspace killing-point SET yet
- * exists for any non-senior workspace) is a larger, not-idol-specific
- * limitation out of this task's own scope, left honestly undone here
- * rather than papered over with a fake per-workspace set.
+ * exists for any non-senior workspace) was a larger, not-idol-specific
+ * limitation out of this task's own scope, left honestly undone here rather
+ * than papered over with a fake per-workspace set. 지시문 30 TASK C closed
+ * that gap for kr-idol-male/kr-idol-female (data/killingPointsKpop.ts, via
+ * data/killingPointWorkspaceSets.ts) — verified:false, genre-convention
+ * judgment calls, not a listening-verified set.
  *
  * "fixed quota 경고도 quota-aware 방식으로 바꾼다" — real bug found and
  * fixed by this task (see core/compositionScorer.ts's own updated comment

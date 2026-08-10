@@ -47,6 +47,11 @@ import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
 import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
+import { detectProvenanceDowngrades, languageOverrideConfirmMessageKo, shouldConfirmLanguageOverride } from './core/userChoices';
+import { applyListeningIntentIfPending } from './core/listeningIntent';
+import { LISTENING_INTENT_POLICY } from './data/listeningIntentPolicy';
+import { PERCEIVED_ENERGY_POLICY } from './data/perceivedEnergyPolicy';
+import { workspaceForArchetype } from './data/workspaces';
 import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
 import { getWorkspace } from './data/workspaces';
 import { isMigrationPending, runWorkspaceMigrationOnce, runSnapshotSecretMigrationOnce } from './core/workspaceMigration';
@@ -221,12 +226,41 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // through, so it's the one place that needs to catch all of them.
     const archetype = channel.archetype || 'senior-morning';
     const { valid, removed } = sanitizeGenreIdsForArchetype(channel.preferredGenres, archetype);
+    const nextPackagingLanguage = defaultPackagingLanguageForChannel(channel);
+
+    // TASK (지시문 30 TASK A) — real repro: this function used to reset
+    // lyricLanguage to channel.primaryLanguage unconditionally, even when
+    // choiceProvenance.lyricLanguage was 'user' (하루 had explicitly picked a
+    // different language in Step2Concept). Computed off the OUTER `opts`
+    // snapshot (not inside the setOpts updater below) because
+    // window.confirm is a side effect — calling it from inside a state
+    // updater risks a duplicate dialog under React's dev-mode double-invoke.
+    // This function is only ever reached from a direct user click (channel
+    // select/save/create), so `opts` here is never stale relative to what
+    // the updater's own `prev` will be.
+    const languageConfirmNeeded = shouldConfirmLanguageOverride(opts.lyricLanguage, opts.choiceProvenance?.lyricLanguage, channel.primaryLanguage);
+    const keepUserLanguage = languageConfirmNeeded && !window.confirm(languageOverrideConfirmMessageKo(opts.lyricLanguage, channel.primaryLanguage));
+
+    // TASK (지시문 30 TASK D-2) — same silent-overwrite pattern as
+    // lyricLanguage, for every OTHER field this function resets to the
+    // channel's own default. genreIds is deliberately excluded (§하지 말 것
+    // "지시문 24의 사용자 장르 선택 로직을 건드리지 말 것") — only informational,
+    // non-blocking here (surfaced via the existing loadWarning banner, not a
+    // new confirm gate).
+    const arraysDiffer = (a: readonly string[], b: readonly string[]) => a.length !== b.length || [...a].sort().join('') !== [...b].sort().join('');
+    const otherDowngrades = detectProvenanceDowngrades(opts.choiceProvenance, [
+      { field: 'vocalTone', labelKo: '보컬 톤', valueChanged: opts.vocalTone !== channel.defaultVocal },
+      { field: 'kidsAgeTierId', labelKo: '연령대', valueChanged: opts.kidsAgeTierId !== channel.kidsAgeTierId },
+      { field: 'packagingLanguage', labelKo: '제목/썸네일 언어', valueChanged: opts.packagingLanguage !== nextPackagingLanguage },
+      { field: 'moodIds', labelKo: '무드', valueChanged: arraysDiffer(opts.moodIds, channel.preferredMoods) }
+    ]);
+
     setOpts(prev => ({
       ...prev,
       channel,
       market: channel.market,
       audience: channel.audience,
-      lyricLanguage: channel.primaryLanguage,
+      lyricLanguage: keepUserLanguage ? prev.lyricLanguage : channel.primaryLanguage,
       genreIds: normalizeGenreSelection(valid),
       moodIds: channel.preferredMoods,
       vocalTone: channel.defaultVocal,
@@ -235,7 +269,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // per-generation override to that channel's default, same as every
       // other channel-default field this function already re-seeds.
       kidsAgeTierId: channel.kidsAgeTierId,
-      packagingLanguage: defaultPackagingLanguageForChannel(channel),
+      packagingLanguage: nextPackagingLanguage,
       // TASK (provenance) — every field this function resets to the new
       // channel's own default gets its provenance reset to 'channel' too,
       // overwriting whatever the PREVIOUS channel's 'user'/'concept' picks
@@ -252,7 +286,10 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // observed to carry.
       choiceProvenance: {
         ...prev.choiceProvenance,
-        lyricLanguage: 'channel',
+        // TASK (지시문 30 TASK A) — 'user' survives verbatim when the confirm
+        // dialog above was declined; every other case (no explicit user
+        // pick, or user confirmed the revert) resets to 'channel' as before.
+        lyricLanguage: keepUserLanguage ? 'user' : 'channel',
         genreIds: 'channel',
         vocalTone: 'channel',
         kidsAgeTierId: 'channel',
@@ -265,7 +302,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         moodIds: 'channel'
       }
     }));
-    if (removed.length) setLoadWarning(genreSanitizationWarningKo(removed, archetype));
+
+    const warnings = [
+      ...(removed.length ? [genreSanitizationWarningKo(removed, archetype)] : []),
+      ...(otherDowngrades.length
+        ? [`채널 변경으로 직접 선택하신 ${otherDowngrades.map(d => d.labelKo).join(', ')} 설정이 채널 기본값으로 되돌아갔습니다.`]
+        : [])
+    ];
+    if (warnings.length) setLoadWarning(warnings.join(' '));
   }
 
   const cm = useChannelManager(workspaceId, applyChannelToOptions);
@@ -1203,7 +1247,28 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    * a stale click-time snapshot.
    */
   async function requestGeneration(): Promise<boolean> {
-    const effectiveOpts = { ...opts, channel: cm.selectedChannel };
+    // TASK (지시문 30 TASK B-2/B-4) — real gap: opts.listeningIntent was
+    // write-once (Step2Concept.tsx's ChoiceGrid click) and never revisited —
+    // a songCount change or a channel switch after that click left the
+    // genre allocation describing a stale preset with nothing in the
+    // generation path ever re-checking it. This is the "생성 시작 시" call
+    // site (§B-4) alongside Step2Concept.tsx's own explicit-click call site;
+    // applyListeningIntentIfPending is a no-op (returns the same reference)
+    // whenever there's no pending drift to fix (listeningIntentApplicationStatus
+    // !== 'modified' — see that function's own doc comment), so this never
+    // touches opts when nothing needs it.
+    const workspaceIdForIntent = workspaceForArchetype(cm.selectedChannel.archetype)?.id ?? workspaceId;
+    const mergedOpts = { ...opts, channel: cm.selectedChannel };
+    const optsWithListeningIntentApplied = applyListeningIntentIfPending(
+      mergedOpts,
+      opts.listeningIntent ? LISTENING_INTENT_POLICY[opts.listeningIntent] : LISTENING_INTENT_POLICY['long-listen-comfort'],
+      PERCEIVED_ENERGY_POLICY[workspaceIdForIntent]
+    );
+    if (optsWithListeningIntentApplied !== mergedOpts) {
+      const applied = optsWithListeningIntentApplied;
+      setOpts(() => applied);
+    }
+    const effectiveOpts = optsWithListeningIntentApplied;
 
     if (multiSetMode) {
       const { setCount, songsPerSet } = clampMultiSetTotal(multiSetCount, multiSetSongsPerSet);

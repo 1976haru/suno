@@ -4,6 +4,7 @@ import { TITLE_LOCALIZED_REQUIRED_ARCHETYPES } from '../data/archetypeAudiencePr
 import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { workspaceForArchetype } from '../data/workspaces';
+import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 
 /**
  * 지시문 12 (TASK C-3) — 청취/실측으로 검증된 품질 설정이 archetype/workspace가
@@ -68,28 +69,34 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
   },
   {
     settingId: 'killing-point-assignment',
-    verifiedByKo: '하루 청취 — "킬링포인트 옥타브 상승이 들린다", 약 14/18곡 배정·9종 이상',
+    verifiedByKo: '하루 청취 — "킬링포인트 옥타브 상승이 들린다", 약 14/18곡 배정·9종 이상 (senior-oldpop만 청취 검증됨)',
     scope: { workspaces: ['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female'] },
-    // AudienceProfile.killingPointSetId는 워크스페이스마다 다른 문자열 값을
-    // 갖지만(예: 'kr-2030-emotional-default'), assignKillingPoints를 호출하는
-    // 모든 실경로(batchPreallocation.ts/localGenerator.ts)는 kids 티어 분기
-    // (kidsKillingPointsForTier) 하나를 제외하면 전부 동일한 전역 KILLING_POINTS
-    // 배열을 그대로 쓴다 — killingPointSetId 자체는 문서화만 되고 실제로
-    // 배열을 바꾸지 않는다(AudienceProfile 타입 자신의 doc comment가 인정).
-    // 이번 사이클에서 새로 배선하지 않는다("새 품질 기능 추가 금지") — 있는
-        // 그대로 정직하게 보고한다.
-    resolvedFrom: 'AudienceProfile.killingPointSetId — 문서화만 됨, kids 티어 분기(isKidsArchetype) 외에는 실제 배열 선택에 관여하지 않음',
+    // 지시문 30 TASK C — AudienceProfile.killingPointSetId는 워크스페이스마다
+    // 다른 문자열 값을 갖지만(예: 'kr-2030-emotional-default'),
+    // assignKillingPoints를 호출하는 모든 실경로(batchPreallocation.ts/
+    // localGenerator.ts 3곳)는 kids 티어 분기(kidsKillingPointsForTier)
+    // 하나를 제외하면 전부 동일한 전역 KILLING_POINTS 배열을 그대로 썼다 —
+    // killingPointSetId 자체는 문서화만 되고 실제로 배열을 바꾸지 않았다.
+    // 이 지시문이 kr-2030/jp-2030/kr-idol-male/kr-idol-female 4개
+    // 워크스페이스에 실제 배열(data/killingPointsKr2030.ts·killingPointsJp2030.ts·
+    // killingPointsKpop.ts, 지시문 30 TASK C)을 연결했다 —
+    // killingPointSetForNonKidsArchetype(data/killingPointWorkspaceSets.ts)가
+    // 그 실제 배선이므로 이 체크도 하드코딩된 워크스페이스 이름 목록 대신
+    // 그 함수를 직접 호출해 재확인한다(두 판정이 다시 따로 놀 수 없다).
+    // 단, verified:false로 시작한 새 4풀 자체는 청취 검증되지 않았다 — 이
+    // 체크는 "실제로 다른 배열을 쓰는가"만 확인하지 "그 배열이 좋은가"는
+    // 확인하지 않는다(§공통 규약 7 "실측 없이 blocking을 만들지 않는다").
+    resolvedFrom: 'killingPointSetForNonKidsArchetype(data/killingPointWorkspaceSets.ts) + kidsKillingPointsForTier(isKidsArchetype) — 지시문 30 TASK C로 4개 워크스페이스가 실제 배열에 연결됨',
     check(channel) {
       const workspaceId = workspaceForArchetype(channel.archetype)?.id;
       const isKids = workspaceId === 'kr-kids' || workspaceId === 'jp-kids';
-      // senior-oldpop(원래 검증된 KILLING_POINTS 자체의 원 소속)과 kids 두
-      // 워크스페이스(별도 KIDS_KILLING_POINTS로 실제 분기됨)만 "적용됨"으로
-      // 판정한다 — 그 외 4개 워크스페이스는 자기 것이라 문서화된
-      // killingPointSetId가 있어도 실제로는 senior와 같은 배열을 공유한다.
-      const applied = workspaceId === 'senior-oldpop' || isKids;
+      const hasOwnNonKidsSet = Boolean(killingPointSetForNonKidsArchetype(channel.archetype));
+      const applied = workspaceId === 'senior-oldpop' || isKids || hasOwnNonKidsSet;
       return {
         applied,
-        observed: applied ? `워크스페이스 ${workspaceId}는 자신에게 맞는 킬링포인트 집합을 실제로 사용함` : `워크스페이스 ${workspaceId}는 killingPointSetId만 다르고 실제로는 senior용 KILLING_POINTS를 그대로 공유함`,
+        observed: applied
+          ? `워크스페이스 ${workspaceId}는 자신에게 맞는 킬링포인트 집합을 실제로 사용함${hasOwnNonKidsSet ? ' (지시문 30 TASK C, verified:false)' : ''}`
+          : `워크스페이스 ${workspaceId}는 killingPointSetId만 다르고 실제로는 senior용 KILLING_POINTS를 그대로 공유함`,
         expected: '워크스페이스별로 실제로 구분된 킬링포인트 집합'
       };
     }

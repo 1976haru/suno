@@ -1,9 +1,11 @@
-import type { GenrePack, PerceivedEnergy } from '../types';
+import type { GenerationOptions, GenrePack, ListeningIntent, PerceivedEnergy } from '../types';
 import { computePerceivedEnergy } from './perceivedEnergy';
 import type { PerceivedEnergyPolicy } from '../data/perceivedEnergyPolicy';
 import type { ListeningIntentPolicy } from '../data/listeningIntentPolicy';
-import { MAX_SELECTED_GENRES } from './genreSelection';
+import { MAX_SELECTED_GENRES, normalizeGenreSelection } from './genreSelection';
 import { eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
+import { getGenreById } from '../data/genreLibrary';
+import { allocationForAxis, replaceAxisAllocation } from './diversityAllocation';
 
 /**
  * "시대색이 뚜렷한" 장르 — §0-1 "60~70년대의 따뜻한 기억"의 실제 기준.
@@ -231,4 +233,120 @@ export function buildGenreCountsForExistingSelection(
 
   const eraColorTrackCount = Object.entries(counts).reduce((sum, [id, n]) => sum + (isEraColorGenreId(id) ? n : 0), 0);
   return { counts, eraColorTrackCount };
+}
+
+function resolvedGenres(ids: readonly string[]): NonNullable<ReturnType<typeof getGenreById>>[] {
+  return ids.map(getGenreById).filter((g): g is NonNullable<typeof g> => Boolean(g));
+}
+
+/**
+ * TASK (지시문 30 TASK B-4) — Step2Concept.tsx's handleApplyListeningIntent
+ * body, moved here byte-identical (§하지 말 것 "우선순위 로직을 다시 짜지
+ * 말 것" — 지시문 24 TASK A-6이 이미 고친 hasExplicitUserGenres 분기는 손대지
+ * 않는다) so it has a call site outside the component. Two real callers
+ * today: Step2Concept.tsx's own "청취 목적" ChoiceGrid onChange (the
+ * pre-existing explicit click path) and App.tsx's onGenerate (지시문 30
+ * TASK B-2's real gap — generation never re-applied a pending/stale intent
+ * on its own; see applyListeningIntentIfPending below for that call site).
+ * Returns `opts` unchanged (same reference) when there's nothing to apply
+ * (no candidate genres resolve, or existing-selection counts come back
+ * empty) — callers can cheaply check `result === opts` to know whether
+ * anything changed.
+ */
+export function applyListeningIntentToOptions(
+  opts: GenerationOptions,
+  intent: ListeningIntent,
+  policy: ListeningIntentPolicy,
+  energyPolicy: PerceivedEnergyPolicy
+): GenerationOptions {
+  const hasExplicitUserGenres = opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0;
+  if (hasExplicitUserGenres) {
+    const existingGenres = resolvedGenres(opts.genreIds);
+    const { counts } = buildGenreCountsForExistingSelection(existingGenres, policy, opts.songCount, energyPolicy);
+    if (!Object.keys(counts).length) return opts;
+    return {
+      ...opts,
+      listeningIntent: intent,
+      diversityAllocations: replaceAxisAllocation(opts.diversityAllocations, { axis: 'genre', mode: 'manual', counts })
+    };
+  }
+  const candidateGenres = resolvedGenres(opts.channel.preferredGenres);
+  const alloc = buildGenreAllocationForListeningIntent(candidateGenres, policy, opts.songCount, energyPolicy);
+  if (!alloc.genreIds.length) return opts;
+  return {
+    ...opts,
+    listeningIntent: intent,
+    genreIds: normalizeGenreSelection(alloc.genreIds),
+    diversityAllocations: replaceAxisAllocation(opts.diversityAllocations, { axis: 'genre', mode: 'manual', counts: alloc.counts }),
+    choiceProvenance: { ...opts.choiceProvenance, genreIds: 'user' as const }
+  };
+}
+
+/** TASK (지시문 30 TASK B-5) — 3단 상태 판단에 쓰는, applyListeningIntentToOptions와 정확히 같은 "지금 이 intent라면 어떤 counts가 나와야 하는가"를 재사용하는 내부 헬퍼. counts만 필요해서 opts 전체를 새로 만들지 않는다. */
+function expectedGenreCountsFor(opts: GenerationOptions, policy: ListeningIntentPolicy, energyPolicy: PerceivedEnergyPolicy): Record<string, number> {
+  const hasExplicitUserGenres = opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0;
+  if (hasExplicitUserGenres) {
+    return buildGenreCountsForExistingSelection(resolvedGenres(opts.genreIds), policy, opts.songCount, energyPolicy).counts;
+  }
+  return buildGenreAllocationForListeningIntent(resolvedGenres(opts.channel.preferredGenres), policy, opts.songCount, energyPolicy).counts;
+}
+
+function genreCountsMatch(a: Record<string, number>, b: Record<string, number>): boolean {
+  const keysA = Object.keys(a).filter(id => a[id] > 0).sort();
+  const keysB = Object.keys(b).filter(id => b[id] > 0).sort();
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((id, i) => id === keysB[i] && a[id] === b[id]);
+}
+
+export type ListeningIntentApplicationStatus = 'unselected' | 'applied' | 'modified';
+
+/**
+ * TASK (지시문 30 TASK B-5) — 챗지피티 제안의 3단 상태.
+ *  - 'unselected': opts.listeningIntent 자체가 없음(한 번도 선택 안 함) —
+ *    §B-5 "판단 기준"의 세 번째 분기, 그대로 진행돼도 정상.
+ *  - 'applied': diversityAllocations의 genre 축이 이 intent가 지금 이
+ *    songCount/genreIds/channel 기준으로 만들어낼 counts와 정확히 일치.
+ *  - 'modified': listeningIntent는 선택돼 있지만 genre 축이 manual이
+ *    아니거나(한 번도 실제로 반영된 적이 없음) counts가 어긋남(적용 이후
+ *    songCount를 바꿨거나 diversityAllocations를 직접 고침) — 두 원인을
+ *    이 3단 표시 자체는 구분하지 않는다(§B-5 원문 그대로, "판단 기준"이
+ *    이 이상을 요구하지 않음).
+ */
+export function listeningIntentApplicationStatus(
+  opts: GenerationOptions,
+  policy: ListeningIntentPolicy,
+  energyPolicy: PerceivedEnergyPolicy
+): ListeningIntentApplicationStatus {
+  if (!opts.listeningIntent) return 'unselected';
+  const actual = allocationForAxis(opts.diversityAllocations, 'genre');
+  if (!actual || actual.mode !== 'manual') return 'modified';
+  const expected = expectedGenreCountsFor(opts, policy, energyPolicy);
+  return genreCountsMatch(actual.counts, expected) ? 'applied' : 'modified';
+}
+
+/**
+ * TASK (지시문 30 TASK B-2/B-4) — real gap this closes: opts.listeningIntent
+ * used to be write-once (Step2Concept.tsx's ChoiceGrid click) and never
+ * revisited — a songCount change, a channel switch, or simply generating
+ * without ever having pressed a diversity-allocation-touching control again
+ * left the genre allocation describing a stale songCount/channel. The one
+ * real call site (App.tsx's onGenerate/onGenerateMultiSet, before
+ * requestGeneration reads the same `opts`) re-applies
+ * applyListeningIntentToOptions only when listeningIntentApplicationStatus
+ * says there's real drift to fix ('modified') — 'unselected' (nothing
+ * chosen, §B-6 "기본값 유지" — never force-apply DEFAULT_LISTENING_INTENT on
+ * a user who never touched the picker) and 'applied' (already correct) are
+ * both no-ops, so a user who explicitly hand-edited diversityAllocations
+ * AFTER applying a preset only gets re-overridden if their edit happens to
+ * produce a genre-count mismatch from what the preset would compute today —
+ * the same "does the real state still match" signal §B-5's own status
+ * badge shows them.
+ */
+export function applyListeningIntentIfPending(
+  opts: GenerationOptions,
+  policy: ListeningIntentPolicy,
+  energyPolicy: PerceivedEnergyPolicy
+): GenerationOptions {
+  if (listeningIntentApplicationStatus(opts, policy, energyPolicy) !== 'modified') return opts;
+  return applyListeningIntentToOptions(opts, opts.listeningIntent as ListeningIntent, policy, energyPolicy);
 }
