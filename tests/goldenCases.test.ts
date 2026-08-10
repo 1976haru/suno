@@ -14,11 +14,11 @@ import { checkKidsOutcome } from '../src/core/kidsOutcome';
  * 지시문 11 (TASK E) — golden case 회귀 잠금. src/data/goldenCases.ts의
  * 각 `status: 'verified'` 케이스를 실제 체커로 재현한다. "원문 전체가 아니라
  * 문제 문장과 예상 severity만 저장한다"는 원칙에 따라, 재현 가능한 케이스는
- * 이미 저장소에 있는 실제 fixture(tests/fixtures/realPack60s.json 등)를
+ * 이미 저장소에 있는 실제 fixture(tests/fixtures/historical/20260807-60s.json 등)를
  * 그대로 참조하거나, 최소한의 합성 재현 입력만 인라인으로 쓴다.
  */
-const FIXTURE_60S = path.resolve(__dirname, 'fixtures/realPack60s.json');
-const FIXTURE_70S = path.resolve(__dirname, 'fixtures/realPack70s.json');
+const FIXTURE_60S = path.resolve(__dirname, 'fixtures/historical/20260807-60s.json');
+const FIXTURE_70S = path.resolve(__dirname, 'fixtures/historical/20260807-70s.json');
 
 describe('지시문 11 TASK E — golden case 등록', () => {
   it('6개 이상 등록됐다', () => {

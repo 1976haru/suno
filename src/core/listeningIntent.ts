@@ -76,7 +76,18 @@ export function buildGenreAllocationForListeningIntent(
   candidateGenres: readonly GenrePack[],
   policy: ListeningIntentPolicy,
   songCount: number,
-  energyPolicy: PerceivedEnergyPolicy
+  energyPolicy: PerceivedEnergyPolicy,
+  /**
+   * 지시문 33 (§2) — 같은 채널 + 같은 청취 목적을 반복 적용하면 매번 같은
+   * exact[0]이 뽑혀 항상 같은 4~5개 장르로 수렴했다(실측: pickForBucket이
+   * 동점 후보 중 배열 순서상 첫 번째만 골랐다, 배열 순서는 채널 정의상
+   * 고정이라 절대 안 바뀜). core/recentGenreStore.ts의 기존 원장(최근
+   * 사용 장르, 최근이 배열 앞쪽)을 그대로 재사용한다 — 새 원장을 만들지
+   * 않는다(§ "하지 말 것"). 목록에 없는(=최근에 안 쓴) 장르가 항상 우선,
+   * 목록에 있으면 배열에서 더 뒤쪽(=더 오래전에 씀)일수록 우선 — 동점이면
+   * 원래 배열 순서(기존 동작)로 최종 회전한다.
+   */
+  recentGenreIds: readonly string[] = []
 ): ListeningIntentAllocation {
   if (!candidateGenres.length || songCount <= 0) return { genreIds: [], counts: {}, eraColorTrackCount: 0 };
 
@@ -93,13 +104,31 @@ export function buildGenreAllocationForListeningIntent(
   const counts: Record<string, number> = {};
   const usedGenreIds = new Set<string>();
 
+  // recentGenreIds[0]가 가장 최근 — index가 클수록(또는 목록에 없으면) 더
+  // 오래전에 썼거나 아예 새로 쓰는 것이므로 우선순위가 높다(recencyRank가
+  // 작을수록 우선). 목록에 없는 장르는 recentGenreIds.length(가장 큰 값,
+  // 즉 최우선)를 받는다.
+  function recencyRank(genreId: string): number {
+    const idx = recentGenreIds.indexOf(genreId);
+    return idx === -1 ? -recentGenreIds.length : -idx;
+  }
+
   function pickForBucket(level: PerceivedEnergy): GenrePack | undefined {
     const exact = scored.filter(s => s.pe === level && !usedGenreIds.has(s.genre.id));
-    if (exact.length) return exact[0].genre;
-    // 정확히 일치하는 후보가 없으면 가장 가까운 레벨로.
+    if (exact.length) {
+      // recencyRank가 작을수록(=더 오래 전에 썼거나 안 씀) 우선 — 동점이면
+      // Array.prototype.sort가 안정적이라 원래 배열 순서(기존 동작)를 그대로
+      // tie-break로 쓴다.
+      return exact.slice().sort((a, b) => recencyRank(a.genre.id) - recencyRank(b.genre.id))[0].genre;
+    }
+    // 정확히 일치하는 후보가 없으면 가장 가까운 레벨로, 그 안에서도 최근
+    // 사용 이력으로 tie-break한다.
     const byDistance = scored
       .filter(s => !usedGenreIds.has(s.genre.id))
-      .sort((a, b) => Math.abs(a.pe - level) - Math.abs(b.pe - level));
+      .sort((a, b) => {
+        const distDiff = Math.abs(a.pe - level) - Math.abs(b.pe - level);
+        return distDiff !== 0 ? distDiff : recencyRank(a.genre.id) - recencyRank(b.genre.id);
+      });
     return byDistance[0]?.genre;
   }
 
@@ -257,7 +286,9 @@ export function applyListeningIntentToOptions(
   opts: GenerationOptions,
   intent: ListeningIntent,
   policy: ListeningIntentPolicy,
-  energyPolicy: PerceivedEnergyPolicy
+  energyPolicy: PerceivedEnergyPolicy,
+  /** 지시문 33 (§2) — 호출자가 core/recentGenreStore.ts's readRecentGenreIds(channel.id)로 읽어 넘긴다. 순수 함수 유지를 위해 이 파일 스스로는 storage를 읽지 않는다. */
+  recentGenreIds: readonly string[] = []
 ): GenerationOptions {
   const hasExplicitUserGenres = opts.choiceProvenance?.genreIds === 'user' && opts.genreIds.length > 0;
   if (hasExplicitUserGenres) {
@@ -271,7 +302,7 @@ export function applyListeningIntentToOptions(
     };
   }
   const candidateGenres = resolvedGenres(opts.channel.preferredGenres);
-  const alloc = buildGenreAllocationForListeningIntent(candidateGenres, policy, opts.songCount, energyPolicy);
+  const alloc = buildGenreAllocationForListeningIntent(candidateGenres, policy, opts.songCount, energyPolicy, recentGenreIds);
   if (!alloc.genreIds.length) return opts;
   return {
     ...opts,
@@ -345,8 +376,9 @@ export function listeningIntentApplicationStatus(
 export function applyListeningIntentIfPending(
   opts: GenerationOptions,
   policy: ListeningIntentPolicy,
-  energyPolicy: PerceivedEnergyPolicy
+  energyPolicy: PerceivedEnergyPolicy,
+  recentGenreIds: readonly string[] = []
 ): GenerationOptions {
   if (listeningIntentApplicationStatus(opts, policy, energyPolicy) !== 'modified') return opts;
-  return applyListeningIntentToOptions(opts, opts.listeningIntent as ListeningIntent, policy, energyPolicy);
+  return applyListeningIntentToOptions(opts, opts.listeningIntent as ListeningIntent, policy, energyPolicy, recentGenreIds);
 }

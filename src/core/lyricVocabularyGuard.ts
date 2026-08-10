@@ -37,7 +37,7 @@ const AUX_PATTERN = AUX_INFIX_WORDS.map(escapeRegex).join('|');
  * unrelated noun ("a brass lamp warms..." — "brass" is followed by "lamp",
  * not a verb).
  *
- * v4.4 (TASK B) — real measurement (tests/fixtures/realBridgePack.json)
+ * v4.4 (TASK B) — real measurement (tests/fixtures/historical/bridge-import-sample.json)
  * found a leak this missed: "the string WILL HOLD it tight" — an auxiliary
  * sat between the noun and verb, so the old immediately-adjacent match
  * never fired. Now tolerates 0-2 words from the closed AUX_INFIX_WORDS set

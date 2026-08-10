@@ -63,7 +63,8 @@ import { assignKillingPoints, killingPointBoostFromInsights } from '../data/kill
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
-import { applyEraQuota, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { applyEraQuota, ensureEraNeutralFloor, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
@@ -264,14 +265,24 @@ export function preallocateSongSlots(
   // above) already resolved this pack's real breadth via
   // resolveConstraintsFromOptions — reused here rather than re-deriving it.
   const eraQuotaCounts = eraConstraint && !eraConstraint.unspecified
-    ? applyEraQuota(
-        genreCountsFromIds(genrePool, opts.songCount, BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre),
-        opts.songCount,
-        tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
-        genre => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning'),
-        undefined,
-        BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre
-      ).counts
+    ? (() => {
+        const filter = (genre: GenrePack) => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning');
+        const cap = BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre;
+        const { counts } = applyEraQuota(
+          genreCountsFromIds(genrePool, opts.songCount, cap),
+          opts.songCount,
+          tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
+          filter,
+          undefined,
+          cap
+        );
+        // 지시문 33 (§1) — era-neutral(발라드 등) 하한을 배정 단계에서
+        // 확보한다. applyEraQuota가 끝난 뒤 실행 — 그 안의 anti-singleton/
+        // coPrimary 로직은 건드리지 않는다.
+        const workspaceId = workspaceForArchetype(opts.channel.archetype)?.id;
+        const policy = workspaceId ? eraIntentForWorkspace(workspaceId).eraNeutralPolicy : undefined;
+        return ensureEraNeutralFloor(counts, opts.songCount, policy, filter, cap).counts;
+      })()
     : undefined;
   // core/setDirector.ts's directSetLocal uses Object.keys(quotaAdjustedCounts)
   // as its own final genre-id list, not the pre-quota pool — applyEraQuota's

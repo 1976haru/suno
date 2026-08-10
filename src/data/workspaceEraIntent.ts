@@ -28,31 +28,59 @@ import type { WorkspaceId } from '../types';
 
 export type EraIntentMode = 'strict-decade' | 'current-implied' | 'only-when-referenced' | 'safety-over-era';
 
+/**
+ * 지시문 33 (§1) — 하루의 청취 관찰: "발라드가 60~70년대스러움과 시니어
+ * 채널 톤을 잇는다" (95점 조합에 piano-ballad-70s 포함, 20260809 70s에
+ * healing-ballad/piano-ballad를 하루가 직접 골랐다, 발라드 없는 20260808은
+ * "괜찮다" 수준). 지시문 12 (TASK A-3)가 era-neutral 장르 비중에 상한만
+ * 두었다 — 시대 관문이 primary 비중을 요구하면 era-neutral을 0곡으로
+ * 만드는 쪽이 구조적으로 유리해져 발라드가 밀려난다. 하한을 추가한다.
+ *
+ * minTracks/maxTracks는 18곡(senior-oldpop 표준 세트 크기) 기준값 —
+ * 다른 songCount에서는 18로 나눈 비율로 스케일한다(core/constraints.ts의
+ * ensureEraNeutralFloor). verified:false — 하루의 청취 관찰에 근거한
+ * 추정치이지 검증된 값이 아니다(§ "하지 말 것": 검증된 값처럼 다루지
+ * 말 것). 첫 세트를 하루가 들어본 뒤 3·5·0 중 조정될 수 있다.
+ */
+export interface EraNeutralPolicy {
+  /** 18곡 기준 최소 곡수 — era-neutral(발라드 등) 장르가 이보다 적어지지 않도록 배정 단계에서 확보한다. */
+  minTracks: number;
+  /** 18곡 기준 최대 곡수 — 기존 eraNeutralMaxShare(6/18)와 동일한 값, 이름만 바꿈. */
+  maxTracks: number;
+  verified: boolean;
+  sourceKo: string;
+}
+
 export interface WorkspaceEraIntent {
   mode: EraIntentMode;
   /** Why this mode, in this workspace's own terms — surfaced nowhere in UI today, kept for the next reader (mirrors WorkspaceDefinition.humanCreativeInterventionNote's own "place to record intent, not a feature" precedent). */
   noteKo: string;
   /**
    * 지시문 12 (TASK A-3) — era-neutral(era-buckets.ts) 장르 비중의 워크스페이스별
-   * 상한. undefined = 상한 없음(이 워크스페이스는 시대가 판정 대상이 아님 —
+   * 상하한. undefined = 제한 없음(이 워크스페이스는 시대가 판정 대상이 아님 —
    * kr-2030/jp-2030/kids/kr-idol이 여기 해당, mode가 이미 그 성격을 반영).
-   * 정의된 값은 core/designGate.ts의 (구) era-unspecified-share 블로킹 관문을
-   * 대체하는 era-neutral-share 관문이 사용한다 — era.unspecified=false로 시대가
-   * 명시된 컨셉에서만 실제로 검사된다(strict-decade인 senior-oldpop이 사실상
-   * 유일한 실사용처).
-   *
-   * senior-oldpop의 6/18 ≈ 0.33은 지시문 12 §A-3 원문의 예시값을 그대로 쓴
-   * **추정치**다 — 청취로 검증된 값이 아니다. 실측 근거가 생기면 교체할 것.
+   * 정의된 값은 core/designGate.ts의 era-neutral-share 관문(상한, blocking)과
+   * core/constraints.ts의 ensureEraNeutralFloor(하한, 배정 단계, 지시문 33 §1)
+   * 둘 다에서 쓴다 — era.unspecified=false로 시대가 명시된 컨셉에서만 실제로
+   * 적용된다(strict-decade인 senior-oldpop이 사실상 유일한 실사용처).
    */
-  eraNeutralMaxShare?: number;
+  eraNeutralPolicy?: EraNeutralPolicy;
 }
 
 export const WORKSPACE_ERA_INTENT: Record<WorkspaceId, WorkspaceEraIntent> = {
   // The one workspace extractEraConstraint's decade-quota machinery was
   // actually built for (1950s-60s/1970s/1980s + applyEraQuota) — real,
   // enforced narrowing when a concept explicitly names a decade.
-  // eraNeutralMaxShare: 6/18 ≈ 0.33 — 지시문 12 §A-3 예시값, 추정치(청취 미검증).
-  'senior-oldpop': { mode: 'strict-decade', noteKo: '60/70/80년대 등 명시된 시대를 실제 장르 쿼터로 강제 적용 — applyEraQuota의 원래 대상.', eraNeutralMaxShare: 6 / 18 },
+  'senior-oldpop': {
+    mode: 'strict-decade',
+    noteKo: '60/70/80년대 등 명시된 시대를 실제 장르 쿼터로 강제 적용 — applyEraQuota의 원래 대상.',
+    eraNeutralPolicy: {
+      minTracks: 3,
+      maxTracks: 6,
+      verified: false,
+      sourceKo: '하루 청취 관찰 — 발라드가 들어간 조합(95점 · 20260809 70s)이 시대색만으로 채운 조합(20260808)보다 높은 평가를 받았다. 3곡은 추정치. 첫 세트 후 조정. (지시문 33 §1)'
+    }
+  },
   // Real, current behavior already matches this mode: no genre data ties
   // "2020s"/"current" to a bucket, so extractEraConstraint stays
   // unspecified:true for ordinary concept text and never over-narrows —

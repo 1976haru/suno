@@ -342,7 +342,7 @@ describe('evaluateDesignGate — TASK E era policy (shared ERA_POLICY threshold)
 
   // 지시문 12 (TASK A-3) — (구) era-unspecified-share(전역 25% 상한)는
   // era-neutral-share(워크스페이스 정책 상한)로 대체됐다. baseOpts()의 채널은
-  // senior-morning → senior-oldpop 워크스페이스라 eraNeutralMaxShare=6/18≈33%
+  // senior-morning → senior-oldpop 워크스페이스라 eraNeutralPolicy.maxTracks=6/18≈33%
   // 정책이 실제로 걸린다. 'not-an-era-mapped-genre'(가짜 id)는
   // ERA_BUCKETS_BY_GENRE_ID에 없어 보수적으로 era-neutral 취급되고,
   // oldpop-warm-morning-glow도 (신) 세분화 데이터에서 era-neutral이라 함께

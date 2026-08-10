@@ -217,12 +217,12 @@ describe('[v3.71 TASK C] normalizeSongOutput strips a trailing [end]/[outro] tag
 
 /**
  * TASK v3.60 (TASK B) — verifies against a real bridge-path pack. Frozen as
- * tests/fixtures/realBridgePack.json (see compositionScorer.test.ts's own
+ * tests/fixtures/historical/bridge-import-sample.json (see compositionScorer.test.ts's own
  * comment on why) rather than the live root songs-output.json, which is now
  * a git-tracked file the user overwrites every time they commit a new real
  * generation (commit 9267e7e).
  */
-const realPackPath = path.resolve(__dirname, 'fixtures', 'realBridgePack.json');
+const realPackPath = path.resolve(__dirname, 'fixtures', 'historical', 'bridge-import-sample.json');
 const describeRealPack = existsSync(realPackPath) ? describe : describe.skip;
 
 describe('[v3.60 TASK B] importSongsJson (the actual bridge import path) runs every song through normalizeSongOutput', () => {

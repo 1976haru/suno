@@ -110,9 +110,11 @@ describe('[지시문 12 TASK A-3] era-neutral 분모 제외 + 워크스페이스
     expect(eraPrimaryShareOf(counts, '1950s-60s')).toBe(1); // denominator excludes the unmapped id too
   });
 
-  it('senior-oldpop has an eraNeutralMaxShare policy (~33%, documented as an estimate); other workspaces have none (unlimited)', () => {
-    expect(eraIntentForWorkspace('senior-oldpop').eraNeutralMaxShare).toBeCloseTo(6 / 18);
-    expect(eraIntentForWorkspace('kr-2030').eraNeutralMaxShare).toBeUndefined();
-    expect(eraIntentForWorkspace('kr-kids').eraNeutralMaxShare).toBeUndefined();
+  it('senior-oldpop has an eraNeutralPolicy (min 3 / max 6 of 18, documented as an estimate); other workspaces have none (unlimited)', () => {
+    expect(eraIntentForWorkspace('senior-oldpop').eraNeutralPolicy?.maxTracks).toBe(6);
+    expect(eraIntentForWorkspace('senior-oldpop').eraNeutralPolicy?.minTracks).toBe(3);
+    expect(eraIntentForWorkspace('senior-oldpop').eraNeutralPolicy?.verified).toBe(false);
+    expect(eraIntentForWorkspace('kr-2030').eraNeutralPolicy).toBeUndefined();
+    expect(eraIntentForWorkspace('kr-kids').eraNeutralPolicy).toBeUndefined();
   });
 });

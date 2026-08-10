@@ -124,16 +124,20 @@ function isEraNeutralGenreId(genreId: string): boolean {
 
 /**
  * 지시문 12 (TASK A-3) — (구) eraGenericShareRequires를 대체한다. 워크스페이스
- * 정책(data/workspaceEraIntent.ts의 eraNeutralMaxShare)이 정의돼 있을 때만
+ * 정책(data/workspaceEraIntent.ts의 eraNeutralPolicy)이 정의돼 있을 때만
  * 검사한다 — 정의 안 된 워크스페이스는 상한 자체가 없으므로 항상 만족.
+ * 지시문 33 (§1) — eraNeutralMaxShare(단일 상한값)가 eraNeutralPolicy(상하한
+ * 객체)로 바뀌었다 — 이 계약은 상한(maxTracks)만 본다, 하한은 advisory 전용
+ * 이라 "채울 수 있는가"라는 만족 가능성 질문과 무관하다.
  */
 function eraNeutralShareRequires(channel: ChannelProfile, opts: GenerationOptions): GateDataContractResult {
   const constraints = resolvedConstraintsFor(channel, opts);
   const era = constraints.era;
-  const eraNeutralMaxShare = eraIntentForWorkspace(constraints.workspaceId).eraNeutralMaxShare;
-  if (era.unspecified || eraNeutralMaxShare === undefined) {
+  const eraNeutralPolicy = eraIntentForWorkspace(constraints.workspaceId).eraNeutralPolicy;
+  if (era.unspecified || eraNeutralPolicy === undefined) {
     return { satisfiable: true, reasonKo: '이 컨셉/워크스페이스 정책에는 era-neutral 상한이 적용되지 않습니다.', observed: 'N/A', needed: 'N/A' };
   }
+  const eraNeutralMaxShare = eraNeutralPolicy.maxTracks / 18;
   const pool = genrePoolFor(channel, opts);
   const songCount = opts.songCount || 18;
   const nonNeutralGenres = pool.filter(g => !isEraNeutralGenreId(g.id)).length;

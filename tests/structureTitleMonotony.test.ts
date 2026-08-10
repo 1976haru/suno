@@ -143,11 +143,11 @@ describe('[v3.60 TASK D-1] bridge instruction encourages varying chorus hook-rep
 // TASK v3.63 — root songs-output.json is now a real, git-tracked file the
 // user overwrites every time they commit a new real generation (commit
 // 9267e7e replaced the v3.62-era 16-song pack with a fresh 18-song one);
-// frozen as tests/fixtures/realBridgePack.json (see
+// frozen as tests/fixtures/historical/bridge-import-sample.json (see
 // compositionScorer.test.ts's own comment) so these checks stop breaking on
 // every unrelated real-world commit. Assertions below are the actual
 // measured shapes of that frozen snapshot, not a hardcoded guess.
-const realPackPath = path.resolve(__dirname, 'fixtures', 'realBridgePack.json');
+const realPackPath = path.resolve(__dirname, 'fixtures', 'historical', 'bridge-import-sample.json');
 const describeRealPack = existsSync(realPackPath) ? describe : describe.skip;
 
 describeRealPack('[v3.60 TASK D] against a frozen real bridge-path pack', () => {

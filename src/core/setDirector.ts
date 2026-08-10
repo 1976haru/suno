@@ -41,7 +41,9 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { applyEraQuota, detectConceptBreadth, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { applyEraQuota, detectConceptBreadth, ensureEraNeutralFloor, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { workspaceForArchetype } from '../data/workspaces';
+import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { DEFAULT_ADULT_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from './vocalPlan';
@@ -1342,7 +1344,7 @@ export function buildSetPlanFromIntent(
   // 정합성 점검 §1 결함1 fix — same breadth-aware perGenreCap as directSetLocal's
   // own applyEraQuota call below (see that call site's comment / applyEraQuota's
   // own doc comment on the perGenreCap parameter).
-  const { counts: quotaAdjustedGenreCounts, warnings: eraQuotaWarnings } = applyEraQuota(
+  const { counts: quotaAdjustedGenreCountsRaw, warnings: eraQuotaWarnings } = applyEraQuota(
     genreCounts,
     safeSongCount,
     eraConstraint,
@@ -1350,6 +1352,14 @@ export function buildSetPlanFromIntent(
     undefined,
     BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
   );
+  // 지시문 33 (§1) — era-neutral(발라드 등) 하한을 배정 단계에서 확보한다.
+  const quotaAdjustedGenreCounts = ensureEraNeutralFloor(
+    quotaAdjustedGenreCountsRaw,
+    safeSongCount,
+    (() => { const wsId = workspaceForArchetype(channel.archetype)?.id; return wsId ? eraIntentForWorkspace(wsId).eraNeutralPolicy : undefined; })(),
+    genre => genreMatchesChannel(genre, channel),
+    BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
+  ).counts;
   const selectedIds = Object.keys(quotaAdjustedGenreCounts);
 
   const allocations = makeAllocations(intent.intentKo, channel, safeSongCount, selectedIds, vocalTone, choices);
@@ -1615,7 +1625,7 @@ export function directSetLocal(
   // fill opening genres capped at 5 each, one over variety's own 4-cap,
   // tripping designGate.ts's 'genre-max' check on an otherwise
   // satisfiable concept).
-  const { counts: quotaAdjustedCounts, warnings: eraQuotaWarnings } = applyEraQuota(
+  const { counts: quotaAdjustedCountsPreFloor, warnings: eraQuotaWarnings } = applyEraQuota(
     preQuotaCounts,
     safeSongCount,
     tightenEraConstraintForSenior(eraConstraint, channel.archetype, safeSongCount),
@@ -1623,6 +1633,16 @@ export function directSetLocal(
     ranked.map(item => item.genre.id),
     BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
   );
+  // 지시문 33 (§1) — era-neutral(발라드 등) 하한을 배정 단계에서 확보한다.
+  // 사용자 선택 장르 복원(바로 아래 §A-4 로직) 전에 적용해, 이 단계가 혹시
+  // 사용자 선택 장르를 줄이더라도 그 복원 로직이 그대로 커버하게 한다.
+  const quotaAdjustedCounts = ensureEraNeutralFloor(
+    quotaAdjustedCountsPreFloor,
+    safeSongCount,
+    (() => { const wsId = workspaceForArchetype(channel.archetype)?.id; return wsId ? eraIntentForWorkspace(wsId).eraNeutralPolicy : undefined; })(),
+    eraQuotaGenrePredicate,
+    BREADTH_THRESHOLDS[breadth].genre.maxPerGenre
+  ).counts;
   // 지시문 24 (TASK A-4) — applyEraQuota는 시대 불일치 장르를 통째로
   // 제외할 수 있다(forbidden bucket 삭제·adjacent cap trim·
   // primary/adjacent/generic 어디에도 안 걸리면 삭제). 사용자가 명시

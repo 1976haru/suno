@@ -753,7 +753,15 @@ function runPackMode(args: ReturnType<typeof parseArgs>) {
   // 같은 --pack 파일을 재실행해도 두 번 세지 않는다(recordMeasuredPack의
   // measuredPackPaths dedupe). 절대 verified를 여기서 바꾸지 않는다 — 그건
   // 항상 하루가 손으로 distinctChoicePolicy.ts를 고치는 별도 결정이다.
-  const measuredWorkspaceId = workspaceForArchetype(channel.archetype)?.id;
+  //
+  // 지시문 33 (§4-3) — "과거 fixture 수치와 현재 생성기 수치를 같은 표에
+  // 섞지 않는다"는 원칙이 이 누적에도 적용된다. tests/fixtures/ 아래의
+  // 파일(회귀 방지용 known-bad historical fixture, 실제 하루 발매물이 아님)을
+  // --pack으로 돌릴 때마다 "측정 곡 수"가 늘어나면, 같은 3개 고정 회귀
+  // fixture를 반복 검사하는 것만으로 승격 조건이 거짓으로 충족된다 — 진짜
+  // 새 실측 없이. 실제 발매물은 이 repo 관례상 항상 lyrics/ 아래에 있다.
+  const isHistoricalTestFixture = path.resolve(args.packPath).includes(`${path.sep}tests${path.sep}fixtures${path.sep}`);
+  const measuredWorkspaceId = isHistoricalTestFixture ? undefined : workspaceForArchetype(channel.archetype)?.id;
   if (measuredWorkspaceId) {
     const ledger = loadMeasuredSongLedger();
     const { ledger: nextLedger, alreadyRecorded } = recordMeasuredPack(

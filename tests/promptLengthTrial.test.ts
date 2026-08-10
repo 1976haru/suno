@@ -4,7 +4,7 @@ import { loadPackBlueprint } from '../scripts/audit';
 import { buildStylePromptVariants } from '../scripts/promptLengthTrial';
 import { classifyClause, SINGLE_DECLARATION_AXES, type PromptAxis } from '../src/data/promptAxisLexicon';
 
-const FIXTURE_60S = path.resolve(__dirname, 'fixtures/realPack60s.json');
+const FIXTURE_60S = path.resolve(__dirname, 'fixtures/historical/20260807-60s.json');
 
 function axesOf(stylePrompt: string): PromptAxis[] {
   return stylePrompt.split(',').map(c => c.trim()).filter(Boolean)
