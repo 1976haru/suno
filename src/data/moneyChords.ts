@@ -348,35 +348,88 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
  * present on the tracks most likely to be heard first. 'default' for any
  * archetype without a dedicated signature (christmas/lofi-study/kids, or no
  * archetype at all) — unchanged behavior for those channels.
+ *
+ * 지시문 27 (TASK A-1) — 6개 아키타입(oldpop-lounge 등)을 if-chain에
+ * `archetype === '리터럴'`로 추가하면 지시문 15 check:archetype의
+ * "allowlist는 늘어날 수 없다" 규칙을 정면으로 위반한다(실측: 이 파일이
+ * 12곳 → 24곳으로 늘어나 전체 총계도 초과). Record 조회 테이블로 바꾸면
+ * 그 검사가 잡는 패턴(`archetype === '문자열'` 비교) 자체가 아예 없어진다
+ * — 동작은 완전히 같고, 새 엔트리를 추가할 때마다 하드코딩 허용치를
+ * 늘려야 하는 구조적 문제가 사라진다. oldpop-lounge는 지시문 20이
+ * oldpop-lounge-main 채널을 신설하면서 시그니처 없음 구멍이 드러났다 —
+ * 두왑·걸그룹·모타운이 채널의 핵심 장르라 doowop을 시그니처로 삼는다
+ * (moneyChordRotationPool의 회전 풀 근거와 같은 이유).
  */
+const SIGNATURE_MONEY_CHORD_BY_ARCHETYPE: Record<string, string> = {
+  'senior-morning': 'doowop',
+  'showa-cafe': 'royalRoad',
+  'showa-70s': 'showaModern',
+  j2000s: 'komuro',
+  'modern-chill': 'jazzColor',
+  'city-night': 'cityPop',
+  'oldpop-lounge': 'doowop',
+  'kr-2030-pop': 'default',
+  'jp-2030-pop': 'cityPop',
+  'kr-idol-male': 'emotional',
+  'kr-idol-female': 'emotional',
+  'lofi-study': 'jazzColor'
+};
+
 export function signatureMoneyChordId(archetype: string | undefined): string {
-  if (archetype === 'senior-morning') return 'doowop';
-  if (archetype === 'showa-cafe') return 'royalRoad';
-  if (archetype === 'showa-70s') return 'showaModern';
-  if (archetype === 'j2000s') return 'komuro';
-  if (archetype === 'modern-chill') return 'jazzColor';
-  if (archetype === 'city-night') return 'cityPop';
   if (isKidsArchetype(archetype)) return 'kidsSimple';
-  return 'default';
+  if (!archetype) return 'default';
+  return SIGNATURE_MONEY_CHORD_BY_ARCHETYPE[archetype] ?? 'default';
 }
 
 /**
  * TASK v3.33 Part C — the pool non-opener tracks rotate through (see
  * core/moneyChordPlan.ts's buildProgressionPlan), always including the
  * archetype's own signature so it isn't exclusively confined to the opener.
- * Archetypes without a dedicated signature don't get quota rotation at all
- * (see moneyChordPlan.ts's usesMoneyChordQuota) — this pool is only ever
- * consulted for senior-morning/showa-cafe.
+ *
+ * 지시문 27 (TASK A-2) — 이전에는 "시그니처 없는 아키타입은 회전 풀도
+ * 1종(['default'])" 이라 usesMoneyChordQuota가 회전을 꺼버렸다(§1-3 실측:
+ * oldpop-lounge를 포함한 7개 아키타입이 여기 해당 — 36곡 전부 I-V-vi-IV로
+ * 나온 원인). 아래 6개 풀은 장르 적합성에 근거해 새로 채운 것이며
+ * verified: false다(하루의 실측 청취로 검증된 값이 아니라 화성 관행에 근거한
+ * 추정 — §하지 말 것 "회전 풀 배정을 검증된 값처럼 다루지 말 것"). 근거는
+ * 각 아키타입 채널의 핵심 장르와 이 파일 상단 progressions/bestFor를
+ * 대조해서 정했다:
+ *   oldpop-lounge   doowop(두왑·걸그룹·모타운 직접 대응) · warmCycle(70년대
+ *     소프트록) · popStandard(브릴빌딩 상용구) · emotional(피아노발라드) ·
+ *     jazzColor(지시문20이 복원한 재즈·샹송 — 아직 청취 미확인, TASK A-4) ·
+ *     canon(sunshine-pop)
+ *   kr-2030-pop     default(무난한 팝 베이스) · emotional · cityPop(도시
+ *     감성) · popStandard · canon
+ *   jp-2030-pop     cityPop(令和팝의 도시 감성) · marusa/komuro(J-pop 표준
+ *     진행) · jazzColor(로파이/재즈 색) · default
+ *   kr-idol-male    emotional(파워풀한 고조) · default · komuro(업템포
+ *     퍼포먼스) · cityPop · canon
+ *   kr-idol-female  emotional · canon · komuro · cityPop · default
+ *   lofi-study      jazzColor(로파이의 정의적 색깔) · cityPop · warmCycle ·
+ *     default
+ * Archetypes with only a 1-entry pool still don't rotate (TASK A-3의
+ * usesMoneyChordQuota 변경 후에도 마찬가지 — 풀 크기 자체가 회전 조건이므로,
+ * 정말 1종만 있는 게 맞는 경우는 그대로 둔다).
  */
+const MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE: Record<string, string[]> = {
+  'senior-morning': ['doowop', 'warmCycle', 'emotional', 'default', 'canon'],
+  'showa-cafe': ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'],
+  'showa-70s': ['showaModern', 'royalRoad', 'marusa', 'doowop', 'emotional'],
+  j2000s: ['komuro', 'cityPop', 'default', 'canon', 'emotional'],
+  'modern-chill': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon'],
+  'city-night': ['cityPop', 'marusa', 'jazzColor', 'komuro', 'default'],
+  'oldpop-lounge': ['doowop', 'warmCycle', 'popStandard', 'emotional', 'jazzColor', 'canon'],
+  'kr-2030-pop': ['default', 'emotional', 'cityPop', 'popStandard', 'canon'],
+  'jp-2030-pop': ['cityPop', 'marusa', 'komuro', 'jazzColor', 'default'],
+  'kr-idol-male': ['emotional', 'default', 'komuro', 'cityPop', 'canon'],
+  'kr-idol-female': ['emotional', 'canon', 'komuro', 'cityPop', 'default'],
+  'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default']
+};
+
 export function moneyChordRotationPool(archetype: string | undefined): string[] {
-  if (archetype === 'senior-morning') return ['doowop', 'warmCycle', 'emotional', 'default', 'canon'];
-  if (archetype === 'showa-cafe') return ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'];
-  if (archetype === 'showa-70s') return ['showaModern', 'royalRoad', 'marusa', 'doowop', 'emotional'];
-  if (archetype === 'j2000s') return ['komuro', 'cityPop', 'default', 'canon', 'emotional'];
-  if (archetype === 'modern-chill') return ['jazzColor', 'emotional', 'cityPop', 'default', 'canon'];
-  if (archetype === 'city-night') return ['cityPop', 'marusa', 'jazzColor', 'komuro', 'default'];
   if (isKidsArchetype(archetype)) return ['kidsSimple', 'kidsBright', 'kidsMarch', 'kidsRound'];
-  return ['default'];
+  if (!archetype) return ['default'];
+  return MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE[archetype] ?? ['default'];
 }
 
 const ROMAN_CHORD_TOKEN = /^(b|#)?(I|II|III|IV|V|VI|VII|i|ii|iii|iv|v|vi|vii)(°|\+)?(maj7|add9|sus2|sus4|dim7|dim|aug|m7|7|6|9)?$/;

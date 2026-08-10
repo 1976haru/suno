@@ -184,6 +184,48 @@ function issue(partial: DesignIssue): DesignIssue {
 }
 
 // ---------------------------------------------------------------------------
+/**
+ * 지시문 27 (TASK C-2) — "같은 보컬 타입 연속 ≤ 2곡" 위반을 실제로 고친다.
+ * 이전에는 vocal-consecutive/vocal-segment-balance 둘 다 vocal-type-min과
+ * 같은 autoFix(withVocalTypeAllocation — opts의 쿼터 *숫자*를 다시 확정)를
+ * 재사용했다. 이 위반은 숫자(쿼터)가 아니라 순서 문제라 그 autoFix를
+ * 적용해도 이미 맞던 쿼터가 그대로 유지될 뿐 순서는 전혀 안 바뀐다 —
+ * "버튼을 눌러도 아무 변화가 없다"(§1-5)의 정확한 원인. 라운드로빈
+ * 그리디로 매 순간 남은 개수가 가장 많은 타입을 고르되, 직전 두 트랙과
+ * 같은 타입이면(3연속이 되므로) 건너뛴다 — 표준 "reorganize string"
+ * 방식을 "연속 2까지 허용"으로 살짝 완화한 버전. 쿼터(각 타입의 총
+ * 개수)는 전혀 바꾸지 않는다 — 순서만 바뀐다.
+ */
+function computeVocalRunBreakingOrder(ordered: PreassignedSongSlot[]): number[] | undefined {
+  const items = ordered.filter(slot => slot.vocalType);
+  if (items.length !== ordered.length || items.length < 3) return undefined;
+
+  const remaining = new Map<string, number[]>();
+  for (const slot of items) {
+    const list = remaining.get(slot.vocalType!) ?? [];
+    list.push(slot.trackNo);
+    remaining.set(slot.vocalType!, list);
+  }
+
+  const result: number[] = [];
+  let last: string | undefined;
+  let secondLast: string | undefined;
+  const guard = items.length * items.length + 10;
+  for (let step = 0; step < guard && result.length < items.length; step += 1) {
+    const candidates = [...remaining.entries()].filter(([, list]) => list.length > 0).sort((a, b) => b[1].length - a[1].length);
+    if (!candidates.length) break;
+    const wouldMakeThird = ([type]: [string, number[]]) => last === type && secondLast === type;
+    const picked = candidates.find(entry => !wouldMakeThird(entry)) ?? candidates[0];
+    const [type, list] = picked;
+    result.push(list.shift()!);
+    secondLast = last;
+    last = type;
+  }
+  if (result.length !== items.length) return undefined; // 안전장치 — 못 채우면 원래 순서 유지
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // 보컬 (vocal-type-variety / vocal-type-min / vocal-consecutive / vocal-segment-balance)
 // ---------------------------------------------------------------------------
 function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, constraints: ResolvedConstraints): DesignIssue[] {
@@ -194,6 +236,12 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
 
   const counts = countBy(types);
   const autoFix = withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
+  // 지시문 27 (TASK C-2) — 순서 문제 전용 autoFix. 계산에 실패하면(길이가
+  // 이상하거나 이미 괜찮으면) undefined — 그 경우 이 두 이슈는 자동 수정
+  // 버튼 없이(§C-3과 같은 원칙: 못 고치면 버튼을 안 보여준다) fixHintKo만
+  // 남는다.
+  const reorderTrackNos = computeVocalRunBreakingOrder(ordered);
+  const reorderFix = reorderTrackNos ? { slotOrderOverride: reorderTrackNos } : undefined;
 
   // v(design-gate audience decoupling) — a channel with a fixed
   // vocalQuotaOverride (e.g. a K-pop boy-group's real {male:15,female:0,
@@ -243,8 +291,10 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
       labelKo: '같은 보컬 타입 연속',
       expected: '≤ 2곡',
       actual: `${runLength}곡 연속`,
-      fixHintKo: '같은 성별이 연속으로 몰려 있습니다 — 배분을 다시 섞으세요.',
-      autoFix
+      fixHintKo: reorderFix
+        ? '같은 성별이 연속으로 몰려 있습니다 — [자동 수정]을 누르면 곡 내용은 그대로 두고 순서만 재배열해 연속을 2곡 이하로 줄입니다.'
+        : '같은 성별이 연속으로 몰려 있습니다 — 배분을 다시 섞으세요.',
+      autoFix: reorderFix
     }));
   }
   const segmentViolations = segmentBalanceViolations(types);
@@ -254,8 +304,10 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
       labelKo: '6곡 구간별 같은 보컬 타입',
       expected: '구간당 ≤ 3곡',
       actual: segmentViolations.map(v => `${v.windowLabel} ${v.type} ${v.count}곡`).join(', '),
-      fixHintKo: '특정 구간(6곡 단위)에 한 성별이 몰려 있어 그 구간만 들으면 다양하지 않게 느껴질 수 있습니다.',
-      autoFix
+      fixHintKo: reorderFix
+        ? '특정 구간(6곡 단위)에 한 성별이 몰려 있어 그 구간만 들으면 다양하지 않게 느껴질 수 있습니다 — [자동 수정]을 누르면 곡 내용은 그대로 두고 순서를 고르게 재배열합니다.'
+        : '특정 구간(6곡 단위)에 한 성별이 몰려 있어 그 구간만 들으면 다양하지 않게 느껴질 수 있습니다.',
+      autoFix: reorderFix
     }));
   }
   return issues;
@@ -664,12 +716,22 @@ function moneyChordBlockingIssues(slots: PreassignedSongSlot[], opts: Generation
     return issues;
   }
 
+  // 지시문 27 (TASK B-2/B-6) — 하루의 명시적 요구: "시그니처 6~8곡 · 보조
+  // 2종 각 4~5곡 · 색깔 1종 2~3곡"(18곡 기준), 완료 판정 자체가 "같은 진행
+  // 최대 곡수 8곡 이하"다. 옛 상한 5는 이 함수 자신의 doc comment가 이미
+  // 설명하듯 "*default*/자동 회전 케이스를 위해 쓰인 규칙"이었고, v5.7이
+  // 사용자 명시 선택 케이스(50~65% 집중)를 위해 이 상한을 우회하는 예외를
+  // 만든 것과 같은 이유로, 이번엔 채널 정체성(시그니처) 자체가 의도적으로
+  // 33~44%(6~8/18)까지 집중되도록 바뀌었다 — 그 케이스도 "*default*/자동
+  // 회전"이므로 이번엔 예외 분기 대신 상한 자체를 8로 올린다. 정책값 —
+  // 하루의 실측 청취로 검증된 값이 아니라 이 지시문이 명시한 목표치다.
+  const MONEY_CHORD_MAX_SONGS_PER_PROGRESSION = 8;
   const maxCount = Math.max(0, ...Object.values(counts));
-  if (maxCount <= 5) return [];
+  if (maxCount <= MONEY_CHORD_MAX_SONGS_PER_PROGRESSION) return [];
   return [issue({
     id: 'moneychord-max',
     labelKo: '같은 머니코드 최대 곡수',
-    expected: '≤ 5곡',
+    expected: `≤ ${MONEY_CHORD_MAX_SONGS_PER_PROGRESSION}곡`,
     actual: `${maxCount}곡`,
     fixHintKo: '한 진행에 곡이 몰려 있습니다 — 머니코드 배분을 조정하세요.'
   })];
