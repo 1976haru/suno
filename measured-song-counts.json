@@ -1,0 +1,28 @@
+{
+  "senior-oldpop": {
+    "totalSongs": 54,
+    "setCount": 3,
+    "measuredPackPaths": [
+      "D:\\suno\\suno-current\\lyrics\\20260809_올드팝라운지_60년대올드팝명곡.json",
+      "D:\\suno\\suno-current\\lyrics\\20260809_올드팝라운지_70년대올드팝명곡.json",
+      "D:\\suno\\suno-current\\lyrics\\20260810_올드팝라운지_70년대비틀즈의향수.json"
+    ],
+    "lastMeasuredAt": "2026-08-10T07:30:43.607Z"
+  },
+  "kr-2030": {
+    "totalSongs": 18,
+    "setCount": 1,
+    "measuredPackPaths": [
+      "D:\\suno\\suno-current\\lyrics\\20260810_퇴근후감성밴드팝_AutumntoChristmasPla.json"
+    ],
+    "lastMeasuredAt": "2026-08-10T07:30:45.379Z"
+  },
+  "kr-kids": {
+    "totalSongs": 18,
+    "setCount": 1,
+    "measuredPackPaths": [
+      "D:\\suno\\suno-current\\lyrics\\20260810_따라하는율동동요_운전하면서듣는동요.json"
+    ],
+    "lastMeasuredAt": "2026-08-10T07:30:47.156Z"
+  }
+}

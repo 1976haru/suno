@@ -35,8 +35,15 @@ export interface DistinctChoiceGateResult {
   violatedCount: number;
   notMeasuredCount: number;
   missingCount: number;
-  /** compliant / (compliant + violated) — not-measured·missing은 분모에서 제외(§B-3 "not-measured 를 pass 로 세지 않는다"와 대칭: 분자에도 분모에도 넣지 않는다). */
-  complianceRate: number;
+  /**
+   * compliant / (compliant + violated) — not-measured·missing은 분모에서
+   * 제외(§B-3 "not-measured 를 pass 로 세지 않는다"와 대칭: 분자에도
+   * 분모에도 넣지 않는다). measured(=compliant+violated)가 0이면 계산
+   * 자체가 불가능하므로 null — 지시문 32 (§3) 이전에는 이 경우를 1로
+   * 반환해 "측정 곡 0개인데 이행률 100%"로 잘못 표시했다. null을 절대
+   * 1이나 0으로 대체하지 말 것 — 호출자가 "미측정" 문구로 표시해야 한다.
+   */
+  complianceRate: number | null;
   policy: DistinctChoicePolicy;
   /** true면 이 결과가 실제로 blocking 판정에 쓰일 수 있다(policy.verified). false면 advisory 전용. */
   verified: boolean;
@@ -259,12 +266,14 @@ export function evaluateDistinctChoiceGate(
   const notMeasuredCount = trackResults.filter(r => r.status === 'not-measured').length;
   const missingCount = trackResults.filter(r => r.status === 'missing').length;
   const measured = compliantCount + violatedCount;
-  const complianceRate = measured > 0 ? compliantCount / measured : 1;
+  // 지시문 32 (§3) — measured가 0이면 1도 0도 아닌 null. 분모 0을 1로
+  // 대체하면 "측정 가능 곡 0개인데 이행률 100%"라는 거짓 보고가 된다.
+  const complianceRate = measured > 0 ? compliantCount / measured : null;
 
   const safetyBlocking = trackResults.some(r => r.safetyViolation);
   const thresholdViolations: string[] = [];
   if (assignedCount < policy.minAssignedTracks) thresholdViolations.push(`assigned ${assignedCount} < 최소 ${policy.minAssignedTracks}`);
-  if (measured > 0 && complianceRate < policy.minComplianceRate) thresholdViolations.push(`이행률 ${Math.round(complianceRate * 100)}% < 최소 ${Math.round(policy.minComplianceRate * 100)}%`);
+  if (measured > 0 && complianceRate !== null && complianceRate < policy.minComplianceRate) thresholdViolations.push(`이행률 ${Math.round(complianceRate * 100)}% < 최소 ${Math.round(policy.minComplianceRate * 100)}%`);
   if (notMeasuredCount > policy.maxNotMeasured) thresholdViolations.push(`not-measured ${notMeasuredCount} > 상한 ${policy.maxNotMeasured}`);
   const thresholdBlocking = policy.verified && thresholdViolations.length > 0;
 

@@ -63,6 +63,7 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 이 계약 결과를 직접 보여줘야 할 실제 요구가 생기면 그때 배선한다.
   'src/core/gateDataContract.ts': 'CLI 전용 계약 모듈 — scripts/checkGateContract.ts(npm run check:gates)와 tests/gateDataContract.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 12 TASK B)',
   'src/core/verifiedSettingContract.ts': 'CLI 전용 계약 모듈 — scripts/checkVerifiedSettings.ts(npm run check:settings)와 tests/verifiedSettingContract.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 12 TASK C)',
+  'src/core/measuredSongLedger.ts': 'CLI 전용 카운터 순수 계산부 — scripts/audit.ts --pack(누적 기록)과 scripts/checkArchetypeCoverage.ts(표시)만 소비, tests/measuredSongLedger.test.ts로 검증. 이 앱은 아직 verified 승격을 웹 UI 토글이 아니라 하루가 손으로 distinctChoicePolicy.ts를 고치는 방식으로 처리하므로, 이 카운터 자체도 브라우저 진입점 그래프 밖의 CLI 전용 모듈이다 (지시문 32 TASK §4)',
 
   // 지시문 11 (TASK E) — 테스트 전용 회귀 잠금 데이터. tests/goldenCases.test.ts가
   // 유일한 실제 소비자다(main.tsx/App.tsx/localGenerationWorker.ts 진입점

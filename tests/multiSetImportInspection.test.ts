@@ -52,7 +52,7 @@ function buildSetInput(setIndex: number, fixtureName: string, optsOverrides: Par
 
 describe('[v5.17 TASK B] planMultiSetImport — per-set ImportStatus, reused from inspectImportReport', () => {
   it('every set clean (normal.json x3) — all ready to persist, batch not blocked', () => {
-    const inputs = [1, 2, 3].map(setIndex => buildSetInput(setIndex, 'normal.json'));
+    const inputs = [1, 2, 3].map(setIndex => buildSetInput(setIndex, 'blocking/normal.json'));
     const plan = planMultiSetImport(inputs);
     expect(plan.wholeBatchBlocked).toBe(false);
     expect(plan.readyToPersist.map(r => r.setIndex)).toEqual([1, 2, 3]);
@@ -60,7 +60,7 @@ describe('[v5.17 TASK B] planMultiSetImport — per-set ImportStatus, reused fro
   });
 
   it('one set structurally corrupt (duplicateTrackNo.json) blocks the WHOLE batch — even the clean sets are held back (spec §2-3)', () => {
-    const inputs = [buildSetInput(1, 'normal.json'), buildSetInput(2, 'duplicateTrackNo.json'), buildSetInput(3, 'normal.json')];
+    const inputs = [buildSetInput(1, 'blocking/normal.json'), buildSetInput(2, 'blocking/duplicateTrackNo.json'), buildSetInput(3, 'blocking/normal.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.wholeBatchBlocked).toBe(true);
     // Nothing persists — not set 2 (the actually broken one), and not sets 1/3 either.
@@ -70,7 +70,7 @@ describe('[v5.17 TASK B] planMultiSetImport — per-set ImportStatus, reused fro
   });
 
   it('one set repairable (missingTracks.json, 4 of 5) holds back ONLY that set — the clean sets still persist (spec §2-3)', () => {
-    const inputs = [buildSetInput(1, 'normal.json'), buildSetInput(2, 'missingTracks.json'), buildSetInput(3, 'normal.json')];
+    const inputs = [buildSetInput(1, 'blocking/normal.json'), buildSetInput(2, 'warning/missingTracks.json'), buildSetInput(3, 'blocking/normal.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.wholeBatchBlocked).toBe(false);
     expect(plan.readyToPersist.map(r => r.setIndex)).toEqual([1, 3]);
@@ -79,7 +79,7 @@ describe('[v5.17 TASK B] planMultiSetImport — per-set ImportStatus, reused fro
   });
 
   it('an artist-name leak in one set is repairable (not a whole-batch block), matching the single-set v5.19 behavior', () => {
-    const inputs = [buildSetInput(1, 'normal.json'), buildSetInput(2, 'artistNameLeak.json')];
+    const inputs = [buildSetInput(1, 'blocking/normal.json'), buildSetInput(2, 'warning/artistNameLeak.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.wholeBatchBlocked).toBe(false);
     expect(plan.results.find(r => r.setIndex === 2)!.inspection.status).toBe('repairable');
@@ -87,7 +87,7 @@ describe('[v5.17 TASK B] planMultiSetImport — per-set ImportStatus, reused fro
   });
 
   it('an invalid (out-of-range) trackNo set also blocks the whole batch, same as duplicateTrackNo', () => {
-    const inputs = [buildSetInput(1, 'normal.json'), buildSetInput(2, 'invalidTrackNo.json')];
+    const inputs = [buildSetInput(1, 'blocking/normal.json'), buildSetInput(2, 'blocking/invalidTrackNo.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.wholeBatchBlocked).toBe(true);
     expect(plan.readyToPersist).toEqual([]);
@@ -142,7 +142,7 @@ describe('[v5.17 TASK B §2-4] detectCrossSetDuplicates — problems only a mult
   it('planMultiSetImport surfaces crossSetDuplicates computed from the real imported blueprints', () => {
     // Two normal.json imports under the exact same options produce identical
     // (fixture-authored) titles/hooks/genre distribution — a real repeat.
-    const inputs = [buildSetInput(1, 'normal.json'), buildSetInput(2, 'normal.json')];
+    const inputs = [buildSetInput(1, 'blocking/normal.json'), buildSetInput(2, 'blocking/normal.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.crossSetDuplicates.length).toBeGreaterThan(0);
   });
@@ -151,7 +151,7 @@ describe('[v5.17 TASK B §2-4] detectCrossSetDuplicates — problems only a mult
 describe('[v5.18 P1-3] planMultiSetImport structuralWarnings — batch-level file/meta consistency', () => {
   it('flags a file whose own embedded set number disagrees with the setIndex it was assigned', () => {
     // setIndex 0 (set 1) but the filename claims to be set 3.
-    const inputs = [buildSetInput(0, 'normal.json', {}, 'channel_concept_set03.json'), buildSetInput(1, 'normal.json', {}, 'channel_concept_set02.json')];
+    const inputs = [buildSetInput(0, 'blocking/normal.json', {}, 'channel_concept_set03.json'), buildSetInput(1, 'blocking/normal.json', {}, 'channel_concept_set02.json')];
     const plan = planMultiSetImport(inputs);
     const warning = plan.structuralWarnings.find(w => w.kind === 'filenameSetMismatch');
     expect(warning).toBeDefined();
@@ -159,27 +159,27 @@ describe('[v5.18 P1-3] planMultiSetImport structuralWarnings — batch-level fil
   });
 
   it('no filenameSetMismatch when every filename agrees with its assigned setIndex', () => {
-    const inputs = [buildSetInput(0, 'normal.json', {}, 'channel_concept_set01.json'), buildSetInput(1, 'normal.json', {}, 'channel_concept_set02.json')];
+    const inputs = [buildSetInput(0, 'blocking/normal.json', {}, 'channel_concept_set01.json'), buildSetInput(1, 'blocking/normal.json', {}, 'channel_concept_set02.json')];
     const plan = planMultiSetImport(inputs);
     expect(plan.structuralWarnings.find(w => w.kind === 'filenameSetMismatch')).toBeUndefined();
   });
 
   it('flags a batch with fewer files than the requested set count', () => {
-    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json')];
+    const inputs = [buildSetInput(0, 'blocking/normal.json'), buildSetInput(1, 'blocking/normal.json')];
     const plan = planMultiSetImport(inputs, undefined, undefined, 3);
     const warning = plan.structuralWarnings.find(w => w.kind === 'setCountMismatch');
     expect(warning).toBeDefined();
   });
 
   it('no setCountMismatch when expectedSetCount matches the real batch size', () => {
-    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json')];
+    const inputs = [buildSetInput(0, 'blocking/normal.json'), buildSetInput(1, 'blocking/normal.json')];
     const plan = planMultiSetImport(inputs, undefined, undefined, 2);
     expect(plan.structuralWarnings.find(w => w.kind === 'setCountMismatch')).toBeUndefined();
   });
 
   it('flags a set whose real imported song count falls short of its own requested songCount', () => {
     // missingTracks.json only carries 4 of the fixture's 5 requested songs.
-    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'missingTracks.json')];
+    const inputs = [buildSetInput(0, 'blocking/normal.json'), buildSetInput(1, 'warning/missingTracks.json')];
     const plan = planMultiSetImport(inputs);
     const warning = plan.structuralWarnings.find(w => w.kind === 'songCountMismatch');
     expect(warning).toBeDefined();
@@ -188,7 +188,7 @@ describe('[v5.18 P1-3] planMultiSetImport structuralWarnings — batch-level fil
 
   it('flags two sets resolving to the same pack identity (channel + title + song count)', () => {
     // Same options both times -> identical channelName/projectTitle/songs.length.
-    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json')];
+    const inputs = [buildSetInput(0, 'blocking/normal.json'), buildSetInput(1, 'blocking/normal.json')];
     const plan = planMultiSetImport(inputs);
     const warning = plan.structuralWarnings.find(w => w.kind === 'packIdDuplicate');
     expect(warning).toBeDefined();
@@ -198,7 +198,7 @@ describe('[v5.18 P1-3] planMultiSetImport structuralWarnings — batch-level fil
   it('flags a batch where sets were generated under different workspaces', () => {
     const kidsChannel = channelPresets.find(c => c.archetype === 'kr-kids-song')!;
     expect(kidsChannel).toBeDefined();
-    const inputs = [buildSetInput(0, 'normal.json'), buildSetInput(1, 'normal.json', { channel: kidsChannel, genreIds: kidsChannel.preferredGenres, moodIds: kidsChannel.preferredMoods, vocalTone: kidsChannel.defaultVocal })];
+    const inputs = [buildSetInput(0, 'blocking/normal.json'), buildSetInput(1, 'blocking/normal.json', { channel: kidsChannel, genreIds: kidsChannel.preferredGenres, moodIds: kidsChannel.preferredMoods, vocalTone: kidsChannel.defaultVocal })];
     const plan = planMultiSetImport(inputs);
     const warning = plan.structuralWarnings.find(w => w.kind === 'workspaceIdMismatch');
     expect(warning).toBeDefined();

@@ -1,0 +1,12 @@
+{
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "We'll Be Alright",
+      "hookPhrase": "We'll Be Alright",
+      "stylePrompt": "warm melodic pop, ii-V-I progression, call and response into the chorus, textured mood",
+      "lyrics": "[Intro]\n[Verse 1]\nI open the window before the kettle calls\nCold air steps neatly through the hall\nThe cup in my hand has no answer\nThe street I knew by every stone\nHas turned its collar red and gold\nAs if the map came home older\nLoose leaves circle along the curb\nMy breath draws silver on the air\nThe morning waits without hurry\nBeside my open door\n[Chorus]\nLeaves gather at the garden wall\nWe'll Be Alright\nThe postman nods, the rooftops shine\nAnd I stand still enough to smile\n[Verse 2]\nA folded letter waits inside\nUnsent, but kinder than regret\nI read your name across the paper\nThe season sits beside my chair\nSoft as a coat across my knees\nAnd lets the old room widen\n[Chorus]\nThe cold has manners after all\nWe'll Be Alright\nIt paints the gate, then lets me pass\nWith color resting in my hands\n[Final Chorus]\nWe'll Be Alright\nThe minor road has found its morning\nEvery branch turns up to sing\nWe'll Be Alright",
+      "youtube": { "title": "We'll Be Alright", "description": "70s oldpop lounge", "tags": ["oldpop", "70s"] }
+    }
+  ]
+}

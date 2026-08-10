@@ -59,7 +59,7 @@ function runFixture(fixtureName: string, optsOverrides: Partial<GenerationOption
 
 describe('[import inspection] scenario A — duplicateTrackNo.json blocks, never reaches persistence-eligible status', () => {
   it('classifies as blocked with the upstream skip reasons carried through', () => {
-    const { report, inspection } = runFixture('duplicateTrackNo.json');
+    const { report, inspection } = runFixture('blocking/duplicateTrackNo.json');
     expect(report.blueprint, 'importSongsJson itself already refused a blueprint').toBeNull();
     expect(inspection.status).toBe('blocked');
     expect(inspection.blockedReasons.join(' ')).toContain('trackNo');
@@ -73,7 +73,7 @@ describe('[import inspection] scenario A — duplicateTrackNo.json blocks, never
 
 describe('[import inspection] scenario C — invalidTrackNo.json (out-of-range trackNo) blocks the same way', () => {
   it('classifies as blocked', () => {
-    const { report, inspection } = runFixture('invalidTrackNo.json');
+    const { report, inspection } = runFixture('blocking/invalidTrackNo.json');
     expect(report.blueprint).toBeNull();
     expect(inspection.status).toBe('blocked');
     expect(inspection.checks[0].status).toBe('blocked');
@@ -82,7 +82,7 @@ describe('[import inspection] scenario C — invalidTrackNo.json (out-of-range t
 
 describe('[import inspection] scenario B / F — missingTracks.json (4 of 5 requested) is repairable, not blocked', () => {
   it('classifies as repairable and names the real missing trackNo', () => {
-    const { opts, report, inspection } = runFixture('missingTracks.json');
+    const { opts, report, inspection } = runFixture('warning/missingTracks.json');
     expect(report.blueprint, 'a partial pack still parses — not a hard failure').not.toBeNull();
     expect(inspection.status).toBe('repairable');
     expect(inspection.importedCount).toBe(4);
@@ -97,7 +97,7 @@ describe('[import inspection] scenario B / F — missingTracks.json (4 of 5 requ
   });
 
   it('never blocks — a real 17/18-style shortfall must remain reviewable, not refused outright', () => {
-    const { inspection } = runFixture('missingTracks.json');
+    const { inspection } = runFixture('warning/missingTracks.json');
     expect(inspection.status).not.toBe('blocked');
     expect(inspection.blockedReasons).toEqual([]);
   });
@@ -105,7 +105,7 @@ describe('[import inspection] scenario B / F — missingTracks.json (4 of 5 requ
 
 describe('[import inspection] scenario — artistNameLeak.json: a real safety hit excludes only that track, TASK v5.19 (TASK C)', () => {
   it('classifies as repairable (not blocked) and names exactly the leaked track, leaving the rest confirmable', () => {
-    const { report, inspection } = runFixture('artistNameLeak.json');
+    const { report, inspection } = runFixture('warning/artistNameLeak.json');
     // importSongsJson's own report still has a non-null blueprint (see
     // tests/providerResponseFixtures.test.ts's own "must still import (a
     // warning, not a hard rejection)" assertion for this exact fixture).
@@ -129,7 +129,7 @@ describe('[import inspection] scenario — artistNameLeak.json: a real safety hi
   });
 
   it('scenario F (TASK C, "오탐 신고 후 진행") — a sessionExemptions hit for the exact detected surface clears that track back to confirmable', () => {
-    const { opts, report, rawSongs } = runFixture('artistNameLeak.json');
+    const { opts, report, rawSongs } = runFixture('warning/artistNameLeak.json');
     const exempted = inspectImportReport(report, rawSongs, opts.lyricLanguage, undefined, new Set(['adele']));
     expect(exempted.artistLeakTrackNos).toEqual([]);
     expect(exempted.artistLeaks).toEqual([]);
@@ -144,7 +144,7 @@ describe('[import inspection] scenario — artistNameLeak.json: a real safety hi
 
 describe('[import inspection] scenario — normal.json: a genuinely complete, clean response is valid with nothing to review', () => {
   it('classifies as valid', () => {
-    const { report, inspection } = runFixture('normal.json');
+    const { report, inspection } = runFixture('blocking/normal.json');
     expect(report.blueprint).not.toBeNull();
     expect(inspection.status).toBe('valid');
     expect(inspection.missingTrackNos).toEqual([]);
@@ -155,7 +155,7 @@ describe('[import inspection] scenario — normal.json: a genuinely complete, cl
 
 describe('[import inspection] scenario — wrongVocalMetaTag.json: item 6 is informational only, never changes status', () => {
   it('reports the real before/after correction but stays valid (self-healing, not a defect)', () => {
-    const { inspection } = runFixture('wrongVocalMetaTag.json', { vocalQuota: { male: FIXTURE_SONG_COUNT, female: 0, mixed: 0 } });
+    const { inspection } = runFixture('warning/wrongVocalMetaTag.json', { vocalQuota: { male: FIXTURE_SONG_COUNT, female: 0, mixed: 0 } });
     expect(inspection.status).toBe('valid');
     expect(inspection.vocalTagCorrections.length).toBeGreaterThan(0);
     const first = inspection.vocalTagCorrections[0];
@@ -252,7 +252,7 @@ describe('[import inspection] real before/after: a repairable pack is not saved 
   });
 
   it('classification alone (no confirm) leaves the pack library untouched', async () => {
-    const { opts, report, inspection } = runFixture('missingTracks.json');
+    const { opts, report, inspection } = runFixture('warning/missingTracks.json');
     expect(inspection.status).toBe('repairable');
     const beforePacks = (await listPacks()).length;
     // Nothing beyond classification ran — no savePack call at all here.
@@ -263,7 +263,7 @@ describe('[import inspection] real before/after: a repairable pack is not saved 
   });
 
   it('the real confirm primitive (savePack, what library.saveImportedPack wraps) does create a pack once actually invoked', async () => {
-    const { opts, report } = runFixture('missingTracks.json');
+    const { opts, report } = runFixture('warning/missingTracks.json');
     const beforePacks = (await listPacks()).length;
     await savePack({ blueprint: report.blueprint!, options: opts, name: 'Confirmed Partial Pack' });
     const afterPacks = (await listPacks()).length;

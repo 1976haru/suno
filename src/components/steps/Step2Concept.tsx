@@ -36,6 +36,7 @@ import ChoiceGrid from '../ChoiceGrid';
 import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
+import type { ConceptCompatibilityResult } from '../../core/conceptCompatibility';
 import type { GenerationOptions, GenrePack, ListeningIntent, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
 
 /** v4.2 (TASK E) — computed once at module load (QUALITY_THRESHOLDS is static data, not per-render/per-props), reused by the advanced-settings "기준값 검증 상태" summary below. */
@@ -120,6 +121,10 @@ interface Step2ConceptProps {
    * nowhere to display what got removed.
    */
   onGenreWarning?: (message: string) => void;
+  /** 지시문 32 (§1) — App.tsx가 opts.customConcept/projectTitle × opts.channel로 이미 계산해 내려준 결과. */
+  conceptCompat?: ConceptCompatibilityResult;
+  conceptCompatAcknowledged?: boolean;
+  onConceptCompatAcknowledgedChange?: (acknowledged: boolean) => void;
 }
 
 function CharCounter({ value, limit }: { value: string; limit: number }) {
@@ -131,7 +136,8 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
 }
 
 export default function Step2Concept({
-  opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode, onGenreWarning
+  opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode, onGenreWarning,
+  conceptCompat, conceptCompatAcknowledged = false, onConceptCompatAcknowledgedChange
 }: Step2ConceptProps) {
   // TASK v4.13 bugfix — used to auto-open "직접 입력하기" for ANY vocalTone
   // that isn't a byte-exact preset match, including the plain "no selection"
@@ -561,6 +567,35 @@ export default function Step2Concept({
 
       <label>Project title (프로젝트 제목)</label>
       <input value={opts.projectTitle} onChange={event => setOpts(prev => ({ ...prev, projectTitle: event.target.value }))} />
+
+      {/* 지시문 32 (§1) — 채널×컨셉 시대 호환성 사전 경고. unsupported는 이유
+          + 대안 채널만 보여준다(차단 아님 — 하루가 원하면 그대로 진행 가능).
+          cross-style은 재해석 확인 체크박스 없이는 다음(설계안) 단계로 못
+          넘어간다(App.tsx의 conceptCompatBlocked). */}
+      {conceptCompat && conceptCompat.status === 'unsupported' && (
+        <div className="option-block" style={{ borderLeft: '3px solid #c0392b', paddingLeft: 12 }}>
+          <p className="error">⚠ 이 채널은 이 컨셉의 시대를 표현하도록 설계되지 않았어요.</p>
+          <p className="supporting">{conceptCompat.reasonKo}</p>
+          {Boolean(conceptCompat.suggestedChannelIds?.length) && (
+            <p className="supporting">대안 채널: {conceptCompat.suggestedChannelIds!.join(', ')}</p>
+          )}
+          <p className="supporting">그래도 이대로 진행할 수 있어요 — 다만 실제 생성 결과가 이 시대를 채우지 못할 가능성이 높아요.</p>
+        </div>
+      )}
+      {conceptCompat && conceptCompat.status === 'cross-style' && (
+        <div className="option-block" style={{ borderLeft: '3px solid #d68910', paddingLeft: 12 }}>
+          <p>△ 이 채널의 주력 시대는 아니지만, 재해석으로 선택할 수 있는 컨셉이에요.</p>
+          <p className="supporting">{conceptCompat.reasonKo}</p>
+          <label className="avoid-word-item">
+            <input
+              type="checkbox"
+              checked={conceptCompatAcknowledged}
+              onChange={event => onConceptCompatAcknowledgedChange?.(event.target.checked)}
+            />
+            이 재해석으로 진행할게요
+          </label>
+        </div>
+      )}
 
       <div className="option-block">
         <ChoiceGrid
