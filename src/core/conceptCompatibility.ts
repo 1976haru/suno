@@ -18,7 +18,7 @@ import type { ChannelProfile } from '../types';
 export type ConceptCompatibility = 'supported' | 'cross-style' | 'unsupported';
 
 export interface ConceptCompatibilityResult {
-  compatibility: ConceptCompatibility;
+  status: ConceptCompatibility;
   reasonKo: string;
   /** unsupported일 때만 채워진다 — 실제 존재하는 대안 채널 id (지어낸 장르/채널 아님). */
   suggestedChannelIds?: string[];
@@ -29,16 +29,16 @@ const RANK: Record<ConceptCompatibility, number> = { supported: 0, 'cross-style'
 function checkBucket(bucket: EraBucket, channel: ChannelProfile): ConceptCompatibilityResult {
   const data = channel.archetype ? CONCEPT_COMPATIBILITY_BY_ARCHETYPE[channel.archetype] : undefined;
   if (!data) {
-    return { compatibility: 'supported', reasonKo: `아키타입 '${channel.archetype ?? '(없음)'}'에 대한 시대 호환성 데이터 없음 — 기본 허용(제약을 지어내지 않음)` };
+    return { status: 'supported', reasonKo: `아키타입 '${channel.archetype ?? '(없음)'}'에 대한 시대 호환성 데이터 없음 — 기본 허용(제약을 지어내지 않음)` };
   }
   if (data.supportedEraBuckets.includes(bucket)) {
-    return { compatibility: 'supported', reasonKo: `${ERA_LABEL[bucket]}는 이 채널의 실측 주력 시대(${data.sourceKo})` };
+    return { status: 'supported', reasonKo: `${ERA_LABEL[bucket]}는 이 채널의 실측 주력 시대(${data.sourceKo})` };
   }
   if (data.crossStyleEraBuckets.includes(bucket)) {
-    return { compatibility: 'cross-style', reasonKo: `${ERA_LABEL[bucket]}는 이 채널의 주력 시대는 아니지만 재해석으로 선택 가능 — ${data.sourceKo}` };
+    return { status: 'cross-style', reasonKo: `${ERA_LABEL[bucket]}는 이 채널의 주력 시대는 아니지만 재해석으로 선택 가능 — ${data.sourceKo}` };
   }
   return {
-    compatibility: 'unsupported',
+    status: 'unsupported',
     reasonKo: `이 채널(${channel.archetype})은 ${ERA_LABEL[bucket]}를 표현할 근거가 없음 — ${data.sourceKo}`,
     suggestedChannelIds: data.suggestedChannelIds
   };
@@ -54,9 +54,9 @@ function checkBucket(bucket: EraBucket, channel: ChannelProfile): ConceptCompati
 export function checkConceptCompatibility(concept: string, channel: ChannelProfile): ConceptCompatibilityResult {
   const era = extractEraConstraint(concept);
   if (era.unspecified) {
-    return { compatibility: 'supported', reasonKo: '컨셉에 특정 시대 신호가 없음 — 시대 조합 충돌 없음' };
+    return { status: 'supported', reasonKo: '컨셉에 특정 시대 신호가 없음 — 시대 조합 충돌 없음' };
   }
   const buckets: EraBucket[] = era.coPrimary ? [era.primary, era.coPrimary] : [era.primary];
   const results = buckets.map(bucket => checkBucket(bucket, channel));
-  return results.reduce((worst, current) => (RANK[current.compatibility] > RANK[worst.compatibility] ? current : worst));
+  return results.reduce((worst, current) => (RANK[current.status] > RANK[worst.status] ? current : worst));
 }

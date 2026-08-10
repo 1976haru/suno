@@ -1768,8 +1768,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const [conceptCompatAcknowledged, setConceptCompatAcknowledged] = useState(false);
   useEffect(() => {
     setConceptCompatAcknowledged(false);
-  }, [conceptCompat.compatibility, opts.customConcept, opts.projectTitle, opts.channel.id]);
-  const conceptCompatBlocked = conceptCompat.compatibility === 'cross-style' && !conceptCompatAcknowledged;
+  }, [conceptCompat.status, opts.customConcept, opts.projectTitle, opts.channel.id]);
+  const conceptCompatBlocked = conceptCompat.status === 'cross-style' && !conceptCompatAcknowledged;
   const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
   // v3.78 (TASK A, §2-1) — "Step2Plan → Step3 이동 시 경고": Step2Plan.tsx
   // lifts its own 관문 1 status here via onDesignGateStatusChange so the

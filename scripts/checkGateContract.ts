@@ -165,7 +165,7 @@ function main() {
       // unsupported로 강등 금지, 그렇다고 supported처럼 blocking으로 세지도
       // 않는다).
       const compat = checkConceptCompatibility(concept, channel);
-      if (compat.compatibility === 'unsupported') {
+      if (compat.status === 'unsupported') {
         unsupportedPairs.push({
           channelId: channel.id,
           concept,
@@ -189,7 +189,7 @@ function main() {
         }
         const requiresResult = contract.requires(channel, opts);
         if (!requiresResult.satisfiable) {
-          const advisory = compat.compatibility === 'cross-style';
+          const advisory = compat.status === 'cross-style';
           if (!advisory) pairHasBlockingViolation = true;
           violations.push({
             channelId: channel.id,

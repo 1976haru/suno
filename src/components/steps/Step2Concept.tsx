@@ -572,7 +572,7 @@ export default function Step2Concept({
           + 대안 채널만 보여준다(차단 아님 — 하루가 원하면 그대로 진행 가능).
           cross-style은 재해석 확인 체크박스 없이는 다음(설계안) 단계로 못
           넘어간다(App.tsx의 conceptCompatBlocked). */}
-      {conceptCompat && conceptCompat.compatibility === 'unsupported' && (
+      {conceptCompat && conceptCompat.status === 'unsupported' && (
         <div className="option-block" style={{ borderLeft: '3px solid #c0392b', paddingLeft: 12 }}>
           <p className="error">⚠ 이 채널은 이 컨셉의 시대를 표현하도록 설계되지 않았어요.</p>
           <p className="supporting">{conceptCompat.reasonKo}</p>
@@ -582,7 +582,7 @@ export default function Step2Concept({
           <p className="supporting">그래도 이대로 진행할 수 있어요 — 다만 실제 생성 결과가 이 시대를 채우지 못할 가능성이 높아요.</p>
         </div>
       )}
-      {conceptCompat && conceptCompat.compatibility === 'cross-style' && (
+      {conceptCompat && conceptCompat.status === 'cross-style' && (
         <div className="option-block" style={{ borderLeft: '3px solid #d68910', paddingLeft: 12 }}>
           <p>△ 이 채널의 주력 시대는 아니지만, 재해석으로 선택할 수 있는 컨셉이에요.</p>
           <p className="supporting">{conceptCompat.reasonKo}</p>
