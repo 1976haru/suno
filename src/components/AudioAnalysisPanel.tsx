@@ -10,9 +10,11 @@ import { buildTakeDirectives, getTakes, recordTake, setAdopted, type AudioTake }
 import { buildDirectiveExecutionReport } from '../core/audioDirectiveAnalysis';
 import { analyzeAdoption, isNeutralWinRate } from '../core/audioAdoption';
 import { getFocusCursor, setFocusCursor } from '../core/library';
-import { analyzeAudioMeasurementsFromFile, type AudioMeasurements } from '../core/audioMeasurements';
+import { amplitudeDeviationBand, analyzeAudioMeasurementsFromFile, AMPLITUDE_DEVIATION_BAND_LABEL_KO, type AudioMeasurements } from '../core/audioMeasurements';
 import { evaluateTakeSelectionSafety, REJECTION_REASONS, isValidRejectionReasonId, type SelectionSafetyIssue } from '../core/audioTakeSelection';
 import { checkCoreAudioCompliance, type ComplianceCheckResult } from '../core/audioCompliance';
+import { formatEstimatedLength } from '../core/bpmLengthControl';
+import type { AudioTakeDirectives } from '../core/audioTakes';
 
 interface AudioAnalysisPanelProps {
   songs: SongIdea[];
@@ -94,14 +96,31 @@ function ComplianceCheckList({ results }: { results: ComplianceCheckResult[] }) 
   );
 }
 
-/** 지시문 11 (TASK F) — 실측 항목 나열: peak/클리핑/앞뒤 무음/1초 단위 진폭 편차/샘플레이트/채널. 테이크 비교 화면에는 이전까지 이 값들이 전혀 표시되지 않았다(단일 테이크 화면의 dynamicRange/spectralCentroid만 표시됨 — audioAnalysis.ts 쪽 수치이지 audioMeasurements.ts 쪽 실측이 아니다). */
-function MeasurementDetail({ measurements }: { measurements: AudioMeasurements | undefined }) {
+/**
+ * 지시문 11 (TASK F) — 실측 항목 나열: peak/클리핑/앞뒤 무음/1초 단위 진폭 편차/샘플레이트/채널. 테이크 비교 화면에는 이전까지 이 값들이 전혀 표시되지 않았다(단일 테이크 화면의 dynamicRange/spectralCentroid만 표시됨 — audioAnalysis.ts 쪽 수치이지 audioMeasurements.ts 쪽 실측이 아니다).
+ * 지시문 28 (TASK C-4/C-6) — 진폭편차 뒤에 하루의 실측 청취 판정 대역(평평/좋음/
+ * 비현실적) 라벨을 붙이고, directives가 있으면 이 트랙 개별 설계 길이 추정
+ * (estimateSongLengthSec)과 실측 길이를 나란히 보여준다. targetEstimatedLengthSec가
+ * 없으면(song.bpm 미상) 그 줄 자체를 생략한다 — 없는 근거로 대조선을 만들지 않는다.
+ * 차단 없음: 순수 표시.
+ */
+function MeasurementDetail({ measurements, directives }: { measurements: AudioMeasurements | undefined; directives?: AudioTakeDirectives }) {
   if (!measurements) return <p className="supporting">측정값 없음</p>;
+  const band = amplitudeDeviationBand(measurements.oneSecRmsDeviationDb);
+  const target = directives?.targetEstimatedLengthSec;
   return (
-    <p className="supporting">
-      피크 {measurements.peak.toFixed(2)} · 앞무음 {measurements.leadingSilenceSec.toFixed(2)}초 · 뒤무음 {measurements.trailingSilenceSec.toFixed(2)}초 ·
-      1초 단위 진폭편차 {measurements.oneSecRmsDeviationDb.toFixed(1)}dB · {measurements.sampleRate}Hz · {measurements.channels}ch
-    </p>
+    <>
+      <p className="supporting">
+        피크 {measurements.peak.toFixed(2)} · 앞무음 {measurements.leadingSilenceSec.toFixed(2)}초 · 뒤무음 {measurements.trailingSilenceSec.toFixed(2)}초 ·
+        1초 단위 진폭편차 {measurements.oneSecRmsDeviationDb.toFixed(1)}dB ({AMPLITUDE_DEVIATION_BAND_LABEL_KO[band]}) · {measurements.sampleRate}Hz · {measurements.channels}ch
+      </p>
+      {target !== undefined && (
+        <p className="supporting">
+          설계 예상 길이 {formatEstimatedLength(target)} / 실측 {formatEstimatedLength(measurements.durationSec)}
+          {' '}(오차 {measurements.durationSec >= target ? '+' : '-'}{formatEstimatedLength(Math.abs(measurements.durationSec - target))})
+        </p>
+      )}
+    </>
   );
 }
 
@@ -196,7 +215,7 @@ function TrackDetailCard({
                   진폭 {takeFull.metrics.dynamicRange.toFixed(1)}dB · 믹스중심(보컬대역) {Math.round(takeFull.vocalMetrics.vocalCentroid)}Hz ·
                   템포 {takeFull.tempoEstimate.confidence >= 0.4 ? `${Math.round(takeFull.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
                 </p>
-                <MeasurementDetail measurements={persistedTake?.measurements} />
+                <MeasurementDetail measurements={persistedTake?.measurements} directives={persistedTake?.directives} />
                 <TakeAudioPlayer file={filesByName.get(take.fileName)} />
                 {complianceResults.length > 0 && <ComplianceCheckList results={complianceResults} />}
                 <div><ComplianceBadges issues={issues} /></div>
@@ -219,7 +238,7 @@ function TrackDetailCard({
               중심 {Math.round(metrics.spectralCentroid)}Hz · 믹스중심(보컬대역) {Math.round(full.vocalMetrics.vocalCentroid)}Hz ·
               템포 {full.tempoEstimate.confidence >= 0.4 ? `${Math.round(full.tempoEstimate.bpm)} BPM` : '신뢰도 낮음'}
             </p>
-            {adoptedFileName && <MeasurementDetail measurements={findTake(adoptedFileName)?.measurements} />}
+            {adoptedFileName && <MeasurementDetail measurements={findTake(adoptedFileName)?.measurements} directives={findTake(adoptedFileName)?.directives} />}
             {adoptedFileName && <TakeAudioPlayer file={filesByName.get(adoptedFileName)} />}
             {adoptedFileName && (() => {
               const persistedTake = findTake(adoptedFileName);

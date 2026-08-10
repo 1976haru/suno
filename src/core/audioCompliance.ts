@@ -44,11 +44,35 @@ function checkDuration(measuredSec: number, targetRangeSec: [number, number]): C
   return { id: 'duration', labelKo: '길이', status: 'fail', detail };
 }
 
+/**
+ * 지시문 28 (TASK C-3) — 실측(20260810 60년대 세트): 검출 BPM 중앙값이 설계
+ * 중앙값보다 크게 높았고(112.3 vs 83), T3/T5/T8/T9/T12/T14/T17/T18 등 다수가
+ * 설계 대역의 정확히 배음(약 2배) 근처였다 — onsetEnvelope 자동상관이 실제
+ * 박자가 아니라 그 절반 주기(8분음표/16분음표 펄스)에 걸리는 흔한 추정
+ * 오검출. core/audioDirectiveAnalysis.ts의 bpmMatchesTarget이 이미 같은
+ * 문제를 ±10% 비율 허용오차로 배음 보정하지만, 이 모듈은 그 함수의 doc
+ * comment가 명시하듯 절대 BPM 허용오차(±5/±10)라는 다른 허용오차 체계를
+ * 쓴다 — 그 함수를 그대로 가져다 쓰면 허용오차 의미가 조용히 바뀐다. 같은 "measured,
+ * measured*2, measured/2 중 목표에 가장 가까운 것을 쓴다" 보정 절차만
+ * 이식하고, 절대 BPM 허용오차는 그대로 유지한다.
+ */
+function bestOctaveCandidate(measuredBpm: number, targetBpm: number): { bpm: number; octaveCorrected: boolean } {
+  const candidates: Array<{ bpm: number; octaveCorrected: boolean }> = [
+    { bpm: measuredBpm, octaveCorrected: false },
+    { bpm: measuredBpm * 2, octaveCorrected: true },
+    { bpm: measuredBpm / 2, octaveCorrected: true }
+  ];
+  return candidates.reduce((best, cur) => (Math.abs(cur.bpm - targetBpm) < Math.abs(best.bpm - targetBpm) ? cur : best));
+}
+
 function checkBpm(measuredBpm: number, bpmConfidence: number, targetBpm: number): ComplianceCheckResult {
   if (targetBpm <= 0) return { id: 'bpm', labelKo: 'BPM', status: 'not-measured', detail: '목표 BPM 없음' };
   if (bpmConfidence < BPM_CONFIDENCE_FLOOR) return { id: 'bpm', labelKo: 'BPM', status: 'not-measured', detail: `BPM 추정 신뢰도 낮음 (${bpmConfidence.toFixed(2)})` };
-  const delta = Math.abs(measuredBpm - targetBpm);
-  const detail = `실측 ${measuredBpm.toFixed(0)} / 목표 ${targetBpm} (차이 ${delta.toFixed(1)})`;
+  const { bpm: correctedBpm, octaveCorrected } = bestOctaveCandidate(measuredBpm, targetBpm);
+  const delta = Math.abs(correctedBpm - targetBpm);
+  const detail = octaveCorrected
+    ? `실측 ${measuredBpm.toFixed(0)}(배음보정 ${correctedBpm.toFixed(0)}) / 목표 ${targetBpm} (차이 ${delta.toFixed(1)})`
+    : `실측 ${measuredBpm.toFixed(0)} / 목표 ${targetBpm} (차이 ${delta.toFixed(1)})`;
   if (delta <= BPM_PASS_TOLERANCE) return { id: 'bpm', labelKo: 'BPM', status: 'pass', detail };
   if (delta <= BPM_WARN_TOLERANCE) return { id: 'bpm', labelKo: 'BPM', status: 'warn', detail };
   return { id: 'bpm', labelKo: 'BPM', status: 'fail', detail };

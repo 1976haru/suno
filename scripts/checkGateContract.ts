@@ -18,8 +18,6 @@ import { resolveConstraintsFromOptions } from '../src/core/constraints';
 import { GATE_DATA_CONTRACTS } from '../src/core/gateDataContract';
 import { DESIGN_GATE_ITEM_IDS } from '../src/core/auditItemIds';
 import { moneyChordRotationPool, signatureMoneyChordId } from '../src/data/moneyChords';
-import { AUDIENCE_PROFILE_ID_BY_ARCHETYPE } from '../src/data/archetypeAudienceProfiles';
-import { introTexturesForArchetype } from '../src/data/introTextures';
 import type { ChannelProfile, GenerationOptions, WorkspaceId } from '../src/types';
 
 // 워크스페이스당 대표 컨셉 3개 — 시대/무드 신호가 실제로 걸리는 것 위주로 구성
@@ -115,44 +113,19 @@ function checkMoneyChordRotationContract(): number {
 }
 
 // ---------------------------------------------------------------------------
-// 지시문 27 (TASK D-2) — "아키타입별로 정의되어야 하는데 일부만 정의된"
-// 데이터를 전수 확인한다. 지시문 15 TASK D의 check:archetype이 하드코딩
-// 59곳을 센 것의 반대 방향 — 이건 "정의가 빠진 곳"을 센다. 실제 조사 결과:
-//   moneyChordRotationPool/signatureMoneyChordId — 지시문 27 TASK A로 13/13
-//   arcModelId(archetypeAudienceProfiles.ts's AUDIENCE_PROFILE_ID_BY_ARCHETYPE)
-//     — Record<ChannelArchetype, string> 타입 자체가 전체 키를 강제해 원래도
-//       16/16(정본 13개 포함) 완비. TypeScript가 구조적으로 보장하므로 런타임
-//       검사가 필요 없다 — 그래도 문서화 차원에서 실측해 표에 남긴다.
-//   killingPointPool — 아키타입별이 아니라 kids/비-kids 이진 분기
-//     (data/killingPoints.ts's KILLING_POINTS vs killingPointsKids.ts's
-//     kidsKillingPointsForTier) — "아키타입별 정의"라는 틀 자체가 안 맞는다.
-//   introTexturePool — introTexturesForArchetype이 매칭 10개 미만이면 전체
-//     풀로 폴백하는 방어 로직이 있어(introTextures.ts:186-189) 애초에 "0개"가
-//     구조적으로 불가능 — 아래에서 실측으로 확인한다.
-//   vocalPresetPool — matchVocalPreset은 아키타입이 아니라 자유 텍스트로
-//     매칭하고, suitedArchetypes는 추천 힌트일 뿐 생성 자체를 막지 않는다
-//     — "아키타입별 필수 풀"이라는 개념이 없다.
+// 지시문 27 (TASK D-2)가 여기 두었던 "아키타입별 정의 누락 전수표"는 지시문 28
+// (TASK A)의 `npm run check:coverage`(scripts/checkArchetypeCoverage.ts)로
+// 대체되었다 — 5개 축(moneyChordRotationPool/signatureMoneyChordId/arcModelId/
+// introTexturePool/killingPointPool·vocalPresetPool)만 보던 것을 19개 축으로
+// 넓히고, "0개가 구조적으로 불가능"이라 보고했던 introTexturePool도 폴백
+// 이전 원본 매칭 개수를 드러낸다(실측 결과 oldpop-lounge/kr-2030-pop/
+// jp-2030-pop/kr-idol-male/kr-idol-female은 원본 매칭이 0개 — 전체 풀로
+// 조용히 폴백하고 있었다, 이 스크립트의 "10개 미만 매칭 시 폴백"이라는
+// 설명 자체는 맞았지만 "그래서 0개가 안 나온다"는 결론이 실제로는
+// "0개인데 안 보인다"였다). 낡은 경로를 남긴 채 새 경로를 추가하지
+// 않는다(§규약 5) — 여기 있던 함수는 삭제했다. 아키타입별 정의 커버리지가
+// 궁금하면 check:coverage를 실행할 것.
 // ---------------------------------------------------------------------------
-function checkArchetypeDataCompleteness(): void {
-  console.log(`\n[check:gates TASK D-2] 아키타입별 정의 누락 전수표\n`);
-  console.log('데이터                              정의됨/13   비고');
-  console.log('─'.repeat(70));
-
-  const moneyChordDefined = CANONICAL_ARCHETYPES_FOR_MONEY_CHORD.filter(a => moneyChordRotationPool(a).length >= 2).length;
-  console.log(`moneyChordRotationPool               ${moneyChordDefined}/13        지시문 27 TASK A로 완비 (이전 6/13)`);
-
-  const signatureDefined = CANONICAL_ARCHETYPES_FOR_MONEY_CHORD.filter(a => signatureMoneyChordId(a) !== 'default' || a === 'kr-2030-pop').length;
-  console.log(`signatureMoneyChordId(≠default)      ${signatureDefined}/13        kr-2030-pop은 의도적으로 'default'(장르 자체가 무난한 팝 베이스)`);
-
-  const arcModelDefined = CANONICAL_ARCHETYPES_FOR_MONEY_CHORD.filter(a => Boolean(AUDIENCE_PROFILE_ID_BY_ARCHETYPE[a as keyof typeof AUDIENCE_PROFILE_ID_BY_ARCHETYPE])).length;
-  console.log(`arcModelId (via audienceProfile)     ${arcModelDefined}/13        Record<ChannelArchetype,...> 타입이 전체 키를 강제 — 구조적으로 완비`);
-
-  const introTextureDefined = CANONICAL_ARCHETYPES_FOR_MONEY_CHORD.filter(a => introTexturesForArchetype(a as never).length > 0).length;
-  console.log(`introTexturePool                     ${introTextureDefined}/13        10개 미만 매칭 시 전체 풀로 폴백 — 0개가 구조적으로 불가능`);
-
-  console.log(`killingPointPool                     N/A         아키타입별이 아니라 kids/비-kids 이진 분기 — "아키타입별 정의" 틀이 안 맞음`);
-  console.log(`vocalPresetPool                      N/A         suitedArchetypes는 추천 힌트일 뿐, 생성을 막는 필수 풀이 아님`);
-}
 
 function main() {
   const violations: ContractViolation[] = [];
@@ -219,7 +192,6 @@ function main() {
   console.log(`통과 ${pairsPassed} / 위반 ${pairsViolated}  (총 ${pairCount}쌍, CONTRACT VIOLATION ${violations.length}건, 미등록 관문 ${unregisteredGateIds.size}개)`);
 
   const moneyChordViolations = checkMoneyChordRotationContract();
-  checkArchetypeDataCompleteness();
 
   if (pairsViolated > 0 || unregisteredGateIds.size > 0 || moneyChordViolations > 0) {
     process.exitCode = 1;

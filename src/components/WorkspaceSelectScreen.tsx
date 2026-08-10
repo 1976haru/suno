@@ -3,6 +3,7 @@ import { listPacks } from '../core/library';
 import { currentWorkspaceId } from '../core/workspaceScope';
 import { workspaceDefinitions, type WorkspaceDefinition } from '../data/workspaces';
 import { workspaceAvailabilityFor } from '../data/workspaceAvailability';
+import { computeWorkspaceReadiness, type WorkspaceReadiness } from '../core/workspaceReadiness';
 import type { WorkspaceId } from '../types';
 import DataManagementPanel from './DataManagementPanel';
 
@@ -18,13 +19,18 @@ interface WorkspaceSelectScreenProps {
 interface WorkspaceCardStats {
   count: number;
   lastSavedAt: string | null;
+  readiness: WorkspaceReadiness;
 }
 
-/** v4.0 (TASK A1) — reads a workspace's own pack count/last-saved date for its entry-screen card. Passes `id` straight through to listPacks()'s explicit workspaceId override rather than temporarily mutating the shared currentWorkspaceId() global — an earlier version did that and raced under React StrictMode's dev-only double-effect invocation (see workspaceScope.ts's scopeFilter doc comment). */
-async function packSummaryForWorkspace(id: WorkspaceId): Promise<WorkspaceCardStats> {
+/**
+ * v4.0 (TASK A1) — reads a workspace's own pack count/last-saved date for its entry-screen card. Passes `id` straight through to listPacks()'s explicit workspaceId override rather than temporarily mutating the shared currentWorkspaceId() global — an earlier version did that and raced under React StrictMode's dev-only double-effect invocation (see workspaceScope.ts's scopeFilter doc comment).
+ * 지시문 28 (TASK B) — packs.length(실전 검증 세트 수)를 computeWorkspaceReadiness에
+ * 그대로 넘긴다 — IndexedDB를 두 번 두드리지 않는다.
+ */
+async function packSummaryForWorkspace(id: WorkspaceId, workspace: WorkspaceDefinition): Promise<WorkspaceCardStats> {
   const packs = await listPacks(id);
   const lastSavedAt = packs.reduce<string | null>((latest, pack) => (!latest || pack.savedAt > latest ? pack.savedAt : latest), null);
-  return { count: packs.length, lastSavedAt };
+  return { count: packs.length, lastSavedAt, readiness: computeWorkspaceReadiness(workspace, packs.length) };
 }
 
 function formatLastWorked(iso: string | null): string {
@@ -32,6 +38,24 @@ function formatLastWorked(iso: string | null): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
   return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+/**
+ * 지시문 28 (TASK B) — 워크스페이스 카드 자체가 <button>이라 안에 <details>
+ * 같은 인터랙티브 요소를 넣을 수 없다(HTML 중첩 규칙 위반 + 클릭 가로채기).
+ * 대신 title 속성에 5개 축 전체를 풀어써 호버로 보이게 한다 — 클릭은 여전히
+ * 카드 전체(워크스페이스 진입) 동작 하나뿐이다. 차단 없음 — 색과 숫자만
+ * 다를 뿐 클릭 가능 여부(ready)는 전혀 바꾸지 않는다.
+ */
+function WorkspaceReadinessBadge({ readiness }: { readiness: WorkspaceReadiness }) {
+  const { items, passCount, total } = readiness;
+  const allPass = passCount === total;
+  const title = items.map(i => `${i.ok ? '✅' : '❌'} ${i.labelKo}: ${i.detailKo}`).join('\n');
+  return (
+    <span className={allPass ? 'chip workspace-card-readiness' : 'chip warning-chip workspace-card-readiness'} title={title}>
+      {allPass ? '✅' : '⚠'} 준비 상태 {passCount}/{total}
+    </span>
+  );
 }
 
 export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScreenProps) {
@@ -44,7 +68,7 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
     let cancelled = false;
     // Safe to run concurrently: packSummaryForWorkspace() takes an explicit
     // workspaceId parameter now, with no shared mutable state between calls.
-    void Promise.all(workspaceDefinitions.map(async ws => [ws.id, await packSummaryForWorkspace(ws.id)] as const)).then(entries => {
+    void Promise.all(workspaceDefinitions.map(async ws => [ws.id, await packSummaryForWorkspace(ws.id, ws)] as const)).then(entries => {
       if (!cancelled) setStats(Object.fromEntries(entries));
     });
     return () => {
@@ -91,6 +115,7 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
               ) : (
                 <span className="workspace-card-meta">준비 중</span>
               )}
+              {ready && stat && <WorkspaceReadinessBadge readiness={stat.readiness} />}
             </button>
           );
         })}
