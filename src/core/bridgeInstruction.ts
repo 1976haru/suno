@@ -802,6 +802,17 @@ function hookDeviceInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): 
     : '';
 }
 
+// 지시문 36 (TASK C-3) — hookDeviceInstructionLineFor와 같은 reference-not-
+// verbatim 패턴. moneyChordText/hookDeviceText와 같은 신뢰 모델(사전 계산 →
+// 슬롯 배정 → 지시문에 그대로 전달)이지만, 전조(key change)를 대체하지
+// 않는다는 점을 명시한다 — 킬링포인트는 하루가 직접 청취 검증한 별개
+// 축이다(§C-4 "하지 말 것").
+function chorusContrastInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.chorusContrastText)
+    ? '- Each "preassignedSongs" entry may include "chorusContrastText" — a REFERENCE arrangement-density idea for how the chorus should sound fuller than the verse (added harmony, added instruments, wider stereo, etc), not required wording. This is about ARRANGEMENT, never a key change/modulation — that stays governed separately by killingPointText where present. Use it, a variant of it, or your own arrangement-contrast idea if you have a better one for this song\'s era and genre — just make sure the chorus reads as denser/fuller than the verse.'
+    : '';
+}
+
 /**
  * TASK v3.64-B — same reference-not-verbatim pattern as
  * hookDeviceInstructionLineFor above. Real measurement: earworm mode's old
@@ -1595,6 +1606,7 @@ export function buildClaudeCodeInstruction(
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
+  const chorusContrastInstructionLine = chorusContrastInstructionLineFor(preassignedSongs);
   const earwormInstructionLine = earwormInstructionLineFor(preassignedSongs);
   const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
@@ -1713,6 +1725,7 @@ export function buildClaudeCodeInstruction(
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
+    chorusContrastInstructionLine,
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,
@@ -1898,6 +1911,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     : '';
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(allSlots);
+  const chorusContrastInstructionLine = chorusContrastInstructionLineFor(allSlots);
   const earwormInstructionLine = earwormInstructionLineFor(allSlots);
   const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(allSlots);
   const genreInstructionLine = genreInstructionLineFor(allSlots);
@@ -1997,6 +2011,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,
+    chorusContrastInstructionLine,
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,

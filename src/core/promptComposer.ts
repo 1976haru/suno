@@ -927,6 +927,15 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
   const hookDeviceInstruction = hasHookDeviceText
     ? ' Each entry also includes "hookDeviceText" — weave that exact phrase into that song\'s stylePrompt as an arrangement/production detail, verbatim. This is a per-song arrangement-contrast device (stop-time, key change, breakdown, etc); do not drop it, substitute a different device, or paraphrase it away, and never reuse the same device text word-for-word across two songs in this request.'
     : '';
+  // 지시문 36 (TASK C-3) — REFERENCE, not verbatim-required (unlike
+  // hookDeviceInstruction just above) — matches the directive's own
+  // "arrangement idea, not required wording" framing, and keeps this
+  // distinct from a key-change/modulation instruction (killingPoint's own
+  // domain, never replaced by this).
+  const hasChorusContrastText = batch.preassignedSongs?.some(slot => slot.chorusContrastText);
+  const chorusContrastInstruction = hasChorusContrastText
+    ? ' Each entry may also include "chorusContrastText" — a REFERENCE arrangement-density idea for how the chorus should sound fuller than the verse (added harmony, added instruments, wider stereo, etc), not required wording. This is about ARRANGEMENT, never a key change/modulation. Use it, a variant of it, or your own arrangement-contrast idea if you have a better one for this song — just make sure the chorus reads as denser/fuller than the verse.'
+    : '';
   // TASK v4.11 (TASK B) — tracks 1-3 only (openingLoudnessText is never set
   // beyond track 3): real waveform measurement found those tracks'
   // first 15 seconds rendering ~3.7dB quieter than that same track's own
@@ -1043,6 +1052,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     'trackNo', 'title', 'hookPhrase', 'songRole', 'tempo', 'emotionArc', 'moneyChordText',
     ...(hasGenreText ? ['genreId', 'genreText'] : []),
     ...(hasHookDeviceText ? ['hookDeviceText'] : []),
+    ...(hasChorusContrastText ? ['chorusContrastText'] : []),
     ...(hasOpeningLoudnessText ? ['openingLoudnessText'] : []),
     ...(hasIntroTextureText ? ['introTextureText'] : []),
     ...(hasNegativeStyleText ? ['negativeStyleText'] : []),
@@ -1070,7 +1080,7 @@ export function buildBatchSystemNote(opts: GenerationOptions, batch: BatchContex
     ...(hasConceptText ? ['conceptText', 'conceptLyricImages'] : [])
   ].join(', ').replace(/, ([^,]*)$/, ', or $1');
   const preassignedNote = batch.preassignedSongs?.length
-    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${openingLoudnessInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${lengthTargetInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
+    ? `\n- "preassignedSongs" in the user payload is a fixed, already-decided list of {${preassignedFieldList}} for every song in this request. Do NOT invent a different ${forcedFieldsList} - copy those verbatim. ${titleInstruction} ${hookInstruction} ${moneyChordInstruction}${genreInstruction}${hookDeviceInstruction}${chorusContrastInstruction}${openingLoudnessInstruction}${introTextureInstruction}${negativeStyleInstruction}${tempoInstruction}${lengthTargetInstruction}${instrumentInstruction}${arrangementDensityInstruction}${structureTemplateInstruction}${killingPointInstruction}${lyricThemeInstruction}${povInstruction}${sectionStyleInstruction}${vocalInstruction}${conceptInstruction} Also write the remaining content (${preassignedFreeFields}) around these fields. This is what keeps parallel batches from colliding on identity.${openingRoleNote}`
     : '';
   return `\n\nBatch mode:\n- This request only covers tracks ${batch.trackNoOffset + 1} to ${batch.trackNoOffset + opts.songCount} out of ${batch.totalSongCount} total songs in the pack.\n- Number "trackNo" starting at ${batch.trackNoOffset + 1}, not 1.\n- Never reuse any title or hook phrase already listed in "alreadyUsedTitles" / "alreadyUsedHooks" in the user payload.\n- If "lockedIdentity" is present in the user payload, reuse its sonicSignature, vocalSignature, lyricRules, harmonyRules, and visualRules verbatim so the whole pack stays consistent across batches.${preassignedNote}`;
 }

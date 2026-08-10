@@ -12,6 +12,7 @@ import { isKidsArchetype } from '../utils/channelArchetype';
 import { FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { expectedArcPhaseCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
+import { emotionQuotaAdvisory } from './emotionArcQuota';
 import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import {
   DEFAULT_ADULT_VOCAL_QUOTA,
@@ -1312,7 +1313,9 @@ export function evaluateDesignGate(
     ...arrangementDensityAdvisoryIssues(slots),
     ...kidsArcStructure.advisory,
     // 지시문 33 (§1) — advisory 전용, verified:false라 blocking에 넣지 않는다.
-    ...eraNeutralFloorAdvisory(slots, constraints.era, constraints.workspaceId)
+    ...eraNeutralFloorAdvisory(slots, constraints.era, constraints.workspaceId),
+    // 지시문 36 (TASK B) — 같은 이유로 advisory 전용.
+    ...emotionQuotaAdvisory(constraints.workspaceId, slots.map(slot => slot.emotionArc))
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

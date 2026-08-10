@@ -129,7 +129,7 @@ export type PromptTermId =
   | 'genre' | 'vocal' | 'hook' | 'moneyChord' | 'duration' | 'tempo'
   | 'mood' | 'instruments' | 'season' | 'safety' | 'earworm'
   | 'songRole' | 'motif' | 'listenerScene' | 'mixNotes' | 'genreNarrative' | 'genreSignature' | 'concept' | 'hookDevice' | 'introTexture' | 'arrangementDensity'
-  | 'killingPoint' | 'soundFloor' | 'openingHook' | 'openingLoudness';
+  | 'killingPoint' | 'soundFloor' | 'openingHook' | 'openingLoudness' | 'chorusContrast';
 
 // TASK F2 (v3.7) — reordered to match Suno's own recommended tag order
 // (genre -> mood -> instruments -> vocal -> production/detail); Suno weighs
@@ -196,9 +196,13 @@ export type PromptTermId =
 // warns about — an id missing from THIS array never appears in the final
 // prompt at all, regardless of atomsById/GUARANTEED_MINIMUM_TERM_IDS/
 // GUARANTEED_FLOOR_BY_ID all being set correctly.
+// 지시문 36 (TASK C) — 'chorusContrast'는 맨 끝(가장 낮은 우선순위)에 둔다:
+// killingPoint(하루가 청취 검증한 축)보다 먼저 예산 압박에 잘려야 하고,
+// hookDevice보다도 낮다 — 이 축은 verified:false 추정치 실험이지 채널
+// 정체성 필수 요소가 아니다(GUARANTEED_MINIMUM_TERM_IDS에도 넣지 않음).
 export const PROMPT_PRIORITY: PromptTermId[] = [
   'vocal', 'genreSignature', 'genreNarrative', 'concept', 'moneyChord', 'introTexture', 'tempo', 'soundFloor', 'arrangementDensity', 'instruments', 'hookDevice', 'killingPoint', 'openingHook', 'openingLoudness',
-  'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety'
+  'earworm', 'genre', 'hook', 'duration', 'mood', 'season', 'songRole', 'motif', 'listenerScene', 'mixNotes', 'safety', 'chorusContrast'
 ];
 
 // TASK v4.7 (TASK A, §1-4) — "requiredAtoms... 18곡 전부의 stylePrompt 에
@@ -232,7 +236,8 @@ export const TERM_LABELS_KO: Record<PromptTermId, string> = {
   killingPoint: 'killing point',
   soundFloor: 'channel sound floor',
   openingHook: 'opening hook',
-  openingLoudness: 'opening loudness'
+  openingLoudness: 'opening loudness',
+  chorusContrast: 'chorus arrangement contrast'
 };
 
 export interface PromptPart {

@@ -1084,10 +1084,18 @@ describe('evaluateDesignGate — senior-workspace byte-identical regression swee
     expect(BREADTH_THRESHOLDS.variety.genre.maxPerGenre).toBe(4);
   });
 
-  it('a healthy senior pack (real fixture) passes with zero blocking/advisory shape drift', () => {
+  it('a healthy senior pack (real fixture) passes with zero blocking, and only the 지시문 36 emotion-quota advisory (this fixture never varies emotionArc)', () => {
     const opts = baseOpts();
     const result = evaluateDesignGate(healthySlots(), baseConstraints(opts), opts);
-    expect(result).toEqual({ passed: true, blocking: [], advisory: [] });
+    expect(result.passed).toBe(true);
+    expect(result.blocking).toEqual([]);
+    // 지시문 36 (TASK B) — healthySlots()의 모든 슬롯이 같은 emotionArc: 'steady'
+    // 플레이스홀더를 쓴다(감정 축을 검사 대상으로 삼는 픽스처가 아님) —
+    // core/emotionArcQuota.ts의 실제 분류표엔 없는 문구라 0/7 커버로 advisory가
+    // 뜬다. 이 advisory 자체가 이 지시문의 의도된 새 동작이라 사라지지
+    // 않는다 — never blocking이라는 것만 이 테스트의 진짜 관심사다.
+    expect(result.advisory).toHaveLength(1);
+    expect(result.advisory[0].id).toBe('emotion-quota-distribution');
   });
 
   it('a maximally unhealthy senior pack produces the exact same issue id set as before this task\'s fixes (no fix silently loosened or tightened a senior-facing check)', () => {

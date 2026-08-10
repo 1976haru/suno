@@ -20,6 +20,8 @@ import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclu
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById } from '../data/hookDevices';
+import { buildChorusContrastPlan } from './chorusContrastPlan';
+import { chorusContrastPlanById } from '../data/chorusContrast';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { buildTempoBandPlan, resolveTempoWithBand } from './tempoPlan';
 import { applyGenreVocalAffinity } from './vocalGenreAffinity';
@@ -1536,6 +1538,8 @@ export function generateLocalBlueprint(
     hookDevices.map(device => device.id),
     seed
   );
+  // 지시문 36 (TASK C-3) — mirrors batchPreallocation.ts's own chorusContrastPlan (same seed offset).
+  const chorusContrastPlan = buildChorusContrastPlan(opts.songCount, seed + 173);
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
@@ -1813,6 +1817,8 @@ export function generateLocalBlueprint(
     // no equivalent per-atom budget concern).
     const hookDeviceEntry = getHookDeviceById(hookDevicePlan[idx]);
     const hookDeviceText = hookDeviceEntry?.shortForm;
+    // 지시문 36 (TASK C) — mirrors hookDeviceText's own shortForm-as-atom pattern.
+    const chorusContrastEntry = chorusContrastPlanById(chorusContrastPlan[idx]);
     // TASK v4.8 (TASK D-2) — real measurement found "warm string pad swell
     // intro texture" (data/introTextures.ts's 'str_warm_pad', suited to
     // senior-morning broadly) landing on an early-1960s Brill Building song
@@ -2085,6 +2091,11 @@ export function generateLocalBlueprint(
         })()
       },
       ...(hookDeviceText ? [{ id: 'hookDevice' as const, text: hookDeviceText }] : []),
+      // 지시문 36 (TASK C) — non-essential, dropped first under budget
+      // pressure (PROMPT_PRIORITY's own last slot) — same protection level
+      // as hookDevice's own shortForm atom, just lower priority since this
+      // is an additive arrangement-contrast nudge, not a per-song identity atom.
+      ...(chorusContrastEntry ? [{ id: 'chorusContrast' as const, text: chorusContrastEntry.shortForm }] : []),
       // TASK v3.59 (TASK D-1) — see the other composeStylePrompt call's own
       // comment above; same "no instrumental intro" vs. introTexture
       // contradiction, same fix.

@@ -185,6 +185,21 @@ const STRUCTURAL_BIAS: KillingPointBoostMap = {
   'KP-01': 0.6
 };
 
+/**
+ * 지시문 36 (TASK C-4) — v5.21의 STRUCTURAL_BIAS(KP-01 가중치 0.6)만으로는
+ * 실측 전조 비중이 여전히 11/18까지 올라간다(§1, 20260810_001 실측 — KP-01/
+ * KP-07 둘 다 "전조/장조 전환" 계열이고, 가중치를 낮추는 것만으로는 둘을
+ * 합친 총량에 상한이 없었다). 이 상수는 KP-01+KP-07 둘을 합친 절대 상한이다
+ * — 개별 MAX_SONGS_PER_KILLING_POINT(4)보다 낮은, 전조라는 "종류" 자체에
+ * 거는 별도 캡. 5~6이라는 목표(§C-4 "11/18 → 5~6/18")는 추정치다(하루의
+ * 청취 없이 정한 숫자) — 상한을 6으로 두어 목표 범위의 상단을 넘지 않게
+ * 하되, 0으로는 절대 만들지 않는다(§ "하지 말 것: 전조를 0으로 만들지
+ * 말 것" — 킬링포인트 자체가 하루가 청취 검증한 축이라 완전히 없애면 안
+ * 된다).
+ */
+const MODULATION_KILLING_POINT_IDS = new Set(['KP-01', 'KP-07']);
+const MAX_MODULATION_KILLING_POINTS = 6;
+
 export function killingPointById(id: string): KillingPoint | undefined {
   return KILLING_POINTS.find(kp => kp.id === id);
 }
@@ -264,6 +279,11 @@ export function assignKillingPoints(
   killingPointSet: readonly KillingPoint[] = KILLING_POINTS
 ): (KillingPoint | undefined)[] {
   const usage = new Map<string, number>();
+  // 지시문 36 (TASK C-4) — MODULATION_KILLING_POINT_IDS(KP-01+KP-07) 둘을
+  // 합친 러닝 카운트. usage 맵과 별개로 두는 이유: usage는 "이 id가 몇 번
+  // 쓰였는가"이고 이건 "전조라는 종류가 몇 번 쓰였는가" — 서로 다른 축의
+  // 캡이라 하나로 합치면 안 된다.
+  let modulationCount = 0;
   return inputs.map((input, idx) => {
     if (input.peakStrength === 'none') return undefined;
     const candidates = candidatesFor(input.eraTag, killingPointSet);
@@ -280,8 +300,18 @@ export function assignKillingPoints(
     // for KP-01's over-selection to be corrected.
     const effectiveWeight = (id: string) => (STRUCTURAL_BIAS[id] ?? 1) * (boost[id] ?? 1);
     const ranked = [...rotated].sort((a, b) => effectiveWeight(b.id) - effectiveWeight(a.id));
-    const chosen = ranked.find(kp => (usage.get(kp.id) ?? 0) < MAX_SONGS_PER_KILLING_POINT) ?? rotated[0];
+    // 지시문 36 (TASK C-4) — usage 캡을 통과한 후보 중, 전조 캡이 이미 찬
+    // 상태라면 비-전조 후보를 우선한다. 후보 전부가 전조뿐이면(비-전조 후보가
+    // 이 era/usage 조합에서 하나도 없으면) 캡을 넘겨서라도 배정한다 — 완전히
+    // 0으로 만들지 않는다는 것과 같은 이유로, 캡이 "무엇도 배정하지 않는다"로
+    // 이어지면 안 된다.
+    const usageOk = (kp: KillingPoint) => (usage.get(kp.id) ?? 0) < MAX_SONGS_PER_KILLING_POINT;
+    const withinModulationCap = (kp: KillingPoint) => !MODULATION_KILLING_POINT_IDS.has(kp.id) || modulationCount < MAX_MODULATION_KILLING_POINTS;
+    const chosen = ranked.find(kp => usageOk(kp) && withinModulationCap(kp))
+      ?? ranked.find(kp => usageOk(kp))
+      ?? rotated[0];
     usage.set(chosen.id, (usage.get(chosen.id) ?? 0) + 1);
+    if (MODULATION_KILLING_POINT_IDS.has(chosen.id)) modulationCount += 1;
     return chosen;
   });
 }

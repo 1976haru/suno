@@ -30,6 +30,7 @@
     "check:coverage": "tsx scripts/checkArchetypeCoverage.ts",
     "check:choices": "tsx scripts/checkChoiceContract.ts",
     "check:version": "tsx scripts/checkVersion.ts",
+    "check:budget": "tsx scripts/checkConstraintBudget.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",
