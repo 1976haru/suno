@@ -11,9 +11,11 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 다른 "지시문 08"(finalize choke point) 범위 — 지시문 09 TASK C-2 자신의
   // 스코프 노트: "finalizeBlueprint · artifactStage · finalExport ※ 지시문
   // 08 TASK 3의 범위다. 09에서는 도달성만 확인한다."
-  'src/core/finalizeBlueprint.ts': '지시문 08(다른 문서) TASK 3 "finalize choke point"의 범위 — 09는 도달성만 확인, 배선은 그 지시문에서',
-  'src/core/artifactStage.ts': '위와 동일 — finalizeBlueprint의 하위 단계',
-  'src/core/finalExport.ts': '위와 동일 — finalizeBlueprint의 하위 단계',
+  // 'src/core/finalizeBlueprint.ts'/'src/core/artifactStage.ts' — 지시문 31
+  // (§3)이 canPersistFinalizedPack을 core/library.ts's savePack(App.tsx가
+  // 실제로 부르는 자동저장/현재 팩/가져온 팩/멀티세트 저장의 공통 관문)에
+  // 배선하면서 실제로 도달 가능해졌다. allowlist에서 지웠다.
+  'src/core/finalExport.ts': 'finalizeBlueprint의 하위 단계였으나 finalizeBlueprint 자신은 이제 도달 가능 — 이 파일 자체는 여전히 별도로 배선된 적 없음(지시문 08 범위, 09는 도달성만 확인)',
 
   // 지시문 11(음원·번들) 범위 — 지시문 09 TASK C-2 자신의 스코프 노트:
   // "audio* · blindBenchmark · productionBundle · musicGenerationProvider
@@ -67,12 +69,12 @@ export const REACHABILITY_ALLOWLIST: Record<string, string> = {
   // 그래프 밖) — tests/fixtures/*.json 같은 다른 순수 테스트 자산과 같은
   // 성격이라 앱 자체에 배선할 대상이 없다. UI에 "골든 케이스 현황" 패널이
   // 실제로 필요해지면 그때 배선한다(지금은 없는 요구를 미리 만들지 않는다).
-  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격',
-
-  // 지시문 16 (TASK C) — 7 워크스페이스 정책 레지스트리. gateDataContract.ts/
-  // verifiedSettingContract.ts와 같은 성격: 지금은 tests/promptAxisPolicy.test.ts
-  // 만 소비한다. "새 관문·새 품질 기능을 만들지 마십시오"라는 이 지시문 자신의
-  // 명시적 제약 때문에 실제 blocking 게이트에 배선하지 않았다 — 정책 값을
-  // 실제로 읽어야 하는 UI/게이트가 생기면 그때 배선한다.
-  'src/data/promptAxisPolicy.ts': 'CLI/테스트 전용 정책 레지스트리 — tests/promptAxisPolicy.test.ts만 소비, 브라우저 진입점 그래프 밖 (지시문 16 TASK C, 새 게이트 생성 금지 제약으로 의도적 미배선)'
+  'src/data/goldenCases.ts': '테스트 전용 회귀 잠금 데이터 — tests/goldenCases.test.ts가 유일한 실제 소비자, tests/fixtures/*.json과 같은 성격'
+  // 지시문 16 (TASK C)이 만든 src/data/promptAxisPolicy.ts는 여기 있었으나,
+  // 지시문 31 (§2)이 core/finalPromptNormalizer.ts를 통해
+  // core/batchPreallocation.ts(브라우저 진입점 그래프 안, App.tsx가 실제로
+  // 임포트)에 promptAxisPolicyFor를 배선하면서 실제로 도달 가능해졌다 —
+  // allowlist에서 제거했다(이 파일 자신의 doc comment: "배선 완료 시 여기서
+  // 지운다, 먼저 지우고 나중에 배선하지 않는다"의 반대 방향 — 이번엔 먼저
+  // 배선하고 여기서 지운다).
 };

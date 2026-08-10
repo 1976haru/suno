@@ -51,12 +51,20 @@ describe('지시문 09 TASK B-5 — 실제 팩 인수 fixture', () => {
     expect(result.openingSixWordDupCount).toBe(2);
   });
 
-  it('60년대 팩 단독 실측: stylePrompt 길이가 지시문 명시 범위(538~690자)와 일치한다', () => {
+  it('60년대 팩 단독 실측: stylePrompt 길이가 지시문 09 §B-5 원 수치(538~690자)에서 지시문 31 정규화 이후 값으로 갱신됐다', () => {
+    // 지시문 31 (§2) — core/finalPromptNormalizer.ts가
+    // reconcileWithPreassignedSlot(이 fixture가 거치는 실제 --pack 경로)에
+    // 연결되면서 중복 클로즈·인접 중복 단어가 실제로 줄어 길이 자체가
+    // 바뀌었다(538~690 → 499~639, 상한이 지시문 09 이후 처음으로 650자
+    // 목표 안에 들어옴). 지시문 09 §B-5의 원 수치는 "그 시점 코드가 이
+    // 정확한 값을 재현하는가"를 잠그기 위한 것이었고, 그 코드 자체(정규화
+    // 단계)가 이번에 실제로 개선됐다 — 옛 수치를 그대로 두면 이 테스트가
+    // "재현되지 않음=로직이 틀림"을 잘못 신호한다. 새 수치를 잠근다.
     const a = loadPackBlueprint(FIXTURE_60S, undefined);
     if (a.blocked) throw new Error('fixture blocked');
     const lens = a.blueprint.songs.map(s => s.stylePrompt.length);
-    expect(Math.min(...lens)).toBe(538);
-    expect(Math.max(...lens)).toBe(690);
+    expect(Math.min(...lens)).toBe(499);
+    expect(Math.max(...lens)).toBe(639);
   });
 
   it('세트 내 도입부(첫 6단어)는 각 팩 내에서 18/18 고유하다 (회귀 방지 목록)', () => {

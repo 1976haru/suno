@@ -6,6 +6,16 @@ export interface IntroTexture {
   labelEn: string;
   tag: string;
   suitedArchetypes?: ChannelArchetype[];
+  /**
+   * 지시문 31 (§4-3) — undefined(또는 true)는 기존 24종처럼 장르 관습에
+   * 근거한 배정이라는 뜻(이 파일 자신의 최상단 주석 "아래 태그는 장르 관습
+   * 기반 추정이다" — 24종 전부 사실상 verified:false 취급이었으나 필드
+   * 자체가 없어 명시할 수 없었다). `false`는 kr-idol 전용 6종(아래)처럼
+   * 실측 0세트인 순수 창작/관습 판단이라는 뜻 — 킬링포인트(지시문 30 TASK
+   * C, data/killingPoints.ts's verified 필드)와 같은 패턴. 나머지 무엇도
+   * 이 필드를 읽어 차단하지 않는다(§공통 규약 7).
+   */
+  verified?: boolean;
 }
 
 // 지시문 28 (TASK A) — check:coverage 실측: oldpop-lounge/kr-2030-pop/
@@ -21,14 +31,15 @@ export interface IntroTexture {
 //     jp-2030-melodic)의 constraints("contemporary ... band-pop/R&B",
 //     "clean modern mix")가 j2000s/modern-chill/city-night와 같은 현대
 //     프로덕션 성격이라 j2000s가 이미 태그된 항목과 동일 집합에 추가했다.
-// kr-idol-male/kr-idol-female은 의도적으로 비워둔다 — 이 풀 24종은 전부
-// 어쿠스틱·빈티지·앰비언트 성격이고, 아이돌 오디언스 프로필이 요구하는
-// "punchy contemporary production built for choreography, high-energy
-// performance-ready mix"에 근거 있게 맞는 항목이 하나도 없다. 없는 근거를
-// 지어내 태그를 붙이느니 결함으로 정직하게 남긴다(§하지 말 것 "빈칸을
-// 임의값으로 채워 ✗를 없애지 말 것") — 아이돌 전용 인트로 텍스처 콘텐츠를
-// 새로 설계하는 것은 데이터 배선이 아니라 창작 작업이라 이 지시문 범위 밖.
-// 전부 verified: false(청취 미검증) — 아래 태그는 장르 관습 기반 추정이다.
+// kr-idol-male/kr-idol-female — 지시문 28 시점에는 의도적으로 비워뒀다(이
+// 풀 24종은 전부 어쿠스틱·빈티지·앰비언트 성격이라 근거 있게 맞는 항목이
+// 없었고, "아이돌 전용 인트로 텍스처 콘텐츠를 새로 설계하는 것은 데이터
+// 배선이 아니라 창작 작업"이라 그 지시문 범위 밖이라 판단). 지시문 31
+// (§4-3)이 그 창작 작업을 명시적으로 요구해 KPOP_INTRO_TEXTURES(아래) 6종을
+// 추가한다 — verified: false로 명시(장르 관습 판단, kr-idol 실측 0세트,
+// data/killingPointsKpop.ts·killingPointsKr2030.ts·killingPointsJp2030.ts와
+// 같은 패턴, 지시문 30 TASK C). 기존 24종은 여전히 전부 verified: false
+// (청취 미검증) — 아래 태그는 장르 관습 기반 추정이다.
 export const introTextures: IntroTexture[] = [
   {
     id: 'ag_finger',
@@ -197,6 +208,56 @@ export const introTextures: IntroTexture[] = [
     labelEn: 'Chime steps',
     tag: 'small chime-step synth intro texture (INTRO ONLY)',
     suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night']
+  },
+  // 지시문 31 (§4-3) — kr-idol-male/kr-idol-female 전용, K-pop 인트로 관행
+  // 6종. verified: false — 실측 0세트, 장르 관습 판단.
+  {
+    id: 'kpop_beat_then_vocal',
+    labelKo: '비트 선행 후 보컬 진입',
+    labelEn: 'Beat-first, vocal enters after',
+    tag: 'drum beat establishes first, lead vocal enters after a few bars intro texture (INTRO ONLY)',
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    verified: false
+  },
+  {
+    id: 'kpop_synth_stabs',
+    labelKo: '신스 스탭',
+    labelEn: 'Synth stabs',
+    tag: 'punchy synth stab hits intro texture (INTRO ONLY)',
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    verified: false
+  },
+  {
+    id: 'kpop_chant_lead_in',
+    labelKo: '챈트 선행',
+    labelEn: 'Chant lead-in',
+    tag: 'short group chant lead-in intro texture (INTRO ONLY)',
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    verified: false
+  },
+  {
+    id: 'kpop_rap_lead_in',
+    labelKo: '랩 선행',
+    labelEn: 'Rap lead-in',
+    tag: 'rap-delivery lead-in before the beat fully lands intro texture (INTRO ONLY)',
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    verified: false
+  },
+  {
+    id: 'kpop_silence_then_drop',
+    labelKo: '무음 후 드롭',
+    labelEn: 'Silence then drop',
+    tag: 'a beat of silence then the full beat drops in intro texture (INTRO ONLY)',
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    verified: false
+  },
+  {
+    id: 'kpop_part_intro',
+    labelKo: '파트 소개',
+    labelEn: 'Part introduction',
+    tag: 'a spoken or sung part-introduction tag before the first verse intro texture (INTRO ONLY)',
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    verified: false
   }
 ];
 

@@ -948,6 +948,19 @@ export function rebuildStylePromptsForPersonaMode(
       // atoms and regress tests/promptBudgetLoopGuard.test.ts's style
       // similarity guard. Left unchanged (styleLimitValue for both).
       ], styleLimitValue, styleLimitValue, undefined, idx);
+    // 지시문 31 (§2-5) — finalPromptNormalizer를 이 재조립 경로에도 연결해
+    // 봤으나(collapseSingleDeclarationDuplicates가 classifyClause의 기존
+    // 오분류 — 예: "no instrumental intro"가 INTRO_HAS_INTRO_PHRASES의
+    // "instrumental intro" 부분 문자열과 우연히 일치해 intro 축으로 잘못
+    // 분류됨 — 와 만나 진짜 콜드오픈 무인트로 선언을 지우고 엉뚱한 인트로
+    // 텍스처를 남기는 실측 회귀를 tests/coldOpen.test.ts 등에서 냈다. 이미
+    // composeStylePrompt(promptBudget.ts) 자체가 구조화된 원자 단위로 단일
+    // 선언 축을 보장하는 경로라 안전망이 필요한 지점이 아니었다 — 되돌린다
+    // (§공통 규약 5 "낡은 경로를 남긴 채 새 경로를 추가하지 않는다"의 반대
+    // 방향 위험: 검증 안 된 새 경로로 낡은 걸 깨는 것도 금지). 실제 결함
+    // (§0 실측 로컬 인트로모순2·리드중복6·중복토큰1)의 수정은 batch/bridge
+    // 경로(core/batchPreallocation.ts) 쪽에서 검증됐다 — 그쪽은 자유 프로즈를
+    // 다루는 게 원래 이 정규화의 설계 대상이다.
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const promptWarnings = warningsForComposedPrompt(composed, styleLimitValue);
     return {
@@ -2139,6 +2152,22 @@ export function generateLocalBlueprint(
         promptPriorityForTrack(idx),
         idx
       );
+    // 지시문 31 (§2-5) — finalPromptNormalizer를 이 경로(promptComposer/
+    // localGenerator.ts)에도 연결해 봤으나, classifyClause의 기존 오분류
+    // (예: "no instrumental intro"가 INTRO_HAS_INTRO_PHRASES의 "instrumental
+    // intro" 부분 문자열과 우연히 일치해 intro 축으로 잘못 분류됨)와
+    // collapseSingleDeclarationDuplicates의 "첫 등장만 남김" 규칙이 만나
+    // 콜드오픈 무인트로 선언을 지우고 엉뚱한 인트로 텍스처를 남기거나,
+    // persona 모드 200자 예산·시드 트랙 보컬 정체성을 깨는 등 광범위한 실측
+    // 회귀를 냈다(tests/coldOpen.test.ts·personaMode.test.ts·hook.test.ts
+    // 등 다수). composeStylePrompt(promptBudget.ts)는 이미 구조화된 원자
+    // 단위로 단일 선언 축을 보장하고, 모드별(정상/persona) 길이 예산도 이미
+    // 정교하게 관리한다 — 그 위에 새 정규화 안전망을 얹는 건 검증되지 않은
+    // 채로 이미 통과하던 테스트를 깨는 위험이 더 컸다. 되돌린다(§공통 규약
+    // 5의 반대 방향: 검증 안 된 새 경로로 낡은 것을 깨지 않는다). 실제 결함
+    // (§0 실측 로컬 인트로모순2·리드중복6·중복토큰1)의 수정은 batch/bridge
+    // 경로(core/batchPreallocation.ts)에서 검증됐다 — 자유 프로즈를 다루는
+    // 게 원래 이 정규화의 설계 대상이다.
     const stylePrompt = enforceSingleBpmText(composed.prompt, tempo);
     const promptWarnings = warningsForComposedPrompt(composed, opts.personaMode ? resolvePersonaTrackLimit(styleLimit, trackNo) : styleLimitValue);
     const partialSong = {
