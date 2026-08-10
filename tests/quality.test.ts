@@ -284,11 +284,18 @@ describe('[지시문 11 TASK A] scoreSong — kr-2030/jp-2030 관계 연속성 �
   const kr2030Channel = channelPresets.find(c => c.archetype === 'kr-2030-pop')!;
   const jp2030Channel = channelPresets.find(c => c.archetype === 'jp-2030-pop')!;
 
+  // 지시문 34 (TASK A) — scoreSong의 3번째 인자(language)가 이 곡의 실제
+  // lyricLanguage다. 이 가사가 진짜 한국어/일본어이므로 language도 그와
+  // 일치시킨다 — 예전에는 language를 안 넘겨도(기본값 'english') 이 게이트가
+  // contentChecksPolicy 존재 여부만 보고 돌았지만, 그건 "영어로 고른 세트에도
+  // 한국어 마커 사전을 강제로 돌린다"는 실제 버그였다(지시문 34 §TASK A가
+  // 고친 부분). 이제는 language가 정책과 일치할 때만 돈다 — 이 테스트도 그
+  // 정직한 대응을 보여줘야 한다.
   it('kr-2030-pop 채널에서 실제 모순 가사가 warnings에 실제로 반영된다', () => {
     const song = scoreSong(baseSong({
       lyrics: '[verse 1]\n차마 보내지 못했던 그 문자\n[chorus]\n네게서 답장이 왔다',
       workspaceId: 'kr-2030'
-    }), kr2030Channel);
+    }), kr2030Channel, 'korean');
     expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(true);
   });
 
@@ -296,8 +303,16 @@ describe('[지시문 11 TASK A] scoreSong — kr-2030/jp-2030 관계 연속성 �
     const song = scoreSong(baseSong({
       lyrics: '[verse 1]\n送れなかったメッセージ\n[chorus]\n返事が来た',
       workspaceId: 'jp-2030'
-    }), jp2030Channel);
+    }), jp2030Channel, 'japanese');
     expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(true);
+  });
+
+  it('[지시문 34 TASK A] kr-2030-pop 채널이라도 이 세트의 lyricLanguage가 english면 이 체크는 걸리지 않는다 — 정책 언어와 실제 세트 언어가 다르면 조용히 무력화되는 대신 명시적으로 꺼진다', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n차마 보내지 못했던 그 문자\n[chorus]\n네게서 답장이 왔다',
+      workspaceId: 'kr-2030'
+    }), kr2030Channel, 'english');
+    expect(song.warnings.some(w => w.startsWith('Relationship continuity:'))).toBe(false);
   });
 
   it('다른 워크스페이스(senior-oldpop)에는 이 체크가 걸리지 않는다 — archetype 게이트가 실제로 좁혀져 있다', () => {
@@ -313,11 +328,12 @@ describe('[지시문 11 TASK B] scoreSong — kr-kids/jp-kids 서사 결말 안�
   const jpKidsChannel = channelPresets.find(c => c.archetype === 'jp-kids-song')!;
   const seniorKidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
 
+  // 지시문 34 (TASK A) — 위 kr-2030/jp-2030과 같은 이유로 language를 명시한다.
   it('kr-kids-song 채널에서 실제 위험 서사가 warnings에 실제로 반영된다', () => {
     const song = scoreSong(baseSong({
       lyrics: '[verse 1]\n혼자 길을 건넜어요\n[chorus]\n잘했어! 최고야!',
       workspaceId: 'kr-kids'
-    }), krKidsChannel);
+    }), krKidsChannel, 'korean');
     expect(song.warnings.some(w => w.startsWith('Kids narrative outcome:'))).toBe(true);
   });
 
@@ -325,8 +341,16 @@ describe('[지시문 11 TASK B] scoreSong — kr-kids/jp-kids 서사 결말 안�
     const song = scoreSong(baseSong({
       lyrics: '[verse 1]\n一人で道を渡った\n[chorus]\nよくやった、最高だ',
       workspaceId: 'jp-kids'
-    }), jpKidsChannel);
+    }), jpKidsChannel, 'japanese');
     expect(song.warnings.some(w => w.startsWith('Kids narrative outcome:'))).toBe(true);
+  });
+
+  it('[지시문 34 TASK A] kr-kids-song 채널이라도 lyricLanguage가 english면 이 안전성 체크는 걸리지 않는다 — 영어 동요에는 이 축의 실제 커버리지가 없다는 뜻을 정직하게 보여준다(§TASK B 안내 대상)', () => {
+    const song = scoreSong(baseSong({
+      lyrics: '[verse 1]\n혼자 길을 건넜어요\n[chorus]\n잘했어! 최고야!',
+      workspaceId: 'kr-kids'
+    }), krKidsChannel, 'english');
+    expect(song.warnings.some(w => w.startsWith('Kids narrative outcome:'))).toBe(false);
   });
 
   it('senior-oldpop의 kids(싱어롱 라디오) archetype에는 이 체크가 걸리지 않는다 — 실제 아동 대상이 아니므로 명시적으로 제외', () => {

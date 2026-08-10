@@ -37,10 +37,31 @@ import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
 import type { ConceptCompatibilityResult } from '../../core/conceptCompatibility';
-import type { GenerationOptions, GenrePack, ListeningIntent, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings } from '../../types';
+import type { GenerationOptions, GenrePack, ListeningIntent, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings, WorkspaceId } from '../../types';
 
 /** v4.2 (TASK E) — computed once at module load (QUALITY_THRESHOLDS is static data, not per-render/per-props), reused by the advanced-settings "기준값 검증 상태" summary below. */
 const THRESHOLD_BASIS_SUMMARY = thresholdsByBasis();
+
+const LANGUAGE_LABEL_KO: Record<LyricLanguage, string> = { english: '영어', korean: '한국어', japanese: '일본어', bilingual: '영어+한국어 혼합' };
+
+/**
+ * 지시문 34 (TASK B) — 채널 기본 가사 언어와 다르게 고를 때 하루가 판단할
+ * 근거를 함께 보여준다. 차단은 하지 않는다 — 알리기만 한다(§B-1).
+ * "관계 연속성 검사"/"아동 서사 안전성 검사"가 언어별로 갈린다는 서술은
+ * 지시문 34 TASK A가 실측으로 확인한 실제 결함(core/quality.ts의
+ * relationshipContinuityLanguage/kidsOutcomeLanguage가 이 세트의 실제
+ * lyricLanguage와 일치할 때만 돈다 — 그 전에는 정책 언어와 다른 언어를
+ * 고르면 조용히 무력화됐다)을 그대로 반영한다 — 지어낸 서술이 아니다.
+ */
+const LANGUAGE_IMPACT_NOTE_KO: Partial<Record<WorkspaceId, string>> = {
+  'senior-oldpop': '60~70년대 올드팝·쇼와 시대의 시대색이 이 채널 기본 언어의 가사에 기반합니다. 다른 언어로는 시대감이 약해질 수 있습니다.',
+  'kr-2030': '한국 2030 대상 구체적 장면(휴대폰·북마크·퇴근길 등)의 정서가 다른 언어로는 달라질 수 있습니다. "관계 연속성" 검사(문자를 못 보냈다는데 답장을 받는 등의 모순 감지)는 한국어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
+  'jp-2030': '일본 2030 대상 구체적 장면의 정서가 다른 언어로는 달라질 수 있습니다. "관계 연속성" 검사는 일본어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
+  'kr-kids': '동요를 한국어가 아닌 언어로 만들면 한국 아이가 따라 부르기 어려울 수 있습니다. 연령대별 어휘 정책과 "아동 서사 안전성" 검사(위험 행동 미교정·공포 결말 등 감지)는 한국어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
+  'jp-kids': '동요를 일본어가 아닌 언어로 만들면 일본 아이가 따라 부르기 어려울 수 있습니다. "아동 서사 안전성" 검사는 일본어 세트에서만 적용됩니다 — 다른 언어로 고르면 이 축은 검사되지 않습니다.',
+  'kr-idol-male': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.',
+  'kr-idol-female': '한국 아이돌 팬덤 대상 어휘·정서가 다른 언어로는 달라질 수 있습니다.'
+};
 
 const languageOptions: { value: LyricLanguage; label: string; sub: string }[] = [
   { value: 'english', label: '영어', sub: 'English' },
@@ -1227,6 +1248,9 @@ export default function Step2Concept({
       {advancedOpen && (
         <div className="advanced-settings">
           <label>Lyrics language (가사 언어)</label>
+          {/* 지시문 34 — 가사 언어는 채널 기본값과 독립적으로 선택 가능해야
+              한다. 저작권 등록 요건이 언어에 걸려 있고 그 요건이 변할 수
+              있다. docs/LANGUAGE_POLICY.md 참조. */}
           <div className="chips">
             {/* TASK v3.38 Part B1 (language follow-up) — the kids channel only supports korean/japanese/english (selectable per set, default korean); bilingual is not offered for it. */}
             {(isKidsArchetype(channelArchetype) ? languageOptions.filter(option => option.value !== 'bilingual') : languageOptions).map(option => (
@@ -1240,6 +1264,17 @@ export default function Step2Concept({
               </button>
             ))}
           </div>
+          {/* 지시문 34 (TASK B) — 차단 없이 안내만 한다. 채널의 primaryLanguage(기본값) 자체는 바꾸지 않는다 — 지금 이 세트만 다르게 골랐다는 사실과 그 영향을 알린다. */}
+          {opts.lyricLanguage !== opts.channel.primaryLanguage && (
+            <p className="supporting" style={{ borderLeft: '3px solid #d68910', paddingLeft: 8 }}>
+              ⓘ 이 채널의 기본 가사 언어는 {LANGUAGE_LABEL_KO[opts.channel.primaryLanguage]}입니다. 현재 {LANGUAGE_LABEL_KO[opts.lyricLanguage]}로 설정되어 있습니다.
+              제목·설명은 (아래에서 고르지 않는 한) 그대로 유지됩니다.
+              {(() => {
+                const note = LANGUAGE_IMPACT_NOTE_KO[workspaceForArchetype(channelArchetype)?.id ?? 'senior-oldpop'];
+                return note ? ` ${note}` : '';
+              })()}
+            </p>
+          )}
 
           <label>Title / thumbnail language (제목·썸네일 언어)</label>
           <div className="chips">
