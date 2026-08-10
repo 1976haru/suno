@@ -52,7 +52,7 @@ describe('[v3.64 TASK A-4] lyric vocabulary repetition', () => {
   });
 
   it('TASK v3.64 — reproduces the real pack\'s exact reported offenders (window 28, light 27, old 27, near 22, warm 20, morning 17)', () => {
-    const fixturePath = path.resolve(__dirname, 'fixtures', 'realBridgePack.json');
+    const fixturePath = path.resolve(__dirname, 'fixtures', 'historical', 'bridge-import-sample.json');
     const data = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
     const counts = wordFrequencyAcrossPack(data.songs);
     expect(counts.get('window')).toBe(28);

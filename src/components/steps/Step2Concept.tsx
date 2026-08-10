@@ -366,7 +366,9 @@ export default function Step2Concept({
     const policy = LISTENING_INTENT_POLICY[intent];
     const workspaceId = workspaceForArchetype(channelArchetype)?.id ?? 'senior-oldpop';
     const energyPolicy = PERCEIVED_ENERGY_POLICY[workspaceId];
-    const nextOpts = applyListeningIntentToOptions(opts, intent, policy, energyPolicy);
+    // 지시문 33 (§2) — 같은 채널·같은 청취 목적을 반복 적용해도 항상 같은
+    // 장르로 수렴하지 않도록, 이 채널의 최근 사용 이력을 tie-break에 넘긴다.
+    const nextOpts = applyListeningIntentToOptions(opts, intent, policy, energyPolicy, readRecentGenreIds(opts.channel.id));
     if (nextOpts === opts) return;
     setOpts(() => nextOpts);
     if (nextOpts.choiceProvenance?.genreIds === 'user' && nextOpts.genreIds !== opts.genreIds) {

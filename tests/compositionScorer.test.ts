@@ -252,12 +252,12 @@ describe('[v3.62 TASK 2] scoreComposition — advisory (never-blocking) checks r
  * tests break every time the user generates something new, for a reason
  * that has nothing to do with a regression — the fix (v3.62 TASK 1) is
  * exactly why new real packs no longer reproduce the old bug. Frozen here
- * as tests/fixtures/realBridgePack.json so the assertions stay meaningful
+ * as tests/fixtures/historical/bridge-import-sample.json so the assertions stay meaningful
  * without chasing the user's live output forever; re-freeze deliberately
  * (not as a side effect of a failing test) if a newer real pack is worth
  * testing against instead.
  */
-const realPackPath = path.resolve(__dirname, 'fixtures', 'realBridgePack.json');
+const realPackPath = path.resolve(__dirname, 'fixtures', 'historical', 'bridge-import-sample.json');
 const describeRealPack = existsSync(realPackPath) ? describe : describe.skip;
 
 describeRealPack('[v3.62 TASK 2] scoreComposition against a frozen real bridge-path pack', () => {

@@ -80,10 +80,15 @@ const HOOK_DEVICE_KEYWORDS = ['hook'];
  * (ARRANGEMENT_DENSITY_TEXT_BY_LEVEL의 세 값 모두 이 형태를 만족한다).
  */
 const ARRANGEMENT_DENSITY_START_WORDS = ['full', 'sparse', 'medium', 'moderate', 'spare', 'minimal', 'dense', 'light', 'thin', 'layered', 'voice-forward'];
+// 지시문 33 (§3) — measure:checks 실측이 classifyClause를 반복 호출 경로의
+// 실제 비용 지점으로 지목했다. 이 배열은 정적(런타임 변경 없음)이라 매
+// 호출마다 new RegExp를 다시 만들 이유가 없다 — 모듈 로드 시 한 번만
+// 컴파일한다. 결과는 완전히 동일(같은 패턴), 반복 생성만 없앤다.
+const ARRANGEMENT_DENSITY_START_PATTERNS = ARRANGEMENT_DENSITY_START_WORDS.map(word => new RegExp(`^${word}\\b`));
 function looksLikeArrangementDensityDeclaration(lower: string): boolean {
   const wordCount = lower.split(/\s+/).filter(Boolean).length;
   if (wordCount > 6) return false;
-  return ARRANGEMENT_DENSITY_START_WORDS.some(word => new RegExp(`^${word}\\b`).test(lower));
+  return ARRANGEMENT_DENSITY_START_PATTERNS.some(pattern => pattern.test(lower));
 }
 
 const TEMPO_PATTERN = /\b\d{2,3}\s*bpm\b/i;
@@ -97,8 +102,23 @@ const ERA_PATTERN = /\b(early|mid|late)-\d{4}s\b|\b(19|20)\d0s\b/i;
  * multi-word phrase still only anchors the phrase's own start/end, so "opens
  * the song" etc. keep matching as whole phrases, not just as loose word sets.
  */
+// 지시문 33 (§3) — includesAny는 classifyClause 안에서 클로즈 하나당 최대
+// 9번(INSTRUMENT_KEYWORDS 등 정적 배열들) 불리고, 그때마다 배열의 모든
+// phrase를 새 RegExp로 다시 컴파일했다 — 이 배열들은 전부 모듈 상수라 절대
+// 안 바뀐다. phrases 배열 자체를 키로 쓰는 WeakMap으로 컴파일 결과를
+// 캐시한다(같은 배열 참조 → 같은 컴파일된 RegExp[]) — 판정 로직·정규식
+// 자체는 한 글자도 바뀌지 않는다, 반복 컴파일만 없앤다.
+const compiledPhrasePatterns = new WeakMap<readonly string[], RegExp[]>();
+function patternsFor(phrases: readonly string[]): RegExp[] {
+  let compiled = compiledPhrasePatterns.get(phrases);
+  if (!compiled) {
+    compiled = phrases.map(phrase => new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`));
+    compiledPhrasePatterns.set(phrases, compiled);
+  }
+  return compiled;
+}
 function includesAny(lower: string, phrases: readonly string[]): boolean {
-  return phrases.some(phrase => new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower));
+  return patternsFor(phrases).some(pattern => pattern.test(lower));
 }
 
 /**

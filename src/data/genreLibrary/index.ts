@@ -2467,8 +2467,18 @@ export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;
 export const totalGenreCount = genreLibrary.length;
 
+// 지시문 33 (§3) — measure:checks 실측(scripts/measureCheckCost.ts)이 S4/DV1
+// 예측 총시간의 상당 부분을 generateLocalBlueprint 반복 호출로 지목했다.
+// getGenreById는 genreLibrary(354종, 런타임에 절대 변경되지 않는 정적
+// 배열)를 매 호출마다 선형 탐색(.find)했다 — 실제 생성 경로 하나에서도
+// 여러 번 불리는 함수라 O(n) 탐색이 그대로 곱해진다. genreLibrary 자체는
+// 모듈 로드 시 한 번만 만들어지므로, id→genre Map도 그때 한 번만 만들면
+// 결과는 완전히 동일하고(같은 배열을 감쌀 뿐, 값 변경 없음) 조회만
+// O(1)이 된다 — 캐시 대상이지 계산 로직 변경이 아니다.
+const genreById = new Map(genreLibrary.map(genre => [genre.id, genre]));
+
 export function getGenreById(id: string) {
-  return genreLibrary.find(genre => genre.id === id);
+  return genreById.get(id);
 }
 
 export function getGenresByCategory(categoryId: string) {

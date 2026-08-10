@@ -20,7 +20,7 @@
     "test:stress": "vitest run --config vitest.stress.config.ts --reporter=verbose",
     "test:matrix": "vitest run --config vitest.matrix.config.ts",
     "audit": "tsx scripts/audit.ts",
-    "audit:pack": "tsx scripts/audit.ts --pack tests/fixtures/realPack60s.json && tsx scripts/audit.ts --pack tests/fixtures/realPack70s.json && tsx scripts/audit.ts --pack tests/fixtures/realBridgePack.json --concept \"브릿지 임포트 실측 샘플\"",
+    "audit:pack": "tsx scripts/audit.ts --pack tests/fixtures/historical/20260807-60s.json && tsx scripts/audit.ts --pack tests/fixtures/historical/20260807-70s.json && tsx scripts/audit.ts --pack tests/fixtures/historical/bridge-import-sample.json --concept \"브릿지 임포트 실측 샘플\"",
     "audit:isolation": "tsx scripts/isolationAudit.ts",
     "check:node": "tsx scripts/checkNodeReachability.ts",
     "check:reachability": "tsx scripts/checkReachability.ts",

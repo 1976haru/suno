@@ -116,10 +116,21 @@ function motifFamilyIdsFor(workspaceId: WorkspaceId): string[] {
   return MOTIF_FAMILIES.filter(family => !family.workspaces || family.workspaces.includes(workspaceId)).map(family => family.id);
 }
 
+// 지시문 33 (§3) — measure:checks 실측이 core/constraints.ts's
+// resolveConstraintsFromOptions(생성 경로마다 불림)를 비용 지점으로
+// 지목했고, 그 안에서 이 함수가 매번 새 객체 그래프를 다시 조립한다.
+// 순수하게 workspaceId(7개뿐)만의 함수라 — 같은 workspaceId면 항상 같은
+// 값 — 결과를 캐시해도 어떤 호출자도 다른 값을 볼 수 없다. 반환 객체를
+// 호출자가 손으로 고치는 곳은 없다(이 코드베이스의 모든 *Policy 객체와
+// 같은 읽기 전용 관례) — 그래도 방어적으로 얕은 복사본을 돌려준다.
+const qualityPolicyCache = new Map<WorkspaceId, WorkspaceQualityPolicy>();
+
 export function qualityPolicyForWorkspace(workspaceId: WorkspaceId): WorkspaceQualityPolicy {
+  const cached = qualityPolicyCache.get(workspaceId);
+  if (cached) return cached;
   const workspace = getWorkspace(workspaceId);
   const eraIntent = eraIntentForWorkspace(workspaceId);
-  return {
+  const policy: WorkspaceQualityPolicy = {
     workspaceId,
     audienceProfileId: workspace.defaultAudienceProfileId,
     eraPolicy: ERA_POLICY,
@@ -138,6 +149,8 @@ export function qualityPolicyForWorkspace(workspaceId: WorkspaceId): WorkspaceQu
     distinctChoicePolicy: distinctChoicePolicyForWorkspace(workspaceId),
     contentChecksPolicy: CONTENT_CHECKS_POLICY[workspaceId]
   };
+  qualityPolicyCache.set(workspaceId, policy);
+  return policy;
 }
 
 /** Resolves the workspace from opts.channel.archetype the same way core/bridgeInstruction.ts's own buildClaudeCodeInstruction does, falling back to currentWorkspaceId() only when the archetype isn't mapped to any workspace. */

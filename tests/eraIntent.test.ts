@@ -10,7 +10,7 @@ import { deriveEraIntent, eraDeviantGenreIds, extractEraClaims, checkEraPromptAg
  * 3 era-deviant genres in a real "60년대" pack) against the actual uploaded
  * fixture — not a hand-built case.
  */
-const FIXTURE_60S = path.resolve(__dirname, 'fixtures/realPack60s.json');
+const FIXTURE_60S = path.resolve(__dirname, 'fixtures/historical/20260807-60s.json');
 
 describe('지시문 10 TASK A — deriveEraIntent', () => {
   it('"60년대" 컨셉은 primary 1960s, secondary 1970s를 반환한다', () => {

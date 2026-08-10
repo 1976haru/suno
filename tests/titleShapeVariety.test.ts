@@ -39,7 +39,7 @@ describe('[v3.64 TASK E] title shape variety', () => {
   });
 
   it('TASK v3.64 — reproduces the real pack\'s reported near-monotony (mostly noun-noun)', () => {
-    const fixturePath = path.resolve(__dirname, 'fixtures', 'realBridgePack.json');
+    const fixturePath = path.resolve(__dirname, 'fixtures', 'historical', 'bridge-import-sample.json');
     const data = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
     const titles = data.songs.map((s: { title: string }) => s.title);
     const shapes = new Set(titles.map(classifyTitleShape));

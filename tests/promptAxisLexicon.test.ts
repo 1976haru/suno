@@ -5,7 +5,7 @@ import { classifyClause, introSubcategory, REQUIRED_AXES_BY_POSITION, SINGLE_DEC
  * 지시문 16 (TASK B-4/B-5) — real fixture regression lock. Every clause
  * string below is copied verbatim from a real generated pack's stylePrompt
  * (20260808_oldpoplounge_60년대가생각하는올드팝명곡.json / tests/fixtures/
- * realPack60s.json), not hand-invented — this is what the axis lexicon
+ * historical/20260807-60s.json), not hand-invented — this is what the axis lexicon
  * actually has to classify correctly to catch the real §1-2/§1-3 violations
  * (7 intro contradictions, 5 duplicate lead-vocal declarations).
  */

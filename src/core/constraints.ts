@@ -6,6 +6,7 @@ import { TITLE_PATTERNS } from '../data/titlePatterns';
 import { VOCABULARY_BANKS, vocabularyBanksForEra } from '../data/vocabularyBanks';
 import { CHANNEL_IDENTITY_WORDS, CHANNEL_IDENTITY_WORD_CAP, GENERIC_WORD_CAP } from './lyricVocabularyRepetition';
 import { qualityPolicyForWorkspace } from '../data/workspaceQualityPolicies';
+import type { EraNeutralPolicy } from '../data/workspaceEraIntent';
 
 /**
  * v4.2 (TASK A3) — the structural fix for the problem this task exists to
@@ -822,6 +823,120 @@ export function applyEraQuota(
 }
 
 /**
+ * 지시문 33 (§1) — "era-neutral 하한을 먼저 확보한다, 나머지로 시대 비중을
+ * 계산한다"의 실제 구현. applyEraQuota 자체는 건드리지 않는다(이미 여러
+ * 지시문이 다듬은 anti-singleton/coPrimary 로직이 있어 그 안에 하한을
+ * 끼워 넣는 건 위험이 크다) — 대신 applyEraQuota가 끝난 결과에 대해, era-
+ * neutral 총량이 정책 하한보다 적으면 비-era-neutral 장르들에서 필요한
+ * 만큼만 회수해 era-neutral 장르에 옮겨 붓는 후처리 단계다(지시문 31의
+ * reorderForEnergyContinuity와 같은 "핵심 로직은 안 건드리고 후처리로
+ * 보정한다" 패턴).
+ *
+ * "era-neutral"의 기준은 applyEraQuota/eraNeutralShareOf가 이미 쓰는 것과
+ * 반드시 같아야 한다 — bucketKeyOf(구·거친 5버킷 분류, 'generic')다. 처음
+ * isEraNeutralGenreId(신·세밀 ERA_BUCKETS_BY_GENRE_ID)로 짰다가 실측에서
+ * 걸렸다: "6070년대" 컴파운드 컨셉의 실제 결과가 bucketKeyOf 기준 generic
+ * 3곡을 이미 갖고 있었는데, isEraNeutralGenreId 기준으로는 다른 장르
+ * 집합을 "부족"으로 오판해 불필요하게 1970s 버킷에서 회수 — 이미 통과하던
+ * v379EraParsing.test.ts(1970s ≥30%)를 27.78%로 깨뜨렸다. 두 분류 체계가
+ * 항상 일치하지 않는다는 것 자체가 지시문 32에서 이미 확인된 사실이다.
+ *
+ * 회수는 "가장 큰 것부터 한 곡씩, 라운드로빈"이다 — 한 장르를 통째로
+ * 비우지 않는다(genreSingletonRootCause.test.ts가 지키는 불변식: 이미
+ * 3곡 이상인 장르에서만, 최소 2곡은 항상 남긴다 — 실측에서 걸림: "가장
+ * 큰 것부터 count-1까지" 방식은 5곡짜리 장르를 1곡으로 만들어 새 싱글톤을
+ * 만들었다). 여러 비-neutral 장르에 걸쳐 매 라운드 재정렬하며 1곡씩 덜기
+ * 때문에 어느 한 버킷(예: coPrimary)만 불균형하게 깎이지 않는다.
+ *
+ * policy.minTracks/maxTracks는 18곡 기준값 — songCount가 다르면 비례
+ * 스케일한다. verified:false 정책이므로 이 함수의 산출물(배정 결과)은
+ * advisory 판정과 별개다 — designGate.ts의 eraNeutralFloorAdvisory가 그
+ * 결과를 다시 감사할 뿐, 이 함수 자체는 blocking을 만들지 않는다.
+ */
+export function ensureEraNeutralFloor(
+  genreCounts: Record<string, number>,
+  songCount: number,
+  policy: EraNeutralPolicy | undefined,
+  channelFilter: (genre: GenrePack) => boolean,
+  perGenreCap: number = GENRE_ERA_QUOTA_PER_GENRE_CAP
+): { counts: Record<string, number>; warnings: string[] } {
+  if (!policy || !songCount) return { counts: genreCounts, warnings: [] };
+  const floor = Math.round((policy.minTracks / 18) * songCount);
+  if (floor <= 0) return { counts: genreCounts, warnings: [] };
+
+  const isNeutral = (id: string) => bucketKeyOf(id) === 'generic';
+  const entries = Object.entries(genreCounts);
+  const neutralIds = entries.filter(([id]) => isNeutral(id)).map(([id]) => id);
+  const currentNeutral = entries.filter(([id]) => isNeutral(id)).reduce((sum, [, c]) => sum + c, 0);
+  if (currentNeutral >= floor) return { counts: genreCounts, warnings: [] };
+
+  const needed = floor - currentNeutral;
+  const counts = new Map(entries);
+  let remaining = needed;
+  // 라운드로빈으로 매 패스마다 재정렬 — 한 장르에 집중되지 않고, 3곡
+  // 미만(회수 후 2곡 미만이 될) 장르는 아예 건드리지 않는다.
+  let progressed = true;
+  while (remaining > 0 && progressed) {
+    progressed = false;
+    const candidates = [...counts.entries()]
+      .filter(([id, count]) => !isNeutral(id) && count >= 3)
+      .sort((a, b) => b[1] - a[1]);
+    for (const [id] of candidates) {
+      if (remaining <= 0) break;
+      const current = counts.get(id)!;
+      if (current < 3) continue;
+      counts.set(id, current - 1);
+      remaining -= 1;
+      progressed = true;
+    }
+  }
+  const actuallyFreed = needed - remaining;
+  const warnings: string[] = [];
+  if (actuallyFreed <= 0) {
+    return { counts: genreCounts, warnings: [`era-neutral 하한(${floor}곡, 추정치)을 확보할 비-era-neutral 장르 여유가 없습니다(모든 장르가 2곡 이하).`] };
+  }
+
+  // era-neutral 후보 장르를 anti-singleton 방식(기존 장르 먼저 채움 →
+  // 부족하면 새 장르를 필요한 만큼만 연다)으로 채운다 — applyEraQuota의
+  // distributeInto와 같은 원리.
+  const candidatePool = genreLibrary
+    .filter(genre => channelFilter(genre) && isNeutral(genre.id))
+    .map(genre => genre.id)
+    .filter(id => !neutralIds.includes(id));
+  let toFill = actuallyFreed;
+  const topUp = (ids: readonly string[]) => {
+    let filling = true;
+    while (toFill > 0 && filling) {
+      filling = false;
+      for (const id of ids) {
+        if (toFill <= 0) break;
+        const current = counts.get(id) ?? 0;
+        if (current >= perGenreCap) continue;
+        counts.set(id, current + 1);
+        toFill -= 1;
+        filling = true;
+      }
+    }
+  };
+  topUp(neutralIds);
+  const pool = [...candidatePool];
+  while (toFill > 0 && pool.length) {
+    const genresToOpen = Math.min(pool.length, Math.max(1, Math.ceil(toFill / perGenreCap)));
+    const chosen = pool.splice(0, genresToOpen);
+    topUp(chosen);
+  }
+  if (toFill > 0) {
+    warnings.push(`era-neutral 후보 장르가 부족해 하한(${floor}곡)을 ${toFill}곡만큼 채우지 못했습니다.`);
+  }
+
+  const result: Record<string, number> = {};
+  for (const [id, count] of counts) {
+    if (count > 0) result[id] = count;
+  }
+  return { counts: result, warnings };
+}
+
+/**
  * v3.78 follow-up (genre-singleton root cause) — a plain round-robin-with-cap
  * (`ids[index % ids.length]`) can leave a low-ranked candidate at exactly 1
  * song whenever the per-id cap binds for higher-ranked candidates before
@@ -886,7 +1001,7 @@ export function eraSharesOf(genreCounts: Record<string, number>): Record<string,
  * 여기서는 그 특례 없이 "이 장르가 특정 연대를 주장하지 않는가"를 정직하게
  * 판정한다 — timeless 6종도 (신) 데이터에서는 era-neutral이므로 포함된다.
  */
-function isEraNeutralGenreId(genreId: string): boolean {
+export function isEraNeutralGenreId(genreId: string): boolean {
   const fineBuckets = ERA_BUCKETS_BY_GENRE_ID[genreId];
   // genreLibrary 354종은 전수 커버되므로 실제 장르 id는 항상 매핑이 있다 —
   // 매핑이 없는 id(존재하지 않는 장르, 또는 eraBuckets.ts 갱신을 놓친 신규

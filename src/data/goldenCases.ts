@@ -4,7 +4,7 @@
  * 저장한다." 이 파일은 그 등록부다 — 각 케이스는 실제로 측정된 결함의
  * 메타데이터(증상·기대 판정·어떤 체커가 검증하는지)만 담고, 원본 가사/
  * stylePrompt 전문은 담지 않는다(재현이 필요하면 tests/fixtures/의 실제
- * 팩 파일을 직접 참조 — 이미 커밋돼 있는 realPack60s.json/realPack70s.json
+ * 팩 파일을 직접 참조 — 이미 커밋돼 있는 historical/20260807-60s.json·70s.json
  * 등, 새로 만들지 않음).
  *
  * `status: 'verified'`인 케이스는 tests/goldenCases.test.ts가 실제 체커

@@ -4,6 +4,7 @@ import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
 import { BUILD_INFO } from './core/buildInfo';
 import { checkConceptCompatibility } from './core/conceptCompatibility';
+import { readRecentGenreIds, rememberRecentGenreId } from './core/recentGenreStore';
 import type { ThumbnailArchetypeId } from './data/thumbnailArchetypes';
 import { moneyChordPresets } from './data/moneyChords';
 import { AUTOSAVE_ID, listChannelPersonas, recordChannelPersonaUse, saveAutosave, saveChannelPersona, type ChannelPersonaRecord } from './core/library';
@@ -1263,11 +1264,21 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const optsWithListeningIntentApplied = applyListeningIntentIfPending(
       mergedOpts,
       opts.listeningIntent ? LISTENING_INTENT_POLICY[opts.listeningIntent] : LISTENING_INTENT_POLICY['long-listen-comfort'],
-      PERCEIVED_ENERGY_POLICY[workspaceIdForIntent]
+      PERCEIVED_ENERGY_POLICY[workspaceIdForIntent],
+      // 지시문 33 (§2) — Step2Concept.tsx's handleApplyListeningIntent와 같은
+      // tie-break 이력을 생성 직전 재적용 경로에도 넘긴다.
+      readRecentGenreIds(cm.selectedChannel.id)
     );
     if (optsWithListeningIntentApplied !== mergedOpts) {
       const applied = optsWithListeningIntentApplied;
       setOpts(() => applied);
+      // 지시문 33 (§2) — 이 재적용 경로도 실제 생성으로 이어지므로
+      // Step2Concept.tsx's handleApplyListeningIntent와 동일하게 여기서
+      // 고른 장르를 이력에 남긴다 — 그래야 다음 세트의 tie-break가 이번
+      // 선택을 실제로 반영한다.
+      if (applied.choiceProvenance?.genreIds === 'user' && applied.genreIds !== mergedOpts.genreIds) {
+        for (const genreId of applied.genreIds) rememberRecentGenreId(cm.selectedChannel.id, genreId);
+      }
     }
     const effectiveOpts = optsWithListeningIntentApplied;
 

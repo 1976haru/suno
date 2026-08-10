@@ -10,8 +10,8 @@ import { loadPackBlueprint, computeCross } from '../scripts/audit';
  * "재현되지 않으면 대조 로직이 틀린 것이다" — 이 테스트가 그 재현을
  * 회귀 잠금한다.
  */
-const FIXTURE_60S = path.resolve(__dirname, 'fixtures/realPack60s.json');
-const FIXTURE_70S = path.resolve(__dirname, 'fixtures/realPack70s.json');
+const FIXTURE_60S = path.resolve(__dirname, 'fixtures/historical/20260807-60s.json');
+const FIXTURE_70S = path.resolve(__dirname, 'fixtures/historical/20260807-70s.json');
 
 describe('지시문 09 TASK B-5 — 실제 팩 인수 fixture', () => {
   it('두 실제 팩 모두 --pack 경로(importSongsJson)를 통과해 정상 로드된다', () => {

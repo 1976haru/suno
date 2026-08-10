@@ -937,20 +937,49 @@ function eraIssues(slots: PreassignedSongSlot[], era: EraConstraint, workspaceId
     }));
   }
 
-  const eraNeutralMaxShare = eraIntentForWorkspace(workspaceId).eraNeutralMaxShare;
-  if (eraNeutralMaxShare !== undefined) {
+  const eraNeutralPolicy = eraIntentForWorkspace(workspaceId).eraNeutralPolicy;
+  if (eraNeutralPolicy !== undefined) {
     const neutralShare = eraNeutralShareOf(genreCounts);
-    if (neutralShare > eraNeutralMaxShare) {
+    const maxShare = eraNeutralPolicy.maxTracks / 18;
+    if (neutralShare > maxShare) {
       issues.push(issue({
         id: 'era-neutral-share',
         labelKo: '시대 중립(era-neutral) 장르 비중',
-        expected: `${Math.round(eraNeutralMaxShare * 100)}% 이하 (${workspaceId} 워크스페이스 정책, 추정치)`,
+        expected: `${Math.round(maxShare * 100)}% 이하 (${workspaceId} 워크스페이스 정책, 추정치)`,
         actual: `${Math.round(neutralShare * 100)}%`,
         fixHintKo: '특정 시대색이 있는 장르 비중을 늘리세요 — era-neutral 장르가 너무 많습니다.'
       }));
     }
   }
   return issues;
+}
+
+/**
+ * 지시문 33 (§1) — era-neutral 하한은 advisory 전용, 절대 blocking에 넣지
+ * 않는다: eraNeutralPolicy.verified가 false라 실측 없이 blocking을 만들지
+ * 않는다(§규약 7). 배정 단계(core/constraints.ts's ensureEraNeutralFloor)가
+ * 이미 하한을 확보하려 시도하므로 정상 경로에서는 거의 항상 미달이 없어야
+ * 하지만, 후보 장르가 부족한 예외 상황을 위해 여기서는 "알려주기만" 한다 —
+ * evaluateDesignGate의 advisory 배열에만 들어간다(blocking 배열 아님).
+ */
+function eraNeutralFloorAdvisory(slots: PreassignedSongSlot[], era: EraConstraint, workspaceId: WorkspaceId): DesignIssue[] {
+  if (era.unspecified) return [];
+  const eraNeutralPolicy = eraIntentForWorkspace(workspaceId).eraNeutralPolicy;
+  if (eraNeutralPolicy === undefined) return [];
+  const genreCounts: Record<string, number> = {};
+  for (const slot of slots) {
+    if (slot.genreId) genreCounts[slot.genreId] = (genreCounts[slot.genreId] ?? 0) + 1;
+  }
+  const neutralShare = eraNeutralShareOf(genreCounts);
+  const minShare = eraNeutralPolicy.minTracks / 18;
+  if (neutralShare >= minShare) return [];
+  return [issue({
+    id: 'era-neutral-share-floor',
+    labelKo: '시대 중립(era-neutral) 장르 비중 — 하한 (advisory, 추정치)',
+    expected: `${Math.round(minShare * 100)}% 이상 (${workspaceId} 워크스페이스 정책, 청취 확인 대기)`,
+    actual: `${Math.round(neutralShare * 100)}%`,
+    fixHintKo: '발라드 등 시대 중립 장르를 늘리면 시대색과 채널 톤이 더 조화롭다는 관찰이 있습니다(하루 청취, 지시문 33 §1) — 검증된 값은 아닙니다.'
+  })];
 }
 
 // ---------------------------------------------------------------------------
@@ -1281,7 +1310,9 @@ export function evaluateDesignGate(
     ...songLengthIssues(slots),
     ...moneyChordAdvisoryIssues(slots, opts),
     ...arrangementDensityAdvisoryIssues(slots),
-    ...kidsArcStructure.advisory
+    ...kidsArcStructure.advisory,
+    // 지시문 33 (§1) — advisory 전용, verified:false라 blocking에 넣지 않는다.
+    ...eraNeutralFloorAdvisory(slots, constraints.era, constraints.workspaceId)
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

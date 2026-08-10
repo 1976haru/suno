@@ -61,7 +61,7 @@ export const ARRANGEMENT_SUBJECT_VERBS: string[] = [
   'reply', 'replies', 'replied', 'remain', 'remains', 'remained', 'return', 'returns', 'returned',
   // v4.4 (TASK B) — 'hold' was missing even though a real bridge-imported
   // pack sang it as a leak ("You said, the string will hold it tight",
-  // tests/fixtures/realBridgePack.json): the string is the thing doing the
+  // tests/fixtures/historical/bridge-import-sample.json): the string is the thing doing the
   // holding, same agency pattern as the verbs already above.
   'hold', 'holds', 'held'
 ];

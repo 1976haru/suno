@@ -14,7 +14,7 @@ import { buildExcludeVariants } from '../scripts/excludeLengthTrial';
  * meant to vary per song. This test locks in the fix (genre.avoidTraits
  * prioritized first) against real fixture data, not a hand-built case.
  */
-const FIXTURE_60S = path.resolve(__dirname, 'fixtures/realPack60s.json');
+const FIXTURE_60S = path.resolve(__dirname, 'fixtures/historical/20260807-60s.json');
 
 describe('지시문 10 TASK E — excludeLengthTrial', () => {
   it('safety/copyright/workspace 문구는 short를 포함한 모든 버전에 남아 있다', () => {
