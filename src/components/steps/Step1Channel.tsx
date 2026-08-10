@@ -10,6 +10,7 @@ import {
   searchHiddenGenresForArchetype
 } from '../../data/genreLibrary';
 import { forecastCapacity } from '../../core/capacityPlanner';
+import { MAX_SELECTED_GENRES } from '../../core/genreSelection';
 import { scopedKey } from '../../core/workspaceScope';
 import { isKidsArchetype, partitionArchetypeChoicesByWorkspace } from '../../utils/channelArchetype';
 import { getWorkspace } from '../../data/workspaces';
@@ -319,7 +320,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     // TASK v3.39 Part G — previous archetype's own default, looked up before
     // any field is updated below.
     const previousDefaults = archetypeChoices.find(choice => choice.id === archetype);
-    const genreIds = getCoreGenreIdsForArchetype(archetypeId).slice(0, 3);
+    const genreIds = getCoreGenreIdsForArchetype(archetypeId).slice(0, MAX_SELECTED_GENRES);
     // TASK v3.63 (TASK A-3) — switching an existing custom channel's
     // archetype used to silently overwrite preferredGenres with the new
     // archetype's default 3 ids. A real user's already-saved custom channel

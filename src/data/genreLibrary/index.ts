@@ -2550,24 +2550,40 @@ export function getVisibleGenresForArchetype(
   return genreLibrary.filter(genre => visibleIds.has(genre.id));
 }
 
-export function searchExtendedGenres(query: string, categoryId = 'all') {
+export interface ExtendedGenreSearchResult {
+  genre: GenrePack;
+  eligibleForArchetype: boolean;
+}
+
+/**
+ * 지시문 Fable5-1단계 TASK C — archetype is now required so the search
+ * result can flag genres the caller's own channel can't actually use
+ * (e.g. K-pop turning up for a senior channel). Results still include
+ * ineligible genres (Policy B from the instruction: show + explain, don't
+ * silently hide) — eligibleForArchetype tells the caller which ones to
+ * disable and why, instead of letting a pick get silently sanitized away
+ * later at generation time.
+ */
+export function searchExtendedGenres(query: string, categoryId = 'all', archetype: ChannelArchetype = 'senior-morning'): ExtendedGenreSearchResult[] {
   const normalized = query.trim().toLowerCase();
-  return genreLibrary.filter(genre => {
-    if (genre.tier !== 'extended') return false;
-    if (categoryId !== 'all' && genre.categoryId !== categoryId) return false;
-    if (!normalized) return true;
-    const haystack = [
-      genre.label,
-      genre.styleCore,
-      genre.shortPrompt,
-      genre.productionGuidance,
-      ...(genre.aliases || []),
-      ...(genre.instruments || []),
-      ...(genre.moods || []),
-      ...(genre.audiences || [])
-    ].join(' ').toLowerCase();
-    return haystack.includes(normalized);
-  });
+  return genreLibrary
+    .filter(genre => {
+      if (genre.tier !== 'extended') return false;
+      if (categoryId !== 'all' && genre.categoryId !== categoryId) return false;
+      if (!normalized) return true;
+      const haystack = [
+        genre.label,
+        genre.styleCore,
+        genre.shortPrompt,
+        genre.productionGuidance,
+        ...(genre.aliases || []),
+        ...(genre.instruments || []),
+        ...(genre.moods || []),
+        ...(genre.audiences || [])
+      ].join(' ').toLowerCase();
+      return haystack.includes(normalized);
+    })
+    .map(genre => ({ genre, eligibleForArchetype: isGenreEligibleForArchetype(genre, archetype) }));
 }
 
 export function searchHiddenGenresForArchetype(

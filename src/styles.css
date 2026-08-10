@@ -989,6 +989,17 @@ textarea {
   color: #143b8f;
 }
 
+.chip.chip-unavailable {
+  background: var(--panel-soft);
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.genre-unavailable-tag {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .genre-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);

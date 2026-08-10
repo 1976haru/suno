@@ -18,7 +18,7 @@ import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/av
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
 import { isPlausibleChordProgression, moneyChordPresets } from '../../data/moneyChords';
-import { genreSanitizationWarningKo, MAX_SELECTED_GENRES, normalizeGenreSelection, sanitizeGenreIdsForArchetype } from '../../core/genreSelection';
+import { genreSanitizationWarningKo, MAX_SECONDARY_GENRES, MAX_SELECTED_GENRES, normalizeGenreSelection, sanitizeGenreIdsForArchetype } from '../../core/genreSelection';
 import { replaceAxisAllocation } from '../../core/diversityAllocation';
 import { compactMoneyChord } from '../../core/soundSignature';
 import { clampToLimit, INPUT_LIMITS } from '../../core/inputLimits';
@@ -412,8 +412,8 @@ export default function Step2Concept({
   const primaryGenre = selectedGenreDetails[0];
   const secondaryGenreIds = opts.genreIds.slice(1);
   const filteredGenres = useMemo(() => {
-    return searchExtendedGenres(genreQuery, genreCategoryId);
-  }, [genreCategoryId, genreQuery]);
+    return searchExtendedGenres(genreQuery, genreCategoryId, channelArchetype);
+  }, [genreCategoryId, genreQuery, channelArchetype]);
 
   function rememberGenreForChannel(genreId: string) {
     rememberRecentGenreId(opts.channel.id, genreId);
@@ -462,7 +462,7 @@ export default function Step2Concept({
       const currentSecondary = prev.genreIds.slice(1);
       const nextSecondary = currentSecondary.includes(id)
         ? currentSecondary.filter(item => item !== id)
-        : currentSecondary.length >= 2
+        : currentSecondary.length >= MAX_SECONDARY_GENRES
           ? currentSecondary
           : [...currentSecondary, id];
       return {
@@ -691,7 +691,7 @@ export default function Step2Concept({
 
         <div className="genre-section-card">
           <div className="genre-section-head">
-            <h4>보조 장르 (최대 2개, 선택 사항)</h4>
+            <h4>보조 장르 (최대 {MAX_SECONDARY_GENRES}개, 선택 사항)</h4>
             <span>색깔을 더합니다</span>
           </div>
           <div className="chips">
@@ -702,7 +702,7 @@ export default function Step2Concept({
                   type="button"
                   key={genre.id}
                   className={selected ? 'chip active' : 'chip'}
-                  disabled={!selected && secondaryGenreIds.length >= 2}
+                  disabled={!selected && secondaryGenreIds.length >= MAX_SECONDARY_GENRES}
                   onClick={() => toggleSecondaryGenre(genre.id)}
                 >
                   {genre.label}
@@ -733,21 +733,23 @@ export default function Step2Concept({
               </select>
             </div>
             <div className="chips genre-chip-list">
-              {filteredGenres.map(genre => {
+              {filteredGenres.map(({ genre, eligibleForArchetype }) => {
                 const selectedIndex = opts.genreIds.indexOf(genre.id);
                 const selected = selectedIndex >= 0;
                 const role = selected ? (selectedIndex === 0 ? 'Main' : `Sub ${selectedIndex}`) : '';
+                const unavailableTitle = '이 채널에서는 사용할 수 없습니다';
                 return (
                   <button
                     type="button"
                     key={genre.id}
-                    className={selected ? 'chip active' : 'chip'}
-                    disabled={!selected && opts.genreIds.length >= MAX_SELECTED_GENRES}
+                    className={selected ? 'chip active' : eligibleForArchetype ? 'chip' : 'chip chip-unavailable'}
+                    disabled={!eligibleForArchetype || (!selected && opts.genreIds.length >= MAX_SELECTED_GENRES)}
                     onClick={() => chooseGenreFromSearch(genre.id)}
-                    title={selected ? role : describeGenreForUserKo(genre)}
+                    title={!eligibleForArchetype ? unavailableTitle : selected ? role : describeGenreForUserKo(genre)}
                   >
                     {role && <span className="genre-role">{role}</span>}
                     {genre.label}
+                    {!eligibleForArchetype && <span className="genre-role genre-unavailable-tag">{unavailableTitle}</span>}
                   </button>
                 );
               })}

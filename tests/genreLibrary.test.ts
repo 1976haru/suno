@@ -274,8 +274,21 @@ describe('structured genre library', () => {
   it('[v3.63] exposes the extended catalog through direct search, independent of archetype chips', () => {
     const extendedResults = searchExtendedGenres('');
     expect(extendedResults.length).toBeGreaterThanOrEqual(250);
-    expect(extendedResults.some(genre => genre.id === 'jazz-bebop-sax-drive')).toBe(true);
-    expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
+    expect(extendedResults.some(result => result.genre.id === 'jazz-bebop-sax-drive')).toBe(true);
+    expect(searchExtendedGenres('Bebop').map(result => result.genre.id)).toContain('jazz-bebop-sax-drive');
+  });
+
+  it('[Fable5-1단계 TASK C] flags genres the given archetype cannot actually use, without hiding them', () => {
+    // oldpop-night-chanson is an extended genre explicitly scoped to
+    // senior-morning/oldpop-lounge (archetypes field above) — a real case
+    // of an extended search result that's off-limits for other channels.
+    const forOldpopLounge = searchExtendedGenres('Night Chanson', 'all', 'oldpop-lounge');
+    expect(forOldpopLounge.length).toBeGreaterThan(0);
+    expect(forOldpopLounge.every(result => result.eligibleForArchetype === true)).toBe(true);
+
+    const forKrIdol = searchExtendedGenres('Night Chanson', 'all', 'kr-idol-male');
+    expect(forKrIdol.length).toBeGreaterThan(0);
+    expect(forKrIdol.every(result => result.eligibleForArchetype === false)).toBe(true);
   });
 
   it('does not promote Bebop, Big Band, Club Disco, or Jazz Rap variants into any core set', () => {
@@ -292,7 +305,7 @@ describe('structured genre library', () => {
     const visibleIds = new Set(getVisibleGenresForArchetype('senior-morning').map(genre => genre.id));
     expect(visibleIds.has('jazz-classic-vocal-lounge')).toBe(false);
     expect(searchHiddenGenresForArchetype('senior-morning', 'Classic Vocal Jazz Lounge').map(genre => genre.id)).toContain('jazz-classic-vocal-lounge');
-    expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
+    expect(searchExtendedGenres('Bebop').map(result => result.genre.id)).toContain('jazz-bebop-sax-drive');
   });
 
   it('preserves all genre ids and keeps preset ids backward compatible', () => {
