@@ -1748,6 +1748,24 @@ export interface PreassignedSongSlot {
    */
   hookDeviceText?: string;
   /**
+   * 지시문 36 (TASK C) — this trackNo's resolved verse/chorus arrangement-
+   * contrast plan (see data/chorusContrast.ts's ChorusContrastPlan / this
+   * task's own core/chorusContrastPlan.ts rotation). Same instruction-only
+   * verbatim-weave trust model as moneyChordText/hookDeviceText above:
+   * pre-computed once at slot-assignment time so realtime/Batch/bridge all
+   * reference the identical plan for the same trackNo, and passed into the
+   * bridge instruction as a REFERENCE arrangement idea (not required
+   * wording) — same convention as hookDeviceText's own instruction line.
+   * Distinct axis from hookDeviceText/killingPointText: this describes
+   * ARRANGEMENT DENSITY contrast (what instruments/harmony layer in),
+   * never modulation/key-change — 킬링포인트가 이미 다루는 영역이며 하루가
+   * 직접 청취 검증한 축이라 대체하지 않는다(§C-4).
+   */
+  chorusContrastPlanId?: string;
+  chorusContrastText?: string;
+  /** 0~100, ChorusContrastPlan.score.total 그대로 — 세트 평균 계산/리포트용. */
+  chorusContrastScore?: number;
+  /**
    * TASK v4.11 (TASK B) — tracks 1-3 only (undefined for every other
    * track): a real waveform measurement found those tracks' first 15
    * seconds rendering ~3.7dB quieter than that same track's own full-song

@@ -38,6 +38,8 @@ import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById, hookDevices } from '../data/hookDevices';
+import { buildChorusContrastPlan } from './chorusContrastPlan';
+import { chorusContrastInstructionText, chorusContrastPlanById } from '../data/chorusContrast';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
@@ -615,6 +617,9 @@ export function preallocateSongSlots(
     hookDevices.map(device => device.id),
     seed
   );
+  // 지시문 36 (TASK C-3) — hookDevicePlan 바로 옆에 둔다: 같은 시점에
+  // 결정되는 같은 신뢰 모델의 슬롯 필드이기 때문(§C-3 "검사만 하면 늦다").
+  const chorusContrastPlan = buildChorusContrastPlan(opts.songCount, seed + 173);
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
@@ -774,6 +779,8 @@ export function preallocateSongSlots(
     // core/soundSignature.ts's resolveEffectiveMoneyChordId doc comment.
     const effectiveMoneyChordId = resolveEffectiveMoneyChordId(opts, moneyChordId);
     const hookDeviceText = getHookDeviceById(hookDeviceId)?.prompt;
+    const chorusContrastPlanId = chorusContrastPlan[idx];
+    const chorusContrastResolved = chorusContrastPlanId ? chorusContrastPlanById(chorusContrastPlanId) : undefined;
     const introTextureText = introTextureTagForId(introTextureId);
     const lyricThemeId = lyricThemePlan[idx];
     const lyricTheme = lyricThemeForSlot(lyricThemeId, opts);
@@ -876,6 +883,11 @@ export function preallocateSongSlots(
       ...(introTextureId ? { introTextureId } : {}),
       ...(hookDeviceText ? { hookDeviceText } : {}),
       ...(hookDeviceId ? { hookDeviceId } : {}),
+      ...(chorusContrastResolved ? {
+        chorusContrastPlanId: chorusContrastResolved.id,
+        chorusContrastText: chorusContrastInstructionText(chorusContrastResolved),
+        chorusContrastScore: chorusContrastResolved.score.total
+      } : {}),
       ...(openingLoudnessPlan[idx] ? { openingLoudnessText: openingLoudnessPlan[idx] } : {}),
       // TASK v3.64-B — mirrors localGenerator.ts's own per-song
       // rotatingEarwormText call (same seed/idx), promoted to a slot field
