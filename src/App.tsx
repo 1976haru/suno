@@ -1762,6 +1762,11 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   // all. genreIds now checked the same way moodIds already is.
   const step2Blocked = opts.moodIds.length === 0 || opts.genreIds.length === 0;
   const resultStepBlocked = !gen.blueprint;
+  // Fable5 1단계 TASK B-2 (③) — Step1Channel's editorChannel is only a
+  // draft; cm.saveEditorProfile() must run before it becomes cm.selectedChannel
+  // (the channel generation actually uses). A card click that never gets
+  // applied shouldn't let the user wander into Step2 assuming it took effect.
+  const channelDirty = JSON.stringify(cm.editorChannel) !== JSON.stringify(cm.selectedChannel);
   /**
    * 지시문 32 (§1) — "컨셉 입력 시점, 설계안(Step2Plan) 단계 진입 전"에
    * 채널×컨셉 시대 호환성을 보여준다. unsupported는 경고만(이유 + 대안
@@ -1882,7 +1887,17 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             </ExperimentalFeatureBoundary>
           ) : (
             <>
-          <StepIndicator steps={STEPS} current={currentStep} maxUnlocked={maxUnlocked} onSelect={setCurrentStep} />
+          <StepIndicator
+            steps={STEPS}
+            current={currentStep}
+            maxUnlocked={maxUnlocked}
+            onSelect={step => {
+              // Fable5 1단계 TASK B-2 (③) — same guard as WizardNav's onNext
+              // below, but for the top tab bar's own direct step jumps.
+              if (currentStep === 1 && channelDirty && step !== 1) return;
+              setCurrentStep(step);
+            }}
+          />
 
           {loadWarning && (
             <p className="supporting load-warning" onClick={() => setLoadWarning('')}>
@@ -1906,6 +1921,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
               onDelete={cm.deleteSelectedCustomChannel}
               basicMode={!expertMode}
               workspaceId={workspaceId}
+              appliedChannelName={cm.selectedChannel.name}
+              channelDirty={channelDirty}
             />
           )}
 
@@ -2058,8 +2075,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             currentStep={currentStep}
             onPrev={() => setCurrentStep(step => Math.max(1, step - 1))}
             onNext={() => setCurrentStep(step => Math.min(5, step + 1))}
-            nextDisabled={(currentStep === 2 && (step2Blocked || conceptCompatBlocked)) || (currentStep === 3 && designGateBlocked) || (currentStep === 4 && resultStepBlocked)}
-            blockerMessage={currentStep === 2 && step2Blocked ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 2 && conceptCompatBlocked ? '이 채널×컨셉 조합(재해석 필요)을 확인하고 진행하세요.' : currentStep === 3 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
+            nextDisabled={(currentStep === 1 && channelDirty) || (currentStep === 2 && (step2Blocked || conceptCompatBlocked)) || (currentStep === 3 && designGateBlocked) || (currentStep === 4 && resultStepBlocked)}
+            blockerMessage={currentStep === 1 && channelDirty ? '⚠ 변경한 채널 설정이 아직 생성 설정에 적용되지 않았습니다. 위의 "이 채널로 적용"을 누르세요.' : currentStep === 2 && step2Blocked ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 2 && conceptCompatBlocked ? '이 채널×컨셉 조합(재해석 필요)을 확인하고 진행하세요.' : currentStep === 3 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
             maxStep={5}
           />
             </>

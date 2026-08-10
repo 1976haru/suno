@@ -104,6 +104,10 @@ button.primary:hover:not(:disabled) {
 }
 
 /* TASK v3.38 Part B6 — kids-channel one-time info banner. */
+.channel-apply-status {
+  margin-bottom: 12px;
+}
+
 .notice-banner {
   display: flex;
   align-items: flex-start;

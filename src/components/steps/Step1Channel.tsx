@@ -258,13 +258,20 @@ interface Step1ChannelProps {
   // task already belonged to) so no existing caller/test that doesn't yet
   // pass it breaks.
   workspaceId?: WorkspaceId;
+  // Fable5 1단계 TASK B — editorChannel is only a draft (App.tsx's
+  // cm.editorChannel); the channel actually used for generation is
+  // cm.selectedChannel, only synced by onSave. Both are surfaced here so
+  // the user can see which channel is live and know when a card click
+  // hasn't been applied yet, instead of assuming the two stay in sync.
+  appliedChannelName?: string;
+  channelDirty?: boolean;
 }
 
 // TASK v3.38 Part B6 — shown once (persisted in localStorage, not per-session
 // state) the first time a user selects the kids channel archetype.
 const KIDS_BANNER_DISMISSED_KEY = 'kidsChannelBannerDismissed';
 
-export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete, basicMode = false, workspaceId = 'senior-oldpop' }: Step1ChannelProps) {
+export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdateField, onNew, onSave, onDelete, basicMode = false, workspaceId = 'senior-oldpop', appliedChannelName, channelDirty = false }: Step1ChannelProps) {
   const [genreSearchOpen, setGenreSearchOpen] = useState(false);
   const [genreQuery, setGenreQuery] = useState('');
   const [genreCategoryId, setGenreCategoryId] = useState('all');
@@ -363,11 +370,31 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     }
   }
 
+  // Fable5 1단계 TASK B-2 (②④) — a card click only edits the draft
+  // (editorChannel); the channel actually used for generation
+  // (appliedChannelName, App.tsx's cm.selectedChannel) doesn't change until
+  // onSave runs. Surfaced in both basicMode and the detailed editor so a
+  // click doesn't read as "already switched."
+  const channelApplyStatus = (
+    <div className="channel-apply-status">
+      {appliedChannelName && (
+        <p className="supporting">현재 생성 채널: <strong>{appliedChannelName}</strong></p>
+      )}
+      {channelDirty && (
+        <div className="notice-banner">
+          <p>새 채널 설정이 아직 적용되지 않았습니다.</p>
+          <button type="button" onClick={onSave}>이 채널로 적용</button>
+        </div>
+      )}
+    </div>
+  );
+
   if (basicMode) {
     return (
       <section className="panel basic-workflow-panel">
-        <h2>Choose a channel</h2>
-        <p className="supporting">Choose a channel profile. Its language, mood, and vocal defaults will be applied automatically.</p>
+        <h2>채널 유형 편집</h2>
+        <p className="supporting">채널 유형을 고르세요. 카드를 클릭하면 언어·분위기·보컬 기본값이 편집 중인 채널 초안에 반영됩니다.</p>
+        {channelApplyStatus}
         <div className="genre-card-grid">
           {workspaceArchetypeChoices.map(choice => (
             <button key={choice.id} type="button" className={archetype === choice.id ? 'genre-card-choice active' : 'genre-card-choice'} onClick={() => applyArchetype(choice.id)}>
@@ -405,11 +432,12 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
   return (
     <section className="panel profile-editor">
       <p className="step-hint">먼저 어떤 채널의 곡을 만들지 고르세요. 채널마다 목소리와 분위기가 저장됩니다.</p>
+      {channelApplyStatus}
 
       <div className="panel-header">
         <div className="panel-title">
           <Sparkles size={18} />
-          <h2>Channel Profile Editor (채널 프로필)</h2>
+          <h2>Channel Profile Editor (채널 프로필) — 편집 중인 초안</h2>
         </div>
         <div className="button-row">
           <button type="button" onClick={onNew}>
