@@ -216,6 +216,25 @@ jobs:
       - run: npm ci
       - run: npm run check:settings
 
+  # 지시문 24 TASK C(13축) + 지시문 30 TASK D(20축+강등추적+listeningIntent) —
+  # UserExplicitChoices/GenerationChoiceProvenance 축 전수 감사표를 CI에
+  # 처음으로 배선한다(scripts/checkChoiceContract.ts는 지시문 24부터
+  # 존재했지만 여기 없었다 — 아무도 그 결과를 보지 못했다, 지시문 30 TASK
+  # A-6 실측). 대부분의 CONTRACT VIOLATION은 이 지시문 범위 밖의 기존
+  # 아키텍처 사실이라 실패 사유가 아니다 — 이 job은 감사표 자체가 실제
+  # 소스/export와 어긋나는 AUDIT TABLE DRIFT만 실패시킨다(스크립트 자신의
+  # 콘솔 출력 설명 참고).
+  check-choices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:choices
+
   # 지시문 15 (TASK D) — 아키타입 하드코딩(archetype === '리터럴') 재발
   # 방지. 어댑터(워크스페이스 정책 registry)를 만들어도 옛 분기를 지우지
   # 않으면 새 기능이 시니어에만 붙는다(§0-3 실측: 13파일 59곳). 이

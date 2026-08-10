@@ -263,10 +263,12 @@ const KR_2030_EMOTIONAL_AUDIENCE_PROFILE: AudienceProfile = {
   lyricWordRange: [190, 260],
   songLengthSecondsRange: [180, 225],
   relaxableAtPeak: [],
-  // No relaxableAtPeak split defined for this workspace yet (no real
-  // killing-point set exists — killingPointSetId below is id-only, same as
-  // every non-senior profile per AudienceProfile's own doc comment), so
-  // this equals `exclusions` verbatim per that field's own convention.
+  // No relaxableAtPeak split defined for this workspace yet — this is a
+  // separate, still-open gap from killingPointSetId (which DOES now resolve
+  // to a real pool as of 지시문 30 TASK C, data/killingPointsKr2030.ts via
+  // data/killingPointWorkspaceSets.ts). relaxableAtPeak wasn't in this
+  // task's scope, so it still equals `exclusions` verbatim per that field's
+  // own convention.
   hardExclusions: [
     'vintage tape saturation',
     '1970s AM-radio compression',

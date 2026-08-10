@@ -32,7 +32,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertUserChoicesPreserved,
+  DEMOTION_TRACKED_PROVENANCE_FIELDS,
+  detectProvenanceDowngrades,
+  GUARDED_PROVENANCE_FIELDS,
+  languageOverrideConfirmMessageKo,
   provenanceForSystemFix,
+  shouldConfirmLanguageOverride,
   userChoicesFromOptions,
   type ResolvedChoiceCheck
 } from '../src/core/userChoices';
@@ -436,5 +441,52 @@ describe('[provenance extension] moodIds/durationTarget/lyricDepth/hookMode/refe
     }));
     expect(choices.avoidWords).toBe('전쟁, 이별');
     expect(choices.source.avoidWords).toBe('user');
+  });
+});
+
+/**
+ * 지시문 30 TASK D-2/TASK A — real repro: App.tsx's applyChannelToOptions
+ * unconditionally overwrote lyricLanguage/vocalTone/kidsAgeTierId/
+ * packagingLanguage/moodIds provenance to 'channel' on every channel
+ * (re)select, silently discarding a same-session 'user' pick with no signal
+ * anywhere that a downgrade even happened — the exact gap that let
+ * lyricLanguage go unnoticed despite being tracked in
+ * PROVENANCE_FIELD_TO_OPTS_KEY since this module's original version.
+ */
+describe('[provenance] detectProvenanceDowngrades / shouldConfirmLanguageOverride — 지시문 30 TASK D-2 / TASK A', () => {
+  it('flags a field only when it was truly user-sourced AND its value is actually about to change', () => {
+    const downgrades = detectProvenanceDowngrades({ vocalTone: 'user', moodIds: 'user', kidsAgeTierId: 'channel' }, [
+      { field: 'vocalTone', labelKo: '보컬 톤', valueChanged: true },
+      { field: 'moodIds', labelKo: '무드', valueChanged: false },
+      { field: 'kidsAgeTierId', labelKo: '연령대', valueChanged: true }
+    ]);
+    expect(downgrades).toEqual([{ field: 'vocalTone', labelKo: '보컬 톤' }]);
+  });
+
+  it('a re-assert of the same value is not a downgrade — nothing was actually lost', () => {
+    const downgrades = detectProvenanceDowngrades({ vocalTone: 'user' }, [{ field: 'vocalTone', labelKo: '보컬 톤', valueChanged: false }]);
+    expect(downgrades).toEqual([]);
+  });
+
+  it('shouldConfirmLanguageOverride only fires when provenance is user AND the language genuinely differs from the channel default', () => {
+    expect(shouldConfirmLanguageOverride('english', 'user', 'korean')).toBe(true);
+    expect(shouldConfirmLanguageOverride('korean', 'user', 'korean')).toBe(false);
+    expect(shouldConfirmLanguageOverride('english', 'channel', 'korean')).toBe(false);
+    expect(shouldConfirmLanguageOverride('english', undefined, 'korean')).toBe(false);
+  });
+
+  it('languageOverrideConfirmMessageKo renders §A-4\'s exact required wording', () => {
+    expect(languageOverrideConfirmMessageKo('english', 'korean')).toBe(
+      '이 채널의 기본 언어는 한국어입니다. 현재 영어(으)로 설정되어 있습니다. 채널 기본값으로 되돌리시겠습니까?'
+    );
+  });
+
+  it('GUARDED_PROVENANCE_FIELDS matches exactly the axes computeStructuredViolations checks (moneyChordMode/vocalTone/genreIds/negativeStyle) — lyricLanguage is deliberately absent, it is protected upstream (TASK A) instead', () => {
+    expect([...GUARDED_PROVENANCE_FIELDS].sort()).toEqual(['genreIds', 'moneyChordMode', 'negativeStyle', 'vocalTone'].sort());
+  });
+
+  it('DEMOTION_TRACKED_PROVENANCE_FIELDS covers every field App.tsx\'s applyChannelToOptions can silently reset — genreIds is deliberately excluded (§하지 말 것)', () => {
+    expect([...DEMOTION_TRACKED_PROVENANCE_FIELDS].sort()).toEqual(['kidsAgeTierId', 'lyricLanguage', 'moodIds', 'packagingLanguage', 'vocalTone'].sort());
+    expect(DEMOTION_TRACKED_PROVENANCE_FIELDS).not.toContain('genreIds');
   });
 });

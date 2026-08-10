@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { buildGenreAllocationForListeningIntent, buildGenreCountsForExistingSelection, isEraColorGenreId, representativePerceivedEnergy, scaleEnergyDistribution } from '../src/core/listeningIntent';
+import {
+  applyListeningIntentIfPending,
+  applyListeningIntentToOptions,
+  buildGenreAllocationForListeningIntent,
+  buildGenreCountsForExistingSelection,
+  isEraColorGenreId,
+  listeningIntentApplicationStatus,
+  representativePerceivedEnergy,
+  scaleEnergyDistribution
+} from '../src/core/listeningIntent';
 import { LISTENING_INTENT_POLICY, DEFAULT_LISTENING_INTENT } from '../src/data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from '../src/data/perceivedEnergyPolicy';
 import { getGenreById } from '../src/data/genreLibrary';
 import { channelPresets } from '../src/data/presets';
 import { MAX_SELECTED_GENRES } from '../src/core/genreSelection';
+import { createInitialOptions } from '../src/utils/generation';
 
 const energyPolicy = PERCEIVED_ENERGY_POLICY['senior-oldpop'];
 
@@ -133,5 +143,68 @@ describe('지시문 24 TASK A-6 — buildGenreCountsForExistingSelection: 청취
     const comfortCounts = buildGenreCountsForExistingSelection(userPickedGenres, LISTENING_INTENT_POLICY['long-listen-comfort'], 18, energyPolicy).counts;
     const authenticCounts = buildGenreCountsForExistingSelection(userPickedGenres, LISTENING_INTENT_POLICY['era-authentic'], 18, energyPolicy).counts;
     expect(comfortCounts).not.toEqual(authenticCounts);
+  });
+});
+
+/**
+ * 지시문 30 TASK B — 실측 재현: opts.listeningIntent가 write-once였고 생성
+ * 경로 어디도 다시 확인하지 않았다는 결함(B-2)과, 그 수정(B-4: 생성 직전
+ * 재적용)·B-5(3단 상태)를 코드로 고정한다.
+ */
+describe('지시문 30 TASK B — applyListeningIntentToOptions / listeningIntentApplicationStatus / applyListeningIntentIfPending', () => {
+  const channel = channelPresets.find(c => c.id === 'oldpop-lounge-main')!;
+  const baseOpts = createInitialOptions(channel);
+  const workspacePolicy = LISTENING_INTENT_POLICY['long-listen-comfort'];
+
+  it('status는 listeningIntent를 한 번도 고르지 않았으면 unselected다 (기본값 long-listen-comfort를 강제 적용하지 않는다, §B-6)', () => {
+    expect(baseOpts.listeningIntent).toBeUndefined();
+    expect(listeningIntentApplicationStatus(baseOpts, workspacePolicy, energyPolicy)).toBe('unselected');
+  });
+
+  it('applyListeningIntentToOptions 적용 직후에는 status가 applied다', () => {
+    const applied = applyListeningIntentToOptions(baseOpts, 'long-listen-comfort', workspacePolicy, energyPolicy);
+    expect(applied).not.toBe(baseOpts);
+    expect(applied.listeningIntent).toBe('long-listen-comfort');
+    expect(listeningIntentApplicationStatus(applied, workspacePolicy, energyPolicy)).toBe('applied');
+  });
+
+  it('지시문 30 B-2 실측 재현: 적용 후 songCount만 바꾸면 status가 modified로 바뀐다 — 배분이 낡은 songCount를 그대로 들고 있다는 신호', () => {
+    const applied = applyListeningIntentToOptions(baseOpts, 'long-listen-comfort', workspacePolicy, energyPolicy);
+    const staleAfterSongCountChange = { ...applied, songCount: applied.songCount + 6 };
+    expect(listeningIntentApplicationStatus(staleAfterSongCountChange, workspacePolicy, energyPolicy)).toBe('modified');
+  });
+
+  it('applyListeningIntentIfPending은 modified일 때만 실제로 재적용하고, 재적용 후에는 다시 applied로 수렴한다 (지시문 30 TASK B-4의 실제 생성-경로 호출부와 동일 로직)', () => {
+    const applied = applyListeningIntentToOptions(baseOpts, 'long-listen-comfort', workspacePolicy, energyPolicy);
+    const stale = { ...applied, songCount: applied.songCount + 6 };
+    const rePending = applyListeningIntentIfPending(stale, workspacePolicy, energyPolicy);
+    expect(rePending).not.toBe(stale);
+    expect(listeningIntentApplicationStatus(rePending, workspacePolicy, energyPolicy)).toBe('applied');
+    expect(Object.values(rePending.diversityAllocations.find(a => a.axis === 'genre')!.counts).reduce((a, b) => a + b, 0)).toBe(stale.songCount);
+  });
+
+  it('applyListeningIntentIfPending은 unselected/applied일 때 완전한 no-op(동일 참조 반환)이다 — 생성마다 매번 새 객체를 만들지 않는다', () => {
+    expect(applyListeningIntentIfPending(baseOpts, workspacePolicy, energyPolicy)).toBe(baseOpts);
+    const applied = applyListeningIntentToOptions(baseOpts, 'long-listen-comfort', workspacePolicy, energyPolicy);
+    expect(applyListeningIntentIfPending(applied, workspacePolicy, energyPolicy)).toBe(applied);
+  });
+
+  it('지시문 24 TASK A-6 우선순위(§하지 말 것 — 다시 짜지 말 것)가 core로 옮긴 뒤에도 그대로 보존된다: genreIds가 이미 user 선택이면 genreIds 자체는 바뀌지 않고 곡수만 바뀐다', () => {
+    const userGenreIds = ['piano-ballad', 'adult-contemporary', 'chanson'];
+    const withUserGenres = {
+      ...baseOpts,
+      genreIds: userGenreIds,
+      choiceProvenance: { ...baseOpts.choiceProvenance, genreIds: 'user' as const }
+    };
+    const applied = applyListeningIntentToOptions(withUserGenres, 'era-authentic', LISTENING_INTENT_POLICY['era-authentic'], energyPolicy);
+    expect(applied.genreIds).toEqual(userGenreIds);
+    expect(applied.choiceProvenance?.genreIds).toBe('user');
+  });
+
+  it('applyListeningIntentToOptions은 없앤 것 없이 handleApplyListeningIntent가 예전에 하던 것과 같은 필드만 바꾼다 (channel/songCount 등 무관한 필드는 그대로)', () => {
+    const applied = applyListeningIntentToOptions(baseOpts, 'balanced', LISTENING_INTENT_POLICY['balanced'], energyPolicy);
+    expect(applied.channel).toBe(baseOpts.channel);
+    expect(applied.songCount).toBe(baseOpts.songCount);
+    expect(applied.lyricLanguage).toBe(baseOpts.lyricLanguage);
   });
 });

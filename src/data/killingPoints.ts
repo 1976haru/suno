@@ -31,6 +31,17 @@ export interface KillingPoint {
   fitsEraTags?: string[];
   /** TASK D2 §4-4 — kids-only: which age tier(s) this killing point is appropriate for. Undefined for every existing senior KILLING_POINTS entry (adult content has no age-tier concept). */
   eligibleKidsTiers?: KidsAgeTierId[];
+  /**
+   * 지시문 30 TASK C — undefined (또는 true) means listening-verified, same
+   * status every existing KILLING_POINTS entry already has (하루's 20260808
+   * 청취: "킬링포인트 옥타브 상승이 들린다"). `false` marks a genre-convention
+   * judgment call with zero real listening passes yet — every entry in
+   * data/killingPointsKr2030.ts/killingPointsJp2030.ts/killingPointsKpop.ts
+   * (지시문 30 TASK C) sets this explicitly. Purely descriptive metadata —
+   * nothing in the generation pipeline branches on it or blocks generation
+   * because of it (§공통 규약 7 "실측 없이 blocking을 만들지 않는다").
+   */
+  verified?: boolean;
 }
 
 export const KILLING_POINTS: KillingPoint[] = [

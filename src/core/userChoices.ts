@@ -392,6 +392,40 @@ interface StructuredViolation {
 }
 
 /**
+ * TASK (지시문 30 TASK D) — every provenance axis computeStructuredViolations
+ * below actually checks (the 4 `if (choices.source.X === 'user' && ...)`
+ * blocks in that function's body). Single source of truth so
+ * provenanceAxisAudit.ts's own "가드" column can never silently drift from
+ * what the guard genuinely covers — the exact gap that let lyricLanguage
+ * (tracked in PROVENANCE_FIELD_TO_OPTS_KEY since this module's original
+ * version, but never checked here) go unnoticed until 지시문 30 TASK A.
+ */
+export const GUARDED_PROVENANCE_FIELDS: readonly (keyof GenerationChoiceProvenance)[] = [
+  'moneyChordMode',
+  'vocalTone',
+  'genreIds',
+  'negativeStyle'
+];
+
+/**
+ * TASK (지시문 30 TASK D-2) — every axis with a live provenance-downgrade
+ * detector actually wired into a real call site (App.tsx's
+ * applyChannelToOptions — see that function's own comments: the blocking
+ * shouldConfirmLanguageOverride for lyricLanguage, detectProvenanceDowngrades
+ * below for the rest). genreIds is deliberately absent (§하지 말 것 "지시문
+ * 24의 사용자 장르 선택 로직을 건드리지 말 것" — applyChannelToOptions still
+ * resets it unconditionally, untouched by this task). Single source of
+ * truth for provenanceAxisAudit.ts's own "강등추적" column.
+ */
+export const DEMOTION_TRACKED_PROVENANCE_FIELDS: readonly (keyof GenerationChoiceProvenance)[] = [
+  'lyricLanguage',
+  'vocalTone',
+  'kidsAgeTierId',
+  'packagingLanguage',
+  'moodIds'
+];
+
+/**
  * TASK (contract screen) — single source of truth for "did a user's
  * 'user'-sourced choice actually survive resolution", used by BOTH
  * assertUserChoicesPreserved (string violations, the pre-existing dev-mode
@@ -518,6 +552,80 @@ export function assertUserChoicesPreservedOrThrow(
 ): void {
   const result = assertUserChoicesPreserved(choices, resolved, stage);
   if (!result.ok) throw new Error(result.violations.join(' / '));
+}
+
+/**
+ * TASK (지시문 30 TASK D-2) — real, verified gap: 지시문 24 TASK C's own "13축
+ * 전수 점검" left lyricLanguage tracked in PROVENANCE_FIELD_TO_OPTS_KEY but
+ * never guarded — the guard above (GUARDED_PROVENANCE_FIELDS /
+ * computeStructuredViolations) only ever asks "does a 'user' source axis's
+ * VALUE survive", never "did a 'user' source axis's SOURCE itself get
+ * silently downgraded". App.tsx's applyChannelToOptions (the one real
+ * repro path, confirmed by grep — every `choiceProvenance: 'channel'` write
+ * in this codebase lives there) resets lyricLanguage/genreIds/vocalTone/
+ * kidsAgeTierId/packagingLanguage/moodIds to 'channel' on every channel
+ * (re)select, unconditionally overwriting a session's own 'user' pick with
+ * no signal anywhere that a downgrade even happened. This is the generic
+ * detector a caller feeds a same-shaped "did the value also actually
+ * change" map into — deliberately NOT auto-wired to genreIds (§하지 말 것
+ * "지시문 24의 사용자 장르 선택 로직을 건드리지 말 것"); App.tsx's
+ * applyChannelToOptions is the one real caller today, using this for
+ * vocalTone/kidsAgeTierId/packagingLanguage/moodIds (informational warning)
+ * and the dedicated shouldConfirmLanguageOverride below for lyricLanguage
+ * (blocking confirm, per TASK A's own explicit UX requirement).
+ */
+export interface ProvenanceDowngradeCheck {
+  field: keyof GenerationChoiceProvenance;
+  labelKo: string;
+  /** True when the field's actual value is also about to change — a same-value re-assert of 'channel' provenance over an identical 'user' value isn't a real downgrade, nothing was lost. */
+  valueChanged: boolean;
+}
+
+export interface ProvenanceDowngrade {
+  field: keyof GenerationChoiceProvenance;
+  labelKo: string;
+}
+
+export function detectProvenanceDowngrades(
+  prevProvenance: Partial<GenerationChoiceProvenance> | undefined,
+  checks: readonly ProvenanceDowngradeCheck[]
+): ProvenanceDowngrade[] {
+  return checks
+    .filter(check => prevProvenance?.[check.field] === 'user' && check.valueChanged)
+    .map(({ field, labelKo }) => ({ field, labelKo }));
+}
+
+/** TASK (지시문 30 TASK A) — Korean label for the confirm dialog; lyricLanguage's own 4 real values (Step2Concept.tsx's languageOptions), duplicated here rather than imported since that array is component-local display data (label/sub pairs), not exported. */
+const LANGUAGE_LABEL_KO: Record<LyricLanguage, string> = {
+  korean: '한국어',
+  english: '영어',
+  japanese: '일본어',
+  bilingual: '영어+한국어 혼합'
+};
+
+/**
+ * TASK (지시문 30 TASK A) — real repro: App.tsx's applyChannelToOptions
+ * unconditionally overwrote opts.lyricLanguage with channel.primaryLanguage
+ * on every channel (re)select, even when choiceProvenance.lyricLanguage was
+ * 'user' (하루 explicitly picked English in Step2Concept's language chips).
+ * Only true when there's something real to lose — a language that was never
+ * explicitly picked (provenance !== 'user') or that already matches the
+ * channel's own default (nothing would change) needs no confirm, matching
+ * this module's own "only ask when there's something to actually lose"
+ * convention (see Step1Channel.tsx's applyArchetype hasExistingGenreChoice
+ * for the precedent this mirrors).
+ */
+export function shouldConfirmLanguageOverride(
+  currentLanguage: LyricLanguage,
+  currentProvenance: ChoiceSource | undefined,
+  channelDefaultLanguage: LyricLanguage
+): boolean {
+  return currentProvenance === 'user' && currentLanguage !== channelDefaultLanguage;
+}
+
+/** TASK (지시문 30 TASK A) — §A-4's exact required wording, filled in with the real current/channel languages. */
+export function languageOverrideConfirmMessageKo(currentLanguage: LyricLanguage, channelDefaultLanguage: LyricLanguage): string {
+  return `이 채널의 기본 언어는 ${LANGUAGE_LABEL_KO[channelDefaultLanguage]}입니다. 현재 ${LANGUAGE_LABEL_KO[currentLanguage]}(으)로 설정되어 있습니다. 채널 기본값으로 되돌리시겠습니까?`;
 }
 
 /**

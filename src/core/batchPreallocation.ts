@@ -62,6 +62,7 @@ import { conceptLyricImages, conceptStyleText, variedVocalText } from './concept
 import { breakLongRuns, pinPrefixPreservingCounts, reorderByArcIntensity } from './arcPlan';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
+import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
 import { applyEraQuota, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
 import { BREADTH_THRESHOLDS } from './designGate';
@@ -329,7 +330,11 @@ export function preallocateSongSlots(
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
     // v5.13 — tier-aware filter instead of always the unfiltered full set.
-    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : undefined
+    // 지시문 30 TASK C — mirrors the identical fix in localGenerator.ts's two
+    // own assignKillingPoints call sites (data/killingPointWorkspaceSets.ts's
+    // own doc comment) — this is the third real call site, the bridge/batch
+    // preallocation path.
+    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : killingPointSetForNonKidsArchetype(opts.channel.archetype)
   );
   // TASK v4.11 (TASK B) — mirrors localGenerator.ts's own openingLoudnessPlan
   // (same seed offset): tracks 1-3 only, a real waveform measurement found

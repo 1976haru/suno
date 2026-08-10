@@ -72,6 +72,7 @@ import { breakLongRuns, buildArcPlan, pinPrefixPreservingCounts, reorderByArcInt
 import { buildRepetitionCyclePlan } from './arcModels';
 import { assignKillingPoints, killingPointBoostFromInsights } from '../data/killingPoints';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
+import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 import { kidsAgeTierFor } from '../data/kidsAgeTiers';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
@@ -853,7 +854,14 @@ export function rebuildStylePromptsForPersonaMode(
     // TASK D2 §4-5 — kids workspaces draw from the separate kid-safe set instead of KILLING_POINTS.
     // v5.13 — tier-aware filter (data/killingPointsKids.ts's own kidsKillingPointsForTier)
     // instead of always the unfiltered full set.
-    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : undefined
+    // 지시문 30 TASK C — every other non-kids archetype used to fall through
+    // to `undefined` here, meaning assignKillingPoints' own default
+    // (KILLING_POINTS, the senior pool) — kr-2030/jp-2030/kr-idol-male/
+    // kr-idol-female now get their own real pool via
+    // killingPointSetForNonKidsArchetype (data/killingPointWorkspaceSets.ts);
+    // every archetype that function doesn't recognize still resolves to
+    // undefined, unchanged.
+    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : killingPointSetForNonKidsArchetype(opts.channel.archetype)
   );
   const songs = blueprint.songs.map((song, idx) => {
     const trackNo = song.trackNo;
@@ -1279,7 +1287,9 @@ export function generateLocalBlueprint(
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
     // v5.13 — tier-aware filter instead of always the unfiltered full set.
-    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : undefined
+    // 지시문 30 TASK C — mirrors the same fix at this function's twin call
+    // site above (data/killingPointWorkspaceSets.ts's own doc comment).
+    isKidsArchetype(opts.channel.archetype) ? kidsKillingPointsForTier(resolvedKidsAgeTierId) : killingPointSetForNonKidsArchetype(opts.channel.archetype)
   );
   // TASK v4.9 (TASK C) — a first-15-seconds hooking device, distinct from
   // killingPointPlan's final-chorus peak (see data/openingHooks.ts's own
