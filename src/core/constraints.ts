@@ -140,9 +140,22 @@ export interface ResolvedConstraints {
 // compound-decade phrases are now handled uniformly by
 // detectCompoundDecades below, which maps BOTH decades explicitly instead
 // of leaving one entirely undetected.
-const ERA_1950_60_PATTERN = /(1950|1950s|50년대|1960|1960s|\b60s\b|60년|60년대|비틀|beatles?|beat ?pop|doo-?wop|두왑|british beat)/i;
-const ERA_1970_PATTERN = /(1970|1970s|\b70s\b|70년|70년대|카펜터스?|carpenters?|abba|아바|모타운|motown|soul train|양키|yacht)/i;
-const ERA_1980_PATTERN = /(1980|1980s|\b80s\b|80년대|80년|신스팝|synth-?pop|시티팝|city ?pop|어덜트\s*컨템포러리|adult contemporary)/i;
+// 지시문 29 (TASK E) — 실측: "70년대 비틀즈의 향수"에서 british-beat(1950s-60s
+// 장르)가 9곡으로 나왔다. 원인은 이 패턴들이 처음부터 "명시적 연대 숫자"와
+// "아티스트/장르 키워드"를 하나의 정규식에 섞어 두고 있었다는 것 — "비틀"이라는
+// 단어 자체가 ERA_1950_60_PATTERN 안에 있어서, freeText에 "70년대"라고 명시해도
+// "비틀즈"라는 단어가 같이 있으면 1950s-60s도 동시에 걸리고, 코드 순서상
+// 1950s-60s 패턴이 먼저 검사돼 그게 그대로 primary가 됐다(지시문 01 SCENE_ERA
+// §6 "명시 시대 > 참조 시대"가 요구한 우선순위와 반대). 이제 "몇 년대"라고
+// 숫자로 못박은 EXPLICIT 패턴과, 아티스트/서브장르 이름으로만 그 시대를
+// 암시하는 KEYWORD 패턴을 분리한다 — extractEraConstraint가 EXPLICIT 히트를
+// 항상 우선한다.
+const ERA_1950_60_EXPLICIT_PATTERN = /(1950|1950s|50년대|1960|1960s|\b60s\b|60년|60년대)/i;
+const ERA_1950_60_KEYWORD_PATTERN = /(비틀|beatles?|beat ?pop|doo-?wop|두왑|british beat)/i;
+const ERA_1970_EXPLICIT_PATTERN = /(1970|1970s|\b70s\b|70년|70년대)/i;
+const ERA_1970_KEYWORD_PATTERN = /(카펜터스?|carpenters?|abba|아바|모타운|motown|soul train|양키|yacht)/i;
+const ERA_1980_EXPLICIT_PATTERN = /(1980|1980s|\b80s\b|80년대|80년)/i;
+const ERA_1980_KEYWORD_PATTERN = /(신스팝|synth-?pop|시티팝|city ?pop|어덜트\s*컨템포러리|adult contemporary)/i;
 // codex 지시문 02 (TASK J) — real, bounded gap: data/eraExclusions.ts's own
 // EraBucket already has a '2000s' member with real genre data behind it
 // (kr2030-y2k-retro, jp2030-heisei-nostalgia — see those entries' own
@@ -190,6 +203,50 @@ const ERA_ADJACENCY: Record<EraBucket, EraBucket[]> = {
 
 const REAL_ERA_BUCKETS: EraBucket[] = ['1950s-60s', '1970s', '1980s'];
 
+const EXPLICIT_PATTERNS: [EraBucket, RegExp][] = [
+  ['1950s-60s', ERA_1950_60_EXPLICIT_PATTERN],
+  ['1970s', ERA_1970_EXPLICIT_PATTERN],
+  ['1980s', ERA_1980_EXPLICIT_PATTERN]
+];
+const KEYWORD_PATTERNS: [EraBucket, RegExp][] = [
+  ['1950s-60s', ERA_1950_60_KEYWORD_PATTERN],
+  ['1970s', ERA_1970_KEYWORD_PATTERN],
+  ['1980s', ERA_1980_KEYWORD_PATTERN]
+];
+
+/** 연대 숫자("70년대", "1970s")만 본다 — 아티스트/서브장르 키워드는 제외. */
+function detectExplicitEraHits(text: string): EraBucket[] {
+  const hits: EraBucket[] = [];
+  for (const [bucket, pattern] of EXPLICIT_PATTERNS) if (pattern.test(text)) hits.push(bucket);
+  if (ERA_2000_PATTERN.test(text)) hits.push('2000s');
+  return [...new Set(hits)];
+}
+
+/** 아티스트/서브장르 키워드("비틀즈", "carpenters")만 본다 — 연대 숫자는 제외. */
+function detectKeywordEraHits(text: string): EraBucket[] {
+  const hits: EraBucket[] = [];
+  for (const [bucket, pattern] of KEYWORD_PATTERNS) if (pattern.test(text)) hits.push(bucket);
+  return [...new Set(hits)];
+}
+
+/**
+ * 지시문 29 (TASK E) — 실측(70년대 세트, 두 번 반복): "70년대 비틀즈의 향수"
+ * 컨셉이 british-beat(1950s-60s 장르) 9곡으로 나왔다. 원인은 ERA_1950_60_PATTERN
+ * 안에 "비틀" 같은 아티스트 키워드가 연대 숫자와 한 정규식에 섞여 있었던 것 —
+ * freeText에 "70년대"라고 명시해도 같은 문장에 "비틀즈"가 있으면 1950s-60s도
+ * 동시에 걸리고, 코드 순서상 1950s-60s 쪽이 먼저 검사돼 그게 그대로 primary가
+ * 됐다(지시문 01 SCENE_ERA §6 "명시 시대 > 참조 시대"가 요구한 우선순위와
+ * 반대). "몇 년대"라고 숫자로 못박은 EXPLICIT 히트와, 아티스트/서브장르
+ * 이름으로만 그 시대를 암시하는 KEYWORD 히트(freeText 자신의 키워드 +
+ * artistReferenceEraTags 전부)를 분리해서, EXPLICIT이 있으면 항상 그것이
+ * primary/coPrimary를 결정한다. KEYWORD만으로 걸린, EXPLICIT과 다른 버킷은
+ * coPrimary로 승격되지 않고 좁은 상한의 adjacent로만 반영된다("60년대 향수를
+ * 담은 70년대 트랙" — 60년대 장르를 직접 대량 배정하지 않는다). freeText에
+ * EXPLICIT 연대가 전혀 없을 때만(예: "비틀즈 느낌 플레이리스트") KEYWORD
+ * 히트가 그대로 primary가 된다 — 이 경우엔 충돌이 없다.
+ */
+const ARTIST_REFERENCE_CONFLICT_ADJACENT_SHARE = 0.17; // 정책값(추정) — "18곡 중 2~3곡까지만" 원문 요구를 비율로 옮긴 것. 청취 검증 안 됨.
+
 /**
  * TASK B (3-1) — decade/artist-era detection. Deliberately narrow (explicit
  * decade numerals/known artist-era words only) — generic old-pop words like
@@ -198,14 +255,14 @@ const REAL_ERA_BUCKETS: EraBucket[] = ['1950s-60s', '1970s', '1980s'];
  * no decade word and must resolve unspecified:true).
  */
 export function extractEraConstraint(freeText: string, artistReferenceEraTags: string[] = []): EraConstraint {
-  const haystack = [freeText, ...artistReferenceEraTags].join(' ');
+  const artistHaystack = artistReferenceEraTags.join(' ');
 
   // v3.77 (TASK D) — checked BEFORE the single-bucket regexes below: a
   // compound decade phrase must resolve to two co-equal primaries, not
   // silently collapse to whichever single-bucket regex happens to match a
   // substring of it (see detectCompoundDecades's own doc comment for the
   // real "60~70년대" -> 0/18 1960s bug this closes).
-  const compound = detectCompoundDecades(haystack);
+  const compound = detectCompoundDecades(freeText);
   if (compound) {
     const [primary, coPrimary] = compound;
     const pairSet = new Set([primary, coPrimary]);
@@ -213,43 +270,66 @@ export function extractEraConstraint(freeText: string, artistReferenceEraTags: s
     return { primary, coPrimary, adjacent: [], forbidden, unspecified: false };
   }
 
-  const hits: EraBucket[] = [];
-  if (ERA_1950_60_PATTERN.test(haystack)) hits.push('1950s-60s');
-  if (ERA_1970_PATTERN.test(haystack)) hits.push('1970s');
-  if (ERA_1980_PATTERN.test(haystack)) hits.push('1980s');
-  if (ERA_2000_PATTERN.test(haystack)) hits.push('2000s');
-  const uniqueHits = [...new Set(hits)];
+  const explicitHits = detectExplicitEraHits(freeText);
+  // 키워드 히트는 freeText 자신의 아티스트/서브장르 언급 + artistReferenceEraTags
+  // 전부를 합쳐서 본다(예전 haystack 병합과 동일한 소스), explicit과 겹치는
+  // 버킷은 이미 explicit 쪽에서 처리하므로 뺀다.
+  const keywordHits = [...new Set([...detectKeywordEraHits(freeText), ...detectKeywordEraHits(artistHaystack)])]
+    .filter(bucket => !explicitHits.includes(bucket));
 
-  if (!uniqueHits.length) {
-    return { primary: 'timeless', adjacent: [], forbidden: [], unspecified: true };
+  // freeText에 명시적 연대가 없다 — 키워드 히트가 그대로 판정에 참여한다
+  // (충돌이 없으므로 예전 동작과 동일).
+  if (!explicitHits.length) {
+    const uniqueHits = [...new Set([...explicitHits, ...keywordHits])];
+    if (!uniqueHits.length) return { primary: 'timeless', adjacent: [], forbidden: [], unspecified: true };
+    const [primary, ...rest] = uniqueHits;
+    if (rest.length >= 1) {
+      const coPrimary = rest[0];
+      const extraHits = rest.slice(1);
+      const pairSet = new Set<EraBucket>([primary, coPrimary]);
+      const adjacent = extraHits.map(era => ({ era, maxShare: 0.25 }));
+      const forbidden = REAL_ERA_BUCKETS.filter(bucket => !pairSet.has(bucket) && !extraHits.includes(bucket));
+      return { primary, coPrimary, adjacent, forbidden, unspecified: false };
+    }
+    const adjacentSet = new Set(ERA_ADJACENCY[primary]);
+    const adjacent = [...adjacentSet].map(era => ({ era, maxShare: 0.25 }));
+    const forbidden = REAL_ERA_BUCKETS.filter(bucket => bucket !== primary && !adjacentSet.has(bucket));
+    return { primary, adjacent, forbidden, unspecified: false };
   }
 
-  const [primary, ...rest] = uniqueHits;
-
-  // v3.79 (TASK A 1-4) — detectCompoundDecades only fires for its own
-  // narrow regex shapes (a separator char, or bare contiguous digits like
-  // "6070"). A concept like "60년대70년대" (both decade words present, no
-  // separator between them) or "1960~1970년대" (4-digit years, which
-  // detectCompoundDecades's 2-digit-only regex can't span) never matches
-  // that regex, but DOES independently trip two of the single-bucket
-  // regexes above — so if two-plus REAL era buckets were hit at all, treat
-  // it the same as a compound concept (each >= 40% via era.coPrimary in
-  // applyEraQuota) rather than demoting the second bucket to a 25%-capped
-  // "adjacent" bucket. Real measurement: "60년대70년대 감성을 느낄수 있는
-  // 올드팝" landed 0/18 in 1950s-60s under the old primary+adjacent
-  // treatment path even though both decades were plainly named.
-  if (rest.length >= 1) {
-    const coPrimary = rest[0];
-    const extraHits = rest.slice(1);
+  // freeText가 명시적으로 연대를 말했다 — 그것이 항상 primary/coPrimary를
+  // 결정한다. keywordHits(explicit과 다른 버킷)는 coPrimary로 승격되지 않고
+  // 좁은 상한의 adjacent로만 반영된다.
+  const [primary, ...restExplicit] = explicitHits;
+  if (restExplicit.length >= 1) {
+    const coPrimary = restExplicit[0];
+    const extraHits = restExplicit.slice(1);
     const pairSet = new Set<EraBucket>([primary, coPrimary]);
-    const adjacent = extraHits.map(era => ({ era, maxShare: 0.25 }));
-    const forbidden = REAL_ERA_BUCKETS.filter(bucket => !pairSet.has(bucket) && !extraHits.includes(bucket));
+    const adjacentFromExtra = extraHits.map(era => ({ era, maxShare: 0.25 }));
+    const adjacentFromKeywordConflict = keywordHits
+      .filter(era => !pairSet.has(era) && !extraHits.includes(era))
+      .map(era => ({ era, maxShare: ARTIST_REFERENCE_CONFLICT_ADJACENT_SHARE }));
+    const adjacent = [...adjacentFromExtra, ...adjacentFromKeywordConflict];
+    const coveredBuckets = new Set([...pairSet, ...extraHits, ...keywordHits]);
+    const forbidden = REAL_ERA_BUCKETS.filter(bucket => !coveredBuckets.has(bucket));
     return { primary, coPrimary, adjacent, forbidden, unspecified: false };
   }
 
+  // 지시문 29 (TASK E) — 키워드로만 충돌하는 버킷(예: 1970s 명시 + "비틀즈"
+  // 키워드의 1950s-60s)이 우연히 primary의 자연 인접 버킷(ERA_ADJACENCY)과도
+  // 겹치면, 더 좁은 쪽(ARTIST_REFERENCE_CONFLICT_ADJACENT_SHARE)이 이긴다 —
+  // "british-beat는 18곡 중 2~3곡까지만"이 일반 인접 상한(0.25, 4~5곡)보다
+  // 더 타이트한 요구이기 때문. keywordHits에 없는 자연 인접 버킷은 기존
+  // 0.25 그대로 유지한다.
   const adjacentSet = new Set(ERA_ADJACENCY[primary]);
-  const adjacent = [...adjacentSet].map(era => ({ era, maxShare: 0.25 }));
-  const forbidden = REAL_ERA_BUCKETS.filter(bucket => bucket !== primary && !adjacentSet.has(bucket));
+  const keywordConflictSet = new Set(keywordHits.filter(era => era !== primary));
+  const allAdjacentEras = new Set([...adjacentSet, ...keywordConflictSet]);
+  const adjacent = [...allAdjacentEras].map(era => ({
+    era,
+    maxShare: keywordConflictSet.has(era) ? ARTIST_REFERENCE_CONFLICT_ADJACENT_SHARE : 0.25
+  }));
+  const coveredBuckets = new Set([primary, ...allAdjacentEras]);
+  const forbidden = REAL_ERA_BUCKETS.filter(bucket => !coveredBuckets.has(bucket));
 
   return { primary, adjacent, forbidden, unspecified: false };
 }

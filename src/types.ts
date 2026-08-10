@@ -290,6 +290,22 @@ export interface ChannelProfile {
    * channel.defaultVocal.
    */
   kidsAgeTierId?: KidsAgeTierId;
+  /**
+   * 지시문 29 (TASK D) — 실측: 채널 "퇴근 후 감성 밴드팝"(after-work-band-pop)의
+   * 실제 배정이 emo-band-pop 6 · noir-deep-house 6 · electro-pop 6로 나와
+   * 밴드팝(채널 정체성 장르)이 1/3에 불과했다 — preferredGenres는 "이 채널이
+   * 쓸 수 있는 장르 풀"만 정의할 뿐 "그중 무엇이 이 채널의 정체성인가"는
+   * 어디에도 없었다. primaryGenreIds가 그 정체성 장르(들)를 명시하고,
+   * primaryGenreMinShare가 최소 비중을 정한다 — core/setDirector.ts's
+   * chooseGenreIds가 후보 풀 구성 시 우선 채운다(genreIssues의 하드
+   * 상한처럼 강제 배정은 아니다 — 후보 우선순위 힌트).
+   * 값은 전부 추정치다 — 정책 필드로 두고 verified: false로 시작한다
+   * (§하지 말 것 "verified: false인 값으로 세트를 차단하지 말 것" — 이
+   * 필드는 advisory 관찰에만 쓰인다, 새 blocking 관문을 만들지 않는다).
+   */
+  primaryGenreIds?: string[];
+  /** 0~1. 지시문 29 TASK D 정책값(추정) — 청취로 검증되지 않았다. */
+  primaryGenreMinShare?: number;
 }
 
 /**
@@ -1354,6 +1370,18 @@ export interface SongIdea {
   structureTemplate?: 'T1' | 'T2' | 'T3' | 'T4' | 'T5';
   /** v3.68 (TASK B) — this track's resolved money-chord preset id, when the per-song quota plan (core/moneyChordPlan.ts) assigned one. */
   moneyChordId?: string;
+  /**
+   * 지시문 29 (TASK D-3) — 실측: 저장된 팩(lyrics/*.json)에 이 필드 자체가
+   * 없었다 — killingPointText/arcPhase가 지시문 26 이전에 그랬던 것과 같은
+   * 결함이다(PreassignedSongSlot.moneyChordText는 항상 있었지만
+   * reconcileWithPreassignedSlot이 최종 song 객체로 복사한 적이 없음).
+   * stylePrompt 자체는 core/batchPreallocation.ts의 mergeAtom이
+   * slot.moneyChordText를 직접 꿰매 넣으므로 실제 생성물에는 진행이
+   * 대체로 실려 있었다(실측: 70년대/2030/동요 세 실파일 재구성 결과
+   * 프롬프트 누락 2/18·0/18·0/18) — 다만 이 필드가 없어서 song 객체 자체만
+   * 봐서는 "이 트랙에 어떤 진행이 배정됐는지" 확인할 방법이 없었다.
+   */
+  moneyChordText?: string;
   /** v3.68 (TASK B) — this track's rotating earworm melodic-design phrase, when earwormMode was on (see core/promptComposer.ts's EARWORM_STYLE_VARIANTS). */
   earwormText?: string;
   /** v3.68 (TASK B) — which lyric scene frame this track's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId; PreassignedSongSlot already carried this — see v3.64 TASK A — SongIdea didn't until now), snapshotted for rating analysis. */

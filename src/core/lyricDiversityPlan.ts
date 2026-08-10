@@ -271,7 +271,33 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
         return candidate.id;
       }
     }
-    // This frame's own pool is smaller than its allocated count — reuse deterministically rather than come up short.
+    // 지시문 29 (TASK C) — 실측: krkids-count-six-to-ten처럼 프레임 자체
+    // 풀이 작은데(예: 실질 테마 1~2개) frameCapFor가 그 프레임에 4~5슬롯을
+    // 배정하면, 이 프레임 안에서만 재사용을 시도하던 예전 폴백이 매번 같은
+    // lyricThemeId+lyricThemeText 쌍을 그대로 반복해 세트 안에서 4곡이
+    // 완전히 동일한 테마로 묶이는 실제 결함을 냈다(동요 20260810 세트
+    // T1/T3/T5/T12). 이 프레임이 소진됐다고 바로 포기하지 않고, 다른
+    // 프레임의 미사용 테마부터 먼저 찾는다 — 프레임 배분(주제 다양성)이
+    // 약간 흐트러지는 것이 완전한 테마 중복보다 낫다.
+    //
+    // preferredFrameId(컨셉이 명시적으로 지목한 프레임, 예: "토요일 밤
+    // 춤추던" → dancing-saturday)는 이 폴백에서 제외한다 — 컨셉이 그
+    // 프레임을 반복해서라도 채우라고 요구한 것이므로, 다른 무관한
+    // 프레임에서 빌려와 주제를 희석시키면 약속 이행도가 오히려 떨어진다
+    // (tests/promiseAudit.test.ts의 C8 "젊은 시절 춤추던 토요일 밤" 케이스로
+    // 확인 — 전역 폴백을 무조건 적용했더니 이행도가 60%대에서 11%로
+    // 떨어졌다). preferredFrameId는 기존 그대로 프레임 내 결정론적 재사용을
+    // 유지한다.
+    if (frameId !== preferredFrameId) {
+      for (const theme of pool) {
+        if (!usedThemeIds.has(theme.id)) {
+          usedThemeIds.add(theme.id);
+          return theme.id;
+        }
+      }
+    }
+    // 전체 풀이 songCount보다 작거나 preferredFrameId 자신이 소진됐다 —
+    // 정말로 모자라면(또는 컨셉이 이 프레임을 지목했다면) 결정론적으로 재사용한다.
     return themesInFrame[startIndex % themesInFrame.length].id;
   }).filter(Boolean);
 }

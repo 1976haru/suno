@@ -170,3 +170,41 @@ describe('[v3.63] SetPlan bridge handoff', () => {
     expect(instruction).not.toContain('[세그먼트 해석]');
   });
 });
+
+/**
+ * 지시문 29 (TASK B-4) — "검사만 하면 늦다. 슬롯 배정에서 계절·시간을
+ * 곡별로 배정한다." 컨셉이 "A to B" 진행을 명시하면 buildSetPlanHandoffSection이
+ * 트랙 구간별 힌트를 브릿지 지시문에 직접 적어주는지 확인한다.
+ */
+describe('지시문 29 TASK B-4 — 세트 아크 힌트가 브릿지 지시문에 실린다', () => {
+  const kr2030Channel = channelPresets.find(channel => channel.archetype === 'kr-2030-pop')!;
+
+  function arcPlanFixture(customConcept: string) {
+    const plan = directSetLocal(customConcept, kr2030Channel, 18, { recentGenreIds: [], recentHooks: [] });
+    const genreIds = new Set(Object.keys(plan.allocations.find(item => item.axis === 'genre')!.counts));
+    const genres = genreLibrary.filter(genre => genreIds.has(genre.id));
+    return { plan, genres };
+  }
+
+  it('"Autumn to Christmas Playlist Pack" — 계절 진행 힌트와 구간별 트랙 배정이 실린다', () => {
+    const { plan, genres } = arcPlanFixture('Autumn to Christmas Playlist Pack');
+    const section = buildSetPlanHandoffSection(plan.slots, genres, 'fixed-pool', 'Autumn to Christmas Playlist Pack');
+    expect(section).toContain('[Set arc —');
+    expect(section).toContain('season progression from "autumn" to "christmas"');
+    expect(section).toMatch(/Tracks 1-\d+: autumn/);
+    expect(section).toMatch(/Tracks \d+-18: christmas/);
+  });
+
+  it('아크가 감지되지 않는 평범한 컨셉에는 [Set arc] 섹션이 없다', () => {
+    const { plan, genres } = arcPlanFixture('퇴근 후 감성 인디팝');
+    const section = buildSetPlanHandoffSection(plan.slots, genres, 'fixed-pool', '퇴근 후 감성 인디팝');
+    expect(section).not.toContain('[Set arc —');
+  });
+
+  it('customConcept를 안 넘기면(기존 호출부) 여전히 섹션 없이 동작한다 — 하위 호환', () => {
+    const { plan, genres } = arcPlanFixture('Autumn to Christmas Playlist Pack');
+    const section = buildSetPlanHandoffSection(plan.slots, genres);
+    expect(section).not.toContain('[Set arc —');
+    expect(section).toContain('[SetPlan handoff]');
+  });
+});

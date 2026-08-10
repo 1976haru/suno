@@ -608,7 +608,14 @@ function printConsoleReport(report: FullAuditReport, baseline: Baseline): { regr
  */
 function printObservations(observations: FullAuditReport['observations']): void {
   console.log('📋 관찰 항목 (차단 없음, 표본 축적용) ─────────────────────');
-  const { intensityMismatches, adjacentJumps, chorusStyleDistribution, hookWordCountDistribution, eraColorTrackCount } = observations;
+  const { intensityMismatches, adjacentJumps, chorusStyleDistribution, hookWordCountDistribution, eraColorTrackCount, killingPointCoverage, genreThemePairs } = observations;
+
+  // 지시문 29 (TASK A) — 지시문 26이 복원한 값이 실제로 이 팩에 남아있는지
+  // 매 --pack 실행마다 보이게 한다(원인: 이전엔 이 수치가 audit.ts 내부에서만
+  // 계산되고 인쇄되지 않아, 원본 lyrics/*.json 파일을 직접 열어보면 이 필드가
+  // 아예 없어 "26이 효과가 없다"는 착시가 생겼다 — 파일 자체는 임포트 이전
+  // 원문이라 이 필드가 없는 게 정상이고, 이 관찰치가 그 오해를 바로잡는다).
+  console.log(`  킬링포인트/아크 메타데이터 (--pack 재구성 기준): killingPointText ${killingPointCoverage.withKillingPointText}/${killingPointCoverage.total} · arcPhase ${killingPointCoverage.withArcPhase}/${killingPointCoverage.total}`);
 
   console.log(`  체감 에너지 vs 아크 강도 불일치 (|차이| ≥ 2): ${intensityMismatches.length}건`);
   for (const m of intensityMismatches) {
@@ -623,6 +630,15 @@ function printObservations(observations: FullAuditReport['observations']): void 
   console.log(`  chorusStyle 분포: ${Object.entries(chorusStyleDistribution).map(([k, v]) => `${k} ${v}`).join(' · ') || '(없음)'}`);
   console.log(`  훅 단어 수 분포: ${Object.entries(hookWordCountDistribution).sort(([a], [b]) => Number(a) - Number(b)).map(([k, v]) => `${k}단어 ${v}곡`).join(' · ') || '(없음)'}`);
   console.log(`  시대색 곡 수(1950s-60s/1970s 장르): ${eraColorTrackCount}곡`);
+
+  // 지시문 29 (TASK C-4) — genreId ↔ lyricTheme 전수 목록. 자동 판정 없음 —
+  // 하루가 직접 눈으로 훑어 어긋나는 곡을 고른다(§C-4 doc comment 참고).
+  if (genreThemePairs.length) {
+    console.log(`  genreId ↔ lyricTheme 전수 목록 (판정 없음, 육안 확인용):`);
+    for (const p of genreThemePairs) {
+      console.log(`    T${p.trackNo}: genreId=${p.genreId ?? '(없음)'} · lyricTheme=${p.lyricTheme ?? '(없음)'}`);
+    }
+  }
   console.log('');
 }
 

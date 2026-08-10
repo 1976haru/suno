@@ -24,7 +24,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
-import { allocateGenreCounts } from './conceptAgent';
+import { allocateGenreCounts, type GenreAllocationSlot } from './conceptAgent';
 import {
   decomposeArtistReferences,
   findArtistReferenceLeaks,
@@ -475,6 +475,11 @@ function chooseGenreIds(
     }
   }
   for (const ref of refs) for (const id of ref.suggestedGenreIds) add(id);
+  // 지시문 29 (TASK D) — 채널의 정체성 장르(channel.primaryGenreIds)는 랭킹에서
+  // 밀려도 후보 풀에서 완전히 빠지면 안 된다 — makeAllocations의
+  // applyPrimaryGenreMinShare가 곡수를 재분배하려면 애초에 이 후보 목록에
+  // 들어 있어야 한다. primaryGenreIds가 없는 채널(대다수)은 빈 배열이라 no-op.
+  for (const id of channel.primaryGenreIds ?? []) add(id);
   for (const item of ranked) {
     add(item.genre.id);
     if (selected.length >= targetCount) break;
@@ -766,6 +771,45 @@ function buildBaseOptions(
   };
 }
 
+/**
+ * 지시문 29 (TASK D) — 실측: "퇴근 후 감성 밴드팝" 채널이 정체성 장르
+ * (kr2030-emo-band-pop) 1/3만 배정받았다. allocateGenreCounts(core/
+ * conceptAgent.ts)는 genreAllocationCap(보통 ≈5/18 ≈ 28%)으로 모든 장르를
+ * 똑같이 제한한다 — 다양성을 위한 의도적 상한이라 여기서 그 상한 자체를
+ * 올리지 않는다(지시문 27이 머니코드 상한을 전역으로 올린 것과 다른
+ * 선택 — 이건 채널 하나의 정체성 문제이지 전체 정책 변경이 아니다).
+ * 대신 channel.primaryGenreIds가 설정된 채널에 한해서만, allocateGenreCounts가
+ * 이미 만든 결과를 후처리로 재분배한다 — 다른 장르에서 최소 1곡은 남기고
+ * 비례해서 가져와 primary 장르를 목표 비중까지 채운다. primaryGenreIds가
+ * 없는 채널(대다수)은 이 함수를 거쳐도 입력 그대로 반환돼 동작이 전혀
+ * 바뀌지 않는다.
+ */
+function applyPrimaryGenreMinShare(allocation: GenreAllocationSlot[], channel: ChannelProfile, songCount: number): GenreAllocationSlot[] {
+  const primaryIds = channel.primaryGenreIds;
+  const minShare = channel.primaryGenreMinShare;
+  if (!primaryIds?.length || !minShare || songCount <= 0) return allocation;
+  const isPrimary = (slot: GenreAllocationSlot) => primaryIds.includes(slot.genreId);
+  if (!allocation.some(isPrimary)) return allocation; // 후보 풀에 아예 없으면 못 채운다 — 정직하게 그대로 반환.
+
+  const targetTotal = Math.round(songCount * minShare);
+  const currentTotal = allocation.filter(isPrimary).reduce((sum, s) => sum + s.songCount, 0);
+  let deficit = targetTotal - currentTotal;
+  if (deficit <= 0) return allocation;
+
+  const result = allocation.map(slot => ({ ...slot }));
+  const donors = result.filter(slot => !isPrimary(slot) && slot.songCount > 1).sort((a, b) => b.songCount - a.songCount);
+  let reclaimed = 0;
+  for (const donor of donors) {
+    if (deficit <= reclaimed) break;
+    const take = Math.min(deficit - reclaimed, donor.songCount - 1);
+    donor.songCount -= take;
+    reclaimed += take;
+  }
+  const primarySlot = result.find(isPrimary)!;
+  primarySlot.songCount += reclaimed;
+  return result;
+}
+
 function makeAllocations(freeText: string, channel: ChannelProfile, songCount: number, genreIds: string[], vocalTone?: string, choices?: UserExplicitChoices, protectedGenreIds: string[] = []): AxisAllocation[] {
   const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, [], choices);
   // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
@@ -786,7 +830,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
   const introIds = introTexturesForArchetype(channel.archetype || 'senior-morning').map(texture => texture.id);
   const hookIds = hookDevices.map(device => device.id);
   const structureIds = ADULT_STRUCTURE_TEMPLATE_IDS;
-  const genreAllocation = allocateGenreCounts(genreIds, songCount, protectedGenreIds);
+  const genreAllocation = applyPrimaryGenreMinShare(allocateGenreCounts(genreIds, songCount, protectedGenreIds), channel, songCount);
 
   return [
     {

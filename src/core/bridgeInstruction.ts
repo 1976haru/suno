@@ -28,6 +28,7 @@ import { resolveConstraintsFromOptions, type ResolvedConstraints } from './const
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { currentWorkspaceId } from './workspaceScope';
 import { workspaceForArchetype } from '../data/workspaces';
+import { parseSetArcSpec, type SetArcSpec } from './setArcAdherence';
 import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan } from './explorationPolicyEngine';
 import { buildIdolPartPatternSet, renderIdolPartPatternLine } from './idolPartPattern';
 import { hashSeed } from '../utils/prng';
@@ -1104,7 +1105,45 @@ function killingPointSection(preassignedSongs: PreassignedSongSlot[]): string[] 
   ];
 }
 
-export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot[], genres: GenrePack[], scenePlanningMode: ScenePlanningMode = 'fixed-pool'): string {
+/**
+ * 지시문 29 (TASK B-4) — "검사만 하면 늦다. 슬롯 배정에서 계절·시간을 곡별로
+ * 배정한다." 컨셉이 "A to B" 진행을 명시하면(core/setArcAdherence.ts's
+ * parseSetArcSpec) 트랙 구간별로 어느 쪽에 가까워야 하는지 브릿지 지시문에
+ * 직접 적어준다 — killingPointSection과 같은 "의도만 전달, 문장은 에이전트가
+ * 직접 쓴다" 원칙. 4구간 분할은 원문 지시문의 "T1~3/T4~7/T8~11/T12~14/
+ * T15~17/T18" 6단계 예시를 songCount에 맞춰 일반화한 것 — 정책값(추정),
+ * 청취 검증 안 됨.
+ */
+const SET_ARC_HINT_STAGE_COUNT = 4; // 정책값(추정) — §B-4 원문 예시(6단계)를 일반화한 것
+
+function setArcHintLines(spec: SetArcSpec | undefined, songCount: number): string[] {
+  if (!spec || songCount <= 0) return [];
+  const stageSize = Math.max(1, Math.ceil(songCount / SET_ARC_HINT_STAGE_COUNT));
+  const ranges: string[] = [];
+  for (let stage = 0; stage < SET_ARC_HINT_STAGE_COUNT; stage++) {
+    const start = stage * stageSize + 1;
+    const end = Math.min(songCount, (stage + 1) * stageSize);
+    if (start > songCount) break;
+    const leanToTarget = stage / (SET_ARC_HINT_STAGE_COUNT - 1); // 0 -> from, 1 -> to
+    const label = leanToTarget <= 0.15 ? spec.from
+      : leanToTarget >= 0.85 ? spec.to
+      : `transitioning from ${spec.from} toward ${spec.to}`;
+    ranges.push(`Tracks ${start}${end > start ? `-${end}` : ''}: ${label}`);
+  }
+  return [
+    '',
+    `[Set arc — ${spec.sourceKo}]`,
+    `This pack's concept names a ${spec.kind === 'season' ? 'season' : spec.kind === 'time-of-day' ? 'time-of-day' : 'era'} progression from "${spec.from}" to "${spec.to}". Reflect this gradually across the pack — early tracks should read as "${spec.from}", later tracks should clearly read as "${spec.to}" (in seasonMoment, lyrics imagery, and stylePrompt where natural), with a visible shift in between. Never force every track into "${spec.to}" from the start, and never keep the whole pack at "${spec.from}" — a listener working through the pack in order should feel the progression.`,
+    ...ranges
+  ];
+}
+
+export function buildSetPlanHandoffSection(
+  preassignedSongs: PreassignedSongSlot[],
+  genres: GenrePack[],
+  scenePlanningMode: ScenePlanningMode = 'fixed-pool',
+  customConcept?: string
+): string {
   if (!preassignedSongs.length) return '';
   const densityLabels: Record<string, string> = { sparse: 'sparse', medium: 'medium', full: 'full', auto: 'auto' };
   return [
@@ -1124,7 +1163,8 @@ export function buildSetPlanHandoffSection(preassignedSongs: PreassignedSongSlot
     'Tracks in the same group may share a similar approach; tracks in different groups must feel clearly different. Choose the concrete musical wording yourself.',
     ...lyricThemeSceneSection(preassignedSongs, scenePlanningMode),
     ...vocabularyBankInstructionLineFor(preassignedSongs),
-    ...killingPointSection(preassignedSongs)
+    ...killingPointSection(preassignedSongs),
+    ...setArcHintLines(parseSetArcSpec(customConcept ?? ''), preassignedSongs.length)
   ].join('\n');
 }
 
@@ -1614,7 +1654,7 @@ export function buildClaudeCodeInstruction(
     '',
     instructionOptions.setPlanningTable ? `Set planning table:\n${instructionOptions.setPlanningTable}` : '',
     '',
-    buildSetPlanHandoffSection(preassignedSongs, sanitizedGenres, scenePlanningMode),
+    buildSetPlanHandoffSection(preassignedSongs, sanitizedGenres, scenePlanningMode, opts.customConcept),
     '',
     instructionOptions.setDirectorInterpretation
       ? buildSetDirectorInterpretationSection(instructionOptions.setDirectorInterpretation.segments, instructionOptions.setDirectorInterpretation.listeningContext)

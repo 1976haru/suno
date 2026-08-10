@@ -717,6 +717,40 @@ describe('evaluateDesignGate — money-chord explicit-choice mode (fix 2)', () =
 });
 
 /**
+ * 지시문 29 (TASK C-3) — 실측(동요 20260810 세트): lyricThemeText가 4곡에서
+ * 완전히 동일했다. 근본 원인(core/lyricDiversityPlan.ts's allocateThemesByFrame의
+ * 프레임 내부 재사용 폴백)은 이 지시문에서 고쳤고, 이 관문은 그 회귀를
+ * 앞으로도 계속 잡아내는 방지선이다.
+ */
+describe('evaluateDesignGate — lyricThemeText 중복 (지시문 29 TASK C-3)', () => {
+  it('healthySlots()는 lyricThemeText가 없어 이 관문이 조용히 통과한다(허구 차단 없음)', () => {
+    const opts = baseOpts();
+    const result = evaluateDesignGate(healthySlots(), baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'lyric-theme-text-duplicate')).toBe(false);
+  });
+
+  it('두 곡 이상이 같은 lyricThemeText를 가지면 blocking', () => {
+    const opts = baseOpts();
+    const slots = healthySlots().map((slot, i) => ({
+      ...slot,
+      lyricThemeText: i < 4 ? 'stacking one more block on a tower and counting all the way' : `unique scene ${i}`
+    }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const found = result.blocking.find(i => i.id === 'lyric-theme-text-duplicate');
+    expect(found).toBeDefined();
+    expect(found!.actual).toContain('4곡');
+    expect(found!.actual).toContain('T1, T2, T3, T4');
+  });
+
+  it('전부 고유하면 통과한다', () => {
+    const opts = baseOpts();
+    const slots = healthySlots().map((slot, i) => ({ ...slot, lyricThemeText: `unique scene ${i}` }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    expect(result.blocking.some(i => i.id === 'lyric-theme-text-duplicate')).toBe(false);
+  });
+});
+
+/**
  * v(design-gate audience decoupling) fix 3 — a channel.vocalQuotaOverride
  * (e.g. a K-pop boy-group's real {male:15,female:0,mixed:3}) is
  * mathematically incompatible with "3+ distinct types"/"no run > 2" — this
