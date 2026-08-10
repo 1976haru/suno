@@ -76,12 +76,64 @@ export function eraColorTrackCount(songs: SongIdea[]): number {
   return songs.filter(s => isEraColorGenreId(s.genreId)).length;
 }
 
+/**
+ * 지시문 29 (TASK A) — killingPointText/arcPhase는 지시문 26이 reconcileWithPreassignedSlot에
+ * 복원한 이후 scripts/audit.ts의 --pack 로딩(loadPackBlueprint가 buildShadowSlotsFromRawSongs로
+ * 만든 shadow slot을 거쳐 importSongsJson을 부른다) 경로에서는 실제로 채워지고
+ * 있었다 — 그런데 이 수치를 감사 출력 어디에도 인쇄하지 않아서, 26이 정말
+ * 효과가 있는지 확인할 방법이 매번 새 디버그 스크립트를 짜는 것뿐이었다.
+ * 이미 계산되는 값을 노출하는 것뿐이라 새 관문이 아니다 — pass/fail 판정에
+ * 관여하지 않는 관찰 항목으로만 추가한다(§하지 말 것 "새 관문을 추가하지
+ * 말 것"). 실측(20260810 세 팩, lyrics/*.json 원본 그대로): 원본 파일 자체에는
+ * 이 필드가 아예 없다(사전 임포트 원문이라 당연함) — 이 관찰치는 그 파일을
+ * --pack이 실제로 불러올 때 슬롯 재구성을 거친 blueprint.songs 기준이다.
+ */
+export interface KillingPointCoverage {
+  withKillingPointText: number;
+  withArcPhase: number;
+  total: number;
+}
+
+export function killingPointCoverage(songs: SongIdea[]): KillingPointCoverage {
+  return {
+    withKillingPointText: songs.filter(s => s.killingPointText).length,
+    withArcPhase: songs.filter(s => s.arcPhase).length,
+    total: songs.length
+  };
+}
+
+/**
+ * 지시문 29 (TASK C-4) — 챗지피티가 제안한 "genreId가 음악 스타일과 주제를
+ * 겸한다"는 진단은 옳지만, musicStyleId/contentThemeId로 스키마를 분리하는
+ * 건 이 지시문 범위 밖(§하지 말 것)이다. 여기서는 genreId와 lyricTheme을
+ * 자동으로 "어긋난다"고 판정하지 않는다 — 둘 사이에 의미 카테고리를 잇는
+ * 데이터가 이 코드베이스에 없고, 억지로 키워드 유사도 같은 걸 지어내면
+ * 허구 판정이 나온다(예: T7 "터널 콩콩딩동" 가사 vs krkids-dinosaur-parade
+ * 테마 — LLM이 배정된 테마와 다른 내용을 쓰고도 테마 메타데이터는 그대로
+ * 돌려보낸 것으로 보이는데, 이건 문자열 비교로 잡을 수 없다). 대신 전수
+ * 목록만 그대로 내놓아 하루가 직접 판단하게 한다(§C-4 "전수 목록을 보고에
+ * 남긴다") — 판정 없는 관찰 항목.
+ */
+export interface GenreThemePair {
+  trackNo: number;
+  genreId?: string;
+  lyricTheme?: string;
+}
+
+export function genreThemePairs(songs: SongIdea[]): GenreThemePair[] {
+  return songs
+    .filter(s => s.genreId || s.lyricTheme)
+    .map(s => ({ trackNo: s.trackNo, genreId: s.genreId, lyricTheme: s.lyricTheme }));
+}
+
 export interface PerceivedEnergyObservations {
   intensityMismatches: IntensityMismatchEntry[];
   adjacentJumps: EnergyJumpEntry[];
   chorusStyleDistribution: Record<string, number>;
   hookWordCountDistribution: Record<number, number>;
   eraColorTrackCount: number;
+  killingPointCoverage: KillingPointCoverage;
+  genreThemePairs: GenreThemePair[];
 }
 
 export function buildPerceivedEnergyObservations(songs: SongIdea[]): PerceivedEnergyObservations {
@@ -90,6 +142,8 @@ export function buildPerceivedEnergyObservations(songs: SongIdea[]): PerceivedEn
     adjacentJumps: perceivedEnergyAdjacentJumps(songs),
     chorusStyleDistribution: chorusStyleDistribution(songs),
     hookWordCountDistribution: hookWordCountDistribution(songs),
-    eraColorTrackCount: eraColorTrackCount(songs)
+    eraColorTrackCount: eraColorTrackCount(songs),
+    killingPointCoverage: killingPointCoverage(songs),
+    genreThemePairs: genreThemePairs(songs)
   };
 }

@@ -356,7 +356,14 @@ export const channelPresets: ChannelProfile[] = [
       'excessive rap verses', 'soundalike vocal', 'overly nostalgic senior-radio imagery'
     ],
     seoKeywords: ['퇴근길 노래', '감성 밴드팝', '20대 플레이리스트', '30대 플레이리스트', '위로 노래', '한국 인디팝'],
-    archetype: 'kr-2030-pop'
+    archetype: 'kr-2030-pop',
+    // 지시문 29 (TASK D) — 실측: "70년대 비틀즈의 향수"급 결함이 채널
+    // 이름에도 있었다. 채널명 자체가 "밴드팝"인데 실제 배정은 emo-band-pop
+    // 6 · noir-deep-house 6 · electro-pop 6로 1/3에 그쳤다 — kr2030-emo-band-pop이
+    // 이 채널의 이름·promise가 약속하는 정체성 장르다. 0.6은 원문 "18곡 중
+    // 11곡 이상" 요구를 그대로 옮긴 추정치 — 청취 검증 안 됨(verified: false).
+    primaryGenreIds: ['kr2030-emo-band-pop'],
+    primaryGenreMinShare: 0.6
   },
   {
     id: 'thirty-night-walk',

@@ -5,6 +5,8 @@ import {
   chorusStyleDistribution,
   hookWordCountDistribution,
   eraColorTrackCount,
+  killingPointCoverage,
+  genreThemePairs,
   buildPerceivedEnergyObservations
 } from '../src/core/perceivedEnergyObservations';
 import type { SongIdea } from '../src/types';
@@ -101,5 +103,44 @@ describe('지시문 23 TASK D — 관찰 항목 4종 (규칙화 금지, 표시�
     expect(obs.chorusStyleDistribution).toEqual({ hookRepeat: 1, image: 1 });
     expect(obs.hookWordCountDistribution).toEqual({ 2: 2 });
     expect(obs.eraColorTrackCount).toBe(1);
+  });
+});
+
+describe('지시문 29 TASK A — killingPointCoverage (차단 없음, --pack 재구성 기준 노출)', () => {
+  it('killingPointText/arcPhase가 있는 곡 수를 센다', () => {
+    const songs = [
+      song({ trackNo: 1, killingPointText: 'octave lift on final chorus', arcPhase: 'opening' }),
+      song({ trackNo: 2, arcPhase: 'build' }),
+      song({ trackNo: 3, killingPointText: 'sustained note into chorus', arcPhase: 'peak' })
+    ];
+    expect(killingPointCoverage(songs)).toEqual({ withKillingPointText: 2, withArcPhase: 3, total: 3 });
+  });
+
+  it('아무 곡에도 없으면 0/전체를 정직하게 보고한다(허구 통과 없음)', () => {
+    const songs = [song({ trackNo: 1 }), song({ trackNo: 2 })];
+    expect(killingPointCoverage(songs)).toEqual({ withKillingPointText: 0, withArcPhase: 0, total: 2 });
+  });
+
+  it('buildPerceivedEnergyObservations에 포함된다', () => {
+    const songs = [song({ trackNo: 1, killingPointText: 'x', arcPhase: 'opening' })];
+    expect(buildPerceivedEnergyObservations(songs).killingPointCoverage).toEqual({ withKillingPointText: 1, withArcPhase: 1, total: 1 });
+  });
+});
+
+describe('지시문 29 TASK C-4 — genreThemePairs (판정 없음, 전수 목록만)', () => {
+  it('genreId·lyricTheme을 트랙별로 그대로 나열한다 — 어긋난다는 자동 판정을 하지 않는다', () => {
+    const songs = [
+      song({ trackNo: 1, genreId: 'krkids-counting-color', lyricTheme: 'krkids-animal-sounds' }),
+      song({ trackNo: 2, genreId: 'krkids-action' })
+    ];
+    expect(genreThemePairs(songs)).toEqual([
+      { trackNo: 1, genreId: 'krkids-counting-color', lyricTheme: 'krkids-animal-sounds' },
+      { trackNo: 2, genreId: 'krkids-action', lyricTheme: undefined }
+    ]);
+  });
+
+  it('둘 다 없는 곡은 목록에서 제외한다', () => {
+    const songs = [song({ trackNo: 1 })];
+    expect(genreThemePairs(songs)).toEqual([]);
   });
 });

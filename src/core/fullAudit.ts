@@ -25,6 +25,7 @@ import { auditStylePromptAgainstSpec } from './promptSpec';
 import { classifyClause, introSubcategory, type PromptAxis } from '../data/promptAxisLexicon';
 import { resolveSceneSignatureSource } from './situationLedger';
 import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } from './perceivedEnergyObservations';
+import { parseSetArcSpec, checkSetArcAdherence, setArcAdherenceIsBlocking, SET_ARC_ADHERENCE_BLOCKING_THRESHOLD } from './setArcAdherence';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -824,6 +825,37 @@ function objectStateItems(songs: SongIdea[], archetype?: ChannelArchetype, lyric
   ];
 }
 
+/**
+ * 지시문 29 (TASK B-2) — 컨셉이 "A to B" 시간·계절 진행을 명시했을 때 세트가
+ * 실제로 그렇게 흐르는지. 아크가 감지되지 않으면(대다수 컨셉) 항목 자체를
+ * 내지 않는다 — "이 축이 있다고 억지로 판정하지 않는다"는 원칙(§B 하지 말 것
+ * 정신과 동일). senior-oldpop만 blocking, 나머지는 advisory
+ * (setArcAdherenceIsBlocking, data 아님 — core/setArcAdherence.ts 자체 정책).
+ */
+function setArcItems(songs: SongIdea[], conceptLabel: string, archetype?: ChannelArchetype): AuditItem[] {
+  const spec = parseSetArcSpec(conceptLabel);
+  if (!spec) return [];
+  const workspaceId = workspaceForArchetype(archetype)?.id;
+  const blocking = setArcAdherenceIsBlocking(workspaceId);
+  const { adherence, findings } = checkSetArcAdherence(songs, spec);
+  const adherencePct = Math.round(adherence * 100);
+  const passes = adherence >= SET_ARC_ADHERENCE_BLOCKING_THRESHOLD;
+  const findingsKo = findings.map(f => `T${f.trackNo} ${f.detailKo}`).join(' / ') || '없음';
+  return [
+    item({
+      id: 'set_arc_adherence',
+      category: '워크스페이스',
+      labelKo: `세트 아크 이행 (${spec.sourceKo}${blocking ? '' : ' · advisory, 미검증'})`,
+      targetKo: `${Math.round(SET_ARC_ADHERENCE_BLOCKING_THRESHOLD * 100)}% 이상`,
+      actualKo: `${adherencePct}% (근거: ${findingsKo})`,
+      pass: blocking ? passes : null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 29 TASK B'],
+      metric: { value: adherencePct, direction: 'higherIsBetter' }
+    })
+  ];
+}
+
 function workspaceItems(): AuditItem[] {
   return [
     item({
@@ -923,7 +955,8 @@ export function runFullAudit(
     ...sceneSignatureSourceItems(songs),
     ...distinctChoiceItems(songs, opts.archetype),
     ...metaLeakItems(songs, opts.lyricLanguage),
-    ...objectStateItems(songs, opts.archetype, opts.lyricLanguage)
+    ...objectStateItems(songs, opts.archetype, opts.lyricLanguage),
+    ...setArcItems(songs, opts.conceptLabel, opts.archetype)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency, observations: buildPerceivedEnergyObservations(songs) };
 }

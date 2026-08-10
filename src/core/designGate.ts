@@ -768,6 +768,32 @@ function moneyChordAdvisoryIssues(slots: PreassignedSongSlot[], opts: Generation
   })];
 }
 
+/**
+ * 지시문 29 (TASK C-3) — 실측(동요 20260810 세트): lyricThemeText가 4곡에서
+ * 완전히 동일했다("stacking one more block on a tower and counting all the
+ * way..."). 근본 원인은 core/lyricDiversityPlan.ts's allocateThemesByFrame이
+ * 프레임 풀이 소진되면 그 프레임 안에서 결정론적으로 재사용하던 폴백이었고,
+ * 이번 지시문에서 그 폴백을 전역 폴로 넓혀 실측상 재현되지 않게 고쳤다 —
+ * 이 관문은 그 수정이 앞으로도 계속 지켜지는지 확인하는 회귀 방지선이다
+ * (§C-3 "세트 내 lyricThemeText가 2곡 이상에서 동일하면 blocking"). 문자열
+ * 완전 일치만 본다 — 부분 유사도 판정은 하지 않는다(허구 정밀도 방지).
+ */
+function lyricThemeDuplicateIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
+  const texts = slots.map(slot => slot.lyricThemeText).filter((t): t is string => Boolean(t && t.trim()));
+  if (!texts.length) return [];
+  const counts = countBy(texts);
+  const duplicated = Object.entries(counts).filter(([, count]) => count >= 2);
+  if (!duplicated.length) return [];
+  const trackNosFor = (text: string) => slots.filter(slot => slot.lyricThemeText === text).map(slot => `T${slot.trackNo}`).join(', ');
+  return duplicated.map(([text, count]) => issue({
+    id: 'lyric-theme-text-duplicate',
+    labelKo: 'lyricThemeText 중복',
+    expected: '세트 내 고유',
+    actual: `${count}곡 동일 (트랙 ${trackNosFor(text)}): "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
+    fixHintKo: '같은 소재(테마)가 여러 곡에 배정됐습니다 — lyricTheme 재배정이 필요합니다.'
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // 편곡 밀도 (arrangementDensity) — v4.16 (TASK B)
 // ---------------------------------------------------------------------------
@@ -1244,6 +1270,7 @@ export function evaluateDesignGate(
     ...killingPointAndArcIssues(slots, opts.songCount, constraints.arcModelId, constraints.kidsAgeTierId),
     ...paletteCoverageIssues(slots, opts),
     ...moneyChordBlockingIssues(slots, opts),
+    ...lyricThemeDuplicateIssues(slots),
     ...arrangementDensityBlockingIssues(slots, constraints.arrangementDensityLimits.fullMax),
     ...kidsArcStructure.blocking
   ];

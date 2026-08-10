@@ -130,6 +130,10 @@ const SLOT_OWNED_FIELDS: { field: keyof SongIdea; expected: unknown }[] = [
   { field: 'killingPointText', expected: slot.killingPointText },
   { field: 'killingPointPlacement', expected: slot.killingPointPlacement },
   { field: 'killingPointId', expected: slot.killingPointId },
+  // 지시문 29 (TASK D-3) — 실측: 저장된 팩에 이 필드 자체가 없었다.
+  // killingPointText/arcPhase와 똑같은 결함 모양(slot에는 항상 있는
+  // 필드가 song 객체로는 복사된 적이 없음) — 같은 표에 추가해 재발을 막는다.
+  { field: 'moneyChordText', expected: slot.moneyChordText },
   { field: 'arcPhase', expected: slot.arcPhase },
   { field: 'intensity', expected: slot.intensity },
   { field: 'peakStrength', expected: slot.peakStrength },
