@@ -96,6 +96,21 @@ const DURATION_PATTERN = /\b\d:\d{2}\s*-\s*\d:\d{2}\b/;
 const ERA_PATTERN = /\b(early|mid|late)-\d{4}s\b|\b(19|20)\d0s\b/i;
 
 /**
+ * 지시문 37 (TASK B-2) — "섹션 한정" 개념. core/kpopSectionStyleShift.ts가
+ * 넣는 "Verse: laid-back R&B, sparse arrangement" / "Chorus: EDM-influenced
+ * drop, dense synth stack" 같은 클로즈는 벌스의 sparse와 후렴의 dense가
+ * 서로 "모순되는 같은 축 중복 선언"이 아니라 애초에 다른 섹션을 향한
+ * 서술이다 — SINGLE_DECLARATION_AXES(예: arrangementDensity)의 "프롬프트
+ * 전체에 정확히 하나"라는 전제가 섹션 한정 클로즈에는 적용되지 않는다.
+ * "Verse:"/"Chorus:" 같은 섹션 라벨로 시작하는 클로즈는 축 자체를 매기지
+ * 않는다(undefined) — collapseSingleDeclarationDuplicates는 axis가 있는
+ * 클로즈만 중복 제거 대상으로 삼으므로, 이렇게 하면 섹션이 다른 두
+ * sparse/dense 클로즈가 같은 축 중복으로 오판되어 하나가 삭제되는 일이
+ * 없다.
+ */
+export const SECTION_SCOPED_LABEL_PATTERN = /^(intro|verse\s*\d*|pre-chorus|chorus|post-chorus|bridge|final\s*chorus|outro|breakdown|dance\s*break|rap(?:\s*verse)?)\s*:/i;
+
+/**
  * Word-boundary match, not a bare substring `.includes()` — real bug this
  * caught: "harpsichord" contains "chord" as a raw substring, which would
  * misclassify it as the harmony axis under naive `.includes()`. `\b` on a
@@ -138,6 +153,11 @@ export function classifyClause(clause: string, isFirstClause: boolean): PromptAx
   const lower = trimmed.toLowerCase();
 
   if (isFirstClause) return 'genre';
+  // 지시문 37 (TASK B-2) — 섹션 한정 클로즈는 축 판정 자체를 건너뛴다(§ 위
+  // SECTION_SCOPED_LABEL_PATTERN 문서 참고). isFirstClause 다음, 다른 모든
+  // 판정보다 먼저 — "Chorus: ..." 클로즈가 STRUCTURE_KEYWORDS의 "chorus"에
+  // 걸려 structure 축으로 잘못 분류되는 것도 함께 막는다.
+  if (SECTION_SCOPED_LABEL_PATTERN.test(trimmed)) return undefined;
   if (TEMPO_PATTERN.test(lower)) return 'tempo';
   if (DURATION_PATTERN.test(lower)) return 'duration';
   if (ERA_PATTERN.test(lower)) return 'era';

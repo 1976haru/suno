@@ -64,7 +64,31 @@ function buildFullSlot(): PreassignedSongSlot {
     peakStrength: 'strong',
     perceivedEnergy: 4,
     perceivedEnergyReasonKo: '92 BPM, medium density — 활기 있는 편',
-    earwormText: 'na-na-na hook motif'
+    earwormText: 'na-na-na hook motif',
+    // 지시문 37 (TASK A-5) — killingPointText와 같은 유형: 앱이 배정한
+    // 값이며, 26에서 반복됐던 "슬롯에는 있는데 팩에 안 남는" 결함을 여기서
+    // 재발 방지 표에 추가한다.
+    partPlan: {
+      memberCount: 4,
+      members: [
+        { memberId: 'A', role: 'main-vocal', gender: 'female' },
+        { memberId: 'B', role: 'lead-vocal', gender: 'female' },
+        { memberId: 'C', role: 'main-rapper', gender: 'female' },
+        { memberId: 'D', role: 'sub-vocal', gender: 'female' }
+      ],
+      sectionAssignments: [
+        { section: 'Verse 1', memberIds: ['A', 'B'], role: 'sub-vocal' },
+        { section: 'Chorus', memberIds: ['all'], role: 'all' },
+        { section: 'Verse 2', memberIds: ['C', 'D'], role: 'main-rapper' },
+        { section: 'Chorus', memberIds: ['all'], role: 'all' },
+        { section: 'Final Chorus', memberIds: ['all'], role: 'all' }
+      ]
+    },
+    // 지시문 37 (TASK B) — moneyChordText와 같은 슬롯-소유 스냅샷 필드.
+    sectionStyleShifts: [
+      { section: 'Verse', styleAtoms: ['laid-back R&B groove', 'sparse arrangement'] },
+      { section: 'Chorus', styleAtoms: ['EDM-influenced drop', 'dense synth stack'] }
+    ]
   };
 }
 
@@ -134,6 +158,8 @@ const SLOT_OWNED_FIELDS: { field: keyof SongIdea; expected: unknown }[] = [
   // killingPointText/arcPhase와 똑같은 결함 모양(slot에는 항상 있는
   // 필드가 song 객체로는 복사된 적이 없음) — 같은 표에 추가해 재발을 막는다.
   { field: 'moneyChordText', expected: slot.moneyChordText },
+  { field: 'partPlan', expected: slot.partPlan },
+  { field: 'sectionStyleShifts', expected: slot.sectionStyleShifts },
   { field: 'arcPhase', expected: slot.arcPhase },
   { field: 'intensity', expected: slot.intensity },
   { field: 'peakStrength', expected: slot.peakStrength },

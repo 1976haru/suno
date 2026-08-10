@@ -114,7 +114,7 @@ export interface ChantOveruseFinding {
  * other lyric-text scan in this app — a chant phrase reworded slightly
  * between songs won't be caught.
  */
-const CHANT_SECTION_TAG_PATTERN = /\b(chant|ad[\s-]?lib|call and response)\b/i;
+export const CHANT_SECTION_TAG_PATTERN = /\b(chant|ad[\s-]?lib|call and response)\b/i;
 
 export function checkKpopChantOveruse(songs: readonly { trackNo: number; lyrics: string }[], policy: KpopWorkspacePolicy): ChantOveruseFinding[] {
   const trackNosByPhrase = new Map<string, number[]>();

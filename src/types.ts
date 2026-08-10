@@ -153,6 +153,9 @@ export type DistinctChoiceRuleId =
   | 'HOOK_LAST_WORD_SHIFT'
   | 'SINGLE_CHORUS'
   | 'CALL_AND_RESPONSE'
+  // 지시문 37 (TASK C-2) — K-pop singability: 챈트형 훅 존재 · 훅 4회 이상 반복
+  | 'CHANT_HOOK'
+  | 'HOOK_REPEAT_4X'
   // ② stylePrompt 자기모순만 검증 가능
   | 'NO_INTRO'
   | 'KEY_LIFT'
@@ -1382,6 +1385,17 @@ export interface SongIdea {
    * 봐서는 "이 트랙에 어떤 진행이 배정됐는지" 확인할 방법이 없었다.
    */
   moneyChordText?: string;
+  /**
+   * 지시문 37 (TASK A-5) — 팩 JSON에 이 필드가 없으면 지시문 26의 킬링포인트와
+   * 같은 결함(슬롯에는 있는데 최종 SongIdea/저장된 팩에는 없음)을 반복하는
+   * 것이다. 파트 계획은 앱이 배정한 값이며 LLM이 창작하지 않는다 —
+   * reconcileWithPreassignedSlot이 PreassignedSongSlot.partPlan을 그대로
+   * 복사해 여기 남긴다(moneyChordText/hookDeviceText와 같은 슬롯-소유
+   * 스냅샷 모델).
+   */
+  partPlan?: KpopPartPlan;
+  /** 지시문 37 (TASK B) — 슬롯 소유 스냅샷 필드. PreassignedSongSlot.sectionStyleShifts와 같은 값. */
+  sectionStyleShifts?: SectionStyleShift[];
   /** v3.68 (TASK B) — this track's rotating earworm melodic-design phrase, when earwormMode was on (see core/promptComposer.ts's EARWORM_STYLE_VARIANTS). */
   earwormText?: string;
   /** v3.68 (TASK B) — which lyric scene frame this track's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId; PreassignedSongSlot already carried this — see v3.64 TASK A — SongIdea didn't until now), snapshotted for rating analysis. */
@@ -1667,6 +1681,48 @@ export interface PlaylistIdentity {
 }
 
 /**
+ * 지시문 37 (TASK A-1) — K-pop 곡의 섹션별 멤버 파트 배분. core/kpopPartPlan.ts's
+ * buildKpopPartPlan이 채널 정책(core/kpopWorkspacePolicy.ts's groupGender/
+ * memberCountRange)과 이 트랙의 vocalGender/structureTemplate로부터 생성한다.
+ */
+export type KpopPartRole =
+  | 'main-vocal' | 'lead-vocal' | 'sub-vocal'
+  | 'main-rapper' | 'lead-rapper'
+  | 'all' | 'ad-lib';
+
+export interface KpopMemberSlot {
+  /** 'A' | 'B' | 'C' ... */
+  memberId: string;
+  role: KpopPartRole;
+  gender: 'male' | 'female';
+}
+
+/**
+ * 지시문 37 (TASK B-2) — 곡 안 섹션별 스타일 전환. core/kpopSectionStyleShiftPlan.ts's
+ * buildSectionStyleShiftPlan이 채널 정책(data/sectionStyleShifts.ts)에서
+ * 생성한다. data/promptAxisLexicon.ts's SECTION_SCOPED_LABEL_PATTERN이 이
+ * `section` 라벨을 인식해 finalPromptNormalizer의 단일 선언 축 중복 제거가
+ * 서로 다른 섹션의 styleAtoms를 오판해 지우지 않게 한다.
+ */
+export interface SectionStyleShift {
+  /** 'Verse' · 'Chorus' · 'Bridge' 등 — promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN이 인식하는 라벨과 일치해야 한다. */
+  section: string;
+  styleAtoms: string[];
+}
+
+export interface KpopPartPlan {
+  /** 4~7명 — 채널 정책 필드(core/kpopWorkspacePolicy.ts's memberCountRange). 실제 아이돌 그룹 규모이며 추정치가 아니다. */
+  memberCount: number;
+  members: KpopMemberSlot[];
+  /** 섹션별 파트 배정. */
+  sectionAssignments: {
+    section: string;
+    memberIds: string[];
+    role: KpopPartRole;
+  }[];
+}
+
+/**
  * TASK B2 (v3.6) — a trackNo/title/hookPhrase/songRole/tempo/emotionArc
  * assignment decided locally (see core/batchPreallocation.ts) before a Batch
  * API job is submitted. When a BatchContext carries these, the model is
@@ -1747,6 +1803,32 @@ export interface PreassignedSongSlot {
    * boilerplate it replaces was never archetype-specific either.
    */
   hookDeviceText?: string;
+  /**
+   * 지시문 37 (TASK A) — 하루 지적: K-pop 곡에 보컬 파트 배분이 전혀 없다
+   * ("[Verse 1]"만 있고 "[Verse 1: Member A]"가 없다 — 아이돌 그룹인데 한
+   * 사람이 부르는 것처럼 보인다). moneyChordText/hookDeviceText와 같은
+   * 신뢰 모델: 앱이 이 트랙의 파트 계획을 한 번 계산해 슬롯에 싣고,
+   * bridgeInstruction이 이를 그대로(verbatim) 지시문에 전달한다 — LLM이
+   * 스스로 파트를 창작하지 않는다. kr-idol-male/kr-idol-female에서만
+   * 설정된다(core/kpopPartPlan.ts). 지시문 26의 킬링포인트가 슬롯에는
+   * 있었지만 최종 SongIdea/팩 JSON에 남지 않았던 결함을 반복하지 않도록
+   * reconcileWithPreassignedSlot 양쪽 경로 모두에서 SongIdea.partPlan으로
+   * 복사된다.
+   */
+  partPlan?: KpopPartPlan;
+  /**
+   * 지시문 37 (TASK B) — 하루 지적: K-pop은 한 곡 안에서 절은 R&B, 후렴은
+   * EDM, 브릿지는 랩처럼 섹션마다 장르/편곡이 바뀌는데 지금은 곡당 한
+   * 장르로 고정돼 있다. moneyChordText와 같은 신뢰 모델: 앱이 이 트랙의
+   * 섹션별 전환 계획을 한 번 계산해 슬롯에 싣고, 브릿지 지시문이 verbatim
+   * weave하도록 전달한다("Section: style atoms" 형태 유지 — 라벨이
+   * promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN이 축 중복 오판을
+   * 피하는 근거이기 때문). 2~3개 섹션만 전환한다(data/sectionStyleShifts.ts,
+   * verified:false 정책 필드 — 너무 많으면 산만해진다).
+   */
+  sectionStyleShifts?: SectionStyleShift[];
+  /** sectionStyleShifts를 "Section: atom, atom" 형태로 이미 합친 텍스트 — bridgeInstruction이 verbatim weave 지시에 쓴다. */
+  sectionStyleShiftText?: string;
   /**
    * 지시문 36 (TASK C) — this trackNo's resolved verse/chorus arrangement-
    * contrast plan (see data/chorusContrast.ts's ChorusContrastPlan / this

@@ -317,6 +317,35 @@ describe('[v3.24] importSongsJson runs an external coding agent\'s output throug
     expect(report.blueprint!.songs).toHaveLength(1);
   });
 
+  it('지시문 37 (TASK E) — skips a song whose lyrics contain a run of 2+ question marks and reports why, while still importing the rest', () => {
+    const opts = makeOptions({ songCount: 2 });
+    const raw = JSON.stringify({
+      songs: [
+        songJson({ trackNo: 1, lyrics: '[Chorus]\nMorning Light\n?? ? ?? ????\n[Bridge]\n다시 시작해' }),
+        songJson({ trackNo: 2, title: 'Evening Calm', hookPhrase: 'Evening Calm' })
+      ]
+    });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    expect(report.importedCount).toBe(1);
+    expect(report.skippedCount).toBe(1);
+    expect(report.skippedReasons[0]).toContain('물음표');
+    expect(report.blueprint!.songs).toHaveLength(1);
+  });
+
+  it('지시문 37 (TASK E) — a single "?" (a real question mark) does not trip the garbled-line check', () => {
+    const opts = makeOptions({ songCount: 1 });
+    const raw = JSON.stringify({
+      songs: [songJson({ trackNo: 1, lyrics: '[Verse 1]\n정말 그런 거야?\n[Chorus]\nMorning Light' })]
+    });
+
+    const report = importSongsJson(raw, opts, testGenres, testMoods, testSeason);
+
+    expect(report.importedCount).toBe(1);
+    expect(report.skippedCount).toBe(0);
+  });
+
   it('renumbers surviving songs to a continuous 1..N range after a skip leaves a gap', () => {
     const opts = makeOptions({ songCount: 3 });
     const raw = JSON.stringify({

@@ -6,7 +6,6 @@ import {
   explorationAxisForPolicySequence,
   selectPolicyExplorationTrackNos
 } from '../src/core/explorationPolicyEngine';
-import { buildIdolPartPatternSet, distinctPatternCount } from '../src/core/idolPartPattern';
 import { buildClaudeCodeInstruction } from '../src/core/claudeCodeBridge';
 import { preallocateSongSlots } from '../src/core/batchPreallocation';
 import { makeOptions, testMoods, testSeason } from './fixtures';
@@ -111,26 +110,11 @@ describe('[v5.24 TASK C §3-3] K-pop exploration keeps the gender quota — same
   });
 });
 
-describe('[v5.24 TASK C §3-5] idol part-pattern set — 8+ distinct patterns, max 3 repeats', () => {
-  it('an 18-song set uses at least 8 distinct patterns', () => {
-    const patterns = buildIdolPartPatternSet(18, 42);
-    expect(patterns).toHaveLength(18);
-    expect(distinctPatternCount(patterns)).toBeGreaterThanOrEqual(8);
-  });
-
-  it('no pattern repeats more than 3 times', () => {
-    const patterns = buildIdolPartPatternSet(18, 7);
-    const counts = new Map<string, number>();
-    for (const p of patterns) counts.set(p.id, (counts.get(p.id) ?? 0) + 1);
-    expect(Math.max(...counts.values())).toBeLessThanOrEqual(3);
-  });
-
-  it('is deterministic for the same seed', () => {
-    const a = buildIdolPartPatternSet(18, 99).map(p => p.id);
-    const b = buildIdolPartPatternSet(18, 99).map(p => p.id);
-    expect(a).toEqual(b);
-  });
-});
+// [v5.24 TASK C §3-5]의 idol part-pattern set(generic A/B/C, 슬롯에 저장되지
+// 않음)은 지시문 37 (TASK A)에서 core/kpopPartPlan.ts's buildKpopPartPlan으로
+// 대체됐다 — 실제 멤버 성별/역할을 가진 슬롯-소유 필드로, moneyChordText와
+// 같은 신뢰 모델을 쓰며 팩 JSON에 partPlan으로 남는다. 그 자리를 대신하는
+// 테스트는 tests/kpopPartPlan.test.ts에 있다.
 
 describe('[v5.24 TASK E] distinctChoice wording differs per workspace inside the real instruction', () => {
   function instructionFor(archetype: string) {

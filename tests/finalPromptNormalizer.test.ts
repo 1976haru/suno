@@ -65,6 +65,13 @@ describe('지시문 31 §2-3 — collapseSingleDeclarationDuplicates', () => {
     expect(result).toContain('vocal-first opening');
     expect(result).not.toContain('short intro texture');
   });
+
+  it('지시문 37 (TASK B-2) — Verse: sparse and Chorus: dense both survive, even though both start with arrangementDensity words (section-scoped, not axis duplicates)', () => {
+    const raw = 'kridol synth dance, female lead vocal, 112 BPM, Verse: sparse arrangement, Chorus: dense synth stack, 3:10-3:35';
+    const result = collapseSingleDeclarationDuplicates(raw);
+    expect(result).toContain('Verse: sparse arrangement');
+    expect(result).toContain('Chorus: dense synth stack');
+  });
 });
 
 describe('지시문 31 §2-3 — collapseAdjacentDuplicateWords', () => {

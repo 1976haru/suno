@@ -114,3 +114,28 @@ describe('[지시문 16 TASK B-2] axis category lists', () => {
     }
   });
 });
+
+describe('지시문 37 (TASK B-2) — section-scoped clauses skip axis classification entirely', () => {
+  it('a "Verse: ..." clause gets no axis, even though it starts with an arrangementDensity word', () => {
+    expect(classifyClause('Verse: sparse arrangement, laid-back groove', false)).toBeUndefined();
+  });
+
+  it('a "Chorus: ..." clause gets no axis, even though "chorus" is a structure keyword and "dense" is an arrangementDensity word', () => {
+    expect(classifyClause('Chorus: dense synth stack', false)).toBeUndefined();
+  });
+
+  it('a "Bridge: ..." clause gets no axis', () => {
+    expect(classifyClause('Bridge: rap section, minimal beat', false)).toBeUndefined();
+  });
+
+  it('a "Final Chorus: ..." clause gets no axis', () => {
+    expect(classifyClause('Final Chorus: full dense arrangement', false)).toBeUndefined();
+  });
+
+  it('does not misfire on ordinary clauses that merely mention a section word without a label prefix', () => {
+    // "the chorus returns" is real structure-axis prose (STRUCTURE_KEYWORDS),
+    // not a section-scoped label — SECTION_SCOPED_LABEL_PATTERN requires the
+    // clause to actually START with "Section:", so this must still classify normally.
+    expect(classifyClause('then the chorus returns for the final lift', false)).toBe('structure');
+  });
+});

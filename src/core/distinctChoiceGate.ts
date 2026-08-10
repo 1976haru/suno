@@ -2,6 +2,7 @@ import type { DistinctChoiceRuleId, DistinctChoiceVerifiability, SongIdea } from
 import type { DistinctChoicePolicy } from '../data/distinctChoicePolicy';
 import { parseLyricsSections, type LyricsSection } from './lyricsAst';
 import { DISTINCT_CHOICE_VERIFIABILITY, DISTINCT_CHOICE_RULE_LABEL_KO } from './distinctChoiceTypes';
+import { CHANT_SECTION_TAG_PATTERN } from './kpopSharedChecks';
 
 /**
  * 지시문 15 (TASK B-1) — distinctChoice 이행 관문의 공통 엔진. archetype을
@@ -54,7 +55,7 @@ export interface DistinctChoiceGateResult {
   thresholdReasonKo?: string;
 }
 
-type SongInput = Pick<SongIdea, 'trackNo' | 'lyrics' | 'stylePrompt' | 'distinctChoice' | 'distinctChoiceRuleId' | 'distinctChoiceParams'>;
+type SongInput = Pick<SongIdea, 'trackNo' | 'lyrics' | 'stylePrompt' | 'distinctChoice' | 'distinctChoiceRuleId' | 'distinctChoiceParams' | 'hookPhrase'>;
 
 function verseSections(sections: LyricsSection[]): LyricsSection[] {
   return sections.filter(s => s.type === 'verse');
@@ -187,6 +188,24 @@ function checkRule(ruleId: DistinctChoiceRuleId, song: SongInput, sections: Lyri
       return shortFragments.length > 0
         ? { violated: false, reasonKo: `짧은 교환 구간(${shortFragments.length}개, ≤2줄) 존재 — 콜앤리스폰스 구조와 일치` }
         : { violated: true, reasonKo: '짧은 교환 구간(≤2줄)이 없음 — 일반적인 절 구조로 보임' };
+    }
+    // 지시문 37 (TASK C-2) — K-pop singability. "동요의 한 줄 3.1단어가
+    // 잘 작동한 것과 같은 원리" — 한국 아이돌 팬덤 챈트/떼창 관행을 검증
+    // 가능한 두 축으로 쪼갠다.
+    case 'CHANT_HOOK': {
+      const chantSections = sections.filter(s => CHANT_SECTION_TAG_PATTERN.test(s.rawTag));
+      return chantSections.length > 0
+        ? { violated: false, reasonKo: `챈트/애드립 태그 섹션 ${chantSections.length}개 존재 — 이행됨` }
+        : { violated: true, reasonKo: '챈트/애드립 태그([Chant]/[Ad-lib]/[Call and Response] 계열) 섹션이 없음' };
+    }
+    case 'HOOK_REPEAT_4X': {
+      const hook = song.hookPhrase?.trim().toLowerCase();
+      if (!hook) return { violated: true, reasonKo: 'hookPhrase 없음 — 반복 횟수 측정 불가' };
+      const allLines = sections.flatMap(s => s.lines);
+      const repeatCount = allLines.filter(l => l.trim().toLowerCase() === hook).length;
+      return repeatCount >= 4
+        ? { violated: false, reasonKo: `훅 "${song.hookPhrase}"가 가사에서 ${repeatCount}회 반복 — 이행됨` }
+        : { violated: true, reasonKo: `훅 "${song.hookPhrase}"가 가사에서 ${repeatCount}회만 반복 (기대 4회 이상)` };
     }
     case 'NO_INTRO': {
       const hasContradiction = /intro texture|short intro|instrumental intro/i.test(song.stylePrompt);

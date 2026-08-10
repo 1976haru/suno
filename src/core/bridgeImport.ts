@@ -26,6 +26,7 @@ import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { checkDistinctChoices } from './distinctChoiceCheck';
 import { coerceDistinctChoice } from './distinctChoiceTypes';
 import { APP_VERSION } from './buildInfo';
+import { findGarbledLyricLines } from './lyricGarbleLint';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts. This module is the
@@ -307,6 +308,18 @@ function normalizeImportedSong(
   if (missing.length) {
     const label = isNonEmptyString(obj.title) ? obj.title : `#${index + 1}`;
     return { error: `"${label}": 필수 필드 누락 (${missing.join(', ')})` };
+  }
+
+  // 지시문 37 (TASK E) — 실측(20260810 K-pop 세트, 71/541줄 깨짐)이 가져오기
+  // 검사를 그대로 통과했던 결함을 막는다. 원인(LLM 생성측 vs 앱측)은 미확인
+  // 이지만, 다른 필드(title/stylePrompt 등)는 0/18로 멀쩡했고 이 함수(336번
+  // 줄 String(obj.lyrics))는 lyrics를 가공 없이 그대로 저장하므로 이 검사가
+  // 잡아내는 손상은 이미 원본 JSON에 존재했던 것이다 — 인코딩 변환으로
+  // "고치지" 않고 통과를 막기만 한다.
+  const garbledLines = isNonEmptyString(obj.lyrics) ? findGarbledLyricLines(obj.lyrics) : [];
+  if (garbledLines.length) {
+    const label = isNonEmptyString(obj.title) ? obj.title : `#${index + 1}`;
+    return { error: `"${label}": 가사에 물음표 연속 손상 ${garbledLines.length}줄 발견 (예: "${garbledLines[0]}") — 이 트랙은 가져오기에서 제외됩니다. 재생성이 필요합니다.` };
   }
 
   const claimedTrackNo = claimedTrackNoFor(raw, index);

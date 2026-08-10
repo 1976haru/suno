@@ -69,8 +69,13 @@ export const DISTINCT_CHOICE_POLICY: Record<WorkspaceId, DistinctChoicePolicy> =
   // 지시문 15 §B-2 "안전 제약" — VOCAL_TOGETHER가 혼성을 지시하면 이 두
   // 워크스페이스의 vocalQuotaOverride(성비 쿼터)를 깬다. sameGenderVocalOnly는
   // verified와 무관하게 core/distinctChoiceGate.ts가 항상 강제한다.
+  // 지시문 37 (TASK C-2) — CHANT_HOOK/HOOK_REPEAT_4X 추가: "따라 부르기
+  // 쉬움"이 미측정이었던 결함(§C-1)에 대응하는 두 규칙. verified는 여전히
+  // false — 이 두 규칙도 기존 5개와 같은 추정치 취급이며, 그 자체로
+  // blocking을 만들지 않는다(evaluateDistinctChoiceGate의 thresholdBlocking은
+  // policy.verified가 true일 때만 성립).
   'kr-idol-male': {
-    allowedRuleIds: ['CALL_AND_RESPONSE', 'VOCAL_TOGETHER', 'KEY_LIFT', 'SINGLE_CHORUS', 'WORD_ACCUMULATION'],
+    allowedRuleIds: ['CALL_AND_RESPONSE', 'VOCAL_TOGETHER', 'KEY_LIFT', 'SINGLE_CHORUS', 'WORD_ACCUMULATION', 'CHANT_HOOK', 'HOOK_REPEAT_4X'],
     minAssignedTracks: 18,
     minComplianceRate: 0.85,
     maxNotMeasured: 4,
@@ -80,7 +85,7 @@ export const DISTINCT_CHOICE_POLICY: Record<WorkspaceId, DistinctChoicePolicy> =
     sameGenderVocalOnly: true
   },
   'kr-idol-female': {
-    allowedRuleIds: ['CALL_AND_RESPONSE', 'VOCAL_TOGETHER', 'KEY_LIFT', 'SINGLE_CHORUS', 'WORD_ACCUMULATION'],
+    allowedRuleIds: ['CALL_AND_RESPONSE', 'VOCAL_TOGETHER', 'KEY_LIFT', 'SINGLE_CHORUS', 'WORD_ACCUMULATION', 'CHANT_HOOK', 'HOOK_REPEAT_4X'],
     minAssignedTracks: 18,
     minComplianceRate: 0.85,
     maxNotMeasured: 4,

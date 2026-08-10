@@ -26,6 +26,7 @@ import { classifyClause, introSubcategory, type PromptAxis } from '../data/promp
 import { resolveSceneSignatureSource } from './situationLedger';
 import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } from './perceivedEnergyObservations';
 import { parseSetArcSpec, checkSetArcAdherence, setArcAdherenceIsBlocking, SET_ARC_ADHERENCE_BLOCKING_THRESHOLD } from './setArcAdherence';
+import { measureKpopSingability } from './kpopSingability';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -856,6 +857,70 @@ function setArcItems(songs: SongIdea[], conceptLabel: string, archetype?: Channe
   ];
 }
 
+/**
+ * 지시문 37 (TASK C-3) — "K-pop singability 지표 존재"의 실측 결과.
+ * kr-idol-male/kr-idol-female에서만 낸다(다른 워크스페이스는 빈 배열).
+ * kr-idol 워크스페이스 자체가 verified:false(distinctChoicePolicy.ts)이므로
+ * 이 항목은 항상 pass:null — 하지 말 것 §7 "실측 없이 blocking 을 만들지
+ * 않는다"에 맞춰 advisory 전용으로 유지한다(scripts/audit.ts의 회귀
+ * 판정에 영향 없음).
+ */
+function kpopSingabilityItems(songs: SongIdea[], archetype?: ChannelArchetype): AuditItem[] {
+  if (archetype !== 'kr-idol-male' && archetype !== 'kr-idol-female') return [];
+  if (!songs.length) return [];
+  const metrics = songs.map(song => measureKpopSingability({ lyrics: song.lyrics, hookPhrase: song.hookPhrase }));
+  const hookRepeatOk = metrics.filter(m => m.hookRepeatCountOk).length;
+  const hookWordOk = metrics.filter(m => m.hookLineWordCountOk).length;
+  const chantPresent = metrics.filter(m => m.chantLinePresent).length;
+  const densityOk = metrics.filter(m => m.chorusSyllableDensityOk).length;
+  return [
+    item({
+      id: 'kpop_hook_repeat_4x',
+      category: '가사',
+      labelKo: 'K-pop 훅 반복 4회 이상 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${hookRepeatOk}/${songs.length} (평균 ${(metrics.reduce((s, m) => s + m.hookRepeatCount, 0) / songs.length).toFixed(1)}회)`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: hookRepeatOk, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_hook_line_word_count',
+      category: '가사',
+      labelKo: 'K-pop 훅 한 줄 단어 수 3~6 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${hookWordOk}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: hookWordOk, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_chant_hook_line',
+      category: '가사',
+      labelKo: 'K-pop 챈트/후크 라인 존재 1곳 이상 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${chantPresent}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: chantPresent, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_chorus_syllable_density',
+      category: '가사',
+      labelKo: 'K-pop 후렴 음절 밀도 과다하지 않음 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${densityOk}/${songs.length} (평균 ${(metrics.reduce((s, m) => s + m.chorusSyllableDensity, 0) / songs.length).toFixed(1)}음절/줄)`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: densityOk, direction: 'higherIsBetter' }
+    })
+  ];
+}
+
 function workspaceItems(): AuditItem[] {
   return [
     item({
@@ -956,7 +1021,8 @@ export function runFullAudit(
     ...distinctChoiceItems(songs, opts.archetype),
     ...metaLeakItems(songs, opts.lyricLanguage),
     ...objectStateItems(songs, opts.archetype, opts.lyricLanguage),
-    ...setArcItems(songs, opts.conceptLabel, opts.archetype)
+    ...setArcItems(songs, opts.conceptLabel, opts.archetype),
+    ...kpopSingabilityItems(songs, opts.archetype)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency, observations: buildPerceivedEnergyObservations(songs) };
 }

@@ -40,6 +40,10 @@ import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan
 import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import { buildChorusContrastPlan } from './chorusContrastPlan';
 import { chorusContrastInstructionText, chorusContrastPlanById } from '../data/chorusContrast';
+import { buildKpopPartPlan } from './kpopPartPlan';
+import { kpopWorkspacePolicyFor } from './kpopWorkspacePolicy';
+import { buildKpopSectionStyleShiftPlan } from './kpopSectionStyleShiftPlan';
+import { sectionStyleShiftInstructionText, sectionStyleShiftPresetById } from '../data/sectionStyleShifts';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
@@ -620,6 +624,10 @@ export function preallocateSongSlots(
   // 지시문 36 (TASK C-3) — hookDevicePlan 바로 옆에 둔다: 같은 시점에
   // 결정되는 같은 신뢰 모델의 슬롯 필드이기 때문(§C-3 "검사만 하면 늦다").
   const chorusContrastPlan = buildChorusContrastPlan(opts.songCount, seed + 173);
+  // 지시문 37 (TASK B) — 같은 이유로 같은 자리: chorusContrastPlan과 동일한
+  // stride 회전 신뢰 모델. kr-idol-male/kr-idol-female이 아니면 아래
+  // per-track 루프에서 kpopPolicy가 undefined라 슬롯에 실리지 않는다.
+  const sectionStyleShiftPlan = buildKpopSectionStyleShiftPlan(opts.songCount, seed + 331);
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
@@ -771,6 +779,15 @@ export function preallocateSongSlots(
     const vocalGender: VocalGender | undefined = vocalType
       ? (isKidsArchetype(opts.channel.archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
       : fallbackVocalGender;
+    // 지시문 37 (TASK A) — kr-idol-male/kr-idol-female에서만 설정된다
+    // (kpopWorkspacePolicyFor는 그 두 워크스페이스에만 정의돼 있다).
+    // moneyChordText/hookDeviceText와 같은 신뢰 모델: 여기서 한 번 계산해
+    // 슬롯에 싣고, reconcileWithPreassignedSlot이 양쪽 경로 모두에서
+    // SongIdea.partPlan으로 그대로 복사한다.
+    const kpopPolicy = kpopWorkspacePolicyFor(workspaceForArchetype(opts.channel.archetype)?.id ?? 'senior-oldpop');
+    const partPlan = kpopPolicy ? buildKpopPartPlan(vocalGender, structureTemplatePlan[idx], kpopPolicy, seed + idx * 97 + 401) : undefined;
+    // 지시문 37 (TASK B) — partPlan과 같은 게이팅(kr-idol 전용).
+    const sectionStyleShiftPreset = kpopPolicy ? sectionStyleShiftPresetById(sectionStyleShiftPlan[idx]) : undefined;
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];
     const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;
@@ -888,6 +905,8 @@ export function preallocateSongSlots(
         chorusContrastText: chorusContrastInstructionText(chorusContrastResolved),
         chorusContrastScore: chorusContrastResolved.score.total
       } : {}),
+      ...(partPlan ? { partPlan } : {}),
+      ...(sectionStyleShiftPreset ? { sectionStyleShifts: sectionStyleShiftPreset.shifts, sectionStyleShiftText: sectionStyleShiftInstructionText(sectionStyleShiftPreset) } : {}),
       ...(openingLoudnessPlan[idx] ? { openingLoudnessText: openingLoudnessPlan[idx] } : {}),
       // TASK v3.64-B — mirrors localGenerator.ts's own per-song
       // rotatingEarwormText call (same seed/idx), promoted to a slot field
@@ -1351,6 +1370,8 @@ export function reconcileWithPreassignedSlot(
       ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
       ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
       ...(slot.moneyChordText ? { moneyChordText: slot.moneyChordText } : {}),
+      ...(slot.partPlan ? { partPlan: slot.partPlan } : {}),
+      ...(slot.sectionStyleShifts ? { sectionStyleShifts: slot.sectionStyleShifts } : {}),
       ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
       ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
       ...(slot.peakStrength ? { peakStrength: slot.peakStrength } : {}),
@@ -1455,6 +1476,11 @@ export function reconcileWithPreassignedSlot(
     ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
     ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
     ...(slot.moneyChordText ? { moneyChordText: slot.moneyChordText } : {}),
+    // 지시문 37 (TASK A-5) — killingPointText 바로 위 사례와 같은 유형:
+    // 슬롯의 partPlan은 앱이 배정한 값이고, LLM 응답이 뭘 썼든 이 값이
+    // 진실이다(§A-5 "가져오기 시 슬롯에서 복원한다").
+    ...(slot.partPlan ? { partPlan: slot.partPlan } : {}),
+    ...(slot.sectionStyleShifts ? { sectionStyleShifts: slot.sectionStyleShifts } : {}),
     ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
     ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
     ...(slot.peakStrength ? { peakStrength: slot.peakStrength } : {}),

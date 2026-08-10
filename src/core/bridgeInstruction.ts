@@ -2,6 +2,7 @@ import type {
   BatchContext,
   GenerationOptions,
   GenrePack,
+  KpopPartRole,
   MoodPack,
   PreassignedSongSlot,
   ScenePlanningMode,
@@ -30,8 +31,6 @@ import { currentWorkspaceId } from './workspaceScope';
 import { workspaceForArchetype } from '../data/workspaces';
 import { parseSetArcSpec, type SetArcSpec } from './setArcAdherence';
 import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan } from './explorationPolicyEngine';
-import { buildIdolPartPatternSet, renderIdolPartPatternLine } from './idolPartPattern';
-import { hashSeed } from '../utils/prng';
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
 
@@ -814,6 +813,22 @@ function chorusContrastInstructionLineFor(preassignedSongs: PreassignedSongSlot[
 }
 
 /**
+ * 지시문 37 (TASK B) — K-pop만: "한 곡 안에서 절은 R&B, 후렴은 EDM처럼
+ * 섹션마다 장르/편곡이 바뀐다." moneyChordText와 같은 verbatim-weave 신뢰
+ * 모델(chorusContrastText/hookDeviceText의 reference-not-verbatim과는 다름
+ * — 섹션별 스타일은 앱이 이미 확정한 값이라 LLM이 재해석할 필요가 없다).
+ * "Section: atom, atom" 라벨을 그대로 유지하라고 명시한다 —
+ * data/promptAxisLexicon.ts의 SECTION_SCOPED_LABEL_PATTERN이 이 라벨을
+ * 봐야 finalPromptNormalizer가 벌스의 sparse와 후렴의 dense를 같은 축의
+ * 모순 선언으로 오판해 하나를 지우는 사고를 피할 수 있다.
+ */
+function sectionStyleShiftInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.sectionStyleShiftText)
+    ? '- Each "preassignedSongs" entry may include "sectionStyleShiftText" — weave it into that song\'s stylePrompt VERBATIM as its own comma-separated clauses, one per section (e.g. "Verse: laid-back R&B groove, sparse arrangement, Chorus: EDM-influenced drop, dense synth stack"). Keep each "Section:" label exactly as given and do not merge sections together — the label is what tells this app it is a section-scoped style shift, not a whole-song density contradiction.'
+    : '';
+}
+
+/**
  * TASK v3.64-B — same reference-not-verbatim pattern as
  * hookDeviceInstructionLineFor above. Real measurement: earworm mode's old
  * flat instruction ("include 'simple stepwise melody' and 'singalong-
@@ -1467,24 +1482,46 @@ function buildDistinctChoiceInstructionLines(songCount: number, workspaceId: Wor
 }
 
 /**
- * v5.24 (TASK C §3-5) — "곡마다 파트 배분을 명시하십시오... 파트 패턴 8종 이상,
- * 같은 패턴 최대 3곡." Kept as its own instruction block (not threaded through
- * PreassignedSongSlot) so it stays fully additive — every workspace other
- * than kr-idol-male/kr-idol-female gets an empty array, identical to
- * pre-v5.24 output.
+ * 지시문 37 (TASK A-4) — v5.24의 buildIdolPartPatternInstructionLines(제네릭
+ * A/B/C 패턴, PreassignedSongSlot에 실리지 않아 팩 JSON에 남지 않던 조언성
+ * 블록 — core/idolPartPattern.ts 참고)를 대체한다. 파트 배분을 "어떻게
+ * 나눌지" 지시하는 블록을 두 개 동시에 주면 서로 다른 배분을 말하게 되어
+ * 충돌한다(하지 말 것 §5 "낡은 경로를 남긴 채 새 경로를 추가하지 않는다") —
+ * 이제 core/kpopPartPlan.ts's buildKpopPartPlan이 슬롯에 미리 계산해 둔
+ * partPlan을 moneyChordText/hookDeviceText와 같은 신뢰 모델로 그대로
+ * (verbatim) 전달한다. LLM이 파트를 스스로 창작하지 않는다 — 앱이 배정한
+ * 값이며, 가져오기 시 슬롯에서 복원해 팩 JSON에 남긴다(TASK A-5).
  */
-function buildIdolPartPatternInstructionLines(workspaceId: WorkspaceId, songCount: number, seedSource: string): string[] {
-  if (workspaceId !== 'kr-idol-male' && workspaceId !== 'kr-idol-female') return [];
-  const patterns = buildIdolPartPatternSet(songCount, hashSeed(seedSource));
-  if (!patterns.length) return [];
+const KPOP_PART_ROLE_LABEL: Record<KpopPartRole, string> = {
+  'main-vocal': 'main vocal',
+  'lead-vocal': 'lead vocal',
+  'sub-vocal': 'sub vocal',
+  'main-rapper': 'main rapper',
+  'lead-rapper': 'lead rapper',
+  all: 'All',
+  'ad-lib': 'ad-lib'
+};
+
+function kpopPartPlanInstructionLines(preassignedSongs: PreassignedSongSlot[]): string[] {
+  const withPlan = preassignedSongs.filter(slot => slot.partPlan);
+  if (!withPlan.length) return [];
+  const memberLabel = (id: string) => (id === 'all' ? 'All' : `Member ${id}`);
+  const trackBlocks = withPlan.flatMap(slot => {
+    const plan = slot.partPlan!;
+    const sectionLines = plan.sectionAssignments.map(a => {
+      const who = a.role === 'all' ? 'All' : a.memberIds.map(memberLabel).join(', ');
+      const roleSuffix = a.role === 'all' ? '' : ` (${KPOP_PART_ROLE_LABEL[a.role]})`;
+      return `    ${a.section}: ${who}${roleSuffix}`;
+    });
+    return [`  Track ${slot.trackNo} (${plan.memberCount} members):`, ...sectionLines, ''];
+  });
   return [
     '',
     '[파트 배분]',
     '',
-    '  아이돌 곡은 파트가 곧 구조입니다. 아래 트랙별 파트 패턴을 그대로 따르십시오 (A/B/C는 서로 다른 보컬 파트를 뜻하며, 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오).',
+    '  아이돌 곡은 파트가 곧 구조입니다. 아래는 트랙별로 앱이 미리 정한 파트 배분입니다 — 가사 섹션 태그에 이 배분을 그대로 반영하십시오, 예: "[Verse 1: Member A]", "[Chorus: All]". 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오.',
     '',
-    ...patterns.map((pattern, i) => renderIdolPartPatternLine(i + 1, pattern)),
-    ''
+    ...trackBlocks
   ];
 }
 
@@ -1607,6 +1644,7 @@ export function buildClaudeCodeInstruction(
     : '';
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
   const chorusContrastInstructionLine = chorusContrastInstructionLineFor(preassignedSongs);
+  const sectionStyleShiftInstructionLine = sectionStyleShiftInstructionLineFor(preassignedSongs);
   const earwormInstructionLine = earwormInstructionLineFor(preassignedSongs);
   const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
@@ -1650,8 +1688,8 @@ export function buildClaudeCodeInstruction(
     // v5.24 (TASK B/C/D) — the same slot-instruction shape, driven by
     // data/explorationPolicies.ts, for every workspace except senior-oldpop.
     ...buildPolicyExplorationInstructionLines(policyExplorationPlan ?? { enabled: false, workspaceId, trackNos: [], axis: null }),
-    // v5.24 (TASK C §3-5) — K-pop-only part-map block; empty for every other workspace.
-    ...buildIdolPartPatternInstructionLines(workspaceId, opts.songCount, outputFilename),
+    // 지시문 37 (TASK A-4) — K-pop-only part-map block; empty for every other workspace (no slot carries partPlan elsewhere).
+    ...kpopPartPlanInstructionLines(preassignedSongs),
     // v5.24 (TASK G) — advisory, never-forced set-completeness suggestions
     // (loose story thread / contrast / lead-track yielding / last-track
     // callback). Workspace-tuned; empty story-thread line for K-pop per spec
@@ -1726,6 +1764,7 @@ export function buildClaudeCodeInstruction(
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
     chorusContrastInstructionLine,
+    sectionStyleShiftInstructionLine,
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,

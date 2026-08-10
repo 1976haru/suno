@@ -86,6 +86,12 @@ export interface KpopWorkspacePolicy {
   rapPolicy: RapPolicy;
   chantPolicy: ChantPolicy;
   performancePolicy: PerformancePolicy;
+  /**
+   * 지시문 37 (TASK A-2) — 실제 아이돌 그룹 규모(4~7명), 하루의 장르 지식에
+   * 근거한 관행이지 추정치가 아니다. core/kpopPartPlan.ts's
+   * buildKpopPartPlan이 이 범위 안에서 트랙별 멤버 수를 결정한다.
+   */
+  memberCountRange: [number, number];
 }
 
 const DEFAULT_ALLOWED_PART_TYPES: KpopPartType[] = ['solo', 'duet', 'all', 'rap', 'ad-lib'];
@@ -145,7 +151,8 @@ export const KPOP_WORKSPACE_POLICIES: Partial<Record<WorkspaceId, KpopWorkspaceP
     motifQuotas: KR_IDOL_MALE_MOTIF_QUOTAS,
     rapPolicy: { targetRatio: 12 / 18 },
     chantPolicy: { maxOveruseRatio: 0.4 },
-    performancePolicy: { motifFamilyId: 'performance-stage' }
+    performancePolicy: { motifFamilyId: 'performance-stage' },
+    memberCountRange: [4, 7]
   },
   'kr-idol-female': {
     groupGender: 'female',
@@ -155,7 +162,8 @@ export const KPOP_WORKSPACE_POLICIES: Partial<Record<WorkspaceId, KpopWorkspaceP
     motifQuotas: KR_IDOL_FEMALE_MOTIF_QUOTAS,
     rapPolicy: { targetRatio: 12 / 18 },
     chantPolicy: { maxOveruseRatio: 0.4 },
-    performancePolicy: { motifFamilyId: 'performance-stage' }
+    performancePolicy: { motifFamilyId: 'performance-stage' },
+    memberCountRange: [4, 7]
   }
 };
 
