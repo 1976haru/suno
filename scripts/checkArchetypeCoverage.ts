@@ -33,8 +33,11 @@ import { OPENING_HOOKS } from '../src/data/openingHooks';
 import { paletteFamilyForGenreId } from '../src/data/paletteFamilies';
 import { MOTIF_FAMILIES } from '../src/data/motifFamilies';
 import { channelSoundFloorForArchetype } from '../src/data/channelSoundFloor';
-import { workspaceForArchetype } from '../src/data/workspaces';
+import { workspaceForArchetype, workspaceDefinitions } from '../src/data/workspaces';
 import { distinctChoicePolicyForWorkspace } from '../src/data/distinctChoicePolicy';
+import { promotionEligibility, type MeasuredSongLedger } from '../src/core/measuredSongLedger';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { promptAxisPolicyFor } from '../src/data/promptAxisPolicy';
 import { objectStatePolicyForWorkspace } from '../src/data/objectStatePolicy';
 import { eraIntentForWorkspace } from '../src/data/workspaceEraIntent';
@@ -443,6 +446,42 @@ function printTable() {
   }
 }
 
+// 지시문 32 (§4) — scripts/audit.ts --pack이 누적한 실측 곡 수를 여기서
+// 노출한다. 이게 "UI"다 — 이 앱은 아직 verified 토글을 웹 UI에 두지 않고
+// data/distinctChoicePolicy.ts를 지시문에서 손으로 고치는 방식이므로,
+// 하루가 실제로 정기적으로 보는 이 CLI 출력이 승격 판단을 위한 진짜
+// 알림 표면이다. 절대 여기서 verified를 바꾸지 않는다 — 조건 충족을
+// "표시"만 한다(§ "하지 말 것": 자동 승격 금지).
+const MEASURED_SONG_LEDGER_PATH = path.resolve(process.cwd(), 'measured-song-counts.json');
+
+function loadMeasuredSongLedger(): MeasuredSongLedger {
+  if (!fs.existsSync(MEASURED_SONG_LEDGER_PATH)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(MEASURED_SONG_LEDGER_PATH, 'utf-8'));
+  } catch {
+    return {};
+  }
+}
+
+function printMeasuredSongLedger() {
+  console.log('\n\n측정 곡 수 누적 (지시문 32 §4, scripts/audit.ts --pack 실행마다 누적) ────');
+  const ledger = loadMeasuredSongLedger();
+  for (const workspace of workspaceDefinitions) {
+    const policy = distinctChoicePolicyForWorkspace(workspace.id);
+    const entry = ledger[workspace.id];
+    const { measuredSongs, eligible } = promotionEligibility(entry, policy.promoteAfterMeasuredSongs);
+    const setCount = entry?.setCount ?? 0;
+    if (policy.verified) {
+      console.log(`  ${workspace.id.padEnd(16)} 측정 ${measuredSongs}곡 (${setCount}세트) — 이미 verified`);
+      continue;
+    }
+    const statusKo = eligible
+      ? `⚠ 승격 조건 충족(≥${policy.promoteAfterMeasuredSongs}곡) — 하루 승인 시 distinctChoicePolicy.ts에서 verified:true로 직접 전환 (자동 승격 아님)`
+      : `미달 (기준 ${policy.promoteAfterMeasuredSongs}곡)`;
+    console.log(`  ${workspace.id.padEnd(16)} 측정 ${measuredSongs}곡 (${setCount}세트) — ${statusKo}`);
+  }
+}
+
 function main() {
   console.log(`[check:coverage] ${CANONICAL_ARCHETYPES.length} 아키타입 × ${21} 축\n`);
 
@@ -494,6 +533,8 @@ function main() {
   }
 
   console.log(`\n\n[check:coverage] CONTRACT VIOLATION(✗) ${violationCount}건 / 편차 경고(⚠) ${advisoryCount}건 / 축 ${rows.length}개 × 아키타입 ${CANONICAL_ARCHETYPES.length}개`);
+
+  printMeasuredSongLedger();
 
   if (violationCount > 0) process.exitCode = 1;
 }

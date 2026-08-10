@@ -739,11 +739,11 @@ function distinctChoiceItems(songs: SongIdea[], archetype?: ChannelArchetype): A
       id: 'distinct_choice_compliance', category: '워크스페이스',
       labelKo: `곡별 다른 시도 이행률 (distinctChoice gate${policy.verified ? '' : ' — 미검증/advisory'})`,
       targetKo: `≥ ${Math.round(policy.minComplianceRate * 100)}% (${policy.sourceKo})`,
-      actualKo: `이행률 ${Math.round(result.complianceRate * 100)}% (compliant ${result.compliantCount} · violated ${result.violatedCount} · not-measured ${result.notMeasuredCount} · missing ${result.missingCount})`,
+      actualKo: `${result.complianceRate === null ? '이행률 미측정 (측정 가능 곡 0)' : `이행률 ${Math.round(result.complianceRate * 100)}%`} (compliant ${result.compliantCount} · violated ${result.violatedCount} · not-measured ${result.notMeasuredCount} · missing ${result.missingCount})`,
       pass: policy.verified ? !result.thresholdBlocking : null,
       requiresAudio: false,
       specifiedBy: ['지시문 15 TASK B-4'],
-      metric: { value: result.complianceRate, direction: 'higherIsBetter' }
+      metric: result.complianceRate !== null ? { value: result.complianceRate, direction: 'higherIsBetter' } : undefined
     }),
     item({
       id: 'distinct_choice_safety', category: '워크스페이스', labelKo: '곡별 다른 시도 — 안전 제약',

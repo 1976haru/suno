@@ -3,6 +3,7 @@ import { ImagePlus, Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
 import { BUILD_INFO } from './core/buildInfo';
+import { checkConceptCompatibility } from './core/conceptCompatibility';
 import type { ThumbnailArchetypeId } from './data/thumbnailArchetypes';
 import { moneyChordPresets } from './data/moneyChords';
 import { AUTOSAVE_ID, listChannelPersonas, recordChannelPersonaUse, saveAutosave, saveChannelPersona, type ChannelPersonaRecord } from './core/library';
@@ -1750,6 +1751,25 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   // all. genreIds now checked the same way moodIds already is.
   const step2Blocked = opts.moodIds.length === 0 || opts.genreIds.length === 0;
   const resultStepBlocked = !gen.blueprint;
+  /**
+   * 지시문 32 (§1) — "컨셉 입력 시점, 설계안(Step2Plan) 단계 진입 전"에
+   * 채널×컨셉 시대 호환성을 보여준다. unsupported는 경고만(이유 + 대안
+   * 채널) — 차단하지 않는다(하루가 의도적으로 실험적 조합을 시도할 수
+   * 있어야 한다는 게 이 앱의 기존 원칙, designGateBlocked의 "무시하고 진행"과
+   * 같은 결). cross-style만 designGateBlocked와 동일한 패턴으로 명시적
+   * 확인 전까지 다음 단계 진입을 막는다 — "이 조합은 재해석이니 확인하고
+   * 진행하라"는 것이 cross-style의 취지이기 때문(§ "하지 말 것": unsupported로
+   * 강등 금지, 그렇다고 supported처럼 조용히 통과시키지도 않는다).
+   */
+  const conceptCompat = useMemo(
+    () => checkConceptCompatibility(opts.customConcept || opts.projectTitle, opts.channel),
+    [opts.customConcept, opts.projectTitle, opts.channel]
+  );
+  const [conceptCompatAcknowledged, setConceptCompatAcknowledged] = useState(false);
+  useEffect(() => {
+    setConceptCompatAcknowledged(false);
+  }, [conceptCompat.compatibility, opts.customConcept, opts.projectTitle, opts.channel.id]);
+  const conceptCompatBlocked = conceptCompat.compatibility === 'cross-style' && !conceptCompatAcknowledged;
   const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
   // v3.78 (TASK A, §2-1) — "Step2Plan → Step3 이동 시 경고": Step2Plan.tsx
   // lifts its own 관문 1 status here via onDesignGateStatusChange so the
@@ -1892,6 +1912,9 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
                 expertMode={expertMode}
                 onToggleExpertMode={toggleExpertMode}
                 onGenreWarning={setLoadWarning}
+                conceptCompat={conceptCompat}
+                conceptCompatAcknowledged={conceptCompatAcknowledged}
+                onConceptCompatAcknowledgedChange={setConceptCompatAcknowledged}
               />
             </StepErrorBoundary>
           )}
@@ -2024,8 +2047,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             currentStep={currentStep}
             onPrev={() => setCurrentStep(step => Math.max(1, step - 1))}
             onNext={() => setCurrentStep(step => Math.min(5, step + 1))}
-            nextDisabled={(currentStep === 2 && step2Blocked) || (currentStep === 3 && designGateBlocked) || (currentStep === 4 && resultStepBlocked)}
-            blockerMessage={currentStep === 2 ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 3 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
+            nextDisabled={(currentStep === 2 && (step2Blocked || conceptCompatBlocked)) || (currentStep === 3 && designGateBlocked) || (currentStep === 4 && resultStepBlocked)}
+            blockerMessage={currentStep === 2 && step2Blocked ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 2 && conceptCompatBlocked ? '이 채널×컨셉 조합(재해석 필요)을 확인하고 진행하세요.' : currentStep === 3 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
             maxStep={5}
           />
             </>

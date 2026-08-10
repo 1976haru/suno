@@ -18,6 +18,7 @@ import { resolveConstraintsFromOptions } from '../src/core/constraints';
 import { GATE_DATA_CONTRACTS } from '../src/core/gateDataContract';
 import { DESIGN_GATE_ITEM_IDS } from '../src/core/auditItemIds';
 import { moneyChordRotationPool, signatureMoneyChordId } from '../src/data/moneyChords';
+import { checkConceptCompatibility } from '../src/core/conceptCompatibility';
 import type { ChannelProfile, GenerationOptions, WorkspaceId } from '../src/types';
 
 // 워크스페이스당 대표 컨셉 3개 — 시대/무드 신호가 실제로 걸리는 것 위주로 구성
@@ -43,6 +44,15 @@ interface ContractViolation {
   reasonKo: string;
   observed: string;
   needed: string;
+  /** 지시문 32 (§1) — cross-style 조합의 위반은 advisory 전용: 출력엔 남지만 통과/위반 집계와 exit code에 반영되지 않는다. */
+  advisory: boolean;
+}
+
+interface UnsupportedPair {
+  channelId: string;
+  concept: string;
+  reasonKo: string;
+  suggestedChannelIds: string[];
 }
 
 function buildOpts(channel: ChannelProfile, concept: string, genreIds: string[]): GenerationOptions {
@@ -129,6 +139,7 @@ function checkMoneyChordRotationContract(): number {
 
 function main() {
   const violations: ContractViolation[] = [];
+  const unsupportedPairs: UnsupportedPair[] = [];
   const unregisteredGateIds = new Set<string>();
   let pairsPassed = 0;
   let pairsViolated = 0;
@@ -145,12 +156,31 @@ function main() {
 
     for (const concept of concepts) {
       pairCount += 1;
+
+      // 지시문 32 (§1) — 이 조합을 애초에 이 채널에서 시도해야 하는지 먼저
+      // 판정한다. unsupported면 CONTRACT VIOLATION 집계에서 완전히 빼고
+      // "지원하지 않는 조합"으로 별도 기록한다(채널 데이터 결핍이 아니라
+      // 조합 설계 자체의 문제이므로). cross-style이면 관문은 그대로 돌리되
+      // 위반이 나와도 advisory로만 남긴다(§ "하지 말 것": cross-style을
+      // unsupported로 강등 금지, 그렇다고 supported처럼 blocking으로 세지도
+      // 않는다).
+      const compat = checkConceptCompatibility(concept, channel);
+      if (compat.compatibility === 'unsupported') {
+        unsupportedPairs.push({
+          channelId: channel.id,
+          concept,
+          reasonKo: compat.reasonKo,
+          suggestedChannelIds: compat.suggestedChannelIds ?? []
+        });
+        continue;
+      }
+
       const opts = buildOpts(channel, concept, genreIds);
       const constraints = resolveConstraintsFromOptions(opts, audienceProfile, workspaceId);
       const slots = preallocateSongSlots(opts, genres);
       const result = evaluateDesignGate(slots, constraints, opts);
 
-      let pairHasViolation = false;
+      let pairHasBlockingViolation = false;
       for (const issueItem of result.blocking) {
         const contract = GATE_DATA_CONTRACTS[issueItem.id];
         if (!contract) {
@@ -159,7 +189,8 @@ function main() {
         }
         const requiresResult = contract.requires(channel, opts);
         if (!requiresResult.satisfiable) {
-          pairHasViolation = true;
+          const advisory = compat.compatibility === 'cross-style';
+          if (!advisory) pairHasBlockingViolation = true;
           violations.push({
             channelId: channel.id,
             concept,
@@ -169,15 +200,19 @@ function main() {
             actual: issueItem.actual,
             reasonKo: requiresResult.reasonKo,
             observed: requiresResult.observed,
-            needed: requiresResult.needed
+            needed: requiresResult.needed,
+            advisory
           });
         }
       }
-      if (pairHasViolation) pairsViolated += 1; else pairsPassed += 1;
+      if (pairHasBlockingViolation) pairsViolated += 1; else pairsPassed += 1;
     }
   }
 
-  for (const v of violations) {
+  const blockingViolations = violations.filter(v => !v.advisory);
+  const advisoryViolations = violations.filter(v => v.advisory);
+
+  for (const v of blockingViolations) {
     console.log(`✗ CONTRACT VIOLATION  ${v.channelId} / "${v.concept}"`);
     console.log(`    ${v.gateId}    ${v.labelKo} — 기대 ${v.expected} | 실측 ${v.actual}`);
     console.log(`    이 채널의 데이터: ${v.observed}`);
@@ -185,11 +220,30 @@ function main() {
     console.log(`    → ${v.reasonKo}\n`);
   }
 
+  if (advisoryViolations.length) {
+    console.log(`--- cross-style 조합 advisory (blocking 아님, 참고용) ---`);
+    for (const v of advisoryViolations) {
+      console.log(`△ ADVISORY  ${v.channelId} / "${v.concept}"`);
+      console.log(`    ${v.gateId}    ${v.labelKo} — 기대 ${v.expected} | 실측 ${v.actual}`);
+      console.log(`    → ${v.reasonKo}\n`);
+    }
+  }
+
+  if (unsupportedPairs.length) {
+    console.log(`--- 지원하지 않는 조합 (unsupported — CONTRACT VIOLATION 집계 제외) ---`);
+    for (const p of unsupportedPairs) {
+      console.log(`○ UNSUPPORTED  ${p.channelId} / "${p.concept}"`);
+      console.log(`    → ${p.reasonKo}`);
+      if (p.suggestedChannelIds.length) console.log(`    대안 채널: ${p.suggestedChannelIds.join(', ')}`);
+      console.log('');
+    }
+  }
+
   if (unregisteredGateIds.size) {
     console.log(`✗ UNREGISTERED GATE — requires가 등록되지 않은 관문: ${[...unregisteredGateIds].join(', ')}\n`);
   }
 
-  console.log(`통과 ${pairsPassed} / 위반 ${pairsViolated}  (총 ${pairCount}쌍, CONTRACT VIOLATION ${violations.length}건, 미등록 관문 ${unregisteredGateIds.size}개)`);
+  console.log(`통과 ${pairsPassed} / 위반 ${pairsViolated}  (총 ${pairCount}쌍, 지원하지 않는 조합 제외 후 검사 대상 ${pairCount - unsupportedPairs.length}쌍, CONTRACT VIOLATION ${blockingViolations.length}건, cross-style advisory ${advisoryViolations.length}건, 지원하지 않는 조합 ${unsupportedPairs.length}건, 미등록 관문 ${unregisteredGateIds.size}개)`);
 
   const moneyChordViolations = checkMoneyChordRotationContract();
 

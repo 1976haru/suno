@@ -36,6 +36,8 @@ import { openingSixWords } from '../src/core/lyricsAst';
 import { sceneSimilarity } from '../src/core/sceneSimilarity';
 import { checkSeniorEraShare, SLOT_PLAN_LEDGER_POLICY } from '../src/core/seniorOldpopPolicy';
 import { computeSlotPlanOverlap, type SlotPlanOverlapResult } from '../src/core/slotPlanOverlap';
+import { workspaceForArchetype } from '../src/data/workspaces';
+import { recordMeasuredPack, type MeasuredSongLedger } from '../src/core/measuredSongLedger';
 import type { AudienceProfile, ChannelProfile, GenerationOptions, KidsAgeTierId, LyricLanguage, PlaylistBlueprint, PreassignedSongSlot, SongIdea } from '../src/types';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -46,6 +48,23 @@ const BASELINE_PATH = path.resolve(process.cwd(), 'audit-baseline.json');
 // 방식이 근본적으로 다르므로(외부 LLM 자유 작문 vs 결정론적 템플릿 채움) 같은
 // baseline으로 비교하지 않는다. 별도 파일, 별도 경로.
 const PACK_BASELINE_PATH = path.resolve(process.cwd(), 'audit-baseline.pack.json');
+// 지시문 32 (§4) — --pack 감사가 실제로 돌 때마다(=실제 발매물을 실측할
+// 때마다) 누적되는, 워크스페이스별 측정 곡 수 카운터. audit-baseline.pack.json과
+// 같은 위치/같은 "커밋되는 런타임 상태" 관례.
+const MEASURED_SONG_LEDGER_PATH = path.resolve(process.cwd(), 'measured-song-counts.json');
+
+function loadMeasuredSongLedger(): MeasuredSongLedger {
+  if (!fs.existsSync(MEASURED_SONG_LEDGER_PATH)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(MEASURED_SONG_LEDGER_PATH, 'utf-8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveMeasuredSongLedger(ledger: MeasuredSongLedger): void {
+  fs.writeFileSync(MEASURED_SONG_LEDGER_PATH, JSON.stringify(ledger, null, 2) + '\n', 'utf-8');
+}
 
 const DEFAULT_CONCEPT = '비틀즈 느낌의 밝은 60년대 팝';
 
@@ -729,6 +748,23 @@ function runPackMode(args: ReturnType<typeof parseArgs>) {
 
   const { blueprint, conceptLabel, channel } = loaded;
   const songCount = blueprint.songs.length;
+
+  // 지시문 32 (§4) — 이 워크스페이스가 실제로 몇 곡을 실측했는지 누적한다.
+  // 같은 --pack 파일을 재실행해도 두 번 세지 않는다(recordMeasuredPack의
+  // measuredPackPaths dedupe). 절대 verified를 여기서 바꾸지 않는다 — 그건
+  // 항상 하루가 손으로 distinctChoicePolicy.ts를 고치는 별도 결정이다.
+  const measuredWorkspaceId = workspaceForArchetype(channel.archetype)?.id;
+  if (measuredWorkspaceId) {
+    const ledger = loadMeasuredSongLedger();
+    const { ledger: nextLedger, alreadyRecorded } = recordMeasuredPack(
+      ledger, measuredWorkspaceId, path.resolve(args.packPath), songCount, new Date().toISOString()
+    );
+    if (!alreadyRecorded) {
+      saveMeasuredSongLedger(nextLedger);
+      console.log(`[audit] 측정 곡 수 누적: ${measuredWorkspaceId} +${songCount}곡 (누적 ${nextLedger[measuredWorkspaceId]!.totalSongs}곡, ${nextLedger[measuredWorkspaceId]!.setCount}세트) — npm run check:coverage에서 확인 가능`);
+    }
+  }
+
   const audienceProfile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
   const lyricLanguage: LyricLanguage = blueprint.songs[0] ? (channel.primaryLanguage as LyricLanguage) : channel.primaryLanguage;
 

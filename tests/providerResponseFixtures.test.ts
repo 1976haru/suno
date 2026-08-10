@@ -8,19 +8,45 @@
  * etc — exactly what a real AI provider or a flaky bridge round-trip can
  * actually produce.
  *
- * This file feeds 12 real, structurally distinct provider-response fixtures
- * (tests/fixtures/providerResponses/*.json) through the REAL import path
- * every actual bridge/Claude-Code-agent response funnels through —
- * core/bridgeImport.ts's importSongsJson (JSON parsing/lenient-extraction,
- * per-song required-field validation, reconcileWithPreassignedSlot, quality
- * scoring) — for each of the 7 real workspaces. 11 of the 12 are deliberately
- * "wrong" in one specific, realistic way; this checks that this app's own
- * REAL detection mechanisms (already built this session, never a parallel
- * copy) actually catch each one — sanitizeGenreIdsForArchetype,
- * lyricLanguageMismatchWarning, findArtistReferenceLeaks, quality.ts's
- * famousArtistNames/prompt-length checks, importSongsJson's own required-
- * field/parse-failure/count-mismatch reporting. `normal.json` must import
- * cleanly everywhere with zero false-positive warnings.
+ * This file feeds real, structurally distinct provider-response fixtures
+ * through the REAL import path every actual bridge/Claude-Code-agent
+ * response funnels through — core/bridgeImport.ts's importSongsJson (JSON
+ * parsing/lenient-extraction, per-song required-field validation,
+ * reconcileWithPreassignedSlot, quality scoring) — for each of the 7 real
+ * workspaces. Most fixtures are deliberately "wrong" in one specific,
+ * realistic way; this checks that this app's own REAL detection mechanisms
+ * (already built this session, never a parallel copy) actually catch each
+ * one — sanitizeGenreIdsForArchetype, lyricLanguageMismatchWarning,
+ * findArtistReferenceLeaks, quality.ts's famousArtistNames/prompt-length
+ * checks, importSongsJson's own required-field/parse-failure/count-mismatch
+ * reporting, core/tempoComplianceGate.ts's tempo-wording contradiction check.
+ *
+ * 지시문 32 (§2) — reorganized into 3 subdirectories matching what a fixture
+ * actually proves:
+ *   - clean/    zero warnings expected, real content (see each fixture's own
+ *               provenance note below), tested against the ONE workspace it
+ *               was genuinely verified clean for — not shared across all 7.
+ *   - warning/  content still fully imports for every track; a real,
+ *               non-blocking issue is flagged (or self-healed) and the test
+ *               asserts that flag/correction actually fires.
+ *   - blocking/ the checker must actively reject something (a malformed
+ *               whole response, a structurally invalid track) OR must catch
+ *               a genuine content contradiction (normal.json/withPreamble.json,
+ *               see their own describe blocks below) — the test asserts the
+ *               rejection/detection actually happens, never "zero warnings".
+ * `normal.json`/`withPreamble.json` used to be tested for "zero warnings"
+ * across all 7 workspaces and failed on all 7 (14 real test-case failures,
+ * matrix baseline before this directive) — not a fixture bug. The fixture's
+ * own stylePrompt wording (mood adjectives like "gentle"/"unhurried", tuned
+ * for senior-oldpop's slower BPM range at authoring time) genuinely
+ * contradicts the BPM core/tempoComplianceGate.ts enforces for faster
+ * workspaces (kr-2030/kr-kids/jp-kids/kr-idol-*), and jp-2030's own genre
+ * ("brushed drum kit" vs "jp2030-heisei-nostalgia") independently contradicts
+ * itself; senior-oldpop's own track 5 separately has a real sentence-
+ * repetition/syllable-density lyrics defect. All three are real detections
+ * this app's checkers are SUPPOSED to make — content was never edited to
+ * force a pass; the two describe blocks below now assert the violation IS
+ * detected instead of asserting it's absent.
  *
  * Deliberately kept out of `npm test`/`test:fast` — wired into the same
  * separate `npm run test:matrix` command as workspaceContractMatrix.test.ts
@@ -49,7 +75,7 @@ const WORKSPACE_CHANNEL_ID: Record<WorkspaceId, string> = {
   'kr-idol-female': 'daylight-city-kpop'
 };
 
-/** Small on purpose (5 tracks, not 12/18) — keeps 12 fixtures x 7 workspaces = 84 real import runs fast; every fixture's trackNo range is 1..5. */
+/** Small on purpose (5 tracks, not 12/18) — keeps the warning/+blocking/ fixtures (7 workspaces each) fast; every one of those fixtures' trackNo range is 1..5. clean/ fixtures are separate, single-song, single-workspace (see their own describe block). */
 const FIXTURE_SONG_COUNT = 5;
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures', 'providerResponses');
 
@@ -163,30 +189,100 @@ function runFixture(workspaceId: WorkspaceId, fixtureName: string, optsOverrides
   return { opts, genres, moods, slots, report };
 }
 
-describe('[provider-response fixtures] normal.json imports cleanly with zero false-positive warnings', () => {
+/**
+ * 지시문 32 (§2) — normal.json/withPreamble.json의 실제 실측 위반표
+ * (test:matrix 기준선, 지시문 32 작업 시점). 이 fixture는 senior-oldpop
+ * 원본 88~100 BPM대에 맞춰 "gentle"/"tender"/"unhurried" 같은 무드 어휘로
+ * 쓰였는데, 같은 텍스트를 더 빠른 워크스페이스에 재조합하면
+ * core/tempoComplianceGate.ts가 그 어휘와 새로 배정된 실제 BPM의 모순을
+ * 정확히 잡아낸다 — fixture 결함이 아니라 검사기가 제대로 작동한 증거다.
+ * jp-2030은 다른 축(장르 모순), senior-oldpop 자신은 또 다른 축(문장 반복·
+ * 음절 밀도)에서 진짜 결함을 낸다 — 셋 다 실측, 전부 fixture 원문 그대로.
+ */
+const EXPECTED_VIOLATIONS: Partial<Record<WorkspaceId, { trackNo: number; contains: string }>> = {
+  'kr-2030': { trackNo: 3, contains: 'Tempo compliance' },
+  'jp-2030': { trackNo: 2, contains: 'contradicts genre' },
+  'kr-kids': { trackNo: 1, contains: 'Tempo compliance' },
+  'jp-kids': { trackNo: 1, contains: 'Tempo compliance' },
+  'kr-idol-male': { trackNo: 2, contains: 'Tempo compliance' },
+  'kr-idol-female': { trackNo: 2, contains: 'Tempo compliance' }
+};
+/** senior-oldpop is the fixture's own native workspace — its real defect is unrelated to tempo (문장 반복 + 음절 밀도, track 5). */
+const SENIOR_OLDPOP_EXPECTED = { trackNo: 5, containsAny: ['syllable-density', '문장 반복'] };
+
+function assertNormalJsonViolationDetected(workspaceId: WorkspaceId, fixtureLabel: string, report: ReturnType<typeof runFixture>['report']) {
+  expect(report.blueprint, `${workspaceId}/${fixtureLabel}: must still import — the violation is a warning, not a hard rejection`).not.toBeNull();
+  if (workspaceId === 'senior-oldpop') {
+    const song = report.blueprint!.songs.find(s => s.trackNo === SENIOR_OLDPOP_EXPECTED.trackNo)!;
+    const warnings = nonBenignWarnings(song.warnings);
+    expect(
+      warnings.some(w => SENIOR_OLDPOP_EXPECTED.containsAny.some(needle => w.includes(needle))),
+      `${workspaceId}/${fixtureLabel}: track ${SENIOR_OLDPOP_EXPECTED.trackNo} must carry a real lyrics-quality violation (sentence repetition/syllable density) — got: ${JSON.stringify(warnings)}`
+    ).toBe(true);
+    return;
+  }
+  const expected = EXPECTED_VIOLATIONS[workspaceId]!;
+  const song = report.blueprint!.songs.find(s => s.trackNo === expected.trackNo)!;
+  const warnings = nonBenignWarnings(song.warnings);
+  expect(
+    warnings.some(w => w.includes(expected.contains)),
+    `${workspaceId}/${fixtureLabel}: track ${expected.trackNo} must carry a "${expected.contains}" violation — got: ${JSON.stringify(warnings)}`
+  ).toBe(true);
+}
+
+describe('[provider-response fixtures] normal.json — real content contradictions must be DETECTED (재분류: 지시문 32 §2, blocking/)', () => {
   for (const workspaceId of WORKSPACE_IDS) {
-    it(`workspace: ${workspaceId}`, () => {
-      const { opts, report } = runFixture(workspaceId, 'normal.json');
-      expect(report.blueprint, `${workspaceId}/normal: blueprint must parse and import`).not.toBeNull();
-      expect(report.importedCount, `${workspaceId}/normal: every requested song imported`).toBe(opts.songCount);
-      expect(report.skippedCount, `${workspaceId}/normal: nothing skipped`).toBe(0);
-      expect(report.warnings, `${workspaceId}/normal: zero pack-level warnings`).toEqual([]);
-      for (const song of report.blueprint!.songs) {
-        expect(nonBenignWarnings(song.warnings), `${workspaceId}/normal: track ${song.trackNo} zero non-benign per-song warnings`).toEqual([]);
-      }
+    it(`workspace: ${workspaceId} — expected violation is caught, not silently passed`, () => {
+      const { report } = runFixture(workspaceId, 'blocking/normal.json');
+      assertNormalJsonViolationDetected(workspaceId, 'normal', report);
     });
   }
 });
 
-describe('[provider-response fixtures] withPreamble.json — correct JSON wrapped in explanatory prose still imports cleanly', () => {
+describe('[provider-response fixtures] withPreamble.json — same real content contradictions, wrapped in prose (재분류: 지시문 32 §2, blocking/)', () => {
   for (const workspaceId of WORKSPACE_IDS) {
-    it(`workspace: ${workspaceId} — detected by: importSongsJson's parseLeniently (fenced-code-block stripping)`, () => {
-      const { opts, report } = runFixture(workspaceId, 'withPreamble.json');
-      expect(report.blueprint, `${workspaceId}/withPreamble: prose wrapper must not block parsing`).not.toBeNull();
-      expect(report.importedCount, `${workspaceId}/withPreamble: every requested song imported`).toBe(opts.songCount);
-      expect(report.warnings, `${workspaceId}/withPreamble: zero pack-level warnings`).toEqual([]);
+    it(`workspace: ${workspaceId} — detected by: importSongsJson's parseLeniently (fenced-code-block stripping) AND the content-contradiction checkers`, () => {
+      const { report } = runFixture(workspaceId, 'blocking/withPreamble.json');
+      assertNormalJsonViolationDetected(workspaceId, 'withPreamble', report);
+    });
+  }
+});
+
+/**
+ * 지시문 32 (§2) — clean/ 5개: Haru의 실제 발매 팩(20260809 60년대/20260810
+ * 70년대 올드팝 라운지)에서 그대로 뽑은 title/hookPhrase/lyrics(무편집) +
+ * 장르 정확·템포 중립 stylePrompt(원본 팩의 stylePrompt는 이미 재조합을
+ * 거친 완제품이라 그대로 재사용하면 이중 부착이 일어나 새로 작성). 전부
+ * senior-oldpop(oldpop-lounge-main) 대상으로 실측 검증됨 — zero non-benign
+ * warnings. kr-2030/kr-kids 팩에서도 동일 방식으로 시도했으나, 이 두
+ * 워크스페이스는 채널과 무관하게 곡마다 회전 배정되는 보컬 딜리버리
+ * 텍스트 풀(예: "conversational unhurried phrasing")이 opts.vocalTone
+ * 선택과 무관하게 자체적으로 "unhurried"/"gentle" 문구를 주입해, BPM>100인
+ * 포지션마다 정확히 이 지시문이 고치려는 것과 같은 유형의 모순을 만든다 —
+ * 이건 fixture 선택으로 피할 수 있는 문제가 아니라 별도의 실제 결함(보컬
+ * 딜리버리 텍스트 풀 자체)이다. 지시문 32의 명시 범위(§1/§3, "새 기능 추가
+ * 금지")를 벗어나 이번엔 고치지 않았다 — §5 보고에 발견 사항으로 남긴다.
+ */
+describe('[provider-response fixtures clean/] senior-oldpop — real released-pack content imports with zero warnings', () => {
+  const FIXTURES = ['senior-oldpop-1.json', 'senior-oldpop-2.json', 'senior-oldpop-3.json', 'senior-oldpop-4.json', 'senior-oldpop-5.json'];
+  const CLEAN_VOCAL_TONE = 'bright young female voice, clean modern pop delivery, fresh and open tone';
+  for (const fixtureName of FIXTURES) {
+    it(`clean/${fixtureName} — zero pack-level and zero non-benign per-song warnings`, () => {
+      const channel = channelFor('senior-oldpop');
+      const opts = makeOptions({
+        channel, songCount: 1, lyricLanguage: 'english',
+        genreIds: channel.preferredGenres, moodIds: channel.preferredMoods,
+        vocalTone: CLEAN_VOCAL_TONE
+      });
+      const genres = genresFor(opts);
+      const moods = moodsFor(opts);
+      const slots = preallocateSongSlots(opts, genres);
+      const rawText = loadFixture(`clean/${fixtureName}`);
+      const report = importSongsJson(rawText, opts, genres, moods, testSeason, slots);
+      expect(report.blueprint, `clean/${fixtureName}: must import`).not.toBeNull();
+      expect(report.warnings, `clean/${fixtureName}: zero pack-level warnings`).toEqual([]);
       for (const song of report.blueprint!.songs) {
-        expect(nonBenignWarnings(song.warnings), `${workspaceId}/withPreamble: track ${song.trackNo} zero non-benign per-song warnings`).toEqual([]);
+        expect(nonBenignWarnings(song.warnings), `clean/${fixtureName}: track ${song.trackNo} zero non-benign warnings`).toEqual([]);
       }
     });
   }
@@ -195,7 +291,7 @@ describe('[provider-response fixtures] withPreamble.json — correct JSON wrappe
 describe('[provider-response fixtures] missingTracks.json — 4 of 5 requested tracks present', () => {
   for (const workspaceId of WORKSPACE_IDS) {
     it(`workspace: ${workspaceId} — detected by: importSongsJson's countMismatchWarning`, () => {
-      const { opts, report } = runFixture(workspaceId, 'missingTracks.json');
+      const { opts, report } = runFixture(workspaceId, 'warning/missingTracks.json');
       expect(report.blueprint, `${workspaceId}/missingTracks: a partial pack still imports (not a hard failure)`).not.toBeNull();
       expect(report.importedCount, `${workspaceId}/missingTracks: only the 4 delivered tracks import`).toBe(4);
       expect(report.importedCount, `${workspaceId}/missingTracks: real shortfall vs requested`).toBeLessThan(opts.songCount);
@@ -223,7 +319,7 @@ describe('[provider-response fixtures] duplicateTrackNo.json — two entries cla
       // per-track fallback still exists and still matters for the narrower
       // case it was always about (see importValidation.ts's own doc
       // comment) — this fixture's blatant duplicate just no longer reaches it.
-      const { opts, report } = runFixture(workspaceId, 'duplicateTrackNo.json');
+      const { opts, report } = runFixture(workspaceId, 'blocking/duplicateTrackNo.json');
       expect(report.blueprint, `${workspaceId}/duplicateTrackNo: entire response rejected — no blueprint`).toBeNull();
       expect(report.importedCount, `${workspaceId}/duplicateTrackNo: nothing imported`).toBe(0);
       expect(report.skippedCount, `${workspaceId}/duplicateTrackNo: every raw entry counted as skipped`).toBe(5);
@@ -250,7 +346,7 @@ describe('[provider-response fixtures] invalidTrackNo.json — a trackNo outside
       // the ENTIRE response the same way a duplicate does — see this file's
       // duplicateTrackNo.json describe block above and
       // core/importValidation.ts's own doc comment.
-      const { opts, report } = runFixture(workspaceId, 'invalidTrackNo.json');
+      const { opts, report } = runFixture(workspaceId, 'blocking/invalidTrackNo.json');
       expect(report.blueprint, `${workspaceId}/invalidTrackNo: entire response rejected — no blueprint`).toBeNull();
       expect(report.importedCount, `${workspaceId}/invalidTrackNo: nothing imported`).toBe(0);
       expect(report.skippedCount, `${workspaceId}/invalidTrackNo: every raw entry counted as skipped`).toBe(5);
@@ -266,7 +362,7 @@ describe('[provider-response fixtures] invalidTrackNo.json — a trackNo outside
 describe('[provider-response fixtures] missingStylePrompt.json — a track missing its stylePrompt field', () => {
   for (const workspaceId of WORKSPACE_IDS) {
     it(`workspace: ${workspaceId} — detected by: importSongsJson's REQUIRED_SONG_FIELDS check`, () => {
-      const { opts, report } = runFixture(workspaceId, 'missingStylePrompt.json');
+      const { opts, report } = runFixture(workspaceId, 'blocking/missingStylePrompt.json');
       expect(report.skippedCount, `${workspaceId}/missingStylePrompt: exactly the one bad track is skipped`).toBe(1);
       expect(
         report.skippedReasons.some(reason => reason.includes('stylePrompt')),
@@ -285,7 +381,7 @@ describe('[provider-response fixtures] missingStylePrompt.json — a track missi
 describe('[provider-response fixtures] missingLyrics.json — a track missing its lyrics field', () => {
   for (const workspaceId of WORKSPACE_IDS) {
     it(`workspace: ${workspaceId} — detected by: importSongsJson's REQUIRED_SONG_FIELDS check`, () => {
-      const { report } = runFixture(workspaceId, 'missingLyrics.json');
+      const { report } = runFixture(workspaceId, 'blocking/missingLyrics.json');
       expect(report.skippedCount, `${workspaceId}/missingLyrics: exactly the one bad track is skipped`).toBe(1);
       expect(
         report.skippedReasons.some(reason => reason.includes('lyrics')),
@@ -302,7 +398,7 @@ describe('[provider-response fixtures] wrongLanguage.json — lyrics body in the
       // Fixture content is plain English; forcing lyricLanguage to 'korean'
       // here makes every track a genuine, controlled mismatch regardless of
       // which of the 7 workspaces is under test.
-      const { report } = runFixture(workspaceId, 'wrongLanguage.json', { lyricLanguage: 'korean' });
+      const { report } = runFixture(workspaceId, 'warning/wrongLanguage.json', { lyricLanguage: 'korean' });
       expect(report.blueprint, `${workspaceId}/wrongLanguage: must still import (a warning, not a hard rejection)`).not.toBeNull();
       for (const song of report.blueprint!.songs) {
         expect(
@@ -344,7 +440,7 @@ describe("[provider-response fixtures] wrongVocalMetaTag.json — a vocal meta-t
           forcedVocalType === 'male'
             ? { male: FIXTURE_SONG_COUNT, female: 0, mixed: 0 }
             : { male: 0, female: FIXTURE_SONG_COUNT, mixed: 0 };
-        const { report } = runFixture(workspaceId, 'wrongVocalMetaTag.json', { vocalQuota });
+        const { report } = runFixture(workspaceId, 'warning/wrongVocalMetaTag.json', { vocalQuota });
         expect(report.blueprint, `${workspaceId}/wrongVocalMetaTag: must still import`).not.toBeNull();
         for (const song of report.blueprint!.songs) {
           expect(song.vocalType, `${workspaceId}/wrongVocalMetaTag: track ${song.trackNo} slot-forced vocalType is ${forcedVocalType}`).toBe(forcedVocalType);
@@ -382,7 +478,7 @@ describe("[provider-response fixtures] wrongVocalMetaTag.json — a vocal meta-t
     const kids = isKidsArchetype(channelFor(workspaceId).archetype);
     const expectedTopTag = kids ? '[mixed vocal]' : '[duet vocal]';
     it(`workspace: ${workspaceId} (${kids ? 'kids' : 'non-kids'}), forced vocalType: mixed — top-level tag corrected to ${expectedTopTag}${kids ? '' : ', per-section duet retagging also applied'}`, () => {
-      const { report } = runFixture(workspaceId, 'wrongVocalMetaTag.json', { vocalQuota: { male: 0, female: 0, mixed: FIXTURE_SONG_COUNT } });
+      const { report } = runFixture(workspaceId, 'warning/wrongVocalMetaTag.json', { vocalQuota: { male: 0, female: 0, mixed: FIXTURE_SONG_COUNT } });
       expect(report.blueprint, `${workspaceId}/wrongVocalMetaTag(mixed): must still import`).not.toBeNull();
       for (const song of report.blueprint!.songs) {
         expect(song.vocalType, `${workspaceId}/wrongVocalMetaTag(mixed): track ${song.trackNo} slot-forced vocalType is mixed`).toBe('mixed');
@@ -415,7 +511,7 @@ describe("[provider-response fixtures] wrongVocalMetaTag.json — a vocal meta-t
 describe('[provider-response fixtures] artistNameLeak.json — a real/recognizable artist name embedded in a field', () => {
   for (const workspaceId of WORKSPACE_IDS) {
     it(`workspace: ${workspaceId} — detected by: quality.ts's famousArtistNames scan + artistReferenceDecomposer.ts's findArtistReferenceLeaks`, () => {
-      const { report } = runFixture(workspaceId, 'artistNameLeak.json');
+      const { report } = runFixture(workspaceId, 'warning/artistNameLeak.json');
       expect(report.blueprint, `${workspaceId}/artistNameLeak: must still import (a warning, not a hard rejection)`).not.toBeNull();
       const track1 = report.blueprint!.songs.find(s => s.trackNo === 1)!;
       expect(
@@ -433,7 +529,7 @@ describe('[provider-response fixtures] artistNameLeak.json — a real/recognizab
 describe('[provider-response fixtures] overLength.json — a stylePrompt/lyrics field way past normal budget limits', () => {
   for (const workspaceId of WORKSPACE_IDS) {
     it(`workspace: ${workspaceId} — detected AND auto-corrected by: quality.ts's enforcePromptLengthBudget (SUNO_COPY_LIMIT trim) + over-length lyrics warning`, () => {
-      const { report } = runFixture(workspaceId, 'overLength.json');
+      const { report } = runFixture(workspaceId, 'warning/overLength.json');
       expect(report.blueprint, `${workspaceId}/overLength: must still import`).not.toBeNull();
       const track1 = report.blueprint!.songs.find(s => s.trackNo === 1)!;
       expect(
@@ -454,7 +550,7 @@ describe('[provider-response fixtures] overLength.json — a stylePrompt/lyrics 
 describe('[provider-response fixtures] truncatedJson.json — genuinely malformed/incomplete JSON (cut off mid-structure)', () => {
   for (const workspaceId of WORKSPACE_IDS) {
     it(`workspace: ${workspaceId} — rejected at the PARSE stage, never reaches reconciliation`, () => {
-      const { report } = runFixture(workspaceId, 'truncatedJson.json');
+      const { report } = runFixture(workspaceId, 'blocking/truncatedJson.json');
       expect(report.blueprint, `${workspaceId}/truncatedJson: unparseable input must not produce a blueprint`).toBeNull();
       expect(report.importedCount, `${workspaceId}/truncatedJson: nothing imported`).toBe(0);
       expect(
