@@ -570,7 +570,18 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   // 걸면 오탐만 늘어난다 — 지시문 15 (TASK D-3)부터는 워크스페이스 정책
   // (contentChecksPolicy.relationshipContinuityLanguage, undefined면 이
   // 축 자체가 없는 워크스페이스)으로 좁힌다.
-  if (contentChecksPolicy?.relationshipContinuityLanguage) {
+  //
+  // 지시문 34 (TASK A) — 실측 확인된 버그: relationshipContinuityLanguage는
+  // "이 워크스페이스가 이 언어로 검사받을 수 있는가"를 나타내는 고정값인데,
+  // 이 값이 곧바로 checkRelationshipContinuity의 실제 인자로 쓰이고 있었다.
+  // kr-2030은 이 값이 'korean'으로 고정돼 있어, 사용자가 이 세트만 영어로
+  // 고르면(§0의 요구) 영어 가사를 한국어 마커 사전으로 검사하게 된다 —
+  // 한국어 단어가 영어 가사에 나타날 리 없어 실제로는 조용히 아무것도
+  // 잡지 못한 채(오탐은 아님) 이 축 자체가 무력화된다. language(=이 곡의
+  // 실제 lyricLanguage)가 정책값과 일치할 때만 돈다 — "언어를 바꿨는데
+  // 옛 언어 검사가 계속 도는" 클래스의 정반대 증상(옛 언어 검사가 안
+  // 꺼지는 게 아니라 새 언어에도 안 켜지는 것)이지만 같은 근본 원인이다.
+  if (contentChecksPolicy?.relationshipContinuityLanguage && contentChecksPolicy.relationshipContinuityLanguage === language) {
     for (const issue of checkRelationshipContinuity(song.lyrics, contentChecksPolicy.relationshipContinuityLanguage)) {
       pushUnique(warnings, `Relationship continuity: ${issue.labelKo}`);
       score -= 12;
@@ -582,7 +593,9 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   // contentChecksPolicy.kidsOutcomeLanguage가 undefined라 자동으로 제외된다
   // — 이 체크는 실제 아동 청자를 향한 서사 안전성이 목적이라 senior
   // 콘텐츠에 걸면 대상이 아닌 곳에 오탐만 늘어난다.
-  if (contentChecksPolicy?.kidsOutcomeLanguage) {
+  //
+  // 지시문 34 (TASK A) — 위 relationshipContinuity와 같은 버그, 같은 수정.
+  if (contentChecksPolicy?.kidsOutcomeLanguage && contentChecksPolicy.kidsOutcomeLanguage === language) {
     for (const issue of checkKidsOutcome(song.lyrics, contentChecksPolicy.kidsOutcomeLanguage)) {
       pushUnique(warnings, `Kids narrative outcome: ${issue.labelKo}`);
       score -= 15;
