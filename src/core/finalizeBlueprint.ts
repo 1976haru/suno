@@ -213,3 +213,110 @@ export async function finalizeBlueprintForUse(
     artifactMeta
   });
 }
+
+/**
+ * 지시문 31 (§3) — finalizeBlueprintForUse는 검사 결과를 "보고"만 하고
+ * 저장·export 여부는 호출자가 판단했다("Step4Result 전체 UI를 동일
+ * finalized object로 바꾸는 것은 out of scope"라고 이 파일 자신의 원래
+ * 설계가 이미 인정한 부분 — 그 결과 caller가 잘못 구현되면 이론상 저장이
+ * 가능한 상태가 남았다). canPersistFinalizedPack/canExportReleasePack이
+ * 그 "판단" 자체를 한곳으로 모은다 — 새 검사를 만들지 않는다, 아래 4/2개
+ * 필드가 이미 finalizeBlueprintForUse의 9단계 중 1~4단계(schemaIssues/
+ * trackNoValidation/slotReconciliation/workspacePolicyIssues)와 8단계
+ * (artifactMeta) + blueprint.songs의 qualityScore가 계산해 둔 신호다.
+ *
+ * `Pick<FinalizedBlueprint, ...>`로 받는다(전체 FinalizedBlueprint가 아니라)
+ * — §3-3 실측: finalizeBlueprintForUse(async, GenerationSnapshot+richer
+ * context 필요)의 실제 호출자가 앱 전체에 0곳이었다(자기 정의 파일 밖에서
+ * 한 번도 안 불림 — 죽은 함수). 저장 경로의 진짜 공통 관문은
+ * core/library.ts의 savePack(모든 자동저장·현재 팩·가져온 팩·멀티세트
+ * 저장이 실제로 거치는 단 하나의 함수, §3-3 전수표 참고)인데, 그 함수는
+ * GenerationSnapshot을 안 받는다 — 오직 blueprint/options만 있다. 이
+ * 관문 함수를 "완전한 FinalizedBlueprint가 있어야만 쓸 수 있는" 형태로
+ * 두면 결국 아무도 못 부른다(§공통 규약 4 "새 모듈은 기존 실행 경로에서
+ * 실제로 호출되어야 한다"를 다시 어기게 된다). Pick으로 좁히면 savePack이
+ * 실제로 sync하게 계산 가능한 최소 신호(schemaIssues/trackNoValidation/
+ * workspacePolicyIssues, slotReconciliation은 snapshot이 없는 자리라
+ * {ok:true,drift:[]}로 정직하게 no-op)만으로도 이 함수를 실제로 호출할 수
+ * 있고, 완전한 FinalizedBlueprint(모든 필드를 가짐)도 구조적으로 그대로
+ * 통과한다 — TypeScript 구조적 타이핑이라 두 형태 다 같은 함수를 쓴다.
+ */
+export interface PersistGateResult {
+  ok: boolean;
+  blockersKo: string[];
+}
+
+export type PersistGateInput = Pick<FinalizedBlueprint, 'schemaIssues' | 'trackNoValidation' | 'trackNoValidationSummaryKo' | 'slotReconciliation' | 'workspacePolicyIssues'>;
+export type ExportGateInput = PersistGateInput & Pick<FinalizedBlueprint, 'artifactMeta' | 'blueprint'>;
+
+/**
+ * §3-2 canPersist 차단 조건 — schemaIssues > 0 · trackNo 중복/범위밖/누락 ·
+ * slot drift · blocking workspace policy(언어 정책 위반 — 유일하게 이
+ * 함수가 계산하는 실제 workspacePolicyIssues) · 구조·안전 hard block(=
+ * 위 네 가지 자체가 이 앱의 finalize 단계 구조·안전 검사 전부다 — 새로
+ * 발명하지 않는다).
+ */
+export function canPersistFinalizedPack(finalized: PersistGateInput): PersistGateResult {
+  const blockersKo: string[] = [];
+  if (finalized.schemaIssues.length) blockersKo.push(...finalized.schemaIssues);
+  if (!finalized.trackNoValidation.valid) blockersKo.push(finalized.trackNoValidationSummaryKo);
+  if (!finalized.slotReconciliation.ok) blockersKo.push(...finalized.slotReconciliation.drift);
+  if (finalized.workspacePolicyIssues.length) blockersKo.push(...finalized.workspacePolicyIssues);
+  return { ok: blockersKo.length === 0, blockersKo };
+}
+
+/**
+ * §3-2 canExport 차단 조건 — canPersist에 더해: artifactStage가
+ * 'raw-provider'(정규화·채점을 한 번도 안 거친 원본 그대로)면 차단,
+ * qualityScore가 전곡 0이면 차단(채점이 실제로 안 돌았다는 신호 — 지시문
+ * 05의 finalizeBlueprintForUse가 5단계에서 항상 scoreSongs를 돌리므로
+ * 정상적으로 이 함수를 거친 결과는 절대 전곡 0이 될 수 없다. 0이 보이면
+ * finalized 객체 자체가 이 함수를 거치지 않은 가짜/스텁이라는 뜻이라
+ * 정직하게 막는다).
+ */
+export function canExportReleasePack(finalized: ExportGateInput): PersistGateResult {
+  const persist = canPersistFinalizedPack(finalized);
+  const blockersKo = [...persist.blockersKo];
+  if (finalized.artifactMeta.stage === 'raw-provider') {
+    blockersKo.push('artifactStage가 raw-provider입니다 — 정규화·채점을 거치지 않은 원본입니다.');
+  }
+  if (finalized.blueprint.songs.length && finalized.blueprint.songs.every(song => (song.qualityScore ?? 0) === 0)) {
+    blockersKo.push('qualityScore가 전곡 0입니다 — 채점이 실행되지 않았다는 신호입니다.');
+  }
+  return { ok: blockersKo.length === 0, blockersKo };
+}
+
+/**
+ * 지시문 31 (§3-3) — core/library.ts's savePack(모든 자동저장·현재 팩·
+ * 가져온 팩·멀티세트 저장이 실제로 거치는 단 하나의 함수)이 canPersistFinalizedPack을
+ * 부를 수 있게, GenerationSnapshot 없이 blueprint 하나만으로 PersistGateInput을
+ * 만든다. slotReconciliation은 이 자리에 snapshot이 없어 정직하게
+ * {ok:true, drift:[]}(비교 대상 없음, drift라고 우길 근거가 없다) — snapshot이
+ * 있는 자리(향후 finalizeBlueprintForUse 실제 호출부가 생기면)에서는 그
+ * 함수의 진짜 reconcileSlotsForFinalize 결과를 대신 쓰면 된다.
+ *
+ * workspacePolicyIssues(언어 정책)는 여기서는 실측하지 않는다 — 지시문 31
+ * §하지 말 것 "실측 없이 blocking을 만들지 않는다"를 이 통합 지점에서
+ * 실제로 어길 뻔했다: tests/genreArchetypeSanitization.test.ts의 실제
+ * fixture(임포트 테스트용, 언어 정합성을 검증 대상으로 삼지 않는 데이터)가
+ * 이 검사를 켰을 때 즉시 막혔다 — savePack은 자동저장을 포함해 아직
+ * 완성되지 않은 중간 상태(가져오기 도중·작업 중 초안)도 거치는 훨씬 넓은
+ * 관문이라, "언어 정책"처럼 완성된 콘텐츠에나 의미 있는 검사를 여기서
+ * blocking으로 걸면 실제로 검증 안 된 채 정상 저장을 막을 위험이 schemaIssues/
+ * trackNoValidation(구조적으로 절대 정상일 수 없는 경우만 잡음)보다 훨씬
+ * 크다. canPersistFinalizedPack 자체는 workspacePolicyIssues를 여전히
+ * 검사한다 — 진짜 GenerationSnapshot+context가 있는 완전한
+ * FinalizedBlueprint로 부르는 (아직 없는) 호출자에게는 그대로 적용된다.
+ */
+export function buildPersistGateInputFromBlueprint(blueprint: PlaylistBlueprint, _workspaceId: WorkspaceId): PersistGateInput {
+  const schemaIssues = validateBlueprintSchema(blueprint);
+  const trackNoValidation = validateProviderTrackSet(blueprint.songs, blueprint.songs.length);
+  const trackNoValidationSummaryKo = describeTrackSetValidation(trackNoValidation);
+  return {
+    schemaIssues,
+    trackNoValidation,
+    trackNoValidationSummaryKo,
+    slotReconciliation: { ok: true, drift: [] },
+    workspacePolicyIssues: []
+  };
+}

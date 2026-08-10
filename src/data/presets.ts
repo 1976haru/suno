@@ -252,6 +252,47 @@ export const channelPresets: ChannelProfile[] = [
     archetype: 'modern-chill'
   },
   {
+    // 지시문 31 (§4-2) — check:coverage가 preferredGenres CONTRACT VIOLATION로
+    // 잡은 것: 'lofi-study' 아키타입(types.ts's ChannelArchetype, senior-oldpop
+    // 워크스페이스 소속) 자체는 여러 곳에 이미 배선돼 있다
+    // (core/localGenerator.ts의 openingStyle 추천 'hum-intro',
+    // data/hookBanks/index.ts, data/moneyChords.ts, data/vocalPresets.ts,
+    // data/archetypeAudienceProfiles.ts) — 그런데 이 아키타입을 실제로 쓰는
+    // 프리셋 채널이 하나도 없어 preferredGenres 풀 자체가 0이었다. 지시문
+    // 20이 lofi-focus-main(archetype: 'modern-chill')을 만든 것과 같은
+    // 방식 — genreLibrary/index.ts의 lofiVariants(categoryId: 'lofi')는
+        // 그 파일 자신의 아키타입 추론 규칙(라인 705-706: categoryId==='lofi'
+    // 이면 rap/trap 텍스트가 없는 한 자동으로 'lofi-study'를 포함)에 따라
+    // 이미 archetypes에 'lofi-study'가 잡혀 있다 — 실측 확인. lofi-focus-main
+    // 이 쓰지 않은 14종을 골라 서로 겹치지 않게 했다.
+    id: 'lofi-study-main',
+    name: 'Lofi Study Session',
+    englishName: 'Lofi Study Session',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Instrumental-leaning lo-fi study and focus playlists — jazz piano loops, rainy cafe textures, and minimal ambient beats',
+    visualIdentity: 'quiet study desk, soft window light, open notebook, warm lamp glow, muted pastel typography, no artist likeness',
+    defaultVocal: 'mostly instrumental, occasional distant soft hum, no forward lead vocal',
+    preferredGenres: [
+      'lofi-jazz-piano-lofi', 'lofi-coffee-shop-lofi', 'lofi-rainy-day-lofi',
+      'lofi-minimal-focus-lofi', 'lofi-late-study-lofi', 'lofi-ambient-lofi',
+      'lofi-twilight-lofi', 'lofi-hazy-guitar-lofi', 'lofi-vinyl-soft-lofi',
+      'lofi-instrumental-jazz-lofi', 'lofi-jazz-lounge-lofi', 'lofi-minimal-beats-lofi',
+      'lofi-rainy-cafe-lofi', 'lofi-jazz-bass-lofi'
+    ],
+    preferredMoods: ['calm-focus', 'rainy-comfort', 'warm'],
+    forbiddenCliches: [
+      'bright EDM supersaw',
+      'festival drop',
+      'aggressive battle-rap delivery',
+      'hard autotune lead',
+      'famous artist imitation'
+    ],
+    seoKeywords: ['lofi study music', 'focus beats', 'lofi jazz piano', 'rainy cafe lofi', 'ambient study playlist', 'minimal lofi'],
+    archetype: 'lofi-study'
+  },
+  {
     id: 'city-night-drive',
     name: 'City Night Drive',
     englishName: 'City Night Drive',

@@ -8,7 +8,7 @@ import { averageTempo, buildArcPlanForProfile, clampTempoToKidsAgeTier, emotionA
 import { buildTempoBandPlan } from './tempoPlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import { audienceProfileForChannelArchetype, tempoBandsForProfile } from '../data/audienceProfiles';
-import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
+import { buildArrangementDensityPlan, arrangementNarrativeForGenres, buildExcludePrompt, rotatingEarwormText, rotatingGenreText, rotatingInstrumentSet } from './promptComposer';
 import { compactMoneyChord, resolveEffectiveMoneyChordId } from './soundSignature';
 import { applyMoneyChordLean, buildCustomProgressionPlan, buildFamilyProgressionPlan, buildGenreAwareProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import { dominantPaletteFamilyId } from '../data/paletteFamilies';
@@ -24,29 +24,28 @@ import {
   DEFAULT_ADULT_VOCAL_QUOTA,
   DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
-  enforceVocalTextInStylePrompt,
   kidsVocalTextFor,
   leaningAdultVocalQuota,
   leaningGenderFor,
   resolveFlagshipVocalOrder,
   resolveVocalMetaTag,
-  stripConflictingGenreVocalGender,
   usesVocalQuota,
   type VocalGender,
   type VocalType
 } from './vocalPlan';
 import { matchVocalPreset } from '../data/vocalPresets';
-import { mergeAtom } from './promptAxisMerge';
 import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import type { OpeningPackContext } from './openingContest';
-import { mergeNegativeStyleText, stripNegativeStyleFromStylePrompt } from '../data/negativeStyles';
+import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
 import { buildIntroModePlan, reconcileIntroModeWithStructureTemplate } from './introModePlan';
-import { enforceSingleBpmText } from './bpmDedupe';
 import { introTexturesForArchetype } from '../data/introTextures';
+import { applyNormalizationSafetyNet, normalizeFinalStylePrompt } from './finalPromptNormalizer';
+import { reorderForEnergyContinuity } from './energyReconciliation';
+import { promptAxisPolicyFor } from '../data/promptAxisPolicy';
 import { applyGenreVocalAffinity } from './vocalGenreAffinity';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -946,9 +945,16 @@ export function preallocateSongSlots(
   // repeat of the flagship combo. A no-op array (same slots back) whenever
   // flagshipCombo is undefined or no second track carries its genre.
   const flagshipVaried = applyFlagshipVariationToSlots(slots, flagshipCombo);
+  // 지시문 31 (§1-3 ②) — 지시문 23의 관찰 항목("세트 에너지 급변 지점")이
+  // 찾아낸 것을 배정 단계에서 실제로 줄인다. core/energyReconciliation.ts's
+  // own doc comment에 전체 설계·미구현으로 남긴 ①(불일치 자체를 장르
+  // 재선택으로 고치는 것)의 이유가 있다. 사용자가 직접
+  // opts.slotOrderOverride를 지정했으면(수동 재배열) 그것을 우선한다 — 자동
+  // 에너지 재배열이 사용자 선택을 덮지 않는다.
+  const autoEnergyOrder = opts.slotOrderOverride ? undefined : reorderForEnergyContinuity(flagshipVaried);
   // 지시문 27 (TASK C-2) — 마지막 단계로 한 번만: 위 파이프라인이 평소대로
   // 다 만든 뒤, 곡 내용은 그대로 두고 trackNo 순서만 재배열한다.
-  return applySlotOrderOverride(flagshipVaried, opts.slotOrderOverride);
+  return applySlotOrderOverride(flagshipVaried, opts.slotOrderOverride ?? autoEnergyOrder);
 }
 
 /** Splits a full slot list into the same trackNo ranges buildBatchRequestSpecs chunks the songs into, so each sub-batch's request only carries its own slots. */
@@ -1076,167 +1082,27 @@ export interface ReconcilePreassignedOptions {
 }
 
 /**
- * TASK v3.43 Step 2 (Part A3) — instrumentSet is an array (unlike
- * moneyChordText/hookDeviceText's single ready-to-weave string), so this
- * checks/appends each instrument name individually: an agent that wove 2 of
- * 3 assigned instruments into the stylePrompt only needs the missing one
- * injected, not the whole set duplicated.
- */
-function enforceInstrumentSetInStylePrompt(stylePrompt: string, instrumentSet: string[] | undefined): string {
-  if (!instrumentSet?.length) return stylePrompt;
-  const promptLower = stylePrompt.toLowerCase();
-  const missing = instrumentSet.filter(instrument => !promptLower.includes(instrument.trim().toLowerCase()));
-  if (!missing.length) return stylePrompt;
-  const trimmed = stylePrompt.trim().replace(/,\s*$/, '');
-  return trimmed ? `${trimmed}, ${missing.join(', ')}` : missing.join(', ');
-}
-
-/**
- * TASK v3.43 Step 2 (Part A3) — arrangementDensity is a bare level tag, not
- * text to weave; looks up its canonical descriptive phrase (the same one
- * the batch/bridge legend hands the agent) before merging.
- * 지시문 16 (TASK B-3) — now goes through mergeAtom (axis-aware) instead of
- * appendVerbatimIfMissing (string-match only): arrangementDensity is a
- * single-declaration axis (지시문 16 §B-2), so a provider that already wrote
- * its own density phrase ("medium arrangement", "full arrangement, not a
- * short cut" — both real fixture text) gets it replaced in place by the
- * app's own locked value instead of both surviving side by side.
- */
-function enforceArrangementDensityInStylePrompt(stylePrompt: string, density: PreassignedSongSlot['arrangementDensity']): string {
-  if (!density) return stylePrompt;
-  return mergeAtom(stylePrompt, { axis: 'arrangementDensity', text: ARRANGEMENT_DENSITY_TEXT_BY_LEVEL[density], locked: true });
-}
-
-/**
- * TASK v3.43 Part A2 — tempo/BPM never had any post-hoc enforcement: the
- * model was only ever handed the slot's tempo as one of several "fallback
- * suggestion" fields (same tier as title/hookPhrase, both of which DO get
- * reconciled below), so a Batch/bridge stylePrompt could carry a BPM figure
- * that silently didn't match the tempo actually planned for that trackNo (or
- * carry none at all). Mirrors enforceVocalTextInStylePrompt's shape: replace
- * a wrong BPM figure in place if one is present, otherwise append the
- * correct one.
- */
-function enforceTempoInStylePrompt(stylePrompt: string, tempo: number): string {
-  return enforceSingleBpmText(stylePrompt, tempo);
-}
-
-function diversifyVocalLedOpening(stylePrompt: string, slot: PreassignedSongSlot): string {
-  const trimmed = stylePrompt.trim();
-  const lower = trimmed.toLowerCase();
-  const vocalStarts = [slot.vocalText, slot.vocalVariantText].filter(Boolean).map(value => value!.trim().toLowerCase());
-  if (!vocalStarts.some(start => start && lower.startsWith(start))) return stylePrompt;
-
-  const instrument = slot.instrumentSet?.[0] || 'the small ensemble';
-  const openings = [
-      slot.genreText,
-      slot.signatureSound,
-    `${instrument} leads the opening`,
-    slot.conceptText,
-    slot.introTextureText,
-    'a restrained cafe groove opens before the vocal',
-    'brushed rhythm establishes the room before the vocal',
-    `${instrument} and close room tone frame the first phrase`,
-    'the bass pocket arrives before the lead voice',
-    'a soft answering phrase opens the arrangement',
-    'the harmony color arrives before the vocal enters',
-    'a quiet instrumental breath starts the track',
-    'the intimate room sound leads into the first line'
-  ];
-  const opening = openings[(Math.max(1, slot.trackNo) - 1) % openings.length];
-  if (!opening || lower.startsWith(opening.toLowerCase())) return stylePrompt;
-  return `${opening}, ${trimmed}`;
-}
-
-function removeRepeatedInstrumentMentions(stylePrompt: string, instrumentSet: string[] | undefined): string {
-  if (!instrumentSet?.length) return stylePrompt;
-  const seen = new Set<string>();
-  return stylePrompt.split(',').map(clause => {
-    let next = clause.trim();
-    for (const instrument of instrumentSet) {
-      const value = instrument.trim();
-      const key = value.toLowerCase();
-      const expression = new RegExp(`\\b${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'ig');
-      if (!expression.test(next)) continue;
-      if (seen.has(key)) next = next.replace(expression, '').replace(/\\s{2,}/g, ' ').trim();
-      else seen.add(key);
-    }
-    return next;
-  }).filter(Boolean).join(', ');
-}
-
-/**
  * 지시문 10 (TASK D) — the real, single choke point every provider-written
- * stylePrompt (bridge, Batch API, realtime) already passed through as an
- * inline sequence inside reconcileWithPreassignedSlot below — extracted
- * here, unchanged, and given a real name so it can be pointed to as the
- * locked-field enforcement step, rather than living as an anonymous block
- * of local variables. A pure refactor at the time: every one of these
- * sub-steps (enforceVocalTextInStylePrompt, appendVerbatimIfMissing ×6,
- * enforceInstrumentSetInStylePrompt, enforceArrangementDensityInStylePrompt,
- * stripNegativeStyleFromStylePrompt, enforceTempoInStylePrompt,
- * diversifyVocalLedOpening, removeRepeatedInstrumentMentions) already
- * existed and already ran in this exact order; nothing here changed what
- * any of them did.
+ * stylePrompt (bridge, Batch API, realtime) already passed through.
  *
- * 지시문 16 (TASK B-3) — the 7 appendVerbatimIfMissing calls (string-match
- * only, blind to which conceptual axis a clause belongs to) are gone now,
- * replaced by mergeAtom (core/promptAxisMerge.ts, axis-aware via
- * data/promptAxisLexicon.ts's classifyClause) — see this function's own
- * body below for the real fix (§1-2's 7-song intro contradiction, §1-3's
- * 5-song duplicate lead-vocal declaration).
- *
- * A full generative compiler (a PromptSpec type producing the final text
- * directly, discarding provider prose entirely) stays out of scope: the
- * bridge/Batch paths are structurally built around trusting a capable
- * external model to write good prose, and this function's whole job is
- * OVERLAYING the locked fields onto that prose (replace-in-place when a
- * wrong value is present, append when missing) — not replacing it. That is
- * exactly what "locked fields the LLM cannot change" means in a free-prose
- * architecture: enforced after the fact, deterministically, in one place,
- * every time — not "never written by the model at all". (정합성 점검 §3 — the
- * PromptSpec/compilePromptSpec prototype that once lived in
- * core/promptSpec.ts alongside this reasoning was removed as dead code;
- * it was never wired into this or any live path, only tests exercised it.)
+ * 지시문 31 (§2) — the actual overlay logic (enforceInstrumentSetInStylePrompt/
+ * enforceArrangementDensityInStylePrompt/enforceTempoInStylePrompt/
+ * diversifyVocalLedOpening/removeRepeatedInstrumentMentions + the mergeAtom
+ * chain) moved verbatim to core/finalPromptNormalizer.ts's
+ * normalizeFinalStylePrompt — that module is now the ONE place every raw
+ * stylePrompt (this function's bridge/Batch path, promptComposer.ts's local
+ * assembly, and the same function again) gets normalized, with two new
+ * safety-net passes (collapseSingleDeclarationDuplicates/
+ * collapseAdjacentDuplicateWords) added on top that this function's own
+ * pre-지시문-31 behavior didn't have. This function is now a thin wrapper —
+ * kept under its old name/signature (plus an added optional workspaceId,
+ * this file's own only call site immediately below always passes one) so
+ * its one real caller (reconcileWithPreassignedSlot) doesn't change shape
+ * (§하지 말 것 "normalizeProviderStylePrompt를 남겨둔 채 새 함수를 추가하지
+ * 말 것" — the old name survives, the new logic lives in one place).
  */
-export function normalizeProviderStylePrompt(rawStylePrompt: string, slot: PreassignedSongSlot): string {
-  const vocalFix = enforceVocalTextInStylePrompt(rawStylePrompt, slot.vocalVariantText || slot.vocalText, slot.vocalGender);
-  const conflictFreeGenreText = stripConflictingGenreVocalGender(slot.genreText, slot.vocalGender);
-  const slotForStylePrompt: PreassignedSongSlot = conflictFreeGenreText === slot.genreText ? slot : { ...slot, genreText: conflictFreeGenreText };
-  // 지시문 16 (TASK B-3) — appendVerbatimIfMissing(문자열 일치만 봄) 7곳을
-  // mergeAtom(축 인식)으로 교체. leadVocal은 vocalFix가 이미 주입한 값과
-  // 일치하도록 slot.vocalVariantText || slot.vocalText를 그대로 쓴다(기존
-  // 코드는 여기서 항상 slot.vocalText만 확인해, vocalFix가 vocalVariantText를
-  // 주입했을 때 서로 다른 문자열이라 인식되어 leadVocal 축 중복의 실제 원인
-  //중 하나였다 — 실측 §1-3). conceptText/signatureSound/genreTextToAppend는
-  // 모두 genre 축(복수 허용)으로 매핑 — 서로 다른 텍스트라 기존과 동일하게
-  // 전부 남는다(회귀 없음). moneyChordText는 harmony 축(복수 허용). intro는
-  // 단일 선언 축·locked — 이게 §1-2의 7곡 인트로 모순을 실제로 없애는 지점.
-  let stylePrompt = vocalFix.text;
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'leadVocal', text: slot.vocalVariantText || slot.vocalText || '', locked: true });
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'genre', text: slot.conceptText || '', locked: true });
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'harmony', text: slot.moneyChordText || '', locked: true });
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'genre', text: slot.signatureSound || '', locked: true });
-  const existingPromptLower = stylePrompt.toLowerCase();
-  const genreTextToAppend = conflictFreeGenreText
-    && !existingPromptLower.includes(conflictFreeGenreText.trim().toLowerCase())
-    && slot.instrumentSet?.some(instrument =>
-    existingPromptLower.includes(instrument.trim().toLowerCase())
-  )
-    ? conflictFreeGenreText.split(',').map(atom => atom.trim()).filter(atom =>
-      !slot.instrumentSet!.some(instrument => atom.toLowerCase() === instrument.trim().toLowerCase())
-    ).join(', ')
-    : conflictFreeGenreText;
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'genre', text: genreTextToAppend || '', locked: true });
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'hookDevice', text: slot.hookDeviceText || '', locked: true });
-  stylePrompt = mergeAtom(stylePrompt, { axis: 'intro', text: slot.introTextureText || '', locked: true });
-  stylePrompt = enforceInstrumentSetInStylePrompt(stylePrompt, slot.instrumentSet);
-  stylePrompt = enforceArrangementDensityInStylePrompt(stylePrompt, slot.arrangementDensity);
-  stylePrompt = stripNegativeStyleFromStylePrompt(stylePrompt, slot.negativeStyleText);
-  stylePrompt = enforceTempoInStylePrompt(stylePrompt, slot.tempo);
-  stylePrompt = diversifyVocalLedOpening(stylePrompt, slotForStylePrompt);
-  stylePrompt = removeRepeatedInstrumentMentions(stylePrompt, slot.instrumentSet);
-  return stylePrompt;
+export function normalizeProviderStylePrompt(rawStylePrompt: string, slot: PreassignedSongSlot, workspaceId: WorkspaceId = 'senior-oldpop'): string {
+  return normalizeFinalStylePrompt(rawStylePrompt, slot, promptAxisPolicyFor(workspaceId)).prompt;
 }
 
 export function reconcileWithPreassignedSlot(
@@ -1385,8 +1251,27 @@ export function reconcileWithPreassignedSlot(
     // "effective" fields are required and this is a real generation-path
     // return, so they're attached here explicitly rather than inheriting
     // that same silent gap.
+    // 지시문 31 (§2-5 실측) — this fast path used to return song.stylePrompt
+    // completely untouched, meaning normalizeFinalStylePrompt never ran at
+    // all for any "looks complete" prompt — real measurement found this is
+    // exactly what a real bridge-imported pack hits almost every time (see
+    // core/finalPromptNormalizer.ts's applyNormalizationSafetyNet doc
+    // comment for the full trace). The locked-value overlay stays skipped
+    // (this path's whole point — trust an already-complete response, don't
+    // re-inject), but the removal-only safety net (duplicate single-
+    // declaration clauses, adjacent duplicate words, length policy) now
+    // always runs — it only ever deletes excess, never injects a new value,
+    // so it can't contradict "already complete".
+    // 지시문 31 (§2-3 실측 회귀) — core/finalPromptNormalizer.ts의
+    // normalizeFinalStylePrompt 자기 doc comment와 같은 이유: slot에 실제
+    // vocalText/vocalVariantText가 있으면(completeFields가 이미 그 값이
+    // stylePrompt 안에 있다고 확인했으므로) leadVocal 축은 안전망 대상에서
+    // 뺀다 — 의도된 duet 복수 어구를 중복으로 오인해 지우지 않기 위해서다.
+    const fastPathLeadVocalPresent = Boolean((slot.vocalVariantText || slot.vocalText)?.trim());
+    const stylePrompt = applyNormalizationSafetyNet(song.stylePrompt, promptAxisPolicyFor(resolvedWorkspaceId), fastPathLeadVocalPresent ? ['leadVocal'] : []);
     return {
       ...song,
+      stylePrompt,
       title,
       hookPhrase,
       excludePrompt,
@@ -1468,7 +1353,7 @@ export function reconcileWithPreassignedSlot(
   // the user, never re-used downstream) so a real divergence between what
   // the provider wrote and what shipped is always inspectable later.
   const rawProviderStylePrompt = song.stylePrompt;
-  const stylePrompt = normalizeProviderStylePrompt(rawProviderStylePrompt, slot);
+  const stylePrompt = normalizeProviderStylePrompt(rawProviderStylePrompt, slot, resolvedWorkspaceId);
   // excludePrompt (genre-differentiated, TASK C) was already computed above,
   // before the fast-path branch — see that computation's own doc comment.
   const vocalTag = resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText);

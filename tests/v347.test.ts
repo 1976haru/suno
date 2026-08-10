@@ -47,9 +47,15 @@ function baseSong(overrides: Partial<SongIdea> = {}): SongIdea {
 }
 
 describe('[v3.47 Step 1] intro texture data and stride assignment', () => {
-  it('ships 20-28 intro-only texture tags across the required instrument groups', () => {
+  it('ships 20-28 base instrument-prefixed intro-only texture tags across the required instrument groups, plus 지시문 31 §4-3의 kr-idol 전용 6종(kpop_ prefix, verified:false, 별도 카테고리)', () => {
+    // 지시문 31 (§4-3) — kr-idol-male/kr-idol-female introTexture 전용 풀
+    // CONTRACT VIOLATION(0개 → 6종)을 고치며 이 배열에 6개가 늘었다(24→30).
+    // 원래 20-28 상한은 ag_/eg_/ep_/str_/br_/syn_(악기·기법 기반) 풀 자체의
+    // 크기였고, 새로 추가된 kpop_ 접두사 6종은 그 풀과 다른 범주(아키타입
+    // 전용, verified:false)라 상한을 그만큼(+6) 넓힌다 — 악기 기반 풀 자체는
+    // 안 늘었다(아래 접두사별 존재 확인이 여전히 통과).
     expect(introTextures.length).toBeGreaterThanOrEqual(20);
-    expect(introTextures.length).toBeLessThanOrEqual(28);
+    expect(introTextures.length).toBeLessThanOrEqual(30);
     for (const texture of introTextures) {
       expect(texture.tag).toMatch(/intro texture/i);
       expect(texture.tag).toMatch(/intro only/i);

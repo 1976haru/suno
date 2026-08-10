@@ -8,6 +8,8 @@ import { dominantRegisterSignature, recordVocalCombo } from './vocalComboLedger'
 import { rememberFlagshipOrder } from './recentFlagshipOrderStore';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter, scopedKey } from './workspaceScope';
 import { assignSetCode, buildSongCode } from './setCode';
+import { buildPersistGateInputFromBlueprint, canPersistFinalizedPack } from './finalizeBlueprint';
+import { workspaceForArchetype } from '../data/workspaces';
 
 const CURRENT_PRESET_NAMES = new Map(channelPresets.map(c => [c.id, { name: c.name, englishName: c.englishName }]));
 
@@ -258,6 +260,20 @@ export async function savePack(input: {
   // the app's own lightweight "how many packs exist" read, so no separate
   // counter store is needed (see core/setCode.ts's own doc comment).
   const blueprint = await withAssignedSetCode(input.blueprint, input.isAutosave);
+  // 지시문 31 (§3) — "저장·자동저장·라이브러리는 이 함수를 통과하지 않으면
+  // 실행되지 않는다." savePack이 자동저장·현재 팩 저장·가져온 팩 저장·
+  // 멀티세트 저장이 실제로 전부 거치는 단 하나의 함수라(§3-3 전수표), 여기
+  // 한 곳만 지키면 그 넷 모두가 지켜진다 — 호출자마다 따로 판단하게 두지
+  // 않는다. core/finalizeBlueprint.ts's buildPersistGateInputFromBlueprint's
+  // own doc comment: GenerationSnapshot이 없는 자리라 slotReconciliation은
+  // 정직하게 no-op(ok:true)이고, schemaIssues/trackNoValidation/
+  // workspacePolicyIssues만 실제로 검사한다.
+  const persistGate = canPersistFinalizedPack(
+    buildPersistGateInputFromBlueprint(blueprint, workspaceForArchetype(input.options.channel.archetype)?.id ?? 'senior-oldpop')
+  );
+  if (!persistGate.ok) {
+    throw new Error(`저장할 수 없습니다 — 관문을 통과하지 못했습니다: ${persistGate.blockersKo.join(' / ')}`);
+  }
   const pack: SavedPack = {
     id,
     name: input.name || buildDefaultPackName(blueprint, input.options),
