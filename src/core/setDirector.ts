@@ -41,7 +41,8 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { applyEraQuota, detectConceptBreadth, ensureEraNeutralFloor, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { applyEraQuota, detectConceptBreadth, ensureEraNeutralFloor, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, GENRE_ERA_QUOTA_PER_GENRE_CAP, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { deriveEraIntent, eraDeviantGenreIds } from './eraIntent';
 import { workspaceForArchetype } from '../data/workspaces';
 import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
@@ -443,7 +444,31 @@ function chooseGenreIds(
 ) {
   const familyPool = mainFamilyId ? genreIdsForFamilyAndCompatible(mainFamilyId) : undefined;
   const mainOnlyPool = mainFamilyId ? genreIdsForPaletteFamily(mainFamilyId) : undefined;
-  const candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel) && (!familyPool || familyPool.has(genre.id)));
+  let candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel) && (!familyPool || familyPool.has(genre.id)));
+
+  // Fable5 2단계 §3-⑧ 실측 — freeText에 명시적 시대 신호가 있으면(예: "70년대
+  // 감성") 후보 풀에 다른 시대 장르가 여전히 남아 있었다. eraFocus는
+  // scoreGenre의 소프트 점수 가점으로만 쓰여, 시대가 안 맞는 장르도 최고점을
+  // 받으면 선택될 수 있었다(§1-4 "검사는 하는데 배분이 안 된다"의 실사례 —
+  // "70년대 감성 올드팝" 컨셉이 oldpop-adult-contemporary-80s(1980s)를 선택).
+  // eraDeviantGenreIds(지시문 10 TASK A-3)는 이미 존재하지만
+  // generationPreflight.ts의 senior-morning 전용 사전 차단 한 곳에서만
+  // 쓰이고 있었다 — 새 필터를 만들지 않고 그 함수를 여기(실제 후보 풀 구성)
+  // 에도 재사용한다. 제외 후 후보가 최소 요구(GENRE_ERA_QUOTA_PER_GENRE_CAP
+  // 기준, eraGenrePoolInsufficientHardBlock과 동일한 공식)에 못 미치면
+  // 필터를 포기하고 원래 후보 전체를 쓴다 — 없는 장르를 억지로 만들 수
+  // 없으니, 조용히 배제해 후보가 텅 비는 것보다는 "이번엔 시대가 덜
+  // 맞을 수 있다"는 쪽이 낫다.
+  const eraIntent = deriveEraIntent(freeText);
+  let eraEligibleIds: Set<string> | undefined;
+  if (eraIntent) {
+    const { eligible } = eraDeviantGenreIds(eraIntent, candidates.map(genre => genre.id));
+    const minimumForEra = Math.max(1, Math.ceil(songCount / GENRE_ERA_QUOTA_PER_GENRE_CAP));
+    if (eligible.length >= minimumForEra) {
+      eraEligibleIds = new Set(eligible);
+      candidates = candidates.filter(genre => eraEligibleIds!.has(genre.id));
+    }
+  }
   const ranked = candidates
     .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history, mainFamilyId, mood))
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
@@ -456,6 +481,12 @@ function chooseGenreIds(
     const genre = getGenreById(id);
     if (!genre || !genreMatchesChannel(genre, channel)) return;
     if (familyPool && !familyPool.has(id)) return;
+    // Fable5 2단계 §3-⑧ — candidates/ranked는 이미 필터링됐지만, 아래
+    // channel.primaryGenreIds/getCoreGenreIdsForArchetype 폴백 루프는 이
+    // add()를 candidates를 거치지 않고 직접 부른다 — 같은 필터를 여기서도
+    // 지킨다(필터가 적용된 경우에만 — eraEligibleIds가 undefined면 애초에
+    // 후보 부족으로 필터를 포기한 상태이므로 제한하지 않는다).
+    if (eraEligibleIds && !eraEligibleIds.has(id)) return;
     selected.push(id);
   };
 
