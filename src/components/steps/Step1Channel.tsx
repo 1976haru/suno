@@ -10,7 +10,7 @@ import {
   searchHiddenGenresForArchetype
 } from '../../data/genreLibrary';
 import { forecastCapacity } from '../../core/capacityPlanner';
-import { MAX_SELECTED_GENRES } from '../../core/genreSelection';
+import { MAX_SELECTED_GENRES, sanitizeGenreIdsForArchetype } from '../../core/genreSelection';
 import { scopedKey } from '../../core/workspaceScope';
 import { isKidsArchetype, partitionArchetypeChoicesByWorkspace } from '../../utils/channelArchetype';
 import { getWorkspace } from '../../data/workspaces';
@@ -335,9 +335,17 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     // would lose that selection with no warning. Only ask when there's
     // something to actually lose — a fresh/never-customized channel just
     // gets the new defaults the same as before.
+    // Fable5 1단계 TASK E-3 — "취소하면 지금 고른 장르를 그대로 유지합니다"는
+    // 거짓 약속이었다: 유지된 장르가 새 archetype에서 실제로 쓸 수 없는
+    // 것일 수 있었다(사용자는 뒤늦게 나올 sanitize 경고로만 알게 됨). 확인창
+    // 자체에서 새 채널 기준으로 미리 걸러 몇 개가 제외되는지 알린다.
     const hasExistingGenreChoice = isSelectedCustom && editorChannel.preferredGenres.length > 0;
+    const { valid: keepableGenres, removed: droppedGenres } = sanitizeGenreIdsForArchetype(editorChannel.preferredGenres, archetypeId);
+    const keepClauseKo = droppedGenres.length
+      ? `취소하면 기존 선택 중 새 채널에서 사용할 수 있는 장르만 유지합니다. 사용할 수 없는 장르 ${droppedGenres.length}개는 제외됩니다.`
+      : '취소하면 지금 고른 장르를 그대로 유지합니다.';
     const shouldResetGenres = !hasExistingGenreChoice
-      || window.confirm('장르 선택을 새 채널 유형의 기본값으로 바꿀까요? 취소하면 지금 고른 장르를 그대로 유지합니다.');
+      || window.confirm(`장르 선택을 새 채널 유형의 기본값으로 바꿀까요? ${keepClauseKo}`);
     onUpdateField('archetype', archetypeId);
     onUpdateField('market', defaults.market);
     onUpdateField('audience', defaults.audience);
@@ -350,6 +358,7 @@ export default function Step1Channel({ editorChannel, isSelectedCustom, onUpdate
     // non-kids channel has no meaningful tier.
     onUpdateField('kidsAgeTierId', isKidsArchetype(archetypeId) ? DEFAULT_KIDS_AGE_TIER_ID : undefined);
     if (shouldResetGenres) onUpdateField('preferredGenres', genreIds);
+    else if (droppedGenres.length) onUpdateField('preferredGenres', keepableGenres);
     onUpdateField('preferredMoods', defaults.moods);
     // TASK v3.38 Part B1 — previously never set here, so a quick-template
     // switch to 'kids' left whatever primaryLanguage the channel already

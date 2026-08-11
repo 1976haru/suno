@@ -48,8 +48,9 @@ import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
-import { defaultPackagingLanguageForChannel, resolvePackagingLanguage } from './core/packagingLanguage';
-import { detectProvenanceDowngrades, languageOverrideConfirmMessageKo, shouldConfirmLanguageOverride } from './core/userChoices';
+import { resolvePackagingLanguage } from './core/packagingLanguage';
+import { languageOverrideConfirmMessageKo, shouldConfirmLanguageOverride } from './core/userChoices';
+import { reconcileOptionsForChannelSwitch } from './core/channelSwitch';
 import { applyListeningIntentIfPending } from './core/listeningIntent';
 import { LISTENING_INTENT_POLICY } from './data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from './data/perceivedEnergyPolicy';
@@ -218,100 +219,24 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     void setSetting(PROVIDER_SETTINGS_KEY, sanitizeProviderSettingsForPersistence(next));
   }, []);
 
+  /**
+   * Fable5 1단계 TASK E — 채널 전환의 실제 opts 재계산은
+   * core/channelSwitch.ts의 reconcileOptionsForChannelSwitch 하나로
+   * 원자화되어 있다(genreIds/diversityAllocations/selectedGenreFamilyIds/
+   * genreBlendWeights/moodIds/vocalTone/kidsAgeTierId/packagingLanguage/
+   * choiceProvenance를 한 번에 정리). 이 함수는 그 앞뒤로 남는 두 가지
+   * 부수효과만 담당한다: language override의 window.confirm(순수 함수
+   * 안에서 부를 수 없다 — 상태 업데이터 안에서 부르면 React dev-mode
+   * 이중 호출로 confirm이 중복 뜰 위험이 있어 OUTER `opts` 스냅샷 기준으로
+   * 미리 결정한다), 그리고 결과 changesKo를 기존 loadWarning 배너에 표시.
+   */
   function applyChannelToOptions(channel: ChannelProfile) {
-    // TASK (genre-archetype sanitization) — a custom channel's own
-    // preferredGenres can carry ids left over from before a fix, a
-    // cross-workspace import, or a hand-edited profile (see
-    // core/genreSelection.ts's sanitizeGenreIdsForArchetype doc comment for
-    // the full list of real paths); this is the entry point every channel
-    // selection/apply (preset pick, quick-create, editor save) funnels
-    // through, so it's the one place that needs to catch all of them.
-    const archetype = channel.archetype || 'senior-morning';
-    const { valid, removed } = sanitizeGenreIdsForArchetype(channel.preferredGenres, archetype);
-    const nextPackagingLanguage = defaultPackagingLanguageForChannel(channel);
-
-    // TASK (지시문 30 TASK A) — real repro: this function used to reset
-    // lyricLanguage to channel.primaryLanguage unconditionally, even when
-    // choiceProvenance.lyricLanguage was 'user' (하루 had explicitly picked a
-    // different language in Step2Concept). Computed off the OUTER `opts`
-    // snapshot (not inside the setOpts updater below) because
-    // window.confirm is a side effect — calling it from inside a state
-    // updater risks a duplicate dialog under React's dev-mode double-invoke.
-    // This function is only ever reached from a direct user click (channel
-    // select/save/create), so `opts` here is never stale relative to what
-    // the updater's own `prev` will be.
     const languageConfirmNeeded = shouldConfirmLanguageOverride(opts.lyricLanguage, opts.choiceProvenance?.lyricLanguage, channel.primaryLanguage);
     const keepUserLanguage = languageConfirmNeeded && !window.confirm(languageOverrideConfirmMessageKo(opts.lyricLanguage, channel.primaryLanguage));
 
-    // TASK (지시문 30 TASK D-2) — same silent-overwrite pattern as
-    // lyricLanguage, for every OTHER field this function resets to the
-    // channel's own default. genreIds is deliberately excluded (§하지 말 것
-    // "지시문 24의 사용자 장르 선택 로직을 건드리지 말 것") — only informational,
-    // non-blocking here (surfaced via the existing loadWarning banner, not a
-    // new confirm gate).
-    const arraysDiffer = (a: readonly string[], b: readonly string[]) => a.length !== b.length || [...a].sort().join('') !== [...b].sort().join('');
-    const otherDowngrades = detectProvenanceDowngrades(opts.choiceProvenance, [
-      { field: 'vocalTone', labelKo: '보컬 톤', valueChanged: opts.vocalTone !== channel.defaultVocal },
-      { field: 'kidsAgeTierId', labelKo: '연령대', valueChanged: opts.kidsAgeTierId !== channel.kidsAgeTierId },
-      { field: 'packagingLanguage', labelKo: '제목/썸네일 언어', valueChanged: opts.packagingLanguage !== nextPackagingLanguage },
-      { field: 'moodIds', labelKo: '무드', valueChanged: arraysDiffer(opts.moodIds, channel.preferredMoods) }
-    ]);
-
-    setOpts(prev => ({
-      ...prev,
-      channel,
-      market: channel.market,
-      audience: channel.audience,
-      lyricLanguage: keepUserLanguage ? prev.lyricLanguage : channel.primaryLanguage,
-      genreIds: normalizeGenreSelection(valid),
-      moodIds: channel.preferredMoods,
-      vocalTone: channel.defaultVocal,
-      // v5.13 (TASK: kidsAgeTierId wiring) — mirrors vocalTone just above:
-      // switching to a channel with its own kidsAgeTierId resets the
-      // per-generation override to that channel's default, same as every
-      // other channel-default field this function already re-seeds.
-      kidsAgeTierId: channel.kidsAgeTierId,
-      packagingLanguage: nextPackagingLanguage,
-      // TASK (provenance) — every field this function resets to the new
-      // channel's own default gets its provenance reset to 'channel' too,
-      // overwriting whatever the PREVIOUS channel's 'user'/'concept' picks
-      // left behind on `prev.choiceProvenance` — those no longer describe
-      // the values `opts` now actually holds. This is also the one real,
-      // findable recording point for kidsAgeTierId: Step1Channel.tsx's own
-      // age-tier picker only ever writes to the channel editor's draft state
-      // (ChannelProfile.kidsAgeTierId via useChannelManager's
-      // updateEditorField), never straight to GenerationOptions — it only
-      // reaches `opts.kidsAgeTierId` via this exact channel-apply path
-      // (select/save/create — see useChannelManager.ts's selectChannel/
-      // saveEditorProfile/addQuickChannel, all of which call this function),
-      // so 'channel' is the only real provenance kidsAgeTierId is ever
-      // observed to carry.
-      choiceProvenance: {
-        ...prev.choiceProvenance,
-        // TASK (지시문 30 TASK A) — 'user' survives verbatim when the confirm
-        // dialog above was declined; every other case (no explicit user
-        // pick, or user confirmed the revert) resets to 'channel' as before.
-        lyricLanguage: keepUserLanguage ? 'user' : 'channel',
-        genreIds: 'channel',
-        vocalTone: 'channel',
-        kidsAgeTierId: 'channel',
-        packagingLanguage: 'channel',
-        // TASK (provenance extension) — moodIds is reset to
-        // channel.preferredMoods two lines above, same as genreIds/vocalTone
-        // just above it; its provenance needs the same 'channel' reset so a
-        // previous channel's 'user' mood pick doesn't linger describing a
-        // value this channel switch just overwrote.
-        moodIds: 'channel'
-      }
-    }));
-
-    const warnings = [
-      ...(removed.length ? [genreSanitizationWarningKo(removed, archetype)] : []),
-      ...(otherDowngrades.length
-        ? [`채널 변경으로 직접 선택하신 ${otherDowngrades.map(d => d.labelKo).join(', ')} 설정이 채널 기본값으로 되돌아갔습니다.`]
-        : [])
-    ];
-    if (warnings.length) setLoadWarning(warnings.join(' '));
+    const { opts: nextOpts, changesKo } = reconcileOptionsForChannelSwitch(opts, channel, keepUserLanguage);
+    setOpts(nextOpts);
+    if (changesKo.length) setLoadWarning(changesKo.join(` `));
   }
 
   const cm = useChannelManager(workspaceId, applyChannelToOptions);
