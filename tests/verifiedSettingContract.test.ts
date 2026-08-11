@@ -31,7 +31,7 @@ describe('[지시문 12 TASK C] VERIFIED_SETTING_CONTRACTS registers at least 9 
   it.each(VERIFIED_SETTING_CONTRACTS.map(c => [c.settingId, c] as const))('%s check() does not throw and returns a well-shaped result', (_id, contract) => {
     if (!inScope(CHANNEL, contract)) return;
     const result = contract.check(CHANNEL);
-    expect(typeof result.applied).toBe('boolean');
+    expect(['applied', 'lost', 'n/a']).toContain(result.status);
     expect(typeof result.observed).toBe('string');
     expect(typeof result.expected).toBe('string');
   });
@@ -60,13 +60,48 @@ describe('[지시문 12 TASK C] 실측 재현 — oldpoplounge 유형 커스텀 
     const contract = VERIFIED_SETTING_CONTRACTS.find(c => c.settingId === 'tempo-ceiling')!;
     expect(inScope(OLDPOP_LOUNGE_CUSTOM, contract)).toBe(true);
     const result = contract.check(OLDPOP_LOUNGE_CUSTOM);
-    expect(result.applied).toBe(true);
+    expect(result.status).toBe('applied');
   });
 
   it('title-localized survives a packagingLanguage=english override — TASK C-2 fix', () => {
     const contract = VERIFIED_SETTING_CONTRACTS.find(c => c.settingId === 'title-localized')!;
     expect(inScope(OLDPOP_LOUNGE_CUSTOM, contract)).toBe(true);
     const result = contract.check(OLDPOP_LOUNGE_CUSTOM);
-    expect(result.applied).toBe(true);
+    expect(result.status).toBe('applied');
+  });
+});
+
+describe('Fable5 2단계 §5 — channel-sound-floor의 required/optional/N-A 재정의', () => {
+  const channelFor = (archetype: ChannelProfile['archetype']): ChannelProfile => ({
+    id: `test-${archetype}`,
+    name: 'Test Channel',
+    market: 'korea',
+    primaryLanguage: 'english',
+    audience: 'general',
+    promise: 'test',
+    visualIdentity: 'test',
+    defaultVocal: 'test vocal',
+    preferredGenres: [],
+    preferredMoods: [],
+    forbiddenCliches: [],
+    seoKeywords: [],
+    archetype
+  });
+
+  it('senior-morning (floor 실제 있음) — applied', () => {
+    const contract = VERIFIED_SETTING_CONTRACTS.find(c => c.settingId === 'channel-sound-floor')!;
+    expect(contract.check(channelFor('senior-morning')).status).toBe('applied');
+  });
+
+  it('modern-chill (floor 없음, 워크스페이스 자체엔 floor 있음 — 의도적 제외) — n/a, not lost', () => {
+    const contract = VERIFIED_SETTING_CONTRACTS.find(c => c.settingId === 'channel-sound-floor')!;
+    const result = contract.check(channelFor('modern-chill'));
+    expect(result.status).toBe('n/a');
+    expect(result.reasonKo).toBeTruthy();
+  });
+
+  it('kids (floor 없음, 같은 이유) — n/a', () => {
+    const contract = VERIFIED_SETTING_CONTRACTS.find(c => c.settingId === 'channel-sound-floor')!;
+    expect(contract.check(channelFor('kids')).status).toBe('n/a');
   });
 });
