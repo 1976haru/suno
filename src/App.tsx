@@ -144,7 +144,9 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const [hookExhaustionPackSongCount, setHookExhaustionPackSongCount] = useState(0);
   const [multiSetMode, setMultiSetMode] = useState(false);
   const [multiSetCount, setMultiSetCount] = useState(5);
-  const [multiSetSongsPerSet, setMultiSetSongsPerSet] = useState(18);
+  // 지시문 38 (TASK A) — 단일 세트 기본값(createInitialOptions)과 맞춘다. 18은
+  // 여전히 UI에서 선택 가능(Step3Generate.tsx SONG_COUNT_CHIPS).
+  const [multiSetSongsPerSet, setMultiSetSongsPerSet] = useState(15);
   const [multiSetWarnings, setMultiSetWarnings] = useState<string[]>([]);
   /** TASK v3.35 (bridge split) — grows as each bridge-imported set actually lands, so Step3Generate's not-yet-copied instruction previews (buildMultiSetClaudeCodeInstructions) reflect real titles/hooks instead of only the deterministic preallocated fallback. Reset whenever the user starts a fresh multi-set bridge batch (see onImportMultiSetSongsJson). */
   const [bridgeImportedSetAvoid, setBridgeImportedSetAvoid] = useState<{ usedTitles: string[]; usedHooks: string[] }>({ usedTitles: [], usedHooks: [] });

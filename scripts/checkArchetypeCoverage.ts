@@ -43,6 +43,7 @@ import { objectStatePolicyForWorkspace } from '../src/data/objectStatePolicy';
 import { eraIntentForWorkspace } from '../src/data/workspaceEraIntent';
 import { LISTENING_INTENT_POLICY } from '../src/data/listeningIntentPolicy';
 import { isKidsArchetype } from '../src/utils/channelArchetype';
+import { suitablePresetsForArchetype } from '../src/core/vocalRecommender';
 import type { ChannelArchetype } from '../src/types';
 
 // 13개 정본 아키타입 — 지시문 27 TASK D-1의 CANONICAL_ARCHETYPES_FOR_MONEY_CHORD와
@@ -200,15 +201,32 @@ function axisOpeningHooks(): AxisRow {
 }
 
 // ---------------------------------------------------------------------------
-// 축 7 — vocalPreset 풀 — N/A (suitedArchetypes는 추천 힌트일 뿐, 생성을 막지 않음)
+// 축 7 — vocalPreset 풀
+//
+// 지시문 38 (TASK D2-5) — 예전 노트("suitedArchetypes는 UI 정렬 힌트일
+// 뿐")는 더 이상 사실이 아니다: Step2Concept.tsx의 픽커와
+// core/vocalRecommender.ts의 recommendVocalPlan 둘 다 이제
+// suitablePresetsForArchetype으로 하드 필터링한다(forKids와 같은 세기) —
+// 이 축이 실제로 "정의가 빠지면 무슨 일이 생기는가"를 갖게 됐다: 후보가
+// 너무 적으면 그 채널의 보컬 다양성이 실제로 줄어든다. "차단하지 말고
+// 경고한다"(§D2-5) — 5종 미만은 ⚠, 0종은 ✗(생성 자체가 막히는
+// 실제 결함), kids 아키타입은 forKids 10종 전용 풀이라 별도 취급한다.
 // ---------------------------------------------------------------------------
 function axisVocalPreset(): AxisRow {
   const cells: AxisRow['cells'] = {};
-  for (const a of CANONICAL_ARCHETYPES) cells[a] = { value: '—', status: 'N/A' };
+  const notes: string[] = [];
+  for (const a of CANONICAL_ARCHETYPES) {
+    const pool = suitablePresetsForArchetype(a);
+    const count = pool.length;
+    const status: Status = count === 0 ? '✗' : count < 5 ? '⚠' : '○';
+    cells[a] = { value: String(count), status };
+    if (status === '✗') notes.push(`${a}: 적합 보컬 프리셋 0종 — 픽커·추천기 둘 다 후보가 없어 생성이 막힌다`);
+    else if (status === '⚠') notes.push(`${a}: 적합 보컬 프리셋 ${count}종 (< 5, 지시문 38 D2-4의 최소 목표 미달) — 억지로 채우지 말고 이 목록으로만 보고`);
+  }
   return {
-    label: 'vocalPreset 풀',
+    label: 'vocalPreset 풀 (suitablePresetsForArchetype, 하드 필터)',
     cells,
-    noteLines: ['N/A — vocalPresets.ts의 suitedArchetypes는 UI 정렬 힌트일 뿐(파일 자체 doc comment), matchVocalPreset은 자유 텍스트 매칭이라 아키타입별 필수 풀이라는 개념이 없다.']
+    noteLines: notes.length ? notes : ['13개 아키타입 전부 5종 이상 확보 (지시문 38 D2-4 재배정 결과) — 미달 없음.']
   };
 }
 

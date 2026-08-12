@@ -61,7 +61,10 @@ const BULK_BATCH_ADVICE_THRESHOLD = 40;
 const DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT = 5;
 const REDUCED_LYRIC_THEME_AVOID_SET_LIMIT = 2;
 
-const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
+// 지시문 38 (TASK A) — 기본값이 15로 바뀌었지만(createInitialOptions.ts) 18은
+// 제거하지 않는다("선택지로 남긴다") — 15를 추가하고 18도 칩으로 노출한다
+// (이전엔 18도 칩이 아니라 슬라이더/숫자 입력으로만 도달 가능했다).
+const SONG_COUNT_CHIPS = [1, 5, 10, 12, 15, 18, 20, 30, 40, 60, 80];
 
 type BridgeInstructionMode = 'master' | 'perSet';
 

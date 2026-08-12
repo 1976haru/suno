@@ -145,6 +145,59 @@ describe('buildVocalPlan', () => {
       expect(run).toBeLessThan(4);
     }
   });
+
+  // 지시문 38 (TASK C/D) — 실측 회귀: TASK C의 직접 비율 입력이 처음으로
+  // 만들 수 있게 된 극단적 쿼터(예: 남13/여1/듀엣1 @ 15곡)에서, 예전
+  // interleaveByLargestRemainder+repairConsecutiveRuns 조합은 longestRun
+  // 10~14를 냈다(희소 타입이 시작부터 랜덤 tie-break로 조기 소진되어 뒤쪽
+  // 전부가 한 타입으로 몰림) — designGate.ts의 "같은 보컬 타입 연속 ≤ 2곡"
+  // 관문을 구조적으로 못 지키는 상태였다. evenlySegmentedVocalPlan 폴백이
+  // 이걸 이론적 최솟값(⌈다수타입 / (그 외 합 + 1)⌉)까지 끌어내린다.
+  it('지시문 38 — 극단적으로 쏠린 쿼터에서도 이론적 최솟값에 가까운 최대 연속을 유지한다', () => {
+    const longestRun = (plan: VocalType[]) => {
+      let max = 1, cur = 1;
+      for (let i = 1; i < plan.length; i++) {
+        cur = plan[i] === plan[i - 1] ? cur + 1 : 1;
+        max = Math.max(max, cur);
+      }
+      return plan.length ? max : 0;
+    };
+    const cases: [{ male: number; female: number; mixed: number }, number, number][] = [
+      // quota, songCount, theoretical minimum max-run (ceil(majority / (otherTotal + 1)))
+      [{ male: 13, female: 1, mixed: 1 }, 15, 5],
+      [{ male: 14, female: 1, mixed: 0 }, 15, 7],
+      [{ male: 15, female: 0, mixed: 3 }, 18, 4]
+    ];
+    for (const [quota, songCount, theoreticalMin] of cases) {
+      for (const seed of [1, 2, 3, 42, 999]) {
+        const plan = buildVocalPlan(quota, songCount, seed);
+        const counts = { male: 0, female: 0, mixed: 0 };
+        for (const type of plan) counts[type] += 1;
+        expect(counts, `quota=${JSON.stringify(quota)} seed=${seed}`).toEqual(quota);
+        // 폴백은 이론적 최솟값과 정확히 일치하거나(측정상 항상 일치했다),
+        // 최소한 이전 알고리즘의 최악값(10~14)과는 비교가 안 되게 낮다.
+        expect(longestRun(plan), `quota=${JSON.stringify(quota)} seed=${seed}`).toBeLessThanOrEqual(theoreticalMin);
+      }
+    }
+  });
+
+  it('지시문 38 — 균형/약한 쏠림 쿼터는 폴백을 타지 않고 여전히 연속 ≤2를 지킨다(회귀 없음)', () => {
+    const cases: [{ male: number; female: number; mixed: number }, number][] = [
+      [{ male: 6, female: 6, mixed: 6 }, 18],
+      [{ male: 10, female: 4, mixed: 4 }, 18],
+      [{ male: 4, female: 6, mixed: 5 }, 15]
+    ];
+    for (const [quota, songCount] of cases) {
+      for (const seed of [1, 2, 3, 42, 999]) {
+        const plan = buildVocalPlan(quota, songCount, seed);
+        let run = 1;
+        for (let i = 1; i < plan.length; i++) {
+          run = plan[i] === plan[i - 1] ? run + 1 : 1;
+          expect(run, `quota=${JSON.stringify(quota)} seed=${seed}`).toBeLessThanOrEqual(2);
+        }
+      }
+    }
+  });
 });
 
 describe('vocalDescriptionFor', () => {

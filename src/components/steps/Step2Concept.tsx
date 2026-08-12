@@ -11,9 +11,11 @@ import {
 } from '../../data/genreLibrary';
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
-import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota } from '../../core/vocalPlan';
+import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota, vocalLabel } from '../../core/vocalPlan';
+import { recommendVocalPlan, suitablePresetsForArchetype } from '../../core/vocalRecommender';
+import { hashSeed } from '../../utils/prng';
 import { povDistribution, resolvePerspectiveMode } from '../../core/lyricDiversityPlan';
-import { resolveGenreBlendMode } from '../../core/genreRotation';
+import { buildGenreRotationPlan, resolveGenreBlendMode } from '../../core/genreRotation';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
@@ -167,6 +169,18 @@ export default function Step2Concept({
   // "고르게 배정" default it actually is. Only auto-opens for a genuinely
   // different, unrecognized saved value now.
   const [vocalCustomOpen, setVocalCustomOpen] = useState(() => Boolean(opts.vocalTone?.trim()) && opts.vocalTone.trim() !== opts.channel.defaultVocal && !matchVocalPreset(opts.vocalTone));
+  // 지시문 38 (TASK C) — 보컬 성비 직접 입력 패널 열림 상태. 이미 vocalQuota가
+  // 저장돼 있으면(다른 세션에서 입력해둔 값) 처음부터 펼쳐서 보여준다.
+  const [vocalRatioOpen, setVocalRatioOpen] = useState(() => Boolean(opts.vocalQuota));
+  // 지시문 38 (TASK D) — AI 보컬 추천 패널은 기본으로 펼쳐져 있고, 기존
+  // 26장 카드 그리드는 "직접 고르기"를 눌러야 나오는 되돌리기 경로로
+  // 접어둔다. 채널을 바꾸거나 이미 특정 프리셋을 선택해 둔 상태로 이
+  // 화면에 다시 들어온 경우(vocalCustomOpen과 같은 조건)는 그 선택을
+  // 존중해 그리드를 처음부터 펼쳐서 보여준다.
+  const [vocalPickerExpanded, setVocalPickerExpanded] = useState(
+    () => Boolean(opts.vocalTone?.trim()) && opts.vocalTone.trim() !== opts.channel.defaultVocal
+  );
+  const [vocalRecommendationSeed, setVocalRecommendationSeed] = useState(() => hashSeed(`${opts.channel.id}:${opts.projectTitle}`));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
   const [avoidCustomDraft, setAvoidCustomDraft] = useState('');
@@ -196,9 +210,22 @@ export default function Step2Concept({
   // "recommended" badge — no new UI component needed), then a light
   // male/female/duet-mixed grouping keeps the rest visually clustered
   // instead of interleaved.
+  // 지시문 38 (TASK D2) — suitedArchetypes를 정렬/배지 전용에서 진짜 하드
+  // 필터로 승격한다(forKids와 같은 세기). 실측 버그: 태그가 정렬에만
+  // 쓰였고, 그나마 태그도 대부분 'senior-morning'만 가리켜 하루의 실제
+  // 채널(oldpop-lounge)엔 하나도 안 걸려 사실상 전체 16종이 무방비로
+  // 노출됐다 — "시니어 채널인데 로리 계열 목소리도 나온다"는 청취 피드백의
+  // 실제 원인. data/vocalPresets.ts는 이제 13개 비-kids 아키타입 전부에
+  // suitedArchetypes를 배정해 뒀으므로(그 파일 자체의 매트릭스 주석 참고)
+  // "태그 없음 = 전체 허용" 예외 없이 순수 hard filter로 걸러도 안전하다
+  // — kids 프리셋은 애초에 suitedArchetypes를 쓰지 않으므로(forKids만으로
+  // 이미 배타적 필터) 이 필터에서 제외한다.
   const VOCAL_GENDER_SORT_ORDER: Record<string, number> = { male: 0, female: 1, duet: 2, mixed: 3 };
-  const relevantVocalPresets = vocalPresets
-    .filter(preset => Boolean(preset.forKids) === isKidsArchetype(channelArchetype))
+  // 지시문 38 (TASK D2) — core/vocalRecommender.ts의 suitablePresetsForArchetype과
+  // 완전히 같은 함수를 재사용한다(이 파일이 예전에 갖고 있던 인라인 필터를
+  // 대체) — 픽커와 추천기가 서로 다른 필터를 들고 있다가 어긋나는 일이
+  // 없도록 단일 source of truth로 합쳤다.
+  const relevantVocalPresets = suitablePresetsForArchetype(channelArchetype)
     .slice()
     .sort((a, b) => {
       const aSuited = a.suitedArchetypes?.includes(channelArchetype) ? 0 : 1;
@@ -246,6 +273,67 @@ export default function Step2Concept({
   // bug core/batchPreallocation.ts's explicitUnrecognizedVocalTone fix
   // addresses on the generation side; this mirrors it for the preview).
   const isRecognizedVocalTone = isBalancedVocalTone || Boolean(matchVocalPreset(opts.vocalTone)) || Boolean(leaningGenderFor(opts));
+
+  // 지시문 38 (TASK C) — 직접 비율 입력 패널의 표시값/미리보기. opts.vocalQuota가
+  // 아직 없으면(패널을 처음 열기 전) 이 채널의 기본 비율을 그대로 보여준다 —
+  // "빈 값"이 아니라 지금 적용 중인 값에서 시작해 조정하는 편이 자연스럽다.
+  const vocalRatioQuota = opts.vocalQuota ?? defaultQuotaForChannel;
+  const vocalRatioSum = vocalRatioQuota.male + vocalRatioQuota.female + vocalRatioQuota.mixed;
+  const vocalRatioScaledPreview = scaleVocalQuota(vocalRatioQuota, opts.songCount);
+
+  function updateVocalRatioField(field: 'male' | 'female' | 'mixed', rawValue: string) {
+    const parsed = Math.max(0, Math.round(Number(rawValue)) || 0);
+    setOpts(prev => ({
+      ...prev,
+      vocalQuota: { ...(prev.vocalQuota ?? defaultQuotaForChannel), [field]: parsed }
+    }));
+  }
+
+  // 지시문 38 (TASK D) — AI 보컬 추천. LLM 호출 없이 core/vocalRecommender.ts의
+  // recommendVocalPlan(데이터 조립뿐, 비용 0)으로 이 채널·이 곡 수·지금
+  // 쿼터(TASK C 직접 비율 입력 > 채널 고정 vocalQuotaOverride > 균등배정
+  // 순, opts.vocalQuota/hasFixedVocalQuota와 같은 우선순위)에 맞는 곡별
+  // 프리셋을 미리 보여준다. 실제 생성 파이프라인은 지금도 opts.vocalTone
+  // 하나(전체 팩의 "쏠림" 방향)만 읽으므로, "다시 추천"을 누르면 이 미리보기의
+  // 가장 많이 등장한 프리셋을 그 vocalTone에 실제로 적용한다 — 곡별
+  // vocalText를 개별로 덮어쓰는 것(그건 별도 지시문 범위)이 아니라, 기존
+  // "프리셋 카드를 고른다" 경로를 그대로 재사용하는 것이다.
+  const vocalRecommendationQuota = hasFixedVocalQuota ? defaultQuotaForChannel : (opts.vocalQuota ?? defaultQuotaForChannel);
+  // 지시문 38 (TASK D2-6, 선택) — 실제 트랙별 장르 배정(era-quota 등 반영)은
+  // 이 화면 이후 단계에서 이뤄지므로 여기선 아직 알 수 없다. 대신 생성이
+  // 실제로 쓰는 것과 같은 회전 알고리즘(core/genreRotation.ts의
+  // buildGenreRotationPlan, batchPreallocation.ts/localGenerator.ts가 그대로
+  // 쓰는 함수)으로 지금 고른 genreIds를 곡 수만큼 미리 돌려, "장르별 음색
+  // 적합성" advisory가 미리보기에서도 실제로 체감되게 한다 — 최종 확정치가
+  // 아니라 근사치라는 점은 동일 시드 재사용 이상의 의미를 부여하지 않는다.
+  const vocalRecommendationGenrePlan = useMemo(
+    () => buildGenreRotationPlan(opts.genreIds, opts.songCount, vocalRecommendationSeed),
+    [opts.genreIds, opts.songCount, vocalRecommendationSeed]
+  );
+  const vocalRecommendationPreview = useMemo(
+    () => recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: vocalRecommendationSeed, genrePlan: vocalRecommendationGenrePlan }),
+    [channelArchetype, opts.songCount, vocalRecommendationQuota, vocalRecommendationSeed, vocalRecommendationGenrePlan]
+  );
+  const VOCAL_RECOMMENDATION_PREVIEW_ROWS = 10;
+  function dominantRecommendedPreset(preview: typeof vocalRecommendationPreview) {
+    const counts = new Map<string, number>();
+    for (const rec of preview) {
+      if (!rec.presetId) continue;
+      counts.set(rec.presetId, (counts.get(rec.presetId) ?? 0) + 1);
+    }
+    const topId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return topId ? vocalPresets.find(preset => preset.id === topId) : undefined;
+  }
+  function handleRerollVocalRecommendation() {
+    const nextSeed = vocalRecommendationSeed + 97;
+    setVocalRecommendationSeed(nextSeed);
+    const nextGenrePlan = buildGenreRotationPlan(opts.genreIds, opts.songCount, nextSeed);
+    const nextPreview = recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: nextSeed, genrePlan: nextGenrePlan });
+    const dominant = dominantRecommendedPreset(nextPreview);
+    if (dominant) {
+      setOpts(prev => ({ ...prev, vocalTone: dominant.prompt, choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' } }));
+    }
+  }
 
   // TASK v6.0 (perspectiveMode) — "적용 방식" picker. Mirrors the vocal-quota
   // preview immediately above: resolvedPerspectiveMode is exactly what
@@ -559,7 +647,15 @@ export default function Step2Concept({
       <p className="step-hint">이 채널의 곡이 어떤 느낌이면 좋을지 정하세요. 아무것도 모르셔도 괜찮아요 — 카드를 눌러보고 마음에 드는 걸 고르시면 됩니다.</p>
 
       {basicMode ? (
-        <details className="mode-more-panel">
+        // 지시문 38 TASK B — 실측: expertMode는 core/settingsStore.ts의
+        // 'ui:mode'로 세션 간 영구 저장된다. 한 번이라도 "간단히"를 누른
+        // 사용자는 이후 모든 세션에서 이 <details>가 접힌 채로 시작하는데,
+        // 자연어 컨셉 추천(ConceptAgentPanel의 "추천받기")이 바로 그 안에
+        // 있다 — 음악 용어를 몰라 자연어 입력에 의존하는 사용자일수록
+        // 간단히 모드를 쓸 가능성이 높고, 동시에 그 사용자에게 가장 유용한
+        // 도구가 이걸로 숨는다. open 기본값으로 클릭 없이 보이게 한다 —
+        // 접는 기능 자체는 유지(원치 않으면 접을 수 있음).
+        <details className="mode-more-panel" open>
           <summary>
             <Wand2 size={16} />
             컨셉 에이전트 더보기
@@ -914,6 +1010,34 @@ export default function Step2Concept({
 
       {selectedGenerationPack && <p className="supporting">{selectedGenerationPack.audienceNote}</p>}
 
+      {/* 지시문 38 (TASK D) — AI 보컬 추천 패널. 기본으로 펼쳐져 있고, 아래
+          기존 26장 카드 그리드는 "직접 고르기"를 눌러야 나오는 되돌리기
+          경로다(카드 그리드 자체는 지우지 않았다 — 그대로 남아 있다). */}
+      <div className="option-block">
+        <h3>🤖 AI 보컬 추천</h3>
+        <p className="supporting">
+          이 채널({relevantVocalPresets.length}종 후보)과 지금 곡 수({opts.songCount}곡) 기준으로 곡마다 어울리는 보컬을 미리 배정해봤어요. LLM 호출 없이 채널 적합도·성비·다양성만으로 고른 결과예요.
+        </p>
+        <div className="option-block" style={{ marginTop: 8 }}>
+          {vocalRecommendationPreview.slice(0, VOCAL_RECOMMENDATION_PREVIEW_ROWS).map(rec => (
+            <p key={rec.trackNo} className="supporting">
+              {rec.trackNo}. {vocalLabel(rec.vocalType, channelArchetype)} · <strong>{rec.presetLabel || '(후보 없음)'}</strong> — {rec.reasonKo}
+            </p>
+          ))}
+          {vocalRecommendationPreview.length > VOCAL_RECOMMENDATION_PREVIEW_ROWS && (
+            <p className="supporting">...외 {vocalRecommendationPreview.length - VOCAL_RECOMMENDATION_PREVIEW_ROWS}곡 더</p>
+          )}
+        </div>
+        <div className="button-row" style={{ marginTop: 8 }}>
+          <button type="button" className="chip" onClick={handleRerollVocalRecommendation}>🔀 다시 추천</button>
+          <button type="button" className={vocalPickerExpanded ? 'chip active' : 'chip'} onClick={() => setVocalPickerExpanded(v => !v)}>
+            🎛 {vocalPickerExpanded ? '직접 고르기 접기' : '직접 고르기'}
+          </button>
+        </div>
+      </div>
+
+      {vocalPickerExpanded && (
+      <>
       {/* TASK v3.39 Part D — a kids channel only ever showed the 5 adult
           voice presets here (no childlike option existed at all), so the
           picker itself read as if the channel had no kids voices. Filtered
@@ -1006,6 +1130,48 @@ export default function Step2Concept({
           />
           <CharCounter value={opts.vocalTone} limit={INPUT_LIMITS.vocalTone} />
         </>
+      )}
+
+      {/* 지시문 38 (TASK C) — 보컬 성비 직접 입력. opts.vocalQuota는 이미
+          "리터럴 합계 === songCount" 요구가 아니라 비율로 설계돼 있다
+          (types.ts 자신의 문서, core/vocalPlan.ts의 scaleVocalQuota) — 그래서
+          여기 입력값은 합이 곡 수와 달라도 막을 필요가 없고, 곡 수가 나중에
+          바뀌어도(Step4) 같은 비율 그대로 자동 재환산된다. kr-idol-male/
+          female처럼 채널 자체가 성비를 고정한 경우(vocalQuotaOverride)는
+          그 정체성을 지키기 위해 직접 입력을 막고 이유를 보여준다. */}
+      {hasFixedVocalQuota ? (
+        <p className="supporting" style={{ marginTop: 8 }}>
+          🔒 이 채널은 보컬 성비가 채널 자체에 고정되어 있어요 (남성 {defaultQuotaForChannel.male}·여성 {defaultQuotaForChannel.female}·듀엣 {defaultQuotaForChannel.mixed}) — 채널 정체성(보이그룹/걸그룹 등)을 지키기 위해 직접 비율 입력은 지원하지 않습니다.
+        </p>
+      ) : (
+        <>
+          <div className="button-row" style={{ marginTop: 8 }}>
+            <button type="button" className={vocalRatioOpen ? 'chip active' : 'chip'} onClick={() => setVocalRatioOpen(v => !v)}>
+              🔢 직접 비율 입력
+            </button>
+            {opts.vocalQuota && (
+              <button type="button" className="chip" onClick={() => setOpts(prev => ({ ...prev, vocalQuota: undefined }))}>
+                비율 초기화 (고르게 배정으로)
+              </button>
+            )}
+          </div>
+          {vocalRatioOpen && (
+            <div className="option-block" style={{ marginTop: 8 }}>
+              <p className="supporting">남성·여성·듀엣 비율을 숫자로 입력하세요. 합이 곡 수와 달라도 괜찮아요 — 입력한 비율 그대로 실제 곡 수에 자동으로 환산됩니다.</p>
+              <div className="button-row">
+                <label>남성 <input type="number" min={0} value={vocalRatioQuota.male} onChange={event => updateVocalRatioField('male', event.target.value)} style={{ width: 64, marginLeft: 4 }} /></label>
+                <label>여성 <input type="number" min={0} value={vocalRatioQuota.female} onChange={event => updateVocalRatioField('female', event.target.value)} style={{ width: 64, marginLeft: 4 }} /></label>
+                <label>듀엣 <input type="number" min={0} value={vocalRatioQuota.mixed} onChange={event => updateVocalRatioField('mixed', event.target.value)} style={{ width: 64, marginLeft: 4 }} /></label>
+              </div>
+              <p className="supporting">
+                입력 합계 {vocalRatioSum}곡{vocalRatioSum !== opts.songCount ? ` — 현재 세트 곡 수(${opts.songCount}곡)와 다릅니다. 막지 않고 비율로 자동 환산해요.` : ''}
+              </p>
+              <p className="supporting">→ 실제 {opts.songCount}곡 배정: 남성 {vocalRatioScaledPreview.male}곡 · 여성 {vocalRatioScaledPreview.female}곡 · 듀엣 {vocalRatioScaledPreview.mixed}곡</p>
+            </div>
+          )}
+        </>
+      )}
+      </>
       )}
 
       <ChoiceGrid
