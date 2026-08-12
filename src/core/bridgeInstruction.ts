@@ -1540,7 +1540,7 @@ function kpopPartPlanInstructionLines(preassignedSongs: PreassignedSongSlot[]): 
  * "suggest, never auto-apply" posture as explorationLedger.ts's learning
  * suggestions.
  */
-function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId): string[] {
+function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId, songCount: number): string[] {
   const storyThreadByWorkspace: Partial<Record<WorkspaceId, string>> = {
     'senior-oldpop': '같은 계절의 하루 (아침 → 밤), 또는 같은 인물의 젊은 날과 지금, 또는 같은 장소의 다른 시간',
     'kr-2030': '하루의 시간대, 또는 한 사람의 감정 변화',
@@ -1557,7 +1557,7 @@ function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId): string[]
     ...(storyThread
       ? ['  세트 전체를 느슨하게 잇는 이야기 하나를 둘 수 있습니다 (강제 아님, 제안일 뿐입니다).', `    예: ${storyThread}`, '']
       : []),
-    '  대비를 만드십시오 — 18곡이 전부 좋으면 무엇이 좋은지 알 수 없습니다.',
+    `  대비를 만드십시오 — ${songCount}곡이 전부 좋으면 무엇이 좋은지 알 수 없습니다.`,
     '    가장 조용한 곡 1곡 · 가장 밝은 곡 1곡 · 가장 짧은 곡 1곡 · 가장 특이한 곡 1곡(탐색 슬롯)',
     '',
     '  1번과 4번 트랙은 담백하게 만들어, 2~3번(대표곡)이 상대적으로 돋보이게 하십시오.',
@@ -1698,7 +1698,7 @@ export function buildClaudeCodeInstruction(
     // (loose story thread / contrast / lead-track yielding / last-track
     // callback). Workspace-tuned; empty story-thread line for K-pop per spec
     // §7-1 "K-pop 없어도 됨".
-    ...buildSetCompletenessSuggestionLines(workspaceId),
+    ...buildSetCompletenessSuggestionLines(workspaceId, preassignedSongs.length),
     // v5.23 (TASK D) — "이 조합을 반복하라 -> 이 조합을 출발점으로 변주하라"; zero
     // lines when flagshipCombo is absent or no second track carries its
     // genre id (see resolveFlagshipVariationPlan's own doc comment).

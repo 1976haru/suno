@@ -4,9 +4,11 @@ import { clampMultiSetTotal, createInitialOptions } from '../src/utils/generatio
 import { channelPresets } from './fixtures';
 
 describe('[v3.49c] basic 18-song / five-pack workflow defaults', () => {
-  it('starts a new channel at 18 songs with auto diversity allocations', () => {
+  // 지시문 38 (TASK A) — 기본 곡 수 18 → 15. 18은 여전히 선택 가능한 값이라
+  // 아래 "18곡 5팩" 케이스는 그대로 둔다 — 바뀐 건 초기 기본값 하나뿐이다.
+  it('starts a new channel at 15 songs with auto diversity allocations', () => {
     const options = createInitialOptions(channelPresets[0]);
-    expect(options.songCount).toBe(18);
+    expect(options.songCount).toBe(15);
     expect(options.diversityAllocations).toEqual([]);
   });
 

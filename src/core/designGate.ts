@@ -1318,7 +1318,7 @@ export function evaluateDesignGate(
     // 지시문 33 (§1) — advisory 전용, verified:false라 blocking에 넣지 않는다.
     ...eraNeutralFloorAdvisory(slots, constraints.era, constraints.workspaceId),
     // 지시문 36 (TASK B) — 같은 이유로 advisory 전용.
-    ...emotionQuotaAdvisory(constraints.workspaceId, slots.map(slot => slot.emotionArc))
+    ...emotionQuotaAdvisory(constraints.workspaceId, slots.map(slot => slot.emotionArc), slots.length)
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

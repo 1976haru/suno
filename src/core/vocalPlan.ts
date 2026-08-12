@@ -465,7 +465,7 @@ export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = '
  * legitimately-picked 'kid-duet' preset would never be recognized against
  * its own 'mixed' slots.
  */
-function vocalTypeMatchesPresetGender(vocalType: VocalType, gender: VocalGender): boolean {
+export function vocalTypeMatchesPresetGender(vocalType: VocalType, gender: VocalGender): boolean {
   if (vocalType === 'mixed') return gender === 'mixed' || gender === 'duet';
   return vocalType === gender;
 }
