@@ -833,6 +833,22 @@ function sectionStyleShiftInstructionLineFor(preassignedSongs: PreassignedSongSl
 }
 
 /**
+ * 지시문 39 (TASK B-6) — "머니코드가 노래당 꼭 하나가 아니라 2~3개 있어도
+ * 되지 않아?" sectionStyleShiftInstructionLineFor와 완전히 같은 verbatim-
+ * weave 신뢰 모델(moneyChordInstructionLineFor 위와 달리, 이 필드가 있는
+ * 곡은 진행 자체가 섹션별로 이미 확정된 값이라 LLM이 재해석할 필요가
+ * 없다). moneyChordSectionText가 있는 곡만 해당하고(1개 진행 곡은
+ * moneyChordText만으로 이미 충분), 있을 때는 이 지시가
+ * moneyChordInstructionLineFor의 단일-진행 지시보다 우선한다는 것을
+ * 명시한다 — 둘이 충돌하지 않도록.
+ */
+function moneyChordSectionInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.moneyChordSectionText)
+    ? '- Some "preassignedSongs" entries additionally include "moneyChordSectionText" — this song uses MULTIPLE chord progressions, one per section (e.g. "Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-IV progression"). When present, weave it into that song\'s stylePrompt VERBATIM as its own comma-separated clauses, one per section, and use THAT instead of the single "moneyChordText" progression for this song. Keep each "Section:" label exactly as given and do not merge sections together — the label is what tells this app it is a section-scoped harmony change, not a contradictory whole-song harmony declaration.'
+    : '';
+}
+
+/**
  * TASK v3.64-B — same reference-not-verbatim pattern as
  * hookDeviceInstructionLineFor above. Real measurement: earworm mode's old
  * flat instruction ("include 'simple stepwise melody' and 'singalong-
@@ -1760,6 +1776,7 @@ export function buildClaudeCodeInstruction(
     // prohibition), so it stays here: hookPhrase/lyrics must match.
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
     moneyChordInstructionLineFor(preassignedSongs),
+    moneyChordSectionInstructionLineFor(preassignedSongs),
     genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
@@ -2047,6 +2064,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     titleLocalizedInstructionLineFor(baseOpts),
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     moneyChordInstructionLineFor(allSlots),
+    moneyChordSectionInstructionLineFor(allSlots),
     genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),

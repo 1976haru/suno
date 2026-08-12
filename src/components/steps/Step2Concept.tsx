@@ -13,6 +13,7 @@ import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLa
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
 import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota, vocalLabel } from '../../core/vocalPlan';
 import { recommendVocalPlan, suitablePresetsForArchetype } from '../../core/vocalRecommender';
+import { recommendMoneyChordPlan } from '../../core/moneyChordRecommender';
 import { hashSeed } from '../../utils/prng';
 import { povDistribution, resolvePerspectiveMode } from '../../core/lyricDiversityPlan';
 import { buildGenreRotationPlan, resolveGenreBlendMode } from '../../core/genreRotation';
@@ -181,6 +182,14 @@ export default function Step2Concept({
     () => Boolean(opts.vocalTone?.trim()) && opts.vocalTone.trim() !== opts.channel.defaultVocal
   );
   const [vocalRecommendationSeed, setVocalRecommendationSeed] = useState(() => hashSeed(`${opts.channel.id}:${opts.projectTitle}`));
+  // 지시문 39 (TASK A) — AI 머니코드 추천 패널. 지시문 38의 보컬 추천과
+  // 완전히 같은 UX 패턴(기본 펼침 + "직접 고르기"로 접근하는 되돌리기
+  // 경로). 이미 명시적으로 프리셋을 고른 상태(moneyChordModeIsExplicitChoice)로
+  // 이 화면에 다시 들어오면 그 선택을 존중해 그리드를 처음부터 펼친다.
+  const [moneyChordPickerExpanded, setMoneyChordPickerExpanded] = useState(
+    () => Boolean(opts.moneyChordModeIsExplicitChoice)
+  );
+  const [moneyChordRecommendationSeed, setMoneyChordRecommendationSeed] = useState(() => hashSeed(`moneyChord:${opts.channel.id}:${opts.projectTitle}`));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customChordOpen, setCustomChordOpen] = useState(opts.moneyChordMode === 'custom');
   const [avoidCustomDraft, setAvoidCustomDraft] = useState('');
@@ -618,6 +627,36 @@ export default function Step2Concept({
 
   function resetNegativeStyle() {
     setOpts(prev => ({ ...prev, negativeStyle: buildDefaultNegativeStyle(prev.channel), choiceProvenance: { ...prev.choiceProvenance, negativeStyle: 'default' } }));
+  }
+
+  // 지시문 39 (TASK A) — AI 머니코드 추천. 지시문 38의 장르 플랜 근사치를
+  // 그대로 재사용한다(vocalRecommendationGenrePlan) — 보컬 패널과 머니코드
+  // 패널이 서로 다른 장르 추정을 쓰면 두 패널의 reasonKo가 같은 트랙을
+  // 놓고 다른 장르를 전제하는 것처럼 보일 수 있다.
+  const moneyChordRecommendationPreview = useMemo(
+    () => recommendMoneyChordPlan({ channelArchetype, songCount: opts.songCount, genrePlan: vocalRecommendationGenrePlan, seed: moneyChordRecommendationSeed }),
+    [channelArchetype, opts.songCount, vocalRecommendationGenrePlan, moneyChordRecommendationSeed]
+  );
+  const MONEY_CHORD_RECOMMENDATION_PREVIEW_ROWS = 10;
+  function dominantRecommendedProgression(preview: typeof moneyChordRecommendationPreview) {
+    const counts = new Map<string, number>();
+    for (const rec of preview) counts.set(rec.chordIds[0], (counts.get(rec.chordIds[0]) ?? 0) + 1);
+    const topId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return topId ? moneyChordPresets[topId] : undefined;
+  }
+  function handleRerollMoneyChordRecommendation() {
+    const nextSeed = moneyChordRecommendationSeed + 97;
+    setMoneyChordRecommendationSeed(nextSeed);
+    const nextPreview = recommendMoneyChordPlan({ channelArchetype, songCount: opts.songCount, genrePlan: vocalRecommendationGenrePlan, seed: nextSeed });
+    const dominant = dominantRecommendedProgression(nextPreview);
+    if (dominant) {
+      setOpts(prev => ({
+        ...prev,
+        moneyChordMode: dominant.id as GenerationOptions['moneyChordMode'],
+        moneyChordModeIsExplicitChoice: true,
+        choiceProvenance: { ...prev.choiceProvenance, moneyChordMode: 'user' }
+      }));
+    }
   }
 
   const moneyChordChoices = Object.values(moneyChordPresets)
@@ -1174,6 +1213,35 @@ export default function Step2Concept({
       </>
       )}
 
+      {/* 지시문 39 (TASK A) — AI 머니코드 추천 패널. 지시문 38(TASK D)과
+          완전히 같은 UX — 기본으로 펼쳐져 있고, 기존 18종 카드 그리드는
+          "직접 고르기"를 눌러야 나오는 되돌리기 경로로 접어둔다(카드 자체는
+          지우지 않았다). audibleEffect를 추천 이유로 그대로 쓴다. */}
+      <div className="option-block">
+        <h3>🎹 AI 코드 진행 추천</h3>
+        <p className="supporting">
+          이 채널과 지금 곡 수({opts.songCount}곡) 기준으로 곡마다 어울리는 코드 진행을 미리 배정해봤어요. LLM 호출 없이 채널 회전 풀·장르 적합도만으로 고른 결과예요. 일부 곡은 절/후렴에서 진행이 바뀌는 다중 진행이에요.
+        </p>
+        <div className="option-block" style={{ marginTop: 8 }}>
+          {moneyChordRecommendationPreview.slice(0, MONEY_CHORD_RECOMMENDATION_PREVIEW_ROWS).map(rec => (
+            <p key={rec.trackNo} className="supporting">
+              {rec.trackNo}. <strong>{rec.chordIds.map(id => moneyChordPresets[id]?.labelKo ?? id).join(' → ')}</strong> — {rec.reasonKo}
+            </p>
+          ))}
+          {moneyChordRecommendationPreview.length > MONEY_CHORD_RECOMMENDATION_PREVIEW_ROWS && (
+            <p className="supporting">...외 {moneyChordRecommendationPreview.length - MONEY_CHORD_RECOMMENDATION_PREVIEW_ROWS}곡 더</p>
+          )}
+        </div>
+        <div className="button-row" style={{ marginTop: 8 }}>
+          <button type="button" className="chip" onClick={handleRerollMoneyChordRecommendation}>🔀 다시 추천</button>
+          <button type="button" className={moneyChordPickerExpanded ? 'chip active' : 'chip'} onClick={() => setMoneyChordPickerExpanded(v => !v)}>
+            🎛 {moneyChordPickerExpanded ? '직접 고르기 접기' : '직접 고르기'}
+          </button>
+        </div>
+      </div>
+
+      {moneyChordPickerExpanded && (
+      <>
       <ChoiceGrid
         question="머니코드 (money chord, 익숙한 팝송 흐름)를 골라주세요"
         helper="머니코드는 사람들이 편안하게 느끼는 코드 진행이에요. 잘 모르겠으면 추천 카드를 고르세요."
@@ -1193,6 +1261,8 @@ export default function Step2Concept({
         columns={3}
       />
       <p className="supporting">스타일 프롬프트 미리보기: <em>{moneyPreview}</em></p>
+      </>
+      )}
 
       <div className="option-block">
         <label className="avoid-word-item">
