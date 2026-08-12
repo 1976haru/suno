@@ -27,6 +27,7 @@ import { resolveSceneSignatureSource } from './situationLedger';
 import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } from './perceivedEnergyObservations';
 import { parseSetArcSpec, checkSetArcAdherence, setArcAdherenceIsBlocking, SET_ARC_ADHERENCE_BLOCKING_THRESHOLD } from './setArcAdherence';
 import { measureKpopSingability } from './kpopSingability';
+import { kpopWorkspacePolicyFor } from './kpopWorkspacePolicy';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -44,7 +45,7 @@ export type AuditStatus = 'pass' | 'fail' | 'not-measured';
 
 export interface AuditItem {
   id: string;
-  category: '생성 구조' | '보컬' | '프롬프트' | '가사' | '킬링포인트·아크' | '제목' | '약속 이행도' | '워크스페이스';
+  category: '생성 구조' | '보컬' | '프롬프트' | '가사' | '킬링포인트·아크' | '제목' | '약속 이행도' | '워크스페이스' | '에너지';
   labelKo: string;
   targetKo: string;
   actualKo: string;
@@ -923,6 +924,84 @@ function kpopSingabilityItems(songs: SongIdea[], archetype?: ChannelArchetype): 
   ];
 }
 
+/**
+ * 지시문 43 (TASK A/D/E) — kr-idol 전용 advisory 항목 4종. kr-idol
+ * 워크스페이스 자체가 verified:false(distinctChoicePolicy.ts)이므로
+ * kpopSingabilityItems와 같은 이유로 전부 pass:null — scripts/audit.ts의
+ * 회귀 판정에 영향을 주지 않는다(§7 "실측 없이 blocking 을 만들지 않는다").
+ */
+const KPOP_RAP_SECTION_TAG_PATTERN = /\[.*rap[^\]]*\]|\brap\b/i;
+const KPOP_CHANT_BACKING_PATTERN = /\b(harmon\w*|unison|chant|stack|layered vocal)\b/i;
+const KPOP_ADLIB_PATTERN = /\bad[\s-]?libs?\b/i;
+
+function songHasRapSignal(song: SongIdea): boolean {
+  const partPlanHasRapper = (song.partPlan?.sectionAssignments ?? []).some(a => a.role === 'main-rapper' || a.role === 'lead-rapper');
+  return partPlanHasRapper || KPOP_RAP_SECTION_TAG_PATTERN.test(song.lyrics ?? '') || KPOP_RAP_SECTION_TAG_PATTERN.test(song.stylePrompt ?? '');
+}
+
+function kpopEnergyRapChantItems(songs: SongIdea[], archetype?: ChannelArchetype): AuditItem[] {
+  if (archetype !== 'kr-idol-male' && archetype !== 'kr-idol-female') return [];
+  if (!songs.length) return [];
+  const policy = kpopWorkspacePolicyFor(archetype);
+  if (!policy) return [];
+
+  const withEnergy = songs.filter(s => s.perceivedEnergy !== undefined);
+  const avgEnergy = withEnergy.length ? withEnergy.reduce((sum, s) => sum + (s.perceivedEnergy as number), 0) / withEnergy.length : 0;
+  const highEnergyCount = withEnergy.filter(s => (s.perceivedEnergy as number) >= 4).length;
+  const targetHighEnergyCount = Math.round((policy.energyTarget.distributionOf15[4] + policy.energyTarget.distributionOf15[5]) * songs.length / 15);
+
+  const rapCount = songs.filter(songHasRapSignal).length;
+  const chantCount = songs.filter(s => KPOP_CHANT_BACKING_PATTERN.test(s.stylePrompt ?? '') || KPOP_CHANT_BACKING_PATTERN.test(s.lyrics ?? '')).length;
+  const adlibCount = songs.filter(s => KPOP_ADLIB_PATTERN.test(s.stylePrompt ?? '') || KPOP_ADLIB_PATTERN.test(s.lyrics ?? '')).length;
+
+  return [
+    item({
+      id: 'kpop_perceived_energy_average',
+      category: '에너지',
+      labelKo: `K-pop 체감 에너지 평균 ${policy.energyTarget.targetAverage} 이상 (advisory, 미검증)`,
+      targetKo: `${policy.energyTarget.targetAverage}`,
+      actualKo: `${avgEnergy.toFixed(2)} (E4+E5 ${highEnergyCount}/${songs.length}, 목표 ${targetHighEnergyCount}곡)`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK A'],
+      metric: { value: avgEnergy, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_rap_section_share',
+      category: '가사',
+      labelKo: `K-pop 랩 파트가 있는 곡 (advisory, 미검증)`,
+      targetKo: `${Math.round(policy.rapPolicy.targetRatio * songs.length)}/${songs.length}`,
+      actualKo: `${rapCount}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK D'],
+      metric: { value: rapCount, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_chant_backing_mention',
+      category: '가사',
+      labelKo: 'K-pop 화음·챈트·백킹 스택 언급 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${chantCount}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK E'],
+      metric: { value: chantCount, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_adlib_layer_mention',
+      category: '가사',
+      labelKo: 'K-pop ad-lib 레이어 언급 8곡 이상 (advisory, 미검증)',
+      targetKo: `${Math.round((8 / 15) * songs.length)}/${songs.length}`,
+      actualKo: `${adlibCount}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK E'],
+      metric: { value: adlibCount, direction: 'higherIsBetter' }
+    })
+  ];
+}
+
 function workspaceItems(): AuditItem[] {
   return [
     item({
@@ -1024,7 +1103,8 @@ export function runFullAudit(
     ...metaLeakItems(songs, opts.lyricLanguage),
     ...objectStateItems(songs, opts.archetype, opts.lyricLanguage),
     ...setArcItems(songs, opts.conceptLabel, opts.archetype),
-    ...kpopSingabilityItems(songs, opts.archetype)
+    ...kpopSingabilityItems(songs, opts.archetype),
+    ...kpopEnergyRapChantItems(songs, opts.archetype)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency, observations: buildPerceivedEnergyObservations(songs) };
 }

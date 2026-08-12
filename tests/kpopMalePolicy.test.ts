@@ -30,9 +30,11 @@ describe('[codex 지시문 04 §6] kr-idol-male motif quotas — real word list,
   });
 });
 
-describe('[codex 지시문 04 §6] kr-idol-male rap share — real reuse of idolPartPlan.ts\'s 12/18 target', () => {
-  it('a real 12/18 rap-section pack lands within tolerance', () => {
-    const plans = [...Array(12).fill({ hasRapSection: true }), ...Array(6).fill({ hasRapSection: false })];
+// 지시문 43 (TASK D-2) — 12/18(0.667)에서 지시문 43 자신의 15곡 기준 목표
+// 12/15(0.8)로 갱신(kpopWorkspacePolicy.ts의 rapPolicy 주석 참고).
+describe('[codex 지시문 04 §6, 지시문 43 TASK D-2] kr-idol-male rap share — real reuse of idolPartPlan.ts\'s target, updated to 12/15', () => {
+  it('a real 12/15 rap-section pack lands within tolerance', () => {
+    const plans = [...Array(12).fill({ hasRapSection: true }), ...Array(3).fill({ hasRapSection: false })];
     expect(checkKrIdolMaleRapShare(plans).withinTolerance).toBe(true);
   });
 
@@ -41,8 +43,8 @@ describe('[codex 지시문 04 §6] kr-idol-male rap share — real reuse of idol
     expect(checkKrIdolMaleRapShare(plans).withinTolerance).toBe(false);
   });
 
-  it('KR_IDOL_MALE_POLICY.rapPolicy.targetRatio is the real 12/18 seed value', () => {
-    expect(KR_IDOL_MALE_POLICY.rapPolicy.targetRatio).toBeCloseTo(12 / 18);
+  it('KR_IDOL_MALE_POLICY.rapPolicy.targetRatio is the real 12/15 seed value (지시문 43 TASK D-2)', () => {
+    expect(KR_IDOL_MALE_POLICY.rapPolicy.targetRatio).toBeCloseTo(12 / 15);
   });
 });
 

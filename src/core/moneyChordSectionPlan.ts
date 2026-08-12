@@ -5,16 +5,24 @@ import { scaleQuotaToSongCount } from './quotaScaling';
 import { shuffle } from '../utils/prng';
 
 /**
- * 지시문 39 (TASK B-4) — kids/senior/modern(2030·아이돌) 3버킷 분류.
+ * 지시문 39 (TASK B-4) — kids/senior/modern(2030)/kpop(아이돌) 4버킷 분류.
  * core/moneyChordRecommender.ts(TASK A)도 이 함수를 그대로 쓴다 — 순환
  * import를 피하려고 이 파일(TASK B)에 두고, recommender가 여기서
  * import한다(반대 방향은 안 된다: 이 파일은 recommender를 모른다).
+ *
+ * 지시문 43 (TASK B-3) — kr-idol-male/kr-idol-female을 'modern'에서 분리해
+ * 'kpop' 전용 버킷으로 뺀다. 이전에는 kr-2030-pop/jp-2030-pop과 곡당 진행
+ * 수 정책을 공유했는데, 이 지시문은 kr-idol만 "3개 7곡"으로 올리라고
+ * 하고(§B-3) 2030 워크스페이스는 "건드리지 말 것"이라 같은 버킷을 계속
+ * 쓰면 둘 다 바뀐다 — 버킷을 쪼개는 것 자체가 회귀 방지의 실제 구현이다.
  */
-export function workspaceCountBucketFor(archetype: ChannelArchetype | undefined): 'kids' | 'senior' | 'modern' | 'general' {
+export function workspaceCountBucketFor(archetype: ChannelArchetype | undefined): 'kids' | 'senior' | 'modern' | 'kpop' | 'general' {
   if (isKidsArchetype(archetype)) return 'kids';
   const senior: ChannelArchetype[] = ['senior-morning', 'showa-cafe', 'showa-70s', 'oldpop-lounge', 'christmas'];
-  const modern: ChannelArchetype[] = ['kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female'];
+  const modern: ChannelArchetype[] = ['kr-2030-pop', 'jp-2030-pop'];
+  const kpop: ChannelArchetype[] = ['kr-idol-male', 'kr-idol-female'];
   if (archetype && senior.includes(archetype)) return 'senior';
+  if (archetype && kpop.includes(archetype)) return 'kpop';
   if (archetype && modern.includes(archetype)) return 'modern';
   return 'general';
 }
@@ -37,7 +45,11 @@ export interface MoneyChordSectionPlanEntry {
  *           않는다(§하지 말 것 "동요에 3개 진행을 강제하지 말 것"을
  *           가장 안전하게 해석: 강제도, 우연한 발생도 없앤다).
  *   시니어  "2개 우세" — 본문 예시보다 2 쪽으로 조금 더 옮김.
- *   2030·아이돌  "2~3개" — 1개 비중을 크게 줄이고 3개 비중을 늘림.
+ *   2030      "2~3개" — 1개 비중을 크게 줄이고 3개 비중을 늘림.
+ *   kpop(아이돌) 지시문 43 (TASK B-3) — "K-pop 은 구조 변화가 장르 특성"
+ *           이라는 하루의 지적에 맞춰 modern보다 한 번 더 3개 쪽으로
+ *           옮긴다(1개 2곡·2개 6곡·3개 7곡, 15곡 기준 — 하루의 후보 표
+ *           그대로). verified: false, 2030과 분리된 kr-idol 전용 값.
  */
 export const MONEY_CHORD_SECTION_COUNT_VERIFIED = false as const;
 const COUNT_POLICY_BASE_SONG_COUNT = 15;
@@ -46,6 +58,7 @@ const COUNT_POLICY_BY_BUCKET: Record<ChordCountBucket, Record<'1' | '2' | '3', n
   kids: { '1': 11, '2': 4, '3': 0 },
   senior: { '1': 3, '2': 10, '3': 2 },
   modern: { '1': 2, '2': 8, '3': 5 },
+  kpop: { '1': 2, '2': 6, '3': 7 },
   general: { '1': 4, '2': 9, '3': 2 }
 };
 

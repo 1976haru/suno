@@ -126,9 +126,16 @@ describe('지시문 39 (TASK B-4) — workspaceCountBucketFor', () => {
       expect(workspaceCountBucketFor(a)).toBe('senior');
     }
   });
-  it('2030·아이돌 4종은 modern 버킷', () => {
-    for (const a of ['kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female'] as ChannelArchetype[]) {
+  it('2030 2종은 modern 버킷', () => {
+    for (const a of ['kr-2030-pop', 'jp-2030-pop'] as ChannelArchetype[]) {
       expect(workspaceCountBucketFor(a)).toBe('modern');
+    }
+  });
+  // 지시문 43 (TASK B-3) — kr-idol-male/kr-idol-female을 modern에서 분리한
+  // 전용 kpop 버킷(곡당 진행 수 1:2·2:6·3:7, 15곡 기준).
+  it('아이돌 2종은 kpop 버킷', () => {
+    for (const a of ['kr-idol-male', 'kr-idol-female'] as ChannelArchetype[]) {
+      expect(workspaceCountBucketFor(a)).toBe('kpop');
     }
   });
 });

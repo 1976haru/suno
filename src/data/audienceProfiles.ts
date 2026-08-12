@@ -431,7 +431,14 @@ const KR_IDOL_MALE_AUDIENCE_PROFILE: AudienceProfile = {
     'understated subdued vocal delivery'
   ],
   tempoFloor: 92,
-  tempoCeiling: 138,
+  // 지시문 43 (TASK A-2) — 138에서 150으로 상향. 실측(20260810 K-pop 세트,
+  // BPM 95~138 중앙 112)이 tempoCeiling 100(시니어 값)에 눌린 결과가
+  // 아님을 확인했다(원래도 138이었다) — 진짜 원인은 tempoBandsForProfile이
+  // kr-idol을 위한 전용 배분 없이 generateTempoBands(92,138,4)의 등폭 4대역
+  // 균등 배분을 썼던 것(§A-1 KR_IDOL_TEMPO_BANDS 신설로 수정). 상한 자체도
+  // 하루의 "K-pop 고에너지 곡" 요구(§A-1 141-150 1곡 이상)를 담으려면 150까지
+  // 필요해 함께 올린다. verified: false — 장르 관행 추정치.
+  tempoCeiling: 150,
   lyricWordRange: [140, 210],
   // 지시문 40 (TASK C-3) — [165,205](2:45-3:25)에서 하루의 새 요구인
   // 2:30-3:10으로 하향. K-pop(kr-idol-*)은 112 BPM대의 짧고 훅 중심적인
@@ -481,7 +488,8 @@ const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
     'understated subdued vocal delivery'
   ],
   tempoFloor: 92,
-  tempoCeiling: 138,
+  // 지시문 43 (TASK A-2) — KR_IDOL_MALE_AUDIENCE_PROFILE과 같은 이유로 상향(138→150).
+  tempoCeiling: 150,
   lyricWordRange: [140, 210],
   // 지시문 40 (TASK C-3) — [165,205](2:45-3:25)에서 하루의 새 요구인
   // 2:30-3:10으로 하향. K-pop(kr-idol-*)은 112 BPM대의 짧고 훅 중심적인
@@ -804,6 +812,25 @@ export const SENIOR_TEMPO_BANDS: TempoBand[] = [
 ];
 
 /**
+ * 지시문 43 (TASK A-1) — kr-idol 실측(20260810 세트, BPM 95~138 중앙 112)이
+ * generateTempoBands(92,150,4)의 등폭·등비중 배분을 그대로 썼기 때문임을
+ * 확인했다(§A-2 tempoCeiling 확인 결과, 원인은 상한이 아니라 이 배분 자체).
+ * 하루의 후보 표(§A-1 "100-115:3·116-128:6·129-140:5·141-150:1, 15곡
+ * 기준·중앙 126")를 18곡 기준으로 스케일(×1.2)해 그대로 옮긴다. 92-99
+ * 대역을 낮은 비중(1)으로 남겨 §하지 말 것의 "에너지를 올린다고 곡을
+ * 시끄럽게만 만들지 말 것 — E1~E2 도 2곡은 남긴다"와 회귀 방지 목록의
+ * "발라드 계열 곡"이 tempoFloor(92) 안에서 계속 나올 여지를 보존한다.
+ * verified: false — 장르 관행 추정치, 첫 세트 청취 후 조정.
+ */
+export const KR_IDOL_TEMPO_BANDS: TempoBand[] = [
+  { low: 92, high: 99, shareOf18: 1 },
+  { low: 100, high: 115, shareOf18: 4 },
+  { low: 116, high: 128, shareOf18: 7 },
+  { low: 129, high: 140, shareOf18: 5 },
+  { low: 141, high: 150, shareOf18: 1 }
+];
+
+/**
  * v3.77 (TASK B) — real measurement: this returned `undefined` for every
  * profile except the literal id `'senior'` — general/twenties/thirtiesForties/
  * kids/undefined audience all fell through to `undefined`, which
@@ -827,6 +854,8 @@ export const SENIOR_TEMPO_BANDS: TempoBand[] = [
  */
 export function tempoBandsForProfile(profile: AudienceProfile): TempoBand[] {
   if (profile.id === 'senior') return SENIOR_TEMPO_BANDS;
+  // 지시문 43 (TASK A-1) — kr-idol-male/kr-idol-female 전용 실측 배분.
+  if (profile.id === 'kr-idol-male' || profile.id === 'kr-idol-female') return KR_IDOL_TEMPO_BANDS;
   return generateTempoBands(profile.tempoFloor, profile.tempoCeiling);
 }
 

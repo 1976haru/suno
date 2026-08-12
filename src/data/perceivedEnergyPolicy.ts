@@ -54,12 +54,35 @@ const UNMEASURED_POLICY: PerceivedEnergyPolicy = {
   sourceKo: '추정치 — 실측 없음(senior-oldpop의 20260808 초기값을 그대로 이식). 첫 세트 측정 후 재조정.'
 };
 
+/**
+ * 지시문 43 (TASK A-3) — kr-idol 전용 신설. UNMEASURED_POLICY를 그대로
+ * 썼을 때의 문제: tempoAnchorLow/High(62/130)가 senior의 실제 BPM 범위에서
+ * 나온 값이라, kr-idol의 새 BPM 대역(92~150, §A-1 KR_IDOL_TEMPO_BANDS)에
+ * 그대로 적용하면 92 BPM(가장 낮은 대역)조차 앵커 중간쯤(정규화 0.44)으로
+ * 읽혀 "느린 곡"으로 잘 안 잡히고, 150 BPM은 앵커 상한(130)을 넘어 전부
+ * +1로 뭉개진다(변별력 손실). tempoAnchorHigh를 kr-idol의 "댄스 표준"
+ * 대역(116-128) 상단 근처(132)로 낮추면 그 위(129-150, §A-1 업템포·고에너지
+ * 대역, 15곡 중 6곡)가 자연스럽게 tempo 축 만점권에 들어와 하루가 요구한
+ * "활달하고 풍부한 에너지"(§A-3 목표 평균 3.5)를 반영한다. anchorLow(85)는
+ * 92-99 대역(§하지 말 것 "E1~E2 도 2곡은 남긴다"이 쓰는 저에너지 곡)이
+ * 여전히 음의 점수를 받도록 kr-idol tempoFloor(92)보다 살짝 낮춘 값이다.
+ * weights/thresholds는 senior와 동일하게 시작(재조정 근거 없음) —
+ * verified: false, 첫 세트 청취 후 조정.
+ */
+const KR_IDOL_ENERGY_POLICY: PerceivedEnergyPolicy = {
+  ...SENIOR_OLDPOP_POLICY,
+  tempoAnchorLow: 85,
+  tempoAnchorHigh: 132,
+  verified: false,
+  sourceKo: '추정치 — 실측 없음. tempoAnchorLow/High만 kr-idol 자신의 새 BPM 대역(92~150, 지시문 43 TASK A-1)에 맞춰 재설정, weights/thresholds는 senior 초기값 그대로. 첫 세트 측정 후 재조정.'
+};
+
 export const PERCEIVED_ENERGY_POLICY: Record<WorkspaceId, PerceivedEnergyPolicy> = {
   'senior-oldpop': SENIOR_OLDPOP_POLICY,
   'kr-2030': UNMEASURED_POLICY,
   'jp-2030': UNMEASURED_POLICY,
   'kr-kids': UNMEASURED_POLICY,
   'jp-kids': UNMEASURED_POLICY,
-  'kr-idol-male': UNMEASURED_POLICY,
-  'kr-idol-female': UNMEASURED_POLICY
+  'kr-idol-male': KR_IDOL_ENERGY_POLICY,
+  'kr-idol-female': KR_IDOL_ENERGY_POLICY
 };

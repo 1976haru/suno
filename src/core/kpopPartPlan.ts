@@ -142,11 +142,17 @@ export function buildKpopPartPlan(
     }
     const count = countForSection(section);
     // TASK A-2 — Verse 2는 랩 배분 관행(§C 실측 "part-split-XX"의 rap
-    // verse 패턴)에 맞춰 절반 확률로 래퍼가 맡는다(로스터에 래퍼가 있을 때만).
-    // count가 2일 때 두 자리 모두 rapperPool로 제한하면(4명 로스터에는
+    // verse 패턴)에 맞춰 래퍼가 맡을 확률을 결정한다(로스터에 래퍼가 있을
+    // 때만). count가 2일 때 두 자리 모두 rapperPool로 제한하면(4명 로스터에는
     // 래퍼가 1명뿐이라) 나머지 한 자리를 채울 수 없어 다양성이 줄어드므로,
     // 래퍼 1명은 고정하고 나머지 자리는 fresh-first로 전체 로스터에서 뽑는다.
-    const useRapper = section === 'Verse 2' && rapperPool.length > 0 && rng() > 0.5;
+    // 지시문 43 (TASK D-4) — 고정 50%였던 확률을 policy.rapPolicy.targetRatio
+    // (kpopWorkspacePolicy.ts, 15곡 기준 12곡 목표 = 0.8)에 그대로 연동한다.
+    // 실측(20260810 세트) 랩 언급 4/18(22%)에서 목표 80%로 올리는 것이므로
+    // 확률도 그만큼 커야 한다 — releaseReadiness.ts의 checkKpopRapShare가
+    // 검사하는 목표와 여기서 실제로 배정하는 확률이 항상 같은 정책값을
+    // 공유해 둘이 어긋나지 않는다.
+    const useRapper = section === 'Verse 2' && rapperPool.length > 0 && rng() < policy.rapPolicy.targetRatio;
     let memberIds: string[];
     let effectiveRole: KpopPartRole;
     if (useRapper) {

@@ -411,6 +411,19 @@ export function signatureMoneyChordId(archetype: string | undefined): string {
  * usesMoneyChordQuota 변경 후에도 마찬가지 — 풀 크기 자체가 회전 조건이므로,
  * 정말 1종만 있는 게 맞는 경우는 그대로 둔다).
  */
+// 지시문 43 (TASK B-1/B-2) — 하루의 지적("K-pop 머니코드가 훨씬 다양해야
+// 한다")에 따라 kr-idol-male/kr-idol-female만 5종 → 9종으로 확장한다.
+// 기존 5종(emotional·default·komuro·cityPop·canon)에 royalRoad·marusa·
+// jazzColor·popStandard 4종을 더한다 — 전부 이 파일에 이미 있는 기존
+// 프리셋이고(§하지 말 것 "재구현 금지"), compatibleWith로 조합 가능함을
+// 확인했다: royalRoad↔komuro(royalRoad.compatibleWith에 komuro 포함),
+// marusa↔cityPop/komuro(둘 다 marusa.compatibleWith 포함), jazzColor↔
+// emotional/cityPop(둘 다 jazzColor.compatibleWith 포함), popStandard↔
+// default/canon(둘 다 popStandard.compatibleWith 포함) — 9종 전부가 풀 안의
+// 다른 최소 1종과 서로 compatibleWith로 연결돼 있어 곡 안 다중 진행(TASK
+// B-3, moneyChordSectionPlan.ts)의 이웃 선택도 항상 풀 내부에서 이뤄진다.
+const KR_IDOL_MONEY_CHORD_POOL = ['emotional', 'default', 'komuro', 'cityPop', 'canon', 'royalRoad', 'marusa', 'jazzColor', 'popStandard'];
+
 const MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE: Record<string, string[]> = {
   'senior-morning': ['doowop', 'warmCycle', 'emotional', 'default', 'canon'],
   'showa-cafe': ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'],
@@ -421,8 +434,8 @@ const MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE: Record<string, string[]> = {
   'oldpop-lounge': ['doowop', 'warmCycle', 'popStandard', 'emotional', 'jazzColor', 'canon'],
   'kr-2030-pop': ['default', 'emotional', 'cityPop', 'popStandard', 'canon'],
   'jp-2030-pop': ['cityPop', 'marusa', 'komuro', 'jazzColor', 'default'],
-  'kr-idol-male': ['emotional', 'default', 'komuro', 'cityPop', 'canon'],
-  'kr-idol-female': ['emotional', 'canon', 'komuro', 'cityPop', 'default'],
+  'kr-idol-male': KR_IDOL_MONEY_CHORD_POOL,
+  'kr-idol-female': KR_IDOL_MONEY_CHORD_POOL,
   'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default']
 };
 
