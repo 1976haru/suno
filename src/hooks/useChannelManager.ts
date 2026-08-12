@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { channelPresets } from '../data/presets';
 import { createDraftChannel, makeUniqueId, normalizeChannel, readStoredChannels, validateChannelProfile, writeStoredChannels } from '../utils/channelProfile';
 import { getWorkspace } from '../data/workspaces';
+import { lastChannelIdForWorkspace, rememberLastChannelForWorkspace } from '../core/workspaceScope';
 import type { ChannelProfile, WorkspaceId } from '../types';
 
 /**
@@ -47,9 +48,17 @@ export function useChannelManager(workspaceId: WorkspaceId, onApply: (channel: C
   const defaultChannel = presets[0];
   const [customChannels, setCustomChannels] = useState<ChannelProfile[]>(() => readStoredChannels());
   const channels = useMemo(() => [...presets, ...customChannels], [presets, customChannels]);
-  const [selectedChannelId, setSelectedChannelId] = useState(defaultChannel.id);
+  // 지시문 41 (TASK A-6) — re-entering a workspace resumes the channel last
+  // selected there instead of always defaulting to presets[0]. Falls back to
+  // the default preset when nothing is remembered yet, or the remembered id
+  // no longer resolves to a real channel (e.g. a deleted custom channel).
+  const [selectedChannelId, setSelectedChannelId] = useState(() => {
+    const remembered = lastChannelIdForWorkspace(workspaceId);
+    const remembersReal = remembered && [...presets, ...customChannels].some(channel => channel.id === remembered);
+    return remembersReal ? remembered! : defaultChannel.id;
+  });
   const selectedChannel = channels.find(channel => channel.id === selectedChannelId) || defaultChannel;
-  const [editorChannel, setEditorChannel] = useState<ChannelProfile>(() => ({ ...defaultChannel }));
+  const [editorChannel, setEditorChannel] = useState<ChannelProfile>(() => ({ ...selectedChannel }));
   const [quickChannelName, setQuickChannelName] = useState('');
   const isSelectedCustom = customChannels.some(channel => channel.id === selectedChannelId);
   // v5.9 (TASK §4) — computed once at load time from the lazy initializer
@@ -78,6 +87,7 @@ export function useChannelManager(workspaceId: WorkspaceId, onApply: (channel: C
     const channel = channels.find(item => item.id === id) || defaultChannel;
     setSelectedChannelId(channel.id);
     setEditorChannel({ ...channel });
+    rememberLastChannelForWorkspace(workspaceId, channel.id);
     onApply(channel);
   }
 
@@ -93,6 +103,7 @@ export function useChannelManager(workspaceId: WorkspaceId, onApply: (channel: C
     setQuickChannelName('');
     setSelectedChannelId(channel.id);
     setEditorChannel({ ...channel });
+    rememberLastChannelForWorkspace(workspaceId, channel.id);
     onApply(channel);
   }
 
@@ -148,6 +159,7 @@ export function useChannelManager(workspaceId: WorkspaceId, onApply: (channel: C
     ));
     setSelectedChannelId(channel.id);
     setEditorChannel({ ...channel });
+    rememberLastChannelForWorkspace(workspaceId, channel.id);
     onApply(channel);
     return true;
   }
@@ -157,6 +169,7 @@ export function useChannelManager(workspaceId: WorkspaceId, onApply: (channel: C
     setCustomChannels(prev => prev.filter(channel => channel.id !== selectedChannelId));
     setSelectedChannelId(defaultChannel.id);
     setEditorChannel({ ...defaultChannel });
+    rememberLastChannelForWorkspace(workspaceId, defaultChannel.id);
     onApply(defaultChannel);
   }
 

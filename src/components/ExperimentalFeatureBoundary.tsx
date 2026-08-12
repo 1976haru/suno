@@ -18,7 +18,7 @@ interface State {
  * already use for their own async decode/analyze calls) only ever catches
  * async logic errors, never a render-time throw — this is the other half.
  * Scoped tightly around each individual experimental panel (audio
- * analysis/edit, rating insights, thumbnail image generation), never
+ * analysis/edit, rating insights), never
  * around the core 5-step flow itself, so this can never mask a real bug in
  * production-status code.
  */

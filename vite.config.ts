@@ -101,11 +101,6 @@ function devApiPlugin(): Plugin {
     configureServer(server) {
       mountApi(server, '/api/generate', '/api/generate.js');
       mountApi(server, '/api/batch', '/api/batch.js');
-      // v4.0 (TASK B) — api/image.js already existed but was never mounted
-      // here, so a local `npm run dev` session 404'd on every thumbnail
-      // image-generation request (Gemini/Qwen) even though the handler
-      // itself was fine on a real Vercel-style host.
-      mountApi(server, '/api/image', '/api/image.js');
     }
   };
 }

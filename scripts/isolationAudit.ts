@@ -17,7 +17,6 @@ import { genrePacks as resolvedGenrePacks, channelPresets } from '../src/data/pr
 import { lyricThemesForArchetype, adultLyricThemes } from '../src/data/lyricThemes';
 import { overrideForArchetype } from '../src/data/hookBanks';
 import { defaultHookParts, type HookVocabularyOverride } from '../src/data/hookParts';
-import { thumbnailArchetypesForArchetype, thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 import { matchConceptRules } from '../src/data/conceptKeywords';
 import { GENRE_WORKSPACE_OWNERSHIP, isGenreForeignToWorkspace } from '../src/data/genreWorkspaceOwnership';
 import type { ChannelArchetype, WorkspaceId } from '../src/types';
@@ -277,32 +276,8 @@ export function checkL5(): CheckResult {
 }
 
 // ---------------------------------------------------------------------------
-// L6 — 썸네일 아키타입 노출
+// L6 — 지시문 41 (TASK B)로 썸네일 기능 전체가 제거되며 이 체크도 함께 삭제됨.
 // ---------------------------------------------------------------------------
-export function checkL6(): CheckResult[] {
-  const results: CheckResult[] = [];
-  const unscopedCount = thumbnailArchetypes.filter(a => !a.suitedArchetypes).length;
-  for (const ws of workspaceDefinitions) {
-    for (const archetype of ws.archetypeIds) {
-      const scoped = thumbnailArchetypes.filter(a => a.suitedArchetypes);
-      const suited = scoped.filter(a => a.suitedArchetypes!.includes(archetype));
-      if (!suited.length) {
-        results.push({ checkId: 'L6', workspaceId: ws.id, archetype, status: 'SKIP', detail: `전용 썸네일 아키타입 0개(기존 ${unscopedCount}종은 전 아키타입 정상 노출, 제외) — 미구축` });
-        continue;
-      }
-      const list = thumbnailArchetypesForArchetype(archetype);
-      const foreign = list.filter(a => a.suitedArchetypes && !a.suitedArchetypes.includes(archetype));
-      results.push({
-        checkId: 'L6',
-        workspaceId: ws.id,
-        archetype,
-        status: foreign.length ? 'FAIL' : 'PASS',
-        detail: foreign.length ? `부적합 노출 ${foreign.length}건: ${foreign.map(a => a.id).join(', ')}` : `전용 ${suited.length}개 확인, 부적합 노출 0건(기존 무제한 ${unscopedCount}종 별도)`
-      });
-    }
-  }
-  return results;
-}
 
 // ---------------------------------------------------------------------------
 // L7 — 컨셉 규칙 회귀
@@ -347,7 +322,7 @@ export function checkL7(): CheckResult {
 // 실행 / 리포트
 // ---------------------------------------------------------------------------
 export function runAllChecks(): CheckResult[] {
-  return [...checkL1(), checkL2(), ...checkL3(), ...checkL4(), checkL5(), ...checkL6(), checkL7()];
+  return [...checkL1(), checkL2(), ...checkL3(), ...checkL4(), checkL5(), checkL7()];
 }
 
 function main() {

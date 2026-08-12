@@ -690,6 +690,8 @@ interface Step3GenerateProps {
   hasSelectedSeason: boolean;
   onGoToChannelStep: () => void;
   onGoToSeasonStep: () => void;
+  /** 지시문 41 (TASK A) — 채널 선택(컨셉 화면 상단, onGoToChannelStep)과 채널 편집/삭제(채널 관리 오버레이)가 이제 서로 다른 화면이라 분리했다. */
+  onOpenChannelManager: () => void;
   basicMode?: boolean;
   expertMode: boolean;
   onToggleExpertMode: () => void;
@@ -706,7 +708,7 @@ interface Step3GenerateProps {
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
+  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, onOpenChannelManager, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
   workspaceId, onNavigateToWorkspace, acknowledgedSignature, onAcknowledgedSignatureChange
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
@@ -2074,8 +2076,8 @@ export default function Step3Generate({
                   채널의 워크스페이스({getWorkspace(generationContract.workspaceRecovery.correctWorkspaceId).labelKo})로 이동
                 </button>
               )}
-              <button type="button" onClick={onGoToChannelStep}>채널 편집</button>
-              <button type="button" onClick={onGoToChannelStep}>채널 관리에서 삭제</button>
+              <button type="button" onClick={onOpenChannelManager}>채널 편집</button>
+              <button type="button" onClick={onOpenChannelManager}>채널 관리에서 삭제</button>
             </div>
           )}
         </div>

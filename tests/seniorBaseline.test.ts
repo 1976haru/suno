@@ -24,7 +24,6 @@ import { channelPresets } from '../src/data/presets';
 import { genreLibrary } from '../src/data/genreLibrary';
 import { GENRE_TRAIT_OVERRIDES } from '../src/data/genreTraits';
 import { adultLyricThemes } from '../src/data/lyricThemes';
-import { thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 import { CONCEPT_KEYWORD_RULES } from '../src/data/conceptKeywords';
 import { getCoreGenreIdsForArchetype } from '../src/data/genreLibrary';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -180,12 +179,6 @@ describe('기존 id 스냅샷 — 추가는 통과, 삭제·변경은 실패 (TA
   it(`adultLyricThemes 기존 ${snapshot.adultLyricThemeIds.length}개 id 전부 존재`, () => {
     const currentIds = new Set(adultLyricThemes.map(t => t.id));
     const missing = snapshot.adultLyricThemeIds.filter(id => !currentIds.has(id));
-    expect(missing, `사라진 id: ${missing.join(', ')}`).toEqual([]);
-  });
-
-  it(`thumbnailArchetypes 기존 ${snapshot.thumbnailArchetypeIds.length}개 id 전부 존재`, () => {
-    const currentIds = new Set(thumbnailArchetypes.map(a => a.id));
-    const missing = snapshot.thumbnailArchetypeIds.filter(id => !currentIds.has(id));
     expect(missing, `사라진 id: ${missing.join(', ')}`).toEqual([]);
   });
 

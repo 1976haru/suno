@@ -435,7 +435,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       <div className="option-block">
         <div className="section-head">
           <div>
-            <p className="eyebrow">Step 2.5</p>
+            <p className="eyebrow">해석 결과</p>
             <h2>이렇게 해석했습니다</h2>
           </div>
           <div className="button-row">

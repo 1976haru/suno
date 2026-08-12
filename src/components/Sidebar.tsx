@@ -21,7 +21,6 @@ interface SidebarProps {
   onOpenDashboard: () => void;
   /** TASK v3.68 (TASK F) — "무엇이 잘 먹히나" 청취 평가 인사이트 화면. */
   onOpenInsights: () => void;
-  onOpenThumbnail: () => void;
   onOpenPersona: () => void;
 }
 
@@ -40,7 +39,7 @@ export default function Sidebar({
   onExportAll,
   onImportAll,
   onOpenSettings,
-  onOpenDashboard, onOpenInsights, onOpenThumbnail, onOpenPersona
+  onOpenDashboard, onOpenInsights, onOpenPersona
 }: SidebarProps) {
   return (
     <aside className="app-sidebar">
@@ -125,10 +124,6 @@ export default function Sidebar({
       </button>
 
       <div className="button-row">
-        <button type="button" onClick={onOpenThumbnail}>
-          Thumbnail studio
-          <span className="feature-badge">{FEATURE_STATUS_LABEL_KO[featureStatus('imageGeneration')]}</span>
-        </button>
         <button type="button" onClick={onOpenPersona}>Persona</button>
       </div>
 

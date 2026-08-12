@@ -184,7 +184,6 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
             <tr>
               <th>주차</th>
               <th>제목</th>
-              <th>사용 썸네일</th>
               <th>상태</th>
               <th>YouTube URL</th>
               <th>CTR(%)</th>
@@ -202,7 +201,6 @@ export default function VideoDashboard({ channel, onClose }: VideoDashboardProps
               <tr key={video.id}>
                 <td>{video.weekNo}</td>
                 <td>{video.videoTitle}</td>
-                <td>{video.thumbnailUsed || '—'}</td>
                 <td>{statusLabel(video)}</td>
                 <td>
                   <input

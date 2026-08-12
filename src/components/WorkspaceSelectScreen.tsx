@@ -42,19 +42,39 @@ function formatLastWorked(iso: string | null): string {
 
 /**
  * 지시문 28 (TASK B) — 워크스페이스 카드 자체가 <button>이라 안에 <details>
- * 같은 인터랙티브 요소를 넣을 수 없다(HTML 중첩 규칙 위반 + 클릭 가로채기).
- * 대신 title 속성에 5개 축 전체를 풀어써 호버로 보이게 한다 — 클릭은 여전히
- * 카드 전체(워크스페이스 진입) 동작 하나뿐이다. 차단 없음 — 색과 숫자만
- * 다를 뿐 클릭 가능 여부(ready)는 전혀 바꾸지 않는다.
+ * 같은 인터랙티브 요소를 넣을 수 없었다(HTML 중첩 규칙 위반 + 클릭
+ * 가로채기). title 호버로 5개 축을 보여줬지만, 지시문 41 (TASK D) —
+ * "왜 3/5인지 알 수 있어야 조치할 수 있다. 눌렀을 때 내역이 보이게" —
+ * 호버는 터치 기기에서 아예 닿을 수 없다. 카드 구조를 바꿔(바깥은 이제
+ * <div>, "워크스페이스 열기"만 진짜 <button>) 이 배지를 그 옆의 독립된
+ * <button>으로 분리했다 — 형제 요소라 중첩 문제 없이 눌러서 펼칠 수 있다.
+ * 차단은 여전히 없다 — 색과 숫자, 펼침 여부만 다를 뿐 ready 판정 자체는
+ * 손대지 않는다.
  */
-function WorkspaceReadinessBadge({ readiness }: { readiness: WorkspaceReadiness }) {
+function WorkspaceReadinessBadge({ readiness, expanded, onToggle }: { readiness: WorkspaceReadiness; expanded: boolean; onToggle: () => void }) {
   const { items, passCount, total } = readiness;
   const allPass = passCount === total;
   const title = items.map(i => `${i.ok ? '✅' : '❌'} ${i.labelKo}: ${i.detailKo}`).join('\n');
   return (
-    <span className={allPass ? 'chip workspace-card-readiness' : 'chip warning-chip workspace-card-readiness'} title={title}>
-      {allPass ? '✅' : '⚠'} 준비 상태 {passCount}/{total}
-    </span>
+    <>
+      <button
+        type="button"
+        className={allPass ? 'chip workspace-card-readiness' : 'chip warning-chip workspace-card-readiness'}
+        title={title}
+        onClick={e => { e.stopPropagation(); onToggle(); }}
+      >
+        {allPass ? '✅' : '⚠'} 준비 상태 {passCount}/{total}
+      </button>
+      {expanded && (
+        <ul className="workspace-card-readiness-detail" onClick={e => e.stopPropagation()}>
+          {items.map(item => (
+            <li key={item.id}>
+              {item.ok ? '✅' : '⚠'} {item.labelKo} — {item.detailKo}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -63,6 +83,8 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
   const [notReadyNotice, setNotReadyNotice] = useState<WorkspaceDefinition | null>(null);
   const [skipNextTime, setSkipNextTime] = useState(false);
   const [dataManagementOpen, setDataManagementOpen] = useState(false);
+  // 지시문 41 (TASK D) — 한 번에 한 카드만 펼친다(아코디언). 같은 배지를 다시 누르면 접는다.
+  const [expandedReadinessId, setExpandedReadinessId] = useState<WorkspaceId | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,13 +121,12 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
           const stat = stats[workspace.id];
           const ready = isWorkspaceReady(workspace);
           return (
-            <button
+            <div
               key={workspace.id}
-              type="button"
               className={ready ? 'workspace-card' : 'workspace-card not-ready'}
               style={{ borderColor: ready ? workspace.theme.accent : undefined }}
-              onClick={() => handleCardClick(workspace)}
             >
+              <button type="button" className="workspace-card-enter" onClick={() => handleCardClick(workspace)}>
               <span className="workspace-card-label">{workspace.labelKo}</span>
               {ready ? (
                 <span className="workspace-card-meta">
@@ -115,8 +136,15 @@ export default function WorkspaceSelectScreen({ onSelect }: WorkspaceSelectScree
               ) : (
                 <span className="workspace-card-meta">준비 중</span>
               )}
-              {ready && stat && <WorkspaceReadinessBadge readiness={stat.readiness} />}
-            </button>
+              </button>
+              {ready && stat && (
+                <WorkspaceReadinessBadge
+                  readiness={stat.readiness}
+                  expanded={expandedReadinessId === workspace.id}
+                  onToggle={() => setExpandedReadinessId(current => (current === workspace.id ? null : workspace.id))}
+                />
+              )}
+            </div>
           );
         })}
       </div>

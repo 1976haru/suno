@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ImagePlus, Wand2 } from 'lucide-react';
+import { Wand2 } from 'lucide-react';
 import { genrePacks, moodPacks, seasonPacks } from './data/presets';
 import { getDefaultGenreIdsForArchetype } from './data/genreLibrary';
 import { BUILD_INFO } from './core/buildInfo';
 import { checkConceptCompatibility } from './core/conceptCompatibility';
 import { readRecentGenreIds, rememberRecentGenreId } from './core/recentGenreStore';
-import type { ThumbnailArchetypeId } from './data/thumbnailArchetypes';
 import { moneyChordPresets } from './data/moneyChords';
 import { AUTOSAVE_ID, listChannelPersonas, recordChannelPersonaUse, saveAutosave, saveChannelPersona, type ChannelPersonaRecord } from './core/library';
 import { isEvaluationAvailable } from './agents/evaluator';
@@ -13,7 +12,6 @@ import { computeCacheKey, getCached, setCached } from './core/apiCache';
 import { validateProviderTrackSet } from './core/importValidation';
 import { bumpGenerationHistoryRevision } from './core/generationHistoryRevision';
 import { recordUsage } from './core/usageLedger';
-import { buildThumbnailSpec } from './core/thumbnailSpec';
 import { channelExhaustionStats, clearChannelHistory, hookPoolGraduatedWarning, recordPackHooks, usedTitles as fetchHistoricalTitles, type ExhaustionStats } from './core/hookLedger';
 import { recordPackSituations, recentSituations } from './core/situationLedger';
 import { recordPackLyricLines, recentLyricLines } from './core/lyricLineLedger';
@@ -48,14 +46,13 @@ import { useBatchGenerationFlow } from './hooks/useBatchGenerationFlow';
 import { useMultiSetGenerationFlow } from './hooks/useMultiSetGenerationFlow';
 import { buildSetOptions, combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type SetResult } from './core/multiSetGeneration';
 import { applySetTitlePrefixesToBlueprint, clampMultiSetTotal, createInitialOptions, stripSetTitlePrefix } from './utils/generation';
-import { resolvePackagingLanguage } from './core/packagingLanguage';
 import { languageOverrideConfirmMessageKo, shouldConfirmLanguageOverride } from './core/userChoices';
 import { reconcileOptionsForChannelSwitch } from './core/channelSwitch';
 import { applyListeningIntentIfPending } from './core/listeningIntent';
 import { LISTENING_INTENT_POLICY } from './data/listeningIntentPolicy';
 import { PERCEIVED_ENERGY_POLICY } from './data/perceivedEnergyPolicy';
 import { workspaceForArchetype } from './data/workspaces';
-import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SoundSignature, ThumbnailVariantId, WorkspaceId } from './types';
+import type { ChannelProfile, GenerationOptions, PlaylistBlueprint, PreassignedSongSlot, ProviderSettings, SoundSignature, WorkspaceId } from './types';
 import { getWorkspace } from './data/workspaces';
 import { isMigrationPending, runWorkspaceMigrationOnce, runSnapshotSecretMigrationOnce } from './core/workspaceMigration';
 import { currentWorkspaceId, setCurrentWorkspace } from './core/workspaceScope';
@@ -77,15 +74,17 @@ import WizardNav from './components/WizardNav';
 import StepErrorBoundary from './components/StepErrorBoundary';
 import VideoDashboard from './components/VideoDashboard';
 import RatingInsightsPanel from './components/RatingInsightsPanel';
-import ThumbnailImageStudioPanel from './components/ThumbnailImageStudioPanel';
 import ExperimentalFeatureBoundary from './components/ExperimentalFeatureBoundary';
 
+// 지시문 41 (TASK A-5) — "채널" 단계를 없앤다: 워크스페이스를 고르면
+// 채널을 곧바로 고르지 않고 컨셉 화면으로 간다(채널 선택기는 그 화면
+// 상단으로 옮겼다 — Step2Concept.tsx의 channel-picker). 채널 관리(구
+// Step1Channel)는 이제 번호 매겨진 단계가 아니라 별도 진입점이다.
 const STEPS: StepDef[] = [
-  { id: 1, label: '채널' },
-  { id: 2, label: '컨셉' },
-  { id: 3, label: '설계안' },
-  { id: 4, label: '생성' },
-  { id: 5, label: '결과' }
+  { id: 1, label: '컨셉' },
+  { id: 2, label: '설계안' },
+  { id: 3, label: '생성' },
+  { id: 4, label: '결과' }
 ];
 
 /**
@@ -121,22 +120,18 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const workspace = getWorkspace(workspaceId);
   const [provider, setProvider] = useState<ProviderSettings>({ provider: 'local', temperature: 0.8, proxyEndpoint: '/api/generate' });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsFocus, setSettingsFocus] = useState<'qwen' | undefined>();
   const [expertMode, setExpertMode] = useState(true);
   const [topBridgeInstruction, setTopBridgeInstruction] = useState('');
   const [workspaceFocus, setWorkspaceFocus] = useState<ResultTab | undefined>();
-  const [thumbnailStandaloneOpen, setThumbnailStandaloneOpen] = useState(false);
-  const [thumbnailStandaloneSeasonId, setThumbnailStandaloneSeasonId] = useState('christmas');
   const [currentStep, setCurrentStep] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<{ key: string; cachedAt: string } | null>(null);
   const [hybridMode, setHybridMode] = useState(false);
-  const [thumbnailVariant, setThumbnailVariant] = useState(0);
-  const [selectedThumbnailVariant, setSelectedThumbnailVariant] = useState<ThumbnailVariantId>('A');
-  const [thumbnailArchetypeId, setThumbnailArchetypeId] = useState<ThumbnailArchetypeId>('autumn-window-golden');
-  /** TASK H6 (v3.10) — set only when the user asks the concept agent for thumbnail copy; coexists with (never replaces) v3.6's season/emotion/audience A/B/C strategy. */
-  const [thumbnailFreeTextHeadlines, setThumbnailFreeTextHeadlines] = useState<{ headline: string; angle: string }[] | null>(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  // 지시문 41 (TASK A-4) — Step1Channel의 새 진입점. 컴포넌트 자체는 지우지
+  // 않고(기능 그대로), 마법사 1단계 자리에서 Dashboard/Insights와 같은
+  // 오버레이 패턴으로만 옮긴다.
+  const [channelManagerOpen, setChannelManagerOpen] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
   const [savedPersonas, setSavedPersonas] = useState<ChannelPersonaRecord[]>([]);
   const [hookExhaustionWarning, setHookExhaustionWarning] = useState<ExhaustionStats | null>(null);
@@ -271,7 +266,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     evalFlow.setEvaluation(pack.evaluation || null);
     const channel = cm.channels.find(item => item.id === pack.options.channel.id);
     if (channel) cm.setSelectedChannelId(channel.id);
-    setCurrentStep(5);
+    setCurrentStep(4);
   });
 
   const [opts, setOpts] = useState(() => createInitialOptions(cm.selectedChannel));
@@ -297,36 +292,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const hasSelectedSeason = useMemo(() => seasonPacks.some(season => season.id === opts.seasonId), [opts.seasonId]);
   const selectedSeason = useMemo(() => seasonPacks.find(season => season.id === opts.seasonId) || seasonPacks[0], [opts.seasonId]);
   const selectedMoneyChord = useMemo(() => moneyChordPresets[opts.moneyChordMode] ?? moneyChordPresets.default, [opts.moneyChordMode]);
-  const thumbnailSpec = useMemo(
-    () => {
-      if (!gen.blueprint) return null;
-      const spec = buildThumbnailSpec(gen.blueprint, { ...opts, channel: cm.selectedChannel }, selectedSeason, cm.selectedChannel, thumbnailVariant, thumbnailArchetypeId);
-      const variants = thumbnailFreeTextHeadlines
-        ? spec.variants.map((variant, index) => (
-          thumbnailFreeTextHeadlines[index]
-            ? { ...variant, headline: thumbnailFreeTextHeadlines[index].headline, angle: thumbnailFreeTextHeadlines[index].angle }
-            : variant
-        ))
-        : spec.variants;
-      return { ...spec, variants, selected: selectedThumbnailVariant };
-    },
-    [gen.blueprint, opts, cm.selectedChannel, selectedSeason, thumbnailVariant, thumbnailArchetypeId, selectedThumbnailVariant, thumbnailFreeTextHeadlines]
-  );
-  const standaloneThumbnailSpec = useMemo(() => {
-    const blueprint = {
-      projectTitle: 'Standalone Thumbnail',
-      channelName: cm.selectedChannel.name,
-      oneLineConcept: '',
-      sonicSignature: '',
-      vocalSignature: '',
-      lyricRules: [],
-      harmonyRules: [],
-      visualRules: [],
-      songs: []
-    } as PlaylistBlueprint;
-    const season = seasonPacks.find(item => item.id === thumbnailStandaloneSeasonId) || selectedSeason;
-    return buildThumbnailSpec(blueprint, { ...opts, channel: cm.selectedChannel }, season, cm.selectedChannel, 0, thumbnailArchetypeId);
-  }, [cm.selectedChannel, opts, selectedSeason, thumbnailStandaloneSeasonId, thumbnailArchetypeId]);
 
   // TASK E2 (v3.5) — a Batch API job outlives a closed tab; resume polling
   // any job still in flight for this channel as soon as it's known.
@@ -479,9 +444,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }
     try {
       const nextOpts = { ...sourceOpts, songCount };
-      const nextThumbnailSpec = buildThumbnailSpec(finalBlueprint, nextOpts, selectedSeason, sourceOpts.channel, 0, thumbnailArchetypeId);
       const nextSoundSignature = buildSoundSignature(finalBlueprint, nextOpts, sourceOpts.channel);
-      await saveAutosave(finalBlueprint, nextOpts, nextThumbnailSpec, nextSoundSignature);
+      await saveAutosave(finalBlueprint, nextOpts, undefined, nextSoundSignature);
       await recordPackHooks(AUTOSAVE_ID, sourceOpts.channel.id, finalBlueprint, nextOpts.lyricLanguage);
       // v5.22 (AXIS 1) — same autosave-slot tracking recordPackHooks just did
       // for hooks, so a generation the user never explicitly saves still
@@ -505,9 +469,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
 
   function runGeneration(cacheKeyToStore?: string) {
     evalFlow.setEvaluation(null);
-    setThumbnailVariant(0);
-    setSelectedThumbnailVariant('A');
-    setCurrentStep(5);
+    setCurrentStep(4);
     const generationProvider = isHybridActive ? { ...provider, provider: 'local' as const } : provider;
     void gen.generate(
       { ...opts, channel: cm.selectedChannel },
@@ -523,7 +485,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const finalBlueprint = finalizeSinglePackBlueprint(next, batchOpts);
     evalFlow.setEvaluation(null);
     gen.setBlueprint(finalBlueprint);
-    setCurrentStep(5);
+    setCurrentStep(4);
     void handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, batchOpts);
   }
 
@@ -712,7 +674,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // when a non-default tab is requested, so the normal import path's
     // tab behavior is unchanged from before this task.
     if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
-    setCurrentStep(5);
+    setCurrentStep(4);
     await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
     // TASK v3.62 (TASK 4) — handleGenerationSuccess only records this
     // pack's hooks under the ephemeral AUTOSAVE_ID slot, which the very
@@ -747,7 +709,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     evalFlow.setEvaluation(null);
     gen.setBlueprint(finalBlueprint);
     if (focusTab !== 'songs') setWorkspaceFocus(focusTab);
-    setCurrentStep(5);
+    setCurrentStep(4);
     await handleGenerationSuccess(finalBlueprint, finalBlueprint.songs.length, undefined, importOpts);
     try {
       await library.saveImportedPack(finalBlueprint, importOpts);
@@ -910,7 +872,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     evalFlow.setEvaluation(null);
     gen.setBlueprint(displayBlueprint);
     setWorkspaceFocus('srt');
-    setCurrentStep(5);
+    setCurrentStep(4);
     return {
       blueprint: displayBlueprint,
       importedCount: songs.length,
@@ -1080,7 +1042,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     if (lastBlueprint) {
       evalFlow.setEvaluation(null);
       gen.setBlueprint(lastBlueprint);
-      setCurrentStep(5);
+      setCurrentStep(4);
     }
     if (plan.pendingConfirmation.length) {
       presentNextMultiSetConfirm({ groupId, setTotal: multiSetCount, items: plan.pendingConfirmation });
@@ -1134,7 +1096,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     }));
     evalFlow.setEvaluation(null);
     gen.setBlueprint(finalBlueprint);
-    setCurrentStep(5);
+    setCurrentStep(4);
     presentNextMultiSetConfirm(remainingQueue);
   }
 
@@ -1220,7 +1182,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       }, evaluateDesignGateResponsive);
       const combined = combineMultiSetPreflight(perSet, generationAcknowledgedSignature);
       if (!combined.allowed) {
-        setCurrentStep(4);
+        setCurrentStep(3);
         return false;
       }
       return true;
@@ -1233,7 +1195,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       acknowledgedSignature: generationAcknowledgedSignature
     }, evaluateDesignGateResponsive);
     if (!preflight.allowed) {
-      setCurrentStep(4);
+      setCurrentStep(3);
       return false;
     }
     return true;
@@ -1322,7 +1284,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       setMultiSetWarnings(prev => [...prev, ...result.warnings.map(warning => `Set ${result.index + 1}: ${warning}`)]);
     }
     gen.setBlueprint(result.blueprint);
-    setCurrentStep(5);
+    setCurrentStep(4);
   }
 
   async function proceedWithGeneration() {
@@ -1482,7 +1444,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       evalFlow.setEvaluation(null);
       const finalBlueprint = finalizeSinglePackBlueprint(cached.blueprint);
       gen.setBlueprint(finalBlueprint);
-      setCurrentStep(5);
+      setCurrentStep(4);
       try {
         await recordUsage({ provider: provider.provider, model: provider.model || provider.provider, purpose: 'generate', inputTokens: 0, outputTokens: 0, cacheHit: true });
       } catch {
@@ -1498,19 +1460,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const key = cachePrompt?.key;
     setCachePrompt(null);
     runGeneration(key);
-  }
-
-  function onRegenerateHeadline() {
-    setThumbnailFreeTextHeadlines(null);
-    setThumbnailVariant(v => v + 1);
-  }
-
-  function onApplyThumbnailFreeText(suggestions: { headline: string; angle: string }[]) {
-    setThumbnailFreeTextHeadlines(suggestions);
-  }
-
-  function onSelectThumbnailVariant(id: ThumbnailVariantId) {
-    setSelectedThumbnailVariant(id);
   }
 
   /**
@@ -1674,7 +1623,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
    */
   async function onSaveCurrentPack() {
     const saveOptions = gen.blueprint?.generationSnapshot?.options ?? { ...opts, channel: cm.selectedChannel };
-    await library.saveCurrentPack(gen.blueprint, saveOptions, thumbnailSpec, soundSignature ?? undefined);
+    await library.saveCurrentPack(gen.blueprint, saveOptions, undefined, soundSignature ?? undefined);
     if (soundSignature) {
       await recordChannelPersonaUse(saveOptions.channel.id, soundSignature.personaName, soundSignature);
       await refreshSavedPersonas();
@@ -1691,8 +1640,11 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
   const resultStepBlocked = !gen.blueprint;
   // Fable5 1단계 TASK B-2 (③) — Step1Channel's editorChannel is only a
   // draft; cm.saveEditorProfile() must run before it becomes cm.selectedChannel
-  // (the channel generation actually uses). A card click that never gets
-  // applied shouldn't let the user wander into Step2 assuming it took effect.
+  // (the channel generation actually uses). 지시문 41 (TASK A) — Step1Channel은
+  // 더 이상 마법사 단계가 아니라 "채널 관리" 오버레이이므로, 이 값은 이제
+  // 마법사 다음 버튼을 막는 데 쓰이지 않는다(그 게이팅은 오버레이 밖으로
+  // 나갈 이유가 없었다) — 오버레이 안에서 "저장 안 한 변경 있음"을 보여주는
+  // 용도로만 남는다.
   const channelDirty = JSON.stringify(cm.editorChannel) !== JSON.stringify(cm.selectedChannel);
   /**
    * 지시문 32 (§1) — "컨셉 입력 시점, 설계안(Step2Plan) 단계 진입 전"에
@@ -1713,7 +1665,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     setConceptCompatAcknowledged(false);
   }, [conceptCompat.status, opts.customConcept, opts.projectTitle, opts.channel.id]);
   const conceptCompatBlocked = conceptCompat.status === 'cross-style' && !conceptCompatAcknowledged;
-  const maxUnlocked = gen.blueprint ? 5 : step2Blocked ? 2 : 4;
+  const maxUnlocked = gen.blueprint ? 4 : step2Blocked ? 1 : 3;
   // v3.78 (TASK A, §2-1) — "Step2Plan → Step3 이동 시 경고": Step2Plan.tsx
   // lifts its own 관문 1 status here via onDesignGateStatusChange so the
   // global "다음" footer button (nextDisabled below) blocks navigation out of
@@ -1753,9 +1705,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
         </div>
         <div className="button-row">
           {topBridgeInstruction && <button type="button" onClick={() => void copyText(topBridgeInstruction)}>전체 복사</button>}
-          <button type="button" className="primary thumbnail-entry-button" onClick={() => setThumbnailStandaloneOpen(true)}>
-            <ImagePlus size={17} /> 썸네일 만들기
-          </button>
           <button type="button" className={expertMode ? 'chip active' : 'chip'} onClick={toggleExpertMode}>
             {expertMode ? '자세히 모드' : '간단히 모드'}
           </button>
@@ -1784,8 +1733,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenDashboard={() => setDashboardOpen(true)}
           onOpenInsights={() => setInsightsOpen(true)}
-          onOpenThumbnail={() => setThumbnailStandaloneOpen(true)}
-          onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(5); }}
+          onOpenPersona={() => { setWorkspaceFocus('persona'); setCurrentStep(4); }}
         />
 
         <div className="wizard-main">
@@ -1796,34 +1744,34 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             <ExperimentalFeatureBoundary featureLabel="청취 평가 인사이트">
               <RatingInsightsPanel channel={cm.selectedChannel} channels={cm.channels} onClose={() => setInsightsOpen(false)} />
             </ExperimentalFeatureBoundary>
-          ) : thumbnailStandaloneOpen ? (
-            // v4.0 (TASK D) — imageGeneration is 'experimental'.
-            <ExperimentalFeatureBoundary featureLabel="Thumbnail studio">
-              <ThumbnailImageStudioPanel
-                spec={standaloneThumbnailSpec}
-                defaultSeasonId={thumbnailStandaloneSeasonId}
-                defaultArchetypeId={thumbnailArchetypeId}
-                channelArchetype={cm.selectedChannel.archetype}
-                standalone
-                standaloneChannelName={cm.selectedChannel.name}
-                standaloneSeasonId={thumbnailStandaloneSeasonId}
-                onStandaloneSeasonChange={setThumbnailStandaloneSeasonId}
-                onStandaloneClose={() => setThumbnailStandaloneOpen(false)}
-                onOpenSettings={() => { setSettingsFocus('qwen'); setSettingsOpen(true); }}
+          ) : channelManagerOpen ? (
+            // 지시문 41 (TASK A-4) — Step1Channel의 새 진입점. 컴포넌트/기능은
+            // 그대로, 마법사 1단계가 아니라 [채널 관리] 버튼으로만 들어온다.
+            <div className="channel-manager-overlay">
+              <div className="panel-title">
+                <h2>📻 채널 관리</h2>
+                <button type="button" onClick={() => setChannelManagerOpen(false)}>닫기</button>
+              </div>
+              <Step1Channel
+                editorChannel={cm.editorChannel}
+                isSelectedCustom={cm.isSelectedCustom}
+                onUpdateField={cm.updateEditorField}
+                onNew={cm.startNewProfile}
+                onSave={cm.saveEditorProfile}
+                onDelete={cm.deleteSelectedCustomChannel}
+                basicMode={!expertMode}
+                workspaceId={workspaceId}
+                appliedChannelName={cm.selectedChannel.name}
+                channelDirty={channelDirty}
               />
-            </ExperimentalFeatureBoundary>
+            </div>
           ) : (
             <>
           <StepIndicator
             steps={STEPS}
             current={currentStep}
             maxUnlocked={maxUnlocked}
-            onSelect={step => {
-              // Fable5 1단계 TASK B-2 (③) — same guard as WizardNav's onNext
-              // below, but for the top tab bar's own direct step jumps.
-              if (currentStep === 1 && channelDirty && step !== 1) return;
-              setCurrentStep(step);
-            }}
+            onSelect={step => setCurrentStep(step)}
           />
 
           {loadWarning && (
@@ -1839,25 +1787,14 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
           )}
 
           {currentStep === 1 && (
-            <Step1Channel
-              editorChannel={cm.editorChannel}
-              isSelectedCustom={cm.isSelectedCustom}
-              onUpdateField={cm.updateEditorField}
-              onNew={cm.startNewProfile}
-              onSave={cm.saveEditorProfile}
-              onDelete={cm.deleteSelectedCustomChannel}
-              basicMode={!expertMode}
-              workspaceId={workspaceId}
-              appliedChannelName={cm.selectedChannel.name}
-              channelDirty={channelDirty}
-            />
-          )}
-
-          {currentStep === 2 && (
-            <StepErrorBoundary stepLabel="컨셉 (Step 2)" onGoBack={() => setCurrentStep(1)}>
+            <StepErrorBoundary stepLabel="컨셉 (Step 1)">
               <Step2Concept
                 opts={opts}
                 setOpts={setOpts}
+                channels={cm.channels}
+                onSelectChannel={cm.selectChannel}
+                savedPacks={library.savedPacks}
+                onOpenChannelManager={() => setChannelManagerOpen(true)}
                 selectedGenres={selectedGenres}
                 selectedMoods={selectedMoods}
                 selectedSeason={selectedSeason}
@@ -1874,8 +1811,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             </StepErrorBoundary>
           )}
 
-          {currentStep === 3 && (
-            <StepErrorBoundary stepLabel="설계안 (Step 3)" onGoBack={() => setCurrentStep(2)}>
+          {currentStep === 2 && (
+            <StepErrorBoundary stepLabel="설계안 (Step 2)" onGoBack={() => setCurrentStep(1)}>
               <Step2Plan
                 opts={opts}
                 setOpts={setOpts}
@@ -1884,8 +1821,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             </StepErrorBoundary>
           )}
 
-          {currentStep === 4 && (
-            <StepErrorBoundary stepLabel="생성 (Step 4)" onGoBack={() => setCurrentStep(3)}>
+          {currentStep === 3 && (
+            <StepErrorBoundary stepLabel="생성 (Step 3)" onGoBack={() => setCurrentStep(2)}>
             <Step3Generate
               opts={activeOptions}
               setOpts={setOpts}
@@ -1913,7 +1850,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
               hasSelectedChannel={hasSelectedChannel}
               hasSelectedSeason={hasSelectedSeason}
               onGoToChannelStep={() => setCurrentStep(1)}
-              onGoToSeasonStep={() => setCurrentStep(2)}
+              onGoToSeasonStep={() => setCurrentStep(1)}
+              onOpenChannelManager={() => setChannelManagerOpen(true)}
               basicMode={!expertMode}
               expertMode={expertMode}
               onToggleExpertMode={toggleExpertMode}
@@ -1943,8 +1881,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
             </StepErrorBoundary>
           )}
 
-          {currentStep === 5 && (
-            <StepErrorBoundary stepLabel="결과 (Step 5)" onGoBack={() => setCurrentStep(4)}>
+          {currentStep === 4 && (
+            <StepErrorBoundary stepLabel="결과 (Step 4)" onGoBack={() => setCurrentStep(3)}>
             <Step4Result
               blueprint={gen.blueprint}
               isGenerating={gen.isGenerating}
@@ -1964,11 +1902,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
               isRefining={gen.isRefining}
               refineProgress={gen.refineProgress}
               refineWarnings={gen.refineWarnings}
-              thumbnailSpec={thumbnailSpec}
-              thumbnailSeasonId={selectedSeason.id}
-              thumbnailArchetypeId={thumbnailArchetypeId}
-              thumbnailPackagingLanguage={resolvePackagingLanguage(opts)}
-              thumbnailCustomConcept={opts.customConcept}
               soundSignature={soundSignature}
               opts={opts}
               textModelSettings={provider}
@@ -1976,7 +1909,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
               personaPromptStats={personaPromptStats}
               savedPersonas={savedPersonas}
               promptCharLimit={provider.promptCharLimit}
-              onSelectThumbnailArchetype={setThumbnailArchetypeId}
               onPersonaModeChange={onPersonaModeChange}
               onSavePersonaName={() => void onSavePersonaName()}
               onSave={() => void onSaveCurrentPack()}
@@ -1984,9 +1916,6 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
               onRetrySong={onRetrySong}
               onUndoRetry={onUndoRetry}
               onRefineSelected={onRefineSelected}
-              onRegenerateHeadline={onRegenerateHeadline}
-              onSelectThumbnailVariant={onSelectThumbnailVariant}
-              onApplyThumbnailFreeText={onApplyThumbnailFreeText}
               onPromoteTrack={onPromoteTrack}
               onUpdateHumanEdits={onUpdateHumanEdits}
               onUpdateLyrics={onUpdateLyrics}
@@ -2001,10 +1930,10 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
           <WizardNav
             currentStep={currentStep}
             onPrev={() => setCurrentStep(step => Math.max(1, step - 1))}
-            onNext={() => setCurrentStep(step => Math.min(5, step + 1))}
-            nextDisabled={(currentStep === 1 && channelDirty) || (currentStep === 2 && (step2Blocked || conceptCompatBlocked)) || (currentStep === 3 && designGateBlocked) || (currentStep === 4 && resultStepBlocked)}
-            blockerMessage={currentStep === 1 && channelDirty ? '⚠ 변경한 채널 설정이 아직 생성 설정에 적용되지 않았습니다. 위의 "이 채널로 적용"을 누르세요.' : currentStep === 2 && step2Blocked ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 2 && conceptCompatBlocked ? '이 채널×컨셉 조합(재해석 필요)을 확인하고 진행하세요.' : currentStep === 3 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 4 ? '먼저 곡을 생성하세요.' : ''}
-            maxStep={5}
+            onNext={() => setCurrentStep(step => Math.min(4, step + 1))}
+            nextDisabled={(currentStep === 1 && (step2Blocked || conceptCompatBlocked)) || (currentStep === 2 && designGateBlocked) || (currentStep === 3 && resultStepBlocked)}
+            blockerMessage={currentStep === 1 && step2Blocked ? '장르와 무드를 각각 최소 1개 선택하세요.' : currentStep === 1 && conceptCompatBlocked ? '이 채널×컨셉 조합(재해석 필요)을 확인하고 진행하세요.' : currentStep === 2 && designGateBlocked ? '설계 검증을 통과하거나 "무시하고 진행"에 동의하세요.' : currentStep === 3 ? '먼저 곡을 생성하세요.' : ''}
+            maxStep={4}
           />
             </>
           )}
@@ -2013,8 +1942,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
 
       <SettingsModal
         open={settingsOpen}
-        onClose={() => { setSettingsOpen(false); setSettingsFocus(undefined); }}
-        focusSection={settingsFocus}
+        onClose={() => setSettingsOpen(false)}
         settings={provider}
         onChange={persistProvider}
         onExportAll={() => void library.exportAll()}

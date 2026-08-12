@@ -13,20 +13,9 @@ describe('[D1] STAGE_ADVICE table', () => {
     expect(STAGE_ADVICE.songStructure.recommendation).toBe('unnecessary');
   });
 
-  it('evaluation and thumbnailCopy suggest Haiku, not Sonnet', () => {
+  it('evaluation suggests Haiku, not Sonnet', () => {
     expect(STAGE_ADVICE.evaluation.recommendation).toBe('valuable');
     expect(STAGE_ADVICE.evaluation.suggestedModelKo).toContain('Haiku');
-    expect(STAGE_ADVICE.thumbnailCopy.suggestedModelKo).toContain('Haiku');
-  });
-
-  // TASK v3.37 — Gemini image generation was ported in from creator-studio
-  // (ThumbnailImageStudioPanel.tsx / api/image.js), so this stage is no
-  // longer "unnecessary" — it now names the real capability instead of
-  // disclaiming it.
-  it('thumbnailImage names Gemini as the real in-app image-generation path', () => {
-    expect(STAGE_ADVICE.thumbnailImage.recommendation).toBe('optional');
-    expect(STAGE_ADVICE.thumbnailImage.suggestedModelKo).toContain('Gemini');
-    expect(STAGE_ADVICE.thumbnailImage.reasonKo).toContain('이미지를 생성');
   });
 
   it('every stage has a badge entry for its recommendation level', () => {

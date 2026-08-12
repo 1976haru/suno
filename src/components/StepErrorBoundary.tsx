@@ -15,8 +15,11 @@ interface State {
 /**
  * 정합성 점검 §0-6/결함6 fix — real gap: core/ExperimentalFeatureBoundary.tsx
  * exists but was scoped tightly to individual experimental panels (that
- * component's own doc comment), never around the core 5-step wizard flow
- * itself (Step1Channel/Step2Concept/Step2Plan/Step3Generate/Step4Result) —
+ * component's own doc comment), never around the core wizard flow itself
+ * (originally Step1Channel/Step2Concept/Step2Plan/Step3Generate/Step4Result;
+ * 지시문 41 TASK A moved Step1Channel out of the numbered flow into its own
+ * "채널 관리" overlay, so this boundary now wraps the remaining 4 —
+ * Step2Concept/Step2Plan/Step3Generate/Step4Result, unchanged in count) —
  * so a render-time exception in any of those still took down the entire
  * React tree with no error boundary anywhere to catch it. From the user's
  * side this reads as "the 다음 button stopped working" with zero visible

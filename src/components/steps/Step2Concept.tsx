@@ -40,7 +40,7 @@ import ConceptAgentPanel from '../ConceptAgentPanel';
 import DiversityAllocationPanel from '../DiversityAllocationPanel';
 import type { ConceptRecommendation } from '../../core/conceptAgent';
 import type { ConceptCompatibilityResult } from '../../core/conceptCompatibility';
-import type { GenerationOptions, GenrePack, ListeningIntent, MoodPack, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings, WorkspaceId } from '../../types';
+import type { ChannelProfile, GenerationOptions, GenrePack, ListeningIntent, MoodPack, SavedPackMeta, SeasonPack, LyricLanguage, DisplayLanguage, ProviderSettings, WorkspaceId } from '../../types';
 
 /** v4.2 (TASK E) — computed once at module load (QUALITY_THRESHOLDS is static data, not per-render/per-props), reused by the advanced-settings "기준값 검증 상태" summary below. */
 const THRESHOLD_BASIS_SUMMARY = thresholdsByBasis();
@@ -129,6 +129,11 @@ const PERSPECTIVE_SHORT_LABEL_KO: Record<GenerationOptions['perspective'], strin
 interface Step2ConceptProps {
   opts: GenerationOptions;
   setOpts: (updater: (prev: GenerationOptions) => GenerationOptions) => void;
+  /** 지시문 41 (TASK A-3) — 워크스페이스 선택 후 이 화면으로 바로 들어오므로, 사이드바에만 있던 채널 선택기를 이 화면 상단으로 올린다. */
+  channels: ChannelProfile[];
+  onSelectChannel: (id: string) => void;
+  savedPacks: SavedPackMeta[];
+  onOpenChannelManager: () => void;
   selectedGenres: GenrePack[];
   selectedMoods: MoodPack[];
   selectedSeason: SeasonPack;
@@ -160,9 +165,30 @@ function CharCounter({ value, limit }: { value: string; limit: number }) {
 }
 
 export default function Step2Concept({
-  opts, setOpts, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode, onGenreWarning,
+  opts, setOpts, channels, onSelectChannel, savedPacks, onOpenChannelManager, selectedGenres, selectedMoods, selectedSeason, toggleArray, provider, basicMode = false, expertMode, onToggleExpertMode, onGenreWarning,
   conceptCompat, conceptCompatAcknowledged = false, onConceptCompatAcknowledgedChange
 }: Step2ConceptProps) {
+  // 지시문 41 (TASK A-3) — 채널이 6개를 넘는 워크스페이스(시니어 10개)에서
+  // 목록이 화면을 다 채우지 않도록 기본은 접어 5개만 보여준다. 이미
+  // 선택된 채널이 5개 밖에 있어도(예: 6번째 채널을 골랐다가 다른 곳에서
+  // 다시 들어온 경우) 목록에서 사라지면 "내가 지금 뭘 골랐는지" 알 수
+  // 없으므로 selectedChannel은 접힌 상태에서도 항상 보이게 강제 포함한다.
+  const [channelListExpanded, setChannelListExpanded] = useState(false);
+  const CHANNEL_PICKER_VISIBLE_COUNT = 5;
+  const savedSetCountByChannelId = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const pack of savedPacks) {
+      if (pack.isAutosave) continue;
+      counts.set(pack.channelId, (counts.get(pack.channelId) ?? 0) + 1);
+    }
+    return counts;
+  }, [savedPacks]);
+  const visibleChannels = useMemo(() => {
+    if (channelListExpanded || channels.length <= CHANNEL_PICKER_VISIBLE_COUNT) return channels;
+    const head = channels.slice(0, CHANNEL_PICKER_VISIBLE_COUNT);
+    if (head.some(channel => channel.id === opts.channel.id)) return head;
+    return [...head, ...channels.filter(channel => channel.id === opts.channel.id)];
+  }, [channels, channelListExpanded, opts.channel.id]);
   // TASK v4.13 bugfix — used to auto-open "직접 입력하기" for ANY vocalTone
   // that isn't a byte-exact preset match, including the plain "no selection"
   // balanced state (vocalTone === channel.defaultVocal) — the single most
@@ -674,6 +700,35 @@ export default function Step2Concept({
 
   return (
     <section className="panel">
+      <div className="channel-picker">
+        <div className="panel-title">
+          <h2>🎬 채널</h2>
+          <button type="button" onClick={onOpenChannelManager}>채널 관리</button>
+        </div>
+        <div className="channel-picker-list">
+          {visibleChannels.map(channel => (
+            <label
+              key={channel.id}
+              className={channel.id === opts.channel.id ? 'channel-picker-option active' : 'channel-picker-option'}
+            >
+              <input
+                type="radio"
+                name="channel-picker"
+                checked={channel.id === opts.channel.id}
+                onChange={() => onSelectChannel(channel.id)}
+              />
+              <span className="channel-picker-name">{channel.name}</span>
+              <span className="channel-picker-count">세트 {savedSetCountByChannelId.get(channel.id) ?? 0}개</span>
+            </label>
+          ))}
+        </div>
+        {channels.length > CHANNEL_PICKER_VISIBLE_COUNT && (
+          <button type="button" className="channel-picker-more" onClick={() => setChannelListExpanded(v => !v)}>
+            {channelListExpanded ? '접기' : `… 더 보기 (${channels.length}개)`}
+          </button>
+        )}
+      </div>
+
       <div className="ui-mode-banner">
         <div>
           <b>현재 모드: {expertMode ? '자세히' : '간단히'}</b>
