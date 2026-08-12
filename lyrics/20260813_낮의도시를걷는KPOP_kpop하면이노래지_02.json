@@ -1,0 +1,600 @@
+{
+  "meta": {
+    "setName": "20260813_낮의도시를걷는KPOP_kpop하면이노래지",
+    "generatedAt": "2026-08-12T21:18:51.765Z",
+    "channelId": "daylight-city-kpop",
+    "channelLabel": "낮의 도시를 걷는 K-POP",
+    "conceptLabel": "kpop하면 이노래지",
+    "songCount": 15,
+    "lyricLanguage": "korean",
+    "bridgeVersion": "0.21.0"
+  },
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "Daylight Encore",
+      "titleLocalized": "가벼운 계절",
+      "seasonMoment": "midday backstage hallway, still catching her breath after the win",
+      "listenerSituation": "Throwing an arm around a friend's shoulder in a backstage hallway right after a win, laughing about how close it almost didn't happen.",
+      "emotionArc": "built-up tension breaking into shared relief",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: B+D] [Pre: A+C] [Chorus: All] [Verse2: B+A] [Chorus: All] [Bridge: A] [Final: All] — 두 파트가 벌스마다 다르게 짝지어 들어오고, 브리지는 A 혼자 담담하게 이끈다."
+      },
+      "hookPhrase": "이 계절을 가벼워졌어",
+      "stylePrompt": "sleek Korean idol synth dance pop, 111 BPM, four-on-the-floor kick locked to the beat, bright pluck synth hook, filtered synth bass, clap layer, I-V-vi-IV verses, vi-IV-I-V chorus lift with the bass on the root, no quiet fade-in, full playback level from the first bar, driving four-on-the-floor pulse, syncopated pre-chorus lift, layered vocal harmony stack on every chorus, call-and-response backing vocals, female narrow intimate lead, tender confiding delivery, faint vibrato shimmer, tape slap echo, plain unadorned melodic delivery, rising melodic sequence climbing into each chorus, sleek club-ready polish, sidechain-pumped low end, bright unison group vocal on the hook, daylight-bright confident mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, harsh distorted synth clipping, aggressive trance gate effects, screamed or shouted vocal delivery, muddy sub-bass overwhelming the pluck synth, robotic vocoder-heavy processing",
+      "lyrics": "[Verse 1: Member B, Member D]\n오늘도 무대 뒤 좁은 통로를 지나서\n어깨를 걸고 함께 걸어 나가면\n방금 끝난 노래가 아직 귓가에 맴돌고\n남은 열기에 웃음이 자꾸 새어 나와\n얼마나 아슬아슬하게 여기까지 왔는지\n너는 알고 나도 알아, 말 안 해도 돼\n그래도 우리 이렇게 나란히 서 있잖아\n\n[Pre-Chorus: Member A, Member C]\n햇살이 무대 조명보다 더 눈부셔서\n가벼워진 어깨 위로 바람이 스치고\n숨을 크게 들이쉬면 다 괜찮아져\n이 거리 전부가 우리 편인 것 같아\n\n[Chorus: All]\n손을 들어 인사해, 낮의 하늘 아래\n이 계절을 가벼워졌어\n넘어질 뻔한 순간도 다 지나갔어\n우리 걸음은 오늘도 참 쉬워\n\n[Verse 2: Member B, Member A]\n거의 놓칠 뻔했던 그 타이밍이었지\n숨이 턱까지 차오르던 마지막 리허설\n근데 지금 이 거리를 걸으면서\n그 모든 순간이 다 웃음이 되잖아\n너와 나눈 눈빛 하나로 충분했어\n어깨에 기대면 무거운 것도 없어져\n오늘 하루가 이렇게나 쉬워졌어\n\n[Chorus: All]\n사람들 사이로 우리 지나가면\n어깨를 나란히, 아무것도 겁내지 않아\n넘어질 뻔한 순간도 다 지나갔어\n이 계절을 가벼워졌어\n\n[Bridge: Member A]\n너 없인 이 길도 다 못 걸었을 거야\n가까이서 웃는 얼굴 하나면 충분해\n복잡한 말 없이도 다 통하는 사이\n그거 하나로 오늘이 다 채워져\n\n[Final Chorus: All]\n이 계절을 가벼워졌어\n손을 들어 인사해, 낮의 하늘 아래\n넘어질 뻔한 순간도 다 지나갔어\n우리 걸음은 오늘도 참 쉬워\n이 계절을 가벼워졌어",
+      "youtube": {
+        "title": "Daylight Encore — 낮의 도시를 걷는 K-POP",
+        "description": "승리의 순간, 친구의 어깨에 팔을 두르고 웃는 그 하루. 낮의 도시를 걷는 K-POP 플레이리스트의 문을 여는 곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "낮의 도시 K-POP",
+          "여돌 댄스곡",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "신스댄스팝"
+        ]
+      },
+      "genreId": "kridol-synth-dance",
+      "genreText": "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+      "lyricTheme": "krkidolf-crew-victory-lap",
+      "lyricThemeText": "throwing an arm around a friend's shoulder after a win, laughing about how close it almost didn't happen",
+      "lyricThemeArc": "built-up tension breaking into shared relief",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 2,
+      "title": "Clear Sky Signature",
+      "titleLocalized": "맑게 갠 증명",
+      "seasonMoment": "midday backstage, alone with her phone screen",
+      "listenerSituation": "Reading a message backstage at midday that proves every doubter wrong, and letting herself smile openly, alone.",
+      "emotionArc": "quiet vindication opening into bright triumph",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: A+C] [Pre: E+B] [Chorus: All] [RapVerse2: D+A] [Chorus: All] [Final: All] — 브리지 없이 랩 벌스가 후반부의 무게를 대신 잡아준다."
+      },
+      "hookPhrase": "이 길을 털어냈어",
+      "stylePrompt": "playful Korean idol latin-afrobeat crossover, 115 BPM, instrumental intro with no lyric line, full playback level from the very first bar, no quiet fade-in, dembow-influenced groove, reggaeton-influenced percussion, warm synth bass, guitar skank pattern, a wordless instrumental break built for a choreography moment right at the top, I-V-vi-IV progression with chord changes locked to the beat, syncopated afrobeat pulse, call-and-response backing vocals, female soft head-voice lead, light rhythmic phrasing, clean bell tone, soft plate ambience, warm conversational lead delivery, rap verse delivered with a triplet flow and crisp articulate delivery, two-note pickup opening every phrase, warm summery mix, bright percussive clarity, layered vocal harmony on the chorus, direct clear-sky mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, harsh reggaeton whistle stabs, aggressive trap hi-hat rolls, screamed ad-libs, over-compressed brickwalled master, cluttered rap delivery burying the melody",
+      "lyrics": "[Intro]\n\n[Verse 1: Member A, Member C]\n문자 하나가 화면 위로 떠올라\n믿기지 않아서 두 번 다시 읽어봐\n누군가 아니라고 했던 그 말들이\n오늘은 전부 틀렸다고 답이 왔어\n창밖의 하늘은 유난히 맑고\n나 혼자 이 복도에 서서 웃어\n한참을 그 문장만 다시 들여다보다가\n소리 내어 한 번 읽어보기로 해\n아무에게도 말 안 했던 그 밤들이\n오늘에서야 조용히 보상받는 기분이야\n\n[Pre-Chorus: Member E, Member B]\n숨기지 않을래, 이 기쁨을 그대로\n어깨를 펴고 문을 활짝 열어\n더 이상 눈치 볼 필요 없이\n맑은 하늘 아래 크게 웃어 보여\n\n[Chorus: All]\n문을 열고 나가, 이 하늘 아래로\n이 길을 털어냈어\n의심하던 눈빛들은 이제 다 지나가\n나는 나로 걸어가면 돼\n\n[Rap Verse 2: Member D, Member A]\n누가 뭐래도 나는 내 속도로 가\n멈추라던 말들은 다 뒤에 두고 가\n증명은 필요 없어, 오늘이 답이니까\n맑게 갠 하늘처럼 다 털어내\n무거웠던 어깨가 가벼워지는 순간\n이 거리 위에서 나는 자유로워져\n의심의 말들을 하나씩 지워가면서\n내가 걷는 이 길이 곧 대답이 돼\n돌아보지 않고 그냥 앞으로 걸어가\n\n[Chorus: All]\n발걸음 하나에도 자유가 실려\n문을 열고 나가면 다 시원해져\n의심하던 눈빛들은 이제 다 지나가\n이 길을 털어냈어\n\n[Final Chorus: All]\n이 길을 털어냈어\n문을 열고 나가, 이 하늘 아래로\n의심하던 눈빛들은 이제 다 지나가\n나는 나로 걸어가면 돼\n이 길을 털어냈어",
+      "youtube": {
+        "title": "Clear Sky Signature — 낮의 도시를 걷는 K-POP",
+        "description": "의심을 다 털어내고 맑은 하늘 아래 홀로 웃는 순간. 라틴 아프로비트 그루브가 이끄는 대표곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "라틴 아프로비트",
+          "K-POP 댄스곡",
+          "자신감 노래",
+          "여돌 플레이리스트"
+        ]
+      },
+      "genreId": "kridol-latin-afro",
+      "genreText": "playful Korean idol latin-afrobeat crossover, reggaeton-influenced percussion, warm synth bass",
+      "lyricTheme": "krkidolf-the-last-laugh",
+      "lyricThemeText": "hearing news that proves every doubter wrong, and letting herself enjoy it openly",
+      "lyricThemeArc": "quiet vindication opening into bright triumph",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 3,
+      "title": "Steady Ankle",
+      "titleLocalized": "다시 서는 법",
+      "seasonMoment": "empty practice room, midday, mirror light",
+      "listenerSituation": "Stretching a healing ankle carefully in front of the mirror before her first full rehearsal back.",
+      "emotionArc": "cautious fear firming into determined readiness",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: B+E] [Chorus: All] [RapVerse2: C+A] [Bridge: D] [Chorus: All] [Final: All] — 프리코러스 없이 바로 후렴으로 가고, 브리지는 D 한 명이 짧게 정적을 채운다."
+      },
+      "hookPhrase": "오늘 하루를 지나쳤어",
+      "stylePrompt": "punchy Korean idol retro funk disco pop, 1970s, 125 BPM, short a cappella intro line at full playback level, syncopated funk groove, slap electric bass, wah-wah rhythm guitar, bright horn stabs, I-V-vi-IV verses, vi-IV-I-V chorus lift, drums and bass drop out for the last two bars before the chorus then the whole band hits together on the downbeat, main rapper section delivered with a behind-the-beat flow and mumbled-to-crisp phrasing, hook built on the top three scale degrees, a short group chant tag right after the final chorus as the loudest peak of the song, female low warm contralto, gentle swung phrasing, soft breathy grain, chamber ambience, alternating chest and falsetto, warm retro analog-style groove, punchy horn-forward mix, steady-ground determined mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, gated reverb snare, digital synth pads, sidechain pumping, modern trap hi-hats, aggressive distorted horns",
+      "lyrics": "[Intro]\n바닥에 발끝을 대고 다시 서봐\n\n[Verse 1: Member B, Member E]\n거울 앞에 앉아 붕대를 다시 감아\n아직은 조심스러운 발걸음이지만\n연습실 문 앞에 선 지금 이 순간\n숨을 고르고 첫발을 내디뎌\n흔들렸던 시간도 다 지나갔다고\n스스로에게 나직이 말해봐\n다친 자리가 더 단단해졌다는 걸\n오늘 이 걸음으로 증명해볼래\n창밖의 햇빛이 연습실 바닥에 닿아\n조심스러운 발끝을 따뜻하게 비춰\n\n[Chorus: All]\n갈림길 대신 나는 나침반을 믿어\n오늘 하루를 지나쳤어\n흔들리지 않고 이 땅을 딛고 서\n내가 정한 길로 걸어가\n\n[Rap Verse 2: Member C, Member A]\n다친 발목도 나를 막지는 못해\n천천히 그러나 분명하게 나아가\n누구의 속도도 아닌 내 속도로\n확신 하나면 충분해, 더는 안 흔들려\n연습실 바닥에 새기는 이 다짐\n오늘 하루를 온전히 지나쳤어\n넘어졌던 자리에 다시 발을 딛고\n그 흔적조차 이제는 내 힘이 돼\n망설임 없이 다음 박자로 넘어가\n\n[Bridge: Member D]\n아무도 없는 이 연습실에서\n나 혼자 다시 일어서는 법을 배워\n조급해하지 않아도 괜찮다는 걸\n이 조용한 시간이 가르쳐줘\n\n[Chorus: All]\n발끝에 힘을 주고 다시 서봐\n흔들리지 않고 이 땅을 딛고 서\n갈림길 대신 나는 나침반을 믿어\n오늘 하루를 지나쳤어\n\n[Final Chorus: All]\n오늘 하루를 지나쳤어\n갈림길 대신 나는 나침반을 믿어\n흔들리지 않고 이 땅을 딛고 서\n내가 정한 길로 걸어가\n오늘 하루를 지나쳤어\n(Chant) 다시 일어서, 다시 걸어가",
+      "youtube": {
+        "title": "Steady Ankle — 낮의 도시를 걷는 K-POP",
+        "description": "부상에서 돌아와 다시 연습실 바닥을 딛는 순간. 1970년대 레트로 펑크 디스코가 만드는 단단한 컴백곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "레트로 펑크 디스코",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "컴백 무대"
+        ]
+      },
+      "genreId": "kridol-retro-funk",
+      "genreText": "punchy Korean idol retro funk disco pop, slap electric bass, wah-wah rhythm guitar",
+      "lyricTheme": "krkidolf-injury-recovery-comeback",
+      "lyricThemeText": "stretching a healing ankle carefully before the first full rehearsal back",
+      "lyricThemeArc": "cautious fear firming into determined readiness",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 4,
+      "title": "Credit Line",
+      "titleLocalized": "내가 쓴 이름",
+      "seasonMoment": "quiet hallway, midday, phone screen light",
+      "listenerSituation": "Seeing her own name in the songwriting credits for the very first time on a released track.",
+      "emotionArc": "quiet disbelief blooming into fierce ownership",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: G+C] [Pre: B+A] [Chorus: All] [RapVerse2: D+E] [Chorus: All] [Final: All] — 7인 편성 중 벌스마다 전혀 다른 두 멤버가 번갈아 등장한다."
+      },
+      "hookPhrase": "눈치 보지 마, 다가올 나",
+      "stylePrompt": "anthemic Korean idol band crossover, 121 BPM, instrumental intro, live rock drum kit, distorted electric guitar, driving electric bass, vi-IV-V-I komuro-cycle progression, the pre-chorus strips to near silence with only a heartbeat kick under the vocal before the chorus bursts back at full arrangement with no slow build, verse: sparse funk guitar groove, voice-forward, chorus: disco pulse, full horn stack, rap verse delivered with a double-time flow and crisp articulate delivery, the beat pattern switches for the second half as its designed dynamic peak, descending resolution on the final hook line, female mid clear alto, bright forward delivery, warm rounded midrange, intimate close-mic, warm conversational lead delivery, gentle unhurried phrasing throughout, big arena-ready mix, anthemic power-chord chorus, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, arena-rock screaming vocals, harsh distorted guitar feedback, aggressive double-kick drumming, muddy wall-of-guitar mix",
+      "lyrics": "[Intro]\n\n[Verse 1: Member G, Member C]\n스크롤을 내리다가 손이 멈췄어\n낯익은 글씨 사이 내 이름 석 자\n누군가 대신 써준 줄만 알았던\n그 문장이 사실은 내 것이었다니\n믿기지 않아서 다시 한번 확인해\n작은 화면 안에 커다란 증거가 있어\n밤늦게 혼자 앉아 고쳤던 그 가사가\n결국 이렇게 세상에 나왔다는 게\n실감이 안 나서 몇 번을 더 눌러봐\n그 이름 옆에 진짜 내가 서 있어\n\n[Pre-Chorus: Member B, Member A]\n소리를 낮추고, 숨만 남겨둬\n심장 소리만 들리는 이 정적 속에서\n\n[Chorus: All]\n눈치 보지 마, 다가올 나\n이 이름은 내가 직접 써 내려간 거야\n망설임은 여기 다 내려놓을래\n그 걸음 그대로 나아가면 돼\n\n[Rap Verse 2: Member D, Member E]\n누가 써준 줄 알았지, 아니었어 전부 다\n밤새워 고친 가사, 그게 진짜 내 목소리\n이제는 당당하게 이름 석 자를 걸어\n숨길 이유 없잖아, 이건 내가 만든 거야\n스크린 속 활자가 오늘 나를 증명해\n써 내려간 모든 줄이 다 내 발자국이야\n망설이던 밤들이 결국 여기로 이어져\n누구의 그늘도 아닌 내 이름으로 서\n이제는 뒤돌아보지 않고 다음 줄을 써\n\n[Chorus: All]\n소리 없이 쌓아온 이 시간들이\n오늘에서야 빛을 받는 것 같아\n눈치 보지 마, 다가올 나\n그 걸음 그대로 나아가면 돼\n\n[Final Chorus: All]\n눈치 보지 마, 다가올 나\n이 이름은 내가 직접 써 내려간 거야\n망설임은 여기 다 내려놓을래\n그 걸음 그대로 나아가면 돼\n눈치 보지 마, 다가올 나",
+      "youtube": {
+        "title": "Credit Line — 낮의 도시를 걷는 K-POP",
+        "description": "작사 크레딧에서 처음 발견한 자신의 이름. 밴드 사운드가 밀어붙이는 단단한 성장곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "아이돌 밴드 사운드",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "성장 서사"
+        ]
+      },
+      "genreId": "kridol-band-crossover",
+      "genreText": "anthemic Korean idol band crossover, live rock drum kit, distorted electric guitar",
+      "lyricTheme": "krkidolf-songwriting-credit-first-time",
+      "lyricThemeText": "seeing her own name in the songwriting credits for the very first time on a released track",
+      "lyricThemeArc": "quiet disbelief blooming into fierce ownership",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 5,
+      "title": "Envelope Hand",
+      "titleLocalized": "손끝의 온기",
+      "seasonMoment": "award show seat, midday broadcast lights",
+      "listenerSituation": "Gripping a friend's hand as a nominee category is read aloud at an award show.",
+      "emotionArc": "held-breath tension breaking into overwhelmed joy",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: E+D] [Chorus: All] [Verse2: C+A] [Bridge: B] [Chorus: All] [Final: All] — 브리지를 B 혼자 짧게 담당해 다른 트랙과 겹치지 않는다."
+      },
+      "hookPhrase": "그냥 내 방향을 해봐요",
+      "stylePrompt": "sleek Korean idol synth dance pop, 140 BPM, short intro line at full playback level, four-on-the-floor kick, bright pluck synth, filtered synth bass, clap layer, verse: vi-IV-I-V movement with maj7 color, chorus: ii-V-I turnaround with maj7 add9 color, a quick handoff between vocal parts lands right into the last chorus as the designed peak, verse: laid-back groove, sparse arrangement, chorus: full synth stack, dense layered harmony, paired antecedent-consequent phrasing, female full chest alto, conversational unhurried phrasing, clear glassy brightness, dry and forward, plain unadorned melodic delivery, layered vocal harmony stack on the chorus, sleek club-ready polish, held-breath-to-relief emotional lift, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, hardstyle kick distortion, aggressive drop-the-bass EDM breakdown, harsh sidechain over-pumping, screamed festival-style vocal ad-libs",
+      "lyrics": "[Intro]\n숨을 죽이고 이 순간을 기다려\n\n[Verse 1: Member E, Member D]\n손끝이 차가워, 옆자리 손을 잡아\n호명될 이름을 기다리는 이 정적\n심장 소리가 스피커보다 크게 들려\n봉투 위에 적힌 글씨를 상상해\n여기까지 온 것만으로 충분하다고\n그렇게 되뇌지만 손은 계속 떨려\n주위의 숨소리도 다 멈춘 것 같은\n이 짧은 순간이 유난히 길게 느껴져\n무대 조명 아래 앉은 이 자리마저\n오늘은 유난히 크게 느껴져\n\n[Chorus: All]\n결과가 어떻든 나는 내 방향으로 가\n그냥 내 방향을 해봐요\n정해진 길이 아니어도 괜찮아\n이 손을 놓지 않고 함께 가면 돼\n\n[Verse 2: Member C, Member A]\n이름이 불리는 순간 세상이 멈춘 듯\n손을 더 세게 잡고 함께 숨을 참아\n결과와 상관없이 이 자리에 서서\n우리가 걸어온 길을 떠올려봐\n혼자였다면 못 왔을 이 무대 위\n같이라서 여기까지 올 수 있었어\n밤새 연습하던 그 좁은 연습실이\n오늘 이 넓은 자리로 이어졌다는 걸\n서로의 눈빛으로 조용히 확인해\n\n[Bridge: Member B]\n숫자도 명예도 아닌 이 손끝의 온기\n그게 오늘 내가 얻은 진짜 상이야\n\n[Chorus: All]\n정해진 길이 아니어도 괜찮아\n이 손을 놓지 않고 함께 가면 돼\n결과가 어떻든 나는 내 방향으로 가\n그냥 내 방향을 해봐요\n\n[Final Chorus: All]\n그냥 내 방향을 해봐요\n결과가 어떻든 나는 내 방향으로 가\n정해진 길이 아니어도 괜찮아\n이 손을 놓지 않고 함께 가면 돼\n그냥 내 방향을 해봐요",
+      "youtube": {
+        "title": "Envelope Hand — 낮의 도시를 걷는 K-POP",
+        "description": "시상식 발표 직전, 친구의 손을 꽉 잡은 그 순간. 빠른 신스댄스 팝이 만드는 계절감 있는 트랙.",
+        "tags": [
+          "여자 아이돌 노래",
+          "신스댄스팝",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "시상식"
+        ]
+      },
+      "genreId": "kridol-synth-dance",
+      "genreText": "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+      "lyricTheme": "krkidolf-award-show-nomination-nerves",
+      "lyricThemeText": "gripping a friend's hand as a nominee category is read aloud at an award show",
+      "lyricThemeArc": "held-breath tension breaking into overwhelmed joy",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 6,
+      "title": "Wings Before Bright",
+      "titleLocalized": "어둠 뒤의 확신",
+      "seasonMoment": "backstage wings, just before a solo stage, daylight bleeding in from the hall",
+      "listenerSituation": "Standing alone in the wings for a first solo stage without the rest of the group beside her.",
+      "emotionArc": "isolating fear steadying into fierce self-reliance",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: A+D] [Pre: B+C] [Chorus: All] [Verse2: C+D] [Chorus: All] [Bridge: D] [Final: All] — 남녀 듀엣 곡으로, D가 벌스와 브리지 전체를 관통하며 이끈다."
+      },
+      "hookPhrase": "괜찮아, 다가올 나",
+      "stylePrompt": "playful Korean idol latin-afrobeat crossover, 127 BPM, male and female duet, instrumental intro, reggaeton-influenced percussion, warm synth bass, guitar skank pattern, I-V-vi-iii-IV-I-IV-V progression, verse: laid-back groove, sparse arrangement, chorus: full stacked harmony, dense backing vocal, the bridge shifts into a rap-delivery section with a behind-the-beat flow as the song's designed peak, arrangement stripped just before it for contrast, sustained note landing the hook's first word, trading vocal lines mid-phrase, loose lines meeting on the hook, dry and forward mix, gentle unhurried phrasing throughout, call-and-response backing vocals, bright unison group vocal on the chorus, dembow-influenced groove, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, clashing unbalanced duet mix burying one voice, aggressive reggaeton whistle stabs, harsh auto-tune warble, screamed rap delivery",
+      "lyrics": "[Intro]\n\n[Verse 1: Member A, Member D (Male and Female Duet)]\n무대 옆 어둠 속에 혼자 서 있어\n곧 저 빛 속으로 나가야 하는데\n다리가 떨리고 숨이 가빠와도\n너의 목소리가 저 너머서 들려\n같이 부르던 노래를 떠올리면\n이 두려움도 조금씩 옅어져 가\n어둠에 익숙해진 눈이 빛을 찾고\n마이크를 쥔 손끝에 힘을 실어봐\n\n[Pre-Chorus: Member B, Member C]\n혼자가 아니야, 저 목소리를 들어\n발끝에 힘을 주고 한 걸음만 내디뎌\n\n[Chorus: All (Male and Female Duet)]\n빛 속으로 걸어 들어가면 돼\n괜찮아, 다가올 나\n떨리던 손끝도 곧 편안해질 거야\n이 무대는 이미 네 편이야\n\n[Verse 2: Member C, Member D (Male and Female Duet)]\n마이크를 쥔 손에 땀이 배어도\n숨을 깊게 쉬고 첫 소절을 열어\n혼자 서는 무대가 처음이라 해도\n이미 수백 번 연습했던 그 순간\n멀리서 들려오는 익숙한 화음 하나\n그게 오늘 나를 여기 세워줬어\n무대 아래 익숙한 얼굴들을 찾다가\n결국 내 안의 목소리를 믿기로 해\n\n[Chorus: All (Male and Female Duet)]\n빛이 너를 감싸는 그 순간부터\n모든 떨림이 확신으로 바뀌어\n빛 속으로 걸어 들어가면 돼\n괜찮아, 다가올 나\n\n[Bridge: Member D (Male Vocal)]\n혼자 선다는 게 두려운 게 아니라\n그만큼 커진다는 뜻이란 걸 이제 알아\n어둠 속에서 배운 이 담대함으로\n다음 무대는 더 크게 걸어 나갈게\n\n[Final Chorus: All (Male and Female Duet)]\n괜찮아, 다가올 나\n빛 속으로 걸어 들어가면 돼\n떨리던 손끝도 곧 편안해질 거야\n이 무대는 이미 네 편이야\n괜찮아, 다가올 나",
+      "youtube": {
+        "title": "Wings Before Bright — 낮의 도시를 걷는 K-POP",
+        "description": "첫 솔로 무대를 앞둔 어둠 속 대기 시간. 남녀 듀엣이 서로를 다독이는 라틴 아프로비트 곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "남녀 듀엣",
+          "라틴 아프로비트",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래"
+        ]
+      },
+      "genreId": "kridol-latin-afro",
+      "genreText": "playful Korean idol latin-afrobeat crossover, reggaeton-influenced percussion, call-and-response backing",
+      "lyricTheme": "krkidolf-solo-stage-debut-nerves",
+      "lyricThemeText": "standing alone in the wings for a first solo stage without the rest of the group beside her",
+      "lyricThemeArc": "isolating fear steadying into fierce self-reliance",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 7,
+      "title": "Mirror Talk",
+      "titleLocalized": "거울과의 대화",
+      "seasonMoment": "dressing room mirror, early daylight through the window",
+      "listenerSituation": "Watching a mirror slowly transform an ordinary morning face into a stage-ready one.",
+      "emotionArc": "sleepy blankness sharpening into confident anticipation",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: D+B] [Chorus: All] [Verse2: C+A] [Bridge: B] [Chorus: All] [Final: All] — 벌스1과 브리지를 같은 멤버(B)가 열고 닫아 곡 전체에 통일감을 준다."
+      },
+      "hookPhrase": "가볍게 이 길을 해봐요",
+      "stylePrompt": "punchy Korean idol retro funk disco pop, 1970s, 125 BPM, short intro line over a soft vintage electric-piano tremolo, slap electric bass, wah-wah rhythm guitar, bright horn stabs, IV-V-iii-vi royal road progression, final chorus vocal lifts up an octave, brighter and more open than the earlier choruses, as the song's designed peak, verse: intimate percussion, sparse voice-forward mix, chorus: full pop chorus lift, layered vocal harmony, bridge: rap-delivery bridge, minimal percussion-only backing, a wordless instrumental break built for a choreography moment mid-song, simple stepwise melody, easy to hum, female bright soprano lead, legato sustained lines, slight smoky depth, narrow mono-leaning room, gospel-inflected melisma, alternating chest and falsetto, warm retro analog-style groove, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, gated reverb snare, digital synth pads, sidechain pumping, harsh modern trap percussion",
+      "lyrics": "[Intro]\n거울 속 나를 가만히 들여다봐\n\n[Verse 1: Member D, Member B]\n아직 잠이 덜 깬 얼굴을 보다가\n붓끝 하나로 조금씩 달라져 가\n오늘도 잘할 수 있을까 물으면\n거울 속 내가 씩 웃어 보여줘\n빛이 들어오는 창가에 앉아서\n천천히 무대 위 얼굴을 만들어가\n어제와 다른 색을 살짝 얹어보고\n낯선 얼굴도 결국 나라는 걸 느껴\n작은 붓질 하나에도 이야기가 담겨\n\n[Chorus: All]\n어렵게 생각하지 말고 그냥 웃어봐\n가볍게 이 길을 해봐요\n완벽하지 않아도 오늘은 충분해\n한 걸음씩 가볍게 나아가면 돼\n\n[Verse 2: Member C, Member A]\n립스틱 하나에 표정이 달라지고\n머리를 매만지면 자신감도 따라와\n거울 앞에서 나눈 이 작은 대화가\n무대 위에 설 용기를 만들어줘\n어제와 다른 얼굴, 근데 여전히 나\n그게 오늘 내가 가장 좋아하는 부분이야\n창가에 앉은 우리 둘의 웃음소리가\n이 작은 방을 가득 채워가\n\n[Bridge: Member B]\n꾸미지 않아도 빛나는 순간이 있다는 걸\n거울이 오늘도 나에게 가르쳐줘\n애쓰지 않아도 자연스러운 이 얼굴이\n제일 예쁘다는 걸 오늘 알았어\n\n[Chorus: All]\n완벽하지 않아도 괜찮아, 다 웃어넘겨\n한 걸음씩 가볍게 나아가면 돼\n어렵게 생각하지 말고 그냥 웃어봐\n가볍게 이 길을 해봐요\n\n[Final Chorus: All]\n가볍게 이 길을 해봐요\n어렵게 생각하지 말고 그냥 웃어봐\n완벽하지 않아도 오늘은 충분해\n한 걸음씩 가볍게 나아가면 돼\n가볍게 이 길을 해봐요",
+      "youtube": {
+        "title": "Mirror Talk — 낮의 도시를 걷는 K-POP",
+        "description": "분장 전 거울 앞에서 나누는 작은 대화. 1970년대 레트로 펑크 디스코의 따뜻한 싱어롱 곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "레트로 펑크 디스코",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "싱어롱"
+        ]
+      },
+      "genreId": "kridol-retro-funk",
+      "genreText": "punchy Korean idol retro funk disco pop, slap electric bass, wah-wah rhythm guitar",
+      "lyricTheme": "krkidolf-hair-makeup-chair-transformation",
+      "lyricThemeText": "watching a mirror slowly transform an ordinary morning face into a stage-ready one",
+      "lyricThemeArc": "sleepy blankness sharpening into confident anticipation",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 8,
+      "title": "Old Tape, New Steps",
+      "titleLocalized": "그때 그 아이",
+      "seasonMoment": "quiet room, midday, phone screen replaying an old video",
+      "listenerSituation": "Rewatching an old childhood dance recital video and recognizing the same stubborn determination.",
+      "emotionArc": "nostalgic distance collapsing into grounded continuity",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: B+D] [Chorus: All] [Verse2: A+C] [Breakdown] [Chorus: All] [Final: All] — 프리코러스도 브리지도 없이, 대신 후렴 앞에 한 박자의 정적을 넣었다."
+      },
+      "hookPhrase": "가볍게 가자, 다가올 나",
+      "stylePrompt": "anthemic Korean idol band crossover, 132 BPM, cold-hook energy from the first bar, no instrumental lead-in, live rock drum kit, distorted electric guitar, driving electric bass, IVM7-III7-vi-I7 marusa progression, a single full beat of silence right before the first chorus hits, then the whole arrangement lands together, verse: intimate percussion, sparse voice-forward mix, chorus: full pop chorus lift, layered vocal harmony, an instrumental breakdown opens up before the final chorus, a short group chant tag right after the final chorus as the loudest peak of the song, narrow melodic range with a repeated rhythmic figure, female clear mezzo lead, restrained understated reading, velvety low resonance, warm natural room, warm conversational lead delivery, plain unadorned melodic delivery, big arena-ready mix, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, over-belted screaming climax, harsh distorted guitar wall, aggressive arena-rock cliche, muddy low-end at the peak burying the vocal",
+      "lyrics": "[Verse 1: Member B, Member D]\n낡은 영상 하나를 다시 재생해봐\n작은 무대 위에서 서툴게 춤추던\n그때도 지금처럼 심장이 뛰었었지\n넘어지고 다시 서고 또 넘어지고\n그 모든 순간들이 지금의 나를 만들어\n화면 속 작은 아이가 나를 보고 웃어\n작은 손으로 그리던 커다란 꿈이\n지금 이 자리로 나를 데려왔다는 걸\n오래된 영상 하나가 다시 알려줘\n\n[Chorus: All]\n숨을 고르고 다시 시작해봐요\n가볍게 가자, 다가올 나\n그때의 마음 하나 그대로 안고\n오늘도 무대 위로 걸어 나가\n\n[Breakdown]\n\n[Verse 2: Member A, Member C]\n그 작은 신발, 그 서툰 발동작이\n지금 이 화려한 무대의 시작이었어\n변한 건 많아도 변하지 않은 게 있어\n넘어져도 다시 일어서는 그 마음\n화면을 끄고 거울 앞에 서 보면\n그때 그 아이가 지금 여기 서 있어\n서툴렀던 그 시절도 다 소중해서\n지우지 않고 오늘까지 안고 왔어\n그 마음 하나로 오늘도 무대에 서\n작은 발걸음이 이렇게 멀리 왔다는 걸\n오늘에서야 온전히 실감해\n\n[Chorus: All]\n그 시절의 나를 안고 걸어가\n숨을 고르고 다시 시작해봐요\n그때의 마음 하나 그대로 안고\n가볍게 가자, 다가올 나\n\n[Final Chorus: All]\n가볍게 가자, 다가올 나\n숨을 고르고 다시 시작해봐요\n그때의 마음 하나 그대로 안고\n오늘도 무대 위로 걸어 나가\n가볍게 가자, 다가올 나\n(Chant) 다시 한번, 가볍게 가자",
+      "youtube": {
+        "title": "Old Tape, New Steps — 낮의 도시를 걷는 K-POP",
+        "description": "어린 시절 발표회 영상 속 서툰 아이와 지금의 나. 밴드 사운드가 터뜨리는 이 세트의 감정적 정점.",
+        "tags": [
+          "여자 아이돌 노래",
+          "아이돌 밴드 사운드",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "성장 서사"
+        ]
+      },
+      "genreId": "kridol-band-crossover",
+      "genreText": "anthemic Korean idol band crossover, live rock drum kit, distorted electric guitar",
+      "lyricTheme": "krkidolf-childhood-dance-video-rewatch",
+      "lyricThemeText": "rewatching an old childhood dance recital video and recognizing the same stubborn determination",
+      "lyricThemeArc": "nostalgic distance collapsing into grounded continuity",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 9,
+      "title": "Line by Line",
+      "titleLocalized": "조건을 읽는 손",
+      "seasonMoment": "office desk, midday light through the blinds",
+      "listenerSituation": "Reading contract terms line by line at a desk and asking for exactly what she knows she deserves.",
+      "emotionArc": "quiet intimidation replaced by calm assertiveness",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: D+E] [Pre: A+C] [Chorus: All] [RapVerse2: D+F] [Chorus: All] [Final: All] — D가 벌스1과 랩 벌스 양쪽에 걸쳐 등장하는 유일한 트랙이다."
+      },
+      "hookPhrase": "웃어봐, 지나가는 시선",
+      "stylePrompt": "sleek Korean idol synth dance pop, 119 BPM, instrumental intro, four-on-the-floor kick, bright pluck synth, filtered synth bass, I-V-vi-IV verses, vi-IV-I-V chorus lift, the beat pattern switches for the second half of the song as its designed dynamic peak, right after a noticeably thinner pre-chorus, verse: sparse groove, voice-forward, chorus: four-on-the-floor pulse, full stacked harmony, rap verse delivered with a laid-back flow and crisp articulate delivery, symmetric four-bar phrases with a predictable cadence, female low warm contralto, conversational unhurried phrasing, warm rounded midrange, narrow mono-leaning room, gentle unhurried phrasing throughout, sleek club-ready polish, calm assertive mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, harsh gabber-style kick distortion, aggressive trap hi-hat rolls, robotic vocoder overuse, cluttered rap delivery burying the hook",
+      "lyrics": "[Intro]\n\n[Verse 1: Member D, Member E]\n서류 위에 놓인 펜을 다시 들어\n한 줄 한 줄 놓치지 않고 읽어봐\n예전엔 그냥 사인만 했었지만\n이제는 묻고 싶은 걸 다 물어봐\n창밖으로 지나가는 시선들이 있어도\n흔들리지 않고 이 자리에 앉아 있어\n작은 글씨 하나까지 다 확인하고서야\n펜 끝을 종이 위에 다시 올려놔\n예전의 나였다면 그냥 넘겼을 문장을\n오늘은 짚어가며 하나씩 물어봐\n\n[Pre-Chorus: Member A, Member C]\n망설이지 않을래, 내가 아는 걸 말해\n필요한 건 정확히 필요하다고 말해\n\n[Chorus: All]\n지나가는 시선쯤은 신경 쓰지 마\n웃어봐, 지나가는 시선\n내가 원하는 걸 정확히 말할 뿐이야\n그게 뭐가 어려운 일이겠어\n\n[Rap Verse 2: Member D, Member F]\n조건을 읽어 내리는 이 손끝에\n망설임 대신 확신이 자리 잡아\n당연하다는 듯 나를 낮추던 말들\n오늘부터 그런 건 다 지나쳐 가\n내가 만든 걸 내가 지키는 거야\n펜 끝에 서명 하나, 그게 다 내 증명\n낮춰 부르던 말들에 웃어넘기던 날은\n이제 지나갔어, 오늘부터는 달라\n내 목소리로 내가 정하는 하루야\n\n[Chorus: All]\n당당하게 서명해, 흔들리지 않고\n지나가는 시선쯤은 신경 쓰지 마\n내가 원하는 걸 정확히 말할 뿐이야\n웃어봐, 지나가는 시선\n\n[Final Chorus: All]\n웃어봐, 지나가는 시선\n지나가는 시선쯤은 신경 쓰지 마\n내가 원하는 걸 정확히 말할 뿐이야\n그게 뭐가 어려운 일이겠어\n웃어봐, 지나가는 시선",
+      "youtube": {
+        "title": "Line by Line — 낮의 도시를 걷는 K-POP",
+        "description": "계약서를 한 줄 한 줄 직접 읽어 내려가는 담담한 확신. 신스댄스 팝이 만드는 침착한 자기주장 곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "신스댄스팝",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "여돌 랩"
+        ]
+      },
+      "genreId": "kridol-synth-dance",
+      "genreText": "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+      "lyricTheme": "krkidolf-negotiating-her-own-contract",
+      "lyricThemeText": "reading contract terms line by line and asking for exactly what she knows she deserves",
+      "lyricThemeArc": "quiet intimidation replaced by calm assertiveness",
+      "pov": "secondPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 10,
+      "title": "Sea of Light",
+      "titleLocalized": "빛의 물결",
+      "seasonMoment": "stage looking out at the crowd, midday festival set",
+      "listenerSituation": "Looking out at a sea of lightsticks perfectly timed to a song she wrote alone.",
+      "emotionArc": "private effort suddenly visible as collective love",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: D+C] [Chorus: All] [RapVerse2: C+A] [Chorus: All] [Final: All] — 가장 짧은 6섹션 구성으로, 랩 벌스가 유일한 변주 구간이다."
+      },
+      "hookPhrase": "그냥 이 길을 나아가요",
+      "stylePrompt": "playful Korean idol latin-afrobeat crossover, 148 BPM, short fingerpicked acoustic guitar intro line, reggaeton-influenced percussion, guitar skank pattern, warm synth bass, I-V-vi-IV progression, a quick handoff between vocal parts lands right into the last chorus as the designed peak, verse: sparse groove, voice-forward, chorus: four-on-the-floor pulse, full horn stack, main rapper section delivered with a triplet flow and crisp articulate delivery, call-and-response hook shape, female mid clear alto, gentle swung phrasing, soft breathy grain, soft plate ambience, plain unadorned melodic delivery, warm summery mix, bright percussive clarity, passionate rising mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, hardstyle kick distortion, aggressive festival EDM drop, harsh sidechain over-pumping, screamed ad-lib excess",
+      "lyrics": "[Intro]\n저 빛의 물결을 가만히 바라봐\n\n[Verse 1: Member D, Member C]\n노트 한 켠에 적어뒀던 가사가\n오늘 이 넓은 객석을 가득 채워\n혼자 방 안에서 써 내려간 밤들이\n이렇게 큰 파도가 될 줄 몰랐어\n손끝으로 눌러 쓴 작은 문장 하나가\n수천 개의 빛이 되어 돌아왔어\n지우고 다시 쓰던 그 수많은 밤들이\n오늘 이 무대 위에서 다 빛이 나\n혼자였던 시간이 이렇게 커질 줄은\n그때는 정말 몰랐던 일이야\n\n[Chorus: All]\n저 빛의 물결이 다 내 노래를 따라 불러\n그냥 이 길을 나아가요\n혼자였던 밤들이 헛되지 않았어\n이 순간 하나로 다 보상받은 것 같아\n\n[Rap Verse 2: Member C, Member A]\n방 안에 혼자 앉아 몇 밤을 새웠는지\n아무도 몰랐던 그 시간들이 지금 여기\n빛으로 답해주는 이 순간을 봐\n내가 쓴 문장이 모두의 목소리가 됐어\n망설이던 손끝이 이제는 확신이 돼\n그냥 이 길을 나아가면 되는 거였어\n혼자 쓰던 가사가 다 함께 부르는 노래로\n이보다 더 큰 보답이 또 있을까\n이 순간을 잊지 않고 오래 간직할래\n\n[Chorus: All]\n혼자였던 밤들이 헛되지 않았어\n저 빛의 물결이 다 내 노래를 따라 불러\n이 순간 하나로 다 보상받은 것 같아\n그냥 이 길을 나아가요\n\n[Final Chorus: All]\n그냥 이 길을 나아가요\n저 빛의 물결이 다 내 노래를 따라 불러\n혼자였던 밤들이 헛되지 않았어\n이 순간 하나로 다 보상받은 것 같아\n그냥 이 길을 나아가요",
+      "youtube": {
+        "title": "Sea of Light — 낮의 도시를 걷는 K-POP",
+        "description": "혼자 써 내려간 가사가 수천 개의 빛으로 돌아오는 순간. 가장 빠른 라틴 아프로비트 하이라이트 곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "라틴 아프로비트",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "여돌 랩"
+        ]
+      },
+      "genreId": "kridol-latin-afro",
+      "genreText": "playful Korean idol latin-afrobeat crossover, reggaeton-influenced percussion, driving pulse",
+      "lyricTheme": "krkidolf-fan-project-lightstick-sea",
+      "lyricThemeText": "looking out at a sea of lightsticks perfectly timed to a song she wrote alone",
+      "lyricThemeArc": "private effort suddenly visible as collective love",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 11,
+      "title": "Wrong Country Morning",
+      "titleLocalized": "낯선 아침",
+      "seasonMoment": "unfamiliar hotel room, midday light through unfamiliar curtains",
+      "listenerSituation": "Blinking awake in an unfamiliar hotel room, momentarily forgetting which country holds the next show.",
+      "emotionArc": "disoriented exhaustion steadying into professional focus",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: E+C] [Pre: F+A] [Chorus: All] [Verse2: B+D] [Chorus: All] [Final: All] — 남녀 듀엣이지만 벌스는 전부 여성 조합, 코러스의 전원 합창에서만 남성 보이스가 섞인다."
+      },
+      "hookPhrase": "오늘 하루를 정했어",
+      "stylePrompt": "punchy Korean idol retro funk disco pop, 1970s, 125 BPM, male and female duet, warm horn-swell instrumental intro, slap electric bass, wah-wah rhythm guitar, bright horn stabs, vi-IV-V-I komuro-cycle progression, verse: laid-back soul groove, sparse arrangement, chorus: full horn-and-string lift, layered vocal harmony, a brief rap-cadence delivery lands within the second verse as this song's designed dynamic peak, arrangement thinning just before it, rising melodic sequence into the chorus, narration answered wordlessly, close third harmony, chamber ambience, alternating chest and falsetto, warm retro analog-style groove, punchy horn-forward mix, unhurried travel-worn calm, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, gated reverb snare, digital synth pads, sidechain pumping, unbalanced duet mix burying one voice",
+      "lyrics": "[Intro]\n\n[Verse 1: Member E, Member C]\n낯선 커튼 틈으로 낯선 빛이 들어와\n여기가 어느 도시인지 잠시 헷갈려\n캐리어 위에 걸쳐둔 옷을 보고서야\n어제의 무대가 떠올라 웃음이 나\n매일 다른 하늘 아래서 눈을 뜨지만\n오늘 하루만큼은 내가 정할래\n낯선 천장을 가만히 올려다보다가\n어젯밤 무대의 조명을 떠올려봐\n피곤함도 조금은 익숙해진 이 여정\n\n[Pre-Chorus: Member F, Member A]\n서두르지 않을래, 잠시 숨을 고르고\n낯선 방 안에서도 나답게 있을래\n\n[Chorus: All (Male and Female Duet)]\n어디에 있든 오늘의 속도는 내가 정해\n오늘 하루를 정했어\n낯선 방도 잠시면 익숙해지는 법\n천천히 걸어도 괜찮은 하루야\n\n[Verse 2: Member B, Member D]\n호텔 방 열쇠를 손에 쥔 채로\n지도 위에 오늘 도시를 찾아봐\n어제와 다른 언어, 다른 공기지만\n익숙한 노래 하나면 다 괜찮아져\n창밖의 낯선 풍경도 잠시 바라보면\n오늘 하루가 조금씩 편안해져 가\n다른 나라, 다른 무대, 다른 하늘 아래서도\n결국 나를 이끄는 건 같은 마음이야\n짐을 풀며 오늘의 순서를 되새기고\n낯선 방도 곧 익숙한 무대로 바뀌어\n\n[Chorus: All (Male and Female Duet)]\n낯선 거리도 결국 내 하루가 돼\n어디에 있든 오늘의 속도는 내가 정해\n천천히 걸어도 괜찮은 하루야\n오늘 하루를 정했어\n\n[Final Chorus: All (Male and Female Duet)]\n오늘 하루를 정했어\n어디에 있든 오늘의 속도는 내가 정해\n낯선 방도 잠시면 익숙해지는 법\n천천히 걸어도 괜찮은 하루야\n오늘 하루를 정했어",
+      "youtube": {
+        "title": "Wrong Country Morning — 낮의 도시를 걷는 K-POP",
+        "description": "낯선 호텔 방에서 눈을 뜨는 투어의 아침. 남녀 듀엣이 이끄는 1970년대 레트로 펑크 곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "남녀 듀엣",
+          "레트로 펑크 디스코",
+          "K-POP 걸그룹 플레이리스트",
+          "투어"
+        ]
+      },
+      "genreId": "kridol-retro-funk",
+      "genreText": "punchy Korean idol retro funk disco pop, slap electric bass, wah-wah rhythm guitar",
+      "lyricTheme": "krkidolf-overseas-tour-jet-lag",
+      "lyricThemeText": "blinking awake in an unfamiliar hotel room, momentarily forgetting which country holds the next show",
+      "lyricThemeArc": "disoriented exhaustion steadying into professional focus",
+      "pov": "firstPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 12,
+      "title": "Counting In",
+      "titleLocalized": "내가 짠 박자",
+      "seasonMoment": "dance studio, midday, mirrored wall",
+      "listenerSituation": "Teaching her own choreography to the rest of the group for the first time, nervous about every count.",
+      "emotionArc": "anxious authorship settling into proud ownership",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: B+D] [Chorus: All] [Verse2: C+E] [Breakdown] [Chorus: All] [Final: All] — 후렴이 빌드업 없이 벌스 바로 뒤에서 갑자기 열린다."
+      },
+      "hookPhrase": "이 계절을 나아갔어",
+      "stylePrompt": "anthemic Korean idol band crossover, 132 BPM, cold-hook energy from the first bar, no instrumental lead-in, live rock drum kit, distorted electric guitar, driving electric bass, vi-IV-I-V movement with maj7 color, the chorus arrives with no build-up straight out of the first verse for a sudden lift, verse: laid-back groove, sparse arrangement, chorus: full layered vocal stack and wider stereo image, an instrumental breakdown built for a choreography moment sits before the final chorus, two-note pickup leading every phrase, female full chest alto, restrained understated reading, clean bell tone, intimate close-mic, gentle unhurried phrasing throughout, warm conversational lead delivery, big arena-ready mix, proud grounded mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, over-belted screaming climax, harsh distorted guitar wall, aggressive arena-rock cliche",
+      "lyrics": "[Verse 1: Member B, Member D]\n스튜디오 거울 앞에 다 같이 모여서\n처음으로 내가 짠 동작을 보여줘\n카운트를 세는 손끝이 조금 떨리고\n다들 나를 보는 눈빛이 낯설어\n그래도 오늘은 내가 이끄는 순서야\n숨을 크게 쉬고 첫 박자를 세어봐\n밤새 그려본 동선을 조심스레 펼쳐놓고\n다들 잘 따라올 수 있을까 걱정도 되지만\n일단 오늘은 내가 정한 순서로 가볼래\n\n[Chorus: All]\n망설임 없이 이 계절을 나아갔어\n동작 하나하나에 내 이름을 걸었어\n서툴러도 괜찮아, 우리가 함께 맞추면\n이 무대는 이제 다 같이 만든 거야\n\n[Verse 2: Member C, Member E]\n틀린 동작도 웃으면서 다시 맞추고\n거울 속 우리가 조금씩 하나가 돼\n내가 짠 순서를 다 함께 따라 할 때\n그 어떤 순간보다 뿌듯함이 커\n혼자였다면 못 느꼈을 이 감정을\n오늘 처음으로 온전히 느껴봐\n서로의 박자를 맞춰가는 이 시간이\n생각보다 훨씬 더 즐겁다는 걸 알아가\n하나씩 맞아가는 동작들을 보면서\n뿌듯함이 조금씩 더 커져만 가\n\n[Chorus: All]\n서툴러도 괜찮아, 우리가 함께 맞추면\n망설임 없이 이 계절을 나아갔어\n동작 하나하나에 내 이름을 걸었어\n이 무대는 이제 다 같이 만든 거야\n\n[Breakdown]\n\n[Final Chorus: All]\n이 계절을 나아갔어\n동작 하나하나에 내 이름을 걸었어\n서툴러도 괜찮아, 우리가 함께 맞추면\n이 무대는 이제 다 같이 만든 거야\n이 계절을 나아갔어",
+      "youtube": {
+        "title": "Counting In — 낮의 도시를 걷는 K-POP",
+        "description": "처음 짠 안무를 멤버들 앞에서 선보이는 떨림. 밴드 사운드가 붙잡아주는 든든한 트랙.",
+        "tags": [
+          "여자 아이돌 노래",
+          "아이돌 밴드 사운드",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "안무"
+        ]
+      },
+      "genreId": "kridol-band-crossover",
+      "genreText": "anthemic Korean idol band crossover, live rock drum kit, distorted electric guitar",
+      "lyricTheme": "krkidolf-choreography-she-created",
+      "lyricThemeText": "teaching her own choreography to the rest of the group for the first time, nervous about every count",
+      "lyricThemeArc": "anxious authorship settling into proud ownership",
+      "pov": "secondPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 13,
+      "title": "Same Old Corner",
+      "titleLocalized": "변하지 않은 것",
+      "seasonMoment": "backstage green room, midday, an old photo shared between friends",
+      "listenerSituation": "Meeting a childhood friend backstage who never once treated her differently after fame.",
+      "emotionArc": "quiet gratitude anchoring into steady loyalty",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: B+D] [Chorus: All] [Verse2: E+C] [Chorus: All] [Final: All] — 브리지도 프리코러스도 없는 가장 담백한 6섹션 구성."
+      },
+      "hookPhrase": "괜찮아, 옆에 있는 너",
+      "stylePrompt": "sleek Korean idol synth dance pop, 140 BPM, instrumental hook intro restating the melody with no lyrics, four-on-the-floor kick, bright pluck synth, filtered synth bass, I-V-vi-iii-IV-I-IV-V progression, drums and bass drop out for the last two bars before the chorus then the whole band hits together on the downbeat, verse: intimate percussion, sparse voice-forward mix, chorus: full pop chorus lift, layered vocal harmony, a short group chant tag right after the final chorus as the loudest peak of the song, hook built on the top three scale degrees, female soft head-voice lead, legato sustained lines, clear glassy brightness, tape slap echo, sleek club-ready polish, warm nostalgic-but-grounded mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, hardstyle kick distortion, harsh sidechain over-pumping, robotic vocoder overuse",
+      "lyrics": "[Intro]\n\n[Verse 1: Member B, Member D]\n대기실 문 앞에 낯익은 얼굴 하나\n오랜만이야 그 말에 시간이 멈춰\n어릴 적 놀이터를 같이 뛰던 친구가\n연예인 된 나를 똑같은 눈으로 봐\n달라진 건 옷차림과 이 큰 무대뿐\n너는 여전히 그때 그 목소리 그대로야\n바쁘다는 핑계로 못 만났던 시간들이\n미안한 마음으로 잠시 스쳐 지나가고\n그래도 우리 사이엔 변한 게 없다는 걸\n마주 앉은 이 순간 다시 확인해\n\n[Chorus: All]\n변한 게 많아도 넌 변하지 않았어\n괜찮아, 옆에 있는 너\n그 하나로 오늘이 다 든든해져\n복잡한 마음도 여기서는 쉬어가\n\n[Verse 2: Member E, Member C]\n사진 한 장을 내밀며 웃는 너를 보면\n그때 그 골목길이 다시 떠올라\n유명해진 것도, 바빠진 것도 아니고\n그냥 너와 나눈 이 시간이 좋아\n대기실 작은 소파에 나란히 앉아서\n아무 말 없이도 편안한 이 순간\n서로의 안부를 묻는 짧은 대화 속에\n그 시절 웃음소리가 다시 들리는 것 같아\n\n[Chorus: All]\n그 하나로 오늘이 다 든든해져\n변한 게 많아도 넌 변하지 않았어\n복잡한 마음도 여기서는 쉬어가\n괜찮아, 옆에 있는 너\n\n[Final Chorus: All]\n괜찮아, 옆에 있는 너\n변한 게 많아도 넌 변하지 않았어\n그 하나로 오늘이 다 든든해져\n복잡한 마음도 여기서는 쉬어가\n괜찮아, 옆에 있는 너\n(Chant) 고마워, 늘 그 자리에 있어줘서",
+      "youtube": {
+        "title": "Same Old Corner — 낮의 도시를 걷는 K-POP",
+        "description": "유명해진 뒤에도 변함없는 친구와의 대기실 시간. 신스댄스팝이 감싸는 세트 중반의 조용한 트랙.",
+        "tags": [
+          "여자 아이돌 노래",
+          "신스댄스팝",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "우정"
+        ]
+      },
+      "genreId": "kridol-synth-dance",
+      "genreText": "sleek Korean idol synth dance pop, four-on-the-floor kick, bright pluck synth",
+      "lyricTheme": "krkidolf-childhood-friend-still-there",
+      "lyricThemeText": "meeting a childhood friend backstage who never once treated her differently after fame",
+      "lyricThemeArc": "quiet gratitude anchoring into steady loyalty",
+      "pov": "firstPerson",
+      "verseStyle": "dialogue",
+      "verseStyleText": "verse lines use direct address or short conversational fragments without becoming spoken-word",
+      "chorusStyle": "hookRepeat",
+      "chorusStyleText": "chorus lines use compact repeated hook callbacks and simple answer phrases",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 14,
+      "title": "Steady Frame",
+      "titleLocalized": "편안한 표정",
+      "seasonMoment": "photo studio, midday, camera flash",
+      "listenerSituation": "Holding a still pose for a magazine cover shot, finding real confidence past the initial stiffness.",
+      "emotionArc": "self-conscious posing loosening into natural power",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: B+G] [Chorus: All] [RapVerse2: D+F] [Breakdown] [Chorus: All] [Final: All] — 후렴 두 번 사이에 비트가 전환되는 브레이크다운을 끼워 넣었다."
+      },
+      "hookPhrase": "나답게 이 길을 해봐요",
+      "stylePrompt": "playful Korean idol latin-afrobeat crossover, 99 BPM, no intro tag, singing starts immediately, reggaeton-influenced percussion, warm synth bass, afrobeat log drum, IV-V-iii-vi royal road progression, final chorus modulates up a half step for a gentle lift, an instrumental breakdown opens with the beat pattern switching as this song's designed dynamic peak, descending resolution on the final hook line, rap verse delivered with a laid-back flow and crisp articulate delivery, female narrow intimate lead, bright forward delivery, faint vibrato shimmer, dry and forward, warm summery mix, calm settled confidence, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, rushed uptempo feel contradicting the slower groove, harsh reggaeton whistle stabs, cluttered rap delivery burying the melody",
+      "lyrics": "[Verse 1: Member B, Member G]\n플래시가 터지는 순간 자세를 잡아\n처음엔 어색하던 표정이 굳어 있었지\n근데 어느새 힘을 조금씩 빼고 보니\n카메라 렌즈가 나를 편하게 담아\n완벽한 포즈보다 자연스러운 미소\n그게 오늘 내가 찾은 진짜 얼굴이야\n조명 아래 서 있는 시간이 길어질수록\n어깨의 긴장도 조금씩 풀려가\n\n[Chorus: All]\n힘을 빼고 나답게 서 있어봐요\n나답게 이 길을 해봐요\n꾸미지 않아도 빛나는 순간이 있어\n이 표정 그대로도 충분히 좋아\n\n[Rap Verse 2: Member D, Member F]\n처음엔 렌즈 앞이 낯설기만 했어\n근데 이젠 내 표정 하나에도 이야기가 담겨\n포즈보다 중요한 건 그 순간의 진심\n꾸며낸 웃음 대신 자연스러운 나를 보여\n플래시가 터질 때마다 조금씩 편해지는\n이 순간이 나를 나답게 만들어가\n렌즈 너머의 시선쯤은 이제 두렵지 않아\n오늘의 이 표정이 가장 자연스러운 나야\n애써 짓던 미소보다 이 편안함이 좋아\n다음 컷에서도 그냥 나답게 있을래\n\n[Breakdown]\n\n[Chorus: All]\n완벽하지 않아도 이 표정이 좋아\n힘을 빼고 나답게 서 있어봐요\n꾸미지 않아도 빛나는 순간이 있어\n나답게 이 길을 해봐요\n\n[Final Chorus: All]\n나답게 이 길을 해봐요\n힘을 빼고 나답게 서 있어봐요\n꾸미지 않아도 빛나는 순간이 있어\n이 표정 그대로도 충분히 좋아\n나답게 이 길을 해봐요",
+      "youtube": {
+        "title": "Steady Frame — 낮의 도시를 걷는 K-POP",
+        "description": "화보 촬영 중 힘을 빼고 찾아낸 자연스러운 표정. 느린 템포의 라틴 아프로비트가 감싸는 위로곡.",
+        "tags": [
+          "여자 아이돌 노래",
+          "라틴 아프로비트",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "화보 촬영"
+        ]
+      },
+      "genreId": "kridol-latin-afro",
+      "genreText": "playful Korean idol latin-afrobeat crossover, reggaeton-influenced percussion, afrobeat log drum",
+      "lyricTheme": "krkidolf-magazine-cover-shoot-confidence",
+      "lyricThemeText": "holding a still pose for a magazine cover shot, finding real confidence past the initial stiffness",
+      "lyricThemeArc": "self-conscious posing loosening into natural power",
+      "pov": "secondPerson",
+      "verseStyle": "image",
+      "verseStyleText": "verse lines focus on sensory images, objects, light, weather, and small gestures",
+      "chorusStyle": "narrative",
+      "chorusStyleText": "chorus lines unfold as plain scene narration with concrete actions and time movement",
+      "qualityScore": 0,
+      "warnings": []
+    },
+    {
+      "trackNo": 15,
+      "title": "Empty Room, Full Scale",
+      "titleLocalized": "혼자 남은 시간",
+      "seasonMoment": "empty practice room, late afternoon light fading, everyone else asleep",
+      "listenerSituation": "Running scales alone in an empty practice room long after the rest of the group has gone to sleep.",
+      "emotionArc": "quiet solitary discipline settling into peaceful close",
+      "distinctChoice": {
+        "ruleId": "PART_DISTRIBUTION_PATTERN",
+        "descriptionKo": "[Verse1: A+G] [Chorus: All] [RapVerse2: C+E] [Chorus: All] [Final: All] — 별도 클라이맥스 없이 시종일관 같은 온도로 흘러가는 마무리 곡."
+      },
+      "hookPhrase": "그냥 이 오후를 해봐요",
+      "stylePrompt": "punchy Korean idol retro funk disco pop, 1970s, 107 BPM, short warm horn-tinged intro line, slap electric bass, wah-wah rhythm guitar, bright horn stabs, IVM7-III7-vi-I7 marusa progression, verse: sparse groove, voice-forward, chorus: warm horn stack, layered vocal harmony, kept at a comfortably even, unhurried level throughout with no designed peak moment, paired antecedent-consequent phrasing, female bright soprano lead, light rhythmic phrasing, slight smoky depth, chamber ambience, smooth crooning legato, alternating chest and falsetto, warm retro analog-style groove, punchy horn-forward mix, peaceful unresolved-but-warm mood, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song reference, soundalike vocal, real artist or band names, existing song titles, imitating a specific singer's voice or style, specific idol group imitation, named member vocal timbre, signature hook of an existing song, sultry seductive framing, schoolgirl or teen coding, senior-radio nostalgia imagery, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, thin placeholder hook, stock loop arrangement with no development, harsh sibilance on the vocal, boxy vocal resonance, overlong intro, gated reverb snare, digital synth pads, sidechain pumping, abrupt hard stop ending instead of a settled fade",
+      "lyrics": "[Intro]\n불 꺼진 연습실에 혼자 남아\n\n[Verse 1: Member A, Member G]\n다들 잠든 시간, 건반 위에 손을 얹어\n낮의 소란은 다 저 멀리 사라지고\n이 조용한 공간에 나 혼자만 남아\n서두르지 않고 음 하나를 눌러봐\n오늘 하루도 이만하면 잘 걸어왔다고\n스스로에게 나직이 말해주는 시간\n창밖의 도시는 이미 잠들어 있고\n이 방의 불빛만 조용히 남아 있어\n\n[Chorus: All]\n서두르지 않아도 다 괜찮은 오후야\n그냥 이 오후를 해봐요\n혼자 남은 이 시간도 나쁘지 않아\n천천히 오늘을 정리해봐요\n\n[Rap Verse 2: Member C, Member E]\n낮의 무대와는 다른 이 고요함 속에\n오늘 부른 노래들을 혼자 되짚어봐\n잘한 것도 아쉬운 것도 다 여기 두고\n내일을 위해 오늘을 가만히 접어\n가벼운 계절처럼 이 하루도 넘겨\n그냥 이 오후를 천천히 해봐요\n건반 위에 남은 마지막 음 하나가\n오늘 하루를 조용히 마무리해줘\n내일이면 다시 낮의 도시로 나가겠지만\n지금 이 고요함도 나쁘지 않은 하루야\n\n[Chorus: All]\n혼자 남은 이 시간도 나쁘지 않아\n서두르지 않아도 다 괜찮은 오후야\n천천히 오늘을 정리해봐요\n그냥 이 오후를 해봐요\n\n[Final Chorus: All]\n그냥 이 오후를 해봐요\n서두르지 않아도 다 괜찮은 오후야\n혼자 남은 이 시간도 나쁘지 않아\n천천히 오늘을 정리해봐요\n그냥 이 오후를 해봐요",
+      "youtube": {
+        "title": "Empty Room, Full Scale — 낮의 도시를 걷는 K-POP",
+        "description": "모두가 잠든 뒤 혼자 남아 음계를 되짚는 조용한 시간. 낮의 도시를 걷는 K-POP의 잔잔한 마무리.",
+        "tags": [
+          "여자 아이돌 노래",
+          "레트로 펑크 디스코",
+          "K-POP 걸그룹 플레이리스트",
+          "자신감 노래",
+          "여운"
+        ]
+      },
+      "genreId": "kridol-retro-funk",
+      "genreText": "punchy Korean idol retro funk disco pop, slap electric bass, wah-wah rhythm guitar",
+      "lyricTheme": "krkidolf-late-night-vocal-practice-alone",
+      "lyricThemeText": "running scales alone in an empty practice room long after the rest of the group has gone to sleep",
+      "lyricThemeArc": "quiet solitary discipline settling into peaceful close",
+      "pov": "thirdPerson",
+      "verseStyle": "narrative",
+      "verseStyleText": "verse lines unfold as plain scene narration with concrete actions and time movement",
+      "chorusStyle": "image",
+      "chorusStyleText": "chorus lines focus on sensory images, objects, light, weather, and small gestures",
+      "qualityScore": 0,
+      "warnings": []
+    }
+  ]
+}
