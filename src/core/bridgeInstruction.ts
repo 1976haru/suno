@@ -849,6 +849,24 @@ function moneyChordSectionInstructionLineFor(preassignedSongs: PreassignedSongSl
 }
 
 /**
+ * 지시문 43 (TASK E) — 실측(20260810 K-pop 세트) 화음·챈트 언급 8/18. 지시문
+ * 37 TASK C가 만든 core/kpopSingability.ts는 "따라 부르기 쉬움"을 사후에만
+ * 재는 advisory 지표였지 생성 시점에 이걸 만들라고 요청한 적이 없었다 —
+ * 측정기는 있는데 지시문이 없었던 것이 진짜 원인(§F-2와 같은 유형의 결함).
+ * core/kpopSingability.ts's measureKpopSingability가 실제로 읽는 신호
+ * (CHANT_SECTION_TAG_PATTERN = "chant"/"ad-lib"/"call and response" 섹션
+ * 태그, hookRepeatCount >= 4)를 그대로 생성 지시문으로 옮긴다 — 새 임계값을
+ * 만들지 않고 이미 있는 측정기가 인정하는 형태를 그대로 요청한다.
+ * partPlan이 있는 트랙(kr-idol 전용, kpopPartPlanInstructionLines와 같은
+ * 게이팅)에서만 나간다.
+ */
+function kpopChantBackingInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.partPlan)
+    ? '- K-pop idol convention: every chorus should read as a full backing-vocal stack (layer in stylePrompt descriptors like "layered vocal harmony", "unison group vocal stack", "call-and-response backing"), not a single lead voice. Include at least one lyric section tagged "[Chant]", "[Ad-lib]", or "[Call and Response]" in most songs (short group-shouted or ad-libbed lines, not full verses). Repeat the exact hook line 4+ times across the song\'s lyrics (chorus + final chorus + any tag/outro repeats) so it reads as genuinely sing-along.'
+    : '';
+}
+
+/**
  * TASK v3.64-B — same reference-not-verbatim pattern as
  * hookDeviceInstructionLineFor above. Real measurement: earworm mode's old
  * flat instruction ("include 'simple stepwise melody' and 'singalong-
@@ -1522,16 +1540,36 @@ const KPOP_PART_ROLE_LABEL: Record<KpopPartRole, string> = {
   'ad-lib': 'ad-lib'
 };
 
+const KPOP_RAPPER_ROLES = new Set<KpopPartRole>(['main-rapper', 'lead-rapper']);
+
+/**
+ * 지시문 43 (TASK D-4) — 실측 근거: core/lyricsAst.ts의 parseLyricsSections는
+ * 섹션 raw tag 문자열에 "rap"이 포함될 때만 그 섹션을 type:'rap'으로
+ * 분류한다(releaseReadiness.ts의 checkKpopRapShare가 바로 이 분류를 센다).
+ * 지시문 37이 만든 원래 태그 예시("[Verse 2: Member C] (main rapper)")는
+ * "rap"이라는 글자 자체가 섹션 태그 안에 없어 랩으로 집계되지 않았다 —
+ * 랩 배정 실패가 아니라 "랩이라고 표시되지 않는" 표시 실패였다(§C-2 원인
+ * 추적과 같은 유형의 진짜 원인). 래퍼 역할 섹션만 태그 자체에 "Rap"을
+ * 박아 넣도록 렌더링을 바꾼다 — moneyChordText 등과 같은 verbatim 신뢰
+ * 모델이므로 LLM이 태그를 재해석해 지어내지 않는다.
+ */
+function kpopSectionTagInstruction(section: string, role: KpopPartRole, who: string): string {
+  if (!KPOP_RAPPER_ROLES.has(role)) return `[${section}: ${who}]`;
+  return `[Rap ${section}: ${who}]`;
+}
+
 function kpopPartPlanInstructionLines(preassignedSongs: PreassignedSongSlot[]): string[] {
   const withPlan = preassignedSongs.filter(slot => slot.partPlan);
   if (!withPlan.length) return [];
   const memberLabel = (id: string) => (id === 'all' ? 'All' : `Member ${id}`);
+  const hasRapperRole = withPlan.some(slot => slot.partPlan!.sectionAssignments.some(a => KPOP_RAPPER_ROLES.has(a.role)));
   const trackBlocks = withPlan.flatMap(slot => {
     const plan = slot.partPlan!;
     const sectionLines = plan.sectionAssignments.map(a => {
       const who = a.role === 'all' ? 'All' : a.memberIds.map(memberLabel).join(', ');
       const roleSuffix = a.role === 'all' ? '' : ` (${KPOP_PART_ROLE_LABEL[a.role]})`;
-      return `    ${a.section}: ${who}${roleSuffix}`;
+      const tag = kpopSectionTagInstruction(a.section, a.role, who);
+      return `    ${a.section}: ${who}${roleSuffix} — lyric tag: "${tag}"`;
     });
     return [`  Track ${slot.trackNo} (${plan.memberCount} members):`, ...sectionLines, ''];
   });
@@ -1539,7 +1577,10 @@ function kpopPartPlanInstructionLines(preassignedSongs: PreassignedSongSlot[]): 
     '',
     '[파트 배분]',
     '',
-    '  아이돌 곡은 파트가 곧 구조입니다. 아래는 트랙별로 앱이 미리 정한 파트 배분입니다 — 가사 섹션 태그에 이 배분을 그대로 반영하십시오, 예: "[Verse 1: Member A]", "[Chorus: All]". 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오.',
+    '  아이돌 곡은 파트가 곧 구조입니다. 아래는 트랙별로 앱이 미리 정한 파트 배분입니다 — 가사 섹션 태그에 각 줄 끝의 "lyric tag" 문자열을 정확히 그대로 쓰십시오 (예: "[Verse 1: Member A]", "[Chorus: All]"). 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오.',
+    ...(hasRapperRole
+      ? ['  "(main rapper)"/"(lead rapper)"로 표시된 섹션은 반드시 그 lyric tag 그대로("Rap Verse" 형태, "Rap"이라는 글자를 태그 안에 포함) 쓰십시오 — 노래하듯 부르지 않고 실제 랩 딜리버리(플로우·라임)로 씁니다. leadVocal 축 어휘(triplet flow/double-time flow/laid-back flow/behind-the-beat flow, mumbled delivery/crisp articulate delivery 등, data/rapVocalDelivery.ts와 같은 딜리버리 어휘)를 그 멤버 구간의 stylePrompt에 반영하십시오.']
+      : []),
     '',
     ...trackBlocks
   ];
@@ -1665,6 +1706,7 @@ export function buildClaudeCodeInstruction(
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
   const chorusContrastInstructionLine = chorusContrastInstructionLineFor(preassignedSongs);
   const sectionStyleShiftInstructionLine = sectionStyleShiftInstructionLineFor(preassignedSongs);
+  const kpopChantBackingInstructionLine = kpopChantBackingInstructionLineFor(preassignedSongs);
   const earwormInstructionLine = earwormInstructionLineFor(preassignedSongs);
   const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
@@ -1786,6 +1828,7 @@ export function buildClaudeCodeInstruction(
     hookDeviceInstructionLine,
     chorusContrastInstructionLine,
     sectionStyleShiftInstructionLine,
+    kpopChantBackingInstructionLine,
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,

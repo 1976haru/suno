@@ -35,14 +35,15 @@ describe('[codex 지시문 04 §7] kr-idol-female motif quotas — real word lis
   });
 });
 
-describe('[codex 지시문 04 §7] kr-idol-female rap share — same real 12/18 target as kr-idol-male', () => {
-  it('a real 12/18 rap-section pack lands within tolerance', () => {
-    const plans = [...Array(12).fill({ hasRapSection: true }), ...Array(6).fill({ hasRapSection: false })];
+// 지시문 43 (TASK D-2) — 12/18에서 12/15로 갱신, kr-idol-male과 동일.
+describe('[codex 지시문 04 §7, 지시문 43 TASK D-2] kr-idol-female rap share — same real 12/15 target as kr-idol-male', () => {
+  it('a real 12/15 rap-section pack lands within tolerance', () => {
+    const plans = [...Array(12).fill({ hasRapSection: true }), ...Array(3).fill({ hasRapSection: false })];
     expect(checkKrIdolFemaleRapShare(plans).withinTolerance).toBe(true);
   });
 
   it('KR_IDOL_FEMALE_POLICY.rapPolicy.targetRatio matches kr-idol-male\'s own real seed value', () => {
-    expect(KR_IDOL_FEMALE_POLICY.rapPolicy.targetRatio).toBeCloseTo(12 / 18);
+    expect(KR_IDOL_FEMALE_POLICY.rapPolicy.targetRatio).toBeCloseTo(12 / 15);
   });
 });
 

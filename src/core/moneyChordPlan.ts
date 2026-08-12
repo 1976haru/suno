@@ -477,16 +477,27 @@ export function buildGenreAwareProgressionPlan(
   }
   // 시그니처는 항상 선택 — 나머지는 점수 내림차순으로 최대 4종 더(총 5종
   // 상한), 풀이 그보다 작으면 풀 전체를 쓴다.
+  // 지시문 43 (TASK B-1/B-4) — kr-idol만 상한을 6종 더(총 7종)로 올린다.
+  // "세트 내 진행 종류 6~7종" 목표는 이 5종 상한 자체가 원인이었다(풀을
+  // 9종으로 늘려도(§B-1) 이 함수가 상위 5개만 뽑으면 여전히 5종에서 안
+  // 늘어난다) — archetype으로 게이팅해 다른 워크스페이스는 기존 5종 상한
+  // 그대로 유지한다(§하지 말 것 "다른 워크스페이스를 건드리지 말 것").
+  const isKrIdol = archetype === 'kr-idol-male' || archetype === 'kr-idol-female';
   const rankedOthers = pool
     .filter(id => id !== signature)
     .sort((a, b) => (score.get(b) ?? 0) - (score.get(a) ?? 0));
-  const maxOthers = Math.min(4, rankedOthers.length);
+  const maxOthers = Math.min(isKrIdol ? 6 : 4, rankedOthers.length);
   const selected = [signature, ...rankedOthers.slice(0, maxOthers)];
 
   // 2. §B-2 배분 모양 — 시그니처(가중치 3.5) · 보조 2종(가중치 2씩) · 나머지
   // 색깔 진행(가중치 1씩), 18곡 worked example로 만들어 scaleMoneyChordCounts로
   // songCount에 비례.
-  const weightOf = (index: number) => (index === 0 ? 3.5 : index <= 2 ? 2 : 1);
+  // 지시문 43 (TASK B-4) — kr-idol만 균등 가중치(전부 1)로 바꾼다. 기존
+  // 가중치(시그니처 3.5)를 7종에 그대로 적용하면 15곡 기준 시그니처 혼자
+  // ~30%(4~5곡)를 가져가 "같은 진행 최대 3곡"(§B-4 완료 판정)을 못
+  // 지킨다 — 균등 가중치라야 7종 배분이 대략 15/7≈2.1곡씩 고르게 퍼져
+  // 3곡 상한 안에 자연스럽게 들어온다.
+  const weightOf = (index: number) => (isKrIdol ? 1 : index === 0 ? 3.5 : index <= 2 ? 2 : 1);
   const workedCounts: Record<string, number> = {};
   const totalWeight = selected.reduce((sum, _, index) => sum + weightOf(index), 0);
   selected.forEach((id, index) => {
