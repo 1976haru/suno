@@ -914,6 +914,17 @@ export default function Step3Generate({
   const multiSetTotalSongs = multiSetClamped.setCount * multiSetClamped.songsPerSet;
   const multiSetCostEstimate = estimateCost(multiSetClamped.songsPerSet, provider, inputPrice, outputPrice);
   const effectiveSongCount = multiSet.mode ? multiSetTotalSongs : opts.songCount;
+  // 지시문 42 (TASK A) — 지시문이 요구한 축은 opts.hookMode 하나다. 실측 중
+  // 발견한 경계 사례: core/localGenerator.ts(단일 팩의 "N곡 생성하기" 직접
+  // 로컬 생성 버튼)는 hookMode를 아예 읽지 않고 항상 composeHook()(풀
+  // 추첨)을 쓴다 — 이 화면의 "Claude Code 브릿지" 섹션(하루의 실제 주 사용
+  // 경로, provider와 무관하게 항상 노출됨)은 그 브릿지 지시문을 통해 이
+  // hookMode를 그대로 존중한다. 즉 provider==='local'이 "풀을 쓴다"는
+  // 뜻은 아니다 — 브릿지를 쓰면 여전히 ai-creative다. 두 실제 경로가 같은
+  // 화면에 동시에 떠 있어 하나의 표시로 둘 다 정확히 반영할 수 없으므로,
+  // 지시문이 명시한 hookMode 신호를 그대로 따른다(E-2 보고에 이 직접
+  // 로컬 생성 버튼 자체의 경계 사례를 별도로 남긴다).
+  const usesPoolHooks = (opts.hookMode ?? 'ai-creative') === 'pool';
   const packWarning = hookStats && hookStats.poolSize > 0 ? packCapacityWarning(hookStats, effectiveSongCount) : null;
   const bridgePrerequisites: BridgeImportPrerequisites = { hasSelectedChannel, hasSelectedSeason };
   const bridgeBlockMessage = bridgeImportBlockMessage(bridgePrerequisites);
@@ -1628,48 +1639,72 @@ export default function Step3Generate({
         </div>
       )}
 
-      {hookStats && hookStats.poolSize > 0 && (
-        <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
-          {hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? (
-            <>
-              <AlertTriangle size={16} />
-              <span>
-                🔴 이 채널에서 사용 가능한 훅이 얼마 남지 않았습니다. 사용: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
-                남은 훅이 부족합니다. 훅 뱅크를 확장하거나, 오래된 팩을 삭제해 이력을 비우세요.
-                <button type="button" onClick={onOpenHookHistory}>훅 이력 관리</button>
-              </span>
-            </>
-          ) : (
-            <p className="supporting">
-              🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
-            </p>
+      {/*
+        지시문 42 (TASK A) — 실측: 이 화면은 hookMode와 무관하게 항상 조합형
+        풀(hookPoolSize) 잔여량을 보여줬다. 'ai-creative'(기본값)는 LLM이
+        매번 새 훅을 짓는 모드라 풀을 소진할 일이 없는데도 "26팩 분량
+        남았다"는 식으로 소진 임박을 암시해, 컨셉 화면의 "훅 뱅크가 소진될
+        일이 없다"는 안내와 정면으로 모순됐다(하루의 실제 지적). 풀 잔여량
+        표시·경고는 실제로 풀을 소비할 때만(usesPoolHooks) 의미가 있으므로
+        그때만 보여준다 — pool 모드의 표시 자체는 한 글자도 바꾸지 않았다.
+      */}
+      {usesPoolHooks ? (
+        <>
+          {hookStats && hookStats.poolSize > 0 && (
+            <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
+              {hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? (
+                <>
+                  <AlertTriangle size={16} />
+                  <span>
+                    🔴 이 채널에서 사용 가능한 훅이 얼마 남지 않았습니다. 사용: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+                    남은 훅이 부족합니다. 훅 뱅크를 확장하거나, 오래된 팩을 삭제해 이력을 비우세요.
+                    <button type="button" onClick={onOpenHookHistory}>훅 이력 관리</button>
+                  </span>
+                </>
+              ) : (
+                <p className="supporting">
+                  🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+                </p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {packWarning && (
-        <div className={packWarning.level === 'none' ? 'provider-summary' : 'warning'}>
-          {packWarning.level === 'none' ? (
-            <p className="supporting">
-              이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
-              {packWarning.remainingAfterPack.toLocaleString()}개
-              {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
-            </p>
-          ) : (
-            <>
-              <AlertTriangle size={16} />
-              <span>
-                {packWarning.level === 'red' ? '🔴 ' : '🟡 '}
-                이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
-                {packWarning.remainingAfterPack.toLocaleString()}개
-                {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
-                {packWarning.level === 'red'
-                  ? ' — 훅 풀이 부족해 일부 곡이 생성 실패할 수 있습니다.'
-                  : ' — 다음 팩부터는 부족해질 수 있으니 미리 훅 이력을 정리하세요.'}
-              </span>
-            </>
+          {packWarning && (
+            <div className={packWarning.level === 'none' ? 'provider-summary' : 'warning'}>
+              {packWarning.level === 'none' ? (
+                <p className="supporting">
+                  이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+                  {packWarning.remainingAfterPack.toLocaleString()}개
+                  {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+                </p>
+              ) : (
+                <>
+                  <AlertTriangle size={16} />
+                  <span>
+                    {packWarning.level === 'red' ? '🔴 ' : '🟡 '}
+                    이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+                    {packWarning.remainingAfterPack.toLocaleString()}개
+                    {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+                    {packWarning.level === 'red'
+                      ? ' — 훅 풀이 부족해 일부 곡이 생성 실패할 수 있습니다.'
+                      : ' — 다음 팩부터는 부족해질 수 있으니 미리 훅 이력을 정리하세요.'}
+                  </span>
+                </>
+              )}
+            </div>
           )}
-        </div>
+        </>
+      ) : (
+        hookStats && (
+          <div className="provider-summary">
+            <p className="supporting">
+              🎵 이 채널의 훅 이력: {hookStats.used.toLocaleString()}개
+            </p>
+            <p className="supporting">
+              AI가 매번 새 훅을 지어요 — 최근 500개와 겹치지 않게 피합니다.
+            </p>
+          </div>
+        )
       )}
 
       {!basicMode && !multiSet.mode && (
