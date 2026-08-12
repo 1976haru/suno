@@ -77,6 +77,6 @@ describe('[codex 지시문 02 TASK E] Step3Generate.tsx GenerationContractPanel 
   it('imports both new resolvers from their real source modules', () => {
     expect(source).toContain("resolveBilingualPair");
     expect(source).toContain("from '../../core/localGenerator'");
-    expect(source).toMatch(/resolveScenePlanningMode.*from '\.\.\/\.\.\/core\/bridgeInstruction'/);
+    expect(source).toMatch(/resolveScenePlanningMode.*from '\.\.\/\.\.\/core\/scenePlanningMode'/);
   });
 });

@@ -31,11 +31,13 @@ import {
 } from '../src/core/generationPreflight';
 import { buildResolvedGenerationContract, userChoicesFromOptions } from '../src/core/userChoices';
 import type { DesignGateResult } from '../src/core/designGate';
-import type { PreassignedSongSlot, WorkspaceDefinition } from '../src/types';
+import type { GenerationOptions, PreassignedSongSlot, ScenePlanningMode, WorkspaceDefinition } from '../src/types';
 import { getGenreById } from '../src/data/genreLibrary';
+import { lyricThemesForOptions } from '../src/data/lyricThemes';
 import { channelPresets, makeOptions } from './fixtures';
 
 const seniorChannel = channelPresets.find(channel => channel.archetype === 'senior-morning')!;
+const oldpopLoungeChannel = channelPresets.find(channel => channel.archetype === 'oldpop-lounge')!;
 
 const CLEAN_DESIGN_GATE: DesignGateResult = { passed: true, blocking: [], advisory: [] };
 
@@ -332,6 +334,91 @@ describe('resolveGenerationPreflight — soft mismatches are acknowledgeable via
       acknowledgedSignature: first.mismatchSignature
     });
     expect(acknowledged.allowed).toBe(true);
+  });
+
+  it('fixed-pool lyric theme exhaustion is a warning with proceed-anyway acknowledgement, not a hard block', () => {
+    const opts = makeOptions({ channel: oldpopLoungeChannel, songCount: 15, genreIds: oldpopLoungeChannel.preferredGenres });
+    const slots: PreassignedSongSlot[] = Array.from({ length: 15 }, (_, i) => slotFor({ trackNo: i + 1, genreId: oldpopLoungeChannel.preferredGenres[0] }));
+    const contract = buildResolvedGenerationContract(opts, userChoicesFromOptions(opts), slots, 'senior-oldpop');
+    const allThemes = lyricThemesForOptions(opts);
+    const avoid = { recentThemeIds: allThemes.slice(2).map(theme => theme.id), recentSituations: [] };
+
+    const first = resolveGenerationPreflight({
+      workspaceId: 'senior-oldpop',
+      options: opts,
+      slots,
+      contract,
+      designGate: CLEAN_DESIGN_GATE,
+      lyricThemeAvoid: avoid
+    });
+
+    const reason = first.reasons.find(r => r.field === 'lyricThemePoolInsufficient');
+    expect(reason).toMatchObject({
+      severity: 'warn',
+      details: { lyricThemePool: { archetype: 'oldpop-lounge', withAvoid: 2, songCount: 15, mode: 'fixed-pool' } }
+    });
+    expect(first.allowed).toBe(false);
+    expect(first.requiresAcknowledgement).toBe(true);
+
+    const acknowledged = resolveGenerationPreflight({
+      workspaceId: 'senior-oldpop',
+      options: opts,
+      slots,
+      contract,
+      designGate: CLEAN_DESIGN_GATE,
+      lyricThemeAvoid: avoid,
+      acknowledgedSignature: first.mismatchSignature
+    });
+    expect(acknowledged.allowed).toBe(true);
+  });
+
+  it('concept-generated mode skips fixed lyric theme pool exhaustion entirely', () => {
+    const opts = makeOptions({
+      channel: oldpopLoungeChannel,
+      songCount: 15,
+      genreIds: oldpopLoungeChannel.preferredGenres,
+      customConcept: 'rainy evening lounge memories'
+    });
+    const slots: PreassignedSongSlot[] = Array.from({ length: 15 }, (_, i) => slotFor({ trackNo: i + 1, genreId: oldpopLoungeChannel.preferredGenres[0] }));
+    const contract = buildResolvedGenerationContract(opts, userChoicesFromOptions(opts), slots, 'senior-oldpop');
+    const allThemes = lyricThemesForOptions(opts);
+    const avoid = { recentThemeIds: allThemes.slice(2).map(theme => theme.id), recentSituations: [] };
+
+    const result = resolveGenerationPreflight({
+      workspaceId: 'senior-oldpop',
+      options: opts,
+      slots,
+      contract,
+      designGate: CLEAN_DESIGN_GATE,
+      lyricThemeAvoid: avoid,
+      conceptSceneContext: { recentSituations: [], recentLyricLines: [] }
+    });
+
+    expect(result.reasons.some(r => r.field === 'lyricThemePoolInsufficient')).toBe(false);
+    expect(result.allowed).toBe(true);
+  });
+
+  it('same-story-comparison mode also skips fixed-pool uniqueness blocking', () => {
+    const opts: GenerationOptions & { scenePlanningMode: ScenePlanningMode } = {
+      ...makeOptions({ channel: oldpopLoungeChannel, songCount: 15, genreIds: oldpopLoungeChannel.preferredGenres }),
+      scenePlanningMode: 'same-story-comparison'
+    };
+    const slots: PreassignedSongSlot[] = Array.from({ length: 15 }, (_, i) => slotFor({ trackNo: i + 1, genreId: oldpopLoungeChannel.preferredGenres[0] }));
+    const contract = buildResolvedGenerationContract(opts, userChoicesFromOptions(opts), slots, 'senior-oldpop');
+    const allThemes = lyricThemesForOptions(opts);
+    const avoid = { recentThemeIds: allThemes.slice(2).map(theme => theme.id), recentSituations: [] };
+
+    const result = resolveGenerationPreflight({
+      workspaceId: 'senior-oldpop',
+      options: opts,
+      slots,
+      contract,
+      designGate: CLEAN_DESIGN_GATE,
+      lyricThemeAvoid: avoid
+    });
+
+    expect(result.reasons.some(r => r.field === 'lyricThemePoolInsufficient')).toBe(false);
+    expect(result.allowed).toBe(true);
   });
 });
 

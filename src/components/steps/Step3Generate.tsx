@@ -43,10 +43,10 @@ import { moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS } from '../../data/kidsAgeTiers';
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { resolveBilingualPair, resolveOpeningStyle } from '../../core/localGenerator';
-import { resolveScenePlanningMode } from '../../core/bridgeInstruction';
+import { resolveScenePlanningMode } from '../../core/scenePlanningMode';
 import { resolveGenreBlendMode } from '../../core/genreRotation';
 import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
-import { resolveGenerationPreflight, type PreflightResult } from '../../core/generationPreflight';
+import { resolveGenerationPreflight, type PreflightReason, type PreflightResult } from '../../core/generationPreflight';
 import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
 import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import { readLastGeneratedByChoice, rememberGeneratedByChoice } from '../../core/generatedByPreference';
@@ -58,10 +58,23 @@ import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PackGenerate
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
 const BULK_BATCH_ADVICE_THRESHOLD = 40;
+const DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT = 5;
+const REDUCED_LYRIC_THEME_AVOID_SET_LIMIT = 2;
 
 const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
 
 type BridgeInstructionMode = 'master' | 'perSet';
+
+function limitSceneSignaturesByRecentPacks<T extends { packId: string }>(signatures: T[], setLimit: number): T[] {
+  if (setLimit <= 0) return [];
+  const packIds: string[] = [];
+  for (const signature of signatures) {
+    if (!packIds.includes(signature.packId)) packIds.push(signature.packId);
+    if (packIds.length >= setLimit) break;
+  }
+  const allowed = new Set(packIds);
+  return signatures.filter(signature => allowed.has(signature.packId));
+}
 
 const POV_LABELS: Record<string, string> = {
   firstPerson: '1인칭',
@@ -496,6 +509,70 @@ function MultiSetPreflightPanel({
   );
 }
 
+function StandalonePreflightWarningPanel({
+  reasons,
+  acknowledgedFields,
+  lyricThemeAvoidSetLimit,
+  onAcknowledge,
+  onGoToConceptStep,
+  onReduceLyricThemeAvoidScope,
+  onReduceSongCount
+}: {
+  reasons: PreflightReason[];
+  acknowledgedFields: Set<string>;
+  lyricThemeAvoidSetLimit: number;
+  onAcknowledge: (field: string) => void;
+  onGoToConceptStep: () => void;
+  onReduceLyricThemeAvoidScope: () => void;
+  onReduceSongCount: (count: number) => void;
+}) {
+  if (!reasons.length) return null;
+
+  return (
+    <div className="warning generation-mismatch-panel generation-preflight-warning-panel">
+      <div className="panel-title">
+        <AlertTriangle size={16} />
+        <b>생성 전 확인이 필요합니다</b>
+      </div>
+      {reasons.map(reason => {
+        const acknowledged = acknowledgedFields.has(reason.field);
+        const pool = reason.details?.lyricThemePool;
+        return (
+          <div key={reason.field} className="option-block compact">
+            <b>{reason.field === 'lyricThemePoolInsufficient' ? '장면 후보 부족' : reason.field}</b>
+            <p className="supporting">{reason.messageKo}</p>
+            {pool && (
+              <div className="button-row">
+                <button type="button" onClick={onGoToConceptStep}>
+                  컨셉 기반 장면 생성으로 바꾸기
+                </button>
+                <button
+                  type="button"
+                  disabled={lyricThemeAvoidSetLimit <= REDUCED_LYRIC_THEME_AVOID_SET_LIMIT}
+                  onClick={onReduceLyricThemeAvoidScope}
+                >
+                  최근 세트 회피 범위 {REDUCED_LYRIC_THEME_AVOID_SET_LIMIT}세트로 줄이기
+                </button>
+                <button type="button" disabled={pool.withAvoid < 1} onClick={() => onReduceSongCount(pool.withAvoid)}>
+                  곡 수를 {pool.withAvoid}곡으로 줄이기
+                </button>
+                <button
+                  type="button"
+                  className={acknowledged ? 'chip active' : 'chip'}
+                  onClick={() => onAcknowledge(reason.field)}
+                >
+                  {acknowledged ? <Check size={14} /> : <XCircle size={14} />}
+                  이대로 진행
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatRange(range: TokenRange) {
   return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
 }
@@ -653,6 +730,10 @@ export default function Step3Generate({
   // plain derived objects (not their own state) so every existing
   // downstream reference stays unchanged.
   const historySnapshot = useGenerationHistorySnapshot(opts.channel.id, opts.lyricLanguage);
+  const [lyricThemeAvoidSetLimit, setLyricThemeAvoidSetLimit] = useState(DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT);
+  useEffect(() => {
+    setLyricThemeAvoidSetLimit(DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT);
+  }, [opts.channel.id, opts.lyricLanguage]);
   // codex 지시문 01 (TASK I) — "지시문만 복사하고 아직 결과를 가져오지 않았거나
   // 두 세션을 동시에 실행해도 중복을 막는다": one stable runId per
   // channel+language for this screen instance (regenerated only when the
@@ -698,14 +779,18 @@ export default function Step3Generate({
   // preallocateSongSlots) instead of only ever reaching the bridge
   // instruction's TEXT — the real fix for §2-1's "회피 목록이 배정에 쓰이지
   // 않는다".
+  const lyricThemeAvoidSceneSignatures = useMemo(
+    () => limitSceneSignaturesByRecentPacks(historySnapshot.recentSceneSignatures, lyricThemeAvoidSetLimit),
+    [historySnapshot.recentSceneSignatures, lyricThemeAvoidSetLimit]
+  );
   const bridgeAvoid = useMemo(
     () => ({
       usedTitles: [...historySnapshot.usedTitles, ...reservedSiblingAvoid.titles],
       usedHooks: [...historySnapshot.usedHooks, ...reservedSiblingAvoid.hooks],
-      recentLyricThemeIds: historySnapshot.recentSceneSignatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id)),
-      recentSituations: historySnapshot.recentSituations
+      recentLyricThemeIds: lyricThemeAvoidSceneSignatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id)),
+      recentSituations: lyricThemeAvoidSceneSignatures.map(s => s.situation)
     }),
-    [historySnapshot.usedTitles, historySnapshot.usedHooks, historySnapshot.recentSceneSignatures, historySnapshot.recentSituations, reservedSiblingAvoid]
+    [historySnapshot.usedTitles, historySnapshot.usedHooks, lyricThemeAvoidSceneSignatures, reservedSiblingAvoid]
   );
   /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
   const bridgeConceptSceneContext = useMemo(
@@ -856,6 +941,7 @@ export default function Step3Generate({
     [opts, generationChoices, bridgePreassignedSongs, workspaceId]
   );
   const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
+  const [acknowledgedPreflightWarnFields, setAcknowledgedPreflightWarnFields] = useState<Set<string>>(new Set());
   // TASK (generation preflight) — this used to reset on a signature built
   // from WHICH FIELDS mismatched only (mismatch.field, sorted+joined), the
   // exact naive-signature bug the new preflight module's own doc comment
@@ -872,6 +958,15 @@ export default function Step3Generate({
 
   function handleAcknowledgeMismatch(field: string) {
     setAcknowledgedMismatchFields(prev => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
+
+  function handleAcknowledgePreflightWarning(field: string) {
+    setAcknowledgedPreflightWarnFields(prev => {
       const next = new Set(prev);
       if (next.has(field)) next.delete(field);
       else next.add(field);
@@ -1017,10 +1112,19 @@ export default function Step3Generate({
       },
       acknowledgedSignature,
       // 지시문 14 (Phase 2 TASK A-2) — same recentLyricThemeIds/recentSituations bridgeAvoid already carries into slot assignment; lets this hard-block check run without a second fetch.
-      lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations }
+      lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations },
+      conceptSceneContext: bridgeConceptSceneContext
     }),
-    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations]
+    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations, bridgeConceptSceneContext]
   );
+
+  const standalonePreflightWarnReasons = useMemo(() => {
+    const mismatchFields = new Set(generationContract.mismatches.map(mismatch => mismatch.field));
+    const designGateFields = new Set((designGateResult?.blocking ?? [{ id: 'design-gate-pending' }]).map(issue => issue.id));
+    return preflight.reasons.filter(
+      reason => reason.severity === 'warn' && !mismatchFields.has(reason.field) && !designGateFields.has(reason.field)
+    );
+  }, [preflight.reasons, generationContract.mismatches, designGateResult]);
 
   // A real change in the actual mismatch/design-gate CONTENT (not just which
   // fields/ids are involved — see preflight.mismatchSignature's own doc
@@ -1031,7 +1135,7 @@ export default function Step3Generate({
   useEffect(() => {
     setAcknowledgedMismatchFields(new Set());
     setBridgeGateAcknowledged(false);
-     
+    setAcknowledgedPreflightWarnFields(new Set());
   }, [preflight.mismatchSignature]);
 
   // Once the user has reviewed and checked every currently-required item in
@@ -1042,8 +1146,9 @@ export default function Step3Generate({
     if (!preflight.mismatchSignature) return; // nothing to acknowledge (clean, or a hard block with no ack path at all)
     const allMismatchesChecked = generationContract.mismatches.every(mismatch => acknowledgedMismatchFields.has(mismatch.field));
     const designGateChecked = !designGateResult || designGateResult.passed || bridgeGateAcknowledged;
-    if (allMismatchesChecked && designGateChecked) onAcknowledgedSignatureChange(preflight.mismatchSignature);
-  }, [preflight.mismatchSignature, generationContract.mismatches, acknowledgedMismatchFields, designGateResult, bridgeGateAcknowledged, onAcknowledgedSignatureChange]);
+    const allStandaloneWarningsChecked = standalonePreflightWarnReasons.every(reason => acknowledgedPreflightWarnFields.has(reason.field));
+    if (allMismatchesChecked && designGateChecked && allStandaloneWarningsChecked) onAcknowledgedSignatureChange(preflight.mismatchSignature);
+  }, [preflight.mismatchSignature, generationContract.mismatches, acknowledgedMismatchFields, designGateResult, bridgeGateAcknowledged, standalonePreflightWarnReasons, acknowledgedPreflightWarnFields, onAcknowledgedSignatureChange]);
 
   const preflightBlockReasonKo = !preflight.allowed
     ? (preflight.reasons.find(reason => reason.severity === 'block')?.messageKo
@@ -1972,6 +2077,16 @@ export default function Step3Generate({
           )}
         </div>
       )}
+
+      <StandalonePreflightWarningPanel
+        reasons={standalonePreflightWarnReasons}
+        acknowledgedFields={acknowledgedPreflightWarnFields}
+        lyricThemeAvoidSetLimit={lyricThemeAvoidSetLimit}
+        onAcknowledge={handleAcknowledgePreflightWarning}
+        onGoToConceptStep={onGoToConceptStep}
+        onReduceLyricThemeAvoidScope={() => setLyricThemeAvoidSetLimit(REDUCED_LYRIC_THEME_AVOID_SET_LIMIT)}
+        onReduceSongCount={count => setOpts(prev => ({ ...prev, songCount: clampSongCount(count) }))}
+      />
 
       <GenerationContractPanel
         contract={generationContract}

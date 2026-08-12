@@ -32,6 +32,10 @@ describe('[codex 지시문 02 TASK D] resolveScenePlanningMode', () => {
   it('is concept-generated only when BOTH a real customConcept AND a conceptSceneContext are present', () => {
     expect(resolveScenePlanningMode({ customConcept: '비 오는 밤 도시 드라이브' }, { recentSituations: [], recentLyricLines: [] })).toBe('concept-generated');
   });
+
+  it('honors an explicit same-story-comparison override', () => {
+    expect(resolveScenePlanningMode({ customConcept: '같은 이야기 다른 시점', scenePlanningMode: 'same-story-comparison' }, undefined)).toBe('same-story-comparison');
+  });
 });
 
 describe('[codex 지시문 02 TASK D] bridge instruction — the two scene systems no longer contradict', () => {

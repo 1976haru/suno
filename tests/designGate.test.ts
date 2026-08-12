@@ -742,6 +742,25 @@ describe('evaluateDesignGate — lyricThemeText 중복 (지시문 29 TASK C-3)',
     expect(found!.actual).toContain('T1, T2, T3, T4');
   });
 
+  it('여러 중복 그룹도 단일 팩에서는 경고 1개로 요약한다', () => {
+    const opts = baseOpts();
+    const slots = healthySlots().map((slot, i) => ({
+      ...slot,
+      lyricThemeText: i < 4
+        ? 'stacking one more block on a tower and counting all the way'
+        : i < 7
+          ? 'drawing a chalk star beside the school gate after class'
+          : `unique scene ${i}`
+    }));
+    const result = evaluateDesignGate(slots, baseConstraints(opts), opts);
+    const duplicates = result.blocking.filter(i => i.id === 'lyric-theme-text-duplicate');
+    expect(duplicates).toHaveLength(1);
+    expect(duplicates[0].actual).toContain('4곡');
+    expect(duplicates[0].actual).toContain('T1, T2, T3, T4');
+    expect(duplicates[0].actual).toContain('3곡');
+    expect(duplicates[0].actual).toContain('T5, T6, T7');
+  });
+
   it('전부 고유하면 통과한다', () => {
     const opts = baseOpts();
     const slots = healthySlots().map((slot, i) => ({ ...slot, lyricThemeText: `unique scene ${i}` }));

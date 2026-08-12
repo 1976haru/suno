@@ -8,6 +8,7 @@ import type { ChannelProfile, PreassignedSongSlot } from '../src/types';
 
 const showaChannel = channelPresets.find(channel => channel.archetype === 'showa-cafe')!;
 const seniorChannel = channelPresets.find(channel => channel.archetype === 'senior-morning')!;
+const oldpopLoungeChannel = channelPresets.find(channel => channel.archetype === 'oldpop-lounge')!;
 const kidsChannel = channelPresets.find(channel => channel.archetype === 'kids')!;
 
 function channelGenres(channel: ChannelProfile) {
@@ -64,7 +65,7 @@ function rawSongForSlot(slot: PreassignedSongSlot, index: number) {
 }
 
 describe('[v3.47 Step 2] lyric theme data and slot plans', () => {
-  it('keeps each channel on 12-50 concrete scene-level lyric themes', () => {
+  it('keeps each checked channel on 12-120 concrete scene-level lyric themes', () => {
     // TASK v3.58 — ceiling raised 20 -> 30 (this app's real max single-pack
     // songCount, see scripts/sample.ts's cap): a pool of exactly 16 themes
     // for senior-morning was one short of covering a real 18-song pack
@@ -84,14 +85,21 @@ describe('[v3.47 Step 2] lyric theme data and slot plans', () => {
     // 40 -> 70 and showa-cafe/kids grew similarly, all deliberately, with
     // real material-family diversity (§B-3) — see lyricThemes.ts's own
     // "지시문 14 (Phase 2 TASK B)" doc comments at each archetype's block.
-    // 80 still catches a runaway pool above the real new sizes.
+    // fix/theme-pool-hard-block — ceiling raised 80 -> 120 for the urgent
+    // 110-theme target on senior-morning and oldpop-lounge. 120 still catches
+    // accidental runaway growth above that explicit target.
     for (const channel of [showaChannel, seniorChannel, kidsChannel]) {
       const themes = lyricThemesForArchetype(channel.archetype);
       expect(themes.length).toBeGreaterThanOrEqual(12);
-      expect(themes.length).toBeLessThanOrEqual(80);
+      expect(themes.length).toBeLessThanOrEqual(120);
       expect(themes.every(theme => theme.scene.split(/\s+/).length >= 8)).toBe(true);
       expect(themes.every(theme => theme.scene.toLowerCase() !== theme.labelKo.toLowerCase())).toBe(true);
     }
+  });
+
+  it('keeps senior-morning and oldpop-lounge at the 110-theme fixed-pool target', () => {
+    expect(lyricThemesForArchetype(seniorChannel.archetype)).toHaveLength(110);
+    expect(lyricThemesForArchetype(oldpopLoungeChannel.archetype)).toHaveLength(110);
   });
 
   it('adds the user direct-input scene to the lyric theme allocation pool', () => {

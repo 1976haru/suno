@@ -33,6 +33,7 @@ import { parseSetArcSpec, type SetArcSpec } from './setArcAdherence';
 import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan } from './explorationPolicyEngine';
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
+import { resolveScenePlanningMode as resolveSharedScenePlanningMode } from './scenePlanningMode';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -293,8 +294,11 @@ export interface ConceptSceneContext {
  * types.ts's ScenePlanningMode doc comment for why it's still a real type
  * member rather than removed.
  */
-export function resolveScenePlanningMode(opts: Pick<GenerationOptions, 'customConcept'>, conceptSceneContext: ConceptSceneContext | undefined): ScenePlanningMode {
-  return conceptSceneContext && opts.customConcept?.trim() ? 'concept-generated' : 'fixed-pool';
+export function resolveScenePlanningMode(
+  opts: Pick<GenerationOptions, 'customConcept'> & { scenePlanningMode?: ScenePlanningMode },
+  conceptSceneContext: ConceptSceneContext | undefined
+): ScenePlanningMode {
+  return resolveSharedScenePlanningMode(opts, conceptSceneContext);
 }
 
 function buildBridgePayload(

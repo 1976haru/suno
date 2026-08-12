@@ -786,13 +786,16 @@ function lyricThemeDuplicateIssues(slots: PreassignedSongSlot[]): DesignIssue[] 
   const duplicated = Object.entries(counts).filter(([, count]) => count >= 2);
   if (!duplicated.length) return [];
   const trackNosFor = (text: string) => slots.filter(slot => slot.lyricThemeText === text).map(slot => `T${slot.trackNo}`).join(', ');
-  return duplicated.map(([text, count]) => issue({
+  const groups = duplicated.map(([text, count]) =>
+    `${count}곡 동일 (트랙 ${trackNosFor(text)}): "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`
+  );
+  return [issue({
     id: 'lyric-theme-text-duplicate',
     labelKo: 'lyricThemeText 중복',
     expected: '세트 내 고유',
-    actual: `${count}곡 동일 (트랙 ${trackNosFor(text)}): "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
+    actual: groups.join(' / '),
     fixHintKo: '같은 소재(테마)가 여러 곡에 배정됐습니다 — lyricTheme 재배정이 필요합니다.'
-  }));
+  })];
 }
 
 // ---------------------------------------------------------------------------

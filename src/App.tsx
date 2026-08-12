@@ -1885,7 +1885,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
           {currentStep === 4 && (
             <StepErrorBoundary stepLabel="생성 (Step 4)" onGoBack={() => setCurrentStep(3)}>
             <Step3Generate
-              opts={opts}
+              opts={activeOptions}
               setOpts={setOpts}
               genres={fallbackGenres()}
               moods={fallbackMoods()}

@@ -34,6 +34,7 @@ import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { hashSeed } from '../utils/prng';
 import { validateChannelProfile } from '../utils/channelProfile';
 import { lyricThemesForOptions } from '../data/lyricThemes';
+import { resolveScenePlanningMode, type ConceptSceneContext } from './scenePlanningMode';
 
 export interface PreflightReason {
   /** Matches ResolvedGenerationContract.mismatches[].field / DesignIssue.id for a soft (acknowledgeable) reason; one of this module's own hard-block ids ('channelArchetype' | 'genreZeroSongs' | 'workspaceScaffold') for a hard one. */
@@ -41,6 +42,15 @@ export interface PreflightReason {
   messageKo: string;
   /** 'block': no acknowledgment can ever unblock this (see the 3 hard conditions below). 'warn': a real mismatch/gate failure that CAN be unblocked by acknowledging its current content (see mismatchSignature). */
   severity: 'block' | 'warn';
+  details?: {
+    lyricThemePool?: {
+      archetype: string;
+      withoutAvoid: number;
+      withAvoid: number;
+      songCount: number;
+      mode: string;
+    };
+  };
 }
 
 export interface PreflightResult {
@@ -92,6 +102,7 @@ export interface GenerationPreflightInput {
   workspaceOverride?: WorkspaceDefinition;
   /** 지시문 14 (Phase 2 TASK A-2) — see lyricThemePoolInsufficientHardBlock's own doc comment. Optional: a caller with no pre-fetched cross-pack history yet simply skips that one check. */
   lyricThemeAvoid?: { recentThemeIds?: string[]; recentSituations?: string[] };
+  conceptSceneContext?: ConceptSceneContext;
 }
 
 /** Recursively sorts object keys (arrays keep their own order — order is semantically meaningful there, e.g. contract.mismatches) so two structurally-identical values with differently-ordered keys hash identically. */
@@ -214,17 +225,30 @@ function eraGenrePoolInsufficientHardBlock(options: GenerationOptions): Prefligh
  */
 function lyricThemePoolInsufficientHardBlock(
   options: GenerationOptions,
-  lyricThemeAvoid?: { recentThemeIds?: string[]; recentSituations?: string[] }
+  lyricThemeAvoid?: { recentThemeIds?: string[]; recentSituations?: string[] },
+  conceptSceneContext?: ConceptSceneContext
 ): PreflightReason | null {
+  const mode = resolveScenePlanningMode(options, conceptSceneContext);
+  if (mode !== 'fixed-pool') return null;
   if (!lyricThemeAvoid || (!lyricThemeAvoid.recentThemeIds?.length && !lyricThemeAvoid.recentSituations?.length)) return null;
   if (!options.songCount || options.songCount <= 0) return null;
   const withoutAvoid = lyricThemesForOptions(options).length;
   const withAvoid = lyricThemesForOptions(options, lyricThemeAvoid).length;
   if (withAvoid >= options.songCount) return null;
+  const archetypeLabel = options.channel.archetype ?? 'unknown-archetype';
   return {
     field: 'lyricThemePoolInsufficient',
-    messageKo: `장면 후보 부족 — ${options.channel.archetype} 테마 ${withoutAvoid}종 / 필요 ${options.songCount}곡. 최근 세트 회피를 켜면 ${withAvoid}종이 남습니다. 테마를 추가하거나 회피 범위를 줄이십시오.`,
-    severity: 'block'
+    messageKo: `장면 후보 부족 — ${archetypeLabel} 테마 ${withoutAvoid}종 / 필요 ${options.songCount}곡. 최근 세트 회피를 켜면 ${withAvoid}종이 남습니다. 테마를 추가하거나 회피 범위를 줄이십시오.`,
+    severity: 'warn',
+    details: {
+      lyricThemePool: {
+        archetype: archetypeLabel,
+        withoutAvoid,
+        withAvoid,
+        songCount: options.songCount,
+        mode
+      }
+    }
   };
 }
 
@@ -283,16 +307,16 @@ function channelProfileInvalidHardBlock(options: GenerationOptions): PreflightRe
 }
 
 export function resolveGenerationPreflight(input: GenerationPreflightInput): PreflightResult {
-  const { workspaceId, options, slots, contract, designGate, acknowledgedSignature, workspaceOverride, lyricThemeAvoid } = input;
+  const { workspaceId, options, slots, contract, designGate, acknowledgedSignature, workspaceOverride, lyricThemeAvoid, conceptSceneContext } = input;
   const workspace = workspaceOverride ?? getWorkspace(workspaceId);
+  const lyricThemePoolReason = lyricThemePoolInsufficientHardBlock(options, lyricThemeAvoid, conceptSceneContext);
 
   const hardReasons: PreflightReason[] = [
     channelArchetypeHardBlock(workspace, options),
     genreZeroSongsHardBlock(options, slots),
     workspaceScaffoldHardBlock(workspace),
     channelProfileInvalidHardBlock(options),
-    eraGenrePoolInsufficientHardBlock(options),
-    lyricThemePoolInsufficientHardBlock(options, lyricThemeAvoid)
+    eraGenrePoolInsufficientHardBlock(options)
   ].filter((reason): reason is PreflightReason => reason !== null);
 
   if (hardReasons.length) {
@@ -303,6 +327,7 @@ export function resolveGenerationPreflight(input: GenerationPreflightInput): Pre
   }
 
   const warnReasons: PreflightReason[] = [
+    ...(lyricThemePoolReason ? [lyricThemePoolReason] : []),
     ...contract.mismatches.map(mismatch => ({
       field: mismatch.field,
       messageKo: mismatch.reasonKo,
@@ -322,6 +347,7 @@ export function resolveGenerationPreflight(input: GenerationPreflightInput): Pre
   const mismatchSignature = stableHash({
     mismatches: contract.mismatches.map(m => ({ field: m.field, selected: m.selected, effective: m.effective })),
     designIssues: designGate.blocking.map(i => ({ id: i.id, expected: i.expected, actual: i.actual })),
+    preflightWarnings: warnReasons.filter(reason => !contract.mismatches.some(m => m.field === reason.field) && !designGate.blocking.some(issue => issue.id === reason.field)),
     optionsHash: stableHash(options),
     slotsHash: stableHash(slots.map(s => `${s.genreId ?? ''}|${s.vocalType ?? ''}|${s.moneyChordId ?? ''}`))
   });
@@ -340,8 +366,9 @@ export interface GenerationRequestInput {
   workspaceId: WorkspaceId;
   options: GenerationOptions;
   genres: GenrePack[];
-  avoid?: { usedTitles?: string[]; usedHooks?: string[] };
+  avoid?: { usedTitles?: string[]; usedHooks?: string[]; recentLyricThemeIds?: string[]; recentSituations?: string[] };
   acknowledgedSignature?: string;
+  conceptSceneContext?: ConceptSceneContext;
 }
 
 /**
@@ -382,7 +409,7 @@ export async function evaluateGenerationRequest(
   input: GenerationRequestInput,
   designGateEvaluator: DesignGateEvaluator = evaluateDesignGate
 ): Promise<PreflightResult> {
-  const { workspaceId, options, genres, avoid, acknowledgedSignature } = input;
+  const { workspaceId, options, genres, avoid, acknowledgedSignature, conceptSceneContext } = input;
   const slots = preallocateSongSlots(options, genres, avoid);
   const choices = userChoicesFromOptions(options);
   const contract = buildResolvedGenerationContract(options, choices, slots, workspaceId);
@@ -392,5 +419,14 @@ export async function evaluateGenerationRequest(
     workspaceId
   );
   const designGate = await designGateEvaluator(slots, constraints, options);
-  return resolveGenerationPreflight({ workspaceId, options, slots, contract, designGate, acknowledgedSignature });
+  return resolveGenerationPreflight({
+    workspaceId,
+    options,
+    slots,
+    contract,
+    designGate,
+    acknowledgedSignature,
+    lyricThemeAvoid: { recentThemeIds: avoid?.recentLyricThemeIds, recentSituations: avoid?.recentSituations },
+    conceptSceneContext
+  });
 }
