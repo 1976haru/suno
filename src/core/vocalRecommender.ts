@@ -49,8 +49,14 @@ export interface VocalRecommendation {
 
 /** 같은 프리셋이 연속으로 나올 수 있는 최대 길이 — 이걸 넘기면 무겁게 감점한다(하드 배제는 아니다, 후보가 하나뿐인 극단적 경우까지 죽이지 않기 위해). */
 const MAX_CONSECUTIVE_SAME_PRESET = 2;
-/** 한 프리셋이 전체 팩에서 차지할 수 있는 최대 비중 — 다양성 상한. */
-const MAX_PRESET_SHARE = 0.6;
+/**
+ * 지시문 38 (TASK D-4 ③) — "같은 프리셋을 세트 내에서 최대 N곡까지 —
+ * 15곡 기준 한 프리셋 최대 4곡 (추정치)"를 정책 필드로 둔다. 4/15는
+ * 지시문 본문이 준 추정치이고, 다른 곡 수에서는 이 비율 그대로 스케일된다
+ * (songCount * MAX_PRESET_SHARE, 최소 1). 청취 검증값이 아니라 추정치이므로
+ * 실측 후 조정될 수 있다.
+ */
+const MAX_PRESET_SHARE = 4 / 15;
 
 const VOCAL_TYPES: VocalType[] = ['male', 'female', 'mixed'];
 

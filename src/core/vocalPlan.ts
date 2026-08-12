@@ -969,9 +969,10 @@ export function scaleVocalQuota(quota: VocalQuota, songCount: number): VocalQuot
  * type near-evenly across the WHOLE sequence and, as a direct consequence,
  * across any contiguous sub-range (e.g. any 6-song window) too. The old
  * "no run > maxConsecutive" repair pass still runs afterward as a safety
- * net (largest-remainder scheduling makes a run of 3+ very unlikely but
+ * net.
+ *
  * doesn't structurally forbid one when a single type's count exceeds ~40%
- * of the pack).
+ * of the pack — see evenlySegmentedVocalPlan below for that case).
  */
 function interleaveByLargestRemainder(counts: Record<VocalType, number>, songCount: number, seed: number): VocalType[] {
   const remaining: Record<VocalType, number> = { ...counts };
@@ -996,6 +997,74 @@ function interleaveByLargestRemainder(counts: Record<VocalType, number>, songCou
     plan.push(pick);
     remaining[pick] -= 1;
   }
+  return plan;
+}
+
+/**
+ * 지시문 38 (TASK C/D) — fallback for a HEAVILY skewed quota, the exact new
+ * case TASK C's direct male/female/duet ratio input makes reachable for the
+ * first time (previously only a channel's fixed vocalQuotaOverride could be
+ * this skewed, and that path is exempted from the consecutive-run gate
+ * entirely — see designGate.ts's vocalIssues). interleaveByLargestRemainder
+ * above starts every type tied at a remaining/total ratio of 1.0, so a
+ * count-1 type (e.g. female:1 of male:13/female:1/mixed:1 @ 15) is just as
+ * likely to be picked at position 0 as the dominant type — and once picked
+ * it permanently drops out, front-loading the only two "breaks" available
+ * and leaving a single unbroken tail of 10+ of the dominant type (real
+ * measurement). Rather than touch that well-tested scheduler (still exactly
+ * as it was — every existing balanced/moderately-leaning quota keeps
+ * byte-identical behavior), buildVocalPlan below only reaches for this
+ * function when the normal scheduler+repair still leaves a run this long
+ * — i.e. never for any quota this app could produce before TASK C.
+ *
+ * Splits the single largest type into `otherTotal + 1` segments (as evenly
+ * as largest-remainder allows) and interleaves every other type's items,
+ * seed-shuffled, as the `otherTotal` separators between those segments —
+ * the exact minimum number of segments the available separators can create,
+ * so this hits the theoretical best possible max-run
+ * (⌈majorityCount / (otherTotal + 1)⌉) for a two-tier (one dominant type,
+ * everything else scarce) quota. Falls back to a flat run of the majority
+ * type alone when there is nothing else to separate with.
+ */
+function evenlySegmentedVocalPlan(counts: Record<VocalType, number>, seed: number): VocalType[] {
+  const majorityType = VOCAL_TYPES.reduce((a, b) => (counts[a] ?? 0) >= (counts[b] ?? 0) ? a : b);
+  const majorityCount = counts[majorityType] ?? 0;
+  const otherTypes = VOCAL_TYPES.filter(type => type !== majorityType);
+  const separatorPool: VocalType[] = [];
+  for (const type of otherTypes) {
+    for (let i = 0; i < (counts[type] ?? 0); i++) separatorPool.push(type);
+  }
+  if (!separatorPool.length) return Array<VocalType>(majorityCount).fill(majorityType);
+
+  const segments = separatorPool.length + 1;
+  const base = Math.floor(majorityCount / segments);
+  let remainder = majorityCount - base * segments;
+  const segmentSizes = Array.from({ length: segments }, () => {
+    const size = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+    return size;
+  });
+  const shuffledSizes = shuffle(segmentSizes, seed + 7331);
+  const separators = shuffle(separatorPool, seed + 4211);
+  // Light touch-up: avoid two identical separators landing adjacent when an
+  // alternative later in the list exists (only matters with 2+ non-majority
+  // types both present) — the majority segments between them already keep
+  // this from mattering for the overall run-length guarantee either way.
+  for (let i = 1; i < separators.length; i++) {
+    if (separators[i] !== separators[i - 1]) continue;
+    const swapIndex = separators.findIndex((type, j) => j > i && type !== separators[i]);
+    if (swapIndex !== -1) {
+      const tmp = separators[i];
+      separators[i] = separators[swapIndex];
+      separators[swapIndex] = tmp;
+    }
+  }
+
+  const plan: VocalType[] = [];
+  shuffledSizes.forEach((size, index) => {
+    for (let i = 0; i < size; i++) plan.push(majorityType);
+    if (index < separators.length) plan.push(separators[index]);
+  });
   return plan;
 }
 
@@ -1027,10 +1096,37 @@ function repairConsecutiveRuns(plan: VocalType[], maxConsecutive: number): Vocal
   return result;
 }
 
+function longestRunLength(plan: readonly VocalType[]): number {
+  let longest = 0;
+  let current = 0;
+  let previous: VocalType | undefined;
+  for (const type of plan) {
+    current = type === previous ? current + 1 : 1;
+    longest = Math.max(longest, current);
+    previous = type;
+  }
+  return longest;
+}
+
 export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: number, maxConsecutive = 2): VocalType[] {
   const counts = scaleVocalQuota(quota, songCount);
-  const plan = interleaveByLargestRemainder(counts, songCount, seed);
-  return repairConsecutiveRuns(plan, maxConsecutive);
+  const plan = repairConsecutiveRuns(interleaveByLargestRemainder(counts, songCount, seed), maxConsecutive);
+  // 지시문 38 (TASK C/D) — the normal scheduler+repair pair is unchanged and
+  // still wins whenever it can already satisfy maxConsecutive (every quota
+  // this app could produce before TASK C's direct ratio input). Only a
+  // heavily skewed quota — mathematically beyond what interleave+repair can
+  // fix — falls through to evenlySegmentedVocalPlan's dedicated even-split
+  // algorithm, which real measurement shows a plain repair pass alone
+  // cannot reach (see that function's own doc comment). Its output is
+  // returned as-is, NOT re-passed through repairConsecutiveRuns — that
+  // pass's single forward-swap-per-violation logic was built for the mild
+  // case (interleaveByLargestRemainder's output already close to correct)
+  // and, given evenlySegmentedVocalPlan's already-optimal even split,
+  // measurably scrambles it back into one long run (real regression caught
+  // while building this fallback: re-running it turned a clean 7/7-split
+  // pattern back into an 11-in-a-row run).
+  if (longestRunLength(plan) <= maxConsecutive) return plan;
+  return evenlySegmentedVocalPlan(counts, seed);
 }
 
 /** v3.80 (TASK E) — "같은 기법은 팩 전체에서 최대 4곡까지" (this task's own explicit pack-wide cap). */

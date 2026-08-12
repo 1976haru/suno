@@ -66,12 +66,22 @@ describe('지시문 38 (TASK D) — recommendVocalPlan', () => {
     }
   });
 
-  it('respects a per-preset diversity cap — no single preset dominates a large pack', () => {
+  it('지시문 38 (TASK D-4 ③) — 같은 프리셋이 15곡 기준 4곡을 넘지 않는다(추정치, songCount 비례)', () => {
+    const result = recommendVocalPlan({ channelArchetype: 'senior-morning', songCount: 15, vocalQuota: DEFAULT_ADULT_VOCAL_QUOTA, seed: 5 });
+    const counts = new Map<string, number>();
+    for (const rec of result) counts.set(rec.presetId, (counts.get(rec.presetId) ?? 0) + 1);
+    for (const [presetId, count] of counts) {
+      expect(count, `${presetId} used ${count} times`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('respects the same per-preset diversity cap scaled up at a larger songCount', () => {
     const result = recommendVocalPlan({ channelArchetype: 'senior-morning', songCount: 40, vocalQuota: DEFAULT_ADULT_VOCAL_QUOTA, seed: 5 });
     const counts = new Map<string, number>();
     for (const rec of result) counts.set(rec.presetId, (counts.get(rec.presetId) ?? 0) + 1);
-    for (const count of counts.values()) {
-      expect(count / result.length).toBeLessThanOrEqual(0.65);
+    const expectedCap = Math.max(1, Math.ceil(40 * (4 / 15)));
+    for (const [presetId, count] of counts) {
+      expect(count, `${presetId} used ${count} times`).toBeLessThanOrEqual(expectedCap);
     }
   });
 
