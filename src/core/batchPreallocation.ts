@@ -44,6 +44,7 @@ import { buildKpopPartPlan } from './kpopPartPlan';
 import { kpopWorkspacePolicyFor } from './kpopWorkspacePolicy';
 import { buildKpopSectionStyleShiftPlan } from './kpopSectionStyleShiftPlan';
 import { sectionStyleShiftInstructionText, sectionStyleShiftPresetById } from '../data/sectionStyleShifts';
+import { buildMoneyChordSectionPlan } from './moneyChordSectionPlan';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
@@ -390,6 +391,11 @@ export function preallocateSongSlots(
         ?? buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount)
         ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
       : null);
+  // 지시문 39 (TASK B) — progressionPlan(위)이 이미 정한 트랙별 "주 진행"은
+  // 절대 건드리지 않는다 — 이 레이어는 그 위에 순수 추가되는 것으로,
+  // 워크스페이스 정책(동요 1개 우세·시니어 2개 우세·2030/아이돌 2~3개)에
+  // 따라 일부 트랙만 compatibleWith 안에서 2~3개 진행으로 확장한다.
+  const moneyChordSectionPlan = buildMoneyChordSectionPlan(progressionPlan, opts.channel.archetype, opts.songCount, seed);
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
@@ -795,6 +801,9 @@ export function preallocateSongSlots(
     // stays undefined outside quota rotation) — see
     // core/soundSignature.ts's resolveEffectiveMoneyChordId doc comment.
     const effectiveMoneyChordId = resolveEffectiveMoneyChordId(opts, moneyChordId);
+    // 지시문 39 (TASK B) — moneyChordId(주 진행)는 그대로. 이 트랙이 2~3개
+    // 진행으로 확장됐을 때만(sectionMap.length > 1) 존재.
+    const moneyChordSection = moneyChordSectionPlan[idx];
     const hookDeviceText = getHookDeviceById(hookDeviceId)?.prompt;
     const chorusContrastPlanId = chorusContrastPlan[idx];
     const chorusContrastResolved = chorusContrastPlanId ? chorusContrastPlanById(chorusContrastPlanId) : undefined;
@@ -907,6 +916,12 @@ export function preallocateSongSlots(
       } : {}),
       ...(partPlan ? { partPlan } : {}),
       ...(sectionStyleShiftPreset ? { sectionStyleShifts: sectionStyleShiftPreset.shifts, sectionStyleShiftText: sectionStyleShiftInstructionText(sectionStyleShiftPreset) } : {}),
+      // 지시문 39 (TASK B) — moneyChordSection.sectionMap.length > 1일 때만
+      // 채운다(1개면 moneyChordId/moneyChordText만으로 이미 충분 — 낡은
+      // 단일-진행 경로를 그대로 둔다).
+      ...(moneyChordSection && moneyChordSection.sectionMap.length > 1
+        ? { moneyChordSectionMap: moneyChordSection.sectionMap, moneyChordSectionText: moneyChordSection.text }
+        : {}),
       ...(openingLoudnessPlan[idx] ? { openingLoudnessText: openingLoudnessPlan[idx] } : {}),
       // TASK v3.64-B — mirrors localGenerator.ts's own per-song
       // rotatingEarwormText call (same seed/idx), promoted to a slot field
@@ -1379,6 +1394,10 @@ export function reconcileWithPreassignedSlot(
       bpm: slot.tempo,
       ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
       ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
+      // 지시문 39 (TASK B-7) — 지시문 26의 킬링포인트 결함(슬롯에는 있는데
+      // 팩에는 안 남음)을 반복하지 않는다. sectionStyleShifts와 같은 패턴 —
+      // 구조화된 배열만 복사한다(합쳐진 텍스트는 브릿지 지시문 전용).
+      ...(slot.moneyChordSectionMap ? { moneyChordSectionMap: slot.moneyChordSectionMap } : {}),
       ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
       ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
       ...(slot.lyricThemeMotionKo ? { lyricThemeMotionKo: slot.lyricThemeMotionKo } : {}),
@@ -1488,6 +1507,8 @@ export function reconcileWithPreassignedSlot(
     bpm: slot.tempo,
     ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
     ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
+    // 지시문 39 (TASK B-7) — fast path와 같은 이유(위 참고).
+    ...(slot.moneyChordSectionMap ? { moneyChordSectionMap: slot.moneyChordSectionMap } : {}),
     ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
     ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
     // codex 지시문 02 (TASK B) — real gap this closes: SongIdea.lyricThemeMotionKo/

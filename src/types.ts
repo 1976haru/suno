@@ -1385,6 +1385,10 @@ export interface SongIdea {
    * 봐서는 "이 트랙에 어떤 진행이 배정됐는지" 확인할 방법이 없었다.
    */
   moneyChordText?: string;
+  /** 지시문 39 (TASK B) — 슬롯 소유 스냅샷 필드. PreassignedSongSlot.moneyChordSectionMap과 같은 값(이 곡이 2~3개 진행을 쓸 때만 존재). */
+  moneyChordSectionMap?: MoneyChordSectionAssignment[];
+  /** 지시문 39 (TASK B) — 슬롯 소유 스냅샷 필드. PreassignedSongSlot.moneyChordSectionText와 같은 값. */
+  moneyChordSectionText?: string;
   /**
    * 지시문 37 (TASK A-5) — 팩 JSON에 이 필드가 없으면 지시문 26의 킬링포인트와
    * 같은 결함(슬롯에는 있는데 최종 SongIdea/저장된 팩에는 없음)을 반복하는
@@ -1710,6 +1714,20 @@ export interface SectionStyleShift {
   styleAtoms: string[];
 }
 
+/**
+ * 지시문 39 (TASK B) — "머니코드가 노래당 꼭 하나가 아니라 2~3개 있어도
+ * 되지 않아?" core/moneyChordSectionPlan.ts's buildMoneyChordSectionPlan이
+ * 기존 progressionPlan(단일 주 진행, 절대 안 바뀜) 위에 얹는 추가 레이어 —
+ * SectionStyleShift와 완전히 같은 신뢰 모델(앱이 한 번 계산해 슬롯에
+ * 싣고, 브릿지가 verbatim weave)이며 같은 SECTION_SCOPED_LABEL_PATTERN을
+ * 재사용한다(새 프롬프트 축을 만들지 않는다 — harmony 축 그대로).
+ */
+export interface MoneyChordSectionAssignment {
+  /** 'Verse' · 'Chorus' · 'Bridge' — promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN과 일치해야 한다. */
+  section: string;
+  chordId: string;
+}
+
 export interface KpopPartPlan {
   /** 4~7명 — 채널 정책 필드(core/kpopWorkspacePolicy.ts's memberCountRange). 실제 아이돌 그룹 규모이며 추정치가 아니다. */
   memberCount: number;
@@ -1967,6 +1985,15 @@ export interface PreassignedSongSlot {
   introTextureId?: string;
   /** v5.11 (TASK L) — always-resolved counterpart to moneyChordId above (never undefined outside quota rotation); see SongIdea.effectiveMoneyChordId's own doc comment. Copied verbatim onto the final SongIdea by core/batchPreallocation.ts's reconcileWithPreassignedSlot. */
   effectiveMoneyChordId: string;
+  /**
+   * 지시문 39 (TASK B) — 이 트랙이 곡 안에서 2~3개 진행을 쓸 때만 존재
+   * (1개면 undefined — moneyChordId/moneyChordText만으로 이미 충분하다).
+   * moneyChordSectionMap[0]의 chordId는 항상 moneyChordId와 같다(주
+   * 진행은 바뀌지 않는다 — 이 필드는 순수 추가 레이어).
+   */
+  moneyChordSectionMap?: MoneyChordSectionAssignment[];
+  /** moneyChordSectionMap을 "Section: progression" verbatim 텍스트로 합친 것 — bridgeInstruction이 verbatim weave 지시에 쓴다. sectionStyleShiftText와 같은 패턴. */
+  moneyChordSectionText?: string;
   /** v5.11 (TASK L) — mirrors SongIdea.effectiveVocalPresetId's own doc comment; whole-pack-resolved (same value on every slot), not per-track. */
   effectiveVocalPresetId?: string;
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
