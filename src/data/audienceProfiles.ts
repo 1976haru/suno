@@ -86,8 +86,12 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 62,
   tempoCeiling: 100,
   lyricWordRange: [200, 250],
-  /** v3.73 (TASK A) — 3:10-3:35, matching core/soundSignature.ts's own compactDuration() text for this archetype and the real-listening target TASK v3.71/v3.72 already measured against. */
-  songLengthSecondsRange: [190, 215],
+  /** 지시문 40 (TASK A) — 3:05-3:25로 하향. v3.73의 [190,215](3:10-3:35)는
+   * 하루의 현재 실측 목표(2:30-3:10대 K-pop과 별개로, 시니어 자체는
+   * "3:05~3:25")와 어긋나 있었다 — wordBudgetForTarget이 이 필드를 그대로
+   * 읽어 단어 예산을 뽑으므로, 여기가 낡으면 실제 생성 결과도 낡은
+   * 목표를 향해 계산된다. */
+  songLengthSecondsRange: [185, 205],
   /**
    * v3.67 (TASK B) — real killing points need permission to bend exactly
    * these, and only at their own song's own killing-point location: a
@@ -429,7 +433,10 @@ const KR_IDOL_MALE_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 92,
   tempoCeiling: 138,
   lyricWordRange: [140, 210],
-  songLengthSecondsRange: [165, 205],
+  // 지시문 40 (TASK C-3) — [165,205](2:45-3:25)에서 하루의 새 요구인
+  // 2:30-3:10으로 하향. K-pop(kr-idol-*)은 112 BPM대의 짧고 훅 중심적인
+  // 곡으로, 시니어보다 명확히 더 짧은 목표 길이를 갖는다.
+  songLengthSecondsRange: [150, 190],
   relaxableAtPeak: [],
   hardExclusions: [
     'slow ballad pacing',
@@ -476,7 +483,10 @@ const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 92,
   tempoCeiling: 138,
   lyricWordRange: [140, 210],
-  songLengthSecondsRange: [165, 205],
+  // 지시문 40 (TASK C-3) — [165,205](2:45-3:25)에서 하루의 새 요구인
+  // 2:30-3:10으로 하향. K-pop(kr-idol-*)은 112 BPM대의 짧고 훅 중심적인
+  // 곡으로, 시니어보다 명확히 더 짧은 목표 길이를 갖는다.
+  songLengthSecondsRange: [150, 190],
   relaxableAtPeak: [],
   hardExclusions: [
     'slow ballad pacing',
@@ -776,6 +786,16 @@ export interface TempoBand {
 // (§4-2 completion table). Range width (62~100 = 38) still clears the
 // BREADTH_THRESHOLDS stddev/range floor, so §2-3's "표준편차 기준을 낮추지
 // 말 것" holds without any threshold change.
+// 지시문 40 (TASK D) — 6·6·3·0(95-100 실질 제거)을 실제 파이프라인에 넣어
+// 시도했으나, 이 표의 "값"을 순서·타이브레이킹 기준으로 재사용하는 여러
+// 독립 로직(arcPlan.ts의 reorderByArcIntensity, songRole 배정, local/bridge
+// 머니코드 병렬 배정)이 4번째 대역이 비면서 실제로 깨지는 것을 실측으로
+// 확인했다 — BPM 범위 관문(bpm-range) 실패, local↔bridge 머니코드 불일치,
+// arrangementDensity 3연속(2연속 상한 위반), emotional-center 역할 누락
+// 4가지 모두 6·6·3·0에서만 재현되고 4·6·5·3으로 되돌리면 사라짐(격리
+// 확인 완료). 하루의 판단으로 TASK D는 철회 — 4·6·5·3 유지, A/B/C만 확정.
+// 재시도하려면 위 4개 하위 시스템의 tempo-band-값-의존을 먼저 근본적으로
+// 고쳐야 한다(단순 값 교체로는 안전하지 않음).
 export const SENIOR_TEMPO_BANDS: TempoBand[] = [
   { low: 62, high: 72, shareOf18: 4 },
   { low: 73, high: 84, shareOf18: 6 },

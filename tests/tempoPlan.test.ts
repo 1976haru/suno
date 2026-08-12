@@ -4,6 +4,9 @@ import { SENIOR_TEMPO_BANDS, audienceProfileForAgeGroup, SENIOR_AUDIENCE_PROFILE
 
 describe('[v3.58 TASK 4] buildTempoBandPlan', () => {
   // v4.16 (TASK A) — re-centered bands/shares (4/6/5/3), see audienceProfiles.ts's SENIOR_TEMPO_BANDS own doc comment.
+  // 지시문 40 (TASK D) — 6/6/3/0을 실측 시도했으나 arc 재정렬/songRole 배정/
+  // local-bridge 머니코드 병렬성이 깨지는 실제 회귀 4건이 나와 철회, 4/6/5/3
+  // 유지(SENIOR_TEMPO_BANDS 자신의 doc comment 참고).
   it('assigns exactly songCount bands, matching the 18-song default shares (4/6/5/3)', () => {
     const plan = buildTempoBandPlan(SENIOR_TEMPO_BANDS, 18, 42);
     expect(plan).toHaveLength(18);

@@ -1,7 +1,7 @@
 import type { LyricLanguage, ScopedIssue, SongIdea } from '../types';
 import { descriptorCount, lyricWordAndSectionCounts, scoreComposition, type ScoreCompositionOptions } from './compositionScorer';
 import { resolveLyricRange } from './lyricMetrics';
-import { resolveBpmLengthTier } from './bpmLengthControl';
+import { wordBudgetForTarget } from './bpmLengthControl';
 import { classifyTitleShape } from './titleShapeVariety';
 import { lintInPackStyleSimilarity } from './diversityLinter';
 import { auditPromises, auditTitleConceptConsistency } from './promiseAudit';
@@ -393,22 +393,25 @@ function packLevelFindings(songs: SongIdea[], conceptLabel: string): { blocking:
  * flat pack-wide bounds only when `song.bpm` is missing (pre-v3.68 songs,
  * or any import path that never resolved one).
  */
-function perTrackRanges(song: SongIdea, fallbackWordRange: [number, number]): { wordRange: [number, number]; sectionRange: [number, number] } {
-  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
+// 지시문 40 (TASK B) — 단어 예산을 이 채널의 실제 목표 길이에서 역산한다
+// (wordBudgetForTarget). song.bpm이 없는 경우(pre-v3.68 songs, 임포트
+// 경로가 BPM을 못 정한 경우)만 fallbackWordRange를 쓴다.
+function perTrackRanges(song: SongIdea, fallbackWordRange: [number, number], targetDurationSec: [number, number]): { wordRange: [number, number]; sectionRange: [number, number] } {
+  const resolved = typeof song.bpm === 'number' ? wordBudgetForTarget(targetDurationSec, song.bpm, song.structureTemplate) : undefined;
   const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
-  const wordRange = tier ? tier.wordRange : fallbackWordRange;
-  const [sectionMin, sectionMax] = tier ? tier.sectionRange : [SECTION_COUNT_MIN, SECTION_COUNT_MAX];
+  const wordRange = resolved ? resolved.wordRange : fallbackWordRange;
+  const [sectionMin, sectionMax] = resolved ? resolved.sectionRange : [SECTION_COUNT_MIN, SECTION_COUNT_MAX];
   return {
     wordRange: isShortOpener ? [Math.min(wordRange[0], 150), wordRange[1]] : wordRange,
     sectionRange: isShortOpener ? [sectionMin, Math.max(sectionMax, 8)] : [sectionMin, sectionMax]
   };
 }
 
-function perTrackFindings(song: SongIdea, language: LyricLanguage, fallbackWordRange: [number, number]): { blocking: string[]; advisory: string[] } {
+function perTrackFindings(song: SongIdea, language: LyricLanguage, fallbackWordRange: [number, number], targetDurationSec: [number, number]): { blocking: string[]; advisory: string[] } {
   const blocking: string[] = [];
   const unitLabel = language === 'japanese' ? '자' : '단어';
   const { words, sections } = lyricWordAndSectionCounts(song.lyrics, language);
-  const { wordRange: wordCountRange, sectionRange: [sectionMin, sectionMax] } = perTrackRanges(song, fallbackWordRange);
+  const { wordRange: wordCountRange, sectionRange: [sectionMin, sectionMax] } = perTrackRanges(song, fallbackWordRange, targetDurationSec);
   if (words < wordCountRange[0] || words > wordCountRange[1]) {
     blocking.push(`가사 ${unitLabel}수 ${words} (기준 ${wordCountRange[0]}~${wordCountRange[1]}, BPM ${song.bpm ?? '?'})`);
   }
@@ -464,7 +467,10 @@ export function evaluateGenerationGate(songs: SongIdea[], opts: ScoreComposition
   // each with its own real scope/affectedTracks.
   const tracks: GenerationGateTrackResult[] = songs.map(song => {
     const base = baseByTrack.get(song.trackNo);
-    const own = perTrackFindings(song, lyricLanguage, fallbackWordCountRange);
+    // 지시문 40 (TASK A-2) — audienceProfile을 모르는 극히 드문 호출부는
+    // senior-oldpop 기본 목표(3:05~3:25)로 대체한다(core/bpmLengthControl.ts's
+    // expectedWordCount와 같은 기본값).
+    const own = perTrackFindings(song, lyricLanguage, fallbackWordCountRange, opts.audienceProfile?.songLengthSecondsRange ?? [185, 205]);
     const blocking = [...(base?.blocking ?? []), ...own.blocking];
     const advisory = [...(base?.advisory ?? []), ...own.advisory];
     return { trackNo: song.trackNo, passed: blocking.length === 0, blocking, advisory };

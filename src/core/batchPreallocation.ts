@@ -74,7 +74,7 @@ import { applyEraQuota, ensureEraNeutralFloor, extractEraConstraint, genreCounts
 import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
-import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
+import { resolveBpmEnergyBand, sectionRangeForBpm, wordBudgetForTarget, estimateSongLengthSec } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
@@ -864,7 +864,16 @@ export function preallocateSongSlots(
     // 2-3) are additionally hard-capped at 1 instrumental section
     // regardless of tier, per this task's own §3 대표곡 규격 확정 ("악기 구간
     // 최대 1 — T7이 2개여서 4:16이 됐습니다").
-    const bpmTier = resolveBpmLengthTier(resolvedTempo);
+    // 지시문 40 (TASK B) — 단어 예산은 이 채널의 실제 목표 길이
+    // (audienceProfile.songLengthSecondsRange)에서 역산한다. 섹션 범위는
+    // BPM만으로 정해지고(§B-3, sectionRangeForBpm), maxInstrumentalSections도
+    // BPM 에너지 대역에서 그대로 온다(§4-3 "BPM은 체감 에너지를 정한다").
+    const wordBudget = wordBudgetForTarget(audienceProfile.songLengthSecondsRange, resolvedTempo, structureTemplatePlan[idx]);
+    const bpmTier = {
+      sectionRange: sectionRangeForBpm(resolvedTempo),
+      wordRange: wordBudget.wordRange,
+      maxInstrumentalSections: resolveBpmEnergyBand(resolvedTempo).maxInstrumentalSections
+    };
     const isFlagshipSlot = idx === 1 || idx === 2;
     // 지시문 23 (TASK A) — 이 트랙의 실제 resolved 필드(tempo/arrangementDensity/
     // instrumentSet/vocalText, lead genre의 rhythm/instruments/vocal/production)
@@ -886,7 +895,10 @@ export function preallocateSongSlots(
       sectionCountRange: bpmTier.sectionRange,
       wordCountRange: bpmTier.wordRange,
       maxInstrumentalSections: isFlagshipSlot ? Math.min(1, bpmTier.maxInstrumentalSections) : bpmTier.maxInstrumentalSections,
-      estimatedLengthSec: Math.round(estimateSongLengthSec(resolvedTempo, structureTemplatePlan[idx])),
+      // 지시문 40 (TASK A-3) — 설계안 단계라 실제 가사가 없으니, 방금 위에서
+      // 이 채널의 실제 목표 길이로 역산한 단어 예산의 중앙값을 넘긴다(이
+      // 채널을 모르는 범용 expectedWordCount(bpm) 대체값보다 정확하다).
+      estimatedLengthSec: Math.round(estimateSongLengthSec(resolvedTempo, structureTemplatePlan[idx], Math.round((bpmTier.wordRange[0] + bpmTier.wordRange[1]) / 2))),
       emotionArc: emotionArcPlan[idx],
       // TASK v4.8 (TASK A, §1-2) — includeFeelReinforcement dropped to stay
       // consistent with localGenerator.ts's own per-song moneyChord

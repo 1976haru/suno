@@ -1,29 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLyricBudget } from '../src/core/lyricBudget';
-import { resolveBpmLengthTier } from '../src/core/bpmLengthControl';
+import { resolveBpmEnergyBand, wordBudgetForTarget } from '../src/core/bpmLengthControl';
 import { KIDS_AGE_TIERS } from '../src/data/kidsAgeTiers';
 import { KIDS_STRUCTURE_TEMPLATES } from '../src/data/kidsStructureTemplates';
+
+const DEFAULT_TARGET_DURATION_SEC: [number, number] = [185, 205];
 
 /**
  * codex 지시문 03 (TASK K) — real gap this closes: resolveLyricBudget did
  * not exist. Built as a real aggregation over 3 already-calibrated data
- * sources (core/bpmLengthControl.ts's BPM_LENGTH_TIERS, data/kidsAgeTiers.ts,
- * data/kidsStructureTemplates.ts) rather than invented numbers — see
- * src/core/lyricBudget.ts's own doc comment.
+ * sources (core/bpmLengthControl.ts's wordBudgetForTarget/resolveBpmEnergyBand,
+ * data/kidsAgeTiers.ts, data/kidsStructureTemplates.ts) rather than invented
+ * numbers — see src/core/lyricBudget.ts's own doc comment.
+ *
+ * 지시문 40 (TASK B) — BPM_LENGTH_TIERS/resolveBpmLengthTier가
+ * BPM_ENERGY_BANDS(resolveBpmEnergyBand)와 wordBudgetForTarget으로
+ * 분리되면서 이 테스트도 그 두 함수를 직접 비교하도록 갱신했다.
  */
-describe('[codex 지시문 03 TASK K] resolveLyricBudget — non-kids (BPM_LENGTH_TIERS)', () => {
-  it('a slow BPM resolves the real slowest tier\'s word range', () => {
+describe('[codex 지시문 03 TASK K] resolveLyricBudget — non-kids (wordBudgetForTarget)', () => {
+  it('a slow BPM resolves the real slowest band\'s word range (default senior target)', () => {
     const budget = resolveLyricBudget({ bpm: 65, workspaceId: 'senior-oldpop' });
-    const tier = resolveBpmLengthTier(65);
-    expect(budget.wordRange).toEqual(tier.wordRange);
-    expect(budget.maxSections).toBe(tier.sectionRange[1]);
-    expect(budget.maxInstrumentalSections).toBe(tier.maxInstrumentalSections);
+    const { wordRange, sectionRange } = wordBudgetForTarget(DEFAULT_TARGET_DURATION_SEC, 65);
+    expect(budget.wordRange).toEqual(wordRange);
+    expect(budget.maxSections).toBe(sectionRange[1]);
+    expect(budget.maxInstrumentalSections).toBe(resolveBpmEnergyBand(65).maxInstrumentalSections);
   });
 
-  it('a fast BPM resolves a different, real tier', () => {
+  it('a fast BPM resolves a different, real band', () => {
     const budget = resolveLyricBudget({ bpm: 98, workspaceId: 'kr-2030' });
-    const tier = resolveBpmLengthTier(98);
-    expect(budget.wordRange).toEqual(tier.wordRange);
+    const { wordRange } = wordBudgetForTarget(DEFAULT_TARGET_DURATION_SEC, 98);
+    expect(budget.wordRange).toEqual(wordRange);
+  });
+
+  it('a real targetDurationSec (K-pop 2:30~3:10) produces a lower word budget than the senior default at the same BPM', () => {
+    const seniorDefault = resolveLyricBudget({ bpm: 100, workspaceId: 'senior-oldpop' });
+    const kpopTarget = resolveLyricBudget({ bpm: 100, workspaceId: 'kr-idol-male', targetDurationSec: [150, 190] });
+    expect(kpopTarget.wordRange[1]).toBeLessThan(seniorDefault.wordRange[1]);
   });
 
   it('an out-of-table BPM clamps to the nearest real edge tier (never throws, never undefined)', () => {

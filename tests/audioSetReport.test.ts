@@ -26,7 +26,7 @@ function metric(overrides: Partial<SongAudioMetrics> & { matchedTrackNo: number 
 }
 
 describe('[v3.73 TASK C] buildAudioSetReport — duration', () => {
-  it('flags a track over the senior target (3:10-3:35) and one under it', () => {
+  it('flags a track over the senior target (3:05-3:25, 지시문40 TASK A) and one under it', () => {
     const metrics = [
       metric({ matchedTrackNo: 1, durationSec: 222 }), // 3:42, over
       metric({ matchedTrackNo: 2, durationSec: 150 }), // 2:30, under
@@ -35,7 +35,7 @@ describe('[v3.73 TASK C] buildAudioSetReport — duration', () => {
     const report = buildAudioSetReport(metrics, 18, SENIOR_AUDIENCE_PROFILE);
     expect(report.duration.overTarget).toEqual([1]);
     expect(report.duration.underTarget).toEqual([2]);
-    expect(report.duration.targetRange).toEqual([190, 215]);
+    expect(report.duration.targetRange).toEqual([185, 205]);
   });
 
   it('uses the kids target range (1:30-2:30) for a kids audience profile', () => {

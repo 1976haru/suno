@@ -1,12 +1,12 @@
 import type { ChannelArchetype } from '../types';
 import { shuffle, type StructureTemplateId } from './lyricEngine';
 import { ADULT_STRUCTURE_TEMPLATE_IDS, KIDS_STRUCTURE_TEMPLATE_IDS } from './diversityAllocation';
-import { resolveBpmLengthTier, TEMPLATE_SECTION_COUNT } from './bpmLengthControl';
+import { sectionRangeForBpm, TEMPLATE_SECTION_COUNT } from './bpmLengthControl';
 import { isKidsArchetype } from '../utils/channelArchetype';
 
 function eligibleTemplates(pool: readonly StructureTemplateId[], bpm: number | undefined): StructureTemplateId[] {
   if (bpm === undefined) return [...pool];
-  const [minSections, maxSections] = resolveBpmLengthTier(bpm).sectionRange;
+  const [minSections, maxSections] = sectionRangeForBpm(bpm);
   const eligible = pool.filter(id => {
     const count = TEMPLATE_SECTION_COUNT[id];
     return count >= minSections && count <= maxSections;
@@ -87,7 +87,7 @@ export function repairStructureTemplatePlanForBpm(
   const repaired = [...plan];
   const fitsTier = (id: StructureTemplateId, bpm: number | undefined) => {
     if (bpm === undefined) return true;
-    const [minSections, maxSections] = resolveBpmLengthTier(bpm).sectionRange;
+    const [minSections, maxSections] = sectionRangeForBpm(bpm);
     const count = TEMPLATE_SECTION_COUNT[id];
     return count >= minSections && count <= maxSections;
   };

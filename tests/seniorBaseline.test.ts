@@ -105,6 +105,9 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // 날 발라드 블루스·6/8 슬로우 발라드 5종 신규 배선)한 결과, testGenres
   // 추첨 풀이 넓어지며 세대별 BPM 밴드 분포가 더 고르게 뽑혀 표준편차가
   // 올랐다 — design-gate stddevFloor를 여전히 comfortably 넘는다.
+  // 지시문 40 (TASK D) — 6·6·3·0을 실측 시도했으나 arc 재정렬/songRole 배정/
+  // local-bridge 머니코드 병렬성이 깨지는 실제 회귀 4건이 나와 철회, 원래
+  // 4·6·5·3 유지(SENIOR_TEMPO_BANDS 자신의 doc comment 참고). 11.43은 그대로.
   it('BPM 표준편차 — 11.43 허용 ±0.5', () => {
     const bpms = bp.songs.map(s => s.bpm).filter((b): b is number => typeof b === 'number');
     expect(stddev(bpms)).toBeGreaterThanOrEqual(10.93);

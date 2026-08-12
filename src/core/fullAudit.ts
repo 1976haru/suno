@@ -17,7 +17,7 @@ import { detectVocalGender, scaleVocalQuota, type VocalQuota } from './vocalPlan
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, type TitleConsistencyReport } from './promiseAudit';
 import type { AudioSetReport } from './audioSetReport';
-import { resolveBpmLengthTier } from './bpmLengthControl';
+import { wordBudgetForTarget } from './bpmLengthControl';
 import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
 import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
@@ -423,9 +423,11 @@ const END_TAG_PATTERN = /\[\s*(end|outro)\s*\]/i;
  * clear-opener track gets a lower (still enforced, not exempted) floor
  * reflecting its own intentionally shorter shape.
  */
-function targetWordRangeFor(song: SongIdea): [number, number] {
-  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
-  const [tierFloor, tierCeil] = tier ? tier.wordRange : [175, 245];
+// 지시문 40 (TASK B) — 단어 목표를 이 팩의 실제 목표 길이
+// (audienceProfile.songLengthSecondsRange)에서 역산한다(wordBudgetForTarget).
+function targetWordRangeFor(song: SongIdea, audienceProfile: AudienceProfile): [number, number] {
+  const resolved = typeof song.bpm === 'number' ? wordBudgetForTarget(audienceProfile.songLengthSecondsRange, song.bpm, song.structureTemplate) : undefined;
+  const [tierFloor, tierCeil] = resolved ? resolved.wordRange : [175, 245];
   const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
   return isShortOpener ? [150, tierCeil] : [tierFloor, tierCeil];
 }
@@ -439,20 +441,20 @@ function targetWordRangeFor(song: SongIdea): [number, number] {
  * deliberate cold-open convention, not a bug), so a slow-tempo opener would
  * otherwise permanently fail a strict tier-only section check.
  */
-function targetSectionRangeFor(song: SongIdea): [number, number] {
-  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
-  const [tierMin, tierMax] = tier ? tier.sectionRange : [5, 8];
+function targetSectionRangeFor(song: SongIdea, audienceProfile: AudienceProfile): [number, number] {
+  const resolved = typeof song.bpm === 'number' ? wordBudgetForTarget(audienceProfile.songLengthSecondsRange, song.bpm, song.structureTemplate) : undefined;
+  const [tierMin, tierMax] = resolved ? resolved.sectionRange : [5, 8];
   const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
   return isShortOpener ? [tierMin, Math.max(tierMax, 8)] : [tierMin, tierMax];
 }
 
-function lyricsItems(songs: SongIdea[]): AuditItem[] {
+function lyricsItems(songs: SongIdea[], audienceProfile: AudienceProfile): AuditItem[] {
   const counts = songs.map(song => lyricWordAndSectionCounts(song.lyrics));
   const words = counts.map(c => c.words);
-  const wordTargets = songs.map(targetWordRangeFor);
+  const wordTargets = songs.map(song => targetWordRangeFor(song, audienceProfile));
   const wordFailures = songs.filter((song, i) => words[i] < wordTargets[i][0] || words[i] > wordTargets[i][1]);
   const sections = counts.map(c => c.sections);
-  const sectionTargets = songs.map(targetSectionRangeFor);
+  const sectionTargets = songs.map(song => targetSectionRangeFor(song, audienceProfile));
   const sectionFailures = songs.filter((song, i) => sections[i] < sectionTargets[i][0] || sections[i] > sectionTargets[i][1]);
   const situations = new Set(songs.map(song => song.listenerSituation));
   const emotionArcs = new Set(songs.map(song => song.emotionArc));
@@ -1010,7 +1012,7 @@ export function runFullAudit(
     ...structureItems(songs, opts.songCount, opts.audienceProfile),
     ...vocalItems(songs, opts.vocalQuotaOverride),
     ...promptItems(songs),
-    ...lyricsItems(songs),
+    ...lyricsItems(songs, opts.audienceProfile),
     ...killingPointItems(songs, opts.audienceProfile.arcModelId),
     ...audioItems(opts.audioReport),
     ...titleItems(songs, titleConsistency),

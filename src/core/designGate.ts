@@ -455,7 +455,18 @@ function songLengthIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
   // never set one.
   const overLength = slots
     .filter(slot => slot.structureTemplate)
-    .map(slot => ({ slot, estimateSec: estimateSongLengthSec(slot.tempo, slot.structureTemplate) }))
+    .map(slot => ({
+      slot,
+      // 지시문 40 (TASK A-3) — 슬롯 자신의 wordCountRange(채널별 실제 단어
+      // 예산, batchPreallocation.ts가 wordBudgetForTarget으로 채움)가 있으면
+      // 그 중앙값을 넘긴다. 없으면(구형 슬롯/테스트 픽스처) estimateSongLengthSec
+      // 자체의 expectedWordCount(bpm) 대체값(시니어 기본치)으로 폴백한다.
+      estimateSec: estimateSongLengthSec(
+        slot.tempo,
+        slot.structureTemplate,
+        slot.wordCountRange ? Math.round((slot.wordCountRange[0] + slot.wordCountRange[1]) / 2) : undefined
+      )
+    }))
     .filter(({ estimateSec }) => estimateSec > LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC);
   if (!overLength.length) return [];
   return [issue({
