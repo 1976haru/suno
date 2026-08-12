@@ -3,6 +3,7 @@ import { vocalPresets, type VocalPreset } from '../data/vocalPresets';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { buildVocalPlan, vocalTypeMatchesPresetGender, type VocalQuota, type VocalType } from './vocalPlan';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
+import { vocalAffinityForGenre } from '../data/genreVocalAffinity';
 import { mulberry32 } from '../utils/prng';
 
 /**
@@ -34,6 +35,15 @@ export interface VocalRecommendationRequest {
    */
   vocalQuota: VocalQuota;
   seed: number;
+  /**
+   * 지시문 38 (TASK D2-6, 선택) — 트랙별 실제 장르 id(songCount와 같은
+   * 길이, 곡 순서와 대응). 있으면 data/genreVocalAffinity.ts를 advisory로
+   * 참고해 그 트랙의 장르에 어울리는 프리셋을 가산점으로 우대한다 —
+   * 채널 필터(suitablePresetsForArchetype)를 통과한 후보 안에서 순서만
+   * 조정할 뿐, 후보 자체를 늘리거나 줄이지 않는다. 생략하면(기존 호출부)
+   * 이 가산점이 전혀 없는 지금까지의 동작 그대로다.
+   */
+  genrePlan?: readonly (string | undefined)[];
 }
 
 export interface VocalRecommendation {
@@ -65,10 +75,19 @@ function extractRegisterTag(preset: VocalPreset): string | undefined {
   return axes.register.find(term => preset.prompt.includes(term));
 }
 
-function reasonFor(preset: VocalPreset, channelArchetype: ChannelArchetype | undefined, priorUses: number): string {
+/** 지시문 38 (TASK D2-6) — genreVocalAffinity 목록에서 preset.id의 순위(0=1순위)를 찾는다. 없으면 undefined. */
+function genreAffinityRank(presetId: string, genreId: string | undefined): number | undefined {
+  const preferences = vocalAffinityForGenre(genreId);
+  const rank = preferences.indexOf(presetId);
+  return rank === -1 ? undefined : rank;
+}
+
+function reasonFor(preset: VocalPreset, channelArchetype: ChannelArchetype | undefined, priorUses: number, genreId: string | undefined): string {
   const suited = channelArchetype ? preset.suitedArchetypes?.includes(channelArchetype) : false;
   const base = suited ? `이 채널에 어울리는 음색이에요 — ${preset.description}` : preset.description;
-  return priorUses > 0 ? `${base} (다양성을 위해 톤을 바꿔가며 다시 추천했어요)` : base;
+  const affinityRank = genreAffinityRank(preset.id, genreId);
+  const withGenre = affinityRank !== undefined ? `${base} 이 곡의 장르와도 잘 맞아요.` : base;
+  return priorUses > 0 ? `${withGenre} (다양성을 위해 톤을 바꿔가며 다시 추천했어요)` : withGenre;
 }
 
 /**
@@ -88,7 +107,7 @@ function reasonFor(preset: VocalPreset, channelArchetype: ChannelArchetype | und
  * 매칭되므로 항상 걸리는 건 아니다 — best-effort 신호).
  */
 export function recommendVocalPlan(request: VocalRecommendationRequest, history: string[] = []): VocalRecommendation[] {
-  const { channelArchetype, songCount, vocalQuota, seed } = request;
+  const { channelArchetype, songCount, vocalQuota, seed, genrePlan } = request;
   if (songCount <= 0) return [];
 
   const pool = suitablePresetsForArchetype(channelArchetype);
@@ -121,6 +140,7 @@ export function recommendVocalPlan(request: VocalRecommendationRequest, history:
       return;
     }
 
+    const trackGenreId = genrePlan?.[index];
     const scored = candidates.map(preset => {
       let score = rng();
       const uses = usageCount.get(preset.id) ?? 0;
@@ -129,6 +149,11 @@ export function recommendVocalPlan(request: VocalRecommendationRequest, history:
       if (preset.id === lastPresetId && lastRunLength >= MAX_CONSECUTIVE_SAME_PRESET) score -= 1000;
       const registerTag = extractRegisterTag(preset);
       if (registerTag && history.some(signature => signature.includes(registerTag))) score -= 0.3;
+      // 지시문 38 (TASK D2-6) — 장르 적합도는 advisory 가산점일 뿐, 다양성
+      // 상한/연속 방지의 -1000 하드 페널티를 절대 못 이긴다 — 순서만 조정한다.
+      const affinityRank = genreAffinityRank(preset.id, trackGenreId);
+      if (affinityRank === 0) score += 1.2;
+      else if (affinityRank !== undefined) score += 0.6;
       return { preset, score };
     });
     scored.sort((a, b) => b.score - a.score);
@@ -144,7 +169,7 @@ export function recommendVocalPlan(request: VocalRecommendationRequest, history:
       vocalType,
       presetId: chosen.id,
       presetLabel: chosen.label,
-      reasonKo: reasonFor(chosen, channelArchetype, priorUses)
+      reasonKo: reasonFor(chosen, channelArchetype, priorUses, trackGenreId)
     });
   });
 

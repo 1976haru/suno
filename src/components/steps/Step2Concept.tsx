@@ -15,7 +15,7 @@ import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQ
 import { recommendVocalPlan, suitablePresetsForArchetype } from '../../core/vocalRecommender';
 import { hashSeed } from '../../utils/prng';
 import { povDistribution, resolvePerspectiveMode } from '../../core/lyricDiversityPlan';
-import { resolveGenreBlendMode } from '../../core/genreRotation';
+import { buildGenreRotationPlan, resolveGenreBlendMode } from '../../core/genreRotation';
 import { avoidWordPresets, joinAvoidWords, parseAvoidWords } from '../../data/avoidWordPresets';
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { NEGATIVE_STYLE_TOGGLES, buildDefaultNegativeStyle, mergeNegativeStyleText, parseNegativeStyleTerms, withNegativeStyleTerm, withoutNegativeStyleTerm } from '../../data/negativeStyles';
@@ -299,9 +299,20 @@ export default function Step2Concept({
   // vocalText를 개별로 덮어쓰는 것(그건 별도 지시문 범위)이 아니라, 기존
   // "프리셋 카드를 고른다" 경로를 그대로 재사용하는 것이다.
   const vocalRecommendationQuota = hasFixedVocalQuota ? defaultQuotaForChannel : (opts.vocalQuota ?? defaultQuotaForChannel);
+  // 지시문 38 (TASK D2-6, 선택) — 실제 트랙별 장르 배정(era-quota 등 반영)은
+  // 이 화면 이후 단계에서 이뤄지므로 여기선 아직 알 수 없다. 대신 생성이
+  // 실제로 쓰는 것과 같은 회전 알고리즘(core/genreRotation.ts의
+  // buildGenreRotationPlan, batchPreallocation.ts/localGenerator.ts가 그대로
+  // 쓰는 함수)으로 지금 고른 genreIds를 곡 수만큼 미리 돌려, "장르별 음색
+  // 적합성" advisory가 미리보기에서도 실제로 체감되게 한다 — 최종 확정치가
+  // 아니라 근사치라는 점은 동일 시드 재사용 이상의 의미를 부여하지 않는다.
+  const vocalRecommendationGenrePlan = useMemo(
+    () => buildGenreRotationPlan(opts.genreIds, opts.songCount, vocalRecommendationSeed),
+    [opts.genreIds, opts.songCount, vocalRecommendationSeed]
+  );
   const vocalRecommendationPreview = useMemo(
-    () => recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: vocalRecommendationSeed }),
-    [channelArchetype, opts.songCount, vocalRecommendationQuota, vocalRecommendationSeed]
+    () => recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: vocalRecommendationSeed, genrePlan: vocalRecommendationGenrePlan }),
+    [channelArchetype, opts.songCount, vocalRecommendationQuota, vocalRecommendationSeed, vocalRecommendationGenrePlan]
   );
   const VOCAL_RECOMMENDATION_PREVIEW_ROWS = 10;
   function dominantRecommendedPreset(preview: typeof vocalRecommendationPreview) {
@@ -316,7 +327,8 @@ export default function Step2Concept({
   function handleRerollVocalRecommendation() {
     const nextSeed = vocalRecommendationSeed + 97;
     setVocalRecommendationSeed(nextSeed);
-    const nextPreview = recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: nextSeed });
+    const nextGenrePlan = buildGenreRotationPlan(opts.genreIds, opts.songCount, nextSeed);
+    const nextPreview = recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: nextSeed, genrePlan: nextGenrePlan });
     const dominant = dominantRecommendedPreset(nextPreview);
     if (dominant) {
       setOpts(prev => ({ ...prev, vocalTone: dominant.prompt, choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' } }));
