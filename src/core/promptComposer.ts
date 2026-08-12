@@ -496,7 +496,19 @@ export function rotatingInstrumentText(genres: GenrePack[], seed: number, index:
  */
 export function rotatingGenreText(genres: GenrePack[], seed: number, index: number): string {
   const { genreText } = buildGenrePromptSummary(genres);
-  const atoms = genreText.split(',').map(atom => atom.trim()).filter(Boolean);
+  const primary = genres[0];
+  // 지시문 44 (§1) — a single-genre pack (the common case for senior/
+  // oldpop packs, where every track shares the same lead genre) only had
+  // primary.styleCore's own 2-3 comma fragments to rotate through, since
+  // buildGenrePromptSummary's genreAtoms has nothing else to add without a
+  // secondary genre. Measured result: every song in a single-genre pack
+  // landed on the same genreText. rhythm/production/vocal are axis-
+  // separated descriptor arrays every GenrePack already carries (see
+  // data/genreLibrary/types.ts) — widening the rotation pool with them
+  // gives real per-song variation using only material that already exists
+  // on the genre record, not new descriptive data.
+  const extraDescriptors = primary ? dedupeTerms([...(primary.rhythm || []), ...(primary.production || []), ...(primary.vocal || [])]) : [];
+  const atoms = dedupeTerms([...genreText.split(',').map(atom => atom.trim()).filter(Boolean), ...extraDescriptors]);
   if (atoms.length <= 2) return genreText;
   const [anchor, ...rest] = atoms;
   const shuffled = shuffle(rest, seed + index * 337);

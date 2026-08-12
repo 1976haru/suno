@@ -31,6 +31,7 @@
     "check:choices": "tsx scripts/checkChoiceContract.ts",
     "check:version": "tsx scripts/checkVersion.ts",
     "check:budget": "tsx scripts/checkConstraintBudget.ts",
+    "check:genre-overlap": "tsx scripts/checkGenreOverlap.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",
