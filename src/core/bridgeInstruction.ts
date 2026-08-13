@@ -2,6 +2,7 @@ import type {
   BatchContext,
   GenerationOptions,
   GenrePack,
+  KpopMemberSlot,
   KpopPartRole,
   MoodPack,
   PreassignedSongSlot,
@@ -1553,7 +1554,22 @@ const KPOP_RAPPER_ROLES = new Set<KpopPartRole>(['main-rapper', 'lead-rapper']);
  * 박아 넣도록 렌더링을 바꾼다 — moneyChordText 등과 같은 verbatim 신뢰
  * 모델이므로 LLM이 태그를 재해석해 지어내지 않는다.
  */
-function kpopSectionTagInstruction(section: string, role: KpopPartRole, who: string): string {
+/**
+ * 지시문 52 (TASK A-4) — 하루: "부르는 사람들이 다 다른 음색·창법으로
+ * 부르잖아." 태그 안의 이름을 "Member A"에서 "Member A — bright thin
+ * tenor"로 바꾼다 — moneyChordText와 같은 verbatim weave 모델이므로
+ * lyric tag 문자열 자체에 음색이 실려야 LLM이 재해석 없이 그대로 쓴다.
+ * 'all' 섹션(전원 합창)은 특정 한 명의 음색으로 대표할 수 없으므로 그대로
+ * "All"만 남긴다.
+ */
+function kpopMemberTimbreLabel(memberId: string, members: KpopMemberSlot[]): string {
+  if (memberId === 'all') return 'All';
+  const member = members.find(m => m.memberId === memberId);
+  return member?.timbreText ? `Member ${memberId} — ${member.timbreText}` : `Member ${memberId}`;
+}
+
+function kpopSectionTagInstruction(section: string, role: KpopPartRole, memberIds: string[], members: KpopMemberSlot[]): string {
+  const who = role === 'all' ? 'All' : memberIds.map(id => kpopMemberTimbreLabel(id, members)).join(', ');
   if (!KPOP_RAPPER_ROLES.has(role)) return `[${section}: ${who}]`;
   return `[Rap ${section}: ${who}]`;
 }
@@ -1565,21 +1581,25 @@ function kpopPartPlanInstructionLines(preassignedSongs: PreassignedSongSlot[]): 
   const hasRapperRole = withPlan.some(slot => slot.partPlan!.sectionAssignments.some(a => KPOP_RAPPER_ROLES.has(a.role)));
   const trackBlocks = withPlan.flatMap(slot => {
     const plan = slot.partPlan!;
+    // 지시문 52 (TASK A-4) — 트랙별 멤버 로스터 요약. lyric tag 안의 음색은
+    // 섹션마다 나뉘어 보이므로, 곡 전체 로스터를 한 줄로 먼저 보여줘 LLM이
+    // "이 곡에 이런 멤버가 있다"는 전체 그림을 먼저 파악하게 한다.
+    const rosterLine = `    Members: ${plan.members.map(m => `${m.memberId}(${KPOP_PART_ROLE_LABEL[m.role]}: ${m.timbreText})`).join(' / ')}`;
     const sectionLines = plan.sectionAssignments.map(a => {
       const who = a.role === 'all' ? 'All' : a.memberIds.map(memberLabel).join(', ');
       const roleSuffix = a.role === 'all' ? '' : ` (${KPOP_PART_ROLE_LABEL[a.role]})`;
-      const tag = kpopSectionTagInstruction(a.section, a.role, who);
+      const tag = kpopSectionTagInstruction(a.section, a.role, a.memberIds, plan.members);
       return `    ${a.section}: ${who}${roleSuffix} — lyric tag: "${tag}"`;
     });
-    return [`  Track ${slot.trackNo} (${plan.memberCount} members):`, ...sectionLines, ''];
+    return [`  Track ${slot.trackNo} (${plan.memberCount} members):`, rosterLine, ...sectionLines, ''];
   });
   return [
     '',
     '[파트 배분]',
     '',
-    '  아이돌 곡은 파트가 곧 구조입니다. 아래는 트랙별로 앱이 미리 정한 파트 배분입니다 — 가사 섹션 태그에 각 줄 끝의 "lyric tag" 문자열을 정확히 그대로 쓰십시오 (예: "[Verse 1: Member A]", "[Chorus: All]"). 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오.',
+    '  아이돌 곡은 파트가 곧 구조입니다. 아래는 트랙별로 앱이 미리 정한 파트 배분입니다 — 가사 섹션 태그에 각 줄 끝의 "lyric tag" 문자열을 정확히 그대로 쓰십시오 (예: "[Verse 1: Member A — bright thin tenor]", "[Chorus: All]"). 같은 곡 안에서도 멤버마다 음색이 다릅니다 — tag에 적힌 음색 묘사를 그 구간의 가창 스타일에 실제로 반영하십시오. 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오.',
     ...(hasRapperRole
-      ? ['  "(main rapper)"/"(lead rapper)"로 표시된 섹션은 반드시 그 lyric tag 그대로("Rap Verse" 형태, "Rap"이라는 글자를 태그 안에 포함) 쓰십시오 — 노래하듯 부르지 않고 실제 랩 딜리버리(플로우·라임)로 씁니다. leadVocal 축 어휘(triplet flow/double-time flow/laid-back flow/behind-the-beat flow, mumbled delivery/crisp articulate delivery 등, data/rapVocalDelivery.ts와 같은 딜리버리 어휘)를 그 멤버 구간의 stylePrompt에 반영하십시오.']
+      ? ['  "(main rapper)"/"(lead rapper)"로 표시된 섹션은 반드시 그 lyric tag 그대로("Rap Verse" 형태, "Rap"이라는 글자를 태그 안에 포함) 쓰십시오 — 노래하듯 부르지 않고 실제 랩 딜리버리(플로우·라임)로 씁니다. lyric tag 안의 음색 묘사(예: low gritty rap flow, fast triplet flow — data/kpopMemberTimbres.ts의 main-rapper/lead-rapper 후보)가 그 멤버의 실제 랩 스타일입니다. main-rapper와 lead-rapper가 같은 곡에 있으면 서로 다른 플로우로 쓰십시오.']
       : []),
     '',
     ...trackBlocks

@@ -733,7 +733,10 @@ export const channelPresets: ChannelProfile[] = [
     // (88-104)를 추가해 68-104 대역을 확보한다. 무대 퍼포먼스라는 이
     // 채널의 정체성은 유지하되(performance-trap/band-crossover/synth-dance
     // 3종은 그대로 둔다), 세트 중간에 쉬어가는 지점을 만든다(§B-5).
-    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
+    // 지시문 52 (TASK B-1) — "랩이 나오면 항상 같은 소리다"(kridol-performance-trap
+    // 1종뿐). 이 채널이 랩 비중이 가장 높은 채널이라 새 2종(melodic-rap·
+    // hard-rap)을 여기 먼저 추가한다 — 기존 5종은 그대로 두고 끝에 더한다.
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb', 'kridol-melodic-rap', 'kridol-hard-rap'],
     preferredMoods: ['confident', 'energetic'],
     vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
     forbiddenCliches: [
@@ -834,7 +837,8 @@ export const channelPresets: ChannelProfile[] = [
     visualIdentity: 'bright even backlight, matched silhouette line, bold sans-serif typography',
     defaultVocal: 'full chest female idol belt, bright rhythmic delivery, driving energy',
     // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고).
-    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
+    // 지시문 52 (TASK B-1) — stage-night와 같은 이유(§위 참고).
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb', 'kridol-melodic-rap', 'kridol-hard-rap'],
     preferredMoods: ['confident', 'energetic'],
     vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
     forbiddenCliches: [

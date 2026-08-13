@@ -132,6 +132,9 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'kridol-latin-afro': ['era-neutral'],
   'kridol-emotional-ballad': ['era-neutral'],
   'kridol-retro-funk': ['1970s', '1980s'],
+  // 지시문 52 (TASK B-1) — 컨템포러리 랩 팔레트, 특정 연대를 지칭하지 않는다.
+  'kridol-melodic-rap': ['era-neutral'],
+  'kridol-hard-rap': ['era-neutral'],
   'kayokyoku-70s': ['1970s'],
   'japanese-folk-70s': ['1970s'],
   'new-music-70s': ['1970s'],
@@ -536,6 +539,8 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'kridol-latin-afro': '\'Latin Afrobeat Crossover\' — 2020년대 K-idol 워크스페이스의 컨템포러리 퍼포먼스 스타일 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kridol-emotional-ballad': '\'Idol Emotional Ballad\' — 2020년대 K-idol 워크스페이스의 컨템포러리 퍼포먼스 스타일 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kridol-retro-funk': '라벨의 "Retro Funk Disco"가 1970~80년대 디스코/펑크 사운드를 명시적으로 참조함',
+  'kridol-melodic-rap': '\'Melodic Sing-Rap Pop\' — 2020년대 K-idol 워크스페이스의 컨템포러리 랩 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'kridol-hard-rap': '\'Hard Rap Stage Cut\' — 2020년대 K-idol 워크스페이스의 컨템포러리 랩 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kayokyoku-70s': 'id/라벨에 1970년대가 명시됨 (일본 가요쿄쿠)',
   'japanese-folk-70s': 'id/라벨에 1970년대가 명시됨 (일본 포크)',
   'new-music-70s': 'id/라벨에 1970년대가 명시됨 (뉴 뮤직)',

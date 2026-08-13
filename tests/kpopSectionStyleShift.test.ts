@@ -23,7 +23,7 @@ function instructionFor(channel = femaleChannel, songCount = 4) {
 }
 
 describe('지시문 37 (TASK B) — SectionStyleShift', () => {
-  it('every preset has 2-3 shifts (§B-3 정책 상한)', () => {
+  it('every preset has 3-4 shifts (지시문 52 TASK C, §C-5 "곡당 전환 3~4회")', () => {
     for (const preset of SECTION_STYLE_SHIFT_PRESETS) {
       expect(preset.shifts.length).toBeGreaterThanOrEqual(SECTION_STYLE_SHIFT_MIN_TRANSITIONS);
       expect(preset.shifts.length).toBeLessThanOrEqual(SECTION_STYLE_SHIFT_MAX_TRANSITIONS);
@@ -45,12 +45,12 @@ describe('지시문 37 (TASK B) — SectionStyleShift', () => {
     expect(a).toEqual(b);
   });
 
-  it('kr-idol-female slots get sectionStyleShifts with 2-3 entries each', () => {
+  it('kr-idol-female slots get sectionStyleShifts with 3-4 entries each', () => {
     const { slots } = instructionFor(femaleChannel);
     expect(slots.every(s => s.sectionStyleShifts)).toBe(true);
     for (const slot of slots) {
-      expect(slot.sectionStyleShifts!.length).toBeGreaterThanOrEqual(2);
-      expect(slot.sectionStyleShifts!.length).toBeLessThanOrEqual(3);
+      expect(slot.sectionStyleShifts!.length).toBeGreaterThanOrEqual(3);
+      expect(slot.sectionStyleShifts!.length).toBeLessThanOrEqual(4);
     }
   });
 
