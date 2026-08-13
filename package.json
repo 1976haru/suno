@@ -33,6 +33,7 @@
     "check:budget": "tsx scripts/checkConstraintBudget.ts",
     "check:genre-overlap": "tsx scripts/checkGenreOverlap.ts",
     "check:consumption": "tsx scripts/checkPolicyConsumption.ts",
+    "check:genre-completeness": "tsx scripts/checkGenreCompleteness.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",

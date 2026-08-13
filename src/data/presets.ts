@@ -726,7 +726,14 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퍼포먼스 트랩과 밴드 크로스오버 중심, 무대 위의 확신과 폭발적인 에너지를 담은 남자 아이돌 플레이리스트',
     visualIdentity: 'dark stage backlight, sweeping spotlight beams, haze and rim light, bold sans-serif typography',
     defaultVocal: 'confident male idol lead, rap-sung verse into a stacked unison chorus',
-    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance'],
+    // 지시문 50 (TASK B-4①) — 하루: "K-pop이 BPM이 전체적으로 빠르니까 붕
+    // 뜬 느낌이야... 15곡이면 중간에 3~4곡은 발라드를 넣어도 될 것 같아."
+    // 원래 3종(130-150/128-150/118-132)이 전부 118 이상이라 저속 슬롯이
+    // 아예 없었다 — kridol-emotional-ballad(68-86)·kridol-midtempo-rnb
+    // (88-104)를 추가해 68-104 대역을 확보한다. 무대 퍼포먼스라는 이
+    // 채널의 정체성은 유지하되(performance-trap/band-crossover/synth-dance
+    // 3종은 그대로 둔다), 세트 중간에 쉬어가는 지점을 만든다(§B-5).
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
     preferredMoods: ['confident', 'energetic'],
     vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
     forbiddenCliches: [
@@ -746,7 +753,9 @@ export const channelPresets: ChannelProfile[] = [
     promise: '신스 댄스와 레트로 훵크 중심, 야간 도시를 달리며 듣기 좋은 신나는 남자 아이돌 드라이브 플레이리스트',
     visualIdentity: 'saturated neon city night, streaking headlights, skyline glow, bold sans-serif typography',
     defaultVocal: 'bright confident male idol lead, layered unison hook vocal',
-    preferredGenres: ['kridol-synth-dance', 'kridol-retro-funk', 'kridol-latin-afro'],
+    // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고). 118 이상
+    // 3종에 68-104 대역 2종을 더한다.
+    preferredGenres: ['kridol-synth-dance', 'kridol-retro-funk', 'kridol-latin-afro', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
     preferredMoods: ['bright', 'confident'],
     vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
     forbiddenCliches: [
@@ -801,7 +810,10 @@ export const channelPresets: ChannelProfile[] = [
     promise: '신스 댄스와 라틴 아프로비트 중심, 낮의 도시를 당당하게 걷는 여자 아이돌 플레이리스트',
     visualIdentity: 'bold saturated daylight color blocks, sharp midday shadow, bold sans-serif typography',
     defaultVocal: 'bright forward female idol lead, light rhythmic phrasing, confident delivery',
-    preferredGenres: ['kridol-synth-dance', 'kridol-latin-afro', 'kridol-retro-funk'],
+    // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고). 이
+    // 채널이 실제로 하루가 8곡을 테스트한 채널이다(20260813 세트) — 118
+    // 이상 3종에 68-104 대역 2종을 더한다.
+    preferredGenres: ['kridol-synth-dance', 'kridol-latin-afro', 'kridol-retro-funk', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
     preferredMoods: ['confident', 'bright'],
     vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
     forbiddenCliches: [
@@ -821,7 +833,8 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퍼포먼스 트랩과 밴드 크로스오버 중심, 끝까지 밀어붙이는 여자 아이돌 퍼포먼스 플레이리스트',
     visualIdentity: 'bright even backlight, matched silhouette line, bold sans-serif typography',
     defaultVocal: 'full chest female idol belt, bright rhythmic delivery, driving energy',
-    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance'],
+    // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고).
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
     preferredMoods: ['confident', 'energetic'],
     vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
     forbiddenCliches: [

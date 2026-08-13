@@ -305,6 +305,22 @@ jobs:
       - run: npm ci
       - run: npm run check:consumption
 
+  # 지시문 50 (TASK D-4) — check:coverage(아키타입 단위)/check:consumption
+  # (정책 단위) 밑의 새 단위: 장르 하나가 eraBuckets·vocalPreference·
+  # instruments·rhythm·production·eraNoteKo까지 다 채워졌는가. advisory만
+  # 낸다 — exit 0 고정(scripts/checkGenreCompleteness.ts 자기 doc comment
+  # 참고), 미달 목록으로 세트를 막지 않는다.
+  check-genre-completeness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:genre-completeness
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

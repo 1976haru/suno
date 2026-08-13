@@ -158,11 +158,25 @@ const KR_IDOL_FEMALE_MOTIF_QUOTAS: MotifQuota[] = [
 const KR_IDOL_MALE_FIXED_QUOTA: VocalQuota = { male: 15, female: 0, mixed: 3 };
 const KR_IDOL_FEMALE_FIXED_QUOTA: VocalQuota = { male: 0, female: 15, mixed: 3 };
 
-/** 지시문 43 (TASK A-3) — verified: false, 15곡 기준 추정치. male/female 동일(에너지 목표는 성별 트레이트가 아니다 — kpopWorkspacePolicy.ts 상단 문서의 groupGender 분리 원칙과 같은 이유). */
+/**
+ * 지시문 43 (TASK A-3) — verified: false, 15곡 기준 추정치. male/female 동일
+ * (에너지 목표는 성별 트레이트가 아니다 — kpopWorkspacePolicy.ts 상단
+ * 문서의 groupGender 분리 원칙과 같은 이유).
+ *
+ * 지시문 50 (TASK B-6) — 하루의 청취가 지시문43의 "E1~E2 도 2곡은 남긴다"를
+ * 정정했다: 실제로는 2곡으로 부족했다. B-4가 추가한 68-104 대역 발라드
+ * 2종(kridol-emotional-ballad·kridol-midtempo-rnb)이 저에너지 곡 3~4곡에
+ * 대응하도록 E1 0→1·E2 2→3으로 올리고, 합계 15를 맞추기 위해 E4를 6→5로
+ * 낮춘다(E3=4·E5=2는 그대로). targetAverage는 이 분포의 실제 가중평균
+ * (1·1+2·3+3·4+4·5+5·2)/15=49/15≈3.27을 반올림한 3.2 — E4·E5(활기찬 쪽)는
+ * 여전히 7곡으로 유지된다(§하지 말 것 "발라드를 넣는다고 에너지 정책
+ * 전체를 낮추지 말 것" — 하루는 "붕 뜬 느낌"을 말했지 "잔잔하게"를
+ * 말하지 않았다). verified: false — 다음 세트 청취로 재조정.
+ */
 const KR_IDOL_ENERGY_TARGET: EnergyTargetPolicy = {
-  targetAverage: 3.5,
+  targetAverage: 3.2,
   maxEnergy: 5,
-  distributionOf15: { 1: 0, 2: 2, 3: 5, 4: 6, 5: 2 },
+  distributionOf15: { 1: 1, 2: 3, 3: 4, 4: 5, 5: 2 },
   verified: false
 };
 
