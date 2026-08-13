@@ -361,6 +361,14 @@ function normalizeImportedSong(
     ...(isNonEmptyString(obj.verseStyleText) ? { verseStyleText: obj.verseStyleText } : {}),
     ...(isNonEmptyString(obj.chorusStyle) ? { chorusStyle: obj.chorusStyle as SongIdea['chorusStyle'] } : {}),
     ...(isNonEmptyString(obj.chorusStyleText) ? { chorusStyleText: obj.chorusStyleText } : {}),
+    // 지시문 50 (TASK D-2) — promptComposer.ts's songOutputShape 자기 doc
+    // comment 참고. slot이 있으면 reconcileWithPreassignedSlot이 이 값을
+    // slot.effectiveVocalPresetId/vocalPresetSource로 덮어쓰지만(정상 —
+    // 슬롯이 신뢰 출처다), slot이 없는 독립 가져오기 경로는
+    // noSlotEffectiveFields가 이 두 필드를 건드리지 않으므로(그 함수 자기
+    // 주석 참고) 여기서 읽은 값이 그대로 남는다.
+    ...(isNonEmptyString(obj.effectiveVocalPresetId) ? { effectiveVocalPresetId: obj.effectiveVocalPresetId } : {}),
+    ...(isNonEmptyString(obj.vocalPresetSource) ? { vocalPresetSource: obj.vocalPresetSource as SongIdea['vocalPresetSource'] } : {}),
     // 지시문 15 (TASK A-2/B) — 실제 저장 경로(이 함수)에는 distinctChoice가
     // 아예 빠져 있었다(parseBridgeExportForReview 쪽 미리보기 전용 경로에만
     // 있었음) — 그 결과 실제로 임포트된 모든 팩이 조용히 distinctChoice를

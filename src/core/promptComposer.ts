@@ -1324,6 +1324,17 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
     verseStyleText: 'string optional; copy from preassignedSongs if present',
     chorusStyle: 'string optional; copy from preassignedSongs if present',
     chorusStyleText: 'string optional; copy from preassignedSongs if present',
+    // 지시문 50 (TASK D-1/D-2) — 실측: 20260813 팩(vocalPresetSource 'plan'
+    // 15/15 슬롯 적용 확인됨)이 이 outputShape에 두 필드가 없어 곡별 실제
+    // 적용 프리셋을 하나도 팩에 남기지 못했다 — 지시문 26의 킬링포인트,
+    // 지시문 45의 보컬 추천과 같은 "슬롯에는 있는데 팩에 안 남는" 유형.
+    // 이 응답이 실제 앱 세션으로 다시 가져오기(bridgeImport.ts)될 때, 그
+    // 세션이 원래 슬롯을 여전히 들고 있으면 reconcileWithPreassignedSlot가
+    // slot.effectiveVocalPresetId/vocalPresetSource로 덮어써 이 필드는
+    // 무시된다 — 하지만 슬롯이 없는 독립 가져오기(별도 세션에서 이
+    // 파일만 가져오는 경우)에서는 이 값이 유일한 출처가 된다.
+    effectiveVocalPresetId: 'string optional; copy from preassignedSongs if present',
+    vocalPresetSource: "'plan' | 'tone-match' | 'auto' optional; copy from preassignedSongs if present",
     qualityScore: 0,
     warnings: []
   };

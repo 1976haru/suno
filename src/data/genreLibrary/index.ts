@@ -2432,13 +2432,84 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
  * 나머지 senior 21종(adult-contemporary/oldpop-* 다수/rnb-old-school-
  * romance-rnb 등)은 이 지시문에서 채우지 않았다 — 부분구현으로 보고.
  */
+// 지시문 50 (TASK A-3) — 하루: "재즈는 남자보다 여자 목소리가 좋아. 재즈
+// 장르는 여성 강제가 필요할 것 같아." 재즈 계열(jazz-* 52종) 전체에
+// female >= 0.60 하한을 기본으로 둔다 — 지시문46이 채운 6종 중 미달이던
+// 4종(classic-vocal-lounge/brush-ballad-jazz/hotel-lounge-jazz/soft-vocal-
+// trio)을 이 지시문에서 올리고, vocalPreference가 아예 없던 45종을 새로
+// 채운다(§실측: 45종 중 43종은 이 기본값 {male:0.20, female:0.65,
+// mixed:0.15}, 2종은 아래 예외 참고). 지시문46이 채운 6종을 되돌리지
+// 않는다 — 여기서 올리는 것은 "되돌리기"가 아니라 새 하한 적용이다.
+//
+// 예외 ① jazz-swing-crooner-ballroom — 크루너(프랭크 시나트라 계열)는
+// 남성이 장르 정의다. 여성으로 바꾸면 그 장르가 아니게 된다 — A-4에서
+// 세 선택지를 제시하고 하루의 판단을 받는다. 이 지시문에서는 임의로
+// 정하지 않고 원래 값(male 0.7)을 유지한다.
+//
+// 예외 ② jazz-baritone-vocal-jazz · jazz-cool-baritone-jazz — "baritone"은
+// (크루너와 마찬가지로) 남성 음역을 직접 지칭하는 장르 정의다. 이
+// 지시문이 명시적으로 이름 붙인 예외는 크루너뿐이지만, 같은 논리(정의
+// 자체가 성별을 특정한다)가 이 2종에도 그대로 적용돼 female 하한을
+// 강제하면 장르 정체성과 충돌한다 — 크루너와 같은 male-lean 값을 주되,
+// 크루너와 달리 세 선택지 절차를 거치지 않았다는 점을 보고에 밝힌다
+// (§E-2, 추가 확인 필요 항목으로 표시).
 export const VOCAL_PREFERENCE_OVERRIDES: Partial<Record<string, { male: number; female: number; mixed: number }>> = {
-  'jazz-classic-vocal-lounge': { male: 0.35, female: 0.55, mixed: 0.1 },
+  // 지시문46이 채운 6종 — 4종은 이 지시문에서 female >= 0.60으로 상향.
+  'jazz-classic-vocal-lounge': { male: 0.3, female: 0.6, mixed: 0.1 },
   'jazz-swing-crooner-ballroom': { male: 0.7, female: 0.2, mixed: 0.1 },
   'jazz-torch-vocal-jazz': { male: 0.15, female: 0.75, mixed: 0.1 },
-  'jazz-brush-ballad-jazz': { male: 0.45, female: 0.45, mixed: 0.1 },
-  'jazz-hotel-lounge-jazz': { male: 0.4, female: 0.5, mixed: 0.1 },
-  'jazz-soft-vocal-trio': { male: 0.2, female: 0.3, mixed: 0.5 }
+  'jazz-brush-ballad-jazz': { male: 0.3, female: 0.6, mixed: 0.1 },
+  'jazz-hotel-lounge-jazz': { male: 0.3, female: 0.6, mixed: 0.1 },
+  // 보컬 트리오(냇 킹 콜 트리오류)는 그룹 화음이 정체성이라 mixed 비중을
+  // 완전히 낮추지 않되, female 리드 우세로 재배분한다.
+  'jazz-soft-vocal-trio': { male: 0.15, female: 0.6, mixed: 0.25 },
+  // 신규 45종 — 기본값 (female 0.65, 하한 0.60 초과 여유)
+  'jazz-rap': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bass-feature-trio': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bebop-sax-drive': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-cool-muted-trumpet': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-modal-night-sketch': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-ballad-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-smooth-sax-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-big-band-swing': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bossa-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-electric-fusion': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-late-night-lounge': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-rain-noir-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-organ-soul-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-hard-bop-club': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-minimal-trio': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-spiritual-open-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-spacious-chamber-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-gypsy-cafe-swing': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-waltz-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-latin-club-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-samba-jazz-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-post-bop-urban': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bass-piano-duo': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-alto-candlelight-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-new-orleans-brass': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-alto-sax-trio': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-vibraphone-dream-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-guitar-trio-dinner': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-flugelhorn-ballad': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-duet-conversation-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-contemporary-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-double-bass-intro-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-free-organic-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-fusion-night-drive': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-acid-jazz-groove': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-nu-jazz-metropolitan': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-lofi-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-rap-late-night': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bebop-vocal-scat': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-mellow-flugelhorn-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-blues-club': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-cabaret-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-chamber-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  // 예외 ② — 음역 자체가 장르 정의인 2종 (위 doc comment 참고)
+  'jazz-baritone-vocal-jazz': { male: 0.65, female: 0.2, mixed: 0.15 },
+  'jazz-cool-baritone-jazz': { male: 0.65, female: 0.2, mixed: 0.15 }
 };
 
 // 지시문 20 (TASK B-1) — real gap found: R&B/흑인 감성힙합/랩/트랩힙합
