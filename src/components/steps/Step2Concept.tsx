@@ -11,7 +11,7 @@ import {
 } from '../../data/genreLibrary';
 import { genreLabelsKo, moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { vocalPresets, matchVocalPreset } from '../../data/vocalPresets';
-import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota, vocalLabel } from '../../core/vocalPlan';
+import { DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, leaningAdultVocalQuota, leaningGenderFor, scaleVocalQuota, vocalLabel, type VocalQuota } from '../../core/vocalPlan';
 import { recommendVocalPlan, suitablePresetsForArchetype } from '../../core/vocalRecommender';
 import { recommendMoneyChordPlan } from '../../core/moneyChordRecommender';
 import { hashSeed } from '../../utils/prng';
@@ -342,7 +342,38 @@ export default function Step2Concept({
   // 트랙만 반영되고 나머지는 기존 폴백으로 조용히 떨어진다(방어적).
   // vocalTone도 계속 같이 설정한다 — "쏠림" 방향(register/timbre 소프트
   // 바이어스)과 폴백 텍스트로는 여전히 쓰인다.
-  const vocalRecommendationQuota = hasFixedVocalQuota ? defaultQuotaForChannel : (opts.vocalQuota ?? defaultQuotaForChannel);
+  //
+  // 지시문 48 (TASK A-4) — 실측: 위 정의(hasFixedVocalQuota ?
+  // defaultQuotaForChannel : opts.vocalQuota ?? defaultQuotaForChannel)는
+  // resolvedVocalQuotaPreview(§위, "성별 배정" 표시값이 실제로 쓰는 값)와
+  // 달리 leaning(§TASK v4.13, leaningGenderFor/leaningAdultVocalQuota)을
+  // 반영하지 않는다 — 사용자가 vocalTone으로 성별 쏠림을 골랐는데
+  // vocalQuota/vocalQuotaOverride가 없는 채널이면, 이 미리보기의 쿼터와
+  // core/batchPreallocation.ts/localGenerator.ts가 실제로 쓰는
+  // resolvedVocalQuota(같은 leaning 적용)가 서로 달라 추천 15곡의 성별
+  // 총량이 실제 생성 쿼터와 어긋난다 — vocalPresetPlanTypes의 총량 검증이
+  // 이를 조용히 버리는 근본 원인 중 하나였다. resolvedVocalQuotaPreview를
+  // 그대로 재사용해 이 발산을 원천 차단한다.
+  const vocalRecommendationQuota = resolvedVocalQuotaPreview;
+  // 지시문 48 (TASK A-4) — 그래도 남는 발산(예: "다시 추천" 이후 곡 수를
+  // 바꾸거나 직접 비율 입력을 조정해 opts.vocalPresetPlan이 지금
+  // resolvedVocalQuotaPreview와 더는 맞지 않는 경우)을 화면에 표시한다 —
+  // 생성 쪽 console.warn(§batchPreallocation.ts의 vocalPresetPlanTypes)은
+  // 하루에게 보이지 않는다. 조용히 버리지 않는다는 이 지시문의 명시적
+  // 요구사항.
+  const vocalPresetPlanMismatchWarning = useMemo(() => {
+    if (!opts.vocalPresetPlan || opts.vocalPresetPlan.length !== opts.songCount) return undefined;
+    const counts: VocalQuota = { male: 0, female: 0, mixed: 0 };
+    for (const presetId of opts.vocalPresetPlan) {
+      const preset = presetId ? vocalPresets.find(p => p.id === presetId) : undefined;
+      if (!preset) return undefined;
+      const type = preset.gender === 'mixed' || preset.gender === 'duet' ? 'mixed' : preset.gender;
+      counts[type] += 1;
+    }
+    const target = resolvedVocalQuotaPreview;
+    if (counts.male === target.male && counts.female === target.female && counts.mixed === target.mixed) return undefined;
+    return `보컬 추천의 성별 분포(남 ${counts.male}·여 ${counts.female}·혼성 ${counts.mixed})가 설정(남 ${target.male}·여 ${target.female}·혼성 ${target.mixed})과 달라 적용하지 않았습니다.`;
+  }, [opts.vocalPresetPlan, opts.songCount, resolvedVocalQuotaPreview]);
   // 지시문 38 (TASK D2-6, 선택) — 실제 트랙별 장르 배정(era-quota 등 반영)은
   // 이 화면 이후 단계에서 이뤄지므로 여기선 아직 알 수 없다. 대신 생성이
   // 실제로 쓰는 것과 같은 회전 알고리즘(core/genreRotation.ts의
@@ -1126,9 +1157,15 @@ export default function Step2Concept({
           경로다(카드 그리드 자체는 지우지 않았다 — 그대로 남아 있다). */}
       <div className="option-block">
         <h3>🤖 AI 보컬 추천</h3>
-        <p className="supporting">
-          이 채널({relevantVocalPresets.length}종 후보)과 지금 곡 수({opts.songCount}곡) 기준으로 곡마다 어울리는 보컬을 미리 배정해봤어요. LLM 호출 없이 채널 적합도·성비·다양성만으로 고른 결과예요.
-        </p>
+        {isKidsArchetype(channelArchetype) ? (
+          <p className="supporting">
+            이 채널은 연령대 정책이 음색을 정합니다 — 아래 미리보기는 참고용이며, 실제 생성에는 적용되지 않습니다.
+          </p>
+        ) : (
+          <p className="supporting">
+            이 채널({relevantVocalPresets.length}종 후보)과 지금 곡 수({opts.songCount}곡) 기준으로 곡마다 어울리는 보컬을 미리 배정해봤어요. LLM 호출 없이 채널 적합도·성비·다양성만으로 고른 결과예요.
+          </p>
+        )}
         <div className="option-block" style={{ marginTop: 8 }}>
           {vocalRecommendationPreview.slice(0, VOCAL_RECOMMENDATION_PREVIEW_ROWS).map(rec => (
             <p key={rec.trackNo} className="supporting">
@@ -1139,8 +1176,13 @@ export default function Step2Concept({
             <p className="supporting">...외 {vocalRecommendationPreview.length - VOCAL_RECOMMENDATION_PREVIEW_ROWS}곡 더</p>
           )}
         </div>
+        {!isKidsArchetype(channelArchetype) && vocalPresetPlanMismatchWarning && (
+          <p className="supporting" style={{ marginTop: 8 }}>⚠️ {vocalPresetPlanMismatchWarning}</p>
+        )}
         <div className="button-row" style={{ marginTop: 8 }}>
-          <button type="button" className="chip" onClick={handleRerollVocalRecommendation}>🔀 다시 추천</button>
+          {!isKidsArchetype(channelArchetype) && (
+            <button type="button" className="chip" onClick={handleRerollVocalRecommendation}>🔀 다시 추천</button>
+          )}
           <button type="button" className={vocalPickerExpanded ? 'chip active' : 'chip'} onClick={() => setVocalPickerExpanded(v => !v)}>
             🎛 {vocalPickerExpanded ? '직접 고르기 접기' : '직접 고르기'}
           </button>
