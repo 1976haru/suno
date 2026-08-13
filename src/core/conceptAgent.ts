@@ -101,6 +101,27 @@ function minimumGenrePoolSize(songCount: number): number {
 }
 
 /**
+ * 지시문 51 (TASK A-1/A-2) — 실측(원인 ③): buildGenrePool이 랭킹 후보가
+ * 모자랄 때 coreGenreOrder(SENIOR_MORNING_CORE_GENRE_IDS 등, archetype당
+ * 고정된 정적 배열)를 앞에서부터 그대로 채워 넣었다 — 어떤 컨셉을
+ * 넣든 padding은 항상 coreGenreOrder[0], [1], [2]...였다. senior-morning은
+ * ['adult-contemporary', 'acoustic-pop', 'jazz-pop', ...] 순이라, 컨셉
+ * 텍스트가 keyword rule을 4종 미만으로만 맞혀도(대부분의 짧은 컨셉이
+ * 그렇다) 이 두 장르가 거의 매번 채워졌다(실측: 10개 컨셉 전부).
+ * "이력 기반 tie-break"(§A-2①, 지시문33 TASK B와 같은 발상 — 새 원장을
+ * 만들지 않고 core/recentGenreStore.ts 재사용)로 최근 쓰인 장르를 뒤로
+ * 밀고, "동점 시 seed 회전"(§A-2②)으로 남은 순서를 컨셉 텍스트 해시로
+ * 돌려 같은 채널이라도 컨셉마다 다른 지점에서 시작하게 한다.
+ */
+function orderCoreGenresForPadding(coreGenreOrder: string[], recentIds: readonly string[], seed: number): string[] {
+  if (!coreGenreOrder.length) return coreGenreOrder;
+  const recentSet = new Set(recentIds);
+  const fresh = coreGenreOrder.filter(id => !recentSet.has(id));
+  const stale = coreGenreOrder.filter(id => recentSet.has(id));
+  return [...rotate(fresh, seed), ...rotate(stale, seed)];
+}
+
+/**
  * Builds a genre pool of at least minimumGenrePoolSize, preferring
  * rankedIds (already coreGenreIds-filtered, highest-signal first) and
  * padding from the channel's own core genre order when the input didn't
@@ -249,10 +270,16 @@ function enforceMinimumGenreCount(counts: number[], cap: number, genreIds: strin
  * genreAllocation from — always at least minimumGenrePoolSize(songCount)
  * distinct genres (never the single-genre collapse the pre-fix
  * ConceptRecommendation.genreId-only shape caused).
+ *
+ * 지시문 51 (TASK A-2) — coreGenreOrder를 그대로 padding 순서로 쓰지 않고
+ * orderCoreGenresForPadding으로 재배열한 뒤 넘긴다. rankedGenreIds(실제
+ * 컨셉 키워드 매칭 결과)는 그대로 최우선 — "컨셉 적합성이 우선이다"(§하지
+ * 말 것)를 지킨다. padding만 이력/시드로 회전한다.
  */
-function buildGenreAllocation(rankedGenreIds: string[], coreGenreOrder: string[], songCount: number): GenreAllocationSlot[] {
+function buildGenreAllocation(rankedGenreIds: string[], coreGenreOrder: string[], songCount: number, recentIds: readonly string[] = [], paddingSeed = 0): GenreAllocationSlot[] {
   const targetSize = minimumGenrePoolSize(songCount);
-  const pool = buildGenrePool(rankedGenreIds, coreGenreOrder, targetSize);
+  const orderedPadding = orderCoreGenresForPadding(coreGenreOrder, recentIds, paddingSeed);
+  const pool = buildGenrePool(rankedGenreIds, orderedPadding, targetSize);
   return allocateGenreCounts(pool, songCount);
 }
 
@@ -312,7 +339,23 @@ function rankFromRules(freeText: string, coreGenreIds: Set<string>): RankedScore
     }
   }
 
-  const rank = (scores: Map<string, number>) => [...scores.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  // 지시문 51 (TASK A-1/A-2②) — 실측: "아침" 컨셉에서 oldpop-warm-morning-glow
+  // (weight 4)와 oldpop-hearth-acoustic(weight 4)가 동점이었는데, 동점일 때
+  // Array.sort의 안정 정렬이 rule 객체의 키 삽입 순서를 그대로 유지해 매번
+  // 같은 쪽(hearth-acoustic)이 이겼다 — "정렬이 결정적이라 상위 몇 개만 계속
+  // 뽑힌다"(§A-1 원인 ③)가 padding뿐 아니라 점수 동점에도 있었다. 동점인
+  // id끼리만 컨셉 텍스트 해시로 회전한다 — 점수 자체(컨셉 적합성)는
+  // 그대로 두고 "누가 이기는가"만 매 컨셉마다 달라지게 한다.
+  const tieBreakSeed = hashSeed(freeText);
+  const rank = (scores: Map<string, number>) => {
+    const grouped = new Map<number, string[]>();
+    for (const [id, weight] of scores.entries()) {
+      if (!grouped.has(weight)) grouped.set(weight, []);
+      grouped.get(weight)!.push(id);
+    }
+    const weightsDesc = [...grouped.keys()].sort((a, b) => b - a);
+    return weightsDesc.flatMap(weight => rotate(grouped.get(weight)!, tieBreakSeed));
+  };
   return { genres: rank(genreScore), moods: rank(moodScore), seasons: rank(seasonScore) };
 }
 
@@ -388,12 +431,20 @@ export function recommendConceptLocal(
   /** TASK H7 (v3.10) — "다른 추천 보기": rotates through the next-ranked candidates instead of dead-ending on the same top-2 every click. */
   variantOffset = 0,
   /** TASK v3.58 — how many songs this recommendation's genreAllocation should sum to; the actual pack size the wizard currently has selected. */
-  songCount = DEFAULT_CONCEPT_SONG_COUNT
+  songCount = DEFAULT_CONCEPT_SONG_COUNT,
+  /** 지시문 51 (TASK A-2①) — 이 채널의 최근 추천/적용 이력(core/recentGenreStore.ts, 새 원장 아님 — 지시문33 TASK B와 같은 저장소 재사용). buildGenreAllocation의 padding이 최근 쓰인 장르를 뒤로 미루는 데만 쓰인다 — 컨셉 키워드 매칭 결과(rankedGenres)는 건드리지 않는다. */
+  recentGenreIds: readonly string[] = []
 ): ConceptAgentResult {
   const coreGenres = getCoreGenresForArchetype(archetype);
   const coreGenreIds = new Set(coreGenres.map(genre => genre.id));
   const coreGenreOrder = coreGenres.map(genre => genre.id);
   const ranked = rankFromRules(freeText, coreGenreIds);
+  // 지시문 51 (TASK A-2②) — "동점 시 seed 회전": variantOffset(재추천
+  // 클릭)이 이미 있는 회전축과 별개로, 같은 텍스트라도 컨셉 자체의
+  // 해시를 padding 회전 시드로 써서 매 컨셉마다 padding 시작점이
+  // 달라지게 한다(§실측 원인 ③, "정렬이 결정적이라 상위 몇 개만 계속
+  // 뽑힌다"가 padding에도 그대로 적용되던 것을 고친다).
+  const paddingSeed = hashSeed(freeText) + variantOffset;
 
   // TASK v3.58 TASK 3 — an artist/band reference ("비틀즈 스타일로") suggests
   // real genres too; blend its suggestions in ahead of keyword-rule matches
@@ -423,7 +474,7 @@ export function recommendConceptLocal(
   const hasSignal = rankedGenres.length > 0 || ranked.moods.length > 0 || ranked.seasons.length > 0;
   const eraNote = decomposedReferences[0] ? ` (${decomposedReferences[0].eraTag} 해석)` : '';
 
-  const primaryAllocation = buildGenreAllocation(genreCandidates, coreGenreOrder, songCount);
+  const primaryAllocation = buildGenreAllocation(genreCandidates, coreGenreOrder, songCount, recentGenreIds, paddingSeed);
   recommendations.push(buildRecommendation({
     id: 'primary',
     archetype,
@@ -444,7 +495,7 @@ export function recommendConceptLocal(
   const secondaryLeadId = genreCandidates.find(id => id !== primaryAllocation[0]?.genreId);
   if (secondaryLeadId) {
     const reordered = [secondaryLeadId, ...genreCandidates.filter(id => id !== secondaryLeadId)];
-    const secondaryAllocation = buildGenreAllocation(reordered, coreGenreOrder, songCount);
+    const secondaryAllocation = buildGenreAllocation(reordered, coreGenreOrder, songCount, recentGenreIds, paddingSeed + 1);
     recommendations.push(buildRecommendation({
       id: 'secondary',
       archetype,

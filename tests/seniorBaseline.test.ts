@@ -154,12 +154,18 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(getCoreGenreIdsForArchetype('oldpop-lounge').length).toBe(69);
   });
 
-  it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/8', () => {
+  it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/14', () => {
     expect(getCoreGenreIdsForArchetype('showa-cafe').length).toBe(12);
     expect(getCoreGenreIdsForArchetype('showa-70s').length).toBe(4);
     expect(getCoreGenreIdsForArchetype('j2000s').length).toBe(4);
     // 지시문 21 (TASK A) — 7 -> 8 (kr2030-noir-deep-house도 city-night 배선).
-    expect(getCoreGenreIdsForArchetype('city-night').length).toBe(8);
+    // 지시문 51 (TASK A-1) — 8 -> 14: 실측(check:genre-utilization, 활용률
+    // 36%)으로 city-night-drive 채널(preferredGenres 11종)의 city-pop-*
+    // 변형 6종이 core 목록에 없어 recommendConceptLocal 후보 풀에서
+    // 아예 빠져 있던 것을 확인·추가. 이 6종은 archetypes 필드 자체가
+    // 없어(다른 워크스페이스 소유 표시 없음) 워크스페이스 격리 위반이
+    // 아니다(§tests/workspaceDataIsolation.test.ts로 확인).
+    expect(getCoreGenreIdsForArchetype('city-night').length).toBe(14);
   });
 });
 

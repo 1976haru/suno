@@ -603,6 +603,25 @@ export default function Step2Concept({
   const primaryGenreId = opts.genreIds[0] || '';
   const primaryGenre = selectedGenreDetails[0];
   const secondaryGenreIds = opts.genreIds.slice(1);
+  // 지시문 51 (TASK B) — 하루: "장르가 너무 많으면 UI가 지저분해 보여서."
+  // senior-morning처럼 visibleGenres가 46종까지 가는 채널은 카드 그리드가
+  // 그대로 46장 렌더링됐다(캡 없음). getVisibleGenresForArchetype/
+  // CORE_GENRE_IDS_BY_ARCHETYPE 자체(추천 후보 풀, 지시문51 TASK A가
+  // 방금 넓힌 것)는 건드리지 않는다 — 화면에 보여줄 카드 수만 이 화면
+  // 레이어에서 별도로 캡한다. 선택된 것은 항상 보이고(캡에 밀려 숨지
+  // 않는다), 그다음은 채널이 실제 쓰는 장르(preferredGenres)를 우선한다
+  // — "다른 장르 더 찾기"는 그대로 둔다(§하지 말 것, 검색 경로 유지).
+  const CORE_CARD_GRID_MAX = 12;
+  const channelPreferredGenreSet = useMemo(() => new Set(opts.channel.preferredGenres), [opts.channel.preferredGenres]);
+  const cardGridGenres = useMemo(() => {
+    if (visibleGenres.length <= CORE_CARD_GRID_MAX) return visibleGenres;
+    const selectedIds = new Set(opts.genreIds);
+    const selected = visibleGenres.filter(g => selectedIds.has(g.id));
+    const preferred = visibleGenres.filter(g => !selectedIds.has(g.id) && channelPreferredGenreSet.has(g.id));
+    const rest = visibleGenres.filter(g => !selectedIds.has(g.id) && !channelPreferredGenreSet.has(g.id));
+    return [...selected, ...preferred, ...rest].slice(0, CORE_CARD_GRID_MAX);
+  }, [visibleGenres, opts.genreIds, channelPreferredGenreSet]);
+  const hiddenChannelGenreCount = Math.max(0, opts.channel.preferredGenres.length - cardGridGenres.filter(g => channelPreferredGenreSet.has(g.id)).length);
   const filteredGenres = useMemo(() => {
     return searchExtendedGenres(genreQuery, genreCategoryId, channelArchetype);
   }, [genreCategoryId, genreQuery, channelArchetype]);
@@ -919,6 +938,15 @@ export default function Step2Concept({
         <h3>어떤 장르로 만들까요?</h3>
         <p className="supporting">이 채널에 어울리는 장르만 먼저 보여드립니다. 잘 모르겠으면 추천된 것을 그대로 두세요.</p>
         <p className="supporting">Main genre: {primaryGenre?.label || 'none'} / Secondary: {selectedGenreDetails.slice(1).map(g => g.label).join(', ') || 'none'} ({opts.genreIds.length}/{MAX_SELECTED_GENRES})</p>
+        {/* 지시문 51 (TASK B-2) — "이 채널은 N종을 사용합니다 — 나머지는
+            AI가 곡에 맞춰 고릅니다": 화면엔 다 안 보여도 추천이 실제로
+            쓴다는 것을 알린다(지시문51 TASK A가 그 활용률을 실제로
+            올렸다 — check:genre-utilization 참고). */}
+        {hiddenChannelGenreCount > 0 && (
+          <p className="supporting">
+            이 채널은 {opts.channel.preferredGenres.length}종의 장르를 사용합니다 — 화면에 안 보이는 {hiddenChannelGenreCount}종도 AI가 곡에 맞춰 고릅니다. 전부 보려면 아래 "다른 장르 더 찾기"를 누르세요.
+          </p>
+        )}
 
         <div className="genre-section-card">
           <div className="genre-section-head">
@@ -926,7 +954,7 @@ export default function Step2Concept({
             <span>곡의 중심이 됩니다</span>
           </div>
           <div className="genre-card-grid">
-            {visibleGenres.map(genre => {
+            {cardGridGenres.map(genre => {
               const selected = primaryGenreId === genre.id;
               const recommended = opts.channel.preferredGenres[0] === genre.id;
               return (
