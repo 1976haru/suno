@@ -457,6 +457,30 @@ function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
   ].join('\n');
 }
 
+/**
+ * 지시문 54 (TASK B) — 하루: "썸네일이나 플레이리스트 입력하는 곳이 있으면
+ * 거기서 입력하면 노래 제목이 자동으로 연동되어 생성되어야지." opts.videoTitle이
+ * 비어 있으면 ''을 반환해 기존 동작과 완전히 동일하다(§하지 말 것 "영상
+ * 제목을 필수로 만들지 말 것"). customConcept(장면·내용)과는 다른 층이라는
+ * 것과, 영상 제목의 단어를 그대로 반복하지 말라는 것(§B-2, "편안"이 15번
+ * 나오면 안 된다)을 함께 명시한다. customConcept이 비어 있으면(§B-3) 영상
+ * 제목이 장면 컨셉 역할도 겸하도록 안내를 추가한다.
+ */
+function videoTitleInstructionLineFor(opts: GenerationOptions): string {
+  const videoTitle = opts.videoTitle?.trim();
+  if (!videoTitle) return '';
+  const conceptFallbackNote = opts.customConcept?.trim()
+    ? ''
+    : ' 별도의 컨셉(장면 설명)이 없으므로, 이 영상 제목의 정서가 장면·분위기의 기준 역할도 겸합니다 — 다만 각 곡의 실제 장면/이미지는 자유롭게 다양화하십시오(영상 제목 문장을 그대로 서술하지 마십시오).';
+  return [
+    `[영상 제목] 이 세트가 올라갈 영상/플레이리스트의 제목은 "${videoTitle}" 입니다.`,
+    `  - ${opts.songCount}곡의 제목이 이 정서와 이어지게 지으십시오 — customConcept이 곡의 장면·내용을 정하는 것과는 다른 층입니다. 이 영상 제목은 "곡 제목의 톤"만 정합니다.${conceptFallbackNote}`,
+    '  - ① 영상 제목에 쓰인 단어를 곡 제목에 그대로 쓰지 마십시오.',
+    '  - ② 같은 정서를 서로 다른 이미지·표현으로 나타내십시오.',
+    `  - ③ ${opts.songCount}곡이 서로 다른 각도에서 그 정서에 접근하게 하십시오 — 같은 단어나 표현을 반복하면 안 됩니다.`
+  ].join('\n');
+}
+
 // TASK v3.43 Part A2 — same forced-verbatim BPM instruction promptComposer.ts's
 // buildBatchSystemNote now gives real API requests (kept in sync here per this
 // file's existing convention — see titleInstructionLineFor's comment above):
@@ -1708,6 +1732,7 @@ export function buildClaudeCodeInstruction(
   // constraint in place, even with v3.27's shape-rotation guidance.
   const titleInstructionLine = titleInstructionLineFor(opts);
   const titleLocalizedInstructionLine = titleLocalizedInstructionLineFor(opts);
+  const videoTitleInstructionLine = videoTitleInstructionLineFor(opts);
   // TASK v3.39 — same verbatim-weave rule promptComposer.ts's
   // buildBatchSystemNote gives real API requests, kept in sync here per this
   // file's existing convention (see the titleInstructionLine/moneyChordText
@@ -1827,6 +1852,7 @@ export function buildClaudeCodeInstruction(
     `- Never overwrite an existing file. If "${outputFilename}" already exists, append "_02" (then "_03", etc.) before the .json extension and write there instead.`,
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" — { "meta": { ... }, "songs": [ ... ] } — copying "meta" from the request payload above verbatim. Do not invent or recompute any of its values yourself.',
+    videoTitleInstructionLine,
     titleInstructionLine,
     titleLocalizedInstructionLine,
     // v5.23 (TASK A §1-4) — the CRITICAL "already-used titles/hooks are
@@ -2123,6 +2149,11 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '- Each file content must be exactly { "songs": [ ... ] }, with no markdown fences and no surrounding prose inside the file.',
     `- Each set file must contain exactly ${songsPerSet} song objects matching requestPayload.outputShape.songs[0].`,
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" in each set file — { "meta": { ... }, "songs": [ ... ] } — copying that set\'s "requestPayload.meta" verbatim. Do not invent or recompute any of its values yourself.',
+    // 지시문 54 (TASK B) — 단일 세트 경로(buildClaudeCodeInstruction)와 같은
+    // 안내. 이 마스터 모드는 그 함수에 위임하지 않고 별도로 조립되므로
+    // (§위 v5.23 주석 참고) 여기서도 독립적으로 추가해야 한다 — 안 그러면
+    // 멀티세트 생성에서만 영상 제목 안내가 조용히 빠진다.
+    videoTitleInstructionLineFor(baseOpts),
     titleInstructionLine,
     titleLocalizedInstructionLineFor(baseOpts),
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',

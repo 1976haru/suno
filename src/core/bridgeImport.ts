@@ -258,6 +258,49 @@ function flagHookCollisions(songs: SongIdea[], avoidHooks: string[] = []): { son
 }
 
 /**
+ * 지시문 54 (TASK B-4) — "영상 제목의 핵심 단어가 곡 제목에 3회 이상
+ * 반복되면 warning... 차단하지 않는다 — 하루가 판단한다." 정식 한국어
+ * 형태소 분석은 이 지시문 범위 밖이라(추정치, verified: false — §6 정책
+ * 필드로 문서화) 조사(하세요/에서는 등)를 벗겨내는 접미사 목록으로
+ * 근사한다 — "그곳에서는"→"그곳", "편안하세요"→"편안" 정도만 잡아내면
+ * 충분하다(§B-1 예시와 정확히 일치). 접미사가 하나도 안 맞으면 원래
+ * 단어를 그대로 쓴다.
+ */
+const KOREAN_SUFFIXES_LONGEST_FIRST = [
+  '하세요', '합니다', '했어요', '이에요', '에서는', '에게는', '으로는',
+  '해요', '예요', '에서', '에게', '으로', '만은',
+  '은', '는', '이', '가', '을', '를', '의', '도', '로', '만'
+];
+
+function stripKoreanSuffix(word: string): string {
+  for (const suffix of KOREAN_SUFFIXES_LONGEST_FIRST) {
+    if (word.length > suffix.length + 1 && word.endsWith(suffix)) {
+      return word.slice(0, word.length - suffix.length);
+    }
+  }
+  return word;
+}
+
+/** 3회 이상 반복이면 경고(지시문54 §B-4 원문의 임계값 그대로 — 정책값, verified: false). */
+const VIDEO_TITLE_WORD_REPEAT_WARN_THRESHOLD = 3;
+
+export function videoTitleWordRepetitionWarnings(videoTitle: string | undefined, titles: string[]): string[] {
+  const trimmed = videoTitle?.trim();
+  if (!trimmed || !titles.length) return [];
+  const coreWords = [...new Set(
+    trimmed.split(/[\s,.!?~…·"'"']+/).filter(Boolean).map(stripKoreanSuffix).filter(word => word.length >= 2)
+  )];
+  const warnings: string[] = [];
+  for (const word of coreWords) {
+    const count = titles.filter(title => title.includes(word)).length;
+    if (count >= VIDEO_TITLE_WORD_REPEAT_WARN_THRESHOLD) {
+      warnings.push(`영상 제목의 "${word}"라는 단어가 곡 제목 ${count}곡에 반복됩니다 — 같은 단어 대신 같은 정서의 다른 표현을 써보세요 (차단 아님, 확인만 하십시오).`);
+    }
+  }
+  return warnings;
+}
+
+/**
  * The trackNo a raw bridge JSON entry claims — its own `trackNo` field when
  * present and valid, else this entry's position in the raw array. Pure and
  * side-effect-free so it can be run once up front (importSongsJson, to
@@ -349,8 +392,6 @@ function normalizeImportedSong(
     lyrics: String(obj.lyrics),
     ...(isNonEmptyString(obj.thumbnailText) ? { thumbnailText: obj.thumbnailText } : {}),
     youtube,
-    ...(isNonEmptyString(obj.youtubeTitleKo) ? { youtubeTitleKo: obj.youtubeTitleKo } : {}),
-    ...(isNonEmptyString(obj.youtubeTitleJa) ? { youtubeTitleJa: obj.youtubeTitleJa } : {}),
     ...(isNonEmptyString(obj.genreId) ? { genreId: obj.genreId } : {}),
     ...(isNonEmptyString(obj.genreText) ? { genreText: obj.genreText } : {}),
     ...(isNonEmptyString(obj.lyricTheme) ? { lyricTheme: obj.lyricTheme } : {}),
@@ -630,6 +671,8 @@ export function importSongsJson(
   const countMismatchWarning = deduped.length !== opts.songCount
     ? [`요청한 곡 수(${opts.songCount})와 실제로 가져온 곡 수(${deduped.length})가 다릅니다 — 에이전트가 ${opts.songCount}곡을 모두 생성하지 않았을 수 있습니다. songs-output.json을 확인하거나 다시 생성하십시오.`]
     : [];
+  // 지시문 54 (TASK B-4) — 차단하지 않는다, warning만.
+  const videoTitleWarnings = videoTitleWordRepetitionWarnings(opts.videoTitle, deduped.map(song => song.title));
 
   return {
     blueprint,
@@ -643,7 +686,8 @@ export function importSongsJson(
       ...similarityReport.errors,
       ...commonClausesNote,
       ...lyricDiversityReport.warnings,
-      ...lyricDiversityReport.errors
+      ...lyricDiversityReport.errors,
+      ...videoTitleWarnings
     ],
     requestedCount: opts.songCount
   };

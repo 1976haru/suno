@@ -143,6 +143,8 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     moneyChordMode: 'default',
     customMoneyChord: '',
     customConcept: '',
+    // 지시문 54 (TASK A-3) — 비워두면 기존과 동일하게 동작한다(선택 사항).
+    videoTitle: '',
     referenceMood: '',
     genreBlendWeights: {},
     customLyricThemeScene: '',

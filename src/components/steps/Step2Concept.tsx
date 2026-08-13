@@ -1641,6 +1641,21 @@ export default function Step2Concept({
         <CharCounter value={opts.customConcept} limit={INPUT_LIMITS.customConcept} />
       </div>
 
+      {/* 지시문 54 (TASK A) — 하루: "썸네일이나 플레이리스트 입력하는 곳이
+          있으면 거기서 입력하면 노래 제목이 자동으로 연동되어 생성되어야지."
+          선택 사항 — 비워두면 기존과 동일하게 동작한다. */}
+      <div className="option-block">
+        <h3>🎬 영상 제목 (선택)</h3>
+        <input
+          value={opts.videoTitle ?? ''}
+          onChange={event => setOpts(prev => ({ ...prev, videoTitle: clampToLimit('videoTitle', event.target.value) }))}
+          placeholder="그곳에서는 편안하세요"
+          maxLength={INPUT_LIMITS.videoTitle}
+        />
+        <CharCounter value={opts.videoTitle ?? ''} limit={INPUT_LIMITS.videoTitle} />
+        <p className="supporting">유튜브에 올릴 제목입니다. 곡 제목이 이 정서에 맞춰 생성됩니다 — 같은 단어를 그대로 반복하지 않고, 같은 감정을 다른 표현으로 나눠 가집니다.</p>
+      </div>
+
       <button type="button" className="full-width" onClick={() => setAdvancedOpen(v => !v)}>
         {advancedOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         ⚙️ 고급 설정 {advancedOpen ? '접기' : '펼치기'}
