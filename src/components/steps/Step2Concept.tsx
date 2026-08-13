@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Search, Wand2 } from 'lucide-react';
 import { generationPacks, moodPacks, seasonPacks } from '../../data/presets';
 import {
@@ -389,6 +389,26 @@ export default function Step2Concept({
     () => recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: vocalRecommendationSeed, genrePlan: vocalRecommendationGenrePlan }),
     [channelArchetype, opts.songCount, vocalRecommendationQuota, vocalRecommendationSeed, vocalRecommendationGenrePlan]
   );
+  // 지시문 49 (TASK C) — 실측: opts.vocalPresetPlan은 이 화면의
+  // handleRerollVocalRecommendation("다시 추천" 클릭) 안에서만 저장됐다 —
+  // 그 버튼을 누른 적 없는 기본 흐름(화면에 들어와 곧바로 생성)에서는
+  // opts.vocalPresetPlan이 계속 undefined라 core/batchPreallocation.ts/
+  // localGenerator.ts의 vocalPresetPlanTypes 전체가 조용히 비활성이었다
+  // (실측: 5워크스페이스 전부 vocalPresetSource가 0% 'plan' — 지시문
+  // 23/30의 "선택했는데 적용 버튼을 안 누르면 반영 안 됨"과 같은 유형의
+  // 결함, B-3 후보 ③). vocalTone(전체 팩 "쏠림" 텍스트)은 여전히 명시적
+  // 재추천 클릭에서만 바뀐다(§46 TASK D 원래 설계, 사용자가 건드리지 않은
+  // 필드를 자동으로 바꾸지 않는다) — vocalPresetPlan만 미리보기와 항상
+  // 동기화한다. 동요는 어차피 resolveVocalPresetOverride가 걸러내므로
+  // (§A-5) 동기화 자체를 건너뛴다.
+  useEffect(() => {
+    if (isKidsArchetype(channelArchetype)) return;
+    const nextPlan = vocalRecommendationPreview.map(rec => rec.presetId);
+    setOpts(prev => {
+      if (prev.vocalPresetPlan && prev.vocalPresetPlan.length === nextPlan.length && prev.vocalPresetPlan.every((id, i) => id === nextPlan[i])) return prev;
+      return { ...prev, vocalPresetPlan: nextPlan };
+    });
+  }, [vocalRecommendationPreview, channelArchetype, setOpts]);
   const VOCAL_RECOMMENDATION_PREVIEW_ROWS = 10;
   function dominantRecommendedPreset(preview: typeof vocalRecommendationPreview) {
     const counts = new Map<string, number>();
@@ -406,13 +426,14 @@ export default function Step2Concept({
     const nextPreview = recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: nextSeed, genrePlan: nextGenrePlan });
     const dominant = dominantRecommendedPreset(nextPreview);
     if (dominant) {
-      // 지시문 46 (TASK D) — vocalTone(쏠림 방향)뿐 아니라 곡별
-      // vocalPresetPlan도 함께 채워 실제 생성이 트랙별로 다른 프리셋을
-      // 쓸 수 있게 한다(§위 doc comment).
+      // 지시문 46 (TASK D) — vocalTone(전체 팩 "쏠림" 방향)을 갱신한다.
+      // 지시문 49 (TASK C) — vocalPresetPlan은 더 이상 여기서 직접 쓰지
+      // 않는다 — 위 useEffect가 vocalRecommendationSeed 변경으로 다시
+      // 계산된 vocalRecommendationPreview를 감지해 자동으로 동기화한다
+      // (같은 값을 두 곳에서 따로 계산하지 않는다).
       setOpts(prev => ({
         ...prev,
         vocalTone: dominant.prompt,
-        vocalPresetPlan: nextPreview.map(rec => rec.presetId),
         choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' }
       }));
     }
