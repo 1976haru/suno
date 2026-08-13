@@ -3,7 +3,7 @@ import { vocalPresets, type VocalPreset } from '../data/vocalPresets';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { buildVocalPlan, vocalTypeMatchesPresetGender, type VocalQuota, type VocalType } from './vocalPlan';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
-import { vocalAffinityForGenre } from '../data/genreVocalAffinity';
+import { vocalAffinityForGenre, vocalAvoidForGenre } from '../data/genreVocalAffinity';
 import { mulberry32 } from '../utils/prng';
 
 /**
@@ -67,6 +67,12 @@ const MAX_CONSECUTIVE_SAME_PRESET = 2;
  * 실측 후 조정될 수 있다.
  */
 const MAX_PRESET_SHARE = 4 / 15;
+/**
+ * 지시문 46 (TASK C-3) — genreVocalAffinity의 avoid 필터가 채널 후보 풀을
+ * 이 아래로 줄이지 않게 하는 정책 하한. 지시문 38의 "13개 아키타입 전부
+ * 최소 4개 이상(대부분 5개 이상) 확보" 관측에 맞춘 추정치 — verified: false.
+ */
+const MIN_VOCAL_CANDIDATE_POOL = 5;
 
 const VOCAL_TYPES: VocalType[] = ['male', 'female', 'mixed'];
 
@@ -141,7 +147,20 @@ export function recommendVocalPlan(request: VocalRecommendationRequest, history:
     }
 
     const trackGenreId = genrePlan?.[index];
-    const scored = candidates.map(preset => {
+    // 지시문 46 (TASK C-3) — genreVocalAffinity의 avoid 목록을 실제 필터로
+    // 쓴다(기존엔 advisory 가산점만 있었다). §하지 말 것 "후보가 5종
+    // 미만이 되지 않게 한다" — 채널 전체 풀(이 vocalType만이 아니라
+    // suitablePresetsForArchetype 전체)이 필터 후에도 5종 이상 남을 때만
+    // 적용하고, 그렇지 않으면(작은 채널 풀) 조용히 건너뛴다. 이 vocalType의
+    // 후보가 전부 회피 대상이 되는 극단적 경우도 같은 이유로 건너뛴다 —
+    // 하드 배제가 추천 자체를 막아서는 안 된다.
+    const avoidIds = new Set(vocalAvoidForGenre(trackGenreId));
+    const filteredByAvoid = avoidIds.size ? candidates.filter(preset => !avoidIds.has(preset.id)) : candidates;
+    const poolAfterAvoid = avoidIds.size ? pool.filter(preset => !avoidIds.has(preset.id)) : pool;
+    const effectiveCandidates = avoidIds.size && filteredByAvoid.length && poolAfterAvoid.length >= MIN_VOCAL_CANDIDATE_POOL
+      ? filteredByAvoid
+      : candidates;
+    const scored = effectiveCandidates.map(preset => {
       let score = rng();
       const uses = usageCount.get(preset.id) ?? 0;
       score -= uses * 0.5;

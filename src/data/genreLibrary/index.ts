@@ -2421,6 +2421,26 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
+/**
+ * 지시문 46 (TASK C-2) — 시니어 채널 39종 실측(good-morning-memory-radio +
+ * oldpop-lounge-main preferredGenres 교집합) 중 vocalPreference가 없던
+ * 27종 가운데, 하루가 지적한 재즈 6종(§C-2)만 우선 채운다 — makeProfile로
+ * 생성되는 notionDerivedGenrePacks는 vocalPreference 필드 자체가 없어서
+ * (§makeProfile 정의 참고), SIGNATURE_SOUND_OVERRIDES와 같은 사후 오버라이드
+ * 패턴을 그대로 재사용한다. 장르 관행(크루너/토치송/보컬 트리오 등 실제
+ * 스타일 관행)에 근거한 값이다 — verified: false, 하루의 청취 확인 대기.
+ * 나머지 senior 21종(adult-contemporary/oldpop-* 다수/rnb-old-school-
+ * romance-rnb 등)은 이 지시문에서 채우지 않았다 — 부분구현으로 보고.
+ */
+export const VOCAL_PREFERENCE_OVERRIDES: Partial<Record<string, { male: number; female: number; mixed: number }>> = {
+  'jazz-classic-vocal-lounge': { male: 0.35, female: 0.55, mixed: 0.1 },
+  'jazz-swing-crooner-ballroom': { male: 0.7, female: 0.2, mixed: 0.1 },
+  'jazz-torch-vocal-jazz': { male: 0.15, female: 0.75, mixed: 0.1 },
+  'jazz-brush-ballad-jazz': { male: 0.45, female: 0.45, mixed: 0.1 },
+  'jazz-hotel-lounge-jazz': { male: 0.4, female: 0.5, mixed: 0.1 },
+  'jazz-soft-vocal-trio': { male: 0.2, female: 0.3, mixed: 0.5 }
+};
+
 // 지시문 20 (TASK B-1) — real gap found: R&B/흑인 감성힙합/랩/트랩힙합
 // 벤치마크 14종은 이미 genreLibrary에 있었지만 archetypes가 modern-chill/
 // city-night뿐이었다 — 이 둘은 senior-oldpop 워크스페이스 소속이라
@@ -2461,7 +2481,12 @@ export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...ki
   const withExtra = extraArchetypes
     ? { ...withKr2030, archetypes: [...new Set([...(withKr2030.archetypes ?? []), ...extraArchetypes])] }
     : withKr2030;
-  return { ...withExtra, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
+  // 지시문 46 (TASK C-2) — 기존 vocalPreference(legacyGenrePack 등에서
+  // 이미 설정된 값)를 덮어쓰지 않는다 — 이 오버라이드 표에 있는 재즈 6종은
+  // 원래 vocalPreference가 없었으므로(§실측) 실제로는 항상 신규 부여다.
+  const vocalPreference = withExtra.vocalPreference ?? VOCAL_PREFERENCE_OVERRIDES[genre.id];
+  const withVocalPreference = vocalPreference ? { ...withExtra, vocalPreference } : withExtra;
+  return { ...withVocalPreference, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
 });
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;

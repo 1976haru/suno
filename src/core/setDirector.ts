@@ -1331,6 +1331,13 @@ export function buildSetPlanFromIntent(
   // land at 5 songs here, before applyEraQuota even runs, and survive
   // untouched if era-quota trimming never revisits it (era-quota only trims
   // buckets that are OVER their own share cap, not every genre).
+  // 지시문 47 (TASK B) — 실측: 여기에 genre.max 보장을 추가했다가
+  // tests/setDirectorSegments.test.ts's 세그먼트 교차배치(연속 2곡 상한)
+  // 불변식을 깼다 — directSetLocal은 "미리보기/배분 계획"을 만드는
+  // 별도 경로라 이미 자기 자신의 세밀한 회귀 스위트(지시문 08 TASK E ·
+  // genre-singleton-root-cause · 이 파일)를 갖고 있다. TASK B가 실제로
+  // 재현한 결함은 core/batchPreallocation.ts's preallocateSongSlots(실제
+  // 생성 경로)였다 — 그쪽에만 genre.max를 넘긴다. 이 호출부는 되돌린다.
   const perSegmentCounts = resolvedSegments.map(segment => Object.entries(genreCountsFromIds(segment.genreIds, segment.songCount, BREADTH_THRESHOLDS[breadth].genre.maxPerGenre)));
   const genreCounts: Record<string, number> = {};
   const maxEntries = Math.max(0, ...perSegmentCounts.map(entries => entries.length));
@@ -1516,6 +1523,13 @@ export function directSetLocal(
   // Also reused below (unchanged) as this function's own pre-existing
   // era-quota input — same freeText/artistReferences inputs, so computing
   // it twice would just be the same result computed again.
+  // 지시문 46 (TASK B) — 실측: directSetLocal의 eraConstraint는 genre-max
+  // effectiveMaxPerGenre 자동조정·family-selection 라우팅 등 이 지시문
+  // 범위 밖의 여러 메커니즘과 얽혀 있어, 여기서 바닥을 적용하면 그
+  // 메커니즘들까지 함께 바뀐다(실측: tests/designGate.test.ts 6건·
+  // tests/setDirector.test.ts 1건 회귀). 회귀 방지 목록을 지키기 위해
+  // 이 호출부는 되돌리고, core/batchPreallocation.ts의 실제 곡별 장르
+  // 배정(eraQuotaCounts) 쪽에만 바닥을 적용한다 — 부분구현으로 보고.
   const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
   const breadth = breadthOverride ?? detectConceptBreadth(freeText, eraConstraint);
   const breadthSource: 'auto' | 'user' = breadthOverride ? 'user' : 'auto';
@@ -1629,6 +1643,8 @@ export function directSetLocal(
   // identical perSegmentCounts seed just above: this cap must track
   // BREADTH_THRESHOLDS[breadth].genre.maxPerGenre, not a hardcoded 5, or a
   // genre can already sit at 5 songs before applyEraQuota (below) ever runs.
+  // 지시문 47 (TASK B) — 같은 이유로 되돌린다(위 perSegmentCounts의 doc
+  // comment 참고) — tests/eraIdentityLeakage.test.ts's 11% 조정 캡을 깼다.
   const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, BREADTH_THRESHOLDS[breadth].genre.maxPerGenre);
   // TASK v4.9 (TASK A) bugfix — real regression: applyEraQuota's own
   // "reach this era's minimum share" fill searches every channel-matching

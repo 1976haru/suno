@@ -328,11 +328,20 @@ export default function Step2Concept({
   // recommendVocalPlan(데이터 조립뿐, 비용 0)으로 이 채널·이 곡 수·지금
   // 쿼터(TASK C 직접 비율 입력 > 채널 고정 vocalQuotaOverride > 균등배정
   // 순, opts.vocalQuota/hasFixedVocalQuota와 같은 우선순위)에 맞는 곡별
-  // 프리셋을 미리 보여준다. 실제 생성 파이프라인은 지금도 opts.vocalTone
-  // 하나(전체 팩의 "쏠림" 방향)만 읽으므로, "다시 추천"을 누르면 이 미리보기의
-  // 가장 많이 등장한 프리셋을 그 vocalTone에 실제로 적용한다 — 곡별
-  // vocalText를 개별로 덮어쓰는 것(그건 별도 지시문 범위)이 아니라, 기존
-  // "프리셋 카드를 고른다" 경로를 그대로 재사용하는 것이다.
+  // 프리셋을 미리 보여준다.
+  //
+  // 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — 실측: 이 미리보기가
+  // 화면에만 있고 opts.vocalTone(전체 팩 공통 "쏠림" 방향) 하나로만
+  // 실제 생성에 반영돼, 하루가 "시니어 채널인데 목소리가 이전과 차이가
+  // 없다"고 느낀 근본 원인이었다. "다시 추천"을 누르면 이제
+  // opts.vocalPresetPlan(GenerationOptions, 곡별 presetId 배열)도 함께
+  // 채운다 — core/batchPreallocation.ts/core/localGenerator.ts가 그 트랙의
+  // vocalType(성별/듀엣 quota)과 프리셋 성별이 실제로 맞을 때만 그 프리셋의
+  // 구체적 문구를 쓴다. 이 화면의 seed는 실제 생성 seed와 다르므로(§근사치
+  // 주석 그대로) 모든 트랙이 미리보기와 1:1로 일치하진 않는다 — 맞는
+  // 트랙만 반영되고 나머지는 기존 폴백으로 조용히 떨어진다(방어적).
+  // vocalTone도 계속 같이 설정한다 — "쏠림" 방향(register/timbre 소프트
+  // 바이어스)과 폴백 텍스트로는 여전히 쓰인다.
   const vocalRecommendationQuota = hasFixedVocalQuota ? defaultQuotaForChannel : (opts.vocalQuota ?? defaultQuotaForChannel);
   // 지시문 38 (TASK D2-6, 선택) — 실제 트랙별 장르 배정(era-quota 등 반영)은
   // 이 화면 이후 단계에서 이뤄지므로 여기선 아직 알 수 없다. 대신 생성이
@@ -366,7 +375,15 @@ export default function Step2Concept({
     const nextPreview = recommendVocalPlan({ channelArchetype, songCount: opts.songCount, vocalQuota: vocalRecommendationQuota, seed: nextSeed, genrePlan: nextGenrePlan });
     const dominant = dominantRecommendedPreset(nextPreview);
     if (dominant) {
-      setOpts(prev => ({ ...prev, vocalTone: dominant.prompt, choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' } }));
+      // 지시문 46 (TASK D) — vocalTone(쏠림 방향)뿐 아니라 곡별
+      // vocalPresetPlan도 함께 채워 실제 생성이 트랙별로 다른 프리셋을
+      // 쓸 수 있게 한다(§위 doc comment).
+      setOpts(prev => ({
+        ...prev,
+        vocalTone: dominant.prompt,
+        vocalPresetPlan: nextPreview.map(rec => rec.presetId),
+        choiceProvenance: { ...prev.choiceProvenance, vocalTone: 'user' }
+      }));
     }
   }
 
