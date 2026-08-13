@@ -70,6 +70,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'oldpop-six-eight-slow-ballad': ['1970s', '1980s'],
   'oldpop-italian-canzone': ['1950s', '1960s', '1970s'],
   'kr2030-lofi-swing-hiphop': ['2010s', '2020s'],
+  // 지시문 53 (TASK A) — mumble/whisper/cloud rap 딜리버리는 lofi-swing-hiphop과
+  // 같은 이유로 2010년대 이후 정립된 프로덕션 미학 — era-neutral이 아니다.
+  'kr2030-mumble-melodic-rap': ['2010s', '2020s'],
+  'kr2030-whisper-trap': ['2010s', '2020s'],
+  'kr2030-cloud-hazy-rap': ['2010s', '2020s'],
   'kr2030-noir-deep-house': ['2010s', '2020s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
@@ -477,6 +482,9 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'oldpop-six-eight-slow-ballad': '6/8 슬로우 발라드 — 스트링이 후렴에서 들어오는 편성이 1970년대 후반~1980년대 발라드의 전형',
   'oldpop-italian-canzone': '이탈리안 칸초네 — 오페라풍 남성 리드·현악 스윕이 1950년대~1970년대 이탈리아 칸초네 황금기의 전형',
   'kr2030-lofi-swing-hiphop': '로파이 스윙 힙합팝 — 스윙 붐뱁·로파이 텍스처가 2010년대 이후 정립된 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-mumble-melodic-rap': '멈블 멜로딕 랩 — 오토튠 멀로디 멈블 딜리버리가 2010년대 이후 정립된 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-whisper-trap': '위스퍼 트랩 — 속삭이는 딜리버리·미니멀 트랩 프로덕션이 2010년대 이후 정립된 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-cloud-hazy-rap': '클라우드 헤이지 랩 — 리버브에 젖은 몽환적 클라우드 랩 프로덕션이 2010년대 이후 정립된 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'kr2030-noir-deep-house': '누아르 딥하우스 — 110-120 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',

@@ -313,7 +313,18 @@ export const SENIOR_MORNING_CORE_GENRE_IDS = [
   'oldpop-rainy-ballad-blues',
   // 지시문 21 (TASK A) — 신규 4종 중 oldpop 계열 2종. 같은 이유로 여기 등록.
   'oldpop-six-eight-slow-ballad',
-  'oldpop-italian-canzone'
+  'oldpop-italian-canzone',
+  // 지시문 53 (TASK C-4) — 실측: 지시문20이 good-morning-memory-radio의
+  // preferredGenres에 재즈 4종(jazz-classic-vocal-lounge·jazz-swing-crooner-
+  // ballroom·jazz-brush-ballad-jazz·bossa-cafe)을 추가했지만 이 후보 풀
+  // 배열에는 3종이 등록되지 않았다(bossa-cafe만 이미 위에 있었음) —
+  // "정의됐고 배선됐는데 실제로는 안 쓰인다"는 이전 지시문들의 5번째
+  // 결함 유형과 같다. showa-cafe/oldpop-lounge 코어 풀에는 이미 있는
+  // 장르라(SHOWA_CAFE_CORE_GENRE_IDS·OLDPOP_LOUNGE_CORE_GENRE_IDS) 워크스페이스
+  // 경계 문제가 아니다.
+  'jazz-classic-vocal-lounge',
+  'jazz-swing-crooner-ballroom',
+  'jazz-brush-ballad-jazz'
 ] as const;
 
 export const SHOWA_CAFE_CORE_GENRE_IDS = [
@@ -1322,7 +1333,47 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
     archetypes: ['kr-2030-pop'],
     tier: 'core',
     eraTag: '2010s-2020s Korean lofi swing hip-hop'
-  }, 'kr-2030', { rhythm: ['swung boom-bap pocket', 'dusty lofi-textured backbeat'], vocal: ['half-spoken rap-sung phrasing verse opening into a melodic pre-chorus', 'relaxed conversational Korean delivery'], production: ['warm dusty lofi mix', 'vinyl-crackle texture kept subtle'], harmony: ['jazzy ii-V lofi chord loop'], moods: ['relaxed', 'warm', 'contemplative'], audiences: ['로파이 스윙 힙합팝', '인디팝 무드'], avoidTraits: [] }),
+  }, 'kr-2030', { rhythm: ['swung boom-bap pocket', 'dusty lofi-textured backbeat'], vocal: ['half-spoken rap-sung phrasing verse opening into a melodic pre-chorus', 'relaxed conversational Korean delivery'], production: ['warm dusty lofi mix', 'vinyl-crackle texture kept subtle'], harmony: ['jazzy ii-V lofi chord loop'], moods: ['relaxed', 'warm', 'contemplative'], avoidTraits: [], audiences: ['로파이 스윙 힙합팝', '인디팝 무드'] }),
+  // 지시문 53 (TASK A) — 신규 3종. 하루가 명시한 "멈블 계열·속삭이는 랩"
+  // 딜리버리는 기존 kr-2030 랩/힙합 계열(chill-rap/boom-bap-mellow/
+  // jazz-rap/kr2030-lofi-swing-hiphop) 어디에도 없었다(전부 laid-back/
+  // conversational이지 mumble/whisper가 아니다) — 그 갭만 최소로 채운다
+  // (§D-2 "최소화", 지시문 35의 rap-* 8종 전부가 아니라 3종만). 이
+  // 채널만 primaryLanguage: english이므로 vocal 축도 영어 가사를
+  // 전제로 쓴다(다른 kr2030 장르처럼 한국어 리드가 아님).
+  legacyGenrePack({
+    id: 'kr2030-mumble-melodic-rap',
+    label: 'Mumble Melodic Rap',
+    styleCore: 'mumble melodic rap, hazy half-sung mumbled delivery, warm auto-tuned melodic hook, soft trap pocket',
+    instruments: ['soft trap hi-hat pattern', 'warm sub bass', 'mellow pluck synth', 'auto-tune-textured vocal layer'],
+    tempoRange: [75, 95],
+    goodFor: ['멈블 앤 위스퍼 랩', 'late-night rap', 'hazy mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s mumble rap'
+  }, 'kr-2030', { rhythm: ['soft trap pocket', 'relaxed half-time bounce'], vocal: ['mumbled melodic English delivery', 'auto-tuned sing-rap hook'], production: ['warm hazy mix', 'soft-focus low end'], harmony: ['minor-key drifting loop'], moods: ['hazy', 'relaxed', 'melodic'], avoidTraits: ['crisp articulate enunciation', 'aggressive battle-rap delivery'], audiences: ['멈블 앤 위스퍼 랩', '레이트나잇 랩'] }),
+  legacyGenrePack({
+    id: 'kr2030-whisper-trap',
+    label: 'Whisper Trap',
+    styleCore: 'whisper trap, hushed close-mic whispered flow, sparse dark 808 pocket, minimal negative-space production',
+    instruments: ['sparse 808 sub', 'muted hi-hat roll', 'dark filtered synth pad', 'close-mic whispered vocal layer'],
+    tempoRange: [65, 85],
+    goodFor: ['멈블 앤 위스퍼 랩', 'late-night rap', 'intimate mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s whisper trap'
+  }, 'kr-2030', { rhythm: ['sparse dark trap pocket', 'minimal negative-space beat'], vocal: ['hushed whispered English flow', 'close-mic intimate delivery'], production: ['dark minimal mix', 'wide negative space between hits'], harmony: ['suspended dark pad color'], moods: ['intimate', 'dark', 'restrained'], avoidTraits: ['loud belted vocal', 'bright major-key pop hook'], audiences: ['멈블 앤 위스퍼 랩', '레이트나잇 랩'] }),
+  legacyGenrePack({
+    id: 'kr2030-cloud-hazy-rap',
+    label: 'Cloud Hazy Rap',
+    styleCore: 'cloud hazy rap, dreamy reverb-drenched atmosphere, floating ambient pad, loose unhurried flow',
+    instruments: ['reverb-soaked synth pad', 'soft muted 808', 'dreamy pitched-vocal chop', 'loose lofi hi-hat'],
+    tempoRange: [68, 88],
+    goodFor: ['멈블 앤 위스퍼 랩', 'dreamy rap', 'late-night mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s cloud rap'
+  }, 'kr-2030', { rhythm: ['loose unhurried trap pocket', 'floating half-time drift'], vocal: ['dreamy loose English flow', 'reverb-drenched ad-lib layer'], production: ['ambient reverb-drenched mix', 'soft cloud-like pad wash'], harmony: ['floating suspended chord wash'], moods: ['dreamy', 'floating', 'hazy'], avoidTraits: ['crisp dry mix', 'aggressive battle-rap delivery'], audiences: ['멈블 앤 위스퍼 랩', '레이트나잇 랩'] }),
   // 누아르 딥하우스 — 110-122 BPM 원안 중 상한을 kr-2030-emotional 프로필의
   // 실측 tempoCeiling(120)에 맞춰 120으로 조정(지시문 원문 122는 실제
   // 시스템 상한을 2 BPM 초과 — TASK D에 결함으로 보고). senior 계열

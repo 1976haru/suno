@@ -216,9 +216,20 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     moodWeights: { warm: 1 }
   },
   {
+    // 지시문 53 (TASK C-4) — 실측: 이 룰이 향하는 jazz-pop/smooth-jazz-lounge는
+    // good-morning-memory-radio 채널 자신의 preferredGenres에 없다(TASK v4.9가
+    // 보컬 품질 불만으로 뺐다 — 위 채널 정의 주석 참고). 지시문20이 그
+    // 자리에 넣은 실제 4종(jazz-classic-vocal-lounge·jazz-swing-crooner-
+    // ballroom·jazz-brush-ballad-jazz·bossa-cafe) 중 3종이 이 룰에서 가중치
+    // 0이었다 — "재즈" 컨셉을 넣어도 이 채널에서 쓰이는 재즈 장르는 하나도
+    // 추천되지 않았다. 기존 3개(다른 채널이 쓸 수 있으니 유지)에 3종을
+    // 더한다.
     id: 'jazz',
     patterns: [/재즈/, /\bjazz\b/i, /스무스\s*재즈/, /smooth\s*jazz/i],
-    genreWeights: { 'jazz-pop': 3, 'smooth-jazz-lounge': 3, 'oldpop-standards-torch': 2 },
+    genreWeights: {
+      'jazz-pop': 3, 'smooth-jazz-lounge': 3, 'oldpop-standards-torch': 2,
+      'jazz-classic-vocal-lounge': 3, 'jazz-swing-crooner-ballroom': 2, 'jazz-brush-ballad-jazz': 2
+    },
     moodWeights: { elegant: 1 }
   },
   {
@@ -277,6 +288,29 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
       'oldpop-gentle-lullaby-pop': 3, 'oldpop-evening-lamp-ballad': 3, 'oldpop-slow-waltz-memory': 2
     },
     moodWeights: { warm: 3 }
+  },
+  /**
+   * 지시문 53 (TASK C) — 실측: "아침"이라는 단어를 매칭하는 규칙이 이
+   * 파일 전체에 하나도 없었다(§C-1 원인 특정 — 무드 매칭도 시대 바닥도
+   * 아니라 컨셉 키워드 자체의 공백이었다). good-morning-memory-radio
+   * 채널 자신의 정체성이 "아침 커피"인데 그 채널 컨셉 표본의 "아침"이
+   * warm-gentle 룰의 "따뜻한 멜로디" 같은 복합구에도 안 걸려
+   * oldpop-warm-morning-glow(하루의 95점 조합 4종 중 하나)가 0회였다.
+   * warm-gentle은 "복합구만 매칭"을 의도적으로 유지한 룰(§주석 참고)이라
+   * 그대로 두고, "아침" 전용 룰을 새로 추가한다.
+   */
+  {
+    // 지시문 53 (TASK C) 재조정 — 최초안(4개 장르 가중치)이 acoustic-pop·
+    // folk-pop을 통해 oldpop-lounge의 활용률을 50%->38%로 떨어뜨렸다
+    // (OLDPOP_LOUNGE_CORE_GENRE_IDS가 senior-morning의 oldpop-* 전부와
+    // acoustic-pop/folk-pop을 그대로 상속 — 같은 후보 풀 경쟁, §하지
+    // 말 것 "지시문 51의 활용률 개선을 되돌리지 말 것" 위반). 목표
+    // 자체(warm-morning-glow 최소 1회)에 필요한 건 이 한 장르뿐이므로
+    // 나머지를 빼 풀 경쟁을 최소화한다.
+    id: 'morning',
+    patterns: [/아침/, /모닝/, /출근길/, /기상(?!청)/, /눈\s*뜨/, /morning/i, /wake[- ]?up/i, /朝/],
+    genreWeights: { 'oldpop-warm-morning-glow': 5 },
+    moodWeights: { warm: 1, hopeful: 1 }
   },
   // TASK B2 (§7) — kr-2030 workspace rules. genreWeights only, per this
   // task's own §7-2 constraint: seasonWeights/moodWeights aren't gated by a
