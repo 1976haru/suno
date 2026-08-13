@@ -1302,11 +1302,18 @@ export function evaluateDesignGate(
   // user actually chose instead of reverse-inferring a tier from whatever
   // the slots happen to show.
   const kidsArcStructure = kidsArcBundleStructureIssues(slots, constraints.arcModelId, opts.songCount, constraints.kidsAgeTierId);
+  // 지시문 46 긴급수정 (TASK A) — constraints.era가 컨셉의 실제 시대
+  // 언급이 아니라 data/workspaceEraFloor.ts의 채널 바닥에서 왔을 때
+  // (floorApplied:true), eraIssues의 미달을 blocking으로 두지 않는다 —
+  // §규약 7 "실측 없이 blocking 을 만들지 않는다"(minShare 0.6은 추정치,
+  // verified:false). 컨셉이 실제로 시대를 말했을 때(floorApplied 없음)는
+  // 기존 그대로 blocking — "60년대 올드팝" 등 이미 검증된 경로는 불변.
+  const eraIssuesResult = eraIssues(slots, constraints.era, constraints.workspaceId);
   const blocking: DesignIssue[] = [
     ...vocalIssues(slots, opts, constraints),
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
-    ...eraIssues(slots, constraints.era, constraints.workspaceId),
+    ...(constraints.era.floorApplied ? [] : eraIssuesResult),
     // v5.13 (TASK: kidsAgeTierId wiring) — constraints.kidsAgeTierId is the
     // real resolved tier (see ResolvedConstraints.kidsAgeTierId's own doc
     // comment); passing it keeps this check's own "expected" bundle count in
@@ -1328,6 +1335,11 @@ export function evaluateDesignGate(
     ...kidsArcStructure.advisory,
     // 지시문 33 (§1) — advisory 전용, verified:false라 blocking에 넣지 않는다.
     ...eraNeutralFloorAdvisory(slots, constraints.era, constraints.workspaceId),
+    // 지시문 46 긴급수정 (TASK A) — floorApplied일 때는 eraIssues 결과를
+    // advisory로 강등한다(위 blocking 배열의 동일 조건 참고) — 완전히
+    // 버리지 않는다, 그래야 실제로 바닥에 못 미치는 팩이 있을 때 여전히
+    // 눈에 보인다.
+    ...(constraints.era.floorApplied ? eraIssuesResult : []),
     // 지시문 36 (TASK B) — 같은 이유로 advisory 전용.
     ...emotionQuotaAdvisory(constraints.workspaceId, slots.map(slot => slot.emotionArc), slots.length)
   ];

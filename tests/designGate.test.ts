@@ -236,13 +236,37 @@ describe('evaluateDesignGate — 장르', () => {
 });
 
 describe('evaluateDesignGate — 시대', () => {
-  it('skips every era-* check when the concept has no era signal (unspecified)', () => {
-    const opts = baseOpts({ customConcept: '따뜻하고 잔잔한 노래', projectTitle: '따뜻하고 잔잔한 노래' });
+  // 지시문 46 긴급수정 (TASK A) — senior-morning은 data/workspaceEraFloor.ts에
+  // 바닥이 정의돼 있어 더 이상 unspecified로 남지 않는다(applyWorkspaceEraFloor가
+  // resolveConstraintsFromOptions/실제 생성 양쪽에 배선됨). "컨셉이 시대를
+  // 전혀 안 말하면 era-* 검사가 통째로 꺼진다"는 이 테스트의 원래 전제는
+  // 바닥이 없는 아키타입(kr-idol-male)에서만 여전히 맞다 — senior-morning
+  // 쪽 새 동작은 바로 아래 두 테스트가 검증한다.
+  it('skips every era-* check when the concept has no era signal (unspecified) — 바닥이 없는 아키타입', () => {
+    const opts = baseOpts({
+      channel: { ...CHANNEL, archetype: 'kr-idol-male' },
+      customConcept: '따뜻하고 잔잔한 노래',
+      projectTitle: '따뜻하고 잔잔한 노래'
+    });
     const constraints = baseConstraints(opts);
     expect(constraints.era.unspecified).toBe(true);
     const result = evaluateDesignGate(healthySlots(), constraints, opts);
     expect(result.blocking.some(i => i.id.startsWith('era-'))).toBe(false);
     expect(result.advisory.some(i => i.id.startsWith('era-'))).toBe(false);
+  });
+
+  it('긴급수정 — senior-morning은 시대 미지정 컨셉에서도 채널 바닥(1950s-60s+1970s)이 채워지고, 미달은 advisory일 뿐 blocking이 아니다', () => {
+    const opts = baseOpts({ customConcept: '따뜻하고 잔잔한 노래', projectTitle: '따뜻하고 잔잔한 노래' });
+    const constraints = baseConstraints(opts);
+    expect(constraints.era.unspecified).toBe(false);
+    expect(constraints.era.primary).toBe('1950s-60s');
+    expect(constraints.era.coPrimary).toBe('1970s');
+    expect(constraints.era.floorApplied).toBe(true);
+    const result = evaluateDesignGate(healthySlots(), constraints, opts);
+    // healthySlots()는 시대 바닥을 염두에 두고 만든 고정 픽스처가 아니라
+    // era-primary-share/era-neutral-share 미달이 뜰 수 있다 — floorApplied라
+    // blocking에는 절대 들어가지 않는다는 것만 확인한다(§규약 7).
+    expect(result.blocking.some(i => i.id.startsWith('era-'))).toBe(false);
   });
 
   it('blocks era-primary-share when the resolved era has almost no primary-bucket genres', () => {
@@ -1113,8 +1137,16 @@ describe('evaluateDesignGate — senior-workspace byte-identical regression swee
     // core/emotionArcQuota.ts의 실제 분류표엔 없는 문구라 0/7 커버로 advisory가
     // 뜬다. 이 advisory 자체가 이 지시문의 의도된 새 동작이라 사라지지
     // 않는다 — never blocking이라는 것만 이 테스트의 진짜 관심사다.
-    expect(result.advisory).toHaveLength(1);
-    expect(result.advisory[0].id).toBe('emotion-quota-distribution');
+    //
+    // 지시문 46 긴급수정 (TASK A) — baseOpts()는 senior-morning이라 이제
+    // 시대 바닥이 항상 적용된다(unspecified 컨셉이라도 primary 1950s-60s·
+    // coPrimary 1970s). healthySlots()는 시대 바닥을 만족하도록 만든
+    // 픽스처가 아니라서(era 분포를 신경 쓰지 않는 다른 검사들을 위한
+    // 범용 픽스처) era-primary-share/era-neutral-share 미달이 함께 뜬다 —
+    // floorApplied라 §규약 7대로 advisory일 뿐 blocking은 아니다(위
+    // result.blocking에는 안 들어감).
+    expect(result.advisory).toHaveLength(3);
+    expect(result.advisory.map(i => i.id).sort()).toEqual(['emotion-quota-distribution', 'era-neutral-share', 'era-primary-share']);
   });
 
   it('a maximally unhealthy senior pack produces the exact same issue id set as before this task\'s fixes (no fix silently loosened or tightened a senior-facing check)', () => {

@@ -57,6 +57,18 @@ export interface EraConstraint {
   forbidden: EraBucket[];
   /** true when the concept text had no era/decade/artist-era signal at all — callers MUST NOT filter by era when this is true (see this task's own §10 "억지로 시대를 정하지 말 것"). */
   unspecified: boolean;
+  /**
+   * 지시문 46 긴급수정 (TASK A) — true일 때 이 EraConstraint는 컨셉이
+   * 실제로 시대를 말해서가 아니라 data/workspaceEraFloor.ts의 채널 기본
+   * 바닥(applyWorkspaceEraFloor)이 채워 넣은 것이다. "바닥은 하한이지
+   * 컨셉을 이기지 않는다"는 §규약 7("실측 없이 blocking 을 만들지
+   * 않는다")과 결합하면, 이 바닥에 대한 미달을 명시적 컨셉 미달("60년대
+   * 올드팝"인데 실제로 안 지켜짐, 이미 검증된 blocking 대상)과 같은
+   * 무게로 blocking 처리할 근거가 없다는 뜻이다 — core/designGate.ts의
+   * eraIssues가 이 플래그로 blocking/advisory를 가른다. undefined(기존
+   * 모든 명시적 컨셉 경로)면 기존 동작 그대로 blocking.
+   */
+  floorApplied?: boolean;
 }
 
 export interface TitleConstraint {
@@ -364,7 +376,10 @@ export function applyWorkspaceEraFloor(era: EraConstraint, archetype: ChannelArc
   const coarseBuckets = [...new Set(floor.defaultEraBuckets.map(coarseBucketForFineEra).filter((bucket): bucket is EraBucket => Boolean(bucket)))];
   if (!coarseBuckets.length) return era;
   const [primary, coPrimary] = coarseBuckets;
-  return { primary, coPrimary, adjacent: [], forbidden: [], unspecified: false };
+  // 지시문 46 긴급수정 (TASK A) — floorApplied:true로 표시해 core/designGate.ts's
+  // eraIssues가 이 미달을 blocking이 아니라 advisory로 처리하게 한다 —
+  // EraConstraint.floorApplied 자신의 doc comment 참고.
+  return { primary, coPrimary, adjacent: [], forbidden: [], unspecified: false, floorApplied: true };
 }
 
 /**
@@ -633,7 +648,20 @@ export function applyEraQuota(
    * exist — more than enough at cap 4). Defaults to the original constant
    * so every call site that doesn't know its own breadth is unaffected.
    */
-  perGenreCap: number = GENRE_ERA_QUOTA_PER_GENRE_CAP
+  perGenreCap: number = GENRE_ERA_QUOTA_PER_GENRE_CAP,
+  /**
+   * 지시문 46 긴급수정 (TASK A) — distributeInto의 Phase 2(부족분을 채우려
+   * genreLibrary 전체에서 풀 밖의 새 장르를 여는 단계)를 켤지 끌지.
+   * 기본 true(모든 기존 호출부 불변) — era가 컨셉이 실제로 명시한
+   * 것일 때(예: "60년대 올드팝")는 그 의도를 채우기 위해 새 장르를 여는
+   * 것이 맞다. false는 era.floorApplied(사용자가 고르지 않은 채널 기본
+   * 바닥)일 때만 쓴다 — 실측: 새 장르를 열면 사용자가 선택한 팔레트
+   * 계열 밖 장르가 들어와 palette-variety-max(팔레트 계열 그룹 4종,
+   * 청취 검증값)를 깬다. false면 이미 선택된 풀 안에서만 재분배하고,
+   * 부족분은 채우지 못한 채로 둔다(§"바닥은 하한이다" — 사용자가 고르지
+   * 않은 장르를 강제로 끌어오지 않는다).
+   */
+  allowNewGenres: boolean = true
 ): { counts: Record<string, number>; warnings: string[] } {
   if (era.unspecified || !songCount) return { counts: genreCounts, warnings: [] };
   const genreOrderRank = genreOrder ? new Map(genreOrder.map((id, idx) => [id, idx])) : undefined;
@@ -697,11 +725,24 @@ export function applyEraQuota(
   // generic shouldn't exist given the 4-bucket model, but if it does
   // (defensive), treat it the same as forbidden rather than silently
   // keeping it.
-  for (const bucket of [...byBucket.keys()]) {
-    if ((primaryBuckets as string[]).includes(bucket) || bucket === 'generic' || adjacentMap.has(bucket as EraBucket) || forbiddenSet.has(bucket as EraBucket)) continue;
-    const list = byBucket.get(bucket) ?? [];
-    freed += list.reduce((sum, [, count]) => sum + count, 0);
-    byBucket.delete(bucket);
+  //
+  // 지시문 46 긴급수정 (TASK A) — allowNewGenres:false일 때는 이 스윕을
+  // 건너뛴다. 실측: freed로 넘긴 뒤 distributeInto가 allowNewGenres:false라
+  // 새 장르를 못 열면(§distributeInto의 newIds=[] 분기), 기존 버킷 멤버가
+  // 이미 perGenreCap에 도달한 경우 그 freed 물량을 어디에도 놓지 못하고
+  // 그대로 사라졌다(18곡 입력 -> 13곡 출력, 실측 확인) — v4.2 bugfix가
+  // 막았던 것과 같은 "silently dropping songs" 결함이 allowNewGenres:false
+  // 조합에서 새로 재발했다. 바닥(사용자가 고르지 않은 시대 힌트)은 새
+  // 장르를 열 수 없으니, 애초에 이 orphan 버킷(예: adult-contemporary의
+  // 1980s)을 freed로 뽑아내지 않고 그대로 둔다 — "바닥은 하한이다,
+  // 사용자가 실제로 고른 장르를 강제로 비우지 않는다"는 원칙과도 맞는다.
+  if (allowNewGenres) {
+    for (const bucket of [...byBucket.keys()]) {
+      if ((primaryBuckets as string[]).includes(bucket) || bucket === 'generic' || adjacentMap.has(bucket as EraBucket) || forbiddenSet.has(bucket as EraBucket)) continue;
+      const list = byBucket.get(bucket) ?? [];
+      freed += list.reduce((sum, [, count]) => sum + count, 0);
+      byBucket.delete(bucket);
+    }
   }
 
   // v4.2 bugfix — a first version of this function tracked `freed` as a
@@ -744,10 +785,12 @@ export function applyEraQuota(
     const currentList = byBucket.get(targetBucket) ?? [];
     const existingIds = [...new Set(currentList.map(([id]) => id))];
     const existingIdSet = new Set(existingIds);
-    const newIds = genreLibrary
-      .filter(genre => channelFilter(genre) && bucketKeyOf(genre.id) === targetBucket)
-      .map(genre => genre.id)
-      .filter(id => !existingIdSet.has(id));
+    const newIds = allowNewGenres
+      ? genreLibrary
+          .filter(genre => channelFilter(genre) && bucketKeyOf(genre.id) === targetBucket)
+          .map(genre => genre.id)
+          .filter(id => !existingIdSet.has(id))
+      : [];
     // Best-mood/score-match first when a preference order was supplied —
     // stable sort, so two ids the caller has no opinion on (both absent from
     // genreOrder) keep their original genreLibrary relative order, same as
@@ -845,6 +888,46 @@ export function applyEraQuota(
     }
   }
 
+  // 지시문 46 긴급수정 (TASK A) — 보존 안전망: allowNewGenres:false(바닥
+  // 유래 era)에서 distributeInto가 기존 버킷 멤버를 이미 perGenreCap까지
+  // 채웠는데도 freed가 남을 수 있다(§실측: 15곡 입력에 10곡만 출력 — 5곡
+  // 소실, allowNewGenres:false가 Phase 2를 막아 기존 코드가 항상 전제하던
+  // "새 장르를 열어서라도 다 채운다"는 안전판이 사라졌다). allowNewGenres:true인
+  // 기존 모든 호출부는 Phase 2가 있어 이 분기가 사실상 발동하지 않는다
+  // (freed가 남는 유일한 경우는 genreLibrary 전체에도 후보가 없는 극단적
+  // 예외였고, 그건 지금도 동일하게 여기서 처리된다 — 새 동작이 아니라
+  // 기존에도 있던 마지막 방어선이 이제 실제로 쓰이는 것뿐이다). 총 곡수
+  // 보존이 장르당 상한 준수보다 우선한다 — 빈 슬롯(undefined genreId)을
+  // 만드는 것이 상한을 살짝 넘기는 것보다 훨씬 나쁘다.
+  //
+  // 실측(라운드로빈이 아니라 최다 장르 1종에 몰아준 첫 버전) — showa-cafe
+  // "70년대" 같은 EXPLICIT 컨셉(allowNewGenres:true지만 genreLibrary에도
+  // 후보가 정말 없는 극단적 예외)에서 한 장르에 몰리면 그 장르의 좁은
+  // BPM 범위 하나로 쏠려 bpm-stddev 관문을 깬다(check:gates 실측). 여러
+  // 장르에 라운드로빈으로 나눠 템포 다양성을 덜 해친다.
+  if (freed > 0) {
+    const allEntries = [...byBucket.values()].flat();
+    if (allEntries.length) {
+      const ids = allEntries.map(([id]) => id);
+      let idx = 0;
+      let remainingToPlace = freed;
+      while (remainingToPlace > 0) {
+        const id = ids[idx % ids.length];
+        for (const list of byBucket.values()) {
+          const entryIdx = list.findIndex(([entryId]) => entryId === id);
+          if (entryIdx !== -1) {
+            list[entryIdx] = [id, list[entryIdx][1] + 1];
+            break;
+          }
+        }
+        remainingToPlace -= 1;
+        idx += 1;
+      }
+      warnings.push(`재배분 후보가 부족해 ${freed}곡을 기존 장르들에 상한을 넘겨 라운드로빈으로 되돌렸습니다.`);
+      freed = 0;
+    }
+  }
+
   const result: Record<string, number> = {};
   for (const list of byBucket.values()) {
     for (const [id, count] of list) {
@@ -890,7 +973,9 @@ export function ensureEraNeutralFloor(
   songCount: number,
   policy: EraNeutralPolicy | undefined,
   channelFilter: (genre: GenrePack) => boolean,
-  perGenreCap: number = GENRE_ERA_QUOTA_PER_GENRE_CAP
+  perGenreCap: number = GENRE_ERA_QUOTA_PER_GENRE_CAP,
+  /** 지시문 46 긴급수정 (TASK A) — applyEraQuota의 동명 파라미터와 같은 의미·같은 기본값. era.floorApplied일 때 false로 넘겨, 하한 확보를 위해 genreLibrary 전체에서 사용자가 고르지 않은 새 era-neutral 장르를 여는 것을 막는다. */
+  allowNewGenres: boolean = true
 ): { counts: Record<string, number>; warnings: string[] } {
   if (!policy || !songCount) return { counts: genreCounts, warnings: [] };
   const floor = Math.round((policy.minTracks / 18) * songCount);
@@ -931,10 +1016,12 @@ export function ensureEraNeutralFloor(
   // era-neutral 후보 장르를 anti-singleton 방식(기존 장르 먼저 채움 →
   // 부족하면 새 장르를 필요한 만큼만 연다)으로 채운다 — applyEraQuota의
   // distributeInto와 같은 원리.
-  const candidatePool = genreLibrary
-    .filter(genre => channelFilter(genre) && isNeutral(genre.id))
-    .map(genre => genre.id)
-    .filter(id => !neutralIds.includes(id));
+  const candidatePool = allowNewGenres
+    ? genreLibrary
+        .filter(genre => channelFilter(genre) && isNeutral(genre.id))
+        .map(genre => genre.id)
+        .filter(id => !neutralIds.includes(id))
+    : [];
   let toFill = actuallyFreed;
   const topUp = (ids: readonly string[]) => {
     let filling = true;
@@ -959,6 +1046,24 @@ export function ensureEraNeutralFloor(
   }
   if (toFill > 0) {
     warnings.push(`era-neutral 후보 장르가 부족해 하한(${floor}곡)을 ${toFill}곡만큼 채우지 못했습니다.`);
+    // 지시문 46 긴급수정 (TASK A) — applyEraQuota의 동일 안전망과 같은
+    // 이유: 위 첫 while 루프(981-994행)가 이미 비-neutral 장르에서
+    // toFill만큼 실제로 빼냈다 — neutral 쪽에 다 못 옮기면 그 곡이 그대로
+    // 사라진다(총 곡수 소실). 총 곡수 보존이 era-neutral 하한 준수보다
+    // 우선한다 — 못 옮긴 만큼은 원래 빼낸 비-neutral 장르 중 가장 큰
+    // 것에 그대로 돌려준다.
+    // 지시문 46 긴급수정 (TASK A) — applyEraQuota의 동일 안전망과 같은
+    // 이유로 한 장르에 몰아주지 않고 라운드로빈으로 돌려준다(§bpm-stddev
+    // 관문 실측).
+    const nonNeutralEntries = [...counts.entries()].filter(([id]) => !isNeutral(id));
+    const returnPool = nonNeutralEntries.length ? nonNeutralEntries : [...counts.entries()];
+    if (returnPool.length) {
+      const ids = returnPool.map(([id]) => id);
+      for (let i = 0; i < toFill; i += 1) {
+        const id = ids[i % ids.length];
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
   }
 
   const result: Record<string, number> = {};
@@ -1153,22 +1258,33 @@ export function resolveConstraints(
   // same behavior; this is the aggregation layer actually being consulted
   // by a real code path, not decorative.
   const eraIntent = qualityPolicyForWorkspace(workspace.id).eraIntent;
-  // 지시문 46 (TASK B) — 실측: resolveConstraints의 era는 genre-max
-  // effectiveMaxPerGenre 자동조정 등 이 지시문 범위 밖의 메커니즘과
-  // 얽혀 있어(tests/designGate.test.ts 6건 회귀 실측), 여기서는 바닥을
-  // 적용하지 않는다 — core/batchPreallocation.ts의 실제 곡별 장르 배정
-  // 쪽에만 적용한다(부분구현으로 보고). applyWorkspaceEraFloor 자체는
-  // WorkspaceLike.archetype과 함께 남겨 두어 다음 지시문이 더 좁게
-  // 재적용할 수 있게 한다.
+  // 지시문 46 긴급수정 (TASK A) — 지시문 46 TASK B가 남긴 미완분: applyWorkspaceEraFloor를
+  // 호출하는 곳이 실제로는 0곳이었다(§실측). 이전 시도에서 여기 바로 이
+  // 자리에 바닥을 적용했다가 tests/designGate.test.ts 6건이 깨졌는데,
+  // 진짜 원인을 이번에 추적했다: applyWorkspaceEraFloor가 만드는
+  // coPrimary(예: senior-oldpop 바닥의 1950s-60s+1970s)가
+  // detectConceptBreadth의 hasCompoundEra 신호와 그대로 겹쳐, "컨셉이
+  // 실제로 두 시대를 언급했다"는 신호와 "컨셉이 시대를 전혀 안 말해서
+  // 바닥을 채워 넣었다"는 신호를 구분하지 못했다 — 컨셉 미지정 팩이
+  // 전부 breadth='variety'(가장 넓은 등급)로 오분류돼 genre-max/
+  // genre-variety 임계값이 통째로 바뀌었다. breadth는 반드시 컨셉이
+  // 실제로 말한 것(detectedEra, 바닥 적용 전)만 봐야 한다 — 장르 후보/
+  // 어휘/제목 제약은 바닥이 적용된 `era`를 쓰고, breadth만 분리한다.
   const era: EraConstraint = eraIntent.mode === 'safety-over-era' && !detectedEra.unspecified
     ? { primary: 'timeless', adjacent: [], forbidden: [], unspecified: true }
-    : detectedEra;
+    : applyWorkspaceEraFloor(detectedEra, workspace.archetype);
   if (eraIntent.mode === 'safety-over-era' && !detectedEra.unspecified) {
     warnings.push(`이 워크스페이스는 시대 지정을 사용하지 않습니다(안전 우선) — 감지된 "${ERA_LABEL[detectedEra.primary]}" 시대 신호를 무시했습니다.`);
   }
   const title = buildTitleConstraint(era, songCount);
   const vocabulary = buildVocabularyConstraint(era, workspace.id, audience);
-  const breadth = concept.breadthOverride ?? detectConceptBreadth(concept.conceptLabel, era);
+  // 지시문 46 긴급수정 (TASK A) — breadth는 위 doc comment대로 detectedEra(바닥
+  // 미적용 원본)로만 판정한다. safety-over-era로 era 자체가 timeless로
+  // 강제된 경우에도 breadth는 실제 감지된 시대 신호를 그대로 반영해야
+  // 하므로 detectedEra를 쓴다(기존 동작과 동일 — 이 분리는 오직
+  // applyWorkspaceEraFloor의 합성 coPrimary를 breadth 판정에서 빼내는
+  // 것일 뿐, 그 외의 기존 breadth 계산 입력은 전혀 바꾸지 않는다).
+  const breadth = concept.breadthOverride ?? detectConceptBreadth(concept.conceptLabel, detectedEra);
   const breadthSource: 'auto' | 'user' = concept.breadthOverride ? 'user' : 'auto';
 
   const genreCandidates = era.unspecified

@@ -288,6 +288,23 @@ jobs:
       - run: npm ci
       - run: npm run check:coverage
 
+  # 지시문 46 긴급수정 (TASK C) — "정의는 있는데 아무도 호출하지 않는
+  # 정책"(check:reachability로는 안 잡힌다 — 모듈 임포트는 되지만 그 안의
+  # 함수가 호출되는지는 별개다) 유형의 결함이 이 지시문 자체를 포함해
+  # 다섯 번째로 재발했다. scripts/checkPolicyConsumption.ts가 등록된 정책
+  # 레지스트리마다 정의·읽는함수·실행경로 호출을 grep 기반으로 근사
+  # 검사한다.
+  check-consumption:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:consumption
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

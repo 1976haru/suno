@@ -71,7 +71,7 @@ import { assignKillingPoints, killingPointBoostFromInsights } from '../data/kill
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
-import { applyEraQuota, ensureEraNeutralFloor, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { applyEraQuota, applyWorkspaceEraFloor, ensureEraNeutralFloor, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
 import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
@@ -264,23 +264,22 @@ export function preallocateSongSlots(
    * local-preview path era-awareness today, but extending that to their real
    * bridge-deployment path is out of this task's scope.
    */
-  // 지시문 46 (TASK B) — 실측: data/workspaceEraFloor.ts의 바닥을 여기서
-  // 적용해봤으나(폭을 senior-morning/oldpop-lounge/showa-cafe/showa-70s/
-  // j2000s로 넓히고 applyWorkspaceEraFloor를 씌움), "60년대 올드팝" 같은
-  // 기존 명시적 컨셉에서도 이미 존재하던 applyEraQuota <-> palette-variety-max
-  // 상호작용 결함(청취 검증값 "팔레트 계열 그룹 4종" 보호 대상)이 컨셉
-  // 미지정 시나리오에도 그대로 노출되어 tests/designGate.test.ts·
-  // tests/generationPreflight.test.ts·tests/multiSetPreflight.test.ts에서
-  // 총 8건의 기존 통과 테스트가 깨졌다 — 실측으로 확인(§F 보고). 이 결함
-  // 자체(applyEraQuota가 palette-variety 상한을 모른 채 새 장르를 연다)는
-  // 이 지시문 범위 밖이라 여기서 고치지 않는다. 그래서 이 파이프라인
-  // 배선은 되돌리고, data/workspaceEraFloor.ts + core/constraints.ts의
-  // applyWorkspaceEraFloor(단위 검증 완료, "60~70년대" 컴파운드 컨셉과
-  // 동일한 코-프라이머리 경로 재사용)는 다음 지시문이 palette-variety
-  // 상호작용을 먼저 고친 뒤 안전하게 배선할 수 있도록 남겨 둔다.
-  const eraConstraint = genreAllocation?.mode === 'manual' || opts.channel.archetype !== 'senior-morning'
+  // 지시문 46 긴급수정 (TASK A) — 이전 시도(지시문 46 TASK B)는 여기서
+  // applyWorkspaceEraFloor를 적용했다가 8건이 깨져 되돌렸다. 진짜 원인은
+  // 이 함수가 아니라 core/constraints.ts's resolveConstraints의
+  // detectConceptBreadth가 바닥이 만든 coPrimary를 "컨셉이 실제로 복수
+  // 시대를 말했다"는 신호로 오인한 것이었다(그 파일 자신의 doc comment
+  // 참고) — 그건 이미 고쳤다. 이제 이 자리에서도 바닥이 정의된 5개
+  // 아키타입(senior-morning·oldpop-lounge·showa-cafe·showa-70s·j2000s)
+  // 전부로 넓힌다 — 그래야 design gate(resolveConstraintsFromOptions가
+  // 만드는 era-primary-share 등)가 기대하는 시대 분포와 실제 생성된
+  // 슬롯의 장르 분포가 일치한다(둘 다 같은 applyWorkspaceEraFloor 결과를
+  // 쓴다 — 하나만 고치면 design gate와 실제 생성이 서로 다른 기준을
+  // 갖게 되어 오히려 더 많이 실패한다, §실측).
+  const ERA_FLOOR_ELIGIBLE_ARCHETYPES: ReadonlySet<ChannelArchetype | undefined> = new Set(['senior-morning', 'oldpop-lounge', 'showa-cafe', 'showa-70s', 'j2000s']);
+  const eraConstraint = genreAllocation?.mode === 'manual' || !ERA_FLOOR_ELIGIBLE_ARCHETYPES.has(opts.channel.archetype)
     ? undefined
-    : extractEraConstraint(opts.customConcept ?? '');
+    : applyWorkspaceEraFloor(extractEraConstraint(opts.customConcept ?? ''), opts.channel.archetype);
   // 정합성 점검 §1 결함1 fix — same breadth-aware perGenreCap as
   // core/setDirector.ts's own applyEraQuota calls (see applyEraQuota's own
   // doc comment on the perGenreCap parameter). `constraints` (line 190
@@ -296,14 +295,19 @@ export function preallocateSongSlots(
           tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
           filter,
           undefined,
-          cap
+          cap,
+          // 지시문 46 긴급수정 (TASK A) — eraConstraint.floorApplied면 채널
+          // 바닥이 만든 것이지 사용자가 고른 컨셉/장르가 아니므로, 사용자가
+          // 선택하지 않은 새 장르를 열지 않는다(§applyEraQuota의 allowNewGenres
+          // 자기 doc comment 참고 — palette-variety-max 회귀 실측으로 확인).
+          !eraConstraint.floorApplied
         );
         // 지시문 33 (§1) — era-neutral(발라드 등) 하한을 배정 단계에서
         // 확보한다. applyEraQuota가 끝난 뒤 실행 — 그 안의 anti-singleton/
         // coPrimary 로직은 건드리지 않는다.
         const workspaceId = workspaceForArchetype(opts.channel.archetype)?.id;
         const policy = workspaceId ? eraIntentForWorkspace(workspaceId).eraNeutralPolicy : undefined;
-        return ensureEraNeutralFloor(counts, opts.songCount, policy, filter, cap).counts;
+        return ensureEraNeutralFloor(counts, opts.songCount, policy, filter, cap, !eraConstraint.floorApplied).counts;
       })()
     : undefined;
   // core/setDirector.ts's directSetLocal uses Object.keys(quotaAdjustedCounts)
