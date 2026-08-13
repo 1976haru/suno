@@ -142,10 +142,13 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(new Set(bp.songs.map(s => s.title)).size).toBe(18);
   });
 
-  it('senior-morning 코어 장르 46개', () => {
+  it('senior-morning 코어 장르 49개', () => {
     // 지시문 21 (TASK B) — 40 -> 44 (두왑 분화 2종·밤 샹송·발라드블루스 추가).
     // 지시문 21 (TASK A) — 44 -> 46 (6/8 슬로우 발라드·이탈리안 칸초네 추가).
-    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(46);
+    // 지시문 53 (TASK C-4) — 46 -> 49 (jazz-classic-vocal-lounge·
+    // jazz-swing-crooner-ballroom·jazz-brush-ballad-jazz 등록 — 채널에는
+    // 이미 있었지만 추천 후보 풀에 없어 0회였다).
+    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(49);
   });
 
   it('oldpop-lounge 코어 장르 69개', () => {

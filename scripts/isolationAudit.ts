@@ -294,7 +294,11 @@ export const L7_SENIOR_CONCEPTS = ['아침 카페', '추억의 라디오', '첫�
  * 밀어내거나 새로 끼어들면 여기서 잡힙니다.
  */
 const L7_SNAPSHOT: Record<string, string[]> = {
-  '아침 카페': ['cafe'],
+  // 지시문 53 (TASK C) — "아침"을 매칭하는 룰이 전혀 없어
+  // oldpop-warm-morning-glow(하루의 95점 조합 4종 중 하나)가 0회였다
+  // (실측 원인 특정). 신규 'morning' 룰 추가로 "아침 카페"가 이제
+  // cafe·morning 둘 다 매칭한다 — 의도된 변경이라 스냅샷을 갱신한다.
+  '아침 카페': ['cafe', 'morning'],
   '추억의 라디오': [],
   '첫눈': ['winter'],
   '오래된 우정': [],
