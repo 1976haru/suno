@@ -1092,13 +1092,42 @@ export function ensureEraNeutralFloor(
  * already gets, without an import cycle (setDirector.ts already imports
  * FROM batchPreallocation.ts's preallocateSongSlots) — see 지시문 10 TASK A-3.
  */
-export function genreCountsFromIds(ids: string[], songCount: number, cap: number): Record<string, number> {
+export function genreCountsFromIds(
+  ids: string[],
+  songCount: number,
+  cap: number,
+  /**
+   * 지시문 47 (TASK B) — 실측: 기존 genresToOpen = ceil(remaining/cap)은
+   * "songCount/cap이 요구하는 최소 장르 수"만 채운다 — 그게 genre-variety
+   * 관문의 자기 하한(예: balanced 4종)보다 낮을 수 있다(15곡·cap 5 →
+   * ceil(15/5)=3 < 4). oldpop-lounge에서 사용자가 정확히 4종을 골랐을
+   * 때뿐 아니라, 채널 preferredGenres 전체(24종 등 카탈로그 전부)를 그대로
+   * opts.genreIds로 넘기는 훨씬 흔한 기본 상태에서도 똑같이 3종으로
+   * 뭉쳐 관문을 막았다 — "장르가 몇 종 있는가"가 아니라 "genresToOpen이
+   * 관문 하한보다 작은가"가 진짜 조건이었다.
+   *
+   * 실측 두 차례 조정 끝에 이 형태로 정착:
+   *  1. 처음엔 "distinct id 전부에 최소 2곡을 보장"하는 2단계 알고리즘을
+   *     시도했다가 core/setDirector.ts 호출부·tests/v367.test.ts's arc
+   *     BPM 곡선을 깼다 — 카탈로그 전체(46종 등)를 상한(genre.max, 9)까지
+   *     억지로 다 채우면 18곡이 너무 넓게 퍼져 곡선이 납작해졌다.
+   *  2. genre.max가 아니라 genre.min(관문이 요구하는 최소치, 예: 4)만
+   *     genresToOpen의 하한으로 올린다 — 기존 알고리즘의 "장르가 많으면
+   *     그중 필요한 만큼만 연다"는 취지(카탈로그 전체를 다 쓰지 않는다)는
+   *     그대로 두고, "그 필요한 만큼"이 관문 하한보다 낮아지지만 않게
+   *     한다. songCount/2보다 크게 열면 라운드로빈 특성상 1곡짜리
+   *     싱글톤이 생길 수 있어(genreSingletonRootCause.test.ts's 불변식)
+   *     floor(songCount/2)로도 한 번 더 캡핑한다.
+   */
+  minDistinctGenres?: number
+): Record<string, number> {
   if (!ids.length || songCount <= 0) return {};
   const counts: Record<string, number> = {};
   let remaining = songCount;
-  const pool = [...ids];
+  const pool = [...new Set(ids)];
+  const effectiveMin = minDistinctGenres !== undefined ? Math.max(1, Math.min(minDistinctGenres, Math.floor(songCount / 2))) : 1;
   while (remaining > 0 && pool.length) {
-    const genresToOpen = Math.min(pool.length, Math.max(1, Math.ceil(remaining / cap)));
+    const genresToOpen = Math.min(pool.length, Math.max(effectiveMin, Math.ceil(remaining / cap)));
     const chosen = pool.splice(0, genresToOpen);
     let progressed = true;
     while (remaining > 0 && progressed) {

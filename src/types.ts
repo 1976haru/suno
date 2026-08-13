@@ -2011,7 +2011,14 @@ export interface PreassignedSongSlot {
   moneyChordSectionMap?: MoneyChordSectionAssignment[];
   /** moneyChordSectionMap을 "Section: progression" verbatim 텍스트로 합친 것 — bridgeInstruction이 verbatim weave 지시에 쓴다. sectionStyleShiftText와 같은 패턴. */
   moneyChordSectionText?: string;
-  /** v5.11 (TASK L) — mirrors SongIdea.effectiveVocalPresetId's own doc comment; whole-pack-resolved (same value on every slot), not per-track. */
+  /**
+   * v5.11 (TASK L) — originally whole-pack-resolved (same value on every
+   * slot, from matching opts.vocalTone once). 지시문 47 (TASK A) — 이제
+   * opts.vocalPresetPlan이 유효할 때는 트랙별로 다른 값을 가진다(그
+   * 트랙에 실제로 적용된 프리셋 id) — core/batchPreallocation.ts's
+   * vocalPresetOverride 참고. vocalPresetPlan이 없거나 무효화됐으면
+   * 기존처럼 전 트랙 동일값(또는 undefined)이다.
+   */
   effectiveVocalPresetId?: string;
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
   effectiveGenreIds: string[];

@@ -255,6 +255,30 @@ export function expectedArcPhaseCount(arcModelId: 'five-phase' | 'repetition-cyc
 }
 
 /**
+ * 지시문 47 (TASK C) — 실측: core/designGate.ts's killing-point-count 관문은
+ * 모든 아키타입에 같은 flat 비율(KILLING_POINT_ASSIGNED_RATIO, 12/18)을
+ * 썼다. kids-t3(KIDS_BUNDLES_T3)는 'calm'·'closing' 두 번들이 의도적으로
+ * peakStrength:'none'이라(마음 가라앉히기·마무리 인사 — 따라 부르기
+ * 쉬움이 우선인 구간, §"동요에 킬링포인트를 억지로 늘리지 말 것") 18곡
+ * 기준으로도 정확히 12/18(67%)까지만 도달한다 — 문턱과 정확히 같다.
+ * scaleBundleCounts의 largest-remainder 반올림이 다른 songCount(예: 15)에서
+ * 'none' 번들 쪽으로 1곡 더 배정하면 실제 배정 수가 문턱 아래로 내려간다
+ * (실측: 15곡에서 9/10). 시니어 등 'five-phase'는 기존 flat 비율 그대로
+ * 두고(§"시니어 기준은 건드리지 않는다"), 'repetition-cycle'(kids)만 그
+ * 번들 설계 자체가 실제로 약속하는 수치(= peakStrength가 'none'이 아닌
+ * 번들들의 scaleBundleCounts 합)로 재계산한다 — 새 추정치가 아니라 실제
+ * 생성이 쓰는 것과 같은 함수(scaleBundleCounts)로 역산한 것이라 항상
+ * 일치한다.
+ */
+export function expectedKillingPointAssignedCount(arcModelId: 'five-phase' | 'repetition-cycle', songCount: number, ageTier?: string, fallbackRatio: number = 12 / 18): number {
+  if (arcModelId !== 'repetition-cycle') return Math.round(songCount * fallbackRatio);
+  if (songCount <= 0) return 0;
+  const bundles = bundlesForAgeTier(ageTier);
+  const counts = scaleBundleCounts(bundles, songCount);
+  return bundles.reduce((sum, bundle, i) => sum + (bundle.peakStrength !== 'none' ? counts[i] : 0), 0);
+}
+
+/**
  * v(design-gate audience decoupling follow-up) — purely additive: exposes the
  * SAME per-bundle (id/phase/intensity) data expectedArcPhaseCount already
  * computes a bare count from, so a caller (core/designGate.ts's new

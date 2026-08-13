@@ -15,7 +15,7 @@ import { scoreSongs } from './quality';
 import { applySlotOrderOverride } from './slotOrderOverride';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
 import { isKidsArchetype } from '../utils/channelArchetype';
-import { matchVocalPreset, vocalPresets } from '../data/vocalPresets';
+import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -35,6 +35,7 @@ import { jpKidsBilingualConceptForThemeId } from '../data/jpKidsBilingual';
 import { runOpeningContest, type OpeningPackContext, type OpeningRole } from './openingContest';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
+  allocationForAxis,
   applyAxisAllocation,
   ARRANGEMENT_DENSITY_IDS,
   KIDS_STRUCTURE_TEMPLATE_IDS,
@@ -1434,12 +1435,39 @@ export function generateLocalBlueprint(
   let vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
+  // 지시문 47 (TASK A) — core/batchPreallocation.ts의 동일 추가와 정확히
+  // 같은 이유·같은 규칙(그 파일 자신의 doc comment 참고): quota가 먼저
+  // 확정한 vocalType 순서와 vocalPresetPlan의 추천 순서가 달라 매 트랙이
+  // 성별 불일치로 조용히 버려지던 결함을 고친다.
+  const vocalTypeAxisIsManual = allocationForAxis(opts.diversityAllocations, 'vocalType')?.mode === 'manual';
+  const vocalPresetPlanTypes: VocalType[] | undefined = (() => {
+    if (!opts.vocalPresetPlan || !autoVocalPlan || isKidsArchetype(opts.channel.archetype) || vocalTypeAxisIsManual) return undefined;
+    if (opts.vocalPresetPlan.length !== opts.songCount) return undefined;
+    const resolved: VocalType[] = [];
+    for (const presetId of opts.vocalPresetPlan) {
+      const preset = presetId ? vocalPresets.find(p => p.id === presetId) : undefined;
+      if (!preset || preset.forKids) return undefined;
+      resolved.push(preset.gender === 'mixed' || preset.gender === 'duet' ? 'mixed' : preset.gender);
+    }
+    const countOf = (arr: readonly VocalType[], type: VocalType) => arr.filter(value => value === type).length;
+    const quotaMatches = VOCAL_TYPE_IDS.every(type => countOf(resolved, type as VocalType) === countOf(autoVocalPlan, type as VocalType));
+    if (!quotaMatches) {
+      console.warn('[vocalPresetPlan] 보컬 추천의 성별 분포가 설정과 달라 적용하지 않았습니다.');
+      return undefined;
+    }
+    return resolved;
+  })();
+  if (vocalPresetPlanTypes) {
+    vocalPlan = vocalPresetPlanTypes;
+  }
   // v3.80 (TASK A-3) — mirrors batchPreallocation.ts's identical flagship
   // vocal-type-order pin (same seed, same rotation rule, same data-driven
   // guard, same vocalLeaning skip — see that file's own doc comment for
-  // both).
+  // both). 지시문 47 (TASK A) — vocalPresetPlanTypes가 활성일 때는
+  // 건너뛴다(위치를 바꾸면 vocalPresetPlan[idx] 대응이 다시 어긋난다 —
+  // batchPreallocation.ts's own doc comment 참고).
   const vocalPlanHasAllThreeTypes = vocalPlan ? new Set(vocalPlan).size === 3 : false;
-  const flagshipVocalOrder = vocalPlan && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
+  const flagshipVocalOrder = vocalPlan && !vocalPresetPlanTypes && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
     ? resolveFlagshipVocalOrder(seed, avoid?.previousFlagshipOrder)
     : null;
   if (vocalPlan && flagshipVocalOrder) {
@@ -1449,7 +1477,7 @@ export function generateLocalBlueprint(
   // vocal-type override from a verified combo (see that file's own doc
   // comment — never fires for the app's current registry, since its one
   // entry's vocalType is deliberately undefined/gender-independent).
-  if (vocalPlan && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
+  if (vocalPlan && !vocalPresetPlanTypes && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
     const swapIndex = vocalPlan.findIndex((type, i) => i >= 3 && type === flagshipCombo.vocalType);
     if (swapIndex !== -1) {
       const tmp = vocalPlan[1];
@@ -1466,8 +1494,9 @@ export function generateLocalBlueprint(
   // net-improving swap target unless doing so ALSO happens to raise the
   // total (in which case the flagship's own vocalType is preserved anyway,
   // just relocated). Kids skipped — data/genreLibrary vocalPreference is
-  // only authored for adult/senior oldpop genres.
-  if (vocalPlan && !isKidsArchetype(opts.channel.archetype)) {
+  // only authored for adult/senior oldpop genres. 지시문 47 (TASK A) —
+  // vocalPresetPlanTypes 활성 시 건너뛴다(위와 같은 이유).
+  if (vocalPlan && !vocalPresetPlanTypes && !isKidsArchetype(opts.channel.archetype)) {
     vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors batchPreallocation.ts's own
@@ -1649,6 +1678,18 @@ export function generateLocalBlueprint(
     if (!preset || preset.forKids || !vocalTypeMatchesPresetGender(vocalType, preset.gender)) return undefined;
     return preset;
   }
+  // 지시문 47 (TASK A-7) — core/batchPreallocation.ts의 동일 추가와 정확히
+  // 같은 이유(그 파일 자신의 doc comment 참고): 같은 프리셋이 재사용될 때
+  // vocalTechniquePlan까지 우연히 겹쳐 vocalText가 완전히 같아지는 실측
+  // 결함을 고친다.
+  const vocalPresetUsageCount = new Map<string, number>();
+  function repeatVarianceFor(preset: VocalPreset, idx: number): string | undefined {
+    const priorUses = vocalPresetUsageCount.get(preset.id) ?? 0;
+    vocalPresetUsageCount.set(preset.id, priorUses + 1);
+    if (priorUses === 0) return undefined;
+    // core/batchPreallocation.ts의 동일 수정과 같은 이유(선형 충돌 방지).
+    return PROXIMITY_POOL[(idx * 5 + priorUses * 13) % PROXIMITY_POOL.length];
+  }
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -1799,7 +1840,9 @@ export function generateLocalBlueprint(
     const vocalDescriptionText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
           ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
-          : (vocalPresetOverride?.prompt ?? adultVocalTraitPlan?.[idx] ?? fallbackVocalText))
+          : (vocalPresetOverride
+              ? [vocalPresetOverride.prompt, repeatVarianceFor(vocalPresetOverride, idx)].filter(Boolean).join(', ')
+              : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText)))
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
     // kids-quota song; otherwise falls back to the matched preset's own

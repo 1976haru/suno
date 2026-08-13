@@ -34,7 +34,7 @@ import {
   type VocalGender,
   type VocalType
 } from './vocalPlan';
-import { matchVocalPreset, vocalPresets } from '../data/vocalPresets';
+import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
 import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -289,8 +289,11 @@ export function preallocateSongSlots(
     ? (() => {
         const filter = (genre: GenrePack) => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning');
         const cap = BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre;
+        // 지시문 47 (TASK B) — genre.min(장르 종류 하한, 예: balanced 4)을
+        // 넘겨 genreCountsFromIds가 관문 자신의 최소 종류 수 아래로 뭉치지
+        // 않도록 한다(§그 함수 자신의 doc comment).
         const { counts } = applyEraQuota(
-          genreCountsFromIds(genrePool, opts.songCount, cap),
+          genreCountsFromIds(genrePool, opts.songCount, cap, BREADTH_THRESHOLDS[constraints.breadth].genre.min),
           opts.songCount,
           tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
           filter,
@@ -498,6 +501,42 @@ export function preallocateSongSlots(
   let vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
+  // 지시문 47 (TASK A) — 실측: opts.vocalPresetPlan이 있어도 트랙별
+  // vocalType은 이미 quota가 먼저 확정해버려서, 추천 프리셋의 성별이 그
+  // 트랙의 vocalType과 우연히 맞을 때만(§resolveVocalPresetOverride,
+  // 아래 slots 루프) 반영됐다 — 총량(성별 분포)은 추천이 이미 지켰는데
+  // 트랙별 "순서"만 서로 달라 15곡이 거의 전부 조용히 버려졌다(실측:
+  // 0/15). 순서를 뒤집는다 — vocalPresetPlan이 있고, 그 프리셋들의 성별
+  // 분포가 autoVocalPlan(quota가 실제로 요구하는 목표 분포, 같은
+  // songCount/seed)과 정확히 같은 멀티셋일 때만, 그 프리셋 순서 자체를
+  // vocalType 순서로 채택한다 — quota를 "지켰는지 검사"하는 것이지 quota
+  // 위에 덧씌우는 게 아니다(§"vocalQuota 총량을 깨지 말 것"). 8축
+  // diversityAllocations가 vocalType을 manual로 명시적으로 고정했을 때는
+  // 그 축이 더 강한 명시적 선택이라 우선한다(추천 미리보기는 그 축을 전혀
+  // 모르고 만들어졌으므로) — vocalPresetPlan은 그 경우 조용히 무시한다
+  // (별도 경고 없음 — 8축 manual 자체가 이미 "quota와 다르게 갈 수 있다"는
+  // 사용자의 명시적 의도이므로 §A-4의 "설정과 다르면 경고" 대상이 아니다).
+  const vocalTypeAxisIsManual = allocationForAxis(opts.diversityAllocations, 'vocalType')?.mode === 'manual';
+  const vocalPresetPlanTypes: VocalType[] | undefined = (() => {
+    if (!opts.vocalPresetPlan || !autoVocalPlan || isKidsArchetype(opts.channel.archetype) || vocalTypeAxisIsManual) return undefined;
+    if (opts.vocalPresetPlan.length !== opts.songCount) return undefined;
+    const resolved: VocalType[] = [];
+    for (const presetId of opts.vocalPresetPlan) {
+      const preset = presetId ? vocalPresets.find(p => p.id === presetId) : undefined;
+      if (!preset || preset.forKids) return undefined;
+      resolved.push(preset.gender === 'mixed' || preset.gender === 'duet' ? 'mixed' : preset.gender);
+    }
+    const countOf = (arr: readonly VocalType[], type: VocalType) => arr.filter(value => value === type).length;
+    const quotaMatches = VOCAL_TYPE_IDS.every(type => countOf(resolved, type as VocalType) === countOf(autoVocalPlan, type as VocalType));
+    if (!quotaMatches) {
+      console.warn('[vocalPresetPlan] 보컬 추천의 성별 분포가 설정과 달라 적용하지 않았습니다.');
+      return undefined;
+    }
+    return resolved;
+  })();
+  if (vocalPresetPlanTypes) {
+    vocalPlan = vocalPresetPlanTypes;
+  }
   // v3.80 (TASK A-3) — tracks 1-3 (flagship slots) get 3 distinct vocal
   // types, rotating order set-to-set (never repeating the immediately prior
   // set's own order — see recentFlagshipOrderStore.ts/resolveFlagshipVocalOrder's
@@ -520,8 +559,18 @@ export function preallocateSongSlots(
   // rotation only applies to the balanced, no-preference default (see
   // tests/v341.test.ts's own "reconcileWithPreassignedSlot enforces a duet
   // end-to-end" — a real regression this guard fixes).
+  // 지시문 47 (TASK A) — vocalPresetPlanTypes가 활성일 때는 아래 세 단계
+  // (flagship 3종 고정 · flagshipCombo swap · genre-vocalType affinity)를
+  // 모두 건너뛴다 — 셋 다 vocalPlan의 트랙 위치를 SWAP한다. vocalPlan을
+  // 이미 추천 프리셋 순서로 채택한 뒤에 위치를 더 바꾸면, slots 루프의
+  // resolveVocalPresetOverride가 opts.vocalPresetPlan[idx]를 여전히
+  // "원래" 인덱스로 조회하므로 그 트랙의 성별과 프리셋 성별이 다시
+  // 어긋난다 — 이번 지시문이 고치려는 것과 정확히 같은 결함이 재발한다.
+  // 추천 자체가 이미 3연속 방지·다양성 감점을 거쳐 만들어졌으므로
+  // (vocalRecommender.ts) 이 단계들이 노리는 효과는 상당 부분 이미
+  // 반영돼 있다.
   const vocalPlanHasAllThreeTypes = vocalPlan ? new Set(vocalPlan).size === 3 : false;
-  const flagshipVocalOrder = vocalPlan && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
+  const flagshipVocalOrder = vocalPlan && !vocalPresetPlanTypes && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
     ? resolveFlagshipVocalOrder(seed, avoid?.previousFlagshipOrder)
     : null;
   if (vocalPlan && flagshipVocalOrder) {
@@ -534,7 +583,7 @@ export function preallocateSongSlots(
   // track already carrying that vocal type, preserving the pack's overall
   // 6/6/6-style type totals — never a blunt overwrite, which could silently
   // break vocalIssues' (designGate.ts) own count checks.
-  if (vocalPlan && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
+  if (vocalPlan && !vocalPresetPlanTypes && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
     const swapIndex = vocalPlan.findIndex((type, i) => i >= 3 && type === flagshipCombo.vocalType);
     if (swapIndex !== -1) {
       const tmp = vocalPlan[1];
@@ -547,7 +596,7 @@ export function preallocateSongSlots(
   // 재즈 = 무조건 여자") so the local and Batch/bridge paths agree on which
   // genre lands on which already-allocated vocalType, not just the raw
   // 6/6/6-style totals.
-  if (vocalPlan && !isKidsArchetype(opts.channel.archetype)) {
+  if (vocalPlan && !vocalPresetPlanTypes && !isKidsArchetype(opts.channel.archetype)) {
     vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
@@ -794,6 +843,28 @@ export function preallocateSongSlots(
     if (!preset || preset.forKids || !vocalTypeMatchesPresetGender(vocalType, preset.gender)) return undefined;
     return preset;
   }
+  // 지시문 47 (TASK A-7) — 실측: vocalPresetOverride가 같은 프리셋을 그대로
+  // 재사용하면(15곡 기준 최대 4곡까지 허용 — vocalRecommender.ts의
+  // MAX_PRESET_SHARE) vocalTechniquePlan[idx]까지 우연히 같은 문구를
+  // 고르는 경우가 있어 vocalText가 두 트랙에서 완전히 같아진다(실측: 30개
+  // seed 중 10건, "vocalText 곡별 고유 15/15" 회귀). buildAdultVocalTraitPlan
+  // 경로(프리셋 미사용)는 4축(register/delivery/timbre/proximity) 조합이라
+  // 이 충돌이 사실상 없었다 — 프리셋 경로는 고정 문자열 하나뿐이라 자유도가
+  // 훨씬 낮다. 같은 프리셋이 두 번째 이후로 쓰일 때만 PROXIMITY_POOL(이미
+  // 이 앱의 보컬 묘사 어휘에서 쓰는 공간감 단어 7종)에서 하나를 더 붙여
+  // 구분한다 — 프리셋의 정체성(prompt 원문)은 그대로 두고 공간감만
+  // 얹으므로 "그 프리셋을 썼다"는 사실은 안 바뀐다.
+  const vocalPresetUsageCount = new Map<string, number>();
+  function repeatVarianceFor(preset: VocalPreset, idx: number): string | undefined {
+    const priorUses = vocalPresetUsageCount.get(preset.id) ?? 0;
+    vocalPresetUsageCount.set(preset.id, priorUses + 1);
+    if (priorUses === 0) return undefined;
+    // 실측 — (priorUses + idx) % length는 idx가 PROXIMITY_POOL.length(7)의
+    // 배수만큼 떨어진 두 재사용에서 그대로 충돌한다(예: idx 8/priorUses 1과
+    // idx 14/priorUses 2 — 둘 다 mod 7 결과가 같다, 8과 14가 7의 배수만큼
+    // 떨어져 있어서). 서로 다른 배수(5·13)로 섞어 이 선형 충돌을 없앤다.
+    return PROXIMITY_POOL[(idx * 5 + priorUses * 13) % PROXIMITY_POOL.length];
+  }
 
   const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -812,7 +883,7 @@ export function preallocateSongSlots(
       ? (isKidsArchetype(opts.channel.archetype)
           ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
           : (vocalPresetOverride
-              ? [vocalPresetOverride.prompt, vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+              ? [vocalPresetOverride.prompt, repeatVarianceFor(vocalPresetOverride, idx), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
               : (adultVocalTraitPlan?.[idx]
                   ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
                   : fallbackVocalText)))

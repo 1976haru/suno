@@ -10,7 +10,7 @@ import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPale
 import { hashSeed, seedForBlueprint } from './lyricEngine';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES } from '../data/archetypeAudienceProfiles';
-import { expectedArcPhaseCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
+import { expectedArcPhaseCount, expectedKillingPointAssignedCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { emotionQuotaAdvisory } from './emotionArcQuota';
 import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
@@ -1016,7 +1016,10 @@ function killingPointAndArcIssues(
 ): DesignIssue[] {
   const issues: DesignIssue[] = [];
   const withKillingPoint = slots.filter(slot => slot.killingPointId);
-  const expectedAssigned = Math.round(songCount * KILLING_POINT_ASSIGNED_RATIO);
+  // 지시문 47 (TASK C) — kids(repetition-cycle)만 번들 설계 자체가 실제로
+  // 약속하는 수치로 재계산한다(expectedKillingPointAssignedCount's own doc
+  // comment 참고) — 'five-phase'(시니어 등)는 기존 flat 비율(12/18) 그대로.
+  const expectedAssigned = expectedKillingPointAssignedCount(arcModelId, songCount, kidsAgeTierId, KILLING_POINT_ASSIGNED_RATIO);
   if (withKillingPoint.length < expectedAssigned) {
     issues.push(issue({
       id: 'killing-point-count',
