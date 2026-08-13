@@ -27,7 +27,15 @@ describe('지시문 23 TASK B — isEraColorGenreId', () => {
   it('1980s·timeless·era 무관 장르는 시대색이 아니다', () => {
     expect(isEraColorGenreId('smooth-jazz-lounge')).toBe(false);
     expect(isEraColorGenreId('oldpop-evening-lamp-ballad')).toBe(false);
-    expect(isEraColorGenreId('jazz-classic-vocal-lounge')).toBe(false);
+  });
+
+  // 지시문 46 (TASK A) — jazz-classic-vocal-lounge는 빅밴드·스탠더드 송북
+  // 전성기(1940s-60s, 1950s로 흡수 표기)라는 정의적 시기가 있어 더 이상
+  // era-neutral이 아니다(이전 지시문 12 판정 정정) — 이제 시대색 장르로
+  // 정확히 판정된다. 이전 이 테스트는 "재즈는 전부 era-neutral"이라는,
+  // 지시문 46이 근거와 함께 뒤집은 가정에 의존하고 있었다.
+  it('지시문 46 이후 jazz-classic-vocal-lounge는 1950s-60s 시대색 장르다', () => {
+    expect(isEraColorGenreId('jazz-classic-vocal-lounge')).toBe(true);
   });
 });
 

@@ -919,6 +919,23 @@ export interface GenerationOptions {
    */
   vocalQuota?: { male: number; female: number; mixed: number };
   /**
+   * 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — core/vocalRecommender.ts's
+   * recommendVocalPlan이 Step2Concept.tsx 화면에 보여주는 곡별 프리셋
+   * 추천이 실측 결과 실제 생성에 전혀 닿지 않았다("추천이 화면에만 있고
+   * 슬롯에 전달되지 않는다" — opts.vocalTone 하나로만 전체 팩이 생성됨).
+   * data/vocalPresets.ts id의 배열, songCount와 같은 길이·곡 순서 대응.
+   * 있으면 core/batchPreallocation.ts/core/localGenerator.ts가 그 트랙의
+   * vocalType(quota로 이미 정해진 성별/듀엣 축)과 실제로 맞는 인덱스에서만
+   * 그 프리셋의 prompt 텍스트를 그 트랙의 vocalText로 쓴다 — quota 자체는
+   * 절대 바꾸지 않는다(성별/듀엣 배분은 이미 확정된 축, 이 필드는 그 위에
+   * "어떤 구체적 프리셋을 쓸지"만 얹는다, vocalRecommender.ts의 기존
+   * 설계 원칙 그대로). 길이가 안 맞거나 특정 인덱스의 프리셋 성별이 그
+   * 트랙의 vocalType과 안 맞으면 그 인덱스만 조용히 기존 폴백(opts.vocalTone
+   * 매칭·adultVocalTraitPlan 합성)으로 돌아간다 — 방어적, 절대 곡을 잃지
+   * 않는다. undefined(기존 모든 호출부)면 완전히 기존 동작 그대로.
+   */
+  vocalPresetPlan?: string[];
+  /**
    * v4.1 (TASK A) — user override for core/constraints.ts's
    * detectConceptBreadth auto-detection (Step2Plan.tsx's "이 세트의 성격" radio).
    * Undefined means "trust the auto-detector" — this field only ever holds

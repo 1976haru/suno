@@ -1516,6 +1516,13 @@ export function directSetLocal(
   // Also reused below (unchanged) as this function's own pre-existing
   // era-quota input — same freeText/artistReferences inputs, so computing
   // it twice would just be the same result computed again.
+  // 지시문 46 (TASK B) — 실측: directSetLocal의 eraConstraint는 genre-max
+  // effectiveMaxPerGenre 자동조정·family-selection 라우팅 등 이 지시문
+  // 범위 밖의 여러 메커니즘과 얽혀 있어, 여기서 바닥을 적용하면 그
+  // 메커니즘들까지 함께 바뀐다(실측: tests/designGate.test.ts 6건·
+  // tests/setDirector.test.ts 1건 회귀). 회귀 방지 목록을 지키기 위해
+  // 이 호출부는 되돌리고, core/batchPreallocation.ts의 실제 곡별 장르
+  // 배정(eraQuotaCounts) 쪽에만 바닥을 적용한다 — 부분구현으로 보고.
   const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
   const breadth = breadthOverride ?? detectConceptBreadth(freeText, eraConstraint);
   const breadthSource: 'auto' | 'user' = breadthOverride ? 'user' : 'auto';

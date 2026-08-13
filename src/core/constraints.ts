@@ -1,12 +1,13 @@
-import type { AudienceProfile, ConceptBreadth, GenrePack, KidsAgeTierId, WorkspaceId } from '../types';
+import type { AudienceProfile, ChannelArchetype, ConceptBreadth, GenrePack, KidsAgeTierId, WorkspaceId } from '../types';
 import { genreLibrary, getGenreById } from '../data/genreLibrary';
 import { ERA_LABEL, eraBucketForGenreId, type EraBucket } from '../data/eraExclusions';
-import { ERA_BUCKETS_BY_GENRE_ID } from '../data/eraBuckets';
+import { ERA_BUCKETS_BY_GENRE_ID, type EraBucket as FineEraBucket } from '../data/eraBuckets';
 import { TITLE_PATTERNS } from '../data/titlePatterns';
 import { VOCABULARY_BANKS, vocabularyBanksForEra } from '../data/vocabularyBanks';
 import { CHANNEL_IDENTITY_WORDS, CHANNEL_IDENTITY_WORD_CAP, GENERIC_WORD_CAP } from './lyricVocabularyRepetition';
 import { qualityPolicyForWorkspace } from '../data/workspaceQualityPolicies';
 import type { EraNeutralPolicy } from '../data/workspaceEraIntent';
+import { workspaceEraFloorForArchetype } from '../data/workspaceEraFloor';
 
 /**
  * v4.2 (TASK A3) — the structural fix for the problem this task exists to
@@ -333,6 +334,37 @@ export function extractEraConstraint(freeText: string, artistReferenceEraTags: s
   const forbidden = REAL_ERA_BUCKETS.filter(bucket => !coveredBuckets.has(bucket));
 
   return { primary, adjacent, forbidden, unspecified: false };
+}
+
+/** 지시문 46 (TASK B) — data/eraBuckets.ts의 세분화 EraBucket을 이 파일의 4-버킷 EraConstraint 어휘로 접는다. 1990s/2010s/2020s/era-neutral은 이 앱의 EraConstraint가 아직 다루지 않는 시대라 undefined(바닥 미적용)를 반환한다. */
+function coarseBucketForFineEra(fine: FineEraBucket): EraBucket | undefined {
+  if (fine === '1950s' || fine === '1960s') return '1950s-60s';
+  if (fine === '1970s') return '1970s';
+  if (fine === '1980s') return '1980s';
+  if (fine === '2000s') return '2000s';
+  return undefined;
+}
+
+/**
+ * 지시문 46 (TASK B) — 하루: "카페에서 듣고 싶은 노래처럼 주제를 선택해도
+ * 기본은 60·70 세대 감성이어야 한다." extractEraConstraint가
+ * unspecified:true(컨셉이 시대를 전혀 말하지 않음)를 반환했을 때만
+ * data/workspaceEraFloor.ts의 채널 기본 시대로 채운다 — 새 관문이 아니라
+ * 기존 시대 관문(era-quota·era-neutral-share 상하한)이 원래도 가지고
+ * 있던 "era.unspecified면 통째로 꺼짐" 게이트 뒤에 폴백 하나를 더하는
+ * 것뿐이다. 컨셉이 실제로 시대를 말하면(unspecified:false) 이 함수는
+ * 입력을 그대로 반환한다 — 바닥은 하한이지 컨셉을 이기지 않는다.
+ * data/workspaceEraFloor.ts에 없는 아키타입(kr-2030/jp-2030/kr-idol-male/female/
+ * kids 등)도 그대로 반환 — 그 워크스페이스는 시대가 정체성이 아니다.
+ */
+export function applyWorkspaceEraFloor(era: EraConstraint, archetype: ChannelArchetype | undefined): EraConstraint {
+  if (!era.unspecified) return era;
+  const floor = workspaceEraFloorForArchetype(archetype);
+  if (!floor || !floor.defaultEraBuckets.length) return era;
+  const coarseBuckets = [...new Set(floor.defaultEraBuckets.map(coarseBucketForFineEra).filter((bucket): bucket is EraBucket => Boolean(bucket)))];
+  if (!coarseBuckets.length) return era;
+  const [primary, coPrimary] = coarseBuckets;
+  return { primary, coPrimary, adjacent: [], forbidden: [], unspecified: false };
 }
 
 /**
@@ -1087,6 +1119,8 @@ export interface ConceptInput {
 
 export interface WorkspaceLike {
   id: WorkspaceId;
+  /** 지시문 46 (TASK B) — applyWorkspaceEraFloor가 컨셉에 시대 신호가 없을 때 채널 기본 시대를 찾는 데 쓴다. 없으면(기존 모든 호출부) 바닥 미적용 — 순수 추가, 기존 동작 불변. */
+  archetype?: ChannelArchetype;
 }
 
 /**
@@ -1119,6 +1153,13 @@ export function resolveConstraints(
   // same behavior; this is the aggregation layer actually being consulted
   // by a real code path, not decorative.
   const eraIntent = qualityPolicyForWorkspace(workspace.id).eraIntent;
+  // 지시문 46 (TASK B) — 실측: resolveConstraints의 era는 genre-max
+  // effectiveMaxPerGenre 자동조정 등 이 지시문 범위 밖의 메커니즘과
+  // 얽혀 있어(tests/designGate.test.ts 6건 회귀 실측), 여기서는 바닥을
+  // 적용하지 않는다 — core/batchPreallocation.ts의 실제 곡별 장르 배정
+  // 쪽에만 적용한다(부분구현으로 보고). applyWorkspaceEraFloor 자체는
+  // WorkspaceLike.archetype과 함께 남겨 두어 다음 지시문이 더 좁게
+  // 재적용할 수 있게 한다.
   const era: EraConstraint = eraIntent.mode === 'safety-over-era' && !detectedEra.unspecified
     ? { primary: 'timeless', adjacent: [], forbidden: [], unspecified: true }
     : detectedEra;
@@ -1179,7 +1220,7 @@ export function resolveConstraintsFromOptions(opts: {
 }, audience: AudienceProfile, workspaceId: WorkspaceId = 'senior-oldpop'): ResolvedConstraints {
   const conceptLabel = opts.customConcept?.trim() || opts.projectTitle;
   const kidsAgeTierId = opts.kidsAgeTierId ?? opts.channel.kidsAgeTierId;
-  return resolveConstraints({ conceptLabel, breadthOverride: opts.breadthOverride }, { id: workspaceId }, audience, opts.songCount || 18, kidsAgeTierId);
+  return resolveConstraints({ conceptLabel, breadthOverride: opts.breadthOverride }, { id: workspaceId, archetype: opts.channel.archetype as ChannelArchetype | undefined }, audience, opts.songCount || 18, kidsAgeTierId);
 }
 
 export { getGenreById };

@@ -30,10 +30,11 @@ import {
   resolveFlagshipVocalOrder,
   resolveVocalMetaTag,
   usesVocalQuota,
+  vocalTypeMatchesPresetGender,
   type VocalGender,
   type VocalType
 } from './vocalPlan';
-import { matchVocalPreset } from '../data/vocalPresets';
+import { matchVocalPreset, vocalPresets } from '../data/vocalPresets';
 import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -115,7 +116,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -263,6 +264,20 @@ export function preallocateSongSlots(
    * local-preview path era-awareness today, but extending that to their real
    * bridge-deployment path is out of this task's scope.
    */
+  // 지시문 46 (TASK B) — 실측: data/workspaceEraFloor.ts의 바닥을 여기서
+  // 적용해봤으나(폭을 senior-morning/oldpop-lounge/showa-cafe/showa-70s/
+  // j2000s로 넓히고 applyWorkspaceEraFloor를 씌움), "60년대 올드팝" 같은
+  // 기존 명시적 컨셉에서도 이미 존재하던 applyEraQuota <-> palette-variety-max
+  // 상호작용 결함(청취 검증값 "팔레트 계열 그룹 4종" 보호 대상)이 컨셉
+  // 미지정 시나리오에도 그대로 노출되어 tests/designGate.test.ts·
+  // tests/generationPreflight.test.ts·tests/multiSetPreflight.test.ts에서
+  // 총 8건의 기존 통과 테스트가 깨졌다 — 실측으로 확인(§F 보고). 이 결함
+  // 자체(applyEraQuota가 palette-variety 상한을 모른 채 새 장르를 연다)는
+  // 이 지시문 범위 밖이라 여기서 고치지 않는다. 그래서 이 파이프라인
+  // 배선은 되돌리고, data/workspaceEraFloor.ts + core/constraints.ts의
+  // applyWorkspaceEraFloor(단위 검증 완료, "60~70년대" 컴파운드 컨셉과
+  // 동일한 코-프라이머리 경로 재사용)는 다음 지시문이 palette-variety
+  // 상호작용을 먼저 고친 뒤 안전하게 배선할 수 있도록 남겨 둔다.
   const eraConstraint = genreAllocation?.mode === 'manual' || opts.channel.archetype !== 'senior-morning'
     ? undefined
     : extractEraConstraint(opts.customConcept ?? '');
@@ -762,6 +777,20 @@ export function preallocateSongSlots(
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
+  // 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — GenerationOptions.
+  // vocalPresetPlan의 자기 doc comment 참고. vocalType(quota로 이미 확정된
+  // 성별/듀엣 축)과 그 인덱스의 프리셋 성별이 실제로 맞을 때만 그 프리셋을
+  // 쓴다 — 맞지 않으면(계획 없음·kids·성별 불일치) undefined를 반환해 그
+  // 트랙만 기존 폴백 경로로 조용히 떨어진다.
+  function resolveVocalPresetOverride(idx: number, vocalType: VocalType | undefined) {
+    if (isKidsArchetype(opts.channel.archetype) || !vocalType) return undefined;
+    const presetId = opts.vocalPresetPlan?.[idx];
+    if (!presetId) return undefined;
+    const preset = vocalPresets.find(p => p.id === presetId);
+    if (!preset || preset.forKids || !vocalTypeMatchesPresetGender(vocalType, preset.gender)) return undefined;
+    return preset;
+  }
+
   const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
     const songRole = songRoles[idx];
@@ -769,6 +798,7 @@ export function preallocateSongSlots(
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext, 3, false, constraints)
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
+    const vocalPresetOverride = resolveVocalPresetOverride(idx, vocalType);
     // v3.80 (TASK E) — appends vocalTechniquePlan[idx] only when
     // adultVocalTraitPlan[idx] is actually the text in use — mirrors
     // localGenerator.ts's identical guard (see its own doc comment): never
@@ -777,9 +807,11 @@ export function preallocateSongSlots(
     const vocalText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
           ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
-          : (adultVocalTraitPlan?.[idx]
-              ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
-              : fallbackVocalText))
+          : (vocalPresetOverride
+              ? [vocalPresetOverride.prompt, vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+              : (adultVocalTraitPlan?.[idx]
+                  ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+                  : fallbackVocalText)))
       : fallbackVocalText;
     const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType
@@ -966,7 +998,11 @@ export function preallocateSongSlots(
       // onto the final SongIdea by reconcileWithPreassignedSlot below.
       effectiveMoneyChordId,
       effectiveGenreIds,
-      ...(wholePackMatchedVocalPreset ? { effectiveVocalPresetId: wholePackMatchedVocalPreset.id } : {}),
+      // 지시문 46 (TASK D) — vocalPresetOverride(이 트랙의 실제 곡별 프리셋)가
+      // 있으면 그것을, 없으면 기존 whole-pack 매칭으로 폴백한다 — 이전엔
+      // 이 필드가 모든 트랙에서 항상 같은 값이었다(§실측, 하루의 "목소리가
+      // 이전과 차이가 없다" 지적의 근본 원인).
+      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset)!.id } : {}),
       // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/
       // effectiveGenreIds's own "always-populated counterpart" pattern just
       // above; absent for a non-kids pack. Copied onto the final SongIdea by
