@@ -874,6 +874,14 @@ export function preallocateSongSlots(
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalPresetOverride = resolveVocalPresetOverride(idx, vocalType);
+    // 지시문 49 (TASK A) — SongIdea.vocalPresetSource/PreassignedSongSlot.
+    // vocalPresetSource 자기 doc comment 참고. effectiveVocalPresetId를
+    // 채우는 것과 정확히 같은 두 변수(vocalPresetOverride/
+    // wholePackMatchedVocalPreset)를 같은 우선순위로 검사한다 — 별도 로직이
+    // 아니라 같은 판정의 라벨이다.
+    const vocalPresetSource: 'plan' | 'tone-match' | 'auto' | undefined = !vocalType
+      ? undefined
+      : (vocalPresetOverride ? 'plan' : (wholePackMatchedVocalPreset ? 'tone-match' : 'auto'));
     // v3.80 (TASK E) — appends vocalTechniquePlan[idx] only when
     // adultVocalTraitPlan[idx] is actually the text in use — mirrors
     // localGenerator.ts's identical guard (see its own doc comment): never
@@ -1078,6 +1086,7 @@ export function preallocateSongSlots(
       // 이 필드가 모든 트랙에서 항상 같은 값이었다(§실측, 하루의 "목소리가
       // 이전과 차이가 없다" 지적의 근본 원인).
       ...((vocalPresetOverride ?? wholePackMatchedVocalPreset) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset)!.id } : {}),
+      ...(vocalPresetSource ? { vocalPresetSource } : {}),
       // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/
       // effectiveGenreIds's own "always-populated counterpart" pattern just
       // above; absent for a non-kids pack. Copied onto the final SongIdea by
@@ -1464,6 +1473,7 @@ export function reconcileWithPreassignedSlot(
       effectiveMoneyChordId: slot.effectiveMoneyChordId,
       effectiveGenreIds: slot.effectiveGenreIds,
       ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+      ...(slot.vocalPresetSource ? { vocalPresetSource: slot.vocalPresetSource } : {}),
       ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
       effectiveArchetype: resolvedArchetype,
       workspaceId: resolvedWorkspaceId,
@@ -1650,6 +1660,7 @@ export function reconcileWithPreassignedSlot(
     effectiveMoneyChordId: slot.effectiveMoneyChordId,
     effectiveGenreIds: slot.effectiveGenreIds,
     ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+    ...(slot.vocalPresetSource ? { vocalPresetSource: slot.vocalPresetSource } : {}),
     ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
     effectiveArchetype: resolvedArchetype,
     workspaceId: resolvedWorkspaceId,

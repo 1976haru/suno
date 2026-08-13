@@ -1834,6 +1834,12 @@ export function generateLocalBlueprint(
     // ids first (never truncating mid-phrase). See promptComposer.ts.
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
     const vocalPresetOverride = resolveVocalPresetOverride(idx, vocalType);
+    // 지시문 49 (TASK A) — core/batchPreallocation.ts의 동일 추가와 정확히
+    // 같은 이유(그 파일 자신의 doc comment 참고): effectiveVocalPresetId를
+    // 채우는 것과 같은 두 변수를 같은 우선순위로 라벨링한다.
+    const vocalPresetSource: 'plan' | 'tone-match' | 'auto' | undefined = !vocalType
+      ? undefined
+      : (vocalPresetOverride ? 'plan' : (wholePackMatchedVocalPreset ? 'tone-match' : 'auto'));
     // TASK v3.41 Part A2/D — same rotation index batchPreallocation.ts's
     // preallocateSongSlots uses for the same opts/trackNo (kids only — see
     // TASK v3.72 TASK B for the adult path below).
@@ -2345,6 +2351,7 @@ export function generateLocalBlueprint(
       // 이유: vocalPresetOverride(이 트랙의 실제 곡별 프리셋)가 있으면
       // 그것을 우선한다.
       ...((vocalPresetOverride ?? wholePackMatchedVocalPreset) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset)!.id } : {}),
+      ...(vocalPresetSource ? { vocalPresetSource } : {}),
       effectiveGenreIds: sanitizeGenreIdsForArchetype(trackGenres.map(g => g.id), archetype).valid,
       effectiveArchetype: archetype,
       workspaceId,

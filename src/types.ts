@@ -1474,6 +1474,25 @@ export interface SongIdea {
    */
   effectiveVocalPresetId?: string;
   /**
+   * 지시문 49 (TASK A) — which mechanism resolved effectiveVocalPresetId
+   * for this track, so an outside measurement (e.g. is
+   * opts.vocalPresetPlan's per-track recommendation actually reaching the
+   * slot, or is it being silently discarded to a pack-wide/generic
+   * fallback) doesn't require re-deriving core/batchPreallocation.ts's own
+   * internal branching. 'plan' — opts.vocalPresetPlan[idx] resolved via
+   * core/batchPreallocation.ts's resolveVocalPresetOverride. 'tone-match' —
+   * no per-track plan applied; fell back to the whole-pack
+   * matchVocalPreset(opts.vocalTone) match (same value on every track).
+   * 'auto' — neither matched; effectiveVocalPresetId is undefined and the
+   * vocal wording came from the procedural blend
+   * (buildAdultVocalTraitPlan/kidsVocalTextFor). Always populated when
+   * this track has a resolved vocalType at all (mirrors
+   * effectiveVocalPresetId's own "always attempted" guarantee) —
+   * undefined only for the rare fallback-vocal-text case with no
+   * vocalType at all.
+   */
+  vocalPresetSource?: 'plan' | 'tone-match' | 'auto';
+  /**
    * v5.11 (TASK L) — this track's actual assigned genre id(s) (from
    * core/genreRotation.ts's genresForTrack, usually length 1, length 2 for
    * a blended pair), already run through core/genreSelection.ts's
@@ -2020,6 +2039,8 @@ export interface PreassignedSongSlot {
    * 기존처럼 전 트랙 동일값(또는 undefined)이다.
    */
   effectiveVocalPresetId?: string;
+  /** 지시문 49 (TASK A) — mirrors SongIdea.vocalPresetSource's own doc comment; the source this slot's effectiveVocalPresetId actually came from. */
+  vocalPresetSource?: 'plan' | 'tone-match' | 'auto';
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
   effectiveGenreIds: string[];
   /** v5.13 (TASK: kidsAgeTierId wiring) — mirrors SongIdea.effectiveKidsAgeTierId's own doc comment; whole-pack-resolved (same value on every slot for a kids archetype), not per-track. */
