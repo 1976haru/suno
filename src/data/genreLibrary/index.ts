@@ -385,7 +385,14 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
   'city-pop-night',
   // 지시문 21 (TASK A) — kr2030-noir-deep-house는 archetypes에 city-night도
   // 명시(강사 원문)돼 있어 이 채널의 core pool에서도 실제로 닿도록 등록.
-  'kr2030-noir-deep-house'
+  'kr2030-noir-deep-house',
+  // 지시문 51 (TASK A-1) — 실측(check:genre-utilization): city-night-drive
+  // 채널(preferredGenres 11종)의 city-pop-* 변형 6종이 이 core 목록에
+  // 없어 recommendConceptLocal의 후보 풀에 애초에 없었다 — lofi-study와
+  // 같은 유형(코어 목록이 채널 확장을 따라가지 못함), 정도만 부분적.
+  // 활용률 45%→? 재측정 대상.
+  'city-pop-soft', 'city-pop-bright-female-groove', 'city-pop-coastal-disco-pop',
+  'city-pop-funky-rhythm-pop', 'city-pop-airy-disco-pulse', 'city-pop-club-disco-pop'
 ] as const;
 
 /**
@@ -393,6 +400,23 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
  * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3), and the
  * market research's top-3 priority is emo-band-pop / dawn-rnb / y2k-retro
  * (ranks 1, 3, 5), not simple array order — hence 1, 3, 5, 2, 4, 6 here.
+ */
+/**
+ * 지시문 51 (TASK A-1) — 실측(check:genre-utilization): after-work-band-pop
+ * 채널(kr-2030-pop)의 preferredGenres 18종 중 14종(contemporary-rnb·
+ * alt-rnb·chill-rap·trap-soul 등 R&B/힙합 계열)을 이 core 목록에 추가해
+ * 봤으나, 그 14종 자신의 archetypes 필드는 애초에 'modern-chill'/
+ * 'city-night'(senior-oldpop 워크스페이스)만 갖고 있었다 — kr-2030-pop이
+ * 전혀 아니다. genreWorkspaceOwnership.ts의 워크스페이스 격리 검사
+ * (tests/workspaceDataIsolation.test.ts L1)가 정확히 이걸 잡아냈다:
+ * "외부 장르 7건 노출". 이 14종을 core에 넣으면 추천이 실제로 이
+ * 채널의 컨셉과 안 맞는(모던칠/시티나이트용으로 설계된) 스타일을
+ * kr-2030-pop 컨셉에 갖다 붙이는 것과 같다 — §하지 말 것 "컨셉 적합성이
+ * 우선이다"를 어긴다. 되돌린다. 근본 원인은 채널 정의(after-work-band-pop.
+ * preferredGenres)가 애초에 archetypes 불일치 장르 14종을 갖고 있는 것
+ * 자체다 — 지시문20이 이 채널을 확장할 때 생긴 선행 데이터 불일치로
+ * 보이며, TASK C/보고에 별도로 남긴다(이 지시문의 "추천 편중" 수정
+ * 범위가 아니라 "채널 정의 자체의 정합성" 문제).
  */
 export const KR_2030_CORE_GENRE_IDS = [
   'kr2030-emo-band-pop',
@@ -567,11 +591,30 @@ export const OLDPOP_LOUNGE_CORE_GENRE_IDS = [
   'jazz-contemporary-vocal-jazz'
 ] as const;
 
+/**
+ * 지시문 51 (TASK A-1) — 실측(check:genre-utilization): lofi-study가 이
+ * 배열을 빈 채로 둔 탓에 getCoreGenreIdsForArchetype이 자기 폴백
+ * (SENIOR_MORNING_CORE_GENRE_IDS)으로 떨어졌다 — "장르가 안 골고루
+ * 쓰인다" 수준이 아니라 lofi-study-main 채널(preferredGenres 14종, 전부
+ * lofi-*)의 장르가 추천 후보 풀에 단 하나도 없어 시니어 장르만 추천되는
+ * 채널-불일치 결함이었다(실측: 활용률 0%). lofi-study-main의
+ * preferredGenres를 그대로 core 목록으로 채택한다 — 이 아키타입은
+ * 채널이 하나뿐이라(§data/presets.ts) preferredGenres 자체가 이미 그
+ * 채널의 실제 장르 전부다.
+ */
+const LOFI_STUDY_CORE_GENRE_IDS = [
+  'lofi-jazz-piano-lofi', 'lofi-coffee-shop-lofi', 'lofi-rainy-day-lofi',
+  'lofi-minimal-focus-lofi', 'lofi-late-study-lofi', 'lofi-ambient-lofi',
+  'lofi-twilight-lofi', 'lofi-hazy-guitar-lofi', 'lofi-vinyl-soft-lofi',
+  'lofi-instrumental-jazz-lofi', 'lofi-jazz-lounge-lofi', 'lofi-minimal-beats-lofi',
+  'lofi-rainy-cafe-lofi', 'lofi-jazz-bass-lofi'
+] as const;
+
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
   'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
   christmas: [],
-  'lofi-study': [],
+  'lofi-study': LOFI_STUDY_CORE_GENRE_IDS,
   kids: KIDS_CORE_GENRE_IDS,
   'showa-70s': SHOWA_70S_CORE_GENRE_IDS,
   j2000s: J2000S_CORE_GENRE_IDS,

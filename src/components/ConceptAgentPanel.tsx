@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { recommendConceptLocal, recommendConceptViaApi, type ConceptAgentResult, type ConceptRecommendation } from '../core/conceptAgent';
 import { addConceptHistory, getConceptHistory } from '../core/library';
+import { readRecentGenreIds } from '../core/recentGenreStore';
 import { genreLabelsKo, seasonLabelsKo } from '../data/koreanLabels';
 import type { ChannelArchetype, ProviderSettings } from '../types';
 
@@ -49,8 +50,12 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
     setAppliedId(null);
     try {
       const defaults = { genreId: currentGenreId, moodId: currentMoodId, seasonId: currentSeasonId };
+      // 지시문 51 (TASK A-2①) — 이 채널의 최근 장르 이력을 padding
+      // tie-break에 넘긴다(§core/conceptAgent.ts의 orderCoreGenresForPadding
+      // 참고). 새 원장이 아니라 지시문33 TASK B가 쓰던 core/recentGenreStore.ts
+      // 그대로 재사용한다.
       const next = provider.provider === 'local'
-        ? recommendConceptLocal(text, archetype, defaults, offset, songCount)
+        ? recommendConceptLocal(text, archetype, defaults, offset, songCount, readRecentGenreIds(channelId))
         : await recommendConceptViaApi(text, archetype, provider, songCount);
       setResult(next);
       const nextHistory = await addConceptHistory(channelId, text);

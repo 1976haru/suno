@@ -321,6 +321,35 @@ jobs:
       - run: npm ci
       - run: npm run check:genre-completeness
 
+  # 지시문 51 (TASK D) — check:genre-completeness("필드가 채워졌는가")와
+  # 다른 축: "채널이 갖고 있는 장르를 추천이 실제로 쓰는가". advisory만
+  # 낸다 — exit 0 고정(scripts/checkGenreUtilization.ts 자기 doc comment
+  # 참고), 50% 미만이어도 세트를 막지 않는다.
+  check-genre-utilization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:genre-utilization
+
+  # 지시문 51 (TASK D2) — 장르 축과 같은 유형이 GenerationOptions의 다른
+  # 축에도 있는지 A/B 비교로 전수 확인한다. advisory만 낸다 — exit 0
+  # 고정(scripts/checkOptionUtilization.ts 자기 doc comment 참고).
+  check-option-utilization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:option-utilization
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

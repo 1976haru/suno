@@ -272,8 +272,12 @@ describe('structured genre library', () => {
   });
 
   it('[v3.63] exposes the extended catalog through direct search, independent of archetype chips', () => {
+    // 지시문 51 (TASK A-1) — 250 -> 249: city-night-drive 채널의 city-pop-*
+    // 변형 6종을 CITY_NIGHT_CORE_GENRE_IDS에 추가(활용률 36%->100% 실측)한
+    // 결과 genreTierForId(allCoreGenreIds 기준)가 이 장르들을 'extended'에서
+    // 'core'로 옮겼다 — 회귀가 아니라 core 목록 확장의 직접 결과.
     const extendedResults = searchExtendedGenres('');
-    expect(extendedResults.length).toBeGreaterThanOrEqual(250);
+    expect(extendedResults.length).toBeGreaterThanOrEqual(249);
     expect(extendedResults.some(result => result.genre.id === 'jazz-bebop-sax-drive')).toBe(true);
     expect(searchExtendedGenres('Bebop').map(result => result.genre.id)).toContain('jazz-bebop-sax-drive');
   });
