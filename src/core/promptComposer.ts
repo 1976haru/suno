@@ -1312,8 +1312,6 @@ export function songOutputShape(generateThumbnailText: boolean, packagingLanguag
       tags: ['string'],
       ...(generateThumbnailText ? { thumbnailText: 'string' } : {})
     },
-    youtubeTitleKo: 'string optional',
-    youtubeTitleJa: 'string optional',
     genreId: 'string optional; copy from preassignedSongs if present',
     genreText: 'string optional; copy from preassignedSongs if present',
     lyricTheme: 'string optional; copy from preassignedSongs if present',

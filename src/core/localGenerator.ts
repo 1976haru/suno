@@ -2292,8 +2292,6 @@ export function generateLocalBlueprint(
       lyrics,
       thumbnailText: youtube.thumbnailText,
       youtube,
-      youtubeTitleKo: `${title} | ${season.label} ${opts.channel.name} 플레이리스트`,
-      youtubeTitleJa: `${title} | ${season.label} ${opts.channel.name} プレイリスト`,
       ...(titleLocalized ? { titleLocalized, titleDisplay } : {}),
       qualityScore: 0,
       warnings: promptWarnings,

@@ -800,6 +800,17 @@ export interface GenerationOptions {
   customMoneyChord: string;
   customConcept: string;
   /**
+   * 지시문 54 (TASK A-2) — 하루: "썸네일이나 플레이리스트 입력하는 곳이
+   * 있으면 거기서 입력하면 노래 제목이 자동으로 연동되어 생성되어야지."
+   * projectTitle을 재사용하지 않고 신설한다 — projectTitle은 파일명·캐시
+   * 키·배치 작업 이름에 이미 쓰이고 있어(bridgeInstruction.ts's
+   * defaultBridgeOutputPath 등) 의미가 겹치고, 특수문자·이모지가 들어간
+   * 영상 제목이 파일명을 깨뜨릴 위험이 있다. customConcept(곡의 장면·
+   * 내용)과는 다른 층 — 이건 "곡 제목의 정서"만 정한다. 선택 사항 —
+   * 비워두면 지금과 동일하게 동작한다(§A-1/§하지 말 것).
+   */
+  videoTitle?: string;
+  /**
    * 지시문 10 (TASK A-2) — computed once by core/eraIntent.ts's
    * deriveEraIntent (customConcept text, reusing core/constraints.ts's
    * extractEraConstraint) and stored here so every downstream reader (genre
@@ -1248,8 +1259,6 @@ export interface SongIdea {
   /** TASK v3.23 — the app no longer asks the API for this (user makes thumbnails externally); optional so old saved packs that still have it keep rendering/exporting fine. */
   thumbnailText?: string;
   youtube: YoutubeMetadata;
-  youtubeTitleKo?: string;
-  youtubeTitleJa?: string;
   /**
    * v4.3 (TASK A) — packaging-language song title: a non-literal
    * reinterpretation of `title`'s scene/emotion in the pack's own

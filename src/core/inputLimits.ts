@@ -14,7 +14,10 @@ export const INPUT_LIMITS = {
   negativeStyle: 600,
   customConcept: 300,
   referenceMood: 220,
-  customLyricThemeScene: 240
+  customLyricThemeScene: 240,
+  // 지시문 54 (TASK A) — 영상/플레이리스트 제목. 짧은 한 줄 제목이 목적이라
+  // customConcept(장면 서술, 300자)보다 훨씬 짧게 둔다.
+  videoTitle: 120
 } as const;
 
 export type InputLimitField = keyof typeof INPUT_LIMITS;
