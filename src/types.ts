@@ -1735,6 +1735,15 @@ export interface KpopMemberSlot {
   memberId: string;
   role: KpopPartRole;
   gender: 'male' | 'female';
+  /**
+   * 지시문 52 (TASK A-1) — 이 멤버의 음색·창법. data/kpopMemberTimbres.ts's
+   * assignMemberTimbres가 role별 후보에서 골라, 같은 곡의 다른 멤버와는
+   * 겹치지 않는 timbreId를 배정한다(§A-3). 26종 보컬 프리셋(곡 단위)과는
+   * 다른 층 — 이건 "곡 안에서 멤버마다 다르다".
+   */
+  timbreId: string;
+  /** "bright thin tenor, clear forward attack" 형태 — lyric tag/stylePrompt에 그대로 얹는다. */
+  timbreText: string;
 }
 
 /**

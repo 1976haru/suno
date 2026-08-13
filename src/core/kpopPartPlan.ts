@@ -3,6 +3,7 @@ import type { StructureTemplateId } from './lyricEngine';
 import type { KpopWorkspacePolicy } from './kpopWorkspacePolicy';
 import type { VocalGender } from './vocalPlan';
 import { mulberry32 } from '../utils/prng';
+import { assignMemberTimbres } from '../data/kpopMemberTimbres';
 
 /**
  * 지시문 37 (TASK A) — "K-pop 아이돌 특징 ① 여러 명이 부른다"가 완전
@@ -47,10 +48,10 @@ function buildRoster(memberCount: number, groupGender: 'male' | 'female', includ
     else if (i === 2 && rosterSize >= 4) role = 'main-rapper';
     else if (i === 3 && rosterSize >= 5) role = 'lead-rapper';
     else role = 'sub-vocal';
-    roster.push({ memberId: memberIdFor(i), role, gender: groupGender });
+    roster.push({ memberId: memberIdFor(i), role, gender: groupGender, timbreId: '', timbreText: '' });
   }
   if (includeGuest) {
-    roster.push({ memberId: memberIdFor(rosterSize), role: 'lead-vocal', gender: groupGender === 'male' ? 'female' : 'male' });
+    roster.push({ memberId: memberIdFor(rosterSize), role: 'lead-vocal', gender: groupGender === 'male' ? 'female' : 'male', timbreId: '', timbreText: '' });
   }
   return roster;
 }
@@ -127,6 +128,9 @@ export function buildKpopPartPlan(
   const memberCount = min + Math.floor(rng() * (max - min + 1));
   const includeGuest = vocalGender === 'duet';
   const roster = buildRoster(memberCount, policy.groupGender, includeGuest);
+  // 지시문 52 (TASK A-1/A-3) — 로스터 확정 직후, 같은 rng 시퀀스를 이어서
+  // 멤버별 음색을 배정한다(결정성 유지 — 같은 seed면 같은 결과).
+  assignMemberTimbres(roster, rng);
   const rapperPool = roster.filter(m => m.role === 'main-rapper' || m.role === 'lead-rapper');
 
   const sectionAssignments: KpopPartPlan['sectionAssignments'] = [];

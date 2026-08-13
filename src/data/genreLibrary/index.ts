@@ -490,7 +490,10 @@ export const KRIDOL_M_CORE_GENRE_IDS = [
   'kridol-midtempo-rnb',
   'kridol-latin-afro',
   'kridol-emotional-ballad',
-  'kridol-retro-funk'
+  'kridol-retro-funk',
+  // 지시문 52 (TASK B-1) — 끝에 추가(기존 top-3 기본값 순서를 건드리지 않는다).
+  'kridol-melodic-rap',
+  'kridol-hard-rap'
 ] as const;
 
 /**
@@ -508,7 +511,10 @@ export const KRIDOL_F_CORE_GENRE_IDS = [
   'kridol-band-crossover',
   'kridol-performance-trap',
   'kridol-midtempo-rnb',
-  'kridol-emotional-ballad'
+  'kridol-emotional-ballad',
+  // 지시문 52 (TASK B-1) — 끝에 추가(기존 top-3 기본값 순서를 건드리지 않는다).
+  'kridol-melodic-rap',
+  'kridol-hard-rap'
 ] as const;
 
 /**
@@ -1793,6 +1799,54 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     // triggers would swallow this genre the same way modern-chill would
     // swallow kridol-midtempo-rnb; kept explicit for the same reason.
     avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'generic neon Tokyo skyline', 'sports car at night']
+  }),
+  /**
+   * 지시문 52 (TASK B-1) — 실측: kridol-* 7종 중 랩 요소가 있는 것이
+   * kridol-performance-trap 1종뿐이었다("랩이 나오면 항상 같은 소리다").
+   * TASK D 판단(§D-2): 지시문 35(멈블 랩 채널 신설)는 실제 데이터로 존재한
+   * 적이 없고 이 지시문의 적용 범위(kr-idol) 밖이라 넣지 않는다 — 대신
+   * kridol-* 로 2종만 최소 추가한다. performance-trap과는 템포·보컬
+   * 딜리버리 둘 다 다르게: melodic-rap은 노래하듯 랩(sing-rap, 중간
+   * 템포), hard-rap은 랩 벌스가 후렴으로 가는 다리가 아니라 곡의 중심인
+   * 더 낮고 거친 트랙이다. 멤버별 실제 플로우 차이는 이 장르가 아니라
+   * data/kpopMemberTimbres.ts의 main-rapper/lead-rapper 후보가 낸다(§B-2
+   * "A-2의 음색 팔레트와 같은 데이터를 쓴다" — 중복 제작 아님).
+   */
+  legacyGenrePack({
+    id: 'kridol-melodic-rap',
+    label: 'Melodic Sing-Rap Pop',
+    styleCore: 'Korean idol melodic sing-rap pop, half-sung half-rapped verses that carry the hook themselves, airy layered ad-libs',
+    instruments: ['muted trap hi-hat pattern', 'warm sub bass', 'plucked synth melody', 'vinyl-textured vocal chop'],
+    tempoRange: [108, 124],
+    goodFor: ['무대 위의 밤', '퍼포먼스', '랩'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['laid-back triplet sing-rap cadence', 'half-sung half-rapped pocket'],
+    vocal: ['melodic sing-rap flow', 'airy ad-lib layered hook'],
+    production: ['warm mid-forward trap mix', 'soft-focus vocal-chop texture'],
+    harmony: ['minor-to-major hook resolution', 'suspended color under the verse'],
+    moods: ['confident', 'melodic', 'laid-back'],
+    audiences: ['무대 위의 밤', '랩'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'lo-fi study beat', 'bedroom tape hiss']
+  }),
+  legacyGenrePack({
+    id: 'kridol-hard-rap',
+    label: 'Hard Rap Stage Cut',
+    styleCore: 'Korean idol hard rap stage cut, dark heavy 808 pocket, full rap verses that anchor the track rather than just leading into the hook',
+    instruments: ['heavy dark 808 sub', 'sparse hard-hitting hi-hat pattern', 'distorted synth stab', 'low brass hit'],
+    tempoRange: [92, 112],
+    goodFor: ['무대 위의 밤', '퍼포먼스', '랩'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['heavy dark-808 rap pocket', 'sparse hard-hitting hi-hat pattern'],
+    vocal: ['low gritty rap-forward lead', 'group ad-lib punctuation'],
+    production: ['dark heavy low-end mix', 'wide-open negative space around the verse'],
+    harmony: ['minor-key tension riff', 'sparse dissonant stab'],
+    moods: ['intense', 'confident', 'dark'],
+    audiences: ['무대 위의 밤', '랩'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'lo-fi study beat', 'bedroom tape hiss']
   })
 ];
 

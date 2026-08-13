@@ -21,7 +21,10 @@ describe('지시문 37 (TASK A-4) — [파트 배분] instruction is delivered v
     const instruction = instructionFor(femaleChannel);
     expect(instruction).toContain('[파트 배분]');
     expect(instruction).toContain('Member A');
-    expect(instruction).toContain('[Verse 1: Member A]');
+    // 지시문 52 (TASK A-4) — lyric tag에 멤버 음색이 실린다("[Verse 1: Member A]"
+    // 가 아니라 "[Verse 1: Member A — <timbre text>]"). 실제 timbre 문구는
+    // rng 배정이라 고정하지 않고, 형태(대시로 이어지는 음색 묘사)만 확인한다.
+    expect(instruction).toMatch(/\[Verse 1: Member A — [^\]]+\]/);
     expect(instruction).toContain('Chorus: All');
   });
 

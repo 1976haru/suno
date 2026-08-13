@@ -102,7 +102,9 @@ describe('structured genre library', () => {
     // genreLibrary and presets.ts's rawGenrePacks, same pattern as v3.61).
     // 지시문 21 (TASK A) — oldpopGenrePacks grew 32 -> 34 (six-eight-slow-ballad/
     // italian-canzone), kr2030GenrePacks grew 6 -> 8 (lofi-swing-hiphop/noir-deep-house).
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 8 + 7 + 7 + 7 + 7);
+    // 지시문 52 (TASK B-1) — kridolMaleGenrePacks grew 7 -> 9 (kridol-melodic-rap/
+    // kridol-hard-rap, "랩이 나오면 항상 같은 소리다" 실측 대응).
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 8 + 7 + 7 + 7 + 9);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -341,8 +343,10 @@ describe('structured genre library', () => {
     // 지시문 21 (TASK A) — +2 oldpop-* ids (six-eight-slow-ballad/
     // italian-canzone) +2 kr2030-* ids (lofi-swing-hiphop/noir-deep-house),
     // same registered-in-both pattern: 362.
-    expect(libraryIds.size).toBe(362);
-    expect(presetIds.size).toBe(362);
+    // 지시문 52 (TASK B-1) — +2 kridol-* ids (kridol-melodic-rap/kridol-hard-rap),
+    // same registered-in-both pattern: 364.
+    expect(libraryIds.size).toBe(364);
+    expect(presetIds.size).toBe(364);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);
