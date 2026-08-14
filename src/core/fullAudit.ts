@@ -23,6 +23,7 @@ import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
 import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
 import { auditStylePromptAgainstSpec } from './promptSpec';
 import { classifyClause, introSubcategory, type PromptAxis } from '../data/promptAxisLexicon';
+import { stylePromptOpensWithGenre, stylePromptKeepsGenreVocabulary } from './genreFidelity';
 import { resolveSceneSignatureSource } from './situationLedger';
 import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } from './perceivedEnergyObservations';
 import { parseSetArcSpec, checkSetArcAdherence, setArcAdherenceIsBlocking, SET_ARC_ADHERENCE_BLOCKING_THRESHOLD } from './setArcAdherence';
@@ -357,6 +358,16 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
   const DUPLICATE_TOKEN_PATTERN = /\b(\w+)\s+\1\b/i;
   const duplicateTokenSongs = songs.filter(song => DUPLICATE_TOKEN_PATTERN.test(song.stylePrompt));
 
+  // 지시문 58 (TASK D) — 실측: 지시문 44에서 "장르 라벨이 맨 앞에 정확히
+  // 들어간다"를 한 번 확인했지만 회귀 검사를 안 만들어, 지시문 46의 시대
+  // 바닥 반영 이후(8/14) 다시 깨졌다(core/finalPromptNormalizer.ts의
+  // enforceGenreOpensPrompt가 이 지시문에서 고침). core/genreFidelity.ts를
+  // 그대로 재사용한다 — scripts/checkGenreFidelity.ts(npm run
+  // check:genre-fidelity)와 판정 로직을 공유한다.
+  const genreOpensPromptViolationSongs = songs.filter(song => !stylePromptOpensWithGenre(song.stylePrompt));
+  const genreCoreVocabSongs = songs.filter(song => stylePromptKeepsGenreVocabulary(song.genreId, song.stylePrompt) !== null);
+  const genreCoreVocabViolationSongs = genreCoreVocabSongs.filter(song => stylePromptKeepsGenreVocabulary(song.genreId, song.stylePrompt) === false);
+
   return [
     item({
       id: 'prompt_length', category: '프롬프트', labelKo: '프롬프트 길이',
@@ -431,6 +442,22 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
       targetKo: '0곡', actualKo: `${duplicateTokenSongs.length}곡${duplicateTokenSongs.length ? `: T${duplicateTokenSongs.map(s => s.trackNo).join(', T')}` : ''}`,
       pass: songs.length ? duplicateTokenSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 16 TASK B/D'],
       metric: songs.length ? { value: duplicateTokenSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'genre_opens_prompt', category: '프롬프트', labelKo: '장르 정체성 — 프롬프트 첫 구절',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: songs.length ? `${songs.length - genreOpensPromptViolationSongs.length}/${songs.length}${genreOpensPromptViolationSongs.length ? ` (미달: T${genreOpensPromptViolationSongs.map(s => s.trackNo).join(', T')})` : ''}` : '(없음)',
+      pass: songs.length ? genreOpensPromptViolationSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 44', '지시문 58 TASK D'],
+      metric: songs.length ? { value: genreOpensPromptViolationSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'genre_core_vocabulary', category: '프롬프트', labelKo: '장르 핵심 악기·리듬 반영',
+      targetKo: `${genreCoreVocabSongs.length}/${genreCoreVocabSongs.length}`,
+      actualKo: genreCoreVocabSongs.length
+        ? `${genreCoreVocabSongs.length - genreCoreVocabViolationSongs.length}/${genreCoreVocabSongs.length}${genreCoreVocabViolationSongs.length ? ` (미달: T${genreCoreVocabViolationSongs.map(s => s.trackNo).join(', T')})` : ''}`
+        : '(genreId 없음 — 판정 불가)',
+      pass: genreCoreVocabSongs.length ? genreCoreVocabViolationSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 58 TASK D'],
+      metric: genreCoreVocabSongs.length ? { value: genreCoreVocabViolationSongs.length, direction: 'lowerIsBetter' } : undefined
     })
   ];
 }

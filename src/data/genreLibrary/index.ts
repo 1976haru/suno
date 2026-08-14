@@ -2696,7 +2696,45 @@ export const VOCAL_PREFERENCE_OVERRIDES: Partial<Record<string, { male: number; 
   'rnb-old-school-romance-rnb': { male: 0.40, female: 0.45, mixed: 0.15 }, // 마빈 게이·루더 밴드로스(남성)와 아니타 베이커·데니스 윌리엄스(여성) 듀엣 전통이 공존.
   'chanson': { male: 0.40, female: 0.50, mixed: 0.10 }, // 에디트 피아프·바르바라(여성)와 자크 브렐·샤를 아즈나부르(남성)가 동등한 샹송 정전이라 원안(0.35/0.55)보다 균형에 가깝게 정정. (별도 id인 oldpop-night-chanson은 male 0.75로 이미 남성-우세 — 이 기본 chanson과 구별)
   'folk-pop': { male: 0.45, female: 0.40, mixed: 0.15 }, // 피터 폴 앤 메리·사이먼 앤 가펑클 등 포크는 남녀 듀오 전통이 강해 균형.
-  'acoustic-pop': { male: 0.40, female: 0.45, mixed: 0.15 } // 채널 오리지널 — 성별 편향 근거가 약해 균형에 가깝게.
+  'acoustic-pop': { male: 0.40, female: 0.45, mixed: 0.15 }, // 채널 오리지널 — 성별 편향 근거가 약해 균형에 가깝게.
+
+  // 지시문 58 (TASK C) — 지시문 57이 채운 시니어 21종 다음으로, 채널이
+  // 실제 쓰는 나머지 장르 중 kr-idol-male(9)·kr-idol-female(9, kridol-*
+  // 9종을 그대로 공유)·jp-2030-pop(6/7종, kawaii-idol 제외) 우선 배정.
+  // city-night·lofi-study·modern-chill·kr-2030(총 56종)은 이 지시문에서
+  // 미착수 — §F 보고에 명시.
+  //
+  // kridol-* 9종 — kr-idol-male({male:15,female:0,mixed:3})과
+  // kr-idol-female({male:0,female:15,mixed:3}) 두 워크스페이스가 정반대
+  // 쿼터로 같은 9개 장르 id를 공유한다(위 kridolMaleGenrePacks
+  // archetypes: ['kr-idol-male','kr-idol-female'] 배열 자체가 이미
+  // 그렇게 설계됨). vocalPreference는 장르 단위 필드라 "이 장르는
+  // female-lean"처럼 한쪽으로 정하면 반대 워크스페이스에서 의미가
+  // 반전된다 — 실제로 이 9종의 vocal 서술 필드도 v5.7(TASK H)에서 같은
+  // 이유로 "male"을 빼고 성별-중립으로 이미 정정된 전례가 있다(바로 위
+  // kridol-performance-trap의 doc comment 참고). 같은 원칙을 따라 male=
+  // female을 동률로 두고, mixed(3곡 쿼터는 두 워크스페이스 모두 동일)만
+  // 각 장르의 vocal 서술(그룹 하모니/유니즌 vs 솔로 리드)에 근거해
+  // 차등화한다.
+  'kridol-performance-trap': { male: 0.425, female: 0.425, mixed: 0.15 }, // 솔로 랩싱 리드 + 유니즌 훅 스택 — 중간.
+  'kridol-synth-dance': { male: 0.40, female: 0.40, mixed: 0.20 }, // "layered unison hook vocal" — 그룹 유니즌 비중이 있어 mixed 소폭 상향.
+  'kridol-band-crossover': { male: 0.40, female: 0.40, mixed: 0.20 }, // "full unison chorus stack" — 앤섬 유니즌 코러스.
+  'kridol-midtempo-rnb': { male: 0.45, female: 0.45, mixed: 0.10 }, // "hushed lower-register verse delivery" — 솔로 벌스 중심.
+  'kridol-latin-afro': { male: 0.40, female: 0.40, mixed: 0.20 }, // "call-and-response backing" — 콜앤리스폰스.
+  'kridol-emotional-ballad': { male: 0.375, female: 0.375, mixed: 0.25 }, // "layered harmony stack carrying the melody" — 9종 중 그룹 하모니 비중이 가장 커 mixed 최고.
+  'kridol-retro-funk': { male: 0.40, female: 0.40, mixed: 0.20 }, // "unison group hook vocal".
+  'kridol-melodic-rap': { male: 0.45, female: 0.45, mixed: 0.10 }, // "melodic sing-rap flow" — 솔로 플로우 중심.
+  'kridol-hard-rap': { male: 0.475, female: 0.475, mixed: 0.05 }, // "low gritty rap-forward lead" — 9종 중 가장 솔로-중심(랩 벌스가 곡의 중심).
+
+  // jp2030-* 6종(reiwa-way-home-jpop 채널 실사용분, kawaii-idol 제외) —
+  // jp-2030-pop은 kridol과 달리 성별별 별도 워크스페이스로 나뉘지 않아
+  // 일반 아티스트 관행에 근거해 자유롭게 배정한다.
+  'jp2030-melodic-jrock': { male: 0.45, female: 0.35, mixed: 0.20 }, // 아니메 오프닝 계열 J-rock은 남성 밴드 보컬(원 오크 록 등)이 다소 우세하나 여성 밴드보컬(LiSA 등)도 대표적 — 근소한 남성 우세.
+  'jp2030-anime-cinematic': { male: 0.35, female: 0.45, mixed: 0.20 }, // 아니메 오프닝은 강한 여성 벨팅 보컬(LiSA·아이무·Eir Aoi 등)이 특히 두드러져 여성 우세.
+  'jp2030-heisei-nostalgia': { male: 0.40, female: 0.45, mixed: 0.15 }, // 헤이세이 밴드팝·드라마 주제가는 남성(미스터 칠드런 등)·여성(우타다 히카루 등) 모두 정전급이라 균형에 가깝게.
+  'jp2030-dance-vocal': { male: 0.35, female: 0.40, mixed: 0.25 }, // "crisp unison group vocal" — 퍼포먼스 그룹 보컬 색이 강해 mixed 상향.
+  'jp2030-neo-citypop': { male: 0.40, female: 0.45, mixed: 0.15 }, // 시티팝 계보는 야마시타 타츠로(남성) 창시자급과 다케우치 마리야(여성) "Plastic Love" 양쪽이 정전이라 균형에 가깝게.
+  'jp2030-chill-neosoul': { male: 0.35, female: 0.45, mixed: 0.20 } // 네오소울은 국제적으로 여성 보컬 전통이 강하고("soft-focus low-lit intimacy"), 이 장르 특유의 친밀한 톤과도 맞아 여성 우세.
 };
 
 // 지시문 20 (TASK B-1) — real gap found: R&B/흑인 감성힙합/랩/트랩힙합
