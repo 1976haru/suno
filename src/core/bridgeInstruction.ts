@@ -76,7 +76,7 @@ export function defaultBridgeOutputPath(opts: Pick<GenerationOptions, 'channel' 
  * must not make meta required — see its own prohibitions section).
  */
 function buildBridgeMeta(
-  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle' | 'songCount' | 'lyricLanguage'>,
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle' | 'songCount' | 'lyricLanguage' | 'videoTitle'>,
   outputFilename: string
 ) {
   const setName = outputFilename.replace(/^lyrics\//, '').replace(/\.json$/, '');
@@ -91,7 +91,12 @@ function buildBridgeMeta(
     // 지시문 18 (TASK C-2) — 앱이 이 요청을 만든 시점의 자기 버전. 지시문
     // 스스로 "meta를 verbatim으로 복사하라"고 이미 요구하므로(위 doc comment),
     // 이 필드도 별도 지시문 없이 자동으로 응답에 실려 돌아온다.
-    bridgeVersion: APP_VERSION
+    bridgeVersion: APP_VERSION,
+    // 지시문 55 (TASK A-1) — 실측: 지시문 텍스트(§54)에는 영상 제목이
+    // 나가지만 requestPayload.meta에 담는 코드가 없어 팩까지 안 남았다.
+    // videoTitle이 없을 때는 키 자체를 안 넣는다(§A-4 "videoTitle 없을
+    // 때 meta 변화 0건").
+    ...(opts.videoTitle?.trim() ? { videoTitle: opts.videoTitle.trim() } : {})
   };
 }
 
@@ -453,7 +458,12 @@ function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
       ? '  - Never write it as a phonetic transliteration of the English words (e.g. writing "Blue Cup" as "블루 컵") — that is not localization.'
       : '  - Never write it as a katakana phonetic transliteration of the English words (e.g. writing "Blue Cup" as "ブルーカップ") — that is not localization.',
     '  - Example: "title": "Blue Cup", "titleLocalized": "식어가는 찻잔" (NOT "파란 컵" — that is a literal translation, not a reinterpretation).',
-    '  - This titleLocalized value is for on-screen display only; it is never pasted into Suno\'s own title field (which stays the plain English "title" — no parentheses).'
+    '  - This titleLocalized value is for on-screen display only; it is never pasted into Suno\'s own title field (which stays the plain English "title" — no parentheses).',
+    // 지시문 55 (TASK C-3③) — 실측: 영어 제목은 서로 다른데(예: "One Shy
+    // Smile" vs "First Star Turns") titleLocalized가 같은 경우가 있었다
+    // (같은 장면 축(listenerSituation/emotionArc)에서 뽑아냈기 때문).
+    // titleLocalized도 title과 독립적으로 서로 달라야 한다는 것을 명시한다.
+    '  - CRITICAL: "titleLocalized" must also be unique across every song in this pack, the same requirement as the English "title" — two songs never share the same titleLocalized even if their scenes/emotionArcs are similar. If "title" differs between two songs, "titleLocalized" must differ too.'
   ].join('\n');
 }
 
@@ -465,6 +475,17 @@ function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
  * 것과, 영상 제목의 단어를 그대로 반복하지 말라는 것(§B-2, "편안"이 15번
  * 나오면 안 된다)을 함께 명시한다. customConcept이 비어 있으면(§B-3) 영상
  * 제목이 장면 컨셉 역할도 겸하도록 안내를 추가한다.
+ *
+ * 지시문 55 (TASK B) — 실측: 지시문 자체(§54)는 배선돼 있었지만
+ * buildClaudeCodeInstruction의 조립 배열에서 titleInstructionLine 근처
+ * (거의 맨 끝, 15곡 전체 JSON payload 이후)에 있어 128,353자 지시문 중
+ * 113,567번째 글자에서야 처음 등장했다 — 같은 지시문의 lyricTheme 안내는
+ * 4,454번째 글자(약 25배 더 앞)라 LLM이 장면(lyricTheme) 중심으로 이미
+ * "생각을 굳힌" 뒤에야 영상 제목을 본다. 실제 재현: 추모 컨셉인데 청춘
+ * 회상 제목이 나왔다(§1-4). buildSetIntentSection("[이 세트가 하려는
+ * 것]", 지시문의 진짜 첫 내용)과 나란히 배치해 §B-2① "위치를 앞으로
+ * 옮긴다"를 해결한다(호출부는 아래 buildClaudeCodeInstruction 참고).
+ * §B-2②(곡별 예시)·③(lyricTheme과의 관계 명시)도 이 함수 안에 추가한다.
  */
 function videoTitleInstructionLineFor(opts: GenerationOptions): string {
   const videoTitle = opts.videoTitle?.trim();
@@ -475,9 +496,16 @@ function videoTitleInstructionLineFor(opts: GenerationOptions): string {
   return [
     `[영상 제목] 이 세트가 올라갈 영상/플레이리스트의 제목은 "${videoTitle}" 입니다.`,
     `  - ${opts.songCount}곡의 제목이 이 정서와 이어지게 지으십시오 — customConcept이 곡의 장면·내용을 정하는 것과는 다른 층입니다. 이 영상 제목은 "곡 제목의 톤"만 정합니다.${conceptFallbackNote}`,
+    // 지시문 55 (TASK B-2③) — "지금 제목이 lyricTheme(장면)에서 나오고
+    // 있다"는 실측 원인 진단에 대한 직접 대응. 장면 다양성 자체는 막지
+    // 않는다(그건 lyricTheme의 역할) — 그 장면에서 나오는 "제목의 정서"만
+    // 영상 제목을 따르게 한다.
+    '  - 각 곡의 장면(lyricThemeText)은 서로 다를 수 있고 그래야 합니다 — 그러나 그 장면에서 뽑아내는 제목의 정서·톤은 이 영상 제목을 따라야 합니다. 장면이 달라도 제목이 풍기는 감정은 이 영상 제목 하나로 수렴해야 합니다.',
     '  - ① 영상 제목에 쓰인 단어를 곡 제목에 그대로 쓰지 마십시오.',
     '  - ② 같은 정서를 서로 다른 이미지·표현으로 나타내십시오.',
-    `  - ③ ${opts.songCount}곡이 서로 다른 각도에서 그 정서에 접근하게 하십시오 — 같은 단어나 표현을 반복하면 안 됩니다.`
+    `  - ③ ${opts.songCount}곡이 서로 다른 각도에서 그 정서에 접근하게 하십시오 — 같은 단어나 표현을 반복하면 안 됩니다.`,
+    // 지시문 55 (TASK B-2②) — 곡별 예시. §55 본문의 실제 예시 그대로.
+    '  - 예: 영상 제목이 "그곳에서는 편안하세요"라면, 곡 제목은 "거기 그 자리에서" · "이제는 아프지 않게" · "먼저 가신 길" · "남겨진 아침" · "다시 만날 때까지"처럼 — 단어는 겹치지 않지만 정서(추모·이별의 위로)는 15곡 모두 이어집니다. "편안한 그곳" · "그곳에서 편안히"처럼 원문 단어를 재배열만 하는 것은 금지된 패턴입니다.'
   ].join('\n');
 }
 
@@ -1785,6 +1813,13 @@ export function buildClaudeCodeInstruction(
     // buildSetIntentSection's own doc comment for the real problem this
     // reordering fixes.
     buildSetIntentSection(opts, instructionOptions.conceptLine ?? opts.customConcept),
+    // 지시문 55 (TASK B) — buildSetIntentSection 바로 다음, "이 세트가
+    // 하려는 것" 바로 옆에 둔다. 예전엔 titleInstructionLine 근처(거의 끝,
+    // 15곡 JSON payload 이후)에 있어 128,353자 지시문의 113,567번째
+    // 글자에서야 처음 등장했다 — LLM이 lyricTheme(4,454번째 글자, 약
+    // 25배 더 앞) 중심으로 이미 생각을 굳힌 뒤였다. 앞으로 옮겨 세트
+    // 의도를 정할 때부터 영상 제목이 함께 보이게 한다.
+    videoTitleInstructionLine,
     // v5.23 (TASK B) — "창작 방향", right after intent per the task's own
     // new section order (의도 -> 창작 방향 -> 곡별 재료 -> ...).
     ...buildDistinctChoiceInstructionLines(opts.songCount, workspaceId),
@@ -1852,7 +1887,6 @@ export function buildClaudeCodeInstruction(
     `- Never overwrite an existing file. If "${outputFilename}" already exists, append "_02" (then "_03", etc.) before the .json extension and write there instead.`,
     `- Its content must be exactly { "songs": [ ... ] } — ${opts.songCount} objects total, one per song, matching "outputShape.songs[0]" above (title, hookPhrase, stylePrompt, lyrics, seasonMoment, listenerSituation, emotionArc, youtube{title,description,tags}, etc.).`,
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" — { "meta": { ... }, "songs": [ ... ] } — copying "meta" from the request payload above verbatim. Do not invent or recompute any of its values yourself.',
-    videoTitleInstructionLine,
     titleInstructionLine,
     titleLocalizedInstructionLine,
     // v5.23 (TASK A §1-4) — the CRITICAL "already-used titles/hooks are
@@ -2111,6 +2145,10 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     // see this function's own header comment), so it needs the same fix
     // applied independently rather than inheriting it for free.
     buildSetIntentSection(baseOpts, baseOpts.customConcept),
+    // 지시문 55 (TASK B) — 단일 세트 경로와 같은 이유로 여기서도 앞으로
+    // 옮긴다(§위 단일 세트 경로의 주석 참고 — 이 마스터 모드는 별도
+    // 조립이라 독립적으로 옮겨야 한다).
+    videoTitleInstructionLineFor(baseOpts),
     // v5.23 (TASK B) — same "창작 방향" placement as the single-pack instruction.
     ...buildDistinctChoiceInstructionLines(totalSongs, masterWorkspaceId),
     '',
@@ -2149,11 +2187,6 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '- Each file content must be exactly { "songs": [ ... ] }, with no markdown fences and no surrounding prose inside the file.',
     `- Each set file must contain exactly ${songsPerSet} song objects matching requestPayload.outputShape.songs[0].`,
     '- Optional (recommended): also add a top-level "meta" field alongside "songs" in each set file — { "meta": { ... }, "songs": [ ... ] } — copying that set\'s "requestPayload.meta" verbatim. Do not invent or recompute any of its values yourself.',
-    // 지시문 54 (TASK B) — 단일 세트 경로(buildClaudeCodeInstruction)와 같은
-    // 안내. 이 마스터 모드는 그 함수에 위임하지 않고 별도로 조립되므로
-    // (§위 v5.23 주석 참고) 여기서도 독립적으로 추가해야 한다 — 안 그러면
-    // 멀티세트 생성에서만 영상 제목 안내가 조용히 빠진다.
-    videoTitleInstructionLineFor(baseOpts),
     titleInstructionLine,
     titleLocalizedInstructionLineFor(baseOpts),
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',

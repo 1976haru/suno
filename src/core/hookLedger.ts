@@ -32,6 +32,8 @@ export interface HookUsage {
   id: string;
   hook: string;
   title: string;
+  /** 지시문 55 (TASK C-3②) — 기존 이력에 필드만 추가한다(새 원장 신설 금지). 지시문54 이전에 기록된 레코드는 undefined — 그 회차 이전 팩은 titleLocalized 회피 대상에서 자연히 빠진다. */
+  titleLocalized?: string;
   channelId: string;
   language: LyricLanguage;
   usedAt: string;
@@ -89,6 +91,16 @@ export async function usedTitles(scope: LedgerScope, language: LyricLanguage): P
   return new Set(all.filter(u => matchesLedgerScope(u, scope) && u.language === language).map(u => u.title));
 }
 
+/** 지시문 55 (TASK C-3②) — usedTitles와 같은 조회, titleLocalized 전용. 지시문54 이전 레코드는 titleLocalized가 없어 자연히 제외된다. */
+export async function usedTitlesLocalized(scope: LedgerScope, language: LyricLanguage): Promise<Set<string>> {
+  const all = await allRecords();
+  return new Set(
+    all
+      .filter(u => matchesLedgerScope(u, scope) && u.language === language && u.titleLocalized)
+      .map(u => u.titleLocalized!)
+  );
+}
+
 /**
  * Most-recent-first, capped — used to keep the "don't reuse these" list sent
  * to a remote LLM prompt from growing unbounded (token cost).
@@ -108,16 +120,18 @@ export async function usedTitles(scope: LedgerScope, language: LyricLanguage): P
 export async function recentUsedTitlesAndHooks(
   scope: LedgerScope,
   language: LyricLanguage,
-  options: { titleLimit?: number; hookLimit?: number } = {}
-): Promise<{ titles: string[]; hooks: string[] }> {
-  const { titleLimit = 100, hookLimit = 500 } = options;
+  options: { titleLimit?: number; hookLimit?: number; titleLocalizedLimit?: number } = {}
+): Promise<{ titles: string[]; hooks: string[]; titlesLocalized: string[] }> {
+  const { titleLimit = 100, hookLimit = 500, titleLocalizedLimit = 100 } = options;
   const all = await allRecords();
   const scoped = all
     .filter(u => matchesLedgerScope(u, scope) && u.language === language)
     .sort((a, b) => (a.usedAt < b.usedAt ? 1 : -1));
   return {
     titles: scoped.slice(0, titleLimit).map(u => u.title),
-    hooks: scoped.slice(0, hookLimit).map(u => u.hook)
+    hooks: scoped.slice(0, hookLimit).map(u => u.hook),
+    // 지시문 55 (TASK C-3②) — titles와 같은 최근순 회피 리스트, titleLocalized 전용.
+    titlesLocalized: scoped.filter(u => u.titleLocalized).slice(0, titleLocalizedLimit).map(u => u.titleLocalized!)
   };
 }
 
@@ -142,6 +156,7 @@ export async function recordPackHooks(packId: string, channelId: string, bluepri
       id: `${currentWorkspaceId()}::${packId}:${song.trackNo}`,
       hook: song.hookPhrase,
       title: stripSetTitlePrefix(song.title),
+      ...(song.titleLocalized ? { titleLocalized: song.titleLocalized } : {}),
       channelId,
       language,
       usedAt: now,
