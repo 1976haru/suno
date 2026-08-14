@@ -587,10 +587,20 @@ function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]
     : '';
 }
 
-function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.genreText)
-    ? '- Each "preassignedSongs" entry also includes "genreText" - the genre/sub-style identity this track must stay recognizably within (do not substitute a different genre or the pack-level genre list). The exact wording is a reference, not a script: compose your own stylePrompt description of this genre rather than copying the phrase verbatim.'
-    : '';
+// 지시문 58 (TASK A) — 실측: 8/13 세트("warm healing ballad, timeless pop
+// balladry, 68 BPM...")까지는 stylePrompt가 장르로 시작했는데, 지시문 46의
+// 시대 바닥(eraGuardrailLines) 반영 이후 8/14 세트부터 시대·장면이 장르보다
+// 앞으로 밀렸다("late-1950s memory through 1970s piano pop ballad lens...",
+// "1960s-leaning Motown Pop Soul..."). genreInstructionLineFor는 "네 말로
+// 써라"만 요구했지 "어디에 쓰라"는 요구가 없었다 — 그 공백을 채운다. 시대
+// 지시(eraGuardrailLines) 자체는 건드리지 않는다(§하지 말 것) — 장르 바로
+// 뒤에 오면 되는 것이지 없애는 게 아니다.
+function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string[] {
+  if (!preassignedSongs.some(slot => slot.genreText)) return [];
+  return [
+    '- Each "preassignedSongs" entry also includes "genreText" - the genre/sub-style identity this track must stay recognizably within (do not substitute a different genre or the pack-level genre list). The exact wording is a reference, not a script: compose your own stylePrompt description of this genre rather than copying the phrase verbatim.',
+    '- CRITICAL — word order: every stylePrompt MUST OPEN with this track\'s genre identity, before era, scene, mood, or BPM. The first phrase a listener-facing generator reads must name the genre; era and scene come after it, not before.\n  GOOD: "Doo-Wop Close Harmony, 1950s-60s, 68 BPM, ..."\n  BAD:  "late-1950s memory through a doo-wop lens, 68 BPM, ..."\n  Rewording the genre in your own words is fine (per the line above) — moving it out of first position is not.'
+  ];
 }
 
 // TASK v3.62 (TASK 1-1) — instrumentSet/arrangementDensity are now the
@@ -1899,7 +1909,7 @@ export function buildClaudeCodeInstruction(
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
     moneyChordInstructionLineFor(preassignedSongs),
     moneyChordSectionInstructionLineFor(preassignedSongs),
-    genreInstructionLine,
+    ...genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(preassignedSongs),
@@ -2192,7 +2202,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     moneyChordInstructionLineFor(allSlots),
     moneyChordSectionInstructionLineFor(allSlots),
-    genreInstructionLine,
+    ...genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(allSlots),
