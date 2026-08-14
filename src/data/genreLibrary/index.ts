@@ -2657,7 +2657,46 @@ export const VOCAL_PREFERENCE_OVERRIDES: Partial<Record<string, { male: number; 
   'jazz-chamber-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
   // 예외 ② — 음역 자체가 장르 정의인 2종 (위 doc comment 참고)
   'jazz-baritone-vocal-jazz': { male: 0.65, female: 0.2, mixed: 0.15 },
-  'jazz-cool-baritone-jazz': { male: 0.65, female: 0.2, mixed: 0.15 }
+  'jazz-cool-baritone-jazz': { male: 0.65, female: 0.2, mixed: 0.15 },
+
+  // 지시문 57 (TASK A) — 시니어 39종 실측(good-morning-memory-radio +
+  // oldpop-lounge-main preferredGenres 교집합) 중 재즈 53종을 제외하고
+  // 남아있던 vocalPreference 미채움 21종. 지시문 46이 재즈에서 쓴 것과
+  // 같은 방식(장르 관행 근거 + 근거 기재 + verified: false)을 그대로
+  // 따른다 — 청취 검증값이 아니라 실제 시대 레퍼런스 아티스트/그룹에
+  // 근거한 추정이다. §하지 말 것 "verified: false인 값으로 세트를
+  // 차단하지 말 것" — 이 표는 core/vocalGenreAffinity.ts의
+  // applyGenreVocalAffinity가 소비하는 advisory 가중치일 뿐, 채널
+  // 쿼터(남5·여5·듀엣5) 총량 자체는 건드리지 않는다(그 함수는 순수
+  // 슬롯 스왑이라 marginal count가 항상 보존된다 — 그 파일 자체의 doc
+  // comment 참고).
+  //
+  // 콜앤리스폰스·듀엣 전통이 있는 3종(모타운/R&B 올드스쿨 로맨스/선샤인팝)은
+  // mixed를 0.20으로 높였다(§A-3).
+  'oldpop-motown-pop-soul': { male: 0.35, female: 0.45, mixed: 0.20 }, // 모타운은 남성(포 탑스·템테이션스)·여성(슈프림스) 리드가 공존했고 콜앤리스폰스 백킹이 정체성이라 mixed를 높였다.
+  'oldpop-british-beat': { male: 0.70, female: 0.15, mixed: 0.15 }, // 비틀즈·킹크스·데이브 클락 파이브 등 브리티시 인베이전 밴드는 거의 전부 남성 리드.
+  'oldpop-sunshine-pop': { male: 0.25, female: 0.55, mixed: 0.20 }, // 마마스 앤 파파스·5th 디멘션의 밝은 여성/혼성 하모니가 정체성.
+  // 지시문 원안은 female 0.55였으나, 좀비스(콜린 블런스톤)·레프트 뱅크(스티브
+  // 마틴 카로)·에밋 로즈 등 바로크팝의 실제 대표 아티스트가 대부분 남성
+  // 리드라 남성 쪽으로 정정했다 — 근거 없이 원안을 그대로 쓰지 않는다.
+  'oldpop-baroque-pop': { male: 0.50, female: 0.35, mixed: 0.15 },
+  'oldpop-soft-rock-am': { male: 0.55, female: 0.35, mixed: 0.10 }, // 카펜터스(여성)가 대표적이지만 브레드·아메리카·플레이어 등 AM 골드 카탈로그 다수가 남성 리드라 원안(0.50/0.40)에서 남성 쪽으로 소폭 정정.
+  'oldpop-piano-ballad-70s': { male: 0.45, female: 0.45, mixed: 0.10 }, // 엘튼 존·빌리 조엘(남성)과 캐롤 킹·로버타 플랙(여성)이 고르게 대표적.
+  'oldpop-warm-morning-glow': { male: 0.35, female: 0.55, mixed: 0.10 }, // 채널 오리지널(실제 아티스트 미고정) 장르 — 기존 vocal 서술("gentle unhurried glow lead")의 부드러운 톤에 맞춰 여성 리드를 우세로 둔다.
+  'oldpop-orchestral-easy': { male: 0.45, female: 0.45, mixed: 0.10 }, // 앤디 윌리엄스·페리 코모·냇 킹 콜 등 이지 리스닝 크루너 전통이 강해 원안(0.40/0.50)보다 균형에 가깝게 정정.
+  'oldpop-evening-lamp-ballad': { male: 0.35, female: 0.55, mixed: 0.10 }, // 채널 오리지널 — 저녁 램프·친밀한 톤에 맞춰 여성 리드 우세.
+  'oldpop-slow-waltz-memory': { male: 0.35, female: 0.55, mixed: 0.10 }, // 채널 오리지널 — 느린 왈츠·회상 정서에 맞춰 여성 리드 우세.
+  'oldpop-six-eight-slow-ballad': { male: 0.45, female: 0.45, mixed: 0.10 }, // 6/8 발라드는 특정 아티스트 계열에 묶이지 않아 균형.
+  'oldpop-quiet-storm-warm': { male: 0.45, female: 0.45, mixed: 0.10 }, // 스모키 로빈슨·루더 밴드로스(남성)와 아니타 베이커·세이드(여성) 모두 콰이엇 스톰 장르를 대표해 원안(0.35/0.55)보다 균형에 가깝게 정정.
+  'oldpop-hearth-acoustic': { male: 0.40, female: 0.45, mixed: 0.15 }, // 채널 오리지널 — 벽난로 어쿠스틱은 성별 편향 근거가 약해 균형에 가깝게.
+  'oldpop-sunlit-strings-pop': { male: 0.30, female: 0.55, mixed: 0.15 }, // 채널 오리지널 — 햇살·스트링 톤에 맞춰 여성 리드 우세.
+  'oldpop-adult-contemporary-80s': { male: 0.40, female: 0.50, mixed: 0.10 }, // 라이오넬 리치(남성)·앤 머레이(여성) 등 80년대 AC는 고르게 대표적, 소폭 여성 우세.
+  'adult-contemporary': { male: 0.40, female: 0.50, mixed: 0.10 }, // oldpop-adult-contemporary-80s와 동일 근거(장르 정의 자체가 같은 계열).
+  'retro-soul-pop': { male: 0.40, female: 0.45, mixed: 0.15 }, // 샘 쿡·오티스 레딩·마빈 게이(남성)와 아레사 프랭클린·다이애나 로스(여성)가 동등하게 대표적이라 원안(0.30/0.55)보다 균형에 가깝게 정정.
+  'rnb-old-school-romance-rnb': { male: 0.40, female: 0.45, mixed: 0.15 }, // 마빈 게이·루더 밴드로스(남성)와 아니타 베이커·데니스 윌리엄스(여성) 듀엣 전통이 공존.
+  'chanson': { male: 0.40, female: 0.50, mixed: 0.10 }, // 에디트 피아프·바르바라(여성)와 자크 브렐·샤를 아즈나부르(남성)가 동등한 샹송 정전이라 원안(0.35/0.55)보다 균형에 가깝게 정정. (별도 id인 oldpop-night-chanson은 male 0.75로 이미 남성-우세 — 이 기본 chanson과 구별)
+  'folk-pop': { male: 0.45, female: 0.40, mixed: 0.15 }, // 피터 폴 앤 메리·사이먼 앤 가펑클 등 포크는 남녀 듀오 전통이 강해 균형.
+  'acoustic-pop': { male: 0.40, female: 0.45, mixed: 0.15 } // 채널 오리지널 — 성별 편향 근거가 약해 균형에 가깝게.
 };
 
 // 지시문 20 (TASK B-1) — real gap found: R&B/흑인 감성힙합/랩/트랩힙합
