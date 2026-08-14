@@ -16,11 +16,11 @@ function forStage(stage: 'lyrics' | 'evaluation', provider: ProviderSettings): P
 /** 지시문 14 (TASK C) — `scope` replaces the old bare `channelId` param: every real caller now passes `{ workspaceId }` so cross-channel history within the same workspace is actually seen (see hookLedger.ts's recentUsedTitlesAndHooks own doc comment for the underlying fix). `{ channelId }` is still accepted for a caller that genuinely wants one channel's own history only. */
 export async function safeAvoidSet(scope: LedgerScope, language: GenerationOptions['lyricLanguage']) {
   try {
-    const { titles, hooks } = await recentUsedTitlesAndHooks(scope, language);
-    return { usedTitles: titles, usedHooks: hooks };
+    const { titles, hooks, titlesLocalized } = await recentUsedTitlesAndHooks(scope, language);
+    return { usedTitles: titles, usedHooks: hooks, usedTitlesLocalized: titlesLocalized };
   } catch {
     // IndexedDB unavailable (private browsing, etc.) — generation still works, just without cross-pack dedup.
-    return { usedTitles: [], usedHooks: [] };
+    return { usedTitles: [], usedHooks: [], usedTitlesLocalized: [] };
   }
 }
 

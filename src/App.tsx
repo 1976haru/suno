@@ -590,7 +590,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     // (core/generationSnapshot.ts) are pure functions of importOpts itself —
     // no live component state read at all — so this race cannot happen.
     const preassignedSongs = preallocateSongSlots(importOpts, genresForOptions(importOpts), avoid);
-    const report = importSongsJson(text, importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? []);
+    const report = importSongsJson(text, importOpts, genresForOptions(importOpts), moodsForOptions(importOpts), selectedSeason, preassignedSongs, avoid.usedTitles ?? [], avoid.usedHooks ?? [], avoid.usedTitlesLocalized ?? []);
     report.warnings = [...report.warnings, ...metaReconciliation.warnings];
     if (!report.blueprint) {
       // Already refused upstream (parse failure / missing "songs" array /
@@ -932,6 +932,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
     const baseAvoid = await safeAvoidSet({ workspaceId: currentWorkspaceId() }, opts.lyricLanguage);
     let usedTitles = [...(baseAvoid.usedTitles ?? [])];
     let usedHooks = [...(baseAvoid.usedHooks ?? [])];
+    // 지시문 55 (TASK C-3②) — usedTitles/usedHooks와 같은 세트 간 누적 방식.
+    let usedTitlesLocalized = [...(baseAvoid.usedTitlesLocalized ?? [])];
 
     const ordered = files
       .map((file, uploadOrder) => ({ file, setIndex: parseSetIndexFromFilename(file.name, uploadOrder) }))
@@ -957,7 +959,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // it's safe to reconcile per set.
       const setMetaReconciliation = reconcileImportOptsWithMeta(extractBridgeImportMeta(text), baseSetOpts);
       const setOpts = setMetaReconciliation.lyricLanguage ? { ...baseSetOpts, lyricLanguage: setMetaReconciliation.lyricLanguage } : baseSetOpts;
-      const currentAvoid = { usedTitles, usedHooks };
+      const currentAvoid = { usedTitles, usedHooks, usedTitlesLocalized };
       // TASK (bridge-import fallback state-timing fix) — fallbackGenres()/
       // fallbackMoods() read live cm.selectedChannel/opts, entirely
       // disconnected from this set's own resolved setOpts.channel
@@ -965,7 +967,7 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       // setOpts itself instead, so every set in this run resolves genres
       // consistently with the channel it's actually being imported under.
       const preassignedSongs = preallocateSongSlots(setOpts, genresForOptions(setOpts), currentAvoid);
-      const report = importSongsJson(text, setOpts, genresForOptions(setOpts), moodsForOptions(setOpts), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks);
+      const report = importSongsJson(text, setOpts, genresForOptions(setOpts), moodsForOptions(setOpts), selectedSeason, preassignedSongs, currentAvoid.usedTitles, currentAvoid.usedHooks, currentAvoid.usedTitlesLocalized);
       report.warnings = [...report.warnings, ...setMetaReconciliation.warnings];
       const rawSongs = extractRawImportedSongs(text);
       setInputs.push({
@@ -980,6 +982,8 @@ function WizardApp({ workspaceId, onSwitchWorkspace, onNavigateToWorkspace }: Wi
       if (report.blueprint) {
         usedTitles = [...usedTitles, ...report.blueprint.songs.map(song => stripSetTitlePrefix(song.title))];
         usedHooks = [...usedHooks, ...report.blueprint.songs.map(song => song.hookPhrase)];
+        // 지시문 55 (TASK C-3②) — usedTitles/usedHooks와 같은 누적 방식.
+        usedTitlesLocalized = [...usedTitlesLocalized, ...report.blueprint.songs.map(song => song.titleLocalized).filter((t): t is string => Boolean(t))];
       }
     }
 

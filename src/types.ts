@@ -1673,6 +1673,15 @@ export interface PlaylistBlueprint {
      * 남기지 않는다(§C-2 "응답에 없으면 앱이 생성 시점의 값을 채운다").
      */
     bridgeVersion?: string;
+    /**
+     * 지시문 55 (TASK A) — bridgeVersion과 같은 신뢰 모델: 브릿지 응답에
+     * meta.videoTitle이 실려 오면 그대로, 없으면(구형 응답, LLM이 meta를
+     * 생략함) 가져오기 시점의 opts.videoTitle로 채운다 — "앱이 아는 값은
+     * 앱이 채운다"(§A-2, 지시문 26의 킬링포인트 전례와 같은 원칙). 둘 다
+     * 비어 있으면 undefined로 남는다(§A-4 "videoTitle 없을 때 meta 변화
+     * 0건").
+     */
+    videoTitle?: string;
   };
   /**
    * TASK (post-generation operation snapshot) — see GenerationSnapshot's own

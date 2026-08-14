@@ -15,7 +15,7 @@ import { buildSignatureBlueprint, resolveBilingualPair } from './localGenerator'
 import { scoreSongs } from './quality';
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
-import { dedupeTitlesAcrossPack } from './lyricEngine';
+import { dedupeTitlesAcrossPack, dedupeTitleLocalizedAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { normalizeSongOutput } from './songPostProcess';
@@ -121,6 +121,8 @@ export interface BridgeImportMeta {
   lyricLanguage?: string;
   /** 지시문 18 (TASK C-2) — core/bridgeInstruction.ts의 buildBridgeMeta가 요청 payload에 실은 버전을 LLM이 그대로 복사했을 때만 채워진다. */
   bridgeVersion?: string;
+  /** 지시문 55 (TASK A-2) — core/bridgeInstruction.ts의 buildBridgeMeta가 videoTitle이 있을 때만 실어 보낸다. */
+  videoTitle?: string;
 }
 
 /**
@@ -153,7 +155,8 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(isNonEmptyString(obj.conceptLabel) ? { conceptLabel: obj.conceptLabel } : {}),
     ...(typeof obj.songCount === 'number' ? { songCount: obj.songCount } : {}),
     ...(isNonEmptyString(obj.lyricLanguage) ? { lyricLanguage: obj.lyricLanguage } : {}),
-    ...(isNonEmptyString(obj.bridgeVersion) ? { bridgeVersion: obj.bridgeVersion } : {})
+    ...(isNonEmptyString(obj.bridgeVersion) ? { bridgeVersion: obj.bridgeVersion } : {}),
+    ...(isNonEmptyString(obj.videoTitle) ? { videoTitle: obj.videoTitle } : {})
   };
 }
 
@@ -502,7 +505,9 @@ export function importSongsJson(
   /** TASK v3.27 (Part A3) — the channel's cross-pack title history (same avoid.usedTitles the caller already fetched via hookLedger's safeAvoidSet for preallocateSongSlots), so an AI-creative title that happens to match an older pack's title still gets caught and uniquified. */
   avoidTitles: string[] = [],
   /** Channel hook history from hookLedger. Bridge imports warn on collisions but never rewrite hooks, because rewriting only hookPhrase would desync the lyrics. */
-  avoidHooks: string[] = []
+  avoidHooks: string[] = [],
+  /** 지시문 55 (TASK C-3②) — avoidTitles와 같은 출처(safeAvoidSet.usedTitlesLocalized), titleLocalized 전용. */
+  avoidTitlesLocalized: string[] = []
 ): ImportSongsReport {
   // TASK v3.27 (Part B1) — reproduced crash: importSongsJson accessed
   // season.label (and iterated genres/moods) unconditionally, so calling it
@@ -622,7 +627,10 @@ export function importSongsJson(
   // (unlike hookPhrase), so two songs in this import — or this import
   // against an older pack's title history — can still collide; catch and
   // auto-uniquify it here, the same pass every generation path now runs.
-  const { songs: deduped } = dedupeTitlesAcrossPack(scored, avoidTitles);
+  const { songs: dedupedTitles } = dedupeTitlesAcrossPack(scored, avoidTitles);
+  // 지시문 55 (TASK C-3①/②) — 같은 패스를 titleLocalized에도 적용한다
+  // (§C-4 "영어 제목과 같은 강도로 검사한다").
+  const { songs: deduped } = dedupeTitleLocalizedAcrossPack(dedupedTitles, avoidTitlesLocalized);
   // TASK v3.69 (TASK D) — meta.conceptLabel (when present) is the concept the
   // file was actually generated under, a more specific label than the
   // channel+season+genre fallback string below — prefer it the same way
@@ -640,7 +648,21 @@ export function importSongsJson(
   // 지시문 18 (TASK C-2) — meta.bridgeVersion(에이전트가 요청 payload에서 그대로
   // 복사해 왔을 때)을 우선하고, 없으면 지금 이 앱의 버전으로 채운다 — 절대
   // undefined로 남기지 않는다.
-  const blueprint: PlaylistBlueprint = { ...blueprintBase, meta: { ...blueprintBase.meta, bridgeVersion: meta?.bridgeVersion || APP_VERSION } };
+  // 지시문 55 (TASK A-2) — concept(바로 위 632번 줄 "opts.customConcept ||
+  // meta?.conceptLabel")과 같은 우선순위: 지금 화면의 opts.videoTitle이
+  // 진짜 값(앱이 아는 값)이고, meta.videoTitle은 그 값을 LLM이 verbatim
+  // 복사했는지 확인하는 echo다 — 응답이 echo를 빠뜨렸을 때만(§A-2 "LLM이
+  // meta를 안 넣었으면") meta 대신 opts로 채운다. 둘 다 비어 있으면 키
+  // 자체를 넣지 않는다.
+  const resolvedVideoTitle = (opts.videoTitle?.trim() || meta?.videoTitle?.trim()) || undefined;
+  const blueprint: PlaylistBlueprint = {
+    ...blueprintBase,
+    meta: {
+      ...blueprintBase.meta,
+      bridgeVersion: meta?.bridgeVersion || APP_VERSION,
+      ...(resolvedVideoTitle ? { videoTitle: resolvedVideoTitle } : {})
+    }
+  };
 
   // TASK v3.43 Part A4 — a bridge/coding-agent pack skips every real API
   // call's own per-request variation, so it's exactly the path most exposed
