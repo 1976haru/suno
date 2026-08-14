@@ -1690,6 +1690,23 @@ export function generateLocalBlueprint(
     // core/batchPreallocation.ts의 동일 수정과 같은 이유(선형 충돌 방지).
     return PROXIMITY_POOL[(idx * 5 + priorUses * 13) % PROXIMITY_POOL.length];
   }
+  // 지시문 56 (TASK A) — core/batchPreallocation.ts의 동일 수정(presetVariantVocalText,
+  // 그 파일 자신의 doc comment 참고)과 정확히 같은 이유·같은 로직. preset.prompt는
+  // 프리셋당 고정 문구 하나뿐이라 같은 프리셋을 쓰는 트랙끼리 앞 구절이 완전히
+  // 같아진다 — adultVocalTraitPlan(아래 §1534, vocalPlan 전체에 대해 이미
+  // 무조건 계산됨)이 만든 곡별 변주를 preset.prompt의 정체성 구절(첫 구절)
+  // 뒤에 붙여 쓴다.
+  function presetVariantVocalText(preset: VocalPreset, idx: number): string {
+    const anchor = preset.prompt.split(',')[0]?.trim() || preset.prompt;
+    const traitText = adultVocalTraitPlan?.[idx];
+    if (!traitText) {
+      return [preset.prompt, repeatVarianceFor(preset, idx)].filter(Boolean).join(', ');
+    }
+    const traitParts = traitText.split(', ');
+    const isDuetPreset = preset.gender === 'mixed' || preset.gender === 'duet';
+    const variantParts = isDuetPreset ? traitParts.slice(0, -1) : traitParts.slice(1);
+    return [anchor, ...variantParts].join(', ');
+  }
 
   const songs: SongIdea[] = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -1847,7 +1864,7 @@ export function generateLocalBlueprint(
       ? (isKidsArchetype(opts.channel.archetype)
           ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
           : (vocalPresetOverride
-              ? [vocalPresetOverride.prompt, repeatVarianceFor(vocalPresetOverride, idx)].filter(Boolean).join(', ')
+              ? presetVariantVocalText(vocalPresetOverride, idx)
               : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText)))
       : variedVocalText(fallbackVocalText, idx, trackGenres[0], opts.channel.archetype);
     // TASK v3.41 Part A1 — vocalType already IS the explicit gender for a
@@ -2313,6 +2330,12 @@ export function generateLocalBlueprint(
       pov: povPlan[idx],
       ...(sectionStyle ? sectionStyle : {}),
       vocalType,
+      // 지시문 56 (TASK A-4/B-3) — 지시문 26의 killingPointText와 같은 유형의
+      // 결함: vocalDescriptionText/vocalGender는 슬롯 지역 변수로만 존재했고
+      // SongIdea에 복사된 적이 없어("...song" 스프레드만으로는 안 옮겨짐)
+      // 최종 팩 JSON에 vocalText가 항상 비어 있었다(실측: 발라드 세트 15/15).
+      ...(vocalDescriptionText ? { vocalText: vocalDescriptionText, vocalVariantText: vocalDescriptionText } : {}),
+      ...(vocalGender ? { vocalGender } : {}),
       // TASK v3.68 (TASK A) — assigned once, here, at generation time.
       songId: generateSongId(seedBase, trackNo),
       // TASK v3.68 (TASK B) — snapshot fields for rating analysis

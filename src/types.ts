@@ -1310,6 +1310,17 @@ export interface SongIdea {
   openingStyle?: 'hook-forward' | 'hum-intro';
   /** TASK v3.38 Part B — which vocal type this song was assigned by core/vocalPlan.ts's per-song quota plan; only set for the 'kids' channel archetype. */
   vocalType?: 'male' | 'female' | 'mixed';
+  /**
+   * 지시문 56 (TASK A-4/B-3) — PreassignedSongSlot.vocalText/vocalVariantText/
+   * vocalGender(그 필드들 자기 doc comment 참고)와 동일한 값. 이 세 필드는
+   * 지금까지 슬롯에만 있었고 reconcileWithPreassignedSlot/generateLocalBlueprint
+   * 어느 쪽도 SongIdea로 복사하지 않아, 실제 stylePrompt/lyrics에는 반영됐지만
+   * 최종 팩 JSON에는 남지 않는 결함이 있었다(지시문 26의 killingPointText와
+   * 같은 유형 — 실측: 발라드 세트 15/15 vocalText='').
+   */
+  vocalText?: string;
+  vocalVariantText?: string;
+  vocalGender?: 'male' | 'female' | 'mixed' | 'duet';
   /** v3.47 Step 3: planned lyric theme id, mainly for allocation preview/auditing. */
   lyricTheme?: string;
   /** v3.49A: planned lead genre id for this track. */

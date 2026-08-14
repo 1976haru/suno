@@ -36,6 +36,7 @@ function buildFullSlot(): PreassignedSongSlot {
     introTextureText: 'warm string ensemble swell intro',
     vocalType: 'female',
     vocalText: 'female soft head-voice lead',
+    vocalVariantText: 'female soft head-voice lead, close-mic intimate',
     vocalGender: 'female',
     instrumentSet: ['upright bass', 'brushed snare'],
     arrangementDensity: 'medium',
@@ -159,6 +160,12 @@ const SLOT_OWNED_FIELDS: { field: keyof SongIdea; expected: unknown }[] = [
   { field: 'chorusStyle', expected: slot.chorusStyle },
   { field: 'chorusStyleText', expected: slot.chorusStyleText },
   { field: 'vocalType', expected: slot.vocalType },
+  // 지시문 56 (TASK A-4/B-3) — 실측: vocalText/vocalVariantText/vocalGender가
+  // 이 표에 없어서(=검사 배선이 없어서) 두 return 경로 모두에서 유실되고
+  // 있었다 — 발라드 세트 15/15 vocalText='' 회귀와 같은 결함.
+  { field: 'vocalText', expected: slot.vocalText },
+  { field: 'vocalVariantText', expected: slot.vocalVariantText },
+  { field: 'vocalGender', expected: slot.vocalGender },
   { field: 'eraTag', expected: slot.eraTag },
   { field: 'killingPointText', expected: slot.killingPointText },
   { field: 'killingPointPlacement', expected: slot.killingPointPlacement },

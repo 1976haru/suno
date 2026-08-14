@@ -865,6 +865,32 @@ export function preallocateSongSlots(
     // 떨어져 있어서). 서로 다른 배수(5·13)로 섞어 이 선형 충돌을 없앤다.
     return PROXIMITY_POOL[(idx * 5 + priorUses * 13) % PROXIMITY_POOL.length];
   }
+  // 지시문 56 (TASK A) — 실측: repeatVarianceFor의 "공간감 한 단어 추가"만으로는
+  // 부족했다 — 같은 프리셋을 쓰는 트랙들의 vocalText 앞 두 구절(성별·음역대,
+  // 딜리버리)이 여전히 완전히 같았다(발라드 세트 soft-female 3곡 실측).
+  // preset.prompt는 프리셋당 고정 문구 하나뿐이라 그 안에서는 변주가 없다.
+  // adultVocalTraitPlan은 vocalPlan 전체에 대해 이미 무조건 계산되므로
+  // (§644 adultVocalTraitPlan 선언) 프리셋이 걸린 트랙에도 그 idx에 대응하는
+  // 곡별 변주(딜리버리·질감·공간감, 듀엣은 페어링·블렌드·공간감)가 항상
+  // 준비돼 있다 — 그 변주를 빌려 쓰되, preset.prompt의 첫 구절(성별+음역대
+  // 정체성)만 고정해 "이 프리셋을 썼다"는 사실은 유지한다.
+  function presetVariantVocalText(preset: VocalPreset, idx: number): string {
+    const anchor = preset.prompt.split(',')[0]?.trim() || preset.prompt;
+    const traitText = adultVocalTraitPlan?.[idx];
+    if (!traitText) {
+      // adultVocalTraitPlan이 비어 있는 유일한 경우(explicitUnrecognizedVocalTone)
+      // — 기존 폴백을 그대로 유지한다.
+      return [preset.prompt, repeatVarianceFor(preset, idx)].filter(Boolean).join(', ');
+    }
+    const traitParts = traitText.split(', ');
+    const isDuetPreset = preset.gender === 'mixed' || preset.gender === 'duet';
+    // 듀엣/그룹 프리셋의 adultVocalTraitPlan 문구는 마지막 구절이 항상
+    // "male and female duet"로 끝난다(§1578) — anchor가 그 정체성 역할을
+    // 이미 대신하므로 마지막 구절만 뺀다. 솔로는 첫 구절(성별+음역대)만
+    // 뺀다 — 나머지(딜리버리·질감·공간감)가 곡마다 다른 변주다.
+    const variantParts = isDuetPreset ? traitParts.slice(0, -1) : traitParts.slice(1);
+    return [anchor, ...variantParts].join(', ');
+  }
 
   const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
@@ -891,7 +917,7 @@ export function preallocateSongSlots(
       ? (isKidsArchetype(opts.channel.archetype)
           ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
           : (vocalPresetOverride
-              ? [vocalPresetOverride.prompt, repeatVarianceFor(vocalPresetOverride, idx), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+              ? [presetVariantVocalText(vocalPresetOverride, idx), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
               : (adultVocalTraitPlan?.[idx]
                   ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
                   : fallbackVocalText)))
@@ -1513,6 +1539,13 @@ export function reconcileWithPreassignedSlot(
       ...(slot.chorusStyle ? { chorusStyle: slot.chorusStyle } : {}),
       ...(slot.chorusStyleText ? { chorusStyleText: slot.chorusStyleText } : {}),
       ...(slot.vocalType ? { vocalType: slot.vocalType } : {}),
+      // 지시문 56 (TASK A-4/B-3) — killingPointText와 같은 유형의 왕복 끊김:
+      // slot.vocalText/vocalGender/vocalVariantText가 두 return 경로 모두
+      // song 스프레드만으로는 안 옮겨져 최종 팩에 vocalText가 항상 비어
+      // 있었다(실측: 발라드 세트 15/15 vocalText='').
+      ...(slot.vocalText ? { vocalText: slot.vocalText } : {}),
+      ...(slot.vocalVariantText ? { vocalVariantText: slot.vocalVariantText } : {}),
+      ...(slot.vocalGender ? { vocalGender: slot.vocalGender } : {}),
       ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
       ...(slot.killingPointText ? { killingPointText: slot.killingPointText } : {}),
       ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
@@ -1614,6 +1647,10 @@ export function reconcileWithPreassignedSlot(
     // bridge response can never silently drift from the locally-decided
     // plan. Non-kids slots never set this field, so this is a no-op there.
     ...(slot.vocalType ? { vocalType: slot.vocalType } : {}),
+    // 지시문 56 (TASK A-4/B-3) — fast path와 같은 이유(위 참고).
+    ...(slot.vocalText ? { vocalText: slot.vocalText } : {}),
+    ...(slot.vocalVariantText ? { vocalVariantText: slot.vocalVariantText } : {}),
+    ...(slot.vocalGender ? { vocalGender: slot.vocalGender } : {}),
     // TASK v3.68 (TASK B) — snapshot fields for rating analysis
     // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.
     ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),

@@ -208,6 +208,32 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
   const femaleSongs = songs.filter(song => song.vocalType === 'female');
   const femaleMissingGenderWord = femaleSongs.filter(song => detectVocalGender(song.stylePrompt) !== 'female');
 
+  // 지시문 56 (TASK B-1/B-2) — 지시문 47 TASK A-7이 이미 알고 있던 결함의
+  // 재발 방지 검사. 그때 기준은 "vocalText 완전 일치"뿐이었다
+  // (repeatVarianceFor가 공간감 한 단어만 더해 완전 일치는 막았지만,
+  // 앞 두 구절이 같은 "거의 동일"은 걸러내지 못했다 — 발라드 세트
+  // soft-female 3곡 실측). 두 항목으로 나눈다: 완전 일치(여전히 0건
+  // 유지) / 첫 두 구절 일치(새 검사, 임계값은 정책 필드로 아래에 명시).
+  const vocalTexts = songs.map(song => song.vocalText?.trim()).filter((text): text is string => Boolean(text));
+  const exactCounts = new Map<string, number>();
+  for (const text of vocalTexts) exactCounts.set(text.toLowerCase(), (exactCounts.get(text.toLowerCase()) ?? 0) + 1);
+  const maxExactGroup = exactCounts.size ? Math.max(...exactCounts.values()) : 0;
+  // 지시문 56 (TASK B-2) — "곡별 서술의 첫 두 콤마 구절"을 유사도 신호로
+  // 쓴다: presetVariantVocalText(batchPreallocation.ts/localGenerator.ts)가
+  // 프리셋 정체성(첫 구절)만 고정하고 나머지를 변주하므로, 같은 프리셋을
+  // 쓰는 트랙끼리도 세 번째 구절부터는 달라야 한다 — 앞 두 구절까지 같으면
+  // 실제로 거의 같게 들린다(§B-1 실측).
+  const firstTwoClauses = (text: string) => text.split(',').slice(0, 2).map(part => part.trim().toLowerCase()).join(', ');
+  const similarityCounts = new Map<string, number>();
+  for (const text of vocalTexts) {
+    const sig = firstTwoClauses(text);
+    similarityCounts.set(sig, (similarityCounts.get(sig) ?? 0) + 1);
+  }
+  const maxSimilarityGroup = similarityCounts.size ? Math.max(...similarityCounts.values()) : 0;
+  // 정책 값 — 지시문 56 §B-2 "3곡 이상 같으면 warning"의 반대 표현(≤ 2곡이면
+  // pass). 실측 근거 없는 추정 임계값이므로 여기 주석에 명시한다.
+  const VOCAL_TEXT_SIMILARITY_MAX_GROUP = 2;
+
   return [
     item({
       id: 'vocal_distribution', category: '보컬', labelKo: '보컬 타입 배분',
@@ -244,6 +270,16 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
       targetKo: '≥ 12', actualKo: `${distinctVocalDescriptors.size}`,
       pass: distinctVocalDescriptors.size >= 12, requiresAudio: false, specifiedBy: ['v3.72 TASK B'],
       metric: { value: distinctVocalDescriptors.size, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'vocal_text_exact_duplicate', category: '보컬', labelKo: 'vocalText 완전중복',
+      targetKo: '0건', actualKo: vocalTexts.length ? `최대 ${maxExactGroup}곡 동일` : '(vocalText 없음)',
+      pass: vocalTexts.length ? maxExactGroup <= 1 : null, requiresAudio: false, specifiedBy: ['지시문 47 TASK A-7', '지시문 56 TASK B-1']
+    }),
+    item({
+      id: 'vocal_text_similarity', category: '보컬', labelKo: '보컬 서술 유사도 (첫 두 구절 동일)',
+      targetKo: `≤ ${VOCAL_TEXT_SIMILARITY_MAX_GROUP}곡`, actualKo: vocalTexts.length ? `최대 ${maxSimilarityGroup}곡` : '(vocalText 없음)',
+      pass: vocalTexts.length ? maxSimilarityGroup <= VOCAL_TEXT_SIMILARITY_MAX_GROUP : null, requiresAudio: false, specifiedBy: ['지시문 56 TASK B-2']
     })
   ];
 }
