@@ -42,6 +42,13 @@ import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from './promptComposer';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { auditStylePromptAgainstSpec, type PromptSpecViolation } from './promptSpec';
 import { descriptorCount } from './compositionScorer';
+import {
+  firstInstrumentPosition,
+  vocalDescriptorClauseCount,
+  INSTRUMENT_POSITION_MAX_CHARS,
+  VOCAL_DESCRIPTOR_MIN,
+  VOCAL_DESCRIPTOR_MAX
+} from './promptElementOrder';
 
 export type Finding = PromptSpecViolation;
 
@@ -313,7 +320,13 @@ export function enforceGenreOpensPrompt(stylePrompt: string, slot: PreassignedSo
  * findings는 core/promptSpec.ts의 auditStylePromptAgainstSpec(기존 유일한
  * export, §2-1 인용)을 정규화 "이후" 텍스트에 재실행한 결과 — 정규화가
  * 못 없앤 잔여 위반이 있으면 여기 남는다(정규화가 100% 보장은 아니라는
- * 신호를 호출자에게 정직하게 전달).
+ * 신호를 호출자에게 정직하게 전달). 지시문 59 (TASK B) — core/promptElementOrder.ts의
+ * 악기 위치·보컬 서술 개수 체크도 여기서 같은 findings 배열에 추가된다(아래
+ * 참고) — auditStylePromptAgainstSpec 자체에는 넣지 않는다: 그 함수는
+ * quality.ts/fullAudit.ts도 스코어링·집계에 그대로 쓰고 있어, 거기에 넣으면
+ * 실측 없이 -8점/집계 변화가 생긴다(§공통 규약 7). 이 정규화 관문의
+ * findings만 소비하는 곳(아직 UI에 노출되지 않음, TASK E/F가 원문으로
+ * 보고)에만 추가한다.
  */
 export function normalizeFinalStylePrompt(
   raw: string,
@@ -365,6 +378,30 @@ export function normalizeFinalStylePrompt(
   const findings = auditStylePromptAgainstSpec(stylePrompt, {
     vocal: { gender: slot.vocalGender, text: slot.vocalVariantText || slot.vocalText || '' }
   });
+  // 지시문 59 (TASK B) — "가져오기 시 stylePrompt를 파싱해 악기가 150자
+  // 이내에 나오는가·보컬 서술이 2~3개인가 확인한다. 미달이면 재배열하거나
+  // warning을 남긴다." 재배열(자동 이동)은 하지 않는다 — 악기는 genre.instruments
+  // 중 어느 표현이 살아남았는지조차 자유 프로즈라 안전하게 이동시킬 앵커가
+  // 없고(§하지 말 것 "PromptSpec 컴파일러 전체를 재작성하지 말 것"과 같은
+  // 위험), 보컬은 없는 클로즈를 새로 만들어낼 수 없다. warning만 남긴다
+  // (§공통 규약 7 "실측 없이 blocking을 만들지 않는다" — 여기서 쓰는
+  // INSTRUMENT_POSITION_MAX_CHARS(100자)/VOCAL_DESCRIPTOR_MAX(3개)는 아직
+  // 하루의 청취로 확정되지 않은 정책 임계값, promptElementOrder.ts 자기
+  // 주석 참고).
+  const instrumentPosition = firstInstrumentPosition(slotForStylePrompt.genreId, stylePrompt);
+  if (instrumentPosition !== null && instrumentPosition > INSTRUMENT_POSITION_MAX_CHARS) {
+    findings.push({
+      field: 'instrumentPosition',
+      detail: `genre instrument first appears at char ${instrumentPosition}, expected <= ${INSTRUMENT_POSITION_MAX_CHARS} (genre reads weakly when instruments arrive this late)`
+    });
+  }
+  const vocalDescriptorCount = vocalDescriptorClauseCount(stylePrompt);
+  if (vocalDescriptorCount !== null && vocalDescriptorCount > VOCAL_DESCRIPTOR_MAX) {
+    findings.push({
+      field: 'vocalCount',
+      detail: `stylePrompt has ${vocalDescriptorCount} consecutive vocal descriptor clauses, expected ${VOCAL_DESCRIPTOR_MIN}-${VOCAL_DESCRIPTOR_MAX}`
+    });
+  }
 
   return { prompt: stylePrompt, findings };
 }

@@ -577,7 +577,10 @@ function slowTrackLengthCallouts(slots: PreassignedSongSlot[]): string[] {
 // task's own "유지할 결정론" list), not stylistic wording.
 function introTextureInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.introTextureText)
-    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement.'
+    // 지시문 59 (TASK A-3) — "인트로·오프닝 지시를 뒤로": 삭제하지 않고
+    // stylePrompt 안에서의 위치만 6번 자리(장르·BPM·악기·머니코드·보컬 뒤)로
+    // 명시한다.
+    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement. Place this descriptor late in the stylePrompt (position 6, per the CRITICAL element-order rule above) — it is production detail, not genre identity, so it should never be one of the opening clauses.'
     : '';
 }
 
@@ -595,11 +598,34 @@ function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]
 // 써라"만 요구했지 "어디에 쓰라"는 요구가 없었다 — 그 공백을 채운다. 시대
 // 지시(eraGuardrailLines) 자체는 건드리지 않는다(§하지 말 것) — 장르 바로
 // 뒤에 오면 되는 것이지 없애는 게 아니다.
+// 지시문 59 (TASK A-4) — 실측: 8/14 세트는 보컬 서술 5개(음역·딜리버리·
+// 질감·근접감·시대기법)가 연속으로 이어졌는데 8/13은 2개였다("low calm male
+// baritone, restrained emotional delivery"). 개수 문제이지 어휘 문제가
+// 아니다 — vocalText 자체(지시문 56이 만든 곡별 변주)는 그대로 두고, 그중
+// 몇 개를 stylePrompt에 실제로 옮겨 적을지만 2~3개로 좁힌다. 예전 문구
+// ("weave that exact phrase ... verbatim ... do not paraphrase it away")는
+// vocalText 전체(콤마로 이어진 모든 절)를 그대로 옮기라는 요구였다 — 그게
+// 이 실측의 실제 원인이다. 두 빌더(단일 세트/마스터 모드)가 각자 인라인
+// 문자열을 복제해 왔던 것도 이 함수로 합쳐 어긋나지 않게 한다.
+function vocalInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.vocalText)
+    ? '- Each "preassignedSongs" entry also includes "vocalText" — this track\'s vocal identity. It may contain several comma-separated descriptive clauses (register/gender, delivery, timbre, mic proximity, era technique) built for per-song differentiation across the pack. Select 2-3 of those clauses for the stylePrompt\'s vocal description — always keep the first clause (gender/register identity; never substitute a different vocal gender or type, e.g. male instead of female, or an adult voice for a kids choir) plus 1-2 more that read best for this song. Do not weave in every clause verbatim (that reads as an overloaded, generic vocal description) and do not paraphrase the gender/type away.'
+    : '';
+}
+
 function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string[] {
   if (!preassignedSongs.some(slot => slot.genreText)) return [];
   return [
     '- Each "preassignedSongs" entry also includes "genreText" - the genre/sub-style identity this track must stay recognizably within (do not substitute a different genre or the pack-level genre list). The exact wording is a reference, not a script: compose your own stylePrompt description of this genre rather than copying the phrase verbatim.',
-    '- CRITICAL — word order: every stylePrompt MUST OPEN with this track\'s genre identity, before era, scene, mood, or BPM. The first phrase a listener-facing generator reads must name the genre; era and scene come after it, not before.\n  GOOD: "Doo-Wop Close Harmony, 1950s-60s, 68 BPM, ..."\n  BAD:  "late-1950s memory through a doo-wop lens, 68 BPM, ..."\n  Rewording the genre in your own words is fine (per the line above) — moving it out of first position is not.'
+    '- CRITICAL — word order: every stylePrompt MUST OPEN with this track\'s genre identity, before era, scene, mood, or BPM. The first phrase a listener-facing generator reads must name the genre; era and scene come after it, not before.\n  GOOD: "Doo-Wop Close Harmony, 1950s-60s, 68 BPM, ..."\n  BAD:  "late-1950s memory through a doo-wop lens, 68 BPM, ..."\n  Rewording the genre in your own words is fine (per the line above) — moving it out of first position is not.',
+    // 지시문 59 (TASK A) — 실측: 지시문 58이 "장르가 첫 자리인가"만 고쳤더니
+    // 악기가 뒤로 밀렸다(8/13 세트 첫 악기 등장 위치 중앙값 62자 -> 8/14
+    // 220자, 개수는 오히려 늘었는데도). "장르를 만드는 것은 악기다" — 이
+    // 어휘가 앞에 있어야 그 장르로 들린다. 지시문 46(시대)·47~56(보컬)·4·11
+    // (인트로/오프닝)이 각각 앞자리를 요구한 결과 악기가 밀려난 것이지, 어느
+    // 한 지시문의 결함이 아니다 — "어디에 넣어라"는 요구가 없었을 뿐. 전체
+    // 요소 순서를 한 곳에 명시해 그 공백을 채운다.
+    '- CRITICAL — stylePrompt element order: write each stylePrompt in roughly this order — (1) this track\'s genre identity, (2) BPM, (3) THREE TO FIVE instruments/rhythm elements from THIS genre (these are what make the genre audibly recognizable — a listener hears the genre through them, not through the genre label alone), (4) the money-chord progression, (5) the lead vocal description, (6) everything else (room/space, arrangement density, intro handling, opening-loudness, killing point). If the first genre-defining instrument appears past roughly 150 characters into the stylePrompt, the genre reads weakly even when correctly named up front.\n  GOOD: "early-1960s British beat pop, 74 BPM, jangly 12-string electric guitar, melodic walking bass, tambourine backbeat, brushed drum kit, I-V-vi-IV progression, low calm male baritone, restrained emotional delivery, ..."\n  BAD:  "late-1950s memory through a 1970s piano pop ballad lens, 66 BPM, soulful female voice, restrained understated reading, warm rounded midrange, intimate close-mic, singing starts immediately with no intro tag, full playback level from first bar, grand piano, ..." (instruments don\'t appear until 220 characters in — the genre reads weakly despite being named first)'
   ];
 }
 
@@ -607,9 +633,20 @@ function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): strin
 // channel's typical instrumentation/density as reference, not a checklist
 // every song must weave in verbatim (see introTextureInstructionLineFor's
 // comment for why).
+// 지시문 59 (TASK C) — "장르 instruments가 실제로 프롬프트에 실리는가":
+// instrumentSet은 genre.instruments에서 파생된다(core/promptComposer.ts's
+// rotatingInstrumentSet -> buildGenrePromptSummary). moneyChordText/
+// hookDeviceText 수준의 verbatim-필수로 전면 전환하지는 않는다 — TASK v3.62의
+// 실측 회귀("warm string pad swell"/"layered backing" 같은 1960s 트랙에
+// 없던 프로덕션 텍스처가 이 필드를 문자 그대로 지키라고 했을 때 나왔다,
+// 위 introTextureInstructionLineFor 주석 참고)를 되돌리는 위험을 이 지시문의
+// "하지 말 것"이 요구하지 않는다. 대신 기본값을 "쓴다"로 명시하고
+// 시대 부적합이 실제로 확인될 때만 개별 치환하도록 좁힌다 — 통째로
+// 자유 작곡할 여지를 없앤다. 위 CRITICAL 요소 순서 규칙의 3번 자리(장르
+// 악기 3~5개)와 직접 연결한다.
 function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.instrumentSet?.length)
-    ? '- Each "preassignedSongs" entry may include "instrumentSet" — 2-3 instruments typical for this channel/genre, as REFERENCE, not a checklist to weave in verbatim. Use them if they suit this song\'s era and genre; substitute an era-appropriate equivalent if they don\'t (e.g. don\'t put a Rhodes electric piano in a 1962 doo-wop track just because instrumentSet suggested one for a different, later-era genre). Compose the instrumentation your own musical knowledge says is right for this song.'
+    ? '- Each "preassignedSongs" entry may include "instrumentSet" — instruments drawn from this track\'s own genre (the same genre named in "genreText"), meant to fill position 3 of the CRITICAL element-order rule above. Use them by default. Only substitute an individual instrument when it is genuinely anachronistic for this song\'s specific era (e.g. don\'t put a Rhodes electric piano in a 1962 doo-wop track just because instrumentSet suggested one meant for a different, later-era genre) — a single era-inappropriate item gets swapped for an era-appropriate equivalent, not the whole set replaced with your own unrelated instrumentation.'
     : '';
 }
 
@@ -957,7 +994,9 @@ function earwormInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): str
  */
 function openingLoudnessInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.openingLoudnessText)
-    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build.'
+    // 지시문 59 (TASK A-3) — introTextureInstructionLineFor와 같은 위치
+    // 지시. 이 필드 자체(트랙 1-3 한정, 지시문 4·11)는 그대로 둔다.
+    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build. Like introTextureText, this belongs late in the stylePrompt (position 6, per the CRITICAL element-order rule above), never as an opening clause.'
     : '';
 }
 
@@ -1780,9 +1819,7 @@ export function buildClaudeCodeInstruction(
   // the kids per-song quota), since a real showa-cafe pack showed a selected
   // male vocal preset silently coming back female with no instruction at all
   // telling the agent to respect it.
-  const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
-    ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
-    : '';
+  const vocalInstructionLine = vocalInstructionLineFor(preassignedSongs);
   const conceptInstructionLine = preassignedSongs.some(slot => slot.conceptText)
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
@@ -2096,13 +2133,11 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const masterWorkspaceId = workspaceForArchetype(baseOpts.channel.archetype)?.id ?? currentWorkspaceId();
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
   const titleInstructionLine = titleInstructionLineFor(baseOpts);
-  const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
-    ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
-    : '';
   const conceptInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.conceptText))
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
+  const vocalInstructionLine = vocalInstructionLineFor(allSlots);
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(allSlots);
   const chorusContrastInstructionLine = chorusContrastInstructionLineFor(allSlots);
   const earwormInstructionLine = earwormInstructionLineFor(allSlots);

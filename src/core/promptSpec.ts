@@ -32,7 +32,13 @@ export interface VocalSpec {
 }
 
 export interface PromptSpecViolation {
-  field: 'vocal' | 'tempo' | 'genre';
+  // 지시문 59 (TASK B) — 'instrumentPosition'/'vocalCount'는 이
+  // 함수(auditStylePromptAgainstSpec) 안에서는 만들어지지 않는다(quality.ts/
+  // fullAudit.ts가 이미 이 함수를 스코어링·집계에 쓰고 있어, 여기서 새
+  // 위반을 추가하면 그 두 경로에 실측 없이 -8점/집계 변화를 만든다). 대신
+  // finalPromptNormalizer.ts의 단일 정규화 관문이 core/promptElementOrder.ts의
+  // 같은 순수 함수를 직접 불러 findings에 추가한다 — 타입만 여기서 공유한다.
+  field: 'vocal' | 'tempo' | 'genre' | 'instrumentPosition' | 'vocalCount';
   detail: string;
 }
 

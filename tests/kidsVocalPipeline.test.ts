@@ -213,7 +213,11 @@ describe('[v3.39 Part C] Claude Code bridge carries per-song vocal instructions'
     const slots = preallocateSongSlots(opts, kidsGenres);
     const instruction = buildClaudeCodeInstruction(opts, kidsGenres, kidsMoods, season, undefined, slots);
     expect(instruction).toContain('"vocalText"');
-    expect(instruction).toContain('weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim');
+    // 지시문 59 (TASK A-4) — vocalText 전체를 verbatim으로 그대로 옮기라는
+    // 옛 문구는 8/14 세트의 보컬 서술 5개 과다 실측 원인이었다. 2~3개만
+    // 골라 쓰라는 새 문구로 교체됐다 — vocalText 원문은 여전히 payload
+    // JSON에 그대로 실려 온다(아래 slot.vocalText 포함 검사가 그걸 확인).
+    expect(instruction).toContain('Select 2-3 of those clauses for the stylePrompt\'s vocal description');
     for (const slot of slots) {
       expect(instruction).toContain(slot.vocalText);
     }
