@@ -44,10 +44,31 @@ export interface ConceptRecommendation {
   decomposedReferences?: DecomposedReference[];
 }
 
+/**
+ * 지시문 64 (TASK B) — "매칭된 키워드를 화면에 보여준다" / "아무것도 안
+ * 잡히면 알린다" / "일부만 잡히면 무엇이 안 잡혔는지 보여준다"의 데이터
+ * 축. `matchedPhrases`는 CONCEPT_KEYWORD_RULES 중 실제로 매칭된 규칙의
+ * 정규식이 입력 텍스트에서 실제로 잡아낸 원문 부분 문자열(추정이 아니라
+ * `.exec()`의 실측 결과) — Step2Concept.tsx의 컨셉 에이전트 패널이 이걸
+ * 그대로 "해석: ..." 줄에 쓴다. has*Signal 셋은 장르/무드/계절 세 축
+ * 각각 실제로 매칭된 규칙이 있었는지 — 매칭된 phrase는 있지만 어느 한
+ * 축에 signal이 없으면("이 단어는 인식했지만 구체적인 축은 못 채웠다")
+ * 그게 이 지시문의 "부분 매칭" 신호다. local 경로에서만 채워진다 —
+ * API 경로(recommendConceptViaApi)는 키워드 정규식이 아니라 LLM 해석을
+ * 쓰므로 이 개념 자체가 없다.
+ */
+export interface ConceptMatchInfo {
+  matchedPhrases: string[];
+  hasGenreSignal: boolean;
+  hasMoodSignal: boolean;
+  hasSeasonSignal: boolean;
+}
+
 export interface ConceptAgentResult {
   input: string;
   recommendations: ConceptRecommendation[];
   method: 'local' | 'api';
+  matchInfo?: ConceptMatchInfo;
 }
 
 export interface ConceptWhitelist {
@@ -320,8 +341,8 @@ interface RankedScores {
   seasons: string[];
 }
 
-function rankFromRules(freeText: string, coreGenreIds: Set<string>): RankedScores {
-  const matched = matchConceptRules(freeText);
+function rankFromRules(freeText: string, coreGenreIds: Set<string>, archetype?: ChannelArchetype): RankedScores {
+  const matched = matchConceptRules(freeText, archetype);
   const genreScore = new Map<string, number>();
   const moodScore = new Map<string, number>();
   const seasonScore = new Map<string, number>();
@@ -424,6 +445,69 @@ function rotate<T>(items: T[], offset: number): T[] {
 /** Default assumed when a caller doesn't yet know the real pack size (e.g. an old call site not yet updated) — matches this app's own default GenerationOptions.songCount. */
 const DEFAULT_CONCEPT_SONG_COUNT = 18;
 
+/**
+ * 지시문 64 (TASK B-3) — 실측: "첫사랑이 생각나는 밤" 같은 계절 신호가
+ * 전혀 없는 입력이 seasonPacks[0]('new-year')로 떨어지는 원인을 직접
+ * 재현해 확인했다 — 정규식이 "밤"을 계절로 잘못 매칭하는 버그는 없었다
+ * (conceptKeywords.ts 전수 확인: 계절 룰 중 "밤"에 매칭되는 패턴이
+ * 하나도 없다). 진짜 원인은 이 파일 자신의 옛 폴백
+ * (`seasonPacks[0]?.id`)이 seasonPacks 배열의 첫 항목이 우연히
+ * 'new-year'라는 점 — TASK H2가 "호출자가 이미 고른 계절(defaults.
+ * seasonId)을 우선한다"로 절반만 고쳤을 뿐, defaults.seasonId 자체가
+ * 없거나 무효한 호출(예: 이 지시문의 check:concept-coverage, 또는
+ * 컨셉 에이전트 패널이 아직 어떤 계절도 넘겨받지 못한 최초 진입)에는
+ * 여전히 1월 느낌의 'new-year'가 아무 관련 없는 컨셉에도 붙었다.
+ * 달력상 현재 월에 맞는 시즌팩으로 대체한다 — 추정 매핑(각 시즌팩의
+ * period 필드가 자유 텍스트라 기계적으로 파싱할 수 없어 직접 12개월
+ * 표로 짠 것, verified: false)이지만 최소한 "무관한 입력에 항상 1월이
+ * 붙는다"는 실측된 결함보다는 낫다.
+ */
+const CALENDAR_MONTH_SEASON_FALLBACK: Record<number, string> = {
+  1: 'new-year',
+  2: 'late-winter',
+  3: 'spring-open',
+  4: 'cherry-blossom',
+  5: 'may-cafe',
+  6: 'rainy-season',
+  7: 'summer-night',
+  8: 'late-summer-open',
+  9: 'early-autumn',
+  10: 'maple-autumn',
+  11: 'early-winter',
+  12: 'christmas'
+};
+
+function calendarSeasonFallback(now: Date = new Date()): string {
+  const month = now.getMonth() + 1;
+  const candidate = CALENDAR_MONTH_SEASON_FALLBACK[month];
+  return candidate && seasonPacks.some(pack => pack.id === candidate) ? candidate : (seasonPacks[0]?.id || 'early-autumn');
+}
+
+/**
+ * 지시문 64 (TASK B) — ConceptMatchInfo 자기 doc comment 참고. `.exec()`은
+ * 매칭된 규칙의 패턴 중 실제로 이 텍스트에서 뭔가를 잡아낸 첫 패턴만
+ * 쓴다(규칙 하나가 여러 언어 패턴을 갖고 있어도 실제 입력에 존재하는
+ * 언어 하나만 화면에 보여주면 된다) — 전역(`g`) 플래그가 있는 패턴이
+ * 하나도 없으므로(conceptKeywords.ts 전수 확인) `.exec()`의 lastIndex
+ * 상태 문제는 없다.
+ */
+function buildConceptMatchInfo(freeText: string, archetype: ChannelArchetype, ranked: RankedScores): ConceptMatchInfo {
+  const matchedRules = matchConceptRules(freeText, archetype);
+  const matchedPhrases = [...new Set(matchedRules.flatMap(rule => {
+    for (const pattern of rule.patterns) {
+      const found = pattern.exec(freeText);
+      if (found?.[0]) return [found[0].trim()];
+    }
+    return [];
+  }))];
+  return {
+    matchedPhrases,
+    hasGenreSignal: ranked.genres.length > 0,
+    hasMoodSignal: ranked.moods.length > 0,
+    hasSeasonSignal: ranked.seasons.length > 0
+  };
+}
+
 export function recommendConceptLocal(
   freeText: string,
   archetype: ChannelArchetype,
@@ -438,7 +522,7 @@ export function recommendConceptLocal(
   const coreGenres = getCoreGenresForArchetype(archetype);
   const coreGenreIds = new Set(coreGenres.map(genre => genre.id));
   const coreGenreOrder = coreGenres.map(genre => genre.id);
-  const ranked = rankFromRules(freeText, coreGenreIds);
+  const ranked = rankFromRules(freeText, coreGenreIds, archetype);
   // 지시문 51 (TASK A-2②) — "동점 시 seed 회전": variantOffset(재추천
   // 클릭)이 이미 있는 회전축과 별개로, 같은 텍스트라도 컨셉 자체의
   // 해시를 padding 회전 시드로 써서 매 컨셉마다 padding 시작점이
@@ -462,7 +546,13 @@ export function recommendConceptLocal(
   // recommendations like "café song" or "comfort when it's hard". Prefer
   // whatever season the wizard already had selected; only fall back to a
   // fixed pack if the caller genuinely has no current selection.
-  const fallbackSeasonId = defaults?.seasonId && seasonPacks.some(s => s.id === defaults.seasonId) ? defaults.seasonId : (seasonPacks[0]?.id || 'early-autumn');
+  // 지시문 64 (TASK B-3) — that fixed-pack fallback was itself still
+  // `seasonPacks[0]` ('new-year') whenever defaults.seasonId was genuinely
+  // absent (e.g. this file's own check:concept-coverage sample run, or a
+  // panel that hasn't received a current selection yet) — see
+  // calendarSeasonFallback's own doc comment for the real repro. Swapped
+  // for a calendar-month-based pick, never a fixed literal.
+  const fallbackSeasonId = defaults?.seasonId && seasonPacks.some(s => s.id === defaults.seasonId) ? defaults.seasonId : calendarSeasonFallback();
 
   const rankedGenres = [...new Set([...artistGenreIds, ...ranked.genres])];
   const genreCandidates = rotate(rankedGenres.length ? rankedGenres : [fallbackGenreId], variantOffset);
@@ -519,7 +609,12 @@ export function recommendConceptLocal(
     }));
   }
 
-  return { input: freeText, recommendations: recommendations.slice(0, 2), method: 'local' };
+  return {
+    input: freeText,
+    recommendations: recommendations.slice(0, 2),
+    method: 'local',
+    matchInfo: buildConceptMatchInfo(freeText, archetype, ranked)
+  };
 }
 
 function conceptSystemPrompt(): string {
@@ -570,7 +665,7 @@ export async function recommendConceptViaApi(
   // archetype's core tier.
   const decomposedReferences = decomposeArtistReferences(freeText).filter(isSafeDecomposedReference);
   const artistGenreIds = decomposedReferences.flatMap(ref => ref.suggestedGenreIds).filter(id => coreGenreIds.has(id));
-  const ranked = rankFromRules(freeText, coreGenreIds);
+  const ranked = rankFromRules(freeText, coreGenreIds, archetype);
 
   try {
     const model = MODEL_REGISTRY.anthropic.find(m => m.tier === 'fast')?.id || defaultModelFor('anthropic');

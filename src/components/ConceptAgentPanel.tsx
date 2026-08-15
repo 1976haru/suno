@@ -118,6 +118,25 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
         </button>
       </div>
 
+      {/* 지시문 64 (TASK B-2) — "매칭된 키워드를 화면에 보여준다" /
+          "아무것도 안 잡히면 알린다" / "일부만 잡히면 무엇이 안 잡혔는지
+          보여준다". API 경로(matchInfo 없음)는 표시하지 않는다 — 그
+          경로는 정규식 매칭이 아니라 LLM 해석이라 이 개념 자체가 없다. */}
+      {result?.matchInfo && (
+        result.matchInfo.matchedPhrases.length > 0 ? (
+          <p className="supporting concept-match-info">
+            해석: {result.matchInfo.matchedPhrases.map(phrase => `"${phrase}"`).join(' · ')}
+            {!result.matchInfo.hasGenreSignal && (result.matchInfo.hasMoodSignal || result.matchInfo.hasSeasonSignal) && (
+              <> — 분위기는 인식했지만 구체적인 장소·상황 단서가 없어 채널 기본 장르로 채웠어요.</>
+            )}
+          </p>
+        ) : (
+          <p className="supporting concept-match-info">
+            ⚠ 입력하신 말에서 장르 단서를 찾지 못했습니다. 장소·시간·상황을 함께 써보세요. 예: &ldquo;비 오는 저녁 카페에서&rdquo;
+          </p>
+        )
+      )}
+
       {result && (
         <>
           <p className="supporting">이런 느낌은 어때요?</p>

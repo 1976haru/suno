@@ -185,7 +185,7 @@ function deriveEraFocus(freeText: string, refs: DecomposedReference[]): string[]
 }
 
 function inferSeasonId(freeText: string, channel: ChannelProfile) {
-  const matched = matchConceptRules(freeText);
+  const matched = matchConceptRules(freeText, channel.archetype);
   const seasonScores = new Map<string, number>();
   for (const rule of matched) {
     for (const [id, score] of Object.entries(rule.seasonWeights || {})) {
@@ -199,7 +199,7 @@ function inferSeasonId(freeText: string, channel: ChannelProfile) {
 }
 
 function inferMoodIds(freeText: string, channel: ChannelProfile) {
-  const matched = matchConceptRules(freeText);
+  const matched = matchConceptRules(freeText, channel.archetype);
   const moodScores = new Map<string, number>();
   for (const rule of matched) {
     for (const [id, score] of Object.entries(rule.moodWeights || {})) {
@@ -336,7 +336,7 @@ function scoreGenre(
   }
   if (history.recentGenreIds.includes(genre.id)) score -= 2;
 
-  for (const rule of matchConceptRules(freeText)) {
+  for (const rule of matchConceptRules(freeText, channel.archetype)) {
     const weight = rule.genreWeights?.[genre.id] || 0;
     if (weight) {
       score += weight * 2;

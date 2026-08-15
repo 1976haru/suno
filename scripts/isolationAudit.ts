@@ -302,7 +302,10 @@ const L7_SNAPSHOT: Record<string, string[]> = {
   '추억의 라디오': [],
   '첫눈': ['winter'],
   '오래된 우정': [],
-  '비 오는 밤': ['rain']
+  // 지시문 64 (TASK A) — "밤"이 이제 순수 시간 축 룰(time-night,
+  // seasonWeights 없음)에도 걸린다 — 의도된 확장이라 스냅샷을 갱신한다
+  // ("아침 카페"가 지시문53의 'morning' 신설 때 갱신된 것과 같은 전례).
+  '비 오는 밤': ['rain', 'time-night']
 };
 
 export function checkL7(): CheckResult {
