@@ -54,12 +54,19 @@ export interface MoneyChordSectionPlanEntry {
 export const MONEY_CHORD_SECTION_COUNT_VERIFIED = false as const;
 const COUNT_POLICY_BASE_SONG_COUNT = 15;
 type ChordCountBucket = ReturnType<typeof workspaceCountBucketFor>;
+// 지시문 62 (TASK E-3③) — "곡당 진행 2개 이상 13~14/15... 3개인 곡을
+// 늘린다(지시문 39가 2~3회로 정함)". senior·general의 '3' 값을 소폭
+// 올렸다('1'에서 옮겨 총합 15 유지) — modern(5)·kpop(7)은 이미 지시문
+// 43·본문 예시가 명시적으로 정한 값이라 건드리지 않는다. kids는 0을
+// 유지한다 — §하지 말 것 "동요에 3개 진행을 강제하지 말 것"(지시문39
+// 자기 doc comment)이 이 지시문의 "3개인 곡을 늘린다"보다 우선한다
+// (§공통규약 3 "하지 말 것이 본문과 충돌하면 하지 말 것이 우선").
 const COUNT_POLICY_BY_BUCKET: Record<ChordCountBucket, Record<'1' | '2' | '3', number>> = {
   kids: { '1': 11, '2': 4, '3': 0 },
-  senior: { '1': 3, '2': 10, '3': 2 },
+  senior: { '1': 2, '2': 10, '3': 3 },
   modern: { '1': 2, '2': 8, '3': 5 },
   kpop: { '1': 2, '2': 6, '3': 7 },
-  general: { '1': 4, '2': 9, '3': 2 }
+  general: { '1': 2, '2': 9, '3': 4 }
 };
 
 function chordCountPlan(bucket: ChordCountBucket, songCount: number, seed: number): number[] {

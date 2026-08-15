@@ -138,7 +138,8 @@ describe('[v3.33 Part C] buildProgressionPlan', () => {
     const roles = rolesFor(18);
     const plan = buildProgressionPlan('senior-morning', 7, roles);
     for (const id of plan) {
-      expect(['doowop', 'warmCycle', 'emotional', 'default', 'canon']).toContain(id);
+      // 지시문 62 (TASK E-3①) — senior-morning 회전 풀 5→6종(popStandard 추가).
+      expect(['doowop', 'warmCycle', 'emotional', 'default', 'canon', 'popStandard']).toContain(id);
     }
   });
 });
