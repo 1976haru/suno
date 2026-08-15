@@ -29,6 +29,11 @@ import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } fr
 import { parseSetArcSpec, checkSetArcAdherence, setArcAdherenceIsBlocking, SET_ARC_ADHERENCE_BLOCKING_THRESHOLD } from './setArcAdherence';
 import { measureKpopSingability } from './kpopSingability';
 import { kpopWorkspacePolicyFor } from './kpopWorkspacePolicy';
+import { KILLING_POINTS, type KillingPoint } from '../data/killingPoints';
+import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
+import { KR_2030_KILLING_POINTS } from '../data/killingPointsKr2030';
+import { JP_2030_KILLING_POINTS } from '../data/killingPointsJp2030';
+import { KPOP_KILLING_POINTS } from '../data/killingPointsKpop';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -633,9 +638,41 @@ function lyricsItems(songs: SongIdea[], audienceProfile: AudienceProfile): Audit
 // ---------------------------------------------------------------------------
 // [킬링포인트·아크]
 // ---------------------------------------------------------------------------
+// 지시문 62 (TASK F-3) — "감사에 추가: 킬링포인트가 있는 곡·종류·한 종류
+// 최대·장르 매칭". 위 두(killing_point_assigned/killing_point_variety)는
+// 이미 있었다(v3.67) — 아래 함수가 나머지 둘("한 종류 최대"·"장르 매칭")을
+// 채운다. 5개 풀(senior/kids/kr-2030/jp-2030/kpop) 전체를 합쳐 id로
+// 찾는다 — song.killingPointId가 어느 풀에서 왔는지 SongIdea 자체는
+// 기록하지 않으므로, 전 풀을 합친 하나의 맵에서 찾는 게 유일한 방법이다.
+const ALL_KILLING_POINTS_BY_ID: Map<string, KillingPoint> = new Map(
+  [...KILLING_POINTS, ...KIDS_KILLING_POINTS, ...KR_2030_KILLING_POINTS, ...JP_2030_KILLING_POINTS, ...KPOP_KILLING_POINTS].map(kp => [kp.id, kp])
+);
+
 function killingPointItems(songs: SongIdea[], arcModelId: 'five-phase' | 'repetition-cycle' = 'five-phase'): AuditItem[] {
   const withKillingPoint = songs.filter(song => song.killingPointId);
   const distinctKillingPoints = new Set(withKillingPoint.map(song => song.killingPointId));
+  // 지시문 62 (TASK F-3) — "한 종류 최대 6곡 이하". MAX_SONGS_PER_KILLING_POINT
+  // (data/killingPoints.ts, 현재 4)·MAX_MODULATION_KILLING_POINT_IDS 캡(6)과
+  // 같은 상한을 실제 배정 결과에서 재확인한다 — 코드 상수가 있어도 실제
+  // 세트가 그 상한을 지켰는지는 별개로 실측해야 한다(§공통규약1).
+  const perTypeCounts = new Map<string, number>();
+  for (const song of withKillingPoint) {
+    const id = song.killingPointId!;
+    perTypeCounts.set(id, (perTypeCounts.get(id) ?? 0) + 1);
+  }
+  const maxPerType = perTypeCounts.size ? Math.max(...perTypeCounts.values()) : 0;
+  const MAX_PER_TYPE_TARGET = 6;
+  // 지시문 62 (TASK F-3) — "장르 매칭 15/15". 지시문61 TASK C-3이 신설한
+  // fitsGenreTags가 실제로 붙은 킬링포인트가 배정됐는지를 곡 단위로 잰다 —
+  // fitsGenreTags 유무 자체를 "장르 인식형 장치가 배정됐는가"의 근사치로
+  // 쓴다(정확히 이 곡의 장르와 태그가 의미적으로 일치하는지까지는 이
+  // 감사가 재현하지 않는다 — 그건 core/killingPoints.ts의 candidatesFor
+  // 우선순위 로직 자체의 몫이고, 여기서 그 로직을 복제하면 두 곳이
+  // 따로 드리프트할 위험만 커진다).
+  const genreTaggedCount = withKillingPoint.filter(song => {
+    const kp = ALL_KILLING_POINTS_BY_ID.get(song.killingPointId!);
+    return Boolean(kp?.fitsGenreTags?.length);
+  }).length;
   const arcPhases = new Set(songs.map(song => song.arcPhase).filter(Boolean));
   const targetAssignedShare = songs.length ? Math.round(songs.length * (14 / 18)) : 0;
   const targetVarietyShare = songs.length ? Math.max(1, Math.round(songs.length * (9 / 18))) : 0;
@@ -684,6 +721,20 @@ function killingPointItems(songs: SongIdea[], arcModelId: 'five-phase' | 'repeti
       id: 'peak_none_count', category: '킬링포인트·아크', labelKo: 'peakStrength none 곡',
       targetKo: `약 ${targetNoneShare}곡`, actualKo: `${songs.length - withKillingPoint.length}곡`,
       pass: songs.length ? Math.abs((songs.length - withKillingPoint.length) - targetNoneShare) <= 2 : null, requiresAudio: false, specifiedBy: ['v3.67 arcPlan']
+    }),
+    item({
+      id: 'killing_point_max_per_type', category: '킬링포인트·아크', labelKo: '킬링포인트 한 종류 최대',
+      targetKo: `≤ ${MAX_PER_TYPE_TARGET}곡`, actualKo: `${maxPerType}곡`,
+      pass: withKillingPoint.length ? maxPerType <= MAX_PER_TYPE_TARGET : null, requiresAudio: false, specifiedBy: ['지시문 62 TASK F-3']
+    }),
+    item({
+      id: 'killing_point_genre_match', category: '킬링포인트·아크', labelKo: '킬링포인트 장르 매칭',
+      targetKo: `${withKillingPoint.length}/${withKillingPoint.length}`, actualKo: `${genreTaggedCount}/${withKillingPoint.length}`,
+      // 근사치(위 doc comment) — 실측 없이 blocking을 만들지 않는다(§공통규약7):
+      // fitsGenreTags가 없는 기존 KP-01~12(소울/두왑 등 신설 이전 항목,
+      // fitsEraTags로만 매칭)도 여전히 유효한 배정이라 100% 미달이 곧
+      // 결함은 아니다 — advisory로만 보고한다.
+      pass: null, requiresAudio: false, specifiedBy: ['지시문 62 TASK F-3']
     })
   ];
 }

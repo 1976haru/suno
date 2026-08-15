@@ -336,6 +336,21 @@ jobs:
       - run: npm ci
       - run: npm run check:genre-utilization
 
+  # 지시문 62 (TASK F-2) — channelVocalFloor가 7 워크스페이스 전부에
+  # 정의됐는지, requiredTraits/forbiddenTraits가 실제 생성 경로에서
+  # stylePrompt/excludePrompt까지 왕복하는지 확인한다. advisory만 낸다 —
+  # exit 0 고정(scripts/checkVocalFloor.ts 자기 doc comment 참고).
+  check-vocal-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:vocal-floor
+
   # 지시문 51 (TASK D2) — 장르 축과 같은 유형이 GenerationOptions의 다른
   # 축에도 있는지 A/B 비교로 전수 확인한다. advisory만 낸다 — exit 0
   # 고정(scripts/checkOptionUtilization.ts 자기 doc comment 참고).
