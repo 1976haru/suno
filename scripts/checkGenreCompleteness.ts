@@ -204,8 +204,23 @@ function main() {
     console.log(`  ${axis.padEnd(18)} ${count}/${rows.length}`);
   }
 
+  // 지시문 62 (TASK F-1) — "부분이 아니라 100%". 지시문61까지는 채널
+  // 사용 장르만 걸러 봤지만, 이 지시문의 완료 정의 자체가
+  // "npm run check:genre-completeness — 367종 중 8점 미만 0종, 367종 중
+  // 선호 없음 0종. 이 두 줄이 0이 아니면 미완이다"이므로, 카테고리
+  // 필터 없이 전체 367종을 기준으로 하는 섹션을 최상단에 낸다(인수 기준).
+  const allBelowThreshold = rows.filter(r => r.score < CHANNEL_GENRE_SCORE_THRESHOLD).length;
+  const allMissingVocalPreference = rows.filter(r => !r.hasVocalPreference).length;
+  const allAvgScore = rows.length ? rows.reduce((sum, r) => sum + r.score, 0) / rows.length : 0;
+  console.log('\n' + '█'.repeat(60));
+  console.log(`[지시문 62 TASK F-1] 전체 ${rows.length}종 — 완료 정의: 아래 두 줄이 0이어야 완료`);
+  console.log(`  전체 ${rows.length}종 중 ${CHANNEL_GENRE_SCORE_THRESHOLD}점 미만: ${allBelowThreshold}종`);
+  console.log(`  전체 ${rows.length}종 중 vocalPreference 없음: ${allMissingVocalPreference}종`);
+  console.log(`  전체 평균 점수: ${allAvgScore.toFixed(2)}점 (${MAX_SCORE}점 만점)`);
+
   // 지시문 61 (TASK D-1) — 12점 스코어 섹션. 채널이 쓰는 장르만 걸러
-  // 8점 미만을 우선순위 목록으로 낸다.
+  // 8점 미만을 우선순위 목록으로 낸다(지시문62 이후로는 참고 정보 —
+  // 위 전체 367종 섹션이 인수 기준이다).
   const channelRows = rows.filter(r => r.isChannelUsed);
   const belowThreshold = channelRows
     .filter(r => r.score < CHANNEL_GENRE_SCORE_THRESHOLD)
