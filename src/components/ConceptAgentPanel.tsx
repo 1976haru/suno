@@ -136,8 +136,20 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
                 {rec.decomposedReferences?.map(ref => (
                   <p key={ref.matchedSurface} className="supporting concept-artist-interpretation">
                     해석: &ldquo;{ref.matchedSurface}&rdquo; → {ref.eraTag} — {[...ref.instrumentation.slice(0, 2), ...ref.harmonyTraits.slice(0, 1), ...ref.productionTraits.slice(0, 1)].join(', ')}
+                    {ref.reasonKo && (
+                      <>
+                        <br />
+                        ({ref.reasonKo})
+                      </>
+                    )}
                     <br />
                     ※ 아티스트명은 프롬프트에 포함되지 않습니다 (수노가 무시하며 배포 시 위험합니다).
+                    {ref.alternateHintKo && (
+                      <>
+                        <br />
+                        ※ 다른 시기를 원하시면: {ref.alternateHintKo}
+                      </>
+                    )}
                   </p>
                 ))}
                 <p className="concept-preview">미리보기 훅: &ldquo;{rec.previewLine}&rdquo;</p>

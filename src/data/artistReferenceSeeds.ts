@@ -28,10 +28,39 @@
  */
 export type CommonWordRisk = 'none' | 'low' | 'high';
 
+/**
+ * 지시문 60 (TASK A) — a real artist's catalog can span two (or more)
+ * musically distinct eras — e.g. Bee Gees' 1967-72 orchestral ballads vs.
+ * their 1975-79 falsetto disco run. A seed's own top-level fields (eraTag,
+ * instrumentation, ...) stay the DEFAULT used when the user's free text
+ * carries no era-specific vocabulary; a `variants` entry only takes over
+ * when one of its triggerWords is found in the same sentence as the artist
+ * reference itself (see artistReferenceDecomposer.ts's selectVariant). Every
+ * field here follows the exact same never-leak-a-name rule as the seed's own
+ * fields — reasonKo is the one exception, screen-only (see
+ * ConceptAgentPanel.tsx), never spliced into a style prompt.
+ */
+export interface ArtistReferenceVariant {
+  /** User vocabulary that selects this variant over the seed's default era — mood/genre/tempo words only, never "느낌"/"스타일" (too generic to mean a specific era). */
+  triggerWords: string[];
+  eraTag: string;
+  instrumentation: string[];
+  harmonyTraits: string[];
+  rhythmTraits: string[];
+  productionTraits: string[];
+  vocalTraits: string[];
+  suggestedGenreIds: string[];
+  /** Korean, screen-only rationale for why this era was picked (may name real songs — UI display only, see hasArtistContextSignal's caller and findArtistReferenceLeaks, which still scans this same field text if it were ever misused as prompt input). */
+  reasonKo: string;
+  /** Korean, screen-only hint pointing the user back to the seed's default era ("다른 시기를 원하시면: ..."). Omitted when there's nothing meaningfully different to suggest. */
+  alternateHintKo?: string;
+}
+
 export interface ArtistReferenceSeed {
   /** Detection key: lowercase name/alias variants, pipe-separated, matched as whole-word-ish substrings against normalized free text. Never surfaced to Suno — see decomposeArtistReferences's matchedSurface (UI-only). */
   aliasPattern: string;
   commonWordRisk: CommonWordRisk;
+  /** Default era — used when no variant's triggerWords match the user's text. */
   eraTag: string;
   instrumentation: string[];
   harmonyTraits: string[];
@@ -41,6 +70,8 @@ export interface ArtistReferenceSeed {
   /** Ids from src/data/genreLibrary + src/data/presets's genrePacks — closest existing library matches, not a claim of exact genre equivalence. */
   suggestedGenreIds: string[];
   excludeAdditions: string[];
+  /** 지시문 60 (TASK A) — this artist's other musically distinct era(s), selected by user vocabulary. Most seeds have none: a single defining era is the common case, not the exception (see 지시문 60 TASK E-2 item 4's per-artist rationale). */
+  variants?: ArtistReferenceVariant[];
 }
 
 export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
@@ -69,7 +100,24 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     // acoustic-pop instead of the genre built for exactly this reference.
     // oldpop-british-beat first (most era-accurate), the pre-existing two kept as fallback for archetypes without it in their core tier.
     suggestedGenreIds: ['oldpop-british-beat', 'folk-pop', 'acoustic-pop'],
-    excludeAdditions: ['famous band imitation', 'soundalike vocals', 'copied melodies']
+    excludeAdditions: ['famous band imitation', 'soundalike vocals', 'copied melodies'],
+    // 지시문 60 (TASK A-3 ②) — "비틀즈의 향수"에서 반복된 시대 이탈이 이 시드가
+    // 1963~66년 초기 비트팝 하나만 정의한 것과 관련 있을 수 있다. 1966~70년
+    // 사이키델릭·오케스트라 발라드 시기를 변형으로 추가.
+    variants: [
+      {
+        triggerWords: ['후기', '느린', '발라드', 'ballad', 'slow', '사이키델릭', 'psychedelic', '잔잔한'],
+        eraTag: 'late-1960s psychedelic pop and orchestral ballad',
+        instrumentation: ['orchestral string arrangement', 'mellotron and tape-collage textures', 'grand piano-led balladry'],
+        harmonyTraits: ['modal and chromatic chord experiments', 'gentle minor-to-major balladic resolution'],
+        rhythmTraits: ['slow rubato-leaning ballad pulse', 'loose unhurried tempo'],
+        productionTraits: ['layered late-1960s studio production', 'warm close-mic ballad mix'],
+        vocalTraits: ['intimate solo male lead', 'soft close harmony backing'],
+        suggestedGenreIds: ['oldpop-piano-ballad-70s', 'oldpop-orchestral-easy', 'oldpop-six-eight-slow-ballad'],
+        reasonKo: '1966~1970년 사이키델릭·오케스트라 발라드 시기 — Let It Be · Yesterday · Hey Jude 계열',
+        alternateHintKo: '"비틀즈 초기"로 입력하세요'
+      }
+    ]
   },
   {
     aliasPattern: 'carpenters|카펜터스|カーペンターズ',
@@ -108,7 +156,22 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     // above; oldpop-close-harmony-duo and oldpop-orchestral-easy cover the
     // harmony/string-arrangement side.
     suggestedGenreIds: ['oldpop-europop-glow', 'oldpop-close-harmony-duo', 'oldpop-orchestral-easy'],
-    excludeAdditions: ['famous group imitation', 'soundalike vocals']
+    excludeAdditions: ['famous group imitation', 'soundalike vocals'],
+    // 지시문 60 (TASK A-3 ③) — 발라드 시기가 뚜렷하다 (Fernando · Chiquitita).
+    variants: [
+      {
+        triggerWords: ['발라드', '잔잔한', '느린', '슬픈', 'ballad', 'slow'],
+        eraTag: 'early-1970s European pop ballad',
+        instrumentation: ['acoustic guitar and piano-led arrangement', 'warm string pad', 'restrained rhythm section'],
+        harmonyTraits: ['wistful minor-to-major pop chord movement'],
+        rhythmTraits: ['slow mid-tempo ballad pulse'],
+        productionTraits: ['warm early-1970s European studio mix'],
+        vocalTraits: ['male and female vocals in close harmony', 'tender restrained lead'],
+        suggestedGenreIds: ['oldpop-europop-glow', 'oldpop-orchestral-easy', 'oldpop-piano-ballad-70s'],
+        reasonKo: '1970년대 초 발라드 시기 — Fernando · Chiquitita · SOS 계열',
+        alternateHintKo: '"아바 디스코"로 입력하세요'
+      }
+    ]
   },
   {
     aliasPattern: 'simon and garfunkel|simon & garfunkel|사이먼 앤 가펑클|サイモン&ガーファンクル',
@@ -172,7 +235,22 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     productionTraits: ['warm polished 1970s studio mix'],
     vocalTraits: ['breathy female lead with male harmony answer'],
     suggestedGenreIds: ['soft-rock'],
-    excludeAdditions: ['famous band imitation', 'soundalike vocals']
+    excludeAdditions: ['famous band imitation', 'soundalike vocals'],
+    // 지시문 60 (TASK A-3 ⑥) — 60년대 블루스 록 vs 70년대 소프트 록.
+    variants: [
+      {
+        triggerWords: ['60년대', '60s', '블루스', 'blues', '록', 'rock'],
+        eraTag: 'late-1960s British blues rock',
+        instrumentation: ['raw electric blues guitar lead', 'driving blues-rock rhythm section', 'harmonica accents'],
+        harmonyTraits: ['12-bar blues progression', 'minor-pentatonic guitar phrasing'],
+        rhythmTraits: ['mid-tempo shuffling blues-rock pulse'],
+        productionTraits: ['raw warm late-1960s blues-rock mix'],
+        vocalTraits: ['gritty expressive male lead'],
+        suggestedGenreIds: ['oldpop-rainy-ballad-blues', 'soft-rock'],
+        reasonKo: '1967~1970년 초기 블루스 록 시기 — 후기 소프트록 히트 이전의 밴드 사운드',
+        alternateHintKo: '"플리트우드 맥 소프트록"으로 입력하세요'
+      }
+    ]
   },
   {
     aliasPattern: 'bee gees|비지스|ビージーズ',
@@ -187,7 +265,24 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     // gap as the abba seed above; oldpop-europop-glow and
     // oldpop-philly-soul-sweet are real senior-morning-core matches.
     suggestedGenreIds: ['oldpop-europop-glow', 'oldpop-philly-soul-sweet'],
-    excludeAdditions: ['famous group imitation', 'soundalike vocals', 'falsetto imitation of a specific singer']
+    excludeAdditions: ['famous group imitation', 'soundalike vocals', 'falsetto imitation of a specific singer'],
+    // 지시문 60 (TASK A-2) — 하루가 겪은 실측 원인: 이 시드는 1975~79년 팔세토
+    // 디스코 시기 하나만 정의하고 있어 "비지스 느낌의 감미로운 발라드"에도
+    // 디스코가 나왔다. 1967~1972년 오케스트라 발라드 시기를 변형으로 추가.
+    variants: [
+      {
+        triggerWords: ['발라드', '감미로운', '잔잔한', '슬픈', 'ballad', 'slow', 'sweet', 'melancholy'],
+        eraTag: 'late-1960s orchestral pop ballad',
+        instrumentation: ['lush string section', 'mellotron pad', 'acoustic guitar arpeggios', 'restrained drum kit'],
+        harmonyTraits: ['minor-key verse into major-key chorus', 'suspended chord tension'],
+        rhythmTraits: ['slow 4/4 ballad pulse', 'gentle brushed snare'],
+        productionTraits: ['warm 1960s orchestral pop mix', 'wide string bed'],
+        vocalTraits: ['close brotherly harmony stacks', 'plaintive male lead with vibrato'],
+        suggestedGenreIds: ['oldpop-orchestral-easy', 'oldpop-piano-ballad-70s', 'oldpop-six-eight-slow-ballad'],
+        reasonKo: '1967~1972년 오케스트라 발라드 시기 — Massachusetts · Words · How Can You Mend a Broken Heart · First of May 계열',
+        alternateHintKo: '"비지스 디스코"로 입력하세요'
+      }
+    ]
   },
   {
     aliasPattern: 'stevie wonder|스티비 원더|スティービー・ワンダー',
@@ -202,7 +297,22 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     // tambourine, melodic bassline, gospel-toned backing) is a closer real
     // match to the funk/soul traits above than retro-soul-pop alone.
     suggestedGenreIds: ['oldpop-motown-pop-soul', 'retro-soul-pop'],
-    excludeAdditions: ['famous artist imitation', 'soundalike vocals']
+    excludeAdditions: ['famous artist imitation', 'soundalike vocals'],
+    // 지시문 60 (TASK A-3 ⑤) — 70년대 펑크 vs 80년대 발라드 (I Just Called...).
+    variants: [
+      {
+        triggerWords: ['80년대', '80s', '발라드', 'ballad', '느린', 'slow'],
+        eraTag: '1980s soul ballad',
+        instrumentation: ['warm synth pad', 'soft electric piano', 'restrained rhythm section'],
+        harmonyTraits: ['warm soul-ballad seventh chord color'],
+        rhythmTraits: ['slow soul-ballad pulse'],
+        productionTraits: ['polished warm 1980s soul-ballad mix'],
+        vocalTraits: ['soulful tender male lead with gentle melisma'],
+        suggestedGenreIds: ['oldpop-quiet-storm-warm', 'oldpop-adult-contemporary-80s', 'healing-ballad'],
+        reasonKo: '1980년대 소울 발라드 시기 — I Just Called to Say I Love You · Ribbon in the Sky 계열',
+        alternateHintKo: '"스티비 원더 펑크"로 입력하세요'
+      }
+    ]
   },
   {
     aliasPattern: 'carole king|캐롤 킹|キャロル・キング',
@@ -229,7 +339,22 @@ export const ARTIST_REFERENCE_SEEDS: ArtistReferenceSeed[] = [
     // rubato verse opening into an orchestral chorus) is the direct real
     // match for the piano-driven traits already described above.
     suggestedGenreIds: ['oldpop-piano-ballad-70s', 'piano-ballad'],
-    excludeAdditions: ['famous artist imitation', 'soundalike vocals']
+    excludeAdditions: ['famous artist imitation', 'soundalike vocals'],
+    // 지시문 60 (TASK A-3 ④) — 70년대 피아노록 vs 80년대 어덜트 컨템포러리.
+    variants: [
+      {
+        triggerWords: ['80년대', '80s', '1980년대', '어덜트 컨템포러리', 'adult contemporary'],
+        eraTag: '1980s adult-contemporary pop ballad',
+        instrumentation: ['polished electric piano', 'lush synth strings', 'restrained soft-rock rhythm section'],
+        harmonyTraits: ['smooth 1980s pop-ballad chord movement'],
+        rhythmTraits: ['mid-tempo adult-contemporary ballad pulse'],
+        productionTraits: ['polished 1980s adult-contemporary studio mix'],
+        vocalTraits: ['warm restrained male lead'],
+        suggestedGenreIds: ['oldpop-adult-contemporary-80s', 'oldpop-orchestral-ballad-80s', 'piano-ballad'],
+        reasonKo: "1980년대 어덜트 컨템포러리 발라드 시기 — I Guess That's Why They Call It the Blues 계열",
+        alternateHintKo: '"엘튼 존 70년대"로 입력하세요'
+      }
+    ]
   },
   {
     aliasPattern: 'beach boys|비치 보이스|ビーチ・ボーイズ',

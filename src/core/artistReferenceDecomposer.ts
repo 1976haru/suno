@@ -1,4 +1,4 @@
-import { ARTIST_REFERENCE_SEEDS, type ArtistReferenceSeed } from '../data/artistReferenceSeeds';
+import { ARTIST_REFERENCE_SEEDS, type ArtistReferenceSeed, type ArtistReferenceVariant } from '../data/artistReferenceSeeds';
 
 /**
  * TASK v5.19 (P0 emergency fix) — real incident: an 18-song import got
@@ -82,23 +82,70 @@ export interface DecomposedReference {
   vocalTraits: string[];
   suggestedGenreIds: string[];
   excludeAdditions: string[];
+  /** 지시문 60 (TASK B) — set only when a seed's variant (not its default era) was selected because a triggerWord matched the same sentence as the artist reference. Screen-only, same rule as reasonKo on ArtistReferenceVariant. */
+  reasonKo?: string;
+  /** 지시문 60 (TASK B-4) — screen-only hint pointing back to the default era, shown alongside reasonKo when a variant was selected and the seed authored one. */
+  alternateHintKo?: string;
 }
 
 function seedPattern(seed: ArtistReferenceSeed): RegExp {
   return new RegExp(seed.aliasPattern, 'iu');
 }
 
-function toDecomposedReference(seed: ArtistReferenceSeed, matchedSurface: string): DecomposedReference {
+/**
+ * 지시문 60 (TASK B-1/B-2) — splits freeText on sentence boundaries (., !, ?,
+ * newline; a comma never ends a "sentence" here, matching the brief's own
+ * "감미로운 발라드, 비지스 스타일" example staying one sentence) and returns,
+ * for a given match index, the sentence text containing it. triggerWords are
+ * then searched across that whole sentence — not just before/after the
+ * match — so a modifier can sit on either side of the artist name (B-2).
+ */
+function sentenceContaining(text: string, matchIndex: number): string {
+  const delimiter = /[.!?\n]+/g;
+  let start = 0;
+  let m: RegExpExecArray | null;
+  while ((m = delimiter.exec(text))) {
+    if (m.index >= matchIndex) return text.slice(start, m.index);
+    start = delimiter.lastIndex;
+  }
+  return text.slice(start);
+}
+
+/**
+ * 지시문 60 (TASK B-3) — picks the variant whose triggerWords have the most
+ * hits in `sentence`; ties keep the seed's first-listed variant. No hits at
+ * all (or no variants defined) returns undefined, meaning "keep the seed's
+ * default era" — the pre-지시문-60 behavior, byte-for-byte.
+ */
+function selectVariant(seed: ArtistReferenceSeed, sentence: string): ArtistReferenceVariant | undefined {
+  if (!seed.variants?.length) return undefined;
+  const haystack = sentence.toLowerCase();
+  let best: ArtistReferenceVariant | undefined;
+  let bestScore = 0;
+  for (const variant of seed.variants) {
+    const score = variant.triggerWords.filter(word => haystack.includes(word.toLowerCase())).length;
+    if (score > bestScore) {
+      best = variant;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function toDecomposedReference(seed: ArtistReferenceSeed, matchedSurface: string, variant?: ArtistReferenceVariant): DecomposedReference {
+  const source = variant ?? seed;
   return {
     matchedSurface,
-    eraTag: seed.eraTag,
-    instrumentation: [...seed.instrumentation],
-    harmonyTraits: [...seed.harmonyTraits],
-    rhythmTraits: [...seed.rhythmTraits],
-    productionTraits: [...seed.productionTraits],
-    vocalTraits: [...seed.vocalTraits],
-    suggestedGenreIds: [...seed.suggestedGenreIds],
-    excludeAdditions: [...seed.excludeAdditions]
+    eraTag: source.eraTag,
+    instrumentation: [...source.instrumentation],
+    harmonyTraits: [...source.harmonyTraits],
+    rhythmTraits: [...source.rhythmTraits],
+    productionTraits: [...source.productionTraits],
+    vocalTraits: [...source.vocalTraits],
+    suggestedGenreIds: [...source.suggestedGenreIds],
+    // excludeAdditions is never era-specific — always the seed's own, even when a variant is selected.
+    excludeAdditions: [...seed.excludeAdditions],
+    ...(variant ? { reasonKo: variant.reasonKo, alternateHintKo: variant.alternateHintKo } : {})
   };
 }
 
@@ -107,6 +154,13 @@ function toDecomposedReference(seed: ArtistReferenceSeed, matchedSurface: string
  * than one — "비틀즈랑 카펜터스 느낌 섞어서") and returns one decomposed entry
  * per match, in the order the seeds table lists them. Never throws; an
  * input with no recognizable reference just returns [].
+ *
+ * 지시문 60 (TASK B) — when a seed defines `variants` and the user's text
+ * carries a matching modifier in the same sentence as the reference itself
+ * ("비지스 느낌의 감미로운 발라드"), the matched variant's era/traits are
+ * returned instead of the seed's default. No matching modifier (or no
+ * variants on that seed) falls back to the seed's default era exactly as
+ * before.
  */
 export function decomposeArtistReferences(freeText: string): DecomposedReference[] {
   const text = String(freeText || '');
@@ -114,7 +168,10 @@ export function decomposeArtistReferences(freeText: string): DecomposedReference
   const results: DecomposedReference[] = [];
   for (const seed of ARTIST_REFERENCE_SEEDS) {
     const match = text.match(seedPattern(seed));
-    if (match) results.push(toDecomposedReference(seed, match[0]));
+    if (!match) continue;
+    const sentence = sentenceContaining(text, match.index ?? 0);
+    const variant = selectVariant(seed, sentence);
+    results.push(toDecomposedReference(seed, match[0], variant));
   }
   return results;
 }
