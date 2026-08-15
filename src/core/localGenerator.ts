@@ -848,10 +848,16 @@ export function rebuildStylePromptsForPersonaMode(
   // killingPointPlan pre-pass, so toggling persona mode on/off reproduces
   // the identical killing-point assignment rather than re-rolling it.
   const killingPointPlan = assignKillingPoints(
-    arcPlan.map((pos, idx) => ({
-      peakStrength: pos.peakStrength,
-      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0]?.eraTag
-    })),
+    arcPlan.map((pos, idx) => {
+      const leadGenre = genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0];
+      return {
+        peakStrength: pos.peakStrength,
+        eraTag: leadGenre?.eraTag,
+        // 지시문 61 (TASK C-3) — data/killingPoints.ts's own
+        // KillingPointAssignmentInput.genreText doc comment.
+        genreText: leadGenre ? `${leadGenre.label} ${leadGenre.styleCore}` : undefined
+      };
+    }),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
     // TASK D2 §4-5 — kids workspaces draw from the separate kid-safe set instead of KILLING_POINTS.
@@ -1296,10 +1302,15 @@ export function generateLocalBlueprint(
     ? arcPlan.map((pos, idx) => (idx === 1 && pos.peakStrength === 'none' ? { ...pos, peakStrength: 'subtle' as const } : pos))
     : arcPlan;
   const killingPointPlan = assignKillingPoints(
-    arcPlanForKillingPoints.map((pos, idx) => ({
-      peakStrength: pos.peakStrength,
-      eraTag: genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0]?.eraTag
-    })),
+    arcPlanForKillingPoints.map((pos, idx) => {
+      const leadGenre = genresForTrack(genres, genrePlan[idx], opts.genreBlendWeights, opts.genreBlendMode)[0];
+      return {
+        peakStrength: pos.peakStrength,
+        eraTag: leadGenre?.eraTag,
+        // 지시문 61 (TASK C-3) — mirrors the same fix at this function's twin call site above.
+        genreText: leadGenre ? `${leadGenre.label} ${leadGenre.styleCore}` : undefined
+      };
+    }),
     seed + 67,
     killingPointBoostFromInsights(opts.ratingInsights),
     // v5.13 — tier-aware filter instead of always the unfiltered full set.

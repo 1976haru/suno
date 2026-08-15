@@ -1385,7 +1385,7 @@ export interface SongIdea {
    */
   killingPointText?: string;
   /** 지시문 26 (TASK A) — killingPointText 모먼트가 곡 안 어디에 오는지. PreassignedSongSlot.killingPointPlacement와 동일한 값 집합. */
-  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response' | 'intro';
   /** v3.68 (TASK B) — this track's killing point id (see data/killingPoints.ts), when the arc gave it one (peakStrength other than 'none' — see core/arcPlan.ts). */
   killingPointId?: string;
   /** v3.68 (TASK B) — this track's arc phase (see core/arcPlan.ts). */
@@ -2096,7 +2096,7 @@ export interface PreassignedSongSlot {
   killingPointText?: string;
   /** v3.67 (TASK A) — where in the song killingPointText's moment lands. */
   // TASK D2 §4 — 'call-response' added alongside data/killingPoints.ts's own identical widening (kids-only killing points; see KIDS_KILLING_POINTS).
-  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response' | 'intro';
   /** v3.68 (TASK B) — this trackNo's killing point id (data/killingPoints.ts KillingPoint.id), snapshotted for rating analysis alongside killingPointText/killingPointPlacement above. */
   killingPointId?: string;
   /** v3.68 (TASK B) — this trackNo's own lead genre's broad era bucket (see data/genreLibrary's GenrePack.eraTag), for rating analysis. */

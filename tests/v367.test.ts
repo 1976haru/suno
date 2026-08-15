@@ -68,8 +68,11 @@ describe('[v3.67] killing points reach the local generation stylePrompt', () => 
     const slots = preallocateSongSlots(opts, testGenres);
     const withKillingPoint = slots.filter(slot => slot.killingPointText);
     expect(withKillingPoint.length).toBeGreaterThanOrEqual(12);
+    // 지시문 61 (TASK C-3) — 'intro' 추가(data/killingPoints.ts의 KP-16
+    // 아카펠라 인트로): KillingPointPlacement 유니언 자체의 확장이라 이
+    // 허용목록도 같이 갱신한다.
     for (const slot of withKillingPoint) {
-      expect(['final-chorus', 'bridge', 'mid-instrumental', 'pre-chorus', 'outro']).toContain(slot.killingPointPlacement);
+      expect(['final-chorus', 'bridge', 'mid-instrumental', 'pre-chorus', 'outro', 'call-response', 'intro']).toContain(slot.killingPointPlacement);
     }
     const usage = new Map<string, number>();
     for (const slot of slots) {
