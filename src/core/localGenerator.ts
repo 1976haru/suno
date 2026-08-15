@@ -81,6 +81,7 @@ import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedC
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import { buildEraCanonPalettePlan, rotatingEraPaletteAtoms } from './eraCanonPalettePlan';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
+import { channelVocalFloorForArchetype } from '../data/channelVocalFloor';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
 import type { VerifiedCombo } from '../data/verifiedCombos';
 
@@ -1198,6 +1199,8 @@ export function generateLocalBlueprint(
   // spread across the audience profile's own tempo range instead of only
   // from which genre happened to be assigned per track.
   const audienceProfile = audienceProfileForChannelArchetype(opts.channel.archetype, opts.audience);
+  // 지시문 62 (TASK C) — data/channelVocalFloor.ts's own doc comment.
+  const channelVocalFloor = channelVocalFloorForArchetype(opts.channel.archetype);
   // v4.2 (TASK A3) — the single ResolvedConstraints instance this whole
   // blueprint's title generation (createTitleGenerator/nextContestedTitle
   // below) reads from; see core/constraints.ts's own top doc comment for
@@ -2141,7 +2144,20 @@ export function generateLocalBlueprint(
         id: 'vocal' as const,
         // 지시문 46 (TASK D) — vocalPresetOverride도 adultVocalTraitPlan과
         // 같은 "합성된 텍스트" 취급 — vocalTechniquePlan을 붙인다.
-        text: [vocalDescriptionText, (vocalPresetOverride || adultVocalTraitPlan?.[idx]) ? vocalTechniquePlan?.[idx] : undefined, audienceProfile.constraints[0]].filter(Boolean).join(', '),
+        // 지시문 62 (TASK C) — channelVocalFloor가 있으면 그 requiredTraits
+        // 중 하나가 이 자리(지시문59 요소 순서의 5번, 보컬)에서 technique
+        // 문구 대신 실린다 — "보컬 서술 2~3개 제한을 지킨다. 바닥이 그중
+        // 1개를 차지한다"를 그대로 따른 것: 개수를 늘리지 않고 기존
+        // non-essential 슬롯(technique — v4.4 TASK F 자기 doc comment: "the
+        // technique phrase is not [load-bearing]")을 대체한다.
+        // requiredTraits가 여러 개면(예: 시니어 3개) 이 코드베이스의 다른
+        // 모든 다중 서술 필드(rotatingGenreText 등)와 같은 방식으로 곡마다
+        // seed+idx 기반 회전시킨다 — 매곡 완전히 같은 문구만 나오면
+        // earwormVariation.test.ts의 "18곡 전부 동일 문구 최대 2개" 기준을
+        // 넘는 실측 회귀가 났다(고정 인덱스[0]로 처음 구현했다가 발견).
+        // vocalDescriptionText 자체는 건드리지 않으므로 slot.vocalText
+        // (지시문56 15/15 고유)는 영향받지 않는다.
+        text: [vocalDescriptionText, channelVocalFloor ? channelVocalFloor.requiredTraits[Math.abs(seed + idx * 53) % channelVocalFloor.requiredTraits.length] : ((vocalPresetOverride || adultVocalTraitPlan?.[idx]) ? vocalTechniquePlan?.[idx] : undefined), audienceProfile.constraints[0]].filter(Boolean).join(', '),
         // TASK v4.7 (TASK A) — a real generated pack found this shortForm's
         // blind "first 2 segments" slice dropping v3.80's own flagship
         // proximity override (tracks 2-3's forced 'soft plate ambience'/
@@ -2177,7 +2193,18 @@ export function generateLocalBlueprint(
           // kept here, gender/flagship prioritized over the plain segment-0
           // fallback since those are the two that have actually been found
           // silently dropped.
-          const priority = [genderClause, flagshipClause, segments[0]].filter((value, i, arr): value is string => Boolean(value) && arr.indexOf(value) === i);
+          // 지시문 62 (TASK C) — channelVocalFloor를 flagshipClause 다음
+          // 우선순위로 끼워 넣는다. genderClause·flagshipClause는 이미
+          // 실측 회귀를 고친 자리라(위 v4.7 doc comment 둘) 순서를 건드리지
+          // 않는다 — tests/v380.test.ts가 정확히 이 순서(트랙 1-3
+          // flagshipProximityOverride가 살아남는지)를 검증한다. floor를
+          // 그 앞에 두면 트랙 2-3에서 flagship이 밀려나는 실측 회귀가
+          // 났다(먼저 시도했다가 tests/v380.test.ts로 발견). floor는
+          // gender·flagship 둘 다 없을 때만 kept에 들어간다 — shortForm은
+          // 하드 예산 압박 시에만 쓰이므로 이 자리에서는 완전 보장이
+          // 아니라 최선 노력이다(전체 폼에서는 항상 실린다).
+          const floorClause = channelVocalFloor ? channelVocalFloor.requiredTraits[Math.abs(seed + idx * 53) % channelVocalFloor.requiredTraits.length] : undefined;
+          const priority = [genderClause, flagshipClause, floorClause, segments[0]].filter((value, i, arr): value is string => Boolean(value) && arr.indexOf(value) === i);
           const kept = priority.slice(0, 2);
           return [kept.join(', '), audienceProfile.constraints[0]].filter(Boolean).join(', ');
         })()
