@@ -930,6 +930,17 @@ export interface GenerationOptions {
    */
   vocalQuota?: { male: number; female: number; mixed: number };
   /**
+   * 지시문 63 (TASK A) — opts.vocalQuota(직접 지정)와 channel.vocalQuotaOverride(채널
+   * 고정)가 둘 다 없을 때, 남은 두 선택지("장르에 맞춰 배정" 기본 vs "고르게
+   * 배정") 중 어느 쪽인지. undefined(또는 'genre')는 core/vocalQuotaFromGenre.ts의
+   * deriveVocalQuotaFromGenrePlan이 이 팩의 실제 genrePlan에서 역산한 쿼터를
+   * 쓴다는 뜻 — 지시문 62까지의 균등 5·5·5 고정 기본값을 대체하는 새 기본값이다.
+   * 'balanced'는 그 역산을 끄고 예전 DEFAULT_ADULT_VOCAL_QUOTA/DEFAULT_KIDS_VOCAL_QUOTA
+   * 균등 비율로 되돌린다 — "고르게 배정" 선택지를 없애지 말 것(§하지 말 것)에
+   * 따라 남겨둔 명시적 옵트아웃.
+   */
+  vocalQuotaMode?: 'genre' | 'balanced';
+  /**
    * 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — core/vocalRecommender.ts's
    * recommendVocalPlan이 Step2Concept.tsx 화면에 보여주는 곡별 프리셋
    * 추천이 실측 결과 실제 생성에 전혀 닿지 않았다("추천이 화면에만 있고

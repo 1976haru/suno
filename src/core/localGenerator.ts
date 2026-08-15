@@ -10,7 +10,10 @@ import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT, resolveEffectiveMoneyChordId } from './soundSignature';
 import { applyMoneyChordLean, buildCustomProgressionPlan, buildFamilyProgressionPlan, buildGenreAwareProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, DEFAULT_ADULT_VOCAL_QUOTA, DEFAULT_KIDS_VOCAL_QUOTA, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
+import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
+import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
+import { buildKidsPresetPlan, kidsPresetVocalText } from './kidsVocalPresetPlan';
+import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
 import { scoreSongs } from './quality';
 import { applySlotOrderOverride } from './slotOrderOverride';
 import { AI_DISCLOSURE_LINE, sanitizePublicYoutubeTags } from './exportCompliance';
@@ -1404,7 +1407,11 @@ export function generateLocalBlueprint(
   // single-gender-group channel's own fixed quota should win the same way
   // an explicit caller-supplied quota already does). undefined for every
   // existing channel preset, so this fallback chain is unchanged for them.
-  const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  // 지시문 63 (TASK A) — mirrors batchPreallocation.ts's identical resolveBaseVocalQuota
+  // wiring: same opts.vocalQuota > channel.vocalQuotaOverride priority, but the
+  // final fallback is now genrePlan에서 역산한 쿼터(deriveVocalQuotaFromGenrePlan),
+  // not a flat 5·5·5. opts.vocalQuotaMode==='balanced'만 예전 균등값으로 되돌린다.
+  const baseVocalQuota = resolveBaseVocalQuota(opts, genrePlan);
   // v5.9 (quota/tone separation) — mirrors batchPreallocation.ts's identical
   // split: `detectedVocalTone` is a pure recognition signal (independent of
   // channel type), while `vocalLeaning` additionally decides whether that
@@ -1519,6 +1526,11 @@ export function generateLocalBlueprint(
   // Kids only now — the adult path uses buildAdultVocalTraitPlan below
   // (TASK v3.72 TASK B).
   const vocalVariantPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // 지시문 63 (TASK B) — mirrors batchPreallocation.ts's identical addition
+  // (same reasoning: see that file's own doc comment).
+  const kidsPresetPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) && !kidsMatchedVocalPreset
+    ? buildKidsPresetPlan(vocalPlan, resolvedKidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID, seed)
+    : null;
   // TASK v3.72 (TASK B) — mirrors batchPreallocation.ts's own
   // buildAdultVocalTraitPlan call (same seed) so the local and realtime/
   // Batch/bridge paths agree on every trackNo's 4-axis vocal wording for the
@@ -1704,6 +1716,15 @@ export function generateLocalBlueprint(
     // core/batchPreallocation.ts의 동일 수정과 같은 이유(선형 충돌 방지).
     return PROXIMITY_POOL[(idx * 5 + priorUses * 13) % PROXIMITY_POOL.length];
   }
+  // 지시문 63 (TASK B-4) — mirrors batchPreallocation.ts's identical
+  // kidsPresetOccurrenceIndex addition (same reasoning: see
+  // kidsVocalPresetPlan.ts's kidsPresetVocalText doc comment).
+  const kidsPresetVariantCounter = new Map<string, number>();
+  function kidsPresetOccurrenceIndex(presetId: string): number {
+    const count = kidsPresetVariantCounter.get(presetId) ?? 0;
+    kidsPresetVariantCounter.set(presetId, count + 1);
+    return count;
+  }
   // 지시문 56 (TASK A) — core/batchPreallocation.ts의 동일 수정(presetVariantVocalText,
   // 그 파일 자신의 doc comment 참고)과 정확히 같은 이유·같은 로직. preset.prompt는
   // 프리셋당 고정 문구 하나뿐이라 같은 프리셋을 쓰는 트랙끼리 앞 구절이 완전히
@@ -1874,9 +1895,19 @@ export function generateLocalBlueprint(
     // TASK v3.41 Part A2/D — same rotation index batchPreallocation.ts's
     // preallocateSongSlots uses for the same opts/trackNo (kids only — see
     // TASK v3.72 TASK B for the adult path below).
+    // 지시문 63 (TASK B) — mirrors batchPreallocation.ts's identical
+    // kidsPresetForTrack resolution (same reasoning: see that file's own
+    // doc comment).
+    const kidsPresetForTrack = isKidsArchetype(opts.channel.archetype)
+      ? (kidsMatchedVocalPreset ?? kidsPresetPlan?.[idx])
+      : undefined;
     const vocalDescriptionText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
-          ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
+          ? (kidsMatchedVocalPreset
+              ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
+              : (kidsPresetPlan?.[idx]
+                  ? kidsPresetVocalText(kidsPresetPlan[idx]!, opts.lyricLanguage, kidsPresetOccurrenceIndex(kidsPresetPlan[idx]!.id))
+                  : kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, undefined)))
           : (vocalPresetOverride
               ? presetVariantVocalText(vocalPresetOverride, idx)
               : (adultVocalTraitPlan?.[idx] ?? fallbackVocalText)))
@@ -2409,7 +2440,10 @@ export function generateLocalBlueprint(
       // 지시문 46 (TASK D) — core/batchPreallocation.ts의 동일 수정과 같은
       // 이유: vocalPresetOverride(이 트랙의 실제 곡별 프리셋)가 있으면
       // 그것을 우선한다.
-      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset)!.id } : {}),
+      // 지시문 63 (TASK B) — mirrors batchPreallocation.ts's identical
+      // kidsPresetForTrack fold-in (same reasoning: see that file's own doc
+      // comment).
+      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack)!.id } : {}),
       ...(vocalPresetSource ? { vocalPresetSource } : {}),
       effectiveGenreIds: sanitizeGenreIdsForArchetype(trackGenres.map(g => g.id), archetype).valid,
       effectiveArchetype: archetype,

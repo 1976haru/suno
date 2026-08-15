@@ -121,11 +121,17 @@ describe('[Part H4/H5] local generation path gets the same lyric meta tag + qual
     }
   });
 
+  // 지시문 63 (TASK B) — 자동 경로가 이제 forKids 프리셋(kid-choir 계열
+  // 포함)을 곡마다 회전 배정해 vocalText 자체가 "choir"를 담을 수 있다 —
+  // resolveVocalMetaTag는 그 vocalText를 실제로 봐야 "[children's choir]"를
+  // 낼 수 있으므로, 이 테스트도 실제 song.vocalText/vocalGender를 넘겨야
+  // 실제 생성이 쓴 것과 같은 기대값을 계산한다(예전엔 vocalText 없이
+  // 호출해도 자동 경로가 절대 "choir"를 말하지 않아 우연히 통과했다).
   it('kids-channel local songs get [male vocal]/[female vocal]/["children\'s choir"] matching their vocalType', () => {
     const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'english', seasonId: season.id });
     const bp = generateLocalBlueprint(opts, kidsGenres, kidsMoods, season);
     for (const song of bp.songs) {
-      const expectedTag = resolveVocalMetaTag(song.vocalType, undefined);
+      const expectedTag = resolveVocalMetaTag(song.vocalType, song.vocalGender, song.vocalText);
       expect(song.lyrics.startsWith(expectedTag!)).toBe(true);
     }
   });

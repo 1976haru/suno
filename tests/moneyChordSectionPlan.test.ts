@@ -84,11 +84,21 @@ describe('지시문 39 (TASK B-7) — 실제 생성 파이프라인 왕복 (prea
     expect(threePlusCount).toBeGreaterThan(0);
   });
 
-  it('동요 채널: 1개 진행 곡이 대다수다', () => {
+  // 지시문 63 (TASK B-5) — "다중진행 8/15 이상" 기준(예전 4/15)을 맞추려고
+  // COUNT_POLICY_BY_BUCKET.kids의 '2' 비중을 4->8로 올렸다(core/
+  // moneyChordSectionPlan.ts). "1개 진행이 대다수(과반)"였던 예전 값(11/15)은
+  // 더는 유지되지 않는다 — 이 지시문의 명시적 요구와 직접 충돌하는 예전
+  // 기대치이므로 갱신한다. "3개 진행을 강제하지 말 것"은 여전히 지킨다
+  // (threePlusCount는 항상 0).
+  it('동요 채널: 3개 진행은 전혀 없고(따라 부르기 복잡도 상한), 2개 진행이 최소 8/15다', () => {
     const opts = makeOptions({ channel: kidsChannel, songCount: 15 });
     const slots = preallocateSongSlots(opts, []);
     const singleCount = slots.filter(s => !s.moneyChordSectionMap).length;
-    expect(singleCount).toBeGreaterThanOrEqual(9);
+    const multiCount = slots.filter(s => s.moneyChordSectionMap && s.moneyChordSectionMap.length > 1).length;
+    const threePlusCount = slots.filter(s => s.moneyChordSectionMap && s.moneyChordSectionMap.length === 3).length;
+    expect(threePlusCount).toBe(0);
+    expect(multiCount).toBeGreaterThanOrEqual(8);
+    expect(singleCount + multiCount).toBe(15);
   });
 
   it('섹션 라벨이 promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN과 일치한다(축 중복 오판 방지)', async () => {

@@ -342,7 +342,7 @@ const ADULT_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
 };
 
 /** TASK v3.38 Part B (language follow-up) — "언어별 보컬 묘사도 해당 언어 발음에 맞게 조정 (예: japanese -> clear Japanese diction, bright and friendly)"; appended to every vocal type's base description below. */
-const VOCAL_DICTION_CLAUSE: Record<KidsVocalLanguage, string> = {
+export const VOCAL_DICTION_CLAUSE: Record<KidsVocalLanguage, string> = {
   korean: 'clear Korean diction, bright and friendly',
   japanese: 'clear Japanese diction, bright and friendly',
   english: 'clear English diction, bright and friendly'

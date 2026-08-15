@@ -35,6 +35,7 @@
     "check:consumption": "tsx scripts/checkPolicyConsumption.ts",
     "check:genre-completeness": "tsx scripts/checkGenreCompleteness.ts",
     "check:vocal-floor": "tsx scripts/checkVocalFloor.ts",
+    "check:vocal-genre-fit": "tsx scripts/checkVocalGenreFit.ts",
     "check:genre-fidelity": "tsx scripts/checkGenreFidelity.ts",
     "check:genre-utilization": "tsx scripts/checkGenreUtilization.ts",
     "check:option-utilization": "tsx scripts/checkOptionUtilization.ts",

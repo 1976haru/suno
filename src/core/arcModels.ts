@@ -124,12 +124,26 @@ const KIDS_BUNDLES_T1: KidsBundleDefinition[] = [
  * "we're wrapping up" closer rather than 'calm' doing double duty as both
  * "quiet content" and "the end of the set".
  */
+/**
+ * 지시문 63 (TASK B-5) — shareOf18 재조정: calm 3/closing 3(총 6, 33%)이던
+ * 예전 값은 songCount=18에서는 정확히 12/18(=지시문47이 맞춘 관문 문턱)로
+ * 떨어지지만, songCount=15(D-2 실제 검증 세트 크기)에서는 largest-remainder
+ * 반올림이 소수부가 더 큰 calm/closing 쪽(0.5)에 나머지를 몰아줘 9/15까지
+ * 떨어졌다(실측 — core/arcModels.ts의 옛 주석이 이미 이 메커니즘 자체를
+ * 문서화해 뒀다). expectedKillingPointAssignedCount 자신이 이 배열에서
+ * 직접 역산하므로(고정 비율이 아니다) shareOf18을 조정해도 관문이
+ * 새로 어긋나지 않는다 — "차분한 순간엔 킬링포인트를 억지로 넣지 않는다"는
+ * 설계 의도(calm/closing을 계속 peakStrength:'none'으로 유지)는 그대로
+ * 지키되, 그 두 번들의 절대 크기만 6->2로 줄여 songCount=15/18 양쪽에서
+ * 13/15(87%)·16/18(89%) 근처로 회복한다. 추정치이며 실측으로 재조정될 수
+ * 있다(verified: false) — calm·closing이 완전히 0이 되지 않게 유지한다.
+ */
 const KIDS_BUNDLES_T3: KidsBundleDefinition[] = [
-  { id: 'familiar', phase: 'kids-familiar', labelKo: '익숙한 것 — 인사송·손동작', shareOf18: 4, intensity: 3, peakStrength: 'subtle' },
-  { id: 'learning', phase: 'kids-learning', labelKo: '배우는 것 — 숫자·색깔·생활습관', shareOf18: 4, intensity: 3, peakStrength: 'subtle' },
-  { id: 'moving', phase: 'kids-moving', labelKo: '움직이는 것 — 율동·운동', shareOf18: 4, intensity: 4, peakStrength: 'strong' },
-  { id: 'calm', phase: 'kids-calm', labelKo: '차분한 것 — 마음 가라앉히기', shareOf18: 3, intensity: 2, peakStrength: 'none' },
-  { id: 'closing', phase: 'kids-closing', labelKo: '마무리 인사 — 안녕/굿나잇', shareOf18: 3, intensity: 1, peakStrength: 'none' }
+  { id: 'familiar', phase: 'kids-familiar', labelKo: '익숙한 것 — 인사송·손동작', shareOf18: 6, intensity: 3, peakStrength: 'subtle' },
+  { id: 'learning', phase: 'kids-learning', labelKo: '배우는 것 — 숫자·색깔·생활습관', shareOf18: 5, intensity: 3, peakStrength: 'subtle' },
+  { id: 'moving', phase: 'kids-moving', labelKo: '움직이는 것 — 율동·운동', shareOf18: 5, intensity: 4, peakStrength: 'strong' },
+  { id: 'calm', phase: 'kids-calm', labelKo: '차분한 것 — 마음 가라앉히기', shareOf18: 1, intensity: 2, peakStrength: 'none' },
+  { id: 'closing', phase: 'kids-closing', labelKo: '마무리 인사 — 안녕/굿나잇', shareOf18: 1, intensity: 1, peakStrength: 'none' }
 ];
 
 /**

@@ -14,6 +14,8 @@ import { lintInPackStyleSimilarity } from './diversityLinter';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { classifyTitleShape } from './titleShapeVariety';
 import { detectVocalGender, scaleVocalQuota, type VocalQuota } from './vocalPlan';
+import { dominantVocalTypeForGenre } from './vocalQuotaFromGenre';
+import { getGenreById } from '../data/genreLibrary';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, type TitleConsistencyReport } from './promiseAudit';
 import type { AudioSetReport } from './audioSetReport';
@@ -240,6 +242,27 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
   // pass). 실측 근거 없는 추정 임계값이므로 여기 주석에 명시한다.
   const VOCAL_TEXT_SIMILARITY_MAX_GROUP = 2;
 
+  // 지시문 63 (TASK C-2) — "장르-보컬 부합률" (12/15 기준). 각 곡의 lead
+  // 장르가 원하는 성별(dominantVocalTypeForGenre — vocalPreference 최댓값,
+  // 뚜렷한 선호 없으면 항상 부합으로 침)과 실제 배정된 vocalType이 맞는
+  // 비율. TASK A(genre-derived 쿼터)가 실제로 작동했는지를 이 감사가
+  // 직접 재확인한다 — 쿼터 총량만 보는 vocal_distribution과 달리 곡
+  // 단위 매칭을 잰다.
+  const genreFitTracked = songs.filter(song => song.genreId && song.vocalType);
+  const genreFitMatches = genreFitTracked.filter(song => {
+    const dominant = dominantVocalTypeForGenre(getGenreById(song.genreId!)?.vocalPreference);
+    return dominant === null || dominant === song.vocalType;
+  });
+  const GENRE_FIT_TARGET_RATIO = 12 / 15;
+
+  // 지시문 63 (TASK C-2) — "보컬 프리셋 종류" (5종 기준). effectiveVocalPresetId
+  // (SongIdea 자기 필드 — 지시문 49/63이 채운다)의 distinct count. kids
+  // 채널의 forKids 프리셋 회전(core/kidsVocalPresetPlan.ts)이 실제로
+  // 여러 종류를 쓰는지, 비-kids 채널의 vocalPresetOverride/tone-match도
+  // 함께 잰다(어느 쪽이든 "프리셋 다양성"이라는 같은 신호).
+  const distinctPresetIds = new Set(songs.map(song => song.effectiveVocalPresetId).filter(Boolean));
+  const PRESET_VARIETY_TARGET = 5;
+
   return [
     item({
       id: 'vocal_distribution', category: '보컬', labelKo: '보컬 타입 배분',
@@ -286,6 +309,19 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
       id: 'vocal_text_similarity', category: '보컬', labelKo: '보컬 서술 유사도 (첫 두 구절 동일)',
       targetKo: `≤ ${VOCAL_TEXT_SIMILARITY_MAX_GROUP}곡`, actualKo: vocalTexts.length ? `최대 ${maxSimilarityGroup}곡` : '(vocalText 없음)',
       pass: vocalTexts.length ? maxSimilarityGroup <= VOCAL_TEXT_SIMILARITY_MAX_GROUP : null, requiresAudio: false, specifiedBy: ['지시문 56 TASK B-2']
+    }),
+    item({
+      id: 'vocal_genre_fit', category: '보컬', labelKo: '장르-보컬 부합률',
+      targetKo: `≥ ${Math.round(songs.length * GENRE_FIT_TARGET_RATIO)}/${songs.length}`,
+      actualKo: `${genreFitMatches.length}/${genreFitTracked.length}`,
+      pass: genreFitTracked.length ? genreFitMatches.length >= Math.round(songs.length * GENRE_FIT_TARGET_RATIO) : null,
+      requiresAudio: false, specifiedBy: ['지시문 63 TASK C-2']
+    }),
+    item({
+      id: 'vocal_preset_variety', category: '보컬', labelKo: '보컬 프리셋 종류',
+      targetKo: `≥ ${PRESET_VARIETY_TARGET}종`, actualKo: `${distinctPresetIds.size}종`,
+      pass: distinctPresetIds.size ? distinctPresetIds.size >= PRESET_VARIETY_TARGET : null,
+      requiresAudio: false, specifiedBy: ['지시문 63 TASK C-2']
     })
   ];
 }

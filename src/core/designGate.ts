@@ -8,20 +8,18 @@ import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
-import { isKidsArchetype } from '../utils/channelArchetype';
 import { FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { expectedArcPhaseCount, expectedKillingPointAssignedCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { emotionQuotaAdvisory } from './emotionArcQuota';
 import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import {
-  DEFAULT_ADULT_VOCAL_QUOTA,
-  DEFAULT_KIDS_VOCAL_QUOTA,
   leaningAdultVocalQuota,
   leaningGenderFor,
   scaleVocalQuota,
   type VocalQuota
 } from './vocalPlan';
+import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
 
 /**
  * v3.78 (TASK A) — "관문 1": everything a slot plan (PreassignedSongSlot[])
@@ -124,9 +122,12 @@ function segmentBalanceViolations(ordered: readonly string[], windowSize = 6, ma
  * deliberate imbalance; (2) a kids channel could never lean toward a picked
  * gendered kids preset even when suggesting a fix.
  */
-function vocalQuotaForAutoFix(opts: GenerationOptions): VocalQuota {
-  const base = opts.vocalQuota ?? opts.channel.vocalQuotaOverride
-    ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+function vocalQuotaForAutoFix(opts: GenerationOptions, genrePlan: readonly (string | undefined)[]): VocalQuota {
+  // 지시문 63 (TASK A) — mirrors batchPreallocation.ts's/localGenerator.ts's
+  // own resolveBaseVocalQuota call: the autoFix suggestion this gate offers
+  // must reflect the SAME genre-derived default real generation now uses, or
+  // the button would suggest reverting a genre-fit pack back to a flat 5·5·5.
+  const base = resolveBaseVocalQuota(opts, genrePlan);
   const scaledBase = scaleVocalQuota(base, opts.songCount);
   if (opts.vocalQuota || opts.channel.vocalQuotaOverride) return scaledBase;
   const leaning = leaningGenderFor(opts);
@@ -236,7 +237,8 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   if (!types.length) return issues; // no vocalType at all is a data-shape problem, not this gate's concern (usesVocalQuota is unconditionally true as of v3.77 — see vocalPlan.ts)
 
   const counts = countBy(types);
-  const autoFix = withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
+  const genrePlan = ordered.map(slot => slot.genreId);
+  const autoFix = withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts, genrePlan));
   // 지시문 27 (TASK C-2) — 순서 문제 전용 autoFix. 계산에 실패하면(길이가
   // 이상하거나 이미 괜찮으면) undefined — 그 경우 이 두 이슈는 자동 수정
   // 버튼 없이(§C-3과 같은 원칙: 못 고치면 버튼을 안 보여준다) fixHintKo만

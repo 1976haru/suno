@@ -24,8 +24,13 @@ const kidsMoods = moodPacks.filter(m => kidsChannel.preferredMoods.includes(m.id
 const season = seasonPacks[0];
 
 describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () => {
-  it('produces exactly a 5/5/5 vocalType distribution across 15 songs', () => {
-    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+  // 지시문 63 (TASK A) — 기본값이 균등 5/5/5에서 genrePlan 역산으로
+  // 바뀌었다(core/vocalQuotaFromGenre.ts). 이 테스트는 "고르게 배정"
+  // 메커니즘(scaleVocalQuota/buildVocalPlan) 자체를 검증하는 것이 목적이므로
+  // vocalQuotaMode:'balanced'로 예전 균등 기본값을 명시적으로 요청한다 —
+  // 새 기본값(genre) 자체의 동작은 vocalQuotaFromGenre.test.ts가 검증한다.
+  it('produces exactly a 5/5/5 vocalType distribution across 15 songs when balanced mode is explicitly requested', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id, vocalQuotaMode: 'balanced' });
     const slots = preallocateSongSlots(opts, kidsGenres);
     expect(slots).toHaveLength(15);
     const counts = { male: 0, female: 0, mixed: 0 };
@@ -36,17 +41,30 @@ describe('[v3.39 Part C] preallocateSongSlots carries the kids vocal quota', () 
     expect(counts).toEqual({ male: 5, female: 5, mixed: 5 });
   });
 
-  it('every kids slot carries vocalText matching one of vocalDescriptionFor(vocalType, lyricLanguage)\'s rotating variants', () => {
-    // TASK v3.41 Part A2/D — vocalText now rotates through 5 variants per
-    // type (see vocalPlan.ts's buildVocalVariantPlan), so it's no longer
-    // always variant 0; membership in the possible-variants set is the
-    // correct check now (exact-value coverage lives in tests/v341.test.ts).
+  // 지시문 63 (TASK B) — 자동(사용자가 vocalTone으로 프리셋 하나를 직접
+  // 고르지 않은) 기본 경로는 이제 forKids 프리셋 10종을 곡마다 회전
+  // 배정한다(core/kidsVocalPresetPlan.ts) — 예전의 "무조건 flat 5-variant
+  // 풀" 하나만 남는 게 아니라, "그 트랙 vocalType과 성별이 맞는 forKids
+  // 프리셋의 prompt + 곡별 변주 구절"도 유효한 결과다. 후보가 없는 극단적
+  // 경우에만 flat 폴백(vocalDescriptionFor)으로 떨어진다.
+  it('every kids slot\'s vocalText is either a flat rotating variant or built from a gender-matching forKids preset', () => {
     const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
     const slots = preallocateSongSlots(opts, kidsGenres);
+    const kidsPresets = vocalPresets.filter(p => p.forKids);
     for (const slot of slots) {
-      const possibleVariants = new Set(Array.from({ length: 5 }, (_, i) => vocalDescriptionFor(slot.vocalType!, 'korean', i)));
-      expect(possibleVariants.has(slot.vocalText!), `trackNo ${slot.trackNo}: ${slot.vocalText}`).toBe(true);
+      const flatVariants = new Set(Array.from({ length: 5 }, (_, i) => vocalDescriptionFor(slot.vocalType!, 'korean', i)));
+      const matchesFlatVariant = flatVariants.has(slot.vocalText!);
+      const matchesSomePreset = kidsPresets.some(preset => slot.vocalText!.startsWith(preset.prompt));
+      expect(matchesFlatVariant || matchesSomePreset, `trackNo ${slot.trackNo}: ${slot.vocalText}`).toBe(true);
     }
+  });
+
+  // 지시문 63 (TASK B) — B-2 완료 판정: 15곡에 forKids 프리셋 5종 이상.
+  it('a 15-song kids pack uses at least 5 distinct forKids presets (effectiveVocalPresetId) by default', () => {
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const slots = preallocateSongSlots(opts, kidsGenres);
+    const usedPresetIds = new Set(slots.map(slot => slot.effectiveVocalPresetId).filter(Boolean));
+    expect(usedPresetIds.size, `used: ${[...usedPresetIds].join(', ')}`).toBeGreaterThanOrEqual(5);
   });
 
   // v3.77 (TASK A) supersedes TASK v3.39 Part H's original "explicit
@@ -141,9 +159,11 @@ describe('[v5.9] a kids channel honors an explicit gendered vocal preset on both
     }
   });
 
-  it('leaves the quota balanced (5/5/5-of-15) when vocalTone is untouched (still equal to the channel default)', () => {
+  // 지시문 63 (TASK A) — vocalQuotaMode:'balanced'로 예전 균등 기본값을
+  // 명시적으로 요청(§위 첫 테스트와 같은 이유).
+  it('leaves the quota balanced (5/5/5-of-15) when vocalTone is untouched and balanced mode is explicitly requested', () => {
     const kidsChannel = channelPresets.find(c => c.archetype === 'kids')!;
-    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id });
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'korean', seasonId: season.id, vocalQuotaMode: 'balanced' });
     const slots = preallocateSongSlots(opts, kidsGenres);
     const counts = { male: 0, female: 0, mixed: 0 };
     for (const slot of slots) counts[slot.vocalType!] += 1;

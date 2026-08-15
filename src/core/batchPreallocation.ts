@@ -21,8 +21,6 @@ import {
   buildVocalPlan,
   buildVocalTechniquePlan,
   buildVocalVariantPlan,
-  DEFAULT_ADULT_VOCAL_QUOTA,
-  DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
   kidsVocalTextFor,
   leaningAdultVocalQuota,
@@ -35,6 +33,9 @@ import {
   type VocalType
 } from './vocalPlan';
 import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
+import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
+import { buildKidsPresetPlan, kidsPresetVocalText } from './kidsVocalPresetPlan';
+import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
 import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
@@ -116,7 +117,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -435,7 +436,12 @@ export function preallocateSongSlots(
   // TASK K2 §5-1 — opts.channel.vocalQuotaOverride mirrors localGenerator.ts's
   // identical addition: same priority as opts.vocalQuota, undefined for
   // every existing channel preset so this path is unchanged for them.
-  const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  // 지시문 63 (TASK A) — 예전엔 이 지점에서 균등 5·5·5(DEFAULT_ADULT_VOCAL_QUOTA)로
+  // 곧장 폴백했다. resolveBaseVocalQuota가 같은 우선순위(opts.vocalQuota >
+  // channel.vocalQuotaOverride)는 그대로 지키면서, 마지막 폴백만 genrePlan에서
+  // 역산한 쿼터(deriveVocalQuotaFromGenrePlan)로 바꾼다 — opts.vocalQuotaMode
+  // === 'balanced'일 때만 예전 균등값으로 되돌아간다(§"고르게 배정" 선택지 유지).
+  const baseVocalQuota = resolveBaseVocalQuota(opts, genrePlan);
   // v5.9 (quota/tone separation) — `detectedVocalTone` is a pure recognition
   // signal (does a preset/gender/duet/mixed phrase actually exist in
   // opts.vocalTone?), computed the SAME way regardless of channel type; it
@@ -606,6 +612,15 @@ export function preallocateSongSlots(
   // only — the adult path's wording now comes from buildAdultVocalTraitPlan
   // below (TASK v3.72 TASK B), not this flat variant-index scheme.
   const vocalVariantPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // 지시문 63 (TASK B) — 하루가 명시적으로 단일 kids 프리셋을 고르지 않은
+  // 한(kidsMatchedVocalPreset이 그 경로 — 그때는 팩 전체가 그 프리셋
+  // 문구를 그대로 쓰는 게 맞다, 아래 vocalText 계산에서 우선한다), 곡마다
+  // forKids 프리셋 10종 중 이 나이대(resolvedKidsAgeTierId) 후보를 실제로
+  // 회전 배정한다 — 예전엔 이 경로가 아예 없어 effectiveVocalPresetId가
+  // 항상 null이었고 프리셋 10종이 하나도 안 쓰였다(§B-1 실측).
+  const kidsPresetPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) && !kidsMatchedVocalPreset
+    ? buildKidsPresetPlan(vocalPlan, resolvedKidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID, seed)
+    : null;
   // TASK v3.72 (TASK B) — the 4-axis (register/delivery/timbre/proximity;
   // pairing/blend for duet) per-song wording plan for every non-kids
   // archetype, replacing the old flat 5-variant ADULT_VOCAL_DESCRIPTIONS
@@ -854,6 +869,17 @@ export function preallocateSongSlots(
   // 이 앱의 보컬 묘사 어휘에서 쓰는 공간감 단어 7종)에서 하나를 더 붙여
   // 구분한다 — 프리셋의 정체성(prompt 원문)은 그대로 두고 공간감만
   // 얹으므로 "그 프리셋을 썼다"는 사실은 안 바뀐다.
+  // 지시문 63 (TASK B-4) — kidsPresetVocalText's own doc comment: counts
+  // this preset id's reuse WITHIN THIS PACK so its N-th occurrence always
+  // gets a deterministically different variant clause (N mod pool size),
+  // never relying on two independent seeded shuffles happening not to
+  // collide.
+  const kidsPresetVariantCounter = new Map<string, number>();
+  function kidsPresetOccurrenceIndex(presetId: string): number {
+    const count = kidsPresetVariantCounter.get(presetId) ?? 0;
+    kidsPresetVariantCounter.set(presetId, count + 1);
+    return count;
+  }
   const vocalPresetUsageCount = new Map<string, number>();
   function repeatVarianceFor(preset: VocalPreset, idx: number): string | undefined {
     const priorUses = vocalPresetUsageCount.get(preset.id) ?? 0;
@@ -913,9 +939,19 @@ export function preallocateSongSlots(
     // localGenerator.ts's identical guard (see its own doc comment): never
     // appended onto a kids description or onto a user's own verbatim
     // vocalTone fallback text.
+    // 지시문 63 (TASK B) — 이 트랙에 실제로 배정된 kids 프리셋. 팩 전체 단일
+    // 픽(kidsMatchedVocalPreset)이 최우선(기존 동작 그대로 — 트랙마다 같은
+    // 문구가 나오는 게 맞는 경로), 없으면 곡별 회전 배정(kidsPresetPlan).
+    const kidsPresetForTrack = isKidsArchetype(opts.channel.archetype)
+      ? (kidsMatchedVocalPreset ?? kidsPresetPlan?.[idx])
+      : undefined;
     const vocalText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
-          ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
+          ? (kidsMatchedVocalPreset
+              ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
+              : (kidsPresetPlan?.[idx]
+                  ? kidsPresetVocalText(kidsPresetPlan[idx]!, opts.lyricLanguage, kidsPresetOccurrenceIndex(kidsPresetPlan[idx]!.id))
+                  : kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, undefined)))
           : (vocalPresetOverride
               ? [presetVariantVocalText(vocalPresetOverride, idx), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
               : (adultVocalTraitPlan?.[idx]
@@ -1111,7 +1147,11 @@ export function preallocateSongSlots(
       // 있으면 그것을, 없으면 기존 whole-pack 매칭으로 폴백한다 — 이전엔
       // 이 필드가 모든 트랙에서 항상 같은 값이었다(§실측, 하루의 "목소리가
       // 이전과 차이가 없다" 지적의 근본 원인).
-      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset)!.id } : {}),
+      // 지시문 63 (TASK B) — kidsPresetForTrack은 kids 채널에서만 값이 있고
+      // (vocalPresetOverride/wholePackMatchedVocalPreset은 kids에서 항상
+      // undefined이므로 셋이 겹칠 일이 없다), 그 반대(비-kids)는 예전과
+      // 동일하게 vocalPresetOverride ?? wholePackMatchedVocalPreset만 본다.
+      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack)!.id } : {}),
       ...(vocalPresetSource ? { vocalPresetSource } : {}),
       // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/
       // effectiveGenreIds's own "always-populated counterpart" pattern just

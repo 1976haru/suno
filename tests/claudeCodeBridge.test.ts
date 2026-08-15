@@ -685,7 +685,11 @@ describe('[v3.35] buildMultiSetClaudeCodeInstructions — one instruction per se
     // TASK v3.72 (TASK A) — usesVocalQuota is now unconditional, so even an
     // unquota'd-looking pack gets a real male/female/duet split instead of
     // the old "single vocal identity" fallback.
-    expect(results[0].instruction).toContain('male 2, female 2, mixed 2');
+    // 지시문 63 (TASK A) — 예전엔 균등 6/6/6 기본값이 songCount=6로 스케일된
+    // "male 2, female 2, mixed 2"였다. 이제 기본값이 genrePlan 역산이라(§본문
+    // core/vocalQuotaFromGenre.ts) 이 고정 채널·테스트 장르 조합에서 실제로
+    // 계산되는 값(male 2 / female 3 / mixed 1)으로 갱신한다.
+    expect(results[0].instruction).toContain('male 2, female 3, mixed 1');
     expect(results[0].instruction).toContain('Set 1/3');
     expect(results[1].instruction).toContain('Set 2/3');
     expect(results[2].instruction).toContain('Set 3/3');
