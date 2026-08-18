@@ -127,15 +127,22 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // 추첨 풀을 넓혀 곡마다 뽑히는 장르 조합이 달라졌다 — min은 짧은 장르
   // 서술이 더 자주 뽑히며 내려가고 avg는 소폭 오르는 등 방향이 일정하지
   // 않은 건 무작위 추첨 풀 확장의 정상적 결과(§9 실측, 추정 아님).
-  it('프롬프트 길이 min/avg/max — 706/818/920 허용 ±20', () => {
+  //
+  // 지시문 65 (TASK A/B) — 706/818/920 -> 725/844/949 (실측 재조정): 전
+  // 장르 367종의 vocal 필드에 genre-family별 창법(technique) 어휘를
+  // 추가하고(TASK A), core/localGenerator.ts의 'vocal' 프롬프트 원자가 그
+  // 창법을 매곡 싣도록 바꿨다(TASK B, v3.80의 era 전용 buildVocalTechniquePlan을
+  // genre 전용으로 교체). 매곡 새 절 하나가 추가돼 min/avg/max 모두 오르는
+  // 건 이 지시문이 의도한 변화의 직접 결과다 — §9 실측, 추정 아님.
+  it('프롬프트 길이 min/avg/max — 725/844/949 허용 ±20', () => {
     const lengths = bp.songs.map(s => s.stylePrompt.length);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(686);
-    expect(Math.min(...lengths)).toBeLessThanOrEqual(726);
-    expect(avg).toBeGreaterThanOrEqual(798);
-    expect(avg).toBeLessThanOrEqual(838);
-    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(900);
-    expect(Math.max(...lengths)).toBeLessThanOrEqual(940);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(705);
+    expect(Math.min(...lengths)).toBeLessThanOrEqual(745);
+    expect(avg).toBeGreaterThanOrEqual(824);
+    expect(avg).toBeLessThanOrEqual(864);
+    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(929);
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(969);
   });
 
   it('고유 제목 18/18', () => {

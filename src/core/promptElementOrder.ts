@@ -61,8 +61,13 @@ const VOCAL_BLOCK_START_PATTERN = /\b(male|female|vocal|voice|falsetto|alto|teno
  * 보컬 묘사를 아예 안 썼다고 단정할 수 없다 — 측정 불가로 둔다, §공통 규약
  * 7).
  */
-export function vocalDescriptorClauseCount(stylePrompt: string): number | null {
-  const clauses = stylePrompt.split(',').map(c => c.trim()).filter(Boolean);
+/**
+ * 지시문 65 (TASK C) — scripts/patchVocalTechnique.ts가 "보컬 구절이 어디서
+ * 시작하는가"만 따로 필요로 해서 뽑아낸다(vocalDescriptorClauseCount와 같은
+ * 시작점 탐지 로직을 두 곳에 따로 두지 않는다, §공통규약). 콤마절 인덱스를
+ * 반환 — 없으면 null(측정 불가, §공통규약 7).
+ */
+export function vocalBlockStartClauseIndex(clauses: readonly string[]): number | null {
   const startIdx = clauses.findIndex((clause, i) => {
     if (i === 0) return false; // 첫 클로즈는 장르 자리(지시문 58) — 보컬 시작점 후보에서 제외.
     const axis = classifyClause(clause, false);
@@ -70,7 +75,13 @@ export function vocalDescriptorClauseCount(stylePrompt: string): number | null {
     if (axis) return false; // 이미 다른 축으로 분류된 절은 보컬 신호가 아니다.
     return VOCAL_BLOCK_START_PATTERN.test(clause);
   });
-  if (startIdx === -1) return null;
+  return startIdx === -1 ? null : startIdx;
+}
+
+export function vocalDescriptorClauseCount(stylePrompt: string): number | null {
+  const clauses = stylePrompt.split(',').map(c => c.trim()).filter(Boolean);
+  const startIdx = vocalBlockStartClauseIndex(clauses);
+  if (startIdx === null) return null;
   let end = startIdx;
   for (let i = startIdx + 1; i < clauses.length; i++) {
     const axis = classifyClause(clauses[i], false);

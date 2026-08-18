@@ -36,6 +36,7 @@ import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
 import { KR_2030_KILLING_POINTS } from '../data/killingPointsKr2030';
 import { JP_2030_KILLING_POINTS } from '../data/killingPointsJp2030';
 import { KPOP_KILLING_POINTS } from '../data/killingPointsKpop';
+import { hasVocalTechniqueWord } from '../data/vocalTechniqueByGenre';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -263,6 +264,31 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
   const distinctPresetIds = new Set(songs.map(song => song.effectiveVocalPresetId).filter(Boolean));
   const PRESET_VARIETY_TARGET = 5;
 
+  // 지시문 65 (TASK D-2) — "보컬 창법 어휘"(15/15 기준)·"같은 장르 창법
+  // 중복"(0건 기준)을 감사에 추가한다. hasVocalTechniqueWord는
+  // scripts/checkVocalTechnique.ts·scripts/patchVocalTechnique.ts와 같은
+  // 판정 함수(data/vocalTechniqueByGenre.ts) — 같은 판정 로직을 세 곳에
+  // 따로 두지 않는다(§공통규약).
+  const songsWithTechnique = songs.filter(song => hasVocalTechniqueWord(song.stylePrompt));
+  const techniqueClauseByGenre = new Map<string, string[]>();
+  for (const song of songs) {
+    if (!song.genreId) continue;
+    const clauses = song.stylePrompt.split(',').map(c => c.trim());
+    const techniqueClause = clauses.find(hasVocalTechniqueWord);
+    if (!techniqueClause) continue;
+    const list = techniqueClauseByGenre.get(song.genreId) ?? [];
+    list.push(techniqueClause.toLowerCase());
+    techniqueClauseByGenre.set(song.genreId, list);
+  }
+  let duplicateTechniquePairs = 0;
+  for (const clauses of techniqueClauseByGenre.values()) {
+    const counts = new Map<string, number>();
+    for (const clause of clauses) counts.set(clause, (counts.get(clause) ?? 0) + 1);
+    for (const count of counts.values()) {
+      if (count > 1) duplicateTechniquePairs += count - 1;
+    }
+  }
+
   return [
     item({
       id: 'vocal_distribution', category: '보컬', labelKo: '보컬 타입 배분',
@@ -322,6 +348,17 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
       targetKo: `≥ ${PRESET_VARIETY_TARGET}종`, actualKo: `${distinctPresetIds.size}종`,
       pass: distinctPresetIds.size ? distinctPresetIds.size >= PRESET_VARIETY_TARGET : null,
       requiresAudio: false, specifiedBy: ['지시문 63 TASK C-2']
+    }),
+    item({
+      id: 'vocal_technique_present', category: '보컬', labelKo: '보컬 창법 어휘',
+      targetKo: `${songs.length}/${songs.length}`, actualKo: `${songsWithTechnique.length}/${songs.length}`,
+      pass: songs.length ? songsWithTechnique.length === songs.length : null,
+      requiresAudio: false, specifiedBy: ['지시문 65 TASK D-2']
+    }),
+    item({
+      id: 'vocal_technique_genre_duplicate', category: '보컬', labelKo: '같은 장르 창법 중복',
+      targetKo: '0건', actualKo: `${duplicateTechniquePairs}건`,
+      pass: duplicateTechniquePairs === 0, requiresAudio: false, specifiedBy: ['지시문 65 TASK D-2']
     })
   ];
 }

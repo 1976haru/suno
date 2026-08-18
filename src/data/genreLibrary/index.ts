@@ -3,6 +3,7 @@ import type { GenreTier } from './types';
 import { ERA_BUCKET_BY_GENRE_ID } from '../eraExclusions';
 import { ERA_BUCKETS_BY_GENRE_ID, ERA_NOTE_KO_BY_GENRE_ID, type EraBucket as FineEraBucket } from '../eraBuckets';
 import { buildGenreTraits } from '../genreTraits';
+import { assignStaticVocalTechniques } from '../vocalTechniqueByGenre';
 
 /**
  * TASK H2 (v3.13) — 3-5 short, genre-authentic images per core-tier genre id,
@@ -890,7 +891,13 @@ const tagTraits: Record<string, Partial<Omit<StructuredGenrePack, 'id' | 'label'
   crooner: { vocal: ['smooth mature male croon'], moods: ['old-radio romance'] },
   dark: { production: ['shadowed low-mid texture'], harmony: ['minor-key tension'], moods: ['nocturnal'] },
   disco: { rhythm: ['gentle disco pulse'], instruments: ['tight rhythm guitar'], moods: ['danceable'] },
-  duet: { vocal: ['male and female duet', 'balanced call-and-response phrasing'], harmony: ['two-part chorus harmony'] },
+  // 지시문 65 (TASK A) — 'balanced call-and-response phrasing'는 20종
+  // duet 태그 장르 전부에 똑같이 붙어 checkVocalTechnique.ts §2("같은 창법
+  // 어휘가 5종 넘게 반복 0건")를 위반했다. 그 장르별 변주는 이제
+  // vocalTechniqueByGenre.ts의 family별 라운드로빈 창법이 담당하므로
+  // (§data/vocalTechniqueByGenre.ts 자기 doc comment), 여기서는 음색
+  // 식별자(male and female duet)만 남긴다 — 삭제가 아니라 중복 제거.
+  duet: { vocal: ['male and female duet'], harmony: ['two-part chorus harmony'] },
   dreamy: { production: ['soft reverb haze'], instruments: ['washed synth pad'], moods: ['dreamy'] },
   drums: { rhythm: ['active drum pocket'], production: ['crisp kit detail'] },
   electric: { instruments: ['electric bass', 'electric piano'], production: ['sleek studio tone'] },
@@ -3075,7 +3082,12 @@ const CROSS_ARCHETYPE_ADDITIONS: Readonly<Record<string, ChannelArchetype[]>> = 
   'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop']
 };
 
-export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+const allGenreSources = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks];
+// 지시문 65 (TASK A) — family별 라운드로빈 배정(assignStaticVocalTechniques
+// 자기 doc comment 참고)이라 전체 배열을 한 번에 넘겨야 한다 — .map() 안에서
+// 장르 하나씩 부르면 라운드로빈 순서를 만들 수 없다.
+const staticVocalTechniques = assignStaticVocalTechniques(allGenreSources);
+export const genreLibrary: EraTaggedGenrePack[] = allGenreSources.map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;
@@ -3096,11 +3108,19 @@ export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...ki
   const withExtra = extraArchetypes
     ? { ...withKr2030, archetypes: [...new Set([...(withKr2030.archetypes ?? []), ...extraArchetypes])] }
     : withKr2030;
+  // 지시문 65 (TASK A) — 음색(timbre)은 그대로 두고 창법(technique) 어휘를
+  // vocal 배열에 추가로 붙인다(교체 아님 — §A-2 "음색 서술은 유지한다").
+  // 이미 기술 어휘가 있는 극소수 legacyGenrePack(예: 지시문 62가 채운 항목
+  // 중 melisma/scat 등을 직접 문구에 넣은 경우)까지 중복 부착하지 않도록
+  // 대소문자 무시로 이미 포함됐는지 먼저 확인한다.
+  const technique = staticVocalTechniques.get(genre.id)!;
+  const alreadyHasTechnique = withExtra.vocal.some(v => v.toLowerCase() === technique.toLowerCase());
+  const withTechnique = alreadyHasTechnique ? withExtra : { ...withExtra, vocal: [...withExtra.vocal, technique] };
   // 지시문 46 (TASK C-2) — 기존 vocalPreference(legacyGenrePack 등에서
   // 이미 설정된 값)를 덮어쓰지 않는다 — 이 오버라이드 표에 있는 재즈 6종은
   // 원래 vocalPreference가 없었으므로(§실측) 실제로는 항상 신규 부여다.
-  const vocalPreference = withExtra.vocalPreference ?? VOCAL_PREFERENCE_OVERRIDES[genre.id];
-  const withVocalPreference = vocalPreference ? { ...withExtra, vocalPreference } : withExtra;
+  const vocalPreference = withTechnique.vocalPreference ?? VOCAL_PREFERENCE_OVERRIDES[genre.id];
+  const withVocalPreference = vocalPreference ? { ...withTechnique, vocalPreference } : withTechnique;
   return { ...withVocalPreference, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
 });
 export const genrePacks: GenrePack[] = genreLibrary;

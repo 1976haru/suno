@@ -40,6 +40,8 @@
     "check:genre-fidelity": "tsx scripts/checkGenreFidelity.ts",
     "check:genre-utilization": "tsx scripts/checkGenreUtilization.ts",
     "check:option-utilization": "tsx scripts/checkOptionUtilization.ts",
+    "check:vocal-technique": "tsx scripts/checkVocalTechnique.ts",
+    "patch:vocal-technique": "tsx scripts/patchVocalTechnique.ts",
     "build:suno-viewer": "tsx scripts/buildSunoViewer.ts",
     "sweep": "tsx scripts/integrationSweep.ts",
     "listening-set": "tsx scripts/listeningSet.ts",

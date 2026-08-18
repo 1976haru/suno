@@ -19,7 +19,7 @@ import {
   applyFlagshipVocalOrder,
   buildAdultVocalTraitPlan,
   buildVocalPlan,
-  buildVocalTechniquePlan,
+  buildVocalTechniquePlanByGenre,
   buildVocalVariantPlan,
   ensureVocalMetaTag,
   kidsVocalTextFor,
@@ -636,11 +636,13 @@ export function preallocateSongSlots(
   // values (plate/chamber/tape-slap/mono) over today's modern default.
   // Mirrors genrePlan's own indexing exactly (same array, same idx).
   const eraBucketByIndex = genrePlan.map(id => eraBucketForGenreId(id) ?? undefined);
-  // v3.80 (TASK E) — mirrors localGenerator.ts's identical technique-plan
-  // call (same seed); appended onto vocalText below so it reaches both the
-  // local path's stylePrompt and the bridge/Batch path's LLM-facing
-  // vocalText verbatim-enforcement.
-  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  // 지시문 65 (TASK B) — localGenerator.ts와 동일하게 era 기준
+  // buildVocalTechniquePlan을 genre 기준 buildVocalTechniquePlanByGenre로
+  // 대체(같은 seed, 같은 genrePlan 인덱싱 — 그 파일 자기 doc comment 참고);
+  // appended onto vocalText below so it reaches both the local path's
+  // stylePrompt and the bridge/Batch path's LLM-facing vocalText
+  // verbatim-enforcement.
+  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlanByGenre(genrePlan, seed) : null;
   // v3.80 (TASK A-1) — track 1 (cold-open) forced spacious/not-dry (any
   // proximity except the "dry and forward" modern-forward character);
   // tracks 2-3 (flagship) forced to plate/chamber ambience specifically —

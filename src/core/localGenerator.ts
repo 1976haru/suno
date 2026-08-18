@@ -10,7 +10,7 @@ import { resolvePackagingLanguage } from './packagingLanguage';
 import { buildLocalizedTitle, buildTitleDisplay, localizedTitleSeed } from './titleLocalization';
 import { buildPersonaStylePrompt, buildSoundSignature, coldOpenHasNoInstrumentalIntro, compactMoneyChord, openingDurationText, PERSONA_STYLE_LIMIT, resolveEffectiveMoneyChordId } from './soundSignature';
 import { applyMoneyChordLean, buildCustomProgressionPlan, buildFamilyProgressionPlan, buildGenreAwareProgressionPlan, buildProgressionPlan, buildUserChosenProgressionPlan, leanEligibleIndices, leanProtectedIndices, moneyChordLeanFor, usesMoneyChordQuota, usesUserChosenProgressionPlan } from './moneyChordPlan';
-import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlan, buildVocalVariantPlan, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
+import { applyDuetSectionVocalTags, applyFlagshipVocalOrder, buildAdultVocalTraitPlan, buildVocalPlan, buildVocalTechniquePlanByGenre, buildVocalVariantPlan, detectVocalGenderPresence, ensureVocalMetaTag, kidsVocalTextFor, leaningAdultVocalQuota, leaningGenderFor, resolveFlagshipVocalOrder, resolveVocalMetaTag, usesVocalQuota, vocalTypeMatchesPresetGender, type VocalType } from './vocalPlan';
 import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
 import { buildKidsPresetPlan, kidsPresetVocalText } from './kidsVocalPresetPlan';
 import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
@@ -1541,12 +1541,15 @@ export function generateLocalBlueprint(
   // v3.80 (TASK B-2-3) — mirrors batchPreallocation.ts's identical
   // eraBucketByIndex construction (same genrePlan indexing).
   const eraBucketByIndex = genrePlan.map(id => eraBucketForGenreId(id) ?? undefined);
-  // v3.80 (TASK E) — 1-2 era-matched vocal technique phrases per song,
-  // appended onto the 'vocal' style-prompt atom below (essential, never
-  // budget-dropped — see data/vocalTechniquesByEra.ts's own doc comment).
-  // Kids only skips this (its own vocalDescriptionFor archetype branch has
-  // no era concept).
-  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  // 지시문 65 (TASK B) — v3.80의 era-only buildVocalTechniquePlan을
+  // genre-aware buildVocalTechniquePlanByGenre로 대체한다(genrePlan은 위
+  // eraBucketByIndex와 같은 인덱싱 — 곡별 실제 배정 장르). era 버킷 5종보다
+  // 훨씬 세분화된 367종 전용 family 풀을 쓴다(§1 하루의 지적: 소울과 재즈가
+  // 같은 시대엔 같은 기법 풀을 나눠 썼다). Kids도 이제 포함한다 —
+  // vocalTechniqueByGenre.ts의 'kids' family가 이미 동요 전용(성별·시대
+  // 무관 growl/scat 배제) 풀이라 era 개념이 없어도 안전하다(§data/
+  // vocalTechniqueByGenre.ts 자기 doc comment).
+  const vocalTechniquePlan = buildVocalTechniquePlanByGenre(genrePlan, seed);
   // v3.80 (TASK A-1) — mirrors batchPreallocation.ts's identical flagship
   // proximity hard-override (same reasoning: track 1 spacious/not-dry,
   // tracks 2-3 plate/chamber ambience specifically).
@@ -2176,11 +2179,7 @@ export function generateLocalBlueprint(
         // 지시문 46 (TASK D) — vocalPresetOverride도 adultVocalTraitPlan과
         // 같은 "합성된 텍스트" 취급 — vocalTechniquePlan을 붙인다.
         // 지시문 62 (TASK C) — channelVocalFloor가 있으면 그 requiredTraits
-        // 중 하나가 이 자리(지시문59 요소 순서의 5번, 보컬)에서 technique
-        // 문구 대신 실린다 — "보컬 서술 2~3개 제한을 지킨다. 바닥이 그중
-        // 1개를 차지한다"를 그대로 따른 것: 개수를 늘리지 않고 기존
-        // non-essential 슬롯(technique — v4.4 TASK F 자기 doc comment: "the
-        // technique phrase is not [load-bearing]")을 대체한다.
+        // 중 하나가 이 자리(지시문59 요소 순서의 5번, 보컬)에 실린다.
         // requiredTraits가 여러 개면(예: 시니어 3개) 이 코드베이스의 다른
         // 모든 다중 서술 필드(rotatingGenreText 등)와 같은 방식으로 곡마다
         // seed+idx 기반 회전시킨다 — 매곡 완전히 같은 문구만 나오면
@@ -2188,7 +2187,34 @@ export function generateLocalBlueprint(
         // 넘는 실측 회귀가 났다(고정 인덱스[0]로 처음 구현했다가 발견).
         // vocalDescriptionText 자체는 건드리지 않으므로 slot.vocalText
         // (지시문56 15/15 고유)는 영향받지 않는다.
-        text: [vocalDescriptionText, channelVocalFloor ? channelVocalFloor.requiredTraits[Math.abs(seed + idx * 53) % channelVocalFloor.requiredTraits.length] : ((vocalPresetOverride || adultVocalTraitPlan?.[idx]) ? vocalTechniquePlan?.[idx] : undefined), audienceProfile.constraints[0]].filter(Boolean).join(', '),
+        // 지시문 65 (TASK B) — channelVocalFloor가 있으면 이전엔 floor가
+        // technique 자리를 통째로 차지해(원래 "보컬 서술 2~3개 제한, 바닥이
+        // 그중 1개를 차지" 설계) floor가 걸린 7/7 워크스페이스에서 창법이
+        // 전혀 실리지 않았다(§2 하루의 실측 그대로 — 모타운 예문이 정확히
+        // 이 경로). technique은 매곡 싣는다(§F-1 "15/15" 기준 — non-negotiable).
+        // floor는 매곡 병합하면 실측 시니어 15곡 중 6곡이 900자를 넘었다
+        // (§하지 말 것 "900자를 넘게 하지 말 것" 위반 — floor 절 하나를 통째로
+        // technique 절에 덧붙이면 그만큼 늘어난다). check:vocal-floor는
+        // `.some()`(팩 전체 중 최소 1곡)만 요구하므로(그 스크립트 자기
+        // 판정 로직 참고) floor는 4곡 중 1곡에서만 technique과 병합한다 —
+        // 매곡 병합보다 훨씬 적은 길이 증가로 같은 왕복 확인을 통과한다.
+        // 병합 시엔 콤마 없이 한 절로 합쳐(예: "warm rounded midrange with
+        // gospel-run melisma") vocalDescriptorClauseCount(지시문 59,
+        // comma-split 기반)의 절 개수를 그대로 유지한다(§59 회귀 없음,
+        // VOCAL_DESCRIPTOR_MAX=3 그대로). kids도 이제 포함(adultVocalTraitPlan이
+        // 항상 null인 kids는 예전엔 이 자리에 아무것도 못 실었다 — genre 기반
+        // technique엔 그 제약이 없다, §core/vocalPlan.ts buildVocalTechniquePlanByGenre
+        // 자기 doc comment).
+        text: (() => {
+          const floorClause = channelVocalFloor ? channelVocalFloor.requiredTraits[Math.abs(seed + idx * 53) % channelVocalFloor.requiredTraits.length] : undefined;
+          const techniqueEligible = Boolean(vocalPresetOverride || adultVocalTraitPlan?.[idx] || isKidsArchetype(opts.channel.archetype));
+          const techniqueClause = techniqueEligible ? vocalTechniquePlan?.[idx] : undefined;
+          const shouldMergeFloor = Boolean(floorClause) && idx % 4 === 0;
+          const floorAndTechnique = shouldMergeFloor && techniqueClause
+            ? `${floorClause} with ${techniqueClause}`
+            : (techniqueClause ?? floorClause);
+          return [vocalDescriptionText, floorAndTechnique, audienceProfile.constraints[0]].filter(Boolean).join(', ');
+        })(),
         // TASK v4.7 (TASK A) — a real generated pack found this shortForm's
         // blind "first 2 segments" slice dropping v3.80's own flagship
         // proximity override (tracks 2-3's forced 'soft plate ambience'/

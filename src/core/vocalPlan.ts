@@ -19,6 +19,8 @@ import {
 import { matchVocalPreset, type VocalPreset } from '../data/vocalPresets';
 import type { EraBucket } from '../data/eraExclusions';
 import { VOCAL_TECHNIQUES_BY_ERA } from '../data/vocalTechniquesByEra';
+import { vocalTechniquePoolForGenre } from '../data/vocalTechniqueByGenre';
+import { getGenreById } from '../data/genreLibrary';
 
 /**
  * TASK v3.41 Part A1 — the explicit gender axis a VocalPreset now carries
@@ -1153,6 +1155,36 @@ export function buildVocalTechniquePlan(eraBucketByIndex: readonly (EraBucket | 
     const picks = [first];
     // ~40% of songs get a 2nd technique, matching this task's own "1-2개"
     // (not always 2 — a single technique per song is still the common case).
+    if (rng() < 0.4) {
+      const secondPool = available.filter(technique => technique !== first);
+      if (secondPool.length) picks.push(secondPool[Math.floor(rng() * secondPool.length)]);
+    }
+    for (const technique of picks) usage.set(technique, (usage.get(technique) ?? 0) + 1);
+    return picks.join(', ');
+  });
+}
+
+/**
+ * 지시문 65 (TASK B) — buildVocalTechniquePlan(era 기준, 위)을 장르 기준으로
+ * 대체한다. era 버킷은 5종뿐이라 같은 시대의 소울 트랙과 재즈 트랙이 같은
+ * 기법 풀을 나눠 썼다(§1 하루의 지적 그대로) — data/vocalTechniqueByGenre.ts의
+ * 367종 전용 family 풀을 genreId별로 바로 찾는다. usage cap·1-2개 랜덤
+ * 선택 로직은 era 버전과 동일(같은 pack-wide 예산 규칙을 그대로 물려받는다
+ * — 새 로직을 또 만들지 않는다, §공통규약 "같은 판정 로직을 두 곳에 따로
+ * 두지 않는다"의 생성 버전).
+ */
+export function buildVocalTechniquePlanByGenre(genreIdByIndex: readonly (string | undefined)[], seed: number): string[] {
+  const usage = new Map<string, number>();
+  const rng = mulberry32(hashSeed(`vocalTechniqueByGenre::${seed}`));
+  return genreIdByIndex.map(genreId => {
+    const genre = genreId ? getGenreById(genreId) : undefined;
+    if (!genre) return '';
+    const pool = vocalTechniquePoolForGenre(genre);
+    const available = pool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    if (!available.length) return '';
+    const first = available[Math.floor(rng() * available.length)];
+    const picks = [first];
+    // ~40% of songs get a 2nd technique, matching v3.80's own "1-2개" split.
     if (rng() < 0.4) {
       const secondPool = available.filter(technique => technique !== first);
       if (secondPool.length) picks.push(secondPool[Math.floor(rng() * secondPool.length)]);
