@@ -533,9 +533,27 @@ export function staticVocalTechniqueForGenre(genre: TechniqueGenreShape): string
  * 회전(rotatingVocalTechniqueForGenre)은 이 제약이 없으므로 그대로 해시
  * 방식을 쓴다 — 정적 데이터(genre.vocal 자체)에만 적용.
  */
+/**
+ * 지시문 65 후속 — jazz-classic-vocal-lounge · jazz-swing-crooner-ballroom ·
+ * jazz-hotel-lounge-jazz 셋 다 'crooner'/카테고리 기본값 계열이라 round-robin
+ * 배정 결과가 모두 "croon" 계열 phrase로 몰려(§FAMILY_POOLS.jazzCrooner)
+ * 하루가 보기엔 shortPrompt/styleCore(= vocal[0]만 노출)에서 구분이 안
+ * 됐다 — 하루가 지정한 5개 문구 중 3개를 이 3종에 직접 고정한다. 다른
+ * override 표(GENRE_ERA_TAG_OVERRIDES·SIGNATURE_SOUND_OVERRIDES 등, index.ts)
+ * 와 같은 패턴 — assignStaticVocalTechniques가 family round-robin보다
+ * 먼저 확인한다(round-robin 대상에서도 제외해 다른 jazzCrooner 멤버의
+ * 배정이 밀리지 않는다).
+ */
+const STATIC_TECHNIQUE_ID_OVERRIDES: Record<string, string> = {
+  'jazz-classic-vocal-lounge': 'scat phrase in the break',
+  'jazz-swing-crooner-ballroom': 'conversational swing phrasing',
+  'jazz-hotel-lounge-jazz': 'laid-back behind-the-beat timing'
+};
+
 export function assignStaticVocalTechniques(genres: readonly TechniqueGenreShape[]): Map<string, string> {
   const byFamily = new Map<string, TechniqueGenreShape[]>();
   for (const genre of genres) {
+    if (STATIC_TECHNIQUE_ID_OVERRIDES[genre.id]) continue;
     const family = familyForGenre(genre);
     const list = byFamily.get(family) ?? [];
     list.push(genre);
@@ -548,6 +566,10 @@ export function assignStaticVocalTechniques(genres: readonly TechniqueGenreShape
     sorted.forEach((genre, index) => {
       result.set(genre.id, pool[index % pool.length]);
     });
+  }
+  for (const genre of genres) {
+    const override = STATIC_TECHNIQUE_ID_OVERRIDES[genre.id];
+    if (override) result.set(genre.id, override);
   }
   return result;
 }
