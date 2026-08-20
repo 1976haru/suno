@@ -960,6 +960,13 @@ export function preallocateSongSlots(
                   ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
                   : fallbackVocalText)))
       : fallbackVocalText;
+    // 지시문 66 (TASK C) — vocalText에 이미 얹힌 vocalTechniquePlan[idx]와
+    // 정확히 같은 값·같은 게이팅(kids 제외, preset/traitPlan 경로에서만)을
+    // 별도 필드로도 실어, bridgeInstruction이 verbatim 신뢰 모델로 따로
+    // 지시할 수 있게 한다 — vocalText 자체는 그대로(§하지 말 것).
+    const vocalTechniqueText = vocalType && !isKidsArchetype(opts.channel.archetype) && (vocalPresetOverride || adultVocalTraitPlan?.[idx])
+      ? (vocalTechniquePlan?.[idx] || undefined)
+      : undefined;
     const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType
       ? (isKidsArchetype(opts.channel.archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
@@ -1189,6 +1196,7 @@ export function preallocateSongSlots(
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
       vocalVariantText: resolvedVocalVariantText,
+      ...(vocalTechniqueText ? { vocalTechniqueText } : {}),
       ...(conceptStyleText(opts.customConcept, idx) ? { conceptText: conceptStyleText(opts.customConcept, idx) } : {}),
       ...(conceptLyricImages(opts.customConcept).length ? { conceptLyricImages: conceptLyricImages(opts.customConcept) } : {}),
       ...(vocalGender ? { vocalGender } : {}),
@@ -1587,6 +1595,7 @@ export function reconcileWithPreassignedSlot(
       // 있었다(실측: 발라드 세트 15/15 vocalText='').
       ...(slot.vocalText ? { vocalText: slot.vocalText } : {}),
       ...(slot.vocalVariantText ? { vocalVariantText: slot.vocalVariantText } : {}),
+      ...(slot.vocalTechniqueText ? { vocalTechniqueText: slot.vocalTechniqueText } : {}),
       ...(slot.vocalGender ? { vocalGender: slot.vocalGender } : {}),
       ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
       ...(slot.killingPointText ? { killingPointText: slot.killingPointText } : {}),
@@ -1692,6 +1701,7 @@ export function reconcileWithPreassignedSlot(
     // 지시문 56 (TASK A-4/B-3) — fast path와 같은 이유(위 참고).
     ...(slot.vocalText ? { vocalText: slot.vocalText } : {}),
     ...(slot.vocalVariantText ? { vocalVariantText: slot.vocalVariantText } : {}),
+    ...(slot.vocalTechniqueText ? { vocalTechniqueText: slot.vocalTechniqueText } : {}),
     ...(slot.vocalGender ? { vocalGender: slot.vocalGender } : {}),
     // TASK v3.68 (TASK B) — snapshot fields for rating analysis
     // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.

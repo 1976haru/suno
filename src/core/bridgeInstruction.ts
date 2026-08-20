@@ -886,6 +886,20 @@ function progressionNameOnly(moneyChordText: string): string {
   return moneyChordText.split(' - ')[0].trim();
 }
 
+// 지시문 66 (TASK C) — vocalTechniqueText는 vocalText 안에도 이미 곡별 창법
+// 구절로 얹혀 있지만(core/vocalPlan.ts buildVocalTechniquePlanByGenre),
+// 위 vocalInstructionLineFor는 "vocalText의 구절 중 2-3개만 골라 쓰고
+// 나머지는 패러프레이즈해도 된다"는 자유도를 준다 — 39개 팩 실측에서 창법
+// 구절이 통째로 빠지거나 다른 문구로 대체되는 사례가 나왔다(§1-2). 앱이
+// 이미 세트 전체의 창법 중복을 관리하므로(vocalTechniquePlan) LLM이 이
+// 구절을 바꾸면 그 중복 관리가 무의미해진다 — moneyChordText와 같은
+// verbatim-weave 신뢰 모델로 별도 지시한다.
+function vocalTechniqueInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  const example = preassignedSongs.find(slot => slot.vocalTechniqueText)?.vocalTechniqueText;
+  if (!example) return '';
+  return `- Each "preassignedSongs" entry with a "vocalTechniqueText" field (e.g. "${example}") carries this track's assigned singing TECHNIQUE — how the voice is sung (melisma, scat, falsetto lift, behind-the-beat phrasing...), not its timbre/register. The app picked this phrase to avoid repeating the same technique across this pack's songs. Use this exact technique phrase in the vocal slot of the stylePrompt, alongside (not replacing) the register/timbre clauses you select from "vocalText". Do not substitute a different technique and do not paraphrase it away.`;
+}
+
 function moneyChordInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   const example = preassignedSongs.find(slot => slot.moneyChordText)?.moneyChordText;
   if (!example) return '';
@@ -1972,6 +1986,7 @@ export function buildClaudeCodeInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
+    vocalTechniqueInstructionLineFor(preassignedSongs),
     conceptInstructionLine,
     '',
     // v5.23 (TASK A §1-2/§1-4) — the true LAST content section (before only
@@ -2260,6 +2275,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
+    vocalTechniqueInstructionLineFor(allSlots),
     conceptInstructionLine,
     '',
     buildFinalAvoidSection(initialAvoid),

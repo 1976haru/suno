@@ -20,6 +20,7 @@ import { matchVocalPreset, type VocalPreset } from '../data/vocalPresets';
 import type { EraBucket } from '../data/eraExclusions';
 import { VOCAL_TECHNIQUES_BY_ERA } from '../data/vocalTechniquesByEra';
 import { vocalTechniquePoolForGenre } from '../data/vocalTechniqueByGenre';
+import { vocalTechniquesForGenre } from '../data/vocalTechniqueFamilies';
 import { getGenreById } from '../data/genreLibrary';
 
 /**
@@ -1173,14 +1174,31 @@ export function buildVocalTechniquePlan(eraBucketByIndex: readonly (EraBucket | 
  * — 새 로직을 또 만들지 않는다, §공통규약 "같은 판정 로직을 두 곳에 따로
  * 두지 않는다"의 생성 버전).
  */
+/**
+ * 지시문 66 (TASK B) — 65의 genrePool(data/vocalTechniqueByGenre.ts)만으로는
+ * 일부 계열(electronicVocal 2종·jazzCrooner/jazzScat/jazzBossa 4종·doowop
+ * 4종 등)이 4곡 이상 배정된 세트에서 바닥난다(§실측: kr2030-noir-deep-house
+ * 15곡에 창법 3종 반복). data/vocalTechniqueFamilies.ts의 13-계열 풀을
+ * genrePool이 이 팩에서 소진됐을 때만 보충으로 쓴다 — 장르 어휘가 항상
+ * 우선(①), 계열 풀은 부족할 때만(②), 팩 안에서 이미 쓴 phrase는 가능한 한
+ * 다시 안 쓰고(③), 둘 다 소진되면 장르 어휘로 순환한다(④, §B-2 그대로).
+ */
 export function buildVocalTechniquePlanByGenre(genreIdByIndex: readonly (string | undefined)[], seed: number): string[] {
   const usage = new Map<string, number>();
   const rng = mulberry32(hashSeed(`vocalTechniqueByGenre::${seed}`));
   return genreIdByIndex.map(genreId => {
     const genre = genreId ? getGenreById(genreId) : undefined;
     if (!genre) return '';
-    const pool = vocalTechniquePoolForGenre(genre);
-    const available = pool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    const genrePool = vocalTechniquePoolForGenre(genre);
+    const familyPool = vocalTechniquesForGenre(genre.id).filter(technique => !genrePool.includes(technique));
+    const genreAvailable = genrePool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    const familyAvailable = familyPool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    const unusedGenre = genreAvailable.filter(technique => !usage.has(technique));
+    const unusedFamily = familyAvailable.filter(technique => !usage.has(technique));
+    const available = unusedGenre.length ? unusedGenre
+      : unusedFamily.length ? unusedFamily
+      : genreAvailable.length ? genreAvailable
+      : familyAvailable;
     if (!available.length) return '';
     const first = available[Math.floor(rng() * available.length)];
     const picks = [first];

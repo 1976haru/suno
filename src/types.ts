@@ -1332,6 +1332,15 @@ export interface SongIdea {
   vocalText?: string;
   vocalVariantText?: string;
   vocalGender?: 'male' | 'female' | 'mixed' | 'duet';
+  /**
+   * 지시문 66 (TASK C) — vocalText 안에 이미 곡별 창법 구절이 얹혀 있지만
+   * (core/vocalPlan.ts buildVocalTechniquePlanByGenre), bridgeInstruction.ts의
+   * vocalInstructionLineFor는 vocalText의 구절 중 2-3개만 골라 쓰고 나머지는
+   * 패러프레이즈해도 된다고 허용한다 — 창법 구절이 통째로 빠지거나 다른
+   * 문구로 바뀌는 사례가 실측됐다. moneyChordText/hookDeviceText와 같은
+   * verbatim-weave 신뢰 모델로 이 구절만 별도로 전달한다.
+   */
+  vocalTechniqueText?: string;
   /** v3.47 Step 3: planned lyric theme id, mainly for allocation preview/auditing. */
   lyricTheme?: string;
   /** v3.49A: planned lead genre id for this track. */
@@ -1906,6 +1915,8 @@ export interface PreassignedSongSlot {
    * boilerplate it replaces was never archetype-specific either.
    */
   hookDeviceText?: string;
+  /** 지시문 66 (TASK C) — SongIdea.vocalTechniqueText와 동일한 필드. reconcileWithPreassignedSlot이 그대로 복사한다. */
+  vocalTechniqueText?: string;
   /**
    * 지시문 37 (TASK A) — 하루 지적: K-pop 곡에 보컬 파트 배분이 전혀 없다
    * ("[Verse 1]"만 있고 "[Verse 1: Member A]"가 없다 — 아이돌 그룹인데 한

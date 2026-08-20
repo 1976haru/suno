@@ -33,6 +33,8 @@
  * buildVocalTechniquePlan.
  */
 
+import { VOCAL_TECHNIQUE_FAMILIES } from './vocalTechniqueFamilies';
+
 export interface TechniqueGenreShape {
   id: string;
   label?: string;
@@ -605,7 +607,27 @@ function normalizeTechniqueText(text: string): string {
   return text.toLowerCase().replace(/-/g, ' ');
 }
 
+// 지시문 66 (TASK A-2) — 13계열 62종 문구는 "그대로 옮긴다"(원문 불변)가
+// 요구라 문구 자체를 바꿀 수 없다. 그중 일부("close four-part harmony
+// stack", "unison hook line" 등)는 위 27개 검사 어휘 어디에도 안 걸려
+// 실측(patchVocalTechnique.ts)에서 "창법 없음"으로 오판됐다(§실측:
+// good-morning-memory-radio T9 close-harmony-duo — 프롬프트에 "close
+// four-part harmony stack"이 그대로 있었는데도 hasVocalTechniqueWord가
+// false를 반환). 일반 어휘를 넓히는 대신, 앱이 실제로 배정하는 정확한
+// phrase 자체와의 exact substring 일치도 인정한다 — 이미 아는 값 자체를
+// 알아보는 것이라 새 오탐 위험이 없다.
+const ALL_FAMILY_PHRASES_NORMALIZED = VOCAL_TECHNIQUE_FAMILIES.flatMap(family => family.techniques).map(normalizeTechniqueText);
+
 export function hasVocalTechniqueWord(text: string): boolean {
   const normalized = normalizeTechniqueText(text);
-  return VOCAL_TECHNIQUE_VOCAB.some(term => normalized.includes(normalizeTechniqueText(term)));
+  if (VOCAL_TECHNIQUE_VOCAB.some(term => normalized.includes(normalizeTechniqueText(term)))) return true;
+  return ALL_FAMILY_PHRASES_NORMALIZED.some(phrase => normalized.includes(phrase));
 }
+
+/**
+ * 지시문 66 (TASK D) — core/perceivedEnergyObservations.ts의 "세트 내 창법
+ * 중복" 관찰이 실제 생성물(stylePrompt)에서 정확한 phrase 재사용을 세려면
+ * 이 파일이 아는 모든 phrase 전체가 필요하다 — FAMILY_POOLS는 모듈
+ * 내부(private)라 그대로 export하지 않고 평탄화한 배열만 노출한다.
+ */
+export const ALL_VOCAL_TECHNIQUE_PHRASES: readonly string[] = Object.values(FAMILY_POOLS).flat();
