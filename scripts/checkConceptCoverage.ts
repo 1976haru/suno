@@ -18,7 +18,7 @@
  */
 import { matchConceptRules } from '../src/data/conceptKeywords';
 import { CONCEPT_COVERAGE_SAMPLES } from '../src/data/conceptCoverageSamples';
-import { recommendConceptLocal } from '../src/core/conceptAgent';
+import { GENRE_AXIS_MIN_SHARE, recommendConceptLocal } from '../src/core/conceptAgent';
 import { getCoreGenreIdsForArchetype } from '../src/data/genreLibrary';
 
 const WARN_THRESHOLD = 0.9;
@@ -35,10 +35,18 @@ interface SampleResult {
   seasonId: string;
   seasonSignalPresent: boolean;
   seasonMisassigned: boolean;
+  /** 지시문 67 (TASK D) — axis:'genre' 규칙이 매칭된 표본에서만 채워진다. */
+  genreAxis?: { familyShare: number; familySongCount: number; totalSongCount: number; meetsFloor: boolean };
 }
 
 function evaluateSample(sample: (typeof CONCEPT_COVERAGE_SAMPLES)[number]): SampleResult {
+  // 지시문 64 이래 이 스크립트는 의도적으로 archetype 없이 matchConceptRules를
+  // 부른다(모든 규칙을 다 보여준다 — matchedRuleIds/①②③ 측정은 이 동작을
+  // 그대로 유지한다). 지시문 67 TASK D의 장르군 측정만 archetypeScope를
+  // 실제로 지키는 별도 매칭(matchedForArchetype)을 쓴다 — recommendConceptLocal
+  // 자신이 archetype-aware이므로 그 결과와 대조 기준을 맞추기 위함이다.
   const matched = matchConceptRules(sample.text);
+  const matchedForArchetype = matchConceptRules(sample.text, sample.archetype);
   const coreGenreIds = getCoreGenreIdsForArchetype(sample.archetype);
   const coreGenreIdSet = new Set(coreGenreIds);
   const matchedWorkspaceGenre = matched.some(rule =>
@@ -48,6 +56,25 @@ function evaluateSample(sample: (typeof CONCEPT_COVERAGE_SAMPLES)[number]): Samp
   const result = recommendConceptLocal(sample.text, sample.archetype);
   const seasonId = result.recommendations[0]?.seasonId ?? '(없음)';
   const seasonMisassigned = !seasonSignalPresent && seasonId === LEGACY_FALLBACK_SEASON_ID;
+
+  // 지시문 67 (TASK D) — "장르 키워드가 시대 키워드를 이긴다"의 인수 기준:
+  // axis:'genre' 규칙이 매칭됐으면 그 장르군(코어 티어로 좁힌)이 primary
+  // 추천의 GENRE_AXIS_MIN_SHARE(60%) 이상을 차지해야 한다.
+  const genreAxisFamilyIds = new Set(
+    matchedForArchetype
+      .filter(rule => rule.axis === 'genre')
+      .flatMap(rule => Object.keys(rule.genreWeights || {}))
+      .filter(id => coreGenreIdSet.has(id))
+  );
+  let genreAxis: SampleResult['genreAxis'];
+  if (genreAxisFamilyIds.size > 0) {
+    const allocation = result.recommendations[0]?.genreAllocation ?? [];
+    const totalSongCount = allocation.reduce((sum, slot) => sum + slot.songCount, 0);
+    const familySongCount = allocation.filter(slot => genreAxisFamilyIds.has(slot.genreId)).reduce((sum, slot) => sum + slot.songCount, 0);
+    const familyShare = totalSongCount ? familySongCount / totalSongCount : 0;
+    genreAxis = { familyShare, familySongCount, totalSongCount, meetsFloor: familyShare >= GENRE_AXIS_MIN_SHARE };
+  }
+
   return {
     text: sample.text,
     archetype: sample.archetype,
@@ -56,7 +83,8 @@ function evaluateSample(sample: (typeof CONCEPT_COVERAGE_SAMPLES)[number]): Samp
     matchedWorkspaceGenre,
     seasonId,
     seasonSignalPresent,
-    seasonMisassigned
+    seasonMisassigned,
+    genreAxis
   };
 }
 
@@ -75,17 +103,25 @@ function main() {
   let matchedCount = 0;
   let workspaceGenreCount = 0;
   let seasonMisassignedCount = 0;
+  let genreAxisSampleCount = 0;
+  let genreAxisMeetsFloorCount = 0;
   for (const r of results) {
     if (r.matchedAnyRule) matchedCount += 1;
     if (r.matchedWorkspaceGenre) workspaceGenreCount += 1;
     if (r.seasonMisassigned) seasonMisassignedCount += 1;
+    if (r.genreAxis) {
+      genreAxisSampleCount += 1;
+      if (r.genreAxis.meetsFloor) genreAxisMeetsFloorCount += 1;
+    }
     const flags = [
       r.matchedAnyRule ? '' : '⚠ 미매칭',
       r.matchedAnyRule && !r.matchedWorkspaceGenre ? '⚠ 워크스페이스 장르 없음' : '',
-      r.seasonMisassigned ? `⚠ 계절 오배정(${r.seasonId})` : ''
+      r.seasonMisassigned ? `⚠ 계절 오배정(${r.seasonId})` : '',
+      r.genreAxis && !r.genreAxis.meetsFloor ? `⚠ 장르군 ${Math.round(r.genreAxis.familyShare * 100)}% (60% 미만)` : ''
     ].filter(Boolean).join(' · ');
     console.log(`[${r.archetype}] "${r.text}"`);
-    console.log(`  매칭: ${r.matchedRuleIds.join(', ') || '(없음)'} · 계절: ${r.seasonId}${flags ? '  ' + flags : ''}`);
+    const genreAxisNote = r.genreAxis ? ` · 장르군: ${r.genreAxis.familySongCount}/${r.genreAxis.totalSongCount}곡 (${Math.round(r.genreAxis.familyShare * 100)}%)` : '';
+    console.log(`  매칭: ${r.matchedRuleIds.join(', ') || '(없음)'} · 계절: ${r.seasonId}${genreAxisNote}${flags ? '  ' + flags : ''}`);
   }
 
   const matchRate = results.length ? matchedCount / results.length : 0;
@@ -95,6 +131,7 @@ function main() {
   console.log(`① 매칭률: ${matchedCount}/${results.length} (${Math.round(matchRate * 100)}%)`);
   console.log(`② 워크스페이스 적합 장르 매칭: ${workspaceGenreCount}/${results.length} (${Math.round(workspaceRate * 100)}%)`);
   console.log(`③ 계절 오배정: ${seasonMisassignedCount}건`);
+  console.log(`④ 장르 키워드군 ${Math.round(GENRE_AXIS_MIN_SHARE * 100)}% 이상 달성 (지시문 67 TASK D): ${genreAxisMeetsFloorCount}/${genreAxisSampleCount}`);
 
   if (matchRate < WARN_THRESHOLD) {
     console.log(`\n⚠ 매칭률이 ${Math.round(WARN_THRESHOLD * 100)}% 미만입니다 — 키워드 확장이 더 필요합니다.`);

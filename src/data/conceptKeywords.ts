@@ -33,6 +33,19 @@ export interface KeywordRule {
    * 없다 — 하위 호환, 매칭 결과 불변).
    */
   archetypeScope?: ChannelArchetype[];
+  /**
+   * 지시문 67 (TASK A) — 'genre'는 이 규칙이 명시적 장르 정체성 키워드(예:
+   * 재즈/소울/샹송)임을 표시한다. core/conceptAgent.ts의 rankFromRules가
+   * genreWeights를 축('genre' vs 그 외 — 시대/장소/상황/무드 규칙은 전부
+   * "그 외")으로 나눠 따로 랭킹하고, buildAxisAwareGenreAllocation이 axis:
+   * 'genre' 매칭이 있을 때 그 장르군에 최소 배분(GENRE_AXIS_MIN_SHARE)을
+   * 먼저 준다 — "70년대 재즈 감성"처럼 시대 키워드(oldpop-70s, weight 6)가
+   * 장르 키워드(jazz, weight 3)보다 높아 같은 후보 풀에서 재즈를 완전히
+   * 밀어내던 실측 결함(§1-3)의 구조적 수정. 없으면(대다수 규칙) 이
+   * 규칙의 genreWeights는 전부 "인접" 축으로 취급된다 — 기존 동작과
+   * 동일(§하지 말 것 "장르 키워드 매칭 없음 → 현재 동작 유지").
+   */
+  axis?: 'genre';
 }
 
 /**
@@ -226,7 +239,8 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     id: 'chanson',
     patterns: [/샹송/, /chanson/i, /프랑스\s*음악/, /파리(지앵)?\s*감성/],
     genreWeights: { chanson: 4 },
-    moodWeights: { elegant: 1, bittersweet: 1 }
+    moodWeights: { elegant: 1, bittersweet: 1 },
+    axis: 'genre'
   },
   {
     id: 'rnb-soul',
@@ -234,13 +248,15 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     genreWeights: {
       'oldpop-motown-pop-soul': 4, 'oldpop-philly-soul-sweet': 3, 'retro-soul-pop': 3, 'oldpop-quiet-storm-warm': 2
     },
-    moodWeights: { warm: 1, romantic: 1 }
+    moodWeights: { warm: 1, romantic: 1 },
+    axis: 'genre'
   },
   {
     id: 'bossa-nova',
     patterns: [/보사\s*노바/, /보사노바/, /\bbossa\b/i, /\b보사\b/],
     genreWeights: { 'bossa-cafe': 4 },
-    moodWeights: { warm: 1 }
+    moodWeights: { warm: 1 },
+    axis: 'genre'
   },
   {
     // 지시문 53 (TASK C-4) — 실측: 이 룰이 향하는 jazz-pop/smooth-jazz-lounge는
@@ -257,49 +273,105 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
       'jazz-pop': 3, 'smooth-jazz-lounge': 3, 'oldpop-standards-torch': 2,
       'jazz-classic-vocal-lounge': 3, 'jazz-swing-crooner-ballroom': 2, 'jazz-brush-ballad-jazz': 2
     },
-    moodWeights: { elegant: 1 }
+    moodWeights: { elegant: 1 },
+    axis: 'genre'
   },
   {
     id: 'city-pop',
     patterns: [/시티\s*팝/, /시티팝/, /city\s*pop/i],
     genreWeights: { 'city-pop-soft': 4 },
-    moodWeights: { nostalgic: 1 }
+    moodWeights: { nostalgic: 1 },
+    axis: 'genre'
   },
   {
     id: 'folk',
     patterns: [/포크(\s*송)?/, /\bfolk\b/i, /folk\s*song/i],
     genreWeights: { 'folk-pop': 4, 'oldpop-folk-rock-70s': 3 },
-    moodWeights: { warm: 1 }
+    moodWeights: { warm: 1 },
+    axis: 'genre'
   },
   {
     id: 'ballad',
     patterns: [/발라드/, /\bballad\b/i],
     genreWeights: { 'piano-ballad': 3, 'healing-ballad': 3, 'oldpop-piano-ballad-70s': 3, 'oldpop-orchestral-ballad-80s': 2 },
-    moodWeights: { bittersweet: 1 }
+    moodWeights: { bittersweet: 1 },
+    axis: 'genre'
   },
   {
     id: 'disco',
     patterns: [/디스코/, /\bdisco\b/i],
     genreWeights: { 'oldpop-europop-glow': 3, 'oldpop-motown-pop-soul': 3 },
-    moodWeights: { hopeful: 1 }
+    moodWeights: { hopeful: 1 },
+    axis: 'genre'
   },
   {
     id: 'country',
     patterns: [/컨트리/, /\bcountry\b/i],
     genreWeights: { 'oldpop-countrypolitan': 4 },
-    moodWeights: { warm: 1 }
+    moodWeights: { warm: 1 },
+    axis: 'genre'
   },
   {
     id: 'doo-wop',
     patterns: [/두\s*왑/, /두왑/, /doo[\s-]?wop/i],
     genreWeights: { 'oldpop-doowop-harmony': 4 },
-    moodWeights: { nostalgic: 1 }
+    moodWeights: { nostalgic: 1 },
+    axis: 'genre'
   },
   {
     id: 'easy-listening',
     patterns: [/이지\s*리스닝/, /easy\s*listening/i],
     genreWeights: { 'oldpop-orchestral-easy': 4, 'smooth-jazz-lounge': 2 },
-    moodWeights: { warm: 1 }
+    moodWeights: { warm: 1 },
+    axis: 'genre'
+  },
+  // 지시문 67 (TASK D) — check:concept-coverage 장르 표본 20개가 요구하는
+  // 6개 장르 정체성 키워드에 매칭되는 규칙이 하나도 없었다(전수 확인) —
+  // "모타운 사운드"/"필리 소울"/"60년대 브리티시 비트"/"70년대 소프트록"/
+  // "가스펠 소울"/"올드스쿨 R&B" 전부 위 규칙들의 패턴에 걸리지 않는다.
+  // 대상 id는 모두 senior-morning/oldpop-lounge 코어 티어에 실재한다
+  // (getCoreGenreIdsForArchetype 실측 확인).
+  {
+    id: 'motown',
+    patterns: [/모타운/, /motown/i],
+    genreWeights: { 'oldpop-motown-pop-soul': 4 },
+    moodWeights: { warm: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'philly-soul',
+    patterns: [/필리\s*소울/, /필라델피아\s*소울/, /philly\s*soul/i, /philadelphia\s*soul/i],
+    genreWeights: { 'oldpop-philly-soul-sweet': 4 },
+    moodWeights: { warm: 1, romantic: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'british-beat',
+    patterns: [/브리티시\s*비트/, /영국\s*비트/, /british\s*beat/i, /british\s*invasion/i],
+    genreWeights: { 'oldpop-british-beat': 4 },
+    moodWeights: { hopeful: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'soft-rock',
+    patterns: [/소프트\s*록/, /soft\s*rock/i],
+    genreWeights: { 'oldpop-soft-rock-am': 3, 'soft-rock': 3 },
+    moodWeights: { warm: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'gospel-soul',
+    patterns: [/가스펠/, /gospel/i],
+    genreWeights: { 'rnb-soulful-gospel-warmth': 3, 'rnb-gospel-soul-lift': 3 },
+    moodWeights: { hopeful: 1, warm: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'old-school-rnb',
+    patterns: [/올드스쿨\s*(r\s*&?\s*n?b|알앤비)/i, /old[\s-]?school\s*r\s*&?\s*n?b/i],
+    genreWeights: { 'rnb-old-school-romance-rnb': 4 },
+    moodWeights: { nostalgic: 1, warm: 1 },
+    axis: 'genre'
   },
   // TASK v3.61 (TASK B-3, test 5) — "따뜻하고 잔잔한 노래" must reach TASK A's
   // 1-D "timeless warmth" sub-family first, since the request is about a

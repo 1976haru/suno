@@ -65,5 +65,31 @@ export const CONCEPT_COVERAGE_SAMPLES: ConceptSample[] = [
   { text: '율동하며 따라 부르는 노래', archetype: 'kr-kids-song' },
   { text: '손 씻고 이 닦는 시간', archetype: 'kr-kids-song' },
   { text: '기차랑 버스 소리 흉내내기', archetype: 'kr-kids-song' },
-  { text: '놀이터에서 신나게 뛰노는 오후', archetype: 'kr-kids-song' }
+  { text: '놀이터에서 신나게 뛰노는 오후', archetype: 'kr-kids-song' },
+  // 지시문 67 (TASK D) — 장르 키워드 표본 20개. "장르 키워드가 시대
+  // 키워드를 이긴다"(§본문)의 인수 기준: 각 표본이 매칭하는 axis:'genre'
+  // 규칙(conceptKeywords.ts)의 장르군이 recommendConceptLocal 결과의
+  // 60% 이상을 차지해야 한다(checkConceptCoverage.ts §④). 대상 id는 모두
+  // 해당 archetype의 코어 티어에 실재함을 getCoreGenreIdsForArchetype로
+  // 직접 실측 확인했다.
+  { text: '70년대 재즈 감성', archetype: 'oldpop-lounge' },
+  { text: '70년대 소울 감성', archetype: 'oldpop-lounge' },
+  { text: '70년대 R&B 감성', archetype: 'oldpop-lounge' },
+  { text: '60년대 두왑', archetype: 'senior-morning' },
+  { text: '80년대 발라드', archetype: 'oldpop-lounge' },
+  { text: '보사노바 위주로', archetype: 'senior-morning' },
+  { text: '모타운 사운드', archetype: 'oldpop-lounge' },
+  { text: '필리 소울', archetype: 'oldpop-lounge' },
+  { text: '재즈 라운지', archetype: 'senior-morning' },
+  { text: '어쿠스틱 포크', archetype: 'senior-morning' },
+  { text: '시티팝', archetype: 'showa-cafe' },
+  { text: '디스코', archetype: 'oldpop-lounge' },
+  { text: '60년대 브리티시 비트', archetype: 'senior-morning' },
+  { text: '스무스 재즈', archetype: 'senior-morning' },
+  { text: '70년대 소프트록', archetype: 'oldpop-lounge' },
+  { text: '가스펠 소울', archetype: 'oldpop-lounge' },
+  { text: '샹송', archetype: 'senior-morning' },
+  { text: '올드스쿨 R&B', archetype: 'oldpop-lounge' },
+  { text: '두왑 하모니', archetype: 'senior-morning' },
+  { text: '컨트리 팝', archetype: 'senior-morning' }
 ];

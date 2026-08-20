@@ -2,7 +2,7 @@ import type { ChannelArchetype, DisplayLanguage, ProviderSettings } from '../typ
 import { getCoreGenreIdsForArchetype, getCoreGenresForArchetype, getGenreById } from '../data/genreLibrary';
 import { moodPacks, seasonPacks } from '../data/presets';
 import { vocalPresets } from '../data/vocalPresets';
-import { CONCEPT_KEYWORD_RULES, matchConceptRules } from '../data/conceptKeywords';
+import { CONCEPT_KEYWORD_RULES, matchConceptRules, type KeywordRule } from '../data/conceptKeywords';
 import { callGenerateProxy } from '../providers/proxyFetch';
 import { buildProxyHeaders } from '../providers/proxyFetch';
 import { MODEL_REGISTRY, defaultModelFor } from '../data/modelRegistry';
@@ -10,6 +10,8 @@ import { getConceptCache, setConceptCache } from './library';
 import { recordUsage } from './usageLedger';
 import { decomposeArtistReferences, isSafeDecomposedReference, type DecomposedReference } from './artistReferenceDecomposer';
 import { isKidsArchetype } from '../utils/channelArchetype';
+import { extractEraConstraint } from './constraints';
+import { eraBucketForGenreId } from '../data/eraExclusions';
 
 /**
  * TASK v3.58 (지시문 v3.58 TASK 2) — applying a natural-language concept used
@@ -62,6 +64,29 @@ export interface ConceptMatchInfo {
   hasGenreSignal: boolean;
   hasMoodSignal: boolean;
   hasSeasonSignal: boolean;
+  /**
+   * 지시문 67 (TASK C) — axis:'genre' 규칙(conceptKeywords.ts)이 매칭됐을
+   * 때만 채워진다. Step2Concept.tsx의 "해석" 패널이 "장르 = 재즈 (9곡) /
+   * 나머지 6곡은 인접 장르로 채웁니다" 같은 안내에 쓴다.
+   */
+  genreAxis?: ConceptGenreAxisInfo;
+}
+
+export interface ConceptGenreAxisInfo {
+  /** 매칭된 axis:'genre' 규칙이 실제로 입력 텍스트에서 잡아낸 원문(예: "재즈"). */
+  matchedPhrase: string;
+  /** primary 추천에서 이 장르군에 배정된 곡 수 합계. */
+  familySongCount: number;
+  /** primary 추천에서 인접(시대/장소/상황) 키워드가 채운 곡 수. */
+  adjacentSongCount: number;
+  /**
+   * 지시문 67 (TASK B) — 요청한 시대에 맞는 장르가 이 장르군 안에 하나도
+   * 없어(예: "70년대 재즈" — 이 채널의 재즈 계열이 전부 1950s-60s/1980s
+   * 버킷) 시대를 근사치로 처리했는가. true면 "장르를 버리고 시대에 맞는
+   * 장르를 넣지 않는다"(§하지 말 것)를 지키면서도 시대색은 정확하지
+   * 않다는 뜻 — 화면에 안내해야 한다.
+   */
+  eraApproximated: boolean;
 }
 
 export interface ConceptAgentResult {
@@ -304,6 +329,85 @@ function buildGenreAllocation(rankedGenreIds: string[], coreGenreOrder: string[]
   return allocateGenreCounts(pool, songCount);
 }
 
+/**
+ * 지시문 67 (TASK A) — 컨셉에 명시적 장르 키워드(axis:'genre')가 매칭되면
+ * 그 장르군이 배분의 다수를 차지한다: "70년대 재즈 감성" 실측(§1-3)에서
+ * 시대 키워드(oldpop-70s, weight 6)가 장르 키워드(jazz, weight 3)보다
+ * 커서 buildGenreAllocation의 작은 기본 풀(songCount=18이면 4칸)이 시대
+ * 계열 id로만 채워지고 재즈가 0곡이 됐다. 구현 방향은 본문이 권장하는
+ * ② 축 분리 — 장르군과 "인접"(시대/장소/상황/무드) id를 완전히 다른
+ * 풀로 다뤄, 장르군에 songCount*GENRE_AXIS_MIN_SHARE(정책 필드)를 먼저
+ * 배정하고 나머지만 인접 id가 채운다. familyIds가 비어 있으면(장르
+ * 키워드 매칭 없음) 이 함수를 거치지 않고 buildGenreAllocation을 그대로
+ * 쓴다 — "장르 키워드 매칭 없음 → 현재 동작 유지"(§A-4).
+ *
+ * §하지 말 것 "장르군 비율을 100%로 강제하지 말 것" — familySongs는
+ * songCount를 넘지 않는 한 정확히 그 값으로 고정되고(대략을 넘겨 반올림
+ * 하지 않음), 남는 곡은 반드시 adjacentIds/패딩이 채운다. songCount가
+ * 아주 작을 때(예: 1~2곡)만 부득이 전량이 장르군으로 간다.
+ */
+export const GENRE_AXIS_MIN_SHARE = 0.6;
+
+export function buildAxisAwareGenreAllocation(
+  familyIds: string[],
+  adjacentRankedIds: string[],
+  coreGenreOrder: string[],
+  songCount: number,
+  recentIds: readonly string[] = [],
+  paddingSeed = 0
+): GenreAllocationSlot[] {
+  if (!familyIds.length) {
+    return buildGenreAllocation(adjacentRankedIds, coreGenreOrder, songCount, recentIds, paddingSeed);
+  }
+  const familyPool = [...new Set(familyIds)];
+  const adjacentOnly = adjacentRankedIds.filter(id => !familyPool.includes(id));
+  // 지시문 67 (TASK E) — 회귀 방지: "재즈"(6종)·"소울"(4종) 단독처럼
+  // 경쟁하는 인접(시대/장소/상황) 신호가 전혀 없고, 장르군 자체가 이미
+  // 기본 풀 크기(minimumGenrePoolSize)를 채울 만큼 다양하면 60/40으로
+  // 쪼개지 않는다 — 장르군 하나만으로 기존과 동일하게(패딩 없이) 100%
+  // 배분한다. 이 두 조건 중 하나라도 깨지면(예: "70년대 재즈"처럼 경쟁
+  // 신호가 있거나, "모타운 사운드"처럼 장르군이 1종뿐이라 패딩 없이는
+  // 풀을 못 채우면) 아래 60/40 최소 배분으로 넘어간다 — 그러지 않으면
+  // buildGenreAllocation의 코어 순서 패딩이 무관한 장르로 채워 장르군을
+  // 오히려 희석시킨다(실측: "모타운 사운드"가 패딩 3종에 밀려 5/18=28%로
+  // 떨어짐).
+  const targetSize = minimumGenrePoolSize(songCount);
+  if (!adjacentOnly.length && familyPool.length >= targetSize) {
+    return buildGenreAllocation(familyPool, coreGenreOrder, songCount, recentIds, paddingSeed);
+  }
+  const familySongs = Math.min(songCount, Math.max(1, Math.ceil(songCount * GENRE_AXIS_MIN_SHARE)));
+  const adjacentSongs = songCount - familySongs;
+
+  const familyAllocation = allocateGenreCounts(familyPool, familySongs);
+  const adjacentCoreOrder = coreGenreOrder.filter(id => !familyPool.includes(id));
+  const adjacentAllocation = adjacentSongs > 0
+    ? buildGenreAllocation(adjacentOnly, adjacentCoreOrder, adjacentSongs, recentIds, paddingSeed + 97)
+    : [];
+
+  return [...familyAllocation, ...adjacentAllocation].map((slot, index) => ({ ...slot, roleKo: genreRoleKo(index) }));
+}
+
+/**
+ * 지시문 67 (TASK B) — 장르군 안에서는 요청한 시대(eraBucketForGenreId —
+ * 지시문 10/46이 이미 354종 전수에 부여한 값)에 맞는 id를 앞으로 정렬해
+ * buildAxisAwareGenreAllocation(및 그 안의 allocateGenreCounts, 랭킹
+ * 순서가 높을수록 더 많은 곡을 받는다)이 그 id에 더 많은 곡을 주게 한다.
+ * 시대에 맞는 id가 그 장르군 안에 하나도 없어도(예: "70년대 재즈" — 이
+ * 채널의 재즈 계열이 전부 1950s-60s/1980s 버킷) familyIds 자체는 절대
+ * 줄이지 않는다 — "장르를 버리고 시대에 맞는 장르를 넣지 않는다"(§TASK
+ * B-2/§하지 말 것). 그 경우 eraApproximated:true로 알려 화면(TASK C)에
+ * "인접 시대를 포함했습니다" 안내를 띄운다.
+ */
+function orderFamilyIdsByEra(familyIds: string[], freeText: string): { orderedIds: string[]; eraApproximated: boolean } {
+  if (!familyIds.length) return { orderedIds: familyIds, eraApproximated: false };
+  const era = extractEraConstraint(freeText);
+  if (era.unspecified) return { orderedIds: familyIds, eraApproximated: false };
+  const matches = familyIds.filter(id => eraBucketForGenreId(id) === era.primary);
+  if (!matches.length) return { orderedIds: familyIds, eraApproximated: true };
+  const rest = familyIds.filter(id => !matches.includes(id));
+  return { orderedIds: [...matches, ...rest], eraApproximated: false };
+}
+
 function normalizeInput(freeText: string): string {
   return freeText.trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -337,6 +441,10 @@ function hashSeed(text: string): number {
 
 interface RankedScores {
   genres: string[];
+  /** 지시문 67 (TASK A) — axis:'genre' 규칙(재즈/소울/샹송 등)만의 랭킹. */
+  familyGenres: string[];
+  /** 지시문 67 (TASK A) — axis:'genre'가 아닌 규칙(시대/장소/상황/무드 연계)만의 랭킹. */
+  adjacentGenres: string[];
   moods: string[];
   seasons: string[];
 }
@@ -344,13 +452,20 @@ interface RankedScores {
 function rankFromRules(freeText: string, coreGenreIds: Set<string>, archetype?: ChannelArchetype): RankedScores {
   const matched = matchConceptRules(freeText, archetype);
   const genreScore = new Map<string, number>();
+  const familyScore = new Map<string, number>();
+  const adjacentScore = new Map<string, number>();
   const moodScore = new Map<string, number>();
   const seasonScore = new Map<string, number>();
 
   for (const rule of matched) {
+    // 지시문 67 (TASK A) — genreScore(기존, hasGenreSignal 등 하위 호환용)는
+    // 그대로 전체 합산을 유지하고, familyScore/adjacentScore로 축을 나눠
+    // 따로도 누적한다.
+    const axisBucket = rule.axis === 'genre' ? familyScore : adjacentScore;
     for (const [id, weight] of Object.entries(rule.genreWeights || {})) {
       if (!coreGenreIds.has(id)) continue;
       genreScore.set(id, (genreScore.get(id) || 0) + weight);
+      axisBucket.set(id, (axisBucket.get(id) || 0) + weight);
     }
     for (const [id, weight] of Object.entries(rule.moodWeights || {})) {
       moodScore.set(id, (moodScore.get(id) || 0) + weight);
@@ -377,7 +492,13 @@ function rankFromRules(freeText: string, coreGenreIds: Set<string>, archetype?: 
     const weightsDesc = [...grouped.keys()].sort((a, b) => b - a);
     return weightsDesc.flatMap(weight => rotate(grouped.get(weight)!, tieBreakSeed));
   };
-  return { genres: rank(genreScore), moods: rank(moodScore), seasons: rank(seasonScore) };
+  return {
+    genres: rank(genreScore),
+    familyGenres: rank(familyScore),
+    adjacentGenres: rank(adjacentScore),
+    moods: rank(moodScore),
+    seasons: rank(seasonScore)
+  };
 }
 
 /**
@@ -491,20 +612,50 @@ function calendarSeasonFallback(now: Date = new Date()): string {
  * 하나도 없으므로(conceptKeywords.ts 전수 확인) `.exec()`의 lastIndex
  * 상태 문제는 없다.
  */
-function buildConceptMatchInfo(freeText: string, archetype: ChannelArchetype, ranked: RankedScores): ConceptMatchInfo {
+function firstMatchedPhrase(rule: KeywordRule, freeText: string): string | undefined {
+  for (const pattern of rule.patterns) {
+    const found = pattern.exec(freeText);
+    if (found?.[0]) return found[0].trim();
+  }
+  return undefined;
+}
+
+function buildConceptMatchInfo(
+  freeText: string,
+  archetype: ChannelArchetype,
+  ranked: RankedScores,
+  /** 지시문 67 (TASK C) — primary 추천의 실제 genreAllocation. genreAxis.familySongCount/adjacentSongCount를 여기서 실측한다(추정 아님). */
+  primaryAllocation: GenreAllocationSlot[],
+  eraApproximated: boolean
+): ConceptMatchInfo {
   const matchedRules = matchConceptRules(freeText, archetype);
   const matchedPhrases = [...new Set(matchedRules.flatMap(rule => {
-    for (const pattern of rule.patterns) {
-      const found = pattern.exec(freeText);
-      if (found?.[0]) return [found[0].trim()];
-    }
-    return [];
+    const phrase = firstMatchedPhrase(rule, freeText);
+    return phrase ? [phrase] : [];
   }))];
+
+  // 지시문 67 (TASK C) — axis:'genre' 규칙이 매칭됐을 때만 채운다.
+  const genreAxisRule = matchedRules.find(rule => rule.axis === 'genre');
+  const genreAxisPhrase = genreAxisRule ? firstMatchedPhrase(genreAxisRule, freeText) : undefined;
+  let genreAxis: ConceptGenreAxisInfo | undefined;
+  if (genreAxisPhrase) {
+    const familyIdSet = new Set(ranked.familyGenres);
+    const familySongCount = primaryAllocation.filter(slot => familyIdSet.has(slot.genreId)).reduce((sum, slot) => sum + slot.songCount, 0);
+    const totalSongCount = primaryAllocation.reduce((sum, slot) => sum + slot.songCount, 0);
+    genreAxis = {
+      matchedPhrase: genreAxisPhrase,
+      familySongCount,
+      adjacentSongCount: totalSongCount - familySongCount,
+      eraApproximated
+    };
+  }
+
   return {
     matchedPhrases,
     hasGenreSignal: ranked.genres.length > 0,
     hasMoodSignal: ranked.moods.length > 0,
-    hasSeasonSignal: ranked.seasons.length > 0
+    hasSeasonSignal: ranked.seasons.length > 0,
+    genreAxis
   };
 }
 
@@ -559,12 +710,31 @@ export function recommendConceptLocal(
   const moodCandidates = rotate(ranked.moods.length ? ranked.moods : [fallbackMoodId], variantOffset);
   const seasonId = ranked.seasons[0] || fallbackSeasonId;
 
+  // 지시문 67 (TASK A/B) — axis:'genre' 규칙이 매칭됐으면(재즈/소울/샹송
+  // 등) 그 장르군이 buildAxisAwareGenreAllocation을 통해 배분을 지배한다.
+  // 장르군 안에서는 요청한 시대에 맞는 id를 앞에 둔다(orderFamilyIdsByEra,
+  // §TASK B) — 장르군 자체를 줄이지는 않는다. familyGenres가 비어 있으면
+  // (장르 키워드 매칭 없음) 아래 두 변수는 기존 genreCandidates/
+  // buildGenreAllocation 경로로 그대로 폴백한다 — "장르 키워드 매칭 없음
+  // → 현재 동작 유지"(§A-4).
+  // 지시문 67 (TASK E) — 회귀 방지: 아티스트 참조(비지스 등)가 제안한
+  // 장르는 장르 키워드가 실제로 매칭됐을 때만 "인접" 40%가 아니라 장르군
+  // 쪽에 합류한다 — artistGenreIds가 rankedGenres/adjacentIds 어느 쪽으로
+  // 가야 하는지는 이 축 분리 이전에도 이미 "장르 적합성이 우선"(§지시문51
+  // 자기 doc comment)이었다. 장르 키워드가 없으면(orderedFamilyIds 비어
+  // 있음) 원래 경로(genreCandidates)를 그대로 쓰므로 이 병합은 무해하다.
+  const { orderedIds: rawFamilyIds, eraApproximated } = orderFamilyIdsByEra(rotate(ranked.familyGenres, variantOffset), freeText);
+  const orderedFamilyIds = rawFamilyIds.length ? [...new Set([...artistGenreIds, ...rawFamilyIds])] : rawFamilyIds;
+  const adjacentIds = ranked.adjacentGenres;
+
   const recommendations: ConceptRecommendation[] = [];
   const primaryMoodIds = moodCandidates.slice(0, 2);
   const hasSignal = rankedGenres.length > 0 || ranked.moods.length > 0 || ranked.seasons.length > 0;
   const eraNote = decomposedReferences[0] ? ` (${decomposedReferences[0].eraTag} 해석)` : '';
 
-  const primaryAllocation = buildGenreAllocation(genreCandidates, coreGenreOrder, songCount, recentGenreIds, paddingSeed);
+  const primaryAllocation = orderedFamilyIds.length
+    ? buildAxisAwareGenreAllocation(orderedFamilyIds, adjacentIds, coreGenreOrder, songCount, recentGenreIds, paddingSeed)
+    : buildGenreAllocation(genreCandidates, coreGenreOrder, songCount, recentGenreIds, paddingSeed);
   recommendations.push(buildRecommendation({
     id: 'primary',
     archetype,
@@ -582,10 +752,26 @@ export function recommendConceptLocal(
   // if the pool only ever resolved to one real candidate, a mood-shifted
   // variation) so the user still gets a real choice between two options —
   // both are always real multi-genre allocations, never a single genreId.
-  const secondaryLeadId = genreCandidates.find(id => id !== primaryAllocation[0]?.genreId);
+  const secondaryLeadId = orderedFamilyIds.length
+    ? orderedFamilyIds.find(id => id !== primaryAllocation[0]?.genreId)
+    : genreCandidates.find(id => id !== primaryAllocation[0]?.genreId);
   if (secondaryLeadId) {
-    const reordered = [secondaryLeadId, ...genreCandidates.filter(id => id !== secondaryLeadId)];
-    const secondaryAllocation = buildGenreAllocation(reordered, coreGenreOrder, songCount, recentGenreIds, paddingSeed + 1);
+    const secondaryAllocation = orderedFamilyIds.length
+      ? buildAxisAwareGenreAllocation(
+        [secondaryLeadId, ...orderedFamilyIds.filter(id => id !== secondaryLeadId)],
+        adjacentIds,
+        coreGenreOrder,
+        songCount,
+        recentGenreIds,
+        paddingSeed + 1
+      )
+      : buildGenreAllocation(
+        [secondaryLeadId, ...genreCandidates.filter(id => id !== secondaryLeadId)],
+        coreGenreOrder,
+        songCount,
+        recentGenreIds,
+        paddingSeed + 1
+      );
     recommendations.push(buildRecommendation({
       id: 'secondary',
       archetype,
@@ -613,7 +799,7 @@ export function recommendConceptLocal(
     input: freeText,
     recommendations: recommendations.slice(0, 2),
     method: 'local',
-    matchInfo: buildConceptMatchInfo(freeText, archetype, ranked)
+    matchInfo: buildConceptMatchInfo(freeText, archetype, ranked, primaryAllocation, eraApproximated)
   };
 }
 
@@ -689,10 +875,17 @@ export async function recommendConceptViaApi(
 
     const raw = (data.blueprint ?? data) as { recommendations?: unknown[] };
     const candidates = (raw.recommendations || []) as Array<Record<string, unknown>>;
+    // 지시문 67 (TASK A) — local 경로와 같은 축 분리를 API 경로에도 적용한다.
+    // LLM이 고른 apiGenreId는 인접(adjacent) 후보 맨 앞에 실어 여전히 강하게
+    // 반영되지만, axis:'genre' 키워드가 매칭됐으면 그 장르군이 배분을
+    // 지배한다 — local/API 두 경로 모두 같은 규칙을 따른다.
+    const { orderedIds: orderedFamilyIds } = orderFamilyIdsByEra(ranked.familyGenres, freeText);
     const recommendations: ConceptRecommendation[] = candidates.slice(0, 2).map((candidate, index) => {
       const apiGenreId = String(candidate.genreId || '');
-      const rankedGenres = [...new Set([apiGenreId, ...artistGenreIds, ...ranked.genres].filter(Boolean))];
-      const genreAllocation = buildGenreAllocation(rankedGenres, coreGenreOrder, songCount);
+      const adjacentIds = [...new Set([apiGenreId, ...artistGenreIds, ...ranked.adjacentGenres].filter(Boolean))];
+      const genreAllocation = orderedFamilyIds.length
+        ? buildAxisAwareGenreAllocation(orderedFamilyIds, adjacentIds, coreGenreOrder, songCount)
+        : buildGenreAllocation(adjacentIds, coreGenreOrder, songCount);
       return {
         id: `api-${index}`,
         genreId: genreAllocation[0]?.genreId || apiGenreId,

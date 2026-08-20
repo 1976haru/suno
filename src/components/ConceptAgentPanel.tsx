@@ -129,12 +129,27 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
             {!result.matchInfo.hasGenreSignal && (result.matchInfo.hasMoodSignal || result.matchInfo.hasSeasonSignal) && (
               <> — 분위기는 인식했지만 구체적인 장소·상황 단서가 없어 채널 기본 장르로 채웠어요.</>
             )}
+            {/* 지시문 67 (TASK C) — 장르 키워드(axis:'genre')가 매칭됐을 때만
+                뜬다: "장르 = 재즈 (9곡) · 나머지 6곡은 인접 장르로 채웁니다". */}
+            {result.matchInfo.genreAxis && (
+              <>
+                {' — 장르 = '}"{result.matchInfo.genreAxis.matchedPhrase}" ({result.matchInfo.genreAxis.familySongCount}곡)
+                {result.matchInfo.genreAxis.adjacentSongCount > 0 && (
+                  <>. 나머지 {result.matchInfo.genreAxis.adjacentSongCount}곡은 인접 장르로 채웁니다</>
+                )}
+              </>
+            )}
           </p>
         ) : (
           <p className="supporting concept-match-info">
             ⚠ 입력하신 말에서 장르 단서를 찾지 못했습니다. 장소·시간·상황을 함께 써보세요. 예: &ldquo;비 오는 저녁 카페에서&rdquo;
           </p>
         )
+      )}
+      {result?.matchInfo?.genreAxis?.eraApproximated && (
+        <p className="supporting concept-match-info concept-era-approximated">
+          ⚠ &ldquo;{result.matchInfo.genreAxis.matchedPhrase}&rdquo; 중 요청하신 시대에 맞는 계열이 적어 인접 시대를 포함했습니다.
+        </p>
       )}
 
       {result && (
