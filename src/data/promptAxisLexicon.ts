@@ -37,16 +37,36 @@ export const MULTIPLE_ALLOWED_AXES: readonly PromptAxis[] = ['genre', 'instrumen
  */
 export type IntroSubcategory = 'immediate' | 'has-intro';
 
+// 지시문 68 (TASK B) — 'no instrumental intro'/'vocal enters immediately'/
+// 'vocal starts immediately'가 이 목록에 없어서 브릿지(에이전트가 직접 쓴
+// 프로즈)가 만든 실제 세 곡의 인트로 자기모순을 검사가 놓쳤다(§2.1
+// 실측). 'no instrumental intro'는 INTRO_HAS_INTRO_PHRASES의 'instrumental
+// intro'를 부분 문자열로 포함하지만(localGenerator.ts 966·2344행이 이미
+// 기록한 함정), introSubcategory가 이 목록을 HAS_INTRO보다 먼저 검사하므로
+// 여기 넣는 것만으로 그 절 자체는 올바르게 'immediate'로 분류된다.
 const INTRO_IMMEDIATE_PHRASES = [
   'cold open', 'a cappella', 'singing starts immediately', 'straight into the hook',
   'no intro', 'no quiet fade-in', 'vocal-first opening', 'instrumental hook opens the song',
-  'spoken-close a cappella hook opens the song'
+  'spoken-close a cappella hook opens the song', 'no instrumental intro',
+  'vocal enters immediately', 'vocal starts immediately'
 ];
 
 const INTRO_HAS_INTRO_PHRASES = [
   'short intro', 'intro texture', 'instrumental intro', 'intro swell', 'hook intro',
   'bar intro', 'intro opens', 'strum intro', 'chord intro', 'ensemble swell intro'
 ];
+
+// 지시문 68 (TASK B) — 위 literal 추가는 이 세 표현"만" 고친다. 같은 함정의
+// 일반형(HAS_INTRO 어휘 앞에 부정 접두어가 붙어 의미가 반대가 되는 경우,
+// 예: "without a chord intro")을 전부 막으려면 판정 자체가 부정 접두어를
+// 먼저 소거해야 한다 — introSubcategory에서 사용.
+const NEGATION_PREFIX_WORDS = ['no', 'without', 'never'];
+
+function includesNegatedHasIntroPhrase(lower: string): boolean {
+  return INTRO_HAS_INTRO_PHRASES.some(phrase =>
+    NEGATION_PREFIX_WORDS.some(negation => lower.includes(`${negation} ${phrase}`))
+  );
+}
 
 const LEAD_VOCAL_PHRASES = ['lead', 'duet'];
 /** leadVocal처럼 "lead"를 포함하지만 실제로는 backing 역할인 어휘 — 지시문 16 §1-3 실측(girl-group unison lead가 T2/T6/T7에서 진짜 리드와 중복). */
@@ -184,6 +204,10 @@ export function classifyClause(clause: string, isFirstClause: boolean): PromptAx
 export function introSubcategory(clause: string): IntroSubcategory | undefined {
   const lower = clause.trim().toLowerCase();
   if (includesAny(lower, INTRO_IMMEDIATE_PHRASES)) return 'immediate';
+  // 지시문 68 (TASK B) — 부정 접두어(no/without/never) 뒤에 오는 HAS_INTRO
+  // 어휘는 의미가 반대다("no instrumental intro" = 인트로가 없다는 선언).
+  // literal 목록에 없는 조합도 여기서 일반적으로 막는다.
+  if (includesNegatedHasIntroPhrase(lower)) return 'immediate';
   if (includesAny(lower, INTRO_HAS_INTRO_PHRASES)) return 'has-intro';
   return undefined;
 }

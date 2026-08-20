@@ -16,6 +16,7 @@ import { checkEnglishLyricLineQuality, checkTranslationese } from './languageQua
 import { idolSingleEnglishWordTitleWarning } from './idolTitleLint';
 import { GENRE_FORBIDDEN_DESCRIPTORS } from '../data/genreForbiddenDescriptors';
 import { auditStylePromptAgainstSpec } from './promptSpec';
+import { classifyClause, introSubcategory } from '../data/promptAxisLexicon';
 import { bilingualLint } from './bilingualLint';
 import { checkRelationshipContinuity } from './relationshipContinuity';
 import { checkKidsOutcome } from './kidsOutcome';
@@ -526,6 +527,27 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
   for (const violation of specViolations) {
     pushUnique(warnings, `Prompt spec violation (${violation.field}): ${violation.detail}`);
     score -= 8;
+  }
+
+  // 지시문 68 (TASK B) — 브릿지(에이전트가 직접 쓴 프로즈)가 만든
+  // stylePrompt에 "즉시시작"(no instrumental intro 등)과 "인트로
+  // 있음"(short intro 등) 절이 동시에 실려도 잡아내는 검사가 없었다(§2.2:
+  // distinctChoiceGate.ts의 NO_INTRO 케이스는 그 곡의 distinctChoice.ruleId가
+  // 정확히 NO_INTRO일 때만 돌고, soundSignature.ts의 openingDurationText는
+  // 로컬 생성기 전용이라 브릿지 프로즈는 거치지 않는다). auditStylePromptAgainstSpec
+  // (promptSpec.ts)에 넣지 않는 이유: 그 함수는 fullAudit.ts도 그대로
+  // 소비하므로 새 위반 타입을 거기 추가하면 이 지시문이 실측하지 않은
+  // 팩 단위 집계까지 함께 바뀐다(그 파일 자기 doc comment, PromptSpecViolation
+  // 필드 주석의 명시적 경고) — scoreSong 전용 독립 검사로 둔다.
+  // fullAudit.ts의 introContradictionSongs와 같은 판정 로직(classifyClause/
+  // introSubcategory)을 재사용한다(§공통규약 "같은 판정 로직을 두 곳에 두지
+  // 않는다") — 새 어휘 사전이나 새 정규식을 만들지 않는다.
+  const introClauses = song.stylePrompt.split(',').map(clause => clause.trim()).filter(Boolean)
+    .filter((clause, index) => classifyClause(clause, index === 0) === 'intro');
+  const introSubcategories = new Set(introClauses.map(introSubcategory).filter((value): value is NonNullable<typeof value> => Boolean(value)));
+  if (introSubcategories.size > 1) {
+    pushUnique(warnings, '인트로 지시가 서로 모순됩니다 — "즉시 시작"과 "짧은 인트로 있음"이 같은 stylePrompt에 함께 있습니다. Suno가 어느 쪽을 따를지 예측할 수 없으니 한쪽만 남기세요.');
+    score -= 15;
   }
 
   // 지시문 08 (TASK C) — real structural/semantic lyric checks
