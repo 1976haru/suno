@@ -2105,6 +2105,23 @@ export function seedForBlueprint(opts: Pick<GenerationOptions, 'channel' | 'proj
 }
 
 /**
+ * 지시문 68 (TASK A-2) — lyricTheme 배분 전용 시드. seedForBlueprint는
+ * channel.id + projectTitle만 읽으므로(바로 위 doc comment 참고 — 건드리지
+ * 않는다) customConcept를 반영하지 못한다. batchPreallocation.ts와
+ * localGenerator.ts가 각자 같은 공식(`${seedBase}:${customConcept}`)을
+ * 따로 복제해 왔고, setDirector.ts의 makeAllocations는 아예 이 공식을
+ * 쓰지 않고 emptyBase(customConcept가 항상 비어 있는 미리보기용 옵션)로
+ * seedForBlueprint만 호출해 완전히 다른(컨셉과 무관한) 시드를 만들었다 —
+ * 이 분기가 지시문 68 TASK A의 구조적 원인이다. 이 함수가 유일한
+ * 정의이며, 세 호출부 모두 이것만 호출한다. 본문은 batchPreallocation.ts가
+ * 쓰던 기존 공식 그대로다(새 공식을 만들지 않는다 — 기존 동작 보존).
+ */
+export function lyricThemeSeedFor(opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'customConcept'>): number {
+  const base = seedForBlueprint(opts);
+  return opts.customConcept?.trim() ? hashSeed(`${base}:${opts.customConcept}`) : hashSeed(base);
+}
+
+/**
  * TASK v3.27 (Part A3) — letting a remote model/coding agent write its own
  * title (see GenerationOptions.titleMode) reopens a collision risk
  * preallocateSongSlots existed specifically to close for titles: two

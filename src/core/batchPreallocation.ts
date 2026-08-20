@@ -3,7 +3,7 @@ import { lyricLanguageMismatchWarning, verbatimSceneCopyWarning } from './lyricM
 import { lyricMetaLeakWarning } from './lyricMetaLeak';
 import { stylePromptWordBudgetWarning } from './stylePromptBudget';
 import { buildArrangementRecipe, buildPromptFingerprint } from './promptFingerprint';
-import { createTitleGenerator, hashSeed, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
+import { createTitleGenerator, hashSeed, lyricThemeSeedFor, seedForBlueprint, STRUCTURE_TEMPLATE_MARKER_TAG } from './lyricEngine';
 import { averageTempo, buildArcPlanForProfile, clampTempoToKidsAgeTier, emotionArcPlanForArc, nextContestedTitle, resolveKidsAgeTierId, songRolePlanForArc } from './localGenerator';
 import { buildTempoBandPlan } from './tempoPlan';
 import { buildBpmAwareStructureTemplatePlan, repairStructureTemplatePlanForBpm } from './structureTemplatePlan';
@@ -839,7 +839,9 @@ export function preallocateSongSlots(
   // same-trackNo listenerSituation duplication) — this seed swap is that
   // fix, mirrored exactly (same formula, same "only this one call" scope —
   // genre/hook/BPM/vocal rotation all keep the shared seed unchanged).
-  const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
+  // 지시문 68 (TASK A-2) — lyricEngine.ts의 lyricThemeSeedFor 단일 정의 재사용
+  // (이 파일이 예전에 여기 복제해 두던 공식 그대로, 값은 동일).
+  const lyricThemeSeed = lyricThemeSeedFor(opts);
   const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed, {
     recentThemeIds: avoid?.recentLyricThemeIds,
     recentSituations: avoid?.recentSituations

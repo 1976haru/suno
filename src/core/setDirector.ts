@@ -23,7 +23,7 @@ import {
   VOCAL_TYPE_IDS
 } from './diversityAllocation';
 import { buildLyricThemePlan, povDistribution, resolvePerspectiveMode } from './lyricDiversityPlan';
-import { hashSeed, seedForBlueprint } from './lyricEngine';
+import { lyricThemeSeedFor } from './lyricEngine';
 import { allocateGenreCounts, type GenreAllocationSlot } from './conceptAgent';
 import {
   decomposeArtistReferences,
@@ -847,16 +847,41 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
   const emptyBase = buildBaseOptions(freeText, channel, songCount, genreIds, [], choices);
   // TASK v3.64 (TASK A) — this used to slice the theme pool in raw array
   // order (the first N ids), which bypassed core/lyricDiversityPlan.ts's
-  // frame-capped allocation entirely: the naive slice becomes THIS axis's
-  // 'manual' allocation, and preallocateSongSlots always lets a manual
-  // allocation win over its own auto (frame-aware) computation — so every
-  // real senior-morning plan built through directSetLocal kept landing on
-  // 18/18 solitary-object themes regardless of the new frames existing at
-  // all. Reuses the exact same seed preallocateSongSlots will later derive
-  // from this same opts shape (seedForBlueprint only reads channel.id/
-  // projectTitle, both already fixed here), so this axis and the slots it
-  // seeds agree instead of drifting.
-  const seed = hashSeed(seedForBlueprint(emptyBase));
+  // frame-capped allocation entirely. Fixed then by routing the slice
+  // through buildLyricThemePlan's own frame-aware allocator instead of a
+  // naive slice — that part still stands, unchanged below.
+  //
+  // 지시문 68 (TASK A-1) — but the fix above also marked this axis 'manual'
+  // (see the "always lets a manual allocation win" note that used to sit
+  // here), and preallocateSongSlots' applyAxisAllocation always lets a
+  // manual allocation win over its own auto computation. That was fine for
+  // v3.64's frame-diversity bug (both manual and auto used the same
+  // concept-blind seed back then), but once batchPreallocation.ts/
+  // localGenerator.ts got their own concept-aware seed
+  // (lyricThemeSeedFor — 지시문 10 TASK B-3, 지시문 08 TASK D), this
+  // 'manual' axis started permanently freezing the WRONG, concept-blind
+  // snapshot computed here over the correct, concept-aware plan those two
+  // files compute at actual generation time. Real measurement: two sets on
+  // the same channel with different customConcept values but the default
+  // projectTitle produced byte-identical lyricTheme sequences, 15/15,
+  // because this manual snapshot (keyed only on channel.id/projectTitle)
+  // always won (지시문 68 §1). Only lock this axis to 'manual' when the
+  // user actually made an explicit lyric-theme choice — same
+  // choices.source.* provenance pattern buildBaseOptions already uses for
+  // customLyricThemeScene just above; DiversityAllocationPanel's own
+  // "manual" chip (see that component) independently re-marks this axis
+  // 'manual' with user-edited counts AFTER this initial plan is built, and
+  // that later edit is untouched by this default — this only changes what
+  // the axis defaults to before the user has touched it.
+  const userChoseLyricTheme = choices?.source.customLyricThemeScene === 'user' && Boolean(choices.customLyricThemeScene?.trim());
+  // 지시문 68 (TASK A-2) — lyricEngine.ts의 단일 정의(lyricThemeSeedFor)
+  // 재사용. emptyBase.customConcept는 buildBaseOptions가 freeText 그대로
+  // 채운 값이라 이미 실제 컨셉을 담고 있었지만, 예전엔 seedForBlueprint만
+  // 불러 그 값을 읽지 않았다 — preallocateSongSlots/generateLocalBlueprint와
+  // 같은 공식을 쓰게 돼 이 미리보기의 참고용 counts도 더 정확해진다(모드가
+  // 'auto'가 되면서 이 counts 자체는 생성 결과를 더는 강제하지 않지만,
+  // DiversityAllocationPanel의 adjustables 미리보기 표시에는 여전히 쓰인다).
+  const seed = lyricThemeSeedFor(emptyBase);
   const lyricThemeIds = buildLyricThemePlan(emptyBase, seed);
   const lyricThemeCounts: Record<string, number> = {};
   for (const id of lyricThemeIds) lyricThemeCounts[id] = (lyricThemeCounts[id] ?? 0) + 1;
@@ -879,7 +904,7 @@ function makeAllocations(freeText: string, channel: ChannelProfile, songCount: n
     // "full 을 4곡 이하로 제한하는 것이 핵심".
     { axis: 'arrangementDensity', mode: 'manual', counts: arrangementDensityCounts(songCount) },
     { axis: 'structureTemplate', mode: 'manual', counts: exactBalancedCounts(structureIds, songCount) },
-    { axis: 'lyricTheme', mode: 'manual', counts: lyricThemeCounts },
+    { axis: 'lyricTheme', mode: userChoseLyricTheme ? 'manual' : 'auto', counts: lyricThemeCounts },
     // v5.7 follow-up — emptyBase.perspective is buildBaseOptions' own
     // choices.perspective-aware resolution (see that function's existing
     // `choices.source.perspective === 'user' ? ... : 'firstPerson'` line,

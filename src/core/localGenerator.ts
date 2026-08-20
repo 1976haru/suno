@@ -60,6 +60,7 @@ import {
   createTitleGenerator,
   hashSeed,
   HOOK_SHAPES,
+  lyricThemeSeedFor,
   seedForBlueprint,
   seasonWordFor,
   shuffle,
@@ -1688,7 +1689,9 @@ export function generateLocalBlueprint(
   // shared seed directly was tried first and reverted (broke ~20 existing
   // tests whose exact expected values were calibrated against the old,
   // concept-independent seed).
-  const lyricThemeSeed = opts.customConcept?.trim() ? hashSeed(`${seedBase}:${opts.customConcept}`) : seed;
+  // 지시문 68 (TASK A-2) — lyricEngine.ts의 lyricThemeSeedFor 단일 정의 재사용
+  // (이 파일이 예전에 여기 복제해 두던 공식 그대로, 값은 동일).
+  const lyricThemeSeed = lyricThemeSeedFor(opts);
   const lyricThemePlan = buildLyricThemePlan(opts, lyricThemeSeed, {
     recentThemeIds: avoid?.recentLyricThemeIds,
     recentSituations: avoid?.recentSituations

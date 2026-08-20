@@ -4652,7 +4652,7 @@ const KIDS_ENGINE_THEME_BY_ID: Record<string, KidsLyricThemeHint> = {
   'jpkids-calm-breathing': 'family'
 };
 
-function normalizeCustomScene(scene: string | undefined): string {
+export function normalizeCustomScene(scene: string | undefined): string {
   return (scene || '').replace(/\s+/g, ' ').trim();
 }
 
@@ -4716,12 +4716,19 @@ export function lyricThemesForArchetype(archetype: ChannelArchetype | undefined,
  * to the archetype-suited pool unconditionally (scenePlanningMode
  * currently has no behavioral effect here) — the real, verified,
  * non-regressing fix for cross-concept duplication lives in
- * core/lyricEngine.ts's seedForBlueprint (customConcept now part of the
- * seed) and core/lyricDiversityPlan.ts's allocateThemesByFrame (the
- * within-frame starting index is now seed-derived instead of always 0),
- * both of which make two different concepts draw a genuinely different
- * SUBSET of the SAME frame-safe archetype pool rather than widening the
- * pool itself.
+ * core/lyricEngine.ts's lyricThemeSeedFor (지시문 68 TASK A-2 — NOT
+ * seedForBlueprint, which deliberately still reads only channel.id/
+ * projectTitle; see that function's own doc comment for why widening it
+ * directly broke ~20 tests) and core/lyricDiversityPlan.ts's
+ * allocateThemesByFrame (the within-frame starting index is now
+ * seed-derived instead of always 0), both of which make two different
+ * concepts draw a genuinely different SUBSET of the SAME frame-safe
+ * archetype pool rather than widening the pool itself. (지시문 68 —
+ * this comment previously claimed seedForBlueprint itself carried
+ * customConcept; it never did. That false claim let setDirector.ts's
+ * makeAllocations keep computing a concept-blind 'manual' lyricTheme
+ * axis that silently overrode this real fix at generation time for
+ * ~8 months — see 지시문 68 §1.2 for the full chain.)
  *
  * 지시문 10 (TASK B-4-1) — `customConcept` added to this Pick formally
  * (every real call site — core/lyricDiversityPlan.ts:296,

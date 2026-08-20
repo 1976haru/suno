@@ -1,4 +1,4 @@
-import { frameIdForConceptText, getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, resolveLocalScenePlanningMode, type LyricTheme } from '../data/lyricThemes';
+import { frameIdForConceptText, getLyricThemeById, kidsLyricEngineThemeForLyricTheme, lyricThemesForOptions, normalizeCustomScene, resolveLocalScenePlanningMode, type LyricTheme } from '../data/lyricThemes';
 import type { GenerationOptions, LyricPerspective, LyricSectionStyleId, PerspectiveMode } from '../types';
 import { applyAxisAllocation, POV_IDS, spreadPlanByCounts } from './diversityAllocation';
 import { buildStridePlan } from './stridePlan';
@@ -238,7 +238,12 @@ function allocateThemesByFrame(pool: LyricTheme[], songCount: number, seed: numb
     // index too (hashed with frameId so different frames don't all land on
     // the identical offset when their lengths coincide) makes the actual
     // SET of themes chosen genuinely vary with the seed — and therefore,
-    // since seedForBlueprint now includes customConcept, with the concept.
+    // since the caller now threads a concept-aware seed in (lyricEngine.ts's
+    // lyricThemeSeedFor, 지시문 68 TASK A-2 — NOT seedForBlueprint, which
+    // never included customConcept and still doesn't; that earlier claim
+    // here was false and let setDirector.ts keep computing a stale
+    // concept-blind 'manual' lyricTheme axis that silently discarded this
+    // fix at generation time for ~8 months, see 지시문 68 §1.2), with the concept.
     // Seeding is skipped (kept at index 0, the original behavior) in two
     // real cases where index 0 already carries deliberate meaning, not an
     // arbitrary "first in array order" default:
@@ -346,12 +351,39 @@ export function buildLyricThemePlan(opts: LyricPlanOptions, seed: number, avoid?
   // the most calm-tagged themes — see allocateThemesByFrame's own
   // `preferCalm` doc comment for the within-frame half of this fix.
   const wantsCalm = isKidsArchetype(opts.channel.archetype) && Boolean(opts.channel.preferredMoods?.includes('calm-focus'));
-  const preferredFrameId = frameIdForConceptText(opts.customConcept) ?? (wantsCalm ? frameWithMostCalmThemes(themes) : undefined);
+  // 지시문 68 (TASK A, 추가 발견) — customLyricThemeScene(사용자가 직접 입력한
+  // 장면)은 data/lyricThemes.ts의 customThemeFromScene을 통해
+  // SOLITARY_OBJECT_FRAME_ID 프레임의 index 0에 프리펜드되지만(§allocateThemesByFrame
+  // 자기 doc comment), preferredFrameId가 없으면 그 프레임 자체가
+  // orderedFrameIds 라운드로빈에서 songCount에 도달하기 전에 아예 뽑히지
+  // 않을 수 있어(대형 archetype 풀은 프레임이 10개 이상) 포함이 seed에 따라
+  // 우연에 좌우됐다(실측: tests/userChoicePreservation.test.ts — 지시문 68
+  // TASK A-2가 makeAllocations의 seed를 lyricThemeSeedFor로 바꾸자 같은
+  // 입력에서 custom-lyric-scene이 통째로 빠짐). frameIdForConceptText와
+  // 같은 방식으로 우선순위를 준다 — 컨셉이 명명한 프레임이 최우선(기존
+  // 그대로), 그다음 사용자가 실제로 커스텀 장면을 입력했으면
+  // solitary-object를 예약, 마지막으로 calm 폴백.
+  const hasCustomScene = Boolean(normalizeCustomScene(opts.customLyricThemeScene));
+  const preferredFrameId = frameIdForConceptText(opts.customConcept)
+    ?? (hasCustomScene ? SOLITARY_OBJECT_FRAME_ID : (wantsCalm ? frameWithMostCalmThemes(themes) : undefined));
   const autoPlan = poolHasExplicitFrames(themes)
     ? allocateThemesByFrame(themes, opts.songCount, seed, preferredFrameId, wantsCalm)
     : buildStridePlan(pool, opts.songCount, Math.abs(seed + 907) % pool.length);
   const allocated = applyAxisAllocation(autoPlan, opts.diversityAllocations, 'lyricTheme', pool, seed);
-  return spreadPlanByCounts(allocated, pool, 1);
+  // 지시문 68 (TASK A, 추가 발견) — spreadPlanByCounts는 "연속 중복 방지"용이라
+  // 입력에 중복이 없으면(count=1뿐이면) 자기 자신의 early-return
+  // (counts.size <= 1)을 타지 않고도 사실상 할 일이 없는데, 실제로는
+  // 모든 항목을 동률로 보고 `pool`(정적 배열 순서) 기준으로 재정렬해
+  // buildStridePlan이 seed로 만든 순서를 통째로 지워버린다 — 두 컨셉이
+  // 서로 다른 seed로 서로 다른 15개 부분집합을 뽑아도(buildStridePlan은
+  // step이 pool.length와 서로소라 중복이 없다), 이 재정렬 때문에 겹치는
+  // 원소는 항상 같은 상대 순위(=같은 트랙 위치)에 놓였다(실측: showa-70s
+  // 처럼 frameId 태그가 없는 풀에서 allocateThemesByFrame 대신
+  // buildStridePlan 경로를 타는 경우 — §1.5 재현 테스트에서 발견, 15/15 →
+  // (이 수정 전) 9/15로만 개선되고 5개 기준을 못 넘겼다). allocateThemesByFrame/
+  // manual 경로처럼 실제로 중복이 있을 때만 spreadPlanByCounts를 적용한다.
+  const hasDuplicates = new Set(allocated).size !== allocated.length;
+  return hasDuplicates ? spreadPlanByCounts(allocated, pool, 1) : allocated;
 }
 
 /**
