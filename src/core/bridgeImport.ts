@@ -1073,7 +1073,11 @@ export function parseSongsJsonForViewer(
   return {
     status: 'ok',
     blockedReasons: [],
-    songs,
+    // 지시문 68 (TASK C) — 위 scored(1017행)를 checks의 qualityScore
+    // 필터링에만 쓰고 버려두면 뷰어가 채점 전 songs를 그대로 반환해
+    // qualityScore가 항상 0으로 보인다(임포트 경로 importSongs는 이미
+    // scoreSongs 결과를 유지하고 있으므로 이 함수만의 결함이었다).
+    songs: scored,
     meta: extractBridgeImportMeta(rawText),
     checks
   };

@@ -149,6 +149,20 @@ describe('[수노모드 읽기전용] the whole point: duplication/quality never
     const excludeCheck = result.checks.find(c => c.id === 'excludePrompt');
     expect(excludeCheck?.status).toBe('warn');
   });
+
+  // 지시문 68 (TASK C) — parseSongsJsonForViewer computed `scored` (via
+  // scoreSongs) purely to filter for the 'quality' advisory check line, then
+  // returned the pre-score `songs` array anyway — every song's qualityScore
+  // displayed as 0 in the read-only viewer regardless of its real score.
+  it('returns SCORED songs, not the pre-score array — qualityScore must not be 0 for every song', () => {
+    const raw = songJson(15);
+    const result = parseSongsJsonForViewer(raw, { lyricLanguage: 'english' });
+    expect(result.status).toBe('ok');
+    expect(result.songs).toHaveLength(15);
+    const scores = result.songs.map(s => s.qualityScore);
+    expect(scores.every(score => score === 0)).toBe(false);
+    expect(scores.every(score => typeof score === 'number' && score > 0)).toBe(true);
+  });
 });
 
 describe('[수노모드 읽기전용] display-only vocal tag normalization never touches the underlying content', () => {
