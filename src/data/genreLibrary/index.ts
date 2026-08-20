@@ -3,6 +3,7 @@ import type { GenreTier } from './types';
 import { ERA_BUCKET_BY_GENRE_ID } from '../eraExclusions';
 import { ERA_BUCKETS_BY_GENRE_ID, ERA_NOTE_KO_BY_GENRE_ID, type EraBucket as FineEraBucket } from '../eraBuckets';
 import { buildGenreTraits } from '../genreTraits';
+import { assignStaticVocalTechniques } from '../vocalTechniqueByGenre';
 
 /**
  * TASK H2 (v3.13) — 3-5 short, genre-authentic images per core-tier genre id,
@@ -313,7 +314,18 @@ export const SENIOR_MORNING_CORE_GENRE_IDS = [
   'oldpop-rainy-ballad-blues',
   // 지시문 21 (TASK A) — 신규 4종 중 oldpop 계열 2종. 같은 이유로 여기 등록.
   'oldpop-six-eight-slow-ballad',
-  'oldpop-italian-canzone'
+  'oldpop-italian-canzone',
+  // 지시문 53 (TASK C-4) — 실측: 지시문20이 good-morning-memory-radio의
+  // preferredGenres에 재즈 4종(jazz-classic-vocal-lounge·jazz-swing-crooner-
+  // ballroom·jazz-brush-ballad-jazz·bossa-cafe)을 추가했지만 이 후보 풀
+  // 배열에는 3종이 등록되지 않았다(bossa-cafe만 이미 위에 있었음) —
+  // "정의됐고 배선됐는데 실제로는 안 쓰인다"는 이전 지시문들의 5번째
+  // 결함 유형과 같다. showa-cafe/oldpop-lounge 코어 풀에는 이미 있는
+  // 장르라(SHOWA_CAFE_CORE_GENRE_IDS·OLDPOP_LOUNGE_CORE_GENRE_IDS) 워크스페이스
+  // 경계 문제가 아니다.
+  'jazz-classic-vocal-lounge',
+  'jazz-swing-crooner-ballroom',
+  'jazz-brush-ballad-jazz'
 ] as const;
 
 export const SHOWA_CAFE_CORE_GENRE_IDS = [
@@ -385,7 +397,14 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
   'city-pop-night',
   // 지시문 21 (TASK A) — kr2030-noir-deep-house는 archetypes에 city-night도
   // 명시(강사 원문)돼 있어 이 채널의 core pool에서도 실제로 닿도록 등록.
-  'kr2030-noir-deep-house'
+  'kr2030-noir-deep-house',
+  // 지시문 51 (TASK A-1) — 실측(check:genre-utilization): city-night-drive
+  // 채널(preferredGenres 11종)의 city-pop-* 변형 6종이 이 core 목록에
+  // 없어 recommendConceptLocal의 후보 풀에 애초에 없었다 — lofi-study와
+  // 같은 유형(코어 목록이 채널 확장을 따라가지 못함), 정도만 부분적.
+  // 활용률 45%→? 재측정 대상.
+  'city-pop-soft', 'city-pop-bright-female-groove', 'city-pop-coastal-disco-pop',
+  'city-pop-funky-rhythm-pop', 'city-pop-airy-disco-pulse', 'city-pop-club-disco-pop'
 ] as const;
 
 /**
@@ -393,6 +412,23 @@ export const CITY_NIGHT_CORE_GENRE_IDS = [
  * Order matters: getDefaultGenreIdsForArchetype() takes slice(0, 3), and the
  * market research's top-3 priority is emo-band-pop / dawn-rnb / y2k-retro
  * (ranks 1, 3, 5), not simple array order — hence 1, 3, 5, 2, 4, 6 here.
+ */
+/**
+ * 지시문 51 (TASK A-1) — 실측(check:genre-utilization): after-work-band-pop
+ * 채널(kr-2030-pop)의 preferredGenres 18종 중 14종(contemporary-rnb·
+ * alt-rnb·chill-rap·trap-soul 등 R&B/힙합 계열)을 이 core 목록에 추가해
+ * 봤으나, 그 14종 자신의 archetypes 필드는 애초에 'modern-chill'/
+ * 'city-night'(senior-oldpop 워크스페이스)만 갖고 있었다 — kr-2030-pop이
+ * 전혀 아니다. genreWorkspaceOwnership.ts의 워크스페이스 격리 검사
+ * (tests/workspaceDataIsolation.test.ts L1)가 정확히 이걸 잡아냈다:
+ * "외부 장르 7건 노출". 이 14종을 core에 넣으면 추천이 실제로 이
+ * 채널의 컨셉과 안 맞는(모던칠/시티나이트용으로 설계된) 스타일을
+ * kr-2030-pop 컨셉에 갖다 붙이는 것과 같다 — §하지 말 것 "컨셉 적합성이
+ * 우선이다"를 어긴다. 되돌린다. 근본 원인은 채널 정의(after-work-band-pop.
+ * preferredGenres)가 애초에 archetypes 불일치 장르 14종을 갖고 있는 것
+ * 자체다 — 지시문20이 이 채널을 확장할 때 생긴 선행 데이터 불일치로
+ * 보이며, TASK C/보고에 별도로 남긴다(이 지시문의 "추천 편중" 수정
+ * 범위가 아니라 "채널 정의 자체의 정합성" 문제).
  */
 export const KR_2030_CORE_GENRE_IDS = [
   'kr2030-emo-band-pop',
@@ -466,7 +502,10 @@ export const KRIDOL_M_CORE_GENRE_IDS = [
   'kridol-midtempo-rnb',
   'kridol-latin-afro',
   'kridol-emotional-ballad',
-  'kridol-retro-funk'
+  'kridol-retro-funk',
+  // 지시문 52 (TASK B-1) — 끝에 추가(기존 top-3 기본값 순서를 건드리지 않는다).
+  'kridol-melodic-rap',
+  'kridol-hard-rap'
 ] as const;
 
 /**
@@ -484,7 +523,10 @@ export const KRIDOL_F_CORE_GENRE_IDS = [
   'kridol-band-crossover',
   'kridol-performance-trap',
   'kridol-midtempo-rnb',
-  'kridol-emotional-ballad'
+  'kridol-emotional-ballad',
+  // 지시문 52 (TASK B-1) — 끝에 추가(기존 top-3 기본값 순서를 건드리지 않는다).
+  'kridol-melodic-rap',
+  'kridol-hard-rap'
 ] as const;
 
 /**
@@ -567,11 +609,30 @@ export const OLDPOP_LOUNGE_CORE_GENRE_IDS = [
   'jazz-contemporary-vocal-jazz'
 ] as const;
 
+/**
+ * 지시문 51 (TASK A-1) — 실측(check:genre-utilization): lofi-study가 이
+ * 배열을 빈 채로 둔 탓에 getCoreGenreIdsForArchetype이 자기 폴백
+ * (SENIOR_MORNING_CORE_GENRE_IDS)으로 떨어졌다 — "장르가 안 골고루
+ * 쓰인다" 수준이 아니라 lofi-study-main 채널(preferredGenres 14종, 전부
+ * lofi-*)의 장르가 추천 후보 풀에 단 하나도 없어 시니어 장르만 추천되는
+ * 채널-불일치 결함이었다(실측: 활용률 0%). lofi-study-main의
+ * preferredGenres를 그대로 core 목록으로 채택한다 — 이 아키타입은
+ * 채널이 하나뿐이라(§data/presets.ts) preferredGenres 자체가 이미 그
+ * 채널의 실제 장르 전부다.
+ */
+const LOFI_STUDY_CORE_GENRE_IDS = [
+  'lofi-jazz-piano-lofi', 'lofi-coffee-shop-lofi', 'lofi-rainy-day-lofi',
+  'lofi-minimal-focus-lofi', 'lofi-late-study-lofi', 'lofi-ambient-lofi',
+  'lofi-twilight-lofi', 'lofi-hazy-guitar-lofi', 'lofi-vinyl-soft-lofi',
+  'lofi-instrumental-jazz-lofi', 'lofi-jazz-lounge-lofi', 'lofi-minimal-beats-lofi',
+  'lofi-rainy-cafe-lofi', 'lofi-jazz-bass-lofi'
+] as const;
+
 export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly string[]> = {
   'senior-morning': SENIOR_MORNING_CORE_GENRE_IDS,
   'showa-cafe': SHOWA_CAFE_CORE_GENRE_IDS,
   christmas: [],
-  'lofi-study': [],
+  'lofi-study': LOFI_STUDY_CORE_GENRE_IDS,
   kids: KIDS_CORE_GENRE_IDS,
   'showa-70s': SHOWA_70S_CORE_GENRE_IDS,
   j2000s: J2000S_CORE_GENRE_IDS,
@@ -830,7 +891,13 @@ const tagTraits: Record<string, Partial<Omit<StructuredGenrePack, 'id' | 'label'
   crooner: { vocal: ['smooth mature male croon'], moods: ['old-radio romance'] },
   dark: { production: ['shadowed low-mid texture'], harmony: ['minor-key tension'], moods: ['nocturnal'] },
   disco: { rhythm: ['gentle disco pulse'], instruments: ['tight rhythm guitar'], moods: ['danceable'] },
-  duet: { vocal: ['male and female duet', 'balanced call-and-response phrasing'], harmony: ['two-part chorus harmony'] },
+  // 지시문 65 (TASK A) — 'balanced call-and-response phrasing'는 20종
+  // duet 태그 장르 전부에 똑같이 붙어 checkVocalTechnique.ts §2("같은 창법
+  // 어휘가 5종 넘게 반복 0건")를 위반했다. 그 장르별 변주는 이제
+  // vocalTechniqueByGenre.ts의 family별 라운드로빈 창법이 담당하므로
+  // (§data/vocalTechniqueByGenre.ts 자기 doc comment), 여기서는 음색
+  // 식별자(male and female duet)만 남긴다 — 삭제가 아니라 중복 제거.
+  duet: { vocal: ['male and female duet'], harmony: ['two-part chorus harmony'] },
   dreamy: { production: ['soft reverb haze'], instruments: ['washed synth pad'], moods: ['dreamy'] },
   drums: { rhythm: ['active drum pocket'], production: ['crisp kit detail'] },
   electric: { instruments: ['electric bass', 'electric piano'], production: ['sleek studio tone'] },
@@ -1022,20 +1089,23 @@ export const LEAD_ARRANGEMENT_NARRATIVES = {
 } as const satisfies Partial<Record<string, string>>;
 
 const legacyGenreProfiles: StructuredGenrePack[] = [
-  legacyGenrePack({ id: 'adult-contemporary', label: 'Adult Contemporary Pop', styleCore: 'warm adult contemporary pop, radio-friendly, gentle emotional chorus lift', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['adult-contemporary'], instruments: ['sustained piano pads', 'clean strummed acoustic guitar', 'straight-pop drum kit', 'rounded electric bass'], tempoRange: [96, 106], goodFor: ['senior playlist', 'morning coffee', 'year-end'] }, 'pop', { rhythm: ['straight 4/4 pop feel'], vocal: ['mature clear vocal'], production: ['radio-friendly polish'], harmony: ['simple diatonic harmony'], moods: ['warm', 'familiar'], audiences: ['senior playlist', 'morning coffee'], avoidTraits: ['swing', 'solo'] }),
-  legacyGenrePack({ id: 'acoustic-pop', label: 'Acoustic Pop', styleCore: 'nostalgic acoustic pop, clear vocal, intimate warm arrangement', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['acoustic-pop'], instruments: ['fingerpicked acoustic guitar', 'soft piano', 'light percussion'], tempoRange: [92, 104], goodFor: ['home listening', 'walks', 'coffee'] }, 'pop', { rhythm: ['light acoustic pulse'], vocal: ['clear intimate vocal'], production: ['natural acoustic room'], harmony: ['simple pop lift'], moods: ['nostalgic', 'gentle'], audiences: ['home listening', 'walking playlists'], avoidTraits: ['campfire cliche'] }),
-  legacyGenrePack({ id: 'jazz-pop', label: 'Acoustic Jazz Pop', styleCore: 'nostalgic acoustic jazz-pop, elegant cafe mood, gentle maj7 and add9 colors', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jazz-pop'], instruments: ['Rhodes comping piano', 'walking upright bass', 'brushed snare with ride comping', 'mellow jazz guitar'], tempoRange: [82, 96], goodFor: ['kissaten', 'night cafe', 'winter'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'jazz', { rhythm: ['light swing feel', 'walking bass'], vocal: ['warm cafe vocal'], production: ['warm analog room tone'], harmony: ['ii-V-I turnarounds', 'maj7/9/13 extended voicings'], moods: ['elegant', 'nostalgic'], audiences: ['cafe playlists', 'winter listening'], avoidTraits: ['flat straight pop', 'showy solo clutter'] }),
-  legacyGenrePack({ id: 'showa-modern', label: 'Showa Modern Cafe', styleCore: 'showa-modern cafe mood, nostalgic but refined, subtle retro Japanese kissaten warmth', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['showa-modern'], instruments: ['Rhodes', 'mellow jazz guitar', 'upright bass', 'soft strings'], tempoRange: [92, 104], goodFor: ['Japan channel', 'retro cafe', 'autumn'] }, 'jazz', { rhythm: ['restrained cafe swing'], vocal: ['mature soft lead vocal'], production: ['subtle retro warmth'], harmony: ['jazz-colored cafe chords'], moods: ['refined', 'bittersweet'], audiences: ['Japan channel', 'retro cafe'], avoidTraits: ['cheap retro props'] }),
-  legacyGenrePack({ id: 'city-pop-soft', label: 'Soft City Pop', styleCore: 'soft city-pop inspired adult pop, smooth groove, clean late-night city mood', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['city-pop-soft'], instruments: ['electric piano', 'clean guitar', 'soft synth pad', 'smooth bass'], tempoRange: [98, 114], goodFor: ['Japan', 'night city', 'stylish senior'] }, 'city-pop', { rhythm: ['smooth city-pop groove'], vocal: ['silky adult pop vocal'], production: ['clean late-night polish'], harmony: ['jazzy pop chords'], moods: ['urban', 'nostalgic'], audiences: ['night city playlists', 'Japan channel'], avoidTraits: ['overbright synth brass'] }),
-  legacyGenrePack({ id: 'lofi-cafe', label: 'Lo-fi Cafe Pop', styleCore: 'warm lo-fi cafe pop, relaxed groove, soft vinyl texture', instruments: ['lo-fi drums', 'electric piano', 'warm bass', 'soft guitar'], tempoRange: [82, 96], goodFor: ['study', 'coffee', 'background'] }, 'lofi', { rhythm: ['relaxed lo-fi groove'], vocal: ['optional soft vocal'], production: ['soft vinyl texture'], harmony: ['simple jazzy loop'], moods: ['cozy', 'focused'], audiences: ['study', 'coffee'], avoidTraits: ['loud crackle'] }),
-  legacyGenrePack({ id: 'christmas-soft-pop', label: 'Soft Christmas Pop', styleCore: 'nostalgic Christmas acoustic pop, warm and not childish, subtle bells only in chorus', instruments: ['Rhodes', 'acoustic guitar', 'light sleigh bells', 'soft bass'], tempoRange: [96, 106], goodFor: ['Christmas', 'winter morning', 'year-end'] }, 'seasonal', { rhythm: ['gentle seasonal pop pulse'], vocal: ['warm clear vocal'], production: ['subtle holiday sparkle'], harmony: ['hopeful chorus lift'], moods: ['year-end warmth', 'nostalgic'], audiences: ['Christmas playlists', 'winter morning'], avoidTraits: ['childish novelty bells'] }),
-  legacyGenrePack({ id: 'healing-ballad', label: 'Healing Ballad', styleCore: 'warm healing ballad, restrained emotion, hopeful ending', instruments: ['piano', 'acoustic guitar', 'soft strings', 'brushes'], tempoRange: [84, 98], goodFor: ['comfort', 'senior', 'night'] }, 'ballad', { rhythm: ['slow restrained pulse'], vocal: ['gentle emotional vocal'], production: ['soft comfort mix'], harmony: ['hopeful resolution'], moods: ['healing', 'reflective'], audiences: ['comfort', 'senior'], avoidTraits: ['dramatic belting'] }),
-  legacyGenrePack({ id: 'folk-pop', label: 'Folk Pop', styleCore: 'clean folk-pop storytelling, acoustic warmth, natural sing-along chorus', instruments: ['strummed acoustic guitar', 'light mandolin texture', 'soft piano', 'upright bass'], tempoRange: [92, 108], goodFor: ['family', 'walking', 'spring'] }, 'pop', { rhythm: ['strummed folk-pop pulse'], vocal: ['plainspoken storyteller vocal'], production: ['natural acoustic warmth'], harmony: ['sing-along chorus lift'], moods: ['fresh', 'friendly'], audiences: ['family', 'walking'], avoidTraits: ['rustic parody'] }),
-  legacyGenrePack({ id: 'bossa-cafe', label: 'Bossa Cafe Pop', styleCore: 'soft bossa cafe pop, relaxed syncopation, elegant warm vocal', instruments: ['nylon guitar', 'Rhodes', 'brush kit', 'upright bass', 'light shaker'], tempoRange: [88, 102], goodFor: ['summer cafe', 'morning', 'Japan and Korea'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'jazz', { rhythm: ['soft bossa syncopation'], vocal: ['elegant warm vocal'], production: ['sunlit cafe mix'], harmony: ['bossa jazz chord color'], moods: ['breezy', 'romantic'], audiences: ['summer cafe', 'morning'], avoidTraits: ['tourist-lounge cliche'] }),
-  legacyGenrePack({ id: 'soft-rock', label: 'Soft Rock Radio', styleCore: 'polished soft rock radio arrangement, warm guitars, restrained chorus lift', instruments: ['clean electric guitar', 'acoustic guitar', 'piano', 'steady soft drums'], tempoRange: [96, 112], goodFor: ['drive', 'memory', 'all ages'] }, 'pop', { rhythm: ['steady soft rock pulse'], vocal: ['clear adult vocal'], production: ['polished radio arrangement'], harmony: ['restrained chorus lift'], moods: ['road memory', 'hopeful'], audiences: ['drive', 'all ages'], avoidTraits: ['arena rock excess'] }),
-  legacyGenrePack({ id: 'piano-ballad', label: 'Piano Pop Ballad', styleCore: 'piano-led pop ballad, intimate verse, gentle cinematic chorus', instruments: ['felt piano', 'soft strings', 'subtle cymbal swells', 'warm bass'], tempoRange: [78, 92], goodFor: ['night', 'comfort', 'winter'] }, 'ballad', { rhythm: ['slow piano-led pulse'], vocal: ['intimate verse vocal'], production: ['gentle cinematic chorus space'], harmony: ['piano suspended chords'], moods: ['night', 'comfort'], audiences: ['winter', 'night'], avoidTraits: ['oversized climax'] }),
-  legacyGenrePack({ id: 'retro-soul-pop', label: 'Retro Soul Pop', styleCore: 'soft retro soul pop, warm groove, hand-played feel, tasteful backing vocals', instruments: ['Wurlitzer', 'muted guitar', 'smooth bass', 'light soul drums'], tempoRange: [88, 104], goodFor: ['radio', 'coffee', 'hopeful mood'] }, 'rnb', { rhythm: ['warm soul-pop groove'], vocal: ['soulful lead with tasteful backing vocals'], production: ['hand-played retro warmth'], harmony: ['soul seventh chords'], moods: ['hopeful', 'warm'], audiences: ['radio', 'coffee'], avoidTraits: ['overdone retro filter'] }),
-  legacyGenrePack({ id: 'synthwave-mellow', label: 'Mellow Synthwave Pop', styleCore: 'mellow synthwave pop, nostalgic neon pads, clean modern mix, not aggressive', instruments: ['soft analog synth pad', 'electric piano', 'clean guitar', 'warm electronic drums'], tempoRange: [92, 108], goodFor: ['night drive', 'retro channel', 'twenties'] }, 'electronic', { rhythm: ['mellow electronic pulse'], vocal: ['clean pop vocal'], production: ['nostalgic neon pads', 'modern mix control'], harmony: ['minor-to-major synth-pop lift'], moods: ['night drive', 'retro'], audiences: ['twenties', 'retro channel'], avoidTraits: ['aggressive synthwave edge'] }),
+  legacyGenrePack({ id: 'adult-contemporary', label: 'Adult Contemporary Pop', styleCore: 'warm adult contemporary pop, radio-friendly, gentle emotional chorus lift', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['adult-contemporary'], instruments: ['sustained piano pads', 'clean strummed acoustic guitar', 'straight-pop drum kit', 'rounded electric bass'], tempoRange: [96, 106], goodFor: ['senior playlist', 'morning coffee', 'year-end'] }, 'pop', { rhythm: ['straight 4/4 pop feel', 'no swing, no syncopation'], vocal: ['mature clear vocal', 'conversational, unforced delivery'], production: ['radio-friendly polish', 'sustained piano pads sitting under a clean strummed acoustic'], harmony: ['simple diatonic harmony', 'gentle pre-chorus lift with no tension chords'], moods: ['warm', 'familiar'], audiences: ['senior playlist', 'morning coffee'], avoidTraits: ['swing', 'solo'] }),
+  legacyGenrePack({ id: 'acoustic-pop', label: 'Acoustic Pop', styleCore: 'nostalgic acoustic pop, clear vocal, intimate warm arrangement', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['acoustic-pop'], instruments: ['fingerpicked acoustic guitar', 'soft piano', 'light percussion'], tempoRange: [92, 104], goodFor: ['home listening', 'walks', 'coffee'] }, 'pop', { rhythm: ['light acoustic pulse', 'fingerpicked pattern under a simple strum'], vocal: ['clear intimate vocal', 'close-mic warmth with natural dynamics'], production: ['natural acoustic room', 'soft piano answers kept just behind the guitar'], harmony: ['simple pop lift', 'diatonic I-V-vi-IV movement'], moods: ['nostalgic', 'gentle'], audiences: ['home listening', 'walking playlists'], avoidTraits: ['campfire cliche'] }),
+  legacyGenrePack({ id: 'jazz-pop', label: 'Acoustic Jazz Pop', styleCore: 'nostalgic acoustic jazz-pop, elegant cafe mood, gentle maj7 and add9 colors', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['jazz-pop'], instruments: ['Rhodes comping piano', 'walking upright bass', 'brushed snare with ride comping', 'mellow jazz guitar'], tempoRange: [82, 96], goodFor: ['kissaten', 'night cafe', 'winter'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'jazz', { rhythm: ['light swing feel', 'walking bass'], vocal: ['warm cafe vocal', 'relaxed phrasing just behind the beat'], production: ['warm analog room tone', 'Rhodes and brushed snare kept close and unhurried'], harmony: ['ii-V-I turnarounds', 'maj7/9/13 extended voicings'], moods: ['elegant', 'nostalgic'], audiences: ['cafe playlists', 'winter listening'], avoidTraits: ['flat straight pop', 'showy solo clutter'] }),
+  legacyGenrePack({ id: 'showa-modern', label: 'Showa Modern Cafe', styleCore: 'showa-modern cafe mood, nostalgic but refined, subtle retro Japanese kissaten warmth', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['showa-modern'], instruments: ['Rhodes', 'mellow jazz guitar', 'upright bass', 'soft strings'], tempoRange: [92, 104], goodFor: ['Japan channel', 'retro cafe', 'autumn'] }, 'jazz', { rhythm: ['restrained cafe swing', 'walking upright bass under muted jazz guitar fills'], vocal: ['mature soft lead vocal', 'restrained, close to speech at phrase endings'], production: ['subtle retro warmth', 'tape-warm close-room mix'], harmony: ['jazz-colored cafe chords', 'IVmaj7-iii7 color movement'], moods: ['refined', 'bittersweet'], audiences: ['Japan channel', 'retro cafe'], avoidTraits: ['cheap retro props'] }),
+  legacyGenrePack({ id: 'city-pop-soft', label: 'Soft City Pop', styleCore: 'soft city-pop inspired adult pop, smooth groove, clean late-night city mood', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['city-pop-soft'], instruments: ['electric piano', 'clean guitar', 'soft synth pad', 'smooth bass'], tempoRange: [98, 114], goodFor: ['Japan', 'night city', 'stylish senior'] }, 'city-pop', { rhythm: ['smooth city-pop groove', 'syncopated sixteenth-note pocket'], vocal: ['silky adult pop vocal', 'breathy close-mic delivery over the groove'], production: ['clean late-night polish', 'gated reverb touches on the snare'], harmony: ['jazzy pop chords', 'extended ninth-chord color on the chorus'], moods: ['urban', 'nostalgic'], audiences: ['night city playlists', 'Japan channel'], avoidTraits: ['overbright synth brass'] }),
+  legacyGenrePack({ id: 'lofi-cafe', label: 'Lo-fi Cafe Pop', styleCore: 'warm lo-fi cafe pop, relaxed groove, soft vinyl texture', instruments: ['lo-fi drums', 'electric piano', 'warm bass', 'soft guitar'], tempoRange: [82, 96], goodFor: ['study', 'coffee', 'background'] }, 'lofi', { rhythm: ['relaxed lo-fi groove', 'lazy behind-the-beat pocket'], vocal: ['optional soft vocal', 'hushed, half-spoken phrasing when present'], production: ['soft vinyl texture', 'dusty electric piano sitting low in the mix'], harmony: ['simple jazzy loop', 'muted seventh-chord loop repeating under the verse'], moods: ['cozy', 'focused'], audiences: ['study', 'coffee'], avoidTraits: ['loud crackle'] }),
+  legacyGenrePack({ id: 'christmas-soft-pop', label: 'Soft Christmas Pop', styleCore: 'nostalgic Christmas acoustic pop, warm and not childish, subtle bells only in chorus', instruments: ['Rhodes', 'acoustic guitar', 'light sleigh bells', 'soft bass'], tempoRange: [96, 106], goodFor: ['Christmas', 'winter morning', 'year-end'] }, 'seasonal', { rhythm: ['gentle seasonal pop pulse', 'light sleigh bells only in the chorus'], vocal: ['warm clear vocal', 'unforced, never oversung'], production: ['subtle holiday sparkle', 'warm Rhodes bed under the verse'], harmony: ['hopeful chorus lift', 'simple major-key sing-along progression'], moods: ['year-end warmth', 'nostalgic'], audiences: ['Christmas playlists', 'winter morning'], avoidTraits: ['childish novelty bells'] }),
+  // 지시문 61 (TASK A-3①/B) — vocalPreference 신규: "channel original"류(비교
+  // 대상 실제 아티스트 없음) 오래된 팝 발라드와 같은 근거(§oldpop-evening-lamp-ballad
+  // 등 "성별 편향 근거 약해 균형" 패턴)로 소폭 여성 우세 균형값. verified: false.
+  legacyGenrePack({ id: 'healing-ballad', label: 'Healing Ballad', styleCore: 'warm healing ballad, restrained emotion, hopeful ending', instruments: ['piano', 'acoustic guitar', 'soft strings', 'brushes'], tempoRange: [84, 98], goodFor: ['comfort', 'senior', 'night'], vocalPreference: { male: 0.40, female: 0.50, mixed: 0.10 } }, 'ballad', { rhythm: ['slow restrained pulse', 'no rhythmic drive, the pulse felt rather than played', 'brushes entering only to mark the chorus'], vocal: ['gentle emotional vocal', 'intimate dry verse close to the mic', 'voice opening into the chorus without ever pushing to belt'], production: ['soft comfort mix', 'felt piano arpeggios carrying the verse alone', 'soft string swells rising only under the chorus'], harmony: ['hopeful resolution', 'suspended add9 color softening the tonic', 'gentle major-key lift closing every phrase'], moods: ['healing', 'reflective'], audiences: ['comfort', 'senior'], avoidTraits: ['dramatic belting'] }),
+  legacyGenrePack({ id: 'folk-pop', label: 'Folk Pop', styleCore: 'clean folk-pop storytelling, acoustic warmth, natural sing-along chorus', instruments: ['strummed acoustic guitar', 'light mandolin texture', 'soft piano', 'upright bass'], tempoRange: [92, 108], goodFor: ['family', 'walking', 'spring'] }, 'pop', { rhythm: ['strummed folk-pop pulse', 'steady acoustic backbeat'], vocal: ['plainspoken storyteller vocal', 'natural, unpolished warmth'], production: ['natural acoustic warmth', 'light mandolin texture kept close and dry'], harmony: ['sing-along chorus lift', 'open diatonic folk chords'], moods: ['fresh', 'friendly'], audiences: ['family', 'walking'], avoidTraits: ['rustic parody'] }),
+  legacyGenrePack({ id: 'bossa-cafe', label: 'Bossa Cafe Pop', styleCore: 'soft bossa cafe pop, relaxed syncopation, elegant warm vocal', instruments: ['nylon guitar', 'Rhodes', 'brush kit', 'upright bass', 'light shaker'], tempoRange: [88, 102], goodFor: ['summer cafe', 'morning', 'Japan and Korea'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'jazz', { rhythm: ['soft bossa syncopation', 'nylon-guitar comping just behind the beat'], vocal: ['elegant warm vocal', 'whispered syncopated phrasing that trails behind the beat'], production: ['sunlit cafe mix', 'nylon guitar and light shaker kept close and airy'], harmony: ['bossa jazz chord color', 'ii-V-I movement under a whispered melody'], moods: ['breezy', 'romantic'], audiences: ['summer cafe', 'morning'], avoidTraits: ['tourist-lounge cliche'] }),
+  legacyGenrePack({ id: 'soft-rock', label: 'Soft Rock Radio', styleCore: 'polished soft rock radio arrangement, warm guitars, restrained chorus lift', instruments: ['clean electric guitar', 'acoustic guitar', 'piano', 'steady soft drums'], tempoRange: [96, 112], goodFor: ['drive', 'memory', 'all ages'] }, 'pop', { rhythm: ['steady soft rock pulse', 'straight eighth-note guitar strum'], vocal: ['clear adult vocal', 'confident but never shouted delivery'], production: ['polished radio arrangement', 'clean electric guitars layered evenly with the piano'], harmony: ['restrained chorus lift', 'simple I-IV-V-vi movement'], moods: ['road memory', 'hopeful'], audiences: ['drive', 'all ages'], avoidTraits: ['arena rock excess'] }),
+  legacyGenrePack({ id: 'piano-ballad', label: 'Piano Pop Ballad', styleCore: 'piano-led pop ballad, intimate verse, gentle cinematic chorus', instruments: ['felt piano', 'soft strings', 'subtle cymbal swells', 'warm bass'], tempoRange: [78, 92], goodFor: ['night', 'comfort', 'winter'] }, 'ballad', { rhythm: ['slow piano-led pulse', 'settles into a steady pulse by the first chorus'], vocal: ['intimate verse vocal', 'opens into a fuller, more emotional tone by the chorus'], production: ['gentle cinematic chorus space', 'felt piano and soft strings widening at the chorus'], harmony: ['piano suspended chords', 'cinematic chord movement into the chorus'], moods: ['night', 'comfort'], audiences: ['winter', 'night'], avoidTraits: ['oversized climax'] }),
+  legacyGenrePack({ id: 'retro-soul-pop', label: 'Retro Soul Pop', styleCore: 'soft retro soul pop, warm groove, hand-played feel, tasteful backing vocals', instruments: ['Wurlitzer', 'muted guitar', 'smooth bass', 'light soul drums'], tempoRange: [88, 104], goodFor: ['radio', 'coffee', 'hopeful mood'] }, 'rnb', { rhythm: ['warm soul-pop groove', 'sixteenth-note hi-hat pocket sitting just behind the beat', 'electric bass ghost notes filling the gaps between downbeats'], vocal: ['soulful lead with tasteful backing vocals', 'gospel-tinged melisma on the ends of phrases', 'call-and-response backing answering each line'], production: ['hand-played retro warmth', 'tight horn section stabs punctuating the hook', 'tape saturation rounding the whole mix'], harmony: ['soul seventh chords', 'ii-V turnaround into the bridge', 'ninth-chord color on the choruses'], moods: ['hopeful', 'warm'], audiences: ['radio', 'coffee'], avoidTraits: ['overdone retro filter'] }),
+  legacyGenrePack({ id: 'synthwave-mellow', label: 'Mellow Synthwave Pop', styleCore: 'mellow synthwave pop, nostalgic neon pads, clean modern mix, not aggressive', instruments: ['soft analog synth pad', 'electric piano', 'clean guitar', 'warm electronic drums'], tempoRange: [92, 108], goodFor: ['night drive', 'retro channel', 'twenties'] }, 'electronic', { rhythm: ['mellow electronic pulse', 'soft kick pulse laid low and steady'], vocal: ['clean pop vocal', 'unhurried, close-mic delivery'], production: ['nostalgic neon pads', 'modern mix control'], harmony: ['minor-to-major synth-pop lift', 'sustained synth pad chords under the chorus'], moods: ['night drive', 'retro'], audiences: ['twenties', 'retro channel'], avoidTraits: ['aggressive synthwave edge'] }),
   // TASK v3.61 (TASK B-2) — chanson/smooth-jazz-lounge (TASK v3.56 Part 3)
   // were registered only in presets.ts's rawGenrePacks, never in this
   // file's own legacyGenreProfiles array — a disclosed UI-only gap when it
@@ -1046,8 +1116,8 @@ const legacyGenreProfiles: StructuredGenrePack[] = [
   // before it could reach genreAllocation. Mirrors presets.ts's own
   // definitions exactly (same instruments/tempoRange/styleCore) so both
   // stay in sync.
-  legacyGenrePack({ id: 'chanson', label: 'Chanson Cafe', styleCore: 'French chanson cafe pop, musette accordion tremolo, intimate close-mic vocal, minor-key melancholy', instruments: ['musette accordion', 'nylon guitar', 'upright bass', 'brushed drums'], tempoRange: [84, 100], goodFor: ['Parisian cafe', 'evening listening', 'Europe-inspired senior playlist'] }, 'pop', { rhythm: ['slow waltz or 4/4 cafe pulse'], vocal: ['intimate close-mic vocal'], production: ['Parisian cafe room tone'], harmony: ['minor-key melancholy'], moods: ['melancholic', 'elegant'], audiences: ['Parisian cafe', 'evening listening'], avoidTraits: ['upbeat cabaret parody'] }),
-  legacyGenrePack({ id: 'smooth-jazz-lounge', label: 'Smooth Jazz Lounge', styleCore: 'smooth jazz lounge, cocktail-lounge shuffle swing, vibraphone comping, saxophone bridge solo', instruments: ['vibraphone', 'walking upright bass', 'brushed ride cymbal', 'mellow saxophone'], tempoRange: [86, 104], goodFor: ['evening lounge', 'dinner cafe', 'refined senior playlist'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'jazz', { rhythm: ['cocktail-lounge shuffle swing'], vocal: ['optional mellow lounge vocal'], production: ['dim analog lounge room tone'], harmony: ['ii-V-I turnarounds'], moods: ['refined', 'relaxed'], audiences: ['evening lounge', 'dinner cafe'], avoidTraits: ['bebop-fast tempo', 'harsh saxophone tone'] })
+  legacyGenrePack({ id: 'chanson', label: 'Chanson Cafe', styleCore: 'French chanson cafe pop, musette accordion tremolo, intimate close-mic vocal, minor-key melancholy', instruments: ['musette accordion', 'nylon guitar', 'upright bass', 'brushed drums'], tempoRange: [84, 100], goodFor: ['Parisian cafe', 'evening listening', 'Europe-inspired senior playlist'] }, 'pop', { rhythm: ['slow waltz or 4/4 cafe pulse', 'minimal syncopation, phrasing left free over the pulse'], vocal: ['intimate close-mic vocal', 'declamatory phrasing close to speech', 'expressive rubato on phrase endings'], production: ['Parisian cafe room tone', 'little reverb, narrow warm stereo field'], harmony: ['minor-key melancholy', 'chromatic inner voice movement', 'circular progression that resists resolution'], moods: ['melancholic', 'elegant'], audiences: ['Parisian cafe', 'evening listening'], avoidTraits: ['upbeat cabaret parody'] }),
+  legacyGenrePack({ id: 'smooth-jazz-lounge', label: 'Smooth Jazz Lounge', styleCore: 'smooth jazz lounge, cocktail-lounge shuffle swing, vibraphone comping, saxophone bridge solo', instruments: ['vibraphone', 'walking upright bass', 'brushed ride cymbal', 'mellow saxophone'], tempoRange: [86, 104], goodFor: ['evening lounge', 'dinner cafe', 'refined senior playlist'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'jazz', { rhythm: ['cocktail-lounge shuffle swing', 'ride cymbal comping laid soft behind the vocal', 'rhythm section dropping to just bass for the bridge'], vocal: ['optional mellow lounge vocal', 'scat phrase trading with the saxophone', 'vocal pulled back to a near-whisper on the last verse'], production: ['dim analog lounge room tone', 'vibraphone comping filling the space behind the vocal', 'saxophone stepping forward for an eight-bar solo break'], harmony: ['ii-V-I turnarounds', 'walking bass outlining extended ninth chords', 'tritone substitution coloring the turnaround'], moods: ['refined', 'relaxed'], audiences: ['evening lounge', 'dinner cafe'], avoidTraits: ['bebop-fast tempo', 'harsh saxophone tone'] })
 ];
 
 /**
@@ -1064,13 +1134,13 @@ const legacyGenreProfiles: StructuredGenrePack[] = [
  * as KIDS_CORE_GENRE_IDS already intends.
  */
 const kidsGenreProfiles: StructuredGenrePack[] = [
-  legacyGenrePack({ id: 'kids-bright-pop', label: 'Bright Kids Pop', styleCore: 'bright cheerful children\'s pop, simple catchy melody, clean upbeat production', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['kids-bright-pop'], instruments: ['ukulele', 'glockenspiel', 'clean acoustic guitar', 'light hand percussion'], tempoRange: [104, 120], goodFor: ['kids playlist', 'daytime play', 'singalong'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['bouncy pop pulse'], vocal: ['bright childlike vocal'], production: ['clean upbeat mix'], harmony: ['simple major-key pop lift'], moods: ['bright', 'playful'], audiences: ['kids playlist', 'daytime play'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
-  legacyGenrePack({ id: 'kids-acoustic-singalong', label: 'Kids Acoustic Singalong Pop', styleCore: 'warm acoustic singalong pop for children, gentle strum, easy call-and-response chorus', instruments: ['acoustic guitar', 'soft hand claps', 'light shaker', 'warm ukulele'], tempoRange: [92, 108], goodFor: ['kids playlist', 'calm play', 'family singalong'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['gentle acoustic strum pulse'], vocal: ['warm childlike singalong vocal'], production: ['natural acoustic warmth'], harmony: ['easy sing-along chorus lift'], moods: ['warm', 'friendly'], audiences: ['kids playlist', 'family singalong'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
-  legacyGenrePack({ id: 'kids-upbeat-pop', label: 'Upbeat Kids Pop', styleCore: 'high-energy upbeat children\'s pop, driving clean beat, bright synth-pop hooks, dance-along energy', instruments: ['clean synth lead', 'punchy clean bass', 'bright pop drums', 'glockenspiel'], tempoRange: [112, 128], goodFor: ['kids playlist', 'dance-along', 'high-energy play'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['driving dance-along pulse'], vocal: ['energetic childlike vocal'], production: ['bright clean pop mix'], harmony: ['upbeat major-key hook'], moods: ['energetic', 'playful'], audiences: ['kids playlist', 'dance-along'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
+  legacyGenrePack({ id: 'kids-bright-pop', label: 'Bright Kids Pop', styleCore: 'bright cheerful children\'s pop, simple catchy melody, clean upbeat production', arrangementNarrative: LEAD_ARRANGEMENT_NARRATIVES['kids-bright-pop'], instruments: ['ukulele', 'glockenspiel', 'clean acoustic guitar', 'light hand percussion'], tempoRange: [104, 120], goodFor: ['kids playlist', 'daytime play', 'singalong'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['bouncy pop pulse', 'clean simple backbeat, easy to clap along to'], vocal: ['bright childlike vocal', 'clear, cheerful diction'], production: ['clean upbeat mix', 'glockenspiel sparkle on the hook'], harmony: ['simple major-key pop lift', 'bright three-chord singalong progression'], moods: ['bright', 'playful'], audiences: ['kids playlist', 'daytime play'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
+  legacyGenrePack({ id: 'kids-acoustic-singalong', label: 'Kids Acoustic Singalong Pop', styleCore: 'warm acoustic singalong pop for children, gentle strum, easy call-and-response chorus', instruments: ['acoustic guitar', 'soft hand claps', 'light shaker', 'warm ukulele'], tempoRange: [92, 108], goodFor: ['kids playlist', 'calm play', 'family singalong'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['gentle acoustic strum pulse', 'light handclaps marking the chorus'], vocal: ['warm childlike singalong vocal', 'call-and-response with a friendly group voice'], production: ['natural acoustic warmth', 'ukulele kept close and unprocessed'], harmony: ['easy sing-along chorus lift', 'simple two-chord verse vamp'], moods: ['warm', 'friendly'], audiences: ['kids playlist', 'family singalong'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
+  legacyGenrePack({ id: 'kids-upbeat-pop', label: 'Upbeat Kids Pop', styleCore: 'high-energy upbeat children\'s pop, driving clean beat, bright synth-pop hooks, dance-along energy', instruments: ['clean synth lead', 'punchy clean bass', 'bright pop drums', 'glockenspiel'], tempoRange: [112, 128], goodFor: ['kids playlist', 'dance-along', 'high-energy play'], archetypes: ['kids'], tier: 'core' }, 'kids', { rhythm: ['driving dance-along pulse', 'punchy clean kick driving the energy'], vocal: ['energetic childlike vocal', 'bright shouted-along hook line'], production: ['bright clean pop mix', 'glockenspiel accents doubling the hook'], harmony: ['upbeat major-key hook', 'simple four-chord dance-along loop'], moods: ['energetic', 'playful'], audiences: ['kids playlist', 'dance-along'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] }),
   // Secondary/auxiliary only — matches presets.ts's rawGenrePacks: not one of
   // the 3 primary kids ids (KIDS_CORE_GENRE_IDS), so it stays selectable but
   // isn't auto-applied/shown as a default core chip.
-  legacyGenrePack({ id: 'kids-march', label: 'Kids Marching Pop', styleCore: 'simple marching pop for children, bouncy skip-along rhythm, bright brass-toy color', instruments: ['toy piano', 'snare-like light percussion', 'glockenspiel', 'clean bass'], tempoRange: [108, 126], goodFor: ['kids playlist', 'movement and dance', 'group activity'], archetypes: ['kids'] }, 'kids', { rhythm: ['bouncy marching skip'], vocal: ['bright childlike vocal'], production: ['clean toy-bright mix'], harmony: ['simple major-key march lift'], moods: ['playful', 'energetic'], audiences: ['kids playlist', 'group activity'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] })
+  legacyGenrePack({ id: 'kids-march', label: 'Kids Marching Pop', styleCore: 'simple marching pop for children, bouncy skip-along rhythm, bright brass-toy color', instruments: ['toy piano', 'snare-like light percussion', 'glockenspiel', 'clean bass'], tempoRange: [108, 126], goodFor: ['kids playlist', 'movement and dance', 'group activity'], archetypes: ['kids'] }, 'kids', { rhythm: ['bouncy marching skip', 'steady tap on every beat'], vocal: ['bright childlike vocal', 'clear, cheerful shout-along energy'], production: ['clean toy-bright mix', 'glockenspiel sparkle doubling the melody'], harmony: ['simple major-key march lift', 'simple three-chord marching loop'], moods: ['playful', 'energetic'], audiences: ['kids playlist', 'group activity'], avoidTraits: ['scary or frightening themes', 'adult romantic themes'] })
 ];
 
 /**
@@ -1092,7 +1162,7 @@ const kidsGenreProfiles: StructuredGenrePack[] = [
  */
 export const oldpopGenrePacks: StructuredGenrePack[] = [
   // --- 1-A: 1950s-60s (6) ---
-  legacyGenrePack({ id: 'oldpop-doowop-harmony', label: 'Doo-Wop Close Harmony', styleCore: 'classic doo-wop pop, triplet shuffle groove, four-part close harmony backing', instruments: ['upright bass', 'brushed snare', 'close-harmony backing vocals', 'muted electric guitar'], tempoRange: [72, 88], goodFor: ['sock-hop nostalgia', 'radio', 'slow dance memory'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['12/8 triplet shuffle groove', 'walking upright bass on the downbeat'], vocal: ['lead voice answered by four-part close harmony', 'nonsense-syllable backing vocal figures'], production: ['narrow warm mono-leaning mix', 'tube-amp coloration'], harmony: ['I-vi-IV-V doo-wop turnaround'], moods: ['sweetly nostalgic', 'youthful'], audiences: ['senior playlist', 'radio nostalgia'], avoidTraits: ['modern trap hi-hats', 'aggressive distortion'] }),
+  legacyGenrePack({ id: 'oldpop-doowop-harmony', label: 'Doo-Wop Close Harmony', styleCore: 'classic doo-wop pop, triplet shuffle groove, four-part close harmony backing', instruments: ['upright bass', 'brushed snare', 'close-harmony backing vocals', 'muted electric guitar'], tempoRange: [72, 88], goodFor: ['sock-hop nostalgia', 'radio', 'slow dance memory'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['12/8 triplet shuffle groove', 'walking upright bass on the downbeat'], vocal: ['lead voice answered by four-part close harmony', 'nonsense-syllable backing vocal figures'], production: ['narrow warm mono-leaning mix', 'tube-amp coloration'], harmony: ['I-vi-IV-V doo-wop turnaround', 'close parallel-thirds backing chords'], moods: ['sweetly nostalgic', 'youthful'], audiences: ['senior playlist', 'radio nostalgia'], avoidTraits: ['modern trap hi-hats', 'aggressive distortion'] }),
   // v4.16 (TASK A) — tempoRange upper bound 112 -> 100: the senior audience
   // profile's own tempoCeiling dropped to 100 (§1-1), and a genre range
   // extending past the audience ceiling is dead data (resolveTempoWithBand
@@ -1102,29 +1172,33 @@ export const oldpopGenrePacks: StructuredGenrePack[] = [
   // [95, 100] (not collapsed to a single value) to keep landing in the new
   // brightest SENIOR_TEMPO_BANDS tier, preserving this genre's own
   // "bright/youthful" identity.
-  legacyGenrePack({ id: 'oldpop-brill-building', label: 'Brill Building Pop', styleCore: 'early-1960s Brill Building pop, upright piano lead, bright compact single arrangement', instruments: ['upright piano', 'castanets', 'tambourine', 'light upright bass'], tempoRange: [88, 100], goodFor: ['bright morning drive', 'radio single', 'youthful nostalgia'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['bouncy two-beat pop pulse'], vocal: ['clear youthful lead vocal'], production: ['bright compact 1960s single mix'], harmony: ['simple diatonic I-IV-V hook'], moods: ['bright', 'youthful'], audiences: ['radio', 'bright morning'], avoidTraits: ['dense modern layering', 'heavy sub bass'] }),
-  legacyGenrePack({ id: 'oldpop-girl-group-wall', label: 'Girl Group Wall of Sound', styleCore: 'early-1960s girl-group pop, layered wall-of-sound percussion, unison female lead with call-and-response backing', instruments: ['layered hand percussion', 'crash cymbal swells', 'unison female backing vocals', 'upright bass'], tempoRange: [90, 100], goodFor: ['bright nostalgia', 'radio', 'uplifting morning'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['driving eighth-note backbeat'], vocal: ['unison female lead answered by a backing chorus, lead kept forward in the mix'], production: ['layered wall-of-sound reverb with the lead vocal never buried'], harmony: ['bright major-key call and response'], moods: ['bright', 'uplifting'], audiences: ['radio nostalgia', 'morning playlist'], avoidTraits: ['reverb washing out the vocal', 'harsh cymbal wash'] }),
-  legacyGenrePack({ id: 'oldpop-sunshine-pop', label: 'Sunshine Pop', styleCore: 'late-1960s sunshine pop, bright parallel harmony, harpsichord and woodwind color', instruments: ['harpsichord', 'glockenspiel', 'woodwind obbligato', 'light acoustic guitar'], tempoRange: [88, 100], goodFor: ['bright afternoon', 'spring morning', 'gentle uplift'] }, 'oldpop', { rhythm: ['bright bouncing 4/4 pop pulse'], vocal: ['blended bright harmony vocals in parallel thirds and sixths'], production: ['crisp bright chamber-pop mix'], harmony: ['parallel-thirds and sixths vocal harmony', 'bright major-key chord color'], moods: ['bright', 'gently joyful'], audiences: ['spring morning', 'bright afternoon'], avoidTraits: ['psychedelic distortion', 'harsh bright top end'] }),
-  legacyGenrePack({ id: 'oldpop-baroque-pop', label: 'Baroque Pop', styleCore: 'mid-1960s baroque pop, string-quartet chamber texture, refined obbligato color', instruments: ['string quartet', 'oboe obbligato', 'flugelhorn', 'nylon guitar'], tempoRange: [78, 92], goodFor: ['refined evening', 'reflective afternoon', 'elegant nostalgia'] }, 'oldpop', { rhythm: ['gentle chamber-pop pulse'], vocal: ['restrained, classically-inflected lead vocal'], production: ['intimate chamber-music room tone'], harmony: ['chromatic descending bass line under refined chamber harmony'], moods: ['refined', 'reflective'], audiences: ['reflective evening', 'elegant nostalgia'], avoidTraits: ['orchestral bombast', 'harsh string tone'] }),
-  legacyGenrePack({ id: 'oldpop-british-beat', label: 'British Beat Pop', styleCore: 'early-1960s British beat pop, jangly 12-string guitar, melodic walking bass', instruments: ['12-string electric guitar', 'melodic walking bass', 'tambourine backbeat', 'brushed drum kit'], tempoRange: [92, 100], goodFor: ['bright nostalgia', 'radio', 'youthful energy'] }, 'oldpop', { rhythm: ['jangly eighth-note beat pulse'], vocal: ['clear youthful group harmony'], production: ['bright British-beat studio mix'], harmony: ['mid-song key-change lift'], moods: ['bright', 'youthful'], audiences: ['radio nostalgia', 'youthful energy'], avoidTraits: ['fuzz distortion', 'aggressive stage volume'] }),
+  legacyGenrePack({ id: 'oldpop-brill-building', label: 'Brill Building Pop', styleCore: 'early-1960s Brill Building pop, upright piano lead, bright compact single arrangement', instruments: ['upright piano', 'castanets', 'tambourine', 'light upright bass'], tempoRange: [88, 100], goodFor: ['bright morning drive', 'radio single', 'youthful nostalgia'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['bouncy two-beat pop pulse', 'four-on-the-floor backbeat with tambourine accents'], vocal: ['clear youthful lead vocal', 'close unison backing on the hook'], production: ['bright compact 1960s single mix', 'narrow mono-leaning stereo image'], harmony: ['simple diatonic I-IV-V hook', 'bright major-key verse-to-chorus lift'], moods: ['bright', 'youthful'], audiences: ['radio', 'bright morning'], avoidTraits: ['dense modern layering', 'heavy sub bass'] }),
+  legacyGenrePack({ id: 'oldpop-girl-group-wall', label: 'Girl Group Wall of Sound', styleCore: 'early-1960s girl-group pop, layered wall-of-sound percussion, unison female lead with call-and-response backing', instruments: ['layered hand percussion', 'crash cymbal swells', 'unison female backing vocals', 'upright bass'], tempoRange: [90, 100], goodFor: ['bright nostalgia', 'radio', 'uplifting morning'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['driving eighth-note backbeat', 'handclap accents on the offbeat'], vocal: ['unison female lead answered by a backing chorus, lead kept forward in the mix', 'rising vocal ad-lib building through the outro'], production: ['layered wall-of-sound reverb with the lead vocal never buried', 'crash-cymbal swells marking each chorus entry'], harmony: ['bright major-key call and response', 'stepwise verse melody resolving up into the chorus'], moods: ['bright', 'uplifting'], audiences: ['radio nostalgia', 'morning playlist'], avoidTraits: ['reverb washing out the vocal', 'harsh cymbal wash'] }),
+  legacyGenrePack({ id: 'oldpop-sunshine-pop', label: 'Sunshine Pop', styleCore: 'late-1960s sunshine pop, bright parallel harmony, harpsichord and woodwind color', instruments: ['harpsichord', 'glockenspiel', 'woodwind obbligato', 'light acoustic guitar'], tempoRange: [88, 100], goodFor: ['bright afternoon', 'spring morning', 'gentle uplift'] }, 'oldpop', { rhythm: ['bright bouncing 4/4 pop pulse', 'light tambourine shimmer on the backbeat'], vocal: ['blended bright harmony vocals in parallel thirds and sixths', 'no single lead voice dominates'], production: ['crisp bright chamber-pop mix', 'harpsichord and woodwind sitting forward in the balance'], harmony: ['parallel-thirds and sixths vocal harmony', 'bright major-key chord color'], moods: ['bright', 'gently joyful'], audiences: ['spring morning', 'bright afternoon'], avoidTraits: ['psychedelic distortion', 'harsh bright top end'] }),
+  legacyGenrePack({ id: 'oldpop-baroque-pop', label: 'Baroque Pop', styleCore: 'mid-1960s baroque pop, string-quartet chamber texture, refined obbligato color', instruments: ['string quartet', 'oboe obbligato', 'flugelhorn', 'nylon guitar'], tempoRange: [78, 92], goodFor: ['refined evening', 'reflective afternoon', 'elegant nostalgia'] }, 'oldpop', { rhythm: ['gentle chamber-pop pulse', 'rubato phrase endings before each chorus'], vocal: ['restrained, classically-inflected lead vocal', 'warm low-register delivery, minimal vibrato'], production: ['intimate chamber-music room tone', 'oboe and flugelhorn kept close and dry'], harmony: ['chromatic descending bass line under refined chamber harmony', 'extended sixth and ninth chords'], moods: ['refined', 'reflective'], audiences: ['reflective evening', 'elegant nostalgia'], avoidTraits: ['orchestral bombast', 'harsh string tone'] }),
+  legacyGenrePack({ id: 'oldpop-british-beat', label: 'British Beat Pop', styleCore: 'early-1960s British beat pop, jangly 12-string guitar, melodic walking bass', instruments: ['12-string electric guitar', 'melodic walking bass', 'tambourine backbeat', 'brushed drum kit'], tempoRange: [92, 100], goodFor: ['bright nostalgia', 'radio', 'youthful energy'] }, 'oldpop', { rhythm: ['jangly eighth-note beat pulse', 'tambourine cutting out for a bar then crashing back on the hook', 'handclaps doubling the backbeat through the chorus'], vocal: ['clear youthful group harmony', 'unison vocal hook on the title line', 'stop-time break where the band drops out under the lead'], production: ['bright British-beat studio mix', '12-string electric guitar jangle panned wide', 'close live-room drum sound with minimal reverb'], harmony: ['mid-song key-change lift', 'Merseybeat I-vi-IV-V turnaround', 'major-key hook resolving on the downbeat'], moods: ['bright', 'youthful'], audiences: ['radio nostalgia', 'youthful energy'], avoidTraits: ['fuzz distortion', 'aggressive stage volume'] }),
   // --- 1-B: 1970s (10) ---
-  legacyGenrePack({ id: 'oldpop-soft-rock-am', label: '70s Soft Rock AM Gold', styleCore: '1970s AM-gold soft rock, clean electric arpeggios, warm radio compression', instruments: ['clean electric guitar arpeggios', 'soft kick drum', 'brushed snare', 'rounded bass'], tempoRange: [88, 100], goodFor: ['drive', 'AM radio nostalgia', 'memory'] }, 'oldpop', { rhythm: ['relaxed soft-rock eighth-note pulse'], vocal: ['smooth adult lead vocal'], production: ['warm AM-radio compression'], harmony: ['warm major-seventh chord color'], moods: ['warm', 'wistful'], audiences: ['drive', 'AM radio nostalgia'], avoidTraits: ['arena-rock distortion', 'modern loudness'] }),
-  legacyGenrePack({ id: 'oldpop-orchestral-easy', label: 'Orchestral Easy Listening', styleCore: '1970s orchestral easy listening, strings carrying the melody, MOR lounge polish', instruments: ['string section', 'concert harp', 'soft vibraphone', 'light rhythm section'], tempoRange: [68, 82], goodFor: ['relaxed evening', 'MOR radio', 'reflective afternoon'] }, 'oldpop', { rhythm: ['slow rubato easing into a gentle 4/4'], vocal: ['warm orchestral-backed lead vocal'], production: ['polished middle-of-the-road easy-listening mix'], harmony: ['lush orchestral resolution', 'harp glissando transitions'], moods: ['relaxed', 'polished'], audiences: ['MOR radio', 'relaxed evening'], avoidTraits: ['big-band brashness', 'uptempo swing'] }),
-  legacyGenrePack({ id: 'oldpop-close-harmony-duo', label: '70s Close Harmony Duo', styleCore: '1970s close-harmony duo pop, intimate two-voice blend, restrained acoustic backing', instruments: ['acoustic guitar', 'electric piano', 'restrained brushed drums', 'upright bass'], tempoRange: [84, 96], goodFor: ['intimate duet', 'gentle folk-pop', 'quiet morning'], vocalPreference: { male: 0.5, female: 0.2, mixed: 0.3 } }, 'oldpop', { rhythm: ['gentle folk-pop duet pulse'], vocal: ['two-voice close-harmony duet'], production: ['intimate duo studio warmth'], harmony: ['two-part close vocal harmony'], moods: ['intimate', 'gentle'], audiences: ['quiet morning', 'intimate duet'], avoidTraits: ['oversized production', 'competing lead vocals'] }),
-  legacyGenrePack({ id: 'oldpop-folk-rock-70s', label: '70s Folk Rock', styleCore: '1970s folk-rock storytelling, 12-string acoustic texture, unhurried walking tempo', instruments: ['12-string acoustic guitar', 'mandolin', 'harmonica', 'light bass'], tempoRange: [86, 100], goodFor: ['storytelling', 'open road', 'reflective walk'], vocalPreference: { male: 0.5, female: 0.2, mixed: 0.3 } }, 'oldpop', { rhythm: ['unhurried walking folk-rock tempo'], vocal: ['plainspoken storytelling lead vocal'], production: ['natural unvarnished folk-rock room tone'], harmony: ['open-string folk chord voicings'], moods: ['reflective', 'plainspoken'], audiences: ['storytelling', 'reflective walk'], avoidTraits: ['electric rock distortion', 'stadium drums'] }),
-  legacyGenrePack({ id: 'oldpop-motown-pop-soul', label: 'Motown Pop Soul', styleCore: 'Motown-style pop soul, driving four-beat tambourine, melodic bassline, gospel-toned backing', instruments: ['tambourine on all four beats', 'melodic electric bass', 'horn section stabs', 'gospel-toned backing vocals'], tempoRange: [88, 100], goodFor: ['uplifting soul', 'radio', 'dance-along memory'] }, 'oldpop', { rhythm: ['driving four-on-the-floor soul pulse'], vocal: ['soulful lead with call-and-response backing'], production: ['tight punchy soul-pop mix'], harmony: ['gospel-tinged pop-soul chord color'], moods: ['uplifting', 'soulful'], audiences: ['radio', 'uplifting soul'], avoidTraits: ['harsh distorted horns', 'aggressive modern trap elements'] }),
-  legacyGenrePack({ id: 'oldpop-philly-soul-sweet', label: 'Philly Sweet Soul', styleCore: '1970s Philadelphia sweet soul, sweeping strings, velvet romantic lead', instruments: ['sweeping string section', 'vibraphone', 'soft sixteenth-note hi-hat', 'smooth electric bass'], tempoRange: [88, 100], goodFor: ['romantic evening', 'radio soul', 'slow dance'] }, 'oldpop', { rhythm: ['lush sixteenth-note soul groove'], vocal: ['velvet-toned romantic lead vocal'], production: ['velvet Philadelphia-style orchestral soul mix'], harmony: ['sweet extended soul-pop chords'], moods: ['romantic', 'velvet-smooth'], audiences: ['romantic evening', 'radio soul'], avoidTraits: ['harsh string tone', 'aggressive percussion'] }),
-  legacyGenrePack({ id: 'oldpop-countrypolitan', label: 'Countrypolitan Pop', styleCore: '1970s countrypolitan pop, pedal steel color, Nashville-number chord progression', instruments: ['pedal steel guitar', 'brushed drums', 'string pads', 'upright bass'], tempoRange: [86, 98], goodFor: ['gentle country-pop', 'reflective drive', 'senior playlist'] }, 'oldpop', { rhythm: ['gentle countrypolitan two-step'], vocal: ['warm plainspoken country-pop lead'], production: ['polished countrypolitan studio sheen'], harmony: ['Nashville-style pop-country progression'], moods: ['warm', 'plainspoken'], audiences: ['reflective drive', 'senior playlist'], avoidTraits: ['twangy novelty tone', 'honky-tonk rowdiness'] }),
-  legacyGenrePack({ id: 'oldpop-europop-glow', label: '70s Europop Glow', styleCore: 'mid-1970s Scandinavian europop, layered female harmony, bright unison chorus lift', instruments: ['arpeggiated synth', 'acoustic piano', 'layered female harmony vocals', 'clean electric bass'], tempoRange: [90, 100], goodFor: ['bright europop nostalgia', 'radio', 'uplifting morning'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['bright driving four-on-the-floor europop pulse'], vocal: ['layered female harmony lead'], production: ['polished bright 1970s Scandinavian studio mix'], harmony: ['bright unison chorus lift', 'minor-verse-to-major-chorus turn'], moods: ['bright', 'anthemic-but-warm'], audiences: ['radio', 'uplifting morning'], avoidTraits: ['modern EDM synths', 'harsh digital brightness'] }),
-  legacyGenrePack({ id: 'oldpop-yacht-west-coast', label: 'Yacht Rock West Coast', styleCore: 'late-1970s West Coast yacht pop, extended jazz-pop chords, glossy studio polish', instruments: ['clean comping electric guitar', 'soft saxophone obbligato', 'electric piano', 'fretless bass'], tempoRange: [88, 100], goodFor: ['breezy afternoon', 'smooth drive', 'relaxed evening'] }, 'oldpop', { rhythm: ['smooth laid-back west-coast groove'], vocal: ['smooth breezy adult-pop lead'], production: ['glossy polished studio mix'], harmony: ['extended jazz-pop chord voicings'], moods: ['breezy', 'smooth'], audiences: ['smooth drive', 'breezy afternoon'], avoidTraits: ['harsh saxophone tone', 'aggressive fusion soloing'] }),
-  legacyGenrePack({ id: 'oldpop-piano-ballad-70s', label: '70s Piano Pop Ballad', styleCore: '1970s piano-led pop ballad, rubato verse opening into an orchestral chorus', instruments: ['grand piano', 'string section entering at the chorus', 'restrained brushed drums', 'warm bass'], tempoRange: [72, 86], goodFor: ['emotional evening', 'reflective night', 'comfort'] }, 'oldpop', { rhythm: ['rubato verse settling into a slow 4/4 chorus'], vocal: ['emotive piano-ballad lead vocal'], production: ['intimate piano-forward room tone widening at the chorus'], harmony: ['cinematic piano-ballad chord movement'], moods: ['emotive', 'cinematic-but-restrained'], audiences: ['reflective night', 'comfort'], avoidTraits: ['oversized power-ballad belting', 'arena drums'] }),
+  legacyGenrePack({ id: 'oldpop-soft-rock-am', label: '70s Soft Rock AM Gold', styleCore: '1970s AM-gold soft rock, clean electric arpeggios, warm radio compression', instruments: ['clean electric guitar arpeggios', 'soft kick drum', 'brushed snare', 'rounded bass'], tempoRange: [88, 100], goodFor: ['drive', 'AM radio nostalgia', 'memory'] }, 'oldpop', { rhythm: ['relaxed soft-rock eighth-note pulse', 'brushed snare kept just behind the beat', 'rounded bassline outlining root-fifth movement'], vocal: ['smooth adult lead vocal', 'close two-part harmony echoing the hook line', 'breath held soft before the chorus entrance'], production: ['warm AM-radio compression', 'clean electric guitar arpeggios panned wide', 'gentle tape saturation rounding the transients'], harmony: ['warm major-seventh chord color', 'suspended second resolving into the verse', 'plagal lift under the pre-chorus'], moods: ['warm', 'wistful'], audiences: ['drive', 'AM radio nostalgia'], avoidTraits: ['arena-rock distortion', 'modern loudness'] }),
+  legacyGenrePack({ id: 'oldpop-orchestral-easy', label: 'Orchestral Easy Listening', styleCore: '1970s orchestral easy listening, strings carrying the melody, MOR lounge polish', instruments: ['string section', 'concert harp', 'soft vibraphone', 'light rhythm section'], tempoRange: [68, 82], goodFor: ['relaxed evening', 'MOR radio', 'reflective afternoon'] }, 'oldpop', { rhythm: ['slow rubato easing into a gentle 4/4', 'harp glissando marking phrase transitions'], vocal: ['warm orchestral-backed lead vocal', 'restrained vibrato, no belting'], production: ['polished middle-of-the-road easy-listening mix', 'strings placed forward, rhythm section kept soft'], harmony: ['lush orchestral resolution', 'harp glissando transitions'], moods: ['relaxed', 'polished'], audiences: ['MOR radio', 'relaxed evening'], avoidTraits: ['big-band brashness', 'uptempo swing'] }),
+  legacyGenrePack({ id: 'oldpop-close-harmony-duo', label: '70s Close Harmony Duo', styleCore: '1970s close-harmony duo pop, intimate two-voice blend, restrained acoustic backing', instruments: ['acoustic guitar', 'electric piano', 'restrained brushed drums', 'upright bass'], tempoRange: [84, 96], goodFor: ['intimate duet', 'gentle folk-pop', 'quiet morning'], vocalPreference: { male: 0.5, female: 0.2, mixed: 0.3 } }, 'oldpop', { rhythm: ['gentle folk-pop duet pulse', 'restrained brushed-drum backbeat'], vocal: ['two-voice close-harmony duet', 'voices blend rather than one leading'], production: ['intimate duo studio warmth', 'acoustic guitar and electric piano kept close and dry'], harmony: ['two-part close vocal harmony', 'simple I-IV-V duet movement'], moods: ['intimate', 'gentle'], audiences: ['quiet morning', 'intimate duet'], avoidTraits: ['oversized production', 'competing lead vocals'] }),
+  legacyGenrePack({ id: 'oldpop-folk-rock-70s', label: '70s Folk Rock', styleCore: '1970s folk-rock storytelling, 12-string acoustic texture, unhurried walking tempo', instruments: ['12-string acoustic guitar', 'mandolin', 'harmonica', 'light bass'], tempoRange: [86, 100], goodFor: ['storytelling', 'open road', 'reflective walk'], vocalPreference: { male: 0.5, female: 0.2, mixed: 0.3 } }, 'oldpop', { rhythm: ['unhurried walking folk-rock tempo', 'light acoustic strum driving the pulse'], vocal: ['plainspoken storytelling lead vocal', 'natural, unpolished delivery'], production: ['natural unvarnished folk-rock room tone', '12-string acoustic sitting forward in the mix'], harmony: ['open-string folk chord voicings', 'modal touches under a mostly diatonic progression'], moods: ['reflective', 'plainspoken'], audiences: ['storytelling', 'reflective walk'], avoidTraits: ['electric rock distortion', 'stadium drums'] }),
+  legacyGenrePack({ id: 'oldpop-motown-pop-soul', label: 'Motown Pop Soul', styleCore: 'Motown-style pop soul, driving four-beat tambourine, melodic bassline, gospel-toned backing', instruments: ['tambourine on all four beats', 'melodic electric bass', 'horn section stabs', 'gospel-toned backing vocals'], tempoRange: [88, 100], goodFor: ['uplifting soul', 'radio', 'dance-along memory'] }, 'oldpop', { rhythm: ['driving four-on-the-floor soul pulse', 'tambourine striking straight quarter notes on every beat', 'melodic bassline walking between the chord tones'], vocal: ['soulful lead with call-and-response backing', 'gang-vocal ad-libs answering the hook', 'lead pushed hard into the horn stabs on the chorus'], production: ['tight punchy soul-pop mix', 'horn section stabs punctuating the downbeat', 'close mono-leaning drum sound, snare cracking on two and four'], harmony: ['gospel-tinged pop-soul chord color', 'ii-V-I turnback driving into the chorus', 'circle-of-fifths movement through the bridge'], moods: ['uplifting', 'soulful'], audiences: ['radio', 'uplifting soul'], avoidTraits: ['harsh distorted horns', 'aggressive modern trap elements'] }),
+  // 지시문 61 (TASK A-2 예시/B) — vocalPreference 신규: 필리 소울 대표군은
+  // 스타일리스틱스·델포닉스·스피너스(팔세토 남성 리드) 계열이 정전이나,
+  // 스리 디그리스 등 여성/혼성 프로덕션도 실재해 완전 남성 우세는 아니다.
+  // verified: false.
+  legacyGenrePack({ id: 'oldpop-philly-soul-sweet', label: 'Philly Sweet Soul', styleCore: '1970s Philadelphia sweet soul, sweeping strings, velvet romantic lead', instruments: ['sweeping string section', 'vibraphone', 'soft sixteenth-note hi-hat', 'smooth electric bass'], tempoRange: [88, 100], goodFor: ['romantic evening', 'radio soul', 'slow dance'], vocalPreference: { male: 0.50, female: 0.35, mixed: 0.15 } }, 'oldpop', { rhythm: ['lush sixteenth-note soul groove', 'behind-the-beat pocket easing every downbeat', 'syncopated bass movement threading between the strings'], vocal: ['velvet-toned romantic lead vocal', 'gospel-tinged melisma on phrase ends', 'falsetto lift into the final chorus'], production: ['velvet Philadelphia-style orchestral soul mix', 'wide string bed behind the vocal', 'warm plate reverb on the lead'], harmony: ['sweet extended soul-pop chords', 'ii-V turnarounds through the verse', 'ninth and eleventh color tones in the chorus'], moods: ['romantic', 'velvet-smooth'], audiences: ['romantic evening', 'radio soul'], avoidTraits: ['harsh string tone', 'aggressive percussion'] }),
+  legacyGenrePack({ id: 'oldpop-countrypolitan', label: 'Countrypolitan Pop', styleCore: '1970s countrypolitan pop, pedal steel color, Nashville-number chord progression', instruments: ['pedal steel guitar', 'brushed drums', 'string pads', 'upright bass'], tempoRange: [86, 98], goodFor: ['gentle country-pop', 'reflective drive', 'senior playlist'] }, 'oldpop', { rhythm: ['gentle countrypolitan two-step', 'brushed drums keeping a soft, unhurried pulse'], vocal: ['warm plainspoken country-pop lead', 'clear, unaffected diction'], production: ['polished countrypolitan studio sheen', 'string pads softening the country twang'], harmony: ['Nashville-style pop-country progression', 'pedal steel slides connecting each chord change'], moods: ['warm', 'plainspoken'], audiences: ['reflective drive', 'senior playlist'], avoidTraits: ['twangy novelty tone', 'honky-tonk rowdiness'] }),
+  legacyGenrePack({ id: 'oldpop-europop-glow', label: '70s Europop Glow', styleCore: 'mid-1970s Scandinavian europop, layered female harmony, bright unison chorus lift', instruments: ['arpeggiated synth', 'acoustic piano', 'layered female harmony vocals', 'clean electric bass'], tempoRange: [90, 100], goodFor: ['bright europop nostalgia', 'radio', 'uplifting morning'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 } }, 'oldpop', { rhythm: ['bright driving four-on-the-floor europop pulse', 'clean electric bass locked to the kick'], vocal: ['layered female harmony lead', 'bright, open vowel tone'], production: ['polished bright 1970s Scandinavian studio mix', 'arpeggiated synth and piano interlocking cleanly'], harmony: ['bright unison chorus lift', 'minor-verse-to-major-chorus turn'], moods: ['bright', 'anthemic-but-warm'], audiences: ['radio', 'uplifting morning'], avoidTraits: ['modern EDM synths', 'harsh digital brightness'] }),
+  legacyGenrePack({ id: 'oldpop-yacht-west-coast', label: 'Yacht Rock West Coast', styleCore: 'late-1970s West Coast yacht pop, extended jazz-pop chords, glossy studio polish', instruments: ['clean comping electric guitar', 'soft saxophone obbligato', 'electric piano', 'fretless bass'], tempoRange: [88, 100], goodFor: ['breezy afternoon', 'smooth drive', 'relaxed evening'] }, 'oldpop', { rhythm: ['smooth laid-back west-coast groove', 'fretless bass gliding between chord changes'], vocal: ['smooth breezy adult-pop lead', 'relaxed, unhurried phrasing'], production: ['glossy polished studio mix', 'electric piano and clean guitar comping kept airy'], harmony: ['extended jazz-pop chord voicings', 'smooth ii-V movement under the chorus'], moods: ['breezy', 'smooth'], audiences: ['smooth drive', 'breezy afternoon'], avoidTraits: ['harsh saxophone tone', 'aggressive fusion soloing'] }),
+  legacyGenrePack({ id: 'oldpop-piano-ballad-70s', label: '70s Piano Pop Ballad', styleCore: '1970s piano-led pop ballad, rubato verse opening into an orchestral chorus', instruments: ['grand piano', 'string section entering at the chorus', 'restrained brushed drums', 'warm bass'], tempoRange: [72, 86], goodFor: ['emotional evening', 'reflective night', 'comfort'] }, 'oldpop', { rhythm: ['rubato verse settling into a slow 4/4 chorus', 'left-hand piano octaves anchoring the rubato verse', 'brushed drums entering only once the chorus locks into tempo'], vocal: ['emotive piano-ballad lead vocal', 'verse delivered near-spoken, chorus opened into full chest voice', 'final note held and tapering into silence'], production: ['intimate piano-forward room tone widening at the chorus', 'string section entering only at the second chorus for a real lift', 'close dry verse vocal opening into room ambience at the chorus'], harmony: ['cinematic piano-ballad chord movement', 'suspended 4-3 piano voicings resolving each phrase', 'borrowed minor iv chord darkening the bridge'], moods: ['emotive', 'cinematic-but-restrained'], audiences: ['reflective night', 'comfort'], avoidTraits: ['oversized power-ballad belting', 'arena drums'] }),
   // --- 1-C: 1980s (6) ---
-  legacyGenrePack({ id: 'oldpop-adult-contemporary-80s', label: '80s Warm Adult Contemporary', styleCore: '1980s warm adult contemporary pop, ungated soft drums, sustained synth pads', instruments: ['warm electric piano', 'gateless soft drum kit', 'sustained synth pad', 'rounded bass'], tempoRange: [88, 100], goodFor: ['warm radio', 'gentle morning', 'senior playlist'] }, 'oldpop', { rhythm: ['smooth 1980s adult-contemporary pulse'], vocal: ['warm mature adult-contemporary lead'], production: ['polished but ungated 1980s soft mix'], harmony: ['warm sustained pad harmony'], moods: ['warm', 'polished'], audiences: ['warm radio', 'gentle morning'], avoidTraits: ['gated reverb snare', 'aggressive 80s drum machine'] }),
-  legacyGenrePack({ id: 'oldpop-quiet-storm-warm', label: 'Quiet Storm Soul', styleCore: '1980s quiet-storm soul, slow fretless-bass groove, close low vocal', instruments: ['fretless bass', 'alto saxophone', 'electric piano', 'soft brushed drums'], tempoRange: [68, 80], goodFor: ['late night', 'intimate soul', 'comfort'] }, 'oldpop', { rhythm: ['slow quiet-storm groove'], vocal: ['low close-mic quiet-storm lead'], production: ['intimate late-night close mix'], harmony: ['smooth minor-seventh quiet-storm chords'], moods: ['intimate', 'smoldering-but-soft'], audiences: ['late night', 'intimate soul'], avoidTraits: ['aggressive saxophone runs', 'heavy sub bass'] }),
-  legacyGenrePack({ id: 'oldpop-orchestral-ballad-80s', label: '80s Orchestral Ballad', styleCore: '1980s orchestral pop ballad, wide strings, late key-change lift', instruments: ['wide string section', 'timpani swells', 'grand piano', 'soft bass'], tempoRange: [66, 80], goodFor: ['grand emotional evening', 'reflective night', 'comfort'] }, 'oldpop', { rhythm: ['grand rubato-to-4/4 ballad pulse'], vocal: ['powerful-but-controlled ballad lead'], production: ['expansive 1980s orchestral ballad mix'], harmony: ['late key-change ballad lift'], moods: ['grand-but-restrained', 'emotional'], audiences: ['reflective night', 'grand emotional evening'], avoidTraits: ['shouted climax', 'harsh cymbal crashes'] }),
-  legacyGenrePack({ id: 'oldpop-light-synth-pop-warm', label: 'Light Warm Synth Pop', styleCore: '1980s light synth pop, analog pad and acoustic guitar blend, bright but quiet', instruments: ['analog synth pad', 'acoustic guitar', 'soft arpeggiator', 'clean electric bass'], tempoRange: [88, 100], goodFor: ['gentle nostalgia', 'soft radio', 'morning'] }, 'oldpop', { rhythm: ['gentle mid-tempo synth-pop pulse'], vocal: ['clear light pop lead'], production: ['warm analog-digital hybrid mix'], harmony: ['bright-but-soft synth-pop chords'], moods: ['bright-but-quiet', 'gentle'], audiences: ['soft radio', 'gentle nostalgia'], avoidTraits: ['aggressive arpeggiator gating', 'harsh digital brightness'] }),
-  legacyGenrePack({ id: 'oldpop-soft-duet-80s', label: '80s Soft Pop Duet', styleCore: '1980s soft pop duet, alternating verse leads, chorus harmony in thirds', instruments: ['electric piano', 'string pads', 'soft bass', 'brushed drums'], tempoRange: [78, 92], goodFor: ['romantic duet', 'gentle evening', 'comfort'] }, 'oldpop', { rhythm: ['gentle 1980s duet ballad pulse'], vocal: ['alternating male and female verse leads'], production: ['warm intimate duet studio mix'], harmony: ['chorus harmony in thirds'], moods: ['romantic', 'gentle'], audiences: ['romantic duet', 'gentle evening'], avoidTraits: ['competing over-sung vocals', 'oversized ballad drums'] }),
-  legacyGenrePack({ id: 'oldpop-standards-torch', label: 'Standards Torch Song', styleCore: 'jazz-standard torch song, brushed swing, crooner delivery', instruments: ['double bass', 'brushed drums', 'piano', 'muted trumpet'], tempoRange: [70, 84], goodFor: ['dim lounge', 'reflective evening', 'elegant nostalgia'], vocalPreference: { male: 0.7, female: 0.15, mixed: 0.15 } }, 'oldpop', { rhythm: ['relaxed jazz-standard swing'], vocal: ['crooning torch-song lead vocal'], production: ['dim intimate torch-song lounge mix'], harmony: ['jazz-standard extended chord changes'], moods: ['dim-and-elegant', 'reflective'], audiences: ['dim lounge', 'elegant nostalgia'], avoidTraits: ['bebop-fast tempo', 'scat improvisation clutter'] }),
+  legacyGenrePack({ id: 'oldpop-adult-contemporary-80s', label: '80s Warm Adult Contemporary', styleCore: '1980s warm adult contemporary pop, ungated soft drums, sustained synth pads', instruments: ['warm electric piano', 'gateless soft drum kit', 'sustained synth pad', 'rounded bass'], tempoRange: [88, 100], goodFor: ['warm radio', 'gentle morning', 'senior playlist'] }, 'oldpop', { rhythm: ['smooth 1980s adult-contemporary pulse', 'ungated soft kick keeping an even pocket'], vocal: ['warm mature adult-contemporary lead', 'clear, controlled dynamics with no shouting'], production: ['polished but ungated 1980s soft mix', 'sustained synth pad sitting under the electric piano'], harmony: ['warm sustained pad harmony', 'simple diatonic verse-to-chorus lift'], moods: ['warm', 'polished'], audiences: ['warm radio', 'gentle morning'], avoidTraits: ['gated reverb snare', 'aggressive 80s drum machine'] }),
+  legacyGenrePack({ id: 'oldpop-quiet-storm-warm', label: 'Quiet Storm Soul', styleCore: '1980s quiet-storm soul, slow fretless-bass groove, close low vocal', instruments: ['fretless bass', 'alto saxophone', 'electric piano', 'soft brushed drums'], tempoRange: [68, 80], goodFor: ['late night', 'intimate soul', 'comfort'] }, 'oldpop', { rhythm: ['slow quiet-storm groove', 'soft brushed drums barely audible under the bass'], vocal: ['low close-mic quiet-storm lead', 'breathy, intimate delivery'], production: ['intimate late-night close mix', 'fretless bass and alto saxophone kept warm and low'], harmony: ['smooth minor-seventh quiet-storm chords', 'suspended chords resolving slowly'], moods: ['intimate', 'smoldering-but-soft'], audiences: ['late night', 'intimate soul'], avoidTraits: ['aggressive saxophone runs', 'heavy sub bass'] }),
+  legacyGenrePack({ id: 'oldpop-orchestral-ballad-80s', label: '80s Orchestral Ballad', styleCore: '1980s orchestral pop ballad, wide strings, late key-change lift', instruments: ['wide string section', 'timpani swells', 'grand piano', 'soft bass'], tempoRange: [66, 80], goodFor: ['grand emotional evening', 'reflective night', 'comfort'] }, 'oldpop', { rhythm: ['grand rubato-to-4/4 ballad pulse', 'timpani rolls building into each chorus'], vocal: ['powerful-but-controlled ballad lead', 'restrained in the verse, opens up by the final chorus'], production: ['expansive 1980s orchestral ballad mix', 'wide string section given room to swell'], harmony: ['late key-change ballad lift', 'wide string harmony under the final chorus'], moods: ['grand-but-restrained', 'emotional'], audiences: ['reflective night', 'grand emotional evening'], avoidTraits: ['shouted climax', 'harsh cymbal crashes'] }),
+  legacyGenrePack({ id: 'oldpop-light-synth-pop-warm', label: 'Light Warm Synth Pop', styleCore: '1980s light synth pop, analog pad and acoustic guitar blend, bright but quiet', instruments: ['analog synth pad', 'acoustic guitar', 'soft arpeggiator', 'clean electric bass'], tempoRange: [88, 100], goodFor: ['gentle nostalgia', 'soft radio', 'morning'] }, 'oldpop', { rhythm: ['gentle mid-tempo synth-pop pulse', 'soft arpeggiator pattern driving the rhythm'], vocal: ['clear light pop lead', 'unforced, conversational tone'], production: ['warm analog-digital hybrid mix', 'acoustic guitar blended under the synth pad'], harmony: ['bright-but-soft synth-pop chords', 'gentle minor-to-major verse-to-chorus shift'], moods: ['bright-but-quiet', 'gentle'], audiences: ['soft radio', 'gentle nostalgia'], avoidTraits: ['aggressive arpeggiator gating', 'harsh digital brightness'] }),
+  legacyGenrePack({ id: 'oldpop-soft-duet-80s', label: '80s Soft Pop Duet', styleCore: '1980s soft pop duet, alternating verse leads, chorus harmony in thirds', instruments: ['electric piano', 'string pads', 'soft bass', 'brushed drums'], tempoRange: [78, 92], goodFor: ['romantic duet', 'gentle evening', 'comfort'] }, 'oldpop', { rhythm: ['gentle 1980s duet ballad pulse', 'soft brushed drums entering after the first verse'], vocal: ['alternating male and female verse leads', 'both voices blend evenly, neither dominates the chorus'], production: ['warm intimate duet studio mix', 'electric piano and string pads kept soft behind both voices'], harmony: ['chorus harmony in thirds', 'simple I-IV-V duet movement'], moods: ['romantic', 'gentle'], audiences: ['romantic duet', 'gentle evening'], avoidTraits: ['competing over-sung vocals', 'oversized ballad drums'] }),
+  legacyGenrePack({ id: 'oldpop-standards-torch', label: 'Standards Torch Song', styleCore: 'jazz-standard torch song, brushed swing, crooner delivery', instruments: ['double bass', 'brushed drums', 'piano', 'muted trumpet'], tempoRange: [70, 84], goodFor: ['dim lounge', 'reflective evening', 'elegant nostalgia'], vocalPreference: { male: 0.7, female: 0.15, mixed: 0.15 } }, 'oldpop', { rhythm: ['relaxed jazz-standard swing', 'brushed drums keeping a soft, unhurried pulse'], vocal: ['crooning torch-song lead vocal', 'behind-the-beat phrasing, close to speech at phrase endings'], production: ['dim intimate torch-song lounge mix', 'muted trumpet and piano kept close and dry'], harmony: ['jazz-standard extended chord changes', 'ii-V-I turnarounds resolving into each new section'], moods: ['dim-and-elegant', 'reflective'], audiences: ['dim lounge', 'elegant nostalgia'], avoidTraits: ['bebop-fast tempo', 'scat improvisation clutter'] }),
   // --- 1-D: timeless warmth (6) ---
   // 지시문 08 (TASK E) — real leak: styleCore/rhythm/vocal/production all
   // carried the literal word "morning" (this genre's own id/label keep
@@ -1137,35 +1211,35 @@ export const oldpopGenrePacks: StructuredGenrePack[] = [
   // in every PROMPT-TEXT-bearing field; goodFor/audiences (categorization
   // metadata used to match this genre to a channel/mood, never injected
   // into a generated stylePrompt) are unchanged.
-  legacyGenrePack({ id: 'oldpop-warm-morning-glow', label: 'Warm Morning Glow Pop', styleCore: 'timeless warm glow pop, acoustic arpeggio over gentle electric piano, minimal percussion', instruments: ['acoustic guitar arpeggio', 'warm electric piano', 'minimal light percussion', 'soft bass'], tempoRange: [68, 78], goodFor: ['morning coffee', 'gentle wake-up', 'senior playlist'] }, 'oldpop', { rhythm: ['unhurried warm-glow pulse'], vocal: ['gentle unhurried glow lead'], production: ['soft close warm-room mix'], harmony: ['warm open major-key harmony'], moods: ['warm', 'unhurried'], audiences: ['morning coffee', 'senior playlist'], avoidTraits: ['busy percussion', 'bright harsh top end'] }),
-  legacyGenrePack({ id: 'oldpop-gentle-lullaby-pop', label: 'Gentle Lullaby Pop', styleCore: 'timeless gentle lullaby-pop, celesta and music-box color, whispered lead', instruments: ['celesta', 'music-box texture', 'soft acoustic guitar', 'light brushed percussion'], tempoRange: [64, 76], goodFor: ['bedtime comfort', 'quiet evening', 'gentle memory'] }, 'oldpop', { rhythm: ['gentle 6/8 lullaby sway'], vocal: ['whispered gentle lead vocal'], production: ['hushed intimate lullaby mix'], harmony: ['simple lullaby-like major harmony'], moods: ['hushed', 'tender'], audiences: ['quiet evening', 'gentle memory'], avoidTraits: ['loud dynamic swells', 'busy arrangement'] }),
-  legacyGenrePack({ id: 'oldpop-hearth-acoustic', label: 'Hearth Acoustic Pop', styleCore: 'timeless hearth-side acoustic pop, nylon guitar with cello counterline, minimal room ambience', instruments: ['nylon guitar', 'cello counterline', 'soft brushed percussion', 'warm bass'], tempoRange: [72, 84], goodFor: ['fireside comfort', 'quiet home listening', 'senior playlist'] }, 'oldpop', { rhythm: ['gentle fireside acoustic pulse'], vocal: ['close warm fireside lead vocal'], production: ['minimal room ambience, close intimate vocal'], harmony: ['warm nylon-guitar harmony'], moods: ['cozy', 'intimate'], audiences: ['fireside comfort', 'quiet home listening'], avoidTraits: ['excessive reverb', 'busy percussion'] }),
-  legacyGenrePack({ id: 'oldpop-sunlit-strings-pop', label: 'Sunlit Strings Pop', styleCore: 'timeless sunlit chamber-strings pop, mid-tempo gentle uplift', instruments: ['chamber string section', 'acoustic rhythm guitar', 'light brushed drums', 'warm bass'], tempoRange: [86, 98], goodFor: ['bright gentle afternoon', 'hopeful memory', 'senior playlist'] }, 'oldpop', { rhythm: ['mid-tempo sunlit lift pulse'], vocal: ['bright gentle lead vocal'], production: ['warm sunlit chamber-pop mix'], harmony: ['bright gentle major-key rise'], moods: ['bright', 'gentle'], audiences: ['bright gentle afternoon', 'hopeful memory'], avoidTraits: ['harsh string tone', 'busy syncopation'] }),
-  legacyGenrePack({ id: 'oldpop-slow-waltz-memory', label: 'Slow Waltz Memory Pop', styleCore: 'timeless slow-waltz memory pop, accordion or vibraphone color, reflective 3/4 sway', instruments: ['accordion', 'vibraphone', 'soft upright bass', 'light brushed drums'], tempoRange: [66, 78], goodFor: ['reflective memory', 'quiet evening', 'senior playlist'] }, 'oldpop', { rhythm: ['slow 3/4 memory waltz'], vocal: ['reflective waltz-tempo lead vocal'], production: ['warm reflective waltz-hall room tone'], harmony: ['reflective minor-to-major waltz progression'], moods: ['reflective', 'wistful'], audiences: ['reflective memory', 'quiet evening'], avoidTraits: ['rushed tempo', 'harsh accordion tone'] }),
-  legacyGenrePack({ id: 'oldpop-evening-lamp-ballad', label: 'Evening Lamp Ballad', styleCore: 'timeless low-dynamic evening ballad, piano and brushed drums, strings reserved for the final chorus', instruments: ['piano', 'brushed drums', 'strings entering only in the final chorus', 'soft bass'], tempoRange: [68, 80], goodFor: ['quiet evening', 'unhurried comfort', 'senior playlist'] }, 'oldpop', { rhythm: ['low-dynamic evening ballad pulse'], vocal: ['restrained close evening lead vocal'], production: ['low-dynamic close evening mix, strings held back for the final chorus'], harmony: ['restrained evening-ballad chord movement'], moods: ['restrained', 'quietly warm'], audiences: ['quiet evening', 'unhurried comfort'], avoidTraits: ['early dynamic climax', 'abrupt dynamic jumps'] }),
+  legacyGenrePack({ id: 'oldpop-warm-morning-glow', label: 'Warm Morning Glow Pop', styleCore: 'timeless warm glow pop, acoustic arpeggio over gentle electric piano, minimal percussion', instruments: ['acoustic guitar arpeggio', 'warm electric piano', 'minimal light percussion', 'soft bass'], tempoRange: [68, 78], goodFor: ['morning coffee', 'gentle wake-up', 'senior playlist'] }, 'oldpop', { rhythm: ['unhurried warm-glow pulse', 'acoustic arpeggio interlocking with electric piano triplets', 'percussion held to a single soft shaker pulse'], vocal: ['gentle unhurried glow lead', 'close-mic warmth with no vibrato push', 'phrase endings left to trail off rather than resolve hard'], production: ['soft close warm-room mix', 'bright top end kept rolled off', 'minimal reverb tail, vocal sitting just in front of the piano'], harmony: ['warm open major-key harmony', 'major seventh and add9 color on the tonic', 'plagal IV-I cadence resolving each phrase'], moods: ['warm', 'unhurried'], audiences: ['morning coffee', 'senior playlist'], avoidTraits: ['busy percussion', 'bright harsh top end'] }),
+  legacyGenrePack({ id: 'oldpop-gentle-lullaby-pop', label: 'Gentle Lullaby Pop', styleCore: 'timeless gentle lullaby-pop, celesta and music-box color, whispered lead', instruments: ['celesta', 'music-box texture', 'soft acoustic guitar', 'light brushed percussion'], tempoRange: [64, 76], goodFor: ['bedtime comfort', 'quiet evening', 'gentle memory'] }, 'oldpop', { rhythm: ['gentle 6/8 lullaby sway', 'no percussion drive, just a soft rocking pulse'], vocal: ['whispered gentle lead vocal', 'close-mic, almost spoken softness'], production: ['hushed intimate lullaby mix', 'celesta and music-box color kept soft and distant'], harmony: ['simple lullaby-like major harmony', 'repeating two-chord cradle figure'], moods: ['hushed', 'tender'], audiences: ['quiet evening', 'gentle memory'], avoidTraits: ['loud dynamic swells', 'busy arrangement'] }),
+  legacyGenrePack({ id: 'oldpop-hearth-acoustic', label: 'Hearth Acoustic Pop', styleCore: 'timeless hearth-side acoustic pop, nylon guitar with cello counterline, minimal room ambience', instruments: ['nylon guitar', 'cello counterline', 'soft brushed percussion', 'warm bass'], tempoRange: [72, 84], goodFor: ['fireside comfort', 'quiet home listening', 'senior playlist'] }, 'oldpop', { rhythm: ['gentle fireside acoustic pulse', 'soft brushed percussion, barely present'], vocal: ['close warm fireside lead vocal', 'unhurried, conversational phrasing'], production: ['minimal room ambience, close intimate vocal', 'nylon guitar and cello kept forward and dry'], harmony: ['warm nylon-guitar harmony', 'gentle countermelody answering the vocal'], moods: ['cozy', 'intimate'], audiences: ['fireside comfort', 'quiet home listening'], avoidTraits: ['excessive reverb', 'busy percussion'] }),
+  legacyGenrePack({ id: 'oldpop-sunlit-strings-pop', label: 'Sunlit Strings Pop', styleCore: 'timeless sunlit chamber-strings pop, mid-tempo gentle uplift', instruments: ['chamber string section', 'acoustic rhythm guitar', 'light brushed drums', 'warm bass'], tempoRange: [86, 98], goodFor: ['bright gentle afternoon', 'hopeful memory', 'senior playlist'] }, 'oldpop', { rhythm: ['mid-tempo sunlit lift pulse', 'light brushed drums keeping a gentle forward motion'], vocal: ['bright gentle lead vocal', 'open, unforced upper register on the chorus'], production: ['warm sunlit chamber-pop mix', 'chamber strings placed evenly with the acoustic rhythm guitar'], harmony: ['bright gentle major-key rise', 'string counter-melody lifting into the chorus'], moods: ['bright', 'gentle'], audiences: ['bright gentle afternoon', 'hopeful memory'], avoidTraits: ['harsh string tone', 'busy syncopation'] }),
+  legacyGenrePack({ id: 'oldpop-slow-waltz-memory', label: 'Slow Waltz Memory Pop', styleCore: 'timeless slow-waltz memory pop, accordion or vibraphone color, reflective 3/4 sway', instruments: ['accordion', 'vibraphone', 'soft upright bass', 'light brushed drums'], tempoRange: [66, 78], goodFor: ['reflective memory', 'quiet evening', 'senior playlist'] }, 'oldpop', { rhythm: ['slow 3/4 memory waltz', 'soft upright bass marking the downbeat of each measure'], vocal: ['reflective waltz-tempo lead vocal', 'unhurried phrasing that lingers on phrase endings'], production: ['warm reflective waltz-hall room tone', 'accordion or vibraphone kept close, light brushed drums behind'], harmony: ['reflective minor-to-major waltz progression', 'gentle countermelody answering the vocal phrase'], moods: ['reflective', 'wistful'], audiences: ['reflective memory', 'quiet evening'], avoidTraits: ['rushed tempo', 'harsh accordion tone'] }),
+  legacyGenrePack({ id: 'oldpop-evening-lamp-ballad', label: 'Evening Lamp Ballad', styleCore: 'timeless low-dynamic evening ballad, piano and brushed drums, strings reserved for the final chorus', instruments: ['piano', 'brushed drums', 'strings entering only in the final chorus', 'soft bass'], tempoRange: [68, 80], goodFor: ['quiet evening', 'unhurried comfort', 'senior playlist'] }, 'oldpop', { rhythm: ['low-dynamic evening ballad pulse', 'brushed drums entering only once the final chorus opens'], vocal: ['restrained close evening lead vocal', 'never rises above a controlled mezzo-forte'], production: ['low-dynamic close evening mix, strings held back for the final chorus', 'piano and brushed drums given most of the space'], harmony: ['restrained evening-ballad chord movement', 'suspended chords held rather than resolved'], moods: ['restrained', 'quietly warm'], audiences: ['quiet evening', 'unhurried comfort'], avoidTraits: ['early dynamic climax', 'abrupt dynamic jumps'] }),
   // --- 지시문 21 (TASK B) — 기존 3종 보강: 두왑 분화 2종, 밤 샹송 1종,
   // 발라드블루스 1종. 기존 oldpop-doowop-harmony/chanson은 이 지시문의
   // 명시적 "하지 말 것"에 따라 단 한 줄도 수정하지 않는다 — 두 신규 두왑
   // 장르는 oldpop-doowop-harmony를 참조 템플릿으로 삼되 별도 id로
   // 완전히 분리한다.
-  legacyGenrePack({ id: 'oldpop-doowop-ballad', label: 'Doo-Wop Ballad', styleCore: 'slow doo-wop ballad, standup bass foundation, tremolo guitar shimmer, tender close harmony', instruments: ['upright bass', 'tremolo electric guitar', 'brushed drums', 'close-harmony backing vocals'], tempoRange: [62, 74], goodFor: ['slow dance memory', 'late-night radio', 'nostalgic ballad'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1950s-60s doo-wop ballad' }, 'oldpop', { rhythm: ['slow 12/8 doo-wop ballad sway', 'standup bass walking under a slow pulse'], vocal: ['tender lead voice cradled by close harmony', 'nonsense-syllable backing figures held long'], production: ['warm tremolo-guitar shimmer', 'narrow mono-leaning ballad mix'], harmony: ['I-vi-IV-V doo-wop turnaround at half speed'], moods: ['tender', 'wistful'], audiences: ['senior playlist', 'slow dance memory'], avoidTraits: [] }),
-  legacyGenrePack({ id: 'oldpop-doowop-uptempo', label: 'Doo-Wop Uptempo', styleCore: 'upbeat doo-wop pop, handclap backbeat, bright saxophone break, sock-hop energy', instruments: ['upright bass', 'handclap percussion', 'saxophone', 'close-harmony backing vocals'], tempoRange: [84, 96], goodFor: ['sock-hop dance', 'bright nostalgia', 'radio'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1950s-60s uptempo doo-wop' }, 'oldpop', { rhythm: ['bouncy triplet shuffle at dance tempo', 'handclap accents on the backbeat'], vocal: ['bright lead voice trading lines with the group', 'call-and-response hook'], production: ['punchy sock-hop mix', 'saxophone break lifting the bridge'], harmony: ['I-vi-IV-V doo-wop turnaround at dance tempo'], moods: ['bright', 'youthful'], audiences: ['sock-hop nostalgia', 'radio'], avoidTraits: [] }),
+  legacyGenrePack({ id: 'oldpop-doowop-ballad', label: 'Doo-Wop Ballad', styleCore: 'slow doo-wop ballad, standup bass foundation, tremolo guitar shimmer, tender close harmony', instruments: ['upright bass', 'tremolo electric guitar', 'brushed drums', 'close-harmony backing vocals'], tempoRange: [62, 74], goodFor: ['slow dance memory', 'late-night radio', 'nostalgic ballad'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1950s-60s doo-wop ballad' }, 'oldpop', { rhythm: ['slow 12/8 doo-wop ballad sway', 'standup bass walking under a slow pulse'], vocal: ['tender lead voice cradled by close harmony', 'nonsense-syllable backing figures held long'], production: ['warm tremolo-guitar shimmer', 'narrow mono-leaning ballad mix'], harmony: ['I-vi-IV-V doo-wop turnaround at half speed', 'suspended fourth resolving into the tonic'], moods: ['tender', 'wistful'], audiences: ['senior playlist', 'slow dance memory'], avoidTraits: [] }),
+  legacyGenrePack({ id: 'oldpop-doowop-uptempo', label: 'Doo-Wop Uptempo', styleCore: 'upbeat doo-wop pop, handclap backbeat, bright saxophone break, sock-hop energy', instruments: ['upright bass', 'handclap percussion', 'saxophone', 'close-harmony backing vocals'], tempoRange: [84, 96], goodFor: ['sock-hop dance', 'bright nostalgia', 'radio'], vocalPreference: { male: 0.15, female: 0.7, mixed: 0.15 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1950s-60s uptempo doo-wop' }, 'oldpop', { rhythm: ['bouncy triplet shuffle at dance tempo', 'handclap accents on the backbeat'], vocal: ['bright lead voice trading lines with the group', 'call-and-response hook'], production: ['punchy sock-hop mix', 'saxophone break lifting the bridge'], harmony: ['I-vi-IV-V doo-wop turnaround at dance tempo', 'bright major-key call and response'], moods: ['bright', 'youthful'], audiences: ['sock-hop nostalgia', 'radio'], avoidTraits: [] }),
   // 밤 샹송 — 기존 chanson(아코디언 중심·로맨틱·보컬 성별 중립)과의 차이:
   // 기타/피아노 중심·멜랑콜릭·남성 인티메이트. id/스타일 모두 완전히 분리.
-  legacyGenrePack({ id: 'oldpop-night-chanson', label: 'Night Chanson', styleCore: 'vintage French night chanson, Paris café-after-dark atmosphere, intimate male vocal, melancholic elegance', instruments: ['gentle acoustic guitar', 'subtle piano', 'soft upright bass', 'light brushed drums'], tempoRange: [62, 74], goodFor: ['late-night reflection', 'Paris café mood', 'melancholic elegance'], vocalPreference: { male: 0.75, female: 0.15, mixed: 0.10 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1950s-70s night chanson' }, 'oldpop', { rhythm: ['slow rubato easing into a gentle waltz-adjacent pulse'], vocal: ['intimate close-mic male lead', 'restrained spoken-sung delivery'], production: ['dim late-night café room tone', 'gentle acoustic guitar and piano interplay'], harmony: ['minor-key chanson progression with a wistful resolve'], moods: ['melancholic', 'elegant', 'nostalgic'], audiences: ['late-night reflection', 'Paris café mood'], avoidTraits: [] }),
+  legacyGenrePack({ id: 'oldpop-night-chanson', label: 'Night Chanson', styleCore: 'vintage French night chanson, Paris café-after-dark atmosphere, intimate male vocal, melancholic elegance', instruments: ['gentle acoustic guitar', 'subtle piano', 'soft upright bass', 'light brushed drums'], tempoRange: [62, 74], goodFor: ['late-night reflection', 'Paris café mood', 'melancholic elegance'], vocalPreference: { male: 0.75, female: 0.15, mixed: 0.10 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1950s-70s night chanson' }, 'oldpop', { rhythm: ['slow rubato easing into a gentle waltz-adjacent pulse', 'unhurried late-night café tempo'], vocal: ['intimate close-mic male lead', 'restrained spoken-sung delivery'], production: ['dim late-night café room tone', 'gentle acoustic guitar and piano interplay'], harmony: ['minor-key chanson progression with a wistful resolve', 'suspended chord held before the verse resolves'], moods: ['melancholic', 'elegant', 'nostalgic'], audiences: ['late-night reflection', 'Paris café mood'], avoidTraits: [] }),
   // 발라드블루스 — 강사 원문 네거티브 4종(no humming/ooh/aah/mmm)을
   // avoidTraits에 그대로 반영. 기존 jazz-jazz-blues-club(클럽 재즈 블루스)
   // 과는 성격이 달라 별도 장르로 분리.
-  legacyGenrePack({ id: 'oldpop-rainy-ballad-blues', label: 'Rainy Ballad Blues', styleCore: 'rainy-night ballad blues, clean hollow-body electric guitar, subtle tremolo bar warble, spring reverb, dark minor chord-melody instrumental intro', instruments: ['clean hollow-body electric guitar', 'upright bass', 'brushed drums', 'spring reverb tank'], tempoRange: [62, 72], goodFor: ['rainy night reflection', 'late-night blues', 'male-led ballad'], vocalPreference: { male: 0.8, female: 0.1, mixed: 0.1 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1960s-70s ballad blues' }, 'oldpop', { rhythm: ['slow blues ballad pulse with a dark minor instrumental intro'], vocal: ['restrained sung baritone lead, no ad-lib filler'], production: ['subtle tremolo bar warble', 'spring reverb wash on the guitar'], harmony: ['dark minor chord-melody guitar intro before the vocal enters'], moods: ['melancholic', 'rain-soaked', 'intimate'], audiences: ['rainy night reflection', 'late-night blues'], avoidTraits: ['humming', 'ooh', 'aah', 'mmm'] }),
+  legacyGenrePack({ id: 'oldpop-rainy-ballad-blues', label: 'Rainy Ballad Blues', styleCore: 'rainy-night ballad blues, clean hollow-body electric guitar, subtle tremolo bar warble, spring reverb, dark minor chord-melody instrumental intro', instruments: ['clean hollow-body electric guitar', 'upright bass', 'brushed drums', 'spring reverb tank'], tempoRange: [62, 72], goodFor: ['rainy night reflection', 'late-night blues', 'male-led ballad'], vocalPreference: { male: 0.8, female: 0.1, mixed: 0.1 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1960s-70s ballad blues' }, 'oldpop', { rhythm: ['slow blues ballad pulse with a dark minor instrumental intro', 'unhurried rain-soaked half-time feel'], vocal: ['restrained sung baritone lead, no ad-lib filler', 'plainspoken delivery held close to the melody'], production: ['subtle tremolo bar warble', 'spring reverb wash on the guitar'], harmony: ['dark minor chord-melody guitar intro before the vocal enters', 'blues-inflected minor-to-tonic resolution'], moods: ['melancholic', 'rain-soaked', 'intimate'], audiences: ['rainy night reflection', 'late-night blues'], avoidTraits: ['humming', 'ooh', 'aah', 'mmm'] }),
   // --- 지시문 21 (TASK A) — 신규 4종 중 2종(oldpop 계열). 강사 원문의
   // "no disco beat, no uptempo, no fast dance groove, no four-on-the-floor"
   // 네거티브는 docs/BENCHMARK_PROMPT_PRACTICE.md에 기록된 관행 차이에 따라
   // styleCore 문장에 섞지 않고 avoidTraits로 분리해 반영한다(하루 앱의
   // 기존 구조, excludePrompt 분리 원칙 유지).
-  legacyGenrePack({ id: 'oldpop-six-eight-slow-ballad', label: '6/8 Slow Ballad', styleCore: '1970s-80s slow 6/8 ballad, gentle rocking triplet feel, warm strings entering at the chorus', instruments: ['piano', 'warm strings entering at the chorus', 'brushed drums in a slow triplet feel', 'soft bass'], tempoRange: [64, 76], goodFor: ['slow dance memory', 'reflective evening', 'senior playlist'], archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1970s-80s 6/8 slow ballad' }, 'oldpop', { rhythm: ['gentle 6/8 rocking triplet ballad sway', 'brushed triplet drums under a slow pulse'], vocal: ['tender restrained ballad lead', 'held long notes across the triplet feel'], production: ['warm ballad room tone', 'strings held back until the chorus'], harmony: ['slow major-to-relative-minor ballad movement'], moods: ['tender', 'wistful'], audiences: ['senior playlist', 'slow dance memory'], avoidTraits: ['disco beat', 'uptempo', 'fast dance groove', 'four-on-the-floor'] }),
+  legacyGenrePack({ id: 'oldpop-six-eight-slow-ballad', label: '6/8 Slow Ballad', styleCore: '1970s-80s slow 6/8 ballad, gentle rocking triplet feel, warm strings entering at the chorus', instruments: ['piano', 'warm strings entering at the chorus', 'brushed drums in a slow triplet feel', 'soft bass'], tempoRange: [64, 76], goodFor: ['slow dance memory', 'reflective evening', 'senior playlist'], archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'core', eraTag: '1970s-80s 6/8 slow ballad' }, 'oldpop', { rhythm: ['gentle 6/8 rocking triplet ballad sway', 'brushed triplet drums under a slow pulse'], vocal: ['tender restrained ballad lead', 'held long notes across the triplet feel'], production: ['warm ballad room tone', 'strings held back until the chorus'], harmony: ['slow major-to-relative-minor ballad movement', 'suspended chord resolving into the chorus lift'], moods: ['tender', 'wistful'], audiences: ['senior playlist', 'slow dance memory'], avoidTraits: ['disco beat', 'uptempo', 'fast dance groove', 'four-on-the-floor'] }),
   // 이탈리안 칸초네 — 기존 chanson(프랑스)과 구별되는 별도 유럽 올드팝
   // 계열. 오페라풍 남성 리드·현악 스윕이 정체성 핵심.
-  legacyGenrePack({ id: 'oldpop-italian-canzone', label: 'Italian Canzone', styleCore: 'vintage Italian canzone pop, sweeping strings, passionate operatic-tinged male lead, romantic melodic sweep', instruments: ['sweeping string section', 'grand piano', 'soft brushed drums', 'warm upright bass'], tempoRange: [62, 78], goodFor: ['romantic Italian nostalgia', 'reflective evening', 'senior playlist'], vocalPreference: { male: 0.75, female: 0.15, mixed: 0.10 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1950s-70s Italian canzone' }, 'oldpop', { rhythm: ['slow rubato easing into a sweeping romantic pulse'], vocal: ['passionate operatic-tinged male lead', 'expressive sustained melodic phrasing'], production: ['lush romantic string-forward mix'], harmony: ['sweeping melodic canzone progression with a passionate climax'], moods: ['passionate', 'romantic', 'nostalgic'], audiences: ['romantic Italian nostalgia', 'reflective evening'], avoidTraits: [] })
+  legacyGenrePack({ id: 'oldpop-italian-canzone', label: 'Italian Canzone', styleCore: 'vintage Italian canzone pop, sweeping strings, passionate operatic-tinged male lead, romantic melodic sweep', instruments: ['sweeping string section', 'grand piano', 'soft brushed drums', 'warm upright bass'], tempoRange: [62, 78], goodFor: ['romantic Italian nostalgia', 'reflective evening', 'senior playlist'], vocalPreference: { male: 0.75, female: 0.15, mixed: 0.10 }, archetypes: ['senior-morning', 'oldpop-lounge'], tier: 'extended', eraTag: '1950s-70s Italian canzone' }, 'oldpop', { rhythm: ['slow rubato easing into a sweeping romantic pulse', 'unhurried canzone tempo with a passionate lift'], vocal: ['passionate operatic-tinged male lead', 'expressive sustained melodic phrasing'], production: ['lush romantic string-forward mix', 'warm operatic room bloom'], harmony: ['sweeping melodic canzone progression with a passionate climax', 'minor-to-major resolve at the final chorus'], moods: ['passionate', 'romantic', 'nostalgic'], audiences: ['romantic Italian nostalgia', 'reflective evening'], avoidTraits: [] })
 ];
 
 /**
@@ -1273,7 +1347,47 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
     archetypes: ['kr-2030-pop'],
     tier: 'core',
     eraTag: '2010s-2020s Korean lofi swing hip-hop'
-  }, 'kr-2030', { rhythm: ['swung boom-bap pocket', 'dusty lofi-textured backbeat'], vocal: ['half-spoken rap-sung phrasing verse opening into a melodic pre-chorus', 'relaxed conversational Korean delivery'], production: ['warm dusty lofi mix', 'vinyl-crackle texture kept subtle'], harmony: ['jazzy ii-V lofi chord loop'], moods: ['relaxed', 'warm', 'contemplative'], audiences: ['로파이 스윙 힙합팝', '인디팝 무드'], avoidTraits: [] }),
+  }, 'kr-2030', { rhythm: ['swung boom-bap pocket', 'dusty lofi-textured backbeat'], vocal: ['half-spoken rap-sung phrasing verse opening into a melodic pre-chorus', 'relaxed conversational Korean delivery'], production: ['warm dusty lofi mix', 'vinyl-crackle texture kept subtle'], harmony: ['jazzy ii-V lofi chord loop', 'dusty seventh-chord voicing'], moods: ['relaxed', 'warm', 'contemplative'], avoidTraits: [], audiences: ['로파이 스윙 힙합팝', '인디팝 무드'] }),
+  // 지시문 53 (TASK A) — 신규 3종. 하루가 명시한 "멈블 계열·속삭이는 랩"
+  // 딜리버리는 기존 kr-2030 랩/힙합 계열(chill-rap/boom-bap-mellow/
+  // jazz-rap/kr2030-lofi-swing-hiphop) 어디에도 없었다(전부 laid-back/
+  // conversational이지 mumble/whisper가 아니다) — 그 갭만 최소로 채운다
+  // (§D-2 "최소화", 지시문 35의 rap-* 8종 전부가 아니라 3종만). 이
+  // 채널만 primaryLanguage: english이므로 vocal 축도 영어 가사를
+  // 전제로 쓴다(다른 kr2030 장르처럼 한국어 리드가 아님).
+  legacyGenrePack({
+    id: 'kr2030-mumble-melodic-rap',
+    label: 'Mumble Melodic Rap',
+    styleCore: 'mumble melodic rap, hazy half-sung mumbled delivery, warm auto-tuned melodic hook, soft trap pocket',
+    instruments: ['soft trap hi-hat pattern', 'warm sub bass', 'mellow pluck synth', 'auto-tune-textured vocal layer'],
+    tempoRange: [75, 95],
+    goodFor: ['멈블 앤 위스퍼 랩', 'late-night rap', 'hazy mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s mumble rap'
+  }, 'kr-2030', { rhythm: ['soft trap pocket', 'relaxed half-time bounce'], vocal: ['mumbled melodic English delivery', 'auto-tuned sing-rap hook'], production: ['warm hazy mix', 'soft-focus low end'], harmony: ['minor-key drifting loop', 'muted seventh-chord voicing underpinning the hook'], moods: ['hazy', 'relaxed', 'melodic'], avoidTraits: ['crisp articulate enunciation', 'aggressive battle-rap delivery'], audiences: ['멈블 앤 위스퍼 랩', '레이트나잇 랩'] }),
+  legacyGenrePack({
+    id: 'kr2030-whisper-trap',
+    label: 'Whisper Trap',
+    styleCore: 'whisper trap, hushed close-mic whispered flow, sparse dark 808 pocket, minimal negative-space production',
+    instruments: ['sparse 808 sub', 'muted hi-hat roll', 'dark filtered synth pad', 'close-mic whispered vocal layer'],
+    tempoRange: [65, 85],
+    goodFor: ['멈블 앤 위스퍼 랩', 'late-night rap', 'intimate mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s whisper trap'
+  }, 'kr-2030', { rhythm: ['sparse dark trap pocket', 'minimal negative-space beat'], vocal: ['hushed whispered English flow', 'close-mic intimate delivery'], production: ['dark minimal mix', 'wide negative space between hits'], harmony: ['suspended dark pad color', 'minor ninth stab colouring the hook'], moods: ['intimate', 'dark', 'restrained'], avoidTraits: ['loud belted vocal', 'bright major-key pop hook'], audiences: ['멈블 앤 위스퍼 랩', '레이트나잇 랩'] }),
+  legacyGenrePack({
+    id: 'kr2030-cloud-hazy-rap',
+    label: 'Cloud Hazy Rap',
+    styleCore: 'cloud hazy rap, dreamy reverb-drenched atmosphere, floating ambient pad, loose unhurried flow',
+    instruments: ['reverb-soaked synth pad', 'soft muted 808', 'dreamy pitched-vocal chop', 'loose lofi hi-hat'],
+    tempoRange: [68, 88],
+    goodFor: ['멈블 앤 위스퍼 랩', 'dreamy rap', 'late-night mood'],
+    archetypes: ['kr-2030-pop'],
+    tier: 'core',
+    eraTag: '2010s-2020s cloud rap'
+  }, 'kr-2030', { rhythm: ['loose unhurried trap pocket', 'floating half-time drift'], vocal: ['dreamy loose English flow', 'reverb-drenched ad-lib layer'], production: ['ambient reverb-drenched mix', 'soft cloud-like pad wash'], harmony: ['floating suspended chord wash', 'major seventh pad blurred into the reverb tail'], moods: ['dreamy', 'floating', 'hazy'], avoidTraits: ['crisp dry mix', 'aggressive battle-rap delivery'], audiences: ['멈블 앤 위스퍼 랩', '레이트나잇 랩'] }),
   // 누아르 딥하우스 — 110-122 BPM 원안 중 상한을 kr-2030-emotional 프로필의
   // 실측 tempoCeiling(120)에 맞춰 120으로 조정(지시문 원문 122는 실제
   // 시스템 상한을 2 BPM 초과 — TASK D에 결함으로 보고). senior 계열
@@ -1288,7 +1402,7 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
     archetypes: ['kr-2030-pop', 'city-night'],
     tier: 'extended',
     eraTag: '2010s-2020s noir deep house'
-  }, 'electronic', { rhythm: ['hypnotic four-on-the-floor deep-house pulse', 'off-beat open hi-hat groove'], vocal: ['sparse atmospheric vocal hook', 'processed vocal chops used sparingly'], production: ['dark warm nightclub mix', 'sub bass carrying the low end'], harmony: ['minor-key moody chord stab loop'], moods: ['moody', 'nocturnal', 'hypnotic'], audiences: ['나이트 딥하우스', '레이트나잇 드라이브'], avoidTraits: ['bright major-key pop hook', 'aggressive EDM drop'] })
+  }, 'electronic', { rhythm: ['hypnotic four-on-the-floor deep-house pulse', 'off-beat open hi-hat groove'], vocal: ['sparse atmospheric vocal hook', 'processed vocal chops used sparingly'], production: ['dark warm nightclub mix', 'sub bass carrying the low end'], harmony: ['minor-key moody chord stab loop', 'sparse two-chord vamp'], moods: ['moody', 'nocturnal', 'hypnotic'], audiences: ['나이트 딥하우스', '레이트나잇 드라이브'], avoidTraits: ['bright major-key pop hook', 'aggressive EDM drop'] })
 ];
 
 /**
@@ -1750,6 +1864,54 @@ export const kridolMaleGenrePacks: StructuredGenrePack[] = [
     // triggers would swallow this genre the same way modern-chill would
     // swallow kridol-midtempo-rnb; kept explicit for the same reason.
     avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'generic neon Tokyo skyline', 'sports car at night']
+  }),
+  /**
+   * 지시문 52 (TASK B-1) — 실측: kridol-* 7종 중 랩 요소가 있는 것이
+   * kridol-performance-trap 1종뿐이었다("랩이 나오면 항상 같은 소리다").
+   * TASK D 판단(§D-2): 지시문 35(멈블 랩 채널 신설)는 실제 데이터로 존재한
+   * 적이 없고 이 지시문의 적용 범위(kr-idol) 밖이라 넣지 않는다 — 대신
+   * kridol-* 로 2종만 최소 추가한다. performance-trap과는 템포·보컬
+   * 딜리버리 둘 다 다르게: melodic-rap은 노래하듯 랩(sing-rap, 중간
+   * 템포), hard-rap은 랩 벌스가 후렴으로 가는 다리가 아니라 곡의 중심인
+   * 더 낮고 거친 트랙이다. 멤버별 실제 플로우 차이는 이 장르가 아니라
+   * data/kpopMemberTimbres.ts의 main-rapper/lead-rapper 후보가 낸다(§B-2
+   * "A-2의 음색 팔레트와 같은 데이터를 쓴다" — 중복 제작 아님).
+   */
+  legacyGenrePack({
+    id: 'kridol-melodic-rap',
+    label: 'Melodic Sing-Rap Pop',
+    styleCore: 'Korean idol melodic sing-rap pop, half-sung half-rapped verses that carry the hook themselves, airy layered ad-libs',
+    instruments: ['muted trap hi-hat pattern', 'warm sub bass', 'plucked synth melody', 'vinyl-textured vocal chop'],
+    tempoRange: [108, 124],
+    goodFor: ['무대 위의 밤', '퍼포먼스', '랩'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['laid-back triplet sing-rap cadence', 'half-sung half-rapped pocket'],
+    vocal: ['melodic sing-rap flow', 'airy ad-lib layered hook'],
+    production: ['warm mid-forward trap mix', 'soft-focus vocal-chop texture'],
+    harmony: ['minor-to-major hook resolution', 'suspended color under the verse'],
+    moods: ['confident', 'melodic', 'laid-back'],
+    audiences: ['무대 위의 밤', '랩'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'lo-fi study beat', 'bedroom tape hiss']
+  }),
+  legacyGenrePack({
+    id: 'kridol-hard-rap',
+    label: 'Hard Rap Stage Cut',
+    styleCore: 'Korean idol hard rap stage cut, dark heavy 808 pocket, full rap verses that anchor the track rather than just leading into the hook',
+    instruments: ['heavy dark 808 sub', 'sparse hard-hitting hi-hat pattern', 'distorted synth stab', 'low brass hit'],
+    tempoRange: [92, 112],
+    goodFor: ['무대 위의 밤', '퍼포먼스', '랩'],
+    archetypes: ['kr-idol-male', 'kr-idol-female'],
+    tier: 'core'
+  }, 'kr-idol', {
+    rhythm: ['heavy dark-808 rap pocket', 'sparse hard-hitting hi-hat pattern'],
+    vocal: ['low gritty rap-forward lead', 'group ad-lib punctuation'],
+    production: ['dark heavy low-end mix', 'wide-open negative space around the verse'],
+    harmony: ['minor-key tension riff', 'sparse dissonant stab'],
+    moods: ['intense', 'confident', 'dark'],
+    audiences: ['무대 위의 밤', '랩'],
+    avoidTraits: ['specific idol group imitation', 'named member vocal timbre', 'signature hook of an existing song', 'lo-fi study beat', 'bedroom tape hiss']
   })
 ];
 
@@ -1878,7 +2040,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Showa seventies channel', 'Japanese senior playlist', 'station farewell scenes'],
     archetypes: ['showa-70s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['restrained kayokyoku ballad pulse'], vocal: ['mature Japanese lead vocal'], production: ['analog tape saturation', 'spring and plate reverb', 'narrow stereo image'], harmony: ['graceful minor-to-major chorus cadence'], moods: ['nostalgic', 'cinematic'], audiences: ['Japanese seniors', 'Showa playlist listeners'], avoidTraits: ['modern EDM synths', 'trap hi-hats', 'hard autotune'] }),
+  }, 'japanese-era', { rhythm: ['restrained kayokyoku ballad pulse', 'brass stabs marking each chorus entrance', 'brushed drums holding an unhurried pulse'], vocal: ['mature Japanese lead vocal', 'kobushi-style vocal ornament on sustained notes', 'vibrato held into the final syllable of each line'], production: ['analog tape saturation', 'spring and plate reverb', 'narrow stereo image'], harmony: ['graceful minor-to-major chorus cadence', 'sweeping string countermelody under the chorus', 'suspended fourth resolving into the tonic at the hook'], moods: ['nostalgic', 'cinematic'], audiences: ['Japanese seniors', 'Showa playlist listeners'], avoidTraits: ['modern EDM synths', 'trap hi-hats', 'hard autotune'] }),
   legacyGenrePack({
     id: 'japanese-folk-70s',
     label: '1970s Japanese Folk',
@@ -1888,7 +2050,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Showa seventies channel', 'handwritten letter scenes', 'night train scenes'],
     archetypes: ['showa-70s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['plain acoustic folk pulse'], vocal: ['unforced close Japanese vocal'], production: ['close-mic intimacy', 'soft analog tape hiss', 'small room realism'], harmony: ['simple folk-pop movement'], moods: ['plainspoken', 'wistful'], audiences: ['Japanese folk listeners', 'Showa playlist listeners'], avoidTraits: ['stadium folk-rock excess', 'modern bedroom-pop haze', 'hard autotune'] }),
+  }, 'japanese-era', { rhythm: ['plain acoustic folk pulse', 'fingerpicked guitar carrying the pulse alone', 'light hand percussion entering only at the chorus'], vocal: ['unforced close Japanese vocal', 'plainspoken delivery close to speech', 'unaccompanied vocal opening before the guitar enters'], production: ['close-mic intimacy', 'soft analog tape hiss', 'small room realism'], harmony: ['simple folk-pop movement', 'open-string folk chord voicings', 'gentle modal touch under an otherwise diatonic verse'], moods: ['plainspoken', 'wistful'], audiences: ['Japanese folk listeners', 'Showa playlist listeners'], avoidTraits: ['stadium folk-rock excess', 'modern bedroom-pop haze', 'hard autotune'] }),
   legacyGenrePack({
     id: 'new-music-70s',
     label: '1970s New Music',
@@ -1899,7 +2061,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Showa seventies channel', 'window seasons', 'radio memory scenes'],
     archetypes: ['showa-70s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['hand-played singer-songwriter band pulse'], vocal: ['lyrical adult Japanese vocal'], production: ['live band warmth', 'analog tape color', 'restrained stereo width'], harmony: ['sophisticated add9 and maj7 colors'], moods: ['lyrical', 'refined'], audiences: ['Japanese new-music listeners', 'Showa playlist listeners'], avoidTraits: ['ultra-wide modern mix', 'sidechain pumping', 'trap hi-hats'] }),
+  }, 'japanese-era', { rhythm: ['hand-played singer-songwriter band pulse', 'live rhythm section holding a steady unhurried groove', 'clean electric guitar answering the vocal between phrases'], vocal: ['lyrical adult Japanese vocal', 'conversational verse phrasing opening into a fuller chorus', 'restrained vibrato, never oversung'], production: ['live band warmth', 'analog tape color', 'restrained stereo width'], harmony: ['sophisticated add9 and maj7 colors', 'gentle ii-V movement into the chorus', 'chromatic passing chord coloring the bridge'], moods: ['lyrical', 'refined'], audiences: ['Japanese new-music listeners', 'Showa playlist listeners'], avoidTraits: ['ultra-wide modern mix', 'sidechain pumping', 'trap hi-hats'] }),
   legacyGenrePack({
     id: 'showa-groove-70s',
     label: '1970s Showa Groove',
@@ -1909,7 +2071,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Showa seventies channel', 'neon alley scenes', 'danceable retro sets'],
     archetypes: ['showa-70s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['syncopated live funk-soul pocket'], vocal: ['confident Japanese pop vocal'], production: ['tape-saturated live groove', 'spring reverb', 'narrow vintage stereo'], harmony: ['soul-colored dominant and minor seventh chords'], moods: ['groovy', 'retro-cinematic'], audiences: ['Showa groove listeners', 'retro Japanese playlists'], avoidTraits: ['modern EDM synths', 'trap hi-hats', 'sidechain pumping'] }),
+  }, 'japanese-era', { rhythm: ['syncopated live funk-soul pocket', 'clavinet comping driving the groove', 'wah guitar accents on the offbeat'], vocal: ['confident Japanese pop vocal', 'soulful rasp on emotional phrase peaks', 'call-and-response with the brass stabs'], production: ['tape-saturated live groove', 'spring reverb', 'narrow vintage stereo'], harmony: ['soul-colored dominant and minor seventh chords', 'one-chord vamp under the verse', 'brass-stab punctuation resolving into the chorus'], moods: ['groovy', 'retro-cinematic'], audiences: ['Showa groove listeners', 'retro Japanese playlists'], avoidTraits: ['modern EDM synths', 'trap hi-hats', 'sidechain pumping'] }),
   legacyGenrePack({
     id: 'jpop-2000s-ballad',
     label: 'Early 2000s J-Pop Ballad',
@@ -1920,7 +2082,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Millennium J-pop channel', 'graduation scenes', 'first train scenes'],
     archetypes: ['j2000s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['slow pop-ballad build'], vocal: ['clear emotive Japanese lead vocal with harmonies'], production: ['bright wide digital mix', 'firm compression', 'stacked chorus vocals'], harmony: ['big pop-ballad chorus lift'], moods: ['emotional', 'anthemic'], audiences: ['early-2000s J-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['lo-fi vintage haze', 'trap hi-hats', 'modern bedroom-pop texture'] }),
+  }, 'japanese-era', { rhythm: ['slow pop-ballad build', 'piano carrying the verse alone before the band enters', 'drums building steadily into the final chorus'], vocal: ['clear emotive Japanese lead vocal with harmonies', 'held long tone into the final chorus', 'stacked backing harmonies doubling the hook'], production: ['bright wide digital mix', 'firm compression', 'stacked chorus vocals'], harmony: ['big pop-ballad chorus lift', 'key-change lift into the final chorus', 'suspended piano voicing opening the verse'], moods: ['emotional', 'anthemic'], audiences: ['early-2000s J-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['lo-fi vintage haze', 'trap hi-hats', 'modern bedroom-pop texture'] }),
   legacyGenrePack({
     id: 'jpop-2000s-rnb',
     label: 'Early 2000s J-Pop R&B',
@@ -1930,7 +2092,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Millennium J-pop channel', 'late-night call scenes', 'station waiting scenes'],
     archetypes: ['j2000s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['16th-note R&B pocket'], vocal: ['smooth Japanese vocal with tasteful melisma'], production: ['bright digital sheen', 'compressed low end', 'stacked chorus layers'], harmony: ['R&B seventh-chord movement'], moods: ['sleek', 'yearning'], audiences: ['early-2000s J-pop R&B listeners', 'night playlist listeners'], avoidTraits: ['trap hi-hats', 'lo-fi vintage texture', 'modern bedroom-pop haze'] }),
+  }, 'japanese-era', { rhythm: ['16th-note R&B pocket', 'crisp hi-hat pattern driving the groove', 'synth bass locked tight to the kick'], vocal: ['smooth Japanese vocal with tasteful melisma', 'breathy verse opening into a fuller pre-chorus', 'stacked harmony answering the hook'], production: ['bright digital sheen', 'compressed low end', 'stacked chorus layers'], harmony: ['R&B seventh-chord movement', 'extended ninth-chord color on the chorus', 'ii-V movement under the bridge'], moods: ['sleek', 'yearning'], audiences: ['early-2000s J-pop R&B listeners', 'night playlist listeners'], avoidTraits: ['trap hi-hats', 'lo-fi vintage texture', 'modern bedroom-pop haze'] }),
   legacyGenrePack({
     id: 'jpop-2000s-band',
     label: 'Early 2000s J-Pop Band',
@@ -1940,7 +2102,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Millennium J-pop channel', 'bicycle school route scenes', 'graduation energy'],
     archetypes: ['j2000s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['straight 8th-note band drive'], vocal: ['open Japanese pop-rock vocal'], production: ['bright compressed band mix', 'wide rhythm guitars', 'clear hi-hat detail'], harmony: ['major-key chorus lift'], moods: ['youthful', 'forward'], audiences: ['early-2000s band-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern trap elements', 'lo-fi demo texture', 'screamo aggression'] }),
+  }, 'japanese-era', { rhythm: ['straight 8th-note band drive', 'compressed rock drums driving the pulse forward', 'clean arpeggio guitar answering the vocal in the verse'], vocal: ['open Japanese pop-rock vocal', 'shouted-along hook line in the chorus', 'restrained verse opening into a full-throated chorus'], production: ['bright compressed band mix', 'wide rhythm guitars', 'clear hi-hat detail'], harmony: ['major-key chorus lift', 'simple I-IV-V-vi band-pop movement', 'key-change lift into the final chorus'], moods: ['youthful', 'forward'], audiences: ['early-2000s band-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern trap elements', 'lo-fi demo texture', 'screamo aggression'] }),
   legacyGenrePack({
     id: 'jpop-2000s-dance',
     label: 'Early 2000s J-Pop Dance',
@@ -1950,7 +2112,7 @@ export const eraGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Millennium J-pop channel', 'summer festival scenes', 'bright early-2000s sets'],
     archetypes: ['j2000s'],
     tier: 'core'
-  }, 'japanese-era', { rhythm: ['clean 4/4 dance-pop pulse'], vocal: ['bright Japanese pop vocal with chorus stacks'], production: ['wide polished digital mix', 'strong compression', 'clear high-frequency detail'], harmony: ['uplifting pop chorus movement'], moods: ['bright', 'energetic'], audiences: ['early-2000s dance-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern EDM drop', 'trap hi-hats', 'lo-fi vintage haze'] })
+  }, 'japanese-era', { rhythm: ['clean 4/4 dance-pop pulse', 'crisp hi-hat pattern carrying the groove forward'], vocal: ['bright Japanese pop vocal with chorus stacks', 'shouted-along hook line in the chorus'], production: ['wide polished digital mix', 'strong compression', 'clear high-frequency detail'], harmony: ['uplifting pop chorus movement', 'simple I-V-vi-IV dance-pop loop'], moods: ['bright', 'energetic'], audiences: ['early-2000s dance-pop listeners', 'general Japanese playlist listeners'], avoidTraits: ['modern EDM drop', 'trap hi-hats', 'lo-fi vintage haze'] })
 ];
 
 export const modernGenrePacks: StructuredGenrePack[] = [
@@ -2099,7 +2261,7 @@ export const modernGenrePacks: StructuredGenrePack[] = [
     goodFor: ['Chill Hours', 'contemporary R&B set', 'late-night vocal playlist'],
     archetypes: ['modern-chill'],
     tier: 'core'
-  }, 'rnb', { rhythm: ['swung 16th-note R&B pocket', 'tight pocket groove'], vocal: ['layered R&B vocal with runs and call-and-response ad-libs'], production: ['warm sub-bass focus', 'intimate modern studio space'], harmony: ['extended 9th and 11th chord color', 'stacked modern seventh-chord movement'], moods: ['smooth', 'contemporary', 'intimate'], audiences: ['contemporary R&B listeners', 'late-night vocal playlists'], avoidTraits: ['aggressive trap density', 'explicit sensuality', 'thin drum-machine tone'] }),
+  }, 'rnb', { rhythm: ['swung 16th-note R&B pocket', 'tight pocket groove'], vocal: ['layered R&B vocal with runs and call-and-response ad-libs', 'breathy verse opening into a fuller pre-chorus'], production: ['warm sub-bass focus', 'intimate modern studio space'], harmony: ['extended 9th and 11th chord color', 'stacked modern seventh-chord movement'], moods: ['smooth', 'contemporary', 'intimate'], audiences: ['contemporary R&B listeners', 'late-night vocal playlists'], avoidTraits: ['aggressive trap density', 'explicit sensuality', 'thin drum-machine tone'] }),
   legacyGenrePack({
     id: 'city-pop-night',
     label: 'City Pop Night Drive',
@@ -2421,6 +2583,486 @@ const SIGNATURE_SOUND_OVERRIDES: Record<string, string> = {
   'kids-march': 'bouncy marching two-step, toy piano, light snare cadence, glockenspiel answers, clean group-chant production'
 };
 
+/**
+ * 지시문 46 (TASK C-2) — 시니어 채널 39종 실측(good-morning-memory-radio +
+ * oldpop-lounge-main preferredGenres 교집합) 중 vocalPreference가 없던
+ * 27종 가운데, 하루가 지적한 재즈 6종(§C-2)만 우선 채운다 — makeProfile로
+ * 생성되는 notionDerivedGenrePacks는 vocalPreference 필드 자체가 없어서
+ * (§makeProfile 정의 참고), SIGNATURE_SOUND_OVERRIDES와 같은 사후 오버라이드
+ * 패턴을 그대로 재사용한다. 장르 관행(크루너/토치송/보컬 트리오 등 실제
+ * 스타일 관행)에 근거한 값이다 — verified: false, 하루의 청취 확인 대기.
+ * 나머지 senior 21종(adult-contemporary/oldpop-* 다수/rnb-old-school-
+ * romance-rnb 등)은 이 지시문에서 채우지 않았다 — 부분구현으로 보고.
+ */
+// 지시문 50 (TASK A-3) — 하루: "재즈는 남자보다 여자 목소리가 좋아. 재즈
+// 장르는 여성 강제가 필요할 것 같아." 재즈 계열(jazz-* 52종) 전체에
+// female >= 0.60 하한을 기본으로 둔다 — 지시문46이 채운 6종 중 미달이던
+// 4종(classic-vocal-lounge/brush-ballad-jazz/hotel-lounge-jazz/soft-vocal-
+// trio)을 이 지시문에서 올리고, vocalPreference가 아예 없던 45종을 새로
+// 채운다(§실측: 45종 중 43종은 이 기본값 {male:0.20, female:0.65,
+// mixed:0.15}, 2종은 아래 예외 참고). 지시문46이 채운 6종을 되돌리지
+// 않는다 — 여기서 올리는 것은 "되돌리기"가 아니라 새 하한 적용이다.
+//
+// 예외 ① jazz-swing-crooner-ballroom — 크루너(프랭크 시나트라 계열)는
+// 남성이 장르 정의다. 여성으로 바꾸면 그 장르가 아니게 된다 — A-4에서
+// 세 선택지를 제시하고 하루의 판단을 받는다. 이 지시문에서는 임의로
+// 정하지 않고 원래 값(male 0.7)을 유지한다.
+//
+// 예외 ② jazz-baritone-vocal-jazz · jazz-cool-baritone-jazz — "baritone"은
+// (크루너와 마찬가지로) 남성 음역을 직접 지칭하는 장르 정의다. 이
+// 지시문이 명시적으로 이름 붙인 예외는 크루너뿐이지만, 같은 논리(정의
+// 자체가 성별을 특정한다)가 이 2종에도 그대로 적용돼 female 하한을
+// 강제하면 장르 정체성과 충돌한다 — 크루너와 같은 male-lean 값을 주되,
+// 크루너와 달리 세 선택지 절차를 거치지 않았다는 점을 보고에 밝힌다
+// (§E-2, 추가 확인 필요 항목으로 표시).
+export const VOCAL_PREFERENCE_OVERRIDES: Partial<Record<string, { male: number; female: number; mixed: number }>> = {
+  // 지시문46이 채운 6종 — 4종은 이 지시문에서 female >= 0.60으로 상향.
+  'jazz-classic-vocal-lounge': { male: 0.3, female: 0.6, mixed: 0.1 },
+  'jazz-swing-crooner-ballroom': { male: 0.7, female: 0.2, mixed: 0.1 },
+  'jazz-torch-vocal-jazz': { male: 0.15, female: 0.75, mixed: 0.1 },
+  'jazz-brush-ballad-jazz': { male: 0.3, female: 0.6, mixed: 0.1 },
+  'jazz-hotel-lounge-jazz': { male: 0.3, female: 0.6, mixed: 0.1 },
+  // 보컬 트리오(냇 킹 콜 트리오류)는 그룹 화음이 정체성이라 mixed 비중을
+  // 완전히 낮추지 않되, female 리드 우세로 재배분한다.
+  'jazz-soft-vocal-trio': { male: 0.15, female: 0.6, mixed: 0.25 },
+  // 신규 45종 — 기본값 (female 0.65, 하한 0.60 초과 여유)
+  'jazz-rap': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bass-feature-trio': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bebop-sax-drive': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-cool-muted-trumpet': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-modal-night-sketch': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-ballad-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-smooth-sax-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-big-band-swing': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bossa-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-electric-fusion': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-late-night-lounge': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-rain-noir-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-organ-soul-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-hard-bop-club': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-minimal-trio': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-spiritual-open-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-spacious-chamber-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-gypsy-cafe-swing': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-waltz-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-latin-club-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-samba-jazz-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-post-bop-urban': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bass-piano-duo': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-alto-candlelight-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-new-orleans-brass': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-alto-sax-trio': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-vibraphone-dream-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-guitar-trio-dinner': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-flugelhorn-ballad': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-duet-conversation-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-contemporary-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-double-bass-intro-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-free-organic-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-fusion-night-drive': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-acid-jazz-groove': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-nu-jazz-metropolitan': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-lofi-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-rap-late-night': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-bebop-vocal-scat': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-mellow-flugelhorn-vocal': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-jazz-blues-club': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-cabaret-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  'jazz-chamber-vocal-jazz': { male: 0.2, female: 0.65, mixed: 0.15 },
+  // 예외 ② — 음역 자체가 장르 정의인 2종 (위 doc comment 참고)
+  'jazz-baritone-vocal-jazz': { male: 0.65, female: 0.2, mixed: 0.15 },
+  'jazz-cool-baritone-jazz': { male: 0.65, female: 0.2, mixed: 0.15 },
+
+  // 지시문 57 (TASK A) — 시니어 39종 실측(good-morning-memory-radio +
+  // oldpop-lounge-main preferredGenres 교집합) 중 재즈 53종을 제외하고
+  // 남아있던 vocalPreference 미채움 21종. 지시문 46이 재즈에서 쓴 것과
+  // 같은 방식(장르 관행 근거 + 근거 기재 + verified: false)을 그대로
+  // 따른다 — 청취 검증값이 아니라 실제 시대 레퍼런스 아티스트/그룹에
+  // 근거한 추정이다. §하지 말 것 "verified: false인 값으로 세트를
+  // 차단하지 말 것" — 이 표는 core/vocalGenreAffinity.ts의
+  // applyGenreVocalAffinity가 소비하는 advisory 가중치일 뿐, 채널
+  // 쿼터(남5·여5·듀엣5) 총량 자체는 건드리지 않는다(그 함수는 순수
+  // 슬롯 스왑이라 marginal count가 항상 보존된다 — 그 파일 자체의 doc
+  // comment 참고).
+  //
+  // 콜앤리스폰스·듀엣 전통이 있는 3종(모타운/R&B 올드스쿨 로맨스/선샤인팝)은
+  // mixed를 0.20으로 높였다(§A-3).
+  'oldpop-motown-pop-soul': { male: 0.35, female: 0.45, mixed: 0.20 }, // 모타운은 남성(포 탑스·템테이션스)·여성(슈프림스) 리드가 공존했고 콜앤리스폰스 백킹이 정체성이라 mixed를 높였다.
+  'oldpop-british-beat': { male: 0.70, female: 0.15, mixed: 0.15 }, // 비틀즈·킹크스·데이브 클락 파이브 등 브리티시 인베이전 밴드는 거의 전부 남성 리드.
+  'oldpop-sunshine-pop': { male: 0.25, female: 0.55, mixed: 0.20 }, // 마마스 앤 파파스·5th 디멘션의 밝은 여성/혼성 하모니가 정체성.
+  // 지시문 원안은 female 0.55였으나, 좀비스(콜린 블런스톤)·레프트 뱅크(스티브
+  // 마틴 카로)·에밋 로즈 등 바로크팝의 실제 대표 아티스트가 대부분 남성
+  // 리드라 남성 쪽으로 정정했다 — 근거 없이 원안을 그대로 쓰지 않는다.
+  'oldpop-baroque-pop': { male: 0.50, female: 0.35, mixed: 0.15 },
+  'oldpop-soft-rock-am': { male: 0.55, female: 0.35, mixed: 0.10 }, // 카펜터스(여성)가 대표적이지만 브레드·아메리카·플레이어 등 AM 골드 카탈로그 다수가 남성 리드라 원안(0.50/0.40)에서 남성 쪽으로 소폭 정정.
+  'oldpop-piano-ballad-70s': { male: 0.45, female: 0.45, mixed: 0.10 }, // 엘튼 존·빌리 조엘(남성)과 캐롤 킹·로버타 플랙(여성)이 고르게 대표적.
+  'oldpop-warm-morning-glow': { male: 0.35, female: 0.55, mixed: 0.10 }, // 채널 오리지널(실제 아티스트 미고정) 장르 — 기존 vocal 서술("gentle unhurried glow lead")의 부드러운 톤에 맞춰 여성 리드를 우세로 둔다.
+  'oldpop-orchestral-easy': { male: 0.45, female: 0.45, mixed: 0.10 }, // 앤디 윌리엄스·페리 코모·냇 킹 콜 등 이지 리스닝 크루너 전통이 강해 원안(0.40/0.50)보다 균형에 가깝게 정정.
+  'oldpop-evening-lamp-ballad': { male: 0.35, female: 0.55, mixed: 0.10 }, // 채널 오리지널 — 저녁 램프·친밀한 톤에 맞춰 여성 리드 우세.
+  'oldpop-slow-waltz-memory': { male: 0.35, female: 0.55, mixed: 0.10 }, // 채널 오리지널 — 느린 왈츠·회상 정서에 맞춰 여성 리드 우세.
+  'oldpop-six-eight-slow-ballad': { male: 0.45, female: 0.45, mixed: 0.10 }, // 6/8 발라드는 특정 아티스트 계열에 묶이지 않아 균형.
+  'oldpop-quiet-storm-warm': { male: 0.45, female: 0.45, mixed: 0.10 }, // 스모키 로빈슨·루더 밴드로스(남성)와 아니타 베이커·세이드(여성) 모두 콰이엇 스톰 장르를 대표해 원안(0.35/0.55)보다 균형에 가깝게 정정.
+  'oldpop-hearth-acoustic': { male: 0.40, female: 0.45, mixed: 0.15 }, // 채널 오리지널 — 벽난로 어쿠스틱은 성별 편향 근거가 약해 균형에 가깝게.
+  'oldpop-sunlit-strings-pop': { male: 0.30, female: 0.55, mixed: 0.15 }, // 채널 오리지널 — 햇살·스트링 톤에 맞춰 여성 리드 우세.
+  'oldpop-adult-contemporary-80s': { male: 0.40, female: 0.50, mixed: 0.10 }, // 라이오넬 리치(남성)·앤 머레이(여성) 등 80년대 AC는 고르게 대표적, 소폭 여성 우세.
+  'adult-contemporary': { male: 0.40, female: 0.50, mixed: 0.10 }, // oldpop-adult-contemporary-80s와 동일 근거(장르 정의 자체가 같은 계열).
+  'retro-soul-pop': { male: 0.40, female: 0.45, mixed: 0.15 }, // 샘 쿡·오티스 레딩·마빈 게이(남성)와 아레사 프랭클린·다이애나 로스(여성)가 동등하게 대표적이라 원안(0.30/0.55)보다 균형에 가깝게 정정.
+  'rnb-old-school-romance-rnb': { male: 0.40, female: 0.45, mixed: 0.15 }, // 마빈 게이·루더 밴드로스(남성)와 아니타 베이커·데니스 윌리엄스(여성) 듀엣 전통이 공존.
+  'chanson': { male: 0.40, female: 0.50, mixed: 0.10 }, // 에디트 피아프·바르바라(여성)와 자크 브렐·샤를 아즈나부르(남성)가 동등한 샹송 정전이라 원안(0.35/0.55)보다 균형에 가깝게 정정. (별도 id인 oldpop-night-chanson은 male 0.75로 이미 남성-우세 — 이 기본 chanson과 구별)
+  'folk-pop': { male: 0.45, female: 0.40, mixed: 0.15 }, // 피터 폴 앤 메리·사이먼 앤 가펑클 등 포크는 남녀 듀오 전통이 강해 균형.
+  'acoustic-pop': { male: 0.40, female: 0.45, mixed: 0.15 }, // 채널 오리지널 — 성별 편향 근거가 약해 균형에 가깝게.
+
+  // 지시문 58 (TASK C) — 지시문 57이 채운 시니어 21종 다음으로, 채널이
+  // 실제 쓰는 나머지 장르 중 kr-idol-male(9)·kr-idol-female(9, kridol-*
+  // 9종을 그대로 공유)·jp-2030-pop(6/7종, kawaii-idol 제외) 우선 배정.
+  // city-night·lofi-study·modern-chill·kr-2030(총 56종)은 이 지시문에서
+  // 미착수 — §F 보고에 명시.
+  //
+  // kridol-* 9종 — kr-idol-male({male:15,female:0,mixed:3})과
+  // kr-idol-female({male:0,female:15,mixed:3}) 두 워크스페이스가 정반대
+  // 쿼터로 같은 9개 장르 id를 공유한다(위 kridolMaleGenrePacks
+  // archetypes: ['kr-idol-male','kr-idol-female'] 배열 자체가 이미
+  // 그렇게 설계됨). vocalPreference는 장르 단위 필드라 "이 장르는
+  // female-lean"처럼 한쪽으로 정하면 반대 워크스페이스에서 의미가
+  // 반전된다 — 실제로 이 9종의 vocal 서술 필드도 v5.7(TASK H)에서 같은
+  // 이유로 "male"을 빼고 성별-중립으로 이미 정정된 전례가 있다(바로 위
+  // kridol-performance-trap의 doc comment 참고). 같은 원칙을 따라 male=
+  // female을 동률로 두고, mixed(3곡 쿼터는 두 워크스페이스 모두 동일)만
+  // 각 장르의 vocal 서술(그룹 하모니/유니즌 vs 솔로 리드)에 근거해
+  // 차등화한다.
+  'kridol-performance-trap': { male: 0.425, female: 0.425, mixed: 0.15 }, // 솔로 랩싱 리드 + 유니즌 훅 스택 — 중간.
+  'kridol-synth-dance': { male: 0.40, female: 0.40, mixed: 0.20 }, // "layered unison hook vocal" — 그룹 유니즌 비중이 있어 mixed 소폭 상향.
+  'kridol-band-crossover': { male: 0.40, female: 0.40, mixed: 0.20 }, // "full unison chorus stack" — 앤섬 유니즌 코러스.
+  'kridol-midtempo-rnb': { male: 0.45, female: 0.45, mixed: 0.10 }, // "hushed lower-register verse delivery" — 솔로 벌스 중심.
+  'kridol-latin-afro': { male: 0.40, female: 0.40, mixed: 0.20 }, // "call-and-response backing" — 콜앤리스폰스.
+  'kridol-emotional-ballad': { male: 0.375, female: 0.375, mixed: 0.25 }, // "layered harmony stack carrying the melody" — 9종 중 그룹 하모니 비중이 가장 커 mixed 최고.
+  'kridol-retro-funk': { male: 0.40, female: 0.40, mixed: 0.20 }, // "unison group hook vocal".
+  'kridol-melodic-rap': { male: 0.45, female: 0.45, mixed: 0.10 }, // "melodic sing-rap flow" — 솔로 플로우 중심.
+  'kridol-hard-rap': { male: 0.475, female: 0.475, mixed: 0.05 }, // "low gritty rap-forward lead" — 9종 중 가장 솔로-중심(랩 벌스가 곡의 중심).
+
+  // jp2030-* 6종(reiwa-way-home-jpop 채널 실사용분, kawaii-idol 제외) —
+  // jp-2030-pop은 kridol과 달리 성별별 별도 워크스페이스로 나뉘지 않아
+  // 일반 아티스트 관행에 근거해 자유롭게 배정한다.
+  'jp2030-melodic-jrock': { male: 0.45, female: 0.35, mixed: 0.20 }, // 아니메 오프닝 계열 J-rock은 남성 밴드 보컬(원 오크 록 등)이 다소 우세하나 여성 밴드보컬(LiSA 등)도 대표적 — 근소한 남성 우세.
+  'jp2030-anime-cinematic': { male: 0.35, female: 0.45, mixed: 0.20 }, // 아니메 오프닝은 강한 여성 벨팅 보컬(LiSA·아이무·Eir Aoi 등)이 특히 두드러져 여성 우세.
+  'jp2030-heisei-nostalgia': { male: 0.40, female: 0.45, mixed: 0.15 }, // 헤이세이 밴드팝·드라마 주제가는 남성(미스터 칠드런 등)·여성(우타다 히카루 등) 모두 정전급이라 균형에 가깝게.
+  'jp2030-dance-vocal': { male: 0.35, female: 0.40, mixed: 0.25 }, // "crisp unison group vocal" — 퍼포먼스 그룹 보컬 색이 강해 mixed 상향.
+  'jp2030-neo-citypop': { male: 0.40, female: 0.45, mixed: 0.15 }, // 시티팝 계보는 야마시타 타츠로(남성) 창시자급과 다케우치 마리야(여성) "Plastic Love" 양쪽이 정전이라 균형에 가깝게.
+  'jp2030-chill-neosoul': { male: 0.35, female: 0.45, mixed: 0.20 }, // 네오소울은 국제적으로 여성 보컬 전통이 강하고("soft-focus low-lit intimacy"), 이 장르 특유의 친밀한 톤과도 맞아 여성 우세.
+
+  // 지시문 61 (TASK B) — 채널이 쓰는 82종 중 vocalPreference가 없던 나머지를
+  // 채운다. §B-4 주의에 따라 krkids-*/jpkids-*(kr-kids/jp-kids 아키타입) 14종은
+  // 의도적으로 제외했다 — core/localGenerator.ts:1507 자기 doc comment가
+  // 이미 명시하듯 이 아키타입은 vocalGenreAffinity 자체가 isKidsArchetype로
+  // 건너뛴다(kids는 forKids 프리셋만 쓴다), 여기 값을 채워도 조용히 무시될
+  // 뿐이라 근거 없는 죽은 데이터를 남기지 않는다. verified: false — 전부
+  // 장르 관행 근거(청취 검증 아님).
+
+  // city-pop* 10종 — 2020년대 시티팝 리바이벌 씬(Yung Bae류 퓨처펑크
+  // 포함)은 여성 보컬(원곡 샘플 다수가 다케우치 마리야류) 비중이 뚜렷하다.
+  'city-pop-soft': { male: 0.25, female: 0.55, mixed: 0.20 },
+  'city-pop-modern': { male: 0.25, female: 0.55, mixed: 0.20 },
+  'future-funk': { male: 0.20, female: 0.55, mixed: 0.25 }, // 퓨처펑크 리믹스는 여성 보컬 샘플이 압도적으로 많다.
+  'disco-pop-2020s': { male: 0.25, female: 0.55, mixed: 0.20 },
+  'city-pop-night': { male: 0.25, female: 0.55, mixed: 0.20 },
+  'city-pop-bright-female-groove': { male: 0.10, female: 0.75, mixed: 0.15 }, // 장르 id 자체가 female을 명시.
+  'city-pop-coastal-disco-pop': { male: 0.25, female: 0.55, mixed: 0.20 },
+  'city-pop-funky-rhythm-pop': { male: 0.30, female: 0.50, mixed: 0.20 },
+  'city-pop-airy-disco-pulse': { male: 0.20, female: 0.60, mixed: 0.20 },
+  'city-pop-club-disco-pop': { male: 0.25, female: 0.55, mixed: 0.20 },
+
+  // showa-modern (jazz 카테고리) — smooth-jazz-lounge와 같은 근거(쇼와
+  // 재즈카페 무드는 성숙한 여성 보컬 관행이 강하다).
+  'showa-modern': { male: 0.30, female: 0.55, mixed: 0.15 },
+
+  // lofi* 26종 — §B-4 "lofi-study는 보컬이 적은 장르다, mixed나
+  // instrumental 비중을 고려" 그대로 반영. id에 "vocal"이 명시된 3종만
+  // 보컬이 실제 정체성이라 여성 보컬 관행(로파이 보컬 샘플의 다수)을
+  // 반영하고, 나머지 23종(순수 인스트루멘탈/비트 중심)은 성별 주장을
+  // 만들지 않고 mixed를 높여 "보컬이 있어도 없어도 자연스러운" 균형을
+  // 둔다.
+  'lofi-soft-vocal-bedroom': { male: 0.20, female: 0.55, mixed: 0.25 },
+  'lofi-lofi-jazz-vocal': { male: 0.20, female: 0.55, mixed: 0.25 },
+  'lofi-rain-vocal-lofi': { male: 0.20, female: 0.55, mixed: 0.25 },
+  'lofi-cafe': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-dusty-study-hop': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-rainy-jazzhop': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-sleepy-instrumental': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-city-night-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-warm-guitar-loop': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-study-beats-piano': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-jazz-piano-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-minimal-focus-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-jazz-bass-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-hazy-guitar-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-coffee-shop-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-vinyl-soft-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-minimal-beats-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-jazz-lounge-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-rainy-day-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-instrumental-jazz-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-late-study-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-boom-bap-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-ambient-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-twilight-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-rainy-cafe-lofi': { male: 0.30, female: 0.30, mixed: 0.40 },
+  'lofi-hiphop-study': { male: 0.30, female: 0.30, mixed: 0.40 },
+
+  // kids* 3종 — kids(비-kr/jp 아이돌 계열, forKids 없이 일반 vocalGenreAffinity
+  // 경로를 타는 동요) 장르는 kidsAgeTierId 음색 정책과 충돌하지 않도록
+  // 강한 성별 편향을 두지 않는다.
+  'kids-bright-pop': { male: 0.40, female: 0.40, mixed: 0.20 },
+  'kids-acoustic-singalong': { male: 0.40, female: 0.40, mixed: 0.20 },
+  'kids-upbeat-pop': { male: 0.40, female: 0.40, mixed: 0.20 },
+
+  // kr2030-* 9종 — 서브장르 관행에 근거.
+  'kr2030-emo-band-pop': { male: 0.55, female: 0.30, mixed: 0.15 }, // 이모밴드팝은 남성 보컬 밴드 관행이 강하다.
+  'kr2030-dawn-rnb': { male: 0.25, female: 0.55, mixed: 0.20 }, // R&B 관행상 여성 우세.
+  'kr2030-y2k-retro': { male: 0.35, female: 0.45, mixed: 0.20 }, // Y2K 팝은 남녀 아이콘이 고르게 대표적.
+  'kr2030-electro-pop': { male: 0.25, female: 0.55, mixed: 0.20 }, // 유로팝/일렉트로팝 계열은 여성 리드 관행이 강하다.
+  'kr2030-ost-ballad': { male: 0.35, female: 0.50, mixed: 0.15 }, // 드라마 OST 발라드는 균형에 가깝되 여성 쪽이 근소 우세.
+  'kr2030-acoustic-folk': { male: 0.40, female: 0.40, mixed: 0.20 }, // 포크는 성별 편향 근거가 약해 균형.
+  'kr2030-mumble-melodic-rap': { male: 0.55, female: 0.25, mixed: 0.20 }, // 랩/힙합 보컬 관행상 남성 우세.
+  'kr2030-whisper-trap': { male: 0.55, female: 0.25, mixed: 0.20 },
+  'kr2030-cloud-hazy-rap': { male: 0.55, female: 0.25, mixed: 0.20 },
+
+  // kr2030-noir-deep-house (electronic) — 딥하우스는 보컬이 희박한
+  // 인스트루멘탈 중심 장르라 lofi와 같은 이유로 mixed를 높인다.
+  'kr2030-noir-deep-house': { male: 0.30, female: 0.35, mixed: 0.35 },
+
+  // japanese-era 7종 — 시대별 실제 대표 아티스트 관행에 근거.
+  'kayokyoku-70s': { male: 0.40, female: 0.45, mixed: 0.15 }, // 70년대 가요쿄쿠는 남녀 스타가 고르게 대표적, 여성 쪽 소폭 우세.
+  'japanese-folk-70s': { male: 0.55, female: 0.30, mixed: 0.15 }, // 이노우에 요스이·요시다 타쿠로 등 남성 싱어송라이터 전통이 강하다.
+  'new-music-70s': { male: 0.40, female: 0.45, mixed: 0.15 }, // 뉴뮤직 운동은 마츠토야 유미(여성) 등이 대표적이나 남성 아티스트도 공존.
+  'showa-groove-70s': { male: 0.45, female: 0.40, mixed: 0.15 }, // 훵크·소울 영향 쇼와 그루브는 남성 보컬 밴드 전통이 다소 우세.
+  'jpop-2000s-ballad': { male: 0.40, female: 0.45, mixed: 0.15 }, // 하마사키 아유미·우타다 히카루(여성)와 미스터 칠드런·GLAY(남성) 모두 정전급.
+  'jpop-2000s-rnb': { male: 0.30, female: 0.50, mixed: 0.20 }, // R&B 관행상 여성 우세.
+  'jpop-2000s-band': { male: 0.55, female: 0.30, mixed: 0.15 }, // 2000년대 J-록/밴드팝은 남성 보컬 밴드가 대다수.
+
+  // rnb 5종.
+  'alt-rnb': { male: 0.30, female: 0.50, mixed: 0.20 },
+  'trap-soul': { male: 0.45, female: 0.35, mixed: 0.20 }, // 트랩소울은 브라이슨 틸러 등 남성 아티스트가 창시한 계열.
+  'contemporary-rnb': { male: 0.30, female: 0.50, mixed: 0.20 },
+  'rnb-contemporary-airy-female': { male: 0.15, female: 0.70, mixed: 0.15 }, // id 자체가 female을 명시.
+  'rnb-alternative-night': { male: 0.30, female: 0.50, mixed: 0.20 },
+
+  // hiphop 2종 — 랩/힙합 보컬 관행상 남성 우세.
+  'chill-rap': { male: 0.55, female: 0.25, mixed: 0.20 },
+  'boom-bap-mellow': { male: 0.55, female: 0.25, mixed: 0.20 },
+
+  // 지시문 62 (TASK B) — 하루: "62를 장르 일부가 아니라 100% 반영하라는 거야."
+  // 채널 미사용 장르를 포함해 367종 전부를 vocalPreference로 채운다(지시문61은
+  // 채널 사용 137종 중 82종만 채웠다 — 이번엔 나머지 198종 전부). id 자체에
+  // 성별 신호(male/female/baritone/duet)가 있으면 그것을 따르고, 없으면
+  // 카테고리 관행 기본값(ballad/rnb/city-pop/lofi 각각 아래 주석대로)을
+  // 쓴다 — 지시문46/50의 재즈 female>=0.60 블랭킷 기본값과 같은 방식이다.
+  // verified: false 전부. rnb 기본값 {0.30,0.50,0.20}: R&B 장르 관행상
+  // 여성 리드 비중이 국제적으로 높다. city-pop 기본값 {0.25,0.55,0.20}:
+  // 2020년대 시티팝 리바이벌 씬의 여성 보컬 비중(지시문61 TASK B와 동일 근거).
+  // lofi 기본값 {0.30,0.30,0.40}: §B-4 "lofi-study는 보컬이 적은 장르다,
+  // mixed 비중을 고려" — 순수 인스트루멘탈/비트 장르가 다수라 mixed를 높인다.
+  // ballad 기본값 {0.35,0.45,0.20}: 한국 발라드는 남녀 모두 정전급 아티스트가
+  // 고르게 대표적이라 여성 쪽 소폭 우세의 균형값.
+  'christmas-soft-pop': { male: 0.4, female: 0.45, mixed: 0.15 }, // 일반적인 크리스마스 팝은 성별 편향 근거가 약해 균형에 가깝게.
+  'soft-rock': { male: 0.5, female: 0.35, mixed: 0.15 }, // oldpop-soft-rock-am과 같은 근거(브레드·아메리카 등 AM골드 카탈로그 다수가 남성 리드) — 소폭 남성 우세.
+  'piano-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'synthwave-mellow': { male: 0.35, female: 0.45, mixed: 0.2 }, // 신스웨이브 리바이벌은 city-pop과 인접한 정서라 여성 쪽 소폭 우세.
+  'kids-march': { male: 0.4, female: 0.4, mixed: 0.2 }, // 일반 동요(kids) 계열 — kidsAgeTier 정책과 충돌 방지 위해 균형.
+  'oldpop-countrypolitan': { male: 0.4, female: 0.45, mixed: 0.15 }, // 카운트리폴리탄은 글렌 캠벨(남성)·돌리 파튼(여성) 등 양쪽 다 대표적이라 균형에 가깝게.
+  'oldpop-yacht-west-coast': { male: 0.6, female: 0.25, mixed: 0.15 }, // 요트록은 마이클 맥도날드·크리스토퍼 크로스·스틸리 댄 등 남성 아티스트가 압도적.
+  'oldpop-orchestral-ballad-80s': { male: 0.4, female: 0.45, mixed: 0.15 }, // 80년대 오케스트랄 발라드는 남녀 파워발라드 모두 대표적, 균형에 가깝게.
+  'oldpop-light-synth-pop-warm': { male: 0.4, female: 0.45, mixed: 0.15 }, // 80년대 라이트 신스팝은 성별 편향 근거가 약해 균형.
+  'oldpop-soft-duet-80s': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'oldpop-gentle-lullaby-pop': { male: 0.3, female: 0.55, mixed: 0.15 }, // 자장가류는 관행상 여성 보컬 이미지가 강하다.
+  'jp2030-kawaii-idol': { male: 0.1, female: 0.75, mixed: 0.15 }, // 카와이 아이돌은 여성 아이돌 그룹이 정의 자체인 장르.
+  'krkids-action': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'krkids-daily-habit': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'krkids-counting-color': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'krkids-animal-vehicle': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'krkids-roleplay-story': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'krkids-bilingual': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'krkids-sleep-calm': { male: 0.4, female: 0.4, mixed: 0.2 }, // kr-kids-song — 현재 inert(§상단 doc comment), 100% 요구로 중립값 채움.
+  'jpkids-teasobi': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpkids-taiso-dance': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpkids-onomatopoeia': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpkids-food-vehicle': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpkids-daily-habit': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpkids-seasonal': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpkids-english-learning': { male: 0.4, female: 0.4, mixed: 0.2 }, // jp-kids-song — 같은 이유로 중립값 채움.
+  'jpop-2000s-dance': { male: 0.3, female: 0.5, mixed: 0.2 }, // 2000년대 J-pop 댄스는 스피드·모닝구무스메 등 여성 그룹 전통이 강해 여성 쪽 우세.
+  'neo-soul': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-ballad-2020s': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'bedroom-pop': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-soul': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-sunset-male-groove': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'city-pop-urban-duet': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'city-pop-summer-bass-slap': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-mellow-night-drive': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-metropolitan-smooth': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-dreamy-pastel-night': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-yacht-marina-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-bittersweet-summer-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-night-skyline-ballad': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-analog-camera-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-open-window-summer': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-moonlit-avenue-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-clean-arpeggio-groove': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-romantic-duet-glow': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'city-pop-luxury-lounge-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-uptempo-80s-bounce': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-sax-night-city': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-coastal-twilight-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-glossy-skyline-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-urban-romance-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-analog-tokyo-night': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-shopping-district-groove': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-rainy-window-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-sea-breeze-duet': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'city-pop-stylish-low-register': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-sentimental-summer-ballad': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-sunset-optimist-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-jazzy-luxury-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-soft-pastel-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-open-road-drive': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-duet-ballad': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'city-pop-mature-bass-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-strings-city-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-playful-guitar-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-midnight-sax-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-seaside-postcard-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-neon-metropolitan-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-heartbreak-rain-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-retro-dance-romance': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-luxury-coastal-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-weekend-drive-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-rooftop-lounge-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-cinematic-duet-skyline': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'city-pop-modern-retro-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'city-pop-classic-sunlit-pop': { male: 0.25, female: 0.55, mixed: 0.2 }, // city-pop 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-modern-soft-male': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'rnb-neo-soul-pocket': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-nineties-slow-jam': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-quiet-storm-baritone': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'rnb-trap-soul-confession': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-midnight-slow-jam': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-soulful-gospel-warmth': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-modern-duet': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'rnb-silky-studio-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-bedroom-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-neo-soul-groove': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-two-thousands-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-intimate-rnb-ballad': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-moody-alt-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-clean-sensual-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-baritone-slow-groove': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'rnb-dreamy-night-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-gospel-soul-lift': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-alt-duet-tension': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'rnb-late-night-neo-soul': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-polished-rnb-pop': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-low-key-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-bass-forward-slow-jam': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-confessional-male-rnb': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'rnb-soul-infused-female': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'rnb-modern-quiet-storm': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-trap-rnb-night': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-soft-duet-rnb': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'rnb-atmospheric-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-elegant-neo-soul': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-glossy-nineties-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-whisper-alt-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-soulful-male-rnb': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'rnb-emotional-female-rnb': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'rnb-minimalist-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-city-night-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-neo-soul-duet': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'rnb-heartbreak-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-romantic-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-moody-baritone-rnb': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'rnb-female-neo-soul-harmony': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'rnb-smooth-clean-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-airy-alt-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-gospel-colored-rnb': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-luxury-duet-slow-jam': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'rnb-late-night-confession': { male: 0.3, female: 0.5, mixed: 0.2 }, // rnb 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'rnb-velvet-baritone-rnb': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'lofi-male-chill-reflection': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'lofi-nostalgic-male-lofi': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'lofi-cassette-pop-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-dreamy-pop-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-mellow-rnb-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-lofi-folk': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-city-rain-baritone': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'lofi-sleepy-duet-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'lofi-neon-night-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-heartbreak-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-soul-ballad-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-soft-pop-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-rooftop-night-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-late-autumn-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-mellow-duet-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'lofi-dream-pop-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-close-confession-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-soft-jazzy-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-dusk-guitar-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-moonlight-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-cozy-soul-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-bass-focus-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-faded-memory-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-melancholy-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'lofi-bedroom-grain-lofi': { male: 0.3, female: 0.3, mixed: 0.4 }, // lofi 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-emotional-baritone': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-airy-korean-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-romantic-low-register': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-breakup-husky': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-cinematic-duet': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'ballad-sparse-piano-male': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-sentimental-acoustic': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-grand-slow-build': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-late-night-confession': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-soft-pop-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-polished-korean-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-cinematic-baritone': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-fragile-tender-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-rain-heartbreak-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-duet-breakup-ballad': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'ballad-acoustic-male-ballad': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-emotional-piano-female': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'ballad-dramatic-cinematic-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-dim-light-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-understated-male-ballad': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-ost-piano-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-healing-piano-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-nostalgic-female-ballad': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'ballad-soft-duet-ballad': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'ballad-cello-confession-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-rainy-day-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-classic-pop-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-dramatic-female-ballad': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'ballad-lullaby-comfort-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-piano-strings-delicate': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-longing-male-ballad': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-winter-female-ballad': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'ballad-romantic-confession-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-aftermath-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-cinematic-duet-rise': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'ballad-acoustic-pop-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-moonlight-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-power-controlled-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-wistful-cello-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-sparse-heartbreak-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-emotional-ost-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-soft-healing-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-sentimental-duet-ballad': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'ballad-dark-toned-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-fragile-whisper-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-reflective-falsetto-ballad': { male: 0.35, female: 0.45, mixed: 0.2 }, // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+  'ballad-elegant-female-ballad': { male: 0.15, female: 0.7, mixed: 0.15 }, // id에 female 명시.
+  'ballad-midnight-male-ballad': { male: 0.65, female: 0.2, mixed: 0.15 }, // id에 male/baritone 명시.
+  'ballad-acoustic-duet-ballad': { male: 0.3, female: 0.3, mixed: 0.4 }, // id에 duet 명시 — 두 목소리 비중.
+  'ballad-finale-ballad': { male: 0.35, female: 0.45, mixed: 0.2 } // ballad 카테고리 관행 기본값 — id 자체에 성별 신호 없음.
+};
+
 // 지시문 20 (TASK B-1) — real gap found: R&B/흑인 감성힙합/랩/트랩힙합
 // 벤치마크 14종은 이미 genreLibrary에 있었지만 archetypes가 modern-chill/
 // city-night뿐이었다 — 이 둘은 senior-oldpop 워크스페이스 소속이라
@@ -2440,7 +3082,12 @@ const CROSS_ARCHETYPE_ADDITIONS: Readonly<Record<string, ChannelArchetype[]>> = 
   'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop']
 };
 
-export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks].map(genre => {
+const allGenreSources = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks];
+// 지시문 65 (TASK A) — family별 라운드로빈 배정(assignStaticVocalTechniques
+// 자기 doc comment 참고)이라 전체 배열을 한 번에 넘겨야 한다 — .map() 안에서
+// 장르 하나씩 부르면 라운드로빈 순서를 만들 수 없다.
+const staticVocalTechniques = assignStaticVocalTechniques(allGenreSources);
+export const genreLibrary: EraTaggedGenrePack[] = allGenreSources.map(genre => {
   const eraTag = GENRE_ERA_TAG_OVERRIDES[genre.id] ?? ERA_BUCKET_BY_GENRE_ID[genre.id];
   const withEra = eraTag ? { ...genre, eraTag } : genre;
   const enriched = SIGNATURE_SOUND_OVERRIDES[genre.id] ? { ...withEra, signatureSound: SIGNATURE_SOUND_OVERRIDES[genre.id] } : withEra;
@@ -2461,7 +3108,20 @@ export const genreLibrary: EraTaggedGenrePack[] = [...legacyGenreProfiles, ...ki
   const withExtra = extraArchetypes
     ? { ...withKr2030, archetypes: [...new Set([...(withKr2030.archetypes ?? []), ...extraArchetypes])] }
     : withKr2030;
-  return { ...withExtra, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
+  // 지시문 65 (TASK A) — 음색(timbre)은 그대로 두고 창법(technique) 어휘를
+  // vocal 배열에 추가로 붙인다(교체 아님 — §A-2 "음색 서술은 유지한다").
+  // 이미 기술 어휘가 있는 극소수 legacyGenrePack(예: 지시문 62가 채운 항목
+  // 중 melisma/scat 등을 직접 문구에 넣은 경우)까지 중복 부착하지 않도록
+  // 대소문자 무시로 이미 포함됐는지 먼저 확인한다.
+  const technique = staticVocalTechniques.get(genre.id)!;
+  const alreadyHasTechnique = withExtra.vocal.some(v => v.toLowerCase() === technique.toLowerCase());
+  const withTechnique = alreadyHasTechnique ? withExtra : { ...withExtra, vocal: [...withExtra.vocal, technique] };
+  // 지시문 46 (TASK C-2) — 기존 vocalPreference(legacyGenrePack 등에서
+  // 이미 설정된 값)를 덮어쓰지 않는다 — 이 오버라이드 표에 있는 재즈 6종은
+  // 원래 vocalPreference가 없었으므로(§실측) 실제로는 항상 신규 부여다.
+  const vocalPreference = withTechnique.vocalPreference ?? VOCAL_PREFERENCE_OVERRIDES[genre.id];
+  const withVocalPreference = vocalPreference ? { ...withTechnique, vocalPreference } : withTechnique;
+  return { ...withVocalPreference, eraBuckets, ...(eraNoteKo ? { eraNoteKo } : {}) };
 });
 export const genrePacks: GenrePack[] = genreLibrary;
 export const importedGenreCount = notionDerivedGenrePacks.length;
@@ -2550,24 +3210,40 @@ export function getVisibleGenresForArchetype(
   return genreLibrary.filter(genre => visibleIds.has(genre.id));
 }
 
-export function searchExtendedGenres(query: string, categoryId = 'all') {
+export interface ExtendedGenreSearchResult {
+  genre: GenrePack;
+  eligibleForArchetype: boolean;
+}
+
+/**
+ * 지시문 Fable5-1단계 TASK C — archetype is now required so the search
+ * result can flag genres the caller's own channel can't actually use
+ * (e.g. K-pop turning up for a senior channel). Results still include
+ * ineligible genres (Policy B from the instruction: show + explain, don't
+ * silently hide) — eligibleForArchetype tells the caller which ones to
+ * disable and why, instead of letting a pick get silently sanitized away
+ * later at generation time.
+ */
+export function searchExtendedGenres(query: string, categoryId = 'all', archetype: ChannelArchetype = 'senior-morning'): ExtendedGenreSearchResult[] {
   const normalized = query.trim().toLowerCase();
-  return genreLibrary.filter(genre => {
-    if (genre.tier !== 'extended') return false;
-    if (categoryId !== 'all' && genre.categoryId !== categoryId) return false;
-    if (!normalized) return true;
-    const haystack = [
-      genre.label,
-      genre.styleCore,
-      genre.shortPrompt,
-      genre.productionGuidance,
-      ...(genre.aliases || []),
-      ...(genre.instruments || []),
-      ...(genre.moods || []),
-      ...(genre.audiences || [])
-    ].join(' ').toLowerCase();
-    return haystack.includes(normalized);
-  });
+  return genreLibrary
+    .filter(genre => {
+      if (genre.tier !== 'extended') return false;
+      if (categoryId !== 'all' && genre.categoryId !== categoryId) return false;
+      if (!normalized) return true;
+      const haystack = [
+        genre.label,
+        genre.styleCore,
+        genre.shortPrompt,
+        genre.productionGuidance,
+        ...(genre.aliases || []),
+        ...(genre.instruments || []),
+        ...(genre.moods || []),
+        ...(genre.audiences || [])
+      ].join(' ').toLowerCase();
+      return haystack.includes(normalized);
+    })
+    .map(genre => ({ genre, eligibleForArchetype: isGenreEligibleForArchetype(genre, archetype) }));
 }
 
 export function searchHiddenGenresForArchetype(

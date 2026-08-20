@@ -811,6 +811,17 @@ export const GENRE_TRAIT_OVERRIDES: Record<string, GenreTraitOverride> = {
   'kridol-retro-funk': {
     dynamicRange: 'medium',
     structureTraits: ['syncopated verse groove into a horn-lifted chorus', 'moderate build from verse restraint to chorus punch']
+  },
+  // 지시문 52 (TASK B-1) — 새 랩 계열 2종. hard-rap은 랩 벌스 자체가 곡의
+  // 중심(다이내믹 변화가 크지 않다)이라 'low', melodic-rap은 랩에서
+  // 노래로 넘어가는 훅 전환이 있어 performance-trap과 같은 'medium'.
+  'kridol-melodic-rap': {
+    dynamicRange: 'medium',
+    structureTraits: ['sing-rap verse melts into a sung hook chorus', 'moderate lift from verse pocket to chorus melody']
+  },
+  'kridol-hard-rap': {
+    dynamicRange: 'low',
+    structureTraits: ['rap verse anchors the track with minimal dynamic lift', 'chorus stays dark and grounded, never opens wide']
   }
 };
 

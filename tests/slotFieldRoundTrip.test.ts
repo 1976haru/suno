@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { reconcileWithPreassignedSlot } from '../src/core/batchPreallocation';
-import type { PreassignedSongSlot, SongIdea } from '../src/types';
+import { reconcileWithPreassignedSlot, preallocateSongSlots } from '../src/core/batchPreallocation';
+import { importSongsJson } from '../src/core/claudeCodeBridge';
+import { recommendVocalPlan } from '../src/core/vocalRecommender';
+import { buildGenreRotationPlan } from '../src/core/genreRotation';
+import { makeOptions, testGenres, testMoods, testSeason, channelPresets } from './fixtures';
+import type { GenerationOptions, PreassignedSongSlot, SongIdea } from '../src/types';
 
 /**
  * 지시문 26 TASK C — "슬롯이 만들었는데 팩에 안 남는" 결함 클래스의 재발
@@ -32,6 +36,7 @@ function buildFullSlot(): PreassignedSongSlot {
     introTextureText: 'warm string ensemble swell intro',
     vocalType: 'female',
     vocalText: 'female soft head-voice lead',
+    vocalVariantText: 'female soft head-voice lead, close-mic intimate',
     vocalGender: 'female',
     instrumentSet: ['upright bass', 'brushed snare'],
     arrangementDensity: 'medium',
@@ -54,6 +59,11 @@ function buildFullSlot(): PreassignedSongSlot {
     introTextureId: 'warm-strings',
     effectiveMoneyChordId: 'progression-1',
     effectiveVocalPresetId: 'female-soft-head-voice',
+    // 지시문 50 (TASK D-3) — effectiveVocalPresetId 바로 옆 슬롯-소유
+    // 스냅샷 필드. 지시문49가 만들고 지시문50이 실측한 것: 이 필드
+    // 자체가 SLOT_OWNED_FIELDS 표에 없어 왕복 끊김을 검사하지 못하고
+    // 있었다 — 20260813 팩이 vocal 필드 0개였던 실제 결함과 같은 유형.
+    vocalPresetSource: 'plan',
     effectiveGenreIds: ['oldpop-doowop-harmony'],
     killingPointText: 'half-step key lift in final chorus',
     killingPointPlacement: 'final-chorus',
@@ -64,7 +74,31 @@ function buildFullSlot(): PreassignedSongSlot {
     peakStrength: 'strong',
     perceivedEnergy: 4,
     perceivedEnergyReasonKo: '92 BPM, medium density — 활기 있는 편',
-    earwormText: 'na-na-na hook motif'
+    earwormText: 'na-na-na hook motif',
+    // 지시문 37 (TASK A-5) — killingPointText와 같은 유형: 앱이 배정한
+    // 값이며, 26에서 반복됐던 "슬롯에는 있는데 팩에 안 남는" 결함을 여기서
+    // 재발 방지 표에 추가한다.
+    partPlan: {
+      memberCount: 4,
+      members: [
+        { memberId: 'A', role: 'main-vocal', gender: 'female' },
+        { memberId: 'B', role: 'lead-vocal', gender: 'female' },
+        { memberId: 'C', role: 'main-rapper', gender: 'female' },
+        { memberId: 'D', role: 'sub-vocal', gender: 'female' }
+      ],
+      sectionAssignments: [
+        { section: 'Verse 1', memberIds: ['A', 'B'], role: 'sub-vocal' },
+        { section: 'Chorus', memberIds: ['all'], role: 'all' },
+        { section: 'Verse 2', memberIds: ['C', 'D'], role: 'main-rapper' },
+        { section: 'Chorus', memberIds: ['all'], role: 'all' },
+        { section: 'Final Chorus', memberIds: ['all'], role: 'all' }
+      ]
+    },
+    // 지시문 37 (TASK B) — moneyChordText와 같은 슬롯-소유 스냅샷 필드.
+    sectionStyleShifts: [
+      { section: 'Verse', styleAtoms: ['laid-back R&B groove', 'sparse arrangement'] },
+      { section: 'Chorus', styleAtoms: ['EDM-influenced drop', 'dense synth stack'] }
+    ]
   };
 }
 
@@ -126,6 +160,12 @@ const SLOT_OWNED_FIELDS: { field: keyof SongIdea; expected: unknown }[] = [
   { field: 'chorusStyle', expected: slot.chorusStyle },
   { field: 'chorusStyleText', expected: slot.chorusStyleText },
   { field: 'vocalType', expected: slot.vocalType },
+  // 지시문 56 (TASK A-4/B-3) — 실측: vocalText/vocalVariantText/vocalGender가
+  // 이 표에 없어서(=검사 배선이 없어서) 두 return 경로 모두에서 유실되고
+  // 있었다 — 발라드 세트 15/15 vocalText='' 회귀와 같은 결함.
+  { field: 'vocalText', expected: slot.vocalText },
+  { field: 'vocalVariantText', expected: slot.vocalVariantText },
+  { field: 'vocalGender', expected: slot.vocalGender },
   { field: 'eraTag', expected: slot.eraTag },
   { field: 'killingPointText', expected: slot.killingPointText },
   { field: 'killingPointPlacement', expected: slot.killingPointPlacement },
@@ -134,6 +174,8 @@ const SLOT_OWNED_FIELDS: { field: keyof SongIdea; expected: unknown }[] = [
   // killingPointText/arcPhase와 똑같은 결함 모양(slot에는 항상 있는
   // 필드가 song 객체로는 복사된 적이 없음) — 같은 표에 추가해 재발을 막는다.
   { field: 'moneyChordText', expected: slot.moneyChordText },
+  { field: 'partPlan', expected: slot.partPlan },
+  { field: 'sectionStyleShifts', expected: slot.sectionStyleShifts },
   { field: 'arcPhase', expected: slot.arcPhase },
   { field: 'intensity', expected: slot.intensity },
   { field: 'peakStrength', expected: slot.peakStrength },
@@ -149,7 +191,11 @@ const SLOT_OWNED_FIELDS: { field: keyof SongIdea; expected: unknown }[] = [
   { field: 'lyricThemeEraSettingKo', expected: slot.lyricThemeEraSettingKo },
   { field: 'effectiveMoneyChordId', expected: slot.effectiveMoneyChordId },
   { field: 'effectiveGenreIds', expected: slot.effectiveGenreIds },
-  { field: 'effectiveVocalPresetId', expected: slot.effectiveVocalPresetId }
+  { field: 'effectiveVocalPresetId', expected: slot.effectiveVocalPresetId },
+  // 지시문 50 (TASK D-3) — effectiveVocalPresetId 옆의 새 슬롯 필드
+  // (지시문49). 이 표에 추가되지 않았던 것 자체가 "만들었는데 검증
+  // 배선이 없다" 유형이었다.
+  { field: 'vocalPresetSource', expected: slot.vocalPresetSource }
 ];
 
 describe('지시문 26 TASK C — 슬롯 소유 필드 왕복: reconcileWithPreassignedSlot의 두 return 경로 모두에서 유실 없음', () => {
@@ -192,5 +238,122 @@ describe('지시문 26 TASK C — 슬롯 소유 필드 왕복: reconcileWithPrea
     const broken = rows.filter(r => !r.fastOk || !r.mainOk);
     console.log(`\n왕복 끊긴 필드: ${broken.length}개 (${broken.map(r => r.field).join(', ') || '없음'})`);
     expect(broken.length).toBe(0);
+  });
+});
+
+/**
+ * 지시문 50 (TASK D-3) — 위 describe는 reconcileWithPreassignedSlot을
+ * 직접 호출해 "슬롯이 있을 때" 필드 왕복을 검사한다. 이 블록은 한 단계
+ * 더 넓은 경로 — 실제 가져오기 진입점(importSongsJson, bridgeImport.ts)
+ * 까지 포함한 생성·전달·복원·감사 4단계와, 위 블록이 다루지 않는 "슬롯이
+ * 없는 독립 가져오기" 시나리오(지시문49/50 세션처럼 앱의 live
+ * preassignedSongs 상태를 공유하지 않는 별도 세션에서 만든 파일을 나중에
+ * 가져오는 경우)를 검사한다. 20260813 팩이 vocal 필드 0개였던 실제 결함이
+ * 바로 이 경로(슬롯 없음)에서 나왔다 — noSlotEffectiveFields는
+ * effectiveVocalPresetId/vocalPresetSource를 건드리지 않으므로(그 함수
+ * 자기 주석 참고), 에이전트가 자기 응답에 그 값을 되돌려줬을 때만
+ * 살아남는다 — songOutputShape(promptComposer.ts)/normalizeImportedSong
+ * (bridgeImport.ts) 배선이 바로 지시문50 TASK D-2가 고친 부분이다.
+ */
+function buildOpts(overrides: Partial<GenerationOptions> = {}): GenerationOptions {
+  const channel = channelPresets.find(c => c.id === 'good-morning-memory-radio')!;
+  return makeOptions({ channel, songCount: 15, genreIds: channel.preferredGenres, moodIds: channel.preferredMoods, ...overrides });
+}
+
+function realSlots(opts: GenerationOptions): PreassignedSongSlot[] {
+  const preview = recommendVocalPlan({
+    channelArchetype: opts.channel.archetype,
+    songCount: opts.songCount,
+    vocalQuota: { male: 5, female: 5, mixed: 5 },
+    seed: 1,
+    genrePlan: buildGenreRotationPlan(opts.genreIds, opts.songCount, 1)
+  });
+  const optsWithPlan = { ...opts, vocalPresetPlan: preview.map(rec => rec.presetId) };
+  return preallocateSongSlots(optsWithPlan, testGenres);
+}
+
+/** Minimal agent response containing only the 4 fields importSongsJson actually requires — deliberately omits every pass-through/optional field so the test proves slot-side restoration, not agent cooperation. */
+function bareResponseJson(slots: PreassignedSongSlot[]): string {
+  return JSON.stringify({
+    songs: slots.map(slotItem => ({
+      trackNo: slotItem.trackNo,
+      title: `Bare Title ${slotItem.trackNo}`,
+      hookPhrase: slotItem.hookPhrase || `Bare Hook ${slotItem.trackNo}`,
+      stylePrompt: `placeholder style text ${slotItem.trackNo}`,
+      lyrics: `[chorus]\n${slotItem.hookPhrase || 'placeholder hook'}\n${slotItem.hookPhrase || 'placeholder hook'}`
+    }))
+  });
+}
+
+/** Agent response that DOES echo back the pass-through fields (as songOutputShape now asks for), for the no-slot standalone-import scenario. */
+function echoingResponseJson(slots: PreassignedSongSlot[]): string {
+  return JSON.stringify({
+    songs: slots.map(slotItem => ({
+      trackNo: slotItem.trackNo,
+      title: `Echo Title ${slotItem.trackNo}`,
+      hookPhrase: slotItem.hookPhrase || `Echo Hook ${slotItem.trackNo}`,
+      stylePrompt: `placeholder style text ${slotItem.trackNo}`,
+      lyrics: `[chorus]\n${slotItem.hookPhrase || 'placeholder hook'}\n${slotItem.hookPhrase || 'placeholder hook'}`,
+      ...(slotItem.genreId ? { genreId: slotItem.genreId } : {}),
+      ...(slotItem.lyricTheme ? { lyricTheme: slotItem.lyricTheme } : {}),
+      ...(slotItem.pov ? { pov: slotItem.pov } : {}),
+      ...(slotItem.effectiveVocalPresetId ? { effectiveVocalPresetId: slotItem.effectiveVocalPresetId } : {}),
+      ...(slotItem.vocalPresetSource ? { vocalPresetSource: slotItem.vocalPresetSource } : {})
+    }))
+  });
+}
+
+describe('[지시문 50 TASK D-3] slotFieldRoundTrip — importSongsJson까지 포함한 4단계 왕복', () => {
+  it('슬롯이 있으면, 에이전트가 최소 필드만 돌려줘도 슬롯의 주요 필드가 최종 팩에 남는다', () => {
+    const opts = buildOpts();
+    const slots = realSlots(opts);
+    expect(slots.some(s => s.effectiveVocalPresetId)).toBe(true);
+    expect(slots.some(s => s.vocalPresetSource === 'plan')).toBe(true);
+
+    const report = importSongsJson(bareResponseJson(slots), opts, testGenres, testMoods, testSeason, slots, [], []);
+    expect(report.blueprint).not.toBeNull();
+    const songs = report.blueprint!.songs;
+    expect(songs).toHaveLength(slots.length);
+
+    const brokenFields: string[] = [];
+    for (const s of slots) {
+      const song = songs.find(x => x.trackNo === s.trackNo)!;
+      const check = (label: string, slotVal: unknown, songVal: unknown) => {
+        if (slotVal !== undefined && slotVal !== '' && songVal !== slotVal) brokenFields.push(`T${s.trackNo}.${label}: slot=${JSON.stringify(slotVal)} song=${JSON.stringify(songVal)}`);
+      };
+      check('genreId', s.genreId, song.genreId);
+      check('effectiveVocalPresetId', s.effectiveVocalPresetId, song.effectiveVocalPresetId);
+      check('vocalPresetSource', s.vocalPresetSource, song.vocalPresetSource);
+      check('structureTemplate', s.structureTemplate, song.structureTemplate);
+      check('bpm', s.tempo, song.bpm);
+    }
+    expect(brokenFields).toEqual([]);
+  });
+
+  it('슬롯이 없는 독립 가져오기에서도, 에이전트가 되돌려준 vocal 필드는 살아남는다 (지시문 50 TASK D-2 배선)', () => {
+    const opts = buildOpts();
+    const slots = realSlots(opts);
+    expect(slots.some(s => s.effectiveVocalPresetId)).toBe(true);
+
+    const report = importSongsJson(echoingResponseJson(slots), opts, testGenres, testMoods, testSeason, [], [], []);
+    expect(report.blueprint).not.toBeNull();
+    const songs = report.blueprint!.songs;
+
+    const brokenFields: string[] = [];
+    for (const s of slots) {
+      if (!s.effectiveVocalPresetId) continue;
+      const song = songs.find(x => x.trackNo === s.trackNo)!;
+      if (song.effectiveVocalPresetId !== s.effectiveVocalPresetId) brokenFields.push(`T${s.trackNo}.effectiveVocalPresetId: slot=${s.effectiveVocalPresetId} song=${song.effectiveVocalPresetId}`);
+      if (s.vocalPresetSource && song.vocalPresetSource !== s.vocalPresetSource) brokenFields.push(`T${s.trackNo}.vocalPresetSource: slot=${s.vocalPresetSource} song=${song.vocalPresetSource}`);
+    }
+    expect(brokenFields).toEqual([]);
+  });
+
+  it('20260813 팩 유형 회귀: vocalPresetPlan이 적용된 세트를 슬롯 없이 가져와도 vocal 필드가 0개가 되지 않는다', () => {
+    const opts = buildOpts();
+    const slots = realSlots(opts);
+    const report = importSongsJson(echoingResponseJson(slots), opts, testGenres, testMoods, testSeason, [], [], []);
+    const songsWithVocalField = (report.blueprint?.songs ?? []).filter(s => s.effectiveVocalPresetId);
+    expect(songsWithVocalField.length).toBeGreaterThan(0);
   });
 });

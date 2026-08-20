@@ -2,6 +2,8 @@ import type {
   BatchContext,
   GenerationOptions,
   GenrePack,
+  KpopMemberSlot,
+  KpopPartRole,
   MoodPack,
   PreassignedSongSlot,
   ScenePlanningMode,
@@ -30,10 +32,9 @@ import { currentWorkspaceId } from './workspaceScope';
 import { workspaceForArchetype } from '../data/workspaces';
 import { parseSetArcSpec, type SetArcSpec } from './setArcAdherence';
 import { buildPolicyExplorationInstructionLines, type PolicyExplorationSlotPlan } from './explorationPolicyEngine';
-import { buildIdolPartPatternSet, renderIdolPartPatternLine } from './idolPartPattern';
-import { hashSeed } from '../utils/prng';
 import { vocabularyBankById } from '../data/vocabularyBanks';
 import { isGenreEligibleForArchetype } from '../data/genreLibrary';
+import { resolveScenePlanningMode as resolveSharedScenePlanningMode } from './scenePlanningMode';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts (was 1,207 lines, one of
@@ -75,7 +76,7 @@ export function defaultBridgeOutputPath(opts: Pick<GenerationOptions, 'channel' 
  * must not make meta required — see its own prohibitions section).
  */
 function buildBridgeMeta(
-  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle' | 'songCount' | 'lyricLanguage'>,
+  opts: Pick<GenerationOptions, 'channel' | 'customConcept' | 'projectTitle' | 'songCount' | 'lyricLanguage' | 'videoTitle'>,
   outputFilename: string
 ) {
   const setName = outputFilename.replace(/^lyrics\//, '').replace(/\.json$/, '');
@@ -90,7 +91,12 @@ function buildBridgeMeta(
     // 지시문 18 (TASK C-2) — 앱이 이 요청을 만든 시점의 자기 버전. 지시문
     // 스스로 "meta를 verbatim으로 복사하라"고 이미 요구하므로(위 doc comment),
     // 이 필드도 별도 지시문 없이 자동으로 응답에 실려 돌아온다.
-    bridgeVersion: APP_VERSION
+    bridgeVersion: APP_VERSION,
+    // 지시문 55 (TASK A-1) — 실측: 지시문 텍스트(§54)에는 영상 제목이
+    // 나가지만 requestPayload.meta에 담는 코드가 없어 팩까지 안 남았다.
+    // videoTitle이 없을 때는 키 자체를 안 넣는다(§A-4 "videoTitle 없을
+    // 때 meta 변화 0건").
+    ...(opts.videoTitle?.trim() ? { videoTitle: opts.videoTitle.trim() } : {})
   };
 }
 
@@ -294,8 +300,11 @@ export interface ConceptSceneContext {
  * types.ts's ScenePlanningMode doc comment for why it's still a real type
  * member rather than removed.
  */
-export function resolveScenePlanningMode(opts: Pick<GenerationOptions, 'customConcept'>, conceptSceneContext: ConceptSceneContext | undefined): ScenePlanningMode {
-  return conceptSceneContext && opts.customConcept?.trim() ? 'concept-generated' : 'fixed-pool';
+export function resolveScenePlanningMode(
+  opts: Pick<GenerationOptions, 'customConcept'> & { scenePlanningMode?: ScenePlanningMode },
+  conceptSceneContext: ConceptSceneContext | undefined
+): ScenePlanningMode {
+  return resolveSharedScenePlanningMode(opts, conceptSceneContext);
 }
 
 function buildBridgePayload(
@@ -449,7 +458,54 @@ function titleLocalizedInstructionLineFor(opts: GenerationOptions): string {
       ? '  - Never write it as a phonetic transliteration of the English words (e.g. writing "Blue Cup" as "블루 컵") — that is not localization.'
       : '  - Never write it as a katakana phonetic transliteration of the English words (e.g. writing "Blue Cup" as "ブルーカップ") — that is not localization.',
     '  - Example: "title": "Blue Cup", "titleLocalized": "식어가는 찻잔" (NOT "파란 컵" — that is a literal translation, not a reinterpretation).',
-    '  - This titleLocalized value is for on-screen display only; it is never pasted into Suno\'s own title field (which stays the plain English "title" — no parentheses).'
+    '  - This titleLocalized value is for on-screen display only; it is never pasted into Suno\'s own title field (which stays the plain English "title" — no parentheses).',
+    // 지시문 55 (TASK C-3③) — 실측: 영어 제목은 서로 다른데(예: "One Shy
+    // Smile" vs "First Star Turns") titleLocalized가 같은 경우가 있었다
+    // (같은 장면 축(listenerSituation/emotionArc)에서 뽑아냈기 때문).
+    // titleLocalized도 title과 독립적으로 서로 달라야 한다는 것을 명시한다.
+    '  - CRITICAL: "titleLocalized" must also be unique across every song in this pack, the same requirement as the English "title" — two songs never share the same titleLocalized even if their scenes/emotionArcs are similar. If "title" differs between two songs, "titleLocalized" must differ too.'
+  ].join('\n');
+}
+
+/**
+ * 지시문 54 (TASK B) — 하루: "썸네일이나 플레이리스트 입력하는 곳이 있으면
+ * 거기서 입력하면 노래 제목이 자동으로 연동되어 생성되어야지." opts.videoTitle이
+ * 비어 있으면 ''을 반환해 기존 동작과 완전히 동일하다(§하지 말 것 "영상
+ * 제목을 필수로 만들지 말 것"). customConcept(장면·내용)과는 다른 층이라는
+ * 것과, 영상 제목의 단어를 그대로 반복하지 말라는 것(§B-2, "편안"이 15번
+ * 나오면 안 된다)을 함께 명시한다. customConcept이 비어 있으면(§B-3) 영상
+ * 제목이 장면 컨셉 역할도 겸하도록 안내를 추가한다.
+ *
+ * 지시문 55 (TASK B) — 실측: 지시문 자체(§54)는 배선돼 있었지만
+ * buildClaudeCodeInstruction의 조립 배열에서 titleInstructionLine 근처
+ * (거의 맨 끝, 15곡 전체 JSON payload 이후)에 있어 128,353자 지시문 중
+ * 113,567번째 글자에서야 처음 등장했다 — 같은 지시문의 lyricTheme 안내는
+ * 4,454번째 글자(약 25배 더 앞)라 LLM이 장면(lyricTheme) 중심으로 이미
+ * "생각을 굳힌" 뒤에야 영상 제목을 본다. 실제 재현: 추모 컨셉인데 청춘
+ * 회상 제목이 나왔다(§1-4). buildSetIntentSection("[이 세트가 하려는
+ * 것]", 지시문의 진짜 첫 내용)과 나란히 배치해 §B-2① "위치를 앞으로
+ * 옮긴다"를 해결한다(호출부는 아래 buildClaudeCodeInstruction 참고).
+ * §B-2②(곡별 예시)·③(lyricTheme과의 관계 명시)도 이 함수 안에 추가한다.
+ */
+function videoTitleInstructionLineFor(opts: GenerationOptions): string {
+  const videoTitle = opts.videoTitle?.trim();
+  if (!videoTitle) return '';
+  const conceptFallbackNote = opts.customConcept?.trim()
+    ? ''
+    : ' 별도의 컨셉(장면 설명)이 없으므로, 이 영상 제목의 정서가 장면·분위기의 기준 역할도 겸합니다 — 다만 각 곡의 실제 장면/이미지는 자유롭게 다양화하십시오(영상 제목 문장을 그대로 서술하지 마십시오).';
+  return [
+    `[영상 제목] 이 세트가 올라갈 영상/플레이리스트의 제목은 "${videoTitle}" 입니다.`,
+    `  - ${opts.songCount}곡의 제목이 이 정서와 이어지게 지으십시오 — customConcept이 곡의 장면·내용을 정하는 것과는 다른 층입니다. 이 영상 제목은 "곡 제목의 톤"만 정합니다.${conceptFallbackNote}`,
+    // 지시문 55 (TASK B-2③) — "지금 제목이 lyricTheme(장면)에서 나오고
+    // 있다"는 실측 원인 진단에 대한 직접 대응. 장면 다양성 자체는 막지
+    // 않는다(그건 lyricTheme의 역할) — 그 장면에서 나오는 "제목의 정서"만
+    // 영상 제목을 따르게 한다.
+    '  - 각 곡의 장면(lyricThemeText)은 서로 다를 수 있고 그래야 합니다 — 그러나 그 장면에서 뽑아내는 제목의 정서·톤은 이 영상 제목을 따라야 합니다. 장면이 달라도 제목이 풍기는 감정은 이 영상 제목 하나로 수렴해야 합니다.',
+    '  - ① 영상 제목에 쓰인 단어를 곡 제목에 그대로 쓰지 마십시오.',
+    '  - ② 같은 정서를 서로 다른 이미지·표현으로 나타내십시오.',
+    `  - ③ ${opts.songCount}곡이 서로 다른 각도에서 그 정서에 접근하게 하십시오 — 같은 단어나 표현을 반복하면 안 됩니다.`,
+    // 지시문 55 (TASK B-2②) — 곡별 예시. §55 본문의 실제 예시 그대로.
+    '  - 예: 영상 제목이 "그곳에서는 편안하세요"라면, 곡 제목은 "거기 그 자리에서" · "이제는 아프지 않게" · "먼저 가신 길" · "남겨진 아침" · "다시 만날 때까지"처럼 — 단어는 겹치지 않지만 정서(추모·이별의 위로)는 15곡 모두 이어집니다. "편안한 그곳" · "그곳에서 편안히"처럼 원문 단어를 재배열만 하는 것은 금지된 패턴입니다.'
   ].join('\n');
 }
 
@@ -521,7 +577,10 @@ function slowTrackLengthCallouts(slots: PreassignedSongSlot[]): string[] {
 // task's own "유지할 결정론" list), not stylistic wording.
 function introTextureInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.introTextureText)
-    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement.'
+    // 지시문 59 (TASK A-3) — "인트로·오프닝 지시를 뒤로": 삭제하지 않고
+    // stylePrompt 안에서의 위치만 6번 자리(장르·BPM·악기·머니코드·보컬 뒤)로
+    // 명시한다.
+    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement. Place this descriptor late in the stylePrompt (position 6, per the CRITICAL element-order rule above) — it is production detail, not genre identity, so it should never be one of the opening clauses.'
     : '';
 }
 
@@ -531,19 +590,63 @@ function negativeStyleInstructionLineFor(preassignedSongs: PreassignedSongSlot[]
     : '';
 }
 
-function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
-  return preassignedSongs.some(slot => slot.genreText)
-    ? '- Each "preassignedSongs" entry also includes "genreText" - the genre/sub-style identity this track must stay recognizably within (do not substitute a different genre or the pack-level genre list). The exact wording is a reference, not a script: compose your own stylePrompt description of this genre rather than copying the phrase verbatim.'
+// 지시문 58 (TASK A) — 실측: 8/13 세트("warm healing ballad, timeless pop
+// balladry, 68 BPM...")까지는 stylePrompt가 장르로 시작했는데, 지시문 46의
+// 시대 바닥(eraGuardrailLines) 반영 이후 8/14 세트부터 시대·장면이 장르보다
+// 앞으로 밀렸다("late-1950s memory through 1970s piano pop ballad lens...",
+// "1960s-leaning Motown Pop Soul..."). genreInstructionLineFor는 "네 말로
+// 써라"만 요구했지 "어디에 쓰라"는 요구가 없었다 — 그 공백을 채운다. 시대
+// 지시(eraGuardrailLines) 자체는 건드리지 않는다(§하지 말 것) — 장르 바로
+// 뒤에 오면 되는 것이지 없애는 게 아니다.
+// 지시문 59 (TASK A-4) — 실측: 8/14 세트는 보컬 서술 5개(음역·딜리버리·
+// 질감·근접감·시대기법)가 연속으로 이어졌는데 8/13은 2개였다("low calm male
+// baritone, restrained emotional delivery"). 개수 문제이지 어휘 문제가
+// 아니다 — vocalText 자체(지시문 56이 만든 곡별 변주)는 그대로 두고, 그중
+// 몇 개를 stylePrompt에 실제로 옮겨 적을지만 2~3개로 좁힌다. 예전 문구
+// ("weave that exact phrase ... verbatim ... do not paraphrase it away")는
+// vocalText 전체(콤마로 이어진 모든 절)를 그대로 옮기라는 요구였다 — 그게
+// 이 실측의 실제 원인이다. 두 빌더(단일 세트/마스터 모드)가 각자 인라인
+// 문자열을 복제해 왔던 것도 이 함수로 합쳐 어긋나지 않게 한다.
+function vocalInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.vocalText)
+    ? '- Each "preassignedSongs" entry also includes "vocalText" — this track\'s vocal identity. It may contain several comma-separated descriptive clauses (register/gender, delivery, timbre, mic proximity, era technique) built for per-song differentiation across the pack. Select 2-3 of those clauses for the stylePrompt\'s vocal description — always keep the first clause (gender/register identity; never substitute a different vocal gender or type, e.g. male instead of female, or an adult voice for a kids choir) plus 1-2 more that read best for this song. Do not weave in every clause verbatim (that reads as an overloaded, generic vocal description) and do not paraphrase the gender/type away.'
     : '';
+}
+
+function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string[] {
+  if (!preassignedSongs.some(slot => slot.genreText)) return [];
+  return [
+    '- Each "preassignedSongs" entry also includes "genreText" - the genre/sub-style identity this track must stay recognizably within (do not substitute a different genre or the pack-level genre list). The exact wording is a reference, not a script: compose your own stylePrompt description of this genre rather than copying the phrase verbatim.',
+    '- CRITICAL — word order: every stylePrompt MUST OPEN with this track\'s genre identity, before era, scene, mood, or BPM. The first phrase a listener-facing generator reads must name the genre; era and scene come after it, not before.\n  GOOD: "Doo-Wop Close Harmony, 1950s-60s, 68 BPM, ..."\n  BAD:  "late-1950s memory through a doo-wop lens, 68 BPM, ..."\n  Rewording the genre in your own words is fine (per the line above) — moving it out of first position is not.',
+    // 지시문 59 (TASK A) — 실측: 지시문 58이 "장르가 첫 자리인가"만 고쳤더니
+    // 악기가 뒤로 밀렸다(8/13 세트 첫 악기 등장 위치 중앙값 62자 -> 8/14
+    // 220자, 개수는 오히려 늘었는데도). "장르를 만드는 것은 악기다" — 이
+    // 어휘가 앞에 있어야 그 장르로 들린다. 지시문 46(시대)·47~56(보컬)·4·11
+    // (인트로/오프닝)이 각각 앞자리를 요구한 결과 악기가 밀려난 것이지, 어느
+    // 한 지시문의 결함이 아니다 — "어디에 넣어라"는 요구가 없었을 뿐. 전체
+    // 요소 순서를 한 곳에 명시해 그 공백을 채운다.
+    '- CRITICAL — stylePrompt element order: write each stylePrompt in roughly this order — (1) this track\'s genre identity, (2) BPM, (3) THREE TO FIVE instruments/rhythm elements from THIS genre (these are what make the genre audibly recognizable — a listener hears the genre through them, not through the genre label alone), (4) the money-chord progression, (5) the lead vocal description, (6) everything else (room/space, arrangement density, intro handling, opening-loudness, killing point). If the first genre-defining instrument appears past roughly 150 characters into the stylePrompt, the genre reads weakly even when correctly named up front.\n  GOOD: "early-1960s British beat pop, 74 BPM, jangly 12-string electric guitar, melodic walking bass, tambourine backbeat, brushed drum kit, I-V-vi-IV progression, low calm male baritone, restrained emotional delivery, ..."\n  BAD:  "late-1950s memory through a 1970s piano pop ballad lens, 66 BPM, soulful female voice, restrained understated reading, warm rounded midrange, intimate close-mic, singing starts immediately with no intro tag, full playback level from first bar, grand piano, ..." (instruments don\'t appear until 220 characters in — the genre reads weakly despite being named first)'
+  ];
 }
 
 // TASK v3.62 (TASK 1-1) — instrumentSet/arrangementDensity are now the
 // channel's typical instrumentation/density as reference, not a checklist
 // every song must weave in verbatim (see introTextureInstructionLineFor's
 // comment for why).
+// 지시문 59 (TASK C) — "장르 instruments가 실제로 프롬프트에 실리는가":
+// instrumentSet은 genre.instruments에서 파생된다(core/promptComposer.ts's
+// rotatingInstrumentSet -> buildGenrePromptSummary). moneyChordText/
+// hookDeviceText 수준의 verbatim-필수로 전면 전환하지는 않는다 — TASK v3.62의
+// 실측 회귀("warm string pad swell"/"layered backing" 같은 1960s 트랙에
+// 없던 프로덕션 텍스처가 이 필드를 문자 그대로 지키라고 했을 때 나왔다,
+// 위 introTextureInstructionLineFor 주석 참고)를 되돌리는 위험을 이 지시문의
+// "하지 말 것"이 요구하지 않는다. 대신 기본값을 "쓴다"로 명시하고
+// 시대 부적합이 실제로 확인될 때만 개별 치환하도록 좁힌다 — 통째로
+// 자유 작곡할 여지를 없앤다. 위 CRITICAL 요소 순서 규칙의 3번 자리(장르
+// 악기 3~5개)와 직접 연결한다.
 function instrumentInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.instrumentSet?.length)
-    ? '- Each "preassignedSongs" entry may include "instrumentSet" — 2-3 instruments typical for this channel/genre, as REFERENCE, not a checklist to weave in verbatim. Use them if they suit this song\'s era and genre; substitute an era-appropriate equivalent if they don\'t (e.g. don\'t put a Rhodes electric piano in a 1962 doo-wop track just because instrumentSet suggested one for a different, later-era genre). Compose the instrumentation your own musical knowledge says is right for this song.'
+    ? '- Each "preassignedSongs" entry may include "instrumentSet" — instruments drawn from this track\'s own genre (the same genre named in "genreText"), meant to fill position 3 of the CRITICAL element-order rule above. Use them by default. Only substitute an individual instrument when it is genuinely anachronistic for this song\'s specific era (e.g. don\'t put a Rhodes electric piano in a 1962 doo-wop track just because instrumentSet suggested one meant for a different, later-era genre) — a single era-inappropriate item gets swapped for an era-appropriate equivalent, not the whole set replaced with your own unrelated instrumentation.'
     : '';
 }
 
@@ -783,6 +886,20 @@ function progressionNameOnly(moneyChordText: string): string {
   return moneyChordText.split(' - ')[0].trim();
 }
 
+// 지시문 66 (TASK C) — vocalTechniqueText는 vocalText 안에도 이미 곡별 창법
+// 구절로 얹혀 있지만(core/vocalPlan.ts buildVocalTechniquePlanByGenre),
+// 위 vocalInstructionLineFor는 "vocalText의 구절 중 2-3개만 골라 쓰고
+// 나머지는 패러프레이즈해도 된다"는 자유도를 준다 — 39개 팩 실측에서 창법
+// 구절이 통째로 빠지거나 다른 문구로 대체되는 사례가 나왔다(§1-2). 앱이
+// 이미 세트 전체의 창법 중복을 관리하므로(vocalTechniquePlan) LLM이 이
+// 구절을 바꾸면 그 중복 관리가 무의미해진다 — moneyChordText와 같은
+// verbatim-weave 신뢰 모델로 별도 지시한다.
+function vocalTechniqueInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  const example = preassignedSongs.find(slot => slot.vocalTechniqueText)?.vocalTechniqueText;
+  if (!example) return '';
+  return `- Each "preassignedSongs" entry with a "vocalTechniqueText" field (e.g. "${example}") carries this track's assigned singing TECHNIQUE — how the voice is sung (melisma, scat, falsetto lift, behind-the-beat phrasing...), not its timbre/register. The app picked this phrase to avoid repeating the same technique across this pack's songs. Use this exact technique phrase in the vocal slot of the stylePrompt, alongside (not replacing) the register/timbre clauses you select from "vocalText". Do not substitute a different technique and do not paraphrase it away.`;
+}
+
 function moneyChordInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   const example = preassignedSongs.find(slot => slot.moneyChordText)?.moneyChordText;
   if (!example) return '';
@@ -814,6 +931,56 @@ function chorusContrastInstructionLineFor(preassignedSongs: PreassignedSongSlot[
 }
 
 /**
+ * 지시문 37 (TASK B) — K-pop만: "한 곡 안에서 절은 R&B, 후렴은 EDM처럼
+ * 섹션마다 장르/편곡이 바뀐다." moneyChordText와 같은 verbatim-weave 신뢰
+ * 모델(chorusContrastText/hookDeviceText의 reference-not-verbatim과는 다름
+ * — 섹션별 스타일은 앱이 이미 확정한 값이라 LLM이 재해석할 필요가 없다).
+ * "Section: atom, atom" 라벨을 그대로 유지하라고 명시한다 —
+ * data/promptAxisLexicon.ts의 SECTION_SCOPED_LABEL_PATTERN이 이 라벨을
+ * 봐야 finalPromptNormalizer가 벌스의 sparse와 후렴의 dense를 같은 축의
+ * 모순 선언으로 오판해 하나를 지우는 사고를 피할 수 있다.
+ */
+function sectionStyleShiftInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.sectionStyleShiftText)
+    ? '- Each "preassignedSongs" entry may include "sectionStyleShiftText" — weave it into that song\'s stylePrompt VERBATIM as its own comma-separated clauses, one per section (e.g. "Verse: laid-back R&B groove, sparse arrangement, Chorus: EDM-influenced drop, dense synth stack"). Keep each "Section:" label exactly as given and do not merge sections together — the label is what tells this app it is a section-scoped style shift, not a whole-song density contradiction.'
+    : '';
+}
+
+/**
+ * 지시문 39 (TASK B-6) — "머니코드가 노래당 꼭 하나가 아니라 2~3개 있어도
+ * 되지 않아?" sectionStyleShiftInstructionLineFor와 완전히 같은 verbatim-
+ * weave 신뢰 모델(moneyChordInstructionLineFor 위와 달리, 이 필드가 있는
+ * 곡은 진행 자체가 섹션별로 이미 확정된 값이라 LLM이 재해석할 필요가
+ * 없다). moneyChordSectionText가 있는 곡만 해당하고(1개 진행 곡은
+ * moneyChordText만으로 이미 충분), 있을 때는 이 지시가
+ * moneyChordInstructionLineFor의 단일-진행 지시보다 우선한다는 것을
+ * 명시한다 — 둘이 충돌하지 않도록.
+ */
+function moneyChordSectionInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.moneyChordSectionText)
+    ? '- Some "preassignedSongs" entries additionally include "moneyChordSectionText" — this song uses MULTIPLE chord progressions, one per section (e.g. "Verse: I-vi-IV-V doo-wop progression / Chorus: I-V-vi-IV progression"). When present, weave it into that song\'s stylePrompt VERBATIM as its own comma-separated clauses, one per section, and use THAT instead of the single "moneyChordText" progression for this song. Keep each "Section:" label exactly as given and do not merge sections together — the label is what tells this app it is a section-scoped harmony change, not a contradictory whole-song harmony declaration.'
+    : '';
+}
+
+/**
+ * 지시문 43 (TASK E) — 실측(20260810 K-pop 세트) 화음·챈트 언급 8/18. 지시문
+ * 37 TASK C가 만든 core/kpopSingability.ts는 "따라 부르기 쉬움"을 사후에만
+ * 재는 advisory 지표였지 생성 시점에 이걸 만들라고 요청한 적이 없었다 —
+ * 측정기는 있는데 지시문이 없었던 것이 진짜 원인(§F-2와 같은 유형의 결함).
+ * core/kpopSingability.ts's measureKpopSingability가 실제로 읽는 신호
+ * (CHANT_SECTION_TAG_PATTERN = "chant"/"ad-lib"/"call and response" 섹션
+ * 태그, hookRepeatCount >= 4)를 그대로 생성 지시문으로 옮긴다 — 새 임계값을
+ * 만들지 않고 이미 있는 측정기가 인정하는 형태를 그대로 요청한다.
+ * partPlan이 있는 트랙(kr-idol 전용, kpopPartPlanInstructionLines와 같은
+ * 게이팅)에서만 나간다.
+ */
+function kpopChantBackingInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.partPlan)
+    ? '- K-pop idol convention: every chorus should read as a full backing-vocal stack (layer in stylePrompt descriptors like "layered vocal harmony", "unison group vocal stack", "call-and-response backing"), not a single lead voice. Include at least one lyric section tagged "[Chant]", "[Ad-lib]", or "[Call and Response]" in most songs (short group-shouted or ad-libbed lines, not full verses). Repeat the exact hook line 4+ times across the song\'s lyrics (chorus + final chorus + any tag/outro repeats) so it reads as genuinely sing-along.'
+    : '';
+}
+
+/**
  * TASK v3.64-B — same reference-not-verbatim pattern as
  * hookDeviceInstructionLineFor above. Real measurement: earworm mode's old
  * flat instruction ("include 'simple stepwise melody' and 'singalong-
@@ -841,7 +1008,9 @@ function earwormInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): str
  */
 function openingLoudnessInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
   return preassignedSongs.some(slot => slot.openingLoudnessText)
-    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build.'
+    // 지시문 59 (TASK A-3) — introTextureInstructionLineFor와 같은 위치
+    // 지시. 이 필드 자체(트랙 1-3 한정, 지시문 4·11)는 그대로 둔다.
+    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build. Like introTextureText, this belongs late in the stylePrompt (position 6, per the CRITICAL element-order rule above), never as an opening clause.'
     : '';
 }
 
@@ -1467,24 +1636,88 @@ function buildDistinctChoiceInstructionLines(songCount: number, workspaceId: Wor
 }
 
 /**
- * v5.24 (TASK C §3-5) — "곡마다 파트 배분을 명시하십시오... 파트 패턴 8종 이상,
- * 같은 패턴 최대 3곡." Kept as its own instruction block (not threaded through
- * PreassignedSongSlot) so it stays fully additive — every workspace other
- * than kr-idol-male/kr-idol-female gets an empty array, identical to
- * pre-v5.24 output.
+ * 지시문 37 (TASK A-4) — v5.24의 buildIdolPartPatternInstructionLines(제네릭
+ * A/B/C 패턴, PreassignedSongSlot에 실리지 않아 팩 JSON에 남지 않던 조언성
+ * 블록 — core/idolPartPattern.ts 참고)를 대체한다. 파트 배분을 "어떻게
+ * 나눌지" 지시하는 블록을 두 개 동시에 주면 서로 다른 배분을 말하게 되어
+ * 충돌한다(하지 말 것 §5 "낡은 경로를 남긴 채 새 경로를 추가하지 않는다") —
+ * 이제 core/kpopPartPlan.ts's buildKpopPartPlan이 슬롯에 미리 계산해 둔
+ * partPlan을 moneyChordText/hookDeviceText와 같은 신뢰 모델로 그대로
+ * (verbatim) 전달한다. LLM이 파트를 스스로 창작하지 않는다 — 앱이 배정한
+ * 값이며, 가져오기 시 슬롯에서 복원해 팩 JSON에 남긴다(TASK A-5).
  */
-function buildIdolPartPatternInstructionLines(workspaceId: WorkspaceId, songCount: number, seedSource: string): string[] {
-  if (workspaceId !== 'kr-idol-male' && workspaceId !== 'kr-idol-female') return [];
-  const patterns = buildIdolPartPatternSet(songCount, hashSeed(seedSource));
-  if (!patterns.length) return [];
+const KPOP_PART_ROLE_LABEL: Record<KpopPartRole, string> = {
+  'main-vocal': 'main vocal',
+  'lead-vocal': 'lead vocal',
+  'sub-vocal': 'sub vocal',
+  'main-rapper': 'main rapper',
+  'lead-rapper': 'lead rapper',
+  all: 'All',
+  'ad-lib': 'ad-lib'
+};
+
+const KPOP_RAPPER_ROLES = new Set<KpopPartRole>(['main-rapper', 'lead-rapper']);
+
+/**
+ * 지시문 43 (TASK D-4) — 실측 근거: core/lyricsAst.ts의 parseLyricsSections는
+ * 섹션 raw tag 문자열에 "rap"이 포함될 때만 그 섹션을 type:'rap'으로
+ * 분류한다(releaseReadiness.ts의 checkKpopRapShare가 바로 이 분류를 센다).
+ * 지시문 37이 만든 원래 태그 예시("[Verse 2: Member C] (main rapper)")는
+ * "rap"이라는 글자 자체가 섹션 태그 안에 없어 랩으로 집계되지 않았다 —
+ * 랩 배정 실패가 아니라 "랩이라고 표시되지 않는" 표시 실패였다(§C-2 원인
+ * 추적과 같은 유형의 진짜 원인). 래퍼 역할 섹션만 태그 자체에 "Rap"을
+ * 박아 넣도록 렌더링을 바꾼다 — moneyChordText 등과 같은 verbatim 신뢰
+ * 모델이므로 LLM이 태그를 재해석해 지어내지 않는다.
+ */
+/**
+ * 지시문 52 (TASK A-4) — 하루: "부르는 사람들이 다 다른 음색·창법으로
+ * 부르잖아." 태그 안의 이름을 "Member A"에서 "Member A — bright thin
+ * tenor"로 바꾼다 — moneyChordText와 같은 verbatim weave 모델이므로
+ * lyric tag 문자열 자체에 음색이 실려야 LLM이 재해석 없이 그대로 쓴다.
+ * 'all' 섹션(전원 합창)은 특정 한 명의 음색으로 대표할 수 없으므로 그대로
+ * "All"만 남긴다.
+ */
+function kpopMemberTimbreLabel(memberId: string, members: KpopMemberSlot[]): string {
+  if (memberId === 'all') return 'All';
+  const member = members.find(m => m.memberId === memberId);
+  return member?.timbreText ? `Member ${memberId} — ${member.timbreText}` : `Member ${memberId}`;
+}
+
+function kpopSectionTagInstruction(section: string, role: KpopPartRole, memberIds: string[], members: KpopMemberSlot[]): string {
+  const who = role === 'all' ? 'All' : memberIds.map(id => kpopMemberTimbreLabel(id, members)).join(', ');
+  if (!KPOP_RAPPER_ROLES.has(role)) return `[${section}: ${who}]`;
+  return `[Rap ${section}: ${who}]`;
+}
+
+function kpopPartPlanInstructionLines(preassignedSongs: PreassignedSongSlot[]): string[] {
+  const withPlan = preassignedSongs.filter(slot => slot.partPlan);
+  if (!withPlan.length) return [];
+  const memberLabel = (id: string) => (id === 'all' ? 'All' : `Member ${id}`);
+  const hasRapperRole = withPlan.some(slot => slot.partPlan!.sectionAssignments.some(a => KPOP_RAPPER_ROLES.has(a.role)));
+  const trackBlocks = withPlan.flatMap(slot => {
+    const plan = slot.partPlan!;
+    // 지시문 52 (TASK A-4) — 트랙별 멤버 로스터 요약. lyric tag 안의 음색은
+    // 섹션마다 나뉘어 보이므로, 곡 전체 로스터를 한 줄로 먼저 보여줘 LLM이
+    // "이 곡에 이런 멤버가 있다"는 전체 그림을 먼저 파악하게 한다.
+    const rosterLine = `    Members: ${plan.members.map(m => `${m.memberId}(${KPOP_PART_ROLE_LABEL[m.role]}: ${m.timbreText})`).join(' / ')}`;
+    const sectionLines = plan.sectionAssignments.map(a => {
+      const who = a.role === 'all' ? 'All' : a.memberIds.map(memberLabel).join(', ');
+      const roleSuffix = a.role === 'all' ? '' : ` (${KPOP_PART_ROLE_LABEL[a.role]})`;
+      const tag = kpopSectionTagInstruction(a.section, a.role, a.memberIds, plan.members);
+      return `    ${a.section}: ${who}${roleSuffix} — lyric tag: "${tag}"`;
+    });
+    return [`  Track ${slot.trackNo} (${plan.memberCount} members):`, rosterLine, ...sectionLines, ''];
+  });
   return [
     '',
     '[파트 배분]',
     '',
-    '  아이돌 곡은 파트가 곧 구조입니다. 아래 트랙별 파트 패턴을 그대로 따르십시오 (A/B/C는 서로 다른 보컬 파트를 뜻하며, 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오).',
+    '  아이돌 곡은 파트가 곧 구조입니다. 아래는 트랙별로 앱이 미리 정한 파트 배분입니다 — 가사 섹션 태그에 각 줄 끝의 "lyric tag" 문자열을 정확히 그대로 쓰십시오 (예: "[Verse 1: Member A — bright thin tenor]", "[Chorus: All]"). 같은 곡 안에서도 멤버마다 음색이 다릅니다 — tag에 적힌 음색 묘사를 그 구간의 가창 스타일에 실제로 반영하십시오. 인원수나 "그룹"을 가사·설명에 직접 쓰지 마십시오.',
+    ...(hasRapperRole
+      ? ['  "(main rapper)"/"(lead rapper)"로 표시된 섹션은 반드시 그 lyric tag 그대로("Rap Verse" 형태, "Rap"이라는 글자를 태그 안에 포함) 쓰십시오 — 노래하듯 부르지 않고 실제 랩 딜리버리(플로우·라임)로 씁니다. lyric tag 안의 음색 묘사(예: low gritty rap flow, fast triplet flow — data/kpopMemberTimbres.ts의 main-rapper/lead-rapper 후보)가 그 멤버의 실제 랩 스타일입니다. main-rapper와 lead-rapper가 같은 곡에 있으면 서로 다른 플로우로 쓰십시오.']
+      : []),
     '',
-    ...patterns.map((pattern, i) => renderIdolPartPatternLine(i + 1, pattern)),
-    ''
+    ...trackBlocks
   ];
 }
 
@@ -1499,7 +1732,7 @@ function buildIdolPartPatternInstructionLines(workspaceId: WorkspaceId, songCoun
  * "suggest, never auto-apply" posture as explorationLedger.ts's learning
  * suggestions.
  */
-function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId): string[] {
+function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId, songCount: number): string[] {
   const storyThreadByWorkspace: Partial<Record<WorkspaceId, string>> = {
     'senior-oldpop': '같은 계절의 하루 (아침 → 밤), 또는 같은 인물의 젊은 날과 지금, 또는 같은 장소의 다른 시간',
     'kr-2030': '하루의 시간대, 또는 한 사람의 감정 변화',
@@ -1516,7 +1749,7 @@ function buildSetCompletenessSuggestionLines(workspaceId: WorkspaceId): string[]
     ...(storyThread
       ? ['  세트 전체를 느슨하게 잇는 이야기 하나를 둘 수 있습니다 (강제 아님, 제안일 뿐입니다).', `    예: ${storyThread}`, '']
       : []),
-    '  대비를 만드십시오 — 18곡이 전부 좋으면 무엇이 좋은지 알 수 없습니다.',
+    `  대비를 만드십시오 — ${songCount}곡이 전부 좋으면 무엇이 좋은지 알 수 없습니다.`,
     '    가장 조용한 곡 1곡 · 가장 밝은 곡 1곡 · 가장 짧은 곡 1곡 · 가장 특이한 곡 1곡(탐색 슬롯)',
     '',
     '  1번과 4번 트랙은 담백하게 만들어, 2~3번(대표곡)이 상대적으로 돋보이게 하십시오.',
@@ -1590,6 +1823,7 @@ export function buildClaudeCodeInstruction(
   // constraint in place, even with v3.27's shape-rotation guidance.
   const titleInstructionLine = titleInstructionLineFor(opts);
   const titleLocalizedInstructionLine = titleLocalizedInstructionLineFor(opts);
+  const videoTitleInstructionLine = videoTitleInstructionLineFor(opts);
   // TASK v3.39 — same verbatim-weave rule promptComposer.ts's
   // buildBatchSystemNote gives real API requests, kept in sync here per this
   // file's existing convention (see the titleInstructionLine/moneyChordText
@@ -1599,14 +1833,14 @@ export function buildClaudeCodeInstruction(
   // the kids per-song quota), since a real showa-cafe pack showed a selected
   // male vocal preset silently coming back female with no instruction at all
   // telling the agent to respect it.
-  const vocalInstructionLine = preassignedSongs.some(slot => slot.vocalText)
-    ? '- Each "preassignedSongs" entry also includes "vocalText" — weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
-    : '';
+  const vocalInstructionLine = vocalInstructionLineFor(preassignedSongs);
   const conceptInstructionLine = preassignedSongs.some(slot => slot.conceptText)
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(preassignedSongs);
   const chorusContrastInstructionLine = chorusContrastInstructionLineFor(preassignedSongs);
+  const sectionStyleShiftInstructionLine = sectionStyleShiftInstructionLineFor(preassignedSongs);
+  const kpopChantBackingInstructionLine = kpopChantBackingInstructionLineFor(preassignedSongs);
   const earwormInstructionLine = earwormInstructionLineFor(preassignedSongs);
   const openingLoudnessInstructionLine = openingLoudnessInstructionLineFor(preassignedSongs);
   const instrumentInstructionLine = instrumentInstructionLineFor(preassignedSongs);
@@ -1640,6 +1874,13 @@ export function buildClaudeCodeInstruction(
     // buildSetIntentSection's own doc comment for the real problem this
     // reordering fixes.
     buildSetIntentSection(opts, instructionOptions.conceptLine ?? opts.customConcept),
+    // 지시문 55 (TASK B) — buildSetIntentSection 바로 다음, "이 세트가
+    // 하려는 것" 바로 옆에 둔다. 예전엔 titleInstructionLine 근처(거의 끝,
+    // 15곡 JSON payload 이후)에 있어 128,353자 지시문의 113,567번째
+    // 글자에서야 처음 등장했다 — LLM이 lyricTheme(4,454번째 글자, 약
+    // 25배 더 앞) 중심으로 이미 생각을 굳힌 뒤였다. 앞으로 옮겨 세트
+    // 의도를 정할 때부터 영상 제목이 함께 보이게 한다.
+    videoTitleInstructionLine,
     // v5.23 (TASK B) — "창작 방향", right after intent per the task's own
     // new section order (의도 -> 창작 방향 -> 곡별 재료 -> ...).
     ...buildDistinctChoiceInstructionLines(opts.songCount, workspaceId),
@@ -1650,13 +1891,13 @@ export function buildClaudeCodeInstruction(
     // v5.24 (TASK B/C/D) — the same slot-instruction shape, driven by
     // data/explorationPolicies.ts, for every workspace except senior-oldpop.
     ...buildPolicyExplorationInstructionLines(policyExplorationPlan ?? { enabled: false, workspaceId, trackNos: [], axis: null }),
-    // v5.24 (TASK C §3-5) — K-pop-only part-map block; empty for every other workspace.
-    ...buildIdolPartPatternInstructionLines(workspaceId, opts.songCount, outputFilename),
+    // 지시문 37 (TASK A-4) — K-pop-only part-map block; empty for every other workspace (no slot carries partPlan elsewhere).
+    ...kpopPartPlanInstructionLines(preassignedSongs),
     // v5.24 (TASK G) — advisory, never-forced set-completeness suggestions
     // (loose story thread / contrast / lead-track yielding / last-track
     // callback). Workspace-tuned; empty story-thread line for K-pop per spec
     // §7-1 "K-pop 없어도 됨".
-    ...buildSetCompletenessSuggestionLines(workspaceId),
+    ...buildSetCompletenessSuggestionLines(workspaceId, preassignedSongs.length),
     // v5.23 (TASK D) — "이 조합을 반복하라 -> 이 조합을 출발점으로 변주하라"; zero
     // lines when flagshipCombo is absent or no second track carries its
     // genre id (see resolveFlagshipVariationPlan's own doc comment).
@@ -1718,7 +1959,8 @@ export function buildClaudeCodeInstruction(
     // prohibition), so it stays here: hookPhrase/lyrics must match.
     '- CRITICAL: For every imported song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook; the import step preserves that pair and will not rewrite hooks to match preassignedSongs.',
     moneyChordInstructionLineFor(preassignedSongs),
-    genreInstructionLine,
+    moneyChordSectionInstructionLineFor(preassignedSongs),
+    ...genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(preassignedSongs),
@@ -1726,6 +1968,8 @@ export function buildClaudeCodeInstruction(
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
     chorusContrastInstructionLine,
+    sectionStyleShiftInstructionLine,
+    kpopChantBackingInstructionLine,
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,
@@ -1742,6 +1986,7 @@ export function buildClaudeCodeInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
+    vocalTechniqueInstructionLineFor(preassignedSongs),
     conceptInstructionLine,
     '',
     // v5.23 (TASK A §1-2/§1-4) — the true LAST content section (before only
@@ -1903,13 +2148,11 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const masterWorkspaceId = workspaceForArchetype(baseOpts.channel.archetype)?.id ?? currentWorkspaceId();
   const rules = buildSystemInstruction({ ...baseOpts, songCount: totalSongs }, undefined, totalSongs, generateThumbnailText);
   const titleInstructionLine = titleInstructionLineFor(baseOpts);
-  const vocalInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.vocalText))
-    ? '- Each "preassignedSongs" entry also includes "vocalText" - weave that exact phrase into that song\'s stylePrompt as the vocal description, verbatim. Do not substitute a different vocal gender or type (e.g. male instead of female, or an adult voice for a kids choir) or paraphrase it away.'
-    : '';
   const conceptInstructionLine = setInstructions.some(item => item.preassignedSongs.some(slot => slot.conceptText))
     ? '- Each "preassignedSongs" entry also includes "conceptText" and optional "conceptLyricImages". Weave the concept into the song\'s genre/sound description and use the images in the lyrics.'
     : '';
   const allSlots = setInstructions.flatMap(item => item.preassignedSongs);
+  const vocalInstructionLine = vocalInstructionLineFor(allSlots);
   const hookDeviceInstructionLine = hookDeviceInstructionLineFor(allSlots);
   const chorusContrastInstructionLine = chorusContrastInstructionLineFor(allSlots);
   const earwormInstructionLine = earwormInstructionLineFor(allSlots);
@@ -1962,6 +2205,10 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     // see this function's own header comment), so it needs the same fix
     // applied independently rather than inheriting it for free.
     buildSetIntentSection(baseOpts, baseOpts.customConcept),
+    // 지시문 55 (TASK B) — 단일 세트 경로와 같은 이유로 여기서도 앞으로
+    // 옮긴다(§위 단일 세트 경로의 주석 참고 — 이 마스터 모드는 별도
+    // 조립이라 독립적으로 옮겨야 한다).
+    videoTitleInstructionLineFor(baseOpts),
     // v5.23 (TASK B) — same "창작 방향" placement as the single-pack instruction.
     ...buildDistinctChoiceInstructionLines(totalSongs, masterWorkspaceId),
     '',
@@ -2004,7 +2251,8 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     titleLocalizedInstructionLineFor(baseOpts),
     '- CRITICAL: For every song, "hookPhrase" and "lyrics" are treated as a matched pair. The hookPhrase string must appear verbatim in the lyrics as the chorus bookend hook.',
     moneyChordInstructionLineFor(allSlots),
-    genreInstructionLine,
+    moneyChordSectionInstructionLineFor(allSlots),
+    ...genreInstructionLine,
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(allSlots),
@@ -2027,6 +2275,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     povInstructionLine,
     sectionStyleInstructionLine,
     vocalInstructionLine,
+    vocalTechniqueInstructionLineFor(allSlots),
     conceptInstructionLine,
     '',
     buildFinalAvoidSection(initialAvoid),

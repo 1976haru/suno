@@ -9,18 +9,21 @@
 import { channelPresets } from '../src/data/presets';
 import { VERIFIED_SETTING_CONTRACTS, inScope } from '../src/core/verifiedSettingContract';
 
-interface SettingLost {
+interface SettingRow {
   channelId: string;
   settingId: string;
   verifiedByKo: string;
   observed: string;
   expected: string;
+  reasonKo?: string;
 }
 
 function main() {
-  const lost: SettingLost[] = [];
+  const lost: SettingRow[] = [];
+  const notApplicable: SettingRow[] = [];
   let appliedCount = 0;
   let lostCount = 0;
+  let naCount = 0;
 
   console.log(`[check:settings] ${channelPresets.length}채널 × 등록 설정 ${VERIFIED_SETTING_CONTRACTS.length}종\n`);
 
@@ -28,11 +31,22 @@ function main() {
     for (const channel of channelPresets) {
       if (!inScope(channel, contract)) continue;
       const result = contract.check(channel);
-      if (result.applied) {
+      const row: SettingRow = {
+        channelId: channel.id,
+        settingId: contract.settingId,
+        verifiedByKo: contract.verifiedByKo,
+        observed: result.observed,
+        expected: result.expected,
+        reasonKo: result.reasonKo
+      };
+      if (result.status === 'applied') {
         appliedCount += 1;
+      } else if (result.status === 'n/a') {
+        naCount += 1;
+        notApplicable.push(row);
       } else {
         lostCount += 1;
-        lost.push({ channelId: channel.id, settingId: contract.settingId, verifiedByKo: contract.verifiedByKo, observed: result.observed, expected: result.expected });
+        lost.push(row);
       }
     }
   }
@@ -44,7 +58,15 @@ function main() {
     console.log(`    근거: ${l.verifiedByKo}\n`);
   }
 
-  console.log(`적용 ${appliedCount} / 유실 ${lostCount}`);
+  if (notApplicable.length) {
+    console.log(`--- N/A (설계상 미적용 — ${notApplicable.length}건) ---`);
+    for (const n of notApplicable) {
+      console.log(`○ N/A  ${n.channelId} / ${n.settingId}`);
+      console.log(`    사유: ${n.reasonKo}\n`);
+    }
+  }
+
+  console.log(`적용 ${appliedCount} / 유실 ${lostCount} / N/A ${naCount}`);
 
   if (lostCount > 0) {
     process.exitCode = 1;

@@ -4,14 +4,12 @@ import { buildClaudeCodeInstruction } from '../src/core/claudeCodeBridge';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildSystemInstruction } from '../src/core/promptComposer';
 import { scoreSong } from '../src/core/quality';
-import { buildThumbnailSpec } from '../src/core/thumbnailSpec';
 import { applyLyricWorkspaceEdit, applyPronunciationHints, regenerateSingleLyricLine } from '../src/core/lyricAuthorship';
 import { containsEraAnachronism, eraLyricGuidanceForArchetype } from '../src/data/japaneseEraGuidance';
 import { getGenreById, getVisibleGenresForArchetype, LEAD_ARRANGEMENT_NARRATIVES } from '../src/data/genreLibrary';
 import { introTexturesForArchetype } from '../src/data/introTextures';
 import { lyricThemesForArchetype } from '../src/data/lyricThemes';
 import { buildDefaultNegativeStyle } from '../src/data/negativeStyles';
-import { thumbnailArchetypeById } from '../src/data/thumbnailArchetypes';
 import { createInitialOptions } from '../src/utils/generation';
 import { buildSongTxt, exportJson } from '../src/utils/exporters';
 import { channelPresets, genrePacks, moodPacks, makeOptions, seasonPacks } from './fixtures';
@@ -238,23 +236,3 @@ describe('[v3.48] bridge/local generation and authorship records', () => {
   });
 });
 
-describe('[v3.48] era thumbnail archetypes', () => {
-  it('adds Showa 70s and early-2000s thumbnail archetypes with text-safe prompts', () => {
-    const showaArchetype = thumbnailArchetypeById['showa-70s-kissaten-film'];
-    const j2000sArchetype = thumbnailArchetypeById['j2000s-digital-station'];
-    expect(showaArchetype).toBeDefined();
-    expect(j2000sArchetype).toBeDefined();
-    expect(showaArchetype.promptTemplate).toContain('1970s Showa');
-    expect(j2000sArchetype.promptTemplate).toContain('early-2000s Japanese');
-
-    const channel = channelById('showa-seventies');
-    const opts = makeOptions({ channel, lyricLanguage: 'japanese' });
-    const blueprint = generateLocalBlueprint(opts, channelGenres(channel), channelMoods(channel), seasonPacks[0]);
-    const spec = buildThumbnailSpec(blueprint, opts, seasonPacks[0], channel, 0, 'showa-70s-kissaten-film');
-
-    expect(spec.imagePrompt).toContain('1970s Showa');
-    expect(spec.imagePrompt).toContain('left third');
-    expect(spec.imagePrompt).toContain('no text');
-    expect(spec.imagePrompt).not.toContain('undefined');
-  });
-});

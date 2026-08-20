@@ -288,6 +288,112 @@ jobs:
       - run: npm ci
       - run: npm run check:coverage
 
+  # 지시문 46 긴급수정 (TASK C) — "정의는 있는데 아무도 호출하지 않는
+  # 정책"(check:reachability로는 안 잡힌다 — 모듈 임포트는 되지만 그 안의
+  # 함수가 호출되는지는 별개다) 유형의 결함이 이 지시문 자체를 포함해
+  # 다섯 번째로 재발했다. scripts/checkPolicyConsumption.ts가 등록된 정책
+  # 레지스트리마다 정의·읽는함수·실행경로 호출을 grep 기반으로 근사
+  # 검사한다.
+  check-consumption:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:consumption
+
+  # 지시문 50 (TASK D-4) — check:coverage(아키타입 단위)/check:consumption
+  # (정책 단위) 밑의 새 단위: 장르 하나가 eraBuckets·vocalPreference·
+  # instruments·rhythm·production·eraNoteKo까지 다 채워졌는가. advisory만
+  # 낸다 — exit 0 고정(scripts/checkGenreCompleteness.ts 자기 doc comment
+  # 참고), 미달 목록으로 세트를 막지 않는다.
+  check-genre-completeness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:genre-completeness
+
+  # 지시문 51 (TASK D) — check:genre-completeness("필드가 채워졌는가")와
+  # 다른 축: "채널이 갖고 있는 장르를 추천이 실제로 쓰는가". advisory만
+  # 낸다 — exit 0 고정(scripts/checkGenreUtilization.ts 자기 doc comment
+  # 참고), 50% 미만이어도 세트를 막지 않는다.
+  check-genre-utilization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:genre-utilization
+
+  # 지시문 62 (TASK F-2) — channelVocalFloor가 7 워크스페이스 전부에
+  # 정의됐는지, requiredTraits/forbiddenTraits가 실제 생성 경로에서
+  # stylePrompt/excludePrompt까지 왕복하는지 확인한다. advisory만 낸다 —
+  # exit 0 고정(scripts/checkVocalFloor.ts 자기 doc comment 참고).
+  check-vocal-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:vocal-floor
+
+  # 지시문 63 (TASK C) — 워크스페이스별 대표 채널로 15곡 표본을 만들어
+  # "장르-보컬 부합률"·"보컬 프리셋 종류"를 실측한다. advisory만 낸다 —
+  # exit 0 고정(scripts/checkVocalGenreFit.ts 자기 doc comment 참고).
+  check-vocal-genre-fit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:vocal-genre-fit
+
+  # 지시문 64 (TASK C) — 표본 자연어 컨셉 50개(data/conceptCoverageSamples.ts)를
+  # 실제 로컬 매칭 경로에 넣어 매칭률·워크스페이스 적합·계절 오배정을
+  # 실측한다. advisory만 낸다 — exit 0 고정(scripts/checkConceptCoverage.ts
+  # 자기 doc comment 참고).
+  check-concept-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:concept-coverage
+
+  # 지시문 51 (TASK D2) — 장르 축과 같은 유형이 GenerationOptions의 다른
+  # 축에도 있는지 A/B 비교로 전수 확인한다. advisory만 낸다 — exit 0
+  # 고정(scripts/checkOptionUtilization.ts 자기 doc comment 참고).
+  check-option-utilization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:option-utilization
+
   build-single:
     # TASK v5.18 (TASK E) — dist-single/ (the standalone, dependency-free
     # single-file build) had no CI coverage at all; only `build`'s regular

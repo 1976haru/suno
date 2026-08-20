@@ -12,6 +12,30 @@
  *   나머지 (재즈/로파이/발라드/R&B/시티팝 무드 팔레트, 동요, 2020년대
  *   워크스페이스 컨템포러리 팔레트 등) era-neutral — 연대색을 주장할 근거가
  *   없는 장르에 억지로 연대를 지어내지 않는다.
+ *
+ * 지시문 46 (TASK A) — 위 "재즈 무드 팔레트는 전부 era-neutral" 일반화가
+ * 실제로는 틀렸다: good-morning-memory-radio/oldpop-lounge-main 두 실채널의
+ * preferredGenres 교집합(39종)에 실제로 배선된 재즈 6종(jazz-classic-vocal-
+ * lounge/jazz-swing-crooner-ballroom/jazz-brush-ballad-jazz/jazz-hotel-
+ * lounge-jazz/jazz-torch-vocal-jazz/jazz-soft-vocal-trio)과 rnb-old-school-
+ * romance-rnb는 빅밴드·스탠더드 송북·크루너·토치송 등 정의적 시기가 뚜렷한
+ * 스타일이라 era-neutral 판정이 근거 없이 과잉 적용된 것이었다 — 각 항목의
+ * note 참고. 나머지 수백 종의 무드 팔레트 재즈/로파이/시티팝/R&B(이 39종
+ * 밖, 실제로 어느 채널에도 배선되지 않은 확장 카탈로그)는 이 지시문 범위
+ * 밖이라 그대로 둔다.
+ *
+ * 지시문 50 (TASK A-5) — 하루의 실측 청취("재즈 음색으로 들으니 6070에
+ * 맞는다")로 재즈 계열 전체(jazz-* 52종)를 다시 훑었다. 지시문46이 놓친
+ * 정의적 시기가 뚜렷한 8종을 추가로 채운다 — 스윙 계열 2종(jazz-big-band-
+ * swing/jazz-gypsy-cafe-swing, 1930-40s를 EraBucket 최솟값 1950s로 흡수),
+ * 라운지 계열 2종(jazz-late-night-lounge/jazz-cabaret-jazz, 1950s-60s
+ * 스탠더드 라운지), 보사노바/소울재즈/라틴재즈 계열 4종(jazz-bossa-vocal-
+ * jazz/jazz-samba-jazz-vocal/jazz-organ-soul-jazz/jazz-latin-club-jazz,
+ * 1960s-70s). fusion/acid jazz/nu-jazz/lofi vocal jazz(jazz-electric-fusion/
+ * jazz-fusion-night-drive/jazz-acid-jazz-groove/jazz-nu-jazz-metropolitan/
+ * jazz-lofi-vocal-jazz 등)와 bebop/hard bop/cool/modal 계열(악곡 성격이
+ * 보컬보다 연주 편성 중심이라 이 지시문이 명시한 두 군집 밖)은 의도적으로
+ * era-neutral 그대로 둔다 — "재즈 53종의 eraBuckets를 전부 바꾸지 말 것".
  */
 export type EraBucket = '1950s' | '1960s' | '1970s' | '1980s' | '1990s' | '2000s' | '2010s' | '2020s' | 'era-neutral';
 
@@ -46,6 +70,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'oldpop-six-eight-slow-ballad': ['1970s', '1980s'],
   'oldpop-italian-canzone': ['1950s', '1960s', '1970s'],
   'kr2030-lofi-swing-hiphop': ['2010s', '2020s'],
+  // 지시문 53 (TASK A) — mumble/whisper/cloud rap 딜리버리는 lofi-swing-hiphop과
+  // 같은 이유로 2010년대 이후 정립된 프로덕션 미학 — era-neutral이 아니다.
+  'kr2030-mumble-melodic-rap': ['2010s', '2020s'],
+  'kr2030-whisper-trap': ['2010s', '2020s'],
+  'kr2030-cloud-hazy-rap': ['2010s', '2020s'],
   'kr2030-noir-deep-house': ['2010s', '2020s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
@@ -108,6 +137,9 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'kridol-latin-afro': ['era-neutral'],
   'kridol-emotional-ballad': ['era-neutral'],
   'kridol-retro-funk': ['1970s', '1980s'],
+  // 지시문 52 (TASK B-1) — 컨템포러리 랩 팔레트, 특정 연대를 지칭하지 않는다.
+  'kridol-melodic-rap': ['era-neutral'],
+  'kridol-hard-rap': ['era-neutral'],
   'kayokyoku-70s': ['1970s'],
   'japanese-folk-70s': ['1970s'],
   'new-music-70s': ['1970s'],
@@ -132,28 +164,53 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'city-pop-night': ['era-neutral'],
   'lofi-soul': ['era-neutral'],
   'jazz-bass-feature-trio': ['era-neutral'],
-  'jazz-classic-vocal-lounge': ['era-neutral'],
-  'jazz-soft-vocal-trio': ['era-neutral'],
+  // 지시문 46 (TASK A) — good-morning-memory-radio/oldpop-lounge-main
+  // 두 실채널의 preferredGenres 교집합(39종)에서 재즈 6종이 전부
+  // era-neutral이라 시대 관문 분모(§2-1)를 비워 6070 감성이 소실되는
+  // 결함의 직접 원인이었다. 빅밴드·스탠더드 송북 전성기(1940s)를
+  // EraBucket 타입 확장 없이 1950s로 흡수해 표기 — 근거는
+  // ERA_NOTE_KO_BY_GENRE_ID 참고.
+  'jazz-classic-vocal-lounge': ['1950s', '1960s'],
+  'jazz-soft-vocal-trio': ['1950s', '1960s'],
   'jazz-bebop-sax-drive': ['era-neutral'],
   'jazz-cool-muted-trumpet': ['era-neutral'],
   'jazz-modal-night-sketch': ['era-neutral'],
   'jazz-jazz-ballad-vocal': ['era-neutral'],
+  // 지시문 46 (TASK A) — smooth jazz는 1980s-90s 라디오 포맷 고유명사이지만
+  // 이 채널 풀(39종)에 없는 장르라 범위 밖 — era-neutral 유지, 판단 보류.
   'jazz-smooth-sax-vocal': ['era-neutral'],
-  'jazz-big-band-swing': ['era-neutral'],
-  'jazz-bossa-vocal-jazz': ['era-neutral'],
+  // 지시문 50 (TASK A-5) — 빅밴드 스윙은 1930s-40s가 전성기이나 EraBucket
+  // 최솟값(1950s)에 흡수 표기(지시문46의 1940s→1950s 접기 관행과 동일).
+  'jazz-big-band-swing': ['1950s'],
+  // 지시문 50 (TASK A-5) — 보사노바 보컬 재즈는 1960s(브라질 보사노바
+  // 탄생)~1970s가 정의적 시기.
+  'jazz-bossa-vocal-jazz': ['1960s', '1970s'],
   'jazz-electric-fusion': ['era-neutral'],
-  'jazz-late-night-lounge': ['era-neutral'],
+  // 지시문 50 (TASK A-5) — 카페/호텔 라운지 재즈와 같은 이유(§jazz-hotel-
+  // lounge-jazz 참고), 스탠더드 라운지 편성은 1950s-60s가 정의적 시기.
+  'jazz-late-night-lounge': ['1950s', '1960s'],
   'jazz-rain-noir-jazz': ['era-neutral'],
-  'jazz-organ-soul-jazz': ['era-neutral'],
+  // 지시문 50 (TASK A-5) — 오르간 소울재즈(지미 스미스류 오르간 트리오)는
+  // 1960s-70s 블루노트 소울재즈 전성기가 정의적 시기.
+  'jazz-organ-soul-jazz': ['1960s', '1970s'],
   'jazz-hard-bop-club': ['era-neutral'],
   'jazz-minimal-trio': ['era-neutral'],
-  'jazz-torch-vocal-jazz': ['era-neutral'],
+  // 지시문 46 (TASK A) — 토치송(torch song)은 1940s-60s 정의적 시기가
+  // 뚜렷한 스타일. 1940s는 1950s로 흡수.
+  'jazz-torch-vocal-jazz': ['1950s', '1960s'],
   'jazz-spiritual-open-jazz': ['era-neutral'],
   'jazz-spacious-chamber-jazz': ['era-neutral'],
-  'jazz-gypsy-cafe-swing': ['era-neutral'],
+  // 지시문 50 (TASK A-5) — 집시 스윙(장고 라인하르트류)은 1930s 유럽에서
+  // 발달했으나 EraBucket 최솟값(1950s)에 흡수 표기(빅밴드 스윙과 같은
+  // 접기 관행).
+  'jazz-gypsy-cafe-swing': ['1950s'],
   'jazz-jazz-waltz-vocal': ['era-neutral'],
-  'jazz-latin-club-jazz': ['era-neutral'],
-  'jazz-samba-jazz-vocal': ['era-neutral'],
+  // 지시문 50 (TASK A-5) — 라틴 클럽 재즈(칼 자더류)는 1960s-70s 라틴재즈
+  // 클럽 운동이 정의적 시기.
+  'jazz-latin-club-jazz': ['1960s', '1970s'],
+  // 지시문 50 (TASK A-5) — 삼바재즈(보사노바와 같은 뿌리)는 1960s가
+  // 정의적 시기.
+  'jazz-samba-jazz-vocal': ['1960s', '1970s'],
   'jazz-post-bop-urban': ['era-neutral'],
   'jazz-bass-piano-duo': ['era-neutral'],
   'jazz-baritone-vocal-jazz': ['era-neutral'],
@@ -167,19 +224,28 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'jazz-duet-conversation-jazz': ['era-neutral'],
   'jazz-contemporary-vocal-jazz': ['era-neutral'],
   'jazz-double-bass-intro-jazz': ['era-neutral'],
-  'jazz-brush-ballad-jazz': ['era-neutral'],
+  // 지시문 46 (TASK A) — 쿨재즈·브러시 발라드 어법은 1950s-60s가 정의적 시기.
+  'jazz-brush-ballad-jazz': ['1950s', '1960s'],
   'jazz-free-organic-jazz': ['era-neutral'],
   'jazz-fusion-night-drive': ['era-neutral'],
   'jazz-acid-jazz-groove': ['era-neutral'],
   'jazz-nu-jazz-metropolitan': ['era-neutral'],
   'jazz-lofi-vocal-jazz': ['era-neutral'],
   'jazz-jazz-rap-late-night': ['era-neutral'],
-  'jazz-swing-crooner-ballroom': ['era-neutral'],
+  // 지시문 46 (TASK A) — 스윙/크루너 전성기는 1940s-50s. 1940s는 1950s로
+  // 흡수 — 1960s에는 로큰롤에 밀려 크루너-볼룸 스윙 자체가 주류에서
+  // 물러나므로 1960s는 포함하지 않는다.
+  'jazz-swing-crooner-ballroom': ['1950s'],
   'jazz-bebop-vocal-scat': ['era-neutral'],
-  'jazz-hotel-lounge-jazz': ['era-neutral'],
+  // 지시문 46 (TASK A) — 호텔 라운지 재즈는 1950s-60s 스탠더드 라운지
+  // 편성이 정의적 시기.
+  'jazz-hotel-lounge-jazz': ['1950s', '1960s'],
   'jazz-mellow-flugelhorn-vocal': ['era-neutral'],
   'jazz-jazz-blues-club': ['era-neutral'],
-  'jazz-cabaret-jazz': ['era-neutral'],
+  // 지시문 50 (TASK A-5) — 카바레 재즈 보컬 라운지 어법은 1950s-60s
+  // 스탠더드 라운지·클럽 편성이 정의적 시기(§jazz-classic-vocal-lounge와
+  // 같은 판단).
+  'jazz-cabaret-jazz': ['1950s', '1960s'],
   'jazz-chamber-vocal-jazz': ['era-neutral'],
   'city-pop-bright-female-groove': ['era-neutral'],
   'city-pop-sunset-male-groove': ['era-neutral'],
@@ -251,7 +317,10 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'rnb-baritone-slow-groove': ['era-neutral'],
   'rnb-dreamy-night-rnb': ['era-neutral'],
   'rnb-gospel-soul-lift': ['era-neutral'],
-  'rnb-old-school-romance-rnb': ['era-neutral'],
+  // 지시문 46 (TASK A) — 'old school romance' 자체가 1960s-70s 소울/모타운
+  // 로맨스 R&B를 지칭하는 명시적 시대어 — 다른 rnb-* 컨템포러리 무드
+  // 팔레트와 달리 이 장르만 이름 자체가 연대를 지목한다.
+  'rnb-old-school-romance-rnb': ['1960s', '1970s'],
   'rnb-alt-duet-tension': ['era-neutral'],
   'rnb-late-night-neo-soul': ['era-neutral'],
   'rnb-polished-rnb-pop': ['era-neutral'],
@@ -413,6 +482,9 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'oldpop-six-eight-slow-ballad': '6/8 슬로우 발라드 — 스트링이 후렴에서 들어오는 편성이 1970년대 후반~1980년대 발라드의 전형',
   'oldpop-italian-canzone': '이탈리안 칸초네 — 오페라풍 남성 리드·현악 스윕이 1950년대~1970년대 이탈리아 칸초네 황금기의 전형',
   'kr2030-lofi-swing-hiphop': '로파이 스윙 힙합팝 — 스윙 붐뱁·로파이 텍스처가 2010년대 이후 정립된 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-mumble-melodic-rap': '멈블 멜로딕 랩 — 오토튠 멀로디 멈블 딜리버리가 2010년대 이후 정립된 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-whisper-trap': '위스퍼 트랩 — 속삭이는 딜리버리·미니멀 트랩 프로덕션이 2010년대 이후 정립된 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'kr2030-cloud-hazy-rap': '클라우드 헤이지 랩 — 리버브에 젖은 몽환적 클라우드 랩 프로덕션이 2010년대 이후 정립된 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'kr2030-noir-deep-house': '누아르 딥하우스 — 110-120 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',
@@ -475,6 +547,8 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'kridol-latin-afro': '\'Latin Afrobeat Crossover\' — 2020년대 K-idol 워크스페이스의 컨템포러리 퍼포먼스 스타일 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kridol-emotional-ballad': '\'Idol Emotional Ballad\' — 2020년대 K-idol 워크스페이스의 컨템포러리 퍼포먼스 스타일 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kridol-retro-funk': '라벨의 "Retro Funk Disco"가 1970~80년대 디스코/펑크 사운드를 명시적으로 참조함',
+  'kridol-melodic-rap': '\'Melodic Sing-Rap Pop\' — 2020년대 K-idol 워크스페이스의 컨템포러리 랩 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'kridol-hard-rap': '\'Hard Rap Stage Cut\' — 2020년대 K-idol 워크스페이스의 컨템포러리 랩 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'kayokyoku-70s': 'id/라벨에 1970년대가 명시됨 (일본 가요쿄쿠)',
   'japanese-folk-70s': 'id/라벨에 1970년대가 명시됨 (일본 포크)',
   'new-music-70s': 'id/라벨에 1970년대가 명시됨 (뉴 뮤직)',
@@ -499,28 +573,28 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'city-pop-night': '\'City Pop Night Drive\' — city-night-drive 워크스페이스의 현대(2020년대) 시티팝 리바이벌 팔레트 — 과거 특정 연대의 재현이 아님, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'lofi-soul': '\'Lo-fi Soul\' — 연대색 없는 로파이 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-bass-feature-trio': '\'Bass Feature Jazz Trio\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-classic-vocal-lounge': '\'Classic Vocal Jazz Lounge\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-soft-vocal-trio': '\'Soft Vocal Jazz Trio\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-classic-vocal-lounge': '지시문 46 (TASK A) — 클래식 보컬 재즈 라운지: 빅밴드·스탠더드 송북(Great American Songbook) 전성기인 1940s-60s가 정의적 시기. EraBucket 타입에 1940s가 없어 1950s로 흡수 표기. era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
+  'jazz-soft-vocal-trio': '지시문 46 (TASK A) — 보컬 트리오(냇 킹 콜 트리오류 편성) 어법은 1950s-60s가 정의적 시기. era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
   'jazz-bebop-sax-drive': '\'Bebop Sax Drive\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-cool-muted-trumpet': '\'Cool Muted Trumpet Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-modal-night-sketch': '\'Modal Night Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-jazz-ballad-vocal': '\'Jazz Ballad Vocal\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-smooth-sax-vocal': '\'Smooth Sax Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-big-band-swing': '\'Big Band Swing\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-bossa-vocal-jazz': '\'Bossa Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-big-band-swing': '지시문 50 (TASK A-5) — 빅밴드 스윙은 1930s-40s가 전성기(EraBucket 최솟값 1950s로 흡수 표기). era-neutral이 아니다.',
+  'jazz-bossa-vocal-jazz': '지시문 50 (TASK A-5) — 보사노바 보컬 재즈는 1960s(브라질 보사노바 탄생)~1970s가 정의적 시기. era-neutral이 아니다.',
   'jazz-electric-fusion': '\'Electric Jazz Fusion\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-late-night-lounge': '\'Late Night Jazz Lounge\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-late-night-lounge': '지시문 50 (TASK A-5) — 카페/호텔 라운지 재즈와 같은 이유(jazz-hotel-lounge-jazz 참고), 스탠더드 라운지 편성은 1950s-60s가 정의적 시기. era-neutral이 아니다.',
   'jazz-rain-noir-jazz': '\'Rain Noir Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-organ-soul-jazz': '\'Organ Soul Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-organ-soul-jazz': '지시문 50 (TASK A-5) — 오르간 소울재즈(지미 스미스류 오르간 트리오)는 1960s-70s 블루노트 소울재즈 전성기가 정의적 시기. era-neutral이 아니다.',
   'jazz-hard-bop-club': '\'Hard Bop Club Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-minimal-trio': '\'Minimal Jazz Trio\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-torch-vocal-jazz': '\'Torch Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-torch-vocal-jazz': '지시문 46 (TASK A) — 토치송(torch song)은 1940s-60s가 정의적 시기(1940s는 1950s로 흡수 표기). era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
   'jazz-spiritual-open-jazz': '\'Spiritual Open Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-spacious-chamber-jazz': '\'Spacious Chamber Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-gypsy-cafe-swing': '\'Gypsy Cafe Swing\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-gypsy-cafe-swing': '지시문 50 (TASK A-5) — 집시 스윙(장고 라인하르트류)은 1930s 유럽에서 발달(EraBucket 최솟값 1950s로 흡수 표기). era-neutral이 아니다.',
   'jazz-jazz-waltz-vocal': '\'Jazz Waltz Vocal\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-latin-club-jazz': '\'Latin Club Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-samba-jazz-vocal': '\'Samba Jazz Vocal\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-latin-club-jazz': '지시문 50 (TASK A-5) — 라틴 클럽 재즈(칼 자더류)는 1960s-70s 라틴재즈 클럽 운동이 정의적 시기. era-neutral이 아니다.',
+  'jazz-samba-jazz-vocal': '지시문 50 (TASK A-5) — 삼바재즈(보사노바와 같은 뿌리)는 1960s가 정의적 시기. era-neutral이 아니다.',
   'jazz-post-bop-urban': '\'Post-Bop Urban Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-bass-piano-duo': '\'Bass and Piano Duo Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-baritone-vocal-jazz': '\'Baritone Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
@@ -534,19 +608,19 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'jazz-duet-conversation-jazz': '\'Duet Conversation Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-contemporary-vocal-jazz': '\'Contemporary Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-double-bass-intro-jazz': '\'Double Bass Intro Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-brush-ballad-jazz': '\'Brush Ballad Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-brush-ballad-jazz': '지시문 46 (TASK A) — 쿨재즈·브러시 발라드 어법은 1950s-60s가 정의적 시기. era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
   'jazz-free-organic-jazz': '\'Free Organic Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-fusion-night-drive': '\'Fusion Night Drive Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-acid-jazz-groove': '\'Acid Jazz Groove\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-nu-jazz-metropolitan': '\'Nu Jazz Metropolitan\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-lofi-vocal-jazz': '\'Lo-fi Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-jazz-rap-late-night': '\'Jazz Rap Late Night\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-swing-crooner-ballroom': '\'Swing Crooner Ballroom\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-swing-crooner-ballroom': '지시문 46 (TASK A) — 스윙/크루너 볼룸 전성기는 1940s-50s(1940s는 1950s로 흡수 표기). 1960s에는 로큰롤에 밀려 주류에서 물러나 1960s는 포함하지 않는다. era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
   'jazz-bebop-vocal-scat': '\'Bebop Vocal Scat\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-hotel-lounge-jazz': '\'Hotel Lounge Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-hotel-lounge-jazz': '지시문 46 (TASK A) — 호텔 라운지 재즈의 스탠더드 라운지 편성은 1950s-60s가 정의적 시기. era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
   'jazz-mellow-flugelhorn-vocal': '\'Mellow Flugelhorn Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'jazz-jazz-blues-club': '\'Jazz Blues Club\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'jazz-cabaret-jazz': '\'Cabaret Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'jazz-cabaret-jazz': '지시문 50 (TASK A-5) — 카바레 재즈 보컬 라운지 어법은 1950s-60s 스탠더드 라운지·클럽 편성이 정의적 시기(jazz-classic-vocal-lounge와 같은 판단). era-neutral이 아니다.',
   'jazz-chamber-vocal-jazz': '\'Chamber Vocal Jazz\' — 연대색 없는 재즈 무드/편성 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'city-pop-bright-female-groove': '\'Bright Female City Pop\' — city-night-drive 워크스페이스의 현대(2020년대) 시티팝 리바이벌 팔레트 — 과거 특정 연대의 재현이 아님, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'city-pop-sunset-male-groove': '\'Sunset Male City Pop\' — city-night-drive 워크스페이스의 현대(2020년대) 시티팝 리바이벌 팔레트 — 과거 특정 연대의 재현이 아님, 특정 연대를 지칭하지 않아 era-neutral로 판정',
@@ -618,7 +692,7 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'rnb-baritone-slow-groove': '\'Baritone Slow Groove R&B\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'rnb-dreamy-night-rnb': '\'Dreamy Night R&B\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'rnb-gospel-soul-lift': '\'Gospel Soul R&B Lift\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
-  'rnb-old-school-romance-rnb': '\'Old School Romance R&B\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
+  'rnb-old-school-romance-rnb': '지시문 46 (TASK A) — id/라벨의 \'old school romance\' 자체가 1960s-70s 소울·모타운 로맨스 R&B를 지칭하는 명시적 시대어 — 다른 rnb-* 컨템포러리 무드 팔레트와 달리 이름 자체가 연대를 지목한다. era-neutral이 아니다 — 이전(지시문 12) 판정을 정정.',
   'rnb-alt-duet-tension': '\'Alt Duet R&B Tension\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'rnb-late-night-neo-soul': '\'Late Night Neo-Soul\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',
   'rnb-polished-rnb-pop': '\'Polished R&B Pop\' — 연대색 없는 컨템포러리 R&B 무드 팔레트, 특정 연대를 지칭하지 않아 era-neutral로 판정',

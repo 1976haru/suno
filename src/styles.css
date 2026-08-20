@@ -104,6 +104,10 @@ button.primary:hover:not(:disabled) {
 }
 
 /* TASK v3.38 Part B6 — kids-channel one-time info banner. */
+.channel-apply-status {
+  margin-bottom: 12px;
+}
+
 .notice-banner {
   display: flex;
   align-items: flex-start;
@@ -776,6 +780,65 @@ textarea {
   gap: 8px;
 }
 
+/* 지시문 41 (TASK A-3) — 컨셉 화면 상단 채널 선택기 (사이드바 <select>를 본문으로 이동). */
+.channel-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.channel-picker .panel-title {
+  justify-content: space-between;
+}
+
+.channel-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.channel-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.channel-picker-option input[type="radio"] {
+  /* Overrides the global input{width:100%} rule (built for text fields), which otherwise makes this radio swallow the whole flex row. */
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.channel-picker-option:hover {
+  background: var(--panel-soft);
+}
+
+.channel-picker-option.active {
+  background: var(--panel-soft);
+  font-weight: 600;
+}
+
+.channel-picker-name {
+  min-width: 0;
+  flex: 1;
+}
+
+.channel-picker-count {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.channel-picker-more {
+  align-self: flex-start;
+}
+
 .profile-editor {
   min-width: 0;
 }
@@ -987,6 +1050,17 @@ textarea {
   border-color: var(--blue);
   background: #dbeafe;
   color: #143b8f;
+}
+
+.chip.chip-unavailable {
+  background: var(--panel-soft);
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.genre-unavailable-tag {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .genre-toolbar {
@@ -1399,400 +1473,6 @@ textarea {
   margin-top: 16px;
 }
 
-.thumbnail-spec {
-  display: grid;
-  gap: 14px;
-}
-
-.thumbnail-preview {
-  position: relative;
-  width: 100%;
-  max-width: 480px;
-  aspect-ratio: 16 / 9;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  padding: 24px;
-  overflow: hidden;
-}
-
-.thumbnail-preview-text {
-  display: grid;
-  gap: 6px;
-}
-
-.thumbnail-preview-headline {
-  font-size: clamp(20px, 6vw, 30px);
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.thumbnail-preview-subline {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-/* TASK v3.38 Part A1 — left-third text zone: headline block anchored to the left, thin serif, no bold weight. */
-.thumbnail-preview-left-third {
-  justify-content: flex-start;
-}
-
-.thumbnail-preview-serif .thumbnail-preview-headline {
-  font-family: Georgia, 'Noto Serif KR', serif;
-  font-weight: 400;
-  font-style: italic;
-}
-
-.thumbnail-preview-divider {
-  width: 40%;
-  height: 1px;
-  opacity: 0.6;
-  margin: 4px 0;
-}
-
-.thumbnail-swatches {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.thumbnail-swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  border: 1px solid var(--line);
-  flex: 0 0 auto;
-}
-
-.thumbnail-variant-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.thumbnail-variant-card {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border: 2px solid var(--line);
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.thumbnail-variant-card.active {
-  border-color: var(--blue);
-  background: #eff6ff;
-}
-
-.thumbnail-variant-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.thumbnail-variant-head input {
-  width: 16px;
-  height: 16px;
-}
-
-.thumbnail-preview-small {
-  max-width: 100%;
-  padding: 14px;
-}
-
-.thumbnail-preview-small .thumbnail-preview-headline {
-  font-size: clamp(14px, 4vw, 18px);
-}
-
-.signature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.signature-grid div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft);
-}
-
-.signature-grid span {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.thumbnail-archetype-panel {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px;
-  background: #ffffff;
-}
-
-.thumbnail-control-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(140px, 1fr));
-  gap: 10px;
-}
-
-.thumbnail-control-grid label {
-  margin: 0;
-}
-
-.thumbnail-prompt-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.thumbnail-prompt-card {
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--panel-soft);
-}
-
-.thumbnail-prompt-card .copy-head {
-  background: #ffffff;
-}
-
-.thumbnail-prompt-card pre {
-  min-height: 180px;
-  max-height: 320px;
-  border-radius: 0;
-}
-
-.thumbnail-axis-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 10px 12px;
-}
-
-.thumbnail-axis-list span {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.thumbnail-axis-list b {
-  color: var(--text);
-}
-
-.thumbnail-image-studio {
-  display: grid;
-  gap: 16px;
-}
-
-.thumbnail-input-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 10px 0;
-}
-
-.thumbnail-quality-warning {
-  border-left: 3px solid var(--orange, #d97706);
-  padding: 8px 12px;
-  background: color-mix(in srgb, var(--orange, #d97706) 10%, transparent);
-}
-
-.thumbnail-quality-warning p {
-  margin: 4px 0 0;
-}
-
-.basic-workflow-panel {
-  gap: 16px;
-}
-
-.ui-mode-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid #b7c8dd;
-  border-radius: 8px;
-  background: #eef6ff;
-}
-
-.ui-mode-banner div {
-  display: grid;
-  gap: 3px;
-}
-
-.ui-mode-banner b {
-  font-size: 14px;
-}
-
-.ui-mode-banner span {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.mode-toggle-button {
-  flex: 0 0 auto;
-  border-color: var(--blue);
-  color: #143b8f;
-}
-
-.mode-more-panel {
-  margin: 0 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft);
-}
-
-.mode-more-panel summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.mode-more-panel > :not(summary) {
-  margin: 0 14px 14px;
-}
-
-.basic-import-srt-only-notice {
-  margin: -4px 0 8px;
-  font-size: 0.85em;
-  color: var(--muted);
-}
-
-.basic-import-drop {
-  border: 1px dashed var(--line-strong, var(--line));
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-  color: var(--muted);
-}
-
-.basic-import-drop.disabled {
-  background: #f8fafc;
-  cursor: not-allowed;
-}
-
-/* 지시문 13 (TASK A-2) — SunoModeReadOnlyViewer's drop zone reuses this same class; drag-over feedback was missing (only .audio-drop-zone had it). */
-.basic-import-drop.drag-over {
-  border-color: var(--accent, #2563eb);
-  background: var(--accent-soft, #eef2ff);
-}
-
-.roadmap-note {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-  color: var(--muted);
-}
-
-.roadmap-note p {
-  margin: 4px 0;
-}
-
-.thumbnail-image-target {
-  display: grid;
-  gap: 10px;
-}
-
-.thumbnail-layer-panel {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft);
-}
-
-.thumbnail-layer-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.thumbnail-layer-list {
-  display: grid;
-  gap: 6px;
-}
-
-.thumbnail-layer-row {
-  display: grid;
-  grid-template-columns: 40px minmax(82px, 104px) minmax(0, 1fr) repeat(4, 40px);
-  gap: 6px;
-  align-items: center;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.thumbnail-layer-row.active {
-  border-color: var(--blue);
-  background: #eff6ff;
-}
-
-.thumbnail-layer-row input {
-  min-width: 0;
-}
-
-.thumbnail-layer-detail {
-  display: grid;
-  gap: 10px;
-  padding-top: 4px;
-}
-
-.thumbnail-slider-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(160px, 1fr));
-  gap: 10px;
-}
-
-.thumbnail-slider-grid label {
-  margin: 0;
-}
-
-.thumbnail-prompt-preview {
-  min-height: 80px;
-  max-height: 220px;
-}
-
-.thumbnail-preview-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.thumbnail-bg-preview {
-  max-width: 320px;
-  max-height: 200px;
-  width: auto;
-  height: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  object-fit: cover;
-}
-
 .song {
   min-width: 0;
   margin-top: 18px;
@@ -2134,8 +1814,7 @@ pre {
   }
 
   .result-grid,
-  .signature-grid,
-  .thumbnail-prompt-grid {
+  .signature-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2178,19 +1857,8 @@ pre {
   }
 
   .genre-toolbar,
-  .genre-detail-list,
-  .thumbnail-control-grid,
-  .thumbnail-prompt-grid,
-  .thumbnail-slider-grid {
+  .genre-detail-list {
     grid-template-columns: 1fr;
-  }
-
-  .thumbnail-layer-row {
-    grid-template-columns: 40px minmax(82px, 1fr) repeat(4, 40px);
-  }
-
-  .thumbnail-layer-row input {
-    grid-column: 1 / -1;
   }
 
   .diversity-allocation-head,
@@ -2463,283 +2131,6 @@ pre {
   font-size: 13px;
 }
 
-.thumbnail-entry-button {
-  min-height: 38px;
-}
-
-.standalone-thumbnail-studio {
-  display: grid;
-  gap: 20px;
-}
-
-.standalone-thumbnail-head,
-.standalone-preview-label {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.standalone-thumbnail-head h2 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.standalone-thumbnail-head p {
-  margin: 5px 0 0;
-}
-
-.standalone-thumbnail-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
-  gap: 20px;
-  align-items: start;
-}
-
-.standalone-thumbnail-controls,
-.standalone-thumbnail-preview-column {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-
-.standalone-thumbnail-step {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft);
-}
-
-.standalone-thumbnail-step h3,
-.standalone-recent h3 {
-  margin: 0 0 10px;
-  font-size: 15px;
-}
-
-.standalone-step-number {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--blue);
-  color: #fff;
-  font-weight: 800;
-}
-
-.thumbnail-dropzone {
-  display: grid;
-  place-items: center;
-  gap: 8px;
-  min-height: 190px;
-  padding: 22px;
-  border: 2px dashed #8ca8c7;
-  border-radius: 8px;
-  background: #f7fbff;
-  color: var(--text);
-  text-align: center;
-  cursor: pointer;
-}
-
-.thumbnail-dropzone span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.thumbnail-dropzone input {
-  width: 100%;
-  max-width: 220px;
-}
-
-.thumbnail-source-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.thumbnail-source-tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-}
-
-.thumbnail-source-tabs button.active {
-  border-color: var(--blue);
-  background: #dbeafe;
-  color: #143b8f;
-  font-weight: 800;
-}
-
-.thumbnail-ai-source {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid #bfd3ee;
-  border-radius: 8px;
-  background: #f7fbff;
-}
-
-.thumbnail-ai-source textarea {
-  min-height: 88px;
-  resize: vertical;
-  font-size: 12px;
-}
-
-.standalone-thumbnail-copy {
-  display: grid;
-  gap: 10px;
-}
-
-.standalone-thumbnail-copy label {
-  margin: 0;
-}
-
-.thumbnail-copy-candidates,
-.thumbnail-format-toggle {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.thumbnail-copy-candidates button,
-.thumbnail-format-toggle button {
-  min-height: 32px;
-  padding: 0 10px;
-}
-
-.thumbnail-format-toggle {
-  margin-top: 2px;
-}
-
-.thumbnail-format-toggle button.active {
-  border-color: var(--blue);
-  background: #dbeafe;
-  color: #143b8f;
-  font-weight: 800;
-}
-
-.standalone-advanced {
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft);
-}
-
-.standalone-advanced summary {
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.standalone-advanced .thumbnail-control-grid {
-  margin-top: 12px;
-}
-
-.standalone-download-step {
-  background: #eef6ff;
-}
-
-.standalone-download-button {
-  min-height: 44px;
-}
-
-.standalone-thumbnail-preview-column {
-  position: sticky;
-  top: 16px;
-}
-
-.standalone-preview-label {
-  align-items: center;
-  color: var(--muted);
-}
-
-.standalone-preview-label strong {
-  color: var(--text);
-}
-
-.standalone-thumbnail-preview {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border: 1px solid var(--line-strong, var(--line));
-  border-radius: 8px;
-  background: #e8eef5;
-  color: var(--muted);
-  text-align: center;
-}
-
-.standalone-thumbnail-preview.square {
-  aspect-ratio: 1;
-}
-
-.standalone-thumbnail-preview img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.standalone-recent {
-  padding-top: 4px;
-}
-
-.standalone-recent-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.standalone-recent-grid button {
-  min-width: 0;
-  padding: 0;
-  overflow: hidden;
-  border-radius: 6px;
-  background: transparent;
-}
-
-.standalone-recent-grid img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
-
-@media (max-width: 840px) {
-  .standalone-thumbnail-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .standalone-thumbnail-preview-column {
-    position: static;
-    grid-row: 1;
-  }
-}
-.qwen-ready-badge {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  margin-top: 8px;
-  padding: 4px 9px;
-  border: 1px solid #8bc7a0;
-  border-radius: 999px;
-  color: #1f6b3d;
-  background: #eef9f1;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.thumbnail-settings-warning {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 /* TASK v3.73 (TASK D) — AudioAnalysisPanel.tsx */
 .callout {
   margin: 8px 0;
@@ -2933,6 +2324,33 @@ pre {
   opacity: 0.65;
 }
 
+/* 지시문 41 (TASK D) — 카드 전체가 <button>이면 준비 상태 배지를 눌러서 펼칠
+   독립된 <button>을 그 안에 넣을 수 없다(중첩 인터랙티브 요소 금지). 바깥
+   .workspace-card는 이제 평범한 컨테이너이고, "워크스페이스 열기"만 이
+   안쪽 버튼이 맡는다 — 시각적으로는 기존 카드 전체 클릭과 동일하다. */
+.workspace-card-enter {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+  justify-items: start;
+}
+
+.workspace-card-readiness-detail {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: default;
+}
+
 .workspace-card-label {
   font-size: 16px;
   font-weight: 800;
@@ -2945,12 +2363,13 @@ pre {
 }
 
 /* 지시문 28 (TASK B) — 준비 상태 배지: .chip의 툴바용 min-height(34px)는 이
-   카드 안에서 너무 두꺼워 보여 작은 라벨 치수로 덮어쓴다. */
+   카드 안에서 너무 두꺼워 보여 작은 라벨 치수로 덮어쓴다. 지시문 41 (TASK D) —
+   이제 진짜 <button>(펼침 토글)이라 cursor는 help에서 pointer로. */
 .workspace-card-readiness {
   min-height: auto;
   padding: 2px 8px;
   font-size: 11px;
-  cursor: help;
+  cursor: pointer;
 }
 
 .workspace-not-ready-notice {

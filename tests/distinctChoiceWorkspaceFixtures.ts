@@ -41,7 +41,7 @@ function section(tag: string, lines: string[]): string {
 }
 
 /** ruleId 하나를 compliant 또는 violated로 확정 재현하는 최소 lyrics. */
-function lyricsForRule(ruleId: DistinctChoiceRuleId, compliant: boolean): string {
+function lyricsForRule(ruleId: DistinctChoiceRuleId, compliant: boolean, trackNo: number): string {
   switch (ruleId) {
     case 'NO_CHORUS':
       return compliant
@@ -86,6 +86,16 @@ function lyricsForRule(ruleId: DistinctChoiceRuleId, compliant: boolean): string
       return compliant
         ? [section('verse 1', fillerGroup(0)), section('bridge', fillerGroup2(2))].join('\n\n')
         : [section('verse 1', fillerGroup(0)), section('bridge', fillerGroup(2))].join('\n\n');
+    // 지시문 37 (TASK C-2)
+    case 'CHANT_HOOK':
+      return compliant
+        ? [section('verse 1', fillerGroup(0)), section('chant', ['hey hey hey hey'])].join('\n\n')
+        : [section('verse 1', fillerGroup(0)), section('chorus', fillerGroup(1))].join('\n\n');
+    case 'HOOK_REPEAT_4X': {
+      const hook = `Track ${trackNo} Hook`;
+      const repeatCount = compliant ? 4 : 2;
+      return [section('verse 1', fillerGroup(0)), section('chorus', Array.from({ length: repeatCount }, () => hook))].join('\n\n');
+    }
     case 'NO_INTRO':
     case 'KEY_LIFT':
     case 'OCTAVE_DOWN_CHORUS':
@@ -144,7 +154,7 @@ export function buildRuleSong(trackNo: number, ruleId: DistinctChoiceRuleId, opt
   const { compliant, mixedGenderVocalTogether } = opts;
   const lyrics = ruleId === 'VOCAL_TOGETHER' && mixedGenderVocalTogether
     ? [section('verse 1: Male and Female Duet', fillerGroup(0)), section('chorus: Male and Female Duet', fillerGroup(1))].join('\n\n')
-    : lyricsForRule(ruleId, compliant);
+    : lyricsForRule(ruleId, compliant, trackNo);
   const stylePrompt = stylePromptForRule(ruleId, compliant, trackNo);
   const params = paramsForRule(ruleId, compliant);
   return {

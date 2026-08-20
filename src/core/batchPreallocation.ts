@@ -19,10 +19,8 @@ import {
   applyFlagshipVocalOrder,
   buildAdultVocalTraitPlan,
   buildVocalPlan,
-  buildVocalTechniquePlan,
+  buildVocalTechniquePlanByGenre,
   buildVocalVariantPlan,
-  DEFAULT_ADULT_VOCAL_QUOTA,
-  DEFAULT_KIDS_VOCAL_QUOTA,
   ensureVocalMetaTag,
   kidsVocalTextFor,
   leaningAdultVocalQuota,
@@ -30,16 +28,25 @@ import {
   resolveFlagshipVocalOrder,
   resolveVocalMetaTag,
   usesVocalQuota,
+  vocalTypeMatchesPresetGender,
   type VocalGender,
   type VocalType
 } from './vocalPlan';
-import { matchVocalPreset } from '../data/vocalPresets';
+import { matchVocalPreset, vocalPresets, type VocalPreset } from '../data/vocalPresets';
+import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
+import { buildKidsPresetPlan, kidsPresetVocalText } from './kidsVocalPresetPlan';
+import { DEFAULT_KIDS_AGE_TIER_ID } from '../data/kidsAgeTiers';
 import { eraBucketForGenreId } from '../data/eraExclusions';
 import { PROXIMITY_POOL } from '../data/vocalTraits';
 import { buildHookDevicePlan, hookDeviceIdsForNarrative } from './hookDevicePlan';
 import { getHookDeviceById, hookDevices } from '../data/hookDevices';
 import { buildChorusContrastPlan } from './chorusContrastPlan';
 import { chorusContrastInstructionText, chorusContrastPlanById } from '../data/chorusContrast';
+import { buildKpopPartPlan } from './kpopPartPlan';
+import { kpopWorkspacePolicyFor } from './kpopWorkspacePolicy';
+import { buildKpopSectionStyleShiftPlan } from './kpopSectionStyleShiftPlan';
+import { sectionStyleShiftInstructionText, sectionStyleShiftPresetById } from '../data/sectionStyleShifts';
+import { buildMoneyChordSectionPlan } from './moneyChordSectionPlan';
 import type { OpeningPackContext } from './openingContest';
 import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { buildIntroTexturePlan, introTextureTagForId } from './introTexturePlan';
@@ -65,11 +72,11 @@ import { assignKillingPoints, killingPointBoostFromInsights } from '../data/kill
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 import { assignOpeningLoudnessDescriptors } from '../data/openingHooks';
-import { applyEraQuota, ensureEraNeutralFloor, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
+import { applyEraQuota, applyWorkspaceEraFloor, ensureEraNeutralFloor, extractEraConstraint, genreCountsFromIds, resolveConstraintsFromOptions } from './constraints';
 import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
-import { resolveBpmLengthTier, estimateSongLengthSec } from './bpmLengthControl';
+import { resolveBpmEnergyBand, sectionRangeForBpm, wordBudgetForTarget, estimateSongLengthSec } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
@@ -110,7 +117,7 @@ function appendGenreAutoRemainder(manualPlan: string[], autoPlan: string[], song
  * longer collide on identity because they never choose it.
  */
 export function preallocateSongSlots(
-  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalTone' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
+  opts: Pick<GenerationOptions, 'channel' | 'projectTitle' | 'lyricLanguage' | 'songCount' | 'genreIds' | 'moodIds' | 'moneyChordMode' | 'moneyChordModeIsExplicitChoice' | 'customMoneyChord' | 'earwormMode' | 'vocalQuota' | 'vocalQuotaMode' | 'vocalTone' | 'vocalPresetPlan' | 'avoidWords' | 'negativeStyle' | 'introUniqueness' | 'diversityAllocations' | 'perspective' | 'customLyricThemeScene' | 'customConcept' | 'genreBlendWeights' | 'genreBlendMode' | 'audience' | 'ratingInsights' | 'slotOrderOverride'>,
   genres: GenrePack[],
   // TASK v3.72 (TASK E) — recentVocalComboSignatures is optional and
   // additive: core/vocalComboLedger.ts's last few "M:<register>|F:<register>"
@@ -258,9 +265,22 @@ export function preallocateSongSlots(
    * local-preview path era-awareness today, but extending that to their real
    * bridge-deployment path is out of this task's scope.
    */
-  const eraConstraint = genreAllocation?.mode === 'manual' || opts.channel.archetype !== 'senior-morning'
+  // 지시문 46 긴급수정 (TASK A) — 이전 시도(지시문 46 TASK B)는 여기서
+  // applyWorkspaceEraFloor를 적용했다가 8건이 깨져 되돌렸다. 진짜 원인은
+  // 이 함수가 아니라 core/constraints.ts's resolveConstraints의
+  // detectConceptBreadth가 바닥이 만든 coPrimary를 "컨셉이 실제로 복수
+  // 시대를 말했다"는 신호로 오인한 것이었다(그 파일 자신의 doc comment
+  // 참고) — 그건 이미 고쳤다. 이제 이 자리에서도 바닥이 정의된 5개
+  // 아키타입(senior-morning·oldpop-lounge·showa-cafe·showa-70s·j2000s)
+  // 전부로 넓힌다 — 그래야 design gate(resolveConstraintsFromOptions가
+  // 만드는 era-primary-share 등)가 기대하는 시대 분포와 실제 생성된
+  // 슬롯의 장르 분포가 일치한다(둘 다 같은 applyWorkspaceEraFloor 결과를
+  // 쓴다 — 하나만 고치면 design gate와 실제 생성이 서로 다른 기준을
+  // 갖게 되어 오히려 더 많이 실패한다, §실측).
+  const ERA_FLOOR_ELIGIBLE_ARCHETYPES: ReadonlySet<ChannelArchetype | undefined> = new Set(['senior-morning', 'oldpop-lounge', 'showa-cafe', 'showa-70s', 'j2000s']);
+  const eraConstraint = genreAllocation?.mode === 'manual' || !ERA_FLOOR_ELIGIBLE_ARCHETYPES.has(opts.channel.archetype)
     ? undefined
-    : extractEraConstraint(opts.customConcept ?? '');
+    : applyWorkspaceEraFloor(extractEraConstraint(opts.customConcept ?? ''), opts.channel.archetype);
   // 정합성 점검 §1 결함1 fix — same breadth-aware perGenreCap as
   // core/setDirector.ts's own applyEraQuota calls (see applyEraQuota's own
   // doc comment on the perGenreCap parameter). `constraints` (line 190
@@ -270,20 +290,28 @@ export function preallocateSongSlots(
     ? (() => {
         const filter = (genre: GenrePack) => isGenreEligibleForArchetype(genre, opts.channel.archetype || 'senior-morning');
         const cap = BREADTH_THRESHOLDS[constraints.breadth].genre.maxPerGenre;
+        // 지시문 47 (TASK B) — genre.min(장르 종류 하한, 예: balanced 4)을
+        // 넘겨 genreCountsFromIds가 관문 자신의 최소 종류 수 아래로 뭉치지
+        // 않도록 한다(§그 함수 자신의 doc comment).
         const { counts } = applyEraQuota(
-          genreCountsFromIds(genrePool, opts.songCount, cap),
+          genreCountsFromIds(genrePool, opts.songCount, cap, BREADTH_THRESHOLDS[constraints.breadth].genre.min),
           opts.songCount,
           tightenEraConstraintForSenior(eraConstraint, opts.channel.archetype, opts.songCount),
           filter,
           undefined,
-          cap
+          cap,
+          // 지시문 46 긴급수정 (TASK A) — eraConstraint.floorApplied면 채널
+          // 바닥이 만든 것이지 사용자가 고른 컨셉/장르가 아니므로, 사용자가
+          // 선택하지 않은 새 장르를 열지 않는다(§applyEraQuota의 allowNewGenres
+          // 자기 doc comment 참고 — palette-variety-max 회귀 실측으로 확인).
+          !eraConstraint.floorApplied
         );
         // 지시문 33 (§1) — era-neutral(발라드 등) 하한을 배정 단계에서
         // 확보한다. applyEraQuota가 끝난 뒤 실행 — 그 안의 anti-singleton/
         // coPrimary 로직은 건드리지 않는다.
         const workspaceId = workspaceForArchetype(opts.channel.archetype)?.id;
         const policy = workspaceId ? eraIntentForWorkspace(workspaceId).eraNeutralPolicy : undefined;
-        return ensureEraNeutralFloor(counts, opts.songCount, policy, filter, cap).counts;
+        return ensureEraNeutralFloor(counts, opts.songCount, policy, filter, cap, !eraConstraint.floorApplied).counts;
       })()
     : undefined;
   // core/setDirector.ts's directSetLocal uses Object.keys(quotaAdjustedCounts)
@@ -386,6 +414,11 @@ export function preallocateSongSlots(
         ?? buildFamilyProgressionPlan(dominantFamilyId, opts.channel.archetype, seed, opts.songCount)
         ?? buildProgressionPlan(opts.channel.archetype, seed, songRoles))
       : null);
+  // 지시문 39 (TASK B) — progressionPlan(위)이 이미 정한 트랙별 "주 진행"은
+  // 절대 건드리지 않는다 — 이 레이어는 그 위에 순수 추가되는 것으로,
+  // 워크스페이스 정책(동요 1개 우세·시니어 2개 우세·2030/아이돌 2~3개)에
+  // 따라 일부 트랙만 compatibleWith 안에서 2~3개 진행으로 확장한다.
+  const moneyChordSectionPlan = buildMoneyChordSectionPlan(progressionPlan, opts.channel.archetype, opts.songCount, seed);
   // TASK v3.39 — mirrors progressionPlan immediately above: same pre-pass
   // shape, same seed, so this path (realtime/Batch/bridge) agrees with
   // localGenerator.ts's own buildVocalPlan call on every trackNo's vocal
@@ -403,7 +436,12 @@ export function preallocateSongSlots(
   // TASK K2 §5-1 — opts.channel.vocalQuotaOverride mirrors localGenerator.ts's
   // identical addition: same priority as opts.vocalQuota, undefined for
   // every existing channel preset so this path is unchanged for them.
-  const baseVocalQuota = opts.vocalQuota ?? opts.channel.vocalQuotaOverride ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+  // 지시문 63 (TASK A) — 예전엔 이 지점에서 균등 5·5·5(DEFAULT_ADULT_VOCAL_QUOTA)로
+  // 곧장 폴백했다. resolveBaseVocalQuota가 같은 우선순위(opts.vocalQuota >
+  // channel.vocalQuotaOverride)는 그대로 지키면서, 마지막 폴백만 genrePlan에서
+  // 역산한 쿼터(deriveVocalQuotaFromGenrePlan)로 바꾼다 — opts.vocalQuotaMode
+  // === 'balanced'일 때만 예전 균등값으로 되돌아간다(§"고르게 배정" 선택지 유지).
+  const baseVocalQuota = resolveBaseVocalQuota(opts, genrePlan);
   // v5.9 (quota/tone separation) — `detectedVocalTone` is a pure recognition
   // signal (does a preset/gender/duet/mixed phrase actually exist in
   // opts.vocalTone?), computed the SAME way regardless of channel type; it
@@ -469,6 +507,42 @@ export function preallocateSongSlots(
   let vocalPlan = autoVocalPlan
     ? applyAxisAllocation(autoVocalPlan, opts.diversityAllocations, 'vocalType', VOCAL_TYPE_IDS, seed)
     : null;
+  // 지시문 47 (TASK A) — 실측: opts.vocalPresetPlan이 있어도 트랙별
+  // vocalType은 이미 quota가 먼저 확정해버려서, 추천 프리셋의 성별이 그
+  // 트랙의 vocalType과 우연히 맞을 때만(§resolveVocalPresetOverride,
+  // 아래 slots 루프) 반영됐다 — 총량(성별 분포)은 추천이 이미 지켰는데
+  // 트랙별 "순서"만 서로 달라 15곡이 거의 전부 조용히 버려졌다(실측:
+  // 0/15). 순서를 뒤집는다 — vocalPresetPlan이 있고, 그 프리셋들의 성별
+  // 분포가 autoVocalPlan(quota가 실제로 요구하는 목표 분포, 같은
+  // songCount/seed)과 정확히 같은 멀티셋일 때만, 그 프리셋 순서 자체를
+  // vocalType 순서로 채택한다 — quota를 "지켰는지 검사"하는 것이지 quota
+  // 위에 덧씌우는 게 아니다(§"vocalQuota 총량을 깨지 말 것"). 8축
+  // diversityAllocations가 vocalType을 manual로 명시적으로 고정했을 때는
+  // 그 축이 더 강한 명시적 선택이라 우선한다(추천 미리보기는 그 축을 전혀
+  // 모르고 만들어졌으므로) — vocalPresetPlan은 그 경우 조용히 무시한다
+  // (별도 경고 없음 — 8축 manual 자체가 이미 "quota와 다르게 갈 수 있다"는
+  // 사용자의 명시적 의도이므로 §A-4의 "설정과 다르면 경고" 대상이 아니다).
+  const vocalTypeAxisIsManual = allocationForAxis(opts.diversityAllocations, 'vocalType')?.mode === 'manual';
+  const vocalPresetPlanTypes: VocalType[] | undefined = (() => {
+    if (!opts.vocalPresetPlan || !autoVocalPlan || isKidsArchetype(opts.channel.archetype) || vocalTypeAxisIsManual) return undefined;
+    if (opts.vocalPresetPlan.length !== opts.songCount) return undefined;
+    const resolved: VocalType[] = [];
+    for (const presetId of opts.vocalPresetPlan) {
+      const preset = presetId ? vocalPresets.find(p => p.id === presetId) : undefined;
+      if (!preset || preset.forKids) return undefined;
+      resolved.push(preset.gender === 'mixed' || preset.gender === 'duet' ? 'mixed' : preset.gender);
+    }
+    const countOf = (arr: readonly VocalType[], type: VocalType) => arr.filter(value => value === type).length;
+    const quotaMatches = VOCAL_TYPE_IDS.every(type => countOf(resolved, type as VocalType) === countOf(autoVocalPlan, type as VocalType));
+    if (!quotaMatches) {
+      console.warn('[vocalPresetPlan] 보컬 추천의 성별 분포가 설정과 달라 적용하지 않았습니다.');
+      return undefined;
+    }
+    return resolved;
+  })();
+  if (vocalPresetPlanTypes) {
+    vocalPlan = vocalPresetPlanTypes;
+  }
   // v3.80 (TASK A-3) — tracks 1-3 (flagship slots) get 3 distinct vocal
   // types, rotating order set-to-set (never repeating the immediately prior
   // set's own order — see recentFlagshipOrderStore.ts/resolveFlagshipVocalOrder's
@@ -491,8 +565,18 @@ export function preallocateSongSlots(
   // rotation only applies to the balanced, no-preference default (see
   // tests/v341.test.ts's own "reconcileWithPreassignedSlot enforces a duet
   // end-to-end" — a real regression this guard fixes).
+  // 지시문 47 (TASK A) — vocalPresetPlanTypes가 활성일 때는 아래 세 단계
+  // (flagship 3종 고정 · flagshipCombo swap · genre-vocalType affinity)를
+  // 모두 건너뛴다 — 셋 다 vocalPlan의 트랙 위치를 SWAP한다. vocalPlan을
+  // 이미 추천 프리셋 순서로 채택한 뒤에 위치를 더 바꾸면, slots 루프의
+  // resolveVocalPresetOverride가 opts.vocalPresetPlan[idx]를 여전히
+  // "원래" 인덱스로 조회하므로 그 트랙의 성별과 프리셋 성별이 다시
+  // 어긋난다 — 이번 지시문이 고치려는 것과 정확히 같은 결함이 재발한다.
+  // 추천 자체가 이미 3연속 방지·다양성 감점을 거쳐 만들어졌으므로
+  // (vocalRecommender.ts) 이 단계들이 노리는 효과는 상당 부분 이미
+  // 반영돼 있다.
   const vocalPlanHasAllThreeTypes = vocalPlan ? new Set(vocalPlan).size === 3 : false;
-  const flagshipVocalOrder = vocalPlan && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
+  const flagshipVocalOrder = vocalPlan && !vocalPresetPlanTypes && opts.songCount >= 3 && vocalPlanHasAllThreeTypes && !vocalLeaning
     ? resolveFlagshipVocalOrder(seed, avoid?.previousFlagshipOrder)
     : null;
   if (vocalPlan && flagshipVocalOrder) {
@@ -505,7 +589,7 @@ export function preallocateSongSlots(
   // track already carrying that vocal type, preserving the pack's overall
   // 6/6/6-style type totals — never a blunt overwrite, which could silently
   // break vocalIssues' (designGate.ts) own count checks.
-  if (vocalPlan && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
+  if (vocalPlan && !vocalPresetPlanTypes && flagshipCombo?.vocalType && vocalPlan[1] !== flagshipCombo.vocalType) {
     const swapIndex = vocalPlan.findIndex((type, i) => i >= 3 && type === flagshipCombo.vocalType);
     if (swapIndex !== -1) {
       const tmp = vocalPlan[1];
@@ -518,7 +602,7 @@ export function preallocateSongSlots(
   // 재즈 = 무조건 여자") so the local and Batch/bridge paths agree on which
   // genre lands on which already-allocated vocalType, not just the raw
   // 6/6/6-style totals.
-  if (vocalPlan && !isKidsArchetype(opts.channel.archetype)) {
+  if (vocalPlan && !vocalPresetPlanTypes && !isKidsArchetype(opts.channel.archetype)) {
     vocalPlan = applyGenreVocalAffinity(vocalPlan, genrePlan, opts.songCount >= 3 ? 3 : 0);
   }
   // TASK v3.41 Part A2/D — mirrors vocalPlan's pre-pass shape/seed one more
@@ -528,6 +612,15 @@ export function preallocateSongSlots(
   // only — the adult path's wording now comes from buildAdultVocalTraitPlan
   // below (TASK v3.72 TASK B), not this flat variant-index scheme.
   const vocalVariantPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) ? buildVocalVariantPlan(vocalPlan, seed) : null;
+  // 지시문 63 (TASK B) — 하루가 명시적으로 단일 kids 프리셋을 고르지 않은
+  // 한(kidsMatchedVocalPreset이 그 경로 — 그때는 팩 전체가 그 프리셋
+  // 문구를 그대로 쓰는 게 맞다, 아래 vocalText 계산에서 우선한다), 곡마다
+  // forKids 프리셋 10종 중 이 나이대(resolvedKidsAgeTierId) 후보를 실제로
+  // 회전 배정한다 — 예전엔 이 경로가 아예 없어 effectiveVocalPresetId가
+  // 항상 null이었고 프리셋 10종이 하나도 안 쓰였다(§B-1 실측).
+  const kidsPresetPlan = vocalPlan && isKidsArchetype(opts.channel.archetype) && !kidsMatchedVocalPreset
+    ? buildKidsPresetPlan(vocalPlan, resolvedKidsAgeTierId ?? DEFAULT_KIDS_AGE_TIER_ID, seed)
+    : null;
   // TASK v3.72 (TASK B) — the 4-axis (register/delivery/timbre/proximity;
   // pairing/blend for duet) per-song wording plan for every non-kids
   // archetype, replacing the old flat 5-variant ADULT_VOCAL_DESCRIPTIONS
@@ -543,11 +636,13 @@ export function preallocateSongSlots(
   // values (plate/chamber/tape-slap/mono) over today's modern default.
   // Mirrors genrePlan's own indexing exactly (same array, same idx).
   const eraBucketByIndex = genrePlan.map(id => eraBucketForGenreId(id) ?? undefined);
-  // v3.80 (TASK E) — mirrors localGenerator.ts's identical technique-plan
-  // call (same seed); appended onto vocalText below so it reaches both the
-  // local path's stylePrompt and the bridge/Batch path's LLM-facing
-  // vocalText verbatim-enforcement.
-  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlan(eraBucketByIndex, seed) : null;
+  // 지시문 65 (TASK B) — localGenerator.ts와 동일하게 era 기준
+  // buildVocalTechniquePlan을 genre 기준 buildVocalTechniquePlanByGenre로
+  // 대체(같은 seed, 같은 genrePlan 인덱싱 — 그 파일 자기 doc comment 참고);
+  // appended onto vocalText below so it reaches both the local path's
+  // stylePrompt and the bridge/Batch path's LLM-facing vocalText
+  // verbatim-enforcement.
+  const vocalTechniquePlan = !isKidsArchetype(opts.channel.archetype) ? buildVocalTechniquePlanByGenre(genrePlan, seed) : null;
   // v3.80 (TASK A-1) — track 1 (cold-open) forced spacious/not-dry (any
   // proximity except the "dry and forward" modern-forward character);
   // tracks 2-3 (flagship) forced to plate/chamber ambience specifically —
@@ -620,6 +715,10 @@ export function preallocateSongSlots(
   // 지시문 36 (TASK C-3) — hookDevicePlan 바로 옆에 둔다: 같은 시점에
   // 결정되는 같은 신뢰 모델의 슬롯 필드이기 때문(§C-3 "검사만 하면 늦다").
   const chorusContrastPlan = buildChorusContrastPlan(opts.songCount, seed + 173);
+  // 지시문 37 (TASK B) — 같은 이유로 같은 자리: chorusContrastPlan과 동일한
+  // stride 회전 신뢰 모델. kr-idol-male/kr-idol-female이 아니면 아래
+  // per-track 루프에서 kpopPolicy가 undefined라 슬롯에 실리지 않는다.
+  const sectionStyleShiftPlan = buildKpopSectionStyleShiftPlan(opts.songCount, seed + 331);
   const introTexturePlan = applyAxisAllocation(
     buildIntroTexturePlan(opts.channel.archetype, opts.songCount, seed, opts.introUniqueness),
     opts.diversityAllocations,
@@ -748,6 +847,79 @@ export function preallocateSongSlots(
   const povPlan = buildPovPlan(opts, seed);
   const sectionStylePlan = buildSectionStylePlan(opts.songCount, seed, structureTemplatePlan);
 
+  // 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — GenerationOptions.
+  // vocalPresetPlan의 자기 doc comment 참고. vocalType(quota로 이미 확정된
+  // 성별/듀엣 축)과 그 인덱스의 프리셋 성별이 실제로 맞을 때만 그 프리셋을
+  // 쓴다 — 맞지 않으면(계획 없음·kids·성별 불일치) undefined를 반환해 그
+  // 트랙만 기존 폴백 경로로 조용히 떨어진다.
+  function resolveVocalPresetOverride(idx: number, vocalType: VocalType | undefined) {
+    if (isKidsArchetype(opts.channel.archetype) || !vocalType) return undefined;
+    const presetId = opts.vocalPresetPlan?.[idx];
+    if (!presetId) return undefined;
+    const preset = vocalPresets.find(p => p.id === presetId);
+    if (!preset || preset.forKids || !vocalTypeMatchesPresetGender(vocalType, preset.gender)) return undefined;
+    return preset;
+  }
+  // 지시문 47 (TASK A-7) — 실측: vocalPresetOverride가 같은 프리셋을 그대로
+  // 재사용하면(15곡 기준 최대 4곡까지 허용 — vocalRecommender.ts의
+  // MAX_PRESET_SHARE) vocalTechniquePlan[idx]까지 우연히 같은 문구를
+  // 고르는 경우가 있어 vocalText가 두 트랙에서 완전히 같아진다(실측: 30개
+  // seed 중 10건, "vocalText 곡별 고유 15/15" 회귀). buildAdultVocalTraitPlan
+  // 경로(프리셋 미사용)는 4축(register/delivery/timbre/proximity) 조합이라
+  // 이 충돌이 사실상 없었다 — 프리셋 경로는 고정 문자열 하나뿐이라 자유도가
+  // 훨씬 낮다. 같은 프리셋이 두 번째 이후로 쓰일 때만 PROXIMITY_POOL(이미
+  // 이 앱의 보컬 묘사 어휘에서 쓰는 공간감 단어 7종)에서 하나를 더 붙여
+  // 구분한다 — 프리셋의 정체성(prompt 원문)은 그대로 두고 공간감만
+  // 얹으므로 "그 프리셋을 썼다"는 사실은 안 바뀐다.
+  // 지시문 63 (TASK B-4) — kidsPresetVocalText's own doc comment: counts
+  // this preset id's reuse WITHIN THIS PACK so its N-th occurrence always
+  // gets a deterministically different variant clause (N mod pool size),
+  // never relying on two independent seeded shuffles happening not to
+  // collide.
+  const kidsPresetVariantCounter = new Map<string, number>();
+  function kidsPresetOccurrenceIndex(presetId: string): number {
+    const count = kidsPresetVariantCounter.get(presetId) ?? 0;
+    kidsPresetVariantCounter.set(presetId, count + 1);
+    return count;
+  }
+  const vocalPresetUsageCount = new Map<string, number>();
+  function repeatVarianceFor(preset: VocalPreset, idx: number): string | undefined {
+    const priorUses = vocalPresetUsageCount.get(preset.id) ?? 0;
+    vocalPresetUsageCount.set(preset.id, priorUses + 1);
+    if (priorUses === 0) return undefined;
+    // 실측 — (priorUses + idx) % length는 idx가 PROXIMITY_POOL.length(7)의
+    // 배수만큼 떨어진 두 재사용에서 그대로 충돌한다(예: idx 8/priorUses 1과
+    // idx 14/priorUses 2 — 둘 다 mod 7 결과가 같다, 8과 14가 7의 배수만큼
+    // 떨어져 있어서). 서로 다른 배수(5·13)로 섞어 이 선형 충돌을 없앤다.
+    return PROXIMITY_POOL[(idx * 5 + priorUses * 13) % PROXIMITY_POOL.length];
+  }
+  // 지시문 56 (TASK A) — 실측: repeatVarianceFor의 "공간감 한 단어 추가"만으로는
+  // 부족했다 — 같은 프리셋을 쓰는 트랙들의 vocalText 앞 두 구절(성별·음역대,
+  // 딜리버리)이 여전히 완전히 같았다(발라드 세트 soft-female 3곡 실측).
+  // preset.prompt는 프리셋당 고정 문구 하나뿐이라 그 안에서는 변주가 없다.
+  // adultVocalTraitPlan은 vocalPlan 전체에 대해 이미 무조건 계산되므로
+  // (§644 adultVocalTraitPlan 선언) 프리셋이 걸린 트랙에도 그 idx에 대응하는
+  // 곡별 변주(딜리버리·질감·공간감, 듀엣은 페어링·블렌드·공간감)가 항상
+  // 준비돼 있다 — 그 변주를 빌려 쓰되, preset.prompt의 첫 구절(성별+음역대
+  // 정체성)만 고정해 "이 프리셋을 썼다"는 사실은 유지한다.
+  function presetVariantVocalText(preset: VocalPreset, idx: number): string {
+    const anchor = preset.prompt.split(',')[0]?.trim() || preset.prompt;
+    const traitText = adultVocalTraitPlan?.[idx];
+    if (!traitText) {
+      // adultVocalTraitPlan이 비어 있는 유일한 경우(explicitUnrecognizedVocalTone)
+      // — 기존 폴백을 그대로 유지한다.
+      return [preset.prompt, repeatVarianceFor(preset, idx)].filter(Boolean).join(', ');
+    }
+    const traitParts = traitText.split(', ');
+    const isDuetPreset = preset.gender === 'mixed' || preset.gender === 'duet';
+    // 듀엣/그룹 프리셋의 adultVocalTraitPlan 문구는 마지막 구절이 항상
+    // "male and female duet"로 끝난다(§1578) — anchor가 그 정체성 역할을
+    // 이미 대신하므로 마지막 구절만 뺀다. 솔로는 첫 구절(성별+음역대)만
+    // 뺀다 — 나머지(딜리버리·질감·공간감)가 곡마다 다른 변주다.
+    const variantParts = isDuetPreset ? traitParts.slice(0, -1) : traitParts.slice(1);
+    return [anchor, ...variantParts].join(', ');
+  }
+
   const slots = Array.from({ length: opts.songCount }, (_, idx) => {
     const trackNo = idx + 1;
     const songRole = songRoles[idx];
@@ -755,22 +927,59 @@ export function preallocateSongSlots(
       ? nextContestedTitle(nextTitle, opts.lyricLanguage, opts.channel.archetype, songRole, songRole === 'cold-open' ? 'cold-open' : 'flagship', packContext, 3, false, constraints)
       : nextTitle(songRole);
     const vocalType = vocalPlan ? vocalPlan[idx] : undefined;
+    const vocalPresetOverride = resolveVocalPresetOverride(idx, vocalType);
+    // 지시문 49 (TASK A) — SongIdea.vocalPresetSource/PreassignedSongSlot.
+    // vocalPresetSource 자기 doc comment 참고. effectiveVocalPresetId를
+    // 채우는 것과 정확히 같은 두 변수(vocalPresetOverride/
+    // wholePackMatchedVocalPreset)를 같은 우선순위로 검사한다 — 별도 로직이
+    // 아니라 같은 판정의 라벨이다.
+    const vocalPresetSource: 'plan' | 'tone-match' | 'auto' | undefined = !vocalType
+      ? undefined
+      : (vocalPresetOverride ? 'plan' : (wholePackMatchedVocalPreset ? 'tone-match' : 'auto'));
     // v3.80 (TASK E) — appends vocalTechniquePlan[idx] only when
     // adultVocalTraitPlan[idx] is actually the text in use — mirrors
     // localGenerator.ts's identical guard (see its own doc comment): never
     // appended onto a kids description or onto a user's own verbatim
     // vocalTone fallback text.
+    // 지시문 63 (TASK B) — 이 트랙에 실제로 배정된 kids 프리셋. 팩 전체 단일
+    // 픽(kidsMatchedVocalPreset)이 최우선(기존 동작 그대로 — 트랙마다 같은
+    // 문구가 나오는 게 맞는 경로), 없으면 곡별 회전 배정(kidsPresetPlan).
+    const kidsPresetForTrack = isKidsArchetype(opts.channel.archetype)
+      ? (kidsMatchedVocalPreset ?? kidsPresetPlan?.[idx])
+      : undefined;
     const vocalText = vocalType
       ? (isKidsArchetype(opts.channel.archetype)
-          ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
-          : (adultVocalTraitPlan?.[idx]
-              ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
-              : fallbackVocalText))
+          ? (kidsMatchedVocalPreset
+              ? kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, kidsMatchedVocalPreset)
+              : (kidsPresetPlan?.[idx]
+                  ? kidsPresetVocalText(kidsPresetPlan[idx]!, opts.lyricLanguage, kidsPresetOccurrenceIndex(kidsPresetPlan[idx]!.id))
+                  : kidsVocalTextFor(vocalType, opts.lyricLanguage, vocalVariantPlan ? vocalVariantPlan[idx] : 0, opts.channel.archetype, undefined)))
+          : (vocalPresetOverride
+              ? [presetVariantVocalText(vocalPresetOverride, idx), vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+              : (adultVocalTraitPlan?.[idx]
+                  ? [adultVocalTraitPlan[idx], vocalTechniquePlan?.[idx]].filter(Boolean).join(', ')
+                  : fallbackVocalText)))
       : fallbackVocalText;
+    // 지시문 66 (TASK C) — vocalText에 이미 얹힌 vocalTechniquePlan[idx]와
+    // 정확히 같은 값·같은 게이팅(kids 제외, preset/traitPlan 경로에서만)을
+    // 별도 필드로도 실어, bridgeInstruction이 verbatim 신뢰 모델로 따로
+    // 지시할 수 있게 한다 — vocalText 자체는 그대로(§하지 말 것).
+    const vocalTechniqueText = vocalType && !isKidsArchetype(opts.channel.archetype) && (vocalPresetOverride || adultVocalTraitPlan?.[idx])
+      ? (vocalTechniquePlan?.[idx] || undefined)
+      : undefined;
     const vocalVariantText = vocalType ? vocalText : undefined;
     const vocalGender: VocalGender | undefined = vocalType
       ? (isKidsArchetype(opts.channel.archetype) ? vocalType : (vocalType === 'mixed' ? 'duet' : vocalType))
       : fallbackVocalGender;
+    // 지시문 37 (TASK A) — kr-idol-male/kr-idol-female에서만 설정된다
+    // (kpopWorkspacePolicyFor는 그 두 워크스페이스에만 정의돼 있다).
+    // moneyChordText/hookDeviceText와 같은 신뢰 모델: 여기서 한 번 계산해
+    // 슬롯에 싣고, reconcileWithPreassignedSlot이 양쪽 경로 모두에서
+    // SongIdea.partPlan으로 그대로 복사한다.
+    const kpopPolicy = kpopWorkspacePolicyFor(workspaceForArchetype(opts.channel.archetype)?.id ?? 'senior-oldpop');
+    const partPlan = kpopPolicy ? buildKpopPartPlan(vocalGender, structureTemplatePlan[idx], kpopPolicy, seed + idx * 97 + 401) : undefined;
+    // 지시문 37 (TASK B) — partPlan과 같은 게이팅(kr-idol 전용).
+    const sectionStyleShiftPreset = kpopPolicy ? sectionStyleShiftPresetById(sectionStyleShiftPlan[idx]) : undefined;
     const hookDeviceId = hookDevicePlan[idx];
     const introTextureId = introTexturePlan[idx];
     const moneyChordId = progressionPlan ? progressionPlan[idx] : undefined;
@@ -778,6 +987,9 @@ export function preallocateSongSlots(
     // stays undefined outside quota rotation) — see
     // core/soundSignature.ts's resolveEffectiveMoneyChordId doc comment.
     const effectiveMoneyChordId = resolveEffectiveMoneyChordId(opts, moneyChordId);
+    // 지시문 39 (TASK B) — moneyChordId(주 진행)는 그대로. 이 트랙이 2~3개
+    // 진행으로 확장됐을 때만(sectionMap.length > 1) 존재.
+    const moneyChordSection = moneyChordSectionPlan[idx];
     const hookDeviceText = getHookDeviceById(hookDeviceId)?.prompt;
     const chorusContrastPlanId = chorusContrastPlan[idx];
     const chorusContrastResolved = chorusContrastPlanId ? chorusContrastPlanById(chorusContrastPlanId) : undefined;
@@ -838,7 +1050,16 @@ export function preallocateSongSlots(
     // 2-3) are additionally hard-capped at 1 instrumental section
     // regardless of tier, per this task's own §3 대표곡 규격 확정 ("악기 구간
     // 최대 1 — T7이 2개여서 4:16이 됐습니다").
-    const bpmTier = resolveBpmLengthTier(resolvedTempo);
+    // 지시문 40 (TASK B) — 단어 예산은 이 채널의 실제 목표 길이
+    // (audienceProfile.songLengthSecondsRange)에서 역산한다. 섹션 범위는
+    // BPM만으로 정해지고(§B-3, sectionRangeForBpm), maxInstrumentalSections도
+    // BPM 에너지 대역에서 그대로 온다(§4-3 "BPM은 체감 에너지를 정한다").
+    const wordBudget = wordBudgetForTarget(audienceProfile.songLengthSecondsRange, resolvedTempo, structureTemplatePlan[idx]);
+    const bpmTier = {
+      sectionRange: sectionRangeForBpm(resolvedTempo),
+      wordRange: wordBudget.wordRange,
+      maxInstrumentalSections: resolveBpmEnergyBand(resolvedTempo).maxInstrumentalSections
+    };
     const isFlagshipSlot = idx === 1 || idx === 2;
     // 지시문 23 (TASK A) — 이 트랙의 실제 resolved 필드(tempo/arrangementDensity/
     // instrumentSet/vocalText, lead genre의 rhythm/instruments/vocal/production)
@@ -860,7 +1081,10 @@ export function preallocateSongSlots(
       sectionCountRange: bpmTier.sectionRange,
       wordCountRange: bpmTier.wordRange,
       maxInstrumentalSections: isFlagshipSlot ? Math.min(1, bpmTier.maxInstrumentalSections) : bpmTier.maxInstrumentalSections,
-      estimatedLengthSec: Math.round(estimateSongLengthSec(resolvedTempo, structureTemplatePlan[idx])),
+      // 지시문 40 (TASK A-3) — 설계안 단계라 실제 가사가 없으니, 방금 위에서
+      // 이 채널의 실제 목표 길이로 역산한 단어 예산의 중앙값을 넘긴다(이
+      // 채널을 모르는 범용 expectedWordCount(bpm) 대체값보다 정확하다).
+      estimatedLengthSec: Math.round(estimateSongLengthSec(resolvedTempo, structureTemplatePlan[idx], Math.round((bpmTier.wordRange[0] + bpmTier.wordRange[1]) / 2))),
       emotionArc: emotionArcPlan[idx],
       // TASK v4.8 (TASK A, §1-2) — includeFeelReinforcement dropped to stay
       // consistent with localGenerator.ts's own per-song moneyChord
@@ -888,6 +1112,14 @@ export function preallocateSongSlots(
         chorusContrastText: chorusContrastInstructionText(chorusContrastResolved),
         chorusContrastScore: chorusContrastResolved.score.total
       } : {}),
+      ...(partPlan ? { partPlan } : {}),
+      ...(sectionStyleShiftPreset ? { sectionStyleShifts: sectionStyleShiftPreset.shifts, sectionStyleShiftText: sectionStyleShiftInstructionText(sectionStyleShiftPreset) } : {}),
+      // 지시문 39 (TASK B) — moneyChordSection.sectionMap.length > 1일 때만
+      // 채운다(1개면 moneyChordId/moneyChordText만으로 이미 충분 — 낡은
+      // 단일-진행 경로를 그대로 둔다).
+      ...(moneyChordSection && moneyChordSection.sectionMap.length > 1
+        ? { moneyChordSectionMap: moneyChordSection.sectionMap, moneyChordSectionText: moneyChordSection.text }
+        : {}),
       ...(openingLoudnessPlan[idx] ? { openingLoudnessText: openingLoudnessPlan[idx] } : {}),
       // TASK v3.64-B — mirrors localGenerator.ts's own per-song
       // rotatingEarwormText call (same seed/idx), promoted to a slot field
@@ -920,7 +1152,16 @@ export function preallocateSongSlots(
       // onto the final SongIdea by reconcileWithPreassignedSlot below.
       effectiveMoneyChordId,
       effectiveGenreIds,
-      ...(wholePackMatchedVocalPreset ? { effectiveVocalPresetId: wholePackMatchedVocalPreset.id } : {}),
+      // 지시문 46 (TASK D) — vocalPresetOverride(이 트랙의 실제 곡별 프리셋)가
+      // 있으면 그것을, 없으면 기존 whole-pack 매칭으로 폴백한다 — 이전엔
+      // 이 필드가 모든 트랙에서 항상 같은 값이었다(§실측, 하루의 "목소리가
+      // 이전과 차이가 없다" 지적의 근본 원인).
+      // 지시문 63 (TASK B) — kidsPresetForTrack은 kids 채널에서만 값이 있고
+      // (vocalPresetOverride/wholePackMatchedVocalPreset은 kids에서 항상
+      // undefined이므로 셋이 겹칠 일이 없다), 그 반대(비-kids)는 예전과
+      // 동일하게 vocalPresetOverride ?? wholePackMatchedVocalPreset만 본다.
+      ...((vocalPresetOverride ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack) ? { effectiveVocalPresetId: (vocalPresetOverride ?? wholePackMatchedVocalPreset ?? kidsPresetForTrack)!.id } : {}),
+      ...(vocalPresetSource ? { vocalPresetSource } : {}),
       // v5.13 (TASK: kidsAgeTierId wiring) — mirrors effectiveMoneyChordId/
       // effectiveGenreIds's own "always-populated counterpart" pattern just
       // above; absent for a non-kids pack. Copied onto the final SongIdea by
@@ -955,6 +1196,7 @@ export function preallocateSongSlots(
       ...(sectionStyle ? sectionStyle : {}),
       vocalText,
       vocalVariantText: resolvedVocalVariantText,
+      ...(vocalTechniqueText ? { vocalTechniqueText } : {}),
       ...(conceptStyleText(opts.customConcept, idx) ? { conceptText: conceptStyleText(opts.customConcept, idx) } : {}),
       ...(conceptLyricImages(opts.customConcept).length ? { conceptLyricImages: conceptLyricImages(opts.customConcept) } : {}),
       ...(vocalGender ? { vocalGender } : {}),
@@ -1307,6 +1549,7 @@ export function reconcileWithPreassignedSlot(
       effectiveMoneyChordId: slot.effectiveMoneyChordId,
       effectiveGenreIds: slot.effectiveGenreIds,
       ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+      ...(slot.vocalPresetSource ? { vocalPresetSource: slot.vocalPresetSource } : {}),
       ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
       effectiveArchetype: resolvedArchetype,
       workspaceId: resolvedWorkspaceId,
@@ -1346,11 +1589,21 @@ export function reconcileWithPreassignedSlot(
       ...(slot.chorusStyle ? { chorusStyle: slot.chorusStyle } : {}),
       ...(slot.chorusStyleText ? { chorusStyleText: slot.chorusStyleText } : {}),
       ...(slot.vocalType ? { vocalType: slot.vocalType } : {}),
+      // 지시문 56 (TASK A-4/B-3) — killingPointText와 같은 유형의 왕복 끊김:
+      // slot.vocalText/vocalGender/vocalVariantText가 두 return 경로 모두
+      // song 스프레드만으로는 안 옮겨져 최종 팩에 vocalText가 항상 비어
+      // 있었다(실측: 발라드 세트 15/15 vocalText='').
+      ...(slot.vocalText ? { vocalText: slot.vocalText } : {}),
+      ...(slot.vocalVariantText ? { vocalVariantText: slot.vocalVariantText } : {}),
+      ...(slot.vocalTechniqueText ? { vocalTechniqueText: slot.vocalTechniqueText } : {}),
+      ...(slot.vocalGender ? { vocalGender: slot.vocalGender } : {}),
       ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
       ...(slot.killingPointText ? { killingPointText: slot.killingPointText } : {}),
       ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
       ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
       ...(slot.moneyChordText ? { moneyChordText: slot.moneyChordText } : {}),
+      ...(slot.partPlan ? { partPlan: slot.partPlan } : {}),
+      ...(slot.sectionStyleShifts ? { sectionStyleShifts: slot.sectionStyleShifts } : {}),
       ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
       ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
       ...(slot.peakStrength ? { peakStrength: slot.peakStrength } : {}),
@@ -1358,6 +1611,10 @@ export function reconcileWithPreassignedSlot(
       bpm: slot.tempo,
       ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
       ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
+      // 지시문 39 (TASK B-7) — 지시문 26의 킬링포인트 결함(슬롯에는 있는데
+      // 팩에는 안 남음)을 반복하지 않는다. sectionStyleShifts와 같은 패턴 —
+      // 구조화된 배열만 복사한다(합쳐진 텍스트는 브릿지 지시문 전용).
+      ...(slot.moneyChordSectionMap ? { moneyChordSectionMap: slot.moneyChordSectionMap } : {}),
       ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
       ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
       ...(slot.lyricThemeMotionKo ? { lyricThemeMotionKo: slot.lyricThemeMotionKo } : {}),
@@ -1441,6 +1698,11 @@ export function reconcileWithPreassignedSlot(
     // bridge response can never silently drift from the locally-decided
     // plan. Non-kids slots never set this field, so this is a no-op there.
     ...(slot.vocalType ? { vocalType: slot.vocalType } : {}),
+    // 지시문 56 (TASK A-4/B-3) — fast path와 같은 이유(위 참고).
+    ...(slot.vocalText ? { vocalText: slot.vocalText } : {}),
+    ...(slot.vocalVariantText ? { vocalVariantText: slot.vocalVariantText } : {}),
+    ...(slot.vocalTechniqueText ? { vocalTechniqueText: slot.vocalTechniqueText } : {}),
+    ...(slot.vocalGender ? { vocalGender: slot.vocalGender } : {}),
     // TASK v3.68 (TASK B) — snapshot fields for rating analysis
     // (core/ratingLedger.ts); mirrors the genreId/genreText pattern above.
     ...(slot.eraTag ? { eraTag: slot.eraTag } : {}),
@@ -1455,6 +1717,11 @@ export function reconcileWithPreassignedSlot(
     ...(slot.killingPointPlacement ? { killingPointPlacement: slot.killingPointPlacement } : {}),
     ...(slot.killingPointId ? { killingPointId: slot.killingPointId } : {}),
     ...(slot.moneyChordText ? { moneyChordText: slot.moneyChordText } : {}),
+    // 지시문 37 (TASK A-5) — killingPointText 바로 위 사례와 같은 유형:
+    // 슬롯의 partPlan은 앱이 배정한 값이고, LLM 응답이 뭘 썼든 이 값이
+    // 진실이다(§A-5 "가져오기 시 슬롯에서 복원한다").
+    ...(slot.partPlan ? { partPlan: slot.partPlan } : {}),
+    ...(slot.sectionStyleShifts ? { sectionStyleShifts: slot.sectionStyleShifts } : {}),
     ...(slot.arcPhase ? { arcPhase: slot.arcPhase } : {}),
     ...(slot.intensity !== undefined ? { intensity: slot.intensity } : {}),
     ...(slot.peakStrength ? { peakStrength: slot.peakStrength } : {}),
@@ -1462,6 +1729,8 @@ export function reconcileWithPreassignedSlot(
     bpm: slot.tempo,
     ...(slot.structureTemplate ? { structureTemplate: slot.structureTemplate } : {}),
     ...(slot.moneyChordId ? { moneyChordId: slot.moneyChordId } : {}),
+    // 지시문 39 (TASK B-7) — fast path와 같은 이유(위 참고).
+    ...(slot.moneyChordSectionMap ? { moneyChordSectionMap: slot.moneyChordSectionMap } : {}),
     ...(slot.earwormText ? { earwormText: slot.earwormText } : {}),
     ...(slot.lyricFrameId ? { lyricFrameId: slot.lyricFrameId } : {}),
     // codex 지시문 02 (TASK B) — real gap this closes: SongIdea.lyricThemeMotionKo/
@@ -1480,6 +1749,7 @@ export function reconcileWithPreassignedSlot(
     effectiveMoneyChordId: slot.effectiveMoneyChordId,
     effectiveGenreIds: slot.effectiveGenreIds,
     ...(slot.effectiveVocalPresetId ? { effectiveVocalPresetId: slot.effectiveVocalPresetId } : {}),
+    ...(slot.vocalPresetSource ? { vocalPresetSource: slot.vocalPresetSource } : {}),
     ...(slot.effectiveKidsAgeTierId ? { effectiveKidsAgeTierId: slot.effectiveKidsAgeTierId } : {}),
     effectiveArchetype: resolvedArchetype,
     workspaceId: resolvedWorkspaceId,

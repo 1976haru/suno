@@ -90,7 +90,8 @@ describe('money chord presets', () => {
   // preset needs its own non-empty, mutually distinct, real value.
   it('[v5.8 TASK 1] every preset has a non-empty, mutually distinct, <=8-word audibleEffectTag', () => {
     const tags = Object.values(moneyChordPresets).map(p => p.audibleEffectTag);
-    expect(tags.length).toBe(18);
+    // 지시문 62 (TASK E-3①) — kidsCallResponse·kidsCounting 신설로 18→20.
+    expect(tags.length).toBe(20);
     for (const tag of tags) {
       expect(tag.length).toBeGreaterThan(0);
       expect(tag.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(8);

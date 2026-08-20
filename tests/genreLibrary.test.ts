@@ -102,7 +102,11 @@ describe('structured genre library', () => {
     // genreLibrary and presets.ts's rawGenrePacks, same pattern as v3.61).
     // 지시문 21 (TASK A) — oldpopGenrePacks grew 32 -> 34 (six-eight-slow-ballad/
     // italian-canzone), kr2030GenrePacks grew 6 -> 8 (lofi-swing-hiphop/noir-deep-house).
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 8 + 7 + 7 + 7 + 7);
+    // 지시문 52 (TASK B-1) — kridolMaleGenrePacks grew 7 -> 9 (kridol-melodic-rap/
+    // kridol-hard-rap, "랩이 나오면 항상 같은 소리다" 실측 대응).
+    // 지시문 53 (TASK A) — kr2030GenrePacks grew 8 -> 11 (kr2030-mumble-melodic-rap/
+    // kr2030-whisper-trap/kr2030-cloud-hazy-rap, 멈블 앤 위스퍼 랩 채널 신설).
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 11 + 7 + 7 + 7 + 9);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -230,13 +234,18 @@ describe('structured genre library', () => {
     // (chanson/smooth-jazz-lounge) whose own pre-existing genreLibrary/
     // presets.ts split this task closed (see legacyGenreProfiles's own
     // comment) so conceptAgent.ts's keyword routing can reach them too.
-    expect(seniorIds).toHaveLength(46);
+    // 지시문 53 (TASK C-4) — 46 -> 49: jazz-classic-vocal-lounge/
+    // jazz-swing-crooner-ballroom/jazz-brush-ballad-jazz는 이미 채널
+    // preferredGenres에 있었지만(지시문20) 이 코어 후보 풀에는 등록된
+    // 적이 없어 추천에 전혀 안 나왔다("정의됐고 배선됐는데 실제로는
+    // 안 쓰인다" 유형) — 등록해 실제로 도달 가능하게 한다.
+    expect(seniorIds).toHaveLength(49);
     // The ids that resolved before this task must still be present, unchanged.
     for (const id of ['adult-contemporary', 'acoustic-pop', 'jazz-pop', 'healing-ballad', 'piano-ballad', 'lofi-cafe', 'retro-soul-pop', 'bossa-cafe', 'christmas-soft-pop', 'folk-pop', 'chanson', 'smooth-jazz-lounge']) {
       expect(seniorIds, id).toContain(id);
     }
     expect(getCoreGenresForArchetype('showa-cafe').length).toBeLessThanOrEqual(12);
-    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(46);
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(49);
   });
 
   it('[v3.63] keeps senior-morning genre access broad and all oldpop core genres era-tagged', () => {
@@ -266,16 +275,38 @@ describe('structured genre library', () => {
     }
   });
 
-  it('[v3.63 TASK A] senior-morning\'s own 46-genre exposure is unaffected by adding oldpop-lounge', () => {
+  it('[v3.63 TASK A] senior-morning\'s own 49-genre exposure is unaffected by adding oldpop-lounge', () => {
     // 지시문 21 (TASK A/B) — 40 -> 44 -> 46, see the 'adds the 34 oldpop-* genres...' test above.
-    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(46);
+    // 지시문 53 (TASK C-4) — 46 -> 49, see that same test's updated comment.
+    expect(getVisibleGenresForArchetype('senior-morning').length).toBe(49);
   });
 
   it('[v3.63] exposes the extended catalog through direct search, independent of archetype chips', () => {
+    // 지시문 51 (TASK A-1) — 250 -> 249: city-night-drive 채널의 city-pop-*
+    // 변형 6종을 CITY_NIGHT_CORE_GENRE_IDS에 추가(활용률 36%->100% 실측)한
+    // 결과 genreTierForId(allCoreGenreIds 기준)가 이 장르들을 'extended'에서
+    // 'core'로 옮겼다 — 회귀가 아니라 core 목록 확장의 직접 결과.
+    // 지시문 53 (TASK C-4) — 249 -> 247: jazz-swing-crooner-ballroom/
+    // jazz-brush-ballad-jazz를 SENIOR_MORNING_CORE_GENRE_IDS에 추가(같은
+    // 이유, allCoreGenreIds 확장) — jazz-classic-vocal-lounge는 이미
+    // showa-cafe 코어라 이 카운트에 영향 없음.
     const extendedResults = searchExtendedGenres('');
-    expect(extendedResults.length).toBeGreaterThanOrEqual(250);
-    expect(extendedResults.some(genre => genre.id === 'jazz-bebop-sax-drive')).toBe(true);
-    expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
+    expect(extendedResults.length).toBeGreaterThanOrEqual(247);
+    expect(extendedResults.some(result => result.genre.id === 'jazz-bebop-sax-drive')).toBe(true);
+    expect(searchExtendedGenres('Bebop').map(result => result.genre.id)).toContain('jazz-bebop-sax-drive');
+  });
+
+  it('[Fable5-1단계 TASK C] flags genres the given archetype cannot actually use, without hiding them', () => {
+    // oldpop-night-chanson is an extended genre explicitly scoped to
+    // senior-morning/oldpop-lounge (archetypes field above) — a real case
+    // of an extended search result that's off-limits for other channels.
+    const forOldpopLounge = searchExtendedGenres('Night Chanson', 'all', 'oldpop-lounge');
+    expect(forOldpopLounge.length).toBeGreaterThan(0);
+    expect(forOldpopLounge.every(result => result.eligibleForArchetype === true)).toBe(true);
+
+    const forKrIdol = searchExtendedGenres('Night Chanson', 'all', 'kr-idol-male');
+    expect(forKrIdol.length).toBeGreaterThan(0);
+    expect(forKrIdol.every(result => result.eligibleForArchetype === false)).toBe(true);
   });
 
   it('does not promote Bebop, Big Band, Club Disco, or Jazz Rap variants into any core set', () => {
@@ -290,9 +321,13 @@ describe('structured genre library', () => {
 
   it('keeps extended genres out of default visibility but searchable', () => {
     const visibleIds = new Set(getVisibleGenresForArchetype('senior-morning').map(genre => genre.id));
-    expect(visibleIds.has('jazz-classic-vocal-lounge')).toBe(false);
-    expect(searchHiddenGenresForArchetype('senior-morning', 'Classic Vocal Jazz Lounge').map(genre => genre.id)).toContain('jazz-classic-vocal-lounge');
-    expect(searchExtendedGenres('Bebop').map(genre => genre.id)).toContain('jazz-bebop-sax-drive');
+    // 지시문 53 (TASK C-4) — jazz-classic-vocal-lounge는 이제 senior-morning
+    // 코어라(위 46->49 테스트 참고) 이 "extended, 기본 비노출" 예시에서
+    // jazz-hotel-lounge-jazz로 교체한다(여전히 extended — SENIOR_MORNING_
+    // CORE_GENRE_IDS에 없음).
+    expect(visibleIds.has('jazz-hotel-lounge-jazz')).toBe(false);
+    expect(searchHiddenGenresForArchetype('senior-morning', 'Hotel Lounge Jazz').map(genre => genre.id)).toContain('jazz-hotel-lounge-jazz');
+    expect(searchExtendedGenres('Bebop').map(result => result.genre.id)).toContain('jazz-bebop-sax-drive');
   });
 
   it('preserves all genre ids and keeps preset ids backward compatible', () => {
@@ -324,8 +359,12 @@ describe('structured genre library', () => {
     // 지시문 21 (TASK A) — +2 oldpop-* ids (six-eight-slow-ballad/
     // italian-canzone) +2 kr2030-* ids (lofi-swing-hiphop/noir-deep-house),
     // same registered-in-both pattern: 362.
-    expect(libraryIds.size).toBe(362);
-    expect(presetIds.size).toBe(362);
+    // 지시문 52 (TASK B-1) — +2 kridol-* ids (kridol-melodic-rap/kridol-hard-rap),
+    // same registered-in-both pattern: 364.
+    // 지시문 53 (TASK A) — +3 kr2030-* ids (kr2030-mumble-melodic-rap/
+    // kr2030-whisper-trap/kr2030-cloud-hazy-rap), same registered-in-both pattern: 367.
+    expect(libraryIds.size).toBe(367);
+    expect(presetIds.size).toBe(367);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

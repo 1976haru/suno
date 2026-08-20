@@ -4,6 +4,7 @@ import type { AudioMeasurements } from './audioMeasurements';
 import { currentWorkspaceId, DEFAULT_WORKSPACE_ID, scopeFilter } from './workspaceScope';
 import { openAudioDb, TAKES_STORE, withAudioStore } from './audioDb';
 import { estimateSongLengthSec } from './bpmLengthControl';
+import { lyricWordAndSectionCounts } from './compositionScorer';
 
 /**
  * TASK v3.74 (TASK A) — "테이크(take)": one rendered mp3 for one track's
@@ -110,10 +111,14 @@ export interface AudioTake {
  * real values instead.
  */
 export function buildTakeDirectives(
-  song: Pick<SongIdea, 'genreId' | 'killingPointId' | 'arcPhase' | 'vocalType' | 'bpm' | 'structureTemplate'>,
+  song: Pick<SongIdea, 'genreId' | 'killingPointId' | 'arcPhase' | 'vocalType' | 'bpm' | 'structureTemplate' | 'lyrics'>,
   audienceProfile: AudienceProfile,
   options: { instrumentAtoms?: string[]; introMode?: string } = {}
 ): AudioTakeDirectives {
+  // 지시문 40 (TASK A-3) — "가져오기 후(가사 있음) → 실제 단어 수". 이
+  // 시점(테이크 기록)은 항상 저장된 팩에서 오므로 실제 가사가 있다 —
+  // BPM만으로 추정하는 옛 경로를 여기서도 남기지 않는다.
+  const wordCount = song.lyrics ? lyricWordAndSectionCounts(song.lyrics).words : undefined;
   return {
     genreId: song.genreId ?? 'unknown',
     killingPointId: song.killingPointId,
@@ -123,7 +128,7 @@ export function buildTakeDirectives(
     vocalDescriptor: song.vocalType ?? 'unknown',
     targetBpm: song.bpm ?? 0,
     targetDurationSec: audienceProfile.songLengthSecondsRange,
-    targetEstimatedLengthSec: song.bpm ? Math.round(estimateSongLengthSec(song.bpm, song.structureTemplate)) : undefined,
+    targetEstimatedLengthSec: song.bpm ? Math.round(estimateSongLengthSec(song.bpm, song.structureTemplate, wordCount)) : undefined,
     instrumentAtoms: options.instrumentAtoms ?? []
   };
 }

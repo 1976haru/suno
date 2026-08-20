@@ -15,7 +15,7 @@ import { buildSignatureBlueprint, resolveBilingualPair } from './localGenerator'
 import { scoreSongs } from './quality';
 import { claimSlotsByTrackNo, reconcileWithPreassignedSlot } from './batchPreallocation';
 import { describeTrackSetValidation, resolveEffectiveTrackNo, validateProviderTrackSet } from './importValidation';
-import { dedupeTitlesAcrossPack } from './lyricEngine';
+import { dedupeTitlesAcrossPack, dedupeTitleLocalizedAcrossPack } from './lyricEngine';
 import { lintInPackLyricDiversity, lintInPackStyleSimilarity } from './diversityLinter';
 import { sanitizePublicYoutubeTags } from './exportCompliance';
 import { normalizeSongOutput } from './songPostProcess';
@@ -26,6 +26,7 @@ import { lyricLanguageMismatchWarning } from './lyricMetrics';
 import { checkDistinctChoices } from './distinctChoiceCheck';
 import { coerceDistinctChoice } from './distinctChoiceTypes';
 import { APP_VERSION } from './buildInfo';
+import { findGarbledLyricLines } from './lyricGarbleLint';
 
 /**
  * v3.66 (TASK C) — split out of claudeCodeBridge.ts. This module is the
@@ -120,6 +121,8 @@ export interface BridgeImportMeta {
   lyricLanguage?: string;
   /** 지시문 18 (TASK C-2) — core/bridgeInstruction.ts의 buildBridgeMeta가 요청 payload에 실은 버전을 LLM이 그대로 복사했을 때만 채워진다. */
   bridgeVersion?: string;
+  /** 지시문 55 (TASK A-2) — core/bridgeInstruction.ts의 buildBridgeMeta가 videoTitle이 있을 때만 실어 보낸다. */
+  videoTitle?: string;
 }
 
 /**
@@ -152,7 +155,8 @@ export function extractBridgeImportMeta(rawText: string): BridgeImportMeta | nul
     ...(isNonEmptyString(obj.conceptLabel) ? { conceptLabel: obj.conceptLabel } : {}),
     ...(typeof obj.songCount === 'number' ? { songCount: obj.songCount } : {}),
     ...(isNonEmptyString(obj.lyricLanguage) ? { lyricLanguage: obj.lyricLanguage } : {}),
-    ...(isNonEmptyString(obj.bridgeVersion) ? { bridgeVersion: obj.bridgeVersion } : {})
+    ...(isNonEmptyString(obj.bridgeVersion) ? { bridgeVersion: obj.bridgeVersion } : {}),
+    ...(isNonEmptyString(obj.videoTitle) ? { videoTitle: obj.videoTitle } : {})
   };
 }
 
@@ -257,6 +261,49 @@ function flagHookCollisions(songs: SongIdea[], avoidHooks: string[] = []): { son
 }
 
 /**
+ * 지시문 54 (TASK B-4) — "영상 제목의 핵심 단어가 곡 제목에 3회 이상
+ * 반복되면 warning... 차단하지 않는다 — 하루가 판단한다." 정식 한국어
+ * 형태소 분석은 이 지시문 범위 밖이라(추정치, verified: false — §6 정책
+ * 필드로 문서화) 조사(하세요/에서는 등)를 벗겨내는 접미사 목록으로
+ * 근사한다 — "그곳에서는"→"그곳", "편안하세요"→"편안" 정도만 잡아내면
+ * 충분하다(§B-1 예시와 정확히 일치). 접미사가 하나도 안 맞으면 원래
+ * 단어를 그대로 쓴다.
+ */
+const KOREAN_SUFFIXES_LONGEST_FIRST = [
+  '하세요', '합니다', '했어요', '이에요', '에서는', '에게는', '으로는',
+  '해요', '예요', '에서', '에게', '으로', '만은',
+  '은', '는', '이', '가', '을', '를', '의', '도', '로', '만'
+];
+
+function stripKoreanSuffix(word: string): string {
+  for (const suffix of KOREAN_SUFFIXES_LONGEST_FIRST) {
+    if (word.length > suffix.length + 1 && word.endsWith(suffix)) {
+      return word.slice(0, word.length - suffix.length);
+    }
+  }
+  return word;
+}
+
+/** 3회 이상 반복이면 경고(지시문54 §B-4 원문의 임계값 그대로 — 정책값, verified: false). */
+const VIDEO_TITLE_WORD_REPEAT_WARN_THRESHOLD = 3;
+
+export function videoTitleWordRepetitionWarnings(videoTitle: string | undefined, titles: string[]): string[] {
+  const trimmed = videoTitle?.trim();
+  if (!trimmed || !titles.length) return [];
+  const coreWords = [...new Set(
+    trimmed.split(/[\s,.!?~…·"'"']+/).filter(Boolean).map(stripKoreanSuffix).filter(word => word.length >= 2)
+  )];
+  const warnings: string[] = [];
+  for (const word of coreWords) {
+    const count = titles.filter(title => title.includes(word)).length;
+    if (count >= VIDEO_TITLE_WORD_REPEAT_WARN_THRESHOLD) {
+      warnings.push(`영상 제목의 "${word}"라는 단어가 곡 제목 ${count}곡에 반복됩니다 — 같은 단어 대신 같은 정서의 다른 표현을 써보세요 (차단 아님, 확인만 하십시오).`);
+    }
+  }
+  return warnings;
+}
+
+/**
  * The trackNo a raw bridge JSON entry claims — its own `trackNo` field when
  * present and valid, else this entry's position in the raw array. Pure and
  * side-effect-free so it can be run once up front (importSongsJson, to
@@ -309,6 +356,18 @@ function normalizeImportedSong(
     return { error: `"${label}": 필수 필드 누락 (${missing.join(', ')})` };
   }
 
+  // 지시문 37 (TASK E) — 실측(20260810 K-pop 세트, 71/541줄 깨짐)이 가져오기
+  // 검사를 그대로 통과했던 결함을 막는다. 원인(LLM 생성측 vs 앱측)은 미확인
+  // 이지만, 다른 필드(title/stylePrompt 등)는 0/18로 멀쩡했고 이 함수(336번
+  // 줄 String(obj.lyrics))는 lyrics를 가공 없이 그대로 저장하므로 이 검사가
+  // 잡아내는 손상은 이미 원본 JSON에 존재했던 것이다 — 인코딩 변환으로
+  // "고치지" 않고 통과를 막기만 한다.
+  const garbledLines = isNonEmptyString(obj.lyrics) ? findGarbledLyricLines(obj.lyrics) : [];
+  if (garbledLines.length) {
+    const label = isNonEmptyString(obj.title) ? obj.title : `#${index + 1}`;
+    return { error: `"${label}": 가사에 물음표 연속 손상 ${garbledLines.length}줄 발견 (예: "${garbledLines[0]}") — 이 트랙은 가져오기에서 제외됩니다. 재생성이 필요합니다.` };
+  }
+
   const claimedTrackNo = claimedTrackNoFor(raw, index);
 
   const youtubeRaw = obj.youtube && typeof obj.youtube === 'object' ? (obj.youtube as Record<string, unknown>) : {};
@@ -336,8 +395,6 @@ function normalizeImportedSong(
     lyrics: String(obj.lyrics),
     ...(isNonEmptyString(obj.thumbnailText) ? { thumbnailText: obj.thumbnailText } : {}),
     youtube,
-    ...(isNonEmptyString(obj.youtubeTitleKo) ? { youtubeTitleKo: obj.youtubeTitleKo } : {}),
-    ...(isNonEmptyString(obj.youtubeTitleJa) ? { youtubeTitleJa: obj.youtubeTitleJa } : {}),
     ...(isNonEmptyString(obj.genreId) ? { genreId: obj.genreId } : {}),
     ...(isNonEmptyString(obj.genreText) ? { genreText: obj.genreText } : {}),
     ...(isNonEmptyString(obj.lyricTheme) ? { lyricTheme: obj.lyricTheme } : {}),
@@ -348,6 +405,14 @@ function normalizeImportedSong(
     ...(isNonEmptyString(obj.verseStyleText) ? { verseStyleText: obj.verseStyleText } : {}),
     ...(isNonEmptyString(obj.chorusStyle) ? { chorusStyle: obj.chorusStyle as SongIdea['chorusStyle'] } : {}),
     ...(isNonEmptyString(obj.chorusStyleText) ? { chorusStyleText: obj.chorusStyleText } : {}),
+    // 지시문 50 (TASK D-2) — promptComposer.ts's songOutputShape 자기 doc
+    // comment 참고. slot이 있으면 reconcileWithPreassignedSlot이 이 값을
+    // slot.effectiveVocalPresetId/vocalPresetSource로 덮어쓰지만(정상 —
+    // 슬롯이 신뢰 출처다), slot이 없는 독립 가져오기 경로는
+    // noSlotEffectiveFields가 이 두 필드를 건드리지 않으므로(그 함수 자기
+    // 주석 참고) 여기서 읽은 값이 그대로 남는다.
+    ...(isNonEmptyString(obj.effectiveVocalPresetId) ? { effectiveVocalPresetId: obj.effectiveVocalPresetId } : {}),
+    ...(isNonEmptyString(obj.vocalPresetSource) ? { vocalPresetSource: obj.vocalPresetSource as SongIdea['vocalPresetSource'] } : {}),
     // 지시문 15 (TASK A-2/B) — 실제 저장 경로(이 함수)에는 distinctChoice가
     // 아예 빠져 있었다(parseBridgeExportForReview 쪽 미리보기 전용 경로에만
     // 있었음) — 그 결과 실제로 임포트된 모든 팩이 조용히 distinctChoice를
@@ -440,7 +505,9 @@ export function importSongsJson(
   /** TASK v3.27 (Part A3) — the channel's cross-pack title history (same avoid.usedTitles the caller already fetched via hookLedger's safeAvoidSet for preallocateSongSlots), so an AI-creative title that happens to match an older pack's title still gets caught and uniquified. */
   avoidTitles: string[] = [],
   /** Channel hook history from hookLedger. Bridge imports warn on collisions but never rewrite hooks, because rewriting only hookPhrase would desync the lyrics. */
-  avoidHooks: string[] = []
+  avoidHooks: string[] = [],
+  /** 지시문 55 (TASK C-3②) — avoidTitles와 같은 출처(safeAvoidSet.usedTitlesLocalized), titleLocalized 전용. */
+  avoidTitlesLocalized: string[] = []
 ): ImportSongsReport {
   // TASK v3.27 (Part B1) — reproduced crash: importSongsJson accessed
   // season.label (and iterated genres/moods) unconditionally, so calling it
@@ -560,7 +627,10 @@ export function importSongsJson(
   // (unlike hookPhrase), so two songs in this import — or this import
   // against an older pack's title history — can still collide; catch and
   // auto-uniquify it here, the same pass every generation path now runs.
-  const { songs: deduped } = dedupeTitlesAcrossPack(scored, avoidTitles);
+  const { songs: dedupedTitles } = dedupeTitlesAcrossPack(scored, avoidTitles);
+  // 지시문 55 (TASK C-3①/②) — 같은 패스를 titleLocalized에도 적용한다
+  // (§C-4 "영어 제목과 같은 강도로 검사한다").
+  const { songs: deduped } = dedupeTitleLocalizedAcrossPack(dedupedTitles, avoidTitlesLocalized);
   // TASK v3.69 (TASK D) — meta.conceptLabel (when present) is the concept the
   // file was actually generated under, a more specific label than the
   // channel+season+genre fallback string below — prefer it the same way
@@ -578,7 +648,21 @@ export function importSongsJson(
   // 지시문 18 (TASK C-2) — meta.bridgeVersion(에이전트가 요청 payload에서 그대로
   // 복사해 왔을 때)을 우선하고, 없으면 지금 이 앱의 버전으로 채운다 — 절대
   // undefined로 남기지 않는다.
-  const blueprint: PlaylistBlueprint = { ...blueprintBase, meta: { ...blueprintBase.meta, bridgeVersion: meta?.bridgeVersion || APP_VERSION } };
+  // 지시문 55 (TASK A-2) — concept(바로 위 632번 줄 "opts.customConcept ||
+  // meta?.conceptLabel")과 같은 우선순위: 지금 화면의 opts.videoTitle이
+  // 진짜 값(앱이 아는 값)이고, meta.videoTitle은 그 값을 LLM이 verbatim
+  // 복사했는지 확인하는 echo다 — 응답이 echo를 빠뜨렸을 때만(§A-2 "LLM이
+  // meta를 안 넣었으면") meta 대신 opts로 채운다. 둘 다 비어 있으면 키
+  // 자체를 넣지 않는다.
+  const resolvedVideoTitle = (opts.videoTitle?.trim() || meta?.videoTitle?.trim()) || undefined;
+  const blueprint: PlaylistBlueprint = {
+    ...blueprintBase,
+    meta: {
+      ...blueprintBase.meta,
+      bridgeVersion: meta?.bridgeVersion || APP_VERSION,
+      ...(resolvedVideoTitle ? { videoTitle: resolvedVideoTitle } : {})
+    }
+  };
 
   // TASK v3.43 Part A4 — a bridge/coding-agent pack skips every real API
   // call's own per-request variation, so it's exactly the path most exposed
@@ -609,6 +693,8 @@ export function importSongsJson(
   const countMismatchWarning = deduped.length !== opts.songCount
     ? [`요청한 곡 수(${opts.songCount})와 실제로 가져온 곡 수(${deduped.length})가 다릅니다 — 에이전트가 ${opts.songCount}곡을 모두 생성하지 않았을 수 있습니다. songs-output.json을 확인하거나 다시 생성하십시오.`]
     : [];
+  // 지시문 54 (TASK B-4) — 차단하지 않는다, warning만.
+  const videoTitleWarnings = videoTitleWordRepetitionWarnings(opts.videoTitle, deduped.map(song => song.title));
 
   return {
     blueprint,
@@ -622,7 +708,8 @@ export function importSongsJson(
       ...similarityReport.errors,
       ...commonClausesNote,
       ...lyricDiversityReport.warnings,
-      ...lyricDiversityReport.errors
+      ...lyricDiversityReport.errors,
+      ...videoTitleWarnings
     ],
     requestedCount: opts.songCount
   };

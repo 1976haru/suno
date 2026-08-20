@@ -30,7 +30,8 @@
  */
 import type { PreassignedSongSlot } from '../types';
 import type { PromptAxisPolicy } from '../data/promptAxisPolicy';
-import { classifyClause, SINGLE_DECLARATION_AXES, type PromptAxis } from '../data/promptAxisLexicon';
+import { classifyClause, SINGLE_DECLARATION_AXES, AXES_THAT_MUST_FOLLOW_GENRE, type PromptAxis } from '../data/promptAxisLexicon';
+import { getGenreById } from '../data/genreLibrary';
 import { mergeAtom } from './promptAxisMerge';
 import {
   enforceVocalTextInStylePrompt,
@@ -41,6 +42,13 @@ import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL } from './promptComposer';
 import { enforceSingleBpmText } from './bpmDedupe';
 import { auditStylePromptAgainstSpec, type PromptSpecViolation } from './promptSpec';
 import { descriptorCount } from './compositionScorer';
+import {
+  firstInstrumentPosition,
+  vocalDescriptorClauseCount,
+  INSTRUMENT_POSITION_MAX_CHARS,
+  VOCAL_DESCRIPTOR_MIN,
+  VOCAL_DESCRIPTOR_MAX
+} from './promptElementOrder';
 
 export type Finding = PromptSpecViolation;
 
@@ -235,6 +243,75 @@ function enforceLengthPolicy(stylePrompt: string, policy: PromptAxisPolicy): str
   return current; // 그래도 넘으면 그대로 둔다 — 삭제 금지 축(genre/era/tempo/leadVocal/핵심 악기/구조 첫 클로즈/길이)은 이 함수가 건드리지 않는다.
 }
 
+/** "mid-1960s baroque pop" -> "baroque pop" — a leading era token only, never touches the rest of the phrase. */
+const LEADING_ERA_PREFIX = /^\s*(?:(?:early|mid|late)-\d{4}s|(?:19|20)\d0s)\s+/i;
+function stripLeadingEraPrefix(text: string): string {
+  return text.replace(LEADING_ERA_PREFIX, '').trim();
+}
+
+/**
+ * 지시문 58 (TASK A) — 실측: genreLibrary/index.ts의 여러 oldpop-* 장르는
+ * styleCore 자체가 시대로 시작한다(예: oldpop-baroque-pop의 styleCore
+ * "mid-1960s baroque pop, ..."). slot.genreText/signatureSound가 이
+ * styleCore에서 파생되므로, 그 앵커 자체가 이미 시대로 시작하는 경우
+ * enforceGenreOpensPrompt의 앵커-이동만으로는 해결되지 않는다(실측:
+ * 8/14 굿모닝추억라디오 팩 15/15곡 재현 — oldpop-baroque-pop/
+ * oldpop-orchestral-easy 등). genre.label(예: "Baroque Pop")은 시대가
+ * 섞이지 않은 순수 장르명이라 이 폴백의 앵커로 쓴다. styleCore/genreText
+ * 원문은 전혀 고치지 않는다 — 첫 클로즈로 label 하나만 추가할 뿐, 뒤따르는
+ * 시대·서술 클로즈는 그대로 남는다.
+ */
+function genreIdentityFallback(slot: PreassignedSongSlot): string | undefined {
+  const label = slot.genreId ? getGenreById(slot.genreId)?.label : undefined;
+  if (label?.trim()) return label.trim();
+  const firstFragment = slot.genreText?.split(',')[0]?.trim();
+  if (!firstFragment) return undefined;
+  const stripped = stripLeadingEraPrefix(firstFragment);
+  return stripped || undefined;
+}
+
+/**
+ * 지시문 58 (TASK A) — 실측 회귀: promptAxisLexicon.ts의 classifyClause는
+ * "모든 실제 stylePrompt는 첫 클로즈가 장르명"이라는 전제로 설계됐다(그
+ * 파일 자기 doc comment) — isFirstClause=true면 무조건 'genre'로 판정한다.
+ * 지시문 46의 시대 바닥(eraGuardrailLines) 반영 이후 그 전제가 실제로
+ * 깨졌다(8/14 세트: "late-1950s memory through 1970s piano pop ballad
+ * lens..."). 첫 클로즈를 위치 특혜 없이(isFirstClause=false) 재판정해
+ * AXES_THAT_MUST_FOLLOW_GENRE(REQUIRED_AXES_BY_POSITION에서 'genre' 뒤에
+ * 오는 축들)에 속하면 장르가 밀려난 것으로 본다. 우선 slot.genreText/
+ * signatureSound와 정확히 일치하는 기존 클로즈를 찾아 맨 앞으로 옮긴다(LLM이
+ * 이미 쓴 문구를 재배치할 뿐, 새로 쓰지 않는다). genreText 자체가 여러
+ * 클로즈로 이루어져 있어(예: "mid-1960s baroque pop, string quartet, oboe
+ * obbligato") 정확히 일치하는 단일 클로즈가 없으면, genre.label을 새
+ * 클로즈로 맨 앞에 추가한다(§genreIdentityFallback) — 기존 클로즈는 전혀
+ * 지우거나 고치지 않는다. 그마저 없으면(레이블도 못 구하면) 손대지 않고
+ * 그대로 둔다 — normalizeFinalStylePrompt의 findings가 그 잔여 상태를
+ * 알린다(§2-3 "정규화가 100% 보장은 아니라는 신호").
+ */
+export function enforceGenreOpensPrompt(stylePrompt: string, slot: PreassignedSongSlot): string {
+  const clauses = stylePrompt.split(',').map(c => c.trim()).filter(Boolean);
+  if (clauses.length < 2) return stylePrompt;
+  const firstAxis = classifyClause(clauses[0], false);
+  if (!firstAxis || !AXES_THAT_MUST_FOLLOW_GENRE.has(firstAxis)) return stylePrompt;
+
+  const anchors = [slot.genreText, slot.signatureSound].filter((v): v is string => Boolean(v?.trim()));
+  for (const anchor of anchors) {
+    const anchorLower = anchor.trim().toLowerCase();
+    const idx = clauses.findIndex((c, i) => i > 0 && c.toLowerCase() === anchorLower);
+    if (idx > 0) {
+      const [genreClause] = clauses.splice(idx, 1);
+      clauses.unshift(genreClause);
+      return clauses.join(', ');
+    }
+  }
+
+  const fallback = genreIdentityFallback(slot);
+  if (fallback && clauses[0].toLowerCase() !== fallback.toLowerCase()) {
+    return [fallback, ...clauses].join(', ');
+  }
+  return stylePrompt;
+}
+
 /**
  * 지시문 31 (§2-3) — 단일 관문. raw stylePrompt(어느 경로에서 왔든), slot
  * (locked 오버레이용 — 필드가 비어 있으면 해당 축은 그냥 no-op, 안전망
@@ -243,7 +320,13 @@ function enforceLengthPolicy(stylePrompt: string, policy: PromptAxisPolicy): str
  * findings는 core/promptSpec.ts의 auditStylePromptAgainstSpec(기존 유일한
  * export, §2-1 인용)을 정규화 "이후" 텍스트에 재실행한 결과 — 정규화가
  * 못 없앤 잔여 위반이 있으면 여기 남는다(정규화가 100% 보장은 아니라는
- * 신호를 호출자에게 정직하게 전달).
+ * 신호를 호출자에게 정직하게 전달). 지시문 59 (TASK B) — core/promptElementOrder.ts의
+ * 악기 위치·보컬 서술 개수 체크도 여기서 같은 findings 배열에 추가된다(아래
+ * 참고) — auditStylePromptAgainstSpec 자체에는 넣지 않는다: 그 함수는
+ * quality.ts/fullAudit.ts도 스코어링·집계에 그대로 쓰고 있어, 거기에 넣으면
+ * 실측 없이 -8점/집계 변화가 생긴다(§공통 규약 7). 이 정규화 관문의
+ * findings만 소비하는 곳(아직 UI에 노출되지 않음, TASK E/F가 원문으로
+ * 보고)에만 추가한다.
  */
 export function normalizeFinalStylePrompt(
   raw: string,
@@ -287,10 +370,38 @@ export function normalizeFinalStylePrompt(
   // 축을 이 안전망 말고는 아무도 정리하지 않았다.
   const leadVocalAlreadyOverlaid = Boolean((slot.vocalVariantText || slot.vocalText)?.trim());
   stylePrompt = applyNormalizationSafetyNet(stylePrompt, policy, leadVocalAlreadyOverlaid ? ['leadVocal'] : []);
+  // 지시문 58 (TASK A) — 안전망(중복 제거·길이 축약) 이후, 최종 문자열이
+  // 확정된 다음에 어순을 확인한다. 안전망이 클로즈를 지우거나 합칠 수
+  // 있으므로 그 전에 옮기면 앵커 위치가 어긋날 수 있다.
+  stylePrompt = enforceGenreOpensPrompt(stylePrompt, slotForStylePrompt);
 
   const findings = auditStylePromptAgainstSpec(stylePrompt, {
     vocal: { gender: slot.vocalGender, text: slot.vocalVariantText || slot.vocalText || '' }
   });
+  // 지시문 59 (TASK B) — "가져오기 시 stylePrompt를 파싱해 악기가 150자
+  // 이내에 나오는가·보컬 서술이 2~3개인가 확인한다. 미달이면 재배열하거나
+  // warning을 남긴다." 재배열(자동 이동)은 하지 않는다 — 악기는 genre.instruments
+  // 중 어느 표현이 살아남았는지조차 자유 프로즈라 안전하게 이동시킬 앵커가
+  // 없고(§하지 말 것 "PromptSpec 컴파일러 전체를 재작성하지 말 것"과 같은
+  // 위험), 보컬은 없는 클로즈를 새로 만들어낼 수 없다. warning만 남긴다
+  // (§공통 규약 7 "실측 없이 blocking을 만들지 않는다" — 여기서 쓰는
+  // INSTRUMENT_POSITION_MAX_CHARS(100자)/VOCAL_DESCRIPTOR_MAX(3개)는 아직
+  // 하루의 청취로 확정되지 않은 정책 임계값, promptElementOrder.ts 자기
+  // 주석 참고).
+  const instrumentPosition = firstInstrumentPosition(slotForStylePrompt.genreId, stylePrompt);
+  if (instrumentPosition !== null && instrumentPosition > INSTRUMENT_POSITION_MAX_CHARS) {
+    findings.push({
+      field: 'instrumentPosition',
+      detail: `genre instrument first appears at char ${instrumentPosition}, expected <= ${INSTRUMENT_POSITION_MAX_CHARS} (genre reads weakly when instruments arrive this late)`
+    });
+  }
+  const vocalDescriptorCount = vocalDescriptorClauseCount(stylePrompt);
+  if (vocalDescriptorCount !== null && vocalDescriptorCount > VOCAL_DESCRIPTOR_MAX) {
+    findings.push({
+      field: 'vocalCount',
+      detail: `stylePrompt has ${vocalDescriptorCount} consecutive vocal descriptor clauses, expected ${VOCAL_DESCRIPTOR_MIN}-${VOCAL_DESCRIPTOR_MAX}`
+    });
+  }
 
   return { prompt: stylePrompt, findings };
 }

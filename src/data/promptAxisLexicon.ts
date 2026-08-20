@@ -96,6 +96,21 @@ const DURATION_PATTERN = /\b\d:\d{2}\s*-\s*\d:\d{2}\b/;
 const ERA_PATTERN = /\b(early|mid|late)-\d{4}s\b|\b(19|20)\d0s\b/i;
 
 /**
+ * 지시문 37 (TASK B-2) — "섹션 한정" 개념. core/kpopSectionStyleShift.ts가
+ * 넣는 "Verse: laid-back R&B, sparse arrangement" / "Chorus: EDM-influenced
+ * drop, dense synth stack" 같은 클로즈는 벌스의 sparse와 후렴의 dense가
+ * 서로 "모순되는 같은 축 중복 선언"이 아니라 애초에 다른 섹션을 향한
+ * 서술이다 — SINGLE_DECLARATION_AXES(예: arrangementDensity)의 "프롬프트
+ * 전체에 정확히 하나"라는 전제가 섹션 한정 클로즈에는 적용되지 않는다.
+ * "Verse:"/"Chorus:" 같은 섹션 라벨로 시작하는 클로즈는 축 자체를 매기지
+ * 않는다(undefined) — collapseSingleDeclarationDuplicates는 axis가 있는
+ * 클로즈만 중복 제거 대상으로 삼으므로, 이렇게 하면 섹션이 다른 두
+ * sparse/dense 클로즈가 같은 축 중복으로 오판되어 하나가 삭제되는 일이
+ * 없다.
+ */
+export const SECTION_SCOPED_LABEL_PATTERN = /^(intro|verse\s*\d*|pre-chorus|chorus|post-chorus|bridge|final\s*chorus|outro|breakdown|dance\s*break|rap(?:\s*verse)?)\s*:/i;
+
+/**
  * Word-boundary match, not a bare substring `.includes()` — real bug this
  * caught: "harpsichord" contains "chord" as a raw substring, which would
  * misclassify it as the harmony axis under naive `.includes()`. `\b` on a
@@ -138,6 +153,11 @@ export function classifyClause(clause: string, isFirstClause: boolean): PromptAx
   const lower = trimmed.toLowerCase();
 
   if (isFirstClause) return 'genre';
+  // 지시문 37 (TASK B-2) — 섹션 한정 클로즈는 축 판정 자체를 건너뛴다(§ 위
+  // SECTION_SCOPED_LABEL_PATTERN 문서 참고). isFirstClause 다음, 다른 모든
+  // 판정보다 먼저 — "Chorus: ..." 클로즈가 STRUCTURE_KEYWORDS의 "chorus"에
+  // 걸려 structure 축으로 잘못 분류되는 것도 함께 막는다.
+  if (SECTION_SCOPED_LABEL_PATTERN.test(trimmed)) return undefined;
   if (TEMPO_PATTERN.test(lower)) return 'tempo';
   if (DURATION_PATTERN.test(lower)) return 'duration';
   if (ERA_PATTERN.test(lower)) return 'era';
@@ -170,3 +190,20 @@ export function introSubcategory(clause: string): IntroSubcategory | undefined {
 
 /** 지시문 16 §A-2 — 삭제 금지 8종(TASK A-3/03 TASK C) 중 이 축 판정 시스템이 다루는 6개(장르·시대·BPM·리드보컬·핵심구조·길이). "핵심 악기"와 "사용자 선택"은 instrument/harmony 축에서 clause 위치(첫 번째)로 별도 결정한다 — 이 축 목록만으로는 "몇 번째 instrument/harmony 클로즈가 핵심인지"를 알 수 없기 때문. */
 export const REQUIRED_AXES_BY_POSITION: readonly PromptAxis[] = ['genre', 'era', 'tempo', 'leadVocal', 'arrangementDensity', 'duration'];
+
+/**
+ * 지시문 58 (TASK A) — REQUIRED_AXES_BY_POSITION의 'genre' 뒤 축(era/tempo/
+ * leadVocal/arrangementDensity/duration) 그대로를 misplaced 판정에 쓰면
+ * 실측과 충돌한다: tests/promptSpecAllWorkspaces.test.ts가 이미 "warm male
+ * baritone lead vocal, acoustic guitar, 92 BPM"(leadVocal이 첫 클로즈)을
+ * "위반 없음"으로 검증하고 있고, promptBudget.ts's PROMPT_PRIORITY 자기
+ * 히스토리(TASK v3.39 Part H)도 "vocal을 genre 바로 다음(때로 그 이전)으로
+ * 옮긴다"는 기존 결정을 담고 있다 — vocal-먼저는 이 앱의 기존 관행이지
+ * 결함이 아니다. 8/14에서 실측된 진짜 회귀는 시대·박자·길이·밀도가 장르보다
+ * 앞에 오는 경우뿐("late-1950s memory through 1970s piano pop ballad
+ * lens...")이라, REQUIRED_AXES_BY_POSITION 전체를 재사용하지 않고
+ * leadVocal을 뺀 부분집합만 misplaced 판정에 쓴다(하지만
+ * REQUIRED_AXES_BY_POSITION 자체는 그 문서화된 의도를 그대로 보존 —
+ * 이 상수를 고치지 않는다).
+ */
+export const AXES_THAT_MUST_FOLLOW_GENRE: ReadonlySet<PromptAxis> = new Set(['era', 'tempo', 'arrangementDensity', 'duration']);

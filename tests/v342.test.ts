@@ -276,7 +276,10 @@ describe('[Regression] kids channel is unaffected by the structural changes', ()
   it('a 15-song kids pack still generates cleanly with vocal quota intact', () => {
     const kidsGenres = genrePacks.filter(g => kidsChannel.preferredGenres.includes(g.id));
     const kidsMoods = moodPacks.filter(m => kidsChannel.preferredMoods.includes(m.id));
-    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'english', seasonId: 'spring-open' });
+    // 지시문 63 (TASK A) — vocalQuotaMode:'balanced'로 예전 균등 기본값을
+    // 명시적으로 요청한다(이 테스트의 목적은 "구조 변경으로부터 안전한가"
+    // 이지 새 genre-derived 기본값 자체의 검증이 아니다).
+    const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'english', seasonId: 'spring-open', vocalQuotaMode: 'balanced' });
     const bp = generateLocalBlueprint(opts, kidsGenres, kidsMoods, seasonPacks.find(s => s.id === 'spring-open')!);
     expect(bp.songs).toHaveLength(15);
     const counts = { male: 0, female: 0, mixed: 0 };

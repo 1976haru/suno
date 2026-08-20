@@ -1,6 +1,7 @@
 import type { VocalGender } from './vocalPlan';
 import { countBpmTextMentions } from './bpmDedupe';
 import { detectVocalGenderPresence } from './vocalPlan';
+import { classifyClause, AXES_THAT_MUST_FOLLOW_GENRE } from '../data/promptAxisLexicon';
 
 /**
  * codex 지시문 03 (TASK A) — real investigation finding (4 parallel research
@@ -31,7 +32,13 @@ export interface VocalSpec {
 }
 
 export interface PromptSpecViolation {
-  field: 'vocal' | 'tempo';
+  // 지시문 59 (TASK B) — 'instrumentPosition'/'vocalCount'는 이
+  // 함수(auditStylePromptAgainstSpec) 안에서는 만들어지지 않는다(quality.ts/
+  // fullAudit.ts가 이미 이 함수를 스코어링·집계에 쓰고 있어, 여기서 새
+  // 위반을 추가하면 그 두 경로에 실측 없이 -8점/집계 변화를 만든다). 대신
+  // finalPromptNormalizer.ts의 단일 정규화 관문이 core/promptElementOrder.ts의
+  // 같은 순수 함수를 직접 불러 findings에 추가한다 — 타입만 여기서 공유한다.
+  field: 'vocal' | 'tempo' | 'genre' | 'instrumentPosition' | 'vocalCount';
   detail: string;
 }
 
@@ -54,6 +61,17 @@ export function auditStylePromptAgainstSpec(stylePrompt: string, spec: { vocal: 
     const presence = detectVocalGenderPresence(stylePrompt);
     if (presence.male && presence.female) {
       violations.push({ field: 'vocal', detail: `stylePrompt declares both male and female lead-vocal words for a single-gender (${spec.vocal.gender}) resolution` });
+    }
+  }
+  // 지시문 58 (TASK A) — finalPromptNormalizer.ts의 enforceGenreOpensPrompt가
+  // 앵커(genreText/signatureSound)를 못 찾아 재배열에 실패했을 때만 여기
+  // 남는다(정규화가 100% 보장은 아니라는 신호 — 이 파일 자기 doc comment의
+  // 기존 원칙 그대로).
+  const firstClause = stylePrompt.split(',')[0]?.trim();
+  if (firstClause) {
+    const firstAxis = classifyClause(firstClause, false);
+    if (firstAxis && AXES_THAT_MUST_FOLLOW_GENRE.has(firstAxis)) {
+      violations.push({ field: 'genre', detail: `stylePrompt opens with a "${firstAxis}" clause ("${firstClause}") instead of genre identity` });
     }
   }
   return violations;

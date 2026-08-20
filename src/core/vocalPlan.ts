@@ -19,6 +19,9 @@ import {
 import { matchVocalPreset, type VocalPreset } from '../data/vocalPresets';
 import type { EraBucket } from '../data/eraExclusions';
 import { VOCAL_TECHNIQUES_BY_ERA } from '../data/vocalTechniquesByEra';
+import { vocalTechniquePoolForGenre } from '../data/vocalTechniqueByGenre';
+import { vocalTechniquesForGenre } from '../data/vocalTechniqueFamilies';
+import { getGenreById } from '../data/genreLibrary';
 
 /**
  * TASK v3.41 Part A1 — the explicit gender axis a VocalPreset now carries
@@ -342,7 +345,7 @@ const ADULT_VOCAL_DESCRIPTIONS: Record<VocalType, string[]> = {
 };
 
 /** TASK v3.38 Part B (language follow-up) — "언어별 보컬 묘사도 해당 언어 발음에 맞게 조정 (예: japanese -> clear Japanese diction, bright and friendly)"; appended to every vocal type's base description below. */
-const VOCAL_DICTION_CLAUSE: Record<KidsVocalLanguage, string> = {
+export const VOCAL_DICTION_CLAUSE: Record<KidsVocalLanguage, string> = {
   korean: 'clear Korean diction, bright and friendly',
   japanese: 'clear Japanese diction, bright and friendly',
   english: 'clear English diction, bright and friendly'
@@ -465,7 +468,7 @@ export function vocalDescriptionFor(type: VocalType, language: LyricLanguage = '
  * legitimately-picked 'kid-duet' preset would never be recognized against
  * its own 'mixed' slots.
  */
-function vocalTypeMatchesPresetGender(vocalType: VocalType, gender: VocalGender): boolean {
+export function vocalTypeMatchesPresetGender(vocalType: VocalType, gender: VocalGender): boolean {
   if (vocalType === 'mixed') return gender === 'mixed' || gender === 'duet';
   return vocalType === gender;
 }
@@ -969,9 +972,10 @@ export function scaleVocalQuota(quota: VocalQuota, songCount: number): VocalQuot
  * type near-evenly across the WHOLE sequence and, as a direct consequence,
  * across any contiguous sub-range (e.g. any 6-song window) too. The old
  * "no run > maxConsecutive" repair pass still runs afterward as a safety
- * net (largest-remainder scheduling makes a run of 3+ very unlikely but
+ * net.
+ *
  * doesn't structurally forbid one when a single type's count exceeds ~40%
- * of the pack).
+ * of the pack — see evenlySegmentedVocalPlan below for that case).
  */
 function interleaveByLargestRemainder(counts: Record<VocalType, number>, songCount: number, seed: number): VocalType[] {
   const remaining: Record<VocalType, number> = { ...counts };
@@ -996,6 +1000,74 @@ function interleaveByLargestRemainder(counts: Record<VocalType, number>, songCou
     plan.push(pick);
     remaining[pick] -= 1;
   }
+  return plan;
+}
+
+/**
+ * 지시문 38 (TASK C/D) — fallback for a HEAVILY skewed quota, the exact new
+ * case TASK C's direct male/female/duet ratio input makes reachable for the
+ * first time (previously only a channel's fixed vocalQuotaOverride could be
+ * this skewed, and that path is exempted from the consecutive-run gate
+ * entirely — see designGate.ts's vocalIssues). interleaveByLargestRemainder
+ * above starts every type tied at a remaining/total ratio of 1.0, so a
+ * count-1 type (e.g. female:1 of male:13/female:1/mixed:1 @ 15) is just as
+ * likely to be picked at position 0 as the dominant type — and once picked
+ * it permanently drops out, front-loading the only two "breaks" available
+ * and leaving a single unbroken tail of 10+ of the dominant type (real
+ * measurement). Rather than touch that well-tested scheduler (still exactly
+ * as it was — every existing balanced/moderately-leaning quota keeps
+ * byte-identical behavior), buildVocalPlan below only reaches for this
+ * function when the normal scheduler+repair still leaves a run this long
+ * — i.e. never for any quota this app could produce before TASK C.
+ *
+ * Splits the single largest type into `otherTotal + 1` segments (as evenly
+ * as largest-remainder allows) and interleaves every other type's items,
+ * seed-shuffled, as the `otherTotal` separators between those segments —
+ * the exact minimum number of segments the available separators can create,
+ * so this hits the theoretical best possible max-run
+ * (⌈majorityCount / (otherTotal + 1)⌉) for a two-tier (one dominant type,
+ * everything else scarce) quota. Falls back to a flat run of the majority
+ * type alone when there is nothing else to separate with.
+ */
+function evenlySegmentedVocalPlan(counts: Record<VocalType, number>, seed: number): VocalType[] {
+  const majorityType = VOCAL_TYPES.reduce((a, b) => (counts[a] ?? 0) >= (counts[b] ?? 0) ? a : b);
+  const majorityCount = counts[majorityType] ?? 0;
+  const otherTypes = VOCAL_TYPES.filter(type => type !== majorityType);
+  const separatorPool: VocalType[] = [];
+  for (const type of otherTypes) {
+    for (let i = 0; i < (counts[type] ?? 0); i++) separatorPool.push(type);
+  }
+  if (!separatorPool.length) return Array<VocalType>(majorityCount).fill(majorityType);
+
+  const segments = separatorPool.length + 1;
+  const base = Math.floor(majorityCount / segments);
+  let remainder = majorityCount - base * segments;
+  const segmentSizes = Array.from({ length: segments }, () => {
+    const size = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+    return size;
+  });
+  const shuffledSizes = shuffle(segmentSizes, seed + 7331);
+  const separators = shuffle(separatorPool, seed + 4211);
+  // Light touch-up: avoid two identical separators landing adjacent when an
+  // alternative later in the list exists (only matters with 2+ non-majority
+  // types both present) — the majority segments between them already keep
+  // this from mattering for the overall run-length guarantee either way.
+  for (let i = 1; i < separators.length; i++) {
+    if (separators[i] !== separators[i - 1]) continue;
+    const swapIndex = separators.findIndex((type, j) => j > i && type !== separators[i]);
+    if (swapIndex !== -1) {
+      const tmp = separators[i];
+      separators[i] = separators[swapIndex];
+      separators[swapIndex] = tmp;
+    }
+  }
+
+  const plan: VocalType[] = [];
+  shuffledSizes.forEach((size, index) => {
+    for (let i = 0; i < size; i++) plan.push(majorityType);
+    if (index < separators.length) plan.push(separators[index]);
+  });
   return plan;
 }
 
@@ -1027,10 +1099,37 @@ function repairConsecutiveRuns(plan: VocalType[], maxConsecutive: number): Vocal
   return result;
 }
 
+function longestRunLength(plan: readonly VocalType[]): number {
+  let longest = 0;
+  let current = 0;
+  let previous: VocalType | undefined;
+  for (const type of plan) {
+    current = type === previous ? current + 1 : 1;
+    longest = Math.max(longest, current);
+    previous = type;
+  }
+  return longest;
+}
+
 export function buildVocalPlan(quota: VocalQuota, songCount: number, seed: number, maxConsecutive = 2): VocalType[] {
   const counts = scaleVocalQuota(quota, songCount);
-  const plan = interleaveByLargestRemainder(counts, songCount, seed);
-  return repairConsecutiveRuns(plan, maxConsecutive);
+  const plan = repairConsecutiveRuns(interleaveByLargestRemainder(counts, songCount, seed), maxConsecutive);
+  // 지시문 38 (TASK C/D) — the normal scheduler+repair pair is unchanged and
+  // still wins whenever it can already satisfy maxConsecutive (every quota
+  // this app could produce before TASK C's direct ratio input). Only a
+  // heavily skewed quota — mathematically beyond what interleave+repair can
+  // fix — falls through to evenlySegmentedVocalPlan's dedicated even-split
+  // algorithm, which real measurement shows a plain repair pass alone
+  // cannot reach (see that function's own doc comment). Its output is
+  // returned as-is, NOT re-passed through repairConsecutiveRuns — that
+  // pass's single forward-swap-per-violation logic was built for the mild
+  // case (interleaveByLargestRemainder's output already close to correct)
+  // and, given evenlySegmentedVocalPlan's already-optimal even split,
+  // measurably scrambles it back into one long run (real regression caught
+  // while building this fallback: re-running it turned a clean 7/7-split
+  // pattern back into an 11-in-a-row run).
+  if (longestRunLength(plan) <= maxConsecutive) return plan;
+  return evenlySegmentedVocalPlan(counts, seed);
 }
 
 /** v3.80 (TASK E) — "같은 기법은 팩 전체에서 최대 4곡까지" (this task's own explicit pack-wide cap). */
@@ -1057,6 +1156,53 @@ export function buildVocalTechniquePlan(eraBucketByIndex: readonly (EraBucket | 
     const picks = [first];
     // ~40% of songs get a 2nd technique, matching this task's own "1-2개"
     // (not always 2 — a single technique per song is still the common case).
+    if (rng() < 0.4) {
+      const secondPool = available.filter(technique => technique !== first);
+      if (secondPool.length) picks.push(secondPool[Math.floor(rng() * secondPool.length)]);
+    }
+    for (const technique of picks) usage.set(technique, (usage.get(technique) ?? 0) + 1);
+    return picks.join(', ');
+  });
+}
+
+/**
+ * 지시문 65 (TASK B) — buildVocalTechniquePlan(era 기준, 위)을 장르 기준으로
+ * 대체한다. era 버킷은 5종뿐이라 같은 시대의 소울 트랙과 재즈 트랙이 같은
+ * 기법 풀을 나눠 썼다(§1 하루의 지적 그대로) — data/vocalTechniqueByGenre.ts의
+ * 367종 전용 family 풀을 genreId별로 바로 찾는다. usage cap·1-2개 랜덤
+ * 선택 로직은 era 버전과 동일(같은 pack-wide 예산 규칙을 그대로 물려받는다
+ * — 새 로직을 또 만들지 않는다, §공통규약 "같은 판정 로직을 두 곳에 따로
+ * 두지 않는다"의 생성 버전).
+ */
+/**
+ * 지시문 66 (TASK B) — 65의 genrePool(data/vocalTechniqueByGenre.ts)만으로는
+ * 일부 계열(electronicVocal 2종·jazzCrooner/jazzScat/jazzBossa 4종·doowop
+ * 4종 등)이 4곡 이상 배정된 세트에서 바닥난다(§실측: kr2030-noir-deep-house
+ * 15곡에 창법 3종 반복). data/vocalTechniqueFamilies.ts의 13-계열 풀을
+ * genrePool이 이 팩에서 소진됐을 때만 보충으로 쓴다 — 장르 어휘가 항상
+ * 우선(①), 계열 풀은 부족할 때만(②), 팩 안에서 이미 쓴 phrase는 가능한 한
+ * 다시 안 쓰고(③), 둘 다 소진되면 장르 어휘로 순환한다(④, §B-2 그대로).
+ */
+export function buildVocalTechniquePlanByGenre(genreIdByIndex: readonly (string | undefined)[], seed: number): string[] {
+  const usage = new Map<string, number>();
+  const rng = mulberry32(hashSeed(`vocalTechniqueByGenre::${seed}`));
+  return genreIdByIndex.map(genreId => {
+    const genre = genreId ? getGenreById(genreId) : undefined;
+    if (!genre) return '';
+    const genrePool = vocalTechniquePoolForGenre(genre);
+    const familyPool = vocalTechniquesForGenre(genre.id).filter(technique => !genrePool.includes(technique));
+    const genreAvailable = genrePool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    const familyAvailable = familyPool.filter(technique => (usage.get(technique) ?? 0) < VOCAL_TECHNIQUE_PACK_CAP);
+    const unusedGenre = genreAvailable.filter(technique => !usage.has(technique));
+    const unusedFamily = familyAvailable.filter(technique => !usage.has(technique));
+    const available = unusedGenre.length ? unusedGenre
+      : unusedFamily.length ? unusedFamily
+      : genreAvailable.length ? genreAvailable
+      : familyAvailable;
+    if (!available.length) return '';
+    const first = available[Math.floor(rng() * available.length)];
+    const picks = [first];
+    // ~40% of songs get a 2nd technique, matching v3.80's own "1-2개" split.
     if (rng() < 0.4) {
       const secondPool = available.filter(technique => technique !== first);
       if (secondPool.length) picks.push(secondPool[Math.floor(rng() * secondPool.length)]);

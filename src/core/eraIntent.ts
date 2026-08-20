@@ -131,6 +131,16 @@ export interface EraPromptCheckResult {
  * BOTH primary and secondary -> transition; claims a decade that is neither
  * primary nor secondary, OR claims secondary alone with no primary mention
  * at all -> other-era-pure.
+ *
+ * 지시문 55 (TASK D) — 실측: "7080 올드팝" 같은 복합 연대 컨셉은
+ * deriveEraIntent가 이미 정확히 인식한다(primary '1970s' · secondary
+ * '1980s' · secondaryMaxShare undefined — "co-equal, not a capped
+ * transition bucket", 이 파일 위 deriveEraIntent 자신의 주석). 그런데 이
+ * 함수는 그 구분을 몰라서 secondary만 단독으로 claim한 트랙(예: 1980s만
+ * 언급)을 무조건 "다른 시대 단독"으로 잡았다 — 20260814_02 팩에서 4곡
+ * (T10·T13·T14·T15)이 실제로 이렇게 오분류됐다. secondaryMaxShare가
+ * undefined인 복합/co-equal 의도에서는 secondary 단독 claim도 primary
+ * 단독만큼 정상이다.
  */
 export function checkEraPromptAgainstIntent(
   songs: readonly { trackNo: number; stylePrompt: string }[],
@@ -143,6 +153,8 @@ export function checkEraPromptAgainstIntent(
   let otherPure = 0;
   const blockingOtherEraPureTrackNos: number[] = [];
   let classified = 0;
+  // 지시문 55 (TASK D) — "7080"처럼 primary/coPrimary가 대등한 복합 의도인지.
+  const isCoEqualCompound = intent.secondaryMaxShare === undefined && Boolean(intent.secondary);
 
   for (const song of songs) {
     const claims = extractEraClaims(song.stylePrompt);
@@ -156,10 +168,15 @@ export function checkEraPromptAgainstIntent(
       transition++;
     } else if (claimsPrimary && !claimsOther) {
       primary++;
+    } else if (isCoEqualCompound && claimsSecondary && !claimsOther) {
+      // 지시문 55 (TASK D) — 복합/co-equal 의도의 secondary 단독 claim은
+      // primary 단독과 동등하게 "그 컨셉 안"이다. "다른 시대 단독"이 아니다.
+      primary++;
     } else {
       // other-era-pure: claims something other than primary alone (secondary
       // alone with no primary counts here too — see this function's own doc
-      // comment).
+      // comment). Not reached for a co-equal compound intent's secondary-only
+      // claim — handled above.
       otherPure++;
       if (!explorationSet.has(song.trackNo)) blockingOtherEraPureTrackNos.push(song.trackNo);
     }

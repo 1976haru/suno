@@ -2160,3 +2160,48 @@ export function dedupeTitlesAcrossPack(songs: SongIdea[], avoidTitles: string[] 
 
   return { songs: result, changedTrackNos };
 }
+
+/**
+ * 지시문 55 (TASK C-3①/②) — dedupeTitlesAcrossPack과 같은 강도(§C-4 "영어
+ * 제목과 같은 강도로 검사한다")로 titleLocalized도 검사한다. 실측(§C-2):
+ * "One Shy Smile"/"First Star Turns"처럼 영어 제목은 다른데 한글 제목
+ * "처음 잡던 날"이 같은 경우가 있었다 — titleLocalized가 title이 아니라
+ * listenerSituation/emotionArc 같은 장면 축에서 나오기 때문에 영어 제목의
+ * dedup만으로는 안 걸린다. 접미사는 "Reprise" 같은 영어 단어 대신 숫자만
+ * 쓴다("(2)") — titleLocalized를 영어 제목의 재해석으로 유지하는 기존
+ * 규칙(§하지 말 것 "직역으로 만들지 말 것")을 건드리지 않고 순수하게
+ * 충돌만 없앤다.
+ */
+export function dedupeTitleLocalizedAcrossPack(songs: SongIdea[], avoidTitlesLocalized: string[] = []): TitleDedupResult {
+  const seen = new Set(avoidTitlesLocalized.map(title => title.trim().toLowerCase()));
+  const changedTrackNos: number[] = [];
+
+  const result = songs.map(song => {
+    const original = song.titleLocalized;
+    if (!original || !original.trim()) return song;
+    const key = original.trim().toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      return song;
+    }
+
+    let candidate = original;
+    let candidateKey = key;
+    let n = 2;
+    while (seen.has(candidateKey)) {
+      candidate = `${original} (${n})`;
+      candidateKey = candidate.trim().toLowerCase();
+      n += 1;
+    }
+
+    seen.add(candidateKey);
+    changedTrackNos.push(song.trackNo);
+    return {
+      ...song,
+      titleLocalized: candidate,
+      warnings: [...song.warnings, 'titleLocalized duplicated another song\'s titleLocalized in this pack or the channel\'s history — auto-uniquified.']
+    };
+  });
+
+  return { songs: result, changedTrackNos };
+}

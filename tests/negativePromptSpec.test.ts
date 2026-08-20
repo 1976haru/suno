@@ -35,8 +35,21 @@ describe('[codex 지시문 03 TASK D] buildNegativePromptSpec — real source-ma
     expect(spec.safety.length).toBeGreaterThan(0);
   });
 
-  it('vocal category is honestly empty (no real vocal-specific negative-term source exists today)', () => {
-    const spec = buildNegativePromptSpec(opts, genres);
+  // 지시문 62 (TASK C) — 이 필드는 "no real vocal-specific negative-term
+  // source exists today"였다(codex 지시문 03 TASK D 원문). data/channelVocalFloor.ts가
+  // 그 실제 소스가 됐다 — workspace(soundFloor) 테스트와 같은 패턴으로
+  // 갱신한다.
+  it('vocal category reflects the real channelVocalFloor.forbiddenTraits for this channel', () => {
+    const senior = channelPresets.find(c => c.archetype === 'senior-morning')!;
+    const seniorOpts = makeOptions({ channel: senior });
+    const spec = buildNegativePromptSpec(seniorOpts, genres);
+    expect(spec.vocal).toContain('autotuned pitch correction');
+  });
+
+  it('vocal category is empty for an archetype with no channelVocalFloor entry', () => {
+    const noFloorChannel = channelPresets.find(c => c.archetype === 'lofi-study')!;
+    const noFloorOpts = makeOptions({ channel: noFloorChannel });
+    const spec = buildNegativePromptSpec(noFloorOpts, genres);
     expect(spec.vocal).toEqual([]);
   });
 

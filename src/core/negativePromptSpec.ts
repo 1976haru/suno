@@ -1,6 +1,7 @@
 import type { GenerationOptions, GenrePack } from '../types';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
+import { channelVocalFloorForArchetype } from '../data/channelVocalFloor';
 import { parseNegativeStyleTerms, joinNegativeStyleTerms, resolveNegativeStyleText } from '../data/negativeStyles';
 import { isKidsArchetype } from '../utils/channelArchetype';
 
@@ -65,9 +66,10 @@ const COPYRIGHT_TERMS = parseNegativeStyleTerms('famous artist imitation, copied
  *    (genre avoidTraits + GLOBAL_NEGATIVE_STYLE_TERMS/the channel's own
  *    negativeStyle preset text) — production/mix quality-preference terms.
  *  - user: opts.avoidWords, parsed — the one field a user directly types.
- *  - vocal: honestly empty — no vocal-specific negative-term source exists
- *    in this codebase today (confirmed by investigation); kept as a real
- *    field for a future real source to populate, not fabricated here.
+ *  - vocal: 지시문 62 (TASK C) — data/channelVocalFloor.ts의 forbiddenTraits.
+ *    이 필드는 "no vocal-specific negative-term source exists... kept for a
+ *    future real source to populate" 상태였다 — channelVocalFloor가 그 실제
+ *    소스다. workspace(soundFloor)와 같은 unconditional 취급.
  */
 export function buildNegativePromptSpec(
   opts: Pick<GenerationOptions, 'avoidWords' | 'channel' | 'negativeStyle'>,
@@ -79,12 +81,13 @@ export function buildNegativePromptSpec(
   const relaxedNow = new Set(relaxedExclusions.filter(item => relaxable.has(item)));
   const safety = audienceProfile.exclusions.filter(item => !relaxedNow.has(item));
   const soundFloor = channelSoundFloorForArchetype(opts.channel.archetype);
+  const vocalFloor = channelVocalFloorForArchetype(opts.channel.archetype);
 
   return {
     safety,
     copyright: [...COPYRIGHT_TERMS],
     workspace: soundFloor?.forbiddenAtoms ? [...soundFloor.forbiddenAtoms] : [],
-    vocal: [],
+    vocal: vocalFloor?.forbiddenTraits ? [...vocalFloor.forbiddenTraits] : [],
     arrangement: parseNegativeStyleTerms(resolveNegativeStyleText(opts, genres)),
     user: parseNegativeStyleTerms(opts.avoidWords)
   };

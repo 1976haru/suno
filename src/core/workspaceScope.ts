@@ -24,7 +24,22 @@ const CURRENT_WORKSPACE_STORAGE_KEY = 'suno-weaver-current-workspace';
 /** Records saved before this task existed have no workspaceId at all; the migration (core/workspaceMigration.ts) tags them 'senior-oldpop', and this same default covers anything the migration hasn't reached yet (e.g. a record written mid-migration). */
 export const DEFAULT_WORKSPACE_ID: WorkspaceId = 'senior-oldpop';
 
-let cachedWorkspaceId: WorkspaceId | null = null;
+/**
+ * 지시문 41 (TASK A-6) — "새 저장소 키를 만들지 말 것 — 기존 키에 필드를
+ * 추가한다." Before this task, CURRENT_WORKSPACE_STORAGE_KEY held a bare
+ * workspace-id string. This widens the same key's stored VALUE to a small
+ * JSON record (workspace id + last-selected channel id per workspace),
+ * never adding a second key. readMemory() treats anything that isn't valid
+ * JSON with a string workspaceId as the pre-지시문41 plain-string shape and
+ * wraps it — so an existing user's stored value (e.g. "senior-oldpop")
+ * keeps working unchanged and is upgraded to the new shape on first write.
+ */
+interface WorkspaceMemory {
+  workspaceId: WorkspaceId;
+  lastChannelByWorkspace?: Partial<Record<WorkspaceId, string>>;
+}
+
+let cachedMemory: WorkspaceMemory | null = null;
 
 function hasLocalStorage(): boolean {
   try {
@@ -34,27 +49,53 @@ function hasLocalStorage(): boolean {
   }
 }
 
-export function currentWorkspaceId(): WorkspaceId {
-  if (cachedWorkspaceId) return cachedWorkspaceId;
-  if (hasLocalStorage()) {
-    const stored = window.localStorage.getItem(CURRENT_WORKSPACE_STORAGE_KEY) as WorkspaceId | null;
-    if (stored) {
-      cachedWorkspaceId = stored;
-      return stored;
+function readMemory(): WorkspaceMemory | null {
+  if (cachedMemory) return cachedMemory;
+  if (!hasLocalStorage()) return null;
+  const raw = window.localStorage.getItem(CURRENT_WORKSPACE_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && typeof (parsed as WorkspaceMemory).workspaceId === 'string') {
+      cachedMemory = parsed as WorkspaceMemory;
+      return cachedMemory;
     }
+  } catch {
+    // Pre-지시문41 plain-string value (e.g. "senior-oldpop") — not JSON.
   }
-  return DEFAULT_WORKSPACE_ID;
+  cachedMemory = { workspaceId: raw as WorkspaceId };
+  return cachedMemory;
+}
+
+function writeMemory(memory: WorkspaceMemory): void {
+  cachedMemory = memory;
+  if (!hasLocalStorage()) return;
+  try {
+    window.localStorage.setItem(CURRENT_WORKSPACE_STORAGE_KEY, JSON.stringify(memory));
+  } catch {
+    // Storage can be blocked in private/embedded contexts; the in-memory cache above still works for this session.
+  }
+}
+
+export function currentWorkspaceId(): WorkspaceId {
+  return readMemory()?.workspaceId ?? DEFAULT_WORKSPACE_ID;
 }
 
 export function setCurrentWorkspace(id: WorkspaceId): void {
-  cachedWorkspaceId = id;
-  if (hasLocalStorage()) {
-    try {
-      window.localStorage.setItem(CURRENT_WORKSPACE_STORAGE_KEY, id);
-    } catch {
-      // Storage can be blocked in private/embedded contexts; the in-memory cache above still works for this session.
-    }
-  }
+  writeMemory({ ...readMemory(), workspaceId: id });
+}
+
+/** 지시문 41 (TASK A-6) — the channel a user last selected in this workspace, so re-entering it skips straight back to that channel instead of always defaulting to the workspace's first preset. */
+export function lastChannelIdForWorkspace(workspaceId: WorkspaceId): string | undefined {
+  return readMemory()?.lastChannelByWorkspace?.[workspaceId];
+}
+
+export function rememberLastChannelForWorkspace(workspaceId: WorkspaceId, channelId: string): void {
+  const memory = readMemory() ?? { workspaceId };
+  writeMemory({
+    ...memory,
+    lastChannelByWorkspace: { ...memory.lastChannelByWorkspace, [workspaceId]: channelId }
+  });
 }
 
 /**
@@ -118,7 +159,7 @@ export function matchesLedgerScope<T extends { workspaceId?: WorkspaceId | 'unkn
 
 /** Test-only reset — the module-level cache would otherwise leak the workspace chosen by one test into the next. */
 export function __resetWorkspaceScopeForTests(): void {
-  cachedWorkspaceId = null;
+  cachedMemory = null;
   if (hasLocalStorage()) {
     try {
       window.localStorage.removeItem(CURRENT_WORKSPACE_STORAGE_KEY);

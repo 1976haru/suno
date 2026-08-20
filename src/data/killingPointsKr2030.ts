@@ -64,5 +64,63 @@ export const KR_2030_KILLING_POINTS: KillingPoint[] = [
     placement: 'final-chorus',
     relaxes: [],
     verified: false
+  },
+  // 지시문 62 (TASK D-2①) — "kr-2030 5 → 12개 이상". 위 5종과 같은 근거
+  // (2020년대 팝 관행, verified: false, 옥타브 상승·전조 배제)로 7종 추가.
+  {
+    id: 'KP-KR2030-06',
+    labelKo: '백킹보컬 애드립 콜백',
+    descriptor: 'backing vocal ad-lib answers the hook',
+    placement: 'final-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-KR2030-07',
+    labelKo: '신스 필터 스윕',
+    descriptor: 'rising synth filter sweep into the chorus',
+    placement: 'pre-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-KR2030-08',
+    labelKo: '드럼 씬닝 — 킥만 두 마디',
+    descriptor: 'drums thin to just the kick for two bars',
+    placement: 'bridge',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-KR2030-09',
+    labelKo: '하프타임 필 전환',
+    descriptor: 'the groove shifts into a half-time feel for the bridge',
+    placement: 'bridge',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-KR2030-10',
+    labelKo: '보컬 초프 스터터',
+    descriptor: 'a stuttered vocal chop punctuates the pre-chorus',
+    placement: 'pre-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-KR2030-11',
+    labelKo: '아르페지오 신스 빌드업',
+    descriptor: 'rising synth arpeggio builds into the final chorus',
+    placement: 'pre-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-KR2030-12',
+    labelKo: '사이드체인 펌핑 강조',
+    descriptor: 'sidechain pump under the final chorus',
+    placement: 'final-chorus',
+    relaxes: [],
+    verified: false
   }
 ];

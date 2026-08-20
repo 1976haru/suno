@@ -1,4 +1,4 @@
-import type { WorkspaceId } from '../types';
+import type { PerceivedEnergy, WorkspaceId } from '../types';
 import type { VocalQuota } from './vocalPlan';
 import type { TextMotifFamily } from './textMotifQuota';
 
@@ -77,6 +77,21 @@ export interface PerformancePolicy {
   motifFamilyId: string;
 }
 
+/**
+ * 지시문 43 (TASK A-3) — "체감 에너지 목표". core/perceivedEnergy.ts가 실제로
+ * 계산한 song.perceivedEnergy를 이 목표와 비교하는 건 fullAudit.ts의 advisory
+ * 항목뿐(§7 "실측 없이 blocking 을 만들지 않는다") — 생성 자체를 이 숫자에
+ * 강제로 맞추는 새 배분 엔진은 만들지 않는다. distribution은 15곡 기준
+ * (하루의 후보 표 그대로: E1 0 · E2 2 · E3 5 · E4 6 · E5 2).
+ */
+export interface EnergyTargetPolicy {
+  targetAverage: number;
+  maxEnergy: PerceivedEnergy;
+  /** songCount=15 기준 분포 — advisory 비교 표시에만 쓰인다(강제 배분 아님). */
+  distributionOf15: Record<PerceivedEnergy, number>;
+  verified: boolean;
+}
+
 export interface KpopWorkspacePolicy {
   groupGender: 'male' | 'female';
   fixedVocalQuota?: VocalQuota;
@@ -86,6 +101,13 @@ export interface KpopWorkspacePolicy {
   rapPolicy: RapPolicy;
   chantPolicy: ChantPolicy;
   performancePolicy: PerformancePolicy;
+  energyTarget: EnergyTargetPolicy;
+  /**
+   * 지시문 37 (TASK A-2) — 실제 아이돌 그룹 규모(4~7명), 하루의 장르 지식에
+   * 근거한 관행이지 추정치가 아니다. core/kpopPartPlan.ts's
+   * buildKpopPartPlan이 이 범위 안에서 트랙별 멤버 수를 결정한다.
+   */
+  memberCountRange: [number, number];
 }
 
 const DEFAULT_ALLOWED_PART_TYPES: KpopPartType[] = ['solo', 'duet', 'all', 'rap', 'ad-lib'];
@@ -136,6 +158,28 @@ const KR_IDOL_FEMALE_MOTIF_QUOTAS: MotifQuota[] = [
 const KR_IDOL_MALE_FIXED_QUOTA: VocalQuota = { male: 15, female: 0, mixed: 3 };
 const KR_IDOL_FEMALE_FIXED_QUOTA: VocalQuota = { male: 0, female: 15, mixed: 3 };
 
+/**
+ * 지시문 43 (TASK A-3) — verified: false, 15곡 기준 추정치. male/female 동일
+ * (에너지 목표는 성별 트레이트가 아니다 — kpopWorkspacePolicy.ts 상단
+ * 문서의 groupGender 분리 원칙과 같은 이유).
+ *
+ * 지시문 50 (TASK B-6) — 하루의 청취가 지시문43의 "E1~E2 도 2곡은 남긴다"를
+ * 정정했다: 실제로는 2곡으로 부족했다. B-4가 추가한 68-104 대역 발라드
+ * 2종(kridol-emotional-ballad·kridol-midtempo-rnb)이 저에너지 곡 3~4곡에
+ * 대응하도록 E1 0→1·E2 2→3으로 올리고, 합계 15를 맞추기 위해 E4를 6→5로
+ * 낮춘다(E3=4·E5=2는 그대로). targetAverage는 이 분포의 실제 가중평균
+ * (1·1+2·3+3·4+4·5+5·2)/15=49/15≈3.27을 반올림한 3.2 — E4·E5(활기찬 쪽)는
+ * 여전히 7곡으로 유지된다(§하지 말 것 "발라드를 넣는다고 에너지 정책
+ * 전체를 낮추지 말 것" — 하루는 "붕 뜬 느낌"을 말했지 "잔잔하게"를
+ * 말하지 않았다). verified: false — 다음 세트 청취로 재조정.
+ */
+const KR_IDOL_ENERGY_TARGET: EnergyTargetPolicy = {
+  targetAverage: 3.2,
+  maxEnergy: 5,
+  distributionOf15: { 1: 1, 2: 3, 3: 4, 4: 5, 5: 2 },
+  verified: false
+};
+
 export const KPOP_WORKSPACE_POLICIES: Partial<Record<WorkspaceId, KpopWorkspacePolicy>> = {
   'kr-idol-male': {
     groupGender: 'male',
@@ -143,9 +187,17 @@ export const KPOP_WORKSPACE_POLICIES: Partial<Record<WorkspaceId, KpopWorkspaceP
     allowedPartTypes: DEFAULT_ALLOWED_PART_TYPES,
     languageProfiles: DEFAULT_LANGUAGE_PROFILES,
     motifQuotas: KR_IDOL_MALE_MOTIF_QUOTAS,
-    rapPolicy: { targetRatio: 12 / 18 },
+    // 지시문 43 (TASK D-2) — 12/18(0.667, 지시문 35 idolPartPlan.ts 원안)에서
+    // 이 지시문 자신의 15곡 기준 목표(§D-2 "랩 파트가 있는 곡 12곡 이상
+    // (15곡 중)")로 갱신. kpopPartPlan.ts의 useRapper 확률이 이 값을 그대로
+    // 읽어(§D-4) 배정 확률과 검사 목표(releaseReadiness.ts checkKpopRapShare)가
+    // 항상 같은 값을 공유한다 — 정책값 하나만 바꾸는 원칙(§하지 말 것
+    // "지시문 35의 랩 딜리버리 어휘를 다시 만들지 말 것"과 같은 결의 수정).
+    rapPolicy: { targetRatio: 12 / 15 },
     chantPolicy: { maxOveruseRatio: 0.4 },
-    performancePolicy: { motifFamilyId: 'performance-stage' }
+    performancePolicy: { motifFamilyId: 'performance-stage' },
+    energyTarget: KR_IDOL_ENERGY_TARGET,
+    memberCountRange: [4, 7]
   },
   'kr-idol-female': {
     groupGender: 'female',
@@ -153,9 +205,17 @@ export const KPOP_WORKSPACE_POLICIES: Partial<Record<WorkspaceId, KpopWorkspaceP
     allowedPartTypes: DEFAULT_ALLOWED_PART_TYPES,
     languageProfiles: DEFAULT_LANGUAGE_PROFILES,
     motifQuotas: KR_IDOL_FEMALE_MOTIF_QUOTAS,
-    rapPolicy: { targetRatio: 12 / 18 },
+    // 지시문 43 (TASK D-2) — 12/18(0.667, 지시문 35 idolPartPlan.ts 원안)에서
+    // 이 지시문 자신의 15곡 기준 목표(§D-2 "랩 파트가 있는 곡 12곡 이상
+    // (15곡 중)")로 갱신. kpopPartPlan.ts의 useRapper 확률이 이 값을 그대로
+    // 읽어(§D-4) 배정 확률과 검사 목표(releaseReadiness.ts checkKpopRapShare)가
+    // 항상 같은 값을 공유한다 — 정책값 하나만 바꾸는 원칙(§하지 말 것
+    // "지시문 35의 랩 딜리버리 어휘를 다시 만들지 말 것"과 같은 결의 수정).
+    rapPolicy: { targetRatio: 12 / 15 },
     chantPolicy: { maxOveruseRatio: 0.4 },
-    performancePolicy: { motifFamilyId: 'performance-stage' }
+    performancePolicy: { motifFamilyId: 'performance-stage' },
+    energyTarget: KR_IDOL_ENERGY_TARGET,
+    memberCountRange: [4, 7]
   }
 };
 

@@ -17,7 +17,12 @@ import type { KidsAgeTierId } from './kidsVocabularyWhitelist';
 // TASK D2 §4 — 'call-response' added for KIDS_KILLING_POINTS (data/killingPointsKids.ts):
 // purely additive, never read/switched on by any logic in this file (placement is opaque
 // descriptive metadata here), so every existing KILLING_POINTS entry's behavior is unchanged.
-export type KillingPointPlacement = 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
+// 지시문 61 (TASK C-3) — 'intro' 추가: 아카펠라 인트로(KP-16)처럼 트랙 도입부
+// 자체가 킬링포인트인 경우를 표현할 값이 없었다. placement는 이 파일 자기
+// doc comment가 명시하듯 어디서도 switch/분기되지 않는 opaque descriptive
+// metadata라(위 grep 확인: core/batchPreallocation.ts·localGenerator.ts 둘 다
+// 그대로 통과시켜 slotPlan에 얹기만 한다) 새 리터럴 추가가 기존 분기를 깨지 않는다.
+export type KillingPointPlacement = 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response' | 'intro';
 
 export interface KillingPoint {
   id: string;
@@ -29,6 +34,17 @@ export interface KillingPoint {
   relaxes: string[];
   /** Loose, case-insensitive substrings matched against a track's own GenrePack.eraTag (e.g. "1970s AM-gold soft rock" contains "1970s" and "soft rock"). Undefined/empty means this killing point fits any era. */
   fitsEraTags?: string[];
+  /**
+   * 지시문 61 (TASK C-3) — 하루: "머니코드 또는 노래의 킬링포인트가 더
+   * 필요해 보여" + §1-4 실측(필라델피아 소울인데 소울 느낌이 안 남). 기존
+   * fitsEraTags는 "1970s" 같은 시대 문자열만 매칭해 소울/두왑/재즈라운지처럼
+   * 같은 시대를 공유하는 장르들을 구분하지 못했다. 이 필드는 candidatesFor가
+   * 트랙의 (eraTag보다 우선) GenrePack.label + styleCore 텍스트에 대고
+   * 매칭하는 느슨한 substring 목록이다 — 예: 'soul'은 'oldpop-philly-soul-sweet'
+   * 의 styleCore("...sweet soul...")와 매칭된다. 없으면(대부분의 기존
+   * 항목) fitsEraTags 매칭으로만 후보를 좁힌다 — 완전히 additive.
+   */
+  fitsGenreTags?: string[];
   /** TASK D2 §4-4 — kids-only: which age tier(s) this killing point is appropriate for. Undefined for every existing senior KILLING_POINTS entry (adult content has no age-tier concept). */
   eligibleKidsTiers?: KidsAgeTierId[];
   /**
@@ -74,7 +90,11 @@ export const KILLING_POINTS: KillingPoint[] = [
     descriptor: 'instruments drop out in the bridge',
     placement: 'bridge',
     relaxes: ['abrupt dynamic jumps'],
-    fitsEraTags: ['chanson', 'jazz', 'bossa', 'cafe']
+    fitsEraTags: ['chanson', 'jazz', 'bossa', 'cafe'],
+    // 지시문 61 (TASK C-3) — 재즈 라운지의 "리듬 정지" 요구를 이 기존
+    // 브레이크다운으로 충족한다(새 항목을 만들지 않고 재사용 — 이미 같은
+    // 장치다).
+    fitsGenreTags: ['jazz lounge', 'lounge']
   },
   {
     id: 'KP-05',
@@ -139,6 +159,115 @@ export const KILLING_POINTS: KillingPoint[] = [
     placement: 'mid-instrumental',
     relaxes: [],
     fitsEraTags: ['soft rock', 'adult contemporary', 'orchestral']
+  },
+  // 지시문 61 (TASK C-3) — §C-2 실측: 요소 종류가 8/13(최고)의 8종에서
+  // 8/15(이번)엔 7종으로 줄고 콜앤리스폰스가 0곡이 됐다. §C-3③이 요구한
+  // 장르별 킬링포인트(소울/두왑/브리티시비트/재즈라운지/발라드)를 신규
+  // fitsGenreTags로 추가한다 — KILLING_POINTS(시니어 풀) 전용이라
+  // kr-2030/jp-2030/kr-idol처럼 다른 풀을 쓰는 아키타입은 영향받지 않는다.
+  {
+    id: 'KP-13',
+    labelKo: '콜앤리스폰스 브레이크',
+    descriptor: 'backing vocals answer the lead in call-and-response',
+    placement: 'bridge',
+    relaxes: ['abrupt dynamic jumps'],
+    fitsGenreTags: ['soul', 'motown']
+  },
+  {
+    id: 'KP-14',
+    labelKo: '가스펠 런 — 멜리스마',
+    descriptor: 'gospel-style melisma run on the final phrase',
+    placement: 'final-chorus',
+    relaxes: ['predictable diatonic phrase structure', 'comfortable mid vocal register'],
+    fitsGenreTags: ['soul', 'gospel']
+  },
+  {
+    id: 'KP-15',
+    labelKo: '팔세토 리프트',
+    descriptor: 'lead lifts into falsetto on the final chorus',
+    placement: 'final-chorus',
+    relaxes: ['comfortable mid vocal register'],
+    fitsGenreTags: ['soul']
+  },
+  {
+    id: 'KP-16',
+    labelKo: '아카펠라 인트로',
+    descriptor: 'unaccompanied vocal harmony opens the track',
+    placement: 'intro',
+    relaxes: [],
+    fitsGenreTags: ['doo-wop', 'doowop', 'chanson', 'folk', 'acoustic']
+  },
+  {
+    id: 'KP-17',
+    labelKo: '두왑 유니즌 훅',
+    descriptor: 'nonsense-syllable vocal unison on the hook',
+    placement: 'pre-chorus',
+    relaxes: ['abrupt dynamic jumps'],
+    fitsGenreTags: ['doo-wop', 'doowop']
+  },
+  {
+    id: 'KP-18',
+    labelKo: '두왑 화음 스택',
+    descriptor: 'four-part close harmony stacks under the final note',
+    placement: 'outro',
+    relaxes: ['abrupt dynamic jumps'],
+    fitsGenreTags: ['doo-wop', 'doowop', 'close harmony']
+  },
+  {
+    id: 'KP-19',
+    labelKo: '브리티시 비트 스톱타임',
+    descriptor: 'full stop before the band crashes back on the hook',
+    placement: 'pre-chorus',
+    relaxes: ['abrupt dynamic jumps'],
+    fitsGenreTags: ['british beat']
+  },
+  {
+    id: 'KP-20',
+    labelKo: '브리티시 비트 유니즌 훅',
+    descriptor: 'group sings the title hook in tight unison',
+    placement: 'final-chorus',
+    relaxes: ['abrupt dynamic jumps'],
+    fitsGenreTags: ['british beat']
+  },
+  {
+    id: 'KP-21',
+    labelKo: '탬버린 브레이크',
+    descriptor: 'tambourine break cuts through the bridge',
+    placement: 'bridge',
+    relaxes: [],
+    fitsGenreTags: ['british beat', 'girl-group', 'motown']
+  },
+  {
+    id: 'KP-22',
+    labelKo: '재즈 라운지 솔로 브레이크',
+    descriptor: 'eight-bar saxophone solo break',
+    placement: 'mid-instrumental',
+    relaxes: [],
+    fitsGenreTags: ['jazz lounge', 'jazz', 'lounge']
+  },
+  {
+    id: 'KP-23',
+    labelKo: '스캣 트레이딩',
+    descriptor: 'vocal scat trades phrases with the piano',
+    placement: 'bridge',
+    relaxes: ['predictable diatonic phrase structure'],
+    fitsGenreTags: ['jazz lounge', 'jazz']
+  },
+  {
+    id: 'KP-24',
+    labelKo: '옥타브 상승',
+    descriptor: 'lead jumps an octave into the final chorus',
+    placement: 'final-chorus',
+    relaxes: ['comfortable mid vocal register'],
+    fitsGenreTags: ['ballad']
+  },
+  {
+    id: 'KP-25',
+    labelKo: '스트링 빌드',
+    descriptor: 'strings build steadily under the final chorus',
+    placement: 'final-chorus',
+    relaxes: ['abrupt dynamic jumps'],
+    fitsGenreTags: ['ballad', 'piano ballad', 'orchestral']
   }
 ];
 
@@ -209,18 +338,40 @@ export interface KillingPointAssignmentInput {
   peakStrength: 'none' | 'subtle' | 'strong';
   /** GenrePack.eraTag of this track's own lead genre, when known. */
   eraTag?: string;
+  /**
+   * 지시문 61 (TASK C-3) — loose genre-identity text (this track's own lead
+   * GenrePack.label + styleCore, lowercased) for KillingPoint.fitsGenreTags
+   * matching. eraTag alone is too coarse — "1970s" matches soul/soft-rock/
+   * chanson equally, so a genuinely soul-specific killing point (call-and-
+   * response, gospel melisma, falsetto lift) never got a matching signal.
+   * Optional/additive: a caller that omits this falls back to eraTag-only
+   * matching exactly as before (candidatesFor below), unchanged behavior.
+   */
+  genreText?: string;
 }
 
-function candidatesFor(eraTag: string | undefined, pool: readonly KillingPoint[]): KillingPoint[] {
-  if (!eraTag) return [...pool];
-  const lower = eraTag.toLowerCase();
-  const eraMatches = pool.filter(kp => kp.fitsEraTags?.some(tag => lower.includes(tag.toLowerCase())));
-  const rest = pool.filter(kp => !eraMatches.includes(kp));
-  // Era-fitting killing points first (spec 2-3's "eraTag로 매칭"), any
-  // killing point with no fitsEraTags restriction (or no match) still
-  // available as a fallback so a genre with no match never goes without a
-  // killing point entirely — a low-quality-but-present choice beats none.
-  return [...eraMatches, ...rest];
+function candidatesFor(eraTag: string | undefined, pool: readonly KillingPoint[], genreText?: string): KillingPoint[] {
+  const lowerEra = eraTag?.toLowerCase();
+  const lowerGenre = genreText?.toLowerCase();
+  // 지시문 61 (TASK C-3) — genre-tag matches rank above era-tag matches
+  // (genre identity is the more specific signal — see this function's own
+  // KillingPointAssignmentInput.genreText doc comment), era-tag matches
+  // rank above the unrestricted rest, exactly mirroring the pre-existing
+  // era-only priority order one level deeper.
+  const genreMatches = lowerGenre
+    ? pool.filter(kp => kp.fitsGenreTags?.some(tag => lowerGenre.includes(tag.toLowerCase())))
+    : [];
+  const afterGenre = pool.filter(kp => !genreMatches.includes(kp));
+  const eraMatches = lowerEra
+    ? afterGenre.filter(kp => kp.fitsEraTags?.some(tag => lowerEra.includes(tag.toLowerCase())))
+    : [];
+  const rest = afterGenre.filter(kp => !eraMatches.includes(kp));
+  // Genre-fitting, then era-fitting killing points first (spec 2-3's
+  // "eraTag로 매칭", extended by TASK C-3's genre-tag layer), any killing
+  // point with no restriction (or no match) still available as a fallback
+  // so a genre with no match never goes without a killing point entirely —
+  // a low-quality-but-present choice beats none.
+  return [...genreMatches, ...eraMatches, ...rest];
 }
 
 /** v3.68 (TASK E) — per-killing-point-id selection weight, 1 meaning "no opinion". */
@@ -286,7 +437,7 @@ export function assignKillingPoints(
   let modulationCount = 0;
   return inputs.map((input, idx) => {
     if (input.peakStrength === 'none') return undefined;
-    const candidates = candidatesFor(input.eraTag, killingPointSet);
+    const candidates = candidatesFor(input.eraTag, killingPointSet, input.genreText);
     const offset = Math.abs(seed + idx * 97) % candidates.length;
     const rotated = [...candidates.slice(offset), ...candidates.slice(0, offset)];
     // v3.68 (TASK E) — a stable sort by boost weight (ties keep the

@@ -107,7 +107,14 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
   return {
     channel,
     projectTitle: 'Autumn to Christmas Playlist Pack',
-    songCount: 18,
+    // 지시문 38 (TASK A) — 하루의 결정: 기본 세트 크기 18 → 15. 18은
+    // 선택지로 남는다(Step3Generate.tsx SONG_COUNT_CHIPS). BPM 대역·편곡
+    // 밀도·era-neutral 하한·보컬 쿼터는 이미 songCount에 비례 스케일하는
+    // 구조라(core/tempoPlan.ts·promptComposer.ts·constraints.ts·vocalPlan.ts)
+    // 이 값만 바뀌면 자동으로 15곡 기준으로 환산된다 — 18곡으로 뽑을 때는
+    // 그 스케일러들이 songCount===18에서 항상 원래 비율 그대로를 돌려주므로
+    // (동일 입력 → 동일 출력) 기존 동작이 바뀌지 않는다.
+    songCount: 15,
     // TASK v3.38 Part B1 — was hardcoded 'english' for every channel; both
     // pre-existing presets have primaryLanguage 'english' so this is a
     // behavior-preserving change for them, but the new kids channel preset
@@ -136,6 +143,8 @@ export function createInitialOptions(channel: ChannelProfile): GenerationOptions
     moneyChordMode: 'default',
     customMoneyChord: '',
     customConcept: '',
+    // 지시문 54 (TASK A-3) — 비워두면 기존과 동일하게 동작한다(선택 사항).
+    videoTitle: '',
     referenceMood: '',
     genreBlendWeights: {},
     customLyricThemeScene: '',

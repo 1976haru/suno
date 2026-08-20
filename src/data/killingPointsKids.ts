@@ -18,6 +18,13 @@ export const KP_SET_KIDS_ID = 'KP-SET-kids';
 
 const ALL_KIDS_TIERS: KidsAgeTierId[] = ['kids-t1', 'kids-t2', 'kids-t3'];
 
+// 지시문 62 (TASK D-2②) — "동요 → 따라 부르기 구간·손뼉·이름 부르기
+// killingPointSet 항목에 장르 태그를 붙인다". 이 풀 전체가 이미 동요
+// 전용 배열이라(kidsKillingPointsForTier만 소비) fitsGenreTags로 다시
+// 걸러낼 필요는 없지만, F-3 감사("장르 매칭 15/15")가 항목 단위 태그
+// 존재를 확인하므로 전 항목에 명시적으로 붙인다.
+const KIDS_GENRE_TAGS = ['kids', 'children'];
+
 /**
  * §4-1 judgment table — reused 4 of the senior 12:
  *   KP-02 하모니 3성 스택   → 완화: 3성 하모니 대신 유니즌 + 1성
@@ -36,6 +43,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'unison group vocal on the last chorus, no harmony stack',
     placement: 'final-chorus',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t2', 'kids-t3']
   },
   {
@@ -44,6 +52,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'two unaccompanied bars for the children to answer',
     placement: 'call-response',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ALL_KIDS_TIERS
   },
   {
@@ -52,6 +61,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'final repeat of the hook sung almost a cappella as the outro tag',
     placement: 'outro',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ALL_KIDS_TIERS
   },
   {
@@ -60,6 +70,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'everyone joins in together on the final hook',
     placement: 'final-chorus',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ALL_KIDS_TIERS
   },
   // §4-2 신설 — 전 항목 "급격하지 않게": 박수는 2회로 짧게, 다이내믹은 무반주
@@ -70,6 +81,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'two light claps right before the chorus, nothing more',
     placement: 'pre-chorus',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t2', 'kids-t3']
   },
   {
@@ -78,6 +90,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'a short spoken question answered by the children in one word',
     placement: 'call-response',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t2', 'kids-t3']
   },
   {
@@ -86,6 +99,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'a playful animal or vehicle sound imitation, spoken not sung loud',
     placement: 'call-response',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ALL_KIDS_TIERS
   },
   {
@@ -94,6 +108,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'a short counting sequence chanted together',
     placement: 'call-response',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t2', 'kids-t3']
   },
   {
@@ -102,6 +117,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: "a spot in the lyric where the child's own name can be sung in",
     placement: 'bridge',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t3']
   },
   {
@@ -110,6 +126,7 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'a gentle, brief tempo lift into the final chorus, never abrupt',
     placement: 'pre-chorus',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t2', 'kids-t3']
   },
   {
@@ -118,7 +135,21 @@ export const KIDS_KILLING_POINTS: KillingPoint[] = [
     descriptor: 'more voices join in, not more volume, on the final hook',
     placement: 'final-chorus',
     relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
     eligibleKidsTiers: ['kids-t2', 'kids-t3']
+  },
+  // 지시문 62 (TASK D-2①) — "kids 11 → 12개 이상". §D-2② "따라 부르기
+  // 구간"을 명시적으로 채운다 — KKP-06/QA/SOUND/COUNT는 콜앤리스폰스(질문
+  // 다음 아이들이 답하는 자리)이고, 이건 그것과 다른 장치(후렴 한 줄을
+  // 그대로 따라 부르는 에코)다.
+  {
+    id: 'KKP-ECHO',
+    labelKo: '후렴 따라 부르기 (에코)',
+    descriptor: 'children echo the chorus line right back, word for word',
+    placement: 'call-response',
+    relaxes: [],
+    fitsGenreTags: KIDS_GENRE_TAGS,
+    eligibleKidsTiers: ALL_KIDS_TIERS
   }
 ];
 

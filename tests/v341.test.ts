@@ -99,12 +99,18 @@ describe('[Part A2/D] a 15-song kids pack produces at least 12 distinct vocalTex
     expect(distinct.size).toBeGreaterThanOrEqual(12);
   });
 
-  it('every slot vocalText is one of that type\'s 5 known variants', () => {
+  // 지시문 63 (TASK B) — 자동 경로가 이제 forKids 프리셋을 곡마다 회전
+  // 배정한다(tests/kidsVocalPipeline.test.ts의 동일 업데이트 참고) — flat
+  // 5-variant 풀은 후보가 없을 때의 폴백일 뿐, 유일한 결과가 아니다.
+  it('every slot vocalText is either one of that type\'s 5 known flat variants, or built from a gender-matching forKids preset', () => {
     const opts = makeOptions({ channel: kidsChannel, songCount: 15, lyricLanguage: 'english', seasonId: 'spring-open' });
     const slots = preallocateSongSlots(opts, []);
+    const kidsPresets = vocalPresets.filter(p => p.forKids);
     for (const slot of slots) {
       const possible = new Set(Array.from({ length: 5 }, (_, i) => vocalDescriptionFor(slot.vocalType!, 'english', i)));
-      expect(possible.has(slot.vocalText!), `trackNo ${slot.trackNo}`).toBe(true);
+      const matchesFlatVariant = possible.has(slot.vocalText!);
+      const matchesSomePreset = kidsPresets.some(preset => slot.vocalText!.startsWith(preset.prompt));
+      expect(matchesFlatVariant || matchesSomePreset, `trackNo ${slot.trackNo}: ${slot.vocalText}`).toBe(true);
     }
   });
 });

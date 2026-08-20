@@ -276,12 +276,21 @@ describe('[v5.15 audit] the 8 required combinations, verified with real function
     expect(fixed.lyrics.startsWith("[children's choir]")).toBe(true);
   });
 
-  it("5c) the AUTOMATIC kids 'mixed' quota slot (no manual choir preset) still tags as [mixed vocal], not [children's choir] — the fix above must not regress TASK D2 §6-3's own decision", () => {
+  // 지시문 63 (TASK B) — 자동(명시적 vocalTone 프리셋 미선택) 'mixed' 슬롯은
+  // 이제 forKids 프리셋 10종 중 이 나이대의 mixed 후보(kid-choir 계열 포함)를
+  // 실제로 회전 배정한다(core/kidsVocalPresetPlan.ts) — "자동 기본값은 절대
+  // choir라는 단어를 쓰지 않는다"는 예전 가정 자체가 이 지시문이 바꾸는
+  // 대상이다(§B-1). 대신 검증하는 것: resolveVocalMetaTag가 실제 배정된
+  // vocalText 내용과 항상 일치하는 태그를 낸다 — choir 문구가 배정됐으면
+  // "[children's choir]", 아니면 "[mixed vocal]" (TASK D2 §6-3의 "자동
+  // 기본값=아동 합창 프레이밍 아님"이라는 대전제는 명시적 vocalTone
+  // 미선택 상태에서도 여전히 유효 — 이 슬롯도 vocalTone은 미선택이다).
+  it("5c) the AUTOMATIC kids 'mixed' quota slot (no explicit vocalTone preset) tags consistently with whichever forKids preset the auto-rotation actually assigned", () => {
     const opts = makeOptions({ channel: kidsChannel, vocalQuota: { male: 0, female: 0, mixed: 1 } });
     const [slot] = preallocateSongSlots(opts, []);
     expect(slot.vocalType).toBe('mixed');
-    expect(slot.vocalText).not.toContain('choir');
-    expect(resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText)).toBe('[mixed vocal]');
+    const expectedTag = slot.vocalText && /\bchoir\b/i.test(slot.vocalText) ? "[children's choir]" : '[mixed vocal]';
+    expect(resolveVocalMetaTag(slot.vocalType, slot.vocalGender, slot.vocalText)).toBe(expectedTag);
   });
 
   // 6. 태그 없음 -> tag gets inserted.

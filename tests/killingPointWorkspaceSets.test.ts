@@ -89,8 +89,13 @@ describe('지시문 30 TASK C — new pool content', () => {
 });
 
 describe('지시문 30 TASK C — senior/kids pools untouched (§하지 말 것)', () => {
-  it('KILLING_POINTS keeps its original 12 entries', () => {
-    expect(KILLING_POINTS.length).toBe(12);
+  // 지시문 61 (TASK C-3) — 이 12라는 숫자 자체가 요구사항은 아니었다(§원 취지:
+  // kids/kr-2030/jp-2030/kpop처럼 "다른 풀"이 KILLING_POINTS로 새어들지
+  // 않는가). 지시문 61이 바로 이 배열에 소울/두왑/브리티시비트/재즈라운지/
+  // 발라드용 13종(KP-13..KP-25)을 의도적으로 추가했으므로 25로 갱신한다 —
+  // 아래 "다른 풀은 그대로" 테스트들이 이 취지를 계속 검증한다.
+  it('KILLING_POINTS grew only via 지시문 61 TASK C-3 (25 entries: original 12 + 13 genre-tagged additions)', () => {
+    expect(KILLING_POINTS.length).toBe(25);
   });
 
   it('assignKillingPoints still defaults to KILLING_POINTS when no set is passed (senior behavior byte-identical)', () => {

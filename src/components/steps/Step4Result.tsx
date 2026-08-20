@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Captions, ClipboardCheck, Compass, Download, FileJson, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Image as ImageIcon, Mic2 } from 'lucide-react';
+import { Captions, ClipboardCheck, Compass, Download, FileJson, FileText, Focus, Headphones, ListMusic, Music2, RotateCcw, Save, ShieldAlert, Sparkles, Mic2 } from 'lucide-react';
 import SongCard, { SongCardSkeleton } from '../SongCard';
 import HybridRefinePanel from '../HybridRefinePanel';
-import ThumbnailSpecPanel from '../ThumbnailSpecPanel';
-import ThumbnailImageStudioPanel from '../ThumbnailImageStudioPanel';
 import PersonaPanel, { type PersonaPromptStats } from '../PersonaPanel';
 import SrtExportPanel from '../SrtExportPanel';
 import FocusMode from '../FocusMode';
@@ -45,12 +43,10 @@ import { currentWorkspaceId } from '../../core/workspaceScope';
 import { explorationPolicyFor } from '../../data/explorationPolicies';
 import { resolvePackagingLanguage } from '../../core/packagingLanguage';
 import type { LyricTranslationResult } from '../../core/lyricsTranslation';
-import type { AgentEvaluation, DisplayLanguage, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature, ThumbnailVariantId } from '../../types';
+import type { AgentEvaluation, GenerationOptions, PlaylistBlueprint, ProviderSettings, SongIdea, SoundSignature } from '../../types';
 import type { ChannelPersonaRecord } from '../../core/library';
-import type { ThumbnailSpec } from '../../core/thumbnailSpec';
-import type { ThumbnailArchetypeId } from '../../data/thumbnailArchetypes';
 
-export type ResultTab = 'songs' | 'thumbnail' | 'persona' | 'srt' | 'audio' | 'promiseAudit' | 'completeness' | 'explorationLedger';
+export type ResultTab = 'songs' | 'persona' | 'srt' | 'audio' | 'promiseAudit' | 'completeness' | 'explorationLedger';
 
 interface Step4ResultProps {
   blueprint: PlaylistBlueprint | null;
@@ -71,12 +67,6 @@ interface Step4ResultProps {
   isRefining: boolean;
   refineProgress: { done: number; total: number };
   refineWarnings: string[];
-  thumbnailSpec: ThumbnailSpec | null;
-  thumbnailSeasonId: string;
-  thumbnailArchetypeId: ThumbnailArchetypeId;
-  thumbnailPackagingLanguage: DisplayLanguage;
-  /** TASK v3.37-b — GenerationOptions.customConcept for the pack currently in the editor. */
-  thumbnailCustomConcept: string;
   soundSignature: SoundSignature | null;
   /** TASK v3.39.1 Part B1/C2 — needed to build the compiled-video tracklist description and ffmpeg script exports below. */
   opts: GenerationOptions;
@@ -85,7 +75,6 @@ interface Step4ResultProps {
   personaPromptStats: PersonaPromptStats | null;
   savedPersonas: ChannelPersonaRecord[];
   promptCharLimit?: number;
-  onSelectThumbnailArchetype: (id: ThumbnailArchetypeId) => void;
   onPersonaModeChange: (enabled: boolean) => void;
   onSavePersonaName: () => void;
   onSave: () => void;
@@ -94,9 +83,6 @@ interface Step4ResultProps {
   onRetrySong: (trackNo: number, issues: string[], useCurrentSettings?: boolean) => void;
   onUndoRetry: () => void;
   onRefineSelected: (trackNos: number[], useCurrentSettings?: boolean) => void;
-  onRegenerateHeadline: () => void;
-  onSelectThumbnailVariant: (id: ThumbnailVariantId) => void;
-  onApplyThumbnailFreeText: (suggestions: { headline: string; angle: string }[]) => void;
   /** TASK I3 (v3.11, PART D-4) — manual override for the automatic cold-open/flagship pick. */
   onPromoteTrack: (trackNo: number, role: 'cold-open' | 'flagship') => void;
   /** TASK v3.39.1 Part B3 — records what a human actually chose/changed for a song (originality evidence for an "inauthentic content" appeal). */
@@ -128,11 +114,6 @@ export default function Step4Result({
   isRefining,
   refineProgress,
   refineWarnings,
-  thumbnailSpec,
-  thumbnailSeasonId,
-  thumbnailArchetypeId,
-  thumbnailPackagingLanguage,
-  thumbnailCustomConcept,
   soundSignature,
   opts,
   textModelSettings,
@@ -140,7 +121,6 @@ export default function Step4Result({
   personaPromptStats,
   savedPersonas,
   promptCharLimit,
-  onSelectThumbnailArchetype,
   onPersonaModeChange,
   onSavePersonaName,
   onSave,
@@ -148,9 +128,6 @@ export default function Step4Result({
   onRetrySong,
   onUndoRetry,
   onRefineSelected,
-  onRegenerateHeadline,
-  onSelectThumbnailVariant,
-  onApplyThumbnailFreeText,
   onPromoteTrack,
   onUpdateHumanEdits,
   onUpdateLyrics,
@@ -259,7 +236,7 @@ export default function Step4Result({
 
   async function handleWordExport() {
     if (!blueprint) return;
-    const blob = await exportDocxBlob({ blueprint, thumbnailSpec: thumbnailSpec ?? undefined, soundSignature: soundSignature ?? undefined, personaMode });
+    const blob = await exportDocxBlob({ blueprint, soundSignature: soundSignature ?? undefined, personaMode });
     downloadBlob('suno-pack.docx', blob);
   }
 
@@ -495,11 +472,11 @@ export default function Step4Result({
               <Download size={16} />
               📝 TXT (곡별)
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode, opts.channel), 'text/markdown;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.md', exportMarkdown(blueprint, undefined, soundSignature ?? undefined, personaMode, opts.channel), 'text/markdown;charset=utf-8')}>
               <Download size={16} />
               MD
             </button>
-            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, thumbnailSpec ?? undefined, soundSignature ?? undefined, personaMode, opts.channel), 'application/json;charset=utf-8')}>
+            <button type="button" onClick={() => downloadText('suno-pack.json', exportJson(blueprint, undefined, soundSignature ?? undefined, personaMode, opts.channel), 'application/json;charset=utf-8')}>
               <Download size={16} />
               JSON
             </button>
@@ -609,10 +586,6 @@ export default function Step4Result({
           <button type="button" className={resultTab === 'songs' ? 'tab active' : 'tab'} onClick={() => setResultTab('songs')}>
             <ListMusic size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
             곡 목록
-          </button>
-          <button type="button" className={resultTab === 'thumbnail' ? 'tab active' : 'tab'} onClick={() => setResultTab('thumbnail')}>
-            <ImageIcon size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
-            🖼 썸네일 사양
           </button>
           <button type="button" className={resultTab === 'persona' ? 'tab active' : 'tab'} onClick={() => setResultTab('persona')}>
             <Mic2 size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
@@ -741,34 +714,6 @@ export default function Step4Result({
             generationGateResult={generationGateResult}
           />
         </>
-      )}
-
-      {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
-        <ThumbnailSpecPanel
-          spec={thumbnailSpec}
-          defaultSeasonId={thumbnailSeasonId}
-          selectedArchetypeId={thumbnailArchetypeId}
-          packagingLanguage={thumbnailPackagingLanguage}
-          customConcept={thumbnailCustomConcept}
-          channelArchetype={opts.channel.archetype}
-          onSelectArchetype={onSelectThumbnailArchetype}
-          onRegenerateHeadline={onRegenerateHeadline}
-          onSelectVariant={onSelectThumbnailVariant}
-          onApplyFreeTextHeadlines={onApplyThumbnailFreeText}
-        />
-      )}
-
-      {/* v4.0 (TASK D) — imageGeneration is 'experimental'. */}
-      {blueprint && resultTab === 'thumbnail' && thumbnailSpec && (
-        <ExperimentalFeatureBoundary featureLabel="썸네일 이미지 생성">
-          <ThumbnailImageStudioPanel
-            spec={thumbnailSpec}
-            defaultSeasonId={thumbnailSeasonId}
-            defaultArchetypeId={thumbnailArchetypeId}
-            channelArchetype={opts.channel.archetype}
-            textModelSettings={textModelSettings}
-          />
-        </ExperimentalFeatureBoundary>
       )}
 
       {blueprint && resultTab === 'srt' && (

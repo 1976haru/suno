@@ -41,7 +41,8 @@ import { matchGenresByTraits, type TraitProfile } from './traitMatcher';
 import { blendGenreTraits, eraDriftWarning } from './genreBlend';
 import { buildProxyHeaders, callGenerateProxy } from '../providers/proxyFetch';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { applyEraQuota, detectConceptBreadth, ensureEraNeutralFloor, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { applyEraQuota, detectConceptBreadth, ensureEraNeutralFloor, extractEraConstraint, extractMoodConstraint, genreCountsFromIds, GENRE_ERA_QUOTA_PER_GENRE_CAP, type ConceptAxisCoverage, type ConceptAxisId, type MoodConstraint } from './constraints';
+import { deriveEraIntent, eraDeviantGenreIds } from './eraIntent';
 import { workspaceForArchetype } from '../data/workspaces';
 import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
@@ -184,7 +185,7 @@ function deriveEraFocus(freeText: string, refs: DecomposedReference[]): string[]
 }
 
 function inferSeasonId(freeText: string, channel: ChannelProfile) {
-  const matched = matchConceptRules(freeText);
+  const matched = matchConceptRules(freeText, channel.archetype);
   const seasonScores = new Map<string, number>();
   for (const rule of matched) {
     for (const [id, score] of Object.entries(rule.seasonWeights || {})) {
@@ -198,7 +199,7 @@ function inferSeasonId(freeText: string, channel: ChannelProfile) {
 }
 
 function inferMoodIds(freeText: string, channel: ChannelProfile) {
-  const matched = matchConceptRules(freeText);
+  const matched = matchConceptRules(freeText, channel.archetype);
   const moodScores = new Map<string, number>();
   for (const rule of matched) {
     for (const [id, score] of Object.entries(rule.moodWeights || {})) {
@@ -335,7 +336,7 @@ function scoreGenre(
   }
   if (history.recentGenreIds.includes(genre.id)) score -= 2;
 
-  for (const rule of matchConceptRules(freeText)) {
+  for (const rule of matchConceptRules(freeText, channel.archetype)) {
     const weight = rule.genreWeights?.[genre.id] || 0;
     if (weight) {
       score += weight * 2;
@@ -443,7 +444,31 @@ function chooseGenreIds(
 ) {
   const familyPool = mainFamilyId ? genreIdsForFamilyAndCompatible(mainFamilyId) : undefined;
   const mainOnlyPool = mainFamilyId ? genreIdsForPaletteFamily(mainFamilyId) : undefined;
-  const candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel) && (!familyPool || familyPool.has(genre.id)));
+  let candidates = genreLibrary.filter(genre => genreMatchesChannel(genre, channel) && (!familyPool || familyPool.has(genre.id)));
+
+  // Fable5 2단계 §3-⑧ 실측 — freeText에 명시적 시대 신호가 있으면(예: "70년대
+  // 감성") 후보 풀에 다른 시대 장르가 여전히 남아 있었다. eraFocus는
+  // scoreGenre의 소프트 점수 가점으로만 쓰여, 시대가 안 맞는 장르도 최고점을
+  // 받으면 선택될 수 있었다(§1-4 "검사는 하는데 배분이 안 된다"의 실사례 —
+  // "70년대 감성 올드팝" 컨셉이 oldpop-adult-contemporary-80s(1980s)를 선택).
+  // eraDeviantGenreIds(지시문 10 TASK A-3)는 이미 존재하지만
+  // generationPreflight.ts의 senior-morning 전용 사전 차단 한 곳에서만
+  // 쓰이고 있었다 — 새 필터를 만들지 않고 그 함수를 여기(실제 후보 풀 구성)
+  // 에도 재사용한다. 제외 후 후보가 최소 요구(GENRE_ERA_QUOTA_PER_GENRE_CAP
+  // 기준, eraGenrePoolInsufficientHardBlock과 동일한 공식)에 못 미치면
+  // 필터를 포기하고 원래 후보 전체를 쓴다 — 없는 장르를 억지로 만들 수
+  // 없으니, 조용히 배제해 후보가 텅 비는 것보다는 "이번엔 시대가 덜
+  // 맞을 수 있다"는 쪽이 낫다.
+  const eraIntent = deriveEraIntent(freeText);
+  let eraEligibleIds: Set<string> | undefined;
+  if (eraIntent) {
+    const { eligible } = eraDeviantGenreIds(eraIntent, candidates.map(genre => genre.id));
+    const minimumForEra = Math.max(1, Math.ceil(songCount / GENRE_ERA_QUOTA_PER_GENRE_CAP));
+    if (eligible.length >= minimumForEra) {
+      eraEligibleIds = new Set(eligible);
+      candidates = candidates.filter(genre => eraEligibleIds!.has(genre.id));
+    }
+  }
   const ranked = candidates
     .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history, mainFamilyId, mood))
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
@@ -456,6 +481,12 @@ function chooseGenreIds(
     const genre = getGenreById(id);
     if (!genre || !genreMatchesChannel(genre, channel)) return;
     if (familyPool && !familyPool.has(id)) return;
+    // Fable5 2단계 §3-⑧ — candidates/ranked는 이미 필터링됐지만, 아래
+    // channel.primaryGenreIds/getCoreGenreIdsForArchetype 폴백 루프는 이
+    // add()를 candidates를 거치지 않고 직접 부른다 — 같은 필터를 여기서도
+    // 지킨다(필터가 적용된 경우에만 — eraEligibleIds가 undefined면 애초에
+    // 후보 부족으로 필터를 포기한 상태이므로 제한하지 않는다).
+    if (eraEligibleIds && !eraEligibleIds.has(id)) return;
     selected.push(id);
   };
 
@@ -1300,6 +1331,13 @@ export function buildSetPlanFromIntent(
   // land at 5 songs here, before applyEraQuota even runs, and survive
   // untouched if era-quota trimming never revisits it (era-quota only trims
   // buckets that are OVER their own share cap, not every genre).
+  // 지시문 47 (TASK B) — 실측: 여기에 genre.max 보장을 추가했다가
+  // tests/setDirectorSegments.test.ts's 세그먼트 교차배치(연속 2곡 상한)
+  // 불변식을 깼다 — directSetLocal은 "미리보기/배분 계획"을 만드는
+  // 별도 경로라 이미 자기 자신의 세밀한 회귀 스위트(지시문 08 TASK E ·
+  // genre-singleton-root-cause · 이 파일)를 갖고 있다. TASK B가 실제로
+  // 재현한 결함은 core/batchPreallocation.ts's preallocateSongSlots(실제
+  // 생성 경로)였다 — 그쪽에만 genre.max를 넘긴다. 이 호출부는 되돌린다.
   const perSegmentCounts = resolvedSegments.map(segment => Object.entries(genreCountsFromIds(segment.genreIds, segment.songCount, BREADTH_THRESHOLDS[breadth].genre.maxPerGenre)));
   const genreCounts: Record<string, number> = {};
   const maxEntries = Math.max(0, ...perSegmentCounts.map(entries => entries.length));
@@ -1485,6 +1523,13 @@ export function directSetLocal(
   // Also reused below (unchanged) as this function's own pre-existing
   // era-quota input — same freeText/artistReferences inputs, so computing
   // it twice would just be the same result computed again.
+  // 지시문 46 (TASK B) — 실측: directSetLocal의 eraConstraint는 genre-max
+  // effectiveMaxPerGenre 자동조정·family-selection 라우팅 등 이 지시문
+  // 범위 밖의 여러 메커니즘과 얽혀 있어, 여기서 바닥을 적용하면 그
+  // 메커니즘들까지 함께 바뀐다(실측: tests/designGate.test.ts 6건·
+  // tests/setDirector.test.ts 1건 회귀). 회귀 방지 목록을 지키기 위해
+  // 이 호출부는 되돌리고, core/batchPreallocation.ts의 실제 곡별 장르
+  // 배정(eraQuotaCounts) 쪽에만 바닥을 적용한다 — 부분구현으로 보고.
   const eraConstraint = extractEraConstraint(freeText, artistReferences.map(ref => ref.eraTag));
   const breadth = breadthOverride ?? detectConceptBreadth(freeText, eraConstraint);
   const breadthSource: 'auto' | 'user' = breadthOverride ? 'user' : 'auto';
@@ -1598,6 +1643,8 @@ export function directSetLocal(
   // identical perSegmentCounts seed just above: this cap must track
   // BREADTH_THRESHOLDS[breadth].genre.maxPerGenre, not a hardcoded 5, or a
   // genre can already sit at 5 songs before applyEraQuota (below) ever runs.
+  // 지시문 47 (TASK B) — 같은 이유로 되돌린다(위 perSegmentCounts의 doc
+  // comment 참고) — tests/eraIdentityLeakage.test.ts's 11% 조정 캡을 깼다.
   const preQuotaCounts = genreCountsFromIds(preQuotaSelectedIds, safeSongCount, BREADTH_THRESHOLDS[breadth].genre.maxPerGenre);
   // TASK v4.9 (TASK A) bugfix — real regression: applyEraQuota's own
   // "reach this era's minimum share" fill searches every channel-matching

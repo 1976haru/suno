@@ -43,10 +43,10 @@ import { moodLabelsKo, seasonLabelsKo } from '../../data/koreanLabels';
 import { DEFAULT_KIDS_AGE_TIER_ID, KIDS_AGE_TIERS } from '../../data/kidsAgeTiers';
 import { isKidsArchetype } from '../../utils/channelArchetype';
 import { resolveBilingualPair, resolveOpeningStyle } from '../../core/localGenerator';
-import { resolveScenePlanningMode } from '../../core/bridgeInstruction';
+import { resolveScenePlanningMode } from '../../core/scenePlanningMode';
 import { resolveGenreBlendMode } from '../../core/genreRotation';
 import { buildResolvedGenerationContract, provenanceForSystemFix, userChoicesFromOptions, type ResolvedGenerationContract } from '../../core/userChoices';
-import { resolveGenerationPreflight, type PreflightResult } from '../../core/generationPreflight';
+import { resolveGenerationPreflight, type PreflightReason, type PreflightResult } from '../../core/generationPreflight';
 import { combineMultiSetPreflight, evaluateMultiSetGenerationRequest, type MultiSetPreflightSummary } from '../../core/multiSetGeneration';
 import { resolveVocalAllocationMode, vocalLabel } from '../../core/vocalPlan';
 import { readLastGeneratedByChoice, rememberGeneratedByChoice } from '../../core/generatedByPreference';
@@ -58,10 +58,26 @@ import type { BatchContext, GenerationOptions, GenrePack, MoodPack, PackGenerate
 const HOOK_EXHAUSTION_WARNING_THRESHOLD = 80;
 /** v3.32 — 40곡부터 Batch API 대량 생성 강조 문구를 띄우는 기준선. */
 const BULK_BATCH_ADVICE_THRESHOLD = 40;
+const DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT = 5;
+const REDUCED_LYRIC_THEME_AVOID_SET_LIMIT = 2;
 
-const SONG_COUNT_CHIPS = [1, 5, 10, 12, 20, 30, 40, 60, 80];
+// 지시문 38 (TASK A) — 기본값이 15로 바뀌었지만(createInitialOptions.ts) 18은
+// 제거하지 않는다("선택지로 남긴다") — 15를 추가하고 18도 칩으로 노출한다
+// (이전엔 18도 칩이 아니라 슬라이더/숫자 입력으로만 도달 가능했다).
+const SONG_COUNT_CHIPS = [1, 5, 10, 12, 15, 18, 20, 30, 40, 60, 80];
 
 type BridgeInstructionMode = 'master' | 'perSet';
+
+function limitSceneSignaturesByRecentPacks<T extends { packId: string }>(signatures: T[], setLimit: number): T[] {
+  if (setLimit <= 0) return [];
+  const packIds: string[] = [];
+  for (const signature of signatures) {
+    if (!packIds.includes(signature.packId)) packIds.push(signature.packId);
+    if (packIds.length >= setLimit) break;
+  }
+  const allowed = new Set(packIds);
+  return signatures.filter(signature => allowed.has(signature.packId));
+}
 
 const POV_LABELS: Record<string, string> = {
   firstPerson: '1인칭',
@@ -496,6 +512,70 @@ function MultiSetPreflightPanel({
   );
 }
 
+function StandalonePreflightWarningPanel({
+  reasons,
+  acknowledgedFields,
+  lyricThemeAvoidSetLimit,
+  onAcknowledge,
+  onGoToConceptStep,
+  onReduceLyricThemeAvoidScope,
+  onReduceSongCount
+}: {
+  reasons: PreflightReason[];
+  acknowledgedFields: Set<string>;
+  lyricThemeAvoidSetLimit: number;
+  onAcknowledge: (field: string) => void;
+  onGoToConceptStep: () => void;
+  onReduceLyricThemeAvoidScope: () => void;
+  onReduceSongCount: (count: number) => void;
+}) {
+  if (!reasons.length) return null;
+
+  return (
+    <div className="warning generation-mismatch-panel generation-preflight-warning-panel">
+      <div className="panel-title">
+        <AlertTriangle size={16} />
+        <b>생성 전 확인이 필요합니다</b>
+      </div>
+      {reasons.map(reason => {
+        const acknowledged = acknowledgedFields.has(reason.field);
+        const pool = reason.details?.lyricThemePool;
+        return (
+          <div key={reason.field} className="option-block compact">
+            <b>{reason.field === 'lyricThemePoolInsufficient' ? '장면 후보 부족' : reason.field}</b>
+            <p className="supporting">{reason.messageKo}</p>
+            {pool && (
+              <div className="button-row">
+                <button type="button" onClick={onGoToConceptStep}>
+                  컨셉 기반 장면 생성으로 바꾸기
+                </button>
+                <button
+                  type="button"
+                  disabled={lyricThemeAvoidSetLimit <= REDUCED_LYRIC_THEME_AVOID_SET_LIMIT}
+                  onClick={onReduceLyricThemeAvoidScope}
+                >
+                  최근 세트 회피 범위 {REDUCED_LYRIC_THEME_AVOID_SET_LIMIT}세트로 줄이기
+                </button>
+                <button type="button" disabled={pool.withAvoid < 1} onClick={() => onReduceSongCount(pool.withAvoid)}>
+                  곡 수를 {pool.withAvoid}곡으로 줄이기
+                </button>
+                <button
+                  type="button"
+                  className={acknowledged ? 'chip active' : 'chip'}
+                  onClick={() => onAcknowledge(reason.field)}
+                >
+                  {acknowledged ? <Check size={14} /> : <XCircle size={14} />}
+                  이대로 진행
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatRange(range: TokenRange) {
   return `${Math.round(range.low).toLocaleString()} ~ ${Math.round(range.high).toLocaleString()}`;
 }
@@ -610,6 +690,8 @@ interface Step3GenerateProps {
   hasSelectedSeason: boolean;
   onGoToChannelStep: () => void;
   onGoToSeasonStep: () => void;
+  /** 지시문 41 (TASK A) — 채널 선택(컨셉 화면 상단, onGoToChannelStep)과 채널 편집/삭제(채널 관리 오버레이)가 이제 서로 다른 화면이라 분리했다. */
+  onOpenChannelManager: () => void;
   basicMode?: boolean;
   expertMode: boolean;
   onToggleExpertMode: () => void;
@@ -626,7 +708,7 @@ interface Step3GenerateProps {
 export default function Step3Generate({
   opts, setOpts, genres, moods, season, provider, onOpenSettings, isGenerating, genProgress, error, onGenerate,
   hybridMode, onHybridModeChange, onOpenHookHistory, batchMode, onBatchModeChange, activeBatchJob, onCancelBatchJob, onRetryFailedBatchJob, onRegenerateMissingBatchTracks,
-  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
+  onImportSongsJson, onImportSongsJsonForSrt, onImportMultiSetSongsJson, bridgeImportedSetAvoid, multiSet, hasSelectedChannel, hasSelectedSeason, onGoToChannelStep, onGoToSeasonStep, onOpenChannelManager, basicMode = false, expertMode, onToggleExpertMode, onInstructionReady,
   workspaceId, onNavigateToWorkspace, acknowledgedSignature, onAcknowledgedSignatureChange
 }: Step3GenerateProps) {
   const providerLabel = provider.provider === 'local'
@@ -653,6 +735,10 @@ export default function Step3Generate({
   // plain derived objects (not their own state) so every existing
   // downstream reference stays unchanged.
   const historySnapshot = useGenerationHistorySnapshot(opts.channel.id, opts.lyricLanguage);
+  const [lyricThemeAvoidSetLimit, setLyricThemeAvoidSetLimit] = useState(DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT);
+  useEffect(() => {
+    setLyricThemeAvoidSetLimit(DEFAULT_LYRIC_THEME_AVOID_SET_LIMIT);
+  }, [opts.channel.id, opts.lyricLanguage]);
   // codex 지시문 01 (TASK I) — "지시문만 복사하고 아직 결과를 가져오지 않았거나
   // 두 세션을 동시에 실행해도 중복을 막는다": one stable runId per
   // channel+language for this screen instance (regenerated only when the
@@ -698,14 +784,18 @@ export default function Step3Generate({
   // preallocateSongSlots) instead of only ever reaching the bridge
   // instruction's TEXT — the real fix for §2-1's "회피 목록이 배정에 쓰이지
   // 않는다".
+  const lyricThemeAvoidSceneSignatures = useMemo(
+    () => limitSceneSignaturesByRecentPacks(historySnapshot.recentSceneSignatures, lyricThemeAvoidSetLimit),
+    [historySnapshot.recentSceneSignatures, lyricThemeAvoidSetLimit]
+  );
   const bridgeAvoid = useMemo(
     () => ({
       usedTitles: [...historySnapshot.usedTitles, ...reservedSiblingAvoid.titles],
       usedHooks: [...historySnapshot.usedHooks, ...reservedSiblingAvoid.hooks],
-      recentLyricThemeIds: historySnapshot.recentSceneSignatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id)),
-      recentSituations: historySnapshot.recentSituations
+      recentLyricThemeIds: lyricThemeAvoidSceneSignatures.map(s => s.lyricTheme).filter((id): id is string => Boolean(id)),
+      recentSituations: lyricThemeAvoidSceneSignatures.map(s => s.situation)
     }),
-    [historySnapshot.usedTitles, historySnapshot.usedHooks, historySnapshot.recentSceneSignatures, historySnapshot.recentSituations, reservedSiblingAvoid]
+    [historySnapshot.usedTitles, historySnapshot.usedHooks, lyricThemeAvoidSceneSignatures, reservedSiblingAvoid]
   );
   /** v5.22 (AXIS 1) — same cross-pack-history purpose as bridgeAvoid just above, for the concept-driven scene generation instruction (see bridgeInstruction.ts's ConceptSceneContext). */
   const bridgeConceptSceneContext = useMemo(
@@ -824,6 +914,17 @@ export default function Step3Generate({
   const multiSetTotalSongs = multiSetClamped.setCount * multiSetClamped.songsPerSet;
   const multiSetCostEstimate = estimateCost(multiSetClamped.songsPerSet, provider, inputPrice, outputPrice);
   const effectiveSongCount = multiSet.mode ? multiSetTotalSongs : opts.songCount;
+  // 지시문 42 (TASK A) — 지시문이 요구한 축은 opts.hookMode 하나다. 실측 중
+  // 발견한 경계 사례: core/localGenerator.ts(단일 팩의 "N곡 생성하기" 직접
+  // 로컬 생성 버튼)는 hookMode를 아예 읽지 않고 항상 composeHook()(풀
+  // 추첨)을 쓴다 — 이 화면의 "Claude Code 브릿지" 섹션(하루의 실제 주 사용
+  // 경로, provider와 무관하게 항상 노출됨)은 그 브릿지 지시문을 통해 이
+  // hookMode를 그대로 존중한다. 즉 provider==='local'이 "풀을 쓴다"는
+  // 뜻은 아니다 — 브릿지를 쓰면 여전히 ai-creative다. 두 실제 경로가 같은
+  // 화면에 동시에 떠 있어 하나의 표시로 둘 다 정확히 반영할 수 없으므로,
+  // 지시문이 명시한 hookMode 신호를 그대로 따른다(E-2 보고에 이 직접
+  // 로컬 생성 버튼 자체의 경계 사례를 별도로 남긴다).
+  const usesPoolHooks = (opts.hookMode ?? 'ai-creative') === 'pool';
   const packWarning = hookStats && hookStats.poolSize > 0 ? packCapacityWarning(hookStats, effectiveSongCount) : null;
   const bridgePrerequisites: BridgeImportPrerequisites = { hasSelectedChannel, hasSelectedSeason };
   const bridgeBlockMessage = bridgeImportBlockMessage(bridgePrerequisites);
@@ -856,6 +957,7 @@ export default function Step3Generate({
     [opts, generationChoices, bridgePreassignedSongs, workspaceId]
   );
   const [acknowledgedMismatchFields, setAcknowledgedMismatchFields] = useState<Set<string>>(new Set());
+  const [acknowledgedPreflightWarnFields, setAcknowledgedPreflightWarnFields] = useState<Set<string>>(new Set());
   // TASK (generation preflight) — this used to reset on a signature built
   // from WHICH FIELDS mismatched only (mismatch.field, sorted+joined), the
   // exact naive-signature bug the new preflight module's own doc comment
@@ -872,6 +974,15 @@ export default function Step3Generate({
 
   function handleAcknowledgeMismatch(field: string) {
     setAcknowledgedMismatchFields(prev => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
+
+  function handleAcknowledgePreflightWarning(field: string) {
+    setAcknowledgedPreflightWarnFields(prev => {
       const next = new Set(prev);
       if (next.has(field)) next.delete(field);
       else next.add(field);
@@ -1017,10 +1128,19 @@ export default function Step3Generate({
       },
       acknowledgedSignature,
       // 지시문 14 (Phase 2 TASK A-2) — same recentLyricThemeIds/recentSituations bridgeAvoid already carries into slot assignment; lets this hard-block check run without a second fetch.
-      lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations }
+      lyricThemeAvoid: { recentThemeIds: bridgeAvoid.recentLyricThemeIds, recentSituations: bridgeAvoid.recentSituations },
+      conceptSceneContext: bridgeConceptSceneContext
     }),
-    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations]
+    [workspaceId, opts, bridgePreassignedSongs, generationContract, designGateResult, acknowledgedSignature, bridgeAvoid.recentLyricThemeIds, bridgeAvoid.recentSituations, bridgeConceptSceneContext]
   );
+
+  const standalonePreflightWarnReasons = useMemo(() => {
+    const mismatchFields = new Set(generationContract.mismatches.map(mismatch => mismatch.field));
+    const designGateFields = new Set((designGateResult?.blocking ?? [{ id: 'design-gate-pending' }]).map(issue => issue.id));
+    return preflight.reasons.filter(
+      reason => reason.severity === 'warn' && !mismatchFields.has(reason.field) && !designGateFields.has(reason.field)
+    );
+  }, [preflight.reasons, generationContract.mismatches, designGateResult]);
 
   // A real change in the actual mismatch/design-gate CONTENT (not just which
   // fields/ids are involved — see preflight.mismatchSignature's own doc
@@ -1031,7 +1151,7 @@ export default function Step3Generate({
   useEffect(() => {
     setAcknowledgedMismatchFields(new Set());
     setBridgeGateAcknowledged(false);
-     
+    setAcknowledgedPreflightWarnFields(new Set());
   }, [preflight.mismatchSignature]);
 
   // Once the user has reviewed and checked every currently-required item in
@@ -1042,8 +1162,9 @@ export default function Step3Generate({
     if (!preflight.mismatchSignature) return; // nothing to acknowledge (clean, or a hard block with no ack path at all)
     const allMismatchesChecked = generationContract.mismatches.every(mismatch => acknowledgedMismatchFields.has(mismatch.field));
     const designGateChecked = !designGateResult || designGateResult.passed || bridgeGateAcknowledged;
-    if (allMismatchesChecked && designGateChecked) onAcknowledgedSignatureChange(preflight.mismatchSignature);
-  }, [preflight.mismatchSignature, generationContract.mismatches, acknowledgedMismatchFields, designGateResult, bridgeGateAcknowledged, onAcknowledgedSignatureChange]);
+    const allStandaloneWarningsChecked = standalonePreflightWarnReasons.every(reason => acknowledgedPreflightWarnFields.has(reason.field));
+    if (allMismatchesChecked && designGateChecked && allStandaloneWarningsChecked) onAcknowledgedSignatureChange(preflight.mismatchSignature);
+  }, [preflight.mismatchSignature, generationContract.mismatches, acknowledgedMismatchFields, designGateResult, bridgeGateAcknowledged, standalonePreflightWarnReasons, acknowledgedPreflightWarnFields, onAcknowledgedSignatureChange]);
 
   const preflightBlockReasonKo = !preflight.allowed
     ? (preflight.reasons.find(reason => reason.severity === 'block')?.messageKo
@@ -1518,48 +1639,72 @@ export default function Step3Generate({
         </div>
       )}
 
-      {hookStats && hookStats.poolSize > 0 && (
-        <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
-          {hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? (
-            <>
-              <AlertTriangle size={16} />
-              <span>
-                🔴 이 채널에서 사용 가능한 훅이 얼마 남지 않았습니다. 사용: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
-                남은 훅이 부족합니다. 훅 뱅크를 확장하거나, 오래된 팩을 삭제해 이력을 비우세요.
-                <button type="button" onClick={onOpenHookHistory}>훅 이력 관리</button>
-              </span>
-            </>
-          ) : (
-            <p className="supporting">
-              🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
-            </p>
+      {/*
+        지시문 42 (TASK A) — 실측: 이 화면은 hookMode와 무관하게 항상 조합형
+        풀(hookPoolSize) 잔여량을 보여줬다. 'ai-creative'(기본값)는 LLM이
+        매번 새 훅을 짓는 모드라 풀을 소진할 일이 없는데도 "26팩 분량
+        남았다"는 식으로 소진 임박을 암시해, 컨셉 화면의 "훅 뱅크가 소진될
+        일이 없다"는 안내와 정면으로 모순됐다(하루의 실제 지적). 풀 잔여량
+        표시·경고는 실제로 풀을 소비할 때만(usesPoolHooks) 의미가 있으므로
+        그때만 보여준다 — pool 모드의 표시 자체는 한 글자도 바꾸지 않았다.
+      */}
+      {usesPoolHooks ? (
+        <>
+          {hookStats && hookStats.poolSize > 0 && (
+            <div className={hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? 'warning' : 'provider-summary'}>
+              {hookStats.percentUsed >= HOOK_EXHAUSTION_WARNING_THRESHOLD ? (
+                <>
+                  <AlertTriangle size={16} />
+                  <span>
+                    🔴 이 채널에서 사용 가능한 훅이 얼마 남지 않았습니다. 사용: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+                    남은 훅이 부족합니다. 훅 뱅크를 확장하거나, 오래된 팩을 삭제해 이력을 비우세요.
+                    <button type="button" onClick={onOpenHookHistory}>훅 이력 관리</button>
+                  </span>
+                </>
+              ) : (
+                <p className="supporting">
+                  🎵 이 채널의 훅 사용량: {hookStats.used.toLocaleString()}개 / 전체 {hookStats.poolSize.toLocaleString()}개 ({hookStats.percentUsed}%)
+                </p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {packWarning && (
-        <div className={packWarning.level === 'none' ? 'provider-summary' : 'warning'}>
-          {packWarning.level === 'none' ? (
-            <p className="supporting">
-              이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
-              {packWarning.remainingAfterPack.toLocaleString()}개
-              {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
-            </p>
-          ) : (
-            <>
-              <AlertTriangle size={16} />
-              <span>
-                {packWarning.level === 'red' ? '🔴 ' : '🟡 '}
-                이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
-                {packWarning.remainingAfterPack.toLocaleString()}개
-                {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
-                {packWarning.level === 'red'
-                  ? ' — 훅 풀이 부족해 일부 곡이 생성 실패할 수 있습니다.'
-                  : ' — 다음 팩부터는 부족해질 수 있으니 미리 훅 이력을 정리하세요.'}
-              </span>
-            </>
+          {packWarning && (
+            <div className={packWarning.level === 'none' ? 'provider-summary' : 'warning'}>
+              {packWarning.level === 'none' ? (
+                <p className="supporting">
+                  이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+                  {packWarning.remainingAfterPack.toLocaleString()}개
+                  {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+                </p>
+              ) : (
+                <>
+                  <AlertTriangle size={16} />
+                  <span>
+                    {packWarning.level === 'red' ? '🔴 ' : '🟡 '}
+                    이 채널 훅 잔여 {packWarning.remainingBeforePack.toLocaleString()}개 — 이번 {multiSet.mode ? '전체 세트' : '팩'}({effectiveSongCount}곡) 후 잔여{' '}
+                    {packWarning.remainingAfterPack.toLocaleString()}개
+                    {packWarning.packsWorthAfter !== null && ` (약 ${packWarning.packsWorthAfter.toLocaleString()}팩 분량)`}
+                    {packWarning.level === 'red'
+                      ? ' — 훅 풀이 부족해 일부 곡이 생성 실패할 수 있습니다.'
+                      : ' — 다음 팩부터는 부족해질 수 있으니 미리 훅 이력을 정리하세요.'}
+                  </span>
+                </>
+              )}
+            </div>
           )}
-        </div>
+        </>
+      ) : (
+        hookStats && (
+          <div className="provider-summary">
+            <p className="supporting">
+              🎵 이 채널의 훅 이력: {hookStats.used.toLocaleString()}개
+            </p>
+            <p className="supporting">
+              AI가 매번 새 훅을 지어요 — 최근 500개와 겹치지 않게 피합니다.
+            </p>
+          </div>
+        )
       )}
 
       {!basicMode && !multiSet.mode && (
@@ -1966,12 +2111,22 @@ export default function Step3Generate({
                   채널의 워크스페이스({getWorkspace(generationContract.workspaceRecovery.correctWorkspaceId).labelKo})로 이동
                 </button>
               )}
-              <button type="button" onClick={onGoToChannelStep}>채널 편집</button>
-              <button type="button" onClick={onGoToChannelStep}>채널 관리에서 삭제</button>
+              <button type="button" onClick={onOpenChannelManager}>채널 편집</button>
+              <button type="button" onClick={onOpenChannelManager}>채널 관리에서 삭제</button>
             </div>
           )}
         </div>
       )}
+
+      <StandalonePreflightWarningPanel
+        reasons={standalonePreflightWarnReasons}
+        acknowledgedFields={acknowledgedPreflightWarnFields}
+        lyricThemeAvoidSetLimit={lyricThemeAvoidSetLimit}
+        onAcknowledge={handleAcknowledgePreflightWarning}
+        onGoToConceptStep={onGoToConceptStep}
+        onReduceLyricThemeAvoidScope={() => setLyricThemeAvoidSetLimit(REDUCED_LYRIC_THEME_AVOID_SET_LIMIT)}
+        onReduceSongCount={count => setOpts(prev => ({ ...prev, songCount: clampSongCount(count) }))}
+      />
 
       <GenerationContractPanel
         contract={generationContract}

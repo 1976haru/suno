@@ -19,7 +19,17 @@ import { makeOptions, channelPresets, moodPacks, seasonPacks } from './fixtures'
  */
 const seniorChannel = channelPresets.find(channel => channel.archetype === 'senior-morning')!;
 const PHILLY_GENRE_ID = 'oldpop-philly-soul-sweet';
-const genreIds = [PHILLY_GENRE_ID, 'oldpop-soft-rock-am', 'oldpop-motown-pop-soul', 'oldpop-warm-morning-glow'];
+// 지시문 46 긴급수정 (TASK A) — senior-morning은 컨셉이 시대를 안 말해도
+// data/workspaceEraFloor.ts 채널 바닥이 이제 적용돼(applyWorkspaceEraFloor),
+// 이 4종 풀의 회전 순서가 바뀌었다 — PHILLY_GENRE_ID가 배열 맨 앞이면
+// 이제 트랙 1에도 우연히 배정돼(예전엔 아니었다), 트랙 2에 강제되는
+// verified-combo 배정과 겹쳐 "첫 등장은 트랙 2, 두 번째 등장은 그 뒤"라는
+// 이 테스트의 전제가 깨졌다(§실측: phillyTracks[1]이 트랙 2 자신이 됨).
+// 이 파일은 combo 변주 로직을 검사하는 것이지 회전 순서 자체를 검사하는
+//게 아니므로, 그 우연한 충돌만 피하도록 배열 순서를 바꾼다(장르 집합·
+// 곡 수·아키타입은 그대로) — 실측: 이 순서면 트랙 2만 초기 등장이고
+// 다음 등장은 트랙 10이라 더 이상 겹치지 않는다.
+const genreIds = ['oldpop-soft-rock-am', 'oldpop-motown-pop-soul', PHILLY_GENRE_ID, 'oldpop-warm-morning-glow'];
 
 const comboWithStringVariationNext: VerifiedCombo = {
   id: 'test-philly-variation',

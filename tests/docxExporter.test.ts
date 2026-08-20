@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateLocalBlueprint } from '../src/core/localGenerator';
 import { buildSoundSignature } from '../src/core/soundSignature';
-import { buildThumbnailSpec } from '../src/core/thumbnailSpec';
 import { buildDocxPlainText, exportDocxBlob } from '../src/utils/docxExporter';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
 
@@ -9,9 +8,8 @@ async function makeDocxPack(songCount = 12, personaMode = true) {
   const opts = makeOptions({ songCount, personaMode });
   const blueprint = generateLocalBlueprint(opts, testGenres, testMoods, testSeason);
   const soundSignature = buildSoundSignature(blueprint, opts, opts.channel);
-  const thumbnailSpec = buildThumbnailSpec(blueprint, opts, testSeason, opts.channel);
-  const input = { blueprint, soundSignature, thumbnailSpec, personaMode, generatedAt: new Date('2026-07-15T00:00:00Z') };
-  return { opts, blueprint, soundSignature, thumbnailSpec, text: buildDocxPlainText(input), blob: await exportDocxBlob(input) };
+  const input = { blueprint, soundSignature, personaMode, generatedAt: new Date('2026-07-15T00:00:00Z') };
+  return { opts, blueprint, soundSignature, text: buildDocxPlainText(input), blob: await exportDocxBlob(input) };
 }
 
 describe('docx exporter', () => {
@@ -48,17 +46,6 @@ describe('docx exporter', () => {
     expect(text).toContain('Persona workflow');
     expect(text).toContain('Make Persona');
     expect(text).toContain('Generate tracks 2+');
-  });
-
-  it('includes thumbnail A/B/C variants', async () => {
-    const { text, thumbnailSpec } = await makeDocxPack(12);
-    for (const variant of thumbnailSpec.variants) {
-      expect(text).toContain(`${variant.id} (${variant.angle})`);
-      expect(text).toContain(variant.headline.replace('\n', ' / '));
-    }
-    expect(text).toContain('Generic image prompt');
-    expect(text).toContain('Midjourney prompt');
-    expect(text).toContain('Stable Diffusion prompt');
   });
 
   it('creates a 30 song pack docx within practical size and time', async () => {

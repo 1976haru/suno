@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { recommendConceptLocal, recommendConceptViaApi, type ConceptAgentResult, type ConceptRecommendation } from '../core/conceptAgent';
 import { addConceptHistory, getConceptHistory } from '../core/library';
+import { readRecentGenreIds } from '../core/recentGenreStore';
 import { genreLabelsKo, seasonLabelsKo } from '../data/koreanLabels';
 import type { ChannelArchetype, ProviderSettings } from '../types';
 
@@ -49,8 +50,12 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
     setAppliedId(null);
     try {
       const defaults = { genreId: currentGenreId, moodId: currentMoodId, seasonId: currentSeasonId };
+      // 지시문 51 (TASK A-2①) — 이 채널의 최근 장르 이력을 padding
+      // tie-break에 넘긴다(§core/conceptAgent.ts의 orderCoreGenresForPadding
+      // 참고). 새 원장이 아니라 지시문33 TASK B가 쓰던 core/recentGenreStore.ts
+      // 그대로 재사용한다.
       const next = provider.provider === 'local'
-        ? recommendConceptLocal(text, archetype, defaults, offset, songCount)
+        ? recommendConceptLocal(text, archetype, defaults, offset, songCount, readRecentGenreIds(channelId))
         : await recommendConceptViaApi(text, archetype, provider, songCount);
       setResult(next);
       const nextHistory = await addConceptHistory(channelId, text);
@@ -113,6 +118,40 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
         </button>
       </div>
 
+      {/* 지시문 64 (TASK B-2) — "매칭된 키워드를 화면에 보여준다" /
+          "아무것도 안 잡히면 알린다" / "일부만 잡히면 무엇이 안 잡혔는지
+          보여준다". API 경로(matchInfo 없음)는 표시하지 않는다 — 그
+          경로는 정규식 매칭이 아니라 LLM 해석이라 이 개념 자체가 없다. */}
+      {result?.matchInfo && (
+        result.matchInfo.matchedPhrases.length > 0 ? (
+          <p className="supporting concept-match-info">
+            해석: {result.matchInfo.matchedPhrases.map(phrase => `"${phrase}"`).join(' · ')}
+            {!result.matchInfo.hasGenreSignal && (result.matchInfo.hasMoodSignal || result.matchInfo.hasSeasonSignal) && (
+              <> — 분위기는 인식했지만 구체적인 장소·상황 단서가 없어 채널 기본 장르로 채웠어요.</>
+            )}
+            {/* 지시문 67 (TASK C) — 장르 키워드(axis:'genre')가 매칭됐을 때만
+                뜬다: "장르 = 재즈 (9곡) · 나머지 6곡은 인접 장르로 채웁니다". */}
+            {result.matchInfo.genreAxis && (
+              <>
+                {' — 장르 = '}"{result.matchInfo.genreAxis.matchedPhrase}" ({result.matchInfo.genreAxis.familySongCount}곡)
+                {result.matchInfo.genreAxis.adjacentSongCount > 0 && (
+                  <>. 나머지 {result.matchInfo.genreAxis.adjacentSongCount}곡은 인접 장르로 채웁니다</>
+                )}
+              </>
+            )}
+          </p>
+        ) : (
+          <p className="supporting concept-match-info">
+            ⚠ 입력하신 말에서 장르 단서를 찾지 못했습니다. 장소·시간·상황을 함께 써보세요. 예: &ldquo;비 오는 저녁 카페에서&rdquo;
+          </p>
+        )
+      )}
+      {result?.matchInfo?.genreAxis?.eraApproximated && (
+        <p className="supporting concept-match-info concept-era-approximated">
+          ⚠ &ldquo;{result.matchInfo.genreAxis.matchedPhrase}&rdquo; 중 요청하신 시대에 맞는 계열이 적어 인접 시대를 포함했습니다.
+        </p>
+      )}
+
       {result && (
         <>
           <p className="supporting">이런 느낌은 어때요?</p>
@@ -131,8 +170,20 @@ export default function ConceptAgentPanel({ channelId, archetype, currentGenreId
                 {rec.decomposedReferences?.map(ref => (
                   <p key={ref.matchedSurface} className="supporting concept-artist-interpretation">
                     해석: &ldquo;{ref.matchedSurface}&rdquo; → {ref.eraTag} — {[...ref.instrumentation.slice(0, 2), ...ref.harmonyTraits.slice(0, 1), ...ref.productionTraits.slice(0, 1)].join(', ')}
+                    {ref.reasonKo && (
+                      <>
+                        <br />
+                        ({ref.reasonKo})
+                      </>
+                    )}
                     <br />
                     ※ 아티스트명은 프롬프트에 포함되지 않습니다 (수노가 무시하며 배포 시 위험합니다).
+                    {ref.alternateHintKo && (
+                      <>
+                        <br />
+                        ※ 다른 시기를 원하시면: {ref.alternateHintKo}
+                      </>
+                    )}
                   </p>
                 ))}
                 <p className="concept-preview">미리보기 훅: &ldquo;{rec.previewLine}&rdquo;</p>

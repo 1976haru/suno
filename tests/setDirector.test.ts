@@ -91,6 +91,28 @@ describe('[v3.63] directSetLocal', () => {
   });
 });
 
+describe('Fable5 2단계 §3-⑧ 실측 — chooseGenreIds가 concept의 명시적 시대 신호와 다른 시대 장르를 후보에서 뺀다', () => {
+  it('"70년대 감성 올드팝"은 oldpop-adult-contemporary-80s(1980s 전용 장르)를 선택하지 않는다 — 실측 재현', () => {
+    const plan = directSetLocal('70년대 감성 올드팝', seniorChannel, 18, { recentGenreIds: [], recentHooks: [] });
+    const genreIds = Object.keys(allocation(plan, 'genre').counts);
+    expect(genreIds).not.toContain('oldpop-adult-contemporary-80s');
+  });
+
+  it('시대 신호가 없는 컨셉은 필터링되지 않는다 (기존 동작 그대로)', () => {
+    const plan = directSetLocal('따뜻하고 편안한 올드팝', seniorChannel, 18, { recentGenreIds: [], recentHooks: [] });
+    expect(Object.keys(allocation(plan, 'genre').counts).length).toBeGreaterThan(0);
+  });
+
+  it('시대 신호가 있어도 적합한 후보가 최소 요구치보다 적으면 필터를 포기하고 원래 후보 전체를 쓴다 (조용히 텅 비지 않는다)', () => {
+    // kr-idol-male은 oldpop 계열 eraTag가 전혀 없는 워크스페이스라
+    // eraDeviantGenreIds가 전부 걸러내 버릴 수 있는 극단 케이스 — 필터
+    // 포기 후에도 장르가 정상적으로 선택되는지 확인한다.
+    const kridolChannel = channelPresets.find(c => c.archetype === 'kr-idol-male')!;
+    const plan = directSetLocal('70년대 감성', kridolChannel, 18, { recentGenreIds: [], recentHooks: [] });
+    expect(Object.keys(allocation(plan, 'genre').counts).length).toBeGreaterThan(0);
+  });
+});
+
 describe('[v3.63 TASK B] directSetLocal with a genre-family selection', () => {
   it('a single family selection uses that family\'s own members for the genre axis', () => {
     const plan = directSetLocal('', seniorChannel, 18, { recentGenreIds: [], recentHooks: [] }, ['abba-carpenters']);

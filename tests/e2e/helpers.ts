@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /**
  * codex 지시문 07 (TASK C) — shared real selectors/flows for the E2E suite.
@@ -36,8 +36,17 @@ export async function selectWorkspace(page: Page, label: string): Promise<void> 
   await page.getByRole('button', { name: new RegExp(`^${label}`) }).click();
 }
 
+/** 지시문 41 (TASK A) — "채널 관리"(구 Step1Channel) 안의 아키타입 카드를
+ * 고른다. 더 이상 마법사의 첫 화면이 아니라 별도 오버레이이므로, 먼저
+ * openChannelManager()로 그 오버레이를 열어야 이 카드가 보인다. */
 export async function pickAnyArchetype(page: Page): Promise<void> {
   await page.locator('.genre-card-choice').first().click();
+}
+
+/** 지시문 41 (TASK A) — 컨셉 화면(마법사 1단계) 상단의 채널 선택기를 연다. */
+export async function openChannelManager(page: Page): Promise<void> {
+  await page.getByRole('button', { name: '채널 관리' }).click();
+  await expect(page.getByRole('heading', { name: /어떤 채널인가요|Choose a channel/ })).toBeVisible();
 }
 
 export async function pickGenreAndMood(page: Page): Promise<void> {
@@ -51,12 +60,13 @@ export async function pickGenreAndMood(page: Page): Promise<void> {
   await page.locator('.chips .chip').first().click();
 }
 
-/** Navigates from a freshly-selected workspace (step 1) through channel
- * pick + genre/mood pick to step 3 (설계안), where a design gate result
- * is rendered. */
+/**
+ * 지시문 41 (TASK A) — 워크스페이스를 고르면 이제 곧바로 컨셉 화면(마법사
+ * 1단계)이다. 채널은 이 화면 상단 선택기가 이미 기본값을 골라 두므로
+ * 따로 고를 필요가 없다(예전엔 별도 "채널" 단계에서 아키타입 카드를 먼저
+ * 골라야 했다 — 지시문 41 TASK A가 그 단계 자체를 없앴다). 장르/무드를
+ * 고르고 "다음"을 한 번 누르면 2단계(설계안)다. */
 export async function goToDesignStep(page: Page): Promise<void> {
-  await pickAnyArchetype(page);
-  await page.getByRole('button', { name: '다음 →' }).click();
   await pickGenreAndMood(page);
   await page.getByRole('button', { name: '다음 →' }).click();
 }

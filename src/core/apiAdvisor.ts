@@ -15,7 +15,7 @@ import { DEFAULT_ANTHROPIC_MODEL, MODEL_REGISTRY } from '../data/modelRegistry';
  */
 export type ApiRecommendation = 'essential' | 'valuable' | 'optional' | 'unnecessary';
 
-export type StageId = 'lyrics' | 'evaluation' | 'thumbnailCopy' | 'stylePrompt' | 'songStructure' | 'thumbnailImage' | 'conceptAgent';
+export type StageId = 'lyrics' | 'evaluation' | 'stylePrompt' | 'songStructure' | 'conceptAgent';
 
 export interface StageAdvice {
   stage: StageId;
@@ -48,13 +48,6 @@ export const STAGE_ADVICE: Record<StageId, StageAdvice> = {
     suggestedModelKo: 'Haiku',
     reasonKo: '30곡 중 뭘 쓸지 골라주는 채점 작업입니다. Haiku로 충분하고 Sonnet보다 훨씬 저렴합니다.'
   },
-  thumbnailCopy: {
-    stage: 'thumbnailCopy',
-    labelKo: '썸네일 문구',
-    recommendation: 'valuable',
-    suggestedModelKo: 'Haiku (현재는 규칙 기반 무료 생성)',
-    reasonKo: '클릭률에 직결되지만 출력이 200토큰 이하라 API를 써도 거의 공짜입니다. 지금은 규칙 기반으로 이미 무료 생성되고 있습니다.'
-  },
   stylePrompt: {
     stage: 'stylePrompt',
     labelKo: '스타일 프롬프트',
@@ -68,19 +61,6 @@ export const STAGE_ADVICE: Record<StageId, StageAdvice> = {
     recommendation: 'unnecessary',
     suggestedModelKo: '로컬',
     reasonKo: '규칙으로 충분합니다.'
-  },
-  thumbnailImage: {
-    stage: 'thumbnailImage',
-    labelKo: '썸네일 이미지',
-    // TASK v3.37 — Gemini image generation was ported in from creator-studio
-    // (see ThumbnailImageStudioPanel.tsx / api/image.js). 'optional' rather
-    // than 'valuable'/'essential' because the aspect-based prompt library
-    // above still works fully without it (copy/paste into any external
-    // tool) — this only removes a manual step for users who'd rather stay
-    // in-app.
-    recommendation: 'optional',
-    suggestedModelKo: 'Gemini (이미지 생성 모델)',
-    reasonKo: '이제 이 앱에서 바로 이미지를 생성할 수 있습니다(설정의 "썸네일·커버 이미지 생성" 키 필요). 원치 않으면 기존처럼 프롬프트만 복사해 Canva 등 외부 툴에 붙여넣어도 됩니다.'
   },
   // TASK H5 (v3.10) — concept agent's local keyword match always runs first
   // and free for every user (including the '무료로만' preset); the API path

@@ -8,20 +8,18 @@ import { estimateSongLengthSec, formatEstimatedLength, LENGTH_ESTIMATE_BLOCKING_
 import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { buildEraCanonPalettePlan, type PaletteAssignment } from './eraCanonPalettePlan';
 import { hashSeed, seedForBlueprint } from './lyricEngine';
-import { isKidsArchetype } from '../utils/channelArchetype';
 import { FIXED_GENRE_MAX_PER_GENRE_ARCHETYPES } from '../data/archetypeAudienceProfiles';
-import { expectedArcPhaseCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
+import { expectedArcPhaseCount, expectedKillingPointAssignedCount, kidsArcBundlePlanFor, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { kidsKillingPointsForTier } from '../data/killingPointsKids';
 import { emotionQuotaAdvisory } from './emotionArcQuota';
 import { REPRESENTATIVE_TRACK_COUNT, usesUserChosenProgressionPlan } from './moneyChordPlan';
 import {
-  DEFAULT_ADULT_VOCAL_QUOTA,
-  DEFAULT_KIDS_VOCAL_QUOTA,
   leaningAdultVocalQuota,
   leaningGenderFor,
   scaleVocalQuota,
   type VocalQuota
 } from './vocalPlan';
+import { resolveBaseVocalQuota } from './vocalQuotaFromGenre';
 
 /**
  * v3.78 (TASK A) — "관문 1": everything a slot plan (PreassignedSongSlot[])
@@ -124,9 +122,12 @@ function segmentBalanceViolations(ordered: readonly string[], windowSize = 6, ma
  * deliberate imbalance; (2) a kids channel could never lean toward a picked
  * gendered kids preset even when suggesting a fix.
  */
-function vocalQuotaForAutoFix(opts: GenerationOptions): VocalQuota {
-  const base = opts.vocalQuota ?? opts.channel.vocalQuotaOverride
-    ?? (isKidsArchetype(opts.channel.archetype) ? DEFAULT_KIDS_VOCAL_QUOTA : DEFAULT_ADULT_VOCAL_QUOTA);
+function vocalQuotaForAutoFix(opts: GenerationOptions, genrePlan: readonly (string | undefined)[]): VocalQuota {
+  // 지시문 63 (TASK A) — mirrors batchPreallocation.ts's/localGenerator.ts's
+  // own resolveBaseVocalQuota call: the autoFix suggestion this gate offers
+  // must reflect the SAME genre-derived default real generation now uses, or
+  // the button would suggest reverting a genre-fit pack back to a flat 5·5·5.
+  const base = resolveBaseVocalQuota(opts, genrePlan);
   const scaledBase = scaleVocalQuota(base, opts.songCount);
   if (opts.vocalQuota || opts.channel.vocalQuotaOverride) return scaledBase;
   const leaning = leaningGenderFor(opts);
@@ -236,7 +237,8 @@ function vocalIssues(slots: PreassignedSongSlot[], opts: GenerationOptions, cons
   if (!types.length) return issues; // no vocalType at all is a data-shape problem, not this gate's concern (usesVocalQuota is unconditionally true as of v3.77 — see vocalPlan.ts)
 
   const counts = countBy(types);
-  const autoFix = withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts));
+  const genrePlan = ordered.map(slot => slot.genreId);
+  const autoFix = withVocalTypeAllocation(opts, vocalQuotaForAutoFix(opts, genrePlan));
   // 지시문 27 (TASK C-2) — 순서 문제 전용 autoFix. 계산에 실패하면(길이가
   // 이상하거나 이미 괜찮으면) undefined — 그 경우 이 두 이슈는 자동 수정
   // 버튼 없이(§C-3과 같은 원칙: 못 고치면 버튼을 안 보여준다) fixHintKo만
@@ -455,7 +457,18 @@ function songLengthIssues(slots: PreassignedSongSlot[]): DesignIssue[] {
   // never set one.
   const overLength = slots
     .filter(slot => slot.structureTemplate)
-    .map(slot => ({ slot, estimateSec: estimateSongLengthSec(slot.tempo, slot.structureTemplate) }))
+    .map(slot => ({
+      slot,
+      // 지시문 40 (TASK A-3) — 슬롯 자신의 wordCountRange(채널별 실제 단어
+      // 예산, batchPreallocation.ts가 wordBudgetForTarget으로 채움)가 있으면
+      // 그 중앙값을 넘긴다. 없으면(구형 슬롯/테스트 픽스처) estimateSongLengthSec
+      // 자체의 expectedWordCount(bpm) 대체값(시니어 기본치)으로 폴백한다.
+      estimateSec: estimateSongLengthSec(
+        slot.tempo,
+        slot.structureTemplate,
+        slot.wordCountRange ? Math.round((slot.wordCountRange[0] + slot.wordCountRange[1]) / 2) : undefined
+      )
+    }))
     .filter(({ estimateSec }) => estimateSec > LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC);
   if (!overLength.length) return [];
   return [issue({
@@ -786,13 +799,16 @@ function lyricThemeDuplicateIssues(slots: PreassignedSongSlot[]): DesignIssue[] 
   const duplicated = Object.entries(counts).filter(([, count]) => count >= 2);
   if (!duplicated.length) return [];
   const trackNosFor = (text: string) => slots.filter(slot => slot.lyricThemeText === text).map(slot => `T${slot.trackNo}`).join(', ');
-  return duplicated.map(([text, count]) => issue({
+  const groups = duplicated.map(([text, count]) =>
+    `${count}곡 동일 (트랙 ${trackNosFor(text)}): "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`
+  );
+  return [issue({
     id: 'lyric-theme-text-duplicate',
     labelKo: 'lyricThemeText 중복',
     expected: '세트 내 고유',
-    actual: `${count}곡 동일 (트랙 ${trackNosFor(text)}): "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
+    actual: groups.join(' / '),
     fixHintKo: '같은 소재(테마)가 여러 곡에 배정됐습니다 — lyricTheme 재배정이 필요합니다.'
-  }));
+  })];
 }
 
 // ---------------------------------------------------------------------------
@@ -1002,7 +1018,10 @@ function killingPointAndArcIssues(
 ): DesignIssue[] {
   const issues: DesignIssue[] = [];
   const withKillingPoint = slots.filter(slot => slot.killingPointId);
-  const expectedAssigned = Math.round(songCount * KILLING_POINT_ASSIGNED_RATIO);
+  // 지시문 47 (TASK C) — kids(repetition-cycle)만 번들 설계 자체가 실제로
+  // 약속하는 수치로 재계산한다(expectedKillingPointAssignedCount's own doc
+  // comment 참고) — 'five-phase'(시니어 등)는 기존 flat 비율(12/18) 그대로.
+  const expectedAssigned = expectedKillingPointAssignedCount(arcModelId, songCount, kidsAgeTierId, KILLING_POINT_ASSIGNED_RATIO);
   if (withKillingPoint.length < expectedAssigned) {
     issues.push(issue({
       id: 'killing-point-count',
@@ -1288,11 +1307,18 @@ export function evaluateDesignGate(
   // user actually chose instead of reverse-inferring a tier from whatever
   // the slots happen to show.
   const kidsArcStructure = kidsArcBundleStructureIssues(slots, constraints.arcModelId, opts.songCount, constraints.kidsAgeTierId);
+  // 지시문 46 긴급수정 (TASK A) — constraints.era가 컨셉의 실제 시대
+  // 언급이 아니라 data/workspaceEraFloor.ts의 채널 바닥에서 왔을 때
+  // (floorApplied:true), eraIssues의 미달을 blocking으로 두지 않는다 —
+  // §규약 7 "실측 없이 blocking 을 만들지 않는다"(minShare 0.6은 추정치,
+  // verified:false). 컨셉이 실제로 시대를 말했을 때(floorApplied 없음)는
+  // 기존 그대로 blocking — "60년대 올드팝" 등 이미 검증된 경로는 불변.
+  const eraIssuesResult = eraIssues(slots, constraints.era, constraints.workspaceId);
   const blocking: DesignIssue[] = [
     ...vocalIssues(slots, opts, constraints),
     ...bpmIssues(slots, constraints),
     ...genreIssues(slots, opts, constraints),
-    ...eraIssues(slots, constraints.era, constraints.workspaceId),
+    ...(constraints.era.floorApplied ? [] : eraIssuesResult),
     // v5.13 (TASK: kidsAgeTierId wiring) — constraints.kidsAgeTierId is the
     // real resolved tier (see ResolvedConstraints.kidsAgeTierId's own doc
     // comment); passing it keeps this check's own "expected" bundle count in
@@ -1314,8 +1340,13 @@ export function evaluateDesignGate(
     ...kidsArcStructure.advisory,
     // 지시문 33 (§1) — advisory 전용, verified:false라 blocking에 넣지 않는다.
     ...eraNeutralFloorAdvisory(slots, constraints.era, constraints.workspaceId),
+    // 지시문 46 긴급수정 (TASK A) — floorApplied일 때는 eraIssues 결과를
+    // advisory로 강등한다(위 blocking 배열의 동일 조건 참고) — 완전히
+    // 버리지 않는다, 그래야 실제로 바닥에 못 미치는 팩이 있을 때 여전히
+    // 눈에 보인다.
+    ...(constraints.era.floorApplied ? eraIssuesResult : []),
     // 지시문 36 (TASK B) — 같은 이유로 advisory 전용.
-    ...emotionQuotaAdvisory(constraints.workspaceId, slots.map(slot => slot.emotionArc))
+    ...emotionQuotaAdvisory(constraints.workspaceId, slots.map(slot => slot.emotionArc), slots.length)
   ];
   return { passed: blocking.length === 0, blocking, advisory };
 }

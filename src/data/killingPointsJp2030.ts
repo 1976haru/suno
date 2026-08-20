@@ -54,5 +54,65 @@ export const JP_2030_KILLING_POINTS: KillingPoint[] = [
     placement: 'final-chorus',
     relaxes: [],
     verified: false
+  },
+  // 지시문 62 (TASK D-2①) — "jp-2030 5 → 12개 이상". kr-2030과 같은 성격
+  // 공유(§C-4 원 판단, killingPointsKr2030.ts 자기 doc comment)라 같은
+  // 7종을 그대로 추가한다 — 파일을 분리한 이유(§C-3 서로 다른
+  // killingPointSetId)는 그대로 유지된다.
+  {
+    id: 'KP-JP2030-06',
+    labelKo: '백킹보컬 애드립 콜백',
+    descriptor: 'backing vocal ad-lib answers the hook',
+    placement: 'final-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-JP2030-07',
+    labelKo: '신스 필터 스윕',
+    descriptor: 'rising synth filter sweep into the chorus',
+    placement: 'pre-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-JP2030-08',
+    labelKo: '드럼 씬닝 — 킥만 두 마디',
+    descriptor: 'drums thin to just the kick for two bars',
+    placement: 'bridge',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-JP2030-09',
+    labelKo: '하프타임 필 전환',
+    descriptor: 'the groove shifts into a half-time feel for the bridge',
+    placement: 'bridge',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-JP2030-10',
+    labelKo: '보컬 초프 스터터',
+    descriptor: 'a stuttered vocal chop punctuates the pre-chorus',
+    placement: 'pre-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-JP2030-11',
+    labelKo: '아르페지오 신스 빌드업',
+    descriptor: 'rising synth arpeggio builds into the final chorus',
+    placement: 'pre-chorus',
+    relaxes: [],
+    verified: false
+  },
+  {
+    id: 'KP-JP2030-12',
+    labelKo: '사이드체인 펌핑 강조',
+    descriptor: 'sidechain pump under the final chorus',
+    placement: 'final-chorus',
+    relaxes: [],
+    verified: false
   }
 ];

@@ -24,7 +24,6 @@ import {
   checkL3,
   checkL4,
   checkL5,
-  checkL6,
   checkL7,
   GENRE_WORKSPACE_MAP,
   isGenreForeignToWorkspace,
@@ -102,6 +101,5 @@ describe('워크스페이스 데이터 격리 (TASK G1)', () => {
   describeChecks('L3 가사 구도 폴백', checkL3());
   describeChecks('L4 훅 뱅크 분리', checkL4(), r => L4_PREEXISTING_SENIOR_INTERNAL.has(r.archetype ?? ''));
   describeChecks('L5 아키타입 미지정 채널', [checkL5()]);
-  describeChecks('L6 썸네일 아키타입 노출', checkL6());
   describeChecks('L7 시니어 컨셉 매칭 회귀', [checkL7()]);
 });

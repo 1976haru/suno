@@ -377,19 +377,24 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퇴근길 지하철과 원룸으로 이어지는 하루의 끝, 감성 밴드팝과 R&B 중심의 위로 플레이리스트',
     visualIdentity: 'modern minimal city interior, warm desk lamp, subway window reflection, clean sans-serif typography',
     defaultVocal: 'confident modern Korean pop lead, emotionally direct delivery, close-mic warmth',
-    // 지시문 20 (TASK B-1) — R&B 4종·흑인 감성힙합 4종·랩 3종·트랩힙합 3종
-    // 추가(genreLibrary/index.ts의 KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS로
-    // archetypes에 'kr-2030-pop'을 먼저 등록해야 실제로 배정 가능 — 실측
-    // 확인, 등록 없이 넣으면 sanitizeGenreIdsForArchetype이 걸러냄).
+    // 지시문 53 (TASK B) — 실측: 채널 이름이 "밴드팝"인데 18종 중 15종이
+    // R&B·랩 계열이었다(check:genre-utilization 22%). 그 15종 중 13종은
+    // 실제로 존재하는 장르였지만 자기 자신의 archetypes 필드가 애초에
+    // modern-chill/city-night(= 진짜 소속은 chill-hours 등 senior-oldpop
+    // 워크스페이스 채널)였다 — 지시문20이 채널을 확장할 때 잘못 얹은
+    // 배선이지 이 채널 것이 아니었다(라이브러리에서 지우지 않는다. 원래
+    // 있어야 할 자리에 그대로 남는다). 나머지 2종(rnb-trap-soul-confession·
+    // rnb-trap-rnb-night)은 실측 결과 애초에 GenrePack으로 정의된 적이
+    // 없는 유령 참조였다(KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS와 이 배열
+    // 양쪽에만 문자열로 존재 — genreLibrary 어디에도 실제 정의 없음).
+    // kr2030-electro-pop·kr2030-noir-deep-house는 20260810 세트에서 하루가
+    // "전체적으로 너무 좋다"고 평가한 실사용 장르인데 그 뒤 이 목록에서
+    // 빠져 있었다 — 복원한다. 최종 8종은 이 워크스페이스 자신의 네이티브
+    // 장르(KR_2030_CORE_GENRE_IDS) 그대로다 — 추천 후보 풀과 채널
+    // preferredGenres가 정확히 일치해 활용률이 최대가 된다.
     preferredGenres: [
-      'kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-acoustic-folk',
-      'contemporary-rnb', 'rnb-ballad-2020s', 'rnb-contemporary-airy-female', 'rnb-modern-soft-male',
-      'alt-rnb', 'rnb-moody-alt-rnb', 'rnb-whisper-alt-rnb', 'rnb-alternative-night',
-      'chill-rap', 'boom-bap-mellow', 'jazz-rap',
-      'trap-soul', 'rnb-trap-soul-confession', 'rnb-trap-rnb-night',
-      // 지시문 21 (TASK C) — 로파이 스윙 힙합팝 신규 배선. chill-rap/
-      // boom-bap-mellow/jazz-rap 등 기존 랩·힙합 계열과 같은 무드.
-      'kr2030-lofi-swing-hiphop'
+      'kr2030-emo-band-pop', 'kr2030-dawn-rnb', 'kr2030-y2k-retro', 'kr2030-electro-pop',
+      'kr2030-ost-ballad', 'kr2030-acoustic-folk', 'kr2030-lofi-swing-hiphop', 'kr2030-noir-deep-house'
     ],
     preferredMoods: ['bittersweet', 'warm', 'hopeful'],
     forbiddenCliches: [
@@ -416,7 +421,10 @@ export const channelPresets: ChannelProfile[] = [
     promise: '서른 즈음의 고민과 회복을 그리는 OST 발라드·어쿠스틱 포크 중심 플레이리스트',
     visualIdentity: 'quiet night street, warm streetlight glow, minimal editorial typography, no crowds',
     defaultVocal: 'emotive Korean ballad lead, controlled power building into the chorus, close-mic warmth',
-    preferredGenres: ['kr2030-ost-ballad', 'kr2030-acoustic-folk', 'kr2030-emo-band-pop'],
+    // 지시문 53 (TASK B-2) — kr2030-dawn-rnb 추가. "새벽 감성 R&B"가
+    // after-work-band-pop의 밴드팝 정체성보다 이 채널의 "서른의 밤" 무드에
+    // 더 가깝다(하루의 정리 판단, §B-2).
+    preferredGenres: ['kr2030-ost-ballad', 'kr2030-acoustic-folk', 'kr2030-emo-band-pop', 'kr2030-dawn-rnb'],
     preferredMoods: ['bittersweet', 'hopeful', 'romantic'],
     forbiddenCliches: [
       'too old-fashioned trot mood', 'childish lyrics', 'dramatic power ballad shouting', 'famous artist imitation',
@@ -450,6 +458,52 @@ export const channelPresets: ChannelProfile[] = [
       'excessive rap verses', 'soundalike vocal', 'overly nostalgic senior-radio imagery'
     ],
     seoKeywords: ['서울 야경 플레이리스트', '드라이브 노래', 'R&B 플레이리스트', '일렉트로팝', '비 오는 밤 노래', '한국 시티팝'],
+    archetype: 'kr-2030-pop'
+  },
+  {
+    // 지시문 53 (TASK A) — 하루: "20대 채널은 랩 계열, 속삭이는 랩 등 랩
+    // 관련으로 할 거야. 멈블 계열. 가사는 영어." 새 아키타입을 만들지
+    // 않는다 — kr-2030-pop을 재사용(§A-2 명시). primaryLanguage만
+    // english로 두고 market은 다른 kr-2030 채널과 동일하게 korea로 둔다
+    // (제목·설명은 한글, 가사만 영어 — §A-2 명시 그대로).
+    id: 'kr-2030-rap',
+    name: '멈블 앤 위스퍼 랩',
+    englishName: 'Mumble & Whisper Rap',
+    market: 'korea',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: '멈블·속삭이는 랩과 로파이 힙합 중심, 나른하고 몽환적인 20대 랩 플레이리스트',
+    visualIdentity: 'hazy late-night bedroom glow, soft smoke, muted neon window light, minimal lowercase typography',
+    defaultVocal: 'laid-back mumble rap delivery, soft half-whispered ad-libs, close-mic English lyrics',
+    // 지시문 53 (TASK D 판단) — 지시문 35가 계획한 rap-* 8종 신설은
+    // 불필요했다. chill-rap/boom-bap-mellow/jazz-rap/trap-soul(4종)은
+    // 이미 존재하는 실제 장르라 재사용한다(직접 id 매칭으로 생성되므로
+    // 안전 — 실측 확인). kr2030-lofi-swing-hiphop은 kr-2030 네이티브
+    // 장르라 그대로 재사용. 그런데 이 4+1종 중 어느 것도 하루가 명시한
+    // "멈블 계열·속삭이는 랩" 딜리버리 자체는 없었다(전부 laid-back/
+    // conversational/half-spoken이지 mumble이 아니다) — 그 캐릭터만
+    // 최소 3종 신설한다(§D-2 "최소화"). 지시문 52의 kpopMemberTimbres
+    // 어휘는 K-pop 멤버 파트용이라 이 채널(1인 가사, 곡 전체 랩)과
+    // 성격이 달라 재사용하지 않는다(§하지 말 것 "중복 제작하지 말 것"은
+    // 이미 있는 걸 다시 만들지 말라는 것이지, 안 맞는 걸 억지로
+    // 끌어오라는 게 아니다).
+    preferredGenres: [
+      'kr2030-lofi-swing-hiphop', 'chill-rap', 'boom-bap-mellow', 'jazz-rap', 'trap-soul',
+      'kr2030-mumble-melodic-rap', 'kr2030-whisper-trap', 'kr2030-cloud-hazy-rap'
+    ],
+    preferredMoods: ['relaxed', 'hazy', 'confident'],
+    forbiddenCliches: [
+      // 지시문 53 (TASK A-6) — blocking 4종(유튜브 수익화 직결, §하지 말 것
+      // "안전 정책을 완화하지 말 것"). 첫 세트는 하루가 전곡 확인한다.
+      'violence, weapons, drug use, or crime imagery',
+      'profanity or slurs',
+      'demeaning references to any group',
+      'real people, brands, or existing artist names',
+      // advisory
+      'flashy conspicuous-consumption imagery', 'aggressive confrontational posturing',
+      'famous artist imitation', 'soundalike vocal'
+    ],
+    seoKeywords: ['멈블랩 플레이리스트', '속삭이는 랩', '로파이 힙합', '20대 랩 노래', '나른한 랩', '영어 가사 랩'],
     archetype: 'kr-2030-pop'
   },
   // TASK C2 (§9-1) — jp-2030 workspace's 3 channel presets, same reasoning
@@ -726,7 +780,17 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퍼포먼스 트랩과 밴드 크로스오버 중심, 무대 위의 확신과 폭발적인 에너지를 담은 남자 아이돌 플레이리스트',
     visualIdentity: 'dark stage backlight, sweeping spotlight beams, haze and rim light, bold sans-serif typography',
     defaultVocal: 'confident male idol lead, rap-sung verse into a stacked unison chorus',
-    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance'],
+    // 지시문 50 (TASK B-4①) — 하루: "K-pop이 BPM이 전체적으로 빠르니까 붕
+    // 뜬 느낌이야... 15곡이면 중간에 3~4곡은 발라드를 넣어도 될 것 같아."
+    // 원래 3종(130-150/128-150/118-132)이 전부 118 이상이라 저속 슬롯이
+    // 아예 없었다 — kridol-emotional-ballad(68-86)·kridol-midtempo-rnb
+    // (88-104)를 추가해 68-104 대역을 확보한다. 무대 퍼포먼스라는 이
+    // 채널의 정체성은 유지하되(performance-trap/band-crossover/synth-dance
+    // 3종은 그대로 둔다), 세트 중간에 쉬어가는 지점을 만든다(§B-5).
+    // 지시문 52 (TASK B-1) — "랩이 나오면 항상 같은 소리다"(kridol-performance-trap
+    // 1종뿐). 이 채널이 랩 비중이 가장 높은 채널이라 새 2종(melodic-rap·
+    // hard-rap)을 여기 먼저 추가한다 — 기존 5종은 그대로 두고 끝에 더한다.
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb', 'kridol-melodic-rap', 'kridol-hard-rap'],
     preferredMoods: ['confident', 'energetic'],
     vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
     forbiddenCliches: [
@@ -746,7 +810,9 @@ export const channelPresets: ChannelProfile[] = [
     promise: '신스 댄스와 레트로 훵크 중심, 야간 도시를 달리며 듣기 좋은 신나는 남자 아이돌 드라이브 플레이리스트',
     visualIdentity: 'saturated neon city night, streaking headlights, skyline glow, bold sans-serif typography',
     defaultVocal: 'bright confident male idol lead, layered unison hook vocal',
-    preferredGenres: ['kridol-synth-dance', 'kridol-retro-funk', 'kridol-latin-afro'],
+    // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고). 118 이상
+    // 3종에 68-104 대역 2종을 더한다.
+    preferredGenres: ['kridol-synth-dance', 'kridol-retro-funk', 'kridol-latin-afro', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
     preferredMoods: ['bright', 'confident'],
     vocalQuotaOverride: { male: 15, female: 0, mixed: 3 },
     forbiddenCliches: [
@@ -801,7 +867,10 @@ export const channelPresets: ChannelProfile[] = [
     promise: '신스 댄스와 라틴 아프로비트 중심, 낮의 도시를 당당하게 걷는 여자 아이돌 플레이리스트',
     visualIdentity: 'bold saturated daylight color blocks, sharp midday shadow, bold sans-serif typography',
     defaultVocal: 'bright forward female idol lead, light rhythmic phrasing, confident delivery',
-    preferredGenres: ['kridol-synth-dance', 'kridol-latin-afro', 'kridol-retro-funk'],
+    // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고). 이
+    // 채널이 실제로 하루가 8곡을 테스트한 채널이다(20260813 세트) — 118
+    // 이상 3종에 68-104 대역 2종을 더한다.
+    preferredGenres: ['kridol-synth-dance', 'kridol-latin-afro', 'kridol-retro-funk', 'kridol-emotional-ballad', 'kridol-midtempo-rnb'],
     preferredMoods: ['confident', 'bright'],
     vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
     forbiddenCliches: [
@@ -821,7 +890,9 @@ export const channelPresets: ChannelProfile[] = [
     promise: '퍼포먼스 트랩과 밴드 크로스오버 중심, 끝까지 밀어붙이는 여자 아이돌 퍼포먼스 플레이리스트',
     visualIdentity: 'bright even backlight, matched silhouette line, bold sans-serif typography',
     defaultVocal: 'full chest female idol belt, bright rhythmic delivery, driving energy',
-    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance'],
+    // 지시문 50 (TASK B-4①) — stage-night와 같은 이유(§위 참고).
+    // 지시문 52 (TASK B-1) — stage-night와 같은 이유(§위 참고).
+    preferredGenres: ['kridol-performance-trap', 'kridol-band-crossover', 'kridol-synth-dance', 'kridol-emotional-ballad', 'kridol-midtempo-rnb', 'kridol-melodic-rap', 'kridol-hard-rap'],
     preferredMoods: ['confident', 'energetic'],
     vocalQuotaOverride: { male: 0, female: 15, mixed: 3 },
     forbiddenCliches: [

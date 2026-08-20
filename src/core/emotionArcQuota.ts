@@ -1,6 +1,10 @@
 import { emotionArcs, emotionArcsBrightOpening, emotionArcsBrightToWistful, emotionArcsCalmThroughout, emotionArcsStrongLift } from './localGenerator';
 import { emotionQuotaPolicyForWorkspace, type EmotionQuotaCategory } from '../data/emotionQuotaPolicy';
+import { scaleQuotaToSongCount } from './quotaScaling';
 import type { WorkspaceId } from '../types';
+
+/** data/emotionQuotaPolicy.ts의 EmotionQuotaEntry.targetCount가 튜닝된 기준 곡 수. */
+const EMOTION_QUOTA_BASE_SONG_COUNT = 18;
 
 /**
  * 지시문 36 (TASK B) — core/localGenerator.ts의 실제 emotionArc 문구 12종을
@@ -80,18 +84,25 @@ export interface EmotionQuotaAdvisoryFinding {
  * DesignIssue를 blocking 배열에 넣지 않고, 호출부(designGate.ts)도 advisory
  * 배열에만 스프레드한다.
  */
-export function emotionQuotaAdvisory(workspaceId: WorkspaceId, emotionArcTexts: readonly (string | undefined)[]): EmotionQuotaAdvisoryFinding[] {
+export function emotionQuotaAdvisory(
+  workspaceId: WorkspaceId,
+  emotionArcTexts: readonly (string | undefined)[],
+  /** 지시문 38 (TASK A-3) — targetCount가 18곡 기준이라, 다른 곡 수 세트에서 "목표 5" 같은 그릇된 숫자를 보여주지 않도록 실제 세트 곡 수로 비례 환산한다. 생략 시(기존 호출부) 18로 취급 — 동작 변화 없음. */
+  songCount: number = EMOTION_QUOTA_BASE_SONG_COUNT
+): EmotionQuotaAdvisoryFinding[] {
   const policy = emotionQuotaPolicyForWorkspace(workspaceId);
   if (!policy) return [];
   const distribution = measureEmotionQuotaDistribution(emotionArcTexts);
   const coveredEnough = distribution.coveredCategoryCount >= 7;
   if (coveredEnough) return [];
+  const baseTargets = Object.fromEntries(policy.entries.map(entry => [entry.category, entry.targetCount]));
+  const scaledTargets = scaleQuotaToSongCount(baseTargets, EMOTION_QUOTA_BASE_SONG_COUNT, songCount);
   const perCategoryKo = policy.entries
-    .map(entry => `${entry.labelKo} ${distribution.byCategory[entry.category] ?? 0}곡(목표 ${entry.targetCount})`)
+    .map(entry => `${entry.labelKo} ${distribution.byCategory[entry.category] ?? 0}곡(목표 ${scaledTargets[entry.category]})`)
     .join(' · ');
   return [{
     id: 'emotion-quota-distribution',
-    labelKo: '18곡 감정 분포 (advisory, 추정치)',
+    labelKo: `${songCount}곡 감정 분포 (advisory, 추정치)`,
     expected: `7개 카테고리 모두 1곡 이상 (정책 근거: ${policy.sourceKo})`,
     actual: `${distribution.coveredCategoryCount}/7종 커버 — ${perCategoryKo}`,
     fixHintKo: '평온/위로 계열에 쏠려 있다면 밝고 경쾌한 장면·테마를 섞는 것을 고려해보세요 — 검증된 값은 아닙니다(하루 청취 후 조정 예정).'

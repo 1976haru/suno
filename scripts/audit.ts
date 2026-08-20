@@ -627,7 +627,7 @@ function printConsoleReport(report: FullAuditReport, baseline: Baseline): { regr
  */
 function printObservations(observations: FullAuditReport['observations']): void {
   console.log('📋 관찰 항목 (차단 없음, 표본 축적용) ─────────────────────');
-  const { intensityMismatches, adjacentJumps, chorusStyleDistribution, hookWordCountDistribution, eraColorTrackCount, killingPointCoverage, genreThemePairs } = observations;
+  const { intensityMismatches, adjacentJumps, chorusStyleDistribution, hookWordCountDistribution, eraColorTrackCount, killingPointCoverage, genreThemePairs, vocalTechniqueSetObservation } = observations;
 
   // 지시문 29 (TASK A) — 지시문 26이 복원한 값이 실제로 이 팩에 남아있는지
   // 매 --pack 실행마다 보이게 한다(원인: 이전엔 이 수치가 audit.ts 내부에서만
@@ -635,6 +635,13 @@ function printObservations(observations: FullAuditReport['observations']): void 
   // 아예 없어 "26이 효과가 없다"는 착시가 생겼다 — 파일 자체는 임포트 이전
   // 원문이라 이 필드가 없는 게 정상이고, 이 관찰치가 그 오해를 바로잡는다).
   console.log(`  킬링포인트/아크 메타데이터 (--pack 재구성 기준): killingPointText ${killingPointCoverage.withKillingPointText}/${killingPointCoverage.total} · arcPhase ${killingPointCoverage.withArcPhase}/${killingPointCoverage.total}`);
+
+  // 지시문 66 (TASK D-2) — "세트 내 창법 중복" 2종 이하 기준 · "창법이 있는
+  // 곡" 14/15 기준. 실제 stylePrompt(--pack 재구성 기준) 텍스트를 재는
+  // 사후 관찰치 — pass/fail에 관여하지 않는다(printObservations 자기 doc
+  // comment 그대로).
+  console.log(`  창법 어휘가 있는 곡: ${vocalTechniqueSetObservation.withVocalTechniqueWord}/${vocalTechniqueSetObservation.total}`);
+  console.log(`  세트 내 창법 중복(2회 이상 등장한 phrase 종수): ${vocalTechniqueSetObservation.duplicatedPhraseCount}건${vocalTechniqueSetObservation.duplicatedPhrases.length ? ` — ${vocalTechniqueSetObservation.duplicatedPhrases.join(', ')}` : ''}`);
 
   console.log(`  체감 에너지 vs 아크 강도 불일치 (|차이| ≥ 2): ${intensityMismatches.length}건`);
   for (const m of intensityMismatches) {

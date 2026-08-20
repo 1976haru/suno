@@ -13,7 +13,7 @@ import { resolveVocalAllocationMode, summarizeVocalTraitDistribution } from '../
 import { getRatings } from '../../core/ratingLedger';
 import { analyzeRatings } from '../../core/ratingAnalysis';
 import { preallocateSongSlots } from '../../core/batchPreallocation';
-import { BPM_LENGTH_TIERS, resolveBpmLengthTier } from '../../core/bpmLengthControl';
+import { BPM_ENERGY_BANDS, resolveBpmEnergyBand } from '../../core/bpmLengthControl';
 import type { DesignGateResult } from '../../core/designGate';
 import { evaluateDesignGateResponsive } from '../../core/localGenerationClient';
 import { resolveConstraintsFromOptions } from '../../core/constraints';
@@ -288,10 +288,11 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
   const tempoSummaryKo = useMemo(() => {
     if (!gateSlots.length) return '-';
     const tempos = gateSlots.map(slot => slot.tempo);
-    const tierLabelsKo = ['느린', '중간', '밝은', '매우 밝은'];
+    // 지시문 40 (TASK C) — 100 초과 K-pop 대역 3개가 추가되어 7개가 됐다.
+    const tierLabelsKo = ['느린', '중간', '밝은', '매우 밝은', '고에너지', '파워풀', '매우 파워풀'];
     const tierCounts = new Map<number, number>();
     for (const bpm of tempos) {
-      const tierIndex = BPM_LENGTH_TIERS.indexOf(resolveBpmLengthTier(bpm));
+      const tierIndex = BPM_ENERGY_BANDS.indexOf(resolveBpmEnergyBand(bpm));
       tierCounts.set(tierIndex, (tierCounts.get(tierIndex) ?? 0) + 1);
     }
     const breakdown = [...tierCounts.entries()]
@@ -434,7 +435,7 @@ export default function Step2Plan({ opts, setOpts, onDesignGateStatusChange }: S
       <div className="option-block">
         <div className="section-head">
           <div>
-            <p className="eyebrow">Step 2.5</p>
+            <p className="eyebrow">해석 결과</p>
             <h2>이렇게 해석했습니다</h2>
           </div>
           <div className="button-row">

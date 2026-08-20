@@ -65,6 +65,13 @@ describe('지시문 31 §2-3 — collapseSingleDeclarationDuplicates', () => {
     expect(result).toContain('vocal-first opening');
     expect(result).not.toContain('short intro texture');
   });
+
+  it('지시문 37 (TASK B-2) — Verse: sparse and Chorus: dense both survive, even though both start with arrangementDensity words (section-scoped, not axis duplicates)', () => {
+    const raw = 'kridol synth dance, female lead vocal, 112 BPM, Verse: sparse arrangement, Chorus: dense synth stack, 3:10-3:35';
+    const result = collapseSingleDeclarationDuplicates(raw);
+    expect(result).toContain('Verse: sparse arrangement');
+    expect(result).toContain('Chorus: dense synth stack');
+  });
 });
 
 describe('지시문 31 §2-3 — collapseAdjacentDuplicateWords', () => {
@@ -134,5 +141,56 @@ describe('지시문 31 §2-3 — normalizeFinalStylePrompt end to end', () => {
     );
     // female word present with a male-resolved gender is exactly what auditStylePromptAgainstSpec checks for tempo dupes, not gender (gender check needs BOTH words present) — this just proves findings is wired to the real function and returns an array, not asserting a specific violation shape here (covered by promptSpec's own tests).
     expect(Array.isArray(findings)).toBe(true);
+  });
+});
+
+/**
+ * 지시문 58 (TASK A) — 실측 회귀: 지시문 46의 시대 바닥(eraGuardrailLines)
+ * 반영 이후 8/14 세트부터 stylePrompt가 시대·장면으로 시작하고 장르가
+ * 뒤로 밀렸다("late-1950s memory through 1970s piano pop ballad lens...",
+ * "1960s-leaning Motown Pop Soul..."). enforceGenreOpensPrompt가 이걸
+ * 잡는다 — 실측 재현(20260814_굿모닝추억라디오 팩)까지 포함한다.
+ */
+describe('지시문 58 TASK A — enforceGenreOpensPrompt (stylePrompt는 장르로 시작)', () => {
+  it('8/14 회귀 재현: 시대·장면 클로즈가 첫 자리면 genreText 클로즈를 맨 앞으로 옮긴다', () => {
+    const slot = slotFor({
+      tempo: 66,
+      genreText: '70s Piano Pop Ballad',
+      signatureSound: 'rubato verse settling into a slow 4/4 chorus'
+    });
+    const raw = 'late-1950s memory through 1970s piano pop ballad lens, 66 BPM, grand piano, string section entering at the chorus, 70s Piano Pop Ballad';
+    const { prompt, findings } = normalizeFinalStylePrompt(raw, slot, policy);
+    expect(prompt.startsWith('70s Piano Pop Ballad')).toBe(true);
+    expect(findings.some(f => f.field === 'genre')).toBe(false);
+  });
+
+  it('실측 재현: genreText가 여러 클로즈로 이루어져(예: "mid-1960s baroque pop, string quartet, oboe obbligato") 정확히 일치하는 클로즈가 없으면 genre.label을 새 클로즈로 앞에 붙인다', () => {
+    const slot = slotFor({
+      tempo: 67,
+      genreId: 'oldpop-baroque-pop',
+      genreText: 'mid-1960s baroque pop, string quartet, oboe obbligato'
+    });
+    const raw = '1970s baroque pop revival, soulful female voice, warm gospel-tinged phrasing, 67 BPM, string quartet, oboe obbligato';
+    const { prompt, findings } = normalizeFinalStylePrompt(raw, slot, policy);
+    expect(prompt.startsWith('Baroque Pop,')).toBe(true);
+    // 원문 클로즈는 하나도 지워지지 않는다 — 앞에 추가만 됐다.
+    expect(prompt).toContain('1970s baroque pop revival');
+    expect(prompt).toContain('string quartet');
+    expect(findings.some(f => f.field === 'genre')).toBe(false);
+  });
+
+  it('이미 장르로 시작하면(8/13 정상 사례) 첫 클로즈를 옮기지 않는다', () => {
+    const slot = slotFor({ tempo: 68, genreText: 'warm healing ballad' });
+    const raw = 'warm healing ballad, timeless pop balladry, 68 BPM, piano, acoustic guitar';
+    const { prompt } = normalizeFinalStylePrompt(raw, slot, policy);
+    expect(prompt.startsWith('warm healing ballad, timeless pop balladry')).toBe(true);
+  });
+
+  it('genreText/genreId 둘 다 없으면 손대지 않고(best-effort no-op) 잔여 위반을 findings로 남긴다', () => {
+    const slot = slotFor({ tempo: 68 });
+    const raw = 'late-1950s memory through a doo-wop lens, 68 BPM, upright bass, brushed snare';
+    const { prompt, findings } = normalizeFinalStylePrompt(raw, slot, policy);
+    expect(prompt.startsWith('late-1950s')).toBe(true);
+    expect(findings.some(f => f.field === 'genre')).toBe(true);
   });
 });

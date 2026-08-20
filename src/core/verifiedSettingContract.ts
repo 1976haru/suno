@@ -2,7 +2,7 @@ import type { ChannelArchetype, ChannelProfile, WorkspaceId } from '../types';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { TITLE_LOCALIZED_REQUIRED_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { resolveTitleLocalizedLanguage } from './packagingLanguage';
-import { channelSoundFloorForArchetype } from '../data/channelSoundFloor';
+import { CHANNEL_SOUND_FLOORS, channelSoundFloorForArchetype } from '../data/channelSoundFloor';
 import { workspaceForArchetype } from '../data/workspaces';
 import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspaceSets';
 
@@ -11,7 +11,27 @@ import { killingPointSetForNonKidsArchetype } from '../data/killingPointWorkspac
  * 아니라 channel.audience/market 같은 개별 필드에 조용히 묶여 있다가 커스텀
  * 채널에서 빠지는 재발 유형을 잡는 계약. `check(channel)`은 실제 해석 함수를
  * 그대로 호출해 "이 채널에서 검증된 값이 실제로 적용되는가"를 판정한다.
+ *
+ * Fable5 2단계 §5 — check:settings이 "6채널 실패"로 보고하던 것 중 전부가
+ * 실제 결함은 아니었다: channel-sound-floor는 data/channelSoundFloor.ts
+ * 자신의 문서(ChannelSoundFloor.archetypeIds 주석)가 modern-chill·
+ * city-night·lofi-study·kids에는 senior의 warm-analog floor를 "의도적으로"
+ * 적용하지 않는다고 이미 밝히고 있었다 — checker가 그 설계 의도를 몰라서
+ * 전부 LOST로 뭉뚱그렸다. status를 3단으로 나눈다: 'lost'(진짜 결함) ·
+ * 'n/a'(설계상 적용 안 함, reasonKo 필수) — 무조건 6개를 채워 넣어 초록불로
+ * 만드는 대신, checker 자체가 "적용 안 되는 게 정상"인 경우를 구분하게
+ * 한다(§하지 말 것 "ChannelSoundFloor 6개를 무조건 추가하지 말 것").
  */
+export type VerifiedSettingStatus = 'applied' | 'lost' | 'n/a';
+
+export interface VerifiedSettingCheckResult {
+  status: VerifiedSettingStatus;
+  observed: string;
+  expected: string;
+  /** status: 'n/a'일 때만 채운다 — 왜 이 채널에는 이 설정이 적용되지 않는 것이 맞는지. */
+  reasonKo?: string;
+}
+
 export interface VerifiedSettingContract {
   settingId: string;
   /** 이 설정이 검증된 근거 (하루 청취/실측). */
@@ -20,7 +40,7 @@ export interface VerifiedSettingContract {
   scope: { archetypes: ChannelArchetype[] } | { workspaces: WorkspaceId[] };
   /** 현재 어떤 경로에서 값을 가져오는가. */
   resolvedFrom: string;
-  check: (channel: ChannelProfile) => { applied: boolean; observed: string; expected: string };
+  check: (channel: ChannelProfile) => VerifiedSettingCheckResult;
 }
 
 const SENIOR_ARCHETYPES: ChannelArchetype[] = ['senior-morning', 'showa-cafe', 'showa-70s', 'oldpop-lounge', 'christmas'];
@@ -42,7 +62,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     check(channel) {
       const profile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
       const applied = profile.tempoCeiling === 100;
-      return { applied, observed: `tempoCeiling ${profile.tempoCeiling} (프로파일 ${profile.id})`, expected: 'tempoCeiling 100 (프로파일 senior)' };
+      return { status: applied ? 'applied' : 'lost', observed: `tempoCeiling ${profile.tempoCeiling} (프로파일 ${profile.id})`, expected: 'tempoCeiling 100 (프로파일 senior)' };
     }
   },
   {
@@ -53,7 +73,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     check(channel) {
       const profile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
       const applied = profile.id === 'senior';
-      return { applied, observed: `프로파일 ${profile.id}`, expected: '프로파일 senior (SENIOR_TEMPO_BANDS 적용)' };
+      return { status: applied ? 'applied' : 'lost', observed: `프로파일 ${profile.id}`, expected: '프로파일 senior (SENIOR_TEMPO_BANDS 적용)' };
     }
   },
   {
@@ -64,7 +84,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     check(channel) {
       const profile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
       const applied = profile.id === 'senior';
-      return { applied, observed: `프로파일 ${profile.id}`, expected: '프로파일 senior (중앙값 82 튜닝 대역 적용)' };
+      return { status: applied ? 'applied' : 'lost', observed: `프로파일 ${profile.id}`, expected: '프로파일 senior (중앙값 82 튜닝 대역 적용)' };
     }
   },
   {
@@ -93,7 +113,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
       const hasOwnNonKidsSet = Boolean(killingPointSetForNonKidsArchetype(channel.archetype));
       const applied = workspaceId === 'senior-oldpop' || isKids || hasOwnNonKidsSet;
       return {
-        applied,
+        status: applied ? 'applied' : 'lost',
         observed: applied
           ? `워크스페이스 ${workspaceId}는 자신에게 맞는 킬링포인트 집합을 실제로 사용함${hasOwnNonKidsSet ? ' (지시문 30 TASK C, verified:false)' : ''}`
           : `워크스페이스 ${workspaceId}는 killingPointSetId만 다르고 실제로는 senior용 KILLING_POINTS를 그대로 공유함`,
@@ -109,7 +129,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     check(channel) {
       const profile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
       const applied = (profile.arcModelId ?? 'five-phase') === 'five-phase';
-      return { applied, observed: `arcModelId ${profile.arcModelId ?? 'five-phase'}`, expected: 'arcModelId five-phase' };
+      return { status: applied ? 'applied' : 'lost', observed: `arcModelId ${profile.arcModelId ?? 'five-phase'}`, expected: 'arcModelId five-phase' };
     }
   },
   {
@@ -122,7 +142,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
       // 강제된 최악의 경우에도 이 아키타입은 titleLocalized를 유지해야 한다.
       const forced = resolveTitleLocalizedLanguage({ market: channel.market, packagingLanguage: 'english', channel });
       const applied = forced !== 'english';
-      return { applied, observed: `packagingLanguage=english 강제 시 titleLocalized 언어: ${forced}`, expected: 'english가 아닌 언어로 강제 복구됨 (market 기준)' };
+      return { status: applied ? 'applied' : 'lost', observed: `packagingLanguage=english 강제 시 titleLocalized 언어: ${forced}`, expected: 'english가 아닌 언어로 강제 복구됨 (market 기준)' };
     }
   },
   {
@@ -132,7 +152,23 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     resolvedFrom: 'channelSoundFloorForArchetype(channel.archetype) — data/channelSoundFloor.ts',
     check(channel) {
       const floor = channelSoundFloorForArchetype(channel.archetype);
-      return { applied: Boolean(floor), observed: floor ? `floor: ${floor.id}` : 'floor 없음', expected: '이 워크스페이스에 등록된 ChannelSoundFloor 1개' };
+      if (floor) return { status: 'applied', observed: `floor: ${floor.id}`, expected: '이 워크스페이스에 등록된 ChannelSoundFloor 1개' };
+      // data/channelSoundFloor.ts의 ChannelSoundFloor.archetypeIds 문서 그대로:
+      // 이 워크스페이스에 floor가 있긴 하지만(다른 archetype용), 이 채널의
+      // archetype은 그 floor의 archetypeIds에 의도적으로 빠져 있다 — 진짜
+      // 유실이 아니라 설계상 미적용. 워크스페이스 자체에 floor가 아예 없으면
+      // (아래 조건이 false) 그건 여전히 진짜 유실이다.
+      const workspaceId = workspaceForArchetype(channel.archetype)?.id;
+      const workspaceHasAnyFloor = CHANNEL_SOUND_FLOORS.some(f => f.workspaceId === workspaceId);
+      if (workspaceHasAnyFloor) {
+        return {
+          status: 'n/a',
+          observed: 'floor 없음',
+          expected: '이 워크스페이스에 등록된 ChannelSoundFloor 1개',
+          reasonKo: `${channel.archetype}는 이 워크스페이스의 다른 아키타입과 프로덕션 성격이 달라(모던/디지털 편성 또는 동요) ChannelSoundFloor.archetypeIds에서 의도적으로 제외됨 — data/channelSoundFloor.ts 자신의 문서 참조`
+        };
+      }
+      return { status: 'lost', observed: 'floor 없음', expected: '이 워크스페이스에 등록된 ChannelSoundFloor 1개' };
     }
   },
   {
@@ -143,7 +179,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     check(channel) {
       const floor = channelSoundFloorForArchetype(channel.archetype);
       const applied = Boolean(floor?.usesPaletteFamily);
-      return { applied, observed: `usesPaletteFamily=${Boolean(floor?.usesPaletteFamily)}`, expected: 'usesPaletteFamily=true' };
+      return { status: applied ? 'applied' : 'lost', observed: `usesPaletteFamily=${Boolean(floor?.usesPaletteFamily)}`, expected: 'usesPaletteFamily=true' };
     }
   },
   {
@@ -154,7 +190,7 @@ export const VERIFIED_SETTING_CONTRACTS: VerifiedSettingContract[] = [
     check(channel) {
       const profile = audienceProfileForChannelArchetype(channel.archetype, channel.audience);
       const applied = profile.arrangementDensityLimits.fullMax === 4;
-      return { applied, observed: `fullMax ${profile.arrangementDensityLimits.fullMax}`, expected: 'fullMax 4' };
+      return { status: applied ? 'applied' : 'lost', observed: `fullMax ${profile.arrangementDensityLimits.fullMax}`, expected: 'fullMax 4' };
     }
   }
 ];

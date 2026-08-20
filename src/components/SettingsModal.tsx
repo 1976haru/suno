@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Trash2, X } from 'lucide-react';
 import type { ChannelProfile, ProviderSettings, ProviderType } from '../types';
 import { deleteSetting, getSetting, setSetting } from '../core/settingsStore';
@@ -10,20 +10,6 @@ import { PERSONA_STYLE_LIMIT } from '../core/soundSignature';
 import { API_PRESETS, RECOMMENDATION_BADGE, STAGE_ADVICE } from '../core/apiAdvisor';
 import { IS_SINGLE_FILE_BUILD, SINGLE_FILE_API_DISABLED_MESSAGE } from '../core/buildFlags';
 import { defaultModelFor, MODEL_REGISTRY } from '../data/modelRegistry';
-import { GEMINI_BYOK_KEY } from '../core/thumbnailImageGen';
-import {
-  DEFAULT_QWEN_IMAGE_SETTINGS,
-  QWEN_BYOK_KEY,
-  QWEN_IMAGE_MODELS,
-  QWEN_IMAGE_RESOLUTIONS,
-  QWEN_IMAGE_SETTINGS_KEY,
-  normalizeQwenImageSettings,
-  qwenResolutionAllowed,
-  qwenResolutionFamily,
-  type QwenImageModel,
-  type QwenImageResolution,
-  type QwenImageSettings
-} from '../core/qwenImageSettings';
 
 // TASK F1 (v3.6) — read from the registry instead of a hardcoded list; a
 // model id typed into the free-text fallback (see the "직접 입력" input
@@ -48,7 +34,6 @@ interface SettingsModalProps {
   onDeleteAll: () => void;
   channel: ChannelProfile;
   channels: ChannelProfile[];
-  focusSection?: 'qwen';
 }
 
 type TestResult = { state: 'idle' } | { state: 'testing' } | { state: 'ok' } | { state: 'error'; message: string };
@@ -57,22 +42,16 @@ function byokKeyName(provider: ProviderType) {
   return `byok:${provider}`;
 }
 
-export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel, channels, focusSection }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, settings, onChange, onExportAll, onImportAll, onDeleteAll, channel, channels }: SettingsModalProps) {
   const [localKey, setLocalKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({ state: 'idle' });
-  const [geminiKey, setGeminiKey] = useState('');
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [qwenKey, setQwenKey] = useState('');
-  const [showQwenKey, setShowQwenKey] = useState(false);
-  const [qwenSettings, setQwenSettings] = useState<QwenImageSettings>(DEFAULT_QWEN_IMAGE_SETTINGS);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [inputPrice, setInputPrice] = useState('');
   const [outputPrice, setOutputPrice] = useState('');
   const [cache, setCache] = useState<CacheStats | null>(null);
   const [hookUsage, setHookUsage] = useState<HookUsage[] | null>(null);
   const [capacityForecasts, setCapacityForecasts] = useState<{ channel: ChannelProfile; forecast: ChannelCapacityForecast }[] | null>(null);
-  const qwenSectionRef = useRef<HTMLDivElement>(null);
 
   const isRemoteProvider = settings.provider === 'openai' || settings.provider === 'anthropic';
 
@@ -82,23 +61,6 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
       if (stored) setLocalKey(stored);
     });
   }, [settings.provider, isRemoteProvider]);
-
-  useEffect(() => {
-    if (!open) return;
-    void getSetting<string>(GEMINI_BYOK_KEY).then(stored => setGeminiKey(stored || ''));
-    void Promise.all([
-      getSetting<string>(QWEN_BYOK_KEY),
-      getSetting<Partial<QwenImageSettings>>(QWEN_IMAGE_SETTINGS_KEY)
-    ]).then(([storedKey, storedSettings]) => {
-      setQwenKey(storedKey || '');
-      setQwenSettings(normalizeQwenImageSettings(storedSettings));
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || focusSection !== 'qwen') return;
-    requestAnimationFrame(() => qwenSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }, [open, focusSection]);
 
   useEffect(() => {
     if (!open) return;
@@ -176,37 +138,6 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
     onChange({ ...settings, apiKey: '' });
   }
 
-  async function saveGeminiKey(value: string) {
-    setGeminiKey(value);
-    await setSetting(GEMINI_BYOK_KEY, value);
-  }
-
-  async function clearGeminiKey() {
-    await deleteSetting(GEMINI_BYOK_KEY);
-    setGeminiKey('');
-  }
-
-  async function saveQwenKey(value: string) {
-    setQwenKey(value);
-    await setSetting(QWEN_BYOK_KEY, value);
-  }
-
-  async function clearQwenKey() {
-    await deleteSetting(QWEN_BYOK_KEY);
-    setQwenKey('');
-  }
-
-  async function updateQwenImageSettings(patch: Partial<QwenImageSettings>) {
-    let next = normalizeQwenImageSettings({ ...qwenSettings, ...patch });
-    if (!qwenResolutionAllowed(next.model, next.resolution)) {
-      const family = qwenResolutionFamily(next.model);
-      const fallback = QWEN_IMAGE_RESOLUTIONS.find(resolution => resolution.models === family)?.value || DEFAULT_QWEN_IMAGE_SETTINGS.resolution;
-      next = normalizeQwenImageSettings({ ...next, resolution: fallback });
-    }
-    setQwenSettings(next);
-    await setSetting(QWEN_IMAGE_SETTINGS_KEY, next);
-  }
-
   async function testConnection() {
     setTestResult({ state: 'testing' });
     try {
@@ -281,102 +212,11 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
           </button>
         </div>
 
-        <label>🖼 썸네일·커버 이미지 생성 (Gemini)</label>
-        <p className="supporting">
-          위 AI 제공자 선택과는 별개입니다. 서버에 GEMINI_API_KEY 환경변수가 설정되어 있다면 비워둬도 되고,
-          이 브라우저에서 개인 키로 호출하고 싶다면 여기에 붙여넣으세요.
-        </p>
-        <div className="inline">
-          <input
-            type={showGeminiKey ? 'text' : 'password'}
-            value={geminiKey}
-            onChange={event => void saveGeminiKey(event.target.value)}
-            placeholder="AIza..."
-          />
-          <button type="button" className="icon-button" title={showGeminiKey ? '숨기기' : '표시'} onClick={() => setShowGeminiKey(v => !v)}>
-            {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <button type="button" className="icon-button" title="삭제" onClick={() => void clearGeminiKey()}>
-            <Trash2 size={16} />
-          </button>
-        </div>
-        {geminiKey && <p className="error">⚠️ 키가 이 브라우저에 저장됩니다. 공용 PC에서는 사용하지 마세요.</p>}
-
         <label>💡 단계별 API 추천</label>
         <p className="supporting">
           216곡(18주 x 12곡) 기준 총 출력은 약 0.15M~0.32M 토큰으로, Sonnet 기준 대략 몇 달러 수준입니다. API가 비싸서 피해야 할 이유는 없습니다 —
           단계마다 어디에 API가 가장 도움이 되는지만 참고하세요. (정확한 단가는 계속 바뀌므로 여기서 고정하지 않습니다. 실제 사용량은 위 "API 사용 기록"에서 확인하세요.)
         </p>
-        <div ref={qwenSectionRef} id="qwen-image-settings">
-        <label>🖼 이미지 생성 - Qwen (Model Studio)</label>
-        <p className="supporting">
-          Alibaba Cloud Model Studio(Qwen-Image) 이미지 생성 설정입니다. 키는 이 브라우저에만 저장됩니다.
-        </p>
-        <div className="inline">
-          <input
-            type={showQwenKey ? 'text' : 'password'}
-            value={qwenKey}
-            onChange={event => void saveQwenKey(event.target.value)}
-            placeholder="sk-로 시작하는 키"
-          />
-          <button type="button" className="icon-button" title={showQwenKey ? 'Hide' : 'Show'} onClick={() => setShowQwenKey(v => !v)}>
-            {showQwenKey ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-          <button type="button" className="icon-button" title="Clear" onClick={() => void clearQwenKey()}>
-            <Trash2 size={16} />
-          </button>
-        </div>
-        {qwenKey && <p className="error">이 키는 현재 브라우저에만 저장됩니다. 공용 PC에서는 사용하지 마세요.</p>}
-        <p className="supporting">발급처: <a href="https://bailian.console.aliyun.com/" target="_blank" rel="noreferrer">Alibaba Cloud Model Studio / DashScope</a></p>
-        <div className="form-grid two">
-          <label>
-            리전
-            <select value={qwenSettings.region} onChange={event => void updateQwenImageSettings({ region: event.target.value === 'beijing' ? 'beijing' : 'singapore' })}>
-              <option value="singapore">싱가포르 / 국제</option>
-              <option value="beijing">중국(베이징)</option>
-            </select>
-            {/* TASK v3.45 (Part 1) — DashScope's own docs warn Beijing and Singapore keys/endpoints are not interchangeable; an auth failure from picking the wrong region here is otherwise indistinguishable from a genuinely wrong key. */}
-            <span className="error">API 키는 발급받은 리전에서만 동작합니다. 베이징 키와 싱가포르 키는 호환되지 않습니다.</span>
-          </label>
-          <label>
-            워크스페이스 ID (선택)
-            <input
-              value={qwenSettings.workspaceId}
-              onChange={event => void updateQwenImageSettings({ workspaceId: event.target.value })}
-              placeholder="기본 DashScope 주소를 사용하려면 비워 두세요"
-            />
-          </label>
-          <label>
-            모델
-            <select value={qwenSettings.model} onChange={event => void updateQwenImageSettings({ model: event.target.value as QwenImageModel })}>
-              {QWEN_IMAGE_MODELS.map(model => (
-                <option key={model.id} value={model.id}>{model.label} - {model.priceCny[qwenSettings.region] === 0 ? 'limited-time free' : `${model.priceCny[qwenSettings.region].toFixed(6)} CNY/image`}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            해상도
-            <select value={qwenSettings.resolution} onChange={event => void updateQwenImageSettings({ resolution: event.target.value as QwenImageResolution })}>
-              {QWEN_IMAGE_RESOLUTIONS
-                .filter(resolution => resolution.models === qwenResolutionFamily(qwenSettings.model))
-                .map(resolution => (
-                  <option key={resolution.value} value={resolution.value}>{resolution.label}</option>
-                ))}
-            </select>
-          </label>
-          <label>
-            세션 이미지 한도
-            <input
-              type="number"
-              min={1}
-              max={200}
-              value={qwenSettings.sessionLimit}
-              onChange={event => void updateQwenImageSettings({ sessionLimit: Number(event.target.value) || DEFAULT_QWEN_IMAGE_SETTINGS.sessionLimit })}
-            />
-          </label>
-        </div>
-        <p className="supporting">키가 없으면 썸네일 화면에서 프롬프트 복사는 계속 사용할 수 있지만 Qwen 생성은 비활성화됩니다.</p>
-        </div>
 
         <div className="api-advice-table">
           {Object.values(STAGE_ADVICE).map(advice => (
@@ -521,17 +361,6 @@ export default function SettingsModal({ open, onClose, settings, onChange, onExp
             : '작을수록 안정적, 클수록 빠르지만 한 번에 잘릴 위험이 커져요.'}
         </p>
 
-        <label className="persona-toggle">
-          <input
-            type="checkbox"
-            checked={Boolean(settings.generateThumbnailText)}
-            onChange={event => onChange({ ...settings, generateThumbnailText: event.target.checked })}
-          />
-          <span>
-            썸네일 문구 생성
-            <small>썸네일을 직접 제작하는 경우 꺼두세요. 기본값은 꺼짐이며, 켜면 API가 곡마다 썸네일 문구도 함께 생성합니다.</small>
-          </span>
-        </label>
 
         <label>스타일 프롬프트 길이 상한 (자)</label>
         <div className="chips">

@@ -14,18 +14,29 @@ import { lintInPackStyleSimilarity } from './diversityLinter';
 import { eraBucketForGenreId, ERA_FORBIDDEN_DESCRIPTORS } from '../data/eraExclusions';
 import { classifyTitleShape } from './titleShapeVariety';
 import { detectVocalGender, scaleVocalQuota, type VocalQuota } from './vocalPlan';
+import { dominantVocalTypeForGenre } from './vocalQuotaFromGenre';
+import { getGenreById } from '../data/genreLibrary';
 import { MALE_VOCAL_TRAIT_AXES, FEMALE_VOCAL_TRAIT_AXES } from '../data/vocalTraits';
 import { auditPromises, auditTitleConceptConsistency, type PromiseAuditReport, type TitleConsistencyReport } from './promiseAudit';
 import type { AudioSetReport } from './audioSetReport';
-import { resolveBpmLengthTier } from './bpmLengthControl';
+import { wordBudgetForTarget } from './bpmLengthControl';
 import { expectedArcPhaseCount, KIDS_ARC_PHASE_VALUES } from './arcModels';
 import { deriveEraIntent, checkEraPromptAgainstIntent } from './eraIntent';
 import { SENIOR_ERA_POLICY } from './seniorOldpopPolicy';
 import { auditStylePromptAgainstSpec } from './promptSpec';
 import { classifyClause, introSubcategory, type PromptAxis } from '../data/promptAxisLexicon';
+import { stylePromptOpensWithGenre, stylePromptKeepsGenreVocabulary } from './genreFidelity';
 import { resolveSceneSignatureSource } from './situationLedger';
 import { buildPerceivedEnergyObservations, type PerceivedEnergyObservations } from './perceivedEnergyObservations';
 import { parseSetArcSpec, checkSetArcAdherence, setArcAdherenceIsBlocking, SET_ARC_ADHERENCE_BLOCKING_THRESHOLD } from './setArcAdherence';
+import { measureKpopSingability } from './kpopSingability';
+import { kpopWorkspacePolicyFor } from './kpopWorkspacePolicy';
+import { KILLING_POINTS, type KillingPoint } from '../data/killingPoints';
+import { KIDS_KILLING_POINTS } from '../data/killingPointsKids';
+import { KR_2030_KILLING_POINTS } from '../data/killingPointsKr2030';
+import { JP_2030_KILLING_POINTS } from '../data/killingPointsJp2030';
+import { KPOP_KILLING_POINTS } from '../data/killingPointsKpop';
+import { hasVocalTechniqueWord } from '../data/vocalTechniqueByGenre';
 
 /**
  * v3.76 (TASK B) — "정합성 전수 검사": every check this app's own task
@@ -43,7 +54,7 @@ export type AuditStatus = 'pass' | 'fail' | 'not-measured';
 
 export interface AuditItem {
   id: string;
-  category: '생성 구조' | '보컬' | '프롬프트' | '가사' | '킬링포인트·아크' | '제목' | '약속 이행도' | '워크스페이스';
+  category: '생성 구조' | '보컬' | '프롬프트' | '가사' | '킬링포인트·아크' | '제목' | '약속 이행도' | '워크스페이스' | '에너지';
   labelKo: string;
   targetKo: string;
   actualKo: string;
@@ -206,6 +217,78 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
   const femaleSongs = songs.filter(song => song.vocalType === 'female');
   const femaleMissingGenderWord = femaleSongs.filter(song => detectVocalGender(song.stylePrompt) !== 'female');
 
+  // 지시문 56 (TASK B-1/B-2) — 지시문 47 TASK A-7이 이미 알고 있던 결함의
+  // 재발 방지 검사. 그때 기준은 "vocalText 완전 일치"뿐이었다
+  // (repeatVarianceFor가 공간감 한 단어만 더해 완전 일치는 막았지만,
+  // 앞 두 구절이 같은 "거의 동일"은 걸러내지 못했다 — 발라드 세트
+  // soft-female 3곡 실측). 두 항목으로 나눈다: 완전 일치(여전히 0건
+  // 유지) / 첫 두 구절 일치(새 검사, 임계값은 정책 필드로 아래에 명시).
+  const vocalTexts = songs.map(song => song.vocalText?.trim()).filter((text): text is string => Boolean(text));
+  const exactCounts = new Map<string, number>();
+  for (const text of vocalTexts) exactCounts.set(text.toLowerCase(), (exactCounts.get(text.toLowerCase()) ?? 0) + 1);
+  const maxExactGroup = exactCounts.size ? Math.max(...exactCounts.values()) : 0;
+  // 지시문 56 (TASK B-2) — "곡별 서술의 첫 두 콤마 구절"을 유사도 신호로
+  // 쓴다: presetVariantVocalText(batchPreallocation.ts/localGenerator.ts)가
+  // 프리셋 정체성(첫 구절)만 고정하고 나머지를 변주하므로, 같은 프리셋을
+  // 쓰는 트랙끼리도 세 번째 구절부터는 달라야 한다 — 앞 두 구절까지 같으면
+  // 실제로 거의 같게 들린다(§B-1 실측).
+  const firstTwoClauses = (text: string) => text.split(',').slice(0, 2).map(part => part.trim().toLowerCase()).join(', ');
+  const similarityCounts = new Map<string, number>();
+  for (const text of vocalTexts) {
+    const sig = firstTwoClauses(text);
+    similarityCounts.set(sig, (similarityCounts.get(sig) ?? 0) + 1);
+  }
+  const maxSimilarityGroup = similarityCounts.size ? Math.max(...similarityCounts.values()) : 0;
+  // 정책 값 — 지시문 56 §B-2 "3곡 이상 같으면 warning"의 반대 표현(≤ 2곡이면
+  // pass). 실측 근거 없는 추정 임계값이므로 여기 주석에 명시한다.
+  const VOCAL_TEXT_SIMILARITY_MAX_GROUP = 2;
+
+  // 지시문 63 (TASK C-2) — "장르-보컬 부합률" (12/15 기준). 각 곡의 lead
+  // 장르가 원하는 성별(dominantVocalTypeForGenre — vocalPreference 최댓값,
+  // 뚜렷한 선호 없으면 항상 부합으로 침)과 실제 배정된 vocalType이 맞는
+  // 비율. TASK A(genre-derived 쿼터)가 실제로 작동했는지를 이 감사가
+  // 직접 재확인한다 — 쿼터 총량만 보는 vocal_distribution과 달리 곡
+  // 단위 매칭을 잰다.
+  const genreFitTracked = songs.filter(song => song.genreId && song.vocalType);
+  const genreFitMatches = genreFitTracked.filter(song => {
+    const dominant = dominantVocalTypeForGenre(getGenreById(song.genreId!)?.vocalPreference);
+    return dominant === null || dominant === song.vocalType;
+  });
+  const GENRE_FIT_TARGET_RATIO = 12 / 15;
+
+  // 지시문 63 (TASK C-2) — "보컬 프리셋 종류" (5종 기준). effectiveVocalPresetId
+  // (SongIdea 자기 필드 — 지시문 49/63이 채운다)의 distinct count. kids
+  // 채널의 forKids 프리셋 회전(core/kidsVocalPresetPlan.ts)이 실제로
+  // 여러 종류를 쓰는지, 비-kids 채널의 vocalPresetOverride/tone-match도
+  // 함께 잰다(어느 쪽이든 "프리셋 다양성"이라는 같은 신호).
+  const distinctPresetIds = new Set(songs.map(song => song.effectiveVocalPresetId).filter(Boolean));
+  const PRESET_VARIETY_TARGET = 5;
+
+  // 지시문 65 (TASK D-2) — "보컬 창법 어휘"(15/15 기준)·"같은 장르 창법
+  // 중복"(0건 기준)을 감사에 추가한다. hasVocalTechniqueWord는
+  // scripts/checkVocalTechnique.ts·scripts/patchVocalTechnique.ts와 같은
+  // 판정 함수(data/vocalTechniqueByGenre.ts) — 같은 판정 로직을 세 곳에
+  // 따로 두지 않는다(§공통규약).
+  const songsWithTechnique = songs.filter(song => hasVocalTechniqueWord(song.stylePrompt));
+  const techniqueClauseByGenre = new Map<string, string[]>();
+  for (const song of songs) {
+    if (!song.genreId) continue;
+    const clauses = song.stylePrompt.split(',').map(c => c.trim());
+    const techniqueClause = clauses.find(hasVocalTechniqueWord);
+    if (!techniqueClause) continue;
+    const list = techniqueClauseByGenre.get(song.genreId) ?? [];
+    list.push(techniqueClause.toLowerCase());
+    techniqueClauseByGenre.set(song.genreId, list);
+  }
+  let duplicateTechniquePairs = 0;
+  for (const clauses of techniqueClauseByGenre.values()) {
+    const counts = new Map<string, number>();
+    for (const clause of clauses) counts.set(clause, (counts.get(clause) ?? 0) + 1);
+    for (const count of counts.values()) {
+      if (count > 1) duplicateTechniquePairs += count - 1;
+    }
+  }
+
   return [
     item({
       id: 'vocal_distribution', category: '보컬', labelKo: '보컬 타입 배분',
@@ -242,6 +325,40 @@ function vocalItems(songs: SongIdea[], vocalQuotaOverride?: VocalQuota): AuditIt
       targetKo: '≥ 12', actualKo: `${distinctVocalDescriptors.size}`,
       pass: distinctVocalDescriptors.size >= 12, requiresAudio: false, specifiedBy: ['v3.72 TASK B'],
       metric: { value: distinctVocalDescriptors.size, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'vocal_text_exact_duplicate', category: '보컬', labelKo: 'vocalText 완전중복',
+      targetKo: '0건', actualKo: vocalTexts.length ? `최대 ${maxExactGroup}곡 동일` : '(vocalText 없음)',
+      pass: vocalTexts.length ? maxExactGroup <= 1 : null, requiresAudio: false, specifiedBy: ['지시문 47 TASK A-7', '지시문 56 TASK B-1']
+    }),
+    item({
+      id: 'vocal_text_similarity', category: '보컬', labelKo: '보컬 서술 유사도 (첫 두 구절 동일)',
+      targetKo: `≤ ${VOCAL_TEXT_SIMILARITY_MAX_GROUP}곡`, actualKo: vocalTexts.length ? `최대 ${maxSimilarityGroup}곡` : '(vocalText 없음)',
+      pass: vocalTexts.length ? maxSimilarityGroup <= VOCAL_TEXT_SIMILARITY_MAX_GROUP : null, requiresAudio: false, specifiedBy: ['지시문 56 TASK B-2']
+    }),
+    item({
+      id: 'vocal_genre_fit', category: '보컬', labelKo: '장르-보컬 부합률',
+      targetKo: `≥ ${Math.round(songs.length * GENRE_FIT_TARGET_RATIO)}/${songs.length}`,
+      actualKo: `${genreFitMatches.length}/${genreFitTracked.length}`,
+      pass: genreFitTracked.length ? genreFitMatches.length >= Math.round(songs.length * GENRE_FIT_TARGET_RATIO) : null,
+      requiresAudio: false, specifiedBy: ['지시문 63 TASK C-2']
+    }),
+    item({
+      id: 'vocal_preset_variety', category: '보컬', labelKo: '보컬 프리셋 종류',
+      targetKo: `≥ ${PRESET_VARIETY_TARGET}종`, actualKo: `${distinctPresetIds.size}종`,
+      pass: distinctPresetIds.size ? distinctPresetIds.size >= PRESET_VARIETY_TARGET : null,
+      requiresAudio: false, specifiedBy: ['지시문 63 TASK C-2']
+    }),
+    item({
+      id: 'vocal_technique_present', category: '보컬', labelKo: '보컬 창법 어휘',
+      targetKo: `${songs.length}/${songs.length}`, actualKo: `${songsWithTechnique.length}/${songs.length}`,
+      pass: songs.length ? songsWithTechnique.length === songs.length : null,
+      requiresAudio: false, specifiedBy: ['지시문 65 TASK D-2']
+    }),
+    item({
+      id: 'vocal_technique_genre_duplicate', category: '보컬', labelKo: '같은 장르 창법 중복',
+      targetKo: '0건', actualKo: `${duplicateTechniquePairs}건`,
+      pass: duplicateTechniquePairs === 0, requiresAudio: false, specifiedBy: ['지시문 65 TASK D-2']
     })
   ];
 }
@@ -319,6 +436,16 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
   const DUPLICATE_TOKEN_PATTERN = /\b(\w+)\s+\1\b/i;
   const duplicateTokenSongs = songs.filter(song => DUPLICATE_TOKEN_PATTERN.test(song.stylePrompt));
 
+  // 지시문 58 (TASK D) — 실측: 지시문 44에서 "장르 라벨이 맨 앞에 정확히
+  // 들어간다"를 한 번 확인했지만 회귀 검사를 안 만들어, 지시문 46의 시대
+  // 바닥 반영 이후(8/14) 다시 깨졌다(core/finalPromptNormalizer.ts의
+  // enforceGenreOpensPrompt가 이 지시문에서 고침). core/genreFidelity.ts를
+  // 그대로 재사용한다 — scripts/checkGenreFidelity.ts(npm run
+  // check:genre-fidelity)와 판정 로직을 공유한다.
+  const genreOpensPromptViolationSongs = songs.filter(song => !stylePromptOpensWithGenre(song.stylePrompt));
+  const genreCoreVocabSongs = songs.filter(song => stylePromptKeepsGenreVocabulary(song.genreId, song.stylePrompt) !== null);
+  const genreCoreVocabViolationSongs = genreCoreVocabSongs.filter(song => stylePromptKeepsGenreVocabulary(song.genreId, song.stylePrompt) === false);
+
   return [
     item({
       id: 'prompt_length', category: '프롬프트', labelKo: '프롬프트 길이',
@@ -393,6 +520,22 @@ function promptItems(songs: SongIdea[]): AuditItem[] {
       targetKo: '0곡', actualKo: `${duplicateTokenSongs.length}곡${duplicateTokenSongs.length ? `: T${duplicateTokenSongs.map(s => s.trackNo).join(', T')}` : ''}`,
       pass: songs.length ? duplicateTokenSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 16 TASK B/D'],
       metric: songs.length ? { value: duplicateTokenSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'genre_opens_prompt', category: '프롬프트', labelKo: '장르 정체성 — 프롬프트 첫 구절',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: songs.length ? `${songs.length - genreOpensPromptViolationSongs.length}/${songs.length}${genreOpensPromptViolationSongs.length ? ` (미달: T${genreOpensPromptViolationSongs.map(s => s.trackNo).join(', T')})` : ''}` : '(없음)',
+      pass: songs.length ? genreOpensPromptViolationSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 44', '지시문 58 TASK D'],
+      metric: songs.length ? { value: genreOpensPromptViolationSongs.length, direction: 'lowerIsBetter' } : undefined
+    }),
+    item({
+      id: 'genre_core_vocabulary', category: '프롬프트', labelKo: '장르 핵심 악기·리듬 반영',
+      targetKo: `${genreCoreVocabSongs.length}/${genreCoreVocabSongs.length}`,
+      actualKo: genreCoreVocabSongs.length
+        ? `${genreCoreVocabSongs.length - genreCoreVocabViolationSongs.length}/${genreCoreVocabSongs.length}${genreCoreVocabViolationSongs.length ? ` (미달: T${genreCoreVocabViolationSongs.map(s => s.trackNo).join(', T')})` : ''}`
+        : '(genreId 없음 — 판정 불가)',
+      pass: genreCoreVocabSongs.length ? genreCoreVocabViolationSongs.length === 0 : null, requiresAudio: false, specifiedBy: ['지시문 58 TASK D'],
+      metric: genreCoreVocabSongs.length ? { value: genreCoreVocabViolationSongs.length, direction: 'lowerIsBetter' } : undefined
     })
   ];
 }
@@ -422,9 +565,11 @@ const END_TAG_PATTERN = /\[\s*(end|outro)\s*\]/i;
  * clear-opener track gets a lower (still enforced, not exempted) floor
  * reflecting its own intentionally shorter shape.
  */
-function targetWordRangeFor(song: SongIdea): [number, number] {
-  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
-  const [tierFloor, tierCeil] = tier ? tier.wordRange : [175, 245];
+// 지시문 40 (TASK B) — 단어 목표를 이 팩의 실제 목표 길이
+// (audienceProfile.songLengthSecondsRange)에서 역산한다(wordBudgetForTarget).
+function targetWordRangeFor(song: SongIdea, audienceProfile: AudienceProfile): [number, number] {
+  const resolved = typeof song.bpm === 'number' ? wordBudgetForTarget(audienceProfile.songLengthSecondsRange, song.bpm, song.structureTemplate) : undefined;
+  const [tierFloor, tierCeil] = resolved ? resolved.wordRange : [175, 245];
   const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
   return isShortOpener ? [150, tierCeil] : [tierFloor, tierCeil];
 }
@@ -438,20 +583,20 @@ function targetWordRangeFor(song: SongIdea): [number, number] {
  * deliberate cold-open convention, not a bug), so a slow-tempo opener would
  * otherwise permanently fail a strict tier-only section check.
  */
-function targetSectionRangeFor(song: SongIdea): [number, number] {
-  const tier = typeof song.bpm === 'number' ? resolveBpmLengthTier(song.bpm) : undefined;
-  const [tierMin, tierMax] = tier ? tier.sectionRange : [5, 8];
+function targetSectionRangeFor(song: SongIdea, audienceProfile: AudienceProfile): [number, number] {
+  const resolved = typeof song.bpm === 'number' ? wordBudgetForTarget(audienceProfile.songLengthSecondsRange, song.bpm, song.structureTemplate) : undefined;
+  const [tierMin, tierMax] = resolved ? resolved.sectionRange : [5, 8];
   const isShortOpener = song.songRole === 'cold-open' || song.songRole === 'clear opener';
   return isShortOpener ? [tierMin, Math.max(tierMax, 8)] : [tierMin, tierMax];
 }
 
-function lyricsItems(songs: SongIdea[]): AuditItem[] {
+function lyricsItems(songs: SongIdea[], audienceProfile: AudienceProfile): AuditItem[] {
   const counts = songs.map(song => lyricWordAndSectionCounts(song.lyrics));
   const words = counts.map(c => c.words);
-  const wordTargets = songs.map(targetWordRangeFor);
+  const wordTargets = songs.map(song => targetWordRangeFor(song, audienceProfile));
   const wordFailures = songs.filter((song, i) => words[i] < wordTargets[i][0] || words[i] > wordTargets[i][1]);
   const sections = counts.map(c => c.sections);
-  const sectionTargets = songs.map(targetSectionRangeFor);
+  const sectionTargets = songs.map(song => targetSectionRangeFor(song, audienceProfile));
   const sectionFailures = songs.filter((song, i) => sections[i] < sectionTargets[i][0] || sections[i] > sectionTargets[i][1]);
   const situations = new Set(songs.map(song => song.listenerSituation));
   const emotionArcs = new Set(songs.map(song => song.emotionArc));
@@ -566,9 +711,41 @@ function lyricsItems(songs: SongIdea[]): AuditItem[] {
 // ---------------------------------------------------------------------------
 // [킬링포인트·아크]
 // ---------------------------------------------------------------------------
+// 지시문 62 (TASK F-3) — "감사에 추가: 킬링포인트가 있는 곡·종류·한 종류
+// 최대·장르 매칭". 위 두(killing_point_assigned/killing_point_variety)는
+// 이미 있었다(v3.67) — 아래 함수가 나머지 둘("한 종류 최대"·"장르 매칭")을
+// 채운다. 5개 풀(senior/kids/kr-2030/jp-2030/kpop) 전체를 합쳐 id로
+// 찾는다 — song.killingPointId가 어느 풀에서 왔는지 SongIdea 자체는
+// 기록하지 않으므로, 전 풀을 합친 하나의 맵에서 찾는 게 유일한 방법이다.
+const ALL_KILLING_POINTS_BY_ID: Map<string, KillingPoint> = new Map(
+  [...KILLING_POINTS, ...KIDS_KILLING_POINTS, ...KR_2030_KILLING_POINTS, ...JP_2030_KILLING_POINTS, ...KPOP_KILLING_POINTS].map(kp => [kp.id, kp])
+);
+
 function killingPointItems(songs: SongIdea[], arcModelId: 'five-phase' | 'repetition-cycle' = 'five-phase'): AuditItem[] {
   const withKillingPoint = songs.filter(song => song.killingPointId);
   const distinctKillingPoints = new Set(withKillingPoint.map(song => song.killingPointId));
+  // 지시문 62 (TASK F-3) — "한 종류 최대 6곡 이하". MAX_SONGS_PER_KILLING_POINT
+  // (data/killingPoints.ts, 현재 4)·MAX_MODULATION_KILLING_POINT_IDS 캡(6)과
+  // 같은 상한을 실제 배정 결과에서 재확인한다 — 코드 상수가 있어도 실제
+  // 세트가 그 상한을 지켰는지는 별개로 실측해야 한다(§공통규약1).
+  const perTypeCounts = new Map<string, number>();
+  for (const song of withKillingPoint) {
+    const id = song.killingPointId!;
+    perTypeCounts.set(id, (perTypeCounts.get(id) ?? 0) + 1);
+  }
+  const maxPerType = perTypeCounts.size ? Math.max(...perTypeCounts.values()) : 0;
+  const MAX_PER_TYPE_TARGET = 6;
+  // 지시문 62 (TASK F-3) — "장르 매칭 15/15". 지시문61 TASK C-3이 신설한
+  // fitsGenreTags가 실제로 붙은 킬링포인트가 배정됐는지를 곡 단위로 잰다 —
+  // fitsGenreTags 유무 자체를 "장르 인식형 장치가 배정됐는가"의 근사치로
+  // 쓴다(정확히 이 곡의 장르와 태그가 의미적으로 일치하는지까지는 이
+  // 감사가 재현하지 않는다 — 그건 core/killingPoints.ts의 candidatesFor
+  // 우선순위 로직 자체의 몫이고, 여기서 그 로직을 복제하면 두 곳이
+  // 따로 드리프트할 위험만 커진다).
+  const genreTaggedCount = withKillingPoint.filter(song => {
+    const kp = ALL_KILLING_POINTS_BY_ID.get(song.killingPointId!);
+    return Boolean(kp?.fitsGenreTags?.length);
+  }).length;
   const arcPhases = new Set(songs.map(song => song.arcPhase).filter(Boolean));
   const targetAssignedShare = songs.length ? Math.round(songs.length * (14 / 18)) : 0;
   const targetVarietyShare = songs.length ? Math.max(1, Math.round(songs.length * (9 / 18))) : 0;
@@ -617,6 +794,20 @@ function killingPointItems(songs: SongIdea[], arcModelId: 'five-phase' | 'repeti
       id: 'peak_none_count', category: '킬링포인트·아크', labelKo: 'peakStrength none 곡',
       targetKo: `약 ${targetNoneShare}곡`, actualKo: `${songs.length - withKillingPoint.length}곡`,
       pass: songs.length ? Math.abs((songs.length - withKillingPoint.length) - targetNoneShare) <= 2 : null, requiresAudio: false, specifiedBy: ['v3.67 arcPlan']
+    }),
+    item({
+      id: 'killing_point_max_per_type', category: '킬링포인트·아크', labelKo: '킬링포인트 한 종류 최대',
+      targetKo: `≤ ${MAX_PER_TYPE_TARGET}곡`, actualKo: `${maxPerType}곡`,
+      pass: withKillingPoint.length ? maxPerType <= MAX_PER_TYPE_TARGET : null, requiresAudio: false, specifiedBy: ['지시문 62 TASK F-3']
+    }),
+    item({
+      id: 'killing_point_genre_match', category: '킬링포인트·아크', labelKo: '킬링포인트 장르 매칭',
+      targetKo: `${withKillingPoint.length}/${withKillingPoint.length}`, actualKo: `${genreTaggedCount}/${withKillingPoint.length}`,
+      // 근사치(위 doc comment) — 실측 없이 blocking을 만들지 않는다(§공통규약7):
+      // fitsGenreTags가 없는 기존 KP-01~12(소울/두왑 등 신설 이전 항목,
+      // fitsEraTags로만 매칭)도 여전히 유효한 배정이라 100% 미달이 곧
+      // 결함은 아니다 — advisory로만 보고한다.
+      pass: null, requiresAudio: false, specifiedBy: ['지시문 62 TASK F-3']
     })
   ];
 }
@@ -856,6 +1047,148 @@ function setArcItems(songs: SongIdea[], conceptLabel: string, archetype?: Channe
   ];
 }
 
+/**
+ * 지시문 37 (TASK C-3) — "K-pop singability 지표 존재"의 실측 결과.
+ * kr-idol-male/kr-idol-female에서만 낸다(다른 워크스페이스는 빈 배열).
+ * kr-idol 워크스페이스 자체가 verified:false(distinctChoicePolicy.ts)이므로
+ * 이 항목은 항상 pass:null — 하지 말 것 §7 "실측 없이 blocking 을 만들지
+ * 않는다"에 맞춰 advisory 전용으로 유지한다(scripts/audit.ts의 회귀
+ * 판정에 영향 없음).
+ */
+function kpopSingabilityItems(songs: SongIdea[], archetype?: ChannelArchetype): AuditItem[] {
+  if (archetype !== 'kr-idol-male' && archetype !== 'kr-idol-female') return [];
+  if (!songs.length) return [];
+  const metrics = songs.map(song => measureKpopSingability({ lyrics: song.lyrics, hookPhrase: song.hookPhrase }));
+  const hookRepeatOk = metrics.filter(m => m.hookRepeatCountOk).length;
+  const hookWordOk = metrics.filter(m => m.hookLineWordCountOk).length;
+  const chantPresent = metrics.filter(m => m.chantLinePresent).length;
+  const densityOk = metrics.filter(m => m.chorusSyllableDensityOk).length;
+  return [
+    item({
+      id: 'kpop_hook_repeat_4x',
+      category: '가사',
+      labelKo: 'K-pop 훅 반복 4회 이상 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${hookRepeatOk}/${songs.length} (평균 ${(metrics.reduce((s, m) => s + m.hookRepeatCount, 0) / songs.length).toFixed(1)}회)`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: hookRepeatOk, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_hook_line_word_count',
+      category: '가사',
+      labelKo: 'K-pop 훅 한 줄 단어 수 3~6 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${hookWordOk}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: hookWordOk, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_chant_hook_line',
+      category: '가사',
+      labelKo: 'K-pop 챈트/후크 라인 존재 1곳 이상 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${chantPresent}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: chantPresent, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_chorus_syllable_density',
+      category: '가사',
+      labelKo: 'K-pop 후렴 음절 밀도 과다하지 않음 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${densityOk}/${songs.length} (평균 ${(metrics.reduce((s, m) => s + m.chorusSyllableDensity, 0) / songs.length).toFixed(1)}음절/줄)`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 37 TASK C'],
+      metric: { value: densityOk, direction: 'higherIsBetter' }
+    })
+  ];
+}
+
+/**
+ * 지시문 43 (TASK A/D/E) — kr-idol 전용 advisory 항목 4종. kr-idol
+ * 워크스페이스 자체가 verified:false(distinctChoicePolicy.ts)이므로
+ * kpopSingabilityItems와 같은 이유로 전부 pass:null — scripts/audit.ts의
+ * 회귀 판정에 영향을 주지 않는다(§7 "실측 없이 blocking 을 만들지 않는다").
+ */
+const KPOP_RAP_SECTION_TAG_PATTERN = /\[.*rap[^\]]*\]|\brap\b/i;
+const KPOP_CHANT_BACKING_PATTERN = /\b(harmon\w*|unison|chant|stack|layered vocal)\b/i;
+const KPOP_ADLIB_PATTERN = /\bad[\s-]?libs?\b/i;
+
+function songHasRapSignal(song: SongIdea): boolean {
+  const partPlanHasRapper = (song.partPlan?.sectionAssignments ?? []).some(a => a.role === 'main-rapper' || a.role === 'lead-rapper');
+  return partPlanHasRapper || KPOP_RAP_SECTION_TAG_PATTERN.test(song.lyrics ?? '') || KPOP_RAP_SECTION_TAG_PATTERN.test(song.stylePrompt ?? '');
+}
+
+function kpopEnergyRapChantItems(songs: SongIdea[], archetype?: ChannelArchetype): AuditItem[] {
+  if (archetype !== 'kr-idol-male' && archetype !== 'kr-idol-female') return [];
+  if (!songs.length) return [];
+  const policy = kpopWorkspacePolicyFor(archetype);
+  if (!policy) return [];
+
+  const withEnergy = songs.filter(s => s.perceivedEnergy !== undefined);
+  const avgEnergy = withEnergy.length ? withEnergy.reduce((sum, s) => sum + (s.perceivedEnergy as number), 0) / withEnergy.length : 0;
+  const highEnergyCount = withEnergy.filter(s => (s.perceivedEnergy as number) >= 4).length;
+  const targetHighEnergyCount = Math.round((policy.energyTarget.distributionOf15[4] + policy.energyTarget.distributionOf15[5]) * songs.length / 15);
+
+  const rapCount = songs.filter(songHasRapSignal).length;
+  const chantCount = songs.filter(s => KPOP_CHANT_BACKING_PATTERN.test(s.stylePrompt ?? '') || KPOP_CHANT_BACKING_PATTERN.test(s.lyrics ?? '')).length;
+  const adlibCount = songs.filter(s => KPOP_ADLIB_PATTERN.test(s.stylePrompt ?? '') || KPOP_ADLIB_PATTERN.test(s.lyrics ?? '')).length;
+
+  return [
+    item({
+      id: 'kpop_perceived_energy_average',
+      category: '에너지',
+      labelKo: `K-pop 체감 에너지 평균 ${policy.energyTarget.targetAverage} 이상 (advisory, 미검증)`,
+      targetKo: `${policy.energyTarget.targetAverage}`,
+      actualKo: `${avgEnergy.toFixed(2)} (E4+E5 ${highEnergyCount}/${songs.length}, 목표 ${targetHighEnergyCount}곡)`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK A'],
+      metric: { value: avgEnergy, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_rap_section_share',
+      category: '가사',
+      labelKo: `K-pop 랩 파트가 있는 곡 (advisory, 미검증)`,
+      targetKo: `${Math.round(policy.rapPolicy.targetRatio * songs.length)}/${songs.length}`,
+      actualKo: `${rapCount}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK D'],
+      metric: { value: rapCount, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_chant_backing_mention',
+      category: '가사',
+      labelKo: 'K-pop 화음·챈트·백킹 스택 언급 (advisory, 미검증)',
+      targetKo: `${songs.length}/${songs.length}`,
+      actualKo: `${chantCount}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK E'],
+      metric: { value: chantCount, direction: 'higherIsBetter' }
+    }),
+    item({
+      id: 'kpop_adlib_layer_mention',
+      category: '가사',
+      labelKo: 'K-pop ad-lib 레이어 언급 8곡 이상 (advisory, 미검증)',
+      targetKo: `${Math.round((8 / 15) * songs.length)}/${songs.length}`,
+      actualKo: `${adlibCount}/${songs.length}`,
+      pass: null,
+      requiresAudio: false,
+      specifiedBy: ['지시문 43 TASK E'],
+      metric: { value: adlibCount, direction: 'higherIsBetter' }
+    })
+  ];
+}
+
 function workspaceItems(): AuditItem[] {
   return [
     item({
@@ -945,7 +1278,7 @@ export function runFullAudit(
     ...structureItems(songs, opts.songCount, opts.audienceProfile),
     ...vocalItems(songs, opts.vocalQuotaOverride),
     ...promptItems(songs),
-    ...lyricsItems(songs),
+    ...lyricsItems(songs, opts.audienceProfile),
     ...killingPointItems(songs, opts.audienceProfile.arcModelId),
     ...audioItems(opts.audioReport),
     ...titleItems(songs, titleConsistency),
@@ -956,7 +1289,9 @@ export function runFullAudit(
     ...distinctChoiceItems(songs, opts.archetype),
     ...metaLeakItems(songs, opts.lyricLanguage),
     ...objectStateItems(songs, opts.archetype, opts.lyricLanguage),
-    ...setArcItems(songs, opts.conceptLabel, opts.archetype)
+    ...setArcItems(songs, opts.conceptLabel, opts.archetype),
+    ...kpopSingabilityItems(songs, opts.archetype),
+    ...kpopEnergyRapChantItems(songs, opts.archetype)
   ];
   return { conceptLabel: opts.conceptLabel, songCount: songs.length, items, promiseAudit: promiseAuditReport, titleConsistency, observations: buildPerceivedEnergyObservations(songs) };
 }

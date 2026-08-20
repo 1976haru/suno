@@ -86,8 +86,12 @@ export const SENIOR_AUDIENCE_PROFILE: AudienceProfile = {
   tempoFloor: 62,
   tempoCeiling: 100,
   lyricWordRange: [200, 250],
-  /** v3.73 (TASK A) — 3:10-3:35, matching core/soundSignature.ts's own compactDuration() text for this archetype and the real-listening target TASK v3.71/v3.72 already measured against. */
-  songLengthSecondsRange: [190, 215],
+  /** 지시문 40 (TASK A) — 3:05-3:25로 하향. v3.73의 [190,215](3:10-3:35)는
+   * 하루의 현재 실측 목표(2:30-3:10대 K-pop과 별개로, 시니어 자체는
+   * "3:05~3:25")와 어긋나 있었다 — wordBudgetForTarget이 이 필드를 그대로
+   * 읽어 단어 예산을 뽑으므로, 여기가 낡으면 실제 생성 결과도 낡은
+   * 목표를 향해 계산된다. */
+  songLengthSecondsRange: [185, 205],
   /**
    * v3.67 (TASK B) — real killing points need permission to bend exactly
    * these, and only at their own song's own killing-point location: a
@@ -420,19 +424,38 @@ const KR_IDOL_MALE_AUDIENCE_PROFILE: AudienceProfile = {
     'short repeated hook-forward structure',
     'high-energy performance-ready mix'
   ],
+  // 지시문 50 (TASK B-4②) — 실측: 'slow ballad pacing'이 exclusions/
+  // hardExclusions에 있고 tempoFloor가 92였던 것이 dawn-confession
+  // 채널(이 지시문 이전부터 preferredGenres에 kridol-emotional-ballad
+  // [68-86]를 갖고 있었다)의 발라드 장르를 조용히 92+로 밀어올리는
+  // 선행 결함이었다 — 하루가 지적한 "BPM이 전체적으로 빠르다"의 실제
+  // 원인 중 하나. 발라드를 의도적으로 넣기로 한 이상 이 배제 문구는
+  // 그 결정과 직접 모순되므로 제거한다.
   exclusions: [
-    'slow ballad pacing',
     'vintage tape saturation',
     'nostalgic senior-radio announcer tone',
     'understated subdued vocal delivery'
   ],
-  tempoFloor: 92,
-  tempoCeiling: 138,
+  // 지시문 50 (TASK B-4②) — kridol-emotional-ballad의 실제 tempoRange
+  // 하한(68)까지 열어야 그 장르가 진짜 68-86 BPM으로 나온다. 92로
+  // 고정돼 있으면 그 장르를 선택해도 조용히 92+로 밀려 올라간다(실측:
+  // §위 exclusions 주석 참고).
+  tempoFloor: 68,
+  // 지시문 43 (TASK A-2) — 138에서 150으로 상향. 실측(20260810 K-pop 세트,
+  // BPM 95~138 중앙 112)이 tempoCeiling 100(시니어 값)에 눌린 결과가
+  // 아님을 확인했다(원래도 138이었다) — 진짜 원인은 tempoBandsForProfile이
+  // kr-idol을 위한 전용 배분 없이 generateTempoBands(92,138,4)의 등폭 4대역
+  // 균등 배분을 썼던 것(§A-1 KR_IDOL_TEMPO_BANDS 신설로 수정). 상한 자체도
+  // 하루의 "K-pop 고에너지 곡" 요구(§A-1 141-150 1곡 이상)를 담으려면 150까지
+  // 필요해 함께 올린다. verified: false — 장르 관행 추정치.
+  tempoCeiling: 150,
   lyricWordRange: [140, 210],
-  songLengthSecondsRange: [165, 205],
+  // 지시문 40 (TASK C-3) — [165,205](2:45-3:25)에서 하루의 새 요구인
+  // 2:30-3:10으로 하향. K-pop(kr-idol-*)은 112 BPM대의 짧고 훅 중심적인
+  // 곡으로, 시니어보다 명확히 더 짧은 목표 길이를 갖는다.
+  songLengthSecondsRange: [150, 190],
   relaxableAtPeak: [],
   hardExclusions: [
-    'slow ballad pacing',
     'vintage tape saturation',
     'nostalgic senior-radio announcer tone',
     'understated subdued vocal delivery'
@@ -467,19 +490,24 @@ const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
     'short repeated hook-forward structure',
     'high-energy performance-ready mix'
   ],
+  // 지시문 50 (TASK B-4②) — KR_IDOL_MALE_AUDIENCE_PROFILE과 같은 이유
+  // (§그쪽 doc comment 참고): 'slow ballad pacing' 제거, tempoFloor
+  // 92→68.
   exclusions: [
-    'slow ballad pacing',
     'vintage tape saturation',
     'nostalgic senior-radio announcer tone',
     'understated subdued vocal delivery'
   ],
-  tempoFloor: 92,
-  tempoCeiling: 138,
+  tempoFloor: 68,
+  // 지시문 43 (TASK A-2) — KR_IDOL_MALE_AUDIENCE_PROFILE과 같은 이유로 상향(138→150).
+  tempoCeiling: 150,
   lyricWordRange: [140, 210],
-  songLengthSecondsRange: [165, 205],
+  // 지시문 40 (TASK C-3) — [165,205](2:45-3:25)에서 하루의 새 요구인
+  // 2:30-3:10으로 하향. K-pop(kr-idol-*)은 112 BPM대의 짧고 훅 중심적인
+  // 곡으로, 시니어보다 명확히 더 짧은 목표 길이를 갖는다.
+  songLengthSecondsRange: [150, 190],
   relaxableAtPeak: [],
   hardExclusions: [
-    'slow ballad pacing',
     'vintage tape saturation',
     'nostalgic senior-radio announcer tone',
     'understated subdued vocal delivery'
@@ -776,11 +804,52 @@ export interface TempoBand {
 // (§4-2 completion table). Range width (62~100 = 38) still clears the
 // BREADTH_THRESHOLDS stddev/range floor, so §2-3's "표준편차 기준을 낮추지
 // 말 것" holds without any threshold change.
+// 지시문 40 (TASK D) — 6·6·3·0(95-100 실질 제거)을 실제 파이프라인에 넣어
+// 시도했으나, 이 표의 "값"을 순서·타이브레이킹 기준으로 재사용하는 여러
+// 독립 로직(arcPlan.ts의 reorderByArcIntensity, songRole 배정, local/bridge
+// 머니코드 병렬 배정)이 4번째 대역이 비면서 실제로 깨지는 것을 실측으로
+// 확인했다 — BPM 범위 관문(bpm-range) 실패, local↔bridge 머니코드 불일치,
+// arrangementDensity 3연속(2연속 상한 위반), emotional-center 역할 누락
+// 4가지 모두 6·6·3·0에서만 재현되고 4·6·5·3으로 되돌리면 사라짐(격리
+// 확인 완료). 하루의 판단으로 TASK D는 철회 — 4·6·5·3 유지, A/B/C만 확정.
+// 재시도하려면 위 4개 하위 시스템의 tempo-band-값-의존을 먼저 근본적으로
+// 고쳐야 한다(단순 값 교체로는 안전하지 않음).
 export const SENIOR_TEMPO_BANDS: TempoBand[] = [
   { low: 62, high: 72, shareOf18: 4 },
   { low: 73, high: 84, shareOf18: 6 },
   { low: 85, high: 94, shareOf18: 5 },
   { low: 95, high: 100, shareOf18: 3 }
+];
+
+/**
+ * 지시문 43 (TASK A-1) — kr-idol 실측(20260810 세트, BPM 95~138 중앙 112)이
+ * generateTempoBands(92,150,4)의 등폭·등비중 배분을 그대로 썼기 때문임을
+ * 확인했다(§A-2 tempoCeiling 확인 결과, 원인은 상한이 아니라 이 배분 자체).
+ * 하루의 후보 표(§A-1 "100-115:3·116-128:6·129-140:5·141-150:1, 15곡
+ * 기준·중앙 126")를 18곡 기준으로 스케일(×1.2)해 그대로 옮긴다.
+ *
+ * 지시문 50 (TASK B-4②) — 하루: "K-pop이 BPM이 전체적으로 빠르니까 붕 뜬
+ * 느낌이야... 15곡이면 중간에 3~4곡은 발라드를 넣어도 될 것 같아." 실측:
+ * 이 표가 92 아래를 아예 담지 못해(AudienceProfile.tempoFloor도 92였다 —
+ * §KR_IDOL_MALE_AUDIENCE_PROFILE 참고, 지시문50에서 68로 낮춤) B-4①이
+ * 추가한 kridol-emotional-ballad(68-86)·kridol-midtempo-rnb(88-104)를
+ * 채널에 넣어도 실제 생성된 BPM은 92+로 조용히 밀려 올라갔다 — dawn-
+ * confession 채널은 지시문50 이전부터 emotional-ballad를 갖고 있었으므로
+ * 이건 이 지시문이 만든 결함이 아니라 실측으로 드러난 선행 결함이다.
+ * 68-104(3-4곡)·105-117(2-3곡)·118-150(8-9곡) 목표(§B-4②, 추정치·
+ * verified:false)를 15곡 기준으로 먼저 잡고 18곡 기준으로 ×1.2 스케일했다:
+ *   68-86:1 · 87-104:2 (68-104 합 3) · 105-117:4(→15곡 환산 3) ·
+ *   118-132:6(→15곡 환산 5) · 133-150:5(→15곡 환산 4, 118-150 합 9)
+ * E1~E2 저에너지 곡을 위한 여지(§B-6 distributionOf15 E1 1·E2 3)가 바로 이
+ * 68-104 대역이다. verified: false — 장르 관행 추정치, 다음 세트 청취 후
+ * 조정.
+ */
+export const KR_IDOL_TEMPO_BANDS: TempoBand[] = [
+  { low: 68, high: 86, shareOf18: 1 },
+  { low: 87, high: 104, shareOf18: 2 },
+  { low: 105, high: 117, shareOf18: 4 },
+  { low: 118, high: 132, shareOf18: 6 },
+  { low: 133, high: 150, shareOf18: 5 }
 ];
 
 /**
@@ -807,6 +876,8 @@ export const SENIOR_TEMPO_BANDS: TempoBand[] = [
  */
 export function tempoBandsForProfile(profile: AudienceProfile): TempoBand[] {
   if (profile.id === 'senior') return SENIOR_TEMPO_BANDS;
+  // 지시문 43 (TASK A-1) — kr-idol-male/kr-idol-female 전용 실측 배분.
+  if (profile.id === 'kr-idol-male' || profile.id === 'kr-idol-female') return KR_IDOL_TEMPO_BANDS;
   return generateTempoBands(profile.tempoFloor, profile.tempoCeiling);
 }
 

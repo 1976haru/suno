@@ -24,7 +24,6 @@ import { channelPresets } from '../src/data/presets';
 import { genreLibrary } from '../src/data/genreLibrary';
 import { GENRE_TRAIT_OVERRIDES } from '../src/data/genreTraits';
 import { adultLyricThemes } from '../src/data/lyricThemes';
-import { thumbnailArchetypes } from '../src/data/thumbnailArchetypes';
 import { CONCEPT_KEYWORD_RULES } from '../src/data/conceptKeywords';
 import { getCoreGenreIdsForArchetype } from '../src/data/genreLibrary';
 import { makeOptions, testGenres, testMoods, testSeason } from './fixtures';
@@ -105,6 +104,9 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // 날 발라드 블루스·6/8 슬로우 발라드 5종 신규 배선)한 결과, testGenres
   // 추첨 풀이 넓어지며 세대별 BPM 밴드 분포가 더 고르게 뽑혀 표준편차가
   // 올랐다 — design-gate stddevFloor를 여전히 comfortably 넘는다.
+  // 지시문 40 (TASK D) — 6·6·3·0을 실측 시도했으나 arc 재정렬/songRole 배정/
+  // local-bridge 머니코드 병렬성이 깨지는 실제 회귀 4건이 나와 철회, 원래
+  // 4·6·5·3 유지(SENIOR_TEMPO_BANDS 자신의 doc comment 참고). 11.43은 그대로.
   it('BPM 표준편차 — 11.43 허용 ±0.5', () => {
     const bpms = bp.songs.map(s => s.bpm).filter((b): b is number => typeof b === 'number');
     expect(stddev(bpms)).toBeGreaterThanOrEqual(10.93);
@@ -125,25 +127,35 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
   // 추첨 풀을 넓혀 곡마다 뽑히는 장르 조합이 달라졌다 — min은 짧은 장르
   // 서술이 더 자주 뽑히며 내려가고 avg는 소폭 오르는 등 방향이 일정하지
   // 않은 건 무작위 추첨 풀 확장의 정상적 결과(§9 실측, 추정 아님).
-  it('프롬프트 길이 min/avg/max — 706/818/920 허용 ±20', () => {
+  //
+  // 지시문 65 (TASK A/B) — 706/818/920 -> 725/844/949 (실측 재조정): 전
+  // 장르 367종의 vocal 필드에 genre-family별 창법(technique) 어휘를
+  // 추가하고(TASK A), core/localGenerator.ts의 'vocal' 프롬프트 원자가 그
+  // 창법을 매곡 싣도록 바꿨다(TASK B, v3.80의 era 전용 buildVocalTechniquePlan을
+  // genre 전용으로 교체). 매곡 새 절 하나가 추가돼 min/avg/max 모두 오르는
+  // 건 이 지시문이 의도한 변화의 직접 결과다 — §9 실측, 추정 아님.
+  it('프롬프트 길이 min/avg/max — 725/844/949 허용 ±20', () => {
     const lengths = bp.songs.map(s => s.stylePrompt.length);
     const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(686);
-    expect(Math.min(...lengths)).toBeLessThanOrEqual(726);
-    expect(avg).toBeGreaterThanOrEqual(798);
-    expect(avg).toBeLessThanOrEqual(838);
-    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(900);
-    expect(Math.max(...lengths)).toBeLessThanOrEqual(940);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(705);
+    expect(Math.min(...lengths)).toBeLessThanOrEqual(745);
+    expect(avg).toBeGreaterThanOrEqual(824);
+    expect(avg).toBeLessThanOrEqual(864);
+    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(929);
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(969);
   });
 
   it('고유 제목 18/18', () => {
     expect(new Set(bp.songs.map(s => s.title)).size).toBe(18);
   });
 
-  it('senior-morning 코어 장르 46개', () => {
+  it('senior-morning 코어 장르 49개', () => {
     // 지시문 21 (TASK B) — 40 -> 44 (두왑 분화 2종·밤 샹송·발라드블루스 추가).
     // 지시문 21 (TASK A) — 44 -> 46 (6/8 슬로우 발라드·이탈리안 칸초네 추가).
-    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(46);
+    // 지시문 53 (TASK C-4) — 46 -> 49 (jazz-classic-vocal-lounge·
+    // jazz-swing-crooner-ballroom·jazz-brush-ballad-jazz 등록 — 채널에는
+    // 이미 있었지만 추천 후보 풀에 없어 0회였다).
+    expect(getCoreGenreIdsForArchetype('senior-morning').length).toBe(49);
   });
 
   it('oldpop-lounge 코어 장르 69개', () => {
@@ -152,12 +164,18 @@ describe('시니어 기준선 스냅샷 (TASK G1 §5)', () => {
     expect(getCoreGenreIdsForArchetype('oldpop-lounge').length).toBe(69);
   });
 
-  it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/8', () => {
+  it('showa-cafe / showa-70s / j2000s / city-night 코어 장르 12/4/4/14', () => {
     expect(getCoreGenreIdsForArchetype('showa-cafe').length).toBe(12);
     expect(getCoreGenreIdsForArchetype('showa-70s').length).toBe(4);
     expect(getCoreGenreIdsForArchetype('j2000s').length).toBe(4);
     // 지시문 21 (TASK A) — 7 -> 8 (kr2030-noir-deep-house도 city-night 배선).
-    expect(getCoreGenreIdsForArchetype('city-night').length).toBe(8);
+    // 지시문 51 (TASK A-1) — 8 -> 14: 실측(check:genre-utilization, 활용률
+    // 36%)으로 city-night-drive 채널(preferredGenres 11종)의 city-pop-*
+    // 변형 6종이 core 목록에 없어 recommendConceptLocal 후보 풀에서
+    // 아예 빠져 있던 것을 확인·추가. 이 6종은 archetypes 필드 자체가
+    // 없어(다른 워크스페이스 소유 표시 없음) 워크스페이스 격리 위반이
+    // 아니다(§tests/workspaceDataIsolation.test.ts로 확인).
+    expect(getCoreGenreIdsForArchetype('city-night').length).toBe(14);
   });
 });
 
@@ -177,12 +195,6 @@ describe('기존 id 스냅샷 — 추가는 통과, 삭제·변경은 실패 (TA
   it(`adultLyricThemes 기존 ${snapshot.adultLyricThemeIds.length}개 id 전부 존재`, () => {
     const currentIds = new Set(adultLyricThemes.map(t => t.id));
     const missing = snapshot.adultLyricThemeIds.filter(id => !currentIds.has(id));
-    expect(missing, `사라진 id: ${missing.join(', ')}`).toEqual([]);
-  });
-
-  it(`thumbnailArchetypes 기존 ${snapshot.thumbnailArchetypeIds.length}개 id 전부 존재`, () => {
-    const currentIds = new Set(thumbnailArchetypes.map(a => a.id));
-    const missing = snapshot.thumbnailArchetypeIds.filter(id => !currentIds.has(id));
     expect(missing, `사라진 id: ${missing.join(', ')}`).toEqual([]);
   });
 

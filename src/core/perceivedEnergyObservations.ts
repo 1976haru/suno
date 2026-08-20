@@ -1,5 +1,7 @@
 import type { SongIdea } from '../types';
 import { isEraColorGenreId } from './listeningIntent';
+import { ALL_VOCAL_TECHNIQUE_PHRASES, hasVocalTechniqueWord } from '../data/vocalTechniqueByGenre';
+import { VOCAL_TECHNIQUE_FAMILIES } from '../data/vocalTechniqueFamilies';
 
 /**
  * 지시문 23 TASK A-5 · TASK C · TASK D — "차단 없음. 감사에 표시만 한다."
@@ -126,6 +128,50 @@ export function genreThemePairs(songs: SongIdea[]): GenreThemePair[] {
     .map(s => ({ trackNo: s.trackNo, genreId: s.genreId, lyricTheme: s.lyricTheme }));
 }
 
+/**
+ * 지시문 66 (TASK D-2) — "세트 내 창법 중복"(2종 이하 기준)·"창법이 있는
+ * 곡"(14/15 기준) 감사 관찰. killingPointCoverage와 같은 원칙: pass/fail에
+ * 관여하지 않는 관찰 항목이다(§위 파일 doc comment). withVocalTechniqueWord는
+ * VOCAL_TECHNIQUE_VOCAB 어휘 하나라도 포함하면 세는 느슨한 판정
+ * (checkVocalTechnique.ts와 동일 함수 재사용, §공통규약 "같은 판정 로직을
+ * 두 곳에 두지 않는다"), duplicatedPhraseCount는 이 파일이 아는 전체
+ * phrase 코퍼스(65 FAMILY_POOLS ∪ 66 VOCAL_TECHNIQUE_FAMILIES) 중 이 세트의
+ * stylePrompt에 정확히 2회 이상 등장한 phrase의 종수 — LLM이 부여받은
+ * vocalTechniqueText를 실제로 얼마나 그대로 썼는지(TASK C 효과)의 사후
+ * 측정치다.
+ */
+const ALL_KNOWN_TECHNIQUE_PHRASES: readonly string[] = Array.from(new Set([
+  ...ALL_VOCAL_TECHNIQUE_PHRASES,
+  ...VOCAL_TECHNIQUE_FAMILIES.flatMap(family => family.techniques)
+]));
+
+export interface VocalTechniqueSetObservation {
+  withVocalTechniqueWord: number;
+  total: number;
+  duplicatedPhraseCount: number;
+  duplicatedPhrases: string[];
+}
+
+export function vocalTechniqueSetObservation(songs: SongIdea[]): VocalTechniqueSetObservation {
+  const phraseUsage = new Map<string, number>();
+  for (const song of songs) {
+    const text = (song.stylePrompt ?? '').toLowerCase();
+    if (!text) continue;
+    for (const phrase of ALL_KNOWN_TECHNIQUE_PHRASES) {
+      if (text.includes(phrase.toLowerCase())) {
+        phraseUsage.set(phrase, (phraseUsage.get(phrase) ?? 0) + 1);
+      }
+    }
+  }
+  const duplicatedPhrases = [...phraseUsage.entries()].filter(([, count]) => count > 1).map(([phrase]) => phrase);
+  return {
+    withVocalTechniqueWord: songs.filter(s => hasVocalTechniqueWord(s.stylePrompt ?? '')).length,
+    total: songs.length,
+    duplicatedPhraseCount: duplicatedPhrases.length,
+    duplicatedPhrases
+  };
+}
+
 export interface PerceivedEnergyObservations {
   intensityMismatches: IntensityMismatchEntry[];
   adjacentJumps: EnergyJumpEntry[];
@@ -134,6 +180,7 @@ export interface PerceivedEnergyObservations {
   eraColorTrackCount: number;
   killingPointCoverage: KillingPointCoverage;
   genreThemePairs: GenreThemePair[];
+  vocalTechniqueSetObservation: VocalTechniqueSetObservation;
 }
 
 export function buildPerceivedEnergyObservations(songs: SongIdea[]): PerceivedEnergyObservations {
@@ -144,6 +191,7 @@ export function buildPerceivedEnergyObservations(songs: SongIdea[]): PerceivedEn
     hookWordCountDistribution: hookWordCountDistribution(songs),
     eraColorTrackCount: eraColorTrackCount(songs),
     killingPointCoverage: killingPointCoverage(songs),
-    genreThemePairs: genreThemePairs(songs)
+    genreThemePairs: genreThemePairs(songs),
+    vocalTechniqueSetObservation: vocalTechniqueSetObservation(songs)
   };
 }

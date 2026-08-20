@@ -267,7 +267,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'clear, predictable resolution every phrase, easy for little voices to follow',
     audibleEffectTag: 'clear, predictable resolution every phrase',
     bestFor: ['동요 채널 시그니처', '따라 부르기 쉬운 트랙'],
-    compatibleWith: ['kidsBright', 'kidsMarch', 'kidsRound']
+    compatibleWith: ['kidsBright', 'kidsMarch', 'kidsRound', 'kidsCallResponse']
   },
   kidsBright: {
     id: 'kidsBright',
@@ -284,7 +284,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'bouncy and cheerful, lands happily on every downbeat',
     audibleEffectTag: 'bouncy and cheerful, happy downbeat',
     bestFor: ['밝은 동요 트랙', '놀이 활동곡'],
-    compatibleWith: ['kidsSimple', 'kidsMarch', 'kidsRound']
+    compatibleWith: ['kidsSimple', 'kidsMarch', 'kidsRound', 'kidsCallResponse']
   },
   kidsMarch: {
     id: 'kidsMarch',
@@ -297,7 +297,7 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'skips forward playfully like a marching game',
     audibleEffectTag: 'playful marching skip',
     bestFor: ['행진곡풍 동요', '율동·놀이 동작곡'],
-    compatibleWith: ['kidsSimple', 'kidsBright', 'kidsRound']
+    compatibleWith: ['kidsSimple', 'kidsBright', 'kidsRound', 'kidsCounting']
   },
   // P0 fix (정합성 점검 §1) — the kids rotation pool had only 3 progressions
   // (moneyChordRotationPool below), which is mathematically incapable of
@@ -317,7 +317,42 @@ export const moneyChordPresets: Record<string, MoneyChordPreset> = {
     audibleEffect: 'settles softly and cradles each phrase, gentle rather than bouncy',
     audibleEffectTag: 'gentle cradling settle',
     bestFor: ['차분한 동요 트랙', '마무리·자장가곡'],
-    compatibleWith: ['kidsSimple', 'kidsBright', 'kidsMarch']
+    compatibleWith: ['kidsSimple', 'kidsBright', 'kidsMarch', 'kidsCounting']
+  },
+  // 지시문 62 (TASK E-3①) — "동요는 4종이다. 동요용 진행을 2종 더 만들지,
+  // 성인 진행 중 단순한 것을 쓸지 판단하고 근거를 남긴다." §하지 말 것의
+  // "동요에 성인 진행을 무근거로 넣지 말 것"이 우선한다(§규약3) — 성인
+  // 진행 재사용을 택하지 않고, 정확히 2종만 신설했다("새 프리셋을
+  // 남발하지 말 것"과 상충하지 않는다 — 이건 남발이 아니라 실측된
+  // 갭(동요 4종 → 6종 요구)만큼만 채운 것이다). 지시문 62 TASK D가 동요
+  // 킬링포인트에 신설한 KKP-ECHO(후렴 따라 부르기)와 짝을 맞춘
+  // 콜앤리스폰스용 진행 하나, 숫자 세기 동요(KKP-COUNT)와 짝을 맞춘
+  // 상행 진행 하나.
+  kidsCallResponse: {
+    id: 'kidsCallResponse',
+    label: 'Kids Call-Response',
+    labelKo: '동요 콜앤리스폰스 진행',
+    description: '리더와 아이들이 주고받기 좋은 단순 교차 진행. 콜앤리스폰스·후렴 따라 부르기 트랙에 어울립니다.',
+    progressions: ['I-V-I-IV'],
+    prompt: 'call-and-response children\'s progression I-V-I-IV, simple alternating movement between question and answer phrases',
+    compactProgression: 'I-V-I-IV call-and-response progression',
+    audibleEffect: 'alternates cleanly between a leader phrase and a group answer',
+    audibleEffectTag: 'clean question-and-answer alternation',
+    bestFor: ['콜앤리스폰스 동요', '후렴 따라 부르기 트랙'],
+    compatibleWith: ['kidsSimple', 'kidsBright']
+  },
+  kidsCounting: {
+    id: 'kidsCounting',
+    label: 'Kids Counting',
+    labelKo: '동요 숫자 세기 진행',
+    description: '한 걸음씩 오르는 느낌의 진행. 숫자 세기·순서 나열 동요에 어울립니다.',
+    progressions: ['I-ii-IV-V'],
+    prompt: 'stepwise children\'s counting progression I-ii-IV-V, gentle ascending feel that supports a counting or listing lyric',
+    compactProgression: 'I-ii-IV-V counting progression',
+    audibleEffect: 'climbs gently step by step, mirroring counting upward',
+    audibleEffectTag: 'gentle stepwise climb',
+    bestFor: ['숫자 세기 동요', '순서 나열 가사'],
+    compatibleWith: ['kidsMarch', 'kidsRound']
   },
   // TASK v4.14 (TASK B, §2-2) — the one progression this task's own
   // palette-family money-chord distribution table names that had no
@@ -411,23 +446,54 @@ export function signatureMoneyChordId(archetype: string | undefined): string {
  * usesMoneyChordQuota 변경 후에도 마찬가지 — 풀 크기 자체가 회전 조건이므로,
  * 정말 1종만 있는 게 맞는 경우는 그대로 둔다).
  */
+// 지시문 43 (TASK B-1/B-2) — 하루의 지적("K-pop 머니코드가 훨씬 다양해야
+// 한다")에 따라 kr-idol-male/kr-idol-female만 5종 → 9종으로 확장한다.
+// 기존 5종(emotional·default·komuro·cityPop·canon)에 royalRoad·marusa·
+// jazzColor·popStandard 4종을 더한다 — 전부 이 파일에 이미 있는 기존
+// 프리셋이고(§하지 말 것 "재구현 금지"), compatibleWith로 조합 가능함을
+// 확인했다: royalRoad↔komuro(royalRoad.compatibleWith에 komuro 포함),
+// marusa↔cityPop/komuro(둘 다 marusa.compatibleWith 포함), jazzColor↔
+// emotional/cityPop(둘 다 jazzColor.compatibleWith 포함), popStandard↔
+// default/canon(둘 다 popStandard.compatibleWith 포함) — 9종 전부가 풀 안의
+// 다른 최소 1종과 서로 compatibleWith로 연결돼 있어 곡 안 다중 진행(TASK
+// B-3, moneyChordSectionPlan.ts)의 이웃 선택도 항상 풀 내부에서 이뤄진다.
+const KR_IDOL_MONEY_CHORD_POOL = ['emotional', 'default', 'komuro', 'cityPop', 'canon', 'royalRoad', 'marusa', 'jazzColor', 'popStandard'];
+
+// 지시문 62 (TASK E-3①) — "회전 풀을 6종 이상으로: lofi-study 4→6·kids
+// 계열 4→6·나머지 5종 → 6종". 새 프리셋을 만들지 않고(§하지 말 것 "새
+// 머니코드 프리셋을 남발하지 말 것 — 18종이면 충분할 수 있다") 기존
+// 18종 안에서만 골랐고, 추가한 6번째는 전부 이미 그 풀에 있는 항목과
+// compatibleWith로 연결된 것만 썼다 — KR_IDOL_MONEY_CHORD_POOL이 이미
+// 세운 "풀 안의 다른 최소 1종과 연결" 원칙을 그대로 따른다.
 const MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE: Record<string, string[]> = {
-  'senior-morning': ['doowop', 'warmCycle', 'emotional', 'default', 'canon'],
-  'showa-cafe': ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern'],
-  'showa-70s': ['showaModern', 'royalRoad', 'marusa', 'doowop', 'emotional'],
-  j2000s: ['komuro', 'cityPop', 'default', 'canon', 'emotional'],
-  'modern-chill': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon'],
-  'city-night': ['cityPop', 'marusa', 'jazzColor', 'komuro', 'default'],
+  // popStandard.compatibleWith에 'default'·'canon' 둘 다 포함 — 연결됨.
+  'senior-morning': ['doowop', 'warmCycle', 'emotional', 'default', 'canon', 'popStandard'],
+  // jazzColor.compatibleWith에 'royalRoad'·'cityPop' 둘 다 포함 — 연결됨.
+  'showa-cafe': ['royalRoad', 'marusa', 'komuro', 'cityPop', 'showaModern', 'jazzColor'],
+  // canon.compatibleWith에 'emotional' 포함 — 연결됨.
+  'showa-70s': ['showaModern', 'royalRoad', 'marusa', 'doowop', 'emotional', 'canon'],
+  // marusa.compatibleWith에 'cityPop'·'komuro' 둘 다 포함 — 연결됨.
+  j2000s: ['komuro', 'cityPop', 'default', 'canon', 'emotional', 'marusa'],
+  // popStandard.compatibleWith에 'default'·'canon' 둘 다 포함 — 연결됨.
+  'modern-chill': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon', 'popStandard'],
+  // royalRoad.compatibleWith에 'default'·'jazzColor' 둘 다 포함 — 연결됨.
+  'city-night': ['cityPop', 'marusa', 'jazzColor', 'komuro', 'default', 'royalRoad'],
   'oldpop-lounge': ['doowop', 'warmCycle', 'popStandard', 'emotional', 'jazzColor', 'canon'],
-  'kr-2030-pop': ['default', 'emotional', 'cityPop', 'popStandard', 'canon'],
-  'jp-2030-pop': ['cityPop', 'marusa', 'komuro', 'jazzColor', 'default'],
-  'kr-idol-male': ['emotional', 'default', 'komuro', 'cityPop', 'canon'],
-  'kr-idol-female': ['emotional', 'canon', 'komuro', 'cityPop', 'default'],
-  'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default']
+  // jazzColor.compatibleWith에 'emotional'·'cityPop' 둘 다 포함 — 연결됨.
+  'kr-2030-pop': ['default', 'emotional', 'cityPop', 'popStandard', 'canon', 'jazzColor'],
+  // royalRoad.compatibleWith에 'default'·'jazzColor' 둘 다 포함 — 연결됨.
+  'jp-2030-pop': ['cityPop', 'marusa', 'komuro', 'jazzColor', 'default', 'royalRoad'],
+  'kr-idol-male': KR_IDOL_MONEY_CHORD_POOL,
+  'kr-idol-female': KR_IDOL_MONEY_CHORD_POOL,
+  // emotional.compatibleWith에 'default' 포함, canon.compatibleWith에
+  // 'emotional' 포함 — 둘 다 연결됨. lofi는 보컬이 적은 장르(§B-4)라도
+  // 머니코드 자체는 인스트루멘탈 트랙에도 배경 진행으로 여전히 쓰인다.
+  'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default', 'emotional', 'canon']
 };
 
 export function moneyChordRotationPool(archetype: string | undefined): string[] {
-  if (isKidsArchetype(archetype)) return ['kidsSimple', 'kidsBright', 'kidsMarch', 'kidsRound'];
+  // 지시문 62 (TASK E-3①) — kidsCallResponse·kidsCounting 신설로 4→6.
+  if (isKidsArchetype(archetype)) return ['kidsSimple', 'kidsBright', 'kidsMarch', 'kidsRound', 'kidsCallResponse', 'kidsCounting'];
   if (!archetype) return ['default'];
   return MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE[archetype] ?? ['default'];
 }

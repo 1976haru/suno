@@ -153,6 +153,9 @@ export type DistinctChoiceRuleId =
   | 'HOOK_LAST_WORD_SHIFT'
   | 'SINGLE_CHORUS'
   | 'CALL_AND_RESPONSE'
+  // 지시문 37 (TASK C-2) — K-pop singability: 챈트형 훅 존재 · 훅 4회 이상 반복
+  | 'CHANT_HOOK'
+  | 'HOOK_REPEAT_4X'
   // ② stylePrompt 자기모순만 검증 가능
   | 'NO_INTRO'
   | 'KEY_LIFT'
@@ -797,6 +800,17 @@ export interface GenerationOptions {
   customMoneyChord: string;
   customConcept: string;
   /**
+   * 지시문 54 (TASK A-2) — 하루: "썸네일이나 플레이리스트 입력하는 곳이
+   * 있으면 거기서 입력하면 노래 제목이 자동으로 연동되어 생성되어야지."
+   * projectTitle을 재사용하지 않고 신설한다 — projectTitle은 파일명·캐시
+   * 키·배치 작업 이름에 이미 쓰이고 있어(bridgeInstruction.ts's
+   * defaultBridgeOutputPath 등) 의미가 겹치고, 특수문자·이모지가 들어간
+   * 영상 제목이 파일명을 깨뜨릴 위험이 있다. customConcept(곡의 장면·
+   * 내용)과는 다른 층 — 이건 "곡 제목의 정서"만 정한다. 선택 사항 —
+   * 비워두면 지금과 동일하게 동작한다(§A-1/§하지 말 것).
+   */
+  videoTitle?: string;
+  /**
    * 지시문 10 (TASK A-2) — computed once by core/eraIntent.ts's
    * deriveEraIntent (customConcept text, reusing core/constraints.ts's
    * extractEraConstraint) and stored here so every downstream reader (genre
@@ -915,6 +929,34 @@ export interface GenerationOptions {
    * applies its ratio at any song count.
    */
   vocalQuota?: { male: number; female: number; mixed: number };
+  /**
+   * 지시문 63 (TASK A) — opts.vocalQuota(직접 지정)와 channel.vocalQuotaOverride(채널
+   * 고정)가 둘 다 없을 때, 남은 두 선택지("장르에 맞춰 배정" 기본 vs "고르게
+   * 배정") 중 어느 쪽인지. undefined(또는 'genre')는 core/vocalQuotaFromGenre.ts의
+   * deriveVocalQuotaFromGenrePlan이 이 팩의 실제 genrePlan에서 역산한 쿼터를
+   * 쓴다는 뜻 — 지시문 62까지의 균등 5·5·5 고정 기본값을 대체하는 새 기본값이다.
+   * 'balanced'는 그 역산을 끄고 예전 DEFAULT_ADULT_VOCAL_QUOTA/DEFAULT_KIDS_VOCAL_QUOTA
+   * 균등 비율로 되돌린다 — "고르게 배정" 선택지를 없애지 말 것(§하지 말 것)에
+   * 따라 남겨둔 명시적 옵트아웃.
+   */
+  vocalQuotaMode?: 'genre' | 'balanced';
+  /**
+   * 지시문 46 (TASK D, 지시문 45 TASK C 미반영분) — core/vocalRecommender.ts's
+   * recommendVocalPlan이 Step2Concept.tsx 화면에 보여주는 곡별 프리셋
+   * 추천이 실측 결과 실제 생성에 전혀 닿지 않았다("추천이 화면에만 있고
+   * 슬롯에 전달되지 않는다" — opts.vocalTone 하나로만 전체 팩이 생성됨).
+   * data/vocalPresets.ts id의 배열, songCount와 같은 길이·곡 순서 대응.
+   * 있으면 core/batchPreallocation.ts/core/localGenerator.ts가 그 트랙의
+   * vocalType(quota로 이미 정해진 성별/듀엣 축)과 실제로 맞는 인덱스에서만
+   * 그 프리셋의 prompt 텍스트를 그 트랙의 vocalText로 쓴다 — quota 자체는
+   * 절대 바꾸지 않는다(성별/듀엣 배분은 이미 확정된 축, 이 필드는 그 위에
+   * "어떤 구체적 프리셋을 쓸지"만 얹는다, vocalRecommender.ts의 기존
+   * 설계 원칙 그대로). 길이가 안 맞거나 특정 인덱스의 프리셋 성별이 그
+   * 트랙의 vocalType과 안 맞으면 그 인덱스만 조용히 기존 폴백(opts.vocalTone
+   * 매칭·adultVocalTraitPlan 합성)으로 돌아간다 — 방어적, 절대 곡을 잃지
+   * 않는다. undefined(기존 모든 호출부)면 완전히 기존 동작 그대로.
+   */
+  vocalPresetPlan?: string[];
   /**
    * v4.1 (TASK A) — user override for core/constraints.ts's
    * detectConceptBreadth auto-detection (Step2Plan.tsx's "이 세트의 성격" radio).
@@ -1228,8 +1270,6 @@ export interface SongIdea {
   /** TASK v3.23 — the app no longer asks the API for this (user makes thumbnails externally); optional so old saved packs that still have it keep rendering/exporting fine. */
   thumbnailText?: string;
   youtube: YoutubeMetadata;
-  youtubeTitleKo?: string;
-  youtubeTitleJa?: string;
   /**
    * v4.3 (TASK A) — packaging-language song title: a non-literal
    * reinterpretation of `title`'s scene/emotion in the pack's own
@@ -1281,6 +1321,26 @@ export interface SongIdea {
   openingStyle?: 'hook-forward' | 'hum-intro';
   /** TASK v3.38 Part B — which vocal type this song was assigned by core/vocalPlan.ts's per-song quota plan; only set for the 'kids' channel archetype. */
   vocalType?: 'male' | 'female' | 'mixed';
+  /**
+   * 지시문 56 (TASK A-4/B-3) — PreassignedSongSlot.vocalText/vocalVariantText/
+   * vocalGender(그 필드들 자기 doc comment 참고)와 동일한 값. 이 세 필드는
+   * 지금까지 슬롯에만 있었고 reconcileWithPreassignedSlot/generateLocalBlueprint
+   * 어느 쪽도 SongIdea로 복사하지 않아, 실제 stylePrompt/lyrics에는 반영됐지만
+   * 최종 팩 JSON에는 남지 않는 결함이 있었다(지시문 26의 killingPointText와
+   * 같은 유형 — 실측: 발라드 세트 15/15 vocalText='').
+   */
+  vocalText?: string;
+  vocalVariantText?: string;
+  vocalGender?: 'male' | 'female' | 'mixed' | 'duet';
+  /**
+   * 지시문 66 (TASK C) — vocalText 안에 이미 곡별 창법 구절이 얹혀 있지만
+   * (core/vocalPlan.ts buildVocalTechniquePlanByGenre), bridgeInstruction.ts의
+   * vocalInstructionLineFor는 vocalText의 구절 중 2-3개만 골라 쓰고 나머지는
+   * 패러프레이즈해도 된다고 허용한다 — 창법 구절이 통째로 빠지거나 다른
+   * 문구로 바뀌는 사례가 실측됐다. moneyChordText/hookDeviceText와 같은
+   * verbatim-weave 신뢰 모델로 이 구절만 별도로 전달한다.
+   */
+  vocalTechniqueText?: string;
   /** v3.47 Step 3: planned lyric theme id, mainly for allocation preview/auditing. */
   lyricTheme?: string;
   /** v3.49A: planned lead genre id for this track. */
@@ -1345,7 +1405,7 @@ export interface SongIdea {
    */
   killingPointText?: string;
   /** 지시문 26 (TASK A) — killingPointText 모먼트가 곡 안 어디에 오는지. PreassignedSongSlot.killingPointPlacement와 동일한 값 집합. */
-  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response' | 'intro';
   /** v3.68 (TASK B) — this track's killing point id (see data/killingPoints.ts), when the arc gave it one (peakStrength other than 'none' — see core/arcPlan.ts). */
   killingPointId?: string;
   /** v3.68 (TASK B) — this track's arc phase (see core/arcPlan.ts). */
@@ -1382,6 +1442,21 @@ export interface SongIdea {
    * 봐서는 "이 트랙에 어떤 진행이 배정됐는지" 확인할 방법이 없었다.
    */
   moneyChordText?: string;
+  /** 지시문 39 (TASK B) — 슬롯 소유 스냅샷 필드. PreassignedSongSlot.moneyChordSectionMap과 같은 값(이 곡이 2~3개 진행을 쓸 때만 존재). */
+  moneyChordSectionMap?: MoneyChordSectionAssignment[];
+  /** 지시문 39 (TASK B) — 슬롯 소유 스냅샷 필드. PreassignedSongSlot.moneyChordSectionText와 같은 값. */
+  moneyChordSectionText?: string;
+  /**
+   * 지시문 37 (TASK A-5) — 팩 JSON에 이 필드가 없으면 지시문 26의 킬링포인트와
+   * 같은 결함(슬롯에는 있는데 최종 SongIdea/저장된 팩에는 없음)을 반복하는
+   * 것이다. 파트 계획은 앱이 배정한 값이며 LLM이 창작하지 않는다 —
+   * reconcileWithPreassignedSlot이 PreassignedSongSlot.partPlan을 그대로
+   * 복사해 여기 남긴다(moneyChordText/hookDeviceText와 같은 슬롯-소유
+   * 스냅샷 모델).
+   */
+  partPlan?: KpopPartPlan;
+  /** 지시문 37 (TASK B) — 슬롯 소유 스냅샷 필드. PreassignedSongSlot.sectionStyleShifts와 같은 값. */
+  sectionStyleShifts?: SectionStyleShift[];
   /** v3.68 (TASK B) — this track's rotating earworm melodic-design phrase, when earwormMode was on (see core/promptComposer.ts's EARWORM_STYLE_VARIANTS). */
   earwormText?: string;
   /** v3.68 (TASK B) — which lyric scene frame this track's lyricTheme belongs to (see data/lyricThemes.ts's LyricTheme.frameId; PreassignedSongSlot already carried this — see v3.64 TASK A — SongIdea didn't until now), snapshotted for rating analysis. */
@@ -1438,6 +1513,25 @@ export interface SongIdea {
    * never silently skipped.
    */
   effectiveVocalPresetId?: string;
+  /**
+   * 지시문 49 (TASK A) — which mechanism resolved effectiveVocalPresetId
+   * for this track, so an outside measurement (e.g. is
+   * opts.vocalPresetPlan's per-track recommendation actually reaching the
+   * slot, or is it being silently discarded to a pack-wide/generic
+   * fallback) doesn't require re-deriving core/batchPreallocation.ts's own
+   * internal branching. 'plan' — opts.vocalPresetPlan[idx] resolved via
+   * core/batchPreallocation.ts's resolveVocalPresetOverride. 'tone-match' —
+   * no per-track plan applied; fell back to the whole-pack
+   * matchVocalPreset(opts.vocalTone) match (same value on every track).
+   * 'auto' — neither matched; effectiveVocalPresetId is undefined and the
+   * vocal wording came from the procedural blend
+   * (buildAdultVocalTraitPlan/kidsVocalTextFor). Always populated when
+   * this track has a resolved vocalType at all (mirrors
+   * effectiveVocalPresetId's own "always attempted" guarantee) —
+   * undefined only for the rare fallback-vocal-text case with no
+   * vocalType at all.
+   */
+  vocalPresetSource?: 'plan' | 'tone-match' | 'auto';
   /**
    * v5.11 (TASK L) — this track's actual assigned genre id(s) (from
    * core/genreRotation.ts's genresForTrack, usually length 1, length 2 for
@@ -1610,6 +1704,15 @@ export interface PlaylistBlueprint {
      * 남기지 않는다(§C-2 "응답에 없으면 앱이 생성 시점의 값을 채운다").
      */
     bridgeVersion?: string;
+    /**
+     * 지시문 55 (TASK A) — bridgeVersion과 같은 신뢰 모델: 브릿지 응답에
+     * meta.videoTitle이 실려 오면 그대로, 없으면(구형 응답, LLM이 meta를
+     * 생략함) 가져오기 시점의 opts.videoTitle로 채운다 — "앱이 아는 값은
+     * 앱이 채운다"(§A-2, 지시문 26의 킬링포인트 전례와 같은 원칙). 둘 다
+     * 비어 있으면 undefined로 남는다(§A-4 "videoTitle 없을 때 meta 변화
+     * 0건").
+     */
+    videoTitle?: string;
   };
   /**
    * TASK (post-generation operation snapshot) — see GenerationSnapshot's own
@@ -1664,6 +1767,71 @@ export interface PlaylistIdentity {
   lyricRules: string[];
   harmonyRules: string[];
   visualRules: string[];
+}
+
+/**
+ * 지시문 37 (TASK A-1) — K-pop 곡의 섹션별 멤버 파트 배분. core/kpopPartPlan.ts's
+ * buildKpopPartPlan이 채널 정책(core/kpopWorkspacePolicy.ts's groupGender/
+ * memberCountRange)과 이 트랙의 vocalGender/structureTemplate로부터 생성한다.
+ */
+export type KpopPartRole =
+  | 'main-vocal' | 'lead-vocal' | 'sub-vocal'
+  | 'main-rapper' | 'lead-rapper'
+  | 'all' | 'ad-lib';
+
+export interface KpopMemberSlot {
+  /** 'A' | 'B' | 'C' ... */
+  memberId: string;
+  role: KpopPartRole;
+  gender: 'male' | 'female';
+  /**
+   * 지시문 52 (TASK A-1) — 이 멤버의 음색·창법. data/kpopMemberTimbres.ts's
+   * assignMemberTimbres가 role별 후보에서 골라, 같은 곡의 다른 멤버와는
+   * 겹치지 않는 timbreId를 배정한다(§A-3). 26종 보컬 프리셋(곡 단위)과는
+   * 다른 층 — 이건 "곡 안에서 멤버마다 다르다".
+   */
+  timbreId: string;
+  /** "bright thin tenor, clear forward attack" 형태 — lyric tag/stylePrompt에 그대로 얹는다. */
+  timbreText: string;
+}
+
+/**
+ * 지시문 37 (TASK B-2) — 곡 안 섹션별 스타일 전환. core/kpopSectionStyleShiftPlan.ts's
+ * buildSectionStyleShiftPlan이 채널 정책(data/sectionStyleShifts.ts)에서
+ * 생성한다. data/promptAxisLexicon.ts's SECTION_SCOPED_LABEL_PATTERN이 이
+ * `section` 라벨을 인식해 finalPromptNormalizer의 단일 선언 축 중복 제거가
+ * 서로 다른 섹션의 styleAtoms를 오판해 지우지 않게 한다.
+ */
+export interface SectionStyleShift {
+  /** 'Verse' · 'Chorus' · 'Bridge' 등 — promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN이 인식하는 라벨과 일치해야 한다. */
+  section: string;
+  styleAtoms: string[];
+}
+
+/**
+ * 지시문 39 (TASK B) — "머니코드가 노래당 꼭 하나가 아니라 2~3개 있어도
+ * 되지 않아?" core/moneyChordSectionPlan.ts's buildMoneyChordSectionPlan이
+ * 기존 progressionPlan(단일 주 진행, 절대 안 바뀜) 위에 얹는 추가 레이어 —
+ * SectionStyleShift와 완전히 같은 신뢰 모델(앱이 한 번 계산해 슬롯에
+ * 싣고, 브릿지가 verbatim weave)이며 같은 SECTION_SCOPED_LABEL_PATTERN을
+ * 재사용한다(새 프롬프트 축을 만들지 않는다 — harmony 축 그대로).
+ */
+export interface MoneyChordSectionAssignment {
+  /** 'Verse' · 'Chorus' · 'Bridge' — promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN과 일치해야 한다. */
+  section: string;
+  chordId: string;
+}
+
+export interface KpopPartPlan {
+  /** 4~7명 — 채널 정책 필드(core/kpopWorkspacePolicy.ts's memberCountRange). 실제 아이돌 그룹 규모이며 추정치가 아니다. */
+  memberCount: number;
+  members: KpopMemberSlot[];
+  /** 섹션별 파트 배정. */
+  sectionAssignments: {
+    section: string;
+    memberIds: string[];
+    role: KpopPartRole;
+  }[];
 }
 
 /**
@@ -1747,6 +1915,34 @@ export interface PreassignedSongSlot {
    * boilerplate it replaces was never archetype-specific either.
    */
   hookDeviceText?: string;
+  /** 지시문 66 (TASK C) — SongIdea.vocalTechniqueText와 동일한 필드. reconcileWithPreassignedSlot이 그대로 복사한다. */
+  vocalTechniqueText?: string;
+  /**
+   * 지시문 37 (TASK A) — 하루 지적: K-pop 곡에 보컬 파트 배분이 전혀 없다
+   * ("[Verse 1]"만 있고 "[Verse 1: Member A]"가 없다 — 아이돌 그룹인데 한
+   * 사람이 부르는 것처럼 보인다). moneyChordText/hookDeviceText와 같은
+   * 신뢰 모델: 앱이 이 트랙의 파트 계획을 한 번 계산해 슬롯에 싣고,
+   * bridgeInstruction이 이를 그대로(verbatim) 지시문에 전달한다 — LLM이
+   * 스스로 파트를 창작하지 않는다. kr-idol-male/kr-idol-female에서만
+   * 설정된다(core/kpopPartPlan.ts). 지시문 26의 킬링포인트가 슬롯에는
+   * 있었지만 최종 SongIdea/팩 JSON에 남지 않았던 결함을 반복하지 않도록
+   * reconcileWithPreassignedSlot 양쪽 경로 모두에서 SongIdea.partPlan으로
+   * 복사된다.
+   */
+  partPlan?: KpopPartPlan;
+  /**
+   * 지시문 37 (TASK B) — 하루 지적: K-pop은 한 곡 안에서 절은 R&B, 후렴은
+   * EDM, 브릿지는 랩처럼 섹션마다 장르/편곡이 바뀌는데 지금은 곡당 한
+   * 장르로 고정돼 있다. moneyChordText와 같은 신뢰 모델: 앱이 이 트랙의
+   * 섹션별 전환 계획을 한 번 계산해 슬롯에 싣고, 브릿지 지시문이 verbatim
+   * weave하도록 전달한다("Section: style atoms" 형태 유지 — 라벨이
+   * promptAxisLexicon의 SECTION_SCOPED_LABEL_PATTERN이 축 중복 오판을
+   * 피하는 근거이기 때문). 2~3개 섹션만 전환한다(data/sectionStyleShifts.ts,
+   * verified:false 정책 필드 — 너무 많으면 산만해진다).
+   */
+  sectionStyleShifts?: SectionStyleShift[];
+  /** sectionStyleShifts를 "Section: atom, atom" 형태로 이미 합친 텍스트 — bridgeInstruction이 verbatim weave 지시에 쓴다. */
+  sectionStyleShiftText?: string;
   /**
    * 지시문 36 (TASK C) — this trackNo's resolved verse/chorus arrangement-
    * contrast plan (see data/chorusContrast.ts's ChorusContrastPlan / this
@@ -1885,8 +2081,26 @@ export interface PreassignedSongSlot {
   introTextureId?: string;
   /** v5.11 (TASK L) — always-resolved counterpart to moneyChordId above (never undefined outside quota rotation); see SongIdea.effectiveMoneyChordId's own doc comment. Copied verbatim onto the final SongIdea by core/batchPreallocation.ts's reconcileWithPreassignedSlot. */
   effectiveMoneyChordId: string;
-  /** v5.11 (TASK L) — mirrors SongIdea.effectiveVocalPresetId's own doc comment; whole-pack-resolved (same value on every slot), not per-track. */
+  /**
+   * 지시문 39 (TASK B) — 이 트랙이 곡 안에서 2~3개 진행을 쓸 때만 존재
+   * (1개면 undefined — moneyChordId/moneyChordText만으로 이미 충분하다).
+   * moneyChordSectionMap[0]의 chordId는 항상 moneyChordId와 같다(주
+   * 진행은 바뀌지 않는다 — 이 필드는 순수 추가 레이어).
+   */
+  moneyChordSectionMap?: MoneyChordSectionAssignment[];
+  /** moneyChordSectionMap을 "Section: progression" verbatim 텍스트로 합친 것 — bridgeInstruction이 verbatim weave 지시에 쓴다. sectionStyleShiftText와 같은 패턴. */
+  moneyChordSectionText?: string;
+  /**
+   * v5.11 (TASK L) — originally whole-pack-resolved (same value on every
+   * slot, from matching opts.vocalTone once). 지시문 47 (TASK A) — 이제
+   * opts.vocalPresetPlan이 유효할 때는 트랙별로 다른 값을 가진다(그
+   * 트랙에 실제로 적용된 프리셋 id) — core/batchPreallocation.ts's
+   * vocalPresetOverride 참고. vocalPresetPlan이 없거나 무효화됐으면
+   * 기존처럼 전 트랙 동일값(또는 undefined)이다.
+   */
   effectiveVocalPresetId?: string;
+  /** 지시문 49 (TASK A) — mirrors SongIdea.vocalPresetSource's own doc comment; the source this slot's effectiveVocalPresetId actually came from. */
+  vocalPresetSource?: 'plan' | 'tone-match' | 'auto';
   /** v5.11 (TASK L) — this trackNo's actual assigned genre id(s), already sanitized; mirrors SongIdea.effectiveGenreIds's own doc comment. */
   effectiveGenreIds: string[];
   /** v5.13 (TASK: kidsAgeTierId wiring) — mirrors SongIdea.effectiveKidsAgeTierId's own doc comment; whole-pack-resolved (same value on every slot for a kids archetype), not per-track. */
@@ -1904,7 +2118,7 @@ export interface PreassignedSongSlot {
   killingPointText?: string;
   /** v3.67 (TASK A) — where in the song killingPointText's moment lands. */
   // TASK D2 §4 — 'call-response' added alongside data/killingPoints.ts's own identical widening (kids-only killing points; see KIDS_KILLING_POINTS).
-  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response';
+  killingPointPlacement?: 'final-chorus' | 'bridge' | 'mid-instrumental' | 'pre-chorus' | 'outro' | 'call-response' | 'intro';
   /** v3.68 (TASK B) — this trackNo's killing point id (data/killingPoints.ts KillingPoint.id), snapshotted for rating analysis alongside killingPointText/killingPointPlacement above. */
   killingPointId?: string;
   /** v3.68 (TASK B) — this trackNo's own lead genre's broad era bucket (see data/genreLibrary's GenrePack.eraTag), for rating analysis. */
