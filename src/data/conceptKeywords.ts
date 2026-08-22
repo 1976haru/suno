@@ -101,8 +101,19 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'new-year',
-    patterns: [/새해/, /신년/, /new\s*year/i, /新年/],
+    // 지시문 70 (TASK C) — "설날"(동요 §9)은 새해와 같은 시기라 이 규칙에
+    // 그대로 합류(새 시즌 오배정 없음 — 전 워크스페이스에 실제로 맞다).
+    patterns: [/새해/, /신년/, /설날/, /new\s*year/i, /新年/],
     seasonWeights: { 'new-year': 3 }
+  },
+  {
+    // 지시문 70 (TASK C) — "추석"(동요 §9)은 새로운 시즌 규칙이 필요했다.
+    // 새해와 달리 시기가 다르므로(9~10월) 별도 규칙으로 분리한다. 설날과
+    // 마찬가지로 전 워크스페이스에 실제로 유효한 보편 명절이라
+    // archetypeScope를 두지 않는다.
+    id: 'chuseok',
+    patterns: [/추석/, /한가위/, /chuseok/i],
+    seasonWeights: { 'early-autumn': 2, 'maple-autumn': 2 }
   },
   {
     id: 'nostalgic-familiar',
@@ -605,8 +616,19 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     archetypeScope: ['kids', 'kr-kids-song']
   },
   {
+    // 지시문 70 (TASK C) — 실측: 동요 컨셉500 §3(동물과 생물, 65항목)이
+    // 0%였다. 컨셉 파일에 실제 등장하는 동물명을 그대로 수집해서 추가한다
+    // (상상 금지). 말/소/양/오리/곰은 1~2음절이라 다른 단어와 충돌
+    // 위험이 커서(오리지널의 "오리" 등) 동물 서술 문맥(울음소리·흉내·
+    // 이야기·몸짓)이 붙은 경우로 좁힌다.
     id: 'krkids-animal-vehicle',
-    patterns: [/동물/, /공룡/, /버스/, /기차/, /굴착기/, /dinosaur/i, /excavator/i],
+    patterns: [
+      /동물/, /공룡/, /버스/, /기차/, /굴착기/, /dinosaur/i, /excavator/i,
+      /두더지/, /코끼리/, /물고기/, /청개구리/, /참새/, /꿀벌/, /거북이/, /달팽이/,
+      /기린/, /토끼/, /부엉이/, /다람쥐/, /펭귄/, /사자/, /병아리/, /개구리/,
+      /고양이/, /돌고래/, /강아지/, /돼지/, /개미/,
+      /(말|소|양|오리|곰)(을|를|이|가)?\s*(울음소리|흉내|이야기|몸짓)/
+    ],
     genreWeights: { 'krkids-animal-vehicle': 4 },
     archetypeScope: ['kids', 'kr-kids-song']
   },
@@ -633,6 +655,53 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     patterns: [/율동/, /체조/, /따라\s*하기/, /action\s*song/i, /clapping\s*game/i],
     genreWeights: { 'krkids-action': 4 },
     archetypeScope: ['kids', 'kr-kids-song']
+  },
+  // 지시문 70 (TASK C) — 동요 §9(기념일과 행사) 실측 0%대 원인: 입학식/
+  // 졸업식은 지시문69의 situ-enrollment/situ-graduation-senior가 이미
+  // 있지만 ADULT_ARCHETYPES 스코프라 동요는 걸리지 않는다(그 규칙들을
+  // 건드리지 않고 place-bus-kr2030/place-bus-kridol과 같은 방식으로
+  // 동요 전용 자매 규칙을 둔다 — 성인 계절 신호로 새지 않도록 archetype
+  // Scope 자체가 막는다). 어린이날/스승의날/어버이날/발표회/소풍은
+  // 대응 규칙이 전혀 없어 신설한다.
+  {
+    id: 'krkids-enrollment',
+    patterns: [/입학식/],
+    genreWeights: { 'krkids-action': 2, 'krkids-daily-habit': 1 },
+    seasonWeights: { 'spring-open': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-graduation',
+    patterns: [/졸업식/],
+    genreWeights: { 'krkids-action': 2 },
+    seasonWeights: { 'late-winter': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-childrens-day',
+    patterns: [/어린이날/],
+    genreWeights: { 'krkids-action': 2, 'krkids-roleplay-story': 1 },
+    seasonWeights: { 'may-cafe': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-teacher-parents-day',
+    patterns: [/스승의\s*날/, /어버이날/],
+    genreWeights: { 'krkids-daily-habit': 2 },
+    seasonWeights: { 'may-cafe': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-recital',
+    patterns: [/발표회/],
+    genreWeights: { 'krkids-action': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-picnic',
+    patterns: [/소풍/],
+    genreWeights: { 'krkids-roleplay-story': 1, 'krkids-action': 1 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
   },
   // TASK F1 §9-1 — jp-kids workspace's concept keywords. genreWeights only,
   // pointing only at jpkids-* ids. §9-1's own explicit requirement: Korean
