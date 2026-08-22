@@ -67,8 +67,13 @@ const ADULT_ARCHETYPES: ChannelArchetype[] = [
 
 export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
+    // 지시문 70 (TASK D) — 실측: "越路吹雪を思わせる..."(인명, 越路吹雪)의
+    // "雪"이 겨울 계절어로 오탐돼 컨셉이 계절을 전혀 말하지 않았는데도
+    // winter 시즌이 배정됐다. 인명 사전을 새로 만들지 않고, 이 저장소의
+    // 아티스트 참조 마커(〜を思わせる/〜のような/〜風に — 지시문69
+    // 컨셉500_일본시니어.md §5 표기)가 바로 뒤에 붙은 경우만 제외한다.
     id: 'winter',
-    patterns: [/겨울/, /눈(?!치)/, /winter/i, /\bsnow/i, /冬/, /雪/],
+    patterns: [/겨울/, /눈(?!치)/, /winter/i, /\bsnow/i, /冬/, /雪(?!を思わせる|のような|風に)/],
     seasonWeights: { 'early-winter': 3, 'first-snow': 2, 'late-winter': 1 }
   },
   {
