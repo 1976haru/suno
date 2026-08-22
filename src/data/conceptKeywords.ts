@@ -107,7 +107,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     id: 'nostalgic-familiar',
     patterns: [
-      /어디선가\s*들어본/, /들어본\s*적/, /익숙한/, /옛날\s*노래/, /그리(움|워)/, /보고\s*싶/, /옛\s*친구/,
+      /어디선가\s*들어본/, /들어본\s*적/, /익숙/, /옛날\s*노래/, /그리(움|워)/, /보고\s*싶/, /옛\s*친구/,
       /heard\s*(it\s*)?before/i, /familiar/i, /nostalgi/i, /miss(ing)?\s*(you|someone)/i, /old\s*friend/i,
       /どこかで聞いた/, /聞き覚え/, /懐かし/, /会いたい/
     ],
@@ -136,7 +136,13 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'bright-upbeat',
-    patterns: [/밝은/, /경쾌한/, /기분\s*좋은/, /신나는/, /bright/i, /upbeat/i, /cheerful/i, /明るい/, /軽快/],
+    // 지시문 70 (TASK A/C) — 어미 고정형(경쾌한/신나는)을 어간 기반으로:
+    // "신나"는 짧지만 충돌 위험이 낮다(지시문 본문 예시). 기쁘다/기뻐(TASK
+    // C, 동요 감정 표현 — "기쁠 때")도 밝고 들뜬 정서로 이 규칙에 합류시킨다.
+    // "기쁠"/"기쁨"은 으-불규칙 어간(기쁘)에 ㄹ 관형형·명사형이 붙으며
+    // 음절 자체가 바뀌어(기쁘+ㄹ→기쁠, 기쁘+ㅁ→기쁨) 단순 부분일치로 안
+    // 잡힌다 — 그 두 형태를 별도로 나열한다.
+    patterns: [/밝은/, /경쾌/, /기분\s*좋은/, /신나/, /기쁘/, /기뻐/, /기쁠/, /기쁨/, /bright/i, /upbeat/i, /cheerful/i, /明るい/, /軽快/],
     moodWeights: { hopeful: 2, warm: 1 },
     genreWeights: { 'folk-pop': 2, 'acoustic-pop': 2, 'city-pop-soft': 1 }
   },
@@ -404,7 +410,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     id: 'warm-gentle',
     patterns: [
-      /따뜻하고\s*잔잔/, /따뜻한\s*멜로디/, /잔잔한\s*멜로디/, /포근한/, /따스한/,
+      /따뜻하고\s*잔잔/, /따뜻한\s*멜로디/, /잔잔한\s*멜로디/, /포근/, /따스/,
       /warm\s*and\s*gentle/i, /gentle\s*melody/i, /soft\s*and\s*warm/i
     ],
     genreWeights: {
@@ -1426,95 +1432,102 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'emo-gratitude',
-    patterns: [/감사한/, /감사/, /고맙다/, /\bgrateful\b/i],
+    patterns: [/감사/, /고마/, /\bgrateful\b/i],
     moodWeights: { warm: 2, hopeful: 1 },
     genreWeights: { 'healing-ballad': 2 }
   },
   {
     id: 'emo-overwhelmed',
-    patterns: [/벅찬/, /벅참/, /뭉클/],
+    patterns: [/벅차/, /뭉클/],
     moodWeights: { emotional: 2, hopeful: 1 },
     genreWeights: { 'oldpop-orchestral-ballad-80s': 2 }
   },
   {
     id: 'emo-languid',
-    patterns: [/나른한/, /나른함/],
+    patterns: [/나른/],
     moodWeights: { 'calm-focus': 2 },
     genreWeights: { 'bossa-cafe': 2, 'smooth-jazz-lounge': 1 }
   },
   {
     id: 'emo-comfortable',
-    patterns: [/편안한/, /편안함/],
+    patterns: [/편안/],
     moodWeights: { warm: 2, 'calm-focus': 1 },
     genreWeights: { 'healing-ballad': 2, 'folk-pop': 1 }
   },
   {
     id: 'emo-wistful',
-    patterns: [/아련한/, /아련함/],
+    patterns: [/아련/],
     moodWeights: { bittersweet: 2, nostalgic: 1 },
     genreWeights: { chanson: 2, 'oldpop-slow-waltz-memory': 1 }
   },
   {
     id: 'emo-fulfilled',
-    patterns: [/뿌듯한/, /뿌듯함/],
+    patterns: [/뿌듯/],
     moodWeights: { hopeful: 2, confident: 1 },
     genreWeights: { 'oldpop-sunshine-pop': 2 }
   },
   {
     id: 'emo-composed',
-    patterns: [/담담한/, /담담함/],
+    patterns: [/담담/],
     moodWeights: { 'calm-focus': 2, elegant: 1 },
     genreWeights: { 'jazz-classic-vocal-lounge': 2 }
   },
   {
     id: 'emo-tender-longing',
-    patterns: [/애틋한/, /애틋함/],
+    patterns: [/애틋/],
     moodWeights: { romantic: 2, bittersweet: 1 },
     genreWeights: { chanson: 2 }
   },
   {
     id: 'emo-emptiness',
-    patterns: [/허전한/, /허전함/],
+    // 지시문 70 (TASK C) — 동요 감정 표현 "외로울 때/외로움/외로운"(kids
+    // §6)는 어간조차 없었다. 허전함(empty/void)과 가장 가까운 기존
+    // 규칙에 합류(외로움=lonely는 별도 규칙을 만들지 않는다).
+    patterns: [/허전/, /외로[운울움워]/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'piano-ballad': 2, 'oldpop-rainy-ballad-blues': 1 }
   },
   {
     id: 'emo-bittersweet-taste',
-    patterns: [/씁쓸한/, /씁쓸함/],
+    // 지시문 70 (TASK C) — "속상할 때"(동요 §6)를 여기 합류시킨다.
+    patterns: [/씁쓸/, /속상/],
     moodWeights: { bittersweet: 3 },
     genreWeights: { 'oldpop-rainy-ballad-blues': 2 }
   },
   {
     id: 'emo-heart-pounding',
-    patterns: [/두근거리는/, /두근거림/, /두근두근/],
+    // 지시문 70 (TASK C) — "설렐 때"(동요 §6)는 두근거림과 사실상 동의어라
+    // 새 규칙 대신 여기 합류시킨다. "설렐"/"설렘"도 기쁘다와 같은 음절
+    // 병합형이라 별도로 나열한다.
+    patterns: [/두근/, /설레/, /설렐/, /설렘/],
     moodWeights: { romantic: 2, hopeful: 1 }
   },
   {
     id: 'emo-relief',
-    patterns: [/안도감/, /안도하며/],
+    patterns: [/안도/],
     moodWeights: { hopeful: 2, 'calm-focus': 1 }
   },
   {
     id: 'emo-lost-helpless',
-    patterns: [/막막한/, /막막함/],
+    patterns: [/막막/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'piano-ballad': 1 }
   },
   {
     id: 'emo-poignant',
-    patterns: [/애잔한/, /애잔함/],
+    patterns: [/애잔/],
     moodWeights: { bittersweet: 2, nostalgic: 1 },
     genreWeights: { chanson: 1 }
   },
   {
     id: 'emo-mournful',
-    patterns: [/처연한/, /처연함/],
+    patterns: [/처연/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'oldpop-rainy-ballad-blues': 2 }
   },
   {
     id: 'emo-affectionate-warmth',
-    patterns: [/정겨운/, /정겨움/],
+    patterns: [/정겨[운울움워]/],
     moodWeights: { warm: 3 },
     genreWeights: { 'folk-pop': 2 }
   },
@@ -1542,44 +1555,52 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'emo-bittersweet-relief',
-    patterns: [/시원섭섭한/, /시원섭섭함/],
+    patterns: [/시원섭섭/],
     moodWeights: { bittersweet: 2, hopeful: 1 }
   },
   {
     id: 'emo-lighthearted-relief',
-    patterns: [/홀가분한/, /홀가분함/],
+    patterns: [/홀가분/],
     moodWeights: { hopeful: 2, 'fresh-start': 1 }
   },
   {
     id: 'emo-restless-impatience',
-    patterns: [/조바심/],
+    // 지시문 70 (TASK C) — "긴장될 때"(동요 §6)를 여기 합류시킨다.
+    patterns: [/조바심/, /긴장/],
     moodWeights: { bittersweet: 1 }
   },
   {
     id: 'emo-tranquility',
-    patterns: [/평온한/, /평온함/],
+    patterns: [/평온/],
     moodWeights: { 'calm-focus': 3 },
     genreWeights: { 'smooth-jazz-lounge': 1 }
   },
   {
     id: 'emo-yearning',
-    patterns: [/애타는/, /애타게/],
+    patterns: [/애타/],
     moodWeights: { romantic: 2, bittersweet: 1 }
   },
   {
     id: 'emo-lethargy',
-    patterns: [/무기력한/, /무기력함/],
+    // 지시문 70 (TASK C) — "심심할 때"(동요 §6)를 여기 합류시킨다(지루함↔
+    // 무기력 인접 정서).
+    patterns: [/무기력/, /심심/],
     moodWeights: { bittersweet: 2, 'calm-focus': 1 }
   },
   {
     id: 'emo-sorrow-grief',
-    patterns: [/서러운/, /설움/],
+    // 지시문 70 (TASK C) — "슬플 때"(동요 §6)를 여기 합류시킨다. 슬프다는
+    // 으-불규칙(슬퍼서)이라 어간 두 형태(슬프/슬퍼)를 모두 나열하고,
+    // "슬플"/"슬픔"도 기쁘다와 같은 ㄹ 관형형 음절 병합형이라 따로 둔다.
+    patterns: [/서러[운울움워]/, /설움/, /슬프/, /슬퍼/, /슬플/, /슬픔/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'oldpop-rainy-ballad-blues': 2 }
   },
   {
     id: 'emo-proud-of-life',
-    patterns: [/자랑스러운/, /자랑스러움/],
+    // 지시문 70 (TASK A 예시) — 어미 고정형 → 어간+어미 문자군. TASK C —
+    // "칭찬받았을 때"(동요 §6)도 여기 합류(칭찬받음↔자랑스러움 인접 정서).
+    patterns: [/자랑스러[운울움워]/, /칭찬받/],
     moodWeights: { confident: 1, hopeful: 1 }
   },
   {
