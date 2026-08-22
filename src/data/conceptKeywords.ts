@@ -404,6 +404,33 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     moodWeights: { nostalgic: 1, warm: 1 },
     axis: 'genre'
   },
+  // 지시문 70 (TASK B) — "왈츠 가요풍의 조용한 한 곡"/"탱고 가요풍..."류가
+  // 한국어로도 0개였다(§3.1 실측) — axis:'genre' 17종 어디에도 없는
+  // 장르라 언어 문제가 아니라 규칙 자체 부재였다. genreLibrary/index.ts에
+  // 실제 존재하는 id(getCoreGenreIdsForArchetype로 확인)만 신설한다.
+  // 처음부터 한/영/일 3개 언어를 함께 넣어 지시문 69가 고친 결함을
+  // 반복하지 않는다.
+  {
+    id: 'waltz',
+    patterns: [/왈츠/, /\bwaltz\b/i, /ワルツ/],
+    genreWeights: { 'oldpop-slow-waltz-memory': 4 },
+    moodWeights: { nostalgic: 1, elegant: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'canzone',
+    patterns: [/칸초네/, /\bcanzone\b/i, /カンツォーネ/],
+    genreWeights: { 'oldpop-italian-canzone': 4 },
+    moodWeights: { elegant: 1, romantic: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'blues',
+    patterns: [/블루스/, /\bblues\b/i, /ブルース/],
+    genreWeights: { 'oldpop-rainy-ballad-blues': 4 },
+    moodWeights: { bittersweet: 1 },
+    axis: 'genre'
+  },
   // TASK v3.61 (TASK B-3, test 5) — "따뜻하고 잔잔한 노래" must reach TASK A's
   // 1-D "timeless warmth" sub-family first, since the request is about a
   // sound quality (warm, unhurried), not any specific era or instrument.
