@@ -183,8 +183,16 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // "60~70년대" — "60" isn't directly followed by "s"/"년대" there) so this
     // rule and oldpop-70s both fire on that already-validated co-primary
     // compound input, same as before.
+    // 지시문 69 (TASK B) — 일본어 서기 표기("60年代")와 쇼와 연호("昭和30
+    // 年代"/"昭和40年代")를 추가한다. 昭和30年代(1955–1964)·昭和40年代
+    // (1965–1974)는 60년대와 겹치므로 이 규칙에도 매칭한다(연호→서기 계산
+    // 코드 없이, 실제 겹치는 두 연호 표기를 정적 패턴으로 직접 나열 —
+    // 昭和30〜40年代 같은 범위 표기도 별도 패턴으로 잡는다).
     id: 'oldpop-60s',
-    patterns: [/60(s|년대)/i, /1960s/i, /60\s*[-~]\s*70/],
+    patterns: [
+      /60(s|년대)/i, /1960s/i, /60\s*[-~]\s*70/,
+      /60年代/, /昭和30年代/, /昭和40年代/, /昭和30[〜～\-]40年代/
+    ],
     genreWeights: {
       'oldpop-doowop-harmony': 6, 'oldpop-brill-building': 6, 'oldpop-girl-group-wall': 5,
       'oldpop-sunshine-pop': 5, 'oldpop-baroque-pop': 4, 'oldpop-british-beat': 4
@@ -195,8 +203,13 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // 정합성 점검 §2 결함3 fix — same pattern as oldpop-60s, for the ten real
     // 1970s-bucket genres ("1-B" group). "70\s*[-~]\s*80" mirrors the 60~70
     // compound handling above, for a "70~80년대" style request.
+    // 지시문 69 (TASK B) — oldpop-60s와 같은 이유. 昭和40年代(1965–1974)·
+    // 昭和50年代(1975–1984)는 70년대와 겹친다.
     id: 'oldpop-70s',
-    patterns: [/70(s|년대)/i, /1970s/i, /70\s*[-~]\s*80/],
+    patterns: [
+      /70(s|년대)/i, /1970s/i, /70\s*[-~]\s*80/,
+      /70年代/, /昭和40年代/, /昭和50年代/, /昭和40[〜～\-]50年代/
+    ],
     genreWeights: {
       'oldpop-soft-rock-am': 6, 'oldpop-motown-pop-soul': 6, 'oldpop-piano-ballad-70s': 5,
       'oldpop-philly-soul-sweet': 5, 'oldpop-close-harmony-duo': 4, 'oldpop-folk-rock-70s': 4,
@@ -208,8 +221,14 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     // 정합성 점검 §2 결함3 fix — same pattern as oldpop-60s/70s, for the six
     // real 1980s-bucket genres ("1-C" group).
+    // 지시문 69 (TASK B) — oldpop-60s와 같은 이유. 昭和50年代(1975–1984)는
+    // 80년대와 겹치고, 昭和60年代(1985–1988, 쇼와는 63년/1989년에 끝남)는
+    // 전부 80년대에 들어간다.
     id: 'oldpop-80s',
-    patterns: [/80(s|년대)/i, /1980s/i],
+    patterns: [
+      /80(s|년대)/i, /1980s/i,
+      /80年代/, /昭和50年代/, /昭和60年代/, /昭和40[〜～\-]50年代/
+    ],
     genreWeights: {
       'oldpop-adult-contemporary-80s': 6, 'oldpop-light-synth-pop-warm': 6, 'oldpop-quiet-storm-warm': 5,
       'oldpop-soft-duet-80s': 5, 'oldpop-orchestral-ballad-80s': 4, 'oldpop-standards-torch': 4
