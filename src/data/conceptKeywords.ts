@@ -243,14 +243,14 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'chanson',
-    patterns: [/샹송/, /chanson/i, /프랑스\s*음악/, /파리(지앵)?\s*감성/],
+    patterns: [/샹송/, /chanson/i, /프랑스\s*음악/, /파리(지앵)?\s*감성/, /シャンソン/],
     genreWeights: { chanson: 4 },
     moodWeights: { elegant: 1, bittersweet: 1 },
     axis: 'genre'
   },
   {
     id: 'rnb-soul',
-    patterns: [/알\s*앤\s*비/, /알앤비/, /r\s*&\s*n?b/i, /rhythm\s*and\s*blues/i, /리듬\s*앤\s*블루스/, /리듬앤블루스/, /소울\s*음악/, /\bsoul\b/i, /소울/],
+    patterns: [/알\s*앤\s*비/, /알앤비/, /r\s*&\s*n?b/i, /rhythm\s*and\s*blues/i, /리듬\s*앤\s*블루스/, /리듬앤블루스/, /소울\s*음악/, /\bsoul\b/i, /소울/, /ソウル/],
     genreWeights: {
       'oldpop-motown-pop-soul': 4, 'oldpop-philly-soul-sweet': 3, 'retro-soul-pop': 3, 'oldpop-quiet-storm-warm': 2
     },
@@ -259,7 +259,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'bossa-nova',
-    patterns: [/보사\s*노바/, /보사노바/, /\bbossa\b/i, /\b보사\b/],
+    patterns: [/보사\s*노바/, /보사노바/, /\bbossa\b/i, /\b보사\b/, /ボサノヴァ/, /ボサノバ/],
     genreWeights: { 'bossa-cafe': 4 },
     moodWeights: { warm: 1 },
     axis: 'genre'
@@ -274,7 +274,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // 추천되지 않았다. 기존 3개(다른 채널이 쓸 수 있으니 유지)에 3종을
     // 더한다.
     id: 'jazz',
-    patterns: [/재즈/, /\bjazz\b/i, /스무스\s*재즈/, /smooth\s*jazz/i],
+    patterns: [/재즈/, /\bjazz\b/i, /스무스\s*재즈/, /smooth\s*jazz/i, /ジャズ/],
     genreWeights: {
       'jazz-pop': 3, 'smooth-jazz-lounge': 3, 'oldpop-standards-torch': 2,
       'jazz-classic-vocal-lounge': 3, 'jazz-swing-crooner-ballroom': 2, 'jazz-brush-ballad-jazz': 2
@@ -284,49 +284,49 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'city-pop',
-    patterns: [/시티\s*팝/, /시티팝/, /city\s*pop/i],
+    patterns: [/시티\s*팝/, /시티팝/, /city\s*pop/i, /シティポップ/],
     genreWeights: { 'city-pop-soft': 4 },
     moodWeights: { nostalgic: 1 },
     axis: 'genre'
   },
   {
     id: 'folk',
-    patterns: [/포크(\s*송)?/, /\bfolk\b/i, /folk\s*song/i],
+    patterns: [/포크(\s*송)?/, /\bfolk\b/i, /folk\s*song/i, /フォーク/],
     genreWeights: { 'folk-pop': 4, 'oldpop-folk-rock-70s': 3 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'ballad',
-    patterns: [/발라드/, /\bballad\b/i],
+    patterns: [/발라드/, /\bballad\b/i, /バラード/],
     genreWeights: { 'piano-ballad': 3, 'healing-ballad': 3, 'oldpop-piano-ballad-70s': 3, 'oldpop-orchestral-ballad-80s': 2 },
     moodWeights: { bittersweet: 1 },
     axis: 'genre'
   },
   {
     id: 'disco',
-    patterns: [/디스코/, /\bdisco\b/i],
+    patterns: [/디스코/, /\bdisco\b/i, /ディスコ/],
     genreWeights: { 'oldpop-europop-glow': 3, 'oldpop-motown-pop-soul': 3 },
     moodWeights: { hopeful: 1 },
     axis: 'genre'
   },
   {
     id: 'country',
-    patterns: [/컨트리/, /\bcountry\b/i],
+    patterns: [/컨트리/, /\bcountry\b/i, /カントリー/],
     genreWeights: { 'oldpop-countrypolitan': 4 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'doo-wop',
-    patterns: [/두\s*왑/, /두왑/, /doo[\s-]?wop/i],
+    patterns: [/두\s*왑/, /두왑/, /doo[\s-]?wop/i, /ドゥーワップ/, /ドゥワップ/],
     genreWeights: { 'oldpop-doowop-harmony': 4 },
     moodWeights: { nostalgic: 1 },
     axis: 'genre'
   },
   {
     id: 'easy-listening',
-    patterns: [/이지\s*리스닝/, /easy\s*listening/i],
+    patterns: [/이지\s*리스닝/, /easy\s*listening/i, /イージーリスニング/],
     genreWeights: { 'oldpop-orchestral-easy': 4, 'smooth-jazz-lounge': 2 },
     moodWeights: { warm: 1 },
     axis: 'genre'
@@ -339,42 +339,42 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // (getCoreGenreIdsForArchetype 실측 확인).
   {
     id: 'motown',
-    patterns: [/모타운/, /motown/i],
+    patterns: [/모타운/, /motown/i, /モータウン/],
     genreWeights: { 'oldpop-motown-pop-soul': 4 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'philly-soul',
-    patterns: [/필리\s*소울/, /필라델피아\s*소울/, /philly\s*soul/i, /philadelphia\s*soul/i],
+    patterns: [/필리\s*소울/, /필라델피아\s*소울/, /philly\s*soul/i, /philadelphia\s*soul/i, /フィリーソウル/, /フィラデルフィアソウル/],
     genreWeights: { 'oldpop-philly-soul-sweet': 4 },
     moodWeights: { warm: 1, romantic: 1 },
     axis: 'genre'
   },
   {
     id: 'british-beat',
-    patterns: [/브리티시\s*비트/, /영국\s*비트/, /british\s*beat/i, /british\s*invasion/i],
+    patterns: [/브리티시\s*비트/, /영국\s*비트/, /british\s*beat/i, /british\s*invasion/i, /ブリティッシュビート/, /ブリティッシュインベイジョン/],
     genreWeights: { 'oldpop-british-beat': 4 },
     moodWeights: { hopeful: 1 },
     axis: 'genre'
   },
   {
     id: 'soft-rock',
-    patterns: [/소프트\s*록/, /soft\s*rock/i],
+    patterns: [/소프트\s*록/, /soft\s*rock/i, /ソフトロック/],
     genreWeights: { 'oldpop-soft-rock-am': 3, 'soft-rock': 3 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'gospel-soul',
-    patterns: [/가스펠/, /gospel/i],
+    patterns: [/가스펠/, /gospel/i, /ゴスペル/],
     genreWeights: { 'rnb-soulful-gospel-warmth': 3, 'rnb-gospel-soul-lift': 3 },
     moodWeights: { hopeful: 1, warm: 1 },
     axis: 'genre'
   },
   {
     id: 'old-school-rnb',
-    patterns: [/올드스쿨\s*(r\s*&?\s*n?b|알앤비)/i, /old[\s-]?school\s*r\s*&?\s*n?b/i],
+    patterns: [/올드스쿨\s*(r\s*&?\s*n?b|알앤비)/i, /old[\s-]?school\s*r\s*&?\s*n?b/i, /オールドスクール\s*r\s*&?\s*n?b/i],
     genreWeights: { 'rnb-old-school-romance-rnb': 4 },
     moodWeights: { nostalgic: 1, warm: 1 },
     axis: 'genre'
