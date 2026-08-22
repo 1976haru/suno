@@ -116,7 +116,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'cafe',
-    patterns: [/카페/, /커피/, /창가/, /찻집/, /\bcafe\b/i, /coffee/i, /window\s*seat/i, /カフェ/, /コーヒー/, /喫茶店/, /窓辺/],
+    patterns: [/카페/, /커피/, /창가/, /찻집/, /\bcafe\b/i, /coffee/i, /window\s*seat/i, /カフェ/, /コーヒー/, /喫茶店/, /純喫茶/, /窓辺/],
     genreWeights: { 'lofi-cafe': 3, 'bossa-cafe': 2, 'jazz-pop': 1 }
   },
   {
@@ -802,12 +802,12 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-train',
-    patterns: [/기차/, /열차/, /\btrain\b/i],
+    patterns: [/기차/, /열차/, /\btrain\b/i, /夜行列車/, /路面電車/],
     genreWeights: { 'oldpop-countrypolitan': 3, 'oldpop-folk-rock-70s': 2 }
   },
   {
     id: 'place-station',
-    patterns: [/정류장/, /플랫폼/, /station/i, /(기차|지하철|버스)\s*역/],
+    patterns: [/정류장/, /플랫폼/, /station/i, /(기차|지하철|버스)\s*역/, /駅のホーム/],
     genreWeights: { 'smooth-jazz-lounge': 2, 'oldpop-evening-lamp-ballad': 2 }
   },
   {
@@ -817,12 +817,12 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-market',
-    patterns: [/재래시장/, /시장/, /\bmarket\b/i],
+    patterns: [/재래시장/, /시장/, /\bmarket\b/i, /商店街/, /市場の路地/],
     genreWeights: { 'oldpop-motown-pop-soul': 2, 'retro-soul-pop': 2 }
   },
   {
     id: 'place-theater',
-    patterns: [/영화관/, /극장/, /\btheater\b/i, /\btheatre\b/i],
+    patterns: [/영화관/, /극장/, /\btheater\b/i, /\btheatre\b/i, /映画館/],
     genreWeights: { 'oldpop-standards-torch': 3, 'jazz-swing-crooner-ballroom': 2 }
   },
   {
@@ -837,7 +837,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-riverside',
-    patterns: [/강변/, /강가/, /한강/, /riverside/i],
+    patterns: [/강변/, /강가/, /한강/, /riverside/i, /堤防の道/],
     genreWeights: { 'oldpop-sunlit-strings-pop': 2, 'folk-pop': 2 }
   },
   {
@@ -874,7 +874,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-veranda',
-    patterns: [/베란다/, /발코니/, /\bveranda\b/i, /\bbalcony\b/i],
+    patterns: [/베란다/, /발코니/, /\bveranda\b/i, /\bbalcony\b/i, /縁側/],
     genreWeights: { 'oldpop-sunlit-strings-pop': 2, 'acoustic-pop': 1 }
   },
   {
@@ -889,7 +889,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-school',
-    patterns: [/교정/, /학교/, /\bschool\b/i],
+    patterns: [/교정/, /학교/, /\bschool\b/i, /校庭/, /小学校/],
     genreWeights: { 'oldpop-sunshine-pop': 2, 'folk-pop': 2 }
   },
   {
@@ -909,27 +909,27 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-post-office',
-    patterns: [/우체국/, /post\s*office/i],
+    patterns: [/우체국/, /post\s*office/i, /郵便局/],
     genreWeights: { chanson: 2, 'oldpop-close-harmony-duo': 1 }
   },
   {
     id: 'place-bathhouse',
-    patterns: [/대중목욕탕/, /목욕탕/, /찜질방/],
+    patterns: [/대중목욕탕/, /목욕탕/, /찜질방/, /銭湯/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'oldpop-hearth-acoustic': 1 }
   },
   {
     id: 'place-barbershop',
-    patterns: [/이발소/, /미용실/, /barbershop/i],
+    patterns: [/이발소/, /미용실/, /barbershop/i, /床屋/, /美容室/],
     genreWeights: { 'oldpop-motown-pop-soul': 2, 'retro-soul-pop': 1 }
   },
   {
     id: 'place-teahouse',
-    patterns: [/다방/],
+    patterns: [/다방/, /茶屋/],
     genreWeights: { chanson: 3, 'oldpop-night-chanson': 2, 'jazz-classic-vocal-lounge': 1 }
   },
   {
     id: 'place-inn',
-    patterns: [/여관/, /\bmotel\b/i],
+    patterns: [/여관/, /\bmotel\b/i, /旅館/, /温泉宿/],
     genreWeights: { 'oldpop-rainy-ballad-blues': 2, 'oldpop-night-chanson': 2 }
   },
   {
@@ -949,7 +949,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-harbor',
-    patterns: [/항구/, /부두/, /\bharbor\b/i],
+    patterns: [/항구/, /부두/, /\bharbor\b/i, /港/, /波止場/, /桟橋/],
     genreWeights: { 'bossa-cafe': 2, 'oldpop-yacht-west-coast': 2 }
   },
   {
@@ -969,7 +969,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-temple',
-    patterns: [/절에\s*가/, /사찰/, /\btemple\b/i],
+    patterns: [/절에\s*가/, /사찰/, /\btemple\b/i, /神社の石段/],
     genreWeights: { 'oldpop-hearth-acoustic': 2, 'folk-pop': 1 }
   },
   {
@@ -1007,7 +1007,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'time-early-morning',
-    patterns: [/이른\s*아침/],
+    patterns: [/이른\s*아침/, /早朝/],
     genreWeights: { 'oldpop-warm-morning-glow': 2 }
   },
   {
@@ -1017,17 +1017,17 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'time-afternoon',
-    patterns: [/오후/, /\bafternoon\b/i],
+    patterns: [/오후/, /\bafternoon\b/i, /午後/, /昼下がり/],
     genreWeights: { 'oldpop-sunlit-strings-pop': 2, 'acoustic-pop': 1 }
   },
   {
     id: 'time-dusk',
-    patterns: [/해질녘/, /노을/, /황혼/, /땅거미/, /\bdusk\b/i, /sunset/i],
+    patterns: [/해질녘/, /노을/, /황혼/, /땅거미/, /\bdusk\b/i, /sunset/i, /夕暮れ/],
     genreWeights: { 'oldpop-evening-lamp-ballad': 3, chanson: 1 }
   },
   {
     id: 'time-evening',
-    patterns: [/저녁/, /\bevening\b/i],
+    patterns: [/저녁/, /\bevening\b/i, /宵の口/],
     genreWeights: { 'oldpop-evening-lamp-ballad': 2, 'smooth-jazz-lounge': 2 }
   },
   // 지시문 64 (TASK D-3) — "'밤'이 계절로 해석됐다"는 §1-2의 실측 원인이
@@ -1035,7 +1035,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // 분석). 이 룰은 순수 시간 축이고 seasonWeights가 없다.
   {
     id: 'time-night',
-    patterns: [/밤/, /\bnight\b/i],
+    patterns: [/밤/, /\bnight\b/i, /月の出る頃/],
     genreWeights: { 'oldpop-quiet-storm-warm': 2, 'oldpop-night-chanson': 2, 'smooth-jazz-lounge': 1 }
   },
   {
@@ -1125,7 +1125,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'time-late-night',
-    patterns: [/늦은\s*밤/],
+    patterns: [/늦은\s*밤/, /夜更け/],
     genreWeights: { 'oldpop-night-chanson': 1 }
   },
   {
@@ -1201,18 +1201,18 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-waiting',
-    patterns: [/기다림/, /기다리는\s*중/, /누군가를\s*기다리며/, /\bwaiting\b/i],
+    patterns: [/기다림/, /기다리는\s*중/, /누군가를\s*기다리며/, /\bwaiting\b/i, /待ちながら/],
     genreWeights: { 'healing-ballad': 2, 'piano-ballad': 2 },
     moodWeights: { bittersweet: 1 }
   },
   {
     id: 'situ-moving-house',
-    patterns: [/이삿날/, /이사/, /moving\s*house/i],
+    patterns: [/이삿날/, /이사/, /moving\s*house/i, /引っ越しの日/, /引っ越し/],
     genreWeights: { 'folk-pop': 2, 'oldpop-sunshine-pop': 1 }
   },
   {
     id: 'situ-graduation-senior',
-    patterns: [/졸업식/, /졸업/, /\bgraduation\b/i],
+    patterns: [/졸업식/, /졸업/, /\bgraduation\b/i, /卒業式/],
     genreWeights: { 'oldpop-sunshine-pop': 2, 'folk-pop': 2 },
     archetypeScope: ADULT_ARCHETYPES
   },
@@ -1253,12 +1253,12 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-cleaning',
-    patterns: [/청소/],
+    patterns: [/청소/, /畳を拭き/],
     genreWeights: { 'folk-pop': 2, 'acoustic-pop': 1 }
   },
   {
     id: 'situ-laundry',
-    patterns: [/빨래/],
+    patterns: [/빨래/, /洗濯物をたたみ/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'folk-pop': 1 }
   },
   {
@@ -1299,24 +1299,24 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-retirement',
-    patterns: [/은퇴하고/, /은퇴/, /\bretirement\b/i],
+    patterns: [/은퇴하고/, /은퇴/, /\bretirement\b/i, /退職/],
     genreWeights: { 'oldpop-quiet-storm-warm': 3, 'smooth-jazz-lounge': 2, 'healing-ballad': 1 }
   },
   {
     id: 'situ-grandchildren',
-    patterns: [/손주/, /손자/, /손녀/],
+    patterns: [/손주/, /손자/, /손녀/, /孫/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'folk-pop': 2 },
     moodWeights: { warm: 2 }
   },
   {
     id: 'situ-class-reunion',
-    patterns: [/동창회/, /동창\s*모임/],
+    patterns: [/동창회/, /동창\s*모임/, /同窓会/],
     genreWeights: { 'retro-soul-pop': 2, 'oldpop-motown-pop-soul': 2 },
     moodWeights: { nostalgic: 1 }
   },
   {
     id: 'situ-wedding-anniversary',
-    patterns: [/결혼기념일/, /wedding\s*anniversary/i],
+    patterns: [/결혼기념일/, /wedding\s*anniversary/i, /結婚記念日/],
     genreWeights: { chanson: 2, 'oldpop-soft-duet-80s': 2 },
     moodWeights: { romantic: 1 }
   },
@@ -1327,29 +1327,29 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-gardening',
-    patterns: [/텃밭\s*가꾸기/, /화초\s*가꾸기/, /정원\s*가꾸기/],
+    patterns: [/텃밭\s*가꾸기/, /화초\s*가꾸기/, /정원\s*가꾸기/, /庭に水をやり/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'folk-pop': 1 }
   },
   {
     id: 'situ-letter-writing',
-    patterns: [/편지\s*쓰기/, /편지를\s*쓰며/],
+    patterns: [/편지\s*쓰기/, /편지를\s*쓰며/, /手紙を書き/],
     genreWeights: { chanson: 2, 'oldpop-standards-torch': 1 }
   },
   {
     id: 'situ-listening-radio',
-    patterns: [/라디오\s*듣기/, /라디오를\s*들으며/, /라디오\s*듣던/],
+    patterns: [/라디오\s*듣기/, /라디오를\s*들으며/, /라디오\s*듣던/, /ラジオをつけて/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'retro-soul-pop': 2 },
     moodWeights: { nostalgic: 2 }
   },
   {
     id: 'situ-old-photo-album',
-    patterns: [/사진첩/, /앨범을\s*넘기며/, /옛\s*사진/],
+    patterns: [/사진첩/, /앨범을\s*넘기며/, /옛\s*사진/, /アルバムをめくり/],
     genreWeights: { 'oldpop-close-harmony-duo': 2, chanson: 1 },
     moodWeights: { nostalgic: 1 }
   },
   {
     id: 'situ-first-job',
-    patterns: [/첫\s*출근/, /첫\s*직장/],
+    patterns: [/첫\s*출근/, /첫\s*직장/, /初出勤/],
     genreWeights: { 'oldpop-sunshine-pop': 2, 'folk-pop': 1 },
     archetypeScope: ADULT_ARCHETYPES
   },
@@ -1409,7 +1409,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-cooking',
-    patterns: [/요리하며/, /음식을?\s*만들며/],
+    patterns: [/요리하며/, /음식을?\s*만들며/, /夕餉の支度/],
     genreWeights: { 'oldpop-hearth-acoustic': 2, 'folk-pop': 1 }
   },
 
