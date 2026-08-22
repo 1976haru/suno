@@ -4814,16 +4814,23 @@ export interface SituationFrameRule {
   pattern: RegExp;
 }
 
+// 지시문 69 (TASK D) — 9개 규칙 전부 한국어/영어 패턴만 있어 컨셉500_
+// 일본시니어.md 500항목 중 0개가 매칭됐다. dance-saturday/young-first-
+// love/reunion-parting/letter-sending은 그 파일에서 실제로 확인한 표기
+// (盆踊り의 踊, 初恋, 再会/別れ/駅のホーム, 手紙)를 그대로 쓴다. 나머지
+// 5개(summer-night/city-lights/travel-window/shared-table/season-
+// turning)는 이 표본에 해당 상황이 없어 표준 일본어 대역어를 추가했다
+// (완료 보고에 명시 — "확인됨"과 "표준 번역"을 구분한다).
 export const SITUATION_FRAME_RULES: SituationFrameRule[] = [
-  { frameId: 'dance-saturday', labelKo: '토요일 밤 댄스', pattern: /춤추|댄스|무도회|dance/i },
-  { frameId: 'young-first-love', labelKo: '첫사랑', pattern: /첫사랑|풋사랑|설렘|고백|첫\s*만남|first\s*love/i },
-  { frameId: 'summer-night', labelKo: '여름밤 외출', pattern: /여름\s*밤|무더운\s*밤|summer\s*night/i },
-  { frameId: 'reunion-parting', labelKo: '재회·이별', pattern: /재회|이별|헤어짐|기차역|플랫폼|reunion|parting/i },
-  { frameId: 'letter-sending', labelKo: '편지', pattern: /편지|엽서|letter/i },
-  { frameId: 'city-lights', labelKo: '도시의 밤', pattern: /도시의\s*밤|번화가|네온|city\s*light/i },
-  { frameId: 'travel-window', labelKo: '이동·여행', pattern: /퇴근길|출근길|여행|기차\s*창가|차창|드라이브|travel|drive/i },
-  { frameId: 'shared-table', labelKo: '식탁·모임', pattern: /식탁|모임|친구들과|다\s*같이|저녁\s*자리|table/i },
-  { frameId: 'season-turning', labelKo: '계절이 바뀌는 순간', pattern: /계절이\s*바뀌|환절기|season\s*turn/i }
+  { frameId: 'dance-saturday', labelKo: '토요일 밤 댄스', pattern: /춤추|댄스|무도회|dance|踊|舞踏会/i },
+  { frameId: 'young-first-love', labelKo: '첫사랑', pattern: /첫사랑|풋사랑|설렘|고백|첫\s*만남|first\s*love|初恋|片思い|片想い/i },
+  { frameId: 'summer-night', labelKo: '여름밤 외출', pattern: /여름\s*밤|무더운\s*밤|summer\s*night|夏の夜|夏の宵/i },
+  { frameId: 'reunion-parting', labelKo: '재회·이별', pattern: /재회|이별|헤어짐|기차역|플랫폼|reunion|parting|再会|別れ|駅のホーム|プラットホーム/i },
+  { frameId: 'letter-sending', labelKo: '편지', pattern: /편지|엽서|letter|手紙|葉書|はがき/i },
+  { frameId: 'city-lights', labelKo: '도시의 밤', pattern: /도시의\s*밤|번화가|네온|city\s*light|街の灯|繁華街|ネオン/i },
+  { frameId: 'travel-window', labelKo: '이동·여행', pattern: /퇴근길|출근길|여행|기차\s*창가|차창|드라이브|travel|drive|車窓|帰り道|旅行/i },
+  { frameId: 'shared-table', labelKo: '식탁·모임', pattern: /식탁|모임|친구들과|다\s*같이|저녁\s*자리|table|食卓|集まり|団らん/i },
+  { frameId: 'season-turning', labelKo: '계절이 바뀌는 순간', pattern: /계절이\s*바뀌|환절기|season\s*turn|季節の変わり目|季節の境目/i }
 ];
 
 /** Returns the first matching frameId a concept names, or undefined for a concept with no detectable situation (never forced — mirrors this app's own era-detection "억지로 정하지 말 것" convention). */
