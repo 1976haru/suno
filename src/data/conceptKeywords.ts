@@ -1,8 +1,14 @@
 /**
  * TASK H1 (v3.10) — local (no-API) keyword sceenario -> genre/mood/season
- * mapping for the concept agent (core/conceptAgent.ts). Every pattern list
- * covers Korean, English, and Japanese synonyms for the same everyday
+ * mapping for the concept agent (core/conceptAgent.ts). Pattern lists cover
+ * Korean, English, and (partially) Japanese synonyms for the same everyday
  * scenario, since users describe songs in whichever language they think in.
+ *
+ * 지시문 69 — 이 파일은 한동안 "일본어까지 다 커버한다"고 주장했지만
+ * 실측(scripts/checkConceptLanguageCoverage.ts) 결과 그렇지 않았다(당시
+ * axis:'genre' 규칙의 일본어 보유율 0%). 일본어는 부분 커버이며, 현재
+ * 커버리지는 `npm run check:concept-language`로 확인한다 — 이 주석을
+ * 다시 "100% 다 된다"는 단언으로 되돌리지 말 것.
  *
  * Weights point at genre/mood/season ids from src/data/presets.ts. A genre
  * id that isn't in the requesting channel's core tier for its archetype is

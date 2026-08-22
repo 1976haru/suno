@@ -37,6 +37,7 @@
     "check:vocal-floor": "tsx scripts/checkVocalFloor.ts",
     "check:vocal-genre-fit": "tsx scripts/checkVocalGenreFit.ts",
     "check:concept-coverage": "tsx scripts/checkConceptCoverage.ts",
+    "check:concept-language": "tsx scripts/checkConceptLanguageCoverage.ts",
     "check:genre-fidelity": "tsx scripts/checkGenreFidelity.ts",
     "check:genre-utilization": "tsx scripts/checkGenreUtilization.ts",
     "check:option-utilization": "tsx scripts/checkOptionUtilization.ts",
