@@ -123,7 +123,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     id: 'nostalgic-familiar',
     patterns: [
-      /어디선가\s*들어본/, /들어본\s*적/, /익숙/, /옛날\s*노래/, /그리(움|워)/, /보고\s*싶/, /옛\s*친구/,
+      /어디선가\s*들어본/, /들어본\s*적/, /익숙/, /옛날\s*노래/, /그리(움|워|운|울)/, /보고\s*싶/, /옛\s*친구/,
       /heard\s*(it\s*)?before/i, /familiar/i, /nostalgi/i, /miss(ing)?\s*(you|someone)/i, /old\s*friend/i,
       /どこかで聞いた/, /聞き覚え/, /懐かし/, /会いたい/
     ],
