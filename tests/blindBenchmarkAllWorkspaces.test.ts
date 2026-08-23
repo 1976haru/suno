@@ -108,7 +108,7 @@ describe('[codex 지시문 06 TASK F] blind anonymization — 완료 기준 "sou
 describe('[codex 지시문 06 TASK F] per-workspace minimum concept counts', () => {
   it('matches the spec\'s own literal minimums for every real workspace', () => {
     const expected: Record<WorkspaceId, number> = {
-      'senior-oldpop': 2, 'kr-2030': 2, 'jp-2030': 2, 'kr-kids': 1, 'jp-kids': 1, 'kr-idol-male': 1, 'kr-idol-female': 1
+      'senior-oldpop': 2, 'kr-2030': 2, 'jp-2030': 2, 'kr-kids': 1, 'jp-kids': 1, 'kr-idol-male': 1, 'kr-idol-female': 1, 'en-chillhop': 2
     };
     expect(MINIMUM_CONCEPTS_PER_WORKSPACE).toEqual(expected);
   });

@@ -95,5 +95,18 @@ export const CONCEPT_COMPATIBILITY_BY_ARCHETYPE: Partial<Record<ChannelArchetype
     crossStyleEraBuckets: ['1950s-60s', '1970s'],
     suggestedChannelIds: [],
     sourceKo: '현재 활성 채널 프리셋 없음(타입에만 존재) — 크리스마스 스탠다드는 관습적으로 1950-70년대 클래식과 강하게 겹쳐 cross-style로 열어 둠'
+  },
+  // 지시문 71 (TASK A) — check:gates(scripts/checkGateContract.ts)가 32개
+  // 채널 전부에 시니어/동요 등 다른 워크스페이스의 대표 컨셉("60년대
+  // 올드팝" 등)을 대입하면서 en-chillhop의 3개 채널도 실측(0% CONTRACT
+  // VIOLATION)에 걸렸다 — lofi-study/modern-chill/kids와 같은 이유
+  // (§30-32 "그 채널이 표현하도록 설계된 적 없는 시대"). en-chillhop 자신은
+  // 시대 정체성이 없는 워크스페이스(WORKSPACE_ERA_INTENT의
+  // 'current-implied')이므로 전부 unsupported.
+  'en-chillhop': {
+    supportedEraBuckets: [],
+    crossStyleEraBuckets: [],
+    suggestedChannelIds: ['good-morning-memory-radio', 'morning-showa-cafe', 'showa-seventies'],
+    sourceKo: '지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성'
   }
 };

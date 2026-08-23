@@ -11,12 +11,12 @@ import type {
   PreassignedSongSlot,
   ProviderSettings
 } from '../types';
-import { genreLibrary, getCoreGenreIdsForArchetype, getGenreById, isGenreEligibleForArchetype, totalGenreCount } from '../data/genreLibrary';
+import { EN_CHILLHOP_HOUSE_BAND_GENRE_IDS, EN_CHILLHOP_RAP_BAND_GENRE_IDS, genreLibrary, getCoreGenreIdsForArchetype, getGenreById, isGenreEligibleForArchetype, totalGenreCount } from '../data/genreLibrary';
 import { sanitizeGenreIdsForArchetype } from './genreSelection';
 import { moodPacks, seasonPacks } from '../data/presets';
 import { matchConceptRules } from '../data/conceptKeywords';
 import { hookDevices } from '../data/hookDevices';
-import { isKidsArchetype } from '../utils/channelArchetype';
+import { isEnChillhopArchetype, isKidsArchetype } from '../utils/channelArchetype';
 import { introTexturesForArchetype } from '../data/introTextures';
 import {
   ADULT_STRUCTURE_TEMPLATE_IDS,
@@ -469,6 +469,42 @@ function chooseGenreIds(
       candidates = candidates.filter(genre => eraEligibleIds!.has(genre.id));
     }
   }
+  // 지시문 71 (TASK E) — en-chillhop만: 랩 대역(62-98 BPM)과 하우스 대역
+  // (108-128 BPM) 사이 10 BPM 이상 빈 구간(§1.3 실측)이 한 세트에 섞이면
+  // 청취 흐름이 끊긴다. 컨셉 텍스트에서 대역을 먼저 정하고(딥하우스/
+  // 개러지를 지목하면 하우스 대역, 그 외에는 랩 대역이 기본값 — §6.2
+  // "컨셉이 어느 쪽도 지목하지 않으면 랩 대역을 기본값으로"), 후보 풀을
+  // 그 대역으로 고정한다. bandIds/otherBandIds/crossoverAllowance를 이
+  // 함수 스코프에 두는 이유: 아래 candidates 필터뿐 아니라 add()의
+  // channel.primaryGenreIds/getCoreGenreIdsForArchetype 폴백 루프(다른
+  // 대역 id를 candidates를 거치지 않고 직접 넣을 수 있는 유일한 경로)도
+  // 같은 대역 잠금을 지켜야 §6.2 "상한은 세트의 20%"가 실제로 지켜진다.
+  // 다른 워크스페이스의 BPM/장르 배분 로직은 전혀 건드리지 않는다(§6.3).
+  let enChillhopBandIds: Set<string> | undefined;
+  let enChillhopOtherBandIds: Set<string> | undefined;
+  let enChillhopCrossoverAllowance = 0;
+  let enChillhopCrossoverUsed = 0;
+  if (isEnChillhopArchetype(channel.archetype)) {
+    const houseSignal = /딥\s*하우스|deep\s*house|하우스\s*비트|하우스\s*그루브|하우스\s*뮤직|house\s*beat|house\s*groove|house\s*music|개러지|게러지|garage/i.test(freeText);
+    const bandIds = new Set<string>(houseSignal ? EN_CHILLHOP_HOUSE_BAND_GENRE_IDS : EN_CHILLHOP_RAP_BAND_GENRE_IDS);
+    const otherBandIds = new Set<string>(houseSignal ? EN_CHILLHOP_RAP_BAND_GENRE_IDS : EN_CHILLHOP_HOUSE_BAND_GENRE_IDS);
+    const bandCandidates = candidates.filter(genre => bandIds.has(genre.id));
+    if (bandCandidates.length) {
+      const { min: enChillhopBreadthMin, max: enChillhopBreadthMax } = BREADTH_THRESHOLDS[breadth].genre;
+      const enChillhopMinimumForCap = clamp(Math.ceil(songCount / 5), enChillhopBreadthMin, enChillhopBreadthMax);
+      enChillhopBandIds = bandIds;
+      enChillhopOtherBandIds = otherBandIds;
+      enChillhopCrossoverAllowance = Math.max(0, Math.min(
+        enChillhopMinimumForCap - bandCandidates.length,
+        Math.floor(enChillhopMinimumForCap * 0.2)
+      ));
+      const crossoverCandidates = enChillhopCrossoverAllowance > 0
+        ? candidates.filter(genre => otherBandIds.has(genre.id)).slice(0, enChillhopCrossoverAllowance)
+        : [];
+      candidates = [...bandCandidates, ...crossoverCandidates];
+    }
+  }
+
   const ranked = candidates
     .map(genre => scoreGenre(genre, freeText, refs, eraFocus, channel, history, mainFamilyId, mood))
     .sort((a, b) => b.score - a.score || a.genre.id.localeCompare(b.genre.id));
@@ -487,6 +523,12 @@ function chooseGenreIds(
     // 지킨다(필터가 적용된 경우에만 — eraEligibleIds가 undefined면 애초에
     // 후보 부족으로 필터를 포기한 상태이므로 제한하지 않는다).
     if (eraEligibleIds && !eraEligibleIds.has(id)) return;
+    // 지시문 71 (TASK E) — en-chillhop 대역 잠금을 폴백 경로에도 적용.
+    if (enChillhopBandIds && !enChillhopBandIds.has(id)) {
+      if (!enChillhopOtherBandIds?.has(id)) return;
+      if (enChillhopCrossoverUsed >= enChillhopCrossoverAllowance) return;
+      enChillhopCrossoverUsed += 1;
+    }
     selected.push(id);
   };
 

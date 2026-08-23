@@ -527,6 +527,58 @@ const KR_IDOL_FEMALE_AUDIENCE_PROFILE: AudienceProfile = {
   arrangementDensityLimits: { sparseMin: 0, fullMax: 10 }
 };
 
+/**
+ * 지시문 71 (TASK A) — en-chillhop workspace's own audience profile.
+ * tempoFloor/tempoCeiling은 §1.3 실측 BPM 전체 범위(칠랩·힙합 62-98,
+ * 딥하우스 110-128)를 그대로 감싼다 — 워크스페이스 전체가 62-128을 넘지
+ * 않아야 각 장르 자신의 tempoRange가 audience floor/ceiling에 눌리지
+ * 않는다(kr-2030-emotional의 68 하한과 같은 이유, 이 프로필 자기 doc
+ * comment 참고). lyricWordRange는 랩 벌스의 밀도(가사 단어 수가 일반
+ * 팝보다 많음)와 하우스 트랙의 희박한 가사(짧은 훅 반복)를 함께 감싸도록
+ * kr-2030보다 넓게(180-280) 잡았다 — 검증 없는 추정치.
+ */
+const EN_CHILLHOP_AUDIENCE_PROFILE: AudienceProfile = {
+  id: 'en-chillhop',
+  labelKo: '영어 칠랩·딥하우스·힙합',
+  constraints: [
+    'contemporary urban production',
+    'bass and drums carry the groove',
+    'natural conversational English delivery',
+    'clean modern vocal-forward mix'
+  ],
+  exclusions: [
+    'vintage tape saturation',
+    '1970s AM-radio compression',
+    'nostalgic senior-radio announcer tone'
+  ],
+  tempoFloor: 62,
+  tempoCeiling: 128,
+  // 지시문 71 (TASK E) — KR_KIDS_AUDIENCE_PROFILE와 같은 문제: 이 워크스페이스도
+  // 같은 프로필 안에 칠랩/힙합(62-98)과 딥하우스(108-128)라는 서로 다른
+  // 성격의 장르가 공존한다. genreBoundedTempo 없이는 워크스페이스 전체
+  // 62-128 대역에서 트랙의 tempo가 정해져, chooseGenreIds의 대역 잠금(§6,
+  // core/setDirector.ts)으로 장르 id는 한 대역에 고정돼도 실제 BPM은 여전히
+  // 다른 대역 범위로 튈 수 있었다(실측: chill-rap 트랙이 64 BPM으로는
+  // 나왔지만 이론상 118 BPM도 나올 수 있는 구조). true로 각 트랙의 BPM이
+  // 자기 장르 자신의 tempoRange 안에 머물게 한다 — core/tempoPlan.ts의
+  // resolveTempoWithBand 참고.
+  genreBoundedTempo: true,
+  lyricWordRange: [180, 280],
+  songLengthSecondsRange: [165, 215],
+  relaxableAtPeak: [],
+  hardExclusions: [
+    'vintage tape saturation',
+    '1970s AM-radio compression',
+    'nostalgic senior-radio announcer tone'
+  ],
+  killingPointSetId: 'en-chillhop-default',
+  arcModelId: 'five-phase',
+  structureTemplateSetId: 'adult-t1-t5',
+  titlePatternSetId: 'adult-en-v1',
+  vocabularyBankIds: [],
+  arrangementDensityLimits: { sparseMin: 2, fullMax: 6 }
+};
+
 const KIDS_0_TO_2_AUDIENCE_PROFILE: AudienceProfile = {
   id: 'kids-0to2',
   labelKo: '동요 0~2세',
@@ -730,6 +782,7 @@ export const PROVISIONAL_AUDIENCE_PROFILES: AudienceProfile[] = [
   KR_IDOL_FEMALE_AUDIENCE_PROFILE,
   KR_KIDS_AUDIENCE_PROFILE,
   JP_KIDS_AUDIENCE_PROFILE,
+  EN_CHILLHOP_AUDIENCE_PROFILE,
   KIDS_0_TO_2_AUDIENCE_PROFILE,
   KIDS_2_TO_4_AUDIENCE_PROFILE,
   KIDS_4_TO_7_AUDIENCE_PROFILE

@@ -13,6 +13,7 @@ import { krIdolMaleOverride } from './krIdolMale';
 import { krIdolFemaleOverride } from './krIdolFemale';
 import { modernChillOverride } from './modernChill';
 import { cityNightOverride } from './cityNight';
+import { enChillhopOverride } from './enChillhop';
 
 export function overrideForArchetype(archetype: ChannelArchetype | undefined, language: LyricLanguage): HookVocabularyOverride {
   switch (archetype) {
@@ -81,6 +82,11 @@ export function overrideForArchetype(archetype: ChannelArchetype | undefined, la
     // kr-idol-male above.
     case 'kr-idol-female':
       return krIdolFemaleOverride(language);
+    // 지시문 71 (TASK A) — en-chillhop workspace's own bank. 없으면
+    // default(seniorMorningOverride)로 조용히 떨어진다 — kr-2030-pop/
+    // jp-2030-pop과 같은 이유로 명시적 case를 둔다.
+    case 'en-chillhop':
+      return enChillhopOverride;
     case 'senior-morning':
     default:
       return seniorMorningOverride;

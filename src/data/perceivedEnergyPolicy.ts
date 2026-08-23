@@ -77,6 +77,21 @@ const KR_IDOL_ENERGY_POLICY: PerceivedEnergyPolicy = {
   sourceKo: '추정치 — 실측 없음. tempoAnchorLow/High만 kr-idol 자신의 새 BPM 대역(92~150, 지시문 43 TASK A-1)에 맞춰 재설정, weights/thresholds는 senior 초기값 그대로. 첫 세트 측정 후 재조정.'
 };
 
+/**
+ * 지시문 71 (TASK A) — en-chillhop은 §1.3 실측대로 62(칠랩/힙합)~128(하우스)
+ * BPM을 한 워크스페이스 안에 둔다 — KR_IDOL_ENERGY_POLICY가 kr-idol의 넓은
+ * 92-150 대역에 앵커를 다시 맞춘 것과 같은 이유로, senior의 62-130 앵커를
+ * 그대로 물려받지 않고 이 워크스페이스 자신의 실제 BPM 범위(62-128)로
+ * 재설정한다. weights/thresholds는 재조정 근거가 없어 senior 초기값 그대로.
+ */
+const EN_CHILLHOP_ENERGY_POLICY: PerceivedEnergyPolicy = {
+  ...SENIOR_OLDPOP_POLICY,
+  tempoAnchorLow: 62,
+  tempoAnchorHigh: 128,
+  verified: false,
+  sourceKo: '추정치 — 실측 없음. tempoAnchorLow/High만 en-chillhop 자신의 BPM 대역(62~128, 지시문 71 §1.3)에 맞춰 재설정, weights/thresholds는 senior 초기값 그대로. 첫 세트 측정 후 재조정.'
+};
+
 export const PERCEIVED_ENERGY_POLICY: Record<WorkspaceId, PerceivedEnergyPolicy> = {
   'senior-oldpop': SENIOR_OLDPOP_POLICY,
   'kr-2030': UNMEASURED_POLICY,
@@ -84,5 +99,6 @@ export const PERCEIVED_ENERGY_POLICY: Record<WorkspaceId, PerceivedEnergyPolicy>
   'kr-kids': UNMEASURED_POLICY,
   'jp-kids': UNMEASURED_POLICY,
   'kr-idol-male': KR_IDOL_ENERGY_POLICY,
-  'kr-idol-female': KR_IDOL_ENERGY_POLICY
+  'kr-idol-female': KR_IDOL_ENERGY_POLICY,
+  'en-chillhop': EN_CHILLHOP_ENERGY_POLICY
 };

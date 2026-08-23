@@ -276,7 +276,32 @@ const KR_IDOL_F: WorkspaceDefinition = {
   ready: true
 };
 
-export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F];
+const EN_CHILLHOP: WorkspaceDefinition = {
+  id: 'en-chillhop',
+  labelKo: '칠랩 · 딥하우스',
+  // TASK A~E — genre layer (9종, EN_CHILLHOP_CORE_GENRE_IDS)/lyric themes
+  // (46)/hook bank(영어 전용)/thumbnails(3 channel presets)/concept keywords
+  // (10+)/BPM 대역 고정(랩 vs 하우스) 전부 landed; see this instruction's
+  // own completion report.
+  descriptionKo: '칠랩 · 딥하우스 · 힙합 워크스페이스 — 영어 가사, 성인 대상, 기존 워크스페이스와 완전히 분리.',
+  archetypeIds: ['en-chillhop'],
+  defaultAudienceProfileId: 'en-chillhop',
+  defaultLyricLanguage: 'english',
+  theme: { accent: '#0891b2', surface: '#ecfeff' },
+  terms: {},
+  hiddenFeatures: [],
+  artistName: undefined,
+  contentTier: 'adult',
+  humanCreativeInterventionNote: undefined,
+  // §7 — A~E 전부 완료, §8 목표 수치 충족 확인 후 true로 전환:
+  // 코어 장르 9종(목표 9+), 테마 46개(목표 46), archetypeScope 규칙 24개
+  // (목표 10+), check:workspace-registration en-chillhop 누락 0건, §1.2③
+  // 6개 질의 전부 매칭, 10곡 세트 BPM 대역 혼재 0%(목표 20% 이하). 이
+  // 지시문의 완료 보고 참고.
+  ready: true
+};
+
+export const workspaceDefinitions: WorkspaceDefinition[] = [SENIOR_OLDPOP, KR_2030, JP_2030, KR_KIDS, JP_KIDS, KR_IDOL_M, KR_IDOL_F, EN_CHILLHOP];
 
 const BY_ID = new Map(workspaceDefinitions.map(w => [w.id, w]));
 

@@ -51,10 +51,10 @@ describe('[codex 지시문 02 TASK J] extractEraConstraint — 2000s detection',
 });
 
 describe('[codex 지시문 02 TASK J] WORKSPACE_ERA_INTENT registry', () => {
-  it('has a real entry for all 7 workspaces', () => {
+  it('has a real entry for all 8 workspaces', () => {
     const ids = Object.keys(WORKSPACE_ERA_INTENT);
     expect(ids.sort()).toEqual(
-      ['jp-2030', 'jp-kids', 'kr-2030', 'kr-idol-female', 'kr-idol-male', 'kr-kids', 'senior-oldpop'].sort()
+      ['jp-2030', 'jp-kids', 'kr-2030', 'kr-idol-female', 'kr-idol-male', 'kr-kids', 'senior-oldpop', 'en-chillhop'].sort()
     );
   });
 

@@ -39,7 +39,10 @@ const POLICY_BY_WORKSPACE: Record<WorkspaceId, StylePromptWordPolicy> = {
   'kr-kids': KIDS_POLICY,
   'jp-kids': KIDS_POLICY,
   'kr-idol-male': KPOP_POLICY,
-  'kr-idol-female': KPOP_POLICY
+  'kr-idol-female': KPOP_POLICY,
+  // 지시문 71 (TASK A) — 칠랩/힙합/딥하우스는 일반 팝과 같은 성격(파트맵/
+  // 리듬 큐 지시문이 K-pop만큼 필요하지 않음) — DEFAULT_POLICY.
+  'en-chillhop': DEFAULT_POLICY
 };
 
 export function stylePromptWordPolicyFor(workspaceId: WorkspaceId): StylePromptWordPolicy {

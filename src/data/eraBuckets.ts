@@ -76,6 +76,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'kr2030-whisper-trap': ['2010s', '2020s'],
   'kr2030-cloud-hazy-rap': ['2010s', '2020s'],
   'kr2030-noir-deep-house': ['2010s', '2020s'],
+  // 지시문 71 (TASK B) — en-chillhop's own deep house genres. 딥하우스
+  // 리바이벌은 kr2030-noir-deep-house와 같은 2010년대 이후 프로덕션 미학.
+  'en-deep-house-melodic': ['2010s', '2020s'],
+  'en-deep-house-organic': ['2010s', '2020s'],
+  'en-house-garage-swing': ['2010s', '2020s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
   'oldpop-sunshine-pop': ['1960s'],
@@ -486,6 +491,10 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'kr2030-whisper-trap': '위스퍼 트랩 — 속삭이는 딜리버리·미니멀 트랩 프로덕션이 2010년대 이후 정립된 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'kr2030-cloud-hazy-rap': '클라우드 헤이지 랩 — 리버브에 젖은 몽환적 클라우드 랩 프로덕션이 2010년대 이후 정립된 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'kr2030-noir-deep-house': '누아르 딥하우스 — 110-120 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  // 지시문 71 (TASK B) — en-chillhop's own deep house genres, kr2030-noir-deep-house와 같은 이유.
+  'en-deep-house-melodic': '멜로딕 딥하우스 — 112-122 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'en-deep-house-organic': '오가닉 딥하우스 — 108-118 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'en-house-garage-swing': '개러지 스윙 하우스 — 118-128 BPM UK 개러지 스윙 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',
   'oldpop-sunshine-pop': '선샤인 팝 — 1960년대 중후반 캘리포니아 팝의 대표 스타일',

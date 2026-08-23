@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { getWorkspace, getWorkspaceTerm, isFeatureHidden, workspaceDefinitions } from '../src/data/workspaces';
 
 describe('[v4.0 TASK A] workspaceDefinitions', () => {
-  it('defines exactly the 7 spec workspaces, each with a unique id', () => {
+  it('defines exactly the 8 spec workspaces, each with a unique id', () => {
     const ids = workspaceDefinitions.map(w => w.id);
-    expect(ids).toEqual(['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female']);
-    expect(new Set(ids).size).toBe(7);
+    expect(ids).toEqual(['senior-oldpop', 'kr-2030', 'jp-2030', 'kr-kids', 'jp-kids', 'kr-idol-male', 'kr-idol-female', 'en-chillhop']);
+    expect(new Set(ids).size).toBe(8);
   });
 
   it('senior-oldpop is fully filled in: real archetypes, ready=true', () => {
@@ -110,7 +110,7 @@ describe('[v4.0 TASK A] workspaceDefinitions', () => {
 
   it('every workspace has a distinct theme accent', () => {
     const accents = new Set(workspaceDefinitions.map(w => w.theme.accent));
-    expect(accents.size).toBe(7);
+    expect(accents.size).toBe(8);
   });
 });
 

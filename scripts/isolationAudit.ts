@@ -68,6 +68,8 @@ function themeWorkspaceOf(theme: { id: string }): WorkspaceId {
   // TASK K3 — kr-idol-female's own theme prefix (krkidolf-, distinct from
   // K2's kridol- since K3's lyric themes ARE its own, unlike genres above).
   if (theme.id.startsWith('krkidolf-')) return 'kr-idol-female';
+  // 지시문 71 (TASK A) — en-chillhop's own theme prefix.
+  if (theme.id.startsWith('enchillhop-')) return 'en-chillhop';
   return 'senior-oldpop';
 }
 

@@ -106,7 +106,9 @@ describe('structured genre library', () => {
     // kridol-hard-rap, "랩이 나오면 항상 같은 소리다" 실측 대응).
     // 지시문 53 (TASK A) — kr2030GenrePacks grew 8 -> 11 (kr2030-mumble-melodic-rap/
     // kr2030-whisper-trap/kr2030-cloud-hazy-rap, 멈블 앤 위스퍼 랩 채널 신설).
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 11 + 7 + 7 + 7 + 9);
+    // 지시문 71 (TASK B) — +3 for enChillhopGenrePacks (en-deep-house-melodic/
+    // en-deep-house-organic/en-house-garage-swing), same registered-in-both pattern.
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 11 + 7 + 7 + 7 + 9 + 3);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -363,8 +365,10 @@ describe('structured genre library', () => {
     // same registered-in-both pattern: 364.
     // 지시문 53 (TASK A) — +3 kr2030-* ids (kr2030-mumble-melodic-rap/
     // kr2030-whisper-trap/kr2030-cloud-hazy-rap), same registered-in-both pattern: 367.
-    expect(libraryIds.size).toBe(367);
-    expect(presetIds.size).toBe(367);
+    // 지시문 71 (TASK B) — +3 en-* ids (en-deep-house-melodic/en-deep-house-organic/
+    // en-house-garage-swing), same registered-in-both pattern: 370.
+    expect(libraryIds.size).toBe(370);
+    expect(presetIds.size).toBe(370);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

@@ -59,6 +59,13 @@ export const OBJECT_STATE_POLICY: Record<WorkspaceId, ObjectStatePolicy> = {
     kinds: [],
     verifiedKinds: [],
     sourceKo: '적용 대상 적음 — 빈 목록 허용(지시문 원문 §B-3).'
+  },
+  // 지시문 71 (TASK A) — kr-2030/jp-2030과 같은 성인 도시 서사(문자메시지·
+  // 드라이브/나이트드라이브) 성격 — 동일 kind 세트.
+  'en-chillhop': {
+    kinds: ['message', 'vehicle'],
+    verifiedKinds: [],
+    sourceKo: '추정치 — 실측 없음.'
   }
 };
 

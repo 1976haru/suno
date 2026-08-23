@@ -1,5 +1,5 @@
 import type { ChannelProfile, GenerationPack, GenrePack, MoodPack, SeasonPack } from '../types';
-import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, eraGenrePacks, jp2030GenrePacks, jpkidsGenrePacks, kr2030GenrePacks, kridolMaleGenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
+import { CORE_LYRIC_FLAVOR_IMAGES, LEAD_ARRANGEMENT_NARRATIVES, enChillhopGenrePacks, eraGenrePacks, jp2030GenrePacks, jpkidsGenrePacks, kr2030GenrePacks, kridolMaleGenrePacks, krkidsGenrePacks, modernGenrePacks, notionDerivedGenrePacks, oldpopGenrePacks, withGenreVisibility } from './genreLibrary';
 
 export const channelPresets: ChannelProfile[] = [
   {
@@ -921,6 +921,67 @@ export const channelPresets: ChannelProfile[] = [
     ],
     seoKeywords: ['여자 아이돌 발라드', '후련한 노래', 'K-POP R&B', '여돌 감성 발라드', '이별 후 노래', '여자 아이돌 R&B 플레이리스트'],
     archetype: 'kr-idol-female'
+  },
+  // 지시문 71 (TASK A §2.2) — en-chillhop workspace's 3 channel presets.
+  // 하나는 랩/칠랩 대역, 하나는 딥하우스 대역, 하나는 재즈랩·트랩소울·
+  // 개러지 스윙을 교차하는 밸런스형으로 나눠 §6(TASK E BPM 대역 고정)이
+  // 실제 컨셉 텍스트로 대역을 유도할 소재가 되게 한다.
+  {
+    id: 'headphones-down-low',
+    name: 'Headphones, Down Low',
+    englishName: 'Headphones, Down Low',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Chill rap, mellow boom-bap, and jazz rap for a rooftop-at-dusk headphone session',
+    visualIdentity: 'muted rooftop skyline at dusk, warm streetlight glow, grainy film texture, lowercase sans-serif typography',
+    defaultVocal: 'calm conversational male rap flow, laid-back drawl, soft melodic hook',
+    preferredGenres: ['chill-rap', 'boom-bap-mellow', 'jazz-rap', 'lofi-hiphop-study', 'trap-soul'],
+    preferredMoods: ['calm-focus', 'nostalgic'],
+    forbiddenCliches: [
+      'specific rapper imitation', 'named artist flow biting', 'signature hook of an existing song',
+      'aggressive battle-rap delivery', 'gunshot or violence imagery', 'explicit drug-dealing narrative'
+    ],
+    seoKeywords: ['chill rap playlist', 'lofi hip-hop beats', 'mellow boom bap', 'jazz rap chill', 'headphone rap songs', 'rooftop rap playlist'],
+    archetype: 'en-chillhop'
+  },
+  {
+    id: 'after-hours-deep-house',
+    name: 'After Hours Deep House',
+    englishName: 'After Hours Deep House',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Melodic and organic deep house for a night drive that never quite wants to end',
+    visualIdentity: 'neon skyline reflected on wet asphalt, wide-format night photography, minimal sans-serif typography',
+    defaultVocal: 'clear English vocal hook riding the drop, breathy layered ad-libs, understated delivery',
+    preferredGenres: ['en-deep-house-melodic', 'en-deep-house-organic', 'en-house-garage-swing', 'alt-rnb'],
+    preferredMoods: ['intimate', 'energetic'],
+    forbiddenCliches: [
+      'specific DJ or producer imitation', 'named artist vocal timbre', 'signature hook of an existing song',
+      'aggressive festival EDM drop', 'drug-use imagery', 'explicit club-hookup narrative'
+    ],
+    seoKeywords: ['deep house playlist', 'melodic deep house mix', 'night drive house music', 'organic deep house', 'garage house playlist', 'late night deep house'],
+    archetype: 'en-chillhop'
+  },
+  {
+    id: 'city-lights-crossfade',
+    name: 'City Lights Crossfade',
+    englishName: 'City Lights Crossfade',
+    market: 'global',
+    primaryLanguage: 'english',
+    audience: 'twenties',
+    promise: 'Jazz rap, trap soul, and garage swing house crossfading from the studio into the street',
+    visualIdentity: 'split-frame city collage, warm tungsten light against cool neon, bold condensed typography',
+    defaultVocal: 'relaxed articulate rap flow crossfading into a doubled intimate R&B vocal',
+    preferredGenres: ['jazz-rap', 'trap-soul', 'en-house-garage-swing', 'chill-rap'],
+    preferredMoods: ['emotional', 'bright'],
+    forbiddenCliches: [
+      'specific artist imitation', 'named producer tag drop', 'signature hook of an existing song',
+      'excessive rap verses without a sung hook', 'gunshot or violence imagery', 'explicit sexual content'
+    ],
+    seoKeywords: ['jazz rap trap soul mix', 'garage house crossover', 'city night rap playlist', 'trap soul playlist', 'jazz rap late night', 'garage swing house'],
+    archetype: 'en-chillhop'
   }
 ];
 
@@ -1187,6 +1248,11 @@ const rawGenrePacks: GenrePack[] = [
   ...jpkidsGenrePacks,
   // TASK K2 — kr-idol-male workspace's 7 genres, same registered-in-both pattern.
   ...kridolMaleGenrePacks,
+  // 지시문 71 (TASK B) — en-chillhop workspace's 3 deep-house genres, same
+  // registered-in-both pattern (App.tsx가 실제로 이 rawGenrePacks/genrePacks
+  // 경유로 장르를 조회한다 — genreLibrary/index.ts 자신의 genrePacks export가
+  // 아니다, 위 TASK B1 주석 참고. 여기 빠지면 실제 UI에서 도달 불가능).
+  ...enChillhopGenrePacks,
   ...modernGenrePacks,
   ...eraGenrePacks,
   ...notionDerivedGenrePacks

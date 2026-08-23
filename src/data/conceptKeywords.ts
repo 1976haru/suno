@@ -62,7 +62,10 @@ export interface KeywordRule {
 const ADULT_ARCHETYPES: ChannelArchetype[] = [
   'senior-morning', 'showa-cafe', 'christmas', 'lofi-study', 'showa-70s',
   'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge',
-  'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female'
+  'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female',
+  // 지시문 71 (TASK D) — en-chillhop도 성인 워크스페이스, moodWeights/
+  // seasonWeights가 이 목록을 거쳐 en-chillhop에도 적용된다.
+  'en-chillhop'
 ];
 
 export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
@@ -1730,6 +1733,94 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     patterns: [/놀이터/, /뛰노는/, /신나게\s*뛰노는/],
     genreWeights: { 'krkids-action': 3, 'krkids-animal-vehicle': 1 },
     archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  // 지시문 71 (TASK D) — en-chillhop workspace rules. axis:'genre'가
+  // 붙은 항목은 §1.2③ 실측이 확인한 "지목할 방법이 없는" 6개 질의(딥하우스
+  // 랩·딥하우스·칠랩·힙합·deep house rap·chill rap)를 전부 매칭시킨다.
+  // 단독 '랩'/단독 'house'는 §5.2에 따라 넣지 않는다 — '랩'은 칠랩/랩
+  // 플로우/힙합 랩 같은 결합형으로만, 'house'는 deep house/house beat/
+  // house groove 결합형으로만 매칭한다. archetypeScope는 전부
+  // ['en-chillhop']로 고정해 시니어·동요 워크스페이스로 새지 않게 막는다.
+  {
+    id: 'enchillhop-chill-rap',
+    patterns: [/칠\s*랩/, /chill\s*rap/i],
+    genreWeights: { 'chill-rap': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-boom-bap',
+    patterns: [/붐뱁/, /boom[\s-]?bap/i],
+    genreWeights: { 'boom-bap-mellow': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-jazz-rap',
+    patterns: [/재즈\s*랩/, /jazz\s*rap/i],
+    genreWeights: { 'jazz-rap': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-lofi-hiphop',
+    patterns: [/로파이\s*힙합/, /lo-?fi\s*hip[\s-]?hop/i],
+    genreWeights: { 'lofi-hiphop-study': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-trap-soul',
+    patterns: [/트랩\s*소울/, /trap\s*soul/i],
+    genreWeights: { 'trap-soul': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // '힙합' 단독은 안전하다(§5.2가 경고하는 건 단독 '랩'뿐 — 랩실/랩탑/
+    // 비닐랩과의 충돌). '랩 플로우'/'힙합 랩'은 결합형으로 추가 매칭.
+    id: 'enchillhop-hiphop-general',
+    patterns: [/힙합/, /\bhip[\s-]?hop\b/i, /랩\s*플로우/, /힙합\s*랩/, /rap\s*flow/i],
+    genreWeights: { 'chill-rap': 2, 'boom-bap-mellow': 2, 'jazz-rap': 1, 'lofi-hiphop-study': 1 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-deep-house',
+    patterns: [/딥\s*하우스/, /deep\s*house/i],
+    genreWeights: { 'en-deep-house-melodic': 3, 'en-deep-house-organic': 3 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // 단독 '하우스'/'house'는 넣지 않는다(§5.2) — 비트/그루브/뮤직 결합형만.
+    id: 'enchillhop-house-beat',
+    patterns: [/하우스\s*비트/, /하우스\s*그루브/, /하우스\s*뮤직/, /house\s*beat/i, /house\s*groove/i, /house\s*music/i],
+    genreWeights: { 'en-deep-house-melodic': 2, 'en-deep-house-organic': 2, 'en-house-garage-swing': 2 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-garage-swing',
+    patterns: [/개러지/, /게러지/, /garage/i],
+    genreWeights: { 'en-house-garage-swing': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // 'nocturnal'/'relaxed'는 실존 moodPack id가 아니다(presets.ts's
+    // moodPacks 실측) — 가장 가까운 실존 id(intimate/calm-focus)로 맞춘다.
+    id: 'enchillhop-night-city-mood',
+    patterns: [/도시\s*야경/, /나이트\s*드라이브/, /night\s*drive/i, /city\s*lights/i, /rooftop/i, /루프탑/],
+    moodWeights: { intimate: 2, 'calm-focus': 1 },
+    archetypeScope: ['en-chillhop']
+  },
+  {
+    id: 'enchillhop-headphone-solo',
+    patterns: [/헤드폰/, /이어폰/, /headphones?/i, /earbuds?/i],
+    moodWeights: { 'calm-focus': 2 },
+    genreWeights: { 'chill-rap': 1, 'lofi-hiphop-study': 1 },
+    archetypeScope: ['en-chillhop']
   }
 ];
 

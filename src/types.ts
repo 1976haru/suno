@@ -114,10 +114,14 @@ export type AgeGroup = 'kids' | 'teens' | 'twenties' | 'thirtiesForties' | 'seni
 // entry — see the 'kr-idol-female': [] placeholders below and in
 // utils/channelProfile.ts, the same "declared but not yet built" pattern
 // 'christmas'/'lofi-study' already used in CORE_GENRE_IDS_BY_ARCHETYPE.
-export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song' | 'kr-idol-male' | 'kr-idol-female';
+// 지시문 71 (TASK A) — 'en-chillhop'은 이 앱의 워크스페이스 체계 이전에
+// 만들어진 modern-chill/city-night 레거시 아키타입과 달리, 처음부터 자기
+// 워크스페이스(en-chillhop)에 소속된 아키타입으로 신설한다(§2.1 "재사용하지
+// 말 것").
+export type ChannelArchetype = 'senior-morning' | 'showa-cafe' | 'christmas' | 'lofi-study' | 'kids' | 'showa-70s' | 'j2000s' | 'modern-chill' | 'city-night' | 'oldpop-lounge' | 'kr-2030-pop' | 'jp-2030-pop' | 'kr-kids-song' | 'jp-kids-song' | 'kr-idol-male' | 'kr-idol-female' | 'en-chillhop';
 
-/** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. */
-export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male' | 'kr-idol-female';
+/** v4.0 (TASK A1) — one app, five isolated workspaces; see src/data/workspaces/index.ts for the full definition and src/core/workspaceScope.ts for how data gets namespaced by this id. 지시문 71 — 'en-chillhop' 추가(8번째, 칠랩·딥하우스·힙합, 영어 가사). */
+export type WorkspaceId = 'senior-oldpop' | 'kr-2030' | 'jp-2030' | 'kr-kids' | 'jp-kids' | 'kr-idol-male' | 'kr-idol-female' | 'en-chillhop';
 
 /** v3.64 (TASK B) — see PreassignedSongSlot.introMode's own doc comment for why this exists and what each value governs. */
 export type IntroMode = 'instrumental' | 'vocal-immediate' | 'vocal-after-texture';

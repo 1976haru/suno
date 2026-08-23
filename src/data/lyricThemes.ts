@@ -3183,6 +3183,501 @@ export const adultLyricThemes: LyricTheme[] = [
     scene: 'standing on the same stage a decade after debut, recognizing faces that have been there from the start',
     emotionalArc: 'accumulated years distilling into overwhelming gratitude',
     suitedArchetypes: ['kr-idol-female']
+  },
+  // 지시문 71 (TASK C) — en-chillhop workspace's 46 lyric scenes. 영어권
+  // 도시 야간·일상 맥락(§4.2) — 기존 한국/일본 장면(喫茶店·波止場·골목
+  // 가로등)을 번역하지 않고 새로 썼다. frameId는 기존 체계(12종, 새 프레임
+  // 없음)를 재사용하며 4~4~3으로 고르게 분산해 한 프레임이 10개를 넘지
+  // 않는다(§4.2 "고르게 할 것"). 특정 장르 전용(클럽 플로어 등) 장면이
+  // 절반을 넘지 않도록 칠랩·힙합·딥하우스 셋 다에 얹을 수 있는 장면
+  // 위주로 썼다(§4.2 마지막 항).
+  {
+    id: 'enchillhop-subway-headphones-static',
+    labelKo: '지하철 이어폰 정적',
+    scene: 'riding a late subway car with headphones on, city lights strobing past the window in silence',
+    emotionalArc: 'flat exhaustion easing into a private, unbothered calm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중(지하철)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-night-bus-window-glow',
+    labelKo: '심야버스 창밖 불빛',
+    scene: 'catching the last night bus home, streetlights sliding across a tired reflection in the glass',
+    emotionalArc: 'drifting fatigue settling into quiet gratitude for the ride home',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중(버스)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-rideshare-backseat-playlist',
+    labelKo: '라이드셰어 뒷좌석 플레이리스트',
+    scene: 'sitting in the backseat of a rideshare at 1am, running a personal playlist low through one earbud',
+    emotionalArc: 'restless overthinking softening into a small, private peace',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중(차량)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-walking-block-earbuds-in',
+    labelKo: '동네 산책 이어버즈',
+    scene: 'walking the same six blocks home with earbuds in, timing footsteps to a half-remembered beat',
+    emotionalArc: 'aimless wandering resolving into a steady, grounded rhythm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'commute-transit',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-bedroom-studio-setup',
+    labelKo: '방 안 홈스튜디오',
+    scene: 'sitting at a small bedroom studio desk past midnight, one lamp on, headphones half off one ear',
+    emotionalArc: 'scattered self-doubt narrowing into focused, patient work',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'solitary-room',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-apartment-window-rain-static',
+    labelKo: '아파트 창밖 빗소리',
+    scene: 'watching rain streak down an apartment window at night, city noise reduced to a low, steady hum',
+    emotionalArc: 'quiet loneliness easing into calm acceptance',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'solitary-room',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-laundromat-late-wait',
+    labelKo: '심야 빨래방 대기',
+    scene: 'waiting out a laundromat cycle after midnight, fluorescent light humming over an empty row of machines',
+    emotionalArc: 'dull boredom drifting into unexpected, low-key comfort',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'solitary-room',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-kitchen-counter-late-snack',
+    labelKo: '주방 카운터 심야 간식',
+    scene: 'standing at the kitchen counter at 2am eating cereal straight from the box, the only light from the fridge',
+    emotionalArc: 'restless insomnia settling into small, ordinary contentment',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'solitary-room',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-highway-loop-no-destination',
+    labelKo: '목적지 없는 순환도로',
+    scene: 'driving the same highway loop with no real destination, windows cracked, bass humming low under the tires',
+    emotionalArc: 'restless energy unwinding into open-hearted calm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-drive',
+    motionKo: '이동 중(드라이브)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-overlook-parking-lot-view',
+    labelKo: '전망대 주차장 야경',
+    scene: 'parked at a hillside overlook with the engine off, the whole skyline laid out low and glittering',
+    emotionalArc: 'quiet awe settling into grounded perspective',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-drive',
+    motionKo: '정적(정차)',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-drive-through-neon-order',
+    labelKo: '네온 드라이브스루',
+    scene: 'pulling up to a neon-lit drive-through at 3am, ordering just to have somewhere to be for five minutes',
+    emotionalArc: 'aimless drifting turning into small, self-aware amusement',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-drive',
+    motionKo: '이동 중(드라이브)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-bridge-crossing-city-hum',
+    labelKo: '다리 위 도시의 소음',
+    scene: 'crossing a bridge at night with the city humming on both sides, radio low, hands loose on the wheel',
+    emotionalArc: 'tangled thoughts unspooling into clear-headed resolve',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-drive',
+    motionKo: '이동 중(드라이브)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-studio-session-with-a-friend',
+    labelKo: '친구와의 스튜디오 세션',
+    scene: 'trading verses back and forth with a close friend in a cramped home studio, laughing between takes',
+    emotionalArc: 'nervous first attempts loosening into easy, trusting collaboration',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'two-people-talk',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-rooftop-conversation-city-below',
+    labelKo: '옥상 대화, 발밑의 도시',
+    scene: 'sitting on a rooftop ledge with someone, the city spread out below, saying the thing that’s been hard to say',
+    emotionalArc: 'guarded hesitation opening into honest connection',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'two-people-talk',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-diner-booth-catch-up',
+    labelKo: '다이너 부스 근황 토크',
+    scene: 'sliding into a diner booth with an old friend at midnight, catching up over cold fries and refilled coffee',
+    emotionalArc: 'initial distance warming into familiar, easy comfort',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'two-people-talk',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-phone-call-walking-home',
+    labelKo: '집에 걸어가며 통화',
+    scene: 'talking on the phone while walking home alone, the conversation stretching out longer than either of them planned',
+    emotionalArc: 'quiet loneliness dissolving into unexpected warmth',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'two-people-talk',
+    motionKo: '이동 중(도보)',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-quitting-the-day-job',
+    labelKo: '퇴사를 결심하는 밤',
+    scene: 'staring at a resignation email draft at 1am, cursor blinking, finally deciding whether to hit send',
+    emotionalArc: 'anxious uncertainty crystallizing into determined resolve',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-moving-to-a-new-city',
+    labelKo: '새 도시로의 이사',
+    scene: 'taping the last box shut before a move to a new city, looking around an empty apartment one last time',
+    emotionalArc: 'nervous uncertainty opening into cautious hope',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-releasing-the-first-track',
+    labelKo: '첫 트랙 발매',
+    scene: 'hovering a finger over the upload button on a first real track, months of late nights compressed into one click',
+    emotionalArc: 'paralyzing self-doubt breaking into a leap of faith',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-walking-away-for-good',
+    labelKo: '완전히 등을 돌리는 순간',
+    scene: 'standing at a doorway deciding, for the last time, whether to turn back or keep walking',
+    emotionalArc: 'aching hesitation hardening into clear-eyed release',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'threshold-decision',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-rooftop-skyline-golden-hour',
+    labelKo: '옥상에서 보는 골든아워 스카이라인',
+    scene: 'watching the skyline turn gold from a rooftop right before the streetlights flicker on',
+    emotionalArc: 'quiet stillness swelling into open-hearted wonder',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'city-lights',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-downtown-after-work-walk',
+    labelKo: '퇴근 후 다운타운 산책',
+    scene: 'walking through downtown right after work, city lights just starting to outshine the fading daylight',
+    emotionalArc: 'flat exhaustion lifting into small, renewed energy',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'city-lights',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-crosswalk-waiting-neon',
+    labelKo: '네온 아래 횡단보도 대기',
+    scene: 'standing at a crosswalk under a neon sign, waiting for the light with a hundred strangers moving around',
+    emotionalArc: 'restless impatience settling into observant calm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'city-lights',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-elevator-ride-up-highrise',
+    labelKo: '고층빌딩 엘리베이터',
+    scene: 'riding an elevator up a high-rise alone, city lights dropping away through the glass with every floor',
+    emotionalArc: 'quiet nerves rising into clear, steady focus',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'city-lights',
+    motionKo: '이동 중(엘리베이터)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-party-edge-not-dancing',
+    labelKo: '파티 가장자리, 춤추지 않는',
+    scene: 'standing at the edge of a crowded party with a drink going warm, watching everyone else move',
+    emotionalArc: 'isolated self-consciousness easing into comfortable detachment',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'crowd-alone',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-platform-rush-hour-alone',
+    labelKo: '러시아워 플랫폼, 혼자',
+    scene: 'standing on a packed subway platform at rush hour, completely alone inside the noise',
+    emotionalArc: 'overwhelmed anonymity settling into a strange, private calm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'crowd-alone',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-show-not-dancing-watching',
+    labelKo: '공연장, 춤추지 않고 지켜보는',
+    scene: 'standing near the back of a small show, arms crossed, watching the set instead of losing themselves in it',
+    emotionalArc: 'guarded distance loosening into quiet appreciation',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'crowd-alone',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-grocery-store-late-night-run',
+    labelKo: '심야 마트 나홀로 장보기',
+    scene: 'wandering an all-night grocery store at 2am with an empty basket, in no hurry to leave',
+    emotionalArc: 'restless insomnia unwinding into unhurried, private ease',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'crowd-alone',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-running-into-an-ex-at-a-bar',
+    labelKo: '바에서 우연히 마주친 전 연인',
+    scene: 'spotting an ex across a dim bar and deciding, in the space of a breath, whether to say hello',
+    emotionalArc: 'sudden tension resolving into unexpected, calm closure',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'reunion-passing',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-old-crew-after-years',
+    labelKo: '몇 년 만에 만난 옛 크루',
+    scene: 'reuniting with the old crew after years apart, everyone a little older but falling back into old rhythms fast',
+    emotionalArc: 'awkward distance dissolving into easy familiarity',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'reunion-passing',
+    castKo: '여럿'
+  },
+  {
+    id: 'enchillhop-text-left-on-read-then-answered',
+    labelKo: '읽씹 후 뒤늦게 온 답장',
+    scene: 'watching a text sit read-but-unanswered for days, then finally getting a reply late one night',
+    emotionalArc: 'simmering frustration softening into cautious relief',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'reunion-passing',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-passing-the-old-block',
+    labelKo: '옛 동네를 지나며',
+    scene: 'driving past the old block where everything started, every corner holding a different memory',
+    emotionalArc: 'wistful nostalgia settling into grounded gratitude',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'reunion-passing',
+    motionKo: '이동 중(드라이브)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-leaving-the-party-at-3am',
+    labelKo: '새벽 3시, 파티를 나서며',
+    scene: 'stepping out of a party at 3am into cold, quiet air, ears still ringing from the speakers',
+    emotionalArc: 'buzzing overstimulation settling into peaceful stillness',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'after-party',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-afterparty-wind-down-couch',
+    labelKo: '애프터파티 후 소파에서',
+    scene: 'sitting on a couch with a few close friends as an afterparty winds down, the music turned low',
+    emotionalArc: 'high energy mellowing into warm, contented quiet',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'after-party',
+    castKo: '여럿'
+  },
+  {
+    id: 'enchillhop-walking-home-from-a-set',
+    labelKo: '세트 끝나고 걸어서 귀가',
+    scene: 'walking home from a late DJ set with the bassline still echoing faintly in the ears',
+    emotionalArc: 'electric exhilaration settling into a slow, satisfied glow',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'after-party',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-sunrise-after-a-night-out',
+    labelKo: '외출 후 맞이하는 새벽',
+    scene: 'watching the sky lighten from a fire escape after a night that ran straight into morning',
+    emotionalArc: 'giddy exhaustion softening into quiet, grateful clarity',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'after-party',
+    motionKo: '정적',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-scrolling-old-photos-late',
+    labelKo: '늦은 밤 옛 사진 넘겨보기',
+    scene: 'scrolling through old photos alone at night, pausing too long on one from a year that already feels far away',
+    emotionalArc: 'bittersweet nostalgia settling into calm acceptance',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'screen-memory',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-rewatching-a-voice-memo',
+    labelKo: '오래된 음성메모 다시 듣기',
+    scene: 'replaying an old voice memo from a friend who moved away, hearing a laugh that time has softened',
+    emotionalArc: 'quiet longing warming into grateful remembrance',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'screen-memory',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-video-call-friend-abroad',
+    labelKo: '해외에 있는 친구와 화상통화',
+    scene: 'video-calling a friend who moved abroad, the time zones making the call feel like it’s from another life',
+    emotionalArc: 'distant ache warming into steady, reassured connection',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'screen-memory',
+    castKo: '둘'
+  },
+  {
+    id: 'enchillhop-deleting-an-old-playlist',
+    labelKo: '오래된 플레이리스트 삭제',
+    scene: 'scrolling to the bottom of an old playlist built for someone who’s not around anymore, finger hovering over delete',
+    emotionalArc: 'reluctant grief resolving into clean, deliberate release',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'screen-memory',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-morning-coffee-run-before-work',
+    labelKo: '출근 전 아침 커피런',
+    scene: 'grabbing coffee from a corner cart before work, city just waking up around a still-quiet sidewalk',
+    emotionalArc: 'sleepy sluggishness lifting into a small, hopeful start',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'daylight-city',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-saturday-farmers-market',
+    labelKo: '토요일 파머스마켓',
+    scene: 'wandering a Saturday farmers market with nowhere to be, sunlight cutting through the stalls',
+    emotionalArc: 'low-grade weekday tension unwinding into easy weekend calm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'daylight-city',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-laundry-day-errands-loop',
+    labelKo: '빨래하는 날의 소소한 심부름',
+    scene: 'running a loop of small Sunday errands with a laundry bag over one shoulder, no real plan for the day',
+    emotionalArc: 'quiet restlessness settling into simple contentment',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'daylight-city',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-dancing-alone-in-the-kitchen',
+    labelKo: '주방에서 혼자 춤추기',
+    scene: 'dancing alone in the kitchen at midnight while something simmers on the stove, no one watching',
+    emotionalArc: 'quiet loneliness turning into unguarded, private joy',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-city-move',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-night-walk-headphones-on',
+    labelKo: '헤드폰 쓰고 밤 산책',
+    scene: 'taking a long, unplanned night walk with headphones on, letting the block count double before turning back',
+    emotionalArc: 'restless static thoughts smoothing into clear-headed calm',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-city-move',
+    motionKo: '이동 중(도보)',
+    castKo: '혼자'
+  },
+  {
+    id: 'enchillhop-biking-home-late-empty-streets',
+    labelKo: '텅 빈 거리를 자전거로 귀가',
+    scene: 'biking home late through empty streets, the whole city briefly feeling like it belongs to no one else',
+    emotionalArc: 'wired late-night energy settling into free, weightless ease',
+    suitedArchetypes: ['en-chillhop'],
+    languages: ['english'],
+    frameId: 'night-city-move',
+    motionKo: '이동 중(자전거)',
+    castKo: '혼자'
   }
 ];
 
