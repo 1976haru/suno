@@ -5,6 +5,18 @@
  * 이 스크립트는 모든 WorkspaceId에 대해 그 16개 파일 각각이 실제 값을
  * 갖고 있는지 실측하고 누락을 출력한다.
  *
+ * 지시문 72 (TASK C) — 지시문 71 §2.2의 원래 목록에 `vocalPresets.ts`가
+ * 빠져 있었다. 그 결과 en-chillhop의 보컬 프리셋이 0개였는데도 이 검사는
+ * "누락 0건"으로 통과했다(검사 항목 자체가 없었으므로) — "검사가 통과했으니
+ * 됐다"의 근거로 쓰이는 이상 검사 항목의 누락이 곧 결함의 누락이 된다는
+ * 것을 실측으로 확인한 사례. vocalPresets.ts(보컬 프리셋 배정, hard
+ * blocker)와 conceptCompatibility.ts(시대 호환성 데이터, Partial이라
+ * N/A 허용이지만 정보성으로 노출)를 추가한다. core/vocalPlan.ts의
+ * IDOL_VOCAL_DESCRIPTIONS_BY_ARCHETYPE은 검토했으나 추가하지 않았다 —
+ * kr-idol-male/kr-idol-female 두 워크스페이스에만 의도적으로 존재하는
+ * 아이돌 전용 축이라 "워크스페이스마다 값이 필요하다"는 이 검사의 전제와
+ * 안 맞는다(나머지 6개 워크스페이스는 전부 N/A가 정상 — 완료 보고 §6 참고).
+ *
  * advisory 전용 — 절대 생성을 막지 않는다(항상 exit 0). 기존 7개
  * 워크스페이스에서 누락이 발견돼도 이 스크립트가 고치지 않는다 — 발견만
  * 하고 보고에 남긴다(§하지 말 것 "이번에 고치지는 말 것").
@@ -28,6 +40,8 @@ import { introTextures, introTexturesForArchetype } from '../src/data/introTextu
 import { killingPointSetForNonKidsArchetype } from '../src/data/killingPointWorkspaceSets';
 import { adultLyricThemes, kidsLyricThemes } from '../src/data/lyricThemes';
 import { CONCEPT_KEYWORD_RULES } from '../src/data/conceptKeywords';
+import { CONCEPT_COMPATIBILITY_BY_ARCHETYPE } from '../src/data/conceptCompatibility';
+import { suitablePresetsForArchetype } from '../src/core/vocalRecommender';
 import { isKidsArchetype } from '../src/utils/channelArchetype';
 import type { ChannelArchetype, WorkspaceId } from '../src/types';
 
@@ -142,6 +156,39 @@ function checkConceptKeywords(archetype: ChannelArchetype): AxisResult {
   return { ok: scoped.length > 0, detail: `archetypeScope 포함 규칙 ${scoped.length}개` };
 }
 
+/**
+ * 지시문 72 (TASK C-1) — suitablePresetsForArchetype이 0개면 세트를 뽑아도
+ * 목소리를 고를 수 없는 하드 블로커다. kids 아키타입인데 forKids가 아닌
+ * 프리셋이 섞이거나(또는 그 반대) suitablePresetsForArchetype 자체의
+ * 필터 로직이 깨지면 여기서도 드러나도록 별도로 확인한다 — 정상 동작이면
+ * 항상 0건이어야 한다(그 함수 자신의 `Boolean(preset.forKids) === kids`
+ * 필터가 구조적으로 보장).
+ */
+function checkVocalPresets(archetype: ChannelArchetype): AxisResult {
+  const pool = suitablePresetsForArchetype(archetype);
+  const kids = isKidsArchetype(archetype);
+  const mismatched = pool.filter(p => Boolean(p.forKids) !== kids);
+  const mismatchNote = mismatched.length ? ` — forKids 불일치 ${mismatched.length}건(${mismatched.map(p => p.id).join(', ')})` : '';
+  return { ok: pool.length > 0 && mismatched.length === 0, detail: `${pool.length}개 프리셋 (${pool.map(p => p.id).join(', ')})${mismatchNote}` };
+}
+
+/**
+ * 지시문 72 (TASK C-2) — CONCEPT_COMPATIBILITY_BY_ARCHETYPE는
+ * Partial<Record<ChannelArchetype,...>>라 항목이 없어도 checkConceptCompatibility가
+ * 기본 'supported'로 처리한다(제약을 지어내지 않는다는 그 파일 자기 doc
+ * comment) — workspaceEraFloor.ts와 같은 성격이라 ok는 항상 true, 정보성으로만
+ * 보고한다.
+ */
+function checkConceptCompatibility(archetype: ChannelArchetype): AxisResult {
+  const entry = CONCEPT_COMPATIBILITY_BY_ARCHETYPE[archetype];
+  return {
+    ok: true,
+    detail: entry
+      ? `등록됨 (supported=[${entry.supportedEraBuckets.join(',') || '없음'}], cross-style=[${entry.crossStyleEraBuckets.join(',') || '없음'}])`
+      : '없음(기본 supported로 처리, N/A일 수 있음)'
+  };
+}
+
 function buildReport(workspaceId: WorkspaceId): WorkspaceReport {
   const primaryArchetype = primaryArchetypeFor(workspaceId);
   return {
@@ -162,14 +209,16 @@ function buildReport(workspaceId: WorkspaceId): WorkspaceReport {
       'introTextures.ts': checkIntroTextures(primaryArchetype),
       'killingPointWorkspaceSets.ts': checkKillingPoints(primaryArchetype),
       'lyricThemes.ts (테마 풀)': checkLyricThemes(primaryArchetype),
-      'conceptKeywords.ts (archetypeScope 규칙)': checkConceptKeywords(primaryArchetype)
+      'conceptKeywords.ts (archetypeScope 규칙)': checkConceptKeywords(primaryArchetype),
+      'vocalPresets.ts (보컬 프리셋)': checkVocalPresets(primaryArchetype),
+      'conceptCompatibility.ts (N/A 허용)': checkConceptCompatibility(primaryArchetype)
     }
   };
 }
 
 function main() {
   const workspaceIds = workspaceDefinitions.map(w => w.id);
-  console.log(`[check:workspace-registration] ${workspaceIds.length}개 워크스페이스 × 15개 등록축 (advisory, 항상 exit 0)\n`);
+  console.log(`[check:workspace-registration] ${workspaceIds.length}개 워크스페이스 × 17개 등록축 (advisory, 항상 exit 0)\n`);
 
   let totalMissing = 0;
   const missingByWorkspace: Record<string, string[]> = {};
@@ -191,7 +240,7 @@ function main() {
 
   console.log('\n\n누락 요약 ─────────────────────────────────────────');
   if (totalMissing === 0) {
-    console.log('  (없음) — 모든 워크스페이스가 15개 등록축을 전부 충족합니다.');
+    console.log('  (없음) — 모든 워크스페이스가 17개 등록축을 전부 충족합니다.');
   } else {
     for (const [workspaceId, items] of Object.entries(missingByWorkspace)) {
       console.log(`\n  ${workspaceId}: ${items.length}건`);
