@@ -1,5 +1,6 @@
 import type { BilingualPair, ChannelArchetype, GenerationOptions, GenrePack, KidsAgeTierId, LyricLanguage, MoodPack, OpeningStyle, PlaylistBlueprint, SeasonPack, SongIdea, WorkspaceId, YoutubeMetadata } from '../types';
 import { generationPacks } from '../data/presets';
+import { parseAvoidWords } from '../data/avoidWordPresets';
 import { hookDevices } from '../data/hookDevices';
 import { introTexturesForArchetype } from '../data/introTextures';
 import { ARRANGEMENT_DENSITY_TEXT_BY_LEVEL, buildArrangementDensityPlan, arrangementNarrativeForGenres, buildChannelPromptParts, buildExcludePrompt, hookStyleDirectives, rotatingArrangementNarrativeForGenres, rotatingEarwormText, rotatingGenreSignatureText, rotatingGenreText, rotatingInstrumentSet, rotatingInstrumentText } from './promptComposer';
@@ -46,7 +47,7 @@ import {
 } from './diversityAllocation';
 import { buildLyricThemePlan, buildPovPlan, buildSectionStylePlan, kidsEngineThemeForLyricSlot, lyricThemeForSlot } from './lyricDiversityPlan';
 import { onomatopoeiaById } from '../data/onomatopoeia';
-import { QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabularyBanks';
+import { nounsForLanguage, QUIET_MORNING_BANK_ID, vocabularyBankForScene } from '../data/vocabularyBanks';
 import { mergeNegativeStyleText } from '../data/negativeStyles';
 import { workspaceForArchetype } from '../data/workspaces';
 import { ARRANGEMENT_VOCABULARY } from '../data/arrangementVocabulary';
@@ -692,7 +693,8 @@ export function nextContestedTitle(
     usedHooks: gen.usedHooks,
     archetype,
     targetSyllables: gen.rhythmTarget,
-    emotionalWeight: targetHookEmotionalWeight(role)
+    emotionalWeight: targetHookEmotionalWeight(role),
+    avoidWords: gen.avoidWords
   };
   const { winner } = runOpeningContest(gen.seed + 41 + idx * 97, ctx, openingRole, packContext, k, earwormMode);
   gen.usedHooks.add(winner.hook.phrase);
@@ -1346,7 +1348,9 @@ export function generateLocalBlueprint(
   // up front. Undefined for genres without an entry — composeLyrics falls
   // back to the generic filler pool in that case, unchanged from before v3.13.
   const genreFlavorImages = genres[0]?.lyricFlavorImages?.map(image => phraseFor(image, opts.lyricLanguage));
-  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype, constraints);
+  // 정합성 감사 2026-08-23 (유형 B, 높음) — 트랙마다 동일하므로 1회만 파싱, 훅 생성기와 가사 조립 양쪽에서 재사용.
+  const avoidWordTerms = parseAvoidWords(opts.avoidWords);
+  const nextTitle = createTitleGenerator(opts.lyricLanguage, seedBase, opts.songCount, avoid, opts.channel.archetype, constraints, avoidWordTerms);
   const lyricPools = createLyricBatchPools(opts.lyricLanguage, seedBase, opts.channel.archetype);
   const packMotifPool = motifsForArchetype(opts.channel.archetype);
   const packMotif = packMotifPool[seed % packMotifPool.length];
@@ -1818,8 +1822,14 @@ export function generateLocalBlueprint(
     // which workspace was generating — see vocabularyBankForScene's own doc
     // comment for why that mattered.
     const sceneVocabularyBank = vocabularyBankForScene(lyricTheme?.frameId, lyricTheme?.motionKo, workspaceForArchetype(opts.channel.archetype)?.id);
+    // 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — 예전에는 sceneVocabularyBank.nouns
+    // (영어 전용)를 언어 변환 없이 그대로 꽂아, korean/japanese lyricLanguage
+    // 워크스페이스(kr-2030/jp-2030/kr-idol-male/kr-idol-female)의 가사 본문에
+    // 영어 명사가 섞여 나왔다. nounsForLanguage가 병렬 번역 배열(nounsKo/nounsJa)이
+    // 있으면 그것을, 없으면 기존 nouns를 그대로 반환한다.
+    const sceneVocabularyNouns = nounsForLanguage(sceneVocabularyBank, opts.lyricLanguage);
     const sceneVocabImages = sceneVocabularyBank.id !== QUIET_MORNING_BANK_ID
-      ? sceneVocabularyBank.nouns
+      ? sceneVocabularyNouns
         .filter(noun => !noun.toLowerCase().split(/\s+/).some(word => ARRANGEMENT_VOCABULARY.includes(word)))
         .slice(0, 2)
       : [];
@@ -1884,7 +1894,9 @@ export function generateLocalBlueprint(
         genreFlavorImages: sceneVocabImages.length ? [...(genreFlavorImages || []), ...sceneVocabImages] : genreFlavorImages,
         conceptImages,
         structureTemplate: structureTemplatePlan[idx],
-        hookPositionVariant
+        hookPositionVariant,
+        avoidWords: avoidWordTerms,
+        perspective: povPlan[idx]
       });
     // TASK A1/A2 (v3.5): every fragment is tagged with its priority id and
     // handed to composeStylePrompt, which dedupes and — if the combined

@@ -1,4 +1,4 @@
-import type { ChannelArchetype, GenerationOptions, LyricLanguage, SeasonPack, SongIdea } from '../types';
+import type { ChannelArchetype, GenerationOptions, LyricLanguage, LyricPerspective, SeasonPack, SongIdea } from '../types';
 import { resolveHookParts, type HookPartBank } from '../data/hookParts';
 import { overrideForArchetype } from '../data/hookBanks';
 import { stripSetTitlePrefix } from '../utils/generation';
@@ -1055,6 +1055,23 @@ export interface LyricComposeInput {
    * that doesn't pass this keeps the simplest, most predictable placement.
    */
   hookPositionVariant?: 0 | 1 | 2;
+  /**
+   * 정합성 감사 2026-08-23 (유형 B, 높음) 후속 — GenerationOptions.avoidWords가
+   * excludePrompt(스타일 네거티브 프롬프트)에만 반영되고 실제 가사 본문에는
+   * 전혀 반영되지 않던 결함의 수정. takeUniqueLines의 기존 hookGuard
+   * 재추첨 메커니즘(TASK v4.4)을 재사용해, 뽑힌 줄에 이 단어들 중 하나라도
+   * 부분 문자열로 들어 있으면 같은 방식으로 재추첨한다. 풀 안의 모든 후보가
+   * 회피 단어를 포함하면 maxAttempts 소진 후 그대로 반환될 수 있다(hookGuard와
+   * 동일한 best-effort 설계, 무한 재시도로 만들지 않음).
+   */
+  avoidWords?: string[];
+  /**
+   * 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — 이 트랙에 배정된 실제 시점
+   * (core/lyricDiversityPlan.ts's buildPovPlan 결과, SongIdea.pov와 동일 값).
+   * applyLyricPerspective 참고 — 영어에서만, secondPerson/thirdPerson일 때만
+   * 대명사를 치환한다.
+   */
+  perspective?: LyricPerspective;
 }
 
 export interface ComposedLyrics {
@@ -1075,15 +1092,59 @@ export interface ComposedLyrics {
  * (rather than reverting the draw) means every other double-draw in this
  * file gets the same protection for free, not just chorusDev.
  */
-function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used: Set<string>, hookGuard?: string, maxAttempts = 12): string[] {
+/**
+ * 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — perspective(1/2/3인칭)가
+ * slot.pov 메타데이터에는 정확히 반영되면서도 실제 가사 텍스트에는 전혀
+ * 반영되지 않던 결함의 수정. 영어 1인칭 대명사/조동사만 안전하게 치환한다
+ * (한국어/일본어는 대명사가 자주 생략되고 인칭에 따른 동사 활용 체계가
+ * 근본적으로 달라 기계적 치환이 오히려 문법을 깨뜨릴 위험이 커 이번
+ * 수정 범위에서 제외 — 결함으로 남겨두고 고치지 않았다). "they/you"는 영어
+ * 평서형 동사 활용이 "I"와 동일(-s 안 붙음)해 "I run" -> "they run"처럼
+ * 안전하지만, 계사(am/was)는 별도 구문으로 먼저 치환해야 "I was" ->
+ * "you was" 같은 오문을 피할 수 있다 — 그래서 계사·축약형을 단독 "I"보다
+ * 먼저 치환한다(순서 중요). `radioHost`는 대명사 치환이 아니라 완전히 다른
+ * 화법이라 이 메커니즘으로 다룰 수 없어 대상에서 제외.
+ */
+const PERSPECTIVE_PRONOUN_SWAPS: Record<'secondPerson' | 'thirdPerson', Array<[RegExp, string]>> = {
+  secondPerson: [
+    [/\bI'm\b/gi, "you're"], [/\bI am\b/gi, 'you are'], [/\bI was\b/gi, 'you were'],
+    [/\bI've\b/gi, "you've"], [/\bI'll\b/gi, "you'll"], [/\bI'd\b/gi, "you'd"],
+    [/\bmyself\b/gi, 'yourself'], [/\bmine\b/gi, 'yours'], [/\bmy\b/gi, 'your'], [/\bme\b/gi, 'you'],
+    [/\bI\b/g, 'you']
+  ],
+  thirdPerson: [
+    [/\bI'm\b/gi, "they're"], [/\bI am\b/gi, 'they are'], [/\bI was\b/gi, 'they were'],
+    [/\bI've\b/gi, "they've"], [/\bI'll\b/gi, "they'll"], [/\bI'd\b/gi, "they'd"],
+    [/\bmyself\b/gi, 'themselves'], [/\bmine\b/gi, 'theirs'], [/\bmy\b/gi, 'their'], [/\bme\b/gi, 'them'],
+    [/\bI\b/g, 'they']
+  ]
+};
+
+function applyLyricPerspective(line: string, language: LyricLanguage, perspective?: LyricPerspective): string {
+  if (language !== 'english') return line;
+  if (perspective !== 'secondPerson' && perspective !== 'thirdPerson') return line;
+  let result = line;
+  for (const [pattern, replacement] of PERSPECTIVE_PRONOUN_SWAPS[perspective]) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
+function takeUniqueLines(pool: UniquePool<LineTemplate>, ctx: LyricLineCtx, used: Set<string>, hookGuard?: string, avoidTerms?: string[], perspective?: { language: LyricLanguage; value?: LyricPerspective }, maxAttempts = 12): string[] {
   const lowerHook = hookGuard?.trim().toLowerCase();
-  const collides = (line: string) => used.has(line) || (!!lowerHook && lowerHook.length >= 2 && line.toLowerCase().includes(lowerHook));
+  const lowerAvoidTerms = (avoidTerms ?? []).map(term => term.trim().toLowerCase()).filter(term => term.length >= 2);
+  const collides = (line: string) => {
+    if (used.has(line)) return true;
+    const lowerLine = line.toLowerCase();
+    if (lowerHook && lowerHook.length >= 2 && lowerLine.includes(lowerHook)) return true;
+    return lowerAvoidTerms.some(term => lowerLine.includes(term));
+  };
   let lines = pool.take()(ctx);
   for (let attempt = 0; lines.some(collides) && attempt < maxAttempts; attempt++) {
     lines = pool.take()(ctx);
   }
   lines.forEach(line => used.add(line));
-  return lines;
+  return perspective ? lines.map(line => applyLyricPerspective(line, perspective.language, perspective.value)) : lines;
 }
 
 /**
@@ -1139,7 +1200,8 @@ export function renderLyricsForDisplay(lyrics: string, hookPhrase: string): stri
 }
 
 export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
-  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages, conceptImages, structureTemplate = 'T1' } = input;
+  const { language, season, title, hook, situation, motif, role, pools, openingStyle, genreFlavorImages, conceptImages, structureTemplate = 'T1', avoidWords, perspective } = input;
+  const perspectiveCtx = { language, value: perspective };
   const t = tags[language];
   const isColdOpen = role === 'cold-open';
 
@@ -1188,8 +1250,8 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // universal (present in every template via verse1Block, present for every
   // role except shortOpenerRoles) draw to help close the same 215-230 gap.
   const opening = shortOpenerRoles(role)
-    ? takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines, hook).slice(0, 2)
-    : [...takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines, hook), ...takeUniqueLines(pools.opening, freshFillerCtx(), pools.usedLines, hook)];
+    ? takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines, hook, avoidWords, perspectiveCtx).slice(0, 2)
+    : [...takeUniqueLines(pools.opening, ctxFor('opening'), pools.usedLines, hook, avoidWords, perspectiveCtx), ...takeUniqueLines(pools.opening, freshFillerCtx(), pools.usedLines, hook, avoidWords, perspectiveCtx)];
   // TASK v4.4 — real measurement: local generation was landing 137-177
   // words/song against a 215-230 target (fullAudit.ts's own 'lyric_word_count'
   // item). v4.1 (TASK B) raised the English word-count target from the
@@ -1211,15 +1273,15 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // cold-open stays deliberately short.
   const boostSituationLines = (structureTemplate === 'T4' || structureTemplate === 'T3') && !shortOpenerRoles(role);
   const situationLines = boostSituationLines
-    ? [...takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines, hook), ...takeUniqueLines(pools.situation, freshFillerCtx(), pools.usedLines, hook)]
-    : takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines, hook);
+    ? [...takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines, hook, avoidWords, perspectiveCtx), ...takeUniqueLines(pools.situation, freshFillerCtx(), pools.usedLines, hook, avoidWords, perspectiveCtx)]
+    : takeUniqueLines(pools.situation, ctxFor('situation'), pools.usedLines, hook, avoidWords, perspectiveCtx);
   // TASK v4.4 — tried doubling this too, but a real test
   // (tests/hook.test.ts's own "[pre-chorus] section, when present, has
   // exactly 2 lines") caught a real structural contract this would have
   // broken — pre-chorus is meant to stay a tight 2-line setup into the
   // chorus, not a second verse-length stanza. Reverted; the word-count gap
   // is closed by opening/bridge (universal, no such contract) instead.
-  const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines, hook);
+  const preChorusLines = takeUniqueLines(pools.preChorus, ctxWith, pools.usedLines, hook, avoidWords, perspectiveCtx);
   // TASK v3.29 — a real 20-song sample (both local and remote-generated)
   // came back short enough to render at ~2:00-2:20 in Suno despite every
   // song targeting 2:50-3:20; local generation measured ~190 words/song on
@@ -1240,7 +1302,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // TASK v4.4 — see situationLines' own doc comment just above: the same
   // gap this verse2 double-draw was meant to close reopened when the target
   // moved to 215-230 without a matching recalibration.
-  const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines, hook), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines, hook)];
+  const verse2 = [...takeUniqueLines(pools.verse2, ctxFor('verse2'), pools.usedLines, hook, avoidWords, perspectiveCtx), ...takeUniqueLines(pools.verse2, freshFillerCtx(), pools.usedLines, hook, avoidWords, perspectiveCtx)];
 
   // TASK v3.70 (TASK C) — real listening feedback: bookending EVERY
   // chorus-type section made the same hook line sing 6x/song (2x per
@@ -1267,8 +1329,8 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // than the draw avoided.
   const buildChorus = (index: number, isFinal = false) => {
     const devLines = index === 1
-      ? [...takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines, hook), ...takeUniqueLines(pools.chorusDev, freshFillerCtx(), pools.usedLines, hook)]
-      : takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines, hook);
+      ? [...takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines, hook, avoidWords, perspectiveCtx), ...takeUniqueLines(pools.chorusDev, freshFillerCtx(), pools.usedLines, hook, avoidWords, perspectiveCtx)]
+      : takeUniqueLines(pools.chorusDev, chorusDevCtx(index), pools.usedLines, hook, avoidWords, perspectiveCtx);
     return isFinal ? [hook, ...devLines, hook] : placeHookOnce(devLines);
   };
   const chorus1 = buildChorus(0);
@@ -1281,7 +1343,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   // to every role for the same 215-230 gap (see situationLines' own doc
   // comment above) — T1/T5 templates are the only ones with a bridge
   // section at all, so this only affects tracks already using one.
-  const bridgeLines = [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines, hook), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines, hook)];
+  const bridgeLines = [...takeUniqueLines(pools.bridge, ctxFor('bridge'), pools.usedLines, hook, avoidWords, perspectiveCtx), ...takeUniqueLines(pools.bridge, freshFillerCtx(), pools.usedLines, hook, avoidWords, perspectiveCtx)];
 
   // TASK X5-2 (v3.4): 'comforting closer' used to fade out on a 3rd hook
   // repeat here, but a 30-song pack clamps every track past the 12th to
@@ -1299,7 +1361,7 @@ export function composeLyrics(input: LyricComposeInput): ComposedLyrics {
   const finalChorusLines = extendedFinalChorusTextRoles(role)
     // Closing is only used for this one role and is never part of the
     // motif budget, so it always renders with a filler noun.
-    ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines, hook)]
+    ? [...finalChorusBase, ...takeUniqueLines(pools.closing, freshFillerCtx(), pools.usedLines, hook, avoidWords, perspectiveCtx)]
     : finalChorusBase;
 
   // TASK I1 (v3.11) — track 1 (cold-open) skips the standard instrumental
@@ -1435,6 +1497,17 @@ export interface HookContext {
   emotionalWeight?: HookEmotionalWeight;
   /** v3.4 — scopes both the premium tier (senior-morning only) and the combinatorial vocabulary. Undefined behaves like 'senior-morning'. */
   archetype?: ChannelArchetype;
+  /**
+   * 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — 훅 뱅크 자체가 워크스페이스
+   * 정체성 단어(예: good-morning-memory-radio의 "morning")를 대량으로 담고
+   * 있어, 가사 본문 필러 라인만 걸러서는 avoidWords가 훅을 통해 코러스에
+   * 반복 등장하는 걸 못 막았다. pickUnused에서 best-effort로 회피하되,
+   * 회피하면 후보가 아예 0개가 되는 계층(shape/archetype/language 조합이
+   * 그 회피 단어로 사실상 도배된 경우)에서는 기존 동작(usedHooks 기준
+   * 첫 후보)으로 조용히 폴백한다 — composeHook 자신의 doc comment가 이미
+   * 명시한 "절대 예외를 던지지 않는다" 설계를 그대로 따른다.
+   */
+  avoidWords?: string[];
 }
 
 // Vocative hooks only ever address a person/abstract noun, never an object —
@@ -1761,7 +1834,15 @@ export function combinatorialHookBank(shape: HookShape, parts: HookPartBank, lan
  * silently returning a duplicate.
  */
 export function composeHook(seed: number, ctx: HookContext): HookSpec {
-  const pickUnused = (candidates: string[], shuffleSeed: number) => shuffle(candidates, shuffleSeed).find(candidate => !ctx.usedHooks.has(candidate));
+  const lowerAvoidWords = (ctx.avoidWords ?? []).map(term => term.trim().toLowerCase()).filter(term => term.length >= 2);
+  const pickUnused = (candidates: string[], shuffleSeed: number) => {
+    const available = shuffle(candidates, shuffleSeed).filter(candidate => !ctx.usedHooks.has(candidate));
+    if (lowerAvoidWords.length) {
+      const clean = available.find(candidate => !lowerAvoidWords.some(term => candidate.toLowerCase().includes(term)));
+      if (clean) return clean;
+    }
+    return available[0];
+  };
   const premium = premiumBankFor(ctx.language, ctx.shape, ctx.archetype);
   const weightedPremium = ctx.emotionalWeight
     ? premium.filter(candidate => hookEmotionalWeight(candidate) === ctx.emotionalWeight)
@@ -1973,6 +2054,8 @@ export interface TitleGenerator {
   index: number;
   /** v4.2 (TASK A3) — cross-song per-title-pattern usage, so titleFromHook's constraints.title.maxPerPattern is enforced over this generator's whole lifetime (see nextContestedTitle, which also writes into this same map for tracks 1-3). */
   patternUsage: Map<string, number>;
+  /** 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — HookContext.avoidWords 참고. nextContestedTitle이 이 생성기의 다른 상태(usedHooks 등)와 동일하게 읽는다. */
+  avoidWords?: string[];
 }
 
 /**
@@ -1991,7 +2074,8 @@ export function createTitleGenerator(
   songCount = 30,
   avoid?: { usedTitles?: Iterable<string>; usedHooks?: Iterable<string> },
   archetype?: ChannelArchetype,
-  constraints?: ResolvedConstraints
+  constraints?: ResolvedConstraints,
+  avoidWords?: string[]
 ): TitleGenerator {
   const s = hashSeed(seedBase);
   const shapeSequence = buildShapeSequence(songCount, s + 31);
@@ -2014,7 +2098,8 @@ export function createTitleGenerator(
         usedHooks: nextTitle.usedHooks,
         archetype,
         targetSyllables: nextTitle.rhythmTarget,
-        emotionalWeight: targetHookEmotionalWeight(role)
+        emotionalWeight: targetHookEmotionalWeight(role),
+        avoidWords: nextTitle.avoidWords
       });
       nextTitle.usedHooks.add(hook.phrase);
       const title = titleFromHook(hook, nextTitle.seed + 53 + idx * 131, language, nextTitle.usedTitles, resolvedConstraints, nextTitle.patternUsage);
@@ -2022,7 +2107,7 @@ export function createTitleGenerator(
       nextTitle.index += 1;
       return { title, hook: hook.phrase };
     },
-    { usedHooks, usedTitles, shapeSequence, rhythmTarget, seed: s, index: 0, patternUsage: new Map<string, number>() }
+    { usedHooks, usedTitles, shapeSequence, rhythmTarget, seed: s, index: 0, patternUsage: new Map<string, number>(), avoidWords }
   );
 
   return nextTitle;
