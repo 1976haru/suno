@@ -1786,23 +1786,83 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     axis: 'genre'
   },
   {
+    // 지시문 73 (TASK A) — '딥하우스'는 포괄어라 하우스 6종 전체를 후보로
+    // 삼는다(§2.1). 지시문 72 TASK B가 3종→6종으로 늘리며 이 규칙을
+    // 갱신하지 않아 신설 3종(vocal-anthem/tech-groove/soulful)이 '딥하우스'
+    // 자체로도 지목 불가능했던 실제 결함.
     id: 'enchillhop-deep-house',
     patterns: [/딥\s*하우스/, /deep\s*house/i],
-    genreWeights: { 'en-deep-house-melodic': 3, 'en-deep-house-organic': 3 },
+    genreWeights: {
+      'en-deep-house-melodic': 3,
+      'en-deep-house-organic': 3,
+      'en-house-garage-swing': 2,
+      'en-deep-house-vocal-anthem': 2,
+      'en-deep-house-tech-groove': 2,
+      'en-deep-house-soulful': 2
+    },
     archetypeScope: ['en-chillhop'],
     axis: 'genre'
   },
   {
     // 단독 '하우스'/'house'는 넣지 않는다(§5.2) — 비트/그루브/뮤직 결합형만.
+    // 지시문 73 (TASK A) — enchillhop-deep-house와 같은 이유로 6종 전체로 확장.
     id: 'enchillhop-house-beat',
     patterns: [/하우스\s*비트/, /하우스\s*그루브/, /하우스\s*뮤직/, /house\s*beat/i, /house\s*groove/i, /house\s*music/i],
-    genreWeights: { 'en-deep-house-melodic': 2, 'en-deep-house-organic': 2, 'en-house-garage-swing': 2 },
+    genreWeights: {
+      'en-deep-house-melodic': 2,
+      'en-deep-house-organic': 2,
+      'en-house-garage-swing': 2,
+      'en-deep-house-vocal-anthem': 2,
+      'en-deep-house-tech-groove': 2,
+      'en-deep-house-soulful': 2
+    },
     archetypeScope: ['en-chillhop'],
     axis: 'genre'
   },
   {
+    id: 'enchillhop-deep-house-melodic',
+    patterns: [/멜로딕\s*하우스/, /melodic\s*house/i],
+    genreWeights: { 'en-deep-house-melodic': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-deep-house-organic',
+    patterns: [/오가닉\s*하우스/, /어쿠스틱\s*하우스/, /organic\s*house/i],
+    genreWeights: { 'en-deep-house-organic': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-deep-house-vocal',
+    patterns: [/보컬\s*하우스/, /보컬\s*딥\s*하우스/, /vocal\s*house/i, /vocal\s*deep\s*house/i],
+    genreWeights: { 'en-deep-house-vocal-anthem': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-deep-house-tech',
+    patterns: [/테크\s*하우스/, /미니멀\s*하우스/, /tech\s*house/i, /minimal\s*house/i],
+    genreWeights: { 'en-deep-house-tech-groove': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // '소울풀'/'소울' 단독은 TASK B가 rnb-soul 규칙 쪽에서 별도로 처리한다
+    // (en-chillhop이 뜨면 en-deep-house-soulful/trap-soul/alt-rnb도 후보에
+    // 들어가도록) — 여기는 '하우스'와 결합된 형태만 전담한다.
+    id: 'enchillhop-deep-house-soulful',
+    patterns: [/소울풀\s*하우스/, /소울\s*하우스/, /soulful\s*house/i, /soul\s*house/i],
+    genreWeights: { 'en-deep-house-soulful': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // 단독 '개러지'는 이미 위에서 매칭(차고와 충돌 위험을 §71 TASK B가
+    // 이미 감수하기로 판단했다 — 그 판단은 이번에 바꾸지 않는다). 지시문
+    // 73 §2.2가 요구한 결합형(개러지 하우스/uk garage/garage house)만 추가.
     id: 'enchillhop-garage-swing',
-    patterns: [/개러지/, /게러지/, /garage/i],
+    patterns: [/개러지/, /게러지/, /garage/i, /개러지\s*하우스/, /uk\s*garage/i, /garage\s*house/i],
     genreWeights: { 'en-house-garage-swing': 4 },
     archetypeScope: ['en-chillhop'],
     axis: 'genre'
