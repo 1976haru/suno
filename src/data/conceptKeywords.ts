@@ -68,6 +68,23 @@ const ADULT_ARCHETYPES: ChannelArchetype[] = [
   'en-chillhop'
 ];
 
+/**
+ * 지시문 73 (TASK B) — genreWeights가 en-chillhop 코어 12종과 전혀 겹치지
+ * 않는 범용 장르어 규칙(샹송/두왑/모타운 등, §3.2 옵션 (a))을 좁힐 때 쓰는
+ * 목록이다. 이 규칙들은 원래 archetypeScope가 아예 없어(scope=(none))
+ * 동요 3종을 포함한 ChannelArchetype 전체에 적용되고 있었다 — en-chillhop만
+ * 빼고 "현재 매칭되던 아키타입을 전부 포함"하려면(§3.2 지시) en-chillhop을
+ * 제외한 나머지 16개 전부가 필요하다. ADULT_ARCHETYPES(kids 3종 제외)를
+ * 재사용할 수 없는 이유가 이것 — 원래 동요에도 적용되던 규칙이라 동요를
+ * 빼면 그 자체가 새로운 회귀가 된다.
+ */
+const ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP: ChannelArchetype[] = [
+  'senior-morning', 'showa-cafe', 'christmas', 'lofi-study', 'kids', 'showa-70s',
+  'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge',
+  'kr-2030-pop', 'jp-2030-pop', 'kr-kids-song', 'jp-kids-song',
+  'kr-idol-male', 'kr-idol-female'
+];
+
 export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     // 지시문 70 (TASK D) — 실측: "越路吹雪を思わせる..."(인명, 越路吹雪)의
@@ -286,27 +303,40 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     moodWeights: { nostalgic: 2, warm: 1 }
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어 12종과 무관한 프랑스 샹송
+    // 정체성이라 archetypeScope로 좁힌다. en-chillhop만 빼고 기존에
+    // 매칭되던 아키타입(동요 포함) 전부를 그대로 유지한다.
     id: 'chanson',
     patterns: [/샹송/, /chanson/i, /프랑스\s*음악/, /파리(지앵)?\s*감성/, /シャンソン/],
     genreWeights: { chanson: 4 },
     moodWeights: { elegant: 1, bittersweet: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-b) — '알앤비'/'소울'은 en-chillhop에도 실제로
+    // 유효한 의미다(trap-soul/alt-rnb/en-deep-house-soulful). 기존 시니어
+    // 장르 가중치는 그대로 두고 en-chillhop 코어 3종만 추가한다 — 이
+    // 규칙 자체는 archetypeScope가 없어(전 워크스페이스 적용) en-chillhop도
+    // 이미 매칭되고 있었지만, 코어 티어 필터(rankFromRules) 때문에 en-chillhop
+    // 자신의 장르가 하나도 없어 실질적으로 아무 신호도 못 주고 있었다.
     id: 'rnb-soul',
     patterns: [/알\s*앤\s*비/, /알앤비/, /r\s*&\s*n?b/i, /rhythm\s*and\s*blues/i, /리듬\s*앤\s*블루스/, /리듬앤블루스/, /소울\s*음악/, /\bsoul\b/i, /소울/, /ソウル/],
     genreWeights: {
-      'oldpop-motown-pop-soul': 4, 'oldpop-philly-soul-sweet': 3, 'retro-soul-pop': 3, 'oldpop-quiet-storm-warm': 2
+      'oldpop-motown-pop-soul': 4, 'oldpop-philly-soul-sweet': 3, 'retro-soul-pop': 3, 'oldpop-quiet-storm-warm': 2,
+      'trap-soul': 3, 'alt-rnb': 3, 'en-deep-house-soulful': 2
     },
     moodWeights: { warm: 1, romantic: 1 },
     axis: 'genre'
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'bossa-nova',
     patterns: [/보사\s*노바/, /보사노바/, /\bbossa\b/i, /\b보사\b/, /ボサノヴァ/, /ボサノバ/],
     genreWeights: { 'bossa-cafe': 4 },
     moodWeights: { warm: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
     // 지시문 53 (TASK C-4) — 실측: 이 룰이 향하는 jazz-pop/smooth-jazz-lounge는
@@ -317,30 +347,42 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // 0이었다 — "재즈" 컨셉을 넣어도 이 채널에서 쓰이는 재즈 장르는 하나도
     // 추천되지 않았다. 기존 3개(다른 채널이 쓸 수 있으니 유지)에 3종을
     // 더한다.
+    // 지시문 73 (TASK B-b) — '재즈'는 en-chillhop의 jazz-rap과도 직접
+    // 유효한 의미다. rnb-soul과 같은 이유로 en-chillhop 자신의 코어
+    // 장르만 추가한다.
     id: 'jazz',
     patterns: [/재즈/, /\bjazz\b/i, /스무스\s*재즈/, /smooth\s*jazz/i, /ジャズ/],
     genreWeights: {
       'jazz-pop': 3, 'smooth-jazz-lounge': 3, 'oldpop-standards-torch': 2,
-      'jazz-classic-vocal-lounge': 3, 'jazz-swing-crooner-ballroom': 2, 'jazz-brush-ballad-jazz': 2
+      'jazz-classic-vocal-lounge': 3, 'jazz-swing-crooner-ballroom': 2, 'jazz-brush-ballad-jazz': 2,
+      'jazz-rap': 3
     },
     moodWeights: { elegant: 1 },
     axis: 'genre'
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관(시티팝은 kr-2030/
+    // jp-2030/city-night의 정체성).
     id: 'city-pop',
     patterns: [/시티\s*팝/, /시티팝/, /city\s*pop/i, /シティポップ/],
     genreWeights: { 'city-pop-soft': 4 },
     moodWeights: { nostalgic: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'folk',
     patterns: [/포크(\s*송)?/, /\bfolk\b/i, /folk\s*song/i, /フォーク/],
     genreWeights: { 'folk-pop': 4, 'oldpop-folk-rock-70s': 3 },
     moodWeights: { warm: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-hold) — 판단 보류: en-chillhop에는 발라드형 장르가
+    // 없지만 trap-soul의 정서적 성격이 완전히 무관하다고도 단정하기
+    // 어렵다. 억지로 정하지 않고 건드리지 않았다. 완료 보고 §4 참고.
     id: 'ballad',
     patterns: [/발라드/, /\bballad\b/i, /バラード/],
     genreWeights: { 'piano-ballad': 3, 'healing-ballad': 3, 'oldpop-piano-ballad-70s': 3, 'oldpop-orchestral-ballad-80s': 2 },
@@ -348,6 +390,10 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     axis: 'genre'
   },
   {
+    // 지시문 73 (TASK B-hold) — 판단 보류: 디스코는 하우스와 계보상
+    // 인접하지만(4/4 댄스 비트) en-chillhop 6종 어느 것도 "디스코"를
+    // 자기 정체성으로 내세우지 않는다 — 억지로 정하지 않았다. 완료
+    // 보고 §4 참고.
     id: 'disco',
     patterns: [/디스코/, /\bdisco\b/i, /ディスコ/],
     genreWeights: { 'oldpop-europop-glow': 3, 'oldpop-motown-pop-soul': 3 },
@@ -355,25 +401,32 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     axis: 'genre'
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'country',
     patterns: [/컨트리/, /\bcountry\b/i, /カントリー/],
     genreWeights: { 'oldpop-countrypolitan': 4 },
     moodWeights: { warm: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — 지시문 원문이 직접 예시로 든 케이스. en-chillhop
+    // 코어와 무관.
     id: 'doo-wop',
     patterns: [/두\s*왑/, /두왑/, /doo[\s-]?wop/i, /ドゥーワップ/, /ドゥワップ/],
     genreWeights: { 'oldpop-doowop-harmony': 4 },
     moodWeights: { nostalgic: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'easy-listening',
     patterns: [/이지\s*리스닝/, /easy\s*listening/i, /イージーリスニング/],
     genreWeights: { 'oldpop-orchestral-easy': 4, 'smooth-jazz-lounge': 2 },
     moodWeights: { warm: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   // 지시문 67 (TASK D) — check:concept-coverage 장르 표본 20개가 요구하는
   // 6개 장르 정체성 키워드에 매칭되는 규칙이 하나도 없었다(전수 확인) —
@@ -382,41 +435,59 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // 대상 id는 모두 senior-morning/oldpop-lounge 코어 티어에 실재한다
   // (getCoreGenreIdsForArchetype 실측 확인).
   {
+    // 지시문 73 (TASK B-a) — '소울'(rnb-soul, (b)로 처리)과 달리 '모타운'은
+    // 특정 역사적 스타일을 직접 지목하는 고유명이라 en-chillhop의 현대적
+    // 정체성과는 결이 다르다고 판단했다.
     id: 'motown',
     patterns: [/모타운/, /motown/i, /モータウン/],
     genreWeights: { 'oldpop-motown-pop-soul': 4 },
     moodWeights: { warm: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — motown과 같은 이유(특정 역사적 소울 스타일).
     id: 'philly-soul',
     patterns: [/필리\s*소울/, /필라델피아\s*소울/, /philly\s*soul/i, /philadelphia\s*soul/i, /フィリーソウル/, /フィラデルフィアソウル/],
     genreWeights: { 'oldpop-philly-soul-sweet': 4 },
     moodWeights: { warm: 1, romantic: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'british-beat',
     patterns: [/브리티시\s*비트/, /영국\s*비트/, /british\s*beat/i, /british\s*invasion/i, /ブリティッシュビート/, /ブリティッシュインベイジョン/],
     genreWeights: { 'oldpop-british-beat': 4 },
     moodWeights: { hopeful: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'soft-rock',
     patterns: [/소프트\s*록/, /soft\s*rock/i, /ソフトロック/],
     genreWeights: { 'oldpop-soft-rock-am': 3, 'soft-rock': 3 },
     moodWeights: { warm: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-b) — '가스펠'은 en-deep-house-soulful 자신의 정의
+    // ("gospel-tinged groove", "gospel-style call-and-response")와 직접
+    // 겹친다 — en-chillhop 코어 장르만 추가한다.
     id: 'gospel-soul',
     patterns: [/가스펠/, /gospel/i, /ゴスペル/],
-    genreWeights: { 'rnb-soulful-gospel-warmth': 3, 'rnb-gospel-soul-lift': 3 },
+    genreWeights: { 'rnb-soulful-gospel-warmth': 3, 'rnb-gospel-soul-lift': 3, 'en-deep-house-soulful': 3 },
     moodWeights: { hopeful: 1, warm: 1 },
     axis: 'genre'
   },
   {
+    // 지시문 73 (TASK B-hold) — 판단 보류: '올드스쿨 R&B'는 장르 계열
+    // (R&B)로는 trap-soul/alt-rnb와 연결되지만 "올드스쿨"이라는 표현
+    // 자체가 en-chillhop-vocal-floor가 명시적으로 금지하는 빈티지 지향과
+    // 정면으로 부딪힌다 — (a)/(b) 어느 쪽도 명확히 맞다고 판단할 근거가
+    // 부족해 건드리지 않았다. 완료 보고 §4 참고.
     id: 'old-school-rnb',
     patterns: [/올드스쿨\s*(r\s*&?\s*n?b|알앤비)/i, /old[\s-]?school\s*r\s*&?\s*n?b/i, /オールドスクール\s*r\s*&?\s*n?b/i],
     genreWeights: { 'rnb-old-school-romance-rnb': 4 },
@@ -430,25 +501,34 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // 처음부터 한/영/일 3개 언어를 함께 넣어 지시문 69가 고친 결함을
   // 반복하지 않는다.
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'waltz',
     patterns: [/왈츠/, /\bwaltz\b/i, /ワルツ/],
     genreWeights: { 'oldpop-slow-waltz-memory': 4 },
     moodWeights: { nostalgic: 1, elegant: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — en-chillhop 코어와 무관.
     id: 'canzone',
     patterns: [/칸초네/, /\bcanzone\b/i, /カンツォーネ/],
     genreWeights: { 'oldpop-italian-canzone': 4 },
     moodWeights: { elegant: 1, romantic: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   {
+    // 지시문 73 (TASK B-a) — 블루스는 재즈랩/트랩소울과 계보상 인접하지만
+    // 이 규칙이 가리키는 유일한 장르(oldpop-rainy-ballad-blues)는 시니어
+    // 전용이고 en-chillhop 자신의 12종 어디에도 "블루스"를 정체성으로
+    // 내세우는 장르가 없다 — 무관으로 판단.
     id: 'blues',
     patterns: [/블루스/, /\bblues\b/i, /ブルース/],
     genreWeights: { 'oldpop-rainy-ballad-blues': 4 },
     moodWeights: { bittersweet: 1 },
-    axis: 'genre'
+    axis: 'genre',
+    archetypeScope: ALL_ARCHETYPES_EXCEPT_EN_CHILLHOP
   },
   // TASK v3.61 (TASK B-3, test 5) — "따뜻하고 잔잔한 노래" must reach TASK A's
   // 1-D "timeless warmth" sub-family first, since the request is about a
