@@ -159,7 +159,11 @@ export const vocalPresets: VocalPreset[] = [
     description: '늦은 밤 어울리는 깊은 목소리예요.',
     prompt: 'low calm male baritone, restrained emotional delivery, warm late-night tone',
     gender: 'male',
-    suitedArchetypes: ['senior-morning', 'showa-70s', 'oldpop-lounge', 'lofi-study', 'city-night', 'modern-chill', 'kr-idol-male']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: en-chillhop-vocal-floor의
+    // requiredTraits(natural conversational English delivery, contemporary
+    // urban placement) 충족, forbiddenTraits(빈티지 크루너·오페라틱·시니어
+    // 라디오 톤) 없음 — 늦은 밤 도시 톤이라 chill-rap/lofi-hiphop-study와 잘 맞는다.
+    suitedArchetypes: ['senior-morning', 'showa-70s', 'oldpop-lounge', 'lofi-study', 'city-night', 'modern-chill', 'kr-idol-male', 'en-chillhop']
   },
   {
     id: 'clear-light-male',
@@ -168,7 +172,9 @@ export const vocalPresets: VocalPreset[] = [
     description: '깨끗하고 편안하게 들리는 목소리예요.',
     prompt: 'clear light male tenor, clean simple delivery, youthful and sincere',
     gender: 'male',
-    suitedArchetypes: ['lofi-study', 'j2000s', 'modern-chill', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: 자연스러운 대화체 전달이라
+    // en-chillhop-vocal-floor의 requiredTraits와 직접 일치, forbiddenTraits 없음.
+    suitedArchetypes: ['lofi-study', 'j2000s', 'modern-chill', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
   },
   {
     id: 'airy-falsetto-male',
@@ -195,7 +201,9 @@ export const vocalPresets: VocalPreset[] = [
     description: '산뜻하고 젊은 느낌의 목소리예요.',
     prompt: 'bright young male voice, clean modern pop delivery, fresh and open tone',
     gender: 'male',
-    suitedArchetypes: ['city-night', 'j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: "clean modern pop delivery"가
+    // 바닥의 contemporary urban vocal placement와 직접 일치.
+    suitedArchetypes: ['city-night', 'j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'en-chillhop']
   },
   {
     id: 'whisper-male',
@@ -231,7 +239,10 @@ export const vocalPresets: VocalPreset[] = [
     description: '종소리처럼 또렷하고 밝은 목소리예요.',
     prompt: 'bright clear female soprano, bell-like clarity, light and uplifting delivery',
     gender: 'female',
-    suitedArchetypes: ['j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: "light and uplifting delivery"가
+    // en-deep-house-melodic 등 보컬 훅이 분명한 하우스 장르와 잘 맞는다.
+    // 오페라틱 발성이 아니라 클래리티 중심이라 바닥의 forbiddenTraits에 걸리지 않음.
+    suitedArchetypes: ['j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female', 'en-chillhop']
   },
   {
     id: 'husky-jazz-female',
@@ -249,7 +260,10 @@ export const vocalPresets: VocalPreset[] = [
     description: '수면·휴식 콘텐츠용 에어리한 목소리예요.',
     prompt: 'soft female voice just above a whisper, airy breath tone, slow intimate delivery',
     gender: 'female',
-    suitedArchetypes: ['lofi-study', 'modern-chill', 'kr-idol-female']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: trap-soul("sparse... doubled
+    // intimate vocal")/lofi-hiphop-study("optional soft hook vocal kept low")의
+    // 창법 결과 잘 맞는 음색.
+    suitedArchetypes: ['lofi-study', 'modern-chill', 'kr-idol-female', 'en-chillhop']
   },
   {
     id: 'bright-young-female',
@@ -258,7 +272,9 @@ export const vocalPresets: VocalPreset[] = [
     description: '산뜻하고 젊은 느낌의 목소리예요.',
     prompt: 'bright young female voice, clean modern pop delivery, fresh and open tone',
     gender: 'female',
-    suitedArchetypes: ['city-night', 'modern-chill', 'j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: bright-young-male과 대칭되는
+    // "clean modern pop delivery"로 바닥의 contemporary urban placement와 일치.
+    suitedArchetypes: ['city-night', 'modern-chill', 'j2000s', 'kr-2030-pop', 'jp-2030-pop', 'kr-idol-female', 'en-chillhop']
   },
   {
     id: 'soulful-female',
@@ -282,7 +298,10 @@ export const vocalPresets: VocalPreset[] = [
     // 하나는 있어야 함) 균등배정(6/6/6) 중 '혼성' 슬롯을 추천할 후보가
     // 아예 없어진다 — Y2K J-pop/night-drive/모던 K발라드 모두 실제로
     // 듀엣 곡이 흔한 장르라 억지 배정이 아니다.
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'oldpop-lounge', 'christmas', 'kr-idol-male', 'kr-idol-female', 'j2000s', 'city-night', 'kr-2030-pop', 'jp-2030-pop']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: 절을 주고받는 형태가 duet
+    // 보컬 쿼터 슬롯을 채운다. 바닥의 forbiddenTraits(빈티지 크루너 등)와
+    // 무관한 딜리버리.
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'oldpop-lounge', 'christmas', 'kr-idol-male', 'kr-idol-female', 'j2000s', 'city-night', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop']
   },
   {
     id: 'mixed-harmony-group',
@@ -295,7 +314,14 @@ export const vocalPresets: VocalPreset[] = [
     // 같은 이유로 혼성 후보가 필요하다: 두 아키타입 모두 보컬이 전면에
     // 나서지 않는 배경음적 성격이라 "잔잔하게 화음만 얹는 작은 그룹"이
     // male-female-duet(주고받는 절)보다 실제 결에 더 맞는다.
-    suitedArchetypes: ['senior-morning', 'showa-70s', 'oldpop-lounge', 'christmas', 'showa-cafe', 'lofi-study', 'modern-chill']
+    // 지시문 72 (TASK A) — 'en-chillhop' 추가: 'mixed' 보컬 쿼터 슬롯용.
+    // "small mixed vocal group, close three-part harmony" 자체는 바닥의
+    // forbiddenTraits(빈티지 크루너 발성·오페라틱 발성·시니어 라디오 톤)
+    // 어디에도 해당하지 않는다 — "retro group feel" 문구를 검토했으나 이미
+    // modern-chill/lofi-study(둘 다 현대적 정체성)에서도 같은 문구로 쓰이고
+    // 있어 실제로는 작은 그룹 화음 배치를 뜻하지, 빈티지 발성 기법을
+    // 가리키지 않는다고 판단했다.
+    suitedArchetypes: ['senior-morning', 'showa-70s', 'oldpop-lounge', 'christmas', 'showa-cafe', 'lofi-study', 'modern-chill', 'en-chillhop']
   }
 ];
 
