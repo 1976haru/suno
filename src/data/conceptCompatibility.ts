@@ -103,10 +103,22 @@ export const CONCEPT_COMPATIBILITY_BY_ARCHETYPE: Partial<Record<ChannelArchetype
   // (§30-32 "그 채널이 표현하도록 설계된 적 없는 시대"). en-chillhop 자신은
   // 시대 정체성이 없는 워크스페이스(WORKSPACE_ERA_INTENT의
   // 'current-implied')이므로 전부 unsupported.
+  // 지시문 73 (TASK C) — 실측: supported/crossStyleEraBuckets가 둘 다
+  // 빈 배열이라 "비어 있다"고 보고됐으나(§1.3), modern-chill/lofi-study의
+  // 기입 방식(바로 위)과 대조한 결과 이게 정확히 같은 형식 — 시대(decade)
+  // 정체성이 없는 워크스페이스는 원래 둘 다 빈 배열이 맞는 값이다("기입
+  // 안 됨"이 아니라 "이 워크스페이스는 어떤 연대도 지원하지 않는다"는
+  // 값 자체). 이 파일이 판정하는 축(1950s-60s/1970s/1980s/2000s/timeless
+  // 같은 EraBucket)은 core/setDirector.ts의 랩/하우스 BPM 대역 잠금(지시문
+  // 71 TASK E)과 전혀 다른 축이다 — 이 파일과 checkConceptCompatibility의
+  // 실제 소비처는 scripts/checkGateContract.ts와 checkWorkspaceRegistration.ts
+  // 뿐이고(grep 확인), BPM 대역 로직 어디에서도 이 데이터를 읽지 않는다.
+  // 즉 "두 대역을 자유롭게 섞도록 기입"할 여지 자체가 이 파일에 없다 —
+  // 값을 바꾸지 않고 이 사실을 주석으로 명시한다.
   'en-chillhop': {
     supportedEraBuckets: [],
     crossStyleEraBuckets: [],
     suggestedChannelIds: ['good-morning-memory-radio', 'morning-showa-cafe', 'showa-seventies'],
-    sourceKo: '지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성'
+    sourceKo: '지시문 71 신설 워크스페이스(글로벌/영어/20대, 칠랩·힙합·딥하우스) — 실측 genre 풀도 era-neutral/2010s-2020s 100%, 특정 연대를 주장하지 않는 채널 정체성. supported/crossStyle 둘 다 빈 배열이 정확한 값이며(modern-chill/lofi-study와 동일 패턴), 랩/하우스 BPM 대역 분리(지시문 71 TASK E)와는 무관한 축이다.'
   }
 };

@@ -17,6 +17,15 @@
  * 아이돌 전용 축이라 "워크스페이스마다 값이 필요하다"는 이 검사의 전제와
  * 안 맞는다(나머지 6개 워크스페이스는 전부 N/A가 정상 — 완료 보고 §6 참고).
  *
+ * 지시문 73 (TASK C) — 등록은 됐는데 그 등록으로 "도달"하는지는 별개
+ * 축이었다: 지시문 72 TASK B가 en-chillhop 하우스 장르를 3종→6종으로
+ * 늘리며 EN_CHILLHOP_CORE_GENRE_IDS/genreWorkspaceOwnership.ts는 갱신했지만
+ * conceptKeywords.ts는 빠뜨려, 신설 장르 다수가 코어 풀에는 있으나 어떤
+ * 컨셉 문구로도 지목할 수 없는 상태가 됐다 — 위 15개 축 중 어느 것도
+ * 이걸 잡지 못했다("있다"만 확인했지 "닿는다"는 확인한 적이 없다).
+ * checkConceptReachability가 그 축이다.
+ *
+
  * advisory 전용 — 절대 생성을 막지 않는다(항상 exit 0). 기존 7개
  * 워크스페이스에서 누락이 발견돼도 이 스크립트가 고치지 않는다 — 발견만
  * 하고 보고에 남긴다(§하지 말 것 "이번에 고치지는 말 것").
@@ -157,6 +166,32 @@ function checkConceptKeywords(archetype: ChannelArchetype): AxisResult {
 }
 
 /**
+ * 지시문 73 (TASK C) — 코어 장르는 있는데 그 장르를 지목할 컨셉 규칙이
+ * 하나도 없는 경우(지시문 72 TASK B가 하우스 3종을 신설하며 conceptKeywords.ts
+ * 갱신을 빠뜨린 실제 사례) — "장르는 있는데 도달 경로가 없다"는 지시문
+ * 69/70과 같은 유형이지만, 이번엔 축을 하나 만들어 구조로 잡는다.
+ * 이 워크스페이스(아키타입)에 실제로 적용되는 규칙(!archetypeScope ||
+ * archetypeScope.includes(archetype), matchConceptRules의 실제 필터와
+ * 동일 조건)의 genreWeights 키 합집합과 코어 장르 목록을 대조한다 — 손으로
+ * 훑지 않고 코드로 확인한다(§3.2 지시).
+ */
+function checkConceptReachability(archetype: ChannelArchetype): AxisResult {
+  const coreIds = getCoreGenreIdsForArchetype(archetype);
+  const applicableRules = CONCEPT_KEYWORD_RULES.filter(r => !r.archetypeScope || r.archetypeScope.includes(archetype));
+  const reachableIds = new Set<string>();
+  for (const rule of applicableRules) {
+    for (const id of Object.keys(rule.genreWeights || {})) reachableIds.add(id);
+  }
+  const unreachable = coreIds.filter(id => !reachableIds.has(id));
+  return {
+    ok: unreachable.length === 0,
+    detail: unreachable.length
+      ? `코어 ${coreIds.length}종 중 지목 불가 ${unreachable.length}종: ${unreachable.join(', ')}`
+      : `코어 ${coreIds.length}종 전부 컨셉 규칙으로 지목 가능`
+  };
+}
+
+/**
  * 지시문 72 (TASK C-1) — suitablePresetsForArchetype이 0개면 세트를 뽑아도
  * 목소리를 고를 수 없는 하드 블로커다. kids 아키타입인데 forKids가 아닌
  * 프리셋이 섞이거나(또는 그 반대) suitablePresetsForArchetype 자체의
@@ -211,14 +246,15 @@ function buildReport(workspaceId: WorkspaceId): WorkspaceReport {
       'lyricThemes.ts (테마 풀)': checkLyricThemes(primaryArchetype),
       'conceptKeywords.ts (archetypeScope 규칙)': checkConceptKeywords(primaryArchetype),
       'vocalPresets.ts (보컬 프리셋)': checkVocalPresets(primaryArchetype),
-      'conceptCompatibility.ts (N/A 허용)': checkConceptCompatibility(primaryArchetype)
+      'conceptCompatibility.ts (N/A 허용)': checkConceptCompatibility(primaryArchetype),
+      '코어 장르 컨셉 지목 가능성': checkConceptReachability(primaryArchetype)
     }
   };
 }
 
 function main() {
   const workspaceIds = workspaceDefinitions.map(w => w.id);
-  console.log(`[check:workspace-registration] ${workspaceIds.length}개 워크스페이스 × 17개 등록축 (advisory, 항상 exit 0)\n`);
+  console.log(`[check:workspace-registration] ${workspaceIds.length}개 워크스페이스 × 18개 등록축 (advisory, 항상 exit 0)\n`);
 
   let totalMissing = 0;
   const missingByWorkspace: Record<string, string[]> = {};
@@ -240,7 +276,7 @@ function main() {
 
   console.log('\n\n누락 요약 ─────────────────────────────────────────');
   if (totalMissing === 0) {
-    console.log('  (없음) — 모든 워크스페이스가 17개 등록축을 전부 충족합니다.');
+    console.log('  (없음) — 모든 워크스페이스가 18개 등록축을 전부 충족합니다.');
   } else {
     for (const [workspaceId, items] of Object.entries(missingByWorkspace)) {
       console.log(`\n  ${workspaceId}: ${items.length}건`);
