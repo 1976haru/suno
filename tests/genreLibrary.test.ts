@@ -108,7 +108,9 @@ describe('structured genre library', () => {
     // kr2030-whisper-trap/kr2030-cloud-hazy-rap, 멈블 앤 위스퍼 랩 채널 신설).
     // 지시문 71 (TASK B) — +3 for enChillhopGenrePacks (en-deep-house-melodic/
     // en-deep-house-organic/en-house-garage-swing), same registered-in-both pattern.
-    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 11 + 7 + 7 + 7 + 9 + 3);
+    // 지시문 72 (TASK B) — enChillhopGenrePacks grew 3 -> 6 (en-deep-house-vocal-anthem/
+    // en-deep-house-tech-groove/en-deep-house-soulful), same registered-in-both pattern.
+    expect(genrePacks.length).toBe(LEGACY_IDS.length + importedGenreCount + 27 + 34 + 11 + 7 + 7 + 7 + 9 + 6);
 
     const presetIds = new Set(genrePacks.map(genre => genre.id));
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
@@ -367,8 +369,10 @@ describe('structured genre library', () => {
     // kr2030-whisper-trap/kr2030-cloud-hazy-rap), same registered-in-both pattern: 367.
     // 지시문 71 (TASK B) — +3 en-* ids (en-deep-house-melodic/en-deep-house-organic/
     // en-house-garage-swing), same registered-in-both pattern: 370.
-    expect(libraryIds.size).toBe(370);
-    expect(presetIds.size).toBe(370);
+    // 지시문 72 (TASK B) — +3 en-* ids (en-deep-house-vocal-anthem/
+    // en-deep-house-tech-groove/en-deep-house-soulful), same registered-in-both pattern: 373.
+    expect(libraryIds.size).toBe(373);
+    expect(presetIds.size).toBe(373);
     for (const id of libraryIds) expect(presetIds.has(id), id).toBe(true);
     for (const id of LEGACY_IDS) expect(presetIds.has(id), id).toBe(true);
     for (const id of ['kids-bright-pop', 'kids-acoustic-singalong', 'kids-upbeat-pop', 'kids-march']) expect(presetIds.has(id), id).toBe(true);

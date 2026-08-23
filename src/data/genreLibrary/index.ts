@@ -530,14 +530,18 @@ export const KRIDOL_F_CORE_GENRE_IDS = [
 ] as const;
 
 /**
- * 지시문 71 (TASK A/B) — en-chillhop workspace's 9 core genres. 칠랩·힙합
+ * 지시문 71 (TASK A/B) — en-chillhop workspace's core genres. 칠랩·힙합
  * 5종은 이미 있는 장르를 참조만 한다(chill-rap/boom-bap-mellow/jazz-rap/
  * lofi-hiphop-study/trap-soul — 정의 자체는 수정하지 않는다, §11 "하지
- * 말 것"). 딥하우스 3종(en-deep-house-melodic/en-deep-house-organic/
- * en-house-garage-swing)은 TASK B가 신설한다. alt-rnb 1종이 "인접".
+ * 말 것"). alt-rnb 1종이 "인접".
  * getDefaultGenreIdsForArchetype()의 top-3는 이 채널의 주력인 chill-rap/
  * boom-bap-mellow/jazz-rap(§6.2 "칠랩이 이 채널의 주력") — 랩 대역이
  * 기본값이라는 TASK E 설계와 순서를 맞춘다.
+ *
+ * 지시문 72 (TASK B) — 딥하우스 3종(en-deep-house-melodic/organic/
+ * en-house-garage-swing)에 3종(en-deep-house-vocal-anthem/tech-groove/
+ * soulful)을 더해 6종으로 확장 — 하우스 세트(10곡) 장르당 반복을 3.3회
+ * →1.7회로 낮춘다(§2.1). 총 12종.
  */
 export const EN_CHILLHOP_CORE_GENRE_IDS = [
   'chill-rap',
@@ -548,6 +552,9 @@ export const EN_CHILLHOP_CORE_GENRE_IDS = [
   'en-deep-house-melodic',
   'en-deep-house-organic',
   'en-house-garage-swing',
+  'en-deep-house-vocal-anthem',
+  'en-deep-house-tech-groove',
+  'en-deep-house-soulful',
   'alt-rnb'
 ] as const;
 
@@ -556,6 +563,8 @@ export const EN_CHILLHOP_CORE_GENRE_IDS = [
  * 110-128, 10 BPM 이상 빈 구간)를 세트 배분 단계에서 처리하기 위한 두
  * 장르군. core/conceptAgent.ts의 en-chillhop 전용 대역 배분이 이 두
  * 목록만 참조한다 — 다른 워크스페이스의 BPM 배분 로직은 건드리지 않는다.
+ * 지시문 72 (TASK B) — 랩 대역 6종은 그대로 두고(§하지 말 것) 하우스
+ * 대역만 3종 → 6종으로 확장.
  */
 export const EN_CHILLHOP_RAP_BAND_GENRE_IDS = [
   'chill-rap',
@@ -569,7 +578,10 @@ export const EN_CHILLHOP_RAP_BAND_GENRE_IDS = [
 export const EN_CHILLHOP_HOUSE_BAND_GENRE_IDS = [
   'en-deep-house-melodic',
   'en-deep-house-organic',
-  'en-house-garage-swing'
+  'en-house-garage-swing',
+  'en-deep-house-vocal-anthem',
+  'en-deep-house-tech-groove',
+  'en-deep-house-soulful'
 ] as const;
 
 /**
@@ -1461,6 +1473,15 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
  * 인스트루멘탈 지향이 되지 않도록(§3.2) en-deep-house-melodic 하나는
  * 명확한 보컬 훅을 갖는다 — 나머지 둘(organic/garage-swing)은 희박하거나
  * 짧은 보컬 텍스처만 쓴다. 실존 아티스트·레이블·트랙명은 어디에도 없다.
+ *
+ * 지시문 72 (TASK B) — 하우스 대역이 3종뿐이라 하우스 세트(10곡)에서
+ * 장르당 3.3회 반복되는 문제(§2.1 실측)를 3종 추가로 해소한다.
+ * en-deep-house-vocal-anthem/en-deep-house-tech-groove/en-deep-house-soulful.
+ * 6종 전부 108-128 BPM 안에서 겹치므로 rhythm/production/harmony/instruments로
+ * 구분한다(BPM만으로 가르지 않는다 — §2.2 지시). 보컬 훅이 분명한 것을
+ * vocal-anthem/soulful 2종 추가해 melodic/garage-swing과 합쳐 4종(과반)이
+ * 보컬 중심이 되도록 균형을 맞췄다 — tech-groove는 organic처럼 인스트루멘탈
+ * 지향(짧은 보컬 스탭만).
  */
 export const enChillhopGenrePacks: StructuredGenrePack[] = [
   legacyGenrePack({
@@ -1495,7 +1516,40 @@ export const enChillhopGenrePacks: StructuredGenrePack[] = [
     archetypes: ['en-chillhop'],
     tier: 'core',
     eraTag: '2010s-2020s garage swing house'
-  }, 'electronic', { rhythm: ['swung UK-garage-flavored shuffle groove', 'bouncy syncopated bassline pocket'], vocal: ['bright chopped vocal-sample hook', 'call-and-response vocal stab'], production: ['crisp club-ready mix', 'bright filtered top end'], harmony: ['bright major chord stab loop', 'syncopated piano chord vamp'], moods: ['bouncy', 'bright', 'energetic'], audiences: ['개러지 스윙 하우스', '위켄드 댄스'], avoidTraits: ['aggressive dubstep bass wobble', 'slow ballad pacing', 'vintage tape saturation'] })
+  }, 'electronic', { rhythm: ['swung UK-garage-flavored shuffle groove', 'bouncy syncopated bassline pocket'], vocal: ['bright chopped vocal-sample hook', 'call-and-response vocal stab'], production: ['crisp club-ready mix', 'bright filtered top end'], harmony: ['bright major chord stab loop', 'syncopated piano chord vamp'], moods: ['bouncy', 'bright', 'energetic'], audiences: ['개러지 스윙 하우스', '위켄드 댄스'], avoidTraits: ['aggressive dubstep bass wobble', 'slow ballad pacing', 'vintage tape saturation'] }),
+  legacyGenrePack({
+    id: 'en-deep-house-vocal-anthem',
+    label: 'Vocal Anthem Deep House',
+    styleCore: 'vocal anthem deep house, sidechain-pumped groove, full sung chorus hook carrying the emotional peak, wide anthemic synth layer',
+    instruments: ['sidechain-pumped warm bass', 'filtered piano chord loop', 'wide chorus-effect synth layer', 'subtle vinyl-style hi-hat shuffle'],
+    tempoRange: [110, 120],
+    goodFor: ['보컬 앤섬 딥하우스', 'festival sing-along set', 'sunset main stage'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s vocal anthem deep house'
+  }, 'electronic', { rhythm: ['pumping sidechained four-on-the-floor groove', 'steady anthemic kick-and-clap pattern'], vocal: ['full sung chorus hook carrying the emotional peak', 'call-and-response ad-lib layered under the drop'], production: ['bright anthemic club mix', 'wide chorus-effect synth layer'], harmony: ['uplifting major-key chord progression', 'cascading piano-stab hook line'], moods: ['euphoric', 'anthemic', 'warm'], audiences: ['보컬 앤섬 딥하우스', '페스티벌 싱어롱'], avoidTraits: ['aggressive dubstep bass wobble', 'minimal instrumental-only arrangement', 'vintage tape saturation'] }),
+  legacyGenrePack({
+    id: 'en-deep-house-tech-groove',
+    label: 'Tech Groove Deep House',
+    styleCore: 'tech groove deep house, hypnotic minimal tech-house percussion, resonant filter-swept bassline, dry tight club mix',
+    instruments: ['tight analog tech-house kick', 'resonant filter-swept bassline', 'metallic percussion loop', 'muted stab synth'],
+    tempoRange: [115, 125],
+    goodFor: ['테크 그루브 딥하우스', 'late-night club set', 'warehouse afterhours'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s tech groove deep house'
+  }, 'electronic', { rhythm: ['hypnotic minimal tech-house percussion loop', 'tight closed hi-hat groove'], vocal: ['minimal spoken-word vocal stab used percussively', 'no full lyric lead'], production: ['dry minimal club mix', 'tight controlled low end'], harmony: ['minimal one-chord hypnotic vamp', 'subtle filter-modulated tension'], moods: ['hypnotic', 'minimal', 'driving'], audiences: ['테크 그루브 딥하우스', '웨어하우스 애프터아워스'], avoidTraits: ['bright pop chorus hook', 'festival EDM buildup', 'orchestral strings'] }),
+  legacyGenrePack({
+    id: 'en-deep-house-soulful',
+    label: 'Soulful Deep House',
+    styleCore: 'soulful deep house, warm gospel-tinged groove, powerful soulful vocal hook, rounded club-ready low end',
+    instruments: ['warm Rhodes chord stab', 'deep rounded bassline', 'gospel-tinged clap layer', 'filtered organ pad'],
+    tempoRange: [108, 116],
+    goodFor: ['소울풀 딥하우스', 'sunday rooftop session', 'warm club opener'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s soulful deep house'
+  }, 'electronic', { rhythm: ['soulful four-on-the-floor groove', 'gospel-tinged clap layer on the backbeat'], vocal: ['powerful soulful vocal hook riding the groove', 'gospel-style call-and-response ad-libs'], production: ['warm soulful club mix', 'rounded low end'], harmony: ['gospel-tinged chord progression', 'soulful seventh-chord vamp'], moods: ['soulful', 'warm', 'uplifting'], audiences: ['소울풀 딥하우스', '선데이 루프탑 세션'], avoidTraits: ['aggressive festival EDM drop', 'cold minimal techno austerity', 'vintage tape saturation'] })
 ];
 
 /**
