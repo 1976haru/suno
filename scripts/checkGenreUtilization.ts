@@ -39,10 +39,13 @@ const CONCEPT_SAMPLES = [
 /** 지시문51 §UTILIZATION_WARN_THRESHOLD — advisory 경고 임계값(추정치, verified: false). 하루의 실측(18~25%)이 훨씬 낮았던 것을 근거로 "절반은 써야 한다"는 §A-2 요구를 그대로 옮긴다. */
 const UTILIZATION_WARN_THRESHOLD = 0.5;
 
+// 지시문 73 — 'en-chillhop'은 지시문 51 시점(이 목록 최초 작성)에는 존재하지
+// 않던 워크스페이스라 빠져 있었다. TASK A가 하우스 신설 3종의 컨셉 도달을
+// 고쳤는지 이 스크립트로도 실측하기 위해 추가한다 — 다른 아키타입은 그대로.
 const ARCHETYPES: ChannelArchetype[] = [
   'kr-2030-pop', 'senior-morning', 'oldpop-lounge', 'modern-chill', 'city-night',
   'lofi-study', 'kr-kids-song', 'jp-kids-song', 'kr-idol-female', 'jp-2030-pop',
-  'kr-idol-male', 'kids', 'showa-70s'
+  'kr-idol-male', 'kids', 'showa-70s', 'en-chillhop'
 ];
 
 interface UtilizationRow {
