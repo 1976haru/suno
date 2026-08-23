@@ -81,6 +81,11 @@ export const ERA_BUCKETS_BY_GENRE_ID: Record<string, EraBucket[]> = {
   'en-deep-house-melodic': ['2010s', '2020s'],
   'en-deep-house-organic': ['2010s', '2020s'],
   'en-house-garage-swing': ['2010s', '2020s'],
+  // 지시문 72 (TASK B) — en-chillhop 하우스 대역 확장 3종, 같은 이유(딥하우스
+  // 계열 리바이벌은 2010년대 이후 프로덕션 미학).
+  'en-deep-house-vocal-anthem': ['2010s', '2020s'],
+  'en-deep-house-tech-groove': ['2010s', '2020s'],
+  'en-deep-house-soulful': ['2010s', '2020s'],
   'oldpop-brill-building': ['1950s', '1960s'],
   'oldpop-girl-group-wall': ['1960s'],
   'oldpop-sunshine-pop': ['1960s'],
@@ -495,6 +500,10 @@ export const ERA_NOTE_KO_BY_GENRE_ID: Record<string, string> = {
   'en-deep-house-melodic': '멜로딕 딥하우스 — 112-122 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'en-deep-house-organic': '오가닉 딥하우스 — 108-118 BPM 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'en-house-garage-swing': '개러지 스윙 하우스 — 118-128 BPM UK 개러지 스윙 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  // 지시문 72 (TASK B) — en-chillhop 하우스 대역 확장 3종.
+  'en-deep-house-vocal-anthem': '보컬 앤섬 딥하우스 — 110-120 BPM 사이드체인 펌핑 그루브의 보컬 훅 중심 딥하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'en-deep-house-tech-groove': '테크 그루브 딥하우스 — 115-125 BPM 미니멀 테크하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
+  'en-deep-house-soulful': '소울풀 딥하우스 — 108-116 BPM 가스펠톤 소울하우스 리바이벌이 2010년대 이후 프로덕션 미학이라 era-neutral이 아닌 2010s-2020s로 판정',
   'oldpop-brill-building': '브릴 빌딩 사운드 — 1950년대 말~1960년대 초 뉴욕 브릴 빌딩 작곡 시스템의 팝 스타일',
   'oldpop-girl-group-wall': '걸그룹 사운드 + 월 오브 사운드 — 1960년대 초중반 필 스펙터 계열 프로덕션',
   'oldpop-sunshine-pop': '선샤인 팝 — 1960년대 중후반 캘리포니아 팝의 대표 스타일',
