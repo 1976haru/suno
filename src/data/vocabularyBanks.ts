@@ -1,4 +1,4 @@
-import type { WorkspaceId } from '../types';
+import type { LyricLanguage, WorkspaceId } from '../types';
 import type { EraBucket } from './eraExclusions';
 
 /**
@@ -40,6 +40,32 @@ export interface VocabularyBank {
   adjectives: string[];
   /** Words this bank's own concept should avoid even though they're common English vocabulary (e.g. a 1960s bank avoiding "digital"). */
   avoid: string[];
+  /**
+   * 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — core/localGenerator.ts는
+   * `nouns`(영어 전용) 중 최대 2개를 sceneVocabImages로 뽑아 genreFlavorImages에
+   * 그대로 합쳐 가사 본문에 꽂는다(phraseFor 같은 언어 변환 없이). kr-2030/
+   * kr-idol-male/kr-idol-female처럼 lyricLanguage가 korean인 워크스페이스,
+   * jp-2030처럼 japanese인 워크스페이스에서 이 결함이 실제로 영어 명사가
+   * 한국어/일본어 가사에 섞여 나오는 원인이었다. `nouns`와 정확히 같은
+   * 길이·순서로 자연스러운 한국어/일본어 번역을 병렬로 제공하면
+   * nounsForLanguage(vocabularyBanks.ts)가 언어에 맞는 배열을 고른다 — 둘 다
+   * 없는 뱅크(영어 lyricLanguage 워크스페이스용, 이미 한국어/일본어 원어인
+   * kr-kids/jp-kids 뱅크)는 기존 `nouns` 그대로 폴백해 동작이 바뀌지 않는다.
+   */
+  nounsKo?: string[];
+  nounsJa?: string[];
+}
+
+/**
+ * 정합성 감사 2026-08-23 (유형 D, 높음) 후속 — VocabularyBank.nounsKo/nounsJa의
+ * 실제 소비 지점. 요청 언어에 맞는 병렬 번역 배열이 있으면 그것을, 없으면
+ * (길이가 안 맞거나 아예 없으면) 안전하게 기존 `nouns`로 폴백한다 — 번역이
+ * 아직 없는 뱅크의 동작을 절대 깨뜨리지 않는다.
+ */
+export function nounsForLanguage(bank: VocabularyBank, language: LyricLanguage): string[] {
+  if (language === 'korean' && bank.nounsKo?.length === bank.nouns.length) return bank.nounsKo;
+  if (language === 'japanese' && bank.nounsJa?.length === bank.nouns.length) return bank.nounsJa;
+  return bank.nouns;
 }
 
 export const SENIOR_VOCABULARY_BANKS: VocabularyBank[] = [
@@ -185,6 +211,7 @@ const KR_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-2030'],
     fitsFrames: ['commute-transit', 'night-drive'],
     nouns: ['subway car', 'earbuds', 'night bus', 'river road', 'streetlight', 'phone screen'],
+    nounsKo: ['지하철', '이어폰', '심야버스', '강변도로', '가로등', '휴대폰 화면'],
     verbs: ['ride', 'scroll', 'drive', 'cruise', 'step off'],
     adjectives: ['dim', 'tired', 'restless', 'open'],
     avoid: ['radio', 'curtain', 'kettle']
@@ -195,6 +222,7 @@ const KR_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-2030'],
     fitsFrames: ['solitary-room', 'screen-memory'],
     nouns: ['studio apartment', 'takeout container', 'lamp', 'laptop screen', 'city lights'],
+    nounsKo: ['원룸', '포장 용기', '스탠드', '노트북 화면', '도시의 불빛'],
     verbs: ['sit', 'watch', 'scroll back', 'exhale'],
     adjectives: ['small', 'quiet', 'alone', 'nostalgic'],
     avoid: ['radio', 'curtain', 'kettle']
@@ -205,6 +233,7 @@ const KR_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-2030'],
     fitsFrames: ['threshold-decision'],
     nouns: ['resignation email', 'packed bag', 'cursor', 'doorway'],
+    nounsKo: ['사직 메일', '짐 가방', '커서', '현관'],
     verbs: ['hesitate', 'decide', 'pack', 'send'],
     adjectives: ['uncertain', 'determined', 'nervous'],
     avoid: []
@@ -215,6 +244,7 @@ const KR_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-2030'],
     fitsFrames: ['two-people-talk', 'reunion-passing'],
     nouns: ['late-night table', 'shared glass', 'crosswalk', 'crowded street'],
+    nounsKo: ['늦은 밤 테이블', '나눠 마신 잔', '횡단보도', '붐비는 거리'],
     verbs: ['confess', 'catch up', 'text', 'cross paths'],
     adjectives: ['warm', 'awkward', 'honest', 'fleeting'],
     avoid: []
@@ -224,6 +254,7 @@ const KR_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     labelKo: '한국 2030 — 일상 전반 (기본값)',
     fitsWorkspaces: ['kr-2030'],
     nouns: ['alley', 'convenience store', 'delivery bike', 'company dinner'],
+    nounsKo: ['골목', '편의점', '배달 오토바이', '회식'],
     verbs: ['pass by', 'smile along', 'walk'],
     adjectives: ['ordinary', 'tired', 'hopeful'],
     avoid: ['radio', 'curtain', 'kettle', 'grandchildren']
@@ -237,6 +268,7 @@ const JP_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['jp-2030'],
     fitsFrames: ['seasonal-marker', 'narrative-arc'],
     nouns: ['cherry blossom', 'graduation gate', 'season change', 'new chapter'],
+    nounsJa: ['桜', '卒業の門', '季節の変わり目', '新しい章'],
     verbs: ['bloom', 'depart', 'begin again'],
     adjectives: ['fleeting', 'hopeful', 'bittersweet'],
     avoid: []
@@ -247,6 +279,7 @@ const JP_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['jp-2030'],
     fitsFrames: ['inner-monologue', 'self-affirmation'],
     nouns: ['mirror', 'quiet room', 'notebook', 'inner voice'],
+    nounsJa: ['鏡', '静かな部屋', 'ノート', '心の声'],
     verbs: ['whisper to yourself', 'decide', 'stand tall', 'breathe'],
     adjectives: ['quiet', 'resolute', 'steady'],
     avoid: []
@@ -257,6 +290,7 @@ const JP_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['jp-2030'],
     fitsFrames: ['solitary-room', 'night-drive', 'parallel-world'],
     nouns: ['city skyline', 'night road', 'glass window', 'another version of me'],
+    nounsJa: ['街のスカイライン', '夜の道', 'ガラス窓', 'もう一人の自分'],
     verbs: ['drive', 'wonder', 'drift', 'imagine'],
     adjectives: ['quiet', 'distant', 'wondering'],
     avoid: ['curtain']
@@ -267,6 +301,7 @@ const JP_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['jp-2030'],
     fitsFrames: ['school-memory', 'festival-crowd'],
     nouns: ['gymnasium', 'festival crowd', 'fireworks', 'yukata', 'classmates'],
+    nounsJa: ['体育館', '祭りの人混み', '花火', '浴衣', 'クラスメイト'],
     verbs: ['gather', 'cheer', 'remember', 'laugh together'],
     adjectives: ['nostalgic', 'joyful', 'crowded'],
     avoid: []
@@ -276,6 +311,7 @@ const JP_2030_VOCABULARY_BANKS: VocabularyBank[] = [
     labelKo: '일본 2030 — 일상 전반 (기본값)',
     fitsWorkspaces: ['jp-2030'],
     nouns: ['station', 'convenience store', 'evening train', 'city street'],
+    nounsJa: ['駅', 'コンビニ', '夕方の電車', '街の通り'],
     verbs: ['walk', 'pass by', 'wait'],
     adjectives: ['ordinary', 'gentle', 'hopeful'],
     avoid: ['radio', 'curtain']
@@ -290,6 +326,7 @@ const KR_IDOL_MALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-male'],
     fitsFrames: ['stage-declaration', 'backstage-before', 'promise-made'],
     nouns: ['spotlight', 'stage', 'countdown clock', 'crowd roar', 'microphone'],
+    nounsKo: ['스포트라이트', '무대', '카운트다운 시계', '함성', '마이크'],
     verbs: ['step out', 'bow', 'promise', 'shine'],
     adjectives: ['confident', 'electric', 'ready'],
     avoid: []
@@ -300,6 +337,7 @@ const KR_IDOL_MALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-male'],
     fitsFrames: ['rehearsal-grind', 'turning-point'],
     nouns: ['practice room mirror', 'eight-count', 'sweat', 'exhaustion'],
+    nounsKo: ['연습실 거울', '에잇카운트', '땀', '지친 몸'],
     verbs: ['push through', 'repeat', 'break through'],
     adjectives: ['relentless', 'stubborn', 'hard-won'],
     avoid: []
@@ -310,6 +348,7 @@ const KR_IDOL_MALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-male'],
     fitsFrames: ['crew-together', 'night-city-move'],
     nouns: ['tour bus window', 'formation line', 'city skyline', 'crew'],
+    nounsKo: ['투어버스 창밖', '대형', '도시의 스카이라인', '크루'],
     verbs: ['sync', 'ride', 'move together'],
     adjectives: ['united', 'in motion', 'wide-eyed'],
     avoid: []
@@ -320,6 +359,7 @@ const KR_IDOL_MALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-male'],
     fitsFrames: ['chase-focus', 'crossed-paths'],
     nouns: ['crowded room', 'crossed platform', 'departure gate'],
+    nounsKo: ['붐비는 공간', '엇갈린 플랫폼', '출국 게이트'],
     verbs: ['scan', 'wave', 'lock eyes'],
     adjectives: ['sudden', 'wistful', 'focused'],
     avoid: []
@@ -333,6 +373,7 @@ const KR_IDOL_FEMALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-female'],
     fitsFrames: ['self-direction', 'unshaken-ground', 'leading-the-approach'],
     nouns: ['crossroads', 'own path', 'compass', 'steady ground'],
+    nounsKo: ['갈림길', '나만의 길', '나침반', '단단한 땅'],
     verbs: ['choose', 'stand firm', 'lead'],
     adjectives: ['certain', 'unshaken', 'deliberate'],
     avoid: []
@@ -343,6 +384,7 @@ const KR_IDOL_FEMALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-female'],
     fitsFrames: ['gaze-passed', 'friends-line', 'daylight-city'],
     nouns: ['crowded street', 'daylight skyline', 'circle of friends'],
+    nounsKo: ['붐비는 거리', '햇살 아래 스카이라인', '친구들의 원'],
     verbs: ['walk past', 'gather', 'support'],
     adjectives: ['confident', 'bright', 'easy'],
     avoid: []
@@ -353,6 +395,7 @@ const KR_IDOL_FEMALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-female'],
     fitsFrames: ['direct-release', 'clean-break'],
     nouns: ['clean break', 'open door', 'clear sky'],
+    nounsKo: ['깔끔한 이별', '열린 문', '맑은 하늘'],
     verbs: ['let go', 'release', 'walk away'],
     adjectives: ['direct', 'clear', 'free'],
     avoid: []
@@ -363,6 +406,7 @@ const KR_IDOL_FEMALE_VOCABULARY_BANKS: VocabularyBank[] = [
     fitsWorkspaces: ['kr-idol-female'],
     fitsFrames: ['after-party', 'season-turning'],
     nouns: ['after-party lights', 'turning season', 'rooftop night'],
+    nounsKo: ['뒤풀이 조명', '바뀌는 계절', '옥상의 밤'],
     verbs: ['celebrate', 'turn the page'],
     adjectives: ['bright', 'warm', 'renewed'],
     avoid: []
