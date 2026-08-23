@@ -25,9 +25,9 @@ describe('[v5.24] senior-oldpop stays on the legacy engine, never the policy one
     expect(plan.reason).toBe('not-enabled-for-workspace');
   });
 
-  it('data/explorationPolicies.ts still documents a senior-oldpop entry for the §8 "7종" completeness count', () => {
+  it('data/explorationPolicies.ts still documents a senior-oldpop entry for the §8 "8종" completeness count', () => {
     expect(EXPLORATION_POLICIES['senior-oldpop'].legacyEngine).toBe(true);
-    expect(Object.keys(EXPLORATION_POLICIES)).toHaveLength(7);
+    expect(Object.keys(EXPLORATION_POLICIES)).toHaveLength(8);
   });
 });
 

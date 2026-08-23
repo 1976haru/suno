@@ -66,8 +66,8 @@ export const ARCHETYPE_HARDCODING_ALLOWLIST: ArchetypeHardcodingAllowlistEntry[]
   },
   {
     file: 'src/utils/channelArchetype.ts',
-    count: 1,
-    reasonKo: 'isKidsArchetype() 자신의 정의 — 이것이 바로 그 "정식 어댑터"다. 다른 모든 파일이 이 함수를 호출해서 하드코딩을 피한다. 정의 자체는 단일 진실 공급원이라 영구 허용',
+    count: 2,
+    reasonKo: 'isKidsArchetype()/isEnChillhopArchetype() 자신의 정의 — 이것이 바로 그 "정식 어댑터"다. 다른 모든 파일이 이 함수들을 호출해서 하드코딩을 피한다(지시문 71 TASK E가 core/setDirector.ts의 BPM 대역 잠금에 isEnChillhopArchetype 추가). 정의 자체는 단일 진실 공급원이라 영구 허용',
     plannedRemovalIn: 'N/A — 영구 허용 (정책 registry가 참조하는 정식 정의)'
   },
   {

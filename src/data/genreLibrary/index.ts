@@ -530,6 +530,49 @@ export const KRIDOL_F_CORE_GENRE_IDS = [
 ] as const;
 
 /**
+ * 지시문 71 (TASK A/B) — en-chillhop workspace's 9 core genres. 칠랩·힙합
+ * 5종은 이미 있는 장르를 참조만 한다(chill-rap/boom-bap-mellow/jazz-rap/
+ * lofi-hiphop-study/trap-soul — 정의 자체는 수정하지 않는다, §11 "하지
+ * 말 것"). 딥하우스 3종(en-deep-house-melodic/en-deep-house-organic/
+ * en-house-garage-swing)은 TASK B가 신설한다. alt-rnb 1종이 "인접".
+ * getDefaultGenreIdsForArchetype()의 top-3는 이 채널의 주력인 chill-rap/
+ * boom-bap-mellow/jazz-rap(§6.2 "칠랩이 이 채널의 주력") — 랩 대역이
+ * 기본값이라는 TASK E 설계와 순서를 맞춘다.
+ */
+export const EN_CHILLHOP_CORE_GENRE_IDS = [
+  'chill-rap',
+  'boom-bap-mellow',
+  'jazz-rap',
+  'lofi-hiphop-study',
+  'trap-soul',
+  'en-deep-house-melodic',
+  'en-deep-house-organic',
+  'en-house-garage-swing',
+  'alt-rnb'
+] as const;
+
+/**
+ * 지시문 71 (TASK E) — §1.3 BPM 대역 문제(칠랩·힙합 62-98 vs 하우스
+ * 110-128, 10 BPM 이상 빈 구간)를 세트 배분 단계에서 처리하기 위한 두
+ * 장르군. core/conceptAgent.ts의 en-chillhop 전용 대역 배분이 이 두
+ * 목록만 참조한다 — 다른 워크스페이스의 BPM 배분 로직은 건드리지 않는다.
+ */
+export const EN_CHILLHOP_RAP_BAND_GENRE_IDS = [
+  'chill-rap',
+  'boom-bap-mellow',
+  'jazz-rap',
+  'lofi-hiphop-study',
+  'trap-soul',
+  'alt-rnb'
+] as const;
+
+export const EN_CHILLHOP_HOUSE_BAND_GENRE_IDS = [
+  'en-deep-house-melodic',
+  'en-deep-house-organic',
+  'en-house-garage-swing'
+] as const;
+
+/**
  * TASK v3.63 (TASK A) — a real user made a custom "oldpoplounge" channel and
  * found almost none of the 320-genre library reachable, because every
  * archetype's core-genre list (this Record) is what getVisibleGenresFor
@@ -651,7 +694,9 @@ export const CORE_GENRE_IDS_BY_ARCHETYPE: Record<ChannelArchetype, readonly stri
   // like christmas/lofi-study above — K3's own workspace/genre-visibility
   // wiring, not K2's.
   'kr-idol-male': KRIDOL_M_CORE_GENRE_IDS,
-  'kr-idol-female': KRIDOL_F_CORE_GENRE_IDS
+  'kr-idol-female': KRIDOL_F_CORE_GENRE_IDS,
+  // 지시문 71 (TASK A/B) — en-chillhop workspace's genre layer.
+  'en-chillhop': EN_CHILLHOP_CORE_GENRE_IDS
 };
 
 const allCoreGenreIds = new Set<string>([
@@ -665,7 +710,8 @@ const allCoreGenreIds = new Set<string>([
   ...JP_2030_CORE_GENRE_IDS,
   ...KR_KIDS_CORE_GENRE_IDS,
   ...JP_KIDS_CORE_GENRE_IDS,
-  ...KRIDOL_M_CORE_GENRE_IDS
+  ...KRIDOL_M_CORE_GENRE_IDS,
+  ...EN_CHILLHOP_CORE_GENRE_IDS
 ]);
 
 const quietCafeSignals = [
@@ -1403,6 +1449,53 @@ export const kr2030GenrePacks: StructuredGenrePack[] = [
     tier: 'extended',
     eraTag: '2010s-2020s noir deep house'
   }, 'electronic', { rhythm: ['hypnotic four-on-the-floor deep-house pulse', 'off-beat open hi-hat groove'], vocal: ['sparse atmospheric vocal hook', 'processed vocal chops used sparingly'], production: ['dark warm nightclub mix', 'sub bass carrying the low end'], harmony: ['minor-key moody chord stab loop', 'sparse two-chord vamp'], moods: ['moody', 'nocturnal', 'hypnotic'], audiences: ['나이트 딥하우스', '레이트나잇 드라이브'], avoidTraits: ['bright major-key pop hook', 'aggressive EDM drop'] })
+];
+
+/**
+ * 지시문 71 (TASK B) — en-chillhop workspace's own deep-house layer. 기존
+ * kr2030-noir-deep-house(kr-2030/city-night 소유)는 건드리지 않고, 이
+ * 워크스페이스 전용 id 3종을 신설한다(§3.1 "예시이자 최소선" 충족).
+ * kr2030-noir-deep-house/chill-rap과 같은 형식(legacyGenrePack의
+ * tempo/vocal/rhythm/harmony/production/moods/instruments/avoidTraits
+ * 필드 구성)을 그대로 따른다. 딥하우스는 보컬이 희소한 장르라 3종이 전부
+ * 인스트루멘탈 지향이 되지 않도록(§3.2) en-deep-house-melodic 하나는
+ * 명확한 보컬 훅을 갖는다 — 나머지 둘(organic/garage-swing)은 희박하거나
+ * 짧은 보컬 텍스처만 쓴다. 실존 아티스트·레이블·트랙명은 어디에도 없다.
+ */
+export const enChillhopGenrePacks: StructuredGenrePack[] = [
+  legacyGenrePack({
+    id: 'en-deep-house-melodic',
+    label: 'Melodic Deep House',
+    styleCore: 'melodic deep house, warm rolling four-on-the-floor groove, emotive analog synth lead, clear English vocal hook riding the chorus',
+    instruments: ['four-on-the-floor electronic kick', 'warm rolling sub bass', 'emotive analog synth lead', 'plucked chord stab', 'filtered hi-hat groove'],
+    tempoRange: [112, 122],
+    goodFor: ['멜로딕 딥하우스', 'night drive', 'festival sunset set'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s melodic deep house'
+  }, 'electronic', { rhythm: ['rolling four-on-the-floor deep-house groove', 'syncopated off-beat hi-hat pattern'], vocal: ['clear English vocal hook carrying the drop', 'layered vocal-chop answering the lead'], production: ['warm analog-modeled synth mix', 'wide stereo pad bed'], harmony: ['emotive minor-to-major chord lift', 'suspended pad vamp under the hook'], moods: ['uplifting', 'emotive', 'nocturnal'], audiences: ['멜로딕 딥하우스', '나이트 드라이브'], avoidTraits: ['aggressive festival EDM drop', 'bright major-key pop hook', 'trap hi-hat rolls'] }),
+  legacyGenrePack({
+    id: 'en-deep-house-organic',
+    label: 'Organic Deep House',
+    styleCore: 'organic deep house, acoustic-textured hand percussion, warm live-style bass groove, soft instrumental focus with sparse vocal texture',
+    instruments: ['organic hand-percussion layer', 'warm live-style bass groove', 'soft Rhodes chord stab', 'filtered analog pad', 'brushed shaker loop'],
+    tempoRange: [108, 118],
+    goodFor: ['오가닉 딥하우스', 'sunset terrace', 'late afternoon lounge'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s organic deep house'
+  }, 'electronic', { rhythm: ['organic hand-percussion deep-house groove', 'loose swung hi-hat pattern'], vocal: ['sparse breathy vocal texture used as a color, not a lead', 'wordless vocal-sample chop'], production: ['warm acoustic-electronic hybrid mix', 'natural room ambience on the percussion'], harmony: ['warm modal chord loop', 'soft major seventh color'], moods: ['warm', 'organic', 'relaxed'], audiences: ['오가닉 딥하우스', '선셋 라운지'], avoidTraits: ['aggressive EDM drop', 'harsh digital synth stab', 'busy trap hi-hat rolls'] }),
+  legacyGenrePack({
+    id: 'en-house-garage-swing',
+    label: 'Garage Swing House',
+    styleCore: 'garage swing house, swung UK-garage-flavored shuffle groove, bright chopped vocal-sample hook, bouncy sub bass',
+    instruments: ['swung garage-house drum shuffle', 'bouncy sub bass', 'chopped vocal-sample stab', 'bright piano chord stab', 'filtered string swell'],
+    tempoRange: [118, 128],
+    goodFor: ['개러지 스윙 하우스', 'weekend dance mood', 'club warm-up set'],
+    archetypes: ['en-chillhop'],
+    tier: 'core',
+    eraTag: '2010s-2020s garage swing house'
+  }, 'electronic', { rhythm: ['swung UK-garage-flavored shuffle groove', 'bouncy syncopated bassline pocket'], vocal: ['bright chopped vocal-sample hook', 'call-and-response vocal stab'], production: ['crisp club-ready mix', 'bright filtered top end'], harmony: ['bright major chord stab loop', 'syncopated piano chord vamp'], moods: ['bouncy', 'bright', 'energetic'], audiences: ['개러지 스윙 하우스', '위켄드 댄스'], avoidTraits: ['aggressive dubstep bass wobble', 'slow ballad pacing', 'vintage tape saturation'] })
 ];
 
 /**
@@ -3078,11 +3171,22 @@ const KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS: ReadonlySet<string> = new Set([
 // 지시문 20 (TASK B-3) — jazz-lofi-vocal-jazz도 같은 이유(archetypes가
 // senior-morning/showa-cafe뿐 — modern-chill/kr-2030-pop 둘 다 없어
 // lofi-focus-main/kr-2030-pop 어느 쪽에서도 도달 불가)로 확장.
+// 지시문 71 (TASK A/B) — chill-rap/boom-bap-mellow/jazz-rap/lofi-hiphop-study/
+// trap-soul/alt-rnb는 §11 "하지 말 것"에 따라 정의 자체(legacyGenrePack 호출)를
+// 수정하지 않는다 — 이미 이 파일이 확립한 "참조만 추가" 관례(바로 위
+// jazz-lofi-vocal-jazz 항목, KR_2030_POP_CROSS_ARCHETYPE_GENRE_IDS)를 그대로
+// 재사용해 'en-chillhop'만 추가한다. 소유권(genreWorkspaceOwnership.ts)도
+// 옮기지 않는다 — 참조만.
+const EN_CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS: readonly string[] = [
+  'chill-rap', 'boom-bap-mellow', 'jazz-rap', 'lofi-hiphop-study', 'trap-soul', 'alt-rnb'
+];
+
 const CROSS_ARCHETYPE_ADDITIONS: Readonly<Record<string, ChannelArchetype[]>> = {
-  'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop']
+  'jazz-lofi-vocal-jazz': ['modern-chill', 'kr-2030-pop'],
+  ...Object.fromEntries(EN_CHILLHOP_CROSS_ARCHETYPE_GENRE_IDS.map(id => [id, ['en-chillhop'] as ChannelArchetype[]]))
 };
 
-const allGenreSources = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...notionDerivedGenrePacks];
+const allGenreSources = [...legacyGenreProfiles, ...kidsGenreProfiles, ...oldpopGenrePacks, ...kr2030GenrePacks, ...jp2030GenrePacks, ...krkidsGenrePacks, ...jpkidsGenrePacks, ...kridolMaleGenrePacks, ...eraGenrePacks, ...modernGenrePacks, ...enChillhopGenrePacks, ...notionDerivedGenrePacks];
 // 지시문 65 (TASK A) — family별 라운드로빈 배정(assignStaticVocalTechniques
 // 자기 doc comment 참고)이라 전체 배열을 한 번에 넘겨야 한다 — .map() 안에서
 // 장르 하나씩 부르면 라운드로빈 순서를 만들 수 없다.

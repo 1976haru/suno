@@ -17,6 +17,17 @@ export function isKidsArchetype(archetype: string | undefined): boolean {
 }
 
 /**
+ * 지시문 71 (TASK E) — core/setDirector.ts의 BPM 대역 잠금(§6)이
+ * `channel.archetype === 'en-chillhop'` 리터럴 비교를 직접 쓰지 않고 이
+ * 정식 어댑터를 거치게 한다 — isKidsArchetype과 같은 이유(scripts/
+ * checkArchetypeHardcoding.ts의 "정식 어댑터를 통해 하드코딩 재발 방지"
+ * 원칙), 워크스페이스가 아키타입 1개뿐이라 다중 비교는 필요 없다.
+ */
+export function isEnChillhopArchetype(archetype: string | undefined): boolean {
+  return archetype === 'en-chillhop';
+}
+
+/**
  * TASK: Step1 archetype cards filtered by workspace — Step1Channel.tsx's
  * archetypeChoices grid used to render every archetype from every
  * workspace unconditionally, so a user in e.g. kr-kids saw senior-oldpop's

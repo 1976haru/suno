@@ -23,8 +23,19 @@ export type GenreWorkspaceOwnership = Record<string, WorkspaceId[]>;
 // kr-idol-male/kr-idol-female 두 워크스페이스에 의도적으로 공유되는 것과
 // 동일한 논리로, 이 한 장르만 명시적 다대다 소유로 등록한다(비밀리에
 // 격리 규칙을 우회하는 게 아니라 정직하게 선언).
+// 지시문 71 (TASK A) — chill-rap/boom-bap-mellow/jazz-rap/lofi-hiphop-study/
+// trap-soul/alt-rnb는 §11 "하지 말 것"에 따라 소유권을 옮기지 않는다(원래
+// senior-oldpop 소유, prefix 없는 레거시 id라 아래 기본값으로 떨어진다) —
+// en-chillhop을 "참조"로만 추가한다. kr2030-noir-deep-house와 같은 명시적
+// 다대다 소유 패턴.
 const EXPLICIT_MULTI_WORKSPACE_GENRE_IDS: Readonly<Record<string, WorkspaceId[]>> = {
-  'kr2030-noir-deep-house': ['kr-2030', 'senior-oldpop']
+  'kr2030-noir-deep-house': ['kr-2030', 'senior-oldpop'],
+  'chill-rap': ['senior-oldpop', 'en-chillhop'],
+  'boom-bap-mellow': ['senior-oldpop', 'en-chillhop'],
+  'jazz-rap': ['senior-oldpop', 'en-chillhop'],
+  'lofi-hiphop-study': ['senior-oldpop', 'en-chillhop'],
+  'trap-soul': ['senior-oldpop', 'en-chillhop'],
+  'alt-rnb': ['senior-oldpop', 'en-chillhop']
 };
 
 function genreWorkspacesOf(genreId: string): WorkspaceId[] {
@@ -36,6 +47,9 @@ function genreWorkspacesOf(genreId: string): WorkspaceId[] {
   // The one genuinely shared genre pool in the codebase today (verified:
   // every kridol-* genre pack entry sets `archetypes: ['kr-idol-male', 'kr-idol-female']`).
   if (genreId.startsWith('kridol-')) return ['kr-idol-male', 'kr-idol-female'];
+  // 지시문 71 (TASK A) — en-deep-house-*/en-house-garage-swing, 이
+  // 워크스페이스 전용 신규 id.
+  if (genreId.startsWith('en-')) return ['en-chillhop'];
   return ['senior-oldpop'];
 }
 

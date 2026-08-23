@@ -101,7 +101,10 @@ export const WORKSPACE_ERA_INTENT: Record<WorkspaceId, WorkspaceEraIntent> = {
   // kr-idol today, so "only when referenced" is a description of existing
   // behavior, not a new restriction.
   'kr-idol-male': { mode: 'only-when-referenced', noteKo: '컨셉 텍스트가 실제로 특정 시대를 언급할 때만 반응 — 기본값으로 시대를 가정하지 않음(기존 동작과 동일).' },
-  'kr-idol-female': { mode: 'only-when-referenced', noteKo: '컨셉 텍스트가 실제로 특정 시대를 언급할 때만 반응 — 기본값으로 시대를 가정하지 않음(기존 동작과 동일).' }
+  'kr-idol-female': { mode: 'only-when-referenced', noteKo: '컨셉 텍스트가 실제로 특정 시대를 언급할 때만 반응 — 기본값으로 시대를 가정하지 않음(기존 동작과 동일).' },
+  // 지시문 71 (TASK A) — kr-2030/jp-2030과 같은 성격: 칠랩·딥하우스·힙합은
+  // "지금" 감성으로 간주하고 억지로 연대를 강제하지 않는다.
+  'en-chillhop': { mode: 'current-implied', noteKo: '별도 시대 언급이 없으면 "지금" 감성으로 간주 — 억지로 연대를 강제하지 않음.' }
 };
 
 export function eraIntentForWorkspace(id: WorkspaceId): WorkspaceEraIntent {

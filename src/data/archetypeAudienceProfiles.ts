@@ -53,7 +53,11 @@ export const AUDIENCE_PROFILE_ID_BY_ARCHETYPE: Record<ChannelArchetype, string> 
   'kr-kids-song': 'kr-kids',
   'jp-kids-song': 'jp-kids',
   'kr-idol-male': 'kr-idol-male',
-  'kr-idol-female': 'kr-idol-female'
+  'kr-idol-female': 'kr-idol-female',
+
+  // 지시문 71 (TASK A) — 신규 워크스페이스, 자기 전용 오디언스 프로필
+  // (data/audienceProfiles.ts의 EN_CHILLHOP_AUDIENCE_PROFILE).
+  'en-chillhop': 'en-chillhop'
 };
 
 /**

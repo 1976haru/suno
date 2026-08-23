@@ -407,7 +407,10 @@ const SIGNATURE_MONEY_CHORD_BY_ARCHETYPE: Record<string, string> = {
   'jp-2030-pop': 'cityPop',
   'kr-idol-male': 'emotional',
   'kr-idol-female': 'emotional',
-  'lofi-study': 'jazzColor'
+  'lofi-study': 'jazzColor',
+  // 지시문 71 (TASK A) — modern-chill과 같은 이유(칠랩/로파이 힙합 계열이
+  // 이 채널의 핵심 정체성).
+  'en-chillhop': 'jazzColor'
 };
 
 export function signatureMoneyChordId(archetype: string | undefined): string {
@@ -488,7 +491,10 @@ const MONEY_CHORD_ROTATION_POOL_BY_ARCHETYPE: Record<string, string[]> = {
   // emotional.compatibleWith에 'default' 포함, canon.compatibleWith에
   // 'emotional' 포함 — 둘 다 연결됨. lofi는 보컬이 적은 장르(§B-4)라도
   // 머니코드 자체는 인스트루멘탈 트랙에도 배경 진행으로 여전히 쓰인다.
-  'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default', 'emotional', 'canon']
+  'lofi-study': ['jazzColor', 'cityPop', 'warmCycle', 'default', 'emotional', 'canon'],
+  // 지시문 71 (TASK A) — modern-chill과 같은 풀 재사용(재즈 색 기반 칠랩/
+  // 로파이 힙합 정체성) — 새 프리셋을 만들지 않는다(§하지 말 것 "재구현 금지").
+  'en-chillhop': ['jazzColor', 'emotional', 'cityPop', 'default', 'canon', 'popStandard']
 };
 
 export function moneyChordRotationPool(archetype: string | undefined): string[] {

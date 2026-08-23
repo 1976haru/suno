@@ -83,6 +83,14 @@ export const PROMPT_AXIS_POLICIES: Record<WorkspaceId, PromptAxisPolicy> = {
     maxLength: PROVISIONAL_MAX_LENGTH,
     verified: false,
     sourceKo: '미실측 — provisional. 게이트는 돌되 blocking하지 않는다.'
+  },
+  // 지시문 71 (TASK A) — 신규 워크스페이스, 다른 미실측 워크스페이스와 동일.
+  'en-chillhop': {
+    workspaceId: 'en-chillhop',
+    singleDeclarationAxes: COMMON_SINGLE_DECLARATION_AXES,
+    maxLength: PROVISIONAL_MAX_LENGTH,
+    verified: false,
+    sourceKo: '미실측 — provisional. 게이트는 돌되 blocking하지 않는다.'
   }
 };
 

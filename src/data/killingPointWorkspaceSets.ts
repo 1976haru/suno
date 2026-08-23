@@ -33,6 +33,15 @@ export function killingPointSetForNonKidsArchetype(archetype: ChannelArchetype |
       return kpopKillingPointsForGender('male');
     case 'kr-idol-female':
       return kpopKillingPointsForGender('female');
+    // 지시문 71 (TASK A) — en-chillhop도 등록하지 않으면 위 주석이 경고하는
+    // 바로 그 패턴(조용히 senior KILLING_POINTS로 폴백)이 재현된다.
+    // KR_2030_KILLING_POINTS(프리코러스 열림·포스트코러스 훅·브레이크다운 후
+    // 재진입·드롭 직전 정지·보컬 레이어 추가 등)는 fitsEraTags/fitsGenreTags가
+    // 없는 2020년대 팝 범용 장치라 랩/딥하우스 어느 쪽에도 실제로 맞는다 —
+    // 새 세트를 만들지 않고 그대로 재사용한다(옥타브 상승·전조 배제도
+    // 이 워크스페이스에 그대로 유효).
+    case 'en-chillhop':
+      return KR_2030_KILLING_POINTS;
     default:
       return undefined;
   }

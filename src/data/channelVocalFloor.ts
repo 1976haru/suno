@@ -116,6 +116,22 @@ export const CHANNEL_VOCAL_FLOORS: ChannelVocalFloor[] = [
     reasonKo: 'kr-idol-male-vocal-floor와 동일 근거 — 아이돌 프로덕션 성격은 같고 성별만 반대(male 0·female 15·mixed 3).'
   },
   {
+    id: 'en-chillhop-vocal-floor',
+    workspaceId: 'en-chillhop',
+    labelKo: '영어 칠랩·딥하우스 보컬 바닥',
+    archetypeIds: ['en-chillhop'],
+    requiredTraits: [
+      'natural conversational English vocal delivery',
+      'contemporary urban vocal placement'
+    ],
+    forbiddenTraits: [
+      'vintage crooner vibrato',
+      'operatic projection',
+      'nostalgic senior-radio announcer tone'
+    ],
+    reasonKo: 'kr-2030-vocal-floor와 같은 근거 — 젊고 도시적인 톤. 빈티지 크루너/오페라틱 발성으로 흘러가지 않게 막는 바닥.'
+  },
+  {
     id: 'kr-kids-vocal-floor',
     workspaceId: 'kr-kids',
     labelKo: '한국 동요 보컬 바닥',

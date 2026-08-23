@@ -295,6 +295,20 @@ export const EXPLORATION_POLICIES: Record<WorkspaceId, WorkspaceExplorationPolic
     noFailureFraming: false,
     closingLineKo: 'この4曲のうち新しく聴こえる曲があれば成功です。',
     minSongCount: 8
+  },
+  // 지시문 71 (TASK A) — kr-2030/jp-2030과 같은 "가장 자유로움" 성인 도시
+  // 워크스페이스 성격 — 같은 AGE2030_AXES/AGE2030_FROZEN 재사용.
+  'en-chillhop': {
+    workspaceId: 'en-chillhop',
+    enabled: true,
+    slotCount: 4,
+    axes: AGE2030_AXES,
+    frozen: AGE2030_FROZEN,
+    toneKo: '가장 자유로움 — 정전 없음, 새로움이 강점',
+    slotPositionFractions: [0.33, 0.61, 0.83, 0.89],
+    noFailureFraming: false,
+    closingLineKo: 'If even one of these four tracks sounds fresh, call it a win.',
+    minSongCount: 8
   }
 };
 

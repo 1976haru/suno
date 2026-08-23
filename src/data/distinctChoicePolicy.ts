@@ -66,6 +66,18 @@ export const DISTINCT_CHOICE_POLICY: Record<WorkspaceId, DistinctChoicePolicy> =
     sourceKo: '추정치 — 실측 없음. 첫 세트 측정 후 재조정.',
     sameGenderVocalOnly: false
   },
+  // 지시문 71 (TASK A) — kr-2030/jp-2030과 같은 성인 도시 워크스페이스
+  // 성격 — 동일 규칙 세트, verified:false(실측 없음).
+  'en-chillhop': {
+    allowedRuleIds: [...SENIOR_ALLOWED, 'CALL_AND_RESPONSE', 'SCENE_PER_VERSE', 'MODE_SHIFT'],
+    minAssignedTracks: 18,
+    minComplianceRate: 0.8,
+    maxNotMeasured: 4,
+    verified: false,
+    promoteAfterMeasuredSongs: 18,
+    sourceKo: '추정치 — 실측 없음. 첫 세트 측정 후 재조정.',
+    sameGenderVocalOnly: false
+  },
   // 지시문 15 §B-2 "안전 제약" — VOCAL_TOGETHER가 혼성을 지시하면 이 두
   // 워크스페이스의 vocalQuotaOverride(성비 쿼터)를 깬다. sameGenderVocalOnly는
   // verified와 무관하게 core/distinctChoiceGate.ts가 항상 강제한다.

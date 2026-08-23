@@ -1,8 +1,14 @@
 /**
  * TASK H1 (v3.10) — local (no-API) keyword sceenario -> genre/mood/season
- * mapping for the concept agent (core/conceptAgent.ts). Every pattern list
- * covers Korean, English, and Japanese synonyms for the same everyday
+ * mapping for the concept agent (core/conceptAgent.ts). Pattern lists cover
+ * Korean, English, and (partially) Japanese synonyms for the same everyday
  * scenario, since users describe songs in whichever language they think in.
+ *
+ * 지시문 69 — 이 파일은 한동안 "일본어까지 다 커버한다"고 주장했지만
+ * 실측(scripts/checkConceptLanguageCoverage.ts) 결과 그렇지 않았다(당시
+ * axis:'genre' 규칙의 일본어 보유율 0%). 일본어는 부분 커버이며, 현재
+ * 커버리지는 `npm run check:concept-language`로 확인한다 — 이 주석을
+ * 다시 "100% 다 된다"는 단언으로 되돌리지 말 것.
  *
  * Weights point at genre/mood/season ids from src/data/presets.ts. A genre
  * id that isn't in the requesting channel's core tier for its archetype is
@@ -56,13 +62,21 @@ export interface KeywordRule {
 const ADULT_ARCHETYPES: ChannelArchetype[] = [
   'senior-morning', 'showa-cafe', 'christmas', 'lofi-study', 'showa-70s',
   'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge',
-  'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female'
+  'kr-2030-pop', 'jp-2030-pop', 'kr-idol-male', 'kr-idol-female',
+  // 지시문 71 (TASK D) — en-chillhop도 성인 워크스페이스, moodWeights/
+  // seasonWeights가 이 목록을 거쳐 en-chillhop에도 적용된다.
+  'en-chillhop'
 ];
 
 export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
+    // 지시문 70 (TASK D) — 실측: "越路吹雪を思わせる..."(인명, 越路吹雪)의
+    // "雪"이 겨울 계절어로 오탐돼 컨셉이 계절을 전혀 말하지 않았는데도
+    // winter 시즌이 배정됐다. 인명 사전을 새로 만들지 않고, 이 저장소의
+    // 아티스트 참조 마커(〜を思わせる/〜のような/〜風に — 지시문69
+    // 컨셉500_일본시니어.md §5 표기)가 바로 뒤에 붙은 경우만 제외한다.
     id: 'winter',
-    patterns: [/겨울/, /눈(?!치)/, /winter/i, /\bsnow/i, /冬/, /雪/],
+    patterns: [/겨울/, /눈(?!치)/, /winter/i, /\bsnow/i, /冬/, /雪(?!を思わせる|のような|風に)/],
     seasonWeights: { 'early-winter': 3, 'first-snow': 2, 'late-winter': 1 }
   },
   {
@@ -95,13 +109,24 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'new-year',
-    patterns: [/새해/, /신년/, /new\s*year/i, /新年/],
+    // 지시문 70 (TASK C) — "설날"(동요 §9)은 새해와 같은 시기라 이 규칙에
+    // 그대로 합류(새 시즌 오배정 없음 — 전 워크스페이스에 실제로 맞다).
+    patterns: [/새해/, /신년/, /설날/, /new\s*year/i, /新年/],
     seasonWeights: { 'new-year': 3 }
+  },
+  {
+    // 지시문 70 (TASK C) — "추석"(동요 §9)은 새로운 시즌 규칙이 필요했다.
+    // 새해와 달리 시기가 다르므로(9~10월) 별도 규칙으로 분리한다. 설날과
+    // 마찬가지로 전 워크스페이스에 실제로 유효한 보편 명절이라
+    // archetypeScope를 두지 않는다.
+    id: 'chuseok',
+    patterns: [/추석/, /한가위/, /chuseok/i],
+    seasonWeights: { 'early-autumn': 2, 'maple-autumn': 2 }
   },
   {
     id: 'nostalgic-familiar',
     patterns: [
-      /어디선가\s*들어본/, /들어본\s*적/, /익숙한/, /옛날\s*노래/, /그리(움|워)/, /보고\s*싶/, /옛\s*친구/,
+      /어디선가\s*들어본/, /들어본\s*적/, /익숙/, /옛날\s*노래/, /그리(움|워|운|울)/, /보고\s*싶/, /옛\s*친구/,
       /heard\s*(it\s*)?before/i, /familiar/i, /nostalgi/i, /miss(ing)?\s*(you|someone)/i, /old\s*friend/i,
       /どこかで聞いた/, /聞き覚え/, /懐かし/, /会いたい/
     ],
@@ -110,7 +135,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'cafe',
-    patterns: [/카페/, /커피/, /창가/, /찻집/, /\bcafe\b/i, /coffee/i, /window\s*seat/i, /カフェ/, /コーヒー/, /喫茶店/, /窓辺/],
+    patterns: [/카페/, /커피/, /창가/, /찻집/, /\bcafe\b/i, /coffee/i, /window\s*seat/i, /カフェ/, /コーヒー/, /喫茶店/, /純喫茶/, /窓辺/],
     genreWeights: { 'lofi-cafe': 3, 'bossa-cafe': 2, 'jazz-pop': 1 }
   },
   {
@@ -130,7 +155,13 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'bright-upbeat',
-    patterns: [/밝은/, /경쾌한/, /기분\s*좋은/, /신나는/, /bright/i, /upbeat/i, /cheerful/i, /明るい/, /軽快/],
+    // 지시문 70 (TASK A/C) — 어미 고정형(경쾌한/신나는)을 어간 기반으로:
+    // "신나"는 짧지만 충돌 위험이 낮다(지시문 본문 예시). 기쁘다/기뻐(TASK
+    // C, 동요 감정 표현 — "기쁠 때")도 밝고 들뜬 정서로 이 규칙에 합류시킨다.
+    // "기쁠"/"기쁨"은 으-불규칙 어간(기쁘)에 ㄹ 관형형·명사형이 붙으며
+    // 음절 자체가 바뀌어(기쁘+ㄹ→기쁠, 기쁘+ㅁ→기쁨) 단순 부분일치로 안
+    // 잡힌다 — 그 두 형태를 별도로 나열한다.
+    patterns: [/밝은/, /경쾌/, /기분\s*좋은/, /신나/, /기쁘/, /기뻐/, /기쁠/, /기쁨/, /bright/i, /upbeat/i, /cheerful/i, /明るい/, /軽快/],
     moodWeights: { hopeful: 2, warm: 1 },
     genreWeights: { 'folk-pop': 2, 'acoustic-pop': 2, 'city-pop-soft': 1 }
   },
@@ -177,8 +208,16 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // "60~70년대" — "60" isn't directly followed by "s"/"년대" there) so this
     // rule and oldpop-70s both fire on that already-validated co-primary
     // compound input, same as before.
+    // 지시문 69 (TASK B) — 일본어 서기 표기("60年代")와 쇼와 연호("昭和30
+    // 年代"/"昭和40年代")를 추가한다. 昭和30年代(1955–1964)·昭和40年代
+    // (1965–1974)는 60년대와 겹치므로 이 규칙에도 매칭한다(연호→서기 계산
+    // 코드 없이, 실제 겹치는 두 연호 표기를 정적 패턴으로 직접 나열 —
+    // 昭和30〜40年代 같은 범위 표기도 별도 패턴으로 잡는다).
     id: 'oldpop-60s',
-    patterns: [/60(s|년대)/i, /1960s/i, /60\s*[-~]\s*70/],
+    patterns: [
+      /60(s|년대)/i, /1960s/i, /60\s*[-~]\s*70/,
+      /60年代/, /昭和30年代/, /昭和40年代/, /昭和30[〜～\-]40年代/
+    ],
     genreWeights: {
       'oldpop-doowop-harmony': 6, 'oldpop-brill-building': 6, 'oldpop-girl-group-wall': 5,
       'oldpop-sunshine-pop': 5, 'oldpop-baroque-pop': 4, 'oldpop-british-beat': 4
@@ -189,8 +228,13 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // 정합성 점검 §2 결함3 fix — same pattern as oldpop-60s, for the ten real
     // 1970s-bucket genres ("1-B" group). "70\s*[-~]\s*80" mirrors the 60~70
     // compound handling above, for a "70~80년대" style request.
+    // 지시문 69 (TASK B) — oldpop-60s와 같은 이유. 昭和40年代(1965–1974)·
+    // 昭和50年代(1975–1984)는 70년대와 겹친다.
     id: 'oldpop-70s',
-    patterns: [/70(s|년대)/i, /1970s/i, /70\s*[-~]\s*80/],
+    patterns: [
+      /70(s|년대)/i, /1970s/i, /70\s*[-~]\s*80/,
+      /70年代/, /昭和40年代/, /昭和50年代/, /昭和40[〜～\-]50年代/
+    ],
     genreWeights: {
       'oldpop-soft-rock-am': 6, 'oldpop-motown-pop-soul': 6, 'oldpop-piano-ballad-70s': 5,
       'oldpop-philly-soul-sweet': 5, 'oldpop-close-harmony-duo': 4, 'oldpop-folk-rock-70s': 4,
@@ -202,8 +246,14 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     // 정합성 점검 §2 결함3 fix — same pattern as oldpop-60s/70s, for the six
     // real 1980s-bucket genres ("1-C" group).
+    // 지시문 69 (TASK B) — oldpop-60s와 같은 이유. 昭和50年代(1975–1984)는
+    // 80년대와 겹치고, 昭和60年代(1985–1988, 쇼와는 63년/1989년에 끝남)는
+    // 전부 80년대에 들어간다.
     id: 'oldpop-80s',
-    patterns: [/80(s|년대)/i, /1980s/i],
+    patterns: [
+      /80(s|년대)/i, /1980s/i,
+      /80年代/, /昭和50年代/, /昭和60年代/, /昭和40[〜～\-]50年代/
+    ],
     genreWeights: {
       'oldpop-adult-contemporary-80s': 6, 'oldpop-light-synth-pop-warm': 6, 'oldpop-quiet-storm-warm': 5,
       'oldpop-soft-duet-80s': 5, 'oldpop-orchestral-ballad-80s': 4, 'oldpop-standards-torch': 4
@@ -237,14 +287,14 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'chanson',
-    patterns: [/샹송/, /chanson/i, /프랑스\s*음악/, /파리(지앵)?\s*감성/],
+    patterns: [/샹송/, /chanson/i, /프랑스\s*음악/, /파리(지앵)?\s*감성/, /シャンソン/],
     genreWeights: { chanson: 4 },
     moodWeights: { elegant: 1, bittersweet: 1 },
     axis: 'genre'
   },
   {
     id: 'rnb-soul',
-    patterns: [/알\s*앤\s*비/, /알앤비/, /r\s*&\s*n?b/i, /rhythm\s*and\s*blues/i, /리듬\s*앤\s*블루스/, /리듬앤블루스/, /소울\s*음악/, /\bsoul\b/i, /소울/],
+    patterns: [/알\s*앤\s*비/, /알앤비/, /r\s*&\s*n?b/i, /rhythm\s*and\s*blues/i, /리듬\s*앤\s*블루스/, /리듬앤블루스/, /소울\s*음악/, /\bsoul\b/i, /소울/, /ソウル/],
     genreWeights: {
       'oldpop-motown-pop-soul': 4, 'oldpop-philly-soul-sweet': 3, 'retro-soul-pop': 3, 'oldpop-quiet-storm-warm': 2
     },
@@ -253,7 +303,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'bossa-nova',
-    patterns: [/보사\s*노바/, /보사노바/, /\bbossa\b/i, /\b보사\b/],
+    patterns: [/보사\s*노바/, /보사노바/, /\bbossa\b/i, /\b보사\b/, /ボサノヴァ/, /ボサノバ/],
     genreWeights: { 'bossa-cafe': 4 },
     moodWeights: { warm: 1 },
     axis: 'genre'
@@ -268,7 +318,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     // 추천되지 않았다. 기존 3개(다른 채널이 쓸 수 있으니 유지)에 3종을
     // 더한다.
     id: 'jazz',
-    patterns: [/재즈/, /\bjazz\b/i, /스무스\s*재즈/, /smooth\s*jazz/i],
+    patterns: [/재즈/, /\bjazz\b/i, /스무스\s*재즈/, /smooth\s*jazz/i, /ジャズ/],
     genreWeights: {
       'jazz-pop': 3, 'smooth-jazz-lounge': 3, 'oldpop-standards-torch': 2,
       'jazz-classic-vocal-lounge': 3, 'jazz-swing-crooner-ballroom': 2, 'jazz-brush-ballad-jazz': 2
@@ -278,49 +328,49 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'city-pop',
-    patterns: [/시티\s*팝/, /시티팝/, /city\s*pop/i],
+    patterns: [/시티\s*팝/, /시티팝/, /city\s*pop/i, /シティポップ/],
     genreWeights: { 'city-pop-soft': 4 },
     moodWeights: { nostalgic: 1 },
     axis: 'genre'
   },
   {
     id: 'folk',
-    patterns: [/포크(\s*송)?/, /\bfolk\b/i, /folk\s*song/i],
+    patterns: [/포크(\s*송)?/, /\bfolk\b/i, /folk\s*song/i, /フォーク/],
     genreWeights: { 'folk-pop': 4, 'oldpop-folk-rock-70s': 3 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'ballad',
-    patterns: [/발라드/, /\bballad\b/i],
+    patterns: [/발라드/, /\bballad\b/i, /バラード/],
     genreWeights: { 'piano-ballad': 3, 'healing-ballad': 3, 'oldpop-piano-ballad-70s': 3, 'oldpop-orchestral-ballad-80s': 2 },
     moodWeights: { bittersweet: 1 },
     axis: 'genre'
   },
   {
     id: 'disco',
-    patterns: [/디스코/, /\bdisco\b/i],
+    patterns: [/디스코/, /\bdisco\b/i, /ディスコ/],
     genreWeights: { 'oldpop-europop-glow': 3, 'oldpop-motown-pop-soul': 3 },
     moodWeights: { hopeful: 1 },
     axis: 'genre'
   },
   {
     id: 'country',
-    patterns: [/컨트리/, /\bcountry\b/i],
+    patterns: [/컨트리/, /\bcountry\b/i, /カントリー/],
     genreWeights: { 'oldpop-countrypolitan': 4 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'doo-wop',
-    patterns: [/두\s*왑/, /두왑/, /doo[\s-]?wop/i],
+    patterns: [/두\s*왑/, /두왑/, /doo[\s-]?wop/i, /ドゥーワップ/, /ドゥワップ/],
     genreWeights: { 'oldpop-doowop-harmony': 4 },
     moodWeights: { nostalgic: 1 },
     axis: 'genre'
   },
   {
     id: 'easy-listening',
-    patterns: [/이지\s*리스닝/, /easy\s*listening/i],
+    patterns: [/이지\s*리스닝/, /easy\s*listening/i, /イージーリスニング/],
     genreWeights: { 'oldpop-orchestral-easy': 4, 'smooth-jazz-lounge': 2 },
     moodWeights: { warm: 1 },
     axis: 'genre'
@@ -333,44 +383,71 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // (getCoreGenreIdsForArchetype 실측 확인).
   {
     id: 'motown',
-    patterns: [/모타운/, /motown/i],
+    patterns: [/모타운/, /motown/i, /モータウン/],
     genreWeights: { 'oldpop-motown-pop-soul': 4 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'philly-soul',
-    patterns: [/필리\s*소울/, /필라델피아\s*소울/, /philly\s*soul/i, /philadelphia\s*soul/i],
+    patterns: [/필리\s*소울/, /필라델피아\s*소울/, /philly\s*soul/i, /philadelphia\s*soul/i, /フィリーソウル/, /フィラデルフィアソウル/],
     genreWeights: { 'oldpop-philly-soul-sweet': 4 },
     moodWeights: { warm: 1, romantic: 1 },
     axis: 'genre'
   },
   {
     id: 'british-beat',
-    patterns: [/브리티시\s*비트/, /영국\s*비트/, /british\s*beat/i, /british\s*invasion/i],
+    patterns: [/브리티시\s*비트/, /영국\s*비트/, /british\s*beat/i, /british\s*invasion/i, /ブリティッシュビート/, /ブリティッシュインベイジョン/],
     genreWeights: { 'oldpop-british-beat': 4 },
     moodWeights: { hopeful: 1 },
     axis: 'genre'
   },
   {
     id: 'soft-rock',
-    patterns: [/소프트\s*록/, /soft\s*rock/i],
+    patterns: [/소프트\s*록/, /soft\s*rock/i, /ソフトロック/],
     genreWeights: { 'oldpop-soft-rock-am': 3, 'soft-rock': 3 },
     moodWeights: { warm: 1 },
     axis: 'genre'
   },
   {
     id: 'gospel-soul',
-    patterns: [/가스펠/, /gospel/i],
+    patterns: [/가스펠/, /gospel/i, /ゴスペル/],
     genreWeights: { 'rnb-soulful-gospel-warmth': 3, 'rnb-gospel-soul-lift': 3 },
     moodWeights: { hopeful: 1, warm: 1 },
     axis: 'genre'
   },
   {
     id: 'old-school-rnb',
-    patterns: [/올드스쿨\s*(r\s*&?\s*n?b|알앤비)/i, /old[\s-]?school\s*r\s*&?\s*n?b/i],
+    patterns: [/올드스쿨\s*(r\s*&?\s*n?b|알앤비)/i, /old[\s-]?school\s*r\s*&?\s*n?b/i, /オールドスクール\s*r\s*&?\s*n?b/i],
     genreWeights: { 'rnb-old-school-romance-rnb': 4 },
     moodWeights: { nostalgic: 1, warm: 1 },
+    axis: 'genre'
+  },
+  // 지시문 70 (TASK B) — "왈츠 가요풍의 조용한 한 곡"/"탱고 가요풍..."류가
+  // 한국어로도 0개였다(§3.1 실측) — axis:'genre' 17종 어디에도 없는
+  // 장르라 언어 문제가 아니라 규칙 자체 부재였다. genreLibrary/index.ts에
+  // 실제 존재하는 id(getCoreGenreIdsForArchetype로 확인)만 신설한다.
+  // 처음부터 한/영/일 3개 언어를 함께 넣어 지시문 69가 고친 결함을
+  // 반복하지 않는다.
+  {
+    id: 'waltz',
+    patterns: [/왈츠/, /\bwaltz\b/i, /ワルツ/],
+    genreWeights: { 'oldpop-slow-waltz-memory': 4 },
+    moodWeights: { nostalgic: 1, elegant: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'canzone',
+    patterns: [/칸초네/, /\bcanzone\b/i, /カンツォーネ/],
+    genreWeights: { 'oldpop-italian-canzone': 4 },
+    moodWeights: { elegant: 1, romantic: 1 },
+    axis: 'genre'
+  },
+  {
+    id: 'blues',
+    patterns: [/블루스/, /\bblues\b/i, /ブルース/],
+    genreWeights: { 'oldpop-rainy-ballad-blues': 4 },
+    moodWeights: { bittersweet: 1 },
     axis: 'genre'
   },
   // TASK v3.61 (TASK B-3, test 5) — "따뜻하고 잔잔한 노래" must reach TASK A's
@@ -379,7 +456,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   {
     id: 'warm-gentle',
     patterns: [
-      /따뜻하고\s*잔잔/, /따뜻한\s*멜로디/, /잔잔한\s*멜로디/, /포근한/, /따스한/,
+      /따뜻하고\s*잔잔/, /따뜻한\s*멜로디/, /잔잔한\s*멜로디/, /포근/, /따스/,
       /warm\s*and\s*gentle/i, /gentle\s*melody/i, /soft\s*and\s*warm/i
     ],
     genreWeights: {
@@ -547,8 +624,19 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     archetypeScope: ['kids', 'kr-kids-song']
   },
   {
+    // 지시문 70 (TASK C) — 실측: 동요 컨셉500 §3(동물과 생물, 65항목)이
+    // 0%였다. 컨셉 파일에 실제 등장하는 동물명을 그대로 수집해서 추가한다
+    // (상상 금지). 말/소/양/오리/곰은 1~2음절이라 다른 단어와 충돌
+    // 위험이 커서(오리지널의 "오리" 등) 동물 서술 문맥(울음소리·흉내·
+    // 이야기·몸짓)이 붙은 경우로 좁힌다.
     id: 'krkids-animal-vehicle',
-    patterns: [/동물/, /공룡/, /버스/, /기차/, /굴착기/, /dinosaur/i, /excavator/i],
+    patterns: [
+      /동물/, /공룡/, /버스/, /기차/, /굴착기/, /dinosaur/i, /excavator/i,
+      /두더지/, /코끼리/, /물고기/, /청개구리/, /참새/, /꿀벌/, /거북이/, /달팽이/,
+      /기린/, /토끼/, /부엉이/, /다람쥐/, /펭귄/, /사자/, /병아리/, /개구리/,
+      /고양이/, /돌고래/, /강아지/, /돼지/, /개미/,
+      /(말|소|양|오리|곰)(을|를|이|가)?\s*(울음소리|흉내|이야기|몸짓)/
+    ],
     genreWeights: { 'krkids-animal-vehicle': 4 },
     archetypeScope: ['kids', 'kr-kids-song']
   },
@@ -575,6 +663,53 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     patterns: [/율동/, /체조/, /따라\s*하기/, /action\s*song/i, /clapping\s*game/i],
     genreWeights: { 'krkids-action': 4 },
     archetypeScope: ['kids', 'kr-kids-song']
+  },
+  // 지시문 70 (TASK C) — 동요 §9(기념일과 행사) 실측 0%대 원인: 입학식/
+  // 졸업식은 지시문69의 situ-enrollment/situ-graduation-senior가 이미
+  // 있지만 ADULT_ARCHETYPES 스코프라 동요는 걸리지 않는다(그 규칙들을
+  // 건드리지 않고 place-bus-kr2030/place-bus-kridol과 같은 방식으로
+  // 동요 전용 자매 규칙을 둔다 — 성인 계절 신호로 새지 않도록 archetype
+  // Scope 자체가 막는다). 어린이날/스승의날/어버이날/발표회/소풍은
+  // 대응 규칙이 전혀 없어 신설한다.
+  {
+    id: 'krkids-enrollment',
+    patterns: [/입학식/],
+    genreWeights: { 'krkids-action': 2, 'krkids-daily-habit': 1 },
+    seasonWeights: { 'spring-open': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-graduation',
+    patterns: [/졸업식/],
+    genreWeights: { 'krkids-action': 2 },
+    seasonWeights: { 'late-winter': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-childrens-day',
+    patterns: [/어린이날/],
+    genreWeights: { 'krkids-action': 2, 'krkids-roleplay-story': 1 },
+    seasonWeights: { 'may-cafe': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-teacher-parents-day',
+    patterns: [/스승의\s*날/, /어버이날/],
+    genreWeights: { 'krkids-daily-habit': 2 },
+    seasonWeights: { 'may-cafe': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-recital',
+    patterns: [/발표회/],
+    genreWeights: { 'krkids-action': 2 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  {
+    id: 'krkids-picnic',
+    patterns: [/소풍/],
+    genreWeights: { 'krkids-roleplay-story': 1, 'krkids-action': 1 },
+    archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
   },
   // TASK F1 §9-1 — jp-kids workspace's concept keywords. genreWeights only,
   // pointing only at jpkids-* ids. §9-1's own explicit requirement: Korean
@@ -777,12 +912,12 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-train',
-    patterns: [/기차/, /열차/, /\btrain\b/i],
+    patterns: [/기차/, /열차/, /\btrain\b/i, /夜行列車/, /路面電車/],
     genreWeights: { 'oldpop-countrypolitan': 3, 'oldpop-folk-rock-70s': 2 }
   },
   {
     id: 'place-station',
-    patterns: [/정류장/, /플랫폼/, /station/i, /(기차|지하철|버스)\s*역/],
+    patterns: [/정류장/, /플랫폼/, /station/i, /(기차|지하철|버스)\s*역/, /駅のホーム/],
     genreWeights: { 'smooth-jazz-lounge': 2, 'oldpop-evening-lamp-ballad': 2 }
   },
   {
@@ -792,12 +927,12 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-market',
-    patterns: [/재래시장/, /시장/, /\bmarket\b/i],
+    patterns: [/재래시장/, /시장/, /\bmarket\b/i, /商店街/, /市場の路地/],
     genreWeights: { 'oldpop-motown-pop-soul': 2, 'retro-soul-pop': 2 }
   },
   {
     id: 'place-theater',
-    patterns: [/영화관/, /극장/, /\btheater\b/i, /\btheatre\b/i],
+    patterns: [/영화관/, /극장/, /\btheater\b/i, /\btheatre\b/i, /映画館/],
     genreWeights: { 'oldpop-standards-torch': 3, 'jazz-swing-crooner-ballroom': 2 }
   },
   {
@@ -812,7 +947,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-riverside',
-    patterns: [/강변/, /강가/, /한강/, /riverside/i],
+    patterns: [/강변/, /강가/, /한강/, /riverside/i, /堤防の道/],
     genreWeights: { 'oldpop-sunlit-strings-pop': 2, 'folk-pop': 2 }
   },
   {
@@ -849,7 +984,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-veranda',
-    patterns: [/베란다/, /발코니/, /\bveranda\b/i, /\bbalcony\b/i],
+    patterns: [/베란다/, /발코니/, /\bveranda\b/i, /\bbalcony\b/i, /縁側/],
     genreWeights: { 'oldpop-sunlit-strings-pop': 2, 'acoustic-pop': 1 }
   },
   {
@@ -864,7 +999,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-school',
-    patterns: [/교정/, /학교/, /\bschool\b/i],
+    patterns: [/교정/, /학교/, /\bschool\b/i, /校庭/, /小学校/],
     genreWeights: { 'oldpop-sunshine-pop': 2, 'folk-pop': 2 }
   },
   {
@@ -884,27 +1019,27 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-post-office',
-    patterns: [/우체국/, /post\s*office/i],
+    patterns: [/우체국/, /post\s*office/i, /郵便局/],
     genreWeights: { chanson: 2, 'oldpop-close-harmony-duo': 1 }
   },
   {
     id: 'place-bathhouse',
-    patterns: [/대중목욕탕/, /목욕탕/, /찜질방/],
+    patterns: [/대중목욕탕/, /목욕탕/, /찜질방/, /銭湯/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'oldpop-hearth-acoustic': 1 }
   },
   {
     id: 'place-barbershop',
-    patterns: [/이발소/, /미용실/, /barbershop/i],
+    patterns: [/이발소/, /미용실/, /barbershop/i, /床屋/, /美容室/],
     genreWeights: { 'oldpop-motown-pop-soul': 2, 'retro-soul-pop': 1 }
   },
   {
     id: 'place-teahouse',
-    patterns: [/다방/],
+    patterns: [/다방/, /茶屋/],
     genreWeights: { chanson: 3, 'oldpop-night-chanson': 2, 'jazz-classic-vocal-lounge': 1 }
   },
   {
     id: 'place-inn',
-    patterns: [/여관/, /\bmotel\b/i],
+    patterns: [/여관/, /\bmotel\b/i, /旅館/, /温泉宿/],
     genreWeights: { 'oldpop-rainy-ballad-blues': 2, 'oldpop-night-chanson': 2 }
   },
   {
@@ -924,7 +1059,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-harbor',
-    patterns: [/항구/, /부두/, /\bharbor\b/i],
+    patterns: [/항구/, /부두/, /\bharbor\b/i, /港/, /波止場/, /桟橋/],
     genreWeights: { 'bossa-cafe': 2, 'oldpop-yacht-west-coast': 2 }
   },
   {
@@ -944,7 +1079,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'place-temple',
-    patterns: [/절에\s*가/, /사찰/, /\btemple\b/i],
+    patterns: [/절에\s*가/, /사찰/, /\btemple\b/i, /神社の石段/],
     genreWeights: { 'oldpop-hearth-acoustic': 2, 'folk-pop': 1 }
   },
   {
@@ -982,7 +1117,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'time-early-morning',
-    patterns: [/이른\s*아침/],
+    patterns: [/이른\s*아침/, /早朝/],
     genreWeights: { 'oldpop-warm-morning-glow': 2 }
   },
   {
@@ -992,17 +1127,17 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'time-afternoon',
-    patterns: [/오후/, /\bafternoon\b/i],
+    patterns: [/오후/, /\bafternoon\b/i, /午後/, /昼下がり/],
     genreWeights: { 'oldpop-sunlit-strings-pop': 2, 'acoustic-pop': 1 }
   },
   {
     id: 'time-dusk',
-    patterns: [/해질녘/, /노을/, /황혼/, /땅거미/, /\bdusk\b/i, /sunset/i],
+    patterns: [/해질녘/, /노을/, /황혼/, /땅거미/, /\bdusk\b/i, /sunset/i, /夕暮れ/],
     genreWeights: { 'oldpop-evening-lamp-ballad': 3, chanson: 1 }
   },
   {
     id: 'time-evening',
-    patterns: [/저녁/, /\bevening\b/i],
+    patterns: [/저녁/, /\bevening\b/i, /宵の口/],
     genreWeights: { 'oldpop-evening-lamp-ballad': 2, 'smooth-jazz-lounge': 2 }
   },
   // 지시문 64 (TASK D-3) — "'밤'이 계절로 해석됐다"는 §1-2의 실측 원인이
@@ -1010,7 +1145,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   // 분석). 이 룰은 순수 시간 축이고 seasonWeights가 없다.
   {
     id: 'time-night',
-    patterns: [/밤/, /\bnight\b/i],
+    patterns: [/밤/, /\bnight\b/i, /月の出る頃/],
     genreWeights: { 'oldpop-quiet-storm-warm': 2, 'oldpop-night-chanson': 2, 'smooth-jazz-lounge': 1 }
   },
   {
@@ -1100,7 +1235,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'time-late-night',
-    patterns: [/늦은\s*밤/],
+    patterns: [/늦은\s*밤/, /夜更け/],
     genreWeights: { 'oldpop-night-chanson': 1 }
   },
   {
@@ -1176,18 +1311,18 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-waiting',
-    patterns: [/기다림/, /기다리는\s*중/, /누군가를\s*기다리며/, /\bwaiting\b/i],
+    patterns: [/기다림/, /기다리는\s*중/, /누군가를\s*기다리며/, /\bwaiting\b/i, /待ちながら/],
     genreWeights: { 'healing-ballad': 2, 'piano-ballad': 2 },
     moodWeights: { bittersweet: 1 }
   },
   {
     id: 'situ-moving-house',
-    patterns: [/이삿날/, /이사/, /moving\s*house/i],
+    patterns: [/이삿날/, /이사/, /moving\s*house/i, /引っ越しの日/, /引っ越し/],
     genreWeights: { 'folk-pop': 2, 'oldpop-sunshine-pop': 1 }
   },
   {
     id: 'situ-graduation-senior',
-    patterns: [/졸업식/, /졸업/, /\bgraduation\b/i],
+    patterns: [/졸업식/, /졸업/, /\bgraduation\b/i, /卒業式/],
     genreWeights: { 'oldpop-sunshine-pop': 2, 'folk-pop': 2 },
     archetypeScope: ADULT_ARCHETYPES
   },
@@ -1228,12 +1363,12 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-cleaning',
-    patterns: [/청소/],
+    patterns: [/청소/, /畳を拭き/],
     genreWeights: { 'folk-pop': 2, 'acoustic-pop': 1 }
   },
   {
     id: 'situ-laundry',
-    patterns: [/빨래/],
+    patterns: [/빨래/, /洗濯物をたたみ/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'folk-pop': 1 }
   },
   {
@@ -1274,24 +1409,24 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-retirement',
-    patterns: [/은퇴하고/, /은퇴/, /\bretirement\b/i],
+    patterns: [/은퇴하고/, /은퇴/, /\bretirement\b/i, /退職/],
     genreWeights: { 'oldpop-quiet-storm-warm': 3, 'smooth-jazz-lounge': 2, 'healing-ballad': 1 }
   },
   {
     id: 'situ-grandchildren',
-    patterns: [/손주/, /손자/, /손녀/],
+    patterns: [/손주/, /손자/, /손녀/, /孫/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'folk-pop': 2 },
     moodWeights: { warm: 2 }
   },
   {
     id: 'situ-class-reunion',
-    patterns: [/동창회/, /동창\s*모임/],
+    patterns: [/동창회/, /동창\s*모임/, /同窓会/],
     genreWeights: { 'retro-soul-pop': 2, 'oldpop-motown-pop-soul': 2 },
     moodWeights: { nostalgic: 1 }
   },
   {
     id: 'situ-wedding-anniversary',
-    patterns: [/결혼기념일/, /wedding\s*anniversary/i],
+    patterns: [/결혼기념일/, /wedding\s*anniversary/i, /結婚記念日/],
     genreWeights: { chanson: 2, 'oldpop-soft-duet-80s': 2 },
     moodWeights: { romantic: 1 }
   },
@@ -1302,29 +1437,29 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-gardening',
-    patterns: [/텃밭\s*가꾸기/, /화초\s*가꾸기/, /정원\s*가꾸기/],
+    patterns: [/텃밭\s*가꾸기/, /화초\s*가꾸기/, /정원\s*가꾸기/, /庭に水をやり/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'folk-pop': 1 }
   },
   {
     id: 'situ-letter-writing',
-    patterns: [/편지\s*쓰기/, /편지를\s*쓰며/],
+    patterns: [/편지\s*쓰기/, /편지를\s*쓰며/, /手紙を書き/],
     genreWeights: { chanson: 2, 'oldpop-standards-torch': 1 }
   },
   {
     id: 'situ-listening-radio',
-    patterns: [/라디오\s*듣기/, /라디오를\s*들으며/, /라디오\s*듣던/],
+    patterns: [/라디오\s*듣기/, /라디오를\s*들으며/, /라디오\s*듣던/, /ラジオをつけて/],
     genreWeights: { 'oldpop-warm-morning-glow': 2, 'retro-soul-pop': 2 },
     moodWeights: { nostalgic: 2 }
   },
   {
     id: 'situ-old-photo-album',
-    patterns: [/사진첩/, /앨범을\s*넘기며/, /옛\s*사진/],
+    patterns: [/사진첩/, /앨범을\s*넘기며/, /옛\s*사진/, /アルバムをめくり/],
     genreWeights: { 'oldpop-close-harmony-duo': 2, chanson: 1 },
     moodWeights: { nostalgic: 1 }
   },
   {
     id: 'situ-first-job',
-    patterns: [/첫\s*출근/, /첫\s*직장/],
+    patterns: [/첫\s*출근/, /첫\s*직장/, /初出勤/],
     genreWeights: { 'oldpop-sunshine-pop': 2, 'folk-pop': 1 },
     archetypeScope: ADULT_ARCHETYPES
   },
@@ -1384,7 +1519,7 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'situ-cooking',
-    patterns: [/요리하며/, /음식을?\s*만들며/],
+    patterns: [/요리하며/, /음식을?\s*만들며/, /夕餉の支度/],
     genreWeights: { 'oldpop-hearth-acoustic': 2, 'folk-pop': 1 }
   },
 
@@ -1401,95 +1536,102 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'emo-gratitude',
-    patterns: [/감사한/, /감사/, /고맙다/, /\bgrateful\b/i],
+    patterns: [/감사/, /고마/, /\bgrateful\b/i],
     moodWeights: { warm: 2, hopeful: 1 },
     genreWeights: { 'healing-ballad': 2 }
   },
   {
     id: 'emo-overwhelmed',
-    patterns: [/벅찬/, /벅참/, /뭉클/],
+    patterns: [/벅차/, /뭉클/],
     moodWeights: { emotional: 2, hopeful: 1 },
     genreWeights: { 'oldpop-orchestral-ballad-80s': 2 }
   },
   {
     id: 'emo-languid',
-    patterns: [/나른한/, /나른함/],
+    patterns: [/나른/],
     moodWeights: { 'calm-focus': 2 },
     genreWeights: { 'bossa-cafe': 2, 'smooth-jazz-lounge': 1 }
   },
   {
     id: 'emo-comfortable',
-    patterns: [/편안한/, /편안함/],
+    patterns: [/편안/],
     moodWeights: { warm: 2, 'calm-focus': 1 },
     genreWeights: { 'healing-ballad': 2, 'folk-pop': 1 }
   },
   {
     id: 'emo-wistful',
-    patterns: [/아련한/, /아련함/],
+    patterns: [/아련/],
     moodWeights: { bittersweet: 2, nostalgic: 1 },
     genreWeights: { chanson: 2, 'oldpop-slow-waltz-memory': 1 }
   },
   {
     id: 'emo-fulfilled',
-    patterns: [/뿌듯한/, /뿌듯함/],
+    patterns: [/뿌듯/],
     moodWeights: { hopeful: 2, confident: 1 },
     genreWeights: { 'oldpop-sunshine-pop': 2 }
   },
   {
     id: 'emo-composed',
-    patterns: [/담담한/, /담담함/],
+    patterns: [/담담/],
     moodWeights: { 'calm-focus': 2, elegant: 1 },
     genreWeights: { 'jazz-classic-vocal-lounge': 2 }
   },
   {
     id: 'emo-tender-longing',
-    patterns: [/애틋한/, /애틋함/],
+    patterns: [/애틋/],
     moodWeights: { romantic: 2, bittersweet: 1 },
     genreWeights: { chanson: 2 }
   },
   {
     id: 'emo-emptiness',
-    patterns: [/허전한/, /허전함/],
+    // 지시문 70 (TASK C) — 동요 감정 표현 "외로울 때/외로움/외로운"(kids
+    // §6)는 어간조차 없었다. 허전함(empty/void)과 가장 가까운 기존
+    // 규칙에 합류(외로움=lonely는 별도 규칙을 만들지 않는다).
+    patterns: [/허전/, /외로[운울움워]/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'piano-ballad': 2, 'oldpop-rainy-ballad-blues': 1 }
   },
   {
     id: 'emo-bittersweet-taste',
-    patterns: [/씁쓸한/, /씁쓸함/],
+    // 지시문 70 (TASK C) — "속상할 때"(동요 §6)를 여기 합류시킨다.
+    patterns: [/씁쓸/, /속상/],
     moodWeights: { bittersweet: 3 },
     genreWeights: { 'oldpop-rainy-ballad-blues': 2 }
   },
   {
     id: 'emo-heart-pounding',
-    patterns: [/두근거리는/, /두근거림/, /두근두근/],
+    // 지시문 70 (TASK C) — "설렐 때"(동요 §6)는 두근거림과 사실상 동의어라
+    // 새 규칙 대신 여기 합류시킨다. "설렐"/"설렘"도 기쁘다와 같은 음절
+    // 병합형이라 별도로 나열한다.
+    patterns: [/두근/, /설레/, /설렐/, /설렘/],
     moodWeights: { romantic: 2, hopeful: 1 }
   },
   {
     id: 'emo-relief',
-    patterns: [/안도감/, /안도하며/],
+    patterns: [/안도/],
     moodWeights: { hopeful: 2, 'calm-focus': 1 }
   },
   {
     id: 'emo-lost-helpless',
-    patterns: [/막막한/, /막막함/],
+    patterns: [/막막/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'piano-ballad': 1 }
   },
   {
     id: 'emo-poignant',
-    patterns: [/애잔한/, /애잔함/],
+    patterns: [/애잔/],
     moodWeights: { bittersweet: 2, nostalgic: 1 },
     genreWeights: { chanson: 1 }
   },
   {
     id: 'emo-mournful',
-    patterns: [/처연한/, /처연함/],
+    patterns: [/처연/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'oldpop-rainy-ballad-blues': 2 }
   },
   {
     id: 'emo-affectionate-warmth',
-    patterns: [/정겨운/, /정겨움/],
+    patterns: [/정겨[운울움워]/],
     moodWeights: { warm: 3 },
     genreWeights: { 'folk-pop': 2 }
   },
@@ -1517,44 +1659,52 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     id: 'emo-bittersweet-relief',
-    patterns: [/시원섭섭한/, /시원섭섭함/],
+    patterns: [/시원섭섭/],
     moodWeights: { bittersweet: 2, hopeful: 1 }
   },
   {
     id: 'emo-lighthearted-relief',
-    patterns: [/홀가분한/, /홀가분함/],
+    patterns: [/홀가분/],
     moodWeights: { hopeful: 2, 'fresh-start': 1 }
   },
   {
     id: 'emo-restless-impatience',
-    patterns: [/조바심/],
+    // 지시문 70 (TASK C) — "긴장될 때"(동요 §6)를 여기 합류시킨다.
+    patterns: [/조바심/, /긴장/],
     moodWeights: { bittersweet: 1 }
   },
   {
     id: 'emo-tranquility',
-    patterns: [/평온한/, /평온함/],
+    patterns: [/평온/],
     moodWeights: { 'calm-focus': 3 },
     genreWeights: { 'smooth-jazz-lounge': 1 }
   },
   {
     id: 'emo-yearning',
-    patterns: [/애타는/, /애타게/],
+    patterns: [/애타/],
     moodWeights: { romantic: 2, bittersweet: 1 }
   },
   {
     id: 'emo-lethargy',
-    patterns: [/무기력한/, /무기력함/],
+    // 지시문 70 (TASK C) — "심심할 때"(동요 §6)를 여기 합류시킨다(지루함↔
+    // 무기력 인접 정서).
+    patterns: [/무기력/, /심심/],
     moodWeights: { bittersweet: 2, 'calm-focus': 1 }
   },
   {
     id: 'emo-sorrow-grief',
-    patterns: [/서러운/, /설움/],
+    // 지시문 70 (TASK C) — "슬플 때"(동요 §6)를 여기 합류시킨다. 슬프다는
+    // 으-불규칙(슬퍼서)이라 어간 두 형태(슬프/슬퍼)를 모두 나열하고,
+    // "슬플"/"슬픔"도 기쁘다와 같은 ㄹ 관형형 음절 병합형이라 따로 둔다.
+    patterns: [/서러[운울움워]/, /설움/, /슬프/, /슬퍼/, /슬플/, /슬픔/],
     moodWeights: { bittersweet: 2 },
     genreWeights: { 'oldpop-rainy-ballad-blues': 2 }
   },
   {
     id: 'emo-proud-of-life',
-    patterns: [/자랑스러운/, /자랑스러움/],
+    // 지시문 70 (TASK A 예시) — 어미 고정형 → 어간+어미 문자군. TASK C —
+    // "칭찬받았을 때"(동요 §6)도 여기 합류(칭찬받음↔자랑스러움 인접 정서).
+    patterns: [/자랑스러[운울움워]/, /칭찬받/],
     moodWeights: { confident: 1, hopeful: 1 }
   },
   {
@@ -1583,6 +1733,94 @@ export const CONCEPT_KEYWORD_RULES: KeywordRule[] = [
     patterns: [/놀이터/, /뛰노는/, /신나게\s*뛰노는/],
     genreWeights: { 'krkids-action': 3, 'krkids-animal-vehicle': 1 },
     archetypeScope: ['kids', 'kr-kids-song', 'jp-kids-song']
+  },
+  // 지시문 71 (TASK D) — en-chillhop workspace rules. axis:'genre'가
+  // 붙은 항목은 §1.2③ 실측이 확인한 "지목할 방법이 없는" 6개 질의(딥하우스
+  // 랩·딥하우스·칠랩·힙합·deep house rap·chill rap)를 전부 매칭시킨다.
+  // 단독 '랩'/단독 'house'는 §5.2에 따라 넣지 않는다 — '랩'은 칠랩/랩
+  // 플로우/힙합 랩 같은 결합형으로만, 'house'는 deep house/house beat/
+  // house groove 결합형으로만 매칭한다. archetypeScope는 전부
+  // ['en-chillhop']로 고정해 시니어·동요 워크스페이스로 새지 않게 막는다.
+  {
+    id: 'enchillhop-chill-rap',
+    patterns: [/칠\s*랩/, /chill\s*rap/i],
+    genreWeights: { 'chill-rap': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-boom-bap',
+    patterns: [/붐뱁/, /boom[\s-]?bap/i],
+    genreWeights: { 'boom-bap-mellow': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-jazz-rap',
+    patterns: [/재즈\s*랩/, /jazz\s*rap/i],
+    genreWeights: { 'jazz-rap': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-lofi-hiphop',
+    patterns: [/로파이\s*힙합/, /lo-?fi\s*hip[\s-]?hop/i],
+    genreWeights: { 'lofi-hiphop-study': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-trap-soul',
+    patterns: [/트랩\s*소울/, /trap\s*soul/i],
+    genreWeights: { 'trap-soul': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // '힙합' 단독은 안전하다(§5.2가 경고하는 건 단독 '랩'뿐 — 랩실/랩탑/
+    // 비닐랩과의 충돌). '랩 플로우'/'힙합 랩'은 결합형으로 추가 매칭.
+    id: 'enchillhop-hiphop-general',
+    patterns: [/힙합/, /\bhip[\s-]?hop\b/i, /랩\s*플로우/, /힙합\s*랩/, /rap\s*flow/i],
+    genreWeights: { 'chill-rap': 2, 'boom-bap-mellow': 2, 'jazz-rap': 1, 'lofi-hiphop-study': 1 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-deep-house',
+    patterns: [/딥\s*하우스/, /deep\s*house/i],
+    genreWeights: { 'en-deep-house-melodic': 3, 'en-deep-house-organic': 3 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // 단독 '하우스'/'house'는 넣지 않는다(§5.2) — 비트/그루브/뮤직 결합형만.
+    id: 'enchillhop-house-beat',
+    patterns: [/하우스\s*비트/, /하우스\s*그루브/, /하우스\s*뮤직/, /house\s*beat/i, /house\s*groove/i, /house\s*music/i],
+    genreWeights: { 'en-deep-house-melodic': 2, 'en-deep-house-organic': 2, 'en-house-garage-swing': 2 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    id: 'enchillhop-garage-swing',
+    patterns: [/개러지/, /게러지/, /garage/i],
+    genreWeights: { 'en-house-garage-swing': 4 },
+    archetypeScope: ['en-chillhop'],
+    axis: 'genre'
+  },
+  {
+    // 'nocturnal'/'relaxed'는 실존 moodPack id가 아니다(presets.ts's
+    // moodPacks 실측) — 가장 가까운 실존 id(intimate/calm-focus)로 맞춘다.
+    id: 'enchillhop-night-city-mood',
+    patterns: [/도시\s*야경/, /나이트\s*드라이브/, /night\s*drive/i, /city\s*lights/i, /rooftop/i, /루프탑/],
+    moodWeights: { intimate: 2, 'calm-focus': 1 },
+    archetypeScope: ['en-chillhop']
+  },
+  {
+    id: 'enchillhop-headphone-solo',
+    patterns: [/헤드폰/, /이어폰/, /headphones?/i, /earbuds?/i],
+    moodWeights: { 'calm-focus': 2 },
+    genreWeights: { 'chill-rap': 1, 'lofi-hiphop-study': 1 },
+    archetypeScope: ['en-chillhop']
   }
 ];
 

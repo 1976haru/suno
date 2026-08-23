@@ -60,7 +60,7 @@ export const introTextures: IntroTexture[] = [
     labelKo: '뮤트 스트럼',
     labelEn: 'Muted strum',
     tag: 'muted acoustic strum intro texture (INTRO ONLY)',
-    suitedArchetypes: ['senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop']
+    suitedArchetypes: ['senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop']
   },
   {
     id: 'ag_nylon_waltz',
@@ -81,14 +81,14 @@ export const introTextures: IntroTexture[] = [
     labelKo: '트레몰로 기타',
     labelEn: 'Tremolo guitar',
     tag: 'gentle tremolo electric guitar intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop']
   },
   {
     id: 'eg_clean_arp',
     labelKo: '클린 아르페지오',
     labelEn: 'Clean arpeggio',
     tag: 'clean electric guitar arpeggio intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop']
   },
   {
     id: 'eg_slide_swell',
@@ -102,7 +102,7 @@ export const introTextures: IntroTexture[] = [
     labelKo: '로즈 리프',
     labelEn: 'Rhodes riff',
     tag: 'warm Rhodes riff intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'showa-70s', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop']
   },
   {
     id: 'ep_wurli_chop',
@@ -116,7 +116,7 @@ export const introTextures: IntroTexture[] = [
     labelKo: '유리빛 코드',
     labelEn: 'Glass chords',
     tag: 'glassy electric piano chord intro texture (INTRO ONLY)',
-    suitedArchetypes: ['showa-cafe', 'senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop']
+    suitedArchetypes: ['showa-cafe', 'senior-morning', 'kids', 'j2000s', 'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'en-chillhop']
   },
   {
     id: 'ep_vintage_trem',
@@ -186,28 +186,28 @@ export const introTextures: IntroTexture[] = [
     labelKo: '밝은 신스 플럭',
     labelEn: 'Bright synth pluck',
     tag: 'bright synth pluck intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night']
+    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop']
   },
   {
     id: 'syn_soft_arp',
     labelKo: '부드러운 신스 아르페지오',
     labelEn: 'Soft synth arpeggio',
     tag: 'soft synth arpeggio intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'lofi-study', 'showa-cafe', 'j2000s', 'modern-chill', 'city-night']
+    suitedArchetypes: ['kids', 'lofi-study', 'showa-cafe', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop']
   },
   {
     id: 'syn_bell_glock',
     labelKo: '글로켄 벨',
     labelEn: 'Glockenspiel bell',
     tag: 'glockenspiel-like bell synth intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'j2000s', 'modern-chill']
+    suitedArchetypes: ['kids', 'j2000s', 'modern-chill', 'en-chillhop']
   },
   {
     id: 'syn_chime_steps',
     labelKo: '차임 계단',
     labelEn: 'Chime steps',
     tag: 'small chime-step synth intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night']
+    suitedArchetypes: ['kids', 'lofi-study', 'j2000s', 'modern-chill', 'city-night', 'en-chillhop']
   },
   // 지시문 31 (§4-3) — kr-idol-male/kr-idol-female 전용, K-pop 인트로 관행
   // 6종. verified: false — 실측 0세트, 장르 관습 판단.
@@ -240,7 +240,9 @@ export const introTextures: IntroTexture[] = [
     labelKo: '랩 선행',
     labelEn: 'Rap lead-in',
     tag: 'rap-delivery lead-in before the beat fully lands intro texture (INTRO ONLY)',
-    suitedArchetypes: ['kr-idol-male', 'kr-idol-female'],
+    // 지시문 71 (TASK A) — 'en-chillhop' 추가: 이 텍스처는 K-pop 전용이
+    // 아니라 랩 딜리버리 자체의 관행이라 칠랩/힙합 채널에도 실제로 맞는다.
+    suitedArchetypes: ['kr-idol-male', 'kr-idol-female', 'en-chillhop'],
     verified: false
   },
   {

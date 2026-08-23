@@ -225,6 +225,29 @@ export const CHANNEL_SOUND_FLOORS: ChannelSoundFloor[] = [
     maxPaletteVariety: 0,
     maxUncoveredGenreTracks: 0,
     noteKo: '어떤 컨셉이 와도 이 조건은 유지됩니다 — 시니어/빈티지 질감이나 느린 발라드 페이싱으로 흘러가지 않게 막는 바닥입니다'
+  },
+  {
+    // 지시문 71 (TASK A) — 신규 워크스페이스, kr-2030-floor와 같은 성격
+    // (성인 도시 프로덕션) — 팔레트 패밀리 시스템은 이 워크스페이스의
+    // 장르에 데이터가 없으므로 usesPaletteFamily는 여전히 false(기본값).
+    id: 'en-chillhop-floor',
+    workspaceId: 'en-chillhop',
+    labelKo: '칠랩·딥하우스 사운드 바닥',
+    archetypeIds: ['en-chillhop'],
+    requiredAtoms: [
+      'contemporary urban production',
+      'bass and drums carry the groove'
+    ],
+    forbiddenAtoms: [
+      'vintage tape saturation',
+      '1970s AM-radio compression',
+      'nostalgic senior-radio announcer tone'
+    ],
+    productionEraTags: ['2020s'],
+    minPaletteVariety: 0,
+    maxPaletteVariety: 0,
+    maxUncoveredGenreTracks: 0,
+    noteKo: '어떤 컨셉이 와도 이 조건은 유지됩니다 — 시니어/빈티지 질감으로 흘러가지 않게 막는 바닥입니다'
   }
 ];
 

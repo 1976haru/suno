@@ -24,6 +24,12 @@ import type { EraBucket } from './eraBuckets';
  * 그래서 이 표는 아키타입 단위로만 채운다 — 레지스트리에 없는 아키타입
  * (kr-2030-pop/jp-2030-pop/kr-idol-male/female/kr-kids-song/jp-kids-song/christmas/
  * lofi-study/modern-chill/city-night 포함)은 바닥 없음(기존 동작 그대로).
+ *
+ * 지시문 71 (TASK A) — en-chillhop도 의도적으로 여기 없다. 이 워크스페이스
+ * 자체가 "시대가 정체성이 아닌" 성격(§WORKSPACE_ERA_INTENT의
+ * 'current-implied')이라 kr-2030-pop/jp-2030-pop과 같은 이유로 바닥을
+ * 두지 않는다 — Partial<Record>라 TS가 강제하지 않는다(registration
+ * 검사 스크립트도 이 파일은 "값 없음 = 정상"으로 취급한다).
  */
 export interface WorkspaceEraFloor {
   /** 컨셉이 시대를 말하지 않을 때 적용되는 기본 시대(data/eraBuckets.ts의 세분화 EraBucket). */

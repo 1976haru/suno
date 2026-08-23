@@ -48,7 +48,10 @@ const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
   // completeness; 'twenties' matches kr-idol-male's own channel presets
   // (§10-2's audience: 'twenties') since K3 will use the same audience.
   'kr-idol-male': 'twenties',
-  'kr-idol-female': 'twenties'
+  'kr-idol-female': 'twenties',
+  // 지시문 71 (TASK A) — en-chillhop 워크스페이스의 단일 아키타입.
+  // modern-chill/city-night과 같은 성인 도시 청취층.
+  'en-chillhop': 'twenties'
 };
 
 export function slugify(value: string) {
