@@ -22,7 +22,7 @@ const STORAGE_KEY = 'suno-weaver-custom-channels-v2';
  * GENERAL_AUDIENCE_PROFILE, not SENIOR_AUDIENCE_PROFILE) this task's own
  * §10 names as the root pattern behind repeated regressions.
  */
-const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
+export const ARCHETYPE_DEFAULT_AUDIENCE: Record<ChannelArchetype, AgeGroup> = {
   'senior-morning': 'seniors',
   'oldpop-lounge': 'seniors',
   'showa-cafe': 'seniors',
@@ -134,10 +134,20 @@ export function normalizeChannel(input: Partial<ChannelProfile>): ChannelProfile
 const VALID_MARKETS: readonly Market[] = ['korea', 'japan', 'global', 'custom'];
 const VALID_LYRIC_LANGUAGES: readonly LyricLanguage[] = ['english', 'korean', 'japanese', 'bilingual'];
 const VALID_AGE_GROUPS: readonly AgeGroup[] = ['kids', 'teens', 'twenties', 'thirtiesForties', 'seniors', 'allAges', 'general'];
-const VALID_ARCHETYPES: readonly ChannelArchetype[] = [
+/**
+ * ❗ hand-synced with types.ts's own ChannelArchetype union — a new union
+ * member added there must be added here too, or validateChannelProfile below
+ * rejects a perfectly legitimate archetype at save time. 'en-chillhop' was
+ * missing exactly that way (added by 지시문 71 to the union and to
+ * ARCHETYPE_DEFAULT_AUDIENCE above, but not to this list). Guarded from now on
+ * by tests/channelProfileArchetypeSync.test.ts, which compares this array
+ * against ARCHETYPE_DEFAULT_AUDIENCE's keys — that Record IS compiler-checked
+ * for union exhaustiveness, so it can stand in for the erased-at-runtime type.
+ */
+export const VALID_ARCHETYPES: readonly ChannelArchetype[] = [
   'senior-morning', 'showa-cafe', 'christmas', 'lofi-study', 'kids', 'showa-70s', 'j2000s',
   'modern-chill', 'city-night', 'oldpop-lounge', 'kr-2030-pop', 'jp-2030-pop', 'kr-kids-song',
-  'jp-kids-song', 'kr-idol-male', 'kr-idol-female'
+  'jp-kids-song', 'kr-idol-male', 'kr-idol-female', 'en-chillhop'
 ];
 /** codex 지시문 01 (TASK J) — data/kidsAgeTiers.ts's own tier ids (see types.ts's KidsAgeTierId doc comment) — kept as a plain literal list here rather than importing data/kidsAgeTiers.ts, mirroring this file's own existing "small duplicated table, kept in sync by hand" trade-off (see ARCHETYPE_DEFAULT_AUDIENCE's own doc comment above). */
 const VALID_KIDS_AGE_TIER_IDS: readonly KidsAgeTierId[] = ['kids-t1', 'kids-t2', 'kids-t3'];
