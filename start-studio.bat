@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-set "BRANCH=feat/notion-genre-library"
+set "BRANCH=main"
 set "KEYFILE=%~dp0.anthropic_key"
 set "GEMINIKEYFILE=%~dp0.gemini_key"
 set "QWENKEYFILE=%~dp0.qwen_key"
