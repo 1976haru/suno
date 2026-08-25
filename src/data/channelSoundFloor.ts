@@ -230,6 +230,14 @@ export const CHANNEL_SOUND_FLOORS: ChannelSoundFloor[] = [
     // 지시문 71 (TASK A) — 신규 워크스페이스, kr-2030-floor와 같은 성격
     // (성인 도시 프로덕션) — 팔레트 패밀리 시스템은 이 워크스페이스의
     // 장르에 데이터가 없으므로 usesPaletteFamily는 여전히 false(기본값).
+    //
+    // 지시문 74 (TASK B-5) — 위 "데이터가 없으므로"는 이제 사실이 아니다:
+    // canon-chill-rap-boombap / canon-deep-house-club 두 팔레트가 이
+    // 워크스페이스의 12개 장르 중 10개를 덮는다. 그래도 usesPaletteFamily는
+    // false로 둔다 — 아래 min/maxPaletteVariety가 둘 다 0이라 켜는 순간
+    // designGate의 palette-variety-max가 "팔레트를 1종이라도 쓰면 위반"으로
+    // 걸린다. 팔레트 원자는 usesPaletteFamily와 무관하게
+    // core/batchPreallocation.ts의 eraPaletteText 경로로 이미 도달한다.
     id: 'en-chillhop-floor',
     workspaceId: 'en-chillhop',
     labelKo: '칠랩·딥하우스 사운드 바닥',
