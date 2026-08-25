@@ -71,7 +71,16 @@ describe('hybrid mode selective refine', () => {
           listenerSituation: 'x',
           emotionArc: 'x',
           hookPhrase: `Refined hook ${body.user.trackNoOffset + 1}`,
-          stylePrompt: 'warm pop, hook "test" repeats chorus 4x, I-V-vi-IV progression, stop-time accent on the chorus, 96 BPM',
+          // 지시문 74 (TASK A) — 96 BPM 이었다. 이 스텁 가사는 3섹션뿐인데,
+          // scoreSong의 새 섹션 하한 검사가 96 BPM에 9섹션을 요구하면서
+          // 점수가 72 → 60으로 내려가 REGENERATE_QUALITY_BAR(70) 아래로
+          // 떨어졌다. 그러면 regenerateTrack이 트랙당 3회까지 재시도해
+          // 이 테스트가 세는 호출 수가 2 → 6이 된다. 이 테스트가 검증하는
+          // 것은 "선택한 트랙마다 정확히 한 번 호출되는가"이지 스텁 곡의
+          // 품질이 아니므로, 스텁 템포를 하한 정책이 적용되지 않는 대역
+          // (95 이하)으로 내린다. 실제 운용에서 96 BPM 이상 곡이 섹션
+          // 하한에 못 미치면 이 재시도가 도는 것이 의도된 동작이다.
+          stylePrompt: 'warm pop, hook "test" repeats chorus 4x, I-V-vi-IV progression, stop-time accent on the chorus, 88 BPM',
           lyrics: `[verse 1]\n${LYRIC_VARIANTS[body.user.trackNoOffset % LYRIC_VARIANTS.length]}\n[chorus]\nhold on till the morning light\nwe'll be alright, we'll be alright\n[end]`,
           thumbnailText: 'x',
           youtube: { title: 'yt', description: 'desc', tags: ['tag'], thumbnailText: 'th' },
