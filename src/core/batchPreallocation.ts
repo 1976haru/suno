@@ -1113,10 +1113,18 @@ export function preallocateSongSlots(
       //      상한 5로 잡혀 어느 쪽도 지킬 수 없는 조합이 나왔다. 필요 확장분
       //      을 하한으로 깔아 두 숫자가 절대 어긋나지 않게 한다. 95 BPM
       //      이하는 확장분이 0이라 이 항이 아무 영향도 주지 않는다.
-      maxInstrumentalSections: Math.max(
-        isFlagshipSlot ? Math.max(1, bpmTier.maxInstrumentalSections - 1) : bpmTier.maxInstrumentalSections,
-        instrumentalExtensionForBpm(resolvedTempo, structureTemplatePlan[idx])
-      ),
+      //  (3) +1: 확장분(instrumentalExtensionForBpm)은 "보컬 뼈대에 몇 개를
+      //      더 붙여야 하는가"인데, 뼈대 자신의 인트로도 간주일 수 있다
+      //      (T4의 instrumental hook intro가 대표적). 실제로 곡을 짜 보니
+      //      114 BPM·T4에서 뼈대 6 + 확장 5 = 11섹션인데 간주 섹션은
+      //      인트로까지 6개가 되어 상한 5와 어긋났다 — 확장분에 1을 더해
+      //      그 인트로 몫을 인정한다. 95 BPM 이하는 확장분이 0이라
+      //      이 항 전체가 적용되지 않는다.
+      maxInstrumentalSections: (() => {
+        const flagshipAdjusted = isFlagshipSlot ? Math.max(1, bpmTier.maxInstrumentalSections - 1) : bpmTier.maxInstrumentalSections;
+        const extension = instrumentalExtensionForBpm(resolvedTempo, structureTemplatePlan[idx]);
+        return extension ? Math.max(flagshipAdjusted, extension + 1) : flagshipAdjusted;
+      })(),
       // 지시문 40 (TASK A-3) — 설계안 단계라 실제 가사가 없으니, 방금 위에서
       // 이 채널의 실제 목표 길이로 역산한 단어 예산의 중앙값을 넘긴다(이
       // 채널을 모르는 범용 expectedWordCount(bpm) 대체값보다 정확하다).
