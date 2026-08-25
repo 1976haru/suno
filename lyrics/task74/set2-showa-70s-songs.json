@@ -1,0 +1,107 @@
+{
+  "_note": "지시문 74 §6 — TASK B 검증용. 실제 슬롯 계획(set2-showa-70s-slots.json)의 트랙 1·2·3. 새 요소 순서(장르 → 시대 프로덕션 2절 → 악기 → 머니코드 → 보컬 → 나머지 + BPM)와 시대 창법 어휘를 실제로 쓴 결과다. 전부 95 BPM 이하이므로 섹션 구조는 TASK A 이전과 동일하다(회귀 확인용).",
+  "songs": [
+    {
+      "trackNo": 1,
+      "title": "The Locked Notebook",
+      "titleLocalized": "그 시절 공책",
+      "hookPhrase": "I Kept All of It",
+      "seasonMoment": "a rainy afternoon indoors, boxes open on the floor",
+      "listenerSituation": "opening a locked teenage notebook and the song list folded inside it, a private page nobody else ever saw",
+      "emotionArc": "small sadness to steady comfort",
+      "stylePrompt": "1970s Japanese new music, narrow stereo image, analog tape saturation, upright piano, hand-played singer-songwriter band pulse, light kit with soft snare, warm bass, Verse: IVmaj7-iii7-vi7 movement, Chorus: IVM7-III7-vi-I7 marusa progression, Bridge: I-vi-IV-V doo-wop progression, uncompressed dynamics so the climax rises, female narrow intimate lead, tender confiding delivery, enka-inflected bend on long tones, melismatic slide into the chorus, sung to a live band take, timing drifting by a hair, spring reverb on the voice, hook once per early chorus, bookended in the last, final chorus up an octave, brighter and more open, muted trumpet answers once in the opening bars, singing starts immediately with no intro tag, 63 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, modern EDM synths, trap hi-hats, hard autotune, gated reverb, sidechain compression, modern wide stereo production, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, childish lyrics, dramatic power ballad shouting, the octave lift straining the voice, piano arpeggio filler under every sung line, brushed snare pushing ahead of this slow tempo, string pad replacing the live room",
+      "lyrics": "[verse 1]\nThe lid still sticks the way it always did\nMy own handwriting, smaller than I remember\nA list of songs in three different pens\nSomebody's initials, gone over twice\nThe elastic band gave up years ago\nI was so serious about all of it\n\n[pre-chorus]\nThe rain has not let up since noon\nI meant to throw this out a hundred times\nAnd every time I put it back instead\n\n[chorus]\nI Kept All of It, the whole silly year\nThe pressed ticket, the folded note\nEvery song I thought explained me\nAnd none of it embarrasses me now\n\n[verse 2]\nPage after page of somebody trying\nUnderlined, then underlined again\nA drawing of a room I never had\nThe last entry stops mid-sentence\nThe corner of one page is folded down\nI read it out loud and laugh at myself\nI remember exactly why it stopped\n\n[instrumental break]\n\n[final chorus]\nI Kept All of It, the whole silly year\nThe pressed ticket, the folded note\nEvery song I thought explained me\nI would not take one page of it back\nI Kept All of It, the whole silly year",
+      "youtube": {
+        "title": "The Locked Notebook | 昭和セブンティーズ",
+        "description": "열쇠 달린 공책과 그 안에 접혀 있던 노래 목록. 1970년대 일본 뉴뮤직 스타일의 발라드.",
+        "tags": [
+          "昭和 歌謡",
+          "70年代 日本 フォーク",
+          "ニューミュージック",
+          "쇼와 감성",
+          "일본 올드팝"
+        ]
+      },
+      "genreId": "new-music-70s",
+      "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+      "tempo": 63,
+      "structureTemplate": "T1",
+      "vocalType": "female",
+      "vocalGender": "female",
+      "arrangementDensity": "medium",
+      "eraPaletteText": "dynamics left uncompressed so the climax actually rises, light kit with soft snare, narrow stereo image",
+      "moneyChordText": "IVmaj7-iii7-vi7 movement",
+      "moneyChordSectionText": "Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression / Bridge: I-vi-IV-V doo-wop progression",
+      "songRole": "cold-open"
+    },
+    {
+      "trackNo": 2,
+      "title": "Warm Glass",
+      "titleLocalized": "벽 쪽에 서서",
+      "hookPhrase": "Let the Room Go On",
+      "seasonMoment": "a crowded room on a cold night, coats piled by the door",
+      "listenerSituation": "standing at the edge of a crowded party with a drink going warm, watching everyone else move",
+      "emotionArc": "quiet longing to calm gratitude",
+      "stylePrompt": "1970s Japanese folk, tape-compressed guitars, narrow stereo image, fingerpicked acoustic guitar, light upright piano, plain acoustic folk pulse, brushed drums, Verse: IV-V-iii-vi royal road progression, Chorus: vi-IV-V-I komuro-cycle progression, close dry vocal, short room tail, male and female duet in call and answer, nasal folk-toned phrasing on the hook, husky plainspoken phrasing on the verse, breaths and pick noise left in, both voices cut in one live take, no click, the band setting the tempo, hook once per early chorus, bookended in the last, half-time chorus over normal-time verses, rounded trombone swell in the opening bars only, instrumental intro with no sung line, minor verse opening into a major final chorus, 76 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, modern EDM synths, trap hi-hats, hard autotune, gated reverb, sidechain compression, modern wide stereo production, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, childish lyrics, dramatic power ballad shouting, party crowd noise and clinking glasses, one duet voice buried under the other, half-time chorus dragging behind the beat, fingerpicking buried under the piano",
+      "lyrics": "[intro]\n\n[verse 1: Male Vocal]\nMy glass went warm an hour ago\nI keep holding it so my hands have work\nSomeone tells the same story louder\nThe lamp by the door has a paper shade\nSomebody put a coat on top of my coat\nThe window is open and it is not enough\nI like it here from exactly this far\n\n[chorus: Male and Female Duet]\nLet the Room Go On without me\nI am not lonely, only outside of it\nThe lamp by the door keeps its own time\nThe music finds me anyway\n\n[verse 2: Female Vocal]\nYou found me by the coats and did not ask\nYou put your back against the same wall\nWe watch them dance badly and love them for it\nYour shoes are off, mine should be\nYou say the cake was better last year\nNobody has noticed we are gone\n\n[chorus: Male and Female Duet]\nI am not lonely, only outside of it\nLet the Room Go On without me\nThe lamp by the door keeps its own time\nThe music finds me anyway\n\n[final chorus: Male and Female Duet Harmony]\nLet the Room Go On without me\nI am not lonely, only outside of it\nThe lamp by the door keeps its own time\nTwo of us against one quiet wall\nLet the Room Go On without me",
+      "youtube": {
+        "title": "Warm Glass | 昭和セブンティーズ",
+        "description": "붐비는 방 가장자리, 미지근해진 잔 하나. 1970년대 일본 포크 듀엣.",
+        "tags": [
+          "70年代 日本 フォーク",
+          "昭和 歌謡",
+          "デュエット",
+          "쇼와 포크",
+          "일본 올드팝"
+        ]
+      },
+      "genreId": "japanese-folk-70s",
+      "genreText": "1970s Japanese folk, fingerpicked acoustic guitar, light upright piano, no modern polish",
+      "tempo": 76,
+      "structureTemplate": "T4",
+      "vocalType": "mixed",
+      "vocalGender": "duet",
+      "arrangementDensity": "sparse",
+      "eraPaletteText": "breaths and pick noise left in rather than edited out, close dry vocal with a short natural room tail, tape compression on the acoustic guitars",
+      "moneyChordText": "IV-V-iii-vi royal road progression",
+      "moneyChordSectionText": "Verse: IV-V-iii-vi royal road progression / Chorus: vi-IV-V-I komuro-cycle progression",
+      "songRole": "flagship"
+    },
+    {
+      "trackNo": 3,
+      "title": "Folding Chairs",
+      "titleLocalized": "졸업식 그날",
+      "hookPhrase": "Say It Before You Go",
+      "seasonMoment": "a bright cold morning in March, gym doors propped open",
+      "listenerSituation": "standing in a school gymnasium during a graduation ceremony while classmates cry and laugh at the same time",
+      "emotionArc": "soft nostalgia to renewed hope",
+      "stylePrompt": "1970s Japanese new music, analog tape saturation, spring and plate reverb, narrow stereo image, upright piano, acoustic guitar, hand-played singer-songwriter band pulse, sweeping strings at the chorus, Verse: IVmaj7-iii7-vi7 movement, Chorus: IVM7-III7-vi-I7 marusa progression, male mid baritone-tenor lead, quivering vibrato on the sustained note, notes connected by portamento, sung a step back from the microphone, uncompressed so the last chorus genuinely rises, hook once per early chorus, bookended in the last, bridge strips to voice and one instrument, fingerpicked guitar in the opening bars only, instrumental intro with no sung line, instruments drop out in the bridge, 82 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, real artist or band names, existing song titles, modern EDM synths, trap hi-hats, hard autotune, gated reverb, sidechain compression, modern wide stereo production, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, overly glossy karaoke backing track, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, childish lyrics, dramatic power ballad shouting, school bell and crowd sound effects, strings entering in the first verse, vibrato widening into a wobble, the bridge dropout leaving a dead bar",
+      "lyrics": "[intro]\n\n[verse 1]\nFolding chairs in rows across the floor\nYour name comes over the speakers, then it's done\nThe banner sags a little on one side\nYour collar is wrong and nobody will say\nSomeone's mother is already crying\nYou hold the paper like it might blow away\n\n[chorus]\nSay It Before You Go, whatever it is\nThe gym doors are open and the light is white\nEveryone here is about to be somewhere else\nSay it while the room still holds all of you\n\n[verse 2]\nYou practised it for a week in your head\nNow she is three rows over, laughing hard\nThe gym smells like floor wax and rain\nThe photographer wants one more of everyone\nYour friend puts an arm around your neck\nThe morning is going by very fast\n\n[chorus]\nThe gym doors are open and the light is white\nSay It Before You Go, whatever it is\nEveryone here is about to be somewhere else\nSay it while the room still holds all of you\n\n[final chorus]\nSay It Before You Go, whatever it is\nThe chairs will be stacked by the afternoon\nEveryone here is about to be somewhere else\nYou did say it, and she said it back\nSay It Before You Go, whatever it is",
+      "youtube": {
+        "title": "Folding Chairs | 昭和セブンティーズ",
+        "description": "체육관에 늘어선 접이식 의자, 웃으면서 우는 친구들. 1970년대 일본 뉴뮤직.",
+        "tags": [
+          "ニューミュージック",
+          "昭和 歌謡",
+          "卒業ソング",
+          "쇼와 감성",
+          "일본 올드팝"
+        ]
+      },
+      "genreId": "new-music-70s",
+      "genreText": "1970s Japanese new music, acoustic guitar, upright piano",
+      "tempo": 82,
+      "structureTemplate": "T4",
+      "vocalType": "male",
+      "vocalGender": "male",
+      "arrangementDensity": "sparse",
+      "eraPaletteText": "graceful minor-to-major chorus cadence, narrow stereo image, analog tape saturation, spring and plate reverb",
+      "moneyChordText": "IVmaj7-iii7-vi7 movement",
+      "moneyChordSectionText": "Verse: IVmaj7-iii7-vi7 movement / Chorus: IVM7-III7-vi-I7 marusa progression",
+      "songRole": "flagship"
+    }
+  ]
+}

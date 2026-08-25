@@ -10,6 +10,7 @@ import { lintEnglishLyrics } from './englishLint';
 import { checkTempoAgainstAudienceProfile, checkTempoWordingContradiction } from './tempoComplianceGate';
 import { audienceProfileForChannelArchetype } from '../data/audienceProfiles';
 import { parseLyricsSections, findEmptyBridge, missingRequiredSections, rapSectionsMissingVocalist, duetPartDistributionIssue } from './lyricsAst';
+import { minTotalSectionsForBpm } from './bpmLengthControl';
 import { checkSectionAwareRepetition } from './sectionAwareRepetition';
 import { sceneSeasonContradictionWarning } from './semanticContradiction';
 import { checkEnglishLyricLineQuality, checkTranslationese } from './languageQuality';
@@ -581,6 +582,30 @@ export function scoreSong(song: SongIdea, channel?: ChannelProfile, language: Ly
     pushUnique(warnings, `Section repetition: ${finding.detail}`);
     score -= 6;
   }
+  // 지시문 74 (TASK A) — BPM 대비 섹션 수 하한. 실측 청취 피드백("딥하우스
+  // 계열이 너무 짧다 — 1분짜리도 있고 대부분 2분 이하")에서 나온 검사다.
+  // 20260824_AfterHoursDeepHouse 12곡 실측: 114 BPM 트랙이 가사 238단어로
+  // 팩 전체 최다였는데도 7섹션에 그쳐 1:58로 끝났다 — 가사 부족이 아니라
+  // 섹션 수가 BPM과 무관하게 고정돼 있던 것이 원인이다(산술 근거는
+  // core/bpmLengthControl.ts의 MIN_TOTAL_SECTION_BANDS 주석).
+  //
+  // scoreSong에 두는 이유: 모든 생성 경로(로컬/Batch/브릿지 임포트)가 반드시
+  // 통과하는 단일 관문이라서다 — 지시문 68 (TASK B)의 인트로 모순 검사와
+  // 같은 자리. 생성을 차단하지 않고 경고 + 감점만 한다(advisory).
+  //
+  // BPM은 stylePrompt에서 읽는다: SongIdea에는 tempo 필드가 없고(설계 슬롯인
+  // PreassignedSongSlot에만 있다), 임포트된 곡에서 확실히 얻을 수 있는 곳이
+  // stylePrompt의 "<n> BPM" 절뿐이다 — 위 BPM_DISCLOSURE_PATTERN이 이미
+  // 그 절의 존재를 요구하고 있다. 95 BPM 이하는 minTotalSectionsForBpm이 0을
+  // 돌려주므로 이 검사가 아예 돌지 않는다(§8 "95 BPM 이하 곡의 섹션 구조를
+  // 바꾸지 말 것").
+  const declaredBpm = Number(song.stylePrompt.match(/\b(\d{2,3})\s*bpm\b/i)?.[1]);
+  const sectionFloor = Number.isFinite(declaredBpm) ? minTotalSectionsForBpm(declaredBpm) : 0;
+  if (sectionFloor && lyricSections.length < sectionFloor) {
+    pushUnique(warnings, `${declaredBpm} BPM에서 섹션이 ${lyricSections.length}개뿐입니다 — 이 템포에서는 최소 ${sectionFloor}개가 필요합니다(그보다 적으면 목표 3:10-3:35가 아니라 2분 안팎으로 렌더됩니다). 늘리는 섹션은 보컬이 아니라 간주(빌드업 인트로/브레이크다운/인스트루멘탈 브레이크/아웃트로)로 채우세요.`);
+    score -= 12;
+  }
+
   const sceneContradiction = sceneSeasonContradictionWarning(song.listenerSituation, song.lyrics);
   if (sceneContradiction) {
     pushUnique(warnings, sceneContradiction);

@@ -1,0 +1,102 @@
+{
+  "_note": "지시문 74 §6 — TASK A 검증용. 실제 슬롯 계획(set1-deep-house-slots.json)의 트랙 2·7·12를 새 섹션 하한 규칙대로 작곡한 것. Suno에 stylePrompt/lyrics를 그대로 넣고 재생 시간을 재면 된다. 목표: 3:00 이상(§4).",
+  "songs": [
+    {
+      "trackNo": 2,
+      "title": "Desk Lamp Hours",
+      "hookPhrase": "Let It Run All Night",
+      "seasonMoment": "a weeknight in early autumn, window already black by eight",
+      "listenerSituation": "sitting at a small bedroom studio desk past midnight with one lamp on and headphones half off one ear",
+      "emotionArc": "old regret to peaceful closure",
+      "stylePrompt": "garage swing house, dry tight club low end, sixteen-bar build and drop, swung garage-house drum shuffle, bouncy syncopated bassline pocket, bouncy sub bass, chopped vocal-sample stab, bright piano chord stab, I-V-vi-IV verses lifting to vi-IV-I-V in the chorus, male low warm baritone, gentle swung phrasing, husky ache on the closing line, hook once per early chorus, bookended in the last, phrase clipped short so the groove carries the gap, muted acoustic strum in the opening bars only, build-up intro before the cold hook line, rising filter sweep into the chorus is the loudest moment, breakdown before it stripped to bass and voice, eleven sections with four instrumental-only, 122 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, specific DJ or producer imitation, named artist vocal timbre, signature hook of an existing song, aggressive festival EDM drop, drug-use imagery, explicit club-hookup narrative, vintage tape saturation, 1970s AM-radio compression, nostalgic senior-radio announcer tone, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, aggressive dubstep bass wobble, slow ballad pacing, bright major-key pop hook, harsh digital synth stab, the swing flattening into a straight four, vocal sample chopped so short the hook stops reading, filter sweep continuing under the verses",
+      "lyrics": "[intro]\n\n[hook intro]\nLet It Run All Night\n\n[verse 1]\nOne lamp on the desk and the window gone black\nHeadphones half off, one ear on the room\nThe clock says late but the loop says stay\nCold coffee ring on the notebook page\nNothing outside is asking for me now\n\n[chorus]\nLet It Run All Night, I'll follow where it goes\nEight bars turning over like a wheel\nNobody's counting hours in here\nLet the night carry what I can't say\n\n[breakdown]\n\n[verse 2]\nThe street is done, the last bus went by\nMy hands know the shape of this without me\nSave it, name it, play it again\nSomewhere a neighbour turns over in bed\nNothing outside is asking for me now\n\n[chorus]\nEight bars turning over like a wheel\nLet It Run All Night, I'll follow where it goes\nNobody's counting hours in here\nLet the night carry what I can't say\n\n[instrumental break]\n\n[bridge]\nI was going to fix the whole thing tonight\nInstead I fixed one bar and let it breathe\n\n[final chorus]\nLet It Run All Night, I'll follow where it goes\nEight bars turning over like a wheel\nNobody's counting hours in here\nThe window's going grey and I don't mind\nLet It Run All Night, I'll follow where it goes\n\n[outro]",
+      "youtube": {
+        "title": "Desk Lamp Hours | After Hours Deep House",
+        "description": "One lamp, one loop, and no reason to stop. Garage swing house for a bedroom studio at 2am.",
+        "tags": [
+          "deep house playlist",
+          "garage house",
+          "late night house music",
+          "night drive house",
+          "melodic house"
+        ]
+      },
+      "genreId": "en-house-garage-swing",
+      "genreText": "garage swing house, swung garage-house drum shuffle, bouncy sub bass, bright chopped vocal-sample hook",
+      "tempo": 122,
+      "structureTemplate": "T2",
+      "vocalType": "male",
+      "vocalGender": "male",
+      "arrangementDensity": "sparse",
+      "eraPaletteText": "phrase clipped short so the groove carries the gap, sixteen-bar build and drop shaping the whole track, dry tight club low end with the kick and sub locked together",
+      "moneyChordText": "I-V-vi-IV verses, vi-IV-I-V chorus lift",
+      "songRole": "flagship"
+    },
+    {
+      "trackNo": 7,
+      "title": "Crosswalk",
+      "hookPhrase": "I'm Coming Home",
+      "seasonMoment": "a wet weeknight downtown, everything reflecting",
+      "listenerSituation": "waiting at a neon-lit crosswalk for the light to change while a hundred strangers move around you",
+      "emotionArc": "held-back yearning bursting into radiant relief",
+      "stylePrompt": "garage swing house, long filter sweeps instead of new parts, sixteen-bar build and drop, swung garage-house drum shuffle, swung UK-garage-flavored shuffle groove, bouncy sub bass, plucked chord stab on the off-beat, bright filtered top end, I-V-vi-IV verses lifting to vi-IV-I-V in the chorus, male mid baritone-tenor lead, storytelling spoken-edge delivery, vibrato hush on the final held note, hook once per early chorus, bookended in the last, final hook repeat almost a cappella as the outro tag, clean guitar arpeggio in the opening bars only, build-up intro before the cold hook line, rising synth arpeggio into the final chorus is the loudest moment, bridge before it pulled down to sub and voice, thirteen sections with five instrumental-only, 127 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, specific DJ or producer imitation, named artist vocal timbre, signature hook of an existing song, aggressive festival EDM drop, drug-use imagery, explicit club-hookup narrative, vintage tape saturation, 1970s AM-radio compression, nostalgic senior-radio announcer tone, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, aggressive dubstep bass wobble, bright major-key pop hook, harsh digital synth stab, traffic and crowd sound effects, the shuffle straightening out under the final chorus, arpeggio build running past its sixteen bars",
+      "lyrics": "[intro]\n\n[hook intro]\nI'm Coming Home\n\n[verse 1]\nRed light, and a hundred coats stop with you\nSteam off the grate, a bag against your knee\nThe sign above the corner blinks and holds\nYou count the seconds like you always do\n\n[pre-chorus]\nNothing here belongs to anyone tonight\nThe city just keeps handing itself around\n\n[chorus]\nI'm Coming Home, the light is going to change\nShoulders and headlights, all of it moving\nYou step off the curb into the middle of it\nAnd it carries you the way water would\n\n[breakdown]\n\n[verse 2]\nGreen, and the whole block exhales at once\nSomebody laughs behind you, gone in a step\nA window full of shoes goes dark for the night\nYou are exactly one of a hundred people\n\n[chorus]\nShoulders and headlights, all of it moving\nI'm Coming Home, the light is going to change\nYou step off the curb into the middle of it\nAnd it carries you the way water would\n\n[instrumental break]\n\n[bridge]\nYou stopped being in a hurry three blocks back\nYou could walk this all night and not mind\n\n[build]\n\n[final chorus]\nI'm Coming Home, the light is going to change\nShoulders and headlights, all of it moving\nThe neon lays itself across the wet street\nAnd it carries you the way water would\nI'm Coming Home, the light is going to change\n\n[outro]",
+      "youtube": {
+        "title": "Crosswalk | After Hours Deep House",
+        "description": "A hundred strangers, one red light, and the whole city moving at once. Garage swing house.",
+        "tags": [
+          "garage house playlist",
+          "deep house mix",
+          "night city house",
+          "uk garage swing",
+          "late night deep house"
+        ]
+      },
+      "genreId": "en-house-garage-swing",
+      "genreText": "garage swing house, swung garage-house drum shuffle, bouncy sub bass, bouncy sub bass",
+      "tempo": 127,
+      "structureTemplate": "T2",
+      "vocalType": "male",
+      "vocalGender": "male",
+      "arrangementDensity": "medium",
+      "eraPaletteText": "plucked chord stab landing on the off-beat, long filter sweeps doing the arranging instead of new parts, sixteen-bar build and drop shaping the whole track",
+      "moneyChordText": "I-V-vi-IV verses, vi-IV-I-V chorus lift",
+      "songRole": "big emotional high point"
+    },
+    {
+      "trackNo": 12,
+      "title": "Nobody Else's City",
+      "hookPhrase": "We Made It Through",
+      "seasonMoment": "the first warm night of the year, streets already empty",
+      "listenerSituation": "biking home through empty streets after two in the morning while the whole city briefly belongs to no one else",
+      "emotionArc": "old regret to peaceful closure",
+      "stylePrompt": "melodic deep house, dry tight club low end, kick and sub locked together, four-on-the-floor electronic kick, warm rolling sub bass, emotive analog synth lead, syncopated off-beat hi-hat pattern, Verse: I-V-vi-iii-IV-I-IV-V progression, Chorus: I-V-vi-IV progression, female narrow intimate lead, head-voice lift on the emotional peak, hook once per early chorus, bookended in the last, one-bar fill and rising swell into each chorus, minor-to-major lift arriving only at the drop, small chime-step synth in the opening bars only, instrumental hook intro with no sung line, the final drop is the loudest moment, build before it pared to sub and one voice, eleven sections with six instrumental-only, 114 BPM, short intro, 3:10-3:35, full arrangement, not a short cut",
+      "excludePrompt": "famous artist imitation, copied melody, copyrighted song references, soundalike vocals, specific DJ or producer imitation, named artist vocal timbre, signature hook of an existing song, aggressive festival EDM drop, drug-use imagery, explicit club-hookup narrative, vintage tape saturation, 1970s AM-radio compression, nostalgic senior-radio announcer tone, flat chorus with no lift, monotonous melody contour, generic AI demo-band sound, muddy low-end mix, excessive reverb washing out the vocal, thin placeholder hook, stock loop arrangement with no song development, trap hi-hat rolls, bright major-key pop hook, harsh digital synth stab, bicycle and street sound effects, the synth lead covering the vocal in the drop, sub and kick fighting each other",
+      "lyrics": "[intro]\n\n[verse 1]\nShe pushes off the curb at half past two\nThe whole avenue is hers and no one else's\nGreen after green, the lights just let her go\nA paper cup rolls somewhere behind her\nHer jacket fills with air and lets it out\n\n[chorus]\nWe Made It Through, the long way round\nStreetlights running backward on the glass\nNothing left to answer for tonight\nJust the sound of tyres and her own breath\n\n[breakdown]\n\n[verse 2]\nThe bridge is empty in both directions now\nShe takes both hands off and puts them back\nA train goes over somewhere she can't see\nThe river holds the city upside down\nThe tunnel gives her back her own wheels\nHer legs stop hurting somewhere near the park\n\n[chorus]\nStreetlights running backward on the glass\nWe Made It Through, the long way round\nNothing left to answer for tonight\nJust the sound of tyres and her own breath\n\n[instrumental break]\n\n[build]\n\n[final chorus]\nWe Made It Through, the long way round\nHer keys are somewhere in the jacket, fine\nNothing left to answer for tonight\nThe sky is going grey behind the flats\nWe Made It Through, the long way round\n\n[drop reprise]\n\n[outro]",
+      "youtube": {
+        "title": "Nobody Else's City | After Hours Deep House",
+        "description": "Riding home at two in the morning when the whole city belongs to no one else. Melodic deep house.",
+        "tags": [
+          "melodic deep house",
+          "night drive house music",
+          "deep house playlist",
+          "late night ride",
+          "organic house"
+        ]
+      },
+      "genreId": "en-deep-house-melodic",
+      "genreText": "melodic deep house, four-on-the-floor electronic kick, warm rolling sub bass, crisp club-ready mix",
+      "tempo": 114,
+      "structureTemplate": "T4",
+      "vocalType": "female",
+      "vocalGender": "female",
+      "arrangementDensity": "sparse",
+      "eraPaletteText": "minor-to-major lift arriving only at the drop, dry tight club low end with the kick and sub locked together, long filter sweeps doing the arranging instead of new parts",
+      "moneyChordText": "I-V-vi-iii-IV-I-IV-V progression",
+      "moneyChordSectionText": "Verse: I-V-vi-iii-IV-I-IV-V progression / Chorus: I-V-vi-IV progression",
+      "songRole": "warm goodnight track"
+    }
+  ]
+}

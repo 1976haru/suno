@@ -115,7 +115,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'two-part close harmony sung as one blended voice',
       'clear unforced diction with no vibrato',
-      'the harmony line stays above the melody'
+      'the harmony line stays above the melody',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'sung live to the guitar with no click reference',
+      'breaths and pick noise left in rather than edited out'
     ],
     productionTraits: [
       'narrow warm stereo image',
@@ -146,7 +151,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'low warm lead sitting close to the mic',
       'unhurried legato phrasing',
-      'thick stacked harmony choir behind the lead'
+      'thick stacked harmony choir behind the lead',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'phrases carried across the bar line by portamento',
+      'peaks allowed to grow louder instead of being levelled'
     ],
     productionTraits: [
       'dense but soft orchestral bed',
@@ -175,7 +185,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'two voices in tight unison splitting into thirds',
       'clear forward diction',
-      'strong sustained notes on the chorus'
+      'strong sustained notes on the chorus',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'lead tracked in one pass with the players in the room',
+      'consonants softened the way a live take leaves them'
     ],
     productionTraits: [
       'bright wide studio mix',
@@ -206,7 +221,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'two-part harmony in close intervals',
       'bright forward diction',
-      'unison shout on the hook'
+      'unison shout on the hook',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'lead and harmony captured together in one take',
+      'entrances landing a hair early against the drums'
     ],
     productionTraits: [
       'narrow warm mono-leaning mix',
@@ -236,7 +256,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'warm mid-range lead with a slight rasp',
       'conversational phrasing close to speech',
-      'group harmony joining only on the chorus'
+      'group harmony joining only on the chorus',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'notes slid into rather than struck dead centre',
+      'sung at conversational volume with the room left audible'
     ],
     productionTraits: [
       'dry natural room',
@@ -288,7 +313,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'rich resonant tone with pronounced vibrato on held notes',
       'behind-the-beat phrasing',
-      'dramatic dynamic swell into the final chorus'
+      'dramatic dynamic swell into the final chorus',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'phrase endings tapered away from the microphone',
+      'timing sitting a hair behind the orchestra'
     ],
     productionTraits: [
       'wide orchestral hall ambience',
@@ -314,7 +344,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     vocalTraits: [
       'smooth mid-range lead',
-      'three-part harmony on the hook'
+      'three-part harmony on the hook',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'lead doubled by singing the line twice, not copied',
+      'held notes swelling instead of sitting at one level'
     ],
     productionTraits: [
       'warm AM-radio compression',
@@ -354,7 +389,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     vocalTraits: [
       'soulful lead answered by gospel-toned backing vocals',
-      'velvet-toned romantic delivery on the chorus'
+      'velvet-toned romantic delivery on the chorus',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'cut live with the rhythm section in the same room',
+      'ad-libs answered across the take, not punched in later'
     ],
     productionTraits: [
       'tight punchy soul-pop mix',
@@ -387,7 +427,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'lead voice answered by four-part close harmony',
       'unison lead answered by a backing chorus, kept forward in the mix',
-      'nonsense-syllable backing vocal figures under the lead'
+      'nonsense-syllable backing vocal figures under the lead',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'backing parts sung around one shared microphone',
+      'entrances slightly ragged the way a live group lands them'
     ],
     productionTraits: [
       'narrow warm mono-leaning mix',
@@ -435,7 +480,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'restrained verse phrasing opening into a fuller chorus',
       'held final note with a slow, controlled vibrato',
       'quiet opening verse, full-voiced by the last chorus',
-      'unhurried rubato phrasing across the bar line'
+      'unhurried rubato phrasing across the bar line',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'phrases stretched against the orchestra with no click',
+      'the loudest line genuinely louder, not compressed flat'
     ],
     productionTraits: [
       'intimate piano-forward room tone widening at the chorus',
@@ -477,7 +527,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'plainspoken conversational delivery',
       'soft falling phrase endings',
       'whispered intimacy on the final line',
-      'warm mid-register delivery, never straining'
+      'warm mid-register delivery, never straining',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'sung a step back from the microphone, room included',
+      'breaths left in place of edits'
     ],
     productionTraits: [
       'soft close room mix',
@@ -515,7 +570,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     vocalTraits: [
       'low close-mic quiet-storm lead',
       'alternating verse leads trading the melody',
-      'soft breathy delivery, never belted'
+      'soft breathy delivery, never belted',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'held notes carried by breath rather than by the fader',
+      'lines connected with a slow slide between pitches'
     ],
     productionTraits: [
       'intimate late-night close mix',
@@ -550,7 +610,13 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     vocalTraits: [
       'mature Japanese lead vocal',
-      'lyrical adult delivery'
+      'lyrical adult delivery',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'notes connected by portamento rather than struck apart',
+      'sung to a live band take, timing drifting by a hair',
+      'dynamics left uncompressed so the climax actually rises'
     ],
     productionTraits: [
       'analog tape saturation, spring and plate reverb',
@@ -593,7 +659,12 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     vocalTraits: [
       'warm laid-back lead vocal',
-      'close stacked harmony answering the lead'
+      'close stacked harmony answering the lead',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'ad-libs sung against the take, not stacked afterwards',
+      'phrases landing late and catching up by the bar end'
     ],
     productionTraits: [
       'polished low-end focus',
@@ -631,8 +702,18 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
       'slow blues turnaround resolving into the tonic'
     ],
     vocalTraits: [
-      'restrained sung baritone lead',
-      'no ad-lib or wordless filler between phrases'
+      // 지시문 74 (TASK B-3) — 'restrained sung baritone lead'이었다.
+      // 이 필드의 성별 단어 금지(위 vocalTraits 주석, v4.7/v4.9의 실측 사고
+      // 이력)에 'baritone'이 그대로 남아 있던 것 — v4.9가 tenor/baritone까지
+      // 금지 범위를 넓혔을 때 이 팔레트만 함께 정리되지 않았다. 편곡 성격
+      // (낮은 음역, 절제된 발성)은 그대로 두고 성별 단어만 걷어낸다.
+      'restrained sung lead sitting in a low register',
+      'no ad-lib or wordless filler between phrases',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'notes bent into place rather than hit dead centre',
+      'one fixed distance from the microphone, level unridden'
     ],
     productionTraits: [
       'subtle tremolo bar warble',
@@ -641,6 +722,96 @@ export const ERA_CANON_PALETTES: EraCanonPalette[] = [
     ],
     percussionStyle: 'brushed',
     koreanReferenceNote: '빗속 발라드 블루스 — 강사 원문의 "no humming/ooh/aah/mmm" 정체성 그대로'
+  },
+  // ---------------------------------------------------------------------
+  // 지시문 74 (TASK B-5) — en-chillhop 워크스페이스용 신설 2종.
+  //
+  // 실측 근거(§2.3-4): 기존 15개 팔레트의 fitsGenreIds를 전수 확인한 결과
+  // chill-rap / boom-bap-mellow / jazz-rap / en-deep-house-* 어느 것도
+  // 포함되지 않았다. PARTIAL_PALETTE_FALLBACK에도 없어 이 워크스페이스는
+  // 시대/장르 고유색 원자를 0개 받고 있었다(실측: 위 12개 장르 전부 full
+  // 0종 · partial 없음).
+  //
+  // 원자 문구는 각 장르 자신의 genreLibrary 레코드(styleCore/instruments/
+  // rhythm/production/harmony)에서 이미 확정된 성격을 팔레트 어휘로 옮긴
+  // 것이며, 실존 아티스트·밴드·트랙명은 어느 필드에도 쓰지 않았다(§8).
+  // vocalTraits에는 성별 단어와 MALE_VOICE_TERMS/FEMALE_VOICE_TERMS 어휘
+  // (tenor/baritone/soprano/mezzo/contralto/alto 포함)를 쓰지 않는다 —
+  // 이 인터페이스 자신의 vocalTraits 주석에 기록된 실측 사고 이력 참고.
+  // ---------------------------------------------------------------------
+  {
+    id: 'canon-chill-rap-boombap',
+    labelKo: '칠랩·멜로우 붐뱁',
+    eraTag: 'sample-era mellow hip-hop / jazz rap',
+    fitsGenreIds: ['chill-rap', 'boom-bap-mellow', 'jazz-rap', 'lofi-hiphop-study'],
+    instrumentation: [
+      'dusty sampled drum break with a soft kick',
+      'filtered upright bass sitting under the beat',
+      'electric piano loop chopped from a longer phrase',
+      'muted horn stab answering the phrase ends'
+    ],
+    harmonyTraits: [
+      'four-bar minor seventh loop that never fully resolves',
+      'jazz turnaround repeating under the whole verse',
+      'one borrowed dominant chord marking the hook'
+    ],
+    vocalTraits: [
+      'conversational flow sitting slightly behind the beat',
+      'sung hook doubled an octave apart over the same loop',
+      'phrases ending early and leaving the loop exposed',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'recorded in one pass with the loop running underneath',
+      'punch-ins left audible rather than smoothed away'
+    ],
+    productionTraits: [
+      'sampler-era band-limited top end, nothing sparkling above it',
+      'drums compressed until the room between hits pumps',
+      'vocal mixed close and low, sitting inside the beat rather than on top'
+    ],
+    // 붐뱁/재즈랩의 타악은 강한 백비트가 아니라 브러시·먼지 낀 드럼 브레이크
+    // 성격이다(장르 레코드의 'brush drums' / 'lazy head-nod pocket').
+    percussionStyle: 'brushed',
+    koreanReferenceNote: '샘플 기반 멜로우 힙합·재즈랩 계열 — 느슨한 포켓과 먼지 낀 드럼 질감'
+  },
+  {
+    id: 'canon-deep-house-club',
+    labelKo: '딥하우스 클럽',
+    eraTag: 'warm analog-leaning deep house / UK garage swing',
+    fitsGenreIds: [
+      'en-deep-house-melodic', 'en-deep-house-organic', 'en-deep-house-vocal-anthem',
+      'en-deep-house-soulful', 'en-deep-house-tech-groove', 'en-house-garage-swing'
+    ],
+    instrumentation: [
+      'four-on-the-floor kick with a long rolling sub under it',
+      'filtered analog pad opening across eight bars',
+      'plucked chord stab landing on the off-beat',
+      'hand percussion layered against the closed hi-hat'
+    ],
+    harmonyTraits: [
+      'two-chord vamp held for the whole groove',
+      'minor-to-major lift arriving only at the drop',
+      'suspended pad chord resolving late over the bassline'
+    ],
+    vocalTraits: [
+      'hook phrase repeated as a chopped sample rather than sung through',
+      'breathy texture used as another layer in the groove',
+      'spoken stab placed percussively on the off-beat',
+    // 지시문 74 (TASK B-3) — 여기서부터는 음색이 아니라 그 시대의 녹음 관행이다.
+    // 위 항목들(음색·성숙도·장식음)은 현대 가수도 그대로 만족시킬 수 있어
+    // 시대를 가르지 못한다는 것이 §2.3-2의 실측 지적이었다.
+      'hook sung once and reused as a sample, not re-performed',
+      'phrase clipped short so the groove carries the gap'
+    ],
+    productionTraits: [
+      'long filter sweeps doing the arranging instead of new parts',
+      'dry tight club low end with the kick and sub locked together',
+      'sixteen-bar build and drop shaping the whole track'
+    ],
+    // 포 온 더 플로어 — 이 팔레트만 driving이다.
+    percussionStyle: 'driving',
+    koreanReferenceNote: '따뜻한 아날로그 계열 딥하우스·UK 개러지 스윙 — 필터 스윕과 롱 빌드 중심'
   }
 ];
 

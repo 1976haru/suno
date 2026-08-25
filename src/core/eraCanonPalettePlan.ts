@@ -35,6 +35,24 @@ function pickOne<T>(items: readonly T[], seed: number): T {
 }
 
 /**
+ * 지시문 74 (TASK B-1) — 같은 축에서 서로 다른 원자를 count개 뽑는다(중복
+ * 없음). 항목이 count보다 적으면 있는 만큼만 돌려준다 — 팔레트마다
+ * productionTraits 개수가 2~3개로 다르기 때문에 없는 것을 지어내지 않는다.
+ */
+function pickDistinct<T>(items: readonly T[], seed: number, count: number): T[] {
+  if (!items.length) return [];
+  const take = Math.min(count, items.length);
+  const start = Math.abs(seed) % items.length;
+  if (items.length < 2) return [items[start]];
+  // 지시문 74 (TASK B-1) — 두 번째 이후 원자를 인접 인덱스가 아니라 seed로
+  // 정해지는 stride만큼 떨어뜨려 뽑는다. 인접 고정이면 같은 팔레트를 쓰는 두
+  // 곡이 start까지 같아질 때 뽑힌 원자가 통째로 겹쳐, 자매 장르 쌍의
+  // stylePrompt 유사도가 실측으로 올라간다(tests/oldpopGenreFamily.test.ts).
+  const stride = 1 + (Math.abs(seed * 31 + 7) % (items.length - 1));
+  return Array.from({ length: take }, (_, offset) => items[(start + offset * stride) % items.length]);
+}
+
+/**
  * Deterministic (seeded) per-song palette assignment: each song can only
  * draw from palettes whose fitsGenreIds includes that song's own genreId
  * (an oldpop-soft-rock-am track never gets a British-beat palette), so this
@@ -149,10 +167,21 @@ export function buildEraCanonPalettePlan(
 
 /**
  * TASK v4.6 (§1-4) — "각 축에서 1개씩, 총 3~4개 서술어". Always draws
- * instrumentation/harmonyTraits/vocalTraits (3 atoms); productionTraits is
- * added on roughly half of songs (seed-parity) to land the total at 3-4 as
- * specified, rather than always 4 (which would compete harder against the
- * concept atom's own budget floor — see localGenerator.ts's CONCEPT_FLOOR_ATOMS).
+ * instrumentation/harmonyTraits/vocalTraits (3 atoms); productionTraits used
+ * to be added on roughly half of songs (seed-parity) to land the total at
+ * 3-4 as specified, rather than always 4 (which would compete harder against
+ * the concept atom's own budget floor — see localGenerator.ts's
+ * CONCEPT_FLOOR_ATOMS).
+ *
+ * 지시문 74 (TASK B-1) — 그 seed-parity를 없앴다. 실측 청취 피드백("일본
+ * 시니어도 2000년대 가수가 6070 노래 부르는 느낌")을 §2.1이 실제 산출물에서
+ * 추적한 결과, 시대를 가르는 신호가 stylePrompt 22개 절 중 3개뿐이었고 그
+ * 3개가 전부 프로덕션 계열이었다. 프로덕션이 시대를 가르는 가장 강한
+ * 신호인데 뽑힐 수도 안 뽑힐 수도 있는 유일한 축이었던 셈이다. 이제
+ * productionTraits는 항상 2개를 뽑는다(그 팔레트에 1개뿐이면 1개). 총
+ * 원자 수는 3~4 → 5로 늘어나므로, 늘어난 만큼은 TASK B-4가 BPM 절을 뒤로
+ * 보내고 중복 절을 정리해 총량을 유지한다(§4 "stylePrompt 단어 수를 늘리지
+ * 말 것").
  *
  * TASK v4.7 (팔레트 커버리지 확장) — `genreId` folded into the selection seed:
  * several v4.7 palettes now cover MULTIPLE genre ids at once (e.g.
@@ -176,12 +205,27 @@ export function rotatingEraPaletteAtoms(assignment: PaletteAssignment | undefine
   // productionTraits: the genre's own real instrumentation/harmony/vocal
   // character (chanson's accordion, bossa's clave) must not be overwritten
   // by a palette it doesn't actually belong to.
-  if (partial) return [pickOne(palette.productionTraits, base + 59)];
-  const atoms = [
-    pickOne(palette.instrumentation, base + 11),
-    pickOne(palette.harmonyTraits, base + 23),
-    pickOne(palette.vocalTraits, base + 41)
+  // 지시문 74 (TASK B-1) — partial도 2개다. partial이 빌려오는 축은 원래
+  // productionTraits 하나뿐이고(그 시대의 프로덕션은 인접 장르끼리 실제로
+  // 공유된다), 이 지시문이 "productionTraits 최소 2개 항상"을 요구하는 이유가
+  // 바로 그 축이 시대를 가르는 가장 강한 신호이기 때문이다 — 부분 적용이라고
+  // 해서 그 신호만 절반으로 줄일 이유가 없다. 그 팔레트에 1개뿐이면 1개.
+  if (partial) return pickDistinct(palette.productionTraits, base + 59, 2);
+  // 지시문 74 (TASK B-1) — 총 4개로 고정한다. 이전에는 3개(+seed 홀짝으로
+  // production 1개) = 평균 3.5개였다. production을 2개로 올리되 전체 개수는
+  // 거의 그대로 두라는 §2.4-B1의 단서("전체 개수는 무리하게 늘리지 말 것 —
+  // §2.3-3의 길이 문제와 충돌한다")를 지키기 위해, harmony와 vocal 중 한
+  // 축만 뽑는다. 어느 쪽을 뽑을지는 seed로 갈라지므로 팩 전체로 보면 두 축이
+  // 모두 등장한다.
+  //
+  // 5개로 뽑아 본 실측: tests/seniorBaseline.test.ts의 프롬프트 길이 하한이
+  // 725→794로(허용 745 초과), tests/oldpopGenreFamily.test.ts의 장르 쌍
+  // 유사도가 0.579로(허용 0.56 초과) 둘 다 깨졌다 — 원자를 늘리는 방향
+  // 자체가 그 두 회귀 지표와 정면으로 부딪힌다는 실측 확인이다.
+  const axes = [palette.instrumentation, palette.harmonyTraits, palette.vocalTraits];
+  const rotating = axes[Math.abs(base + 23) % axes.length];
+  return [
+    pickOne(rotating, base + 11),
+    ...pickDistinct(palette.productionTraits, base + 59, 2)
   ];
-  if (Math.abs(base + 59) % 2 === 0) atoms.push(pickOne(palette.productionTraits, base + 59));
-  return atoms;
 }

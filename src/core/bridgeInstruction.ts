@@ -19,6 +19,7 @@ import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { TITLE_ERA_HINT_RETRO_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
+import { minTotalSectionsForBpm, instrumentalExtensionForBpm } from './bpmLengthControl';
 import { APP_VERSION } from './buildInfo';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
@@ -531,7 +532,7 @@ function tempoInstructionLine(): string {
  * missed).
  */
 function songLengthInstructionLine(): string {
-  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure so the clock-time length still lands in the pack\'s target range). These are hard limits, not suggestions: going over the word/section count is a failure condition for that track, the same as missing its hookPhrase or tempo. Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow, and do not pad a slow track\'s lyrics past its word ceiling because it "feels short on the page" — a short lyric at a slow tempo is correct, not unfinished; a slow track staying within its own target is what keeps it from running long.';
+  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure, and a faster BPM needs MORE sections, so the clock-time length still lands in the pack\'s target range). These are hard limits, not suggestions: going over the word/section count is a failure condition for that track, the same as missing its hookPhrase or tempo. Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow, and do not pad a slow track\'s lyrics past its word ceiling because it "feels short on the page" — a short lyric at a slow tempo is correct, not unfinished; a slow track staying within its own target is what keeps it from running long.';
 }
 
 /**
@@ -564,6 +565,42 @@ function slowTrackLengthCallouts(slots: PreassignedSongSlot[]): string[] {
   ];
 }
 
+/**
+ * 지시문 74 (TASK A) — 실측 청취 피드백 "딥하우스 계열이 너무 짧다 — 1분짜리도
+ * 있고 대부분 2분 이하"의 직접 대응. 20260824_AfterHoursDeepHouse 실측에서
+ * 114 BPM 트랙이 팩 전체 최다 가사(238단어)를 싣고도 7섹션에 그쳐 1:58로
+ * 끝났다 — 가사가 모자란 것이 아니라 섹션 수가 BPM과 무관하게 6~8에 고정돼
+ * 있었다(core/bpmLengthControl.ts의 MIN_TOTAL_SECTION_BANDS 주석에 산술 근거).
+ *
+ * stylePrompt의 "3:10-3:35" 텍스트로는 해결되지 않는다는 것도 같은 실측에서
+ * 확인됐다(§1.2 "duration 텍스트를 고치는 것으로 해결하려 하지 말 것") —
+ * Suno가 실제로 따르는 것은 가사의 섹션 구성이다. 그래서 이 콜아웃은 길이를
+ * 부탁하지 않고 섹션 수를 지시한다.
+ *
+ * 96 BPM 이상 트랙에만 붙는다 — 95 이하는 실측상 3:20으로 목표를 달성하고
+ * 있어 §8이 구조 변경을 금지한다. 95 이하만 있는 팩(시니어 올드팝 등)에는
+ * 이 블록이 한 줄도 나가지 않으므로 기존 세트의 지시문은 완전히 동일하다.
+ */
+function fastTrackSectionFloorCallouts(slots: PreassignedSongSlot[]): string[] {
+  const fastSlots = slots.filter(slot => minTotalSectionsForBpm(slot.tempo) > 0 && slot.sectionCountRange);
+  if (!fastSlots.length) return [];
+  return [
+    '',
+    '[Fast-tempo tracks — section floor, read before writing these]',
+    'At these tempos every bar is short, so the SAME section count that fills 3:20 at 77 BPM only fills about 1:58 at 114 BPM. This is a real measurement, not an estimate: a 114 BPM track carrying the most lyrics in its whole pack still came back at 1:58 because it had 7 sections. Writing "3:10-3:35" into the stylePrompt does not fix it — Suno follows the section structure of the lyrics, so the section count below is what actually sets the length.',
+    'Fill the extra sections with INSTRUMENTAL-only sections, never with more sung verses — that is what the larger "max instrumental sections" number on these tracks is for. Splitting the same words across more vocal sections makes every section thin; a build-up intro, a breakdown, an instrumental break, or an outro adds real clock time without diluting the writing.',
+    ...fastSlots.map(slot => {
+      const [sMin, sMax] = slot.sectionCountRange!;
+      const extension = instrumentalExtensionForBpm(slot.tempo, slot.structureTemplate);
+      const spineNote = slot.structureTemplate
+        ? ` Its assigned structure template (${slot.structureTemplate}) is the VOCAL SPINE only; wrap ${extension} or more instrumental-only sections around that spine to reach the floor, keeping the template\'s own section order intact.`
+        : '';
+      return `- Track ${slot.trackNo} — ${slot.tempo} BPM: MUST have at least ${sMin} sections (target ${sMin}-${sMax}).${spineNote}`;
+    }),
+    'A club-tempo shape that reaches the floor naturally, for reference rather than transcription: build-up intro, verse, pre-chorus, chorus/drop, breakdown, verse, chorus, instrumental break, bridge, final chorus, outro. Long instrumental stretches are idiomatic at these tempos — adding them makes the track MORE genre-true, not padded. For a genre whose vocal is defined as a minimal spoken-word stab rather than a full lyric lead, lean further still toward instrumental sections.'
+  ];
+}
+
 // TASK v3.62 (TASK 1-1) — was "weave that exact phrase into that song's
 // stylePrompt, verbatim." A real 1960s-flavored bridge pack got "warm
 // string pad swell" and "layered backing" — production textures that
@@ -580,7 +617,25 @@ function introTextureInstructionLineFor(preassignedSongs: PreassignedSongSlot[])
     // 지시문 59 (TASK A-3) — "인트로·오프닝 지시를 뒤로": 삭제하지 않고
     // stylePrompt 안에서의 위치만 6번 자리(장르·BPM·악기·머니코드·보컬 뒤)로
     // 명시한다.
-    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement. Place this descriptor late in the stylePrompt (position 6, per the CRITICAL element-order rule above) — it is production detail, not genre identity, so it should never be one of the opening clauses.'
+    ? '- Each "preassignedSongs" entry may include "introTextureText" - a REFERENCE for the kind of instrumental color this channel often opens with (intro-only, first ~5 seconds), not a phrase to copy. If it fits this song\'s genre/era, use it or something like it; if it doesn\'t (e.g. a synth texture suggested for a 1960s track), use your own musical judgment for an era-appropriate substitute instead. Never let it become the whole-song arrangement. Place this descriptor late in the stylePrompt (position 9, per the CRITICAL element-order rule above) — it is production detail, not genre identity, so it should never be one of the opening clauses.'
+    : '';
+}
+
+/**
+ * 지시문 74 (TASK B-1) — data/eraCanonPalettes.ts의 시대 정본 사운드 원자를
+ * 브릿지(정식) 경로로 내보내는 지시. 이 팔레트는 15종이 이미 존재했지만
+ * 그 원자를 읽는 코드가 core/localGenerator.ts(미리보기 전용) 하나뿐이라
+ * 브릿지 산출물에는 0개 도달하고 있었다 — 일본 시니어 팩의 stylePrompt
+ * 22개 절 중 시대 신호가 3개뿐이었던 실측(§2.1)의 직접 원인이다.
+ *
+ * introTextureText와 같은 취급이다: 그대로 옮겨 적으라는 지시가 아니라
+ * "이 시대의 실제 녹음은 이런 소리였다"는 참고 재료다. 다만 프로덕션 절
+ * 만큼은 개수를 명시한다 — 시대를 가르는 가장 강한 신호이고, 실측에서
+ * 모자랐던 것이 정확히 그 축이기 때문이다.
+ */
+function eraPaletteInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): string {
+  return preassignedSongs.some(slot => slot.eraPaletteText)
+    ? '- Each "preassignedSongs" entry may include "eraPaletteText" — how records in THIS track\'s own era and sub-genre actually sounded: the instruments played, the harmony habits, the way the voice was recorded, and the production of the room and tape. It is reference material, not a phrase to transcribe — write your own wording for the same sound. Two things about it are not optional. (1) At least TWO of this track\'s stylePrompt clauses must be era-production clauses (how it was recorded and mixed: the room, the tape/console character, the stereo width, the compression, the noise floor) — production is what separates a modern recording of an old song from a recording of that era, and a prompt that names the genre and the instruments but not the production reads as a present-day cover. (2) Do not contradict it: if it says the stereo image is narrow, do not also ask for a wide modern mix.'
     : '';
 }
 
@@ -625,7 +680,7 @@ function genreInstructionLineFor(preassignedSongs: PreassignedSongSlot[]): strin
     // (인트로/오프닝)이 각각 앞자리를 요구한 결과 악기가 밀려난 것이지, 어느
     // 한 지시문의 결함이 아니다 — "어디에 넣어라"는 요구가 없었을 뿐. 전체
     // 요소 순서를 한 곳에 명시해 그 공백을 채운다.
-    '- CRITICAL — stylePrompt element order: write each stylePrompt in roughly this order — (1) this track\'s genre identity, (2) BPM, (3) THREE TO FIVE instruments/rhythm elements from THIS genre (these are what make the genre audibly recognizable — a listener hears the genre through them, not through the genre label alone), (4) the money-chord progression, (5) the lead vocal description, (6) everything else (room/space, arrangement density, intro handling, opening-loudness, killing point). If the first genre-defining instrument appears past roughly 150 characters into the stylePrompt, the genre reads weakly even when correctly named up front.\n  GOOD: "early-1960s British beat pop, 74 BPM, jangly 12-string electric guitar, melodic walking bass, tambourine backbeat, brushed drum kit, I-V-vi-IV progression, low calm male baritone, restrained emotional delivery, ..."\n  BAD:  "late-1950s memory through a 1970s piano pop ballad lens, 66 BPM, soulful female voice, restrained understated reading, warm rounded midrange, intimate close-mic, singing starts immediately with no intro tag, full playback level from first bar, grand piano, ..." (instruments don\'t appear until 220 characters in — the genre reads weakly despite being named first)'
+    '- CRITICAL — stylePrompt element order: write each stylePrompt in roughly this order — (1) this track\'s genre identity, (2-3) TWO short era-production clauses — how a record like this was actually CAPTURED, not what it sounds like emotionally: the room, the tape/console character, the stereo width, the compression, the noise floor. Exactly TWO, and about 45 characters TOTAL — roughly three or four words each. Measured: three front capture clauses, or one long one, pushes the first instrument to 101-114 characters and the genre stops reading. Any FURTHER capture detail this track needs goes right after the instrument block (around position 7-9), not at the very end — that is still far earlier than the back of the prompt, and it keeps the instruments where they belong. (4-6) THREE TO FIVE instruments/rhythm elements from THIS genre (these are what make the genre audibly recognizable — a listener hears the genre through them, not through the genre label alone), (7) the money-chord progression, (8) the lead vocal description, (9) everything else — arrangement density, intro handling, opening-loudness, killing point, and the BPM. The first genre-defining instrument must still appear within roughly the first 100 characters; if your two production clauses are pushing it past that, shorten them rather than moving them. BPM goes near the END: it is a number, so it never competes with the descriptive words for attention, and putting it second wastes the highest-weighted position in the prompt on something that reads the same wherever it sits. Do not repeat a descriptor that already appears elsewhere in the same prompt — a repeated word buys nothing and costs a slot. The one exception is the mandatory duration phrase, which always stays verbatim: because it already contains "full arrangement", describe this song\'s density some other way (e.g. "layered strings behind the chorus", "spare and voice-forward") rather than saying "full arrangement" twice.\n  GOOD: "1970s Japanese kayokyoku, narrow stereo image, analog tape saturation, live brass section, sweeping strings, brushed drums, warm bass, I-vi-IV-V doo-wop progression, mature lead vocal sung to a live band take, timing drifting by a hair, ... , 69 BPM"\n  BAD:  "1970s Japanese kayokyoku, 69 BPM, mature elegant female mezzo-soprano lead, tender confiding delivery, soft breathy grain, stepwise three-note hook, no intro tag, ... , analog tape warmth, spring plate ambience, narrow stereo" (the three clauses that actually place this in 1970s Japan sit at positions 16-18, behind six clauses of timbre a present-day singer would satisfy just as well — this is the exact shape a real measured pack came back in)'
   ];
 }
 
@@ -1010,7 +1065,7 @@ function openingLoudnessInstructionLineFor(preassignedSongs: PreassignedSongSlot
   return preassignedSongs.some(slot => slot.openingLoudnessText)
     // 지시문 59 (TASK A-3) — introTextureInstructionLineFor와 같은 위치
     // 지시. 이 필드 자체(트랙 1-3 한정, 지시문 4·11)는 그대로 둔다.
-    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build. Like introTextureText, this belongs late in the stylePrompt (position 6, per the CRITICAL element-order rule above), never as an opening clause.'
+    ? '- Each of tracks 1-3\'s "preassignedSongs" entry may include "openingLoudnessText" — this track\'s opening must play at FULL playback level from the very first bar, not a quiet fade-in or a hushed intro that builds up. Weave that idea (in your own words, or close to the given phrase) into this track\'s stylePrompt alongside its opening-hook descriptor. This is about mix LEVEL, not emotional intensity — a lyrically quiet/reflective opening still needs to render at full volume; do not apply this phrase to any track beyond 1-3, which would flatten the pack\'s own back-half dynamic build. Like introTextureText, this belongs late in the stylePrompt (position 9, per the CRITICAL element-order rule above), never as an opening clause.'
     : '';
 }
 
@@ -1847,6 +1902,7 @@ export function buildClaudeCodeInstruction(
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(preassignedSongs);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(preassignedSongs);
   const introTextureInstructionLine = introTextureInstructionLineFor(preassignedSongs);
+  const eraPaletteInstructionLine = eraPaletteInstructionLineFor(preassignedSongs);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(preassignedSongs);
   const genreInstructionLine = genreInstructionLineFor(preassignedSongs);
   // codex 지시문 02 (TASK D) — resolved once here, reused for both
@@ -1964,6 +2020,7 @@ export function buildClaudeCodeInstruction(
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(preassignedSongs),
+    ...fastTrackSectionFloorCallouts(preassignedSongs),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
@@ -1973,6 +2030,7 @@ export function buildClaudeCodeInstruction(
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,
+    eraPaletteInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
     // v5.23 (TASK A §1-4) — ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE
@@ -2162,6 +2220,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
   const arrangementDensityInstructionLine = arrangementDensityInstructionLineFor(allSlots);
   const structureTemplateInstructionLine = structureTemplateInstructionLineFor(allSlots);
   const introTextureInstructionLine = introTextureInstructionLineFor(allSlots);
+  const eraPaletteInstructionLine = eraPaletteInstructionLineFor(allSlots);
   const negativeStyleInstructionLine = negativeStyleInstructionLineFor(allSlots);
   const lyricThemeInstructionLine = lyricThemeInstructionLineFor(allSlots);
   const povInstructionLine = povInstructionLineFor(allSlots);
@@ -2256,6 +2315,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(allSlots),
+    ...fastTrackSectionFloorCallouts(allSlots),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,
@@ -2263,6 +2323,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     earwormInstructionLine,
     openingLoudnessInstructionLine,
     introTextureInstructionLine,
+    eraPaletteInstructionLine,
     negativeStyleInstructionLine,
     instrumentInstructionLine,
     // v5.23 (TASK A) — ARRANGEMENT_VOCABULARY_LYRIC_PROHIBITION_LINE moved

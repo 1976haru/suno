@@ -40,6 +40,7 @@
     "check:concept-coverage": "tsx scripts/checkConceptCoverage.ts",
     "check:concept-language": "tsx scripts/checkConceptLanguageCoverage.ts",
     "check:genre-fidelity": "tsx scripts/checkGenreFidelity.ts",
+    "check:era-palette-conflict": "tsx scripts/checkEraPaletteConflict.ts",
     "check:genre-utilization": "tsx scripts/checkGenreUtilization.ts",
     "check:option-utilization": "tsx scripts/checkOptionUtilization.ts",
     "check:vocal-technique": "tsx scripts/checkVocalTechnique.ts",
