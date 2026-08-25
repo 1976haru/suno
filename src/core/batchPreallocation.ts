@@ -76,7 +76,7 @@ import { applyEraQuota, applyWorkspaceEraFloor, ensureEraNeutralFloor, extractEr
 import { eraIntentForWorkspace } from '../data/workspaceEraIntent';
 import { BREADTH_THRESHOLDS } from './designGate';
 import { tightenEraConstraintForSenior } from './seniorOldpopPolicy';
-import { resolveBpmEnergyBand, sectionRangeForBpm, wordBudgetForTarget, estimateSongLengthSec } from './bpmLengthControl';
+import { resolveBpmEnergyBand, totalSectionRangeForBpm, wordBudgetForTarget, estimateSongLengthSec, instrumentalExtensionForBpm } from './bpmLengthControl';
 import { applyVerifiedComboToGenrePlan, resolveFlagshipCombo } from './verifiedCombos';
 import { applyFlagshipVariationToSlots } from './comboVariations';
 import type { VerifiedCombo } from '../data/verifiedCombos';
@@ -1057,8 +1057,11 @@ export function preallocateSongSlots(
     // BPM만으로 정해지고(§B-3, sectionRangeForBpm), maxInstrumentalSections도
     // BPM 에너지 대역에서 그대로 온다(§4-3 "BPM은 체감 에너지를 정한다").
     const wordBudget = wordBudgetForTarget(audienceProfile.songLengthSecondsRange, resolvedTempo, structureTemplatePlan[idx]);
+    // 지시문 74 (TASK A) — sectionRangeForBpm(템플릿 뼈대 범위) → totalSectionRangeForBpm
+    // (뼈대 + 간주 확장까지 포함한 총 섹션 범위). 95 BPM 이하에서는 두 함수의
+    // 반환값이 같으므로 기존 세트는 한 곡도 바뀌지 않는다(§8).
     const bpmTier = {
-      sectionRange: sectionRangeForBpm(resolvedTempo),
+      sectionRange: totalSectionRangeForBpm(resolvedTempo),
       wordRange: wordBudget.wordRange,
       maxInstrumentalSections: resolveBpmEnergyBand(resolvedTempo).maxInstrumentalSections
     };
@@ -1082,7 +1085,22 @@ export function preallocateSongSlots(
       tempo: resolvedTempo,
       sectionCountRange: bpmTier.sectionRange,
       wordCountRange: bpmTier.wordRange,
-      maxInstrumentalSections: isFlagshipSlot ? Math.min(1, bpmTier.maxInstrumentalSections) : bpmTier.maxInstrumentalSections,
+      // 지시문 74 (TASK A) — 두 단계로 정한다.
+      //  (1) 대표곡 간주 상한이 Math.min(1, ...)이면 96 BPM 이상에서 섹션
+      //      하한(9~13)을 보컬 섹션으로만 채워야 해서 §1.2·§8을 정면으로
+      //      위반한다. Math.max(1, tier-1)로 바꾸면 95 BPM 이하에서는 결과가
+      //      완전히 동일하고(1/1/2/2 → 1·1·1·1), 96 이상에서만 대표곡도
+      //      하한을 채울 여유를 얻는다.
+      //  (2) 그래도 이 값이 그 트랙의 실제 필요 확장분(하한 − 템플릿 보컬
+      //      뼈대)보다 작으면 "섹션 하한"과 "간주 상한"이 서로 모순된다 —
+      //      실측 프로브에서 127 BPM·T4(뼈대 6) 트랙이 13섹션 하한에 간주
+      //      상한 5로 잡혀 어느 쪽도 지킬 수 없는 조합이 나왔다. 필요 확장분
+      //      을 하한으로 깔아 두 숫자가 절대 어긋나지 않게 한다. 95 BPM
+      //      이하는 확장분이 0이라 이 항이 아무 영향도 주지 않는다.
+      maxInstrumentalSections: Math.max(
+        isFlagshipSlot ? Math.max(1, bpmTier.maxInstrumentalSections - 1) : bpmTier.maxInstrumentalSections,
+        instrumentalExtensionForBpm(resolvedTempo, structureTemplatePlan[idx])
+      ),
       // 지시문 40 (TASK A-3) — 설계안 단계라 실제 가사가 없으니, 방금 위에서
       // 이 채널의 실제 목표 길이로 역산한 단어 예산의 중앙값을 넘긴다(이
       // 채널을 모르는 범용 expectedWordCount(bpm) 대체값보다 정확하다).

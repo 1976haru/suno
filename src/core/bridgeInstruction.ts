@@ -19,6 +19,7 @@ import { resolveTitleLocalizedLanguage } from './packagingLanguage';
 import { TITLE_ERA_HINT_RETRO_ARCHETYPES } from '../data/archetypeAudienceProfiles';
 import { isKidsArchetype } from '../utils/channelArchetype';
 import { preallocateSongSlots } from './batchPreallocation';
+import { minTotalSectionsForBpm, instrumentalExtensionForBpm } from './bpmLengthControl';
 import { APP_VERSION } from './buildInfo';
 import { buildSetOptions } from './multiSetGeneration';
 import { buildSetConceptLine } from './setConcept';
@@ -531,7 +532,7 @@ function tempoInstructionLine(): string {
  * missed).
  */
 function songLengthInstructionLine(): string {
-  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure so the clock-time length still lands in the pack\'s target range). These are hard limits, not suggestions: going over the word/section count is a failure condition for that track, the same as missing its hookPhrase or tempo. Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow, and do not pad a slow track\'s lyrics past its word ceiling because it "feels short on the page" — a short lyric at a slow tempo is correct, not unfinished; a slow track staying within its own target is what keeps it from running long.';
+  return 'CRITICAL — length: each track\'s "Length target" column above gives that track\'s own section count, word count, and maximum instrumental-only-section count (counting the intro if it has no lyrics) — these already account for that track\'s own tempo (a slower BPM gets a SHORTER structure, and a faster BPM needs MORE sections, so the clock-time length still lands in the pack\'s target range). These are hard limits, not suggestions: going over the word/section count is a failure condition for that track, the same as missing its hookPhrase or tempo. Do not add an extra instrumental break, extended outro, or additional section beyond what that count allows just because the tempo feels slow, and do not pad a slow track\'s lyrics past its word ceiling because it "feels short on the page" — a short lyric at a slow tempo is correct, not unfinished; a slow track staying within its own target is what keeps it from running long.';
 }
 
 /**
@@ -561,6 +562,42 @@ function slowTrackLengthCallouts(slots: PreassignedSongSlot[]): string[] {
       const [wMin, wMax] = slot.wordCountRange!;
       return `- Track ${slot.trackNo} is slow — ${slot.tempo} BPM. At this tempo, the exact same section/word count as a faster track renders roughly 40% longer in real clock time; this is the actual, measured cause of past overlong renders, not a guess. MUST stay at ${sMin}-${sMax} sections and ${wMin}-${wMax} words for this track specifically. Do not add a section or extend a verse to make it "feel" like a complete song — at this tempo, ${wMin}-${wMax} words already fills the pack's target song length.`;
     })
+  ];
+}
+
+/**
+ * 지시문 74 (TASK A) — 실측 청취 피드백 "딥하우스 계열이 너무 짧다 — 1분짜리도
+ * 있고 대부분 2분 이하"의 직접 대응. 20260824_AfterHoursDeepHouse 실측에서
+ * 114 BPM 트랙이 팩 전체 최다 가사(238단어)를 싣고도 7섹션에 그쳐 1:58로
+ * 끝났다 — 가사가 모자란 것이 아니라 섹션 수가 BPM과 무관하게 6~8에 고정돼
+ * 있었다(core/bpmLengthControl.ts의 MIN_TOTAL_SECTION_BANDS 주석에 산술 근거).
+ *
+ * stylePrompt의 "3:10-3:35" 텍스트로는 해결되지 않는다는 것도 같은 실측에서
+ * 확인됐다(§1.2 "duration 텍스트를 고치는 것으로 해결하려 하지 말 것") —
+ * Suno가 실제로 따르는 것은 가사의 섹션 구성이다. 그래서 이 콜아웃은 길이를
+ * 부탁하지 않고 섹션 수를 지시한다.
+ *
+ * 96 BPM 이상 트랙에만 붙는다 — 95 이하는 실측상 3:20으로 목표를 달성하고
+ * 있어 §8이 구조 변경을 금지한다. 95 이하만 있는 팩(시니어 올드팝 등)에는
+ * 이 블록이 한 줄도 나가지 않으므로 기존 세트의 지시문은 완전히 동일하다.
+ */
+function fastTrackSectionFloorCallouts(slots: PreassignedSongSlot[]): string[] {
+  const fastSlots = slots.filter(slot => minTotalSectionsForBpm(slot.tempo) > 0 && slot.sectionCountRange);
+  if (!fastSlots.length) return [];
+  return [
+    '',
+    '[Fast-tempo tracks — section floor, read before writing these]',
+    'At these tempos every bar is short, so the SAME section count that fills 3:20 at 77 BPM only fills about 1:58 at 114 BPM. This is a real measurement, not an estimate: a 114 BPM track carrying the most lyrics in its whole pack still came back at 1:58 because it had 7 sections. Writing "3:10-3:35" into the stylePrompt does not fix it — Suno follows the section structure of the lyrics, so the section count below is what actually sets the length.',
+    'Fill the extra sections with INSTRUMENTAL-only sections, never with more sung verses — that is what the larger "max instrumental sections" number on these tracks is for. Splitting the same words across more vocal sections makes every section thin; a build-up intro, a breakdown, an instrumental break, or an outro adds real clock time without diluting the writing.',
+    ...fastSlots.map(slot => {
+      const [sMin, sMax] = slot.sectionCountRange!;
+      const extension = instrumentalExtensionForBpm(slot.tempo, slot.structureTemplate);
+      const spineNote = slot.structureTemplate
+        ? ` Its assigned structure template (${slot.structureTemplate}) is the VOCAL SPINE only; wrap ${extension} or more instrumental-only sections around that spine to reach the floor, keeping the template\'s own section order intact.`
+        : '';
+      return `- Track ${slot.trackNo} — ${slot.tempo} BPM: MUST have at least ${sMin} sections (target ${sMin}-${sMax}).${spineNote}`;
+    }),
+    'A club-tempo shape that reaches the floor naturally, for reference rather than transcription: build-up intro, verse, pre-chorus, chorus/drop, breakdown, verse, chorus, instrumental break, bridge, final chorus, outro. Long instrumental stretches are idiomatic at these tempos — adding them makes the track MORE genre-true, not padded. For a genre whose vocal is defined as a minimal spoken-word stab rather than a full lyric lead, lean further still toward instrumental sections.'
   ];
 }
 
@@ -1964,6 +2001,7 @@ export function buildClaudeCodeInstruction(
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(preassignedSongs),
+    ...fastTrackSectionFloorCallouts(preassignedSongs),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(preassignedSongs),
     hookDeviceInstructionLine,
@@ -2256,6 +2294,7 @@ export function buildMultiSetClaudeCodeMasterInstruction(
     tempoInstructionLine(),
     songLengthInstructionLine(),
     ...slowTrackLengthCallouts(allSlots),
+    ...fastTrackSectionFloorCallouts(allSlots),
     descriptorCountInstructionLine(),
     ...eraGuardrailLines(allSlots),
     hookDeviceInstructionLine,

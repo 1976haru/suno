@@ -43,14 +43,24 @@ export const BPM_ENERGY_BANDS: readonly BpmEnergyBand[] = [
   { minBpm: 62, maxBpm: 72, maxInstrumentalSections: 1 },
   { minBpm: 73, maxBpm: 84, maxInstrumentalSections: 1 },
   { minBpm: 85, maxBpm: 94, maxInstrumentalSections: 2 },
-  { minBpm: 95, maxBpm: 100, maxInstrumentalSections: 2 },
-  // 지시문 40 (TASK C) — verified: false. K-pop 등 100 초과 채널을 위한
-  // 확장. 값 자체(2·3·3)는 기존 85-100 대역의 "빠른 곡일수록 간주 허용이
-  // 는다"는 추세를 자연스럽게 이어간 추정치 — 하루의 실측 청취 검증은
-  // 아직 없다.
-  { minBpm: 101, maxBpm: 115, maxInstrumentalSections: 2 },
-  { minBpm: 116, maxBpm: 130, maxInstrumentalSections: 3 },
-  { minBpm: 131, maxBpm: 150, maxInstrumentalSections: 3 }
+  // 지시문 74 (TASK A) — 옛 95-100 대역에서 95만 떼어낸 것. 값(2)은 그대로다.
+  // §8 "95 BPM 이하 곡의 섹션 구조를 바꾸지 말 것" 때문에 96부터가 새 정책
+  // 대역이 되어야 해서 경계만 나뉘었고, 하루의 청취 검증값(62-72·73-84·
+  // 85-94·95)은 하나도 건드리지 않았다.
+  { minBpm: 95, maxBpm: 95, maxInstrumentalSections: 2 },
+  // 지시문 74 (TASK A) — verified: false. MIN_TOTAL_SECTION_BANDS가 96 이상
+  // 대역의 섹션 하한을 9·11·13으로 올렸으므로, 늘어난 섹션을 보컬이 아니라
+  // 간주로 채우려면(§1.2 "섹션 수를 늘릴 때 보컬 섹션만 늘리지 말 것") 간주
+  // 허용치도 함께 올라가야 한다. 대역 경계를 MIN_TOTAL_SECTION_BANDS와 같게
+  // 맞춰(96-110 · 111-125 · 126-150) 두 표가 어긋나지 않게 했다.
+  // 값의 근거: 이 대역의 섹션 하한 − T1~T5 보컬 뼈대(6~8섹션)의 하한.
+  //   96-110  → 9섹션  − 6(T4) = 3
+  //   111-125 → 11섹션 − 8(T1) = 3, T4(6)면 5가 필요하지만 §1.3 권장 구조
+  //             (Intro/Breakdown/Instrumental Break/Outro = 4)를 상한으로 둔다
+  //   126-150 → 13섹션 − 8(T1) = 5
+  { minBpm: 96, maxBpm: 110, maxInstrumentalSections: 3 },
+  { minBpm: 111, maxBpm: 125, maxInstrumentalSections: 4 },
+  { minBpm: 126, maxBpm: 150, maxInstrumentalSections: 5 }
 ];
 
 /** Clamps out-of-table BPM to the nearest edge band rather than throwing — a design-time estimate always needs SOME target. */
@@ -93,6 +103,71 @@ export function sectionRangeForBpm(bpm: number): [number, number] {
   return (SECTION_RANGE_BANDS.find(band => bpm >= band.minBpm && bpm <= band.maxBpm) ?? last).sectionRange;
 }
 
+// ---------------------------------------------------------------------------
+// 지시문 74 (TASK A) — BPM 구간별 "총 섹션 수" 하한.
+//
+// 실측 근거(§1.1): 20260824_AfterHoursDeepHouse 12곡에서 114 BPM 딥하우스
+// 트랙이 가사 238단어(팩 전체 최다)인데도 7섹션에 그쳐 1:58로 끝났다. 가사가
+// 부족해서가 아니다 — 섹션 수가 BPM과 무관하게 6~8로 고정돼 있었다.
+// 4/4 한 마디 = 4×60/BPM 초, 섹션당 8마디로 잡으면
+//    77 BPM  → 3.12초/마디 × 64마디(8섹션) = 200초 = 3:20  ✓
+//   114 BPM  → 2.11초/마디 × 56마디(7섹션) = 118초 = 1:58  ✗
+// stylePrompt의 "3:10-3:35" 텍스트를 Suno가 지키지 않는다는 것도 같은 실측에서
+// 확인됐다(§1.2) — 실제 길이를 정하는 것은 가사의 섹션 구성이다.
+//
+// 이 표는 SECTION_RANGE_BANDS(위)를 대체하지 않는다. 위 표는 여전히
+// structureTemplatePlan.ts가 T1~T5 중 어느 "보컬 뼈대"를 고를지 판단하는
+// 데 쓰이고(템플릿은 6~8섹션뿐이라 이 하한을 그대로 적용하면 어떤 템플릿도
+// 적격이 아니게 된다), 이 표는 그 뼈대에 간주 섹션을 덧붙인 "총 섹션 수"의
+// 하한이다. 늘어나는 분량은 보컬이 아니라 간주로 채운다(§1.2, §8).
+//
+// 95 BPM 이하는 이 표를 타지 않는다 — §8 "95 BPM 이하 곡의 섹션 구조를
+// 바꾸지 말 것". 실측상 3:20으로 목표를 달성하고 있다.
+// ---------------------------------------------------------------------------
+interface MinTotalSectionBand {
+  minBpm: number;
+  maxBpm: number;
+  /** 3:10(190초)을 섹션당 8마디로 채우는 데 필요한 최소 섹션 수(§1.2 표). */
+  minSections: number;
+}
+
+const MIN_TOTAL_SECTION_BANDS: readonly MinTotalSectionBand[] = [
+  { minBpm: 96, maxBpm: 110, minSections: 9 },
+  { minBpm: 111, maxBpm: 125, minSections: 11 },
+  { minBpm: 126, maxBpm: 999, minSections: 13 }
+];
+
+/** 지시문 74 (TASK A) — 이 BPM에서 요구되는 총 섹션 수 하한. 95 이하는 0(=이 정책 비적용, SECTION_RANGE_BANDS가 그대로 지배). */
+export function minTotalSectionsForBpm(bpm: number): number {
+  return MIN_TOTAL_SECTION_BANDS.find(band => bpm >= band.minBpm && bpm <= band.maxBpm)?.minSections ?? 0;
+}
+
+/**
+ * 지시문 74 (TASK A) — 가사에 실제로 써야 할 총 섹션 수 범위. 95 이하에서는
+ * sectionRangeForBpm과 완전히 같은 값을 돌려주므로(같은 배열 참조는 아니지만
+ * 값이 동일) 기존 세트의 구조가 한 곡도 바뀌지 않는다. 96 이상에서만 하한이
+ * 올라가고, 상한은 하한+2로 둔다 — 상한을 더 벌리면 3:35 목표를 넘겨 지시문
+ * 40이 잡아놓은 LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC 쪽과 싸우게 된다.
+ */
+export function totalSectionRangeForBpm(bpm: number): [number, number] {
+  const floor = minTotalSectionsForBpm(bpm);
+  if (!floor) return sectionRangeForBpm(bpm);
+  return [floor, floor + 2];
+}
+
+/**
+ * 지시문 74 (TASK A) — 배정된 structureTemplate의 보컬 뼈대(6~8섹션) 위에
+ * 몇 개의 간주 전용 섹션을 덧붙여야 하한을 채우는지. 브릿지 지시문이 이
+ * 숫자를 에이전트에게 그대로 넘긴다(§1.2 "늘어나는 분량은 인스트루멘탈
+ * 섹션으로 채운다"). 95 이하 · 이미 하한을 넘긴 템플릿은 0.
+ */
+export function instrumentalExtensionForBpm(bpm: number, structureTemplate?: StructureTemplateId): number {
+  const floor = minTotalSectionsForBpm(bpm);
+  if (!floor) return 0;
+  const spine = structureTemplate ? (TEMPLATE_SECTION_COUNT[structureTemplate] ?? DEFAULT_TEMPLATE_SECTION_COUNT) : DEFAULT_TEMPLATE_SECTION_COUNT;
+  return Math.max(0, floor - spine);
+}
+
 /**
  * Nominal bar count per structureTemplate, derived from
  * lyricEngine.ts's own STRUCTURE_TEMPLATE_SECTION_NOTES section lists
@@ -127,6 +202,9 @@ export const TEMPLATE_SECTION_COUNT: Record<StructureTemplateId, number> = {
   T4: 6,
   T5: 7
 };
+
+/** 지시문 74 (TASK A) — structureTemplate을 모르는 호출부용 보컬 뼈대 기본값(T1). */
+const DEFAULT_TEMPLATE_SECTION_COUNT = TEMPLATE_SECTION_COUNT.T1;
 
 /** 3:45, this task's own explicit blocking bar (§2-4: "추정이 3:45를 넘으면 관문 1에서 blocking하십시오") — unchanged by 지시문 40. */
 export const LENGTH_ESTIMATE_BLOCKING_THRESHOLD_SEC = 225;
@@ -181,7 +259,9 @@ export function wordBudgetForTarget(
   const nominalSec = nominalSecFor(bpm, structureTemplate);
   const wordFor = (targetSec: number) => Math.max(0, Math.round((targetSec - NOMINAL_WEIGHT * nominalSec) / WORD_WEIGHT));
   const wordRange: [number, number] = [wordFor(targetSecRange[0]), wordFor(targetSecRange[1])];
-  return { wordRange, sectionRange: sectionRangeForBpm(bpm) };
+  // 지시문 74 (TASK A) — 96 BPM 이상에서만 총 섹션 하한(MIN_TOTAL_SECTION_BANDS)
+  // 이 적용된 범위를 돌려준다. 95 이하는 sectionRangeForBpm과 값이 같다.
+  return { wordRange, sectionRange: totalSectionRangeForBpm(bpm) };
 }
 
 /**

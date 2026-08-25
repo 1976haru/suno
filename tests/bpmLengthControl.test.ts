@@ -8,6 +8,9 @@ import {
   NOMINAL_WEIGHT,
   resolveBpmEnergyBand,
   sectionRangeForBpm,
+  minTotalSectionsForBpm,
+  totalSectionRangeForBpm,
+  instrumentalExtensionForBpm,
   wordBudgetForTarget,
   WORD_WEIGHT
 } from '../src/core/bpmLengthControl';
@@ -19,33 +22,40 @@ import {
 // maxInstrumentalSections는 손대지 않았음을 회귀 테스트로 고정한다.
 
 describe('[지시문40 TASK B] resolveBpmEnergyBand', () => {
-  it('matches each of the 7 bands exactly (4 original + 3 new >100 bands from TASK C)', () => {
+  it('matches each of the 7 bands exactly (지시문 74 TASK A re-edged the >95 half to 96-110 / 111-125 / 126-150)', () => {
     expect(resolveBpmEnergyBand(65)).toEqual(BPM_ENERGY_BANDS[0]);
     expect(resolveBpmEnergyBand(78)).toEqual(BPM_ENERGY_BANDS[1]);
     expect(resolveBpmEnergyBand(90)).toEqual(BPM_ENERGY_BANDS[2]);
-    expect(resolveBpmEnergyBand(98)).toEqual(BPM_ENERGY_BANDS[3]);
-    expect(resolveBpmEnergyBand(112)).toEqual(BPM_ENERGY_BANDS[4]); // K-pop's real BPM — TASK C's whole motivation
-    expect(resolveBpmEnergyBand(120)).toEqual(BPM_ENERGY_BANDS[5]);
+    expect(resolveBpmEnergyBand(95)).toEqual(BPM_ENERGY_BANDS[3]);
+    expect(resolveBpmEnergyBand(98)).toEqual(BPM_ENERGY_BANDS[4]);
+    expect(resolveBpmEnergyBand(112)).toEqual(BPM_ENERGY_BANDS[5]); // K-pop's real BPM — TASK C's whole motivation
     expect(resolveBpmEnergyBand(140)).toEqual(BPM_ENERGY_BANDS[6]);
   });
 
-  it('boundary BPMs resolve to the band that owns that exact edge — original 4 bands unchanged', () => {
+  it('boundary BPMs resolve to the band that owns that exact edge — the <=95 bands are byte-identical to pre-지시문74', () => {
     expect(resolveBpmEnergyBand(72)).toBe(BPM_ENERGY_BANDS[0]);
     expect(resolveBpmEnergyBand(73)).toBe(BPM_ENERGY_BANDS[1]);
     expect(resolveBpmEnergyBand(84)).toBe(BPM_ENERGY_BANDS[1]);
     expect(resolveBpmEnergyBand(85)).toBe(BPM_ENERGY_BANDS[2]);
     expect(resolveBpmEnergyBand(94)).toBe(BPM_ENERGY_BANDS[2]);
     expect(resolveBpmEnergyBand(95)).toBe(BPM_ENERGY_BANDS[3]);
-    expect(resolveBpmEnergyBand(100)).toBe(BPM_ENERGY_BANDS[3]);
   });
 
-  it('the 3 new >100 bands (TASK C) cover 101-150 with no gap, fixing 112 BPM being wrongly clamped into the 95-100 tier', () => {
-    expect(resolveBpmEnergyBand(101)).toBe(BPM_ENERGY_BANDS[4]);
-    expect(resolveBpmEnergyBand(115)).toBe(BPM_ENERGY_BANDS[4]);
-    expect(resolveBpmEnergyBand(116)).toBe(BPM_ENERGY_BANDS[5]);
-    expect(resolveBpmEnergyBand(130)).toBe(BPM_ENERGY_BANDS[5]);
-    expect(resolveBpmEnergyBand(131)).toBe(BPM_ENERGY_BANDS[6]);
+  it('지시문 74 (TASK A) — the >95 bands share their edges with MIN_TOTAL_SECTION_BANDS so the two tables never disagree', () => {
+    expect(resolveBpmEnergyBand(96)).toBe(BPM_ENERGY_BANDS[4]);
+    expect(resolveBpmEnergyBand(110)).toBe(BPM_ENERGY_BANDS[4]);
+    expect(resolveBpmEnergyBand(111)).toBe(BPM_ENERGY_BANDS[5]);
+    expect(resolveBpmEnergyBand(125)).toBe(BPM_ENERGY_BANDS[5]);
+    expect(resolveBpmEnergyBand(126)).toBe(BPM_ENERGY_BANDS[6]);
     expect(resolveBpmEnergyBand(150)).toBe(BPM_ENERGY_BANDS[6]);
+  });
+
+  it('지시문 74 (TASK A) — the >95 bands allow enough instrumental sections to actually reach their own section floor', () => {
+    // 늘어난 섹션은 보컬이 아니라 간주로 채운다(§1.2) — 간주 상한이 하한을
+    // 못 따라가면 그 규칙 자체를 지킬 수 없다.
+    expect(BPM_ENERGY_BANDS[4].maxInstrumentalSections).toBe(3);
+    expect(BPM_ENERGY_BANDS[5].maxInstrumentalSections).toBe(4);
+    expect(BPM_ENERGY_BANDS[6].maxInstrumentalSections).toBe(5);
   });
 
   it('clamps out-of-table BPM to the nearest edge band instead of failing', () => {
@@ -53,7 +63,7 @@ describe('[지시문40 TASK B] resolveBpmEnergyBand', () => {
     expect(resolveBpmEnergyBand(200)).toBe(BPM_ENERGY_BANDS[6]);
   });
 
-  it('original 4 bands keep their pre-지시문40 maxInstrumentalSections (1,1,2,2) — a 하루 청취 검증값, must not shift', () => {
+  it('original <=95 bands keep their pre-지시문40 maxInstrumentalSections (1,1,2,2) — a 하루 청취 검증값, must not shift', () => {
     expect(BPM_ENERGY_BANDS[0].maxInstrumentalSections).toBe(1);
     expect(BPM_ENERGY_BANDS[1].maxInstrumentalSections).toBe(1);
     expect(BPM_ENERGY_BANDS[2].maxInstrumentalSections).toBe(2);
@@ -188,5 +198,65 @@ describe('formatEstimatedLength', () => {
     expect(formatEstimatedLength(190)).toBe('3:10');
     expect(formatEstimatedLength(65)).toBe('1:05');
     expect(formatEstimatedLength(256)).toBe('4:16');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 지시문 74 (TASK A) — BPM 구간별 총 섹션 하한. 실측 청취 피드백("딥하우스
+// 계열이 너무 짧다 — 대부분 2분 이하")에서 나온 정책이다. 회귀 방지의 핵심은
+// "95 BPM 이하는 한 곡도 바뀌지 않는다"(§8)이므로 그것부터 고정한다.
+// ---------------------------------------------------------------------------
+describe('[지시문74 TASK A] minTotalSectionsForBpm', () => {
+  it('95 BPM 이하는 이 정책을 아예 타지 않는다 (0 = 비적용) — §8 회귀 금지', () => {
+    for (const bpm of [40, 62, 70, 77, 84, 85, 90, 94, 95]) {
+      expect(minTotalSectionsForBpm(bpm)).toBe(0);
+    }
+  });
+
+  it('§1.2 표 그대로: 96~110 → 9, 111~125 → 11, 126~ → 13', () => {
+    expect(minTotalSectionsForBpm(96)).toBe(9);
+    expect(minTotalSectionsForBpm(110)).toBe(9);
+    expect(minTotalSectionsForBpm(111)).toBe(11);
+    expect(minTotalSectionsForBpm(114)).toBe(11); // 실측에서 1:58로 끝난 그 딥하우스 트랙
+    expect(minTotalSectionsForBpm(125)).toBe(11);
+    expect(minTotalSectionsForBpm(126)).toBe(13);
+    expect(minTotalSectionsForBpm(150)).toBe(13);
+  });
+});
+
+describe('[지시문74 TASK A] totalSectionRangeForBpm', () => {
+  it('95 BPM 이하에서는 sectionRangeForBpm과 값이 완전히 같다 (기존 세트 구조 불변)', () => {
+    for (const bpm of [40, 65, 72, 78, 84, 90, 94, 95]) {
+      expect(totalSectionRangeForBpm(bpm)).toEqual(sectionRangeForBpm(bpm));
+    }
+  });
+
+  it('96 BPM 이상에서만 하한이 올라가고 상한은 하한+2', () => {
+    expect(totalSectionRangeForBpm(100)).toEqual([9, 11]);
+    expect(totalSectionRangeForBpm(114)).toEqual([11, 13]);
+    expect(totalSectionRangeForBpm(128)).toEqual([13, 15]);
+  });
+
+  it('실측 결함 재현: 114 BPM에서 옛 범위(6-7)는 이제 하한 미만이다', () => {
+    const [min] = totalSectionRangeForBpm(114);
+    expect(sectionRangeForBpm(114)[1]).toBeLessThan(min);
+  });
+});
+
+describe('[지시문74 TASK A] instrumentalExtensionForBpm', () => {
+  it('95 BPM 이하는 확장이 0 — 보컬 뼈대가 곧 전체 구조다', () => {
+    expect(instrumentalExtensionForBpm(77, 'T1')).toBe(0);
+    expect(instrumentalExtensionForBpm(95, 'T4')).toBe(0);
+  });
+
+  it('확장분 = 그 BPM의 하한 − 배정된 템플릿의 보컬 섹션 수', () => {
+    expect(instrumentalExtensionForBpm(114, 'T1')).toBe(3); // 11 - 8
+    expect(instrumentalExtensionForBpm(114, 'T4')).toBe(5); // 11 - 6
+    expect(instrumentalExtensionForBpm(100, 'T3')).toBe(2); // 9 - 7
+    expect(instrumentalExtensionForBpm(130, 'T1')).toBe(5); // 13 - 8
+  });
+
+  it('템플릿을 모르면 T1(8섹션)을 기준으로 잡는다', () => {
+    expect(instrumentalExtensionForBpm(114)).toBe(3);
   });
 });
